@@ -163,7 +163,7 @@ Use an **independently defined semantic-query fixture set** (the corpus itself i
 1. Paraphrases across languages with distinct case/preposition/word-order constructions.
 2. Known near-misses with different quantifier, scope, polarity, tense, role or evidence binding.
 3. German Wechselpräposition (`wo` vs `wohin`), dative recipient vs beneficiary, and accusative object vs direction.
-4. Relative clauses: antecedent gender/number/case agreement *within the relative clause*, long references outside the i4 window, and ambiguous neuter pronouns.
+4. Relative clauses: the relative pronoun agrees with its antecedent in **gender and number only**; its **case** comes from its role inside the relative clause (`dem Kind, das dort wartet`: antecedent dative, pronoun nominative — valid, and must not be rejected). Plus long references outside the i4 window, and ambiguous neuter pronouns. (Corrected 2026-10-19, #1603 review: case was wrongly listed as agreement.)
 5. TEKAMOLO event scoping: `damit` as PURPOSE, `weil` as REASON, `so` as MODAL, `da` ambiguous, clause attachment.
 6. Haspelmath connected-region held-out languages, disconnected complete counterexamples and incomplete attestations.
 7. Natural-language graph questions with `which`, `why`, negation, existential/universal scope, time qualifiers and evidence restrictions.

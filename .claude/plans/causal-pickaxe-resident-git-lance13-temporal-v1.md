@@ -171,7 +171,7 @@ Harness to land **first**, in an isolated probe (no default workspace pins or pr
 
 ## 7. Dependency and rollout order
 
-- **CPG-0:** inventory Cargo pins and cross-crate lockstep; create a minimal, excluded Lance13/LanceDB0.40 executable API probe (no global pin bump).
+- **CPG-0:** confirm the current pins (root `Cargo.toml` already uses `lance = "13.*"` and `lancedb = "0.40.*"` as the workspace default, 2026-10-19) and exercise the branch / tag / row-lineage API in the integrated workspace; no isolated probe or pin bump is needed for the version itself.
 - **CPG-1:** pin row-ID semantics and branch/tag/version behavior using the exact release; correct any previous Lance11 assumptions (#1276) before migration.
 - **CPG-2:** map one reusable `DurableRef` adapter to the *existing* `LanceCycleWriter`/D-TGA boundary; retain single-writer contract and artifact election.
 - **CPG-3:** resident logical history and selective squash against D-TGA-1/3/4, preserving candidate receipts from #1604 and NAL independent evidence.
@@ -179,7 +179,9 @@ Harness to land **first**, in an isolated probe (no default workspace pins or pr
 - **CPG-5:** counterfactual replay/ablation and independent oracles; differentiate model dependence, derivation necessity, causal Pearl inference.
 - **CPG-6:** user-facing Git vocabulary and benchmarks if CPG-0..5 pass, including bounded memory and crash/cleanup recovery.
 
-**Prerequisite:** protect any existing consumers that require older Lance pins (root `Cargo.toml` documents older 7/0.30 lockstep and excluded Lance13 probes). Do not claim whole-workspace migration has happened. If Lance13 and LanceDB0.40 APIs introduce incompatible crate versions, leave the default workspace unchanged and publish only an isolated probe/failing report.
+**Prerequisite (corrected 2026-10-19, #1605 review):** the earlier text said the root `Cargo.toml` documents a Lance 7 / LanceDB 0.30 lockstep and that the whole-workspace migration had not happened. Both were stale when written: the workspace default is already Lance 13 / LanceDB 0.40 (`Cargo.toml` `lance = "13.*"`, `lancedb = "0.40.*"`). Validate against that integration, not an isolated probe.
+
+Do not re-run the row-identity measurement; reuse D-HOLO H14c-5 (`.claude/plans/d-holo-h14c-thought-first-v1.md` § Coordinate identity). Measured there on Lance 13: without stable row IDs, compaction changed 3,510 of 3,510 `_rowid`s and an update moved 85 of 85 rows; with stable row IDs, 0 and 0. A stale mapping used without a version check caused **silent omission** (160 of 160 live rows missing), not a wrong coordinate, and a version-checked map refused every stale read. Keep four things distinct: canonical identity (`NodeGuid`), physical row position (`_rowaddr`), version witness (dataset version / seal), and compaction-safe references (stable `_rowid`, opt-in, per dataset).
 
 ## 8. What would falsify the idea?
 

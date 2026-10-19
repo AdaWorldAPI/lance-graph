@@ -1,3 +1,12 @@
+## ISS-GATHER-HOP-1616 — the merged `OutgoingHop` reads positions taken from another lane's values (2026-10-19)
+
+**Status:** BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).
+
+- #1616 merged a hop of exactly the shape the 2026-10-16 no-gather ruling bans (D-HOLO H14c/H14d: the join is the layout). The remediation PR does not delete it and does not rename it into a BIND; it compiles only under the off-by-default feature `quarantined-gather-hop`.
+- Default build: a `compile_fail` doctest proves `OutgoingHop` is unreachable (disable-verified). The six original tests run in CI with the feature on.
+- The petgraph `experiments/lance-fold-hop` pins an older rev (`66636da`); bumping it past the quarantine must enable the feature explicitly.
+- **What closes it:** a written GATHER-DECISION. Either the hop is rewritten as a co-addressed read (`Thought(t)[T_a[i] : T_b[i]]`) or the decision lists it as an admitted read and the feature is removed.
+
 ## ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN — `normalize` can leave a program wider than as written (2026-10-16)
 
 **Status:** OPEN. **Basis:** MEASURED (D-HOLO-H14d stage 1, `crates/holo-h14d-probe`, 2 of 2,000 generated programs).

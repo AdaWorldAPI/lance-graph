@@ -43,6 +43,8 @@ exclude = [
     "crates/lance-graph-sap",
     # D-HOLO-H14c Lance 13 masked-I/O probe: own narrow dependency set.
     "crates/holo-lance-masked-io-probe",
+    # ACT-R production arbitration: zero deps, own [workspace], own CI job.
+    "crates/lance-graph-act-r",
     "crates/lance-graph-glove-parity",
     # Python bindings (upstream-inherited, opt-in via --manifest-path)
     "crates/lance-graph-python",

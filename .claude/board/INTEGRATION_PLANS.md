@@ -1,3 +1,15 @@
+## 2026-10-19 — catch-up: seven plans from #1605 and #1612–#1617 had no index entry
+
+**Status:** INDEX CATCH-UP (post-merge recovery, entry `2026-10-19-post-merge-recovery-1601-1617.md`). All PROPOSAL; nothing implemented.
+
+- `souffle-ram-64-thought-stack-v1.md` (#1612) — D-SRAM-0..7: Soufflé AST → RAM lowering per thought lifetime. D-SRAM-4 (recursive region scheduling) is BLOCKED: its target was the banned d′ gather driver. The optimizer gate is split: answers stay equal with a rewrite off; only disabling a semantic guard may fail.
+- `jc-r-statistical-api-v1.md` (#1613) — D-JCR-0..8: a typed R-style frontend over JC estimators lowered to mask-risc. `jc::jirak` is NOT a calibration API (only `prove()`); both row limits (total input `2^32`, per group) are stated.
+- `jc-sbi-counterfactual-integration-v1.md` (#1614) — D-JCSBI-0..9: SBI ladder (exact discrete → ABC → SBC → SMC → EIG) with DisMech validity gates; 48 preregistered fixtures, none run.
+- `causal-pickaxe-resident-git-lance13-temporal-v1.md` (#1605) — CPG-0..6: Git porcelain over D-TGA. Prerequisite corrected to the pinned Lance `13.*` / LanceDB `0.40.*`; row identity reuses the H14c-5 measurement.
+- `d-rmap-implicit-relationship-register-v1.md` (#1617) — D-RMAP-1; superseded on ownership by D-RMAP-1A.
+- `d-rmap-separate-tables-thought-palettes-v1.md` (#1617) — D-RMAP-1A, the controlling contract. Palette and map generations added to the tile key 2026-10-19 (§6a falsifiers).
+- `d-rmap-2-context-tile-algebra-probe-v1.md` (#1617) — D-RMAP-2: preregistered GraphBLAS vs BF16 tile probe; not run.
+
 ## 2026-10-17 — thought-git-api-v1 — a git-like API over thought tables → `.claude/plans/thought-git-api-v1.md`
 
 **Status:** D-TGA-0..6 PROPOSAL, test-first; nothing built.

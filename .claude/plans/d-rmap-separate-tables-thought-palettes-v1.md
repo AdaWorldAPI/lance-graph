@@ -11,7 +11,7 @@
 | OGAR Class / ClassView / DTO-IR | Types, fields, associations, actions, compiled class vocabulary, generated field masks and DTO projection descriptors | Persistent relationship index pages, RelAlg evaluator, runtime DTO copies |
 | RelationshipMapStore | Separate relation-fact tables, sorted index permutations, global relationship-map identity, seal/version, eligible physical capabilities and optional relation tiles | Datalog syntax/AST, CE64 fields, per-thought graph copies |
 | ThoughtMapPaletteBinding | Thought slot and incarnation -> MapPaletteId under a witnessed frame; selected subset and order of maps | Relation-fact payload, evidence roots |
-| MapPalette | Palette ID and 0..255 local map selectors -> globally stable MapId + generation | Global relationship truth or per-object row materialization |
+| MapPalette | Palette ID **and its own palette generation**, plus 0..255 local map selectors -> globally stable MapId + map generation | Global relationship truth or per-object row materialization |
 | FocusBinding | Source/target global identities -> focus-local slots; lifetime, version and ACL attestation | Persistent semantic facts |
 | BIND | Resolves metadata and borrows native spans, masks, indexed ranges or permutations with a mapping witness | RelAlg rewrite rules, storage ownership, separate runtime evaluator |
 | RelAlg | Pure algebra and rule meaning: variables, set/bag semantics, joins, recursion contract, measures, normalization | Map tables, index build, cache eviction, DTO storage |
@@ -30,10 +30,10 @@ The following are proposed **logical tables**, not physical record layouts or ma
 | RelationFacts | Canonical fact/statement identities, typed arguments, evidence roots, time/version/ACL | Source of truth |
 | RelationOrder | Sealed indexed permutations of original fact row references: e.g. predicate-subject-object, object-predicate-subject | Derived ordering; no source payload copy |
 | **RelationshipMap** | Separate MapId, map generation, underlying relation-order view handles, constraints and capability metadata | **Global shared table** |
-| **MapPalette** | MapPaletteId, local map ordinal 0..255 to MapId and map generation | **Shared palette table** |
+| **MapPalette** | MapPaletteId + **palette generation**, local map ordinal 0..255 to MapId and map generation. Reassigning any slot bumps the palette generation (or mints a new palette; palettes may also be immutable) | **Shared palette table** |
 | **ThoughtMapPaletteBinding** | (thought slot, incarnation, frame witness) to MapPaletteId; optional sparse palette visibility override | **Separate thought map** |
 | FocusBinding | Frame witness, source/target slot-to-global identity maps and authorization | Local map binding |
-| RelationTile | Optional cached source-slot to local target mask for one MapId and frame generation | Disposable derived bits |
+| RelationTile | Optional cached source-slot to local target mask, keyed by **global MapId + map generation (or index seal digest)** + FocusBinding generation + authorization scope. A frame id or local palette slot alone is never a sufficient key | Disposable derived bits |
 | RelationDelta | Separately typed fact changes, binding changes, tile invalidations, speculative thought claims | Incremental witnesses |
 
 **One map may be referenced by many palettes and many thoughts without copying its fact storage.** A local palette number is never a global map identity. Thought 0 is immutable givens; thoughts 1..63 select or overlay views without copying canonical relation tables. Any per-thought changing of map selection is a binding delta, not a mutation of relation truth.
@@ -103,6 +103,23 @@ Typed selection of method or ActionDef targets is eligible for relational evalua
 6. **Zero-copy and economics:** separately report borrowed buffer identities, bytes for indexing/permutations, palette and tile memory, cold/warm seeks, focus churn and reuse crossover. A 2 KiB participation plane or an 8 KiB adjacency tile is **not** total storage cost.
 
 Sequence if later approved: (a) audit existing OGAR DTO/ClassView and Quack physical binding seams, (b) prototype standalone RelationMap borrow semantics, (c) implement/test the thought-to-map-palette lookup using typed tables, (d) establish the existing Quack/RelAlg execution parity without a second evaluator, (e) only then consider optional cached tiles and incremental spatial frontier overlays.
+
+### 6a. Generation witnesses (2026-10-19 correction, #1617 review)
+
+Two review findings, both correct. (1) A `RelationTile` keyed only by focus/frame keeps matching after its map's facts are appended, deleted, compacted or resealed, so it returns obsolete adjacency. Its key must name the global `MapId` and the map generation (or index seal digest). (2) `MapPalette` had no generation of its own, although §4 requires `MapPaletteId + Generation`; per-entry map generations cannot tell which slot-to-map assignment a thought bound. A palette carries its own generation, and reassigning a slot invalidates dependent bindings and tiles instead of silently reusing them.
+
+Falsifiers, each a refusal (never a plausible stale answer):
+
+| Change | Must refuse |
+| --- | --- |
+| Map regeneration (append / delete / compaction / reseal) | any tile or binding holding the old map generation or seal digest |
+| Palette-slot reassignment | any binding or tile holding the old palette generation |
+| Focus-slot reuse | a tile built for the previous FocusBinding generation |
+| Thought incarnation reuse | a ThoughtMapPaletteBinding from the previous incarnation |
+| Stale tile access | a tile whose key generations do not all match the current context |
+| Cross-tenant / authorization change | a tile or binding minted under another access scope |
+
+Status: PROPOSED. Nothing here is implemented; RelationshipMap storage stays a proposal until a separately approved implementation establishes its legality (co-addressed operands, not a gather) and its economics. Map identity never enters CausalEdge64, and RelAlg never owns map tables.
 
 **Stop condition:** any design that requires copying canonical map facts per thought, using RelAlg as a table store, or allocating new CE64 bits to identify MapId/MapPaletteId has chosen the wrong boundary.
 

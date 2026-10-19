@@ -123,6 +123,11 @@ jobs:
       # is added the day the crate joins, not the day its first test goes red.
       - name: Run mask-risc tests
         run: cargo test --manifest-path crates/lance-graph-mask-risc/Cargo.toml
+      # The #1616 gather hop is quarantined behind an off-by-default feature
+      # (ISS-GATHER-HOP-1616). Its own tests still run so the quarantined code
+      # does not rot; the default line above proves it is unreachable.
+      - name: Run quarantined mask-risc gather-hop tests
+        run: cargo test --manifest-path crates/lance-graph-mask-risc/Cargo.toml --features quarantined-gather-hop --lib graph_hop
       # The 256-arm ternlog dispatch is GENERATED; a hand edit that drifts from
       # the generator would otherwise ship silently. The generator's --check
       # exits non-zero when the committed region differs from its output.

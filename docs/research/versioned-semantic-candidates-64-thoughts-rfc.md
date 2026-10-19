@@ -56,7 +56,7 @@ These are **logical** terms to lower to the *existing* SoA and thought-git carri
 | `EvidenceBase` | independently attested source stamps/roots supporting or contesting a claim | not thought count, translation count or audience count |
 | `Perspective` | compiled thought program, front end, rules and interpretive lens | a named philosophical lens is not a historical individual's actual judgment |
 | `ReadSet(t, v)` | addresses/fields the thought inspected, plus negative dependencies | must support rebase invalidation when prior reads change |
-| `CandidateOutcome` | derived result: Absent / Admissible / Contested / Preferred / Established / Abstained / Superseded | a view of versioned evidence, NOT a CE64 bit or write-side fact rewrite |
+| `CandidateOutcome` | derived result: Absent / Admissible / Contested / Preferred / Established / Abstained / Superseded / Rejected | a view of versioned evidence, NOT a CE64 bit or write-side fact rewrite |
 | `ResolutionReceipt` | canonical claim(s), decision policy version, supporting/contesting roots, alternatives, program hash, base and landing version | required to replay and compare, not a bare latest-wins value |
 
 **Names above are proposed logical vocabulary, not committed Rust types or field IDs.** A receipt's provenance may be represented by source bitsets and sealed-version references when the corresponding existing facilities support it; do not import an arbitrary new witness pointer. If it cannot be represented safely, refuse the write pending a narrow ABI decision.
@@ -84,6 +84,7 @@ A changed *calibrated* reference value (COCA/DeReKo frequency, UD gold correctio
 - `Contested`: admissible rivals or conflicting evidence remain, possibly one preferred.
 - `Abstained`: insufficient constraints, scope/identity unknown, or source access denied.
 - `Superseded`: new evidence or changed context makes an earlier candidate no longer preferred; history and receipt remain.
+- `Rejected` (added 2026-10-19, #1604 review): the candidate is refused under an explicit, versioned decision policy (e.g. a hard constraint or a refuting evidence root fails it). Distinct from `Superseded`, which is only for a previously preferred candidate displaced by better evidence. Rejection keeps its witnesses: the refuting evidence roots, the policy version and the program hash stay in the `ResolutionReceipt`, so a later change to that evidence can reopen the candidate.
 
 A query may return many candidates and not a winner. No fabricated single answer. **Missing in an open-world knowledge graph ≠ false**; negation must state its closed-world/stratification scope.
 

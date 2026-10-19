@@ -109,6 +109,19 @@
 //! joins.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(
+    not(feature = "quarantined-gather-hop"),
+    doc = r#"
+## Quarantine regression (ISS-GATHER-HOP-1616)
+
+Without the `quarantined-gather-hop` feature the merged #1616 gather hop is
+not reachable. This block must fail to compile:
+
+```compile_fail
+use lance_graph_mask_risc::OutgoingHop;
+```
+"#
+)]
 
 // `hop` (src_mask → edge lane → dst_mask) is PR5's and is declared when it
 // lands — a `mod` line for a file that is not on disk made this crate fail to
@@ -116,6 +129,11 @@
 // recorded.
 pub mod exec;
 pub mod fuse;
+// QUARANTINED (see `graph_hop`'s module doc and ISSUES.md
+// ISS-GATHER-HOP-1616): the merged #1616 hop reads positions taken from another
+// lane's values, the shape the 2026-10-16 no-gather ruling bans. It compiles
+// only under the explicit, off-by-default `quarantined-gather-hop` feature.
+#[cfg(feature = "quarantined-gather-hop")]
 pub mod graph_hop;
 pub mod ir;
 pub mod reference;
@@ -127,6 +145,7 @@ pub use exec::{
     tile_words_for, Scratch, TILE_WORDS,
 };
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
+#[cfg(feature = "quarantined-gather-hop")]
 pub use graph_hop::{EdgeColumns, GraphSnapshot, HopError, OutgoingHop};
 pub use ir::{
     touched_words, Compiled, CompiledProgram, Foreign, ForeignPlane, FusedFold, FusedKeep,

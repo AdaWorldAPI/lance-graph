@@ -1,3 +1,48 @@
+## Post-merge recovery for #1601–#1617 (2026-10-19)
+
+These PRs merged with no board rows. Every row below is a PROPOSAL (documents and fixtures) unless it says otherwise. Entry: `entries/2026-10-19-post-merge-recovery-1601-1617.md` (review-thread reconciliation).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **ACT-R crate** (#1615) | `crates/lance-graph-act-r` (renamed from `lance-graph-actr`): deterministic ACT-R production arbitration over externally evaluated candidates; never executes effects | SHIPPED as experimental crate (standalone, excluded, own CI job `act-r.yml`) | `Refusal::StaleCandidate` on any candidate evaluated at another snapshot; 10 tests, guard disable-verified (3 red) |
+| **graph_hop quarantine** (#1616) | `lance-graph-mask-risc::graph_hop::OutgoingHop` (two `MaskOp::Gather` + `ScatterOrU32`) | BLOCKED — compiled only under the off-by-default `quarantined-gather-hop` feature | default build: `compile_fail` doctest proves `OutgoingHop` unreachable (disable-verified); `ISS-GATHER-HOP-1616` |
+| D-RMAP-1 | implicit RelationshipMap and focus-relative registers (`d-rmap-implicit-relationship-register-v1.md`) | PROPOSAL (superseded on ownership by D-RMAP-1A) | falsifier matrix F0–F10 in the plan |
+| D-RMAP-1A | separate map tables, borrowed projections, thought-selected palettes (`d-rmap-separate-tables-thought-palettes-v1.md`) | PROPOSAL; generation witnesses corrected 2026-10-19 (§6a) | refusal on map regeneration, palette-slot reassignment, focus-slot reuse, incarnation reuse, stale tile, cross-tenant change |
+| D-RMAP-2 | context-declaration reuse and GraphBLAS/BF16 tile probe (`d-rmap-2-context-tile-algebra-probe-v1.md`) | PROPOSAL; not run | arms 1–5 in the plan; 297× (D-GTM-0j) is not evidence |
+| D-SRAM-0 | inventory Soufflé AST/ast2ram/RAM passes against D-ASM/D-RA/D-TGA owners | Queued | evidence per mapped pass; no code imported |
+| D-SRAM-1 | bound AST → RAM-like schedule for pure conjunctive selection | Queued | same answers and read sets on hand-built fixtures; unsupported ops typed-refused |
+| D-SRAM-2 | cold optimizer rewrites (SCC/strata, magic sets, ordering, dedup) | Queued (research until D-ASM AST placement and D-RA-2) | optimized == unoptimized == oracle; rewrite off removes only the plan shape; disabling a semantic guard fails |
+| D-SRAM-3 | co-addressed physical selection, R2IL `Program` reproducibility | Queued | P1/P2 == scalar reference; P3 refuses; no foreign gather |
+| **D-SRAM-4** | recursive region scheduling | **BLOCKED** — its target (D-RA-4's d′ driver) is a banned gather; no lawful driver exists | waits for a co-addressed recursion design |
+| D-SRAM-5 | speculative-thought liveness over 0+63 slots | Queued (after D-TGA-1/3) | exhaustion refused; no tombstoned branch reused before receipt |
+| D-SRAM-6 | candidate resolution + Git porcelain under pinned horizon | Queued (after D-TGA-1/3, #1605 gates) | deleted support removes only dependent proofs |
+| D-SRAM-7 | chunk promotion as compile optimization | Queued (after correctness gates) | unfold from cold source + receipts; no confidence inflation |
+| D-JCR-0 | freeze JC + Quack/Mask-RISC type inventory for R calls | Queued | executable call-to-owner map |
+| D-JCR-1 | typed `StatisticalRequest` (no parser) | Queued | valid and invalid requests constructed; total-input and per-group row limits both validated |
+| D-JCR-2 | correlation over CrossPowerSums via resident masks | Queued | == materialized-vector Pearson |
+| D-JCR-3 | one-way ANOVA / eta² / simple OLS over PowerSums | Queued | parity to JC slice methods |
+| D-JCR-4 | whitelisted R-style formula parser | Queued | arbitrary evaluation refused |
+| D-JCR-5 | external R parity harness (reference only) | Queued | differential vs base `stats` |
+| D-JCR-6 | optional R package / native ABI | Queued | no R runtime dependency in `jc` |
+| D-JCR-7 | SoA-handle mode and wider lanes | Queued (after substrate gates) | no duplicate evaluator |
+| D-JCR-8 | research consumers / notebooks | Queued | reproducible with witnessed datasets |
+| — | weak-dependence calibration API | OPEN (GAP) | `jc::jirak` has only `prove()`; nothing to call yet |
+| D-JCSBI-0 | SBI source/API inventory | Queued | actual methods listed |
+| D-JCSBI-1 | cold `SimulationSpec`/`SBIRequest`/`SBIReport` contracts | Queued | refusal matrix |
+| D-JCSBI-2 | exact discrete posterior fixture, log-domain normalization | Queued | zero support refuses; underflow-prone finite weights normalize (SB-02a/b) |
+| D-JCSBI-3 | bounded ABC rejection | Queued | coverage / recovery on held-out data |
+| D-JCSBI-4 | SBC + posterior predictive diagnostics | Queued | uniform ranks under the correct generator |
+| D-JCSBI-5 | DisMech cut replay harness (not SCM) | Queued | same replay source both arms |
+| D-JCSBI-6 | ABC-SMC if earlier probes justify | Queued | ESS / held-out stability |
+| D-JCSBI-7 | EIG over permitted designs | Queued | design-relative nonidentifiability (plan §148) |
+| D-JCSBI-8 | R-style typed SBI adapter | Queued | no arbitrary R evaluation |
+| D-JCSBI-9 | ndarray SIMD candidate audit | Queued | multi-consumer insufficiency proof |
+| CPG-0 | confirm Lance 13 / LanceDB 0.40 branch, tag and row-lineage API in the integrated workspace | Queued | reuses H14c-5 row-identity measurement; no repeat probe |
+| CPG-1..6 | causal pickaxe: DurableRef adapter, resident history, Pickaxe read plan, counterfactual replay, porcelain | Queued (design only; `causal-pickaxe-resident-git-lance13-temporal-v1.md` §7) | fixtures CPG-00..25 |
+| VSC-0 | versioned semantic candidates RFC + fixture oracle (#1604, #1606) | SHIPPED as docs + Python reference oracle (`semantic-ring-oracle.yml`) | C-01/C-02 and negative controls; `Rejected` outcome added 2026-10-19 |
+| VSC-1..5 | candidate proposals, thought carriers, rebase/land, RelAlg → R2IL, 64-perspective benchmark | Queued | RFC §7 table |
+| — | language LEGO grammar → query RFC (#1603), Cartesian self-model (#1602), 34 recipes (#1609), arXiv extracts (#1601, #1610, #1611), qualia archives (#1607, #1608) | docs / data only | no D-ids; qualia verifiers run in `qualia-verify.yml` |
+
 ## D-CGW — CE64 grammar wiring: every upper-half field of a parsed triple from its source (2026-10-16)
 
 Plan: `.claude/plans/ce64-grammar-wiring-v1.md`. Entry: `entries/2026-10-16-grammar-coordinates-annotation-wiring.md` §7–§11. Related: D-SMD-2 (grammar topology from Haspelmath maps), D-SAG-CF-1 (counterfactual contract), D-LXC-29 (8 rails), EW64 OD-5.

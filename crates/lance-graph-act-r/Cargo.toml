@@ -1,0 +1,16 @@
+[package]
+name = "lance-graph-act-r"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Experimental ACT-R cognitive production arbitration"
+
+# Standalone on purpose: zero dependencies, so it stays out of the main
+# workspace graph. Registered under the root `exclude` list; CI runs it with
+# `--manifest-path`.
+[workspace]
+
+[lib]
+name = "lance_graph_act_r"
+
+[dependencies]

@@ -1,3 +1,122 @@
+## 2026-10-19 — lance-graph PR #1617 (merged `47697c77`, branch `design/relationship-map-implicit-register-v1`, head `55be2fed`, 7 commits) — D-RMAP: separate RelationshipMap tables and thought-selected palettes
+
+- **Added:** plans `.claude/plans/d-rmap-implicit-relationship-register-v1.md` (D-RMAP-1), `d-rmap-separate-tables-thought-palettes-v1.md` (D-RMAP-1A, the controlling contract for ownership and CE64 opacity) and `d-rmap-2-context-tile-algebra-probe-v1.md` (D-RMAP-2, a preregistered GraphBLAS vs BF16 tile comparison); entry `2026-10-19-d-rmap-implicit-relationship-register.md`; entries README row. Nothing implemented.
+- **Locked:** none. Status PROPOSAL, not approved for implementation. CE64 is unchanged; S:P:O and W do not carry a MapId, palette id or frame id; the 2026-10-16 no-gather firewall stays in force.
+- **Deferred / open:** two review findings (a relation tile key lacked the map generation; the palette mapping lacked its own generation) were fixed in the 2026-10-19 remediation PR. The amortization equation against direct sorted-index traversal is unmeasured.
+- **Confidence:** doc only. No measurement and no benchmark result are claimed.
+
+## 2026-10-19 — lance-graph PR #1616 (merged `da3f5c6e`, branch `feat/mask-risc-scoped-frontier-20261019`, head `615fef73`, 3 commits) — mask-risc scoped outgoing graph hop
+
+- **Added:** `crates/lance-graph-mask-risc/src/graph_hop.rs` (`OutgoingHop`: one program of two `MaskOp::Gather` and `ScatterOrU32`, run over borrowed edge columns, a graph snapshot, a frontier mask and a result buffer; witness, shape and authorization checks first; six regression tests) and its export in `src/lib.rs`.
+- **Locked:** none. One hop is an externally demanded terminal; iterative repeat/BFS continuation is not claimed.
+- **Deferred / open:** quarantined behind the off-by-default `quarantined-gather-hop` feature in the 2026-10-19 remediation PR, because it reads positions taken from another lane's values (the 2026-10-16 no-gather ruling); `ISS-GATHER-HOP-1616`. The petgraph consumer PR is still to come.
+- **Confidence:** probe-level code. The PR body lists its tests and fmt/clippy as not run in that session.
+
+## 2026-10-19 — lance-graph PR #1615 (merged `b10e46a1`, branch `feat/actr-production-kernel-20261019`, head `2daf0871`, 3 commits) — experimental witnessed ACT-R production arbitration crate
+
+- **Added:** crate `crates/lance-graph-actr` (`Cargo.toml`, `README.md`, `src/lib.rs`): deterministic conflict resolution over an externally evaluated eligibility mask, a local `Snapshot`, a witness, refusal on non-finite scores, six unit tests. It returns a proposal and executes no effect. Standalone workspace; no CI job built it.
+- **Locked:** none. The local `Snapshot` is not the canonical ABI.
+- **Deferred / open:** renamed to `lance-graph-act-r` and given a stale-witness refusal plus a CI job in the 2026-10-19 remediation PR. The review finding (candidates not bound to the evaluated snapshot) was valid. Typed buffers, Mask-RISC matching, utility learning and timing remain future work.
+- **Confidence:** probe-level code. The PR body lists its tests as not run.
+
+## 2026-10-19 — lance-graph PR #1614 (merged `1b26d9c9`, branch `docs/jc-sbi-dismech-counterfactual-v1`, head `413cb780`, 8 commits) — JC simulation-based inference plan with DisMech counterfactual gates
+
+- **Added:** `.claude/plans/jc-sbi-counterfactual-integration-v1.md` (ownership, ABC/SMC/SBC/EIG ladder, DisMech validity gates, D-JCSBI-0..9, perturbation protocol, mechanical Sudoku and a small ACT-R policy) and `docs/research/jc-sbi-counterfactual-falsifiers-v1.md` (48 preregistered fixtures, none executed). Nothing implemented.
+- **Locked:** none. `ogar-dismech` is a vocabulary, not a simulation engine; `chain_counterfactual.rs` edge-cut replay is not do-calculus.
+- **Deferred / open:** the two review findings (EIG with current-design nonidentifiability; underflow vs zero prior support) were already corrected in the merged text (SB-24b/c, SB-02a/b). First follow-up is D-JCSBI-0/1/2.
+- **Confidence:** doc only. No calibration, benchmark or test is claimed.
+
+## 2026-10-19 — lance-graph PR #1613 (merged `58b50fcb`, branch `docs/jc-r-statistical-api-plan-20261019`, head `48d02ccf`, 1 commit) — R statistical API and formula lowering over JC
+
+- **Added:** `.claude/plans/jc-r-statistical-api-v1.md`: a restricted typed R-style frontend and an external client binding, reuse of existing JC estimators, lowering through relalg/R2IL/Quack to mask-risc, D-JCR-0..8, an R differential-oracle strategy. Nothing implemented.
+- **Locked:** none. No embedded R interpreter in the hot path.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: `jc::jirak` is not a calibration API (its only public function is `prove()`), and the plan now states the total-input row limit as well as the per-group bound. First implementation step is D-JCR-0/1.
+- **Confidence:** doc only. No measurement is claimed.
+
+## 2026-10-19 — lance-graph PR #1612 (merged `18089704`, branch `docs/souffle-ram-64-thought-stack-20261019`, head `ad428a80`, 2 commits) — Soufflé AST to RAM lowering plan across 64 thought lifetimes
+
+- **Added:** `.claude/plans/souffle-ram-64-thought-stack-v1.md` (D-SRAM-0..7) and `docs/research/souffle-ram-64-thought-falsifiers.md` (32 preregistered cases, none executed). Nothing implemented.
+- **Locked:** none. Fixpoint iterations run inside a thought; the W field does not cap recursion.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: D-SRAM-4 retargeted to BLOCKED (it pointed at the prohibited d′ gather driver), and the optimizer negative controls now keep semantic parity when a rewrite is disabled. The minimum D-SRAM-0/1 probe is not written.
+- **Confidence:** doc only. No compilation, benchmark or parity run is claimed.
+
+## 2026-10-19 — lance-graph PR #1611 (merged `1d18b872`, branch `docs/arxiv-mul-meta-uncertainty-hyperon-reading-queue-20261019`, head `f588d7e3`, 8 commits) — .arxiv notes: MUL meta-uncertainty, Hyperon, dialectics, joins, semantic maps
+
+- **Added:** eight `.arxiv/` files: reading notes for 2210.07278 (meta-uncertainty vs the CE64 MUL contract), 2502.20233 (SMASH, mask-first thought coordinates) and 2512.17373 (dialectics, excess information); bookmarks for 2310.18318 (Hyperon), 2510.24941, 2610.12692, 2409.20212 and 2412.01423.
+- **Locked:** none. Paraphrases and bookmarks, not full transcriptions. Nothing implemented.
+- **Deferred / open:** the Hyperon paper's detailed review is deferred; the proposed tests in the notes are not run.
+- **Confidence:** doc only; no measurement.
+
+## 2026-10-19 — lance-graph PR #1610 (merged `23b612c0`, branch `docs/arxiv-dialectics-philosophy-md-20261019`, head `6fc2bfd1`, 4 commits) — .arxiv archive of three Hegel / Leibniz / AI sources
+
+- **Added:** `.arxiv/plevrakis_2024_can_ai_be_a_subject_like_us_hegelian_approach.md`, `.arxiv/van_tuinen_2020_philosophy_in_the_light_of_ai_hegel_or_leibniz.md`, `.arxiv/hung_vo_2025_the_dialectic_of_ai_hegel_geist_machine_freedom.md`, with provenance and licence notices.
+- **Locked:** none. Archived transcriptions only; no claim about AI consciousness or implementation.
+- **Deferred / open:** none.
+- **Confidence:** doc only. No measurement is claimed.
+
+## 2026-10-19 — lance-graph PR #1609 (merged `ae15ea90`, branch `docs/34-reasoning-recipes-source-and-wiring`, head `24919b17`, 1 commit) — 34 reasoning recipes over the 64-thought substrate
+
+- **Added:** `docs/research/34-reasoning-recipes-lance-graph-plan.md`: placement of the 34 recipes over 64 thought slots, semantic Git witnesses, RelAlg/Datalog, R2IL/mask-risc, NAL/ONA and Hyperon/Atomese adapters. Nothing implemented.
+- **Locked:** none. No code modified or deleted.
+- **Deferred / open:** the next PR should show one typed derivation with an ablation.
+- **Confidence:** doc only. The PR claims no measurement.
+
+## 2026-10-19 — lance-graph PR #1608 (merged `d8da13b8`, branch `docs/qualia-1571-music-enrichment`, head `78c9a9d5`, 3 commits) — music enrichment sidecar for the 219 qualia
+
+- **Added:** `data/qualia/calibrated_219.music_enriched.json` (219 records: `melodic_motions`, `harmonic_bias`, `truth_anchor_candidates`, `neighbors`), `data/qualia/MUSIC_ENRICHMENT.md`, `data/qualia/verify_music_enrichment.py`.
+- **Locked:** none. Archival data only; `calibrated_219.json`, `calibrated_219.bin1024` and the contracts are untouched.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: the verifier used `assert` and passed under `python -O`; it now raises explicit errors.
+- **Confidence:** measured as a comparison: 219/219 IDs, vectors, tags and labels equal to the #1571 data, as the PR body states.
+
+## 2026-10-19 — lance-graph PR #1607 (merged `ca4d742b`, branch `docs/qualia-219-musical-anchors-20261018`, head `8d5345cb`, 3 commits) — original 219 musical anchors beside the #1571 corpus
+
+- **Added:** `data/qualia/calibrated_219.musical_anchors.json` (219 original records, verbatim from the upstream blob), `data/qualia/MUSICAL_ANCHORS.md`, `data/qualia/verify_musical_anchors.py`.
+- **Locked:** none. Cold-path archive; no production relabelling; the 806 placeholder states are excluded.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: the verifier's `assert` checks were stripped under `python -O`; they now raise explicit errors, and the four musical fields are compared against a pinned SHA-256 (`MUSICAL_FIELDS_SHA256`), so a corrupted value fails even when its type is right.
+- **Confidence:** measured as a comparison: 219/219 IDs, labels, families, 17D values and tags equal to the #1571 fixture. The musical fields were checked only for type until the remediation PR.
+
+## 2026-10-18 — lance-graph PR #1606 (merged `31e0d4db`, branch `research/semantic-ring-oracle-c01-c02-20261018`, head `af058caf`, 9 commits) — executable C-01/C-02 semantic ring oracle
+
+- **Added:** `tools/semantic_ring_oracle/ring_reference.py`, `test_ring_reference.py` (15 adversarial tests), `README.md`; `docs/research/semantic-ring-bound-gold-v1.json`; workflow `.github/workflows/semantic-ring-oracle.yml`.
+- **Locked:** the coreference claim is a versioned claim at one symbolic address, visible from sealed revision v17 and not at v16. Wrong branch, dataset or version cannot witness it.
+- **Deferred / open:** this is a manually bound Python reference oracle, not a parser, a Lance commit, an R2IL join or source authentication. Connecting DeepNSM/UD bindings and versioned thought writes is the next gate. No Rust path changed.
+- **Confidence:** probe. The CI check passed on the head commit (run 39147776033).
+
+## 2026-10-18 — lance-graph PR #1605 (merged `4b5d9711`, branch `docs/causal-pickaxe-resident-git-lance13-temporal-20261018`, head `42c65b7c`, 5 commits) — Git porcelain, causal Pickaxe and Lance 13 history plan
+
+- **Added:** `.claude/plans/causal-pickaxe-resident-git-lance13-temporal-v1.md` (Git verbs mapped to existing D-TGA operations; identity and temporal boundaries; grades; landing order) and `docs/research/causal-pickaxe-version-temporal-fixtures.json` (26 preregistered symbolic falsifiers, not executed). Nothing implemented.
+- **Locked:** none. Git is porcelain, not a VM; commit ancestry does not certify cause.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: the prerequisite text still said Lance 7 / LanceDB 0.30 although the workspace pins Lance 13 / LanceDB 0.40. The 64k-row benchmark cited is a Lance 11 figure, not a Lance 13 one.
+- **Confidence:** doc only. No new measurement.
+
+## 2026-10-18 — lance-graph PR #1604 (merged `1e713851`, branch `docs/versioned-semantic-candidate-resolution-20261018`, head `6cadb6a8`, 3 commits) — versioned semantic candidate resolution across 64 thoughts
+
+- **Added:** `docs/research/versioned-semantic-candidates-64-thoughts-rfc.md` (logical vocabulary: claim identity, candidate set, evidence base, perspective, outcome, receipt) and `docs/research/versioned-semantic-candidates-fixtures.json` (15 symbolic oracle cases, expectations preregistered only). Nothing implemented.
+- **Locked:** none. Distinct propositions get distinct candidate NodeGuids; no new Rust types or storage.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: `CandidateOutcome` gained a `Rejected` outcome, and the premise-deletion fixture now admits DRed. Implementation is gated on D-TGA-1/3/4 and a canonical NodeGuid binding.
+- **Confidence:** doc only. No result is claimed.
+
+## 2026-10-18 — lance-graph PR #1603 (merged `b1c2ed8a`, branch `docs/linguistic-lego-ud-koral-query-abi-20261018`, head `96747ac5`, 2 commits) — language LEGO grammar ABI to multilingual graph queries
+
+- **Added:** `docs/research/linguistic-lego-grammar-to-query-rfc.md` (corpus priors, UD/KorAP operators, Haspelmath masks, semantic question AST, gated L-0..L-8) and `docs/research/linguistic-lego-corpus-and-falsification-matrix.md` (corpus links, licence cautions, adversarial fixtures). Nothing implemented.
+- **Locked:** none. No new width or layout; UD labels grammar, not semantic truth; no gather hidden as a mask.
+- **Deferred / open:** fixed in the 2026-10-19 remediation PR: the fixture treated relative-pronoun case as agreement with the antecedent (only gender and number agree). Suggested next: L-1 (UD/CoNLL-U round trip) and L-2 (Krill differential harness).
+- **Confidence:** doc only. No benchmark or test is claimed.
+
+## 2026-10-18 — lance-graph PR #1602 (merged `9f83aa66`, branch `docs/cartesian-epistemic-self-model-20261017`, head `ddc5cb62`, 4 commits) — Cartesian epistemic self-model architecture docs
+
+- **Added:** `.claude/architecture/README.md`, `.claude/architecture/cartesian-epistemic-self-model.md` (thought-first addressing, occupancy duality, presence planes, self-model and replay) and `.claude/architecture/neurofunctional-rubicon-moore-plasticity.md`. Nothing implemented.
+- **Locked:** none. The PR lists what it does not claim: the CE64 migration is not complete, and no new layout, opcode or store is introduced.
+- **Deferred / open:** proposed oracle gates (occupancy, source-root independence, Datalog parity, replay, blinded self-prediction) are not built.
+- **Confidence:** doc only. The body notes that no runtime tests were run; links were checked.
+
+## 2026-10-18 — lance-graph PR #1601 (merged `fc527a47`, branch `docs/arxiv-hologram-two-mechanisms-2026-10-17`, head `bc73c8df`, 2 commits) — .arxiv notes: HGR theorem patterns and HRR retrieval bottleneck
+
+- **Added:** `.arxiv/2408.10592_hologram_is_a_graph_theorem_matches_must_preserve_witnesses.md` and `.arxiv/2606.24948_superposition_capacity_breaks_two_hop_retrieval.md`; each separates published findings from lance-graph hypotheses and tests not run. Nothing implemented.
+- **Locked:** none. The notes keep composability, recoverability and certification apart; no claim of a VF3 replacement or a speedup.
+- **Deferred / open:** the 2606.24948 full text was unavailable, so some configuration details are marked pending. Follow-ups: match-set parity on a small geometry corpus and an independent FHRR reproduction.
+- **Confidence:** doc only. No code or benchmark run.
+
 ## 2026-10-17 — lance-graph PR #1597 (merged `dd00245b`, branch `ccr-9f3b8075-74u47l-epistemic-capstone`, head `134a4d29`, 7 commits) — epistemic frontier capstone; O1/O3 decisions
 
 - **Added:** `.claude/knowledge/epistemic-frontier-capstone.md`; entry `2026-10-17-epistemic-frontier-clicks.md`; D-HL-1 note in `ce64-hypothesis-layers-v1.md`, plateau §4 note, STATUS_BOARD row; CLAUDE.md links to `docs/architecture/` and the capstone.
