@@ -11,7 +11,7 @@
 - MORK has no declared licence; upstream PR #148 (MIT) is not merged.
 - `query_multi_leapfrog` takes a concrete `&PathMap<()>`; `SubtermCursor<Z>` is generic over PathMap's public `Zipper + ZipperMoving + ZipperPath + ZipperIteration` traits.
 - Differential, `Q(x,y,z) :- R(x,y), S(y,z)`: MORK (product-zipper and leapfrog builds) and a PathMap read-zipper arm equal the nested-loop oracle on 8 cases (shared variable, empty, disjoint, per-atom scope, wide ids, duplicates, stale generation, ABA). Both upstream indexes are sets: bag requests are refused (`SetOnly`). Four disable runs each turned their guard's test red.
-- Cost, n = 50 000, release, one run: PathMap index 17.8 ms (284 ns/row), query 22.0 ms; one shared index over 64 thoughts 22.3 ms vs 2 543 ms rebuilt per thought. The MORK query time (170 ms) includes the probe's text decode and is not a measure of MORK's join.
+- Cost, n = 50 000, release, one run (re-run after review): PathMap index 14.8 ms (236 ns/row), query 24.1 ms; over 64 thoughts a shared index costs 1 556 ms in total vs 2 487 ms rebuilt per thought (1.6×; 24.3 vs 38.9 ms per thought). Sharing saves only the build. (The first version compared a per-thought figure with a 64-thought total and said 110×.) The MORK query time (170 ms) includes the probe's text decode and is not a measure of MORK's join.
 
 ## Open
 

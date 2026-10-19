@@ -93,22 +93,24 @@ Answers { [u32; 3] -> count }  ◀── decode ──  -> Result<Answers, Refus
 
 ## 6. Measured cost (`cargo run --release --example cost`, one run per cell)
 
-Rows `R(i, y)` with `y` drawn from `n / 4` values, `S(y, z)` one row per `y`, answers ≈ n. `amort_k` = build/k + query: one shared index serving k thoughts. `rebuild_k64` = 64 × (build + query), an index rebuilt per thought.
+Rows `R(i, y)` with `y` drawn from `n / 4` values, `S(y, z)` one row per `y`, answers ≈ n. Shared = one index built once and queried by k thoughts; rebuilt = an index built per thought. Both are given per thought and as a total over 64 thoughts, so the two columns compare like with like.
 
-| join | backend | n | build ms | ns/row | query ms | amort k=1 | k=8 | k=64 | rebuild k=64 |
+| join | backend | n | build ms | ns/row | query ms | shared per thought, k=64 | rebuilt per thought | shared total, k=64 | rebuilt total, k=64 |
 |---|---|---|---|---|---|---|---|---|---|
-| product-zipper | PathMapZipper | 1 000 | 0.265 | 212 | 0.203 | 0.468 | 0.236 | 0.207 | 29.95 |
-| | Mork | 1 000 | 0.518 | 415 | 3.032 | 3.551 | 3.097 | 3.041 | 227.3 |
-| | PathMapZipper | 10 000 | 2.216 | 177 | 3.846 | 6.062 | 4.123 | 3.880 | 388.0 |
-| | Mork | 10 000 | 4.822 | 386 | 28.744 | 33.57 | 29.35 | 28.82 | 2 148 |
-| | PathMapZipper | 50 000 | 17.75 | 284 | 21.98 | 39.73 | 24.20 | 22.26 | 2 543 |
-| | Mork | 50 000 | 27.25 | 436 | 170.2 | 197.5 | 173.6 | 170.7 | 12 639 |
-| leapfrog | PathMapZipper | 50 000 | 14.89 | 238 | 20.50 | 35.39 | 22.36 | 20.73 | 2 265 |
-| | Mork | 50 000 | 31.39 | 502 | 142.2 | 173.6 | 146.1 | 142.7 | 11 107 |
+| product-zipper | PathMapZipper | 1 000 | 0.259 | 207 | 0.205 | 0.210 | 0.465 | 13.4 | 29.7 |
+| | Mork | 1 000 | 0.515 | 412 | 3.006 | 3.014 | 3.521 | 192.9 | 225.4 |
+| | PathMapZipper | 10 000 | 2.069 | 165 | 2.846 | 2.879 | 4.915 | 184.2 | 314.6 |
+| | Mork | 10 000 | 4.510 | 361 | 28.29 | 28.36 | 32.80 | 1 815 | 2 099 |
+| | PathMapZipper | 50 000 | 14.77 | 236 | 24.09 | 24.32 | 38.86 | 1 556 | 2 487 |
+| | Mork | 50 000 | 25.98 | 416 | 161.7 | 162.1 | 187.7 | 10 377 | 12 013 |
+| leapfrog | PathMapZipper | 50 000 | 14.75 | 236 | 21.93 | 22.16 | 36.68 | 1 418 | 2 348 |
+| | Mork | 50 000 | 23.71 | 379 | 150.7 | 151.1 | 174.4 | 9 670 | 11 164 |
+
+Re-run 2026-10-19 after the PR #1620 review: the first version compared a per-thought shared cost with a 64-thought rebuilt total and reported about 110×, which overstated the saving.
 
 What it shows, and what it does not:
 
-- **Amortization is real at the boundary.** Sharing one bound index across 64 thoughts instead of rebuilding it per thought cuts total cost about 110× (PathMap, n = 50 000: 22.3 ms vs 2 543 ms).
+- **Sharing saves the build, not the query.** Over 64 thoughts a shared PathMap index costs 1.6× less than rebuilding it per thought (n = 50 000: 1 556 ms vs 2 487 ms total; 24.3 vs 38.9 ms per thought). The query is most of the cost, so the saving is bounded by build / (build + query): 38% for PathMap at n = 50 000, 14% for MORK.
 - **The MORK query column measures the probe's text decode too, not MORK's join alone.** It covers `exec`, dump, parse and removal of the `Q` facts. It is not evidence about MORK's join speed. A binding-level decode through `Space::query_multi` would be needed for that, and that path hands back `Bindings` or `&[u32]` references whose decoding is not done here.
 - The leapfrog build is verified to compile MORK's `leapfrog` module (a type alias on `mork::leapfrog::SubtermCursor`). That each query took the leapfrog route is MORK's `cfg` dispatch (space.rs:1058–1064), read in source but not observed at runtime.
 - No allocation counts: see the global-allocator constraint in §4.

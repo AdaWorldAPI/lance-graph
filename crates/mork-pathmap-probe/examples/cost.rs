@@ -1,5 +1,6 @@
-//! Translation and query cost, and how one shared index amortizes over k
-//! thoughts. Run: `cd crates/mork-pathmap-probe && cargo run --release --example cost`
+//! Translation and query cost, and what one shared index saves over k
+//! thoughts. Shared and rebuilt costs are printed on the same basis: per thought
+//! (`*_per_thought_*`) and as a total over 64 thoughts (`*_total_k64`). Run: `cd crates/mork-pathmap-probe && cargo run --release --example cost`
 //! (add `--features leapfrog` for MORK's leapfrog join).
 //!
 //! Timings are one run per cell on whatever machine runs this; read them as orders of magnitude.
@@ -28,7 +29,7 @@ fn rows(n: usize, seed: u32, domain: u32) -> Vec<[u32; 2]> {
 fn main() {
     println!("mork join: {}", mork_join());
     println!(
-        "backend,n_rows,answers,build_ms,build_ns_per_row,query_ms,amort_ms_k1,amort_ms_k8,amort_ms_k64,rebuild_ms_k64"
+        "backend,n_rows,answers,build_ms,build_ns_per_row,query_ms,shared_per_thought_ms_k8,shared_per_thought_ms_k64,rebuilt_per_thought_ms,shared_total_ms_k64,rebuilt_total_ms_k64"
     );
     for &n in &[1_000usize, 10_000, 50_000] {
         let domain = (n as u32 / 4).max(1);
@@ -55,17 +56,20 @@ fn main() {
             let query = t.elapsed();
             assert_eq!(got, want, "{backend:?} n={n}");
             let ms = |d: std::time::Duration| d.as_secs_f64() * 1e3;
-            let amort = |k: f64| ms(build) / k + ms(query);
+            // One index built once and queried by k thoughts, per thought.
+            let shared_per_thought = |k: f64| ms(build) / k + ms(query);
+            let rebuilt_per_thought = ms(build) + ms(query);
             println!(
-                "{backend:?},{n},{},{:.3},{:.0},{:.3},{:.3},{:.3},{:.3},{:.3}",
+                "{backend:?},{n},{},{:.3},{:.0},{:.3},{:.3},{:.3},{:.3},{:.3},{:.3}",
                 got.rows.len(),
                 ms(build),
                 build.as_nanos() as f64 / (r.len() + s.len()) as f64,
                 ms(query),
-                amort(1.0),
-                amort(8.0),
-                amort(64.0),
-                64.0 * (ms(build) + ms(query)),
+                shared_per_thought(8.0),
+                shared_per_thought(64.0),
+                rebuilt_per_thought,
+                ms(build) + 64.0 * ms(query),
+                64.0 * rebuilt_per_thought,
             );
         }
     }
