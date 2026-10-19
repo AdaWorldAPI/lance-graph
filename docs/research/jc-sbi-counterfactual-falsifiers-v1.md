@@ -7,7 +7,8 @@ For each fixture, record simulator/model/prior source+revision, observational un
 | ID | Experiment | Required assertion / falsifier |
 | --- | --- | --- |
 | SB-01 | Beta-Binomial small exact posterior | Analytic posterior mass and credible intervals match independently computed reference, incl. tails |
-| SB-02 | Zero prior support / underflow-prone importance weights | Refuse, never return a valid all-zero mass or silently normalize NaNs |
+| SB-02a | **Genuinely zero posterior support:** every permitted prior × likelihood mass is zero / all log weights = -∞ | Refuse with a typed undefined-posterior status; never return an all-zero normalized "posterior" or fabricate support |
+| SB-02b | **Numerically underflow-prone but finite log weights**, e.g. [-1000, -1001, -1200] or equally shifted by a huge negative constant | Stable log-sum-exp/softmax yields finite, normalized weights matching a high-precision oracle and invariant under constant shifts; no premature exp/zero-support refusal |
 | SB-03 | One fixed seed and identical model+data witness | Bitwise/declared-tolerance reproducibility; changing model revision invalidates cache |
 | SB-04 | Identifiable 1D synthetic retrieval-decay generator | Correct-model parameter recovery and empirical interval coverage over independent replicated datasets |
 | SB-05 | Two ACT-R configurations with almost identical observational distribution | Report nonidentifiability/wide or multimodal posterior, not arbitrary single winner |
@@ -29,7 +30,9 @@ For each fixture, record simulator/model/prior source+revision, observational un
 | SB-21 | Counterfactual cut arm treated as `InterventionBacked` | Guard refuses escalation; stays SimulationOnly/counterfactual (not observed SPO) |
 | SB-22 | Confounded synthetic SCM where deleting an edge differs from `do(X=x)` | The edge-cut proxy must fail the intervention-equivalence assertion |
 | SB-23 | OGAR search `FORK` of same hypothesis with differently numbered branches | Branch count not counted as posterior weight or as independent empirical evidence |
-| SB-24 | EIG two-experiment finite discrete oracle | Analytic/nested-constant EIG ranking matches JC estimate within its declared MC error |
+| SB-24a | EIG two-experiment finite discrete oracle | Analytic/nested-constant EIG ranking matches JC estimate within its declared MC error |
+| SB-24b | Two hypotheses indistinguishable in current data, but distinguished by one **permitted future** design | Conditional EIG of informative design > 0; model-adequacy-gated design proposal succeeds rather than blanket abstention |
+| SB-24c | Two hypotheses observationally equivalent under **every permitted design** | EIG is zero within numeric/MC error for distinguishing them; explicit design-relative nonidentifiability and abstention from identification claim, not a false positive design |
 | SB-25 | EIG vs DAV/EWA disagreement heuristic at matched budgets | Report held-out identification, calibration, and all compute costs; permit a negative result |
 | SB-26 | Entropy reduction while posterior model remains misspecified | EIG output marked conditional; real-world "informative" claim refused |
 | SB-27 | Numerical degenerate statistics (no data, constant, overflow, Inf/NaN) | Typed refusal; no silent 0 or valid-looking significance |
@@ -41,7 +44,7 @@ For each fixture, record simulator/model/prior source+revision, observational un
 
 Mandatory mutational controls: disable scope mask (SB-15), collapse topology enum (SB-19), promote simulation-only receipt (SB-21), conflate cut with intervention (SB-22), double-count independent roots (SB-14/23), allow foreign gather (SB-31), and remove prior correction from SMC (SB-07). Each must make a targeted semantic/authorization test red. Merely removing a legitimate optimization is **not** a semantic falsifier (SB-32).
 
-Minimum first runnable experiment: SB-01, SB-02, SB-03, SB-06, SB-14 and SB-27. No empirical accuracy or performance claim before raw results and disabled-guard controls are published.
+Minimum first runnable experiment: SB-01, **SB-02a and SB-02b**, SB-03, SB-06, SB-14 and SB-27. Before D-JCSBI-7, additionally run **SB-24a/b/c**. No empirical accuracy or performance claim before raw results and disabled-guard controls are published.
 
 
 ## Supplemental dynamic-experiment, Sudoku and ACT-R falsifiers
