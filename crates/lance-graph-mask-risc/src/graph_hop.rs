@@ -1,5 +1,16 @@
 //! Version-scoped one-hop graph fold over borrowed SoA edge lanes.
 //!
+//! **QUARANTINED — gather shape (2026-10-19 remediation, ISSUES.md
+//! ISS-GATHER-HOP-1616).** Both `Gather` ops below read a mask bit at a
+//! position taken from another lane's values (`frontier[sources[i]]`,
+//! `visible[targets[i]]`), and the terminal scatters by `targets[i]`. That is
+//! the read the 2026-10-16 no-gather ruling marks as not to be built; the
+//! correct design is co-addressed operands (D-HOLO H14c/H14d). Green tests
+//! show the fold is internally consistent, not that the shape is allowed.
+//! This module compiles only under the off-by-default `quarantined-gather-hop`
+//! feature. A version-attested pre-fold BIND (D-RMAP-1A) is a separate,
+//! unapproved proposal and is not a rescue path for this code.
+//!
 //! Origin: the AdaWorldAPI/petgraph BFS-first-layer experiment. The sole
 //! evaluator remains Mask-RISC (Gather, Gather, ScatterOrU32).
 //!

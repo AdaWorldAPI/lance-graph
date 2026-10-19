@@ -19,6 +19,16 @@ description = "The one mask-RISC evaluator/fuser above ndarray::simd — a plan 
 [dependencies]
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
+[features]
+# OFF by default. Compiles the merged #1616 `graph_hop::OutgoingHop`, which
+# reads `frontier[sources[i]]` and `visible[targets[i]]` (MaskOp::Gather) and
+# scatters by `targets[i]`: a read at a position taken from another lane's
+# values, the shape the 2026-10-16 ruling bans (D-HOLO H14c/H14d, "the join is
+# the layout"). Enabling it is an explicit opt-in to that shape for the
+# petgraph lance-fold-hop experiment only; it is not authorization to build on
+# it. Lifted only by a written GATHER-DECISION (ISSUES.md ISS-GATHER-HOP-1616).
+quarantined-gather-hop = []
+
 [dev-dependencies]
 # D-RPF-0 (`tests/resident_ce64_predicate.rs`): the CE64 accessors are the
 # oracle and the contract supplies the tenant offsets. Test-only — the library
