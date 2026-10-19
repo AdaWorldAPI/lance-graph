@@ -125,6 +125,21 @@ What it shows, and what it does not:
 
   The native arm becomes testable only when a co-addressed producer for this input shape exists. **BLOCKED.**
 
+## 7a. Versioning: what `RelationView.generation` stands for (2026-10-19)
+
+`RelationView.generation: u64` is a probe-local stand-in. It is not a design. Inside the probe it is enough: the `Stale { bound, current }` refusal fires on any change. Outside the probe a bare `u64` fails in two ways:
+
+- **Across datasets.** Two datasets can both be at version 7. The code already has this ambiguity: `temporal.rs`, `temporal_pov.rs` and `scheduler.rs` all use a bare `u64`, and `versioned.rs` returns only the nodes version of a write that spans three datasets.
+- **Across epistemic modes.** A version alone does not say which reader horizon applies.
+
+D-RMAP-1A §7 (#1619) replaces the stand-in with a binding witness built from three parts:
+
+- `DurableRef{dataset, branch, version}`, defined in #1605 §1;
+- an index seal, which carries the row-address map unless RelationFacts uses stable row ids;
+- the read coordinate `QueryReference::at(v, rung)` from `temporal.rs`. Replay uses `Strict` and never `QueryReference::default()`.
+
+The Schnellverschluss does not touch the witness. Switching the backend between MORK, PathMap and native changes how the join runs; the witness describes which data was bound. When the witness lands, it replaces `generation` in this crate, and the backend switch stays as it is. Today no `DurableRef` type exists in `crates/`, and CPG-00 has not run.
+
 ## 8. Deliverables
 
 | D-id | Item | Status | Gate / evidence |
