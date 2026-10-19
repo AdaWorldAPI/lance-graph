@@ -1,0 +1,4 @@
+# MORK depends on a gxhash fork that refuses to compile without AES/SSE2
+# intrinsics. Scoped to this probe; never set RUSTFLAGS in the environment.
+[build]
+rustflags = ["-C", "target-feature=+aes,+sse2"]

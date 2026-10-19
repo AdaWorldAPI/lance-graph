@@ -1,0 +1,40 @@
+[package]
+name = "mork-pathmap-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Differential probe: MORK and PathMap as result oracles behind one Lance-owned boundary module (Schnellverschluss). Results only; no Lance storage, no production executor."
+
+# Its own workspace root, excluded from the lance-graph workspace (D-ASM-10:
+# MORK runs as an oracle outside the workspace). Run from THIS directory, so
+# `.cargo/config.toml` applies:
+#   cd crates/mork-pathmap-probe && cargo test
+[workspace]
+
+[features]
+default = []
+# Compiles MORK's worst-case-optimal leapfrog join and routes conjunctive
+# bodies to it (MORK's own feature).
+leapfrog = ["mork/leapfrog"]
+
+# Source switch: every MORK and PathMap source is named here and nowhere else.
+# Pinned revisions. To swap fork <-> upstream, change these three URLs/revs;
+# no source file changes.
+#
+# MORK: AdaWorldAPI fork, branch `ccr-9f3b8075-74u47l-stable` (`de9312e`) =
+# upstream `trueagi-io/MORK` `ed57c67` + one commit that makes `nightly` a
+# feature instead of a default, so it builds on stable Rust. Upstream `main`
+# needs nightly (`#![feature]` in fast-slice-utils).
+# PathMap: AdaWorldAPI fork `ef02591`, byte-identical to upstream
+# `Adam-Vandervorst/PathMap` `master` at the time of writing.
+[dependencies]
+mork = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
+mork-expr = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
+
+# MORK's workspace names PathMap as `path = "../PathMap/"`, outside its own
+# repository, so a git dependency on MORK cannot resolve it. This patch points
+# that one requirement at the same PathMap revision as above: one `pathmap`
+# package identity in the graph, no edit to MORK.
+[patch."https://github.com/AdaWorldAPI/MORK"]
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
