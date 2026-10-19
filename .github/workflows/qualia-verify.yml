@@ -1,0 +1,33 @@
+name: Qualia archive verifiers
+# The two verifiers guard the archived 219 musical annotations (#1607, #1608).
+# They run under `python -O`, which strips `assert`, to prove they do not
+# depend on it.
+on:
+  pull_request:
+    paths:
+      - 'data/qualia/**'
+      - '.github/workflows/qualia-verify.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'data/qualia/**'
+      - '.github/workflows/qualia-verify.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verifiers pass on the committed archive (optimized mode)
+        run: |
+          python3 -O data/qualia/verify_musical_anchors.py
+          python3 -O data/qualia/verify_music_enrichment.py
+      - name: Negative controls (optimized mode)
+        run: python3 -O -m unittest discover -s data/qualia -p 'test_*.py' -v

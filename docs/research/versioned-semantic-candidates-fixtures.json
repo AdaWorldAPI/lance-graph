@@ -265,7 +265,10 @@
       },
       "expected": {
         "v2_derived": [],
-        "must_rederive_from_scratch": true,
+        "retracted": [
+          "B"
+        ],
+        "maintenance_note": "Assert the derived result only. DRed (delete-and-rederive) or an independent from-scratch reference are both admissible (corrected 2026-10-19, #1604 review).",
         "stale_B_refused": true
       }
     },

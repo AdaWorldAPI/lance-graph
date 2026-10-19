@@ -36,9 +36,9 @@ cross-validation, and parameter estimation for cognitive experiments.
 | Sample covariance from cross moments | jc::stats::sample_covariance_from_cross_power_sums | Resident covariance |
 | Simple OLS and R² from cross moments | jc::stats::simple_regression_from_cross_power_sums / r_squared_from_cross_power_sums | Small model-spec subset |
 | One-way ANOVA and eta² from per-group moments | jc::stats::anova_from_power_sums / eta_squared_from_power_sums | Grouped response ~ categorical predictor |
-| Weak-dependence calibration | jc::jirak | Explicit noise-floor claims, not ordinary independent-sample p-values |
+| Weak-dependence noise-floor **proof** (not a calibration API) | jc::jirak exposes only `prove() -> PillarResult`, a fixed 5,000-sample simulation | **GAP (2026-10-19, #1613 review):** no function consumes a statistical request or returns a calibration; a `CalibrationId::Jirak` provider does not exist and would have to be built |
 
-The last four groups of calls consume ndarray::simd::CrossPowerSums or
+The four cross-moment / grouped-moment rows above consume ndarray::simd::CrossPowerSums or
 PowerSums rather than materialized row-group vectors. The grouped moment
 terminals exist in lance-graph-mask-risc / ndarray; they are a particularly
 strong precedent for the intended pipeline.
@@ -173,13 +173,21 @@ not as a valid 0.0 or false significance.
 - Keep **JC** responsible for variance-divisor conventions, p-value tails,
   effect-size definitions, undefined estimates, and conditioning.
 - CrossPowerSums / PowerSums have bounded exact integer accumulation and
-  checked conversions; specifically preserve the currently documented
-  ~2^32 rows/group bound and checked i128 centering. Overflow is refusal.
+  checked conversions; specifically preserve the checked i128 centering.
+  **Two row limits, both refusals (2026-10-19 correction, #1613 review):**
+  the per-group exactness bound (~2^32 rows/group), and the **total input**
+  bound: the grouped moment terminals (`GroupPowerSumsI32`,
+  `GroupCrossPowerSumsI32`) refuse `n_rows > MASKED_SUM_I32_MAX_ROWS` (2^32)
+  for the whole plane before running, even when every group is small
+  (`lance-graph-mask-risc/src/reference.rs`, `ExecError::SumRowBound`). A
+  request contract that validates only group counts would pass inputs the
+  executor then refuses; validate the total too.
 - Use ndarray::simd for numeric execution; mask-risc remains the single
   bulk evaluator. A statistical frontend cannot introduce a scalar
   alternative, even as an unadvertised fallback.
 - The significance path must distinguish classical IID t/ANOVA calculations
-  from jc::jirak weak-dependence calibration for correlated Hamming bitfields.
+  from weak-dependence calibration for correlated Hamming bitfields, which
+  does not exist as a callable API yet (jc::jirak is a fixed proof, see §2).
   No single p-value label is valid for both without declaring the model.
 - Retain precision and rounding conventions and test adversarial
   large offsets, constant series, sparse groups, NaNs and overflow.

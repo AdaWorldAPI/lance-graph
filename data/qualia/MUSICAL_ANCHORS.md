@@ -26,4 +26,4 @@ The 219-item corpus was extracted from [AdaWorldAPI/Chat/music/Interval_Qualia_a
 
 Run `python3 data/qualia/verify_musical_anchors.py` from the repository root.
 
-This asserts 219 unique IDs in both files and exact correspondence for IDs, labels, families, subfamilies, vectors and descriptive tags. The original `calibrated_219.json` and `.bin1024` are never rewritten by the script.
+This asserts 219 unique IDs in both files and exact correspondence for IDs, labels, families, subfamilies, vectors and descriptive tags. It also checks that the four musical fields are non-empty strings and match a pinned SHA-256 of their canonical JSON, so an altered or emptied annotation fails. Checks raise explicitly (no `assert`), so they also run under `python -O`; negative controls live in `test_verify_qualia.py` and run in CI (`.github/workflows/qualia-verify.yml`). The original `calibrated_219.json` and `.bin1024` are never rewritten by the script.
