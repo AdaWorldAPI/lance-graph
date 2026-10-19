@@ -1,0 +1,10 @@
+[package]
+name = "lance-graph-actr"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Experimental deterministic ACT-R-inspired production arbitration over externally evaluated candidate masks"
+
+[workspace]
+
+[dependencies]
