@@ -2,6 +2,28 @@
 
 **Status: PROPOSAL / PREREGISTERED TEST DESIGN, 2026-10-19.** No runtime, ABI, dependency, opcode, CE64 interpretation or performance result is added. Extends [D-RMAP-1](d-rmap-implicit-relationship-register-v1.md) and its controlling [D-RMAP-1A ownership correction](d-rmap-separate-tables-thought-palettes-v1.md).
 
+
+> **PRIOR-ART CORRECTION (2026-10-19, precedence over earlier wording):** The operator already reverse-engineered BlasGraph, MKL-like backends, BF16 16x16, AMX, VNNI and mask-GEMM interop in AdaWorldAPI/ndarray and AdaWorldAPI/lance-graph. **Do not start a new GraphBLAS/MKL implementation, import production FFI or redo settled kernel comparisons.** The unproven subject is the separate RelationshipMap tables, zero-copy index binding and thought-selected map palettes. Use existing native kernels and probes as references; any external GraphBLAS implementation is optional independent oracle only.
+
+## 0. Existing implementation and measurements: mandatory reuse
+
+| Precedent | Source | What is already present |
+| --- | --- | --- |
+| Native BF16 16x16 tile | [ndarray BF16 tile GEMM](https://github.com/AdaWorldAPI/ndarray/blob/main/src/hpc/bf16_tile_gemm.rs) | AMX TDPBF16PS, AVX-512 BF16 and decoded FMA fallback |
+| Native INT8/AMX and dispatch | [AMX matmul](https://github.com/AdaWorldAPI/ndarray/blob/main/src/hpc/amx_matmul.rs), [INT8 tile GEMM](https://github.com/AdaWorldAPI/ndarray/blob/main/src/hpc/int8_tile_gemm.rs), [AMX ISA primitives](https://github.com/AdaWorldAPI/ndarray/blob/main/src/hpc/amx_ops.rs) | Correctness-checked AMX/TILE paths and runtime gate |
+| Pure Rust MKL-like backend | [ndarray MKL-shaped backend](https://github.com/AdaWorldAPI/ndarray/blob/main/src/backend/mkl.rs) | Already reverse-engineered CBLAS-style shape; do not confuse with a missing native kernel |
+| Existing Boolean/tile experiment | [D-GTM evidence](https://github.com/AdaWorldAPI/ndarray/blob/main/.claude/plans/gemm-ternlog-mask-consolidation-v1.md) and [hex-trie GEMM probe](https://github.com/AdaWorldAPI/ndarray/blob/main/examples/hex_trie_vs_gemm_probe.rs) | Zero-heap-allocation mask path; crucial counterexamples and comparison limitations |
+| Existing BlasGraph | [BlasGraph](../../crates/lance-graph/src/graph/blasgraph/mod.rs), [semiring](../../crates/lance-graph/src/graph/blasgraph/semiring.rs), [matrix](../../crates/lance-graph/src/graph/blasgraph/matrix.rs) | Shipped GraphBLAS-inspired CSR/CSC matrix operations; Boolean AND/OR and other semirings over HdrScalar/BitVec |
+| Existing 256 x 256 tile probes | [H6b forms](../../crates/lance-graph-mask-risc/examples/holo_tile_forms_probe.rs), [H6c crossover](../../crates/lance-graph-mask-risc/examples/holo_tile_crossover_probe.rs) | Dense 8-KiB Boolean tile, Morton interval, product/hybrid forms and independent row oracle |
+
+**Do not misuse D-GTM-0j:** it recorded mask against *dense f32* GEMM numbers of 745.8x at 0.02% and 297x at 100% density. Section 12.5 explicitly states these headline numbers are NOT evidence of mask superiority over a properly indexed sparse baseline: CSR SpMV was missing, and the f32 Boolean matrix was an unfair comparison. The measured positive was 0 bytes allocated in the hot mask step and a strong *prefix-local versus random* locality difference.
+
+**Especially relevant to RelationshipMaps:** D-GTM-0l (section 13, the real long-range edge corpus) found that physical-address prefix tracts cannot economically represent diffuse global edges. At prefix width k=2, 257 tracts for 427 edges, only 1.66x compression; at k=3, 396 tracts, 1.08x. It does NOT disprove semantically minted HHTL locality, but it gives a concrete reason for a separately stored, globally indexed RelationshipMap that can be borrowed into a local focus.
+
+**No false zero-copy:** BlasGraph GrBMatrix currently *owns* CSR and optional CSC and uses 16K-bit BitVec elements; it is not the proposed 256x256 bit-packed edge-presence tile. Its ndarray_bridge From reference implementation copies a 256-word array on the stack, which is no heap allocation but also not a literally borrowed buffer. Matrix transpose can clone index vectors. The proposed separate MapStore binder must prove real borrowed buffer/view lifetimes and charge cache/index materialization.
+
+**Updated test priority:** first bind 1 MapId through separate RelationshipMap + FocusBinding + ThoughtMapPaletteBinding tables into existing mask-risc/Quack operands and compare direct indexed seek with repeated local Boolean fold. Next test 64..256 global maps and 1/8/64 overlapping thought palettes, focus churn, ACL/version witnesses, external-neighbor escapes and exact set/bag semantics. Reuse existing BlasGraph Boolean and ndarray BF16/INT8 kernels only for demonstrably eligible workload comparisons and measure missing cells, not settled kernel behavior. RelAlg remains logical; CE64 remains opaque.
+
 ## 1. Which existing forks actually help?
 
 **AdaWorldAPI/lance-context (fork of lance-format/lance-context):**
