@@ -116,6 +116,7 @@
 // recorded.
 pub mod exec;
 pub mod fuse;
+pub mod graph_hop;
 pub mod ir;
 pub mod reference;
 pub mod ternlog_dispatch;
@@ -126,6 +127,7 @@ pub use exec::{
     tile_words_for, Scratch, TILE_WORDS,
 };
 pub use fuse::{fuse, fuse_program, ternlog_imm, BoolExpr, FuseError, Fused};
+pub use graph_hop::{EdgeColumns, GraphSnapshot, HopError, OutgoingHop};
 pub use ir::{
     touched_words, Compiled, CompiledProgram, Foreign, ForeignPlane, FusedFold, FusedKeep,
     FusedTerminal, FusedTern2, FusedTern3, FusedTernlog, GroupFold, GroupKey, LaneRef, Lowering,
