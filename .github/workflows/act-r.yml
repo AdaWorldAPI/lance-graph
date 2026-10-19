@@ -1,0 +1,33 @@
+name: ACT-R production arbitration
+# `crates/lance-graph-act-r` is a standalone crate (own [workspace], listed in
+# the root `exclude`), so no workspace job builds it. Without this job its
+# tests never run.
+on:
+  pull_request:
+    paths:
+      - 'crates/lance-graph-act-r/**'
+      - '.github/workflows/act-r.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/lance-graph-act-r/**'
+      - '.github/workflows/act-r.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  act-r:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - name: Format
+        run: cargo fmt --manifest-path crates/lance-graph-act-r/Cargo.toml -- --check
+      - name: Lint
+        run: cargo clippy --manifest-path crates/lance-graph-act-r/Cargo.toml --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --manifest-path crates/lance-graph-act-r/Cargo.toml
