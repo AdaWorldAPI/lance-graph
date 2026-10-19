@@ -1,5 +1,7 @@
 # D-RMAP-1: implicit RelationshipMap and focus-relative relational registers
 
+> **CORRECTION / PRECEDENCE (2026-10-19):** [D-RMAP-1A](d-rmap-separate-tables-thought-palettes-v1.md) is the controlling ownership and binding contract for this proposal. **RelationshipMaps are independently stored explicit tables with borrowed zero-copy views; RelAlg does not own or store them; each thought selects a palette of maps in a separate ThoughtMapPaletteBinding table. No map ID, palette selector or map-routing semantics are added to CE64.** Any ambiguous P/W interpretation or combined map/RelAlg ownership below is superseded by D-RMAP-1A.
+
 > **Status:** PROPOSAL / architecture review, 2026-10-19. This PR adds documentation only. It neither changes the wire/ABI nor licenses new runtimes, gathers, opcodes, persisted formats, or performance claims.
 >
 > **Operator thesis:** The wire format must not know whether it is comparing apples from China or Senegal. The awareness belongs to a relationship map.
@@ -28,8 +30,8 @@ This proposition does **not** claim that all graph traversals, joins, cache miss
 
 **No wire-field reinterpretation without an explicit ClassView/rail/generation reading.** The 64-bit CE64 layout already carries S (0..7), P (8..15), O (16..23), epistemic/inference fields, W (53..58) and EpistemicState5 (59..63). The following are design readings, not a migration:
 
-- S/P/O remain **local palette codes**. Under a declared relationship-frame reading P may select a RelationMap slot (0..255), and S/O select local source/target slots (each 0..255). Neither code is a global ontology ID or permanent foreign key.
-- W is **not** a map ID or an evidence root. The 2026-10-17 epistemic decision calls W a thought slot (0 givens, 1..63 hypotheses); the current layout source still documents a witness-corpus handle and the capstone records the conflict. Existing version-gated typed refusal must resolve the ambiguity before any new reading is admitted.
+- S/P/O remain **opaque local palette codes under their declared CE64 reading**; **P is not a RelationshipMap ID or routing selector**. The separate thought-to-map-palette table determines which global map is bound. Local wire codes are neither global ontology IDs nor permanent foreign keys.
+- W is **not** a map ID, map-palette selector or an evidence root. The 2026-10-17 epistemic decision calls W a thought slot (0 givens, 1..63 hypotheses); the current layout source still documents a witness-corpus handle and the capstone records the conflict. Existing version-gated typed refusal must resolve the ambiguity before any new reading is admitted.
 - The local semantic address requires an **external frame witness**: (frame identity + generation, thought incarnation, S, P, O). Two byte-identical CE64 values under different frames are NOT semantically equal; the frame has to reconcile canonical identities first.
 - For example, S=17/P=4/O=29 can denote two apples under one frame. Their origins China/Senegal are attributes resolved through the map's typed relations only when requested. CE64 need not encode geography or decide whether these apples are comparable.
 
@@ -51,6 +53,8 @@ The **same logical relation** may have multiple indexed physical projections. BI
 
 ## 3. Explicit tables inside the existing data family
 
+**Ownership correction:** The **RelationshipMap** indexes and tiles belong to a separate store/table family, and **MapPalette** plus **ThoughtMapPaletteBinding** are distinct typed lookup tables. They are **not** part of RelAlg or of CE64. See [D-RMAP-1A](d-rmap-separate-tables-thought-palettes-v1.md) for the controlling table schema and borrowed zero-copy binding contract.
+
 These names are a proposed **logical schema**, not new binary layouts or a second database:
 
 | Table | Responsibility |
@@ -58,6 +62,9 @@ These names are a proposed **logical schema**, not new binary layouts or a secon
 | RelationCatalog | Canonical predicate identity, arity, type constraints, multiplicity, direction, semantic permissions, supported physical views |
 | RelationFacts | Canonical subject/predicate/object or n-ary argument identities, claim identity, source and evidence roots, temporal validity, ACL |
 | RelationOrder | Sealed sorted/index permutations of global facts, referencing canonical data instead of copying value payloads |
+| **RelationshipMap** | Independent typed table linking global map identities to sealed index views; may be borrowed by many thoughts |
+| **MapPalette** | Independent map-slot-to-MapId codebook, up to 256 slots, reusing canonical map tables without a copy |
+| **ThoughtMapPaletteBinding** | Independent thought-slot + incarnation + frame to map-palette mapping; selectors and generation held *outside CE64* |
 | FocusBinding | Frame identity, map-codebook, source/target palettes, generation, slot incarnations, fact/index versions, auth scope and seal attestations |
 | RelationTile | Optional cache: local source slot -> target presence bits, keyed by the full binding witness; disposable projection |
 | RelationDelta | Fact add/retract/revise receipts, cache invalidations, palette changes and thought overlays, typed separately |
@@ -99,7 +106,7 @@ Proposed possible input to that computation:
 
     bind(Frame F, Map p, local slots s/o, version, access) -> legal local operand(s)
 
-The proposed tensor T[thought][map][source][target] describes **potential coordinates**, never an eagerly allocated state array. Thought 0 is immutable givens. 1..63 borrow shared global facts and cached relation projections, then apply sparse epistemic changes.
+The proposed tensor T[thought][map][source][target] describes **potential coordinates**, never an eagerly allocated state array. **The map axis is chosen via ThoughtMapPaletteBinding, external to CE64 and RelAlg, using borrowed RelationshipMap tables.** The thought's W annotation alone is never enough to identify the frame/map palette. Thought 0 is immutable givens. 1..63 borrow shared global facts and cached relation projections, then apply sparse epistemic changes.
 
 Keep four independent delta classes:
 
@@ -116,7 +123,7 @@ That expression is **not** an adequate definition for bags, count-distinct, evid
 
 ## 6. Compiler and cache boundaries
 
-Use [PARSE -> BIND -> V4 -> BUNDLE -> EXECUTE](../knowledge/fold-execution-laws.md). The new work, if warranted by tests, belongs at **BIND**: prove identity and predicate meanings, row-universe compatibility, mapping generation, source index order/seal, version and permission scope. BUNDLE may then choose direct co-addressed fold, ordered index seek, sparse local row cache, dense relationship tile or factorized evaluation.
+Use [PARSE -> BIND -> V4 -> BUNDLE -> EXECUTE](../knowledge/fold-execution-laws.md). The new work, if warranted by tests, belongs at **BIND plus the independently owned RelationshipMap tables** (and not RelAlg storage): prove identity and predicate meanings, row-universe compatibility, mapping generation, source index order/seal, version and permission scope. BUNDLE may then choose direct co-addressed fold, ordered index seek, sparse local row cache, dense relationship tile or factorized evaluation.
 
 The [2026-10-16 WCOJ exploration](../board/entries/2026-10-16-coresearch-wcoj-leapfrog.md) explicitly marks foreign gathers and preimage hops as a **VIOLATION**, preferring the proven H14c/H14d co-addressed path. **This proposal does not reverse that ban.** A pre-fold global->local binding is only a candidate new admissible *membrane* and must be independently reviewed. Until accepted, such operations are a typed refusal, not a hidden foreign-lane dereference. No new R2IL op without proving the existing execution vocabulary insufficient.
 
@@ -155,12 +162,12 @@ Report total end-to-end cost, page faults/cache misses if measurable, bytes touc
 2. **Small reference bind:** resolve one global indexed relation onto up to 256 palette slots; no new runtime index, no payload copy, oracle/ACL/version checks first.
 3. **Selective local tile:** compare direct seek, per-row cache and dense Boolean tile, with all costs charged. Demand exact egress semantics.
 4. **Incremental spatial frontier:** preserve surviving palette slots, explicitly account for rebinding and out-of-focus neighbors.
-5. **Thought overlay:** one shared map bank across 64 thought incarnations; sparse changes only; givens immutable; evidence independence retained.
+5. **Thought palette + overlay:** separate ThoughtMapPaletteBinding chooses a subset/order of shared 64..256 global maps for each thought incarnation, with no CE64 map ID and no per-thought complete map copy; speculative changes sparse, givens immutable, evidence independent.
 6. **Schema-routed consumer API:** Rust, Java, Python, Datalog, MeTTa, NAL, document and IAM consumers see typed relations, not HHTL, CSR, TrieMap or wire layout.
 7. **Only if earned:** expose a witnessed RelationMap as a first-class bound operand to existing folds. No second evaluator and no convenience opcode without an insufficiency proof.
 
 ### Non-goals
 
-No universal forced HHTL migration; no change to the 512-byte SoA canon; no new CE64 field; no global CSR or per-thought graph copies; no runtime JSON/string hot paths; no reinterpretation of W as a RelationMapId; no unproved cross-population mask AND; no promotion of cache presence to semantic or causal truth.
+No universal forced HHTL migration; no change to the 512-byte SoA canon; no new CE64 field or reinterpretation to carry a map palette; no RelAlg-owned RelationshipMap tables; no global CSR or per-thought graph copies; no runtime JSON/string hot paths; no reinterpretation of W as a RelationMapId; no unproved cross-population mask AND; no promotion of cache presence to semantic or causal truth.
 
 **Decision requested:** Explore **implicit global relationship addressing through explicit typed tables**, with a local reusable register projection and independently amortized spatial/epistemic deltas. Keep the wire ignorant of the world's ontology.
