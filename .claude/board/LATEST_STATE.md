@@ -1,7 +1,11 @@
-## 2026-10-19 — main after #1619 (merged `8e004a20`)
+## 2026-10-19 — main after #1620 (merged `dca8e7b1`)
 
-- **On main:** #1618 (`dbe0696f`, post-merge recovery for #1601–#1617 plus the remediation) and #1619 (`8e004a20`, D-RMAP binding palette generation and D-RMAP-1A §7 versioning crosswalk). Both have arc entries.
-- **In PR:** #1620, the MORK/PathMap Schnellverschluss probe (D-MPS-0..7).
+- **On main:** #1618 (`dbe0696f`, post-merge recovery for #1601–#1617 plus the remediation), #1619 (`8e004a20`, D-RMAP binding palette generation and the D-RMAP-1A §7 versioning crosswalk) and #1620 (`dca8e7b1`, the MORK/PathMap Schnellverschluss probe, D-MPS-0..7). All three have arc entries.
+- Contract inventory delta: none.
+
+## 2026-10-19 — MORK / PathMap Schnellverschluss probe (#1620, merged `dca8e7b1`)
+
+- New excluded crate `crates/mork-pathmap-probe` (own workspace, git deps on the AdaWorldAPI MORK and PathMap forks, results only) with CI job `mork-pathmap-probe.yml`; plan `mork-pathmap-schnellverschluss-v1.md`; entry `2026-10-19-mork-pathmap-schnellverschluss.md`; issue `ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR`.
 - Contract inventory delta: none.
 
 ## 2026-10-19 — main after #1617 (merged `47697c77`); post-merge recovery in PR

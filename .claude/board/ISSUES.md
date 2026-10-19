@@ -1,3 +1,10 @@
+## ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR — linking MORK replaces the binary's allocator (2026-10-19)
+
+**Status:** OPEN. **Basis:** MEASURED (`crates/mork-pathmap-probe`, a `#[global_allocator]` in the probe fails to link: "conflicts with global allocator in: pathmap").
+
+- MORK's workspace enables PathMap feature `jemalloc`, and PathMap then installs a global allocator from inside the library. Any lance-graph binary that links MORK loses control of its allocator.
+- **What closes it:** D-MPS-4 upstream (enable `jemalloc` from MORK's binary, not the library), or a MORK consumer that turns the feature off through Cargo feature resolution, measured.
+
 ## ISS-GATHER-HOP-1616 — the merged `OutgoingHop` reads positions taken from another lane's values (2026-10-19)
 
 **Status:** BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).

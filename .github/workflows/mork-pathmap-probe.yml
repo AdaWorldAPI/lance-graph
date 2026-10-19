@@ -1,0 +1,43 @@
+name: MORK / PathMap probe
+# `crates/mork-pathmap-probe` is excluded from the workspace (own [workspace],
+# git deps on the MORK and PathMap forks), so no workspace job builds it. It
+# runs from its own directory so its `.cargo/config.toml` (AES/SSE2 for MORK's
+# gxhash) applies.
+on:
+  pull_request:
+    paths:
+      - 'crates/mork-pathmap-probe/**'
+      - '.github/workflows/mork-pathmap-probe.yml'
+      - 'rust-toolchain.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/mork-pathmap-probe/**'
+      - '.github/workflows/mork-pathmap-probe.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: crates/mork-pathmap-probe
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --check
+      - name: clippy (product-zipper join)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: clippy (leapfrog join)
+        run: cargo clippy --all-targets --features leapfrog -- -D warnings
+      - name: test (product-zipper join)
+        run: cargo test
+      - name: test (leapfrog join)
+        run: cargo test --features leapfrog

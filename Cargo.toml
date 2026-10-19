@@ -166,6 +166,10 @@ exclude = [
     # crates/onebrc-probe/README.md. Verify via
     # `cargo test --manifest-path crates/onebrc-probe/Cargo.toml`.
     "crates/onebrc-probe",
+    # MORK / PathMap differential probe (D-MPS-1): its own workspace, git deps
+    # on the AdaWorldAPI forks, results only (D-ASM-10). Run from its directory
+    # so its `.cargo/config.toml` applies: `cd crates/mork-pathmap-probe && cargo test`.
+    "crates/mork-pathmap-probe",
     # X-C2-1 injection harness (RP-SEAL Tier 0) — fault injection over a
     # synthetic cycle; anti-vacuity gate reproduces the known in-tree
     # false-accepts against the REAL live implementations. Verify via
