@@ -1,3 +1,9 @@
+## 2026-10-19 — main after #1619 (merged `8e004a20`)
+
+- **On main:** #1618 (`dbe0696f`, post-merge recovery for #1601–#1617 plus the remediation) and #1619 (`8e004a20`, D-RMAP binding palette generation and D-RMAP-1A §7 versioning crosswalk). Both have arc entries.
+- **In PR:** #1620, the MORK/PathMap Schnellverschluss probe (D-MPS-0..7).
+- Contract inventory delta: none.
+
 ## 2026-10-19 — main after #1617 (merged `47697c77`); post-merge recovery in PR
 
 - **On main since #1597:** #1601–#1617 (17 PRs: research notes, plans, a qualia archive, the ACT-R crate, the mask-risc hop, the D-RMAP plans). None had board rows; the arc entries, STATUS_BOARD rows and plan index entries are added in this PR.

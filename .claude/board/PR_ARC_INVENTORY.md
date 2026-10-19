@@ -1,3 +1,17 @@
+## 2026-10-19 — lance-graph PR #1619 (merged `8e004a20`, branch `ccr-08f48cec-lbv9l4`, head `79baa045`, 3 commits) — D-RMAP palette generation in the binding; versioning derived from Thought Git and #1605
+
+- **Added:** D-RMAP-1A §7 (`.claude/plans/d-rmap-separate-tables-thought-palettes-v1.md`). It is an ownership crosswalk: map and palette generations are readings of `DurableRef` (sealed) or `ThoughtCommitId` (speculative), and the thought-palette binding is `(ThoughtCommitId, palette generation)`. Focus generation and the index seal are retained witnesses, and authorization scope is a separate key. §7 also specifies falsifiers X1–X9, a cost/entropy comparison, and the Schnellverschluss note. The PR also adds gap notes in `thought-git-api-v1.md` and the causal-pickaxe plan, STATUS_BOARD row D-RMAP-1A-V, ENTROPY-MILESTONES M28, and the board entry `2026-10-19-d-rmap-thought-git-versioning.md`. `a7e075d3`: `ThoughtMapPaletteBinding` stores the palette generation it bound; `act-r.yml` also runs on `rust-toolchain.toml` changes.
+- **Locked:** none. Status PROPOSED. CE64 is unchanged. There is no new executor, store, type or per-fold commit, and the no-gather ruling stands.
+- **Deferred / open:** `ThoughtCommitId` must be never-reused, which #1605 does not say. A thought needs a dirty bit. A multi-dataset write needs one `DurableRef` per dataset, or a refusal (the measured instance is `versioned.rs::commit_encounter_round`). `DurableRef` has no type until CPG-00 runs. X1–X9 are not run.
+- **Confidence:** doc only. The code facts in §7.2 were read in source. CI caught a line-number citation (`citation-decay`); it was fixed in `79baa045` by citing symbols.
+
+## 2026-10-19 — lance-graph PR #1618 (merged `dbe0696f`, branch `ccr-08f48cec-lbv9l4`, head `b2c5453c`, 5 commits) — post-merge recovery for #1601–#1617
+
+- **Added:** board rows for #1601–#1617 (arc entries, STATUS_BOARD, plan index, entry `2026-10-19-post-merge-recovery-1601-1617.md`). Remediation: the ACT-R crate renamed to `lance-graph-act-r`, with `Refusal::StaleCandidate` and its own CI job; #1616's `OutgoingHop` quarantined behind the off-by-default `quarantined-gather-hop` feature (`ISS-GATHER-HOP-1616`); verified review findings applied across #1603–#1613; D-RMAP tile and binding keys carry map and palette generations.
+- **Locked:** the gather hop stays quarantined while the 2026-10-16 no-gather ruling holds.
+- **Deferred / open:** the palette generation of a thought's binding was left to the follow-up, which landed in #1619.
+- **Confidence:** the ACT-R refusal and the quarantine are pinned by disable-verified tests. The rest is documentation.
+
 ## 2026-10-19 — lance-graph PR #1617 (merged `47697c77`, branch `design/relationship-map-implicit-register-v1`, head `55be2fed`, 7 commits) — D-RMAP: separate RelationshipMap tables and thought-selected palettes
 
 - **Added:** plans `.claude/plans/d-rmap-implicit-relationship-register-v1.md` (D-RMAP-1), `d-rmap-separate-tables-thought-palettes-v1.md` (D-RMAP-1A, the controlling contract for ownership and CE64 opacity) and `d-rmap-2-context-tile-algebra-probe-v1.md` (D-RMAP-2, a preregistered GraphBLAS vs BF16 tile comparison); entry `2026-10-19-d-rmap-implicit-relationship-register.md`; entries README row. Nothing implemented.
