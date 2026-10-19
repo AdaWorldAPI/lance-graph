@@ -1,3 +1,9 @@
+## 2026-10-19 — main after #1617 (merged `47697c77`); post-merge recovery in PR
+
+- **On main since #1597:** #1601–#1617 (17 PRs: research notes, plans, a qualia archive, the ACT-R crate, the mask-risc hop, the D-RMAP plans). None had board rows; the arc entries, STATUS_BOARD rows and plan index entries are added in this PR.
+- **In PR (remediation):** `lance-graph-actr` → `lance-graph-act-r` with a stale-candidate refusal and CI; #1616's `OutgoingHop` quarantined behind `quarantined-gather-hop` (`ISS-GATHER-HOP-1616`); D-SRAM-4 BLOCKED; jirak gap and row limits; Lance 13 prerequisite; `Rejected` outcome; relative-pronoun case; qualia verifiers without `assert` and with a pinned digest; D-RMAP generations.
+- Contract inventory delta: none.
+
 ## 2026-10-17 — main after #1597; thinking-tables wiring in PR
 
 - **On main since #1594:** #1592 (ledger revision c), #1595 (CE64 one layout), #1596 (Simpson co-research, P-pool test), #1598 (Haiku cards read in full, output capped), #1597 (epistemic frontier capstone; 46..49 activation, W = thought layer).
