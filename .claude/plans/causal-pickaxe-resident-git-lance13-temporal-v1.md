@@ -304,3 +304,22 @@ The JSON preregistration adds `CPG-18`–`CPG-25` and **does not constitute exec
 **Review gate:** treat the porcelain feature as **DESIGN-ONLY** until D-TGA's falsifiers, H14c/H14d operators, strict temporal horizon enforcement, source-root policy, and stable-row/branch API probes have actual passing fixtures. A presentable CLI is not evidence of a correct reasoning engine.
 
 **Summary:** **One porcelain, one typed meaning, one mask execution substrate, one evidence policy, one durable writer.** Git makes epistemic algebra approachable precisely because it does not replace that algebra.
+
+## Gaps found by D-RMAP-1A §7 (2026-10-19, PROPOSED)
+
+D-RMAP-1A §7 keys every relation-map binding on `ThoughtCommitId` and
+`DurableRef` from §1. Three points this plan leaves open:
+
+1. **`ThoughtCommitId` reuse.** "Stable while retained" does not say whether
+   an id can return after its thought is discarded. A binding keyed on it
+   needs *never reused*.
+2. **No version in code is dataset-scoped.** `temporal.rs` and
+   `temporal_pov.rs` both define `LanceVersion = u64`, `scheduler.rs` has
+   `DatasetVersion(u64)`, and `QueryReference` has no dataset or branch. The
+   read coordinate is the pair (`DurableRef`, `QueryReference`); neither
+   alone is a generation.
+3. **`versioned.rs` writes three datasets and returns one version.**
+   `commit_encounter_round` returns the nodes version and drops the edges and
+   fingerprints versions. CPG-2's `DurableRef` adapter has to cover a write
+   that spans datasets, or refuse one.
+
