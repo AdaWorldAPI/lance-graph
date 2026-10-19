@@ -51,17 +51,17 @@ Minimum first runnable experiment: SB-01, SB-02, SB-03, SB-06, SB-14 and SB-27. 
 | SB-33 | Same grid/model revision, params, design and RNG stream | Identical typed output (declared tolerance); different seed alone does not create variation in a deterministic model |
 | SB-34 | Identical baseline, change uniform susceptance scale | Preserve documented relative DC flow/cascade/connectivity-loss invariants; absolute bus angles may vary |
 | SB-35 | Identical grid, sweep uniform thermal derate | May change overload thresholds/trip counts; do not apply the susceptance-scaling invariance to this case |
-| SB-36 | Input \`AgeModel::Uniform\` vs \`DensityProxy\` vs \`ModernizationSpend\` | Distinct model revision/hypothesis identity and capability assumptions; hidden heterogeneity is not silently inferred |
-| SB-37 | Fixed-topology covariance via \`angle_cov\` then a line trip | Recompute changed Laplacian/covariance or refuse; do not reuse \`L⁺ Σ L⁺\` from the old topology |
-| SB-38 | \`acflow\` solver nonconvergence | Preserve solver-limitation status; do not automatically classify it as observed physical voltage collapse |
-| SB-39 | OGAR \`FOLD_XREF\`, \`NAKED_SINGLE\`, \`HIDDEN_SINGLE\` vocabulary declarations | Test separate executable owner and unit/codebook constraints; unresolved operator must refuse, not masquerade as shipped method |
+| SB-36 | Input `AgeModel::Uniform` vs `DensityProxy` vs `ModernizationSpend` | Distinct model revision/hypothesis identity and capability assumptions; hidden heterogeneity is not silently inferred |
+| SB-37 | Fixed-topology covariance via `angle_cov` then a line trip | Recompute changed Laplacian/covariance or refuse; do not reuse `L⁺ Σ L⁺` from the old topology |
+| SB-38 | `acflow` solver nonconvergence | Preserve solver-limitation status; do not automatically classify it as observed physical voltage collapse |
+| SB-39 | OGAR `FOLD_XREF`, `NAKED_SINGLE`, `HIDDEN_SINGLE` vocabulary declarations | Test separate executable owner and unit/codebook constraints; unresolved operator must refuse, not masquerade as shipped method |
 | SB-40 | Different question scopes over the same candidate field | Narrowing is reversible by asking a new question; no global fact removal or evidence-root generation |
-| SB-41 | \`FORK\` 2 alternative hypotheses + 200 simulator evaluations | Exactly 2 stable alternatives, 200 simulation receipts, **zero** minted independent empirical observations; slot count depends on concurrent hypotheses |
+| SB-41 | `FORK` 2 alternative hypotheses + 200 simulator evaluations | Exactly 2 stable alternatives, 200 simulation receipts, **zero** minted independent empirical observations; slot count depends on concurrent hypotheses |
 | SB-42 | ACT-R activation, procedural utility, NAL confidence, Bayesian EIG | Force contradictory orderings; show they remain different typed axes and one cannot silently overwrite another |
 | SB-43 | ACT-R conflicting productions with same eligibility | Explicit deterministic tie-break at same timestamp/version/policy; scope/version change invalidates result |
 | SB-44 | ACT-R learning only from its own simulated reward | No independent observed success receipt, so cannot claim empirical procedural utility update |
 | SB-45 | Three grid hypotheses, two permitted perturbation designs | FIFO, planner heuristic, ACT-R-only and ACT-R+JC-EIG match sample root/simulator-call budget; identification assessed held-out |
-| SB-46 | "Mediators" in \`perturbation-sim\` vs DisMech biological intermediates | Distinct domain/model types; reject accidental physical-to-biological parameter/ontology substitution |
+| SB-46 | "Mediators" in `perturbation-sim` vs DisMech biological intermediates | Distinct domain/model types; reject accidental physical-to-biological parameter/ontology substitution |
 | SB-47 | Power-grid example uses composite score containing the target outcome | Validity oracle detects target leakage; cannot claim independent prediction from outcome-derived predictor |
 | SB-48 | Domain simulator attempts an unauthorized real external intervention | Simulation is pure proposal; no effect without existing planner/policy action gate |
 
