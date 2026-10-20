@@ -59,16 +59,22 @@ pub struct Demand {
 pub struct Options {
     pub propagate: bool,
     pub dedup: bool,
+    /// Semijoin reduction at preparation: when a side of a star is restricted
+    /// by a constant, the other sides are laid out only for the centers that
+    /// side has.
+    pub semijoin: bool,
 }
 
 impl Options {
     pub const ALL: Options = Options {
         propagate: true,
         dedup: true,
+        semijoin: true,
     };
     pub const NONE: Options = Options {
         propagate: false,
         dedup: false,
+        semijoin: false,
     };
 }
 

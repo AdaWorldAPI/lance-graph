@@ -719,3 +719,113 @@ fn keys_name_relation_and_column() {
     let b = SideKey { key_col: 0, ..a };
     assert_ne!(a, b);
 }
+
+// ---------------------------------------------------------------------------
+// N. Semijoin reduction before preparation
+// ---------------------------------------------------------------------------
+
+const NO_SEMIJOIN: Options = Options {
+    semijoin: false,
+    ..Options::ALL
+};
+
+/// A restricted side names the only centers that can answer; the other sides
+/// are laid out for those centers only. Same answers, set and bag.
+#[test]
+fn n_semijoin_prepares_only_the_restricted_centers() {
+    let f = family_data();
+    let (labels, rules) = resolved(&family::crepe_plan());
+    let st = store(&labels, &f, [1, 1, 1]);
+    let d = answer_demand(&labels, 17);
+    for kind in [
+        ResultKind::Bindings(SET),
+        ResultKind::Bindings(BAG),
+        ResultKind::Count(BAG),
+        ResultKind::Exists,
+    ] {
+        let (on, rep_on) = evaluate(&rules, &d, kind, Options::ALL, &st).unwrap();
+        let (off, rep_off) = evaluate(&rules, &d, kind, NO_SEMIJOIN, &st).unwrap();
+        assert_eq!(on, off, "{kind:?}");
+        // Parent(17, y) has y in {1, 2, 3}: 3 rows; Parent(y, z) for those y:
+        // 5 rows; Allowed(y): 3 rows. Without the reduction every Parent and
+        // Allowed row is laid out.
+        assert_eq!(rep_on.rows_prepared, 3 + 5 + 3, "{kind:?}");
+        assert_eq!(
+            rep_off.rows_prepared,
+            3 + f.parent.len() + f.allowed.len(),
+            "{kind:?}"
+        );
+    }
+    let want = reference_bag(&labels, &rules, &st, &d);
+    let (bag, _) = evaluate(&rules, &d, ResultKind::Bindings(BAG), Options::ALL, &st).unwrap();
+    assert_eq!(bindings(bag), want.into_iter().collect::<Vec<_>>());
+}
+
+/// No restricted side: nothing to reduce by, so the layout is unchanged.
+#[test]
+fn n_semijoin_without_a_restricted_side_changes_nothing() {
+    let f = family_data();
+    let (labels, rules) = resolved(&family::crepe_plan());
+    let st = store(&labels, &f, [1, 1, 1]);
+    let d = answer_demand(&labels, 17);
+    let only_semijoin = Options {
+        semijoin: true,
+        ..Options::NONE
+    };
+    let kind = ResultKind::Bindings(SET);
+    let (a, ra) = evaluate(&rules, &d, kind, only_semijoin, &st).unwrap();
+    let (b, rb) = evaluate(&rules, &d, kind, Options::NONE, &st).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(ra.rows_prepared, rb.rows_prepared);
+}
+
+/// A restricted side with no rows empties the star; the reference agrees.
+#[test]
+fn n_semijoin_with_an_empty_restricted_side_answers_nothing() {
+    let f = family_data();
+    let (labels, rules) = resolved(&family::crepe_plan());
+    let st = store(&labels, &f, [1, 1, 1]);
+    let d = answer_demand(&labels, 999);
+    let (on, rep) = evaluate(&rules, &d, ResultKind::Bindings(BAG), Options::ALL, &st).unwrap();
+    assert_eq!(bindings(on), Vec::<(Vec<u64>, u64)>::new());
+    assert!(reference_bag(&labels, &rules, &st, &d).is_empty());
+    assert_eq!(rep.rows_prepared, 0);
+}
+
+/// Two restricted sides: only the centers both have survive.
+#[test]
+fn n_semijoin_intersects_two_restricted_sides() {
+    let plan = two_way::crepe_plan();
+    let (labels, rules) = resolved(&plan);
+    // R(1, y): y in {10, 10, 11, 12}; S(y, 9): y in {10, 11, 13}.
+    let mut r: Vec<[u32; 2]> = vec![[1, 10], [1, 10], [1, 11], [1, 12], [2, 10]];
+    let mut s: Vec<[u32; 2]> = vec![[10, 9], [11, 9], [11, 8], [12, 7], [13, 9]];
+    for i in 0..50u32 {
+        r.push([100 + i, 200 + i]);
+        s.push([200 + i, 300 + i]);
+    }
+    let st = Store {
+        relations: vec![
+            (labels.id("R").unwrap(), &r, 1),
+            (labels.id("S").unwrap(), &s, 1),
+        ],
+    };
+    let d = Demand {
+        goal: labels.id("T").unwrap(),
+        bound: vec![Some(1), None, Some(9)],
+    };
+    let want = reference::eval(&rules, d.goal, &d.bound, &raw(&labels, &st));
+    assert_eq!(
+        want.clone().into_iter().collect::<Vec<_>>(),
+        vec![(vec![1, 10, 9], 2), (vec![1, 11, 9], 1)],
+        "fixture answer"
+    );
+    let kind = ResultKind::Bindings(BAG);
+    let (on, rep_on) = evaluate(&rules, &d, kind, Options::ALL, &st).unwrap();
+    let (off, rep_off) = evaluate(&rules, &d, kind, NO_SEMIJOIN, &st).unwrap();
+    assert_eq!(bindings(on.clone()), want.into_iter().collect::<Vec<_>>());
+    assert_eq!(on, off);
+    // y = 12 and y = 13 are each on one side only: dropped before layout.
+    assert_eq!(rep_on.rows_prepared, 3 + 2);
+    assert_eq!(rep_off.rows_prepared, 4 + 3);
+}

@@ -10,7 +10,8 @@ use mork_pathmap_probe::Semantics;
 use crate::logic::{RelId, Rule};
 use crate::mork_api::{MorkRefusal, QueryMulti, admit, query_multi};
 use crate::native::{
-    NativeRefusal, PreparedStar, StarPlan, Store, bindings_run, joint, prepare, star,
+    NativeRefusal, PreparedStar, StarPlan, Store, bindings_run, joint, prepare, prepare_semijoin,
+    star,
 };
 use crate::optimize::{Demand, Optimized, Options, ResultKind, optimize};
 
@@ -75,7 +76,16 @@ pub fn evaluate(
     let map_cost = t.elapsed();
 
     let t = Instant::now();
-    let prepared: Vec<PreparedStar> = stars.iter().map(|s| prepare(s, store)).collect();
+    let prepared: Vec<PreparedStar> = stars
+        .iter()
+        .map(|s| {
+            if opts.semijoin {
+                prepare_semijoin(s, store)
+            } else {
+                prepare(s, store)
+            }
+        })
+        .collect();
     let prepare_cost = t.elapsed();
 
     let t = Instant::now();
