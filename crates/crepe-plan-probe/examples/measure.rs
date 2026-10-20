@@ -89,7 +89,10 @@ fn main() {
         let plan = family::crepe_plan();
         let labels = Labels::of(&plan);
         let resolve_t = time(|| resolve(&plan, &labels));
-        let rules: Vec<Rule> = resolve(&plan, &labels).into_iter().map(|r| r.unwrap()).collect();
+        let rules: Vec<Rule> = resolve(&plan, &labels)
+            .into_iter()
+            .map(|r| r.unwrap())
+            .collect();
         let st = Store {
             relations: vec![
                 (labels.id("Parent").unwrap(), &parent, 1),
@@ -109,7 +112,12 @@ fn main() {
             let rows = |rel| {
                 let (r, _) = st.view(rel);
                 r.iter()
-                    .map(|x| x[..labels.arity(rel)].iter().map(|&v| u64::from(v)).collect())
+                    .map(|x| {
+                        x[..labels.arity(rel)]
+                            .iter()
+                            .map(|&v| u64::from(v))
+                            .collect()
+                    })
                     .collect()
             };
             reference::eval(&rules, demand.goal, &demand.bound, &rows)
