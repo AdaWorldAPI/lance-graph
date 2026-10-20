@@ -21,3 +21,4 @@
 
 pub mod fixtures;
 pub mod oracle;
+pub mod slots;
