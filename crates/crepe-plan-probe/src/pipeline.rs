@@ -9,7 +9,9 @@ use mork_pathmap_probe::Semantics;
 
 use crate::logic::{RelId, Rule};
 use crate::mork_api::{MorkRefusal, QueryMulti, admit, query_multi};
-use crate::native::{NativeRefusal, PreparedStar, StarPlan, Store, bindings, joint, prepare, star};
+use crate::native::{
+    NativeRefusal, PreparedStar, StarPlan, Store, bindings_run, joint, prepare, star,
+};
 use crate::optimize::{Demand, Optimized, Options, ResultKind, optimize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,17 +109,13 @@ pub fn evaluate(
     } else {
         let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
         for ((i, _), (s, p)) in optimized.rules.iter().zip(stars.iter().zip(&prepared)) {
-            let (run, prog) = joint(
-                p,
-                s,
-                &generations(s),
-                lance_graph_relalg::Measure::Count,
-                None,
-            )
-            .map_err(|w| native(*i, w))?;
+            // One program per rule: the Keep mask that the bindings are read
+            // from; no separate count pass.
+            let (rows, run, prog) =
+                bindings_run(p, s, &generations(s), true).map_err(|w| native(*i, w))?;
             programs_run += run.programs;
             programs.extend(prog);
-            for (row, m) in bindings(p, s, &generations(s), true).map_err(|w| native(*i, w))? {
+            for (row, m) in rows {
                 *bag.entry(row).or_insert(0) += m;
             }
         }

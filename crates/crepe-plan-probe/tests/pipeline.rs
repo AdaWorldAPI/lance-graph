@@ -224,6 +224,11 @@ fn b_the_bound_constant_reaches_the_body_and_the_dead_branch_is_dropped() {
         rep_off.rows_prepared
     );
     assert!(rep_on.programs_run < rep_off.programs_run);
+    // Each rule runs exactly one mask-risc program, even when bindings are read.
+    for rep in [&rep_on, &rep_off] {
+        assert_eq!(rep.programs_run, rep.optimized.rules.len());
+        assert_eq!(rep.programs.len(), rep.optimized.rules.len());
+    }
 }
 
 /// The other demand keeps the sponsor branch and specializes the family rule
@@ -347,6 +352,16 @@ fn e_a_stale_generation_and_a_value_outside_the_domain_are_refused() {
     let plan = star(&query_multi(&rules[0])).unwrap();
     let mut prep = prepare(&plan, &st);
     assert!(distinct_centers(&prep, &plan, &[1, 1, 1]).is_ok());
+    // One generation per side: a short vector does not skip the check.
+    for short in [&[][..], &[1, 1][..]] {
+        assert_eq!(
+            distinct_centers(&prep, &plan, short),
+            Err(NativeRefusal::Generations {
+                sides: 3,
+                given: short.len()
+            })
+        );
+    }
     assert_eq!(
         distinct_centers(&prep, &plan, &[1, 2, 1]),
         Err(NativeRefusal::Table(JoinRefusal::Stale {

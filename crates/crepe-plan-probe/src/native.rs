@@ -91,6 +91,12 @@ pub enum NativeRefusal {
     DomainMismatch {
         side: usize,
     },
+    /// The caller passed a generation vector of another length than the
+    /// table has sides; `JoinTable::check` would skip the missing ones.
+    Generations {
+        sides: usize,
+        given: usize,
+    },
     /// From the table: a stale generation, or rows outside the domain.
     Table(JoinRefusal),
     Relalg(RelError),
@@ -301,6 +307,12 @@ pub fn joint(
     keep: Option<&mut [u64]>,
 ) -> Result<(Run, Option<Program>), NativeRefusal> {
     prep.witness(plan)?;
+    if current.len() != prep.table.sides.len() {
+        return Err(NativeRefusal::Generations {
+            sides: prep.table.sides.len(),
+            given: current.len(),
+        });
+    }
     prep.table.check(current).map_err(NativeRefusal::Table)?;
     let masks: Vec<&[u64]> = prep.table.sides.iter().map(|s| s.present()).collect();
     let planes = Planes {
@@ -335,9 +347,22 @@ pub fn bindings(
     current: &[u64],
     bag: bool,
 ) -> Result<Vec<(Vec<u64>, u64)>, NativeRefusal> {
+    bindings_run(prep, plan, current, bag).map(|(rows, _, _)| rows)
+}
+
+/// Rows with multiplicities, the relalg run, and the program behind the mask.
+pub type BindingsRun = (Vec<(Vec<u64>, u64)>, Run, Option<Program>);
+
+/// [`bindings`], plus the relalg run and the program that produced the mask.
+pub fn bindings_run(
+    prep: &PreparedStar,
+    plan: &StarPlan,
+    current: &[u64],
+    bag: bool,
+) -> Result<BindingsRun, NativeRefusal> {
     let n = prep.table.domain.len();
     let mut mask = vec![0u64; words_for(n)];
-    joint(prep, plan, current, Measure::Keep, Some(&mut mask))?;
+    let (run, program) = joint(prep, plan, current, Measure::Keep, Some(&mut mask))?;
     let mut out: Vec<(Vec<u64>, u64)> = Vec::new();
     for_each_set(&mask, n, |slot| {
         let center = u64::from(prep.table.domain.id(slot));
@@ -388,7 +413,7 @@ pub fn bindings(
             e.1 = 1;
         }
     }
-    Ok(merged)
+    Ok((merged, run, program))
 }
 
 /// True when the program contains an op that reads at a position taken from

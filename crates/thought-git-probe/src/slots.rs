@@ -15,8 +15,9 @@
 //! 2. If the candidate is in a dependency chain, it is squashed instead of
 //!    lost: into its live parent, or, if it has none, its live child is
 //!    squashed into it (operator, same day: "Squashing if the least used are
-//!    in a dependency chain"). Nothing is discarded; the caller merges the
-//!    writes (`oracle::squash`).
+//!    in a dependency chain"). When that child is the new thought's parent,
+//!    the root is squashed into the child instead. Nothing is discarded; the
+//!    caller merges the writes, younger over older (`oracle::squash`).
 //! 3. Only a candidate with no live parent and no live child is evicted.
 //!
 //! A [`Slot`] handle carries the generation it was issued under. After its
@@ -47,11 +48,14 @@ pub struct Slot {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pressure {
     /// `from` was squashed into `into`; `from`'s handle is now stale. The
-    /// caller merges `from`'s writes over `into`'s.
+    /// caller merges the younger thought's writes over the older's: `from`
+    /// over `into`, unless `from_is_older` (a root squashed into its child
+    /// because that child is the new thought's parent).
     Squashed {
         thought: u32,
         from: Slot,
         into: Slot,
+        from_is_older: bool,
     },
     /// The thought had no live parent or child and gave way.
     Evicted { thought: u32, slot: Slot, uses: u64 },
@@ -198,6 +202,7 @@ impl SlotPool {
             thought: f.thought,
             from: self.handle(from, f.generation),
             into: self.handle(into, t.generation),
+            from_is_older: f.born < t.born,
         };
         if let Some(target) = self.live[into].as_mut() {
             target.uses += f.uses;
