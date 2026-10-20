@@ -1,3 +1,9 @@
+## 2026-10-20 — D-TGB harvest and D-MPS-9 groundwork (Haiku)
+
+- Five runs: `substrate-mapper` over MORK `kernel/src/space.rs` (47 items, six verb bodies verbatim), over `mork-pathmap-probe/src` (267 items), over `lance-graph-quack/src` (201 rows); `harvest-scout` for the write-path symbols (GadamerRevision, pearl, MUL gates, `advance_on_gate`, `LanceCycleWriter`, `EpistemicState5`); `census-counter` (`nal_inventory.tsv` 115 rows / 115 ids, `KanbanColumn` 6, `RevisionKind` 9, `EvidentialEffect` 3, probe tests 42).
+- Checks on the main thread: `nal_inventory.tsv` count and the probe test counts re-run (equal); `add_sexpr` 900, `query_multi` 1116, `lower` 1383, `lower_group_by` 1407, `Refusal` at boundary.rs:41 and rmap.rs:84 read at the source (equal); `advance_on_gate` recount 58 against 59 lines in the harvest file (the extra line is the pattern header).
+- Misses: one MORK mapper run returned BRIEF-INCOMPLETE (asked for a caller space; resumed with "none"); the quack mapper left a stray scratch file (removed) and self-reported one typo in a mentions column. Retired: none. Written by the orchestrating main thread only.
+
 ## 2026-10-20 — synergy map #1592–#1626 and board catch-up for #1621–#1626 (Haiku)
 
 - Round 1 (#1592–#1624): seven substrate-mapper runs over about 8 700 lines of plans, research docs and probe code; one harvest of board rows. Four claims re-read at the source, all held. A few off-by-one line numbers and one stray placeholder, self-reported.
