@@ -1,3 +1,31 @@
+## 2026-10-20 — recursive-perspective-rebinding-v1 — WORLD × ANGLE × THOUGHT over composable relational registers → `.claude/plans/recursive-perspective-rebinding-v1.md`
+
+**Status:** D-RPR-0 PROPOSED, LAB ONLY, documentation only; D-RPR-1 not authorized; D-RPR-2/3 BLOCKED (D-TGA-3, D-ASM-4).
+
+- The navigation terms map onto existing components: WORLD = sealed version with thought 0 as givens; ANGLE = focus binding + prepared relation planes (+ proposed map palettes); THOUGHT = sparse deltas over one shared frame.
+- The addressing operation is the measured H14c/H14d canon `Thought(t)[T_a[i] : T_b[i]]`; the global → local binding it needs is admission A1 (D-RMAP-1 §6), still open.
+- Rebind exists and is measured (D-RMAP-1A §8.4): it pays for small k only, so the open quantity is the k distribution along real question chains. Hypothesis H1: a frame's escapes seed the next angle.
+- MeTTa operations sorted into four classes from the existing polyfill classification and Decision H.
+
+## 2026-10-20 — relstore-quack-petgraph-traversal-v1 (reframed) — compiled relational geometry and amortization; petgraph optional → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
+
+**Status:** D-RST-0..9 LAB EXPLORATION, not admitted to production; no production code may be rewired to it (operator, 2026-10-20); documentation only. Operator correction (2026-10-20): the goal is reusable relational geometry amortized across front ends and thought versions; petgraph is an optional consumer (D-RST-3 OPTIONAL / DEFERRED / MEASUREMENT-GATED); tile GEMM consumes prepared layouts and does not obtain them.
+
+- Critical path: D-RST-9 (native borrowed views, no petgraph) → D-RST-1 → 2 → 4 → 5 → 6 → 7. Off it: D-RST-3, D-RST-8 (A2), F-PG, F8 path D.
+- New §5b: three costs (preparation, execution, maintenance) measured apart; break-even from measured values only; Boolean existence vs BF16 multiplicity, with the BF16 exactness bound (integers to 256).
+- New F8: four execution paths on one relation, cold/warm, 1/8/64 thoughts, sparse to hub distributions.
+- Prior art named: the planner's `AdjacencyStore`/`AdjacencyBatch` (pattern CSR + CSC, borrowed, no-`Copy`) is the starting point for D-RST-9; no fourth owned CSR type.
+- Supersedes the entry below on framing only; its ownership decisions stand.
+
+## 2026-10-20 — relstore-quack-petgraph-traversal-v1 — stored relations, compiled traversal, petgraph over borrowed layouts → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
+
+**Status:** D-RST-0..8 PROPOSAL; documentation only. Operator decision B (2026-10-20): RelationshipMapStore owns persistence, layouts, domains, seals and invalidation; Quack compiles; mask-risc executes. D-RMAP-1A §1 and the 2026-10-05 storage-portability ruling are unchanged.
+
+- The store satisfies Quack's existing `Registrar` seam; derived relations stay queryable relations with multiplicity, provenance and dependencies; versions are `DurableRef` / `ThoughtCommitId`, and the coordinate domain is itself a relation, so its seal needs no counter.
+- petgraph: a borrowed `RelView` implementing `GraphBase`/`IntoNeighbors`/`Visitable`/`NodeIndexable` runs unmodified `Bfs`/`Dfs`; batched cursors and a typed traversal vocabulary compile to Quack.
+- Finding: multi-hop over a large domain is blocked by scatter (push) as well as gather (pull); the tile is the only admitted shape (within a focus). Admissions A1 (global→local binding), A2 (large-domain multi-hop), A3 (scalar petgraph iteration) are open.
+- The existing petgraph `lance-fold-hop` experiment consumes the quarantined `OutgoingHop`; the plan does not build on it.
+
 ## 2026-10-19 — mork-pathmap-schnellverschluss-v1 — MORK / PathMap behind one replaceable boundary → `.claude/plans/mork-pathmap-schnellverschluss-v1.md`
 
 **Status:** D-MPS-0/1 MEASURED (probe, results only); D-MPS-2..5 upstream PROPOSALS; D-MPS-6 BLOCKED; D-MPS-7 OPEN.
