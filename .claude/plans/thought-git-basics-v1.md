@@ -139,6 +139,12 @@ Later, and only as possibilities (operator, 2026-10-20: "openpsi soll eventuell 
 
 A petgraph API is an optional usability layer on top, not a storage format or an executor, as in `relstore-quack-petgraph-traversal-v1.md` (point 1 there). The existing petgraph experiment rests on the quarantined `OutgoingHop` gather and is not a precedent (same plan, point 2).
 
+**Addressing the crates directly is allowed first** (DECISION, operator, 2026-10-20: "Du kannst alternativ gerne direkt die crates ansprechen das ist für das Internet Timing erstmal besser"). The first runs may call the engine crates directly (`lance-graph-act-r`, `datafrog`, `lance-graph-relalg`, `lance-graph-mask-risc`, `lance-graph-metta`, `lance-graph-nal`) instead of waiting for the verb trait in the contract. This is a sequencing choice, not a change of target:
+
+- the reusable API and its drivers stay the target (D-TGB-7); the direct calls are its first callers, and they move behind the verbs once the trait exists;
+- "Polyfill, never legacy" still holds: every crate named above is on the polyfill stack, so calling it directly adds no legacy path;
+- the driver-independence falsifier applies from the moment the verb trait exists, not before; until then a direct-call run is checked against the `datafrog` oracle alone.
+
 **Placement (PROPOSAL).** Following the convention, types live in the contract and execution in mask-risc / quack:
 
 - the verb trait, the slot, receipt, `DurableRef`, `ThoughtCommitId` and the readings (`status`, anomaly signals) go into `lance-graph-contract` (zero-dep), so every driver depends only on the contract;
@@ -186,7 +192,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 - [ ] **D-TGB-5 Reads are resident folds.** `checkout`, `log`, `diff` and `blame` fold over the resident sparse records.
   - Falsifier: each equals the from-scratch oracle; `diff` across two durable versions also equals Lance's `delta()`.
   - No Lance read on the hot path (rule 4).
-- [ ] **D-TGB-7 The reusable API and the first driver.** The verb trait and its types in the contract, one implementation crate, and a phase-1 driver: an `ogar-loco` program or an `ActionDef` (section "The reusable git API and its drivers"). The ACT-R adapter is phase 2.
+- [ ] **D-TGB-7 The reusable API and the first driver.** First runs may call the engine crates directly (section "Addressing the crates directly is allowed first"). The verb trait and its types in the contract, one implementation crate, and a phase-1 driver: an `ogar-loco` program or an `ActionDef` (section "The reusable git API and its drivers"). The ACT-R adapter is phase 2.
   - Falsifier: driver independence, as stated in that section.
   - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
 - [ ] **D-TGB-8 The abstraction API.** Datalog rules over the metadata table run by `datafrog`, and ACT-R `Candidate` / intent as the decision vocabulary (section "The abstraction API: datafrog asks, ACT-R chooses").

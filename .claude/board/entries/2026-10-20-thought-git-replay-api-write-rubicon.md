@@ -15,3 +15,5 @@
 - Reasoning state (relalg, Datalog, datafrog), git metadata (PR entries) and replay receipts live in one separate table keyed by (data dataset, data version, thought id), so the data table and the metadata table do not depend on each other's schema. OPEN: the two writes are two Lance versions and not atomic together; data first, then metadata, and a missing metadata row is detected at replay.
 
 OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a write; card granularity.
+
+**Addendum (operator, 2026-10-20):** "Du kannst alternativ gerne direkt die crates ansprechen das ist für das Internet Timing erstmal besser". DECISION: first runs may call the engine crates (act-r, datafrog, relalg, mask-risc, metta, nal) directly; the verb trait stays the target and they move behind it once it exists. Polyfill-never-legacy is unaffected. Plan: `thought-git-basics-v1.md`, section "Addressing the crates directly is allowed first".
