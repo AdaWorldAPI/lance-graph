@@ -13,3 +13,5 @@
 OPEN: measuring that policy; the `edge.rs` "0 = no corpus anchor" doc line, to correct with D-TGA-1.
 
 Correction (2026-10-20, review #1628): two readings of bits 53..58 exist in code. `deepnsm-v2/src/wire.rs` follows `w_slot` as a witness pointer that ends at 0; `MailboxSoA::apply_edges` filters on it as the mailbox's corpus and has no production caller. Which reading owns the bits is OPEN (operator); the pointer-graph policy assumes the witness reading.
+
+Correction (2026-10-20, operator): the reading is not open. W = thought layer 0..63 was decided on 2026-10-17 (#1597, epistemic-frontier capstone; 0 givens = main, 1..63 hypotheses). The mailbox corpus filter and `deepnsm-v2`'s `WitnessTable` index are competing readers to migrate (capstone §8 row 2), not candidate readings. The "operator decision OPEN" line above is struck.

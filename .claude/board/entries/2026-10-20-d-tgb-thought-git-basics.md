@@ -12,3 +12,5 @@
 OPEN: card granularity (mailbox card or per-move card); the PR entry under MemWAL; Datalog awareness later.
 
 Correction (2026-10-20, review #1628): `LanceCycleWriter` commits one batch per supervisor cycle, so every `Commit` in a cycle coalesces into one batch and one version; a landed thought is (version, thought id within the batch). D-TGB-2 is blocked on the `w_slot` reading decision.
+
+Correction (2026-10-20, operator): D-TGB-2 is not blocked. W = thought layer 0..63 is the 2026-10-17 decision (#1597); D-TGB-2 carries the migration of the competing readers (`MailboxSoA::apply_edges`, `deepnsm-v2`'s `WitnessTable` index).

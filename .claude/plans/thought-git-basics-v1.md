@@ -57,7 +57,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
   - Edges: with 63 slots taken the crossing is refused, never given a 65th slot.
   - Disables: free on `Evaluation`; allocate at `Planning`.
 - [ ] **D-TGB-2 Witness pointers.** `w_slot` (CE64 bits 53..58) qualified by the frame's base version (0) or the slot's generation (1..=63). The rewrite rules are #1628's.
-  - Blocked on the reading decision in D-TGA's correction, item 2: `MailboxSoA::apply_edges` reads the same bits as the mailbox's corpus and drops edges that point elsewhere. D-TGB-2 does not change `apply_edges` before that decision.
+  - W = thought layer is already decided (DECISION 2026-10-17, #1597). D-TGB-2 includes migrating the competing readers named in D-TGA's correction, item 2: `MailboxSoA::apply_edges` (its corpus filter moves to `SoaEnvelope::mailbox_owner`) and `deepnsm-v2`'s `WitnessTable` index.
   - Falsifiers: after `Commit`, no live edge carries the landed slot; an edge from a recycled slot's old generation is refused.
 - [ ] **D-TGB-3 `Commit` lands through `LanceCycleWriter`.** The writer's commit boundary is the supervisor cycle, not the thought: it accepts one frozen batch per cycle and refuses a different batch for the same cycle (`HashConflict`). So every `Commit` reached in one cycle is coalesced into that cycle's single sparse batch (split-tunnel rules 1–3) and one Lance version, reconciled by the existing `(cycle, batch_hash)` path. A landed thought's PR entry is (version, thought id within the batch). `DurableRef` = dataset + `Ref::Version(branch, version)`. This gives `KanbanColumn::Commit` its missing calcify step.
   - Falsifiers: an empty cycle writes nothing; two thoughts landing in one cycle produce one version holding both; a re-submitted batch reconciles; two Lance branches both at version 7 are told apart.
@@ -76,8 +76,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 ## Open
 
 - **Card granularity.** Is the kanban card that owns a slot the mailbox's card, or one card per move inside a mailbox? `KanbanColumn` is per mailbox today.
-- **Which reading owns `w_slot`.** Witness pointer (`deepnsm-v2` wire) or mailbox corpus (`MailboxSoA::apply_edges`); D-TGA correction, item 2. Blocks D-TGB-2.
-- **Squash or land under slot pressure.** WORKING-MODEL in D-TGA: the `w_slot` pointer graph decides (topological land order, cycles squash first), under the witness reading.
+- **Squash or land under slot pressure.** WORKING-MODEL in D-TGA: the `w_slot` pointer graph decides (topological land order, cycles squash first).
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.
 - **Later:** Datalog awareness over thoughts and receipts.
 
