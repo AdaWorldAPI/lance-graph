@@ -261,34 +261,39 @@ Docs and data merged in #1601–#1617 that this plan owns. They are reading note
 
 ## Correction: the slot axis and the witness pointer (2026-10-20)
 
-**Status:** DECISION (operator, 2026-10-20). Supersedes the "Axis" bullet above and the "beside the rung lanes" wording of D-TGA-1. **Basis:** VERIFIED-IN-CODE for the pointer width (`crates/causal-edge/src/layout.rs`, const `W_SHIFT`, value 53, 6 bits; `edge.rs`, `CausalEdge64::w_slot`, 0..=63).
+**Status:** DECISION (operator, 2026-10-20). Supersedes the "Axis" bullet above and the "beside the rung lanes" wording of D-TGA-1. **Basis:** VERIFIED-IN-CODE for the field width (the heading's "witness pointer" is kept as the section's address; W names a lane, item 2) (`crates/causal-edge/src/layout.rs`, const `W_SHIFT`, value 53, 6 bits; `edge.rs`, `CausalEdge64::w_slot`, 0..=63).
 
 In short: thinking with a git API, at the cost of a sparse write and a merge on read.
 
 1. **The axis is 64 thought slots.** One shared allocation; slot 0 is main, slots 1..=63 are allocated on demand to any thought (a hypothesis, an instantiated MeTTa / Atomese template, a branch of either). 64 is a budget ceiling, not a target: like a limit on git branches, it allows up to 64 thoughts and requires none (operator, 2026-10-20). Rung is not an axis: it is a level implied by a claim, carried by `AlphaStamp.rung`, and it can change within one thought session. `AlphaTunnel`'s ten rung lanes (`alpha_tunnel.rs`) are the superseded first cut; the 2026-10-12 CE64 plateau entry already listed them as a conflict ("10 rung lanes, not a 64-lane budget"). D-TGA-1 replaces them; it does not add a thought axis beside them. Merge order becomes slot and claim order, not rung order.
-2. **Why 64: the slot number travels in every causal edge.** CE64 bits 53..58 (`w_slot`) hold the slot a claim refers to, so thoughts can reference each other's results. 64 is the pointer width, not only a size limit; more slots would be a CE64 layout change.
+2. **Why 64: the slot number travels in every causal edge.** CE64 bits 53..58 (`w_slot`) name the thought the state belongs to. They name a lane and point nowhere (capstone § "Why presence bits replace references"). 64 is the field width, not only a size limit; more slots would be a CE64 layout change.
+   - ⊘ Struck (2026-10-20, operator): "hold the slot a claim refers to, so thoughts can reference each other's results" and "pointer width". W is not a reference between thoughts. What a delta rests on is its source bitset (D-HL-3); how it was derived is the thought's program, held in its lane (2026-10-17 clicks entry, click 1).
    - **Already decided: W is the thought layer, 0..63** (DECISION 2026-10-17, #1597; `.claude/knowledge/epistemic-frontier-capstone.md` §2, field table row 53..58: "0 givens, 1..63 hypotheses"). Slot 0 = givens = main; the witness is the thought. This correction applies that decision; it does not open it again.
    - ⊘ Struck (2026-10-20, operator): an earlier version of this item (`1137bc0`) recorded "two readings" and called the ownership of bits 53..58 an open operator decision. That was wrong: the capstone already lists the other readings as competing readers to migrate (§8 row 2), not as candidates.
    - **Competing readers still in code (migration, not a decision):** `MailboxSoA::apply_edges` (`cognitive-shader-driver/src/mailbox_soa.rs`) filters on `w_slot` as the mailbox's corpus and drops edges that point at another thought — no production caller (its own tests, `substrate_sanity.rs`, two probes); `deepnsm-v2`'s `WitnessTable<64>` index (`wire.rs`, test `w_walks_the_statement_arc_backwards`) and `witness_table.rs`, which carries a VIOLATION banner from #1597; `forward` / `syllogize` return W = 0 (PROBE-W-PRESERVE). Each moves to the thought-layer reading; the mailbox's corpus moves to `SoaEnvelope::mailbox_owner`.
-3. **Slot 0 is main: the merged state the frame starts from.** `w_slot = 0` points at main as of the frame's base version. The `edge.rs` doc line "0 = no corpus anchor" is stale under this reading and should say so when D-TGA-1 touches it.
-4. **The ceiling.** When no slot is free, a new thought requires `squash_into` (several thoughts fold into one slot) or `land` (a thought becomes one Lance version and frees its slot). Never a 65th slot. Which to choose follows from the pointer graph, below.
-5. **Pointers follow the slot lifecycle.**
-   - `land` rewrites every surviving `w_slot = k` pointer to 0: the landed cells are now main.
-   - `squash_into` rewrites pointers at a folded slot to the surviving slot.
-   - A 6-bit pointer is read only together with its qualifier: the frame's base version for 0, the slot's generation for 1..=63. `rebase` moves the base forward.
+3. **Slot 0 is main: the merged state the frame starts from.** `w_slot = 0` names main as of the frame's base version. The `edge.rs` doc line "0 = no corpus anchor" is stale under this reading and should say so when D-TGA-1 touches it.
+4. **The ceiling.** When no slot is free, a new thought requires `squash_into` (several thoughts fold into one slot) or `land` (a thought becomes one Lance version and frees its slot). Never a 65th slot. Which to choose is OPEN, below.
+5. **The lane label follows the slot lifecycle.**
+   - `land` relabels the landed cells from `w_slot = k` to 0: they are now main (the merge is W's writer, capstone field table).
+   - `squash_into` relabels the cells of a folded slot to the surviving slot.
+   - A 6-bit label is read only together with its qualifier: the frame's base version for 0, the slot's generation for 1..=63. `rebase` moves the base forward.
    - `ThoughtCommitId` is never reused: slot numbers recycle, the identity behind them must not.
 6. **Cost model.** Branch, write, diff, status and rebase are resident mask algebra with no Lance call. `land` pays one sparse append, coalesced per supervisor cycle: every thought that lands in one cycle goes into the same batch and the same Lance version, because `LanceCycleWriter` accepts one batch per cycle (a second, different batch for the same cycle is `HashConflict`). A landed thought is addressed as (version, thought id within the batch); reads (`checkout`, `log`, `diff`, pickaxe, `blame`) are folds over the resident sparse records, newest wins by append order; Lance is read once, at replay (`.claude/knowledge/split-tunnel-sparse-append-resident-fold.md`). Those figures are measured in HubSPO-rs, not on thoughts.
 
-**Derived from the pointers (WORKING-MODEL, 2026-10-20; not yet measured).** The `w_slot` values in the live edges form a directed graph between slots: an edge in thought a with `w_slot = b` means a builds on b. That graph decides the slot policy, so it does not need a separate one:
+**Squash or land: OPEN (2026-10-20).** Which thoughts to squash or land under slot pressure is not decided and not measured. It must read the presence bits, never a pointer: a thought's dependence on another is visible in the source bitsets of its deltas (D-HL-3) and in the per-row written-by words, and every count is a popcount over those. A policy is a separate dated section with its own falsifier.
 
-- **Reference count = one fold.** For each slot, count the live edges whose `w_slot` equals it: a 6-bit equality over the edge column, co-addressed, no gather. A slot with count 0 that no one builds on can be discarded or landed without rewriting any pointer.
-- **Land order is topological.** A thought can land only after every live slot it points to has landed (its pointers then become 0) or is squashed into it. Landing a thought whose dependee stays live would leave a pointer to a speculative slot inside main.
-- **Mutually referencing thoughts squash together.** A cycle in the graph cannot land in any order, so a strongly connected group is squashed into one slot first. Under slot pressure, the squash candidates are exactly these groups; independent leaves are landed or discarded.
-- **Conflicts travel along the graph.** A thought that builds on a conflicted thought is itself not clean; `status` reports it as dependent-conflicted.
-- **The same graph is `MergeQueue`'s order.** The negated-read strata of D-TGA-6 are edges of this graph; FIFO is never the order.
+> ⊘ Struck (2026-10-20, operator): the WORKING-MODEL below read W as a dependency pointer ("an edge in thought a with `w_slot = b` means a builds on b") and derived reference counts, topological land order, cycle squashing and conflict propagation from that graph. W names a lane and points nowhere (capstone § "Why presence bits replace references"), so the graph it describes does not exist. Kept for the record:
+>
+> **Derived from the pointers (WORKING-MODEL, 2026-10-20; not yet measured).** The `w_slot` values in the live edges form a directed graph between slots: an edge in thought a with `w_slot = b` means a builds on b. That graph decides the slot policy, so it does not need a separate one:
+>
+> - **Reference count = one fold.** For each slot, count the live edges whose `w_slot` equals it: a 6-bit equality over the edge column, co-addressed, no gather. A slot with count 0 that no one builds on can be discarded or landed without rewriting any pointer.
+> - **Land order is topological.** A thought can land only after every live slot it points to has landed (its pointers then become 0) or is squashed into it. Landing a thought whose dependee stays live would leave a pointer to a speculative slot inside main.
+> - **Mutually referencing thoughts squash together.** A cycle in the graph cannot land in any order, so a strongly connected group is squashed into one slot first. Under slot pressure, the squash candidates are exactly these groups; independent leaves are landed or discarded.
+> - **Conflicts travel along the graph.** A thought that builds on a conflicted thought is itself not clean; `status` reports it as dependent-conflicted.
+> - **The same graph is `MergeQueue`'s order.** The negated-read strata of D-TGA-6 are edges of this graph; FIFO is never the order.
 
 D-TGA-1's falsifiers gain two, both pre-registered here:
-- after `land`, no live edge carries the landed slot number;
+- after `land`, no live cell carries the landed slot number;
 - after a slot is recycled, an edge written against its previous generation is refused, never read as the new thought.
 
 The basics that lead to the ideal state (no stale branches, Rubicon-driven branch decisions, squash/prune/GC as kanban outcomes, replayable thoughts) are planned in [`thought-git-basics-v1.md`](thought-git-basics-v1.md) (D-TGB-0..6).

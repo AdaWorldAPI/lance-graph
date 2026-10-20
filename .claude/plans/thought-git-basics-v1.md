@@ -24,7 +24,7 @@ This plan starts from the ideal state and plans only the basics that lead to it.
 | the Rubicon crossing | `Planning → CognitiveWork` | the conscious branch decision: `branch()` takes a slot |
 | actional | `CognitiveWork` | `write` / `diff` in the slot |
 | postactional | `Evaluation` | `status` / `rebase` against main |
-| outcome | `Commit` (absorbing) | `land`: one sparse batch, pointers rewritten to 0, slot freed |
+| outcome | `Commit` (absorbing) | `land`: one sparse batch, landed cells relabelled to 0, slot freed |
 | outcome | `Plan` (re-enters `Planning`, carrying the witness) | re-plan: the work folds into a new thought (`squash_into`), slot freed |
 | outcome | `Prune` (absorbing; also `Planning → Prune`, the pre-Rubicon veto) | `discard`, slot freed |
 
@@ -56,7 +56,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
   - Falsifier: no slot exists without a live card, so a stale branch is unrepresentable.
   - Edges: with 63 slots taken the crossing is refused, never given a 65th slot.
   - Disables: free on `Evaluation`; allocate at `Planning`.
-- [ ] **D-TGB-2 Witness pointers.** `w_slot` (CE64 bits 53..58) qualified by the frame's base version (0) or the slot's generation (1..=63). The rewrite rules are #1628's.
+- [ ] **D-TGB-2 Lane labels.** `w_slot` (CE64 bits 53..58) names the thought a state belongs to, qualified by the frame's base version (0) or the slot's generation (1..=63); it is not a pointer between thoughts. The relabel rules are #1628's.
   - W = thought layer is already decided (DECISION 2026-10-17, #1597). D-TGB-2 includes migrating the competing readers named in D-TGA's correction, item 2: `MailboxSoA::apply_edges` (its corpus filter moves to `SoaEnvelope::mailbox_owner`) and `deepnsm-v2`'s `WitnessTable` index.
   - Falsifiers: after `Commit`, no live edge carries the landed slot; an edge from a recycled slot's old generation is refused.
 - [ ] **D-TGB-3 `Commit` lands through `LanceCycleWriter`.** The writer's commit boundary is the supervisor cycle, not the thought: it accepts one frozen batch per cycle and refuses a different batch for the same cycle (`HashConflict`). So every `Commit` reached in one cycle is coalesced into that cycle's single sparse batch (split-tunnel rules 1–3) and one Lance version, reconciled by the existing `(cycle, batch_hash)` path. A landed thought's PR entry is (version, thought id within the batch). `DurableRef` = dataset + `Ref::Version(branch, version)`. This gives `KanbanColumn::Commit` its missing calcify step.
@@ -76,7 +76,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 ## Open
 
 - **Card granularity.** Is the kanban card that owns a slot the mailbox's card, or one card per move inside a mailbox? `KanbanColumn` is per mailbox today.
-- **Squash or land under slot pressure.** WORKING-MODEL in D-TGA: the `w_slot` pointer graph decides (topological land order, cycles squash first).
+- **Squash or land under slot pressure.** OPEN. It reads presence bits (the deltas' source bitsets, D-HL-3, and the written-by words), never `w_slot` as a pointer. ⊘ Struck 2026-10-20: "the `w_slot` pointer graph decides"; W names a lane and points nowhere.
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.
 - **Later:** Datalog awareness over thoughts and receipts.
 
