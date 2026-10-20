@@ -1,5 +1,7 @@
 # D-RMAP-2: context declaration reuse and a GraphBLAS/BF16 tile probe
 
+**LAB EXPLORATION ONLY (operator, 2026-10-20): nothing here is admitted to production, and no production code may be rewired to it. Unfit to promote until further testing.**
+
 **Status: PROPOSAL / PREREGISTERED TEST DESIGN, 2026-10-19.** No runtime, ABI, dependency, opcode, CE64 interpretation or performance result is added. Extends [D-RMAP-1](d-rmap-implicit-relationship-register-v1.md) and its controlling [D-RMAP-1A ownership correction](d-rmap-separate-tables-thought-palettes-v1.md).
 
 
