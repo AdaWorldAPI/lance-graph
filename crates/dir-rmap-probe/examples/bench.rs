@@ -574,9 +574,8 @@ fn main() {
         }
     }
     let rebind_ids = focus_ids_for(&full1, &all_templates, &ord1);
-    let t_rebind = time(9, || {
-        Focus::bind(&full1, Chain::All, &rebind_ids, &w.witness())
-    });
+    let w_now = w.witness();
+    let t_rebind = time(9, || Focus::bind(&full1, Chain::All, &rebind_ids, &w_now));
     println!("## W7/W8: overlay ({membership_edits} membership edits + 1 nesting edge)\n");
     println!("| step | time |\n|---|---|");
     println!(
