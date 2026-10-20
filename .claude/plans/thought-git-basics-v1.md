@@ -218,10 +218,13 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
   - Falsifier: driver independence, as stated in that section.
   - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
 - [ ] **D-TGB-8 The abstraction API.** Datalog rules over the metadata table run by `datafrog`, and ACT-R `Candidate` / intent as the decision vocabulary (section "The abstraction API: datafrog asks, ACT-R chooses").
-- [ ] **D-TGB-9 Kanban planning vocabulary (later).** A fast planning API over Quack-shaped folds (section "Kanban gets a planning vocabulary later"); its verbs are OPEN.
-- [ ] **D-TGB-10 Folded `datafrog` rules.** The D-TGB-8 rules run as H14d stages (logic → address mask → masked read → terminal) over the metadata table, against `datafrog`; no gather; recursion stays on `datafrog` until D-MTP-3 (section "Optimizing `datafrog` through Quack and the folding polyfill").
   - Falsifier: rule answers equal a direct scan; recorded intents replayed as verb calls reproduce the run byte for byte.
   - Disable: answer one rule with a hand-written loop that skips the source relation; the scan oracle must then disagree.
+- [ ] **D-TGB-9 Kanban planning vocabulary (later).** A fast planning API over Quack-shaped folds (section "Kanban gets a planning vocabulary later"); its verbs are OPEN.
+  - Falsifier: as stated in its section (planning API == hand-written Quack `Query`; no allocation proportional to card count).
+- [ ] **D-TGB-10 Folded `datafrog` rules.** The D-TGB-8 rules run as H14d stages (logic → address mask → masked read → terminal) over the metadata table, against `datafrog`; no gather; recursion stays on `datafrog` until D-MTP-3 (section "Optimizing `datafrog` through Quack and the folding polyfill").
+  - Falsifier: the folded answer equals `datafrog`'s bag of tuples on every fixture; costs reported, no threshold before the run.
+  - Disable: drop one presence plane from the address mask; the bag must then differ.
 - [ ] **D-TGB-6 MemWAL arm, behind a switch.** The same `Commit` path into a MemWAL shard per mailbox (`identity_sharding` on the owner), with compaction and garbage collection as a separate job.
   - Enabled only from the measured crossover (about 1,024 casts per cycle).
   - Reads stay resident folds, never MemWAL's DataFusion scanner (DataFusion is in its grace period).
