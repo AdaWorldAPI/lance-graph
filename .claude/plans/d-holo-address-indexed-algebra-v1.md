@@ -1207,3 +1207,10 @@ operation.
    the tables its program selects.
 7. The follow-up falsifier is **H14c** (thought-first positional reads, Hamming
    presence, Lance 13 masked I/O), run on its own branch and PR.
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2408.10592_hologram_is_a_graph_theorem_matches_must_preserve_witnesses.md`](../../.arxiv/2408.10592_hologram_is_a_graph_theorem_matches_must_preserve_witnesses.md) (#1601): arXiv:2408.10592 — Hologram is a graph: theorems need matched witnesses
+- [`.arxiv/2606.24948_superposition_capacity_breaks_two_hop_retrieval.md`](../../.arxiv/2606.24948_superposition_capacity_breaks_two_hop_retrieval.md) (#1601): arXiv:2606.24948 — Global superposition breaks two-hop retrieval before composition

@@ -1,5 +1,7 @@
 # Philosophy in the Light of AI: Hegel or Leibniz
 
+> **Plan and board (2026-10-20):** owned by [`dialectic-engine-v1`](../.claude/plans/dialectic-engine-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1610.
+
 **Author:** Sjoerd van Tuinen  
 **Journal:** *Angelaki: Journal of the Theoretical Humanities*, 25(4), 97–109 (2020)  
 **DOI:** https://doi.org/10.1080/0969725X.2020.1790838  

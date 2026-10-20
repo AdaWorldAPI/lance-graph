@@ -248,3 +248,11 @@ specified here yet:
 
 The PR-record open item above also decides whether a landed thought that
 writes several datasets has one `DurableRef` per dataset (D-RMAP §7.6.3).
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2512.17373_dialectics_algorithmic_determinations_excess_information_grounds.md`](../../.arxiv/2512.17373_dialectics_algorithmic_determinations_excess_information_grounds.md) (#1611): Dialectics for Artificial Intelligence: reversible concepts, excess and grounds
+- [`docs/research/34-reasoning-recipes-lance-graph-plan.md`](../../docs/research/34-reasoning-recipes-lance-graph-plan.md) (#1609): 34 reasoning tactics: source and Lance-graph wiring
+- [`docs/research/versioned-semantic-candidates-64-thoughts-rfc.md`](../../docs/research/versioned-semantic-candidates-64-thoughts-rfc.md) (#1604): Versioned semantic candidates over 64 thoughts: admission, resolution, and replay

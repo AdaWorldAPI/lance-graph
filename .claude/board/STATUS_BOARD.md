@@ -13,6 +13,18 @@ Plan `mork-pathmap-schnellverschluss-v1.md`; entry `entries/2026-10-19-mork-path
 | D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` | BLOCKED (`RelationOrder` not built) | no copy, or the copy stated |
 | D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | OPEN | probe vendors nothing |
 
+## Plan links for #1601–#1617 (2026-10-20)
+
+Entry `entries/2026-10-20-prs-1601-1617-plan-links.md`. Each docs or data artifact now names its owning plan, and each owning plan lists it.
+
+| Item | Scope | Status | Evidence |
+|---|---|---|---|
+| — | arXiv HGR / superposition notes (#1601) → D-HOLO plans; Cartesian self-model and Moore notes (#1602) → H14c, ce64-hypothesis-layers | LINKED | back-link under each title; `Connected sources` section in each plan |
+| — | language LEGO (#1603), qualia anchors (#1607, #1608), GASM and semantic-map bookmarks (#1611) → `ce64-grammar-wiring-v1` | LINKED | as above |
+| — | 34 recipes (#1609) → `alpha-channel-rung-overlay-v1`, `thought-git-api-v1`; Hegel / Leibniz / dialectics notes (#1610, #1611) → `dialectic-engine-v1` | LINKED | as above |
+| — | Hyperon (#1611) → `metta-datalog-assimilation-v1`; SMASH → H14d; distributed WCOJ → H14c; decorative CoT → `octopus-causal-cot-audit-v1`; meta-uncertainty → `jc-sbi-counterfactual-integration-v1` | LINKED | as above |
+| — | ACT-R crate (#1615) → D-JCSBI-3; `graph_hop.rs` (#1616) doc names `.claude/board/ISSUES.md` | LINKED | no plan owns the crate itself (open) |
+
 ## Post-merge recovery for #1601–#1617 (2026-10-19)
 
 These PRs merged with no board rows. Every row below is a PROPOSAL (documents and fixtures) unless it says otherwise. Entry: `entries/2026-10-19-post-merge-recovery-1601-1617.md` (review-thread reconciliation).
@@ -36,7 +48,7 @@ These PRs merged with no board rows. Every row below is a PROPOSAL (documents an
 | D-RST-8 | multi-hop over a large domain | BLOCKED on admission A2 | — |
 | D-RST-9 | native borrowed relation views without petgraph: n-ary sorted permutations as ranges, pattern CSR/CSC as the binary case, stable fact ids, version pin, not `Copy`; starts from the planner's `AdjacencyStore`/`AdjacencyBatch` | LAB ONLY, not admitted to production; Queued (critical path, first) | F1: oracle equality, zero copies, compaction-stable ids, stale and out-of-domain refusals |
 | D-RPR-0 | recursive perspective rebinding: architectural distillation (`recursive-perspective-rebinding-v1.md`) | LAB ONLY, not admitted to production; PROPOSED; documentation only | claims graded IMPLEMENTED / MEASURED / PROBE / PROPOSED / OPEN against origin/main |
-| D-RPR-1 | recursive question-chain probe over one corpus: escapes seed the next angle (H1), `rebind` vs full prepare vs no frame vs MORK oracle | LAB ONLY; not authorized (waits on admission A1 and an operator go) | exact parity; named refusal per failure case; marginal cost per angle with its crossover |
+| D-RPR-1 | recursive question-chain probe over one corpus: escapes seed the next angle (H1), `rebind` vs full prepare vs no frame vs MORK oracle | LAB ONLY; not authorized (waits on admission A1 and an operator go) | exact parity; named refusal per failure case; marginal cost per angle with its crossover; sub-cases 1a–1f, anti-vacuity, oracles, disable protocol and refusal axes in plan §11 (folded from #1624); draft chain probe banked in `.claude/harvest/d-rpr-1-chain-probe-draft/` (5/6 green; superseded); handoff restored in-crate as a lab demonstration, 8/8 green, per-transition costs in plan §11.10 (escape-driven lookups 360 seeks vs 3 840 full; direct arm cheaper per pass, repaid after ~85 re-asks) — not D-RPR-1 as written, no admission claimed |
 | D-RPR-2 | premise revision with selective retraction | BLOCKED on D-TGA-3 (per-derived-cell provenance) | stale-premise refusal only, until then |
 | D-RPR-3 | MeTTa-facing parity of a chain's answers | BLOCKED on D-ASM-4 (not authorized) | — |
 | D-MPS-8 | native join over a versioned relationship table: R and S laid out by `y` slot, leapfrog intersection as one mask-risc `And`, per-side generations and reseal, per-thought filter planes (`mork-pathmap-schnellverschluss-v1.md` §7b; `crates/mork-pathmap-probe/src/join.rs`) | MEASURED, probe only; not admitted (D-RMAP-1 BIND membrane review) | 8 join tests + native arms in the differential suite vs the oracle; 7 guards disable-verified; cyclic bodies open |

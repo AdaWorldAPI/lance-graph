@@ -301,3 +301,9 @@ For all three, compare four schedulers with **matched total computation and iden
 
 **STOP** on: a generic power-grid algorithm masquerading as biology; the `dismech-rs` oracle acquiring OGAR/planner dependencies; a declared vocabulary operation assumed to be implemented; optimizer or coordinate layout bypass; unconstrained parameter and design dispatch; a stochastic posterior minted from deterministic reseeding; circular outcome validation; ACT-R utility/activation confused with NAL evidence; and simulator-derived results promoted to empirical observation.
 
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2210.07278_meta_uncertainty_bayesian_model_comparison_vs_ce64_mul.md`](../../.arxiv/2210.07278_meta_uncertainty_bayesian_model_comparison_vs_ce64_mul.md) (#1611): Meta-uncertainty in Bayesian model comparison: distinct from CE64 MUL
+- [`crates/lance-graph-act-r/README.md`](../../crates/lance-graph-act-r/README.md) (#1615): lance-graph-act-r
