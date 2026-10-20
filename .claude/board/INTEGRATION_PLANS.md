@@ -1,3 +1,12 @@
+## 2026-10-20 — recursive-perspective-rebinding-v1 — WORLD × ANGLE × THOUGHT over composable relational registers → `.claude/plans/recursive-perspective-rebinding-v1.md`
+
+**Status:** D-RPR-0 PROPOSED, LAB ONLY, documentation only; D-RPR-1 not authorized; D-RPR-2/3 BLOCKED (D-TGA-3, D-ASM-4).
+
+- The navigation terms map onto existing components: WORLD = sealed version with thought 0 as givens; ANGLE = focus binding + prepared relation planes (+ proposed map palettes); THOUGHT = sparse deltas over one shared frame.
+- The addressing operation is the measured H14c/H14d canon `Thought(t)[T_a[i] : T_b[i]]`; the global → local binding it needs is admission A1 (D-RMAP-1 §6), still open.
+- Rebind exists and is measured (D-RMAP-1A §8.4): it pays for small k only, so the open quantity is the k distribution along real question chains. Hypothesis H1: a frame's escapes seed the next angle.
+- MeTTa operations sorted into four classes from the existing polyfill classification and Decision H.
+
 ## 2026-10-20 — relstore-quack-petgraph-traversal-v1 (reframed) — compiled relational geometry and amortization; petgraph optional → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
 
 **Status:** D-RST-0..9 LAB EXPLORATION, not admitted to production; no production code may be rewired to it (operator, 2026-10-20); documentation only. Operator correction (2026-10-20): the goal is reusable relational geometry amortized across front ends and thought versions; petgraph is an optional consumer (D-RST-3 OPTIONAL / DEFERRED / MEASUREMENT-GATED); tile GEMM consumes prepared layouts and does not obtain them.
