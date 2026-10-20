@@ -14,3 +14,7 @@ OPEN: card granularity (mailbox card or per-move card); the PR entry under MemWA
 Correction (2026-10-20, review #1628): `LanceCycleWriter` commits one batch per supervisor cycle, so every `Commit` in a cycle coalesces into one batch and one version; a landed thought is (version, thought id within the batch). D-TGB-2 is blocked on the `w_slot` reading decision.
 
 Correction (2026-10-20, operator): D-TGB-2 is not blocked. W = thought layer 0..63 is the 2026-10-17 decision (#1597); D-TGB-2 carries the migration of the competing readers (`MailboxSoA::apply_edges`, `deepnsm-v2`'s `WitnessTable` index).
+
+## Status note (2026-10-20, later)
+
+The full thought git API (`thought-git-api-v1.md`, D-TGA) is still a PROPOSAL. `crates/thought-git-probe` implements the slot pool (D-TGB-1), the from-scratch oracle and the tests (D-TGB-0). It does not implement the production land, rebase or persistence pipeline (D-TGB-2..5 are Queued).

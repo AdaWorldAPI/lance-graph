@@ -1,7 +1,11 @@
 //! D-TGB-0 — the pre-registration for thought git
 //! (`.claude/plans/thought-git-basics-v1.md`, work item D-TGB-0).
 //!
-//! Three things live here, all written before any thought-git code exists:
+//! The full thought git API (`thought-git-api-v1.md`) is still a proposal.
+//! This probe holds the pre-registration and the first lab piece, the slot
+//! pool; it has no production land, rebase or persistence pipeline.
+//!
+//! The pre-registration, written before any thought-git code existed:
 //!
 //! - [`fixtures`]: the thoughts every later D-TGB item is tested on, one per
 //!   Rubicon outcome, a stack of unremarkable thoughts, one thought per
