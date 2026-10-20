@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-378 entries, 2026-08-06 .. 2026-10-20.
+379 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-20 | `D-RST` |  | [2026-10-20-relstore-geometry-not-graph-api.md](2026-10-20-relstore-geometry-not-graph-api.md) |
 | 2026-10-20 | `recursive-perspective-rebinding` |  | [2026-10-20-recursive-perspective-rebinding.md](2026-10-20-recursive-perspective-rebinding.md) |
 | 2026-10-20 | `D-RMAP-2` |  | [2026-10-20-d-rmap-2-tile-gemm-cell.md](2026-10-20-d-rmap-2-tile-gemm-cell.md) |
+| 2026-10-20 | `D-RMAP-2-AMX` |  | [2026-10-20-d-rmap-2-amx-tier.md](2026-10-20-d-rmap-2-amx-tier.md) |
 | 2026-10-19 | `post-merge-recovery-1601-1617` |  | [2026-10-19-post-merge-recovery-1601-1617.md](2026-10-19-post-merge-recovery-1601-1617.md) |
 | 2026-10-19 | `native-join-relationship-table` |  | [2026-10-19-native-join-relationship-table.md](2026-10-19-native-join-relationship-table.md) |
 | 2026-10-19 | `mork-pathmap-schnellverschluss` |  | [2026-10-19-mork-pathmap-schnellverschluss.md](2026-10-19-mork-pathmap-schnellverschluss.md) |
