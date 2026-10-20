@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use crepe_plan_probe::logic::{Labels, Rule, resolve};
 use crepe_plan_probe::mork_api::{admit, query_multi};
-use crepe_plan_probe::native::{StarPlan, Store, bindings, joint, prepare, star};
+use crepe_plan_probe::native::{StarPlan, Store, bindings, joint, prepare, prepare_semijoin, star};
 use crepe_plan_probe::optimize::{Demand, Options, ResultKind, optimize};
 use crepe_plan_probe::programs::family;
 use crepe_plan_probe::reference;
@@ -128,7 +128,15 @@ fn main() {
                 .collect::<Vec<_>>()
         });
 
-        for (name, opts) in [("all", Options::ALL), ("none", Options::NONE)] {
+        let no_semijoin = Options {
+            semijoin: false,
+            ..Options::ALL
+        };
+        for (name, opts) in [
+            ("all", Options::ALL),
+            ("no-semijoin", no_semijoin),
+            ("none", Options::NONE),
+        ] {
             let optimize_t = time(|| optimize(&rules, &demand, kind, opts));
             let opt = optimize(&rules, &demand, kind, opts);
             let map_t = time(|| {
@@ -151,8 +159,15 @@ fn main() {
                 .map(|s| Rel::And((0..s.sides.len() as u16).map(Rel::Plane).collect()))
                 .collect();
             let normalize_t = time(|| rels.iter().map(normalize).collect::<Vec<_>>());
-            let prepare_t = time(|| stars.iter().map(|s| prepare(s, &st)).collect::<Vec<_>>());
-            let preps: Vec<_> = stars.iter().map(|s| prepare(s, &st)).collect();
+            let prep = |s: &StarPlan| {
+                if opts.semijoin {
+                    prepare_semijoin(s, &st)
+                } else {
+                    prepare(s, &st)
+                }
+            };
+            let prepare_t = time(|| stars.iter().map(prep).collect::<Vec<_>>());
+            let preps: Vec<_> = stars.iter().map(prep).collect();
             let gens = |s: &StarPlan| -> Vec<u64> { vec![1; s.sides.len()] };
             let mask_t = time(|| {
                 stars
