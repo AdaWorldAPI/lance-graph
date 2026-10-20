@@ -28,8 +28,9 @@ Pipeline, one stage per module of the probe:
 - [x] Phase 5: differential tests A–M against `crepe!`, datafrog, MORK, reference; 9 disable runs
 - [x] Phase 6 (limited): Soufflé harvest table (§3)
 - [x] Semijoin reduction before preparation (`Options::semijoin`, `native::prepare_semijoin`; §2b, tests N)
-- [ ] Stage 3 over Lance 13 / lancedb 0.40: masked read per side, predictions P1–P5 (§2d)
-- [ ] CI workflow for this probe
+- [x] Stage 3 over Lance 13 / lancedb 0.40: masked read per side, P1–P4 green (§2d); P5 measured at 50,000 rows only (§2e)
+- [x] CI workflow for this probe (`.github/workflows/crepe-plan-probe.yml`)
+- [x] Arm B, the addressed semijoin over attested lanes (§2e, tests B1–B9)
 
 ## 1. Integration point
 
@@ -97,14 +98,16 @@ The semijoin filter (and the constant restriction) is a scalar test per row: bin
 
 | needles | scalar µs | ndarray over the rows µs | ndarray over a contiguous column µs |
 |---|---|---|---|
-| 1 | 17.4 | 82.4 | 5.8 |
-| 8 | 144.4 | 654.8 | 29.6 |
-| 32 | 284.9 | 2,869.7 | 120.7 |
-| 64 | 329.0 | 5,434.8 | 242.8 |
-| 128 | 375.4 | 10,603.4 | 485.2 |
+| 1 | 30.9 | 82.7 | 5.4 |
+| 8 | 146.4 | 665.9 | 30.5 |
+| 32 | 225.3 | 2,892.2 | 114.9 |
+| 64 | 278.2 | 4,988.1 | 238.0 |
+| 128 | 518.1 | 10,043.3 | 462.0 |
+
+Re-measured 2026-10-20 after the Codex P2 fix on #1632. The contiguous arm used to return the mask; it now collects the kept rows like the other two arms, and the example asserts that its rows equal the scalar test's. Collecting the rows costs at most 1.8 µs per run.
 
 - Over the store as it is (`[u32; 2]` rows, the D-MPS-8 `RelationView` shape) the strided kernel is slower than the scalar test at every needle count: its field loads are scalar by design, and it pays one pass per needle where the binary search pays one pass in total. It is therefore **not** used in `prepare`.
-- Over a contiguous column the same compares are 14–20× faster than the strided ones and beat the scalar test up to 64 needles; at 128 the scalar test wins again (the per-needle passes add up).
+- Over a contiguous column the same compares are 14–22× faster than the strided ones, and they beat the scalar test up to 64 needles in both runs. At 128 needles the order differs between runs: this run 462 vs 518 µs, the first run 485 vs 375 µs. The scalar time moves by up to 1.8× between runs (17.4 vs 30.9 µs at one needle), so the crossover lies near 64–128 needles and is not stable enough to pin. At 1,000 rows the scalar test wins at 128 (10.0 vs 7.2 µs).
 - The one-pass alternative, a needle bitmap read through `mask_gather_u32`, is a gather and stays out (2026-10-16 ruling, test H).
 - Consequence for the next step: a column-major relation store (one contiguous `u32` lane per column) is what makes ndarray applicable here, and it is the same change the key-column index needs.
 
@@ -130,6 +133,40 @@ Predictions, each with its falsifier:
 - P5 (measured, not predicted as a number): bytes read and wall time per stage at 1,000 / 10,000 / 50,000 rows, against reading every row. No direction is predicted for bytes: H14d found bytes follow page locality, not `|R|`.
 
 Disables: build `R` from the wrong column (P1, P2 red); drop the prefilter (P2 red); skip the version check (P4 red).
+
+## 2e. Arm B: the addressed semijoin (measured 2026-10-20)
+
+DECISION (operator, 2026-10-20): "They are ordered by design. The only issue is the relationship maps proposed earlier pulling in global to local which would make the nodeguid order unusual. Build arm b".
+
+A relation is written in key order: row `(a, b)` carries `FacetCascade::from_semantic_tiles([0, 0, a_hi, a_lo, b_hi, b_lo, 0, 0])`, which compares as `(a, b)`. The probe never orders a lane itself. `addressed::attest` reads the keys once and calls `SealedFacetLane::attest_sorted`, which refuses an unsorted lane. A side then reads only the lane ranges of its demanded keys, located with `seek_from` under the lane's `OrderedLaneWitness`, through `with_row_addr_prefilter`. The arm adds no mask column, index, opcode, gather or global-to-local mapping.
+
+The arm refuses, by name:
+- `NotLeadingColumn`: a restriction or demand on the second column (that would need a second lane, ordered by that column);
+- `Stale`: a table that moved on since its lane was attested;
+- `NotSorted`: an unsorted table, at attest;
+- `NotContiguous`: a table split over more than one fragment, at attest. An append adds a fragment, so after one the table must be compacted before it can be addressed again.
+
+Measured with `cargo run --release --example addressed` (lance 13, lancedb 0.40, rustc 1.99.0). The query is `Answer(17, z)` over `family`. There are N = 50,000 background edges with distinct `y`, all `Allowed`, and `k` children of 17 spread over them, so there are exactly `k` centers and `k` answers. Times are medians of 9 runs. "Rows" counts rows Lance scanned, mask columns included.
+
+| k | full ms | Arm A ms | Arm B warm ms | attest ms | full rows | Arm A rows | Arm B rows | break-even |
+|---|---|---|---|---|---|---|---|---|
+| 0 | 9.81 | 4.46 | 0.37 | 7.28 | 150,000 | 150,000 | 0 | 2 |
+| 1 | 9.95 | 5.02 | 2.19 | 6.83 | 150,003 | 150,005 | 3 | 3 |
+| 8 | 12.30 | 6.60 | 2.24 | 6.67 | 150,024 | 150,040 | 24 | 2 |
+| 500 (1%) | 10.42 | 8.86 | 3.47 | 6.71 | 151,500 | 152,500 | 1,500 | 2 |
+| 5,000 (10%) | 11.70 | 15.02 | 12.11 | 7.81 | 165,000 | 175,000 | 15,000 | 3 |
+| 25,000 (50%) | 18.55 | 41.39 | 34.54 | 7.74 | 225,000 | 275,000 | 75,000 | 2 |
+| 50,000 (all) | 30.71 | 36.15 | 38.98 | 9.84 | 300,000 | 400,000 | 150,000 | never |
+
+Break-even is `ceil(P / S)`, where `P` is the attest time and `S` is Arm A's per-query time minus Arm B warm's.
+
+What this says:
+- **Source-row reads do go down, by construction, and exactly.** Arm B scans `3k` rows: one row per demanded key on each of the three sides. Arm A scans at least `150,000`, because each side reads its key column in full to build the mask. The answer to "does demand-aware semijoin reduction decrease source-row reads" is yes for Arm B and no for Arm A. Arm A reduces the rows laid out (§2b), not the rows read.
+- **Time follows the rows only at low selectivity.** Up to 1% of centers, Arm B is 2.5–12× faster than Arm A and the attest pays for itself after 2–3 queries. Its floor is about 2 ms for three masked reads, even for 3 rows; with no centers it reads nothing and takes 0.37 ms.
+- **From 10% of centers up, every masked read loses to a full scan.** Arm A is already slower than the full read at 10%, and both arms are slower at 50%. With all centers, Arm B never breaks even. Many small ranges cost Lance more per row than one sequential scan. A planner must switch to the full read above a crossover between 1% and 10%; that crossover is not measured more finely here.
+- `P` (reading and attesting 100,002 keys over three tables) is 7–10 ms: a cold cost the size of one full query.
+
+P5 is measured at 50,000 rows only; 1,000 and 10,000 were not run.
 
 ## 3. Soufflé harvest (souffle-lang/souffle `f53dab8`, UPL-1.0; algorithms only, no source copied)
 
@@ -173,6 +210,9 @@ Known limits: rule dedup does not search body permutations; the star must have o
 ## 6. Follow-ups (not built)
 
 - ~~Semijoin reduction before preparation~~ — built, §2b. Layout O(k); the scan stays O(n).
+- ~~Addressed read~~ — built, §2e. Reads O(k) rows over attested lanes.
+- Selectivity crossover: measure between 1% and 10% of centers and switch Arm B to the full read above it.
+- Multi-fragment lanes: map lane positions to row addresses per fragment, so that an append does not force a compaction before Arm B can read the table again.
 - **Next (recommended):** a column-major relation store (contiguous `u32` lanes). It lets the restriction and semijoin filters run through `ndarray::simd::eq_u32_to_mask` (§2c: 4–6 µs per needle at 50,000 rows instead of a scalar or strided scan), and it is the layout a key-column index would sit on, which then removes the O(n) scan.
 - A: `crepe-core` library split in the fork for dynamic rules.
 - B: full magic sets for derived body relations and recursion (waits on D-MTP-3 / D-SRAM-4).

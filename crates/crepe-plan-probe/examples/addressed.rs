@@ -159,7 +159,7 @@ async fn main() {
         // x = 17 sits below every background y, so the restricted range is
         // the table's first k rows; spread the chosen children over the
         // background instead of taking a prefix.
-        let step = if k == 0 { 1 } else { N / k };
+        let step = N.checked_div(k).unwrap_or(1);
         parent.extend((0..k).map(|j| [17, 100_000 + j * step]));
         let allowed: Vec<[u32; 2]> = (0..N).map(|i| [100_000 + i, 100_000 + i]).collect();
         let sponsor: Vec<[u32; 2]> = vec![[20, 20], [21, 21]];
@@ -192,10 +192,9 @@ async fn main() {
         let a = lance_mode(&rules, &d, Options::ALL, &st, u64::from(k)).await;
         let b = arm_b(&rules, &d, &st, &lanes, u64::from(k)).await;
         let saving = a.time.saturating_sub(b.time);
-        let break_even = if saving.is_zero() {
-            "never".to_string()
-        } else {
-            (p.as_nanos().div_ceil(saving.as_nanos())).to_string()
+        let break_even = match saving.as_nanos() {
+            0 => "never".to_string(),
+            s => p.as_nanos().div_ceil(s).to_string(),
         };
         println!(
             "{:>7} | {:>9.3} {:>9.3} {:>9.3} {:>9.3} | {:>9} {:>9} {:>9} | {:>9.3} {:>9.3} {:>9} | {:>6}",
