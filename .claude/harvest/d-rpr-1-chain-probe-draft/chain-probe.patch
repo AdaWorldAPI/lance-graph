@@ -1,0 +1,473 @@
+diff --git a/crates/mork-pathmap-probe/src/chain.rs b/crates/mork-pathmap-probe/src/chain.rs
+new file mode 100644
+index 0000000..6772587
+--- /dev/null
++++ b/crates/mork-pathmap-probe/src/chain.rs
+@@ -0,0 +1,171 @@
++//! Composition probe: a question whose answer leaves the focus names the
++//! identities it still needs, those identities are brought into the frame the
++//! question was asked on, and the next question starts from that frame.
++//!
++//! STATUS: PROBE. No new store, executor, opcode or type of relationship: this
++//! module only calls what [`crate::rmap`] already has, in an order.
++//!
++//! - The question is [`Csr::reach`] over a prepared frame.
++//! - Its escape set ([`crate::rmap::ScopedReach::escaped`]) is what the answer still needs.
++//! - [`rebind`] brings those identities in, keeping every edge between slots
++//!   that did not change, and the question is asked again, until nothing
++//!   escapes. Only then is the answer global ([`crate::rmap::ScopedReach::global`]).
++//! - A later question passes an earlier answer as its seeds, over another
++//!   predicate of the same prepared frame.
++//!
++//! Slots are evicted only if they hold no identity the chain still needs
++//! (`keep`); if the needed identities do not fit, the question is refused,
++//! never answered from an incomplete focus. Address translation happens only
++//! inside [`rebind`] and [`Csr::prepare`], in preparation, never in a fold.
++//!
++//! Semantics are Boolean reachability, as in [`crate::rmap`]: no bags, no
++//! path counts.
++
++use std::collections::BTreeSet;
++
++use crate::rmap::{Csr, Focus, Refusal, SlotSet, SortedRun, Tile, Witness, rebind, slot_set};
++
++/// Why a chain step did not answer.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum ChainRefusal {
++    /// The frame was built against another facts, seal or scope.
++    Stale(Refusal),
++    /// The identities the answer needs do not fit beside the ones it must keep.
++    FocusExhausted { needed: usize, free: usize },
++}
++
++/// How a focus change reaches the prepared operands.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum Rebuild {
++    /// [`rebind`]: unchanged slots keep their edges.
++    Incremental,
++    /// [`Csr::prepare`] and [`Tile::from_csr`] from scratch.
++    Full,
++}
++
++/// A focus and the operands prepared for it, for every predicate the chain uses.
++pub struct Frame {
++    pub focus: Focus,
++    pub csr: Csr,
++    pub tile: Tile,
++    pub preds: Vec<u32>,
++}
++
++impl Frame {
++    pub fn prepare(run: &SortedRun<'_>, focus: Focus, preds: &[u32], current: &Witness) -> Frame {
++        let csr = Csr::prepare(run, &focus, preds, at(current, &focus));
++        let tile = Tile::from_csr(&csr);
++        Frame {
++            focus,
++            csr,
++            tile,
++            preds: preds.to_vec(),
++        }
++    }
++
++    /// The slots of the given identities. `None` if one is not in the focus.
++    pub fn slots(&self, ids: &BTreeSet<u32>) -> Option<SlotSet> {
++        let mut out = Vec::with_capacity(ids.len());
++        for &g in ids {
++            out.push(self.focus.slot_of(g)?);
++        }
++        Some(slot_set(out))
++    }
++
++    /// Bring `ids` into the focus, evicting slots whose identity is not in
++    /// `keep`. Returns how many slots changed.
++    pub fn admit(
++        &mut self,
++        run: &SortedRun<'_>,
++        current: &Witness,
++        keep: &BTreeSet<u32>,
++        ids: &BTreeSet<u32>,
++        how: Rebuild,
++    ) -> Result<usize, ChainRefusal> {
++        let new: Vec<u32> = ids
++            .iter()
++            .copied()
++            .filter(|g| self.focus.slot_of(*g).is_none())
++            .collect();
++        if new.is_empty() {
++            return Ok(0);
++        }
++        let free: Vec<u8> = (0..self.focus.len())
++            .rev()
++            .map(|s| s as u8)
++            .filter(|&s| !keep.contains(&self.focus.id(s)) && !ids.contains(&self.focus.id(s)))
++            .collect();
++        if free.len() < new.len() {
++            return Err(ChainRefusal::FocusExhausted {
++                needed: new.len(),
++                free: free.len(),
++            });
++        }
++        let changes: Vec<(u8, u32)> = free.into_iter().zip(new.iter().copied()).collect();
++        let focus = self.focus.replace(&changes);
++        let w = at(current, &focus);
++        let (csr, tile) = match how {
++            Rebuild::Incremental => rebind(run, &self.focus, &focus, &self.csr, w),
++            Rebuild::Full => {
++                let csr = Csr::prepare(run, &focus, &self.preds, w);
++                let tile = Tile::from_csr(&csr);
++                (csr, tile)
++            }
++        };
++        self.focus = focus;
++        self.csr = csr;
++        self.tile = tile;
++        Ok(changes.len())
++    }
++}
++
++/// The caller's witness, read at this focus's generation.
++fn at(current: &Witness, focus: &Focus) -> Witness {
++    Witness {
++        focus: focus.generation,
++        ..*current
++    }
++}
++
++/// One answer and what it took.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub struct Answer {
++    /// Global identities reached within the hop budget, seeds included.
++    pub reached: BTreeSet<u32>,
++    /// Slots that changed before each re-ask (0 for an answer from the frame as it was).
++    pub admitted: Vec<usize>,
++}
++
++/// Reachability from `seeds` over `preds` within `hops`, asked on `frame` and
++/// re-asked after each admission until nothing escapes. `keep` holds the
++/// identities earlier answers still need; this answer's are added to it.
++#[expect(clippy::too_many_arguments)]
++pub fn ask(
++    frame: &mut Frame,
++    run: &SortedRun<'_>,
++    current: &Witness,
++    preds: &[u32],
++    seeds: &BTreeSet<u32>,
++    hops: usize,
++    keep: &mut BTreeSet<u32>,
++    how: Rebuild,
++) -> Result<Answer, ChainRefusal> {
++    keep.extend(seeds.iter().copied());
++    let mut admitted = vec![frame.admit(run, current, keep, seeds, how)?];
++    loop {
++        let seed_slots = frame.slots(seeds).expect("seeds were admitted");
++        let r = frame
++            .csr
++            .reach(&at(current, &frame.focus), preds, &seed_slots, hops)
++            .map_err(ChainRefusal::Stale)?;
++        let reached: BTreeSet<u32> = crate::rmap::slots_of(&r.reached)
++            .into_iter()
++            .map(|s| frame.focus.id(s))
++            .collect();
++        keep.extend(reached.iter().copied());
++        if r.global().is_ok() {
++            return Ok(Answer { reached, admitted });
++        }
++        admitted.push(frame.admit(run, current, keep, &r.escaped, how)?);
++    }
++}
+diff --git a/crates/mork-pathmap-probe/src/lib.rs b/crates/mork-pathmap-probe/src/lib.rs
+index 14e5939..b76d3d3 100644
+--- a/crates/mork-pathmap-probe/src/lib.rs
++++ b/crates/mork-pathmap-probe/src/lib.rs
+@@ -23,6 +23,7 @@
+ use std::collections::BTreeMap;
+ 
+ pub mod boundary;
++pub mod chain;
+ pub mod join;
+ pub mod reference;
+ pub mod rmap;
+diff --git a/crates/mork-pathmap-probe/tests/chain.rs b/crates/mork-pathmap-probe/tests/chain.rs
+new file mode 100644
+index 0000000..cf5263e
+--- /dev/null
++++ b/crates/mork-pathmap-probe/tests/chain.rs
+@@ -0,0 +1,278 @@
++//! The composition probe (`chain`) against a global oracle that uses no index,
++//! no focus and no prepared operand: a breadth-first scan over the facts.
++
++use std::collections::BTreeSet;
++
++use mork_pathmap_probe::chain::{Answer, ChainRefusal, Frame, Rebuild, ask};
++use mork_pathmap_probe::rmap::*;
++
++const PREDS: [u32; 3] = [0, 1, 2];
++
++/// Global reachability from `seeds` over `preds` within `hops`, by scanning.
++fn oracle(facts: &[Fact], preds: &[u32], seeds: &BTreeSet<u32>, hops: usize) -> BTreeSet<u32> {
++    let mut reached = seeds.clone();
++    let mut frontier = seeds.clone();
++    for _ in 0..hops {
++        let next: BTreeSet<u32> = facts
++            .iter()
++            .filter(|f| frontier.contains(&f[0]) && preds.contains(&f[1]))
++            .map(|f| f[2])
++            .filter(|o| !reached.contains(o))
++            .collect();
++        if next.is_empty() {
++            break;
++        }
++        reached.extend(next.iter().copied());
++        frontier = next;
++    }
++    reached
++}
++
++fn facts() -> Vec<Fact> {
++    graph(65_536, 3, 2, 512, 0.9, 0x5EED)
++}
++
++fn cur() -> Witness {
++    Witness {
++        facts: 1,
++        seal: 1,
++        focus: 0,
++        scope: 7,
++    }
++}
++
++const SEED: u32 = 17;
++
++/// Three questions, each over its own predicate, each seeded with the
++/// previous answer: what the first reaches, where those lead under the second
++/// predicate, and under the third.
++struct Chain {
++    answers: Vec<Answer>,
++    frame: Frame,
++    initial_rows: BTreeSet<u32>,
++}
++
++fn run_chain(facts: &[Fact], how: Rebuild) -> Chain {
++    let run = SortedRun::build(facts, false, 1);
++    // The first focus is what a breadth-first discovery over all predicates
++    // finds first, so a question over one predicate is not shaped to fit it.
++    let focus = discover(&run, &[SEED], &PREDS, SLOTS);
++    let mut frame = Frame::prepare(&run, focus, &PREDS, &cur());
++    let initial_rows = frame.csr.edge_set().into_iter().map(|e| e.3).collect();
++    let mut keep = BTreeSet::new();
++    let mut seeds = BTreeSet::from([SEED]);
++    let mut answers = Vec::new();
++    for (p, hops) in [(0u32, 3usize), (1, 1), (2, 1)] {
++        let a = ask(&mut frame, &run, &cur(), &[p], &seeds, hops, &mut keep, how).unwrap();
++        seeds = a.reached.clone();
++        answers.push(a);
++    }
++    Chain {
++        answers,
++        frame,
++        initial_rows,
++    }
++}
++
++const QUESTIONS: [(u32, usize); 3] = [(0, 3), (1, 1), (2, 1)];
++
++#[test]
++fn every_step_of_the_chain_equals_the_global_oracle() {
++    let facts = facts();
++    let c = run_chain(&facts, Rebuild::Incremental);
++    let mut seeds = BTreeSet::from([SEED]);
++    for (i, ((p, hops), a)) in QUESTIONS.iter().zip(&c.answers).enumerate() {
++        assert_eq!(a.reached, oracle(&facts, &[*p], &seeds, *hops), "step {i}");
++        seeds = a.reached.clone();
++    }
++    // Anti-vacuity: the first focus did not hold the first answer, so a step
++    // had to bring identities in; and every answer is more than its seeds.
++    let total: usize = c.answers.iter().flat_map(|a| &a.admitted).sum();
++    assert!(
++        total > 0,
++        "no step admitted anything: the fixture tests nothing"
++    );
++    assert!(
++        c.answers[0].admitted.len() > 1,
++        "the first question must have been re-asked"
++    );
++    for a in &c.answers {
++        assert!(a.reached.len() > 1);
++    }
++}
++
++/// Each answer still holds on the frame the whole chain left: a later step
++/// never evicts what an earlier answer needs, so re-asking the first question
++/// at the end admits nothing and gives the same answer.
++#[test]
++fn an_earlier_answer_survives_the_later_steps() {
++    let facts = facts();
++    let mut c = run_chain(&facts, Rebuild::Incremental);
++    let run = SortedRun::build(&facts, false, 1);
++    let mut keep = BTreeSet::new();
++    let again = ask(
++        &mut c.frame,
++        &run,
++        &cur(),
++        &[0],
++        &BTreeSet::from([SEED]),
++        3,
++        &mut keep,
++        Rebuild::Incremental,
++    )
++    .unwrap();
++    assert_eq!(again.reached, c.answers[0].reached);
++    assert_eq!(again.admitted, vec![0], "nothing to admit, asked once");
++}
++
++/// The incremental frame equals a frame prepared from scratch at every step,
++/// and it keeps canonical rows from the first preparation (reuse is real,
++/// not a full rebuild under another name).
++#[test]
++fn incremental_frames_equal_full_preparation_and_reuse_rows() {
++    let facts = facts();
++    let inc = run_chain(&facts, Rebuild::Incremental);
++    let full = run_chain(&facts, Rebuild::Full);
++    assert_eq!(inc.answers, full.answers);
++    assert_eq!(inc.frame.focus.ids(), full.frame.focus.ids());
++    assert_eq!(inc.frame.csr.edge_set(), full.frame.csr.edge_set());
++    assert_eq!(inc.frame.csr.escape_set(), full.frame.csr.escape_set());
++    for &p in &PREDS {
++        assert_eq!(inc.frame.tile.plane(p), full.frame.tile.plane(p));
++    }
++    let rows: BTreeSet<u32> = inc.frame.csr.edge_set().into_iter().map(|e| e.3).collect();
++    let reused = rows.intersection(&inc.initial_rows).count();
++    let resolved = rows.difference(&inc.initial_rows).count();
++    assert!(
++        reused > 0 && resolved > 0,
++        "reused {reused}, resolved {resolved}"
++    );
++}
++
++/// A frame from before a change of the facts is refused, not answered.
++#[test]
++fn a_changed_world_refuses_the_frame() {
++    let facts = facts();
++    let mut c = run_chain(&facts, Rebuild::Incremental);
++    let run = SortedRun::build(&facts, false, 1);
++    let changed = Witness { facts: 2, ..cur() };
++    let r = ask(
++        &mut c.frame,
++        &run,
++        &changed,
++        &[0],
++        &BTreeSet::from([SEED]),
++        3,
++        &mut BTreeSet::new(),
++        Rebuild::Incremental,
++    );
++    assert_eq!(r, Err(ChainRefusal::Stale(Refusal::FactsChanged)));
++}
++
++/// The needed identities must fit beside the kept ones; otherwise the question
++/// is refused. Silence twin: one evictable slot is enough for the same chain.
++#[test]
++fn a_focus_too_small_for_the_answer_is_refused() {
++    // 0 -> 1 -> 2: from 0, two hops need {0, 1, 2}.
++    let facts: Vec<Fact> = vec![[0, 0, 1], [1, 0, 2]];
++    let run = SortedRun::build(&facts, false, 1);
++    let mut frame = Frame::prepare(&run, Focus::bind(&[0, 1], 1), &[0], &cur());
++    let r = ask(
++        &mut frame,
++        &run,
++        &cur(),
++        &[0],
++        &BTreeSet::from([0]),
++        2,
++        &mut BTreeSet::new(),
++        Rebuild::Incremental,
++    );
++    assert_eq!(r, Err(ChainRefusal::FocusExhausted { needed: 1, free: 0 }));
++    let mut frame = Frame::prepare(&run, Focus::bind(&[0, 1, 50], 1), &[0], &cur());
++    let a = ask(
++        &mut frame,
++        &run,
++        &cur(),
++        &[0],
++        &BTreeSet::from([0]),
++        2,
++        &mut BTreeSet::new(),
++        Rebuild::Incremental,
++    )
++    .unwrap();
++    assert_eq!(a.reached, BTreeSet::from([0, 1, 2]));
++    assert_eq!(a.admitted, vec![0, 1]);
++}
++
++/// 64 thoughts over the frame the chain produced: each retracts the edges
++/// out of one slot the first answer reached. Each thought's answer equals the
++/// oracle over its edited facts (inside the focus), and the shared tile is
++/// not changed by any of them.
++#[test]
++fn thoughts_run_over_the_frame_the_chain_produced() {
++    let facts = facts();
++    let c = run_chain(&facts, Rebuild::Incremental);
++    let f = &c.frame;
++    let w = Witness {
++        focus: f.focus.generation,
++        ..cur()
++    };
++    let seeds = slot_set([f.focus.slot_of(SEED).unwrap()]);
++    let mut ex = TileExec::new();
++    let base = ex
++        .reach(&f.tile, &f.csr, &w, None, None, &[0], &seeds, 3)
++        .unwrap();
++    let reached: Vec<u8> = slots_of(&base.reached);
++    let inf: BTreeSet<u32> = f.focus.ids().iter().copied().collect();
++    let mut changed = 0;
++    for t in 0..64u64 {
++        let victim = reached[t as usize % reached.len()];
++        let del: Vec<(u8, u8)> = f
++            .csr
++            .edge_set()
++            .into_iter()
++            .filter(|e| e.0 == 0 && e.1 == victim)
++            .map(|e| (victim, e.2))
++            .collect();
++        let delta = ThoughtDelta::new(t, 0, &[], &del);
++        let got = ex
++            .reach(&f.tile, &f.csr, &w, Some(&delta), Some(t), &[0], &seeds, 3)
++            .unwrap();
++        let g = f.focus.id(victim);
++        let edited: Vec<Fact> = facts
++            .iter()
++            .copied()
++            .filter(|x| !(x[0] == g && x[1] == 0 && inf.contains(&x[2])))
++            .filter(|x| inf.contains(&x[0]) && inf.contains(&x[2]))
++            .collect();
++        let want = oracle(&edited, &[0], &BTreeSet::from([SEED]), 3);
++        let got_ids: BTreeSet<u32> = slots_of(&got.reached)
++            .into_iter()
++            .map(|s| f.focus.id(s))
++            .collect();
++        assert_eq!(got_ids, want, "thought {t}");
++        changed += usize::from(got.reached != base.reached);
++        assert_eq!(
++            ex.reach(
++                &f.tile,
++                &f.csr,
++                &w,
++                Some(&delta),
++                Some(t + 1),
++                &[0],
++                &seeds,
++                3
++            )
++            .err(),
++            Some(Refusal::ThoughtMismatch)
++        );
++    }
++    assert!(
++        changed > 0,
++        "some retraction must change its thought's answer"
++    );
++    let again = ex
++        .reach(&f.tile, &f.csr, &w, None, None, &[0], &seeds, 3)
++        .unwrap();
++    assert_eq!(again.reached, base.reached, "the shared tile is unchanged");
++}

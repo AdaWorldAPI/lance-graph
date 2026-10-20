@@ -27,6 +27,8 @@
 
 So the brief does not need new nouns. What it adds is a **relation between successive angles** (§4), which nothing on `main` names yet.
 
+> **Correction (2026-10-20, §11.1):** WORLD, ANGLE and THOUGHT are metaphors for thought. They name no type, register, field or modification. Thought identity is #1605's `ThoughtCommitId` (speculative) and `DurableRef` (durable).
+
 ## 2. The addressing operation is the H14c/H14d canon
 
 The brief's `TableA[i] : TableB[i]` is the measured canonical expression `Thought(t)[T_a[i] : T_b[i]]` (H14c, MEASURED 2026-10-15; H14d, MEASURED 2026-10-16). `i` is a shared coordinate, presence says whether a value is there and never where, and "the join is the layout". The council v3 header of the MeTTa assimilation plan names these two plans as the correct path and marks the preimage-join design (D-ASM-2, D-ASM-11/11A/11B) as a gather violation.
@@ -46,6 +48,8 @@ H14d runs four stages, each shrinking what the next touches: logic reduced symbo
 | THOUGHT, 0..63 | `ThoughtDelta` sparse edits over the shared tile | 32 B per thought as edits, 16 KiB lowered to executor planes; per-eval 2.61 / 2.66 / 2.79 µs at 1 / 8 / 64 thoughts (sparse d2), "the shared tile is stored once" (§8.5) |
 
 Nothing is a three-dimensional tensor. The world's values are never copied into an angle, and an angle is never copied into a thought.
+
+> **Reading note (2026-10-20, §11.1):** the first column above uses the metaphors as labels. The registers are `Focus`, `CsrPred` and its tile, and `ThoughtDelta`, and nothing should be renamed after the metaphors.
 
 **Arity.** The probe's facts are `[u32; 3]` (subject, predicate, object), so its angles are predicate-indexed binary relations; `join.rs` co-addresses one shared variable. General n-ary binding over several shared variables, with repeated variables inside one pattern, has **no design on `main`** (OPEN). The triangle needs two variables co-addressed at once; only the 256 × 256 tile gives that, inside one focus (Schnellverschluss §7b).
 
@@ -221,3 +225,100 @@ Also measured: the distribution of k per rebind and the number of ownership hand
 | D-RPR-1 | recursive chain probe | not authorized; waits on A1 and an operator go |
 | D-RPR-2 | premise revision with retraction | BLOCKED on D-TGA-3 |
 | D-RPR-3 | MeTTa-facing parity | BLOCKED on D-ASM-4 |
+
+## 11. Folded in from #1624 (2026-10-20)
+
+#1624 distilled the same brief independently, before this plan merged. This plan is the canonical one. This section adds only what #1624 had and this plan lacked. Its falsifiers are sub-cases of D-RPR-1, not new D-ids. #1624's own plan file and board rows are withdrawn. A draft of the chain it describes is banked, not merged, in `.claude/harvest/d-rpr-1-chain-probe-draft/` (§11.9).
+
+### 11.1 Corrections
+
+- **WORLD, ANGLE, THOUGHT are metaphors.** Operator, 2026-10-20: "angle is a metaphor for thought and does not allow any modifications". No type, register, field, opcode or refactor follows from these words. The tables in §1 and §3 map them to existing components and nothing more.
+- **Thought identity is #1605's.** A speculative thought is a `ThoughtCommitId` with parent ids, held in CE64 W slots 0..63 (0 = givens, 1..=63 = branches); "an in-RAM thought commit is not a Lance commit". Durable state is `DurableRef{dataset, branch, version}`. In the probe, `ThoughtDelta.thought: u64` and `Witness.facts` stand for these (their doc comments in `rmap.rs` say so). A chain step that reads the previous step's answer reads resident speculative output, which #1605 §5 point 4 admits only through a declared dependency.
+- **D-RST.** #1624 said D-RST resolved to no plan. That was written before this merge added `relstore-quack-petgraph-traversal-v1.md`, and it is withdrawn.
+- **Two meanings of `ThoughtMask`.** `lance-graph-contract::recipe_kernels::ThoughtMask` is the set of thought fields known before a recipe wave (`rung_schedule.rs`). #1605's `ThoughtMask::selected(&[24, 48])` selects thought slots. Recorded, not resolved: OPEN.
+- **The Hyperon class-2 path.** The measured D-MTP-1 two-hop lowering runs `MaskOp::Gather` behind quack `Filter::Semijoin` (D-ASM council v3), so under the 2026-10-16 ruling it is gather-shaped and cannot be the class-2 route.
+
+### 11.2 D-RPR-1 sub-cases
+
+Each sub-case has a kill condition and a disable run that must turn its test red.
+
+| sub-case | probe | kill condition | disable run |
+|---|---|---|---|
+| 1a | the chain fixture and its oracles, before any timing | any arm's `reached` or `escaped` differs from the scan oracle at any depth; or a step never escapes | stop seeding the next focus from the escapes; the anti-vacuity check (§11.3) goes red |
+| 1b | marginal cost: arm (d) against (c) and (b), at the natural k of each step | (d) is not below (c) at the measured k on the dense fixture | make `rebind` treat every slot as changed; the "rows reused > 0" assertion goes red |
+| 1c | invalidation: facts, seal, scope or ordering changed between steps | a retained CSR or tile answers after the change, or the rebuild is not reported | remove `Witness::check` from `reach`; a stale frame answers |
+| 1d | the narrow-frame guard under the chain | a depth whose answer depends on escapes is reported as global | remove the `escaped.is_empty()` test in `global()` |
+| 1e | a two-variable step: a closing atom that needs `a` and `c` together | a silent answer from a one-variable domain; the expected outcome today is a refusal | none; the row records the boundary, not a mechanism |
+| 1f | thought rejection: a parent hypothesis is discarded between steps | a child frame built under the discarded thought's `ThoughtDelta` still folds | reuse the old thought id; `ThoughtMismatch` must fire, and disabling it is red |
+
+### 11.3 Anti-vacuity
+
+- Every step must escape at least once, or it tests nothing. Assert escapes > 0 at every depth.
+- The first focus must not already contain the first answer. The banked draft measured this failure: `discover` over all predicates to 256 slots contained the 3-hop reach over one predicate, so step 1 never escaped. Seed the first focus narrower than the first question's reach.
+- Reuse must be real. Some canonical rows kept from the first preparation must remain, and some must be newly resolved.
+- A thought must change at least one answer, and the shared tile must be unchanged afterwards.
+- Every guard gets a firing case and a silent twin. Example: an exhausted focus refuses when no slot is evictable, and answers when one is.
+
+### 11.4 Independent oracles
+
+- Global reachability by a full scan over all facts, with no index and no focus, per step, compared on `reached` and on `escaped`.
+- For each thought, an in-focus scan over the edited facts.
+- For any join-shaped step, the nested-loop bag oracle in `reference.rs`. MORK and PathMap are oracles for sets only.
+- Incremental against full preparation: equal edge set, escape set and tile plane for every predicate.
+
+### 11.5 Protocol
+
+- Oracles and disable runs go green → red → green before any timing.
+- Commit before disabling, assert that each disable patch applied exactly once, and restore from the committed file.
+- The program prints the tier. Release, debug 0, medians of 5.
+- Differences inside the ~40 % run-to-run noise of this VM (H14c) are not read.
+- Fixtures are frozen after the first measurement. FALSIFIED and BOUNDED are valid outcomes. Timings go to a dated entry as CSV.
+
+### 11.6 Refusals the chain must show, by axis
+
+| axis | refusal | exercised by the draft |
+|---|---|---|
+| version | `FactsChanged`, `IndexResealed`; `JoinRefusal::Stale` in `join.rs` | `FactsChanged` only |
+| focus | `FocusChanged` | no |
+| scope | `ScopeChanged` | no |
+| ordering | `OrderingMismatch` | no |
+| thought identity | `ThoughtMismatch`; the `ThoughtCommitId` never-reuse rule is OPEN (§10 item 7) | `ThoughtMismatch` |
+| narrow frame | `IncompleteFocus` | yes, as the re-ask condition |
+| capacity | the needed identities do not fit beside the kept ones: refuse, never answer from an incomplete focus | yes; a probe-local refusal, not in `rmap.rs` |
+| no shared slots | full prepare, reported as k = 256 | no |
+| dependency cycle | none exists | OPEN |
+
+### 11.7 Preparation and reuse costs already measured
+
+Copied from D-RMAP-1A §8 and Schnellverschluss §7b, not re-measured:
+
+| quantity | sparse d2 | sparse d8 | dense |
+|---|---|---|---|
+| CSR break-even reuses (arithmetic from medians) | 76 | 11 | 1.8 |
+| 3-hop per-eval, CSR | 3.33 µs | 5.58 µs | 12.38 µs |
+| 3-hop per-eval, tile | 5.08 µs | 5.74 µs | 4.53 µs |
+
+- **The tile wins only on the dense relation.** Neither layout is a default.
+- **Report escapes as source slots when the next step allows it.** At degree 8, escapes reported as identities cost 50.4 µs per eval, and as source slots 5.6 µs. The chain's next step consumes identities, so it pays the higher figure.
+- **Bytes:** binding 3 072 B; CSR 18–66 KB; tile 8 KiB per predicate. At n = 50 000, the join table is 403 KB, and a thought's filter plane is 1 568 B and costs 5.2 µs per thought for a bag count.
+- **Zero-copy against register copy is an open tension (§8.7).** A count over canonical lanes takes 20–24 µs with 0 B copied. Loading a 3 072 B register first takes 0.78 µs, and counting in it 0.38–1.27 µs.
+
+### 11.8 Two-variable and multiplicity limits
+
+- `join.rs` co-addresses one shared variable, plus a star of relations on that variable (`prepare_star`). A cyclic body needs two variables at once, "which a one-variable domain cannot give" (§7b). OPEN.
+- "Stepping from `y` results to `z` slots over a large domain would need a scatter, which stays forbidden" (§7b). A deeper step takes that shape when its question lands on a relation the parent did not co-address. OPEN.
+- The focus register answers Boolean reachability only: "Bag counts and path counts are not answered here" (`rmap.rs:40–44`). A chain over `rmap` therefore preserves no multiplicity. Carrying bags through a step needs `join.rs` at that step, and that is untested.
+- 256 slots is the probe constant `SLOTS`, not a decided register width.
+
+### 11.9 Banked draft probe
+
+`.claude/harvest/d-rpr-1-chain-probe-draft/` holds `chain-probe.patch` and a README. The patch applies to `main` at `4dbd085`.
+
+- **Result on `main`:** 5 of 6 tests pass. The failing test is the §11.3 first-focus case. Its per-step parity with the global scan oracle passes.
+- **Deviations from D-RPR-1:**
+  - it adds probe-local glue types;
+  - it uses the synthetic fixture, not KJV;
+  - the escapes of a question complete that question, and its answer, not its escapes, seeds the next one, so H1 as worded is not tested;
+  - it takes no timings.
+- **Why it is not merged:** D-RPR-1 is not authorized.
+
