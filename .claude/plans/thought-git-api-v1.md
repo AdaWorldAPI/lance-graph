@@ -261,7 +261,7 @@ Docs and data merged in #1601–#1617 that this plan owns. They are reading note
 
 ## Correction: the slot axis and the witness pointer (2026-10-20)
 
-**Status:** DECISION (operator, 2026-10-20). Supersedes the "Axis" bullet above and the "beside the rung lanes" wording of D-TGA-1. **Basis:** VERIFIED-IN-CODE for the pointer width (`crates/causal-edge/src/layout.rs:53`, `W_SHIFT = 53`, 6 bits; `edge.rs:950`, `w_slot()` 0..=63).
+**Status:** DECISION (operator, 2026-10-20). Supersedes the "Axis" bullet above and the "beside the rung lanes" wording of D-TGA-1. **Basis:** VERIFIED-IN-CODE for the pointer width (`crates/causal-edge/src/layout.rs`, const `W_SHIFT`, value 53, 6 bits; `edge.rs`, `CausalEdge64::w_slot`, 0..=63).
 
 In short: thinking with a git API, at the cost of a sparse write and a merge on read.
 

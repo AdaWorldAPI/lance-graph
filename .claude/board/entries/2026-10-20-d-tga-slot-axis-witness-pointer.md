@@ -1,6 +1,6 @@
 # 2026-10-20 — D-TGA-SLOT-AXIS — thoughts are 64 slots, and the slot number is CE64's witness pointer
 
-**Status:** DECISION (operator, 2026-10-20). **Basis:** VERIFIED-IN-CODE (`causal-edge/src/layout.rs:53`, `W_SHIFT = 53`, 6-bit `w_slot`).
+**Status:** DECISION (operator, 2026-10-20). **Basis:** VERIFIED-IN-CODE (`causal-edge/src/layout.rs`, const `W_SHIFT`, value 53; 6-bit `CausalEdge64::w_slot`).
 
 - Thinking with a git API, at the cost of a sparse write and a merge on read.
 - The axis is 64 dynamically allocated thought slots: 0 is main (the merged state the frame starts from), 1..=63 are any thought. Rung is a claim attribute, not an axis; `alpha_tunnel.rs`'s ten rung lanes are superseded. This closes the "10 rung lanes, not a 64-lane budget" conflict in `2026-10-12-ce64-hypothesis-layers-plateau.md`.
