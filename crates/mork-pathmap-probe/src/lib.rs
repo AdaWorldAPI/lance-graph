@@ -26,6 +26,7 @@ pub mod boundary;
 pub mod join;
 pub mod reference;
 pub mod rmap;
+pub mod tile_gemm;
 
 pub use boundary::{Backend, BoundIndex, Refusal, bind, capability};
 

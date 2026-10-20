@@ -1,5 +1,7 @@
 # D-RMAP-2: context declaration reuse and a GraphBLAS/BF16 tile probe
 
+**LAB EXPLORATION ONLY (operator, 2026-10-20): nothing here is admitted to production, and no production code may be rewired to it. Unfit to promote until further testing.**
+
 **Status: PROPOSAL / PREREGISTERED TEST DESIGN, 2026-10-19.** No runtime, ABI, dependency, opcode, CE64 interpretation or performance result is added. Extends [D-RMAP-1](d-rmap-implicit-relationship-register-v1.md) and its controlling [D-RMAP-1A ownership correction](d-rmap-separate-tables-thought-palettes-v1.md).
 
 
@@ -91,6 +93,42 @@ Report: total bound cost, sorted-index creation/maintenance, native scan time, r
 - Changing map generation, focus-slot incarnation, ACL/tenant scope, Lance seal, compaction or thought slot refuses stale cached tiles.
 - For sparse 1-hop, bitset or direct indexed seeks may defeat GEMM. For repeated dense 2-hop/all-pairs, tile GEMM may have a valid economic region. A loss in the full-cost test remains a loss.
 - Do not add an MKL/GraphBLAS C dependency, hot JSON representation, new runtime/AST, unauthorized gather or hidden cross-coordinate index hop.
+
+## 5a. First measured cell: Boolean composition and triangles on one 256 × 256 focus (2026-10-20)
+
+> **Status: MEASURED, probe only, one host.** Code: `crates/mork-pathmap-probe/src/tile_gemm.rs`, `tests/tile_gemm.rs` (4 tests; 5 guards disable-verified), `examples/tile_gemm_cost.rs` (`cargo run --release --example tile_gemm_cost`). Release, warm, medians of 7, every timed answer checked against a triple-loop oracle. The GEMM arm is `ndarray::simd::bf16_tile_gemm_16x16_packed` through the facade, not a new kernel.
+
+**Tier that ran: the F32x16 FMA polyfill** (`bf16_tile_gemm_tier()`). This host has `avx512_vnni` and `avx512bw` but neither AMX nor `avx512_bf16`. No tile-tier number exists here; the AMX and `VDPBF16PS` cells of §4 remain unmeasured. This is the hardware, not detection (ndarray `.claude/AMX_GOTCHAS.md` Gotcha 4: a wrong `arch_prctl` syscall number once made `amx_available()` false on real AMX hosts). Checked directly on this host: CPUID.7.0 EDX bits 22/24/25 (AMX-BF16/TILE/INT8) = 0, CPUID.7.1 EAX bit 5 (AVX512-BF16) = 0, XCR0 = `0xe7` (XTILECFG/XTILEDATA bits 17/18 clear), and `arch_prctl(ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA)` on syscall 158 returns `-95` (EOPNOTSUPP). The AMX status in the gotcha file was measured on an Emerald Rapids VM, which this one is not.
+
+| Map | edges | triangles | bit compose | bit walk counts (popcount) | bit triangles | BF16 stage | BF16 `A·A` (packed / row-major) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 % | 658 | 23 | 3.6 µs | 175 µs | 1.9 µs | 155 µs | 19.6 / 19.4 ms |
+| 10 % | 6 529 | 16 617 | 4.5 µs | 190 µs | 13.5 µs | 256 µs | 19.4 / 22.3 ms |
+| 50 % | 32 776 | 2 099 676 | 25.2 µs | 192 µs | 71.8 µs | 400 µs | 19.5 / 18.9 ms |
+| 1 % + 4 hubs | 2 706 | 20 273 | 2.6 µs | 165 µs | 5.8 µs | 150 µs | 19.7 / 19.4 ms |
+
+- **§3's exactness claim holds as measured.** BF16 walk counts equal the oracle exactly (`assert_eq!`, not a tolerance), and `count > 0` equals Boolean composition, on all four maps.
+- **On this host the bit arm wins every cell**, including walk counts. Popcount of `row_i(A) ∧ row_j(Aᵀ)` gives the same counts as the GEMM in about 170–190 µs, against about 19 ms. Staging alone (bits to dense BF16, 16 KiB to 256 KiB) costs more than the whole bit composition.
+- **The 19 ms is the polyfill's shape, not GEMM's.** `ndarray::simd_ops::bf16_tile_gemm_16x16` allocates two decode buffers per call, then one strided B-column buffer and one horizontal reduce per output element: about 257 heap allocations per 16 × 16 call, 65 000 per 256 × 256 product. The packed entry on this tier also unpacks and allocates per call. Recorded as `ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC`; the row-major entry is no faster, so the unpack is not the cost.
+- **Two conclusions, kept apart.** (1) *Measured:* on this host's F32x16 polyfill tier, the bit arm wins every cell, and BF16 is exact. (2) *Not measured:* nothing here says anything about BF16 or AMX tile hardware performance. The polyfill's cost is dominated by allocation, so it is not even a lower bound on what `TDPBF16PS` or `VDPBF16PS` would cost. No layout decision may cite (1) as evidence about (2).
+- **Not measured:** AMX and `VDPBF16PS` hosts; dense relations above one focus (blocked 256 × 256 tiles); weighted or evidence-bearing relations, which §3 excludes anyway.
+
+## 5b. Tile GEMM is a consumer of prepared relationships, not a gather solution (operator, 2026-10-20)
+
+> **Status: RULING-SHAPED CLARIFICATION, recorded as provenance.** Shared with D-RST (`relstore-quack-petgraph-traversal-v1.md` §5b), which carries the cost model and the falsifier F8.
+
+Tile GEMM speeds up arithmetic once relationship operands are in a compatible dense layout. It does not resolve global identities, align coordinate domains, scatter, gather or traverse sparse data. Those happen before the kernel and are paid there. A kernel loads its operands from memory, but only from tiles that something already built.
+
+**Three costs, always reported apart:** preparation (identity resolution, coordinate alignment, index traversal, gathering, packing, tile construction, sealing), execution (bit operations, SIMD, BF16/AMX GEMM on prepared operands) and maintenance (version checks, invalidation, incremental updates, repacking, rebuilds). A tile path wins only if `T_prepare + N·T_exec + M·T_maintain` falls below `N·T_traverse` for the measured reuse count `N` and invalidation count `M`. Break-even counts come from measured values, never from an assumed kernel speedup, and a warm kernel is never compared with a cold traversal.
+
+**What §5a measured, in those terms.**
+- *Execution:* bit composition, popcount counts, triangles and the BF16 product, each on operands already in one 256 × 256 focus.
+- *Part of preparation:* the "BF16 stage" column (bits to dense BF16), and it alone exceeds the whole bit composition.
+- *Not measured:* the preparation that obtains the focus (identity resolution and slot assignment, measured separately in D-RMAP-1A §8), maintenance (no invalidation was exercised), and any reuse count. So §5a ranks execution paths on prepared operands; it says nothing yet about an end-to-end relational operation.
+
+**Boolean and arithmetic answers are different questions.** Reachability needs existence (`And`/`Or`); the BF16 product returns path multiplicities. §5a checked that `count > 0` equals Boolean composition. Using a count as existence is an explicit derivation step, never an implicit one. Exactness: the operands here are 0/1 and the accumulator is F32, so one product is exact up to 2^24. A count fed back as a BF16 operand (a further hop, or a weighted relation) is exact only up to 256, the BF16 significand bound. Such a path checks its counts against that bound and refuses beyond it.
+
+**No new production kernel is added for this hypothesis.** The probe uses `ndarray::simd::bf16_tile_gemm_16x16{,_packed}` through the facade and the existing mask-risc/ndarray bit algebra. The Boolean tile already exists as a mask-risc presence plane and as the 256 × 256 tile in `rmap.rs`. Sparse data is never forced into tiles in order to use GEMM.
 
 ## 6. Recommendation
 
