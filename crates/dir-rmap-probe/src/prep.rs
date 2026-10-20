@@ -22,9 +22,12 @@
 //! `ISS-ADMISSION-PREP-BINDING`, still open.
 
 use crate::fixture::Fixture;
+use lance_graph_dir_sim::snapshot::Snapshot;
+use lance_graph_dir_sim::store::VersionStore;
 use lance_graph_dir_sim::{GroupProperty, GroupWhere, View, groups_where};
 use ndarray::simd::mask_or_assign;
 use ogar_dir_sim::VersionId;
+use std::sync::{Arc, Weak};
 
 pub fn words(n: usize) -> usize {
     n.div_ceil(64)
@@ -56,20 +59,42 @@ pub fn ones(p: &[u64]) -> impl Iterator<Item = usize> + '_ {
 }
 
 /// What a prepared structure was built against. Ordinals are valid inside
-/// one version only, so any difference refuses.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// one snapshot only, so any difference refuses.
+///
+/// `VersionId` alone does not identify a snapshot: every `VersionStore`
+/// numbers its versions from zero, so a store restored from an image, or a
+/// second store over other data, can reuse an id with the same user and
+/// group counts. The witness therefore also holds a `Weak` to the version's
+/// `Snapshot` and compares it by pointer. The `Weak` keeps the allocation
+/// alive, so its address is never reused while the witness exists.
+#[derive(Clone, Debug)]
 pub struct Witness {
     pub version: VersionId,
     pub users: usize,
     pub groups: usize,
+    snapshot: Weak<Snapshot>,
 }
 
+impl PartialEq for Witness {
+    fn eq(&self, o: &Self) -> bool {
+        self.version == o.version
+            && self.users == o.users
+            && self.groups == o.groups
+            && Weak::ptr_eq(&self.snapshot, &o.snapshot)
+    }
+}
+
+impl Eq for Witness {}
+
 impl Witness {
-    pub fn of(version: VersionId, v: &View<'_>) -> Self {
+    pub fn of(st: &VersionStore, version: VersionId) -> Self {
+        let snap = st.snapshot(version).expect("version exists");
+        let v = st.view(version).expect("version exists");
         Witness {
             version,
             users: v.users_len(),
             groups: v.groups_len(),
+            snapshot: Arc::downgrade(snap),
         }
     }
 }

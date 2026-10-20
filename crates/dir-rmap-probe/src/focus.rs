@@ -100,7 +100,7 @@ impl Focus {
             *e = s as u16 + 1;
         }
         Ok(Focus {
-            witness: c.b.witness,
+            witness: c.b.witness.clone(),
             chain,
             ids: groups.to_vec(),
             slot_of,
@@ -117,7 +117,7 @@ impl Focus {
                 set(&mut self.proj[g], s);
             }
         }
-        self.witness = c.b.witness;
+        self.witness = c.b.witness.clone();
     }
 
     /// The reference projection: test every slot in every group's upward
@@ -132,7 +132,7 @@ impl Focus {
                 }
             }
         }
-        self.witness = c.b.witness;
+        self.witness = c.b.witness.clone();
     }
 
     /// Phases 1 and 2.
@@ -161,13 +161,13 @@ impl Focus {
             }
             self.proj[g] = row;
         }
-        self.witness = c.b.witness;
+        self.witness = c.b.witness.clone();
     }
 
     /// After membership edits only: the projected rows do not depend on
     /// direct membership, so only the witness moves (taken from `c`).
     pub fn refresh_membership(&mut self, c: &Compiled) {
-        self.witness = c.b.witness;
+        self.witness = c.b.witness.clone();
     }
 
     pub fn check(&self, current: &Witness) -> Result<(), Refusal> {
@@ -247,7 +247,8 @@ pub struct FocusUsers {
 
 impl FocusUsers {
     pub fn from_focus(c: &Compiled, focus: Focus) -> FocusUsers {
-        let rows = (0..c.b.users as u16).map(|u| focus.row_of(c, u)).collect();
+        // `users` may be 65,536 (the full u16 ordinal space): iterate as usize.
+        let rows = (0..c.b.users).map(|u| focus.row_of(c, u as u16)).collect();
         FocusUsers { focus, rows }
     }
 

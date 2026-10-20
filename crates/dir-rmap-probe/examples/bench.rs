@@ -573,13 +573,9 @@ fn main() {
             );
         }
     }
+    let rebind_ids = focus_ids_for(&full1, &all_templates, &ord1);
     let t_rebind = time(9, || {
-        Focus::bind(
-            &full1,
-            Chain::All,
-            &focus_ids_for(&full1, &all_templates, &ord1),
-            &w.witness(),
-        )
+        Focus::bind(&full1, Chain::All, &rebind_ids, &w.witness())
     });
     println!("## W7/W8: overlay ({membership_edits} membership edits + 1 nesting edge)\n");
     println!("| step | time |\n|---|---|");
@@ -953,7 +949,7 @@ fn w5(
     all_qs: &[Vec<u16>],
     evict_buf: &mut [u64],
 ) {
-    let users: Vec<u16> = (0..c.b.users as u16).collect();
+    let users: Vec<u16> = (0..c.b.users).map(|u| u as u16).collect();
     let m = users.len();
     println!("### {title}\n");
     let mut evals_tbl = Vec::new();
@@ -1388,21 +1384,25 @@ fn w5_all(w: &World, c: &Compiled, ord: &Ordinals, evict_buf: &mut [u64], _sampl
 // ---------------------------------------------------------------------------
 // Working-set sweep: more groups, so the B+ closure outgrows L2.
 
+const SWEEP_QUESTIONS: usize = 150;
+
 fn sweep(users: usize, evict_buf: &mut [u64]) {
     let factors: Vec<usize> = std::env::var("DIR_RMAP_SWEEP")
         .unwrap_or_else(|_| "1,2,4,8".into())
         .split(',')
         .map(|s| s.trim().parse().expect("sweep factor"))
         .collect();
-    println!("## Working-set sweep ({users} users, conjunction questions, focus of 64 groups)\n");
+    println!(
+        "## Working-set sweep ({users} users, conjunction questions, focus of 64 groups, {SWEEP_QUESTIONS} questions)\n"
+    );
     println!(
         "Caches: {}. A focus row is 32 B; a closure row is `words`·8 B. \"touched\" = bytes read by one evaluation (direct rows + output); \"set\" = bytes of rows read when every user is evaluated in turn (distinct direct groups × row size). Hot = one user repeated; warm = users cycled; cold = after evicting 64 MiB. ns per evaluation.\n",
         cache_sizes()
     );
     println!(
-        "| groups | words | closure, one chain up | B+ set | F set | F+u set | avg direct groups | touched B+ / B+w / F | hot B+ / F | warm B+ / B+w / F / F+u | cold B+ / B+w / F / F+u | compile ms | F prep µs | N* F vs B+ | N* F vs B+w |"
+        "| groups | questions | F masks | words | closure, one chain up | B+ set | F set | F+u set | avg direct groups | touched B+ / B+w / F | hot B+ / F | warm B+ / B+w / F / F+u | cold B+ / B+w / F / F+u | compile ms | F prep µs | N* F vs B+ | N* F vs B+w |"
     );
-    println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+    println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
     for factor in factors {
         let w = World::new(Fixture::generate(Spec::iam_scaled(users, factor)));
         let v = w.view();
@@ -1415,13 +1415,18 @@ fn sweep(users: usize, evict_buf: &mut [u64]) {
             .iter()
             .map(|&(r, l)| vec![ord.group[r as usize], ord.group[l as usize]])
             .collect();
-        let (qs, groups) = take_k(&all, 64);
+        // A fixed number of questions, so the rows differ only in group
+        // count (the first 64-group focus holds a different number of
+        // conjunctions at each scale).
+        let (mut qs, groups) = take_k(&all, 64);
+        assert!(qs.len() >= SWEEP_QUESTIONS, "{} questions", qs.len());
+        qs.truncate(SWEEP_QUESTIONS);
         let wds = words_of(&groups);
         let f = Focus::bind(&c, Chain::All, &groups, &witness).unwrap();
         let fu =
             FocusUsers::from_focus(&c, Focus::bind(&c, Chain::All, &groups, &witness).unwrap());
         let masks: Vec<Row> = qs.iter().map(|q| f.all_of(q).unwrap()).collect();
-        let users_o: Vec<u16> = (0..c.b.users as u16).collect();
+        let users_o: Vec<u16> = (0..c.b.users).map(|u| u as u16).collect();
         let mut row = vec![0u64; c.w];
         for &u in &users_o {
             let want = e_bp(&c, u, &qs, &mut row);
@@ -1465,7 +1470,9 @@ fn sweep(users: usize, evict_buf: &mut [u64]) {
             }
         };
         println!(
-            "| {n} | {} | {} | {} | {} | {} | {avg:.1} | {} / {} / {} | {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} | {:.1} | {} | {} |",
+            "| {n} | {} | {} | {} | {} | {} | {} | {} | {avg:.1} | {} / {} / {} | {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} | {:.1} | {} | {} |",
+            qs.len(),
+            kib((masks.len() * 32) as isize),
             c.w,
             kib((n * c.w * 8) as isize),
             kib(set_bp as isize),

@@ -202,7 +202,7 @@ impl World {
     }
 
     pub fn witness(&self) -> prep::Witness {
-        prep::Witness::of(self.version, &self.view())
+        prep::Witness::of(&self.st, self.version)
     }
 
     /// Arm B for the current version.
@@ -211,7 +211,7 @@ impl World {
         let ord = prep::Ordinals::of(&self.f, &v);
         prep::Prepared::build(
             &v,
-            prep::Witness::of(self.version, &v),
+            prep::Witness::of(&self.st, self.version),
             &ord,
             &self.direct,
             &self.nested,

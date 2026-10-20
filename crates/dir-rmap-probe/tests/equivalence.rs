@@ -454,7 +454,7 @@ fn a_refreshed_focus_equals_a_fresh_bind_dir_sim_and_the_oracle() {
         .map(|&ch| FocusLazy::from_focus(&c, Focus::bind(&c, ch, &ids, &w0).unwrap()))
         .collect();
     for (k, l) in fl.iter_mut().enumerate() {
-        for u in 0..c.b.users as u16 {
+        for u in (0..c.b.users).map(|u| u as u16) {
             let _ = l.row(&c, u);
         }
         assert_eq!(l.filled, c.b.users, "chain {k} warmed");
@@ -485,7 +485,7 @@ fn a_refreshed_focus_equals_a_fresh_bind_dir_sim_and_the_oracle() {
     }
     // Incremental: membership CSRs, then each nesting pair.
     c.b.set_direct(&ord, &w.direct);
-    c.b.witness = w1;
+    c.b.witness = w1.clone();
     let edited: Vec<u16> = edits
         .iter()
         .filter_map(|e| match *e {
@@ -662,4 +662,20 @@ fn a_focus_refuses_what_it_cannot_answer_completely() {
     let c1 = Compiled::compile(w.prepare());
     assert_eq!(c1.b.check(&w1), Ok(()));
     assert_eq!(f.ask(&c1, &w1, 0, &[3]), Err(Refusal::Stale));
+}
+
+/// Two stores over the same data both number their first version 0 and
+/// have the same counts; a prepared structure from one must still refuse
+/// the other's witness (it names another snapshot).
+#[test]
+fn a_witness_from_another_store_is_refused() {
+    let a = world();
+    let b = world();
+    assert_eq!(a.version, b.version, "both stores start at the same id");
+    assert_eq!(a.view().users_len(), b.view().users_len());
+    let c = Compiled::compile(a.prepare());
+    assert_eq!(c.b.check(&a.witness()), Ok(()));
+    assert_eq!(c.b.check(&b.witness()), Err(Refusal::Stale));
+    let f = Focus::bind(&c, Chain::All, &[3], &a.witness()).unwrap();
+    assert_eq!(f.check(&b.witness()), Err(Refusal::Stale));
 }
