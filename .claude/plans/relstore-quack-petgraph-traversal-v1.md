@@ -2,7 +2,7 @@
 
 (File name kept for existing links; the plan was first written as "RelationshipMapStore × Quack × petgraph". See the correction below.)
 
-**Status: PROPOSAL, 2026-10-20. Documentation only.** No crate, type, opcode, ABI, dependency or ruling change lands with this plan. Every capability below is labelled IMPLEMENTED, PROBE, PROPOSAL or RULING from its own source.
+**Status: LAB EXPLORATION, 2026-10-20 (operator). Nothing here is admitted to production, and no production code may be rewired to it.** The relationship store tested here is one option among many, meant for certain data shapes. It is unfit to promote until further testing: the measured preparation is slow (300–400 ns per edge, §7), and nothing has been compared with the alternatives on real workloads. Every "critical path", "PR" or "production" below describes a lab sequence that could only become a production proposal after its own review. Documentation only. No crate, type, opcode, ABI, dependency or ruling change lands with this plan. Every capability below is labelled IMPLEMENTED, PROBE, PROPOSAL or RULING from its own source.
 
 **Decision taken (operator, 2026-10-20), recorded as provenance, not as validation:** option B. `RelationshipMapStore` owns relationship persistence, identities, index layouts, coordinate-domain seals and invalidation. Quack owns compilation and numeric query semantics. mask-risc on `ndarray::simd` stays the only population executor. This keeps the D-RMAP-1A §1 ownership table and the 2026-10-05 Quack storage-portability ruling as they are. Neither is superseded here.
 
@@ -317,13 +317,13 @@ Evidence so far: on the polyfill tier the bit arm wins every D-RMAP-2 cell (#162
 | D-RST-7 | triangle and amortization | F6, F7 and F8, cold and warm; F8's path D only through the existing D-RMAP-2 probe kernels, with no new production kernel | D-RST-6 |
 | D-RST-8 | large-domain multi-hop | only after admission A2 | A2 |
 
-**Critical path:** D-RST-9 → D-RST-1 → D-RST-2 → D-RST-4 → D-RST-5 → D-RST-6 → D-RST-7. **Off it:** D-RST-3 (optional petgraph), D-RST-8 (waits on A2), F-PG, and F8's path D (a measurement through existing probe kernels, never a reason to add one).
+**Lab sequence (not a production path):** D-RST-9 → D-RST-1 → D-RST-2 → D-RST-4 → D-RST-5 → D-RST-6 → D-RST-7. **Off it:** D-RST-3 (optional petgraph), D-RST-8 (waits on A2), F-PG, and F8's path D (a measurement through existing probe kernels, never a reason to add one).
 
 **D-RST-3 result (2026-10-20, AdaWorldAPI/petgraph#4, `experiments/relstore-visit`), recorded as evidence for a deferred optional item.** The view met what was then F1 (now F-PG): petgraph's unmodified `Bfs`/`Dfs` match a `DiGraph` oracle built from the facts on fixtures covering parallel edges, self-loops, isolated nodes and empty relations. The edge id is the fact id, and it survives compaction while rows move. The view borrows the prepared buffers, and building it or walking every neighbour list allocates nothing. The F2b-shaped falsifier passes: a Quack one-hop reads the same `dst` buffer at the same version, and the store prepares once.
 
 Measured at 1M edges: the neighbour walk and BFS cost the same as petgraph `Csr` (2.0 vs 1.8–1.9 ns per edge). Prepare takes 308–396 ns per edge and is not optimized. The Quack one-hop is O(E) per query (14–18 ms for 64 hops vs 0.3 µs through the view), because Quack cannot know that the `src` lane is sorted; that question belongs to the critical path and is §8 A6. The experiment's view is `Copy`, which the 2026-07-29 ruling forbids; §3.3 names the compatible shape. It is not extended further.
 
-Each PR keeps the probes in `mork-pathmap-probe` as probes. Production code is new code in the store crate with its own tests; it does not import the probe crate.
+Each step stays a probe or isolated experiment (`mork-pathmap-probe`, the petgraph fork's `experiments/`). None of it is production code, none is wired into an existing crate, and none may be promoted without a separate review after further testing.
 
 ## 8. Open admission decisions and blockers
 

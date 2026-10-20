@@ -17,3 +17,9 @@
 ## Open
 
 - A1–A6, B1–B3 (plan §8). F8 (four-path amortization) is unmeasured; path D runs only through the existing D-RMAP-2 probe kernels.
+
+## Status ruling (operator, later 2026-10-20)
+
+Lab exploration only. The relationship store is one option among many for certain data shapes, unfit to promote until further testing; nothing from D-RST or D-RMAP-2 is admitted to production, and no production code may be rewired to it.
+
+Checked in source: none of the measured paths touched DataFusion. `mork-pathmap-probe`, `lance-graph-quack`, `lance-graph-mask-risc` and the petgraph `relstore-visit` experiment have no DataFusion dependency. BlasGraph and DataFusion are separate `ExecutionStrategy` arms in `lance-graph/src/query.rs`, and the BlasGraph arm returns "not yet wired to input datasets". The measured slowness is the probes' own: an indirect sort plus a second sort in preparation, a full-lane scan with per-query lowering in the Quack hop, and per-element allocation in the BF16 polyfill.

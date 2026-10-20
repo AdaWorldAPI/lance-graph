@@ -1,6 +1,6 @@
 ## 2026-10-20 — relstore-quack-petgraph-traversal-v1 (reframed) — compiled relational geometry and amortization; petgraph optional → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
 
-**Status:** D-RST-0..9 PROPOSAL; documentation only. Operator correction (2026-10-20): the goal is reusable relational geometry amortized across front ends and thought versions; petgraph is an optional consumer (D-RST-3 OPTIONAL / DEFERRED / MEASUREMENT-GATED); tile GEMM consumes prepared layouts and does not obtain them.
+**Status:** D-RST-0..9 LAB EXPLORATION, not admitted to production; no production code may be rewired to it (operator, 2026-10-20); documentation only. Operator correction (2026-10-20): the goal is reusable relational geometry amortized across front ends and thought versions; petgraph is an optional consumer (D-RST-3 OPTIONAL / DEFERRED / MEASUREMENT-GATED); tile GEMM consumes prepared layouts and does not obtain them.
 
 - Critical path: D-RST-9 (native borrowed views, no petgraph) → D-RST-1 → 2 → 4 → 5 → 6 → 7. Off it: D-RST-3, D-RST-8 (A2), F-PG, F8 path D.
 - New §5b: three costs (preparation, execution, maintenance) measured apart; break-even from measured values only; Boolean existence vs BF16 multiplicity, with the BF16 exactness bound (integers to 256).
