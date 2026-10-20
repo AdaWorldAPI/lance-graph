@@ -1022,8 +1022,11 @@ mod stage3 {
 mod arm_b {
     use super::*;
     use crepe_plan_probe::addressed::{AddressedRefusal, AddressedRelation, attest, key};
+    use crepe_plan_probe::addressed::{Lookup, Read, ReadPolicy};
     use crepe_plan_probe::lance_store::{LanceStore, SideIo};
-    use crepe_plan_probe::pipeline::{PipelineRefusal, evaluate_addressed, evaluate_lance};
+    use crepe_plan_probe::pipeline::{
+        PipelineRefusal, evaluate_addressed, evaluate_addressed_with, evaluate_lance,
+    };
     use lance_graph_contract::ordered_lane::WitnessError;
 
     struct Fixture {
@@ -1398,6 +1401,153 @@ mod arm_b {
 
     /// B12: a lane attested on one table is refused against another table
     /// with the same relation id and version.
+    /// B13: every read policy answers what the exact read answers, for every
+    /// result kind, on a hit, a sponsor branch and a miss. The bag kinds see
+    /// the duplicate `Allowed(2, 2)` row, so a coalesced or full read that
+    /// dropped or doubled a row would show.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b13_every_read_policy_answers_like_the_exact_read() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let fx = fixture(&labels, &f).await;
+        let policies = [
+            ReadPolicy::FULL,
+            ReadPolicy::DEFAULT,
+            ReadPolicy {
+                coalesce_gap: 1,
+                full_permille: u32::MAX,
+            },
+            ReadPolicy {
+                coalesce_gap: u32::MAX,
+                full_permille: u32::MAX,
+            },
+        ];
+        for x in [17, 5, 999] {
+            let d = answer_demand(&labels, x);
+            for kind in kinds() {
+                let (exact, _, _, _) = evaluate_addressed_with(
+                    &rules,
+                    &d,
+                    kind,
+                    Options::ALL,
+                    &fx.lance,
+                    &fx.lanes,
+                    ReadPolicy::EXACT,
+                )
+                .await
+                .unwrap();
+                for p in policies {
+                    let (got, _, _, _) = evaluate_addressed_with(
+                        &rules,
+                        &d,
+                        kind,
+                        Options::ALL,
+                        &fx.lance,
+                        &fx.lanes,
+                        p,
+                    )
+                    .await
+                    .unwrap();
+                    assert_eq!(got, exact, "x={x} {kind:?} {p:?}");
+                }
+            }
+        }
+    }
+
+    /// B14: the switch can fire and can stay silent on the same demand. The
+    /// centers of `x = 17` cover a few rows of a 400-row `Parent`: below a
+    /// 100-permille threshold the side reads ranges; at 1 permille it reads
+    /// the table in full, and Lance then scans every row of it.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b14_the_full_read_fires_on_dense_demand_and_not_on_sparse() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Count(BAG);
+        let run = |p: ReadPolicy| {
+            evaluate_addressed_with(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes, p)
+        };
+        let (sparse, _, sparse_io, sparse_l) = run(ReadPolicy {
+            coalesce_gap: 0,
+            full_permille: 100,
+        })
+        .await
+        .unwrap();
+        let (dense, _, dense_io, dense_l) = run(ReadPolicy {
+            coalesce_gap: 0,
+            full_permille: 1,
+        })
+        .await
+        .unwrap();
+        assert_eq!(dense, sparse);
+        // Sides that sought keys. `Allowed` has 4 rows, so its 3 centers
+        // cover 750 permille and it reads in full under both policies;
+        // `Parent` has 400 rows and is the side the threshold separates.
+        let sought = |l: &[Vec<Lookup>]| -> Vec<Lookup> {
+            l.iter().flatten().filter(|l| l.keys > 0).copied().collect()
+        };
+        let (s, d) = (sought(&sparse_l), sought(&dense_l));
+        assert!(!s.is_empty(), "the fixture must have centers to seek");
+        assert!(
+            s.iter().any(|l| l.read == Read::Ranges),
+            "sparse demand reads ranges on the large side: {s:?}"
+        );
+        assert!(
+            d.iter().all(|l| l.read == Read::Full && l.ranges_read == 0),
+            "dense demand reads every sought side in full: {d:?}"
+        );
+        let scanned = |io: &[Vec<SideIo>]| -> usize {
+            io.iter().flatten().map(|s| s.rows.rows_scanned).sum()
+        };
+        assert!(
+            scanned(&dense_io) > scanned(&sparse_io),
+            "a full read scans more rows than the ranges: {} vs {}",
+            scanned(&dense_io),
+            scanned(&sparse_io)
+        );
+    }
+
+    /// B15: a coalesced read hands Lance fewer ranges than the exact read and
+    /// gives the memory path's answer. Without `Parent(17, 2)` the centers are
+    /// `{1, 3}`, and key 2 sits between them, undemanded, on both `Parent` and
+    /// `Allowed` (where it is the duplicate `[2, 2]` pair), so the merged read
+    /// covers it. This fixture does not show the post-read drop: rows of key 2
+    /// find no partner in the join, so the answer is the same with or without
+    /// it (disable run). B13 and B14 are what pin the drop.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b15_coalescing_hands_lance_fewer_ranges_for_the_same_answer() {
+        let mut f = family_data();
+        f.parent.retain(|r| *r != [17, 2]);
+        f.allowed = vec![[1, 1], [2, 2], [2, 2], [3, 3], [2000, 2000]];
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        for kind in kinds() {
+            let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+            let run = |p: ReadPolicy| {
+                evaluate_addressed_with(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes, p)
+            };
+            let (exact, _, _, el) = run(ReadPolicy::EXACT).await.unwrap();
+            let (merged, _, _, ml) = run(ReadPolicy {
+                coalesce_gap: u32::MAX,
+                full_permille: u32::MAX,
+            })
+            .await
+            .unwrap();
+            assert_eq!(exact, m, "{kind:?}");
+            assert_eq!(merged, m, "{kind:?}");
+            let exact_ranges: usize = el.iter().flatten().map(|l| l.ranges_read).sum();
+            let merged_ranges: usize = ml.iter().flatten().map(|l| l.ranges_read).sum();
+            assert!(
+                merged_ranges < exact_ranges,
+                "{merged_ranges} vs {exact_ranges}"
+            );
+            assert!(ml.iter().flatten().any(|l| l.read == Read::Coalesced));
+        }
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn b12_a_lane_from_another_dataset_is_refused() {
         let f = family_data();

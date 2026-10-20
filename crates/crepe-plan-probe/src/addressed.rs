@@ -31,7 +31,7 @@ use lance::dataset::scanner::{RowAddrMask, RowAddrTreeMap};
 use lance_graph_contract::facet::{FacetCascade, SemanticPrefix};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane, WitnessError};
 
-use crate::lance_store::{LanceStore, LanceStoreError, SideIo, read_rows};
+use crate::lance_store::{Io, LanceStore, LanceStoreError, SideIo, read_rows};
 use crate::logic::RelId;
 use crate::native::{PreparedStar, StarPlan, prepare_from_rows};
 
@@ -148,6 +148,87 @@ pub struct Lookup {
     pub keys: usize,
     /// Rows inside the located ranges.
     pub rows_in_ranges: usize,
+    /// How the side's rows were read.
+    pub read: Read,
+    /// Ranges handed to Lance (0 for a full read).
+    pub ranges_read: usize,
+}
+
+/// How a side's rows are read once its lane ranges are located.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Read {
+    /// Exactly the located ranges.
+    #[default]
+    Ranges,
+    /// The located ranges with short gaps between them read too. The extra
+    /// rows are dropped after the read by their own leading value.
+    Coalesced,
+    /// The whole table without a row filter, then the same drop.
+    Full,
+}
+
+/// When a side stops reading exact ranges. Many short ranges cost Lance more
+/// per row than one sequential read (§2e: from about 10% of centers every
+/// masked read loses to the full one).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReadPolicy {
+    /// Two ranges are merged when at most this many rows lie between them.
+    pub coalesce_gap: u32,
+    /// The table is read in full when the (merged) ranges cover at least this
+    /// many rows per 1,000 of the table. Above 1,000, never.
+    pub full_permille: u32,
+}
+
+impl ReadPolicy {
+    /// Exact ranges only: Arm B as first measured.
+    pub const EXACT: Self = Self {
+        coalesce_gap: 0,
+        full_permille: u32::MAX,
+    };
+    /// The measured switch (`examples/addressed_read.rs`, release, uniform
+    /// demand, policy pins rather than derived values):
+    /// - Full read at 10% coverage. The crossover moved with table size: at
+    ///   50,000 rows exact ranges win up to about 3% and lose from about 10%;
+    ///   at 200,000 rows they win up to about 5% and tie at 7–10%. Between
+    ///   the two, either choice is within run-to-run noise; above 10% the
+    ///   full read is up to 1.9× faster (50% of centers).
+    /// - A coalescing gap of 16 rows measured neutral on uniform demand. A
+    ///   gap of 64 lost (11.7 vs 6.9 ms at 1% of 200,000 rows). Clustered
+    ///   demand, where coalescing should help, is not measured.
+    pub const DEFAULT: Self = Self {
+        coalesce_gap: 16,
+        full_permille: 100,
+    };
+    /// Always the whole table.
+    pub const FULL: Self = Self {
+        coalesce_gap: 0,
+        full_permille: 0,
+    };
+}
+
+/// Decides how to read `ranges` (sorted, disjoint, inside `0..n_rows`) and
+/// returns the ranges to hand to Lance (empty for [`Read::Full`]). The rule
+/// reads only the lane positions, never a row: it is part of preparation.
+pub fn plan_read(ranges: &[(u32, u32)], n_rows: u32, p: ReadPolicy) -> (Read, Vec<(u32, u32)>) {
+    let mut merged: Vec<(u32, u32)> = Vec::with_capacity(ranges.len());
+    for &(lo, hi) in ranges {
+        match merged.last_mut() {
+            Some(last) if lo - last.1 <= p.coalesce_gap => last.1 = hi,
+            _ => merged.push((lo, hi)),
+        }
+    }
+    let span = |r: &[(u32, u32)]| -> u64 { r.iter().map(|&(lo, hi)| u64::from(hi - lo)).sum() };
+    let covered = span(&merged);
+    if n_rows > 0 && covered * 1000 >= u64::from(n_rows) * u64::from(p.full_permille) {
+        return (Read::Full, Vec::new());
+    }
+    // Merging ranges that touch reads no extra row: still exact.
+    let read = if covered > span(ranges) {
+        Read::Coalesced
+    } else {
+        Read::Ranges
+    };
+    (read, merged)
 }
 
 /// The rows of every leading value in `wanted` (sorted, deduplicated) as lane
@@ -226,14 +307,48 @@ async fn current_lane<'a>(
     Ok((a, ds))
 }
 
-/// Prepares `plan` reading only the rows of the demanded keys: restricted
-/// sides by their constant, the others by the centers every restricted side
-/// has. Without a restricted side every lane is read in full (the arm has no
-/// demand to address by).
+/// Reads one side's rows for the located `ranges` of the leading values in
+/// `wanted` (sorted, deduplicated), as `policy` decides. A coalesced or full
+/// read returns rows of other leading values too; they are dropped by the
+/// row's own leading value, so the result equals the exact read.
+async fn read_side(
+    ds: &Dataset,
+    a: &AddressedRelation,
+    ranges: &[(u32, u32)],
+    wanted: &[u32],
+    policy: ReadPolicy,
+) -> Result<(Read, usize, Vec<[u32; 2]>, Io), AddressedRefusal> {
+    let (how, r) = plan_read(ranges, a.lane.n_rows(), policy);
+    let mask = match how {
+        Read::Full => None,
+        Read::Ranges | Read::Coalesced => Some(range_mask(&r)),
+    };
+    let (mut got, rows_io) = read_rows(ds, mask).await?;
+    if how != Read::Ranges {
+        got.retain(|row| wanted.binary_search(&row[0]).is_ok());
+    }
+    Ok((how, r.len(), got, rows_io))
+}
+
+/// [`prepare_addressed_with`] under [`ReadPolicy::EXACT`].
 pub async fn prepare_addressed(
     plan: &StarPlan,
     store: &LanceStore,
     lanes: &[AddressedRelation],
+) -> Result<(PreparedStar, Vec<SideIo>, Vec<Lookup>), AddressedRefusal> {
+    prepare_addressed_with(plan, store, lanes, ReadPolicy::EXACT).await
+}
+
+/// Prepares `plan` reading only the rows of the demanded keys: restricted
+/// sides by their constant, the others by the centers every restricted side
+/// has. Without a restricted side every lane is read in full (the arm has no
+/// demand to address by). `policy` decides per side whether the located
+/// ranges are read exactly, coalesced, or replaced by a full read.
+pub async fn prepare_addressed_with(
+    plan: &StarPlan,
+    store: &LanceStore,
+    lanes: &[AddressedRelation],
+    policy: ReadPolicy,
 ) -> Result<(PreparedStar, Vec<SideIo>, Vec<Lookup>), AddressedRefusal> {
     let n_sides = plan.sides.len();
     let mut rows: Vec<Option<(Vec<[u32; 2]>, u64)>> = vec![None; n_sides];
@@ -257,10 +372,15 @@ pub async fn prepare_addressed(
             Ok(k) => ranges(a, &[k])?,
             Err(_) => (Vec::new(), 0),
         };
-        let (got, rows_io) = read_rows(&ds, Some(range_mask(&r))).await?;
+        let wanted: Vec<u32> = u32::try_from(restricted(i).expect("restricted"))
+            .into_iter()
+            .collect();
+        let (how, read_ranges, got, rows_io) = read_side(&ds, a, &r, &wanted, policy).await?;
         lookups[i] = Lookup {
             keys: 1,
             rows_in_ranges: n,
+            read: how,
+            ranges_read: read_ranges,
         };
         io[i] = SideIo {
             mask_column: None,
@@ -302,7 +422,7 @@ pub async fn prepare_addressed(
     for i in (0..n_sides).filter(|&i| restricted(i).is_none()) {
         let key = plan.sides[i].key;
         let (a, ds) = current_lane(plan, i, store, lanes).await?;
-        let (mask, n, sought) = match &centers {
+        let (n, sought, how, read_ranges, got, rows_io) = match &centers {
             // Without centers the side is read in full, so its key column
             // may be either; only a lookup needs the leading column.
             Some(_) if key.key_col != 0 => {
@@ -310,14 +430,19 @@ pub async fn prepare_addressed(
             }
             Some(c) => {
                 let (r, n) = ranges(a, c)?;
-                (Some(range_mask(&r)), n, c.len())
+                let (how, rr, got, rows_io) = read_side(&ds, a, &r, c, policy).await?;
+                (n, c.len(), how, rr, got, rows_io)
             }
-            None => (None, a.lane.n_rows() as usize, 0),
+            None => {
+                let (got, rows_io) = read_rows(&ds, None).await?;
+                (a.lane.n_rows() as usize, 0, Read::Full, 0, got, rows_io)
+            }
         };
-        let (got, rows_io) = read_rows(&ds, mask).await?;
         lookups[i] = Lookup {
             keys: sought,
             rows_in_ranges: n,
+            read: how,
+            ranges_read: read_ranges,
         };
         io[i] = SideIo {
             mask_column: None,
@@ -332,4 +457,66 @@ pub async fn prepare_addressed(
         .map(|r| r.expect("every side read"))
         .collect();
     Ok((prepare_from_rows(plan, owned), io, lookups))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NO_FULL: u32 = u32::MAX;
+
+    fn policy(coalesce_gap: u32, full_permille: u32) -> ReadPolicy {
+        ReadPolicy {
+            coalesce_gap,
+            full_permille,
+        }
+    }
+
+    #[test]
+    fn a_gap_of_exactly_the_limit_merges_and_one_more_does_not() {
+        let r = [(0, 2), (5, 6)]; // gap of 3 rows
+        assert_eq!(
+            plan_read(&r, 1_000, policy(3, NO_FULL)),
+            (Read::Coalesced, vec![(0, 6)])
+        );
+        assert_eq!(
+            plan_read(&r, 1_000, policy(2, NO_FULL)),
+            (Read::Ranges, r.to_vec())
+        );
+    }
+
+    #[test]
+    fn touching_ranges_merge_but_stay_exact() {
+        let r = [(0, 2), (2, 4), (9, 10)];
+        assert_eq!(
+            plan_read(&r, 1_000, ReadPolicy::EXACT),
+            (Read::Ranges, vec![(0, 4), (9, 10)])
+        );
+    }
+
+    #[test]
+    fn the_full_read_fires_at_the_threshold_and_not_one_row_below() {
+        // 1,000 rows, 100 permille: 100 covered rows switch, 99 do not.
+        assert_eq!(plan_read(&[(0, 100)], 1_000, policy(0, 100)).0, Read::Full);
+        assert_eq!(plan_read(&[(0, 99)], 1_000, policy(0, 100)).0, Read::Ranges);
+    }
+
+    #[test]
+    fn the_full_read_counts_the_rows_coalescing_adds() {
+        // 50 exact rows in 50 one-row ranges two apart: 99 rows once merged.
+        let r: Vec<(u32, u32)> = (0..50).map(|i| (2 * i, 2 * i + 1)).collect();
+        assert_eq!(plan_read(&r, 1_000, policy(0, 99)).0, Read::Ranges);
+        assert_eq!(plan_read(&r, 1_000, policy(1, 99)).0, Read::Full);
+    }
+
+    #[test]
+    fn exact_never_reads_in_full_and_full_always_does() {
+        assert_eq!(
+            plan_read(&[(0, 1_000)], 1_000, ReadPolicy::EXACT).0,
+            Read::Ranges
+        );
+        assert_eq!(plan_read(&[], 1_000, ReadPolicy::FULL).0, Read::Full);
+        // An empty table is never read "in full": there is nothing to read.
+        assert_eq!(plan_read(&[], 0, ReadPolicy::FULL).0, Read::Ranges);
+    }
 }
