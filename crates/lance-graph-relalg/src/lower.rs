@@ -2,7 +2,7 @@
 //! builds and runs one mask-risc program at the measure. Nothing here loops
 //! over rows.
 
-use lance_graph_mask_risc::{Foreign, Planes};
+use lance_graph_mask_risc::{Foreign, Planes, Program};
 use lance_graph_r2il::{
     FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_OR, INT_S_LESS, LOAD, POP_COUNT,
 };
@@ -61,15 +61,27 @@ impl From<FoldError> for RelError {
 
 /// Rewrite the query, then lower and run it.
 pub fn run(q: &Query, planes: &Planes<'_>, keep: Option<&mut [u64]>) -> Result<Run, RelError> {
+    run_with_program(q, planes, keep).map(|(run, _)| run)
+}
+
+/// [`run`], also returning the mask-risc program the fold ran, so a caller can
+/// inspect its ops (for example, that no `Gather` or `Scatter` was emitted).
+/// `None` when the description alone answered and no program ran.
+pub fn run_with_program(
+    q: &Query,
+    planes: &Planes<'_>,
+    keep: Option<&mut [u64]>,
+) -> Result<(Run, Option<Program>), RelError> {
     let rel = normalize(&q.rel);
     if let Some(answer) = symbolic(&rel, q.measure, planes.n_rows) {
-        return Ok(Run {
+        let run = Run {
             answer,
             passes: 0,
             programs: 0,
-        });
+        };
+        return Ok((run, None));
     }
-    run_as_written(
+    lower_and_run(
         &Query {
             rel,
             measure: q.measure,
@@ -86,6 +98,14 @@ pub fn run_as_written(
     planes: &Planes<'_>,
     keep: Option<&mut [u64]>,
 ) -> Result<Run, RelError> {
+    lower_and_run(q, planes, keep).map(|(run, _)| run)
+}
+
+fn lower_and_run(
+    q: &Query,
+    planes: &Planes<'_>,
+    keep: Option<&mut [u64]>,
+) -> Result<(Run, Option<Program>), RelError> {
     let mut d = match (q.measure, keep) {
         (Measure::Keep, Some(sink)) => FoldDialect::with_keep(planes, &Foreign::NONE, sink),
         (Measure::Keep, None) => return Err(RelError::NoKeepSink),
@@ -120,11 +140,12 @@ pub fn run_as_written(
             Answer::Kept
         }
     };
-    Ok(Run {
+    let run = Run {
         answer,
         passes: d.facade_passes(),
         programs: d.programs_run(),
-    })
+    };
+    Ok((run, d.last_program().cloned()))
 }
 
 fn call(

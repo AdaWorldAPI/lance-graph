@@ -170,6 +170,10 @@ exclude = [
     # on the AdaWorldAPI forks, results only (D-ASM-10). Run from its directory
     # so its `.cargo/config.toml` applies: `cd crates/mork-pathmap-probe && cargo test`.
     "crates/mork-pathmap-probe",
+    # Crepe-plan spike (D-SRAM-2 research, lab): crepe_plan! -> binding propagation
+    # -> MORK query_multi -> relalg over the D-MPS-8 table. Own workspace; run
+    # from its directory so `.cargo/config.toml` applies.
+    "crates/crepe-plan-probe",
     # D-TGB-0 thought-git pre-registration: fixtures, the from-scratch oracle,
     # and signal checks over lance-graph-contract only. Lab probe; run from
     # its directory: `cd crates/thought-git-probe && cargo test`.
