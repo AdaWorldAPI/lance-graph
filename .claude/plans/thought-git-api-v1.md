@@ -51,6 +51,8 @@ vs value.)
 
 What changes in the overlay to carry it:
 
+> ⊘ **Superseded 2026-10-20** (see "Correction: the slot axis and the witness pointer" at the end): the axis is the 64 thought slots, not a second index beside rung lanes.
+
 - **Axis.** `AlphaTunnel` has 10 lanes, one per rung; D-HL places up to 64
   thoughts beside the 10 rung lanes. The thought axis is a second index over
   the same shared allocation, not a re-use of the rung index.
@@ -256,3 +258,24 @@ Docs and data merged in #1601–#1617 that this plan owns. They are reading note
 - [`.arxiv/2512.17373_dialectics_algorithmic_determinations_excess_information_grounds.md`](../../.arxiv/2512.17373_dialectics_algorithmic_determinations_excess_information_grounds.md) (#1611): Dialectics for Artificial Intelligence: reversible concepts, excess and grounds
 - [`docs/research/34-reasoning-recipes-lance-graph-plan.md`](../../docs/research/34-reasoning-recipes-lance-graph-plan.md) (#1609): 34 reasoning tactics: source and Lance-graph wiring
 - [`docs/research/versioned-semantic-candidates-64-thoughts-rfc.md`](../../docs/research/versioned-semantic-candidates-64-thoughts-rfc.md) (#1604): Versioned semantic candidates over 64 thoughts: admission, resolution, and replay
+
+## Correction: the slot axis and the witness pointer (2026-10-20)
+
+**Status:** DECISION (operator, 2026-10-20). Supersedes the "Axis" bullet above and the "beside the rung lanes" wording of D-TGA-1. **Basis:** VERIFIED-IN-CODE for the pointer width (`crates/causal-edge/src/layout.rs:53`, `W_SHIFT = 53`, 6 bits; `edge.rs:950`, `w_slot()` 0..=63).
+
+In short: thinking with a git API, at the cost of a sparse write and a merge on read.
+
+1. **The axis is 64 thought slots.** One shared allocation; slot 0 is main, slots 1..=63 are allocated on demand to any thought (a hypothesis, an instantiated MeTTa / Atomese template, a branch of either). Rung is not an axis: it is an attribute of a claim, carried by `AlphaStamp.rung`. `AlphaTunnel`'s ten rung lanes (`alpha_tunnel.rs`) are the superseded first cut; the 2026-10-12 CE64 plateau entry already listed them as a conflict ("10 rung lanes, not a 64-lane budget"). D-TGA-1 replaces them; it does not add a thought axis beside them. Merge order becomes slot and claim order, not rung order.
+2. **Why 64: the slot number travels in every causal edge.** CE64 bits 53..58 (`w_slot`) hold the slot a claim refers to, so thoughts can reference each other's results. 64 is the pointer width, not only a size limit; more slots would be a CE64 layout change.
+3. **Slot 0 is main: the merged state the frame starts from.** `w_slot = 0` points at main as of the frame's base version. The `edge.rs` doc line "0 = no corpus anchor" is stale under this reading and should say so when D-TGA-1 touches it.
+4. **The ceiling.** When no slot is free, a new thought requires `squash_into` (several thoughts fold into one slot) or `land` (a thought becomes one Lance version and frees its slot). Never a 65th slot. Which to choose under pressure is a policy question, not yet designed.
+5. **Pointers follow the slot lifecycle.**
+   - `land` rewrites every surviving `w_slot = k` pointer to 0: the landed cells are now main.
+   - `squash_into` rewrites pointers at a folded slot to the surviving slot.
+   - A 6-bit pointer is read only together with its qualifier: the frame's base version for 0, the slot's generation for 1..=63. `rebase` moves the base forward.
+   - `ThoughtCommitId` is never reused: slot numbers recycle, the identity behind them must not.
+6. **Cost model.** Branch, write, diff, status and rebase are resident mask algebra with no Lance call. `land` pays one sparse append (one Lance version per landed thought); reads (`checkout`, `log`, `diff`, pickaxe, `blame`) are folds over the resident sparse records, newest wins by append order; Lance is read once, at replay (`.claude/knowledge/split-tunnel-sparse-append-resident-fold.md`). Those figures are measured in HubSPO-rs, not on thoughts.
+
+D-TGA-1's falsifiers gain two, both pre-registered here:
+- after `land`, no live edge carries the landed slot number;
+- after a slot is recycled, an edge written against its previous generation is refused, never read as the new thought.

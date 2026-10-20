@@ -1,3 +1,7 @@
+## 2026-10-20 — thought-git-api-v1 corrected: 64 slots, slot number = CE64 witness pointer
+
+**Status:** DECISION (operator, 2026-10-20). The D-TGA axis is 64 thought slots (0 = main, 1..=63 any thought), not a thought axis beside `AlphaTunnel`'s ten rung lanes; `w_slot` (CE64 bits 53..58) is the slot pointer, so 64 is its width. Pointer rewrite on land and squash, qualified by base version or slot generation. Plan § "Correction: the slot axis and the witness pointer"; entry `2026-10-20-d-tga-slot-axis-witness-pointer.md`.
+
 ## 2026-10-20 — correction: D-RMAP-2 is measured (the 2026-10-19 index line said "not run")
 
 **Status:** CORRECTION. The 2026-10-19 entry lists `d-rmap-2-context-tile-algebra-probe-v1.md` (#1617) as "preregistered GraphBLAS vs BF16 tile probe; not run". Since then §5a measured the polyfill tier (#1623, byte count #1625) and §5a-AMX the AMX tile tier (#1626). The plan is PARTIAL: the `VDPBF16PS`-only tier, tiles above one focus and the GraphBLAS arm are not run. That line is left as written; this entry supersedes it.
