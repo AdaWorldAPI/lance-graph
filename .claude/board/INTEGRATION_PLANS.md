@@ -1,3 +1,12 @@
+## 2026-10-20 — relstore-quack-petgraph-traversal-v1 — stored relations, compiled traversal, petgraph over borrowed layouts → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
+
+**Status:** D-RST-0..8 PROPOSAL; documentation only. Operator decision B (2026-10-20): RelationshipMapStore owns persistence, layouts, domains, seals and invalidation; Quack compiles; mask-risc executes. D-RMAP-1A §1 and the 2026-10-05 storage-portability ruling are unchanged.
+
+- The store satisfies Quack's existing `Registrar` seam; derived relations stay queryable relations with multiplicity, provenance and dependencies; versions are `DurableRef` / `ThoughtCommitId`, and the coordinate domain is itself a relation, so its seal needs no counter.
+- petgraph: a borrowed `RelView` implementing `GraphBase`/`IntoNeighbors`/`Visitable`/`NodeIndexable` runs unmodified `Bfs`/`Dfs`; batched cursors and a typed traversal vocabulary compile to Quack.
+- Finding: multi-hop over a large domain is blocked by scatter (push) as well as gather (pull); the tile is the only admitted shape (within a focus). Admissions A1 (global→local binding), A2 (large-domain multi-hop), A3 (scalar petgraph iteration) are open.
+- The existing petgraph `lance-fold-hop` experiment consumes the quarantined `OutgoingHop`; the plan does not build on it.
+
 ## 2026-10-19 — mork-pathmap-schnellverschluss-v1 — MORK / PathMap behind one replaceable boundary → `.claude/plans/mork-pathmap-schnellverschluss-v1.md`
 
 **Status:** D-MPS-0/1 MEASURED (probe, results only); D-MPS-2..5 upstream PROPOSALS; D-MPS-6 BLOCKED; D-MPS-7 OPEN.
