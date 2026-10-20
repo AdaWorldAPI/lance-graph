@@ -8,8 +8,11 @@
 > when starting a session; read this file when deciding which
 > specialist to wake for a specific task.
 
-Ensemble size: **22 specialists + 5 meta-agents**, plus the six Haiku
-cards (§ Haiku harvest tier). Every card is at
+Ensemble size: **59 cards** with frontmatter (49 Opus, 4 Sonnet, 6 Haiku),
+counted 2026-10-20. The sections below describe a curated subset in prose;
+§ Complete card index at the end lists every card. Three files here are not
+agents and carry no frontmatter on purpose: `5plus3-council.md`,
+`coresearch-council.md` (harness specs) and `worker-template-v2.md`. Every card is at
 `.claude/agents/<name>.md`. Each card declares its own
 `tools`, `model`, and `READ BY:` knowledge prerequisites.
 
@@ -293,3 +296,73 @@ are actually being touched.
 - **`../knowledge/LATEST_STATE.md`** — current contract inventory
   (what every specialist's domain looks like right now).
 - **`../knowledge/PR_ARC_INVENTORY.md`** — decision history per PR.
+
+---
+
+## Complete card index
+
+Generated 2026-10-20 from each card's frontmatter (`name`, `model`, first
+sentence of `description`). Regenerate it when a card is added or removed;
+the count line at the top must match the number of rows.
+
+| card | model | what it does |
+|---|---|---|
+| `adapter-shaper` | opus | Shapes a single C++ method/function into a thin, classid-keyed DO-in/out adapter that targets the OGAR Core — identity from classid, state mapped onto SoA va… |
+| `adk-behavior-monitor` | opus | Watches for behavioral anti-patterns during R&D sessions. |
+| `adk-coordinator` | opus | Agent Development Kit style ensemble coordinator. |
+| `baton-handoff-auditor` | opus | Brutal reviewer at carrier/DTO/crate/sprint/planner boundaries. |
+| `bbb-warden` | opus | Guards the T2/T3 membrane — the blood-brain barrier between the behavior tier (the ABI exports, `where`/`hop`/`plan_eval`, `Mask × FieldMask → Mask`) and the… |
+| `brutally-honest-tester` | opus | Pre-merge gate for every Rust PR. |
+| `bus-compiler` | opus | Compiles explicit thought into accountable bus packets for `p64` and CognitiveShader. |
+| `cargo-substrate-architect` | sonnet | Dependency architecture only. |
+| `cascade-impact-savant` | opus | Cost-budget gate in the epiphany-brainstorm-council. |
+| `census-counter` | haiku | Cheap, read-only counter (Haiku). |
+| `certification-officer` | opus | Runs numerical certification of a derived format (lab BF16, Base17, bgz-hhtl-d palette, compressed codebook) against a ground-truth source file, reporting Pe… |
+| `codegen-flow-cartographer` | sonnet | Owns the map of the compile-time pipeline: source harvest (ruff frontends) → OGAR mint (Class/ActionDef/classid/facet) → codegen emit INTO a consumer repo →… |
+| `container-architect` | opus | 256-word metadata container layout, word-by-word field mapping, bgz17 annex at W112-125, local palette CSR at W96-111, scent/palette neighbor indices at W176… |
+| `contradiction-cartographer` | opus | Protects contradiction as first-class structure across family, branch, bus, and thought-object layers. |
+| `convergence-architect` | opus | Pre-plan divergent-expansion savant for lance-graph. |
+| `core-first-architect` | opus | Guards the Core-First Transcode Doctrine: a generated AST / codegen / adapter layer is only as clean as the Core it targets, so the Core (OGAR) must be the d… |
+| `core-gap-auditor` | opus | The honest guard of the Core-First Transcode Doctrine. |
+| `creative-explorer-savant` | opus | The "different views" lens in the epiphany-brainstorm-council. |
+| `cypher-lowering-warden` | opus | Guards the Cypher → Quack seam. |
+| `dto-soa-savant` | opus | Judges a proposed epiphany against the BindSpace four-column SoA discipline + the lab-vs-canonical-surface invariant. |
+| `epiphany-brainstorm-council` | opus | Pre-merge council for newly-proposed entries to `EPIPHANIES.md`. |
+| `family-codec-smith` | opus | Shapes HEEL/HIP/BRANCH/TWIG/LEAF representation choices, role-aware codebooks, palettes, residuals, and family purity benchmarks. |
+| `fold-carrier-scientist` | opus | Owns the separation between what a population MEANS and how it is physically carried and scheduled: dense/sparse/run carriers, survivor gating, push/pull, la… |
+| `guarded-executor` | haiku | Haiku executor for a pre-written, numbered command card (cargo -p ..., probes, test gates). |
+| `harvest-scout` | haiku | Cheap, read-only candidate finder (Haiku). |
+| `host-glove-designer` | opus | Designs the structured interface from explicit thought objects into the host model. |
+| `integration-lead` | opus | Cross-session orchestration, dependency tracking, phase gating. |
+| `iron-rule-savant` | opus | Substrate-level veto angle in the epiphany-brainstorm-council. |
+| `isa-anti-lasagne-warden` | opus | Guards the V4 ISA boundary and the layer count. |
+| `kernel-membrane-warden` | opus | Guards the T1/T2 membrane — the line between the primitive tier and the behavior tier that composes it. |
+| `lance-cache-cartographer` | opus | Answers whether a consumer can size Lance's cache from outside without forking. |
+| `lance-cache-contents-auditor` | opus | Classifies what Lance's `LanceCache` actually holds by enumerating its insert sites, each with the inserted type and its size class, cited as file:line, neve… |
+| `layer-boundary-warden` | sonnet | Pre-flight gate against layer-confusion — the failure mode that filed a Klickwege issue at the wrong repo (lance-graph #691) and then gated a compile-time lo… |
+| `lens-migration-engineer` | opus | Repairs what the zero-copy-warden finds: migrates a materializing read path to a lens, call site by call site, without changing behaviour. |
+| `mirror-kernel-synthesist` | opus | Explores semantic-kernel mediation, mirror-style perspective modeling, hypothesis loops, and synthesis policies across user-agent-topic frames. |
+| `palette-engineer` | opus | bgz17 crate: palette compression, Base17 encoding, distance matrices, compose tables, PaletteSemiring, PaletteMatrix, PaletteCsr, SIMD batch distance (AVX-51… |
+| `perspective-weaver` | opus | Models user, agent, topic, and angle as intertwined perspective objects. |
+| `preflight-drift-auditor` | opus | Pre-spawn drift hunter that automates the W-Meta-Opus manual audit method. |
+| `premise-auditor` | opus | Audits the QUESTION before anyone answers it. |
+| `prior-art-savant` | opus | Duplicate-catcher in the epiphany-brainstorm-council. |
+| `query-stage-profiler` | opus | Guards measurement discipline for every query-latency claim (Cypher, SQL, Quack, mask-risc, prepared queries, parsers). |
+| `quote-harvester` | haiku | Cheap, read-only quote extractor (Haiku). |
+| `resonance-cartographer` | opus | Maps superpositional field state, candidate families, pressure, contradiction, drift, and style mix before collapse. |
+| `ripple-architect` | opus | Ontology guardian for the ripple architecture. |
+| `savant-research` | opus | ZeckBF17 compression, golden-step traversal, octave encoding, and distance metric design for the codec-research crate. |
+| `scenario-world` | opus | Counterfactual / scenario-branching specialist. |
+| `simd-savant` | sonnet | Holds the workspace-wide invariant that all SIMD must come from `ndarray::simd` via the polyfill (`simd.rs` + `simd_ops.rs` > `simd_{type}.rs` per-arch). |
+| `soa-review` | opus | Multi-angle transcode review agent. |
+| `spec-editor` | haiku | Haiku editor for ONE file and an exact edit spec: a list of (old text, new text) replacements or anchored insertions written out in full by the orchestrator. |
+| `substrate-mapper` | haiku | Haiku mapper for ONE bounded unit of the substrate (a module file, a crate's src/ directory, a plan or knowledge folder). |
+| `thought-struct-scribe` | opus | Shapes durable thought objects, blackboard semantics, revision rules, and host-model glove interfaces. |
+| `trajectory-cartographer` | opus | Models episodic memory, causal arcs, graph revision chains, and spine trajectories over time. |
+| `truth-architect` | opus | Guards measurement-before-synthesis discipline and architectural ground truth. |
+| `v3-envelope-auditor` | opus | Audits every change to the SoA LE contract: SoaEnvelope trait / ColumnDescriptor / verify_layout / ENVELOPE_LAYOUT_VERSION, MailboxSoA column layout, canonic… |
+| `v3-kanban-executor-engineer` | opus | Builds and reviews the V3 kanban execution machinery: the D-MBX-A6 Outcome→KanbanMove adapter in lance-graph-planner (arm #1), the symbiont SurrealDB-on-kv-l… |
+| `v3-mailbox-warden` | opus | Guards the V3 ownership doctrine on every write path. |
+| `v3-template-smith` | opus | Owns the compiled-thinking-template stack: elixir-template DSL, template-runtime dispatch, template-equivalence replay grading, cognitive-compiler trace→temp… |
+| `workspace-primer` | opus | Onboarding agent for any new session that touches lance-graph, ndarray, or related AdaWorldAPI crates. |
+| `zero-copy-warden` | opus | Detects violations of the zero-copy law: "zero copy is a law without escape hatches" and "the array itself is a ClassView projection." Fires o… |
