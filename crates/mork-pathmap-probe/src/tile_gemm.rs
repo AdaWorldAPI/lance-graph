@@ -183,7 +183,8 @@ impl Bf16Staged {
         }
     }
 
-    /// Bytes held: the BF16 matrix and the packed blocks.
+    /// Bytes held: the BF16 matrix, the packed blocks and the row-major
+    /// blocks kept for the polyfill entry.
     pub fn bytes(&self) -> usize {
         self.a.len() * 2
             + self
@@ -191,6 +192,7 @@ impl Bf16Staged {
                 .iter()
                 .map(|b| b.data().len() * 2)
                 .sum::<usize>()
+            + self.b_rows.iter().map(|b| b.len() * 2).sum::<usize>()
     }
 
     /// Walk counts through the row-major polyfill entry (no pack, no unpack).
