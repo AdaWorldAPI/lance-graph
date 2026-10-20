@@ -112,6 +112,29 @@ Report: total bound cost, sorted-index creation/maintenance, native scan time, r
 - **The 19 ms is the polyfill's shape, not GEMM's.** `ndarray::simd_ops::bf16_tile_gemm_16x16` allocates two decode buffers per call, then one strided B-column buffer and one horizontal reduce per output element: about 257 heap allocations per 16 × 16 call, 65 000 per 256 × 256 product. The packed entry on this tier also unpacks and allocates per call. Recorded as `ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC`; the row-major entry is no faster, so the unpack is not the cost.
 - **Two conclusions, kept apart.** (1) *Measured:* on this host's F32x16 polyfill tier, the bit arm wins every cell, and BF16 is exact. (2) *Not measured:* nothing here says anything about BF16 or AMX tile hardware performance. The polyfill's cost is dominated by allocation, so it is not even a lower bound on what `TDPBF16PS` or `VDPBF16PS` would cost. No layout decision may cite (1) as evidence about (2).
 - **Not measured:** AMX and `VDPBF16PS` hosts; dense relations above one focus (blocked 256 × 256 tiles); weighted or evidence-bearing relations, which §3 excludes anyway.
+- *Update 2026-10-20:* the AMX tile tier is now measured on a second host (§5a-AMX). `VDPBF16PS`-only hosts, blocked tiles above one focus and weighted relations are still not measured.
+
+### 5a-AMX. Second host: the AMX tile tier (2026-10-20)
+
+> **Status: MEASURED, probe only, one host, five runs.** Same code, same fixtures, same command as §5a, at `main` `8b570ed3`. `bf16_tile_gemm_tier()` reports `AMX TDPBF16PS`, so ndarray's detection obtained tile permission on this host. `/proc/cpuinfo`: `amx_bf16`, `amx_tile`, `amx_int8`, `avx512_bf16`, `avx512f`; `Intel(R) Xeon(R) Processor @ 2.10GHz`, 4 vCPU, shared VM. The CPU flags were read before and after the runs and did not change.
+
+Each run is the example's medians of 7; the table gives the median of the five runs and, in brackets, their range. µs throughout.
+
+| Map | bit compose | bit walk counts (popcount) | bit triangles | BF16 stage | BF16 `A·A` packed (AMX) | `A·A` row-major entry | threshold | BF16 triangles |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 % | 2.0 [1.6–2.3] | 163.7 [143.1–182.0] | 1.9 [1.7–2.3] | 132.1 [123.3–176.3] | 66.5 [56.1–82.1] | 5 842 [5 270–6 817] | 50.0 [43.1–56.4] | 45.3 [37.5–48.0] |
+| 10 % | 6.0 [5.1–6.1] | 135.1 [116.0–170.0] | 7.4 [7.2–8.6] | 181.7 [168.7–197.0] | 58.0 [52.7–69.8] | 5 823 [5 432–6 082] | 105.4 [101.9–111.8] | 93.9 [88.4–102.9] |
+| 50 % | 26.9 [24.2–33.5] | 136.6 [116.7–200.4] | 36.1 [32.2–59.1] | 470.2 [376.0–561.5] | 62.6 [54.5–98.5] | 6 107 [5 277–9 074] | 100.9 [88.7–137.3] | 323.0 [288.9–404.4] |
+| 1 % + 4 hubs | 2.6 [2.3–3.4] | 127.6 [115.7–173.0] | 3.7 [3.3–5.0] | 142.7 [105.7–181.8] | 58.2 [53.2–92.1] | 5 599 [5 017–6 624] | 96.7 [88.7–103.5] | 41.0 [37.1–45.7] |
+
+- **Exactness holds on the AMX tier.** `cargo test --release --test tile_gemm` passes on this host (4 tests). Its BF16 assertions call `Bf16Staged::square`, the packed entry that dispatches to AMX here, so walk counts equal the oracle exactly and `count > 0` equals Boolean composition on the tile hardware, not only on the polyfill.
+- **Walk counts: the AMX product beats popcount, staging excluded.** Packed `A·A` takes 58–67 µs against 128–164 µs for popcount counts, about 2.2–2.5× on all four maps. Staging (132–470 µs, once per map) is not in that figure. Arithmetic from the medians, not measured: staging is repaid after about 1.4, 2.4, 6.4 and 2.1 products on the same staged map (1 %, 10 %, 50 %, hubs).
+- **Boolean composition: the bit arm still wins by 6–60×.** Getting `C = A ∘ A` from the GEMM needs the product plus the threshold (about 116–164 µs); the bit composition takes 2.0–26.9 µs. The threshold alone costs more than the bit composition on every map.
+- **Triangles: the bit arm wins.** 1.9–36 µs against 41–323 µs for the BF16 path.
+- **So the §5a reading changes in one place.** On the polyfill tier the bit arm won every cell. On the AMX tier it still wins Boolean composition and triangles, but the tile product wins walk counts once a staged map is reused. That fits §3's split: existence questions belong to the bit arm, multiplicities may belong to the tile arm, and the crossover is a reuse count, not a single-product comparison.
+- **The row-major entry took 5.6–6.1 ms here, against about 19 ms on the §5a host.** It does not go through the packed AMX path. Why it is faster on this host was not investigated; this number says nothing about AMX.
+- **Not reported here:** the example's `bf16_bytes` column reads 262 144 on this commit; the corrected total is 384 KiB (#1625).
+- **Noise:** a shared 4-vCPU VM. Most cells stay within about 30 % of their median across runs; the 50 % map's fourth run was slow in every column (row-major 9.1 ms).
 
 ## 5b. Tile GEMM is a consumer of prepared relationships, not a gather solution (operator, 2026-10-20)
 
