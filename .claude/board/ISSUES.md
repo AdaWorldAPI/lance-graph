@@ -1,3 +1,56 @@
+## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
+
+**Status:** OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
+
+- One question under five names. Each row keeps its own wording and points here:
+  - D-RMAP-1 §6, the BIND membrane review;
+  - D-MPS-8 "not admitted" (STATUS_BOARD; `mork-pathmap-schnellverschluss-v1.md:185`);
+  - admission A1 in D-RST (`relstore-quack-petgraph-traversal-v1.md` §8) and in D-RPR (`recursive-perspective-rebinding-v1.md` §10 item 1);
+  - D-RPR-1 "not authorized; waits on A1";
+  - GATHER-DECISION in `ISS-GATHER-HOP-1616`, the same question asked from the hop side.
+- Evidence for the ruling, all lab:
+  - the focus probe translates only in `Csr::prepare` / `rebind`;
+  - the native join intersects with one mask-risc `And` over co-addressed planes;
+  - the chain's lookup is keyed by the previous fold's escapes and runs in counted preparation, while its fold program contains no `Gather` and no scatter terminal (checked on the program, disable-verified).
+- **What closes it:** a written ruling on "a counted, witnessed lookup in preparation, folds co-addressed". It settles D-MPS-8, D-RPR-1, D-RST-4/6 and the fate of `quarantined-gather-hop`.
+
+## ISS-RECURSION-DRIVER — no lawful (co-addressed, non-gather) recursion driver exists (2026-10-20)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`STATUS_BOARD.md` D-RA-4 row: "VIOLATION — GATHER. DO NOT BUILD").
+
+- One missing driver under five names:
+  - D-SRAM-4 (BLOCKED, `souffle-ram-64-thought-stack-v1.md:141`);
+  - D-MTP-3 (`metta-polyfill-v1.md:391`, through d′);
+  - D-RA-4's d′ (the banned preimage gather);
+  - the D-RPR loop;
+  - the JC-SBI note (`jc-sbi-counterfactual-integration-v1.md:191`).
+- `chain::ask` (#1624) is one candidate shape, in the lab: fold, read escapes, admit in preparation, fold again. Translation happens only in preparation. It is Boolean, one variable, and has no cycle refusal, so it is evidence for a design, not the driver.
+- **What closes it:** a reviewed driver design under D-HOLO H14c/H14d: least fixpoint equal to Datafrog on set workloads, terminated cycles, refusal past the bound. Gated by `ISS-ADMISSION-PREP-BINDING`.
+
+## ISS-RETRACTION-PROVENANCE — per-derived-cell provenance for selective retraction is undecided (2026-10-20)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (no source bitset or read-provenance plane in `crates/`).
+
+- One decision under four names:
+  - D-TGA-3 (`thought-git-api-v1.md:184`, source bitset or read-provenance plane);
+  - D-RPR-2 (BLOCKED);
+  - D-RMAP-1A falsifier X9 (`d-rmap-separate-tables-thought-palettes-v1.md:179`, deletion / DRed);
+  - D-RST-5 (DRed retraction).
+- Until it is decided a changed premise can only be refused, never selectively retracted.
+- **What closes it:** the D-TGA-3 decision, then X9 run against it.
+
+## ISS-DURABLEREF-THOUGHTCOMMITID — the two identity types four plans depend on do not exist (2026-10-20)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`DurableRef` and `ThoughtCommitId` appear in `crates/` only in doc comments, `mork-pathmap-probe/src/rmap.rs:70` and `:690`).
+
+- Owned by D-RST-1, coordinated with #1605's CPG-00 (no duplicate). Needed by:
+  - D-RMAP-1A §7 / D-RMAP-1A-V;
+  - D-RST-1 (and blocker B1);
+  - the D-RPR witnesses;
+  - the Schnellverschluss `generation` stand-in (`mork-pathmap-schnellverschluss-v1.md:145`).
+- Every probe witness is a `u64` stand-in until they land. The never-reused rule for `ThoughtCommitId` is not yet written anywhere authoritative.
+- **What closes it:** the contract types plus a reuse test (STATUS_BOARD D-RST-1).
+
 ## ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC — ndarray's BF16 16×16 polyfill allocates per output element (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`ndarray/src/simd_ops.rs`, `bf16_tile_gemm_16x16`) and MEASURED (D-RMAP-2 §5a: a 256 × 256 `A·A` takes about 19 ms, about 0.9 GMAC/s, on an AVX-512 host without AMX or `avx512_bf16`).

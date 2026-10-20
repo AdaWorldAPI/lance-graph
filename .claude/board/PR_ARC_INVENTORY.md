@@ -1,3 +1,45 @@
+## 2026-10-20 — lance-graph PR #1626 (merged `bc8012da`, branch `ccr-08f48cec-lbv9l4-amx`, head `2976e117`) — D-RMAP-2 §5a-AMX: the tile arm on the AMX tier
+
+- **Added:** D-RMAP-2 §5a-AMX (five runs on a host where ndarray reports `AMX TDPBF16PS`); entry `D-RMAP-2-AMX`; STATUS_BOARD D-RMAP-2 row. No code change.
+- **Locked:** none. Lab probe only.
+- **Deferred / open:** `VDPBF16PS`-only hosts, tiles above one focus, the GraphBLAS arm; why the row-major entry (no AMX) took 5.6–6.1 ms here against about 19 ms on the §5a host.
+- **Confidence:** measured. Walk counts: AMX `A·A` 58–67 µs against popcount 128–164 µs, staging excluded; Boolean composition and triangles still go to the bit arm. Re-measured on a second AMX host in the PR that adds this entry: ratios hold (2.06–2.31×), absolute times 10–60 % higher.
+
+## 2026-10-20 — lance-graph PR #1625 (merged `37b866ee`, branch `ccr-08f48cec-lbv9l4-tile-gemm`, head `74eb6cf7`, 1 commit) — D-RMAP-2: count the row-major B blocks in the BF16 byte total
+
+- **Added:** test `bf16_bytes_count_every_retained_buffer` (pins `3 · 256 · 256 · 2`).
+- **Locked:** `Bf16Staged::bytes()` counts `b_rows`; a staged map holds 384 KiB, not 256 KiB. Plan §5a and its entry corrected.
+- **Deferred / open:** none of its own. Carries the fix pushed after #1623 merged.
+- **Confidence:** measured. Removing the `b_rows` term turns the test red (262 144 against 393 216).
+
+## 2026-10-20 — lance-graph PR #1624 (merged `7d2722bd`, branch `ccr-d3ce1263-ied9yh`, head `f9ab46a1`) — #1622 consolidation, plan links for #1601–#1617, the D-RPR-1 handoff probe
+
+- **Added:** plan links (19 artifacts → owning plans, 11 plans gain a "Connected sources" section; entry `2026-10-20-prs-1601-1617-plan-links.md`); `recursive-perspective-rebinding-v1.md` §11 (D-RPR-1 sub-cases 1a–1f, anti-vacuity, oracles, refusal axes, costs, limits) and §11.10; `crates/mork-pathmap-probe/src/chain.rs`, `tests/chain.rs` (8 tests), `examples/chain_cost.rs`; entries `2026-10-20-d-rpr-consolidation-1624.md`, `2026-10-20-d-rpr-1-handoff-lab-demo.md`.
+- **Locked:** `TileExec::program` is `pub`. The no-gather ruling holds: the chain's lookup runs in counted preparation (`rebind`), and its fold program contains no `Gather` and no scatter terminal, which a test reads off the program.
+- **Deferred / open:** A1 / D-RMAP-1 §6; D-RPR-1 as written (the probe adds glue types, synthetic fixture); `rebind`'s copy floor; KJV fixture; a termination bound (disabling `keep` livelocks `ask`).
+- **Confidence:** measured. Every answer equals a full-scan oracle; 3 of 4 disable runs red, the fourth hangs. 360 seeks against 3 840 for a full rebuild per admission; the direct arm is cheaper per pass (23.6 µs against 1 509 µs for the first framed pass).
+
+## 2026-10-20 — lance-graph PR #1623 (merged `8b570ed3`, branch `ccr-08f48cec-lbv9l4-tile-gemm`, head `9e6cb940`) — D-RMAP-2 probe: BF16 16×16 tile GEMM against the bit tile
+
+- **Added:** `crates/mork-pathmap-probe/src/tile_gemm.rs`, `tests/tile_gemm.rs` (4 tests, 5 guards disable-verified), `examples/tile_gemm_cost.rs`; D-RMAP-2 §5a; `ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC`; entry `2026-10-20-d-rmap-2-tile-gemm-cell.md`.
+- **Locked:** none. Uses `ndarray::simd::bf16_tile_gemm_16x16{,_packed}` through the facade; no new kernel.
+- **Deferred / open:** AMX and `VDPBF16PS` hardware (the host had neither); the polyfill's per-element allocation. The byte-count fix arrived after merge (#1625).
+- **Confidence:** measured on the F32x16 polyfill tier only: the bit arm wins every cell; BF16 `A·A` about 19 ms, which measures allocation, not tile arithmetic.
+
+## 2026-10-20 — lance-graph PR #1622 (merged `4dbd0853`, branch `ccr-08f48cec-lbv9l4`, head `d5c79258`) — plans D-RST (relational geometry amortization) and D-RPR (recursive perspective rebinding)
+
+- **Added:** `.claude/plans/relstore-quack-petgraph-traversal-v1.md` (D-RST-0..9, reframed) and `.claude/plans/recursive-perspective-rebinding-v1.md` (D-RPR-0..3); plan-index entries, STATUS_BOARD rows, board entries.
+- **Locked:** lab exploration only; no production code may be rewired to either plan. Petgraph is an optional consumer (D-RST-3 deferred). Tile GEMM consumes prepared geometry and does not obtain it (§5b). Ownership: `RelationshipMapStore` owns facts, layouts, domains, seals and invalidation; Quack compiles; mask-risc executes.
+- **Deferred / open:** admissions A1–A6, blockers B1–B3; D-RPR-1 not authorized; D-RPR-2/3 blocked on D-TGA-3 / D-ASM-4.
+- **Confidence:** proposed. Documentation only.
+
+## 2026-10-20 — lance-graph PR #1621 (merged `fcd1f60e`, branch `ccr-08f48cec-lbv9l4`, head `9108865b`) — D-RMAP focus probe, native join over a relationship table, board rows for #1618–#1620
+
+- **Added:** `crates/mork-pathmap-probe/src/rmap.rs` (256-slot focus, slot-space CSR, 256 × 256 bit tile per predicate, `rebind`, thought deltas; 12 tests, 11 guards disable-verified); `src/join.rs` (`JoinTable`, leapfrog `y` intersection as one mask-risc `And`; 8 tests, 7 guards); `Backend::Native` in the differential suite; arc entries for #1618–#1620 and a LATEST_STATE section.
+- **Locked:** address translation only in preparation; out-of-focus targets reported as escapes, never dropped.
+- **Deferred / open:** the D-RMAP-1 BIND membrane review (native join not admitted); cyclic bodies; the zero-copy against register-copy trade-off (20–24 µs against 1–2 µs).
+- **Confidence:** measured. Break-even reuses 76 / 11 / 1.8 (sparse d2, d8, dense); rebind loses to a rebuild at k = 256; per-evaluation cost flat over 1 / 8 / 64 thoughts; native join prepare 2.7 ms against 14.7 (PathMap) and 22.9 (MORK) at n = 50 000.
+
 ## 2026-10-19 — lance-graph PR #1620 (merged `dca8e7b1`, branch `ccr-08f48cec-lbv9l4-mork-pathmap`, head `d514396c`, 5 commits) — MORK / PathMap Schnellverschluss: source switch, typed backend switch, differential probe
 
 - **Added:** excluded crate `crates/mork-pathmap-probe`. It has its own workspace and git deps on the AdaWorldAPI MORK (`de9312e3`) and PathMap (`ef02591`) forks; one `[patch]` line keeps a single `pathmap` package in the graph. `boundary.rs` is the only module naming either library. It holds `Backend::{Mork, PathMapZipper, Native}` and typed refusals: `SetOnly`, `NoAdmittedNativeJoin` and `Stale`. The crate also has 8 differential tests plus 1 unit test against a nested-loop oracle, the cost example, CI job `mork-pathmap-probe.yml` (default and `--features leapfrog`), plan `mork-pathmap-schnellverschluss-v1.md` (D-MPS-0..7; §7a ties `RelationView.generation` to the D-RMAP-1A §7 witness), entry `2026-10-19-mork-pathmap-schnellverschluss.md`, and `ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR`.

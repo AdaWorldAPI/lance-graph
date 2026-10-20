@@ -1,3 +1,7 @@
+## 2026-10-20 — correction: D-RMAP-2 is measured (the 2026-10-19 index line said "not run")
+
+**Status:** CORRECTION. The 2026-10-19 entry lists `d-rmap-2-context-tile-algebra-probe-v1.md` (#1617) as "preregistered GraphBLAS vs BF16 tile probe; not run". Since then §5a measured the polyfill tier (#1623, byte count #1625) and §5a-AMX the AMX tile tier (#1626). The plan is PARTIAL: the `VDPBF16PS`-only tier, tiles above one focus and the GraphBLAS arm are not run. That line is left as written; this entry supersedes it.
+
 ## 2026-10-20 — recursive-perspective-rebinding-v1 — WORLD × ANGLE × THOUGHT over composable relational registers → `.claude/plans/recursive-perspective-rebinding-v1.md`
 
 **Status:** D-RPR-0 PROPOSED, LAB ONLY, documentation only; D-RPR-1 not authorized; D-RPR-2/3 BLOCKED (D-TGA-3, D-ASM-4).

@@ -1,3 +1,12 @@
+## 2026-10-20 — synergy map #1592–#1626 and board catch-up for #1621–#1626 (Haiku)
+
+- Round 1 (#1592–#1624): seven substrate-mapper runs over about 8 700 lines of plans, research docs and probe code; one harvest of board rows. Four claims re-read at the source, all held. A few off-by-one line numbers and one stray placeholder, self-reported.
+- Round 2 (#1622–#1626), three harvest-scout runs:
+  - board coverage for #1621–#1626: confirmed, no arc or LATEST_STATE rows existed;
+  - nine type and driver names in `crates/`: `DurableRef` 0 definitions confirmed. One miss: it reported 21 `MaskOp::Gather` matches, a recount gives 57 matching lines;
+  - blocker names on the board and in plans: three citations re-read, all held.
+- Retired: none (one miss, below the two-miss rule). Written by the orchestrating main thread only.
+
 ## 2026-10-16 — PR-body harvest #1582–#1591 (general-purpose on Haiku)
 
 - One run: ten PR bodies and file lists, verbatim, into the session scratchpad.
