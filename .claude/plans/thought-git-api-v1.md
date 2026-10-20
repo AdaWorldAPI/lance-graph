@@ -287,3 +287,5 @@ In short: thinking with a git API, at the cost of a sparse write and a merge on 
 D-TGA-1's falsifiers gain two, both pre-registered here:
 - after `land`, no live edge carries the landed slot number;
 - after a slot is recycled, an edge written against its previous generation is refused, never read as the new thought.
+
+The basics that lead to the ideal state (no stale branches, Rubicon-driven branch decisions, squash/prune/GC as kanban outcomes, replayable thoughts) are planned in [`thought-git-basics-v1.md`](thought-git-basics-v1.md) (D-TGB-0..6).

@@ -1,3 +1,7 @@
+## 2026-10-20 — thought-git-basics-v1 — the basics of thinking with a git API → `.claude/plans/thought-git-basics-v1.md`
+
+**Status:** D-TGB-0..6 PROPOSED, lab, test-first; nothing built. From the ideal state: a slot is taken only at the Rubicon crossing (`Planning → CognitiveWork`) and freed at `Commit` / `Plan` / `Prune`, so no stale branch can exist; squash, prune and GC are kanban outcomes; every thought is replayable from its receipt. `Commit` lands one sparse batch through `LanceCycleWriter`, which gives `KanbanColumn::Commit` its declared-but-missing calcify step. Lance 13 supplies `Ref::Version(branch, version)`, branches, tags, `delta()`, `read_version_transaction`; MemWAL is an optional arm (D-WAL, D-LNC-7). Parent: `thought-git-api-v1.md` correction (#1628).
+
 ## 2026-10-20 — thought-git-api-v1 corrected: 64 slots, slot number = CE64 witness pointer
 
 **Status:** DECISION (operator, 2026-10-20). The D-TGA axis is 64 thought slots (0 = main, 1..=63 any thought), not a thought axis beside `AlphaTunnel`'s ten rung lanes; `w_slot` (CE64 bits 53..58) is the slot pointer, so 64 is its width. Pointer rewrite on land and squash, qualified by base version or slot generation. Plan § "Correction: the slot axis and the witness pointer"; entry `2026-10-20-d-tga-slot-axis-witness-pointer.md`.
