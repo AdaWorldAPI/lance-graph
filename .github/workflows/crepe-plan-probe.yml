@@ -3,12 +3,14 @@ name: Crepe plan probe
 # git deps on the crepe and MORK forks, lance 13 / lancedb 0.40), so no
 # workspace job builds it. It runs from its own directory so the cargo config
 # above it and its own `.cargo/config.toml` apply. It path-deps relalg,
-# mask-risc and mork-pathmap-probe, so changes there run it too.
+# mask-risc, mork-pathmap-probe and lance-graph-contract (the ordered lane and
+# facet keys of arm B), so changes there run it too.
 on:
   pull_request:
     paths:
       - 'crates/crepe-plan-probe/**'
       - 'crates/lance-graph-relalg/**'
+      - 'crates/lance-graph-contract/**'
       - 'crates/lance-graph-mask-risc/**'
       - 'crates/mork-pathmap-probe/**'
       - '.github/workflows/crepe-plan-probe.yml'
@@ -18,6 +20,7 @@ on:
     paths:
       - 'crates/crepe-plan-probe/**'
       - 'crates/lance-graph-relalg/**'
+      - 'crates/lance-graph-contract/**'
       - 'crates/lance-graph-mask-risc/**'
       - 'crates/mork-pathmap-probe/**'
       - '.github/workflows/crepe-plan-probe.yml'

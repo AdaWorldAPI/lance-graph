@@ -303,9 +303,12 @@ pub async fn prepare_lance(
         let ds = store.dataset(key.rel).await?;
         let other = 1 - key.key_col as usize;
         let (values, addr, col_io) = read_column(&ds, other).await?;
-        let k = u32::try_from(restricted(i).expect("restricted"))
-            .map_err(|_| LanceStoreError::Lance(format!("restriction outside u32 on side {i}")))?;
-        let mask = address_mask(&values, &Rel::eq_u32(0, k)).map_err(LanceStoreError::Relalg)?;
+        // A constant above `u32::MAX` matches no stored value: an empty mask,
+        // as the memory path finds no row.
+        let mask = match u32::try_from(restricted(i).expect("restricted")) {
+            Ok(k) => address_mask(&values, &Rel::eq_u32(0, k)).map_err(LanceStoreError::Relalg)?,
+            Err(_) => vec![0; words_for(values.len())],
+        };
         let (m, r) = row_addr_mask(&mask, values.len(), &addr);
         let (got, rows_io) = read_rows(&ds, Some(m)).await?;
         io[i] = SideIo {

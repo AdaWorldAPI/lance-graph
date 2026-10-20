@@ -15,8 +15,10 @@
 //! lane's own positions, in NodeGuid order.
 //!
 //! What this arm refuses, by name:
-//! - a side whose restriction or demand is on the second column (the lane is
-//!   ordered by the first; the reverse order is a second lane, not built);
+//! - a side whose restriction or lookup is on the second column (the lane is
+//!   ordered by the first; the reverse order is a second lane, not built). A
+//!   side read in full, with no centers to look up, may be keyed either way;
+//! - a lane attested on another dataset (`OtherDataset`);
 //! - a lane whose table moved on since it was attested (`Stale`);
 //! - a table whose rows are not in key order (`NotSorted`, at attest);
 //! - a table that is not one contiguous fragment (`NotContiguous`, at attest).
@@ -64,6 +66,12 @@ pub enum AddressedRefusal {
     NoLane {
         rel: RelId,
     },
+    /// The lane was attested on another dataset.
+    OtherDataset {
+        rel: RelId,
+        attested: String,
+        current: String,
+    },
     /// The side would need the lane ordered by its second column.
     NotLeadingColumn {
         side: usize,
@@ -79,6 +87,10 @@ impl From<LanceStoreError> for AddressedRefusal {
 /// One relation's attested lane.
 pub struct AddressedRelation {
     pub rel: RelId,
+    /// The dataset the lane was read from. A lane is only valid against the
+    /// table it was attested on, not another table with the same relation
+    /// id and version.
+    pub uri: String,
     pub lane: SealedFacetLane,
     pub witness: OrderedLaneWitness,
 }
@@ -94,7 +106,12 @@ pub async fn attest(store: &LanceStore, rel: RelId) -> Result<AddressedRelation,
     let lane = SealedFacetLane::attest_sorted(keys, ds.version().version)
         .map_err(AddressedRefusal::Witness)?;
     let witness = lane.witness();
-    Ok(AddressedRelation { rel, lane, witness })
+    Ok(AddressedRelation {
+        rel,
+        uri: ds.uri().to_string(),
+        lane,
+        witness,
+    })
 }
 
 async fn read_keys(ds: &Dataset) -> Result<(Vec<FacetCascade>, bool), LanceStoreError> {
@@ -191,6 +208,13 @@ async fn current_lane<'a>(
     let rel = plan.sides[i].key.rel;
     let a = lane_for(lanes, rel)?;
     let ds = store.dataset(rel).await?;
+    if ds.uri() != a.uri {
+        return Err(AddressedRefusal::OtherDataset {
+            rel,
+            attested: a.uri.clone(),
+            current: ds.uri().to_string(),
+        });
+    }
     let current = ds.version().version;
     if current != a.lane.version() {
         return Err(AddressedRefusal::Stale {
@@ -227,10 +251,12 @@ pub async fn prepare_addressed(
         if key.key_col != 1 {
             return Err(AddressedRefusal::NotLeadingColumn { side: i });
         }
-        let k = u32::try_from(restricted(i).expect("restricted"))
-            .map_err(|_| AddressedRefusal::NotLeadingColumn { side: i })?;
         let (a, ds) = current_lane(plan, i, store, lanes).await?;
-        let (r, n) = ranges(a, &[k])?;
+        // A constant above `u32::MAX` matches no stored value: no range.
+        let (r, n) = match u32::try_from(restricted(i).expect("restricted")) {
+            Ok(k) => ranges(a, &[k])?,
+            Err(_) => (Vec::new(), 0),
+        };
         let (got, rows_io) = read_rows(&ds, Some(range_mask(&r))).await?;
         lookups[i] = Lookup {
             keys: 1,
@@ -275,11 +301,13 @@ pub async fn prepare_addressed(
 
     for i in (0..n_sides).filter(|&i| restricted(i).is_none()) {
         let key = plan.sides[i].key;
-        if key.key_col != 0 {
-            return Err(AddressedRefusal::NotLeadingColumn { side: i });
-        }
         let (a, ds) = current_lane(plan, i, store, lanes).await?;
         let (mask, n, sought) = match &centers {
+            // Without centers the side is read in full, so its key column
+            // may be either; only a lookup needs the leading column.
+            Some(_) if key.key_col != 0 => {
+                return Err(AddressedRefusal::NotLeadingColumn { side: i });
+            }
             Some(c) => {
                 let (r, n) = ranges(a, c)?;
                 (Some(range_mask(&r)), n, c.len())

@@ -1345,6 +1345,95 @@ mod arm_b {
         assert_eq!(got.unwrap().0, Outcome::Count(2));
     }
 
+    /// B10: a demand constant above `u32::MAX` matches nothing on every path
+    /// (no stored value is that large), instead of being refused.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b10_a_constant_above_u32_matches_nothing() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, u64::from(u32::MAX) + 1);
+        for kind in kinds() {
+            let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+            let (a, _, _) = evaluate_lance(&rules, &d, kind, Options::ALL, &fx.lance)
+                .await
+                .unwrap();
+            let (b, _, io, _) =
+                evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                    .await
+                    .unwrap();
+            assert_eq!(a, m, "{kind:?}");
+            assert_eq!(b, m, "{kind:?}");
+            let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
+            assert_eq!(scanned, 0, "{kind:?}");
+        }
+        // Not vacuous: the memory path answers nothing here.
+        let (m, _) = evaluate(&rules, &d, ResultKind::Count(BAG), Options::ALL, &mem).unwrap();
+        assert_eq!(m, Outcome::Count(0));
+    }
+
+    /// B11: with nothing bound there are no centers, every side is read in
+    /// full, and a side keyed by its second column is served.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b11_an_unbound_demand_reads_every_side_in_full() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = Demand {
+            goal: labels.id("Answer").unwrap(),
+            bound: vec![None, None],
+        };
+        for kind in kinds() {
+            let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+            let (b, _, _, _) =
+                evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                    .await
+                    .unwrap();
+            assert_eq!(b, m, "{kind:?}");
+        }
+        // Not vacuous: Parent(x, y) is keyed by its second column here.
+        let planned =
+            crepe_plan_probe::pipeline::plan(&rules, &d, ResultKind::Count(BAG), Options::ALL)
+                .unwrap();
+        assert!(
+            planned
+                .stars
+                .iter()
+                .any(|s| s.sides.iter().any(|side| side.key.key_col == 1))
+        );
+    }
+
+    /// B12: a lane attested on one table is refused against another table
+    /// with the same relation id and version.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b12_a_lane_from_another_dataset_is_refused() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let one = fixture(&labels, &f).await;
+        let mut g = family_data();
+        g.parent[0] = [17, 2];
+        let two = fixture(&labels, &g).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Count(BAG);
+        // Same relation ids and versions on both stores.
+        for (l1, l2) in one.lanes.iter().zip(&two.lanes) {
+            assert_eq!((l1.rel, l1.lane.version()), (l2.rel, l2.lane.version()));
+        }
+        let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &two.lance, &one.lanes).await;
+        assert!(
+            matches!(&got, Err(PipelineRefusal::Addressed(e)) if e.starts_with("OtherDataset")),
+            "{got:?}"
+        );
+        // Silence twin: each store with its own lanes is served.
+        assert!(
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &two.lance, &two.lanes)
+                .await
+                .is_ok()
+        );
+    }
+
     /// B9: the arm adds no program and no foreign hop.
     #[tokio::test(flavor = "multi_thread")]
     async fn b9_the_addressed_arm_adds_no_program() {
