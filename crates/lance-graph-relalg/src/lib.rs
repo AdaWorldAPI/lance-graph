@@ -34,5 +34,5 @@ pub mod lower;
 pub mod normalize;
 
 pub use ir::{Atom, Cmp, Measure, Query, Rel};
-pub use lower::{run, run_as_written, Answer, RelError, Run};
+pub use lower::{run, run_as_written, run_with_program, Answer, RelError, Run};
 pub use normalize::{normalize, symbolic};

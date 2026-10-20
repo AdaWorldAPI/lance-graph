@@ -1,0 +1,34 @@
+[package]
+name = "crepe-plan-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Lab spike: Crepe's rule analysis as a cold optimizer in front of relalg. crepe_plan! reports the rules as data; binding propagation and set-only dedup rewrite them; a MORK query_multi pattern carries them; relalg ANDs the D-MPS-8 presence planes through mask-risc. Results only; no production path."
+
+# Its own workspace root, excluded from the lance-graph workspace, like
+# mork-pathmap-probe (which it reuses for the shared-y relationship table and
+# the MORK oracle) and holo-h14d-probe (relalg + mask-risc). Run from THIS
+# directory so `.cargo/config.toml` applies:
+#   cd crates/crepe-plan-probe && cargo test
+[workspace]
+
+[dependencies]
+# Proc macros only: `crepe_plan!` (the plan) and, in the oracle module only,
+# the unmodified `crepe!` evaluator. AdaWorldAPI fork, by branch (no pins).
+crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-ied9yh" }
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The D-MPS-8 versioned relationship table (shared y domain, presence planes,
+# generations) and the MORK/PathMap oracle behind boundary.rs.
+mork-pathmap-probe = { path = "../mork-pathmap-probe" }
+
+[dev-dependencies]
+datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+# Same reason as in mork-pathmap-probe: MORK's workspace names PathMap by a
+# path outside its repository, so the git dependency needs this to resolve.
+[patch."https://github.com/AdaWorldAPI/MORK"]
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
