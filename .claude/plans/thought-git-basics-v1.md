@@ -50,6 +50,12 @@ This plan starts from the ideal state and plans only the basics that lead to it.
    - `AlphaOverlay`: an unclaimed address reads `None`, never the base row.
    So a sparse write is a presence bit plus a payload at its rank, and only for cells that differ.
 6. **Rebase is replay.** A thought that fell behind main replays its receipt on the new base (D-TGB-4) instead of re-deriving incrementally. That costs folds and needs no recursion driver, so v1 does not wait on the banned D-RA-4 frontier driver.
+7. **What "satisfactory" is measured against** (DECISION, operator, 2026-10-20: "JC crate wird dafür R als API für Statistik erhalten … Die unterschiedlichen Strategien auszuprobieren für 'Sudoku' und dann die 115 MeTTa Strategien zu testen. Branches als automatisiertes Hypothesen testen und synthesis").
+   - Each strategy runs as one branch on the same Sudoku fixture against the same read-only base. The branches are automated hypothesis tests; their comparison and synthesis decide which result is worth a write.
+   - `jc` provides the statistics for that comparison through an R-style API. Its interface is not specified here (OPEN).
+   - The strategy engines run in parallel, one per crate. In the workspace today: `lance-graph-act-r`, `lance-graph-metta`, `lance-graph-nal`, `lance-graph-relalg`, `lance-graph-mask-risc`. Not yet in the workspace: `lance-graph-cog` (Hyperon) and `lance-graph-ona`.
+   - Order: first the different strategies on Sudoku, then the 115 strategies. The 115 are the rows of `.claude/knowledge/nal-recipe-audit/nal_inventory.tsv` (NAL-1..9), run as MeTTa programs.
+   - Same frame as the ce64 pre-registration "lane = treatment": one thought per strategy, the same fixtures, the same read-only base (`ce64-hypothesis-layers-v1.md` § Pre-registration).
 
 **WORKING-MODEL mapping onto `KanbanColumn`** (to be pinned by D-TGB-0): `Planning` holds the autonomous in-memory work (branch, squash, replay); `Planning → CognitiveWork` is the decision to write a satisfactory result; `CognitiveWork` prepares the batch; `Evaluation` runs the up-to-date check and the revision gate; `Commit` writes; `Plan` returns to the in-memory work; `Prune` drops the intention. The table above (slot taken at the crossing) is superseded by this mapping.
 
@@ -101,7 +107,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 
 - **Card granularity.** A card now tracks a write intention, not a slot. Is it the mailbox's card, or one card per intention inside a mailbox? `KanbanColumn` is per mailbox today.
 - **The anomaly predicate.** Which signals (contradiction, regression, cold/hot surprise, divergence between thoughts) stop a squash, and at which thresholds.
-- **What "satisfactory" means for a write.** The measure that moves a result from in-memory work to a write intention.
+- **What "satisfactory" means for a write.** Measured with `jc` statistics across strategy branches on the Sudoku fixture (correction item 7); the statistic, its threshold and the `jc` R-style interface are OPEN.
 - **Squash or land under slot pressure.** Squash the unremarkable first (correction item 3); landing stays a decision. The remaining policy is OPEN. It reads presence bits (the deltas' source bitsets, D-HL-3, and the written-by words), never `w_slot` as a pointer. ⊘ Struck 2026-10-20: "the `w_slot` pointer graph decides"; W names a lane and points nowhere.
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.
 - **Later:** Datalog awareness over thoughts and receipts.

@@ -8,6 +8,7 @@
 - Landing into Lance is the conscious Heckhausen Rubicon decision, taken when the result is satisfactory. A kanban card tracks the write intention, not the branch.
 - Presence decides what is written: an absent lane is unknown (the NaN case), never zero; agreement with a given is not stored; a contradiction is a record, never a stored value.
 - Rebase is replay of the receipt on the new base; v1 needs no recursion driver.
+- "Satisfactory" is measured by automated hypothesis testing: each strategy is a branch on the same Sudoku fixture, compared and synthesized with `jc` statistics (an R-style API, interface OPEN). Engines in parallel: act-r, metta, nal, relalg, mask-risc exist; cog (Hyperon) and ona do not yet. First the strategies on Sudoku, then the 115 rows of `nal_inventory.tsv` as MeTTa programs.
 - D-TGB-0 and D-TGB-1 re-specified; the old "slot taken at the Rubicon crossing" is struck.
 
 OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a write; card granularity.
