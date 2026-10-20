@@ -1,5 +1,7 @@
 # Musical enrichment of the calibrated 219 qualia
 
+> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1608.
+
 This is an **additive archival sidecar**, not a replacement for the #1571 ABI, palette, or binary Jina fixture.
 
 - Canonical/runtime: `calibrated_219.json` and `calibrated_219.bin1024` (**unchanged**).

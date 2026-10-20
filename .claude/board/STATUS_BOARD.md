@@ -13,6 +13,18 @@ Plan `mork-pathmap-schnellverschluss-v1.md`; entry `entries/2026-10-19-mork-path
 | D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` | BLOCKED (`RelationOrder` not built) | no copy, or the copy stated |
 | D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | OPEN | probe vendors nothing |
 
+## Plan links for ChatGPT-authored #1601–#1617 (2026-10-20)
+
+Entry `entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`. Each docs or data artifact now names its owning plan, and each owning plan lists it.
+
+| Item | Scope | Status | Evidence |
+|---|---|---|---|
+| — | arXiv HGR / superposition notes (#1601) → D-HOLO plans; Cartesian self-model and Moore notes (#1602) → H14c, ce64-hypothesis-layers | LINKED | back-link under each title; `Connected sources` section in each plan |
+| — | language LEGO (#1603), qualia anchors (#1607, #1608), GASM and semantic-map bookmarks (#1611) → `ce64-grammar-wiring-v1` | LINKED | as above |
+| — | 34 recipes (#1609) → `alpha-channel-rung-overlay-v1`, `thought-git-api-v1`; Hegel / Leibniz / dialectics notes (#1610, #1611) → `dialectic-engine-v1` | LINKED | as above |
+| — | Hyperon (#1611) → `metta-datalog-assimilation-v1`; SMASH → H14d; distributed WCOJ → H14c; decorative CoT → `octopus-causal-cot-audit-v1`; meta-uncertainty → `jc-sbi-counterfactual-integration-v1` | LINKED | as above |
+| — | ACT-R crate (#1615) → D-JCSBI-3; `graph_hop.rs` (#1616) doc names `.claude/board/ISSUES.md` | LINKED | no plan owns the crate itself (open) |
+
 ## Post-merge recovery for #1601–#1617 (2026-10-19)
 
 These PRs merged with no board rows. Every row below is a PROPOSAL (documents and fixtures) unless it says otherwise. Entry: `entries/2026-10-19-post-merge-recovery-1601-1617.md` (review-thread reconciliation).

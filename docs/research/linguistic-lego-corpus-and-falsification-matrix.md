@@ -1,5 +1,7 @@
 # Language LEGO — repository harvest, legal gates and falsification matrix
 
+> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1603.
+
 **Status:** source/integration inventory, not a dependency decision or measured result.
 **Captured:** 2026-10-18. Companion to [the grammar-to-query RFC](linguistic-lego-grammar-to-query-rfc.md).
 

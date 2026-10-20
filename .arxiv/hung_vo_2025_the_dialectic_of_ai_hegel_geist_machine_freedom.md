@@ -1,5 +1,7 @@
 # The Dialectic of AI: Hegel, Geist, and the Path to Machine Freedom
 
+> **Plan and board (2026-10-20):** owned by [`dialectic-engine-v1`](../.claude/plans/dialectic-engine-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1610.
+
 **Author:** Hung Vo  
 **Published:** March 2025   https://hungvtm.medium.com/the-dialectic-of-ai-hegel-geist-and-the-path-to-machine-freedom-2432a0b75566  
 

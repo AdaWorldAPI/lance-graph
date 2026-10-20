@@ -295,3 +295,14 @@ D-CGW-13's OpenPSI runner.
 - No new opcode, interpreter or executor; the probe's rules run as quack filters.
 - No production write path for wire rows.
 - No change to `contract::revision` (G1–G7 are frozen).
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2409.20212_graph_attributes_structure_matching_gasm_bookmark.md`](../../.arxiv/2409.20212_graph_attributes_structure_matching_gasm_bookmark.md) (#1611): READ LATER: Graph Attributes and Structure Matching (GASM)
+- [`.arxiv/2412.01423_semantic_maps_top_down_crosslinguistic_graph_bookmark.md`](../../.arxiv/2412.01423_semantic_maps_top_down_crosslinguistic_graph_bookmark.md) (#1611): READ LATER: Top-down crosslinguistic semantic map graphs
+- [`docs/research/linguistic-lego-grammar-to-query-rfc.md`](../../docs/research/linguistic-lego-grammar-to-query-rfc.md) (#1603): Language LEGO: corpus-grounded grammar as executable graph-query algebra
+- [`docs/research/linguistic-lego-corpus-and-falsification-matrix.md`](../../docs/research/linguistic-lego-corpus-and-falsification-matrix.md) (#1603): Language LEGO — repository harvest, legal gates and falsification matrix
+- [`data/qualia/MUSICAL_ANCHORS.md`](../../data/qualia/MUSICAL_ANCHORS.md) (#1607): Calibrated 219: original musical-qualia annotations
+- [`data/qualia/MUSIC_ENRICHMENT.md`](../../data/qualia/MUSIC_ENRICHMENT.md) (#1608): Musical enrichment of the calibrated 219 qualia

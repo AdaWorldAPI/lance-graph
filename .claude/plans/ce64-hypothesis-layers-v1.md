@@ -789,3 +789,9 @@ two non-NARS revision laws (needs coresearch G2); R16 AriGraph evidence stamp
 - No new tenant until D-HL-4 picks an encoding.
 - No opcode added to the strict decoder by this plan.
 - No `.0.0` pins or new dependencies; probes use existing crates.
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+
+- [`.claude/architecture/neurofunctional-rubicon-moore-plasticity.md`](../architecture/neurofunctional-rubicon-moore-plasticity.md) (#1602): Neurofunctional crosswalk: OpenPsi/Rubikon control and Moore-local synaptic plasticity

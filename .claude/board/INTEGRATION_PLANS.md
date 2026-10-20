@@ -26,6 +26,10 @@
 - Finding: multi-hop over a large domain is blocked by scatter (push) as well as gather (pull); the tile is the only admitted shape (within a focus). Admissions A1 (global→local binding), A2 (large-domain multi-hop), A3 (scalar petgraph iteration) are open.
 - The existing petgraph `lance-fold-hop` experiment consumes the quarantined `OutgoingHop`; the plan does not build on it.
 
+## 2026-10-20 — plan links for ChatGPT-authored #1601–#1617 (no new plan)
+
+**Status:** LINKS ONLY (entry `2026-10-20-chatgpt-prs-1601-1617-plan-links.md`). Eleven existing plans gained a `Connected sources from #1601–#1617` section: `d-holo-address-indexed-algebra-v1`, `d-holo-h14c-thought-first-v1`, `d-holo-h14d-logic-mask-read-v1`, `ce64-grammar-wiring-v1`, `ce64-hypothesis-layers-v1`, `thought-git-api-v1`, `alpha-channel-rung-overlay-v1`, `dialectic-engine-v1`, `metta-datalog-assimilation-v1`, `octopus-causal-cot-audit-v1`, `jc-sbi-counterfactual-integration-v1`.
+
 ## 2026-10-19 — mork-pathmap-schnellverschluss-v1 — MORK / PathMap behind one replaceable boundary → `.claude/plans/mork-pathmap-schnellverschluss-v1.md`
 
 **Status:** D-MPS-0/1 MEASURED (probe, results only); D-MPS-2..5 upstream PROPOSALS; D-MPS-6 BLOCKED; D-MPS-7 OPEN.

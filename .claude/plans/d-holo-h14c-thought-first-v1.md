@@ -599,3 +599,10 @@ payload, and Lance fetches whole pages for scattered masks.
 resident cost of positional tables without reintroducing traversal; whether to
 enable stable row ids for lane datasets; whether lane data that is read by
 scattered masks should be laid out so presence is page-local.
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2610.12692_distributed_datalog_wcoj_hypercube_bookmark.md`](../../.arxiv/2610.12692_distributed_datalog_wcoj_hypercube_bookmark.md) (#1611): READ LATER: Distributed Datalog at Scale with Worst-Case Optimal Joins
+- [`.claude/architecture/cartesian-epistemic-self-model.md`](../architecture/cartesian-epistemic-self-model.md) (#1602): Cartesian Epistemic Self-Model: Presence, CE64, Datalog and Saccadic Understanding
