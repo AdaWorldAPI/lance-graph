@@ -41,7 +41,10 @@ fn time<T>(mut f: impl FnMut() -> T) -> Duration {
     median(v)
 }
 
-fn data(n: usize) -> (Vec<[u32; 2]>, Vec<[u32; 2]>, Vec<[u32; 2]>) {
+/// `(Parent, Allowed, Sponsor)` rows.
+type Rows = (Vec<[u32; 2]>, Vec<[u32; 2]>, Vec<[u32; 2]>);
+
+fn data(n: usize) -> Rows {
     let mut s = 0x9E37_79B9_7F4A_7C15_u64;
     let mut next = move || {
         s = s.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
