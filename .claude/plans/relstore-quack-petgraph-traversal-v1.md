@@ -253,6 +253,10 @@ BlasGraph already ships the relationship-matrix vocabulary this plan needs: CSR,
 | D-RST-7 | triangle and amortization | F6 and F7, cold and warm | D-RST-6 |
 | D-RST-8 | large-domain multi-hop | only after admission A2 | A2 |
 
+**D-RST-3 result (2026-10-20, AdaWorldAPI/petgraph#4, `experiments/relstore-visit`).** The view met F1: petgraph's unmodified `Bfs`/`Dfs` match a `DiGraph` oracle built from the facts on fixtures covering parallel edges, self-loops, isolated nodes and empty relations. The edge id is the fact id, and it survives compaction while rows move. The view borrows the prepared buffers, and building it or walking every neighbour list allocates nothing. The F2b-shaped falsifier passes: a Quack one-hop reads the same `dst` buffer at the same version, and the store prepares once.
+
+Measured at 1M edges: the neighbour walk and BFS cost the same as petgraph `Csr` (2.0 vs 1.8–1.9 ns per edge). Prepare takes 308–396 ns per edge and is not optimized. Admission question for D-RST-1/2: the Quack hop is O(E) per query (14–18 ms for 64 hops vs 0.3 µs through the view), because Quack cannot know that the `src` lane is sorted. A sealed ordering witness (`Cmp::Range`) would make it a range read; whether the seal carries one is open.
+
 Each PR keeps the probes in `mork-pathmap-probe` as probes. Production code is new code in the store crate with its own tests; it does not import the probe crate.
 
 ## 8. Open admission decisions and blockers
