@@ -101,6 +101,33 @@ fn branching_from_the_candidate_keeps_it() {
     assert_eq!(p.thought(s), Ok(100));
 }
 
+/// Branching from the oldest child of the candidate root must not squash that
+/// child away: the root is squashed into it instead.
+#[test]
+fn branching_from_the_candidates_child_keeps_the_child() {
+    let (mut p, h) = full(Eviction::Fifo, &[(1, 0)]);
+    let (s, e) = p.branch(100, Some(h[1])).unwrap();
+    assert_eq!(
+        p.thought(h[1]),
+        Ok(1),
+        "the branch parent was removed: {e:?}"
+    );
+    assert!(
+        matches!(e, Some(Pressure::Squashed { thought: 0, into, .. }) if into == h[1]),
+        "{e:?}"
+    );
+    assert_eq!(p.thought(h[0]), Err(Stale(h[0])));
+    assert_eq!(p.thought(s), Ok(100));
+    // Thought 1 is a root now: under the next pressure it squashes its own
+    // child (100) into itself rather than being dropped.
+    let (_, e) = p.branch(101, None).unwrap();
+    assert!(
+        matches!(e, Some(Pressure::Squashed { thought: 100, .. })),
+        "{e:?}"
+    );
+    assert_eq!(p.thought(h[1]), Ok(1));
+}
+
 /// Freeing makes room without pressure, and the freed handle is stale.
 #[test]
 fn a_freed_slot_is_reused_without_pressure() {

@@ -164,15 +164,22 @@ impl SlotPool {
         Ok(())
     }
 
-    /// `keep`: the new thought's parent, never the candidate (branching from
-    /// a thought must not be what removes it).
+    /// `keep`: the new thought's parent, never the candidate and never the
+    /// slot a squash releases (branching from a thought must not be what
+    /// removes it).
     fn make_room(&mut self, keep: Option<usize>) -> (usize, Option<Pressure>) {
         let c = self.candidate(keep);
         let cand = self.live[c].expect("pool is full");
         let (from, into) = if let Some(p) = cand.parent {
             (c, p)
         } else if let Some(child) = self.oldest_child(c) {
-            (child, c)
+            // When that child is the new thought's parent, squash the root
+            // into it instead, so the parent handle stays live.
+            if Some(child) == keep {
+                (c, child)
+            } else {
+                (child, c)
+            }
         } else {
             let slot = self.handle(c, cand.generation);
             self.release(c);
@@ -196,6 +203,12 @@ impl SlotPool {
             target.uses += f.uses;
         }
         self.reparent(from, Some(into));
+        // A child absorbing its parent takes the parent's place in the tree.
+        if let Some(target) = self.live[into].as_mut()
+            && target.parent == Some(into)
+        {
+            target.parent = f.parent;
+        }
         self.release(from);
         (from, Some(pressure))
     }
