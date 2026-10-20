@@ -113,6 +113,11 @@ Below the API, from top to bottom:
 3. `lance-graph-relalg` describes the non-recursive set expressions;
 4. `lance-graph-r2il` lowers them onto mask-risc.
 
+Later, and only as possibilities (operator, 2026-10-20: "openpsi soll eventuell den Motivation Teil übernehmen (nach transcode); MeTTa over Lance-graph-mork eventually für folding"):
+
+- **OpenPsi for motivation, after a transcode.** ACT-R's README keeps motivation out of arbitration: "a future optional priority signal, not implicit authorization". OpenPsi would supply that signal. D-SAG-3 (`sag-wisdom-frontier-ona-hyperon-v1.md` §3) treats OpenPsi's demand / modulator / goal selector as architectural references, keeps them out of the universal byte layout, and records a tie-breaking and demand-to-goal defect (hyperon-openpsi PR #117) to probe first.
+- **MeTTa over `lance-graph-mork` for folding.** The crate does not exist; `crates/mork-pathmap-probe` is the measured probe behind the Schnellverschluss (D-MPS). Moving MORK source into lance-graph is blocked while MORK declares no licence (D-MPS-7: upstream PR #148 unmerged).
+
 A petgraph API is an optional usability layer on top, not a storage format or an executor, as in `relstore-quack-petgraph-traversal-v1.md` (point 1 there). The existing petgraph experiment rests on the quarantined `OutgoingHop` gather and is not a precedent (same plan, point 2).
 
 **Placement (PROPOSAL).** Following the convention, types live in the contract and execution in mask-risc / quack:
