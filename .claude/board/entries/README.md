@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-391 entries, 2026-08-06 .. 2026-10-20.
+392 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-10-20 | `D-RST` |  | [2026-10-20-relstore-geometry-not-graph-api.md](2026-10-20-relstore-geometry-not-graph-api.md) |
 | 2026-10-20 | `recursive-perspective-rebinding` |  | [2026-10-20-recursive-perspective-rebinding.md](2026-10-20-recursive-perspective-rebinding.md) |
 | 2026-10-20 | `prs-1601-1617-plan-links` |  | [2026-10-20-prs-1601-1617-plan-links.md](2026-10-20-prs-1601-1617-plan-links.md) |
+| 2026-10-20 | `ledger-revision-1592-1634` |  | [2026-10-20-ledger-revision-1592-1634.md](2026-10-20-ledger-revision-1592-1634.md) |
 | 2026-10-20 | `D-TGB` | thought git basics planned from the ideal state | [2026-10-20-d-tgb-thought-git-basics.md](2026-10-20-d-tgb-thought-git-basics.md) |
 | 2026-10-20 | `D-TGB-0` |  | [2026-10-20-d-tgb-0-preregistration.md](2026-10-20-d-tgb-0-preregistration.md) |
 | 2026-10-20 | `D-TGA-SLOT-AXIS` | thoughts are 64 slots, and the slot number is CE64's witness pointer | [2026-10-20-d-tga-slot-axis-witness-pointer.md](2026-10-20-d-tga-slot-axis-witness-pointer.md) |
