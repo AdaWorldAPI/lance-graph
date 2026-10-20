@@ -1,0 +1,27 @@
+[package]
+name = "jc-batch-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Lab probe (D-RU-1 / U1): a batch of JC statistical requests answered from shared power-sum passes, against one pass per request. Results only; no production path."
+
+# Its own workspace root (it path-deps relalg, which git-deps OGAR). Run with
+# `cargo test --manifest-path crates/jc-batch-probe/Cargo.toml`.
+[workspace]
+
+[dependencies]
+# The selection algebra and its lowering.
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+# The only bulk engine: the power-sum terminals.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# Statistical semantics: projections from the sums.
+jc = { path = "../jc" }
+# The coordinate mask-risc uses; patched below to the sibling jc builds on,
+# so `PowerSums` is one type across all three.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
