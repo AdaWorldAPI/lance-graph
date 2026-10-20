@@ -1,3 +1,13 @@
+## 2026-10-20 — relstore-quack-petgraph-traversal-v1 (reframed) — compiled relational geometry and amortization; petgraph optional → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
+
+**Status:** D-RST-0..9 PROPOSAL; documentation only. Operator correction (2026-10-20): the goal is reusable relational geometry amortized across front ends and thought versions; petgraph is an optional consumer (D-RST-3 OPTIONAL / DEFERRED / MEASUREMENT-GATED); tile GEMM consumes prepared layouts and does not obtain them.
+
+- Critical path: D-RST-9 (native borrowed views, no petgraph) → D-RST-1 → 2 → 4 → 5 → 6 → 7. Off it: D-RST-3, D-RST-8 (A2), F-PG, F8 path D.
+- New §5b: three costs (preparation, execution, maintenance) measured apart; break-even from measured values only; Boolean existence vs BF16 multiplicity, with the BF16 exactness bound (integers to 256).
+- New F8: four execution paths on one relation, cold/warm, 1/8/64 thoughts, sparse to hub distributions.
+- Prior art named: the planner's `AdjacencyStore`/`AdjacencyBatch` (pattern CSR + CSC, borrowed, no-`Copy`) is the starting point for D-RST-9; no fourth owned CSR type.
+- Supersedes the entry below on framing only; its ownership decisions stand.
+
 ## 2026-10-20 — relstore-quack-petgraph-traversal-v1 — stored relations, compiled traversal, petgraph over borrowed layouts → `.claude/plans/relstore-quack-petgraph-traversal-v1.md`
 
 **Status:** D-RST-0..8 PROPOSAL; documentation only. Operator decision B (2026-10-20): RelationshipMapStore owns persistence, layouts, domains, seals and invalidation; Quack compiles; mask-risc executes. D-RMAP-1A §1 and the 2026-10-05 storage-portability ruling are unchanged.

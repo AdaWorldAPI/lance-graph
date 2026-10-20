@@ -1,8 +1,20 @@
-# D-RST: RelationshipMapStore × Quack × petgraph — stored relations, compiled traversal
+# D-RST: compiled relational geometry and its amortization — RelationshipMapStore × RelAlg/Datalog × Quack
+
+(File name kept for existing links; the plan was first written as "RelationshipMapStore × Quack × petgraph". See the correction below.)
 
 **Status: PROPOSAL, 2026-10-20. Documentation only.** No crate, type, opcode, ABI, dependency or ruling change lands with this plan. Every capability below is labelled IMPLEMENTED, PROBE, PROPOSAL or RULING from its own source.
 
 **Decision taken (operator, 2026-10-20), recorded as provenance, not as validation:** option B. `RelationshipMapStore` owns relationship persistence, identities, index layouts, coordinate-domain seals and invalidation. Quack owns compilation and numeric query semantics. mask-risc on `ndarray::simd` stays the only population executor. This keeps the D-RMAP-1A §1 ownership table and the 2026-10-05 Quack storage-portability ruling as they are. Neither is superseded here.
+
+**Correction (operator, 2026-10-20, later the same day), recorded as provenance, not as validation: the center of gravity is reusable relational geometry, not a graph API.**
+1. **Petgraph is an optional consumer, an optional intermediate and a usability reference**, on the same footing as the Gremlin adapter. It does not decide the storage format, coordinate model, algebra, optimizer, execution ABI or relationship lifecycle. The first version of this plan made it a pillar ("petgraph makes it usable") and brought D-RST-3 forward. Both are withdrawn: D-RST-3 is OPTIONAL / DEFERRED / MEASUREMENT-GATED (§7), and petgraph parity is an optional interoperability falsifier (F-PG), not an acceptance criterion.
+2. **Tile GEMM consumes prepared relationships; it does not obtain them.** It speeds up arithmetic once the operands are in a compatible dense layout. It does not resolve identities, scatter, gather or traverse sparse data (§5b).
+
+**Goal.** Write relationships once. Normalize irregular access into reusable relational geometry: identities, coordinate domains, index permutations, prepared layouts and version dependencies. Amortize that preparation across joins, projections, recursion and traversal, whichever front end asks (SQL-shaped Quack, Cypher, Datalog, RelAlg, Gremlin, petgraph) and across compatible thought versions. **The optimization target is the minimum repeated work per relational reasoning step, not maximum arithmetic throughput.**
+
+**Success criterion.** Datalog, RelAlg and Quack workloads run efficiently over retained relational layouts without importing petgraph or Gremlin. Petgraph-shaped iterators or selected petgraph algorithms may later be exposed over the same layouts, which would show usability, not decide the architecture.
+
+**Scope.** Relations are n-ary: Datalog predicates, variable permutations, join domains, derived relations, recursion and provenance. Graph traversal is one special case of relational composition (a binary relation composed with itself). Neither a graph API nor a GEMM kernel may change the representation chosen for a relation.
 
 Read with:
 - [D-RMAP-1A](d-rmap-separate-tables-thought-palettes-v1.md) §§1, 3, 6–8: ownership, borrowed views, falsifiers, versioning, focus probe.
@@ -13,7 +25,7 @@ Read with:
 - Board entry `2026-10-05-quack-storage-portability.md`.
 - `.claude/knowledge/fold-execution-laws.md`.
 
-**Short form:** the store remembers, BIND resolves once, Quack compiles, mask-risc executes, petgraph makes it usable.
+**Short form:** the store remembers the geometry, BIND resolves once, RelAlg/Datalog define the bindings, Quack compiles, mask-risc executes. Graph APIs are optional views over the same layouts.
 
 **The amortization principle (operator, 2026-10-20): write a relationship as a relationship.** A relation is written once, as relation facts, and the seal fixes its identity, its version and the base indexes its declaration names (a sorted permutation, and CSR/CSC where declared). Specialized execution geometry (bitmap blocks, focus tiles, a co-addressed join domain on one shared variable) is prepared on the first demand that needs it, once, and retained under a dependency seal on that relation version. Nothing is rebuilt per query or per front end, and nothing is built for a query that never comes: a relation with several joinable attributes has many candidate join domains, and only the demanded ones exist. The seal establishes validity; preparation establishes geometry, and F7 measures whether it paid for itself. RelAlg's semijoins, joins and projections then read prepared relationship layouts instead of translating identities on every evaluation. That is where RelAlg gets faster: the translation is paid once per sealed version, the evaluation is a fold. §5a checks what the shipped BlasGraph CSR contributes to this.
 
@@ -26,7 +38,7 @@ Read with:
 
    So the only admitted multi-hop shape today is the tile. Over a domain larger than a focus, multi-hop needs an admission decision (§8, A2). It is not an implementation gap a store can fill. Gremlin's `NonFunctionalChain` (`lance-graph-quack/tests/gremlin_parity.rs`, the `Refusal` enum: "needs a barrier and a workspace inside one computation. Gap: no typed phase handoff exists") is two problems. The handoff is the store's to give, as a stored intermediate. The hop is the ruling's to admit.
 2. **The existing petgraph integration rests on the quarantined gather.** `AdaWorldAPI/petgraph` `experiments/lance-fold-hop` (fork PR #3) consumes `lance_graph_mask_risc::OutgoingHop`. That is two `Gather` ops plus `ScatterOrU32`, pinned to lance-graph `66636da`, from before #1616's quarantine. Its README already says it is one demanded hop, and that iterative BFS "needs a reviewed phase-handoff / continuation primitive". ISSUES.md records that bumping the pin must enable `quarantined-gather-hop` explicitly. This plan does not build on it.
-3. **petgraph's traversal needs only two traits.** `Bfs::new` / `Dfs::new` need `GraphRef + Visitable`, and `next` needs `IntoNeighbors` (`crates/petgraph/src/visit/traversal.rs`). The visit map is a `FixedBitSet` keyed by `IndexType::index()` (`visit/mod.rs`, `impl VisitMap<Ix> for FixedBitSet`), so a view whose `NodeId` is a dense `u32` slot gets petgraph's own visit map. `Csr` (`crates/petgraph/src/csr.rs`) shows the shape: `IntoNeighbors for &Csr` returns a slice iterator over `neighbors_slice`. It owns its `Vec`s, so the view must borrow instead.
+3. **(Optional consumer; evidence for D-RST-3.) petgraph's traversal needs only two traits.** `Bfs::new` / `Dfs::new` need `GraphRef + Visitable`, and `next` needs `IntoNeighbors` (`crates/petgraph/src/visit/traversal.rs`). The visit map is a `FixedBitSet` keyed by `IndexType::index()` (`visit/mod.rs`, `impl VisitMap<Ix> for FixedBitSet`), so a view whose `NodeId` is a dense `u32` slot gets petgraph's own visit map. `Csr` (`crates/petgraph/src/csr.rs`) shows the shape: `IntoNeighbors for &Csr` returns a slice iterator over `neighbors_slice`. It owns its `Vec`s, so the view must borrow instead.
 4. **The Registrar seam is real, minimal and unowned.** `lance-graph-quack/src/bind.rs`: `trait Registrar { fn register(&mut self, name: &str, width: u32) -> Result<TableId, RegisterError>; }`. The doc says "No crate owns that today; this trait names the seam, and only tests implement it". The only implementor is a `#[cfg(test)] Mem`. Three `Binder`s exist in library code: `lance-graph-sap` `CatsBinder`, `lance-graph-dir-sim` `UserBinder`, `lance-graph-glove-parity` `CanonicalBinder`.
 5. **A coordinate domain is itself a relation.** The join probe needs a seal for its shared domain (Schnellverschluss §7b: a new `y` re-addresses every side). Stored as a relation (the dictionary of global ids, in slot order), the domain gets a `DurableRef` like any other table. No counter is added. A domain change is a new version, and versions are not reused, so domain ABA cannot happen.
 
@@ -54,30 +66,36 @@ Read with:
 | petgraph visit traits, `Bfs`/`Dfs`/`Walker`, `Csr` | `AdaWorldAPI/petgraph` `crates/petgraph/src/{visit,csr.rs}` (0.8.3, MSRV 1.85, dev toolchain 1.99) | IMPLEMENTED upstream |
 | BlasGraph sparse storage: `CsrStorage`, `CscStorage`, `HyperCsrStorage`, COO→CSR, `GrBMatrix` (CSR + optional CSC), `mxv`/`vxm`/`mxm` over a `dyn Semiring` incl. `HdrSemiring::Boolean`; `StorageFormat::Bitmap` reserved | `lance-graph/src/graph/blasgraph/{sparse,matrix,semiring}.rs`; planner `blasgraph_planner.rs` (Cypher `Expand` → `mxm`) | IMPLEMENTED; a second copy in `holograph/src/graphblas` |
 | ndarray dense mask algebra: `mask_and`, `mask_or`, `mask_andnot`, `mask_ternlog`, popcount/any; dense BLAS levels 1–3 | `ndarray/src/simd_masking_ops.rs`, `src/hpc/blas_level{1,2,3}.rs` | IMPLEMENTED; no sparse/CSR primitive under `src/hpc` or `src/simd*` (searched `csr`, `spmv`, `sparse`) |
+| Pattern CSR + CSC substrate with edge ids, one store per relationship type ("Kuzu pattern"); `adjacent`, `adjacent_incoming`, `edge_ids`, degrees, `from_edges`; a borrowed `AdjacencyBatch<'a>` (no allocation; deliberately not `Clone`/`Copy`, operator ruling 2026-07-29 "copies are forbidden, borrows are only for the same mailbox"); `intersect` returns an owned `IntersectionResult` | `lance-graph-planner/src/adjacency/{csr,batch,propagate,distance}.rs` | IMPLEMENTED; `u64` offsets/targets/ids, owned `Vec`s, no version pin, edge id = arrival position in the input (`from_edges`), so not a stable fact identity; binary only; used only inside its own module |
+| `CsrIndex` (offsets + neighbours, `u64`), built from an Arrow `RecordBatch` | `lance-graph/src/csr_index.rs` | IMPLEMENTED; owned, out-edges only |
+| Borrowed, version-pinned pattern-CSR view traversed by petgraph's unmodified `Bfs`/`Dfs`; Quack one-hop over the same buffers | `AdaWorldAPI/petgraph#4`, `experiments/relstore-visit` | PROBE (D-RST-3, now deferred); its view is `Copy`, which the 2026-07-29 ruling forbids (§3.3) |
+| BF16 16 × 16 tile GEMM vs bit-tile composition, polyfill tier only | `mork-pathmap-probe/src/tile_gemm.rs` (#1623, D-RMAP-2) | PROBE |
 | `RelationshipMapStore`, `RelationCatalog` | — | not found under `crates/` (searched `*.rs`, `*.md`) |
+
+**Prior art to reuse before adding a type.** Three owned CSR families already exist: the planner's `AdjacencyStore` (CSR **and** CSC, pattern-only, with a borrowed batch view that already follows the no-`Copy` ruling), core `CsrIndex`, and BlasGraph's valued `CsrStorage`/`CscStorage` (plus the `holograph` copy). The native borrowed view of §3.1 starts from `AdjacencyStore`/`AdjacencyBatch`: it already has the shape (pattern CSR + CSC + ids, borrowed batch). Its gaps are `u32` slots, a stable fact identity instead of the arrival position, a version pin, and n-ary relations as sorted permutations. No fourth owned CSR type is added; the probe CSRs (`rmap.rs`, `relstore-visit`) stay probes. Masked adjacency is already a presence plane in mask-risc (`Planes.masks`) and the probe tile (`rmap.rs`, 256 × 256); no new tile type is needed for the Boolean path.
 
 ## 2. Ownership and seams
 
 ```text
-   SQL-shaped quack::Query   Cypher   Gremlin   Datalog/RelAlg   petgraph algorithms
-              \                 |        |            /              |
-               \______________ PARSE ___/____________/              |
-                                 |                                  |
-                     Quack COMPILE (V4: what to compute)            |
-                                 |                                  |
-     BIND: identities, coordinate domain, authorization, version,  |
-           layout capabilities — resolved once ─────────────────────┤
-                                 |                                  |
-               BUNDLE: choose layout (may not change the answer)    |
-                                 |                                  |
-          mask-risc / ndarray::simd EXECUTE over borrowed planes    |
-                                 |                                  |
-   RelationshipMapStore: catalog · facts · derived relations ·      |
-   orders · layouts · domains · seals · invalidation  ◄── borrowed views ─┘
-                                 |
-              cycle seal → Lance (DurableRef)    ThoughtCommitId (speculative)
-                                 |
-             SoA: canonical identity-addressed state (separate admission)
+   Quack query   Cypher   Datalog / RelAlg               optional consumers
+         \          |          /                          (petgraph, Gremlin adapter)
+          \______ PARSE ______/                                     :
+                    |                                               :
+        Quack COMPILE (V4: what to compute)                         :
+                    |                                               :
+   BIND: identities, coordinate domain, authorization, version,     :
+         eligible prepared layouts — resolved once                  :
+                    |                                               :
+   BUNDLE: choose a prepared layout (may not change the answer)     :
+                    |                                               :
+   mask-risc / ndarray::simd EXECUTE over borrowed planes           :
+                    |                                               :
+   RelationshipMapStore: catalog · facts · derived relations ·      :
+   permutations · layouts · domains · seals · invalidation  ◄········ borrowed views of the
+                    |                                                 same layouts (no copy,
+       cycle seal → Lance (DurableRef)    ThoughtCommitId             no second graph)
+                    |
+       SoA: canonical identity-addressed state (separate admission)
 ```
 
 | Owner | Owns | Must not own |
@@ -87,7 +105,7 @@ Read with:
 | Quack | compiling relational and graph operations into `Program`s; numeric query semantics; the `Registrar`/`Binder` seams | storage, catalog state, evaluation |
 | RelAlg / Datalog | variable bindings, join bodies, set vs bag, recursion and fixpoint meaning | map tables, index builds |
 | mask-risc / `ndarray::simd` | population execution | anything else |
-| petgraph | algorithm and iterator vocabulary | storage, a second graph copy |
+| petgraph, Gremlin adapter (optional consumers) | their algorithm and iterator vocabulary, where a measured workload adopts it | storage format, coordinate model, algebra, optimizer, execution ABI, relationship lifecycle, a second graph copy |
 | SoA | canonical identity-addressed state; admission of stable semantic relationships | derived relations (admission is optional and separate) |
 | cycle seal / Lance | durable writes, `DurableRef` | relational semantics |
 
@@ -124,38 +142,26 @@ store.materialize(compiled_result, deps: &[RelationVersion]) -> RelationVersion
 
 Durable versions come from the seal (`DurableRef`); speculative ones from a thought commit (`ThoughtCommitId`). The store records which versions a layout or derived relation was built from and refuses a read when any of them differs. It persists no counter of its own (D-RMAP-1A §7.7, option B).
 
-## 3. The petgraph contract: one identity, two consumption shapes
+## 3. Relational access: borrowed views and compiled cursors
 
-**Shape 1, scalar, unmodified petgraph.** A borrowed view type over one sealed CSR layout:
+### 3.1 Native borrowed relation views (critical path)
 
-```rust
-#[derive(Clone, Copy)]
-pub struct RelView<'s> { seal: &'s LayoutSeal, off: &'s [u32], dst: &'s [u32], n: usize }
+A relation version is read through a **view**: a borrow of the store's prepared buffers, pinned to the `RelationVersion` and `LayoutSeal` they were built from, refused for any other. A view owns nothing and copies nothing. Following the 2026-07-29 ruling, a view is **not** `Clone` or `Copy` (the shape `AdjacencyBatch` already has); it is passed by reference, so its reach is bounded by the borrow it came from.
 
-impl GraphBase for RelView<'_> { type NodeId = Slot; type EdgeId = EdgeRow; }   // Slot: IndexType over u32
-impl<'s> IntoNeighbors for RelView<'s> { type Neighbors = SlotIter<'s>; /* slice of dst[off[a]..off[a+1]] */ }
-impl Visitable for RelView<'_> { type Map = FixedBitSet; /* capacity n */ }
-impl NodeIndexable / NodeCount / NodeCompactIndexable  // the slot domain is dense
-impl IntoEdgeReferences / IntoEdges / Data            // edge id = stable fact identity (see below)
-impl IntoNeighborsDirected                            // only when the store holds the reverse permutation;
-                                                      // otherwise unimplemented, never computed on demand
-```
+- **n-ary first.** A relation's facts are columns, one per argument, plus a stable fact identity. Its base indexes are sorted permutations in the variable orders its declaration names (for `r(x, y, z)`: `(x, y, z)`, `(y, x, z)`, …), read as ranges.
+- **CSR and CSC are the binary specialization**: offsets over a sorted permutation. CSR serves push and neighbour iteration, CSC serves pull (§5a); both may be declared.
+- **The fact identity is the edge id.** A physical row offset is an address that compaction moves (D-RMAP-1A §7.3); a view reports it separately and never as an identity.
+- **Start from what exists.** The planner's `AdjacencyStore`/`AdjacencyBatch` already has CSR + CSC + ids and a borrowed batch view (§1). The gaps are `u32` slots, a stable fact identity, a version pin and n-ary permutations, plus BlasGraph's pattern-only reading (§5a). Whether that becomes a change to `AdjacencyStore` or a view beside it is decided by D-RST-9, not here.
 
-- Petgraph's `Bfs`, `Dfs`, `DfsPostOrder` and `Topo` then run unmodified. Nothing is copied: the iterator is a slice of the stored layout.
-- `EdgeId` is the stable **fact identity**, so a path can be traced back to facts. A canonical row offset is a stable edge id only where the relation's row-address contract guarantees it (Lance stable row ids, opt-in per dataset; D-RMAP-1A §7.3 measured 3 510 of 3 510 row addresses moved by compaction without them). Otherwise the row offset is only the physical address the iterator reads at, and the edge id is the fact identity stored beside it.
-- Out-of-focus or out-of-domain neighbours are a property of the layout. A view over a full-domain CSR has none; a view over a focus layout must report escapes and refuse `global()` reads (D-RMAP-1A §8).
+### 3.2 Compiled relational cursors
 
-**Classification (admission A3).** Shape 1 is ordinary host iteration inside petgraph's algorithm. It is not population execution and does not go through mask-risc, so the no-gather ruling, which governs fold execution, does not decide it. This plan records that reading as an open admission item rather than assuming it.
+The same `RelationVersion` and `LayoutSeal`, consumed as whole spans and planes, compiled by Quack:
+- index ranges over sorted permutations (a range read needs the seal to attest the order; §8 A6);
+- CSR/CSC spans per slot range;
+- semijoins, joins and projections over a co-addressed join domain (join-table presence planes, intersection = `And`; Schnellverschluss §7b);
+- tile planes and frontier masks (the only admitted multi-hop shape, finding 1).
 
-**Shape 2, batched relational cursors.** The same `RelationVersion` and `LayoutSeal`, consumed as whole spans and planes:
-- CSR spans per slot range;
-- tile planes and frontier masks (the only admitted multi-hop shape, finding 1);
-- join-table presence planes (intersection = `And`);
-- index intersections over sorted permutations.
-
-These are Quack inputs, compiled to `Program`s.
-
-**Compiling iterator chains.** Arbitrary `Iterator::filter` / `flat_map` closures cannot be inspected and will not be compiled or fused. The plan instead proposes a small typed traversal vocabulary that is both an ordinary `Iterator` (terminal `.iter()`) and compilable (terminal `.compile(&quack)`):
+**Typed traversal vocabulary.** Arbitrary `Iterator::filter` / `flat_map` closures cannot be inspected and are not compiled or fused. The plan instead proposes a small typed vocabulary that compiles (terminal `.compile(&quack)`) and can also run as an ordinary iterator (terminal `.iter()`):
 
 | Typed step | Meaning | Compiles to |
 |---|---|---|
@@ -167,7 +173,17 @@ These are Quack inputs, compiled to `Program`s.
 | `repeat_bounded(k)` / `until_fixpoint()` | iteration | k tile hops / hop until the plane stops changing, within focus |
 | `emit()` | materialize | explicit terminal; the only exit producing ids |
 
-Each step carries set/bag/path semantics in its type. Mixing them without an explicit `dedup` or `paths` step is a compile error, never a silent collapse (Gremlin's `BagOfElementsNotAMask` and `PathMultiplicity` stay real refusals). A chain that cannot compile refuses at `.compile`. It never falls back to `.iter()` on its own (no silent fallback). This keeps Gremlin's step vocabulary without a traverser VM: the traversal is a value that is compiled, not an object stepped per traverser.
+Each step carries set/bag/path semantics in its type. Mixing them without an explicit `dedup` or `paths` step is a compile error, never a silent collapse (Gremlin's `BagOfElementsNotAMask` and `PathMultiplicity` stay real refusals). A chain that cannot compile refuses at `.compile`. It never falls back to `.iter()` on its own (no silent fallback). The traversal is a value that is compiled, not an object stepped per traverser, so no traverser VM is needed.
+
+### 3.3 Optional: petgraph over the same views (deferred, measurement-gated)
+
+Petgraph's `Bfs`/`Dfs` need `GraphRef + Visitable` and `IntoNeighbors` (finding 3). Over a §3.1 view they can run unmodified, with the iterator a slice of the stored layout and `EdgeId` the fact identity. AdaWorldAPI/petgraph#4 showed this works (§7, D-RST-3 result). It is not on the critical path, and nothing in §§3.1–3.2 depends on it.
+
+Two constraints for any later adoption:
+- **`GraphRef: Copy` conflicts with the no-`Copy` view.** petgraph#4's view is `Copy`, which the 2026-07-29 ruling forbids. The compatible shape implements the visit traits for `&View` (petgraph's blanket `impl GraphRef for &G`), so the copyable thing is a shared reference and the view itself stays unique.
+- **`IntoNeighborsDirected`** only where the store holds CSC; never computed on demand.
+
+Admission A3 (whether host iteration sits outside the no-gather ruling) only needs an answer if petgraph or another scalar iterator is adopted.
 
 ## 4. Execution flow
 
@@ -206,7 +222,7 @@ BlasGraph already ships the relationship-matrix vocabulary this plan needs: CSR,
 4. **`mxv` is a pull with an indexed read.** For each row `i`, for each `(j, a_val)` in the row: `vec.get(j)`. That reads the input vector at positions taken from stored column indices, the gather shape, run as scalar host code with a virtual `Semiring` call and a `BitVec` clone per product.
 5. **ndarray is not on this path.** BlasGraph routes Hamming and popcount through `ndarray_bridge::dispatch_hamming`, but CSR construction and `mxv` use plain loops. ndarray has dense mask algebra and dense BLAS, and no sparse primitive.
 
-**The BF16 16 × 16 tile GEMM is measured separately** (D-RMAP-2 probe, #1623). On a host without AMX or AVX512-BF16 only ndarray's F32x16 polyfill tier runs; there the bit arm wins every cell, and that result says nothing about tile-hardware performance. The GEMM stays a candidate layout for tile hosts and weighted counts until one is measured.
+**The BF16 16 × 16 tile GEMM is measured separately** (D-RMAP-2 probe, #1623). On a host without AMX or AVX512-BF16 only ndarray's F32x16 polyfill tier runs; there the bit arm wins every cell, and that result says nothing about tile-hardware performance. The GEMM stays a candidate execution path for tile hosts and weighted counts until one is measured; §5b sets the terms on which it can win.
 
 **What follows.**
 - **Structural and valued relations are different things, and both stay.** BlasGraph's `HdrSemiring::Boolean` is bitwise AND/OR over 16 384-bit hyperdimensional values, not edge existence. A structural relation's value is the edge's existence (plus an optional fact identity), with no 2 KiB payload. A valued relation keeps BlasGraph's hyperdimensional vectors, or another typed edge value, read only when the computation needs it. The lean CSR is a pattern-only interpretation inside the same sparse-storage family; it does not replace BlasGraph's hyperdimensional algebra.
@@ -224,20 +240,67 @@ BlasGraph already ships the relationship-matrix vocabulary this plan needs: CSR,
 - **Sparse rows still need an indexed read.** A sparse row lists column indices; any hop over it reads the frontier at those indices. Hypersparse bitmap blocks (a list of `(block, 64-bit word)`) make that read word-granular instead of bit-granular: one indexed read per 64 columns instead of one per column, and every read counted. That is the concrete content of admission A2 option (a)/(b); this plan does not admit it.
 - **Duplication:** `holograph/src/graphblas` carries a second GraphBLAS. The store binds to one (the `lance-graph` BlasGraph types) and records the other as debt, not a second consumer.
 
+## 5b. Tile GEMM consumes prepared geometry (operator correction, 2026-10-20)
+
+```text
+global relationship facts      sparse · irregular identities · CSR / CSC / trie
+          │
+   gather / resolve / pack     select coordinates, build dense tiles, align shared domains
+          │                    ← possibly expensive preparation
+   tile GEMM / mask-risc       repeated, regular arithmetic on prepared operands
+          │
+   relational results          counts · existence · frontiers · derived relations
+```
+
+A GEMM or AMX kernel loads its operands from memory, so they need not be in registers already, but they must already be laid out as tiles. Every gather, pack or coordinate normalization happens before the kernel, and it is paid there. If a traversal gathers and packs each time it runs, even a very fast tile kernel can lose to an ordinary CSR iterator. That is the case for retaining prepared tiles under a versioned seal in the store (§4 step 2).
+
+**Three costs, measured separately for every tile accelerator:**
+1. **Preparation**: identity resolution, coordinate alignment, index traversal, gathering, packing, tile construction, sealing.
+2. **Execution**: mask-risc bit operations, SIMD, or BF16/AMX GEMM on prepared operands.
+3. **Maintenance**: version checks, invalidation, incremental updates, repacking, rebuilds.
+
+For `N` uses and `M` invalidations of one prepared layout:
+
+```text
+T_tile(N, M)   = T_prepare + N · T_exec + M · T_maintain
+T_sparse(N)    = N · T_traverse            (CSR/CSC or a native iterator, no tile)
+```
+
+The tile wins only where `T_exec < T_traverse`, and then only beyond the reuse count where the two lines cross. Break-even counts are reported from measured `T_prepare`, `T_exec`, `T_maintain` and `T_traverse`, never from an assumed kernel speedup. A warm tile kernel compared with a cold sparse traversal is not an end-to-end result. A faster isolated GEMM kernel does not establish a faster graph operation.
+
+**Representations keep their roles:**
+
+| Technique | Best role |
+|---|---|
+| borrowed pattern CSR/CSC, sorted permutations, native cursors | sparse, irregular navigation and range reads |
+| sparse bitmap blocks | indexed word-level access, every indexed read counted |
+| dense predecessor bitmaps (CSC direction) | gather-free, co-addressed frontier tests |
+| mask-risc / ndarray bit tiles | dense Boolean relationship composition |
+| BF16 / AMX tile GEMM | dense arithmetic composition, where density, reuse and precision justify it |
+| RelationshipMapStore | retaining prepared layouts so their cost is paid across reuse |
+
+Sparse data is not forced into dense tiles in order to use GEMM. Structural Boolean adjacency stays distinct from BlasGraph's hyperdimensional `BitVec` values (§5a).
+
+**Boolean and arithmetic are different questions.** Reachability and existence need only `And`/`Or`; a BF16 product computes path multiplicities. Thresholding a count to existence is an explicit derivation step, never an implicit reading. BF16 operands carry an 8-bit significand, so they represent integers exactly only up to 256. The F32 accumulator is exact up to 2^24. Any arithmetic path through BF16 checks its counts against those bounds, and any count it cannot represent exactly is refused. Polyfill (F32x16) measurements and native AMX/AVX512-BF16 measurements are reported apart; this host has neither instruction set (#1623).
+
+Evidence so far: on the polyfill tier the bit arm wins every D-RMAP-2 cell (#1623). D-RST-3 measured a borrowed CSR walk at about 2 ns per edge against a preparation of 300–400 ns per edge (§7), which is exactly the cost the store exists to amortize.
+
 ## 6. Falsifiers (exact; each guard gets a disable run)
 
 | # | Test | Pass condition | Disable that must turn it red |
 |---|---|---|---|
-| F1 | unmodified `Bfs`, `Dfs`, `DfsPostOrder` over `RelView` on one sealed CSR | visited order and set equal petgraph over an independently built `Graph` (test-only oracle); zero edge copies, checked by asserting the iterator's slice pointer lies inside the layout buffer; edge ids survive a compaction of the fact rows (stable fact identity, not the row offset) | build the view from a copied `Vec` (the pointer check fails); drop a neighbour; use the row offset as the edge id (compaction changes it) |
-| F2 | one stored relation read by a Quack query, Cypher, the Gremlin adapter, a RelAlg/Datalog rule and petgraph | identical ids and exact counts in set and bag semantics, against a nested-loop oracle; same `RelationVersion` cited by all five | change one layout so it answers set where bag was asked |
-| F2b | hypothesis: a petgraph BFS frontier, a Gremlin `out()` expansion and a Datalog recursive step over the same relation compile to compatible demands and reuse one prepared layout, without sharing an execution model | the second and third front ends find the layout prepared by the first (prepare count stays 1 across the three, asserted), answers equal their oracles | give each front end its own layout key (prepare count goes to 3) |
+| F1 | native borrowed views (§3.1), no petgraph: range reads over sorted permutations of an n-ary relation, CSR and CSC spans of its binary projection | equal a nested-loop oracle built from the facts; zero copies (each returned slice lies inside the layout buffer); building a view allocates nothing; fact ids survive compaction while rows move; a stale version and an out-of-domain id are refused | build the view from a copied `Vec`; drop a row; use the row offset as the id; skip the version check |
+| F2 | one stored relation read by a Quack query, Cypher, the Gremlin adapter and a RelAlg/Datalog rule | identical ids and exact counts in set and bag semantics, against a nested-loop oracle; same `RelationVersion` cited by all four | change one layout so it answers set where bag was asked |
+| F2b | hypothesis: a Quack query, a Gremlin `out()` expansion and a Datalog recursive step over the same relation compile to compatible demands and reuse one prepared layout, without sharing an execution model | the second and third front ends find the layout prepared by the first (prepare count stays 1, asserted), answers equal their oracles | give each front end its own layout key (prepare count goes to 3) |
 | F3 | `out(r).in(r)` and `repeat_bounded(3)` within a focus, over a stored intermediate | equals the oracle; no `Gather`, no `ScatterOrU32` in any `Program` (asserted on the op list); `NonFunctionalChain` lifted only for the tiled case; over a large domain it still refuses | pass the hop-1 result as a raw mask instead of a stored intermediate with its seal (version check must refuse) |
 | F4 | reseal; domain ABA (same ids, new domain version); thought slot reuse; compaction without stable row ids; authorization revoked; dirty speculative state; deletion | each is a typed refusal naming the stale component, never a plausible answer (D-RMAP-1A X1–X9, §6a) | key any check on a bare integer or on content |
 | F5 | distinct neighbours vs parallel edges; repeated traversers (bag); path multiplicity; recursive reachability | set, bag and path answers stay distinct where the oracle says they differ; a bag→mask step refuses | collapse bag to set inside a step |
 | F6 | triangle `edge(X,Y), edge(Y,Z), edge(Z,X)`: existence, count, enumeration; sparse, dense, skewed (hub) graphs | equals an independent oracle; MORK/PathMap where supported (set only); within focus via tiles; larger domains report the refusal instead of an answer | enumerate from the existence mask alone (must miss multiplicity) |
-| F7 | cold and warm; 1/8/64 thoughts; domain churn; incremental reseal; scalar `RelView` BFS vs batched tile frontier; shipped BlasGraph `mxv` vs pattern-only borrowed CSR vs bitmap rows through mask-risc, on one relation | measured crossover points, each reported with its command and repetition count; nothing derived by arithmetic is labelled measured | n/a (measurement), but every timed path asserts its answer first |
+| F7 | cold and warm; 1/8/64 thoughts; domain churn; incremental reseal; shipped BlasGraph `mxv` vs pattern-only borrowed CSR vs bitmap rows through mask-risc, on one relation | measured crossover points, each reported with its command and repetition count; nothing derived by arithmetic is labelled measured | n/a (measurement), but every timed path asserts its answer first |
+| F8 | **amortization**, one fixed relation, four paths: (A) native iterator over borrowed CSR; (B) compiled sparse traversal over CSR/CSC; (C) prepared Boolean bit tiles through mask-risc; (D) prepared arithmetic tiles through GEMM. Each cold and warm, then over repeated queries and 1/8/64 compatible thought versions; sparse, medium, dense and skewed (hub) distributions | reported per path: preparation time and bytes allocated, execution latency, index reads and copies, layout reuse count, invalidation/rebuild cost, the end-to-end crossover from §5b's two lines; exact semantic parity across A–D where the semantics coincide (existence for A–C, counts for D checked against an exact integer oracle and the BF16 bounds); BF16 polyfill and hardware numbers in separate columns | n/a (measurement); every timed path asserts its answer first, and a path that skips its preparation in the cold run is a defect |
+| F-PG | **optional interoperability, only if petgraph is adopted (§3.3)**: unmodified `Bfs`, `Dfs` over a §3.1 view | visited order and set equal petgraph over an independently built `Graph`; zero copies; fact ids as edge ids; the view is not `Copy` | as F1 |
 
-**F6 is not a gate for F1–F5 or F7.** The store and traversal capabilities stand on their own.
+**F6 is not a gate for F1–F5, F7 or F8. F-PG gates nothing.** The store and traversal capabilities stand on their own.
 
 ## 7. Sequence: independently mergeable PRs
 
@@ -246,16 +309,19 @@ BlasGraph already ships the relationship-matrix vocabulary this plan needs: CSR,
 | D-RST-0 | this plan | documentation; board rows | — |
 | D-RST-1 | identity types | `DurableRef`, `ThoughtCommitId` as contract types (D-CPG CPG-00 owns them; coordinate, don't duplicate) with a never-reused rule test | D-CPG agreement (B1) |
 | D-RST-2 | store skeleton | `RelationshipMapStore` crate: catalog, `RelationDecl`, facts through the cycle seal, sorted permutation layout, `LayoutSeal`, coordinate domain as a relation; `impl Registrar`; F4 version and domain refusals | D-RST-1 |
-| D-RST-3 | petgraph shape 1, brought forward | `RelView` over a minimal borrowed, version-pinned pattern-CSR view in a new fork experiment (`experiments/relstore-visit`, isolated workspace, pinned rev), with explicit temporary ownership of its buffers (an isolated probe, not the store); replaces nothing in `lance-fold-hop`; F1 | the pattern-CSR view only (can run before D-RST-1/2) |
-| D-RST-4 | layouts | pattern-only `u32` CSR/CSC on BlasGraph's storage types (§5a), bitmap row blocks through mask-risc (`StorageFormat::Bitmap`), and the join table from the probe, behind the store's capability table; base indexes at seal time, specialized layouts prepared on demand and retained under their seal; F2, F2b (Quack query, Cypher, petgraph first) | D-RST-2 |
+| D-RST-9 | native borrowed relation views (critical path, first) | §3.1 views without petgraph: n-ary sorted permutations read as ranges, pattern CSR/CSC as the binary case, stable fact ids, version pin, not `Copy`; starting from the planner's `AdjacencyStore`/`AdjacencyBatch` and BlasGraph's pattern reading, not a new owned CSR; F1 | nothing (an isolated probe can run before D-RST-1/2) |
+| D-RST-3 | **OPTIONAL / DEFERRED / MEASUREMENT-GATED**: petgraph over a borrowed view | built as an experiment before this correction (AdaWorldAPI/petgraph#4); kept as evidence, not extended; adoption only after D-RST-7 measures direct relational methods against petgraph-style iteration, and only for the workloads where it wins (F-PG) | D-RST-9, D-RST-7 |
+| D-RST-4 | layouts | pattern-only `u32` CSR/CSC from D-RST-9 (§§3.1, 5a), bitmap row blocks through mask-risc (`StorageFormat::Bitmap`), and the join table from the probe, behind the store's capability table; base indexes at seal time, specialized layouts prepared on demand and retained under their seal; F2, F2b | D-RST-2, D-RST-9 |
 | D-RST-5 | derived relations | `materialize` with multiplicity, provenance, dependencies; invalidation; DRed retraction; F4 deletion cases, F5 | D-RST-4 |
-| D-RST-6 | typed traversal + multi-hop in focus | the typed step vocabulary; tile multi-hop through stored intermediates; Gremlin adapter `out().in()` within focus; F3 | D-RST-5, A1 |
-| D-RST-7 | triangle and amortization | F6 and F7, cold and warm | D-RST-6 |
+| D-RST-6 | compiled relational cursors | semijoins, joins and projections over retained layouts (§3.2); the typed step vocabulary; tile multi-hop through stored intermediates; Gremlin adapter `out().in()` within focus; F3 | D-RST-5, A1 |
+| D-RST-7 | triangle and amortization | F6, F7 and F8, cold and warm; F8's path D only through the existing D-RMAP-2 probe kernels, with no new production kernel | D-RST-6 |
 | D-RST-8 | large-domain multi-hop | only after admission A2 | A2 |
 
-**D-RST-3 result (2026-10-20, AdaWorldAPI/petgraph#4, `experiments/relstore-visit`).** The view met F1: petgraph's unmodified `Bfs`/`Dfs` match a `DiGraph` oracle built from the facts on fixtures covering parallel edges, self-loops, isolated nodes and empty relations. The edge id is the fact id, and it survives compaction while rows move. The view borrows the prepared buffers, and building it or walking every neighbour list allocates nothing. The F2b-shaped falsifier passes: a Quack one-hop reads the same `dst` buffer at the same version, and the store prepares once.
+**Critical path:** D-RST-9 → D-RST-1 → D-RST-2 → D-RST-4 → D-RST-5 → D-RST-6 → D-RST-7. **Off it:** D-RST-3 (optional petgraph), D-RST-8 (waits on A2), F-PG, and F8's path D (a measurement through existing probe kernels, never a reason to add one).
 
-Measured at 1M edges: the neighbour walk and BFS cost the same as petgraph `Csr` (2.0 vs 1.8–1.9 ns per edge). Prepare takes 308–396 ns per edge and is not optimized. Admission question for D-RST-1/2: the Quack hop is O(E) per query (14–18 ms for 64 hops vs 0.3 µs through the view), because Quack cannot know that the `src` lane is sorted. A sealed ordering witness (`Cmp::Range`) would make it a range read; whether the seal carries one is open.
+**D-RST-3 result (2026-10-20, AdaWorldAPI/petgraph#4, `experiments/relstore-visit`), recorded as evidence for a deferred optional item.** The view met what was then F1 (now F-PG): petgraph's unmodified `Bfs`/`Dfs` match a `DiGraph` oracle built from the facts on fixtures covering parallel edges, self-loops, isolated nodes and empty relations. The edge id is the fact id, and it survives compaction while rows move. The view borrows the prepared buffers, and building it or walking every neighbour list allocates nothing. The F2b-shaped falsifier passes: a Quack one-hop reads the same `dst` buffer at the same version, and the store prepares once.
+
+Measured at 1M edges: the neighbour walk and BFS cost the same as petgraph `Csr` (2.0 vs 1.8–1.9 ns per edge). Prepare takes 308–396 ns per edge and is not optimized. The Quack one-hop is O(E) per query (14–18 ms for 64 hops vs 0.3 µs through the view), because Quack cannot know that the `src` lane is sorted; that question belongs to the critical path and is §8 A6. The experiment's view is `Copy`, which the 2026-07-29 ruling forbids; §3.3 names the compatible shape. It is not extended further.
 
 Each PR keeps the probes in `mork-pathmap-probe` as probes. Production code is new code in the store crate with its own tests; it does not import the probe crate.
 
@@ -268,11 +334,12 @@ Each PR keeps the probes in `mork-pathmap-probe` as probes. Production code is n
   - (c) stay refused.
 
   This decides whether `NonFunctionalChain` can be lifted beyond a focus. §5a narrows the choice: dense row blocks in the predecessor (pull) direction need no indexed read (`any(pred(t) ∧ F)` through mask-risc); the push direction and sparse rows do, and hypersparse bitmap blocks bring that read down to one per 64 columns.
-- **A3, scalar petgraph iteration.** Whether shape-1 host iteration over a borrowed layout sits outside the no-gather ruling, which governs mask-risc folds. This plan reads it that way and asks for confirmation.
+- **A3, scalar host iteration (only if petgraph or another scalar iterator is adopted).** Whether host iteration over a borrowed layout sits outside the no-gather ruling, which governs mask-risc folds. This plan reads it that way and asks for confirmation when D-RST-3 is taken up.
+- **A6, attested order.** A sorted permutation turns a one-key read into a range only if Quack may rely on the order. D-RST-3 measured the cost of not relying on it (a full-lane scan per query). Whether the `LayoutSeal` carries an ordering witness that Quack's existing `Cmp::Range` lowering (D-DIAMOND) can validate is open.
 - **A4, store backend and home.** Which crate, and whether facts live in their own Lance datasets written through the cycle seal. This is consistent with "the seal owns durable writes"; the storage-portability ruling forbids a universal `Storage` trait, so the store is one owner, not an abstraction.
 - **A5, Registrar shape.** `register(name, width)` cannot describe a relation's arity or sorts. Either the store keeps `RelationDecl` beside it (this plan) or Quack's seam grows. The latter changes a Quack trait and needs its own review.
 - **B1, identity types.** `DurableRef` and `ThoughtCommitId` do not exist in code, and `ThoughtCommitId`'s never-reused rule is unspecified (D-RMAP-1A §7.6 gap 1). D-RST-2 cannot ship real seals before D-RST-1.
-- **B2, petgraph fork pin.** The existing experiment pins a pre-quarantine rev of lance-graph. The new experiment pins a current rev and does not enable `quarantined-gather-hop`.
+- **B2, petgraph fork pin (optional work only).** `lance-fold-hop` pins a pre-quarantine rev of lance-graph; `relstore-visit` pins a current rev and does not enable `quarantined-gather-hop`.
 - **B3, cyclic joins at scale.** The triangle over a large domain has no admitted shape (F6 reports a refusal there). Not a blocker for D-RST-1..6.
 
-**Stop rule:** any step that copies canonical facts per thought, adds a second evaluator or traverser VM, persists a version counter beside Lance and Thought Git, or treats a pre-fold translation as already approved has chosen the wrong boundary.
+**Stop rule:** any step that copies canonical facts per thought, adds a second evaluator or traverser VM, persists a version counter beside Lance and Thought Git, treats a pre-fold translation as already approved, adds a production interface or dependency only to satisfy petgraph compatibility, or forces a representation in order to use GEMM has chosen the wrong boundary.
