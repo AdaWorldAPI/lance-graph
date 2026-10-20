@@ -85,3 +85,12 @@ fn composition_respects_direction() {
     assert!(!c.get(2, 0));
     assert_eq!(c.edges(), 1);
 }
+
+/// The reported BF16 size counts every buffer the staged object keeps: the
+/// 256 × 256 matrix, the packed B blocks and the row-major B blocks, each
+/// 256 × 256 BF16 values.
+#[test]
+fn bf16_bytes_count_every_retained_buffer() {
+    let staged = Bf16Staged::stage(&BitMat::from_edges([(0, 1), (1, 2)]));
+    assert_eq!(staged.bytes(), 3 * 256 * 256 * 2);
+}
