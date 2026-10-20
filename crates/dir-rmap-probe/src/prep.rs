@@ -22,7 +22,7 @@
 //! `ISS-ADMISSION-PREP-BINDING`, still open.
 
 use crate::fixture::Fixture;
-use lance_graph_dir_sim::{groups_where, GroupProperty, GroupWhere, View};
+use lance_graph_dir_sim::{GroupProperty, GroupWhere, View, groups_where};
 use ndarray::simd::mask_or_assign;
 use ogar_dir_sim::VersionId;
 
@@ -382,6 +382,9 @@ fn closure(n: usize, w: usize, adj: &Csr, admit: Option<&[u64]>) -> (Vec<u64>, u
             }
             for &p in adj.row(g) {
                 let p = p as usize;
+                // A skip only: an unadmitted row is never seeded or written,
+                // so ORing it adds nothing (disable-checked). Correctness
+                // rests on the seeding and the `!ok(g)` skip above.
                 if p == g || !ok(p) {
                     continue;
                 }
@@ -480,10 +483,10 @@ impl Compiled {
         let (c, p) = (c as usize, p as usize);
         let w = self.w;
         for chain in CHAINS {
-            if let Some(a) = self.b.admit(chain) {
-                if !bit(a, c) || !bit(a, p) {
-                    continue;
-                }
+            if let Some(a) = self.b.admit(chain)
+                && (!bit(a, c) || !bit(a, p))
+            {
+                continue;
             }
             let k = ci(chain);
             let anc_p = self.up[k][p * w..p * w + w].to_vec();
@@ -520,7 +523,13 @@ impl Compiled {
 
     /// Bytes of the closure rows and role table, B's tables excluded.
     pub fn closure_bytes(&self) -> usize {
-        (self.up.iter().chain(self.down.iter()).map(Vec::len).sum::<usize>() + self.role_sec.len())
+        (self
+            .up
+            .iter()
+            .chain(self.down.iter())
+            .map(Vec::len)
+            .sum::<usize>()
+            + self.role_sec.len())
             * 8
     }
 }

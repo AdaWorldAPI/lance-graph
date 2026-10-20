@@ -84,7 +84,11 @@ pub fn run(
             .filter(|&g| f.security[g as usize] == Some(true))
             .map(Sec),
     );
-    rt.extend((0..f.groups.len() as u32).filter(|&g| f.mail[g as usize]).map(Mail));
+    rt.extend(
+        (0..f.groups.len() as u32)
+            .filter(|&g| f.mail[g as usize])
+            .map(Mail),
+    );
     rt.extend(f.grants.iter().map(|&(g, r)| Grant(g, u32::from(r))));
     rt.extend(templates.iter().map(|&(r, l)| Template(r, l)));
     let (member, sec, mail, roles, eligible): (

@@ -104,7 +104,7 @@ impl Rng {
     pub fn new(seed: u64) -> Self {
         Rng(seed)
     }
-    pub fn next(&mut self) -> u64 {
+    pub fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = self.0;
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
@@ -112,12 +112,12 @@ impl Rng {
         z ^ (z >> 31)
     }
     pub fn below(&mut self, n: usize) -> usize {
-        (self.next() % n as u64) as usize
+        (self.next_u64() % n as u64) as usize
     }
     fn guid(&mut self) -> Guid128 {
         let mut b = [0u8; 16];
-        b[..8].copy_from_slice(&self.next().to_le_bytes());
-        b[8..].copy_from_slice(&self.next().to_le_bytes());
+        b[..8].copy_from_slice(&self.next_u64().to_le_bytes());
+        b[8..].copy_from_slice(&self.next_u64().to_le_bytes());
         Guid128(b)
     }
 }
@@ -164,7 +164,7 @@ impl Fixture {
             locations: Vec::new(),
             teams: Vec::new(),
             attr: (0..spec.users)
-                .map(|_| (r.next() % u64::from(spec.attr_values)) as u8)
+                .map(|_| (r.next_u64() % u64::from(spec.attr_values)) as u8)
                 .collect(),
             scope: DirectoryScope(Guid128([0x5C; 16])),
         };
@@ -288,7 +288,7 @@ impl Fixture {
             };
             if r.below(100) < p {
                 f.grants
-                    .push((j as u32, (r.next() % u64::from(spec.role_ids)) as u8));
+                    .push((j as u32, (r.next_u64() % u64::from(spec.role_ids)) as u8));
             }
         }
         f

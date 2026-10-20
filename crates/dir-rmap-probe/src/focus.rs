@@ -22,7 +22,7 @@
 //! group ordinal space (slot + 1, 0 = not bound): one indexed read, no hash,
 //! no search. At 1,500 groups that is 3 KB.
 
-use crate::prep::{bit, Compiled, Refusal, Witness};
+use crate::prep::{Compiled, Refusal, Witness, bit};
 
 pub const SLOTS: usize = 256;
 pub type Row = [u64; 4];

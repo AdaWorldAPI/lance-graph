@@ -1,3 +1,7 @@
+## 2026-10-20 — d-rmap-dir-1-membership-closure-focus-v1 — compiled membership closure vs a 256-slot focus over dir-sim → `.claude/plans/d-rmap-dir-1-membership-closure-focus-v1.md`
+
+**Status:** D-RMAP-DIR-1 MEASURED, lab only (`crates/dir-rmap-probe`); D-RMAP-DIR-2 PROPOSED, not authorized. Sharing compiled closure rows across users (B+) is where the acceleration comes from (thousands of times over dir-sim's per-call scan); a 256-slot focus (F) adds at most 2× and only for small foci reused about 1,000 times. Entry `2026-10-20-d-rmap-dir-1-membership-closure-focus.md`.
+
 ## 2026-10-20 — thought-git-basics-v1 — the basics of thinking with a git API → `.claude/plans/thought-git-basics-v1.md`
 
 **Status:** D-TGB-0..6 PROPOSED, lab, test-first; nothing built. From the ideal state: a slot is taken only at the Rubicon crossing (`Planning → CognitiveWork`) and freed at `Commit` / `Plan` / `Prune`, so no stale branch can exist; squash, prune and GC are kanban outcomes; every thought is replayable from its receipt. `Commit` lands one sparse batch through `LanceCycleWriter`, which gives `KanbanColumn::Commit` its declared-but-missing calcify step. Lance 13 supplies `Ref::Version(branch, version)`, branches, tags, `delta()`, `read_version_transaction`; MemWAL is an optional arm (D-WAL, D-LNC-7). Parent: `thought-git-api-v1.md` correction (#1628).

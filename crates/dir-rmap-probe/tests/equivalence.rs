@@ -4,9 +4,9 @@
 //! the comparisons meaningful.
 
 use dir_rmap_probe::fixture::{Fixture, Kind, Spec};
-use dir_rmap_probe::focus::{holds, Focus, FocusUsers};
-use dir_rmap_probe::prep::{ones, words, Chain, Compiled, Ordinals, Prepared, Refusal, CHAINS};
-use dir_rmap_probe::{a_groups, a_members, focus_for, oracle, templates, Edit, World};
+use dir_rmap_probe::focus::{Focus, FocusUsers, holds};
+use dir_rmap_probe::prep::{CHAINS, Chain, Compiled, Ordinals, Prepared, Refusal, ones, words};
+use dir_rmap_probe::{Edit, World, a_groups, a_members, focus_for, oracle, templates};
 use ogar_dir_core::Guid128;
 use std::collections::{BTreeSet, HashMap};
 
@@ -24,7 +24,10 @@ fn groups_of_plane(w: &World, p: &[u64]) -> Vec<Guid128> {
     let v = w.view();
     sorted(
         ones(p)
-            .map(|g| v.group_guid(lance_graph_dir_sim::GroupOrdinal(g as u16)).unwrap())
+            .map(|g| {
+                v.group_guid(lance_graph_dir_sim::GroupOrdinal(g as u16))
+                    .unwrap()
+            })
             .collect(),
     )
 }
@@ -33,7 +36,10 @@ fn users_of_plane(w: &World, p: &[u64]) -> Vec<Guid128> {
     let v = w.view();
     sorted(
         ones(p)
-            .map(|u| v.user_guid(lance_graph_dir_sim::UserOrdinal(u as u16)).unwrap())
+            .map(|u| {
+                v.user_guid(lance_graph_dir_sim::UserOrdinal(u as u16))
+                    .unwrap()
+            })
             .collect(),
     )
 }
@@ -49,10 +55,11 @@ fn oracle_rel(a: &oracle::Answers, chain: Chain) -> &BTreeSet<(u32, u32)> {
 /// Roles as dir-sim answers them: the grants of the SIDs it reports, keyed
 /// by GUID, the shape `ViewActors::for_principal` reads.
 fn a_roles(w: &World, u: &Guid128) -> u64 {
-    let by_guid: HashMap<Guid128, u64> = w.f.grants.iter().fold(HashMap::new(), |mut m, &(g, r)| {
-        *m.entry(w.f.groups[g as usize]).or_default() |= 1 << r;
-        m
-    });
+    let by_guid: HashMap<Guid128, u64> =
+        w.f.grants.iter().fold(HashMap::new(), |mut m, &(g, r)| {
+            *m.entry(w.f.groups[g as usize]).or_default() |= 1 << r;
+            m
+        });
     a_groups(&w.view(), u, Chain::Security)
         .iter()
         .fold(0, |a, g| a | by_guid.get(g).copied().unwrap_or(0))
@@ -104,7 +111,11 @@ fn check_all(w: &World, b: &Prepared, c: &Compiled) {
     }
     for (i, ug) in w.f.users.iter().enumerate() {
         let a = a_roles(w, ug);
-        assert_eq!(b.roles_of(ord.user[i], &mut p, &mut queue), a, "B roles, user {i}");
+        assert_eq!(
+            b.roles_of(ord.user[i], &mut p, &mut queue),
+            a,
+            "B roles, user {i}"
+        );
         assert_eq!(c.roles_of(ord.user[i]), a, "B+ roles, user {i}");
         assert_eq!(d_roles[i], a, "oracle roles, user {i}");
     }
@@ -150,7 +161,8 @@ fn the_focus_answers_role_and_location_like_the_oracle_and_dir_sim() {
                 let m = f
                     .all_of(&[ord.group[r as usize], ord.group[l as usize]])
                     .unwrap();
-                let want = a.contains(&w.f.groups[r as usize]) && a.contains(&w.f.groups[l as usize]);
+                let want =
+                    a.contains(&w.f.groups[r as usize]) && a.contains(&w.f.groups[l as usize]);
                 assert_eq!(holds(&row, &m), want, "F k={k} user {i} ({r}, {l})");
                 assert_eq!(holds(&fu.rows[ord.user[i] as usize], &m), want, "F+users");
                 assert_eq!(d.eligible.contains(&(i as u32, r, l)), want, "oracle");
@@ -158,7 +170,10 @@ fn the_focus_answers_role_and_location_like_the_oracle_and_dir_sim() {
             }
         }
     }
-    assert!(checked > 10_000, "the comparison covered {checked} questions");
+    assert!(
+        checked > 10_000,
+        "the comparison covered {checked} questions"
+    );
 }
 
 #[test]
@@ -168,7 +183,11 @@ fn overlay_incremental_equals_recompile_dir_sim_and_the_oracle() {
     let f = &w.f;
     let team = f.teams[0];
     let role = f.roles[3];
-    let removed = *f.direct.iter().find(|&&(_, g)| f.kind[g as usize] == Kind::Composite).unwrap();
+    let removed = *f
+        .direct
+        .iter()
+        .find(|&&(_, g)| f.kind[g as usize] == Kind::Composite)
+        .unwrap();
     // A nesting that closes a cycle through a role and a resource, and one
     // that links a team (not security) into a role.
     let res = f.nested.iter().find(|&&(c, _)| c == role).unwrap().1;
@@ -193,8 +212,14 @@ fn overlay_incremental_equals_recompile_dir_sim_and_the_oracle() {
     c.b.witness = w.witness();
     let full = Compiled::compile(w.prepare());
     for chain in CHAINS {
-        assert_eq!(c.up[chain as usize], full.up[chain as usize], "{chain:?} up");
-        assert_eq!(c.down[chain as usize], full.down[chain as usize], "{chain:?} down");
+        assert_eq!(
+            c.up[chain as usize], full.up[chain as usize],
+            "{chain:?} up"
+        );
+        assert_eq!(
+            c.down[chain as usize], full.down[chain as usize],
+            "{chain:?} down"
+        );
     }
     assert_eq!(c.role_sec, full.role_sec);
     check_all(&w, &w.prepare(), &full);
@@ -226,11 +251,21 @@ fn a_stale_witness_and_an_unfocused_group_are_refused() {
 fn the_fixture_is_not_vacuous() {
     let w = world();
     let f = &w.f;
-    let cyclic = f.nested.iter().filter(|&&(a, b)| f.nested.binary_search(&(b, a)).is_ok()).count();
+    let cyclic = f
+        .nested
+        .iter()
+        .filter(|&&(a, b)| f.nested.binary_search(&(b, a)).is_ok())
+        .count();
     assert!(cyclic >= 2, "the nesting has cycles");
-    assert!(f.large_groups() >= 1, "some group exceeds 256 direct members");
+    assert!(
+        f.large_groups() >= 1,
+        "some group exceeds 256 direct members"
+    );
     let c = Compiled::compile(w.prepare());
-    assert!(c.passes[Chain::All as usize].0 > 1, "the closure needs more than one pass");
+    assert!(
+        c.passes[Chain::All as usize].0 > 1,
+        "the closure needs more than one pass"
+    );
     let v = w.view();
     let ord = Ordinals::of(&w.f, &v);
     let gw = words(v.groups_len());
@@ -252,10 +287,22 @@ fn the_fixture_is_not_vacuous() {
     // Each chain removes something for many users and empties it for few:
     // a filter that changed nothing, or kept nothing, would not test the
     // chain semantics.
-    assert!(sec_differs * 10 > n, "the SID chain filters: {sec_differs}/{n}");
-    assert!(sec_some * 10 > n * 9, "the SID chain keeps groups: {sec_some}/{n}");
-    assert!(mail_differs * 10 > n, "the mail chain filters: {mail_differs}/{n}");
-    assert!(mail_some * 10 > n * 9, "the mail chain keeps groups: {mail_some}/{n}");
+    assert!(
+        sec_differs * 10 > n,
+        "the SID chain filters: {sec_differs}/{n}"
+    );
+    assert!(
+        sec_some * 10 > n * 9,
+        "the SID chain keeps groups: {sec_some}/{n}"
+    );
+    assert!(
+        mail_differs * 10 > n,
+        "the mail chain filters: {mail_differs}/{n}"
+    );
+    assert!(
+        mail_some * 10 > n * 9,
+        "the mail chain keeps groups: {mail_some}/{n}"
+    );
     assert!(roles * 2 > n, "most users hold a role: {roles}/{n}");
     let t = templates(f);
     let d = oracle::run(f, &w.direct, &w.nested, &t);

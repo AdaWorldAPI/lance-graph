@@ -103,7 +103,9 @@ pub struct World {
 impl World {
     pub fn new(f: Fixture) -> Self {
         let mut st = VersionStore::new();
-        let version = st.observe("probe", 0, f.observation()).expect("fixture builds");
+        let version = st
+            .observe("probe", 0, f.observation())
+            .expect("fixture builds");
         World {
             direct: f.direct.clone(),
             nested: f.nested.clone(),
