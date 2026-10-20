@@ -17,4 +17,5 @@
 ## OPEN
 
 - Dynamic MeTTa rules need crepe's analysis as a library: crepe is a proc-macro crate (follow-up A, `crepe-core` split).
-- Semijoin reduction built (`Options::semijoin`): laid-out rows 36 at every size instead of growing with n; preparation 3.47 ms → 0.28 ms at 50,000. The scan stays O(n); a key-column index on stored relations is the next step.
+- Semijoin reduction built (`Options::semijoin`): laid-out rows 36 at every size instead of growing with n; preparation 3.47 ms → 0.28 ms at 50,000. The scan stays O(n).
+- ndarray for the row filter, measured (`examples/row_filter.rs`): over the row-major store the strided compare is slower than the scalar test at every needle count, so it is not wired; over a contiguous column it is 5.8 µs per needle at 50,000 rows and beats the scalar test up to 64 needles. Next step: a column-major relation store.

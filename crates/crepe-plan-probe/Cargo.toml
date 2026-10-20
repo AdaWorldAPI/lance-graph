@@ -23,6 +23,10 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 mork-pathmap-probe = { path = "../mork-pathmap-probe" }
 
 [dev-dependencies]
+# The SIMD facade, for the row-filter comparison in examples/row_filter.rs.
+# Same coordinate as mask-risc and mork-pathmap-probe, so the graph keeps one
+# ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]

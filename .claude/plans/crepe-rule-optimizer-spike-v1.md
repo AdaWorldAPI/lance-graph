@@ -89,6 +89,23 @@ When a star side is restricted by a constant, every side keeps only the rows who
 
 Tests N (4): same answers for set, bag, count and exists with exact prepared-row counts (11 vs 417); no change without a restricted side; an empty restricted side gives 0 rows and no answer; two restricted sides intersect (5 vs 7 rows, bag multiplicity 2 kept). Disables: no reduction → the three reduction tests red; first restricted side only → the intersection test red; filtering by the wrong column → A, B ×2, C, F and both N tests red.
 
+## 2c. The row filter through ndarray (measured, not wired)
+
+The semijoin filter (and the constant restriction) is a scalar test per row: binary search of the row's key in the sorted center set. `ndarray::simd` has the compare (`eq_u32_strided_to_mask` over the row bytes, `eq_u32_to_mask` over a contiguous column, OR-ed with `mask_or_assign`), one pass per needle. `cargo run --release --example row_filter`, 50,000 rows, target-cpu=native (avx512f/bw), medians of 31; all three agree on the kept rows:
+
+| needles | scalar µs | ndarray over the rows µs | ndarray over a contiguous column µs |
+|---|---|---|---|
+| 1 | 17.4 | 82.4 | 5.8 |
+| 8 | 144.4 | 654.8 | 29.6 |
+| 32 | 284.9 | 2,869.7 | 120.7 |
+| 64 | 329.0 | 5,434.8 | 242.8 |
+| 128 | 375.4 | 10,603.4 | 485.2 |
+
+- Over the store as it is (`[u32; 2]` rows, the D-MPS-8 `RelationView` shape) the strided kernel is slower than the scalar test at every needle count: its field loads are scalar by design, and it pays one pass per needle where the binary search pays one pass in total. It is therefore **not** used in `prepare`.
+- Over a contiguous column the same compares are 14–20× faster than the strided ones and beat the scalar test up to 64 needles; at 128 the scalar test wins again (the per-needle passes add up).
+- The one-pass alternative, a needle bitmap read through `mask_gather_u32`, is a gather and stays out (2026-10-16 ruling, test H).
+- Consequence for the next step: a column-major relation store (one contiguous `u32` lane per column) is what makes ndarray applicable here, and it is the same change the key-column index needs.
+
 ## 3. Soufflé harvest (souffle-lang/souffle `f53dab8`, UPL-1.0; algorithms only, no source copied)
 
 | Soufflé | transformation | precondition | in crepe | in lance-graph | taken |
@@ -131,7 +148,7 @@ Known limits: rule dedup does not search body permutations; the star must have o
 ## 6. Follow-ups (not built)
 
 - ~~Semijoin reduction before preparation~~ — built, §2b. Layout O(k); the scan stays O(n).
-- **Next (recommended):** a key-column index on the stored relations, so the restricted side and the semijoin filter read O(k) rows instead of scanning n.
+- **Next (recommended):** a column-major relation store (contiguous `u32` lanes). It lets the restriction and semijoin filters run through `ndarray::simd::eq_u32_to_mask` (§2c: 4–6 µs per needle at 50,000 rows instead of a scalar or strided scan), and it is the layout a key-column index would sit on, which then removes the O(n) scan.
 - A: `crepe-core` library split in the fork for dynamic rules.
 - B: full magic sets for derived body relations and recursion (waits on D-MTP-3 / D-SRAM-4).
 - C: cost-informed ordering once a non-star shape is admitted.
