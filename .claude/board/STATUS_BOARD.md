@@ -361,6 +361,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGB-4** | receipt (base ref, program id, seeds, slot generation) instead of history | Queued (lab) | replay from receipt reproduces writes cell for cell |
 | **D-TGB-5** | reads as resident folds: `checkout`/`log`/`diff`/`blame` | Queued (lab) | equal the oracle; durable `diff` equals Lance `delta()` |
 | **D-TGB-7** | reusable git API: verb trait + types in the contract, one implementation crate; phase-1 driver `ogar-loco` / `ActionDef`, ACT-R in phase 2; stack below: datafrog > mask-risc > relalg > r2il | Queued (lab) | driver independence: two drivers with the same decisions give byte-identical cells, receipts, metadata rows |
+| **D-TGB-8** | abstraction API: Datalog rules over the metadata table on `datafrog`; ACT-R `Candidate` / intent as the decision vocabulary | Queued (lab, after D-TGB-7) | rule answers == direct scan; recorded intents replayed as verbs reproduce the run byte for byte |
 | **D-TGB-6** | MemWAL `Commit` arm behind a switch, reads stay resident | Queued; waits on D-LNC-7 | enabled only past the D-WAL crossover |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
 | **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |

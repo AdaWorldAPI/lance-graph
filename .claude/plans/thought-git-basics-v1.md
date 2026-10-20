@@ -113,6 +113,13 @@ Below the API, from top to bottom:
 3. `lance-graph-relalg` describes the non-recursive set expressions;
 4. `lance-graph-r2il` lowers them onto mask-risc.
 
+**The abstraction API: datafrog asks, ACT-R chooses** (DECISION, operator, 2026-10-20: "Ich würde es bevorzugen wenn datafrog und Act-R für Abstraktion API helfen"; the shape below is a PROPOSAL):
+
+- **Questions about thoughts are Datalog over the metadata table, run by `datafrog`.** The metadata table already holds the relations (correction item 8): which thought landed in which version, which sources a delta rests on, which receipts exist, which contradictions were recorded. "Which branches are unremarkable", "which landed facts rest on source s", "what must be replayed when s changes" are then rules over those relations, not hand-written loops. `datafrog` is already the exact oracle for this shape (metta-polyfill §3.0).
+- **Decisions are ACT-R candidates and intents.** The API states what it offers as `Candidate`s evaluated against one snapshot (the open branches with their readings, answered by the rules above), and takes back one witnessed intent. Stale candidates are refused by ACT-R itself (`StaleCandidate`). The intent vocabulary is the verbs: continue, squash, discard, replay, land.
+- **The concrete layer stays the verbs.** Phase 1 (`ogar-loco` / `ActionDef`) calls them directly; the abstraction is a layer above them, not a second implementation. A rule answer or an intent that cannot be carried out as a verb sequence is a defect of the abstraction.
+- **Falsifier:** for every Sudoku run, the rule answers from `datafrog` equal a direct scan of the metadata table (oracle), and replaying the recorded ACT-R intents as phase-1 verb calls reproduces the run byte for byte.
+
 Later, and only as possibilities (operator, 2026-10-20: "openpsi soll eventuell den Motivation Teil übernehmen (nach transcode); MeTTa over Lance-graph-mork eventually für folding"):
 
 - **OpenPsi for motivation, after a transcode.** ACT-R's README keeps motivation out of arbitration: "a future optional priority signal, not implicit authorization". OpenPsi would supply that signal. D-SAG-3 (`sag-wisdom-frontier-ona-hyperon-v1.md` §3) treats OpenPsi's demand / modulator / goal selector as architectural references, keeps them out of the universal byte layout, and records a tie-breaking and demand-to-goal defect (hyperon-openpsi PR #117) to probe first.
@@ -170,6 +177,9 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 - [ ] **D-TGB-7 The reusable API and the first driver.** The verb trait and its types in the contract, one implementation crate, and a phase-1 driver: an `ogar-loco` program or an `ActionDef` (section "The reusable git API and its drivers"). The ACT-R adapter is phase 2.
   - Falsifier: driver independence, as stated in that section.
   - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
+- [ ] **D-TGB-8 The abstraction API.** Datalog rules over the metadata table run by `datafrog`, and ACT-R `Candidate` / intent as the decision vocabulary (section "The abstraction API: datafrog asks, ACT-R chooses").
+  - Falsifier: rule answers equal a direct scan; recorded intents replayed as verb calls reproduce the run byte for byte.
+  - Disable: answer one rule with a hand-written loop that skips the source relation; the scan oracle must then disagree.
 - [ ] **D-TGB-6 MemWAL arm, behind a switch.** The same `Commit` path into a MemWAL shard per mailbox (`identity_sharding` on the owner), with compaction and garbage collection as a separate job.
   - Enabled only from the measured crossover (about 1,024 casts per cycle).
   - Reads stay resident folds, never MemWAL's DataFusion scanner (DataFusion is in its grace period).
