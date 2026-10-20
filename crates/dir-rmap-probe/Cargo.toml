@@ -1,0 +1,44 @@
+# dir-rmap-probe — D-RMAP-DIR-1, lab only.
+#
+# Benchmarks compiled membership closure (B+) and a 256-slot group focus (F)
+# against dir-sim's own View walks (A), a prepared CSR (B) and an independent
+# crepe Datalog oracle (D). Nothing here is a production path: dir-sim stays
+# authoritative and is consumed only through its public API.
+#
+# Own [workspace] root, excluded from the lance-graph workspace like
+# lance-graph-dir-sim (which it depends on). Run from THIS directory:
+#   cargo test
+#   cargo run --release --example bench            # 8,000 users
+#   cargo run --release --example bench -- 65000   # large fixture
+[package]
+name = "dir-rmap-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Lab probe D-RMAP-DIR-1: compiled membership closure and a 256-slot group focus over dir-sim, against View walks, a prepared CSR and a crepe Datalog oracle. Results only; no production path."
+
+[workspace]
+
+[dependencies]
+lance-graph-dir-sim = { path = "../lance-graph-dir-sim" }
+ogar-dir-core = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The mask facade (`mask_or_assign`, `eq_u8_to_mask`, popcount), the same
+# kernels #1634's walk_mask uses. Same coordinate as mask-risc, so the graph
+# keeps one ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+# Arm D, the independent oracle: crepe's generated Datalog evaluator over the
+# fixture's own integer ids (never dir-sim ordinals). AdaWorldAPI fork, by
+# branch (no pins), as in crepe-plan-probe.
+crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-ied9yh" }
+
+# Same patches as lance-graph-dir-sim: one ndarray identity, and the OGAR
+# sibling checkout so a paired OGAR change is tested before it merges.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/OGAR"]
+ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
+ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
+ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
+ogar-az = { path = "../../../OGAR/crates/ogar-az" }
