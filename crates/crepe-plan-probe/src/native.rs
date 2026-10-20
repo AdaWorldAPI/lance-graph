@@ -213,7 +213,20 @@ pub struct PreparedStar {
 /// Lays the plan's sides out over one shared domain. A side's restriction is
 /// applied to the rows it is prepared from.
 pub fn prepare(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
-    let owned: Vec<(Vec<[u32; 2]>, u64)> = plan
+    prepare_with(plan, store, false)
+}
+
+/// [`prepare`] with semijoin reduction: when at least one side is restricted
+/// by a constant, every side keeps only the rows whose center the restricted
+/// sides all have. A center outside that set cannot reach the joint mask, so
+/// the answer and its multiplicities are unchanged; the domain shrinks to the
+/// reduced centers. Without a restricted side nothing changes.
+pub fn prepare_semijoin(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
+    prepare_with(plan, store, true)
+}
+
+fn prepare_with(plan: &StarPlan, store: &Store<'_>, semijoin: bool) -> PreparedStar {
+    let mut owned: Vec<(Vec<[u32; 2]>, u64)> = plan
         .sides
         .iter()
         .map(|s| {
@@ -227,6 +240,31 @@ pub fn prepare(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
             (kept, g)
         })
         .collect();
+    if semijoin {
+        // Centers every restricted side has: sorted, deduplicated, intersected.
+        let mut centers: Option<Vec<u32>> = None;
+        for (s, (rows, _)) in plan.sides.iter().zip(&owned) {
+            if s.key.unary || s.key.restrict.is_none() {
+                continue;
+            }
+            let mut c: Vec<u32> = rows.iter().map(|r| r[s.key.key_col as usize]).collect();
+            c.sort_unstable();
+            c.dedup();
+            centers = Some(match centers {
+                None => c,
+                Some(prev) => prev
+                    .into_iter()
+                    .filter(|v| c.binary_search(v).is_ok())
+                    .collect(),
+            });
+        }
+        if let Some(centers) = centers {
+            for (s, (rows, _)) in plan.sides.iter().zip(owned.iter_mut()) {
+                let col = s.key.key_col as usize;
+                rows.retain(|r| centers.binary_search(&r[col]).is_ok());
+            }
+        }
+    }
     let inputs: Vec<(RelationView<'_>, usize)> = owned
         .iter()
         .zip(&plan.sides)

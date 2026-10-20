@@ -10,11 +10,12 @@
 
 ## Measured
 
-- 16 differential tests (A–M) against `crepe!`, datafrog, the MORK shape and a nested-loop bag reference; 9 disables each red at their named tests.
+- 20 differential tests (A–N) against `crepe!`, datafrog, the MORK shape and a nested-loop bag reference; 9 disables each red at their named tests.
 - `Answer(17, z)`, 50,000 Parent rows, release: terminal 3.6 µs with rewrites vs 11.8 ms without; prepared rows 56,286 vs 118,802; summed cold cost lower with the rewrites at every size (break-even reuse count 0). Parity ok at 100/1k/10k/50k.
 - H14d absorption miss holds only when `x` is itself an `And`/`Or` (pinned, test M).
 
 ## OPEN
 
 - Dynamic MeTTa rules need crepe's analysis as a library: crepe is a proc-macro crate (follow-up A, `crepe-core` split).
-- Preparation still reads the unrestricted side in full; semijoin reduction before preparation is the next step.
+- Semijoin reduction built (`Options::semijoin`): laid-out rows 36 at every size instead of growing with n; preparation 3.47 ms → 0.28 ms at 50,000. The scan stays O(n).
+- ndarray for the row filter, measured (`examples/row_filter.rs`): over the row-major store the strided compare is slower than the scalar test at every needle count, so it is not wired; over a contiguous column it is 5.8 µs per needle at 50,000 rows and beats the scalar test up to 64 needles. Next step: a column-major relation store.

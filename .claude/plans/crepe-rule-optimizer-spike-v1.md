@@ -13,7 +13,7 @@ Pipeline, one stage per module of the probe:
 |---|---|---|
 | 1 | crepe fork, `crepe_plan!` | `Context::new` (names, arity, `@input` goals, negation cycles, strata), then crepe's own left-to-right bound/free analysis as data. No `HashSet` store, `HashMap` index or fixpoint loop is emitted. |
 | 2 | `logic.rs` | labels to ids through the label table; flat, positive, non-recursive rules over `@input` relations, or a named refusal |
-| 3 | `optimize.rs` | binding propagation; duplicate-atom and duplicate-rule elimination gated on duplicate-insensitive answers |
+| 3 | `optimize.rs` | binding propagation; duplicate-atom and duplicate-rule elimination gated on duplicate-insensitive answers; the `semijoin` switch read at preparation |
 | 4 | `mork_api.rs` | each rule as a typed `query_multi (pattern, template)` (D-MPS-9 shape); nested, repeated-variable and cyclic shapes refused |
 | 5 | `native.rs` | a star on one shared variable laid out by the D-MPS-8 table; joint mask = relalg `And` of presence planes, one mask-risc program; terminals read the mask |
 | 6 | `reference.rs` | nested-loop evaluator over the unoptimized rules (bag) |
@@ -27,7 +27,7 @@ Pipeline, one stage per module of the probe:
 - [x] Phase 4: relalg + mask-risc over the D-MPS-8 table; `relalg::run_with_program` (additive) to inspect the program
 - [x] Phase 5: differential tests A–M against `crepe!`, datafrog, MORK, reference; 9 disable runs
 - [x] Phase 6 (limited): Soufflé harvest table (§3)
-- [ ] Follow-up (not built): semijoin reduction of the unrestricted sides before preparation (§6)
+- [x] Semijoin reduction before preparation (`Options::semijoin`, `native::prepare_semijoin`; §2b, tests N)
 
 ## 1. Integration point
 
@@ -65,7 +65,46 @@ Plan construction (`crepe_plan()`) 164–261 ns, resolution 273–458 ns, indepe
 Reading:
 - **Break-even reuse count is 0.** The rewrite itself costs ~210–470 ns more, but it removes a rule, so mapping and normalization get cheaper by more than that: summed cold cost (optimize + map + normalize) is lower with the rewrites at every size (2,347 vs 2,603 ns at n = 100; 1,439 vs 1,856 ns at 50,000).
 - **The win is in preparation and in the terminal, not the mask.** With the constant pushed into the body, the `Parent(17, y)` side is prepared from 8 rows instead of n, and the sponsor branch is never prepared: rows halve. The terminal reads one restricted side instead of enumerating every `x` and filtering: 3.6 µs vs 11.8 ms at 50,000 (≈3,300×). The joint mask itself is ~1 µs either way.
-- **Preparation still dominates** (3.5 ms at 50,000) because `Parent(y, z)` is prepared in full. That is the next rewrite (§6), not a physical gap.
+- **Preparation still dominates** (3.5 ms at 50,000) because `Parent(y, z)` is prepared in full. §2b removes that.
+
+## 2b. Semijoin reduction (2026-10-20, same harness)
+
+When a star side is restricted by a constant, every side keeps only the rows whose center all restricted sides have (sorted `Vec<u32>`, binary search). A center outside that set cannot reach the joint mask, so answers and bag multiplicities are unchanged. `no-semijoin` is `Options::ALL` with only the reduction off.
+
+| n | opts | prepare µs | mask ns | terminal µs | rows prepared | parity |
+|---|---|---|---|---|---|---|
+| 100 | all | 1.9 | 791 | 2.3 | 36 | ok |
+| 100 | no-semijoin | 3.9 | 786 | 2.2 | 152 | ok |
+| 1,000 | all | 6.8 | 821 | 2.3 | 36 | ok |
+| 1,000 | no-semijoin | 33.6 | 868 | 2.3 | 1,161 | ok |
+| 10,000 | all | 76.1 | 1,280 | 3.7 | 36 | ok |
+| 10,000 | no-semijoin | 614.0 | 902 | 2.5 | 11,286 | ok |
+| 50,000 | all | 277.6 | 819 | 2.4 | 36 | ok |
+| 50,000 | no-semijoin | 3,473.2 | 1,070 | 3.3 | 56,286 | ok |
+
+- The laid-out rows no longer depend on `n` (36 at every size); preparation at 50,000 falls 12.5×.
+- **Preparation is still O(n):** every row is still scanned once to test its center (1.9 → 6.8 → 76 → 278 µs). What became O(k) is the layout (domain, presence planes, payload), not the scan. Removing the scan needs an index by key column on the stored relation, which the in-memory `Store` does not have.
+- Mask and terminal are unchanged (~1 µs, ~2–3 µs): the reduction does not change the program, only the domain it runs over.
+- Interaction: a reduced table's domain holds only the reduced centers, so re-sealing a side with rows for other centers is refused as `OutsideDomain` (safe; prepare again).
+
+Tests N (4): same answers for set, bag, count and exists with exact prepared-row counts (11 vs 417); no change without a restricted side; an empty restricted side gives 0 rows and no answer; two restricted sides intersect (5 vs 7 rows, bag multiplicity 2 kept). Disables: no reduction → the three reduction tests red; first restricted side only → the intersection test red; filtering by the wrong column → A, B ×2, C, F and both N tests red.
+
+## 2c. The row filter through ndarray (measured, not wired)
+
+The semijoin filter (and the constant restriction) is a scalar test per row: binary search of the row's key in the sorted center set. `ndarray::simd` has the compare (`eq_u32_strided_to_mask` over the row bytes, `eq_u32_to_mask` over a contiguous column, OR-ed with `mask_or_assign`), one pass per needle. `cargo run --release --example row_filter`, 50,000 rows, target-cpu=native (avx512f/bw), medians of 31; all three agree on the kept rows:
+
+| needles | scalar µs | ndarray over the rows µs | ndarray over a contiguous column µs |
+|---|---|---|---|
+| 1 | 17.4 | 82.4 | 5.8 |
+| 8 | 144.4 | 654.8 | 29.6 |
+| 32 | 284.9 | 2,869.7 | 120.7 |
+| 64 | 329.0 | 5,434.8 | 242.8 |
+| 128 | 375.4 | 10,603.4 | 485.2 |
+
+- Over the store as it is (`[u32; 2]` rows, the D-MPS-8 `RelationView` shape) the strided kernel is slower than the scalar test at every needle count: its field loads are scalar by design, and it pays one pass per needle where the binary search pays one pass in total. It is therefore **not** used in `prepare`.
+- Over a contiguous column the same compares are 14–20× faster than the strided ones and beat the scalar test up to 64 needles; at 128 the scalar test wins again (the per-needle passes add up).
+- The one-pass alternative, a needle bitmap read through `mask_gather_u32`, is a gather and stays out (2026-10-16 ruling, test H).
+- Consequence for the next step: a column-major relation store (one contiguous `u32` lane per column) is what makes ndarray applicable here, and it is the same change the key-column index needs.
 
 ## 3. Soufflé harvest (souffle-lang/souffle `f53dab8`, UPL-1.0; algorithms only, no source copied)
 
@@ -86,7 +125,7 @@ Reading:
 
 ## 5. Tests and disables
 
-16 tests (`tests/pipeline.rs`, A–M of the brief), all green. Every guard turned its tests red under a disable run (made after commit, restored after):
+20 tests (`tests/pipeline.rs`: A–M of the brief plus N for the semijoin, §2b), all green. Every guard turned its tests red under a disable run (made after commit, restored after):
 
 | disable | red |
 |---|---|
@@ -108,7 +147,8 @@ Known limits: rule dedup does not search body permutations; the star must have o
 
 ## 6. Follow-ups (not built)
 
-- **Next (recommended):** semijoin reduction before preparation — restrict the unrestricted sides of a star to the center values the restricted side has (here: prepare `Parent(y, z)` only for `y ∈ {children of 17}`). Same answers, preparation from O(n) to O(k). Needs a demand-aware layout step, not a new mask op.
+- ~~Semijoin reduction before preparation~~ — built, §2b. Layout O(k); the scan stays O(n).
+- **Next (recommended):** a column-major relation store (contiguous `u32` lanes). It lets the restriction and semijoin filters run through `ndarray::simd::eq_u32_to_mask` (§2c: 4–6 µs per needle at 50,000 rows instead of a scalar or strided scan), and it is the layout a key-column index would sit on, which then removes the O(n) scan.
 - A: `crepe-core` library split in the fork for dynamic rules.
 - B: full magic sets for derived body relations and recursion (waits on D-MTP-3 / D-SRAM-4).
 - C: cost-informed ordering once a non-star shape is admitted.
