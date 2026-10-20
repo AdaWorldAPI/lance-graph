@@ -206,6 +206,8 @@ BlasGraph already ships the relationship-matrix vocabulary this plan needs: CSR,
 4. **`mxv` is a pull with an indexed read.** For each row `i`, for each `(j, a_val)` in the row: `vec.get(j)`. That reads the input vector at positions taken from stored column indices, the gather shape, run as scalar host code with a virtual `Semiring` call and a `BitVec` clone per product.
 5. **ndarray is not on this path.** BlasGraph routes Hamming and popcount through `ndarray_bridge::dispatch_hamming`, but CSR construction and `mxv` use plain loops. ndarray has dense mask algebra and dense BLAS, and no sparse primitive.
 
+**The BF16 16 × 16 tile GEMM, measured on one focus (D-RMAP-2 §5a).** Exact for 0/1 operands, as D-RMAP-2 §3 says. On this host only the polyfill tier runs, and the bit arm wins every cell, walk counts included (popcount of row ∧ column: about 180 µs vs 19 ms for `A·A`). The GEMM stays a candidate layout for tile hosts and weighted counts, unmeasured until an AMX or `avx512_bf16` host runs the same probe.
+
 **What follows.**
 - **Reuse:** the store's CSR/CSC layouts are BlasGraph's storage types, extended with a pattern-only, `u32`-indexed variant that borrows its buffers. No third CSR type is added beside BlasGraph's and the probe's; the probe's CSR is retired in favour of it.
 - **Dense rows go to ndarray.** BlasGraph's reserved `StorageFormat::Bitmap` is the bridge: a row stored as a bitmap over its column domain is exactly an ndarray mask, and a Boolean hop over bitmap rows is `mask_and` plus any, through mask-risc, with no indexed read. That is the tile of D-RMAP-1A §8, generalized from 256 slots to any bitmap row. It costs `|rows| × |cols|` bits, so it is chosen per row block by density (BUNDLE), never globally.
