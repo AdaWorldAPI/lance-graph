@@ -1,5 +1,7 @@
 # 34 reasoning tactics: source and Lance-graph wiring
 
+> **Plan and board (2026-10-20):** owned by [`alpha-channel-rung-overlay-v1`](../../.claude/plans/alpha-channel-rung-overlay-v1.md), [`thought-git-api-v1`](../../.claude/plans/thought-git-api-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1609.
+
 **Owner:** AdaWorldAPI/lance-graph  
 **Status:** research and implementation plan, not a claim of complete execution  
 **Source:** James Lee Stakelum, [Beyond Chain of Thought: 34 Next-Gen LLM Tactics Nobody's Talking About](https://medium.com/@JamesStakelum/beyond-chain-of-thought-34-next-gen-llm-tactics-nobodys-talking-about-43b644e1d951)

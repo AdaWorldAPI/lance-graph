@@ -23,6 +23,7 @@
 use std::collections::BTreeMap;
 
 pub mod boundary;
+pub mod chain;
 pub mod join;
 pub mod reference;
 pub mod rmap;

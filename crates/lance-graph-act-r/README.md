@@ -1,5 +1,7 @@
 # lance-graph-act-r
 
+> **Plan and board (2026-10-20):** owned by [`jc-sbi-counterfactual-integration-v1`](../../.claude/plans/jc-sbi-counterfactual-integration-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1615.
+
 Experimental ACT-R cognitive **production arbitration kernel**, not a complete ACT-R cognitive architecture.
 
 ACT-R is *Adaptive Control of Thought, Rational*. This crate is not an actor, mailbox or `ractor` component.

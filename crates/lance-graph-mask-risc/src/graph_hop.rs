@@ -1,7 +1,7 @@
 //! Version-scoped one-hop graph fold over borrowed SoA edge lanes.
 //!
-//! **QUARANTINED — gather shape (2026-10-19 remediation, ISSUES.md
-//! ISS-GATHER-HOP-1616).** Both `Gather` ops below read a mask bit at a
+//! **QUARANTINED — gather shape (2026-10-19 remediation,
+//! `.claude/board/ISSUES.md` ISS-GATHER-HOP-1616).** Both `Gather` ops below read a mask bit at a
 //! position taken from another lane's values (`frontier[sources[i]]`,
 //! `visible[targets[i]]`), and the terminal scatters by `targets[i]`. That is
 //! the read the 2026-10-16 no-gather ruling marks as not to be built; the

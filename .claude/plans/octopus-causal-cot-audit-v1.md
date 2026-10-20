@@ -1002,3 +1002,9 @@ Nine lines. Everything else in this file is the evidence for them.
 
 13. No new plan, no new D-id. §17 is the lineage note itself; if a standalone
     `docs/` page is later wanted, it is §17.3 verbatim and nothing more.
+
+## Connected sources from #1601–#1617 (2026-10-20)
+
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
+
+- [`.arxiv/2510.24941_true_thinking_score_decorative_cot_ablation_bookmark.md`](../../.arxiv/2510.24941_true_thinking_score_decorative_cot_ablation_bookmark.md) (#1611): READ LATER: Can Aha Moments Be Fake? True Thinking Score and decorative CoT
