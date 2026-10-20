@@ -14,8 +14,8 @@ Operator decision B: `RelationshipMapStore` owns relationship persistence, ident
 - Quack's `Registrar` has only a test implementor; three library `Binder`s exist (sap, dir-sim, glove-parity).
 - A coordinate domain stored as a relation gets its own `DurableRef`, which removes domain ABA without a counter.
 
-- BlasGraph's shipped CSR (read in source): 2 KiB `BitVec` value per entry, `usize` indices, `mxv` clones the matrix per call (even the CSC transpose clones), `mxv` reads the vector at stored column indices (a scalar gather), and ndarray is not on the CSR/`mxv` path. The store reuses BlasGraph's storage types with a pattern-only `u32` borrowed variant; dense row blocks become bitmap rows executed by ndarray mask ops through mask-risc (`StorageFormat::Bitmap` is already reserved); only sparse rows need an indexed read.
-- Principle (operator): write a relationship as a relationship; layouts are built at seal time from relation facts, so RelAlg pays translation once per version.
+- BlasGraph's shipped CSR (read in source): 2 KiB `BitVec` value per entry, `usize` indices, `mxv` clones the matrix per call (even the CSC transpose clones), `mxv` reads the vector at stored column indices (a scalar gather), and ndarray is not on the CSR/`mxv` path. The store reuses BlasGraph's storage types with a pattern-only `u32` borrowed variant; dense row blocks in the predecessor (pull) direction become bitmap rows executed by ndarray mask ops through mask-risc (`StorageFormat::Bitmap` is already reserved), `F'[t] = any(pred(t) ∧ F)` with no indexed read; the push direction (selecting successor rows) and sparse rows need one. Structural (edge-existence) and valued (hyperdimensional) relations stay distinct. Base indexes are built at seal time; specialized layouts on demand.
+- Principle (operator): write a relationship as a relationship; the seal fixes identity, version and declared base indexes, specialized layouts are prepared once on demand and retained, so RelAlg pays translation once per version and only for demanded geometry.
 
 ## Open
 
