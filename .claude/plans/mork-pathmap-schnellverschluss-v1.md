@@ -170,6 +170,28 @@ The Schnellverschluss does not touch the witness. Switching the backend between 
 
 **What this does not cover.** Cyclic bodies: the triangle `R(a,b), S(b,c), T(a,c)` needs two variables co-addressed at once, which a one-variable domain cannot give. The 256 × 256 tile of D-RMAP-1A §8 does it for a small focus only, and nothing here covers large domains. Chain joins: stepping from `y` results to `z` slots over a large domain would need a scatter, which stays forbidden. Enumeration and the count's `Σ_y |R_y| · |S_y|` are plain loops; only the intersection runs on mask-risc, which delegates to `ndarray::simd`.
 
+## 7c. MORK's API as the standard surface, our folding underneath (DECISION, operator, 2026-10-20)
+
+Operator: "Given that we want to use our own folding algorithm anyway and just use it to standardize the API". MORK is not rewritten. Its public `Space` verbs become the API shape lance-graph offers, and our own folding answers them; MORK stays behind the Schnellverschluss as the differential oracle. No MORK code is copied, only the verb set is matched (D-MPS-7 gates code, not the shape of an interface).
+
+**The verb set, read from `kernel/src/space.rs` (trueagi-io/MORK `main`, cloned 2026-10-20):**
+
+| MORK verb | what it does | our side |
+|---|---|---|
+| `add_sexpr` / `remove_sexpr (r, pattern, template)` | load facts, each matched by `pattern` and stored as `template` | write lanes and presence planes of a relation (D-MPS-8 layout) |
+| `query_multi (pattern, effect)` | every binding of `pattern` over the space | H14d stages: normalize → address mask → masked read → terminal |
+| `transform_multi_multi (pattern, template, add)` | rewrite matches of `pattern` into `template` | one fold per step; to a fixpoint once relalg μ exists (D-MTP-3) |
+| `dump_sexpr (pattern, template)` | emit matches through a template | terminal over the address mask |
+| `load_csv` / `load_json` / `load_jsonl` | ingest with a pattern / template pair | ingest into lanes; not needed first |
+
+Neo4j loaders, symbol and tree backup/restore and the parsers are out of scope.
+
+**Sizes measured (Rust lines, upstream `main`):** `kernel` 15,435 (of which `main.rs` 6,491 examples/CLI, `space.rs` 2,033, `leapfrog.rs` 3,919), `expr` 6,544, `linalg` 6,858, `interning` + `frontend` + `experiments` 4,709. A façade matching the verbs is far smaller than any of these, because the execution is ours.
+
+**Bounded first scope:** patterns of fixed arity whose variables are shared between atoms (the joins D-MPS-8 already answers). Anything else is refused by name, never approximated: nested patterns, a variable repeated inside one atom, cyclic bodies (they need `EqU32ViaLane` / `RunsMeet`, ratified but not authorized), and multiplicities where MORK is set-only (`Refusal::SetOnly`).
+
+**Falsifier:** for every verb and fixture, the façade's answer equals MORK's through `boundary.rs` (as sets, since MORK stores sets) and datafrog's (as bags where multiplicity matters); a refused shape is refused by name on both arms. Disable: let the façade answer a nested pattern by flattening it silently; the oracle must then disagree.
+
 ## 8. Deliverables
 
 | D-id | Item | Status | Gate / evidence |

@@ -29,3 +29,6 @@ OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a writ
 **Correction to the D-MPS-7 addendum:** the source is found. Adam-Vandervorst, trueagi-io/MORK issue #2 "License", 2025-05-21: "Yes! It's now under MIT." (https://github.com/trueagi-io/MORK/issues/2; PR #148 follows up on it). The earlier sentence "not found by this session" was a search restricted to this repo and Linear.
 
 **Correction (operator, 2026-10-20), D-MPS-7:** the "DECIDED: MIT" above overstated it. Facts: PR #148 "Add MIT License and Cargo manifest metadata" proposed 2026-08-20; still open on 2026-10-19; PathMap already advertises MIT; MORK's maintainer stated MIT intent (issue #2, 2025-05-21), but formal repository-level clearance is incomplete. D-MPS-7 is back to OPEN; vendoring waits for #148 or an equivalent LICENSE file.
+
+
+**Addendum (operator, 2026-10-20):** "we want to use our own folding algorithm anyway and just use it to standardize the API". DECISION: MORK is not rewritten; its `Space` verbs are the API shape, our folding answers them, MORK stays the oracle (D-MPS-9, mork plan §7c). Measured MORK size: kernel 15,435 lines, expr 6,544, linalg 6,858.
