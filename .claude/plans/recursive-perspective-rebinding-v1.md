@@ -312,7 +312,7 @@ Copied from D-RMAP-1A §8 and Schnellverschluss §7b, not re-measured:
 
 ### 11.9 Banked draft probe
 
-`.claude/harvest/d-rpr-1-chain-probe-draft/` holds `chain-probe.patch` and a README. The patch applies to `main` at `4dbd085`.
+`.claude/harvest/d-rpr-1-chain-probe-draft/` holds `chain-probe.patch` and a README. The patch applies to `main` at `4dbd085` and at `8b570ed`, after #1623.
 
 - **Result on `main`:** 5 of 6 tests pass. The failing test is the §11.3 first-focus case. Its per-step parity with the global scan oracle passes.
 - **Deviations from D-RPR-1:**
