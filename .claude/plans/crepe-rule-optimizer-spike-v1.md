@@ -31,6 +31,7 @@ Pipeline, one stage per module of the probe:
 - [x] Stage 3 over Lance 13 / lancedb 0.40: masked read per side, P1–P4 green (§2d); P5 measured at 50,000 rows only (§2e)
 - [x] CI workflow for this probe (`.github/workflows/crepe-plan-probe.yml`)
 - [x] Arm B, the addressed semijoin over attested lanes (§2e, tests B1–B9)
+- [x] ARM-B-PREPARE: per-side read policy (exact ranges, coalesced, full) with a measured switch (§2f, tests B13–B15 and 5 unit tests)
 
 ## 1. Integration point
 
@@ -168,6 +169,50 @@ What this says:
 
 P5 is measured at 50,000 rows only; 1,000 and 10,000 were not run.
 
+## 2f. ARM-B-PREPARE: when Arm B stops reading ranges (measured 2026-10-20)
+
+Ledger (d) item ARM-B-PREPARE: Arm B removes the O(n) preparation scan only below about 1% of centers; above that, its many short ranges cost Lance more per row than one sequential read (§2e).
+
+Each side now chooses its read with `addressed::plan_read`, a pure function of the located lane ranges and the table size (it reads no row):
+- `Read::Ranges`: the located ranges (ranges that touch are merged and still count as exact);
+- `Read::Coalesced`: ranges at most `coalesce_gap` rows apart are merged, and the extra rows are dropped after the read by the row's own leading value (co-addressed: no position is taken from another lane's values);
+- `Read::Full`: once the merged ranges cover `full_permille` of the table, the whole table is read without a row filter and the same drop applies.
+
+`ReadPolicy::EXACT` keeps the old behaviour and is still what `evaluate_addressed` uses; `evaluate_addressed_with` takes a policy. `ReadPolicy::DEFAULT` = gap 16, full at 100 permille.
+
+Measured with `examples/addressed_read.rs` (release, rustc 1.99.0; same fixture as §2e: uniform demand, one row per center; every strategy checked against the answer count before timing). Times in ms.
+
+50,000 rows (median of 9; 1,000–3,000 re-run with 31):
+
+| k | exact | gap 16 | full |
+|---|---|---|---|
+| 0 | 0.40 | 0.36 | 2.98 |
+| 500 (1%) | 2.72 | 3.20 | 4.09 |
+| 1,000 (2%) | 4.55 | 4.06 | 6.50 |
+| 2,000 (4%) | 5.66 | 5.10 | 5.48 |
+| 3,000 (6%) | 6.53 | 6.58 | 5.79 |
+| 5,000 (10%) | 8.87 | 7.27 | 7.46 |
+| 25,000 (50%) | 35.10 | 17.97 | 19.06 |
+
+200,000 rows (`READ_N=200000`, median of 15):
+
+| k | exact | gap 16 | gap 64 | full |
+|---|---|---|---|---|
+| 1,000 (0.5%) | 5.11 | 5.66 | 5.41 | 12.09 |
+| 2,000 (1%) | 6.94 | 7.62 | 11.70 | 18.08 |
+| 10,000 (5%) | 19.82 | 18.11 | 20.13 | 22.15 |
+| 14,285 (7%) | 22.22 | 21.40 | 20.72 | 23.21 |
+| 100,000 (50%) | 128.48 | 74.29 | 75.62 | 79.37 |
+
+What this says:
+- The crossover is not a fixed fraction of the table: exact ranges win up to about 3% at 50,000 rows and about 5% at 200,000, and tie with the full read at 4–6% and 7–10% respectively. Between the two, the choice is within run-to-run noise (an identical policy measured 3.9 and 6.1 ms at k = 1,000 in one run).
+- Above 10% the full read wins: 1.9× at 50% of 50,000 rows, 1.6–1.7× at 50% of 200,000. DEFAULT switches at 10%, which is never measurably worse on either size.
+- A full read has a floor (3 ms at 50,000 rows, 6.7 ms at 200,000), so below the switch it would lose up to 3×.
+- Coalescing measured neutral at gap 16 and harmful at gap 64 (11.7 vs 6.9 ms at 1% of 200,000 rows) on uniform demand. Clustered demand, where it should help, is not measured.
+- Two table sizes only; the crossover's dependence on size is observed, not modelled.
+
+Tests: `addressed::tests` (5: gap boundary, touching ranges, full-read threshold at the exact row, coalesced rows counted toward it, EXACT/FULL extremes); `arm_b::b13` (every policy answers as EXACT, every kind, hit/sponsor/miss), `b14` (the switch fires on dense demand and stays silent on sparse, per side; a full read scans more rows), `b15` (coalescing hands Lance fewer ranges, answer equal to the memory path). Disable runs, each red: no post-read drop (b13, b14), strict gap (3 unit tests), never full (3 unit tests and b14), never coalesce (3 unit tests and b15), touching ranges counted as coalesced (1 unit test). B15 does not pin the drop: undemanded rows find no join partner there.
+
 ## 3. Soufflé harvest (souffle-lang/souffle `f53dab8`, UPL-1.0; algorithms only, no source copied)
 
 | Soufflé | transformation | precondition | in crepe | in lance-graph | taken |
@@ -211,7 +256,7 @@ Known limits: rule dedup does not search body permutations; the star must have o
 
 - ~~Semijoin reduction before preparation~~ — built, §2b. Layout O(k); the scan stays O(n).
 - ~~Addressed read~~ — built, §2e. Reads O(k) rows over attested lanes.
-- Selectivity crossover: measure between 1% and 10% of centers and switch Arm B to the full read above it.
+- ~~Selectivity crossover~~ — built, §2f. Measured at 50,000 and 200,000 rows; `ReadPolicy::DEFAULT` switches to the full read at 10% coverage. Clustered demand and a size-aware switch remain open.
 - Multi-fragment lanes: map lane positions to row addresses per fragment, so that an append does not force a compaction before Arm B can read the table again.
 - **Next (recommended):** a column-major relation store (contiguous `u32` lanes). It lets the restriction and semijoin filters run through `ndarray::simd::eq_u32_to_mask` (§2c: 4–6 µs per needle at 50,000 rows instead of a scalar or strided scan), and it is the layout a key-column index would sit on, which then removes the O(n) scan.
 - A: `crepe-core` library split in the fork for dynamic rules.

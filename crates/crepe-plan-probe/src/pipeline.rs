@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use lance_graph_mask_risc::Program;
 use mork_pathmap_probe::Semantics;
 
-use crate::addressed::{AddressedRelation, Lookup, prepare_addressed};
+use crate::addressed::{AddressedRelation, Lookup, ReadPolicy, prepare_addressed_with};
 use crate::lance_store::{LanceStore, LanceStoreError, SideIo, prepare_lance};
 use crate::logic::{RelId, Rule};
 use crate::mork_api::{MorkRefusal, QueryMulti, admit, query_multi};
@@ -280,6 +280,19 @@ pub async fn evaluate_addressed(
     store: &LanceStore,
     lanes: &[AddressedRelation],
 ) -> Result<(Outcome, Report, Vec<Vec<SideIo>>, Vec<Vec<Lookup>>), PipelineRefusal> {
+    evaluate_addressed_with(rules, demand, kind, opts, store, lanes, ReadPolicy::EXACT).await
+}
+
+/// [`evaluate_addressed`] with an explicit [`ReadPolicy`] for every side.
+pub async fn evaluate_addressed_with(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &LanceStore,
+    lanes: &[AddressedRelation],
+    policy: ReadPolicy,
+) -> Result<(Outcome, Report, Vec<Vec<SideIo>>, Vec<Vec<Lookup>>), PipelineRefusal> {
     let planned = plan(rules, demand, kind, opts)?;
     let lance = |e: LanceStoreError| PipelineRefusal::Lance(format!("{e:?}"));
     let t = Instant::now();
@@ -287,7 +300,7 @@ pub async fn evaluate_addressed(
     let mut io = Vec::with_capacity(planned.stars.len());
     let mut lookups = Vec::with_capacity(planned.stars.len());
     for s in &planned.stars {
-        let (p, side_io, l) = prepare_addressed(s, store, lanes)
+        let (p, side_io, l) = prepare_addressed_with(s, store, lanes, policy)
             .await
             .map_err(|e| PipelineRefusal::Addressed(format!("{e:?}")))?;
         prepared.push(p);
