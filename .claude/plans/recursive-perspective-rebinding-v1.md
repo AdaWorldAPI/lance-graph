@@ -322,3 +322,52 @@ Copied from D-RMAP-1A §8 and Schnellverschluss §7b, not re-measured:
   - it takes no timings.
 - **Why it is not merged:** D-RPR-1 is not authorized.
 
+
+### 11.10 The handoff, restored in the crate as a lab demonstration (2026-10-20)
+
+The operator asked for the §11.9 draft to be restored and fixed, to show one fold's output addresses driving the next indexed lookup. The lookup runs as counted preparation, and the in-fold Gather stays forbidden (the 2026-10-16 ruling). This is a lab demonstration and claims no admission: D-RPR-1 stays "not authorized; waits on A1", and A1 / D-RMAP-1 §6 stay open. The code is in `mork-pathmap-probe`: `src/chain.rs`, `tests/chain.rs` (8 tests) and `examples/chain_cost.rs`. It supersedes the banked patch.
+
+**One handoff, as the code does it:**
+
+1. **Fold.** `TileExec::reach` runs a mask-risc program. Its operands are tile planes in one `(target, source)` space plus the broadcast frontier, run with `Foreign::NONE`.
+2. **Addresses out.** The fold returns the slots it reached. It also returns, from the prepared CSR's escape list, the global identities its own predicates lead to outside the focus within the hop budget. Those are values in an index that preparation built; the fold only selects them.
+3. **Lookup.** `ScopedReach::global` refuses `IncompleteFocus`. `Frame::admit` binds the escapes into evictable slots, and `rebind` makes one `SortedRun::neighbours` seek per changed slot and predicate. This is the gather-shaped step: keyed by the previous fold's values, it runs in preparation, counted, outside the fold.
+4. **Translation.** `Focus::slot_of` maps each target from global to local once, inside `rebind` / `Csr::prepare`.
+5. **Reuse.** Unchanged slots keep their edges for every predicate. The next question's seeds are the previous answer, already admitted with all three predicates, so they cost no lookup.
+
+**What the tests pin** (each disable is red; commit `2aaf6e7`):
+
+| guard | disable | result |
+|---|---|---|
+| the fold program has no `Gather` and no scatter terminal (n = 1..3, ± delta), and a Gather program is detected | the check returns `true` | 1 red |
+| every step escaped, was admitted, and then equalled the full-scan oracle | `ask` returns after the first fold | 4 red |
+| incremental seeks fewer than a full rebuild, with an equal frame | incremental reports full seeks | 1 red |
+| identities an earlier answer needs are never evicted | eviction ignores `keep` | **hangs**: `ask` re-admits what it just evicted, so the test never finishes. The disable is caught by timeout, not by a red assertion. |
+
+The fixture fix (§11.3) seeds the first focus with the seed plus 255 identities from a far community (`discover` from 40 000). Each of the three questions then needs at least one lookup, and each lookup's demanded set is disjoint from its seeds.
+
+**Measured** (`cargo run --release --example chain_cost`, avx512f, 392 238 facts, medians of 5). The chain is `(pred 0, 3 hops) → (pred 1, 1) → (pred 2, 1)`, from seed 17.
+
+| transition | escapes → demanded | seeks (incremental / full) | admit µs (incremental / full) | next fold µs |
+|---|---|---|---|---|
+| initial prepare | — | 768 / 768 | 749 / 768 | — |
+| step 0, hop 1 | 2 | 6 / 768 | 92 / 377 | 3.0 |
+| step 0, hop 2 | 4 | 12 / 768 | 90 / 342 | 3.8 |
+| step 0, hop 3 | 8 | 24 / 768 | 102 / 308 | 3.2 |
+| step 1 | 29 | 87 / 768 | 156 / 334 | 1.7 |
+| step 2 | 77 | 231 / 768 | 288 / 392 | 2.2 |
+
+- **Seeks after the initial prepare:** 360 incremental against 3 840 full, so reuse avoided 3 480 seeks.
+- **Tile rebuild:** about 2–4 µs of each admission. The remaining roughly 90 µs floor of an incremental admission is not seeks (6 seeks cost far less). It is `rebind` copying the 256-slot CSR. That is a cost of `rebind`'s shape, measured but not investigated here.
+- **Direct arm:** breadth-first over `SortedRun::neighbours`, no frame. 66 seeks and 23.6 µs for the whole chain; answers of 15 / 44 / 121 ids.
+- **Re-ask:** the whole chain on the final frame takes 5.8 µs and 0 seeks, with equal answers.
+- **Arithmetic:** the first framed pass costs 1 509 µs incremental (2 551 full). It is repaid after about 85 re-asks of the chain (141 full). This is consistent with the sparse-graph break-even of 76 in §11.7. On a single pass, the direct arm is cheaper.
+
+**Status of the §11.9 deviations:**
+
+- Probe-local glue types (`Frame`, `Admission`, `Answer`, `Rebuild`, `ChainRefusal`, `CountingIndex`) remain. They are probe types, so this is not D-RPR-1 as written.
+- The fixture is still synthetic.
+- H1 is now tested as worded. Escapes drive admission inside a question, and the answer seeds the next question.
+- Timings are taken.
+
+`rmap::TileExec::program` became `pub` so the co-addressing check can read the program the fold runs. That is the only change outside the new files.

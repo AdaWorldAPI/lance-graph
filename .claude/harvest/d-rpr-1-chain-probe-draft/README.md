@@ -1,6 +1,8 @@
 # D-RPR-1 chain probe: draft, banked as differential-test evidence (2026-10-20)
 
-**Status:** PROBE DRAFT, NOT MERGED, NOT RUN AS D-RPR-1. `chain-probe.patch` applies cleanly to `main` at `4dbd085` and, after #1623, at `8b570ed` (`git apply --check`). It is kept here as a patch, not in the crate, for two reasons: D-RPR-1 is "not authorized; waits on A1 and an operator go" (`recursive-perspective-rebinding-v1.md` §10), and one of its six tests is red (below).
+**Status:** SUPERSEDED 2026-10-20 by the restored probe in `crates/mork-pathmap-probe` (`src/chain.rs`, 8/8 green, plan §11.10). Kept as history; do not apply. The text below was the status before that.
+
+~~**Status:** PROBE DRAFT, NOT MERGED, NOT RUN AS D-RPR-1.~~ `chain-probe.patch` applies cleanly to `main` at `4dbd085` and, after #1623, at `8b570ed` (`git apply --check`). It is kept here as a patch, not in the crate, for two reasons: D-RPR-1 is "not authorized; waits on A1 and an operator go" (`recursive-perspective-rebinding-v1.md` §10), and one of its six tests is red (below).
 
 Written by a second session from the instruction "use the existing substrate", before #1622 merged. It is an independent attempt at the chain D-RPR-1 describes, so it serves as a differential check of that design.
 
