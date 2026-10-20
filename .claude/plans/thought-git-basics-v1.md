@@ -88,6 +88,12 @@ Drivers, all outside the API:
 - **`graph-flow-kanban` / rs-graph-llm** (langgraph-style): carries one mailbox's cycle through `KanbanColumn` and advances on a `mul::GateDecision` (the live kanban gate, REUSE in `.claude/v3/COMPONENT-MAP.md`; not the REPURPOSE `collapse_gate::GateDecision`). As a driver it maps the write intention onto the board (correction item 4).
 - **`ogar-loco`**: the low-code program surface; a flow written there calls the same verbs.
 - `lance-graph-flow` is named in `.claude/prompts/flow-cog-ona-rubicon-work.md` but is not a crate in the workspace.
+- **`lance-graph-supervisor`, in parallel** (operator, 2026-10-20: "Lance-graph-supervisor > kanban_actor.rs readonly"). Read 2026-10-20:
+  - `kanban_actor.rs` is read-only: `PhaseCensus` (one `&self` pass, one count per `KanbanColumn`), `mul_target` (the MUL gate lowered to the next legal phase) and `parse_kanban_step`. The actor and its advance / tick RPCs are deleted (`E-PROGRESSION-IS-EXISTENCE-NOT-COMMAND-1`). The git API reads the census; it never sends a message to advance a phase.
+  - Phases advance only through `cycle_driver` (#879). It drains the staged casts into one WAL write and one `DatasetVersion` per cycle, then applies only the sealed sparse transitions, at most one per owner. Further intents of the same owner are held for a later cycle.
+  - That is where `land` rides: a write intention is cast as the owner's paired move, and the landed thoughts of one cycle go into that cycle's single version, as D-TGB-3 coalesces them.
+  - Pre-commit failure is deterministic regeneration from the sealed version ("sealed Vn + unchanged Kanban task + deterministic computation = the same provisional intent on the next sweep"). That is the same rule as rebase-as-replay (correction item 6), so the git API needs no recovery of its own before a commit. After a commit, `recover_fleet` replays sealed landings.
+  - Related plans: `alpha-channel-rung-overlay-v1.md` §1 row C (`PhaseCensus` as the mask over activities) and §3l (a count is not a hydration precondition); `cycle-loop-closure-driver-v1.md`.
 
 **Placement (PROPOSAL).** Following the convention, types live in the contract and execution in mask-risc / quack:
 
