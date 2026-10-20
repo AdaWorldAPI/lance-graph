@@ -71,6 +71,32 @@ This plan starts from the ideal state and plans only the basics that lead to it.
 
 **WORKING-MODEL mapping onto `KanbanColumn`** (to be pinned by D-TGB-0): `Planning` holds the autonomous in-memory work (branch, squash, replay); `Planning → CognitiveWork` is the decision to write a satisfactory result; `CognitiveWork` prepares the batch; `Evaluation` runs the up-to-date check and the revision gate; `Commit` writes; `Plan` returns to the in-memory work; `Prune` drops the intention. The table above (slot taken at the crossing) is superseded by this mapping.
 
+## The reusable git API and its drivers (2026-10-20)
+
+**Status:** DECISION (operator, 2026-10-20: "Fokussier dich auf git aber die Struktur sollte so sein daß es auf git als reusable API landet. Du kannst gerne Act-R mit einbeziehen für kanban. OGAR-LOCO und lance-graph-flow <> rs-graph-llm langgraph-ish sind die alternativen") for the split; PROPOSAL for the placement.
+
+The thought git is one reusable API. Whoever decides when to branch, squash or write is a driver outside it, and the API must not depend on any driver.
+
+| layer | owns | must not |
+|---|---|---|
+| **the git API** | the verbs (`branch`, `write`, `diff`, `status`, `squash`, `discard`, `replay`, `land`), the slot pool, presence and sparse cells, the anomaly signals as readings, receipts and the metadata table | choose what to do next; know a kanban column, an ACT-R buffer or a flow node |
+| **a driver** | the policy: which branch to continue, squash or discard, and when a result is satisfactory enough to land (the Rubicon decision) | touch cells, slots or tables except through the API's verbs |
+
+Drivers, all outside the API:
+
+- **ACT-R** (`lance-graph-act-r`, included for kanban): `arbitrate` picks one witnessed intent from candidates evaluated against one snapshot, and refuses a batch with a stale candidate. The git API supplies the candidates (the open branches with their `status` readings), and ACT-R picks the intent: squash, continue, discard or land. ACT-R cannot execute; the intent comes back to the API as a verb call. Its `Snapshot` and witness are crate-local types today and are meant to move to canonical contract types.
+- **`graph-flow-kanban` / rs-graph-llm** (langgraph-style): carries one mailbox's cycle through `KanbanColumn` and advances on a `mul::GateDecision` (the live kanban gate, REUSE in `.claude/v3/COMPONENT-MAP.md`; not the REPURPOSE `collapse_gate::GateDecision`). As a driver it maps the write intention onto the board (correction item 4).
+- **`ogar-loco`**: the low-code program surface; a flow written there calls the same verbs.
+- `lance-graph-flow` is named in `.claude/prompts/flow-cog-ona-rubicon-work.md` but is not a crate in the workspace.
+
+**Placement (PROPOSAL).** Following the convention, types live in the contract and execution in mask-risc / quack:
+
+- the verb trait, the slot, receipt, `DurableRef`, `ThoughtCommitId` and the readings (`status`, anomaly signals) go into `lance-graph-contract` (zero-dep), so every driver depends only on the contract;
+- the implementation over `AlphaAllocation` / `AlphaOverlay`, the presence planes and the metadata table goes into one implementation crate (name OPEN);
+- each driver adapter lives with its driver, not in the API.
+
+**Falsifier (driver independence, D-TGB-7):** the same Sudoku fixture driven by two drivers that make the same decisions (ACT-R, and a scripted driver replaying ACT-R's recorded intents) produces byte-identical cells, receipts and metadata rows. A run where the API reads a driver type, or a driver writes a cell without a verb, fails to compile or fails this test.
+
 ## What Lance 13 / LanceDB 0.40 already provide
 
 Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `dataset/mem_wal/`; `lancedb-0.40.0/src/table.rs`):
@@ -110,6 +136,9 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 - [ ] **D-TGB-5 Reads are resident folds.** `checkout`, `log`, `diff` and `blame` fold over the resident sparse records.
   - Falsifier: each equals the from-scratch oracle; `diff` across two durable versions also equals Lance's `delta()`.
   - No Lance read on the hot path (rule 4).
+- [ ] **D-TGB-7 The reusable API and the first driver.** The verb trait and its types in the contract, one implementation crate, and an ACT-R driver adapter (section "The reusable git API and its drivers").
+  - Falsifier: driver independence, as stated in that section.
+  - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
 - [ ] **D-TGB-6 MemWAL arm, behind a switch.** The same `Commit` path into a MemWAL shard per mailbox (`identity_sharding` on the owner), with compaction and garbage collection as a separate job.
   - Enabled only from the measured crossover (about 1,024 casts per cycle).
   - Reads stay resident folds, never MemWAL's DataFusion scanner (DataFusion is in its grace period).

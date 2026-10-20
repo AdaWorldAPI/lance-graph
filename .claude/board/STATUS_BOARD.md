@@ -360,6 +360,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGB-3** | `Commit` lands one sparse batch through `LanceCycleWriter`; `DurableRef` = dataset + `Ref::Version(branch, version)` | Queued (lab) | empty cycle writes nothing; re-submit reconciles; two branches at version 7 told apart |
 | **D-TGB-4** | receipt (base ref, program id, seeds, slot generation) instead of history | Queued (lab) | replay from receipt reproduces writes cell for cell |
 | **D-TGB-5** | reads as resident folds: `checkout`/`log`/`diff`/`blame` | Queued (lab) | equal the oracle; durable `diff` equals Lance `delta()` |
+| **D-TGB-7** | reusable git API: verb trait + types in the contract, one implementation crate, ACT-R driver adapter; drivers (ACT-R, graph-flow-kanban, ogar-loco) stay outside | Queued (lab) | driver independence: two drivers with the same decisions give byte-identical cells, receipts, metadata rows |
 | **D-TGB-6** | MemWAL `Commit` arm behind a switch, reads stay resident | Queued; waits on D-LNC-7 | enabled only past the D-WAL crossover |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
 | **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
