@@ -267,6 +267,12 @@ pub struct FoldDialect<'p> {
     /// The next unused scratch slot WITHIN the current `ops` accumulation.
     /// Reset to 0 every time a fold finalizes and runs.
     next_slot: u16,
+    /// Slots below [`Self::next_slot`] whose value is dead, released by
+    /// [`Self::call_owned`] and handed out again by [`Self::fresh`] before
+    /// a new slot is minted. Cleared with `next_slot` at every fold. Only
+    /// `call_owned` ever releases a slot, so a caller that never uses it sees
+    /// exactly the old numbering.
+    free: Vec<u16>,
     /// The current execution epoch — incremented every time a fold
     /// finalizes and runs, at the same point [`Self::next_slot`] resets to
     /// 0. Every [`Val::Slot`] minted carries this value at mint time; a
@@ -333,6 +339,7 @@ impl<'p> FoldDialect<'p> {
             foreign,
             ops: Vec::new(),
             next_slot: 0,
+            free: Vec::new(),
             epoch: 0,
             scratch: vec![0u64; cap],
             group_sink: &mut [],
@@ -552,9 +559,65 @@ impl<'p> FoldDialect<'p> {
     /// The next unused scratch slot within the current `ops` accumulation,
     /// advancing [`Self::next_slot`] by one.
     fn fresh(&mut self) -> u16 {
+        if let Some(s) = self.free.pop() {
+            return s;
+        }
         let s = self.next_slot;
         self.next_slot += 1;
         s
+    }
+
+    /// [`Dialect::call`] for a caller that OWNS the masks it combines.
+    ///
+    /// For `IntOr`, `IntAnd` and `IntNot` in [`BoolMode::InPlace`], the slots
+    /// of the consumed operands are released once the op is emitted (unless
+    /// one of them is the result), and [`Self::fresh`] hands them out again.
+    /// An `Or` or `And` chain over `k` atoms then needs three slots, not
+    /// `2k - 1`. Every other call, and every call in [`BoolMode::Fused`], is
+    /// plain [`Dialect::call`].
+    ///
+    /// # Contract
+    ///
+    /// The caller guarantees that no other [`Val`] anywhere (on this stack, on
+    /// another stack, or held aside) names the consumed slots. [`Val`] is
+    /// `Copy`, so the dialect cannot check this: a copy that survives the call
+    /// would read whatever a later op writes into the released slot. A
+    /// lowering that consumes each subexpression's value exactly once, as
+    /// `lance-graph-relalg` does, meets the contract by construction. A
+    /// stack program that can duplicate values must use `call`.
+    pub fn call_owned(
+        &mut self,
+        f: FnIndex,
+        v: [u8; 3],
+        stack: &mut Vec<Val>,
+    ) -> Result<(), FoldError> {
+        let arity = match f {
+            INT_OR | INT_AND => 2,
+            INT_NOT => 1,
+            _ => return self.call(f, v, stack),
+        };
+        if self.mode != BoolMode::InPlace || stack.len() < arity {
+            return self.call(f, v, stack);
+        }
+        let epoch = self.epoch;
+        let consumed: Vec<u16> = stack[stack.len() - arity..]
+            .iter()
+            .filter_map(|v| match *v {
+                Val::Slot { slot, epoch: e } if e == epoch => Some(slot),
+                _ => None,
+            })
+            .collect();
+        self.call(f, v, stack)?;
+        let result = match stack.last() {
+            Some(&Val::Slot { slot, epoch: e }) if e == self.epoch => Some(slot),
+            _ => None,
+        };
+        for s in consumed {
+            if Some(s) != result && !self.free.contains(&s) {
+                self.free.push(s);
+            }
+        }
+        Ok(())
     }
 
     /// Survivor gating (verbatim from W0C, restated over `Operand`): if `b`
@@ -611,6 +674,7 @@ impl<'p> FoldDialect<'p> {
     fn finalize_and_run(&mut self, terminal: Terminal, out: OutKind) -> Result<Value, FoldError> {
         let ops = std::mem::take(&mut self.ops);
         self.next_slot = 0;
+        self.free.clear();
         self.epoch += 1;
         self.exprs.clear();
         self.lowered.clear();

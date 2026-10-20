@@ -11,6 +11,10 @@ use lance_graph_relalg::{
 
 const N: usize = 1_000;
 
+// Measured, see `a_wide_conjunction_is_one_interval_after_the_rewrite`.
+const PASSES_REWRITTEN: usize = 1;
+const PASSES_AS_WRITTEN: usize = 10;
+
 // Lane indexes.
 const X: u16 = 0; // i32, (i % 50) - 20: negatives, zero, positives
 const Y: u16 = 1; // i32, (i * 7) % 31
@@ -460,11 +464,16 @@ fn negation_reaches_the_leaves() {
     count(&fixture(), rel);
 }
 
-/// FAILS IF: the rewrite stops shrinking a wide conjunction — as written it
-/// needs more scratch slots than one fold has and is refused; rewritten it is
-/// one interval and runs.
+/// FAILS IF: the rewrite stops shrinking a wide conjunction. Rewritten, the
+/// ten comparisons on one lane are one interval and one pass. As written
+/// each comparison is its own pass (survivor gating absorbs the `And`s).
+///
+/// Until the as-written lowering released consumed slots, this description
+/// was refused as written (ten comparisons needed more than the dialect's 8
+/// slots) and that refusal was the assertion. Width now costs no slots, so
+/// both run, and the rewrite's gain is pinned by the passes it saves.
 #[test]
-fn a_wide_conjunction_runs_only_after_the_rewrite() {
+fn a_wide_conjunction_is_one_interval_after_the_rewrite() {
     let rel = Rel::And((0..10).map(|i| Rel::i32(X, Cmp::Lt, 20 - i)).collect());
     let fx = fixture();
     let q = Query {
@@ -472,8 +481,14 @@ fn a_wide_conjunction_runs_only_after_the_rewrite() {
         measure: Measure::Count,
     };
     let ((r1, _), (r2, _)) = both(&fx, &q);
-    assert!(r2.as_ref().is_err_and(out_of_slots), "as written: {r2:?}");
-    assert_eq!(r1.expect("rewritten").answer, oracle(&fx, &q).0);
+    let (r1, r2) = (r1.expect("rewritten"), r2.expect("as written"));
+    let want = oracle(&fx, &q).0;
+    assert_eq!(r1.answer, want);
+    assert_eq!(r2.answer, want);
+    assert_eq!(
+        (r1.passes, r2.passes),
+        (PASSES_REWRITTEN, PASSES_AS_WRITTEN)
+    );
 }
 
 /// FAILS IF: a `!=` on an `I32` lane is not reconciled with the intervals
@@ -505,4 +520,124 @@ fn an_inequality_in_a_union_meets_the_intervals() {
     ]);
     let (r, _) = count(&fx, wide);
     assert_eq!(r.programs, 0);
+}
+
+// ── wide junctions: width is free, only depth costs (D-SRAM-2 follow-up) ───
+
+/// A lane whose value is its row: `eq_u32(0, c)` keeps exactly row `c`.
+fn wide_planes<T>(f: impl FnOnce(&Planes<'_>, &[u32]) -> T) -> T {
+    let ids: Vec<u32> = (0..N as u32).collect();
+    let lanes = [LaneRef::U32(&ids)];
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    f(&planes, &ids)
+}
+
+fn kept(rows: impl Fn(usize) -> bool) -> Vec<u64> {
+    plane(rows)
+}
+
+/// FAILS IF: an `Or` of `k` atoms takes a scratch slot per atom and per `OR`
+/// (`2k - 1`), so a wide disjunction is refused once `2k - 1` passes the
+/// dialect's 8 slots — at 5 atoms. Children fold into the first child's
+/// slot, as Quack's in-place lowering does.
+#[test]
+fn a_wide_disjunction_keeps_its_rows_in_constant_slots() {
+    for k in [1usize, 4, 5, 64, 1_000] {
+        let centers: Vec<u32> = (0..k as u32).map(|c| (c * 7) % N as u32).collect();
+        let q = Query {
+            rel: Rel::Or(centers.iter().map(|&c| Rel::eq_u32(0, c)).collect()),
+            measure: Measure::Keep,
+        };
+        let want = kept(|r| centers.contains(&(r as u32)));
+        wide_planes(|planes, _| {
+            for written in [false, true] {
+                let mut keep = vec![0u64; words_for(N)];
+                let got = if written {
+                    run_as_written(&q, planes, Some(&mut keep))
+                } else {
+                    run(&q, planes, Some(&mut keep))
+                };
+                assert!(got.is_ok(), "k={k} written={written}: {got:?}");
+                assert_eq!(keep, want, "k={k} written={written}");
+            }
+            let mut keep = vec![0u64; words_for(N)];
+            let (_, program) =
+                lance_graph_relalg::run_with_program(&q, planes, Some(&mut keep)).unwrap();
+            if let Some(p) = program {
+                assert!(p.scratch_slots <= 3, "k={k}: {} slots", p.scratch_slots);
+            }
+        });
+    }
+}
+
+/// FAILS IF: a wide conjunction of negations takes a slot per `NOT` and per
+/// `AND`. Each `NOT` is written in place over its own atom's slot.
+#[test]
+fn a_wide_conjunction_of_negations_keeps_its_rows_in_constant_slots() {
+    for k in [5usize, 64, 1_000] {
+        let centers: Vec<u32> = (0..k as u32).map(|c| (c * 3) % N as u32).collect();
+        let q = Query {
+            rel: Rel::And(
+                centers
+                    .iter()
+                    .map(|&c| Rel::Not(Box::new(Rel::eq_u32(0, c))))
+                    .collect(),
+            ),
+            measure: Measure::Count,
+        };
+        let want = (0..N).filter(|r| !centers.contains(&(*r as u32))).count() as u64;
+        wide_planes(|planes, _| {
+            let got = run_as_written(&q, planes, None);
+            assert!(
+                matches!(got, Ok(ref r) if r.answer == Answer::Count(want)),
+                "k={k}: {got:?}"
+            );
+            let got = run(&q, planes, None);
+            assert!(
+                matches!(got, Ok(ref r) if r.answer == Answer::Count(want)),
+                "k={k}: {got:?}"
+            );
+        });
+    }
+}
+
+/// Paired: depth still costs. A slot held by an outer junction stays live
+/// while its inner one is built, so a nested description needs more slots
+/// than a flat one of the same width. (If it did not, the constant above
+/// would be vacuous.)
+#[test]
+fn depth_still_costs_slots() {
+    let flat = Query {
+        rel: Rel::Or((0..8u32).map(|c| Rel::eq_u32(0, c)).collect()),
+        measure: Measure::Keep,
+    };
+    let deep = Query {
+        rel: Rel::Or(vec![
+            Rel::eq_u32(0, 1),
+            Rel::And(vec![
+                Rel::Not(Box::new(Rel::eq_u32(0, 2))),
+                Rel::Or(vec![Rel::eq_u32(0, 3), Rel::eq_u32(0, 4)]),
+            ]),
+        ]),
+        measure: Measure::Keep,
+    };
+    wide_planes(|planes, _| {
+        let slots = |q: &Query| {
+            let mut keep = vec![0u64; words_for(N)];
+            lance_graph_relalg::run_with_program(q, planes, Some(&mut keep))
+                .unwrap()
+                .1
+                .map_or(0, |p| p.scratch_slots)
+        };
+        assert!(
+            slots(&deep) > slots(&flat),
+            "deep={} flat={}",
+            slots(&deep),
+            slots(&flat)
+        );
+    });
 }

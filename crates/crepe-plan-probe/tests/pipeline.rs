@@ -836,9 +836,7 @@ fn n_semijoin_intersects_two_restricted_sides() {
 
 mod stage3 {
     use super::*;
-    use crepe_plan_probe::lance_store::{
-        LanceStore, SEMIJOIN_ATOMS_MAX, SideIo, membership_mask, prepare_lance,
-    };
+    use crepe_plan_probe::lance_store::{LanceStore, SideIo, membership_mask, prepare_lance};
     use crepe_plan_probe::pipeline::evaluate_lance;
 
     async fn lance_family(labels: &Labels, f: &Family) -> (tempfile::TempDir, LanceStore) {
@@ -1001,19 +999,12 @@ mod stage3 {
         ));
     }
 
-    /// The semijoin mask is built through relalg up to `SEMIJOIN_ATOMS_MAX`
-    /// centers and by the scalar test above it; both give the same rows.
+    /// The semijoin mask is built through relalg for any number of centers,
+    /// past the 4 that fit before relalg released consumed slots.
     #[test]
-    fn the_membership_mask_agrees_on_both_sides_of_the_crossover() {
+    fn the_membership_mask_is_exact_for_any_number_of_centers() {
         let values: Vec<u32> = (0..1_000u32).map(|i| (i * 37) % 500).collect();
-        for k in [
-            0usize,
-            1,
-            7,
-            SEMIJOIN_ATOMS_MAX,
-            SEMIJOIN_ATOMS_MAX + 1,
-            200,
-        ] {
+        for k in [0usize, 1, 4, 5, 64, 200, 500] {
             let centers: Vec<u32> = (0..k as u32).map(|c| c * 3).collect();
             let got = membership_mask(&values, &centers).unwrap();
             for (i, v) in values.iter().enumerate() {

@@ -27,21 +27,6 @@ use mork_pathmap_probe::join::for_each_set;
 use crate::logic::RelId;
 use crate::native::{PreparedStar, StarPlan, prepare_from_rows};
 
-/// Up to this many semijoin centers, the address mask is an `Or` of `eq_u32`
-/// atoms through relalg; above it, the scalar membership test builds it.
-///
-/// The limit comes from a setting, not from the algebra and not from a speed
-/// crossover. relalg lowers `Or(a1..ak)` left-associatively, and each atom
-/// and each `OR` takes a scratch slot of its own (slots are not reused
-/// inside a fold), so `k` centers take `2k - 1` slots. One fold may use
-/// `lance_graph_r2il::MAX_SLOTS` (8, "sized with headroom") of them. Measured:
-/// 4 centers fit (7 slots); 5 need 9 and fail with
-/// `ScratchBufferTooSmall { need_words: 145, have_words: 129 }` at 1,000 rows.
-/// mask-risc itself addresses up to 65,536 slots. A larger arena, or slot
-/// reuse in the fold, lifts this. (The 64-needle crossover in plan §2c is
-/// ndarray's row filter, a different mechanism.)
-pub const SEMIJOIN_ATOMS_MAX: usize = 4;
-
 #[derive(Debug)]
 pub enum LanceStoreError {
     Lance(String),
@@ -260,22 +245,16 @@ pub fn address_mask(values: &[u32], rel: &Rel) -> Result<Vec<u64>, RelError> {
     Ok(keep)
 }
 
-/// Rows whose value is one of `centers` (sorted, deduplicated).
+/// Rows whose value is one of `centers` (sorted, deduplicated): an `Or` of
+/// `eq_u32` atoms through relalg, for any number of centers. relalg releases
+/// each consumed slot (`FoldDialect::call_owned`), so the fold needs three
+/// scratch slots however wide the `Or` is.
 pub fn membership_mask(values: &[u32], centers: &[u32]) -> Result<Vec<u64>, RelError> {
     if centers.is_empty() {
         return Ok(vec![0; words_for(values.len())]);
     }
-    if centers.len() <= SEMIJOIN_ATOMS_MAX {
-        let rel = Rel::Or(centers.iter().map(|&c| Rel::eq_u32(0, c)).collect());
-        return address_mask(values, &rel);
-    }
-    let mut keep = vec![0u64; words_for(values.len())];
-    for (i, v) in values.iter().enumerate() {
-        if centers.binary_search(v).is_ok() {
-            keep[i / 64] |= 1 << (i % 64);
-        }
-    }
-    Ok(keep)
+    let rel = Rel::Or(centers.iter().map(|&c| Rel::eq_u32(0, c)).collect());
+    address_mask(values, &rel)
 }
 
 fn row_addr_mask(mask: &[u64], n: usize, addr: &[u64]) -> (RowAddrMask, usize) {
