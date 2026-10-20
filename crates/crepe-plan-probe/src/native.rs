@@ -265,6 +265,12 @@ fn prepare_with(plan: &StarPlan, store: &Store<'_>, semijoin: bool) -> PreparedS
             }
         }
     }
+    prepare_from_rows(plan, owned)
+}
+
+/// Lays out rows already selected per side (`(rows, generation)`, in plan
+/// side order) over one shared domain.
+pub fn prepare_from_rows(plan: &StarPlan, owned: Vec<(Vec<[u32; 2]>, u64)>) -> PreparedStar {
     let inputs: Vec<(RelationView<'_>, usize)> = owned
         .iter()
         .zip(&plan.sides)

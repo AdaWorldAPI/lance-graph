@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 use lance_graph_mask_risc::Program;
 use mork_pathmap_probe::Semantics;
 
+use crate::addressed::{AddressedRelation, Lookup, prepare_addressed};
+use crate::lance_store::{LanceStore, LanceStoreError, SideIo, prepare_lance};
 use crate::logic::{RelId, Rule};
 use crate::mork_api::{MorkRefusal, QueryMulti, admit, query_multi};
 use crate::native::{
@@ -17,8 +19,19 @@ use crate::optimize::{Demand, Optimized, Options, ResultKind, optimize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PipelineRefusal {
-    Mork { rule: usize, why: MorkRefusal },
-    Native { rule: usize, why: NativeRefusal },
+    Mork {
+        rule: usize,
+        why: MorkRefusal,
+    },
+    Native {
+        rule: usize,
+        why: NativeRefusal,
+    },
+    /// A Lance read or write failed (stage 3 only).
+    Lance(String),
+    /// The addressed arm refused a side (Arm B only): stale lane, unsorted
+    /// table, a demand on the second column, or no attested lane.
+    Addressed(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +51,16 @@ pub struct Costs {
     pub execute: Duration,
 }
 
+/// The output of [`plan`]: what is evaluated, before any row is read.
+#[derive(Debug, Clone)]
+pub struct Planned {
+    pub optimized: Optimized,
+    pub patterns: Vec<QueryMulti>,
+    pub stars: Vec<StarPlan>,
+    pub optimize_cost: Duration,
+    pub map_cost: Duration,
+}
+
 /// Everything one evaluation produced.
 #[derive(Debug, Clone)]
 pub struct Report {
@@ -52,14 +75,13 @@ pub struct Report {
     pub costs: Costs,
 }
 
-/// Rewrites, maps, prepares and runs `rules` for `demand`.
-pub fn evaluate(
+/// The cold half: rewrites and maps `rules` for `demand`; reads no row.
+pub fn plan(
     rules: &[Rule],
     demand: &Demand,
     kind: ResultKind,
     opts: Options,
-    store: &Store<'_>,
-) -> Result<(Outcome, Report), PipelineRefusal> {
+) -> Result<Planned, PipelineRefusal> {
     let t = Instant::now();
     let optimized = optimize(rules, demand, kind, opts);
     let optimize_cost = t.elapsed();
@@ -75,8 +97,27 @@ pub fn evaluate(
     }
     let map_cost = t.elapsed();
 
+    Ok(Planned {
+        optimized,
+        patterns,
+        stars,
+        optimize_cost,
+        map_cost,
+    })
+}
+
+/// Rewrites, maps, prepares and runs `rules` for `demand`.
+pub fn evaluate(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &Store<'_>,
+) -> Result<(Outcome, Report), PipelineRefusal> {
+    let planned = plan(rules, demand, kind, opts)?;
     let t = Instant::now();
-    let prepared: Vec<PreparedStar> = stars
+    let prepared: Vec<PreparedStar> = planned
+        .stars
         .iter()
         .map(|s| {
             if opts.semijoin {
@@ -88,13 +129,36 @@ pub fn evaluate(
         .collect();
     let prepare_cost = t.elapsed();
 
+    let generations: Vec<Vec<u64>> = planned
+        .stars
+        .iter()
+        .map(|s| {
+            s.sides
+                .iter()
+                .map(|side| store.view(side.key.rel).1)
+                .collect()
+        })
+        .collect();
+    execute(planned, prepared, prepare_cost, kind, &generations)
+}
+
+/// The run half: the joint mask per prepared star, then the terminal.
+/// `generations[j]` is the current generation of each side of star `j`.
+pub fn execute(
+    planned: Planned,
+    prepared: Vec<PreparedStar>,
+    prepare_cost: Duration,
+    kind: ResultKind,
+    generations: &[Vec<u64>],
+) -> Result<(Outcome, Report), PipelineRefusal> {
+    let Planned {
+        optimized,
+        patterns,
+        stars,
+        optimize_cost,
+        map_cost,
+    } = planned;
     let t = Instant::now();
-    let generations = |s: &StarPlan| -> Vec<u64> {
-        s.sides
-            .iter()
-            .map(|side| store.view(side.key.rel).1)
-            .collect()
-    };
     let native = |rule: usize, why| PipelineRefusal::Native { rule, why };
     let mut programs = Vec::new();
     let mut programs_run = 0;
@@ -102,11 +166,16 @@ pub fn evaluate(
     let outcome = if kind == ResultKind::Exists && !filtered {
         // Mask-only terminal: no payload is read.
         let mut any = false;
-        for ((i, _), (s, p)) in optimized.rules.iter().zip(stars.iter().zip(&prepared)) {
+        for (j, ((i, _), (s, p))) in optimized
+            .rules
+            .iter()
+            .zip(stars.iter().zip(&prepared))
+            .enumerate()
+        {
             let (run, prog) = joint(
                 p,
                 s,
-                &generations(s),
+                &generations[j],
                 lance_graph_relalg::Measure::Count,
                 None,
             )
@@ -118,11 +187,16 @@ pub fn evaluate(
         Outcome::Exists(any)
     } else {
         let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
-        for ((i, _), (s, p)) in optimized.rules.iter().zip(stars.iter().zip(&prepared)) {
+        for (j, ((i, _), (s, p))) in optimized
+            .rules
+            .iter()
+            .zip(stars.iter().zip(&prepared))
+            .enumerate()
+        {
             // One program per rule: the Keep mask that the bindings are read
             // from; no separate count pass.
             let (rows, run, prog) =
-                bindings_run(p, s, &generations(s), true).map_err(|w| native(*i, w))?;
+                bindings_run(p, s, &generations[j], true).map_err(|w| native(*i, w))?;
             programs_run += run.programs;
             programs.extend(prog);
             for (row, m) in rows {
@@ -161,6 +235,72 @@ pub fn evaluate(
         },
     };
     Ok((outcome, report))
+}
+
+/// [`evaluate`] over Lance tables: each side is read under its address mask
+/// (stage 3, `lance_store::prepare_lance`), and a side's generation is its
+/// table's version at execution. Also returns what each side read.
+pub async fn evaluate_lance(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &LanceStore,
+) -> Result<(Outcome, Report, Vec<Vec<SideIo>>), PipelineRefusal> {
+    let planned = plan(rules, demand, kind, opts)?;
+    let lance = |e: LanceStoreError| PipelineRefusal::Lance(format!("{e:?}"));
+    let t = Instant::now();
+    let mut prepared = Vec::with_capacity(planned.stars.len());
+    let mut io = Vec::with_capacity(planned.stars.len());
+    for s in &planned.stars {
+        let (p, side_io) = prepare_lance(s, store, opts.semijoin)
+            .await
+            .map_err(lance)?;
+        prepared.push(p);
+        io.push(side_io);
+    }
+    let prepare_cost = t.elapsed();
+    let mut generations = Vec::with_capacity(planned.stars.len());
+    for s in &planned.stars {
+        generations.push(store.generations(s).await.map_err(lance)?);
+    }
+    let (outcome, report) = execute(planned, prepared, prepare_cost, kind, &generations)?;
+    Ok((outcome, report, io))
+}
+
+/// [`evaluate`] through the addressed arm (Arm B): each side is read only at
+/// the lane ranges of its demanded keys, located on the attested
+/// `SealedFacetLane`s in `lanes`. Also returns what each side read and the
+/// lookups each side made.
+pub async fn evaluate_addressed(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &LanceStore,
+    lanes: &[AddressedRelation],
+) -> Result<(Outcome, Report, Vec<Vec<SideIo>>, Vec<Vec<Lookup>>), PipelineRefusal> {
+    let planned = plan(rules, demand, kind, opts)?;
+    let lance = |e: LanceStoreError| PipelineRefusal::Lance(format!("{e:?}"));
+    let t = Instant::now();
+    let mut prepared = Vec::with_capacity(planned.stars.len());
+    let mut io = Vec::with_capacity(planned.stars.len());
+    let mut lookups = Vec::with_capacity(planned.stars.len());
+    for s in &planned.stars {
+        let (p, side_io, l) = prepare_addressed(s, store, lanes)
+            .await
+            .map_err(|e| PipelineRefusal::Addressed(format!("{e:?}")))?;
+        prepared.push(p);
+        io.push(side_io);
+        lookups.push(l);
+    }
+    let prepare_cost = t.elapsed();
+    let mut generations = Vec::with_capacity(planned.stars.len());
+    for s in &planned.stars {
+        generations.push(store.generations(s).await.map_err(lance)?);
+    }
+    let (outcome, report) = execute(planned, prepared, prepare_cost, kind, &generations)?;
+    Ok((outcome, report, io, lookups))
 }
 
 /// The goal's relation id, for building a [`Demand`].

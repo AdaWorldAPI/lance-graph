@@ -829,3 +829,626 @@ fn n_semijoin_intersects_two_restricted_sides() {
     assert_eq!(rep_on.rows_prepared, 3 + 2);
     assert_eq!(rep_off.rows_prepared, 4 + 3);
 }
+
+// ---------------------------------------------------------------------------
+// S. Stage 3 over Lance 13 (plan §2d, predictions P1–P4)
+// ---------------------------------------------------------------------------
+
+mod stage3 {
+    use super::*;
+    use crepe_plan_probe::lance_store::{
+        LanceStore, SEMIJOIN_ATOMS_MAX, SideIo, membership_mask, prepare_lance,
+    };
+    use crepe_plan_probe::pipeline::evaluate_lance;
+
+    async fn lance_family(labels: &Labels, f: &Family) -> (tempfile::TempDir, LanceStore) {
+        let dir = tempfile::tempdir().unwrap();
+        let uri = dir.path().to_str().unwrap().to_string();
+        let st = LanceStore::write(
+            &uri,
+            &[
+                (labels.id("Parent").unwrap(), "parent", &f.parent),
+                (labels.id("Allowed").unwrap(), "allowed", &f.allowed),
+                (labels.id("Sponsor").unwrap(), "sponsor", &f.sponsor),
+            ],
+        )
+        .await
+        .unwrap();
+        (dir, st)
+    }
+
+    fn kinds() -> [ResultKind; 5] {
+        [
+            ResultKind::Bindings(SET),
+            ResultKind::Bindings(BAG),
+            ResultKind::Count(SET),
+            ResultKind::Count(BAG),
+            ResultKind::Exists,
+        ]
+    }
+
+    /// P1: the Lance path answers what the in-memory path and the reference
+    /// answer, for every option set and result kind, on both demands.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn p1_lance_answers_equal_the_memory_path_and_the_reference() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let (_dir, lance) = lance_family(&labels, &f).await;
+        for x in [17, 5, 999] {
+            let d = answer_demand(&labels, x);
+            let want = reference_bag(&labels, &rules, &mem, &d);
+            for opts in [Options::ALL, NO_SEMIJOIN, Options::NONE] {
+                for kind in kinds() {
+                    let (m, _) = evaluate(&rules, &d, kind, opts, &mem).unwrap();
+                    let (l, _, _) = evaluate_lance(&rules, &d, kind, opts, &lance)
+                        .await
+                        .unwrap();
+                    assert_eq!(l, m, "x={x} {opts:?} {kind:?}");
+                }
+                let (bag, _, _) =
+                    evaluate_lance(&rules, &d, ResultKind::Bindings(BAG), opts, &lance)
+                        .await
+                        .unwrap();
+                assert_eq!(bindings(bag), want.clone().into_iter().collect::<Vec<_>>());
+            }
+        }
+    }
+
+    /// P2: every masked read scans and returns exactly `|R|` rows.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn p2_every_masked_read_scans_exactly_the_mask() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let (_dir, lance) = lance_family(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let (_, _, io) =
+            evaluate_lance(&rules, &d, ResultKind::Bindings(SET), Options::ALL, &lance)
+                .await
+                .unwrap();
+        let masked: Vec<(usize, &SideIo)> = io
+            .iter()
+            .flatten()
+            .filter_map(|s| s.mask_rows.map(|r| (r, s)))
+            .collect();
+        // Parent(17, y), Parent(y, z) and Allowed(y) are all read under a mask.
+        assert_eq!(masked.len(), 3, "{io:?}");
+        for (r, s) in &masked {
+            assert_eq!(s.rows.rows_scanned, *r, "{s:?}");
+            assert_eq!(s.rows.rows_returned, *r, "{s:?}");
+        }
+        // Not vacuous: the masks are much smaller than the tables.
+        let total: usize = masked.iter().map(|(r, _)| r).sum();
+        assert_eq!(total, 3 + 5 + 3);
+        assert!(
+            masked
+                .iter()
+                .any(|(_, s)| s.mask_column.unwrap().rows_returned == f.parent.len())
+        );
+    }
+
+    /// P3: the rows handed to `prepare_star` equal the in-memory semijoin's.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn p3_prepared_rows_equal_the_memory_path() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let (_dir, lance) = lance_family(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        for opts in [Options::ALL, NO_SEMIJOIN] {
+            let kind = ResultKind::Bindings(BAG);
+            let (_, rm) = evaluate(&rules, &d, kind, opts, &mem).unwrap();
+            let (_, rl, _) = evaluate_lance(&rules, &d, kind, opts, &lance)
+                .await
+                .unwrap();
+            assert_eq!(rl.rows_prepared, rm.rows_prepared, "{opts:?}");
+        }
+        // Two restricted sides, intersected.
+        let plan = two_way::crepe_plan();
+        let (labels, rules) = resolved(&plan);
+        let r: Vec<[u32; 2]> = vec![[1, 10], [1, 10], [1, 11], [1, 12], [2, 10], [7, 70]];
+        let s: Vec<[u32; 2]> = vec![[10, 9], [11, 9], [11, 8], [12, 7], [13, 9], [70, 1]];
+        let dir = tempfile::tempdir().unwrap();
+        let lance = LanceStore::write(
+            dir.path().to_str().unwrap(),
+            &[
+                (labels.id("R").unwrap(), "r", &r),
+                (labels.id("S").unwrap(), "s", &s),
+            ],
+        )
+        .await
+        .unwrap();
+        let mem = Store {
+            relations: vec![
+                (labels.id("R").unwrap(), &r, 1),
+                (labels.id("S").unwrap(), &s, 1),
+            ],
+        };
+        let d = Demand {
+            goal: labels.id("T").unwrap(),
+            bound: vec![Some(1), None, Some(9)],
+        };
+        let kind = ResultKind::Bindings(BAG);
+        let (om, rm) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+        let (ol, rl, _) = evaluate_lance(&rules, &d, kind, Options::ALL, &lance)
+            .await
+            .unwrap();
+        assert_eq!(ol, om);
+        assert_eq!((rl.rows_prepared, rm.rows_prepared), (5, 5));
+    }
+
+    /// P4: a write that adds a version makes a table prepared before it stale.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn p4_an_append_makes_the_prepared_table_stale() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let (_dir, lance) = lance_family(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let planned =
+            crepe_plan_probe::pipeline::plan(&rules, &d, ResultKind::Bindings(SET), Options::ALL)
+                .unwrap();
+        let star = &planned.stars[0];
+        let (prep, _) = prepare_lance(star, &lance, true).await.unwrap();
+        let before = lance.generations(star).await.unwrap();
+        assert!(joint(&prep, star, &before, Measure::Count, None).is_ok());
+        let parent = labels.id("Parent").unwrap();
+        let v = lance.append(parent, &[[17, 4]]).await.unwrap();
+        let after = lance.generations(star).await.unwrap();
+        assert_eq!(after[0], v);
+        assert!(matches!(
+            joint(&prep, star, &after, Measure::Count, None),
+            Err(NativeRefusal::Table(JoinRefusal::Stale { side: 0, .. }))
+        ));
+    }
+
+    /// The semijoin mask is built through relalg up to `SEMIJOIN_ATOMS_MAX`
+    /// centers and by the scalar test above it; both give the same rows.
+    #[test]
+    fn the_membership_mask_agrees_on_both_sides_of_the_crossover() {
+        let values: Vec<u32> = (0..1_000u32).map(|i| (i * 37) % 500).collect();
+        for k in [
+            0usize,
+            1,
+            7,
+            SEMIJOIN_ATOMS_MAX,
+            SEMIJOIN_ATOMS_MAX + 1,
+            200,
+        ] {
+            let centers: Vec<u32> = (0..k as u32).map(|c| c * 3).collect();
+            let got = membership_mask(&values, &centers).unwrap();
+            for (i, v) in values.iter().enumerate() {
+                let bit = got[i / 64] >> (i % 64) & 1 == 1;
+                assert_eq!(bit, centers.contains(v), "k={k} i={i}");
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// B. Arm B: the addressed semijoin over attested lanes (plan §2e)
+// ---------------------------------------------------------------------------
+
+mod arm_b {
+    use super::*;
+    use crepe_plan_probe::addressed::{AddressedRefusal, AddressedRelation, attest, key};
+    use crepe_plan_probe::lance_store::{LanceStore, SideIo};
+    use crepe_plan_probe::pipeline::{PipelineRefusal, evaluate_addressed, evaluate_lance};
+    use lance_graph_contract::ordered_lane::WitnessError;
+
+    struct Fixture {
+        _dir: tempfile::TempDir,
+        lance: LanceStore,
+        lanes: Vec<AddressedRelation>,
+    }
+
+    async fn fixture(labels: &Labels, f: &Family) -> Fixture {
+        let dir = tempfile::tempdir().unwrap();
+        let rels = [
+            (labels.id("Parent").unwrap(), "parent", f.parent.as_slice()),
+            (
+                labels.id("Allowed").unwrap(),
+                "allowed",
+                f.allowed.as_slice(),
+            ),
+            (
+                labels.id("Sponsor").unwrap(),
+                "sponsor",
+                f.sponsor.as_slice(),
+            ),
+        ];
+        let lance = LanceStore::write(dir.path().to_str().unwrap(), &rels)
+            .await
+            .unwrap();
+        let mut lanes = Vec::new();
+        for (rel, _, _) in rels {
+            lanes.push(attest(&lance, rel).await.unwrap());
+        }
+        Fixture {
+            _dir: dir,
+            lance,
+            lanes,
+        }
+    }
+
+    fn kinds() -> [ResultKind; 5] {
+        [
+            ResultKind::Bindings(SET),
+            ResultKind::Bindings(BAG),
+            ResultKind::Count(SET),
+            ResultKind::Count(BAG),
+            ResultKind::Exists,
+        ]
+    }
+
+    /// The written key order is the numeric order of the rows: `key(a, b)`
+    /// compares as `(a, b)`.
+    #[test]
+    fn the_key_orders_as_its_pair() {
+        let pairs = [
+            [0u32, 0],
+            [0, 1],
+            [0, u32::MAX],
+            [1, 0],
+            [65_535, 7],
+            [65_536, 0],
+            [u32::MAX, 0],
+        ];
+        for w in pairs.windows(2) {
+            assert!(
+                key(w[0][0], w[0][1]).cmp_numeric_projection(&key(w[1][0], w[1][1]))
+                    == std::cmp::Ordering::Less,
+                "{w:?}"
+            );
+        }
+    }
+
+    /// B1: Arm B answers what the memory path, Arm A and the reference
+    /// answer, for every result kind, on a hit, a sponsor branch and a miss.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b1_addressed_answers_equal_memory_arm_a_and_the_reference() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        for x in [17, 5, 999] {
+            let d = answer_demand(&labels, x);
+            let want = reference_bag(&labels, &rules, &mem, &d);
+            for kind in kinds() {
+                let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+                let (a, _, _) = evaluate_lance(&rules, &d, kind, Options::ALL, &fx.lance)
+                    .await
+                    .unwrap();
+                let (b, _, _, _) =
+                    evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                        .await
+                        .unwrap();
+                assert_eq!(b, m, "x={x} {kind:?}");
+                assert_eq!(b, a, "x={x} {kind:?}");
+            }
+            let (bag, _, _, _) = evaluate_addressed(
+                &rules,
+                &d,
+                ResultKind::Bindings(BAG),
+                Options::ALL,
+                &fx.lance,
+                &fx.lanes,
+            )
+            .await
+            .unwrap();
+            assert_eq!(bindings(bag), want.into_iter().collect::<Vec<_>>());
+        }
+    }
+
+    /// B2: no hidden scan. Every side Arm B reads scans exactly the rows of
+    /// its located ranges, and those are the rows Arm A keeps; Arm A also
+    /// reads the whole mask column, Arm B reads no column at all.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b2_lance_scans_exactly_the_located_ranges() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Bindings(SET);
+        let (_, _, io_a) = evaluate_lance(&rules, &d, kind, Options::ALL, &fx.lance)
+            .await
+            .unwrap();
+        let (_, _, io_b, lookups) =
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                .await
+                .unwrap();
+        let sides_b: Vec<&SideIo> = io_b.iter().flatten().collect();
+        let looks: Vec<_> = lookups.iter().flatten().collect();
+        assert_eq!(sides_b.len(), 3, "{io_b:?}");
+        for (s, l) in sides_b.iter().zip(&looks) {
+            assert!(s.mask_column.is_none(), "{s:?}");
+            assert_eq!(s.rows.rows_scanned, l.rows_in_ranges, "{s:?} {l:?}");
+            assert_eq!(s.rows.rows_returned, l.rows_in_ranges, "{s:?} {l:?}");
+        }
+        // Parent(17, y): 3 rows. Parent(y, z) for y in {1, 2, 3}: 5. Allowed(y): 3.
+        let scanned_b: usize = sides_b.iter().map(|s| s.rows.rows_scanned).sum();
+        assert_eq!(scanned_b, 3 + 5 + 3);
+        let scanned_a: usize = io_a
+            .iter()
+            .flatten()
+            .map(|s| s.rows.rows_scanned + s.mask_column.map_or(0, |c| c.rows_scanned))
+            .sum();
+        // Not vacuous: Arm A reads every mask column in full.
+        assert_eq!(scanned_a, 3 + 5 + 3 + 2 * f.parent.len() + f.allowed.len());
+        assert!(scanned_b * 10 < scanned_a, "{scanned_b} vs {scanned_a}");
+    }
+
+    /// B3: a demand that matches nothing reads nothing.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b3_a_miss_reads_no_rows() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 999);
+        let (out, _, io, _) = evaluate_addressed(
+            &rules,
+            &d,
+            ResultKind::Count(BAG),
+            Options::ALL,
+            &fx.lance,
+            &fx.lanes,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out, Outcome::Count(0));
+        let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
+        assert_eq!(scanned, 0, "{io:?}");
+    }
+
+    /// B4: a high-degree center. Every row of the hub is read once, and the
+    /// answer equals the memory path.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b4_a_hub_is_read_once_per_row() {
+        let mut f = family_data();
+        for h in 0..500u32 {
+            f.parent.push([7, 10_000 + h]);
+            f.parent.push([10_000 + h, 9]);
+            f.allowed.push([10_000 + h, 10_000 + h]);
+        }
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 7);
+        let kind = ResultKind::Count(BAG);
+        let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+        let (b, _, io, lookups) =
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                .await
+                .unwrap();
+        assert_eq!(b, m);
+        assert_eq!(b, Outcome::Count(500));
+        let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
+        assert_eq!(scanned, 3 * 500);
+        // The two unrestricted sides each sought the 500 distinct centers.
+        let sought: Vec<usize> = lookups.iter().flatten().map(|l| l.keys).collect();
+        assert_eq!(sought, vec![1, 500, 500]);
+    }
+
+    /// B5: a demanded key repeated by the restricted side is sought once, and
+    /// the bag multiplicity of the stored facts survives.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b5_a_repeated_center_is_sought_once_and_multiplicity_is_kept() {
+        let mut f = family_data();
+        // Parent(17, 2) twice: center 2 appears twice on the restricted side.
+        f.parent.push([17, 2]);
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Bindings(BAG);
+        let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+        let (b, _, _, lookups) =
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                .await
+                .unwrap();
+        assert_eq!(b, m);
+        let sought: Vec<usize> = lookups.iter().flatten().map(|l| l.keys).collect();
+        assert_eq!(sought, vec![1, 3, 3], "centers {{1, 2, 3}}, each once");
+        // Not vacuous: z = 10 comes once through y = 1 and 2 x 2 times through
+        // y = 2 (Parent(17, 2) twice, Allowed(2) twice); z = 12 only through
+        // y = 2. Without the duplicate fact this is 1 + 2 + 2 = 5.
+        let Outcome::Bindings(rows) = b else { panic!() };
+        let mult = |z: u64| rows.iter().find(|(t, _)| t[1] == z).map_or(0, |(_, n)| *n);
+        assert_eq!((mult(10), mult(12)), (5, 4), "{rows:?}");
+    }
+
+    /// B6: a table written out of key order gets no witness.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b6_an_unsorted_table_is_refused_at_attest() {
+        const R0: crepe_plan_probe::logic::RelId = crepe_plan_probe::logic::RelId(0);
+        let dir = tempfile::tempdir().unwrap();
+        let rows = [[5u32, 1], [1, 2], [3, 3]];
+        let lance = LanceStore::write_as_given(dir.path().to_str().unwrap(), &[(R0, "r", &rows)])
+            .await
+            .unwrap();
+        assert!(matches!(
+            attest(&lance, R0).await,
+            Err(AddressedRefusal::Witness(WitnessError::NotSorted {
+                first_inversion_at: 1
+            }))
+        ));
+        // Silence twin: the same rows in key order are attested.
+        let dir2 = tempfile::tempdir().unwrap();
+        let sorted = LanceStore::write(dir2.path().to_str().unwrap(), &[(R0, "r", &rows)])
+            .await
+            .unwrap();
+        assert!(attest(&sorted, R0).await.is_ok());
+    }
+
+    /// B7: an append after attest makes the lane stale; re-attesting serves
+    /// the new rows.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b7_an_append_makes_the_lane_stale() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Count(BAG);
+        let parent = labels.id("Parent").unwrap();
+        fx.lance.append(parent, &[[999_999, 1]]).await.unwrap();
+        let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes).await;
+        assert!(
+            matches!(&got, Err(PipelineRefusal::Addressed(s)) if s.starts_with("Stale")),
+            "{got:?}"
+        );
+        // Re-attesting is refused too: the append landed in a second
+        // fragment, so lane position is no longer row address. The arm needs
+        // the table compacted (or rewritten) before it can address it again.
+        assert!(matches!(
+            attest(&fx.lance, parent).await,
+            Err(AddressedRefusal::NotContiguous { rel }) if rel == parent
+        ));
+    }
+
+    /// B8: a side whose restriction or demand is on the second column is
+    /// refused by name; the lane is ordered by the first.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b8_a_demand_on_the_second_column_is_refused() {
+        let plan = two_way::crepe_plan();
+        let (labels, rules) = resolved(&plan);
+        let r: Vec<[u32; 2]> = vec![[1, 10], [1, 11], [2, 10]];
+        let s: Vec<[u32; 2]> = vec![[10, 9], [11, 8]];
+        let dir = tempfile::tempdir().unwrap();
+        let (rr, ss) = (labels.id("R").unwrap(), labels.id("S").unwrap());
+        let lance = LanceStore::write(
+            dir.path().to_str().unwrap(),
+            &[(rr, "r", &r), (ss, "s", &s)],
+        )
+        .await
+        .unwrap();
+        let lanes = vec![
+            attest(&lance, rr).await.unwrap(),
+            attest(&lance, ss).await.unwrap(),
+        ];
+        let goal = labels.id("T").unwrap();
+        let kind = ResultKind::Count(BAG);
+        // S(y, 9): the constant is on S's second column.
+        let d = Demand {
+            goal,
+            bound: vec![Some(1), None, Some(9)],
+        };
+        let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &lance, &lanes).await;
+        assert!(
+            matches!(&got, Err(PipelineRefusal::Addressed(e)) if e.starts_with("NotLeadingColumn")),
+            "{got:?}"
+        );
+        // Silence twin: the constant on R's first column only is served.
+        let d = Demand {
+            goal,
+            bound: vec![Some(1), None, None],
+        };
+        let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &lance, &lanes).await;
+        assert_eq!(got.unwrap().0, Outcome::Count(2));
+    }
+
+    /// B10: a demand constant above `u32::MAX` matches nothing on every path
+    /// (no stored value is that large), instead of being refused.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b10_a_constant_above_u32_matches_nothing() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, u64::from(u32::MAX) + 1);
+        for kind in kinds() {
+            let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+            let (a, _, _) = evaluate_lance(&rules, &d, kind, Options::ALL, &fx.lance)
+                .await
+                .unwrap();
+            let (b, _, io, _) =
+                evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                    .await
+                    .unwrap();
+            assert_eq!(a, m, "{kind:?}");
+            assert_eq!(b, m, "{kind:?}");
+            let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
+            assert_eq!(scanned, 0, "{kind:?}");
+        }
+        // Not vacuous: the memory path answers nothing here.
+        let (m, _) = evaluate(&rules, &d, ResultKind::Count(BAG), Options::ALL, &mem).unwrap();
+        assert_eq!(m, Outcome::Count(0));
+    }
+
+    /// B11: with nothing bound there are no centers, every side is read in
+    /// full, and a side keyed by its second column is served.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b11_an_unbound_demand_reads_every_side_in_full() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = Demand {
+            goal: labels.id("Answer").unwrap(),
+            bound: vec![None, None],
+        };
+        for kind in kinds() {
+            let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+            let (b, _, _, _) =
+                evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                    .await
+                    .unwrap();
+            assert_eq!(b, m, "{kind:?}");
+        }
+        // Not vacuous: Parent(x, y) is keyed by its second column here.
+        let planned =
+            crepe_plan_probe::pipeline::plan(&rules, &d, ResultKind::Count(BAG), Options::ALL)
+                .unwrap();
+        assert!(
+            planned
+                .stars
+                .iter()
+                .any(|s| s.sides.iter().any(|side| side.key.key_col == 1))
+        );
+    }
+
+    /// B12: a lane attested on one table is refused against another table
+    /// with the same relation id and version.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b12_a_lane_from_another_dataset_is_refused() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let one = fixture(&labels, &f).await;
+        let mut g = family_data();
+        g.parent[0] = [17, 2];
+        let two = fixture(&labels, &g).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Count(BAG);
+        // Same relation ids and versions on both stores.
+        for (l1, l2) in one.lanes.iter().zip(&two.lanes) {
+            assert_eq!((l1.rel, l1.lane.version()), (l2.rel, l2.lane.version()));
+        }
+        let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &two.lance, &one.lanes).await;
+        assert!(
+            matches!(&got, Err(PipelineRefusal::Addressed(e)) if e.starts_with("OtherDataset")),
+            "{got:?}"
+        );
+        // Silence twin: each store with its own lanes is served.
+        assert!(
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &two.lance, &two.lanes)
+                .await
+                .is_ok()
+        );
+    }
+
+    /// B9: the arm adds no program and no foreign hop.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn b9_the_addressed_arm_adds_no_program() {
+        let f = family_data();
+        let (labels, rules) = resolved(&family::crepe_plan());
+        let mem = store(&labels, &f, [1, 1, 1]);
+        let fx = fixture(&labels, &f).await;
+        let d = answer_demand(&labels, 17);
+        let kind = ResultKind::Bindings(SET);
+        let (_, rm) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
+        let (_, rb, _, _) =
+            evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                .await
+                .unwrap();
+        assert_eq!(rb.programs.len(), rm.programs.len());
+        assert_eq!(rb.rows_prepared, rm.rows_prepared);
+    }
+}
