@@ -1,6 +1,6 @@
 # Calibrated 219: original musical-qualia annotations
 
-> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1607.
+> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1607.
 
 This is an **additive, provenance-preserving** companion to the artifacts introduced by PR #1571.
 

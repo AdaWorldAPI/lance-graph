@@ -1,6 +1,6 @@
 # Can AI be a subject like us? A Hegelian speculative-philosophical approach
 
-> **Plan and board (2026-10-20):** owned by [`dialectic-engine-v1`](../.claude/plans/dialectic-engine-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1610.
+> **Plan and board (2026-10-20):** owned by [`dialectic-engine-v1`](../.claude/plans/dialectic-engine-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1610.
 
 **Author:** Ermylos Plevrakis  
 **Journal:** Discover Computing 27, Article 46 (2024)  
