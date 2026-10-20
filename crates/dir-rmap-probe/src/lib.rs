@@ -67,6 +67,50 @@ pub fn templates(f: &Fixture) -> Vec<(u32, u32)> {
         .collect()
 }
 
+/// Policy conjunctions, in fixture ids: the distinct `(role, location)`
+/// pairs users hold, directly or through a composite, in first-seen user
+/// order. A conjunction is a question asked of the closure ("in R and in
+/// L"); it is never stored as a membership. On a fixture without composites
+/// this is the only form role x location takes.
+pub fn conjunctions(f: &Fixture) -> Vec<(u32, u32)> {
+    let mut parents: std::collections::HashMap<u32, (Option<u32>, Option<u32>)> =
+        Default::default();
+    for &(c, p) in &f.nested {
+        if f.kind[c as usize] == Kind::Composite {
+            let e = parents.entry(c).or_default();
+            match f.kind[p as usize] {
+                Kind::Role => e.0 = Some(p),
+                Kind::Location => e.1 = Some(p),
+                _ => {}
+            }
+        }
+    }
+    let mut held: Vec<(Option<u32>, Option<u32>)> = vec![(None, None); f.users.len()];
+    for &(u, g) in &f.direct {
+        let h = &mut held[u as usize];
+        match f.kind[g as usize] {
+            Kind::Role => h.0 = Some(g),
+            Kind::Location => h.1 = Some(g),
+            Kind::Composite => *h = parents[&g],
+            _ => {}
+        }
+    }
+    let mut seen = std::collections::HashSet::new();
+    held.iter()
+        .filter_map(|&(r, l)| Some((r?, l?)))
+        .filter(|p| seen.insert(*p))
+        .collect()
+}
+
+/// Materialized composite groups, in fixture ids: "is the user in this
+/// composite" is one membership bit, a different question from the
+/// conjunction of its role and location.
+pub fn composite_groups(f: &Fixture) -> Vec<u32> {
+    (0..f.groups.len() as u32)
+        .filter(|&g| f.kind[g as usize] == Kind::Composite)
+        .collect()
+}
+
 /// The longest prefix of `templates` whose groups fit in `k` slots, and
 /// those groups (first-seen order).
 pub fn focus_for(templates: &[(u32, u32)], k: usize) -> (Vec<(u32, u32)>, Vec<u32>) {

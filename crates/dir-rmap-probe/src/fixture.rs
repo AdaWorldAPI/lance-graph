@@ -77,6 +77,24 @@ impl Spec {
         }
     }
 
+    /// [`Spec::iam`] with the role, resource and composite counts multiplied
+    /// by `factor`: the group-count sweep that pushes the B+ closure past L2.
+    pub fn iam_scaled(users: usize, factor: usize) -> Self {
+        let mut s = Spec::iam(users);
+        s.roles *= factor;
+        s.resources *= factor;
+        s.composites *= factor;
+        s
+    }
+
+    /// The same shape with no composite groups: every user holds its role
+    /// and its location directly, and role x location exists only as a
+    /// question (the policy-conjunction fixture).
+    pub fn without_composites(mut self) -> Self {
+        self.composites = 0;
+        self
+    }
+
     /// A few hundred users and groups: for the exhaustive equivalence tests.
     pub fn small() -> Self {
         Spec {

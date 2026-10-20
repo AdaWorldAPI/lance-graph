@@ -80,6 +80,10 @@ pub enum Refusal {
     Stale,
     /// The question names a group outside the focus.
     OutOfFocus,
+    /// A focus binds at most 256 groups.
+    TooLarge,
+    /// A focus names a group twice.
+    Duplicate,
 }
 
 /// A compressed row table: `row(i)` is sorted.
