@@ -1,3 +1,10 @@
+## 2026-10-20 — main after #1626 (merged `bc8012da`)
+
+- **On main:** #1621 (`fcd1f60e`, D-RMAP focus probe and native join), #1622 (`4dbd0853`, plans D-RST and D-RPR), #1623 (`8b570ed3`, D-RMAP-2 tile-GEMM cell, polyfill tier), #1624 (`7d2722bd`, consolidation, plan links, D-RPR-1 handoff probe), #1625 (`37b866ee`, BF16 byte count), #1626 (`bc8012da`, D-RMAP-2 on the AMX tier). All six have arc entries.
+- **Probe surface in `crates/mork-pathmap-probe` (lab only, nothing admitted):** `rmap` (focus, CSR, tile, `rebind`), `join` (native join), `tile_gemm` (BF16 against bit tile), `chain` (escape-driven handoff).
+- **Blockers now one row each in ISSUES:** `ISS-ADMISSION-PREP-BINDING`, `ISS-RECURSION-DRIVER`, `ISS-RETRACTION-PROVENANCE`, `ISS-DURABLEREF-THOUGHTCOMMITID`.
+- Contract inventory delta: none.
+
 ## 2026-10-19 — main after #1620 (merged `dca8e7b1`)
 
 - **On main:** #1618 (`dbe0696f`, post-merge recovery for #1601–#1617 plus the remediation), #1619 (`8e004a20`, D-RMAP binding palette generation and the D-RMAP-1A §7 versioning crosswalk) and #1620 (`dca8e7b1`, the MORK/PathMap Schnellverschluss probe, D-MPS-0..7). All three have arc entries.
