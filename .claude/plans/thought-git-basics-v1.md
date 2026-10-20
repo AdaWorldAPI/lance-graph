@@ -113,6 +113,18 @@ Below the API, from top to bottom:
 3. `lance-graph-relalg` describes the non-recursive set expressions;
 4. `lance-graph-r2il` lowers them onto mask-risc.
 
+**Polyfill, never legacy** (DECISION, operator, 2026-10-20: "Polyfill, niemals legacy"). Everything the API executes runs on the polyfill stack: `lance-graph-mask-risc` over `ndarray::simd`, described by `lance-graph-relalg` and lowered by `lance-graph-r2il`. No verb, rule or driver wraps, extends or falls back to a legacy path. In this plan that rules out, by name:
+
+- `AlphaTunnel`'s ten static rung lanes (correction item 1 of D-TGA; the slots replace them);
+- the competing `w_slot` readers (`MailboxSoA::apply_edges` corpus filter, `deepnsm-v2` `WitnessTable`), which are migrated, not reused (D-TGB-2);
+- the deleted kanban actor and its advance / tick RPCs; `kanban_actor.rs` is read only;
+- the quarantined `OutgoingHop` gather and the petgraph experiment built on it;
+- DataFusion (grace period) and MemWAL's DataFusion scanner;
+- SWI-Prolog and the Hyperon interpreter as executors (PeTTa's approach is kept, its Prolog runtime is not);
+- `graph-flow`'s session storage as a home for state.
+
+`datafrog` and ACT-R form the abstraction (next paragraph); where they execute, the work lowers to the polyfill, and `datafrog` stays the exact oracle the lowering is checked against.
+
 **The abstraction API: datafrog asks, ACT-R chooses** (DECISION, operator, 2026-10-20: "Ich würde es bevorzugen wenn datafrog und Act-R für Abstraktion API helfen"; the shape below is a PROPOSAL):
 
 - **Questions about thoughts are Datalog over the metadata table, run by `datafrog`.** The metadata table already holds the relations (correction item 8): which thought landed in which version, which sources a delta rests on, which receipts exist, which contradictions were recorded. "Which branches are unremarkable", "which landed facts rest on source s", "what must be replayed when s changes" are then rules over those relations, not hand-written loops. `datafrog` is already the exact oracle for this shape (metta-polyfill §3.0).
