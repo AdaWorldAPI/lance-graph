@@ -358,3 +358,65 @@ fn a_fold_wider_than_max_slots_is_refused_not_truncated() {
         "a fold wider than MAX_SLOTS must be refused, got {wide:?}"
     );
 }
+
+/// FAILS IF: `call_owned` stops releasing the slots an `IntOr` / `IntNot`
+/// consumed (so a chain of `k` ranges needs `2k - 1` slots again), or if plain
+/// `call` starts releasing them too. Plain `call` must keep the old numbering:
+/// its caller may hold copies of a `Val::Slot`, so it is refused past
+/// `MAX_SLOTS` exactly as before.
+#[test]
+fn call_owned_reuses_consumed_slots_and_call_does_not() {
+    let values = lane();
+    let lanes = [LaneRef::I32(&values)];
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+    let width = 4 * MAX_SLOTS;
+
+    // `[0,1) | [1,2) | … | [width-1, width)`, negated twice: `width` rows.
+    let run = |owned: bool| {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![];
+        let op = |d: &mut FoldDialect<'_>, f: FnIndex, v: [u8; 3], s: &mut Vec<Val>| {
+            if owned {
+                d.call_owned(f, v, s)
+            } else {
+                call(d, f, v, s)
+            }
+        };
+        for i in 0..width {
+            op(&mut d, RANGE, [i as u8, i as u8 + 1, 0], &mut stack).expect("RANGE");
+            if i > 0 {
+                op(&mut d, INT_OR, [0; 3], &mut stack).expect("OR");
+            }
+        }
+        op(&mut d, INT_NOT, [0; 3], &mut stack).expect("NOT");
+        op(&mut d, INT_NOT, [0; 3], &mut stack).expect("NOT");
+        let r = call(&mut d, POP_COUNT, [0; 3], &mut stack);
+        let slots = d.last_program().map(|p| p.scratch_slots);
+        (r, stack.last().copied(), slots)
+    };
+
+    let (r, top, slots) = run(true);
+    assert_eq!(r, Ok(()));
+    assert_eq!(top, Some(Val::Scalar(width as i64)));
+    assert_eq!(
+        slots,
+        Some(3),
+        "an owned chain needs the accumulator, one atom and one result"
+    );
+
+    let (r, _, _) = run(false);
+    assert!(
+        matches!(
+            r,
+            Err(FoldError::Exec(
+                lance_graph_mask_risc::ExecError::ScratchBufferTooSmall { .. }
+            ))
+        ),
+        "plain call must keep one slot per result, got {r:?}"
+    );
+}

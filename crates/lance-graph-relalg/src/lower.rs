@@ -180,13 +180,13 @@ fn lower_rel(d: &mut FoldDialect<'_>, s: &mut Vec<Val>, rel: &Rel) -> Result<(),
         Rel::Empty => empty(d, s),
         Rel::All => {
             empty(d, s)?;
-            call(d, INT_NOT, [0; 3], s)
+            owned(d, INT_NOT, s)
         }
         Rel::Plane(p) => load(d, s, SPACE_PLANE, *p),
         Rel::Atom(a) => lower_atom(d, s, *a),
         Rel::Not(c) => {
             lower_rel(d, s, c)?;
-            call(d, INT_NOT, [0; 3], s)
+            owned(d, INT_NOT, s)
         }
         Rel::And(cs) => fold(d, s, cs, INT_AND, &Rel::All),
         Rel::Or(cs) => fold(d, s, cs, INT_OR, &Rel::Empty),
@@ -206,9 +206,17 @@ fn fold(
     lower_rel(d, s, first)?;
     for c in rest {
         lower_rel(d, s, c)?;
-        call(d, op, [0; 3], s)?;
+        owned(d, op, s)?;
     }
     Ok(())
+}
+
+/// A mask op whose operands this lowering owns: every subexpression's value
+/// is consumed exactly once, so the dialect may release the consumed slots
+/// (the contract of `FoldDialect::call_owned`). Width is then free and only
+/// depth costs scratch slots.
+fn owned(d: &mut FoldDialect<'_>, f: FnIndex, s: &mut Vec<Val>) -> Result<(), FoldError> {
+    d.call_owned(f, [0; 3], s)
 }
 
 fn lower_atom(d: &mut FoldDialect<'_>, s: &mut Vec<Val>, a: Atom) -> Result<(), FoldError> {
@@ -218,7 +226,7 @@ fn lower_atom(d: &mut FoldDialect<'_>, s: &mut Vec<Val>, a: Atom) -> Result<(), 
             s.push(Val::Scalar(i64::from(v)));
             call(d, INT_EQUAL, [0; 3], s)?;
             if !eq {
-                call(d, INT_NOT, [0; 3], s)?;
+                owned(d, INT_NOT, s)?;
             }
             Ok(())
         }
@@ -244,7 +252,7 @@ fn lower_atom(d: &mut FoldDialect<'_>, s: &mut Vec<Val>, a: Atom) -> Result<(), 
                 }
             }
             if matches!(op, Cmp::Ge | Cmp::Le | Cmp::Ne) {
-                call(d, INT_NOT, [0; 3], s)?;
+                owned(d, INT_NOT, s)?;
             }
             Ok(())
         }
