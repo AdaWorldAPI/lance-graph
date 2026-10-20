@@ -657,4 +657,9 @@ fn a_focus_refuses_what_it_cannot_answer_completely() {
         Some(Refusal::Stale)
     );
     assert_eq!(f.ask(&c, &w1, 0, &[3]), Err(Refusal::Stale));
+    // A current B+ does not make an old focus current: the focus's own
+    // witness refuses.
+    let c1 = Compiled::compile(w.prepare());
+    assert_eq!(c1.b.check(&w1), Ok(()));
+    assert_eq!(f.ask(&c1, &w1, 0, &[3]), Err(Refusal::Stale));
 }
