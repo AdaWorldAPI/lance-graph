@@ -170,6 +170,10 @@ exclude = [
     # on the AdaWorldAPI forks, results only (D-ASM-10). Run from its directory
     # so its `.cargo/config.toml` applies: `cd crates/mork-pathmap-probe && cargo test`.
     "crates/mork-pathmap-probe",
+    # D-TGB-0 thought-git pre-registration: fixtures, the from-scratch oracle,
+    # and signal checks over lance-graph-contract only. Lab probe; run from
+    # its directory: `cd crates/thought-git-probe && cargo test`.
+    "crates/thought-git-probe",
     # X-C2-1 injection harness (RP-SEAL Tier 0) — fault injection over a
     # synthetic cycle; anti-vacuity gate reproduces the known in-tree
     # false-accepts against the REAL live implementations. Verify via

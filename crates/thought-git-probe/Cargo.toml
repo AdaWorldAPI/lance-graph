@@ -1,0 +1,13 @@
+[package]
+name = "thought-git-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "D-TGB-0 pre-registration: thought-git fixtures, the from-scratch oracle, and checks that the anomaly signals the plan relies on can fire and stay silent. Lab only; no Lance storage."
+
+# Its own workspace root, excluded from the lance-graph workspace (lab probe).
+# Run from THIS directory: `cd crates/thought-git-probe && cargo test`.
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
