@@ -21,12 +21,25 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # The D-MPS-8 versioned relationship table (shared y domain, presence planes,
 # generations) and the MORK/PathMap oracle behind boundary.rs.
 mork-pathmap-probe = { path = "../mork-pathmap-probe" }
+# Arm B: the attested key-ordered lane (`SealedFacetLane`, `OrderedLaneWitness`)
+# and the FacetCascade keys.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# Stage 3 (D-HOLO-H14d): the relations live in a Lance table and are read
+# under the address mask (`with_row_addr_prefilter`). lance 13 / lancedb 0.40
+# move in lockstep, patch floated, as in the workspace manifest.
+lance = { version = "13.*", default-features = false }
+lancedb = { version = "0.40.*", default-features = false, features = ["remote"] }
+arrow-array = "58"
+arrow-schema = "58"
+futures = "0.3"
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
 # The SIMD facade, for the row-filter comparison in examples/row_filter.rs.
 # Same coordinate as mask-risc and mork-pathmap-probe, so the graph keeps one
 # ndarray package.
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+tempfile = "3"
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]

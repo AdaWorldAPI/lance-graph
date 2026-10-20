@@ -1,7 +1,8 @@
 //! The row filter at preparation, two ways, over the same rows: the scalar
 //! test (`binary_search` in a sorted needle set) and `ndarray::simd`'s strided
 //! compare, one pass per needle OR-ed into a mask, over the row bytes and
-//! over a contiguous column (what a column-major store would hand it).
+//! over a contiguous column (what a column-major store would hand it). Every
+//! arm returns the selected rows, so the timings cover the same work.
 //! Release, medians of 31. Not wired into `prepare`: over the row-major store
 //! the strided pass is slower than the scalar test at every needle count
 //! (plan §2c).
@@ -134,9 +135,10 @@ fn main() {
                     eq_u32_to_mask(&column, v, &mut hit);
                     mask_or_assign(&mut m, &hit);
                 }
-                m
+                // The same output as the scalar arm: the rows, not the mask.
+                rows_under(&rows, &m)
             };
-            assert_eq!(contiguous(), mask);
+            assert_eq!(contiguous(), scalar());
             println!(
                 "{n},{k},{},{:.1},{:.1},{:.1},{:.1},{:.1}",
                 scalar().len(),

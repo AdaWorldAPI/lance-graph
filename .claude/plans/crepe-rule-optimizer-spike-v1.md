@@ -28,6 +28,8 @@ Pipeline, one stage per module of the probe:
 - [x] Phase 5: differential tests A–M against `crepe!`, datafrog, MORK, reference; 9 disable runs
 - [x] Phase 6 (limited): Soufflé harvest table (§3)
 - [x] Semijoin reduction before preparation (`Options::semijoin`, `native::prepare_semijoin`; §2b, tests N)
+- [ ] Stage 3 over Lance 13 / lancedb 0.40: masked read per side, predictions P1–P5 (§2d)
+- [ ] CI workflow for this probe
 
 ## 1. Integration point
 
@@ -105,6 +107,29 @@ The semijoin filter (and the constant restriction) is a scalar test per row: bin
 - Over a contiguous column the same compares are 14–20× faster than the strided ones and beat the scalar test up to 64 needles; at 128 the scalar test wins again (the per-needle passes add up).
 - The one-pass alternative, a needle bitmap read through `mask_gather_u32`, is a gather and stays out (2026-10-16 ruling, test H).
 - Consequence for the next step: a column-major relation store (one contiguous `u32` lane per column) is what makes ndarray applicable here, and it is the same change the key-column index needs.
+
+## 2d. Stage 3 over Lance 13 (pre-registered 2026-10-20, before any run)
+
+DECISION (operator, 2026-10-20): "ja, bau Stufe 3 mit Lance 13 und CI-Workflow" / "Lance 13 Lancedb 0.40 is mandatory".
+
+The relations are stored column-major in Lance: one table per relation, columns `c0`, `c1` (`UInt32`), written through lancedb 0.40 and read through lance 13. Preparation becomes H14d's stages 2 and 3 per side:
+
+1. Read the one column the address mask needs (the restriction column, or the key column for the semijoin), with `_rowaddr`.
+2. Build the address mask `R` through relalg over that column as a `U32` lane: `eq_u32(col, k)` for a restriction, `Or` of `eq_u32(key, c)` for the semijoin centers (lowered by mask-risc onto `ndarray::simd::eq_u32_to_mask`). Above 4 centers the mask is built by the scalar membership test instead: each `eq` atom of the `Or` takes one scratch slot and a fold may use at most 8 (`lance_graph_r2il::MAX_SLOTS`), so 5 centers fail with `ScratchBufferTooSmall`. This is relalg's ceiling, not the §2c speed crossover, which is ndarray's row filter.
+3. Read the side's columns with `with_row_addr_prefilter(R)`.
+4. Hand those rows to `JoinTable::prepare_star`, as the in-memory path does.
+
+A side's generation is its Lance table version.
+
+Predictions, each with its falsifier:
+
+- P1. Answers equal the in-memory path and the nested-loop reference on every existing fixture (A, B, C, F, J, N) for set, bag, count and exists. Falsifier: any difference.
+- P2. For every masked read, Lance's `rows_scanned` equals `|R|` exactly, and the rows returned equal `|R|`. Falsifier: any read that scans more rows than `R` admits.
+- P3. Rows handed to `prepare_star` equal the in-memory semijoin path's `rows_prepared` exactly (11 and 5 on the N fixtures). Falsifier: any difference.
+- P4. A write that adds a table version makes a table prepared under the old version stale (`JoinRefusal::Stale`). Falsifier: the old table is accepted.
+- P5 (measured, not predicted as a number): bytes read and wall time per stage at 1,000 / 10,000 / 50,000 rows, against reading every row. No direction is predicted for bytes: H14d found bytes follow page locality, not `|R|`.
+
+Disables: build `R` from the wrong column (P1, P2 red); drop the prefilter (P2 red); skip the version check (P4 red).
 
 ## 3. Soufflé harvest (souffle-lang/souffle `f53dab8`, UPL-1.0; algorithms only, no source copied)
 

@@ -18,10 +18,18 @@
 //! 5. [`native`]: the star read out of the pattern, laid out by the D-MPS-8
 //!    relationship table, the joint mask computed by relalg (`And` of presence
 //!    planes) as one mask-risc program; terminals read the mask.
+//!    - [`lance_store`]: the same star over Lance 13 tables (written through
+//!      lancedb 0.40), each side read under a relalg-built address mask with
+//!      `with_row_addr_prefilter` (D-HOLO-H14d stage 3).
+//!    - [`addressed`]: arm B, the addressed semijoin. Each relation is a lane
+//!      in key order, attested with `SealedFacetLane`; a side reads only the
+//!      ranges of its demanded keys.
 //! 6. [`reference`]: an independent nested-loop evaluator over the resolved,
 //!    unoptimized rules. The unmodified `crepe!` evaluator, datafrog and MORK
 //!    are the other oracles (tests only).
 
+pub mod addressed;
+pub mod lance_store;
 pub mod logic;
 pub mod mork_api;
 pub mod native;
