@@ -339,7 +339,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-HL-0** | Plateau, plan, research map, board entry | Shipped (#1496) | docs only; every claim cites a file or entry |
-| **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Partial: O5 decided 2026-10-14 (up to 64 thought lanes beside the 10 rung lanes); O1 (46..49 = activation i4) and O3 (W = thought layer) decided 2026-10-17; O2, O6 open | stored-meaning changes ship behind a version gate |
+| **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Partial: O5 decided 2026-10-14 (budget: at most 64 thoughts, none required; corrected 2026-10-20: rung is an implied level that can change within a thought, the 10 static rung lanes are deprecated); O1 (46..49 = activation i4) and O3 (W = thought layer) decided 2026-10-17; O2, O6 open | stored-meaning changes ship behind a version gate |
 | **D-HL-2** | Merge-on-read vs in-place revision | Queued | merge-on-read within 1 code of exact on every cell where in-place is not; ≥ 1 cell differs by ≥ 2 codes |
 | **D-HL-3** | Per-delta evidential base as the independence test (layer ≠ source) | Queued | sd ratio within 10 % of 1.0 on all four cases, incl. a cross-layer duplicate (counts once) and two independents in one layer (count twice); a layer-keyed rule must fail those two |
 | **D-HL-4** | Narsese parallel calibration (OpenNARS vs CE64 deltas, `jc::reliability`) | Queued (after D-HL-2 and D-HL-3) | an encoding that does not beat linear ICC by the pre-declared margin is dropped |

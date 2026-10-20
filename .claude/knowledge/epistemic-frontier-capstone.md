@@ -38,7 +38,8 @@ IMMUTABLE ADDRESS SPACE (the frame)
 │   ├── layers 1..63  HYPOTHESES — any strategy, any NAL level, any front end
 │   │     ├── saccade: AlphaOverlay claim order (AlphaStamp: cycle, seq, rung, visits)
 │   │     ├── conclusions: sparse slot deltas keyed by NodeGuid (delta_granularity_probe)
-│   │     └── rung lanes 0..9 INSIDE a thought = attention depth (alpha_tunnel.rs, LEVELS = 10)
+│   │     └── rung = implied level of a claim, can change within one thought (AlphaStamp.rung);
+│   │           the 10 static rung lanes (alpha_tunnel.rs, LEVELS = 10) are deprecated (2026-10-20)
 │   │
 │   ├── PRESENCE BITS instead of references   (coverage_orientation_probe)
 │   │     per row: 64-bit written-by word  → "which realities stand on this identity"
@@ -121,7 +122,7 @@ below was printed by its probe on a v4 (avx512f) build.
 
 | piece | decision / measurement | plan section |
 |---|---|---|
-| budget | up to 64 thought lanes BESIDE the 10 rung lanes; a lane's identity is its own type, not a rung and not a recipe id | Pre-registration (2026-10-14, O5) |
+| budget | a ceiling of 64 thoughts, not a requirement (like a cap on git branches); a lane's identity is its own type, not a rung and not a recipe id. ⊘ "BESIDE the 10 rung lanes" corrected 2026-10-20: rung is an implied level that can change within a thought; the 10 static rung lanes are deprecated | Pre-registration (2026-10-14, O5; corrected 2026-10-20) |
 | lane = treatment | each lane runs one thought on the same fixtures against the same read-only base; external engines fill their lanes from golden outputs, their derivation order is their saccade | Pre-registration |
 | placement | a thought's delta goes into a table it owns, or into one 16-byte slot of a shared table; the 65th table is refused | Placement and the first probe |
 | delta granularity | slot deltas (32-bit mask + changed 16-byte slots) are the default; crossover to row images unstable between k = 8 and 31 | Delta granularity |

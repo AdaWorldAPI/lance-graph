@@ -238,6 +238,9 @@ no lowering into a representation with no second reader.
 
 **Status:** PROPOSAL, written before any lane code or run. Decision O5 taken
 by the operator on 2026-10-14: up to 64 thought lanes beside the 10 rung lanes.
+
+> ⊘ **Corrected 2026-10-20 (operator):** "beside the 10 rung lanes" misrecorded O5. 64 is a **budget ceiling**, like a cap on git branches: it allows up to 64 thoughts and requires none. Rung is not a lane: it is a level implied by the claim and can change within one thought session. The 10 static rung lanes are a deprecated model; the 64 thought slots replace them (`thought-git-api-v1.md`, "Correction: the slot axis"). The hypotheses, metrics and decision rules below are unchanged.
+
 Changing a hypothesis, metric, threshold or decision rule after a run is not an
 edit of this section: it is a new dated section that says what changed and why.
 
@@ -701,9 +704,9 @@ Written before the probe exists; a change after the run is a new dated
 section.
 
 1. **Writer.** Only hydration writes layer 0, as the first execution of the
-   sudoku loop. Layers 1..63 are hypotheses. The lane budget (O5: up to 64
-   thought lanes beside the 10 rung lanes) is unchanged; layer 0 is one of
-   the 64.
+   sudoku loop. Layers 1..63 are hypotheses. The lane budget (O5: a ceiling of
+   64 thoughts, not a requirement; rung is not a lane, see the 2026-10-20
+   correction under "Pre-registration") is unchanged; layer 0 is one of the 64.
 2. **Precedence.** A given is never overwritten. A hypothesis write that
    offers a different value for a given's lane is refused and recorded as a
    contradiction (row, thought, lanes, offered cell), never merged. A write
