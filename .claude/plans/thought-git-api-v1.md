@@ -169,6 +169,11 @@ Open: where the PR record lives (alongside the version as its metadata, or
 as rows of a small log table keyed by version); what Lance 13 lets a commit
 carry has to be checked before choosing.
 
+> **Decided 2026-10-20 (operator):** a separate table, keyed by (data dataset,
+> data version, thought id), holding the PR records, the receipts and the
+> strategy engines' relations, so neither table depends on the other's schema
+> (`thought-git-basics-v1.md`, correction item 8).
+
 ## Rules
 
 1. **Up to date before landing.** `land` refuses a thought whose
@@ -301,4 +306,4 @@ D-TGA-1's falsifiers gain two, both pre-registered here:
 - after `land`, no live cell carries the landed slot number;
 - after a slot is recycled, an edge written against its previous generation is refused, never read as the new thought.
 
-The basics that lead to the ideal state (no stale branches, Rubicon-driven branch decisions, squash/prune/GC as kanban outcomes, replayable thoughts) are planned in [`thought-git-basics-v1.md`](thought-git-basics-v1.md) (D-TGB-0..6).
+The basics that lead to the ideal state (no stale branches, autonomous in-memory branching and squashing with the write as the Rubicon decision, replay as the API and as rebase, replayable thoughts; corrected 2026-10-20) are planned in [`thought-git-basics-v1.md`](thought-git-basics-v1.md) (D-TGB-0..6).

@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-386 entries, 2026-08-06 .. 2026-10-20.
+387 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-20 | `thought-git-replay-api-write-rubicon` |  | [2026-10-20-thought-git-replay-api-write-rubicon.md](2026-10-20-thought-git-replay-api-write-rubicon.md) |
 | 2026-10-20 | `relstore-quack-petgraph-plan` |  | [2026-10-20-relstore-quack-petgraph-plan.md](2026-10-20-relstore-quack-petgraph-plan.md) |
 | 2026-10-20 | `D-RST` |  | [2026-10-20-relstore-geometry-not-graph-api.md](2026-10-20-relstore-geometry-not-graph-api.md) |
 | 2026-10-20 | `recursive-perspective-rebinding` |  | [2026-10-20-recursive-perspective-rebinding.md](2026-10-20-recursive-perspective-rebinding.md) |
