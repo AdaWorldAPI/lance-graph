@@ -96,7 +96,7 @@ Report: total bound cost, sorted-index creation/maintenance, native scan time, r
 
 > **Status: MEASURED, probe only, one host.** Code: `crates/mork-pathmap-probe/src/tile_gemm.rs`, `tests/tile_gemm.rs` (4 tests; 5 guards disable-verified), `examples/tile_gemm_cost.rs` (`cargo run --release --example tile_gemm_cost`). Release, warm, medians of 7, every timed answer checked against a triple-loop oracle. The GEMM arm is `ndarray::simd::bf16_tile_gemm_16x16_packed` through the facade, not a new kernel.
 
-**Tier that ran: the F32x16 FMA polyfill** (`bf16_tile_gemm_tier()`). This host has `avx512_vnni` and `avx512bw` but neither AMX nor `avx512_bf16`. No tile-tier number exists here; the AMX and `VDPBF16PS` cells of §4 remain unmeasured.
+**Tier that ran: the F32x16 FMA polyfill** (`bf16_tile_gemm_tier()`). This host has `avx512_vnni` and `avx512bw` but neither AMX nor `avx512_bf16`. No tile-tier number exists here; the AMX and `VDPBF16PS` cells of §4 remain unmeasured. This is the hardware, not detection (ndarray `.claude/AMX_GOTCHAS.md` Gotcha 4: a wrong `arch_prctl` syscall number once made `amx_available()` false on real AMX hosts). Checked directly on this host: CPUID.7.0 EDX bits 22/24/25 (AMX-BF16/TILE/INT8) = 0, CPUID.7.1 EAX bit 5 (AVX512-BF16) = 0, XCR0 = `0xe7` (XTILECFG/XTILEDATA bits 17/18 clear), and `arch_prctl(ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA)` on syscall 158 returns `-95` (EOPNOTSUPP). The AMX status in the gotcha file was measured on an Emerald Rapids VM, which this one is not.
 
 | Map | edges | triangles | bit compose | bit walk counts (popcount) | bit triangles | BF16 stage | BF16 `A·A` (packed / row-major) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
