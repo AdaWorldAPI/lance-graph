@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-394 entries, 2026-08-06 .. 2026-10-20.
+395 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -46,6 +46,7 @@ exactly one of them, never both.
 | 2026-10-20 | `D-RMAP-2` |  | [2026-10-20-d-rmap-2-tile-gemm-cell.md](2026-10-20-d-rmap-2-tile-gemm-cell.md) |
 | 2026-10-20 | `D-RMAP-2-AMX` |  | [2026-10-20-d-rmap-2-amx-tier.md](2026-10-20-d-rmap-2-amx-tier.md) |
 | 2026-10-20 | `D-RMAP-2-AMX-RERUN` | §5a-AMX re-measured on a second AMX host | [2026-10-20-d-rmap-2-amx-remeasured.md](2026-10-20-d-rmap-2-amx-remeasured.md) |
+| 2026-10-20 | `D-CMR-1` |  | [2026-10-20-d-cmr-1-set-algebra.md](2026-10-20-d-cmr-1-set-algebra.md) |
 | 2026-10-20 | `D-SRAM-2` |  | [2026-10-20-crepe-rule-optimizer-spike.md](2026-10-20-crepe-rule-optimizer-spike.md) |
 | 2026-10-20 | `ce64-isa-not-storage` |  | [2026-10-20-ce64-isa-not-storage.md](2026-10-20-ce64-isa-not-storage.md) |
 | 2026-10-20 | `arm-b-prepare` |  | [2026-10-20-arm-b-prepare.md](2026-10-20-arm-b-prepare.md) |
