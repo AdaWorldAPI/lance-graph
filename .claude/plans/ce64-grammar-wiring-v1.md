@@ -298,7 +298,7 @@ D-CGW-13's OpenPSI runner.
 
 ## Connected sources from #1601–#1617 (2026-10-20)
 
-Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
 
 - [`.arxiv/2409.20212_graph_attributes_structure_matching_gasm_bookmark.md`](../../.arxiv/2409.20212_graph_attributes_structure_matching_gasm_bookmark.md) (#1611): READ LATER: Graph Attributes and Structure Matching (GASM)
 - [`.arxiv/2412.01423_semantic_maps_top_down_crosslinguistic_graph_bookmark.md`](../../.arxiv/2412.01423_semantic_maps_top_down_crosslinguistic_graph_bookmark.md) (#1611): READ LATER: Top-down crosslinguistic semantic map graphs

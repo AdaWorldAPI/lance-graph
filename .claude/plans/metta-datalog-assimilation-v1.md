@@ -196,6 +196,6 @@ Rules of the doctrine:
 
 ## Connected sources from #1601–#1617 (2026-10-20)
 
-Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
 
 - [`.arxiv/2310.18318v1_opencog_hyperon_100_page_reading_bookmark.md`](../../.arxiv/2310.18318v1_opencog_hyperon_100_page_reading_bookmark.md) (#1611): READ LATER: OpenCog Hyperon (100-page background and introduction)

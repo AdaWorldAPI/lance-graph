@@ -242,7 +242,7 @@ because it carries the stage-1 reduction).
 
 ## Connected sources from #1601–#1617 (2026-10-20)
 
-Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
 
 - [`.arxiv/2606.24948_superposition_capacity_breaks_two_hop_retrieval.md`](../../.arxiv/2606.24948_superposition_capacity_breaks_two_hop_retrieval.md) (#1601): arXiv:2606.24948 — Global superposition breaks two-hop retrieval before composition
 - [`.arxiv/2502.20233_selective_yannakakis_smash_mask_first_thought_coordinates.md`](../../.arxiv/2502.20233_selective_yannakakis_smash_mask_first_thought_coordinates.md) (#1611): Selective Yannakakis / SMASH: choose when to reduce before joining

@@ -13,9 +13,9 @@ Plan `mork-pathmap-schnellverschluss-v1.md`; entry `entries/2026-10-19-mork-path
 | D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` | BLOCKED (`RelationOrder` not built) | no copy, or the copy stated |
 | D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | OPEN | probe vendors nothing |
 
-## Plan links for ChatGPT-authored #1601–#1617 (2026-10-20)
+## Plan links for #1601–#1617 (2026-10-20)
 
-Entry `entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`. Each docs or data artifact now names its owning plan, and each owning plan lists it.
+Entry `entries/2026-10-20-prs-1601-1617-plan-links.md`. Each docs or data artifact now names its owning plan, and each owning plan lists it.
 
 | Item | Scope | Status | Evidence |
 |---|---|---|---|

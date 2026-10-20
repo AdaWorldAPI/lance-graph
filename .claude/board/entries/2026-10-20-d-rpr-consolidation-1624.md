@@ -22,7 +22,7 @@ Two sessions distilled the same research brief. #1622 merged first and is canoni
 
 ## Preserved unchanged from #1624
 
-The 19 artifact back-links, 11 plan forward-links and entry `2026-10-20-chatgpt-prs-1601-1617-plan-links.md`, rebased onto `main`.
+The 19 artifact back-links, 11 plan forward-links and entry `2026-10-20-prs-1601-1617-plan-links.md`, rebased onto `main`.
 
 ## Draft probe
 

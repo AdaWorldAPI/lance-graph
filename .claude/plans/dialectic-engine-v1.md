@@ -333,7 +333,7 @@ stamps) and felt form (Datapath, texture) are one event read from two buckets.
 
 ## Connected sources from #1601–#1617 (2026-10-20)
 
-Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md`.
+Docs and data merged in #1601–#1617 that this plan owns. They are reading notes or reference data, not implementation; each now links back here. Board: `.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md`.
 
 - [`.arxiv/hung_vo_2025_the_dialectic_of_ai_hegel_geist_machine_freedom.md`](../../.arxiv/hung_vo_2025_the_dialectic_of_ai_hegel_geist_machine_freedom.md) (#1610): The Dialectic of AI: Hegel, Geist, and the Path to Machine Freedom
 - [`.arxiv/plevrakis_2024_can_ai_be_a_subject_like_us_hegelian_approach.md`](../../.arxiv/plevrakis_2024_can_ai_be_a_subject_like_us_hegelian_approach.md) (#1610): Can AI be a subject like us? A Hegelian speculative-philosophical approach

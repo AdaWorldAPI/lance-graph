@@ -1,6 +1,6 @@
 # Language LEGO: corpus-grounded grammar as executable graph-query algebra
 
-> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-chatgpt-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-chatgpt-prs-1601-1617-plan-links.md). Merged in #1603.
+> **Plan and board (2026-10-20):** owned by [`ce64-grammar-wiring-v1`](../../.claude/plans/ce64-grammar-wiring-v1.md). Board: [2026-10-20-prs-1601-1617-plan-links.md](../../.claude/board/entries/2026-10-20-prs-1601-1617-plan-links.md). Merged in #1603.
 
 **Status:** RESEARCH / RFC ONLY — not an implemented cross-language query compiler.
 **Captured:** 2026-10-18.
