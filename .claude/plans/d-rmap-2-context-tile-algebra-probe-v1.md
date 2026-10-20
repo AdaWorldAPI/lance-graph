@@ -111,6 +111,23 @@ Report: total bound cost, sorted-index creation/maintenance, native scan time, r
 - **Two conclusions, kept apart.** (1) *Measured:* on this host's F32x16 polyfill tier, the bit arm wins every cell, and BF16 is exact. (2) *Not measured:* nothing here says anything about BF16 or AMX tile hardware performance. The polyfill's cost is dominated by allocation, so it is not even a lower bound on what `TDPBF16PS` or `VDPBF16PS` would cost. No layout decision may cite (1) as evidence about (2).
 - **Not measured:** AMX and `VDPBF16PS` hosts; dense relations above one focus (blocked 256 × 256 tiles); weighted or evidence-bearing relations, which §3 excludes anyway.
 
+## 5b. Tile GEMM is a consumer of prepared relationships, not a gather solution (operator, 2026-10-20)
+
+> **Status: RULING-SHAPED CLARIFICATION, recorded as provenance.** Shared with D-RST (`relstore-quack-petgraph-traversal-v1.md` §5b), which carries the cost model and the falsifier F8.
+
+Tile GEMM speeds up arithmetic once relationship operands are in a compatible dense layout. It does not resolve global identities, align coordinate domains, scatter, gather or traverse sparse data. Those happen before the kernel and are paid there. A kernel loads its operands from memory, but only from tiles that something already built.
+
+**Three costs, always reported apart:** preparation (identity resolution, coordinate alignment, index traversal, gathering, packing, tile construction, sealing), execution (bit operations, SIMD, BF16/AMX GEMM on prepared operands) and maintenance (version checks, invalidation, incremental updates, repacking, rebuilds). A tile path wins only if `T_prepare + N·T_exec + M·T_maintain` falls below `N·T_traverse` for the measured reuse count `N` and invalidation count `M`. Break-even counts come from measured values, never from an assumed kernel speedup, and a warm kernel is never compared with a cold traversal.
+
+**What §5a measured, in those terms.**
+- *Execution:* bit composition, popcount counts, triangles and the BF16 product, each on operands already in one 256 × 256 focus.
+- *Part of preparation:* the "BF16 stage" column (bits to dense BF16), and it alone exceeds the whole bit composition.
+- *Not measured:* the preparation that obtains the focus (identity resolution and slot assignment, measured separately in D-RMAP-1A §8), maintenance (no invalidation was exercised), and any reuse count. So §5a ranks execution paths on prepared operands; it says nothing yet about an end-to-end relational operation.
+
+**Boolean and arithmetic answers are different questions.** Reachability needs existence (`And`/`Or`); the BF16 product returns path multiplicities. §5a checked that `count > 0` equals Boolean composition. Using a count as existence is an explicit derivation step, never an implicit one. Exactness: the operands here are 0/1 and the accumulator is F32, so one product is exact up to 2^24. A count fed back as a BF16 operand (a further hop, or a weighted relation) is exact only up to 256, the BF16 significand bound. Such a path checks its counts against that bound and refuses beyond it.
+
+**No new production kernel is added for this hypothesis.** The probe uses `ndarray::simd::bf16_tile_gemm_16x16{,_packed}` through the facade and the existing mask-risc/ndarray bit algebra. The Boolean tile already exists as a mask-risc presence plane and as the 256 × 256 tile in `rmap.rs`. Sparse data is never forced into tiles in order to use GEMM.
+
 ## 6. Recommendation
 
 Use **lance-context GenericStore/SchemaSpec only as a candidate cold durable declaration precedent**, **petgraph::visit as an optional read-only compatibility/oracle facade**, **GraphBLAS as the Boolean algebra oracle**, and **MKL BF16 GEMM as an explicitly falsifiable physical tile accelerator**. The map bank remains in independent typed tables; OGAR provides vocabulary; BIND selects and borrows; RelAlg describes; existing Quack/R2IL/Mask-RISC remains the execution family; CE64 is opaque.
