@@ -1,6 +1,6 @@
 ## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
 
-**Status:** OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
+**Status:** DECIDED B (operator, 2026-10-20; `d-relalg-unified-v1.md` § Decisions): counted, version-witnessed same-table seeks are admitted in preparation; cross-table positional gathers stay forbidden; frozen codebook lookups are admitted under the defined attestation; D-MPS-8 is not cleared by it, and each dependent below keeps its own review. **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
 
 - One question under five names. Each row keeps its own wording and points here:
   - D-RMAP-1 §6, the BIND membrane review;
