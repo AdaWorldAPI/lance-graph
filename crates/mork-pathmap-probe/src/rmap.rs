@@ -752,7 +752,7 @@ impl TileExec {
     /// thought delta (masks `n` = add, `n + 1` = del) and the broadcast
     /// frontier (the last mask). Every operand is a plane over the same
     /// `(target, source)` address space.
-    fn program(n: usize, delta: bool) -> Program {
+    pub fn program(n: usize, delta: bool) -> Program {
         let f = Operand::Plane((n + if delta { 2 } else { 0 }) as u16);
         let mut ops = Vec::new();
         let mut acc = Operand::Plane(0);
