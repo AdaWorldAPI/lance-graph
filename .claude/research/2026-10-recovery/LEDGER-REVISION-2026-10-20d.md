@@ -144,3 +144,12 @@ Closed from (c): **D-46** (C40), **DOC-WIRE (1)** for 43..45 (C39; 50..52 stays 
 | card | runs | items checked | wrong | missed |
 |---|---|---|---|---|
 | substrate-mapper (one per batch, #1547–#1634, 86 PRs) | 10 (9 COMPLETE, 1 PARTIAL: #1573, a merge-heavy diff, read by grep in three ranges, self-reported) | new-file list of every PR against `new file mode` in the source: equal in 83; in #1571, #1607, #1608 the mapper also listed JSON files that the dump excludes from the diff but shows in the stat, and `git log --diff-filter=A` confirms they are new; claims in map 10 read at `relalg/tests/rewrites.rs:613` and `r2il/src/lib.rs:588` | 0 | 0 known |
+
+## 8. Decisions recorded (2026-10-20, later)
+
+The six questions in §6 were decided the same day: ADMISSION B, D-RA-2 A,
+WIRE-50 A, ACTION-GATE A, FLOAT-REFS B, O30 A (32 sources at first), each with
+binding qualifications. Record: `.claude/board/entries/2026-10-20-six-decisions.md`.
+The §6 table above is kept as the question set; the record supersedes its
+recommendation column where they differ (WIRE-50 adds a presence condition
+outside bits 50..52; O30 sets 32 and a versioned `SourceRef`).

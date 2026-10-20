@@ -11,6 +11,8 @@ Before a stage relies on one of them, read the named directory in full.
 
 ## Decisions (2026-10-20)
 
+The same rulings, with their full qualifications (the accounting split `attest_cost` / `projection_build_cost` / `query_read_cost`, and D-MPS-8's conditional block), are recorded in `.claude/board/entries/2026-10-20-six-decisions.md` §1–§2. That entry is the authority where the two differ in wording.
+
 DECISION (operator, 2026-10-20), verbatim: "ADMISSION = B: Counted, version-witnessed same-table seeks sind in Preparation zulässig. Cross-table positional gathers bleiben verboten. Frozen codebook lookups sind unter der definierten Attestation zulässig. D-MPS-8 ist nicht automatisch freigegeben."
 - SCOPE: preparation-time reads. Arm B (#1633, #1639) is the admitted shape.
 - BASIS: ledger (d) ADMISSION; `ISS-ADMISSION-PREP-BINDING`.

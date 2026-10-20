@@ -1,3 +1,17 @@
+---
+name: lance-cache-cartographer
+description: >
+  Answers whether a consumer can size Lance's cache from outside without
+  forking. Traces the exact public call chain from `lancedb::connect(...)` or
+  `lance::dataset::DatasetBuilder` (or a documented env var) down to the
+  `MokaCacheBackend` constructor, citing every hop as file:line, or returns
+  UNREACHABLE with the point where the chain breaks. Read-only. Use before
+  proposing a Lance cache knob, a fork for cache sizing, or a RAM budget that
+  assumes a cache capacity is configurable.
+tools: Read, Glob, Grep, Bash
+model: opus
+---
+
 # lance-cache-cartographer — who can size the cache from outside?
 
 **Tier: Opus (filigran).** Plumbing traces are accumulation: the answer is a

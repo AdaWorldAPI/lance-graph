@@ -1,6 +1,6 @@
 ## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
 
-**Status:** DECIDED B (operator, 2026-10-20; `d-relalg-unified-v1.md` § Decisions): counted, version-witnessed same-table seeks are admitted in preparation; cross-table positional gathers stay forbidden; frozen codebook lookups are admitted under the defined attestation; D-MPS-8 is not cleared by it, and each dependent below keeps its own review. **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
+**Status:** RULED 2026-10-20 (ADMISSION option B, `entries/2026-10-20-six-decisions.md` §1): same-table, version-witnessed key-range seeks over an attested sorted key are admitted in preparation; a position derived from another column or table is not, whatever the phase. Frozen codebook lookups are admitted under the attestation the plan defines (`d-relalg-unified-v1.md` § Decisions). D-MPS-8 stays conditionally blocked (a value-to-relationship-table read position is option C); D-RPR-1 and D-RST-4/6 are admitted only where they classify under B. Was: OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
 
 - One question under five names. Each row keeps its own wording and points here:
   - D-RMAP-1 §6, the BIND membrane review;
@@ -69,7 +69,7 @@
 
 ## ISS-GATHER-HOP-1616 — the merged `OutgoingHop` reads positions taken from another lane's values (2026-10-19)
 
-**Status:** BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).
+**Status:** BLOCKED (quarantined). GATHER-DECISION recorded 2026-10-20 (`entries/2026-10-20-six-decisions.md` §1): `OutgoingHop` stays quarantined; it closes only by a rewrite as a co-addressed read. Was: BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).
 
 - #1616 merged a hop of exactly the shape the 2026-10-16 no-gather ruling bans (D-HOLO H14c/H14d: the join is the layout). The remediation PR does not delete it and does not rename it into a BIND; it compiles only under the off-by-default feature `quarantined-gather-hop`.
 - Default build: a `compile_fail` doctest proves `OutgoingHop` is unreachable (disable-verified). The six original tests run in CI with the feature on.
