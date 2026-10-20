@@ -139,6 +139,13 @@ Later, and only as possibilities (operator, 2026-10-20: "openpsi soll eventuell 
 
 A petgraph API is an optional usability layer on top, not a storage format or an executor, as in `relstore-quack-petgraph-traversal-v1.md` (point 1 there). The existing petgraph experiment rests on the quarantined `OutgoingHop` gather and is not a precedent (same plan, point 2).
 
+**Kanban gets a planning vocabulary later** (DECISION, operator, 2026-10-20: "Kanban sollte später planungs Vokabular mit einer schönen schnellen effektiven API erhalten. Was lasse ich gerne offen. Es muß aber auch quack shaped folding polyfill methods verstehen"):
+
+- **Later, not now.** The phase-1 and phase-2 drivers above come first; the kanban planning vocabulary is a separate, later deliverable (D-TGB-9).
+- **What the vocabulary contains is OPEN** by the operator's choice. It is to be a fast, effective API that is pleasant to use; no verb list is fixed here.
+- **Fixed constraint: it understands Quack-shaped folding.** A planning question is a filter producing a mask plus a fold over that mask, in the shape `lance-graph-quack` already has: `Filter` (`cmp`, `plane`, `and` / `or` / `negate`, `in_*`, `prefix_*`, `semijoin`) and `Agg` (`Count`, `Any`, `All`, `SumI32`, …), lowered with `lower` / `lower_group_by` to a mask-risc `Program`. "How many cards wait in Evaluation", "is any branch of this strategy anomalous", "per column, how many intentions to write" are such folds over the lane presence planes and the metadata table — not loops over cards and not hydrated card objects. `PhaseCensus` in `kanban_actor.rs` (read only) is the existing precedent: a count over a mask, never a materialised list.
+- **Falsifier (when D-TGB-9 starts):** every planning query answers identically through the planning API and through the equivalent hand-written Quack `Query`, and the planning API allocates nothing proportional to the number of cards.
+
 **Addressing the crates directly is allowed first** (DECISION, operator, 2026-10-20: "Du kannst alternativ gerne direkt die crates ansprechen das ist für das Internet Timing erstmal besser"). The first runs may call the engine crates directly (`lance-graph-act-r`, `datafrog`, `lance-graph-relalg`, `lance-graph-mask-risc`, `lance-graph-metta`, `lance-graph-nal`) instead of waiting for the verb trait in the contract. This is a sequencing choice, not a change of target:
 
 - the reusable API and its drivers stay the target (D-TGB-7); the direct calls are its first callers, and they move behind the verbs once the trait exists;
@@ -196,6 +203,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
   - Falsifier: driver independence, as stated in that section.
   - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
 - [ ] **D-TGB-8 The abstraction API.** Datalog rules over the metadata table run by `datafrog`, and ACT-R `Candidate` / intent as the decision vocabulary (section "The abstraction API: datafrog asks, ACT-R chooses").
+- [ ] **D-TGB-9 Kanban planning vocabulary (later).** A fast planning API over Quack-shaped folds (section "Kanban gets a planning vocabulary later"); its verbs are OPEN.
   - Falsifier: rule answers equal a direct scan; recorded intents replayed as verb calls reproduce the run byte for byte.
   - Disable: answer one rule with a hand-written loop that skips the source relation; the scan oracle must then disagree.
 - [ ] **D-TGB-6 MemWAL arm, behind a switch.** The same `Commit` path into a MemWAL shard per mailbox (`identity_sharding` on the owner), with compaction and garbage collection as a separate job.
@@ -207,6 +215,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 
 - **Card granularity.** A card now tracks a write intention, not a slot. Is it the mailbox's card, or one card per intention inside a mailbox? `KanbanColumn` is per mailbox today.
 - **The anomaly predicate.** Which signals (contradiction, regression, cold/hot surprise, divergence between thoughts) stop a squash, and at which thresholds.
+- **The kanban planning vocabulary (D-TGB-9).** Left open by the operator; fixed only that it is fast and speaks Quack-shaped folds.
 - **What "satisfactory" means for a write.** Measured with `jc` statistics across strategy branches on the Sudoku fixture (correction item 7); the statistic, its threshold and the `jc` R-style interface are OPEN.
 - **Squash or land under slot pressure.** Squash the unremarkable first (correction item 3); landing stays a decision. The remaining policy is OPEN. It reads presence bits (the deltas' source bitsets, D-HL-3, and the written-by words), never `w_slot` as a pointer. ⊘ Struck 2026-10-20: "the `w_slot` pointer graph decides"; W names a lane and points nowhere.
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.

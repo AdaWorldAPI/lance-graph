@@ -17,3 +17,5 @@
 OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a write; card granularity.
 
 **Addendum (operator, 2026-10-20):** "Du kannst alternativ gerne direkt die crates ansprechen das ist für das Internet Timing erstmal besser". DECISION: first runs may call the engine crates (act-r, datafrog, relalg, mask-risc, metta, nal) directly; the verb trait stays the target and they move behind it once it exists. Polyfill-never-legacy is unaffected. Plan: `thought-git-basics-v1.md`, section "Addressing the crates directly is allowed first".
+
+**Addendum (operator, 2026-10-20):** "Kanban sollte später planungs Vokabular mit einer schönen schnellen effektiven API erhalten. Was lasse ich gerne offen. Es muß aber auch quack shaped folding polyfill methods verstehen". DECISION: D-TGB-9, later; vocabulary OPEN; fixed that planning questions are Quack-shaped folds (filter → mask, `Agg` fold, lowered to mask-risc), `PhaseCensus` as precedent.
