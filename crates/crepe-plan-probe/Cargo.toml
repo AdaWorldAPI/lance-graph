@@ -41,6 +41,8 @@ tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 tempfile = "3"
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
+# ascent, as a second oracle and baseline for examples/walk_mask.rs.
+ascent = { git = "https://github.com/AdaWorldAPI/ascent", branch = "master" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

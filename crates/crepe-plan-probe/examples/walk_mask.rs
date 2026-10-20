@@ -1,7 +1,8 @@
 //! crepe's `graph_walking` benchmark program, evaluated twice: once by the
 //! code `crepe!` generates (hash sets and hash-map indexes, tuple at a time)
 //! and once over dense bit planes with `ndarray::simd` mask ops. Both runs
-//! must give the same tuple counts. Run in release from this crate's
+//! must give the same tuple counts. `ascent!` runs the same program as a
+//! second baseline. Run in release from this crate's
 //! directory:
 //!
 //! ```text
@@ -67,6 +68,29 @@ fn edges(n: i32) -> Vec<(i32, i32, u32)> {
         }
     }
     e
+}
+
+ascent::ascent! {
+    struct WalkAscent;
+    relation edge(i32, i32, u32);
+    relation node(i32);
+    relation walk(i32, i32, u32);
+    relation no_walk(i32, i32);
+
+    node(x) <-- edge(x, _, _);
+    node(x) <-- edge(_, x, _);
+    walk(x, x, 0) <-- node(x);
+    walk(x, z, l1 + l2) <-- edge(x, y, l1), walk(y, z, l2), if l1 + l2 <= MAX_PATH_LEN;
+    no_walk(x, y) <-- node(x), node(y), !walk(x, y, _);
+}
+
+fn ascent_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
+    let mut p = WalkAscent {
+        edge: e.to_vec(),
+        ..Default::default()
+    };
+    p.run();
+    (p.walk.len(), p.no_walk.len())
 }
 
 fn crepe_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
@@ -202,8 +226,8 @@ fn time(mut f: impl FnMut() -> (usize, usize)) -> (Duration, (usize, usize)) {
 
 fn main() {
     println!(
-        "{:>5} | {:>10} {:>10} | {:>9} | {:>9} {:>9}",
-        "n", "crepe ms", "mask ms", "speed-up", "Walk", "NoWalk"
+        "{:>5} | {:>10} {:>10} {:>10} | {:>8} {:>8} | {:>9} {:>9}",
+        "n", "crepe ms", "ascent ms", "mask ms", "vs crepe", "vs asc.", "Walk", "NoWalk"
     );
     for n in [128usize, 256, 512, 1024] {
         let e = edges(n as i32);
@@ -213,18 +237,28 @@ fn main() {
         } else {
             (Duration::ZERO, mask)
         };
-        assert_eq!(mask, crep, "n={n}: mask and crepe disagree");
-        let speed = if tc.is_zero() {
-            "-".to_string()
+        let (ta, asc) = if n <= 512 {
+            time(|| ascent_walk(&e))
         } else {
-            format!("{:.1}x", tc.as_secs_f64() / tm.as_secs_f64())
+            (Duration::ZERO, mask)
+        };
+        assert_eq!(mask, crep, "n={n}: mask and crepe disagree");
+        assert_eq!(mask, asc, "n={n}: mask and ascent disagree");
+        let speed = |t: Duration| {
+            if t.is_zero() {
+                "-".to_string()
+            } else {
+                format!("{:.1}x", t.as_secs_f64() / tm.as_secs_f64())
+            }
         };
         println!(
-            "{:>5} | {:>10.3} {:>10.3} | {:>9} | {:>9} {:>9}",
+            "{:>5} | {:>10.3} {:>10.3} {:>10.3} | {:>8} {:>8} | {:>9} {:>9}",
             n,
             tc.as_secs_f64() * 1e3,
+            ta.as_secs_f64() * 1e3,
             tm.as_secs_f64() * 1e3,
-            speed,
+            speed(tc),
+            speed(ta),
             mask.0,
             mask.1
         );
