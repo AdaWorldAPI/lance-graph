@@ -11,7 +11,7 @@ Plan `mork-pathmap-schnellverschluss-v1.md`; entry `entries/2026-10-19-mork-path
 | D-MPS-4 | upstream MORK: no library-level `jemalloc` global allocator | PROPOSAL | consumer binary sets its own allocator |
 | D-MPS-5 | upstream MORK: leapfrog join generic over a cursor provider + reindex hook | PROPOSAL | MORK corpus unchanged on `PathMap<()>` |
 | D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` | BLOCKED (`RelationOrder` not built) | no copy, or the copy stated |
-| D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | DECIDED: MIT, confirmed by the owner in trueagi-io/MORK issue #2 (2025-05-21, Adam-Vandervorst: "Yes! It's now under MIT."); upstream LICENSE file (#148) still unmerged at last check | probe vendors nothing; vendoring carries the MIT notice |
+| D-MPS-7 | licence: no MORK source vendored until a licence is declared (#148 unmerged) | OPEN (intent stated, clearance incomplete): MIT intent stated by the maintainer (Adam-Vandervorst, trueagi-io/MORK issue #2, 2025-05-21: "Yes! It's now under MIT."); formal repository-level clearance incomplete: PR #148 "Add MIT License and Cargo manifest metadata" proposed 2026-08-20, still open when observed 2026-10-19. PathMap already advertises MIT | probe vendors nothing; vendoring waits for #148 or an equivalent LICENSE file in MORK |
 
 ## Plan links for #1601–#1617 (2026-10-20)
 
