@@ -38,7 +38,8 @@ IMMUTABLE ADDRESS SPACE (the frame)
 │   ├── layers 1..63  HYPOTHESES — any strategy, any NAL level, any front end
 │   │     ├── saccade: AlphaOverlay claim order (AlphaStamp: cycle, seq, rung, visits)
 │   │     ├── conclusions: sparse slot deltas keyed by NodeGuid (delta_granularity_probe)
-│   │     └── rung lanes 0..9 INSIDE a thought = attention depth (alpha_tunnel.rs, LEVELS = 10)
+│   │     └── rung = implied level of a claim, can change within one thought (AlphaStamp.rung);
+│   │           the 10 static rung lanes (alpha_tunnel.rs, LEVELS = 10) are deprecated (2026-10-20)
 │   │
 │   ├── PRESENCE BITS instead of references   (coverage_orientation_probe)
 │   │     per row: 64-bit written-by word  → "which realities stand on this identity"
@@ -121,7 +122,7 @@ below was printed by its probe on a v4 (avx512f) build.
 
 | piece | decision / measurement | plan section |
 |---|---|---|
-| budget | up to 64 thought lanes BESIDE the 10 rung lanes; a lane's identity is its own type, not a rung and not a recipe id | Pre-registration (2026-10-14, O5) |
+| budget | a ceiling of 64 thoughts, not a requirement (like a cap on git branches); a lane's identity is its own type, not a rung and not a recipe id. ⊘ "BESIDE the 10 rung lanes" corrected 2026-10-20: rung is an implied level that can change within a thought; the 10 static rung lanes are deprecated | Pre-registration (2026-10-14, O5; corrected 2026-10-20) |
 | lane = treatment | each lane runs one thought on the same fixtures against the same read-only base; external engines fill their lanes from golden outputs, their derivation order is their saccade | Pre-registration |
 | placement | a thought's delta goes into a table it owns, or into one 16-byte slot of a shared table; the 65th table is refused | Placement and the first probe |
 | delta granularity | slot deltas (32-bit mask + changed 16-byte slots) are the default; crossover to row images unstable between k = 8 and 31 | Delta granularity |
@@ -169,7 +170,7 @@ covers all 64 bits once). One layout, every reader migrated to it (D3,
 | 43..45 | orientation | `Orientation`: `Core` + the seven dative-map functions | the reading | CURRENT-CONTRACT (D-CGW-1) |
 | 46..49 | activation i4 | +7 excitation … 0 neutral … −8 inhibition: the signed reaction, never the operation | the running thought | DECISION 2026-10-17; code still reads it as the inference mantissa (`isa.rs`), see §8 |
 | 50..52 | novelty → wisdom | Staunen 1 … wisdom 7, climbed one step at a time, moved by 46..49 | the maturation | OPEN (O2): `learn()` also reads these bits as plasticity |
-| 53..58 | W | the thought layer this state belongs to: 0 givens, 1..63 hypotheses; the breadcrumb to what changed the state | the merge / materialization | DECISION 2026-10-17; three competing readings exist, see §8 |
+| 53..58 | W | the thought layer this state belongs to: 0 givens, 1..63 hypotheses; the breadcrumb to what changed the state. Hot path only: after a Lance seal the value is arbitrary (DECISION 2026-10-20, §8 row 4) | the merge / materialization | DECISION 2026-10-17; three competing readings exist, see §8 |
 | 59..63 | EpistemicState5 | ONE field, never split: Topology2 × Certification3 (Open, Associated, Related, Supports, CausalCandidate, Causes) | hydration; then only measured results | CURRENT-CONTRACT (`epistemic_state5.rs`) |
 
 **The operation lives in the running thought, the result lives in 59..63,
@@ -269,7 +270,7 @@ through the codebook; a rule or query holds coordinates, never strings.
 | 1 | 46..49 | DECISION 2026-10-17 says activation; `isa.rs` executes opcodes from these bits (+1, +2, −1, +4, +5) and `ce64-semantic-upper-half.md` § Open said "stay the inference mantissa; activation moves to a row field (D-CGW-9)". Resolution proposed in the plateau (U1): the opcode reading becomes the declared "isa-v2" reading behind a version gate | plateau §4 O1; D-HL-1 |
 | 2 | W (53..58) | three readings: corpus root handle (`witness_table.rs`, unwired), the Moore membrane locality answers (`MooreNars16` omits W, entry D5/D6), and the thought layer (DECISION 2026-10-17). `forward` / `syllogize` return W = 0 (PROBE-W-PRESERVE) | plateau §4 O3 (G6); D-HL-1 |
 | 3 | 50..52 | novelty → wisdom (`wire`) and per-plane plasticity (`learn`) on the same bits | plateau §4 O2 |
-| 4 | "CE64 is not storage" vs "the result lives in 59..63" | entry D1 says CE64 is a contract lever, not written back into; the 2026-10-17 diagram says the result lives in 59..63 and current CE64 = current state + breadcrumb. Both may hold if the edge is written once per transition (a new state, not a log); needs one sentence from the user | entry 2026-10-17-ce64-one-layout D1; this capstone |
+| 4 | ~~"CE64 is not storage" vs "the result lives in 59..63"~~ **DECIDED 2026-10-20** | Both hold, in different places. CE64 is an ISA contract, not a storage contract: in the hot path, inside a live thought, the edge is thought-aware (W names the lane, 59..63 carries the result). Lowered into a sealed Lance version, the bits are kept bit-exact and keep their ISA meaning (like BF16 on disk); only the in-RAM reference becomes arbitrary: slot numbers recycle, so a sealed W means nothing. The thinking styles used and the reasoning replay live in the thinking, or are linked to the kanban lane's versions; never in sealed CE64 bits. (Before: "needs one sentence from the user".) | entry 2026-10-20-ce64-isa-not-storage; entry 2026-10-17-ce64-one-layout D1 |
 | 5 | promotion to `EPIPHANIES.md` | the file is generated from `epiphanies-canon.json`, whose rows must resolve to archive lines; a post-baseline Eureka has no route in | entry 2026-10-17-ce64-one-layout § OPEN |
 | 6 | NAL-9 steps 5–6 | not built; needs a pre-registered run with a control | D-HL-8 / D-NALP |
 | 7 | compound terms | NAL-3..6 blocked | ledger R10 |

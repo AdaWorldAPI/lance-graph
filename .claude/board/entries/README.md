@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-383 entries, 2026-08-06 .. 2026-10-20.
+386 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,11 +33,14 @@ exactly one of them, never both.
 | 2026-10-20 | `D-RST` |  | [2026-10-20-relstore-geometry-not-graph-api.md](2026-10-20-relstore-geometry-not-graph-api.md) |
 | 2026-10-20 | `recursive-perspective-rebinding` |  | [2026-10-20-recursive-perspective-rebinding.md](2026-10-20-recursive-perspective-rebinding.md) |
 | 2026-10-20 | `prs-1601-1617-plan-links` |  | [2026-10-20-prs-1601-1617-plan-links.md](2026-10-20-prs-1601-1617-plan-links.md) |
+| 2026-10-20 | `D-TGB` | thought git basics planned from the ideal state | [2026-10-20-d-tgb-thought-git-basics.md](2026-10-20-d-tgb-thought-git-basics.md) |
+| 2026-10-20 | `D-TGA-SLOT-AXIS` | thoughts are 64 slots, and the slot number is CE64's witness pointer | [2026-10-20-d-tga-slot-axis-witness-pointer.md](2026-10-20-d-tga-slot-axis-witness-pointer.md) |
 | 2026-10-20 | `D-RPR` |  | [2026-10-20-d-rpr-consolidation-1624.md](2026-10-20-d-rpr-consolidation-1624.md) |
 | 2026-10-20 | `D-RPR-1` |  | [2026-10-20-d-rpr-1-handoff-lab-demo.md](2026-10-20-d-rpr-1-handoff-lab-demo.md) |
 | 2026-10-20 | `D-RMAP-2` |  | [2026-10-20-d-rmap-2-tile-gemm-cell.md](2026-10-20-d-rmap-2-tile-gemm-cell.md) |
 | 2026-10-20 | `D-RMAP-2-AMX` |  | [2026-10-20-d-rmap-2-amx-tier.md](2026-10-20-d-rmap-2-amx-tier.md) |
 | 2026-10-20 | `D-RMAP-2-AMX-RERUN` | §5a-AMX re-measured on a second AMX host | [2026-10-20-d-rmap-2-amx-remeasured.md](2026-10-20-d-rmap-2-amx-remeasured.md) |
+| 2026-10-20 | `ce64-isa-not-storage` |  | [2026-10-20-ce64-isa-not-storage.md](2026-10-20-ce64-isa-not-storage.md) |
 | 2026-10-19 | `post-merge-recovery-1601-1617` |  | [2026-10-19-post-merge-recovery-1601-1617.md](2026-10-19-post-merge-recovery-1601-1617.md) |
 | 2026-10-19 | `native-join-relationship-table` |  | [2026-10-19-native-join-relationship-table.md](2026-10-19-native-join-relationship-table.md) |
 | 2026-10-19 | `mork-pathmap-schnellverschluss` |  | [2026-10-19-mork-pathmap-schnellverschluss.md](2026-10-19-mork-pathmap-schnellverschluss.md) |

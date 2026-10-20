@@ -339,7 +339,7 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-HL-0** | Plateau, plan, research map, board entry | Shipped (#1496) | docs only; every claim cites a file or entry |
-| **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Partial: O5 decided 2026-10-14 (up to 64 thought lanes beside the 10 rung lanes); O1 (46..49 = activation i4) and O3 (W = thought layer) decided 2026-10-17; O2, O6 open | stored-meaning changes ship behind a version gate |
+| **D-HL-1** | Decisions O1 (46..49), O2 (50..52), O3 (W), O5 (lane budget), O6 (what persists) | Partial: O5 decided 2026-10-14 (budget: at most 64 thoughts, none required; corrected 2026-10-20: rung is an implied level that can change within a thought, the 10 static rung lanes are deprecated); O1 (46..49 = activation i4) and O3 (W = thought layer) decided 2026-10-17; O2, O6 open | stored-meaning changes ship behind a version gate |
 | **D-HL-2** | Merge-on-read vs in-place revision | Queued | merge-on-read within 1 code of exact on every cell where in-place is not; ≥ 1 cell differs by ≥ 2 codes |
 | **D-HL-3** | Per-delta evidential base as the independence test (layer ≠ source) | Queued | sd ratio within 10 % of 1.0 on all four cases, incl. a cross-layer duplicate (counts once) and two independents in one layer (count twice); a layer-keyed rule must fail those two |
 | **D-HL-4** | Narsese parallel calibration (OpenNARS vs CE64 deltas, `jc::reliability`) | Queued (after D-HL-2 and D-HL-3) | an encoding that does not beat linear ICC by the pre-declared margin is dropped |
@@ -348,12 +348,19 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-HL-7** | SparseDelta record through the split-tunnel append | Queued | replay composite = in-memory composite; dropping one delta changes only its rows |
 | **D-HL-8** | Validation ladder: when a layer may commit | Queued | some rung beats "commit everything" on oracle agreement, with a no-meta control |
 | **D-TGA-0** | Thought git API: pre-registration (fixtures, from-scratch oracle, disables) — `.claude/plans/thought-git-api-v1.md` | Queued | written before any code |
-| **D-TGA-1** | Thought type, branch/discard/write/diff, 63-branch limit (64 thoughts with main), givens refusal | Queued | 63rd branch accepted, 64th refused, slot 0 never handed out; a new value on a given records a contradiction and changes nothing |
+| **D-TGA-1** | Thought type, branch/discard/write/diff, 63-branch limit (64 thoughts with main), givens refusal | Queued | 63rd branch accepted, 64th refused, slot 0 never handed out; a new value on a given records a contradiction and changes nothing; after `land` no live edge carries the landed slot; an edge from a recycled slot's old generation is refused (scope: replaces the ten rung lanes, plan § "Correction: the slot axis", 2026-10-20) |
 | **D-TGA-2** | Read plane R and status | Queued | a read outside R is never reported stale |
 | **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1, including a deletion in main (retract then re-derive); disables: no stale re-run, no conflict check, no retraction |
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |
 | **D-TGA-5** | squash_into (partial squash) and blame | Queued | blame returns original sources after slot reuse |
 | **D-TGA-6** | MergeQueue | Queued | independent thoughts == landed by hand in FIFO order; a thought reading another negated lands after it; a cycle through negation refused at enqueue |
+| **D-TGB-0** | thought git basics: fixtures per Rubicon outcome, `w_slot` reference fixtures, from-scratch oracle (`thought-git-basics-v1.md`) | Queued (lab) | disables written before code |
+| **D-TGB-1** | slot pool on the Rubicon crossing: slot taken at `Planning → CognitiveWork`, freed at `Commit`/`Plan`/`Prune` | Queued (lab) | no slot without a live card (no stale branch); crossing refused at 63 taken |
+| **D-TGB-2** | `w_slot` lane labels (W = thought layer, not a pointer) qualified by base version / slot generation | Queued (lab) | no live cell carries a landed slot; old-generation edge refused |
+| **D-TGB-3** | `Commit` lands one sparse batch through `LanceCycleWriter`; `DurableRef` = dataset + `Ref::Version(branch, version)` | Queued (lab) | empty cycle writes nothing; re-submit reconciles; two branches at version 7 told apart |
+| **D-TGB-4** | receipt (base ref, program id, seeds, slot generation) instead of history | Queued (lab) | replay from receipt reproduces writes cell for cell |
+| **D-TGB-5** | reads as resident folds: `checkout`/`log`/`diff`/`blame` | Queued (lab) | equal the oracle; durable `diff` equals Lance `delta()` |
+| **D-TGB-6** | MemWAL `Commit` arm behind a switch, reads stay resident | Queued; waits on D-LNC-7 | enabled only past the D-WAL crossover |
 | **D-HL-9** | Hydration budget split sweep | Queued | agreement not flat in k |
 | **D-HL-10** | NAL inference ISA: `ogar-nal` loco vocabulary + mask-risc dialect (a vocabulary on the existing IR, ledger R18); detailed as D-NALP | Queued (design; after D-HL-4) | per-op parity with the CE64 register method of the same name; agreement with OpenNARS within D-HL-4's tolerance; no second IR |
 
