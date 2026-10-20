@@ -95,13 +95,29 @@ Drivers, all outside the API:
   - Pre-commit failure is deterministic regeneration from the sealed version ("sealed Vn + unchanged Kanban task + deterministic computation = the same provisional intent on the next sweep"). That is the same rule as rebase-as-replay (correction item 6), so the git API needs no recovery of its own before a commit. After a commit, `recover_fleet` replays sealed landings.
   - Related plans: `alpha-channel-rung-overlay-v1.md` §1 row C (`PhaseCensus` as the mask over activities) and §3l (a count is not a hydration precondition); `cycle-loop-closure-driver-v1.md`.
 
+**Orchestration in phases, and the stack under the API** (DECISION, operator, 2026-10-20: "orchestration in Phasen durch loco oder actiondef und später abstrakt über Act-R, datafrog > darunter RISC arithmetic polyfill relalg r2il. Eventuell noch petgraph API als usability"):
+
+| phase | who drives the verbs |
+|---|---|
+| 1 (first) | an `ogar-loco` program or an OGAR `ActionDef` (`ogar-vocab`): the order of verbs is written down, concrete and replayable |
+| 2 (later) | ACT-R (`lance-graph-act-r`), choosing the next intent abstractly from the API's candidates |
+
+Below the API, from top to bottom:
+
+1. `datafrog` runs the strategy clauses (the PeTTa way, correction item 7);
+2. the RISC arithmetic polyfill (`lance-graph-mask-risc`, which delegates to `ndarray::simd`);
+3. `lance-graph-relalg` describes the non-recursive set expressions;
+4. `lance-graph-r2il` lowers them onto mask-risc.
+
+A petgraph API is an optional usability layer on top, not a storage format or an executor, as in `relstore-quack-petgraph-traversal-v1.md` (point 1 there). The existing petgraph experiment rests on the quarantined `OutgoingHop` gather and is not a precedent (same plan, point 2).
+
 **Placement (PROPOSAL).** Following the convention, types live in the contract and execution in mask-risc / quack:
 
 - the verb trait, the slot, receipt, `DurableRef`, `ThoughtCommitId` and the readings (`status`, anomaly signals) go into `lance-graph-contract` (zero-dep), so every driver depends only on the contract;
 - the implementation over `AlphaAllocation` / `AlphaOverlay`, the presence planes and the metadata table goes into one implementation crate (name OPEN);
 - each driver adapter lives with its driver, not in the API.
 
-**Falsifier (driver independence, D-TGB-7):** the same Sudoku fixture driven by two drivers that make the same decisions (ACT-R, and a scripted driver replaying ACT-R's recorded intents) produces byte-identical cells, receipts and metadata rows. A run where the API reads a driver type, or a driver writes a cell without a verb, fails to compile or fails this test.
+**Falsifier (driver independence, D-TGB-7):** the same Sudoku fixture driven by two drivers that make the same decisions (phase 1: an `ogar-loco` program and the same sequence as an `ActionDef`; phase 2: ACT-R and a script replaying its recorded intents) produces byte-identical cells, receipts and metadata rows. A run where the API reads a driver type, or a driver writes a cell without a verb, fails to compile or fails this test.
 
 ## What Lance 13 / LanceDB 0.40 already provide
 
@@ -142,7 +158,7 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 - [ ] **D-TGB-5 Reads are resident folds.** `checkout`, `log`, `diff` and `blame` fold over the resident sparse records.
   - Falsifier: each equals the from-scratch oracle; `diff` across two durable versions also equals Lance's `delta()`.
   - No Lance read on the hot path (rule 4).
-- [ ] **D-TGB-7 The reusable API and the first driver.** The verb trait and its types in the contract, one implementation crate, and an ACT-R driver adapter (section "The reusable git API and its drivers").
+- [ ] **D-TGB-7 The reusable API and the first driver.** The verb trait and its types in the contract, one implementation crate, and a phase-1 driver: an `ogar-loco` program or an `ActionDef` (section "The reusable git API and its drivers"). The ACT-R adapter is phase 2.
   - Falsifier: driver independence, as stated in that section.
   - Disable: let the implementation read a `KanbanColumn` to decide a squash; the scripted driver must then diverge.
 - [ ] **D-TGB-6 MemWAL arm, behind a switch.** The same `Commit` path into a MemWAL shard per mailbox (`identity_sharding` on the owner), with compaction and garbage collection as a separate job.
