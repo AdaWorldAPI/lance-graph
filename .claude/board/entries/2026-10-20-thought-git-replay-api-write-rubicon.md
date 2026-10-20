@@ -11,4 +11,6 @@
 - "Satisfactory" is measured by automated hypothesis testing: each strategy is a branch on the same Sudoku fixture, compared and synthesized with `jc` statistics (an R-style API, interface OPEN). Engines in parallel: act-r, metta, nal, relalg, mask-risc exist; cog (Hyperon) and ona do not yet. First the strategies on Sudoku, then the 115 rows of `nal_inventory.tsv` as MeTTa programs.
 - D-TGB-0 and D-TGB-1 re-specified; the old "slot taken at the Rubicon crossing" is struck.
 
+- Reasoning state (relalg, Datalog, datafrog), git metadata (PR entries) and replay receipts live in one separate table keyed by (data dataset, data version, thought id), so the data table and the metadata table do not depend on each other's schema. OPEN: the two writes are two Lance versions and not atomic together; data first, then metadata, and a missing metadata row is detected at replay.
+
 OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a write; card granularity.
