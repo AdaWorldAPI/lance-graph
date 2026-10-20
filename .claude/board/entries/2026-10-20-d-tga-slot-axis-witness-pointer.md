@@ -8,4 +8,6 @@
 - At the ceiling a new thought requires squash or land, never a 65th slot. `land` rewrites pointers to the landed slot to 0; `squash_into` rewrites them to the surviving slot; every pointer is qualified by the frame's base version (0) or the slot's generation (1..=63); `ThoughtCommitId` is never reused.
 - Written into `thought-git-api-v1.md` § "Correction: the slot axis and the witness pointer", with two new D-TGA-1 falsifiers.
 
-OPEN: the squash-or-land policy under slot pressure; the `edge.rs` "0 = no corpus anchor" doc line, to correct with D-TGA-1.
+- Squash-or-land follows from the pointer graph (WORKING-MODEL): reference count per slot is one fold over `w_slot`; land in topological order; a cycle squashes into one slot first; conflicts propagate to dependants; the same graph orders `MergeQueue`.
+
+OPEN: measuring that policy; the `edge.rs` "0 = no corpus anchor" doc line, to correct with D-TGA-1.

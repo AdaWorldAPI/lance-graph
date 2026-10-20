@@ -268,13 +268,21 @@ In short: thinking with a git API, at the cost of a sparse write and a merge on 
 1. **The axis is 64 thought slots.** One shared allocation; slot 0 is main, slots 1..=63 are allocated on demand to any thought (a hypothesis, an instantiated MeTTa / Atomese template, a branch of either). Rung is not an axis: it is an attribute of a claim, carried by `AlphaStamp.rung`. `AlphaTunnel`'s ten rung lanes (`alpha_tunnel.rs`) are the superseded first cut; the 2026-10-12 CE64 plateau entry already listed them as a conflict ("10 rung lanes, not a 64-lane budget"). D-TGA-1 replaces them; it does not add a thought axis beside them. Merge order becomes slot and claim order, not rung order.
 2. **Why 64: the slot number travels in every causal edge.** CE64 bits 53..58 (`w_slot`) hold the slot a claim refers to, so thoughts can reference each other's results. 64 is the pointer width, not only a size limit; more slots would be a CE64 layout change.
 3. **Slot 0 is main: the merged state the frame starts from.** `w_slot = 0` points at main as of the frame's base version. The `edge.rs` doc line "0 = no corpus anchor" is stale under this reading and should say so when D-TGA-1 touches it.
-4. **The ceiling.** When no slot is free, a new thought requires `squash_into` (several thoughts fold into one slot) or `land` (a thought becomes one Lance version and frees its slot). Never a 65th slot. Which to choose under pressure is a policy question, not yet designed.
+4. **The ceiling.** When no slot is free, a new thought requires `squash_into` (several thoughts fold into one slot) or `land` (a thought becomes one Lance version and frees its slot). Never a 65th slot. Which to choose follows from the pointer graph, below.
 5. **Pointers follow the slot lifecycle.**
    - `land` rewrites every surviving `w_slot = k` pointer to 0: the landed cells are now main.
    - `squash_into` rewrites pointers at a folded slot to the surviving slot.
    - A 6-bit pointer is read only together with its qualifier: the frame's base version for 0, the slot's generation for 1..=63. `rebase` moves the base forward.
    - `ThoughtCommitId` is never reused: slot numbers recycle, the identity behind them must not.
 6. **Cost model.** Branch, write, diff, status and rebase are resident mask algebra with no Lance call. `land` pays one sparse append (one Lance version per landed thought); reads (`checkout`, `log`, `diff`, pickaxe, `blame`) are folds over the resident sparse records, newest wins by append order; Lance is read once, at replay (`.claude/knowledge/split-tunnel-sparse-append-resident-fold.md`). Those figures are measured in HubSPO-rs, not on thoughts.
+
+**Derived from the pointers (WORKING-MODEL, 2026-10-20; not yet measured).** The `w_slot` values in the live edges form a directed graph between slots: an edge in thought a with `w_slot = b` means a builds on b. That graph decides the slot policy, so it does not need a separate one:
+
+- **Reference count = one fold.** For each slot, count the live edges whose `w_slot` equals it: a 6-bit equality over the edge column, co-addressed, no gather. A slot with count 0 that no one builds on can be discarded or landed without rewriting any pointer.
+- **Land order is topological.** A thought can land only after every live slot it points to has landed (its pointers then become 0) or is squashed into it. Landing a thought whose dependee stays live would leave a pointer to a speculative slot inside main.
+- **Mutually referencing thoughts squash together.** A cycle in the graph cannot land in any order, so a strongly connected group is squashed into one slot first. Under slot pressure, the squash candidates are exactly these groups; independent leaves are landed or discarded.
+- **Conflicts travel along the graph.** A thought that builds on a conflicted thought is itself not clean; `status` reports it as dependent-conflicted.
+- **The same graph is `MergeQueue`'s order.** The negated-read strata of D-TGA-6 are edges of this graph; FIFO is never the order.
 
 D-TGA-1's falsifiers gain two, both pre-registered here:
 - after `land`, no live edge carries the landed slot number;
