@@ -34,7 +34,7 @@ survive a read of the code:
 | C43 | Thought-git lab probe: oracle + signals + slot pool (63 live slots, FIFO / least-used eviction), 19 + 6 tests, 5 oracle disables red | #1630, #1631; `crates/thought-git-probe`; D-TGB-0/1 Shipped (lab) |
 | C44 | **The relalg width limit is gone.** `r2il::call_owned` releases consumed slots, so an `Or` / `And` / `And`-of-`Not` of any width runs in 3 slots (was `2k − 1`, 5 atoms refused) | #1634; `lance-graph-r2il/src/lib.rs:588`; tests `call_owned_reuses_consumed_slots_and_call_does_not`, `a_wide_disjunction_keeps_its_rows_in_constant_slots` |
 | C45 | Crepe as a cold optimizer in front of relalg, measured: verdict PARTIALLY (static path proven, dynamic rules need a `crepe-core` split); 3.6 µs vs 11.8 ms terminal at 50,000 rows, break-even reuse 0 | #1631–#1634; `crates/crepe-plan-probe`; entry `2026-10-20-crepe-rule-optimizer-spike.md` |
-| C46 | Addressed read (Arm B) over Lance 13 / lancedb 0.40: sorted `FacetCascade` keys, scans `3k` rows where the masked arm scans ≥ 150,000, 2.5–12× faster up to 1 % of centers, 7 ms attest repaid after 2–3 queries; stale lanes, unsorted tables and foreign datasets refused | #1633; `crepe-plan-probe/src/addressed.rs`; tests b1–b12 |
+| C46 | Addressed read (Arm B) over Lance 13 / lancedb 0.40: sorted `FacetCascade` keys; per query it scans `3k` rows where the masked arm scans ≥ 150,000, 2.5–12× faster up to 1 % of centers; the one-time attestation is a full scan of both key columns (7–10 ms for 100,002 keys), repaid after 2–3 queries; stale lanes, unsorted tables and foreign datasets refused | #1633; `crepe-plan-probe/src/addressed.rs`; tests b1–b12 |
 | C47 | MORK/PathMap probes measured: one `pathmap` package, 0 / 18 upstream files differ (D-MPS-0); differential probe (D-MPS-1); native join over a versioned relationship table, 7 guards disable-verified (D-MPS-8); focus-bound RelationshipMap probe, break-even 76 / 11 / 1.8 reuses (D-RMAP-1A-P) | #1620, #1621; `crates/mork-pathmap-probe` |
 | C48 | D-RMAP-2 partly measured: polyfill tier and AMX tile tier; BF16 byte total corrected to 384 KiB; re-run shows absolute times 10–60 % higher (VM load, unverified) with ratios intact | #1623, #1625–#1627 |
 | C49 | NAL revision of stratum beliefs equals the union recount (P-pool probe) | #1596; `lance-graph-planner/tests/simpson_revision_pooling.rs` |
@@ -84,10 +84,16 @@ Closed from (c): **D-46** (C40), **DOC-WIRE (1)** for 43..45 (C39; 50..52 stays 
 
 - **K13 — one admission ruling, and it already has a measured example.**
   ISS-ADMISSION-PREP-BINDING asks for "a counted, witnessed lookup in
-  preparation, folds co-addressed". Arm B (C46) is exactly that: preparation
-  attests the table (counted: rows scanned are reported, `3k`), refuses a stale
-  lane or a foreign dataset (witnessed), and then reads only sorted ranges of
-  the table's own key. Writing ADMISSION with Arm B as the worked example and
+  preparation, folds co-addressed". Arm B (C46) has that shape, in two
+  separate costs. **Attestation** is a one-time full scan of both key
+  columns of every row (`addressed.rs:100-117`, `attest` → `read_keys`;
+  7–10 ms for 100,002 keys over three tables), done once per table version
+  and refused if the table is not sorted; it is what the witness rests on.
+  **Each query** then reads only sorted ranges of the table's own key, and
+  only these reads are counted (`SideIo.rows_scanned`, `3k` at 50,000 rows);
+  a stale lane or a foreign dataset is refused (witnessed). The ruling has
+  to name both: the per-query read is counted, the attestation scan is a
+  stated one-time cost per version. Writing ADMISSION with Arm B as the worked example and
   `graph_hop.rs` as the counter-example (a hop whose positions come from
   another lane's values) answers D-MPS-8, D-RPR-1, D-RST-4/6 and GATHER-CODE
   in one record.
@@ -126,7 +132,7 @@ Closed from (c): **D-46** (C40), **DOC-WIRE (1)** for 43..45 (C39; 50..52 stays 
 
 | # | question | recommendation | caveat |
 |---|---|---|---|
-| ADMISSION | what a preparation-time read may do | admit counted, witnessed, same-table key-range seeks (Arm B shape); refuse reads at positions taken from another lane's values | `graph_hop.rs` then stays quarantined or is rewritten co-addressed |
+| ADMISSION | what a preparation-time read may do | admit counted, witnessed, same-table key-range seeks (Arm B shape), with the one-time full key scan that attests each table version stated as its own cost; refuse reads at positions taken from another lane's values | `graph_hop.rs` then stays quarantined or is rewritten co-addressed |
 | D-RA-2 | where single-table rules live | the contract set IR; relalg keeps lowering | relalg tests must pass unchanged against the contract IR (its own gate) |
 | WIRE-50 | order of 50..52 | as (c): keep the pyramid; "not on the ladder" only through D-MATURATION3-1 decision 3 | `wire.rs` re-pin |
 | ACTION-GATE | canonical gate; default for `required_role = None` | `commit_via` canonical; `None` allowed only for actions declared public | every `ActionDef` without a role needs a declaration |
