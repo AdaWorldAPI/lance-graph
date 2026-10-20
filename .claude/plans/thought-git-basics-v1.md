@@ -57,9 +57,11 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
   - Edges: with 63 slots taken the crossing is refused, never given a 65th slot.
   - Disables: free on `Evaluation`; allocate at `Planning`.
 - [ ] **D-TGB-2 Witness pointers.** `w_slot` (CE64 bits 53..58) qualified by the frame's base version (0) or the slot's generation (1..=63). The rewrite rules are #1628's.
+  - Blocked on the reading decision in D-TGA's correction, item 2: `MailboxSoA::apply_edges` reads the same bits as the mailbox's corpus and drops edges that point elsewhere. D-TGB-2 does not change `apply_edges` before that decision.
   - Falsifiers: after `Commit`, no live edge carries the landed slot; an edge from a recycled slot's old generation is refused.
-- [ ] **D-TGB-3 `Commit` lands through `LanceCycleWriter`.** One sparse batch per `Commit` (split-tunnel rules 1–3), carried by the writer's existing `(cycle, batch_hash)` reconciliation. `DurableRef` = dataset + `Ref::Version(branch, version)`. This gives `KanbanColumn::Commit` its missing calcify step.
-  - Falsifiers: an empty cycle writes nothing; a re-submitted batch reconciles; two Lance branches both at version 7 are told apart.
+- [ ] **D-TGB-3 `Commit` lands through `LanceCycleWriter`.** The writer's commit boundary is the supervisor cycle, not the thought: it accepts one frozen batch per cycle and refuses a different batch for the same cycle (`HashConflict`). So every `Commit` reached in one cycle is coalesced into that cycle's single sparse batch (split-tunnel rules 1–3) and one Lance version, reconciled by the existing `(cycle, batch_hash)` path. A landed thought's PR entry is (version, thought id within the batch). `DurableRef` = dataset + `Ref::Version(branch, version)`. This gives `KanbanColumn::Commit` its missing calcify step.
+  - Falsifiers: an empty cycle writes nothing; two thoughts landing in one cycle produce one version holding both; a re-submitted batch reconciles; two Lance branches both at version 7 are told apart.
+  - Disable: one batch per thought; the second `Commit` in a cycle must then fail with `HashConflict`.
 - [ ] **D-TGB-4 Receipt instead of history.** A thought's receipt is (base `DurableRef`, template or program id, seeds, slot generation).
   - Falsifier: replaying a discarded or landed thought from its receipt reproduces its writes cell for cell. That makes `Plan` and `Prune` safe to free.
   - Disable: drop the seeds from the receipt.
@@ -74,7 +76,8 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 ## Open
 
 - **Card granularity.** Is the kanban card that owns a slot the mailbox's card, or one card per move inside a mailbox? `KanbanColumn` is per mailbox today.
-- **Squash or land under slot pressure.** WORKING-MODEL in D-TGA: the `w_slot` pointer graph decides (topological land order, cycles squash first).
+- **Which reading owns `w_slot`.** Witness pointer (`deepnsm-v2` wire) or mailbox corpus (`MailboxSoA::apply_edges`); D-TGA correction, item 2. Blocks D-TGB-2.
+- **Squash or land under slot pressure.** WORKING-MODEL in D-TGA: the `w_slot` pointer graph decides (topological land order, cycles squash first), under the witness reading.
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.
 - **Later:** Datalog awareness over thoughts and receipts.
 

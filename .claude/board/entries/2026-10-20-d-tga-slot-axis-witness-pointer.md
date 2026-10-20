@@ -11,3 +11,5 @@
 - Squash-or-land follows from the pointer graph (WORKING-MODEL): reference count per slot is one fold over `w_slot`; land in topological order; a cycle squashes into one slot first; conflicts propagate to dependants; the same graph orders `MergeQueue`.
 
 OPEN: measuring that policy; the `edge.rs` "0 = no corpus anchor" doc line, to correct with D-TGA-1.
+
+Correction (2026-10-20, review #1628): two readings of bits 53..58 exist in code. `deepnsm-v2/src/wire.rs` follows `w_slot` as a witness pointer that ends at 0; `MailboxSoA::apply_edges` filters on it as the mailbox's corpus and has no production caller. Which reading owns the bits is OPEN (operator); the pointer-graph policy assumes the witness reading.

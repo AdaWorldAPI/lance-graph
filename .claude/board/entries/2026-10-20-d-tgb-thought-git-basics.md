@@ -10,3 +10,5 @@
 - MemWAL is an optional `Commit` arm past the D-WAL crossover; reads stay resident folds.
 
 OPEN: card granularity (mailbox card or per-move card); the PR entry under MemWAL; Datalog awareness later.
+
+Correction (2026-10-20, review #1628): `LanceCycleWriter` commits one batch per supervisor cycle, so every `Commit` in a cycle coalesces into one batch and one version; a landed thought is (version, thought id within the batch). D-TGB-2 is blocked on the `w_slot` reading decision.
