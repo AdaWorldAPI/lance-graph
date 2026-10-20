@@ -1,7 +1,8 @@
 //! MORK / PathMap differential probe behind one Lance-owned boundary.
 //!
 //! STATUS: PROBE (results only). Not a production executor, not wired into
-//! Quack, R2IL or mask-risc, and not a fact store. Plan:
+//! Quack or R2IL, and not a fact store. The native arm ([`join`]) runs its
+//! intersection as a mask-risc program, as a probe only. Plan:
 //! `.claude/plans/mork-pathmap-schnellverschluss-v1.md`.
 //!
 //! The query is fixed: `Q(x, y, z) :- R(x, y), S(y, z)` — two relations that
@@ -22,6 +23,7 @@
 use std::collections::BTreeMap;
 
 pub mod boundary;
+pub mod join;
 pub mod reference;
 pub mod rmap;
 

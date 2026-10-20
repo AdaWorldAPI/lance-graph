@@ -18,7 +18,8 @@ fn input<'a>(r: &'a [[u32; 2]], s: &'a [[u32; 2]], gen_r: u64, gen_s: u64) -> Jo
     }
 }
 
-const ARMS: [Backend; 2] = [Backend::Mork, Backend::PathMapZipper];
+const ARMS: [Backend; 3] = [Backend::Mork, Backend::PathMapZipper, Backend::Native];
+const SET_ONLY: [Backend; 2] = [Backend::Mork, Backend::PathMapZipper];
 
 fn check_set(r: &[[u32; 2]], s: &[[u32; 2]]) -> usize {
     let inp = input(r, s, 1, 1);
@@ -81,9 +82,15 @@ fn duplicates_are_refused_under_bag_semantics() {
         reference::answers(&inp, Semantics::Bag).rows[&[1, 10, 5]],
         4
     );
-    for arm in ARMS {
+    for arm in SET_ONLY {
         assert!(matches!(bind(arm, &inp, Semantics::Bag), Err(Refusal::SetOnly(a)) if a == arm));
     }
+    // The native table keeps multiplicities and answers the bag exactly.
+    let mut native = bind(Backend::Native, &inp, Semantics::Bag).unwrap();
+    assert_eq!(
+        native.answers(&inp).unwrap(),
+        reference::answers(&inp, Semantics::Bag)
+    );
     // Under set semantics they agree with the oracle's set.
     assert_eq!(check_set(&r, &s), 1);
 }
@@ -130,16 +137,20 @@ fn a_reused_generation_number_is_not_detected() {
     assert!(!got.rows.contains_key(&[2, 10, 5]));
 }
 
+/// The native arm answers only through the co-addressed table, for both
+/// semantics, and its bag answers carry the oracle's multiplicities.
 #[test]
-fn native_join_is_refused_not_emulated() {
-    assert_eq!(
-        capability(Backend::Native, Semantics::Set),
-        Err(Refusal::NoAdmittedNativeJoin)
+fn native_join_answers_bags_from_the_coaddressed_table() {
+    assert_eq!(capability(Backend::Native, Semantics::Set), Ok(()));
+    assert_eq!(capability(Backend::Native, Semantics::Bag), Ok(()));
+    let r = [[1, 10], [1, 10], [2, 10], [3, 11], [4, 99]];
+    let s = [[10, 5], [10, 6], [10, 5], [11, 7], [12, 8]];
+    let inp = input(&r, &s, 1, 1);
+    let want = reference::answers(&inp, Semantics::Bag);
+    assert!(
+        want.rows.values().any(|&c| c > 1),
+        "fixture has multiplicities"
     );
-    let r = [[1, 10]];
-    let s = [[10, 5]];
-    assert!(matches!(
-        bind(Backend::Native, &input(&r, &s, 1, 1), Semantics::Set),
-        Err(Refusal::NoAdmittedNativeJoin)
-    ));
+    let mut idx = bind(Backend::Native, &inp, Semantics::Bag).unwrap();
+    assert_eq!(idx.answers(&inp).unwrap(), want);
 }

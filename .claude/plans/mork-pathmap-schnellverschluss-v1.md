@@ -1,6 +1,6 @@
 # MORK / PathMap Schnellverschluss — v1
 
-**Status:** D-MPS-0 and D-MPS-1 MEASURED (probe `crates/mork-pathmap-probe`, results only). D-MPS-2..7 PROPOSAL / BLOCKED as listed in §8. No production executor, no CE64 change, no Lance storage, no upstream file edited by this work.
+**Status:** D-MPS-0, D-MPS-1 and D-MPS-8 MEASURED (probe `crates/mork-pathmap-probe`, results only; D-MPS-8 is the native arm over a versioned relationship table, §7b, not admitted). D-MPS-2..7 PROPOSAL / BLOCKED as listed in §8. No production executor, no CE64 change, no Lance storage, no upstream file edited by this work.
 
 **Ownership rule:** our types stay ours, upstream types stay upstream's, and the one replaceable boundary sits where they meet: `crates/mork-pathmap-probe/src/boundary.rs` plus the `[dependencies]` / `[patch]` block of the probe's `Cargo.toml`.
 
@@ -127,6 +127,8 @@ What it shows, and what it does not:
 
   The native arm becomes testable only when a co-addressed producer for this input shape exists. **BLOCKED.**
 
+  > **2026-10-19, §7b:** a co-addressed producer for this input shape now exists as a probe (`src/join.rs`), and `Backend::Native` answers through it. The arm is measured, not admitted.
+
 ## 7a. Versioning: what `RelationView.generation` stands for (2026-10-19)
 
 `RelationView.generation: u64` is a probe-local stand-in. It is not a design. Inside the probe it is enough: the `Stale { bound, current }` refusal fires on any change. Outside the probe a bare `u64` fails in two ways:
@@ -142,6 +144,32 @@ D-RMAP-1A §7 (#1619) replaces the stand-in with a binding witness built from th
 
 The Schnellverschluss does not touch the witness. Switching the backend between MORK, PathMap and native changes how the join runs; the witness describes which data was bound. When the witness lands, it replaces `generation` in this crate, and the backend switch stays as it is. Today no `DurableRef` type exists in `crates/`, and CPG-00 has not run.
 
+## 7b. Native arm: a versioned relationship table puts R and S at one coordinate (2026-10-19)
+
+> **Status: MEASURED, probe only; not admitted.** D-RMAP-1 (§ on BIND) says a pre-fold global-to-local binding is a candidate membrane that needs its own review. Code: `src/join.rs`; tests `tests/join.rs` (8) and the native arms added to `tests/differential.rs`; cost `examples/join_cost.rs`. Nothing is wired into Quack or R2IL.
+
+**Layout.** `JoinTable::prepare` builds one domain, the sorted distinct values of the shared variable `y` over both datasets, and lays each relation out by `y` slot. Each side gets a presence plane, offsets, and the other column's values. That is the one global-to-local translation (binary search into the domain), and it is timed inside `prepare`. Each side carries its own dataset's generation, so R and S can come from different sources and be resealed independently: `replace_side` re-prepares one side against the same domain, and refuses `OutsideDomain` if the new rows bring a `y` the domain lacks.
+
+**Evaluation.** Leapfrog triejoin with `y` first intersects R's `y` level with S's `y` level, then enumerates `x` and `z` independently, since they share no variable. Here the intersection is one mask-risc `And` over the two presence planes (`execute_into`, `Terminal::Keep`). Enumeration then reads both sides at each surviving slot. Every read is at the coordinate the mask names, in every operand; the `x` and `z` values are emitted and never used as addresses. That is the `Thought(t)[T_a[i] : T_b[i]]` shape of H14c/H14d, not a gather. For this query (one shared variable) the leapfrog join reduces to `And` plus enumeration. A star of k relations on `y` is an `And` chain.
+
+**What the plane decides.** Disable runs showed that the presence-plane intersection is an *answer* only when the joint plane itself is read, as the existence mask (which `y` every relation has). For enumeration and counts it only prunes, because a slot where one side is empty emits nothing. Seven guards were each disabled, and each turned its test red: per-side generation, domain refusal, filter shape, filter in the program, `And` (vs `Or`), presence only for non-empty slots, and every side's plane in a star.
+
+**Measured** (release, medians of 5, `cargo run --release --example join_cost`; MORK product-zipper build, leapfrog build within about 10%):
+
+| Fixture | prepare/build: native · PathMap · MORK (ms) | set answers into a map: native · PathMap · MORK (ms) | native: stream answers · bag count · joint plane (µs) |
+| --- | --- | --- | --- |
+| cost.rs, n = 10 000 | 0.61 · 1.86 · 4.26 | 1.55 · 2.44 · 27.8 | 175 · 11.9 · 0.35 |
+| cost.rs, n = 50 000 | 2.75 · 14.65 · 22.87 | 7.39 · 26.06 · 144.4 | 332 · 35.5 · 0.15 |
+| heterogeneous (ids over `u32`, 50 % `y` overlap, S fan-out 3), \|R\| 50 000, \|S\| 75 000 | 5.78 · 24.27 · 60.46 | 22.80 · 44.72 · 461.0 | 251 · 16.2 · 0.31 |
+
+- **The output dominates, not the join.** Native set answers into a `BTreeMap` cost 7.4 ms at n = 50 000; streaming the same answers costs 0.33 ms. The PathMap and MORK columns include the same kind of map insertion (MORK also its text decode, §6), so the fair comparison is the middle column.
+- **A join amortizes into a fold when the consumer does not need tuples.** Over 1 024 queries at n = 50 000 (arithmetic, prepare + N × query): bag count 39 ms on native, against 7.6 s for native set answers and 26.7 s for PathMap answers. These answer different questions (count vs tuples), so this is a statement about demand, not a like-for-like speed-up.
+- **Bags.** The native table keeps multiplicities and answers `Semantics::Bag` exactly. Both upstream indexes are sets and refuse (`SetOnly`).
+- **Heterogeneous reseal.** Re-preparing one side costs 0.21 ms vs 2.47 ms for the whole table (n = 50 000); 1.17 ms vs 4.10 ms on the heterogeneous fixture.
+- **Thoughts.** 64 thoughts over one shared table (403 KB at n = 50 000), each restricting `y` to its own eighth with a filter plane (1 568 B per thought), take 5.2 µs per thought for a bag count. The table is not copied per thought.
+
+**What this does not cover.** Cyclic bodies: the triangle `R(a,b), S(b,c), T(a,c)` needs two variables co-addressed at once, which a one-variable domain cannot give. The 256 × 256 tile of D-RMAP-1A §8 does it for a small focus only, and nothing here covers large domains. Chain joins: stepping from `y` results to `z` slots over a large domain would need a scatter, which stays forbidden. Enumeration and the count's `Σ_y |R_y| · |S_y|` are plain loops; only the intersection runs on mask-risc, which delegates to `ndarray::simd`.
+
 ## 8. Deliverables
 
 | D-id | Item | Status | Gate / evidence |
@@ -154,7 +182,8 @@ The Schnellverschluss does not touch the witness. Switching the backend between 
 | D-MPS-5 | Upstream (MORK): `UnifyJoin` / `query_multi_leapfrog` generic over a cursor provider + reindex hook | PROPOSAL | MORK's own differential corpus unchanged on `PathMap<()>` |
 | D-MPS-6 | Lance-owned PathMap-trait cursor over a sealed `RelationOrder` view | BLOCKED: `RelationOrder` is not built (D-RMAP PROPOSED) | must show no copy, or state the copy it needs |
 | D-MPS-7 | Licence: no MORK source moved into or redistributed from lance-graph until MORK declares a licence (PR #148 unmerged) | OPEN | the probe fetches MORK and vendors nothing |
-| — | Native lance-graph arm for this join | BLOCKED by the no-gather ruling | a co-addressed producer for the input shape |
+| — | Native lance-graph arm for this join | ~~BLOCKED by the no-gather ruling~~ MEASURED as a probe (§7b); not admitted until the D-RMAP-1 BIND membrane review | a co-addressed producer for the input shape (`src/join.rs`); 8 + 2 tests vs the oracle; 7 guards disable-verified |
+| D-MPS-8 | Versioned relationship table: one shared-variable domain, per-side generations, side reseal, filter planes per thought, star on one variable | MEASURED, probe | §7b; cyclic bodies and chain joins over large domains open |
 
 ## 9. Upstream contribution proposal (short)
 

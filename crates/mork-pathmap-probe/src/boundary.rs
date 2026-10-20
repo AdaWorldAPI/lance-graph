@@ -17,6 +17,7 @@ use mork::space::Space;
 use pathmap::PathMap;
 use pathmap::zipper::{ZipperIteration, ZipperPath, ZipperValues};
 
+use crate::join::{JoinExec, JoinTable};
 use crate::{Answers, JoinInput, Semantics};
 
 /// A physical implementation of the fixed query.
@@ -28,7 +29,10 @@ pub enum Backend {
     Mork,
     /// PathMap byte trie, read through read-only zippers.
     PathMapZipper,
-    /// lance-graph's own RelAlg / Quack / mask-risc lowering.
+    /// The versioned relationship table in [`crate::join`]: both inputs laid
+    /// out by the shared variable's slot, intersected by one mask-risc `And`.
+    /// A PROBE of the co-addressed producer §7 of the plan asks for, not an
+    /// admitted production path.
     Native,
 }
 
@@ -39,10 +43,11 @@ pub enum Refusal {
     /// report multiplicities. Asking it for [`Semantics::Bag`] is refused rather
     /// than answered with every count collapsed to 1.
     SetOnly(Backend),
-    /// No admitted native join exists. The join reads `S` at positions chosen by
-    /// `R`'s values, the shape the 2026-10-16 no-gather ruling forbids; the
-    /// admitted form is a co-addressed layout (D-HOLO H14c/H14d), which these
-    /// inputs are not in.
+    /// No admitted native join exists for this input shape. Reading `S` at
+    /// positions chosen by `R`'s values is the shape the 2026-10-16 no-gather
+    /// ruling forbids. [`Backend::Native`] answers only after
+    /// [`crate::join::JoinTable::prepare`] has laid both inputs out at one
+    /// coordinate; this variant stays for shapes that table does not cover.
     NoAdmittedNativeJoin,
     /// The index was built from other generations than the caller's current
     /// views.
@@ -73,7 +78,8 @@ type LeapfrogCursor<'a> =
 /// Answers what a backend can do before anything is built.
 pub fn capability(backend: Backend, semantics: Semantics) -> Result<(), Refusal> {
     match (backend, semantics) {
-        (Backend::Native, _) => Err(Refusal::NoAdmittedNativeJoin),
+        // Native keeps multiplicities, so it admits both semantics.
+        (Backend::Native, _) => Ok(()),
         (_, Semantics::Bag) => Err(Refusal::SetOnly(backend)),
         (_, Semantics::Set) => Ok(()),
     }
@@ -82,6 +88,7 @@ pub fn capability(backend: Backend, semantics: Semantics) -> Result<(), Refusal>
 enum Index {
     Mork(Box<Space>),
     Path(PathMap<()>),
+    Native(Box<(JoinTable, JoinExec)>, Semantics),
 }
 
 /// An upstream index built from one pair of generations.
@@ -107,7 +114,11 @@ pub fn bind(
     let index = match backend {
         Backend::Mork => Index::Mork(Box::new(mork_space(input)?)),
         Backend::PathMapZipper => Index::Path(path_trie(input)),
-        Backend::Native => return Err(Refusal::NoAdmittedNativeJoin),
+        Backend::Native => {
+            let table = JoinTable::prepare(input.r, input.s);
+            let exec = JoinExec::new(&table);
+            Index::Native(Box::new((table, exec)), semantics)
+        }
     };
     Ok(BoundIndex {
         backend,
@@ -136,6 +147,11 @@ impl BoundIndex {
         match &mut self.index {
             Index::Mork(space) => mork_answers(space),
             Index::Path(trie) => Ok(path_answers(trie)),
+            Index::Native(te, semantics) => {
+                let (table, exec) = &mut **te;
+                exec.answers(table, now, None, *semantics)
+                    .map_err(|e| Refusal::Upstream(format!("{e:?}")))
+            }
         }
     }
 }

@@ -288,6 +288,10 @@ Per-thought delta: 32 B as sparse edits, 16 KiB when lowered to executor planes.
 
 On 65 536 places with a focus of 256, a bounding-box + class count through mask-risc over the canonical lanes takes 20–24 µs with 0 B copied, while loading the focus's lanes into a 3 072 B register and counting there takes 0.78 + 0.38–1.27 µs. The canonical-lane path is slow because the `under` gate is word-granular: 228–235 of 1 024 words are live for 256 rows. This is an open tension between zero-copy and a register copy, not a decision; bit-granular gating would remove it.
 
+### 8.8a Joins over heterogeneous relations
+
+The same preparation idea, applied to a shared-variable join between two datasets, is in the Schnellverschluss plan §7b: a versioned relationship table lays R and S out at the `y` slot, so the leapfrog intersection is one mask-risc `And` and each side reseals on its own. Measured there: prepare 2.7 ms vs PathMap 14.7 ms and MORK 22.9 ms at n = 50 000; bag count 36 µs per query; cyclic bodies not covered.
+
 ### 8.8 Not covered, and blockers
 
 Lance-backed `DurableRef` and real stable-row-id seals (the probe's seals are integers); cold-cache and page-fault measurement; MORK matching; any gather-admission ruling. The probe answers §6's economics for in-memory, warm, single-machine fixtures only.
