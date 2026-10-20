@@ -3,13 +3,14 @@ name: Crepe plan probe
 # git deps on the crepe and MORK forks, lance 13 / lancedb 0.40), so no
 # workspace job builds it. It runs from its own directory so the cargo config
 # above it and its own `.cargo/config.toml` apply. It path-deps relalg,
-# mask-risc, mork-pathmap-probe and lance-graph-contract (the ordered lane and
+# mask-risc, r2il, mork-pathmap-probe and lance-graph-contract (the ordered lane and
 # facet keys of arm B), so changes there run it too.
 on:
   pull_request:
     paths:
       - 'crates/crepe-plan-probe/**'
       - 'crates/lance-graph-relalg/**'
+      - 'crates/lance-graph-r2il/**'
       - 'crates/lance-graph-contract/**'
       - 'crates/lance-graph-mask-risc/**'
       - 'crates/mork-pathmap-probe/**'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'crates/crepe-plan-probe/**'
       - 'crates/lance-graph-relalg/**'
+      - 'crates/lance-graph-r2il/**'
       - 'crates/lance-graph-contract/**'
       - 'crates/lance-graph-mask-risc/**'
       - 'crates/mork-pathmap-probe/**'
@@ -49,3 +51,12 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # relalg is its own workspace and patches ndarray to a sibling checkout
+      # (`../../../ndarray` from its directory); no other job runs its tests.
+      - name: relalg tests and clippy
+        working-directory: crates/lance-graph-relalg
+        run: |
+          git clone --depth 1 https://github.com/AdaWorldAPI/ndarray ../../../ndarray
+          cargo fmt --check
+          cargo test
+          cargo clippy --all-targets -- -D warnings
