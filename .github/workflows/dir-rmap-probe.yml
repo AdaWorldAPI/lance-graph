@@ -87,4 +87,7 @@ jobs:
       - name: test
         run: cargo test --release --manifest-path crates/dir-rmap-probe/Cargo.toml
       - name: benchmark (asserts equivalence at 8,000 users; timings are not gated)
+        env:
+          # The full sweep (1,2,4,8) is a local run; CI keeps the smaller two.
+          DIR_RMAP_SWEEP: "1,2"
         run: cargo run --release --manifest-path crates/dir-rmap-probe/Cargo.toml --example bench

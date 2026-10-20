@@ -13,9 +13,11 @@
 //! unrelated memory, so the prepared structures are out of L1/L2.
 
 use dir_rmap_probe::fixture::{Fixture, Spec};
-use dir_rmap_probe::focus::{Focus, FocusUsers, holds};
-use dir_rmap_probe::prep::{Chain, Compiled, Ordinals, bit, words};
-use dir_rmap_probe::{Edit, World, a_groups, a_members, focus_for, oracle, templates};
+use dir_rmap_probe::focus::{Focus, FocusLazy, FocusUsers, Row, holds};
+use dir_rmap_probe::prep::{Chain, Compiled, Ordinals, Witness, bit, ones, words};
+use dir_rmap_probe::{
+    Edit, World, a_groups, a_members, composite_groups, conjunctions, focus_for, oracle, templates,
+};
 use lance_graph_dir_sim::{GroupOrdinal, UserOrdinal};
 use ndarray::simd::{eq_u8_to_mask, mask_and_assign, popcount_batch_u64};
 use ogar_dir_core::Guid128;
@@ -149,6 +151,19 @@ fn main() {
         t_compile.as_secs_f64() * 1e3
     );
     println!("| B + B+ together | {:.2} ms |", t_c.as_secs_f64() * 1e3);
+    let (_, a_b) = counted(|| w.prepare());
+    let p = w.prepare();
+    let (cc, a_comp) = counted(|| Compiled::compile(p));
+    drop(cc);
+    println!(
+        "| allocations: B prepare {} ({} allocated, {} retained); B+ compile {} ({} allocated, {} retained) | |",
+        a_b.allocs,
+        kib(a_b.bytes as isize),
+        kib(a_b.retained),
+        a_comp.allocs,
+        kib(a_comp.bytes as isize),
+        kib(a_comp.retained)
+    );
     println!(
         "| D: crepe oracle, all relations | {:.1} ms |",
         t_d.as_secs_f64() * 1e3
@@ -177,8 +192,8 @@ fn main() {
     );
     let (_, g256) = focus_for(&all_templates, 256);
     let focus_ids: Vec<u16> = g256.iter().map(|&g| ord.group[g as usize]).collect();
-    let f256 = Focus::bind(&c, &focus_ids);
-    let fu256 = FocusUsers::bind(&c, &focus_ids);
+    let f256 = Focus::bind(&c, Chain::All, &focus_ids, &w.witness()).unwrap();
+    let fu256 = FocusUsers::bind(&c, Chain::All, &focus_ids, &w.witness()).unwrap();
     println!(
         "| F (256 slots): projected rows + reverse map | {} |",
         f256.bytes()
@@ -393,173 +408,8 @@ fn main() {
         gsample.len()
     );
 
-    // ---- W5 role x location: B+ vs F ---------------------------------------
-    println!("## W5: role x location questions, B+ vs F\n");
-    println!(
-        "One evaluation = one user, every template question in the focus. N = evaluations reusing one prepared focus (users cycled). F prepare = bind + projection of every group's closure row. Totals measured directly.\n"
-    );
-    println!(
-        "| focus groups | questions | A eval | B+ eval | F eval | F+users eval | F prepare | F+users prepare | B+ N=1 / F / F+u | N=10 | N=100 | N=1000 | N=10000 |"
-    );
-    println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
-    for k in [16usize, 64, 128, 256] {
-        let (ts, gs) = focus_for(&all_templates, k);
-        let groups: Vec<u16> = gs.iter().map(|&g| ord.group[g as usize]).collect();
-        let tq: Vec<(usize, usize)> = ts
-            .iter()
-            .map(|&(r, l)| {
-                (
-                    ord.group[r as usize] as usize,
-                    ord.group[l as usize] as usize,
-                )
-            })
-            .collect();
-        let f = Focus::bind(&c, &groups);
-        let fu = FocusUsers::bind(&c, &groups);
-        let masks: Vec<_> = tq
-            .iter()
-            .map(|&(r, l)| f.all_of(&[r as u16, l as u16]).unwrap())
-            .collect();
-        let tq_guid: Vec<(Guid128, Guid128)> = ts
-            .iter()
-            .map(|&(r, l)| (w.f.groups[r as usize], w.f.groups[l as usize]))
-            .collect();
-        // Equal answers on every user before timing.
-        for &i in &all_users {
-            let u = ord.user[i];
-            c.groups_of(u, Chain::All, &mut prow);
-            let fr = f.row_of(&c, u);
-            for (q, &(r, l)) in tq.iter().enumerate() {
-                let want = bit(&prow, r) && bit(&prow, l);
-                assert_eq!(holds(&fr, &masks[q]), want);
-                assert_eq!(holds(&fu.rows[u as usize], &masks[q]), want);
-            }
-        }
-        let users_ord: Vec<u16> = all_users.iter().map(|&i| ord.user[i]).collect();
-        let eval_bp = |n: usize, prow: &mut Vec<u64>| {
-            let mut hits = 0usize;
-            for e in 0..n {
-                let u = users_ord[e % users_ord.len()];
-                c.groups_of(u, Chain::All, prow);
-                for &(r, l) in &tq {
-                    hits += usize::from(bit(prow, r) && bit(prow, l));
-                }
-            }
-            hits
-        };
-        let eval_f = |f: &Focus, n: usize| {
-            let mut hits = 0usize;
-            for e in 0..n {
-                let u = users_ord[e % users_ord.len()];
-                let r = f.row_of(&c, u);
-                for m in &masks {
-                    hits += usize::from(holds(&r, m));
-                }
-            }
-            hits
-        };
-        let eval_fu = |fu: &FocusUsers, n: usize| {
-            let mut hits = 0usize;
-            for e in 0..n {
-                let r = &fu.rows[users_ord[e % users_ord.len()] as usize];
-                for m in &masks {
-                    hits += usize::from(holds(r, m));
-                }
-            }
-            hits
-        };
-        let m = users_ord.len();
-        let t_a = time(3, || {
-            sample
-                .iter()
-                .map(|&i| {
-                    let a = a_groups(&v, &w.f.users[i], Chain::All);
-                    tq_guid
-                        .iter()
-                        .filter(|(r, l)| a.binary_search(r).is_ok() && a.binary_search(l).is_ok())
-                        .count()
-                })
-                .sum::<usize>()
-        });
-        let t_bp = time(9, || eval_bp(m, &mut prow));
-        let t_f = time(9, || eval_f(&f, m));
-        let t_fu = time(9, || eval_fu(&fu, m));
-        let t_fprep = time(9, || Focus::bind(&c, &groups));
-        let t_fuprep = time(5, || FocusUsers::bind(&c, &groups));
-        let mut totals = Vec::new();
-        for n in [1usize, 10, 100, 1_000, 10_000] {
-            let reps = if n <= 100 { 51 } else { 9 };
-            let bp = time(reps, || eval_bp(n, &mut prow));
-            let ff = time(reps, || {
-                let f = Focus::bind(&c, &groups);
-                eval_f(&f, n)
-            });
-            let fuu = time(reps, || {
-                let fu = FocusUsers::bind(&c, &groups);
-                eval_fu(&fu, n)
-            });
-            totals.push(format!("{:.1} / {:.1} / {:.1} µs", us(bp), us(ff), us(fuu)));
-        }
-        println!(
-            "| {} | {} | {:.0} ns | {:.0} ns | {:.0} ns | {:.0} ns | {:.1} µs | {:.1} µs | {} |",
-            gs.len(),
-            ts.len(),
-            ns(t_a, sample.len()),
-            ns(t_bp, m),
-            ns(t_f, m),
-            ns(t_fu, m),
-            us(t_fprep),
-            us(t_fuprep),
-            totals.join(" | ")
-        );
-    }
-    // Cold vs warm for one evaluation, 256-slot focus.
-    {
-        let (ts, gs) = focus_for(&all_templates, 256);
-        let groups: Vec<u16> = gs.iter().map(|&g| ord.group[g as usize]).collect();
-        let f = Focus::bind(&c, &groups);
-        let masks: Vec<_> = ts
-            .iter()
-            .map(|&(r, l)| {
-                f.all_of(&[ord.group[r as usize], ord.group[l as usize]])
-                    .unwrap()
-            })
-            .collect();
-        let tq: Vec<(usize, usize)> = ts
-            .iter()
-            .map(|&(r, l)| {
-                (
-                    ord.group[r as usize] as usize,
-                    ord.group[l as usize] as usize,
-                )
-            })
-            .collect();
-        let mut cold_bp = Vec::new();
-        let mut cold_f = Vec::new();
-        for e in 0..41 {
-            let u = ord.user[(e * 197) % w.f.users.len()];
-            evict(&mut evict_buf);
-            let s = Instant::now();
-            c.groups_of(u, Chain::All, &mut prow);
-            black_box(
-                tq.iter()
-                    .filter(|&&(r, l)| bit(&prow, r) && bit(&prow, l))
-                    .count(),
-            );
-            cold_bp.push(s.elapsed());
-            evict(&mut evict_buf);
-            let s = Instant::now();
-            let r = f.row_of(&c, u);
-            black_box(masks.iter().filter(|m| holds(&r, m)).count());
-            cold_f.push(s.elapsed());
-        }
-        println!(
-            "\nCold single evaluation (256-slot focus, {} questions, after evicting 64 MiB): B+ {:.0} ns, F {:.0} ns.\n",
-            ts.len(),
-            us(median(cold_bp)) * 1e3,
-            us(median(cold_f)) * 1e3
-        );
-    }
+    w5_all(&w, &c, &ord, &mut evict_buf, &sample);
+    sweep(users, &mut evict_buf);
 
     // ---- W6 team membership x attribute -----------------------------------
     let mut lane = vec![0u8; n_users];
@@ -724,7 +574,12 @@ fn main() {
         }
     }
     let t_rebind = time(9, || {
-        Focus::bind(&full1, &focus_ids_for(&full1, &all_templates, &ord1))
+        Focus::bind(
+            &full1,
+            Chain::All,
+            &focus_ids_for(&full1, &all_templates, &ord1),
+            &w.witness(),
+        )
     });
     println!("## W7/W8: overlay ({membership_edits} membership edits + 1 nesting edge)\n");
     println!("| step | time |\n|---|---|");
@@ -796,4 +651,853 @@ fn focus_ids_for(c: &Compiled, templates: &[(u32, u32)], ord: &Ordinals) -> Vec<
     let _ = c;
     let (_, gs) = focus_for(templates, 256);
     gs.iter().map(|&g| ord.group[g as usize]).collect()
+}
+
+// ---------------------------------------------------------------------------
+// Allocation accounting: a counting global allocator. Every allocation the
+// process makes goes through it; `counted` reports the allocations, bytes
+// allocated and bytes still live (retained) across one closure.
+
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::sync::atomic::{AtomicIsize, AtomicUsize, Ordering::Relaxed};
+
+struct Counting;
+static ALLOCS: AtomicUsize = AtomicUsize::new(0);
+static BYTES: AtomicUsize = AtomicUsize::new(0);
+static LIVE: AtomicIsize = AtomicIsize::new(0);
+
+// SAFETY: every method forwards to `System` with the caller's arguments
+// unchanged; the counters are side effects only.
+unsafe impl GlobalAlloc for Counting {
+    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+        ALLOCS.fetch_add(1, Relaxed);
+        BYTES.fetch_add(l.size(), Relaxed);
+        LIVE.fetch_add(l.size() as isize, Relaxed);
+        // SAFETY: forwarded unchanged; the caller upholds `alloc`'s contract.
+        unsafe { System.alloc(l) }
+    }
+    unsafe fn alloc_zeroed(&self, l: Layout) -> *mut u8 {
+        ALLOCS.fetch_add(1, Relaxed);
+        BYTES.fetch_add(l.size(), Relaxed);
+        LIVE.fetch_add(l.size() as isize, Relaxed);
+        // SAFETY: forwarded unchanged.
+        unsafe { System.alloc_zeroed(l) }
+    }
+    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+        LIVE.fetch_sub(l.size() as isize, Relaxed);
+        // SAFETY: `p` came from this allocator with layout `l`.
+        unsafe { System.dealloc(p, l) }
+    }
+    unsafe fn realloc(&self, p: *mut u8, l: Layout, new: usize) -> *mut u8 {
+        ALLOCS.fetch_add(1, Relaxed);
+        BYTES.fetch_add(new, Relaxed);
+        LIVE.fetch_add(new as isize - l.size() as isize, Relaxed);
+        // SAFETY: forwarded unchanged; `p` came from this allocator.
+        unsafe { System.realloc(p, l, new) }
+    }
+}
+
+#[global_allocator]
+static GLOBAL: Counting = Counting;
+
+#[derive(Clone, Copy, Default)]
+struct Acct {
+    allocs: usize,
+    bytes: usize,
+    retained: isize,
+}
+
+/// Run `f` once, counting what it allocates; the result is kept alive while
+/// `retained` is read, so retained = what the result holds.
+fn counted<T>(f: impl FnOnce() -> T) -> (T, Acct) {
+    let (a0, b0, l0) = (
+        ALLOCS.load(Relaxed),
+        BYTES.load(Relaxed),
+        LIVE.load(Relaxed),
+    );
+    let t = f();
+    let a = Acct {
+        allocs: ALLOCS.load(Relaxed) - a0,
+        bytes: BYTES.load(Relaxed) - b0,
+        retained: LIVE.load(Relaxed) - l0,
+    };
+    (t, a)
+}
+
+fn kib(b: isize) -> String {
+    if b.abs() < 10_240 {
+        format!("{b} B")
+    } else {
+        format!("{:.1} KiB", b as f64 / 1024.0)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// W5: questions over group ordinals. A question of one group is a
+// membership bit (a materialized composite); of two, a conjunction.
+
+/// The longest prefix of `qs` whose groups fit in `k` slots, and those
+/// groups (first-seen order).
+fn take_k(qs: &[Vec<u16>], k: usize) -> (Vec<Vec<u16>>, Vec<u16>) {
+    let mut groups: Vec<u16> = Vec::new();
+    let mut kept = Vec::new();
+    for q in qs {
+        let new = q.iter().filter(|g| !groups.contains(g)).count();
+        if groups.len() + new > k {
+            continue;
+        }
+        for &g in q {
+            if !groups.contains(&g) {
+                groups.push(g);
+            }
+        }
+        kept.push(q.clone());
+    }
+    (kept, groups)
+}
+
+/// B+: the user's full closure row (every group), then the question bits.
+fn e_bp(c: &Compiled, u: u16, qs: &[Vec<u16>], row: &mut [u64]) -> usize {
+    c.groups_of(u, Chain::All, row);
+    qs.iter()
+        .filter(|q| q.iter().all(|&g| bit(row, g as usize)))
+        .count()
+}
+
+/// B+ reading only the closure words that hold a question group: the global
+/// closure, question-aware, with no focus.
+fn e_bpw(c: &Compiled, u: u16, qs: &[Vec<u16>], wds: &[usize], acc: &mut [u64]) -> usize {
+    for &k in wds {
+        acc[k] = 0;
+    }
+    for &d in c.b.user_groups.row(u as usize) {
+        let r = c.row(Chain::All, d as usize);
+        for &k in wds {
+            acc[k] |= r[k];
+        }
+    }
+    qs.iter()
+        .filter(|q| q.iter().all(|&g| bit(acc, g as usize)))
+        .count()
+}
+
+/// A question compiled onto focus slots: the slots it needs set.
+type Slots = Vec<u8>;
+
+#[inline]
+fn slot_bit(r: &Row, s: u8) -> bool {
+    r[(s >> 6) as usize] >> (s & 63) & 1 == 1
+}
+
+#[inline]
+fn answer(r: &Row, qs: &[Slots]) -> usize {
+    qs.iter()
+        .filter(|q| q.iter().all(|&s| slot_bit(r, s)))
+        .count()
+}
+
+/// F: the user's focus row (OR of its direct groups' projected rows), then
+/// one 4-word mask test per question on the 256-bit row.
+fn e_f(f: &Focus, c: &Compiled, u: u16, masks: &[Row]) -> usize {
+    let r = f.row_of(c, u);
+    masks.iter().filter(|m| holds(&r, m)).count()
+}
+
+fn e_fu(fu: &FocusUsers, u: u16, masks: &[Row]) -> usize {
+    let r = &fu.rows[u as usize];
+    masks.iter().filter(|m| holds(r, m)).count()
+}
+
+/// F with the questions as slot bits instead of masks: the same work per
+/// question as B+'s bit tests, on the focus row.
+fn e_f_bits(f: &Focus, c: &Compiled, u: u16, qs: &[Slots]) -> usize {
+    answer(&f.row_of(c, u), qs)
+}
+
+fn slots_of(f: &Focus, qs: &[Vec<u16>]) -> Vec<Slots> {
+    qs.iter()
+        .map(|q| q.iter().map(|&g| f.slot(g).unwrap() as u8).collect())
+        .collect()
+}
+
+/// Per-evaluation figures of one (workload, k).
+struct Evals {
+    bp: f64,
+    bpw: f64,
+    f: f64,
+    fu: f64,
+}
+
+/// Run `n` evaluations of each arm, users cycled.
+#[allow(clippy::too_many_arguments)]
+fn time_evals(
+    c: &Compiled,
+    users: &[u16],
+    qs: &[Vec<u16>],
+    wds: &[usize],
+    f: &Focus,
+    fu: &FocusUsers,
+    masks: &[Row],
+    n: usize,
+    reps: usize,
+) -> (Evals, [usize; 4]) {
+    let mut row = vec![0u64; c.w];
+    let mut acc = vec![0u64; c.w];
+    let pick = |e: usize| users[e % users.len()];
+    let mut allocs = [0usize; 4];
+    let ((), a) = counted(|| {
+        for e in 0..n {
+            black_box(e_bp(c, pick(e), qs, &mut row));
+        }
+    });
+    allocs[0] = a.allocs;
+    let ((), a) = counted(|| {
+        for e in 0..n {
+            black_box(e_bpw(c, pick(e), qs, wds, &mut acc));
+        }
+    });
+    allocs[1] = a.allocs;
+    let ((), a) = counted(|| {
+        for e in 0..n {
+            black_box(e_f(f, c, pick(e), masks));
+        }
+    });
+    allocs[2] = a.allocs;
+    let ((), a) = counted(|| {
+        for e in 0..n {
+            black_box(e_fu(fu, pick(e), masks));
+        }
+    });
+    allocs[3] = a.allocs;
+    let bp = time(reps, || {
+        (0..n)
+            .map(|e| e_bp(c, pick(e), qs, &mut row))
+            .sum::<usize>()
+    });
+    let bpw = time(reps, || {
+        (0..n)
+            .map(|e| e_bpw(c, pick(e), qs, wds, &mut acc))
+            .sum::<usize>()
+    });
+    let tf = time(reps, || {
+        (0..n).map(|e| e_f(f, c, pick(e), masks)).sum::<usize>()
+    });
+    let tfu = time(reps, || {
+        (0..n).map(|e| e_fu(fu, pick(e), masks)).sum::<usize>()
+    });
+    (
+        Evals {
+            bp: ns(bp, n),
+            bpw: ns(bpw, n),
+            f: ns(tf, n),
+            fu: ns(tfu, n),
+        },
+        allocs,
+    )
+}
+
+/// Median cold time (after evicting 64 MiB) of one evaluation per arm.
+#[allow(clippy::too_many_arguments)]
+fn time_cold(
+    c: &Compiled,
+    users: &[u16],
+    qs: &[Vec<u16>],
+    wds: &[usize],
+    f: &Focus,
+    fu: &FocusUsers,
+    masks: &[Row],
+    evict_buf: &mut [u64],
+) -> [f64; 4] {
+    let mut row = vec![0u64; c.w];
+    let mut acc = vec![0u64; c.w];
+    let mut t: [Vec<Duration>; 4] = Default::default();
+    for e in 0..31 {
+        let u = users[(e * 197) % users.len()];
+        evict(evict_buf);
+        let s = Instant::now();
+        black_box(e_bp(c, u, qs, &mut row));
+        t[0].push(s.elapsed());
+        evict(evict_buf);
+        let s = Instant::now();
+        black_box(e_bpw(c, u, qs, wds, &mut acc));
+        t[1].push(s.elapsed());
+        evict(evict_buf);
+        let s = Instant::now();
+        black_box(e_f(f, c, u, masks));
+        t[2].push(s.elapsed());
+        evict(evict_buf);
+        let s = Instant::now();
+        black_box(e_fu(fu, u, masks));
+        t[3].push(s.elapsed());
+    }
+    t.map(|v| ns(median(v), 1))
+}
+
+/// Distinct closure-word indices holding a focus group.
+fn words_of(groups: &[u16]) -> Vec<usize> {
+    let mut k: Vec<usize> = groups.iter().map(|&g| g as usize >> 6).collect();
+    k.sort_unstable();
+    k.dedup();
+    k
+}
+
+/// One W5 workload over `all_qs`, for each focus size.
+#[allow(clippy::too_many_arguments)]
+fn w5(
+    title: &str,
+    c: &Compiled,
+    witness: &Witness,
+    fresh: &dyn Fn() -> Compiled,
+    edges: &[(u16, u16)],
+    edited: &[u16],
+    all_qs: &[Vec<u16>],
+    evict_buf: &mut [u64],
+) {
+    let users: Vec<u16> = (0..c.b.users as u16).collect();
+    let m = users.len();
+    println!("### {title}\n");
+    let mut evals_tbl = Vec::new();
+    let mut acct_tbl = Vec::new();
+    let mut amort_tbl = Vec::new();
+    for k in [16usize, 64, 128, 256] {
+        let (qs, groups) = take_k(all_qs, k);
+        if qs.is_empty() {
+            continue;
+        }
+        let wds = words_of(&groups);
+        // Preparation, phase by phase, counted.
+        let (mut f, a_slots) = counted(|| Focus::slots(c, Chain::All, &groups, witness).unwrap());
+        let ((), a_proj) = counted(|| f.project(c));
+        let mut fref = Focus::slots(c, Chain::All, &groups, witness).unwrap();
+        let ((), a_ref) = counted(|| fref.project_by_test(c));
+        let masks: Vec<Row> = qs.iter().map(|q| f.all_of(q).unwrap()).collect();
+        let sl = slots_of(&f, &qs);
+        let (fu, a_users) = counted(|| {
+            FocusUsers::from_focus(c, Focus::bind(c, Chain::All, &groups, witness).unwrap())
+        });
+        // Every arm agrees with B+ on every user before anything is timed.
+        let mut row = vec![0u64; c.w];
+        let mut acc = vec![0u64; c.w];
+        for &u in &users {
+            let want = e_bp(c, u, &qs, &mut row);
+            assert_eq!(e_bpw(c, u, &qs, &wds, &mut acc), want);
+            assert_eq!(e_f(&f, c, u, &masks), want);
+            assert_eq!(e_fu(&fu, u, &masks), want);
+            assert_eq!(e_f_bits(&f, c, u, &sl), want);
+        }
+        let t_bits = time(9, || {
+            (0..m)
+                .map(|e| e_f_bits(&f, c, users[e], &sl))
+                .sum::<usize>()
+        });
+        for g in 0..c.b.groups {
+            assert_eq!(f.projected(g), fref.projected(g));
+        }
+        let t_slots = time(15, || {
+            Focus::slots(c, Chain::All, &groups, witness).unwrap()
+        });
+        let t_proj = {
+            let mut v = Vec::new();
+            for _ in 0..15 {
+                let mut g = Focus::slots(c, Chain::All, &groups, witness).unwrap();
+                let s = Instant::now();
+                g.project(c);
+                v.push(s.elapsed());
+                black_box(g);
+            }
+            median(v)
+        };
+        let t_ref = {
+            let mut v = Vec::new();
+            for _ in 0..7 {
+                let mut g = Focus::slots(c, Chain::All, &groups, witness).unwrap();
+                let s = Instant::now();
+                g.project_by_test(c);
+                v.push(s.elapsed());
+            }
+            median(v)
+        };
+        let t_users = {
+            let mut v = Vec::new();
+            for _ in 0..9 {
+                let g = Focus::bind(c, Chain::All, &groups, witness).unwrap();
+                let s = Instant::now();
+                black_box(FocusUsers::from_focus(c, g));
+                v.push(s.elapsed());
+            }
+            median(v)
+        };
+        // Lazy: cache allocation, then first touch of every user, then warm.
+        let (mut fl, a_lazy) = counted(|| {
+            FocusLazy::from_focus(c, Focus::bind(c, Chain::All, &groups, witness).unwrap())
+        });
+        let t_lazy_alloc = time(15, || {
+            FocusLazy::from_focus(c, Focus::bind(c, Chain::All, &groups, witness).unwrap())
+        })
+        .saturating_sub(time(15, || {
+            Focus::bind(c, Chain::All, &groups, witness).unwrap()
+        }));
+        let s = Instant::now();
+        for &u in &users {
+            black_box(fl.row(c, u));
+        }
+        let t_lazy_first = s.elapsed();
+        assert_eq!(fl.filled, m);
+        let t_lazy_warm = time(9, || {
+            users
+                .iter()
+                .map(|&u| {
+                    let r = fl.row(c, u);
+                    masks.iter().filter(|mm| holds(&r, mm)).count()
+                })
+                .sum::<usize>()
+        });
+        // Refresh after membership edits (the edited users' rows).
+        let mut fu2 =
+            FocusUsers::from_focus(c, Focus::bind(c, Chain::All, &groups, witness).unwrap());
+        let ((), a_ru) = counted(|| fu2.refresh_users(c, edited));
+        let t_ru = time(15, || fu2.refresh_users(c, edited));
+        let line = |phase: &str, t: f64, a: Acct| {
+            format!(
+                "| {} | {phase} | {t:.1} µs | {} | {} | {} |",
+                groups.len(),
+                a.allocs,
+                kib(a.bytes as isize),
+                kib(a.retained)
+            )
+        };
+        // Refresh after one nesting pair: B+, then F, then F+users, for a
+        // narrow edge and a wide one (a child with a large downward closure).
+        let mut nest_rows = Vec::new();
+        for &edge in edges {
+            let (mut t_bn, mut t_fn, mut t_fun) = (Vec::new(), Vec::new(), Vec::new());
+            let (mut a_bn, mut a_fn, mut a_fun) =
+                (Acct::default(), Acct::default(), Acct::default());
+            for _ in 0..5 {
+                let mut cc = fresh();
+                let mut fx = Focus::bind(&cc, Chain::All, &groups, witness).unwrap();
+                let mut fux = FocusUsers::from_focus(
+                    &cc,
+                    Focus::bind(&cc, Chain::All, &groups, witness).unwrap(),
+                );
+                let s = Instant::now();
+                let ((), a) = counted(|| cc.add_nesting(edge.0, edge.1));
+                t_bn.push(s.elapsed());
+                a_bn = a;
+                let s = Instant::now();
+                let ((), a) = counted(|| fx.refresh_nesting(&cc, edge.0));
+                t_fn.push(s.elapsed());
+                a_fn = a;
+                let s = Instant::now();
+                let ((), a) = counted(|| fux.refresh_nesting(&cc, edge.0));
+                t_fun.push(s.elapsed());
+                a_fun = a;
+                let check = Focus::bind(&cc, Chain::All, &groups, witness).unwrap();
+                for g in 0..cc.b.groups {
+                    assert_eq!(fx.projected(g), check.projected(g), "refresh != rebind");
+                }
+                for &u in &users {
+                    assert_eq!(fux.rows[u as usize], check.row_of(&cc, u), "users refresh");
+                }
+            }
+            let refreshed = ones(c.down_row(Chain::All, edge.0 as usize)).count();
+            nest_rows.push(line(
+            &format!("refresh after 1 nesting pair (child closure {refreshed} groups): B+ closure insertion"),
+            us(median(t_bn)),
+            a_bn,
+        ));
+            nest_rows.push(line(
+                "  … F re-projects those groups",
+                us(median(t_fn)),
+                a_fn,
+            ));
+            nest_rows.push(line(
+                "  … F+users: re-project + recompute their direct users",
+                us(median(t_fun)),
+                a_fun,
+            ));
+        }
+        // Evaluations.
+        let (ev, allocs) = time_evals(c, &users, &qs, &wds, &f, &fu, &masks, m, 9);
+        let cold = time_cold(c, &users, &qs, &wds, &f, &fu, &masks, evict_buf);
+        evals_tbl.push(format!(
+            "| {} | {} | {} | {:.0} | {:.0} | {:.0} | {:.0} | {:.0} | {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:?} |",
+            groups.len(),
+            qs.len(),
+            wds.len(),
+            ev.bp,
+            ev.bpw,
+            ev.f,
+            ns(t_bits, m),
+            ev.fu,
+            ns(t_lazy_warm, m),
+            cold[0],
+            cold[1],
+            cold[2],
+            cold[3],
+            allocs
+        ));
+        acct_tbl.push(line(
+            "focus construction (slots + reverse map)",
+            us(t_slots),
+            a_slots,
+        ));
+        acct_tbl.push(line("closure projection (down rows)", us(t_proj), a_proj));
+        acct_tbl.push(line(
+            "closure projection by test (reference)",
+            us(t_ref),
+            a_ref,
+        ));
+        acct_tbl.push(line("eager per-user rows, all users", us(t_users), {
+            let mut a = a_users;
+            // `a_users` includes a bind; subtract its slots and projection.
+            a.allocs -= a_slots.allocs + a_proj.allocs;
+            a.bytes -= a_slots.bytes + a_proj.bytes;
+            a.retained -= a_slots.retained + a_proj.retained;
+            a
+        }));
+        acct_tbl.push(line(
+            &format!(
+                "lazy per-user rows: allocate the cache (then first touch {:.0} ns per user, filled on use)",
+                ns(t_lazy_first, m)
+            ),
+            us(t_lazy_alloc),
+            {
+                let mut a = a_lazy;
+                a.allocs -= a_slots.allocs + a_proj.allocs;
+                a.bytes -= a_slots.bytes + a_proj.bytes;
+                a.retained -= a_slots.retained + a_proj.retained;
+                a
+            },
+        ));
+        acct_tbl.push(line(
+            &format!(
+                "refresh after membership edits ({} users), eager rows",
+                edited.len()
+            ),
+            us(t_ru),
+            a_ru,
+        ));
+        acct_tbl.extend(nest_rows);
+        // Amortization: computed crossover and measured crossover.
+        let p_bind = ns(t_slots, 1);
+        let p_proj = ns(t_proj, 1);
+        let p_users = ns(t_users, 1);
+        let nstar = |p: f64, base: f64, e: f64| {
+            if base > e {
+                format!("{:.0}", p / (base - e))
+            } else {
+                "never".into()
+            }
+        };
+        let mut measured = |arm: u8| -> String {
+            for n in [
+                1usize, 2, 5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 10_000, 20_000,
+                50_000,
+            ] {
+                let reps = if n <= 1_000 { 21 } else { 5 };
+                let base = time(reps, || {
+                    (0..n)
+                        .map(|e| e_bp(c, users[e % m], &qs, &mut row))
+                        .sum::<usize>()
+                });
+                let t = match arm {
+                    0 => time(reps, || {
+                        let f = Focus::bind(c, Chain::All, &groups, witness).unwrap();
+                        (0..n)
+                            .map(|e| e_f(&f, c, users[e % m], &masks))
+                            .sum::<usize>()
+                    }),
+                    _ => time(reps, || {
+                        let fu = FocusUsers::bind(c, Chain::All, &groups, witness).unwrap();
+                        (0..n)
+                            .map(|e| e_fu(&fu, users[e % m], &masks))
+                            .sum::<usize>()
+                    }),
+                };
+                if t <= base {
+                    return format!("{n}");
+                }
+            }
+            "> 50000".into()
+        };
+        // Rebuilding a focus for each question: bind + project + 1 evaluation.
+        let t_rebuild = time(9, || {
+            (0..20)
+                .map(|e| {
+                    let f = Focus::bind(c, Chain::All, &groups, witness).unwrap();
+                    e_f(&f, c, users[(e * 31) % m], &masks)
+                })
+                .sum::<usize>()
+        });
+        amort_tbl.push(format!(
+            "| {} | {:.1} | {:.1} | {:.1} | {:.0} | {:.0} | {:.0} | {:.0} | {} | {} | {} | {} | {} | {:.1} µs |",
+            groups.len(),
+            p_bind / 1e3,
+            p_proj / 1e3,
+            p_users / 1e3,
+            ev.bp,
+            ev.bpw,
+            ev.f,
+            ev.fu,
+            nstar(p_bind + p_proj, ev.bp, ev.f),
+            nstar(p_bind + p_proj, ev.bpw, ev.f),
+            nstar(p_bind + p_proj + p_users, ev.bp, ev.fu),
+            measured(0),
+            measured(1),
+            us(t_rebuild) / 20.0,
+        ));
+    }
+    println!(
+        "Per evaluation (one user, every question), warm, users cycled; cold = after evicting 64 MiB. ns. `words` = closure words that hold a focus group. Allocations counted over {m} evaluations per arm (B+, B+w, F, F+u).\n"
+    );
+    println!(
+        "| focus groups | questions | words | B+ | B+w | F | F (slot bits) | F+users | F lazy (warm) | cold B+ / B+w / F / F+u | allocs |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|---|---|");
+    for r in &evals_tbl {
+        println!("{r}");
+    }
+    println!(
+        "\nPreparation accounting (each phase alone; bytes = allocated, retained = still live after the phase):\n"
+    );
+    println!(
+        "| focus groups | phase | time | allocs | bytes | retained |\n|---|---|---|---|---|---|"
+    );
+    for r in &acct_tbl {
+        println!("{r}");
+    }
+    println!(
+        "\nAmortization. T_B+(N) = N·e_B+; T_F(N) = P_bind + P_proj + N·e_F; T_F+u(N) = P_bind + P_proj + P_users + N·e_F+u. B+ compile is shared by every arm and excluded. N* = P / (e_B+ − e_F), computed; \"measured\" = smallest N in {{1, 2, 5, ..., 50000}} at which the directly timed total of F (bind included) is ≤ the timed B+ total. Rebuild = bind + project + one evaluation, per question.\n"
+    );
+    println!(
+        "| focus groups | P_bind µs | P_proj µs | P_users µs | e_B+ ns | e_B+w ns | e_F ns | e_F+u ns | N* F vs B+ | N* F vs B+w | N* F+u vs B+ | measured F | measured F+u | rebuild per question |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+    for r in &amort_tbl {
+        println!("{r}");
+    }
+    println!();
+}
+
+/// W5 on the three question shapes.
+fn w5_all(w: &World, c: &Compiled, ord: &Ordinals, evict_buf: &mut [u64], _sample: &[usize]) {
+    println!("## W5: role x location and composite questions, B+ vs F\n");
+    let witness = w.witness();
+    let fresh = || Compiled::compile(w.prepare());
+    let f = &w.f;
+    // The nesting pair used for the refresh figures: a team into the first
+    // role of the focus (absent before).
+    let edge = (
+        ord.group[f.teams[0] as usize],
+        ord.group[f.roles[0] as usize],
+    );
+    assert!(c.b.nested.binary_search(&edge).is_err());
+    let edited: Vec<u16> = (0..(f.users.len() / 100).max(1))
+        .map(|i| ord.user[(i * 97) % f.users.len()])
+        .collect();
+    // (a) Policy conjunctions asked over the composite fixture.
+    let conj: Vec<Vec<u16>> = conjunctions(f)
+        .iter()
+        .map(|&(r, l)| vec![ord.group[r as usize], ord.group[l as usize]])
+        .collect();
+    let edge_c = (edge.0, conj[0][0]);
+    w5(
+        "W5a: policy conjunction (in role R and in location L), composite fixture",
+        c,
+        &witness,
+        &fresh,
+        &[edge_c, (wide_child(c, edge_c.1), edge_c.1)],
+        &edited,
+        &conj,
+        evict_buf,
+    );
+    // (b) Materialized composites: one membership bit per question.
+    let comp: Vec<Vec<u16>> = composite_groups(f)
+        .iter()
+        .map(|&g| vec![ord.group[g as usize]])
+        .collect();
+    w5(
+        "W5b: materialized composite membership (in composite C), composite fixture",
+        c,
+        &witness,
+        &fresh,
+        &[
+            (edge.0, comp[0][0]),
+            (wide_child(c, comp[0][0]), comp[0][0]),
+        ],
+        &edited,
+        &comp,
+        evict_buf,
+    );
+    // (c) Policy conjunctions on the fixture with no composites.
+    let wc = World::new(Fixture::generate(
+        Spec::iam(f.users.len()).without_composites(),
+    ));
+    let vc = wc.view();
+    let ordc = Ordinals::of(&wc.f, &vc);
+    let cc = Compiled::compile(wc.prepare());
+    let qc: Vec<Vec<u16>> = conjunctions(&wc.f)
+        .iter()
+        .map(|&(r, l)| vec![ordc.group[r as usize], ordc.group[l as usize]])
+        .collect();
+    // B+ on this fixture equals the oracle (membership count) and dir-sim
+    // on a sample, before W5c is timed.
+    let d = oracle::run(&wc.f, &wc.direct, &wc.nested, &[]);
+    let mut row = vec![0u64; cc.w];
+    let total: usize = (0..wc.f.users.len())
+        .map(|i| {
+            cc.groups_of(ordc.user[i], Chain::All, &mut row);
+            popcount_batch_u64(&row) as usize
+        })
+        .sum();
+    assert_eq!(total, d.member.len());
+    for i in (0..wc.f.users.len()).step_by(37) {
+        cc.groups_of(ordc.user[i], Chain::All, &mut row);
+        let mut got: Vec<Guid128> = ones(&row)
+            .map(|g| vc.group_guid(GroupOrdinal(g as u16)).unwrap())
+            .collect();
+        got.sort_unstable();
+        let mut a = a_groups(&vc, &wc.f.users[i], Chain::All);
+        a.sort_unstable();
+        assert_eq!(got, a);
+    }
+    let editedc: Vec<u16> = (0..(wc.f.users.len() / 100).max(1))
+        .map(|i| ordc.user[(i * 97) % wc.f.users.len()])
+        .collect();
+    let freshc = || Compiled::compile(wc.prepare());
+    let edgec = (ordc.group[wc.f.teams[0] as usize], qc[0][0]);
+    println!(
+        "Fixture without composites: {} groups, {} conjunction questions; B+ = oracle on all {} memberships, = dir-sim on a sample.\n",
+        vc.groups_len(),
+        qc.len(),
+        d.member.len()
+    );
+    w5(
+        "W5c: policy conjunction, fixture without composites",
+        &cc,
+        &wc.witness(),
+        &freshc,
+        &[edgec, (wide_child(&cc, edgec.1), edgec.1)],
+        &editedc,
+        &qc,
+        evict_buf,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Working-set sweep: more groups, so the B+ closure outgrows L2.
+
+fn sweep(users: usize, evict_buf: &mut [u64]) {
+    let factors: Vec<usize> = std::env::var("DIR_RMAP_SWEEP")
+        .unwrap_or_else(|_| "1,2,4,8".into())
+        .split(',')
+        .map(|s| s.trim().parse().expect("sweep factor"))
+        .collect();
+    println!("## Working-set sweep ({users} users, conjunction questions, focus of 64 groups)\n");
+    println!(
+        "Caches: {}. A focus row is 32 B; a closure row is `words`·8 B. \"touched\" = bytes read by one evaluation (direct rows + output); \"set\" = bytes of rows read when every user is evaluated in turn (distinct direct groups × row size). Hot = one user repeated; warm = users cycled; cold = after evicting 64 MiB. ns per evaluation.\n",
+        cache_sizes()
+    );
+    println!(
+        "| groups | words | closure, one chain up | B+ set | F set | F+u set | avg direct groups | touched B+ / B+w / F | hot B+ / F | warm B+ / B+w / F / F+u | cold B+ / B+w / F / F+u | compile ms | F prep µs | N* F vs B+ | N* F vs B+w |"
+    );
+    println!("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+    for factor in factors {
+        let w = World::new(Fixture::generate(Spec::iam_scaled(users, factor)));
+        let v = w.view();
+        let ord = Ordinals::of(&w.f, &v);
+        let witness = w.witness();
+        let s = Instant::now();
+        let c = Compiled::compile(w.prepare());
+        let t_comp = s.elapsed();
+        let all: Vec<Vec<u16>> = conjunctions(&w.f)
+            .iter()
+            .map(|&(r, l)| vec![ord.group[r as usize], ord.group[l as usize]])
+            .collect();
+        let (qs, groups) = take_k(&all, 64);
+        let wds = words_of(&groups);
+        let f = Focus::bind(&c, Chain::All, &groups, &witness).unwrap();
+        let fu =
+            FocusUsers::from_focus(&c, Focus::bind(&c, Chain::All, &groups, &witness).unwrap());
+        let masks: Vec<Row> = qs.iter().map(|q| f.all_of(q).unwrap()).collect();
+        let users_o: Vec<u16> = (0..c.b.users as u16).collect();
+        let mut row = vec![0u64; c.w];
+        for &u in &users_o {
+            let want = e_bp(&c, u, &qs, &mut row);
+            assert_eq!(e_f(&f, &c, u, &masks), want);
+            assert_eq!(e_fu(&fu, u, &masks), want);
+        }
+        let n = c.b.groups;
+        let total_deg: usize = users_o
+            .iter()
+            .map(|&u| c.b.user_groups.row(u as usize).len())
+            .sum();
+        let avg = total_deg as f64 / users_o.len() as f64;
+        let mut distinct = vec![false; n];
+        for &u in &users_o {
+            for &d in c.b.user_groups.row(u as usize) {
+                distinct[d as usize] = true;
+            }
+        }
+        let dg = distinct.iter().filter(|&&x| x).count();
+        let set_bp = dg * c.w * 8;
+        let set_f = dg * 32;
+        let set_fu = users_o.len() * 32;
+        let touched = (
+            (avg + 1.0) * c.w as f64 * 8.0,
+            avg * wds.len() as f64 * 8.0,
+            avg * 32.0 + masks.len() as f64 * 32.0,
+        );
+        let (ev, _) = time_evals(&c, &users_o, &qs, &wds, &f, &fu, &masks, users_o.len(), 7);
+        let one = [users_o[users_o.len() / 2]];
+        let (hot, _) = time_evals(&c, &one, &qs, &wds, &f, &fu, &masks, 20_000, 7);
+        let cold = time_cold(&c, &users_o, &qs, &wds, &f, &fu, &masks, evict_buf);
+        let t_prep = time(9, || {
+            Focus::bind(&c, Chain::All, &groups, &witness).unwrap()
+        });
+        let p = ns(t_prep, 1);
+        let nstar = |base: f64, e: f64| {
+            if base > e {
+                format!("{:.0}", p / (base - e))
+            } else {
+                "never".into()
+            }
+        };
+        println!(
+            "| {n} | {} | {} | {} | {} | {} | {avg:.1} | {} / {} / {} | {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} / {:.0} / {:.0} / {:.0} | {:.0} | {:.1} | {} | {} |",
+            c.w,
+            kib((n * c.w * 8) as isize),
+            kib(set_bp as isize),
+            kib(set_f as isize),
+            kib(set_fu as isize),
+            kib(touched.0 as isize),
+            kib(touched.1 as isize),
+            kib(touched.2 as isize),
+            hot.bp,
+            hot.f,
+            ev.bp,
+            ev.bpw,
+            ev.f,
+            ev.fu,
+            cold[0],
+            cold[1],
+            cold[2],
+            cold[3],
+            t_comp.as_secs_f64() * 1e3,
+            us(t_prep),
+            nstar(ev.bp, ev.f),
+            nstar(ev.bpw, ev.f),
+        );
+    }
+    println!();
+}
+
+/// The group with the largest downward closure that is not yet nested in
+/// `parent`: the widest refresh a single nesting pair into `parent` causes.
+fn wide_child(c: &Compiled, parent: u16) -> u16 {
+    (0..c.b.groups as u16)
+        .filter(|&g| g != parent && c.b.nested.binary_search(&(g, parent)).is_err())
+        .max_by_key(|&g| ones(c.down_row(Chain::All, g as usize)).count())
+        .unwrap()
 }
