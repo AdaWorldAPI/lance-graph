@@ -30,12 +30,16 @@ use crate::native::{PreparedStar, StarPlan, prepare_from_rows};
 /// Up to this many semijoin centers, the address mask is an `Or` of `eq_u32`
 /// atoms through relalg; above it, the scalar membership test builds it.
 ///
-/// The limit is relalg's, not a speed crossover: each `eq` atom of the `Or`
-/// holds its own scratch slot, and one fold may use at most
-/// `lance_graph_r2il::MAX_SLOTS` (8) of them. Measured: 4 centers fit, 5
-/// fail with `ScratchBufferTooSmall { need_words: 145, have_words: 129 }` at
-/// 1,000 rows. (The 64-needle crossover in plan §2c is ndarray's row filter,
-/// a different mechanism.)
+/// The limit comes from a setting, not from the algebra and not from a speed
+/// crossover. relalg lowers `Or(a1..ak)` left-associatively, and each atom
+/// and each `OR` takes a scratch slot of its own (slots are not reused
+/// inside a fold), so `k` centers take `2k - 1` slots. One fold may use
+/// `lance_graph_r2il::MAX_SLOTS` (8, "sized with headroom") of them. Measured:
+/// 4 centers fit (7 slots); 5 need 9 and fail with
+/// `ScratchBufferTooSmall { need_words: 145, have_words: 129 }` at 1,000 rows.
+/// mask-risc itself addresses up to 65,536 slots. A larger arena, or slot
+/// reuse in the fold, lifts this. (The 64-needle crossover in plan §2c is
+/// ndarray's row filter, a different mechanism.)
 pub const SEMIJOIN_ATOMS_MAX: usize = 4;
 
 #[derive(Debug)]
