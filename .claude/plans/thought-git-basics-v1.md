@@ -12,7 +12,7 @@ This plan starts from the ideal state and plans only the basics that lead to it.
 
 **The ideal state.**
 
-1. **No stale branches.** A thought exists only while its kanban card is live. Its branch is opened by the Rubicon crossing and closed by the card's outcome. Nothing outlives its card, so there is nothing to clean up afterwards.
+1. **No stale branches.** A branch is squashed, discarded or landed as soon as its result is read; nothing waits to be cleaned up. ⊘ Struck 2026-10-20 (operator): "A thought exists only while its kanban card is live. Its branch is opened by the Rubicon crossing". Branching is autonomous and costs folds; the Rubicon decision is the write (see "Correction: replay is the API, the write is the Rubicon decision").
 2. **Squash, prune and garbage collection are kanban outcomes, not a background job.** `Commit` lands, `Plan` re-plans (folding into a new thought), `Prune` discards.
 3. **Every thought is a deterministic, replayable operator.** Replaying it from its receipt reproduces its writes. That is what makes discarding safe. Keeping old thoughts matters less than knowing what they were (awareness), which is the later Datalog layer.
 
@@ -29,6 +29,29 @@ This plan starts from the ideal state and plans only the basics that lead to it.
 | outcome | `Prune` (absorbing; also `Planning → Prune`, the pre-Rubicon veto) | `discard`, slot freed |
 
 `Commit`'s calcify step is DECLARED only: `kanban.rs` states no Lance-version-producing code exists for it. D-TGB-3 is the step that gives it one.
+
+## Correction: replay is the API, the write is the Rubicon decision (2026-10-20)
+
+**Status:** DECISION (operator, 2026-10-20) for the principle; WORKING-MODEL for the mapping onto `KanbanColumn` and for the anomaly predicate. **Basis:** the operator's words ("1.7ns x 1mio..1bio folds sind effizienter als ein Schreibzugriff … 99.9% sind autoattended autonomous git heuristics … Squash für stacking ohne Auffälligkeiten continue new branch … in memory replay als API und write als bewusste Rubikon modell Heckhausen Entscheidung wenn das Ergebnis zufrieden stellt"), and the implementation read on 2026-10-20: `alpha.rs`, `alpha_tunnel.rs`, `examples/givens_layer_probe.rs`, `examples/thought_layers_probe.rs`, `split-tunnel-sparse-append-resident-fold.md`.
+
+1. **Folds against a write.** One fold costs about 1.7 ns (MEASURED, `2026-09-24-cost-scales-with-dirty-rows…`). The operator puts one write at 233–350 ms; the figures measured in this workspace are a 1.7 ms write floor (same entry), a `LanceCycleWriter` commit of 5.8–10.5 ms (D-WAL), and 336 ms / 532 ms for a Lance scan / a replay from Lance (split-tunnel doc). Either way one write buys 10⁶ to 10⁸ folds, so replaying a thought in memory is cheaper than writing it.
+2. **99.9 % of the git operations are autonomous.** `branch`, `write`, `diff`, `status`, `squash`, `discard`, `replay` and continuing on a new branch run in memory as heuristics, without a decision and without a Lance call. They are the API.
+3. **Squash stacks the unremarkable.** A thought whose result shows no anomaly is squashed onto the stack, and the work continues on a new branch. The anomaly signals already exist in code:
+   - a contradiction record: a hypothesis offering a different value on a given lane (`givens_layer_probe`, `Tunnel::write`);
+   - a regression: `visits > 1` (`AlphaOverlay::regressions`);
+   - a cold/hot surprise: `expected.xor(&attended)` not empty (`AlphaMask`);
+   - two thoughts reading one address differently (`ThoughtTables::differs`).
+   Which of these stop a squash, and at what threshold, is OPEN and pre-registered in D-TGB-0.
+4. **The write is the Rubicon decision.** A result is landed into Lance only when it is satisfactory: the conscious decision of Heckhausen's Rubicon model, taken once per result, not once per branch. The kanban card therefore tracks the intention to write, not the existence of a branch.
+5. **Presence decides what is written (read in code).** Absence is not zero.
+   - `givens_layer_probe`: per row a lane-presence mask plus the payload at the lane's popcount rank. A lane without its bit is unknown (the NaN case); a read returns the mask of lanes it filled, never a value for the others.
+   - The same probe: a hypothesis offering the given's own value is agreement and is not stored; a different value on a given lane is a contradiction record and is never stored.
+   - `thought_layers_probe`: `RowDelta` keeps only the 16-byte slots that differ from the base (XOR); an equal write is `Written::NoChange`; a look records only the saccade.
+   - `AlphaOverlay`: an unclaimed address reads `None`, never the base row.
+   So a sparse write is a presence bit plus a payload at its rank, and only for cells that differ.
+6. **Rebase is replay.** A thought that fell behind main replays its receipt on the new base (D-TGB-4) instead of re-deriving incrementally. That costs folds and needs no recursion driver, so v1 does not wait on the banned D-RA-4 frontier driver.
+
+**WORKING-MODEL mapping onto `KanbanColumn`** (to be pinned by D-TGB-0): `Planning` holds the autonomous in-memory work (branch, squash, replay); `Planning → CognitiveWork` is the decision to write a satisfactory result; `CognitiveWork` prepares the batch; `Evaluation` runs the up-to-date check and the revision gate; `Commit` writes; `Plan` returns to the in-memory work; `Prune` drops the intention. The table above (slot taken at the crossing) is superseded by this mapping.
 
 ## What Lance 13 / LanceDB 0.40 already provide
 
@@ -51,11 +74,12 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 
 ## Work items (test-first; each lands with its falsifier first)
 
-- [ ] **D-TGB-0 Pre-registration.** Fixtures: one thought per Rubicon outcome (`Commit`, `Plan`, `Prune`, pre-Rubicon veto), three thoughts that reference each other through `w_slot`, one mutual pair. Oracle: a from-scratch run on main at the next version. Disables written before code.
-- [ ] **D-TGB-1 Slot pool on the Rubicon crossing.** A slot is taken only at `Planning → CognitiveWork` and freed only at `Commit`, `Plan` or `Prune`.
-  - Falsifier: no slot exists without a live card, so a stale branch is unrepresentable.
-  - Edges: with 63 slots taken the crossing is refused, never given a 65th slot.
-  - Disables: free on `Evaluation`; allocate at `Planning`.
+- [ ] **D-TGB-0 Pre-registration.** Fixtures: one write intention per Rubicon outcome (`Commit`, `Plan`, `Prune`, pre-Rubicon veto); a stack of unremarkable thoughts that squash and continue on a new branch; one thought per anomaly signal that must stop the squash; an unwritten lane that must read as absent, not zero. Oracle: a from-scratch run on main at the next version. Disables written before code. ⊘ Struck 2026-10-20: "three thoughts that reference each other through `w_slot`, one mutual pair" (W names a lane and points nowhere).
+- [ ] **D-TGB-1 Slot pool, autonomous.** A slot is taken by `branch` and freed by `squash`, `discard` or `land`, without a decision.
+  - Falsifier: after a run, every slot is either live work or free; no slot is held by a thought whose result was already read.
+  - Edges: with 63 slots taken, unremarkable thoughts are squashed first; if none is, `branch` is refused, never given a 65th slot.
+  - Disables: never free on squash; squash a thought that carries an anomaly.
+  - ⊘ Struck 2026-10-20: "slot pool on the Rubicon crossing … taken only at `Planning → CognitiveWork`" and its falsifier "no slot exists without a live card".
 - [ ] **D-TGB-2 Lane labels.** `w_slot` (CE64 bits 53..58) names the thought a state belongs to, qualified by the frame's base version (0) or the slot's generation (1..=63); it is not a pointer between thoughts. The relabel rules are #1628's.
   - W = thought layer is already decided (DECISION 2026-10-17, #1597). D-TGB-2 includes migrating the competing readers named in D-TGA's correction, item 2: `MailboxSoA::apply_edges` (its corpus filter moves to `SoaEnvelope::mailbox_owner`) and `deepnsm-v2`'s `WitnessTable` index.
   - Falsifiers: after `Commit`, no live edge carries the landed slot; an edge from a recycled slot's old generation is refused.
@@ -75,8 +99,10 @@ Read in the crate sources (`lance-13.0.0/src/dataset.rs`, `dataset/refs.rs`, `da
 
 ## Open
 
-- **Card granularity.** Is the kanban card that owns a slot the mailbox's card, or one card per move inside a mailbox? `KanbanColumn` is per mailbox today.
-- **Squash or land under slot pressure.** OPEN. It reads presence bits (the deltas' source bitsets, D-HL-3, and the written-by words), never `w_slot` as a pointer. ⊘ Struck 2026-10-20: "the `w_slot` pointer graph decides"; W names a lane and points nowhere.
+- **Card granularity.** A card now tracks a write intention, not a slot. Is it the mailbox's card, or one card per intention inside a mailbox? `KanbanColumn` is per mailbox today.
+- **The anomaly predicate.** Which signals (contradiction, regression, cold/hot surprise, divergence between thoughts) stop a squash, and at which thresholds.
+- **What "satisfactory" means for a write.** The measure that moves a result from in-memory work to a write intention.
+- **Squash or land under slot pressure.** Squash the unremarkable first (correction item 3); landing stays a decision. The remaining policy is OPEN. It reads presence bits (the deltas' source bitsets, D-HL-3, and the written-by words), never `w_slot` as a pointer. ⊘ Struck 2026-10-20: "the `w_slot` pointer graph decides"; W names a lane and points nowhere.
 - **The PR entry under MemWAL.** A land there makes no Lance version until compaction, so the PR entry would be a WAL position, or `Commit` forces a flush.
 - **Later:** Datalog awareness over thoughts and receipts.
 

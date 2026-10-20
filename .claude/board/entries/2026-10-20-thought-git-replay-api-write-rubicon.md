@@ -1,0 +1,13 @@
+# 2026-10-20 — Thought git: replay is the API, the write is the Rubicon decision
+
+**Status:** DECISION (operator, 2026-10-20) for the principle; WORKING-MODEL for the kanban mapping and the anomaly predicate. **Basis:** the operator's words (quoted in `thought-git-basics-v1.md` § "Correction: replay is the API, the write is the Rubicon decision") and the implementation read the same day (`alpha.rs`, `alpha_tunnel.rs`, `givens_layer_probe`, `thought_layers_probe`, the split-tunnel doc).
+
+- One fold ≈ 1.7 ns, so one write buys 10⁶–10⁸ folds (operator: 233–350 ms per write; measured here: 1.7 ms floor, 5.8–10.5 ms `LanceCycleWriter` commit, 336 ms Lance scan).
+- 99.9 % of thought git operations (branch, write, diff, status, squash, discard, replay) are autonomous in-memory heuristics with no Lance call.
+- A thought without anomaly is squashed onto the stack and work continues on a new branch. Anomaly signals already in code: contradiction records, regressions (`visits > 1`), cold/hot surprise (`expected.xor(attended)`), divergence between thoughts (`differs`).
+- Landing into Lance is the conscious Heckhausen Rubicon decision, taken when the result is satisfactory. A kanban card tracks the write intention, not the branch.
+- Presence decides what is written: an absent lane is unknown (the NaN case), never zero; agreement with a given is not stored; a contradiction is a record, never a stored value.
+- Rebase is replay of the receipt on the new base; v1 needs no recursion driver.
+- D-TGB-0 and D-TGB-1 re-specified; the old "slot taken at the Rubicon crossing" is struck.
+
+OPEN: the anomaly predicate and thresholds; what "satisfactory" means for a write; card granularity.

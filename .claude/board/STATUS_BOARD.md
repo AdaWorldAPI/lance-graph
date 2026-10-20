@@ -354,8 +354,8 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |
 | **D-TGA-5** | squash_into (partial squash) and blame | Queued | blame returns original sources after slot reuse |
 | **D-TGA-6** | MergeQueue | Queued | independent thoughts == landed by hand in FIFO order; a thought reading another negated lands after it; a cycle through negation refused at enqueue |
-| **D-TGB-0** | thought git basics: fixtures per Rubicon outcome, `w_slot` reference fixtures, from-scratch oracle (`thought-git-basics-v1.md`) | Queued (lab) | disables written before code |
-| **D-TGB-1** | slot pool on the Rubicon crossing: slot taken at `Planning → CognitiveWork`, freed at `Commit`/`Plan`/`Prune` | Queued (lab) | no slot without a live card (no stale branch); crossing refused at 63 taken |
+| **D-TGB-0** | thought git basics: fixtures per write-intention outcome, squash-stack and anomaly fixtures, absent-not-zero fixture, from-scratch oracle (`thought-git-basics-v1.md`) | Queued (lab) | disables written before code |
+| **D-TGB-1** | slot pool, autonomous: taken by `branch`, freed by `squash`/`discard`/`land` (the write is the Rubicon decision, 2026-10-20) | Queued (lab) | no slot held by a thought whose result was read; at 63 taken unremarkable thoughts squash first, else `branch` refused |
 | **D-TGB-2** | `w_slot` lane labels (W = thought layer, not a pointer) qualified by base version / slot generation | Queued (lab) | no live cell carries a landed slot; old-generation edge refused |
 | **D-TGB-3** | `Commit` lands one sparse batch through `LanceCycleWriter`; `DurableRef` = dataset + `Ref::Version(branch, version)` | Queued (lab) | empty cycle writes nothing; re-submit reconciles; two branches at version 7 told apart |
 | **D-TGB-4** | receipt (base ref, program id, seeds, slot generation) instead of history | Queued (lab) | replay from receipt reproduces writes cell for cell |
