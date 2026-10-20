@@ -245,6 +245,13 @@ Per evaluation, warm, ns, 8,000 users:
 - Composite membership is a cheap question. F's gain over B+ stays at 1.7–2.9× across every focus size, because the number of questions is at most 256.
 - Conjunctions multiply questions as the focus grows. F gains 2.4–5.4× up to 64 groups, then the question loop dominates, and past L1 the mask form loses (§9.3).
 
+**At 65,000 users** (one run; the same fixture shape, so more distinct pairs per focus) the pattern holds and sharpens:
+
+- 64 groups (956 conjunctions): F is 3.3× faster than B+ (391 vs 1,291 ns).
+- 256 groups (8,160 conjunctions, 255 KiB of masks): F's mask form is 2.1× slower than B+ (23.9 vs 11.1 µs); the slot-bit form is 1.2× faster (9.1 µs).
+- Composite membership: F is 1.8–2.8× faster at every focus size.
+- Sweep at 1,495 groups: B+ 218 ns, F 70 ns, F+users 57 ns. The F+users table here is 2 MiB, at the edge of L2, and still costs nothing extra per evaluation.
+
 ### 9.5 Constraints 3 and 4: preparation accounting and amortization
 
 **Preparation at 64 focus groups, 8,000 users** (W5a, composite fixture). Each phase alone; allocations are counted by a global counting allocator.

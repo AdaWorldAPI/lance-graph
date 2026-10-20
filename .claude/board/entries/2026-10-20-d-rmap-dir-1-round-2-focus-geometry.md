@@ -1,4 +1,4 @@
-# D-RMAP-DIR-1 round 2: when 256-slot focus geometry beats compiled closure (2026-10-20)
+# D-RMAP-DIR-1-R2: round 2, when 256-slot focus geometry beats compiled closure (2026-10-20)
 
 **Status:** MEASURED, lab only; nothing promoted. **Basis:** `crates/dir-rmap-probe` (`tests/equivalence.rs` 11/11; `examples/bench.rs`, 4 runs at 8,000 users plus 1 at 65,000). Plan `d-rmap-dir-1-membership-closure-focus-v1.md` §9.
 
