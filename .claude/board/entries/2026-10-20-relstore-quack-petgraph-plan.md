@@ -14,6 +14,9 @@ Operator decision B: `RelationshipMapStore` owns relationship persistence, ident
 - Quack's `Registrar` has only a test implementor; three library `Binder`s exist (sap, dir-sim, glove-parity).
 - A coordinate domain stored as a relation gets its own `DurableRef`, which removes domain ABA without a counter.
 
+- BlasGraph's shipped CSR (read in source): 2 KiB `BitVec` value per entry, `usize` indices, `mxv` clones the matrix per call (even the CSC transpose clones), `mxv` reads the vector at stored column indices (a scalar gather), and ndarray is not on the CSR/`mxv` path. The store reuses BlasGraph's storage types with a pattern-only `u32` borrowed variant; dense row blocks become bitmap rows executed by ndarray mask ops through mask-risc (`StorageFormat::Bitmap` is already reserved); only sparse rows need an indexed read.
+- Principle (operator): write a relationship as a relationship; layouts are built at seal time from relation facts, so RelAlg pays translation once per version.
+
 ## Open
 
 - Admissions A1 (global→local binding), A2 (large-domain multi-hop), A3 (scalar petgraph iteration), A4 (store home/backend), A5 (Registrar shape); blockers B1 (`DurableRef`/`ThoughtCommitId` types), B2 (fork pin), B3 (cyclic joins at scale).

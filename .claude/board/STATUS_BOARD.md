@@ -29,7 +29,7 @@ These PRs merged with no board rows. Every row below is a PROPOSAL (documents an
 | D-RST-1 | `DurableRef` / `ThoughtCommitId` contract types, never-reused rule (coordinated with D-CPG CPG-00) | Queued | reuse test; no duplicate with CPG-00 |
 | D-RST-2 | `RelationshipMapStore` skeleton: catalog, facts through the cycle seal, sorted permutation, `LayoutSeal`, domain as a relation, `impl Registrar` | Queued | F4 refusals (reseal, domain ABA, compaction, scope, dirty, deletion) |
 | D-RST-3 | petgraph `RelView` over a sealed CSR in a new fork experiment | Queued | F1: unmodified `Bfs`/`Dfs` equal the oracle; no edge copy (pointer-in-buffer check) |
-| D-RST-4 | CSR / tile / join-table layouts in the store, capability table | Queued (production reads wait on A1) | F2: five front ends, one `RelationVersion`, identical set and bag answers |
+| D-RST-4 | layouts in the store, built at seal time: pattern-only `u32` CSR/CSC on BlasGraph storage types, bitmap row blocks through mask-risc, join table; capability table | Queued (production reads wait on A1) | F2: five front ends, one `RelationVersion`, identical set and bag answers |
 | D-RST-5 | derived relations: `materialize`, multiplicity, provenance, dependencies, invalidation, DRed | Queued | F4 deletion, F5 set/bag/path |
 | D-RST-6 | typed traversal vocabulary; multi-hop within a focus through stored intermediates | Queued (A1) | F3: no `Gather`/`ScatterOrU32` in any program; `NonFunctionalChain` lifted only in focus |
 | D-RST-7 | triangle and amortization | Queued | F6 (existence/count/enumeration, sparse/dense/skewed), F7 measured crossovers |
