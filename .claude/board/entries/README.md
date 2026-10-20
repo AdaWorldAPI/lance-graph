@@ -25,14 +25,16 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-372 entries, 2026-08-06 .. 2026-10-19.
+374 entries, 2026-08-06 .. 2026-10-19.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-19 | `post-merge-recovery-1601-1617` |  | [2026-10-19-post-merge-recovery-1601-1617.md](2026-10-19-post-merge-recovery-1601-1617.md) |
+| 2026-10-19 | `native-join-relationship-table` |  | [2026-10-19-native-join-relationship-table.md](2026-10-19-native-join-relationship-table.md) |
 | 2026-10-19 | `mork-pathmap-schnellverschluss` |  | [2026-10-19-mork-pathmap-schnellverschluss.md](2026-10-19-mork-pathmap-schnellverschluss.md) |
 | 2026-10-19 | `D-RMAP-1A` |  | [2026-10-19-d-rmap-thought-git-versioning.md](2026-10-19-d-rmap-thought-git-versioning.md) |
 | 2026-10-19 | `D-RMAP-1` |  | [2026-10-19-d-rmap-implicit-relationship-register.md](2026-10-19-d-rmap-implicit-relationship-register.md) |
+| 2026-10-19 | `D-RMAP` |  | [2026-10-19-d-rmap-focus-probe.md](2026-10-19-d-rmap-focus-probe.md) |
 | 2026-10-17 | `thinking-tables-wiring` |  | [2026-10-17-thinking-tables-wiring.md](2026-10-17-thinking-tables-wiring.md) |
 | 2026-10-17 | `D-ASM-11` |  | [2026-10-17-pgring-idea-catalogue.md](2026-10-17-pgring-idea-catalogue.md) |
 | 2026-10-17 | `epistemic-frontier-clicks` |  | [2026-10-17-epistemic-frontier-clicks.md](2026-10-17-epistemic-frontier-clicks.md) |

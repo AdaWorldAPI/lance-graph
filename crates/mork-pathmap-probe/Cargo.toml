@@ -31,6 +31,9 @@ leapfrog = ["mork/leapfrog"]
 mork = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
 mork-expr = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
 pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
+# The native executor for the D-RMAP focus probe (`src/rmap.rs`): the prepared
+# relationship operands are run as its programs, never re-implemented here.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 # MORK's workspace names PathMap as `path = "../PathMap/"`, outside its own
 # repository, so a git dependency on MORK cannot resolve it. This patch points

@@ -5,6 +5,8 @@
 
 > **PRIOR-ART CORRECTION (2026-10-19, precedence over earlier wording):** The operator already reverse-engineered BlasGraph, MKL-like backends, BF16 16x16, AMX, VNNI and mask-GEMM interop in AdaWorldAPI/ndarray and AdaWorldAPI/lance-graph. **Do not start a new GraphBLAS/MKL implementation, import production FFI or redo settled kernel comparisons.** The unproven subject is the separate RelationshipMap tables, zero-copy index binding and thought-selected map palettes. Use existing native kernels and probes as references; any external GraphBLAS implementation is optional independent oracle only.
 
+> **Partial answer (2026-10-19):** the first "updated test priority" item (bind a focus, compare direct indexed seek with a repeated local Boolean fold, focus churn, external-neighbour escapes, 1/8/64 thoughts) is measured in D-RMAP-1A §8 for in-memory warm fixtures. The GraphBLAS and BF16/INT8 arms here remain unrun.
+
 ## 0. Existing implementation and measurements: mandatory reuse
 
 | Precedent | Source | What is already present |
