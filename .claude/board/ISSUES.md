@@ -1,12 +1,3 @@
-## ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC — ndarray's BF16 16×16 polyfill allocates per output element (2026-10-20)
-
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`ndarray/src/simd_ops.rs`, `bf16_tile_gemm_16x16`) and MEASURED (D-RMAP-2 §5a: a 256 × 256 `A·A` takes about 19 ms, about 0.9 GMAC/s, on an AVX-512 host without AMX or `avx512_bf16`).
-
-- Per 16 × 16 call: two decode buffers (`vec!` for A and B), then for each of the 256 output elements a fresh `vec![0.0; k]` filled by a strided read of a B column, an FMA chain and a horizontal `reduce_sum`. About 257 heap allocations per call.
-- `bf16_tile_gemm_16x16_packed` on the same tier unpacks the VNNI buffer back to row-major (another allocation) before calling it.
-- Consequence: on hosts without the tile tiers, the BF16 tile path cannot be compared with the bit arm on cost; it measures allocation, not arithmetic.
-- **What closes it:** an outer-product polyfill in ndarray (broadcast `A[i, kk]`, FMA into a 16-lane accumulator per row, no per-element buffer), with the existing exactness tests, then the D-RMAP-2 §5a probe re-run.
-
 ## ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR — linking MORK replaces the binary's allocator (2026-10-19)
 
 **Status:** OPEN. **Basis:** MEASURED (`crates/mork-pathmap-probe`, a `#[global_allocator]` in the probe fails to link: "conflicts with global allocator in: pathmap").

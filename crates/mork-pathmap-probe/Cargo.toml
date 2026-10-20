@@ -34,10 +34,6 @@ pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
 # The native executor for the D-RMAP focus probe (`src/rmap.rs`): the prepared
 # relationship operands are run as its programs, never re-implemented here.
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
-# The BF16 16x16 tile GEMM for the D-RMAP-2 tile arm (`src/tile_gemm.rs`),
-# through the `ndarray::simd` facade. Same coordinate as mask-risc's, so the
-# graph keeps one ndarray package.
-ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 # MORK's workspace names PathMap as `path = "../PathMap/"`, outside its own
 # repository, so a git dependency on MORK cannot resolve it. This patch points

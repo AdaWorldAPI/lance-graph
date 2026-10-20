@@ -25,12 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-376 entries, 2026-08-06 .. 2026-10-20.
+375 entries, 2026-08-06 .. 2026-10-20.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-20 | `relstore-quack-petgraph-plan` |  | [2026-10-20-relstore-quack-petgraph-plan.md](2026-10-20-relstore-quack-petgraph-plan.md) |
-| 2026-10-20 | `D-RMAP-2` |  | [2026-10-20-d-rmap-2-tile-gemm-cell.md](2026-10-20-d-rmap-2-tile-gemm-cell.md) |
 | 2026-10-19 | `post-merge-recovery-1601-1617` |  | [2026-10-19-post-merge-recovery-1601-1617.md](2026-10-19-post-merge-recovery-1601-1617.md) |
 | 2026-10-19 | `native-join-relationship-table` |  | [2026-10-19-native-join-relationship-table.md](2026-10-19-native-join-relationship-table.md) |
 | 2026-10-19 | `mork-pathmap-schnellverschluss` |  | [2026-10-19-mork-pathmap-schnellverschluss.md](2026-10-19-mork-pathmap-schnellverschluss.md) |

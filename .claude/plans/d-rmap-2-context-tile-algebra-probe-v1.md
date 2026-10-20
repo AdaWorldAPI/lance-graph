@@ -92,24 +92,6 @@ Report: total bound cost, sorted-index creation/maintenance, native scan time, r
 - For sparse 1-hop, bitset or direct indexed seeks may defeat GEMM. For repeated dense 2-hop/all-pairs, tile GEMM may have a valid economic region. A loss in the full-cost test remains a loss.
 - Do not add an MKL/GraphBLAS C dependency, hot JSON representation, new runtime/AST, unauthorized gather or hidden cross-coordinate index hop.
 
-## 5a. First measured cell: Boolean composition and triangles on one 256 × 256 focus (2026-10-20)
-
-> **Status: MEASURED, probe only, one host.** Code: `crates/mork-pathmap-probe/src/tile_gemm.rs`, `tests/tile_gemm.rs` (4 tests; 5 guards disable-verified), `examples/tile_gemm_cost.rs` (`cargo run --release --example tile_gemm_cost`). Release, warm, medians of 7, every timed answer checked against a triple-loop oracle. The GEMM arm is `ndarray::simd::bf16_tile_gemm_16x16_packed` through the facade, not a new kernel.
-
-**Tier that ran: the F32x16 FMA polyfill** (`bf16_tile_gemm_tier()`). This host has `avx512_vnni` and `avx512bw` but neither AMX nor `avx512_bf16`. No tile-tier number exists here; the AMX and `VDPBF16PS` cells of §4 remain unmeasured. This is the hardware, not detection (ndarray `.claude/AMX_GOTCHAS.md` Gotcha 4: a wrong `arch_prctl` syscall number once made `amx_available()` false on real AMX hosts). Checked directly on this host: CPUID.7.0 EDX bits 22/24/25 (AMX-BF16/TILE/INT8) = 0, CPUID.7.1 EAX bit 5 (AVX512-BF16) = 0, XCR0 = `0xe7` (XTILECFG/XTILEDATA bits 17/18 clear), and `arch_prctl(ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA)` on syscall 158 returns `-95` (EOPNOTSUPP). The AMX status in the gotcha file was measured on an Emerald Rapids VM, which this one is not.
-
-| Map | edges | triangles | bit compose | bit walk counts (popcount) | bit triangles | BF16 stage | BF16 `A·A` (packed / row-major) |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 % | 658 | 23 | 3.6 µs | 175 µs | 1.9 µs | 155 µs | 19.6 / 19.4 ms |
-| 10 % | 6 529 | 16 617 | 4.5 µs | 190 µs | 13.5 µs | 256 µs | 19.4 / 22.3 ms |
-| 50 % | 32 776 | 2 099 676 | 25.2 µs | 192 µs | 71.8 µs | 400 µs | 19.5 / 18.9 ms |
-| 1 % + 4 hubs | 2 706 | 20 273 | 2.6 µs | 165 µs | 5.8 µs | 150 µs | 19.7 / 19.4 ms |
-
-- **§3's exactness claim holds as measured.** BF16 walk counts equal the oracle exactly (`assert_eq!`, not a tolerance), and `count > 0` equals Boolean composition, on all four maps.
-- **On this host the bit arm wins every cell**, including walk counts. Popcount of `row_i(A) ∧ row_j(Aᵀ)` gives the same counts as the GEMM in about 170–190 µs, against about 19 ms. Staging alone (bits to dense BF16, 16 KiB to 256 KiB) costs more than the whole bit composition.
-- **The 19 ms is the polyfill's shape, not GEMM's.** `ndarray::simd_ops::bf16_tile_gemm_16x16` allocates two decode buffers per call, then one strided B-column buffer and one horizontal reduce per output element: about 257 heap allocations per 16 × 16 call, 65 000 per 256 × 256 product. The packed entry on this tier also unpacks and allocates per call. Recorded as `ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC`; the row-major entry is no faster, so the unpack is not the cost.
-- **Not measured:** AMX and `VDPBF16PS` hosts; dense relations above one focus (blocked 256 × 256 tiles); weighted or evidence-bearing relations, which §3 excludes anyway.
-
 ## 6. Recommendation
 
 Use **lance-context GenericStore/SchemaSpec only as a candidate cold durable declaration precedent**, **petgraph::visit as an optional read-only compatibility/oracle facade**, **GraphBLAS as the Boolean algebra oracle**, and **MKL BF16 GEMM as an explicitly falsifiable physical tile accelerator**. The map bank remains in independent typed tables; OGAR provides vocabulary; BIND selects and borrows; RelAlg describes; existing Quack/R2IL/Mask-RISC remains the execution family; CE64 is opaque.
