@@ -1,66 +1,112 @@
-//! D-TGB-1: the slot pool under its two starting policies.
+//! D-TGB-1: the slot pool under its two starting policies, with squashing
+//! along dependency chains before anything is evicted.
 
-use thought_git_probe::slots::{Eviction, LIVE_SLOTS, SlotPool, Stale};
+use thought_git_probe::slots::{Eviction, LIVE_SLOTS, Pressure, Slot, SlotPool, Stale};
 
-/// Fill the pool; return the handles in branch order.
-fn full(policy: Eviction) -> (SlotPool, Vec<thought_git_probe::slots::Slot>) {
+/// Fill the pool with root thoughts (branched from main); `parents[t]` names
+/// the earlier thought `t` branches from instead.
+fn full(policy: Eviction, parents: &[(u32, u32)]) -> (SlotPool, Vec<Slot>) {
     let mut p = SlotPool::new(policy);
-    let mut handles = Vec::new();
+    let mut h: Vec<Slot> = Vec::new();
     for t in 0..LIVE_SLOTS as u32 {
-        let (s, e) = p.branch(t);
-        assert!(e.is_none(), "evicted before the pool was full");
-        handles.push(s);
+        let from = parents
+            .iter()
+            .find(|&&(c, _)| c == t)
+            .map(|&(_, parent)| h[parent as usize]);
+        let (s, e) = p.branch(t, from).expect("live parent");
+        assert!(e.is_none(), "pressure before the pool was full");
+        h.push(s);
     }
-    assert_eq!(p.live(), LIVE_SLOTS);
-    (p, handles)
+    (p, h)
 }
 
-/// The 64th branch evicts; FIFO evicts the oldest thought.
+/// Without chains, FIFO evicts the oldest.
 #[test]
-fn fifo_evicts_the_oldest() {
-    let (mut p, h) = full(Eviction::Fifo);
+fn fifo_evicts_the_oldest_root() {
+    let (mut p, h) = full(Eviction::Fifo, &[]);
     for s in &h[..10] {
         p.touch(*s).unwrap();
     }
-    let (_, e) = p.branch(100);
-    assert_eq!(e.expect("full pool evicts").thought, 0);
+    let (_, e) = p.branch(100, None).unwrap();
+    assert!(matches!(e, Some(Pressure::Evicted { thought: 0, .. })));
     assert_eq!(p.live(), LIVE_SLOTS);
 }
 
-/// LeastUsed keeps the busy old thoughts and evicts the first idle one.
-/// Same workload as above, different victim: the policies are not the same.
+/// Without chains, LeastUsed evicts the idlest; on the same workload FIFO
+/// picks a different victim.
 #[test]
-fn least_used_evicts_the_idlest() {
-    let (mut p, h) = full(Eviction::LeastUsed);
+fn least_used_evicts_the_idlest_root() {
+    let (mut p, h) = full(Eviction::LeastUsed, &[]);
     for s in &h[..10] {
         p.touch(*s).unwrap();
     }
-    let (_, e) = p.branch(100);
-    let e = e.expect("full pool evicts");
-    assert_eq!(e.thought, 10, "oldest thought with zero uses");
-    assert_eq!(e.uses, 0);
+    let (_, e) = p.branch(100, None).unwrap();
+    assert!(matches!(
+        e,
+        Some(Pressure::Evicted {
+            thought: 10,
+            uses: 0,
+            ..
+        })
+    ));
 }
 
-/// An evicted thought's old handle is refused, and its slot now holds the
-/// new thought.
+/// The least-used thought has a live parent: it is squashed into it, not
+/// evicted, and its handle goes stale.
 #[test]
-fn an_evicted_handle_is_stale() {
-    let (mut p, h) = full(Eviction::Fifo);
-    let (new, e) = p.branch(100);
-    let old = e.expect("evicts").slot;
-    assert_eq!(old, h[0]);
-    assert_eq!(new.index, old.index);
-    assert_eq!(p.thought(old), Err(Stale(old)));
-    assert_eq!(p.touch(old), Err(Stale(old)));
-    assert_eq!(p.thought(new), Ok(100));
+fn a_least_used_thought_in_a_chain_is_squashed_into_its_parent() {
+    let (mut p, h) = full(Eviction::LeastUsed, &[(20, 5)]);
+    for (t, s) in h.iter().enumerate() {
+        if t != 20 {
+            p.touch(*s).unwrap();
+        }
+    }
+    let (_, e) = p.branch(100, None).unwrap();
+    assert_eq!(
+        e,
+        Some(Pressure::Squashed {
+            thought: 20,
+            from: h[20],
+            into: h[5],
+        })
+    );
+    assert_eq!(p.thought(h[20]), Err(Stale(h[20])));
+    assert_eq!(p.thought(h[5]), Ok(5));
 }
 
-/// Freeing (squash, discard, land) makes room without evicting anyone.
+/// The FIFO candidate has a live child but no parent: the child is squashed
+/// into it, so the oldest thought survives and nothing is lost.
 #[test]
-fn a_freed_slot_is_reused_without_eviction() {
-    let (mut p, h) = full(Eviction::LeastUsed);
+fn a_candidate_with_a_child_absorbs_it() {
+    let (mut p, h) = full(Eviction::Fifo, &[(1, 0)]);
+    let (_, e) = p.branch(100, None).unwrap();
+    assert_eq!(
+        e,
+        Some(Pressure::Squashed {
+            thought: 1,
+            from: h[1],
+            into: h[0],
+        })
+    );
+    assert_eq!(p.thought(h[0]), Ok(0));
+}
+
+/// Branching from the thought the policy would pick must not remove it.
+#[test]
+fn branching_from_the_candidate_keeps_it() {
+    let (mut p, h) = full(Eviction::Fifo, &[]);
+    let (s, e) = p.branch(100, Some(h[0])).unwrap();
+    assert!(matches!(e, Some(Pressure::Evicted { thought: 1, .. })));
+    assert_eq!(p.thought(h[0]), Ok(0));
+    assert_eq!(p.thought(s), Ok(100));
+}
+
+/// Freeing makes room without pressure, and the freed handle is stale.
+#[test]
+fn a_freed_slot_is_reused_without_pressure() {
+    let (mut p, h) = full(Eviction::LeastUsed, &[]);
     p.free(h[30]).unwrap();
-    let (s, e) = p.branch(100);
+    let (s, e) = p.branch(100, None).unwrap();
     assert!(e.is_none());
     assert_eq!(s.index, h[30].index);
     assert_eq!(p.thought(h[30]), Err(Stale(h[30])));
