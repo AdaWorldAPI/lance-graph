@@ -174,6 +174,10 @@ exclude = [
     # -> MORK query_multi -> relalg over the D-MPS-8 table. Own workspace; run
     # from its directory so `.cargo/config.toml` applies.
     "crates/crepe-plan-probe",
+    # D-RU-1 (U1) JC statistical batch: one battery of means/variances/ANOVA/
+    # covariance/Pearson/regression answered from shared power-sum passes vs
+    # request by request. Lab probe, own workspace: `cd crates/jc-batch-probe && cargo test --release`.
+    "crates/jc-batch-probe",
     # D-TGB-0 thought-git pre-registration: fixtures, the from-scratch oracle,
     # and signal checks over lance-graph-contract only. Lab probe; run from
     # its directory: `cd crates/thought-git-probe && cargo test`.
