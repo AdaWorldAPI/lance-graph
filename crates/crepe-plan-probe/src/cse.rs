@@ -1,5 +1,5 @@
-//! Cross-rule CSE (D-RU-3 / U3): every rule's star over ONE shared table,
-//! and the parts several rules share evaluated once.
+//! Cross-rule CSE (D-RU-3 / U3): rules that share a side read one table, and
+//! the parts several rules share are evaluated once.
 //!
 //! STATUS: PROBE (results only), like the rest of this crate.
 //!
@@ -7,20 +7,29 @@
 //! fold per rule, so a core that 256 rules share is laid out and ANDed 256
 //! times. Here:
 //!
-//! 1. the distinct sides ([`SideKey`]) of all stars are laid out once, over
-//!    one domain: the union of their centers. A rule's joint mask is the AND
-//!    of its sides' presence planes; a center outside some side's domain is
-//!    absent from that side's plane, so the union domain changes no rule's
-//!    mask, only its width;
-//! 2. each rule becomes `And(Sym(side), …)` over those planes, and
-//!    [`share`] lifts every part two or more rules hold into a let
-//!    (`lance_graph_contract::set_program`);
-//! 3. [`run_program`] evaluates each let once into a plane and every rule
-//!    over the sides plus those planes; the tuples are read per rule with
+//! 1. the stars are grouped ([`Layout`]). With [`Layout::Components`], stars
+//!    that share a side ([`SideKey`]), directly or through other stars, form
+//!    one group; a star that shares nothing is a group of its own;
+//! 2. each group's distinct sides are laid out once, over one domain: the
+//!    union of their centers. A rule's joint mask is the AND of its sides'
+//!    presence planes, and a center a side lacks is absent from that side's
+//!    plane, so the wider domain changes no rule's mask, only its width;
+//! 3. each rule becomes `And(Sym(side), …)` over its group's planes, and
+//!    [`share`] lifts every part two or more of the group's rules hold into
+//!    a let (`lance_graph_contract::set_program`);
+//! 4. [`run_program`] evaluates each let once into a plane and every rule
+//!    over the sides plus those planes. The tuples are read per rule with
 //!    [`tuples_over_mask`], exactly as the per-rule path reads them.
 //!
-//! With `sharing` off the same table is used and no let is formed, so the
-//! two effects (one table, shared folds) are measured apart.
+//! Width is the price. A side is laid out densely over its table's domain,
+//! so a table pays per slot for every side it holds. [`Layout::OneTable`]
+//! puts every side over the union of all centers. Measured in
+//! `examples/rule_cse.rs`, that is slower than the per-rule path when the
+//! rules share nothing. [`Layout::Components`] pays it only within a group
+//! that shares something.
+//!
+//! With `sharing` off the same tables are used and no let is formed, so the
+//! two effects (fewer tables, shared folds) are measured apart.
 //!
 //! The shared path ignores [`Options::semijoin`]: a semijoin reduces one
 //! star's sides to the centers its restricted sides have, which differs per
@@ -41,55 +50,137 @@ use crate::native::{PreparedStar, SideKey, SidePlan, StarPlan, Store, prepare, t
 use crate::optimize::{Demand, Options, ResultKind};
 use crate::pipeline::{Outcome, PipelineRefusal, Planned, plan};
 
-/// Every distinct side of a set of stars, laid out once over one domain.
+/// How the stars are laid out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Layout {
+    /// One table for all stars, over the union of all their centers.
+    OneTable,
+    /// One table per group of stars that share a side, directly or through
+    /// other stars; a star that shares nothing keeps a table of its own, as
+    /// in the per-rule path.
+    Components,
+}
+
+/// Stars laid out as tables, each holding the distinct sides of its stars
+/// over one domain.
 pub struct SharedStars {
-    /// The table; its side `k` holds `keys[k]`.
+    pub groups: Vec<Group>,
+}
+
+/// One table and the stars that read it.
+pub struct Group {
+    /// The table; its side `k` holds `prepared.keys[k]`.
     pub prepared: PreparedStar,
-    /// For star `j`, the table side of each of its plan sides.
+    /// The stars of this group, as indices into the planned stars.
+    pub stars: Vec<usize>,
+    /// For `stars[i]`, the table side of each of its plan sides.
     pub rule_sides: Vec<Vec<usize>>,
 }
 
-/// Lays out the distinct sides of `stars` over the union of their centers.
-pub fn prepare_shared(stars: &[StarPlan], store: &Store<'_>) -> SharedStars {
-    let mut keys: Vec<SideKey> = Vec::new();
-    let rule_sides = stars
-        .iter()
-        .map(|s| {
-            s.sides
-                .iter()
-                .map(|side| match keys.iter().position(|k| *k == side.key) {
-                    Some(i) => i,
-                    None => {
-                        keys.push(side.key);
-                        keys.len() - 1
-                    }
-                })
-                .collect()
-        })
-        .collect();
-    // A star whose sides are the distinct keys: `prepare` lays them out over
-    // one domain with the same per-side restriction as the per-rule path.
-    let all = StarPlan {
-        center: VarId(0),
-        sides: keys
-            .iter()
-            .map(|&key| SidePlan { key, emit: None })
-            .collect(),
-        head: Vec::new(),
-    };
-    SharedStars {
-        prepared: prepare(&all, store),
-        rule_sides,
+/// Star indices grouped by `layout`, each group in star order.
+fn partition(stars: &[StarPlan], layout: Layout) -> Vec<Vec<usize>> {
+    if layout == Layout::OneTable || stars.is_empty() {
+        return vec![(0..stars.len()).collect()];
     }
+    // Union-find over stars, joined through each side key's first holder.
+    let mut parent: Vec<usize> = (0..stars.len()).collect();
+    fn root(p: &mut [usize], mut i: usize) -> usize {
+        while p[i] != i {
+            p[i] = p[p[i]];
+            i = p[i];
+        }
+        i
+    }
+    let mut holder: BTreeMap<(u16, u8, Option<u64>, bool), usize> = BTreeMap::new();
+    for (j, s) in stars.iter().enumerate() {
+        for side in &s.sides {
+            let k = side.key;
+            let key = (k.rel.0, k.key_col, k.restrict, k.unary);
+            match holder.get(&key) {
+                Some(&h) => {
+                    let (a, b) = (root(&mut parent, h), root(&mut parent, j));
+                    parent[a.max(b)] = a.min(b);
+                }
+                None => {
+                    holder.insert(key, j);
+                }
+            }
+        }
+    }
+    let mut groups: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for j in 0..stars.len() {
+        let r = root(&mut parent, j);
+        groups.entry(r).or_default().push(j);
+    }
+    groups.into_values().collect()
 }
 
-/// Each star as the conjunction of its table sides, as set expressions over
-/// `Sym(side)`.
-pub fn rule_sets(shared: &SharedStars) -> Vec<SetExpr> {
-    shared
+/// Lays out the distinct sides of each group's stars over the union of that
+/// group's centers.
+pub fn prepare_shared(stars: &[StarPlan], store: &Store<'_>, layout: Layout) -> SharedStars {
+    let groups = partition(stars, layout)
+        .into_iter()
+        .map(|members| {
+            let mut keys: Vec<SideKey> = Vec::new();
+            let rule_sides = members
+                .iter()
+                .map(|&j| {
+                    stars[j]
+                        .sides
+                        .iter()
+                        .map(|side| match keys.iter().position(|k| *k == side.key) {
+                            Some(i) => i,
+                            None => {
+                                keys.push(side.key);
+                                keys.len() - 1
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+            // A star whose sides are the distinct keys: `prepare` lays them
+            // out over one domain with the same per-side restriction as the
+            // per-rule path.
+            let all = StarPlan {
+                center: VarId(0),
+                sides: keys
+                    .iter()
+                    .map(|&key| SidePlan { key, emit: None })
+                    .collect(),
+                head: Vec::new(),
+            };
+            Group {
+                prepared: prepare(&all, store),
+                stars: members,
+                rule_sides,
+            }
+        })
+        .collect();
+    SharedStars { groups }
+}
+
+/// Each star of the group as the conjunction of its table sides, as set
+/// expressions over `Sym(side)`.
+pub fn rule_sets(group: &Group) -> Vec<SetExpr> {
+    group
         .rule_sides
         .iter()
         .map(|sides| SetExpr::And(sides.iter().map(|&k| SetExpr::Sym(k as u32)).collect()))
+        .collect()
+}
+
+/// The current generation of every side of every group, in table order.
+pub fn generations(shared: &SharedStars, store: &Store<'_>) -> Vec<Vec<u64>> {
+    shared
+        .groups
+        .iter()
+        .map(|g| {
+            g.prepared
+                .keys
+                .iter()
+                .map(|k| store.view(k.rel).1)
+                .collect()
+        })
         .collect()
 }
 
@@ -112,8 +203,8 @@ pub enum CseRefusal {
     Pipeline(PipelineRefusal),
     /// A side is stale against the generations the caller passed.
     Table(JoinRefusal),
-    /// The caller passed another number of generations than the table has
-    /// sides.
+    /// The caller passed another number of generation vectors than there
+    /// are groups, or of generations than a group's table has sides.
     Generations {
         sides: usize,
         given: usize,
@@ -121,12 +212,16 @@ pub enum CseRefusal {
     Program(ProgramError),
 }
 
-/// What one shared evaluation cost, each part on its own.
+/// What one shared evaluation cost, each part on its own, summed over the
+/// groups.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SharedReport {
-    /// Sides laid out (distinct across all rules).
+    /// Tables laid out.
+    pub groups: usize,
+    /// Sides laid out (distinct within each group).
     pub sides: usize,
-    /// Slots of the shared domain.
+    /// Slots over all tables' domains: the width every fold of a group runs
+    /// at, summed.
     pub domain: usize,
     /// Rows laid out over all sides.
     pub rows_prepared: usize,
@@ -136,7 +231,7 @@ pub struct SharedReport {
     pub cost: ProgramCost,
     pub plan: Duration,
     pub prepare: Duration,
-    /// Building the program: finding the shared parts (compile time).
+    /// Building the programs: finding the shared parts (compile time).
     pub share: Duration,
     /// The folds: lets and rules.
     pub fold: Duration,
@@ -146,11 +241,11 @@ pub struct SharedReport {
     pub execute: Duration,
 }
 
-/// The program the shared path runs: the rules over the table's sides, with
-/// the shared parts as lets when `sharing` is on.
-pub fn program(shared: &SharedStars, version: u64, sharing: bool) -> SetProgram {
-    let resident = shared.prepared.table.sides.len() as u32;
-    let queries = rule_sets(shared);
+/// The program a group runs: its rules over the table's sides, with the
+/// shared parts as lets when `sharing` is on.
+pub fn program(group: &Group, version: u64, sharing: bool) -> SetProgram {
+    let resident = group.prepared.table.sides.len() as u32;
+    let queries = rule_sets(group);
     if sharing {
         share(version, resident, &queries)
     } else {
@@ -163,97 +258,126 @@ pub fn program(shared: &SharedStars, version: u64, sharing: bool) -> SetProgram 
     }
 }
 
-/// [`crate::pipeline::evaluate`] over one shared table. Same rewrites, same
-/// answer; `sharing` decides whether shared parts are evaluated once.
+/// [`crate::pipeline::evaluate`] over shared tables laid out by `layout`.
+/// Same rewrites, same answer; `sharing` decides whether the parts a
+/// group's rules share are evaluated once.
 pub fn evaluate_shared(
     rules: &[Rule],
     demand: &Demand,
     kind: ResultKind,
     opts: Options,
     store: &Store<'_>,
+    layout: Layout,
     sharing: bool,
 ) -> Result<(Outcome, SharedReport), CseRefusal> {
     let t = Instant::now();
     let planned = plan(rules, demand, kind, opts).map_err(CseRefusal::Pipeline)?;
     let plan_cost = t.elapsed();
     let t = Instant::now();
-    let shared = prepare_shared(&planned.stars, store);
+    let shared = prepare_shared(&planned.stars, store, layout);
     let prepare_cost = t.elapsed();
-    let generations: Vec<u64> = shared
-        .prepared
-        .keys
-        .iter()
-        .map(|k| store.view(k.rel).1)
-        .collect();
-    let (outcome, mut report) = execute_shared(&planned, &shared, kind, &generations, sharing)?;
+    let gens = generations(&shared, store);
+    let (outcome, mut report) = execute_shared(&planned, &shared, kind, &gens, sharing)?;
     report.plan = plan_cost;
     report.prepare = prepare_cost;
     Ok((outcome, report))
 }
 
-/// The run half over a prepared shared table. `generations[k]` is the
-/// current generation of table side `k`.
+/// The run half over prepared shared tables. `generations[g][k]` is the
+/// current generation of side `k` of group `g`.
 pub fn execute_shared(
     planned: &Planned,
     shared: &SharedStars,
     kind: ResultKind,
-    generations: &[u64],
+    generations: &[Vec<u64>],
     sharing: bool,
 ) -> Result<(Outcome, SharedReport), CseRefusal> {
     let t = Instant::now();
-    let table = &shared.prepared.table;
-    if generations.len() != table.sides.len() {
+    if generations.len() != shared.groups.len() {
         return Err(CseRefusal::Generations {
-            sides: table.sides.len(),
+            sides: shared.groups.len(),
             given: generations.len(),
         });
     }
-    table.check(generations).map_err(CseRefusal::Table)?;
-    let version = table_version(generations);
-    let ts = Instant::now();
-    let prog = program(shared, version, sharing);
-    let share_cost = ts.elapsed();
-
-    let n = table.domain.len();
-    let masks: Vec<&[u64]> = table.sides.iter().map(Side::present).collect();
-    let planes = Planes {
-        n_rows: n,
-        masks: &masks,
-        lanes: &[],
-    };
     let filtered = planned.optimized.post_filter.iter().any(Option::is_some);
     let mask_only = kind == ResultKind::Exists && !filtered;
-    let rules = prog.queries.len();
     let measure = if mask_only {
         Measure::Count
     } else {
         Measure::Keep
     };
-    let mut kept: Vec<Vec<u64>> = if mask_only {
-        Vec::new()
-    } else {
-        vec![vec![0u64; words_for(n)]; rules]
+    let mut report = SharedReport {
+        groups: shared.groups.len(),
+        ..SharedReport::default()
     };
-    let mut sinks: Vec<&mut [u64]> = kept.iter_mut().map(Vec::as_mut_slice).collect();
-    let tf = Instant::now();
-    let run = run_program(&prog, version, &planes, &vec![measure; rules], &mut sinks)
-        .map_err(CseRefusal::Program)?;
+    let mut any = false;
+    let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
+    for (group, gens) in shared.groups.iter().zip(generations) {
+        let table = &group.prepared.table;
+        if gens.len() != table.sides.len() {
+            return Err(CseRefusal::Generations {
+                sides: table.sides.len(),
+                given: gens.len(),
+            });
+        }
+        table.check(gens).map_err(CseRefusal::Table)?;
+        let version = table_version(gens);
+        let ts = Instant::now();
+        let prog = program(group, version, sharing);
+        report.share += ts.elapsed();
 
-    let fold_cost = tf.elapsed();
-    let tt = Instant::now();
-    let outcome = if mask_only {
-        Outcome::Exists(run.answers.iter().any(|a| *a != Answer::Count(0)))
-    } else {
-        let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
-        for (j, star) in planned.stars.iter().enumerate() {
-            let sides: Vec<&Side> = shared.rule_sides[j]
-                .iter()
-                .map(|&k| &table.sides[k])
-                .collect();
-            for (row, m) in tuples_over_mask(&table.domain, &sides, star, &kept[j], true) {
-                *bag.entry(row).or_insert(0) += m;
+        let n = table.domain.len();
+        let masks: Vec<&[u64]> = table.sides.iter().map(Side::present).collect();
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &[],
+        };
+        let rules = prog.queries.len();
+        let mut kept: Vec<Vec<u64>> = if mask_only {
+            Vec::new()
+        } else {
+            vec![vec![0u64; words_for(n)]; rules]
+        };
+        let mut sinks: Vec<&mut [u64]> = kept.iter_mut().map(Vec::as_mut_slice).collect();
+        let tf = Instant::now();
+        let run = run_program(&prog, version, &planes, &vec![measure; rules], &mut sinks)
+            .map_err(CseRefusal::Program)?;
+        report.fold += tf.elapsed();
+
+        let tt = Instant::now();
+        if mask_only {
+            any |= run.answers.iter().any(|a| *a != Answer::Count(0));
+        } else {
+            for (i, &j) in group.stars.iter().enumerate() {
+                let sides: Vec<&Side> = group.rule_sides[i]
+                    .iter()
+                    .map(|&k| &table.sides[k])
+                    .collect();
+                let star = &planned.stars[j];
+                for (row, m) in tuples_over_mask(&table.domain, &sides, star, &kept[i], true) {
+                    *bag.entry(row).or_insert(0) += m;
+                }
             }
         }
+        report.tuples += tt.elapsed();
+        report.sides += table.sides.len();
+        report.domain += n;
+        report.rows_prepared += group.prepared.rows_prepared;
+        report.lets += prog.lets.len();
+        let c = run.cost;
+        report.cost.programs += c.programs;
+        report.cost.passes += c.passes;
+        report.cost.lane_reads += c.lane_reads;
+        report.cost.plane_reads += c.plane_reads;
+        report.cost.planes_materialized += c.planes_materialized;
+        report.cost.plane_bytes += c.plane_bytes;
+        report.cost.max_scratch_slots = report.cost.max_scratch_slots.max(c.max_scratch_slots);
+    }
+    let tt = Instant::now();
+    let outcome = if mask_only {
+        Outcome::Exists(any)
+    } else {
         bag.retain(|row, _| {
             row.iter()
                 .zip(&planned.optimized.post_filter)
@@ -269,17 +393,7 @@ pub fn execute_shared(
             ResultKind::Bindings(Semantics::Bag) => Outcome::Bindings(bag.into_iter().collect()),
         }
     };
-    let report = SharedReport {
-        sides: table.sides.len(),
-        domain: n,
-        rows_prepared: shared.prepared.rows_prepared,
-        lets: prog.lets.len(),
-        cost: run.cost,
-        share: share_cost,
-        fold: fold_cost,
-        tuples: tt.elapsed(),
-        execute: t.elapsed(),
-        ..SharedReport::default()
-    };
+    report.tuples += tt.elapsed();
+    report.execute = t.elapsed();
     Ok((outcome, report))
 }

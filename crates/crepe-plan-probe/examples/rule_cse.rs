@@ -28,7 +28,11 @@
 //! # Arms (plan §12)
 //!
 //! * **A** — [`pipeline::evaluate`]: one table and one fold per rule.
-//! * **D0** — [`cse::evaluate_shared`] without lets: one table for all rules,
+//! * **U** — [`cse::evaluate_shared`] with [`Layout::OneTable`] and lets: one
+//!   table for all rules, over the union of all centers. Kept as the measured
+//!   counter-example: when rules share nothing it is slower than A.
+//! * **D0** — [`Layout::Components`] without lets: one table per group of
+//!   rules that share a side,
 //!   still one fold per rule.
 //! * **D** — the same with lets: each part two or more rules share is ANDed
 //!   once into a plane.
@@ -44,7 +48,7 @@ use std::collections::BTreeSet;
 use std::time::Duration;
 
 use crepe::crepe;
-use crepe_plan_probe::cse::{SharedReport, evaluate_shared};
+use crepe_plan_probe::cse::{Layout, SharedReport, evaluate_shared};
 use crepe_plan_probe::logic::{Atom, RelId, Rule, Term, VarId};
 use crepe_plan_probe::native::Store;
 use crepe_plan_probe::optimize::{Options, ResultKind};
@@ -253,9 +257,9 @@ fn arm_a(w: &Workload, kind: ResultKind) -> (Outcome, Report) {
     evaluate(&w.rules, &d, kind, OPTS, &w.store()).expect("arm A")
 }
 
-fn arm_d(w: &Workload, kind: ResultKind, sharing: bool) -> (Outcome, SharedReport) {
+fn arm_d(w: &Workload, kind: ResultKind, layout: Layout, sharing: bool) -> (Outcome, SharedReport) {
     let d = demand(w.out_rel(), vec![None; 3]);
-    evaluate_shared(&w.rules, &d, kind, OPTS, &w.store(), sharing).expect("arm D")
+    evaluate_shared(&w.rules, &d, kind, OPTS, &w.store(), layout, sharing).expect("arm D")
 }
 
 fn median(mut v: Vec<Duration>) -> Duration {
@@ -291,8 +295,8 @@ fn main() {
 
         // Correctness, outside every timed region.
         let (a, _) = arm_a(&w, bag);
-        let (d0, _) = arm_d(&w, bag, false);
-        let (d, _) = arm_d(&w, bag, true);
+        let (d0, _) = arm_d(&w, bag, Layout::Components, false);
+        let (d, _) = arm_d(&w, bag, Layout::Components, true);
         assert_eq!(a, d0, "D0 vs A");
         assert_eq!(a, d, "D vs A");
         let checked = if oracle {
@@ -340,12 +344,16 @@ fn main() {
                 "-",
                 0
             );
-            for (arm, sharing) in [("D0", false), ("D", true)] {
+            for (arm, layout, sharing) in [
+                ("U", Layout::OneTable, true),
+                ("D0", Layout::Components, false),
+                ("D", Layout::Components, true),
+            ] {
                 let mut t = (Vec::new(), Vec::new());
                 let mut split = (Vec::new(), Vec::new(), Vec::new());
                 let mut last = None;
                 for _ in 0..reps {
-                    let (_, r) = arm_d(&w, kind, sharing);
+                    let (_, r) = arm_d(&w, kind, layout, sharing);
                     t.0.push(r.prepare);
                     t.1.push(r.execute);
                     split.0.push(r.share);
@@ -414,8 +422,8 @@ mod tests {
             let w = workload(RULES, shared, CENTERS, ROWS);
             let bag = ResultKind::Bindings(Semantics::Bag);
             let (a, _) = arm_a(&w, bag);
-            let (d0, _) = arm_d(&w, bag, false);
-            let (d, _) = arm_d(&w, bag, true);
+            let (d0, _) = arm_d(&w, bag, Layout::Components, false);
+            let (d, _) = arm_d(&w, bag, Layout::Components, true);
             let Outcome::Bindings(ab) = &a else {
                 panic!("bindings")
             };
@@ -436,8 +444,10 @@ mod tests {
                 ResultKind::Count(Semantics::Bag),
             ] {
                 let (want, _) = arm_a(&w, kind);
-                assert_eq!(arm_d(&w, kind, true).0, want, "{kind:?}");
-                assert_eq!(arm_d(&w, kind, false).0, want, "{kind:?}");
+                for layout in [Layout::OneTable, Layout::Components] {
+                    assert_eq!(arm_d(&w, kind, layout, true).0, want, "{kind:?}");
+                    assert_eq!(arm_d(&w, kind, layout, false).0, want, "{kind:?}");
+                }
             }
         }
     }
@@ -476,8 +486,16 @@ mod tests {
                 .collect();
             assert_eq!(*ab, want, "A vs reference, {bound:?}");
             for sharing in [false, true] {
-                let (dd, _) =
-                    evaluate_shared(&w.rules, &d, bag, opts, &w.store(), sharing).expect("D");
+                let (dd, _) = evaluate_shared(
+                    &w.rules,
+                    &d,
+                    bag,
+                    opts,
+                    &w.store(),
+                    Layout::Components,
+                    sharing,
+                )
+                .expect("D");
                 assert_eq!(dd, a, "sharing={sharing}, {bound:?}, propagate={propagate}");
             }
         }
@@ -490,8 +508,8 @@ mod tests {
         let shared = RULES * 9 / 10;
         let w = workload(RULES, shared, CENTERS, ROWS);
         let (_, a) = arm_a(&w, ResultKind::Exists);
-        let (_, d0) = arm_d(&w, ResultKind::Exists, false);
-        let (_, d) = arm_d(&w, ResultKind::Exists, true);
+        let (_, d0) = arm_d(&w, ResultKind::Exists, Layout::Components, false);
+        let (_, d) = arm_d(&w, ResultKind::Exists, Layout::Components, true);
         // One fold per rule in A and D0; D adds one per let.
         assert_eq!(a.programs_run, RULES);
         assert_eq!(d0.cost.programs, RULES);
@@ -505,6 +523,8 @@ mod tests {
         // Distinct sides: one core pair per group, one T side per rule.
         let groups = 1 + (RULES - shared);
         assert_eq!(d0.sides, 2 * groups + RULES);
+        // One table for the rules on core 0, one per other rule.
+        assert_eq!(d0.groups, groups);
         // A lays the shared core out once per rule that uses it.
         let core_rows = w.cores[0].0.len() + w.cores[0].1.len();
         assert!(
@@ -520,10 +540,24 @@ mod tests {
     #[test]
     fn nothing_is_lifted_when_no_core_is_shared() {
         let w = workload(RULES, 0, CENTERS, ROWS);
-        let (_, d0) = arm_d(&w, ResultKind::Exists, false);
-        let (_, d) = arm_d(&w, ResultKind::Exists, true);
+        let (_, d0) = arm_d(&w, ResultKind::Exists, Layout::Components, false);
+        let (_, d) = arm_d(&w, ResultKind::Exists, Layout::Components, true);
         assert_eq!(d.lets, 0);
         assert_eq!(d.cost, d0.cost);
+        // Every rule keeps a table of its own, laid out from exactly the rows
+        // the per-rule path lays out; one table would widen all of them.
+        let (_, a) = arm_a(&w, ResultKind::Exists);
+        assert_eq!(d0.groups, RULES);
+        assert_eq!(d0.rows_prepared, a.rows_prepared);
+        let (_, one) = arm_d(&w, ResultKind::Exists, Layout::OneTable, false);
+        assert_eq!(one.groups, 1);
+        // In one table every rule's fold runs at the union width.
+        assert!(
+            one.domain * RULES > d0.domain,
+            "union {} x {RULES} rules vs per-rule widths {}",
+            one.domain,
+            d0.domain
+        );
     }
 
     /// FAILS IF: the shared path runs against a side whose generation moved.
@@ -534,15 +568,20 @@ mod tests {
         let d = demand(w.out_rel(), vec![None; 3]);
         let kind = ResultKind::Exists;
         let planned = plan(&w.rules, &d, kind, OPTS).expect("plan");
-        let shared = prepare_shared(&planned.stars, &store);
-        let mut generations: Vec<u64> = shared.prepared.keys.iter().map(|_| 1).collect();
+        let shared = prepare_shared(&planned.stars, &store, Layout::Components);
+        let mut generations: Vec<Vec<u64>> = shared
+            .groups
+            .iter()
+            .map(|g| g.prepared.keys.iter().map(|_| 1).collect())
+            .collect();
         assert!(execute_shared(&planned, &shared, kind, &generations, true).is_ok());
-        generations[0] = 2;
+        generations[0][0] = 2;
         assert!(matches!(
             execute_shared(&planned, &shared, kind, &generations, true),
             Err(CseRefusal::Table(JoinRefusal::Stale { .. }))
         ));
-        generations.pop();
+        generations[0][0] = 1;
+        generations[0].pop();
         assert!(matches!(
             execute_shared(&planned, &shared, kind, &generations, true),
             Err(CseRefusal::Generations { .. })
