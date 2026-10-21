@@ -20,6 +20,7 @@
 | XOR is refused | an even number of parallel paths would read 0, an answer neither stratum gives |
 | Seal mismatch is refused | the two operands were bound to different registers |
 | A stale binding is refused | the caller's current `Witness` differs from the binding's |
+| A page answers only for its own binding | `Page` carries the `Witness` it was resolved against; an old page beside a newly bound register is a seal mismatch |
 | The bag sum is checked | `add_bag` refuses a wrap |
 | The IAM diamond | two direct groups reaching one role: Bag 2, Distinct 1 |
 
@@ -66,6 +67,7 @@ All arms agree on (bag, distinct) before anything is timed.
 
 - **Per-execution cost.** A − C+ is about 296 µs for about 2 600 executions, roughly 115 ns of fixed cost per mask-risc `execute_into` on 4-word planes. The plan and the answers are the same, so the gap is execution overhead. UNKNOWN which part dominates (validation, scratch carving, tile loop); not profiled.
 - **No count-product terminal.** mask-risc has no terminal that produces many coordinates' counts in one execution (a bit-matrix count product, or a masked positional popcount). The support-first plan is what keeps the execution count down. ndarray has no positional popcount either.
+- **Fused wide chains.** `union`/`intersect` reuse two scratch slots in `BoolMode::InPlace` (`call_owned`), so a user with any number of present groups composes. In `BoolMode::Fused` a 24-leaf chain is refused (`ScratchBufferTooSmall`): mask-risc's `fuse` gives each ternlog group its own slot. Pinned as a refusal; not changed here.
 - **Fixture scale.** `Spec::iam(8000)` exceeds 256 security slots (`Refusal::TooLarge`), so the bench runs `Spec::small()`.
 - **Not done:** recursion over composed strata (D-RFT-3), a second composition law beyond Count/Exists, and a PostgreSQL arm in CI (the example prints SKIP without a server).
 
