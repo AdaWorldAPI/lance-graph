@@ -39,3 +39,10 @@ Reuse `lance_graph_contract::class_view::{ClassView, FieldMask, WideFieldMask}` 
 **Boundary:** Do not create fake cross-system SAP identifiers, a new SAP graph model, a second evaluator, a new relationship opcode, or speculative BAPI output. No HMAC signing without its existing authorized sink.
 
 **References:** [#1659](https://github.com/AdaWorldAPI/lance-graph/pull/1659), [#1660](https://github.com/AdaWorldAPI/lance-graph/pull/1660), [EXO-119](https://linear.app/exo-red/issue/EXO-119), [EXO-120](https://linear.app/exo-red/issue/EXO-120), [EXO-50](https://linear.app/exo-red/issue/EXO-50), [ClassView](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-contract/src/class_view.rs).
+
+
+## Cross-PR physical coordinate hypothesis: 6×(PART_OF8:ISA8)
+
+The [capstone mapping](https://github.com/AdaWorldAPI/lance-graph/blob/research/qr-abi-classview-capstone-20261021/.claude/plans/d-qr-abi-classview-rails-capstone-v1.md) proposes reusing the *existing*, content-blind `FacetCascade` 16-byte `facet_classid(4) | 6×(hi:lo)` representation as a **candidate mapping view**, with `hi=part_of`, `lo=is_a` only where the ClassView declares that interpretation. SAP's 23 ordered fields have stable field ordinals but are **not** naturally ISA/PART_OF graph edges; the default is direct `WideFieldMask` field projection. An HHTL16 16×8-bit ISA zipper and separate 16×8-bit PART_OF zipper remain **proposed logical views**, not new stored SAP fields. Test a synthetic typed employee→activity→organizational-unit relationship *only* after source identity and predicate facts are supplied by fixtures. Do not invent these edges from CATS field presence.
+
+**Rail negative oracle:** swapping a field ordinal and a part_of coordinate may yield identical bytes but must fail type checking; full 256-palette identity only within a sealed local codebook; no global ID alias. The 12 bytes of six 8:8 coordinates are not the 8-KiB Boolean QR truth state.
