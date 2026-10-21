@@ -160,6 +160,15 @@ impl Measure {
         }
     }
 
+    /// True when the measure contains a lane sum.
+    pub fn has_sum(&self) -> bool {
+        match self {
+            Measure::Sum { .. } => true,
+            Measure::Add(a, b) | Measure::Sub(a, b) => a.has_sum() || b.has_sum(),
+            _ => false,
+        }
+    }
+
     /// True when the measure contains no impure operand.
     pub fn is_pure(&self) -> bool {
         match self {
@@ -230,8 +239,14 @@ pub const CATALOGUE: &[RuleSpec] = &[
     RuleSpec {
         rule: Rule::Complement,
         pattern: "Count(¬A) → N − Count(A)",
-        requires: "two-valued A; a fixed universe N",
-        refuses: &[Refusal::NotTwoValued, Refusal::NoUniverse],
+        requires: "two-valued A; a fixed universe N of distinct rows; exact or wrapping arithmetic",
+        refuses: &[
+            Refusal::NotTwoValued,
+            Refusal::NoUniverse,
+            Refusal::Bag,
+            Refusal::Checked,
+            Refusal::Ieee,
+        ],
     },
     RuleSpec {
         rule: Rule::RelationalDifference,
@@ -247,8 +262,13 @@ pub const CATALOGUE: &[RuleSpec] = &[
     RuleSpec {
         rule: Rule::AdditiveCancellation,
         pattern: "(a + b) − a → b",
-        requires: "exact or wrapping arithmetic; a pure",
-        refuses: &[Refusal::Checked, Refusal::Ieee, Refusal::Impure],
+        requires: "exact or wrapping arithmetic; a pure; no `_sym` sum in a",
+        refuses: &[
+            Refusal::Checked,
+            Refusal::Ieee,
+            Refusal::Impure,
+            Refusal::SymFamily,
+        ],
     },
     RuleSpec {
         rule: Rule::RangeIntersect,
@@ -263,8 +283,13 @@ pub const CATALOGUE: &[RuleSpec] = &[
     RuleSpec {
         rule: Rule::RangeCount,
         pattern: "Count([lo, hi)) → max(0, hi − lo)",
-        requires: "distinct rows; the bound within a fixed universe",
-        refuses: &[Refusal::Bag, Refusal::NoUniverse, Refusal::PastUniverse],
+        requires: "distinct rows; the bound within a fixed universe; not IEEE",
+        refuses: &[
+            Refusal::Bag,
+            Refusal::Ieee,
+            Refusal::NoUniverse,
+            Refusal::PastUniverse,
+        ],
     },
 ];
 
@@ -417,6 +442,17 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
             let Some(n) = sem.universe else {
                 return Some(Err(Refusal::NoUniverse));
             };
+            // N counts row positions; in a bag a row carries a multiplicity.
+            if sem.population == Population::Bag {
+                return Some(Err(Refusal::Bag));
+            }
+            // `Const(N)` may overflow, or round, where the complement count
+            // does not.
+            match sem.arith {
+                Arith::Checked => return Some(Err(Refusal::Checked)),
+                Arith::Ieee => return Some(Err(Refusal::Ieee)),
+                Arith::Exact | Arith::Wrapping => {}
+            }
             Some(Ok(Measure::minus(
                 Measure::Const(i128::from(n)),
                 Measure::Count((**a).clone()),
@@ -476,6 +512,10 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
             if !a.is_pure() {
                 return Some(Err(Refusal::Impure));
             }
+            // A `_sym` sum over no row is a sentinel, not an additive value.
+            if sem.sums == SumFamily::Sym && a.has_sum() {
+                return Some(Err(Refusal::SymFamily));
+            }
             Some(Ok(kept))
         }
         Rule::RangeIntersect => {
@@ -508,6 +548,10 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
             };
             if sem.population == Population::Bag {
                 return Some(Err(Refusal::Bag));
+            }
+            // Stepwise rounding of the count differs from one conversion.
+            if sem.arith == Arith::Ieee {
+                return Some(Err(Refusal::Ieee));
             }
             if let Err(why) = range_bounds_ok(rs, sem) {
                 return Some(Err(why));
@@ -1240,6 +1284,111 @@ mod tests {
         let (r, tr) = rewrite(&m, &sem, BUDGET);
         assert_eq!(r, m);
         assert_eq!(tr.refusals, vec![(Rule::RangeCount, Refusal::Bag)]);
+    }
+
+    /// Bag: `N` counts row positions, but a row carries a multiplicity, so
+    /// `N − Count(A)` miscounts (Codex review of #1651).
+    #[test]
+    fn experiment_e_bag_refuses_the_complement() {
+        let m = Measure::Count(SetExpr::negated(SetExpr::Sym(0)));
+        let mut t = table(&mut Rng(13), 2, false, false);
+        t.syms[0] = vec![true, false];
+        t.mult = vec![2, 1];
+        let unguarded = Measure::minus(Measure::Const(2), Measure::Count(SetExpr::Sym(0)));
+        assert_eq!(ev(&t, &m, Acc::Exact), Val::I(1));
+        assert_eq!(ev(&t, &unguarded, Acc::Exact), Val::I(0));
+        let sem = Semantics {
+            population: Population::Bag,
+            ..Semantics::exact(2)
+        };
+        let (r, tr) = rewrite(&m, &sem, BUDGET);
+        assert_eq!(r, m);
+        assert_eq!(tr.refusals, vec![(Rule::Complement, Refusal::Bag)]);
+    }
+
+    /// Checked / IEEE: `Const(N)` overflows (or rounds) on its own while the
+    /// complement count is small.
+    #[test]
+    fn experiment_e_checked_and_ieee_refuse_the_complement() {
+        let m = Measure::Count(SetExpr::negated(SetExpr::Sym(0)));
+        let t = table(&mut Rng(17), 4, false, false);
+        let n = 1u64 << 63;
+        let unguarded = Measure::minus(
+            Measure::Const(i128::from(n)),
+            Measure::Count(SetExpr::Sym(0)),
+        );
+        assert_eq!(ev(&t, &unguarded, Acc::Checked64), Val::Overflow);
+        assert!(matches!(ev(&t, &m, Acc::Checked64), Val::I(_)));
+        for (arith, why) in [
+            (Arith::Checked, Refusal::Checked),
+            (Arith::Ieee, Refusal::Ieee),
+        ] {
+            let sem = Semantics {
+                arith,
+                ..Semantics::exact(n)
+            };
+            let (r, tr) = rewrite(&m, &sem, BUDGET);
+            assert_eq!(r, m);
+            assert_eq!(tr.refusals, vec![(Rule::Complement, why)]);
+        }
+        // Wrapping is a group: the complement still fires.
+        let sem = Semantics {
+            arith: Arith::Wrapping,
+            ..Semantics::exact(4)
+        };
+        assert!(rewrite(&m, &sem, BUDGET)
+            .1
+            .steps
+            .contains(&Rule::Complement));
+    }
+
+    /// `_sym` sums: the dropped operand may be the empty sentinel, which does
+    /// not cancel (Codex review of #1651).
+    #[test]
+    fn experiment_e_sym_family_refuses_cancelling_a_sum() {
+        let s = Measure::Sum {
+            lane: 0,
+            set: SetExpr::Empty,
+        };
+        let c = Measure::minus(Measure::plus(s.clone(), Measure::Const(3)), s);
+        let sem = Semantics {
+            sums: SumFamily::Sym,
+            ..Semantics::exact(4)
+        };
+        let (r, tr) = rewrite(&c, &sem, BUDGET);
+        assert_eq!(r, c);
+        assert_eq!(
+            tr.refusals,
+            vec![(Rule::AdditiveCancellation, Refusal::SymFamily)]
+        );
+        // A dropped operand with no sum still cancels under `_sym`.
+        let k = Measure::Count(SetExpr::Sym(0));
+        let d = Measure::minus(Measure::plus(k.clone(), Measure::Const(3)), k);
+        assert_eq!(rewrite(&d, &sem, BUDGET).0, Measure::Const(3));
+    }
+
+    /// IEEE: counting a range step by step in `f32` rounds; `hi − lo`
+    /// converted once does not.
+    #[test]
+    fn experiment_e_ieee_refuses_the_range_count() {
+        let m = Measure::CountRows(vec![RowRange {
+            basis: 0,
+            lo: 0,
+            hi: 1 << 25,
+        }]);
+        let sem = Semantics {
+            arith: Arith::Ieee,
+            ..Semantics::exact(1 << 25)
+        };
+        let (r, tr) = rewrite(&m, &sem, BUDGET);
+        assert_eq!(r, m);
+        assert_eq!(tr.refusals, vec![(Rule::RangeCount, Refusal::Ieee)]);
+        // Stepwise f32 increments stop at 2^24.
+        let mut acc = 0f32;
+        for _ in 0..(1u32 << 25) {
+            acc += 1.0;
+        }
+        assert_ne!(acc, (1u32 << 25) as f32);
     }
 
     // ── driver ───────────────────────────────────────────────────────────
