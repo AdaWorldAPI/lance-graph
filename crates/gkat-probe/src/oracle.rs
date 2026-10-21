@@ -16,15 +16,18 @@
 //! whenever the oracle finds a difference, the automaton must say
 //! "different".
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use crate::expr::{Action, Atom, Atoms, BExp, Exp};
 
-/// Internal steps allowed between two actions before a run counts as
-/// diverging. Between actions the atom cannot change, so a run that takes
-/// more steps than the expression has nodes without acting is in a loop that
-/// never acts; the bound only needs to exceed any terminating stretch.
-const FUEL: usize = 1 << 14;
+// Divergence is detected exactly, not by a step budget. Between two actions
+// the atom cannot change, so a silent run is determined by its continuation
+// stack. Any silent run that never ends re-enters some loop head with a
+// stack it has had before, and the set of stacks at loop heads is finite
+// (each is a path through the expression). A repeated loop-head stack is
+// therefore divergence, and a stretch with no repeat terminates, however
+// long it is. (A fixed budget misclassified long terminating stretches;
+// Codex review on #1676.)
 
 /// One accepted run: the atoms observed (one more than the actions) and the
 /// actions performed.
@@ -71,17 +74,12 @@ fn run(
     max_actions: usize,
     out: &mut Exploration,
 ) {
-    let mut fuel = FUEL;
+    let mut loop_heads: HashSet<Vec<*const Exp>> = HashSet::new();
     loop {
         let Some(e) = stack.pop() else {
             out.accepted.insert((seen_atoms.clone(), actions.clone()));
             return;
         };
-        if fuel == 0 {
-            out.diverged += 1;
-            return;
-        }
-        fuel -= 1;
         match e {
             Exp::Fail => {
                 out.rejected += 1;
@@ -101,6 +99,12 @@ fn run(
             Exp::If(b, f, g) => stack.push(if b.eval(atom) { f } else { g }),
             Exp::While(b, body) => {
                 if b.eval(atom) {
+                    let mut key: Vec<*const Exp> = stack.iter().map(|x| *x as *const Exp).collect();
+                    key.push(e as *const Exp);
+                    if !loop_heads.insert(key) {
+                        out.diverged += 1;
+                        return;
+                    }
                     stack.push(e);
                     stack.push(body);
                 }
@@ -154,19 +158,26 @@ pub fn unsafe_within(
 }
 
 /// The GKAT determinacy property (paper §2.2) of a set of guarded strings:
-/// two strings that observe the same atoms up to a position must have taken
-/// the same actions up to that position.
+/// two strings that observe the same atoms up to a position must take the
+/// same step there: the same action, or both accept.
 pub fn deterministic(strings: &BTreeSet<GuardedString>) -> bool {
-    // Map each observed atom prefix to the action taken after it.
-    let mut next: BTreeMap<Vec<Atom>, Action> = BTreeMap::new();
+    // Map each observed atom prefix to what follows it: an action, or `None`
+    // for acceptance. A prefix that both accepts and continues is as
+    // nondeterministic as one followed by two different actions (Codex
+    // review on #1676).
+    let mut next: BTreeMap<Vec<Atom>, Option<Action>> = BTreeMap::new();
     for (atoms, actions) in strings {
-        for (i, action) in actions.iter().enumerate() {
+        let steps = actions
+            .iter()
+            .map(|a| Some(*a))
+            .chain(std::iter::once(None));
+        for (i, step) in steps.enumerate() {
             let key = atoms[..=i].to_vec();
             match next.get(&key) {
-                Some(seen) if seen != action => return false,
+                Some(seen) if *seen != step => return false,
                 Some(_) => {}
                 None => {
-                    next.insert(key, *action);
+                    next.insert(key, step);
                 }
             }
         }

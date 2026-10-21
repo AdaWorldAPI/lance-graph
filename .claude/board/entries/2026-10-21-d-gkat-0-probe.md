@@ -45,8 +45,9 @@
   - That authorization is fixed by the checker, never taken from the flow.
   - An authorization observed before an intervening action is stale.
 - **Oracle** (`oracle.rs`): an independent operational interpreter of the expression AST that shares no code with the automaton. It explores every run exhaustively up to a stated action bound.
+  Divergence is detected exactly, by a repeated continuation stack at a loop head, not by a step budget. The first version used a fixed budget, which Codex showed misclassifies a terminating run of 2^14 silent steps.
 
-## Measured (`cargo test`, 26 tests)
+## Measured (`cargo test`, 28 tests)
 
 - **G1.** `if b then {p;q} else {q}` ≡ `(if b then {p} else {skip}); q`. The oracle agrees at bounds 0–4. A changed action label is rejected, a reversed guard is rejected, and a different tail is rejected. `p·0 ≡ 0` (normalization).
 - **G2.** Rejections:
@@ -54,7 +55,7 @@
   - `GoTo` / `GoBack` → `UnstructuredJump`;
   - the union "do `p` or `q` whatever the atom" fails the determinacy property (§2.2), so no GKAT expression denotes it.
 
-  The admitted Rubicon flows are deterministic.
+  So does the union of `skip` and `p`: on one atom it may either accept or act. The admitted Rubicon flows are deterministic.
 - **G5.**
   - For `k ≤ 8` tests: `2^k` atoms exactly. For `n ≤ 4` K3 observables: `3^n` atoms exactly.
   - `k = 9` is refused (`AtomBound`). A DR64-shaped signature (64 Boolean lanes) is refused, as is one with 5 K3 observables (10 tests).

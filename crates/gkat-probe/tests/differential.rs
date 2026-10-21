@@ -136,3 +136,26 @@ fn every_oracle_difference_is_an_automaton_difference() {
         }
     }
 }
+
+/// A terminating stretch of more silent steps than any fixed budget is not a
+/// divergence (Codex review, #1676): a balanced sequence of 2^14 `skip`s is
+/// equivalent to `skip`, and the oracle must agree at bound 0.
+#[test]
+fn long_silent_stretches_are_not_divergence() {
+    fn skips(depth: u32) -> Exp {
+        if depth == 0 {
+            Exp::Skip
+        } else {
+            skips(depth - 1).seq(skips(depth - 1))
+        }
+    }
+    let atoms = Atoms::new(1, &BExp::True).unwrap();
+    let e = skips(14);
+    assert!(equivalent(&e, &Exp::Skip, &atoms).unwrap().holds());
+    let x = gkat_probe::oracle::explore(&e, &atoms, 0);
+    assert_eq!(x.diverged, 0);
+    assert!(same_up_to(&e, &Exp::Skip, &atoms, 0));
+    // A genuinely silent loop still diverges.
+    let spin = gkat_probe::oracle::explore(&Exp::while_(BExp::True, Exp::Skip), &atoms, 0);
+    assert_eq!(spin.diverged, atoms.len());
+}

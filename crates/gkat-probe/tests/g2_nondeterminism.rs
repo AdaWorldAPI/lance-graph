@@ -49,3 +49,15 @@ fn admitted_flows_are_deterministic() {
         assert!(deterministic(&explore(&e, &atoms, 2).accepted));
     }
 }
+
+/// Termination versus action is nondeterminism too: on the same atom the
+/// union of `skip` and `p` may either accept or act (Codex review, #1676).
+#[test]
+fn a_union_of_accepting_and_acting_is_not_deterministic() {
+    let atoms = Atoms::new(1, &BExp::True).unwrap();
+    let skip = explore(&Exp::Skip, &atoms, 1).accepted;
+    let p = explore(&Exp::Do(Action("p")), &atoms, 1).accepted;
+    let union: BTreeSet<_> = skip.union(&p).cloned().collect();
+    assert!(deterministic(&skip) && deterministic(&p));
+    assert!(!deterministic(&union));
+}
