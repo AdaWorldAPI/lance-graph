@@ -40,7 +40,9 @@
 //! 5. Absorption, matched against FLATTENED sibling sets: in an `Or`, a dual
 //!    child `And(ms)` is dropped when some member `m` is already covered by
 //!    the siblings (`m` is a sibling, or `m` is an `Or` whose members are all
-//!    siblings); dually in an `And`. This closes
+//!    siblings), or when a sibling `And(ks)` has every `k` among `ms`
+//!    (`x ∨ (x ∧ y)` with `x` itself a conjunction); dually in an `And`.
+//!    This closes
 //!    ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN: `¬(x ∧ (x ∨ y))` with
 //!    `x = P1 ∧ P4` is `¬P1 ∨ ¬P4`, not the wider form De Morgan emits.
 //!
@@ -428,6 +430,20 @@ fn covered(m: &SetExpr, sibs: &[&SetExpr], and: bool) -> bool {
     }
 }
 
+/// Whether sibling `s` absorbs a dual child with members `ms`: inside an `Or`
+/// (`and == false`), `s = And(ks)` with every `k` in `ms`, so
+/// `And(ms) ⊆ s`; inside an `And`, `s = Or(ks)` with every `k` in `ms`, so
+/// `Or(ms) ⊇ s`. This is `x ∨ (x ∧ y) = x` when `x` is itself a junction and
+/// flattening has spread it into `ms`.
+fn sub_junction(s: &SetExpr, ms: &[SetExpr], and: bool) -> bool {
+    match (s, and) {
+        (SetExpr::And(ks), false) | (SetExpr::Or(ks), true) => {
+            !ks.is_empty() && ks.iter().all(|k| ms.contains(k))
+        }
+        _ => false,
+    }
+}
+
 /// Sort, deduplicate, apply complement and absorption, and collapse.
 fn finish(mut out: Vec<SetExpr>, and: bool) -> SetExpr {
     out.sort();
@@ -457,6 +473,7 @@ fn finish(mut out: Vec<SetExpr>, and: bool) -> SetExpr {
                     .map(|(_, s)| s)
                     .collect();
                 ms.iter().any(|m| covered(m, &sibs, and))
+                    || sibs.iter().any(|s| sub_junction(s, ms, and))
             }
             _ => false,
         };
@@ -779,6 +796,19 @@ mod tests {
     fn dual_absorption_inside_a_conjunction() {
         let e = SetExpr::And(vec![x(), SetExpr::Or(vec![x(), SetExpr::Sym(5)])]);
         assert_eq!(normalize(&e), x());
+    }
+
+    /// FAILS IF: absorption misses `x ∨ (x ∧ y)` when `x` is itself a
+    /// conjunction, i.e. one dual child is a sub-conjunction of another:
+    /// `¬(x ∧ (x ∨ P1))` with `x = P0 ∨ P2` is `¬P0 ∧ ¬P2`.
+    #[test]
+    fn absorption_of_a_superset_conjunction() {
+        let x = SetExpr::Or(vec![SetExpr::Sym(0), SetExpr::Sym(2)]);
+        let e = SetExpr::negated(SetExpr::And(vec![
+            x.clone(),
+            SetExpr::Or(vec![x.clone(), SetExpr::Sym(1)]),
+        ]));
+        assert_eq!(normalize(&e), normalize(&SetExpr::negated(x)));
     }
 
     /// Silence twin. FAILS IF: absorption fires when only SOME members of the
