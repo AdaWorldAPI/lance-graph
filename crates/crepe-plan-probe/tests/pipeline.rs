@@ -761,6 +761,75 @@ fn j_two_way_join_equals_mork_and_the_reference() {
     }
 }
 
+/// FAILS IF: a demand on the join variable that is not pushed into the rule
+/// (propagation off, so it stays a post filter on the center) is not applied
+/// to the kept slots. Bag, count and exists would then answer every center.
+/// Both the per-star pipeline and the shared path are checked.
+#[test]
+fn j2_a_post_filter_on_the_center_narrows_the_kept_slots() {
+    use crepe_plan_probe::cse::{Layout, evaluate_shared};
+    let plan = two_way::crepe_plan();
+    let (labels, rules) = resolved(&plan);
+    let r: Vec<[u32; 2]> = (0..120u32).map(|i| [i, i % 17]).collect();
+    let s: Vec<[u32; 2]> = (0..90u32).map(|i| [i % 23, 500 + i]).collect();
+    let st = Store {
+        relations: vec![
+            (labels.id("R").unwrap(), &r, 1),
+            (labels.id("S").unwrap(), &s, 1),
+        ],
+    };
+    let goal = labels.id("T").unwrap();
+    let no_push = Options {
+        propagate: false,
+        ..Options::ALL
+    };
+    let all = reference::eval(&rules, goal, &[None, None, None], &raw(&labels, &st));
+    // y = 5 joins (R and S both hold it); y = 20 is only in S, so nothing.
+    for (y, nonempty) in [(5u64, true), (20, false)] {
+        let d = Demand {
+            goal,
+            bound: vec![None, Some(y), None],
+        };
+        let want: Vec<(Vec<u64>, u64)> =
+            reference::eval(&rules, goal, &d.bound, &raw(&labels, &st))
+                .into_iter()
+                .collect();
+        let derivations: u64 = want.iter().map(|(_, m)| m).sum();
+        assert_eq!(!want.is_empty(), nonempty, "fixture, y = {y}");
+        // Not vacuous: the filter drops most of the unfiltered answer.
+        assert!(want.len() * 3 < all.len(), "y = {y} keeps too much");
+        let (b, _) = evaluate(&rules, &d, ResultKind::Bindings(BAG), no_push, &st).unwrap();
+        assert_eq!(bindings(b), want, "pipeline bag, y = {y}");
+        let (c, _) = evaluate(&rules, &d, ResultKind::Count(BAG), no_push, &st).unwrap();
+        assert_eq!(c, Norm::Count(derivations), "pipeline count, y = {y}");
+        let (e, _) = evaluate(&rules, &d, ResultKind::Exists, no_push, &st).unwrap();
+        assert_eq!(e, Norm::Exists(nonempty), "pipeline exists, y = {y}");
+        for sharing in [false, true] {
+            let run = |kind| {
+                let (o, rep) =
+                    evaluate_shared(&rules, &d, kind, no_push, &st, Layout::Components, sharing)
+                        .unwrap();
+                norm(&o, &rep.tables)
+            };
+            assert_eq!(
+                bindings(run(ResultKind::Bindings(BAG))),
+                want,
+                "shared bag, y = {y}"
+            );
+            assert_eq!(
+                run(ResultKind::Count(BAG)),
+                Norm::Count(derivations),
+                "shared count"
+            );
+            assert_eq!(
+                run(ResultKind::Exists),
+                Norm::Exists(nonempty),
+                "shared exists"
+            );
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // K. No runtime container in the optimized path
 // ---------------------------------------------------------------------------
