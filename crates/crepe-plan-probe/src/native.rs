@@ -885,6 +885,44 @@ mod fold_tests {
         assert_eq!(set, 2);
     }
 
+    /// Why `fold_kind` refuses Set without the center: rows of two slots
+    /// coincide, so the per-slot product overcounts (fold law 7). The fold
+    /// would answer 2; the set holds one row.
+    #[test]
+    fn without_the_center_two_slots_can_give_one_row() {
+        let s = star(
+            vec![vec![[1, 7], [2, 7]], vec![[1, 0], [2, 0]]],
+            &[true, false],
+            vec![HeadTerm::Side(0)],
+        );
+        let set = enumerate(std::slice::from_ref(&s), &[None]).len() as u64;
+        assert_eq!(set, 1);
+        let per_slot = count_over_mask_unchecked_set(&s);
+        assert_eq!(per_slot, 2, "the hazard is real on this fixture");
+        assert_eq!(
+            fold_kind(
+                std::slice::from_ref(&s.plan),
+                ResultKind::Count(Semantics::Set),
+                false
+            ),
+            None
+        );
+    }
+
+    /// The Set product with the center precondition skipped (release builds
+    /// skip the `debug_assert`); used only to show the hazard above.
+    fn count_over_mask_unchecked_set(s: &Star) -> u64 {
+        let sides: Vec<&Side> = s.table.sides.iter().collect();
+        let mut total = 0;
+        for_each_set(&mask(&s.table), s.table.domain.len(), |slot| {
+            let mut v: Vec<u32> = sides[0].at(slot).to_vec();
+            v.sort_unstable();
+            v.dedup();
+            total += v.len() as u64;
+        });
+        total
+    }
+
     /// A head that repeats a side with two different filters answers 0.
     #[test]
     fn a_side_filtered_to_two_values_at_once_answers_zero() {
