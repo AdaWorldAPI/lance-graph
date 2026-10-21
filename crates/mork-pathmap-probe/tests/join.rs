@@ -1,7 +1,7 @@
 //! The versioned relationship table (`join`) against nested-loop oracles.
 
 use mork_pathmap_probe::join::{
-    JoinExec, JoinRefusal, JoinTable, R_KEY, S_KEY, filter_plane, for_each_set,
+    JoinDomain, JoinExec, JoinRefusal, JoinTable, R_KEY, S_KEY, filter_plane, for_each_set,
 };
 use mork_pathmap_probe::{JoinInput, RelationView, reference};
 
@@ -300,9 +300,17 @@ fn a_position_selection_equals_preparing_the_kept_rows() {
     let s = swap(&hetero(300, 12, &all, 2));
     let (rv, sv) = (view(&r, 1), view(&s, 1));
     // Keep R rows whose x is even, and S rows at even positions.
-    let keep_r = |row: usize| rv.cols[0][row].is_multiple_of(2);
-    let keep_s = |row: usize| row.is_multiple_of(2);
-    let selected = JoinTable::prepare_star_where(&[(&rv, R_KEY, &keep_r), (&sv, S_KEY, &keep_s)]);
+    let mask = |n: usize, keep: &dyn Fn(usize) -> bool| {
+        let mut m = vec![0u64; n.div_ceil(64)];
+        for row in (0..n).filter(|&r| keep(r)) {
+            m[row >> 6] |= 1 << (row & 63);
+        }
+        m
+    };
+    let keep_r = mask(rv.len(), &|row| rv.cols[0][row].is_multiple_of(2));
+    let keep_s = mask(sv.len(), &|row| row.is_multiple_of(2));
+    let selected =
+        JoinTable::prepare_star_where(&[(&rv, R_KEY, Some(&keep_r)), (&sv, S_KEY, Some(&keep_s))]);
     let r2: Vec<[u32; 2]> = r
         .iter()
         .copied()
@@ -323,4 +331,37 @@ fn a_position_selection_equals_preparing_the_kept_rows() {
         kept > 0 && kept < reference::bag_count(&full),
         "the selection excludes something"
     );
+}
+
+/// FAILS IF: the mask layout of a dense domain gives any value another slot
+/// (or membership) than the sorted list does, around word edges and both ends
+/// of the range, or a sparse set is laid out as a mask.
+#[test]
+fn a_dense_domain_assigns_the_slots_a_sorted_list_does() {
+    // 300 values in a span of ~1200: dense. Gaps and runs cross word edges.
+    let vals: Vec<u32> = (0..300u32)
+        .map(|i| 5_000 + i * 4 - (i % 3))
+        .chain([5_000 + 63, 5_000 + 64, 5_000 + 127, 5_000 + 128])
+        .collect();
+    let dense = JoinDomain::build(vals.iter().copied());
+    assert!(dense.is_dense(), "fixture is dense");
+    let mut sorted = vals.clone();
+    sorted.sort_unstable();
+    sorted.dedup();
+    assert_eq!(dense.len(), sorted.len());
+    let (lo, hi) = (sorted[0], *sorted.last().unwrap());
+    let mut members = 0;
+    for y in lo - 70..=hi + 70 {
+        assert_eq!(dense.slot_of(y), sorted.binary_search(&y).ok(), "y = {y}");
+        members += usize::from(dense.contains(y));
+    }
+    assert_eq!(members, sorted.len());
+    for (slot, &y) in sorted.iter().enumerate() {
+        assert_eq!(dense.id(slot), y);
+    }
+    // Two values far apart: a sorted list, same answers.
+    let sparse = JoinDomain::build([0, u32::MAX, 7]);
+    assert!(!sparse.is_dense());
+    assert_eq!(sparse.slot_of(u32::MAX), Some(2));
+    assert_eq!(sparse.slot_of(6), None);
 }

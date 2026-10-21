@@ -33,13 +33,13 @@ arrow-array = "58"
 arrow-buffer = "58"
 arrow-schema = "58"
 futures = "0.3"
+# The SIMD facade: a side's restriction is one compare over its lane into a
+# mask (`eq_u32_to_mask`). Same coordinate as mask-risc and
+# mork-pathmap-probe, so the graph keeps one ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
-# The SIMD facade, for the row-filter comparison in examples/row_filter.rs.
-# Same coordinate as mask-risc and mork-pathmap-probe, so the graph keeps one
-# ndarray package.
-ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 tempfile = "3"
 datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
 # ascent, as a second oracle and baseline for examples/walk_mask.rs.

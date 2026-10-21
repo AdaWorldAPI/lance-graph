@@ -40,8 +40,9 @@ use lance_graph_relalg::{Answer, Measure, Query, Rel, RelError, Run, run_with_pr
 use mork_pathmap_probe::RelationView;
 use mork_pathmap_probe::join::{
     JoinDomain, JoinRefusal, JoinTable, Run as SideRun, SelectedSide, Side, for_each_set,
-    for_each_set_ahead,
+    for_each_set_ahead, rows,
 };
+use ndarray::simd::eq_u32_to_mask;
 
 use crate::logic::{RelId, VarId};
 use crate::mork_api::{Expr, QueryMulti};
@@ -270,50 +271,65 @@ pub fn prepare_views(plan: &StarPlan, views: Vec<RelationView>, semijoin: bool) 
         let k = plan.sides[i].key;
         !k.unary && k.restrict.is_some()
     };
-    let restrict_ok = |i: usize, row: usize| {
-        let k = plan.sides[i].key;
-        let other = 1 - k.key_col as usize;
-        k.unary
-            || k.restrict
-                .is_none_or(|c| u64::from(views[i].cols[other][row]) == c)
-    };
-    // Centers every restricted side has: sorted, deduplicated, intersected.
-    let centers: Option<Vec<u32>> = if semijoin {
-        let mut acc: Option<Vec<u32>> = None;
-        for i in (0..views.len()).filter(|&i| restricted(i)) {
+    // A restricted side's rows: one compare over the lane holding the
+    // constant, into a mask.
+    let restriction: Vec<Option<Vec<u64>>> = (0..views.len())
+        .map(|i| {
+            let k = plan.sides[i].key;
+            let c = k.restrict.filter(|_| restricted(i))?;
+            let lane = &views[i].cols[1 - k.key_col as usize];
+            let mut m = vec![0u64; words_for(lane.len())];
+            if let Ok(c) = u32::try_from(c) {
+                eq_u32_to_mask(lane, c, &mut m);
+            }
+            Some(m)
+        })
+        .collect();
+    // Centers every restricted side has: one domain per restricted side over
+    // its kept rows, intersected.
+    let centers: Option<JoinDomain> = if semijoin {
+        let mut acc: Option<JoinDomain> = None;
+        for (i, m) in restriction.iter().enumerate() {
+            let Some(m) = m else { continue };
             let key = &views[i].cols[plan.sides[i].key.key_col as usize];
-            let mut c: Vec<u32> = (0..key.len())
-                .filter(|&row| restrict_ok(i, row))
-                .map(|row| key[row])
-                .collect();
-            c.sort_unstable();
-            c.dedup();
+            let c = JoinDomain::build(rows(key.len(), Some(m)).map(|row| key[row]));
             acc = Some(match acc {
                 None => c,
-                Some(prev) => prev
-                    .into_iter()
-                    .filter(|v| c.binary_search(v).is_ok())
-                    .collect(),
+                Some(prev) => {
+                    let both: Vec<u32> = (0..prev.len())
+                        .map(|s| prev.id(s))
+                        .filter(|&v| c.contains(v))
+                        .collect();
+                    JoinDomain::build(both.iter().copied())
+                }
             });
         }
         acc
     } else {
         None
     };
-    let keeps: Vec<Box<dyn Fn(usize) -> bool + '_>> = (0..views.len())
+    // Each side's keep mask: its restriction, and with centers the rows whose
+    // center every restricted side has. `None`: every row.
+    let keeps: Vec<Option<Vec<u64>>> = (0..views.len())
         .map(|i| {
+            let Some(c) = &centers else {
+                return restriction[i].clone();
+            };
             let key = &views[i].cols[plan.sides[i].key.key_col as usize];
-            let centers = centers.as_deref();
-            Box::new(move |row: usize| {
-                restrict_ok(i, row) && centers.is_none_or(|c| c.binary_search(&key[row]).is_ok())
-            }) as Box<dyn Fn(usize) -> bool + '_>
+            let mut m = vec![0u64; words_for(key.len())];
+            for row in rows(key.len(), restriction[i].as_deref()) {
+                if c.contains(key[row]) {
+                    m[row >> 6] |= 1 << (row & 63);
+                }
+            }
+            Some(m)
         })
         .collect();
     let inputs: Vec<SelectedSide<'_>> = views
         .iter()
         .zip(&plan.sides)
         .zip(&keeps)
-        .map(|((v, s), keep)| (v, s.key.key_col as usize, &**keep))
+        .map(|((v, s), keep)| (v, s.key.key_col as usize, keep.as_deref()))
         .collect();
     let table = JoinTable::prepare_star_where(&inputs);
     PreparedStar {

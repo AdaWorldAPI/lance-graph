@@ -68,18 +68,97 @@ pub enum JoinRefusal {
 }
 
 /// The shared coordinate space: sorted distinct `y` values.
+///
+/// When the values span a range no wider than [`DENSE_SPAN`] times their
+/// count, the space is a presence mask over that range plus a running count
+/// per mask word: a value's slot is the word's count plus the popcount of the
+/// bits below it. No sort, no search, and slots stay in value order. A
+/// sparser set falls back to a sorted list and binary search.
 #[derive(Clone, Debug)]
 pub struct JoinDomain {
     ids: Vec<u32>,
+    dense: Option<Dense>,
+}
+
+/// A value range at most this many times wider than the values in it is laid
+/// out as a mask.
+pub const DENSE_SPAN: u64 = 8;
+
+#[derive(Clone, Debug)]
+struct Dense {
+    base: u32,
+    span: u64,
+    words: Vec<u64>,
+    rank: Vec<u32>,
+}
+
+impl Dense {
+    fn slot_of(&self, y: u32) -> Option<usize> {
+        let d = u64::from(y.wrapping_sub(self.base));
+        if y < self.base || d >= self.span {
+            return None;
+        }
+        let (w, b) = ((d >> 6) as usize, d & 63);
+        let word = self.words[w];
+        if word >> b & 1 == 0 {
+            return None;
+        }
+        Some(self.rank[w] as usize + (word & ((1u64 << b) - 1)).count_ones() as usize)
+    }
 }
 
 impl JoinDomain {
-    /// The union of every side's `y` values.
-    pub fn build(ys: impl IntoIterator<Item = u32>) -> Self {
-        let mut ids: Vec<u32> = ys.into_iter().collect();
-        ids.sort_unstable();
-        ids.dedup();
-        JoinDomain { ids }
+    /// The union of every side's `y` values. The iterator is walked twice:
+    /// once for the range, once for the mask.
+    pub fn build<I>(ys: I) -> Self
+    where
+        I: IntoIterator<Item = u32>,
+        I::IntoIter: Clone,
+    {
+        let it = ys.into_iter();
+        let (mut lo, mut hi, mut n) = (u32::MAX, 0u32, 0u64);
+        for y in it.clone() {
+            lo = lo.min(y);
+            hi = hi.max(y);
+            n += 1;
+        }
+        if n == 0 {
+            return JoinDomain {
+                ids: Vec::new(),
+                dense: None,
+            };
+        }
+        let span = u64::from(hi - lo) + 1;
+        if span > DENSE_SPAN * n.max(64) {
+            let mut ids: Vec<u32> = it.collect();
+            ids.sort_unstable();
+            ids.dedup();
+            return JoinDomain { ids, dense: None };
+        }
+        let mut words = vec![0u64; span.div_ceil(64) as usize];
+        for y in it {
+            let d = u64::from(y - lo);
+            words[(d >> 6) as usize] |= 1 << (d & 63);
+        }
+        let mut rank = Vec::with_capacity(words.len());
+        let mut ids = Vec::new();
+        for (w, &word) in words.iter().enumerate() {
+            rank.push(ids.len() as u32);
+            let mut m = word;
+            while m != 0 {
+                ids.push(lo + (w as u32) * 64 + m.trailing_zeros());
+                m &= m - 1;
+            }
+        }
+        JoinDomain {
+            ids,
+            dense: Some(Dense {
+                base: lo,
+                span,
+                words,
+                rank,
+            }),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -92,7 +171,20 @@ impl JoinDomain {
 
     /// Global `y` to slot. Preparation only.
     pub fn slot_of(&self, y: u32) -> Option<usize> {
-        self.ids.binary_search(&y).ok()
+        match &self.dense {
+            Some(d) => d.slot_of(y),
+            None => self.ids.binary_search(&y).ok(),
+        }
+    }
+
+    /// Whether the space is laid out as a mask over its value range.
+    pub fn is_dense(&self) -> bool {
+        self.dense.is_some()
+    }
+
+    /// Whether `y` is in the space.
+    pub fn contains(&self, y: u32) -> bool {
+        self.slot_of(y).is_some()
     }
 
     /// Slot to global `y`, for emitting answers.
@@ -101,7 +193,7 @@ impl JoinDomain {
     }
 
     pub fn bytes(&self) -> usize {
-        self.ids.len() * 4
+        self.ids.len() * 4 + self.dense.as_ref().map_or(0, |d| d.words.len() * 12)
     }
 }
 
@@ -172,44 +264,40 @@ impl Side {
         key: usize,
         side: usize,
     ) -> Result<Side, JoinRefusal> {
-        Self::prepare_where(domain, view, key, side, |_| true)
+        Self::prepare_where(domain, view, key, side, None)
     }
 
-    /// [`Self::prepare`] over the rows `keep` admits, by row position. A
-    /// restriction is a selection of positions, never a copy of rows: the
-    /// index map simply leaves the other positions out.
+    /// [`Self::prepare`] over the rows the `keep` mask (one bit per row
+    /// position; `None`: every row) admits. A restriction is a selection of
+    /// positions, never a copy of rows: the index map walks the kept bits and
+    /// leaves the other positions out.
     pub fn prepare_where(
         domain: &JoinDomain,
         view: &RelationView,
         key: usize,
         side: usize,
-        keep: impl Fn(usize) -> bool,
+        keep: Option<&[u64]>,
     ) -> Result<Side, JoinRefusal> {
         let n = domain.len();
         let keys = &view.cols[key];
         let mut off = vec![0u32; n + 1];
-        let mut kept = 0usize;
-        for (row, &y) in keys.iter().enumerate() {
-            if !keep(row) {
-                continue;
-            }
+        // Each kept row's slot, once (scratch), in kept-row order.
+        let mut slots = Vec::new();
+        for row in rows(keys.len(), keep) {
+            let y = keys[row];
             let s = domain
                 .slot_of(y)
                 .ok_or(JoinRefusal::OutsideDomain { side, y })?;
+            slots.push(s as u32);
             off[s + 1] += 1;
-            kept += 1;
         }
         for i in 0..n {
             off[i + 1] += off[i];
         }
         let mut fill = off.clone();
-        let mut pos = vec![0u32; kept];
-        for (row, &y) in keys.iter().enumerate() {
-            if !keep(row) {
-                continue;
-            }
-            let s = domain.slot_of(y).expect("checked above");
-            let at = &mut fill[s];
+        let mut pos = vec![0u32; slots.len()];
+        for (row, &s) in rows(keys.len(), keep).zip(&slots) {
+            let at = &mut fill[s as usize];
             pos[*at as usize] = row as u32;
             *at += 1;
         }
@@ -283,8 +371,55 @@ pub struct JoinTable {
 }
 
 /// One input of [`JoinTable::prepare_star_where`]: the relation, the lane
-/// holding the shared variable, and which row positions to keep.
-pub type SelectedSide<'a> = (&'a RelationView, usize, &'a dyn Fn(usize) -> bool);
+/// holding the shared variable, and which row positions to keep: a mask, one
+/// bit per row (`None`: every row).
+pub type SelectedSide<'a> = (&'a RelationView, usize, Option<&'a [u64]>);
+
+/// The row positions `keep` admits, in row order: every row, or the set bits.
+#[derive(Clone, Debug)]
+pub enum Rows<'a> {
+    All(std::ops::Range<usize>),
+    Set {
+        words: &'a [u64],
+        n: usize,
+        wi: usize,
+        w: u64,
+    },
+}
+
+/// The kept row positions of a relation with `n` rows.
+pub fn rows(n: usize, keep: Option<&[u64]>) -> Rows<'_> {
+    match keep {
+        None => Rows::All(0..n),
+        Some(words) => Rows::Set {
+            words,
+            n,
+            wi: 0,
+            w: words.first().copied().unwrap_or(0),
+        },
+    }
+}
+
+impl Iterator for Rows<'_> {
+    type Item = usize;
+    fn next(&mut self) -> Option<usize> {
+        match self {
+            Rows::All(r) => r.next(),
+            Rows::Set { words, n, wi, w } => loop {
+                if *w != 0 {
+                    let row = *wi * 64 + w.trailing_zeros() as usize;
+                    *w &= *w - 1;
+                    if row < *n {
+                        return Some(row);
+                    }
+                    continue;
+                }
+                *wi += 1;
+                *w = *words.get(*wi)?;
+            },
+        }
+    }
+}
 
 /// Where the shared variable sits in each input row: `R(x, y)` keys column 1,
 /// `S(y, z)` keys column 0.
@@ -300,8 +435,7 @@ impl JoinTable {
     /// Prepares a star of relations that all share `y`: every relation is laid
     /// out over the same domain. `key` names the column holding `y`.
     pub fn prepare_star(inputs: &[(&RelationView, usize)]) -> JoinTable {
-        let all = |_: usize| true;
-        let with: Vec<SelectedSide<'_>> = inputs.iter().map(|&(v, k)| (v, k, &all as _)).collect();
+        let with: Vec<SelectedSide<'_>> = inputs.iter().map(|&(v, k)| (v, k, None)).collect();
         Self::prepare_star_where(&with)
     }
 
@@ -309,11 +443,8 @@ impl JoinTable {
     /// position). The domain is the union of the kept rows' keys only.
     pub fn prepare_star_where(inputs: &[SelectedSide<'_>]) -> JoinTable {
         let domain = JoinDomain::build(inputs.iter().flat_map(|&(v, key, keep)| {
-            v.cols[key]
-                .iter()
-                .enumerate()
-                .filter(move |&(row, _)| keep(row))
-                .map(|(_, &y)| y)
+            let lane = &v.cols[key];
+            rows(lane.len(), keep).map(move |row| lane[row])
         }));
         let sides = inputs
             .iter()
