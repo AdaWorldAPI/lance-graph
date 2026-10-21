@@ -1,4 +1,8 @@
-## 2026-10-21 — D-CMR-6 rule catalogue in the contract (in PR)
+## 2026-10-21 — main after #1651 (merged `6bf4f86`)
+
+- **On main:** #1651 (D-CMR-6 `contract::set_rules`, plus the #1650 closeout). Contract inventory delta: `set_rules.rs` (see the D-CMR-6 section below).
+
+## 2026-10-21 — D-CMR-6 rule catalogue in the contract (#1651, merged `6bf4f86`)
 
 - **Contract (new module):** `set_rules::{Measure, RowRange, Semantics, Arith, Truth, SumFamily, Population, Rule, Refusal, RuleSpec, CATALOGUE, Trace, rewrite, rewrite_with, all_rules}`. Six guarded rules (set normalization, complement, relational difference, additive cancellation, range intersection, range count) as data, applied to a fixpoint with a step budget; every applied step strictly shrinks the measure; refused matches keep the original and are traced. Zero dependencies; `set_algebra.rs` / `set_program.rs` unchanged. Entry `entries/2026-10-21-d-cmr-6-rule-catalogue.md`.
 

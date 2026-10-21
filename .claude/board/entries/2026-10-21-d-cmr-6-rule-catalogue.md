@@ -1,6 +1,6 @@
 # 2026-10-21 — D-CMR-6: the guarded rule catalogue and fixpoint driver in the contract
 
-**Status:** TEST-PINNED, in PR (branch `claude/eager-albattani-iufugq`). **Basis:** plan `d-cmr-concept-chain-normalization-v1.md` §3.5, §4, §7 and the D-CMR-6 row; ownership `gpt-ada-01/004`, `/007`; claim EXO-50 `session_013z2e1YXkm6o6HNrDn5BPWA/016`.
+**Status:** TEST-PINNED, merged in #1651 (`6bf4f86`). **Basis:** plan `d-cmr-concept-chain-normalization-v1.md` §3.5, §4, §7 and the D-CMR-6 row; ownership `gpt-ada-01/004`, `/007`; claim EXO-50 `session_013z2e1YXkm6o6HNrDn5BPWA/016`.
 
 - **Where:** `crates/lance-graph-contract/src/set_rules.rs` (`lance_graph_contract::set_rules`), zero dependencies. It consumes `set_algebra::{SetExpr, normalize}` and edits neither `set_algebra.rs` nor `set_program.rs` (U2). crepe, relalg and mask-risc are untouched; no consumer carries a second copy of these rules.
 - **Types:** `Measure` = `Const | Count(SetExpr) | Sum{lane,set} | CountRows(Vec<RowRange>) | Opaque{id,pure} | Add | Sub`. `Semantics { universe, arith: Exact|Wrapping|Checked|Ieee, truth: TwoValued|ThreeValued, sums: Plain|Sym, population: Distinct|Bag }`.

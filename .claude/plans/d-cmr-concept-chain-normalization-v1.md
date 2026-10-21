@@ -268,7 +268,7 @@ median of 101, tier named from the build's own report, answers asserted first.
 | sets with a universe, interval sets as values | OPEN (D-CMR-1) |
 | multi-run extents, two-dimensional sets, preimage | OPEN (D-CMR-2, -4, -5) |
 | chains composed before lowering | OPEN (D-CMR-3, -7) |
-| repeated rule application, complement, relational difference | IN PR (D-CMR-6, `contract::set_rules`) |
+| repeated rule application, complement, relational difference | SHIPPED (D-CMR-6, #1651, `contract::set_rules`) |
 | prefix aggregates | candidate |
 | value-arithmetic IR (`a+b` as an expression) | OPEN, shared with NAL §4 C and D-SQLP |
 | equality saturation | research (D-CMR-8) |
