@@ -34,6 +34,12 @@ crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-i
 
 # Same patches as lance-graph-dir-sim: one ndarray identity, and the OGAR
 # sibling checkout so a paired OGAR change is tested before it merges.
+# The ClassView x DR demo (tests/classview_dr.rs): the class declares the
+# behavior through the contract's ClassView / compute_dag; nothing else from
+# the contract is used.
+[dev-dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
 
