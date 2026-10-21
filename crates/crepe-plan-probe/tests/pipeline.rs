@@ -1594,3 +1594,133 @@ mod arm_b {
         assert_eq!(rb.rows_prepared, rm.rows_prepared);
     }
 }
+
+// ---------------------------------------------------------------------------
+// Q. The folded count terminal answers what the enumerating one does
+// ---------------------------------------------------------------------------
+
+mod q_fold {
+    use super::*;
+    use crepe_plan_probe::cse::{Layout, execute_shared_with, generations, prepare_shared};
+    use crepe_plan_probe::native::{TerminalPath, prepare_semijoin};
+    use crepe_plan_probe::pipeline::{execute_with, plan};
+
+    /// `(outcome, terminal)` from the per-rule and the shared terminal, each
+    /// folded and forced to enumerate.
+    fn four(
+        rules: &[Rule],
+        d: &Demand,
+        kind: ResultKind,
+        opts: Options,
+        st: &Store<'_>,
+    ) -> Option<[(Outcome, TerminalPath); 4]> {
+        // A shape the native path refuses is refused the same way either
+        // way; those cases are not this test's subject.
+        plan(rules, d, kind, opts).ok()?;
+        let run = |fold: bool| {
+            let planned = plan(rules, d, kind, opts).unwrap();
+            let prepared: Vec<_> = planned
+                .stars
+                .iter()
+                .map(|s| {
+                    if opts.semijoin {
+                        prepare_semijoin(s, st)
+                    } else {
+                        prepare(s, st)
+                    }
+                })
+                .collect();
+            let gens: Vec<Vec<u64>> = planned
+                .stars
+                .iter()
+                .map(|s| s.sides.iter().map(|x| st.view(x.key.rel).1).collect())
+                .collect();
+            let (o, r) =
+                execute_with(planned, prepared, Default::default(), kind, &gens, fold).unwrap();
+            (o, r.terminal)
+        };
+        let shared = |fold: bool| {
+            let planned = plan(rules, d, kind, opts).unwrap();
+            let sh = prepare_shared(&planned.stars, st, Layout::Components);
+            let gens = generations(&sh, st);
+            let (o, r) = execute_shared_with(&planned, &sh, kind, &gens, true, fold).unwrap();
+            (o, r.terminal)
+        };
+        Some([run(true), run(false), shared(true), shared(false)])
+    }
+
+    #[test]
+    fn q_folded_counts_equal_the_enumerating_terminal() {
+        let f = family_data();
+        let (labels, family_rules) = resolved(&family::crepe_plan());
+        let fam = store(&labels, &f, [1, 1, 1]);
+        let (tl, tw_rules) = resolved(&two_way::crepe_plan());
+        // Duplicate rows, so bag and set answers differ.
+        let r: Vec<[u32; 2]> = (0..120u32).map(|i| [i % 40, i % 17]).collect();
+        let s: Vec<[u32; 2]> = (0..90u32).map(|i| [i % 23, 500 + i % 7]).collect();
+        let tw = Store {
+            relations: vec![(tl.id("R").unwrap(), &r, 1), (tl.id("S").unwrap(), &s, 1)],
+        };
+        let tw_goal = tl.id("T").unwrap();
+        let mut cases: Vec<(&[Rule], &Store<'_>, Demand)> = Vec::new();
+        for x in [17, 5, 4] {
+            cases.push((&family_rules, &fam, answer_demand(&labels, x)));
+        }
+        for bound in [
+            vec![None, None, None],
+            vec![None, Some(3), None],
+            vec![Some(3), None, None],
+            vec![None, None, Some(502)],
+            vec![None, Some(99), None],
+        ] {
+            cases.push((
+                &tw_rules,
+                &tw,
+                Demand {
+                    goal: tw_goal,
+                    bound,
+                },
+            ));
+        }
+        let mut seen: BTreeMap<(String, String), usize> = BTreeMap::new();
+        let (mut ran, mut skipped) = (0, 0);
+        for (rules, st, d) in &cases {
+            for opts in [Options::ALL, Options::NONE] {
+                for kind in [
+                    ResultKind::Exists,
+                    ResultKind::Count(SET),
+                    ResultKind::Count(BAG),
+                ] {
+                    let Some([a, b, c, e]) = four(rules, d, kind, opts, st) else {
+                        skipped += 1;
+                        continue;
+                    };
+                    ran += 1;
+                    assert_eq!(a.0, b.0, "{kind:?} {d:?}");
+                    assert_eq!(c.0, e.0, "{kind:?} {d:?} shared");
+                    assert_eq!(a.0, c.0, "{kind:?} {d:?} per-rule vs shared");
+                    assert_eq!(a.1, c.1, "one terminal per plan");
+                    assert_ne!(b.1, TerminalPath::Folded);
+                    assert_ne!(e.1, TerminalPath::Folded);
+                    *seen
+                        .entry((format!("{kind:?}"), format!("{:?}", a.1)))
+                        .or_default() += 1;
+                }
+            }
+        }
+        eprintln!("q_fold: {ran} cases ran, {skipped} refused by plan; {seen:?}");
+        assert!(ran >= 30, "ran {ran}, skipped {skipped}");
+        // Can fire: every foldable kind took the folded terminal somewhere.
+        for k in ["Exists", "Count(Set)", "Count(Bag)"] {
+            assert!(
+                seen.contains_key(&(k.to_string(), "Folded".to_string())),
+                "{k} never folded: {seen:?}"
+            );
+        }
+        // Can stay silent: a set count without a single center-headed rule
+        // (family) enumerates, and an unfiltered existence check reads the
+        // mask alone.
+        assert!(seen.contains_key(&("Count(Set)".into(), "Enumerated".into())));
+        assert!(seen.contains_key(&("Exists".into(), "Mask".into())));
+    }
+}

@@ -12,10 +12,12 @@ use crate::lance_store::{LanceStore, LanceStoreError, SideIo, prepare_lance};
 use crate::logic::{RelId, Rule};
 use crate::mork_api::{MorkRefusal, QueryMulti, admit, query_multi};
 use crate::native::{
-    NativeRefusal, PreparedStar, StarPlan, Store, bindings_run, joint, prepare, prepare_semijoin,
-    star,
+    FoldKind, NativeRefusal, PreparedStar, StarPlan, Store, TerminalPath, bindings_run,
+    count_over_mask, fold_kind, joint, prepare, prepare_semijoin, star,
 };
 use crate::optimize::{Demand, Optimized, Options, ResultKind, optimize};
+use lance_graph_mask_risc::words_for;
+use mork_pathmap_probe::join::Side;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PipelineRefusal {
@@ -72,6 +74,8 @@ pub struct Report {
     pub rows_prepared: usize,
     /// mask-risc programs run (0 for a rule relalg answered symbolically).
     pub programs_run: usize,
+    /// Which terminal answered.
+    pub terminal: TerminalPath,
     pub costs: Costs,
 }
 
@@ -144,12 +148,27 @@ pub fn evaluate(
 
 /// The run half: the joint mask per prepared star, then the terminal.
 /// `generations[j]` is the current generation of each side of star `j`.
+/// A count [`fold_kind`] admits is answered by [`count_over_mask`] without
+/// building a row; everything else enumerates.
 pub fn execute(
     planned: Planned,
     prepared: Vec<PreparedStar>,
     prepare_cost: Duration,
     kind: ResultKind,
     generations: &[Vec<u64>],
+) -> Result<(Outcome, Report), PipelineRefusal> {
+    execute_with(planned, prepared, prepare_cost, kind, generations, true)
+}
+
+/// [`execute`]; `fold = false` forces the enumerating terminal (the oracle the
+/// fold is tested against).
+pub fn execute_with(
+    planned: Planned,
+    prepared: Vec<PreparedStar>,
+    prepare_cost: Duration,
+    kind: ResultKind,
+    generations: &[Vec<u64>],
+    fold: bool,
 ) -> Result<(Outcome, Report), PipelineRefusal> {
     let Planned {
         optimized,
@@ -163,7 +182,14 @@ pub fn execute(
     let mut programs = Vec::new();
     let mut programs_run = 0;
     let filtered = optimized.post_filter.iter().any(Option::is_some);
+    let folding = if fold {
+        fold_kind(&stars, kind, filtered)
+    } else {
+        None
+    };
+    let mut terminal = TerminalPath::Enumerated;
     let outcome = if kind == ResultKind::Exists && !filtered {
+        terminal = TerminalPath::Mask;
         // Mask-only terminal: no payload is read.
         let mut any = false;
         for (j, ((i, _), (s, p))) in optimized
@@ -185,6 +211,47 @@ pub fn execute(
             any |= run.answer != lance_graph_relalg::Answer::Count(0);
         }
         Outcome::Exists(any)
+    } else if let Some(fk) = folding {
+        terminal = TerminalPath::Folded;
+        let mut total = 0u64;
+        for (j, ((i, _), (s, p))) in optimized
+            .rules
+            .iter()
+            .zip(stars.iter().zip(&prepared))
+            .enumerate()
+        {
+            let mut mask = vec![0u64; words_for(p.table.domain.len())];
+            let (run, prog) = joint(
+                p,
+                s,
+                &generations[j],
+                lance_graph_relalg::Measure::Keep,
+                Some(&mut mask),
+            )
+            .map_err(|w| native(*i, w))?;
+            programs_run += run.programs;
+            programs.extend(prog);
+            let sides: Vec<&Side> = p.table.sides.iter().collect();
+            let c = count_over_mask(
+                &p.table.domain,
+                &sides,
+                s,
+                &mask,
+                &optimized.post_filter,
+                fk,
+            )
+            .map_err(|w| native(*i, w))?;
+            total = total
+                .checked_add(c)
+                .ok_or_else(|| native(*i, NativeRefusal::CountOverflow))?;
+            if fk == FoldKind::Exists && total > 0 {
+                break;
+            }
+        }
+        match fk {
+            FoldKind::Exists => Outcome::Exists(total > 0),
+            FoldKind::Bag | FoldKind::Set => Outcome::Count(total),
+        }
     } else {
         let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
         for (j, ((i, _), (s, p))) in optimized
@@ -223,6 +290,7 @@ pub fn execute(
     let report = Report {
         rows_prepared: prepared.iter().map(|p| p.rows_prepared).sum(),
         programs_run,
+        terminal,
         optimized,
         patterns,
         stars,
