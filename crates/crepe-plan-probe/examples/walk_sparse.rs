@@ -590,13 +590,25 @@ fn child(arm: &str, fixture: &str) {
             let p = mask_walk(width(&e), &e);
             black_box((p.counts(), p.tuples()));
         }
-        "b-count" | "b" => {
-            let r = tile_eval(&e, usize::MAX).expect("answers");
-            black_box(r.counts);
+        "b-count" => {
+            let b = bind(&e, attest(&e), 1, None, usize::MAX).expect("binds");
+            let p = project(&b, &e);
+            let r = tile::recurse(&b, &p, &b.witness, &mut tile::Kernel::new()).expect("answers");
+            black_box(counts(&b, &r));
         }
-        "c-count" | "c" => {
-            let r = sparse_eval(&e, DEFAULT_M, usize::MAX).expect("answers");
-            black_box(r.counts);
+        "b" => {
+            black_box(tile_eval(&e, usize::MAX).expect("answers"));
+        }
+        "c-count" => {
+            let b = bind(&e, attest(&e), 1, None, usize::MAX).expect("binds");
+            let p = project(&b, &e);
+            let prep = prepare(&p);
+            let r =
+                recurse(&b, &p, &prep, &b.witness, DEFAULT_M, &mut Exec::new()).expect("answers");
+            black_box(counts(&b, &r.run));
+        }
+        "c" => {
+            black_box(sparse_eval(&e, DEFAULT_M, usize::MAX).expect("answers"));
         }
         _ => panic!("unknown arm {arm}"),
     }
@@ -750,16 +762,19 @@ fn main() {
         );
     }
     println!("\n# resident memory (MiB, VmHWM growth in a fresh process)\n");
-    println!("| fixture | A count | B count | C count | A + decode |");
-    println!("|---|---:|---:|---:|---:|");
+    println!("| fixture | A count | B count | C count | A + decode | B + decode | C + decode |");
+    println!("|---|---:|---:|---:|---:|---:|---:|");
     for (name, ..) in &rows {
-        let k = ["a-count", "b-count", "c-count", "a"].map(|a| resident_kib(a, name) * 1024);
+        let k =
+            ["a-count", "b-count", "c-count", "a", "b", "c"].map(|a| resident_kib(a, name) * 1024);
         println!(
-            "| {name} | {} | {} | {} | {} |",
+            "| {name} | {} | {} | {} | {} | {} | {} |",
             mib(k[0]),
             mib(k[1]),
             mib(k[2]),
-            mib(k[3])
+            mib(k[3]),
+            mib(k[4]),
+            mib(k[5])
         );
     }
     println!("\n# value-derived reads by origin\n");
