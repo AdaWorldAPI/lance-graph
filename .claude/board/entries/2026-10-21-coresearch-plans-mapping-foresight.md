@@ -96,8 +96,8 @@ Bridge findings worth a probe:
 
 - **Quack `Filter::Semijoin` is a value-directed foreign gather** (`lance-graph-quack/src/lib.rs:152, 366-391`, lowering to `MaskOp::Gather`). ADMISSION B lists it as pending call-site classification. No `NOT IN`, `EXCEPT` or anti-join lowering may build on it until that classification lands.
 - **Oracle scope.** `CLAUDE.md` already rules that answers are compared by folds, "for tests and oracles too". So every oracle inside the workspace is bound. Some existing oracles walk decoded rows:
-  - `k3_pg_parity`'s Kleene reference evaluator;
-  - the K3 unit tests in `set_algebra` / `set_rules`;
+  - `k3_pg_parity`'s Kleene reference evaluator (converted to (T, F) masks 2026-10-21);
+  - the K3 unit tests in `set_algebra` / `set_rules` (converted 2026-10-21);
   - `join_probe.rs`;
   - `walk_mask.rs:361-372`.
   
@@ -106,7 +106,7 @@ Bridge findings worth a probe:
 
 ## Open (operator)
 
-1. Does "oracles compare by folds" admit a reference engine that holds tuples internally, if the comparison itself is fold against fold? This decides datafrog's role and the reference evaluators listed above.
+1. ~~Does "oracles compare by folds" admit a reference engine that holds tuples internally?~~ **Answered 2026-10-21:** no (*"It's not smart to compare tuples they are a million times more expensive"*). The datafrog oracle role is withdrawn (see the eval entry's update). The three Kleene oracles named above now evaluate (T, F) masks. Still row-shaped and unconverted: `join_probe.rs` and `walk_mask.rs:361-372`.
 2. Adopt the reconciled D-RFT table (A1) before anyone claims D-RFT-2/4/5 on EXO-50?
 3. Who classifies `Semijoin` under ADMISSION B?
 

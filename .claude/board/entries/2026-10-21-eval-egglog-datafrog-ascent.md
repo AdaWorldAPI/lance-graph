@@ -2,6 +2,13 @@
 
 **Status:** OPEN. This is an exploration map, not a ratification. Nothing in it is measured, and no code was written. The scope is a complement to `lance-graph-relalg`; replacing it is not on the table.
 
+**Update 2026-10-21 (operator decision on oracle scope).** DECISION: *"It's not smart to compare tuples they are a million times more expensive."* SCOPE: every oracle in this workspace, including reference engines used only in tests. BASIS: the 2026-10-21 P0 rule, which already said "answers are compared by folds", now applied to the reference side too. Consequences for this entry:
+
+- **Role (b) is withdrawn for datafrog and Ascent.** Both hold their relations as owned tuples (§2), so neither can serve as an oracle. P-D1, P-A1 and P-A2 are SUPERSEDED.
+- **The replacement oracle is an independent fold.** For D-RFT-3 / D-TGB-10 recursion: a second closure algorithm over the same mask planes (for example Warshall over a ≤256 tile, against iterated frontier masks), compared terminal against terminal. Independence comes from the algorithm, not from a second data model. This is a working model, not yet a probe.
+- **P-E1 keeps its egglog half** (offline, counts only), but its Kleene check now runs against the mask oracle: the per-row `set_at` it names was replaced by `set_planes`, which evaluates (T, F) masks.
+- Done in the same change: the three Kleene oracles (`k3_pg_parity`, `set_algebra` tests, `set_rules` tests) now evaluate whole TRUE/FALSE masks and count by popcount or fold. Each was disable-checked: a two-valued NOT turns its tests red.
+
 **Evidence grades.** Claims about our own tree are marked `VERIFIED-IN-CODE`, with `file:line`. Claims from outside use these grades:
 
 - **READ-IN-FULL:** read completely.
