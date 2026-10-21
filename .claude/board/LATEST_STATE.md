@@ -1,4 +1,16 @@
-## 2026-10-21 — D-CMR-2 lowering in core (in PR)
+## 2026-10-21 — D-CMR-6 rule catalogue in the contract (in PR)
+
+- **Contract (new module):** `set_rules::{Measure, RowRange, Semantics, Arith, Truth, SumFamily, Population, Rule, Refusal, RuleSpec, CATALOGUE, Trace, rewrite, rewrite_with, all_rules}`. Six guarded rules (set normalization, complement, relational difference, additive cancellation, range intersection, range count) as data, applied to a fixpoint with a step budget; every applied step strictly shrinks the measure; refused matches keep the original and are traced. Zero dependencies; `set_algebra.rs` / `set_program.rs` unchanged. Entry `entries/2026-10-21-d-cmr-6-rule-catalogue.md`.
+
+### Current Contract Inventory — net delta (`set_rules.rs`)
+
+- `lance_graph_contract::set_rules` (new). No existing type changed.
+
+## 2026-10-21 — main after #1650 (merged `f031089`)
+
+- **On main:** #1648 (D-RU-6 arm C, `walk_sparse`), #1649, #1650 (D-CMR-2 `fold::set_lower`; D-CMR-5 re-scoped to BLOCKED: lawful design proposed). Contract inventory delta: none (core module, see the D-CMR-2 section below).
+
+## 2026-10-21 — D-CMR-2 lowering in core (#1650, merged `f031089`)
 
 - **Core (new module, no contract change):** `lance_graph::fold::set_lower::{SetPlan, SortedBasis, Level, Measured, LowerError}`. A `SetExpr` is normalized (contract) and split into `Runs ∩ residual`: comparisons on an attested sorted `i32` lane (`SortedBasis`, one attestation scan) become runs by counted binary-search seeks; the rest compiles once to a mask-risc `Program` run over each run with `execute_extent`. Levels: geometry (no residual, `Count = Σ(hi−lo)`, nothing read), optics (`Count` terminal), etch (`Keep` into `Out::Mask`, outside bits cleared). `SetPlan::unsplit` is the geometry-off arm. Entry `entries/2026-10-21-d-cmr-2-lowering.md`.
 - Open: D-CMR-2b, a scratch-free `Pred` fold in mask-risc (`fused_ternlog` declines `Pred`); residual comparisons run tiled with per-tile scratch.
