@@ -14,6 +14,46 @@
 
 `.grok/board/CLAUDE_LANE_FOLD_CAPSTONE.md`. Settled numbers, the ten open points, the refusal list. Do not re-derive. Do not cite 0.6 ns as a join.
 
+## P0 — no millisecond results, anywhere, ever
+
+**Nanoseconds for a single operation. At most microseconds for a batch. A
+result in milliseconds is a failed gate, never a measurement to report,
+discuss, commit or push.** This holds for lab crates, probes, examples,
+benchmarks and PR bodies alike.
+
+- DECISION (2026-10-21): an ms number means the work left the fold. The
+  substrate's reference is mask-risc / Quack, which fold over u64 mask words
+  into a terminal (`Count`, `Any`, `Keep`, …) in nanoseconds;
+  `folding-doctrine.md` §6.2 records 56 ns fused against 138 620 ns
+  materialized for the same query.
+- BASIS: every ms result seen so far came from leaving that path. Examples:
+  `crepe-plan-probe::native::tuples_over_mask` (a heap row per result, a copy
+  per combination, then sort and merge: 243–310 ms), and a count "fold" made of
+  scalar loops plus a per-slot sort (1.2–1.6 ms; pushed, then reverted in
+  `c49db8dc`). See `.claude/board/entries/2026-10-21-coresearch-ms-vs-ns-folding.md`.
+- **The mental model.** A value is read through a template, never split into
+  objects. PowerShell's `"{0}..{15}" -f $lane.split` builds nothing: it names
+  positions 0–15 of one value and reads them in place. A ClassView carving
+  (`6×(u8:u8)`, `4×(u8:u8:u8)`, `3×(u8:u8:u8:u8)`) is that template over the
+  16-byte facet. A fold acts on all positions at once (one compare → one mask).
+  A tuple, by contrast, is the value split into owned heap objects. It
+  discards the template, and it is where the milliseconds come from.
+- **What follows for a session:**
+  - **Before reporting any timing,** check the unit. ms → stop; find where
+    the path left the mask-risc terminals.
+  - **Never decode a join or population into owned rows** (`Vec<Vec<_>>`,
+    `Vec<(Vec<_>, _)>`, tuple sets) to answer count, exists, sum, min, max or
+    group. Those are folds.
+  - **Never invent a "reference" or tuple decoder** that was not asked for.
+  - **mask-risc is the reference folding algebra.** Do not change it for a
+    new algebra until tests prove the new algebra also runs in nanoseconds.
+- SCOPE: every crate in this workspace, plus every number quoted in a board
+  entry, plan, PR or Linear comment.
+- REVISIT WHEN: never on cost grounds. Only a demand that genuinely returns
+  rows to a consumer may materialize, as a terminal's elected output under the
+  zero-copy law; a `materialize*`-named path whose O(n) cost is stated. Even
+  then, the batch stays within microseconds.
+
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
 **Always depend on the AdaWorldAPI fork of any crate that has one. NEVER use the
