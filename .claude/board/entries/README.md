@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-419 entries, 2026-08-06 .. 2026-10-21.
+420 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -48,7 +48,7 @@ exactly one of them, never both.
 | 2026-10-21 | `D-CMR-5` |  | [2026-10-21-d-cmr-5-rescope.md](2026-10-21-d-cmr-5-rescope.md) |
 | 2026-10-21 | `D-CMR-2b` |  | [2026-10-21-d-cmr-2b-scratch-probe.md](2026-10-21-d-cmr-2b-scratch-probe.md) |
 | 2026-10-21 | `D-CMR-2` |  | [2026-10-21-d-cmr-2-lowering.md](2026-10-21-d-cmr-2-lowering.md) |
-| 2026-10-21 | `D-QSP` |  | [2026-10-21-coresearch-plans-mapping-foresight.md](2026-10-21-coresearch-plans-mapping-foresight.md) |
+| 2026-10-21 | `coresearch-plans-mapping-foresight` |  | [2026-10-21-coresearch-plans-mapping-foresight.md](2026-10-21-coresearch-plans-mapping-foresight.md) |
 | 2026-10-21 | `D-RU-6` |  | [2026-10-21-coresearch-ms-vs-ns-folding.md](2026-10-21-coresearch-ms-vs-ns-folding.md) |
 | 2026-10-21 | `coresearch-classview-algebra-polyfill` |  | [2026-10-21-coresearch-classview-algebra-polyfill.md](2026-10-21-coresearch-classview-algebra-polyfill.md) |
 | 2026-10-21 | `classview-dr-iam` |  | [2026-10-21-classview-dr-iam.md](2026-10-21-classview-dr-iam.md) |

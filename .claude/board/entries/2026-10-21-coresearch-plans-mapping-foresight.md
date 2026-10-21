@@ -1,4 +1,4 @@
-# 2026-10-21 — Co-research: mapping and foresight for D-QSP / D-RFT / D-LFA
+# 2026-10-21 — Co-research: mapping and foresight for the ClassView × Quack plans (#1667)
 
 **Status:** EXPLORATION MAP. Nothing in it is adopted; the operator decides. Inputs: five scouts (code, internal prior art, literature, systems, concepts), a 20-row crosswalk, and three co-architects (bridge, firewall and fit, falsifier). Plans: #1667 (`d-qsp-…`, `d-rft-…`, `d-lfa-…`, not on main). Companion entries from the same run: `2026-10-21-pg-classview-polyfill-map.md` and `2026-10-21-eval-egglog-datafrog-ascent.md`.
 
