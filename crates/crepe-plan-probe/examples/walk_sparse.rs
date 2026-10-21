@@ -69,7 +69,7 @@ use mork_pathmap_probe::rmap::{Refusal, SLOTS, TILE_ROWS, Witness};
 // Arm B (and, inside it, arm A and the oracles), compiled from its own file.
 #[allow(dead_code)]
 #[path = "walk_tile.rs"]
-mod tile;
+pub(crate) mod tile;
 
 use tile::baseline::{Tuples, agree, ascent_tuples, crepe_tuples, edges, mask_walk};
 use tile::{
@@ -77,19 +77,19 @@ use tile::{
     project, tile_eval, tuples, width,
 };
 
-const REPS: usize = 5;
-const ORACLE_MAX_NODES: usize = 512;
-const ROW_WORDS: usize = SLOTS / 64;
+pub(crate) const REPS: usize = 5;
+pub(crate) const ORACLE_MAX_NODES: usize = 512;
+pub(crate) const ROW_WORDS: usize = SLOTS / 64;
 /// The microtile side used by the main comparison, fixed before any run.
-const DEFAULT_M: usize = 64;
-const MICROTILES: [usize; 4] = [16, 32, 64, 256];
+pub(crate) const DEFAULT_M: usize = 64;
+pub(crate) const MICROTILES: [usize; 4] = [16, 32, 64, 256];
 
 // ---- prepared metadata ---------------------------------------------------------
 
 /// Bit `y` set when row `y` of a tile has any bit.
-type RowOcc = [u64; ROW_WORDS];
+pub(crate) type RowOcc = [u64; ROW_WORDS];
 
-fn row_occ(t: &[u64]) -> RowOcc {
+pub(crate) fn row_occ(t: &[u64]) -> RowOcc {
     let mut o = [0u64; ROW_WORDS];
     for y in 0..SLOTS {
         if t[y * ROW_WORDS..(y + 1) * ROW_WORDS]
@@ -103,11 +103,11 @@ fn row_occ(t: &[u64]) -> RowOcc {
 }
 
 /// The edge tiles with their row occupancy, built once.
-struct Prepared {
-    by_len: Vec<(usize, Vec<Option<RowOcc>>)>,
+pub(crate) struct Prepared {
+    pub(crate) by_len: Vec<(usize, Vec<Option<RowOcc>>)>,
 }
 
-fn prepare(p: &Projection) -> Prepared {
+pub(crate) fn prepare(p: &Projection) -> Prepared {
     Prepared {
         by_len: p
             .by_len
@@ -124,7 +124,7 @@ fn prepare(p: &Projection) -> Prepared {
 
 /// The `m`-bit segment `[yb * m, (yb + 1) * m)` of a 256-bit row, as
 /// `(word, shift, len)` pieces of at most one word each.
-fn segments(yb: usize, m: usize) -> impl Iterator<Item = (usize, usize, usize)> {
+pub(crate) fn segments(yb: usize, m: usize) -> impl Iterator<Item = (usize, usize, usize)> {
     let lo = yb * m;
     let hi = lo + m;
     (lo / 64..hi.div_ceil(64)).map(move |w| {
@@ -134,7 +134,7 @@ fn segments(yb: usize, m: usize) -> impl Iterator<Item = (usize, usize, usize)> 
     })
 }
 
-fn low(len: usize) -> u64 {
+pub(crate) fn low(len: usize) -> u64 {
     if len == 64 {
         u64::MAX
     } else {
@@ -144,7 +144,7 @@ fn low(len: usize) -> u64 {
 
 /// Occupancy of the `m x m` blocks of a delta tile: cell `zb * nb + yb` set
 /// when rows `zb * m ..` have a bit in columns `yb * m ..`.
-fn block_occ(t: &[u64], m: usize) -> Vec<u64> {
+pub(crate) fn block_occ(t: &[u64], m: usize) -> Vec<u64> {
     let nb = SLOTS / m;
     let mut occ = vec![0u64; (nb * nb).div_ceil(64)];
     for zb in 0..nb {
@@ -164,26 +164,26 @@ fn block_occ(t: &[u64], m: usize) -> Vec<u64> {
 // ---- execution -------------------------------------------------------------------
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Counters {
+pub(crate) struct Counters {
     /// Tile triples whose edge and delta tiles both exist.
-    tile_products: u64,
+    pub(crate) tile_products: u64,
     /// Occupied delta blocks visited.
-    blocks: u64,
+    pub(crate) blocks: u64,
     /// Row ORs executed (one 256-bit OR each).
-    row_ors: u64,
+    pub(crate) row_ors: u64,
     /// mask-risc calls (the per-tile update).
-    calls: u64,
+    pub(crate) calls: u64,
 }
 
 /// The update programs and their buffers.
-struct Exec {
-    fresh_prog: Program,
-    or_prog: Program,
-    scratch: Scratch<'static>,
-    buf: Box<[u64]>,
+pub(crate) struct Exec {
+    pub(crate) fresh_prog: Program,
+    pub(crate) or_prog: Program,
+    pub(crate) scratch: Scratch<'static>,
+    pub(crate) buf: Box<[u64]>,
 }
 
-fn update_programs() -> (Program, Program) {
+pub(crate) fn update_programs() -> (Program, Program) {
     let keep = Terminal::Keep {
         mask: Operand::Scratch(0),
     };
@@ -208,7 +208,7 @@ fn update_programs() -> (Program, Program) {
 }
 
 impl Exec {
-    fn with_programs(fresh_prog: Program, or_prog: Program) -> Result<Exec, Refuse> {
+    pub(crate) fn with_programs(fresh_prog: Program, or_prog: Program) -> Result<Exec, Refuse> {
         admit(&fresh_prog)?;
         admit(&or_prog)?;
         Ok(Exec {
@@ -219,13 +219,19 @@ impl Exec {
         })
     }
 
-    fn new() -> Exec {
+    pub(crate) fn new() -> Exec {
         let (f, o) = update_programs();
         Exec::with_programs(f, o).expect("the update programs have no gather")
     }
 
     /// `out = prog(a, b)` over one tile.
-    fn run(&mut self, prog_is_fresh: bool, a: &[u64], b: &[u64], n: &mut Counters) -> Box<[u64]> {
+    pub(crate) fn run(
+        &mut self,
+        prog_is_fresh: bool,
+        a: &[u64],
+        b: &[u64],
+        n: &mut Counters,
+    ) -> Box<[u64]> {
         let masks: [&[u64]; 2] = [a, b];
         let pl = Planes {
             n_rows: TILE_ROWS,
@@ -254,7 +260,7 @@ impl Exec {
 /// `D(y, z)` (row `z`), `c` is `C(x, z)` (row `z`). Every index is a loop
 /// coordinate; see the module docs.
 #[allow(clippy::too_many_arguments)]
-fn product_into(
+pub(crate) fn product_into(
     a: &[u64],
     a_rows: &RowOcc,
     d: &[u64],
@@ -295,12 +301,12 @@ fn product_into(
     }
 }
 
-struct Sparse {
-    run: Run,
-    counters: Counters,
+pub(crate) struct Sparse {
+    pub(crate) run: Run,
+    pub(crate) counters: Counters,
 }
 
-fn recurse(
+pub(crate) fn recurse(
     b: &Bound,
     p: &Projection,
     prep: &Prepared,
@@ -410,33 +416,33 @@ fn recurse(
 
 // ---- the whole arm C -----------------------------------------------------------
 
-struct Report {
-    attest: Duration,
-    bind: Duration,
-    project: Duration,
-    prepare: Duration,
-    recurse: Duration,
-    count: Duration,
-    decode: Duration,
-    iterations: usize,
-    counters: Counters,
-    pages: usize,
-    lookups: u64,
-    decodes: u64,
-    counts: (usize, usize),
-    tuples: Tuples,
+pub(crate) struct Report {
+    pub(crate) attest: Duration,
+    pub(crate) bind: Duration,
+    pub(crate) project: Duration,
+    pub(crate) prepare: Duration,
+    pub(crate) recurse: Duration,
+    pub(crate) count: Duration,
+    pub(crate) decode: Duration,
+    pub(crate) iterations: usize,
+    pub(crate) counters: Counters,
+    pub(crate) pages: usize,
+    pub(crate) lookups: u64,
+    pub(crate) decodes: u64,
+    pub(crate) counts: (usize, usize),
+    pub(crate) tuples: Tuples,
 }
 
 impl Report {
-    fn e2e_count(&self) -> Duration {
+    pub(crate) fn e2e_count(&self) -> Duration {
         self.attest + self.bind + self.project + self.prepare + self.recurse + self.count
     }
-    fn e2e(&self) -> Duration {
+    pub(crate) fn e2e(&self) -> Duration {
         self.attest + self.bind + self.project + self.prepare + self.recurse + self.decode
     }
 }
 
-fn sparse_eval(e: &[Edge], m: usize, max_pages: usize) -> Result<Report, Refuse> {
+pub(crate) fn sparse_eval(e: &[Edge], m: usize, max_pages: usize) -> Result<Report, Refuse> {
     let s = Instant::now();
     let facts = attest(e);
     let attest_t = s.elapsed();
@@ -480,7 +486,7 @@ fn sparse_eval(e: &[Edge], m: usize, max_pages: usize) -> Result<Report, Refuse>
 // ---- fixtures ------------------------------------------------------------------
 
 /// splitmix64.
-fn rng(seed: u64) -> impl FnMut() -> u64 {
+pub(crate) fn rng(seed: u64) -> impl FnMut() -> u64 {
     let mut s = seed;
     move || {
         s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -492,7 +498,7 @@ fn rng(seed: u64) -> impl FnMut() -> u64 {
 }
 
 /// `deg` random out-edges per node, lengths 1, 2, 3, 5 or 7.
-fn sparse(n: i32, deg: usize, seed: u64) -> Vec<Edge> {
+pub(crate) fn sparse(n: i32, deg: usize, seed: u64) -> Vec<Edge> {
     let mut r = rng(seed);
     let lens = [1, 2, 3, 5, 7];
     let mut e = Vec::new();
@@ -506,7 +512,7 @@ fn sparse(n: i32, deg: usize, seed: u64) -> Vec<Edge> {
 
 /// Communities of 32 nodes, 4 internal edges per node (lengths 1..=3), and
 /// one cross edge per community (length 5).
-fn clustered(n: i32, seed: u64) -> Vec<Edge> {
+pub(crate) fn clustered(n: i32, seed: u64) -> Vec<Edge> {
     let mut r = rng(seed);
     let mut e = Vec::new();
     for x in 0..n {
@@ -523,7 +529,7 @@ fn clustered(n: i32, seed: u64) -> Vec<Edge> {
 }
 
 /// Every ordered pair with probability `pct` %, length 1 or 2.
-fn dense(n: i32, pct: u64, seed: u64) -> Vec<Edge> {
+pub(crate) fn dense(n: i32, pct: u64, seed: u64) -> Vec<Edge> {
     let mut r = rng(seed);
     let mut e = Vec::new();
     for x in 0..n {
@@ -537,14 +543,14 @@ fn dense(n: i32, pct: u64, seed: u64) -> Vec<Edge> {
 }
 
 /// A zero-length ring, a length-1 ring and chords of length 7.
-fn cyclic(n: i32) -> Vec<Edge> {
+pub(crate) fn cyclic(n: i32) -> Vec<Edge> {
     let mut e: Vec<Edge> = (0..n).map(|i| (i, (i + 1) % n, 0)).collect();
     e.extend((0..n).map(|i| (i, (i + 2) % n, 1)));
     e.extend((0..n).step_by(17).map(|i| (i, (i + n / 2) % n, 7)));
     e
 }
 
-fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
+pub(crate) fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
     vec![
         ("sparse(512)", sparse(512, 1, 1)),
         ("clustered(512)", clustered(512, 2)),
@@ -560,12 +566,12 @@ fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
 
 // ---- benchmark -------------------------------------------------------------------
 
-fn median(mut v: Vec<Duration>) -> Duration {
+pub(crate) fn median(mut v: Vec<Duration>) -> Duration {
     v.sort();
     v[v.len() / 2]
 }
 
-fn status_kib(field: &str) -> usize {
+pub(crate) fn status_kib(field: &str) -> usize {
     std::fs::read_to_string("/proc/self/status")
         .expect("Linux /proc")
         .lines()
@@ -575,7 +581,7 @@ fn status_kib(field: &str) -> usize {
 }
 
 /// Child mode: one arm on one fixture, resident high-water growth in KiB.
-fn child(arm: &str, fixture: &str) {
+pub(crate) fn child(arm: &str, fixture: &str) {
     let (_, e) = fixtures()
         .into_iter()
         .find(|(n, _)| *n == fixture)
@@ -615,7 +621,7 @@ fn child(arm: &str, fixture: &str) {
     println!("{}", status_kib("VmHWM:").saturating_sub(before));
 }
 
-fn resident_kib(arm: &str, fixture: &str) -> usize {
+pub(crate) fn resident_kib(arm: &str, fixture: &str) -> usize {
     let out = std::process::Command::new(std::env::current_exe().expect("exe"))
         .args(["--resident", arm, fixture])
         .output()

@@ -172,26 +172,26 @@ pub(crate) fn crepe_tuples(e: &[(i32, i32, u32)]) -> Tuples {
 }
 
 /// Words per row of an `n`-wide plane.
-fn words(n: usize) -> usize {
+pub(crate) fn words(n: usize) -> usize {
     n.div_ceil(64)
 }
 
-fn set(row: &mut [u64], i: usize) {
+pub(crate) fn set(row: &mut [u64], i: usize) {
     row[i / 64] |= 1 << (i % 64);
 }
 
-fn bit(row: &[u64], i: usize) -> bool {
+pub(crate) fn bit(row: &[u64], i: usize) -> bool {
     row[i / 64] >> (i % 64) & 1 == 1
 }
 
 /// The fixpoint of the program over bit planes.
 pub(crate) struct Planes {
-    n: usize,
-    w: usize,
-    lens: usize,
-    node: Vec<u64>,
+    pub(crate) n: usize,
+    pub(crate) w: usize,
+    pub(crate) lens: usize,
+    pub(crate) node: Vec<u64>,
     /// `walk[l][x]`: the nodes `z` with `Walk(x, z, l)`.
-    walk: Vec<u64>,
+    pub(crate) walk: Vec<u64>,
     /// Value-addressed row reads (`delta[row(l2, y)]` for a set bit `y`).
     pub(crate) row_reads: u64,
 }
