@@ -41,11 +41,11 @@
 //! costs nothing beyond the star path: its presence plane and offsets are
 //! read as prepared.
 
-use lance_graph_mask_risc::{
-    words_for, Foreign, GroupFold, GroupKey, LaneRef, Operand, Out, Planes, Program, Scratch,
-    Terminal, execute_into,
-};
 use lance_graph_mask_risc::ExecError;
+use lance_graph_mask_risc::{
+    Foreign, GroupFold, GroupKey, LaneRef, Operand, Out, Planes, Program, Scratch, Terminal,
+    execute_into, words_for,
+};
 use lance_graph_relalg::{Measure, Query, Rel, RelError, Run, normalize, run_with_program};
 use mork_pathmap_probe::RelationView;
 use mork_pathmap_probe::join::{JoinDomain, JoinRefusal, JoinTable, Side, for_each_set};
@@ -168,9 +168,15 @@ pub enum CoRefusal {
     /// The table holds other sides than the plan reads.
     NoCoordinateWitness,
     /// One `Rel` per side is needed.
-    Rels { sides: usize, rels: usize },
+    Rels {
+        sides: usize,
+        rels: usize,
+    },
     /// One generation per side is needed.
-    Generations { sides: usize, given: usize },
+    Generations {
+        sides: usize,
+        given: usize,
+    },
     /// A side is stale.
     Table(JoinRefusal),
     Relalg(RelError),
@@ -355,9 +361,18 @@ fn project(
         masks: &masks,
         lanes: &lanes,
     };
-    let mut scratch = Scratch::new(words_for(s.n_rows()), (program.scratch_slots as usize).max(1));
-    execute_into(&program, &view, &Foreign::NONE, &mut scratch, Out::I64(counts))
-        .map_err(CoRefusal::Exec)?;
+    let mut scratch = Scratch::new(
+        words_for(s.n_rows()),
+        (program.scratch_slots as usize).max(1),
+    );
+    execute_into(
+        &program,
+        &view,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::I64(counts),
+    )
+    .map_err(CoRefusal::Exec)?;
     cost.programs += 1;
     cost.passes += program.ops.len() + 1;
     programs.push(program);
@@ -606,7 +621,11 @@ mod tests {
             let star = native::prepare(&p, &store);
             for bag in [true, false] {
                 let want = native::bindings(&star, &p, &GENS, bag).expect("star");
-                assert_eq!(ev.bindings(&table, &p, bag), want, "{r:?} {s:?} {t:?} bag={bag}");
+                assert_eq!(
+                    ev.bindings(&table, &p, bag),
+                    want,
+                    "{r:?} {s:?} {t:?} bag={bag}"
+                );
             }
             assert_eq!(
                 ev.distinct_centers(),

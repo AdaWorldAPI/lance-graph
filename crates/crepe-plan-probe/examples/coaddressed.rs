@@ -167,9 +167,9 @@ fn main() {
         let ((o, o_rows, o_t), prep, prep_rows) = operator(&data, queries);
         assert_eq!(c.0, o, "C and O disagree");
         assert_eq!(cs.0, o, "CS and O disagree");
-        for (slot, (t, r)) in best
-            .iter_mut()
-            .zip([(ms(c.2), c.1), (ms(cs.2), cs.1), (ms(o_t), o_rows)])
+        for (slot, (t, r)) in
+            best.iter_mut()
+                .zip([(ms(c.2), c.1), (ms(cs.2), cs.1), (ms(o_t), o_rows)])
         {
             if slot.is_none_or(|(b, _)| t < b) {
                 *slot = Some((t, r));
