@@ -88,13 +88,18 @@ impl CoSide {
 }
 
 /// One domain and the sides laid out over it, without restrictions.
+///
+/// The fields are private: [`CoTable::prepare`] is the only way to build one,
+/// so every side is laid out over this table's domain. Equal slot numbers over
+/// two different domains name different centers, and nothing in [`eval`]
+/// could tell them apart.
 pub struct CoTable {
-    pub domain: JoinDomain,
-    pub sides: Vec<CoSide>,
+    domain: JoinDomain,
+    sides: Vec<CoSide>,
     /// The sides' keys, with `restrict: None`: a restriction is a query-time
     /// `Rel` here, not part of the layout.
-    pub keys: Vec<SideKey>,
-    pub domain_fp: u64,
+    keys: Vec<SideKey>,
+    domain_fp: u64,
 }
 
 /// `key` without its restriction.
@@ -123,6 +128,24 @@ impl CoTable {
             sides: table.sides.into_iter().map(CoSide::new).collect(),
             domain: table.domain,
         }
+    }
+
+    pub fn domain(&self) -> &JoinDomain {
+        &self.domain
+    }
+
+    pub fn sides(&self) -> &[CoSide] {
+        &self.sides
+    }
+
+    pub fn keys(&self) -> &[SideKey] {
+        &self.keys
+    }
+
+    /// Fingerprint of the domain every side is laid out over
+    /// ([`crate::native::fingerprint`]).
+    pub fn domain_fp(&self) -> u64 {
+        self.domain_fp
     }
 
     pub fn rows(&self) -> usize {
