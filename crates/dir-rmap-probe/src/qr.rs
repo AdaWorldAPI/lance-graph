@@ -295,6 +295,9 @@ impl Page {
 
 /// Pages resolved on first use.
 pub struct Pages {
+    /// The register version the pages were resolved against. A cached page
+    /// never answers for another version.
+    pub witness: Witness,
     pages: Vec<Option<Box<Page>>>,
     /// Pages resolved so far.
     pub resolved: usize,
@@ -303,13 +306,18 @@ pub struct Pages {
 impl Pages {
     pub fn new(qr: &Qr) -> Pages {
         Pages {
+            witness: qr.witness.clone(),
             pages: (0..qr.pages()).map(|_| None).collect(),
             resolved: 0,
         }
     }
 
-    /// The page holding user `u`, resolved if it was not.
+    /// The page holding user `u`, resolved if it was not. Refuses a register
+    /// or source rows of another version than the cache's, before returning
+    /// a cached page or resolving a new one.
     pub fn of(&mut self, qr: &Qr, b: &Prepared, u: u16) -> Result<&Page, Refusal> {
+        qr.check(&self.witness)?;
+        b.check(&self.witness)?;
         let p = u as usize / SLOTS;
         if self.pages[p].is_none() {
             self.pages[p] = Some(Box::new(qr.page(b, p)?));
@@ -454,6 +462,7 @@ impl Qr {
         Pop {
             witness: self.witness.clone(),
             tiles,
+            kept: None,
         }
     }
 
@@ -475,6 +484,7 @@ impl Qr {
         Ok(Pop {
             witness: self.witness.clone(),
             tiles,
+            kept: None,
         })
     }
 }

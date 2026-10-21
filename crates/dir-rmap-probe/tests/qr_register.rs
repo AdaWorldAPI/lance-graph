@@ -229,3 +229,38 @@ fn binding_resolves_no_user_and_a_question_resolves_one_page() {
     pages.roles_of(&qr, &b, (b.users - 1) as u16).unwrap();
     assert_eq!(pages.resolved, 2);
 }
+
+#[test]
+fn a_page_cache_from_an_older_version_refuses() {
+    // Codex review on #1666: resolve a user's page, remove that user's
+    // membership, then ask through the same cache with the new register.
+    let mut w = World::new(Fixture::generate(Spec::small()));
+    let b0 = w.prepare();
+    let qr0 = Qr::bind(&b0, &w.witness()).unwrap();
+    let mut pages = Pages::new(&qr0);
+    let v = w.view();
+    let ord = Ordinals::of(&w.f, &v);
+    drop(v);
+    let (u, g) = *w
+        .direct
+        .iter()
+        .find(|&&(_, g)| qr0.slot(ord.group[g as usize]).is_some())
+        .unwrap();
+    let (uo, go) = (ord.user[u as usize], ord.group[g as usize]);
+    assert_eq!(pages.ask(&qr0, &b0, &w.witness(), uo, go), Ok(true));
+    w.apply(&[Edit::RemoveDirect(u, g)]);
+    let b1 = w.prepare();
+    let qr1 = Qr::bind(&b1, &w.witness()).unwrap();
+    assert_eq!(
+        pages.ask(&qr1, &b1, &w.witness(), uo, go),
+        Err(Refusal::Stale),
+        "a cached page must not answer for another version"
+    );
+    assert_eq!(pages.roles_of(&qr1, &b1, uo).err(), Some(Refusal::Stale));
+    // A cache bound to the new register answers.
+    assert!(
+        Pages::new(&qr1)
+            .ask(&qr1, &b1, &w.witness(), uo, go)
+            .is_ok()
+    );
+}

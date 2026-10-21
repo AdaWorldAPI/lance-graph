@@ -35,6 +35,10 @@ use crate::qr::{Qr, Runs, row_bit, set};
 pub struct Pop {
     pub witness: Witness,
     pub tiles: Vec<Row>,
+    /// The tile mask the population was built for, `None` for every tile.
+    /// Outside it the bits are not derived, so a restricted population is
+    /// exact only within these tiles, and a repair must keep the same mask.
+    pub kept: Option<Vec<u64>>,
 }
 
 #[inline]
@@ -119,7 +123,10 @@ impl Pop {
     ///
     /// Refuses when the slot binding changed (the security chain gained or
     /// lost a group): the old slot sets do not address the same groups, so
-    /// the population is rebuilt instead.
+    /// the population is rebuilt instead. Refuses ([`Refusal::OutOfFocus`])
+    /// a `tiles` other than the mask the population was built for: tiles
+    /// leaving the mask would keep stale bits and tiles joining it would stay
+    /// empty under the new version. A different focus is a rebuild.
     pub fn repair(
         &mut self,
         qr0: &Qr,
@@ -133,6 +140,9 @@ impl Pop {
         b1.check(&qr1.witness)?;
         if qr0.ids != qr1.ids || self.tiles.len() != qr1.pages() {
             return Err(Refusal::Stale);
+        }
+        if self.kept.as_deref() != tiles {
+            return Err(Refusal::OutOfFocus);
         }
         let keep = |u: usize| tiles.is_none_or(|t| tile_on(t, u / SLOTS));
         let mut out = Repair::default();
@@ -265,6 +275,7 @@ impl Qr {
         Ok(Pop {
             witness: self.witness.clone(),
             tiles,
+            kept: Some(focus.tiles.clone()),
         })
     }
 }

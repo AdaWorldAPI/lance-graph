@@ -333,6 +333,7 @@ fn tracked(qr: &Qr, s: &Setup, roles: &[usize]) -> Vec<Row> {
 
 fn restrict(p: &Pop, tiles: &[u64]) -> Pop {
     let mut q = p.clone();
+    q.kept = Some(tiles.to_vec());
     for (i, t) in q.tiles.iter_mut().enumerate() {
         if tiles[i >> 6] >> (i & 63) & 1 == 0 {
             *t = [0; 4];
@@ -558,6 +559,51 @@ fn a_second_path_keeps_the_property_when_one_path_is_removed() {
     for (o, _, roles) in &t {
         assert_eq!(bit(&pop, *o), roles >> r & 1 == 1, "user ordinal {o}");
     }
+}
+
+#[test]
+fn repair_refuses_a_tile_restriction_other_than_the_one_built() {
+    // Codex review on #1666: a population restricted to some tiles, repaired
+    // with a different mask, kept the old tiles and stamped the new version.
+    let mut s = setup();
+    let b0 = s.w.prepare();
+    let qr0 = Qr::bind(&b0, &s.w.witness()).unwrap();
+    let focus = qr0
+        .ids
+        .iter()
+        .map(|&g| qr0.team_focus(&b0, g).unwrap())
+        .filter(|f| f.rows.count() >= 3)
+        .min_by_key(TeamFocus::tiles_selected)
+        .unwrap();
+    let x0 = qr0.role_slots[s.role];
+    let mut pop = qr0
+        .population_in(&b0, &x0, &focus, &mut Runs::new(&qr0))
+        .unwrap();
+    let before = pop.clone();
+    // Another mask: every tile the focus does not select.
+    let other: Vec<u64> = focus.tiles.iter().map(|w| !w).collect();
+    let (u, g) = s.w.direct[0];
+    s.w.apply(&[Edit::RemoveDirect(u, g)]);
+    let b1 = s.w.prepare();
+    let qr1 = Qr::bind(&b1, &s.w.witness()).unwrap();
+    let x1 = qr1.role_slots[s.role];
+    assert_eq!(
+        pop.repair(&qr0, &qr1, &b1, (&x0, &x1), &[], Some(&other))
+            .err(),
+        Some(Refusal::OutOfFocus)
+    );
+    assert_eq!(
+        pop, before,
+        "a refused repair leaves the population as it was"
+    );
+    // Unrestricted repair of a restricted population is refused too.
+    assert_eq!(
+        pop.repair(&qr0, &qr1, &b1, (&x0, &x1), &[], None).err(),
+        Some(Refusal::OutOfFocus)
+    );
+    // The restriction it was built with is accepted.
+    pop.repair(&qr0, &qr1, &b1, (&x0, &x1), &[], Some(&focus.tiles))
+        .unwrap();
 }
 
 #[test]

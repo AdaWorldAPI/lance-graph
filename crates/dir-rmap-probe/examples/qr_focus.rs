@@ -353,6 +353,7 @@ fn main() {
                 *t = [0; 4];
             }
         }
+        fresh.kept = Some(focus.tiles.clone());
         assert_eq!(*p, fresh, "repaired pop");
     }
     let t_rebind = median(15, || {
