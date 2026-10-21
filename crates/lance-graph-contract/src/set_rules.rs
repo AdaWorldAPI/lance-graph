@@ -443,7 +443,8 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
             // form keeps exactly those (`set_algebra` module docs).
             let n = match sem.truth {
                 Truth::TwoValued => normalize(set),
-                Truth::ThreeValued => normalize_kleene(set),
+                // Terminal: a measure reads only the TRUE rows.
+                Truth::ThreeValued => normalize_kleene(set).into_where_true(),
             };
             if n == *set {
                 return None;

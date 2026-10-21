@@ -68,3 +68,12 @@ Without a server the example prints `SKIP` and exits 0.
   - empty / all-NULL `SUM` (the `SumFamily::Sym` path exists; no PostgreSQL differential yet);
   - `COUNT(expr)` vs `COUNT(*)`.
 - **Not done:** a PostgreSQL arm in CI. The example is a lab instrument only.
+
+## Correction: WHERE-terminal admission (post-merge review)
+
+Written by `session_013z2e1YXkm6o6HNrDn5BPWA` on the operator's instruction (EXO-50 `/038`), from `GPT:gpt-ada-01/20261021-pr1674-1682-consolidated-review-01` item 3.
+
+- `normalize_kleene` keeps the TRUE rows only; #1677 measured FALSE rows moving on 337/2000. It now returns `set_algebra::WhereSet` instead of a `SetExpr`. `where_true()` / `into_where_true()` name the WHERE-only restriction at every call site; `normalize_with` is private, so the Kleene result cannot leave the module as a plain `SetExpr`. `set_rules`' `SetNormalize` (a measure, terminal) and the two PostgreSQL examples take the set out explicitly. No new rule or framework; the existing `Semantics::truth` gate is unchanged.
+- Test `the_kleene_form_preserves_true_rows_but_not_false_rows`: `p ∧ ¬p` with `p` UNKNOWN keeps its (empty) TRUE rows, becomes `Empty`, and `NOT` over it is TRUE where `NOT (p ∧ ¬p)` is UNKNOWN.
+- GKAT (#1679): `Cond::Not` negates a projected guard. `tests/k3_negation_duality.rs` checks on all four atoms (TRUE, FALSE, NULL under both payloads) that `Where(NOT p) = NOT Check(p)`, `Check(NOT p) = NOT Where(p)`, that `NOT Where(p)` differs from SQL `WHERE NOT p` exactly on the two NULL atoms, and that no form reads a NULL payload. Two disables red (`Where` or `Check` without the validity test). The GKAT algorithm is unchanged; `flow.rs` docs name the boundary.
+- Unchanged after the change: contract 1626 tests pass; `k3_pg_parity` 2000/2000; `k3_where_pg_parity` TRUE/FALSE equal 2000/2000, FALSE moved on 337, two-valued wrong on 499.

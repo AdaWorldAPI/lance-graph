@@ -382,7 +382,7 @@ fn main() {
         let (tbits, fbits) = line.split_once(',').expect("two columns");
         let (pg_t, pg_f) = (plane(tbits), plane(fbits));
         unknown_rows += ROWS - tbits.matches('1').count() - fbits.matches('1').count();
-        let (f, nk) = (filter(e), filter(&normalize_kleene(e)));
+        let (f, nk) = (filter(e), filter(normalize_kleene(e).where_true()));
         for mode in [Mode::InPlace, Mode::Fused] {
             let neg = Filter::Not(Box::new(f.clone()));
             assert!(
@@ -404,7 +404,7 @@ fn main() {
             &keep(&t, &Filter::Not(Box::new(nk.clone())), Mode::InPlace),
             &pg_f,
         ));
-        rewritten += usize::from(normalize_kleene(e) != *e);
+        rewritten += usize::from(normalize_kleene(e).where_true() != e);
         two_valued_wrong += usize::from(differ(
             &keep(&t, &filter(&normalize(e)), Mode::InPlace),
             &pg_t,

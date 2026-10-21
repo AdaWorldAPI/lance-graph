@@ -203,7 +203,7 @@ fn main() {
             "SELECT count(*) FILTER (WHERE {}), count(*) FILTER (WHERE {}), \
              count(*) FILTER (WHERE {}) FROM t;\n",
             sql(e),
-            sql(&normalize_kleene(e)),
+            sql(normalize_kleene(e).where_true()),
             sql(&normalize(e))
         ));
     }
@@ -257,7 +257,7 @@ fn main() {
         assert_eq!(n[1], n[0], "normalize_kleene changed the count: {e:?}");
         kleene_ok += 1;
         two_valued_wrong += usize::from(n[2] != n[0]);
-        rewritten += usize::from(normalize_kleene(e) != *e);
+        rewritten += usize::from(normalize_kleene(e).where_true() != e);
     }
     println!(
         "PostgreSQL {}: {EXPRS} expressions over {ROWS} rows; as written = Kleene oracle = \

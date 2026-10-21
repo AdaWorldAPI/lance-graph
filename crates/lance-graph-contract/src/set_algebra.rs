@@ -70,6 +70,16 @@
 //! TRUE). A [`SetExpr::Sym`] is two-valued by definition, so its complement
 //! rule stays.
 //!
+//! **WHERE-terminal only.** The Kleene form keeps the TRUE rows and nothing
+//! else: it may move a row between FALSE and UNKNOWN. `p ∧ ¬p` becomes
+//! `Empty`, which is FALSE on a row where `p` is UNKNOWN, so `NOT` over the
+//! result selects that row while `NOT (p ∧ ¬p)` does not (PostgreSQL agrees;
+//! `examples/k3_where_pg_parity.rs` measures it). The result is therefore a
+//! [`WhereSet`], not a [`SetExpr`]: a consumer that negates or embeds it must
+//! take the set out explicitly with [`WhereSet::into_where_true`], which names
+//! the restriction at the call site. A measure (`Count`, `Sum`) and a SQL
+//! `WHERE` are terminal and may.
+//!
 //! An interval is always emitted as `<` / `>` bounds or one `==`.
 //!
 //! Zero dependencies.
@@ -197,13 +207,37 @@ pub fn normalize(e: &SetExpr) -> SetExpr {
 }
 
 /// [`normalize`] for lanes that may hold NULL: the result is TRUE on exactly
-/// the rows where `e` is TRUE under Kleene logic (module docs).
-pub fn normalize_kleene(e: &SetExpr) -> SetExpr {
-    normalize_with(e, Logic::Kleene)
+/// the rows where `e` is TRUE under Kleene logic (module docs). Its FALSE and
+/// UNKNOWN rows are not those of `e`, so it is returned as a [`WhereSet`].
+pub fn normalize_kleene(e: &SetExpr) -> WhereSet {
+    WhereSet(normalize_with(e, Logic::Kleene))
 }
 
-/// [`normalize`] under `logic`.
-pub fn normalize_with(e: &SetExpr, logic: Logic) -> SetExpr {
+/// The result of [`normalize_kleene`]: a set whose TRUE rows are the original
+/// expression's TRUE rows under Kleene logic. Its FALSE / UNKNOWN split is
+/// not the original's, so it is valid only where a terminal reads TRUE rows
+/// (a measure, a SQL `WHERE`), never under `NOT`, inside a `CHECK`, or as an
+/// operand of a larger three-valued expression (module docs).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[must_use]
+pub struct WhereSet(SetExpr);
+
+impl WhereSet {
+    /// The set, to be read only as "the rows where it is TRUE".
+    pub fn where_true(&self) -> &SetExpr {
+        &self.0
+    }
+
+    /// Take the set out for a terminal that reads TRUE rows. The caller
+    /// asserts that nothing negates or embeds it in a three-valued context.
+    pub fn into_where_true(self) -> SetExpr {
+        self.0
+    }
+}
+
+/// [`normalize`] under `logic`. Private: the Kleene result must leave this
+/// module as a [`WhereSet`].
+fn normalize_with(e: &SetExpr, logic: Logic) -> SetExpr {
     let mut cur = nnf(e, false);
     for _ in 0..64 {
         let next = simplify(&cur, logic);
@@ -911,9 +945,13 @@ mod tests {
             let null = nulls(1 + k % 5);
             let e = g.expr(5);
             let want = true_rows(&w, &null, &e);
-            let n = normalize_kleene(&e);
+            let n = normalize_kleene(&e).into_where_true();
             assert_eq!(true_rows(&w, &null, &n), want, "{e:?}\n => {n:?}");
-            assert_eq!(normalize_kleene(&n), n, "not idempotent: {e:?}");
+            assert_eq!(
+                normalize_kleene(&n).into_where_true(),
+                n,
+                "not idempotent: {e:?}"
+            );
             changed += usize::from(n != e);
             two_valued_wrong += usize::from(true_rows(&w, &null, &normalize(&e)) != want);
         }
@@ -972,7 +1010,11 @@ mod tests {
         for e in &covers {
             let want = true_rows(&w, &null, e);
             assert_eq!(want.iter().filter(|&&b| b).count(), N.div_ceil(2), "{e:?}");
-            assert_eq!(true_rows(&w, &null, &normalize_kleene(e)), want, "{e:?}");
+            assert_eq!(
+                true_rows(&w, &null, normalize_kleene(e).where_true()),
+                want,
+                "{e:?}"
+            );
             assert_ne!(true_rows(&w, &null, &normalize(e)), want, "{e:?}");
         }
     }
@@ -1016,11 +1058,14 @@ mod tests {
         let mut g = Gen(0xB0B);
         for _ in 0..3000 {
             let e = g.expr(5);
-            assert!(normalize_kleene(&e).leaves() <= e.leaves(), "{e:?}");
+            assert!(
+                normalize_kleene(&e).into_where_true().leaves() <= e.leaves(),
+                "{e:?}"
+            );
         }
         // The `!=` case on its own: `x != 1` stays one atom.
         let ne = SetExpr::i32(0, Cmp::Ne, 1);
-        assert_eq!(normalize_kleene(&ne), ne);
+        assert_eq!(normalize_kleene(&ne).into_where_true(), ne);
     }
 
     fn x() -> SetExpr {
@@ -1199,5 +1244,83 @@ mod tests {
         assert_eq!(r.complement(10).unwrap(), Runs::from_intervals([(0, 3)]));
         assert_eq!(Runs::empty().complement(0).unwrap(), Runs::empty());
         assert_eq!(Runs::empty().complement(5).unwrap(), Runs::full(5));
+    }
+}
+
+#[cfg(test)]
+mod where_terminal {
+    use super::*;
+
+    /// Kleene evaluation of the one-lane fixture: `x` is `[3, NULL]`.
+    fn k(e: &SetExpr, null: bool) -> Option<bool> {
+        match e {
+            SetExpr::All => Some(true),
+            SetExpr::Empty => Some(false),
+            SetExpr::Res(Res::I32 { op, t, .. }) => {
+                if null {
+                    None
+                } else {
+                    let x = 3;
+                    Some(match op {
+                        Cmp::Lt => x < *t,
+                        Cmp::Le => x <= *t,
+                        Cmp::Gt => x > *t,
+                        Cmp::Ge => x >= *t,
+                        Cmp::Eq => x == *t,
+                        Cmp::Ne => x != *t,
+                    })
+                }
+            }
+            SetExpr::Not(c) => k(c, null).map(|b| !b),
+            SetExpr::And(cs) => {
+                let vs: Vec<Option<bool>> = cs.iter().map(|c| k(c, null)).collect();
+                if vs.contains(&Some(false)) {
+                    Some(false)
+                } else if vs.contains(&None) {
+                    None
+                } else {
+                    Some(true)
+                }
+            }
+            SetExpr::Or(cs) => k(
+                &SetExpr::negated(SetExpr::And(
+                    cs.iter().cloned().map(SetExpr::negated).collect(),
+                )),
+                null,
+            ),
+            _ => unreachable!("fixture uses I32 residuals only"),
+        }
+    }
+
+    /// FAILS IF: the Kleene form is claimed to be fully three-valued
+    /// equivalent. `p ∧ ¬p` keeps its TRUE rows (none) but becomes `Empty`,
+    /// which is FALSE where `p` is UNKNOWN; so `NOT` over the normalized set
+    /// selects the NULL row and `NOT` over the original does not. This pins
+    /// why [`normalize_kleene`] returns a [`WhereSet`].
+    #[test]
+    fn the_kleene_form_preserves_true_rows_but_not_false_rows() {
+        let p = SetExpr::i32(0, Cmp::Lt, 5);
+        let e = SetExpr::And(vec![p.clone(), SetExpr::negated(p)]);
+        let n = normalize_kleene(&e);
+        assert_eq!(n.where_true(), &SetExpr::Empty);
+        for null in [false, true] {
+            assert_eq!(
+                k(&e, null) == Some(true),
+                k(n.where_true(), null) == Some(true),
+                "TRUE rows must agree (null = {null})"
+            );
+        }
+        // Present row: both FALSE. NULL row: original UNKNOWN, normalized FALSE.
+        assert_eq!(k(&e, false), Some(false));
+        assert_eq!(k(&e, true), None);
+        assert_eq!(k(n.where_true(), true), Some(false));
+        let not_orig = SetExpr::negated(e);
+        let not_norm = SetExpr::negated(n.into_where_true());
+        assert_eq!(k(&not_orig, true), None, "NOT (p AND NOT p) is UNKNOWN");
+        assert_eq!(
+            k(&not_norm, true),
+            Some(true),
+            "NOT over the WHERE form is TRUE"
+        );
     }
 }

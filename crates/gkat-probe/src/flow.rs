@@ -43,6 +43,13 @@
 //!
 //! A Boolean observable is read with [`Cond::Is`]. Using a K3 projection on a
 //! Boolean observable, or `Is` on a K3 one, is refused.
+//!
+//! [`Cond::Not`] negates a guard AFTER projection; there is no SQL `NOT`
+//! before projection in this language. The two meet through
+//! `Where(NOT p) = NOT Check(p)` and `Check(NOT p) = NOT Where(p)`, so
+//! `Cond::Not(Where(p))` is SQL `CHECK(NOT p)`, not `WHERE NOT p`; a
+//! translator that lowers SQL `WHERE NOT p` must emit
+//! `Cond::Check(p).negated()` (`tests/k3_negation_duality.rs`).
 
 use crate::expr::{Action, Atoms, BExp, Exp, Refusal};
 
