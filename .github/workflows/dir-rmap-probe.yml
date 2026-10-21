@@ -11,6 +11,8 @@ on:
       - crates/lance-graph-dir-sim/**
       - crates/lance-graph-quack/**
       - crates/lance-graph-mask-risc/**
+      - crates/lance-graph-r2il/**
+      - crates/lance-graph-contract/**
       - .github/workflows/dir-rmap-probe.yml
       - rust-toolchain.toml
   push:
@@ -21,6 +23,8 @@ on:
       - crates/lance-graph-dir-sim/**
       - crates/lance-graph-quack/**
       - crates/lance-graph-mask-risc/**
+      - crates/lance-graph-r2il/**
+      - crates/lance-graph-contract/**
       - .github/workflows/dir-rmap-probe.yml
       - rust-toolchain.toml
   workflow_dispatch:

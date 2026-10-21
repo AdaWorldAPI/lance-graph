@@ -31,6 +31,12 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", d
 # fixture's own integer ids (never dir-sim ordinals). AdaWorldAPI fork, by
 # branch (no pins), as in crepe-plan-probe.
 crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-ied9yh" }
+# D-RFT-1 (src/compose.rs): every count, existence and mask equality of the
+# composition is an r2il procedure (`count_and`, `count`, `differ`) folded by
+# mask-risc. The probe holds no counting loop of its own.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+# The planes a FoldDialect folds over (`Planes`, `Foreign`).
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 # Same patches as lance-graph-dir-sim: one ndarray identity, and the OGAR
 # sibling checkout so a paired OGAR change is tested before it merges.
@@ -43,7 +49,6 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # a population is lent as a `Rel::Plane` and folded by relalg's existing
 # mask-risc lowering. No evaluator of the probe's own.
 lance-graph-relalg = { path = "../lance-graph-relalg" }
-lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
@@ -53,3 +58,11 @@ ogar-dir-core = { path = "../../../OGAR/crates/ogar-dir-core" }
 ogar-dir-sim = { path = "../../../OGAR/crates/ogar-dir-sim" }
 ogar-ad = { path = "../../../OGAR/crates/ogar-ad" }
 ogar-az = { path = "../../../OGAR/crates/ogar-az" }
+ogar-loco = { path = "../../../OGAR/crates/ogar-loco" }
+ogar-r2il = { path = "../../../OGAR/crates/ogar-r2il" }
+
+# ogar-loco / ogar-r2il take the contract by git `main`; map it onto the
+# in-tree crate so the graph holds one contract (the lance-graph root does
+# the same).
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
