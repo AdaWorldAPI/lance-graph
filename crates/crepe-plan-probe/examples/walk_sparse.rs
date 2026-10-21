@@ -840,6 +840,23 @@ mod tests {
     }
 
     #[test]
+    fn each_delta_bit_is_expanded_once() {
+        // Semi-naive: every Walk fact is new in exactly one iteration, so it
+        // feeds at most one row OR per edge length and per source focus. A
+        // delta that kept old facts (naive evaluation) stays correct but
+        // breaks this bound on a deep chain.
+        let e = chain(230);
+        let r = check(&e);
+        let lens = e.iter().map(|x| x.2).collect::<BTreeSet<_>>().len() as u64;
+        let bound = r.tuples.walk.len() as u64 * lens * r.pages as u64;
+        assert!(
+            r.counters.row_ors <= bound,
+            "{} row ORs > {bound}",
+            r.counters.row_ors
+        );
+    }
+
+    #[test]
     fn cross_focus_completeness() {
         for n in [255usize, 256, 257, 300] {
             let mut e = random_graph(n, 1, 0xB0B0 + n as u64);

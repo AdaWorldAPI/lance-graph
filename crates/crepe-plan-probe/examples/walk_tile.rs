@@ -360,7 +360,13 @@ impl Kernel {
     /// `c |= a ∘ b`: `C(x, z) = ∃y A(x, y) ∧ B(y, z)`. Row `z` of `C` is the
     /// OR over `y` of row `y` of `A`, taken when bit `y` of row `z` of `B` is
     /// set. Every read is at a loop coordinate.
-    pub(crate) fn product_into(&mut self, a: &[u64], b: &[u64], c: &mut Box<[u64]>, n: &mut Counters) {
+    pub(crate) fn product_into(
+        &mut self,
+        a: &[u64],
+        b: &[u64],
+        c: &mut Box<[u64]>,
+        n: &mut Counters,
+    ) {
         n.tile_products += 1;
         for y in 0..SLOTS {
             let ay = &a[y * ROW_WORDS..(y + 1) * ROW_WORDS];
@@ -412,7 +418,12 @@ pub(crate) struct Run {
     pub(crate) counters: Counters,
 }
 
-pub(crate) fn recurse(b: &Bound, p: &Projection, current: &Witness, k: &mut Kernel) -> Result<Run, Refuse> {
+pub(crate) fn recurse(
+    b: &Bound,
+    p: &Projection,
+    current: &Witness,
+    k: &mut Kernel,
+) -> Result<Run, Refuse> {
     b.witness.check(current)?;
     p.witness.check(current)?;
     if !p.escaped.is_empty() {
