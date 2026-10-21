@@ -14,11 +14,15 @@
 //! | B  | [`prep::Prepared`] | bidirectional membership CSR + nesting CSR |
 //! | B+ | [`prep::Compiled`] | B + closure rows per group and chain + roles by ordinal |
 //! | F  | [`focus`] | B+ projected onto a 256-slot focus of selected groups |
+//! | Q  | [`qr`] | DR256 register: the security chain bound to 256 slots; nesting closed inside the tile; users x groups as a bit matrix |
+//! | Q  | [`pop`] | populations bound to one version: team focus, focus-restricted builds, relalg method folds, repair after edits |
 
 pub mod fixture;
 pub mod focus;
 pub mod oracle;
+pub mod pop;
 pub mod prep;
+pub mod qr;
 
 use fixture::{Fixture, Kind};
 use lance_graph_dir_sim::{GroupProperty, GroupWhere, View};
@@ -182,6 +186,10 @@ impl World {
                     user: f.groups[c as usize],
                     group: f.groups[p as usize],
                 },
+                Edit::RemoveNested(c, p) => Change::RemoveMembership {
+                    user: f.groups[c as usize],
+                    group: f.groups[p as usize],
+                },
             })
             .collect();
         self.version = self
@@ -193,6 +201,7 @@ impl World {
                 Edit::AddDirect(u, g) => self.direct.push((u, g)),
                 Edit::RemoveDirect(u, g) => self.direct.retain(|&x| x != (u, g)),
                 Edit::AddNested(c, p) => self.nested.push((c, p)),
+                Edit::RemoveNested(c, p) => self.nested.retain(|&x| x != (c, p)),
             }
         }
         self.direct.sort_unstable();
@@ -226,6 +235,8 @@ pub enum Edit {
     AddDirect(u32, u32),
     RemoveDirect(u32, u32),
     AddNested(u32, u32),
+    /// `(child group, parent group)`: the nesting pair removed.
+    RemoveNested(u32, u32),
 }
 
 struct Propose(Vec<Change>);

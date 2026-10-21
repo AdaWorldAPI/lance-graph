@@ -490,7 +490,7 @@ fn a_refreshed_focus_equals_a_fresh_bind_dir_sim_and_the_oracle() {
         .iter()
         .filter_map(|e| match *e {
             Edit::AddDirect(u, _) | Edit::RemoveDirect(u, _) => Some(ord.user[u as usize]),
-            Edit::AddNested(..) => None,
+            Edit::AddNested(..) | Edit::RemoveNested(..) => None,
         })
         .collect();
     for (fu, l) in fs.iter_mut().zip(fl.iter_mut()) {
