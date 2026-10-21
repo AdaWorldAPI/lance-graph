@@ -9,17 +9,18 @@
 - **Register:** every security group is bound to one of 256 local slots, once per snapshot (global → local). More than 256 security groups is refused (`TooLarge`), never truncated. That is what makes the in-tile closure complete.
 - **Nesting:** a 256 × 256 bit tile (child slot → parent slots), closed inside the tile by Warshall (reflexive + transitive).
 - **Membership matrix ("QR code"):** users in pages of 256 rows × 256 slot columns. A user's effective groups = its row × `reach`.
-- **Roles:** per slot, the grants its reach carries. Per user, they are resolved at bind as a column fold per page: the users holding role `r` are the OR of the columns of the slots whose role set contains `r`.
+- **Roles:** per slot, the grants its reach carries. Per user, they are resolved per page of 256 users as a column fold: the users holding role `r` are the OR of the columns of the slots whose role set contains `r`.
+- **Lazy pages (revision 2):** `Qr::bind` builds only the register (slots, nesting tile, closure, slot roles) and resolves no user. A page is resolved when a question names one of its users (`Qr::page`, `Pages`).
 - **ClassView wiring:** the class declares `effective_roles` computed from `member_of` (`compute_dag`); the DR table maps that position to `Qr::roles_of`. Same shape as `classview_dr.rs`; no new type.
-- **Address rule:** every inner loop runs over slot or user coordinates and tests a bit; no bit scan. The ordinal → slot translations happen at bind and are counted (31,470 at 8,000 users). They are frozen-codebook decoding over one snapshot; the contract-level witness is still missing (ADMISSION B).
+- **Address rule:** every inner loop runs over slot or user coordinates and tests a bit; no bit scan. The ordinal → slot translations are counted at bind (450 at 8,000 users: the nesting pairs) and per page (each user's direct groups). They are frozen-codebook decoding over one snapshot; the contract-level witness is still missing (ADMISSION B).
 
 ## Correctness
 
-5 tests. For every user of `Spec::small` (600 users, 174 groups, 164 security groups):
+6 tests. For every user of `Spec::small` (600 users, 174 groups, 164 security groups):
 - roles equal dir-sim (arm A), the crepe oracle (arm D) and B+;
 - effective security groups match dir-sim's walk slot by slot.
 
-This holds before and after a nesting add plus a membership removal (rebind). Refusals: >256 security groups (`Spec::iam(2000)`), a stale snapshot (bind and ask), a group outside the chain. Anti-vacuity: some users but not all hold roles, and some user gains a group only through nesting.
+This holds before and after a nesting add plus a membership removal (rebind). Refusals: >256 security groups (`Spec::iam(2000)`), a stale snapshot (bind and ask), a group outside the chain. Anti-vacuity: some users but not all hold roles, and some user gains a group only through nesting. A further test checks that bind resolves no page and that two users of one page resolve that page once.
 
 Disable runs (committed first, each reverted; all red):
 - Warshall removed;
@@ -31,35 +32,42 @@ Disable runs (committed first, each reverted; all red):
 - page column off by one user;
 - last page dropped.
 
+Revision 2 disable runs (all red): `Pages` re-resolving on every call, `page` ignoring the witness, a page dropping its last user, a column bit set at the global user index, a user mapped to the wrong page.
+
+## Operator correction (2026-10-21)
+
+Revision 1 resolved every user's roles at bind and measured that. The operator: "Nobody resolves nested groups for 64k users x 1700 groups at once. In real life even with Powershell hashtables that takes 2-12minutes". The unit of work is one team, OU or page asked for on demand, not the population. Revision 2 measures that unit; the eager figure is kept only as a comparison.
+
 ## Measured (release, `examples/qr_cost.rs`, group side of `Spec::small`, every route checked equal to dir-sim first)
 
 | | 8,000 users | 65,000 users |
 |---|---:|---:|
-| bind (register + closure + roles for every user) | 535–577 µs | FAILED GATE (ms) |
-| of which closure + slot roles inside the tile | ≈ 42–60 µs | ≈ 42–60 µs |
-| per user: Q roles resolved at bind | 0.8 ns | 0.9–1.5 ns |
-| per user: B+ fold | 12.5–16.8 ns | 14.9–18.3 ns |
-| per user: Q effective row (M × R, live) | 166–179 ns | 178–183 ns |
-| per user: Q roles live (row × slot roles) | 141–215 ns | 146–209 ns |
+| bind register (slots + closure + slot roles, no user) | 39.9 µs | 41.3 µs |
+| resolve one page (256 users), first touch | 14.7 µs | 13.3 µs |
+| per user: Q roles from a resolved page | 0.9 ns | 1.0 ns |
+| per user: B+ fold | 12.6 ns | 14.1 ns |
+| per user: Q roles live (row × slot roles) | 140.1 ns | 148.1 ns |
+| per user: Q effective row (M × R) | 167.8 ns | 258.4 ns |
+| every page at once (not a workload; comparison only) | 486.6 µs | FAILED GATE (ms) |
 | prepare (arm B, dir-sim → CSR; pre-existing) | FAILED GATE (ms) | FAILED GATE (ms) |
 
-(Three runs at 8,000 users; the tile-phase split is from a one-off instrumented run.)
+Register 19,108 bytes; one page 10,240 bytes.
 
 ## Reading
 
-- **The register itself is cheap:** closing nesting inside the 256 × 256 tile costs tens of µs, independent of the user count.
-- **Queries after bind are the cheapest route measured:** ~1 ns per user against ~13–18 ns for the B+ fold.
-- **The cost is resolving every user at bind:** about 50 ns per user (membership matrix ≈ 13 ns, page fold ≈ 50 ns, measured by instrumentation at 65,000 users). That passes the µs gate at 8,000 users and fails it at 65,000. Skipping empty columns did not help (within noise; reverted).
-- **Live per-user products** (a row times the tile, 164 coordinates tested per user) are 10× slower than the B+ fold. The register pays only when answers are resolved by page, not per row.
-- **The arm B prepare** (dir-sim → CSR) is a pre-existing millisecond phase, not introduced here.
+- **Both on-demand costs are independent of the user count:** the register binds in ≈ 40 µs and a page resolves in ≈ 14 µs at 8,000 and at 65,000 users. Asking about one team costs the register plus that team's page.
+- **Queries on a resolved page are the cheapest route measured:** ~1 ns per user against ~13–14 ns for the B+ fold.
+- **Live per-user products** (a row times the tile, 164 coordinates tested per user) are 10× slower than the B+ fold. The register pays when answers are read from a resolved page.
+- **Eager resolve of the whole population** fails the gate at 65,000 users, as revision 1 measured. Per the correction above, that is not a workload.
+- **The arm B prepare** (dir-sim → CSR) is a pre-existing millisecond phase, not introduced here. A page resolve reads that CSR; making the page read the source lanes directly is open.
 
 ## Open
 
-- **Lazy pages:** resolve a 256-user page on first use, so bind is register + closure only and is independent of the user count.
+- **Pages by OU/team, not by ordinal:** pages are cut at user ordinal / 256. Cutting them by `Dn128` prefix (OU) or team needs a page key and a pointer table of non-empty tiles (the proxy-chained team design, not built).
 - **Chains over 256 security groups** (`Spec::iam(8000)` has 1,439 ≈ 6 pages): a blocked Warshall over register pages. This is the D-RU-6 tile-recursion territory, where the measured win is narrow.
 - **Mail and All chains:** only the security chain is bound.
 - **The contract-level frozen-codebook witness** (ADMISSION B), shared with D-CMR-5 and D-RU-6.
 
 ## Closeout
 
-`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; ~1 ns queries, tens-of-µs closure; bind passes at 8k users, fails the µs gate at 65k | OPEN: lazy pages, >256-group chains, codebook witness`
+`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs and one 256-user page ≈ 14 µs on demand, both independent of user count; ~1 ns queries | OPEN: OU/team page keys, >256-group chains, CSR-free page read, codebook witness`
