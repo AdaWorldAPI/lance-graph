@@ -434,3 +434,84 @@ impl Runs {
         self.runs.iter().flatten().map(|r| r.len() * 4).sum()
     }
 }
+
+/// A population over the user axis: bit `i` of tile `p` is user
+/// `p * 256 + i`. Populations built from the same register line up by
+/// position, so filters chain as word-wise AND / AND-NOT and answer with a
+/// count. No per-user value is built.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Pop {
+    pub tiles: Vec<Row>,
+}
+
+impl Qr {
+    /// Every user of the snapshot.
+    pub fn everyone(&self) -> Pop {
+        let mut tiles = vec![[0u64; 4]; self.pages()];
+        for (p, t) in tiles.iter_mut().enumerate() {
+            let n = self.users.saturating_sub(p * SLOTS).min(SLOTS);
+            for (k, w) in t.iter_mut().enumerate() {
+                let bits = n.saturating_sub(k * 64).min(64);
+                *w = if bits == 64 { !0 } else { (1u64 << bits) - 1 };
+            }
+        }
+        Pop { tiles }
+    }
+
+    /// The users holding one of `slots` directly. With `slots` from
+    /// [`Qr::slots_reaching`] that is the users effectively in the group;
+    /// from [`Qr::role_slots`], the users holding the role. Each slot's
+    /// direct-member list is read once and scattered by position.
+    pub fn population(&self, b: &Prepared, slots: &Row) -> Result<Pop, Refusal> {
+        b.check(&self.witness)?;
+        let mut tiles = vec![[0u64; 4]; self.pages()];
+        for (s, &g) in self.ids.iter().enumerate() {
+            if row_bit(slots, s) {
+                for &u in b.group_users.row(g as usize) {
+                    let u = u as usize;
+                    set(&mut tiles[u / SLOTS], u % SLOTS);
+                }
+            }
+        }
+        Ok(Pop { tiles })
+    }
+}
+
+impl Pop {
+    pub fn and(mut self, o: &Pop) -> Pop {
+        for (a, b) in self.tiles.iter_mut().zip(&o.tiles) {
+            for k in 0..4 {
+                a[k] &= b[k];
+            }
+        }
+        self
+    }
+
+    pub fn and_not(mut self, o: &Pop) -> Pop {
+        for (a, b) in self.tiles.iter_mut().zip(&o.tiles) {
+            for k in 0..4 {
+                a[k] &= !b[k];
+            }
+        }
+        self
+    }
+
+    pub fn count(&self) -> u64 {
+        self.tiles
+            .iter()
+            .flatten()
+            .map(|w| u64::from(w.count_ones()))
+            .sum()
+    }
+
+    /// `self AND o`, counted, without building the intersection.
+    pub fn count_and(&self, o: &Pop) -> u64 {
+        let mut n = 0;
+        for (a, b) in self.tiles.iter().zip(&o.tiles) {
+            for k in 0..4 {
+                n += u64::from((a[k] & b[k]).count_ones());
+            }
+        }
+        n
+    }
+}
