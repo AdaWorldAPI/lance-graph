@@ -39,6 +39,11 @@ crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-i
 # the contract is used.
 [dev-dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# Method folds over bound populations (tests/qr_focus.rs, examples/qr_focus.rs):
+# a population is lent as a `Rel::Plane` and folded by relalg's existing
+# mask-risc lowering. No evaluator of the probe's own.
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }

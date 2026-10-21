@@ -16,8 +16,9 @@
 use dir_rmap_probe::World;
 use dir_rmap_probe::fixture::{Fixture, Kind, Spec};
 use dir_rmap_probe::focus::Row;
+use dir_rmap_probe::pop::Pop;
 use dir_rmap_probe::prep::Ordinals;
-use dir_rmap_probe::qr::{Page, Pop, Qr};
+use dir_rmap_probe::qr::{Page, Qr};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -81,10 +82,11 @@ fn main() {
         let chain: Pop = qr
             .population(&b, &role_slots)
             .unwrap()
-            .and_not(&qr.population(&b, &loc_slots).unwrap());
+            .and_not(&qr.population(&b, &loc_slots).unwrap())
+            .unwrap();
         lic_slots
             .iter()
-            .map(|s| qr.population(&b, s).unwrap().count_and(&chain))
+            .map(|s| qr.population(&b, s).unwrap().count_and(&chain).unwrap())
             .collect()
     };
     // The per-user route over resolved pages.
@@ -113,7 +115,7 @@ fn main() {
 
     let role_pop = qr.population(&b, &role_slots).unwrap();
     let loc_pop = qr.population(&b, &loc_slots).unwrap();
-    let chain = role_pop.clone().and_not(&loc_pop);
+    let chain = role_pop.clone().and_not(&loc_pop).unwrap();
     let lic_pops: Vec<Pop> = lic_slots
         .iter()
         .map(|s| qr.population(&b, s).unwrap())
@@ -130,11 +132,11 @@ fn main() {
         }
     });
     let t_chain = median(51, || {
-        black_box(role_pop.clone().and_not(black_box(&loc_pop)));
+        black_box(role_pop.clone().and_not(black_box(&loc_pop)).unwrap());
     });
     let t_fold = median(51, || {
         for p in &lic_pops {
-            black_box(p.count_and(black_box(&chain)));
+            black_box(p.count_and(black_box(&chain)).unwrap());
         }
     });
     let t_all = median(15, || {

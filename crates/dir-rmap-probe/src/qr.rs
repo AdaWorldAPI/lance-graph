@@ -27,15 +27,16 @@
 //! `ISS-ADMISSION-PREP-BINDING`).
 
 use crate::focus::{Row, SLOTS};
+use crate::pop::Pop;
 use crate::prep::{Prepared, Refusal, Witness, bit};
 
 #[inline]
-fn row_bit(r: &Row, s: usize) -> bool {
+pub(crate) fn row_bit(r: &Row, s: usize) -> bool {
     r[s >> 6] >> (s & 63) & 1 == 1
 }
 
 #[inline]
-fn set(r: &mut Row, s: usize) {
+pub(crate) fn set(r: &mut Row, s: usize) {
     r[s >> 6] |= 1 << (s & 63);
 }
 
@@ -361,6 +362,8 @@ fn closure(nest: &[Row; SLOTS], n: usize) -> [Row; SLOTS] {
 /// Built for a slot the first time a question names it; a query then visits
 /// only the selected tiles' runs.
 pub struct Runs {
+    /// The version the tables were read from; a table never outlives it.
+    pub witness: Witness,
     runs: Vec<Option<Box<[u32]>>>,
     /// Slots whose pointer table has been built.
     pub built: usize,
@@ -369,12 +372,13 @@ pub struct Runs {
 impl Runs {
     pub fn new(qr: &Qr) -> Runs {
         Runs {
+            witness: qr.witness.clone(),
             runs: (0..qr.ids.len()).map(|_| None).collect(),
             built: 0,
         }
     }
 
-    fn index(&mut self, qr: &Qr, b: &Prepared, s: usize) -> &[u32] {
+    pub(crate) fn index(&mut self, qr: &Qr, b: &Prepared, s: usize) -> &[u32] {
         if self.runs[s].is_none() {
             let pages = qr.pages();
             let mut off = vec![0u32; pages + 1];
@@ -402,6 +406,7 @@ impl Runs {
         rows: &[Row],
     ) -> Result<u64, Refusal> {
         b.check(&qr.witness)?;
+        qr.check(&self.witness)?;
         let n = qr.ids.len();
         for s in 0..n {
             if row_bit(slots, s) {
@@ -435,15 +440,6 @@ impl Runs {
     }
 }
 
-/// A population over the user axis: bit `i` of tile `p` is user
-/// `p * 256 + i`. Populations built from the same register line up by
-/// position, so filters chain as word-wise AND / AND-NOT and answer with a
-/// count. No per-user value is built.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Pop {
-    pub tiles: Vec<Row>,
-}
-
 impl Qr {
     /// Every user of the snapshot.
     pub fn everyone(&self) -> Pop {
@@ -455,7 +451,10 @@ impl Qr {
                 *w = if bits == 64 { !0 } else { (1u64 << bits) - 1 };
             }
         }
-        Pop { tiles }
+        Pop {
+            witness: self.witness.clone(),
+            tiles,
+        }
     }
 
     /// The users holding one of `slots` directly. With `slots` from
@@ -473,45 +472,9 @@ impl Qr {
                 }
             }
         }
-        Ok(Pop { tiles })
-    }
-}
-
-impl Pop {
-    pub fn and(mut self, o: &Pop) -> Pop {
-        for (a, b) in self.tiles.iter_mut().zip(&o.tiles) {
-            for k in 0..4 {
-                a[k] &= b[k];
-            }
-        }
-        self
-    }
-
-    pub fn and_not(mut self, o: &Pop) -> Pop {
-        for (a, b) in self.tiles.iter_mut().zip(&o.tiles) {
-            for k in 0..4 {
-                a[k] &= !b[k];
-            }
-        }
-        self
-    }
-
-    pub fn count(&self) -> u64 {
-        self.tiles
-            .iter()
-            .flatten()
-            .map(|w| u64::from(w.count_ones()))
-            .sum()
-    }
-
-    /// `self AND o`, counted, without building the intersection.
-    pub fn count_and(&self, o: &Pop) -> u64 {
-        let mut n = 0;
-        for (a, b) in self.tiles.iter().zip(&o.tiles) {
-            for k in 0..4 {
-                n += u64::from((a[k] & b[k]).count_ones());
-            }
-        }
-        n
+        Ok(Pop {
+            witness: self.witness.clone(),
+            tiles,
+        })
     }
 }

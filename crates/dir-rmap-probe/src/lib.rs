@@ -19,6 +19,7 @@
 pub mod fixture;
 pub mod focus;
 pub mod oracle;
+pub mod pop;
 pub mod prep;
 pub mod qr;
 
@@ -184,6 +185,10 @@ impl World {
                     user: f.groups[c as usize],
                     group: f.groups[p as usize],
                 },
+                Edit::RemoveNested(c, p) => Change::RemoveMembership {
+                    user: f.groups[c as usize],
+                    group: f.groups[p as usize],
+                },
             })
             .collect();
         self.version = self
@@ -195,6 +200,7 @@ impl World {
                 Edit::AddDirect(u, g) => self.direct.push((u, g)),
                 Edit::RemoveDirect(u, g) => self.direct.retain(|&x| x != (u, g)),
                 Edit::AddNested(c, p) => self.nested.push((c, p)),
+                Edit::RemoveNested(c, p) => self.nested.retain(|&x| x != (c, p)),
             }
         }
         self.direct.sort_unstable();
@@ -228,6 +234,8 @@ pub enum Edit {
     AddDirect(u32, u32),
     RemoveDirect(u32, u32),
     AddNested(u32, u32),
+    /// `(child group, parent group)`: the nesting pair removed.
+    RemoveNested(u32, u32),
 }
 
 struct Propose(Vec<Change>);

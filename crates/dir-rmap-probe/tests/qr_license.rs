@@ -70,14 +70,14 @@ fn license_counts_by_chained_masks_equal_dir_sim() {
     // role holders outside the location: the chain every license is
     // filtered through.
     // Anti-vacuity: the location removes some role holders.
-    assert!(role_pop.count_and(&loc_pop) > 0);
-    let chain = role_pop.and_not(&loc_pop);
+    assert!(role_pop.count_and(&loc_pop).unwrap() > 0);
+    let chain = role_pop.and_not(&loc_pop).unwrap();
 
     let mut any = qr.population(&b, &[0; 4]).unwrap();
     let (mut nonzero, mut distinct) = (0, HashSet::new());
     for &l in &licenses {
         let lp = pop_of(l);
-        let got = lp.count_and(&chain);
+        let got = lp.count_and(&chain).unwrap();
         let want = users
             .iter()
             .filter(|(_, eff, roles)| {
@@ -88,7 +88,7 @@ fn license_counts_by_chained_masks_equal_dir_sim() {
             .count() as u64;
         assert_eq!(got, want, "license {l}");
         // The same answer by building the chain explicitly.
-        assert_eq!(lp.clone().and(&chain).count(), want);
+        assert_eq!(lp.clone().and(&chain).unwrap().count(), want);
         nonzero += usize::from(got > 0);
         distinct.insert(got);
         for (a, t) in any.tiles.iter_mut().zip(&lp.tiles) {
@@ -98,7 +98,7 @@ fn license_counts_by_chained_masks_equal_dir_sim() {
         }
     }
     // Users with no license at all: everyone AND-NOT any license.
-    let unlicensed = qr.everyone().and_not(&any).count();
+    let unlicensed = qr.everyone().and_not(&any).unwrap().count();
     let want = users
         .iter()
         .filter(|(_, eff, _)| licenses.iter().all(|&l| !eff.contains(&w.f.groups[l])))
