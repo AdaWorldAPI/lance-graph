@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-423 entries, 2026-08-06 .. 2026-10-21.
+424 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -42,6 +42,7 @@ exactly one of them, never both.
 | 2026-10-21 | `D-RU-6-LAB-2` |  | [2026-10-21-d-ru-6-sparse-compute.md](2026-10-21-d-ru-6-sparse-compute.md) |
 | 2026-10-21 | `D-RU-6-LAB-3` |  | [2026-10-21-d-ru-6-dirty-frontier.md](2026-10-21-d-ru-6-dirty-frontier.md) |
 | 2026-10-21 | `D-RFT-1` |  | [2026-10-21-d-rft-d-lfa-0-assessment.md](2026-10-21-d-rft-d-lfa-0-assessment.md) |
+| 2026-10-21 | `D-RFT-1` |  | [2026-10-21-d-rft-1-typed-composition.md](2026-10-21-d-rft-1-typed-composition.md) |
 | 2026-10-21 | `D-RFT-0` |  | [2026-10-21-d-rft-0-kleene-normalization.md](2026-10-21-d-rft-0-kleene-normalization.md) |
 | 2026-10-21 | `D-RA-2` |  | [2026-10-21-d-ra-2-relalg-symbolic-repoint.md](2026-10-21-d-ra-2-relalg-symbolic-repoint.md) |
 | 2026-10-21 | `D-QSP` |  | [2026-10-21-d-qsp-d-rft-d-lfa-classview-quack-plan.md](2026-10-21-d-qsp-d-rft-d-lfa-classview-quack-plan.md) |
