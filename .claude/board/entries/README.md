@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-20 | `D-RU-1` |  | [2026-10-20-u1-jc-batch.md](2026-10-20-u1-jc-batch.md) |
 | 2026-10-20 | `thought-git-replay-api-write-rubicon` |  | [2026-10-20-thought-git-replay-api-write-rubicon.md](2026-10-20-thought-git-replay-api-write-rubicon.md) |
 | 2026-10-20 | `ADR-2026-10-20-SIX` |  | [2026-10-20-six-decisions.md](2026-10-20-six-decisions.md) |
 | 2026-10-20 | `relstore-quack-petgraph-plan` |  | [2026-10-20-relstore-quack-petgraph-plan.md](2026-10-20-relstore-quack-petgraph-plan.md) |

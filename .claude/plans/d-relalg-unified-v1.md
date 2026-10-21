@@ -296,4 +296,4 @@ One workload, run under three toggles. Each toggle changes one mechanism only.
 | U7 | prefetch and staging of Arm B ranges | U6 or a non-recursive multi-stage plan | critical-path overlap measured; bytes read unchanged |
 | U8 | Wikidata and SAP-shaped fixtures; completeness refusals | U6, U7 | refusal tests; witness carried end to end |
 
-U1 needs nothing new and comes first. U2 builds on D-CMR-1. Both are accepted only on measured row traversals, materializations and total cost (§ Decisions), not on operator counts.
+U1 needs nothing new and comes first. **U1 MEASURED (2026-10-20, `crates/jc-batch-probe`, `entries/2026-10-20-u1-jc-batch.md`):** 252 requests reduce to 2 selection and 42 cross passes; at 1M rows the batch is 6.4× faster with 11.5× fewer rows traversed, 8.5× fewer values read and 126× fewer mask bytes, and its answers equal the per-request answers bit for bit. The R reference is replaced by JC's slice functions because R is not installed. U2 builds on D-CMR-1. Both are accepted only on measured row traversals, materializations and total cost (§ Decisions), not on operator counts.

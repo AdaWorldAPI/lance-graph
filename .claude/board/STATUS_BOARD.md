@@ -5,7 +5,7 @@ Plan: `.claude/plans/d-relalg-unified-v1.md`. Decisions recorded there: ADMISSIO
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-RU-0** | decisions: ADMISSION = B, D-RA-2 = A | DECIDED (operator, 2026-10-20) | — |
-| **D-RU-1** | U1: JC statistical batch, distinct (selection, key, lane pair) triples over shared power-sum terminals | Queued (authorized; first) | rows traversed and terminal passes below the per-request baseline; results bit-exact on integer lanes; overflow refused, not wrapped; R references |
+| **D-RU-1** | U1: JC statistical batch, distinct (selection, key, lane pair) triples over shared power-sum terminals | MEASURED (`crates/jc-batch-probe`; `entries/2026-10-20-u1-jc-batch.md`): 252 requests → 2 selection + 42 cross passes; at 1M rows 6.4× faster, 11.5× fewer rows traversed, 8.5× fewer values read, 126× fewer mask bytes; bit-identical to per-request; no R reference (R absent) | rows traversed and terminal passes below the per-request baseline; results bit-exact on integer lanes; overflow refused, not wrapped; R references |
 | **D-RU-2** | U2: `let`-bound planes on the contract IR, immutable `Plane(i)`, versioned coordinates, no DAG inside a fold | Queued (after D-CMR-1) | rows traversed and planes materialized against recompute; width test ≤ 3 slots; answers and versions unchanged |
 | **D-RU-3** | cross-rule CSE in crepe-plan-probe (256-rule benchmark, separate from the hop benchmark) | Queued (after D-RU-2) | answers == crepe and ascent; traversals and materializations measured |
 | **D-RU-4** | co-addressed join operator over `JoinDomain` | Queued (after D-RU-2) | parity with the star path; no position taken from another table's values |
