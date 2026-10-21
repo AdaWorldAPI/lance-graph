@@ -39,7 +39,7 @@ pub const DELIBERATE_NEEDED: &str = "deliberate";
 /// Whether external input is ready at resume.
 pub const INPUT_READY: &str = "input";
 
-/// 6 primitive tests: rev (2), mul (2), deliberate (1), input (1); 36 atoms.
+/// 6 primitive tests: rev (2), mul (2), deliberate (1), input (1); 64 atoms.
 pub fn signature() -> Signature {
     Signature {
         observables: vec![

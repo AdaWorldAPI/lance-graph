@@ -9,13 +9,14 @@ fn atom_counts_are_exact() {
     for k in 0..=MAX_TESTS as usize {
         assert_eq!(Atoms::new(k, &BExp::True).unwrap().len(), 1 << k);
     }
-    // A K3 observable occupies two tests and has three values.
+    // A K3 observable occupies two tests (leaf, valid) with no constraint:
+    // four atoms, of which the two with valid = 0 are one value, NULL.
     let sig = |n: usize| Signature {
         observables: (0..n).map(|_| ("x", Kind::K3)).collect(),
         actions: vec![],
     };
     for n in 0..=4 {
-        assert_eq!(sig(n).atoms().unwrap().len(), 3usize.pow(n as u32));
+        assert_eq!(sig(n).atoms().unwrap().len(), 4usize.pow(n as u32));
     }
 }
 

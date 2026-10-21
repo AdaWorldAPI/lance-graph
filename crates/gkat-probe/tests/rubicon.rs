@@ -7,7 +7,7 @@ use gkat_probe::rubicon::{self, REQUEST_COMMIT};
 use gkat_probe::{Refusal, commit_safe};
 
 /// Oracle bound: two actions covers Deliberate or one Suspend, followed by
-/// the decision. With 36 atoms that is 36^3 runs per flow.
+/// the decision. With 64 atoms that is 64^3 runs per flow.
 const BOUND: usize = 2;
 
 fn safe(flow: &gkat_probe::flow::Flow) -> bool {
@@ -42,8 +42,9 @@ fn equivalent(a: &gkat_probe::flow::Flow, b: &gkat_probe::flow::Flow) -> bool {
 }
 
 #[test]
-fn the_signature_declares_36_atoms() {
-    assert_eq!(rubicon::signature().atoms().unwrap().len(), 36);
+fn the_signature_declares_64_atoms() {
+    // Two K3 observables (4 atoms each) and two Booleans.
+    assert_eq!(rubicon::signature().atoms().unwrap().len(), 64);
 }
 
 #[test]
@@ -107,8 +108,8 @@ fn the_check_counterexample_has_an_unknown() {
     let auth = rubicon::authorized().unwrap();
     match commit_safe(&e, &atoms, REQUEST_COMMIT, &auth).unwrap() {
         gkat_probe::Safety::Unsafe { atom, .. } => {
-            // rev is tests 0 (value) and 1 (presence); mul is tests 2 and 3.
-            // UNKNOWN is a cleared presence bit.
+            // rev is tests 0 (leaf) and 1 (valid); mul is tests 2 and 3.
+            // UNKNOWN is a cleared validity bit.
             let unknown = |t: u8| !atom.holds(t + 1);
             assert!(unknown(0) || unknown(2), "{atom:?}");
         }
@@ -150,28 +151,39 @@ fn undeclared_projections_are_refused() {
     ));
 }
 
-/// A K3 observable is a Quack nullable column: a value bit and a presence
-/// (validity) bit, and nothing else. A cleared presence bit forces the value
-/// to 0, so `value 0, valid 0` is NULL (UNKNOWN), `value 0, valid 1` is FALSE
-/// and `value 1, valid 1` is TRUE. WHERE keeps TRUE; CHECK rejects only FALSE.
+/// A K3 observable is a leaf over a nullable column: the Boolean read off the
+/// stored value (the bit itself for a `BOOLEAN` column, a comparison for a
+/// numeric one) and the validity bit. Under `valid = 0` the payload is
+/// arbitrary (Quack, `Filter::sql_where`), so the leaf there reads nothing.
+/// All four `(leaf, valid)` pairs are atoms, NULL is the two with `valid = 0`,
+/// and no guard may tell those two apart.
 #[test]
-fn a_k3_observable_is_a_value_bit_and_a_presence_bit() {
+fn a_k3_guard_never_reads_the_payload_of_a_null() {
     use gkat_probe::Atom;
     use gkat_probe::flow::Cond;
     let sig = rubicon::signature();
     let atoms = sig.atoms().unwrap();
-    // rev occupies tests 0 (value) and 1 (presence): no value without presence.
-    assert!(atoms.iter().all(|a| !a.holds(0) || a.holds(1)));
-    assert!(atoms.iter().any(|a| !a.holds(1)), "NULL must be an atom");
+    // rev occupies tests 0 (leaf) and 1 (valid). A NULL with either payload
+    // is an atom: nothing forces the lane to 0.
+    assert!(atoms.iter().any(|a| a.holds(0) && !a.holds(1)));
+    assert!(atoms.iter().any(|a| !a.holds(0) && !a.holds(1)));
+    for g in [Cond::Where(rubicon::REV), Cond::Check(rubicon::REV)] {
+        let b = sig.guard(&g).unwrap();
+        for a in atoms.iter().filter(|a| !a.holds(1)) {
+            let flipped = Atom(a.0 ^ 1);
+            assert_eq!(b.eval(a), b.eval(flipped), "{g:?} reads a NULL payload");
+        }
+    }
     let r#where = sig.guard(&Cond::Where(rubicon::REV)).unwrap();
     let check = sig.guard(&Cond::Check(rubicon::REV)).unwrap();
-    let (t, f, null) = (Atom(0b11), Atom(0b10), Atom(0b00));
+    // (leaf, valid): TRUE = (1,1), FALSE = (0,1), NULL = (_,0).
+    let (t, f, null0, null1) = (Atom(0b11), Atom(0b10), Atom(0b00), Atom(0b01));
     assert_eq!(
-        (r#where.eval(t), r#where.eval(f), r#where.eval(null)),
-        (true, false, false)
+        [t, f, null0, null1].map(|a| r#where.eval(a)),
+        [true, false, false, false]
     );
     assert_eq!(
-        (check.eval(t), check.eval(f), check.eval(null)),
-        (true, false, true)
+        [t, f, null0, null1].map(|a| check.eval(a)),
+        [true, false, true, true]
     );
 }
