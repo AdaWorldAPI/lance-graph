@@ -20,6 +20,7 @@
 //! - disable arm 1, `unknown_as_false`: NULL operands mapped to the FALSE plane;
 //! - disable arm 2, `null_operand_not_nullable`: `N` left out of the nullable
 //!   list.
+//!
 //! Both disable arms must differ from PostgreSQL on some expressions, which
 //! shows the differential can see each error.
 //!

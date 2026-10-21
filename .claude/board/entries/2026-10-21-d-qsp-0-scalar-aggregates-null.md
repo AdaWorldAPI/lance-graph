@@ -62,5 +62,39 @@ Without a server the example prints `SKIP` and exits 0. It is a lab instrument; 
 - `SUM` over a grouped key: the coalescing `Agg::GroupSumI32` still answers `0` for an unreached group (documented zero-fallback). The NULL-preserving form is `GroupReduce { GroupAgg::SumI32 }`.
 - A reached group whose `x` are all NULL (PostgreSQL: the group appears with `sum = NULL`) is trap T4; it belongs to the GROUP BY slice together with NULL keys (G2).
 - Not covered: `COALESCE`/`NULLIF`, nullable arithmetic, `int4` sum overflow past `MASKED_SUM_I32_MAX_ROWS`, `numeric` AVG.
-- NULL literals and `NOT IN (…, NULL)` (G1) are not pinned here, but they need no new carrier. ⊘ Corrected: EXO-50 `/027` and `/028` said G1 needs a constant-UNKNOWN `Filter` leaf and a FALSE carrier; that was asserted without reading the substrate and is false. A column's NULLs are its presence plane (`lib.rs:18`), and `sql_where`'s leaf arm (`lib.rs:580-591`) rewrites a leaf on a nullable column to `T = valid ∧ leaf`, `F = valid ∧ ¬leaf`. A NULL operand is a borrowed alias of a lane with an all-clear presence plane, so both polarities are empty (UNKNOWN); a constant FALSE is an all-zero `Filter::Plane`. On `x = {1, 2, NULL, 1}` the existing API returns `0, 2, 2, 0, 0, 0` for `x NOT IN (1, NULL)`, its negation, `x IN (1, NULL)`, its negation, `x = NULL` and its negation, identical to PostgreSQL 16.15 (EXO-50 `/029`). The G1 rows of `entries/2026-10-21-pg-classview-polyfill-map.md` ("ABSENT") are wrong for the same reason. Open: a committed test and a random PostgreSQL differential with NULL operands.
+- NULL literals and `NOT IN (…, NULL)` (G1) are not pinned here, but they need no new carrier. ⊘ Corrected: EXO-50 `/027` and `/028` said G1 needs a constant-UNKNOWN `Filter` leaf and a FALSE carrier; that was asserted without reading the substrate and is false. A column's NULLs are its presence plane (`lib.rs:18`), and `sql_where`'s leaf arm (`lib.rs:580-591`) rewrites a leaf on a nullable column to `T = valid ∧ leaf`, `F = valid ∧ ¬leaf`. A NULL operand is a borrowed alias of a lane with an all-clear presence plane, so both polarities are empty (UNKNOWN); a constant FALSE is an all-zero `Filter::Plane`. On `x = {1, 2, NULL, 1}` the existing API returns `0, 2, 2, 0, 0, 0` for `x NOT IN (1, NULL)`, its negation, `x IN (1, NULL)`, its negation, `x = NULL` and its negation, identical to PostgreSQL 16.15 (EXO-50 `/029`). The G1 rows of `entries/2026-10-21-pg-classview-polyfill-map.md` ("ABSENT") are wrong for the same reason. Now pinned (slice 2, see below).
+
+## Slice 2: NULL operands (G1), over existing Quack
+
+**Contract.** SQL NULL is absence of validity, never `0` and never FALSE. A nullable value is a value lane plus a validity plane (1 = present, 0 = NULL). For a nullable predicate, `T = valid ∧ p`, `F = valid ∧ ¬p`, UNKNOWN = `¬(T ∨ F)`. Quack's `T` is `f.sql_where(nullable)` and `F` is `Filter::Not(f).sql_where(nullable)`.
+- A NULL operand (`x = NULL`, `NULL < c`, `NULL::boolean`, the NULL member of `IN`) is `Filter::Cmp(N, …)` on a column `N` whose value lane is an alias of an existing lane and whose validity plane is all clear, listed in `nullable`. Its `T` and `F` are empty on every row.
+- A FALSE literal is `Filter::Plane` over an all-zero plane that is present: its `F` is every row. TRUE is `Filter::Plane` over an all-ones plane.
+
+**Reused, nothing added.** `Filter::{Cmp, Plane, And, Or, Not}`, `Filter::sql_where`, `lower`, `lower_fused`, mask-risc `execute_into` with `Out::Mask`, and mask-risc `Xor` then `Any` for every comparison. No new `Filter` variant, no evaluator, no counting loop, no new terminal, no change to `lib.rs`.
+
+**Evidence.**
+
+| what | result |
+|---|---|
+| `tests/sql_null_operand.rs`, 11 tests, 8 rows, NULL payload = the IN value | `x = NULL` and `NOT (x = NULL)` give `T = F = ∅`; `x IN (1, NULL)` gives `T` = the matches, `F = ∅`; `x NOT IN (1, NULL)` gives `T = ∅`; full AND / OR / NOT tables over TRUE, FALSE, UNKNOWN; FALSE ≠ UNKNOWN on the `F` plane; scrambling every invalid payload and the N lane changes no plane; both lowerings agree |
+| `examples/qsp_null_operand_pg_parity.rs`, PostgreSQL 16.15, 2000 random expressions × 200 rows | `T` and `F` planes equal PostgreSQL on every expression in both lowerings, and again with every invalid payload re-drawn; 165278 UNKNOWN row-verdicts, 1369 expressions with a NULL operand, 250 `NOT IN (…, NULL)` with an empty `T` |
+| built-in disable arms of the example | UNKNOWN read as FALSE differs from PostgreSQL on 1050 expressions; N left out of `nullable` on 1107 (both asserted > 0) |
+| quack crate | 137 tests pass; clippy `-D warnings` clean |
+
+Disable runs, each red at an assertion line:
+
+- D1 (test: NULL operand mapped to the FALSE plane): 9 of 11 tests red;
+- D2 (test: N not listed in `nullable`): 9 of 11 red;
+- D3 (test: `sql_where` skipped, two-valued): 9 of 11 red;
+- D4 (production, reverted after the run: `sql_where`'s leaf arm without its validity gate): 9 of 11 tests red, and the PostgreSQL example exits 101 on the first expression that reads a NULL payload.
+
+**Reproduce.**
+
+```text
+cargo test -p lance-graph-quack --test sql_null_operand
+PGHOST=<socket dir> PGPORT=<port> PGUSER=<user> PGDATABASE=postgres \
+  cargo run --release -p lance-graph-quack --example qsp_null_operand_pg_parity
+```
+
+**Still open.** `x IS NOT DISTINCT FROM y` and other column-versus-column comparisons (G4); `COALESCE`, `NULLIF` and nullable arithmetic (value expressions); the NULL branch of a `NOT IN` subquery; the stale G1 rows in `entries/2026-10-21-pg-classview-polyfill-map.md`, which belong to their author's session.
 - Two folds cost two passes over the filter, as for AVG. A fused sum+count sink is a cost question, not a correctness one; no timing was taken here.
