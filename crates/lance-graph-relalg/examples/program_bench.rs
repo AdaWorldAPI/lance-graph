@@ -100,7 +100,12 @@ fn main() {
         last = Some((a.cost, b.cost));
     }
     let (pc, rc) = last.expect("reps >= 1");
-    println!("n_rows={n} queries={nq} lets={} reps={reps}", p.lets.len());
+    println!(
+        "n_rows={n} queries={nq} lets={} reps={reps} avx512f={} avx2={}",
+        p.lets.len(),
+        cfg!(target_feature = "avx512f"),
+        cfg!(target_feature = "avx2")
+    );
     println!(
         "program   : {:>8.2} ms  lane_reads={} passes={} programs={} planes={} bytes={} slots={}",
         median(t_prog.clone()),

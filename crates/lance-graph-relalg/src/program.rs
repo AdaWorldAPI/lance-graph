@@ -79,6 +79,11 @@ fn check(
             table: table_version,
         });
     }
+    // Before `validate`, so an oversized program is refused by the plane
+    // limit it cannot meet rather than by its id arithmetic.
+    if p.resident as usize + p.lets.len() > usize::from(u16::MAX) + 1 {
+        return Err(ProgramError::TooManyPlanes);
+    }
     p.validate().map_err(ProgramError::Shape)?;
     if planes.masks.len() != p.resident as usize {
         return Err(ProgramError::ResidentPlanes {
@@ -91,9 +96,6 @@ fn check(
             queries: p.queries.len(),
             measures: measures.len(),
         });
-    }
-    if p.resident as usize + p.lets.len() > usize::from(u16::MAX) + 1 {
-        return Err(ProgramError::TooManyPlanes);
     }
     Ok(())
 }

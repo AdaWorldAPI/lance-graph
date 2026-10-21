@@ -350,6 +350,17 @@ fn malformed_programs_and_mismatched_inputs_are_refused() {
             }
         );
 
+        let huge = SetProgram {
+            version: VERSION,
+            resident: u32::MAX,
+            lets: vec![x(Cmp::Lt, 0)],
+            queries: vec![SetExpr::Sym(0)],
+        };
+        assert_eq!(
+            run_program(&huge, VERSION, pl, &[Measure::Count], &mut none).unwrap_err(),
+            ProgramError::TooManyPlanes
+        );
+
         let p = share(VERSION, RESIDENT, &shared_queries());
         assert_eq!(
             run_program(&p, VERSION, pl, &[Measure::Count], &mut none).unwrap_err(),

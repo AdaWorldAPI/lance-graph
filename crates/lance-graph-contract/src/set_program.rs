@@ -64,20 +64,25 @@ pub enum ProgramError {
     ForwardReference { at: usize, sym: u32 },
     /// A let or query names an id at or past `resident + lets.len()`.
     UnknownSym { sym: u32 },
+    /// `resident + lets.len()` does not fit a `u32` id.
+    TooManyIds,
 }
 
 impl SetProgram {
-    /// The id `lets[k]` defines.
-    pub fn let_sym(&self, k: usize) -> u32 {
-        self.resident + k as u32
+    /// The id `lets[k]` defines; `None` when it does not fit a `u32`.
+    pub fn let_sym(&self, k: usize) -> Option<u32> {
+        u32::try_from(k).ok()?.checked_add(self.resident)
     }
 
     /// Checks that every reference is defined and that lets refer only
     /// backwards.
     pub fn validate(&self) -> Result<(), ProgramError> {
-        let bound = self.resident + self.lets.len() as u32;
+        let bound = self
+            .let_sym(self.lets.len())
+            .ok_or(ProgramError::TooManyIds)?;
         for (k, l) in self.lets.iter().enumerate() {
-            let own = self.let_sym(k);
+            // `k < lets.len()`, and `resident + lets.len()` fits.
+            let own = self.resident + k as u32;
             for sym in syms(l) {
                 if sym >= bound {
                     return Err(ProgramError::UnknownSym { sym });
@@ -253,7 +258,16 @@ pub fn share(version: u64, resident: u32, queries: &[SetExpr]) -> SetProgram {
         let Some((and, part)) = next_part(&nodes) else {
             break;
         };
-        let id = resident + lets.len() as u32;
+        // `validate` needs `resident + lets.len()` to fit a `u32`. If the
+        // next let would break that, stop: the program is still correct, it
+        // just shares less.
+        let Some(id) = u32::try_from(lets.len() + 1)
+            .ok()
+            .and_then(|k| k.checked_add(resident))
+            .map(|end| end - 1)
+        else {
+            break;
+        };
         let sym = SetExpr::Sym(id);
         for q in &mut qs {
             *q = replace(q, and, &part, &sym);
@@ -269,6 +283,7 @@ pub fn share(version: u64, resident: u32, queries: &[SetExpr]) -> SetProgram {
     let rename: BTreeMap<u32, u32> = order
         .iter()
         .enumerate()
+        // Every new id is at most an id already given out, so it fits.
         .map(|(new, &old)| (lets[old].0, resident + new as u32))
         .collect();
     SetProgram {
@@ -323,7 +338,7 @@ fn dependency_order(lets: &[(u32, SetExpr)]) -> Vec<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::set_algebra::Cmp;
+    use crate::set_algebra::{Cmp, Res};
 
     fn a(t: i32) -> SetExpr {
         SetExpr::i32(0, Cmp::Lt, t)
@@ -484,6 +499,45 @@ mod tests {
     }
 
     /// FAILS IF: resident ids are treated as lets. `Sym(0)` is resident here.
+    /// FAILS IF: `resident + lets.len()` overflows instead of being
+    /// refused, or `share` overflows instead of sharing less.
+    #[test]
+    fn ids_past_u32_are_refused_not_wrapped() {
+        let a = SetExpr::Res(Res::U32 {
+            lane: 0,
+            eq: true,
+            v: 1,
+        });
+        let p = SetProgram {
+            version: 0,
+            resident: u32::MAX,
+            lets: vec![a.clone()],
+            queries: vec![SetExpr::Sym(0)],
+        };
+        assert_eq!(p.validate(), Err(ProgramError::TooManyIds));
+        assert_eq!(p.let_sym(1), None);
+        let fits = SetProgram {
+            resident: u32::MAX - 1,
+            ..p
+        };
+        assert_eq!(fits.validate(), Ok(()));
+        assert_eq!(fits.let_sym(0), Some(u32::MAX - 1));
+
+        // `share` stops before an id would not fit.
+        let b = SetExpr::Res(Res::U32 {
+            lane: 1,
+            eq: true,
+            v: 2,
+        });
+        let q = |c: u32| SetExpr::And(vec![a.clone(), b.clone(), SetExpr::Sym(c)]);
+        let full = share(0, u32::MAX, &[q(0), q(1)]);
+        assert!(full.lets.is_empty(), "{full:?}");
+        assert_eq!(full.validate(), Ok(()));
+        let room = share(0, u32::MAX - 1, &[q(0), q(1)]);
+        assert_eq!(room.lets.len(), 1, "{room:?}");
+        assert_eq!(room.validate(), Ok(()));
+    }
+
     #[test]
     fn resident_ids_are_not_lets() {
         let r = SetExpr::Sym(0);
