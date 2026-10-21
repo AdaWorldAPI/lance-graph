@@ -229,6 +229,53 @@ fn sharing_reads_fewer_lanes_and_pays_one_plane_per_let() {
     assert!(rec.max_scratch_slots <= 3, "{rec:?}");
 }
 
+/// A let that reads another let, plus a second, unrelated let.
+fn nested_queries() -> Vec<SetExpr> {
+    let ab = vec![x(Cmp::Ge, -5), y(Cmp::Lt, 20)];
+    let cat = |extra: Vec<SetExpr>| {
+        let mut cs = ab.clone();
+        cs.extend(extra);
+        and(cs)
+    };
+    let alt = or(vec![k(4), y(Cmp::Gt, 25)]);
+    vec![
+        cat(vec![k(2), SetExpr::Sym(0)]),
+        cat(vec![k(2), SetExpr::Sym(1)]),
+        cat(vec![x(Cmp::Lt, 10)]),
+        cat(vec![y(Cmp::Gt, 4)]),
+        and(vec![alt.clone(), SetExpr::Sym(0)]),
+        and(vec![alt, x(Cmp::Lt, 0)]),
+    ]
+}
+
+/// Whether some let reads an earlier let.
+fn has_nested_let(p: &SetProgram) -> bool {
+    fn reads_let(e: &SetExpr, resident: u32) -> bool {
+        match e {
+            SetExpr::Sym(i) => *i >= resident,
+            SetExpr::And(cs) | SetExpr::Or(cs) => cs.iter().any(|c| reads_let(c, resident)),
+            SetExpr::Not(c) => reads_let(c, resident),
+            _ => false,
+        }
+    }
+    p.lets.iter().any(|l| reads_let(l, p.resident))
+}
+
+/// FAILS IF: a let is evaluated with another let's description, or cannot
+/// read the plane of a let computed before it.
+#[test]
+fn nested_and_distinct_lets_agree_with_recompute_and_the_oracle() {
+    let fx = fixture();
+    let qs = nested_queries();
+    let p = share(VERSION, RESIDENT, &qs);
+    // Anti-vacuity: the fixture must yield several lets, one reading another.
+    assert!(p.lets.len() >= 3, "lets: {:?}", p.lets);
+    assert!(has_nested_let(&p), "no nested let: {:?}", p.lets);
+    let (prog, rec) = assert_agree(&fx, &p, &measures(qs.len()));
+    assert!(prog.lane_reads < rec.lane_reads, "{prog:?} vs {rec:?}");
+    assert_eq!(prog.planes_materialized, p.lets.len());
+}
+
 /// FAILS IF: an unshared program changes cost, or materializes anything.
 #[test]
 fn nothing_shared_costs_exactly_what_recompute_costs() {
