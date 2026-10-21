@@ -43,7 +43,7 @@ Named so no leg collapses into another:
     - GAP-B, bag count over emitting sides, the sum over set slots of the product of per-side fan-outs (only one-lane `MaskedSumI32` exists).
 - **R5.** crepe-plan-probe (lab):
   - `cse.rs:393-424` and `pipeline.rs:189-219` answer Exists / Count(Set) / Count(Bag) from a tuple `BTreeMap`. This breaks R1 and R4 inside the lab. → EXO-103, EXO-116.
-  - `native.rs:420-479` (`tuples_over_mask`) is a violation in its emitting half: the cartesian `flat_map` with `t.clone()`, the row build, and the sort plus merge. The count-multiplication fold at :446-449 survives as a fold. → EXO-104.
+  - `native.rs:420-479` (`tuples_over_mask`) is a violation in full, on four levels (see the correction below). No half of it is kept. → EXO-104.
   - `NativeAnswer` (`native.rs:338`) has no reference outside its definition (searched: `crates/**/*.rs`).
   - Nothing here is promoted out of the lab.
 
@@ -115,7 +115,18 @@ v1 → v2 changes: F9 added; R2 replaced; R2a, R3 independence and the gaps adde
 
 v2 → v3 changes:
 - **Wording:** absolutes scoped; F9 defined as owned row-shaped value copies.
-- **Legal legs:** borrowed lens and the membrane question restored; legal legs tabled; R5 says "emitting half".
+- **Legal legs:** borrowed lens and the membrane question restored; legal legs tabled. (v3 R5 said "emitting half"; corrected below.)
 - **Gaps:** GAP-A split into A1 and A2.
 - **Evidence:** citations corrected (`ir.rs:364`, `:389`); ms figures named by file only; scratch-file citations removed; dir-sim priority inversion flagged.
 - **Corrections:** board ms figures get append-only notes, never rewrites.
+
+## Correction (operator, 2026-10-21) — the tuple violates on four levels; no half is kept
+
+v3 said `tuples_over_mask` was a violation "in its emitting half" and that its count multiplication "survives as a fold". That was wrong. The function is a violation in full, on four levels:
+
+1. **Zero copy.** It copies lane values into owned rows, a second owner of substrate bytes (F9).
+2. **Folding.** It enumerates where a fold belongs. Count, exists and multiplicity are answered by decoding rows, not by folding mask words into a terminal.
+3. **Natural order.** The substrate already holds its rows in a natural order: slot order of the mask and the lanes, readable in place at zero copy. `out.sort()` plus merge discards that order and imposes a value order on decoded copies, so the substrate's own order is ignored. It also costs O(n log n). Order belongs to the substrate's coordinates, never to decoded rows.
+4. **Time.** The per-row alloc, clone and sort is what produced the millisecond results (F1).
+
+The multiplication of side counts at `native.rs:446-449` is not a part of the tuple builder to keep. The fold it computes (law 7, count(A×B)=count(A)·count(B)) exists on its own. It belongs at the terminal, over the kept mask in natural order, not inside a function that builds rows. "The fold-shaped half can be kept" was a collapse in the other direction: it filed a valid law under an invalid carrier.

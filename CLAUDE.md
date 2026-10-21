@@ -38,12 +38,22 @@ benchmarks and PR bodies alike.
   16-byte facet. A fold acts on all positions at once (one compare → one mask).
   A tuple, by contrast, is the value split into owned heap objects. It
   discards the template, and it is where the milliseconds come from.
-- **A tuple is a zero-copy violation** (2026-10-21). Copying lane values
-  into owned rows makes a second owner of bytes the substrate already holds
-  (`.claude/knowledge/zero-copy-lens-law.md`: no escape hatch, no cost
-  argument). It is a violation whether it takes milliseconds or nanoseconds,
-  and whether it is intermediate or the final answer. Making it faster does
-  not make it legal.
+- **A tuple is a violation on four levels** (2026-10-21), and no part of a
+  tuple builder is kept:
+  1. **Zero copy:** copying lane values into owned rows makes a second owner
+     of bytes the substrate already holds (`.claude/knowledge/zero-copy-lens-law.md`:
+     no escape hatch, no cost argument).
+  2. **Folding:** it enumerates where a fold belongs.
+  3. **Natural order:** the substrate already holds rows in its natural order
+     (mask/lane slot order, readable in place). Sorting decoded rows ignores
+     that order and imposes another one on copies. Order belongs to the
+     substrate's coordinates, never to decoded rows.
+  4. **Time:** the per-row alloc, clone and sort is where the milliseconds
+     come from.
+  It is a violation as an intermediate or a final answer, at any speed. A fold
+  that happens to sit inside a tuple builder (for example multiplying side
+  counts) is not "the good half": it belongs at the terminal, over the kept
+  mask.
 - **What follows for a session:**
   - **Before reporting any timing,** check the unit. ms → stop; find where
     the path left the mask-risc terminals.
