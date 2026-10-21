@@ -62,10 +62,12 @@
 //! physical terminal is chosen by the KEY operand's address kind),
 //! **`RANGE`** (`Pred::Range`, bounds as the call's two immediates) and
 //! **`KEEP`** (`Terminal::Keep` into a caller-lent mask sink) are wired.
-//! The other seven — `MIN`, `MAX`, `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR`,
-//! `BLEND` — are refused as [`FoldError::Unimplemented`], named
-//! individually in the refusal, never silently coerced into one of the ones
-//! that exist.
+//! When this file was written the other seven — `MIN`, `MAX`, `KEY_RUNS`,
+//! `ANY`, `ALL`, `SCATTER_OR`, `BLEND` — were refused as
+//! [`FoldError::Unimplemented`]. `MIN`/`MAX` (D-SQLP-7) and `ANY`/`ALL`
+//! (D-RFT-1) are wired since; `lance-graph-r2il`'s crate doc is the current
+//! list. A refused byte is named individually, never silently coerced into
+//! one of the ones that exist.
 //!
 //! `RANGE`, `KEEP`, `IntNot` and `LOAD` space 3 (a RESIDENT mask plane as an
 //! address, read where it stands as `Operand::Plane`) were added in Round 4
