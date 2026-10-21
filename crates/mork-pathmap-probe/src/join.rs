@@ -159,6 +159,17 @@ impl Side {
         &self.present
     }
 
+    /// The other column, in slot order: the side's own row order. Row `i`
+    /// sits in slot `s` for `offsets()[s] <= i < offsets()[s + 1]`.
+    pub fn values(&self) -> &[u32] {
+        &self.vals
+    }
+
+    /// `off`: the start of each slot's run, `domain.len() + 1` entries.
+    pub fn offsets(&self) -> &[u32] {
+        &self.off
+    }
+
     pub fn bytes(&self) -> usize {
         (self.present.len() * 8) + (self.off.len() * 4) + (self.vals.len() * 4)
     }

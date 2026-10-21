@@ -63,6 +63,10 @@ jobs:
       # The benchmark (`cargo run --release --example rule_cse`) is not run
       # in CI.
       - run: cargo test --example rule_cse
+      # D-RU-4 (U4): the co-addressed join operator against the star path.
+      # The benchmark (`cargo run --release --example coaddressed`) is not
+      # run in CI.
+      - run: cargo test --example coaddressed
       # D-RU-6 arm C: the block-sparse product, against arms A and B and the
       # oracles, its refusals and the semi-naive bound.
       - run: cargo test --example walk_sparse

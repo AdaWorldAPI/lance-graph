@@ -31,6 +31,7 @@
 //!    are the other oracles (tests only).
 
 pub mod addressed;
+pub mod coaddressed;
 pub mod cse;
 pub mod lance_store;
 pub mod logic;
