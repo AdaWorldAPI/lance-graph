@@ -270,7 +270,12 @@ impl SetPlan {
                 })
             }
         };
-        let program = compile(residual, Terminal::Count { mask: Operand::Plane(0) })?;
+        let program = compile(
+            residual,
+            Terminal::Count {
+                mask: Operand::Plane(0),
+            },
+        )?;
         let mut scratch = Scratch::for_program(&program, planes.n_rows)?;
         let mut total = 0u64;
         for &(lo, hi) in self.runs.intervals() {
@@ -320,7 +325,12 @@ impl SetPlan {
                 });
             }
         };
-        let program = compile(residual, Terminal::Keep { mask: Operand::Plane(0) })?;
+        let program = compile(
+            residual,
+            Terminal::Keep {
+                mask: Operand::Plane(0),
+            },
+        )?;
         let mut scratch = Scratch::for_program(&program, planes.n_rows)?;
         for &(lo, hi) in self.runs.intervals() {
             execute_extent(
@@ -410,7 +420,10 @@ fn to_pred(r: Res) -> Pred {
 
 /// Compile a residual into one program whose terminal reads its result.
 fn compile(residual: &SetExpr, terminal: Terminal) -> Result<Program, LowerError> {
-    let mut emit = Emit { ops: Vec::new(), next: 0 };
+    let mut emit = Emit {
+        ops: Vec::new(),
+        next: 0,
+    };
     let result = emit.expr(residual)?;
     let terminal = match terminal {
         Terminal::Count { .. } => Terminal::Count { mask: result },
@@ -617,7 +630,7 @@ mod tests {
         fn leaf(&mut self) -> SetExpr {
             const OPS: [Cmp; 6] = [Cmp::Lt, Cmp::Le, Cmp::Gt, Cmp::Ge, Cmp::Eq, Cmp::Ne];
             match self.next() % 7 {
-                0 | 1 | 2 => SetExpr::i32(
+                0..=2 => SetExpr::i32(
                     0,
                     OPS[(self.next() % 6) as usize],
                     (self.next() % 60) as i32 - 15,
@@ -641,8 +654,16 @@ mod tests {
             }
             match self.next() % 4 {
                 0 => SetExpr::negated(self.expr(depth - 1)),
-                1 | 2 => SetExpr::And((0..1 + self.next() % 3).map(|_| self.expr(depth - 1)).collect()),
-                _ => SetExpr::Or((0..1 + self.next() % 3).map(|_| self.expr(depth - 1)).collect()),
+                1 | 2 => SetExpr::And(
+                    (0..1 + self.next() % 3)
+                        .map(|_| self.expr(depth - 1))
+                        .collect(),
+                ),
+                _ => SetExpr::Or(
+                    (0..1 + self.next() % 3)
+                        .map(|_| self.expr(depth - 1))
+                        .collect(),
+                ),
             }
         }
     }
@@ -682,7 +703,10 @@ mod tests {
         }
         // Anti-vacuity: both levels are exercised, and the runs really
         // narrow the extents somewhere.
-        assert!(geometry > 20 && optics > 20, "geometry {geometry}, optics {optics}");
+        assert!(
+            geometry > 20 && optics > 20,
+            "geometry {geometry}, optics {optics}"
+        );
         assert!(split_rows_saved > 0);
     }
 
@@ -694,7 +718,10 @@ mod tests {
         let f = fx(7);
         let basis = SortedBasis::attest(0, &f.basis).unwrap();
         let e = SetExpr::Or(vec![
-            SetExpr::And(vec![SetExpr::i32(0, Cmp::Ge, 0), SetExpr::i32(0, Cmp::Lt, 10)]),
+            SetExpr::And(vec![
+                SetExpr::i32(0, Cmp::Ge, 0),
+                SetExpr::i32(0, Cmp::Lt, 10),
+            ]),
             SetExpr::i32(0, Cmp::Gt, 30),
         ]);
         let plan = SetPlan::new(&e, N, Some(&basis)).unwrap();
@@ -748,7 +775,10 @@ mod tests {
     fn a_non_basis_range_stays_residual() {
         let f = fx(4);
         let basis = SortedBasis::attest(0, &f.basis).unwrap();
-        let e = SetExpr::And(vec![SetExpr::i32(1, Cmp::Ge, 0), SetExpr::i32(1, Cmp::Lt, 5)]);
+        let e = SetExpr::And(vec![
+            SetExpr::i32(1, Cmp::Ge, 0),
+            SetExpr::i32(1, Cmp::Lt, 5),
+        ]);
         let plan = SetPlan::new(&e, N, Some(&basis)).unwrap();
         assert_eq!(plan.runs(), &Runs::full(N as u64));
         assert!(plan.residual().is_some());
@@ -781,10 +811,16 @@ mod tests {
             masks: &[],
             lanes: &[],
         };
-        assert!(matches!(plan.count(&wrong), Err(LowerError::PlaneRows { .. })));
+        assert!(matches!(
+            plan.count(&wrong),
+            Err(LowerError::PlaneRows { .. })
+        ));
         with_planes(&f, |p| {
             let mut short = vec![0u64; 3];
-            assert!(matches!(plan.keep(p, &mut short), Err(LowerError::OutLen { .. })));
+            assert!(matches!(
+                plan.keep(p, &mut short),
+                Err(LowerError::OutLen { .. })
+            ));
         });
     }
 }

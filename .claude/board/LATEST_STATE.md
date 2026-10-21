@@ -1,3 +1,8 @@
+## 2026-10-21 — D-CMR-2 lowering in core (in PR)
+
+- **Core (new module, no contract change):** `lance_graph::fold::set_lower::{SetPlan, SortedBasis, Level, Measured, LowerError}`. A `SetExpr` is normalized (contract) and split into `Runs ∩ residual`: comparisons on an attested sorted `i32` lane (`SortedBasis`, one attestation scan) become runs by counted binary-search seeks; the rest compiles once to a mask-risc `Program` run over each run with `execute_extent`. Levels: geometry (no residual, `Count = Σ(hi−lo)`, nothing read), optics (`Count` terminal), etch (`Keep` into `Out::Mask`, outside bits cleared). `SetPlan::unsplit` is the geometry-off arm. Entry `entries/2026-10-21-d-cmr-2-lowering.md`.
+- Open: D-CMR-2b, a scratch-free `Pred` fold in mask-risc (`fused_ternlog` declines `Pred`); residual comparisons run tiled with per-tile scratch.
+
 ## 2026-10-21 — main after #1644 (merged `c05a313`)
 
 - **On main:** #1641 (D-RELALG-UNIFIED plan), #1643 (U1 `jc-batch-probe`, walk_mask follow-up), #1644 (D-CMR-1 / D-RA-2, `contract::set_algebra`; inventory delta below under 2026-10-20).
