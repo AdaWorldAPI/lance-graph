@@ -1,4 +1,4 @@
-# 2026-10-21 — D-RFT-1: typed composition over the DR256 slot coordinate
+# 2026-10-21 — D-RFT-1-COMPOSE: typed composition over the DR256 slot coordinate (D-RFT-1)
 
 **Status:** PROBE (lab, `crates/dir-rmap-probe`). TEST-PINNED and MEASURED as stated below; no production ABI changes.
 **Claim:** EXO-50 `session_01G22yT6htkcdyXsihxxXdrg/036`, status in `/038`.
