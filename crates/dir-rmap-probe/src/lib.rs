@@ -15,6 +15,7 @@
 //! | B+ | [`prep::Compiled`] | B + closure rows per group and chain + roles by ordinal |
 //! | F  | [`focus`] | B+ projected onto a 256-slot focus of selected groups |
 //! | Q  | [`qr`] | DR256 register: the security chain bound to 256 slots; nesting closed inside the tile; users x groups as a bit matrix |
+//! | Q  | [`pop`] | populations bound to one version: team focus, focus-restricted builds, relalg method folds, repair after edits |
 
 pub mod fixture;
 pub mod focus;

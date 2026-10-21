@@ -126,6 +126,85 @@ At 65,000 users the populations read 21,615 + 8,349 + 58,521 memberships; one po
 
 Disable runs (all red): AND-NOT acting as AND, `count_and` using OR, `everyone` dropping the last user of a tile, a population leaking slot 0.
 
+## Decision: proxy chains are physical, relationships are semantic (operator, 2026-10-21)
+
+Recorded as given:
+
+> Extension proxy chains stay inside one Dn128 OU prefix. Logical memberOf and nested-group relationships may cross OU boundaries.
+
+- An extension proxy continues a physical team/group chunk within its own OU locality.
+- A memberOf or nested-group edge is a logical relationship and may target another OU.
+- Cross-OU traversal uses version-attested global-to-local bindings.
+- All 256 member slots remain usable. The proxy is separate routing metadata, not a stolen member bit.
+- The chunk key must retain stable team/group identity. OU prefix alone is not sufficient.
+- A move between OUs invalidates locality mappings, not the group's identity.
+- Proxy chains do not replace transitive closure across group chunks.
+
+Not built yet: the proxy chain itself. The probe below binds a team focus by group identity (`TeamFocus::group`, a group ordinal) with its tile mask as locality.
+
+## Team focus, versioned populations, method folds, repair (revision 5)
+
+Operator next probe: bind an OU/team focus without materializing every user; build only the relevant populations; reuse them across several relational method folds; repair them after edits; compare cold and warm with B+. Reuse mask-risc/relalg, no new evaluator.
+
+Built in `crates/dir-rmap-probe/src/pop.rs`:
+
+- **`Pop` carries the witness of its version.** `and`, `and_not`, `or`, `count_and` refuse populations of another version (`Refusal::Stale`). A population is a cache of derived state, rebuilt or repaired from the source rows of the version it claims.
+- **`TeamFocus`** binds a group's identity (its ordinal) to the tiles and rows of its effective members. It reads only the member lists of the group and the groups nested in it.
+- **`Qr::population_in`** fills a population only in the focus's tiles, through the per-slot pointer tables (`Runs`). The tables carry their version too.
+- **Methods:** a `TeamAudit` class declares three methods in `compute_dag` (per-license holders of role r outside location L; unlicensed members; role holders). The DR table binds each to a `lance-graph-relalg` query over the populations lent as `Rel::Plane` (`Pop::plane`, a borrow, no copy), lowered by relalg's existing mask-risc path. All three reuse the same bound populations.
+- **`Pop::repair`** brings a population to a new version. It diffs the old and new slot sets (the register is rebound). Members of slots that gained the property are scattered in. Members of slots that lost it, and every user whose direct memberships changed, are re-derived from their direct groups. A user or group with a second supporting path keeps the bit. The repair refuses if the slot binding itself changed. `Edit::RemoveNested` was added to the probe's edit set.
+
+### Correctness (`tests/qr_focus.rs`, 5 tests)
+
+- The three methods equal dir-sim's walk over the team's members (3,000 users, 16 licenses).
+- In a narrow focus, populations are empty outside its tiles and equal to the full population inside.
+- Over 8 random edit batches (direct add/remove, nesting add/remove among security groups), every repaired population (all roles, the licenses, the location, the team; full and focus-restricted) equals a fresh build.
+- **Multi-support falsifier:** a group under two role-carrying parents keeps the role when one nesting edge is removed, and the population is unchanged. When the second edge goes, the group loses the role, but a member with its own direct path through a third group keeps it. Every user is checked against dir-sim.
+- Mixing versions is refused: populations, pointer tables, focus, and repair.
+
+Disable runs (all red):
+- clear members of a removed slot instead of re-deriving (fails the multi-support test and the edit batches);
+- skip touched users;
+- skip scattering added slots;
+- re-derive from only the last direct group;
+- `count_and` ignoring the version;
+- `population_in` ignoring the pointer tables' version;
+- `population_in` ignoring the focus tiles;
+- repair ignoring the population's version.
+
+### Measured (`examples/qr_focus.rs`, release, every route checked equal before timing)
+
+Question: the three methods for the security team with the most direct members, 16 licenses.
+
+| | 65,000 users | 8,000 users |
+|---|---:|---:|
+| team members / focus tiles / all tiles | 77 / 69 / 254 | 244 / 32 / 32 |
+| prepare (arm B CSR, shared with B+) | FAILED GATE (ms) | FAILED GATE (ms) |
+| bind register | 52.9 µs | 53.6 µs |
+| bind team focus | 0.8 µs | 0.8 µs |
+| pointer tables + 18 populations in focus | 143.7 µs | 26.4 µs |
+| of which populations with tables warm | 45.2 µs | 14.3 µs |
+| 3 methods, relalg (18 queries) | 75.0 µs | 54.8 µs |
+| **Q cold**, all but prepare | 326.3 µs | 151.4 µs |
+| **Q warm**, version checks + 3 methods, relalg | 75.1 µs | 54.9 µs |
+| **Q warm**, version checks + 3 methods, native `Pop` folds | 6.6 µs | 1.2 µs |
+| after an edit: rebind register | 51.7 µs | 50.5 µs |
+| after an edit: repair 18 populations + focus | 5.7 µs | 5.3 µs |
+| after an edit: rebuild focus + tables + populations | 152.1 µs | 27.8 µs |
+| B+ prepare + compile | FAILED GATE (ms) | FAILED GATE (ms) |
+| B+ per focus user, `groups_of` + `roles_of` | 12.3 µs | 37.2 µs |
+| B+ `members_of` populations (licenses + location + team) | 72.3 µs | 6.6 µs |
+
+### Reading
+
+- **Construction vs reuse holds.** Once the populations are bound, the three methods fold natively in 6.6 µs at 65,000 users. That is below B+'s per-user route at 77 members (12.3 µs) and 31× below it at 244 members.
+- **relalg has a fixed cost of about 3 µs per query.** It is the same at 8,000 users (125-word planes) and at 65,000. With 18 queries per call it dominates the warm path (75 µs), so through relalg Q warm is slower than B+ per user for a small team. The algebra is reused as asked. The per-query program build is the cost to remove: one program with several counts, or a prepared program per method, kept across calls. Not built.
+- **Repair is 27× cheaper than a rebuild** (5.7 vs 152 µs at 65,000 users) and is correct under multi-support. After an edit, rebinding the register (≈ 52 µs) now dominates; an incremental register update is open.
+- **The pointer tables are two thirds of the cold population cost.** Each table reads the slot's whole member list, independent of the focus.
+- **Tile locality: the focus saves little while user positions are GUID-ordered.** A 77-member team occupies 69 of 254 tiles; at 8,000 users a 244-member team occupies all 32. The tile restriction only pays when users are positioned by OU/team (Dn128 order), which matches the decision above that chunk locality is physical. The fixture has no such ordering.
+- **Prepare** (dir-sim → CSR) is still a millisecond phase on both sides. Reading source lanes directly is not admitted (ADMISSION B), so every cold figure above excludes it.
+- **Not done:** ACT-R and Thought-Git consuming the same focus and populations. This revision shows only the IAM side of that claim.
+
 ## Open
 
 - **Pages by OU/team, not by ordinal:** pages are cut at user ordinal / 256. Cutting them by `Dn128` prefix (OU) or team needs a page key and a pointer table of non-empty tiles (the proxy-chained team design, not built).
@@ -135,4 +214,4 @@ Disable runs (all red): AND-NOT acting as AND, `count_and` using OR, `everyone` 
 
 ## Closeout
 
-`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs, one page ≈ 14 µs; masked multi-tile count flat 22–34 µs; 16 license counts through a role AND-NOT location chain in 124 µs end to end at 65k users (chain + counts 3 µs) | OPEN: OU/team page keys, crossover policy, >256-group chains, CSR-free reads, codebook witness`
+`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; versioned populations bound to a team focus answer three ClassView methods in 6.6 µs warm (native folds) or 75 µs through relalg (≈ 3 µs per query); repair after edits 5.7 µs vs 152 µs rebuild, correct under multi-support | OPEN: relalg per-query program cost, incremental register, Dn128 position order for tile locality, proxy chains, >256-group chains, CSR-free reads, codebook witness, ACT-R/Thought-Git consumers`
