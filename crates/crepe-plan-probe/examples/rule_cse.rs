@@ -41,8 +41,10 @@
 //! because the shared path cannot apply a per-rule semijoin.
 //!
 //! Two answers are timed. `Exists` is mask-only: it isolates the folds.
-//! `Bindings(Bag)` is the full answer with multiplicities; it adds reading
-//! the tuples, which is the same work in every arm.
+//! `Bindings(Bag)` hands out each rule's kept slots over the prepared tables;
+//! no row is built. The correctness checks, outside every timed region,
+//! compare answers by folds: a row is read through its head template over
+//! the lanes in place, never copied.
 
 use std::collections::BTreeSet;
 use std::time::Duration;
@@ -50,9 +52,9 @@ use std::time::Duration;
 use crepe::crepe;
 use crepe_plan_probe::cse::{Layout, SharedReport, evaluate_shared};
 use crepe_plan_probe::logic::{Atom, RelId, Rule, Term, VarId};
-use crepe_plan_probe::native::Store;
+use crepe_plan_probe::native::{PreparedStar, Store};
 use crepe_plan_probe::optimize::{Options, ResultKind};
-use crepe_plan_probe::pipeline::{Outcome, Report, demand, evaluate};
+use crepe_plan_probe::pipeline::{Answers, Outcome, Report, demand, evaluate};
 use mork_pathmap_probe::Semantics;
 
 /// Rewrites on, semijoin off: the arms differ only in sharing.
@@ -242,14 +244,52 @@ pub(crate) fn ascent_answer(w: &Workload) -> Tuples {
     prog.out.into_iter().collect()
 }
 
-pub(crate) fn as_set(o: &Outcome) -> Tuples {
+fn answers(o: &Outcome) -> &Answers {
     match o {
-        Outcome::Bindings(b) => b
-            .iter()
-            .map(|(r, _)| (r[0] as u32, r[1] as u32, r[2] as u32))
-            .collect(),
+        Outcome::Bindings(a) => a,
         other => panic!("expected bindings, got {other:?}"),
     }
+}
+
+/// Two answers agree: same total, and every row one of them reads (through
+/// its head template, over the lanes in place) is answered the same number
+/// of times by the other. Folds; no row is built.
+pub(crate) fn same(a: &Outcome, ta: &[PreparedStar], b: &Outcome, tb: &[PreparedStar]) -> bool {
+    let (a, b) = (answers(a), answers(b));
+    if a.total(ta) != b.total(tb) {
+        return false;
+    }
+    let mut ok = true;
+    a.for_each(ta, |get, _| {
+        let me = |c: usize| Some(get(c));
+        ok &= a.matching(ta, me) == b.matching(tb, me);
+    });
+    ok
+}
+
+/// The answer agrees with an oracle's set: every oracle tuple is answered,
+/// and every answered row is an oracle tuple.
+pub(crate) fn same_set(o: &Outcome, t: &[PreparedStar], set: &Tuples) -> bool {
+    let a = answers(o);
+    let mut ok = set.iter().all(|&(x, y, z)| {
+        let row = [x, y, z];
+        a.matching(t, |c| row.get(c).map(|&v| u64::from(v))) > 0
+    });
+    a.for_each(t, |get, _| {
+        ok &= set.contains(&(get(0) as u32, get(1) as u32, get(2) as u32));
+    });
+    ok
+}
+
+/// Against rows written out by a test: same total, each row answered its
+/// multiplicity.
+#[cfg(test)]
+pub(crate) fn same_bag(o: &Outcome, t: &[PreparedStar], want: &[(Vec<u64>, u64)]) -> bool {
+    let a = answers(o);
+    a.total(t) == want.iter().map(|(_, m)| m).sum::<u64>()
+        && want
+            .iter()
+            .all(|(row, m)| a.matching(t, |c| row.get(c).copied()) == *m)
 }
 
 fn arm_a(w: &Workload, kind: ResultKind) -> (Outcome, Report) {
@@ -294,16 +334,16 @@ fn main() {
         let bag = ResultKind::Bindings(Semantics::Bag);
 
         // Correctness, outside every timed region.
-        let (a, _) = arm_a(&w, bag);
-        let (d0, _) = arm_d(&w, bag, Layout::Components, false);
-        let (d, _) = arm_d(&w, bag, Layout::Components, true);
-        assert_eq!(a, d0, "D0 vs A");
-        assert_eq!(a, d, "D vs A");
+        let (a, ra) = arm_a(&w, bag);
+        let (d0, r0) = arm_d(&w, bag, Layout::Components, false);
+        let (d, rd) = arm_d(&w, bag, Layout::Components, true);
+        assert!(same(&a, &ra.tables, &d0, &r0.tables), "D0 vs A");
+        assert!(same(&a, &ra.tables, &d, &rd.tables), "D vs A");
         let checked = if oracle {
-            let set = as_set(&a);
-            assert_eq!(set, crepe_answer(&w), "A vs crepe");
-            assert_eq!(set, ascent_answer(&w), "A vs ascent");
-            format!("crepe = ascent = A = D0 = D ({} tuples)", set.len())
+            let set = crepe_answer(&w);
+            assert!(same_set(&a, &ra.tables, &set), "A vs crepe");
+            assert_eq!(set, ascent_answer(&w), "crepe vs ascent");
+            format!("crepe = ascent = A = D0 = D ({} oracle tuples)", set.len())
         } else {
             "A = D0 = D (oracles skipped)".to_string()
         };
@@ -358,7 +398,7 @@ fn main() {
                     t.1.push(r.execute);
                     split.0.push(r.share);
                     split.1.push(r.fold);
-                    split.2.push(r.tuples);
+                    split.2.push(r.terminal);
                     last = Some(r);
                 }
                 let r = last.expect("reps >= 1");
@@ -376,7 +416,7 @@ fn main() {
                     r.cost.plane_bytes
                 );
                 println!(
-                    "     execute = share {:.2}ms + folds {:.2}ms + tuples {:.2}ms",
+                    "     execute = share {:.2}ms + folds {:.2}ms + terminal {:.2}ms",
                     ms(median(split.0)),
                     ms(median(split.1)),
                     ms(median(split.2))
@@ -391,7 +431,7 @@ mod tests {
     use super::*;
     use crepe_plan_probe::cse::{CseRefusal, execute_shared, prepare_shared};
     use crepe_plan_probe::logic::RelId as Rid;
-    use crepe_plan_probe::pipeline::plan;
+    use crepe_plan_probe::pipeline::{PipelineRefusal, plan};
     use crepe_plan_probe::reference::eval;
     use mork_pathmap_probe::join::JoinRefusal;
 
@@ -421,28 +461,48 @@ mod tests {
         for shared in [0, RULES / 2, RULES * 9 / 10, RULES] {
             let w = workload(RULES, shared, CENTERS, ROWS);
             let bag = ResultKind::Bindings(Semantics::Bag);
-            let (a, _) = arm_a(&w, bag);
-            let (d0, _) = arm_d(&w, bag, Layout::Components, false);
-            let (d, _) = arm_d(&w, bag, Layout::Components, true);
-            let Outcome::Bindings(ab) = &a else {
-                panic!("bindings")
-            };
-            assert!(ab.len() > 50, "fixture too thin: {} tuples", ab.len());
+            let (a, ra) = arm_a(&w, bag);
+            let (d0, r0) = arm_d(&w, bag, Layout::Components, false);
+            let (d, rd) = arm_d(&w, bag, Layout::Components, true);
+            let want = reference_bag(&w);
+            assert!(want.len() > 50, "fixture too thin: {} rows", want.len());
             assert!(
-                ab.iter().any(|(_, m)| *m > 1),
+                want.iter().any(|(_, m)| *m > 1),
                 "fixture has no multiplicity above 1"
             );
-            assert_eq!(*ab, reference_bag(&w), "A vs reference, shared={shared}");
-            assert_eq!(d0, a, "D0 vs A, shared={shared}");
-            assert_eq!(d, a, "D vs A, shared={shared}");
-            let set = as_set(&a);
-            assert_eq!(set, crepe_answer(&w), "crepe, shared={shared}");
+            assert!(
+                same_bag(&a, &ra.tables, &want),
+                "A vs reference, shared={shared}"
+            );
+            assert!(
+                same(&d0, &r0.tables, &a, &ra.tables),
+                "D0 vs A, shared={shared}"
+            );
+            assert!(
+                same(&d, &rd.tables, &a, &ra.tables),
+                "D vs A, shared={shared}"
+            );
+            let set = crepe_answer(&w);
+            assert_eq!(set.len(), want.len(), "crepe, shared={shared}");
+            assert!(same_set(&a, &ra.tables, &set), "crepe, shared={shared}");
             assert_eq!(set, ascent_answer(&w), "ascent, shared={shared}");
-            for kind in [
-                ResultKind::Exists,
-                ResultKind::Count(Semantics::Set),
-                ResultKind::Count(Semantics::Bag),
-            ] {
+            // `Out(k, x, z)` has two free columns (x, z): a set count would
+            // need a seen-set over value pairs, so every arm refuses it.
+            let d = demand(w.out_rel(), vec![None; 3]);
+            let set_count = ResultKind::Count(Semantics::Set);
+            assert!(matches!(
+                evaluate(&w.rules, &d, set_count, OPTS, &w.store()),
+                Err(PipelineRefusal::Set { .. })
+            ));
+            for layout in [Layout::OneTable, Layout::Components] {
+                for sharing in [true, false] {
+                    assert!(matches!(
+                        evaluate_shared(&w.rules, &d, set_count, OPTS, &w.store(), layout, sharing),
+                        Err(CseRefusal::Pipeline(PipelineRefusal::Set { .. }))
+                    ));
+                }
+            }
+            for kind in [ResultKind::Exists, ResultKind::Count(Semantics::Bag)] {
                 let (want, _) = arm_a(&w, kind);
                 for layout in [Layout::OneTable, Layout::Components] {
                     assert_eq!(arm_d(&w, kind, layout, true).0, want, "{kind:?}");
@@ -467,11 +527,11 @@ mod tests {
         ] {
             let opts = Options { propagate, ..OPTS };
             let d = demand(w.out_rel(), bound.clone());
-            let (a, _) = evaluate(&w.rules, &d, bag, opts, &w.store()).expect("A");
-            let Outcome::Bindings(ab) = &a else {
-                panic!("bindings")
-            };
-            assert!(!ab.is_empty(), "demand {bound:?} selects nothing");
+            let (a, ra) = evaluate(&w.rules, &d, bag, opts, &w.store()).expect("A");
+            assert!(
+                answers(&a).total(&ra.tables) > 0,
+                "demand {bound:?} selects nothing"
+            );
             let store = w.store();
             let rows = |r: Rid| -> Vec<Vec<u64>> {
                 store
@@ -484,9 +544,9 @@ mod tests {
             let want: Vec<(Vec<u64>, u64)> = eval(&w.rules, w.out_rel(), &bound, &rows)
                 .into_iter()
                 .collect();
-            assert_eq!(*ab, want, "A vs reference, {bound:?}");
+            assert!(same_bag(&a, &ra.tables, &want), "A vs reference, {bound:?}");
             for sharing in [false, true] {
-                let (dd, _) = evaluate_shared(
+                let (dd, rdd) = evaluate_shared(
                     &w.rules,
                     &d,
                     bag,
@@ -496,7 +556,10 @@ mod tests {
                     sharing,
                 )
                 .expect("D");
-                assert_eq!(dd, a, "sharing={sharing}, {bound:?}, propagate={propagate}");
+                assert!(
+                    same(&dd, &rdd.tables, &a, &ra.tables),
+                    "sharing={sharing}, {bound:?}, propagate={propagate}"
+                );
             }
         }
     }
