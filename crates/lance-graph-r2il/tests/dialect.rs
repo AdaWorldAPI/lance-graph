@@ -8,8 +8,8 @@
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_r2il::{
-    Addr, FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL, INT_NOT,
-    INT_OR, INT_SUB, INT_S_LESS, INT_XOR, LOAD, MAX_SLOTS, POP_COUNT,
+    Addr, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL,
+    INT_MULT, INT_NOT, INT_OR, INT_SUB, INT_S_DIV, INT_S_LESS, INT_XOR, LOAD, MAX_SLOTS, POP_COUNT,
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{
@@ -32,6 +32,9 @@ fn local_r2il_ordinals_name_the_ogar_r2il_opcodes() {
         (INT_AND, "IntAnd"),
         (INT_OR, "IntOr"),
         (INT_XOR, "IntXor"),
+        (INT_ADD, "IntAdd"),
+        (INT_MULT, "IntMult"),
+        (INT_S_DIV, "IntSDiv"),
         (INT_NOT, "IntNot"),
         (INT_EQUAL, "IntEqual"),
         (INT_LESS, "IntLess"),
@@ -81,10 +84,11 @@ fn every_named_refusal_is_still_produced() {
     let foreign = Foreign::NONE;
 
     // Fold-band bytes that are not wired, and one R2IL-band one. `IntOr` is
-    // wired since D-SQLP-2; `IntXor`, `ANY` and `ALL` since D-RFT-1.
-    let int_add = FnIndex(R2IL_BASE + 9);
-    assert_eq!(mnemonic(int_add), "IntAdd");
-    for f in [KEY_RUNS, SCATTER_OR, BLEND, int_add] {
+    // wired since D-SQLP-2; `IntXor`, `ANY`, `ALL`, `KEY_RUNS`, `IntAdd`,
+    // `IntMult` and `IntSDiv` since D-RFT-1.
+    let int_rem = FnIndex(R2IL_BASE + 14);
+    assert_eq!(mnemonic(int_rem), "IntRem");
+    for f in [SCATTER_OR, BLEND, int_rem] {
         let mut d = FoldDialect::new(&planes, &foreign);
         let mut stack = vec![Val::Scalar(1), Val::Scalar(2)];
         assert_eq!(
@@ -152,6 +156,41 @@ fn every_named_refusal_is_still_produced() {
     assert_eq!(
         call(&mut d, INT_XOR, [0; 3], &mut stack),
         Err(FoldError::WrongOperandKind(INT_XOR))
+    );
+
+    // Scalar arithmetic: checked, never wrapped; a lane has no scalar reading.
+    for (f, a, b, want) in [
+        (INT_S_DIV, 7, 0, FoldError::DivisionByZero(INT_S_DIV)),
+        (INT_S_DIV, i64::MIN, -1, FoldError::Overflow(INT_S_DIV)),
+        (INT_ADD, i64::MAX, 1, FoldError::Overflow(INT_ADD)),
+        (INT_MULT, i64::MAX, 2, FoldError::Overflow(INT_MULT)),
+    ] {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(a), Val::Scalar(b)];
+        assert_eq!(call(&mut d, f, [0; 3], &mut stack), Err(want), "{f:?}");
+    }
+    for f in [INT_ADD, INT_MULT, INT_S_DIV] {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![i32_lane(0), i32_lane(0)];
+        assert_eq!(
+            call(&mut d, f, [0; 3], &mut stack),
+            Err(FoldError::LaneVersusLane(f))
+        );
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![i32_lane(0), Val::Scalar(1)];
+        assert_eq!(
+            call(&mut d, f, [0; 3], &mut stack),
+            Err(FoldError::WrongOperandKind(f))
+        );
+    }
+    // KEY_RUNS takes a mask and a U32 key lane; an I32 lane is a shape refusal.
+    let mut d = FoldDialect::new(&planes, &foreign);
+    let mut stack = vec![];
+    call(&mut d, RANGE, [0, 10, 0], &mut stack).expect("RANGE");
+    stack.push(i32_lane(0));
+    assert_eq!(
+        call(&mut d, KEY_RUNS, [0; 3], &mut stack),
+        Err(FoldError::WrongOperandKind(KEY_RUNS))
     );
 
     // VIA and GROUP_SUM are wired: a wrong operand kind is a shape refusal,

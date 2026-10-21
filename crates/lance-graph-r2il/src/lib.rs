@@ -34,21 +34,22 @@
 //!
 //! # Implemented, and refused by name
 //!
-//! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `RANGE`, `ANY`, `ALL`
-//! and `KEEP` are wired. `KEY_RUNS`, `SCATTER_OR` and `BLEND` are refused as
-//! [`FoldError::Unimplemented`]. `ANY`/`ALL` push 1 or 0.
+//! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `KEY_RUNS`, `RANGE`,
+//! `ANY`, `ALL` and `KEEP` are wired. `SCATTER_OR` and `BLEND` are refused as
+//! [`FoldError::Unimplemented`]. `ANY`/`ALL` push 1 or 0; `KEY_RUNS` pushes
+//! `COUNT(DISTINCT key)` over a key-ordered lane.
 //!
 //! `MIN`/`MAX` of an empty selection push the fold's identity, `i64::MAX` /
 //! `i64::MIN`: the same seed mask-risc's grouped `MIN`/`MAX` leave in an
 //! empty group. No `I32` value equals it, so a caller reads it as SQL NULL.
 //!
 //! R2IL band: `Load` (spaces 0 = U32, 1 = I32, 2 = U64, 3 = resident mask
-//! plane), `IntSub` (scalar/scalar), `IntAnd` (with survivor gating),
+//! plane), `IntAdd`, `IntSub`, `IntMult`, `IntSDiv` (scalar/scalar, checked), `IntAnd` (with survivor gating),
 //! `IntOr`, `IntXor`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
 //! `IntLessEqual` are refused as [`FoldError::NoUnsignedLaneCompare`]
 //! (mask-risc has no unsigned lane compare); `IntSub` of two addresses as
 //! [`FoldError::LaneVersusLane`]; an unknown `Load` space as
-//! [`FoldError::UnknownLoadSpace`]; every other byte, `IntAdd` included, as
+//! [`FoldError::UnknownLoadSpace`]; every other byte as
 //! [`FoldError::Unimplemented`].
 //!
 //! # Boolean modes
@@ -70,6 +71,9 @@
 //!
 //! [`procs`] holds named call sequences (`filter_lt`, `select_u32`, `count`,
 //! `exists`, `all`, `differ`, `intersect`, `union`, `keep`, `count_and`,
+//! the PostgreSQL primitives `is_null`, `is_not_null`, `and_between_i32`,
+//! `in_u32`, `count_valid`, `avg_parts`, `bool_or`, `bool_and`, `not_exists`,
+//! `except`, `count_distinct_sorted`, `count_union_all`,
 //! `sum`, `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
@@ -107,7 +111,7 @@ use lance_graph_mask_risc::{
     Value,
 };
 use ogar_loco::{Dialect, FnIndex};
-use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
+use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, KEY_RUNS, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
 
 // ── R2IL-band opcodes this dialect wires, by their VERIFIED ordinals ───────
 //
@@ -119,7 +123,14 @@ use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA}
 // `IntEqual`=27, `IntLess`=29, `IntSLess`=30, `IntLessEqual`=31,
 // `PopCount`=41.
 pub const LOAD: FnIndex = FnIndex(R2IL_BASE + 1);
+/// `IntAdd` = ordinal 9. Scalar + scalar only (two fold results); checked.
+pub const INT_ADD: FnIndex = FnIndex(R2IL_BASE + 9);
 pub const INT_SUB: FnIndex = FnIndex(R2IL_BASE + 10);
+/// `IntMult` = ordinal 11. Scalar × scalar only; checked.
+pub const INT_MULT: FnIndex = FnIndex(R2IL_BASE + 11);
+/// `IntSDiv` = ordinal 13. Scalar / scalar only, truncating toward zero (SQL
+/// integer division); division by zero is refused.
+pub const INT_S_DIV: FnIndex = FnIndex(R2IL_BASE + 13);
 pub const INT_AND: FnIndex = FnIndex(R2IL_BASE + 20);
 pub const INT_OR: FnIndex = FnIndex(R2IL_BASE + 21);
 /// `IntXor` = ordinal 22, arity 2 (confirmed against `R2ILFn::MNEMONICS`).
@@ -227,6 +238,13 @@ pub enum FoldError {
     /// The fused mode's Boolean expression could not be lowered by mask-risc
     /// `fuse` (it needed a scratch slot past `u16::MAX`).
     Fuse(FuseError),
+    /// Scalar `IntSDiv` by zero. PostgreSQL raises `division_by_zero`; the
+    /// dialect refuses rather than answer.
+    DivisionByZero(FnIndex),
+    /// Scalar `IntAdd`/`IntMult` left `i64`. PostgreSQL raises
+    /// `numeric_value_out_of_range` for `bigint`; the dialect refuses rather
+    /// than wrap.
+    Overflow(FnIndex),
 }
 
 /// How a body's Boolean calls (`IntAnd`, `IntOr`, `IntNot` on masks) are
@@ -1032,6 +1050,28 @@ impl Dialect for FoldDialect<'_> {
                 });
                 Ok(())
             }
+            // Scalar arithmetic between fold results (`AVG` = `SUM` /
+            // `COUNT`, a bag product |L|·|R|). A lane operand has no scalar
+            // reading here: two lanes are `LaneVersusLane`, anything else
+            // `WrongOperandKind`.
+            INT_ADD | INT_MULT | INT_S_DIV => {
+                let b = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                match (a, b) {
+                    (Val::Scalar(x), Val::Scalar(y)) => {
+                        let r = match f {
+                            INT_ADD => x.checked_add(y).ok_or(FoldError::Overflow(f))?,
+                            INT_MULT => x.checked_mul(y).ok_or(FoldError::Overflow(f))?,
+                            _ if y == 0 => return Err(FoldError::DivisionByZero(f)),
+                            _ => x.checked_div(y).ok_or(FoldError::Overflow(f))?,
+                        };
+                        stack.push(Val::Scalar(r));
+                        Ok(())
+                    }
+                    (Val::Address(_), Val::Address(_)) => Err(FoldError::LaneVersusLane(f)),
+                    _ => Err(FoldError::WrongOperandKind(f)),
+                }
+            }
             INT_SUB => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
@@ -1049,6 +1089,27 @@ impl Dialect for FoldDialect<'_> {
                     .ok_or(FoldError::WrongOperandKind(f))?;
                 let mask = self.resolve_mask(m)?;
                 let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
+                stack.push(Val::Scalar(n));
+                Ok(())
+            }
+            // `COUNT(DISTINCT key)` under a mask, on a KEY-ORDERED `U32` lane:
+            // one per run of equal keys holding a selected row
+            // (`Terminal::CountKeyRunsU32`, O(1) state, no seen-set). An
+            // unordered lane is refused by mask-risc (`LaneNotOrdered`),
+            // never answered. Operands: mask, then the key lane.
+            KEY_RUNS => {
+                let key = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
+                    .ok_or(FoldError::WrongOperandKind(f))?;
+                let Val::Address(Addr::Lane {
+                    idx: lane,
+                    kind: LaneKind::U32,
+                }) = key
+                else {
+                    return Err(FoldError::WrongOperandKind(f));
+                };
+                let mask = self.resolve_mask(m)?;
+                let n = self.finalize_and_run_scalar(Terminal::CountKeyRunsU32 { mask, lane })?;
                 stack.push(Val::Scalar(n));
                 Ok(())
             }

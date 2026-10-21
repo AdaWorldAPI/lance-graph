@@ -6,11 +6,14 @@
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
 use lance_graph_r2il::procs::{
-    all, and_cmp_i32, count, count_and, differ, exists, filter_lt, group_sum, keep, margin, max,
-    min, select_lt, select_u32, sum, union, Order,
+    all, and_between_i32, and_cmp_i32, avg_parts, bool_and, bool_or, count, count_and,
+    count_distinct_sorted, count_union_all, count_valid, differ, except, exists, filter_lt,
+    group_sum, in_u32, is_not_null, is_null, keep, margin, max, min, not_exists, select_lt,
+    select_u32, sum, union, Order,
 };
 use lance_graph_r2il::{
-    BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, INT_XOR, POP_COUNT,
+    BoolMode, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_MULT, INT_NOT, INT_OR, INT_S_DIV,
+    INT_XOR, POP_COUNT,
 };
 use ogar_loco::Dialect;
 use ogar_r2il::KEEP;
@@ -676,4 +679,242 @@ fn union_keeps_the_union_in_both_modes() {
             assert_eq!(top(&stack), expect, "{mode:?} vs plane {other}");
         }
     }
+}
+
+// ── PostgreSQL primitives ────────────────────────────────────────────────
+//
+// Fixture: `x` (I32, `i % 50`) is NULL on every 9th row (presence plane
+// `VALID`); `key` (U32, `i % GROUPS`); a flag plane `FLAG` = rows where
+// `i % 3 == 0`; a key-ordered lane `SORTED` (`i / 10`). References are
+// computed from the fixture's own rule per row, never from the dialect.
+
+const VALID: u16 = 0;
+const FLAG: u16 = 1;
+const SORTED: u16 = 5;
+
+fn null_row(r: usize) -> bool {
+    r % 9 == 0
+}
+
+fn run_scalar(
+    planes: &Planes<'_>,
+    body: impl FnOnce(&mut FoldDialect<'_>, &mut Vec<Val>) -> Result<(), FoldError>,
+) -> i64 {
+    let mut d = FoldDialect::new(planes, &Foreign::NONE);
+    let mut stack = vec![];
+    body(&mut d, &mut stack).expect("body");
+    top(&stack)
+}
+
+/// FAILS IF: any PostgreSQL primitive stops matching its row-rule reference:
+/// `IS [NOT] NULL`, `BETWEEN` (with a NULL `x` dropped), `IN`, `IN ()`,
+/// `COUNT(x)` vs `COUNT(*)`, `AVG` parts, `bool_or`/`bool_and`, `NOT EXISTS`,
+/// `EXCEPT`, `COUNT(DISTINCT)` on a key-ordered lane, `UNION ALL` counts, and
+/// `IntAdd`/`IntMult`/`IntSDiv` on scalars.
+#[test]
+fn postgresql_primitives_match_row_rule_references() {
+    let f = fixture();
+    let sorted: Vec<u32> = (0..N).map(|i| (i / 10) as u32).collect();
+    let lanes = [
+        LaneRef::I32(&f.x),
+        LaneRef::I32(&f.y),
+        LaneRef::I32(&f.revenue),
+        LaneRef::I32(&f.cost),
+        LaneRef::U32(&f.key),
+        LaneRef::U32(&sorted),
+    ];
+    let valid = plane(|r| !null_row(r));
+    let flag = plane(|r| r % 3 == 0);
+    let all_rows = plane(|_| true);
+    let masks = [valid.as_slice(), flag.as_slice(), all_rows.as_slice()];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let count_rows = |keep: &dyn Fn(usize) -> bool| (0..N).filter(|&r| keep(r)).count() as i64;
+
+    // IS NULL / IS NOT NULL.
+    let nulls = count_rows(&|r| null_row(r));
+    assert!(nulls > 0 && nulls < N as i64);
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            is_null(d, s, VALID)?;
+            count(d, s)
+        }),
+        nulls
+    );
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            is_not_null(d, s, VALID)?;
+            count(d, s)
+        }),
+        N as i64 - nulls
+    );
+
+    // BETWEEN over the presence plane: a NULL x is dropped.
+    let between = count_rows(&|r| !null_row(r) && (10..=20).contains(&f.x[r]));
+    let between_ignoring_null = count_rows(&|r| (10..=20).contains(&f.x[r]));
+    assert_ne!(
+        between, between_ignoring_null,
+        "the fixture must have NULL rows in range"
+    );
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            is_not_null(d, s, VALID)?;
+            and_between_i32(d, s, X, 10, 20)?;
+            count(d, s)
+        }),
+        between
+    );
+    // An empty range keeps nothing.
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            is_not_null(d, s, VALID)?;
+            and_between_i32(d, s, X, 20, 10)?;
+            count(d, s)
+        }),
+        0
+    );
+
+    // IN (…) and IN ().
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            in_u32(d, s, KEY, &[1, 3])?;
+            count(d, s)
+        }),
+        count_rows(&|r| f.key[r] == 1 || f.key[r] == 3)
+    );
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            in_u32(d, s, KEY, &[])?;
+            count(d, s)
+        }),
+        0
+    );
+
+    // COUNT(x) vs COUNT(*) under x < 17.
+    let star = count_rows(&|r| f.x[r] < 17);
+    let col = count_rows(&|r| f.x[r] < 17 && !null_row(r));
+    assert!(col < star);
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, 17)?;
+            count(d, s)
+        }),
+        star
+    );
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, 17)?;
+            count_valid(d, s, VALID)
+        }),
+        col
+    );
+
+    // AVG parts: SUM(x) and COUNT(x) over x < 17, NULL rows excluded.
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = vec![];
+    let sel = |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| select_lt(d, s, X, 17);
+    avg_parts(&mut d, &mut stack, &sel, X, VALID).expect("avg");
+    let want_sum: i64 = (0..N)
+        .filter(|&r| f.x[r] < 17 && !null_row(r))
+        .map(|r| i64::from(f.x[r]))
+        .sum();
+    assert_eq!(stack, vec![Val::Scalar(want_sum), Val::Scalar(col)]);
+
+    // bool_or / bool_and over a selection.
+    let bor = |t: i32| {
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, t)?;
+            bool_or(d, s, FLAG)
+        })
+    };
+    let band = |t: i32| {
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, t)?;
+            bool_and(d, s, FLAG)
+        })
+    };
+    // x < 1 selects rows 0, 50, 100, …: i % 50 == 0; 0 is flagged, 50 is not.
+    assert_eq!((bor(1), band(1)), (1, 0));
+    assert_eq!((bor(0), band(0)), (0, 1), "empty selection");
+
+    // NOT EXISTS.
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, 0)?;
+            not_exists(d, s)
+        }),
+        1
+    );
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, 1)?;
+            not_exists(d, s)
+        }),
+        0
+    );
+
+    // EXCEPT: valid ∧ ¬flag.
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            except(d, s, VALID, FLAG)?;
+            count(d, s)
+        }),
+        count_rows(&|r| !null_row(r) && r % 3 != 0)
+    );
+
+    // COUNT(DISTINCT sorted) under x < 5: distinct i / 10 over rows with i % 50 < 5.
+    let mut seen = vec![false; N / 10 + 1];
+    for r in (0..N).filter(|&r| f.x[r] < 5) {
+        seen[r / 10] = true;
+    }
+    let distinct = seen.iter().filter(|&&b| b).count() as i64;
+    assert!(distinct < count_rows(&|r| f.x[r] < 5), "keys repeat");
+    assert_eq!(
+        run_scalar(&planes, |d, s| {
+            select_lt(d, s, X, 5)?;
+            count_distinct_sorted(d, s, SORTED)
+        }),
+        distinct
+    );
+
+    // UNION ALL of two counts.
+    let a = |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| select_lt(d, s, X, 10);
+    let b = |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| select_lt(d, s, Y, 5);
+    assert_eq!(
+        run_scalar(&planes, |d, s| count_union_all(d, s, &a, &b)),
+        count_rows(&|r| f.x[r] < 10) + count_rows(&|r| f.y[r] < 5)
+    );
+
+    // Scalar arithmetic.
+    for (op, x, y, want) in [
+        (INT_ADD, 7, 5, 12),
+        (INT_MULT, 7, -5, -35),
+        (INT_S_DIV, -7, 2, -3),
+    ] {
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![Val::Scalar(x), Val::Scalar(y)];
+        d.call(op, [0; 3], &mut stack).expect("arith");
+        assert_eq!(stack, vec![Val::Scalar(want)], "{op:?}");
+    }
+}
+
+/// FAILS IF: `COUNT(DISTINCT)` on an UNORDERED lane is answered instead of
+/// refused (`LaneNotOrdered`).
+#[test]
+fn count_distinct_refuses_an_unordered_lane() {
+    let f = fixture();
+    let lanes = lanes(&f);
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = vec![];
+    select_lt(&mut d, &mut stack, X, 17).expect("select");
+    let err = count_distinct_sorted(&mut d, &mut stack, KEY).expect_err("key = i % 4 is unordered");
+    assert!(matches!(err, FoldError::Exec(_)), "{err:?}");
 }
