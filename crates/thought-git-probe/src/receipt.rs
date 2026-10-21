@@ -91,9 +91,12 @@ fn batch_fold(data: BaseRef, cycle: u64, cohort: &BTreeMap<u32, Contribution>) -
     let mut f = Fold::default();
     f.add(data.dataset, data.version);
     f.add(u64::from(data.branch), cycle);
+    // One term per entry, chained through `mix`: the sum is order-independent,
+    // so a thought and its contribution folded as separate terms could be
+    // swapped between two equal-count entries without moving the fold.
     for (&thought, c) in cohort {
-        f.add(u64::from(thought), c.output.count);
-        f.add(c.output.fold, outcome_code(c.outcome));
+        let entry = mix(mix(mix(u64::from(thought)) ^ c.output.count) ^ c.output.fold);
+        f.add(entry, outcome_code(c.outcome));
     }
     f
 }

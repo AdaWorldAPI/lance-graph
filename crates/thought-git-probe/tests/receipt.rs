@@ -792,3 +792,44 @@ fn malformed_inputs_refuse_without_panicking() {
         Err(Refusal::Unsealed(_))
     ));
 }
+
+/// 15. The batch fold binds each contribution to its thought: swapping two
+///     equal-count contributions inside a witness tears it, so a receipt for
+///     thought 10 carrying thought 11's output cannot land (Codex, #1684).
+///     Disable: fold the thought id and the contribution as separate terms.
+#[test]
+fn a_witness_with_swapped_contributions_is_torn() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+    let (_, ta, ra) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
+    let (_, tb, _) = run(&store, &mut pool, plan(base, 11, Outcome::Commit, 9));
+    let v2 = data_ref(2);
+    store
+        .commit_cycle(v2, &main_version(), 41, &[ta, tb])
+        .expect("commit");
+    let ka = MetaKey {
+        data: v2,
+        thought: 10,
+    };
+
+    // Thought 10 run with thought 11's seed: its output is 11's contribution.
+    let (_, _, forged) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 9));
+    let w = store.witness_mut(v2).expect("witness");
+    let (c10, c11) = (w.cohort[&10], w.cohort[&11]);
+    assert_eq!(
+        c10.output.count, c11.output.count,
+        "anti-vacuity: equal counts"
+    );
+    assert_ne!(c10, c11, "anti-vacuity: distinct contributions");
+    assert_eq!(forged.output, c11.output, "anti-vacuity: forged output");
+    w.cohort.insert(10, c11);
+    w.cohort.insert(11, c10);
+
+    for r in [forged, ra] {
+        let mut table = MetadataTable::default();
+        assert_eq!(
+            table.stage(&pool, &store, ka, r),
+            Err(Refusal::WitnessTorn(ka))
+        );
+    }
+}
