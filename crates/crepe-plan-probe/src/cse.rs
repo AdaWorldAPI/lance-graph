@@ -46,10 +46,7 @@ use mork_pathmap_probe::Semantics;
 use mork_pathmap_probe::join::{JoinRefusal, Side};
 
 use crate::logic::{Rule, VarId};
-use crate::native::{
-    FoldKind, NativeRefusal, PreparedStar, SideKey, SidePlan, StarPlan, Store, TerminalPath,
-    count_over_mask, fold_kind, prepare, tuples_over_mask,
-};
+use crate::native::{PreparedStar, SideKey, SidePlan, StarPlan, Store, prepare, tuples_over_mask};
 use crate::optimize::{Demand, Options, ResultKind};
 use crate::pipeline::{Outcome, PipelineRefusal, Planned, plan};
 
@@ -213,9 +210,6 @@ pub enum CseRefusal {
         given: usize,
     },
     Program(ProgramError),
-    /// A folded count does not fit in `u64` (see
-    /// [`crate::native::count_over_mask`]).
-    Native(NativeRefusal),
     /// The tables were prepared for other stars than the plan holds: a star
     /// in no group or in two, or a side the table holds under another key.
     NoCoordinateWitness,
@@ -244,11 +238,8 @@ pub struct SharedReport {
     pub share: Duration,
     /// The folds: lets and rules.
     pub fold: Duration,
-    /// Reading the tuples over the kept masks, or folding them.
+    /// Reading the tuples over the kept masks.
     pub tuples: Duration,
-    /// Which terminal answered. Decided from the plan, so one value holds
-    /// for every group.
-    pub terminal: TerminalPath,
     /// All of the run half: checks, share, folds, tuples.
     pub execute: Duration,
 }
@@ -335,18 +326,6 @@ pub fn execute_shared(
     generations: &[Vec<u64>],
     sharing: bool,
 ) -> Result<(Outcome, SharedReport), CseRefusal> {
-    execute_shared_with(planned, shared, kind, generations, sharing, true)
-}
-
-/// [`execute_shared`]; `fold = false` forces the enumerating terminal.
-pub fn execute_shared_with(
-    planned: &Planned,
-    shared: &SharedStars,
-    kind: ResultKind,
-    generations: &[Vec<u64>],
-    sharing: bool,
-    fold: bool,
-) -> Result<(Outcome, SharedReport), CseRefusal> {
     let t = Instant::now();
     witness(planned, shared)?;
     if generations.len() != shared.groups.len() {
@@ -357,14 +336,6 @@ pub fn execute_shared_with(
     }
     let filtered = planned.optimized.post_filter.iter().any(Option::is_some);
     let mask_only = kind == ResultKind::Exists && !filtered;
-    // Decided from the plan before any group runs, so every group takes the
-    // same terminal and no bag is ever half folded.
-    let folding = if fold && !mask_only {
-        fold_kind(&planned.stars, kind, filtered)
-    } else {
-        None
-    };
-    let mut total = 0u64;
     let measure = if mask_only {
         Measure::Count
     } else {
@@ -372,13 +343,6 @@ pub fn execute_shared_with(
     };
     let mut report = SharedReport {
         groups: shared.groups.len(),
-        terminal: if mask_only {
-            TerminalPath::Mask
-        } else if folding.is_some() {
-            TerminalPath::Folded
-        } else {
-            TerminalPath::Enumerated
-        },
         ..SharedReport::default()
     };
     let mut any = false;
@@ -426,23 +390,8 @@ pub fn execute_shared_with(
                     .map(|&k| &table.sides[k])
                     .collect();
                 let star = &planned.stars[j];
-                if let Some(fk) = folding {
-                    let c = count_over_mask(
-                        &table.domain,
-                        &sides,
-                        star,
-                        &kept[i],
-                        &planned.optimized.post_filter,
-                        fk,
-                    )
-                    .map_err(CseRefusal::Native)?;
-                    total = total
-                        .checked_add(c)
-                        .ok_or(CseRefusal::Native(NativeRefusal::CountOverflow))?;
-                } else {
-                    for (row, m) in tuples_over_mask(&table.domain, &sides, star, &kept[i], true) {
-                        *bag.entry(row).or_insert(0) += m;
-                    }
+                for (row, m) in tuples_over_mask(&table.domain, &sides, star, &kept[i], true) {
+                    *bag.entry(row).or_insert(0) += m;
                 }
             }
         }
@@ -463,11 +412,6 @@ pub fn execute_shared_with(
     let tt = Instant::now();
     let outcome = if mask_only {
         Outcome::Exists(any)
-    } else if let Some(fk) = folding {
-        match fk {
-            FoldKind::Exists => Outcome::Exists(total > 0),
-            FoldKind::Bag | FoldKind::Set => Outcome::Count(total),
-        }
     } else {
         bag.retain(|row, _| {
             row.iter()
