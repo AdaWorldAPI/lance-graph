@@ -11,5 +11,10 @@
 //! A capability that is missing here is missing in one of the three crates.
 
 pub use lance_graph_mask_risc as mask_risc;
+
+/// D-CMR-2: the contract's set algebra lowered onto mask-risc (runs as
+/// extents, residual as a program, three measurement levels). A lowering,
+/// not a second algebra: the rules live in `lance_graph_contract::set_algebra`.
+pub mod set_lower;
 pub use lance_graph_quack as quack;
 pub use lance_graph_r2il as r2il;
