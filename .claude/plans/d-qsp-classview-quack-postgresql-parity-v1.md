@@ -48,8 +48,10 @@ For one source/focus, contrast:
 
 Preserve ADMISSION B: no value-directed gather across foreign tables during PREPARE. Zero-copy means buffers can be borrowed or shared, **not** that PostgreSQL heap tuples magically become Lance buffers. Frozen codebook witness needs a contract owner and version-attested round-trip, Eq semantics and order preservation proof separately for Lt. Exhaustive 256-local-slot validity, 257th explicit escape/refusal.
 
-## Admission milestones
+## Admission milestones (canonical D-QSP-* IDs)
 
-**D-QSP-0**: K3 soundness test + law-specific refuses and PostgreSQL row oracle. **D-QSP-1**: one ClassView method over IAM membership/SAP direct projection with route-conformance matrix, 32×128 vs 64×64 vs sparse counted end-to-end. **D-QSP-2**: independently correct S1/S2 SQL corpus, including bag/NULL; internal relalg lowering, *no ORM conversion*. **D-QSP-3**: recursive datafrog parity, thought-git frontier/replay and performance with source mutation. **D-QSP-4/5**: DuckDB/TPC-H subsets and broader SQL conformance.
+The **D-QSP-0..5 rows in the staged parity table above** are the canonical milestone IDs: D-QSP-0 K3 normalization safety; D-QSP-1 single-table semantic parity; D-QSP-2 cross-table join/bag/NULL semantics; D-QSP-3 scalar types and overflow/collation; D-QSP-4 bounded recursive/mutation semantics; D-QSP-5 broader SQL conformance and fair DuckDB performance.
 
-Every milestone is an independent verdict: semantic correctness; binding legality/provenance; performance; memory; cost of mutation. A PASS in one does not waive a FAIL in another. No production write path, new ABI, PostgreSQL compatibility or 'faster than DuckDB' claim is authorized by this plan.
+Shape conformance across direct, sparse, DR32×128 and DR64/256 is a **separate binding/cost stratum** within D-QSP-1/2, never an alternative semantic law. The replay and frontier dependency is D-RFT-5 (with existing D-TGB work), not an untracked additional D-QSP milestone. The datafrog recursion proof remains D-RFT-3 and a prerequisite to D-QSP-4. Avoid duplicate D-* IDs for related checks.
+
+Every milestone has independent verdicts for semantic correctness, binding legality/provenance, performance, memory and cost of mutation. A PASS in one does not waive a FAIL in another. No production write path, new ABI, PostgreSQL compatibility or 'faster than DuckDB' claim is authorized by this plan.
