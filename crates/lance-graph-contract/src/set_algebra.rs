@@ -1008,6 +1008,21 @@ mod tests {
         }
     }
 
+    /// The Kleene form never grows the leaf count either: the whole-lane
+    /// atom `x >= i32::MIN` is emitted only where no `!=` already names the
+    /// lane, and a covered lane replaces at least two atoms with one.
+    #[test]
+    fn normalize_kleene_never_grows_leaf_count() {
+        let mut g = Gen(0xB0B);
+        for _ in 0..3000 {
+            let e = g.expr(5);
+            assert!(normalize_kleene(&e).leaves() <= e.leaves(), "{e:?}");
+        }
+        // The `!=` case on its own: `x != 1` stays one atom.
+        let ne = SetExpr::i32(0, Cmp::Ne, 1);
+        assert_eq!(normalize_kleene(&ne), ne);
+    }
+
     fn x() -> SetExpr {
         SetExpr::And(vec![SetExpr::Sym(1), SetExpr::Sym(4)])
     }
