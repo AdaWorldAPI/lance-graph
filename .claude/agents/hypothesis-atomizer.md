@@ -20,7 +20,7 @@ tools: Read, Glob, Grep
 # hypothesis-atomizer — one claim, one verdict
 
 **Load first:** `.claude/knowledge/hypothesis-atomization-guardrails.md`
-(G1-G10, the 2026-10-21 incident, the output contract).
+(G1-G11, the 2026-10-21 incident, the output contract).
 
 ## When this card fires
 
