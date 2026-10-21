@@ -96,6 +96,8 @@ struct Counters {
     masked_out: u64,
     /// Words processed by whole-buffer and per-row sweeps.
     sweep_words: u64,
+    /// Adjacency words scanned by the hop (every row `x`, both switches).
+    adj_words: u64,
 }
 
 struct Dirty {
@@ -169,6 +171,7 @@ fn dirty_walk(n: usize, e: &[Edge], opt: Opt) -> Dirty {
                 }
                 for x in 0..n {
                     let dst = row(l, x);
+                    c.adj_words += w as u64;
                     for wi in 0..w {
                         let mut bits = adj[x * w + wi];
                         if opt.skip_clean {
@@ -445,8 +448,10 @@ fn main() {
         );
     }
     println!("\n# work counts per A′ variant (off / skip / touched / both)\n");
-    println!("| fixture | iterations | A row reads | row reads | bits masked out | words swept |");
-    println!("|---|---:|---:|---|---|---|");
+    println!(
+        "| fixture | iterations | A row reads | row reads | bits masked out | words swept | adjacency words scanned |"
+    );
+    println!("|---|---:|---:|---|---|---|---:|");
     for (name, cs, a_reads) in &work {
         let col = |f: fn(&Counters) -> u64| {
             cs.iter()
@@ -455,11 +460,12 @@ fn main() {
                 .join(" / ")
         };
         println!(
-            "| {name} | {} | {a_reads} | {} | {} | {} |",
+            "| {name} | {} | {a_reads} | {} | {} | {} | {} |",
             cs[0].iterations,
             col(|c| c.row_reads),
             col(|c| c.masked_out),
             col(|c| c.sweep_words),
+            cs[3].adj_words,
         );
     }
     println!("\n# resident memory, count-only (MiB, VmHWM growth in a fresh process)\n");
