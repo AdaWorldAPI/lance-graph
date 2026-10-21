@@ -1,3 +1,10 @@
+## 2026-10-21 — lance-graph PR #1650 (merged `f031089`, branch `claude/eager-albattani-iufugq`, head `98d97ef`) — D-CMR-2: the contract set algebra lowered onto mask-risc; D-CMR-5 re-scoped
+
+- **Added:** `lance_graph::fold::set_lower::{SetPlan, SortedBasis, Level, Measured, LowerError}` (core, no new dependency); entries `2026-10-21-d-cmr-2-lowering.md`, `2026-10-21-d-cmr-5-rescope.md`.
+- **Locked:** a normalized `SetExpr` splits into `Runs` (counted seeks on an attested sorted `i32` lane) ∩ residual (one mask-risc program per run via `execute_extent`); geometry reads nothing, optics counts, etch keeps; attest / seek / query costs reported apart. D-CMR-5 reads "BLOCKED: lawful design proposed" per the operator's 2026-10-21 ruling (Q1 = C, Q2 = B conditionally).
+- **Deferred / open:** D-CMR-2b (scratch-free `Pred` fold in mask-risc, a measured performance experiment, not authorized); a facet / `u32` sorted basis; D-CMR-5's contract-level codebook witness.
+- **Confidence:** measured. 6 tests (row oracle over 400 random expressions at every level; geometry against empty planes, 0 extents); 4 disable runs red; clippy and fmt clean; CI green; Codex no findings.
+
 ## 2026-10-21 — lance-graph PR #1644 (merged `c05a313`, branch `claude/eager-albattani-iufugq`, head `6fc04a4`) — D-CMR-1 / D-RA-2: the contract owns single-table set algebra
 
 - **Added:** `lance_graph_contract::set_algebra::{SetExpr, Res, Cmp, normalize, Runs, OutOfUniverse}` (zero deps); relalg `tests/absorption_n17.rs`; entry `2026-10-20-d-cmr-1-set-algebra.md`.

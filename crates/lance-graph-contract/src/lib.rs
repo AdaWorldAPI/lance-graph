@@ -194,6 +194,9 @@ pub mod set_algebra;
 /// D-RU-2 / U2: a batch of selections whose shared parts are named once
 /// (`lets` over `set_algebra::SetExpr::Sym`). See module docs.
 pub mod set_program;
+/// D-CMR-6: guarded rewrite rules over measures (Count / Sum / ranges) and the
+/// fixpoint driver. See module docs.
+pub mod set_rules;
 pub mod settlement;
 /// D-BLW-5 payload-law DTO (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`) —
 /// distribution shape × Prozentrang, never the raw statistic. See module docs.
