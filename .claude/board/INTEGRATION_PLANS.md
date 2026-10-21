@@ -1,3 +1,7 @@
+## 2026-10-20 — d-relalg-unified-v1 — JC/R statistics and Datalog sharing work through the contract set IR → `.claude/plans/d-relalg-unified-v1.md`
+
+**Status:** PROPOSAL, documentation only. Decisions recorded: ADMISSION = B, D-RA-2 = A. There is no shared relational AST, and none is built: each layer gets the smallest extension. JC batches share the power-sum terminals (U1, first); `let`-bound planes go on the contract IR after D-CMR-1 (U2); a co-addressed join over `JoinDomain`; Quack gets measured pins, not a cost model; recursion over BIND tiles is gated on an attested slot assignment. Three negatives (no JC expression IR, no D-CMR set IR code, no D-MSUB) are grep-only and not yet fully verified. Entry `2026-10-20-d-relalg-unified.md`.
+
 ## 2026-10-20 — d-rmap-dir-1-membership-closure-focus-v1 — compiled membership closure vs a 256-slot focus over dir-sim → `.claude/plans/d-rmap-dir-1-membership-closure-focus-v1.md`
 
 **Status:** D-RMAP-DIR-1 MEASURED, lab only (`crates/dir-rmap-probe`); D-RMAP-DIR-2 PROPOSED, not authorized. Sharing compiled closure rows across users (B+) is where the acceleration comes from (thousands of times over dir-sim's per-call scan); a 256-slot focus (F) adds at most 2× and only for small foci reused about 1,000 times. Entry `2026-10-20-d-rmap-dir-1-membership-closure-focus.md`.
