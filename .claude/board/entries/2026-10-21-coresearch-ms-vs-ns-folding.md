@@ -98,4 +98,4 @@ Verdicts combine three reviewers on the crosswalk: a bridge architect, a firewal
 
 The ADOPT-NOW set, X1+X2+X3, X4 and X9, plus probe X6, form one coherent design: **a demand-typed terminal** with a plane oracle, in which tuples are built only for Rows. The operator chooses whether this goes to `/5plus3`.
 
-PR #pending | STATUS: open | OUTCOME: milliseconds attributed per path; folding is missing at the terminal, not the core loop | OPEN: which ideas to take forward; join-key witness type; X8/X11 under the open slot-binding ruling
+PR #1657 | STATUS: open | OUTCOME: milliseconds attributed per path; folding is missing at the terminal, not the core loop | OPEN: which ideas to take forward; join-key witness type; X8/X11 under the open slot-binding ruling
