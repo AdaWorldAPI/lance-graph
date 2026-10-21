@@ -562,7 +562,7 @@ mod tests {
 
     /// FAILS IF: tables prepared for one plan are run with another plan of
     /// the same shape (same rule count, same generations), or with a plan
-    /// missing a star.
+    /// holding one star more or one fewer.
     #[test]
     fn tables_prepared_for_another_plan_are_refused() {
         let kind = ResultKind::Exists;
@@ -582,6 +582,14 @@ mod tests {
         assert!(execute_shared(&p1, &shared, kind, &gens, true).is_ok());
         assert_eq!(
             execute_shared(&p2, &shared, kind, &gens, true).err(),
+            Some(CseRefusal::NoCoordinateWitness)
+        );
+        // A star no group covers.
+        let mut long = p1.clone();
+        long.stars.push(long.stars[0].clone());
+        long.optimized.rules.push(long.optimized.rules[0].clone());
+        assert_eq!(
+            execute_shared(&long, &shared, kind, &gens, true).err(),
             Some(CseRefusal::NoCoordinateWitness)
         );
         let mut short = p1.clone();
