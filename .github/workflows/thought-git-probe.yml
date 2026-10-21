@@ -1,0 +1,39 @@
+name: Thought-git probe
+# `crates/thought-git-probe` (D-TGB-0/1/4) is excluded from the workspace and
+# has its own [workspace], so no workspace job builds it. It path-deps only
+# lance-graph-contract, which has no dependencies, so no sibling checkout is
+# needed.
+on:
+  pull_request:
+    paths:
+      - 'crates/thought-git-probe/**'
+      - 'crates/lance-graph-contract/**'
+      - '.github/workflows/thought-git-probe.yml'
+      - 'rust-toolchain.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/thought-git-probe/**'
+      - 'crates/lance-graph-contract/**'
+      - '.github/workflows/thought-git-probe.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: crates/thought-git-probe
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
