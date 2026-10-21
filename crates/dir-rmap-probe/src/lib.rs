@@ -14,11 +14,13 @@
 //! | B  | [`prep::Prepared`] | bidirectional membership CSR + nesting CSR |
 //! | B+ | [`prep::Compiled`] | B + closure rows per group and chain + roles by ordinal |
 //! | F  | [`focus`] | B+ projected onto a 256-slot focus of selected groups |
+//! | Q  | [`qr`] | DR256 register: the security chain bound to 256 slots; nesting closed inside the tile; users x groups as a bit matrix |
 
 pub mod fixture;
 pub mod focus;
 pub mod oracle;
 pub mod prep;
+pub mod qr;
 
 use fixture::{Fixture, Kind};
 use lance_graph_dir_sim::{GroupProperty, GroupWhere, View};
