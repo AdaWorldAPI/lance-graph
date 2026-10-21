@@ -1,6 +1,6 @@
 # 2026-10-21 — D-CMR-2: the contract set algebra lowered onto mask-risc
 
-**Status:** TEST-PINNED (in PR, branch `claude/eager-albattani-iufugq`). **Basis:** plan `d-cmr-concept-chain-normalization-v1.md` §3.4 and the D-CMR-2 row; ADMISSION B (`2026-10-20-six-decisions.md` §1) for the seeks.
+**Status:** TEST-PINNED, merged in #1650 (`f031089`); Codex review completed with no findings. **Basis:** plan `d-cmr-concept-chain-normalization-v1.md` §3.4 and the D-CMR-2 row; ADMISSION B (`2026-10-20-six-decisions.md` §1) for the seeks.
 
 - **Where:** `crates/lance-graph/src/fold/set_lower.rs` (`lance_graph::fold::set_lower`). Core already depends on the contract and mask-risc unconditionally; no new dependency.
 - **Split:** `SetPlan::new(&SetExpr, n_rows, Option<&SortedBasis>)` normalizes, then takes `Runs` from comparisons on the attested sorted lane (an exact basis-only expression, or the basis conjuncts of a top-level `And`) and leaves the rest as the residual. Mixed `Or`s stay residual and spend no seeks.
