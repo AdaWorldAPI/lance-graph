@@ -16,8 +16,8 @@ use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, MAX, MIN, SUM};
 
 use crate::{
-    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_SUB, INT_S_LESS, INT_XOR, LOAD,
-    POP_COUNT,
+    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_OR, INT_SUB, INT_S_LESS, INT_XOR,
+    LOAD, POP_COUNT,
 };
 
 /// A selection that a procedure re-emits once per fold (see [`margin`]).
@@ -143,15 +143,12 @@ pub fn differ(
     exists(d, stack)
 }
 
-/// How many rows the conjunction of the resident planes `planes` holds.
-/// Pushes the count. An empty list is refused as
-/// [`FoldError::Underflow`] at the `PopCount`.
+/// Push the conjunction of the resident planes `planes` as a mask. An
+/// empty list pushes nothing; the next fold then refuses with
+/// [`FoldError::Underflow`].
 ///
-/// This is the count of a composed path: with planes `[member, valid,
-/// carriers]` it is the number of join keys present on both sides.
-///
-/// Calls: `LOAD`, then per further plane `LOAD`, `IntAnd`; then `PopCount`.
-pub fn count_and(
+/// Calls: `LOAD`, then per further plane `LOAD`, `IntAnd`.
+pub fn intersect(
     d: &mut FoldDialect<'_>,
     stack: &mut Vec<Val>,
     planes: &[u16],
@@ -162,6 +159,48 @@ pub fn count_and(
             call(d, INT_AND, [0; 3], stack)?;
         }
     }
+    Ok(())
+}
+
+/// Push the union of the resident planes `planes` as a mask, as
+/// [`intersect`] with `IntOr`.
+///
+/// Calls: `LOAD`, then per further plane `LOAD`, `IntOr`.
+pub fn union(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    planes: &[u16],
+) -> Result<(), FoldError> {
+    for (k, &p) in planes.iter().enumerate() {
+        load(d, stack, SPACE_PLANE, p)?;
+        if k > 0 {
+            call(d, INT_OR, [0; 3], stack)?;
+        }
+    }
+    Ok(())
+}
+
+/// Write the mask on top of the stack into the dialect's `KEEP` sink.
+/// Pushes nothing.
+///
+/// Calls: `KEEP`.
+pub fn keep(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+    call(d, KEEP, [0; 3], stack)
+}
+
+/// How many rows the conjunction of the resident planes `planes` holds.
+/// Pushes the count.
+///
+/// This is the count of a composed path: with planes `[member, valid,
+/// carriers]` it is the number of join keys present on both sides.
+///
+/// Calls: [`intersect`], then `PopCount`.
+pub fn count_and(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    planes: &[u16],
+) -> Result<(), FoldError> {
+    intersect(d, stack, planes)?;
     count(d, stack)
 }
 

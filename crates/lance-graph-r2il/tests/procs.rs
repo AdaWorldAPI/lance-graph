@@ -6,8 +6,8 @@
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
 use lance_graph_r2il::procs::{
-    all, and_cmp_i32, count, count_and, differ, exists, filter_lt, group_sum, margin, max, min,
-    select_lt, select_u32, sum, Order,
+    all, and_cmp_i32, count, count_and, differ, exists, filter_lt, group_sum, keep, margin, max,
+    min, select_lt, select_u32, sum, union, Order,
 };
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, INT_XOR, POP_COUNT,
@@ -636,4 +636,44 @@ fn int_xor_on_scalars_is_exclusive_or() {
     let mut stack = vec![Val::Scalar(0b1100), Val::Scalar(0b1010)];
     d.call(INT_XOR, [0; 3], &mut stack).expect("xor");
     assert_eq!(stack, vec![Val::Scalar(0b0110)]);
+}
+
+/// FAILS IF: `union` stops writing the union of its planes through `keep`,
+/// in either mode. Reference: the word-wise OR; equality by `differ`, not by
+/// decoding rows. Each added plane must add rows.
+#[test]
+fn union_keeps_the_union_in_both_modes() {
+    let a = plane(|r| r % 5 == 0);
+    let b = plane(|r| r % 7 == 0);
+    let c = plane(|r| r % 11 == 0);
+    let want: Vec<u64> = (0..words_for(N)).map(|w| a[w] | b[w] | c[w]).collect();
+    let partial: Vec<u64> = (0..words_for(N)).map(|w| a[w] | b[w]).collect();
+    for mode in [BoolMode::InPlace, BoolMode::Fused] {
+        let mut sink = vec![0u64; words_for(N)];
+        {
+            let masks = [a.as_slice(), b.as_slice(), c.as_slice()];
+            let planes = Planes {
+                n_rows: N,
+                masks: &masks,
+                lanes: &[],
+            };
+            let mut d = FoldDialect::with_keep(&planes, &Foreign::NONE, &mut sink).with_mode(mode);
+            let mut stack = vec![];
+            union(&mut d, &mut stack, &[0, 1, 2]).expect("union");
+            keep(&mut d, &mut stack).expect("keep");
+            assert!(stack.is_empty());
+        }
+        let masks = [sink.as_slice(), want.as_slice(), partial.as_slice()];
+        let planes = Planes {
+            n_rows: N,
+            masks: &masks,
+            lanes: &[],
+        };
+        for (other, expect) in [(1u16, 0i64), (2, 1)] {
+            let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+            let mut stack = vec![];
+            differ(&mut d, &mut stack, 0, other).expect("differ");
+            assert_eq!(top(&stack), expect, "{mode:?} vs plane {other}");
+        }
+    }
 }

@@ -69,7 +69,7 @@
 //! # Procedures
 //!
 //! [`procs`] holds named call sequences (`filter_lt`, `select_u32`, `count`,
-//! `exists`, `all`, `differ`, `count_and`,
+//! `exists`, `all`, `differ`, `intersect`, `union`, `keep`, `count_and`,
 //! `sum`, `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
