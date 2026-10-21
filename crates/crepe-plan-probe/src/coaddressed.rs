@@ -67,7 +67,7 @@ pub struct CoSide {
 impl CoSide {
     pub fn new(side: Side) -> CoSide {
         let off = side.offsets();
-        let mut slot = Vec::with_capacity(side.values().len());
+        let mut slot = Vec::with_capacity(side.positions().len());
         for s in 0..off.len() - 1 {
             for _ in off[s]..off[s + 1] {
                 slot.push(s as u32);
@@ -77,7 +77,7 @@ impl CoSide {
     }
 
     pub fn n_rows(&self) -> usize {
-        self.side.values().len()
+        self.side.positions().len()
     }
 
     /// Rows of this side at slot `s`, as a row range.
@@ -112,14 +112,11 @@ pub fn layout_key(key: SideKey) -> SideKey {
 
 impl CoTable {
     /// Lays out every side of `plan` from all its rows, ignoring restrictions.
-    pub fn prepare(plan: &StarPlan, store: &Store<'_>) -> CoTable {
-        let inputs: Vec<(RelationView<'_>, usize)> = plan
+    pub fn prepare(plan: &StarPlan, store: &Store) -> CoTable {
+        let inputs: Vec<(&RelationView, usize)> = plan
             .sides
             .iter()
-            .map(|s| {
-                let (rows, generation) = store.view(s.key.rel);
-                (RelationView { rows, generation }, s.key.key_col as usize)
-            })
+            .map(|s| (store.view(s.key.rel), s.key.key_col as usize))
             .collect();
         let table = JoinTable::prepare_star(&inputs);
         CoTable {
@@ -331,9 +328,13 @@ fn select(
     let mut counts = vec![0i64; n];
     let mut plane = vec![0u64; words_for(n)];
     if rel != Rel::Empty && rows_n > 0 {
-        let lanes = [LaneRef::U32(s.side.values())];
+        // The restriction runs over the relation's lane in place, in row
+        // order; side row `j` then reads its bit at `positions()[j]`.
+        let lane = s.side.lane();
+        let mut lane_rows = vec![0u64; words_for(lane.len())];
+        let lanes = [LaneRef::U32(lane)];
         let view = Planes {
-            n_rows: rows_n,
+            n_rows: lane.len(),
             masks: &[],
             lanes: &lanes,
         };
@@ -343,10 +344,14 @@ fn select(
                 measure: Measure::Keep,
             },
             &view,
-            Some(&mut rows),
+            Some(&mut lane_rows),
         )
         .map_err(CoRefusal::Relalg)?;
         add_run(cost, run, program, programs);
+        for (j, &p) in s.side.positions().iter().enumerate() {
+            let p = p as usize;
+            rows[j >> 6] |= (lane_rows[p >> 6] >> (p & 63) & 1) << (j & 63);
+        }
         project(s, &rows, &mut counts, cost, programs)?;
         cost.sides_filtered += 1;
         cost.side_rows_read += rows_n;
@@ -425,7 +430,7 @@ impl CoEval {
         };
         side.run(s).filter_map(move |j| {
             let keep = rows.is_none_or(|m| m[j >> 6] >> (j & 63) & 1 == 1);
-            keep.then(|| side.side.values()[j])
+            keep.then(|| side.side.lane()[side.side.positions()[j] as usize])
         })
     }
 
@@ -563,10 +568,8 @@ mod tests {
                 t: rows(0x2545_F491, 400, 40),
             }
         }
-        fn store(&self) -> Store<'_> {
-            Store {
-                relations: vec![(R, &self.r, 1), (S, &self.s, 2), (T, &self.t, 3)],
-            }
+        fn store(&self) -> Store {
+            Store::from_rows([(R, &self.r, 1), (S, &self.s, 2), (T, &self.t, 3)])
         }
     }
 
