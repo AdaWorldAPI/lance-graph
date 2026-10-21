@@ -56,3 +56,16 @@ fn factoring_different_tails_is_rejected() {
     let v = equivalent(&lhs, &rhs(Q, b()), &atoms()).unwrap();
     assert!(!v.holds());
 }
+
+/// Normalization (paper §5.2): an action into a state that can never accept
+/// is a rejection. `p · 0` and `0` both have no guarded strings, and so do
+/// `if b then (p · 0) else q` and `if b then 0 else q`'s `b` branch.
+#[test]
+fn a_step_into_a_dead_state_is_a_rejection() {
+    let dead = Exp::Do(P).seq(Exp::Fail);
+    assert!(equivalent(&dead, &Exp::Fail, &atoms()).unwrap().holds());
+    let l = Exp::if_(b(), dead, Exp::Do(Q));
+    let r = Exp::if_(b(), Exp::Fail, Exp::Do(Q));
+    assert!(equivalent(&l, &r, &atoms()).unwrap().holds());
+    assert!(same_up_to(&l, &r, &atoms(), 3));
+}
