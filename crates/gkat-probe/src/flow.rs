@@ -24,16 +24,17 @@
 //! ## Guards and projections
 //!
 //! An observable is declared as Boolean or as three-valued (K3: T, F, U). A
-//! K3 observable is encoded the way Quack's `Filter::sql_where` carries a
-//! three-valued verdict (`crates/lance-graph-quack/src/lib.rs`): two
-//! primitive tests, `T` (it is TRUE) and `F` (it is FALSE). The atom set
-//! excludes `T ∧ F`, so the observable has exactly three values. UNKNOWN is
-//! the atom with neither bit: presence is `T ∨ F`, as a column's validity
-//! plane is in Quack, and there is no separate UNKNOWN bit. A K3 observable
-//! reaches a Boolean guard only through a declared projection:
+//! K3 observable is a Quack nullable column (`crates/lance-graph-quack`,
+//! `Filter::sql_where`): a **value** bit and a **presence** (validity) bit,
+//! and nothing else. A cleared presence bit is NULL; the atom set excludes a
+//! set value without presence, so a NULL's value is deterministically 0. The
+//! three atoms are `value 1, valid 1` = TRUE, `value 0, valid 1` = FALSE and
+//! `value 0, valid 0` = NULL (UNKNOWN). A K3 observable reaches a Boolean
+//! guard only through a declared projection:
 //!
-//! * [`Cond::Where`]: designated `{T}`, i.e. `T` — what Quack's `WHERE` keeps;
-//! * [`Cond::Check`]: designated `{T, U}`, i.e. `¬F`.
+//! * [`Cond::Where`]: designated `{T}`, i.e. `value` — what Quack's `WHERE`
+//!   keeps, since a set value implies presence;
+//! * [`Cond::Check`]: designated `{T, U}`, i.e. `value ∨ ¬valid`.
 //!
 //! A Boolean observable is read with [`Cond::Is`]. Using a K3 projection on a
 //! Boolean observable, or `Is` on a K3 one, is refused.
@@ -117,8 +118,8 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// The first primitive test of an observable: `T` for K3 (followed by
-    /// `F`), or the only test of a Boolean.
+    /// The first primitive test of an observable: the value bit for K3
+    /// (followed by its presence bit), or the only test of a Boolean.
     fn tests_of(&self, name: &'static str) -> Result<(Kind, u8), Refusal> {
         let mut next = 0u8;
         for (n, k) in &self.observables {
@@ -154,15 +155,18 @@ impl Signature {
                 max: crate::expr::MAX_TESTS,
             });
         }
-        // Each K3 observable excludes the assignment T ∧ F.
+        // Each K3 observable excludes a set value without presence: NULL is 0.
         let mut constraint = BExp::True;
         let mut next = 0u8;
         for (_, k) in &self.observables {
             match k {
                 Kind::Bool => next += 1,
                 Kind::K3 => {
-                    constraint =
-                        constraint.and(BExp::Test(next).and(BExp::Test(next + 1)).negated());
+                    constraint = constraint.and(
+                        BExp::Test(next)
+                            .and(BExp::Test(next + 1).negated())
+                            .negated(),
+                    );
                     next += 2;
                 }
             }
@@ -192,7 +196,7 @@ impl Signature {
                 }
             },
             Cond::Check(n) => match self.tests_of(n)? {
-                (Kind::K3, t) => BExp::Test(t + 1).negated(),
+                (Kind::K3, t) => BExp::Test(t).or(BExp::Test(t + 1).negated()),
                 (Kind::Bool, _) => {
                     return Err(Refusal::UndeclaredProjection {
                         observable: n,

@@ -107,9 +107,9 @@ fn the_check_counterexample_has_an_unknown() {
     let auth = rubicon::authorized().unwrap();
     match commit_safe(&e, &atoms, REQUEST_COMMIT, &auth).unwrap() {
         gkat_probe::Safety::Unsafe { atom, .. } => {
-            // rev is tests 0 (T) and 1 (F); mul is tests 2 and 3. UNKNOWN is
-            // neither bit.
-            let unknown = |t: u8| !atom.holds(t) && !atom.holds(t + 1);
+            // rev is tests 0 (value) and 1 (presence); mul is tests 2 and 3.
+            // UNKNOWN is a cleared presence bit.
+            let unknown = |t: u8| !atom.holds(t + 1);
             assert!(unknown(0) || unknown(2), "{atom:?}");
         }
         gkat_probe::Safety::Safe => panic!("expected unsafe"),
@@ -150,27 +150,28 @@ fn undeclared_projections_are_refused() {
     ));
 }
 
-/// A K3 observable is encoded like Quack's `Filter::sql_where` verdict: two
-/// tests, `T` (the rows where it is TRUE) and `F` (where it is FALSE), never
-/// both. UNKNOWN is neither, so presence is `T ∨ F` and there is no separate
-/// UNKNOWN bit. WHERE keeps `T`; CHECK keeps `¬F`.
+/// A K3 observable is a Quack nullable column: a value bit and a presence
+/// (validity) bit, and nothing else. A cleared presence bit forces the value
+/// to 0, so `value 0, valid 0` is NULL (UNKNOWN), `value 0, valid 1` is FALSE
+/// and `value 1, valid 1` is TRUE. WHERE keeps TRUE; CHECK rejects only FALSE.
 #[test]
-fn a_k3_observable_is_quacks_t_f_pair() {
+fn a_k3_observable_is_a_value_bit_and_a_presence_bit() {
     use gkat_probe::Atom;
     use gkat_probe::flow::Cond;
     let sig = rubicon::signature();
     let atoms = sig.atoms().unwrap();
-    // rev occupies tests 0 (T) and 1 (F).
-    assert!(atoms.iter().all(|a| !(a.holds(0) && a.holds(1))));
+    // rev occupies tests 0 (value) and 1 (presence): no value without presence.
+    assert!(atoms.iter().all(|a| !a.holds(0) || a.holds(1)));
+    assert!(atoms.iter().any(|a| !a.holds(1)), "NULL must be an atom");
     let r#where = sig.guard(&Cond::Where(rubicon::REV)).unwrap();
     let check = sig.guard(&Cond::Check(rubicon::REV)).unwrap();
-    let (t, f, u) = (Atom(0b01), Atom(0b10), Atom(0b00));
+    let (t, f, null) = (Atom(0b11), Atom(0b10), Atom(0b00));
     assert_eq!(
-        (r#where.eval(t), r#where.eval(f), r#where.eval(u)),
+        (r#where.eval(t), r#where.eval(f), r#where.eval(null)),
         (true, false, false)
     );
     assert_eq!(
-        (check.eval(t), check.eval(f), check.eval(u)),
+        (check.eval(t), check.eval(f), check.eval(null)),
         (true, false, true)
     );
 }
