@@ -196,12 +196,17 @@ fn bind(
     scope: Option<&[i32]>,
     max_pages: usize,
 ) -> Result<Bound, Refuse> {
-    let mut codebook: Vec<i32> = match scope {
-        Some(s) => s.to_vec(),
-        None => e.iter().flat_map(|&(a, b, _)| [a, b]).collect(),
-    };
+    // The nodes are the edge endpoints (`Node(x) <- Edge(x, _, _)`, and the
+    // other end). A scope can only narrow them: an id that is in the scope but
+    // in no edge is not a node and gets no slot.
+    let mut codebook: Vec<i32> = e.iter().flat_map(|&(a, b, _)| [a, b]).collect();
     codebook.sort_unstable();
     codebook.dedup();
+    if let Some(s) = scope {
+        let mut s = s.to_vec();
+        s.sort_unstable();
+        codebook.retain(|id| s.binary_search(id).is_ok());
+    }
     assert!(
         codebook.first().is_none_or(|&f| f >= 0),
         "ids must be non-negative"
@@ -1114,6 +1119,20 @@ mod tests {
             recurse(&b, &p, &b.witness, &mut Kernel::new()).err(),
             Some(Refuse::Rmap(Refusal::IncompleteFocus))
         );
+    }
+
+    #[test]
+    fn a_scope_id_in_no_edge_is_not_a_node() {
+        // The scope covers every endpoint and adds 900, which no edge names.
+        let e: Vec<Edge> = vec![(0, 1, 1), (1, 2, 2), (2, 0, 3)];
+        let scope = [0, 1, 2, 900];
+        let b = bind(&e, attest(&e), 1, Some(&scope), usize::MAX).expect("binds");
+        assert_eq!(b.nodes(), 3);
+        let p = project(&b, &e);
+        let r = recurse(&b, &p, &b.witness, &mut Kernel::new()).expect("answers");
+        let (t, _) = tuples(&b, &r);
+        agree(&t, &ascent_tuples(&e)).unwrap_or_else(|d| panic!("{d}"));
+        assert!(!t.walk.iter().any(|w| w.0 == 900 || w.1 == 900));
     }
 
     #[test]
