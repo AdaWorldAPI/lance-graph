@@ -39,6 +39,14 @@ fn call(
     d.call(f, v, stack)
 }
 
+/// [`FoldDialect::call_owned`]: for a chain whose intermediate result this
+/// procedure created and consumes exactly once, so its slot can be reused.
+/// Only the chains inside one procedure use it; a value handed in on the
+/// caller's stack goes through [`call`].
+fn call_chain(d: &mut FoldDialect<'_>, f: FnIndex, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+    d.call_owned(f, [0; 3], stack)
+}
+
 /// Push the address of lane `idx` in `space`.
 fn load(
     d: &mut FoldDialect<'_>,
@@ -156,7 +164,7 @@ pub fn intersect(
     for (k, &p) in planes.iter().enumerate() {
         load(d, stack, SPACE_PLANE, p)?;
         if k > 0 {
-            call(d, INT_AND, [0; 3], stack)?;
+            call_chain(d, INT_AND, stack)?;
         }
     }
     Ok(())
@@ -174,7 +182,7 @@ pub fn union(
     for (k, &p) in planes.iter().enumerate() {
         load(d, stack, SPACE_PLANE, p)?;
         if k > 0 {
-            call(d, INT_OR, [0; 3], stack)?;
+            call_chain(d, INT_OR, stack)?;
         }
     }
     Ok(())
@@ -385,7 +393,7 @@ pub fn in_u32(
         stack.push(Val::Scalar(i64::from(v)));
         call(d, INT_EQUAL, [0; 3], stack)?;
         if k > 0 {
-            call(d, INT_OR, [0; 3], stack)?;
+            call_chain(d, INT_OR, stack)?;
         }
     }
     Ok(())

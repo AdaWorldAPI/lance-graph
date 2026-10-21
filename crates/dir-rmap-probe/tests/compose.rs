@@ -138,6 +138,61 @@ fn stale_binding_is_refused() {
     );
 }
 
+/// FAILS IF: a page resolved before an edit is accepted when it is paired
+/// with a register bound after the edit. The page carries the witness it was
+/// resolved against, so `Members` cannot borrow the new register's witness
+/// for old rows.
+#[test]
+fn page_from_an_earlier_binding_is_refused() {
+    let (mut w, _qr_old, page_old) = rig(diamond(vec![(0, 0), (0, 1)]));
+    w.apply(&[Edit::AddDirect(0, 2)]);
+    let b = w.prepare();
+    let qr = Qr::bind(&b, &w.witness()).expect("fits 256 slots");
+    let c = Carriers::of(&qr);
+    let fresh = qr.page(&b, 0).expect("page 0");
+    assert!(
+        compose(&Members::of(&qr, &fresh, 1), &c, &w.witness(), Law::Count).is_ok(),
+        "anti-vacuity: a page resolved against this register composes"
+    );
+    assert_eq!(
+        compose(
+            &Members::of(&qr, &page_old, 1),
+            &c,
+            &w.witness(),
+            Law::Count
+        )
+        .err(),
+        Some(ComposeError::SealMismatch)
+    );
+}
+
+/// FAILS IF: a user with more present direct groups than r2il has scratch
+/// slots makes the support union panic, or the union loses a role. User in
+/// 12 security groups, group `g` grants role `g`.
+#[test]
+fn wide_support_union_composes() {
+    const G: u32 = 12;
+    let mut f = diamond((0..G).map(|g| (0, g)).collect());
+    f.groups = (0..G).map(|g| Guid128([0x20 + g as u8; 16])).collect();
+    f.kind = vec![Kind::Role; G as usize];
+    f.mail = vec![false; G as usize];
+    f.security = vec![Some(true); G as usize];
+    f.nested = vec![];
+    f.grants = (0..G).map(|g| (g, g as u8)).collect();
+    f.roles = (0..G).collect();
+    let (w, qr, page) = rig(f);
+    let out = compose(
+        &Members::of(&qr, &page, 1),
+        &Carriers::of(&qr),
+        &w.witness(),
+        Law::Count,
+    )
+    .expect("composes");
+    assert_eq!(out.left_fan, u64::from(G));
+    assert_eq!(out.support[0], (1u64 << G) - 1);
+    assert_eq!((out.bag, out.distinct), (u64::from(G), u64::from(G)));
+}
+
 /// FAILS IF: the bag sum wraps instead of refusing, or refuses one short of
 /// the boundary.
 #[test]

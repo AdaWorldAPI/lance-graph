@@ -77,6 +77,9 @@ pub struct Page {
     pub roles: [u64; SLOTS],
     /// Ordinal -> slot lookups done while resolving this page.
     pub translations: usize,
+    /// The register version this page was resolved against. A page carries
+    /// it so it can never answer beside a register bound to another version.
+    pub witness: Witness,
 }
 
 impl Qr {
@@ -192,6 +195,7 @@ impl Qr {
             member,
             roles,
             translations,
+            witness: self.witness.clone(),
         })
     }
 

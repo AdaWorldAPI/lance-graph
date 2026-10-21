@@ -681,6 +681,56 @@ fn union_keeps_the_union_in_both_modes() {
     }
 }
 
+/// FAILS IF: a union or intersection over more planes than the dialect has
+/// scratch slots (`MAX_SLOTS`) refuses instead of folding in
+/// `BoolMode::InPlace`. The chain consumes each intermediate once, so it
+/// reuses slots; a chain that allocated a fresh slot per `IntOr` needs
+/// `k - 1` and breaks at 9.
+///
+/// `BoolMode::Fused` is pinned as a refusal, not a panic: mask-risc's `fuse`
+/// gives every ternlog group its own slot, so a 24-leaf chain overflows the
+/// arena. That is the reference algebra's limit, recorded as open.
+#[test]
+fn wide_union_and_intersect_fit_the_scratch_arena() {
+    const K: usize = 3 * lance_graph_r2il::MAX_SLOTS;
+    let owned: Vec<Vec<u64>> = (0..K).map(|k| plane(|r| r % (k + 2) != 0)).collect();
+    let masks: Vec<&[u64]> = owned.iter().map(Vec::as_slice).collect();
+    let ix: Vec<u16> = (0..K as u16).collect();
+    let words = words_for(N);
+    let want_or: i64 = (0..words)
+        .map(|w| masks.iter().fold(0u64, |a, m| a | m[w]).count_ones() as i64)
+        .sum();
+    let want_and: i64 = (0..words)
+        .map(|w| masks.iter().fold(u64::MAX, |a, m| a & m[w]).count_ones() as i64)
+        .sum();
+    assert!(
+        want_and > 0 && want_or > want_and,
+        "anti-vacuity: {want_and} {want_or}"
+    );
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = vec![];
+    union(&mut d, &mut stack, &ix).expect("wide union");
+    count(&mut d, &mut stack).expect("count over the union");
+    assert_eq!(top(&stack), want_or, "union");
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = vec![];
+    count_and(&mut d, &mut stack, &ix).expect("wide intersect");
+    assert_eq!(top(&stack), want_and, "intersect");
+
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE).with_mode(BoolMode::Fused);
+    let mut stack = vec![];
+    union(&mut d, &mut stack, &ix).expect("fused union builds");
+    assert!(
+        matches!(count(&mut d, &mut stack), Err(FoldError::Exec(_))),
+        "fused wide chain: refused, not folded and not a panic"
+    );
+}
+
 // ── PostgreSQL primitives ────────────────────────────────────────────────
 //
 // Fixture: `x` (I32, `i % 50`) is NULL on every 9th row (presence plane

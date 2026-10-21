@@ -104,10 +104,15 @@ pub struct Members<'a> {
 impl<'a> Members<'a> {
     /// The page's rows with every key present (`valid == member`): 8 KiB of
     /// presence plane is the only thing copied.
-    pub fn of(qr: &'a Qr, page: &'a Page, users: usize) -> Self {
+    ///
+    /// The witness is the page's own, never the register's: a page resolved
+    /// against another register version then fails `compose`'s seal check
+    /// instead of being read through a different slot mapping. `qr` only
+    /// fixes the lifetime the rows are tied to.
+    pub fn of(_qr: &'a Qr, page: &'a Page, users: usize) -> Self {
         assert!(users <= SLOTS, "a page holds at most {SLOTS} users");
         Members {
-            witness: &qr.witness,
+            witness: &page.witness,
             users,
             member: &page.member,
             valid: page.member,
