@@ -432,6 +432,47 @@ mod tests {
         }
     }
 
+    /// FAILS IF: a demand that propagation does not push into the rules is
+    /// not applied to the shared path's answers (the post filter), or one
+    /// it does push changes them.
+    #[test]
+    fn a_bound_demand_filters_the_shared_answers() {
+        let w = workload(RULES, RULES / 2, CENTERS, ROWS);
+        let bag = ResultKind::Bindings(Semantics::Bag);
+        let x = w.cores[0].0[0][0];
+        for (bound, propagate) in [
+            (vec![None, Some(u64::from(x)), None], false),
+            (vec![None, Some(u64::from(x)), None], true),
+            (vec![Some(3), None, None], false),
+        ] {
+            let opts = Options { propagate, ..OPTS };
+            let d = demand(w.out_rel(), bound.clone());
+            let (a, _) = evaluate(&w.rules, &d, bag, opts, &w.store()).expect("A");
+            let Outcome::Bindings(ab) = &a else {
+                panic!("bindings")
+            };
+            assert!(!ab.is_empty(), "demand {bound:?} selects nothing");
+            let store = w.store();
+            let rows = |r: Rid| -> Vec<Vec<u64>> {
+                store
+                    .view(r)
+                    .0
+                    .iter()
+                    .map(|p| p.iter().map(|&v| u64::from(v)).collect())
+                    .collect()
+            };
+            let want: Vec<(Vec<u64>, u64)> = eval(&w.rules, w.out_rel(), &bound, &rows)
+                .into_iter()
+                .collect();
+            assert_eq!(*ab, want, "A vs reference, {bound:?}");
+            for sharing in [false, true] {
+                let (dd, _) =
+                    evaluate_shared(&w.rules, &d, bag, opts, &w.store(), sharing).expect("D");
+                assert_eq!(dd, a, "sharing={sharing}, {bound:?}, propagate={propagate}");
+            }
+        }
+    }
+
     /// FAILS IF: a shared core is not lifted, is read once per rule anyway,
     /// or the shared table lays the core out once per rule.
     #[test]
