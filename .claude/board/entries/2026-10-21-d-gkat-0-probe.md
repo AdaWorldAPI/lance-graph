@@ -26,10 +26,13 @@
 | choice without a condition | `Refusal::UnguardedChoice` |
 
 **K3 guards.**
-- A K3 observable is a Quack nullable column: a value bit and a presence (validity) bit, nothing else. A cleared presence bit is NULL and forces the value to 0 (the atom set excludes a value without presence), which leaves exactly three values: TRUE `(1,1)`, FALSE `(0,1)`, NULL `(0,0)`. (#1676 used `is_t`/`is_u`, an UNKNOWN bit Quack does not have; #1679 replaced it.)
+- A K3 observable is a leaf over a nullable column, and it occupies two tests: `leaf` and `valid`.
+  - The leaf is the Boolean read off the stored value: the bit itself for a `BOOLEAN` column, a comparison such as `rev = 5` for a numeric one.
+  - Under `valid = 0` the payload is arbitrary (Quack `Filter::sql_where`; PostgreSQL stores none). There is no constraint between the two tests, so NULL is two atoms.
+  - History: #1676 used `is_t`/`is_u`, an UNKNOWN bit Quack does not have. #1679 first replaced it with a value bit forced to 0 under NULL; that assumption is also false, and it was dropped.
 - A K3 guard reaches a Boolean test only through a declared projection:
-  - `Where` = `{T}` = `value`
-  - `Check` = `{T,U}` = `value ∨ ¬valid`
+  - `Where` = `{T}` = `valid ∧ leaf`
+  - `Check` = `{T,U}` = `¬valid ∨ leaf`; neither reads the leaf under a NULL
   - `Is` applies to Boolean observables only.
 - Any other pairing of projection and observable is refused.
 
@@ -47,7 +50,7 @@
 - **Oracle** (`oracle.rs`): an independent operational interpreter of the expression AST that shares no code with the automaton. It explores every run exhaustively up to a stated action bound.
   Divergence is detected exactly, by a repeated continuation stack at a loop head, not by a step budget. The first version used a fixed budget, which Codex showed misclassifies a terminating run of 2^14 silent steps.
 
-## Measured (`cargo test`, 28 tests)
+## Measured (`cargo test`, 29 tests)
 
 - **G1.** `if b then {p;q} else {q}` ≡ `(if b then {p} else {skip}); q`. The oracle agrees at bounds 0–4. A changed action label is rejected, a reversed guard is rejected, and a different tail is rejected. `p·0 ≡ 0` (normalization).
 - **G2.** Rejections:
@@ -57,11 +60,11 @@
 
   So does the union of `skip` and `p`: on one atom it may either accept or act. The admitted Rubicon flows are deterministic.
 - **G5.**
-  - For `k ≤ 8` tests: `2^k` atoms exactly. For `n ≤ 4` K3 observables: `3^n` atoms exactly.
+  - For `k ≤ 8` tests: `2^k` atoms exactly. For `n ≤ 4` K3 observables: `4^n` atoms exactly (three values each).
   - `k = 9` is refused (`AtomBound`). A DR64-shaped signature (64 Boolean lanes) is refused, as is one with 5 K3 observables (10 tests).
   - On a chain of `k` guards, the automaton has `2k` states while the atom count is `2^k`. Measured (k, atoms, states, merged pairs): (1,2,2,3) … (8,256,16,17).
   - Counts only, no timings (the workspace's no-ms rule).
-- **Rubicon** (11 tests, 36 atoms).
+- **Rubicon** (12 tests, 64 atoms).
   - The reference flow has the decision tail written out twice; the optimized flow factors it out (G1) and reorders the decision. The two are **equivalent**, and both are **safe**.
   - Disable runs on the flows:
     - reversed authorization polarity → equivalence fails;
@@ -85,7 +88,8 @@
   - atom bound raised to 64;
   - uniform sequence continuation not patched;
   - signature mismatch not refused;
-  - K3 exclusion dropped.
+  - K3 `Where` ungated (only the payload test catches it: flow and authorization share the lowering);
+  - K3 `Check` lowered as the leaf, `Where` as validity, `Check` as `Where`.
 
   The first normalization disable stayed green because no test compared a step into a dead state with a rejection. `a_step_into_a_dead_state_is_a_rejection` was added to close that gap.
 
