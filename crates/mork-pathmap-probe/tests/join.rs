@@ -1,7 +1,7 @@
 //! The versioned relationship table (`join`) against nested-loop oracles.
 
 use mork_pathmap_probe::join::{
-    JoinDomain, JoinExec, JoinRefusal, JoinTable, R_KEY, S_KEY, filter_plane, for_each_set,
+    JoinDomain, JoinExec, JoinRefusal, JoinTable, R_KEY, S_KEY, filter_plane, for_each_set, rows,
 };
 use mork_pathmap_probe::{JoinInput, RelationView, reference};
 
@@ -364,4 +364,20 @@ fn a_dense_domain_assigns_the_slots_a_sorted_list_does() {
     assert!(!sparse.is_dense());
     assert_eq!(sparse.slot_of(u32::MAX), Some(2));
     assert_eq!(sparse.slot_of(6), None);
+}
+
+/// FAILS IF: the kept-row iterator drops a set bit at a word edge or the last
+/// row, yields a bit past the relation's end, or `None` is not every row.
+#[test]
+fn kept_rows_are_exactly_the_set_bits_below_n() {
+    let n = 130;
+    let want = [0usize, 1, 63, 64, 127, 128, 129];
+    let mut m = vec![0u64; 3];
+    for &r in &want {
+        m[r >> 6] |= 1 << (r & 63);
+    }
+    m[2] |= 1 << 10; // row 138: past the end
+    assert_eq!(rows(n, Some(&m)).collect::<Vec<_>>(), want);
+    assert_eq!(rows(5, None).collect::<Vec<_>>(), [0, 1, 2, 3, 4]);
+    assert_eq!(rows(n, Some(&[0, 0, 0])).count(), 0);
 }
