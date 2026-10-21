@@ -190,6 +190,7 @@ pub mod scenario;
 pub mod scheduler;
 pub mod selection;
 pub mod sensorium;
+pub mod set_algebra;
 pub mod settlement;
 /// D-BLW-5 payload-law DTO (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`) —
 /// distribution shape × Prozentrang, never the raw statistic. See module docs.
