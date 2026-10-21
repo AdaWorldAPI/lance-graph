@@ -843,17 +843,22 @@ mod tests {
     fn each_delta_bit_is_expanded_once() {
         // Semi-naive: every Walk fact is new in exactly one iteration, so it
         // feeds at most one row OR per edge length and per source focus. A
-        // delta that kept old facts (naive evaluation) stays correct but
-        // breaks this bound on a deep chain.
-        let e = chain(230);
-        let r = check(&e);
-        let lens = e.iter().map(|x| x.2).collect::<BTreeSet<_>>().len() as u64;
-        let bound = r.tuples.walk.len() as u64 * lens * r.pages as u64;
-        assert!(
-            r.counters.row_ors <= bound,
-            "{} row ORs > {bound}",
-            r.counters.row_ors
-        );
+        // delta that kept re-derived facts (naive evaluation) stays correct
+        // but breaks this bound wherever facts have alternative derivations.
+        for e in [
+            cyclic(80),
+            dense(48, 10, 3),
+            random_graph(65, 2, 0x5EED_0001),
+        ] {
+            let r = check(&e);
+            let lens = e.iter().map(|x| x.2).collect::<BTreeSet<_>>().len() as u64;
+            let bound = r.tuples.walk.len() as u64 * lens * r.pages as u64;
+            assert!(
+                r.counters.row_ors <= bound,
+                "{} row ORs > {bound}",
+                r.counters.row_ors
+            );
+        }
     }
 
     #[test]
