@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-420 entries, 2026-08-06 .. 2026-10-21.
+421 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -37,6 +37,7 @@ exactly one of them, never both.
 | 2026-10-21 | `pg-classview-polyfill-map` |  | [2026-10-21-pg-classview-polyfill-map.md](2026-10-21-pg-classview-polyfill-map.md) |
 | 2026-10-21 | `eval-egglog-datafrog-ascent` |  | [2026-10-21-eval-egglog-datafrog-ascent.md](2026-10-21-eval-egglog-datafrog-ascent.md) |
 | 2026-10-21 | `dr256-iam-nested-groups` |  | [2026-10-21-dr256-iam-nested-groups.md](2026-10-21-dr256-iam-nested-groups.md) |
+| 2026-10-21 | `D-TGB-4` |  | [2026-10-21-d-tgb-4-receipt-replay.md](2026-10-21-d-tgb-4-receipt-replay.md) |
 | 2026-10-21 | `D-RU-6-LAB-1` |  | [2026-10-21-d-ru-6-tile-walk-probe.md](2026-10-21-d-ru-6-tile-walk-probe.md) |
 | 2026-10-21 | `D-RU-6-LAB-2` |  | [2026-10-21-d-ru-6-sparse-compute.md](2026-10-21-d-ru-6-sparse-compute.md) |
 | 2026-10-21 | `D-RU-6-LAB-3` |  | [2026-10-21-d-ru-6-dirty-frontier.md](2026-10-21-d-ru-6-dirty-frontier.md) |
