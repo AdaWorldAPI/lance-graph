@@ -99,3 +99,26 @@ Verdicts combine three reviewers on the crosswalk: a bridge architect, a firewal
 The ADOPT-NOW set, X1+X2+X3, X4 and X9, plus probe X6, form one coherent design: **a demand-typed terminal** with a plane oracle, in which tuples are built only for Rows. The operator chooses whether this goes to `/5plus3`.
 
 PR #1657 | STATUS: open | OUTCOME: milliseconds attributed per path; folding is missing at the terminal, not the core loop | OPEN: which ideas to take forward; join-key witness type; X8/X11 under the open slot-binding ruling
+
+## Correction (operator, 2026-10-21, after the map)
+
+**Ruling: no millisecond result is acceptable anywhere.** A single operation must finish in nanoseconds; a batch takes microseconds at most.
+
+1. **The tuple decode is the violation itself.** Making it faster (X4) does not satisfy the rule. X4 moves from ADOPT-NOW to **SKIP**, and the "decode cost" part of the 5+3 that followed was dropped.
+2. **lance-graph-mask-risc is the reference folding algebra.** It stays untouched until tests prove a new algebra also runs in nanoseconds.
+3. **The native count fold (X6) was implemented and reverted** (884abfd4..c00011ef, reverted in c49db8dc). On 50,000 centers it measured:
+
+   | case | time |
+   |---|---|
+   | Count(Bag) | 620 µs |
+   | Count(Bag), filtered | 1.2 ms |
+   | Count(Set) | 1.6 ms |
+   | Count(Set), filtered | 1.3 ms |
+
+   It also kept the enumerating terminal, at 243–310 ms. The causes were scalar loops instead of the ndarray polyfill, and a per-slot sort for Set. Any rework must be SIMD through ndarray and must avoid a per-slot sort, which depends on a sorting contract.
+4. **New open points (operator):**
+   - An ndarray plug for the contract crate, plug-and-play like `hotplug.rs`. The zero-dependency rule in `lance-graph-contract/Cargo.toml` is ruled obsolete.
+   - A sorting contract. mask-risc's `CountKeyRunsU32` checks key order at run time, and no attestation backs it.
+   - Whether the substrate is sorted to begin with.
+   - Whether a little-endian or sorting contract would slow folds down or prevent them.
+   - Why Quack does not consume the contract set algebra. Today only relalg and `lance-graph/src/fold` consume it; quack uses the contract only for `OrderedLaneWitness`.
