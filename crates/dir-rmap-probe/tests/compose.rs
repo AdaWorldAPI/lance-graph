@@ -111,6 +111,38 @@ fn null_key_matches_nothing() {
     assert_eq!(out.stratum, Stratum::Distinct);
 }
 
+/// FAILS IF: the support under a presence plane is taken from the raw
+/// membership row instead of the present keys. g1 alone grants role 7, so
+/// nulling g1 must drop role 7 from the support, while role 5 (reached
+/// through g0 too) stays.
+#[test]
+fn null_key_drops_the_role_only_it_reaches() {
+    let mut f = diamond(vec![(0, 0), (0, 1)]);
+    f.grants.push((1, 7));
+    let (w, qr, page) = rig(f);
+    let ord = Ordinals::of(&w.f, &w.view());
+    let s = qr.slot(ord.group[1]).expect("g1 is a security group");
+    let c = Carriers::of(&qr);
+    let full = compose(&Members::of(&qr, &page, 1), &c, &w.witness(), Law::Count).unwrap();
+    assert_eq!(
+        full.support[0],
+        (1 << 5) | (1 << 7),
+        "anti-vacuity: both roles held"
+    );
+    let mut valid = page.member;
+    valid[0][s >> 6] &= !(1u64 << (s & 63));
+    let out = compose(
+        &Members::of(&qr, &page, 1).with_valid(&valid),
+        &c,
+        &w.witness(),
+        Law::Count,
+    )
+    .unwrap();
+    assert_eq!(out.support[0], 1 << 5);
+    assert_eq!(out.counts[7], 0);
+    assert_eq!((out.bag, out.distinct), (1, 1));
+}
+
 /// FAILS IF: operands bound to different registers are composed.
 #[test]
 fn mismatched_seal_is_refused() {
