@@ -33,3 +33,17 @@
 - Fold collisions: the folds are 64-bit witnesses, not proofs.
 
 OPEN: `BaseRef` stands in for D-CPG's `DurableRef`, which has no contract type; the plan places receipt, slot and `DurableRef` in `lance-graph-contract` at D-TGB-7. D-RFT-5 can now reference this receipt shape.
+
+## Correction (post-merge review, `GPT:gpt-ada-01/20261021-pr1674-1682-consolidated-review-01`)
+
+Written by `session_013z2e1YXkm6o6HNrDn5BPWA` on the operator's instruction (EXO-50 `/038`). Three defects in the merged probe, each now refused, each with a test and a disable that turns it red:
+
+| defect on main | correction | test | disable |
+|---|---|---|---|
+| `stage` replaced any row, a sealed landing included; `seal` overwrote an existing seal, so a changed row could be resealed | a sealed key accepts only the same receipt (same identity, same live slot) as a no-op; a different one is `AlreadyLanded`; an unsealed row (crash before the seal) accepts only the same receipt, else `StagedConflict`; `seal` on a sealed row that no longer matches is `Torn` | `a_sealed_landing_cannot_be_replaced_or_resealed` | stage overwrites; seal overwrites |
+| `landed` checked only that the named data version exists | the write path, `VersionStore::commit_cycle` (stand-in for the coalesced per-cycle `LanceCycleWriter` commit, EXO-55), seals the version with a `CommitWitness`: cycle, the cohort of every thought coalesced into it with output fold and outcome, and a batch fold. `stage` and `landed` require the witness, an intact batch fold, the row's cycle, and the receipt's thought in the cohort with the receipt's output and outcome (`NoCommitWitness`, `WitnessTorn`, `NotInCohort`, `ContributionMismatch`). Two thoughts in one version both land. The batch fold hashes each cohort entry (thought, output fold, outcome) as one term, so swapping two equal-count contributions tears the witness (Codex on #1684). `MetadataTable::incomplete` lists committed thoughts with no sealed row | `a_landing_needs_the_write_paths_commit_witness`, `a_committed_thought_without_a_sealed_row_is_incomplete`, `a_witness_with_swapped_contributions_is_torn` | drop the cohort check; `incomplete` returns nothing; fold the thought and its contribution as separate terms |
+| unequal `sources`/`targets` (public fields) panicked; `modulus == 0` divided by zero | `ProgramInputs::try_new`, and checks in `run`, `stage`, `seal` and `landed`: `MalformedInputs`, `ZeroModulus`; a malformed staged row cannot be sealed | `malformed_inputs_refuse_without_panicking` | drop the checks in `run`; drop them in `stage` |
+
+`captured_in` is now covered by the seal (provenance integrity) and stays outside `identity` (test 10 unchanged); disable: drop it from the seal.
+
+Still not claimed: atomicity between the data and metadata writes (a crash between them is detected by `incomplete`, not prevented); wiring the witness into the real `LanceCycleWriter`; moving any type into `lance-graph-contract` (D-TGB-7 admission). The folds remain witnesses, not cryptographic proofs. EXO-58 stays Done.

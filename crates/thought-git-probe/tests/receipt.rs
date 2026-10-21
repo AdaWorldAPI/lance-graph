@@ -11,8 +11,8 @@ use lance_graph_contract::revision::{
 use thought_git_probe::fixtures::{self, Cell, Outcome, Thought, cell, main_version};
 use thought_git_probe::oracle::{Version, next_version};
 use thought_git_probe::receipt::{
-    self, BaseRef, DERIVE, EXEC_DEFAULT, ExecConfig, MetaKey, MetadataTable, Plan, ProgramInputs,
-    Receipt, Refusal, Replayed, VersionStore,
+    self, BaseRef, CommitError, DERIVE, EXEC_DEFAULT, ExecConfig, MetaKey, MetadataTable, Plan,
+    ProgramInputs, Receipt, Refusal, Replayed, VersionStore,
 };
 use thought_git_probe::slots::{Eviction, Slot, SlotPool};
 
@@ -379,11 +379,6 @@ fn a_partial_metadata_write_cannot_pass_as_a_landing() {
     let (mut store, base) = setup();
     let mut pool = SlotPool::new(Eviction::Fifo);
     let (slot, original, r) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
-    let landed = next_version(
-        &store.givens.clone(),
-        &main_version(),
-        std::slice::from_ref(&original),
-    );
     let data = BaseRef {
         dataset: 7,
         branch: 0,
@@ -397,7 +392,9 @@ fn a_partial_metadata_write_cannot_pass_as_a_landing() {
         table.stage(&pool, &store, key, r.clone()),
         Err(Refusal::DataMissing(_))
     ));
-    store.seal(data, landed).expect("seal data");
+    store
+        .commit_cycle(data, &main_version(), 1, std::slice::from_ref(&original))
+        .expect("commit");
 
     // A key naming another thought than the receipt's.
     let bad = MetaKey { data, thought: 11 };
@@ -487,4 +484,352 @@ fn identity_ignores_the_slot_but_not_the_seed() {
     // Fire: only the seed differs.
     let (_, _, rc) = run(&store, &mut pool_a, Plan { seed: 6, ..p });
     assert_ne!(ra.identity(), rc.identity());
+}
+
+fn data_ref(version: u64) -> BaseRef {
+    BaseRef {
+        dataset: 7,
+        branch: 0,
+        version,
+    }
+}
+
+/// 11. A sealed landing is immutable. Disables: (a) `stage` inserts over an
+///     existing row unconditionally; (b) `seal` overwrites an existing seal.
+#[test]
+fn a_sealed_landing_cannot_be_replaced_or_resealed() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+    let (_, original, r) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
+    let data = data_ref(2);
+    store
+        .commit_cycle(data, &main_version(), 1, std::slice::from_ref(&original))
+        .expect("commit");
+    let key = MetaKey { data, thought: 10 };
+    let mut table = MetadataTable::default();
+
+    // Crash recovery before the seal: the same receipt may be restaged; a
+    // different one (same output and outcome, other roots) may not.
+    table.stage(&pool, &store, key, r.clone()).expect("stage");
+    table
+        .stage(&pool, &store, key, r.clone())
+        .expect("restage same");
+    let other = Receipt {
+        roots: r.roots ^ 0b0100,
+        ..r.clone()
+    };
+    assert_ne!(other.identity(), r.identity(), "anti-vacuity");
+    assert_eq!(
+        table.stage(&pool, &store, key, other.clone()),
+        Err(Refusal::StagedConflict(key))
+    );
+
+    table.seal(key).expect("seal");
+    let sealed = table.row(key).expect("row").clone();
+
+    // Under a sealed key: the same receipt is a no-op, anything else refuses.
+    table
+        .stage(&pool, &store, key, r.clone())
+        .expect("restage landed");
+    assert_eq!(table.row(key), Some(&sealed), "restage changed the row");
+    assert_eq!(
+        table.stage(&pool, &store, key, other),
+        Err(Refusal::AlreadyLanded(key))
+    );
+    assert_eq!(
+        table.row(key),
+        Some(&sealed),
+        "a refused stage changed the row"
+    );
+
+    // A row changed after its seal can neither land nor be resealed.
+    table.row_mut(key).expect("row").receipt.roots ^= 0b0100;
+    assert_eq!(table.seal(key), Err(Refusal::Torn(key)));
+    assert!(matches!(
+        table.replay_landed(&store, key, EXEC_DEFAULT),
+        Err(Refusal::Torn(_))
+    ));
+    table.row_mut(key).expect("row").receipt.roots ^= 0b0100;
+    table.seal(key).expect("reseal of an intact row is a no-op");
+    assert!(table.replay_landed(&store, key, EXEC_DEFAULT).is_ok());
+
+    // `captured_in` is outside identity but inside the seal.
+    table
+        .row_mut(key)
+        .expect("row")
+        .receipt
+        .captured_in
+        .generation ^= 1;
+    assert!(matches!(
+        table.replay_landed(&store, key, EXEC_DEFAULT),
+        Err(Refusal::Torn(_))
+    ));
+}
+
+/// 12. A landing must be in the cohort the write path committed into that
+///     version. Disable: drop the `contribution_check` call from `landed` /
+///     `stage` (an existing version then certifies any receipt).
+#[test]
+fn a_landing_needs_the_write_paths_commit_witness() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+    let (slot_a, ta, ra) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
+    let (_, tb, rb) = run(&store, &mut pool, plan(base, 11, Outcome::Commit, 9));
+    let (_, tc, _) = run(&store, &mut pool, plan(base, 12, Outcome::Commit, 13));
+
+    // Two thoughts coalesced into one version (EXO-55): both land.
+    let v2 = data_ref(2);
+    let w = store
+        .commit_cycle(v2, &main_version(), 41, &[ta.clone(), tb.clone()])
+        .expect("commit");
+    assert_eq!(w.cohort.len(), 2);
+    let mut table = MetadataTable::default();
+    let (ka, kb) = (
+        MetaKey {
+            data: v2,
+            thought: 10,
+        },
+        MetaKey {
+            data: v2,
+            thought: 11,
+        },
+    );
+    for (k, r) in [(ka, &ra), (kb, &rb)] {
+        table.stage(&pool, &store, k, r.clone()).expect("stage");
+        table.seal(k).expect("seal");
+        assert!(table.landed(&store, k).is_ok(), "{k:?} should land");
+    }
+
+    // 1/3. A valid receipt under an unrelated existing version.
+    let v3 = data_ref(3);
+    store
+        .commit_cycle(v3, &main_version(), 42, std::slice::from_ref(&tc))
+        .expect("commit v3");
+    let k3 = MetaKey {
+        data: v3,
+        thought: 10,
+    };
+    assert_eq!(
+        table.stage(&pool, &store, k3, ra.clone()),
+        Err(Refusal::NotInCohort(k3))
+    );
+    // A version sealed outside the write path proves nothing.
+    let v4 = data_ref(4);
+    let landed = next_version(
+        &store.givens.clone(),
+        &main_version(),
+        std::slice::from_ref(&ta),
+    );
+    store.seal(v4, landed).expect("plain seal");
+    let k4 = MetaKey {
+        data: v4,
+        thought: 10,
+    };
+    assert_eq!(
+        table.stage(&pool, &store, k4, ra.clone()),
+        Err(Refusal::NoCommitWitness(k4))
+    );
+    // In the cohort, but with another output: a different run of thought 10.
+    let (_, _, ra2) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 6));
+    assert_ne!(ra2.output, ra.output, "anti-vacuity");
+    let mut fresh = MetadataTable::default();
+    assert_eq!(
+        fresh.stage(&pool, &store, ka, ra2),
+        Err(Refusal::ContributionMismatch(ka))
+    );
+    // Same thought and output, but committed with another outcome.
+    let v5 = data_ref(5);
+    let pruned = Thought::new(10, ta.writes.clone(), Outcome::Prune);
+    store
+        .commit_cycle(v5, &main_version(), 43, std::slice::from_ref(&pruned))
+        .expect("commit v5");
+    let k5 = MetaKey {
+        data: v5,
+        thought: 10,
+    };
+    assert_eq!(
+        fresh.stage(&pool, &store, k5, ra.clone()),
+        Err(Refusal::ContributionMismatch(k5))
+    );
+
+    // 4. After the live slot is released, replay needs a valid witness.
+    pool.free(slot_a).expect("free");
+    let rep = table
+        .replay_landed(&store, ka, EXEC_DEFAULT)
+        .expect("replay");
+    assert_same_by_folds(&ta, &rep, &ra);
+    store.witness_mut(v2).expect("witness").cohort.remove(&11);
+    assert_eq!(
+        table.replay_landed(&store, ka, EXEC_DEFAULT),
+        Err(Refusal::WitnessTorn(ka))
+    );
+
+    // The write path refuses one thought twice, and a second batch under a
+    // sealed version.
+    let v6 = data_ref(6);
+    assert_eq!(
+        store.commit_cycle(v6, &main_version(), 44, &[ta.clone(), ta.clone()]),
+        Err(CommitError::DuplicateThought(10))
+    );
+    assert_eq!(
+        store.commit_cycle(v3, &main_version(), 45, std::slice::from_ref(&tc)),
+        Err(CommitError::AlreadySealed(v3))
+    );
+}
+
+/// 13. Missing metadata after the data write is reported, not certified.
+///     Disable: `incomplete` returns an empty list.
+#[test]
+fn a_committed_thought_without_a_sealed_row_is_incomplete() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+    let (_, ta, ra) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
+    let (_, tb, rb) = run(&store, &mut pool, plan(base, 11, Outcome::Commit, 9));
+    let v2 = data_ref(2);
+    store
+        .commit_cycle(v2, &main_version(), 7, &[ta, tb])
+        .expect("commit");
+    let mut table = MetadataTable::default();
+    assert_eq!(table.incomplete(&store, v2), vec![10, 11]);
+    let (ka, kb) = (
+        MetaKey {
+            data: v2,
+            thought: 10,
+        },
+        MetaKey {
+            data: v2,
+            thought: 11,
+        },
+    );
+    table.stage(&pool, &store, ka, ra).expect("stage a");
+    table.seal(ka).expect("seal a");
+    // Thought 11 crashed between its data write and its metadata write.
+    table.stage(&pool, &store, kb, rb).expect("stage b");
+    assert_eq!(table.incomplete(&store, v2), vec![11]);
+    assert_eq!(table.landed(&store, kb), Err(Refusal::Unsealed(kb)));
+    table.seal(kb).expect("seal b");
+    assert!(table.incomplete(&store, v2).is_empty());
+}
+
+/// 14. Malformed inputs are typed refusals, never panics. Disables: drop
+///     `inputs.check()` / `cfg.check()` from `run`, or from `stage`.
+#[test]
+fn malformed_inputs_refuse_without_panicking() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+
+    assert_eq!(
+        ProgramInputs::try_new(vec![cell(0, 0)], vec![]),
+        Err(Refusal::MalformedInputs {
+            sources: 1,
+            targets: 0
+        })
+    );
+
+    // Public fields bypass the constructor: capture must refuse.
+    let mut short = plan(base, 10, Outcome::Commit, 5);
+    short.inputs.sources.pop();
+    let (slot, _) = pool.branch(10, None).expect("branch");
+    assert_eq!(
+        receipt::capture(&pool, slot, &store, short).map(|_| ()),
+        Err(Refusal::MalformedInputs {
+            sources: 2,
+            targets: 3
+        })
+    );
+    let mut zero = plan(base, 10, Outcome::Commit, 5);
+    zero.config.modulus = 0;
+    assert_eq!(
+        receipt::capture(&pool, slot, &store, zero).map(|_| ()),
+        Err(Refusal::ZeroModulus)
+    );
+
+    // A receipt mutated after capture: replay, stage and seal refuse.
+    let (t, r) =
+        receipt::capture(&pool, slot, &store, plan(base, 10, Outcome::Commit, 5)).expect("capture");
+    let mut bad = r.clone();
+    bad.inputs.targets.push(cell(7, 2));
+    assert!(matches!(
+        receipt::replay(&bad, &store, EXEC_DEFAULT),
+        Err(Refusal::MalformedInputs { .. })
+    ));
+    let mut zero_cfg = r.clone();
+    zero_cfg.config.modulus = 0;
+    assert_eq!(
+        receipt::replay(&zero_cfg, &store, zero_cfg.config).map(|_| ()),
+        Err(Refusal::ZeroModulus)
+    );
+
+    let data = data_ref(2);
+    store
+        .commit_cycle(data, &main_version(), 1, std::slice::from_ref(&t))
+        .expect("commit");
+    let key = MetaKey { data, thought: 10 };
+    let mut table = MetadataTable::default();
+    assert!(matches!(
+        table.stage(&pool, &store, key, bad),
+        Err(Refusal::MalformedInputs { .. })
+    ));
+    assert_eq!(
+        table.stage(&pool, &store, key, zero_cfg),
+        Err(Refusal::ZeroModulus)
+    );
+    // A staged row truncated before its seal cannot become a landing.
+    table.stage(&pool, &store, key, r).expect("stage");
+    table
+        .row_mut(key)
+        .expect("row")
+        .receipt
+        .inputs
+        .sources
+        .clear();
+    assert!(matches!(
+        table.seal(key),
+        Err(Refusal::MalformedInputs { .. })
+    ));
+    assert!(matches!(
+        table.landed(&store, key),
+        Err(Refusal::Unsealed(_))
+    ));
+}
+
+/// 15. The batch fold binds each contribution to its thought: swapping two
+///     equal-count contributions inside a witness tears it, so a receipt for
+///     thought 10 carrying thought 11's output cannot land (Codex, #1684).
+///     Disable: fold the thought id and the contribution as separate terms.
+#[test]
+fn a_witness_with_swapped_contributions_is_torn() {
+    let (mut store, base) = setup();
+    let mut pool = SlotPool::new(Eviction::Fifo);
+    let (_, ta, ra) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
+    let (_, tb, _) = run(&store, &mut pool, plan(base, 11, Outcome::Commit, 9));
+    let v2 = data_ref(2);
+    store
+        .commit_cycle(v2, &main_version(), 41, &[ta, tb])
+        .expect("commit");
+    let ka = MetaKey {
+        data: v2,
+        thought: 10,
+    };
+
+    // Thought 10 run with thought 11's seed: its output is 11's contribution.
+    let (_, _, forged) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 9));
+    let w = store.witness_mut(v2).expect("witness");
+    let (c10, c11) = (w.cohort[&10], w.cohort[&11]);
+    assert_eq!(
+        c10.output.count, c11.output.count,
+        "anti-vacuity: equal counts"
+    );
+    assert_ne!(c10, c11, "anti-vacuity: distinct contributions");
+    assert_eq!(forged.output, c11.output, "anti-vacuity: forged output");
+    w.cohort.insert(10, c11);
+    w.cohort.insert(11, c10);
+
+    for r in [forged, ra] {
+        let mut table = MetadataTable::default();
+        assert_eq!(
+            table.stage(&pool, &store, ka, r),
+            Err(Refusal::WitnessTorn(ka))
+        );
+    }
 }
