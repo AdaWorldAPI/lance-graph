@@ -191,6 +191,9 @@ pub mod scheduler;
 pub mod selection;
 pub mod sensorium;
 pub mod set_algebra;
+/// D-RU-2 / U2: a batch of selections whose shared parts are named once
+/// (`lets` over `set_algebra::SetExpr::Sym`). See module docs.
+pub mod set_program;
 pub mod settlement;
 /// D-BLW-5 payload-law DTO (`ShapeRankPayload`, `RemeasureKey`, `RemeasureLedger`) —
 /// distribution shape × Prozentrang, never the raw statistic. See module docs.

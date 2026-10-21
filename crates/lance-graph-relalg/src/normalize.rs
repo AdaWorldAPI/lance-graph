@@ -54,7 +54,7 @@ fn cmp_from(c: sa::Cmp) -> Cmp {
     }
 }
 
-fn to_set(rel: &Rel) -> SetExpr {
+pub(crate) fn to_set(rel: &Rel) -> SetExpr {
     match rel {
         Rel::All => SetExpr::All,
         Rel::Empty => SetExpr::Empty,
@@ -77,7 +77,7 @@ fn to_set(rel: &Rel) -> SetExpr {
 
 /// Inverse of [`to_set`]. Every `Sym` the contract returns came from a
 /// `Plane`, so the narrowing never fails on a converted input.
-fn from_set(e: &SetExpr) -> Rel {
+pub(crate) fn from_set(e: &SetExpr) -> Rel {
     match e {
         SetExpr::All => Rel::All,
         SetExpr::Empty => Rel::Empty,

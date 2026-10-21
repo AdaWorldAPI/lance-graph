@@ -71,3 +71,6 @@ jobs:
           cargo fmt --check
           cargo test
           cargo clippy --all-targets -- -D warnings
+          # D-RU-2 benchmark smoke run; an n that is not a multiple of 64
+          # exercises the plane tail.
+          BENCH_N=100003 BENCH_REPS=1 cargo run --example program_bench

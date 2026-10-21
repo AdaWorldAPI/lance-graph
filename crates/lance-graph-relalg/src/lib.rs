@@ -32,7 +32,9 @@ pub mod ir;
 pub mod join_body;
 pub mod lower;
 pub mod normalize;
+pub mod program;
 
 pub use ir::{Atom, Cmp, Measure, Query, Rel};
 pub use lower::{run, run_as_written, run_with_program, Answer, RelError, Run};
 pub use normalize::{normalize, symbolic};
+pub use program::{run_program, run_recompute, ProgramCost, ProgramError, ProgramRun};
