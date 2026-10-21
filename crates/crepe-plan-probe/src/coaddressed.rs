@@ -488,11 +488,9 @@ impl CoEval {
             let Some(s) = u32::try_from(v).ok().and_then(|y| table.domain.slot_of(y)) else {
                 return 0;
             };
-            return if self.joint[s >> 6] >> (s & 63) & 1 == 1 {
-                at(s)
-            } else {
-                0
-            };
+            // A slot outside the joint has a side with no selected row, so
+            // its product is already 0.
+            return at(s);
         }
         let mut total = 0u64;
         for_each_set(&self.joint, table.domain.len(), |s| total += at(s));
