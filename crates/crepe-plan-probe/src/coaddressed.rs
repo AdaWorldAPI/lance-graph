@@ -446,60 +446,57 @@ impl CoEval {
         total
     }
 
-    /// Output tuples of `plan` with multiplicities, sorted, in the shape of
-    /// [`crate::native::bindings`]. Without `bag`, every multiplicity is 1.
-    pub fn bindings(&self, table: &CoTable, plan: &StarPlan, bag: bool) -> Vec<(Vec<u64>, u64)> {
-        let mut out: Vec<(Vec<u64>, u64)> = Vec::new();
-        for_each_set(&self.joint, table.domain.len(), |slot| {
-            let center = u64::from(table.domain.id(slot));
-            let mut tuples: Vec<(Vec<Option<u64>>, u64)> = vec![(vec![None; plan.sides.len()], 1)];
-            for (i, s) in plan.sides.iter().enumerate() {
-                if s.emit.is_some() {
-                    let vals: Vec<u32> = self.values_at(table, i, slot).collect();
-                    tuples = tuples
-                        .into_iter()
-                        .flat_map(|(t, m)| {
-                            vals.iter().map(move |&v| {
-                                let mut t = t.clone();
-                                t[i] = Some(u64::from(v));
-                                (t, m)
-                            })
-                        })
-                        .collect();
-                } else {
-                    let k = self.mult(table, i, slot);
-                    for t in &mut tuples {
-                        t.1 *= k;
-                    }
-                }
-            }
-            for (t, m) in tuples {
-                let row = plan
-                    .head
-                    .iter()
-                    .map(|h| match *h {
-                        HeadTerm::Const(c) => c,
-                        HeadTerm::Center => center,
-                        HeadTerm::Side(i) => t[i].expect("emitting side"),
-                    })
-                    .collect();
-                out.push((row, m));
-            }
-        });
-        out.sort();
-        let mut merged: Vec<(Vec<u64>, u64)> = Vec::new();
-        for (row, m) in out {
-            match merged.last_mut() {
-                Some((r, c)) if *r == row => *c += m,
-                _ => merged.push((row, m)),
+    /// Derivations whose head reads as `pattern` (`None` at a column: any
+    /// value). A fold over the joint, never an enumeration: per slot the
+    /// product of each side's selected rows, narrowed to the pattern's value
+    /// where it pins that side. A pinned center is inverted to its one slot.
+    /// With an all-`None` pattern this is [`CoEval::bag_count`].
+    pub fn matching(
+        &self,
+        table: &CoTable,
+        plan: &StarPlan,
+        pattern: impl Fn(usize) -> Option<u64>,
+    ) -> u64 {
+        let k = table.sides.len();
+        let mut center: Option<u64> = None;
+        let mut want: Vec<Option<u64>> = vec![None; k];
+        for (c, h) in plan.head.iter().enumerate() {
+            let Some(v) = pattern(c) else { continue };
+            let slot = match *h {
+                HeadTerm::Const(x) if x != v => return 0,
+                HeadTerm::Const(_) => continue,
+                HeadTerm::Center => &mut center,
+                HeadTerm::Side(i) => &mut want[i],
+            };
+            match *slot {
+                Some(w) if w != v => return 0,
+                _ => *slot = Some(v),
             }
         }
-        if !bag {
-            for e in &mut merged {
-                e.1 = 1;
-            }
+        let at = |s: usize| -> u64 {
+            (0..k)
+                .map(|i| match want[i] {
+                    None => self.mult(table, i, s),
+                    Some(t) => self
+                        .values_at(table, i, s)
+                        .filter(|&v| u64::from(v) == t)
+                        .count() as u64,
+                })
+                .product()
+        };
+        if let Some(v) = center {
+            let Some(s) = u32::try_from(v).ok().and_then(|y| table.domain.slot_of(y)) else {
+                return 0;
+            };
+            return if self.joint[s >> 6] >> (s & 63) & 1 == 1 {
+                at(s)
+            } else {
+                0
+            };
         }
-        merged
+        let mut total = 0u64;
+        for_each_set(&self.joint, table.domain.len(), |s| total += at(s));
+        total
     }
 }
 
@@ -575,57 +572,74 @@ mod tests {
         }
     }
 
-    /// Nested loops over the rows: the reference both paths must equal.
+    /// Nested loops over the rows: the derivations whose head reads as
+    /// `pattern`, counted. Pinned columns prune each loop as soon as the
+    /// values they read are known. Builds no row.
     fn brute(
         f: &Fixture,
         p: &StarPlan,
         keep: [&dyn Fn(u32) -> bool; 3],
-        bag: bool,
-    ) -> Vec<(Vec<u64>, u64)> {
-        let mut out: Vec<(Vec<u64>, u64)> = Vec::new();
+        pattern: &[Option<u64>],
+    ) -> u64 {
+        // Whether the head columns readable from `known` agree with `pattern`.
+        let agrees = |known: &dyn Fn(HeadTerm) -> Option<u64>| {
+            p.head
+                .iter()
+                .zip(pattern)
+                .all(|(&h, &want)| want.is_none_or(|w| known(h).is_none_or(|v| v == w)))
+        };
+        let mut n = 0u64;
         for r in &f.r {
+            let c = r[1];
+            let kr = |h: HeadTerm| match h {
+                HeadTerm::Const(k) => Some(k),
+                HeadTerm::Center => Some(u64::from(c)),
+                HeadTerm::Side(0) => Some(u64::from(r[0])),
+                HeadTerm::Side(_) => None,
+            };
+            if !keep[0](r[0]) || !agrees(&kr) {
+                continue;
+            }
             for s in &f.s {
+                let ks = |h: HeadTerm| match h {
+                    HeadTerm::Side(1) => Some(u64::from(s[1])),
+                    h => kr(h),
+                };
+                if s[0] != c || !keep[1](s[1]) || !agrees(&ks) {
+                    continue;
+                }
                 for t in &f.t {
-                    let c = r[1];
-                    if s[0] != c || t[0] != c || !keep[0](r[0]) || !keep[1](s[1]) || !keep[2](t[1])
-                    {
-                        continue;
+                    let kt = |h: HeadTerm| match h {
+                        HeadTerm::Side(2) => Some(u64::from(t[1])),
+                        h => ks(h),
+                    };
+                    if t[0] == c && keep[2](t[1]) && agrees(&kt) {
+                        n += 1;
                     }
-                    let vals = [r[0], s[1], t[1]];
-                    let row = p
-                        .head
-                        .iter()
-                        .map(|h| match *h {
-                            HeadTerm::Const(k) => k,
-                            HeadTerm::Center => u64::from(c),
-                            HeadTerm::Side(i) => u64::from(vals[i]),
-                        })
-                        .collect();
-                    out.push((row, 1));
                 }
             }
         }
-        out.sort();
-        let mut merged: Vec<(Vec<u64>, u64)> = Vec::new();
-        for (row, m) in out {
-            match merged.last_mut() {
-                Some((r, c)) if *r == row => *c += m,
-                _ => merged.push((row, m)),
-            }
+        n
+    }
+
+    /// The star path's view of a prepared star with no post filter.
+    fn star_coordinates(star: &native::PreparedStar, p: &StarPlan) -> native::RuleCoordinates {
+        let (kept, _, _) = native::kept(star, p, &GENS).expect("star");
+        native::RuleCoordinates {
+            rule: 0,
+            table: 0,
+            sides: (0..p.sides.len()).collect(),
+            star: p.clone(),
+            filter: native::RuleFilter::of(p, &vec![None; p.head.len()]).expect("no filter"),
+            kept,
         }
-        if !bag {
-            for e in &mut merged {
-                e.1 = 1;
-            }
-        }
-        merged
     }
 
     const GENS: [u64; 3] = [1, 2, 3];
 
     /// The operator over one unrestricted table equals the star path prepared
     /// with each restriction, for every restriction combination tried, in
-    /// bindings (bag and set), bag count and distinct centers.
+    /// bag count, per-derivation multiplicities and distinct centers.
     #[test]
     fn parity_with_the_star_path() {
         let f = Fixture::new();
@@ -642,25 +656,31 @@ mod tests {
             let p = plan(r, s, t);
             let ev = eval(&table, &p, &plan_rels(&p), &GENS).expect("eval");
             let star = native::prepare(&p, &store);
-            for bag in [true, false] {
-                let want = native::bindings(&star, &p, &GENS, bag).expect("star");
+            let rc = star_coordinates(&star, &p);
+            let sides: Vec<&Side> = star.table.sides.iter().collect();
+            let view = native::StarView {
+                domain: &star.table.domain,
+                sides: &sides,
+                star: &p,
+            };
+            let total = native::matching(&view, &rc, |_| None);
+            assert_eq!(ev.bag_count(&table), total, "{r:?} {s:?} {t:?}");
+            assert_eq!(ev.matching(&table, &p, |_| None), total);
+            // Every derivation the star path reads, pinned in full, has the
+            // same multiplicity here; with equal totals the bags are equal.
+            native::for_each_derivation(&view, &rc, |d, _| {
+                let pin = |c: usize| Some(d.get(c));
                 assert_eq!(
-                    ev.bindings(&table, &p, bag),
-                    want,
-                    "{r:?} {s:?} {t:?} bag={bag}"
+                    ev.matching(&table, &p, pin),
+                    native::matching(&view, &rc, pin),
+                    "{r:?} {s:?} {t:?}"
                 );
-            }
+            });
             assert_eq!(
                 ev.distinct_centers(),
                 native::distinct_centers(&star, &p, &GENS).expect("star")
             );
-            let bag_rows: u64 = native::bindings(&star, &p, &GENS, true)
-                .expect("star")
-                .iter()
-                .map(|(_, m)| m)
-                .sum();
-            assert_eq!(ev.bag_count(&table), bag_rows);
-            nonempty += usize::from(bag_rows > 0);
+            nonempty += usize::from(total > 0);
         }
         // Not vacuous: most cases have answers, so equality compares rows.
         assert!(nonempty >= 4, "only {nonempty} cases had answers");
@@ -681,13 +701,26 @@ mod tests {
         ];
         let ev = eval(&table, &p, &rels, &GENS).expect("eval");
         let keep: [&dyn Fn(u32) -> bool; 3] = [&|x| x == 1 || x == 2, &|z| z != 4, &|k| k != 0];
-        for bag in [true, false] {
-            let want = brute(&f, &p, keep, bag);
-            assert!(!want.is_empty(), "fixture must have answers");
-            assert_eq!(ev.bindings(&table, &p, bag), want);
-        }
-        let total: u64 = brute(&f, &p, keep, true).iter().map(|(_, m)| m).sum();
+        let total = brute(&f, &p, keep, &[None; 3]);
+        assert!(total > 0, "fixture must have answers");
         assert_eq!(ev.bag_count(&table), total);
+        // Per center, and per pinned (x, c): each count equals the oracle's.
+        let mut pinned = 0;
+        for c in 0..40u64 {
+            assert_eq!(
+                ev.matching(&table, &p, |i| (i == 1).then_some(c)),
+                brute(&f, &p, keep, &[None, Some(c), None]),
+                "c = {c}"
+            );
+            for x in [1u64, 2, 3] {
+                let want = brute(&f, &p, keep, &[Some(x), Some(c), None]);
+                let pat = [Some(x), Some(c), None];
+                assert_eq!(ev.matching(&table, &p, |i| pat[i]), want, "x={x} c={c}");
+                pinned += usize::from(want > 0);
+            }
+        }
+        // x = 3 is excluded by the restriction; 1 and 2 must match somewhere.
+        assert!(pinned > 0, "pinned patterns must find answers");
         assert_eq!(ev.cost.sides_filtered, 3);
         assert_eq!(ev.cost.side_rows_read, table.rows());
     }
