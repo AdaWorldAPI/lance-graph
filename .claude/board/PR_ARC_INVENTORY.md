@@ -1,3 +1,11 @@
+## 2026-10-21 — lance-graph PR #1659 (merged `1c161533`, branch `ccr-0455e606-wmtsor`, head `79e31661`) — zero-copy joins: relations are lanes, a side is an index map; ClassView × DR IAM probe; guardrails; coresearch map
+
+- **Added:** `mork_pathmap_probe::{Lane, RelationView}` (two refcounted `ScalarBuffer<u32>` lanes); `join::{Run, rows}`; `Side::{positions, lane}`; `JoinExec::{bag_count, matching, for_each_answer}`; `JoinDomain` dense rank (presence mask + per-word running count); `crepe_plan_probe::native::Store::from_rows`; `dir-rmap-probe/tests/classview_dr.rs` + `examples/classview_dr_cost.rs`; `.claude/knowledge/hypothesis-atomization-guardrails.md` (G1–G11) + `.claude/agents/hypothesis-atomizer.md`; entries `2026-10-21-zero-copy-join-index-map.md`, `2026-10-21-classview-dr-iam.md`, `2026-10-21-coresearch-classview-algebra-polyfill.md`.
+- **Removed:** `Side::values()` (a slot-order copy of the non-key column, added by #1658); `JoinExec::answers`. #1658's `coaddressed` now runs its restriction over the relation lane in place and reads each side row through `positions()`.
+- **Locked:** values stay in the relation's lanes; preparation builds only the index map `$i`; answers are folds. ClassView × DR: a class's `compute_dag` names the behavior, a DR table maps the target to a compiled fold.
+- **Deferred / open:** the no-pruning ablation arms at n = 50 000 exceed the µs budget (counting-sort scatter, ~10 ns/row); candidate fix is key-ordered sealed lanes (`OrderedLaneWitness`), a write-path decision. Coresearch map: operator to pick adopt-now probes and the `ClassView::semantics` bridge.
+- **Confidence:** measured. fmt, clippy `-D warnings`, release tests green in both lab crates after the rebase onto #1658; disable runs red on their targets; CI green on `79e31661` (14 checks).
+
 ## 2026-10-21 — lance-graph PR #1658 (merged `1bbb5418`, branch `ccr-d3ce1263-ied9yh`, head `faa0837c`) — D-RU-4 / U4: co-addressed join operator over one `JoinDomain`
 
 - **Added:** `crepe_plan_probe::coaddressed::{CoTable, CoSide, CoEval, CoCost, CoRefusal, eval, plan_rels, layout_key, VALUE_LANE}`; `mork_pathmap_probe::join::Side::{values, offsets}` (read-only); `examples/coaddressed.rs` plus CI step; entry `2026-10-21-u4-coaddressed-join.md`.

@@ -1,3 +1,7 @@
+## 2026-10-21 — main after #1659 (merged `1c161533`)
+
+- **On main:** #1659 (zero-copy joins in mork-pathmap-probe / crepe-plan-probe; ClassView × DR IAM probe; hypothesis-atomization guardrails; coresearch exploration map). Contract inventory: unchanged (lab crates and board only). One FAILED GATE carried: no-pruning arms at n = 50 000.
+
 ## 2026-10-21 — main after #1658 (merged `1bbb5418`)
 
 - **On main:** #1655, #1656, #1657, #1658 (D-RU-4 co-addressed join in crepe-plan-probe; correctness measured, FAILED GATE on speed under the no-ms rule). Contract inventory: unchanged (lab crates only).
