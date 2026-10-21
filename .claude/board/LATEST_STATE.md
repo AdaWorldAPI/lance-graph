@@ -1,3 +1,7 @@
+## 2026-10-21 — main after #1674 (merged `414377f3`)
+
+- **On main:** #1674 (D-TGB-4 thought-git receipt and deterministic replay, lab, `thought-git-probe`). Contract inventory: unchanged (lab crate, CI workflow and board only).
+
 ## 2026-10-21 — D-RFT-0 / D-QSP-0: Kleene form of set normalization (in PR)
 
 - **Contract:** `set_algebra::{Logic, normalize_kleene, normalize_with}` added; `normalize` unchanged (two-valued). `set_rules::SetNormalize` under `Truth::ThreeValued` now applies the Kleene form instead of refusing (its `CATALOGUE` entry has no refusals). Example `k3_pg_parity` (PostgreSQL differential, skips without a server). Entries `entries/2026-10-21-d-rft-0-kleene-normalization.md` and `entries/2026-10-21-d-rft-d-lfa-0-assessment.md` (docs-only D-RFT-1..5 sequence, D-LFA-0 census).

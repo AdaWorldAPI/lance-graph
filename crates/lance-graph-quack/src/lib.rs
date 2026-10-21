@@ -1532,6 +1532,43 @@ pub fn lower_avg(filter: &Filter, val: Col) -> Result<AvgPlan, LowerError> {
     })
 }
 
+/// `SUM(val)` with SQL's NULL result: the same two folds as [`AvgPlan`],
+/// finished by [`sum_finish`] instead of [`avg_finish`].
+///
+/// A lone [`Agg::SumI32`] answers `0` for a selection with no non-NULL
+/// `val`, because [`Terminal::MaskedSumI32`] starts from the additive
+/// identity. SQL answers NULL there, and `0` is also the answer for a
+/// selection whose values really sum to zero. The count fold is what tells
+/// the two apart.
+pub type SumPlan = AvgPlan;
+
+/// Lower `SUM(val) WHERE filter` to its [`SumPlan`], with `valid` the
+/// validity plane of `val` when `val` is nullable.
+///
+/// `filter` is the caller's `WHERE`, already read through
+/// [`Filter::sql_where`] if it touches nullable columns. Both folds run over
+/// `filter ∧ valid`, so a NULL `val` neither adds its payload to the sum nor
+/// counts as a contribution. Taking `valid` here rather than leaving it to
+/// the caller's filter (as [`lower_avg`] does) means the NULL gate cannot be
+/// forgotten on one half and kept on the other.
+///
+/// # Errors
+///
+/// As [`lower`].
+pub fn lower_sum(filter: &Filter, val: Col, valid: Option<Mask>) -> Result<SumPlan, LowerError> {
+    let gated = match valid {
+        Some(v) => Filter::and([filter.clone(), Filter::is_not_null(v)]),
+        None => filter.clone(),
+    };
+    lower_avg(&gated, val)
+}
+
+/// Finish a sum: `Some(sum)`, or `None` (SQL `NULL`) when no row
+/// contributed a value. `count` is the [`SumPlan::count`] fold.
+pub fn sum_finish(sum: i64, count: u64) -> Option<i64> {
+    (count != 0).then_some(sum)
+}
+
 /// `GROUP BY key AVG(val)`: the grouped form of [`AvgPlan`], one K-slot
 /// sum sink and one K-slot count sink over the same filter. Both programs
 /// take an `Out::I64` of exactly `groups` slots; finish each group with

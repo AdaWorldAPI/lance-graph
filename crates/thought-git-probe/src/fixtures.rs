@@ -27,7 +27,7 @@ pub const fn cell(row: u32, lane: u8) -> Cell {
 }
 
 /// How a thought's write intention ends on the Rubicon lifecycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Outcome {
     /// `Planning → CognitiveWork → Evaluation → Commit`: the result lands.
     Commit,
