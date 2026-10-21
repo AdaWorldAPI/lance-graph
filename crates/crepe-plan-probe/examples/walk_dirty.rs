@@ -153,6 +153,12 @@ fn dirty_walk(n: usize, e: &[Edge], opt: Opt) -> Dirty {
             new.fill(0);
             c.sweep_words += new.len() as u64;
         }
+        // What `touched_only` relies on instead of the fill: the rows the last
+        // iteration left in `new` were cleared row by row. A stale bit would
+        // not change the answer (it is already in `walk`, and `new &= !walk`
+        // removes it), so only this check can see a missing clear.
+        #[cfg(test)]
+        assert!(new.iter().all(|&x| x == 0), "`new` is not clear");
         let mut new_live = vec![false; lens];
         for (l1, adj) in by_len.iter().enumerate() {
             let Some(adj) = adj else { continue };
