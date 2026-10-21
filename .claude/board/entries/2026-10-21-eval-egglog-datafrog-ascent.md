@@ -6,8 +6,12 @@
 
 - **Role (b) is withdrawn for datafrog and Ascent.** Both hold their relations as owned tuples (§2), so neither can serve as an oracle. P-D1, P-A1 and P-A2 are SUPERSEDED.
 - **The replacement oracle is an independent fold.** For D-RFT-3 / D-TGB-10 recursion: a second closure algorithm over the same mask planes (for example Warshall over a ≤256 tile, against iterated frontier masks), compared terminal against terminal. Independence comes from the algorithm, not from a second data model. This is a working model, not yet a probe.
-- **P-E1 keeps its egglog half** (offline, counts only), but its Kleene check now runs against the mask oracle: the per-row `set_at` it names was replaced by `set_planes`, which evaluates (T, F) masks.
-- Done in the same change: the three Kleene oracles (`k3_pg_parity`, `set_algebra` tests, `set_rules` tests) now evaluate whole TRUE/FALSE masks and count by popcount or fold. Each was disable-checked: a two-valued NOT turns its tests red.
+- **P-E1 keeps its egglog half** (offline, counts only).
+- **The PostgreSQL differential runs through the engine.** `lance-graph-quack/examples/k3_where_pg_parity.rs`:
+  - Each expression is executed by Quack: `sql_where` → `lower` / `lower_fused` → mask-risc `execute_into` with `Keep`.
+  - PostgreSQL returns the TRUE and FALSE rows.
+  - Equality is mask-risc `Xor` then `Any`, on both masks, never on counts.
+  - No new evaluator, counting loop or equality helper is added. The contract-side oracles are unchanged.
 
 **Evidence grades.** Claims about our own tree are marked `VERIFIED-IN-CODE`, with `file:line`. Claims from outside use these grades:
 
