@@ -1,3 +1,17 @@
+## 2026-10-21 — lance-graph PR #1658 (merged `1bbb5418`, branch `ccr-d3ce1263-ied9yh`, head `faa0837c`) — D-RU-4 / U4: co-addressed join operator over one `JoinDomain`
+
+- **Added:** `crepe_plan_probe::coaddressed::{CoTable, CoSide, CoEval, CoCost, CoRefusal, eval, plan_rels, layout_key, VALUE_LANE}`; `mork_pathmap_probe::join::Side::{values, offsets}` (read-only); `examples/coaddressed.rs` plus CI step; entry `2026-10-21-u4-coaddressed-join.md`.
+- **Locked:** per-side `Rel`s run at query time over one table laid out without restrictions. Each side projects onto its slots with `GroupReduce Count` keyed by its own non-decreasing slot lane, and the slot planes are combined with a relalg `And`. Answers are folds (`distinct_centers`, `bag_count`, `matching`); `bindings` was replaced by `matching` in `1d1c0b77` after #1657. `CoTable` fields are private (Codex P2), and no program has a foreign hop.
+- **Deferred / open:** the speed gate. Every benchmark arm ran in milliseconds, which is a failed gate under the no-ms P0 rule, so timings are withdrawn. Open: fold each side's `Rel` into the projection terminal and sink into a plane, a restriction on the center, factorization through two domains.
+- **Confidence:** correctness measured. Parity with the star path and a counting nested-loop oracle; 5 disables, each red on its target test; CI green. Speed: FAILED GATE.
+
+## 2026-10-21 — lance-graph PR #1653 (merged `d1a18b9e`, branch `ccr-d3ce1263-ied9yh`, head `2bfacf94`) — D-RU-3 / U3: cross-rule CSE in crepe-plan-probe
+
+- **Added:** `crepe_plan_probe::cse::{Layout, SharedStars, Group, prepare_shared, evaluate_shared, execute_shared, witness, CseRefusal, SharedReport}`; `native::tuples_over_mask` (since removed by #1657); `examples/rule_cse.rs` plus CI step; entry `2026-10-21-u3-cross-rule-cse.md`.
+- **Locked:** rules that share a side share one table (`Layout::Components`, union-find over `SideKey`s). Shared parts become `set_program` lets. A witness refuses a plan or table it was not built for.
+- **Deferred / open:** `share`'s subset search cost; factorization and a shared BIND; the entry's timings are ms results and fall under the no-ms rule (EXO-110).
+- **Confidence:** correctness measured against crepe, ascent and the reference; 7 disables red. Speed: the reported ms timings are a failed gate under the later no-ms rule.
+
 ## 2026-10-21 — lance-graph PR #1654 (merged `d754128`, branch `claude/eager-albattani-iufugq`, head `ac147d9`) — D-RA-2: relalg's symbolic answers from `contract::set_rules`; #1651 closeout
 
 - **Added:** `set_rules::Rule::{EmptyMeasure, CountAll}` (catalogue 8 rules); test `experiment_e_no_universe_refuses_the_range_rules`; entry `2026-10-21-d-ra-2-relalg-symbolic-repoint.md`. Also the #1651 board closeout (D-CMR-6 Shipped, PR_ARC #1651).

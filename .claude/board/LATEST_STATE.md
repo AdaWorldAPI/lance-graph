@@ -1,3 +1,7 @@
+## 2026-10-21 — main after #1658 (merged `1bbb5418`)
+
+- **On main:** #1655, #1656, #1657, #1658 (D-RU-4 co-addressed join in crepe-plan-probe; correctness measured, FAILED GATE on speed under the no-ms rule). Contract inventory: unchanged (lab crates only).
+
 ## 2026-10-21 — D-CMR-2b measured: no win on whole extents; short runs pay per-run cost (in PR)
 
 - **lance-graph-benches (lab example only, no library change):** `examples/pred_scratch_probe.rs`. On whole extents and 40k-row runs a fused compare-and-count fold does not beat today's tiled `execute_extent`. On `set_lower`'s run shape with 200-row runs, per-run `execute_extent` is 2.5–4× slower than the fold; compiling once cuts it by only 5–18 %. Remedy (fewer edge-tile passes, a run-batched entry point, or a short-run fold) not decided, not built. Entry `entries/2026-10-21-d-cmr-2b-scratch-probe.md`. Contract inventory: unchanged.
