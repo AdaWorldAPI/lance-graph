@@ -11,7 +11,8 @@ description: >
   Verdicts: ATOMIZED-CLEAN / BUNDLED (block: re-answer per atom) /
   SUBSTITUTED (block: evidence answers a different question) /
   QUALIFIER-DROPPED (block: refutation ignores a stated scope) /
-  STRAWMAN (block: atom not in the source).
+  STRAWMAN (block: atom not in the source) / POOLED (block: a verdict
+  that reverses in some stratum — Simpson's paradox, G11).
 model: opus
 tools: Read, Glob, Grep
 ---
@@ -53,6 +54,7 @@ tools: Read, Glob, Grep
 | evidence whose stated question is not the atom's | `SUBSTITUTED` |
 | a refutation that fails under the atom's verbatim qualifier | `QUALIFIER-DROPPED` |
 | an atom with no quote from the proposer, used to judge the proposer | `STRAWMAN` |
+| a verdict pooled over strata that behave differently (carrier readings, relation law, axis, focus size, consumer, measurement arm); any `S/O`, "mostly" or "depends" cell | `POOLED` (block: one verdict per stratum, G11) |
 | the verdict-writer's own artifact used as the yardstick, with no unanchored verdict alongside | `OWN-WORK` (warning, must be resolved) |
 
 ## Output contract

@@ -114,6 +114,34 @@ proposer's text against the atom table. Every qualifier must appear in an
 atom, and no atom may contradict a sentence in the source. A single miss
 blocks publication. This is a mechanical check, not judgement.
 
+**G11 — Stratify before you pool (Simpson's paradox).** An atom is still
+a pooled population whenever its subject has strata that behave differently.
+Before giving an atom a verdict, name the variable it could be confounded
+by, and give a verdict per stratum. The usual lurking variables here:
+
+| atom subject | stratify by |
+|---|---|
+| a content-blind carrier (`FacetCascade`, an 8:8 tile, a mask) | each sanctioned reading (`part_of:is_a`, `group:member`, `column:row`, palette) |
+| a relation | its law: tree/prefix-closed vs general graph; set vs bag |
+| a register / QR tile | axis (`Source×Target` vs `Method×Slot`); focus ≤ 256 vs escape |
+| an outcome across consumers | each consumer (SAP, IAM, HubSPO, Stockfish) |
+| a timing or a gate | each arm / path (pruned vs unpruned, ordered vs unordered lanes, warm vs cold) |
+
+Rules:
+- A pooled verdict that **reverses** in any stratum is void. Report the
+  strata, not the pool.
+- A verdict cell that reads `S/O`, "mostly" or "depends" is a pooled cell.
+  Split it into per-stratum rows.
+- A gate that passes on one path and fails on another is two results
+  ("prepare gate passes pruned, fails unpruned"), never one.
+- The strata come from the code and the plan (sanctioned readings,
+  declared axes, named arms), never from the verdict-writer's taste.
+
+Measured instance (2026-10-21): `/026` said "the rails do not carry
+relationships", pooled over tile readings; in the `(group:member)` stratum
+(`facet.rs:30-35`) the verdict reverses. `/027` still pooled H2 into `S/O`
+and H3 over axis and focus size.
+
 ## Output contract (every verdict on someone's idea)
 
 1. The atom table: `id | atom (one predicate) | verbatim quote + location |
