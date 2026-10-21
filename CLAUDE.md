@@ -38,6 +38,12 @@ benchmarks and PR bodies alike.
   16-byte facet. A fold acts on all positions at once (one compare → one mask).
   A tuple, by contrast, is the value split into owned heap objects. It
   discards the template, and it is where the milliseconds come from.
+- **A tuple is a zero-copy violation** (2026-10-21). Copying lane values
+  into owned rows makes a second owner of bytes the substrate already holds
+  (`.claude/knowledge/zero-copy-lens-law.md`: no escape hatch, no cost
+  argument). It is a violation whether it takes milliseconds or nanoseconds,
+  and whether it is intermediate or the final answer. Making it faster does
+  not make it legal.
 - **What follows for a session:**
   - **Before reporting any timing,** check the unit. ms → stop; find where
     the path left the mask-risc terminals.
@@ -49,10 +55,11 @@ benchmarks and PR bodies alike.
     new algebra until tests prove the new algebra also runs in nanoseconds.
 - SCOPE: every crate in this workspace, plus every number quoted in a board
   entry, plan, PR or Linear comment.
-- REVISIT WHEN: never on cost grounds. Only a demand that genuinely returns
-  rows to a consumer may materialize, as a terminal's elected output under the
-  zero-copy law; a `materialize*`-named path whose O(n) cost is stated. Even
-  then, the batch stays within microseconds.
+- REVISIT WHEN: never on cost grounds. When a demand genuinely returns rows,
+  what crosses is COORDINATES, never copied values: the kept mask (or
+  `materialize*`-named row ids, O(n) stated) plus the lanes, which the
+  consumer reads through the template in place. Even then, the batch stays
+  within microseconds.
 
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
