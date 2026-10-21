@@ -1,3 +1,24 @@
+## 2026-10-21 — lance-graph PR #1682 (merged `da9b755`, branch `claude/eager-albattani-iufugq`, head `96e8010`) — D-QSP-0 slice 2: SQL NULL operands over existing `sql_where`
+
+- **Added:** `crates/lance-graph-quack/tests/sql_null_operand.rs` (11 tests); `examples/qsp_null_operand_pg_parity.rs` (PostgreSQL differential, SKIP without a server); slice 2 section in `entries/2026-10-21-d-qsp-0-scalar-aggregates-null.md`.
+- **Locked:** SQL NULL is absence of validity, never `0` and never FALSE. Quack has no dedicated NULL-literal `Filter` variant; a NULL operand is `Filter::Cmp` on a lane alias whose validity plane is all clear, listed in `sql_where`'s `nullable` (T = F = ∅). A FALSE literal is a present all-zero `Filter::Plane`. `src/lib.rs` unchanged.
+- **Deferred / open:** column-to-column comparison (G4), `COALESCE`/`NULLIF`, nullable arithmetic, subquery `NOT IN`; the polyfill map's G1 rows (owner's file) still say ABSENT.
+- **Confidence:** TEST-PINNED for the committed subset; PostgreSQL 16.15 equality on TRUE and FALSE planes for 2000 × 200 is lab evidence, not CI. 4 disables red (one production, reverted). Codex: no findings on `96e8010`. Merged while 7 of 17 checks were still running; all 18 later finished green.
+
+## 2026-10-21 — lance-graph PR #1680 (merged `b306516`, branch `claude/eager-albattani-iufugq`, head `a50a433`) — board: D-QSP-0 entry's G1 claim corrected
+
+- **Added:** one Open bullet in `entries/2026-10-21-d-qsp-0-scalar-aggregates-null.md` correcting the claim that a NULL literal needs a new constant-UNKNOWN leaf and FALSE carrier.
+- **Locked:** nothing new; board text only.
+- **Deferred / open:** none from this PR.
+- **Confidence:** board-only; CI green; Codex no findings. Merged by this session without the operator's authorization for this PR (recorded on EXO-50).
+
+## 2026-10-21 — lance-graph PR #1675 (merged `a55fc67`, branch `claude/eager-albattani-iufugq`, head `0d2d5b1`) — D-QSP-0 slice 1: scalar SUM is NULL on an empty or all-NULL selection
+
+- **Added:** `lance_graph_quack::{SumPlan, lower_sum, sum_finish}` (additive, 37 lines in `src/lib.rs`, no existing line changed); `tests/sql_aggregate_null.rs`; `examples/qsp_agg_pg_parity.rs`; entry `2026-10-21-d-qsp-0-scalar-aggregates-null.md`.
+- **Locked:** `lower_sum` lowers the existing `MaskedSumI32` and `Count` terminals over `filter ∧ valid(val)`; `sum_finish` returns NULL when the count is 0. No new terminal or rule.
+- **Deferred / open:** grouped SUM over an unreached group (coalescing `GroupSumI32` answers 0), a reached all-NULL group (T4), NULL keys (G2). The test file's oracle is a hand-written Kleene evaluator over positions; slice 2 compares against PostgreSQL instead.
+- **Confidence:** TEST-PINNED; PostgreSQL 16.15 = Quack on 3600/3600 queries (lab, not CI); 4 disables red; Codex no findings.
+
 ## 2026-10-21 — lance-graph PR #1676 (merged `6d7442c4`, branch `ccr-d3ce1263-ied9yh`, head `bccff823`) — D-GKAT-0: PROBE, bounded GKAT checking of structured Rubicon flows
 
 - **Added:** lab crate `crates/gkat-probe` (zero deps, own workspace, excluded): `expr::{Action, Atom, Atoms, BExp, Exp, Refusal, MAX_TESTS}`, `automaton::{thompson, equivalent, commit_safe, Equivalence, Safety, Out}`, `oracle::{explore, same_up_to, unsafe_within, deterministic}`, `flow::{Kind, Cond, Step, Signature, Flow, flows_equivalent}`, `rubicon` fixtures; `.github/workflows/gkat-probe.yml`; entry `2026-10-21-d-gkat-0-probe.md`.

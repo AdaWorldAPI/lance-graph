@@ -96,5 +96,7 @@ PGHOST=<socket dir> PGPORT=<port> PGUSER=<user> PGDATABASE=postgres \
   cargo run --release -p lance-graph-quack --example qsp_null_operand_pg_parity
 ```
 
+**Boundaries.** Quack has no dedicated NULL-literal `Filter` variant, and none is added: the subset above is expressible through a borrowed lane alias and an all-clear validity plane. The PostgreSQL examples print `SKIP` and exit 0 without a server; they are lab evidence and do not run in CI, so CI proves only the committed tests. #1682 was merged while 7 of its 17 checks were still running; all 18 later finished green on `96e8010` (checked after merge).
+
 **Still open.** `x IS NOT DISTINCT FROM y` and other column-versus-column comparisons (G4); `COALESCE`, `NULLIF` and nullable arithmetic (value expressions); the NULL branch of a `NOT IN` subquery; the stale G1 rows in `entries/2026-10-21-pg-classview-polyfill-map.md`, which belong to their author's session.
 - Two folds cost two passes over the filter, as for AVG. A fused sum+count sink is a cost question, not a correctness one; no timing was taken here.
