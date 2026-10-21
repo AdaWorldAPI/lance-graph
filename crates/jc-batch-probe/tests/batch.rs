@@ -430,3 +430,46 @@ fn a_lane_only_univariate_requests_need_gets_one_pass() {
     assert_eq!((red.cross_passes, red.power_passes), (1, 1));
     assert_eq!(cost.sum_passes, 2);
 }
+
+/// FAILS IF: a selection that names a resident mask plane, alone or inside a
+/// conjunction, is run instead of refused. Neither path has resident planes,
+/// so running it could only fail later inside the fold.
+#[test]
+fn a_selection_naming_a_resident_plane_is_refused() {
+    let fx = Fixture::new(500, 0x91A7);
+    let lanes = fx.lanes();
+    let t = fx.table(&lanes);
+    for (k, select) in [
+        Rel::Plane(0),
+        Rel::And(vec![low(), Rel::Not(Box::new(Rel::Plane(1)))]),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut reqs = requests();
+        reqs[5 + k].select = select;
+        let want = Err(BatchError::ResidentPlane { request: 5 + k });
+        assert_eq!(answer_batched(&t, &reqs).map(|_| ()), want);
+        assert_eq!(answer_separately(&t, &reqs).map(|_| ()), want);
+    }
+}
+
+/// FAILS IF: a resident-plane refusal takes precedence over a version
+/// mismatch. The plane comes first (request 2) and the stale request later
+/// (request 7), so a single in-order pass would report the plane.
+#[test]
+fn a_version_mismatch_wins_over_a_resident_plane_anywhere_in_the_batch() {
+    let fx = Fixture::new(500, 0x0DE7);
+    let lanes = fx.lanes();
+    let t = fx.table(&lanes);
+    let mut reqs = requests();
+    reqs[2].select = Rel::Plane(0);
+    reqs[7].version = VERSION + 1;
+    let want = Err(BatchError::VersionMismatch {
+        request: 7,
+        request_version: VERSION + 1,
+        table_version: VERSION,
+    });
+    assert_eq!(answer_batched(&t, &reqs).map(|_| ()), want);
+    assert_eq!(answer_separately(&t, &reqs).map(|_| ()), want);
+}
