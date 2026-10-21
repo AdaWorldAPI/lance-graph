@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-407 entries, 2026-08-06 .. 2026-10-21.
+408 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-21 | `D-RU-3` |  | [2026-10-21-u3-cross-rule-cse.md](2026-10-21-u3-cross-rule-cse.md) |
 | 2026-10-21 | `D-RU-2` |  | [2026-10-21-u2-let-planes.md](2026-10-21-u2-let-planes.md) |
+| 2026-10-21 | `tuple-zero-copy-council` |  | [2026-10-21-tuple-zero-copy-council.md](2026-10-21-tuple-zero-copy-council.md) |
 | 2026-10-21 | `D-RU-6-LAB-1` |  | [2026-10-21-d-ru-6-tile-walk-probe.md](2026-10-21-d-ru-6-tile-walk-probe.md) |
 | 2026-10-21 | `D-RU-6-LAB-2` |  | [2026-10-21-d-ru-6-sparse-compute.md](2026-10-21-d-ru-6-sparse-compute.md) |
 | 2026-10-21 | `D-RU-6-LAB-3` |  | [2026-10-21-d-ru-6-dirty-frontier.md](2026-10-21-d-ru-6-dirty-frontier.md) |
