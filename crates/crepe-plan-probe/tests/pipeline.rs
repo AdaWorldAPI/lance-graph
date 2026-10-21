@@ -674,14 +674,15 @@ fn l_renamed_and_noisy_rules_give_the_same_plan() {
 // M. The H14d absorption case
 // ---------------------------------------------------------------------------
 
-/// `normalize` still misses `¬(x ∧ (x ∨ y)) = ¬x` (H14d, 2026-10-16) — but
-/// only when `x` is itself an `And` or `Or`. Measured here: with `x` a plane or
-/// a comparison it reduces correctly; with `x = p0 ∧ p2` De Morgan and
-/// flattening run first and the absorption no longer matches. A relalg defect,
-/// pinned here, not fixed in the optimizer. This spike never builds the shape:
-/// it only emits an `And` of planes (no `Not`, no `Or`).
+/// `¬(x ∧ (x ∨ y)) = ¬x` (H14d, 2026-10-16). Until D-CMR-1 `normalize` missed
+/// it when `x` was itself an `And` or `Or`: De Morgan and flattening ran first
+/// and absorption no longer matched. Fixed upstream in
+/// `lance_graph_contract::set_algebra::normalize` (absorption against
+/// flattened siblings and sub-junctions), which relalg now delegates to; this
+/// pin flipped with it. Not fixed in the optimizer. This spike never builds the
+/// shape: it only emits an `And` of planes (no `Not`, no `Or`).
 #[test]
-fn m_the_known_absorption_gap_is_untouched_and_not_produced() {
+fn m_the_known_absorption_gap_is_closed_and_not_produced() {
     let absorbed = |x: Rel| {
         let e = Rel::Not(Box::new(Rel::And(vec![
             x.clone(),
@@ -691,12 +692,12 @@ fn m_the_known_absorption_gap_is_untouched_and_not_produced() {
     };
     assert!(absorbed(Rel::Plane(0)), "leaf x reduces");
     assert!(
-        !absorbed(Rel::And(vec![Rel::Plane(0), Rel::Plane(2)])),
-        "compound x: fixed upstream? update this pin"
+        absorbed(Rel::And(vec![Rel::Plane(0), Rel::Plane(2)])),
+        "compound x (And) must reduce since D-CMR-1"
     );
     assert!(
-        !absorbed(Rel::Or(vec![Rel::Plane(0), Rel::Plane(2)])),
-        "compound x: fixed upstream? update this pin"
+        absorbed(Rel::Or(vec![Rel::Plane(0), Rel::Plane(2)])),
+        "compound x (Or) must reduce since D-CMR-1"
     );
     // What this spike produces: duplicates collapse, nothing widens.
     let ours = Rel::And(vec![Rel::Plane(0), Rel::Plane(1), Rel::Plane(0)]);

@@ -18,6 +18,9 @@ lance-graph-r2il = { path = "../lance-graph-r2il" }
 # By git `main`, the coordinate `lance-graph-r2il` uses (one `ogar-loco`).
 ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The set algebra (normalize) lives in the contract (D-CMR-1 / D-RA-2,
+# ADR-2026-10-20-SIX §2); this crate converts and lowers.
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
