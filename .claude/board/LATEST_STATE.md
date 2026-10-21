@@ -1,3 +1,11 @@
+## 2026-10-21 — D-RA-2: relalg `symbolic` repointed onto `contract::set_rules` (in PR)
+
+- **Contract:** `set_rules::Rule::{EmptyMeasure, CountAll}` added (catalogue 8 rules). **relalg:** `normalize::symbolic` delegates to `set_rules::rewrite`; crepe's symbolic answers follow through `lance_graph_relalg::run`. Entry `entries/2026-10-21-d-ra-2-relalg-symbolic-repoint.md`.
+
+### Current Contract Inventory — net delta (`set_rules.rs`)
+
+- Two `Rule` variants added; no type removed or changed.
+
 ## 2026-10-21 — main after #1651 (merged `6bf4f86`)
 
 - **On main:** #1651 (D-CMR-6 `contract::set_rules`, plus the #1650 closeout). Contract inventory delta: `set_rules.rs` (see the D-CMR-6 section below).

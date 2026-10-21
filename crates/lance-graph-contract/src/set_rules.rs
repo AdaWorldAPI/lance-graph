@@ -194,6 +194,10 @@ pub enum Rule {
     RangeIntersect,
     /// `Count([lo, hi)) → max(0, hi − lo)`.
     RangeCount,
+    /// `Count(∅) → 0` and `Sum(∅) → 0`.
+    EmptyMeasure,
+    /// `Count(All) → N`.
+    CountAll,
 }
 
 /// Why a rule whose pattern matched did not fire.
@@ -235,6 +239,18 @@ pub const CATALOGUE: &[RuleSpec] = &[
         pattern: "Count(S) / Sum(S) with S not normalized",
         requires: "two-valued sets; the result is strictly smaller",
         refuses: &[Refusal::NotTwoValued],
+    },
+    RuleSpec {
+        rule: Rule::EmptyMeasure,
+        pattern: "Count(∅) → 0; Sum(∅) → 0",
+        requires: "for a sum, plain sums (a `_sym` sum over no row is a sentinel)",
+        refuses: &[Refusal::SymFamily],
+    },
+    RuleSpec {
+        rule: Rule::CountAll,
+        pattern: "Count(All) → N",
+        requires: "a fixed universe N of distinct rows; not IEEE",
+        refuses: &[Refusal::NoUniverse, Refusal::Bag, Refusal::Ieee],
     },
     RuleSpec {
         rule: Rule::Complement,
@@ -538,6 +554,35 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
                 lo,
                 hi: hi.max(lo),
             }])))
+        }
+        Rule::EmptyMeasure => match m {
+            Measure::Count(SetExpr::Empty) => Some(Ok(Measure::Const(0))),
+            Measure::Sum {
+                set: SetExpr::Empty,
+                ..
+            } => {
+                if sem.sums == SumFamily::Sym {
+                    return Some(Err(Refusal::SymFamily));
+                }
+                Some(Ok(Measure::Const(0)))
+            }
+            _ => None,
+        },
+        Rule::CountAll => {
+            let Measure::Count(SetExpr::All) = m else {
+                return None;
+            };
+            let Some(n) = sem.universe else {
+                return Some(Err(Refusal::NoUniverse));
+            };
+            if sem.population == Population::Bag {
+                return Some(Err(Refusal::Bag));
+            }
+            // Stepwise rounding of the count differs from one conversion.
+            if sem.arith == Arith::Ieee {
+                return Some(Err(Refusal::Ieee));
+            }
+            Some(Ok(Measure::Const(i128::from(n))))
         }
         Rule::RangeCount => {
             let Measure::CountRows(rs) = m else {
@@ -1080,9 +1125,10 @@ mod tests {
         assert!(tr
             .refusals
             .contains(&(Rule::SetNormalize, Refusal::NotTwoValued)));
-        // Two-valued, the same expression is the whole universe.
-        let (r2, _) = rewrite(&m, &Semantics::exact(3), BUDGET);
-        assert_eq!(r2, Measure::Count(SetExpr::All));
+        // Two-valued, the same expression is the whole universe, counted.
+        let (r2, tr2) = rewrite(&m, &Semantics::exact(3), BUDGET);
+        assert_eq!(tr2.steps, vec![Rule::SetNormalize, Rule::CountAll]);
+        assert_eq!(r2, Measure::Const(3));
     }
 
     #[test]
@@ -1393,9 +1439,13 @@ mod tests {
         };
         let (r, tr) = rewrite(&c, &sem, BUDGET);
         assert_eq!(r, c);
+        // `EmptyMeasure` refuses the `Sum(∅)` operands under `_sym` as well.
         assert_eq!(
             tr.refusals,
-            vec![(Rule::AdditiveCancellation, Refusal::SymFamily)]
+            vec![
+                (Rule::AdditiveCancellation, Refusal::SymFamily),
+                (Rule::EmptyMeasure, Refusal::SymFamily),
+            ]
         );
         // A dropped operand with no sum still cancels under `_sym`.
         let k = Measure::Count(SetExpr::Sym(0));
@@ -1427,6 +1477,102 @@ mod tests {
         assert_ne!(acc, (1u32 << 25) as f32);
     }
 
+    /// `Count(∅)` and `Sum(∅)` are 0; `Count(All)` is the universe. The
+    /// constant agrees with the oracle, including after normalization.
+    #[test]
+    fn empty_and_all_measures_fold_to_constants() {
+        let t = table(&mut Rng(19), 12, false, true);
+        let sem = Semantics::exact(12);
+        let cases = [
+            (Measure::Count(SetExpr::Empty), 0),
+            (
+                Measure::Sum {
+                    lane: 0,
+                    set: SetExpr::Empty,
+                },
+                0,
+            ),
+            (Measure::Count(SetExpr::All), 12),
+            // Normalization first: `S0 ∧ ¬S0` is empty, `S0 ∨ ¬S0` is All.
+            (
+                Measure::Sum {
+                    lane: 1,
+                    set: SetExpr::And(vec![SetExpr::Sym(0), SetExpr::negated(SetExpr::Sym(0))]),
+                },
+                0,
+            ),
+            (
+                Measure::Count(SetExpr::Or(vec![
+                    SetExpr::Sym(0),
+                    SetExpr::negated(SetExpr::Sym(0)),
+                ])),
+                12,
+            ),
+        ];
+        for (m, want) in cases {
+            let (r, tr) = rewrite(&m, &sem, BUDGET);
+            assert_eq!(r, Measure::Const(want), "{m:?}: {tr:?}");
+            assert_eq!(ev(&t, &m, Acc::Exact), Val::I(want));
+        }
+    }
+
+    /// `_sym`: a sum over no row is the sentinel, never 0. The count still
+    /// folds.
+    #[test]
+    fn sym_family_refuses_the_empty_sum() {
+        let sem = Semantics {
+            sums: SumFamily::Sym,
+            ..Semantics::exact(4)
+        };
+        let m = Measure::Sum {
+            lane: 0,
+            set: SetExpr::Empty,
+        };
+        let (r, tr) = rewrite(&m, &sem, BUDGET);
+        assert_eq!(r, m);
+        assert_eq!(tr.refusals, vec![(Rule::EmptyMeasure, Refusal::SymFamily)]);
+        assert_eq!(
+            rewrite(&Measure::Count(SetExpr::Empty), &sem, BUDGET).0,
+            Measure::Const(0)
+        );
+    }
+
+    /// `Count(All)` needs a universe of distinct rows, and not IEEE.
+    #[test]
+    fn count_all_refuses_without_universe_for_bags_and_under_ieee() {
+        let m = Measure::Count(SetExpr::All);
+        let mut t = table(&mut Rng(23), 3, false, false);
+        t.mult = vec![2, 1, 1];
+        assert_ne!(ev(&t, &m, Acc::Exact), Val::I(3));
+        for (sem, why) in [
+            (
+                Semantics {
+                    universe: None,
+                    ..Semantics::exact(0)
+                },
+                Refusal::NoUniverse,
+            ),
+            (
+                Semantics {
+                    population: Population::Bag,
+                    ..Semantics::exact(3)
+                },
+                Refusal::Bag,
+            ),
+            (
+                Semantics {
+                    arith: Arith::Ieee,
+                    ..Semantics::exact(3)
+                },
+                Refusal::Ieee,
+            ),
+        ] {
+            let (r, tr) = rewrite(&m, &sem, BUDGET);
+            assert_eq!(r, m);
+            assert_eq!(tr.refusals, vec![(Rule::CountAll, why)]);
+        }
+    }
+
     // ── driver ───────────────────────────────────────────────────────────
 
     #[test]
@@ -1451,7 +1597,7 @@ mod tests {
         sorted.sort();
         sorted.dedup();
         assert_eq!(sorted.len(), rules.len());
-        assert_eq!(rules.len(), 6);
+        assert_eq!(rules.len(), 8);
         assert!(CATALOGUE.iter().all(|s| !s.refuses.is_empty()));
     }
 }
