@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-21 | `D-RU-3` |  | [2026-10-21-u3-cross-rule-cse.md](2026-10-21-u3-cross-rule-cse.md) |
 | 2026-10-21 | `D-RU-2` |  | [2026-10-21-u2-let-planes.md](2026-10-21-u2-let-planes.md) |
 | 2026-10-21 | `D-RU-6-LAB-1` |  | [2026-10-21-d-ru-6-tile-walk-probe.md](2026-10-21-d-ru-6-tile-walk-probe.md) |
 | 2026-10-21 | `D-RU-6-LAB-2` |  | [2026-10-21-d-ru-6-sparse-compute.md](2026-10-21-d-ru-6-sparse-compute.md) |
