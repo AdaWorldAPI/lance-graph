@@ -51,6 +51,11 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      # The walk_mask correctness fixtures (tuple sets against ascent and
+      # crepe). Examples are compiled by `cargo test` but their tests only run
+      # when named. The benchmark itself (`cargo run --release --example
+      # walk_mask`) is not run in CI.
+      - run: cargo test --example walk_mask
       # relalg is its own workspace and patches ndarray to a sibling checkout
       # (`../../../ndarray` from its directory); no other job runs its tests.
       - name: relalg tests and clippy
