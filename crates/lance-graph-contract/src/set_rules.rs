@@ -1265,6 +1265,42 @@ mod tests {
         assert_eq!(tr.refusals, vec![(Rule::RangeCount, Refusal::PastUniverse)]);
     }
 
+    /// No universe: a range bound cannot be checked against the population,
+    /// so neither range rule fires (Codex review of #1654).
+    #[test]
+    fn experiment_e_no_universe_refuses_the_range_rules() {
+        let sem = Semantics {
+            universe: None,
+            ..Semantics::exact(0)
+        };
+        let two = Measure::CountRows(vec![
+            RowRange {
+                basis: 0,
+                lo: 0,
+                hi: 10,
+            },
+            RowRange {
+                basis: 0,
+                lo: 5,
+                hi: 20,
+            },
+        ]);
+        let (r, tr) = rewrite(&two, &sem, BUDGET);
+        assert_eq!(r, two);
+        assert_eq!(
+            tr.refusals,
+            vec![(Rule::RangeIntersect, Refusal::NoUniverse)]
+        );
+        let one = Measure::CountRows(vec![RowRange {
+            basis: 0,
+            lo: 0,
+            hi: 10,
+        }]);
+        let (r, tr) = rewrite(&one, &sem, BUDGET);
+        assert_eq!(r, one);
+        assert_eq!(tr.refusals, vec![(Rule::RangeCount, Refusal::NoUniverse)]);
+    }
+
     /// Bag: after fan-out a range holds rows with multiplicity, so
     /// `hi − lo` undercounts.
     #[test]
