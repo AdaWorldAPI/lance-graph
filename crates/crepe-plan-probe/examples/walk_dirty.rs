@@ -350,7 +350,9 @@ fn ratio(x: Duration, y: Duration) -> String {
 }
 
 /// A chain of `len` nodes (lengths as in `chain`: 0, and 1 every tenth hop)
-/// where each node has `fan - 1` extra edges to a node up to 8 ahead.
+/// where each node has `fan - 1` extra edges to distinct nodes 2 to 8 ahead,
+/// drawn without replacement. Near the tail fewer than `fan - 1` such nodes
+/// exist; [`effective_fan`] reports the distinct out-degree actually built.
 fn chain_fan(len: i32, fan: usize, seed: u64) -> Vec<Edge> {
     let mut s = seed;
     let mut next = move || {
@@ -364,12 +366,22 @@ fn chain_fan(len: i32, fan: usize, seed: u64) -> Vec<Edge> {
     for i in 0..len - 1 {
         let l = u32::from(i % 10 == 9);
         e.push((i, i + 1, l));
-        for _ in 1..fan {
-            let j = (i + 1 + (next() % 8) as i32).min(len - 1);
-            e.push((i, j, l));
+        let mut ahead: Vec<i32> = (i + 2..=(i + 8).min(len - 1)).collect();
+        for k in 0..(fan - 1).min(ahead.len()) {
+            let pick = k + (next() % (ahead.len() - k) as u64) as usize;
+            ahead.swap(k, pick);
+            e.push((i, ahead[k], l));
         }
     }
     e
+}
+
+/// Distinct out-edges per node that has any.
+fn effective_fan(e: &[Edge]) -> f64 {
+    let distinct: std::collections::BTreeSet<(i32, i32)> =
+        e.iter().map(|&(a, b, _)| (a, b)).collect();
+    let sources: std::collections::BTreeSet<i32> = e.iter().map(|&(a, _, _)| a).collect();
+    distinct.len() as f64 / sources.len() as f64
 }
 
 /// The chain sweep: A, A′ (both switches) and C over chain length, fan-out
@@ -377,11 +389,11 @@ fn chain_fan(len: i32, fan: usize, seed: u64) -> Vec<Edge> {
 fn sweep() {
     println!("# chain sweep (ms, median of {REPS}; C uses {DEFAULT_M} x {DEFAULT_M} microtiles)\n");
     println!(
-        "| len | fan | foci | A count | A′ count | C count | C/A′ count | A e2e | A′ e2e | C e2e | C/A′ e2e | oracle |"
+        "| len | fan | distinct fan | foci | A count | A′ count | C count | C/A′ count | A e2e | A′ e2e | C e2e | C/A′ e2e | oracle |"
     );
-    println!("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+    println!("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
     let both = VARIANTS[3].1;
-    for len in [128, 256, 384, 512, 768] {
+    for len in [128, 192, 230, 256, 320, 384, 512, 768] {
         for fan in [1, 2, 4] {
             let e = chain_fan(len, fan, 0xC4A1 + fan as u64);
             let n = width(&e);
@@ -395,6 +407,10 @@ fn sweep() {
                 black_box(d.planes.counts());
                 d
             });
+            // End to end times the fixpoint without the counts, as B's and C's
+            // `e2e()` do.
+            let (t_a_fix, _) = timed(|| mask_walk(n, &e));
+            let (t_d_fix, _) = timed(|| dirty_walk(n, &e, both));
             let c: Vec<_> = (0..REPS)
                 .map(|_| sparse_eval(&e, DEFAULT_M, usize::MAX).expect("C answers"))
                 .collect();
@@ -413,16 +429,17 @@ fn sweep() {
                 "UNCHECKED"
             };
             println!(
-                "| {len} | {fan} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {oracle} |",
+                "| {len} | {fan} | {:.2} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {oracle} |",
+                effective_fan(&e),
                 c_last.pages,
                 ms(t_a),
                 ms(t_d),
                 ms(t_c),
                 ratio(t_c, t_d),
-                ms(t_a + t_a_dec),
-                ms(t_d + t_d_dec),
+                ms(t_a_fix + t_a_dec),
+                ms(t_d_fix + t_d_dec),
                 ms(t_c_e2e),
-                ratio(t_c_e2e, t_d + t_d_dec),
+                ratio(t_c_e2e, t_d_fix + t_d_dec),
             );
         }
     }
@@ -461,9 +478,11 @@ fn main() {
             tv.push(t);
             cv.push(d);
         }
-        // Count-only for A is its fixpoint plus the popcounts.
+        // Count-only for A is its fixpoint plus the popcounts; `t_a` is the
+        // fixpoint alone, which end to end uses (B's and C's `e2e()` skip the
+        // count phase too).
         let (t_a_count, _) = timed(|| mask_walk(n, &e).counts());
-        let _ = t_a;
+        let (t_d_fix, _) = timed(|| dirty_walk(n, &e, VARIANTS[3].1));
         let b = (0..REPS)
             .map(|_| tile_eval(&e, usize::MAX).expect("B answers"))
             .collect::<Vec<_>>();
@@ -506,11 +525,11 @@ fn main() {
             ratio(t_c, tv[3]),
             ratio(tv[3], t_a_count),
         );
-        // End to end: the fixpoint and counts plus decoding the tuples.
+        // End to end: the fixpoint plus decoding the tuples, no counts.
         let both = &cv[3];
         let (t_dec, _) = timed(|| both.planes.tuples());
         let (t_a_dec, _) = timed(|| a.tuples());
-        e2e.push((name, t_a_count + t_a_dec, tv[3] + t_dec, t_b_e2e, t_c_e2e));
+        e2e.push((name, t_a + t_a_dec, t_d_fix + t_dec, t_b_e2e, t_c_e2e));
         work.push((
             name,
             cv.iter().map(|d| d.counters).collect::<Vec<_>>(),
@@ -654,6 +673,25 @@ mod tests {
         let r = sparse_eval(&e, DEFAULT_M, usize::MAX).expect("C answers");
         assert_eq!(r.pages, 2);
         agree(&r.tuples, &ascent_tuples(&e)).unwrap_or_else(|d| panic!("C: {d}"));
+    }
+
+    #[test]
+    fn chain_fan_builds_distinct_successors() {
+        for fan in [1, 2, 4] {
+            let e = chain_fan(200, fan, 0xC4A1 + fan as u64);
+            let distinct: std::collections::BTreeSet<(i32, i32)> =
+                e.iter().map(|&(a, b, _)| (a, b)).collect();
+            assert_eq!(distinct.len(), e.len(), "fan {fan}: duplicate edges");
+            // Away from the tail every node has exactly `fan` successors.
+            for i in 0..190 {
+                assert_eq!(
+                    e.iter().filter(|x| x.0 == i).count(),
+                    fan,
+                    "fan {fan} node {i}"
+                );
+            }
+        }
+        assert!((effective_fan(&chain_fan(200, 1, 1)) - 1.0).abs() < 1e-9);
     }
 
     #[test]
