@@ -9,7 +9,7 @@ use lance_graph_r2il::procs::{
     all, and_between_i32, and_cmp_i32, avg_parts, bool_and, bool_or, count, count_and,
     count_distinct_sorted, count_union_all, count_valid, differ, except, exists, filter_lt,
     group_sum, in_u32, is_not_null, is_null, keep, margin, max, min, not_exists, select_lt,
-    select_u32, sum, union, Order,
+    select_u32, sum, union, Order, Select,
 };
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_MULT, INT_NOT, INT_OR, INT_S_DIV,
@@ -875,7 +875,7 @@ fn postgresql_primitives_match_row_rule_references() {
     assert_eq!(stack, vec![Val::Scalar(want_sum), Val::Scalar(col)]);
 
     // bool_or / bool_and over a selection: (value, present); present 0 is NULL.
-    let two = |body: &dyn Fn(&mut FoldDialect<'_>, &mut Vec<Val>) -> Result<(), FoldError>| {
+    let two = |body: &Select<'_>| {
         let mut d = FoldDialect::new(&planes, &Foreign::NONE);
         let mut stack = vec![];
         body(&mut d, &mut stack).expect("body");
@@ -1007,7 +1007,7 @@ fn bool_aggs(vals: &[Option<bool>], scramble: bool) -> (Option<bool>, Option<boo
         lanes: &[],
     };
     let select = |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| is_not_null(d, s, 0);
-    let read = |f: &dyn Fn(&mut FoldDialect<'_>, &mut Vec<Val>) -> Result<(), FoldError>| {
+    let read = |f: &Select<'_>| {
         let mut d = FoldDialect::new(&planes, &Foreign::NONE);
         let mut stack = vec![];
         f(&mut d, &mut stack).expect("agg");
@@ -1031,7 +1031,8 @@ fn bool_aggregates_keep_null_apart_from_false() {
     const T: Option<bool> = Some(true);
     const F: Option<bool> = Some(false);
     const U: Option<bool> = None;
-    let cases: [(&[Option<bool>], Option<bool>, Option<bool>); 6] = [
+    type Case<'a> = (&'a [Option<bool>], Option<bool>, Option<bool>);
+    let cases: [Case<'_>; 6] = [
         (&[T, U], T, T),
         (&[F, U], F, F),
         (&[T, F, U], T, F),

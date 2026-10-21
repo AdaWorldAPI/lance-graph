@@ -99,3 +99,13 @@ Tests: one row-rule reference per primitive (`postgresql_primitives_match_row_ru
 - `COUNT(DISTINCT)` on an unordered lane: no seen-set by design.
 - `ORDER BY` / `LIMIT`, string predicates, nullable arithmetic, `COALESCE`.
 - A PostgreSQL differential for the new procedures: the references are row rules, not a server.
+
+## Correction: NULL semantics of `bool_or`, `bool_and`, `COUNT(DISTINCT)` (post-merge review)
+
+Written by `session_013z2e1YXkm6o6HNrDn5BPWA` on the operator's instruction (EXO-50 `/038`), from `GPT:gpt-ada-01/20261021-pr1674-1682-consolidated-review-01` item 2.
+
+- **Defect on main.** `bool_or(flag)` and `bool_and(flag)` took only the TRUE plane: `bool_and(TRUE, NULL)` answered 0 (PostgreSQL TRUE) and `bool_or(NULL, NULL)` answered 0 (PostgreSQL NULL). `count_distinct_sorted` counted a run of NULL keys, by payload.
+- **Now.** `bool_or(select, valid, flag)` / `bool_and(select, valid, flag)` fold over `P = select ∧ valid` and push the value, then `present` (0 is SQL NULL; the value is then 0 and is not FALSE). `bool_or` = `ANY(P ∧ T)`; `bool_and` = `present − ANY(P ∧ ¬T)`. `count_distinct_sorted(key_lane, valid)` gates the selection on the key's presence plane before `KEY_RUNS`; unordered lanes are still refused, nothing is sorted or hashed. Still R2IL procedures through `FoldDialect`; no new opcode or terminal.
+- **Tests.** `bool_aggregates_keep_null_apart_from_false` (the six cases TRUE/NULL, FALSE/NULL, TRUE/FALSE/NULL, NULL/NULL, empty, FALSE/FALSE, each with scrambled NULL payloads); `count_distinct_excludes_null_keys_whatever_their_payload` (first, middle and last runs; all-NULL selection). The existing primitive test's empty-selection expectation changed from `(0, 1)` to NULL. Four disables red: no `valid` in `bool_or`, in `bool_and`'s FALSE fold, in the presence fold, in `count_distinct_sorted`.
+- **PostgreSQL 16.15** (`examples/null_aggs_pg_parity.rs`, lab, SKIP without a server): 300 queries over 60 random tables, values and NULL states equal; 64 NULL bool aggregates, 12 `bool_and` TRUE over a NULL row; the disable arm (validity = every row) differs on 224.
+- **Signature change.** `bool_or`, `bool_and` and `count_distinct_sorted` take new arguments; no caller outside the crate.
