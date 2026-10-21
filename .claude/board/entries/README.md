@@ -45,6 +45,7 @@ exactly one of them, never both.
 | 2026-10-21 | `D-RFT-0` |  | [2026-10-21-d-rft-0-kleene-normalization.md](2026-10-21-d-rft-0-kleene-normalization.md) |
 | 2026-10-21 | `D-RA-2` |  | [2026-10-21-d-ra-2-relalg-symbolic-repoint.md](2026-10-21-d-ra-2-relalg-symbolic-repoint.md) |
 | 2026-10-21 | `D-QSP` |  | [2026-10-21-d-qsp-d-rft-d-lfa-classview-quack-plan.md](2026-10-21-d-qsp-d-rft-d-lfa-classview-quack-plan.md) |
+| 2026-10-21 | `D-QSP-0` |  | [2026-10-21-d-qsp-0-scalar-aggregates-null.md](2026-10-21-d-qsp-0-scalar-aggregates-null.md) |
 | 2026-10-21 | `D-CMR-6` |  | [2026-10-21-d-cmr-6-rule-catalogue.md](2026-10-21-d-cmr-6-rule-catalogue.md) |
 | 2026-10-21 | `D-CMR-5` |  | [2026-10-21-d-cmr-5-rescope.md](2026-10-21-d-cmr-5-rescope.md) |
 | 2026-10-21 | `D-CMR-2b` |  | [2026-10-21-d-cmr-2b-scratch-probe.md](2026-10-21-d-cmr-2b-scratch-probe.md) |
