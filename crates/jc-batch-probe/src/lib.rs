@@ -228,10 +228,9 @@ fn names_plane(rel: &Rel) -> bool {
 /// Refuses a request for another version, or one whose selection names a
 /// resident plane, before anything runs.
 fn check_requests(t: &Table<'_>, reqs: &[Request]) -> Result<(), BatchError> {
+    // Versions first, over the whole batch: a batch with a stale request is
+    // refused as `VersionMismatch` wherever a resident plane appears.
     for (i, r) in reqs.iter().enumerate() {
-        if names_plane(&r.select) {
-            return Err(BatchError::ResidentPlane { request: i });
-        }
         if r.version != t.version {
             return Err(BatchError::VersionMismatch {
                 request: i,
@@ -240,7 +239,10 @@ fn check_requests(t: &Table<'_>, reqs: &[Request]) -> Result<(), BatchError> {
             });
         }
     }
-    Ok(())
+    match reqs.iter().position(|r| names_plane(&r.select)) {
+        Some(i) => Err(BatchError::ResidentPlane { request: i }),
+        None => Ok(()),
+    }
 }
 
 /// Evaluates `select` into a mask (one relalg program).

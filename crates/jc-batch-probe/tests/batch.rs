@@ -453,3 +453,23 @@ fn a_selection_naming_a_resident_plane_is_refused() {
         assert_eq!(answer_separately(&t, &reqs).map(|_| ()), want);
     }
 }
+
+/// FAILS IF: a resident-plane refusal takes precedence over a version
+/// mismatch. The plane comes first (request 2) and the stale request later
+/// (request 7), so a single in-order pass would report the plane.
+#[test]
+fn a_version_mismatch_wins_over_a_resident_plane_anywhere_in_the_batch() {
+    let fx = Fixture::new(500, 0x0DE7);
+    let lanes = fx.lanes();
+    let t = fx.table(&lanes);
+    let mut reqs = requests();
+    reqs[2].select = Rel::Plane(0);
+    reqs[7].version = VERSION + 1;
+    let want = Err(BatchError::VersionMismatch {
+        request: 7,
+        request_version: VERSION + 1,
+        table_version: VERSION,
+    });
+    assert_eq!(answer_batched(&t, &reqs).map(|_| ()), want);
+    assert_eq!(answer_separately(&t, &reqs).map(|_| ()), want);
+}
