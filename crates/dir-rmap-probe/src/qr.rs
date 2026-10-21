@@ -61,6 +61,8 @@ pub struct Qr {
     pub reach: [Row; SLOTS],
     /// Slot -> roles carried by its reach.
     pub role: [u64; SLOTS],
+    /// Role -> the slots that carry it (`role` transposed).
+    pub role_slots: [Row; 64],
     /// Ordinal -> slot lookups done while binding the register.
     pub translations: usize,
 }
@@ -111,9 +113,18 @@ impl Qr {
                 }
             }
         }
+        let mut role_slots = [[0u64; 4]; 64];
+        for (s, &rs) in role.iter().enumerate().take(n) {
+            for (r, row) in role_slots.iter_mut().enumerate() {
+                if rs >> r & 1 == 1 {
+                    set(row, s);
+                }
+            }
+        }
         Ok(Qr {
             witness: b.witness.clone(),
             users: b.users,
+            role_slots,
             ids,
             slot_of,
             nest,
@@ -206,9 +217,64 @@ impl Qr {
         out
     }
 
+    /// The slots whose reach contains security group `g`: a user is
+    /// effectively in `g` iff one of its direct slots is in this set. `None`
+    /// when `g` is outside the chain.
+    pub fn slots_reaching(&self, g: u16) -> Option<Row> {
+        let t = self.slot(g)?;
+        let mut out = [0u64; 4];
+        for (s, r) in self.reach.iter().enumerate().take(self.ids.len()) {
+            if row_bit(r, t) {
+                set(&mut out, s);
+            }
+        }
+        Some(out)
+    }
+
+    /// Masked count over several tiles at once: how many users, in the tiles
+    /// selected by `tiles` (one bit per page) and the rows selected by
+    /// `rows[p]` inside tile `p`, hold one of the slots in `slots` directly.
+    ///
+    /// Each selected slot's group is read once (its direct-member list), and
+    /// every member landing in a selected tile sets its bit in that tile of
+    /// `scratch`. The answer is the popcount of each selected tile AND its
+    /// row mask; no page is resolved and no per-user value is built.
+    /// `scratch` has one `Row` per page and is left zeroed.
+    pub fn count_masked(
+        &self,
+        b: &Prepared,
+        slots: &Row,
+        tiles: &[u64],
+        rows: &[Row],
+        scratch: &mut [Row],
+    ) -> Result<u64, Refusal> {
+        b.check(&self.witness)?;
+        for (s, &g) in self.ids.iter().enumerate() {
+            if row_bit(slots, s) {
+                for &u in b.group_users.row(g as usize) {
+                    let u = u as usize;
+                    let p = u / SLOTS;
+                    if tiles[p >> 6] >> (p & 63) & 1 == 1 {
+                        set(&mut scratch[p], u % SLOTS);
+                    }
+                }
+            }
+        }
+        let mut n = 0u64;
+        for (p, (acc, m)) in scratch.iter_mut().zip(rows).enumerate() {
+            if tiles[p >> 6] >> (p & 63) & 1 == 1 {
+                for k in 0..4 {
+                    n += u64::from((acc[k] & m[k]).count_ones());
+                }
+                *acc = [0; 4];
+            }
+        }
+        Ok(n)
+    }
+
     /// Bytes retained by the register; pages are counted separately.
     pub fn bytes(&self) -> usize {
-        self.ids.len() * 2 + self.slot_of.len() * 2 + SLOTS * (32 + 32 + 8)
+        self.ids.len() * 2 + self.slot_of.len() * 2 + SLOTS * (32 + 32 + 8) + 64 * 32
     }
 }
 
