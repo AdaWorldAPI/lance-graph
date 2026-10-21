@@ -24,6 +24,11 @@
 //! ```text
 //! cargo run --release --example rft1_cost
 //! ```
+//!
+//! Since #1685, `Composer::compose` no longer runs these r2il replays: it
+//! reads `Page::roles` and does one AND + popcount per supported role. This
+//! file still measures the replayed plan through its own programs; the
+//! "arm A" timings it prints are of the new `compose`.
 
 use dir_rmap_probe::World;
 use dir_rmap_probe::compose::{Carriers, Composer, Law, Members, add_bag};
@@ -40,6 +45,12 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
+
+/// Row `i` of the presence plane: the given plane, or `member` itself when
+/// every key is present (`Members::of`).
+fn valid_row(m: &Members<'_>, i: usize) -> [u64; 4] {
+    m.valid.map_or(m.member[i], |v| v[i])
+}
 
 struct Counting;
 static ALLOCS: AtomicUsize = AtomicUsize::new(0);
@@ -194,7 +205,7 @@ fn main() {
         for i in 0..n {
             present_calls += 1;
             let mut present = m.member[i];
-            mask_and_assign(&mut present, &m.valid[i]);
+            mask_and_assign(&mut present, &valid_row(m, i));
             let keys: Vec<usize> = ones(&present).collect();
             if keys.is_empty() {
                 continue;
@@ -245,7 +256,7 @@ fn main() {
         run(
             &pa,
             &mut sa,
-            &[&m0.member[i0], &m0.valid[i0], &carriers.role_slots[r0]],
+            &[&m0.member[i0], &valid_row(m0, i0), &carriers.role_slots[r0]],
             SLOTS,
             Out::None,
         )
@@ -259,7 +270,7 @@ fn main() {
         run(
             &pi,
             &mut si,
-            &[&m0.member[i0], &m0.valid[i0]],
+            &[&m0.member[i0], &valid_row(m0, i0)],
             SLOTS,
             Out::Mask(&mut present),
         )
@@ -298,7 +309,7 @@ fn main() {
     // (4) the four-word cost: the same AND, AND, popcount in direct SIMD.
     let simd_ns = per_call_ns(|| {
         let mut buf = m0.member[i0];
-        mask_and_assign(&mut buf, &m0.valid[i0]);
+        mask_and_assign(&mut buf, &valid_row(m0, i0));
         mask_and_assign(&mut buf, &carriers.role_slots[r0]);
         black_box(popcount_batch_u64(&buf));
     });
@@ -314,7 +325,7 @@ fn main() {
         run(
             &pa,
             &mut sa,
-            &[&m0.member[i0], &m0.valid[i0], &carriers.role_slots[r0]],
+            &[&m0.member[i0], &valid_row(m0, i0), &carriers.role_slots[r0]],
             SLOTS,
             Out::None,
         )
