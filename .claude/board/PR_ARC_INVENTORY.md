@@ -1,3 +1,10 @@
+## 2026-10-21 — lance-graph PR #1654 (merged `d754128`, branch `claude/eager-albattani-iufugq`, head `ac147d9`) — D-RA-2: relalg's symbolic answers from `contract::set_rules`; #1651 closeout
+
+- **Added:** `set_rules::Rule::{EmptyMeasure, CountAll}` (catalogue 8 rules); test `experiment_e_no_universe_refuses_the_range_rules`; entry `2026-10-21-d-ra-2-relalg-symbolic-repoint.md`. Also the #1651 board closeout (D-CMR-6 Shipped, PR_ARC #1651).
+- **Locked:** `lance_graph_relalg::normalize::symbolic` decides through `set_rules::rewrite` under `Semantics::exact(n_rows)` and answers only a constant; `Min`/`Max` answer `None` only when their `Count` folds to 0. crepe's symbolic answers follow through `relalg::run`; crepe's join-body rewrites stay. `Count(∅)`/`Sum(∅) → 0` refuses `_sym` sums; `Count(All) → N` refuses no universe, bags, IEEE.
+- **Deferred / open:** `Min`/`Max` stay outside `set_rules::Measure` (empty answer is `None`).
+- **Confidence:** measured. set_rules 25, relalg 26 unchanged, crepe-plan-probe 46 unchanged (re-run on the rebased head incl. #1653), contract lib 1,547; disable runs show relalg's answers depend on the contract rules; each new guard red when removed; Codex's #1654 finding (range no-universe negative control) fixed with a test.
+
 ## 2026-10-21 — lance-graph PR #1651 (merged `6bf4f86`, branch `claude/eager-albattani-iufugq`, head `43218eb`) — D-CMR-6: guarded rule catalogue and fixpoint driver in the contract; #1650 closeout
 
 - **Added:** `lance_graph_contract::set_rules::{Measure, RowRange, Semantics, Arith, Truth, SumFamily, Population, Rule, Refusal, RuleSpec, CATALOGUE, Trace, rewrite, rewrite_with, all_rules}` (zero deps); entry `2026-10-21-d-cmr-6-rule-catalogue.md`. Also the #1650 board closeout (D-CMR-2 Shipped, PR_ARC #1650).

@@ -1,6 +1,6 @@
 # 2026-10-21 — D-RA-2: relalg's symbolic answers repointed onto `contract::set_rules` (crepe through relalg)
 
-**Status:** TEST-PINNED, in PR (branch `claude/eager-albattani-iufugq`). **Basis:** six-decisions §2 ("D-CMR-6 publishes the catalogue → repoint crepe"); D-RA-2 option A; claim EXO-50 `session_013z2e1YXkm6o6HNrDn5BPWA/019`.
+**Status:** TEST-PINNED, merged in #1654 (`d754128`). **Basis:** six-decisions §2 ("D-CMR-6 publishes the catalogue → repoint crepe"); D-RA-2 option A; claim EXO-50 `session_013z2e1YXkm6o6HNrDn5BPWA/019`.
 
 - **What was duplicated:** `lance_graph_relalg::normalize::symbolic` decided `Count(∅) = 0`, `Sum(∅) = 0`, `Min/Max(∅) = None` and `Count(All) = n` by matching `Rel::Empty` / `Rel::All` locally — single-table measure identities outside the contract.
 - **Contract (`set_rules`, two rules added):** `EmptyMeasure` (`Count(∅) → 0`, `Sum(∅) → 0`; refuses `_sym` sums, whose empty sum is a sentinel) and `CountAll` (`Count(All) → N`; refuses no universe, bag, IEEE). The catalogue has 8 rules.
