@@ -215,14 +215,18 @@ fn main() {
         .stderr(Stdio::piped())
         .spawn()
         .and_then(|mut child| {
-            // A server that refuses the connection closes the pipe early; the
-            // exit status and stderr below say why, so a write error is moot.
-            let _ = child
-                .stdin
-                .take()
-                .expect("piped stdin")
-                .write_all(script.as_bytes());
-            child.wait_with_output()
+            // Write on a separate thread: psql answers while it reads, so a
+            // parent that wrote everything before reading would block once
+            // the stdout pipe filled. A server that refuses the connection
+            // closes the pipe early; the exit status and stderr below say
+            // why, so a write error is moot.
+            let mut stdin = child.stdin.take().expect("piped stdin");
+            let writer = std::thread::spawn(move || {
+                let _ = stdin.write_all(script.as_bytes());
+            });
+            let out = child.wait_with_output();
+            let _ = writer.join();
+            out
         });
     let out = match out {
         Ok(o) if o.status.success() => o,
