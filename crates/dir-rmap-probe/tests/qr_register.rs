@@ -8,11 +8,11 @@
 //!
 //! The ClassView wiring is the same as `classview_dr.rs`: the class declares
 //! `effective_roles` computed from `member_of`, and the DR table maps that
-//! position to `Qr::roles_of`.
+//! position to `Page::roles_of` on the user's page, resolved on first use.
 
 use dir_rmap_probe::fixture::{Fixture, Spec};
 use dir_rmap_probe::prep::{Chain, Compiled, Ordinals, Refusal};
-use dir_rmap_probe::qr::Qr;
+use dir_rmap_probe::qr::{Page, Pages, Qr};
 use dir_rmap_probe::{Edit, World, a_groups, oracle, templates};
 use lance_graph_contract::class_view::{ClassId, ClassView, ComputeEdge, execute_compute_dag};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
@@ -50,15 +50,15 @@ impl ClassView for IamUser {
     }
 }
 
-/// Direct routing over the register: position -> executable.
-type Route = fn(&Qr, u16) -> u64;
-const DR: [Option<Route>; 2] = [None, Some(Qr::roles_of)];
+/// Direct routing over a page: position -> executable.
+type Route = fn(&Page, usize) -> u64;
+const DR: [Option<Route>; 2] = [None, Some(Page::roles_of)];
 
-fn run(view: &dyn ClassView, qr: &Qr, user: u16) -> Option<u64> {
+fn run(view: &dyn ClassView, page: &Page, i: usize) -> Option<u64> {
     let mut roles = None;
     execute_compute_dag(view.compute_dag(USER), &mut roles, |out, target| {
         let route = DR.get(target as usize).copied().flatten().ok_or(target)?;
-        *out = Some(route(qr, user));
+        *out = Some(route(page, i));
         Ok::<(), u8>(())
     })
     .expect("every declared target has a route");
@@ -79,6 +79,7 @@ fn view() -> IamUser {
 fn check(w: &World) -> (usize, usize) {
     let b = w.prepare();
     let qr = Qr::bind(&b, &w.witness()).expect("security chain fits 256 slots");
+    let mut pages = Pages::new(&qr);
     let compiled = Compiled::compile(w.prepare());
     let v = w.view();
     let ord = Ordinals::of(&w.f, &v);
@@ -105,14 +106,17 @@ fn check(w: &World) -> (usize, usize) {
         let a_roles = a
             .iter()
             .fold(0, |acc, g| acc | grants.get(g).copied().unwrap_or(0));
-        let got = run(&iam, &qr, u).expect("declared");
+        let page = pages.of(&qr, &b, u).unwrap();
+        let got = run(&iam, page, u as usize % 256).expect("declared");
+        let row = page.member[u as usize % 256];
+        assert_eq!(qr.roles_live(&row), got, "row x roles, user {i}");
         assert_eq!(got, a_roles, "dir-sim roles, user {i}");
         assert_eq!(got, d_roles[i], "oracle roles, user {i}");
         assert_eq!(got, compiled.roles_of(u), "B+ roles, user {i}");
         holders += usize::from(got != 0);
         // Effective security groups: the matrix row times reach, slot by
         // slot, against dir-sim's walk.
-        let eff = qr.effective(u);
+        let eff = qr.effective(&row);
         let a_set: Vec<u16> = a.iter().map(|g| group_ord[g]).collect();
         for (s, &g) in qr.ids.iter().enumerate() {
             let here = eff[s >> 6] >> (s & 63) & 1 == 1;
@@ -120,6 +124,7 @@ fn check(w: &World) -> (usize, usize) {
             compared += 1;
         }
     }
+    assert_eq!(pages.resolved, qr.pages(), "every page asked for once");
     (holders, compared)
 }
 
@@ -136,9 +141,13 @@ fn the_register_answers_every_user_like_dir_sim_the_oracle_and_b_plus() {
     assert!(compared > 0);
     let b = w.prepare();
     let qr = Qr::bind(&b, &w.witness()).unwrap();
-    let indirect = (0..b.users as u16)
-        .filter(|&u| qr.effective(u) != qr.member[u as usize])
-        .count();
+    let mut indirect = 0;
+    for p in 0..qr.pages() {
+        let page = qr.page(&b, p).unwrap();
+        for row in &page.member {
+            indirect += usize::from(qr.effective(row) != *row);
+        }
+    }
     assert!(indirect > 0, "no user gains a group through nesting");
 }
 
@@ -163,12 +172,17 @@ fn a_stale_register_refuses() {
     let mut w = World::new(Fixture::generate(Spec::small()));
     let b = w.prepare();
     let qr = Qr::bind(&b, &w.witness()).unwrap();
+    let mut pages = Pages::new(&qr);
     let g = qr.ids[0];
-    assert!(qr.ask(&w.witness(), 0, g).is_ok());
+    assert!(pages.ask(&qr, &b, &w.witness(), 0, g).is_ok());
     let (u, gd) = w.direct[0];
     w.apply(&[Edit::RemoveDirect(u, gd)]);
-    assert_eq!(qr.ask(&w.witness(), 0, g), Err(Refusal::Stale));
+    assert_eq!(pages.ask(&qr, &b, &w.witness(), 0, g), Err(Refusal::Stale));
     assert_eq!(Qr::bind(&b, &w.witness()).err(), Some(Refusal::Stale));
+    // A page cannot be resolved from a snapshot the register was not bound
+    // to.
+    let b2 = w.prepare();
+    assert_eq!(qr.page(&b2, 0).err(), Some(Refusal::Stale));
 }
 
 #[test]
@@ -191,5 +205,27 @@ fn a_group_outside_the_security_chain_is_out_of_focus() {
     let g = (0..b.groups as u16)
         .find(|&g| qr.slot(g).is_none())
         .expect("a non-security group");
-    assert_eq!(qr.ask(&w.witness(), 0, g), Err(Refusal::OutOfFocus));
+    let mut pages = Pages::new(&qr);
+    assert_eq!(
+        pages.ask(&qr, &b, &w.witness(), 0, g),
+        Err(Refusal::OutOfFocus)
+    );
+}
+
+#[test]
+fn binding_resolves_no_user_and_a_question_resolves_one_page() {
+    let mut spec = Spec::small();
+    spec.users = 2000;
+    let w = World::new(Fixture::generate(spec));
+    let b = w.prepare();
+    let qr = Qr::bind(&b, &w.witness()).unwrap();
+    let mut pages = Pages::new(&qr);
+    assert_eq!(pages.resolved, 0);
+    assert!(qr.pages() > 2);
+    // Two users of one page, then one of the last page.
+    pages.roles_of(&qr, &b, 3).unwrap();
+    pages.roles_of(&qr, &b, 200).unwrap();
+    assert_eq!(pages.resolved, 1);
+    pages.roles_of(&qr, &b, (b.users - 1) as u16).unwrap();
+    assert_eq!(pages.resolved, 2);
 }

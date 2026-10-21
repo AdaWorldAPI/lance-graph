@@ -10,10 +10,15 @@
 //! checked equal to dir-sim's own walk before it is timed. Preparation
 //! (prepare, compile, bind) is reported per phase, never folded into a
 //! per-user figure.
+//!
+//! The register resolves no user at bind. A question resolves the user's page
+//! of 256 users; "one page" is that first-touch cost. "every page" is shown
+//! only to say what an eager resolve of the whole population would cost —
+//! nobody asks for that.
 
 use dir_rmap_probe::fixture::{Fixture, Spec};
 use dir_rmap_probe::prep::{Chain, Compiled, Ordinals};
-use dir_rmap_probe::qr::Qr;
+use dir_rmap_probe::qr::{Page, Qr};
 use dir_rmap_probe::{World, a_groups};
 use ogar_dir_core::Guid128;
 use std::collections::HashMap;
@@ -73,14 +78,16 @@ fn main() {
     let b = w.prepare();
     let c = Compiled::compile(w.prepare());
     let q = Qr::bind(&b, &witness).expect("security chain fits 256 slots");
+    let pages: Vec<Page> = (0..q.pages()).map(|p| q.page(&b, p).unwrap()).collect();
     for (i, ug) in w.f.users.iter().enumerate() {
         let want = a_groups(&v, ug, Chain::Security)
             .iter()
             .fold(0u64, |a, g| a | by_guid.get(g).copied().unwrap_or(0));
         let uo = ord.user[i];
         assert_eq!(c.roles_of(uo), want, "B+ {i}");
-        assert_eq!(q.roles_of(uo), want, "Q resolved {i}");
-        assert_eq!(q.roles_live(uo), want, "Q live {i}");
+        let (p, j) = (uo as usize / 256, uo as usize % 256);
+        assert_eq!(pages[p].roles_of(j), want, "Q page {i}");
+        assert_eq!(q.roles_live(&pages[p].member[j]), want, "Q live {i}");
     }
 
     let t_prepare = once(5, || {
@@ -89,8 +96,16 @@ fn main() {
     let t_compile = once(5, || {
         black_box(Compiled::compile(w.prepare()));
     });
-    let t_bind = once(5, || {
+    let t_bind = once(15, || {
         black_box(Qr::bind(&b, &witness).unwrap());
+    });
+    let t_page = once(51, || {
+        black_box(q.page(&b, black_box(0)).unwrap());
+    });
+    let t_all = once(5, || {
+        for p in 0..q.pages() {
+            black_box(q.page(&b, p).unwrap());
+        }
     });
 
     let n = w.f.users.len();
@@ -100,19 +115,20 @@ fn main() {
             black_box(c.roles_of(black_box(uo)));
         }
     });
+    let at = |uo: u16| &pages[uo as usize / 256];
     let t_q = per_user(n, reps, || {
         for &uo in &ord.user {
-            black_box(q.roles_of(black_box(uo)));
+            black_box(at(uo).roles_of(black_box(uo) as usize % 256));
         }
     });
     let t_live = per_user(n, reps, || {
         for &uo in &ord.user {
-            black_box(q.roles_live(black_box(uo)));
+            black_box(q.roles_live(&at(uo).member[black_box(uo) as usize % 256]));
         }
     });
     let t_eff = per_user(n, reps, || {
         for &uo in &ord.user {
-            black_box(q.effective(black_box(uo)));
+            black_box(q.effective(&at(uo).member[black_box(uo) as usize % 256]));
         }
     });
 
@@ -125,11 +141,14 @@ fn main() {
     println!("preparation, once per version:");
     show("prepare", t_prepare);
     show("prepare + compile (B+)", t_compile);
-    show("bind (Q)", t_bind);
+    show("bind register (Q)", t_bind);
+    println!("on demand:");
+    show("one page (256 users)", t_page);
+    show(&format!("every page ({})", q.pages()), t_all);
     println!("per user (median of runs):");
     println!("  B+ fold                   {t_fold:>7.1} ns");
-    println!("  Q roles, resolved at bind {t_q:>7.1} ns");
+    println!("  Q roles, resolved page    {t_q:>7.1} ns");
     println!("  Q roles, row x roles      {t_live:>7.1} ns");
     println!("  Q effective row (M x R)   {t_eff:>7.1} ns");
-    println!("register bytes {}", q.bytes());
+    println!("register bytes {}, page bytes {}", q.bytes(), Page::BYTES);
 }

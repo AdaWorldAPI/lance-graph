@@ -11,17 +11,20 @@
 //!   register, so the closure is complete only because EVERY security group
 //!   is bound: a chain with more than 256 security groups is refused
 //!   ([`Refusal::TooLarge`]), never truncated;
-//! * `role`: per slot, the roles its reach carries;
-//! * the membership matrix ("QR code"): users in pages of 256 rows, each row
-//!   the user's direct security groups as slots. A user's effective groups
-//!   are its row times `reach`; its roles are resolved once per bind.
+//! * `role`: per slot, the roles its reach carries.
 //!
-//! Every inner loop runs over slot coordinates and tests a bit; no loop
-//! scans set bits for a position (the D-RU-6 address rule). The one
-//! translation from a group ordinal to a slot happens while binding, and is
-//! counted ([`Qr::translations`]). It is frozen-codebook decoding over the
-//! same snapshot, and its contract-level witness is still missing
-//! (ADMISSION B, `ISS-ADMISSION-PREP-BINDING`).
+//! [`Qr::bind`] builds only the register. Users are never resolved all at
+//! once: nobody asks for every user's nested groups in one go. A page of 256
+//! users (a [`Page`]: those users' rows of the membership matrix, the "QR
+//! code", plus their roles) is resolved when a question names it
+//! ([`Qr::page`], [`Pages`]).
+//!
+//! Every inner loop runs over slot or user coordinates and tests a bit; no
+//! loop scans set bits for a position (the D-RU-6 address rule). Translating
+//! a group ordinal to a slot is counted ([`Qr::translations`],
+//! [`Page::translations`]). It is frozen-codebook decoding over the same
+//! snapshot, and its contract-level witness is still missing (ADMISSION B,
+//! `ISS-ADMISSION-PREP-BINDING`).
 
 use crate::focus::{Row, SLOTS};
 use crate::prep::{Prepared, Refusal, Witness, bit};
@@ -43,8 +46,11 @@ fn or(a: &mut Row, b: &Row) {
     }
 }
 
+/// The register: the security chain bound to slots and closed in the tile.
 pub struct Qr {
     pub witness: Witness,
+    /// Users in the snapshot; pages are `users.div_ceil(256)`.
+    pub users: usize,
     /// Slot -> group ordinal.
     pub ids: Vec<u16>,
     /// Group ordinal -> slot + 1; 0 = not a security group.
@@ -55,18 +61,24 @@ pub struct Qr {
     pub reach: [Row; SLOTS],
     /// Slot -> roles carried by its reach.
     pub role: [u64; SLOTS],
-    /// User ordinal -> direct security groups as slots (the membership
-    /// matrix, page `u / 256`, row `u % 256`).
-    pub member: Vec<Row>,
-    /// User ordinal -> roles, resolved once per bind by [`page_roles`].
-    pub roles: Vec<u64>,
-    /// Ordinal -> slot lookups done while binding.
+    /// Ordinal -> slot lookups done while binding the register.
+    pub translations: usize,
+}
+
+/// One page of 256 users: their rows of the membership matrix and their
+/// roles.
+pub struct Page {
+    /// Row `i`: user `page * 256 + i`'s direct security groups as slots.
+    pub member: [Row; SLOTS],
+    /// Roles of user `page * 256 + i`.
+    pub roles: [u64; SLOTS],
+    /// Ordinal -> slot lookups done while resolving this page.
     pub translations: usize,
 }
 
 impl Qr {
-    /// Binds the security chain to slots and resolves every user's roles.
-    /// Refuses a stale `b` and more than 256 security groups.
+    /// Binds the security chain to slots and closes it in the tile. Resolves
+    /// no user. Refuses a stale `b` and more than 256 security groups.
     pub fn bind(b: &Prepared, current: &Witness) -> Result<Qr, Refusal> {
         b.check(current)?;
         let ids: Vec<u16> = (0..b.groups)
@@ -81,52 +93,32 @@ impl Qr {
             slot_of[g as usize] = s as u16 + 1;
         }
         let mut translations = 0;
-        let mut slot = |g: u16| {
-            translations += 1;
-            match slot_of[g as usize] {
-                0 => None,
-                s => Some(s as usize - 1),
-            }
-        };
         let mut nest = [[0u64; 4]; SLOTS];
         for &(c, p) in &b.nested {
-            if let (Some(c), Some(p)) = (slot(c), slot(p)) {
-                set(&mut nest[c], p);
+            translations += 2;
+            let (c, p) = (slot_of[c as usize], slot_of[p as usize]);
+            if c != 0 && p != 0 {
+                set(&mut nest[c as usize - 1], p as usize - 1);
             }
         }
-        let mut member = vec![[0u64; 4]; b.users];
-        for (u, row) in member.iter_mut().enumerate() {
-            for &d in b.user_groups.row(u) {
-                if let Some(s) = slot(d) {
-                    set(row, s);
-                }
-            }
-        }
-        let mut grant = [0u64; SLOTS];
-        for (s, &g) in ids.iter().enumerate() {
-            grant[s] = b.grants[g as usize];
-        }
-
         let n = ids.len();
         let reach = closure(&nest, n);
         let mut role = [0u64; SLOTS];
-        for i in 0..n {
-            for (k, &g) in grant.iter().enumerate().take(n) {
+        for (i, r) in role.iter_mut().enumerate().take(n) {
+            for (k, &g) in ids.iter().enumerate() {
                 if row_bit(&reach[i], k) {
-                    role[i] |= g;
+                    *r |= b.grants[g as usize];
                 }
             }
         }
-        let roles = page_roles(b, &ids, &role, b.users);
         Ok(Qr {
             witness: b.witness.clone(),
+            users: b.users,
             ids,
             slot_of,
             nest,
             reach,
             role,
-            member,
-            roles,
             translations,
         })
     }
@@ -146,46 +138,133 @@ impl Qr {
         }
     }
 
-    /// Roles of user `u`. Unchecked hot path: the caller checked the witness.
-    #[inline]
-    pub fn roles_of(&self, u: u16) -> u64 {
-        self.roles[u as usize]
+    pub fn pages(&self) -> usize {
+        self.users.div_ceil(SLOTS)
     }
 
-    /// Roles of user `u` recomputed from its membership row and the slot
-    /// roles (the row-times-vector product `bind` resolves once).
-    pub fn roles_live(&self, u: u16) -> u64 {
-        roles_of_row(&self.member[u as usize], &self.role, self.ids.len())
+    /// Resolves page `p`: its users' membership rows, then their roles as a
+    /// fold over the page's columns. The users holding role `r` are the OR of
+    /// the columns of the slots whose role set contains `r`. Refuses a `b`
+    /// from another snapshot.
+    pub fn page(&self, b: &Prepared, p: usize) -> Result<Page, Refusal> {
+        b.check(&self.witness)?;
+        let base = p * SLOTS;
+        let end = self.users.min(base + SLOTS);
+        let mut member = [[0u64; 4]; SLOTS];
+        let mut cols = [[0u64; 4]; SLOTS];
+        let mut translations = 0;
+        for u in base..end {
+            for &d in b.user_groups.row(u) {
+                translations += 1;
+                if let Some(s) = self.slot(d) {
+                    set(&mut member[u - base], s);
+                    set(&mut cols[s], u - base);
+                }
+            }
+        }
+        let mut holders = [[0u64; 4]; 64];
+        for (s, c) in cols.iter().enumerate().take(self.ids.len()) {
+            for (r, h) in holders.iter_mut().enumerate() {
+                if self.role[s] >> r & 1 == 1 {
+                    or(h, c);
+                }
+            }
+        }
+        let mut roles = [0u64; SLOTS];
+        for (i, o) in roles.iter_mut().enumerate().take(end - base) {
+            for (r, h) in holders.iter().enumerate() {
+                *o |= u64::from(row_bit(h, i)) << r;
+            }
+        }
+        Ok(Page {
+            member,
+            roles,
+            translations,
+        })
     }
 
-    /// User `u`'s effective security groups as slots: its membership row
-    /// times `reach`.
-    pub fn effective(&self, u: u16) -> Row {
-        let m = &self.member[u as usize];
+    /// Effective security groups as slots: a membership row times `reach`.
+    pub fn effective(&self, member: &Row) -> Row {
         let mut out = [0u64; 4];
         for k in 0..self.ids.len() {
-            if row_bit(m, k) {
+            if row_bit(member, k) {
                 or(&mut out, &self.reach[k]);
             }
         }
         out
     }
 
-    /// Checked: is `u` effectively in security group `g`?
-    pub fn ask(&self, current: &Witness, u: u16, g: u16) -> Result<bool, Refusal> {
-        self.check(current)?;
-        let s = self.slot(g).ok_or(Refusal::OutOfFocus)?;
-        Ok(row_bit(&self.effective(u), s))
+    /// Roles from a membership row and the slot roles (the row-times-vector
+    /// product a page resolves by columns).
+    pub fn roles_live(&self, member: &Row) -> u64 {
+        let mut out = 0;
+        for (k, &r) in self.role.iter().enumerate().take(self.ids.len()) {
+            if row_bit(member, k) {
+                out |= r;
+            }
+        }
+        out
     }
 
-    /// Bytes retained: register maps, the three slot tiles, the membership
-    /// matrix and the resolved roles.
+    /// Bytes retained by the register; pages are counted separately.
     pub fn bytes(&self) -> usize {
-        self.ids.len() * 2
-            + self.slot_of.len() * 2
-            + SLOTS * (32 + 32 + 8)
-            + self.member.len() * 32
-            + self.roles.len() * 8
+        self.ids.len() * 2 + self.slot_of.len() * 2 + SLOTS * (32 + 32 + 8)
+    }
+}
+
+impl Page {
+    /// Roles of the page's user `i`. Unchecked hot path.
+    #[inline]
+    pub fn roles_of(&self, i: usize) -> u64 {
+        self.roles[i]
+    }
+
+    pub const BYTES: usize = SLOTS * (32 + 8);
+}
+
+/// Pages resolved on first use.
+pub struct Pages {
+    pages: Vec<Option<Box<Page>>>,
+    /// Pages resolved so far.
+    pub resolved: usize,
+}
+
+impl Pages {
+    pub fn new(qr: &Qr) -> Pages {
+        Pages {
+            pages: (0..qr.pages()).map(|_| None).collect(),
+            resolved: 0,
+        }
+    }
+
+    /// The page holding user `u`, resolved if it was not.
+    pub fn of(&mut self, qr: &Qr, b: &Prepared, u: u16) -> Result<&Page, Refusal> {
+        let p = u as usize / SLOTS;
+        if self.pages[p].is_none() {
+            self.pages[p] = Some(Box::new(qr.page(b, p)?));
+            self.resolved += 1;
+        }
+        Ok(self.pages[p].as_deref().expect("resolved above"))
+    }
+
+    /// Roles of user `u`, resolving its page on first use.
+    pub fn roles_of(&mut self, qr: &Qr, b: &Prepared, u: u16) -> Result<u64, Refusal> {
+        Ok(self.of(qr, b, u)?.roles_of(u as usize % SLOTS))
+    }
+
+    /// Checked: is `u` effectively in security group `g`?
+    pub fn ask(
+        &mut self,
+        qr: &Qr,
+        b: &Prepared,
+        current: &Witness,
+        u: u16,
+        g: u16,
+    ) -> Result<bool, Refusal> {
+        qr.check(current)?;
+        let s = qr.slot(g).ok_or(Refusal::OutOfFocus)?;
+        let row = self.of(qr, b, u)?.member[u as usize % SLOTS];
+        Ok(row_bit(&qr.effective(&row), s))
     }
 }
 
@@ -205,48 +284,4 @@ fn closure(nest: &[Row; SLOTS], n: usize) -> [Row; SLOTS] {
         }
     }
     r
-}
-
-/// Every user's roles, page by page, as a fold over the membership matrix's
-/// columns: for a page of 256 users, the users holding role `r` are the OR of
-/// the columns of the slots whose role set contains `r`. Column `s` of a page
-/// is security group `ids[s]`'s direct users in that page, read from the
-/// group's own member row.
-fn page_roles(b: &Prepared, ids: &[u16], role: &[u64; SLOTS], users: usize) -> Vec<u64> {
-    let pages = users.div_ceil(SLOTS);
-    let mut cols = vec![[[0u64; 4]; SLOTS]; pages];
-    for (s, &g) in ids.iter().enumerate() {
-        for &u in b.group_users.row(g as usize) {
-            let u = u as usize;
-            set(&mut cols[u / SLOTS][s], u % SLOTS);
-        }
-    }
-    let mut out = vec![0u64; users];
-    for (p, col) in cols.iter().enumerate() {
-        let mut holders = [[0u64; 4]; 64];
-        for (s, c) in col.iter().enumerate().take(ids.len()) {
-            for (r, h) in holders.iter_mut().enumerate() {
-                if role[s] >> r & 1 == 1 {
-                    or(h, c);
-                }
-            }
-        }
-        let base = p * SLOTS;
-        for (i, o) in out[base..users.min(base + SLOTS)].iter_mut().enumerate() {
-            for (r, h) in holders.iter().enumerate() {
-                *o |= u64::from(row_bit(h, i)) << r;
-            }
-        }
-    }
-    out
-}
-
-fn roles_of_row(m: &Row, role: &[u64; SLOTS], n: usize) -> u64 {
-    let mut out = 0;
-    for (k, &r) in role.iter().enumerate().take(n) {
-        if row_bit(m, k) {
-            out |= r;
-        }
-    }
-    out
 }
