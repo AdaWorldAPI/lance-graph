@@ -435,33 +435,76 @@ pub fn avg_parts(
     count_valid(d, stack, valid)
 }
 
-/// `bool_or(flag)` over the mask on top of the stack, `flag` a resident plane
-/// of the rows where the boolean is TRUE: whether any selected row has it.
-/// Pushes 1 or 0. (An empty selection reads 0 here; PostgreSQL reads NULL,
-/// which the caller recovers from [`exists`] over the selection.)
+/// `bool_or(b)` over a nullable boolean `b`, under the selection `select`.
+/// `valid` is `b`'s presence plane and `flag` the plane of rows where `b` is
+/// TRUE (its bits under a NULL are ignored).
 ///
-/// Calls: `LOAD`, `IntAnd`, `ANY`.
-pub fn bool_or(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>, flag: u16) -> Result<(), FoldError> {
+/// Pushes two scalars: the value, then `present` on top. `present == 0` is SQL
+/// NULL (no selected row has a non-NULL `b`, including an empty selection);
+/// the value is then 0 and must not be read as FALSE. Otherwise the value is 1
+/// when some contributing row is TRUE. The contributing rows are
+/// `select ∧ valid`; `select` is re-emitted per fold, as in [`avg_parts`].
+///
+/// Calls: `select`, `LOAD`, `IntAnd`, `LOAD`, `IntAnd`, `ANY`; `select`,
+/// `LOAD`, `IntAnd`, `ANY`.
+pub fn bool_or(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    select: &Select<'_>,
+    valid: u16,
+    flag: u16,
+) -> Result<(), FoldError> {
+    select(d, stack)?;
+    load(d, stack, SPACE_PLANE, valid)?;
+    call(d, INT_AND, [0; 3], stack)?;
     load(d, stack, SPACE_PLANE, flag)?;
     call(d, INT_AND, [0; 3], stack)?;
-    exists(d, stack)
+    exists(d, stack)?;
+    present(d, stack, select, valid)
 }
 
-/// `bool_and(flag)` (`every`) over the mask on top of the stack: whether no
-/// selected row lacks the flag. Pushes 1 or 0 (1 on an empty selection;
-/// PostgreSQL reads NULL there, as for [`bool_or`]).
+/// `bool_and(b)` (`every`) over a nullable boolean `b`, under `select`. Same
+/// arguments and result shape as [`bool_or`]: the value, then `present`. When
+/// present, the value is 1 unless some contributing row is FALSE; NULL rows
+/// do not count as FALSE. When not present the value is 0 (SQL NULL).
 ///
-/// Calls: `LOAD`, `IntNot`, `IntAnd`, `ANY`, then 1 − that (`IntSub`).
-pub fn bool_and(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>, flag: u16) -> Result<(), FoldError> {
+/// The value is `present − has_false`: with no contributing row both are 0.
+///
+/// Calls: `select`, `LOAD`, `IntAnd`, `ANY` (present); `select`, `LOAD`,
+/// `IntAnd`, `LOAD`, `IntNot`, `IntAnd`, `ANY` (has_false); `IntSub`.
+pub fn bool_and(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    select: &Select<'_>,
+    valid: u16,
+    flag: u16,
+) -> Result<(), FoldError> {
+    present(d, stack, select, valid)?;
+    let has_values = *stack.last().ok_or(FoldError::Underflow(ANY))?;
+    select(d, stack)?;
+    load(d, stack, SPACE_PLANE, valid)?;
+    call(d, INT_AND, [0; 3], stack)?;
     load(d, stack, SPACE_PLANE, flag)?;
     call(d, INT_NOT, [0; 3], stack)?;
     call(d, INT_AND, [0; 3], stack)?;
-    let missing = Val::Scalar(1);
     exists(d, stack)?;
-    let any_missing = stack.pop().ok_or(FoldError::Underflow(ANY))?;
-    stack.push(missing);
-    stack.push(any_missing);
-    call(d, INT_SUB, [0; 3], stack)
+    call(d, INT_SUB, [0; 3], stack)?;
+    stack.push(has_values);
+    Ok(())
+}
+
+/// Whether any row of `select ∧ valid` exists: the non-NULL population of a
+/// nullable aggregate. Pushes 1 or 0.
+fn present(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    select: &Select<'_>,
+    valid: u16,
+) -> Result<(), FoldError> {
+    select(d, stack)?;
+    load(d, stack, SPACE_PLANE, valid)?;
+    call(d, INT_AND, [0; 3], stack)?;
+    exists(d, stack)
 }
 
 /// `NOT EXISTS (…)` for the mask on top of the stack. Pushes 1 or 0.
@@ -494,15 +537,23 @@ pub fn except(
 
 /// `COUNT(DISTINCT key)` for the mask on top of the stack, on a KEY-ORDERED
 /// `U32` lane (the T0 key-order projection): one per run of equal keys that
-/// holds a selected row. An unordered lane is refused by mask-risc
-/// (`LaneNotOrdered`), never answered. Pushes the count.
+/// holds a selected row whose key is not NULL. `valid` is the key's presence
+/// plane; a NULL key is excluded whatever its payload, so a payload equal to
+/// a real key adds nothing and an all-NULL selection counts 0 (SQL
+/// `count(DISTINCT x)`; `GROUP BY` treats NULL keys differently). For a key
+/// that cannot be NULL pass a plane of every row. An unordered lane is refused
+/// by mask-risc (`LaneNotOrdered`), never answered; nothing is sorted or
+/// hashed. Pushes the count.
 ///
-/// Calls: `LOAD`, `KEY_RUNS`.
+/// Calls: `LOAD`, `IntAnd`, `LOAD`, `KEY_RUNS`.
 pub fn count_distinct_sorted(
     d: &mut FoldDialect<'_>,
     stack: &mut Vec<Val>,
     key_lane: u16,
+    valid: u16,
 ) -> Result<(), FoldError> {
+    load(d, stack, SPACE_PLANE, valid)?;
+    call(d, INT_AND, [0; 3], stack)?;
     load(d, stack, SPACE_U32, key_lane)?;
     call(d, KEY_RUNS, [0; 3], stack)
 }

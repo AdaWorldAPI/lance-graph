@@ -9,7 +9,7 @@ use lance_graph_r2il::procs::{
     all, and_between_i32, and_cmp_i32, avg_parts, bool_and, bool_or, count, count_and,
     count_distinct_sorted, count_union_all, count_valid, differ, except, exists, filter_lt,
     group_sum, in_u32, is_not_null, is_null, keep, margin, max, min, not_exists, select_lt,
-    select_u32, sum, union, Order,
+    select_u32, sum, union, Order, Select,
 };
 use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_MULT, INT_NOT, INT_OR, INT_S_DIV,
@@ -741,6 +741,7 @@ fn wide_union_and_intersect_fit_the_scratch_arena() {
 const VALID: u16 = 0;
 const FLAG: u16 = 1;
 const SORTED: u16 = 5;
+const ALL_ROWS: u16 = 2;
 
 fn null_row(r: usize) -> bool {
     r.is_multiple_of(9)
@@ -873,22 +874,32 @@ fn postgresql_primitives_match_row_rule_references() {
         .sum();
     assert_eq!(stack, vec![Val::Scalar(want_sum), Val::Scalar(col)]);
 
-    // bool_or / bool_and over a selection.
+    // bool_or / bool_and over a selection: (value, present); present 0 is NULL.
+    let two = |body: &Select<'_>| {
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![];
+        body(&mut d, &mut stack).expect("body");
+        match stack.as_slice() {
+            [Val::Scalar(v), Val::Scalar(p)] => (*v, *p),
+            other => panic!("expected value and present, got {other:?}"),
+        }
+    };
     let bor = |t: i32| {
-        run_scalar(&planes, |d, s| {
-            select_lt(d, s, X, t)?;
-            bool_or(d, s, FLAG)
-        })
+        let sel = move |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| select_lt(d, s, X, t);
+        two(&|d, s| bool_or(d, s, &sel, VALID, FLAG))
     };
     let band = |t: i32| {
-        run_scalar(&planes, |d, s| {
-            select_lt(d, s, X, t)?;
-            bool_and(d, s, FLAG)
-        })
+        let sel = move |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| select_lt(d, s, X, t);
+        two(&|d, s| bool_and(d, s, &sel, VALID, FLAG))
     };
-    // x < 1 selects rows 0, 50, 100, …: i % 50 == 0; 0 is flagged, 50 is not.
-    assert_eq!((bor(1), band(1)), (1, 0));
-    assert_eq!((bor(0), band(0)), (0, 1), "empty selection");
+    // x < 1 selects rows 0, 50, 100, …; row 0 is NULL (0 % 9), 50 is present
+    // and not flagged, 150 is present and flagged.
+    assert_eq!((bor(1), band(1)), ((1, 1), (0, 1)));
+    assert_eq!(
+        (bor(0), band(0)),
+        ((0, 0), (0, 0)),
+        "empty selection is NULL"
+    );
 
     // NOT EXISTS.
     assert_eq!(
@@ -925,7 +936,7 @@ fn postgresql_primitives_match_row_rule_references() {
     assert_eq!(
         run_scalar(&planes, |d, s| {
             select_lt(d, s, X, 5)?;
-            count_distinct_sorted(d, s, SORTED)
+            count_distinct_sorted(d, s, SORTED, ALL_ROWS)
         }),
         distinct
     );
@@ -957,14 +968,119 @@ fn postgresql_primitives_match_row_rule_references() {
 fn count_distinct_refuses_an_unordered_lane() {
     let f = fixture();
     let lanes = lanes(&f);
+    let all_rows = plane(|_| true);
     let planes = Planes {
         n_rows: N,
-        masks: &[],
+        masks: &[all_rows.as_slice()],
         lanes: &lanes,
     };
     let mut d = FoldDialect::new(&planes, &Foreign::NONE);
     let mut stack = vec![];
     select_lt(&mut d, &mut stack, X, 17).expect("select");
-    let err = count_distinct_sorted(&mut d, &mut stack, KEY).expect_err("key = i % 4 is unordered");
+    let err =
+        count_distinct_sorted(&mut d, &mut stack, KEY, 0).expect_err("key = i % 4 is unordered");
     assert!(matches!(err, FoldError::Exec(_)), "{err:?}");
+}
+
+/// The nullable boolean of one aggregate case: `None` is NULL.
+fn bool_case(vals: &[Option<bool>], scramble: bool) -> (Vec<u64>, Vec<u64>, Vec<u64>) {
+    let n = vals.len();
+    let sel = plane(|r| r < n);
+    let valid = plane(|r| r < n && vals[r].is_some());
+    // Under a NULL the flag bit is a payload: set it on every other row, or
+    // flip that choice when scrambling.
+    let flag = plane(|r| match vals.get(r) {
+        Some(Some(b)) => *b,
+        Some(None) => (r % 2 == 0) != scramble,
+        None => false,
+    });
+    (sel, valid, flag)
+}
+
+/// `(bool_or, bool_and)` of one case; `None` is SQL NULL.
+fn bool_aggs(vals: &[Option<bool>], scramble: bool) -> (Option<bool>, Option<bool>) {
+    let (sel, valid, flag) = bool_case(vals, scramble);
+    let masks = [sel.as_slice(), valid.as_slice(), flag.as_slice()];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let select = |d: &mut FoldDialect<'_>, s: &mut Vec<Val>| is_not_null(d, s, 0);
+    let read = |f: &Select<'_>| {
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![];
+        f(&mut d, &mut stack).expect("agg");
+        match stack.as_slice() {
+            [Val::Scalar(v), Val::Scalar(1)] => Some(*v == 1),
+            [Val::Scalar(0), Val::Scalar(0)] => None,
+            other => panic!("unexpected result {other:?}"),
+        }
+    };
+    (
+        read(&|d, s| bool_or(d, s, &select, 1, 2)),
+        read(&|d, s| bool_and(d, s, &select, 1, 2)),
+    )
+}
+
+/// FAILS IF: `bool_or` / `bool_and` read a NULL row as FALSE (or its payload),
+/// or answer FALSE where PostgreSQL answers NULL. Disable: drop the `valid`
+/// gate from either procedure (the contributing rows become `select` alone).
+#[test]
+fn bool_aggregates_keep_null_apart_from_false() {
+    const T: Option<bool> = Some(true);
+    const F: Option<bool> = Some(false);
+    const U: Option<bool> = None;
+    type Case<'a> = (&'a [Option<bool>], Option<bool>, Option<bool>);
+    let cases: [Case<'_>; 6] = [
+        (&[T, U], T, T),
+        (&[F, U], F, F),
+        (&[T, F, U], T, F),
+        (&[U, U], None, None),
+        (&[], None, None),
+        (&[F, F], F, F),
+    ];
+    for (vals, want_or, want_and) in cases {
+        for scramble in [false, true] {
+            assert_eq!(
+                bool_aggs(vals, scramble),
+                (want_or, want_and),
+                "{vals:?} (scramble {scramble})"
+            );
+        }
+    }
+}
+
+/// FAILS IF: `COUNT(DISTINCT)` counts a NULL key, i.e. a NULL row whose
+/// payload equals a real key, or a run made only of NULL rows. Disable: drop
+/// the `valid` gate from `count_distinct_sorted`.
+#[test]
+fn count_distinct_excludes_null_keys_whatever_their_payload() {
+    // Key-ordered lane: runs of 10 rows, key = row / 10 (100 runs).
+    let sorted: Vec<u32> = (0..N).map(|i| (i / 10) as u32).collect();
+    let lanes = [LaneRef::U32(&sorted)];
+    let count = |valid: &[u64], sel: &[u64]| {
+        let masks = [sel, valid];
+        let planes = Planes {
+            n_rows: N,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        run_scalar(&planes, |d, s| {
+            is_not_null(d, s, 0)?;
+            count_distinct_sorted(d, s, 0, 1)
+        })
+    };
+    // Selected: the first, a middle and the last run, entirely.
+    let in_runs = |r: usize, runs: &[usize]| runs.contains(&(r / 10));
+    let sel = plane(|r| in_runs(r, &[0, 50, 99]));
+    // Every key present: 3 distinct.
+    assert_eq!(count(&plane(|_| true), &sel), 3);
+    // The middle run all NULL (payload 50 still equals a real key): 2.
+    assert_eq!(count(&plane(|r| r / 10 != 50), &sel), 2);
+    // First and last runs NULL except one row each: still 3.
+    let one_left = |r: usize| (r / 10 != 0 && r / 10 != 99) || r == 3 || r == 995;
+    assert_eq!(count(&plane(one_left), &sel), 3);
+    // All selected rows NULL: 0.
+    assert_eq!(count(&plane(|r| !in_runs(r, &[0, 50, 99])), &sel), 0);
 }
