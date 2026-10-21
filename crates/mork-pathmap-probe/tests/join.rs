@@ -58,9 +58,24 @@ fn agrees(
         );
     }
     if filter.is_none() {
-        let mut visited = 0u64;
-        exec.for_each_answer(table, gens, |_| visited += 1).unwrap();
+        // The rows read in place, folded: count and a checksum over x and z.
+        let mix = |x: u32, z: u32| u64::from(x).wrapping_mul(31).wrapping_add(u64::from(z));
+        let (mut visited, mut sum) = (0u64, 0u64);
+        exec.for_each_answer(table, gens, |d| {
+            visited += 1;
+            sum = sum.wrapping_add(mix(d.x(), d.z()));
+        })
+        .unwrap();
+        let mut want = 0u64;
+        for i in 0..rx.len() {
+            for j in 0..sy.len() {
+                if ry[i] == sy[j] {
+                    want = want.wrapping_add(mix(rx[i], sz[j]));
+                }
+            }
+        }
         assert_eq!(visited, total);
+        assert_eq!(sum, want, "rows read in place");
     }
     total
 }
