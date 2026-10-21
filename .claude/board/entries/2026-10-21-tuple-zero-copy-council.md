@@ -130,3 +130,26 @@ v3 said `tuples_over_mask` was a violation "in its emitting half" and that its c
 4. **Time.** The per-row alloc, clone and sort is what produced the millisecond results (F1).
 
 The multiplication of side counts at `native.rs:446-449` is not a part of the tuple builder to keep. The fold it computes (law 7, count(A×B)=count(A)·count(B)) exists on its own. It belongs at the terminal, over the kept mask in natural order, not inside a function that builds rows. "The fold-shaped half can be kept" was a collapse in the other direction: it filed a valid law under an invalid carrier.
+
+## Correction (operator, 2026-10-21): no boundaries
+
+The legal-legs table above is superseded where it allows anything to cross a
+boundary. There are no boundaries; the whole substrate is zero copy.
+
+- Struck: "coordinates out … legal", "borrowed lens … legal" as a
+  boundary leg, and the OPEN row "columnar lane copy at a cross-process or
+  serialization membrane". There is no membrane at which values are copied.
+- The only "exception" is the inversion, global to local, and it is still
+  zero copy: it materializes the pointer table `$i` and nothing else.
+- A "tuple" is a zero-copy fold template: `"{0}{1}" -f $laneA[$i],$laneB[$i]`.
+  A `(Guid, Guid)` pair held as a value (dir-sim, EXO-117) is the violation;
+  two lanes read at `$i` is the correct shape.
+- Oracles included: tests compare answers by folds through the template
+  (crepe-plan-probe `Answers::{total, matching, for_each}`), never by
+  expanding rows.
+- Open, found by the same rule: `mork_pathmap_probe::join::Side::prepare`
+  copies the non-key column into `vals`. Under this ruling it should hold
+  only `$i` (row positions per slot) and read `rows[$i]` in place. Its
+  `prepare` stage fails the no-ms gate at n = 10 000 and 50 000 (the
+  `no-semijoin` and `none` arms of `crepe-plan-probe` example `measure`).
+

@@ -65,11 +65,21 @@ benchmarks and PR bodies alike.
     new algebra until tests prove the new algebra also runs in nanoseconds.
 - SCOPE: every crate in this workspace, plus every number quoted in a board
   entry, plan, PR or Linear comment.
-- REVISIT WHEN: never on cost grounds. When a demand genuinely returns rows,
-  what crosses is COORDINATES, never copied values: the kept mask (or
-  `materialize*`-named row ids, O(n) stated) plus the lanes, which the
-  consumer reads through the template in place. Even then, the batch stays
-  within microseconds.
+- **There are no boundaries** (2026-10-21). The whole substrate is zero copy:
+  no membrane, wire, process edge or "consumer side" where values get copied
+  out. The only "exception" is the **inversion, global to local**, and it is
+  still zero copy: the one thing it materializes is the pointer table `$i`
+  (the local positions). Everything else is read in place through `$i`.
+  - **A "tuple" is a zero-copy fold template,** never a value:
+    `"{0}{1}" -f $laneA[$i],$laneB[$i]` reads column 0 from lane A and column
+    1 from lane B at position `$i`. Whole-template form:
+    `"{$i[0]}..{$i[15]}" -f $table{$i[0]}..$table{$i[15]}`.
+  - **Violation:** a `(Guid, Guid)` pair stored or returned as a value (as in
+    dir-sim). **Correct:** two lanes, one pointer table, the template read at
+    `$i`.
+  - This holds for tests and oracles too: answers are compared by folds
+    through the template, never by expanding them into rows.
+- REVISIT WHEN: never on cost grounds.
 
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
