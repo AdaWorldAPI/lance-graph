@@ -28,7 +28,7 @@
 use lance_graph_mask_risc::{MaskOp, Planes, Pred, Program, Terminal, words_for};
 use lance_graph_relalg::{Answer, Measure, Query, Rel, RelError, Run, run_with_program};
 use mork_pathmap_probe::RelationView;
-use mork_pathmap_probe::join::{JoinRefusal, JoinTable, Side, for_each_set};
+use mork_pathmap_probe::join::{JoinDomain, JoinRefusal, JoinTable, Side, for_each_set};
 
 use crate::logic::{RelId, VarId};
 use crate::mork_api::{Expr, QueryMulti};
@@ -407,12 +407,30 @@ pub fn bindings_run(
     let n = prep.table.domain.len();
     let mut mask = vec![0u64; words_for(n)];
     let (run, program) = joint(prep, plan, current, Measure::Keep, Some(&mut mask))?;
+    let sides: Vec<&Side> = prep.table.sides.iter().collect();
+    let rows = tuples_over_mask(&prep.table.domain, &sides, plan, &mask, bag);
+    Ok((rows, run, program))
+}
+
+/// The output tuples of `plan` at the slots `mask` names, with
+/// multiplicities. `sides[i]` is the laid-out side for `plan.sides[i]`, over
+/// `domain`. Each side is read at the slot the mask names, never at a
+/// position taken from another side's values. Without `bag`, every
+/// multiplicity is 1.
+pub fn tuples_over_mask(
+    domain: &JoinDomain,
+    sides: &[&Side],
+    plan: &StarPlan,
+    mask: &[u64],
+    bag: bool,
+) -> Vec<(Vec<u64>, u64)> {
+    let n = domain.len();
     let mut out: Vec<(Vec<u64>, u64)> = Vec::new();
-    for_each_set(&mask, n, |slot| {
-        let center = u64::from(prep.table.domain.id(slot));
+    for_each_set(mask, n, |slot| {
+        let center = u64::from(domain.id(slot));
         let mut tuples: Vec<(Vec<Option<u64>>, u64)> = vec![(vec![None; plan.sides.len()], 1)];
         for (i, s) in plan.sides.iter().enumerate() {
-            let vals = prep.table.sides[i].at(slot);
+            let vals = sides[i].at(slot);
             if s.emit.is_some() {
                 tuples = tuples
                     .into_iter()
@@ -457,7 +475,7 @@ pub fn bindings_run(
             e.1 = 1;
         }
     }
-    Ok((merged, run, program))
+    merged
 }
 
 /// True when the program contains an op that reads at a position taken from

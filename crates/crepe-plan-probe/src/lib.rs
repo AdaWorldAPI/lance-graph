@@ -24,11 +24,14 @@
 //!    - [`addressed`]: arm B, the addressed semijoin. Each relation is a lane
 //!      in key order, attested with `SealedFacetLane`; a side reads only the
 //!      ranges of its demanded keys.
+//!    - [`cse`]: every rule's star over one shared table, the parts several
+//!      rules share evaluated once (D-RU-3 / U3).
 //! 6. [`reference`]: an independent nested-loop evaluator over the resolved,
 //!    unoptimized rules. The unmodified `crepe!` evaluator, datafrog and MORK
 //!    are the other oracles (tests only).
 
 pub mod addressed;
+pub mod cse;
 pub mod lance_store;
 pub mod logic;
 pub mod mork_api;
