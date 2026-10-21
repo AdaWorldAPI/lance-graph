@@ -1,4 +1,9 @@
-## 2026-10-20 — D-CMR-1 / D-RA-2: single-table set algebra in the contract (in PR)
+## 2026-10-21 — main after #1644 (merged `c05a313`)
+
+- **On main:** #1641 (D-RELALG-UNIFIED plan), #1643 (U1 `jc-batch-probe`, walk_mask follow-up), #1644 (D-CMR-1 / D-RA-2, `contract::set_algebra`; inventory delta below under 2026-10-20).
+- holo-h14d-probe stage 1 after #1644: 0 of 2,000 programs widened by the rewrite (was 2).
+
+## 2026-10-20 — D-CMR-1 / D-RA-2: single-table set algebra in the contract (#1644, merged `c05a313`)
 
 - **Contract (new module):** `set_algebra::{SetExpr, Res, Cmp, normalize, Runs, OutOfUniverse}`. `SetExpr` = `All | Empty | Sym(u32) | Res(Res) | And | Or | Not`; `Sym` is an opaque two-valued set (no storage layout named), `Res` a residual predicate on one lane. `normalize` is the one implementation of the single-table rewrites (De Morgan, associative flattening, idempotence, complement pairs, per-lane interval fusion and merge, absorption matched against flattened siblings). `Runs` = sorted disjoint half-open row intervals with `∩ ∪ ∖` and `complement(universe)`, refused (`OutOfUniverse`) past the declared universe. No dependency added; no lowering, join or gather.
 - **relalg:** `normalize` converts `Rel` ↔ `SetExpr` (`Plane(i)` ↔ `Sym(i)`) and delegates; public API unchanged; the 16 pre-existing tests pass unchanged. Closes `ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN` (N17). Entry `entries/2026-10-20-d-cmr-1-set-algebra.md`.

@@ -1,6 +1,6 @@
 # 2026-10-20 — D-CMR-1 / D-RA-2: the contract owns single-table set algebra
 
-**Status:** TEST-PINNED (in PR, branch `claude/eager-albattani-iufugq`). **Basis:** `ADR-2026-10-20-SIX` §2 (`entries/2026-10-20-six-decisions.md`).
+**Status:** TEST-PINNED, merged in #1644 (`c05a313`). MEASURED after merge: holo-h14d-probe stage 1 widens 0 of 2,000 programs (was 2; `cargo test --manifest-path crates/holo-h14d-probe/Cargo.toml stage1_answers_agree -- --nocapture`). **Basis:** `ADR-2026-10-20-SIX` §2 (`entries/2026-10-20-six-decisions.md`).
 
 - **Moved:** relalg's rewrite rules to `lance_graph_contract::set_algebra::normalize`, unchanged except absorption. relalg's `normalize` converts `Rel` ↔ `SetExpr` (`Plane(i)` ↔ `Sym(i)`, `Atom` ↔ `Res`) and delegates. `symbolic`, `run`, lowering and the public API are unchanged. The contract stays dependency-free.
 - **Absorption** is matched against flattened sibling sets, removing one child at a time against the children still kept, in two forms: (1) a member of the dual child is a sibling, or a junction of siblings; (2) a sibling junction's members all occur in the dual child (`x ∨ (x ∧ y)` with `x` itself a conjunction). That closes N17 (`ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN`) for `x` a leaf, an `And` or an `Or`. Form 2 was found by crepe-plan-probe's N17 pin (CI `probe`), which this PR flips to assert the reduction.
