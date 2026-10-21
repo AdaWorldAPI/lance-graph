@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-410 entries, 2026-08-06 .. 2026-10-21.
+413 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-21 | `zero-copy-join-index-map` |  | [2026-10-21-zero-copy-join-index-map.md](2026-10-21-zero-copy-join-index-map.md) |
 | 2026-10-21 | `D-RU-4` |  | [2026-10-21-u4-coaddressed-join.md](2026-10-21-u4-coaddressed-join.md) |
 | 2026-10-21 | `D-RU-3` |  | [2026-10-21-u3-cross-rule-cse.md](2026-10-21-u3-cross-rule-cse.md) |
 | 2026-10-21 | `D-RU-2` |  | [2026-10-21-u2-let-planes.md](2026-10-21-u2-let-planes.md) |
@@ -42,6 +43,8 @@ exactly one of them, never both.
 | 2026-10-21 | `D-CMR-2b` |  | [2026-10-21-d-cmr-2b-scratch-probe.md](2026-10-21-d-cmr-2b-scratch-probe.md) |
 | 2026-10-21 | `D-CMR-2` |  | [2026-10-21-d-cmr-2-lowering.md](2026-10-21-d-cmr-2-lowering.md) |
 | 2026-10-21 | `D-RU-6` |  | [2026-10-21-coresearch-ms-vs-ns-folding.md](2026-10-21-coresearch-ms-vs-ns-folding.md) |
+| 2026-10-21 | `coresearch-classview-algebra-polyfill` |  | [2026-10-21-coresearch-classview-algebra-polyfill.md](2026-10-21-coresearch-classview-algebra-polyfill.md) |
+| 2026-10-21 | `classview-dr-iam` |  | [2026-10-21-classview-dr-iam.md](2026-10-21-classview-dr-iam.md) |
 | 2026-10-20 | `D-RU-1` |  | [2026-10-20-u1-jc-batch.md](2026-10-20-u1-jc-batch.md) |
 | 2026-10-20 | `thought-git-replay-api-write-rubicon` |  | [2026-10-20-thought-git-replay-api-write-rubicon.md](2026-10-20-thought-git-replay-api-write-rubicon.md) |
 | 2026-10-20 | `ADR-2026-10-20-SIX` |  | [2026-10-20-six-decisions.md](2026-10-20-six-decisions.md) |

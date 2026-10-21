@@ -38,6 +38,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # through the `ndarray::simd` facade. Same coordinate as mask-risc's, so the
 # graph keeps one ndarray package.
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+# A relation is two lanes; a lane is Arrow's reference-counted buffer, so a
+# lane read from Lance is shared, never copied. Same arrow major as Lance 13.
+arrow-buffer = "58"
 
 # MORK's workspace names PathMap as `path = "../PathMap/"`, outside its own
 # repository, so a git dependency on MORK cannot resolve it. This patch points

@@ -94,10 +94,8 @@ impl Data {
             t: rows(0x2545_F491, n, centers, queries),
         }
     }
-    fn store(&self) -> Store<'_> {
-        Store {
-            relations: vec![(R, &self.r, 1), (S, &self.s, 2), (T, &self.t, 3)],
-        }
+    fn store(&self) -> Store {
+        Store::from_rows([(R, &self.r, 1), (S, &self.s, 2), (T, &self.t, 3)])
     }
 }
 

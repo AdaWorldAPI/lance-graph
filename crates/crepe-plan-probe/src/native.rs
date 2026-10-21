@@ -38,7 +38,11 @@
 use lance_graph_mask_risc::{MaskOp, Planes, Pred, Program, Terminal, words_for};
 use lance_graph_relalg::{Answer, Measure, Query, Rel, RelError, Run, run_with_program};
 use mork_pathmap_probe::RelationView;
-use mork_pathmap_probe::join::{JoinDomain, JoinRefusal, JoinTable, Side, for_each_set};
+use mork_pathmap_probe::join::{
+    JoinDomain, JoinRefusal, JoinTable, Run as SideRun, SelectedSide, Side, for_each_set,
+    for_each_set_ahead, rows,
+};
+use ndarray::simd::eq_u32_to_mask;
 
 use crate::logic::{RelId, VarId};
 use crate::mork_api::{Expr, QueryMulti};
@@ -192,20 +196,33 @@ pub fn star(q: &QueryMulti) -> Result<StarPlan, NativeRefusal> {
     })
 }
 
-/// The relations a plan reads, by id, with their generations.
-pub struct Store<'a> {
-    /// `(relation, rows, generation)`. A unary relation's rows are `[v, v]`.
-    pub relations: Vec<(RelId, &'a [[u32; 2]], u64)>,
+/// The relations a plan reads, by id. Each is two lanes and a generation
+/// ([`RelationView`]); a unary relation's lanes are equal.
+pub struct Store {
+    pub relations: Vec<(RelId, RelationView)>,
 }
 
-impl<'a> Store<'a> {
-    pub fn view(&self, rel: RelId) -> (&'a [[u32; 2]], u64) {
-        let (_, rows, g) = self
+impl Store {
+    /// Builds each relation's lanes once from authored fixture rows. For
+    /// tests and examples; a stored relation arrives as lanes.
+    pub fn from_rows<R: AsRef<[[u32; 2]]>>(
+        relations: impl IntoIterator<Item = (RelId, R, u64)>,
+    ) -> Store {
+        Store {
+            relations: relations
+                .into_iter()
+                .map(|(r, rows, g)| (r, RelationView::from_rows(rows.as_ref(), g)))
+                .collect(),
+        }
+    }
+
+    pub fn view(&self, rel: RelId) -> &RelationView {
+        &self
             .relations
             .iter()
-            .find(|(r, _, _)| *r == rel)
-            .expect("relation in store");
-        (rows, *g)
+            .find(|(r, _)| *r == rel)
+            .expect("relation in store")
+            .1
     }
 }
 
@@ -223,8 +240,8 @@ pub struct PreparedStar {
 
 /// Lays the plan's sides out over one shared domain. A side's restriction is
 /// applied to the rows it is prepared from.
-pub fn prepare(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
-    prepare_with(plan, store, false)
+pub fn prepare(plan: &StarPlan, store: &Store) -> PreparedStar {
+    prepare_views(plan, side_views(plan, store), false)
 }
 
 /// [`prepare`] with semijoin reduction: when at least one side is restricted
@@ -232,74 +249,93 @@ pub fn prepare(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
 /// sides all have. A center outside that set cannot reach the joint mask, so
 /// the answer and its multiplicities are unchanged; the domain shrinks to the
 /// reduced centers. Without a restricted side nothing changes.
-pub fn prepare_semijoin(plan: &StarPlan, store: &Store<'_>) -> PreparedStar {
-    prepare_with(plan, store, true)
+pub fn prepare_semijoin(plan: &StarPlan, store: &Store) -> PreparedStar {
+    prepare_views(plan, side_views(plan, store), true)
 }
 
-fn prepare_with(plan: &StarPlan, store: &Store<'_>, semijoin: bool) -> PreparedStar {
-    let mut owned: Vec<(Vec<[u32; 2]>, u64)> = plan
-        .sides
+/// Each plan side's relation, as lanes shared with the store (a reference
+/// count each, no copy).
+fn side_views(plan: &StarPlan, store: &Store) -> Vec<RelationView> {
+    plan.sides
         .iter()
-        .map(|s| {
-            let (rows, g) = store.view(s.key.rel);
-            let other = 1 - s.key.key_col as usize;
-            let kept = rows
-                .iter()
-                .filter(|r| s.key.unary || s.key.restrict.is_none_or(|k| u64::from(r[other]) == k))
-                .copied()
-                .collect();
-            (kept, g)
+        .map(|s| store.view(s.key.rel).clone())
+        .collect()
+}
+
+/// Lays the sides out over one shared domain, in plan side order, from their
+/// relations' lanes. A side's restriction, and with `semijoin` the centers
+/// every restricted side has, select row positions: the index map leaves the
+/// other rows out, and no row is copied.
+pub fn prepare_views(plan: &StarPlan, views: Vec<RelationView>, semijoin: bool) -> PreparedStar {
+    let restricted = |i: usize| {
+        let k = plan.sides[i].key;
+        !k.unary && k.restrict.is_some()
+    };
+    // A restricted side's rows: one compare over the lane holding the
+    // constant, into a mask.
+    let restriction: Vec<Option<Vec<u64>>> = (0..views.len())
+        .map(|i| {
+            let k = plan.sides[i].key;
+            let c = k.restrict.filter(|_| restricted(i))?;
+            let lane = &views[i].cols[1 - k.key_col as usize];
+            let mut m = vec![0u64; words_for(lane.len())];
+            if let Ok(c) = u32::try_from(c) {
+                eq_u32_to_mask(lane, c, &mut m);
+            }
+            Some(m)
         })
         .collect();
-    if semijoin {
-        // Centers every restricted side has: sorted, deduplicated, intersected.
-        let mut centers: Option<Vec<u32>> = None;
-        for (s, (rows, _)) in plan.sides.iter().zip(&owned) {
-            if s.key.unary || s.key.restrict.is_none() {
-                continue;
-            }
-            let mut c: Vec<u32> = rows.iter().map(|r| r[s.key.key_col as usize]).collect();
-            c.sort_unstable();
-            c.dedup();
-            centers = Some(match centers {
+    // Centers every restricted side has: one domain per restricted side over
+    // its kept rows, intersected.
+    let centers: Option<JoinDomain> = if semijoin {
+        let mut acc: Option<JoinDomain> = None;
+        for (i, m) in restriction.iter().enumerate() {
+            let Some(m) = m else { continue };
+            let key = &views[i].cols[plan.sides[i].key.key_col as usize];
+            let c = JoinDomain::build(rows(key.len(), Some(m)).map(|row| key[row]));
+            acc = Some(match acc {
                 None => c,
-                Some(prev) => prev
-                    .into_iter()
-                    .filter(|v| c.binary_search(v).is_ok())
-                    .collect(),
+                Some(prev) => {
+                    let both: Vec<u32> = (0..prev.len())
+                        .map(|s| prev.id(s))
+                        .filter(|&v| c.contains(v))
+                        .collect();
+                    JoinDomain::build(both.iter().copied())
+                }
             });
         }
-        if let Some(centers) = centers {
-            for (s, (rows, _)) in plan.sides.iter().zip(owned.iter_mut()) {
-                let col = s.key.key_col as usize;
-                rows.retain(|r| centers.binary_search(&r[col]).is_ok());
+        acc
+    } else {
+        None
+    };
+    // Each side's keep mask: its restriction, and with centers the rows whose
+    // center every restricted side has. `None`: every row.
+    let keeps: Vec<Option<Vec<u64>>> = (0..views.len())
+        .map(|i| {
+            let Some(c) = &centers else {
+                return restriction[i].clone();
+            };
+            let key = &views[i].cols[plan.sides[i].key.key_col as usize];
+            let mut m = vec![0u64; words_for(key.len())];
+            for row in rows(key.len(), restriction[i].as_deref()) {
+                if c.contains(key[row]) {
+                    m[row >> 6] |= 1 << (row & 63);
+                }
             }
-        }
-    }
-    prepare_from_rows(plan, owned)
-}
-
-/// Lays out rows already selected per side (`(rows, generation)`, in plan
-/// side order) over one shared domain.
-pub fn prepare_from_rows(plan: &StarPlan, owned: Vec<(Vec<[u32; 2]>, u64)>) -> PreparedStar {
-    let inputs: Vec<(RelationView<'_>, usize)> = owned
-        .iter()
-        .zip(&plan.sides)
-        .map(|((rows, g), s)| {
-            (
-                RelationView {
-                    rows,
-                    generation: *g,
-                },
-                s.key.key_col as usize,
-            )
+            Some(m)
         })
         .collect();
-    let table = JoinTable::prepare_star(&inputs);
+    let inputs: Vec<SelectedSide<'_>> = views
+        .iter()
+        .zip(&plan.sides)
+        .zip(&keeps)
+        .map(|((v, s), keep)| (v, s.key.key_col as usize, keep.as_deref()))
+        .collect();
+    let table = JoinTable::prepare_star_where(&inputs);
     PreparedStar {
         domain_fp: fingerprint(&table),
         keys: plan.sides.iter().map(|s| s.key).collect(),
-        rows_prepared: owned.iter().map(|(r, _)| r.len()).sum(),
+        rows_prepared: table.sides.iter().map(Side::rows).sum(),
         table,
     }
 }
@@ -461,7 +497,7 @@ fn side_count(view: &StarView<'_>, filter: &RuleFilter, slot: usize, i: usize) -
     let vals = view.sides[i].at(slot);
     match filter.side[i] {
         None => vals.len() as u64,
-        Some(k) => vals.iter().filter(|&&v| u64::from(v) == k).count() as u64,
+        Some(k) => vals.iter().filter(|&v| u64::from(v) == k).count() as u64,
     }
 }
 
@@ -611,7 +647,7 @@ pub fn add_distinct(
                 .filter(|&j| j != i)
                 .all(|j| side_count(view, filter, slot, j) > 0);
             if others {
-                for &v in view.sides[i].at(slot) {
+                for v in view.sides[i].at(slot).iter() {
                     set_bit(values, u64::from(v));
                 }
             }
@@ -657,7 +693,7 @@ pub struct RuleCoordinates {
 pub struct SlotView<'a> {
     pub slot: usize,
     pub center: u32,
-    pub sides: &'a [&'a [u32]],
+    pub sides: &'a [SideRun<'a>],
     pub filter: &'a RuleFilter,
     pub derivations: u64,
 }
@@ -665,8 +701,9 @@ pub struct SlotView<'a> {
 /// Calls `f` for every kept slot with at least one derivation, in slot
 /// order, with the sides' rows borrowed in place.
 pub fn for_each_slot(view: &StarView<'_>, rc: &RuleCoordinates, mut f: impl FnMut(&SlotView<'_>)) {
-    let mut sides: Vec<&[u32]> = vec![&[]; view.sides.len()];
-    for_each_set(&rc.kept, view.domain.len(), |slot| {
+    let mut sides: Vec<SideRun<'_>> = vec![SideRun::default(); view.sides.len()];
+    let ahead = |next: usize| view.sides.iter().for_each(|s| s.at(next).prefetch());
+    for_each_set_ahead(&rc.kept, view.domain.len(), ahead, |slot| {
         let derivations = slot_derivations(view, &rc.filter, slot);
         if derivations == 0 {
             return;
@@ -724,7 +761,7 @@ pub fn matching(
                 let vals = view.sides[i].at(slot);
                 match want[i] {
                     None => vals.len() as u64,
-                    Some(t) => vals.iter().filter(|&&v| u64::from(v) == t).count() as u64,
+                    Some(t) => vals.iter().filter(|&v| u64::from(v) == t).count() as u64,
                 }
             })
             .product()
@@ -750,7 +787,7 @@ pub fn matching(
 pub struct DerivationView<'a> {
     pub center: u32,
     head: &'a [HeadTerm],
-    sides: &'a [&'a [u32]],
+    sides: &'a [SideRun<'a>],
     at: &'a [usize],
 }
 
@@ -763,7 +800,7 @@ impl DerivationView<'_> {
         match self.head[c] {
             HeadTerm::Const(k) => k,
             HeadTerm::Center => u64::from(self.center),
-            HeadTerm::Side(i) => u64::from(self.sides[i][self.at[i]]),
+            HeadTerm::Side(i) => u64::from(self.sides[i].get(self.at[i])),
         }
     }
 }
@@ -781,9 +818,10 @@ pub fn for_each_derivation(
         .filter(|&i| view.star.sides[i].emit.is_some())
         .collect();
     let mut at = vec![0usize; k];
-    let mut sides: Vec<&[u32]> = vec![&[]; k];
+    let mut sides: Vec<SideRun<'_>> = vec![SideRun::default(); k];
     let keeps = |i: usize, v: u32| rc.filter.side[i].is_none_or(|t| t == u64::from(v));
-    for_each_set(&rc.kept, view.domain.len(), |slot| {
+    let ahead = |next: usize| view.sides.iter().for_each(|s| s.at(next).prefetch());
+    for_each_set_ahead(&rc.kept, view.domain.len(), ahead, |slot| {
         let center = view.domain.id(slot);
         if rc.filter.center.is_some_and(|t| t != u64::from(center)) {
             return;
@@ -793,7 +831,7 @@ pub fn for_each_derivation(
         }
         let weight: u64 = (0..k)
             .filter(|i| !emitting.contains(i))
-            .map(|i| sides[i].iter().filter(|&&v| keeps(i, v)).count() as u64)
+            .map(|i| sides[i].iter().filter(|&v| keeps(i, v)).count() as u64)
             .product();
         if weight == 0 || emitting.iter().any(|&i| sides[i].is_empty()) {
             return;
@@ -802,7 +840,7 @@ pub fn for_each_derivation(
             at[i] = 0;
         }
         loop {
-            if emitting.iter().all(|&i| keeps(i, sides[i][at[i]])) {
+            if emitting.iter().all(|&i| keeps(i, sides[i].get(at[i]))) {
                 f(
                     &DerivationView {
                         center,

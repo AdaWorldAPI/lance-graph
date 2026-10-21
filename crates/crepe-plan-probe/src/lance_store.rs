@@ -25,7 +25,9 @@ use lance_graph_relalg::{Measure, Query, Rel, RelError, run_with_program};
 use mork_pathmap_probe::join::for_each_set;
 
 use crate::logic::RelId;
-use crate::native::{PreparedStar, StarPlan, prepare_from_rows};
+use crate::native::{PreparedStar, StarPlan, prepare_views};
+use arrow_buffer::ScalarBuffer;
+use mork_pathmap_probe::{Lane, RelationView};
 
 #[derive(Debug)]
 pub enum LanceStoreError {
@@ -177,11 +179,12 @@ fn u32_col<'b>(b: &'b RecordBatch, name: &str) -> &'b UInt32Array {
         .expect("u32 column")
 }
 
-/// One column, every row, with each row's address.
+/// One column, every row, with each row's address. Both are Arrow's
+/// buffers as the scan returned them, shared by reference count.
 async fn read_column(
     ds: &Dataset,
     col: usize,
-) -> Result<(Vec<u32>, Vec<u64>, Io), LanceStoreError> {
+) -> Result<(Lane, ScalarBuffer<u64>, Io), LanceStoreError> {
     let name = format!("c{col}");
     let (stats, cb) = stats_sink();
     let mut s = ds.scan();
@@ -189,23 +192,24 @@ async fn read_column(
     s.with_row_address();
     s.scan_stats_callback(cb);
     let b = s.try_into_batch().await.map_err(lance_err)?;
-    let values = u32_col(&b, &name).values().to_vec();
+    let values = u32_col(&b, &name).values().clone();
     let addr = b
         .column_by_name("_rowaddr")
         .and_then(|c| c.as_any().downcast_ref::<UInt64Array>())
         .expect("_rowaddr")
         .values()
-        .to_vec();
+        .clone();
     let mut io = *stats.lock().expect("stats lock");
     io.rows_returned = b.num_rows();
     Ok((values, addr, io))
 }
 
-/// Both columns, under `mask` when given.
+/// Both columns, under `mask` when given, as the relation's two lanes: the
+/// scan's own buffers, never zipped into rows.
 pub(crate) async fn read_rows(
     ds: &Dataset,
     mask: Option<RowAddrMask>,
-) -> Result<(Vec<[u32; 2]>, Io), LanceStoreError> {
+) -> Result<(RelationView, Io), LanceStoreError> {
     let (stats, cb) = stats_sink();
     let mut s = ds.scan();
     s.project(&["c0", "c1"]).map_err(lance_err)?;
@@ -214,14 +218,14 @@ pub(crate) async fn read_rows(
     }
     s.scan_stats_callback(cb);
     let b = s.try_into_batch().await.map_err(lance_err)?;
-    let c0 = u32_col(&b, "c0");
-    let c1 = u32_col(&b, "c1");
-    let rows = (0..b.num_rows())
-        .map(|i| [c0.value(i), c1.value(i)])
-        .collect();
+    let view = RelationView::new(
+        u32_col(&b, "c0").values().clone(),
+        u32_col(&b, "c1").values().clone(),
+        ds.version().version,
+    );
     let mut io = *stats.lock().expect("stats lock");
     io.rows_returned = b.num_rows();
-    Ok((rows, io))
+    Ok((view, io))
 }
 
 /// `rel` over `values` as lane 0: the relalg description, lowered by
@@ -273,7 +277,7 @@ pub async fn prepare_lance(
     semijoin: bool,
 ) -> Result<(PreparedStar, Vec<SideIo>), LanceStoreError> {
     let n_sides = plan.sides.len();
-    let mut rows: Vec<Option<(Vec<[u32; 2]>, u64)>> = vec![None; n_sides];
+    let mut rows: Vec<Option<RelationView>> = vec![None; n_sides];
     let mut io = vec![SideIo::default(); n_sides];
     let restricted = |i: usize| {
         let k = plan.sides[i].key;
@@ -299,20 +303,14 @@ pub async fn prepare_lance(
             mask_rows: Some(r),
             rows: rows_io,
         };
-        rows[i] = Some((got, ds.version().version));
+        rows[i] = Some(got);
     }
 
     let centers: Option<Vec<u32>> = if semijoin {
         let mut acc: Option<Vec<u32>> = None;
         for i in (0..n_sides).filter(|&i| restricted(i).is_some()) {
             let col = plan.sides[i].key.key_col as usize;
-            let mut c: Vec<u32> = rows[i]
-                .as_ref()
-                .expect("read")
-                .0
-                .iter()
-                .map(|r| r[col])
-                .collect();
+            let mut c: Vec<u32> = rows[i].as_ref().expect("read").cols[col].to_vec();
             c.sort_unstable();
             c.dedup();
             acc = Some(match acc {
@@ -323,17 +321,8 @@ pub async fn prepare_lance(
                     .collect(),
             });
         }
-        // A restricted side keeps only the centers every restricted side has,
-        // as in `native::prepare_semijoin`. Its rows were already read by its
-        // restriction; this trims them, it reads nothing.
-        if let Some(c) = &acc {
-            for i in (0..n_sides).filter(|&i| restricted(i).is_some()) {
-                let col = plan.sides[i].key.key_col as usize;
-                if let Some((r, _)) = rows[i].as_mut() {
-                    r.retain(|row| c.binary_search(&row[col]).is_ok());
-                }
-            }
-        }
+        // The restricted sides keep only these centers in `prepare_views`,
+        // by row position; their rows were already read, nothing is trimmed.
         acc
     } else {
         None
@@ -342,7 +331,6 @@ pub async fn prepare_lance(
     for i in (0..n_sides).filter(|&i| restricted(i).is_none()) {
         let key = plan.sides[i].key;
         let ds = store.dataset(key.rel).await?;
-        let version = ds.version().version;
         match &centers {
             Some(c) => {
                 let (values, addr, col_io) = read_column(&ds, key.key_col as usize).await?;
@@ -354,7 +342,7 @@ pub async fn prepare_lance(
                     mask_rows: Some(r),
                     rows: rows_io,
                 };
-                rows[i] = Some((got, version));
+                rows[i] = Some(got);
             }
             None => {
                 let (got, rows_io) = read_rows(&ds, None).await?;
@@ -363,14 +351,14 @@ pub async fn prepare_lance(
                     mask_rows: None,
                     rows: rows_io,
                 };
-                rows[i] = Some((got, version));
+                rows[i] = Some(got);
             }
         }
     }
 
-    let owned = rows
+    let views = rows
         .into_iter()
         .map(|r| r.expect("every side read"))
         .collect();
-    Ok((prepare_from_rows(plan, owned), io))
+    Ok((prepare_views(plan, views, semijoin), io))
 }

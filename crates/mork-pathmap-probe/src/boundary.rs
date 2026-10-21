@@ -57,6 +57,9 @@ pub enum Refusal {
     },
     /// The upstream index rejected the encoded input.
     Upstream(String),
+    /// The native arm answers by folds ([`crate::join::JoinExec`]); it builds
+    /// no rows. Compare it with [`BoundIndex::native`].
+    FoldOnly,
 }
 
 /// Which join the compiled MORK runs for a conjunctive body.
@@ -88,7 +91,7 @@ pub fn capability(backend: Backend, semantics: Semantics) -> Result<(), Refusal>
 enum Index {
     Mork(Box<Space>),
     Path(PathMap<()>),
-    Native(Box<(JoinTable, JoinExec)>, Semantics),
+    Native(Box<(JoinTable, JoinExec)>),
 }
 
 /// An upstream index built from one pair of generations.
@@ -106,7 +109,7 @@ pub struct BoundIndex {
 /// translation cost is paid.
 pub fn bind(
     backend: Backend,
-    input: &JoinInput<'_>,
+    input: &JoinInput,
     semantics: Semantics,
 ) -> Result<BoundIndex, Refusal> {
     capability(backend, semantics)?;
@@ -115,16 +118,16 @@ pub fn bind(
         Backend::Mork => Index::Mork(Box::new(mork_space(input)?)),
         Backend::PathMapZipper => Index::Path(path_trie(input)),
         Backend::Native => {
-            let table = JoinTable::prepare(input.r, input.s);
+            let table = JoinTable::prepare(&input.r, &input.s);
             let exec = JoinExec::new(&table);
-            Index::Native(Box::new((table, exec)), semantics)
+            Index::Native(Box::new((table, exec)))
         }
     };
     Ok(BoundIndex {
         backend,
         generations: input.generations(),
         index,
-        rows_in: input.r.rows.len() + input.s.rows.len(),
+        rows_in: input.r.len() + input.s.len(),
         build_time: start.elapsed(),
     })
 }
@@ -136,7 +139,32 @@ impl BoundIndex {
 
     /// Answers the query against the views the caller holds now. Refuses if
     /// they are not the generations this index was built from.
-    pub fn answers(&mut self, current: &JoinInput<'_>) -> Result<Answers, Refusal> {
+    pub fn answers(&mut self, current: &JoinInput) -> Result<Answers, Refusal> {
+        self.check(current)?;
+        match &mut self.index {
+            Index::Mork(space) => mork_answers(space),
+            Index::Path(trie) => Ok(path_answers(trie)),
+            Index::Native(_) => Err(Refusal::FoldOnly),
+        }
+    }
+
+    /// The native arm's table and executor, for its folds. `None` for the
+    /// upstream arms. Refuses stale generations like [`Self::answers`].
+    pub fn native(
+        &mut self,
+        current: &JoinInput,
+    ) -> Result<Option<(&JoinTable, &mut JoinExec)>, Refusal> {
+        self.check(current)?;
+        Ok(match &mut self.index {
+            Index::Native(te) => {
+                let (table, exec) = &mut **te;
+                Some((&*table, exec))
+            }
+            _ => None,
+        })
+    }
+
+    fn check(&self, current: &JoinInput) -> Result<(), Refusal> {
         let now = current.generations();
         if now != self.generations {
             return Err(Refusal::Stale {
@@ -144,25 +172,17 @@ impl BoundIndex {
                 current: now,
             });
         }
-        match &mut self.index {
-            Index::Mork(space) => mork_answers(space),
-            Index::Path(trie) => Ok(path_answers(trie)),
-            Index::Native(te, semantics) => {
-                let (table, exec) = &mut **te;
-                exec.answers(table, now, None, *semantics)
-                    .map_err(|e| Refusal::Upstream(format!("{e:?}")))
-            }
-        }
+        Ok(())
     }
 }
 
 // ---- MORK ------------------------------------------------------------------
 
 /// Symbols are `n<id>`, so the text round trip is exact.
-fn mork_space(input: &JoinInput<'_>) -> Result<Space, Refusal> {
-    let mut text = Vec::with_capacity(16 * (input.r.rows.len() + input.s.rows.len()));
-    for (name, rows) in [("R", input.r.rows), ("S", input.s.rows)] {
-        for &[a, b] in rows {
+fn mork_space(input: &JoinInput) -> Result<Space, Refusal> {
+    let mut text = Vec::with_capacity(16 * (input.r.len() + input.s.len()));
+    for (name, rel) in [("R", &input.r), ("S", &input.s)] {
+        for (a, b) in rel.cols[0].iter().zip(rel.cols[1].iter()) {
             text.extend_from_slice(format!("({name} n{a} n{b})\n").as_bytes());
         }
     }
@@ -218,12 +238,12 @@ const S_TAG: u8 = b'S';
 
 /// `R(x, y)` is keyed `R ‖ y ‖ x` and `S(y, z)` is keyed `S ‖ y ‖ z`
 /// (big-endian), so both are ordered by the shared variable.
-fn path_trie(input: &JoinInput<'_>) -> PathMap<()> {
+fn path_trie(input: &JoinInput) -> PathMap<()> {
     let mut trie = PathMap::new();
     let mut key = [0u8; 9];
-    for (tag, rows, swap) in [(R_TAG, input.r.rows, true), (S_TAG, input.s.rows, false)] {
+    for (tag, rel, swap) in [(R_TAG, &input.r, true), (S_TAG, &input.s, false)] {
         key[0] = tag;
-        for &[a, b] in rows {
+        for (&a, &b) in rel.cols[0].iter().zip(rel.cols[1].iter()) {
             let (first, second) = if swap { (b, a) } else { (a, b) };
             key[1..5].copy_from_slice(&first.to_be_bytes());
             key[5..9].copy_from_slice(&second.to_be_bytes());
@@ -396,14 +416,8 @@ mod tests {
         let r = [[1, 10], [2, 10]];
         let s = [[10, 5]];
         let inp = JoinInput {
-            r: RelationView {
-                rows: &r,
-                generation: 1,
-            },
-            s: RelationView {
-                rows: &s,
-                generation: 1,
-            },
+            r: RelationView::from_rows(&r, 1),
+            s: RelationView::from_rows(&s, 1),
         };
         let mut idx = bind(Backend::Mork, &inp, Semantics::Set).unwrap();
         let Index::Mork(space) = &idx.index else {

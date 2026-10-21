@@ -122,7 +122,7 @@ fn partition(stars: &[StarPlan], layout: Layout) -> Vec<Vec<usize>> {
 
 /// Lays out the distinct sides of each group's stars over the union of that
 /// group's centers.
-pub fn prepare_shared(stars: &[StarPlan], store: &Store<'_>, layout: Layout) -> SharedStars {
+pub fn prepare_shared(stars: &[StarPlan], store: &Store, layout: Layout) -> SharedStars {
     let groups = partition(stars, layout)
         .into_iter()
         .map(|members| {
@@ -175,7 +175,7 @@ pub fn rule_sets(group: &Group) -> Vec<SetExpr> {
 }
 
 /// The current generation of every side of every group, in table order.
-pub fn generations(shared: &SharedStars, store: &Store<'_>) -> Vec<Vec<u64>> {
+pub fn generations(shared: &SharedStars, store: &Store) -> Vec<Vec<u64>> {
     shared
         .groups
         .iter()
@@ -183,7 +183,7 @@ pub fn generations(shared: &SharedStars, store: &Store<'_>) -> Vec<Vec<u64>> {
             g.prepared
                 .keys
                 .iter()
-                .map(|k| store.view(k.rel).1)
+                .map(|k| store.view(k.rel).generation)
                 .collect()
         })
         .collect()
@@ -278,7 +278,7 @@ pub fn evaluate_shared(
     demand: &Demand,
     kind: ResultKind,
     opts: Options,
-    store: &Store<'_>,
+    store: &Store,
     layout: Layout,
     sharing: bool,
 ) -> Result<(Outcome, SharedReport), CseRefusal> {

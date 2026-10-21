@@ -14,31 +14,41 @@
 //!   across both datasets. A value's position is its **slot**. This is the one
 //!   global-to-local translation, done once in [`JoinTable::prepare`] by binary
 //!   search and timed there.
-//! - [`Side`]: one input relation laid out by `y` slot: a presence plane (bit
-//!   `y` set when the relation has a row with that `y`), `off[y]..off[y + 1]`,
-//!   and the other column's values in that range. Each side is prepared from
-//!   its own dataset and carries that dataset's generation, so R and S can come
-//!   from different sources and be resealed independently.
+//! - [`Side`]: one input relation laid out by `y` slot, as an index map only:
+//!   a presence plane (bit `y` set when the relation has a row with that `y`),
+//!   `off[y]..off[y + 1]`, and in that range the POSITIONS of those rows in
+//!   the relation's own lanes. The values are never copied: a slot's rows are
+//!   read in place as `lane[pos[k]]` (a [`Run`]), the template
+//!   `"{0}{1}" -f $laneA[$i],$laneB[$i]` with the positions as `$i`. Each side
+//!   is prepared from its own dataset and carries that dataset's generation,
+//!   so R and S can come from different sources and be resealed
+//!   independently.
+//! - Answers are folds: [`JoinExec::bag_count`] reads only the offsets,
+//!   [`JoinExec::matching`] counts the derivations of a pattern, and
+//!   [`JoinExec::for_each_answer`] hands out rows read in place. While one slot
+//!   is read the next slot's runs are prefetched (`ndarray::simd`), because
+//!   the lanes are other tables' memory than the plane that chose the slot.
 //!
 //! # Evaluation, and why it is not a gather
 //!
 //! Leapfrog triejoin with `y` first intersects R's `y` level with S's `y` level,
 //! then enumerates `x` and `z` independently (they share no variable). Here the
 //! intersection is one mask-risc `And` over the two presence planes, which sit
-//! over the same slot space. Enumeration then reads `off[y]` and the value range
-//! of each side at the surviving slot `y`: every read is at the coordinate the
-//! mask names, in every operand. The `x` and `z` values are emitted, never used
+//! over the same slot space. Enumeration then reads `off[y]` and the positions
+//! of each side at the surviving slot `y`, and reads the lane at them: every
+//! read is at the coordinate the mask names or at a position the index map
+//! holds, never at a position taken from another lane's values. The `x` and `z` values are emitted, never used
 //! as addresses. No operand is read at a position taken from another operand's
 //! values (2026-10-16 ruling).
 //!
-//! Multiplicities are kept, so this arm answers [`Semantics::Bag`] as well as
-//! [`Semantics::Set`]; both upstream indexes are sets.
+//! Multiplicities are kept, so this arm answers bag counts; both upstream
+//! indexes are sets.
 
 use lance_graph_mask_risc::{
     Foreign, MaskOp, Operand, Out, Planes, Program, Scratch, Terminal, execute_into, words_for,
 };
 
-use crate::{Answers, RelationView, Semantics};
+use crate::{Lane, RelationView};
 
 /// Why the table did not answer.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -58,18 +68,97 @@ pub enum JoinRefusal {
 }
 
 /// The shared coordinate space: sorted distinct `y` values.
+///
+/// When the values span a range no wider than [`DENSE_SPAN`] times their
+/// count, the space is a presence mask over that range plus a running count
+/// per mask word: a value's slot is the word's count plus the popcount of the
+/// bits below it. No sort, no search, and slots stay in value order. A
+/// sparser set falls back to a sorted list and binary search.
 #[derive(Clone, Debug)]
 pub struct JoinDomain {
     ids: Vec<u32>,
+    dense: Option<Dense>,
+}
+
+/// A value range at most this many times wider than the values in it is laid
+/// out as a mask.
+pub const DENSE_SPAN: u64 = 8;
+
+#[derive(Clone, Debug)]
+struct Dense {
+    base: u32,
+    span: u64,
+    words: Vec<u64>,
+    rank: Vec<u32>,
+}
+
+impl Dense {
+    fn slot_of(&self, y: u32) -> Option<usize> {
+        let d = u64::from(y.wrapping_sub(self.base));
+        if y < self.base || d >= self.span {
+            return None;
+        }
+        let (w, b) = ((d >> 6) as usize, d & 63);
+        let word = self.words[w];
+        if word >> b & 1 == 0 {
+            return None;
+        }
+        Some(self.rank[w] as usize + (word & ((1u64 << b) - 1)).count_ones() as usize)
+    }
 }
 
 impl JoinDomain {
-    /// The union of every side's `y` values.
-    pub fn build(ys: impl IntoIterator<Item = u32>) -> Self {
-        let mut ids: Vec<u32> = ys.into_iter().collect();
-        ids.sort_unstable();
-        ids.dedup();
-        JoinDomain { ids }
+    /// The union of every side's `y` values. The iterator is walked twice:
+    /// once for the range, once for the mask.
+    pub fn build<I>(ys: I) -> Self
+    where
+        I: IntoIterator<Item = u32>,
+        I::IntoIter: Clone,
+    {
+        let it = ys.into_iter();
+        let (mut lo, mut hi, mut n) = (u32::MAX, 0u32, 0u64);
+        for y in it.clone() {
+            lo = lo.min(y);
+            hi = hi.max(y);
+            n += 1;
+        }
+        if n == 0 {
+            return JoinDomain {
+                ids: Vec::new(),
+                dense: None,
+            };
+        }
+        let span = u64::from(hi - lo) + 1;
+        if span > DENSE_SPAN * n.max(64) {
+            let mut ids: Vec<u32> = it.collect();
+            ids.sort_unstable();
+            ids.dedup();
+            return JoinDomain { ids, dense: None };
+        }
+        let mut words = vec![0u64; span.div_ceil(64) as usize];
+        for y in it {
+            let d = u64::from(y - lo);
+            words[(d >> 6) as usize] |= 1 << (d & 63);
+        }
+        let mut rank = Vec::with_capacity(words.len());
+        let mut ids = Vec::new();
+        for (w, &word) in words.iter().enumerate() {
+            rank.push(ids.len() as u32);
+            let mut m = word;
+            while m != 0 {
+                ids.push(lo + (w as u32) * 64 + m.trailing_zeros());
+                m &= m - 1;
+            }
+        }
+        JoinDomain {
+            ids,
+            dense: Some(Dense {
+                base: lo,
+                span,
+                words,
+                rank,
+            }),
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -82,7 +171,20 @@ impl JoinDomain {
 
     /// Global `y` to slot. Preparation only.
     pub fn slot_of(&self, y: u32) -> Option<usize> {
-        self.ids.binary_search(&y).ok()
+        match &self.dense {
+            Some(d) => d.slot_of(y),
+            None => self.ids.binary_search(&y).ok(),
+        }
+    }
+
+    /// Whether the space is laid out as a mask over its value range.
+    pub fn is_dense(&self) -> bool {
+        self.dense.is_some()
+    }
+
+    /// Whether `y` is in the space.
+    pub fn contains(&self, y: u32) -> bool {
+        self.slot_of(y).is_some()
     }
 
     /// Slot to global `y`, for emitting answers.
@@ -91,35 +193,98 @@ impl JoinDomain {
     }
 
     pub fn bytes(&self) -> usize {
-        self.ids.len() * 4
+        self.ids.len() * 4 + self.dense.as_ref().map_or(0, |d| d.words.len() * 12)
     }
 }
 
-/// One relation laid out by `y` slot.
+/// One relation laid out by `y` slot, as an index map only: a presence plane,
+/// `off[y]..off[y + 1]`, and in that range `pos`, the positions of the rows
+/// with that `y` in the relation's own lanes. The values stay in the lane;
+/// nothing is copied out of it. This map is the global-to-local inversion,
+/// the one thing preparation materializes.
 #[derive(Clone, Debug)]
 pub struct Side {
     pub generation: u64,
     present: Vec<u64>,
     off: Vec<u32>,
-    vals: Vec<u32>,
+    pos: Vec<u32>,
+    /// The non-key lane, shared with the relation (a reference count, not a
+    /// copy). Read at `pos`.
+    lane: Lane,
+}
+
+/// The rows of one side at one slot, read in place: `lane[pos[k]]`. A
+/// borrowed view; it holds positions and the lane, never values.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Run<'a> {
+    lane: &'a [u32],
+    pos: &'a [u32],
+}
+
+impl<'a> Run<'a> {
+    pub fn len(&self) -> usize {
+        self.pos.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.pos.is_empty()
+    }
+
+    /// The `k`-th row's value, read from the lane at its position.
+    pub fn get(&self, k: usize) -> u32 {
+        self.lane[self.pos[k] as usize]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = u32> + 'a {
+        let lane = self.lane;
+        self.pos.iter().map(move |&p| lane[p as usize])
+    }
+
+    /// Rows whose value equals `v`.
+    pub fn count_eq(&self, v: u32) -> usize {
+        self.iter().filter(|&x| x == v).count()
+    }
+
+    /// Asks for the run's first lane cache line ahead of its read: the lane
+    /// sits in another table's memory than the plane that chose the slot.
+    pub fn prefetch(&self) {
+        if let Some(&p) = self.pos.first() {
+            ndarray::simd::prefetch_read_t0(self.lane[p as usize..].as_ptr().cast());
+        }
+    }
 }
 
 impl Side {
-    /// Lays `rows` out by the slot of column `key`; the other column is the
-    /// value. A counting sort over slots, so the value order within one slot
-    /// is the input order.
+    /// Lays the relation out by the slot of lane `key`; the other lane holds
+    /// the value. A counting sort over slots, so positions within one slot
+    /// are in row order.
     pub fn prepare(
         domain: &JoinDomain,
-        rows: &[[u32; 2]],
+        view: &RelationView,
         key: usize,
-        generation: u64,
         side: usize,
     ) -> Result<Side, JoinRefusal> {
+        Self::prepare_where(domain, view, key, side, None)
+    }
+
+    /// [`Self::prepare`] over the rows the `keep` mask (one bit per row
+    /// position; `None`: every row) admits. A restriction is a selection of
+    /// positions, never a copy of rows: the index map walks the kept bits and
+    /// leaves the other positions out.
+    pub fn prepare_where(
+        domain: &JoinDomain,
+        view: &RelationView,
+        key: usize,
+        side: usize,
+        keep: Option<&[u64]>,
+    ) -> Result<Side, JoinRefusal> {
         let n = domain.len();
-        let mut slots = Vec::with_capacity(rows.len());
+        let keys = &view.cols[key];
         let mut off = vec![0u32; n + 1];
-        for row in rows {
-            let y = row[key];
+        // Each kept row's slot, once (scratch), in kept-row order.
+        let mut slots = Vec::new();
+        for row in rows(keys.len(), keep) {
+            let y = keys[row];
             let s = domain
                 .slot_of(y)
                 .ok_or(JoinRefusal::OutsideDomain { side, y })?;
@@ -130,10 +295,10 @@ impl Side {
             off[i + 1] += off[i];
         }
         let mut fill = off.clone();
-        let mut vals = vec![0u32; rows.len()];
-        for (row, &s) in rows.iter().zip(&slots) {
+        let mut pos = vec![0u32; slots.len()];
+        for (row, &s) in rows(keys.len(), keep).zip(&slots) {
             let at = &mut fill[s as usize];
-            vals[*at as usize] = row[1 - key];
+            pos[*at as usize] = row as u32;
             *at += 1;
         }
         let mut present = vec![0u64; words_for(n)];
@@ -143,35 +308,57 @@ impl Side {
             }
         }
         Ok(Side {
-            generation,
+            generation: view.generation,
             present,
             off,
-            vals,
+            pos,
+            lane: view.cols[1 - key].clone(),
         })
     }
 
-    /// The values at slot `y`.
-    pub fn at(&self, y: usize) -> &[u32] {
-        &self.vals[self.off[y] as usize..self.off[y + 1] as usize]
+    /// The rows at slot `y`, read in place.
+    pub fn at(&self, y: usize) -> Run<'_> {
+        Run {
+            lane: &self.lane,
+            pos: &self.pos[self.off[y] as usize..self.off[y + 1] as usize],
+        }
+    }
+
+    /// Rows the index map holds, over all slots.
+    pub fn rows(&self) -> usize {
+        self.pos.len()
+    }
+
+    /// Rows at slot `y`, from the offsets alone (no lane read).
+    pub fn count(&self, y: usize) -> usize {
+        (self.off[y + 1] - self.off[y]) as usize
     }
 
     pub fn present(&self) -> &[u64] {
         &self.present
     }
 
-    /// The other column, in slot order: the side's own row order. Row `i`
-    /// sits in slot `s` for `offsets()[s] <= i < offsets()[s + 1]`.
-    pub fn values(&self) -> &[u32] {
-        &self.vals
-    }
-
     /// `off`: the start of each slot's run, `domain.len() + 1` entries.
+    /// Row `k` of the side sits in slot `s` for `off[s] <= k < off[s + 1]`.
     pub fn offsets(&self) -> &[u32] {
         &self.off
     }
 
+    /// Row positions into the relation's lanes, in slot order.
+    pub fn positions(&self) -> &[u32] {
+        &self.pos
+    }
+
+    /// The non-key lane, shared with the relation. The side's `k`-th value
+    /// is `lane()[positions()[k]]`, read in place.
+    pub fn lane(&self) -> &[u32] {
+        &self.lane
+    }
+
+    /// Bytes the index map adds; the lane is shared with the relation and
+    /// not counted.
     pub fn bytes(&self) -> usize {
-        (self.present.len() * 8) + (self.off.len() * 4) + (self.vals.len() * 4)
+        (self.present.len() * 8) + (self.off.len() * 4) + (self.pos.len() * 4)
     }
 }
 
@@ -183,6 +370,57 @@ pub struct JoinTable {
     pub sides: Vec<Side>,
 }
 
+/// One input of [`JoinTable::prepare_star_where`]: the relation, the lane
+/// holding the shared variable, and which row positions to keep: a mask, one
+/// bit per row (`None`: every row).
+pub type SelectedSide<'a> = (&'a RelationView, usize, Option<&'a [u64]>);
+
+/// The row positions `keep` admits, in row order: every row, or the set bits.
+#[derive(Clone, Debug)]
+pub enum Rows<'a> {
+    All(std::ops::Range<usize>),
+    Set {
+        words: &'a [u64],
+        n: usize,
+        wi: usize,
+        w: u64,
+    },
+}
+
+/// The kept row positions of a relation with `n` rows.
+pub fn rows(n: usize, keep: Option<&[u64]>) -> Rows<'_> {
+    match keep {
+        None => Rows::All(0..n),
+        Some(words) => Rows::Set {
+            words,
+            n,
+            wi: 0,
+            w: words.first().copied().unwrap_or(0),
+        },
+    }
+}
+
+impl Iterator for Rows<'_> {
+    type Item = usize;
+    fn next(&mut self) -> Option<usize> {
+        match self {
+            Rows::All(r) => r.next(),
+            Rows::Set { words, n, wi, w } => loop {
+                if *w != 0 {
+                    let row = *wi * 64 + w.trailing_zeros() as usize;
+                    *w &= *w - 1;
+                    if row < *n {
+                        return Some(row);
+                    }
+                    continue;
+                }
+                *wi += 1;
+                *w = *words.get(*wi)?;
+            },
+        }
+    }
+}
+
 /// Where the shared variable sits in each input row: `R(x, y)` keys column 1,
 /// `S(y, z)` keys column 0.
 pub const R_KEY: usize = 1;
@@ -190,23 +428,29 @@ pub const S_KEY: usize = 0;
 
 impl JoinTable {
     /// Prepares the table for `R(x, y), S(y, z)`.
-    pub fn prepare(r: RelationView<'_>, s: RelationView<'_>) -> JoinTable {
+    pub fn prepare(r: &RelationView, s: &RelationView) -> JoinTable {
         Self::prepare_star(&[(r, R_KEY), (s, S_KEY)])
     }
 
     /// Prepares a star of relations that all share `y`: every relation is laid
     /// out over the same domain. `key` names the column holding `y`.
-    pub fn prepare_star(inputs: &[(RelationView<'_>, usize)]) -> JoinTable {
-        let domain = JoinDomain::build(
-            inputs
-                .iter()
-                .flat_map(|(v, key)| v.rows.iter().map(move |r| r[*key])),
-        );
+    pub fn prepare_star(inputs: &[(&RelationView, usize)]) -> JoinTable {
+        let with: Vec<SelectedSide<'_>> = inputs.iter().map(|&(v, k)| (v, k, None)).collect();
+        Self::prepare_star_where(&with)
+    }
+
+    /// [`Self::prepare_star`] over the rows each side's `keep` admits (by row
+    /// position). The domain is the union of the kept rows' keys only.
+    pub fn prepare_star_where(inputs: &[SelectedSide<'_>]) -> JoinTable {
+        let domain = JoinDomain::build(inputs.iter().flat_map(|&(v, key, keep)| {
+            let lane = &v.cols[key];
+            rows(lane.len(), keep).map(move |row| lane[row])
+        }));
         let sides = inputs
             .iter()
             .enumerate()
-            .map(|(i, (v, key))| {
-                Side::prepare(&domain, v.rows, *key, v.generation, i).expect("domain is the union")
+            .map(|(i, &(v, key, keep))| {
+                Side::prepare_where(&domain, v, key, i, keep).expect("domain is the union")
             })
             .collect();
         JoinTable { domain, sides }
@@ -217,10 +461,10 @@ impl JoinTable {
     pub fn replace_side(
         &mut self,
         side: usize,
-        view: RelationView<'_>,
+        view: &RelationView,
         key: usize,
     ) -> Result<(), JoinRefusal> {
-        self.sides[side] = Side::prepare(&self.domain, view.rows, key, view.generation, side)?;
+        self.sides[side] = Side::prepare(&self.domain, view, key, side)?;
         Ok(())
     }
 
@@ -316,58 +560,87 @@ impl JoinExec {
         Ok(&self.out)
     }
 
-    /// The answers of `R(x, y), S(y, z)`, enumerated at the joint slots.
-    pub fn answers(
+    /// Derivations reading as `[x, y, z]` (`None`: any value): a fold. A
+    /// pinned `y` is inverted to its slot and only that slot is read;
+    /// otherwise every joint slot. Per slot it is `count_R(x) · count_S(z)`,
+    /// with a free column counted from the offsets alone.
+    pub fn matching(
         &mut self,
         table: &JoinTable,
         current: (u64, u64),
         filter: Option<&[u64]>,
-        semantics: Semantics,
-    ) -> Result<Answers, JoinRefusal> {
+        pattern: [Option<u32>; 3],
+    ) -> Result<u64, JoinRefusal> {
         table.check(&[current.0, current.1])?;
         let n = table.domain.len();
         let joint = self.joint(table, filter)?;
         let (r, s) = (&table.sides[0], &table.sides[1]);
-        let mut out = Answers::default();
-        for_each_set(joint, n, |slot| {
-            let y = table.domain.id(slot);
-            for &x in r.at(slot) {
-                for &z in s.at(slot) {
-                    *out.rows.entry([x, y, z]).or_insert(0) += 1;
-                }
-            }
-        });
-        Ok(match semantics {
-            Semantics::Bag => out,
-            Semantics::Set => out.to_set(),
-        })
+        let at = |slot: usize| -> u64 {
+            let cr = pattern[0].map_or(r.count(slot), |x| r.at(slot).count_eq(x));
+            let cs = pattern[2].map_or(s.count(slot), |z| s.at(slot).count_eq(z));
+            cr as u64 * cs as u64
+        };
+        if let Some(y) = pattern[1] {
+            let Some(slot) = table.domain.slot_of(y) else {
+                return Ok(0);
+            };
+            let kept = joint[slot >> 6] >> (slot & 63) & 1 == 1;
+            return Ok(if kept { at(slot) } else { 0 });
+        }
+        let mut total = 0u64;
+        for_each_set_ahead(
+            joint,
+            n,
+            |next| {
+                r.at(next).prefetch();
+                s.at(next).prefetch();
+            },
+            |slot| total += at(slot),
+        );
+        Ok(total)
     }
 
-    /// Every bag answer `[x, y, z]`, handed to `f` in slot order, without
-    /// building a map: the join's own cost, separated from the output's.
+    /// Every bag derivation, in slot order, as a row read in place: `f` gets
+    /// a [`JoinRow`] whose columns are lane reads at the row positions. The
+    /// next slot's runs are prefetched while this one is read.
     pub fn for_each_answer(
         &mut self,
         table: &JoinTable,
         current: (u64, u64),
-        mut f: impl FnMut([u32; 3]),
+        mut f: impl FnMut(&JoinRow<'_>),
     ) -> Result<(), JoinRefusal> {
         table.check(&[current.0, current.1])?;
         let n = table.domain.len();
         let joint = self.joint(table, None)?;
         let (r, s) = (&table.sides[0], &table.sides[1]);
-        for_each_set(joint, n, |slot| {
-            let y = table.domain.id(slot);
-            for &x in r.at(slot) {
-                for &z in s.at(slot) {
-                    f([x, y, z]);
+        for_each_set_ahead(
+            joint,
+            n,
+            |next| {
+                r.at(next).prefetch();
+                s.at(next).prefetch();
+            },
+            |slot| {
+                let (rr, sr) = (r.at(slot), s.at(slot));
+                let y = table.domain.id(slot);
+                for i in 0..rr.len() {
+                    for j in 0..sr.len() {
+                        f(&JoinRow {
+                            y,
+                            r: rr,
+                            s: sr,
+                            i,
+                            j,
+                        });
+                    }
                 }
-            }
-        });
+            },
+        );
         Ok(())
     }
 
-    /// The number of bag answers of the star, `Σ_y Π_i |side_i at y|`, without
-    /// enumerating a row.
+    /// The number of bag answers of the star, `Σ_y Π_i |side_i at y|`, from
+    /// the offsets alone: no lane is read.
     pub fn bag_count(
         &mut self,
         table: &JoinTable,
@@ -382,10 +655,56 @@ impl JoinExec {
             total += table
                 .sides
                 .iter()
-                .map(|s| s.at(slot).len() as u64)
+                .map(|s| s.count(slot) as u64)
                 .product::<u64>();
         });
         Ok(total)
+    }
+}
+
+/// One derivation of `R(x, y), S(y, z)`, read in place: `x` is R's run at
+/// row `i`, `z` is S's run at row `j`. The template `"{x}{y}{z}"` over the
+/// lanes; nothing is copied.
+#[derive(Clone, Copy, Debug)]
+pub struct JoinRow<'a> {
+    y: u32,
+    r: Run<'a>,
+    s: Run<'a>,
+    i: usize,
+    j: usize,
+}
+
+impl JoinRow<'_> {
+    pub fn x(&self) -> u32 {
+        self.r.get(self.i)
+    }
+
+    pub fn y(&self) -> u32 {
+        self.y
+    }
+
+    pub fn z(&self) -> u32 {
+        self.s.get(self.j)
+    }
+}
+
+/// Calls `ahead(next)` for the next set bit before `f(slot)` for the current
+/// one: the next slot's reads are requested while this one is processed.
+pub fn for_each_set_ahead(
+    words: &[u64],
+    n: usize,
+    mut ahead: impl FnMut(usize),
+    mut f: impl FnMut(usize),
+) {
+    let mut pending: Option<usize> = None;
+    for_each_set(words, n, |slot| {
+        ahead(slot);
+        if let Some(prev) = pending.replace(slot) {
+            f(prev);
+        }
+    });
+    if let Some(last) = pending {
+        f(last);
     }
 }
 
