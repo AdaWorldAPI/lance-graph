@@ -172,24 +172,44 @@ impl Side {
         key: usize,
         side: usize,
     ) -> Result<Side, JoinRefusal> {
+        Self::prepare_where(domain, view, key, side, |_| true)
+    }
+
+    /// [`Self::prepare`] over the rows `keep` admits, by row position. A
+    /// restriction is a selection of positions, never a copy of rows: the
+    /// index map simply leaves the other positions out.
+    pub fn prepare_where(
+        domain: &JoinDomain,
+        view: &RelationView,
+        key: usize,
+        side: usize,
+        keep: impl Fn(usize) -> bool,
+    ) -> Result<Side, JoinRefusal> {
         let n = domain.len();
         let keys = &view.cols[key];
-        let mut slots = Vec::with_capacity(keys.len());
         let mut off = vec![0u32; n + 1];
-        for &y in keys.iter() {
+        let mut kept = 0usize;
+        for (row, &y) in keys.iter().enumerate() {
+            if !keep(row) {
+                continue;
+            }
             let s = domain
                 .slot_of(y)
                 .ok_or(JoinRefusal::OutsideDomain { side, y })?;
-            slots.push(s as u32);
             off[s + 1] += 1;
+            kept += 1;
         }
         for i in 0..n {
             off[i + 1] += off[i];
         }
         let mut fill = off.clone();
-        let mut pos = vec![0u32; keys.len()];
-        for (row, &s) in slots.iter().enumerate() {
-            let at = &mut fill[s as usize];
+        let mut pos = vec![0u32; kept];
+        for (row, &y) in keys.iter().enumerate() {
+            if !keep(row) {
+                continue;
+            }
+            let s = domain.slot_of(y).expect("checked above");
+            let at = &mut fill[s];
             pos[*at as usize] = row as u32;
             *at += 1;
         }
@@ -257,6 +277,10 @@ pub struct JoinTable {
     pub sides: Vec<Side>,
 }
 
+/// One input of [`JoinTable::prepare_star_where`]: the relation, the lane
+/// holding the shared variable, and which row positions to keep.
+pub type SelectedSide<'a> = (&'a RelationView, usize, &'a dyn Fn(usize) -> bool);
+
 /// Where the shared variable sits in each input row: `R(x, y)` keys column 1,
 /// `S(y, z)` keys column 0.
 pub const R_KEY: usize = 1;
@@ -271,15 +295,27 @@ impl JoinTable {
     /// Prepares a star of relations that all share `y`: every relation is laid
     /// out over the same domain. `key` names the column holding `y`.
     pub fn prepare_star(inputs: &[(&RelationView, usize)]) -> JoinTable {
-        let domain = JoinDomain::build(
-            inputs
+        let all = |_: usize| true;
+        let with: Vec<SelectedSide<'_>> = inputs.iter().map(|&(v, k)| (v, k, &all as _)).collect();
+        Self::prepare_star_where(&with)
+    }
+
+    /// [`Self::prepare_star`] over the rows each side's `keep` admits (by row
+    /// position). The domain is the union of the kept rows' keys only.
+    pub fn prepare_star_where(inputs: &[SelectedSide<'_>]) -> JoinTable {
+        let domain = JoinDomain::build(inputs.iter().flat_map(|&(v, key, keep)| {
+            v.cols[key]
                 .iter()
-                .flat_map(|(v, key)| v.cols[*key].iter().copied()),
-        );
+                .enumerate()
+                .filter(move |&(row, _)| keep(row))
+                .map(|(_, &y)| y)
+        }));
         let sides = inputs
             .iter()
             .enumerate()
-            .map(|(i, (v, key))| Side::prepare(&domain, v, *key, i).expect("domain is the union"))
+            .map(|(i, &(v, key, keep))| {
+                Side::prepare_where(&domain, v, key, i, keep).expect("domain is the union")
+            })
             .collect();
         JoinTable { domain, sides }
     }

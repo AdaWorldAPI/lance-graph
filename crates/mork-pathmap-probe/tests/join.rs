@@ -290,3 +290,37 @@ fn in_joint(exec: &mut JoinExec, table: &JoinTable, ys: &[u32]) -> bool {
             .is_some_and(|s| joint[s >> 6] >> (s & 63) & 1 == 1)
     })
 }
+
+/// FAILS IF: a position selection is not the same table as preparing from
+/// only the kept rows, or the selection does not exclude anything.
+#[test]
+fn a_position_selection_equals_preparing_the_kept_rows() {
+    let all = ys(40, 5);
+    let r = hetero(300, 11, &all, 1);
+    let s = swap(&hetero(300, 12, &all, 2));
+    let (rv, sv) = (view(&r, 1), view(&s, 1));
+    // Keep R rows whose x is even, and S rows at even positions.
+    let keep_r = |row: usize| rv.cols[0][row].is_multiple_of(2);
+    let keep_s = |row: usize| row.is_multiple_of(2);
+    let selected = JoinTable::prepare_star_where(&[(&rv, R_KEY, &keep_r), (&sv, S_KEY, &keep_s)]);
+    let r2: Vec<[u32; 2]> = r
+        .iter()
+        .copied()
+        .filter(|p| p[0].is_multiple_of(2))
+        .collect();
+    let s2: Vec<[u32; 2]> = s.iter().step_by(2).copied().collect();
+    let inp = JoinInput {
+        r: view(&r2, 1),
+        s: view(&s2, 1),
+    };
+    let mut exec = JoinExec::new(&selected);
+    let kept = agrees(&mut exec, &selected, (1, 1), None, &inp, |_| true);
+    let full = JoinInput {
+        r: rv.clone(),
+        s: sv.clone(),
+    };
+    assert!(
+        kept > 0 && kept < reference::bag_count(&full),
+        "the selection excludes something"
+    );
+}
