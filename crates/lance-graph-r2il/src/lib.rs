@@ -34,9 +34,9 @@
 //!
 //! # Implemented, and refused by name
 //!
-//! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `RANGE` and `KEEP`
-//! are wired. `KEY_RUNS`, `ANY`, `ALL`, `SCATTER_OR` and `BLEND` are
-//! refused as [`FoldError::Unimplemented`].
+//! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `RANGE`, `ANY`, `ALL`
+//! and `KEEP` are wired. `KEY_RUNS`, `SCATTER_OR` and `BLEND` are refused as
+//! [`FoldError::Unimplemented`]. `ANY`/`ALL` push 1 or 0.
 //!
 //! `MIN`/`MAX` of an empty selection push the fold's identity, `i64::MAX` /
 //! `i64::MIN`: the same seed mask-risc's grouped `MIN`/`MAX` leave in an
@@ -44,7 +44,7 @@
 //!
 //! R2IL band: `Load` (spaces 0 = U32, 1 = I32, 2 = U64, 3 = resident mask
 //! plane), `IntSub` (scalar/scalar), `IntAnd` (with survivor gating),
-//! `IntOr`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
+//! `IntOr`, `IntXor`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
 //! `IntLessEqual` are refused as [`FoldError::NoUnsignedLaneCompare`]
 //! (mask-risc has no unsigned lane compare); `IntSub` of two addresses as
 //! [`FoldError::LaneVersusLane`]; an unknown `Load` space as
@@ -60,7 +60,7 @@
 //!   gates a just-emitted predicate under its left operand (survivor gating)
 //!   instead of spending an `And`.
 //! - [`BoolMode::Fused`]: the calls build one [`BoolExpr`]; the first consumer
-//!   (`PopCount`, `SUM`, `GROUP_SUM`, `KEEP`) lowers it through mask-risc
+//!   (`PopCount`, `ANY`, `ALL`, `SUM`, `GROUP_SUM`, `KEEP`) lowers it through mask-risc
 //!   [`fuse()`] into ternlogs. Fewer passes, no survivor gating.
 //!
 //! Both modes keep the same rows. Predicates are emitted the same way in
@@ -69,6 +69,7 @@
 //! # Procedures
 //!
 //! [`procs`] holds named call sequences (`filter_lt`, `select_u32`, `count`,
+//! `exists`, `all`, `differ`, `count_and`,
 //! `sum`, `group_sum`, `margin`). They are Rust functions over [`Dialect::call`], not opcodes.
 //!
 //! # Slot limit
@@ -106,7 +107,7 @@ use lance_graph_mask_risc::{
     Value,
 };
 use ogar_loco::{Dialect, FnIndex};
-use ogar_r2il::{GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
+use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
 
 // ── R2IL-band opcodes this dialect wires, by their VERIFIED ordinals ───────
 //
@@ -121,6 +122,10 @@ pub const LOAD: FnIndex = FnIndex(R2IL_BASE + 1);
 pub const INT_SUB: FnIndex = FnIndex(R2IL_BASE + 10);
 pub const INT_AND: FnIndex = FnIndex(R2IL_BASE + 20);
 pub const INT_OR: FnIndex = FnIndex(R2IL_BASE + 21);
+/// `IntXor` = ordinal 22, arity 2 (confirmed against `R2ILFn::MNEMONICS`).
+/// Over two populations it lowers to `MaskOp::Xor`: the rows where exactly
+/// one side holds. `ANY` over it answers "do these masks differ".
+pub const INT_XOR: FnIndex = FnIndex(R2IL_BASE + 22);
 /// `IntNot` = ordinal 23, arity 1 (confirmed against `R2ILFn::MNEMONICS`).
 /// Over a population it lowers to `MaskOp::Not`.
 pub const INT_NOT: FnIndex = FnIndex(R2IL_BASE + 23);
@@ -698,14 +703,15 @@ impl<'p> FoldDialect<'p> {
 
     /// [`Self::finalize_and_run`], asserting the terminal's known result
     /// shape (`Terminal::Count` → `Value::Count`, `Terminal::MaskedSumI32` →
-    /// `Value::SumI64`) — a caller-side invariant, not a new fallible path:
+    /// `Value::SumI64`, `Terminal::Any`/`All` → `Value::Bool` as 0 or 1) — a caller-side invariant, not a new fallible path:
     /// every call site below passes a terminal whose `Value` shape is fixed
     /// by construction.
     fn finalize_and_run_scalar(&mut self, terminal: Terminal) -> Result<i64, FoldError> {
         match self.finalize_and_run(terminal, OutKind::None)? {
             Value::Count(n) => Ok(i64::try_from(n).unwrap_or(i64::MAX)),
             Value::SumI64(n) => Ok(n),
-            other => panic!("terminal shape guarantees Count or SumI64, got {other:?}"),
+            Value::Bool(b) => Ok(i64::from(b)),
+            other => panic!("terminal shape guarantees Count, SumI64 or Bool, got {other:?}"),
         }
     }
 }
@@ -998,6 +1004,34 @@ impl Dialect for FoldDialect<'_> {
                 });
                 Ok(())
             }
+            // Like `IntOr`: one `Xor` pass in place, a `BoolExpr::Xor` when fused.
+            INT_XOR => {
+                let b = stack.pop().ok_or(FoldError::Underflow(f))?;
+                let a = stack.pop().ok_or(FoldError::Underflow(f))?;
+                if let (Val::Scalar(x), Val::Scalar(y)) = (a, b) {
+                    stack.push(Val::Scalar(x ^ y));
+                    return Ok(());
+                }
+                if !(is_mask(a) && is_mask(b)) {
+                    return Err(FoldError::WrongOperandKind(f));
+                }
+                if self.mode == BoolMode::Fused {
+                    return self.fuse_binary(a, b, stack, BoolExpr::Xor);
+                }
+                let operand = |v: Val, epoch_now: u32| match v {
+                    Val::Address(Addr::Plane(p)) => Ok(Operand::Plane(p)),
+                    Val::Slot { slot, epoch } if epoch == epoch_now => Ok(Operand::Scratch(slot)),
+                    _ => Err(FoldError::StaleSlot),
+                };
+                let (a, b) = (operand(a, self.epoch)?, operand(b, self.epoch)?);
+                let dst = self.fresh();
+                self.ops.push(MaskOp::Xor { a, b, dst });
+                stack.push(Val::Slot {
+                    slot: dst,
+                    epoch: self.epoch,
+                });
+                Ok(())
+            }
             INT_SUB => {
                 let b = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
@@ -1016,6 +1050,22 @@ impl Dialect for FoldDialect<'_> {
                 let mask = self.resolve_mask(m)?;
                 let n = self.finalize_and_run_scalar(Terminal::Count { mask })?;
                 stack.push(Val::Scalar(n));
+                Ok(())
+            }
+            // The Boolean reduction terminals: is any row selected, are all
+            // `n_rows` selected. mask-risc's `Any`/`All` stop at the first
+            // deciding word; the answer is pushed as 1 or 0.
+            ANY | ALL => {
+                let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
+                    .ok_or(FoldError::WrongOperandKind(f))?;
+                let mask = self.resolve_mask(m)?;
+                let terminal = if f == ANY {
+                    Terminal::Any { mask }
+                } else {
+                    Terminal::All { mask }
+                };
+                let b = self.finalize_and_run_scalar(terminal)?;
+                stack.push(Val::Scalar(b));
                 Ok(())
             }
             SUM => {

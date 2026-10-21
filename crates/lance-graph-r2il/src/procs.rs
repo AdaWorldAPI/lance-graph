@@ -13,10 +13,11 @@
 //! [`Planes::lanes`](lance_graph_mask_risc::Planes::lanes).
 
 use ogar_loco::{Dialect, FnIndex};
-use ogar_r2il::{GROUP_SUM, KEEP, MAX, MIN, SUM};
+use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, MAX, MIN, SUM};
 
 use crate::{
-    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_SUB, INT_S_LESS, LOAD, POP_COUNT,
+    FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_SUB, INT_S_LESS, INT_XOR, LOAD,
+    POP_COUNT,
 };
 
 /// A selection that a procedure re-emits once per fold (see [`margin`]).
@@ -107,6 +108,61 @@ pub fn select_u32(
 /// Calls: `PopCount`.
 pub fn count(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
     call(d, POP_COUNT, [0; 3], stack)
+}
+
+/// Whether the mask on top of the stack holds any row. Pushes 1 or 0.
+///
+/// Calls: `ANY`.
+pub fn exists(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+    call(d, ANY, [0; 3], stack)
+}
+
+/// Whether the mask on top of the stack holds all `n_rows` rows. Pushes 1
+/// or 0.
+///
+/// Calls: `ALL`.
+pub fn all(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {
+    call(d, ALL, [0; 3], stack)
+}
+
+/// Whether the resident planes `a` and `b` differ in any row. Pushes 1 or 0.
+///
+/// This is mask equality as a fold: the planes are equal exactly when their
+/// `Xor` is empty. Nothing is decoded into rows.
+///
+/// Calls: `LOAD`, `LOAD`, `IntXor`, `ANY`.
+pub fn differ(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    a: u16,
+    b: u16,
+) -> Result<(), FoldError> {
+    load(d, stack, SPACE_PLANE, a)?;
+    load(d, stack, SPACE_PLANE, b)?;
+    call(d, INT_XOR, [0; 3], stack)?;
+    exists(d, stack)
+}
+
+/// How many rows the conjunction of the resident planes `planes` holds.
+/// Pushes the count. An empty list is refused as
+/// [`FoldError::Underflow`] at the `PopCount`.
+///
+/// This is the count of a composed path: with planes `[member, valid,
+/// carriers]` it is the number of join keys present on both sides.
+///
+/// Calls: `LOAD`, then per further plane `LOAD`, `IntAnd`; then `PopCount`.
+pub fn count_and(
+    d: &mut FoldDialect<'_>,
+    stack: &mut Vec<Val>,
+    planes: &[u16],
+) -> Result<(), FoldError> {
+    for (k, &p) in planes.iter().enumerate() {
+        load(d, stack, SPACE_PLANE, p)?;
+        if k > 0 {
+            call(d, INT_AND, [0; 3], stack)?;
+        }
+    }
+    count(d, stack)
 }
 
 /// `SUM(val_lane | mask)` for the mask on top of the stack. Pushes the sum.

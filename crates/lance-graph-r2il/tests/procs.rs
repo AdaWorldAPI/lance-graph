@@ -6,10 +6,11 @@
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, MaskOp, Planes};
 use lance_graph_r2il::procs::{
-    and_cmp_i32, count, filter_lt, group_sum, margin, max, min, select_lt, select_u32, sum, Order,
+    all, and_cmp_i32, count, count_and, differ, exists, filter_lt, group_sum, margin, max, min,
+    select_lt, select_u32, sum, Order,
 };
 use lance_graph_r2il::{
-    BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, POP_COUNT,
+    BoolMode, FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_OR, INT_XOR, POP_COUNT,
 };
 use ogar_loco::Dialect;
 use ogar_r2il::KEEP;
@@ -498,4 +499,141 @@ fn ordered_compares_match_the_reference() {
             assert_eq!(stack, vec![Val::Scalar(want)], "{op:?} {t}");
         }
     }
+}
+
+// ── D-RFT-1 polyfill: IntXor, ANY, ALL and the procedures over them ────────
+
+/// A plane over `N` rows holding the rows `keep` selects; tail bits clear.
+fn plane(keep: impl Fn(usize) -> bool) -> Vec<u64> {
+    let mut m = vec![0u64; words_for(N)];
+    for r in (0..N).filter(|&r| keep(r)) {
+        m[r / 64] |= 1 << (r % 64);
+    }
+    m
+}
+
+/// The scalar a one-result call left on the stack.
+fn top(stack: &[Val]) -> i64 {
+    match stack {
+        [Val::Scalar(n)] => *n,
+        other => panic!("expected one scalar, got {other:?}"),
+    }
+}
+
+/// FAILS IF: `count_and` stops counting the conjunction of its planes, in
+/// either mode. Reference: popcount of the word-wise AND (a fold over words,
+/// no rows decoded). Each added plane must remove rows, or the test could
+/// not see a dropped `IntAnd`.
+#[test]
+fn count_and_counts_the_conjunction_in_both_modes() {
+    let a = plane(|r| r % 2 == 0);
+    let b = plane(|r| r % 3 == 0);
+    let c = plane(|r| r % 5 != 0);
+    let masks = [a.as_slice(), b.as_slice(), c.as_slice()];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let reference = |ps: &[u16]| -> i64 {
+        (0..words_for(N))
+            .map(|w| {
+                ps.iter()
+                    .fold(u64::MAX, |acc, &p| acc & masks[usize::from(p)][w])
+                    .count_ones() as i64
+            })
+            .sum()
+    };
+    let cases: [&[u16]; 3] = [&[0], &[0, 1], &[0, 1, 2]];
+    let counts: Vec<i64> = cases.iter().map(|ps| reference(ps)).collect();
+    assert!(
+        counts.windows(2).all(|w| w[1] < w[0]),
+        "every plane must remove rows: {counts:?}"
+    );
+    for mode in [BoolMode::InPlace, BoolMode::Fused] {
+        for (ps, want) in cases.iter().zip(&counts) {
+            let mut d = FoldDialect::new(&planes, &Foreign::NONE).with_mode(mode);
+            let mut stack = vec![];
+            count_and(&mut d, &mut stack, ps).expect("count_and");
+            assert_eq!(top(&stack), *want, "{mode:?} {ps:?}");
+            assert_eq!(d.programs_run(), 1, "one fold");
+        }
+    }
+}
+
+/// FAILS IF: `differ` stops answering mask inequality, in either mode. The
+/// planes that differ do so in ONE row, the last, which sits in the tail
+/// word; an `IntXor` lowered as `And` or `Or`, or an `ANY` that skips the
+/// tail word, answers wrongly here.
+#[test]
+fn differ_is_mask_inequality_in_both_modes() {
+    let a = plane(|r| r % 7 == 0);
+    let same = plane(|r| r % 7 == 0);
+    let last = N - 1;
+    assert_ne!(last % 7, 0, "the flipped row must be clear in `a`");
+    let b = plane(|r| r % 7 == 0 || r == last);
+    let empty = plane(|_| false);
+    let masks = [
+        a.as_slice(),
+        same.as_slice(),
+        b.as_slice(),
+        empty.as_slice(),
+    ];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    for mode in [BoolMode::InPlace, BoolMode::Fused] {
+        for (x, y, want) in [(0, 1, 0), (0, 2, 1), (2, 0, 1), (3, 3, 0), (0, 3, 1)] {
+            let mut d = FoldDialect::new(&planes, &Foreign::NONE).with_mode(mode);
+            let mut stack = vec![];
+            differ(&mut d, &mut stack, x, y).expect("differ");
+            assert_eq!(top(&stack), want, "{mode:?} planes {x} vs {y}");
+        }
+    }
+}
+
+/// FAILS IF: `exists` or `all` stop answering over exactly `n_rows` rows.
+/// `full` holds all `N` rows and no tail bit; `all_but_one` misses only the
+/// last row, so an `ALL` that ignores the tail word answers 1 for it.
+#[test]
+fn exists_and_all_answer_over_n_rows() {
+    let empty = plane(|_| false);
+    let one = plane(|r| r == N - 1);
+    let full = plane(|_| true);
+    let all_but_one = plane(|r| r != N - 1);
+    let masks = [
+        empty.as_slice(),
+        one.as_slice(),
+        full.as_slice(),
+        all_but_one.as_slice(),
+    ];
+    let planes = Planes {
+        n_rows: N,
+        masks: &masks,
+        lanes: &[],
+    };
+    let run = |p: u16, f: fn(&mut FoldDialect<'_>, &mut Vec<Val>) -> Result<(), FoldError>| {
+        let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+        let mut stack = vec![Val::Address(lance_graph_r2il::Addr::Plane(p))];
+        f(&mut d, &mut stack).expect("terminal");
+        top(&stack)
+    };
+    assert_eq!([0, 1, 2, 3].map(|p| run(p, exists)), [0, 1, 1, 1], "exists");
+    assert_eq!([0, 1, 2, 3].map(|p| run(p, all)), [0, 0, 1, 0], "all");
+}
+
+/// FAILS IF: scalar `IntXor` stops being bitwise exclusive or.
+#[test]
+fn int_xor_on_scalars_is_exclusive_or() {
+    let planes = Planes {
+        n_rows: N,
+        masks: &[],
+        lanes: &[],
+    };
+    let mut d = FoldDialect::new(&planes, &Foreign::NONE);
+    let mut stack = vec![Val::Scalar(0b1100), Val::Scalar(0b1010)];
+    d.call(INT_XOR, [0; 3], &mut stack).expect("xor");
+    assert_eq!(stack, vec![Val::Scalar(0b0110)]);
 }

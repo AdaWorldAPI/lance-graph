@@ -9,7 +9,7 @@
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_r2il::{
     Addr, FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL, INT_NOT,
-    INT_OR, INT_SUB, INT_S_LESS, LOAD, MAX_SLOTS, POP_COUNT,
+    INT_OR, INT_SUB, INT_S_LESS, INT_XOR, LOAD, MAX_SLOTS, POP_COUNT,
 };
 use ogar_loco::{Dialect, FnIndex};
 use ogar_r2il::{
@@ -31,6 +31,7 @@ fn local_r2il_ordinals_name_the_ogar_r2il_opcodes() {
         (INT_SUB, "IntSub"),
         (INT_AND, "IntAnd"),
         (INT_OR, "IntOr"),
+        (INT_XOR, "IntXor"),
         (INT_NOT, "IntNot"),
         (INT_EQUAL, "IntEqual"),
         (INT_LESS, "IntLess"),
@@ -80,10 +81,10 @@ fn every_named_refusal_is_still_produced() {
     let foreign = Foreign::NONE;
 
     // Fold-band bytes that are not wired, and one R2IL-band one. `IntOr` is
-    // wired since D-SQLP-2.
+    // wired since D-SQLP-2; `IntXor`, `ANY` and `ALL` since D-RFT-1.
     let int_add = FnIndex(R2IL_BASE + 9);
     assert_eq!(mnemonic(int_add), "IntAdd");
-    for f in [KEY_RUNS, ANY, ALL, SCATTER_OR, BLEND, int_add] {
+    for f in [KEY_RUNS, SCATTER_OR, BLEND, int_add] {
         let mut d = FoldDialect::new(&planes, &foreign);
         let mut stack = vec![Val::Scalar(1), Val::Scalar(2)];
         assert_eq!(
@@ -134,6 +135,23 @@ fn every_named_refusal_is_still_produced() {
     assert_eq!(
         call(&mut d, POP_COUNT, [0; 3], &mut stack),
         Err(FoldError::StaleSlot)
+    );
+
+    // ANY, ALL and IntXor are wired: a scalar where a mask belongs is a shape
+    // refusal, not Unimplemented.
+    for f in [ANY, ALL] {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(1)];
+        assert_eq!(
+            call(&mut d, f, [0; 3], &mut stack),
+            Err(FoldError::WrongOperandKind(f))
+        );
+    }
+    let mut d = FoldDialect::new(&planes, &foreign);
+    let mut stack = vec![i32_lane(0), Val::Scalar(1)];
+    assert_eq!(
+        call(&mut d, INT_XOR, [0; 3], &mut stack),
+        Err(FoldError::WrongOperandKind(INT_XOR))
     );
 
     // VIA and GROUP_SUM are wired: a wrong operand kind is a shape refusal,
