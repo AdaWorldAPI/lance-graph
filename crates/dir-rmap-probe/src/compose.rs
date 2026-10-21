@@ -16,8 +16,24 @@
 //! DIRECT groups through which `r` is reached. Its existence is the Distinct
 //! answer: whether the path mask is non-empty. There is no value-directed
 //! gather, no semijoin, and no tuple: the answer lives in coordinate lanes
-//! indexed `i * 64 + r` and in a bit plane over the same coordinates, and
-//! every count, existence and equality is a mask-risc terminal.
+//! indexed `i * 64 + r` and in a bit plane over the same coordinates.
+//!
+//! The register already holds both answers' inputs, and the composition
+//! reads them instead of recomputing them:
+//!
+//! - **Distinct** is the page's resolved role set ([`Page::roles`]), when
+//!   every key is present. Nothing is computed.
+//! - **Bag** is the bit product of the page's membership matrix (users ×
+//!   256 slots) and the register's carrier matrix ([`Qr::role_slots`],
+//!   roles × 256 slots), evaluated only on the support:
+//!   `count(i, r) = popcount(member[i] & role_slots[r])` for each role `r`
+//!   in user `i`'s role set, through `ndarray::simd`. Every other
+//!   coordinate is zero by construction.
+//!
+//! The int8 tile GEMM (`ndarray::simd::gemm_u8_i8`) computes the same
+//! product densely; measured at about 19 µs per page (unpack included) on an
+//! AMX host, it is slower than the bit product, because the 0/1 bits must first
+//! be unpacked to bytes (`examples/rft1_bench.rs` prints both).
 //!
 //! The join key is a slot. A bit set in `member` but clear in `valid` is a
 //! NULL join key: present payload, absent value. It matches nothing, as a
@@ -29,10 +45,9 @@
 //! groups reaching one role) would read zero, an answer neither stratum
 //! gives.
 
-use lance_graph_mask_risc::{
-    Foreign, Out, Planes, Program, Scratch, Value, execute_into, words_for,
-};
+use lance_graph_mask_risc::{Foreign, Planes};
 use lance_graph_r2il::{FoldDialect, Val, procs};
+use ndarray::simd::{mask_and_assign, mask_or_assign, popcount_batch_u64};
 
 use crate::focus::{Row, SLOTS};
 use crate::prep::{Refusal, Witness};
@@ -86,7 +101,8 @@ impl From<Refusal> for ComposeError {
     }
 }
 
-/// Left operand: one page's membership rows plus their presence plane.
+/// Left operand: one page's membership rows, the page's resolved role sets,
+/// and an optional presence plane.
 ///
 /// A bit set in `member` but clear in `valid` is a NULL join key: present
 /// payload, absent value. It matches nothing.
@@ -97,13 +113,17 @@ pub struct Members<'a> {
     pub users: usize,
     /// Row `i`: user `i`'s direct security groups as slots.
     pub member: &'a [Row; SLOTS],
-    /// Presence plane, same coordinates as `member`.
-    pub valid: [Row; SLOTS],
+    /// Row `i`: user `i`'s roles, resolved with the page. Valid only while
+    /// every key is present.
+    pub roles: &'a [u64; SLOTS],
+    /// Presence plane, same coordinates as `member`. `None` means every key
+    /// is present; nothing is copied for that case.
+    pub valid: Option<&'a [Row; SLOTS]>,
 }
 
 impl<'a> Members<'a> {
-    /// The page's rows with every key present (`valid == member`): 8 KiB of
-    /// presence plane is the only thing copied.
+    /// The page's rows with every key present. Borrows the page; copies
+    /// nothing.
     ///
     /// The witness is the page's own, never the register's: a page resolved
     /// against another register version then fails `compose`'s seal check
@@ -115,8 +135,17 @@ impl<'a> Members<'a> {
             witness: &page.witness,
             users,
             member: &page.member,
-            valid: page.member,
+            roles: &page.roles,
+            valid: None,
         }
+    }
+
+    /// The same rows read through a presence plane: a key whose `valid` bit
+    /// is clear is NULL. The page's resolved roles no longer apply, so the
+    /// support is taken from the counts.
+    pub fn with_valid(mut self, valid: &'a [Row; SLOTS]) -> Self {
+        self.valid = Some(valid);
+        self
     }
 }
 
@@ -129,15 +158,25 @@ pub struct Carriers<'a> {
     pub role_slots: &'a [Row; 64],
     /// Slot -> the roles its reach carries (one word per slot).
     pub role: &'a [u64; SLOTS],
+    /// The right-side cardinality witness: max carrier slots per role,
+    /// counted once per bind.
+    pub right_fan: u64,
 }
 
 impl<'a> Carriers<'a> {
-    /// The register's role carriers.
+    /// The register's role carriers, with the right fan counted once.
     pub fn of(qr: &'a Qr) -> Self {
+        let right_fan = qr
+            .role_slots
+            .iter()
+            .map(|slots| popcount_batch_u64(slots))
+            .max()
+            .unwrap_or(0);
         Carriers {
             witness: &qr.witness,
             role_slots: &qr.role_slots,
             role: &qr.role,
+            right_fan,
         }
     }
 }
@@ -155,7 +194,7 @@ pub struct Composed {
     pub support: Vec<u64>,
     /// Sum of `counts`, checked.
     pub bag: u64,
-    /// Popcount of `support` (mask-risc `Count` over the support plane).
+    /// Popcount of `support`.
     pub distinct: u64,
     /// The cardinality witness: max path-mask fan on the left (members per
     /// user row).
@@ -195,166 +234,27 @@ fn take(stack: &mut Vec<Val>) -> u64 {
     }
 }
 
-/// An r2il procedure compiled once and replayed over planes of the same
-/// shape: a prepared statement.
-///
-/// A [`FoldDialect`] builds the mask-risc [`Program`] once from an r2il
-/// procedure over planes `0..k`; every later call runs that program over its
-/// own `k` zero-copy plane slices, with one scratch reused. Per call the
-/// cost is mask-risc execution alone, not program construction.
-struct Replay {
-    k: usize,
-    n_rows: usize,
-    program: Program,
-    scratch: Scratch<'static>,
-}
-
-impl Replay {
-    /// Compile `body` over `k` planes of `n_rows` rows. `keep` lends the
-    /// dialect a sink, for a body that ends in `KEEP`.
-    fn compile(
-        k: usize,
-        n_rows: usize,
-        keep: bool,
-        body: impl FnOnce(&mut FoldDialect<'_>, &mut Vec<Val>, &[u16]),
-    ) -> Self {
-        let zero = vec![0u64; words_for(n_rows)];
-        let mut sink = vec![0u64; words_for(n_rows)];
-        let masks = vec![zero.as_slice(); k];
-        let planes = Planes {
-            n_rows,
-            masks: &masks,
-            lanes: &[],
-        };
-        let ix: Vec<u16> = (0..k)
-            .map(|p| u16::try_from(p).expect("at most 256 planes"))
-            .collect();
-        let mut d = if keep {
-            FoldDialect::with_keep(&planes, &Foreign::NONE, &mut sink)
-        } else {
-            FoldDialect::new(&planes, &Foreign::NONE)
-        };
-        let mut stack = Vec::new();
-        body(&mut d, &mut stack, &ix);
-        let program = d.last_program().expect("the body folds").clone();
-        let scratch = Scratch::for_program(&program, n_rows).expect("scratch");
-        Replay {
-            k,
-            n_rows,
-            program,
-            scratch,
-        }
-    }
-
-    /// `procs::count_and` over `k` planes.
-    fn count_and(k: usize, n_rows: usize) -> Self {
-        Self::compile(k, n_rows, false, |d, stack, ix| {
-            procs::count_and(d, stack, ix).expect("compiles");
-            take(stack);
+/// Set positions of a word, lowest first: the pointer table that inverts a
+/// plane to its local positions.
+fn ones(mut word: u64) -> impl Iterator<Item = usize> {
+    std::iter::from_fn(move || {
+        (word != 0).then(|| {
+            let p = word.trailing_zeros() as usize;
+            word &= word - 1;
+            p
         })
-    }
-
-    /// `procs::union` of `k` planes, then `procs::keep`.
-    fn keep_union(k: usize, n_rows: usize) -> Self {
-        Self::compile(k, n_rows, true, |d, stack, ix| {
-            procs::union(d, stack, ix).expect("compiles");
-            procs::keep(d, stack).expect("compiles");
-        })
-    }
-
-    /// `procs::intersect` of `k` planes, then `procs::keep`.
-    fn keep_intersect(k: usize, n_rows: usize) -> Self {
-        Self::compile(k, n_rows, true, |d, stack, ix| {
-            procs::intersect(d, stack, ix).expect("compiles");
-            procs::keep(d, stack).expect("compiles");
-        })
-    }
-
-    fn planes<'m>(&self, masks: &'m [&'m [u64]]) -> Planes<'m> {
-        assert_eq!(masks.len(), self.k, "compiled for {} planes", self.k);
-        Planes {
-            n_rows: self.n_rows,
-            masks,
-            lanes: &[],
-        }
-    }
-
-    /// Run a compiled count over `masks`.
-    fn count(&mut self, masks: &[&[u64]]) -> u64 {
-        let planes = self.planes(masks);
-        match execute_into(
-            &self.program,
-            &planes,
-            &Foreign::NONE,
-            &mut self.scratch,
-            Out::None,
-        ) {
-            Ok(Value::Count(n)) => n as u64,
-            other => panic!("a count program answers a Count, got {other:?}"),
-        }
-    }
-
-    /// Run a compiled keep over `masks`, writing the mask into `out`.
-    fn keep(&mut self, masks: &[&[u64]], out: &mut [u64]) {
-        let planes = self.planes(masks);
-        match execute_into(
-            &self.program,
-            &planes,
-            &Foreign::NONE,
-            &mut self.scratch,
-            Out::Mask(out),
-        ) {
-            Ok(Value::Mask(_)) => {}
-            other => panic!("a keep program answers a Mask, got {other:?}"),
-        }
-    }
+    })
 }
 
-/// Population count of `words` over `n_rows` rows (`procs::count_and` of
-/// one plane, i.e. `LOAD` then `PopCount`).
-fn plane_count(words: &[u64], n_rows: usize) -> u64 {
-    Replay::count_and(1, n_rows).count(&[words])
-}
-
-/// The set positions of `words`: the pointer table that inverts a plane to
-/// its local positions (the one thing the inversion materializes).
-fn positions(words: &[u64], out: &mut Vec<usize>) {
-    out.clear();
-    for (w, &word) in words.iter().enumerate() {
-        let mut bits = word;
-        while bits != 0 {
-            out.push(w * 64 + bits.trailing_zeros() as usize);
-            bits &= bits - 1;
-        }
-    }
-}
-
-/// The composition's prepared programs: every r2il procedure it runs,
-/// compiled once. Building one is the prepare step; [`Composer::compose`]
-/// is execution alone and reuses them (unions are compiled once per arity,
-/// on first use).
-pub struct Composer {
-    present_of: Replay,
-    path: Replay,
-    fan: Replay,
-    union_of: Vec<Option<Replay>>,
-}
-
-impl Default for Composer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// The composition's executor. It holds no state; the register is the
+/// prepared form.
+#[derive(Default)]
+pub struct Composer;
 
 impl Composer {
-    /// Compile the composition's procedures.
+    /// A composer.
     pub fn new() -> Self {
-        Composer {
-            present_of: Replay::keep_intersect(2, SLOTS),
-            path: Replay::count_and(3, SLOTS),
-            fan: Replay::count_and(1, SLOTS),
-            union_of: (0..=SLOTS).map(|_| None).collect(),
-        }
+        Composer
     }
 
     /// Compose membership with role carriers.
@@ -384,58 +284,44 @@ impl Composer {
         }
         assert!(left.users <= SLOTS, "a page holds at most {SLOTS} users");
         let users = left.users;
-
-        // Support first. A user's roles are the union of the role words of its
-        // present join keys (`member & valid`), so the only coordinates that can
-        // hold a path are the bits of that union; every other coordinate has
-        // count 0 by construction and is never evaluated. Each step is an r2il
-        // procedure compiled once and replayed over zero-copy row slices:
-        //   present_i  = keep(intersect(member_i, valid_i))       over 256 slots
-        //   support_i  = keep(union(role[s] for s in present_i))   over 64 roles
-        //   count(i,r) = count_and(member_i, valid_i, carriers_r)  for r in support_i
-        // The two pointer tables (present slots, supported roles) are the
-        // inversion from a plane to its local positions.
         let mut counts = vec![0u16; users * 64];
         let mut support = vec![0u64; users];
-        let mut bag = 0u64;
-        let mut left_fan = 0u64;
-        let mut present = [0u64; 4];
-        let (mut keys, mut roles): (Vec<usize>, Vec<usize>) = (Vec::new(), Vec::new());
-        let mut words: Vec<&[u64]> = Vec::with_capacity(SLOTS);
+        let (mut bag, mut left_fan) = (0u64, 0u64);
         for i in 0..users {
-            let (m, v) = (&left.member[i][..], &left.valid[i][..]);
-            self.present_of.keep(&[m, v], &mut present);
-            positions(&present, &mut keys);
-            left_fan = left_fan.max(keys.len() as u64);
-            if keys.is_empty() {
-                continue;
+            // Present keys: the row itself, or the row under its presence plane.
+            let mut present = left.member[i];
+            if let Some(valid) = left.valid {
+                mask_and_assign(&mut present, &valid[i]);
             }
-            words.clear();
-            words.extend(keys.iter().map(|&s| std::slice::from_ref(&right.role[s])));
-            self.union_of[keys.len()]
-                .get_or_insert_with(|| Replay::keep_union(keys.len(), 64))
-                .keep(&words, &mut support[i..=i]);
-            positions(&support[i..=i], &mut roles);
-            for &r in &roles {
-                let c = self.path.count(&[m, v, &right.role_slots[r][..]]);
-                // A path mask lives over 256 slots, so its count is at most 256.
+            left_fan = left_fan.max(popcount_batch_u64(&present));
+            // Distinct: the page's resolved roles; under a presence plane,
+            // the union of the present slots' role words.
+            support[i] = match left.valid {
+                None => left.roles[i],
+                Some(_) => {
+                    let mut roles = [0u64];
+                    for (w, &word) in present.iter().enumerate() {
+                        for b in ones(word) {
+                            mask_or_assign(
+                                &mut roles,
+                                std::slice::from_ref(&right.role[w * 64 + b]),
+                            );
+                        }
+                    }
+                    roles[0]
+                }
+            };
+            // Bag: one AND + popcount per supported role.
+            for r in ones(support[i]) {
+                let mut path = present;
+                mask_and_assign(&mut path, &right.role_slots[r]);
+                let c = popcount_batch_u64(&path);
                 counts[i * 64 + r] = u16::try_from(c).expect("a count over 256 slots fits u16");
                 bag = add_bag(bag, c)?;
             }
         }
-        let distinct = if users == 0 {
-            0
-        } else {
-            plane_count(&support, users * 64)
-        };
-
-        // Cardinality witness. Left: present join keys per user row (above).
-        // Right: carrier slots per role.
-        let mut right_fan = 0u64;
-        for carriers in right.role_slots.iter() {
-            right_fan = right_fan.max(self.fan.count(&[&carriers[..]]));
-        }
-
+        let distinct = popcount_batch_u64(&support);
+        let right_fan = right.right_fan;
         let stratum = if left_fan <= 1 || right_fan <= 1 {
             Stratum::Distinct
         } else {

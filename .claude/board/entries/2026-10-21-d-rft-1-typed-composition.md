@@ -1,6 +1,6 @@
 # 2026-10-21 — D-RFT-1-COMPOSE: typed composition over the DR256 slot coordinate (D-RFT-1)
 
-**Status:** PROBE (lab, `crates/dir-rmap-probe`). TEST-PINNED and MEASURED as stated below; no production ABI changes.
+**Status:** PROBE (lab, `crates/dir-rmap-probe`). TEST-PINNED and MEASURED as stated below; no production ABI changes. The execution path was replaced by a read of the register; see the last section.
 **Claim:** EXO-50 `session_01G22yT6htkcdyXsihxxXdrg/036`, status in `/038`.
 **Plan:** `.claude/plans/d-rft-relalg-thought-git-frontier-v1.md` (D-RFT-1); assessment `entries/2026-10-21-d-rft-d-lfa-0-assessment.md`.
 
@@ -109,3 +109,27 @@ Written by `session_013z2e1YXkm6o6HNrDn5BPWA` on the operator's instruction (EXO
 - **Tests.** `bool_aggregates_keep_null_apart_from_false` (the six cases TRUE/NULL, FALSE/NULL, TRUE/FALSE/NULL, NULL/NULL, empty, FALSE/FALSE, each with scrambled NULL payloads); `count_distinct_excludes_null_keys_whatever_their_payload` (first, middle and last runs; all-NULL selection). The existing primitive test's empty-selection expectation changed from `(0, 1)` to NULL. Four disables red: no `valid` in `bool_or`, in `bool_and`'s FALSE fold, in the presence fold, in `count_distinct_sorted`.
 - **PostgreSQL 16.15** (`examples/null_aggs_pg_parity.rs`, lab, SKIP without a server): 300 queries over 60 random tables, values and NULL states equal; 64 NULL bool aggregates, 12 `bool_and` TRUE over a NULL row; the disable arm (validity = every row) differs on 224.
 - **Signature change.** `bool_or`, `bool_and` and `count_distinct_sorted` take new arguments; no caller outside the crate.
+
+## Update — the composition reads the register (follow-up PR)
+
+The first version recomputed, with about 2 600 r2il replays per page, what the DR256 register already holds. That was the cost, not the algebra. It now reads the register:
+
+- **Distinct** is `Page::roles`, the role set the page resolved. Nothing is computed. Under a presence plane (`Members::with_valid`), it is the union of the present slots' role words.
+- **Bag** is one AND + popcount per supported role, over the page's membership row and the register's carrier rows (`Qr::role_slots`), through `ndarray::simd`.
+- `Members` borrows the page; the presence plane is optional, so the 8 KiB copy is gone.
+
+Measured (`examples/rft1_bench.rs`, release, median of 101 runs, 600 users / 3 pages):
+
+| arm | time | allocations per run |
+|---|---|---|
+| A — composition over the register | 12.4 µs | 6 (the answer lanes) |
+| C+ — support by union, then AND + popcount | 14 µs | 0 |
+| G — dense int8 tile product (`gemm_u8_i8`, AMX host), bits unpacked to bytes | 57.5 µs | 9 |
+| C — every coordinate | 147–151 µs | 0 |
+| B — tuple baseline, lab only | 159 µs | 10 |
+
+The dense tile product is slower than the bit product here: unpacking 0/1 bits to bytes costs more than the composition. PostgreSQL 16.14 parity unchanged.
+
+Tests: 11. A random-fixture test checks that the two Distinct routes (`Page::roles`, and the union under a full presence plane) agree page by page. Disables, all red: support ignoring `Page::roles`; presence plane ignored; Bag skipping a supported role; NULL-key support read from the raw row (the last one needed a new fixture, where the nulled key is the only path to a role).
+
+The "per-execution cost" and "no count-product terminal" open points above no longer apply to this composition: it runs no mask-risc execution.
