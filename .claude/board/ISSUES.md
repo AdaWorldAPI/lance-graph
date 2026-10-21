@@ -78,7 +78,7 @@
 
 ## ISS-RELALG-ABSORPTION-AFTER-DE-MORGAN — `normalize` can leave a program wider than as written (2026-10-16)
 
-**Status:** RESOLVED in PR (D-CMR-1, branch `claude/eager-albattani-iufugq`): absorption is matched against flattened sibling sets in `contract::set_algebra::normalize`; TEST-PINNED by `absorption_after_de_morgan_matches_flattened_siblings` (contract) and `tests/absorption_n17.rs` (relalg), both disable-verified red. **Was:** OPEN. **Basis:** MEASURED (D-HOLO-H14d stage 1, `crates/holo-h14d-probe`, 2 of 2,000 generated programs).
+**Status:** RESOLVED by #1644 (merged `c05a313`; holo-h14d-probe stage 1 now widens 0 of 2,000): absorption is matched against flattened sibling sets in `contract::set_algebra::normalize`; TEST-PINNED by `absorption_after_de_morgan_matches_flattened_siblings` (contract) and `tests/absorption_n17.rs` (relalg), both disable-verified red. **Was:** OPEN. **Basis:** MEASURED (D-HOLO-H14d stage 1, `crates/holo-h14d-probe`, 2 of 2,000 generated programs).
 
 - `¬(x ∧ (x ∨ y))` with `x = P1 ∧ P4` should reduce by absorption to `¬x = ¬P1 ∨ ¬P4`. `lance-graph-relalg::normalize` pushes the negation inward first (De Morgan), flattens, and returns `¬P1 ∨ ¬P4 ∨ ((¬P1 ∨ ¬P4) ∧ ¬P5 ∧ ¬P7)`: the dual absorption pattern `a ∨ (a ∧ b)` is present but `a` is spread across the flattened `Or`, so the rule no longer matches.
 - Consequence: the rewritten program needs more scratch slots than the original; the original answers, the rewrite is refused (`MAX_SLOTS` = 8). Answers are never wrong; only width.

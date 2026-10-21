@@ -1,3 +1,10 @@
+## 2026-10-21 — lance-graph PR #1644 (merged `c05a313`, branch `claude/eager-albattani-iufugq`, head `6fc04a4`) — D-CMR-1 / D-RA-2: the contract owns single-table set algebra
+
+- **Added:** `lance_graph_contract::set_algebra::{SetExpr, Res, Cmp, normalize, Runs, OutOfUniverse}` (zero deps); relalg `tests/absorption_n17.rs`; entry `2026-10-20-d-cmr-1-set-algebra.md`.
+- **Locked:** relalg's `normalize` converts `Rel` ⇄ `SetExpr` and delegates; its public API is unchanged and its 16 earlier tests pass unchanged. Absorption is matched against flattened siblings in two forms, which closes N17. `Runs` set operations are O(n+m). `complement` needs an explicit universe. crepe-plan-probe's N17 pin is flipped to `m_the_known_absorption_gap_is_closed_and_not_produced`.
+- **Deferred / open:** D-CMR-6 catalogue (owner open); repointing crepe and Quack; measures on `Runs`.
+- **Confidence:** measured. Bitset differential over 3,000 random expressions. Five disable runs, each red. holo-h14d-probe stage 1: widened by rewrite 0 of 2,000, against 2 before.
+
 ## 2026-10-20 — lance-graph PR #1626 (merged `bc8012da`, branch `ccr-08f48cec-lbv9l4-amx`, head `2976e117`) — D-RMAP-2 §5a-AMX: the tile arm on the AMX tier
 
 - **Added:** D-RMAP-2 §5a-AMX (five runs on a host where ndarray reports `AMX TDPBF16PS`); entry `D-RMAP-2-AMX`; STATUS_BOARD D-RMAP-2 row. No code change.
