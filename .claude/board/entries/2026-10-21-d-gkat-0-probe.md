@@ -26,10 +26,10 @@
 | choice without a condition | `Refusal::UnguardedChoice` |
 
 **K3 guards.**
-- A K3 observable occupies two primitive tests, `is_t` and `is_u`. The atom set excludes `is_t ∧ is_u`, which leaves exactly three values.
+- A K3 observable occupies two primitive tests, `T` and `F`, encoded like Quack's `Filter::sql_where` verdict masks. The atom set excludes `T ∧ F`, which leaves exactly three values; UNKNOWN is neither bit, so presence is `T ∨ F` and there is no separate UNKNOWN bit. (The first version used `is_t`/`is_u`; changed after review, see the follow-up PR.)
 - A K3 guard reaches a Boolean test only through a declared projection:
-  - `Where` = `{T}`
-  - `Check` = `{T,U}`
+  - `Where` = `{T}` = `T`
+  - `Check` = `{T,U}` = `¬F`
   - `Is` applies to Boolean observables only.
 - Any other pairing of projection and observable is refused.
 

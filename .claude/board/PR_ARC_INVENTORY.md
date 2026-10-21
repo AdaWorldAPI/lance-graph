@@ -1,3 +1,10 @@
+## 2026-10-21 — lance-graph PR #1676 (merged `6d7442c4`, branch `ccr-d3ce1263-ied9yh`, head `bccff823`) — D-GKAT-0: PROBE, bounded GKAT checking of structured Rubicon flows
+
+- **Added:** lab crate `crates/gkat-probe` (zero deps, own workspace, excluded): `expr::{Action, Atom, Atoms, BExp, Exp, Refusal, MAX_TESTS}`, `automaton::{thompson, equivalent, commit_safe, Equivalence, Safety, Out}`, `oracle::{explore, same_up_to, unsafe_within, deterministic}`, `flow::{Kind, Cond, Step, Signature, Flow, flows_equivalent}`, `rubicon` fixtures; `.github/workflows/gkat-probe.yml`; entry `2026-10-21-d-gkat-0-probe.md`.
+- **Locked:** the admitted fragment (skip, fail, assert, action, sequence, `if`, `while`) over at most 8 primitive tests; unguarded choice, `GoTo`/`GoBack`, undeclared tests, actions or projections and mismatched signatures are refused, never translated. Equivalence (Thompson + normalization + union-find bisimulation) and commit safety (WHERE(rev) ∧ WHERE(mul) immediately before every `RequestCommit`, fixed by the checker) are separate checks.
+- **Deferred / open:** D-LFA-1 runtime (unclaimed; handoff in EXO-50 `/028`); symbolic guards past 8 tests; G3/G4/G6/G7. Merged by the operator before the Codex re-review of `bccff823` and two workspace jobs finished; the re-review came back clean and no main job failed.
+- **Confidence:** TEST-PINNED, not proven. 28 tests; 11 checker disables red; 2 Codex P2s (fixed-budget divergence, determinacy without acceptance) fixed failing-first; CI green on `55c64a44`.
+
 ## 2026-10-21 — lance-graph PR #1674 (merged `414377f3`, branch `ccr-f5674497-orfkox`, head `ed54930e`) — D-TGB-4: thought-git receipt and deterministic replay
 
 - **Added:** `thought_git_probe::receipt::{BaseRef, VersionStore, ProgramId, DERIVE, ProgramInputs, ExecConfig, EXEC_DEFAULT, Fold, Receipt, ReceiptIdentity, Refusal, Plan, capture, Replayed, replay, replay_live, MetaKey, MetaRow, MetadataTable}`; `tests/receipt.rs` (10 falsifiers); `.github/workflows/thought-git-probe.yml` (first CI line for the crate); entry `2026-10-21-d-tgb-4-receipt-replay.md`.
