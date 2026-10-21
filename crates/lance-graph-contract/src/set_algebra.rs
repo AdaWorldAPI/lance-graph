@@ -49,6 +49,27 @@
 //! No rewrite distributes, so normalization never grows an expression
 //! exponentially to remove nesting.
 //!
+//! # Three-valued (SQL) logic: [`normalize_kleene`]
+//!
+//! A residual on a lane that may hold NULL is UNKNOWN on that row. A measure
+//! and a SQL `WHERE` count the rows where the expression is TRUE.
+//! [`normalize`] is two-valued: rewrites 3 and 4 assume a row is in a set or
+//! in its complement, so a union that covers a lane becomes `All` and a
+//! conjunct that covers a lane disappears. On a NULL row that turns UNKNOWN
+//! into TRUE (`x < 5 OR x >= 5` keeps no NULL row in PostgreSQL, `All` keeps
+//! every row).
+//!
+//! [`normalize_kleene`] runs the same rewrites with those two cases replaced:
+//! a covered `I32` lane becomes `x >= i32::MIN`, which is TRUE exactly on the
+//! rows where `x` is not NULL, and a covered `U32` lane keeps its atoms. Every
+//! other rewrite preserves the rows where the expression is TRUE under
+//! Kleene logic: De Morgan and the negated comparison are Kleene
+//! equivalences; after negation normal form no negation sits above a
+//! junction, so a rewrite that keeps a subterm's TRUE rows keeps the whole
+//! expression's TRUE rows (`p ∧ ¬p` is `Empty` because no row makes both
+//! TRUE). A [`SetExpr::Sym`] is two-valued by definition, so its complement
+//! rule stays.
+//!
 //! An interval is always emitted as `<` / `>` bounds or one `==`.
 //!
 //! Zero dependencies.
@@ -159,12 +180,33 @@ impl SetExpr {
 const LO: i64 = i32::MIN as i64;
 const HI: i64 = i32::MAX as i64;
 
+/// Which logic the residual lanes follow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Logic {
+    /// Every row satisfies a residual or its negation.
+    TwoValued,
+    /// A residual lane may be NULL; the residual is UNKNOWN there (SQL).
+    Kleene,
+}
+
 /// Rewrite `e` to an equivalent description, to a fixpoint (at most 64
-/// rounds; every rewrite shrinks or keeps the expression).
+/// rounds; every rewrite shrinks or keeps the expression). Two-valued: see
+/// [`normalize_kleene`] for lanes that may hold NULL.
 pub fn normalize(e: &SetExpr) -> SetExpr {
+    normalize_with(e, Logic::TwoValued)
+}
+
+/// [`normalize`] for lanes that may hold NULL: the result is TRUE on exactly
+/// the rows where `e` is TRUE under Kleene logic (module docs).
+pub fn normalize_kleene(e: &SetExpr) -> SetExpr {
+    normalize_with(e, Logic::Kleene)
+}
+
+/// [`normalize`] under `logic`.
+pub fn normalize_with(e: &SetExpr, logic: Logic) -> SetExpr {
     let mut cur = nnf(e, false);
     for _ in 0..64 {
-        let next = simplify(&cur);
+        let next = simplify(&cur, logic);
         if next == cur {
             return next;
         }
@@ -192,18 +234,18 @@ fn nnf(e: &SetExpr, neg: bool) -> SetExpr {
     }
 }
 
-fn simplify(e: &SetExpr) -> SetExpr {
+fn simplify(e: &SetExpr, logic: Logic) -> SetExpr {
     match e {
         SetExpr::All | SetExpr::Empty | SetExpr::Sym(_) => e.clone(),
-        SetExpr::Res(_) => conj(vec![e.clone()]),
-        SetExpr::Not(c) => match simplify(c) {
+        SetExpr::Res(_) => conj(vec![e.clone()], logic),
+        SetExpr::Not(c) => match simplify(c, logic) {
             SetExpr::All => SetExpr::Empty,
             SetExpr::Empty => SetExpr::All,
             SetExpr::Not(x) => *x,
             s => SetExpr::negated(s),
         },
-        SetExpr::And(cs) => conj(cs.iter().map(simplify).collect()),
-        SetExpr::Or(cs) => disj(cs.iter().map(simplify).collect()),
+        SetExpr::And(cs) => conj(cs.iter().map(|c| simplify(c, logic)).collect(), logic),
+        SetExpr::Or(cs) => disj(cs.iter().map(|c| simplify(c, logic)).collect(), logic),
     }
 }
 
@@ -215,8 +257,18 @@ fn complement(e: &SetExpr) -> Option<SetExpr> {
     }
 }
 
-/// `[lo, hi]` as `<` / `>` bounds or one `==`; empty for the whole lane.
-fn emit_interval(lane: u16, lo: i64, hi: i64) -> Vec<SetExpr> {
+/// `x >= i32::MIN`: TRUE on every row where lane `x` is not NULL. The one
+/// atom [`normalize_kleene`] emits for a whole lane.
+fn present(lane: u16) -> SetExpr {
+    SetExpr::i32(lane, Cmp::Ge, i32::MIN)
+}
+
+/// `[lo, hi]` as `<` / `>` bounds or one `==`; for the whole lane, nothing
+/// (two-valued) or [`present`] (Kleene).
+fn emit_interval(lane: u16, lo: i64, hi: i64, logic: Logic) -> Vec<SetExpr> {
+    if (lo, hi) == (LO, HI) && logic == Logic::Kleene {
+        return vec![present(lane)];
+    }
     if lo == hi {
         return vec![SetExpr::i32(lane, Cmp::Eq, lo as i32)];
     }
@@ -244,7 +296,7 @@ fn interval(op: Cmp, t: i32) -> Option<(i64, i64)> {
 }
 
 /// A conjunction of simplified children.
-fn conj(children: Vec<SetExpr>) -> SetExpr {
+fn conj(children: Vec<SetExpr>, logic: Logic) -> SetExpr {
     let mut flat = Vec::new();
     for c in children {
         match c {
@@ -289,12 +341,22 @@ fn conj(children: Vec<SetExpr>) -> SetExpr {
         if lo > hi {
             return SetExpr::Empty;
         }
-        out.extend(emit_interval(lane, lo, hi));
-        if lo + 1 < hi {
-            for &v in excl.range(lo + 1..hi) {
-                out.push(SetExpr::i32(lane, Cmp::Ne, v as i32));
-            }
-        }
+        let ne: Vec<SetExpr> = if lo + 1 < hi {
+            excl.range(lo + 1..hi)
+                .map(|&v| SetExpr::i32(lane, Cmp::Ne, v as i32))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        // A `!=` already holds only where the lane is not NULL, so the
+        // whole-lane atom is needed only when nothing else names the lane.
+        let logic = if ne.is_empty() {
+            logic
+        } else {
+            Logic::TwoValued
+        };
+        out.extend(emit_interval(lane, lo, hi, logic));
+        out.extend(ne);
     }
     for (lane, (is, nots)) in eqs {
         let mut is = is.into_iter();
@@ -310,7 +372,7 @@ fn conj(children: Vec<SetExpr>) -> SetExpr {
 }
 
 /// A disjunction of simplified children.
-fn disj(children: Vec<SetExpr>) -> SetExpr {
+fn disj(children: Vec<SetExpr>, logic: Logic) -> SetExpr {
     let mut flat = Vec::new();
     for c in children {
         match c {
@@ -348,16 +410,23 @@ fn disj(children: Vec<SetExpr>) -> SetExpr {
     // `x ≠ a` on a lane: a second `x ≠ b`, or any interval holding `a`,
     // covers the whole lane; otherwise every interval on the lane lies
     // inside `x ≠ a` and is absorbed by it.
+    // Under Kleene logic a covered lane is `present(lane)`, not `All`.
     for (lane, ne) in excluded {
-        let mut ne = ne.into_iter();
-        let (Some(a), None) = (ne.next(), ne.next()) else {
-            return SetExpr::All;
-        };
         let iv = ranges.remove(&lane).unwrap_or_default();
-        if iv.iter().any(|&(lo, hi)| lo <= a && a <= hi) {
-            return SetExpr::All;
+        let mut ne = ne.into_iter();
+        let covered = match (ne.next(), ne.next()) {
+            (Some(a), None) if !iv.iter().any(|&(lo, hi)| lo <= a && a <= hi) => {
+                out.push(SetExpr::i32(lane, Cmp::Ne, a as i32));
+                false
+            }
+            _ => true,
+        };
+        if covered {
+            if logic == Logic::TwoValued {
+                return SetExpr::All;
+            }
+            out.push(present(lane));
         }
-        out.push(SetExpr::i32(lane, Cmp::Ne, a as i32));
     }
     for (lane, mut iv) in ranges {
         iv.sort_unstable();
@@ -369,7 +438,7 @@ fn disj(children: Vec<SetExpr>) -> SetExpr {
             }
         }
         for (lo, hi) in merged {
-            let atoms = emit_interval(lane, lo, hi);
+            let atoms = emit_interval(lane, lo, hi, logic);
             match atoms.len() {
                 0 => return SetExpr::All,
                 1 => out.extend(atoms),
@@ -378,12 +447,18 @@ fn disj(children: Vec<SetExpr>) -> SetExpr {
         }
     }
     for (lane, (is, nots)) in eqs {
-        let mut ns = nots.iter();
-        match (ns.next(), ns.next()) {
-            (Some(_), Some(_)) => return SetExpr::All,
-            (Some(a), None) if is.contains(a) => return SetExpr::All,
-            (Some(&a), None) => out.push(SetExpr::ne_u32(lane, a)),
-            _ => out.extend(is.into_iter().map(|v| SetExpr::eq_u32(lane, v))),
+        let covered = nots.len() > 1 || nots.iter().any(|a| is.contains(a));
+        if covered {
+            if logic == Logic::TwoValued {
+                return SetExpr::All;
+            }
+            // A covered `U32` lane has no single Kleene atom: keep its atoms.
+            out.extend(nots.iter().map(|&v| SetExpr::ne_u32(lane, v)));
+            out.extend(is.iter().map(|&v| SetExpr::eq_u32(lane, v)));
+        } else if let Some(&a) = nots.first() {
+            out.push(SetExpr::ne_u32(lane, a));
+        } else {
+            out.extend(is.into_iter().map(|v| SetExpr::eq_u32(lane, v)));
         }
     }
     out.extend(rest);
@@ -755,6 +830,150 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    /// Which lane values are NULL in world `seed`: about one row in four,
+    /// per lane, for all four lanes (`I32` lanes 0..2, then `U32` lanes).
+    fn nulls(seed: u64) -> [Vec<bool>; 4] {
+        let mut s = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1;
+        let mut lane = || {
+            (0..N)
+                .map(|_| {
+                    s ^= s << 13;
+                    s ^= s >> 7;
+                    s ^= s << 17;
+                    s.is_multiple_of(4)
+                })
+                .collect::<Vec<bool>>()
+        };
+        [lane(), lane(), lane(), lane()]
+    }
+
+    /// Kleene evaluation, by definition: `None` is UNKNOWN. A residual is
+    /// UNKNOWN where its lane is NULL; a `Sym` is two-valued.
+    fn kleene(w: &World, null: &[Vec<bool>; 4], e: &SetExpr, row: usize) -> Option<bool> {
+        match e {
+            SetExpr::All => Some(true),
+            SetExpr::Empty => Some(false),
+            SetExpr::Sym(i) => Some(w.syms[*i as usize][row]),
+            SetExpr::Res(r) => {
+                let slot = match *r {
+                    Res::I32 { lane, .. } => lane as usize,
+                    Res::U32 { lane, .. } => 2 + lane as usize,
+                };
+                (!null[slot][row]).then(|| res_holds(w, *r, row))
+            }
+            SetExpr::Not(c) => kleene(w, null, c, row).map(|b| !b),
+            SetExpr::And(cs) => {
+                let mut unknown = false;
+                for c in cs {
+                    match kleene(w, null, c, row) {
+                        Some(false) => return Some(false),
+                        None => unknown = true,
+                        Some(_) => {}
+                    }
+                }
+                (!unknown).then_some(true)
+            }
+            SetExpr::Or(cs) => {
+                let mut unknown = false;
+                for c in cs {
+                    match kleene(w, null, c, row) {
+                        Some(true) => return Some(true),
+                        None => unknown = true,
+                        Some(_) => {}
+                    }
+                }
+                (!unknown).then_some(false)
+            }
+        }
+    }
+
+    /// The rows where `e` is TRUE: what a measure counts and `WHERE` keeps.
+    fn true_rows(w: &World, null: &[Vec<bool>; 4], e: &SetExpr) -> Vec<bool> {
+        (0..N)
+            .map(|row| kleene(w, null, e, row) == Some(true))
+            .collect()
+    }
+
+    /// FAILS IF: `normalize_kleene` changes the rows where an expression is
+    /// TRUE when lanes hold NULL. Same generator as the two-valued test,
+    /// against an independent Kleene evaluator. Twin: the two-valued
+    /// `normalize` DOES change them on some inputs here, so the generator
+    /// reaches the lane-covering rewrites this mode exists to replace.
+    #[test]
+    fn normalize_kleene_keeps_the_true_rows_under_null() {
+        let mut g = Gen(0x5EED);
+        let (mut changed, mut two_valued_wrong) = (0, 0);
+        for k in 0..3000 {
+            let w = world(1 + k % 7);
+            let null = nulls(1 + k % 5);
+            let e = g.expr(5);
+            let want = true_rows(&w, &null, &e);
+            let n = normalize_kleene(&e);
+            assert_eq!(true_rows(&w, &null, &n), want, "{e:?}\n => {n:?}");
+            assert_eq!(normalize_kleene(&n), n, "not idempotent: {e:?}");
+            changed += usize::from(n != e);
+            two_valued_wrong += usize::from(true_rows(&w, &null, &normalize(&e)) != want);
+        }
+        assert!(changed * 2 > 3000, "only {changed} rewritten");
+        assert!(
+            two_valued_wrong > 30,
+            "two-valued wrong on {two_valued_wrong}"
+        );
+    }
+
+    /// The four lane covers, one at a time, on rows `[3, NULL]`: two-valued
+    /// they become `All` (both rows), Kleene keeps one row.
+    #[test]
+    fn a_lane_cover_keeps_null_rows_out() {
+        let w = World {
+            syms: vec![vec![false; N]; SYMS as usize],
+            i32_lanes: [vec![3; N], vec![0; N]],
+            u32_lanes: [vec![1; N], vec![0; N]],
+        };
+        let mut null = [
+            vec![false; N],
+            vec![false; N],
+            vec![false; N],
+            vec![false; N],
+        ];
+        for lane in &mut null {
+            for (row, v) in lane.iter_mut().enumerate() {
+                *v = row % 2 == 1;
+            }
+        }
+        let covers = [
+            // interval union over the whole lane
+            SetExpr::Or(vec![
+                SetExpr::i32(0, Cmp::Lt, 5),
+                SetExpr::i32(0, Cmp::Ge, 5),
+            ]),
+            // two `!=`
+            SetExpr::Or(vec![
+                SetExpr::i32(0, Cmp::Ne, 1),
+                SetExpr::i32(0, Cmp::Ne, 2),
+            ]),
+            // `!=` and an interval holding its value
+            SetExpr::Or(vec![
+                SetExpr::i32(0, Cmp::Ne, 1),
+                SetExpr::i32(0, Cmp::Lt, 4),
+            ]),
+            // a conjunct covering the whole lane (`sym0` is false everywhere)
+            SetExpr::And(vec![
+                SetExpr::i32(0, Cmp::Ge, i32::MIN),
+                SetExpr::negated(SetExpr::Sym(0)),
+            ]),
+            // `U32`: two `!=`, then `!=` with its `==`
+            SetExpr::Or(vec![SetExpr::ne_u32(0, 1), SetExpr::ne_u32(0, 2)]),
+            SetExpr::Or(vec![SetExpr::ne_u32(0, 1), SetExpr::eq_u32(0, 1)]),
+        ];
+        for e in &covers {
+            let want = true_rows(&w, &null, e);
+            assert_eq!(want.iter().filter(|&&b| b).count(), N.div_ceil(2), "{e:?}");
+            assert_eq!(true_rows(&w, &null, &normalize_kleene(e)), want, "{e:?}");
+            assert_ne!(true_rows(&w, &null, &normalize(e)), want, "{e:?}");
         }
     }
 
