@@ -47,6 +47,9 @@ fn row_masks(pages: usize) -> Vec<Vec<Row>> {
     ]
 }
 
+/// Does a user hold the answer, given its roles and effective row?
+type Holds = Box<dyn Fn(u64, &Row) -> bool>;
+
 #[test]
 fn masked_counts_equal_a_page_by_page_resolve() {
     let mut spec = Spec::small();
@@ -60,7 +63,7 @@ fn masked_counts_equal_a_page_by_page_resolve() {
     let mut runs = Runs::new(&qr);
 
     // Questions: every role, and membership of a few security groups.
-    let mut questions: Vec<(Row, Box<dyn Fn(u64, &Row) -> bool>)> = Vec::new();
+    let mut questions: Vec<(Row, Holds)> = Vec::new();
     for r in 0..64u32 {
         if qr.role_slots[r as usize] != [0; 4] {
             questions.push((

@@ -61,6 +61,42 @@ Register 19,108 bytes; one page 10,240 bytes.
 - **Eager resolve of the whole population** fails the gate at 65,000 users, as revision 1 measured. Per the correction above, that is not a workload.
 - **The arm B prepare** (dir-sim → CSR) is a pre-existing millisecond phase, not introduced here. A page resolve reads that CSR; making the page read the source lanes directly is open.
 
+## Masked count over several tiles (revision 3)
+
+Operator direction (2026-10-21): measure amortization by masking over multiple QR tiles, with interlaced row activation by selective tile masking.
+
+A question ("how many users hold role r", or "are effectively in group g") becomes a **slot set**: `Qr::role_slots[r]` (`role` transposed at bind) or `Qr::slots_reaching(g)` (the slots whose reach contains g). It is asked over `k` tiles selected by a **tile mask** (one bit per page), with rows inside each tile selected by a **row mask** (all rows, or interlaced: even rows in even tiles, odd rows in odd tiles). The terminal is a count; no page is resolved and no per-user value is built.
+
+Routes, all checked equal to a page-by-page resolve (`tests/qr_masked.rs`: every role and a sample of groups × 4 tile masks × 4 row masks; scratch is checked left zeroed), measured in `examples/qr_amortize.rs`:
+
+- `page`: resolve each selected page on first touch, then fold its roles over the active rows;
+- `warm page`: the same fold over pages already resolved;
+- `masked` (`Qr::count_masked`): each needed slot's direct-member list is read once, and every member sets its bit in its tile, branch-free (the tile's selection bit is shifted into the OR); popcount of tile AND row mask;
+- `runs` (`Runs::count`): a per-slot tile pointer table (`runs[s][p]..runs[s][p+1]` = slot s's members in tile p; member lists are sorted by user ordinal, so each tile is one run). Built for a slot on first use (`cold`), reused after (`warm`). Only selected tiles' runs are visited, OR'd into one 256-bit row per tile.
+
+65,000 users (254 tiles), all rows. The role is carried by 32 slots (21,042 direct memberships); the group is reached from 26 slots (13,867):
+
+| k tiles | role: page first touch | role: warm page | role: masked | role: runs warm | group: page first touch | group: masked | group: runs warm |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 14.0 µs | 0.1 µs | 33.1 µs | 0.7 µs | 56.4 µs | 22.8 µs | 0.7 µs |
+| 8 | 116.3 µs | 0.5 µs | 34.2 µs | 2.9 µs | 446.6 µs | 22.0 µs | 2.3 µs |
+| 32 | 502.0 µs | 2.1 µs | 34.2 µs | 10.3 µs | ms (gate) | 22.0 µs | 8.8 µs |
+| 64 | ms (gate) | 4.2 µs | 34.3 µs | 19.8 µs | ms (gate) | 22.0 µs | 16.2 µs |
+| 128 | ms (gate) | 8.4 µs | 34.2 µs | 64.6 µs | ms (gate) | 22.0 µs | 44.7 µs |
+| 254 | ms (gate) | 16.6 µs | 33.2 µs | 155.0 µs | ms (gate) | 22.1 µs | 124.6 µs |
+
+Runs cold (pointer tables built inside the call): 19–32 µs from k = 1 to 32 for the role. The interlaced row mask gives the same costs within noise: row activation is an AND at the terminal and costs nothing extra. At 8,000 users the masked route is 3.1 µs (role) and 2.1 µs (group) for every k.
+
+### Reading
+
+- **Amortization across tiles:** the masked route's cost is fixed by the memberships of the question's slots (≈ 1.5 ns per membership), not by k. It beats resolving pages one by one from k = 2–4 for a role and from k = 1 for a group, and reaches 100–700× at all tiles.
+- **Selective tile masking:** the per-slot tile pointers make the cost proportional to k (≈ 0.3–0.6 µs per tile at these slot counts). They win while few tiles are selected and lose to the masked scan beyond about a quarter of the tiles (k ≈ 64 of 254): per tile they hop across all of the question's member lists, where the masked route reads each list once in order.
+- **Warm pages answer role questions cheapest** (their roles are precomputed). Group questions have no precomputed column, so a warm page still pays a row × tile product per user and is slower than either masked route at every k.
+- **The branch matters:** with a branch on the tile bit, the masked route ran 19–20 µs at small k and 64–73 µs at k = 128 (member order is random with respect to tiles, so the branch mispredicts at half selection). Branch-free it is a flat ≈ 33 µs. The sparse case is covered by the pointer tables instead.
+- **So the choice is by selected fraction:** pointer runs below about a quarter of the tiles, the masked scan above, warm pages for role questions on already-resolved pages. That is a measured policy, not admitted; the crossover depends on slots per question and members per tile.
+
+Disable runs (all red): tile mask ignored (masked; runs), scratch left dirty, empty run per tile, role transposition off by one bit, `slots_reaching` taken upward instead of downward.
+
 ## Open
 
 - **Pages by OU/team, not by ordinal:** pages are cut at user ordinal / 256. Cutting them by `Dn128` prefix (OU) or team needs a page key and a pointer table of non-empty tiles (the proxy-chained team design, not built).
@@ -70,4 +106,4 @@ Register 19,108 bytes; one page 10,240 bytes.
 
 ## Closeout
 
-`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs and one 256-user page ≈ 14 µs on demand, both independent of user count; ~1 ns queries | OPEN: OU/team page keys, >256-group chains, CSR-free page read, codebook witness`
+`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs and one 256-user page ≈ 14 µs on demand; a masked count over k tiles costs a flat 22–34 µs at 65k users (per-slot tile runs 0.7–20 µs up to k = 64) | OPEN: OU/team page keys, crossover policy, >256-group chains, CSR-free reads, codebook witness`
