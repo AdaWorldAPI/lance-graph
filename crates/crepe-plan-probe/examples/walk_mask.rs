@@ -60,7 +60,7 @@ use std::time::{Duration, Instant};
 use crepe::crepe;
 use ndarray::simd::{mask_andnot_assign, mask_any, mask_or_assign, popcount_batch_u64};
 
-const MAX_PATH_LEN: u32 = 50;
+pub(crate) const MAX_PATH_LEN: u32 = 50;
 const REPS: usize = 9;
 /// Largest `n` the benchmark runs the ascent and crepe oracles for.
 const ORACLE_MAX_N: usize = 512;
@@ -104,7 +104,7 @@ ascent::ascent! {
 }
 
 /// The benchmark's edges (every edge has length 5).
-fn edges(n: i32) -> Vec<(i32, i32, u32)> {
+pub(crate) fn edges(n: i32) -> Vec<(i32, i32, u32)> {
     let mut e = Vec::new();
     for i in 0..n {
         for j in 0..n {
@@ -118,13 +118,13 @@ fn edges(n: i32) -> Vec<(i32, i32, u32)> {
 
 /// The two output relations as canonical sets.
 #[derive(Debug, PartialEq, Eq)]
-struct Tuples {
-    walk: BTreeSet<(i32, i32, u32)>,
-    no_walk: BTreeSet<(i32, i32)>,
+pub(crate) struct Tuples {
+    pub(crate) walk: BTreeSet<(i32, i32, u32)>,
+    pub(crate) no_walk: BTreeSet<(i32, i32)>,
 }
 
 impl Tuples {
-    fn counts(&self) -> (usize, usize) {
+    pub(crate) fn counts(&self) -> (usize, usize) {
         (self.walk.len(), self.no_walk.len())
     }
 }
@@ -138,12 +138,12 @@ fn run_ascent(e: &[(i32, i32, u32)]) -> WalkAscent {
     p
 }
 
-fn ascent_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
+pub(crate) fn ascent_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
     let p = run_ascent(e);
     (p.walk.len(), p.no_walk.len())
 }
 
-fn ascent_tuples(e: &[(i32, i32, u32)]) -> Tuples {
+pub(crate) fn ascent_tuples(e: &[(i32, i32, u32)]) -> Tuples {
     let p = run_ascent(e);
     Tuples {
         walk: p.walk.into_iter().collect(),
@@ -158,12 +158,12 @@ fn run_crepe(e: &[(i32, i32, u32)]) -> (Vec<Walk>, Vec<NoWalk>) {
     (walk.into_iter().collect(), nowalk.into_iter().collect())
 }
 
-fn crepe_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
+pub(crate) fn crepe_walk(e: &[(i32, i32, u32)]) -> (usize, usize) {
     let (walk, nowalk) = run_crepe(e);
     (walk.len(), nowalk.len())
 }
 
-fn crepe_tuples(e: &[(i32, i32, u32)]) -> Tuples {
+pub(crate) fn crepe_tuples(e: &[(i32, i32, u32)]) -> Tuples {
     let (walk, nowalk) = run_crepe(e);
     Tuples {
         walk: walk.into_iter().map(|Walk(x, z, l)| (x, z, l)).collect(),
@@ -185,7 +185,7 @@ fn bit(row: &[u64], i: usize) -> bool {
 }
 
 /// The fixpoint of the program over bit planes.
-struct Planes {
+pub(crate) struct Planes {
     n: usize,
     w: usize,
     lens: usize,
@@ -193,7 +193,7 @@ struct Planes {
     /// `walk[l][x]`: the nodes `z` with `Walk(x, z, l)`.
     walk: Vec<u64>,
     /// Value-addressed row reads (`delta[row(l2, y)]` for a set bit `y`).
-    row_reads: u64,
+    pub(crate) row_reads: u64,
 }
 
 impl Planes {
@@ -211,7 +211,7 @@ impl Planes {
     }
 
     /// `(|Walk|, |NoWalk|)` from popcounts; no tuple is built.
-    fn counts(&self) -> (usize, usize) {
+    pub(crate) fn counts(&self) -> (usize, usize) {
         let walk = popcount_batch_u64(&self.walk) as usize;
         let mut reach = vec![0u64; self.w];
         let mut miss = vec![0u64; self.w];
@@ -229,7 +229,7 @@ impl Planes {
     }
 
     /// Decode the planes into the canonical tuple sets.
-    fn tuples(&self) -> Tuples {
+    pub(crate) fn tuples(&self) -> Tuples {
         let mut walk = BTreeSet::new();
         let mut no_walk = BTreeSet::new();
         for x in (0..self.n).filter(|&x| self.is_node(x)) {
@@ -249,13 +249,13 @@ impl Planes {
     }
 
     /// Bytes of one length-indexed plane set; the fixpoint holds three.
-    fn plane_bytes(&self) -> usize {
+    pub(crate) fn plane_bytes(&self) -> usize {
         self.walk.len() * 8
     }
 }
 
 /// The program over bit planes. Node ids must lie in `0..n`.
-fn mask_walk(n: usize, e: &[(i32, i32, u32)]) -> Planes {
+pub(crate) fn mask_walk(n: usize, e: &[(i32, i32, u32)]) -> Planes {
     let w = words(n);
     let lens = MAX_PATH_LEN as usize + 1;
     let row = |plane: usize, x: usize| (plane * n + x) * w;
@@ -358,7 +358,7 @@ fn difference<T: Ord + std::fmt::Debug>(a: &BTreeSet<T>, b: &BTreeSet<T>) -> Str
 }
 
 /// Compare the mask tuples with one oracle's; `Err` names the difference.
-fn agree(mask: &Tuples, oracle: &Tuples) -> Result<(), String> {
+pub(crate) fn agree(mask: &Tuples, oracle: &Tuples) -> Result<(), String> {
     if mask.walk != oracle.walk {
         return Err(format!("Walk: {}", difference(&mask.walk, &oracle.walk)));
     }
@@ -462,7 +462,7 @@ fn main() {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// The mask tuples equal both oracles' tuples, and the count-only path
@@ -491,11 +491,11 @@ mod tests {
         }
     }
 
-    const LENGTHS: [u32; 5] = [1, 2, 3, 5, 7];
+    pub(crate) const LENGTHS: [u32; 5] = [1, 2, 3, 5, 7];
 
     /// `n` nodes, `per_node` random out-edges each with a length from
     /// `LENGTHS`, plus the ring `0 -> 1 -> 2 -> 0`.
-    fn random_graph(n: usize, per_node: usize, seed: u64) -> Vec<(i32, i32, u32)> {
+    pub(crate) fn random_graph(n: usize, per_node: usize, seed: u64) -> Vec<(i32, i32, u32)> {
         let mut r = Rng(seed);
         let mut e = vec![(0, 1, 1), (1, 2, 2), (2, 0, 3)];
         for x in 0..n {
