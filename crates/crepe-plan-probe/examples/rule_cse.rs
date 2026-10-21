@@ -59,10 +59,13 @@ const OPTS: Options = Options {
 };
 const REPS: usize = 5;
 
+/// One core: `R_g` (x, c) rows and `S_g` (c, z) rows.
+type Core = (Vec<[u32; 2]>, Vec<[u32; 2]>);
+
 /// A generated workload: relations and rules.
 pub(crate) struct Workload {
     /// `rel[2g]` is `R_g` (x, c); `rel[2g + 1]` is `S_g` (c, z).
-    pub cores: Vec<(Vec<[u32; 2]>, Vec<[u32; 2]>)>,
+    pub cores: Vec<Core>,
     /// `T(c, k)`.
     pub t: Vec<[u32; 2]>,
     /// `group[k]`: the core rule `k` uses.
@@ -132,7 +135,7 @@ pub(crate) fn workload(rules: usize, shared: usize, centers: u32, rows: usize) -
     let mut t = Vec::new();
     for c in 0..centers {
         for k in 0..rules as u32 {
-            if mix((u64::from(c) << 32) | u64::from(k)) % 10 == 0 {
+            if mix((u64::from(c) << 32) | u64::from(k)).is_multiple_of(10) {
                 t.push([c, k]);
             }
         }
@@ -218,18 +221,19 @@ pub(crate) fn crepe_answer(w: &Workload) -> Tuples {
 }
 
 pub(crate) fn ascent_answer(w: &Workload) -> Tuples {
-    let mut prog = CseAscent::default();
-    prog.g = w
-        .group
-        .iter()
-        .enumerate()
-        .map(|(k, &g)| (k as u32, g as u32))
-        .collect();
+    let mut prog = CseAscent {
+        g: w.group
+            .iter()
+            .enumerate()
+            .map(|(k, &g)| (k as u32, g as u32))
+            .collect(),
+        t: w.t.iter().map(|&[c, k]| (c, k)).collect(),
+        ..CseAscent::default()
+    };
     for (g, (r, s)) in w.cores.iter().enumerate() {
         prog.rg.extend(r.iter().map(|&[x, c]| (g as u32, x, c)));
         prog.sg.extend(s.iter().map(|&[c, z]| (g as u32, c, z)));
     }
-    prog.t = w.t.iter().map(|&[c, k]| (c, k)).collect();
     prog.run();
     prog.out.into_iter().collect()
 }
