@@ -99,8 +99,9 @@ fn null_key_matches_nothing() {
         Stratum::Bag,
         "anti-vacuity: with both keys present the left side fans out"
     );
-    let mut m = Members::of(&qr, &page, 1);
-    m.valid[0][s >> 6] &= !(1u64 << (s & 63));
+    let mut valid = page.member;
+    valid[0][s >> 6] &= !(1u64 << (s & 63));
+    let m = Members::of(&qr, &page, 1).with_valid(&valid);
     let out = compose(&m, &c, &w.witness(), Law::Count).unwrap();
     assert_eq!(out.counts[5], 1);
     assert_eq!(out.bag, 1);
@@ -268,6 +269,20 @@ fn random_fixture_matches_independent_oracle() {
         let page = qr.page(&b, p).unwrap();
         let m = Members::of(&qr, &page, users);
         let out = compose(&m, &c, &w.witness(), Law::Count).unwrap();
+        // The two Distinct routes agree: the page's resolved roles (no
+        // presence plane) and the product's non-zero entries (a full one).
+        let via_product = compose(
+            &Members::of(&qr, &page, users).with_valid(&page.member),
+            &c,
+            &w.witness(),
+            Law::Count,
+        )
+        .unwrap();
+        assert!(
+            !differ(&out.support, &via_product.support, users * 64),
+            "page {p}: Page::roles vs product support"
+        );
+        assert_eq!(out.counts, via_product.counts, "page {p}: counts");
         let want = oracle_lane(&b, p * 256, users);
         assert_eq!(out.counts, want, "page {p}: counts lane");
         let mut want_support = vec![0u64; users];

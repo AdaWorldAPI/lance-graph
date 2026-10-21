@@ -2,18 +2,21 @@
 //! through direct security groups and role carriers) three ways, over all
 //! pages of one fixture.
 //!
-//! * A: `Composer::compose` (the typed composition: r2il procedures,
-//!   compiled once, replayed through mask-risc; support first, so only
-//!   coordinates that can hold a path are counted);
+//! * A: `Composer::compose` (the typed composition over the register:
+//!   Distinct is the page's resolved roles, Bag is one AND + popcount per
+//!   supported role, through `ndarray::simd`);
 //! * C: every coordinate's AND + popcount with `ndarray::simd` primitives on
 //!   the 4-word rows, no support pass (the brute-force SIMD reference);
-//! * C+: arm A's plan (support first) written directly with
-//!   `ndarray::simd`: the gap A − C+ is mask-risc's per-execution cost;
+//! * C+: support first (the user's present slots' role words OR'd, then
+//!   one AND + popcount per supported role), directly with `ndarray::simd`;
+//! * G: the dense int8 tile product, `ndarray::simd::gemm_u8_i8`, per
+//!   page (users × 256 slots as 0/1 bytes, times 256 slots × 64 roles); the
+//!   bits are unpacked to bytes first, and that is counted;
 //! * B: LAB-ONLY tuple baseline: every path materialized as a
 //!   `(user, role, group)` tuple, sorted, runs counted. It exists only to
 //!   show what leaving the fold costs; it is not a candidate.
 //!
-//! Bind, page preparation, program preparation (`Composer::new`) and
+//! Bind, page preparation, buffer preparation (`Composer::new`) and
 //! execution are timed separately (median of 101 runs, in ns). All three arms must agree on bag and distinct before any timing.
 //! Allocations are counted by a wrapping global allocator.
 //!
@@ -27,7 +30,7 @@ use dir_rmap_probe::fixture::{Fixture, Spec};
 use dir_rmap_probe::focus::SLOTS;
 use dir_rmap_probe::prep::{Prepared, Refusal, ones};
 use dir_rmap_probe::qr::{Page, Qr};
-use ndarray::simd::{mask_and_assign, mask_or_assign, popcount_batch_u64};
+use ndarray::simd::{gemm_u8_i8, mask_and_assign, mask_or_assign, popcount_batch_u64};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -132,6 +135,33 @@ fn main() {
         }
         (bag, distinct)
     };
+    // Arm G: dense int8 tile product per page.
+    let mut rmat = vec![0i8; SLOTS * 64];
+    for (sl, &roles) in qr.role.iter().enumerate() {
+        for r in ones(&[roles]) {
+            rmat[sl * 64 + r] = 1;
+        }
+    }
+    let mut a_tile = vec![0u8; SLOTS * SLOTS];
+    let mut c_tile = vec![0i32; SLOTS * 64];
+    let mut arm_g = || {
+        let (mut bag, mut distinct) = (0u64, 0u64);
+        for (m, &n) in members.iter().zip(&counts) {
+            let rows = n.div_ceil(16) * 16;
+            a_tile[..rows * SLOTS].fill(0);
+            for i in 0..n {
+                for sl in ones(&m.member[i]) {
+                    a_tile[i * SLOTS + sl] = 1;
+                }
+            }
+            gemm_u8_i8(&a_tile, &rmat, &mut c_tile, rows, 64, SLOTS);
+            for &c in &c_tile[..n * 64] {
+                bag += c as u64;
+                distinct += u64::from(c > 0);
+            }
+        }
+        (bag, distinct)
+    };
     // Arm C: direct ndarray::simd on the 4-word rows.
     let arm_c = || {
         let (mut bag, mut distinct) = (0u64, 0u64);
@@ -139,7 +169,6 @@ fn main() {
             for i in 0..n {
                 for r in 0..64 {
                     let mut buf = m.member[i];
-                    mask_and_assign(&mut buf, &m.valid[i]);
                     mask_and_assign(&mut buf, &carriers.role_slots[r]);
                     let c = popcount_batch_u64(&buf);
                     bag += c;
@@ -154,8 +183,7 @@ fn main() {
         let (mut bag, mut distinct) = (0u64, 0u64);
         for (m, &n) in members.iter().zip(&counts) {
             for i in 0..n {
-                let mut present = m.member[i];
-                mask_and_assign(&mut present, &m.valid[i]);
+                let present = m.member[i];
                 let mut support = [0u64];
                 for s in ones(&present) {
                     mask_or_assign(&mut support, std::slice::from_ref(&qr.role[s]));
@@ -175,8 +203,7 @@ fn main() {
         let mut paths: Vec<(u32, u8, u16)> = Vec::new();
         for (p, (m, &n)) in members.iter().zip(&counts).enumerate() {
             for i in 0..n {
-                let mut present = m.member[i];
-                mask_and_assign(&mut present, &m.valid[i]);
+                let present = m.member[i];
                 for s in ones(&present) {
                     for r in 0..64u8 {
                         if qr.role[s] >> r & 1 == 1 {
@@ -203,6 +230,7 @@ fn main() {
     assert_eq!(a, c, "arm A vs arm C: (bag, distinct)");
     assert_eq!(a, arm_cp(), "arm A vs arm C+: (bag, distinct)");
     assert_eq!(a, t, "arm A vs arm B: (bag, distinct)");
+    assert_eq!(a, arm_g(), "arm A vs arm G: (bag, distinct)");
     println!(
         "users {users}, pages {}, bag {}, distinct {} (all three arms agree)",
         pages.len(),
@@ -220,19 +248,22 @@ fn main() {
     let compile_ns = median_ns(REPS, Composer::new);
     println!("bind     {bind_ns} ns");
     println!("pages    {prep_ns} ns ({} pages)", pages.len());
-    println!("programs {compile_ns} ns (Composer::new)");
+    println!("buffers  {compile_ns} ns (Composer::new)");
 
     let ta = median_ns(REPS, &mut arm_a);
     let tc = median_ns(REPS, arm_c);
     let tcp = median_ns(REPS, arm_cp);
     let tb = median_ns(REPS, arm_b);
+    let tg = median_ns(REPS, &mut arm_g);
     let (aa, ab) = allocs_of(&mut arm_a);
     let (ca, cb) = allocs_of(arm_c);
     let (cpa, cpb) = allocs_of(arm_cp);
     let (ba, bb) = allocs_of(arm_b);
-    println!("A compose (mask-risc)      {ta} ns  allocs {aa} ({ab} B)");
+    let (ga, gb) = allocs_of(&mut arm_g);
+    println!("A compose (register+bits)  {ta} ns  allocs {aa} ({ab} B)");
     println!("C ndarray::simd direct     {tc} ns  allocs {ca} ({cb} B)");
     println!("C+ support-first simd      {tcp} ns  allocs {cpa} ({cpb} B)");
+    println!("G int8 tile gemm          {tg} ns  allocs {ga} ({gb} B)");
     println!("B tuple baseline (lab-only) {tb} ns  allocs {ba} ({bb} B)");
     println!(
         "ratios: B/A {:.2}  A/C {:.2}  A/C+ {:.2}",
