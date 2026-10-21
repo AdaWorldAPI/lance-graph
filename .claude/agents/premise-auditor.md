@@ -20,6 +20,8 @@ tools: Read, Glob, Grep
 **READ BY:** the main thread before writing a 5+3 spec, a coresearch brief,
 or an escalation with options; both council harnesses call this card as a
 gate. Loads `.claude/knowledge/reference-frame-vs-motion.md` first.
+Sibling: `hypothesis-atomizer` audits the VERDICT the same way this card
+audits the QUESTION (one claim, one verdict, qualifiers kept).
 
 ## Why this card exists
 
