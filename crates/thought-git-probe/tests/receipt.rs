@@ -351,7 +351,15 @@ fn replay_cannot_raise_evidence_but_a_new_root_can() {
     let (_, _, r) = run(&store, &mut pool, plan(base, 10, Outcome::Commit, 5));
     let rep = receipt::replay(&r, &store, EXEC_DEFAULT).expect("replay");
 
-    let prior = horizon(0b0011, r.roots);
+    // The prior horizon predates the receipt's roots: it holds another root
+    // (bit 3) and not 0b0011. Labelled correctly, the replay's roots arrive as
+    // inherited and earn nothing; labelled independent they would look new.
+    let prior = horizon(0b0011, 0b1000);
+    assert_eq!(
+        prior.independent_roots & r.roots,
+        0,
+        "receipt roots must be new to the prior"
+    );
     let e = encounter(0b0011, rep.independent_roots, rep.inherited_roots, 0);
     let d = GadamerRevision.revise(&prior, &e, &ancestry(&prior));
     assert_ne!(d.evidential_effect, EvidentialEffect::IncreaseEligible);
