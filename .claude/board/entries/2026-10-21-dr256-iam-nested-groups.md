@@ -97,6 +97,35 @@ Runs cold (pointer tables built inside the call): 19–32 µs from k = 1 to 32 f
 
 Disable runs (all red): tile mask ignored (masked; runs), scratch left dirty, empty run per tile, role transposition off by one bit, `slots_reaching` taken upward instead of downward.
 
+## Chained population masking: license groups over all memberships (revision 4)
+
+Operator direction (2026-10-21): filter license groups over all user memberships, as an example of chained population masking by positional filtering.
+
+A **population** (`qr::Pop`) is one bit per user, at tile `u / 256`, row `u % 256`, for every tile. `Qr::population(b, slots)` builds one from a slot set by reading each slot's direct-member list once and scattering by position: `slots_reaching(g)` gives the users effectively in group `g` (nesting included), and `role_slots[r]` gives the holders of role `r`. Populations from one register line up by position, so filters chain as word-wise AND / AND-NOT (`Pop::and`, `Pop::and_not`). The answer is a count (`Pop::count`, `Pop::count_and`, which counts an intersection without building it). `Qr::everyone` is the full population.
+
+Question (`examples/qr_license.rs`): per license group (16), count the users who hold the license, hold role r, and are NOT in location L. Chain: `role AND-NOT location`, then `license AND chain` counted per license. `tests/qr_license.rs` checks all 16 counts, and "no license at all" (`everyone AND-NOT any license`), against dir-sim's own walk per user. Anti-vacuity: the location removes some role holders, the counts differ across licenses, and some users but not all are unlicensed.
+
+| | 8,000 users | 65,000 users |
+|---|---:|---:|
+| build role population | 2.3 µs | 24.0 µs |
+| build location population | 1.3 µs | 9.3 µs |
+| build 16 license populations | 11.6 µs | 66.2 µs |
+| chain role AND-NOT location | 0.1 µs | 0.3 µs |
+| 16 × (license AND chain), counted | 0.3 µs | 2.8 µs |
+| whole question, end to end | 15.1 µs | 123.7 µs |
+| per-user route over resolved pages (reference) | 363.0 µs | FAILED GATE (ms) |
+
+At 65,000 users the populations read 21,615 + 8,349 + 58,521 memberships; one population is 8,128 bytes (254 tiles × 32 B).
+
+### Reading
+
+- **Building a population costs about 1.1 ns per membership read.** It is the whole cost: chaining and counting are word operations over 254 tiles (0.3 µs per chain step, about 0.18 µs per license count).
+- **A population is reusable across questions.** Once built, the 16 license populations answer any other chain (another role, another location, unlicensed users) for the cost of the AND and the count alone.
+- **The per-user route** (one effective row per user, then bit tests) pays the 256-slot row × tile product per user, so it is 24× slower at 8,000 users and fails the gate at 65,000.
+- Populations cover every tile. Combining them with the tile mask and row masks of revision 3 (selected OUs or teams only) is not measured yet.
+
+Disable runs (all red): AND-NOT acting as AND, `count_and` using OR, `everyone` dropping the last user of a tile, a population leaking slot 0.
+
 ## Open
 
 - **Pages by OU/team, not by ordinal:** pages are cut at user ordinal / 256. Cutting them by `Dn128` prefix (OU) or team needs a page key and a pointer table of non-empty tiles (the proxy-chained team design, not built).
@@ -106,4 +135,4 @@ Disable runs (all red): tile mask ignored (masked; runs), scratch left dirty, em
 
 ## Closeout
 
-`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs and one 256-user page ≈ 14 µs on demand; a masked count over k tiles costs a flat 22–34 µs at 65k users (per-slot tile runs 0.7–20 µs up to k = 64) | OPEN: OU/team page keys, crossover policy, >256-group chains, CSR-free reads, codebook witness`
+`STATUS: measured | OUTCOME: DR256 register reproduces IAM nested-group roles exactly; register ≈ 40 µs, one page ≈ 14 µs; masked multi-tile count flat 22–34 µs; 16 license counts through a role AND-NOT location chain in 124 µs end to end at 65k users (chain + counts 3 µs) | OPEN: OU/team page keys, crossover policy, >256-group chains, CSR-free reads, codebook witness`
