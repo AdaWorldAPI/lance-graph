@@ -210,6 +210,9 @@ pub enum CseRefusal {
         given: usize,
     },
     Program(ProgramError),
+    /// The tables were prepared for other stars than the plan holds: a star
+    /// in no group or in two, or a side the table holds under another key.
+    NoCoordinateWitness,
 }
 
 /// What one shared evaluation cost, each part on its own, summed over the
@@ -283,6 +286,37 @@ pub fn evaluate_shared(
     Ok((outcome, report))
 }
 
+/// The coordinate witness: every planned star is in exactly one group, and
+/// each of its sides maps to a table side holding exactly that side's key.
+/// Tables prepared for another plan are refused before any plane is read.
+pub fn witness(planned: &Planned, shared: &SharedStars) -> Result<(), CseRefusal> {
+    let mut seen = vec![false; planned.stars.len()];
+    for g in &shared.groups {
+        if g.stars.len() != g.rule_sides.len() {
+            return Err(CseRefusal::NoCoordinateWitness);
+        }
+        for (&j, sides) in g.stars.iter().zip(&g.rule_sides) {
+            let Some(star) = planned.stars.get(j) else {
+                return Err(CseRefusal::NoCoordinateWitness);
+            };
+            if seen[j] || star.sides.len() != sides.len() {
+                return Err(CseRefusal::NoCoordinateWitness);
+            }
+            seen[j] = true;
+            for (side, &k) in star.sides.iter().zip(sides) {
+                if g.prepared.keys.get(k) != Some(&side.key) {
+                    return Err(CseRefusal::NoCoordinateWitness);
+                }
+            }
+        }
+    }
+    if seen.iter().all(|&b| b) {
+        Ok(())
+    } else {
+        Err(CseRefusal::NoCoordinateWitness)
+    }
+}
+
 /// The run half over prepared shared tables. `generations[g][k]` is the
 /// current generation of side `k` of group `g`.
 pub fn execute_shared(
@@ -293,6 +327,7 @@ pub fn execute_shared(
     sharing: bool,
 ) -> Result<(Outcome, SharedReport), CseRefusal> {
     let t = Instant::now();
+    witness(planned, shared)?;
     if generations.len() != shared.groups.len() {
         return Err(CseRefusal::Generations {
             sides: shared.groups.len(),

@@ -560,6 +560,39 @@ mod tests {
         );
     }
 
+    /// FAILS IF: tables prepared for one plan are run with another plan of
+    /// the same shape (same rule count, same generations), or with a plan
+    /// missing a star.
+    #[test]
+    fn tables_prepared_for_another_plan_are_refused() {
+        let kind = ResultKind::Exists;
+        let w1 = workload(RULES, RULES / 2, CENTERS, ROWS);
+        let w2 = workload(RULES, RULES / 2 - 1, CENTERS, ROWS);
+        let d1 = demand(w1.out_rel(), vec![None; 3]);
+        let d2 = demand(w2.out_rel(), vec![None; 3]);
+        let p1 = plan(&w1.rules, &d1, kind, OPTS).expect("plan 1");
+        let p2 = plan(&w2.rules, &d2, kind, OPTS).expect("plan 2");
+        assert_eq!(p1.stars.len(), p2.stars.len(), "same shape");
+        let shared = prepare_shared(&p1.stars, &w1.store(), Layout::OneTable);
+        let gens: Vec<Vec<u64>> = shared
+            .groups
+            .iter()
+            .map(|g| g.prepared.keys.iter().map(|_| 1).collect())
+            .collect();
+        assert!(execute_shared(&p1, &shared, kind, &gens, true).is_ok());
+        assert_eq!(
+            execute_shared(&p2, &shared, kind, &gens, true).err(),
+            Some(CseRefusal::NoCoordinateWitness)
+        );
+        let mut short = p1.clone();
+        short.stars.pop();
+        short.optimized.rules.pop();
+        assert_eq!(
+            execute_shared(&short, &shared, kind, &gens, true).err(),
+            Some(CseRefusal::NoCoordinateWitness)
+        );
+    }
+
     /// FAILS IF: the shared path runs against a side whose generation moved.
     #[test]
     fn a_stale_side_is_refused() {
