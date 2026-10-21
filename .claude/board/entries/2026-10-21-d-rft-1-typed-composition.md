@@ -68,3 +68,32 @@ All arms agree on (bag, distinct) before anything is timed.
 - **No count-product terminal.** mask-risc has no terminal that produces many coordinates' counts in one execution (a bit-matrix count product, or a masked positional popcount). The support-first plan is what keeps the execution count down. ndarray has no positional popcount either.
 - **Fixture scale.** `Spec::iam(8000)` exceeds 256 security slots (`Refusal::TooLarge`), so the bench runs `Spec::small()`.
 - **Not done:** recursion over composed strata (D-RFT-3), a second composition law beyond Count/Exists, and a PostgreSQL arm in CI (the example prints SKIP without a server).
+
+## Update — PostgreSQL primitive polyfill (bingo card, same PR)
+
+Each PostgreSQL primitive is either an r2il opcode the dialect now lowers, or a procedure (a call sequence that adds no opcode). WHERE-shaped primitives leave a mask. Kept with `KEEP`, that mask is a Lance 13 read mask: `with_row_addr_prefilter(RowAddrMask)`, which `crepe-plan-probe` (#1633) measured as scanning exactly the masked rows (P2). Aggregates leave a scalar.
+
+| PostgreSQL | r2il | status |
+|---|---|---|
+| `=`, `<`, `<=`, `>`, `>=` (int) | `IntEqual`, `IntSLess`, `and_cmp_i32` | existing |
+| `IS NULL` / `IS NOT NULL` | `is_null` / `is_not_null` over the presence plane | NEW (proc) |
+| `BETWEEN` (NULL dropped, empty range keeps nothing) | `and_between_i32` | NEW (proc) |
+| `IN (…)`, `IN ()` | `in_u32` | NEW (proc) |
+| `COUNT(*)` / `COUNT(x)` | `count` / `count_valid` | NEW: `count_valid` |
+| `SUM`, `MIN`, `MAX` | `sum`, `min`, `max` | existing |
+| `AVG` | `avg_parts` (SUM and COUNT; `avg(int)` is `numeric`, so the caller divides) | NEW (proc) |
+| `COUNT(DISTINCT k)` on a key-ordered lane | `KEY_RUNS` → `CountKeyRunsU32`; `count_distinct_sorted` | NEW (opcode + proc); an unordered lane is refused |
+| `bool_or` / `bool_and` (`every`) | `bool_or` / `bool_and` | NEW (proc); an empty selection reads 0 / 1 where PostgreSQL reads NULL |
+| `EXISTS` / `NOT EXISTS` | `exists` (`ANY`) / `not_exists` | NEW |
+| `INTERSECT` / `UNION` / `EXCEPT` (same rows) | `intersect` / `union` / `except` | NEW |
+| `UNION ALL` counts | `count_union_all` (`IntAdd`) | NEW |
+| bigint `+`, `*`, `/` on aggregates | `IntAdd`, `IntMult`, `IntSDiv`, checked | NEW (opcodes); overflow and division by zero refused |
+
+Tests: one row-rule reference per primitive (`postgresql_primitives_match_row_rule_references`), the unordered-lane refusal, and the arithmetic refusals. 6 disables, all red: no division-by-zero guard, wrapping add, `COUNT(x)` ignoring presence, exclusive `BETWEEN` upper bound, `EXCEPT` without its NOT, and `KEY_RUNS` counting rows.
+
+**Not on the card** (open):
+- K3 `NOT IN (…, NULL)` and `IS DISTINCT FROM`: Quack `sql_where` holds the (T, F) pair, and r2il procedures are two-valued.
+- `CASE` (`BLEND`) and grouped `COUNT` (`GroupReduce`): not wired.
+- `COUNT(DISTINCT)` on an unordered lane: no seen-set by design.
+- `ORDER BY` / `LIMIT`, string predicates, nullable arithmetic, `COALESCE`.
+- A PostgreSQL differential for the new procedures: the references are row rules, not a server.

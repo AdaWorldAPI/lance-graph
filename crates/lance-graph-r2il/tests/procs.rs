@@ -693,7 +693,7 @@ const FLAG: u16 = 1;
 const SORTED: u16 = 5;
 
 fn null_row(r: usize) -> bool {
-    r % 9 == 0
+    r.is_multiple_of(9)
 }
 
 fn run_scalar(
@@ -866,7 +866,7 @@ fn postgresql_primitives_match_row_rule_references() {
     );
 
     // COUNT(DISTINCT sorted) under x < 5: distinct i / 10 over rows with i % 50 < 5.
-    let mut seen = vec![false; N / 10 + 1];
+    let mut seen = [false; N / 10 + 1];
     for r in (0..N).filter(|&r| f.x[r] < 5) {
         seen[r / 10] = true;
     }
