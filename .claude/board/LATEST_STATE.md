@@ -1,3 +1,11 @@
+## 2026-10-21 — D-RFT-0 / D-QSP-0: Kleene form of set normalization (in PR)
+
+- **Contract:** `set_algebra::{Logic, normalize_kleene, normalize_with}` added; `normalize` unchanged (two-valued). `set_rules::SetNormalize` under `Truth::ThreeValued` now applies the Kleene form instead of refusing (its `CATALOGUE` entry has no refusals). Example `k3_pg_parity` (PostgreSQL differential, skips without a server). Entries `entries/2026-10-21-d-rft-0-kleene-normalization.md` and `entries/2026-10-21-d-rft-d-lfa-0-assessment.md` (docs-only D-RFT-1..5 sequence, D-LFA-0 census).
+
+### Current Contract Inventory — net delta (`set_algebra.rs`, `set_rules.rs`)
+
+- `set_algebra::Logic { TwoValued, Kleene }`, `normalize_kleene`, `normalize_with` added. No type removed; `normalize`'s output is unchanged.
+
 ## 2026-10-21 — main after #1659 (merged `1c161533`)
 
 - **On main:** #1659 (zero-copy joins in mork-pathmap-probe / crepe-plan-probe; ClassView × DR IAM probe; hypothesis-atomization guardrails; coresearch exploration map). Contract inventory: unchanged (lab crates and board only). One FAILED GATE carried: no-pruning arms at n = 50 000.
