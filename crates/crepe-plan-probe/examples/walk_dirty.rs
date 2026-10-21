@@ -8,6 +8,7 @@
 //! ```text
 //! cargo run --release --example walk_dirty    # arms A, A′ (three variants), B and C
 //! cargo test --example walk_dirty             # correctness and the two switches
+//! cargo run --release --example walk_dirty -- --sweep   # chain length x fan-out x foci
 //! ```
 //!
 //! # The two switches
@@ -348,10 +349,93 @@ fn ratio(x: Duration, y: Duration) -> String {
     format!("{:.2}×", x.as_secs_f64() / y.as_secs_f64())
 }
 
+/// A chain of `len` nodes (lengths as in `chain`: 0, and 1 every tenth hop)
+/// where each node has `fan - 1` extra edges to a node up to 8 ahead.
+fn chain_fan(len: i32, fan: usize, seed: u64) -> Vec<Edge> {
+    let mut s = seed;
+    let mut next = move || {
+        s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = s;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    };
+    let mut e = Vec::new();
+    for i in 0..len - 1 {
+        let l = u32::from(i % 10 == 9);
+        e.push((i, i + 1, l));
+        for _ in 1..fan {
+            let j = (i + 1 + (next() % 8) as i32).min(len - 1);
+            e.push((i, j, l));
+        }
+    }
+    e
+}
+
+/// The chain sweep: A, A′ (both switches) and C over chain length, fan-out
+/// and, through the length, the number of foci.
+fn sweep() {
+    println!("# chain sweep (ms, median of {REPS}; C uses {DEFAULT_M} x {DEFAULT_M} microtiles)\n");
+    println!(
+        "| len | fan | foci | A count | A′ count | C count | C/A′ count | A e2e | A′ e2e | C e2e | C/A′ e2e | oracle |"
+    );
+    println!("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+    let both = VARIANTS[3].1;
+    for len in [128, 256, 384, 512, 768] {
+        for fan in [1, 2, 4] {
+            let e = chain_fan(len, fan, 0xC4A1 + fan as u64);
+            let n = width(&e);
+            let (t_a, a) = timed(|| {
+                let p = mask_walk(n, &e);
+                black_box(p.counts());
+                p
+            });
+            let (t_d, d) = timed(|| {
+                let d = dirty_walk(n, &e, both);
+                black_box(d.planes.counts());
+                d
+            });
+            let c: Vec<_> = (0..REPS)
+                .map(|_| sparse_eval(&e, DEFAULT_M, usize::MAX).expect("C answers"))
+                .collect();
+            let t_c = median(c.iter().map(|r| r.e2e_count()).collect());
+            let t_c_e2e = median(c.iter().map(|r| r.e2e()).collect());
+            let (t_a_dec, at) = timed(|| a.tuples());
+            let (t_d_dec, dt) = timed(|| d.planes.tuples());
+            agree(&dt, &at).unwrap_or_else(|x| panic!("len {len} fan {fan} A′: {x}"));
+            let c_last = c.into_iter().last().expect("REPS > 0");
+            agree(&c_last.tuples, &at).unwrap_or_else(|x| panic!("len {len} fan {fan} C: {x}"));
+            let oracle = if len as usize <= ORACLE_MAX_NODES {
+                agree(&at, &ascent_tuples(&e)).unwrap_or_else(|x| panic!("{x}"));
+                agree(&at, &crepe_tuples(&e)).unwrap_or_else(|x| panic!("{x}"));
+                "= ascent = crepe"
+            } else {
+                "UNCHECKED"
+            };
+            println!(
+                "| {len} | {fan} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {oracle} |",
+                c_last.pages,
+                ms(t_a),
+                ms(t_d),
+                ms(t_c),
+                ratio(t_c, t_d),
+                ms(t_a + t_a_dec),
+                ms(t_d + t_d_dec),
+                ms(t_c_e2e),
+                ratio(t_c_e2e, t_d + t_d_dec),
+            );
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).map(String::as_str) == Some("--resident") {
         child(&args[2], &args[3]);
+        return;
+    }
+    if args.get(1).map(String::as_str) == Some("--sweep") {
+        sweep();
         return;
     }
     println!("# count-only (ms, median of {REPS})\n");
@@ -560,6 +644,16 @@ mod tests {
         );
         assert_eq!(both.row_reads, skip.row_reads);
         assert!(both.sweep_words <= touched.sweep_words);
+    }
+
+    #[test]
+    fn the_sweep_generator_across_foci() {
+        // Fan-out 4 over two foci, oracle-checked like every sweep point.
+        let e = chain_fan(300, 4, 0xC4A5);
+        check(&e);
+        let r = sparse_eval(&e, DEFAULT_M, usize::MAX).expect("C answers");
+        assert_eq!(r.pages, 2);
+        agree(&r.tuples, &ascent_tuples(&e)).unwrap_or_else(|d| panic!("C: {d}"));
     }
 
     #[test]
