@@ -542,8 +542,15 @@ impl Filter {
     /// non-nullable query lowers to exactly the program it lowered to
     /// before. A subtree that reads no listed column is reused as written.
     ///
-    /// Out of scope here: a NULL literal (`x = NULL`, `x NOT IN (1, NULL)`),
-    /// `COALESCE`/`NULLIF`, and nullable arithmetic. Aggregates are
+    /// A NULL literal needs nothing new here. SQL NULL is absence of validity,
+    /// never `0` and never FALSE: bind a NULL operand as a column whose value
+    /// lane is an alias of any lane and whose validity plane is all clear, and
+    /// list it in `nullable`. Its leaf then has `T = F = ∅` on every row, so
+    /// `x = NULL` is UNKNOWN and `x NOT IN (1, NULL)` is never TRUE. A FALSE
+    /// literal is a [`Filter::Plane`] over an all-zero plane, which is present:
+    /// its `F` is every row. Pinned in `tests/sql_null_operand.rs`.
+    ///
+    /// Out of scope here: `COALESCE`/`NULLIF` and nullable arithmetic. Aggregates are
     /// unchanged: `COUNT(x)`, `SUM(x)` and the rest still take `valid(x)` in
     /// their filter, as before.
     pub fn sql_where(&self, nullable: &[(Col, Mask)]) -> Filter {
