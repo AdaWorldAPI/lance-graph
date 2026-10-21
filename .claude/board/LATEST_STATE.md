@@ -1,3 +1,7 @@
+## 2026-10-21 — D-CMR-2b measured: a scratch-free `Pred` fold does not pay (in PR)
+
+- **mask-risc (lab example only, no library change):** `examples/pred_scratch_probe.rs`. Against today's tiled path with reused scratch, a fused compare-and-count fold gains at most ~5 % at one tile and 0–4 % from 1M rows, inside a null arm's spread; it is slower where no pass is saved. Phase 2 (a `Pred` lowering in `ir.rs` / `exec.rs`) is not supported. Entry `entries/2026-10-21-d-cmr-2b-scratch-probe.md`. Contract inventory: unchanged.
+
 ## 2026-10-21 — main after #1654 (merged `d754128`)
 
 - **On main:** #1652, #1653, #1654 (D-RA-2 repoint of relalg `symbolic` onto `contract::set_rules`; `Rule::{EmptyMeasure, CountAll}`; #1651 closeout). Contract inventory delta: two `set_rules::Rule` variants (see the D-RA-2 section below).
