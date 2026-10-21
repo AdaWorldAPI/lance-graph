@@ -11,18 +11,22 @@
 //! Parity is checked against datafrog at every size and against the nested-loop
 //! reference up to 10,000 rows. Timings are medians of `REPS` runs.
 
-use std::collections::BTreeMap;
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
 use crepe_plan_probe::logic::{Labels, Rule, resolve};
 use crepe_plan_probe::mork_api::{admit, query_multi};
-use crepe_plan_probe::native::{StarPlan, Store, bindings, joint, prepare, prepare_semijoin, star};
+use crepe_plan_probe::native::{
+    DistinctGroup, RuleFilter, StarPlan, StarView, Store, add_distinct, canonical, joint, kept,
+    narrow_center, prepare, prepare_semijoin, star,
+};
 use crepe_plan_probe::optimize::{Demand, Options, ResultKind, optimize};
+use crepe_plan_probe::pipeline::Answers;
 use crepe_plan_probe::programs::family;
 use crepe_plan_probe::reference;
 use lance_graph_relalg::{Measure, Rel, normalize};
 use mork_pathmap_probe::Semantics;
+use mork_pathmap_probe::join::Side;
 
 const REPS: usize = 31;
 
@@ -183,23 +187,38 @@ fn main() {
                 programs += run.programs;
                 ops += prog.map_or(0, |p| p.ops.len());
             }
+            // The terminal: each rule's kept mask folded into the free
+            // column's distinct values (a value-space mask). No row is built.
             let answer = || {
-                let mut out: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
+                let mut groups: Vec<DistinctGroup> = Vec::new();
                 for (s, p) in stars.iter().zip(&preps) {
-                    for (row, m) in bindings(p, s, &gens(s), false).unwrap() {
-                        *out.entry(row).or_insert(0) += m;
-                    }
+                    let (mut mask, _, _) = kept(p, s, &gens(s)).unwrap();
+                    let Some(filter) = RuleFilter::of(s, &opt.post_filter) else {
+                        continue;
+                    };
+                    narrow_center(&mut mask, &p.table.domain, &filter);
+                    let sides: Vec<&Side> = p.table.sides.iter().collect();
+                    let view = StarView {
+                        domain: &p.table.domain,
+                        sides: &sides,
+                        star: s,
+                    };
+                    add_distinct(&view, &mask, &filter, &mut groups).unwrap();
                 }
-                out.retain(|row, _| {
-                    row.iter()
-                        .zip(&opt.post_filter)
-                        .all(|(v, f)| f.is_none_or(|f| f == *v))
-                });
-                out.into_keys().collect::<Vec<_>>()
+                canonical(&mut groups);
+                groups
             };
             let terminal_t = time(answer);
-            let got = answer();
-            let parity = got == df && reference.as_ref().is_none_or(|r| *r == got);
+            // Parity against the oracles, outside the timed terminal, by
+            // folds: same count, and every oracle row answered once.
+            let got = Answers::Distinct(answer());
+            let agrees = |rows: &[Vec<u64>]| {
+                got.total(&[]) == rows.len() as u64
+                    && rows
+                        .iter()
+                        .all(|r| got.matching(&[], |c| r.get(c).copied()) == 1)
+            };
+            let parity = agrees(&df) && reference.as_deref().is_none_or(agrees);
             println!(
                 "{n},{name},{},{},{},{},{},{:.1},{},{:.1},{},{},{programs},{ops},{},{}",
                 plan_t.as_nanos(),
@@ -212,7 +231,7 @@ fn main() {
                 terminal_t.as_secs_f64() * 1e6,
                 preps.iter().map(|p| p.rows_prepared).sum::<usize>(),
                 opt.rules.len(),
-                got.len(),
+                got.total(&[]),
                 if parity { "ok" } else { "MISMATCH" },
             );
             assert!(parity, "answers differ from the oracles at n = {n}, {name}");

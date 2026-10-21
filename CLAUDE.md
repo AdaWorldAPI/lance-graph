@@ -14,6 +14,73 @@
 
 `.grok/board/CLAUDE_LANE_FOLD_CAPSTONE.md`. Settled numbers, the ten open points, the refusal list. Do not re-derive. Do not cite 0.6 ns as a join.
 
+## P0 — no millisecond results, anywhere, ever
+
+**Nanoseconds for a single operation. At most microseconds for a batch. A
+result in milliseconds is a failed gate, never a measurement to report,
+discuss, commit or push.** This holds for lab crates, probes, examples,
+benchmarks and PR bodies alike.
+
+- DECISION (2026-10-21): an ms number means the work left the fold. The
+  substrate's reference is mask-risc / Quack, which fold over u64 mask words
+  into a terminal (`Count`, `Any`, `Keep`, …) in nanoseconds;
+  `folding-doctrine.md` §6.2 records 56 ns fused against 138 620 ns
+  materialized for the same query.
+- BASIS: every ms result seen so far came from leaving that path. Examples:
+  `crepe-plan-probe::native::tuples_over_mask` (a heap row per result, a copy
+  per combination, then sort and merge: 243–310 ms), and a count "fold" made of
+  scalar loops plus a per-slot sort (1.2–1.6 ms; pushed, then reverted in
+  `c49db8dc`). See `.claude/board/entries/2026-10-21-coresearch-ms-vs-ns-folding.md`.
+- **The mental model.** A value is read through a template, never split into
+  objects. PowerShell's `"{0}..{15}" -f $lane.split` builds nothing: it names
+  positions 0–15 of one value and reads them in place. A ClassView carving
+  (`6×(u8:u8)`, `4×(u8:u8:u8)`, `3×(u8:u8:u8:u8)`) is that template over the
+  16-byte facet. A fold acts on all positions at once (one compare → one mask).
+  A tuple, by contrast, is the value split into owned heap objects. It
+  discards the template, and it is where the milliseconds come from.
+- **A tuple is a violation on four levels** (2026-10-21), and no part of a
+  tuple builder is kept:
+  1. **Zero copy:** copying lane values into owned rows makes a second owner
+     of bytes the substrate already holds (`.claude/knowledge/zero-copy-lens-law.md`:
+     no escape hatch, no cost argument).
+  2. **Folding:** it enumerates where a fold belongs.
+  3. **Natural order:** the substrate already holds rows in its natural order
+     (mask/lane slot order, readable in place). Sorting decoded rows ignores
+     that order and imposes another one on copies. Order belongs to the
+     substrate's coordinates, never to decoded rows.
+  4. **Time:** the per-row alloc, clone and sort is where the milliseconds
+     come from.
+  It is a violation as an intermediate or a final answer, at any speed. A fold
+  that happens to sit inside a tuple builder (for example multiplying side
+  counts) is not "the good half": it belongs at the terminal, over the kept
+  mask.
+- **What follows for a session:**
+  - **Before reporting any timing,** check the unit. ms → stop; find where
+    the path left the mask-risc terminals.
+  - **Never decode a join or population into owned rows** (`Vec<Vec<_>>`,
+    `Vec<(Vec<_>, _)>`, tuple sets) to answer count, exists, sum, min, max or
+    group. Those are folds.
+  - **Never invent a "reference" or tuple decoder** that was not asked for.
+  - **mask-risc is the reference folding algebra.** Do not change it for a
+    new algebra until tests prove the new algebra also runs in nanoseconds.
+- SCOPE: every crate in this workspace, plus every number quoted in a board
+  entry, plan, PR or Linear comment.
+- **There are no boundaries** (2026-10-21). The whole substrate is zero copy:
+  no membrane, wire, process edge or "consumer side" where values get copied
+  out. The only "exception" is the **inversion, global to local**, and it is
+  still zero copy: the one thing it materializes is the pointer table `$i`
+  (the local positions). Everything else is read in place through `$i`.
+  - **A "tuple" is a zero-copy fold template,** never a value:
+    `"{0}{1}" -f $laneA[$i],$laneB[$i]` reads column 0 from lane A and column
+    1 from lane B at position `$i`. Whole-template form:
+    `"{$i[0]}..{$i[15]}" -f $table{$i[0]}..$table{$i[15]}`.
+  - **Violation:** a `(Guid, Guid)` pair stored or returned as a value (as in
+    dir-sim). **Correct:** two lanes, one pointer table, the template read at
+    `$i`.
+  - This holds for tests and oracles too: answers are compared by folds
+    through the template, never by expanding them into rows.
+- REVISIT WHEN: never on cost grounds.
+
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
 **Always depend on the AdaWorldAPI fork of any crate that has one. NEVER use the

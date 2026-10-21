@@ -18,8 +18,10 @@
 //!    [`share`] lifts every part two or more of the group's rules hold into
 //!    a let (`lance_graph_contract::set_program`);
 //! 4. [`run_program`] evaluates each let once into a plane and every rule
-//!    over the sides plus those planes. The tuples are read per rule with
-//!    [`tuples_over_mask`], exactly as the per-rule path reads them.
+//!    over the sides plus those planes. Each rule's kept mask then goes
+//!    through the same fold terminals as the per-rule path
+//!    ([`crate::native::bag_count`], [`crate::native::add_distinct`], …);
+//!    no row is built.
 //!
 //! Width is the price. A side is laid out densely over its table's domain,
 //! so a table pays per slot for every side it holds. [`Layout::OneTable`]
@@ -46,9 +48,12 @@ use mork_pathmap_probe::Semantics;
 use mork_pathmap_probe::join::{JoinRefusal, Side};
 
 use crate::logic::{Rule, VarId};
-use crate::native::{PreparedStar, SideKey, SidePlan, StarPlan, Store, prepare, tuples_over_mask};
+use crate::native::{
+    DistinctGroup, PreparedStar, RuleCoordinates, RuleFilter, SideKey, SidePlan, StarPlan,
+    StarView, Store, add_distinct, any_derivation, bag_count, canonical, narrow_center, prepare,
+};
 use crate::optimize::{Demand, Options, ResultKind};
-use crate::pipeline::{Outcome, PipelineRefusal, Planned, plan};
+use crate::pipeline::{Answers, Outcome, PipelineRefusal, Planned, plan};
 
 /// How the stars are laid out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -217,7 +222,7 @@ pub enum CseRefusal {
 
 /// What one shared evaluation cost, each part on its own, summed over the
 /// groups.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct SharedReport {
     /// Tables laid out.
     pub groups: usize,
@@ -238,10 +243,14 @@ pub struct SharedReport {
     pub share: Duration,
     /// The folds: lets and rules.
     pub fold: Duration,
-    /// Reading the tuples over the kept masks.
-    pub tuples: Duration,
-    /// All of the run half: checks, share, folds, tuples.
+    /// The terminal folds over the kept masks.
+    pub terminal: Duration,
+    /// All of the run half: checks, share, folds, terminal.
     pub execute: Duration,
+    /// The shared tables, in group order: what [`Answers::Derivations`]
+    /// addresses. Filled by [`evaluate_shared`], which owns them;
+    /// [`execute_shared`] leaves it empty (the caller holds the tables).
+    pub tables: Vec<PreparedStar>,
 }
 
 /// The program a group runs: its rules over the table's sides, with the
@@ -283,6 +292,7 @@ pub fn evaluate_shared(
     let (outcome, mut report) = execute_shared(&planned, &shared, kind, &gens, sharing)?;
     report.plan = plan_cost;
     report.prepare = prepare_cost;
+    report.tables = shared.groups.into_iter().map(|g| g.prepared).collect();
     Ok((outcome, report))
 }
 
@@ -346,8 +356,10 @@ pub fn execute_shared(
         ..SharedReport::default()
     };
     let mut any = false;
-    let mut bag: BTreeMap<Vec<u64>, u64> = BTreeMap::new();
-    for (group, gens) in shared.groups.iter().zip(generations) {
+    let mut derivations = 0u64;
+    let mut groups: Vec<DistinctGroup> = Vec::new();
+    let mut coordinates: Vec<RuleCoordinates> = Vec::new();
+    for (gi, (group, gens)) in shared.groups.iter().zip(generations).enumerate() {
         let table = &group.prepared.table;
         if gens.len() != table.sides.len() {
             return Err(CseRefusal::Generations {
@@ -378,6 +390,7 @@ pub fn execute_shared(
         let tf = Instant::now();
         let run = run_program(&prog, version, &planes, &vec![measure; rules], &mut sinks)
             .map_err(CseRefusal::Program)?;
+        drop(sinks);
         report.fold += tf.elapsed();
 
         let tt = Instant::now();
@@ -385,17 +398,44 @@ pub fn execute_shared(
             any |= run.answers.iter().any(|a| *a != Answer::Count(0));
         } else {
             for (i, &j) in group.stars.iter().enumerate() {
+                let star = &planned.stars[j];
+                let Some(filter) = RuleFilter::of(star, &planned.optimized.post_filter) else {
+                    continue;
+                };
+                let mut mask = std::mem::take(&mut kept[i]);
+                narrow_center(&mut mask, &table.domain, &filter);
                 let sides: Vec<&Side> = group.rule_sides[i]
                     .iter()
                     .map(|&k| &table.sides[k])
                     .collect();
-                let star = &planned.stars[j];
-                for (row, m) in tuples_over_mask(&table.domain, &sides, star, &kept[i], true) {
-                    *bag.entry(row).or_insert(0) += m;
+                let view = StarView {
+                    domain: &table.domain,
+                    sides: &sides,
+                    star,
+                };
+                let rule = planned.optimized.rules[j].0;
+                match kind {
+                    ResultKind::Exists => any |= any_derivation(&view, &mask, &filter),
+                    ResultKind::Count(Semantics::Bag) => {
+                        derivations += bag_count(&view, &mask, &filter)
+                    }
+                    ResultKind::Count(Semantics::Set) | ResultKind::Bindings(Semantics::Set) => {
+                        add_distinct(&view, &mask, &filter, &mut groups).map_err(|why| {
+                            CseRefusal::Pipeline(PipelineRefusal::Set { rule, why })
+                        })?
+                    }
+                    ResultKind::Bindings(Semantics::Bag) => coordinates.push(RuleCoordinates {
+                        rule,
+                        table: gi,
+                        sides: group.rule_sides[i].clone(),
+                        star: star.clone(),
+                        filter,
+                        kept: mask,
+                    }),
                 }
             }
         }
-        report.tuples += tt.elapsed();
+        report.terminal += tt.elapsed();
         report.sides += table.sides.len();
         report.domain += n;
         report.rows_prepared += group.prepared.rows_prepared;
@@ -410,25 +450,19 @@ pub fn execute_shared(
         report.cost.max_scratch_slots = report.cost.max_scratch_slots.max(c.max_scratch_slots);
     }
     let tt = Instant::now();
-    let outcome = if mask_only {
-        Outcome::Exists(any)
-    } else {
-        bag.retain(|row, _| {
-            row.iter()
-                .zip(&planned.optimized.post_filter)
-                .all(|(v, f)| f.is_none_or(|f| f == *v))
-        });
-        match kind {
-            ResultKind::Exists => Outcome::Exists(!bag.is_empty()),
-            ResultKind::Count(Semantics::Set) => Outcome::Count(bag.len() as u64),
-            ResultKind::Count(Semantics::Bag) => Outcome::Count(bag.values().sum()),
-            ResultKind::Bindings(Semantics::Set) => {
-                Outcome::Bindings(bag.into_keys().map(|r| (r, 1)).collect())
-            }
-            ResultKind::Bindings(Semantics::Bag) => Outcome::Bindings(bag.into_iter().collect()),
+    canonical(&mut groups);
+    let outcome = match kind {
+        ResultKind::Exists => Outcome::Exists(any),
+        ResultKind::Count(Semantics::Bag) => Outcome::Count(derivations),
+        ResultKind::Count(Semantics::Set) => {
+            Outcome::Count(groups.iter().map(DistinctGroup::len).sum())
+        }
+        ResultKind::Bindings(Semantics::Set) => Outcome::Bindings(Answers::Distinct(groups)),
+        ResultKind::Bindings(Semantics::Bag) => {
+            Outcome::Bindings(Answers::Derivations(coordinates))
         }
     };
-    report.tuples += tt.elapsed();
+    report.terminal += tt.elapsed();
     report.execute = t.elapsed();
     Ok((outcome, report))
 }

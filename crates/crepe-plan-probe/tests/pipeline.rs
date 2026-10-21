@@ -7,11 +7,11 @@ use std::collections::BTreeMap;
 use crepe_plan_probe::logic::{Labels, RelId, Rule, resolve};
 use crepe_plan_probe::mork_api::{Expr, MorkRefusal, QueryMulti, admit, query_multi, render};
 use crepe_plan_probe::native::{
-    NativeRefusal, SideKey, Store, distinct_centers, fingerprint, has_foreign_hop, joint, prepare,
-    star,
+    NativeRefusal, PreparedStar, SetRefusal, SideKey, Store, distinct_centers, fingerprint,
+    has_foreign_hop, joint, prepare, star,
 };
 use crepe_plan_probe::optimize::{Demand, Options, ResultKind, Rewrite};
-use crepe_plan_probe::pipeline::{Outcome, PipelineRefusal, evaluate};
+use crepe_plan_probe::pipeline::{Answers, Outcome, PipelineRefusal, Report};
 use crepe_plan_probe::plan::Plan;
 use crepe_plan_probe::programs::{family, family_noisy, refused, star3, two_way};
 use crepe_plan_probe::{logic, reference};
@@ -19,6 +19,154 @@ use lance_graph_mask_risc::{MaskOp, Operand, Program, Terminal};
 use lance_graph_relalg::{Measure, Rel, normalize};
 use mork_pathmap_probe::join::{JoinRefusal, JoinTable};
 use mork_pathmap_probe::{Backend, JoinInput, RelationView, Semantics, bind, capability};
+
+// ---------------------------------------------------------------------------
+// Comparing answers by folds
+// ---------------------------------------------------------------------------
+//
+// No row is built, here or in the library. Bindings stay as the library
+// answered them (value masks, or kept slots over the prepared tables). Two
+// answers are equal when their totals agree and every row one of them reads
+// (through its head template, over the lanes in place) is answered the same
+// number of times by the other. Expected rows are written out by the test.
+
+#[derive(Debug, Clone, PartialEq)]
+enum Norm {
+    Exists(bool),
+    Count(u64),
+    Bindings(Bound),
+}
+
+/// A bindings answer with the tables its coordinates address.
+#[derive(Clone)]
+struct Bound {
+    answers: Answers,
+    tables: Vec<PreparedStar>,
+}
+
+impl Bound {
+    fn total(&self) -> u64 {
+        self.answers.total(&self.tables)
+    }
+
+    /// Rows reading as `pattern` (`None`: any value).
+    fn count(&self, pattern: &[Option<u64>]) -> u64 {
+        self.answers
+            .matching(&self.tables, |c| pattern.get(c).copied().flatten())
+    }
+}
+
+impl std::fmt::Debug for Bound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bound {{ total: {} }}", self.total())
+    }
+}
+
+impl PartialEq for Bound {
+    fn eq(&self, other: &Bound) -> bool {
+        if self.total() != other.total() {
+            return false;
+        }
+        let mut same = true;
+        self.answers.for_each(&self.tables, |get, _| {
+            if same {
+                let me = |c: usize| Some(get(c));
+                same = self.answers.matching(&self.tables, me)
+                    == other.answers.matching(&other.tables, me);
+            }
+        });
+        same
+    }
+}
+
+/// Against rows the test writes out: same total, and each row answered
+/// exactly its multiplicity.
+impl PartialEq<Vec<(Vec<u64>, u64)>> for Bound {
+    fn eq(&self, want: &Vec<(Vec<u64>, u64)>) -> bool {
+        self.total() == want.iter().map(|(_, m)| m).sum::<u64>()
+            && want
+                .iter()
+                .all(|(row, m)| self.answers.matching(&self.tables, |c| row.get(c).copied()) == *m)
+    }
+}
+
+fn norm(o: &Outcome, tables: &[PreparedStar]) -> Norm {
+    match o {
+        Outcome::Exists(b) => Norm::Exists(*b),
+        Outcome::Count(n) => Norm::Count(*n),
+        Outcome::Bindings(a) => Norm::Bindings(Bound {
+            answers: a.clone(),
+            tables: tables.to_vec(),
+        }),
+    }
+}
+
+fn evaluate(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &Store<'_>,
+) -> Result<(Norm, Report), PipelineRefusal> {
+    crepe_plan_probe::pipeline::evaluate(rules, demand, kind, opts, store)
+        .map(|(o, rep)| (norm(&o, &rep.tables), rep))
+}
+
+async fn evaluate_lance(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &crepe_plan_probe::lance_store::LanceStore,
+) -> Result<
+    (
+        Norm,
+        Report,
+        Vec<Vec<crepe_plan_probe::lance_store::SideIo>>,
+    ),
+    PipelineRefusal,
+> {
+    crepe_plan_probe::pipeline::evaluate_lance(rules, demand, kind, opts, store)
+        .await
+        .map(|(o, rep, io)| (norm(&o, &rep.tables), rep, io))
+}
+
+type AddressedRun = (
+    Norm,
+    Report,
+    Vec<Vec<crepe_plan_probe::lance_store::SideIo>>,
+    Vec<Vec<crepe_plan_probe::addressed::Lookup>>,
+);
+
+async fn evaluate_addressed(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &crepe_plan_probe::lance_store::LanceStore,
+    lanes: &[crepe_plan_probe::addressed::AddressedRelation],
+) -> Result<AddressedRun, PipelineRefusal> {
+    crepe_plan_probe::pipeline::evaluate_addressed(rules, demand, kind, opts, store, lanes)
+        .await
+        .map(|(o, rep, io, l)| (norm(&o, &rep.tables), rep, io, l))
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn evaluate_addressed_with(
+    rules: &[Rule],
+    demand: &Demand,
+    kind: ResultKind,
+    opts: Options,
+    store: &crepe_plan_probe::lance_store::LanceStore,
+    lanes: &[crepe_plan_probe::addressed::AddressedRelation],
+    policy: crepe_plan_probe::addressed::ReadPolicy,
+) -> Result<AddressedRun, PipelineRefusal> {
+    crepe_plan_probe::pipeline::evaluate_addressed_with(
+        rules, demand, kind, opts, store, lanes, policy,
+    )
+    .await
+    .map(|(o, rep, io, l)| (norm(&o, &rep.tables), rep, io, l))
+}
 
 const SET: Semantics = Semantics::Set;
 const BAG: Semantics = Semantics::Bag;
@@ -110,9 +258,9 @@ fn as_set(bag: &BTreeMap<Vec<u64>, u64>) -> Vec<(Vec<u64>, u64)> {
     bag.keys().map(|k| (k.clone(), 1)).collect()
 }
 
-fn bindings(o: Outcome) -> Vec<(Vec<u64>, u64)> {
+fn bindings(o: Norm) -> Bound {
     match o {
-        Outcome::Bindings(b) => b,
+        Norm::Bindings(b) => b,
         other => panic!("expected bindings, got {other:?}"),
     }
 }
@@ -409,9 +557,9 @@ fn f_set_and_bag_answers_are_not_confused() {
     );
     for opts in [Options::ALL, Options::NONE] {
         let count = |k| evaluate(&rules, &d, k, opts, &st).unwrap().0;
-        assert_eq!(count(ResultKind::Count(BAG)), Outcome::Count(derivations));
-        assert_eq!(count(ResultKind::Count(SET)), Outcome::Count(3));
-        assert_eq!(count(ResultKind::Exists), Outcome::Exists(true));
+        assert_eq!(count(ResultKind::Count(BAG)), Norm::Count(derivations));
+        assert_eq!(count(ResultKind::Count(SET)), Norm::Count(3));
+        assert_eq!(count(ResultKind::Exists), Norm::Exists(true));
     }
     // MORK stores sets: asked for a bag it refuses, never answers 1s.
     assert!(capability(Backend::Mork, BAG).is_err());
@@ -572,13 +720,24 @@ fn j_two_way_join_equals_mork_and_the_reference() {
         bound: vec![None, None, None],
     };
     let want_bag = reference::eval(&rules, d.goal, &d.bound, &raw(&labels, &st));
-    let (set, _) = evaluate(&rules, &d, ResultKind::Bindings(SET), Options::ALL, &st).unwrap();
+    // Three free head columns: distinct rows over them need a seen-set over
+    // value triples, which no fold gives. Refused, never deduplicated by a
+    // sort (GAP-A2).
+    for kind in [ResultKind::Bindings(SET), ResultKind::Count(SET)] {
+        assert!(
+            matches!(
+                evaluate(&rules, &d, kind, Options::ALL, &st),
+                Err(PipelineRefusal::Set {
+                    why: SetRefusal::MultiColumn { free: 3 },
+                    ..
+                })
+            ),
+            "{kind:?}"
+        );
+    }
     let (bag, _) = evaluate(&rules, &d, ResultKind::Bindings(BAG), Options::ALL, &st).unwrap();
-    assert_eq!(bindings(set.clone()), as_set(&want_bag));
-    assert_eq!(
-        bindings(bag),
-        want_bag.clone().into_iter().collect::<Vec<_>>()
-    );
+    let bag = bindings(bag);
+    assert_eq!(bag, want_bag.clone().into_iter().collect::<Vec<_>>());
 
     let input = JoinInput {
         r: RelationView {
@@ -591,14 +750,84 @@ fn j_two_way_join_equals_mork_and_the_reference() {
         },
     };
     let mut mork = bind(Backend::Mork, &input, SET).expect("MORK builds");
-    let mork_rows: Vec<(Vec<u64>, u64)> = mork
-        .answers(&input)
-        .expect("MORK answers")
-        .rows
-        .keys()
-        .map(|t| (t.iter().map(|&v| u64::from(v)).collect(), 1))
-        .collect();
-    assert_eq!(bindings(set), mork_rows, "MORK");
+    // MORK answers the set: exactly the bag's distinct rows, each answered.
+    let mork_rows = mork.answers(&input).expect("MORK answers").rows;
+    assert_eq!(mork_rows.len(), want_bag.len(), "MORK");
+    for t in mork_rows.keys() {
+        let n = bag
+            .answers
+            .matching(&bag.tables, |c| t.get(c).map(|&v| u64::from(v)));
+        assert_eq!(n, want_bag[&t.map(u64::from).to_vec()], "MORK row {t:?}");
+    }
+}
+
+/// FAILS IF: a demand on the join variable that is not pushed into the rule
+/// (propagation off, so it stays a post filter on the center) is not applied
+/// to the kept slots. Bag, count and exists would then answer every center.
+/// Both the per-star pipeline and the shared path are checked.
+#[test]
+fn j2_a_post_filter_on_the_center_narrows_the_kept_slots() {
+    use crepe_plan_probe::cse::{Layout, evaluate_shared};
+    let plan = two_way::crepe_plan();
+    let (labels, rules) = resolved(&plan);
+    let r: Vec<[u32; 2]> = (0..120u32).map(|i| [i, i % 17]).collect();
+    let s: Vec<[u32; 2]> = (0..90u32).map(|i| [i % 23, 500 + i]).collect();
+    let st = Store {
+        relations: vec![
+            (labels.id("R").unwrap(), &r, 1),
+            (labels.id("S").unwrap(), &s, 1),
+        ],
+    };
+    let goal = labels.id("T").unwrap();
+    let no_push = Options {
+        propagate: false,
+        ..Options::ALL
+    };
+    let all = reference::eval(&rules, goal, &[None, None, None], &raw(&labels, &st));
+    // y = 5 joins (R and S both hold it); y = 20 is only in S, so nothing.
+    for (y, nonempty) in [(5u64, true), (20, false)] {
+        let d = Demand {
+            goal,
+            bound: vec![None, Some(y), None],
+        };
+        let want: Vec<(Vec<u64>, u64)> =
+            reference::eval(&rules, goal, &d.bound, &raw(&labels, &st))
+                .into_iter()
+                .collect();
+        let derivations: u64 = want.iter().map(|(_, m)| m).sum();
+        assert_eq!(!want.is_empty(), nonempty, "fixture, y = {y}");
+        // Not vacuous: the filter drops most of the unfiltered answer.
+        assert!(want.len() * 3 < all.len(), "y = {y} keeps too much");
+        let (b, _) = evaluate(&rules, &d, ResultKind::Bindings(BAG), no_push, &st).unwrap();
+        assert_eq!(bindings(b), want, "pipeline bag, y = {y}");
+        let (c, _) = evaluate(&rules, &d, ResultKind::Count(BAG), no_push, &st).unwrap();
+        assert_eq!(c, Norm::Count(derivations), "pipeline count, y = {y}");
+        let (e, _) = evaluate(&rules, &d, ResultKind::Exists, no_push, &st).unwrap();
+        assert_eq!(e, Norm::Exists(nonempty), "pipeline exists, y = {y}");
+        for sharing in [false, true] {
+            let run = |kind| {
+                let (o, rep) =
+                    evaluate_shared(&rules, &d, kind, no_push, &st, Layout::Components, sharing)
+                        .unwrap();
+                norm(&o, &rep.tables)
+            };
+            assert_eq!(
+                bindings(run(ResultKind::Bindings(BAG))),
+                want,
+                "shared bag, y = {y}"
+            );
+            assert_eq!(
+                run(ResultKind::Count(BAG)),
+                Norm::Count(derivations),
+                "shared count"
+            );
+            assert_eq!(
+                run(ResultKind::Exists),
+                Norm::Exists(nonempty),
+                "shared exists"
+            );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -838,7 +1067,6 @@ fn n_semijoin_intersects_two_restricted_sides() {
 mod stage3 {
     use super::*;
     use crepe_plan_probe::lance_store::{LanceStore, SideIo, membership_mask, prepare_lance};
-    use crepe_plan_probe::pipeline::evaluate_lance;
 
     async fn lance_family(labels: &Labels, f: &Family) -> (tempfile::TempDir, LanceStore) {
         let dir = tempfile::tempdir().unwrap();
@@ -1025,9 +1253,7 @@ mod arm_b {
     use crepe_plan_probe::addressed::{AddressedRefusal, AddressedRelation, attest, key};
     use crepe_plan_probe::addressed::{Lookup, Read, ReadPolicy};
     use crepe_plan_probe::lance_store::{LanceStore, SideIo};
-    use crepe_plan_probe::pipeline::{
-        PipelineRefusal, evaluate_addressed, evaluate_addressed_with, evaluate_lance,
-    };
+    use crepe_plan_probe::pipeline::PipelineRefusal;
     use lance_graph_contract::ordered_lane::WitnessError;
 
     struct Fixture {
@@ -1189,7 +1415,7 @@ mod arm_b {
         )
         .await
         .unwrap();
-        assert_eq!(out, Outcome::Count(0));
+        assert_eq!(out, Norm::Count(0));
         let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
         assert_eq!(scanned, 0, "{io:?}");
     }
@@ -1215,7 +1441,7 @@ mod arm_b {
                 .await
                 .unwrap();
         assert_eq!(b, m);
-        assert_eq!(b, Outcome::Count(500));
+        assert_eq!(b, Norm::Count(500));
         let scanned: usize = io.iter().flatten().map(|s| s.rows.rows_scanned).sum();
         assert_eq!(scanned, 3 * 500);
         // The two unrestricted sides each sought the 500 distinct centers.
@@ -1246,8 +1472,8 @@ mod arm_b {
         // Not vacuous: z = 10 comes once through y = 1 and 2 x 2 times through
         // y = 2 (Parent(17, 2) twice, Allowed(2) twice); z = 12 only through
         // y = 2. Without the duplicate fact this is 1 + 2 + 2 = 5.
-        let Outcome::Bindings(rows) = b else { panic!() };
-        let mult = |z: u64| rows.iter().find(|(t, _)| t[1] == z).map_or(0, |(_, n)| *n);
+        let Norm::Bindings(rows) = b else { panic!() };
+        let mult = |z: u64| rows.count(&[None, Some(z)]);
         assert_eq!((mult(10), mult(12)), (5, 4), "{rows:?}");
     }
 
@@ -1337,7 +1563,7 @@ mod arm_b {
             bound: vec![Some(1), None, None],
         };
         let got = evaluate_addressed(&rules, &d, kind, Options::ALL, &lance, &lanes).await;
-        assert_eq!(got.unwrap().0, Outcome::Count(2));
+        assert_eq!(got.unwrap().0, Norm::Count(2));
     }
 
     /// B10: a demand constant above `u32::MAX` matches nothing on every path
@@ -1365,7 +1591,7 @@ mod arm_b {
         }
         // Not vacuous: the memory path answers nothing here.
         let (m, _) = evaluate(&rules, &d, ResultKind::Count(BAG), Options::ALL, &mem).unwrap();
-        assert_eq!(m, Outcome::Count(0));
+        assert_eq!(m, Norm::Count(0));
     }
 
     /// B11: with nothing bound there are no centers, every side is read in
@@ -1381,6 +1607,28 @@ mod arm_b {
             bound: vec![None, None],
         };
         for kind in kinds() {
+            // Unbound, the head has two free columns (x and z): a set answer
+            // is refused by both paths alike (GAP-A2).
+            if matches!(kind, ResultKind::Bindings(SET) | ResultKind::Count(SET)) {
+                let refused = |r: Result<_, PipelineRefusal>| {
+                    matches!(
+                        r,
+                        Err(PipelineRefusal::Set {
+                            why: SetRefusal::MultiColumn { free: 2 },
+                            ..
+                        })
+                    )
+                };
+                assert!(refused(
+                    evaluate(&rules, &d, kind, Options::ALL, &mem).map(|_| ())
+                ));
+                assert!(refused(
+                    evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)
+                        .await
+                        .map(|_| ())
+                ));
+                continue;
+            }
             let (m, _) = evaluate(&rules, &d, kind, Options::ALL, &mem).unwrap();
             let (b, _, _, _) =
                 evaluate_addressed(&rules, &d, kind, Options::ALL, &fx.lance, &fx.lanes)

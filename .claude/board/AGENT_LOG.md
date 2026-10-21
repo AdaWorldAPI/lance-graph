@@ -1,3 +1,8 @@
+## 2026-10-21 — 5+3 council: the tuple is a zero-copy violation (blast radius)
+
+- Five savants: prior-art-savant, iron-rule-savant, runtime-archaeologist (code truth), cascade-impact-savant (blast radius, Opus), creative-explorer-savant. Three reviewers on draft v2 only: overclaim-auditor (2 BLOCK, wording/grading, fixed), dilution-collapse-sentinel (0 BLOCK, 2 collapses restored), firewall-warden (0 BLOCK).
+- Result: `entries/2026-10-21-tuple-zero-copy-council.md`; follow-ups EXO-103..118 on the Linear board. No code changed. Written by the orchestrating main thread only.
+
 ## 2026-10-20 — D-TGB harvest and D-MPS-9 groundwork (Haiku)
 
 - Five runs: `substrate-mapper` over MORK `kernel/src/space.rs` (47 items, six verb bodies verbatim), over `mork-pathmap-probe/src` (267 items), over `lance-graph-quack/src` (201 rows); `harvest-scout` for the write-path symbols (GadamerRevision, pearl, MUL gates, `advance_on_gate`, `LanceCycleWriter`, `EpistemicState5`); `census-counter` (`nal_inventory.tsv` 115 rows / 115 ids, `KanbanColumn` 6, `RevisionKind` 9, `EvidentialEffect` 3, probe tests 42).
