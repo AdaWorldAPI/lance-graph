@@ -557,8 +557,25 @@ impl Runs {
         self.runs.last().map_or(0, |&(_, hi)| hi)
     }
 
+    /// `self ∪ o`: one merge pass over the two canonical lists, O(n + m).
     pub fn union(&self, o: &Runs) -> Runs {
-        Runs::from_intervals(self.runs.iter().chain(o.runs.iter()).copied())
+        let (a, b) = (&self.runs, &o.runs);
+        let (mut i, mut j) = (0, 0);
+        let mut out: Vec<(u64, u64)> = Vec::with_capacity(a.len() + b.len());
+        while i < a.len() || j < b.len() {
+            let next = if j >= b.len() || (i < a.len() && a[i].0 <= b[j].0) {
+                i += 1;
+                a[i - 1]
+            } else {
+                j += 1;
+                b[j - 1]
+            };
+            match out.last_mut() {
+                Some(last) if next.0 <= last.1 => last.1 = last.1.max(next.1),
+                _ => out.push(next),
+            }
+        }
+        Runs { runs: out }
     }
 
     pub fn intersect(&self, o: &Runs) -> Runs {
