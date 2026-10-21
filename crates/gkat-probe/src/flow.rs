@@ -24,13 +24,22 @@
 //! ## Guards and projections
 //!
 //! An observable is declared as Boolean or as three-valued (K3: T, F, U). A
-//! K3 observable occupies two primitive tests, `is_t` and `is_u`, and the
-//! atom set excludes the assignment where both hold, so it has exactly three
-//! values. A K3 observable reaches a Boolean guard only through a declared
-//! projection:
+//! K3 observable is a leaf over a nullable column (`crates/lance-graph-quack`,
+//! `Filter::sql_where`): the column's stored value plus its validity plane.
+//! The leaf is the Boolean read off the stored value, and what that means
+//! depends on the column's type. For a `BOOLEAN` column the leaf is the stored
+//! bit itself (in Quack, a mask plane). For a numeric or text column it is a
+//! comparison such as `rev = 5`, and 0 and 1 in the lane are ordinary
+//! numbers. Either way the observable occupies two tests: `leaf` and `valid`.
+//! Under `valid = 0` no value is stored (PostgreSQL) or the payload is
+//! arbitrary (Quack), so the leaf there reads nothing meaningful. There is no
+//! constraint between the two tests: all four pairs are atoms, and NULL is the
+//! two with `valid = 0`. A K3 observable reaches a Boolean guard only through
+//! a declared projection, and neither projection reads the leaf under a NULL:
 //!
-//! * [`Cond::Where`]: designated `{T}`, i.e. `is_t`;
-//! * [`Cond::Check`]: designated `{T, U}`, i.e. `is_t ∨ is_u`.
+//! * [`Cond::Where`]: designated `{T}`, i.e. `T(φ) = valid ∧ leaf`, what
+//!   Quack's `WHERE` keeps;
+//! * [`Cond::Check`]: designated `{T, U}`, i.e. `¬F(φ) = ¬valid ∨ leaf`.
 //!
 //! A Boolean observable is read with [`Cond::Is`]. Using a K3 projection on a
 //! Boolean observable, or `Is` on a K3 one, is refused.
@@ -114,8 +123,8 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// The primitive test of an observable: `is_t` for K3 (and the only test
-    /// of a Boolean), plus `is_u` for K3.
+    /// The first primitive test of an observable: the leaf for K3
+    /// (followed by its validity bit), or the only test of a Boolean.
     fn tests_of(&self, name: &'static str) -> Result<(Kind, u8), Refusal> {
         let mut next = 0u8;
         for (n, k) in &self.observables {
@@ -151,20 +160,9 @@ impl Signature {
                 max: crate::expr::MAX_TESTS,
             });
         }
-        // Each K3 observable excludes the assignment is_t ∧ is_u.
-        let mut constraint = BExp::True;
-        let mut next = 0u8;
-        for (_, k) in &self.observables {
-            match k {
-                Kind::Bool => next += 1,
-                Kind::K3 => {
-                    constraint =
-                        constraint.and(BExp::Test(next).and(BExp::Test(next + 1)).negated());
-                    next += 2;
-                }
-            }
-        }
-        Atoms::new(tests, &constraint)
+        // No constraint: under a NULL the stored payload, and so the leaf, is
+        // arbitrary. The guards, not the atom set, make NULL one value.
+        Atoms::new(tests, &BExp::True)
     }
 
     /// Lowers a condition to a Boolean test.
@@ -180,7 +178,7 @@ impl Signature {
                 }
             },
             Cond::Where(n) => match self.tests_of(n)? {
-                (Kind::K3, t) => BExp::Test(t),
+                (Kind::K3, t) => BExp::Test(t + 1).and(BExp::Test(t)),
                 (Kind::Bool, _) => {
                     return Err(Refusal::UndeclaredProjection {
                         observable: n,
@@ -189,7 +187,7 @@ impl Signature {
                 }
             },
             Cond::Check(n) => match self.tests_of(n)? {
-                (Kind::K3, t) => BExp::Test(t).or(BExp::Test(t + 1)),
+                (Kind::K3, t) => BExp::Test(t + 1).negated().or(BExp::Test(t)),
                 (Kind::Bool, _) => {
                     return Err(Refusal::UndeclaredProjection {
                         observable: n,
