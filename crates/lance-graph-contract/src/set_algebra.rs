@@ -850,51 +850,55 @@ mod tests {
         [lane(), lane(), lane(), lane()]
     }
 
-    /// Kleene evaluation, by definition: `None` is UNKNOWN. A residual is
-    /// UNKNOWN where its lane is NULL; a `Sym` is two-valued.
-    fn kleene(w: &World, null: &[Vec<bool>; 4], e: &SetExpr, row: usize) -> Option<bool> {
+    /// Kleene evaluation as two masks, `(T, F)`: a row set in neither is
+    /// UNKNOWN. A residual is UNKNOWN where its lane is NULL; a `Sym` is
+    /// two-valued. NOT swaps the masks; AND / OR combine whole masks. The
+    /// oracle never evaluates an expression row by row.
+    fn kleene(w: &World, null: &[Vec<bool>; 4], e: &SetExpr) -> (Vec<bool>, Vec<bool>) {
+        let zip = |a: &[bool], b: &[bool], f: fn(bool, bool) -> bool| -> Vec<bool> {
+            a.iter().zip(b).map(|(x, y)| f(*x, *y)).collect()
+        };
         match e {
-            SetExpr::All => Some(true),
-            SetExpr::Empty => Some(false),
-            SetExpr::Sym(i) => Some(w.syms[*i as usize][row]),
+            SetExpr::All => (vec![true; N], vec![false; N]),
+            SetExpr::Empty => (vec![false; N], vec![true; N]),
+            SetExpr::Sym(i) => {
+                let s = &w.syms[*i as usize];
+                (s.clone(), s.iter().map(|b| !b).collect())
+            }
             SetExpr::Res(r) => {
                 let slot = match *r {
                     Res::I32 { lane, .. } => lane as usize,
                     Res::U32 { lane, .. } => 2 + lane as usize,
                 };
-                (!null[slot][row]).then(|| res_holds(w, *r, row))
+                let holds = eval(w, e);
+                let known: Vec<bool> = null[slot].iter().map(|n| !n).collect();
+                (
+                    zip(&holds, &known, |h, k| h && k),
+                    zip(&holds, &known, |h, k| !h && k),
+                )
             }
-            SetExpr::Not(c) => kleene(w, null, c, row).map(|b| !b),
-            SetExpr::And(cs) => {
-                let mut unknown = false;
-                for c in cs {
-                    match kleene(w, null, c, row) {
-                        Some(false) => return Some(false),
-                        None => unknown = true,
-                        Some(_) => {}
-                    }
-                }
-                (!unknown).then_some(true)
+            SetExpr::Not(c) => {
+                let (t, f) = kleene(w, null, c);
+                (f, t)
             }
-            SetExpr::Or(cs) => {
-                let mut unknown = false;
-                for c in cs {
-                    match kleene(w, null, c, row) {
-                        Some(true) => return Some(true),
-                        None => unknown = true,
-                        Some(_) => {}
-                    }
-                }
-                (!unknown).then_some(false)
-            }
+            SetExpr::And(cs) => cs
+                .iter()
+                .fold((vec![true; N], vec![false; N]), |(t, f), c| {
+                    let (ct, cf) = kleene(w, null, c);
+                    (zip(&t, &ct, |a, b| a && b), zip(&f, &cf, |a, b| a || b))
+                }),
+            SetExpr::Or(cs) => cs
+                .iter()
+                .fold((vec![false; N], vec![true; N]), |(t, f), c| {
+                    let (ct, cf) = kleene(w, null, c);
+                    (zip(&t, &ct, |a, b| a || b), zip(&f, &cf, |a, b| a && b))
+                }),
         }
     }
 
     /// The rows where `e` is TRUE: what a measure counts and `WHERE` keeps.
     fn true_rows(w: &World, null: &[Vec<bool>; 4], e: &SetExpr) -> Vec<bool> {
-        (0..N)
-            .map(|row| kleene(w, null, e, row) == Some(true))
-            .collect()
+        kleene(w, null, e).0
     }
 
     /// FAILS IF: `normalize_kleene` changes the rows where an expression is
