@@ -106,7 +106,7 @@ Bridge findings worth a probe:
 
 ## Open (operator)
 
-1. Does "oracles compare by folds" admit a reference engine that holds tuples internally, if the comparison itself is fold against fold? This decides datafrog's role and the reference evaluators listed above.
+1. ~~Does "oracles compare by folds" admit a reference engine that holds tuples internally?~~ **Answered 2026-10-21:** no (*"It's not smart to compare tuples they are a million times more expensive"*). The datafrog oracle role is withdrawn (see the eval entry's update). The PostgreSQL differential now executes through Quack `sql_where` and mask-risc and compares TRUE and FALSE masks by `Xor` + `Any` (`lance-graph-quack/examples/k3_where_pg_parity.rs`).
 2. Adopt the reconciled D-RFT table (A1) before anyone claims D-RFT-2/4/5 on EXO-50?
 3. Who classifies `Semijoin` under ADMISSION B?
 

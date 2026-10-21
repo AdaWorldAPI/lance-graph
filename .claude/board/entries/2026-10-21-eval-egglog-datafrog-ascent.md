@@ -2,6 +2,17 @@
 
 **Status:** OPEN. This is an exploration map, not a ratification. Nothing in it is measured, and no code was written. The scope is a complement to `lance-graph-relalg`; replacing it is not on the table.
 
+**Update 2026-10-21 (operator decision on oracle scope).** DECISION: *"It's not smart to compare tuples they are a million times more expensive."* SCOPE: every oracle in this workspace, including reference engines used only in tests. BASIS: the 2026-10-21 P0 rule, which already said "answers are compared by folds", now applied to the reference side too. Consequences for this entry:
+
+- **Role (b) is withdrawn for datafrog and Ascent.** Both hold their relations as owned tuples (§2), so neither can serve as an oracle. P-D1, P-A1 and P-A2 are SUPERSEDED.
+- **The replacement oracle is an independent fold.** For D-RFT-3 / D-TGB-10 recursion: a second closure algorithm over the same mask planes (for example Warshall over a ≤256 tile, against iterated frontier masks), compared terminal against terminal. Independence comes from the algorithm, not from a second data model. This is a working model, not yet a probe.
+- **P-E1 keeps its egglog half** (offline, counts only).
+- **The PostgreSQL differential runs through the engine.** `lance-graph-quack/examples/k3_where_pg_parity.rs`:
+  - Each expression is executed by Quack: `sql_where` → `lower` / `lower_fused` → mask-risc `execute_into` with `Keep`.
+  - PostgreSQL returns the TRUE and FALSE rows.
+  - Equality is mask-risc `Xor` then `Any`, on both masks, never on counts.
+  - No new evaluator, counting loop or equality helper is added. The contract-side oracles are unchanged.
+
 **Evidence grades.** Claims about our own tree are marked `VERIFIED-IN-CODE`, with `file:line`. Claims from outside use these grades:
 
 - **READ-IN-FULL:** read completely.
