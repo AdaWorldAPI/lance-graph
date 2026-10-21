@@ -107,8 +107,10 @@ fn the_check_counterexample_has_an_unknown() {
     let auth = rubicon::authorized().unwrap();
     match commit_safe(&e, &atoms, REQUEST_COMMIT, &auth).unwrap() {
         gkat_probe::Safety::Unsafe { atom, .. } => {
-            // rev is tests 0 (is_t) and 1 (is_u); mul is tests 2 and 3.
-            assert!(atom.holds(1) || atom.holds(3), "{atom:?}");
+            // rev is tests 0 (T) and 1 (F); mul is tests 2 and 3. UNKNOWN is
+            // neither bit.
+            let unknown = |t: u8| !atom.holds(t) && !atom.holds(t + 1);
+            assert!(unknown(0) || unknown(2), "{atom:?}");
         }
         gkat_probe::Safety::Safe => panic!("expected unsafe"),
     }
@@ -146,4 +148,29 @@ fn undeclared_projections_are_refused() {
         sig.guard(&Cond::Is("nope")),
         Err(Refusal::UnknownObservable("nope"))
     ));
+}
+
+/// A K3 observable is encoded like Quack's `Filter::sql_where` verdict: two
+/// tests, `T` (the rows where it is TRUE) and `F` (where it is FALSE), never
+/// both. UNKNOWN is neither, so presence is `T ∨ F` and there is no separate
+/// UNKNOWN bit. WHERE keeps `T`; CHECK keeps `¬F`.
+#[test]
+fn a_k3_observable_is_quacks_t_f_pair() {
+    use gkat_probe::Atom;
+    use gkat_probe::flow::Cond;
+    let sig = rubicon::signature();
+    let atoms = sig.atoms().unwrap();
+    // rev occupies tests 0 (T) and 1 (F).
+    assert!(atoms.iter().all(|a| !(a.holds(0) && a.holds(1))));
+    let r#where = sig.guard(&Cond::Where(rubicon::REV)).unwrap();
+    let check = sig.guard(&Cond::Check(rubicon::REV)).unwrap();
+    let (t, f, u) = (Atom(0b01), Atom(0b10), Atom(0b00));
+    assert_eq!(
+        (r#where.eval(t), r#where.eval(f), r#where.eval(u)),
+        (true, false, false)
+    );
+    assert_eq!(
+        (check.eval(t), check.eval(f), check.eval(u)),
+        (true, false, true)
+    );
 }

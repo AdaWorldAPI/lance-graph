@@ -24,13 +24,16 @@
 //! ## Guards and projections
 //!
 //! An observable is declared as Boolean or as three-valued (K3: T, F, U). A
-//! K3 observable occupies two primitive tests, `is_t` and `is_u`, and the
-//! atom set excludes the assignment where both hold, so it has exactly three
-//! values. A K3 observable reaches a Boolean guard only through a declared
-//! projection:
+//! K3 observable is encoded the way Quack's `Filter::sql_where` carries a
+//! three-valued verdict (`crates/lance-graph-quack/src/lib.rs`): two
+//! primitive tests, `T` (it is TRUE) and `F` (it is FALSE). The atom set
+//! excludes `T ∧ F`, so the observable has exactly three values. UNKNOWN is
+//! the atom with neither bit: presence is `T ∨ F`, as a column's validity
+//! plane is in Quack, and there is no separate UNKNOWN bit. A K3 observable
+//! reaches a Boolean guard only through a declared projection:
 //!
-//! * [`Cond::Where`]: designated `{T}`, i.e. `is_t`;
-//! * [`Cond::Check`]: designated `{T, U}`, i.e. `is_t ∨ is_u`.
+//! * [`Cond::Where`]: designated `{T}`, i.e. `T` — what Quack's `WHERE` keeps;
+//! * [`Cond::Check`]: designated `{T, U}`, i.e. `¬F`.
 //!
 //! A Boolean observable is read with [`Cond::Is`]. Using a K3 projection on a
 //! Boolean observable, or `Is` on a K3 one, is refused.
@@ -114,8 +117,8 @@ pub struct Signature {
 }
 
 impl Signature {
-    /// The primitive test of an observable: `is_t` for K3 (and the only test
-    /// of a Boolean), plus `is_u` for K3.
+    /// The first primitive test of an observable: `T` for K3 (followed by
+    /// `F`), or the only test of a Boolean.
     fn tests_of(&self, name: &'static str) -> Result<(Kind, u8), Refusal> {
         let mut next = 0u8;
         for (n, k) in &self.observables {
@@ -151,7 +154,7 @@ impl Signature {
                 max: crate::expr::MAX_TESTS,
             });
         }
-        // Each K3 observable excludes the assignment is_t ∧ is_u.
+        // Each K3 observable excludes the assignment T ∧ F.
         let mut constraint = BExp::True;
         let mut next = 0u8;
         for (_, k) in &self.observables {
@@ -189,7 +192,7 @@ impl Signature {
                 }
             },
             Cond::Check(n) => match self.tests_of(n)? {
-                (Kind::K3, t) => BExp::Test(t).or(BExp::Test(t + 1)),
+                (Kind::K3, t) => BExp::Test(t + 1).negated(),
                 (Kind::Bool, _) => {
                     return Err(Refusal::UndeclaredProjection {
                         observable: n,
