@@ -1,4 +1,4 @@
-# 2026-10-21 — D-RFT-1 follow-up: where the composition's time goes (measurement only)
+# 2026-10-21 — D-RFT-1-COST: D-RFT-1 follow-up, where the composition's time goes (measurement only)
 
 **Status:** MEASURED, lab. Review item D of `GPT:gpt-ada-01/20261021-pr1674-1682-consolidated-review-01`; written by `session_013z2e1YXkm6o6HNrDn5BPWA` on the operator's instruction (EXO-50 `/038`). Instrument: `crates/dir-rmap-probe/examples/rft1_cost.rs`. No change to `compose.rs`, r2il or mask-risc.
 
