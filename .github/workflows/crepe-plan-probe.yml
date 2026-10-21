@@ -59,6 +59,9 @@ jobs:
       # D-RU-6 lab probe: the same program over RMAP tiles, its oracle
       # comparisons and refusals. Its benchmark is not run in CI either.
       - run: cargo test --example walk_tile
+      # D-RU-6 arm C: the block-sparse product, against arms A and B and the
+      # oracles, its refusals and the semi-naive bound.
+      - run: cargo test --example walk_sparse
       # relalg is its own workspace and patches ndarray to a sibling checkout
       # (`../../../ndarray` from its directory); no other job runs its tests.
       - name: relalg tests and clippy

@@ -82,23 +82,23 @@ use mork_pathmap_probe::rmap::{Focus, Refusal, SLOTS, TILE_ROWS, TILE_WORDS, Wit
 // does not call are dead code here.
 #[allow(dead_code)]
 #[path = "walk_mask.rs"]
-mod baseline;
+pub(crate) mod baseline;
 
 use baseline::{MAX_PATH_LEN, Tuples, agree, ascent_tuples, crepe_tuples, edges, mask_walk};
 
-const LENS: usize = MAX_PATH_LEN as usize + 1;
-const REPS: usize = 7;
-const ORACLE_MAX_NODES: usize = 512;
+pub(crate) const LENS: usize = MAX_PATH_LEN as usize + 1;
+pub(crate) const REPS: usize = 7;
+pub(crate) const ORACLE_MAX_NODES: usize = 512;
 /// Words per tile row (256 bits).
-const ROW_WORDS: usize = SLOTS / 64;
+pub(crate) const ROW_WORDS: usize = SLOTS / 64;
 
-type Edge = (i32, i32, u32);
+pub(crate) type Edge = (i32, i32, u32);
 
 // ---- refusals ----------------------------------------------------------------
 
 /// Why the tile path refuses to answer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Refuse {
+pub(crate) enum Refuse {
     /// A witness check failed, or the answer would depend on identities
     /// outside the bound foci.
     Rmap(Refusal),
@@ -115,7 +115,7 @@ impl From<Refusal> for Refuse {
 /// Admit a program to the execution phase: no op may read at a position
 /// taken from a lane's value. `MaskOp::Gather` is the only such op in
 /// mask-risc's IR, and `Pred` reads lanes at the row's own position.
-fn admit(p: &Program) -> Result<(), Refuse> {
+pub(crate) fn admit(p: &Program) -> Result<(), Refuse> {
     if p.ops.iter().any(|op| matches!(op, MaskOp::Gather { .. })) {
         return Err(Refuse::UnauthorizedGather);
     }
@@ -125,7 +125,7 @@ fn admit(p: &Program) -> Result<(), Refuse> {
 // ---- phase 1: attestation ----------------------------------------------------
 
 /// FNV-1a over a byte stream.
-fn fnv(bytes: impl IntoIterator<Item = u8>) -> u64 {
+pub(crate) fn fnv(bytes: impl IntoIterator<Item = u8>) -> u64 {
     let mut h = 0xcbf2_9ce4_8422_2325u64;
     for b in bytes {
         h ^= u64::from(b);
@@ -136,7 +136,7 @@ fn fnv(bytes: impl IntoIterator<Item = u8>) -> u64 {
 
 /// The facts digest: the edge set in canonical order. A probe-local stand-in
 /// for an attested sorted key (see the module docs).
-fn attest(e: &[Edge]) -> u64 {
+pub(crate) fn attest(e: &[Edge]) -> u64 {
     let mut s = e.to_vec();
     s.sort_unstable();
     s.dedup();
@@ -151,33 +151,33 @@ fn attest(e: &[Edge]) -> u64 {
 // ---- phase 2: identity resolution and focus binding ---------------------------
 
 /// The frozen codebook (sorted node ids) and one [`Focus`] per 256 of them.
-struct Bound {
-    witness: Witness,
-    codebook: Vec<i32>,
-    foci: Vec<Focus>,
+pub(crate) struct Bound {
+    pub(crate) witness: Witness,
+    pub(crate) codebook: Vec<i32>,
+    pub(crate) foci: Vec<Focus>,
 }
 
 impl Bound {
-    fn pages(&self) -> usize {
+    pub(crate) fn pages(&self) -> usize {
         self.foci.len()
     }
 
-    fn nodes(&self) -> usize {
+    pub(crate) fn nodes(&self) -> usize {
         self.codebook.len()
     }
 
-    fn page_len(&self, p: usize) -> usize {
+    pub(crate) fn page_len(&self, p: usize) -> usize {
         self.foci[p].len()
     }
 
     /// Global id of slot `s` of page `p`: a codebook decode.
-    fn id(&self, p: usize, s: usize) -> i32 {
+    pub(crate) fn id(&self, p: usize, s: usize) -> i32 {
         self.foci[p].id(s as u8) as i32
     }
 
     /// `(page, slot)` of a node id: a codebook lookup keyed by a value. `None`
     /// when the id is not bound.
-    fn resolve(&self, id: i32) -> Option<(usize, u8)> {
+    pub(crate) fn resolve(&self, id: i32) -> Option<(usize, u8)> {
         let p = self
             .foci
             .partition_point(|f| f.id(0) as i32 <= id)
@@ -189,7 +189,7 @@ impl Bound {
 /// Bind every endpoint of `e` (all nodes) or, with `scope`, only the given
 /// ids. Refuses more than `max_pages` foci: a global answer is never
 /// truncated to the foci that fit.
-fn bind(
+pub(crate) fn bind(
     e: &[Edge],
     facts: u64,
     generation: u64,
@@ -236,33 +236,33 @@ fn bind(
 /// A relation over the bound nodes: `pages x pages` tiles, row-major by page,
 /// `None` for an all-zero tile. Tile `(I, J)` holds `R(x, z)` for `x` in page
 /// `I`, `z` in page `J`, at `tile_addr(x, z)`: row `z`, bit `x`.
-type Blocks = Vec<Option<Box<[u64]>>>;
+pub(crate) type Blocks = Vec<Option<Box<[u64]>>>;
 
-fn tile() -> Box<[u64]> {
+pub(crate) fn tile() -> Box<[u64]> {
     vec![0u64; TILE_WORDS].into_boxed_slice()
 }
 
-fn set(t: &mut [u64], i: usize) {
+pub(crate) fn set(t: &mut [u64], i: usize) {
     t[i >> 6] |= 1 << (i & 63);
 }
 
-fn get(t: &[u64], i: usize) -> bool {
+pub(crate) fn get(t: &[u64], i: usize) -> bool {
     t[i >> 6] >> (i & 63) & 1 == 1
 }
 
 /// The edge relation, one block matrix per edge length.
-struct Projection {
-    witness: Witness,
-    by_len: Vec<(usize, Blocks)>,
+pub(crate) struct Projection {
+    pub(crate) witness: Witness,
+    pub(crate) by_len: Vec<(usize, Blocks)>,
     /// Ids an edge reaches that no focus binds (only under a `scope`).
-    escaped: BTreeSet<i32>,
+    pub(crate) escaped: BTreeSet<i32>,
     /// Edges whose endpoints sit in different foci (crossed by paging).
-    cross_page_edges: u64,
+    pub(crate) cross_page_edges: u64,
     /// Codebook lookups keyed by an edge value.
-    lookups: u64,
+    pub(crate) lookups: u64,
 }
 
-fn project(b: &Bound, e: &[Edge]) -> Projection {
+pub(crate) fn project(b: &Bound, e: &[Edge]) -> Projection {
     let pages = b.pages();
     let mut by_len: Vec<Option<Blocks>> = vec![None; LENS];
     let mut escaped = BTreeSet::new();
@@ -308,16 +308,16 @@ fn project(b: &Bound, e: &[Edge]) -> Projection {
 
 /// The tile product kernel: broadcast and spread buffers, the mask-risc
 /// program and its scratch, reused across calls.
-struct Kernel {
-    bcast: Box<[u64]>,
-    spread: Box<[u64]>,
-    out: Box<[u64]>,
-    prog: Program,
-    scratch: Scratch<'static>,
+pub(crate) struct Kernel {
+    pub(crate) bcast: Box<[u64]>,
+    pub(crate) spread: Box<[u64]>,
+    pub(crate) out: Box<[u64]>,
+    pub(crate) prog: Program,
+    pub(crate) scratch: Scratch<'static>,
 }
 
 /// `dst = c | (p & q)`: `Ternlog` with `(a, b, c) = (C, P, Q)`, table `0xF8`.
-fn product_program() -> Program {
+pub(crate) fn product_program() -> Program {
     Program::new(
         vec![MaskOp::Ternlog {
             imm: 0xF8,
@@ -333,16 +333,16 @@ fn product_program() -> Program {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Counters {
-    tile_products: u64,
+pub(crate) struct Counters {
+    pub(crate) tile_products: u64,
     /// Coordinates `y` that contributed (both operands non-empty at `y`).
-    steps: u64,
+    pub(crate) steps: u64,
     /// mask-risc calls.
-    calls: u64,
+    pub(crate) calls: u64,
 }
 
 impl Kernel {
-    fn with_program(prog: Program) -> Result<Kernel, Refuse> {
+    pub(crate) fn with_program(prog: Program) -> Result<Kernel, Refuse> {
         admit(&prog)?;
         Ok(Kernel {
             bcast: tile(),
@@ -353,14 +353,20 @@ impl Kernel {
         })
     }
 
-    fn new() -> Kernel {
+    pub(crate) fn new() -> Kernel {
         Kernel::with_program(product_program()).expect("the product program has no gather")
     }
 
     /// `c |= a ∘ b`: `C(x, z) = ∃y A(x, y) ∧ B(y, z)`. Row `z` of `C` is the
     /// OR over `y` of row `y` of `A`, taken when bit `y` of row `z` of `B` is
     /// set. Every read is at a loop coordinate.
-    fn product_into(&mut self, a: &[u64], b: &[u64], c: &mut Box<[u64]>, n: &mut Counters) {
+    pub(crate) fn product_into(
+        &mut self,
+        a: &[u64],
+        b: &[u64],
+        c: &mut Box<[u64]>,
+        n: &mut Counters,
+    ) {
         n.tile_products += 1;
         for y in 0..SLOTS {
             let ay = &a[y * ROW_WORDS..(y + 1) * ROW_WORDS];
@@ -401,18 +407,23 @@ impl Kernel {
     }
 }
 
-fn zero(pages: usize) -> Vec<Blocks> {
+pub(crate) fn zero(pages: usize) -> Vec<Blocks> {
     vec![vec![None; pages * pages]; LENS]
 }
 
 /// The least fixpoint over tiles.
-struct Run {
-    walk: Vec<Blocks>,
-    iterations: usize,
-    counters: Counters,
+pub(crate) struct Run {
+    pub(crate) walk: Vec<Blocks>,
+    pub(crate) iterations: usize,
+    pub(crate) counters: Counters,
 }
 
-fn recurse(b: &Bound, p: &Projection, current: &Witness, k: &mut Kernel) -> Result<Run, Refuse> {
+pub(crate) fn recurse(
+    b: &Bound,
+    p: &Projection,
+    current: &Witness,
+    k: &mut Kernel,
+) -> Result<Run, Refuse> {
     b.witness.check(current)?;
     p.witness.check(current)?;
     if !p.escaped.is_empty() {
@@ -499,7 +510,7 @@ fn recurse(b: &Bound, p: &Projection, current: &Witness, k: &mut Kernel) -> Resu
 // ---- phase 5: decoding ---------------------------------------------------------
 
 /// Per-pair reach over all lengths, tile by tile.
-fn reach(r: &Run, t: usize) -> Box<[u64]> {
+pub(crate) fn reach(r: &Run, t: usize) -> Box<[u64]> {
     let mut out = tile();
     for l in 0..LENS {
         if let Some(w) = &r.walk[l][t] {
@@ -511,12 +522,12 @@ fn reach(r: &Run, t: usize) -> Box<[u64]> {
     out
 }
 
-fn popcount(t: &[u64]) -> usize {
+pub(crate) fn popcount(t: &[u64]) -> usize {
     t.iter().map(|w| w.count_ones() as usize).sum()
 }
 
 /// `(|Walk|, |NoWalk|)` without building a tuple.
-fn counts(b: &Bound, r: &Run) -> (usize, usize) {
+pub(crate) fn counts(b: &Bound, r: &Run) -> (usize, usize) {
     let pages = b.pages();
     let walk = r.walk.iter().flatten().flatten().map(|t| popcount(t)).sum();
     let reached: usize = (0..pages * pages).map(|t| popcount(&reach(r, t))).sum();
@@ -524,7 +535,7 @@ fn counts(b: &Bound, r: &Run) -> (usize, usize) {
 }
 
 /// The tuple sets, with every slot decoded through the codebook.
-fn tuples(b: &Bound, r: &Run) -> (Tuples, u64) {
+pub(crate) fn tuples(b: &Bound, r: &Run) -> (Tuples, u64) {
     let pages = b.pages();
     let mut walk = BTreeSet::new();
     let mut no_walk = BTreeSet::new();
@@ -558,45 +569,45 @@ fn tuples(b: &Bound, r: &Run) -> (Tuples, u64) {
 }
 
 /// Bytes held by the tiles of a run (walk planes only).
-fn run_bytes(r: &Run) -> usize {
+pub(crate) fn run_bytes(r: &Run) -> usize {
     r.walk.iter().flatten().flatten().count() * TILE_WORDS * 8
 }
 
 // ---- the whole tile path ---------------------------------------------------------
 
 /// Every phase of one tile evaluation, timed.
-struct TileReport {
-    attest: Duration,
-    validate: Duration,
-    bind: Duration,
-    project: Duration,
-    recurse: Duration,
-    count: Duration,
-    decode: Duration,
-    lookups: u64,
-    decodes: u64,
-    cross_page_edges: u64,
-    pages: usize,
-    iterations: usize,
-    counters: Counters,
-    tile_bytes: usize,
-    counts: (usize, usize),
-    tuples: Tuples,
+pub(crate) struct TileReport {
+    pub(crate) attest: Duration,
+    pub(crate) validate: Duration,
+    pub(crate) bind: Duration,
+    pub(crate) project: Duration,
+    pub(crate) recurse: Duration,
+    pub(crate) count: Duration,
+    pub(crate) decode: Duration,
+    pub(crate) lookups: u64,
+    pub(crate) decodes: u64,
+    pub(crate) cross_page_edges: u64,
+    pub(crate) pages: usize,
+    pub(crate) iterations: usize,
+    pub(crate) counters: Counters,
+    pub(crate) tile_bytes: usize,
+    pub(crate) counts: (usize, usize),
+    pub(crate) tuples: Tuples,
 }
 
 impl TileReport {
     /// Every phase up to the counts: no tuple is built.
-    fn e2e_count(&self) -> Duration {
+    pub(crate) fn e2e_count(&self) -> Duration {
         self.attest + self.validate + self.bind + self.project + self.recurse + self.count
     }
 
     /// Every phase up to the decoded tuples.
-    fn e2e(&self) -> Duration {
+    pub(crate) fn e2e(&self) -> Duration {
         self.attest + self.validate + self.bind + self.project + self.recurse + self.decode
     }
 }
 
-fn tile_eval(e: &[Edge], max_pages: usize) -> Result<TileReport, Refuse> {
+pub(crate) fn tile_eval(e: &[Edge], max_pages: usize) -> Result<TileReport, Refuse> {
     {
         let s = Instant::now();
         let facts = attest(e);
@@ -643,23 +654,23 @@ fn tile_eval(e: &[Edge], max_pages: usize) -> Result<TileReport, Refuse> {
 
 // ---- benchmark -------------------------------------------------------------------
 
-fn median(mut v: Vec<Duration>) -> Duration {
+pub(crate) fn median(mut v: Vec<Duration>) -> Duration {
     v.sort();
     v[v.len() / 2]
 }
 
-fn ms(t: Duration) -> String {
+pub(crate) fn ms(t: Duration) -> String {
     format!("{:.3}", t.as_secs_f64() * 1e3)
 }
 
-fn mib(b: usize) -> String {
+pub(crate) fn mib(b: usize) -> String {
     format!("{:.2}", b as f64 / (1 << 20) as f64)
 }
 
 /// A chain `0 -> 1 -> ... -> n-1`: length 0, except every 10th edge has
 /// length 1, so a walk is at most `n / 10` long and the fixpoint needs about
 /// `n` iterations.
-fn chain(n: i32) -> Vec<Edge> {
+pub(crate) fn chain(n: i32) -> Vec<Edge> {
     (0..n - 1)
         .map(|i| (i, i + 1, u32::from(i % 10 == 9)))
         .collect()
@@ -667,7 +678,7 @@ fn chain(n: i32) -> Vec<Edge> {
 
 /// Every id in `0..n` with two out-edges of length 1, 2, 3, 5 or 7
 /// (splitmix64, fixed seed), plus a ring.
-fn mixed(n: i32, seed: u64) -> Vec<Edge> {
+pub(crate) fn mixed(n: i32, seed: u64) -> Vec<Edge> {
     let mut s = seed;
     let mut next = || {
         s = s.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -687,7 +698,7 @@ fn mixed(n: i32, seed: u64) -> Vec<Edge> {
     e
 }
 
-fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
+pub(crate) fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
     vec![
         ("edges(128)", edges(128)),
         ("edges(256)", edges(256)),
@@ -699,12 +710,12 @@ fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
 }
 
 /// walk_mask's three plane sets (`walk`, `delta`, `new`).
-fn baseline_plane_bytes(e: &[Edge]) -> usize {
+pub(crate) fn baseline_plane_bytes(e: &[Edge]) -> usize {
     3 * mask_walk(width(e), e).plane_bytes()
 }
 
 /// The largest node id plus one: walk_mask's plane width.
-fn width(e: &[Edge]) -> usize {
+pub(crate) fn width(e: &[Edge]) -> usize {
     e.iter()
         .flat_map(|&(a, b, _)| [a, b])
         .max()
@@ -712,7 +723,7 @@ fn width(e: &[Edge]) -> usize {
 }
 
 /// A `kB` field of `/proc/self/status`.
-fn status_kib(field: &str) -> usize {
+pub(crate) fn status_kib(field: &str) -> usize {
     std::fs::read_to_string("/proc/self/status")
         .expect("Linux /proc")
         .lines()
@@ -724,7 +735,7 @@ fn status_kib(field: &str) -> usize {
 /// Child mode: build the fixture, reset the resident high-water mark, run one
 /// engine end to end (tuples decoded), print the growth of the high-water mark
 /// over the resident set before the run, in KiB.
-fn child(engine: &str, fixture: &str) {
+pub(crate) fn child(engine: &str, fixture: &str) {
     let (_, e) = fixtures()
         .into_iter()
         .find(|(n, _)| *n == fixture)
@@ -757,7 +768,7 @@ fn child(engine: &str, fixture: &str) {
 /// Resident high-water growth of one engine on one fixture, in a fresh
 /// process (jemalloc keeps freed pages, so in-process numbers would depend on
 /// what ran before).
-fn resident_kib(engine: &str, fixture: &str) -> usize {
+pub(crate) fn resident_kib(engine: &str, fixture: &str) -> usize {
     let out = std::process::Command::new(std::env::current_exe().expect("exe"))
         .args(["--resident", engine, fixture])
         .output()
