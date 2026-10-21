@@ -87,14 +87,14 @@ impl Workload {
         RelId(2 * self.cores.len() as u16 + 1)
     }
 
-    pub fn store(&self) -> Store<'_> {
+    pub fn store(&self) -> Store {
         let mut relations = Vec::new();
         for (g, (r, s)) in self.cores.iter().enumerate() {
             relations.push((RelId(2 * g as u16), r.as_slice(), 1));
             relations.push((RelId(2 * g as u16 + 1), s.as_slice(), 1));
         }
         relations.push((self.t_rel(), self.t.as_slice(), 1));
-        Store { relations }
+        Store::from_rows(relations)
     }
 }
 
@@ -442,11 +442,9 @@ mod tests {
     fn reference_bag(w: &Workload) -> Vec<(Vec<u64>, u64)> {
         let store = w.store();
         let rows = |r: Rid| -> Vec<Vec<u64>> {
-            store
-                .view(r)
-                .0
-                .iter()
-                .map(|p| p.iter().map(|&v| u64::from(v)).collect())
+            let v = store.view(r);
+            (0..v.len())
+                .map(|i| v.cols.iter().map(|c| u64::from(c[i])).collect())
                 .collect()
         };
         eval(&w.rules, w.out_rel(), &[None, None, None], &rows)
@@ -534,11 +532,9 @@ mod tests {
             );
             let store = w.store();
             let rows = |r: Rid| -> Vec<Vec<u64>> {
-                store
-                    .view(r)
-                    .0
-                    .iter()
-                    .map(|p| p.iter().map(|&v| u64::from(v)).collect())
+                let v = store.view(r);
+                (0..v.len())
+                    .map(|i| v.cols.iter().map(|c| u64::from(c[i])).collect())
                     .collect()
             };
             let want: Vec<(Vec<u64>, u64)> = eval(&w.rules, w.out_rel(), &bound, &rows)

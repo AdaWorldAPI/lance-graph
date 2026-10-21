@@ -106,7 +106,7 @@ fn evaluate(
     demand: &Demand,
     kind: ResultKind,
     opts: Options,
-    store: &Store<'_>,
+    store: &Store,
 ) -> Result<(Norm, Report), PipelineRefusal> {
     crepe_plan_probe::pipeline::evaluate(rules, demand, kind, opts, store)
         .map(|(o, rep)| (norm(&o, &rep.tables), rep))
@@ -213,25 +213,23 @@ fn resolved(plan: &Plan) -> (Labels, Vec<Rule>) {
     (labels, rules)
 }
 
-fn store<'a>(labels: &Labels, f: &'a Family, gens: [u64; 3]) -> Store<'a> {
-    Store {
-        relations: vec![
-            (labels.id("Parent").unwrap(), &f.parent, gens[0]),
-            (labels.id("Allowed").unwrap(), &f.allowed, gens[1]),
-            (labels.id("Sponsor").unwrap(), &f.sponsor, gens[2]),
-        ],
-    }
+fn store(labels: &Labels, f: &Family, gens: [u64; 3]) -> Store {
+    Store::from_rows(vec![
+        (labels.id("Parent").unwrap(), &f.parent, gens[0]),
+        (labels.id("Allowed").unwrap(), &f.allowed, gens[1]),
+        (labels.id("Sponsor").unwrap(), &f.sponsor, gens[2]),
+    ])
 }
 
 /// Raw rows of a relation at its declared arity, for the reference.
-fn raw<'a>(labels: &'a Labels, store: &'a Store<'a>) -> impl Fn(RelId) -> Vec<Vec<u64>> + 'a {
+fn raw<'a>(labels: &'a Labels, store: &'a Store) -> impl Fn(RelId) -> Vec<Vec<u64>> + 'a {
     move |rel| {
-        let (rows, _) = store.view(rel);
-        rows.iter()
-            .map(|r| {
-                r[..labels.arity(rel)]
+        let v = store.view(rel);
+        (0..v.len())
+            .map(|i| {
+                v.cols[..labels.arity(rel)]
                     .iter()
-                    .map(|&v| u64::from(v))
+                    .map(|c| u64::from(c[i]))
                     .collect()
             })
             .collect()
@@ -248,7 +246,7 @@ fn answer_demand(labels: &Labels, x: u64) -> Demand {
 fn reference_bag(
     labels: &Labels,
     rules: &[Rule],
-    store: &Store<'_>,
+    store: &Store,
     demand: &Demand,
 ) -> BTreeMap<Vec<u64>, u64> {
     reference::eval(rules, demand.goal, &demand.bound, &raw(labels, store))
@@ -466,13 +464,7 @@ fn d_a_side_from_another_domain_is_not_anded() {
     // Same schema, other ordinal domain: Parent keyed by column 0 over a
     // domain built from a different relation.
     let other_rows: Vec<[u32; 2]> = (0..50).map(|i| [i * 7, i]).collect();
-    let other = JoinTable::prepare_star(&[(
-        RelationView {
-            rows: &other_rows,
-            generation: 1,
-        },
-        0,
-    )]);
+    let other = JoinTable::prepare_star(&[(&RelationView::from_rows(&other_rows, 1), 0)]);
     let foreign = other.sides[0].clone();
     let key = prep.keys[1];
     assert_eq!(
@@ -520,14 +512,9 @@ fn e_a_stale_generation_and_a_value_outside_the_domain_are_refused() {
     );
     // A reseal of Allowed that names a y the domain never had.
     let resealed: Vec<[u32; 2]> = vec![[1, 1], [999_999, 999_999]];
-    let r = prep.table.replace_side(
-        2,
-        RelationView {
-            rows: &resealed,
-            generation: 2,
-        },
-        0,
-    );
+    let r = prep
+        .table
+        .replace_side(2, &RelationView::from_rows(&resealed, 2), 0);
     assert_eq!(
         r,
         Err(JoinRefusal::OutsideDomain {
@@ -619,9 +606,7 @@ fn g_the_pipeline_refuses_a_chain() {
         .collect();
     let e = labels.id("E").unwrap();
     let rows: Vec<[u32; 2]> = vec![[1, 2], [2, 3], [3, 4]];
-    let st = Store {
-        relations: vec![(e, &rows, 1), (labels.id("B").unwrap(), &rows, 1)],
-    };
+    let st = Store::from_rows(vec![(e, &rows, 1), (labels.id("B").unwrap(), &rows, 1)]);
     let d = Demand {
         goal: labels.id("Chain").unwrap(),
         bound: vec![None, None],
@@ -682,13 +667,11 @@ fn i_the_star_mask_is_the_intersection_of_all_three_planes() {
     let r: Vec<[u32; 2]> = (0..300).map(|v| [v, v]).collect();
     let s: Vec<[u32; 2]> = (0..300).filter(|v| v % 2 == 0).map(|v| [v, v]).collect();
     let q: Vec<[u32; 2]> = (0..300).filter(|v| v % 3 == 0).map(|v| [v, v]).collect();
-    let st = Store {
-        relations: vec![
-            (labels.id("R").unwrap(), &r, 1),
-            (labels.id("S").unwrap(), &s, 1),
-            (labels.id("Q").unwrap(), &q, 1),
-        ],
-    };
+    let st = Store::from_rows(vec![
+        (labels.id("R").unwrap(), &r, 1),
+        (labels.id("S").unwrap(), &s, 1),
+        (labels.id("Q").unwrap(), &q, 1),
+    ]);
     let sp = star(&query_multi(&rules[0])).unwrap();
     assert_eq!(sp.sides.len(), 3);
     let prep = prepare(&sp, &st);
@@ -709,12 +692,10 @@ fn j_two_way_join_equals_mork_and_the_reference() {
     let (labels, rules) = resolved(&plan);
     let r: Vec<[u32; 2]> = (0..120u32).map(|i| [i, i % 17]).collect();
     let s: Vec<[u32; 2]> = (0..90u32).map(|i| [i % 23, 500 + i]).collect();
-    let st = Store {
-        relations: vec![
-            (labels.id("R").unwrap(), &r, 1),
-            (labels.id("S").unwrap(), &s, 1),
-        ],
-    };
+    let st = Store::from_rows(vec![
+        (labels.id("R").unwrap(), &r, 1),
+        (labels.id("S").unwrap(), &s, 1),
+    ]);
     let d = Demand {
         goal: labels.id("T").unwrap(),
         bound: vec![None, None, None],
@@ -740,14 +721,8 @@ fn j_two_way_join_equals_mork_and_the_reference() {
     assert_eq!(bag, want_bag.clone().into_iter().collect::<Vec<_>>());
 
     let input = JoinInput {
-        r: RelationView {
-            rows: &r,
-            generation: 1,
-        },
-        s: RelationView {
-            rows: &s,
-            generation: 1,
-        },
+        r: RelationView::from_rows(&r, 1),
+        s: RelationView::from_rows(&s, 1),
     };
     let mut mork = bind(Backend::Mork, &input, SET).expect("MORK builds");
     // MORK answers the set: exactly the bag's distinct rows, each answered.
@@ -772,12 +747,10 @@ fn j2_a_post_filter_on_the_center_narrows_the_kept_slots() {
     let (labels, rules) = resolved(&plan);
     let r: Vec<[u32; 2]> = (0..120u32).map(|i| [i, i % 17]).collect();
     let s: Vec<[u32; 2]> = (0..90u32).map(|i| [i % 23, 500 + i]).collect();
-    let st = Store {
-        relations: vec![
-            (labels.id("R").unwrap(), &r, 1),
-            (labels.id("S").unwrap(), &s, 1),
-        ],
-    };
+    let st = Store::from_rows(vec![
+        (labels.id("R").unwrap(), &r, 1),
+        (labels.id("S").unwrap(), &s, 1),
+    ]);
     let goal = labels.id("T").unwrap();
     let no_push = Options {
         propagate: false,
@@ -1034,12 +1007,10 @@ fn n_semijoin_intersects_two_restricted_sides() {
         r.push([100 + i, 200 + i]);
         s.push([200 + i, 300 + i]);
     }
-    let st = Store {
-        relations: vec![
-            (labels.id("R").unwrap(), &r, 1),
-            (labels.id("S").unwrap(), &s, 1),
-        ],
-    };
+    let st = Store::from_rows(vec![
+        (labels.id("R").unwrap(), &r, 1),
+        (labels.id("S").unwrap(), &s, 1),
+    ]);
     let d = Demand {
         goal: labels.id("T").unwrap(),
         bound: vec![Some(1), None, Some(9)],
@@ -1185,12 +1156,10 @@ mod stage3 {
         )
         .await
         .unwrap();
-        let mem = Store {
-            relations: vec![
-                (labels.id("R").unwrap(), &r, 1),
-                (labels.id("S").unwrap(), &s, 1),
-            ],
-        };
+        let mem = Store::from_rows(vec![
+            (labels.id("R").unwrap(), &r, 1),
+            (labels.id("S").unwrap(), &s, 1),
+        ]);
         let d = Demand {
             goal: labels.id("T").unwrap(),
             bound: vec![Some(1), None, Some(9)],

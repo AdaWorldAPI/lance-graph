@@ -227,7 +227,7 @@ pub fn evaluate(
     demand: &Demand,
     kind: ResultKind,
     opts: Options,
-    store: &Store<'_>,
+    store: &Store,
 ) -> Result<(Outcome, Report), PipelineRefusal> {
     let planned = plan(rules, demand, kind, opts)?;
     let t = Instant::now();
@@ -250,7 +250,7 @@ pub fn evaluate(
         .map(|s| {
             s.sides
                 .iter()
-                .map(|side| store.view(side.key.rel).1)
+                .map(|side| store.view(side.key.rel).generation)
                 .collect()
         })
         .collect();

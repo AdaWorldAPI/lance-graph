@@ -100,13 +100,11 @@ fn main() {
             .into_iter()
             .map(|r| r.unwrap())
             .collect();
-        let st = Store {
-            relations: vec![
-                (labels.id("Parent").unwrap(), &parent, 1),
-                (labels.id("Allowed").unwrap(), &allowed, 1),
-                (labels.id("Sponsor").unwrap(), &sponsor, 1),
-            ],
-        };
+        let st = Store::from_rows(vec![
+            (labels.id("Parent").unwrap(), &parent, 1),
+            (labels.id("Allowed").unwrap(), &allowed, 1),
+            (labels.id("Sponsor").unwrap(), &sponsor, 1),
+        ]);
         let demand = Demand {
             goal: labels.id("Answer").unwrap(),
             bound: vec![Some(17), None],
@@ -117,12 +115,12 @@ fn main() {
         let df = datafrog_answer(&parent, &allowed);
         let reference = (n <= 10_000).then(|| {
             let rows = |rel| {
-                let (r, _) = st.view(rel);
-                r.iter()
-                    .map(|x| {
-                        x[..labels.arity(rel)]
+                let v = st.view(rel);
+                (0..v.len())
+                    .map(|i| {
+                        v.cols[..labels.arity(rel)]
                             .iter()
-                            .map(|&v| u64::from(v))
+                            .map(|c| u64::from(c[i]))
                             .collect()
                     })
                     .collect()

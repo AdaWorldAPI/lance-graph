@@ -123,7 +123,7 @@ pub struct Side {
 
 /// The rows of one side at one slot, read in place: `lane[pos[k]]`. A
 /// borrowed view; it holds positions and the lane, never values.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Run<'a> {
     lane: &'a [u32],
     pos: &'a [u32],
@@ -234,6 +234,11 @@ impl Side {
             lane: &self.lane,
             pos: &self.pos[self.off[y] as usize..self.off[y + 1] as usize],
         }
+    }
+
+    /// Rows the index map holds, over all slots.
+    pub fn rows(&self) -> usize {
+        self.pos.len()
     }
 
     /// Rows at slot `y`, from the offsets alone (no lane read).

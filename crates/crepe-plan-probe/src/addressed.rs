@@ -33,7 +33,8 @@ use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane, Wi
 
 use crate::lance_store::{Io, LanceStore, LanceStoreError, SideIo, read_rows};
 use crate::logic::RelId;
-use crate::native::{PreparedStar, StarPlan, prepare_from_rows};
+use crate::native::{PreparedStar, StarPlan, prepare_views};
+use mork_pathmap_probe::RelationView;
 
 /// The key of row `(a, b)`.
 pub fn key(a: u32, b: u32) -> FacetCascade {
@@ -307,26 +308,24 @@ async fn current_lane<'a>(
     Ok((a, ds))
 }
 
-/// Reads one side's rows for the located `ranges` of the leading values in
-/// `wanted` (sorted, deduplicated), as `policy` decides. A coalesced or full
-/// read returns rows of other leading values too; they are dropped by the
-/// row's own leading value, so the result equals the exact read.
+/// Reads one side's lanes for the located `ranges`, as `policy` decides. A
+/// coalesced or full read returns rows of other leading values too; they are
+/// left out by position when the index map is built
+/// ([`crate::native::prepare_views`]: the restriction and the centers), so
+/// the prepared table equals the exact read's.
 async fn read_side(
     ds: &Dataset,
     a: &AddressedRelation,
     ranges: &[(u32, u32)],
-    wanted: &[u32],
     policy: ReadPolicy,
-) -> Result<(Read, usize, Vec<[u32; 2]>, Io), AddressedRefusal> {
+) -> Result<(Read, usize, RelationView, Io), AddressedRefusal> {
     let (how, r) = plan_read(ranges, a.lane.n_rows(), policy);
     let mask = match how {
         Read::Full => None,
         Read::Ranges | Read::Coalesced => Some(range_mask(&r)),
     };
     let (mut got, rows_io) = read_rows(ds, mask).await?;
-    if how != Read::Ranges {
-        got.retain(|row| wanted.binary_search(&row[0]).is_ok());
-    }
+    got.generation = a.lane.version();
     Ok((how, r.len(), got, rows_io))
 }
 
@@ -351,7 +350,7 @@ pub async fn prepare_addressed_with(
     policy: ReadPolicy,
 ) -> Result<(PreparedStar, Vec<SideIo>, Vec<Lookup>), AddressedRefusal> {
     let n_sides = plan.sides.len();
-    let mut rows: Vec<Option<(Vec<[u32; 2]>, u64)>> = vec![None; n_sides];
+    let mut rows: Vec<Option<RelationView>> = vec![None; n_sides];
     let mut io = vec![SideIo::default(); n_sides];
     let mut lookups = vec![Lookup::default(); n_sides];
     let restricted = |i: usize| {
@@ -372,10 +371,7 @@ pub async fn prepare_addressed_with(
             Ok(k) => ranges(a, &[k])?,
             Err(_) => (Vec::new(), 0),
         };
-        let wanted: Vec<u32> = u32::try_from(restricted(i).expect("restricted"))
-            .into_iter()
-            .collect();
-        let (how, read_ranges, got, rows_io) = read_side(&ds, a, &r, &wanted, policy).await?;
+        let (how, read_ranges, got, rows_io) = read_side(&ds, a, &r, policy).await?;
         lookups[i] = Lookup {
             keys: 1,
             rows_in_ranges: n,
@@ -387,17 +383,18 @@ pub async fn prepare_addressed_with(
             mask_rows: Some(n),
             rows: rows_io,
         };
-        rows[i] = Some((got, a.lane.version()));
+        rows[i] = Some(got);
     }
 
     let mut centers: Option<Vec<u32>> = None;
     for i in (0..n_sides).filter(|&i| restricted(i).is_some()) {
-        let mut c: Vec<u32> = rows[i]
-            .as_ref()
-            .expect("read")
-            .0
-            .iter()
-            .map(|r| r[1])
+        // Rows of the restricted side whose leading value is the constant;
+        // a coalesced read holds others too.
+        let v = rows[i].as_ref().expect("read");
+        let k = restricted(i).expect("restricted");
+        let mut c: Vec<u32> = (0..v.len())
+            .filter(|&row| u64::from(v.cols[0][row]) == k)
+            .map(|row| v.cols[1][row])
             .collect();
         c.sort_unstable();
         c.dedup();
@@ -410,14 +407,8 @@ pub async fn prepare_addressed_with(
         });
     }
 
-    // Restricted sides keep only the intersected centers (rows already read).
-    if let Some(c) = &centers {
-        for i in (0..n_sides).filter(|&i| restricted(i).is_some()) {
-            if let Some((r, _)) = rows[i].as_mut() {
-                r.retain(|row| c.binary_search(&row[1]).is_ok());
-            }
-        }
-    }
+    // Restricted sides keep only the intersected centers: by position, in
+    // `prepare_views`; nothing is trimmed here.
 
     for i in (0..n_sides).filter(|&i| restricted(i).is_none()) {
         let key = plan.sides[i].key;
@@ -430,11 +421,12 @@ pub async fn prepare_addressed_with(
             }
             Some(c) => {
                 let (r, n) = ranges(a, c)?;
-                let (how, rr, got, rows_io) = read_side(&ds, a, &r, c, policy).await?;
+                let (how, rr, got, rows_io) = read_side(&ds, a, &r, policy).await?;
                 (n, c.len(), how, rr, got, rows_io)
             }
             None => {
-                let (got, rows_io) = read_rows(&ds, None).await?;
+                let (mut got, rows_io) = read_rows(&ds, None).await?;
+                got.generation = a.lane.version();
                 (a.lane.n_rows() as usize, 0, Read::Full, 0, got, rows_io)
             }
         };
@@ -449,14 +441,14 @@ pub async fn prepare_addressed_with(
             mask_rows: centers.as_ref().map(|_| n),
             rows: rows_io,
         };
-        rows[i] = Some((got, a.lane.version()));
+        rows[i] = Some(got);
     }
 
-    let owned = rows
+    let views = rows
         .into_iter()
         .map(|r| r.expect("every side read"))
         .collect();
-    Ok((prepare_from_rows(plan, owned), io, lookups))
+    Ok((prepare_views(plan, views, true), io, lookups))
 }
 
 #[cfg(test)]
