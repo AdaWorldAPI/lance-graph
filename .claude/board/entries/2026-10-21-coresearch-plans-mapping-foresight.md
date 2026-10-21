@@ -70,6 +70,8 @@ All probes compare counts or scalar folds.
 | P-ABA-MODDEL | Modify on one side and delete on the other is a named refusal | It resolves silently |
 | P-REFUSAL-KIND | A RouteRefusal is retried on another route. A SemanticRefusal is never retried. | A semantic refusal is retried |
 | P-TLP-COUNT | The counts for P, NOT P and P IS NULL sum to the table's row count | The sum differs |
+| D-GKAT-0 (added 2026-10-21, after #1670) | GKAT fixtures: G1 guarded factoring, G2 refusal of genuine nondeterminism, G5 a declared atom bound. No runtime, dependency or executor. | A G1 rewrite with a changed label or polarity is accepted; nondeterminism is encoded as an `if` |
+| P-GKAT-RUBICON (D-LFA-1) | A Rubicon reference flow and its optimized variant are GKAT-equivalent. Separately, no `RequestCommit` trace exists without a valid revision and MUL authorization. Guards are projected WHERE-style `{T}`, never CHECK-style `{T,U}`. | Any disable stays green: reversed polarity, commit moved ahead of its guard, or unguarded choice. A `GoTo`/`GoBack` flow is translated instead of refused. |
 
 Bridge findings worth a probe:
 - `JoinExec::bag_count` sums `u64` without an overflow check (`mork-pathmap-probe/src/join.rs:653-659`). The contract should be exact below a stated row bound and refused above it.
