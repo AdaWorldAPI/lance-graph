@@ -436,6 +436,16 @@ fn a_partial_metadata_write_cannot_pass_as_a_landing() {
     table.row_mut(key).expect("row").receipt.roots ^= 1;
     assert!(table.replay_landed(&store, key, EXEC_DEFAULT).is_ok());
 
+    // Torn: the outcome changed after the seal. Commit -> Prune would stop
+    // `next_version` landing the writes while every fold still matches.
+    table.row_mut(key).expect("row").receipt.outcome = Outcome::Prune;
+    assert!(matches!(
+        table.replay_landed(&store, key, EXEC_DEFAULT),
+        Err(Refusal::Torn(_))
+    ));
+    table.row_mut(key).expect("row").receipt.outcome = Outcome::Commit;
+    assert!(table.replay_landed(&store, key, EXEC_DEFAULT).is_ok());
+
     // The landing replays without the pool.
     pool.free(slot).expect("free");
     let rep = table

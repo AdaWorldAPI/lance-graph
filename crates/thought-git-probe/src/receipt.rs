@@ -243,6 +243,8 @@ pub struct ReceiptIdentity {
     pub sources: Fold,
     pub roots: u64,
     pub output: Fold,
+    /// Decides whether `next_version` lands the replayed writes.
+    pub outcome: Outcome,
 }
 
 impl Receipt {
@@ -258,6 +260,7 @@ impl Receipt {
             sources: self.sources,
             roots: self.roots,
             output: self.output,
+            outcome: self.outcome,
         }
     }
 }
@@ -450,6 +453,15 @@ pub struct MetaRow {
     pub seal: Option<u64>,
 }
 
+const fn outcome_code(o: Outcome) -> u64 {
+    match o {
+        Outcome::Commit => 1,
+        Outcome::Plan => 2,
+        Outcome::Prune => 3,
+        Outcome::Veto => 4,
+    }
+}
+
 fn seal_of(key: MetaKey, r: &Receipt) -> u64 {
     let mut f = Fold::default();
     let ident = r.identity();
@@ -468,6 +480,7 @@ fn seal_of(key: MetaKey, r: &Receipt) -> u64 {
     f.add(u64::from(ident.config.rng_revision), ident.config.modulus);
     f.add(ident.sources.count, ident.sources.fold);
     f.add(ident.output.count, ident.output.fold);
+    f.add(outcome_code(ident.outcome), 0);
     f.add(ident.roots, ident.inputs.targets.len() as u64);
     for i in 0..ident.inputs.targets.len() {
         let (s, d) = (ident.inputs.sources[i], ident.inputs.targets[i]);
