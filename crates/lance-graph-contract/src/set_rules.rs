@@ -629,53 +629,48 @@ mod tests {
         }
     }
 
-    /// Kleene evaluation as two masks, `(T, F)`: a row set in neither is
-    /// UNKNOWN. A leaf is one compare per lane slot; NOT swaps the masks;
-    /// AND / OR combine whole masks. Never evaluated row by row.
-    fn set_planes(t: &Table, e: &SetExpr) -> (Vec<bool>, Vec<bool>) {
-        let n = t.n();
-        let zip = |a: &[bool], b: &[bool], f: fn(bool, bool) -> bool| -> Vec<bool> {
-            a.iter().zip(b).map(|(x, y)| f(*x, *y)).collect()
-        };
-        let leaf = |lane: u16, hit: &dyn Fn(i32) -> bool| -> (Vec<bool>, Vec<bool>) {
-            let l = &t.lanes[lane as usize];
-            (
-                l.iter().map(|v| v.is_some_and(hit)).collect(),
-                l.iter().map(|v| v.is_some_and(|x| !hit(x))).collect(),
-            )
-        };
+    /// Kleene evaluation: `None` is UNKNOWN.
+    fn set_at(t: &Table, e: &SetExpr, row: usize) -> Option<bool> {
         match e {
-            SetExpr::All => (vec![true; n], vec![false; n]),
-            SetExpr::Empty => (vec![false; n], vec![true; n]),
-            SetExpr::Sym(k) => {
-                let s = &t.syms[*k as usize];
-                (s.clone(), s.iter().map(|b| !b).collect())
+            SetExpr::All => Some(true),
+            SetExpr::Empty => Some(false),
+            SetExpr::Sym(k) => Some(t.syms[*k as usize][row]),
+            SetExpr::Res(Res::I32 { lane, op, t: c }) => {
+                t.lanes[*lane as usize][row].map(|v| match op {
+                    Cmp::Lt => v < *c,
+                    Cmp::Le => v <= *c,
+                    Cmp::Gt => v > *c,
+                    Cmp::Ge => v >= *c,
+                    Cmp::Eq => v == *c,
+                    Cmp::Ne => v != *c,
+                })
             }
-            SetExpr::Res(Res::I32 { lane, op, t: c }) => leaf(*lane, &|v| match op {
-                Cmp::Lt => v < *c,
-                Cmp::Le => v <= *c,
-                Cmp::Gt => v > *c,
-                Cmp::Ge => v >= *c,
-                Cmp::Eq => v == *c,
-                Cmp::Ne => v != *c,
-            }),
-            SetExpr::Res(Res::U32 { lane, eq, v }) => leaf(*lane, &|x| (x as u32 == *v) == *eq),
-            SetExpr::Not(c) => {
-                let (tp, fp) = set_planes(t, c);
-                (fp, tp)
+            SetExpr::Res(Res::U32 { lane, eq, v }) => {
+                t.lanes[*lane as usize][row].map(|x| (x as u32 == *v) == *eq)
             }
-            SetExpr::And(cs) => cs
-                .iter()
-                .fold((vec![true; n], vec![false; n]), |(a, b), c| {
-                    let (ct, cf) = set_planes(t, c);
-                    (zip(&a, &ct, |x, y| x && y), zip(&b, &cf, |x, y| x || y))
-                }),
-            SetExpr::Or(cs) => cs
-                .iter()
-                .fold((vec![false; n], vec![true; n]), |(a, b), c| {
-                    let (ct, cf) = set_planes(t, c);
-                    (zip(&a, &ct, |x, y| x || y), zip(&b, &cf, |x, y| x && y))
-                }),
+            SetExpr::Not(c) => set_at(t, c, row).map(|b| !b),
+            SetExpr::And(cs) => {
+                let mut acc = Some(true);
+                for c in cs {
+                    acc = match (acc, set_at(t, c, row)) {
+                        (Some(false), _) | (_, Some(false)) => Some(false),
+                        (Some(true), Some(true)) => Some(true),
+                        _ => None,
+                    };
+                }
+                acc
+            }
+            SetExpr::Or(cs) => {
+                let mut acc = Some(false);
+                for c in cs {
+                    acc = match (acc, set_at(t, c, row)) {
+                        (Some(true), _) | (_, Some(true)) => Some(true),
+                        (Some(false), Some(false)) => Some(false),
+                        _ => None,
+                    };
+                }
+                acc
+            }
         }
     }
 
@@ -730,25 +725,22 @@ mod tests {
                 }
             }
             Measure::Count(s) => {
-                // A fold over the TRUE mask, weighted by the multiplicity lane.
-                let keep = set_planes(t, s).0;
-                keep.iter()
-                    .zip(&t.mult)
-                    .filter(|(k, _)| **k)
-                    .fold(fit(acc, 0), |v, (_, m)| {
-                        binop(acc, v, fit(acc, (*m).into()), false)
-                    })
+                let mut v = fit(acc, 0);
+                for r in 0..t.n() {
+                    if set_at(t, s, r) == Some(true) {
+                        v = binop(acc, v, fit(acc, t.mult[r].into()), false);
+                    }
+                }
+                v
             }
             Measure::Sum { lane, set } => {
-                // A fold over the TRUE mask and the value lane; the
-                // accumulator steps once per multiplicity unit so an eager
-                // overflow surfaces where it would.
-                let keep = set_planes(t, set).0;
                 let mut v = fit(acc, 0);
-                for ((k, x), m) in keep.iter().zip(&t.lanes[*lane as usize]).zip(&t.mult) {
-                    if let (true, Some(x)) = (*k, x) {
-                        for _ in 0..*m {
-                            v = binop(acc, v, fit(acc, (*x).into()), false);
+                for r in 0..t.n() {
+                    if set_at(t, set, r) == Some(true) {
+                        if let Some(x) = t.lanes[*lane as usize][r] {
+                            for _ in 0..t.mult[r] {
+                                v = binop(acc, v, fit(acc, x.into()), false);
+                            }
                         }
                     }
                 }
