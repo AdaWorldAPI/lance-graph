@@ -136,6 +136,13 @@ pub struct SharedReport {
     pub cost: ProgramCost,
     pub plan: Duration,
     pub prepare: Duration,
+    /// Building the program: finding the shared parts (compile time).
+    pub share: Duration,
+    /// The folds: lets and rules.
+    pub fold: Duration,
+    /// Reading the tuples over the kept masks.
+    pub tuples: Duration,
+    /// All of the run half: checks, share, folds, tuples.
     pub execute: Duration,
 }
 
@@ -203,7 +210,9 @@ pub fn execute_shared(
     }
     table.check(generations).map_err(CseRefusal::Table)?;
     let version = table_version(generations);
+    let ts = Instant::now();
     let prog = program(shared, version, sharing);
+    let share_cost = ts.elapsed();
 
     let n = table.domain.len();
     let masks: Vec<&[u64]> = table.sides.iter().map(Side::present).collect();
@@ -226,9 +235,12 @@ pub fn execute_shared(
         vec![vec![0u64; words_for(n)]; rules]
     };
     let mut sinks: Vec<&mut [u64]> = kept.iter_mut().map(Vec::as_mut_slice).collect();
+    let tf = Instant::now();
     let run = run_program(&prog, version, &planes, &vec![measure; rules], &mut sinks)
         .map_err(CseRefusal::Program)?;
 
+    let fold_cost = tf.elapsed();
+    let tt = Instant::now();
     let outcome = if mask_only {
         Outcome::Exists(run.answers.iter().any(|a| *a != Answer::Count(0)))
     } else {
@@ -263,6 +275,9 @@ pub fn execute_shared(
         rows_prepared: shared.prepared.rows_prepared,
         lets: prog.lets.len(),
         cost: run.cost,
+        share: share_cost,
+        fold: fold_cost,
+        tuples: tt.elapsed(),
         execute: t.elapsed(),
         ..SharedReport::default()
     };

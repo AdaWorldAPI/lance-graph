@@ -342,11 +342,15 @@ fn main() {
             );
             for (arm, sharing) in [("D0", false), ("D", true)] {
                 let mut t = (Vec::new(), Vec::new());
+                let mut split = (Vec::new(), Vec::new(), Vec::new());
                 let mut last = None;
                 for _ in 0..reps {
                     let (_, r) = arm_d(&w, kind, sharing);
                     t.0.push(r.prepare);
                     t.1.push(r.execute);
+                    split.0.push(r.share);
+                    split.1.push(r.fold);
+                    split.2.push(r.tuples);
                     last = Some(r);
                 }
                 let r = last.expect("reps >= 1");
@@ -362,6 +366,12 @@ fn main() {
                     r.lets,
                     r.cost.plane_reads,
                     r.cost.plane_bytes
+                );
+                println!(
+                    "     execute = share {:.2}ms + folds {:.2}ms + tuples {:.2}ms",
+                    ms(median(split.0)),
+                    ms(median(split.1)),
+                    ms(median(split.2))
                 );
             }
         }
