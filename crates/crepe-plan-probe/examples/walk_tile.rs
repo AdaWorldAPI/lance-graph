@@ -65,6 +65,8 @@
 //! probe-local digest ([`Witness`] from `rmap`), not the attested sorted key
 //! the ruling names (`OrderedLaneWitness`). So the binding path is NOT
 //! demonstrated to satisfy ADMISSION B, and D-RU-6 does not move.
+//!
+//! Measured results and the disable runs: `.claude/board/entries/2026-10-21-d-ru-6-tile-walk-probe.md`.
 
 use std::collections::BTreeSet;
 use std::hint::black_box;
@@ -578,6 +580,12 @@ struct TileReport {
 }
 
 impl TileReport {
+    /// Every phase up to the counts: no tuple is built.
+    fn e2e_count(&self) -> Duration {
+        self.attest + self.validate + self.bind + self.project + self.recurse + self.count
+    }
+
+    /// Every phase up to the decoded tuples.
     fn e2e(&self) -> Duration {
         self.attest + self.validate + self.bind + self.project + self.recurse + self.decode
     }
@@ -685,6 +693,11 @@ fn fixtures() -> Vec<(&'static str, Vec<Edge>)> {
     ]
 }
 
+/// walk_mask's three plane sets (`walk`, `delta`, `new`).
+fn baseline_plane_bytes(e: &[Edge]) -> usize {
+    3 * mask_walk(width(e), e).plane_bytes()
+}
+
 /// The largest node id plus one: walk_mask's plane width.
 fn width(e: &[Edge]) -> usize {
     e.iter()
@@ -719,8 +732,17 @@ fn child(engine: &str, fixture: &str) {
             let p = mask_walk(width(&e), &e);
             black_box((p.counts(), p.tuples()));
         }
+        "mask-count" => {
+            black_box(mask_walk(width(&e), &e).counts());
+        }
         "tile" => {
             black_box(tile_eval(&e, usize::MAX).expect("tile path answers"));
+        }
+        "tile-count" => {
+            let b = bind(&e, attest(&e), 1, None, usize::MAX).expect("binds");
+            let p = project(&b, &e);
+            let r = recurse(&b, &p, &b.witness, &mut Kernel::new()).expect("answers");
+            black_box(counts(&b, &r));
         }
         _ => panic!("unknown engine {engine}"),
     }
@@ -753,9 +775,10 @@ fn main() {
         "# correctness and end to end (ms, median of {REPS}; resident = VmHWM growth in a fresh process)\n"
     );
     println!(
-        "| fixture | nodes | pages | mask count-only | mask + decode | tile e2e | tile / mask | mask resident MiB | tile resident MiB | Walk | NoWalk | oracle |"
+        "| fixture | nodes | pages | mask count-only | tile count-only | tile / mask | mask + decode | tile + decode | tile / mask | Walk | NoWalk | oracle |"
     );
     println!("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|");
+    let mut memory = Vec::new();
     let mut detail = Vec::new();
     for (name, e) in fixtures() {
         let n = width(&e);
@@ -791,6 +814,7 @@ fn main() {
             med(|r| r.decode),
         ];
         let tile_e2e = med(|r| r.e2e());
+        let tile_count = med(|r| r.e2e_count());
         let last = reps.into_iter().last().expect("REPS > 0");
         let nodes = last
             .tuples
@@ -810,20 +834,43 @@ fn main() {
             "tile = mask; no Datalog oracle (UNCHECKED)"
         };
         assert_eq!(last.counts, last.tuples.counts(), "{name}: tile counts");
-        let mask_e2e = median(tc.clone()) + median(td);
+        let mask_count = median(tc);
+        let mask_e2e = mask_count + median(td);
         println!(
-            "| {name} | {nodes} | {} | {} | {} | {} | {:.1}× | {} | {} | {} | {} | {oracle} |",
+            "| {name} | {nodes} | {} | {} | {} | {:.1}× | {} | {} | {:.1}× | {} | {} | {oracle} |",
             last.pages,
-            ms(median(tc)),
+            ms(mask_count),
+            ms(tile_count),
+            tile_count.as_secs_f64() / mask_count.as_secs_f64(),
             ms(mask_e2e),
             ms(tile_e2e),
             tile_e2e.as_secs_f64() / mask_e2e.as_secs_f64(),
-            mib(resident_kib("mask", name) * 1024),
-            mib(resident_kib("tile", name) * 1024),
             last.counts.0,
             last.counts.1,
         );
+        memory.push((
+            name,
+            ["mask-count", "tile-count", "mask", "tile"].map(|eng| resident_kib(eng, name)),
+            baseline_plane_bytes(&e),
+            last.tile_bytes,
+        ));
         detail.push((name, phases, last, row_reads));
+    }
+    println!("\n# resident memory (MiB): VmHWM growth in a fresh process per cell\n");
+    println!(
+        "| fixture | mask count-only | tile count-only | mask + decode | tile + decode | mask planes (3 x walk) | tile walk tiles |"
+    );
+    println!("|---|---:|---:|---:|---:|---:|---:|");
+    for (name, kib, planes, tiles) in &memory {
+        println!(
+            "| {name} | {} | {} | {} | {} | {} | {} |",
+            mib(kib[0] * 1024),
+            mib(kib[1] * 1024),
+            mib(kib[2] * 1024),
+            mib(kib[3] * 1024),
+            mib(*planes),
+            mib(*tiles),
+        );
     }
     println!("\n# tile path by phase (ms, median of {REPS})\n");
     println!(
@@ -994,8 +1041,16 @@ mod tests {
     }
 
     #[test]
-    fn the_benchmark_generator_across_three_foci() {
-        let r = check(&edges(520));
+    fn the_benchmark_generator_across_two_foci() {
+        let r = check(&edges(260));
+        assert_eq!(r.pages, 2);
+        assert!(r.cross_page_edges > 0);
+    }
+
+    #[test]
+    fn a_sparse_graph_across_three_foci() {
+        // Sparse, so the debug-build oracles stay fast in CI.
+        let r = check(&random_graph(600, 1, 0x3F0C1));
         assert_eq!(r.pages, 3);
         assert!(r.cross_page_edges > 0);
     }

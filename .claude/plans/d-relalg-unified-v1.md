@@ -202,6 +202,8 @@ This is the `walk_mask` loop. To be lawful it needs the step "rule fragment appl
 
 **Benchmark requirement.** At least one input must need deep propagation. A chain or a ladder of length ≥ 200 forces the loop to run that many iterations (asserted, not assumed), plus a cyclic graph to check termination.
 
+**Benchmark requirement, D-RU-6 (operator, 2026-10-21).** Every comparison against `walk_mask` (#1642) reports separately: tuple materialization, count-only evaluation, memory growth, address binding (attestation, witness validation, identity resolution and focus binding, projection), and value-derived reads by origin. Correctness is the full `Walk` / `NoWalk` tuple sets against crepe and ascent wherever they run, never Boolean reachability alone. D-RMAP-2 §5b's split of preparation, execution and maintenance applies. First lab measurement: `entries/2026-10-21-d-ru-6-tile-walk-probe.md` (execution gather-free; binding not shown to satisfy ADMISSION B; the tile path loses on time and wins on count-only memory).
+
 ## 9. Physical planning in Quack
 
 Quack has no cost model, and its own docs say a selectivity-only model cannot separate the measured regimes (`lib.rs:674-688`). The first step is therefore what #1639 just did for Arm B: per-decision **policy pins measured on fixtures**, each with a can-fire and a can-stay-silent test. Not a general cost model. Candidate decisions:
