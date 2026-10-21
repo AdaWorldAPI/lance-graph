@@ -6,7 +6,7 @@
 use dir_rmap_probe::World;
 use dir_rmap_probe::fixture::{Fixture, Spec};
 use dir_rmap_probe::focus::Row;
-use dir_rmap_probe::qr::{Pages, Qr};
+use dir_rmap_probe::qr::{Pages, Qr, Runs};
 
 const ALL: Row = [!0; 4];
 const EVEN: Row = [0x5555_5555_5555_5555; 4];
@@ -57,6 +57,7 @@ fn masked_counts_equal_a_page_by_page_resolve() {
     let mut pages = Pages::new(&qr);
     let np = qr.pages();
     let mut scratch = vec![[0u64; 4]; np];
+    let mut runs = Runs::new(&qr);
 
     // Questions: every role, and membership of a few security groups.
     let mut questions: Vec<(Row, Box<dyn Fn(u64, &Row) -> bool>)> = Vec::new();
@@ -100,6 +101,11 @@ fn masked_counts_equal_a_page_by_page_resolve() {
                     }
                 }
                 assert_eq!(got, want);
+                assert_eq!(
+                    runs.count(&qr, &b, slots, &tiles, &rows).unwrap(),
+                    want,
+                    "runs"
+                );
                 assert!(scratch.iter().all(|t| *t == [0; 4]), "scratch left dirty");
                 nonzero += usize::from(got != 0);
                 checked += 1;

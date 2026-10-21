@@ -254,9 +254,13 @@ impl Qr {
                 for &u in b.group_users.row(g as usize) {
                     let u = u as usize;
                     let p = u / SLOTS;
-                    if tiles[p >> 6] >> (p & 63) & 1 == 1 {
-                        set(&mut scratch[p], u % SLOTS);
-                    }
+                    // Branchless: the tile's selection bit is shifted into
+                    // place, so an unselected tile receives an OR of zero.
+                    // Member lists are in ordinal order, which is random with
+                    // respect to tiles, so a branch here mispredicts.
+                    let sel = tiles[p >> 6] >> (p & 63) & 1;
+                    let i = u % SLOTS;
+                    scratch[p][i >> 6] |= sel << (i & 63);
                 }
             }
         }
@@ -350,4 +354,83 @@ fn closure(nest: &[Row; SLOTS], n: usize) -> [Row; SLOTS] {
         }
     }
     r
+}
+
+/// Per-slot tile pointers into the slot's sorted direct-member list: for
+/// slot `s`, `runs[s][p]..runs[s][p + 1]` are its members in tile `p`.
+/// Built for a slot the first time a question names it; a query then visits
+/// only the selected tiles' runs.
+pub struct Runs {
+    runs: Vec<Option<Box<[u32]>>>,
+    /// Slots whose pointer table has been built.
+    pub built: usize,
+}
+
+impl Runs {
+    pub fn new(qr: &Qr) -> Runs {
+        Runs {
+            runs: (0..qr.ids.len()).map(|_| None).collect(),
+            built: 0,
+        }
+    }
+
+    fn index(&mut self, qr: &Qr, b: &Prepared, s: usize) -> &[u32] {
+        if self.runs[s].is_none() {
+            let pages = qr.pages();
+            let mut off = vec![0u32; pages + 1];
+            for &u in b.group_users.row(qr.ids[s] as usize) {
+                off[u as usize / SLOTS + 1] += 1;
+            }
+            for p in 0..pages {
+                off[p + 1] += off[p];
+            }
+            self.runs[s] = Some(off.into_boxed_slice());
+            self.built += 1;
+        }
+        self.runs[s].as_deref().expect("built above")
+    }
+
+    /// Same answer as [`Qr::count_masked`], visiting only selected tiles:
+    /// per tile, the runs of the slots in `slots` are ORed into one row,
+    /// ANDed with the tile's row mask and counted.
+    pub fn count(
+        &mut self,
+        qr: &Qr,
+        b: &Prepared,
+        slots: &Row,
+        tiles: &[u64],
+        rows: &[Row],
+    ) -> Result<u64, Refusal> {
+        b.check(&qr.witness)?;
+        let n = qr.ids.len();
+        for s in 0..n {
+            if row_bit(slots, s) {
+                self.index(qr, b, s);
+            }
+        }
+        let mut total = 0u64;
+        for (p, m) in rows.iter().enumerate().take(qr.pages()) {
+            if tiles[p >> 6] >> (p & 63) & 1 == 0 {
+                continue;
+            }
+            let mut acc = [0u64; 4];
+            for s in 0..n {
+                if row_bit(slots, s) {
+                    let off = self.runs[s].as_deref().expect("indexed above");
+                    let members = b.group_users.row(qr.ids[s] as usize);
+                    for &u in &members[off[p] as usize..off[p + 1] as usize] {
+                        set(&mut acc, u as usize % SLOTS);
+                    }
+                }
+            }
+            for k in 0..4 {
+                total += u64::from((acc[k] & m[k]).count_ones());
+            }
+        }
+        Ok(total)
+    }
+
+    pub fn bytes(&self) -> usize {
+        self.runs.iter().flatten().map(|r| r.len() * 4).sum()
+    }
 }

@@ -17,12 +17,15 @@
 //! * `masked`: [`Qr::count_masked`]: each needed group's direct members are
 //!   read once and set bits only in selected tiles; popcount of tile AND row
 //!   mask. No page is resolved.
+//! * `runs (cold)`: [`Runs::count`] with the per-slot tile pointer tables
+//!   built inside the timed call; `runs (warm)`: tables already built. Only
+//!   the selected tiles' runs are visited.
 
 use dir_rmap_probe::World;
 use dir_rmap_probe::fixture::{Fixture, Spec};
 use dir_rmap_probe::focus::Row;
 use dir_rmap_probe::prep::Prepared;
-use dir_rmap_probe::qr::{Page, Qr};
+use dir_rmap_probe::qr::{Page, Qr, Runs};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
 
@@ -160,8 +163,8 @@ fn main() {
         for (rname, rows) in &row_sets {
             println!("  {rname}:");
             println!(
-                "    {:>4} {:>18} {:>18} {:>18} {:>12}",
-                "k", "page (first touch)", "warm", "masked", "page/masked"
+                "    {:>4} {:>18} {:>12} {:>12} {:>12} {:>12}",
+                "k", "page (first touch)", "warm page", "masked", "runs cold", "runs warm"
             );
             for k in [1, 2, 4, 8, 16, 32, 64, 128, np] {
                 let k = k.min(np);
@@ -182,12 +185,22 @@ fn main() {
                 let t_mask = median(9, || {
                     black_box(qr.count_masked(&b, &slots, &t, rows, &mut scratch).unwrap());
                 });
+                let mut runs = Runs::new(&qr);
+                assert_eq!(runs.count(&qr, &b, &slots, &t, rows).unwrap(), want);
+                let t_cold = median(9, || {
+                    let mut runs = Runs::new(&qr);
+                    black_box(runs.count(&qr, &b, &slots, &t, rows).unwrap());
+                });
+                let t_runs = median(9, || {
+                    black_box(runs.count(&qr, &b, &slots, &t, rows).unwrap());
+                });
                 println!(
-                    "    {k:>4} {:>18} {:>18} {:>18} {:>11.1}x",
+                    "    {k:>4} {:>18} {:>12} {:>12} {:>12} {:>12}",
                     fmt(t_page),
                     fmt(t_warm),
                     fmt(t_mask),
-                    t_page.as_secs_f64() / t_mask.as_secs_f64()
+                    fmt(t_cold),
+                    fmt(t_runs),
                 );
             }
         }
