@@ -5,7 +5,8 @@
 //! PostgreSQL counts the rows each `WHERE` keeps for the expression as
 //! written, after [`normalize_kleene`], and after the two-valued
 //! [`normalize`]. A Kleene evaluator in this file counts the same rows
-//! without PostgreSQL. Expected: as written = Kleene = PostgreSQL for every
+//! without PostgreSQL: it evaluates whole TRUE/FALSE bit planes over the
+//! column lanes and counts by popcount, never per row. Expected: as written = Kleene = PostgreSQL for every
 //! expression; the two-valued form differs on some.
 //!
 //! Needs `psql` and a server; connection from the usual `PG*` variables.
@@ -36,24 +37,53 @@ impl Rng {
     }
 }
 
-/// Columns: `a0`, `a1` nullable int; `u0` nullable int code; `s0`, `s1`
-/// boolean, never NULL (a `Sym` is two-valued).
-struct Row {
-    a: [Option<i32>; 2],
-    u: Option<u32>,
-    s: [bool; 2],
+const WORDS: usize = ROWS.div_ceil(64);
+
+/// A column as lanes, never as rows: a value lane plus a validity plane per
+/// nullable column (`a0`, `a1` int, `u0` int code) and a bit plane per
+/// two-valued boolean column (`s0`, `s1`; a `Sym` is never NULL).
+struct Table {
+    a: [Vec<i32>; 2],
+    a_valid: [[u64; WORDS]; 2],
+    u: Vec<u32>,
+    u_valid: [u64; WORDS],
+    s: [[u64; WORDS]; 2],
 }
 
-fn rows(rng: &mut Rng) -> Vec<Row> {
-    let mut v = || (rng.below(4) != 0).then(|| rng.below(9) as i32 - 4);
-    let a: Vec<_> = (0..ROWS).map(|_| [v(), v()]).collect();
-    a.into_iter()
-        .map(|a| Row {
-            a,
-            u: (rng.below(4) != 0).then(|| rng.below(3) as u32),
-            s: [rng.below(2) == 0, rng.below(2) == 0],
-        })
-        .collect()
+fn set(plane: &mut [u64; WORDS], i: usize) {
+    plane[i / 64] |= 1 << (i % 64);
+}
+
+fn has(plane: &[u64; WORDS], i: usize) -> bool {
+    plane[i / 64] >> (i % 64) & 1 == 1
+}
+
+fn table(rng: &mut Rng) -> Table {
+    let mut t = Table {
+        a: [vec![0; ROWS], vec![0; ROWS]],
+        a_valid: [[0; WORDS]; 2],
+        u: vec![0; ROWS],
+        u_valid: [0; WORDS],
+        s: [[0; WORDS]; 2],
+    };
+    for i in 0..ROWS {
+        for l in 0..2 {
+            if rng.below(4) != 0 {
+                t.a[l][i] = rng.below(9) as i32 - 4;
+                set(&mut t.a_valid[l], i);
+            }
+        }
+        if rng.below(4) != 0 {
+            t.u[i] = rng.below(3) as u32;
+            set(&mut t.u_valid, i);
+        }
+        for l in 0..2 {
+            if rng.below(2) == 0 {
+                set(&mut t.s[l], i);
+            }
+        }
+    }
+    t
 }
 
 fn leaf(rng: &mut Rng) -> SetExpr {
@@ -130,69 +160,100 @@ fn sql(e: &SetExpr) -> String {
     }
 }
 
-/// Kleene evaluation, by definition (`None` = UNKNOWN).
-fn kleene(r: &Row, e: &SetExpr) -> Option<bool> {
+/// Kleene evaluation as two planes: `(T, F)`, where a bit set in neither
+/// plane is UNKNOWN. A leaf is one compare per lane slot into a mask; NOT
+/// swaps the planes; AND / OR combine whole words. Nothing is decoded into
+/// rows, and the oracle's answer is a popcount of the TRUE plane.
+fn kleene(t: &Table, e: &SetExpr) -> ([u64; WORDS], [u64; WORDS]) {
+    let all = {
+        let mut p = [0u64; WORDS];
+        (0..ROWS).for_each(|i| set(&mut p, i));
+        p
+    };
     match e {
-        SetExpr::All => Some(true),
-        SetExpr::Empty => Some(false),
-        SetExpr::Sym(i) => Some(r.s[*i as usize]),
-        SetExpr::Res(Res::I32 { lane, op, t }) => r.a[*lane as usize].map(|x| match op {
-            Cmp::Lt => x < *t,
-            Cmp::Le => x <= *t,
-            Cmp::Gt => x > *t,
-            Cmp::Ge => x >= *t,
-            Cmp::Eq => x == *t,
-            Cmp::Ne => x != *t,
+        SetExpr::All => (all, [0; WORDS]),
+        SetExpr::Empty => ([0; WORDS], all),
+        SetExpr::Sym(i) => {
+            let s = t.s[*i as usize];
+            (s, std::array::from_fn(|w| all[w] & !s[w]))
+        }
+        SetExpr::Res(r) => {
+            let (mut tp, mut fp) = ([0u64; WORDS], [0u64; WORDS]);
+            for i in 0..ROWS {
+                let hit = match r {
+                    Res::I32 { lane, op, t: c } => {
+                        if !has(&t.a_valid[*lane as usize], i) {
+                            continue;
+                        }
+                        let x = t.a[*lane as usize][i];
+                        match op {
+                            Cmp::Lt => x < *c,
+                            Cmp::Le => x <= *c,
+                            Cmp::Gt => x > *c,
+                            Cmp::Ge => x >= *c,
+                            Cmp::Eq => x == *c,
+                            Cmp::Ne => x != *c,
+                        }
+                    }
+                    Res::U32 { eq, v, .. } => {
+                        if !has(&t.u_valid, i) {
+                            continue;
+                        }
+                        (t.u[i] == *v) == *eq
+                    }
+                };
+                set(if hit { &mut tp } else { &mut fp }, i);
+            }
+            (tp, fp)
+        }
+        SetExpr::Not(c) => {
+            let (tp, fp) = kleene(t, c);
+            (fp, tp)
+        }
+        SetExpr::And(cs) => cs.iter().fold((all, [0; WORDS]), |(at, af), c| {
+            let (ct, cf) = kleene(t, c);
+            (
+                std::array::from_fn(|w| at[w] & ct[w]),
+                std::array::from_fn(|w| af[w] | cf[w]),
+            )
         }),
-        SetExpr::Res(Res::U32 { eq, v, .. }) => r.u.map(|x| (x == *v) == *eq),
-        SetExpr::Not(c) => kleene(r, c).map(|b| !b),
-        SetExpr::And(cs) => {
-            let mut unknown = false;
-            for c in cs {
-                match kleene(r, c) {
-                    Some(false) => return Some(false),
-                    None => unknown = true,
-                    Some(_) => {}
-                }
-            }
-            (!unknown).then_some(true)
-        }
-        SetExpr::Or(cs) => {
-            let mut unknown = false;
-            for c in cs {
-                match kleene(r, c) {
-                    Some(true) => return Some(true),
-                    None => unknown = true,
-                    Some(_) => {}
-                }
-            }
-            (!unknown).then_some(false)
-        }
+        SetExpr::Or(cs) => cs.iter().fold(([0; WORDS], all), |(at, af), c| {
+            let (ct, cf) = kleene(t, c);
+            (
+                std::array::from_fn(|w| at[w] | ct[w]),
+                std::array::from_fn(|w| af[w] & cf[w]),
+            )
+        }),
     }
 }
 
-fn lit<T: std::fmt::Display>(v: Option<T>) -> String {
-    v.map_or("NULL".into(), |x| x.to_string())
+fn lit<T: std::fmt::Display>(valid: bool, v: T) -> String {
+    if valid {
+        v.to_string()
+    } else {
+        "NULL".into()
+    }
 }
 
 fn main() {
     let mut rng = Rng(0x00D1_5EED_0003_0001);
-    let table = rows(&mut rng);
+    let table = table(&mut rng);
     let exprs: Vec<SetExpr> = (0..EXPRS).map(|_| expr(&mut rng, 4)).collect();
 
     let mut script = String::from(
         "CREATE TEMP TABLE t (a0 int, a1 int, u0 int, s0 bool, s1 bool);\nINSERT INTO t VALUES\n",
     );
-    let values: Vec<String> = table
-        .iter()
-        .map(|r| {
+    // Rendering the INSERT is the one place lanes are read side by side: it
+    // is the input handed to PostgreSQL, not a comparison.
+    let values: Vec<String> = (0..ROWS)
+        .map(|i| {
             format!(
                 "({}, {}, {}, {}, {})",
-                lit(r.a[0]),
-                lit(r.a[1]),
-                lit(r.u),
-                r.s[0],
-                r.s[1]
+                lit(has(&table.a_valid[0], i), table.a[0][i]),
+                lit(has(&table.a_valid[1], i), table.a[1][i]),
+                lit(has(&table.u_valid, i), table.u[i]),
+                has(&table.s[0], i),
+                has(&table.s[1], i)
             )
         })
         .collect();
@@ -252,7 +313,11 @@ fn main() {
     let (mut kleene_ok, mut two_valued_wrong, mut rewritten) = (0, 0, 0);
     for (e, line) in exprs.iter().zip(&lines) {
         let n: Vec<usize> = line.split(',').map(|x| x.parse().expect("count")).collect();
-        let oracle = table.iter().filter(|r| kleene(r, e) == Some(true)).count();
+        let oracle: usize = kleene(&table, e)
+            .0
+            .iter()
+            .map(|w| w.count_ones() as usize)
+            .sum();
         assert_eq!(n[0], oracle, "PostgreSQL vs the Kleene oracle: {e:?}");
         assert_eq!(n[1], n[0], "normalize_kleene changed the count: {e:?}");
         kleene_ok += 1;
