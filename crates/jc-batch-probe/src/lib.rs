@@ -143,6 +143,10 @@ pub enum BatchError {
     /// The selection was decided from its description alone (all rows or
     /// none). The probe runs only selections that need a pass.
     SymbolicSelection { request: usize },
+    /// The selection names a resident mask plane (`Rel::Plane`). A batch
+    /// reads only the table's lanes: resident planes are U2's let-planes, and
+    /// [`Cost`] does not count plane reads.
+    ResidentPlane { request: usize },
     /// relalg refused the selection.
     Relalg(RelError),
     /// mask-risc refused a pass.
@@ -211,8 +215,23 @@ fn selection_lanes(rel: &Rel, out: &mut Vec<u16>) {
     }
 }
 
-fn check_versions(t: &Table<'_>, reqs: &[Request]) -> Result<(), BatchError> {
+/// Whether a selection names a resident mask plane anywhere.
+fn names_plane(rel: &Rel) -> bool {
+    match rel {
+        Rel::Plane(_) => true,
+        Rel::All | Rel::Empty | Rel::Atom(_) => false,
+        Rel::And(xs) | Rel::Or(xs) => xs.iter().any(names_plane),
+        Rel::Not(x) => names_plane(x),
+    }
+}
+
+/// Refuses a request for another version, or one whose selection names a
+/// resident plane, before anything runs.
+fn check_requests(t: &Table<'_>, reqs: &[Request]) -> Result<(), BatchError> {
     for (i, r) in reqs.iter().enumerate() {
+        if names_plane(&r.select) {
+            return Err(BatchError::ResidentPlane { request: i });
+        }
         if r.version != t.version {
             return Err(BatchError::VersionMismatch {
                 request: i,
@@ -412,7 +431,7 @@ pub fn answer_separately(
     t: &Table<'_>,
     reqs: &[Request],
 ) -> Result<(Vec<Answer>, Cost), BatchError> {
-    check_versions(t, reqs)?;
+    check_requests(t, reqs)?;
     let mut cost = Cost::default();
     let mut out = Vec::with_capacity(reqs.len());
     for (i, r) in reqs.iter().enumerate() {
@@ -455,7 +474,7 @@ pub fn answer_batched(
     t: &Table<'_>,
     reqs: &[Request],
 ) -> Result<(Vec<Answer>, Cost, Reduction), BatchError> {
-    check_versions(t, reqs)?;
+    check_requests(t, reqs)?;
     let mut cost = Cost::default();
     let mut red = Reduction::default();
 
