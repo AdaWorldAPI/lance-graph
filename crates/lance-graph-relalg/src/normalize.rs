@@ -8,8 +8,13 @@
 //! [`SetExpr`] (`Plane(i)` is the opaque set `Sym(i)`; an [`Atom`] is the
 //! residual [`Res`] with the same fields), normalized there, and converted
 //! back. The rule list is documented at the contract module.
+//!
+//! [`symbolic`] likewise asks the contract's rule catalogue
+//! ([`lance_graph_contract::set_rules`], D-CMR-6) whether the measure folds
+//! to a constant, instead of matching `Empty` / `All` here.
 
 use lance_graph_contract::set_algebra::{self as sa, Res, SetExpr};
+use lance_graph_contract::set_rules::{self as sr, Semantics};
 
 use crate::ir::{Atom, Cmp, Measure, Rel};
 use crate::lower::Answer;
@@ -19,16 +24,36 @@ pub fn normalize(rel: &Rel) -> Rel {
     from_set(&sa::normalize(&to_set(rel)))
 }
 
+/// Step budget for [`symbolic`]'s rewrite; every step shrinks the measure, so
+/// a description this crate lowers reaches its fixpoint well inside it.
+const SYMBOLIC_BUDGET: usize = 256;
+
 /// The answer, if the description alone determines it: no row is read and
 /// no program runs.
+///
+/// The decision is the contract's: the measure is rewritten by
+/// [`set_rules::rewrite`](sr::rewrite) under this crate's semantics (planes
+/// and lanes are two-valued, sums are exact `i64` over `i32`, rows are
+/// distinct, the universe is `n_rows`), and answered only when it folds to a
+/// constant. `Min` / `Max` are answered (`None`) only when the rows are
+/// provably empty, i.e. when their `Count` folds to `0`.
 pub fn symbolic(rel: &Rel, m: Measure, n_rows: usize) -> Option<Answer> {
-    match (rel, m) {
-        (Rel::Empty, Measure::Count) => Some(Answer::Count(0)),
-        (Rel::Empty, Measure::Sum(_)) => Some(Answer::Sum(0)),
-        (Rel::Empty, Measure::Min(_)) => Some(Answer::Min(None)),
-        (Rel::Empty, Measure::Max(_)) => Some(Answer::Max(None)),
-        (Rel::All, Measure::Count) => Some(Answer::Count(n_rows as u64)),
-        _ => None,
+    let set = to_set(rel);
+    let probe = match m {
+        Measure::Count | Measure::Min(_) | Measure::Max(_) => sr::Measure::Count(set),
+        Measure::Sum(lane) => sr::Measure::Sum { lane, set },
+        Measure::Keep => return None,
+    };
+    let sem = Semantics::exact(n_rows as u64);
+    let sr::Measure::Const(c) = sr::rewrite(&probe, &sem, SYMBOLIC_BUDGET).0 else {
+        return None;
+    };
+    match m {
+        Measure::Count => u64::try_from(c).ok().map(Answer::Count),
+        Measure::Sum(_) => i64::try_from(c).ok().map(Answer::Sum),
+        Measure::Min(_) => (c == 0).then_some(Answer::Min(None)),
+        Measure::Max(_) => (c == 0).then_some(Answer::Max(None)),
+        Measure::Keep => None,
     }
 }
 

@@ -1,0 +1,13 @@
+# 2026-10-21 — D-RA-2: relalg's symbolic answers repointed onto `contract::set_rules` (crepe through relalg)
+
+**Status:** TEST-PINNED, in PR (branch `claude/eager-albattani-iufugq`). **Basis:** six-decisions §2 ("D-CMR-6 publishes the catalogue → repoint crepe"); D-RA-2 option A; claim EXO-50 `session_013z2e1YXkm6o6HNrDn5BPWA/019`.
+
+- **What was duplicated:** `lance_graph_relalg::normalize::symbolic` decided `Count(∅) = 0`, `Sum(∅) = 0`, `Min/Max(∅) = None` and `Count(All) = n` by matching `Rel::Empty` / `Rel::All` locally — single-table measure identities outside the contract.
+- **Contract (`set_rules`, two rules added):** `EmptyMeasure` (`Count(∅) → 0`, `Sum(∅) → 0`; refuses `_sym` sums, whose empty sum is a sentinel) and `CountAll` (`Count(All) → N`; refuses no universe, bag, IEEE). The catalogue has 8 rules.
+- **relalg:** `symbolic` builds `set_rules::Measure::{Count, Sum}` from the query, rewrites it under relalg's semantics (`Semantics::exact(n_rows)`: two-valued planes and lanes, exact `i64` sums of `i32`, distinct rows) and answers only a `Const`. `Min`/`Max` answer `None` only when their `Count` folds to 0. Public signature unchanged.
+- **crepe:** no code change. Its symbolic answers come from `lance_graph_relalg::run` → `symbolic`, so they now come from the contract. Its own `optimize.rs` rewrites (binding propagation, duplicate atom, duplicate rule) work on Datalog join bodies over several relations; they are not single-table identities and stay.
+- **Tests:** contract `set_rules` 25 (3 new: empty/All folding against the oracle incl. after normalization; `_sym` refuses the empty sum; `Count(All)` refuses no universe / bag / IEEE). Two existing tests re-pinned because the new rules fire on their fixtures: the two-valued half of `experiment_e_null_refuses_set_normalization` now folds to `Const(3)`; `experiment_e_sym_family_refuses_cancelling_a_sum` also records `EmptyMeasure`'s `_sym` refusal.
+- **Disable runs:** relalg `symbolic` → `None`: 3 relalg tests red (`a_contradiction_…`, `a_tautology_…`, `an_inequality_in_a_union_…`). Contract `Count(∅)` rule off: `a_contradiction_…` red. Contract `Count(All)` rule off: `a_tautology_…` and `an_inequality_…` red. So relalg's answers depend on the contract. Each new contract guard (empty-sum `_sym`, `Count(All)` universe / bag / IEEE) red when removed.
+- **Gates:** relalg 26 unchanged; contract lib 1,547; crepe-plan-probe 46 pass unchanged (built against the repointed relalg and contract); clippy `-D warnings`, fmt clean.
+
+OPEN: `Min`/`Max` stay outside `set_rules::Measure` (their empty answer is `None`, not an integer); emptiness is decided by the contract's `Count`.

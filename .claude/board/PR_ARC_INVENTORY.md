@@ -1,3 +1,10 @@
+## 2026-10-21 — lance-graph PR #1651 (merged `6bf4f86`, branch `claude/eager-albattani-iufugq`, head `43218eb`) — D-CMR-6: guarded rule catalogue and fixpoint driver in the contract; #1650 closeout
+
+- **Added:** `lance_graph_contract::set_rules::{Measure, RowRange, Semantics, Arith, Truth, SumFamily, Population, Rule, Refusal, RuleSpec, CATALOGUE, Trace, rewrite, rewrite_with, all_rules}` (zero deps); entry `2026-10-21-d-cmr-6-rule-catalogue.md`. Also the #1650 board closeout (D-CMR-2 Shipped, PR_ARC #1650).
+- **Locked:** six rules as data (set normalization, complement, relational difference, additive cancellation, range intersection, range count), each with explicit refusals (three-valued, no universe, bag, checked, IEEE, `_sym` sums, impure, basis mismatch, past universe); the driver applies only strictly shrinking rewrites to a fixpoint or a step budget; refused matches keep the original and are traced. `set_algebra.rs`, `set_program.rs`, crepe, relalg and mask-risc unchanged.
+- **Deferred / open:** repointing crepe and relalg onto `set_rules`; a prefix-lane `Sum([lo,hi))` rule; D-CMR-8 only if rules compete.
+- **Confidence:** measured. 22 tests (the 22nd, the range rules' no-universe refusal, added in the closeout after Codex's review of #1654) (differential vs `i128` / wrapping oracles over random tables and rule subsets; experiments A, D, E); every guard disable-verified red; Codex found four missing guards (complement for bags and checked/IEEE, `_sym` cancellation, IEEE range count), all fixed with tests before merge; CI green.
+
 ## 2026-10-21 — lance-graph PR #1650 (merged `f031089`, branch `claude/eager-albattani-iufugq`, head `98d97ef`) — D-CMR-2: the contract set algebra lowered onto mask-risc; D-CMR-5 re-scoped
 
 - **Added:** `lance_graph::fold::set_lower::{SetPlan, SortedBasis, Level, Measured, LowerError}` (core, no new dependency); entries `2026-10-21-d-cmr-2-lowering.md`, `2026-10-21-d-cmr-5-rescope.md`.

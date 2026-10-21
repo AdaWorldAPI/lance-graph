@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-404 entries, 2026-08-06 .. 2026-10-21.
+406 entries, 2026-08-06 .. 2026-10-21.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-10-21 | `D-RU-6-LAB-1` |  | [2026-10-21-d-ru-6-tile-walk-probe.md](2026-10-21-d-ru-6-tile-walk-probe.md) |
 | 2026-10-21 | `D-RU-6-LAB-2` |  | [2026-10-21-d-ru-6-sparse-compute.md](2026-10-21-d-ru-6-sparse-compute.md) |
 | 2026-10-21 | `D-RU-6-LAB-3` |  | [2026-10-21-d-ru-6-dirty-frontier.md](2026-10-21-d-ru-6-dirty-frontier.md) |
+| 2026-10-21 | `D-RA-2` |  | [2026-10-21-d-ra-2-relalg-symbolic-repoint.md](2026-10-21-d-ra-2-relalg-symbolic-repoint.md) |
 | 2026-10-21 | `D-CMR-6` |  | [2026-10-21-d-cmr-6-rule-catalogue.md](2026-10-21-d-cmr-6-rule-catalogue.md) |
 | 2026-10-21 | `D-CMR-5` |  | [2026-10-21-d-cmr-5-rescope.md](2026-10-21-d-cmr-5-rescope.md) |
 | 2026-10-21 | `D-CMR-2` |  | [2026-10-21-d-cmr-2-lowering.md](2026-10-21-d-cmr-2-lowering.md) |
