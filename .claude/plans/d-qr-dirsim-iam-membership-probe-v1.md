@@ -56,3 +56,10 @@ The **QR256 register stores up to 256×256 bits**, not all 65k×65k directory ed
 **Explicit non-goals:** no live directory mutation, no group-role schema minting without OGAR evidence, no CE64 encoding change, no privilege inferred from class presence, no new `Edge` heap object, no assumed transitivity for an arbitrary relation.
 
 **References:** [#1659](https://github.com/AdaWorldAPI/lance-graph/pull/1659), [#1660](https://github.com/AdaWorldAPI/lance-graph/pull/1660), [EXO-79](https://linear.app/exo-red/issue/EXO-79), [EXO-86](https://linear.app/exo-red/issue/EXO-86), [EXO-46](https://linear.app/exo-red/issue/EXO-46), [EXO-50](https://linear.app/exo-red/issue/EXO-50).
+
+
+## Cross-PR ISA/PART_OF zipper experiment
+
+See the [capstone](https://github.com/AdaWorldAPI/lance-graph/blob/research/qr-abi-classview-capstone-20261021/.claude/plans/d-qr-abi-classview-rails-capstone-v1.md). Existing `FacetCascade` already carries six `8:8` pairs after its 4-byte class prefix. Test the *declared* horizontal interpretation `(part_of:u8, is_a:u8)` with 256 local codes/axis against dir-sim's **distinct** `UserOrdinal` and `GroupOrdinal` u16 spaces. The proposed `HHTL16-IsA[16]` and `HHTL16-PartOf[16]` are two separate **logical 16-byte vertical chains**, NOT available 16-byte persisted registers in current code; the existing HHTL nibble path is 16×4-bit, not this 16×8-bit proposal. Compression/fold from global u16 ordinals into local u8 codes must be witnessed and bounded, or return continuation/refusal.
+
+**I9 additional probe:** on a mixed membership/is_a/part_of fixture, preserve typed rules: a subtype does not become a group member, a containment edge does not automatically confer a role, and identity itself does not prove permission. Test 256th vs 257th local entity, cycle, ambiguity, class prefix mismatch, and two distinct global IDs mapped to the same u8. Prefix-composition laws must be separately declared, not inferred from byte adjacency.
