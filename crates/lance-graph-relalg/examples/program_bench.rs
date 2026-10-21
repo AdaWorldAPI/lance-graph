@@ -33,9 +33,13 @@ fn main() {
     let z: Vec<i32> = (0..n).map(|i| ((i * 13) % 97) as i32).collect();
     let v: Vec<i32> = (0..n).map(|i| (i % 13) as i32 - 6).collect();
     let k: Vec<u32> = (0..n).map(|i| (i % 5) as u32).collect();
-    let p0: Vec<u64> = (0..words_for(n))
+    let mut p0: Vec<u64> = (0..words_for(n))
         .map(|w| 0x9249_2492_4924_9249u64.rotate_left(w as u32))
         .collect();
+    // mask-risc refuses set bits past the last row.
+    if !n.is_multiple_of(64) {
+        *p0.last_mut().expect("n > 0") &= (1u64 << (n % 64)) - 1;
+    }
     let lanes = [
         LaneRef::I32(&x),
         LaneRef::I32(&y),
@@ -98,22 +102,24 @@ fn main() {
     let (pc, rc) = last.expect("reps >= 1");
     println!("n_rows={n} queries={nq} lets={} reps={reps}", p.lets.len());
     println!(
-        "program   : {:>8.2} ms  lane_reads={} passes={} programs={} planes={} bytes={}",
+        "program   : {:>8.2} ms  lane_reads={} passes={} programs={} planes={} bytes={} slots={}",
         median(t_prog.clone()),
         pc.lane_reads,
         pc.passes,
         pc.programs,
         pc.planes_materialized,
-        pc.plane_bytes
+        pc.plane_bytes,
+        pc.max_scratch_slots
     );
     println!(
-        "recompute : {:>8.2} ms  lane_reads={} passes={} programs={} planes={} bytes={}",
+        "recompute : {:>8.2} ms  lane_reads={} passes={} programs={} planes={} bytes={} slots={}",
         median(t_rec.clone()),
         rc.lane_reads,
         rc.passes,
         rc.programs,
         rc.planes_materialized,
-        rc.plane_bytes
+        rc.plane_bytes,
+        rc.max_scratch_slots
     );
     println!(
         "ratio     : time {:.2}x  lane_reads {:.2}x",
