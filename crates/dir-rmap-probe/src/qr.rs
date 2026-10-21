@@ -58,7 +58,7 @@ pub struct Qr {
     /// User ordinal -> direct security groups as slots (the membership
     /// matrix, page `u / 256`, row `u % 256`).
     pub member: Vec<Row>,
-    /// User ordinal -> roles, resolved once per bind.
+    /// User ordinal -> roles, resolved once per bind by [`page_roles`].
     pub roles: Vec<u64>,
     /// Ordinal -> slot lookups done while binding.
     pub translations: usize,
@@ -111,13 +111,13 @@ impl Qr {
         let reach = closure(&nest, n);
         let mut role = [0u64; SLOTS];
         for i in 0..n {
-            for k in 0..n {
+            for (k, &g) in grant.iter().enumerate().take(n) {
                 if row_bit(&reach[i], k) {
-                    role[i] |= grant[k];
+                    role[i] |= g;
                 }
             }
         }
-        let roles = member.iter().map(|m| roles_of_row(m, &role, n)).collect();
+        let roles = page_roles(b, &ids, &role, b.users);
         Ok(Qr {
             witness: b.witness.clone(),
             ids,
@@ -150,6 +150,12 @@ impl Qr {
     #[inline]
     pub fn roles_of(&self, u: u16) -> u64 {
         self.roles[u as usize]
+    }
+
+    /// Roles of user `u` recomputed from its membership row and the slot
+    /// roles (the row-times-vector product `bind` resolves once).
+    pub fn roles_live(&self, u: u16) -> u64 {
+        roles_of_row(&self.member[u as usize], &self.role, self.ids.len())
     }
 
     /// User `u`'s effective security groups as slots: its membership row
@@ -199,6 +205,40 @@ fn closure(nest: &[Row; SLOTS], n: usize) -> [Row; SLOTS] {
         }
     }
     r
+}
+
+/// Every user's roles, page by page, as a fold over the membership matrix's
+/// columns: for a page of 256 users, the users holding role `r` are the OR of
+/// the columns of the slots whose role set contains `r`. Column `s` of a page
+/// is security group `ids[s]`'s direct users in that page, read from the
+/// group's own member row.
+fn page_roles(b: &Prepared, ids: &[u16], role: &[u64; SLOTS], users: usize) -> Vec<u64> {
+    let pages = users.div_ceil(SLOTS);
+    let mut cols = vec![[[0u64; 4]; SLOTS]; pages];
+    for (s, &g) in ids.iter().enumerate() {
+        for &u in b.group_users.row(g as usize) {
+            let u = u as usize;
+            set(&mut cols[u / SLOTS][s], u % SLOTS);
+        }
+    }
+    let mut out = vec![0u64; users];
+    for (p, col) in cols.iter().enumerate() {
+        let mut holders = [[0u64; 4]; 64];
+        for (s, c) in col.iter().enumerate().take(ids.len()) {
+            for (r, h) in holders.iter_mut().enumerate() {
+                if role[s] >> r & 1 == 1 {
+                    or(h, c);
+                }
+            }
+        }
+        let base = p * SLOTS;
+        for (i, o) in out[base..users.min(base + SLOTS)].iter_mut().enumerate() {
+            for (r, h) in holders.iter().enumerate() {
+                *o |= u64::from(row_bit(h, i)) << r;
+            }
+        }
+    }
+    out
 }
 
 fn roles_of_row(m: &Row, role: &[u64; SLOTS], n: usize) -> u64 {
