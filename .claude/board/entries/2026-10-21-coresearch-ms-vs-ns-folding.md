@@ -70,7 +70,7 @@ Verdicts combine three reviewers on the crosswalk: a bridge architect, a firewal
 | **X10** C's update through mask-risc `Ternlog` + `Any` | **PROBE** | PASS (no new opcode) | P-X10: kills if under 1.3× on C's loop |
 | **X11** push/pull per iteration | **PROBE**, lab | CONFLICT: a pull through reverse adjacency is a gather. A co-addressed pull exists as an inner product over the shared domain, popcount(rowₓ(A) ∧ row_z(δᵀ)) | P-X11 (P-SYS-4): kills if work per iteration does not decrease after the frontier peak, or if under 1.5× against A′ |
 | **X12** zero-zone and one-bit-word skip | **PARK** | PASS | Already capstone points 3 and 9 |
-| **X17** order contract on the join key | **PROBE** (correctness gate, contract) | PASS, conditionally: a separate join-key witness type with a numeric projection, never memcmp, never fused with a row-order digest. Correction: ADMISSION B requires an attested sorted key for **every** same-table key-range seek, not only for codebook binding (`entries/2026-10-20-six-decisions.md` §1) | P-X17: binding a merge or seek join to a byte-ordered LE key (u16 1 vs 256) must be refused at bind. An equality or mask join on an identity key must bind without a witness |
+| **X17** order contract on the join key | **PROBE** (correctness gate, contract) | PASS, conditionally: a separate join-key witness type with a numeric projection, never memcmp, never fused with a row-order digest. Correction: ADMISSION B requires an attested sorted key for **every** same-table key-range seek; frozen-codebook decoding is admitted separately, on an immutable mapping within the attested version, with no order requirement (`entries/2026-10-20-six-decisions.md` §1) | P-X17: binding a merge or seek join to a byte-ordered LE key (u16 1 vs 256) must be refused at bind. An equality or mask join on an identity key must bind without a witness |
 | **X7** min-length or tropical plane | **SKIP** for D-RU-6 | CONFLICT: it changes the answer (law 3) | Only as a separately declared existence or min-length query |
 | **X14** repeated squaring | **SKIP** | CONFLICT: it produces powers of two, not every length, and the source paper loses on sparse input | — |
 | **X13** row skipping in relalg | **SKIP** (already in flight) | PASS | D-CMR-2 |
@@ -81,7 +81,7 @@ Verdicts combine three reviewers on the crosswalk: a bridge architect, a firewal
 
 **Equality and mask joins need no order contract.** They need identity-canonical keys plus extent bounds.
 
-**Merge, seek and range joins and frozen-codebook binding need a total order.** ADMISSION B already demands an attested sorted key there.
+**Merge, seek and range joins need a total order.** ADMISSION B already demands an attested sorted key for every same-table key-range seek. Frozen-codebook decoding does not: it is admitted on an immutable mapping within the attested version, accounted for and never used as a relational lookup, so a codebook needs a mapping and version attestation, not an order witness (`entries/2026-10-20-six-decisions.md` §1; `plans/d-relalg-unified-v1.md:234`).
 
 **The contract must be numeric order over the LE image.** LE bytes are not memcmp-ordered: u16 256 sorts before 1. That is how `OrderedLaneWitness` defines it. Today the witness covers only sealed facet lanes. So the gap is a **join-key witness type**, checked at bind time and only for carriers that need order. It is not an attestation on every join key.
 
