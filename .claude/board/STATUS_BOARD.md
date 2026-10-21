@@ -1,3 +1,12 @@
+## D-RFT / D-QSP — ClassView × Quack semantic substrate (2026-10-21)
+
+Plans in #1667 (`d-rft-relalg-thought-git-frontier-v1.md`, `d-qsp-classview-quack-postgresql-parity-v1.md`; docs, not yet on main). Only the rows below have a claim or evidence; the other D-RFT / D-QSP / D-LFA ids stay as #1667 lists them.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-RFT-0 / D-QSP-0** | K3 normalization safety: rewrites keep SQL three-valued TRUE rows | In PR (EXO-50 claim `session_01G22yT6htkcdyXsihxxXdrg/031`; `entries/2026-10-21-d-rft-0-kleene-normalization.md`): `normalize_kleene`; `SetNormalize` admits it under `ThreeValued`. MEASURED: PostgreSQL 16.14 = Kleene oracle = `normalize_kleene` on 2000/2000; the two-valued form is wrong on 474 | Kleene evaluator over random expressions + PostgreSQL differential; 5 disables red. Remainder open: NULL literals, `COALESCE`, nullable arithmetic, empty `SUM`, `COUNT(expr)` |
+| **D-RFT-1..5, D-LFA-0** | composition, substitution, recursion, frontier, replay; flow census | PROPOSAL (`entries/2026-10-21-d-rft-d-lfa-0-assessment.md`) | per-row falsifiers in the entry; unclaimed |
+
 ## D-RU — D-RELALG-UNIFIED: JC/R statistics and Datalog sharing work through the contract set IR (2026-10-20)
 
 Plan: `.claude/plans/d-relalg-unified-v1.md`. Decisions recorded there: ADMISSION = B, D-RA-2 = A. Acceptance for U1 and U2 is measured row traversals, materializations and total cost with the result set and version semantics unchanged; operator counts alone do not suffice.

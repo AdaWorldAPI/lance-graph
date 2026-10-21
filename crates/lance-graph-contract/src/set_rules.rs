@@ -27,7 +27,7 @@
 //!
 //! Zero dependencies.
 
-use crate::set_algebra::{normalize, SetExpr};
+use crate::set_algebra::{normalize, normalize_kleene, SetExpr};
 
 /// How the arithmetic of a measure is evaluated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -237,8 +237,8 @@ pub const CATALOGUE: &[RuleSpec] = &[
     RuleSpec {
         rule: Rule::SetNormalize,
         pattern: "Count(S) / Sum(S) with S not normalized",
-        requires: "two-valued sets; the result is strictly smaller",
-        refuses: &[Refusal::NotTwoValued],
+        requires: "the result is strictly smaller; three-valued sets use the Kleene form",
+        refuses: &[],
     },
     RuleSpec {
         rule: Rule::EmptyMeasure,
@@ -439,12 +439,14 @@ fn apply(rule: Rule, m: &Measure, sem: &Semantics) -> Option<Result<Measure, Ref
                 }
                 _ => return None,
             };
-            let n = normalize(set);
+            // A measure counts the rows where its set is TRUE, and the Kleene
+            // form keeps exactly those (`set_algebra` module docs).
+            let n = match sem.truth {
+                Truth::TwoValued => normalize(set),
+                Truth::ThreeValued => normalize_kleene(set),
+            };
             if n == *set {
                 return None;
-            }
-            if sem.truth != Truth::TwoValued {
-                return Some(Err(Refusal::NotTwoValued));
             }
             Some(Ok(rebuild(n)))
         }
@@ -921,6 +923,54 @@ mod tests {
         assert!(fired > 1200, "only {fired} steps fired");
     }
 
+    /// 600 random measures over tables WITH NULL lanes, under three-valued
+    /// semantics, every rule: the answer equals the Kleene oracle's and set
+    /// normalization fires. Twin: on the same inputs the two-valued
+    /// normalization alone changes some answers, so the inputs reach the
+    /// cases the Kleene form exists for.
+    #[test]
+    fn rewrites_keep_the_answer_under_three_valued_tables() {
+        let mut rng = Rng(0x0BAD_5EED_1234_5678);
+        let sem3 = |n: usize| Semantics {
+            truth: Truth::ThreeValued,
+            ..Semantics::exact(n as u64)
+        };
+        let (mut normalized, mut two_valued_wrong) = (0usize, 0usize);
+        for _ in 0..600 {
+            let n = 1 + rng.below(40) as usize;
+            let t = table(&mut rng, n, true, false);
+            let m = measure(&mut rng, 2);
+            let (r, tr) = rewrite(&m, &sem3(n), BUDGET);
+            assert!(!tr.budget_exhausted, "no fixpoint for {m:?}");
+            assert!(r.size() <= m.size(), "size grew: {m:?} -> {r:?}");
+            assert_eq!(
+                ev(&t, &m, Acc::Exact),
+                ev(&t, &r, Acc::Exact),
+                "{m:?}\n-> {r:?}"
+            );
+            normalized += tr
+                .steps
+                .iter()
+                .filter(|s| **s == Rule::SetNormalize)
+                .count();
+            let (r2, _) = rewrite_with(
+                &m,
+                &Semantics::exact(n as u64),
+                BUDGET,
+                &[Rule::SetNormalize],
+            );
+            two_valued_wrong += usize::from(ev(&t, &r2, Acc::Exact) != ev(&t, &m, Acc::Exact));
+        }
+        assert!(
+            normalized > 300,
+            "set normalization fired {normalized} times"
+        );
+        assert!(
+            two_valued_wrong > 5,
+            "two-valued wrong on {two_valued_wrong}"
+        );
+    }
+
     /// Each rule fires on its own at least once in the random run above's
     /// distribution (so a dead rule is visible).
     #[test]
@@ -1089,20 +1139,23 @@ mod tests {
             truth: Truth::ThreeValued,
             ..Semantics::exact(4)
         };
-        let (r, tr) = rewrite(&m, &sem, BUDGET);
+        let (r, tr) = rewrite_with(&m, &sem, BUDGET, &[Rule::Complement]);
         assert_eq!(r, m);
         assert!(tr
             .refusals
             .contains(&(Rule::Complement, Refusal::NotTwoValued)));
-        assert!(tr
-            .refusals
-            .contains(&(Rule::SetNormalize, Refusal::NotTwoValued)));
+        // The whole catalogue: set normalization (Kleene form) turns `¬(x > 0)`
+        // into `x < 1`, UNKNOWN on the same NULL rows, so the count is kept.
+        let (r, tr) = rewrite(&m, &sem, BUDGET);
+        assert_eq!(r, Measure::Count(SetExpr::i32(0, Cmp::Lt, 1)));
+        assert_eq!(tr.steps, vec![Rule::SetNormalize]);
+        assert_eq!(ev(&t, &r, Acc::Exact), ev(&t, &m, Acc::Exact));
     }
 
     /// NULL: two-valued normalization turns `A ∨ ¬A` into `All`, which
     /// counts the UNKNOWN rows too.
     #[test]
-    fn experiment_e_null_refuses_set_normalization() {
+    fn experiment_e_null_normalizes_in_the_kleene_form() {
         let a = SetExpr::i32(0, Cmp::Gt, 0);
         let m = Measure::Count(SetExpr::Or(vec![a.clone(), SetExpr::negated(a)]));
         let t = Table {
@@ -1120,11 +1173,12 @@ mod tests {
             truth: Truth::ThreeValued,
             ..Semantics::exact(3)
         };
+        // Three-valued, the Kleene form covers the lane with `x >= i32::MIN`:
+        // TRUE on the non-NULL rows only, so the count stays 2.
         let (r, tr) = rewrite(&m, &sem, BUDGET);
         assert_eq!(ev(&t, &r, Acc::Exact), Val::I(2), "rewritten to {r:?}");
-        assert!(tr
-            .refusals
-            .contains(&(Rule::SetNormalize, Refusal::NotTwoValued)));
+        assert_eq!(r, Measure::Count(SetExpr::i32(0, Cmp::Ge, i32::MIN)));
+        assert_eq!(tr.steps, vec![Rule::SetNormalize]);
         // Two-valued, the same expression is the whole universe, counted.
         let (r2, tr2) = rewrite(&m, &Semantics::exact(3), BUDGET);
         assert_eq!(tr2.steps, vec![Rule::SetNormalize, Rule::CountAll]);
@@ -1598,6 +1652,11 @@ mod tests {
         sorted.dedup();
         assert_eq!(sorted.len(), rules.len());
         assert_eq!(rules.len(), 8);
-        assert!(CATALOGUE.iter().all(|s| !s.refuses.is_empty()));
+        // Every rule but `SetNormalize` has a guard: set normalization keeps
+        // the rows where the set is TRUE under either logic, so it never
+        // refuses (three-valued sets take the Kleene form).
+        for s in CATALOGUE {
+            assert_eq!(s.refuses.is_empty(), s.rule == Rule::SetNormalize, "{s:?}");
+        }
     }
 }
