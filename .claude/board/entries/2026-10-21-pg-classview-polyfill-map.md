@@ -73,14 +73,14 @@ CLAIMED (not read; named from grep hits or other docs only): test bodies of
 | `AND`, `OR`, `NOT` | Kleene | `Filter::And/Or/Not` + `sql_where` (NOT flips polarity, AND/OR De Morgan dual on F) `lib.rs:533-548`; contract `SetExpr::And/Or/Not` + `normalize_kleene` `:201` | ThreeValued; `(T,F)` | VERIFIED | `sql_null_3vl:429`; `set_algebra:906` (3000 random); `k3_pg_parity` | — |
 | `IS NULL` / `IS NOT NULL` | never UNKNOWN | `Filter::is_null(valid)` = `Not(Plane)` `:475`; `is_not_null` = `Plane(valid)` `:468`. Contract `SetExpr` has NO `IsNull` atom; `x >= i32::MIN` stands in for IS NOT NULL inside `normalize_kleene` only | two-valued plane leaf `B` | VERIFIED (Quack) / PARTIAL (contract: IS NULL inexpressible in `SetExpr`) | `sql_null_3vl::null_is_not_zero:373`, `null_is_not_the_empty_string_or_false:562` | — |
 | `x IS [NOT] DISTINCT FROM c` (c non-NULL) | two-valued; NULL vs c → TRUE (distinct) | composable: `Or(is_null(v), And(Plane(v), Cmp(Ne c)))` with no `sql_where` on that subtree | two-valued `B` | PARTIAL (no named builder, no test) | propose PG diff | — |
-| `x IS [NOT] DISTINCT FROM y` / `FROM NULL` | NULL ≡ NULL | `FROM y`: needs col-col compare (G4). `FROM NULL` is `IS [NOT] NULL` (`is_null` / `is_not_null`), no NULL operand needed | two-valued `B` | ABSENT (`FROM y`) / composable (`FROM NULL`) | — | Route (`FROM y`) |
+| `x IS [NOT] DISTINCT FROM y` / `FROM NULL` | NULL ≡ NULL | needs col-col compare (G4) / NULL literal (G1) | — | ABSENT | — | Route |
 | `p IS [NOT] TRUE/FALSE/UNKNOWN` | collapses UNKNOWN | no surface: `sql_where` only exposes `T(φ)`; `rewrite(_, false)` (F) is private `:556` | would need `(T,F)` exposed | ABSENT (G3) | — | — |
 | `BETWEEN a AND b` | `x>=a AND x<=b`, K3 | `Filter::and([Ge a, Le b])`; contract interval fusion in `normalize_kleene` (rewrite 3) | ThreeValued | VERIFIED by composition (no named builder) | `set_algebra:906` interval cases | — |
 | `NOT BETWEEN`, `BETWEEN SYMMETRIC` | K3; symmetric swaps bounds | `negate(and(...))` + `sql_where`; symmetric = bound swap at bind | ThreeValued | PARTIAL (SYMMETRIC: bind-side, no builder) | propose | — |
 | `x IN (c1..cn)` | OR of `=`; K3 | `Filter::in_u32/in_i32` `:446/:455` (empty list refused → `LowerError::EmptyJunction`) | ThreeValued | VERIFIED | `duckdb_differential::in_count` (CLAIMED body) | Route (`EmptyJunction`) — PG rejects `IN ()` syntactically, consistent |
 | `x NOT IN (c1..cn)`, no NULL in list | AND of `<>`; NULL x → UNKNOWN | `negate(in_*)` + `sql_where` | ThreeValued | VERIFIED by composition | covered by `sql_null_3vl` random trees (CLAIMED) | — |
-| `x NOT IN (…, NULL)` | never TRUE → WHERE keeps **0 rows** | ⊘ corrected (was "ABSENT, needs a constant-UNKNOWN leaf"): no new leaf. The NULL member is a `Cmp` on a NULL operand: a column whose value lane is an alias of an existing lane and whose validity plane is all clear, listed in `sql_where`'s `nullable`; `sql_where`'s leaf arm gives it `T = F = ∅`. `negate(or([in_i32(..), Cmp(N, ..)]))` | ThreeValued; `(T,F)` | VERIFIED (G1, existing Quack) | `tests/sql_null_operand.rs`; `examples/qsp_null_operand_pg_parity.rs` | — |
-| `x = NULL` | UNKNOWN always | ⊘ corrected (was ABSENT): `Cmp(N, ..)` on the NULL operand above; `T = F = ∅` on every row, distinct from FALSE (`Plane` of an all-zero present plane, `F` = every row) | ThreeValued; `(T,F)` | VERIFIED (G1, existing Quack) | same as above | — |
+| `x NOT IN (…, NULL)` | never TRUE → WHERE keeps **0 rows** | no NULL literal in `Cmp`/`Res`/`Filter`; `sql_where` doc lists it out of scope `:542`; Kleene board entry Open list | would need a constant-UNKNOWN leaf (`T=∅,F=∅`) | ABSENT (G1) | propose PG diff | — |
+| `x = NULL` | UNKNOWN always | same as above | — | ABSENT (G1) | — | — |
 | `COALESCE(x, c)`, `NULLIF(x, c)` | value expressions | none at query time (`lib.rs:166-167`, `sql_where:542`). `ClassView::default_targets` + `execute_defaults` (`class_view.rs:1018`) is a **write-if-blank mutation** over a presence `WideFieldMask`, not a read-time COALESCE | different law (mutation, phase "defaults before compute_dag") | ABSENT (G5) | — | — |
 | `CASE WHEN p THEN a ELSE b END` (projection) | UNKNOWN p → ELSE | `Agg::BlendI32 {then, els}` `lib.rs:1147` over mask `T(p)` from `sql_where`; grouped → `LowerError::GroupedBlend` | blend mask `B`; output validity NOT carried | PARTIAL (nullable `then/else` lose NULL; grouped refused) | propose | Route (`GroupedBlend`) |
 | `CASE` inside `WHERE` | `CASE WHEN p THEN q ELSE r` keeps `T(p)∧T(q) ∨ ¬T(p)∧T(r)` | needs `IS NOT TRUE` (`¬T(p)` = `F∪U`) — not expressible through `sql_where` | — | ABSENT (G3) | — | — |
@@ -193,14 +193,9 @@ reuse `hotplug::register_law_for` (plan :22).
 
 ## (2) Top 8 gaps, ranked by constructs unblocked
 
-1. ⊘ **G1 — NULL literal: not a gap (corrected 2026-10-21).** This item said G1 needs a constant-UNKNOWN
-   leaf in `Filter`/`SetExpr`. It does not: SQL NULL is absence of validity. A NULL operand is a lane alias
-   with an all-clear validity plane, listed in `sql_where`'s `nullable`, so its leaf has `T = F = ∅`; a
-   FALSE literal is an all-zero plane that is present. `x = NULL`, `NOT IN (…, NULL)` and the K3 truth
-   tables are pinned over existing Quack in `tests/sql_null_operand.rs` and against PostgreSQL in
-   `examples/qsp_null_operand_pg_parity.rs` (entry `2026-10-21-d-qsp-0-g1-null-operand.md`). What stays
-   open from the old list: `NULLIF` results and NULL propagation through CASE (value expressions, G5), and
-   the NOT IN subquery's NULL branch. The ranking below is unchanged otherwise.
+1. **G1 — NULL literal / constant-UNKNOWN leaf** (`T=∅, F=∅`) in `Filter`/`SetExpr`. Unblocks `x = NULL`,
+   `NOT IN (…,NULL)`, `IS DISTINCT FROM NULL`, `NULLIF` results, scalar NULL propagation into CASE,
+   NOT IN subquery's NULL branch (≈6).
 2. **G3 — expose `(T,F)` / `IS [NOT] TRUE|FALSE|UNKNOWN`** (make `rewrite(_, false)` or a `known`
    mask public). Unblocks CHECK designation, CASE in WHERE, `IS NOT TRUE`, `IS UNKNOWN`, NOT IN
    subquery, outer-NOT over normalized sets (≈6).
