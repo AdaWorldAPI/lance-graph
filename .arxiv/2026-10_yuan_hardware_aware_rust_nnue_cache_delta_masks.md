@@ -22,7 +22,13 @@
 
 **Y7. Keep the synchronization claim target-specific.** The article discusses packed 16-byte transposition entries and potential `AtomicU128` storage. A 16-byte aligned struct is **not automatically** a supported lock-free 128-bit atomic on all Rust targets. Check `target_has_atomic = "128"`, alignment, operation availability, and the memory-order contract; `Relaxed` gives atomicity of the individual operation where supported, not multi-field or multi-record publication correctness. Also, uncontended locks do not inherently make a kernel syscall.
 
-## Transfer into lance-graph: a small physical mask as NNUE-like working state
+## Chronology and existing architecture: SoA preceded this comparison
+
+**Operator clarification (2026-10-22):** lance-graph's SoA substrate has used a **32 × 128-bit** geometry for **over a year**. This is **4,096 bits = 512 bytes** as a logical payload, the same total packed storage as 64 × 64 DR64 and the 256 × i16 NNUE accumulator. The source of the SoA design is **not** Alan Yuan's article or Apple's SDK; NNUE/Apple provide an **independent hardware-locality comparison**, not a novel design suggestion for this project. A 512-byte logical footprint alone does not guarantee alignment, cache residency, or identical access patterns across these three representations.
+
+**Scope of this correction:** project history/geometry is supplied by the operator; the paper/article makes no claim about lance-graph, and this excerpt makes no claim of independently verifying the deployment date from version history. Work below should **reuse and measure the existing SoA layout**, rather than propose constructing it.
+
+## Transfer into lance-graph: existing SoA and a potentially reusable NNUE-style delta
 
 The architecture worth exploring is **delta-driven, cache-resident, locally addressed folds**, rather than transplanting a chess evaluator or adding a second execution engine.
 
@@ -60,6 +66,7 @@ For a **Boolean presence mask**, one may instead use set/clear or XOR delta oper
 
 | Representation | Logical bits | Packed storage | Observation |
 |---|---:|---:|---|
+| Existing SoA 32 × 128 bits | 4,096 bits | **512 B** | Pre-existing project layout (>1 year per operator); 128-bit coordinate/lane meaning is project-specific |
 | DR64 64 × 64 bit matrix | 4,096 bits | **512 B** | Four 128-B lines or eight 64-B lines if packed and suitably aligned |
 | DR256 256 × 256 bit matrix | 65,536 bits | **8 KiB** | Potentially compact L1 working set; actual footprint includes metadata, source lanes, outputs and other live state |
 | NNUE example accumulator | 256 × 16-bit values | **512 B** | Same byte scale as DR64, but very different arithmetic and semantics |
@@ -95,7 +102,7 @@ All experiments should pin CPU model, target feature flags, Rust compiler, frequ
 | **HW6: 128-bit entry** | Conditionally supported atomic 128-bit packed entry vs existing correct fallback | Compile/behavior on supported and unsupported targets, torn-read oracle, generation/ABA contract |
 | **HW7: end-to-end** | Existing R2IL/Quack/mask-risc baseline vs best proven combination above | p50/p95 plus total preparation and execution; permit “no optimization” as outcome |
 
-**Smallest next step:** **HW2**, one exact integer/presence-lane fixture with a reference full recomputation, one changed-coordinate delta, and the same fold terminal. It tests the most valuable NNUE analogy without assuming 128-byte lines, hardware counters, 128-bit atomics, or a new compiler law. Then run **HW4** to learn whether ordinal binding/prefetch dominates the savings. No production change until parity and total-cost evidence exist.
+**Smallest verification step (not a greenfield design):** locate the existing **32 × 128-bit SoA** path, its history, current parity tests and benchmark evidence before naming a gap. Run **HW2** only if a specific incremental fold/freshness case is untested; otherwise classify it as already covered. Use **HW4** only to test an observed binding/prefetch cost. Do not claim the project has only now discovered cache-local fixed-size data geometry. No production change until a missing case and total-cost evidence are demonstrated.
 
 ## Mistakes this excerpt must not license
 
