@@ -4,7 +4,7 @@
 //! causality, or independent authentication of supplied source data. Reads
 //! one 64x64 QR focus to find concrete counterexamples before a law is admitted.
 //! Hot production folds remain existing Quack/R2IL/mask-risc/native SIMD.
-use crate::{BindingWitness, BoundDr64};
+use crate::{BoundDr64, FrameStore, Truth};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PopulationReport {
@@ -25,14 +25,17 @@ impl PopulationReport {
     /// Finite-focus only: no statement about unobserved people or any theorem
     /// over every possible population.
     pub fn universal_on_focus(self) -> Result<Self, ClaimRefusal> {
+        // Refuted beats unknown (certain-answer semantics): one observed
+        // counterexample refutes the claim whatever the unknown pairs hold,
+        // so it is reported first and never hidden behind `Unknown`.
         if self.eligible == 0 {
             return Err(ClaimRefusal::Vacuous);
         }
-        if self.unknown_pairs != 0 {
-            return Err(ClaimRefusal::Unknown(self.unknown_pairs));
-        }
         if self.false_pairs != 0 {
             return Err(ClaimRefusal::Counterexamples(self.false_pairs));
+        }
+        if self.unknown_pairs != 0 {
+            return Err(ClaimRefusal::Unknown(self.unknown_pairs));
         }
         Ok(self)
     }
@@ -41,44 +44,56 @@ impl PopulationReport {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClaimRefusal {
     DifferentAxes,
-    ChangedWitness,
+    /// The selection is three-valued; Gamma selects or it does not.
+    SelectionNotTwoValued,
+    /// Gamma and R were not bound to the same issue of the same frame.
+    DifferentFrame,
+    /// The frame they share is no longer the store's current seal.
+    StaleFrame,
+    /// Gamma and R read different windows of the frame.
+    DifferentFocus,
     Vacuous,
     Unknown(u32),
     Counterexamples(u32),
 }
 
-/// Reference checker over THREE separate boolean planes:
-/// 1. Gamma: which DR pairs satisfy candidate constraints;
-/// 2. R: which DR pairs satisfy proposed relational law;
-/// 3. validity: which R bits are known, None only for explicitly total
-///    two-valued observations. UNKNOWN is never treated as FALSE.
+/// Reference checker over the selection Gamma and the relation R:
+/// 1. Gamma: which DR pairs satisfy the candidate constraints (two-valued);
+/// 2. R: which DR pairs satisfy the proposed relational law, with R's own
+///    validity bits when R's method is three-valued. UNKNOWN is never FALSE.
 ///
-/// It compares already bound axes and full supplied witnesses. It does not
-/// verify that an underlying source exists or that its relation facts are true.
-/// `validity` is a separate *physical* carrier and no SQL-NULL encoding in DR.
+/// It compares the bound axes, that both operands share one current frame
+/// issue and one focus. It does not verify that the source exists or that its
+/// relation facts are true.
 pub fn observe_focus(
+    store: &FrameStore,
     gamma: &BoundDr64<'_>,
     relation: &BoundDr64<'_>,
-    validity: Option<&BoundDr64<'_>>,
-    snapshot: BindingWitness,
 ) -> Result<PopulationReport, ClaimRefusal> {
-    let a = (gamma.method.row, gamma.method.column);
-    if a != (relation.method.row, relation.method.column)
-        || validity.is_some_and(|v| a != (v.method.row, v.method.column))
-    {
+    if (gamma.method.row, gamma.method.column) != (relation.method.row, relation.method.column) {
         return Err(ClaimRefusal::DifferentAxes);
     }
-    if gamma.witness != snapshot || relation.witness != snapshot
-        || validity.is_some_and(|v| v.witness != snapshot)
-    {
-        return Err(ClaimRefusal::ChangedWitness);
+    if gamma.method.truth != Truth::TwoValued {
+        return Err(ClaimRefusal::SelectionNotTwoValued);
+    }
+    if !gamma.frame.same_issue(&relation.frame) {
+        return Err(ClaimRefusal::DifferentFrame);
+    }
+    if store.check(&gamma.frame).is_err() {
+        return Err(ClaimRefusal::StaleFrame);
+    }
+    if gamma.focus != relation.focus {
+        return Err(ClaimRefusal::DifferentFocus);
     }
     let mut report = PopulationReport {
-        eligible: 0, true_pairs: 0, false_pairs: 0, unknown_pairs: 0,
+        eligible: 0,
+        true_pairs: 0,
+        false_pairs: 0,
+        unknown_pairs: 0,
     };
     for i in 0..64 {
         let focus = gamma.rows[i];
-        let known = validity.map_or(u64::MAX, |v| v.rows[i]);
+        let known = relation.validity.map_or(u64::MAX, |v| v[i]);
         let positive = focus & relation.rows[i] & known;
         let negative = focus & !relation.rows[i] & known;
         let unknown = focus & !known;
