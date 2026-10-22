@@ -85,13 +85,17 @@ bindings per key.
 #1701 `ca05b1d1` (X1/X2/X3: `FrameStore`-issued `Frame` compared by issue
 identity, separate `Focus` and `Scope` guards, validity carried by R),
 #1702 `365b6c9d` (X4 refuted before unknown; X17 distinct fixtures),
-#1703 `55f88ef4` + `b14dc037` (X15: `ProofReference` only via
-`ReplayCapsule::recheck` on the law's `SemanticKey`, `TargetAbi` target),
-#1704 `1f63a5b1` (X17 handoff fixture, snapshot from the frame, X19
+#1703 `ca88feaf` (X15, corrected: an opaque `RecipeCertificate` that only
+a certified-compiler boundary can issue; none exists for DR64, so admission ends
+in `NoCertifiedCompiler`. The first attempt, `55f88ef4`, made `ReplayCapsule`
+the proof authority; it is replay evidence for E1 only), #1704 `1f63a5b1` + the merge after `ca88feaf` (X17 handoff fixture, snapshot from the frame, X19
 tightening, X20 workflow on the pinned toolchain with the ndarray sibling).
-Every new guard was disable-verified red, except the `recheck` call, which
-cannot fire while capsules only come from `certify` in-process (stated in
-`RECIPE_ADMISSION.md`). | `OPEN:` Stage B checks integer substitution only, so
-no Boolean-DR64 law has a checker; the recipe tests use E1's statement for the
-plumbing. X6, X7, X8, X16, X18 probes not run.
+Every new guard was disable-verified red. | `OPEN:` a certified-compiler
+boundary for DR64 needs a typed relational statement language, egglog laws
+over it with checked proofs, and a lowering check. Candidate first law:
+associativity of Boolean relation composition over compatible ClassView
+domains, which also gives a real choice of association order. Also open: a
+specialization-selection gate (GF(2) elimination, M4RI, Boolean relational
+algebra) with three benchmark arms on the same typed problem, all of them
+hypotheses until measured. Probes X6, X7, X8, X16 and X18 not run.
 
