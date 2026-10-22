@@ -16,9 +16,12 @@ fn e1_replays_compiled_math_without_a_second_executor() {
 fn missing_premise_and_incomplete_fuel_never_certify() {
     let mut missing = e1_problem();
     missing.premises.retain(|e| e.lhs != "b");
+    // The premise graph is checked before egglog runs: without `b = 2c` the
+    // goal is unreachable from the target, so this is `InvalidPremises`
+    // (it used to surface after compiling, as `OpenTerm`).
     assert_eq!(
         ReplayCapsule::certify(&missing, 8).unwrap_err(),
-        ReplayRefusal::OpenTerm
+        ReplayRefusal::InvalidPremises
     );
     let p = Problem {
         premises: vec![Eq {
