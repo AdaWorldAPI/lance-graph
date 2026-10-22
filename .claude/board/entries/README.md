@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-22 | `math-compiler-gap-matrix` |  | [2026-10-22-math-compiler-gap-matrix.md](2026-10-22-math-compiler-gap-matrix.md) |
 | 2026-10-22 | `D-DRMC-5` |  | [2026-10-22-drmc-5-assoc-probe.md](2026-10-22-drmc-5-assoc-probe.md) |
 | 2026-10-22 | `D-MPS-9` |  | [2026-10-22-d-mps-9-mork-oracle.md](2026-10-22-d-mps-9-mork-oracle.md) |
+| 2026-10-22 | `D-DRMC` |  | [2026-10-22-coresearch-drmc-stack.md](2026-10-22-coresearch-drmc-stack.md) |
 | 2026-10-21 | `zero-copy-join-index-map` |  | [2026-10-21-zero-copy-join-index-map.md](2026-10-21-zero-copy-join-index-map.md) |
 | 2026-10-21 | `D-RU-4` |  | [2026-10-21-u4-coaddressed-join.md](2026-10-21-u4-coaddressed-join.md) |
 | 2026-10-21 | `D-RU-3` |  | [2026-10-21-u3-cross-rule-cse.md](2026-10-21-u3-cross-rule-cse.md) |

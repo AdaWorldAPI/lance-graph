@@ -1,0 +1,70 @@
+name: egglog R2IL mathematical compiler probe
+# Own [workspace] excluded from root tests; this is a lab gate, not production admission.
+on:
+  pull_request:
+    paths:
+      - 'crates/egglog-r2il-probe/**'
+      - 'crates/lance-graph-contract/**'
+      - 'crates/lance-graph-r2il/**'
+      - 'crates/lance-graph-mask-risc/**'
+      - '.github/workflows/egglog-r2il-probe.yml'
+      - 'rust-toolchain.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/egglog-r2il-probe/**'
+      - 'crates/lance-graph-contract/**'
+      - 'crates/lance-graph-r2il/**'
+      - 'crates/lance-graph-mask-risc/**'
+      - '.github/workflows/egglog-r2il-probe.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+jobs:
+  math-foundry:
+    name: excluded-crate fmt, clippy and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/ndarray (sibling path patch)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Rust toolchain
+        run: rustup show
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
+          workspaces: lance-graph/crates/egglog-r2il-probe
+      - name: fmt
+        run: cargo fmt --manifest-path crates/egglog-r2il-probe/Cargo.toml --check
+      - name: clippy
+        run: cargo clippy --manifest-path crates/egglog-r2il-probe/Cargo.toml --all-targets -- -D warnings
+      - name: tests
+        run: cargo test --release --manifest-path crates/egglog-r2il-probe/Cargo.toml

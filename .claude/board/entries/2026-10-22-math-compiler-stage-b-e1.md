@@ -41,8 +41,9 @@
 - "Independent proof check MISSING" overstated the gap. egglog already checks every proof it returns. What is missing is a check callable from outside egglog on a proof object. The i128 oracle covers answer correctness independently.
 - No egglog change was needed.
 
+**Cold cost (operator decision, 2026-10-22: report cold costs in microseconds, not gated):** egglog phase (setup + saturation + `prove-variants`) 21 084 / 26 875 / 28 793 µs over three runs, each a median of 5, release, Xeon @ 2.10 GHz, 4 vCPU, shared host. In the same runs encode was 3–4 µs and lower + execute 6–15 µs. `examples/e1_cold_cost.rs` now prints the egglog row. The cost line above is unchanged; it records the earlier state.
+
 OPEN:
-- the ruling on reporting cold-compile cost;
 - E2–E5 beyond what E1 exercises;
 - a lowering target for wrapping arithmetic (none exists; by design?);
 - `Measure::Scale` stays gated on a real population-measure consumer in a separate PR.

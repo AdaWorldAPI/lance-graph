@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use crate::artifact::{ReplayCapsule, ReplayRefusal};
-use crate::{LowerRefusal, Problem};
+use crate::{LowerRefusal, Problem, oracle};
 
 /// Full source expression signature. Deliberately preserve premise order,
 /// coefficient, and variable names; no hashes or accidentally merged laws.
@@ -25,7 +25,9 @@ impl From<&Problem> for SemanticKey {
         Self {
             goal: p.goal.to_owned(),
             target: p.target_var.to_owned(),
-            premises: p.premises.iter()
+            premises: p
+                .premises
+                .iter()
                 .map(|e| (e.lhs.to_owned(), e.coeff, e.rhs.to_owned()))
                 .collect(),
         }
@@ -62,8 +64,7 @@ impl CostEvidence {
     pub fn pays_for_itself(&self) -> bool {
         self.candidate_ns < self.baseline_ns
             && self.expected_reuse > 0
-            && u128::from(self.baseline_ns - self.candidate_ns)
-                * u128::from(self.expected_reuse)
+            && u128::from(self.baseline_ns - self.candidate_ns) * u128::from(self.expected_reuse)
                 > u128::from(self.compile_and_certify_ns)
     }
 }
@@ -80,6 +81,82 @@ pub enum FallbackReason {
     BindingChanged,
     TargetChanged,
     CompiledRefused,
+    /// The input lies outside [`CheckedRange`]: the eager checked baseline
+    /// may refuse there, and a certified hit would have answered instead.
+    OutsideCheckedRange,
+}
+
+/// The inputs on which the eager checked baseline cannot overflow.
+///
+/// An exact-integer proof says the compiled program and the premises AGREE
+/// as mathematics. It says nothing about the baseline's checked `i64`
+/// intermediates: `a = -1*c; z = -1*a` compiles to `1*c`, which answers
+/// `i64::MIN` where the baseline overflows computing `a`. Every premise is
+/// linear in the target, so each intermediate is `k * x` for a known `k`,
+/// and the set of `x` where every intermediate fits `i64` is one interval.
+/// Inside it the certified hit and the baseline have the same outcome;
+/// outside it the catalogue runs the baseline.
+///
+/// The interval covers the eager baseline that evaluates EVERY premise. A
+/// caller whose baseline computes something else must not use the catalogue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CheckedRange {
+    pub lo: i64,
+    pub hi: i64,
+}
+
+impl CheckedRange {
+    fn of(problem: &Problem) -> Result<Self, ReplayRefusal> {
+        let coeff = oracle::coefficients(problem).map_err(|_| ReplayRefusal::InvalidPremises)?;
+        let (mut lo, mut hi) = (i128::from(i64::MIN), i128::from(i64::MAX));
+        for &k in coeff.values() {
+            if k == 0 {
+                continue;
+            }
+            // MIN <= k * x <= MAX, solved for x.
+            let (a, b) = (
+                div_ceil(i128::from(i64::MIN), k),
+                div_floor(i128::from(i64::MAX), k),
+            );
+            let (a, b) = if k > 0 {
+                (a, b)
+            } else {
+                (
+                    div_ceil(i128::from(i64::MAX), k),
+                    div_floor(i128::from(i64::MIN), k),
+                )
+            };
+            lo = lo.max(a);
+            hi = hi.min(b);
+        }
+        // 0 is always inside (k * 0 = 0), so the interval is never empty.
+        Ok(Self {
+            lo: i64::try_from(lo).map_err(|_| ReplayRefusal::InvalidPremises)?,
+            hi: i64::try_from(hi).map_err(|_| ReplayRefusal::InvalidPremises)?,
+        })
+    }
+
+    pub fn contains(&self, x: i64) -> bool {
+        self.lo <= x && x <= self.hi
+    }
+}
+
+fn div_floor(a: i128, b: i128) -> i128 {
+    let q = a / b;
+    if (a % b != 0) && ((a < 0) != (b < 0)) {
+        q - 1
+    } else {
+        q
+    }
+}
+
+fn div_ceil(a: i128, b: i128) -> i128 {
+    let q = a / b;
+    if (a % b != 0) && ((a < 0) == (b < 0)) {
+        q + 1
+    } else {
+        q
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,6 +173,7 @@ pub struct Execution {
 
 struct Entry {
     capsule: ReplayCapsule,
+    range: CheckedRange,
     binding: BindingWitness,
     abi: TargetAbi,
     _cost: CostEvidence,
@@ -137,10 +215,12 @@ impl Catalogue {
         if !cost.pays_for_itself() {
             return Err(PromotionRefusal::NotAmortized);
         }
+        let range = CheckedRange::of(capsule.problem()).map_err(PromotionRefusal::Uncertified)?;
         self.entries.insert(
             SemanticKey::from(capsule.problem()),
             Entry {
                 capsule,
+                range,
                 binding,
                 abi,
                 _cost: cost,
@@ -178,6 +258,8 @@ impl Catalogue {
             Some(FallbackReason::BindingChanged)
         } else if &entry.abi != abi {
             Some(FallbackReason::TargetChanged)
+        } else if !entry.range.contains(x) {
+            Some(FallbackReason::OutsideCheckedRange)
         } else {
             None
         };

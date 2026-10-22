@@ -1,13 +1,13 @@
 # Stage E: mathematical heritage / 27-atom falsifier (lab only)
 
-**Dependency chain:** merged [#1690](https://github.com/AdaWorldAPI/lance-graph/pull/1690) (E1 compiler) → draft Stage C proof capsule (#1693) → draft Stage D catalogue (#1694) → this draft.
+**Dependency chain (2026-10-22):** [#1690](https://github.com/AdaWorldAPI/lance-graph/pull/1690) (E1 compiler) and [#1693](https://github.com/AdaWorldAPI/lance-graph/pull/1693) (Stage C capsule) merged into `main`; [#1694](https://github.com/AdaWorldAPI/lance-graph/pull/1694) (Stage D catalogue) merged into the Stage C feature branch, and [#1695](https://github.com/AdaWorldAPI/lance-graph/pull/1695) (this Stage E) into the Stage D feature branch, not into `main`. Draft integration [#1698](https://github.com/AdaWorldAPI/lance-graph/pull/1698) carries the combined lab stack and dedicated excluded-workspace tests; it is not production-admitted.
 
 ## What this implements
 
 The Rust `heritage` module distinguishes:
 1. **Source lead**: an author/work/edition candidate. NOT a reviewed facsimile, historical influence proof or mathematical certification.
 2. **Normalized mathematical statement**: a modern reconstruction with its assumptions, not necessarily the author's original proof.
-3. **Checked computational artifact**: currently only the synthetic E1 exact-integer substitution, compiled by egglog and replayed through R2IL with independent i128 oracle.
+3. **Checked computational artifact**: currently only the synthetic E1 exact-integer substitution, compiled by egglog and replayed through R2IL scalar `FoldDialect` with independent i128 oracle. E1 uses empty planes and scalar `INT_MULT`; it does NOT yet exercise a mask-RISC `execute_into` population fold. An exact symbolic proof is not a proof of checked-i64 intermediate-overflow equivalence for arbitrary inputs (see `REVIEW_GATES.md`).
 
 The Leibniz 1684 product-rule and Euler-identity entries are **uncertified source candidates**. Neither is executable, because the current E1 language has only `Num/Var/Def/Mul` and does not express differentiation, complex exponentials or the necessary side conditions. A test refuses both, by design.
 
@@ -48,3 +48,5 @@ A replay recipe should be sufficient to recompute the outcome if the source snap
 
 `cd crates/egglog-r2il-probe && cargo test` (requires sibling OGAR and ndarray checkout).
 No runnable historical theorem is claimed. The three source/sample fixtures remain entirely outside production.
+
+**Integration check (2026-10-22):** #1698's new isolated Cargo job was triggered and stopped at `cargo fmt --check`; Clippy and tests were consequently skipped on that first run. Formatting and a complete targeted green CI run are open, independent of the semantic gates. The main-workspace checks are not substitutes.

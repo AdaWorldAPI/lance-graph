@@ -23,8 +23,8 @@
 
 pub mod artifact;
 pub mod catalogue;
-pub mod heritage;
 pub mod encode;
+pub mod heritage;
 pub mod laws;
 pub mod lower;
 pub mod oracle;
