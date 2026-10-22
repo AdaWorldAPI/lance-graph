@@ -31,6 +31,7 @@
 //!
 //! The compose kernel is plain `u64` word arithmetic, no intrinsics.
 use egglog::{CommandOutput, EGraph};
+use sha2::{Digest, Sha256};
 
 use crate::recipe::{CompiledReference, LawReference, LawShape, Primitive, RecipeCertificate};
 use crate::{BoundDr64, FrameStore, Population, Truth};
@@ -117,13 +118,29 @@ pub enum ComposeRefusal {
 
 /// Operands that compose in sequence: domains line up, one frame issue that
 /// is still current, one focus, one scope.
+///
+/// The chain borrows the store it was checked against, so the frame stays
+/// current until the chain is dropped: advancing or dropping the store while
+/// a chain is alive does not compile.
+///
+/// ```compile_fail
+/// use dr_math_binding_probe::{FrameRevisions, FrameStore, relcomp::Chain};
+/// let mut st = FrameStore::new(FrameRevisions { source: 1, relation_map: 1, coordinates: 1 });
+/// let chain = Chain::new(&st, Vec::new());
+/// st.advance(FrameRevisions { source: 2, relation_map: 1, coordinates: 1 });
+/// drop(chain);
+/// ```
 #[derive(Debug)]
 pub struct Chain<'a> {
+    _store: &'a FrameStore,
     operands: Vec<BoundDr64<'a>>,
 }
 
 impl<'a> Chain<'a> {
-    pub fn new(store: &FrameStore, operands: Vec<BoundDr64<'a>>) -> Result<Self, ComposeRefusal> {
+    pub fn new(
+        store: &'a FrameStore,
+        operands: Vec<BoundDr64<'a>>,
+    ) -> Result<Self, ComposeRefusal> {
         let first = operands.first().ok_or(ComposeRefusal::EmptyChain)?;
         for (at, op) in operands.iter().enumerate() {
             if op.method.truth != Truth::TwoValued || op.method.population != Population::Distinct {
@@ -147,7 +164,10 @@ impl<'a> Chain<'a> {
         store
             .check(&first.frame)
             .map_err(|_| ComposeRefusal::StaleFrame)?;
-        Ok(Self { operands })
+        Ok(Self {
+            _store: store,
+            operands,
+        })
     }
 
     pub fn len(&self) -> usize {
@@ -332,6 +352,25 @@ pub fn raise(steps: &[Step]) -> Option<RelExpr> {
     if stack.len() == 1 { stack.pop() } else { None }
 }
 
+/// SHA-256 over a canonical encoding of a step list: a domain tag, then per
+/// step `0x00` + the leaf index as `u64` little-endian, or `0x01` for
+/// `Compose`. This is the compiled identity a reassociation certificate is
+/// bound to; the artifact is the step list, evaluated by the compose kernel.
+pub fn lowering_digest(steps: &[Step]) -> [u8; 32] {
+    let mut h = Sha256::new();
+    h.update(b"dr-math-binding-probe/lowering/v1");
+    for s in steps {
+        match *s {
+            Step::Push(i) => {
+                h.update([0u8]);
+                h.update((i as u64).to_le_bytes());
+            }
+            Step::Compose => h.update([1u8]),
+        }
+    }
+    h.finalize().into()
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LoweringRefusal {
     /// The steps do not raise back to the order they were lowered from.
@@ -355,11 +394,15 @@ pub enum CertifyRefusal {
     Proof(ProofRefusal),
     Lowering(LoweringRefusal),
     MissingCodeIdentity,
+    /// The compiled digest is not the digest of `to`'s checked lowering.
+    CompiledMismatch,
 }
 
 /// Certify the recipe "evaluate `from` as `to`": the law is admitted for the
-/// reference's shape, egglog proves `from = to` from the admitted rule, and
-/// `to` lowers and raises back to itself.
+/// reference's shape, egglog proves `from = to` from the admitted rule, `to`
+/// lowers and raises back to itself, and `compiled.compiled_digest` is the
+/// [`lowering_digest`] of that checked lowering. A caller cannot attach a
+/// digest of anything else.
 pub fn certify_reassociation(
     admitted: &AdmittedLaw,
     law: LawReference,
@@ -371,9 +414,13 @@ pub fn certify_reassociation(
         return Err(CertifyRefusal::LawNotAdmitted);
     }
     let proof = prove_reassociation(admitted, from, to).map_err(CertifyRefusal::Proof)?;
-    validate_lowering(to, &lower(to)).map_err(CertifyRefusal::Lowering)?;
+    let steps = lower(to);
+    validate_lowering(to, &steps).map_err(CertifyRefusal::Lowering)?;
     if compiled.compiler_revision == 0 || compiled.compiled_digest == [0u8; 32] {
         return Err(CertifyRefusal::MissingCodeIdentity);
+    }
+    if compiled.compiled_digest != lowering_digest(&steps) {
+        return Err(CertifyRefusal::CompiledMismatch);
     }
     Ok(RecipeCertificate::issue(law, compiled, proof))
 }

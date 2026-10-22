@@ -4,9 +4,9 @@ use dr_math_binding_probe::{
     Scope, Truth, bind_dr64,
     recipe::{Backend, CompiledReference, LawReference, LawShape, Primitive},
     relcomp::{
-        Chain, ComposeRefusal, LawRefusal, ProofRefusal, RelExpr, Rows, Step, Work,
-        admit_composition_assoc, all_orders, certify_reassociation, compose, lower, prove_equation,
-        prove_reassociation, raise, validate_lowering,
+        CertifyRefusal, Chain, ComposeRefusal, LawRefusal, ProofRefusal, RelExpr, Rows, Step, Work,
+        admit_composition_assoc, all_orders, certify_reassociation, compose, lower,
+        lowering_digest, prove_equation, prove_reassociation, raise, validate_lowering,
     },
 };
 
@@ -115,10 +115,12 @@ fn law() -> LawReference {
         shape: shape(),
     }
 }
-fn compiled() -> CompiledReference {
+/// The compiled reference for evaluating `to`: its digest is the digest of
+/// `to`'s lowering, the only digest a certificate accepts.
+fn compiled(to: &RelExpr) -> CompiledReference {
     CompiledReference {
         law: law(),
-        compiled_digest: [9; 32],
+        compiled_digest: lowering_digest(&lower(to)),
         compiler_revision: 1,
         target_abi: 1,
         backend: Backend::ResidentDr64Simd,
@@ -328,10 +330,34 @@ fn lowering_round_trips_and_keeps_leaf_order() {
 #[test]
 fn a_reassociation_recipe_gets_a_certificate() {
     let law_ok = admit_composition_assoc(shape()).unwrap();
-    let cert =
-        certify_reassociation(&law_ok, law(), &left_deep(4), &right_deep(4), compiled()).unwrap();
+    let to = right_deep(4);
+    let cert = certify_reassociation(&law_ok, law(), &left_deep(4), &to, compiled(&to)).unwrap();
     assert_eq!(cert.law(), &law());
+    assert_eq!(
+        cert.compiled().compiled_digest,
+        lowering_digest(&lower(&to))
+    );
     assert!(cert.proof().contains("Comp"));
+}
+
+/// The digest binds the certificate to the checked lowering: a nonzero digest
+/// of another order, or an arbitrary one, is refused, though the proof and the
+/// lowering check both pass.
+#[test]
+fn a_certificate_is_bound_to_the_checked_lowering() {
+    let admitted = admit_composition_assoc(shape()).unwrap();
+    let (from, to) = (left_deep(4), right_deep(4));
+    // Anti-vacuity: the two orders lower to different digests.
+    assert_ne!(lowering_digest(&lower(&from)), lowering_digest(&lower(&to)));
+    for digest in [lowering_digest(&lower(&from)), [9; 32]] {
+        let mut c = compiled(&to);
+        c.compiled_digest = digest;
+        assert_eq!(
+            certify_reassociation(&admitted, law(), &from, &to, c).unwrap_err(),
+            CertifyRefusal::CompiledMismatch
+        );
+    }
+    assert!(certify_reassociation(&admitted, law(), &from, &to, compiled(&to)).is_ok());
 }
 
 #[test]
@@ -340,15 +366,15 @@ fn certification_refuses_without_each_ingredient() {
     // Law reference for another shape than the admitted one.
     let mut foreign = law();
     foreign.shape.row_kind = AxisKind::Capability;
-    let mut c = compiled();
+    let mut c = compiled(&right_deep(3));
     c.law = foreign;
     assert!(certify_reassociation(&admitted, foreign, &left_deep(3), &right_deep(3), c).is_err());
     // Not a reassociation: different leaves, no proof.
     let swapped = RelExpr::comp(RelExpr::Leaf(1), RelExpr::Leaf(0));
     let two = RelExpr::comp(RelExpr::Leaf(0), RelExpr::Leaf(1));
-    assert!(certify_reassociation(&admitted, law(), &two, &swapped, compiled()).is_err());
+    assert!(certify_reassociation(&admitted, law(), &two, &swapped, compiled(&swapped)).is_err());
     // No code identity.
-    let mut no_code = compiled();
+    let mut no_code = compiled(&right_deep(3));
     no_code.compiled_digest = [0; 32];
     assert!(
         certify_reassociation(&admitted, law(), &left_deep(3), &right_deep(3), no_code).is_err()
