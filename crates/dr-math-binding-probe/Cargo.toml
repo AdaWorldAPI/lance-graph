@@ -1,0 +1,15 @@
+# D-DRMC-1: isolated, non-production structural binding probe.
+[package]
+name = "dr-math-binding-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Borrowed DR64 / ClassView-style typed structure and source witness admission probe; never executes population rows."
+
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]
+lance-graph-act-r = { path = "../lance-graph-act-r" }
