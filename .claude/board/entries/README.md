@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-438 entries, 2026-08-06 .. 2026-10-22.
+440 entries, 2026-08-06 .. 2026-10-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,7 +34,9 @@ exactly one of them, never both.
 | 2026-10-22 | `pal256-immutable-needle-distribution-probe` |  | [2026-10-22-pal256-immutable-needle-distribution-probe.md](2026-10-22-pal256-immutable-needle-distribution-probe.md) |
 | 2026-10-22 | `pal256-hebbian-overlay-plasticity` |  | [2026-10-22-pal256-hebbian-overlay-plasticity.md](2026-10-22-pal256-hebbian-overlay-plasticity.md) |
 | 2026-10-22 | `pal256-egraph-evidence-law-admission` |  | [2026-10-22-pal256-egraph-evidence-law-admission.md](2026-10-22-pal256-egraph-evidence-law-admission.md) |
+| 2026-10-22 | `pal256-bnn-disambiguation` |  | [2026-10-22-pal256-bnn-disambiguation.md](2026-10-22-pal256-bnn-disambiguation.md) |
 | 2026-10-22 | `pal256-argextrema-margins` |  | [2026-10-22-pal256-argextrema-margins.md](2026-10-22-pal256-argextrema-margins.md) |
+| 2026-10-22 | `pal256-64hop-error-containment` |  | [2026-10-22-pal256-64hop-error-containment.md](2026-10-22-pal256-64hop-error-containment.md) |
 | 2026-10-22 | `pal256-3sigma-statistical-gate` |  | [2026-10-22-pal256-3sigma-statistical-gate.md](2026-10-22-pal256-3sigma-statistical-gate.md) |
 | 2026-10-22 | `math-compiler-stage-b-e1` |  | [2026-10-22-math-compiler-stage-b-e1.md](2026-10-22-math-compiler-stage-b-e1.md) |
 | 2026-10-22 | `math-compiler-gap-matrix` |  | [2026-10-22-math-compiler-gap-matrix.md](2026-10-22-math-compiler-gap-matrix.md) |
