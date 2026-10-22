@@ -25,14 +25,17 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-430 entries, 2026-08-06 .. 2026-10-22.
+433 entries, 2026-08-06 .. 2026-10-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-22 | `pal256-hebbian-overlay-plasticity` |  | [2026-10-22-pal256-hebbian-overlay-plasticity.md](2026-10-22-pal256-hebbian-overlay-plasticity.md) |
+| 2026-10-22 | `pal256-3sigma-statistical-gate` |  | [2026-10-22-pal256-3sigma-statistical-gate.md](2026-10-22-pal256-3sigma-statistical-gate.md) |
 | 2026-10-22 | `math-compiler-stage-b-e1` |  | [2026-10-22-math-compiler-stage-b-e1.md](2026-10-22-math-compiler-stage-b-e1.md) |
 | 2026-10-22 | `math-compiler-gap-matrix` |  | [2026-10-22-math-compiler-gap-matrix.md](2026-10-22-math-compiler-gap-matrix.md) |
+| 2026-10-22 | `D-DRMC-5` |  | [2026-10-22-drmc-5-assoc-probe.md](2026-10-22-drmc-5-assoc-probe.md) |
 | 2026-10-22 | `D-MPS-9` |  | [2026-10-22-d-mps-9-mork-oracle.md](2026-10-22-d-mps-9-mork-oracle.md) |
+| 2026-10-22 | `coresearch-pal256-evidence-probes` |  | [2026-10-22-coresearch-pal256-evidence-probes.md](2026-10-22-coresearch-pal256-evidence-probes.md) |
 | 2026-10-22 | `D-DRMC` |  | [2026-10-22-coresearch-drmc-stack.md](2026-10-22-coresearch-drmc-stack.md) |
 | 2026-10-21 | `zero-copy-join-index-map` |  | [2026-10-21-zero-copy-join-index-map.md](2026-10-21-zero-copy-join-index-map.md) |
 | 2026-10-21 | `D-RU-4` |  | [2026-10-21-u4-coaddressed-join.md](2026-10-21-u4-coaddressed-join.md) |
