@@ -66,7 +66,16 @@ The judge is P-D4. Score the answer/abstain output with Brier and log score (str
 - P-D1: θ fitted on a block hold-out. Kill: selective risk is not below full-coverage risk.
 - P-R6: 10⁶ sampled u8 triples, rev(rev(a,b),c) vs rev(a,rev(b,c)). Kill G3: > 0.1% of triples differ by > 1 code.
 
-## Dedup (sets C and D are both merged as lab probes; these are follow-up deletions)
+## Dedup — as applied (2026-10-22)
+
+The deletion plan below was superseded the same day by the operator-relayed
+GPT proposal: set C (#1709–#1717) stays the canonical series with its
+board entries, and each set-D test moves into its set-C counterpart
+(#1718→#1710, #1719→#1711, #1720→#1712, #1721→#1715, #1722→#1713). The D
+PRs close as superseded once their C counterpart lands. Both levels survive:
+the documented experiment contract and the production-surface counter-probe.
+
+### Original recommendation (kept for the record)
 
 Keep these, because they test production surfaces:
 - #1721 (ComposeTable counterexample)
