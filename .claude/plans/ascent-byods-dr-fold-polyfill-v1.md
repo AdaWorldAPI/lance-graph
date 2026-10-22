@@ -1,7 +1,7 @@
 # Ascent/BYODS → DR-native fold polyfill: staged falsification and cold-compiler plan
 
 **Status:** PROPOSAL / documentation only, 2026-10-22. No implementation, dependency, P0 policy, or production admission change authorized by this PR.
-**Scope:** harvest Ascent's *logic compiler* capabilities and BYODS formalism to produce existing RelAlg/R2IL/DR procedures. A logical tuple is a **virtual relational projection through intersected masks and original lanes**, not an owned pair/row. Do not create an Ascent-backed runtime, another database, or a competing MeTTa AST.
+**Scope:** harvest Ascent's *logic compiler* capabilities and BYODS formalism to produce existing RelAlg/R2IL/DR procedures. A logical tuple is an **addressed projection of original lanes**. When the index itself witnesses the join, no mask intersection is required; when searching/filtering, intersect masks to obtain eligible addresses. Neither case constructs an owned pair/row. Do not create an Ascent-backed runtime, another database, or a competing MeTTa AST.
 **Sources:** [BYODS primary-source excerpt](../../.arxiv/2023_oopsla_byods_ascent_custom_relations_dr_excerpt.md), [author PDF](https://kmicinski.com/assets/byods.pdf), [AdaWorldAPI/ascent](https://github.com/AdaWorldAPI/ascent), [2026-10-21 prior evaluation](../board/entries/2026-10-21-eval-egglog-datafrog-ascent.md).
 **Ownership:** [EXO-87](https://linear.app/exo-red/issue/EXO-87) D-SRAM; [EXO-84](https://linear.app/exo-red/issue/EXO-84) D-MTP; [EXO-85](https://linear.app/exo-red/issue/EXO-85) D-ASM; [EXO-79](https://linear.app/exo-red/issue/EXO-79) D-MPS-9; [EXO-86](https://linear.app/exo-red/issue/EXO-86) D-RA/D-CMR; [EXO-102](https://linear.app/exo-red/issue/EXO-102) D-RU; [EXO-46](https://linear.app/exo-red/issue/EXO-46) BIND admission; [EXO-73](https://linear.app/exo-red/issue/EXO-73) recursion driver; [EXO-50](https://linear.app/exo-red/issue/EXO-50) coordination.
 
@@ -9,9 +9,9 @@
 
 **Question:** can Ascent's compile-time rule dependency, SCC/stratification, bound/free matching and abstract-relation semantics be compiled into **already available**, certified RelAlg polyfill templates that produce R2IL or direct prebound DR SIMD? Then MeTTa and MORK are front-end aliases, not owners of a second execution model.
 
-**Counter-hypothesis (about unmodified Ascent codegen only):** BYODS substitutes a *relation provider*, but Ascent's current generated join loops and head writes still iterate over individual bindings. A DR-backed `RelIndexRead` that yields positions one at a time is not itself a DR-native mask fold. **This does not reject a compiler rewrite** from Ascent's *logical* tuple operations to co-addressed mask intersections and borrowed lane projections.
+**Counter-hypothesis (about unmodified Ascent codegen only):** BYODS substitutes a *relation provider*, but Ascent's current generated join loops and head writes still iterate over individual bindings. A DR-backed `RelIndexRead` that yields positions one at a time is not itself a DR-native mask fold. **This does not reject a compiler rewrite** from Ascent's *logical* tuple operations to shared index/address projections, using mask intersections only for search/filtering.
 
-**Prior ruling and explicit correction:** [2026-10-21 evaluation](../board/entries/2026-10-21-eval-egglog-datafrog-ascent.md) ruled **SKIP for Ascent's unmodified tuple-oriented runtime** and withdrew tuple-native oracle roles. The operator's counterproposal was to **intersect two masks and use the result as a logical tuple selector**. Rejection of owned tuple materialization must **not** be extrapolated to rejection of a virtual tuple computed by folds. This remains a cold compiler/lowering research question, not a claim that BYODS already generates DR-native code.
+**Prior ruling and explicit correction:** [2026-10-21 evaluation](../board/entries/2026-10-21-eval-egglog-datafrog-ascent.md) ruled **SKIP for Ascent's unmodified tuple-oriented runtime** and withdrew tuple-native oracle roles. The operator's counterproposal distinguishes **tuple by index** from **tuple search**: values `A[i]` and `B[i]` form a virtual tuple at known `i`; mask intersections identify candidate `i` when searching. If a witnessed relationship index *is the join*, lookup needs neither a separate relational join nor unconditional intersection. Rejection of owned tuple materialization must **not** be extrapolated to rejection of any of these virtual forms. This remains a cold compiler/lowering research question, not a claim that BYODS already generates DR-native code.
 
 ```text
 COLD [candidate only]:
@@ -23,7 +23,7 @@ COLD [candidate only]:
 HOT [unchanged]:
   MeTTa/MORK/Datalog aliases -> Quack binding -> admitted compiled recipe
     -> R2IL/mask-risc/ndarray OR direct prebound DR bit folds
-    -> Count/Any/Keep/etc.; logical tuple = intersected presence + borrowed lane template, no owned row
+    -> Count/Any/Keep/etc.; logical tuple = witnessed index + borrowed lane template; intersect selection masks only when needed; no owned row
 OFFLINE PROOF [separate owners]:
   egglog congruence, proof; Ruler/Enumo law candidates; eggcc effect extraction
 ```
@@ -35,25 +35,39 @@ Do not manufacture an extra compiler representation when `crepe_plan!`, contract
 | Stage | Narrow task | Falsifier / result gate | Status |
 |---|---|---|---|
 | **A0 source/ownership audit** | Extract BYODS formal model and compare Ascent source to D-SRAM, D-MTP, existing crepe-plan-probe and D-RU. Record conflict with old hot-path SKIP. | If no unique cold compiler feature is missing, PARK. | This docs PR |
-| **A1 generated-code microscope** | Inspect fork `#[ds]` expansion and one `R(x,y), S(y,z)` rule. Classify (a) *logical* tuple bindings, (b) per-binding loop and head-emission code in current Ascent, (c) which logical joins could instead lower to intersected co-addressed masks. Count index and tuple allocations in existing code only. | If default generated loops enumerate each match, **BYODS-only is NOT a native fold**. That does **not** falsify an independent cold rewrite into DR masks. No runtime adapter unless separately authorized. | Queued, lab-only authorization required |
+| **A1 generated-code microscope** | Inspect fork `#[ds]` expansion and one `R(x,y), S(y,z)` rule. Classify (a) *logical* tuple bindings, (b) per-binding loop and head-emission code in current Ascent, (c) which logical joins could lower to (i) indexed borrowed reads where the index is the join, or (ii) mask-intersection search over a shared coordinate. Count index and tuple allocations in existing code only. | If default generated loops enumerate each match, **BYODS-only is NOT a native fold**. That does **not** falsify an independent cold rewrite into DR masks. No runtime adapter unless separately authorized. | Queued, lab-only authorization required |
 | **A2 mathematical relation contract** | Specify finite-focus `D, inj, γ` (abstract lattice/domain, inject tuple logically, concretize without actually enumerating it) over sealed DR coordinates. Validate monotone `γ`, bottom, join laws and delta/total/new fixed-point semantics. | 257th out-of-focus slot, stale seal/ABA, non-monotone delta, changed coordinate identity or missing completeness must refuse. | Queued, docs/math first |
 | **A3 *cold* static rule planning** | Compare SCC, negation strata, lattice preconditions, binding propagation, join-order metadata with existing `crepe_plan!`, `set_rules` and Quack on identical fixed rules. No second AST or executor. | If metadata gives no new lawful plan shape or only a second spelling, PARK. Test negative cycle, repeated variable, disconnected rule and nested expression refusal. | Queued, requires EXO-87 coordination |
-| **A4 DR-native *virtual tuple* lowering** | Lower a shared-coordinate conjunction to `eligible = mask_left AND mask_right`; use `eligible` as the index selector to borrow the original side lanes without producing `(x,z)` objects. Compare direct RelAlg/DR, test both functional and one-to-many facts. Preserve `ADMISSION=B`. | Wrong support coordinates, stale/mismatched basis, forbidden gather, owned-row allocations or wrong observable answers kill the rewrite. Multi-valued `y` requires factorized combinations or counted fan-out; an `AND` plane alone cannot emit the bag or `DISTINCT(x,z)`. An Ascent default per-result `next()` does not invalidate this alternate lowering. | Gated on A1/A2/A3 and EXO-46 |
+| **A4 DR-native *virtual tuple* lowering** | Three distinct lowering shapes: (A) given `i`, read `LeftLane[i]` / `RightLane[i]` as an addressed virtual tuple; (B) unknown `i`, derive `eligible = mask_left AND mask_right`, then fold/projection; (C) a sealed global-to-local relationship index provides witnessed left/right offsets, so the **index is the join** and no second join is run. Compare direct RelAlg/DR, test both functional and one-to-many facts. Preserve `ADMISSION=B`. | Wrong support coordinates, stale/mismatched basis, forbidden gather, owned-row allocations or wrong observable answers kill the rewrite. Multi-valued `y` requires factorized combinations or counted fan-out; an `AND` plane alone cannot emit the bag or `DISTINCT(x,z)`. An Ascent default per-result `next()` does not invalidate this alternate lowering. | Gated on A1/A2/A3 and EXO-46 |
 | **A5 equality and recursion boundary** | Counterexample: `a ≡ b` should imply `f(a) ≡ f(b)` under congruence; an `eqrel` provider alone cannot supply rebuilding/proofs. Separately check a ≤256-slot cyclic/diamond closure by *independent mask algorithm* against frontier folds. | No claim Ascent = egglog e-graph; no claim recursion is production (EXO-73). Refuse cross-version and out-of-scope closures. | Optional follow-up |
 | **A6 reuse economics** | Compare direct existing relalg/DR compile+execute to offline Ascent-derived schedule plus same hot recipe. Test shared-core 256 templates ×4096 focus frames, nonsharing control, cold cache hit/miss/staleness and negative syntax. | Net win only with *same workload and semantics*, accounting separately for cold compile, proof/verify, bind/attest, hot fold, outputs and memory. Avoid counting reduced tuple volume as a fold speedup. | Gated on real A3/A4 benefit |
 
-## 2. Physical interpretation of a logical tuple (operator correction)
+## 2. Physical interpretation: tuple by construction, tuple by search, join as index
 
-In an already witnessed *shared* intermediate coordinate domain `y`, let `L[y]` and `R[y]` be bit planes indicating that the left and right predicates have at least one matching binding. Then:
+The operator's PowerShell shorthand `$hashA[$i].Value:$hashB[$i].Value` means the **logical composite view at a given address**, not allocation of an object. Three separate execution situations must not be conflated:
 
 ```text
-eligible_y = L_present & R_present          // relational conjunction
-EXISTS = Any(eligible_y)                    // existential question
-COUNT_matching_y = PopCount(eligible_y)     // count of eligible y slots, NOT bag pairs
-virtual_binding(i) = (LeftLane[i], RightLane[i]), selected under eligible_y
+A. KNOWN ADDRESS (no search)
+  i is given and both lanes are complete at i:
+  logical_tuple(i) := LeftLane[i] : RightLane[i]       // borrowed read only
+
+B. SEARCH (index not known)
+  selected_i := PredicateMaskLeft & PredicateMaskRight // same witnessed axis
+  fold selected_i over the borrowed original lanes
+  Any(selected_i)   // existence, not tuple emission
+
+C. JOIN ALREADY ENCODED IN THE INDEX
+  binding[i] := { left_position, right_position }     // compact address map, not value tuple
+  virtual_tuple(i) := LeftLane[binding[i].left] : RightLane[binding[i].right]
+  // No additional join operation or AND is inherent to the read.
+  // Only apply validity/presence/filter masks not guaranteed by the binding witness.
 ```
 
-`virtual_binding` means an address-level **template for reading original values**, not a created tuple. No `Vec<(x,z)>`, `BTreeSet`, per-result object, or re-sort is needed. A tuple-like *semantics* survives even when tuple *materialization* is forbidden.
+Case C can collapse to case A when both sides are co-addressed at the same slot. A binding is sufficient only if it attests which keys were equated, completeness, source versions, coordinate bases, authorization and the claimed cardinality. A pointer map that encodes a value-derived foreign-row read not permitted by `ADMISSION=B` must refuse; an index is *not* a loophole for prohibited gathers. Counting preparation and attestation costs is mandatory.
+
+No `Vec<(x,z)>`, `BTreeSet`, result-object materialization or per-result sorting is required. The logical tuple is a **template over borrowed values**, and the relationship may be precompiled into its index.
+
+For case B, when `L[y]` and `R[y]` are presence masks on a common attested coordinate, `L & R` identifies eligible `y` slots. `PopCount(L & R)` counts matching **slots**, not necessarily joined logical result tuples or bag multiplicity.
 
 The equation by itself is **only a conjunction/existence mask**. If `Left(x,y)` or `Right(y,z)` has multiple values per `y`, the resulting logical bag contains a product of per-`y` fan-outs: `Σ_y left_count[y] × right_count[y]` for bag counting. If projected `DISTINCT(x,z)` is requested, de-duplicate pairs across `y` using an explicitly costed/falsified factorized representation or refuse the unsupported shape. Do not promise an `AND` mask is a complete general join.
 
@@ -79,7 +93,7 @@ Admit an **economic hypothesis** only when `T_baseline_total(N) > T_compiled_tot
 - **E-class versus entity identity:** an egglog union is mathematical congruence, never an authority to merge external identities or GUIDs.
 - **Snapshots and local coordinate binding:** the same ordinal in two contexts need not denote the same object. Check axis/source/codebook/permission generation before reuse.
 - **Pure versus effectful extraction:** proof of equality does not commit a Lance write, authorize a read, or allow moving effects across version barriers.
-- **Logical tuple is not an owned tuple:** a logical pair may be represented by intersected membership masks and position-indexed borrowed lanes. Compare results using independent mask/reference folds; no owned-pair vector, BTreeSet answer, or hidden row materialization.
+- **Logical tuple is not an owned tuple:** a logical pair can be a *direct borrowed read at a known index*, an *AND-mask search* selecting indices, or a *witnessed relationship index that already is the join*. Compare results using independent mask/reference folds; no owned-pair vector, BTreeSet answer, or hidden row materialization.
 - **No runtime Ascent, MORK or datafrog fallback:** if template unsupported, typed refusal or separately authorized frontend behavior, never silently invoke another evaluator.
 
 ## 5. Concrete first lab question
@@ -98,7 +112,7 @@ Generate a *static*, rule-bounded reachability fixture with a shared intermediat
 ## 6. Decision requested in EXO-50
 
 1. **Acknowledge the existing 2026-10-22 P0 cold-cost exception**: cold/opaque oracle costs reported in µs, not gate results. Preserve separate hot-fold admission; no further P0 amendment proposed.
-2. Authorize **A1 source/codegen audit plus a docs-level logical tuple → AND-mask lowering sketch**, not a BYODS runtime adapter or a new Ascent/RelAlg executor.
+2. Authorize **A1 source/codegen audit plus a docs-level three-case lowering sketch (direct index / AND-mask search / index-as-join)**, not a BYODS runtime adapter or a new Ascent/RelAlg executor.
 3. Assign any A3 translator work to existing EXO-87 / D-SRAM and EXO-86 / D-RA owners, after their acknowledgement. No new plan family issue or D-id unless a unique deficiency survives A1–A3.
 4. Keep egglog proof ownership and #1690–#1704 DR Math Foundry independent; no duplicate e-graph or proof verifier.
 
