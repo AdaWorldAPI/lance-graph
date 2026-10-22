@@ -207,3 +207,106 @@ fn native_join_answers_bags_from_the_coaddressed_table() {
         );
     }
 }
+
+/// The general-rules oracle, given the fixed join as an `OracleRule`, answers
+/// the same set as the fixed-query MORK arm on the same input.
+#[test]
+fn general_rules_agree_with_the_fixed_query() {
+    use mork_pathmap_probe::boundary::{
+        OracleAtom, OracleFacts, OracleRule, OracleTerm, mork_rules,
+    };
+    const R: u16 = 0;
+    const S: u16 = 1;
+    let r = [[1, 10], [1, 11], [2, 10], [3, 12], [1, 10]];
+    let s = [[10, 100], [11, 101], [10, 102], [99, 103], [10, 100]];
+    let inp = input(&r, &s, 1, 1);
+
+    let mut fixed = bind(Backend::Mork, &inp, Semantics::Set).expect("set semantics is admitted");
+    let want: std::collections::BTreeSet<Vec<u32>> = fixed
+        .answers(&inp)
+        .expect("fresh generations")
+        .rows
+        .keys()
+        .map(|row| row.to_vec())
+        .collect();
+    assert!(!want.is_empty(), "fixture must produce answers");
+
+    // Q(x, y, z) :- R(x, y), S(y, z).  x = 0, y = 1, z = 2.
+    let (x, y, z) = (OracleTerm::Var(0), OracleTerm::Var(1), OracleTerm::Var(2));
+    let rule = OracleRule {
+        head: vec![x.clone(), y.clone(), z.clone()],
+        body: vec![
+            OracleAtom {
+                rel: R,
+                terms: vec![x, y.clone()],
+            },
+            OracleAtom {
+                rel: S,
+                terms: vec![y, z],
+            },
+        ],
+    };
+    let facts = [
+        OracleFacts {
+            rel: R,
+            arity: 2,
+            view: &inp.r,
+        },
+        OracleFacts {
+            rel: S,
+            arity: 2,
+            view: &inp.s,
+        },
+    ];
+    let (got, cost) = mork_rules(&facts, &[rule]).expect("general rules answer");
+    assert_eq!(got.rows, want);
+    // Over the distinct facts the body matches 5 times:
+    // (1,10,100) (1,10,102) (1,11,101) (2,10,100) (2,10,102).
+    assert_eq!(cost.matches, 5);
+}
+
+/// FAILS IF: a rule wider than MORK's six-bit arity reaches MORK's parser. A
+/// conjunction of 62 atoms (63 children with `,`) is answered; 63 atoms, a
+/// 63-term head and a 63-term atom are refused by name, never parsed.
+#[test]
+fn rules_past_morks_arity_limit_are_refused_before_parsing() {
+    use mork_pathmap_probe::boundary::{
+        MORK_MAX_CHILDREN, OracleAtom, OracleFacts, OracleRule, OracleTerm, mork_rules,
+    };
+    let r = RelationView::from_rows(&[[1, 2]], 1);
+    let facts = [OracleFacts {
+        rel: 0,
+        arity: 2,
+        view: &r,
+    }];
+    let atom = || OracleAtom {
+        rel: 0,
+        terms: vec![OracleTerm::Var(0), OracleTerm::Var(1)],
+    };
+    let rule = |atoms: usize, head: usize| OracleRule {
+        head: (0..head).map(|_| OracleTerm::Var(0)).collect(),
+        body: (0..atoms).map(|_| atom()).collect(),
+    };
+    let at_limit = rule(MORK_MAX_CHILDREN - 1, 1);
+    let (set, _) = mork_rules(&facts, &[at_limit]).expect("62 atoms fit");
+    assert_eq!(set.rows.len(), 1);
+    for (name, wide) in [
+        ("63 atoms", rule(MORK_MAX_CHILDREN, 1)),
+        ("63-term head", rule(1, MORK_MAX_CHILDREN)),
+        (
+            "63-term atom",
+            OracleRule {
+                head: vec![OracleTerm::Var(0)],
+                body: vec![OracleAtom {
+                    rel: 0,
+                    terms: (0..MORK_MAX_CHILDREN as u16).map(OracleTerm::Var).collect(),
+                }],
+            },
+        ),
+    ] {
+        assert!(
+            matches!(mork_rules(&facts, &[wide]), Err(Refusal::Upstream(_))),
+            "{name}"
+        );
+    }
+}

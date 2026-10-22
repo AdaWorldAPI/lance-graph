@@ -1,0 +1,43 @@
+# egglog-r2il-probe: Stage B, E1 end to end. Lab only.
+#
+# Exact-integer symbolic substitution (`a = 2*b`, `b = 2*c`, `z = 2*a` gives
+# `z = 8*c`) compiled COLD by egglog (public API only, proofs mode, every proof
+# already checked by egglog's own `check_proof`), then lowered onto the EXISTING
+# R2IL scalar arithmetic (`INT_MULT` through `FoldDialect`), and compared with
+# an independent i128 oracle. Nothing here is a production path; no opcode is
+# added; no population measure is involved.
+#
+# Own [workspace] root, excluded from the lance-graph workspace like
+# mork-pathmap-probe. Run from THIS directory:
+#   cargo test
+#   cargo run --release --example e1_cold_cost
+[package]
+name = "egglog-r2il-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Stage B probe: egglog as a cold, bounded, proof-producing compiler for exact-integer substitution, lowered onto existing R2IL scalar arithmetic and checked against an i128 oracle. Results only; no production path."
+
+[workspace]
+
+[dependencies]
+# Public API only (EGraph::new_with_proofs, parse_and_run_program, prove-variants).
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
+# `set_rules::Arith`, the law-domain vocabulary. The catalogue is NOT copied.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# FoldDialect, Val, INT_MULT, FoldError.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+# Planes / Foreign, the (empty) planes a scalar-only FoldDialect is built over.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# The `Dialect` trait whose `call` is the interpreter seam. Same coordinate as
+# lance-graph-r2il, so the graph holds one ogar-loco.
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+# One contract and one ndarray identity (OGAR's crates name the contract by its
+# git coordinate; mask-risc names ndarray by its git coordinate). Same patches
+# as dir-rmap-probe / the lance-graph root.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }

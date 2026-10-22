@@ -11,6 +11,8 @@
 //! is not zero-copy, and nothing here claims it is. A stale copy is caught by
 //! the generation witness ([`Refusal::Stale`]), not by a lifetime.
 
+use std::collections::BTreeSet;
+use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 
 use mork::space::Space;
@@ -18,7 +20,7 @@ use pathmap::PathMap;
 use pathmap::zipper::{ZipperIteration, ZipperPath, ZipperValues};
 
 use crate::join::{JoinExec, JoinTable};
-use crate::{Answers, JoinInput, Semantics};
+use crate::{Answers, JoinInput, RelationView, Semantics};
 
 /// A physical implementation of the fixed query.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -394,6 +396,277 @@ impl PostingTrie {
         }
         out
     }
+}
+
+// ---- MORK, general rules ---------------------------------------------------
+//
+// The fixed query above answers one shape. This section answers any admitted
+// conjunctive rule set, so MORK can be the differential oracle for every
+// `query_multi` pattern the logical interface admits (D-MPS-9). The input types
+// are plain Lance-owned data; no crepe type enters this crate (the dependency
+// runs crepe-plan-probe -> mork-pathmap-probe only).
+//
+// MORK stores SETS. Its answers are compared as sets ([`TupleSet`]); bag
+// semantics stay with the reference and datafrog, and no count is invented
+// for MORK here.
+
+/// One term of an oracle atom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OracleTerm {
+    /// A rule variable, by number. The MORK text is `$v<id>`.
+    Var(u16),
+    /// An integer constant. The MORK text is the symbol `n<val>`.
+    Const(u32),
+}
+
+/// `rel(terms…)`. The MORK text is `(r<rel> …)`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OracleAtom {
+    pub rel: u16,
+    pub terms: Vec<OracleTerm>,
+}
+
+/// One rule `Head(terms) <- body`. All rules handed to one call share one head
+/// relation, so only the head's terms are carried.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OracleRule {
+    pub head: Vec<OracleTerm>,
+    pub body: Vec<OracleAtom>,
+}
+
+/// One input relation: its id and its first `arity` lanes of `view`
+/// (arity 1 or 2).
+#[derive(Clone, Copy, Debug)]
+pub struct OracleFacts<'a> {
+    pub rel: u16,
+    pub arity: usize,
+    pub view: &'a RelationView,
+}
+
+/// Distinct head tuples: MORK's representation (a set). Oracle-only.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TupleSet {
+    pub rows: BTreeSet<Vec<u32>>,
+}
+
+/// What the oracle cost, split so the reference costs are not one lump.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OracleCost {
+    /// Fact text and `add_all_sexpr`.
+    pub encode_build: Duration,
+    /// `exec` + `metta_calculus` + dump + parse + remove, summed over rules.
+    pub exec_decode: Duration,
+    /// `Space::query_multi` callbacks only, no decode, summed over rules.
+    /// [`Duration::ZERO`] together with `matches == u64::MAX` means the
+    /// unification-only timing could not be driven (it can here; see
+    /// [`mork_rules`]).
+    pub match_only: Duration,
+    /// Number of `query_multi` effect callbacks, summed over rules.
+    pub matches: u64,
+}
+
+fn push_term(out: &mut String, t: &OracleTerm) {
+    let written = match t {
+        OracleTerm::Var(v) => write!(out, "$v{v}"),
+        OracleTerm::Const(c) => write!(out, "n{c}"),
+    };
+    written.expect("writing to a String cannot fail");
+}
+
+fn push_atom(out: &mut String, a: &OracleAtom) {
+    write!(out, "(r{}", a.rel).expect("writing to a String cannot fail");
+    for t in &a.terms {
+        out.push(' ');
+        push_term(out, t);
+    }
+    out.push(')');
+}
+
+/// `(, (r3 $v0 $v1) (r4 $v1 n7))`.
+fn pattern_text(rule: &OracleRule) -> String {
+    let mut s = String::from("(,");
+    for a in &rule.body {
+        s.push(' ');
+        push_atom(&mut s, a);
+    }
+    s.push(')');
+    s
+}
+
+/// `(exec 0 (, body) (, (Q head)))`.
+fn exec_text(rule: &OracleRule) -> String {
+    let mut s = format!("(exec 0 {} (, (Q", pattern_text(rule));
+    for t in &rule.head {
+        s.push(' ');
+        push_term(&mut s, t);
+    }
+    s.push_str(")))\n");
+    s
+}
+
+/// The tokens of a `(Q n1 n2 …)` line's tail, or `None` if any is not `n<u32>`.
+fn parse_tuple(rest: &[u8]) -> Option<Vec<u32>> {
+    let body = rest.strip_suffix(b")")?;
+    body.split(|&b| b == b' ')
+        .map(|tok| {
+            std::str::from_utf8(tok.strip_prefix(b"n")?)
+                .ok()?
+                .parse::<u32>()
+                .ok()
+        })
+        .collect()
+}
+
+/// Checks one rule before anything is built.
+/// The most children one MORK expression can have: its arity tag is six bits
+/// (`mork_expr::item_byte`, `Tag::Arity(a)` asserts `a < 64`).
+pub const MORK_MAX_CHILDREN: usize = 63;
+
+fn check_rule(rule: &OracleRule) -> Result<(), Refusal> {
+    // Every expression the oracle writes, counted with its head symbol: the
+    // conjunction `(, atoms…)`, the head `(Q terms…)` and each atom
+    // `(r<id> terms…)`. Past the limit MORK's encoder would panic (debug) or
+    // write a reserved tag (release), so the rule is refused before parsing.
+    let widest = std::iter::once(rule.body.len() + 1)
+        .chain(std::iter::once(rule.head.len() + 1))
+        .chain(rule.body.iter().map(|a| a.terms.len() + 1))
+        .max()
+        .unwrap_or(0);
+    if widest > MORK_MAX_CHILDREN {
+        return Err(Refusal::Upstream(format!(
+            "expression with {widest} children; MORK encodes at most {MORK_MAX_CHILDREN}"
+        )));
+    }
+    if rule.body.is_empty() {
+        return Err(Refusal::Upstream("empty body".into()));
+    }
+    if rule.head.is_empty() {
+        return Err(Refusal::Upstream("empty head".into()));
+    }
+    for t in &rule.head {
+        if let OracleTerm::Var(v) = t {
+            let bound = rule
+                .body
+                .iter()
+                .any(|a| a.terms.contains(&OracleTerm::Var(*v)));
+            if !bound {
+                return Err(Refusal::Upstream("unbound head var".into()));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Runs `rules` (one shared head relation) over `facts` in one MORK `Space`
+/// and returns the distinct head tuples with a split cost.
+///
+/// Each rule runs as its own MM2 `exec`, so one rule's `Q` facts never feed
+/// another rule. Duplicated fact rows are fed as they are: MORK collapses
+/// them, which is its set semantics, and nothing here dedupes for it.
+///
+/// Per rule, BEFORE its `exec`, the body pattern is parsed with
+/// `Space::parse_sexpr` and enumerated once with `Space::query_multi` over the
+/// space's own trie. That is MORK's unification alone, with no decoding of the
+/// answer; the callbacks are counted in [`OracleCost::matches`]. Running it
+/// before the `exec` keeps this rule's `Q` facts out of the trie.
+///
+/// The effect closure's `bool` is a CONTINUE flag, not an accepted/rejected
+/// flag: `query_multi_raw` calls `effect` once per successful unification and
+/// breaks out of the enumeration when it returns `false`
+/// (`kernel/src/space.rs`, `if !effect(Err(&bs), e) { break }` / `longjmp`).
+/// Returning `true` therefore visits every match, and the callback is never
+/// invoked for a candidate that failed to unify, so the count is exactly the
+/// number of body matches over the DISTINCT facts.
+pub fn mork_rules(
+    facts: &[OracleFacts<'_>],
+    rules: &[OracleRule],
+) -> Result<(TupleSet, OracleCost), Refusal> {
+    for rule in rules {
+        check_rule(rule)?;
+    }
+    let mut cost = OracleCost::default();
+
+    let start = Instant::now();
+    let mut text = String::new();
+    for f in facts {
+        if !(1..=2).contains(&f.arity) {
+            return Err(Refusal::Upstream(format!("fact arity {}", f.arity)));
+        }
+        let lanes = &f.view.cols[..f.arity];
+        for i in 0..f.view.len() {
+            write!(text, "(r{}", f.rel).expect("writing to a String cannot fail");
+            for lane in lanes {
+                write!(text, " n{}", lane[i]).expect("writing to a String cannot fail");
+            }
+            text.push_str(")\n");
+        }
+    }
+    let mut space = Space::new();
+    space
+        .add_all_sexpr(text.as_bytes())
+        .map_err(Refusal::Upstream)?;
+    cost.encode_build = start.elapsed();
+
+    // One caller-owned expression buffer for every pattern parse, alive across
+    // the whole function so no `Expr` outlives its bytes.
+    let longest = rules
+        .iter()
+        .map(|r| pattern_text(r).len())
+        .max()
+        .unwrap_or(0);
+    let mut buf: Vec<u8> = vec![0; 64 * longest + 4096];
+
+    let mut out = TupleSet::default();
+    for rule in rules {
+        // Unification only. `parse_sexpr` writes the encoded pattern at `buf`;
+        // the `Expr` it returns is a raw pointer into `buf`, valid until `buf`
+        // is written again, so it is used only inside this block.
+        let mut pat = pattern_text(rule);
+        pat.push('\n');
+        let parsed = space
+            .parse_sexpr(pat.as_bytes(), buf.as_mut_ptr())
+            .map_err(|e| Refusal::Upstream(format!("parse_sexpr: {e:?}")))?;
+        let t = Instant::now();
+        let mut n = 0u64;
+        // No `unsafe` is needed: `parse_sexpr` and `query_multi` are both safe
+        // `pub` fns. The soundness argument is only that `parsed.0` points into
+        // `buf`, which is neither moved, resized nor written between
+        // `parse_sexpr` and the end of this call, and that `buf` is sized well
+        // past the encoding (64 bytes per pattern byte plus slack; MORK writes
+        // one tag byte per element plus the symbol bytes). `query_multi` takes
+        // the trie by shared reference and only reads the expression.
+        Space::query_multi(&space.btm, parsed.0, |_res, _e| {
+            n += 1;
+            true
+        });
+        cost.match_only += t.elapsed();
+        cost.matches += n;
+
+        let t = Instant::now();
+        space
+            .add_all_sexpr(exec_text(rule).as_bytes())
+            .map_err(Refusal::Upstream)?;
+        space.metta_calculus(1);
+        let mut dump = Vec::new();
+        space.dump_all_sexpr(&mut dump).map_err(Refusal::Upstream)?;
+        let mut produced = Vec::new();
+        for line in dump.split(|&b| b == b'\n') {
+            if let Some(rest) = line.strip_prefix(b"(Q ") {
+                let row = parse_tuple(rest)
+                    .ok_or_else(|| Refusal::Upstream(String::from_utf8_lossy(line).into_owned()))?;
+                out.rows.insert(row);
+                produced.extend_from_slice(line);
+                produced.push(b'\n');
+            }
+        }
+        if !produced.is_empty() {
+            space
+                .remove_all_sexpr(&produced)
+                .map_err(Refusal::Upstream)?;
+        }
+        cost.exec_decode += t.elapsed();
+    }
+    Ok((out, cost))
 }
 
 #[cfg(test)]
