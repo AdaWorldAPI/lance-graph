@@ -61,3 +61,20 @@ For #1691, reuse the typed **three-state physical oracle** only after independen
 ## Admission decision
 
 **Do not auto-merge.** This review enables a real integration diff and a missing CI gate; it does **not** certify the semantic counterexamples above as fixed. Maintain `egglog -> proof/rewrite` strictly cold and `R2IL -> FoldDialect -> mask-risc execute_into` as the permitted execution chain. Promote only after P0 invariants are either proven by witnesses/tests or explicitly restricted to the synthetic E1 admitted input domain.
+
+## Status after rebase onto main (2026-10-22, #1696 merged)
+
+Both P0 gates are now closed **for the linear E1 language**, each with a test that fails when its guard is removed. The P1 gates are unchanged.
+
+- **E-PREMISE: closed.**
+  - Reproduced first: `[z=2c, z=3c]` at c=7 certified 14, and 21 with the premises swapped; the oracle agreed both times.
+  - `oracle::coefficients` now checks every premise:
+    - a second definition must agree;
+    - a cycle such as `c = 2c` is inconsistent;
+    - a premise the target cannot reach is refused.
+  - `ReplayCapsule::certify` refuses such systems with `InvalidPremises` before egglog runs.
+- **E-OVERFLOW-CANCEL: closed by an input-range witness.**
+  - Reproduced first: `a = -1*c; z = -1*a` returned `Ok(i64::MIN)` on a hit where the eager checked baseline overflows (the codex P2), and `a = MAX*c; z = 0*a` returned 0 at c=2.
+  - `Catalogue::promote` records `CheckedRange`: the inputs on which every premise's intermediate `k * x` fits i64.
+  - `execute_or` falls back outside it (`OutsideCheckedRange`).
+  - The witness covers only the eager baseline that evaluates every premise, and only premises linear in the target. A non-linear language needs a new witness.
