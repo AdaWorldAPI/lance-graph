@@ -27,8 +27,16 @@ impl Evidence {
 }
 #[test]
 fn independent_equal_frequency_groups_do_not_increase_frequency() {
-    let a = Evidence { positive: 7, negative: 3, sources: 1 };
-    let b = Evidence { positive: 7, negative: 3, sources: 2 };
+    let a = Evidence {
+        positive: 7,
+        negative: 3,
+        sources: 1,
+    };
+    let b = Evidence {
+        positive: 7,
+        negative: 3,
+        sources: 2,
+    };
     let both = a.merge(b).unwrap();
     assert!((both.frequency() - 0.7).abs() < 1e-12);
     assert!((both.nars_confidence() - (20.0 / 21.0)).abs() < 1e-12);
@@ -36,9 +44,20 @@ fn independent_equal_frequency_groups_do_not_increase_frequency() {
 }
 #[test]
 fn frequency_is_not_evidence_mass_and_duplicate_sources_do_not_count() {
-    let low = Evidence { positive: 1, negative: 1, sources: 1 };
-    let high = Evidence { positive: 50, negative: 50, sources: 2 };
+    let low = Evidence {
+        positive: 1,
+        negative: 1,
+        sources: 1,
+    };
+    let high = Evidence {
+        positive: 50,
+        negative: 50,
+        sources: 2,
+    };
     assert_eq!(low.frequency(), high.frequency());
     assert!(high.nars_confidence() > low.nars_confidence());
-    assert!(low.merge(low).is_none(), "do not double-count the same source");
+    assert!(
+        low.merge(low).is_none(),
+        "do not double-count the same source"
+    );
 }
