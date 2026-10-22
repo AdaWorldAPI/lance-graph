@@ -149,3 +149,6 @@ pub fn bind_dr64<'a>(
         rows,
     })
 }
+
+/// Independent 64x64 finite-population reference audit; NEVER a production evaluator.
+pub mod population;
