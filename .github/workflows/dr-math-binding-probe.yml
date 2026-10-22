@@ -1,28 +1,77 @@
 name: DR Mathematical Binding Probe
+# Own [workspace] excluded from root tests; a lab gate, not production
+# admission. Mirrors egglog-r2il-probe.yml: the pinned toolchain from
+# rust-toolchain.toml and the ndarray sibling checkout the egglog-r2il-probe
+# dependency needs.
 on:
-  push:
-    paths:
-      - "crates/dr-math-binding-probe/**"
-      - "crates/lance-graph-contract/**"
-      - "crates/lance-graph-act-r/**"
-      - ".github/workflows/dr-math-binding-probe.yml"
   pull_request:
     paths:
       - "crates/dr-math-binding-probe/**"
+      - "crates/egglog-r2il-probe/**"
       - "crates/lance-graph-contract/**"
       - "crates/lance-graph-act-r/**"
+      - "crates/lance-graph-r2il/**"
+      - "crates/lance-graph-mask-risc/**"
       - ".github/workflows/dr-math-binding-probe.yml"
+      - "rust-toolchain.toml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/dr-math-binding-probe/**"
+      - "crates/egglog-r2il-probe/**"
+      - "crates/lance-graph-contract/**"
+      - "crates/lance-graph-act-r/**"
+      - "crates/lance-graph-r2il/**"
+      - "crates/lance-graph-mask-risc/**"
+      - ".github/workflows/dr-math-binding-probe.yml"
+      - "rust-toolchain.toml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
 jobs:
   isolated-probe:
-    runs-on: ubuntu-latest
+    name: excluded-crate fmt, clippy and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: lance-graph
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
-      - name: Format
-        run: cargo fmt --manifest-path crates/dr-math-binding-probe/Cargo.toml --all -- --check
-      - name: Clippy
+          path: lance-graph
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/ndarray (sibling path patch)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Rust toolchain
+        run: rustup show
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
+          workspaces: lance-graph/crates/dr-math-binding-probe
+      - name: fmt
+        run: cargo fmt --manifest-path crates/dr-math-binding-probe/Cargo.toml --check
+      - name: clippy
         run: cargo clippy --manifest-path crates/dr-math-binding-probe/Cargo.toml --all-targets -- -D warnings
-      - name: Tests
-        run: cargo test --manifest-path crates/dr-math-binding-probe/Cargo.toml
+      - name: tests
+        run: cargo test --release --manifest-path crates/dr-math-binding-probe/Cargo.toml

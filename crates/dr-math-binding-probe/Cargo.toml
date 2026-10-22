@@ -10,6 +10,18 @@ description = "Borrowed DR64 / ClassView-style typed structure and source witnes
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# Stage B's proof capsule and target ABI (D-DRMC-3 takes proof and target
+# identity from there instead of re-spelling them). Pulls egglog and ogar-loco
+# by git and ndarray through the sibling patch below.
+egglog-r2il-probe = { path = "../egglog-r2il-probe" }
 
 [dev-dependencies]
 lance-graph-act-r = { path = "../lance-graph-act-r" }
+
+# The same patches egglog-r2il-probe carries (a path dependency's [patch]
+# tables do not apply): one contract and one ndarray identity.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
