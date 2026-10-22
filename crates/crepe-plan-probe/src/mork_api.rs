@@ -9,6 +9,7 @@
 //! variable repeated inside one atom and cyclic bodies are refused by name.
 
 use lance_graph_relalg::join_body::is_alpha_acyclic;
+use mork_pathmap_probe::boundary::{OracleAtom, OracleRule, OracleTerm};
 
 use crate::logic::{RelId, Rule, Term, VarId};
 
@@ -48,6 +49,8 @@ pub enum MorkRefusal {
     Cyclic,
     /// A pattern does not start with a relation symbol.
     NoRelation { pattern: usize },
+    /// An integer constant does not fit the oracle's `u32` symbol space.
+    ConstOutOfRange { value: u64 },
 }
 
 /// The pattern of one rule.
@@ -98,6 +101,37 @@ pub fn admit(q: &QueryMulti) -> Result<(), MorkRefusal> {
         return Err(MorkRefusal::Cyclic);
     }
     Ok(())
+}
+
+/// The rule as the MORK oracle's input (`mork_pathmap_probe::boundary`), after
+/// the same admission as [`admit`]: a refused pattern returns its refusal
+/// unchanged. Relation and variable ids carry over as numbers; a constant must
+/// fit a `u32`, the oracle's symbol space. Nothing here names MORK.
+pub fn to_oracle(rule: &Rule) -> Result<OracleRule, MorkRefusal> {
+    admit(&query_multi(rule))?;
+    let term = |t: &Term| -> Result<OracleTerm, MorkRefusal> {
+        Ok(match *t {
+            Term::Var(VarId(v)) => OracleTerm::Var(v),
+            Term::Const(c) => OracleTerm::Const(
+                u32::try_from(c).map_err(|_| MorkRefusal::ConstOutOfRange { value: c })?,
+            ),
+        })
+    };
+    let terms = |ts: &[Term]| -> Result<Vec<OracleTerm>, MorkRefusal> { ts.iter().map(term).collect() };
+    let body = rule
+        .body
+        .iter()
+        .map(|a| {
+            Ok(OracleAtom {
+                rel: a.rel.0,
+                terms: terms(&a.terms)?,
+            })
+        })
+        .collect::<Result<Vec<_>, MorkRefusal>>()?;
+    Ok(OracleRule {
+        head: terms(&rule.head.terms)?,
+        body,
+    })
 }
 
 /// The pattern as MORK text, `(Parent 17 $1)`, for reports and test output
