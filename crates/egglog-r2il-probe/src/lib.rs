@@ -22,6 +22,7 @@
 //!    sharing no code with steps 2-4.
 
 pub mod artifact;
+pub mod catalogue;
 pub mod encode;
 pub mod laws;
 pub mod lower;
