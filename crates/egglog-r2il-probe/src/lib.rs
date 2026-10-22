@@ -21,6 +21,7 @@
 //! 5. [`oracle`] recomputes the answer in `i128` from the original premises,
 //!    sharing no code with steps 2-4.
 
+pub mod artifact;
 pub mod encode;
 pub mod laws;
 pub mod lower;
