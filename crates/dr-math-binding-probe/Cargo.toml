@@ -10,3 +10,6 @@ description = "Borrowed DR64 / ClassView-style typed structure and source witnes
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]
+lance-graph-act-r = { path = "../lance-graph-act-r" }
