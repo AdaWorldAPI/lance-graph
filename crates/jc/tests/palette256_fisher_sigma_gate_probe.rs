@@ -1,8 +1,12 @@
 //! The classical Fisher-z SE belongs to estimated Pearson correlation under
 //! model assumptions. It is NOT a universal cosine/noise/hallucination gate.
 fn fisher_z_gate(r: f64, independent_n: usize, sigmas: f64) -> Option<bool> {
-    if independent_n <= 3 || !r.is_finite() || r.abs() >= 1.0
-        || !sigmas.is_finite() || sigmas <= 0.0 {
+    if independent_n <= 3
+        || !r.is_finite()
+        || r.abs() >= 1.0
+        || !sigmas.is_finite()
+        || sigmas <= 0.0
+    {
         return None;
     }
     let se = 1.0 / ((independent_n - 3) as f64).sqrt();
