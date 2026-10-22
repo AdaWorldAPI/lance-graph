@@ -80,6 +80,16 @@ benchmarks and PR bodies alike.
   - This holds for tests and oracles too: answers are compared by folds
     through the template, never by expanding them into rows.
 - REVISIT WHEN: never on cost grounds.
+- **SCOPED EXCEPTION — cold, out-of-fold compile and oracle costs** (DECISION,
+  operator, 2026-10-22: *"Report the cold costs in microseconds, not gated"*).
+  A cold compile outside the fold (egglog saturation + proof in
+  `egglog-r2il-probe`) or a differential-oracle reference arm (MORK in
+  `crepe-plan-probe/examples/mork_split.rs`) may be reported, always in µs
+  and always labelled "reported, not gates". It never licenses a ms-scale
+  in-fold path: encode, lower, execute and every query terminal stay under
+  the rule above. BASIS: these phases run once per program or only as an
+  oracle, never per query. REVISIT WHEN: a cold phase moves onto a per-query
+  path.
 
 ## P0 — AdaWorldAPI forks ONLY, NEVER crates.io upstream
 
