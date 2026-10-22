@@ -25,7 +25,7 @@ The first law the certified-compiler boundary can certify (charter, "Experimenta
 - **Law admission.** `admit_composition_assoc` admits associativity only for the `BooleanCompose` shape over two-valued Distinct relations; Bag (counting) and three-valued composition are other semirings and are refused. An `AdmittedLaw` has no other constructor.
 - **Proof.** egglog, given only the admitted rule (both directions), proves every reassociation of a 5-chain and checks its own proofs. Commutation, which associativity does not imply, gets no proof even with both terms in the e-graph.
 - **Lowering.** An order lowers to push/compose steps that raise back to the same order. This is a structural check; the compose kernel is checked against an independent pair enumeration.
-- **Certificate.** `certify_reassociation` issues a `RecipeCertificate` (carrying egglog's proof text) only with all of the above, and refuses a law reference for another shape, a non-reassociation and a missing code identity.
+- **Certificate.** `certify_reassociation` issues a `RecipeCertificate` (carrying egglog's proof text) only with all of the above, and refuses a law reference for another shape, a non-reassociation, a missing code identity, and a compiled digest that is not `lowering_digest` of the checked lowering. A `Chain` borrows its frame store, so the frame cannot advance while the chain is alive.
 
 `cargo run --release --example assoc_orders` reports one dense-to-sparse 5-chain on a 4-vCPU shared Xeon @ 2.10 GHz: all 14 orders give the same relation; work runs from 6 414 to 15 310 row-ORs and the time per evaluation from about 4.4 to 10.8 µs. The cold egglog proof between the two extreme orders is about 12.5 ms (a cold, out-of-fold cost: reported, not a gate).
 
