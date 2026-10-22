@@ -1,6 +1,7 @@
 # 2026-10-22 — /coresearch: the D-DRMC stack (#1700–#1704)
 
-**Status:** EXPLORATION MAP. Nothing adopted; the operator chooses. Scope: the
+**Status:** EXPLORATION MAP; the operator chose X1, X2, X3, X4, X15, X17,
+X20 (applied 2026-10-22, see "Applied" below). Scope: the
 five stacked PRs of D-DRMC (#1700 charter, #1701 typed DR64 binding, #1702
 finite-population evidence, #1703 law/recipe identity, #1704 ACT-R handoff + CI).
 
@@ -77,3 +78,20 @@ tree.
 OPEN: who owns the frame seal for real sources (G1); whether `LawShape` laws can
 ever be proved sort-parametric; whether Stage B's catalogue should hold several
 bindings per key.
+
+## Applied (operator choice, 2026-10-22)
+
+`STATUS: fixed | OUTCOME:` fix commits on the stacked branches, merged upward:
+#1701 `ca05b1d1` (X1/X2/X3: `FrameStore`-issued `Frame` compared by issue
+identity, separate `Focus` and `Scope` guards, validity carried by R),
+#1702 `365b6c9d` (X4 refuted before unknown; X17 distinct fixtures),
+#1703 `55f88ef4` + `b14dc037` (X15: `ProofReference` only via
+`ReplayCapsule::recheck` on the law's `SemanticKey`, `TargetAbi` target),
+#1704 `1f63a5b1` (X17 handoff fixture, snapshot from the frame, X19
+tightening, X20 workflow on the pinned toolchain with the ndarray sibling).
+Every new guard was disable-verified red, except the `recheck` call, which
+cannot fire while capsules only come from `certify` in-process (stated in
+`RECIPE_ADMISSION.md`). | `OPEN:` Stage B checks integer substitution only, so
+no Boolean-DR64 law has a checker; the recipe tests use E1's statement for the
+plumbing. X6, X7, X8, X16, X18 probes not run.
+
