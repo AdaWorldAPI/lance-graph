@@ -6,9 +6,16 @@ fn bipolar_dot(x: u64, y: u64, active: u64) -> i32 {
     2 * same - dims
 }
 fn scalar_oracle(x: u64, y: u64, active: u64) -> i32 {
-    (0..64).filter(|&bit| active & (1_u64 << bit) != 0).map(|bit| {
-        if (x & (1_u64 << bit) != 0) == (y & (1_u64 << bit) != 0) { 1 } else { -1 }
-    }).sum()
+    (0..64)
+        .filter(|&bit| active & (1_u64 << bit) != 0)
+        .map(|bit| {
+            if (x & (1_u64 << bit) != 0) == (y & (1_u64 << bit) != 0) {
+                1
+            } else {
+                -1
+            }
+        })
+        .sum()
 }
 fn jeffreys_beta_stats(positive: f64, negative: f64) -> (f64, f64) {
     let a = positive + 0.5;
