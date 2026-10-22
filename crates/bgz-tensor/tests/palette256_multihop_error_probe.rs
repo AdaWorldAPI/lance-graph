@@ -1,7 +1,9 @@
 //! Distinguish four claims: frozen lookup (no re-encode), quantized contraction,
 //! shared-source false precision, and semantic correctness. Only the first two
 //! have numerical properties; bounded outputs do not certify factual truth.
-fn q8(x: f64) -> f64 { (x.clamp(-1.0, 1.0) * 127.0).round() / 127.0 }
+fn q8(x: f64) -> f64 {
+    (x.clamp(-1.0, 1.0) * 127.0).round() / 127.0
+}
 #[test]
 fn stable_lookup_of_immutable_values_does_not_requantize_per_hop() {
     const PAIRS: [[i8; 3]; 3] = [[127, 64, -40], [33, 127, 10], [-55, 15, 127]];
@@ -30,10 +32,18 @@ fn contractive_quantized_recursion_has_a_measurable_64hop_bound() {
 #[test]
 fn saturation_and_duplicate_paths_can_preserve_an_unsupported_claim() {
     let mut spurious_score = 0.01_f64;
-    for _ in 0..16 { spurious_score = (1.5 * spurious_score).clamp(-1.0, 1.0); }
-    assert!(spurious_score > 0.5, "finite range alone does NOT prevent reinforcement");
+    for _ in 0..16 {
+        spurious_score = (1.5 * spurious_score).clamp(-1.0, 1.0);
+    }
+    assert!(
+        spurious_score > 0.5,
+        "finite range alone does NOT prevent reinforcement"
+    );
     let shared_root = 1_u64 << 7;
     let paths = [shared_root; 32];
     let distinct = paths.iter().copied().fold(0u64, |a, b| a | b).count_ones();
-    assert_eq!(distinct, 1, "32 derived paths are one independent observation");
+    assert_eq!(
+        distinct, 1,
+        "32 derived paths are one independent observation"
+    );
 }
