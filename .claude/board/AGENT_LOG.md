@@ -1,3 +1,8 @@
+## 2026-10-22 — Stage B E1 probe (Opus spec, Sonnet draft)
+
+- One Sonnet drafter from a written spec (no cargo). The main thread replaced its hand-written variable expansion (a second rewriter outside egglog) with an egglog constructor cost, fixed a test that pinned egglog's cost tie-break, withheld the out-of-fold egglog timing pending an operator ruling, compiled, and ran 6 disable runs (all red).
+- Result: `entries/2026-10-22-math-compiler-stage-b-e1.md`. Written by the orchestrating main thread only.
+
 ## 2026-10-22 — D-MPS-9 `query_multi` oracle (Haiku map, Opus spec, Sonnet draft)
 
 - Two Haiku `substrate-mapper` runs: MORK `space.rs`/`expr` (PARTIAL: the read stopped at line 1076/1094; `query_multi`, `Bindings`, `ExprEnv` read on the main thread) and the probe boundary plus fixtures (complete).
