@@ -271,3 +271,9 @@ pub fn bind_dr64<'a>(
         validity: operand.validity,
     })
 }
+
+/// Independent 64x64 finite-population reference audit; NEVER a production evaluator.
+pub mod population;
+
+/// Reusable mathematical law / proof / compiled artifact identity separation (lab only).
+pub mod recipe;
