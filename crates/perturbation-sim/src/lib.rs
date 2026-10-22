@@ -68,6 +68,7 @@ pub mod hhtl;
 pub mod inertia_data;
 pub mod ingest;
 pub mod model;
+pub mod outage_oracle;
 pub mod perturbation;
 pub mod place_buffer;
 pub mod resilience;
@@ -102,6 +103,10 @@ pub use ingest::{estimate_snom_mva, from_pypsa_csv, PypsaImport};
 pub use model::{
     apply_aging, assess_capability, edge_age_factors, scale_susceptance, with_uniform_derate,
     AgeModel, Capability, DataLevel,
+};
+pub use outage_oracle::{
+    assess_bound, assess_site, BoundObservation, BoundSiteFrame, Mechanism, Observed,
+    OracleCheck, Refusal, SiteAssessment, SiteFocus, SiteFrame, SourcePins,
 };
 pub use perturbation::{
     spectral_perturbation, SpectralPerturbation, FRAGMENTATION_SENTINEL, SPECTRAL_GAP_FLOOR,
