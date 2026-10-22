@@ -73,6 +73,21 @@ The equation by itself is **only a conjunction/existence mask**. If `Left(x,y)` 
 
 **Specific compiler hypothesis:** convert Ascent's logical tuple-at-a-time *rule IR* into a predicate/mask-template graph **before** its current iterator-and-head-emitter lowering. The present BYODS runtime remains ineligible, but it does not prove this compiler route impossible. Test a functionally unique `y` binding first, then non-functional and duplicate paths as mandatory counterexamples.
 
+### DR Inception is the preexisting virtual tuple carrier
+
+This is **not a proposal to introduce another tuple type**. Existing DR/Inception already expresses reusable nested perspectives over `WORLD × ANGLE × THOUGHT`: the *world* owns immutable source SoA lanes, the *angle* declares a witnessed global-to-local coordinate/address view, and the *thought* contributes focus-dependent masks and deltas. Descending into another perspective reuses the parent binding and extends the local mapping, without copying the underlying values.
+
+**At a bound coordinate `i`, the DR address frame is already a logical tuple/view**: it records which source-lane positions correspond, together with the coordinate/source-generation and mask/presence witnesses. The tuple's value is a *projection*, not a heap object. A DR/Inception node can also carry topology/frontier/provenance metadata and child perspectives; those are more expressive than a conventional pair tuple, not grounds for creating another record type.
+
+- **Already bound:** read the original `$hashA[$i].Value:$hashB[$i].Value` through DR/Inception's existing position map; no mask intersection or new join required.
+- **Search:** intersect witnessed selection/presence masks to find matching local positions, then borrow original lane values at each selected position.
+- **Join as index:** when a precomputed, independently verified relationship index binds A/B positions, that index **is** the compiled join, and later reads do not repeat it.
+- **Nested Inception:** a deeper angle can refine the mask/coordinate view using the parent mapping, carrying the frontier into the child and reducing a result upward. Do not flatten all levels into an owned tuple table.
+
+**Scope distinction:** representing a virtual tuple is not the same as proving arbitrary join semantics. Multiple candidates per coordinate still require retained offsets/witnesses and a factorized bag/count or dedup strategy. An existing prepared index is valid only under the recorded `ADMISSION=B` snapshot, completeness and authorization tests.
+
+**Action for Ascent:** compile its *logical tuple/binding* into an **existing DR/Inception perspective and mask operator**, not a new `Tuple` structure and not a merely pointer-backed Ascent tuple iterator. Reuse the DR rules before minting an additional abstraction.
+
 ## 3. Cold versus hot accounting: now recorded as scoped P0 exception
 
 **Operator observation, 2026-10-22:** an offline stage in the hundreds of thousands of microseconds is not comparable to a single nanosecond-scale fold; the MeTTa/MORK reference workloads can take many seconds. These are **not paired identical workloads**, so no acceleration is claimed. The same-day `CLAUDE.md` P0 amendment now explicitly permits reporting cold compiler/oracle costs in **µs, labelled 'reported, not gates'**.
