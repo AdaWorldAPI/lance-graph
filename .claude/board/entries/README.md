@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-429 entries, 2026-08-06 .. 2026-10-22.
+430 entries, 2026-08-06 .. 2026-10-22.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-22 | `math-compiler-stage-b-e1` |  | [2026-10-22-math-compiler-stage-b-e1.md](2026-10-22-math-compiler-stage-b-e1.md) |
 | 2026-10-22 | `math-compiler-gap-matrix` |  | [2026-10-22-math-compiler-gap-matrix.md](2026-10-22-math-compiler-gap-matrix.md) |
+| 2026-10-22 | `D-DRMC-5` |  | [2026-10-22-drmc-5-assoc-probe.md](2026-10-22-drmc-5-assoc-probe.md) |
 | 2026-10-22 | `D-MPS-9` |  | [2026-10-22-d-mps-9-mork-oracle.md](2026-10-22-d-mps-9-mork-oracle.md) |
 | 2026-10-22 | `D-DRMC` |  | [2026-10-22-coresearch-drmc-stack.md](2026-10-22-coresearch-drmc-stack.md) |
 | 2026-10-21 | `zero-copy-join-index-map` |  | [2026-10-21-zero-copy-join-index-map.md](2026-10-21-zero-copy-join-index-map.md) |

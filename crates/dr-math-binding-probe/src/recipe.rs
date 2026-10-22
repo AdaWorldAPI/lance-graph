@@ -78,15 +78,31 @@ pub struct CompiledReference {
 ///
 /// ```compile_fail
 /// use dr_math_binding_probe::recipe::RecipeCertificate;
-/// let forged = RecipeCertificate { law: todo!(), compiled: todo!() };
+/// let forged = RecipeCertificate { law: todo!(), compiled: todo!(), proof: todo!() };
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecipeCertificate {
     law: LawReference,
     compiled: CompiledReference,
+    proof: String,
 }
 
 impl RecipeCertificate {
+    /// Only the in-crate certifiers call this, after their own checks
+    /// (today: [`crate::relcomp::certify_reassociation`]).
+    pub(crate) fn issue(law: LawReference, compiled: CompiledReference, proof: String) -> Self {
+        Self {
+            law,
+            compiled,
+            proof,
+        }
+    }
+
+    /// The checked proof the certifier was given (egglog's rendering).
+    pub fn proof(&self) -> &str {
+        &self.proof
+    }
+
     pub fn law(&self) -> &LawReference {
         &self.law
     }
@@ -125,8 +141,10 @@ pub struct RecipeOffer<'a> {
 
 /// Cold-stage metadata admission for a mathematically typed, already-bound
 /// register: effect capability, law shape, law identity, code identity and
-/// target first, then certification. Certification refuses for every shape
-/// today; see the module docs.
+/// target first, then certification. This single-operand path has no
+/// certifier for any shape and refuses with `NoCertifiedCompiler`; the one
+/// certifier that exists, for reassociating a composition chain, is
+/// [`crate::relcomp::certify_reassociation`].
 pub fn admit_recipe<'a>(
     operand: BoundDr64<'a>,
     primitive: Primitive,
@@ -157,9 +175,7 @@ pub fn admit_recipe<'a>(
     })
 }
 
-/// The certified-compiler boundary. It has no implementation for any
-/// Boolean-DR64 law shape: that needs a typed relational statement language,
-/// egglog laws over it with checked proofs, and a lowering check.
+/// The single-operand certifier: none exists for any law shape.
 fn certify(
     _law: LawReference,
     _compiled: CompiledReference,

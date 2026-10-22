@@ -10,6 +10,11 @@ description = "Borrowed DR64 / ClassView-style typed structure and source witnes
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# The proof route for D-DRMC-5: public API only (EGraph::new_with_proofs,
+# parse_and_run_program, `prove`). egglog checks every proof it returns.
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
+# Compiled identity of a certified lowering (relcomp::lowering_digest).
+sha2 = "0.10"
 
 [dev-dependencies]
 lance-graph-act-r = { path = "../lance-graph-act-r" }
