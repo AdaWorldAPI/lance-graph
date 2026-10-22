@@ -1,0 +1,50 @@
+# Sahebolamri et al. (OOPSLA 2023): BYODS / Ascent custom relations vs DR-native folds
+
+**Type:** primary-paper excerpt and transfer audit, **not an arXiv preprint**. Filed under `.arxiv/` as the project's research shelf.
+**Paper:** Arash Sahebolamri, Langston Barrett, Scott Moore, Kristopher K. Micinski, *Bring Your Own Data Structures to Datalog*, PACMPL 7 (OOPSLA2), Article 264, October 2023, 26 pp. [DOI: 10.1145/3622840](https://doi.org/10.1145/3622840), [author-hosted paper](https://kmicinski.com/assets/byods.pdf), [SPLASH publication](https://2023.splashcon.org/details/splash-2023-oopsla/74/Bring-Your-Own-Data-Structures-to-Datalog).
+**Implementation:** [Ascent BYODS.md](https://github.com/s-arash/ascent/blob/master/BYODS.MD), [AdaWorldAPI/ascent fork](https://github.com/AdaWorldAPI/ascent), [RelIndexRead source](https://github.com/s-arash/ascent/blob/master/ascent/src/rel_index_read.rs).
+**Read:** 2026-10-22, paper pp. 1–7 and §§5.1–5.5 (primary source); provider trait/docs read. This **fills the OOPSLA paper-not-read gap** in [the existing evaluation](../.claude/board/entries/2026-10-21-eval-egglog-datafrog-ascent.md); it does not supersede that evaluation's operator decision.
+**Status:** RESEARCH / EXCERPT only. No code or admission.
+
+## Primary-source observations (paraphrased, not executable claims)
+
+1. **Problem: representation-imposed complexity** (paper §§1–2, pp. 2–4). Ordinary Datalog compilers generate tuple joins over generic maps/trees. Some logical relations have exponentially or quadratically larger explicit extensions than their specialized physical representations. A `K`-element equivalence class, for example, has `K²` ordered pairs, but union-find represents the classes compactly. BYODS does not say that tuples are always slow; it isolates *a mismatch between logical relation and physical representation*.
+
+2. **Formal custom-relation contract** (§3, pp. 5–7): a relation is associated with `(D, inj, γ)`, where `D` is a join-semilattice/domain, `inj: T → D` incorporates a tuple, and `γ: D → P(T)` defines which logical tuples the structure denotes. The ordinary powerset model is a special case. The immediate-consequence operator consults `γ` for rule bodies and `inj` for rule heads. Theorem 3.1 gives **monotone concretization** as a sufficient condition for a monotone immediate-consequence operator. This is a semantic condition, **not** a claim that `γ` itself should materialize its full powerset during execution.
+
+3. **Incremental semantics is a separate obligation** (§3–4). The paper develops semantics for semi-naive/delta evaluation over these abstract relations. A compact relation representation is useful only if deriving new facts, detecting changed closure and iterating to a fixed point preserve the appropriate semantics. Mere result parity in a one-shot scan does not prove correct delta maintenance.
+
+4. **Equivalence relations** (§5.1–5.2). Union-find-backed `eqrel` avoids constructing every equivalence pair, while explicit transitive/symmetric/reflexive Datalog rules can experience quadratic blow-up. The paper includes Steensgaard analysis. This supports a custom *equality-class carrier*, but **does not automatically provide e-node congruence rebuilding, proof objects, or e-graph extraction**.
+
+5. **Transitive relations and workload specificity** (§5.3–5.4). `trrel` improves the rule schedule for closure; `trrel_uf` additionally exploits strongly connected components. The latter excels on graphs with useful community/SCC structure, but the paper acknowledges cases with no asymptotic improvement and overhead. A fixed DR256 focus cannot represent arbitrary global closure without an explicit larger-domain strategy.
+
+6. **Index sharing** (§5.5). Multiple logical index orders need not imply independent physical copies. Index sharing is a relevant conceptual precedent for the project's *global-to-local ordinal mapping and borrowed projections*. That is a transfer hypothesis, not evidence that existing BYODS implements the specific DR pointer-table view.
+
+7. **Actual Ascent backend interface**, verified in `BYODS.MD` and `RelIndexRead`: `#[ds(provider)]` causes macro-generated code to use provider macros `rel_ind!`/`rel_ind_common!` and `ToRelIndex`, `RelIndexRead::index_get`, `RelIndexReadAll::iter_all`, `RelIndexWrite`, `RelIndexMerge`; concurrent variants exist. Both `index_get` and `iter_all` expose **iterators of values**. These traits replace storage/indexing, not necessarily Ascent's tuple-at-a-time rule-body loops or head emission. This is the limiting boundary for zero-copy native mask folding.
+
+8. **Ascent is not egglog.** `eqrel` is an optimized equivalence relation, not full e-graph congruence closure; `egglog` includes functional dependencies, union/congruence rebuilding, saturation and extraction. Both may model a logical relation, but only egglog already supplies the built-in equality-saturation machinery. See [egglog research excerpt](2304.04332_egglog_equality_saturation_datalog_excerpt.md) and [eggcc effect-safe extraction map](2026-10_eggcc_effect_safe_extraction_statewalk_r2il_map.md).
+
+## Why this does **not** overturn the project's 2026-10-21 decision
+
+Existing [evaluation map](../.claude/board/entries/2026-10-21-eval-egglog-datafrog-ascent.md) ruled **SKIP** for Ascent/Datafrog/egglog as hot runtime executors: tuple-oriented iteration, materialized heads, second evaluator, and P0 fold-only/no-owned-tuples doctrine. BYODS changes *relation backing*, but Ascent's current code-generation protocol still asks for value iterators. It cannot be credited with a vectorized DR-native `And`/`Or`/`PopCount` terminal without proof that the emitted loop has disappeared.
+
+**Better question:** can Ascent's *rule analysis, SCC/strata, indices, deltas and relation semantics* be harvested **offline**, then compiled into the already-owned `contract → relalg/Quack → R2IL/mask-risc` or direct bound DR SIMD execution? Alternatively, can a BYODS adapter expose a native mask terminal *without* any tuple-value iteration? Both are research questions; the latter may be impossible without changing Ascent's compiler contract.
+
+Do not import Ascent's evaluator, provide an upstream crate dependency to production, or relabel the tuple-valued iterator as a zero-copy fold.
+
+## Transfer hypotheses and must-fail tests
+
+| Question | Paper basis | Test / failure |
+| --- | --- | --- |
+| Can a DR plane be a well-behaved abstract relation? | `(D,inj,γ)`, Thm. 3.1 | Define finite-focus `γ` mathematically; monotonicity, same-coordinate identity, snapshot seal, and delta/cycle tests. If `γ` changes across a stale snapshot, refuse. |
+| Does BYODS allow **native** mask evaluation? | §4 + value-iterator protocol | Inspect expanded `ascent!` / `#[ds]` code; count per-result `next()`/head writes, owned values, index memory. If every match is enumerated, classify BYODS as *interface-only*, not executor. |
+| Can logical indexing be translated into borrowed positions? | §5.5 | Compare one sealed, independently attested global-to-local `$i` index with duplicate physical maps. No cross-table value-driven positional gather, including preparation. |
+| Can recursion use masks? | semi-naive + §5.3/5.4 | Verify frontier/total/new independently via direct bitset closure over ≤256 sealed coordinates; a 257th unseen index or cyclic/stale case refuses. No claim of EXO-73 production driver. |
+| Does `eqrel` replace egglog e-graphs? | §5.1 vs egglog | Union two term classes and require newly implied congruence between parent terms; without rebuilding and proof reconstruction, mark explicitly **NOT an e-graph**. |
+| Is reuse actually cheaper? | index-sharing | Measure compile/setup/attest/projection/read/fold/verification separately, plus 256 rules × 4096 reuses and a deliberately nonsharing suite. Never infer run-time win from reduced tuple counts. |
+
+**Constraints:** P0 fold-only, no tuple materialization even for test outputs; no millisecond result reported as a success; use AdaWorldAPI forks; exact Set versus Bag/Distinct and K3 validity; `ADMISSION=B` for counted same-table seeks only; no foreign-value-driven gathers; proofs, source witnesses and commit receipts remain separate.
+
+**Existing plans, not duplicated:** [D-MPS-9](../.claude/plans/mork-pathmap-schnellverschluss-v1.md), [D-MTP](../.claude/plans/metta-polyfill-v1.md), [D-RU](../.claude/plans/d-relalg-unified-v1.md), [Ascent/datafrog/egglog assessment](../.claude/board/entries/2026-10-21-eval-egglog-datafrog-ascent.md). Proposed stages live in [Ascent BYODS DR plan](../.claude/plans/ascent-byods-dr-fold-polyfill-v1.md).
+
+**Bottom line:** BYODS confirms the *formal possibility* of replacing relational storage without changing the logic. It does **not** yet solve DR-native rule execution. The immediate opportunity is to extract the compiler's rule schedule and relation abstraction, avoiding its tuple engine.
