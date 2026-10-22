@@ -1,21 +1,19 @@
-//! Proof and target identity come from Stage B. The statement used below is
-//! Stage B's E1 substitution problem: it is the only kind of statement a
-//! checker exists for. Pairing it with a Boolean-DR64 law shape exercises the
-//! admission plumbing; it does not claim that E1 proves anything about DR64.
+//! No certified-compiler boundary exists for a Boolean-DR64 law, so every
+//! admission that passes the metadata checks ends in `NoCertifiedCompiler`.
+//! The tests pin that each earlier check refuses on its own, and that nothing
+//! (no flag, no digest, no finite-population report) produces a certificate.
 use dr_math_binding_probe::{
     Axis, AxisKind, BoundDr64, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Operand,
     Scope, bind_dr64,
     recipe::{
-        Backend, Capability, CompiledReference, LawReference, LawShape, Primitive, ProofReference,
-        RecipeRefusal, offer_recipe,
+        Backend, Capability, CompiledReference, LawReference, LawShape, Primitive, RecipeRefusal,
+        admit_recipe,
     },
 };
-use egglog_r2il_probe::artifact::ReplayCapsule;
-use egglog_r2il_probe::catalogue::{SemanticKey, TargetAbi};
-use egglog_r2il_probe::{chain_problem, e1_problem};
 
 const FOCUS: Focus = Focus { revision: 4 };
 const SCOPE: Scope = Scope { id: 5 };
+const ABI: u32 = 3;
 
 fn store() -> FrameStore {
     FrameStore::new(FrameRevisions {
@@ -71,167 +69,116 @@ fn law(m: MethodSignature) -> LawReference {
         id: 41,
         revision: 7,
         shape: LawShape::for_method(m, Primitive::CountViolations),
-        statement: SemanticKey::from(&e1_problem()),
     }
 }
-fn capsule() -> ReplayCapsule {
-    ReplayCapsule::certify(&e1_problem(), 8).expect("cold E1 certificate")
-}
-fn proof(m: MethodSignature) -> ProofReference {
-    ProofReference::rechecked(law(m), capsule()).expect("E1 re-checks")
-}
-fn abi() -> TargetAbi {
-    TargetAbi {
-        revision: 3,
-        target: "r2il-scalar".to_owned(),
-    }
-}
-fn compiled(p: &ProofReference) -> CompiledReference {
+fn compiled(l: LawReference) -> CompiledReference {
     CompiledReference {
-        law: p.law().clone(),
+        law: l,
         compiled_digest: [18; 32],
         compiler_revision: 2,
-        target: abi(),
+        target_abi: ABI,
         backend: Backend::R2ilMaskRisc,
     }
 }
-
-#[test]
-fn one_law_shape_reuses_two_classes_without_reusing_their_source_binding() {
-    let st = store();
+fn admit(
+    st: &FrameStore,
+    m: MethodSignature,
+    l: LawReference,
+    c: CompiledReference,
+    runtime_abi: u32,
+    capability: Capability,
+) -> RecipeRefusal {
     let r = rows();
-    let (m1, m2) = (method(1, 2, true), method(22, 8, true));
-    let p = proof(m1);
-    let c = compiled(&p);
-    let a = offer_recipe(
-        bind(&st, m1, &r),
+    admit_recipe(
+        bind(st, m, &r),
         Primitive::CountViolations,
-        p.clone(),
-        c.clone(),
-        &abi(),
-        Capability::PureMathematics,
-    )
-    .unwrap();
-    let b = offer_recipe(
-        bind(&st, m2, &r),
-        Primitive::CountViolations,
-        p,
+        l,
         c,
-        &abi(),
-        Capability::PureMathematics,
+        runtime_abi,
+        capability,
     )
-    .unwrap();
-    assert_eq!(a.proof.law(), b.proof.law());
-    assert_ne!(a.operand.method.owner_class, b.operand.method.owner_class);
-    assert!(!a.proof.proof().is_empty());
+    .unwrap_err()
 }
 
+/// One law key serves two classes (the key holds no ClassId); both pass every
+/// metadata check and stop at certification, which does not exist for DR64.
 #[test]
-fn same_bytes_but_different_axes_cannot_reuse_law() {
+fn one_law_key_spans_two_classes_and_neither_is_certified() {
     let st = store();
-    let r = rows();
-    let p = proof(method(1, 2, true));
-    let c = compiled(&p);
-    assert_eq!(
-        offer_recipe(
-            bind(&st, method(1, 2, false), &r),
-            Primitive::CountViolations,
-            p,
-            c,
-            &abi(),
-            Capability::PureMathematics
-        )
-        .unwrap_err(),
-        RecipeRefusal::UnsupportedMathematicalShape
-    );
-}
-
-/// The forged-digest hole is closed: there is no status flag and no digest
-/// field to set, and a real, re-checking proof of a DIFFERENT statement is
-/// refused. (Building a `ProofReference` by struct literal does not compile;
-/// see the `compile_fail` doctest on the type.)
-#[test]
-fn a_proof_of_another_statement_is_refused() {
-    let mut l = law(method(1, 2, true));
-    l.statement = SemanticKey::from(&chain_problem());
-    assert_ne!(l.statement, SemanticKey::from(&e1_problem()));
-    assert_eq!(
-        ProofReference::rechecked(l, capsule()).unwrap_err(),
-        RecipeRefusal::ProofOfOtherStatement
-    );
-}
-
-#[test]
-fn changed_law_revision_or_target_refuses_cached_recipe() {
-    let st = store();
-    let r = rows();
-    let m = method(1, 2, true);
-    let p = proof(m);
-    let mut c = compiled(&p);
-    c.law.revision += 1;
-    assert_eq!(
-        offer_recipe(
-            bind(&st, m, &r),
-            Primitive::CountViolations,
-            p.clone(),
-            c,
-            &abi(),
-            Capability::PureMathematics
-        )
-        .unwrap_err(),
-        RecipeRefusal::LawChanged
-    );
-    for runtime in [
-        TargetAbi {
-            revision: 4,
-            ..abi()
-        },
-        TargetAbi {
-            target: "resident-dr64-simd".to_owned(),
-            ..abi()
-        },
-    ] {
+    let (m1, m2) = (method(1, 2, true), method(22, 8, true));
+    assert_eq!(law(m1), law(m2));
+    assert_ne!(m1.owner_class, m2.owner_class);
+    for m in [m1, m2] {
         assert_eq!(
-            offer_recipe(
-                bind(&st, m, &r),
-                Primitive::CountViolations,
-                p.clone(),
-                compiled(&p),
-                &runtime,
+            admit(
+                &st,
+                m,
+                law(m1),
+                compiled(law(m1)),
+                ABI,
                 Capability::PureMathematics
-            )
-            .unwrap_err(),
-            RecipeRefusal::WrongTarget
+            ),
+            RecipeRefusal::NoCertifiedCompiler
         );
     }
 }
 
 #[test]
+fn same_bytes_but_different_axes_cannot_reuse_law() {
+    let st = store();
+    let l = law(method(1, 2, true));
+    assert_eq!(
+        admit(
+            &st,
+            method(1, 2, false),
+            l,
+            compiled(l),
+            ABI,
+            Capability::PureMathematics
+        ),
+        RecipeRefusal::UnsupportedMathematicalShape
+    );
+}
+
+#[test]
+fn changed_law_revision_or_target_refuses_before_certification() {
+    let st = store();
+    let m = method(1, 2, true);
+    let mut c = compiled(law(m));
+    c.law.revision += 1;
+    assert_eq!(
+        admit(&st, m, law(m), c, ABI, Capability::PureMathematics),
+        RecipeRefusal::LawChanged
+    );
+    assert_eq!(
+        admit(
+            &st,
+            m,
+            law(m),
+            compiled(law(m)),
+            ABI + 1,
+            Capability::PureMathematics
+        ),
+        RecipeRefusal::WrongTarget
+    );
+}
+
+#[test]
 fn missing_code_identity_refuses() {
     let st = store();
-    let r = rows();
     let m = method(1, 2, true);
-    let p = proof(m);
     for broken in [
         CompiledReference {
             compiled_digest: [0; 32],
-            ..compiled(&p)
+            ..compiled(law(m))
         },
         CompiledReference {
             compiler_revision: 0,
-            ..compiled(&p)
+            ..compiled(law(m))
         },
     ] {
         assert_eq!(
-            offer_recipe(
-                bind(&st, m, &r),
-                Primitive::CountViolations,
-                p.clone(),
-                broken,
-                &abi(),
-                Capability::PureMathematics
-            )
-            .unwrap_err(),
+            admit(&st, m, law(m), broken, ABI, Capability::PureMathematics),
             RecipeRefusal::MissingCodeIdentity
         );
     }
@@ -240,20 +187,10 @@ fn missing_code_identity_refuses() {
 #[test]
 fn proof_of_math_never_authorizes_a_cognitive_commit() {
     let st = store();
-    let r = rows();
     let m = method(1, 2, true);
-    let p = proof(m);
     for kind in [Capability::Proposal, Capability::EffectfulAction] {
         assert_eq!(
-            offer_recipe(
-                bind(&st, m, &r),
-                Primitive::CountViolations,
-                p.clone(),
-                compiled(&p),
-                &abi(),
-                kind
-            )
-            .unwrap_err(),
+            admit(&st, m, law(m), compiled(law(m)), ABI, kind),
             RecipeRefusal::EffectRequiresSeparateAuthorization
         );
     }
