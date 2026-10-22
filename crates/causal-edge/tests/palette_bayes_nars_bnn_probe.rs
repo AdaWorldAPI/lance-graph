@@ -20,16 +20,25 @@ impl Posterior {
 
 #[test]
 fn same_frequency_does_not_imply_same_uncertainty() {
-    let few = Posterior { successes: 7, trials: 10 };
-    let many = Posterior { successes: 700, trials: 1000 };
-    assert!((7.0 / 10.0 - 700.0 / 1000.0).abs() < f64::EPSILON);
+    let few = Posterior {
+        successes: 7,
+        trials: 10,
+    };
+    let many = Posterior {
+        successes: 700,
+        trials: 1000,
+    };
+    assert!((7.0_f64 / 10.0 - 700.0 / 1000.0).abs() < f64::EPSILON);
     assert!(many.variance() < few.variance() / 50.0);
     assert!((few.mean() - many.mean()).abs() < 0.02);
 }
 
 #[test]
 fn ce64_expectation_is_a_quantized_projection_not_the_count_carrier() {
-    let sample = Posterior { successes: 7, trials: 10 };
+    let sample = Posterior {
+        successes: 7,
+        trials: 10,
+    };
     let mut edge = CausalEdge64(0);
     edge.set_frequency_u8((255.0_f64 * 7.0 / 10.0).round() as u8);
     edge.set_confidence_u8((255.0_f64 * 10.0 / 11.0).round() as u8);
@@ -41,8 +50,14 @@ fn ce64_expectation_is_a_quantized_projection_not_the_count_carrier() {
 
 #[test]
 fn polarity_and_evidence_mass_are_independent_axes() {
-    let a = Posterior { successes: 1, trials: 2 };
-    let b = Posterior { successes: 500, trials: 1000 };
+    let a = Posterior {
+        successes: 1,
+        trials: 2,
+    };
+    let b = Posterior {
+        successes: 500,
+        trials: 1000,
+    };
     assert!((a.mean() - b.mean()).abs() < 1e-12);
     assert!(a.variance() > b.variance() * 100.0);
 }
