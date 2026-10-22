@@ -32,6 +32,7 @@ exactly one of them, never both.
 | 2026-10-22 | `pal256-salience-mp3-probe` |  | [2026-10-22-pal256-salience-mp3-probe.md](2026-10-22-pal256-salience-mp3-probe.md) |
 | 2026-10-22 | `pal256-nars-bayes-evidence-contract` |  | [2026-10-22-pal256-nars-bayes-evidence-contract.md](2026-10-22-pal256-nars-bayes-evidence-contract.md) |
 | 2026-10-22 | `pal256-immutable-needle-distribution-probe` |  | [2026-10-22-pal256-immutable-needle-distribution-probe.md](2026-10-22-pal256-immutable-needle-distribution-probe.md) |
+| 2026-10-22 | `pal256-hebbian-overlay-plasticity` |  | [2026-10-22-pal256-hebbian-overlay-plasticity.md](2026-10-22-pal256-hebbian-overlay-plasticity.md) |
 | 2026-10-22 | `pal256-argextrema-margins` |  | [2026-10-22-pal256-argextrema-margins.md](2026-10-22-pal256-argextrema-margins.md) |
 | 2026-10-22 | `pal256-3sigma-statistical-gate` |  | [2026-10-22-pal256-3sigma-statistical-gate.md](2026-10-22-pal256-3sigma-statistical-gate.md) |
 | 2026-10-22 | `math-compiler-stage-b-e1` |  | [2026-10-22-math-compiler-stage-b-e1.md](2026-10-22-math-compiler-stage-b-e1.md) |
