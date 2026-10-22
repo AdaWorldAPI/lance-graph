@@ -1,11 +1,10 @@
-//! In-fold cost of E1 (encode, and lowering + execution on R2IL), release
-//! build, median of 5.
+//! Cost of E1, release build, median of 5, in microseconds: encode, the egglog
+//! phase (setup, saturation, `prove-variants`) and lowering + execution on
+//! R2IL.
 //!
-//! The egglog phase is timed in `Compiled::timings.egglog` but NOT printed:
-//! it is a cold, out-of-fold compile whose cost is above the workspace's
-//! microsecond budget, and whether cold-compile costs may be reported at all
-//! is an open operator decision (lance-graph `CLAUDE.md`, "no millisecond
-//! results"). Until it is ruled, this example does not publish that number.
+//! The egglog phase is a cold, out-of-fold compile. Per the operator decision
+//! of 2026-10-22 it is reported in microseconds and is not a gate; the
+//! in-fold rows (encode, lower + execute) stay under the workspace budget.
 //!
 //!   cargo run --release --example e1_cold_cost
 //!
@@ -43,22 +42,28 @@ fn main() {
     );
 
     let mut encode = Vec::with_capacity(RUNS);
+    let mut egglog = Vec::with_capacity(RUNS);
     let mut lower = Vec::with_capacity(RUNS);
     for _ in 0..RUNS {
         let c = compile(&p, Arith::Exact, 8);
         assert!(c.error.is_none(), "egglog error: {:?}", c.error);
         encode.push(c.timings.encode);
+        egglog.push(c.timings.egglog);
         let t = Instant::now();
         let v = lower_and_run(&c, &[("c", C)]).expect("lowers and runs");
         lower.push(t.elapsed());
         assert_eq!(i128::from(v), want);
     }
 
-    println!("in-fold costs; reported, not gates (egglog phase withheld, see module doc)");
+    println!("cold compile costs; reported, not gates");
     println!("E1 under Exact, fuel 8, c = {C}, median of {RUNS}, microseconds:");
     println!(
         "  encode                              {:>10}",
         micros(median(encode))
+    );
+    println!(
+        "  egglog (setup + saturate + prove)   {:>10}",
+        micros(median(egglog))
     );
     println!(
         "  lower + execute                     {:>10}",
