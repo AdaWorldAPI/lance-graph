@@ -4,18 +4,18 @@
 
 ## Thesis
 
-> DR is the structural ABI between ClassView-declared capabilities and mathematical compilation. The compiler discovers candidates from witnessed observed populations, checks explicit assumptions and counterexamples, normalizes eligible mathematics, proves *transformations* where possible, and retains compiled recipes that may be rebound to later populations.
+> DR is the structural ABI between ClassView-declared capabilities and mathematical compilation. The compiler discovers candidates from witnessed observed populations, checks explicit assumptions and counterexamples, normalizes eligible mathematics, proves *transformations* where possible, and retains certified compiled recipes that may be rebound to later populations (certification and rebinding are open acceptance targets, see below).
 
 Names, CUI/TUI labels, tokens and embedding similarity are not proof of mathematical structure. An observational statement about a finite population, an algebraic theorem conditional on axioms, and an empirical/causal generalization are **three different outputs**. None licenses the next without its own evidence.
 
-The same logical DR contract can bind `Identity × Identity`, `Identity × Property`, `Community × Community` or `Class × Capability`. DR64 is one physical shape (64 × 64 Boolean bits = 512 B); a 256 × 256 presence bitmap is 8 KiB. A physical bit encodes participation, **not** a 16-bit foreign ID, rank, evidence, bag multiplicity, SQL NULL, or a proof. These remain separately bound, witnessed carriers.
+The same logical DR contract can bind `Identity × Identity`, `Identity × Property`, `Community × Community` or `Class × Capability`. DR64 is one physical shape (64 × 64 Boolean bits = 512 B); a 256 × 256 presence bitmap is 8 KiB. A physical bit encodes participation, **not** a 16-bit foreign ID, rank, evidence, bag multiplicity, SQL NULL, or a proof. These remain separately bound carriers, except validity: one validity bit per relation bit travels **with** the relation operand, never as a separately typed plane.
 
 HHTL cascade `(part_of:is_a)` coordinate reading and `hhtl::NiblePath` taxonomy routing are *different* objects. Morton8x8's u16 maps 256 × 256 exact Cartesian positions; HHTL masks refine admissible address ranges. HHTL prefix containment does **not** establish arbitrary ontology membership or causality.
 
 ## Three contracts, independent owners
 
 1. **Semantic/structural (zero-dep contract):** ClassView declares per-method identity, typed operand domains, arity, type/semiring, applicable law, effects, and result demand. `compute_dag` declares dependency order but does not itself implement a method; the ClassView method registry cannot mint facts or authorize writes.
-2. **Binding (Quack-adjacent adapter):** resolve class/method and relation-map identities once, then bind borrowed canonical SoA/ordered relation/DR operands with exact row/column coordinates, source+map+palette/index seals, focus, snapshot, validity, authorization scope and method capability. No hot labels, DTO hydration, implicit global→local gather, or storage ownership. A bound 64×64 register may be consumed directly by existing SIMD kernels; R2IL is the general SIMD polyfill, **not** mandatory re-dispatch over prepared bits.
+2. **Binding (Quack-adjacent adapter):** resolve class/method and relation-map identities once, then bind borrowed canonical SoA/ordered relation/DR operands with exact row/column coordinates and method capability, under **three independent guards**: the **frame** (identity: source, relation map, coordinates and index seals; issued by the store that owns them and compared by issue identity, so equal revision numbers from two stores do not alias), the **focus** (motion: which window of the frame is read; moving it does not change the frame) and the **scope** (policy: what the reader may see, checked as its own guard at borrow time, never part of frame identity). Validity accompanies the relation data. The three guards are never collapsed into one generic witness. No hot labels, DTO hydration, implicit global→local gather, or storage ownership. A bound 64×64 register may be consumed directly by existing SIMD kernels; R2IL is the general SIMD polyfill, **not** mandatory re-dispatch over prepared bits.
 3. **Mathematical compilation (cold and replayable):** RelAlg/typed AST expresses admissible mathematics; source-independent oracles (scalar, MORK, datafrog, PostgreSQL as appropriate) test hypotheses; Ruler/Enumo-style guarded law candidates enter egglog; eggcc-inspired extraction respects effects/order; independently checkable proof artifacts and cost model select existing R2IL/Quack/mask-risc procedures. No egglog/MORK interpreter in the runtime hot fold, no new opcodes by default.
 
 `MeTTa` is a declaration frontend, not the numeric executor. `MORK` / `PathMap` are independent differential/reverse-engineering arms, not a canonical relation store. `datafrog` checks fixed-point recursion, not unearned production support. `Thought-Git` may record immutable law/proof/recipe/binding/replay/commit references, but retains its independent write/version authority. ACT-R / Rubicon / Kanban / cognitive-shader-driver consume results and create *proposals*, never become mathematical-ISA owners.
@@ -39,9 +39,9 @@ typed DR/SoA relation + scope, versions, capability, admissible carriers
           ↓ normalized RelAlg / algebraic AST (no row execution)
 candidate rules + independent differential oracles
           ↓ cold Ruler/Enumo → egglog → effect-aware extraction
-proof-checked law + compiled R2IL/Quack recipe + target/ABI identity
+certificate from the certified-compiler boundary (proof verified, law admitted, lowering validated) + compiled recipe + target/ABI identity
           ↓ cache of mathematical recipe (not source-specific fact)
-runtime: re-BIND current witnesses → choose admitted carrier
+runtime: check frame, focus, scope (each on its own) → choose admitted carrier
           ↓ direct resident SIMD OR R2IL/Quack → mask-risc → ndarray::simd
 result + read receipt  ──────→ consumer ACT-R/Rubicon/MedCare/IAM/etc.
                                   effect proposal → independent commit gate
@@ -71,8 +71,24 @@ No new evaluator: physical-specialized folds may consume already-bound DR regist
 
 Each stage is independently reviewable and STACKED upon the prior draft branch. Only after source attestation, oracle checks, independent proof checker and full cost tests may a specific pattern become a production capability. Each must refuse unsupported shapes, not silently degrade semantics.
 
+## Three boundaries
+
+The charter keeps three questions apart:
+
+1. **What mathematics permits.** An algebraic identity holds under stated axioms over a stated domain, independently of this codebase.
+2. **What the compiler has certified.** A `RecipeCertificate` is issued only by a certified-compiler boundary, after independent proof verification (egglog checks its own derivations), typed law admission (the assumptions the law holds under) and target-lowering validation. A caller-asserted proof status or digest is never sufficient. Until that boundary exists for a law shape, admission refuses (`NoCertifiedCompiler`). Stage B's `ReplayCapsule` is replay and audit evidence for its own E1 language, not a proof authority.
+3. **What one execution may bind.** Every execution checks frame identity, focus, scope authorization and relation validity on its own.
+
+Proving that a derivation follows from admitted laws does not show those laws hold for a newly observed population; that remains the finite-population / empirical question of Stage 2.
+
 ## Experimental success criterion
 
-One ClassView-declared method over a witnessed `Identity×Property` DR64, and one `Identity²` relation, normalize to the same **correctly typed** mathematical primitive *only when warranted by guards*; a independently evaluated finite population falsifies wrong assumptions; a checked law allows compiling a reusable target recipe; the same recipe binds to two fresh, different snapshots without sharing their source data. Report bind, indexing, prefetch, execution, extraction, storage, proof-check, cold/warm amortization and negative controls. No performance claim in this document.
+One ClassView-declared method over a guarded `Identity×Property` DR64, and one `Identity²` relation, normalize to the same **correctly typed** mathematical primitive *only when warranted by guards*; an independently evaluated finite population falsifies wrong assumptions.
+
+A checked mathematical law may become an executable recipe only after independent proof verification, typed law admission, and target-lowering validation by a certified-compiler boundary. The first candidate is **associativity of Boolean relation composition** across compatible ClassView domains, `(R ∘ S) ∘ T = R ∘ (S ∘ T)` over OR/AND. The identity itself is established algebra; what is open is whether the typed RelAlg representation, the egglog proof/checking route, the lowering, the certificate and runtime selection preserve it. Its integration, certification and specialization-selection gates remain open hypotheses. The first selection gate compares verified implementations or association orders **of the same typed operation**, with correctness established before cost decides. GF(2) elimination or M4RI-style methods compute over XOR/AND, not OR/AND, and may be considered only through an explicit semantics-preserving reduction, never as interchangeable kernels.
+
+Recipe reuse across two distinct store-issued snapshot frames is a separate probe (coresearch X8). Each execution must independently validate frame identity, focus motion, scope authorization and relation validity. A changed binding must neither silently reuse stale operands nor be counted as successful recipe rebinding when execution falls back to baseline (Stage B's catalogue falls back on any binding change today, `catalogue.rs` `BindingChanged`).
+
+Until certification and rebinding are demonstrated, these remain acceptance targets, not shipped capabilities. Report bind, indexing, prefetch, execution, extraction, storage, proof-check, cold/warm amortization and negative controls. No performance claim in this document.
 
 **This is an architecture and experiment charter, not implementation, permission to merge or an achieved scientific discovery.**
