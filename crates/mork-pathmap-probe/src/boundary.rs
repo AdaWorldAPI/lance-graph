@@ -518,7 +518,25 @@ fn parse_tuple(rest: &[u8]) -> Option<Vec<u32>> {
 }
 
 /// Checks one rule before anything is built.
+/// The most children one MORK expression can have: its arity tag is six bits
+/// (`mork_expr::item_byte`, `Tag::Arity(a)` asserts `a < 64`).
+pub const MORK_MAX_CHILDREN: usize = 63;
+
 fn check_rule(rule: &OracleRule) -> Result<(), Refusal> {
+    // Every expression the oracle writes, counted with its head symbol: the
+    // conjunction `(, atoms…)`, the head `(Q terms…)` and each atom
+    // `(r<id> terms…)`. Past the limit MORK's encoder would panic (debug) or
+    // write a reserved tag (release), so the rule is refused before parsing.
+    let widest = std::iter::once(rule.body.len() + 1)
+        .chain(std::iter::once(rule.head.len() + 1))
+        .chain(rule.body.iter().map(|a| a.terms.len() + 1))
+        .max()
+        .unwrap_or(0);
+    if widest > MORK_MAX_CHILDREN {
+        return Err(Refusal::Upstream(format!(
+            "expression with {widest} children; MORK encodes at most {MORK_MAX_CHILDREN}"
+        )));
+    }
     if rule.body.is_empty() {
         return Err(Refusal::Upstream("empty body".into()));
     }

@@ -264,3 +264,49 @@ fn general_rules_agree_with_the_fixed_query() {
     // (1,10,100) (1,10,102) (1,11,101) (2,10,100) (2,10,102).
     assert_eq!(cost.matches, 5);
 }
+
+/// FAILS IF: a rule wider than MORK's six-bit arity reaches MORK's parser. A
+/// conjunction of 62 atoms (63 children with `,`) is answered; 63 atoms, a
+/// 63-term head and a 63-term atom are refused by name, never parsed.
+#[test]
+fn rules_past_morks_arity_limit_are_refused_before_parsing() {
+    use mork_pathmap_probe::boundary::{
+        MORK_MAX_CHILDREN, OracleAtom, OracleFacts, OracleRule, OracleTerm, mork_rules,
+    };
+    let r = RelationView::from_rows(&[[1, 2]], 1);
+    let facts = [OracleFacts {
+        rel: 0,
+        arity: 2,
+        view: &r,
+    }];
+    let atom = || OracleAtom {
+        rel: 0,
+        terms: vec![OracleTerm::Var(0), OracleTerm::Var(1)],
+    };
+    let rule = |atoms: usize, head: usize| OracleRule {
+        head: (0..head).map(|_| OracleTerm::Var(0)).collect(),
+        body: (0..atoms).map(|_| atom()).collect(),
+    };
+    let at_limit = rule(MORK_MAX_CHILDREN - 1, 1);
+    let (set, _) = mork_rules(&facts, &[at_limit]).expect("62 atoms fit");
+    assert_eq!(set.rows.len(), 1);
+    for (name, wide) in [
+        ("63 atoms", rule(MORK_MAX_CHILDREN, 1)),
+        ("63-term head", rule(1, MORK_MAX_CHILDREN)),
+        (
+            "63-term atom",
+            OracleRule {
+                head: vec![OracleTerm::Var(0)],
+                body: vec![OracleAtom {
+                    rel: 0,
+                    terms: (0..MORK_MAX_CHILDREN as u16).map(OracleTerm::Var).collect(),
+                }],
+            },
+        ),
+    ] {
+        assert!(
+            matches!(mork_rules(&facts, &[wide]), Err(Refusal::Upstream(_))),
+            "{name}"
+        );
+    }
+}
