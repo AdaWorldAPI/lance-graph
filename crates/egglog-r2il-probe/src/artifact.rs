@@ -60,14 +60,17 @@ fn check_compilation(c: &Compiled) -> Result<(), ReplayRefusal> {
 impl ReplayCapsule {
     /// Run the cold compiler and require a checked, closed exact result.
     pub fn certify(problem: &Problem, fuel: usize) -> Result<Self, ReplayRefusal> {
+        // The premises must define the goal as ONE function of the target.
+        // egglog unions contradictory premises without complaint, and its
+        // extraction then picks a definition by cost or order.
+        oracle::coefficients(problem).map_err(|_| ReplayRefusal::InvalidPremises)?;
         let c = compile(problem, Arith::Exact, fuel);
         check_compilation(&c)?;
         let program = lower_steps(&c).map_err(ReplayRefusal::Execution)?;
         let proof = c.proof.ok_or(ReplayRefusal::NoProof)?;
         // This asks egglog to prove the specific selected equality again,
         // rather than treating nonempty rendered proof text as certification.
-        try_prove(problem, Arith::Exact, fuel, &c.extracted)
-            .map_err(ReplayRefusal::Compiler)?;
+        try_prove(problem, Arith::Exact, fuel, &c.extracted).map_err(ReplayRefusal::Compiler)?;
         Ok(Self {
             problem: problem.clone(),
             arith: Arith::Exact,
@@ -139,8 +142,8 @@ impl ReplayCapsule {
     pub fn replay(&self, target_value: i64) -> Result<i64, ReplayRefusal> {
         self.recheck()?;
         let v = self.execute(target_value)?;
-        let expected = oracle::solve(&self.problem, target_value)
-            .ok_or(ReplayRefusal::InvalidPremises)?;
+        let expected =
+            oracle::solve(&self.problem, target_value).ok_or(ReplayRefusal::InvalidPremises)?;
         if i128::from(v) != expected {
             return Err(ReplayRefusal::ResultMismatch {
                 compiled: v,
@@ -155,6 +158,48 @@ impl ReplayCapsule {
 mod tests {
     use super::*;
     use crate::e1_problem;
+
+    /// FAILS IF: contradictory premises are certified (in either order).
+    #[test]
+    fn contradictory_premises_are_not_certified() {
+        use crate::Eq;
+        for premises in [
+            vec![
+                Eq {
+                    lhs: "z",
+                    coeff: 2,
+                    rhs: "c",
+                },
+                Eq {
+                    lhs: "z",
+                    coeff: 3,
+                    rhs: "c",
+                },
+            ],
+            vec![
+                Eq {
+                    lhs: "z",
+                    coeff: 3,
+                    rhs: "c",
+                },
+                Eq {
+                    lhs: "z",
+                    coeff: 2,
+                    rhs: "c",
+                },
+            ],
+        ] {
+            let p = Problem {
+                premises,
+                goal: "z",
+                target_var: "c",
+            };
+            assert_eq!(
+                ReplayCapsule::certify(&p, 8).map(|_| ()),
+                Err(ReplayRefusal::InvalidPremises)
+            );
+        }
+    }
 
     #[test]
     fn corrupt_proof_and_program_refuse_on_replay() {
