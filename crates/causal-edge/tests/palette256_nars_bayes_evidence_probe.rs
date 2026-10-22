@@ -22,7 +22,7 @@ impl Evidence {
         n as f64 / (n as f64 + 1.0)
     }
     fn jeffreys_posterior_mean(self) -> f64 {
-        (self.positive as f64 + 0.5) / (self.positive + self.negative) as f64 .mul_add(1.0, 1.0)
+        (self.positive as f64 + 0.5) / ((self.positive + self.negative) as f64 + 1.0)
     }
 }
 #[test]
