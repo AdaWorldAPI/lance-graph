@@ -1,28 +1,21 @@
 name: DR Mathematical Binding Probe
 # Own [workspace] excluded from root tests; a lab gate, not production
-# admission. Mirrors egglog-r2il-probe.yml: the pinned toolchain from
-# rust-toolchain.toml and the ndarray sibling checkout the egglog-r2il-probe
-# dependency needs.
+# admission. Mirrors egglog-r2il-probe.yml's toolchain setup: the pinned
+# toolchain from rust-toolchain.toml, never `stable`.
 on:
   pull_request:
     paths:
       - "crates/dr-math-binding-probe/**"
-      - "crates/egglog-r2il-probe/**"
       - "crates/lance-graph-contract/**"
       - "crates/lance-graph-act-r/**"
-      - "crates/lance-graph-r2il/**"
-      - "crates/lance-graph-mask-risc/**"
       - ".github/workflows/dr-math-binding-probe.yml"
       - "rust-toolchain.toml"
   push:
     branches: [main]
     paths:
       - "crates/dr-math-binding-probe/**"
-      - "crates/egglog-r2il-probe/**"
       - "crates/lance-graph-contract/**"
       - "crates/lance-graph-act-r/**"
-      - "crates/lance-graph-r2il/**"
-      - "crates/lance-graph-mask-risc/**"
       - ".github/workflows/dr-math-binding-probe.yml"
       - "rust-toolchain.toml"
   workflow_dispatch:
@@ -49,12 +42,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: lance-graph
-          persist-credentials: false
-      - name: Checkout AdaWorldAPI/ndarray (sibling path patch)
-        uses: actions/checkout@v4
-        with:
-          repository: AdaWorldAPI/ndarray
-          path: ndarray
           persist-credentials: false
       - name: Rust toolchain
         run: rustup show

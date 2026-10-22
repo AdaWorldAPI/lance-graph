@@ -1,18 +1,16 @@
-//! D-DRMC-4: cross-layer *contract* fixture, no write path.
-//! The proof is Stage B's re-checked E1 capsule; its statement is an integer
-//! substitution, so pairing it with this DR64 law exercises the plumbing only.
+//! D-DRMC-4: cross-layer *contract* fixture, no proof engine or write path.
+//! No certified-compiler boundary exists for DR64 laws, so the recipe offer
+//! refuses with `NoCertifiedCompiler`; ACT-R arbitration runs on the census
+//! eligibility alone and never on a proof.
 use dr_math_binding_probe::{
     Axis, AxisKind, BoundDr64, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Operand,
     Scope, bind_dr64,
     population::observe_focus,
     recipe::{
-        Backend, Capability, CompiledReference, LawReference, LawShape, Primitive, ProofReference,
-        RecipeRefusal, offer_recipe,
+        Backend, Capability, CompiledReference, LawReference, LawShape, Primitive, RecipeRefusal,
+        admit_recipe,
     },
 };
-use egglog_r2il_probe::artifact::ReplayCapsule;
-use egglog_r2il_probe::catalogue::{SemanticKey, TargetAbi};
-use egglog_r2il_probe::e1_problem;
 use lance_graph_act_r::{
     Candidate, Refusal as ArbitrationRefusal, Snapshot, arbitrate, witness_matches,
 };
@@ -93,28 +91,20 @@ fn bind<'a>(st: &FrameStore, m: MethodSignature, rows: &'a [u64; 64]) -> BoundDr
     )
     .unwrap()
 }
-fn abi() -> TargetAbi {
-    TargetAbi {
-        revision: 3,
-        target: "r2il-scalar".to_owned(),
-    }
-}
-fn checked_law() -> ProofReference {
-    let law = LawReference {
+const ABI: u32 = 3;
+fn law() -> LawReference {
+    LawReference {
         id: 42,
         revision: 1,
         shape: LawShape::for_method(signature(1), Primitive::CountViolations),
-        statement: SemanticKey::from(&e1_problem()),
-    };
-    let capsule = ReplayCapsule::certify(&e1_problem(), 8).expect("cold E1 certificate");
-    ProofReference::rechecked(law, capsule).expect("E1 re-checks")
+    }
 }
-fn compiled(p: &ProofReference, backend: Backend) -> CompiledReference {
+fn compiled(backend: Backend) -> CompiledReference {
     CompiledReference {
-        law: p.law().clone(),
+        law: law(),
         compiled_digest: [2; 32],
         compiler_revision: 1,
-        target: abi(),
+        target_abi: ABI,
         backend,
     }
 }
@@ -144,18 +134,19 @@ fn class_dependency_to_mathematical_offer_to_act_r_proposal_has_no_effect_path()
         (1, 1, 0, 0)
     );
 
-    let proof = checked_law();
-    let c = compiled(&proof, Backend::R2ilMaskRisc);
-    let offer = offer_recipe(
-        r.clone(),
-        Primitive::CountViolations,
-        proof,
-        c,
-        &abi(),
-        Capability::PureMathematics,
-    )
-    .unwrap();
-    assert_eq!(offer.operand.method, signature(1));
+    // Every metadata check passes; no DR64 certificate can be issued.
+    assert_eq!(
+        admit_recipe(
+            r.clone(),
+            Primitive::CountViolations,
+            law(),
+            compiled(Backend::R2ilMaskRisc),
+            ABI,
+            Capability::PureMathematics,
+        )
+        .unwrap_err(),
+        RecipeRefusal::NoCertifiedCompiler
+    );
 
     // ACT-R consumes external eligibility only. No action executor or write.
     // The snapshot version comes from the bound frame, not a second literal.
@@ -192,15 +183,13 @@ fn class_declares_a_dependency_not_permission_to_write() {
     let mut selected = [0u64; 64];
     selected[2] = 1u64 << 17;
     let b = bind(&st, signature(1), &selected);
-    let p = checked_law();
-    let c = compiled(&p, Backend::ResidentDr64Simd);
     assert_eq!(
-        offer_recipe(
+        admit_recipe(
             b,
             Primitive::CountViolations,
-            p,
-            c,
-            &abi(),
+            law(),
+            compiled(Backend::ResidentDr64Simd),
+            ABI,
             Capability::EffectfulAction
         )
         .unwrap_err(),
