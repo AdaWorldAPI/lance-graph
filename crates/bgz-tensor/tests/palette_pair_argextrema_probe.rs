@@ -10,7 +10,10 @@ fn fixture() -> FisherZTable {
     FisherZTable {
         entries,
         k: 4,
-        gamma: FamilyGamma { z_min: -2.0, z_range: 4.0 },
+        gamma: FamilyGamma {
+            z_min: -2.0,
+            z_range: 4.0,
+        },
     }
 }
 
