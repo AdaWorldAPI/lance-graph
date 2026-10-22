@@ -1,8 +1,8 @@
 //! Heritage study cannot confuse attribution with a checked proof.
-use std::collections::BTreeSet;
 use egglog_r2il_probe::heritage::{
     Atom27, HeritageEntry, HeritageRefusal, PROPOSED_ATOMS, analyse, sample_corpus,
 };
+use std::collections::BTreeSet;
 
 #[test]
 fn exactly_27_candidate_atoms_without_a_universality_claim() {

@@ -6,11 +6,18 @@ use egglog_r2il_probe::catalogue::{
 use egglog_r2il_probe::{LowerRefusal, e1_problem};
 
 fn bind() -> BindingWitness {
-    BindingWitness { source_generation: 1, scope: 42, coordinate_generation: 9 }
+    BindingWitness {
+        source_generation: 1,
+        scope: 42,
+        coordinate_generation: 9,
+    }
 }
 
 fn abi() -> TargetAbi {
-    TargetAbi { revision: 1, target: "r2il-checked-i64".into() }
+    TargetAbi {
+        revision: 1,
+        target: "r2il-checked-i64".into(),
+    }
 }
 
 fn measured() -> CostEvidence {
@@ -59,9 +66,14 @@ fn no_certificate_is_installed_without_economic_gate() {
 fn changed_coordinates_target_and_semantics_call_baseline() {
     let mut cache = Catalogue::new();
     let p = e1_problem();
-    cache.promote(
-        ReplayCapsule::certify(&p, 8).unwrap(), bind(), abi(), measured()
-    ).unwrap();
+    cache
+        .promote(
+            ReplayCapsule::certify(&p, 8).unwrap(),
+            bind(),
+            abi(),
+            measured(),
+        )
+        .unwrap();
 
     let mut stale = bind();
     stale.source_generation += 1;
@@ -69,7 +81,10 @@ fn changed_coordinates_target_and_semantics_call_baseline() {
     assert_eq!(out.route, Route::Baseline(FallbackReason::BindingChanged));
     assert_eq!(out.result, Ok(56));
 
-    let other = TargetAbi { revision: 2, target: "r2il-checked-i64".into() };
+    let other = TargetAbi {
+        revision: 2,
+        target: "r2il-checked-i64".into(),
+    };
     let out = cache.execute_or(&p, bind(), &other, 7, trusted);
     assert_eq!(out.route, Route::Baseline(FallbackReason::TargetChanged));
 
@@ -84,9 +99,14 @@ fn changed_coordinates_target_and_semantics_call_baseline() {
 fn overflow_must_fallback_without_manufacturing_an_answer() {
     let mut cache = Catalogue::new();
     let p = e1_problem();
-    cache.promote(
-        ReplayCapsule::certify(&p, 8).unwrap(), bind(), abi(), measured()
-    ).unwrap();
+    cache
+        .promote(
+            ReplayCapsule::certify(&p, 8).unwrap(),
+            bind(),
+            abi(),
+            measured(),
+        )
+        .unwrap();
     let out = cache.execute_or(&p, bind(), &abi(), i64::MAX, trusted);
     assert_eq!(out.route, Route::Baseline(FallbackReason::CompiledRefused));
     assert_eq!(out.result, Err(LowerRefusal::Overflow));

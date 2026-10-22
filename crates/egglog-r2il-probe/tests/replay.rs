@@ -21,7 +21,11 @@ fn missing_premise_and_incomplete_fuel_never_certify() {
         ReplayRefusal::OpenTerm
     );
     let p = Problem {
-        premises: vec![Eq { lhs: "z", coeff: 2, rhs: "c" }],
+        premises: vec![Eq {
+            lhs: "z",
+            coeff: 2,
+            rhs: "c",
+        }],
         goal: "z",
         target_var: "c",
     };
@@ -35,6 +39,8 @@ fn prior_certification_does_not_make_overflow_a_valid_result() {
     let capsule = ReplayCapsule::certify(&e1_problem(), 8).expect("E1");
     assert_eq!(
         capsule.replay(i64::MAX),
-        Err(ReplayRefusal::Execution(egglog_r2il_probe::LowerRefusal::Overflow))
+        Err(ReplayRefusal::Execution(
+            egglog_r2il_probe::LowerRefusal::Overflow
+        ))
     );
 }

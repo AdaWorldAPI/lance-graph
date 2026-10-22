@@ -25,7 +25,9 @@ impl From<&Problem> for SemanticKey {
         Self {
             goal: p.goal.to_owned(),
             target: p.target_var.to_owned(),
-            premises: p.premises.iter()
+            premises: p
+                .premises
+                .iter()
                 .map(|e| (e.lhs.to_owned(), e.coeff, e.rhs.to_owned()))
                 .collect(),
         }
@@ -62,8 +64,7 @@ impl CostEvidence {
     pub fn pays_for_itself(&self) -> bool {
         self.candidate_ns < self.baseline_ns
             && self.expected_reuse > 0
-            && u128::from(self.baseline_ns - self.candidate_ns)
-                * u128::from(self.expected_reuse)
+            && u128::from(self.baseline_ns - self.candidate_ns) * u128::from(self.expected_reuse)
                 > u128::from(self.compile_and_certify_ns)
     }
 }

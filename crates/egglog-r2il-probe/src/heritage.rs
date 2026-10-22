@@ -196,9 +196,15 @@ pub fn analyse(corpus: &[HeritageEntry]) -> MetaStudy {
             programs.insert(steps.iter().map(Step::mnemonic).collect::<Vec<_>>());
             for step in steps {
                 match step {
-                    Step::PushConst(_) => { atoms.insert(Atom27::Const); }
-                    Step::PushVar(_) => { atoms.insert(Atom27::Var); }
-                    Step::IntMult => { atoms.insert(Atom27::Multiply); }
+                    Step::PushConst(_) => {
+                        atoms.insert(Atom27::Const);
+                    }
+                    Step::PushVar(_) => {
+                        atoms.insert(Atom27::Var);
+                    }
+                    Step::IntMult => {
+                        atoms.insert(Atom27::Multiply);
+                    }
                 }
             }
         }
@@ -206,8 +212,10 @@ pub fn analyse(corpus: &[HeritageEntry]) -> MetaStudy {
     MetaStudy {
         total_entries: corpus.len(),
         historical_leads: corpus.iter().filter(|x| x.source.is_some()).count(),
-        mathematically_certified: corpus.iter()
-            .filter(|x| x.is_mathematically_certified()).count(),
+        mathematically_certified: corpus
+            .iter()
+            .filter(|x| x.is_mathematically_certified())
+            .count(),
         distinct_compiled_programs: programs.len(),
         observed_atoms: atoms.into_iter().collect(),
     }

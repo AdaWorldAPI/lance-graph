@@ -66,8 +66,7 @@ impl ReplayCapsule {
         let proof = c.proof.ok_or(ReplayRefusal::NoProof)?;
         // This asks egglog to prove the specific selected equality again,
         // rather than treating nonempty rendered proof text as certification.
-        try_prove(problem, Arith::Exact, fuel, &c.extracted)
-            .map_err(ReplayRefusal::Compiler)?;
+        try_prove(problem, Arith::Exact, fuel, &c.extracted).map_err(ReplayRefusal::Compiler)?;
         Ok(Self {
             problem: problem.clone(),
             arith: Arith::Exact,
@@ -139,8 +138,8 @@ impl ReplayCapsule {
     pub fn replay(&self, target_value: i64) -> Result<i64, ReplayRefusal> {
         self.recheck()?;
         let v = self.execute(target_value)?;
-        let expected = oracle::solve(&self.problem, target_value)
-            .ok_or(ReplayRefusal::InvalidPremises)?;
+        let expected =
+            oracle::solve(&self.problem, target_value).ok_or(ReplayRefusal::InvalidPremises)?;
         if i128::from(v) != expected {
             return Err(ReplayRefusal::ResultMismatch {
                 compiled: v,
