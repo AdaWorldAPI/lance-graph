@@ -66,7 +66,7 @@ struct World {
 }
 
 fn world() -> World {
-    let mut rng = Lcg(0x5EED_D3);
+    let mut rng = Lcg(0x005E_EDD3);
     let centers: Vec<Base17> = (0..16)
         .map(|_| {
             let mut dims = [0i16; BASE_DIM];
