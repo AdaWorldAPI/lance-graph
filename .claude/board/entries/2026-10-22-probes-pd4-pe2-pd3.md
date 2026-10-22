@@ -1,6 +1,8 @@
 # 2026-10-22: probes P-D4, P-E2, P-D3 — measured
 
-**Status:** MEASURED (lab probes; no production code changed). These are the
+**Status:** MEASURED (lab probes; no production code changed). **Corrected
+the same day** (codex review of #1724): P-D4's post-hoc pass does not hold, so
+P-D4 fails as well (see point 2 below). These are the
 top three probes pre-registered in `2026-10-22-coresearch-pal256-evidence-probes.md`.
 
 ## P-E2: count each source once (`crates/causal-edge/tests/p_e2_stamp_gate_probe.rs`)
@@ -57,7 +59,7 @@ Results:
    - the top candidate has ≥ 2 sources;
    - the support flag is clear.
 
-   Brier(always-answer) − Brier(gate) = **0.0242 [0.0079, 0.0409]** at 44% coverage. This clears the 0.02 bar, but it is post-hoc, so it is weaker evidence than a pre-registered pass.
+   Brier(always-answer) − Brier(gate) = 0.0242 at 44% coverage. ~~[0.0079, 0.0409]~~: that interval held the base rate π fixed, even though π is estimated from the same blocks being resampled. **With π refitted in every draw, the interval is [−0.0062, 0.0552]. It includes 0, so the kill fires.** `post_hoc_gate_gain_is_not_established` pins this. Fixing π on a separate calibration set would be the alternative.
 3. **Label-blind control.** The pre-registered shuffled-label Brier control cannot stay silent: replacing p ≠ π with π lowers the Brier score on any labels. It is replaced by within-block selective accuracy:
 
    | labels | answered − abstained accuracy |
@@ -83,4 +85,6 @@ Results:
 - The calibration claim needs real held-out labelled outcomes, not a synthetic world.
 - CI runs `bgz-tensor` with `--lib` only, so P-D3 runs locally, not in CI.
 
-Closeout: `STATUS: measured | OUTCOME: P-E2 and P-D3 pass as registered; P-D4's registered margin is vacuous and its post-hoc gate passes on the margin alone | OPEN: separating world for P-D4, G5, real labels`
+The ablation gains in point 4 used the same fixed-π interval, so they also overstate certainty.
+
+Closeout: `STATUS: measured | OUTCOME: P-E2 and P-D3 pass as registered; P-D4 fails: the registered margin is vacuous, and the post-hoc gate's gain is not established once π's error is included | OPEN: a separating world with a separate calibration set for π, G5, real labels`
