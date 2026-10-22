@@ -277,3 +277,7 @@ pub mod population;
 
 /// Reusable mathematical law / proof / compiled artifact identity separation (lab only).
 pub mod recipe;
+
+/// Associativity of Boolean relation composition: typing, law admission,
+/// egglog proof, lowering check and the first certificate.
+pub mod relcomp;
