@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-22 | `probes-pd4-pe2-pd3` |  | [2026-10-22-probes-pd4-pe2-pd3.md](2026-10-22-probes-pd4-pe2-pd3.md) |
 | 2026-10-22 | `pal256-salience-mp3-probe` |  | [2026-10-22-pal256-salience-mp3-probe.md](2026-10-22-pal256-salience-mp3-probe.md) |
 | 2026-10-22 | `pal256-nars-bayes-evidence-contract` |  | [2026-10-22-pal256-nars-bayes-evidence-contract.md](2026-10-22-pal256-nars-bayes-evidence-contract.md) |
 | 2026-10-22 | `pal256-immutable-needle-distribution-probe` |  | [2026-10-22-pal256-immutable-needle-distribution-probe.md](2026-10-22-pal256-immutable-needle-distribution-probe.md) |
