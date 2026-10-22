@@ -73,20 +73,21 @@ The equation by itself is **only a conjunction/existence mask**. If `Left(x,y)` 
 
 **Specific compiler hypothesis:** convert Ascent's logical tuple-at-a-time *rule IR* into a predicate/mask-template graph **before** its current iterator-and-head-emitter lowering. The present BYODS runtime remains ineligible, but it does not prove this compiler route impossible. Test a functionally unique `y` binding first, then non-functional and duplicate paths as mandatory counterexamples.
 
-### DR Inception is the preexisting virtual tuple carrier
+### DR/Inception is a logical perspective, not a new tuple type
 
-This is **not a proposal to introduce another tuple type**. Existing DR/Inception already expresses reusable nested perspectives over `WORLD × ANGLE × THOUGHT`: the *world* owns immutable source SoA lanes, the *angle* declares a witnessed global-to-local coordinate/address view, and the *thought* contributes focus-dependent masks and deltas. Descending into another perspective reuses the parent binding and extends the local mapping, without copying the underlying values.
+The repository already has the required **conceptual separation**: canonical SoA values, an independently witnessed RelationshipMap / focus-index binding, and a thought-specific mask or delta. The expression `Thought(t)[T_a[i] : T_b[i]]` is the existing zero-copy logical-tuple idiom, not a request to allocate a tuple object. `WORLD × ANGLE × THOUGHT` is **navigation terminology**, not a concrete runtime `Inception` struct, tensor or new register (D-RPR §11.1 explicitly warns against that reading).
 
-**At a bound coordinate `i`, the DR address frame is already a logical tuple/view**: it records which source-lane positions correspond, together with the coordinate/source-generation and mask/presence witnesses. The tuple's value is a *projection*, not a heap object. A DR/Inception node can also carry topology/frontier/provenance metadata and child perspectives; those are more expressive than a conventional pair tuple, not grounds for creating another record type.
+**Implementation grade matters:** `Focus`, `CsrPred`, DR tiles and `ThoughtDelta` exist as measured/probe shapes in `mork-pathmap-probe`. The canonical RelationshipMap/MapPalette/ThoughtMapPaletteBinding store, lawful production global→local binding, and recursive child-angle driver remain proposed/gated. Do not cite a general nested Inception mechanism as already shipped.
 
-- **Already bound:** read the original `$hashA[$i].Value:$hashB[$i].Value` through DR/Inception's existing position map; no mask intersection or new join required.
-- **Search:** intersect witnessed selection/presence masks to find matching local positions, then borrow original lane values at each selected position.
-- **Join as index:** when a precomputed, independently verified relationship index binds A/B positions, that index **is** the compiled join, and later reads do not repeat it.
-- **Nested Inception:** a deeper angle can refine the mask/coordinate view using the parent mapping, carrying the frontier into the child and reducing a result upward. Do not flatten all levels into an owned tuple table.
+The prospective **superpower** is the ability to encode *reasoning behavior* as a reusable, typed program over those already-owned carriers, with separate semantic proof, source witness and commit authority:
+- **KNOWN i:** `A[i]:B[i]` is a virtual tuple/address projection; no search or mask intersection.
+- **SEARCH:** intersect predicate/presence masks over a single attested domain to select qualifying `i`; the result remains a mask.
+- **INDEX-AS-JOIN:** a legally prepared relationship map is itself the factored join mapping. Read the underlying lanes through that map; do not repeat an equijoin or add redundant intersections.
+- **INFERENCE TRANSITION:** a rule-licensed, typed fold maps bound input masks to derived masks/frontiers; a thought delta records hypotheses while a proof/receipt records *why* the transformation is justified. For recursion, iterate the frontier only under a lawful driver and explicit convergence/complete-scope contract.
 
-**Scope distinction:** representing a virtual tuple is not the same as proving arbitrary join semantics. Multiple candidates per coordinate still require retained offsets/witnesses and a factorized bag/count or dedup strategy. An existing prepared index is valid only under the recorded `ADMISSION=B` snapshot, completeness and authorization tests.
+This is **not** an automatic theorem or proof: a mask encodes selected coordinates, and a register encodes a bounded relation, but a semantic inference needs its original premises, law/plan identity, snapshot scope, truth algebra and independent proof. Repeated proofs do not create independent CE64 evidence. A one-to-many relationship still needs factorized bag semantics or an explicit refusal.
 
-**Action for Ascent:** compile its *logical tuple/binding* into an **existing DR/Inception perspective and mask operator**, not a new `Tuple` structure and not a merely pointer-backed Ascent tuple iterator. Reuse the DR rules before minting an additional abstraction.
+**Ascent integration test:** preserve the Ascent rule's logic while replacing its physical tuple enumeration with one of the already permitted `KNOWN i`, `SEARCH` or `INDEX-AS-JOIN` shapes, plus an external/frontier schedule where needed. Do not build a separate Ascent tuple type, pretend BYODS auto-vectorizes, or use a precomputed pointer map to bypass `ADMISSION=B`.
 
 ## 3. Cold versus hot accounting: now recorded as scoped P0 exception
 
