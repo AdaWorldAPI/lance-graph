@@ -89,7 +89,7 @@ identity, separate `Focus` and `Scope` guards, validity carried by R),
 a certified-compiler boundary can issue; none exists for DR64, so admission ends
 in `NoCertifiedCompiler`. The first attempt, `55f88ef4`, made `ReplayCapsule`
 the proof authority; it is replay evidence for E1 only), #1704 `1f63a5b1` + the merge after `ca88feaf` (X17 handoff fixture, snapshot from the frame, X19
-tightening, X20 workflow on the pinned toolchain with the ndarray sibling).
+tightening, X20 workflow on the pinned toolchain).
 Every new guard was disable-verified red. | `OPEN:` a certified-compiler
 boundary for DR64 needs a typed relational statement language, egglog laws
 over it with checked proofs, and a lowering check. Candidate first law:
