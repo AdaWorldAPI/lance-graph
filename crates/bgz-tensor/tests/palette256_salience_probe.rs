@@ -19,7 +19,10 @@ fn dominant_signal_energy_is_retained_without_retraining_the_reference() {
     assert_eq!(selected, vec![0, 1]);
     let (saved, total) = energy(&features, &selected);
     assert!(saved / total > 0.999);
-    assert_eq!(features, before, "salience is a selection, not codebook motion");
+    assert_eq!(
+        features, before,
+        "salience is a selection, not codebook motion"
+    );
 }
 #[test]
 fn rare_low_amplitude_causal_feature_is_a_counterexample_to_energy_only() {
