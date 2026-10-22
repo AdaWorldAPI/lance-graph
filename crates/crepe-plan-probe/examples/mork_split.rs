@@ -60,16 +60,12 @@ struct Native {
     execute: Duration,
 }
 
-fn run_native(
-    rules: &[Rule],
-    demand: &Demand,
-    kind: ResultKind,
-    store: &Store,
-) -> Native {
+fn run_native(rules: &[Rule], demand: &Demand, kind: ResultKind, store: &Store) -> Native {
     let mut runs = Vec::with_capacity(RUNS);
     for _ in 0..RUNS {
         let t = Instant::now();
-        let (out, rep) = evaluate(rules, demand, kind, Options::ALL, store).expect("native answers");
+        let (out, rep) =
+            evaluate(rules, demand, kind, Options::ALL, store).expect("native answers");
         let wall = t.elapsed();
         black_box((&out, &rep.costs));
         runs.push((wall, rep.costs));
@@ -184,14 +180,53 @@ fn main() {
     let count = run_native(&rules, &demand, ResultKind::Count(BAG), &store);
     print_native("native, Count(BAG) (terminal)", &count, input_rows);
     let bindings = run_native(&rules, &demand, ResultKind::Bindings(BAG), &store);
-    print_native("native, Bindings(BAG) (answer production)", &bindings, input_rows);
+    print_native(
+        "native, Bindings(BAG) (deferred handle; enumeration below)",
+        &bindings,
+        input_rows,
+    );
+    // The bindings outcome is a deferred handle over the prepared tables; its
+    // `execute` cost does not include reading the answers. This times one
+    // full enumeration: every answer's three columns and weight are read and
+    // folded into a checksum, nothing is allocated per answer.
+    let mut enum_runs = Vec::with_capacity(RUNS);
+    let mut visited = 0u64;
+    for _ in 0..RUNS {
+        let t = Instant::now();
+        let mut sum = 0u64;
+        let mut seen = 0u64;
+        answers.for_each(&rep.tables, |get, weight| {
+            sum = sum.wrapping_add(get(0) ^ get(1).rotate_left(21) ^ get(2).rotate_left(42));
+            sum = sum.wrapping_add(weight);
+            seen += 1;
+        });
+        enum_runs.push(t.elapsed());
+        black_box(sum);
+        visited = seen;
+    }
+    assert_eq!(
+        visited as usize,
+        native_set.len(),
+        "one visit per answer under this fixture"
+    );
+    println!(
+        "{}",
+        show("  enumerate all answers", median(enum_runs), input_rows)
+    );
 
     let med = |f: &dyn Fn(&OracleCost) -> Duration| median(costs.iter().map(f).collect());
     println!("MORK oracle (set semantics, matches = {matches})");
-    println!("{}", show("encode + build", med(&|c| c.encode_build), input_rows));
     println!(
         "{}",
-        show("match only (query_multi)", med(&|c| c.match_only), input_rows)
+        show("encode + build", med(&|c| c.encode_build), input_rows)
+    );
+    println!(
+        "{}",
+        show(
+            "match only (query_multi)",
+            med(&|c| c.match_only),
+            input_rows
+        )
     );
     println!(
         "{}",

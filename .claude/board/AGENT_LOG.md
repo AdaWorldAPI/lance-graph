@@ -1,3 +1,9 @@
+## 2026-10-22 — D-MPS-9 `query_multi` oracle (Haiku map, Opus spec, Sonnet draft)
+
+- Two Haiku `substrate-mapper` runs: MORK `space.rs`/`expr` (PARTIAL: the read stopped at line 1076/1094; `query_multi`, `Bindings`, `ExprEnv` read on the main thread) and the probe boundary plus fixtures (complete).
+- One Sonnet drafter from a written spec (no cargo). The main thread compiled, ran the disable runs (3, all red), fixed one clippy lint and one measurement gap (the deferred `Bindings` handle had no timed enumeration).
+- Result: `entries/2026-10-22-d-mps-9-mork-oracle.md`. Written by the orchestrating main thread only.
+
 ## 2026-10-21 — 5+3 council: the tuple is a zero-copy violation (blast radius)
 
 - Five savants: prior-art-savant, iron-rule-savant, runtime-archaeologist (code truth), cascade-impact-savant (blast radius, Opus), creative-explorer-savant. Three reviewers on draft v2 only: overclaim-auditor (2 BLOCK, wording/grading, fixed), dilution-collapse-sentinel (0 BLOCK, 2 collapses restored), firewall-warden (0 BLOCK).

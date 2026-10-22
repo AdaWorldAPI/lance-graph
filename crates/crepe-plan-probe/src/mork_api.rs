@@ -117,7 +117,8 @@ pub fn to_oracle(rule: &Rule) -> Result<OracleRule, MorkRefusal> {
             ),
         })
     };
-    let terms = |ts: &[Term]| -> Result<Vec<OracleTerm>, MorkRefusal> { ts.iter().map(term).collect() };
+    let terms =
+        |ts: &[Term]| -> Result<Vec<OracleTerm>, MorkRefusal> { ts.iter().map(term).collect() };
     let body = rule
         .body
         .iter()

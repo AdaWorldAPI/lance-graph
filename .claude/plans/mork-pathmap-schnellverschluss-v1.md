@@ -192,6 +192,10 @@ Neo4j loaders, symbol and tree backup/restore and the parsers are out of scope.
 
 **Falsifier:** for every verb and fixture, the façade's answer equals MORK's through `boundary.rs` (as sets, since MORK stores sets) and datafrog's (as bags where multiplicity matters); a refused shape is refused by name on both arms. Disable: let the façade answer a nested pattern by flattening it silently; the oracle must then disagree.
 
+## 7d. D-MPS-9 `query_multi`: measured (2026-10-22)
+
+`boundary::mork_rules` runs any admitted rule set through MORK (set answers, plus `Space::query_multi` unification timed alone); `crepe-plan-probe/tests/mork_differential.rs` compares six fixtures with the reference. Results, costs and the open verbs: `entries/2026-10-22-d-mps-9-mork-oracle.md`. The other §7c verbs stay Queued.
+
 ## 8. Deliverables
 
 | D-id | Item | Status | Gate / evidence |

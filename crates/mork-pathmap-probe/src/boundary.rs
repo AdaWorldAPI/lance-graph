@@ -530,7 +530,7 @@ fn check_rule(rule: &OracleRule) -> Result<(), Refusal> {
             let bound = rule
                 .body
                 .iter()
-                .any(|a| a.terms.iter().any(|b| *b == OracleTerm::Var(*v)));
+                .any(|a| a.terms.contains(&OracleTerm::Var(*v)));
             if !bound {
                 return Err(Refusal::Upstream("unbound head var".into()));
             }
@@ -591,7 +591,11 @@ pub fn mork_rules(
 
     // One caller-owned expression buffer for every pattern parse, alive across
     // the whole function so no `Expr` outlives its bytes.
-    let longest = rules.iter().map(|r| pattern_text(r).len()).max().unwrap_or(0);
+    let longest = rules
+        .iter()
+        .map(|r| pattern_text(r).len())
+        .max()
+        .unwrap_or(0);
     let mut buf: Vec<u8> = vec![0; 64 * longest + 4096];
 
     let mut out = TupleSet::default();

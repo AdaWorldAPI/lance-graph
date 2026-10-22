@@ -252,14 +252,19 @@ fn oracle_facts(fx: &Fixture) -> Vec<OracleFacts<'_>> {
 
 /// The reference's distinct head tuples, narrowed to `u32` (MORK's symbols).
 fn reference_set(fx: &Fixture) -> BTreeSet<Vec<u32>> {
-    reference::eval(&fx.rules, fx.goal, &fx.demand(), &raw(&fx.labels, &fx.store))
-        .keys()
-        .map(|row| {
-            row.iter()
-                .map(|&v| u32::try_from(v).expect("fixture values fit u32"))
-                .collect()
-        })
-        .collect()
+    reference::eval(
+        &fx.rules,
+        fx.goal,
+        &fx.demand(),
+        &raw(&fx.labels, &fx.store),
+    )
+    .keys()
+    .map(|row| {
+        row.iter()
+            .map(|&v| u32::try_from(v).expect("fixture values fit u32"))
+            .collect()
+    })
+    .collect()
 }
 
 fn mork_set(fx: &Fixture) -> (BTreeSet<Vec<u32>>, OracleCost) {
@@ -346,10 +351,19 @@ fn the_duplicate_allowed_row_is_what_separates_bag_from_set_matches() {
     let all = fixtures();
     let fx = all.iter().find(|f| f.name == "family").unwrap();
     let (_, cost) = mork_set(fx);
-    let bag: u64 = reference::eval(&fx.rules, fx.goal, &fx.demand(), &raw(&fx.labels, &fx.store))
-        .values()
-        .sum();
-    assert!(bag > cost.matches, "bag {bag} must exceed set {}", cost.matches);
+    let bag: u64 = reference::eval(
+        &fx.rules,
+        fx.goal,
+        &fx.demand(),
+        &raw(&fx.labels, &fx.store),
+    )
+    .values()
+    .sum();
+    assert!(
+        bag > cost.matches,
+        "bag {bag} must exceed set {}",
+        cost.matches
+    );
 }
 
 /// `to_oracle` refuses exactly what `admit` refuses, and returns that refusal
