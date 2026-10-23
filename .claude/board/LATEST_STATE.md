@@ -1,3 +1,8 @@
+## 2026-10-23 — main after #1725 (merged `b342d47c`)
+
+- **On main since #1682:** the D-QR plan family (#1660–#1663), D-QSP/D-RFT/D-LFA plans and probes (#1667–#1688), the math-foundry / egglog-r2il arc (#1690–#1699, #1705, #1717), the D-DRMC charter and probes (#1700, #1707, #1708), the Ascent BYODS plan (#1706), the Palette256 evidence and plasticity probes (#1709–#1722), and the decision-side probes P-D4, P-E2, P-D3 with the P-D4 correction (#1723–#1725). Per-PR records: `PR_ARC_INVENTORY.md` catch-up entries.
+- **Contract inventory delta:** `set_algebra::normalize_kleene` returns `WhereSet` (WHERE-terminal only) (#1687). #1722 adds a test only. Everything else in this range is lab crates, probes, plans and board.
+
 ## 2026-10-21 — main after #1674 (merged `414377f3`)
 
 - **On main:** #1674 (D-TGB-4 thought-git receipt and deterministic replay, lab, `thought-git-probe`). Contract inventory: unchanged (lab crate, CI workflow and board only).
