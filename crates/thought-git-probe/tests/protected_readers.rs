@@ -1,7 +1,7 @@
-//! D-TGA-6 / Probe D: protected readers of a squash.
+//! D-TGA-5D / Probe D: protected readers of a squash.
 //!
 //! Pre-registered in
-//! `.claude/board/entries/2026-10-23-d-tga-6-protected-readers-preregistration.md`
+//! `.claude/board/entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`
 //! before this file was written. Predictions D1..D5 are the tests below; each
 //! disable is named on the test it must turn red.
 

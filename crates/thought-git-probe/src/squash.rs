@@ -1,5 +1,5 @@
 //! D-TGA-5: the squash gate, moved here from `tests/squash_gate.rs` so that
-//! D-TGA-6 (`tests/protected_readers.rs`) can use it. The semantics are those
+//! D-TGA-5D (`tests/protected_readers.rs`) can use it. The semantics are those
 //! pre-registered in
 //! `.claude/board/entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`:
 //! strict R1/R2 over landed final states, Commit-only (P8), blame as a lane
@@ -165,10 +165,10 @@ pub fn squash_gate(g: &Givens, lanes: &[Lane]) -> Result<Squashed, Refusal> {
     })
 }
 
-// ── D-TGA-6: protected readers ─────────────────────────────────────────────
+// ── D-TGA-5D: protected readers ─────────────────────────────────────────────
 //
 // Pre-registered in
-// `.claude/board/entries/2026-10-23-d-tga-6-protected-readers-preregistration.md`.
+// `.claude/board/entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`.
 // A squash replaces a history with one delta. A reader is anything that may
 // later ask what happened. The gate below answers every protected reader from
 // the RETAINED data only (the squash, its witness, the prior version and the

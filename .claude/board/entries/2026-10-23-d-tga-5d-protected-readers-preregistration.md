@@ -1,4 +1,6 @@
-# D-TGA-6 / Probe D — protected readers of a squash (pre-registration)
+# D-TGA-5D / Probe D — protected readers of a squash (pre-registration)
+
+> Renamed 2026-10-23 from "D-TGA-6", which is MergeQueue on the STATUS_BOARD. The pre-registration commit 8aedc267 carries the old name; the content is unchanged.
 
 **Status:** PRE-REGISTERED 2026-10-23, before any code. Owner: CC1
 (session_01VncKoyG6JkpsoqhqTGTv3f), claimed on EXO-50 `/036`; ownership sync
@@ -83,3 +85,55 @@ coresearch.
 - F5 (a synthesized head).
 - F6 (correlated derivations).
 - Any change to `oracle.rs`.
+
+## Results (2026-10-23, measured)
+
+`crates/thought-git-probe/tests/protected_readers.rs`: 7/7 pass. The rest of
+the crate is unchanged and green, `squash_gate` 10/10 included. fmt and
+`clippy -D warnings` are clean. The gate moved to `src/squash.rs` with no
+semantic change (commit a6c96473); the probe is commit 666081d5.
+
+- **D1 holds.** Final reads match the history on (a)–(e), including the
+  non-empty prior in (e), and the witness is empty.
+- **D2 holds.** The loss is real. A bare squash drops (b)'s one
+  contradiction and (c)'s one divergence. For (d) it reports multiplicity 2
+  (lanes) where the history has 4 (writes).
+- **D3 holds.** With the logs protected, the witness keeps every log, and each
+  retained answer equals the history's on (a)–(e).
+- **D4 holds.** `Unretainable(Intermediate)` is returned exactly when an
+  intermediate read differs from the final read. This is computed
+  independently of the gate. 3 of 5 fixtures refuse: (a), (c) and (e). (b) and
+  (d) have no differing intermediate read and are accepted. Silent twins (a
+  one-step history; a steady 3-step history) are accepted.
+- **D5 (reported).** One lane with 8 cells and k thoughts:
+  `k, transient B, squash B, witness B` =
+  `(1, 104, 221, 72), (4, 416, 236, 72), (16, 1664, 296, 72), (64, 6656, 536, 72)`.
+  At k = 1 the squash is LARGER than the history, because blame and order are
+  overhead. It falls below at k ≥ 4. The squash grows by 5 B per thought (the
+  order list). The witness here is the multiplicity table, a constant 72 B.
+
+Disables, each run after the commit with its anchor asserted:
+
+| disable | red |
+|---|---|
+| land the squash on an empty version instead of `prior` | d1, d3 |
+| do not fill `contradictions` | d3 |
+| do not fill `divergences` | d3 |
+| do not fill `multiplicity` | d3, d5 |
+| remove the intermediate check | d4 |
+
+**What this establishes:** a squash may drop the folds only for the readers
+it can answer. The final reads come for free. The three logs need a witness,
+and its cost grows with the anomalies, not with the history. Intermediate
+reads cannot be retained at all: a protected intermediate reader refuses the
+squash, which is the outcome predicted for that case, not a failure.
+
+**Honest limit:** for the three logs, the witness is built from the same
+history it is checked against. That check only catches wiring bugs. What the
+probe measures is which readers a bare squash loses, the cost of keeping
+them, and the refusal. The check is not independent.
+
+**Next (CC1):**
+- F5 (a synthesized head over complementary children);
+- F6 (correlated derivations without proof authority);
+- the passive `ProofRef` once the type is agreed with CC2.

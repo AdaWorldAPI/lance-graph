@@ -7,7 +7,7 @@
 //! disables D1..D5 are named on the test each must turn red.
 //!
 //! The gate itself lives in `src/squash.rs` (moved there unchanged for
-//! D-TGA-6); it does not change `oracle.rs`, `slots.rs` or `receipt.rs`.
+//! D-TGA-5D); it does not change `oracle.rs`, `slots.rs` or `receipt.rs`.
 
 use std::collections::{BTreeMap, BTreeSet};
 
