@@ -112,6 +112,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 
 - DECISIONS WIRE-50 A (pyramid order; presence outside 50..52) and C40 (46..49 = activation i4; `isa.rs`'s opcode reading behind a declared legacy reader).
 - Both touch `causal-edge` and the same field-isolation tests (I-LEGACY-API-FEATURE-GATED), so they belong in ONE test-first PR, not two.
+- **Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420`):** `crates/causal-edge/src/syllogism.rs:185` `syllogize` packs `PlasticityState::ALL_HOT` into every derived edge. Under `causal-edge-v2-layout` that lands in bits 50..52 (`layout.rs:38` `PLAST_SHIFT = 50`, `edge.rs:265`), the bits WIRE-50 A gives to presence. `pack` writes nothing into the epistemic field (bits 59..63, `layout.rs:72` `TRUTH_SHIFT = 59`), so every derived edge reads epistemic code 0. Same PR, same field-isolation tests.
 
 ## ISS-SUPERVISOR-DISPATCH-CAPACITY-DRAIN — Health-only dispatch, unread mailbox capacity, unbounded drain (2026-10-23)
 
