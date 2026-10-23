@@ -34,6 +34,6 @@ Open: 11. Closed: 0.
 | tier | row | status | ledger |
 |---|---|---|---|
 | Low-hanging | ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN | — | `ISSUES.md` |
-| Heavy | ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (STATUS_BOARD rows D-CMR-5, | `ISSUES.md` |
+| Heavy | ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN | OPEN (reframed, see correction). **Basis:** VERIFIED-IN-CODE | `ISSUES.md` |
 | Heavy | ISS-ADMISSION-B-CALL-SITE-CLASSIFICATION-NOT-STARTED — Semijoin, EqU32Via and Gather are unclassified, and no owner is named (2026-10-23) — OPEN | OPEN (operator decision on ownership). **Basis:** VERIFIED-IN-CODE | `ISSUES.md` |
 

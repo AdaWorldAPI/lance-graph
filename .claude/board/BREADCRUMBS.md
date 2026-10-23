@@ -54,6 +54,11 @@ trail T-ADMISSION: built before (sealed receipt), witness with an issuer
 note (EXO-50, `session_019fbZ92dFKQ5BJHrA3YcH9A/007`).
 **Rhymes-with:** BC-2026-10-23-8, BC-2026-10-23-9 (draft #1730)
 **Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+**Correction (2026-10-23, operator):** the witness is not issued by the write
+path. It is the lane dimension: identical NodeGuids across lanes give a
+vertical read of which thoughts wrote a node. The probe's `CommitWitness`
+restates that read as a lab stand-in. The issuer question raised on EXO-135
+(component or version) is answered: neither, it is the lane.
 
 ### BC-2026-10-23-4 — the same join is right under Distinct and wrong under Bag
 **Observation:** D-RFT-1's composition gives the right answer under Distinct

@@ -23,9 +23,21 @@ per sealed version), or two types. See Linear EXO-114 and BREADCRUMBS trail
 T-ADMISSION (crumb BC-2026-10-23-13 asks the same question from the issuer
 side).
 
+**Correction (2026-10-23, operator on this session's question):** "no
+contract type" is the wrong frame. The witness is the lane dimension of
+CE64 (W, bits 53..58): NodeGuids are identical across lanes, so one address
+read down through the lanes shows which thoughts wrote to it. A codebook
+sealed on main is frozen for a reader when, for every one of its NodeGuids,
+only lane 0 holds a value in that reader's merge set; an untouched key range
+keeps main's sealed order the same way. That is a fold over existing presence
+bits, not a new type. Still open: (a) whether a projection built in
+preparation (D-CMR-5) must repeat the vertical read at use time, or pin its
+merge set; (b) whether #1659's ordered-lane gate is the same property.
+
 **Fruit:** Heavy
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (STATUS_BOARD rows D-CMR-5,
-D-RU-6; `ordered_lane.rs`).
+**Status:** OPEN (reframed, see correction). **Basis:** VERIFIED-IN-CODE
+(STATUS_BOARD rows D-CMR-5, D-RU-6; `ordered_lane.rs`); witness reading per
+`entries/2026-10-20-d-tga-slot-axis-witness-pointer.md`.
 
 ## ISS-ADMISSION-B-CALL-SITE-CLASSIFICATION-NOT-STARTED — Semijoin, EqU32Via and Gather are unclassified, and no owner is named (2026-10-23) — OPEN
 
