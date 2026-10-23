@@ -1,6 +1,8 @@
 # D-MPF — the mathematical polyfill API, Stage 1 (source audit + folding probe)
 
-**Status:** D-MPF-1 MEASURED, D-MPF-2 MEASURED (§7), lab only (`crates/math-polyfill-probe`). D-MPF-3.. PROPOSED. Independent of ONNX and of the open S0 drafts (#1744, #1745, #1750); it does not choose between them.
+**Status:** D-MPF-1 MEASURED, D-MPF-2 MEASURED (§7), D-MPF-2b MEASURED (§9), D-MPF-4 MEASURED (§10); D-MPF-3 (G1) blocked on the owner, lab only (`crates/math-polyfill-probe`). Independent of ONNX and of the open S0 drafts (#1744, #1745, #1750); it does not choose between them.
+
+> ⊘ **Correction (2026-10-23, §10).** This plan wrote "R2IL" for `lance-graph-r2il::FoldDialect` and its procedures. They are one thing among five that share the name. R2IL is an opcode table with two readings, and FoldDialect is the fold reading only (§10.1). The §7 and §8 figures (94–99 ns compiled mask-risc, 171–172 ns through the procedures) are the cost of choosing those paths per call. They are not a floor for R2IL routing: a route resolved once per ClassId runs at the direct `ndarray::simd` cost (§10.4).
 
 ## 1. Finding: the Stage 1 polyfill API already exists
 
@@ -121,6 +123,8 @@ At 64 rows the 172 ns split as: ndarray floor 39 (memset, 4 compares, the bit wa
 
 ## 8. Layer benchmark — ndarray primitives → mask-risc → R2IL polyfill
 
+> ⊘ The "R2IL" column below is the FoldDialect fold reading, re-run through its operand stack on every call. It is not a cost of R2IL routing; see §10.
+
 `examples/layers.rs`: five folds over `x > t` (t = 0, about half the rows), each through the three layers on the same resident `&[i32]`. Each layer's result is checked against the `i128` oracle at every size before it is timed. Runs 2 and 3 of three, ns per call (run 1 dropped as noisy at 64 rows). "Before r2il" is the mask-risc column, "after" is the R2IL column.
 
 | rows | op | scalar | ndarray | mask-risc | Δ | R2IL | Δ | allocs nd/mr/r2il |
@@ -145,7 +149,9 @@ At 64 rows the 172 ns split as: ndarray floor 39 (memset, 4 compares, the bit wa
 - **Per row:** count is the one fold where the ndarray path beats the scalar loop (~0.08 vs ~0.15 ns/row, `popcount_batch_u64`). For sum the ndarray path is ~3× slower than the scalar loop (the bit walk, §7). For min and max it matches the scalar loop, which does not vectorize them either (~0.45–0.5 ns/row).
 - **Exists is not equal work:** the scalar loop stops at the first hit (row 4 here), so it takes 6 ns at every size. All three layers build the whole mask first. That is an algorithmic difference, not overhead: a fused predicate + `Any` that stops at the first non-empty tile would close it. Proposal only.
 
-## 9. D-MPF-3 (lab) — hybrid masked sum and mask reuse
+## 9. D-MPF-2b (lab) — hybrid masked sum and mask reuse
+
+> ⊘ Commits `0834609fc` and `6efc2743e`, and this heading until now, called this D-MPF-3. That id is G1 (§5, `STATUS_BOARD.md`). This section is D-MPF-2b: it tests D-MPF-2's proposed optimization.
 
 `examples/hybrid.rs`, two runs, 65 536 rows unless stated, ns per call. Every arm is checked against an `i128` oracle at every configuration. Nothing in ndarray or R2IL was changed. A winning body is a proposal for the `ndarray::simd` owner, approved separately.
 
@@ -185,3 +191,87 @@ Two mask shapes at the same density: `uniform` (independent bits) and `clustered
 - At ~5 % selected, the reused mask matches a fused scalar loop. At 50 % selected, the fused loop is ~6× faster, because min and max still walk every set bit.
 - The mask form pays off when the selection is sparse or the reductions are bit-only (count). With dense selections and several value reductions, a fused pass wins until min and max get the same hybrid treatment.
 - OPEN: hybrid min/max; a fused mask-then-multi-reduce terminal; the ndarray owner's call on adopting any body.
+
+## 10. D-MPF-4 — R2IL is a router: attribution, routing table, ClassId-prebound route
+
+### 10.1 Five things share the name; keep them apart
+
+| name | what it is (source) | executes? |
+|---|---|---|
+| r2sleigh `r2il` crate | P-code-derived IL types: `Varnode`, `SpaceId`, the 82-variant `R2ILOp`, `ArchSpec` (`r2sleigh/crates/r2il/src/lib.rs` crate doc) | no |
+| r2sleigh `r2conc` / `r2sym` | the **machine reading**: `r2conc::SlabState::step`, op at a time over borrowed byte slabs, unsupported ops refused loudly; `r2sym`, symbolic with Z3 | yes, scalar machine state |
+| `ogar-r2il` | proxy glue: the R2IL opcode table as an `ogar_loco::Vocabulary` (82 arities, no `r2sleigh` dependency), the fold-band opcodes, and `CallMask` + `project`. It defines two concept ids: `CONCEPT_R2IL_MACHINE` 0xC400 and `CONCEPT_R2IL_FOLD` 0xC401 (`OGAR/crates/ogar-r2il/src/lib.rs`) | no; a table |
+| `lance-graph-r2il::FoldDialect` + `procs` | the **fold reading** (0xC401), "the fold reading of R2IL, executed over mask-risc" (its crate doc). An operand-stack dialect that builds a mask-risc `Program` at every scalar fold | yes, through mask-risc |
+| `lance-graph-mask-risc` / `ndarray::simd` / `ndarray::simd_runtime` | program executor / kernels / per-op `LazyLock<fn ptr>` trampolines for runtime dispatch (`simd_runtime/mod.rs` documents "~2-3 ns" per call) | yes |
+
+The §7 and §8 figures measured FoldDialect and mask-risc. They are not R2IL routing costs, and nothing on that path involves R2Sleigh.
+
+### 10.2 The earlier single-digit-ns figures, recovered
+
+None of them is an R2IL call. Each is the direct kernel that an R2IL route would bind to:
+
+| figure | exact symbol, work unit, condition | source |
+|---|---|---|
+| 2.2–2.8 ns | `ndarray::simd` AND, AND, popcount over one 4-word mask, against 54–70 ns for the same work as a `count_and(3)` invocation through r2il + mask-risc | `entries/2026-10-21-d-rft-1-cost-breakdown.md`; `GOLDSTAUB.md` G-2026-10-23-4 |
+| 1.7–4.2 ns | `FacetCascade::shared_prefix_tiles`, one 8-tile point fold, all three arms | `plans/d-diamond-1-dual-fold-substrate-v1.md`, `STATUS_BOARD.md` D-DMD-P1 |
+| 1.99–2.83 ns | `mature`, one ladder transition, median, 0 allocations | `entries/2026-10-11-maturation3-ladder-probe.md` |
+| 1.9–2.3 ns | slot hit plus bit/word peek, hot | `entries/2026-09-25-aperture-masks-and-kernel-gap.md` |
+| ~2–3 ns | `ndarray::simd_runtime`: per-call overhead of one indirect call plus a `LazyLock` acquire load (documented, not measured here) | `ndarray/src/simd_runtime/mod.rs` |
+
+Search was not exhaustive: the scout hit its 120-hit cap, and some spaces' hits were not listed. A direct grep for an ns figure next to r2il, dialect, r2conc or r2sym in lance-graph, OGAR and r2sleigh found nothing beyond §7/§8 and the D-NFR summary of them. That is "not found", not "absent".
+
+### 10.3 Routing table for the existing operation set
+
+Route classes: **DIRECT** = one existing native entrypoint, **COMPOSE** = several composed in Rust, **LOWER** = R2Sleigh's machine reading, **REFUSE** = no admitted method. "Before" means the check can run at bind or compile time and need not repeat per execution.
+
+| R2IL op / procedure (fold reading) | route | native entrypoint(s) | validation / certification | before? |
+|---|---|---|---|---|
+| `IntSLess` lane vs scalar, ± `IntNot` (`select_lt`, `filter_lt`, Gt/Lt/Ge/Le) | DIRECT | `gt/lt/ge/le_i32_to_mask` | lane is I32, row count | yes |
+| `IntEqual` lane vs scalar (`select_u32`, `in_u32`) | DIRECT / COMPOSE | `eq/ne_{i32,u32,u64}_to_mask`, OR of several | lane kind | yes |
+| `IntLess` / `IntLessEqual` (unsigned) | REFUSE today (`NoUnsignedLaneCompare`) | U64 lanes have `lt/le/gt/ge_u64_to_mask`; U32 lanes have only eq/ne | — | — |
+| `IntAnd` / `IntOr` / `IntXor` / `IntNot` on masks (`intersect`, `union`, `differ`, `except`, `keep`) | DIRECT | `mask_and/or/xor/not/andnot` (+ `_assign`); fused mode `mask_ternlog::<IMM>` | slot epoch (`StaleSlot`); program shape | yes, once the program exists |
+| `PopCount` (`count`, `count_and`, `count_valid`) | DIRECT | `popcount_batch_u64`, `mask_ternlog_popcount` | — | — |
+| `ANY` / `ALL` (`exists`, `all`, `not_exists`, `bool_or`, `bool_and`) | DIRECT | `mask_any`, `mask_all(n_rows)`, `mask_ternlog_any` | row count for `ALL` | yes |
+| `SUM` (`sum`, `avg_parts`, `margin`) | COMPOSE | compare + `masked_sum_i32` (i64 accumulator) | — | — |
+| `MIN` / `MAX` | COMPOSE | compare + `masked_min_i32` / `masked_max_i32`; empty → `None` | — | — |
+| `IntAdd` / `IntSub` / `IntMult` / `IntSDiv` scalar × scalar | DIRECT (Rust `checked_*`) | none (scalar) | overflow and divide-by-zero refused | only for constant operands |
+| `IntSub` lane − lane (G1, element-wise arithmetic) | REFUSE (`LaneVersusLane`) | partial: `masked_sum_wrapping_add_i32` (wrapping) | owner decision MPF-OP-1 | — |
+| `VIA`, `GROUP_SUM`, `KEY_RUNS`, `RANGE`, `KEEP` (`group_sum`) | COMPOSE | mask-risc terminals; `eq_u32_via_to_mask` for predicates through a key | foreign-key and out-shape validation | the program-only half, yes (open) |
+| `SCATTER_OR`, `BLEND` | REFUSE in the fold reading only | mask-risc has `Terminal::ScatterOrU32` / `BlendI32` | — | — |
+| carry/borrow flags, `Load`/`Store` over address spaces, branches, `Subpiece`, width-exact machine integers | LOWER | `r2conc::SlabState::step` (concrete), `r2sym` (symbolic) | ArchSpec / space layout | yes |
+| floats, atomics, `CallOther` | REFUSE in `r2conc` (`ConcError::Unsupported`); `r2sym` only | — | — | — |
+| certification (Boolean / Distinct laws) | separate from execution | DR lab `relcomp` + egglog proofs | proof checked by egglog | always before; never per call |
+
+**Layers on the measured path that are not needed per call** (64 rows, §7). None of them is R2Sleigh.
+
+1. FoldDialect operand-stack interpretation, ~50 ns plus 1 allocation. Removed by an existing facility: run the dialect once and keep `last_program()` as a `CompiledProgram` (measured below).
+2. `Program::new` plus recognition, ~20 ns plus 1 allocation. Removed by `CompiledProgram` (existing).
+3. mask-risc `precheck` + `validate` on every `execute_compiled`, the ~50–60 ns remainder named in `entries/2026-09-25-tile-knee-and-compiled-lowering.md`. That entry's open proposal is to move the program-only half into `compile`. Not done.
+4. The ONNX-shaped wrapper's attribute checks, per call. Diagnostic only.
+
+### 10.4 Measurement: ClassId → LazyLock → prebound callable
+
+`examples/classid_route.rs`. One `LazyLock` per ClassId resolves the route and its contract (op, dtype, shape, exact/approximate, capability). `bind` copies the callable into the binding. Every run checks frame, focus and scope with the DR lab's `FrameStore::check`. Nothing was added to a production crate.
+
+Two runs, `MPF_REPS=31`, ns per call (load ≈ 3 on 4 cores; the 4 096 and 65 536 rows vary ±15 % between runs):
+
+| rows | direct nd | route | route, no check | LazyLock + match per call | mr prepared | r2il prepared | dialect | onnx wrapper |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 64 | 36–39 | 61–67 | 36–39 | 37–39 | 85–94 | 85–91 | 167 | 204–219 |
+| 512 | 185–203 | 199–223 | 185–203 | 186–192 | 229–249 | 229–250 | 358–381 | 344–395 |
+| 65 536 | 30 024–30 534 | 29 678–30 771 | 27 590–30 518 | 27 847–30 137 | 30 223–42 385 | 28 425–40 277 | 30 570–38 039 | 30 448–31 990 |
+
+Allocations per call: 0 on every arm except the dialect (1) and the wrapper (3).
+
+- **Routing costs nothing measurable.** The prebound callable equals direct ndarray at every size. A per-call `LazyLock` deref plus `match` adds about 0–1 ns.
+- **The remaining fixed cost is the guard, not the route:** the frame/focus/scope check alone costs 27–28 ns with 0 allocations. On its success path `FrameStore::check` executes two `lock cmpxchg` and two `lock decq` (objdump), because `Arc::downgrade` is called twice per check.
+- **Prepared R2IL equals prepared mask-risc** (85–94 ns): FoldDialect's own program, kept as a `CompiledProgram`, is the same program. The gap to direct ndarray (~50 ns at one word) is mask-risc's per-call `precheck`/`validate` (§10.3 item 3).
+- **Invariants asserted:** one resolution per ClassId (`[1, 1, 1, 1, 1, 1, 1]`); 0 route evaluations in the steady-state and multi-op loops; LOWER (`r2conc::SlabState::step(IntCarry)`) and REFUSE (f32 over an i32 lane) refused at bind; focus, scope and source changes refused at run; a binding sealed before `advance` refuses with `SourceChanged`; rebinding does not re-resolve the route.
+- **Disable runs** (committed first, each red, then restored): `resolve` called in `run`, and `resolve` called in `bind`, each tripped "rebinding must not re-resolve the route" (4 vs 3). `resolve` called in the steady-state call shape tripped "one init per ClassId at most" (`SUM_GT` resolved 1 405 times).
+- **LLVM** (`cargo rustc --release --example classid_route -- --emit=asm`): `probe_route_run` calls `FrameStore::check`, does two compares and then a tail `jmpq *80(%rax)` into the stored callable. It has no `LazyLock`, `Once` or backend `match`. `probe_lazy_per_call` reads the `Once` state, compares it, and calls through `ROUTES+216`, with `Once::call` only on the cold path.
+
+**One binding and one frame, four operations** (count, sum, min, any) at 4 096 rows. Rebinding per op: 4.5–4.7 µs. One binding, checked per run: 4.0–4.7 µs. Checked once: 4.1–5.4 µs. Direct ndarray with one shared mask and four consumers: 3.5–3.7 µs. The four route variants are within noise of each other. Direct ndarray is ahead because it computes the mask once and each prebound callable recomputes it. That gap belongs to mask reuse (§9), not routing.
+
+**One proposed optimization (not made; DR lab owner):** compare `Weak::as_ptr(&frame.store)` with `Arc::as_ptr(&self.identity)` (and the same for `seal`) instead of `Weak::ptr_eq(.., &Arc::downgrade(..))`. Identity semantics are unchanged: a live `Weak` keeps its allocation, so the pointer cannot be reused. The four atomic RMWs go away. Expected effect: most of the 27 ns. Unmeasured.
+
+OPEN: the mask-risc validation split (item 3); hybrid min/max; mask-sharing callables for multi-op bindings; the U64 unsigned-compare refusal (a mask-risc gap, since ndarray has the kernels).

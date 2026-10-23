@@ -1,4 +1,4 @@
-//! D-MPF-3 (lab): dense/sparse hybrid masked sum, and one mask reused across
+//! D-MPF-2b (lab; first labelled D-MPF-3, which is G1): dense/sparse hybrid masked sum, and one mask reused across
 //! several reductions. Reported, not gated. Nothing here changes ndarray or
 //! R2IL; a winning body is a proposal for those owners.
 //!
