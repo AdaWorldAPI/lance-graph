@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-444 entries, 2026-08-06 .. 2026-10-23.
+445 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-23 | `ps2-compose-chain-preregistration` |  | [2026-10-23-ps2-compose-chain-preregistration.md](2026-10-23-ps2-compose-chain-preregistration.md) |
 | 2026-10-23 | `ledger-revision-1635-1726` |  | [2026-10-23-ledger-revision-1635-1726.md](2026-10-23-ledger-revision-1635-1726.md) |
 | 2026-10-23 | `exo129-learned-lut-preregistration` |  | [2026-10-23-exo129-learned-lut-preregistration.md](2026-10-23-exo129-learned-lut-preregistration.md) |
+| 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
 | 2026-10-22 | `probes-pd4-pe2-pd3` |  | [2026-10-22-probes-pd4-pe2-pd3.md](2026-10-22-probes-pd4-pe2-pd3.md) |
 | 2026-10-22 | `pal256-salience-mp3-probe` |  | [2026-10-22-pal256-salience-mp3-probe.md](2026-10-22-pal256-salience-mp3-probe.md) |
 | 2026-10-22 | `pal256-nars-bayes-evidence-contract` |  | [2026-10-22-pal256-nars-bayes-evidence-contract.md](2026-10-22-pal256-nars-bayes-evidence-contract.md) |
