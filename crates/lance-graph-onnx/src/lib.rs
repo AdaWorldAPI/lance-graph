@@ -137,6 +137,7 @@ mod sealed {
 /// and each aligned pair is equal or contains a 1. `ndarray`'s arithmetic
 /// broadcasts the same way but panics on a mismatch, so this check turns the
 /// panic into a [`Refusal`]. It reads only the two shapes.
+#[inline]
 pub fn broadcastable(lhs: &[usize], rhs: &[usize]) -> Result<(), Refusal> {
     let ok = lhs
         .iter()
@@ -241,6 +242,7 @@ impl ReduceSum {
         Ok(Self { keepdims })
     }
 
+    #[inline]
     fn fit(self, s: i64) -> Result<Reduced, Refusal> {
         let value = i32::try_from(s).map_err(|_| Refusal::OutOfDtypeRange(s))?;
         Ok(Reduced {
@@ -252,6 +254,7 @@ impl ReduceSum {
     /// `ReduceSum(X)`. INLINE: an exact `i64` sum and the `int32` range check.
     /// `ndarray` has no unmasked `i32 → i64` sum, so this is a plain iterator
     /// reduction, which LLVM vectorizes (plan §4).
+    #[inline]
     pub fn sum_i32(self, x: &[i32]) -> Result<Reduced, Refusal> {
         self.fit(x.iter().map(|&v| i64::from(v)).sum())
     }
@@ -260,6 +263,7 @@ impl ReduceSum {
     /// INLINE: `ndarray::simd::gt_i32_to_mask` into the caller's `scratch`
     /// (at least [`mask_words`]`(x.len())` words), `masked_sum_i32`, then the
     /// `int32` range check. No allocation.
+    #[inline]
     pub fn sum_where_greater_i32(
         self,
         x: &[i32],
