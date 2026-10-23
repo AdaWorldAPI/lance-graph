@@ -9,6 +9,8 @@
 > 5. **Identity.** Internal identity is the native binding (Quack resolution under a sealed frame, plus codebook generation, D-NFR S5/S6/S15). ONNX model / node / initializer identity is external provenance carried by the adapter (A7).
 >
 > Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+>
+> **⊘ Layers [1] and [7] as finally drawn (2026-10-23; #1752 §10, #1753, #1754).** Where this note or the plan says "R2IL polyfill (#1752)", read the R2IL **router**: a route resolved once per ClassId onto `ndarray::simd` (through mask-risc where a program is needed), with `FoldDialect` one strategy beneath it (D-MPF-4). Layer [7], the ONNX conformance adapter, is an external **leaf** facade implemented as `lance-graph-onnx` (#1754): ONNX names over existing native functions, no dispatch, and nothing native depends on it.
 
 **Date:** 2026-10-23 · **Status:** PROPOSED / documentation only · **Parent:** PR #1745 (S0)
 **Scope:** ONNX semantic preservation and an evidence-driven mapping to current contract + RelAlg; NO universal ONNX import claims or runtime implementation.
