@@ -1,3 +1,318 @@
+<!-- 2026-10-23 catch-up: #1660–#1725 had no entries. One compact entry per PR, recorded from the merge commit. Board-hygiene-only PRs (#1664, #1665, #1672, #1678, #1683) get none, per the CLAUDE.md termination clause. -->
+
+## 2026-10-23 — lance-graph PR #1725 (merged `b342d47c`, branch `lab/pd4-refit-base-rate-20261022`, head `57fbec40`) — probe(P-D4): refit the base rate inside each bootstrap draw; the post-hoc gate does not pass
+
+- **Added:** `crates/causal-edge`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1724 (merged `7ceca0a0`, branch `lab/probes-pd4-pe2-pd3-20261022`, head `8caf26fc`) — probe: P-D4, P-E2 and P-D3, the three decision-side probes from the Palette256 coresearch map
+
+- **Added:** `crates/bgz-tensor`, `crates/causal-edge`.
+- **Docs:** entry `2026-10-22-probes-pd4-pe2-pd3.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1723 (merged `c59b457c`, branch `lab/coresearch-pal256-evidence-20261022`, head `d834247b`) — board: coresearch map for the Palette256 evidence/plasticity probes (#1706–#1722)
+
+- **Added:** board only.
+- **Docs:** entry `2026-10-22-coresearch-pal256-evidence-probes.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1722 (merged `2cc7aa08`, branch `lab/ce64-hebb-saturation-probe-20261022`, head `c6877581`) — probe(hebb): saturation-damped local plasticity versus episodic MRU baseline
+
+- **Added:** `crates/lance-graph-contract`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1721 (merged `82772e67`, branch `lab/palette256-multihop-error-hops-20261022`, head `f90b7a6a`) — probe(palette): falsify multi-hop error containment with closed and open codebooks
+
+- **Added:** `crates/bgz-tensor`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1720 (merged `c2482d6b`, branch `lab/nars-bayes-bnn-evidence-20261022`, head `a18e3bd7`) — probe(nars-bayes): preserve sample size and predictive uncertainty beside CE64
+
+- **Added:** `crates/causal-edge`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1719 (merged `6087ceaa`, branch `lab/palette256-pair-lut-argextrema-20261022`, head `091171c0`) — probe(palette): signed pair-LUT argmax/argmin and abstention margins
+
+- **Added:** `crates/bgz-tensor`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1718 (merged `663e418d`, branch `lab/palette256-immutable-salience-20261022`, head `eac927e8`) — probe(palette): immutable reference frame and salience-weighted signal retention
+
+- **Added:** `crates/bgz-tensor`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1717 (merged `f16318d5`, branch `lab/egglog-tanh-typed-laws-20261022`, head `c05ea6c7`) — test(math-foundry): typed tanh/atanh rewrites for NARS, Bayes and Fisher
+
+- **Added:** `crates/egglog-r2il-probe`.
+- **Docs:** entry `2026-10-22-pal256-egraph-evidence-law-admission.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1716 (merged `2f102111`, branch `lab/fisher-3sigma-typed-gates-20261022`, head `8e9ba0cf`) — test(stats): typed Fisher 3-sigma gate and late-evidence pruning counterexample
+
+- **Added:** `crates/jc`.
+- **Docs:** entry `2026-10-22-pal256-3sigma-statistical-gate.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1715 (merged `9f30db80`, branch `lab/pal256-multihop-error-probe-20261022`, head `69394e8d`) — test(pal256): 64-hop numerical containment vs epistemic hallucination falsifiers
+
+- **Added:** `crates/bgz-tensor`.
+- **Docs:** entry `2026-10-22-pal256-64hop-error-containment.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1714 (merged `751d5744`, branch `lab/pal256-bnn-typed-modes-20261022`, head `1475f1eb`) — test(bnn): distinguish binary XNOR-popcount inference from Bayesian uncertainty
+
+- **Added:** `crates/jc`.
+- **Docs:** entry `2026-10-22-pal256-bnn-disambiguation.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1713 (merged `aff30b4e`, branch `lab/pal256-hebbian-overlay-20261022`, head `83fe48f8`) — test(hebbian): bounded synaptic plasticity on immutable palette references
+
+- **Added:** `crates/causal-edge`.
+- **Docs:** entry `2026-10-22-pal256-hebbian-overlay-plasticity.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1712 (merged `441c93b6`, branch `lab/pal256-nars-bayesian-evidence-20261022`, head `1f437e7a`) — test(nars): independent evidence counts and Jeffreys Bayesian correspondence
+
+- **Added:** `crates/causal-edge`.
+- **Docs:** entry `2026-10-22-pal256-nars-bayes-evidence-contract.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1711 (merged `39d927d8`, branch `lab/pal256-argextrema-certify-20261022`, head `5144e675`) — test(pal256): certified argmax/argmin margins in Fisher-Z palette space
+
+- **Added:** `crates/bgz-tensor`.
+- **Docs:** entry `2026-10-22-pal256-argextrema-margins.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1710 (merged `f5039b8f`, branch `lab/pal256-salience-energy-20261022`, head `7674ed21`) — test(pal256): loud-signal salience selection and rare-signal falsifier
+
+- **Added:** `crates/bgz-tensor`.
+- **Docs:** entry `2026-10-22-pal256-salience-mp3-probe.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1709 (merged `3a0f6b05`, branch `lab/pal256-frozen-needle-pairwise-20261022`, head `c3e3908e`) — test(pal256): immutable needle vs pairwise distribution contract
+
+- **Added:** `crates/bgz-tensor`.
+- **Docs:** entry `2026-10-22-pal256-immutable-needle-distribution-probe.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1708 (merged `c0e193e6`, branch `lab/dr-math-restack-20261022`, head `5e4fe13f`) — chore(dr-math): land the stranded D-DRMC stack (#1701-#1704 + charter amendment)
+
+- **Added:** `.claude/plans/dr-mathematical-compiler-v1.md`, `.github`, `crates/dr-math-binding-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1707 (merged `45328fa1`, branch `lab/dr-math-5-assoc-probe-20261022`, head `da0e7dd2`) — probe(dr-math): associativity of Boolean relation composition [5/5]
+
+- **Added:** `crates/dr-math-binding-probe`.
+- **Docs:** entry `2026-10-22-drmc-5-assoc-probe.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1706 (merged `f4d14e24`, branch `research/ascent-byods-dr-fold-plan-20261022`, head `89cc6650`) — docs(research): Ascent logical tuples via DR indices, search masks and BYODS
+
+- **Added:** `.arxiv`, `.claude/plans/ascent-byods-dr-fold-polyfill-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1705 (merged `42aba0ce`, branch `ccr-0455e606-wmtsor`, head `8faa9f0c`) — egglog-r2il-probe: report the cold egglog phase in µs; coresearch map for D-DRMC
+
+- **Added:** `CLAUDE.md`, `crates/egglog-r2il-probe`.
+- **Docs:** entry `2026-10-22-coresearch-drmc-stack.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1700 (merged `a2a8bff7`, branch `lab/dr-math-0-charter-20261022`, head `27cddb7c`) — docs(dr-math): structural DR to reusable mathematical compilation [0/5]
+
+- **Added:** `.claude/plans/dr-mathematical-compiler-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1699 (merged `da4ebc7f`, branch `docs/math-foundry-1690-1695-gap-review`, head `a0b21a12`) — docs(math-foundry): record #1690–#1695 gaps and proof guards
+
+- **Added:** `crates/egglog-r2il-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1698 (merged `022b92f5`, branch `review/math-foundry-integration-gates-20261022`, head `e5b06c09`) — Integrate #1694/#1695 into main with isolated math-foundry CI and semantic gates
+
+- **Added:** `.github`, `crates/egglog-r2il-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1696 (merged `df214bb7`, branch `lab/math-foundry-3-heritage-study-20261022`, head `68043f20`) — integrate(math-foundry): land #1694/#1695 catalogue and heritage stages on main
+
+- **Added:** `crates/egglog-r2il-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1693 (merged `f7414742`, branch `lab/math-foundry-1-proof-replay-20261022`, head `02425e13`) — feat(math-foundry): E1 cold proof capsule and replayable R2IL recipe
+
+- **Added:** `crates/egglog-r2il-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1692 (merged `5e1a5f50`, branch `docs/tatlock-publications-review-20261022`, head `9af9230b`) — docs: map Tatlock publications to mathematical compiler research
+
+- **Added:** `.arxiv`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1691 (merged `56ef1702`, branch `research/bangladesh-dual-cause-oracle-egglog`, head `fdc8397a`) — feat(perturbation): distinguish grid and telecom outage causes
+
+- **Added:** `crates/perturbation-sim`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1690 (merged `9cafc8af`, branch `ccr-0455e606-wmtsor`, head `99db186c`) — D-MPS-9 MORK query_multi oracle + math-compiler Stage A matrix and Stage B (E1) probe
+
+- **Added:** `.claude/plans/mork-pathmap-schnellverschluss-v1.md`, `crates/crepe-plan-probe`, `crates/egglog-r2il-probe`, `crates/mork-pathmap-probe`.
+- **Docs:** entry `2026-10-22-d-mps-9-mork-oracle.md`, `2026-10-22-math-compiler-gap-matrix.md`, `2026-10-22-math-compiler-stage-b-e1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1689 (merged `a22e691c`, branch `docs/egglog-eggcc-3la-harvest-20261022`, head `89933da1`) — docs: harvest egglog, eggcc and 3LA compiler ideas
+
+- **Added:** `.arxiv`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1688 (merged `0615b753`, branch `claude/eager-albattani-iufugq-rft1-cost`, head `a79a5dbc`) — dir-rmap-probe: rft1_cost — where the D-RFT-1 composition's time goes (measurement only)
+
+- **Added:** `crates/dir-rmap-probe`.
+- **Docs:** entry `2026-10-21-d-rft-1-cost-breakdown.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1687 (merged `50990a5c`, branch `claude/eager-albattani-iufugq-k3-admission`, head `59cf28c4`) — contract: normalize_kleene returns WhereSet (WHERE-terminal only); GKAT Where/Check negation duality pinned
+
+- **Added:** `crates/gkat-probe`, `crates/lance-graph-contract`, `crates/lance-graph-quack`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1686 (merged `d1b9c9d1`, branch `claude/eager-albattani-iufugq-rft1-null`, head `4230d262`) — r2il: bool_or/bool_and keep NULL apart from FALSE; COUNT(DISTINCT) excludes NULL keys (D-RFT-1 correction)
+
+- **Added:** `crates/lance-graph-r2il`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1685 (merged `3b723df1`, branch `ccr-0455e606-rft1-tile`, head `d9a0175f`) — D-RFT-1 follow-up: compose reads the DR256 register (Distinct = Page::roles, Bag = bit product on the support)
+
+- **Added:** `crates/dir-rmap-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-22 — lance-graph PR #1684 (merged `cdf29d74`, branch `claude/eager-albattani-iufugq-tgb4-landing`, head `5b62bc9a`) — thought-git-probe: D-TGB-4 landing integrity — immutable sealed rows, write-path commit witness, typed refusals
+
+- **Added:** `crates/thought-git-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1681 (merged `0f756b98`, branch `ccr-0455e606-rft1`, head `f67e9c5a`) — D-RFT-1 typed composition + r2il PostgreSQL primitive polyfill (IntXor/ANY/ALL/KEY_RUNS, checked scalar arithmetic, 19 procedures)
+
+- **Added:** `.claude/plans/metta-datalog-assimilation-v1-council-v3.md`, `.github`, `crates/dir-rmap-probe`, `crates/lance-graph-r2il`, `crates/r2il-mask-abi-probe`.
+- **Docs:** entry `2026-10-21-d-rft-1-typed-composition.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1679 (merged `b8bb4eb1`, branch `ccr-d3ce1263-ied9yh`, head `515a3997`) — gkat-probe: a K3 guard reads a leaf plus validity, never a NULL's payload; D-GKAT-0 board closeout
+
+- **Added:** `crates/gkat-probe`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1677 (merged `c2cee71f`, branch `ccr-0455e606-wmtsor`, head `ee9ad5da`) — quack: SQL WHERE against PostgreSQL through sql_where + mask-risc, compared by mask Xor
+
+- **Added:** `crates/lance-graph-quack`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1673 (merged `4f69b7f0`, branch `ccr-0455e606-wmtsor`, head `0eccbce8`) — plans: D-LFA-1/2 GKAT amendment and D-GKAT-0 probe (docs only)
+
+- **Added:** `.claude/plans/d-lfa-lance-graph-flow-rubicon-assimilation-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1671 (merged `84e4c79a`, branch `docs/arxiv-zucker-kat-derivatives-20261021`, head `be074722`) — docs(.arxiv): Zucker Kleene algebra excerpt for relalg / KAT
+
+- **Added:** `.arxiv`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1670 (merged `8e3d3d0c`, branch `docs/arxiv-gkat-1907-05920-20261021`, head `5086fed0`) — docs(arxiv): harvest GKAT guarded-control equivalence (1907.05920)
+
+- **Added:** `.arxiv`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1669 (merged `aa1d6bcb`, branch `docs/arxiv-sutra-v9-excerpt-20261021`, head `593b499a`) — docs: excerpt Sutra v9 tensor-normal-form research
+
+- **Added:** `.arxiv`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1668 (merged `0868c2c9`, branch `ccr-0455e606-wmtsor`, head `5592d207`) — D-RFT-0 / D-QSP-0: Kleene form of set normalization (SQL NULL), PostgreSQL differential
+
+- **Added:** `crates/lance-graph-contract`.
+- **Docs:** entry `2026-10-21-coresearch-plans-mapping-foresight.md`, `2026-10-21-d-rft-0-kleene-normalization.md`, `2026-10-21-d-rft-d-lfa-0-assessment.md`, `2026-10-21-eval-egglog-datafrog-ascent.md`, `2026-10-21-pg-classview-polyfill-map.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1667 (merged `1e81a7ac`, branch `research/quack-classview-relalg-thoughtgit-flow-20261021`, head `5d8351e1`) — docs(D-QSP/D-RFT/D-LFA): Quack SQL parity, relalg/thought-git, flow plans
+
+- **Added:** `.claude/plans/d-lfa-lance-graph-flow-rubicon-assimilation-v1.md`, `.claude/plans/d-qsp-classview-quack-postgresql-parity-v1.md`, `.claude/plans/d-rft-relalg-thought-git-frontier-v1.md`.
+- **Docs:** entry `2026-10-21-d-qsp-d-rft-d-lfa-classview-quack-plan.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1666 (merged `365725dc`, branch `ccr-0455e606-wmtsor`, head `62ed6248`) — dir-rmap-probe: IAM nested groups as a DR256 register, versioned populations and method folds (arm Q)
+
+- **Added:** `crates/dir-rmap-probe`.
+- **Docs:** entry `2026-10-21-dr256-iam-nested-groups.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1663 (merged `1bf929c4`, branch `research/qr-abi-classview-capstone-20261021`, head `fb4941a7`) — D-QR-CAP: ClassView/WideFieldMask relational ISA and four-domain QR64/256 roadmap
+
+- **Added:** `.claude/plans/d-qr-abi-classview-rails-capstone-v1.md`, `.claude/plans/d-qr-capstone-cross-consumer-oracle-matrix-v1.md`, `.claude/plans/d-qr-classview-binding-isa-capstone-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1662 (merged `ed2a604f`, branch `research/qr-dirsim-classview-20261021`, head `4cd00ccd`) — D-QR-IAM: ClassView / QR256 membership-to-role fold probe
+
+- **Added:** `.claude/plans/d-qr-dirsim-iam-membership-probe-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1661 (merged `ef3ac59e`, branch `research/qr-sap-classview-20261021`, head `4ac226e4`) — D-QR-SAP: ClassView/CATS deterministic mapping and QR256 probe
+
+- **Added:** `.claude/plans/d-qr-sap-classview-projection-probe-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-21 — lance-graph PR #1660 (merged `338bf9cc`, branch `research/qr256-elimination-rotation-20261021`, head `311a8625`) — docs(.arxiv): QR256 elimination, Four Russians, egglog and rotation research paths
+
+- **Added:** `.arxiv`, `.claude/plans/qr256-powershell-ordinal-polyfill-bridge-v1.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
 ## 2026-10-21 — lance-graph PR #1682 (merged `da9b755`, branch `claude/eager-albattani-iufugq`, head `96e8010`) — D-QSP-0 slice 2: SQL NULL operands over existing `sql_where`
 
 - **Added:** `crates/lance-graph-quack/tests/sql_null_operand.rs` (11 tests); `examples/qsp_null_operand_pg_parity.rs` (PostgreSQL differential, SKIP without a server); slice 2 section in `entries/2026-10-21-d-qsp-0-scalar-aggregates-null.md`.

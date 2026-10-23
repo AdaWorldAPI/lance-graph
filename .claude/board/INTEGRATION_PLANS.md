@@ -1,3 +1,16 @@
+## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
+
+**Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.
+
+- `d-qsp-classview-quack-postgresql-parity-v1.md` (D-QSP, #1667): PROPOSAL / docs only. D-QSP-0 slices 1–2 shipped (#1675, #1682); see `STATUS_BOARD.md`.
+- `d-rft-relalg-thought-git-frontier-v1.md` (D-RFT, #1667): PROPOSAL / docs only. D-RFT-0 shipped (#1668); D-RFT-1 shipped as a probe (#1681, #1685; correction #1686).
+- `d-lfa-lance-graph-flow-rubicon-assimilation-v1.md` (D-LFA, #1667, GKAT amendment #1673): approved by the operator 2026-10-21, docs and probes only. D-GKAT-0 shipped as a probe (#1676, #1679).
+- `d-qr-sap-classview-projection-probe-v1.md` (#1661), `d-qr-dirsim-iam-membership-probe-v1.md` (#1662), `d-qr-abi-classview-rails-capstone-v1.md`, `d-qr-capstone-cross-consumer-oracle-matrix-v1.md`, `d-qr-classview-binding-isa-capstone-v1.md` (#1663), `qr256-powershell-ordinal-polyfill-bridge-v1.md` (#1660): lab plans, preregistered, not run.
+- `dr-mathematical-compiler-v1.md` (D-DRMC, #1700, amended #1708): PROPOSAL, staged draft. D-DRMC-5 associativity probe measured (#1707).
+- `ascent-byods-dr-fold-polyfill-v1.md` (#1706): PROPOSAL / documentation only.
+
+Three earlier paths were renamed to the D-prefixed names above and no longer exist: `classview-quack-postgres-semantic-parity-v1.md`, `relalg-thought-git-frontier-polyfill-v1.md`, `lance-graph-flow-rs-graph-llm-rubicon-assimilation-v1.md`.
+
 ## 2026-10-20 — d-relalg-unified-v1 — JC/R statistics and Datalog sharing work through the contract set IR → `.claude/plans/d-relalg-unified-v1.md`
 
 **Status:** PROPOSAL, documentation only. Decisions recorded: ADMISSION = B, D-RA-2 = A. There is no shared relational AST, and none is built: each layer gets the smallest extension. JC batches share the power-sum terminals (U1, first); `let`-bound planes go on the contract IR after D-CMR-1 (U2); a co-addressed join over `JoinDomain`; Quack gets measured pins, not a cost model; recursion over BIND tiles is gated on an attested slot assignment. Three negatives (no JC expression IR, no D-CMR set IR code, no D-MSUB) are grep-only and not yet fully verified. Entry `2026-10-20-d-relalg-unified.md`.
