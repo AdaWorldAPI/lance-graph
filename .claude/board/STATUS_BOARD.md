@@ -12,6 +12,18 @@ Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-depe
 | **D-NFR-4** | end-to-end acceptance fixture (nine steps, each measured) | Proposed | all nine steps pass, each step's cost reported separately |
 | **D-NFR-5** | one binding and one focus reused across several operations | Proposed | reuse saving measured against rebinding and a fused scalar / SIMD baseline, guards run on every use |
 
+## D-MPF — mathematical polyfill API, Stage 1 (2026-10-23)
+
+Lab only (`crates/math-polyfill-probe`). Plan `.claude/plans/d-mpf-math-polyfill-v1.md`; entry `entries/2026-10-23-d-mpf-1-polyfill-probe.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-MPF-1** | one expression (SUM − k·COUNT, NULL plane) through the existing r2il procedures; oracle; typed refusals; cost split | MEASURED (this branch) | equal to an `i128` row loop at 64..65 537 rows; D1–D3 red; 0.86–0.91 ns/row at 64 K, ~600 ns per call at 64 rows |
+| **D-MPF-2** | attribute the one-word fixed cost (~120 ns mask-risc + ~150 ns dialect) | Measured (#1752) | gate not met, reason recorded: floor alone 39 ns at one word; per-row bottleneck is `masked_sum_i32`'s bit walk (plan §7) |
+| **D-MPF-3** | element-wise integer arithmetic (G1) | Blocked (owner decision) | `lane_plus_lane_is_refused` turns into an admitted, oracle-checked op |
+| **D-MPF-2b** | dense/sparse hybrid masked sum (per-word density threshold) and one mask reused across count/sum/min/max | Measured (#1752) | hybrid th=16 is 2–3.7× (uniform) and 4–5× (clustered) faster than the walk, and never slower; reuse ~2× when sparse; a fused scalar pass is 6× faster at 50 % (plan §9) |
+| **D-MPF-4** | R2IL as a router: attribution of the five things named R2IL, a routing table (DIRECT / COMPOSE / LOWER / REFUSE), and a ClassId → LazyLock → prebound-callable probe against direct ndarray | Measured (#1752) | prebound route == direct ndarray at 64..65 536 rows; one resolution per ClassId, 0 route evaluations and 0 allocations in steady state; frame/focus/scope guard 27–28 ns (4 atomic RMWs); three disable runs red (plan §10) |
+
 ## D-ONNX-CAP — ONNX intake onto existing lance-graph surfaces (2026-10-23)
 
 PROPOSAL, docs only. Plan `.claude/plans/d-onnx-relalg-cap-capstone-1750-v1.md`; entry `entries/2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md` (#1750; #1744's S0 below kept the base path). ONNX `ModelProto` stays the only graph; relalg receives only the integer selection/aggregate island; no new primitive, AST or executor.

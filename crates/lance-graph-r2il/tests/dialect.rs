@@ -164,6 +164,8 @@ fn every_named_refusal_is_still_produced() {
         (INT_S_DIV, i64::MIN, -1, FoldError::Overflow(INT_S_DIV)),
         (INT_ADD, i64::MAX, 1, FoldError::Overflow(INT_ADD)),
         (INT_MULT, i64::MAX, 2, FoldError::Overflow(INT_MULT)),
+        (INT_SUB, -2, i64::MAX, FoldError::Overflow(INT_SUB)),
+        (INT_SUB, i64::MIN, 1, FoldError::Overflow(INT_SUB)),
     ] {
         let mut d = FoldDialect::new(&planes, &foreign);
         let mut stack = vec![Val::Scalar(a), Val::Scalar(b)];
