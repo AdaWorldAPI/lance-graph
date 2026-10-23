@@ -133,6 +133,60 @@ die at squash; only the squashed delta, receipts and seals reach disk.
    list. Lane 0 then stores the delta plus a seal that points at the
    certificate, and a certified thought is reusable by reference.
 
+**Outside grounding: the accumulation as a large Markov chain** (operator,
+2026-10-23). Source: Bittracher & Schütte, "A probabilistic algorithm for
+aggregating vastly undersampled large Markov chains", *Physica D* 416
+(2021) 132799,
+https://publications.imp.fu-berlin.de/2614/1/1-s2.0-S016727891930764X-main.pdf.
+The grades are per claim.
+
+- **[G] within the paper's assumptions (Def. 2.1, Lemma 2.3).**
+  - *Lumpable*: the probability of moving into an aggregate depends only on
+    the starting state's aggregate.
+  - *Deflatable*: within an aggregate, the end state is drawn independently
+    of where the chain came from.
+  - A chain that is both is *aggregatable*. Its N×N matrix then has exactly
+    R distinct columns, so it has rank R, and it equals
+    `P = Π · P̂ · Λ`.
+- **[G] (Alg. 3.1, Eq. 18).**
+  - Sample J columns, take an SVD and read the aggregates off the sign
+    pattern of the leading R left singular vectors (spectral clustering,
+    PCCA+ or SEBA).
+  - J depends only on R and the confidence p, never on N. With equal-sized
+    aggregates, recomputed here: R = 8 needs J = 51 for p = 0.99, R = 10
+    needs J = 66, and R = 16 needs J = 115.
+- **[G] (Prop. 3.9, Thm. 2.10).**
+  - The reduced matrix is recovered from the sampled columns alone:
+    `P̂ = Λ · P_K · Λᵀ_K · K⁻¹`.
+  - For an ε-almost aggregatable P, the L1 error is ≤ 4ε, also independent
+    of N.
+- **[H] mapping to thought-git.**
+  - The 64 × 10^6 operations are the trajectory of one large chain over
+    cell states. Each lane's run is an expensive sample from its starting
+    state.
+  - A knowledge-preserving squash is an aggregation. Lane 0 would store the
+    partition Ω, the R×R matrix P̂ and the in-aggregate distributions π: the
+    certificate is P̂, not the operations.
+  - With the 63 thought lanes as J = 63 column samples, recomputed with
+    Eq. 18: R ≤ 10 aggregates are recovered with p ≥ 0.987, R = 12 with
+    0.951, and R = 16 with only 0.758.
+  - The 4ε bound gives the squash gate a quantitative tolerance where it now
+    has a yes/no refusal.
+- **[H] where the mapping can break.** Each item is a falsifier, not an
+  assumption.
+  1. The paper's chain is time-homogeneous. Thought lanes are not, and the
+     aggregated process is in general non-homogeneous (paper §2).
+  2. Lanes are chosen thoughts, not uniform independent column draws, so
+     Eq. 18's p does not hold for them as written.
+  3. Deflatability is a strong extra condition, and nothing yet says
+     thought transitions satisfy it.
+  4. SVD / PCCA+ is a floating-point clustering step. It belongs only on the
+     cold, out-of-fold path (CLAUDE.md, the no-ms scoped exception), never
+     per query.
+- **Ties.** This is the stochastic form of EXO-132's lumpability, the
+  distinction GPT /08 asked for: almost-lumpability in L1, not deterministic
+  congruence.
+
 **Next probe:** rung 2, which is cheapest and guards the whole storage
 argument. **Kill:** a lane that is deterministic given its seeds cannot be
 defined for the planned writers (outside reads are essential). In that case
