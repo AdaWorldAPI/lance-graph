@@ -34,6 +34,15 @@ bits, not a new type. Still open: (a) whether a projection built in
 preparation (D-CMR-5) must repeat the vertical read at use time, or pin its
 merge set; (b) whether #1659's ordered-lane gate is the same property.
 
+**Correction (2026-10-23, same day, from EXO-114):** the vertical read covers
+the frozen codebook fully, but a sorted key only halfway. It shows the rows
+are untouched since sealing; it cannot show they were sealed in key order.
+Lance keeps no physical order (fragments in write order, `order_by` is
+scan-time), so a seek or range still needs the order attest EXO-114 describes:
+O(1) or an O(n) check minted once per sealed version. Sorted key = vertical
+read (untouched) + per-version order attest (sorted when sealed). (b) above is
+that second half.
+
 **Fruit:** Heavy
 **Status:** OPEN (reframed, see correction). **Basis:** VERIFIED-IN-CODE
 (STATUS_BOARD rows D-CMR-5, D-RU-6; `ordered_lane.rs`); witness reading per
