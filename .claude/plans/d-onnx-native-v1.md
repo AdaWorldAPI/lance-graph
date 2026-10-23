@@ -55,7 +55,7 @@ Every ALIAS and INLINE row was checked against the native source. The checks cov
 
 | ONNX | native | why not exported |
 |---|---|---|
-| `Exp`, `Log`, `Tanh`, `Sigmoid` | `vml::vsexp` and the related vml functions | approximate (polynomial). `vsexp` saturates +inf to ~3.4e38. Exact and approximate stay separate, so these would need an explicitly named approximate surface with ULP bounds. |
+| `Exp`, `Log`, `Tanh`, `Sigmoid` | `vml::vsexp` and the related vml functions | approximate (polynomial). On ndarray master `vsexp` returns 1.7e38 for +inf, halves every result above x ≈ 88.38 and returns ~1.2e-38 for −inf (fixed in AdaWorldAPI/ndarray#368, open). Exact and approximate stay separate, so these would need an explicitly named approximate surface with ULP bounds. |
 | `ReduceSum` (float) | `ArrayBase::sum` | it reassociates (`unrolled_fold`). That is allowed under ONNX tolerance but is not bit-identical to sequential order, so the tolerance contract has to be stated first. |
 | `ReduceMin`/`ReduceMax` of a masked population | `masked_min_i32`/`masked_max_i32` | the empty-population result is undecided (ONNX ReduceMin over an empty set is ±inf for floats and undefined for ints) |
 | comparisons on u64 | `{lt,le,gt,ge}_u64_to_mask` | ONNX has no unsigned-64 compare-with-scalar distinct from int64; needs a dtype decision |
@@ -116,7 +116,7 @@ The old 50 ns target does not apply to aliases. An alias's cost is the native fu
 
 ## 6. Proposed (not implemented)
 
-- An ndarray owner fix for `vml::vsneg` (+0) and `vml::vsexp` (+inf). After that, `Neg` could become an ALIAS.
+- An ndarray owner fix for `vml::vsneg` (+0) and `vml::vsexp` (±inf, overflow halving): AdaWorldAPI/ndarray#368, open. After it lands, `Neg` could become an ALIAS.
 - A native unmasked `i32 → i64` sum in `ndarray::simd`, so that `ReduceSum::sum_i32` becomes a direct call.
 - The NATIVE rows in §2, each with its open decision named.
 - `#1752` `onnx_compat` stays as the independent probe. This crate is the facade, and #1752's measurements are kept as the diagnostic baseline.
