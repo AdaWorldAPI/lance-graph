@@ -31,6 +31,11 @@
 //! cannot clear with 3–9 observations. The rule is killed by vacuity, and
 //! `preregistered_interval_margin_is_vacuous` pins that.
 //!
+//! CORRECTION (codex review of #1724): π is estimated from the same blocks
+//! being resampled, so it is refitted inside every bootstrap draw. With that,
+//! the post-hoc gain is 0.0242 [−0.0062, 0.0552]: the interval includes 0 and
+//! the kill fires. The earlier [0.0079, 0.0409] held π fixed.
+//!
 //! POST-HOC arm (b′), declared after that run and before any other: the
 //! margin is on evidence counted once — the top candidate needs at least 2
 //! more distinct sources than the runner-up. The other two conditions are
@@ -224,6 +229,19 @@ fn base_rate(os: &[Outcome], parity: usize) -> f64 {
     other.iter().map(|o| o.y_a).sum::<f64>() / other.len() as f64
 }
 
+/// The same base rate refitted on the drawn blocks (with multiplicity), so a
+/// bootstrap interval carries the base rate's own estimation error.
+fn base_rate_in(os: &[Outcome], blocks: &[usize], parity: usize) -> f64 {
+    let (mut s, mut n) = (0.0_f64, 0.0_f64);
+    for &blk in blocks.iter().filter(|&&b| b % 2 != parity) {
+        for o in os.iter().filter(|o| o.block == blk) {
+            s += o.y_a;
+            n += 1.0;
+        }
+    }
+    s / n.max(1.0)
+}
+
 fn brier_diff(os: &[Outcome], blocks: &[usize], pi: [f64; 2]) -> f64 {
     let (mut a, mut b, mut n) = (0.0, 0.0, 0.0);
     for &blk in blocks {
@@ -312,21 +330,31 @@ fn preregistered_interval_margin_is_vacuous() {
 }
 
 #[test]
-fn gate_beats_always_answer_on_brier_with_a_block_interval() {
+/// Codex review of #1724: with π refitted inside every bootstrap draw (π is
+/// estimated from the same blocks), the interval includes 0. The post-hoc
+/// gate therefore does NOT clear the kill condition; this pins that. The
+/// earlier fixed-π interval [0.0079, 0.0409] omitted π's estimation error.
+fn post_hoc_gate_gain_is_not_established() {
     let os = evaluate(&world(), Margin::Sources);
     let coverage = os.iter().filter(|o| o.answered).count() as f64 / os.len() as f64;
     let acc_a = os.iter().map(|o| o.y_a).sum::<f64>() / os.len() as f64;
     let pi = [base_rate(&os, 0), base_rate(&os, 1)];
-    let (d, lo, hi) = block_ci(|b| brier_diff(&os, b, pi));
+    let (_, flo, fhi) = block_ci(|b| brier_diff(&os, b, pi));
+    let (d, lo, hi) =
+        block_ci(|b| brier_diff(&os, b, [base_rate_in(&os, b, 0), base_rate_in(&os, b, 1)]));
     println!(
         "coverage {coverage:.3}, always-answer accuracy {acc_a:.3}, pi {pi:.3?}, \
-         Brier(a)-Brier(b) {d:.4} [{lo:.4}, {hi:.4}]"
+         Brier(a)-Brier(b) {d:.4}, refitted-pi interval [{lo:.4}, {hi:.4}] \
+         (fixed-pi interval [{flo:.4}, {fhi:.4}], which omits pi's error)"
     );
     assert!(
         (0.2..0.95).contains(&coverage),
         "gate is vacuous: coverage {coverage}"
     );
-    assert!(d >= 0.02 && lo > 0.0, "kill: gain {d} [{lo}, {hi}]");
+    assert!(
+        lo <= 0.0,
+        "the gain is now established: {d} [{lo}, {hi}] — re-pin P-D4"
+    );
 }
 
 #[test]
