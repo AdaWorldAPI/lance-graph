@@ -1,3 +1,7 @@
+## 2026-10-23 — d-onnx-relalg-cap-v1 — ONNX intake onto existing lance-graph surfaces (capstone S0) → `.claude/plans/d-onnx-relalg-cap-v1.md`
+
+**Status:** PROPOSAL, S0 docs only; nothing implemented. The pipeline "ONNX graph → RelAlg polyfill → Cartesian projection → native execution" is false as stated: relalg is a single-table integer selection with Count/Sum/Min/Max/Keep, so it receives only the integer selection/aggregate island; numeric ops route to existing ndarray kernels; Gather/Scatter, control flow and `ai.onnx.ml` are typed refusals. The ONNX `ModelProto` stays the only graph (D-RA-2 = A; no new AST, primitive or executor). The original DR64³ master plan was not found on `main` or 833 branches and is recorded as an OPEN documentation dependency. S1 is blocked on the operator naming one target model and the protobuf fork coordinates. Entry `2026-10-23-d-onnx-relalg-cap-s0.md`.
+
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.

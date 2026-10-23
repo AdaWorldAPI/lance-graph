@@ -284,7 +284,7 @@ deduplicated set where MeTTa returns a bag.
 
 After X15, `dr-math-binding-probe` admits a recipe only through an opaque `RecipeCertificate` that a certified compiler issues; none exists, so every admission ends in `NoCertifiedCompiler` (`entries/2026-10-22-coresearch-drmc-stack.md` § Applied, #1703). The boundary needs three parts: a typed relational statement language over ClassView domains, egglog laws over it whose proofs a checker independent of the producer re-checks, and a check that the lowering preserves the statement. First law: associativity of Boolean relation composition, already measured as a probe (D-DRMC-5, #1707: 14 orders, one relation). Kill: the statement language cannot type the composition D-DRMC-5 already runs. Scope question for the operator: how far the boundary goes (LEDGER-REVISION-2026-10-23e Q2).
 **Fruit:** Heavy
-**Status:** Open
+**Status:** Open — amended 2026-10-23 (D-ONNX-RELALG-CAP S0): "none exists" is stale for one law. `relcomp::certify_reassociation` issues a `RecipeCertificate` for associativity of Boolean-Distinct composition over a DR64 chain (#1707), and L1 executed such certificates on fresh frames (#1740, `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`). The single-operand recipe path still ends in `NoCertifiedCompiler`. Still open: a checker independent of egglog (none exists; egglog checks its own proof internally), a law token that selects rewrites, laws beyond associativity, rebinding beyond the same shape, and the typed statement language.
 
 ## 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18
 
@@ -292,7 +292,7 @@ After X15, `dr-math-binding-probe` admits a recipe only through an opaque `Recip
 
 Pre-registered in `entries/2026-10-22-coresearch-drmc-stack.md`, none run. X6: `validity: None` must refuse or report `Unattested`, never silently mean all-known. X7: a compile-fail test that no `PopulationReport` → premise conversion exists. X8: two certified bindings for one key (today the first falls back). X16: a law found on class 1 must not reach class 22 (2 counterexamples) unchecked. X18: a census may veto ACT-R eligibility, never qualify it. Each is one falsifier on an existing crate; X6, X7 and X18 are the cheapest.
 **Fruit:** High-signal
-**Status:** Open
+**Status:** Open — amended 2026-10-23: X8 is partially measured. L1 (#1740) keyed a certified recipe on its semantics and guarded the binding on each run, reusing it on fresh frames with refusals for a wrong ABI, another order and another chain. X8's own falsifier (two certified bindings for one key in `egglog-r2il-probe`, where the first falls back today) was not run. X6, X7, X16 and X18 remain unrun.
 
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
