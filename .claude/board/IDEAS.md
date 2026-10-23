@@ -87,6 +87,120 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — A certificate replaces the deltas: lane 0 keeps the delta, a receipt or seal, and in time a proof reference — never the operations
+
+`[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGA-5 D-TGB-4 D-TGB-7 D-DRMC D-CGW-4]`
+
+Operator direction (provenance): lane 0 is main, 1..63 are thoughts, and each
+lane may run on the order of 10^6 operations. Written with session 01G22yT6's
+mapping (EXO-50, 2026-10-23).
+
+**Storage arithmetic, not a measurement.** 64 lanes × 10^6 operations is
+6.4·10^7 deltas per cycle: 1–2 GB at 16–32 bytes each, or 33 GB at 512-byte
+rows. A few cycles a minute reaches terabytes within hours. A receipt per
+landed thought is about 64 × ~100 bytes per cycle. So deltas stay in RAM and
+die at squash; only the squashed delta, receipts and seals reach disk.
+
+**What exists.**
+- **D-TGB-4** (#1674, EXO-58 done) replaces history with a receipt. It
+  proves only the replay half, not admissibility.
+- **egglog** checks a proof for every admissible solution.
+- **DR64** refuses every recipe with `NoCertifiedCompiler`. That is the
+  certified-compiler-boundary row below, and its scope is the operator's call.
+- **The joint replay** (proof + receipt + lane read) is the 2026-10-23 IDEAS
+  row below.
+- **The causal verdict** is computed (`pearl.rs:259`) but promotes nothing
+  (ISS-D-CGW-4-PROMOTION-GATE).
+
+**The rungs.**
+1. **The gate:** squash every chain of origin into the most-updated lane,
+   refusing on contradiction or divergence, with blame kept over lanes.
+   MEASURED in `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`:
+   landing the squash equals landing the finals, and the delta stays N
+   cells while the history grows k·N. Update count is activity, not
+   insight, so the target choice is only a tie-free rule. Correctness comes
+   from the gate.
+2. **The determinism falsifier** (01G22yT6). The receipt replaces the
+   history only if every lane is deterministic given its seeds. Inject one
+   nondeterministic read (an outside read, thread timing) into the D-TGB-4
+   replay test. The replay must refuse, not reproduce different writes
+   silently.
+3. **Promotion at squash time.** CE64 bits 59..63 advance (correlation →
+   causality, MUL-calibrated rather than overconfident) only when the
+   squash is contradiction-free and blame shows independent lanes
+   (EXO-138's stamp condition).
+4. **Compiled thought.** An egglog / eggcc certificate replaces the order
+   list. Lane 0 then stores the delta plus a seal that points at the
+   certificate, and a certified thought is reusable by reference.
+
+**Outside grounding: the accumulation as a large Markov chain** (operator,
+2026-10-23). Source: Bittracher & Schütte, "A probabilistic algorithm for
+aggregating vastly undersampled large Markov chains", *Physica D* 416
+(2021) 132799,
+https://publications.imp.fu-berlin.de/2614/1/1-s2.0-S016727891930764X-main.pdf.
+The grades are per claim.
+
+- **[G] within the paper's assumptions (Def. 2.1, Lemma 2.3).**
+  - *Lumpable*: the probability of moving into an aggregate depends only on
+    the starting state's aggregate.
+  - *Deflatable*: within an aggregate, the end state is drawn independently
+    of where the chain came from.
+  - A chain that is both is *aggregatable*. Its N×N matrix then has exactly
+    R distinct columns, so it has rank R, and it equals
+    `P = Π · P̂ · Λ`.
+- **[G] (Alg. 3.1, Eq. 18).**
+  - Sample J columns, take an SVD and read the aggregates off the sign
+    pattern of the leading R left singular vectors (spectral clustering,
+    PCCA+ or SEBA).
+  - J depends only on R and the confidence p, never on N. With equal-sized
+    aggregates, recomputed here: R = 8 needs J = 51 for p = 0.99, R = 10
+    needs J = 66, and R = 16 needs J = 115.
+- **[G] (Prop. 3.9, Thm. 2.10).**
+  - The reduced matrix is recovered from the sampled columns alone:
+    `P̂ = Λ · P_K · Λᵀ_K · K⁻¹`.
+  - For an ε-almost aggregatable P, the L1 error is ≤ 4ε, also independent
+    of N.
+- **[H] mapping to thought-git.**
+  - The 64 × 10^6 operations are the trajectory of one large chain over
+    cell states. Each lane's run is an expensive sample from its starting
+    state.
+  - A knowledge-preserving squash is an aggregation. Lane 0 would store the
+    partition Ω, the R×R matrix P̂ and the in-aggregate distributions π: the
+    certificate is P̂, not the operations.
+  - With the 63 thought lanes as J = 63 column samples, recomputed with
+    Eq. 18: R ≤ 10 aggregates are recovered with p ≥ 0.987, R = 12 with
+    0.951, and R = 16 with only 0.758.
+  - The 4ε bound gives the squash gate a quantitative tolerance where it now
+    has a yes/no refusal.
+- **[H] where the mapping can break.** Each item is a falsifier, not an
+  assumption.
+  1. The paper's chain is time-homogeneous. Thought lanes are not, and the
+     aggregated process is in general non-homogeneous (paper §2).
+  2. Lanes are chosen thoughts, not uniform independent column draws, so
+     Eq. 18's p does not hold for them as written.
+  3. Deflatability is a strong extra condition, and nothing yet says
+     thought transitions satisfy it.
+  4. SVD / PCCA+ is a floating-point clustering step. It belongs only on the
+     cold, out-of-fold path (CLAUDE.md, the no-ms scoped exception), never
+     per query.
+- **Ties.** This is the stochastic form of EXO-132's lumpability, the
+  distinction GPT /08 asked for: almost-lumpability in L1, not deterministic
+  congruence.
+- ⊘ **Superseded 2026-10-23 (same day).** DECISION (operator): the substrate
+  is not probabilistic; a probabilistic model is a counterfactual that the
+  egglog/eggcc compiler must certify. The certificate is a checked proof, not
+  P̂, and the 64 × 10^6 folds are compilation material, not samples. The block
+  above is kept as the record of a withdrawn framing; see
+  `entries/2026-10-23-coresearch-thought-git-markov.md` § Correction.
+
+**Next probe:** rung 2, which is cheapest and guards the whole storage
+argument. **Kill:** a lane that is deterministic given its seeds cannot be
+defined for the planned writers (outside reads are essential). In that case
+receipts cannot replace deltas, and the arithmetic above stands against the
+design.
+
+**Fruit:** High-signal
+**Status:** Open.
 ## 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that
 
 `[P2 @palette-engineer @truth-architect domain:codec/palette]`
