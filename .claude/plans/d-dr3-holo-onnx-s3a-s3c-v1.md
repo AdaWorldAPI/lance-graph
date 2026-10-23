@@ -134,3 +134,13 @@ Keep three distinct notions:
 - Out-of-focus numerical contributions must expand/fallback/refuse even when the cached palette assignment appears complete.
 
 **P0 coordination:** three competing S0 docs #1744/#1745/#1750 need EXO-50 owner decision. This branch changes no CausalEdge64/DR ABI or other owners' code. #1749 owns the companion reuse-and-cache-admission research plan.
+
+---
+
+## 2026-10-23 Optimum relationship (#1751): DR focus is optional for one-layer numerical compilation
+
+Separate [PR #1751](https://github.com/AdaWorldAPI/lance-graph/pull/1751) proposes offline Optimum ONNX export and an existing BGZ/ndarray compiled linear candidate. **This work does not require a DR64³ or DR256³ implementation.** DR global-to-local focus remains an optional later physical view, only for operations with a witnessed relational/support dependency.
+
+If a future Optimum-compiled BGZ sidecar is eligible for DR-assisted execution, ClassView/DR must verify source-issued model/layer/weight/codebook identity and coordinate/frame/focus/scope ownership. Neither tensor initializer names nor shape-matching palette cache entries are sufficient witnesses. Do not turn a palette-code index into a cross-table positional gather or conflate it with the identity axis.
+
+This is a dependency clarification, **not** DR implementation authorization or a claim of numerical parity. Current S0 conflict #1744/#1745/#1750 persists.
