@@ -90,3 +90,11 @@ An ONNX `Gather` may be unsupported in our *native* binder due to ADMISSION B, b
 - VS5: Claiming compatibility based on parser success or custom-domain serialization (evidence failure).
 
 Gate remains documentation-only: operator chooses value dispatch and delegated-mode governance; implementation is separately authorized, and #1744/#1745 S0 conflict resolved before shared capstone merge.
+
+### Delegation sequencing safeguard (review refinement)
+Do **not** assume that splitting one ONNX GraphProto across native and external runtimes can be done without a new scheduler. Evaluate in this order:
+1. **Whole-model delegated fallback**: preserve the imported graph unchanged and execute it in an explicitly authorized established ONNX backend when STRICT_NATIVE refuses, with model-level security/version/numerical checks. This avoids inventing a mixed graph executor.
+2. **Mixed subgraph delegation**: only if a source-verified existing scheduling/partition bridge already meets ordering, data transfer, intermediate lifetime, scope and control-flow constraints. Otherwise keep it OPEN, not promised.
+3. Measure the overhead of both, including complete model input/output conversions, before treating partial native acceleration as useful.
+
+STRICT_NATIVE remains the only initial native S1 acceptance target. Neither delegation proposal authorizes an ONNX interpreter or scheduler in lance-graph.
