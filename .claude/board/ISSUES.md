@@ -34,7 +34,7 @@
 
 ## ISS-D-CGW-4-PROMOTION-GATE — the counterfactual verdict is computed but promotes nothing (2026-10-23)
 
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-planner/src/pearl.rs:259-263` `counterfactual_verdict()` calls `Reaction::verdict`; callers found only in `pearl.rs` tests `:747-815`; STATUS_BOARD row D-CGW-4 Queued).
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-planner/src/pearl.rs:259-263` `counterfactual_verdict` calls `Reaction::verdict`; callers found only in `pearl.rs` tests `:747-815`; STATUS_BOARD row D-CGW-4 Queued).
 **Fruit:** High-signal
 
 - D-CGW-4: `CausalCandidate` → `Causes` only with `IncreaseEligible` ∧ `Necessary`. The verdict exists; the promotion gate does not.
