@@ -1,15 +1,25 @@
 ## D-ONNX-CAP — ONNX intake onto existing lance-graph surfaces (2026-10-23)
 
-PROPOSAL, docs only. Plan `.claude/plans/d-onnx-relalg-cap-v1.md`; entry `entries/2026-10-23-d-onnx-relalg-cap-s0.md`. ONNX `ModelProto` stays the only graph; relalg receives only the integer selection/aggregate island; no new primitive, AST or executor.
+PROPOSAL, docs only. Plan `.claude/plans/d-onnx-relalg-cap-capstone-1750-v1.md`; entry `entries/2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md` (#1750; #1744's S0 below kept the base path). ONNX `ModelProto` stays the only graph; relalg receives only the integer selection/aggregate island; no new primitive, AST or executor.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-ONNX-CAP-S0** | announcement, corrected routing, coverage matrix (opset 28, 226 names), open points, housekeeping | In PR (this branch) | no claim of "ONNX-compatible", float certification or DR64³ existence |
+| **D-ONNX-CAP-S0** | announcement, corrected routing, coverage matrix (opset 28, 226 names), open points, housekeeping | Shipped (docs, #1750) | no claim of "ONNX-compatible", float certification or DR64³ existence |
 | **D-ONNX-CAP-S1** | standalone probe crate: decode `onnx.proto` (v1.23.2), classify every node or refuse it with a typed reason | Blocked (operator: one target model; protobuf fork coordinates). ⊘ D-NFC A2 (#1753): this is the optional external-file conformance adapter; it blocks no native work | every node of the target model gets a route or a typed refusal; none silently dropped |
 | **D-ONNX-CAP-S2** | integer island through existing relalg + one nonlinear op on an existing ndarray kernel | Queued (after S1) | island answers equal an independent reference; float ops measured, never certified |
 | **D-ONNX-CAP-S3** | DR64³ lab probe over the existing R∘S chain; DR256³ separate | Blocked (original DR64³ plan not found; OPEN doc dependency) | no new identity, no CausalEdge64 change |
 | **D-ONNX-CAP-S4** | Palette256 + cognitive methods as typed methods | Queued | not claimed as equivalence |
 | **D-ONNX-CAP-S5** | export + native codegen evaluation | Queued | LLVM/JIT documented only; separate decisions |
+
+## D-ONNX-RELALG-CAP — ONNX as import membrane (2026-10-23)
+
+Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-0** | S0 capstone plan, coverage matrix, open-points register OP-ONNX-1..14 | In PR (docs only) | consistent with code at `59538865`; no DR64³ claim |
+| **D-ONNX-1** | S1 intake probe: ONNX-subset reader with typed refusals; Boolean/compare/reduce fragment onto relalg | Queued (not authorized) | onnxruntime differential (a test, not a proof); waits on OP-ONNX-1, OP-ONNX-2 |
+| **D-ONNX-3** | S3 DR64³ R1/R2 contraction probe (new proposal) | Queued (not authorized) | four arms bit-exact; waits on OP-ONNX-4 |
 
 ## D-DRMC — DR × math binding probe, law frontier (2026-10-23)
 
@@ -407,8 +417,8 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGA-2** | Read plane R and status | Queued | a read outside R is never reported stale |
 | **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1, including a deletion in main (retract then re-derive); disables: no stale re-run, no conflict check, no retraction |
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |
-| **D-TGA-5** | squash_into (partial squash) and blame | Shipped (lab, #1736: `crates/thought-git-probe/src/squash.rs` + `tests/squash_gate.rs`, `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`; most-updated target, contradiction/divergence gate, blame over lanes, P8 Commit-only, 6 disables red) | blame returns original sources after slot reuse (slot reuse not yet covered) |
-| **D-TGA-5D** | Probe D: protected readers of a squash (Final / Intermediate / Contradictions / Divergences / Multiplicity) | In PR (lab: `tests/protected_readers.rs`, `entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`; 7 tests, 5 disables red) | a protected reader the retained data cannot answer refuses the squash; intermediate reads are never retainable |
+| **D-TGA-5** | squash_into (partial squash) and blame | Shipped (lab, #1736: `crates/thought-git-probe/tests/squash_gate.rs`; the gate moved into `src/squash.rs` in #1739; `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`; most-updated target, contradiction/divergence gate, blame over lanes, P8 Commit-only, 6 disables red) | blame returns original sources after slot reuse (slot reuse not yet covered) |
+| **D-TGA-5D** | Probe D: protected readers of a squash (Final / Intermediate / Contradictions / Divergences / Multiplicity) | Shipped (lab, #1739 merged `9a458cae`: `crates/thought-git-probe/src/squash.rs` + `tests/protected_readers.rs`, `entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`; 7 tests, 5 disables red) | a protected reader the retained data cannot answer refuses the squash; intermediate reads are never retainable |
 | **D-TGA-6** | MergeQueue | Queued | independent thoughts == landed by hand in FIFO order; a thought reading another negated lands after it; a cycle through negation refused at enqueue |
 | **D-TGB-0** | thought git basics: fixtures per write-intention outcome, squash-stack and anomaly fixtures, absent-not-zero fixture, from-scratch oracle (`thought-git-basics-v1.md`) | Shipped (lab, #1630; probe `crates/thought-git-probe`, 19 tests; `PREREGISTRATION.md`) | 5 oracle disables verified red-then-green; every signal has a can-fire and a can-stay-silent case on real contract code; the pearl half on edges moves to D-TGB-3 |
 | **D-TGB-1** | slot pool, autonomous: taken by `branch`, freed by `squash`/`discard`/`land` (the write is the Rubicon decision, 2026-10-20) | Shipped (lab, #1630/#1631; `crates/thought-git-probe/src/slots.rs`). Slot pool only: no production land, rebase or persistence (D-TGB-2..5 Queued) | at 63 taken `branch` picks a FIFO or least-used candidate, squashes it along its dependency chain if it has one, else evicts it (DECISIONS 2026-10-20; was: squash unremarkable first, else refuse); stale handles refused; 6 tests |
