@@ -18,9 +18,9 @@ _none open_
 | High-signal | 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that | Open | `IDEAS.md` |
 | High-signal | 2026-10-23 — One replay that checks proof, receipt and commit witness together | Open. | `IDEAS.md` |
 | High-signal | 2026-10-23 — OGAR #357's first kill test (TLAC-P01) is now buildable from real guards | Open. | `IDEAS.md` |
-| High-signal | 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18 | Open | `IDEAS.md` |
+| High-signal | 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18 | Open — amended 2026-10-23: X8 is partially measured. L1 (#1740) keyed a certified recipe on its semantics and guarded the binding on each run, reusing it on fresh frames with refusals for a wrong ABI, another order and another chain. X8's own falsifier (two certified bindings for one key in `egglog-r2il-probe`, where the first falls back today) was not run. X6, X7, X16 and X18 remain unrun. | `IDEAS.md` |
 | Low-hanging | 2026-10-23 — The MeTTa four-binding case can run against the D-MPS-9 oracle | Open. | `IDEAS.md` |
-| Heavy | 2026-10-23 — A certified-compiler boundary for DR64: typed relational statements, egglog laws with checked proofs, a lowering check | Open | `IDEAS.md` |
+| Heavy | 2026-10-23 — A certified-compiler boundary for DR64: typed relational statements, egglog laws with checked proofs, a lowering check | Open — amended 2026-10-23 (D-ONNX-RELALG-CAP S0): "none exists" is stale for one law. `relcomp::certify_reassociation` issues a `RecipeCertificate` for associativity of Boolean-Distinct composition over a DR64 chain (#1707), and L1 executed such certificates on fresh frames (#1740, `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`). The single-operand recipe path still ends in `NoCertifiedCompiler`. Still open: a checker independent of egglog (none exists; egglog checks its own proof internally), a law token that selects rewrites, laws beyond associativity, rebinding beyond the same shape, and the typed statement language. | `IDEAS.md` |
 
 ## engineering debt
 
