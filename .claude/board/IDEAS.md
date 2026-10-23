@@ -87,6 +87,22 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — A certified-compiler boundary for DR64: typed relational statements, egglog laws with checked proofs, a lowering check
+
+`[P2 domain:dr-math D-DRMC]`
+
+After X15, `dr-math-binding-probe` admits a recipe only through an opaque `RecipeCertificate` that a certified compiler issues; none exists, so every admission ends in `NoCertifiedCompiler` (`entries/2026-10-22-coresearch-drmc-stack.md` § Applied, #1703). The boundary needs three parts: a typed relational statement language over ClassView domains, egglog laws over it whose proofs a checker independent of the producer re-checks, and a check that the lowering preserves the statement. First law: associativity of Boolean relation composition, already measured as a probe (D-DRMC-5, #1707: 14 orders, one relation). Kill: the statement language cannot type the composition D-DRMC-5 already runs. Scope question for the operator: how far the boundary goes (LEDGER-REVISION-2026-10-23e Q2).
+**Fruit:** Heavy
+**Status:** Open
+
+## 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18
+
+`[P1 domain:dr-math D-DRMC]`
+
+Pre-registered in `entries/2026-10-22-coresearch-drmc-stack.md`, none run. X6: `validity: None` must refuse or report `Unattested`, never silently mean all-known. X7: a compile-fail test that no `PopulationReport` → premise conversion exists. X8: two certified bindings for one key (today the first falls back). X16: a law found on class 1 must not reach class 22 (2 counterexamples) unchecked. X18: a census may veto ACT-R eligibility, never qualify it. Each is one falsifier on an existing crate; X6, X7 and X18 are the cheapest.
+**Fruit:** High-signal
+**Status:** Open
+
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
 `[P1 @simd-savant @kernel-membrane-warden @layer-boundary-warden domain:medcare/mask D-NXG-2 D-NXG-12]`
