@@ -144,3 +144,44 @@ At 64 rows the 172 ns split as: ndarray floor 39 (memset, 4 compares, the bit wa
 - **Per call:** mask-risc adds ~50–100 ns over ndarray, and the R2IL polyfill adds another ~55–90 ns plus one allocation. Both costs are fixed: at 4 096 rows they shrink to tens of ns, and at 65 536 rows they are inside run-to-run noise. The polyfill layers cost per call, not per row.
 - **Per row:** count is the one fold where the ndarray path beats the scalar loop (~0.08 vs ~0.15 ns/row, `popcount_batch_u64`). For sum the ndarray path is ~3× slower than the scalar loop (the bit walk, §7). For min and max it matches the scalar loop, which does not vectorize them either (~0.45–0.5 ns/row).
 - **Exists is not equal work:** the scalar loop stops at the first hit (row 4 here), so it takes 6 ns at every size. All three layers build the whole mask first. That is an algorithmic difference, not overhead: a fused predicate + `Any` that stops at the first non-empty tile would close it. Proposal only.
+
+## 9. D-MPF-3 (lab) — hybrid masked sum and mask reuse
+
+`examples/hybrid.rs`, two runs, 65 536 rows unless stated, ns per call. Every arm is checked against an `i128` oracle at every configuration. Nothing in ndarray or R2IL was changed. A winning body is a proposal for the `ndarray::simd` owner, approved separately.
+
+**Hybrid sum.** Per mask word, three cases:
+- an empty word is skipped;
+- a word with at most `th` set bits uses the bit walk (the current `masked_sum_i32` body);
+- a denser word is summed branch-free over all 64 lanes.
+
+Two mask shapes at the same density: `uniform` (independent bits) and `clustered` (whole words set or clear).
+
+| mask | density | ndarray walk | hybrid th=16 | branch-free only (th=0) |
+|---|---:|---:|---:|---:|
+| uniform | 1 % | 1 408–2 377 | 1 485–2 281 | 5 373–5 607 |
+| uniform | 10 % | 12 124–12 325 | 5 538–5 891 | 11 450–12 762 |
+| uniform | 50 % | 32 893–39 806 | 11 533–11 726 | 11 660–12 745 |
+| uniform | 100 % | 42 732–44 840 | 11 708–12 334 | 12 130–12 477 |
+| clustered | 10 % | 6 505–7 015 | 1 361–1 436 | 1 355–1 424 |
+| clustered | 50 % | 25 445–25 887 | 5 424–6 925 | 5 852–6 763 |
+
+- `th = 16` matches or beats the walk at every density measured: ~2× at 10 %, ~3× at 50 %, ~3.7× at 100 % (uniform), 4–5× on clustered masks.
+- Branch-free alone loses 2–4× on sparse uniform masks, so the walk has to stay for sparse words.
+- The threshold is flat between 8 and 32, so it is not a sensitive knob.
+- `masked_min_i32` / `masked_max_i32` use the same walk (`masked_fold_i32`, "cost proportional to the popcount") and are the next candidates.
+
+**Mask reuse across count, sum, min and max of `x > t`.**
+
+| rows | selected | recompute ×4 | reuse | reuse + hybrid(16) | fused scalar loop |
+|---:|---:|---:|---:|---:|---:|
+| 64 | 3 | 84–85 | 29–30 | 29–30 | 19–20 |
+| 64 | 28 | 132–137 | 85–89 | 74–76 | 19–20 |
+| 4 096 | 196 | 1 707–1 778 | 855–872 | 905–910 | 907–926 |
+| 4 096 | 2 035 | 5 515–5 586 | 4 783–5 119 | 3 978–5 501 | 965–996 |
+| 65 536 | 3 239 | 30 415–51 405 | 15 624–16 224 | 15 174–24 062 | 15 583–18 176 |
+| 65 536 | 32 925 | 120 471–145 908 | 95 255–97 732 | 94 472–98 539 | 15 605–15 792 |
+
+- Reusing one mask removes the repeated compares: about 2× when sparse and ~20–30 % when dense.
+- At ~5 % selected, the reused mask matches a fused scalar loop. At 50 % selected, the fused loop is ~6× faster, because min and max still walk every set bit.
+- The mask form pays off when the selection is sparse or the reductions are bit-only (count). With dense selections and several value reductions, a fused pass wins until min and max get the same hybrid treatment.
+- OPEN: hybrid min/max; a fused mask-then-multi-reduce terminal; the ndarray owner's call on adopting any body.
