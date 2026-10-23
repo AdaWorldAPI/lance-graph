@@ -110,6 +110,8 @@ What the PRs already got right, and is kept unchanged: no new AST or graph forma
 
 ## 6. S0 reconciliation proposal (owner-facing, not a decision)
 
+> ⊘ **Outcome (2026-10-23).** The operator merged #1744 and ordered #1745–#1754 merged. #1744's S0 therefore keeps `.claude/plans/d-onnx-relalg-cap-v1.md`. #1750's and #1745's texts, which wrote the same path, were moved unchanged to `d-onnx-relalg-cap-capstone-1750-v1.md` and `d-onnx-relalg-cap-convergence-1745-v1.md`, each with a path note. Where the three S0 documents disagree, this correction governs. The proposal below is kept as written; its "disputed" wording describes the state before that decision.
+
 The three S0 drafts agree on more than they disagree: no new AST, typed refusals, relalg stays narrow, numerics stay in ndarray. They disagree on who owns the capstone, and all three take A1 and A2 as given. Proposal:
 
 1. Each owner adopts §1 and §2 by reference, through a marked supersession note on their own branch, and leaves the rest of their draft unchanged.
