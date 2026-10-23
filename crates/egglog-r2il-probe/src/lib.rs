@@ -15,7 +15,7 @@
 //!    first under its default AST-size cost, with every non-target variable a
 //!    `Def` priced at 1000 ([`encode::HEADER`]). The answer is the cheapest
 //!    variant that is not the goal's own name. egglog checks every proof it
-//!    returns.
+//!    returns, with its own checker (not an independent check).
 //! 4. [`lower`] turns the term into calls on the EXISTING R2IL scalar
 //!    arithmetic (`INT_MULT` through `FoldDialect`); no new opcode.
 //! 5. [`oracle`] recomputes the answer in `i128` from the original premises,

@@ -6,7 +6,8 @@
 //! mathematical shape can potentially be reused across ClassViews.
 //!
 //! Authority is split, and none of it sits here:
-//! - egglog derives equivalences from admitted laws and checks its own proofs;
+//! - egglog derives equivalences from admitted laws and checks its own proofs
+//!   (egglog's checker, not an independent one);
 //! - law admission owns the assumptions a law holds under (a finite-population
 //!   report never admits a law);
 //! - a certified-compiler boundary, after both of those and a lowering check,
@@ -80,7 +81,10 @@ pub struct CompiledReference {
 /// use dr_math_binding_probe::recipe::RecipeCertificate;
 /// let forged = RecipeCertificate { law: todo!(), compiled: todo!(), source_digest: [0; 32], program: vec![], proof: todo!() };
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// Not `PartialEq`: egglog's proof arena has no equality, and two proofs of
+/// one equation need not be the same proof.
+#[derive(Clone, Debug)]
 pub struct RecipeCertificate {
     law: LawReference,
     compiled: CompiledReference,
@@ -91,7 +95,8 @@ pub struct RecipeCertificate {
     /// The checked step list `compiled.compiled_digest` names, kept so a
     /// reuse runs the program without searching for it or re-lowering.
     program: Vec<crate::relcomp::Step>,
-    proof: String,
+    /// egglog's proof object, not a rendering or a digest of it.
+    proof: crate::relcomp::EggProof,
 }
 
 impl RecipeCertificate {
@@ -102,7 +107,7 @@ impl RecipeCertificate {
         compiled: CompiledReference,
         source_digest: [u8; 32],
         program: Vec<crate::relcomp::Step>,
-        proof: String,
+        proof: crate::relcomp::EggProof,
     ) -> Self {
         Self {
             law,
@@ -123,8 +128,8 @@ impl RecipeCertificate {
         &self.source_digest
     }
 
-    /// The checked proof the certifier was given (egglog's rendering).
-    pub fn proof(&self) -> &str {
+    /// The proof the certifier was given, as egglog's own object.
+    pub fn proof(&self) -> &crate::relcomp::EggProof {
         &self.proof
     }
 
