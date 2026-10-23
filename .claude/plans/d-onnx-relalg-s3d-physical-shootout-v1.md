@@ -170,3 +170,21 @@ F-P22: claiming CI-gated palette parity when `bgz-tensor` integration tests are 
 `AdaWorldAPI/ndarray/crates/burn/src/ops/matmul.rs` and `src/hpc/vml.rs`; lance-graph `crates/bgz-tensor/src/{attention.rs,fisher_z.rs,palette.rs}`, `crates/helix/src/distance.rs`, `crates/bgz17/src/lib.rs`; ndarray #42/#100; lance-graph #1726/#1731; Linear EXO-137/EXO-139.
 
 **S3d gate revision:** a three-arm exact comparison still tests the Tensor/DR/Hybrid thesis. An additional P-arm is a *reuse benchmark* only under separately admitted model-specific accuracy/quality semantics. No unguarded Burn compiled interception may be promoted as generic ONNX transparent MatMul.
+
+---
+
+## 2026-10-23 offline workload/quality generator (#1751)
+
+[PR #1751](https://github.com/AdaWorldAPI/lance-graph/pull/1751) introduces an **independent, documentation-only** Optimum model export/calibration/sidecar research plan. Its eventual pinned one-layer BERT fixture should supply the first **real numerical MatMul** reference and source/weight/codebook provenance. Do not create another Optimum adapter inside S3d; this PR owns only differential physical-plan benchmarking and crossover.
+
+**Updated benchmark scope:**
+- Retain exact/numerically governed T/D/H, with comparable original inputs and full tensor numerical reference, zero-copy/DR admission where legal.
+- Optional P is a *separate approximate quality frontier*, for existing BGZ/ndarray `CompiledLinear` or `CompiledAttention` only after #1749 identity-safe admission. A 256² lookup is **not** evidence of exact ONNX MatMul.
+- Reuse Optimum's source-to-ONNX reference validation and source model revision, but run an **independent extra compiled-layer oracle**; validate whole-model quality where meaningful, not only per-layer output.
+- Count once-only export, codebook build, calibration data prep, embedding/assignment serialization and native bind cost. Report per-call runtime and N-call amortization **separately** so offline work is neither hidden nor charged to every call incorrectly.
+- Compare version-pinned optimizer-off versus optimized export separately: fusions may alter graph/node identity and tensor operators.
+- S3d no longer promises to develop palette quantizers, compiled linear routines or a new NEON frontend. The experiment tests existing methods and crossover.
+
+**Falsifier:** a physical plan wins on mean execution latency while failing model-layer binding, held-out numerical quality, exact declared ONNX semantics or reproducibility. Such a plan is ineligible regardless of speed. S3d requires #1746 semantic intake + #1749 compiled-method admission; #1751 supplies optional offline fixtures but doesn't remove these gates.
+
+No benchmarks run in this documentation amendment.
