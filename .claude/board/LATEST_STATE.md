@@ -1,3 +1,8 @@
+## 2026-10-23 — main after #1741 (merged `59538865`)
+
+- **On main since #1725:** Palette256 compose and learned-LUT probes (#1726, #1731), the BREADCRUMBS / TORQUE / GOLDSTAUB ledgers and `fruits_index.py` (#1729), the thought-git squash gate and Probe D (#1736, #1739, lab, `thought-git-probe`), the D-DRMC-5 fresh-frame reuse L1 (#1740, lab, `dr-math-binding-probe`), the "no certified compiler" scope correction (#1738), and coresearch maps (#1737, #1741). Per-PR records: `PR_ARC_INVENTORY.md`.
+- **Contract inventory delta:** none. Every PR in this range is a lab crate, a probe, a ledger or a board entry.
+
 ## 2026-10-23 — main after #1725 (merged `b342d47c`)
 
 - **On main since #1682:** the D-QR plan family (#1660–#1663), D-QSP/D-RFT/D-LFA plans and probes (#1667–#1688), the math-foundry / egglog-r2il arc (#1690–#1699, #1705, #1717), the D-DRMC charter and probes (#1700, #1707, #1708), the Ascent BYODS plan (#1706), the Palette256 evidence and plasticity probes (#1709–#1722), and the decision-side probes P-D4, P-E2, P-D3 with the P-D4 correction (#1723–#1725). Per-PR records: `PR_ARC_INVENTORY.md` catch-up entries.

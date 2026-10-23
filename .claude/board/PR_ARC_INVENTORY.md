@@ -1,5 +1,68 @@
 <!-- 2026-10-23 catch-up: #1660–#1725 had no entries. One compact entry per PR, recorded from the merge commit. Board-hygiene-only PRs (#1664, #1665, #1672, #1678, #1683) get none, per the CLAUDE.md termination clause. -->
 
+<!-- 2026-10-23 catch-up (D-ONNX-RELALG-CAP S0): #1726–#1741, same rule. Hygiene-only, no entry: #1727, #1728, #1730, #1732, #1733, #1734, #1735. -->
+
+## 2026-10-23 — lance-graph PR #1741 (merged `59538865`, branch `board/coresearch-julia-egraphs-20261023`, head `dcef8cc1`) — board: coresearch map — Julia e-graphs vs egglog/datafrog/Ascent; Lisp vs Prolog for MeTTa
+
+- **Added:** board only.
+- **Docs:** entry `2026-10-23-coresearch-julia-egraphs.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1740 (merged `c42140b7`, branch `lab/drmc-l1-x8-fresh-frame-20261023`, head `95b2cb18`) — dr-math-binding-probe: L1, reuse a D-DRMC-5 certificate on a fresh frame (X8)
+
+- **Added:** `crates/dr-math-binding-probe` (`src/recipe.rs`, `src/relcomp.rs`, `tests/x8_fresh_frame.rs`).
+- **Docs:** entries `2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md`, `2026-10-23-drmc-l1-x8-fresh-frame-result.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1739 (merged `9a458cae`, branch `ccr-d3ce1263-ied9yh`, head `52fab2cd`) — thought-git-probe: Probe D (D-TGA-5D), protected readers of a squash
+
+- **Added:** `crates/thought-git-probe` (`src/lib.rs`, new `src/squash.rs`, `tests/protected_readers.rs`, `tests/squash_gate.rs`); the D-TGA-5 squash gate moved into `src/squash.rs`; probe renamed D-TGA-6 -> D-TGA-5D.
+- **Docs:** entry `2026-10-23-d-tga-5d-protected-readers-preregistration.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1738 (merged `05b3516e`, branch `ccr-d3ce1263-ied9yh`, head `dca7c758`) — correction: "no DR64 certificate" scoped to the single-operand admit_recipe path
+
+- **Added:** correction in `crates/dr-math-binding-probe/RECIPE_ADMISSION.md` and in `entries/2026-10-23-coresearch-thought-git-markov.md`: `relcomp::certify_reassociation` (#1707) issues certificates; only `admit_recipe` ends in `NoCertifiedCompiler`. No code.
+- **Locked / deferred:** see the PR body; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1737 (merged `64bd1902`, branch `board/coresearch-thought-git-markov-20261023`, head `38989f66`) — board: /coresearch map — thought-git accumulation as a large Markov chain (CC2 map and gap map)
+
+- **Added:** board only.
+- **Docs:** entries `2026-10-23-coresearch-thought-git-markov-cc2.md`, `2026-10-23-cc2-proof-compiling-gap-map.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1736 (merged `1b87a27e`, branch `ccr-d3ce1263-ied9yh`, head `6ad966d1`) — probe(D-TGA-5): squash the chain of origin into the most-updated lane, gated on contradiction; blame survives
+
+- **Added:** `crates/thought-git-probe/tests/squash_gate.rs`; board IDEAS/FRUITS/STATUS_BOARD rows.
+- **Docs:** entries `2026-10-23-d-tga-5-squash-gate-preregistration.md`, `2026-10-23-coresearch-thought-git-markov.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1731 (merged `55e6777a`, branch `lab/exo129-learned-lut-composition-20261023`, head `e207e5ca`) — probe(EXO-129): a learned 256×256 table does not compose where the codebook is not closed
+
+- **Added:** `crates/bgz-tensor/tests/exo129_learned_lut_probe.rs`.
+- **Docs:** entry `2026-10-23-exo129-learned-lut-preregistration.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1729 (merged `8f610a85`, branch `board/ledgers-torque-goldstaub-20261023`, head `4a3685f1`) — board: BREADCRUMBS / TORQUE / GOLDSTAUB ledgers, amended closeout table, generated FRUITS.md
+
+- **Added:** `.claude/board/{BREADCRUMBS,TORQUE,GOLDSTAUB,FRUITS}.md`; `.claude/tools/append_only_gate.py`, `.claude/tools/fruits_index.py`; `.github/workflows/append-only-gate.yml`; `CLAUDE.md` closeout-table amendment; `.claude/BOOT.md`, `.claude/settings.json`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
+## 2026-10-23 — lance-graph PR #1726 (merged `19c1324a`, branch `lab/ps2-pl3-lut-composition-20261023`, head `9f1370b2`) — probe(P-S2): a Palette256 compose table does not survive two hops
+
+- **Added:** `crates/bgz-tensor` (`src/attention.rs`, `tests/p_s2_compose_chain_probe.rs`).
+- **Docs:** entry `2026-10-23-ps2-compose-chain-preregistration.md`.
+- **Locked / deferred:** see the PR body and its board entry; not restated here.
+- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+
 ## 2026-10-23 — lance-graph PR #1725 (merged `b342d47c`, branch `lab/pd4-refit-base-rate-20261022`, head `57fbec40`) — probe(P-D4): refit the base rate inside each bootstrap draw; the post-hoc gate does not pass
 
 - **Added:** `crates/causal-edge`.
