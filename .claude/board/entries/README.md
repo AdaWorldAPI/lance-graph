@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-450 entries, 2026-08-06 .. 2026-10-23.
+451 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-10-23 | `exo129-learned-lut-preregistration` |  | [2026-10-23-exo129-learned-lut-preregistration.md](2026-10-23-exo129-learned-lut-preregistration.md) |
 | 2026-10-23 | `EXP-DRMC-L1` | L1 result: a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) | [2026-10-23-drmc-l1-x8-fresh-frame-result.md](2026-10-23-drmc-l1-x8-fresh-frame-result.md) |
 | 2026-10-23 | `EXP-DRMC-L1-PREREG` | L1 (CC2 Law Frontier): a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) — pre-registration | [2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md](2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md) |
+| 2026-10-23 | `D-TGA-5D` |  | [2026-10-23-d-tga-5d-protected-readers-preregistration.md](2026-10-23-d-tga-5d-protected-readers-preregistration.md) |
 | 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
 | 2026-10-23 | `coresearch-thought-git-markov` |  | [2026-10-23-coresearch-thought-git-markov.md](2026-10-23-coresearch-thought-git-markov.md) |
 | 2026-10-23 | `coresearch-thought-git-markov-cc2` |  | [2026-10-23-coresearch-thought-git-markov-cc2.md](2026-10-23-coresearch-thought-git-markov-cc2.md) |
