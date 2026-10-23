@@ -1,5 +1,16 @@
 # D-OPTIMUM-BGZ-OFFLINE-v1 — Hugging Face Optimum as a cold Palette-RISC model frontend
 
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **Optimum is downstream and optional** (layer [8] of the canonical diagram). No native layer depends on it, and it is never in the execution path (A6).
+> 2. **The original ONNX graph is an external validation artifact.** The canonical fallback for an approximate compiled candidate is the exact native method on the uncompressed weights (A4).
+> 3. **"ONNX remains the graph"** holds only for this offline export; ONNX is not the native representation (A1). The native representation is Quack binding + DR64³ + Palette256³.
+> 4. **This plan is not an extension of native stages.** It may supply external fixtures to #1748 and an external reference to the conformance adapter; native work does not wait for it.
+> 5. **The protobuf fork question gates only an external ONNX-file adapter** (A2).
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
+
 **Date:** 2026-10-23
 **Status:** PROPOSED / DOCUMENTATION ONLY; no Optimum adapter, compiled-model artifact, test or numerical result is implemented by this PR.
 **Scope:** Separate offline compiler/export/calibration integration plan.
@@ -92,6 +103,7 @@ Reference fidelity, cold/warm cost, replay and fallback
 ```
 
 **No mandatory DR64³:** one isolated BERT weight MatMul must be testable without cubic relation implementation. DR64 focus is an optional later physical strategy; not required for model export/calibration. `Rel` remains the existing integer relational planner under D-RA-2, not a general numeric AST. ONNX remains the graph.
+> ⊘ **D-NFC A1/A5: "ONNX remains the graph" means the external export graph only; DR64³ remains the intended native relational representation.**
 
 ## 4. Proposed model artifact (NOT an existing serialized format)
 
@@ -149,6 +161,7 @@ A digest authenticates identity only when the trusted binder verifies it against
 - Reuse already-versioned BGZ serializer where compatible. Attach content-addressed sidecar without destructively rewriting ONNX. Verify exact source↔compiled binding and failed stale/mismatched-artifact tests.
 - No forced schema, graph serializer or model interpreter. Export no custom ONNX domain until portability implications are understood.
 - Gate: deterministic build/replay under pinned versions, content integrity, model/layer cross-binding refusal and valid original-ONNX fallback.
+  > ⊘ **D-NFC A4: the canonical fallback is the exact native method; an original-ONNX run is an external comparison.**
 
 ### O4: Physical crossover (after #1748 contracts, optional)
 - T: conventional numeric tensor.
@@ -194,6 +207,7 @@ For each test, pre-register can-fire/can-stay-silent controls and independent re
 
 1. Operator selection: one compact BERT model and pinned revision; code/weight licensing and data provenance.
 2. Confirm the AdaWorldAPI ONNX/protobuf fork coordinates or explicit absence, as requested by #1750's S1 gate. Do not add crates.io dependencies contrary to owner rules.
+  > ⊘ **D-NFC A2: needed only if an external ONNX-file adapter is built; not a native prerequisite.**
 3. Optimum/Transformers/ONNX pinned versions and authorization for Python offline environment.
 4. Which existing BGZ compiled artifact serialization/builder API is actually suitable for a BERT row-centroid layer.
 5. Independent ONNX/PyTorch reference, held-out calibration and numerical error/quality thresholds.
