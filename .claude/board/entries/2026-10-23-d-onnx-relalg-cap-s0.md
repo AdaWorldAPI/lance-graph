@@ -11,10 +11,10 @@
 
 ## What was found
 
-- DR64³ / DR256³ original plan: NOT FOUND. 0 files contain any of the strings. The branch above is CartesianAddress12/Quad8 shader work. 23 "cartesian" PRs, none is a DR64³ plan. The 12-stage PR sequence is not found. The one 18-bit figure in the repo is the "18-bit hot envelope = 262,144" mailbox working set (`.claude/knowledge/delta-card-addressing-integration-map.md:212`), a working-set size, not an identity. Other 262144 hits are byte counts, CSV values and index spaces.
+- DR64³ / DR256³ original plan: NOT FOUND. 0 files contain any of the strings. The branch above is CartesianAddress12/Quad8 shader work. 23 "cartesian" PRs, none is a DR64³ plan. The 12-stage PR sequence is not found. The one 18-bit figure in the repo is the "18-bit hot envelope = 262,144" mailbox working set (`.claude/knowledge/delta-card-addressing-integration-map.md`), a working-set size, not an identity. Other 262144 hits are byte counts, CSV values and index spaces.
 - The plan's DR64³ section is a NEW, labelled proposal (R1 chain contraction, R2 triangle), not recovered history. Sizes 32 KiB / 2 MiB are arithmetic only.
 - No ONNX dependency or parser exists in the Rust tree. onnxruntime 1.29.0 is installed in the container's Python; protoc 3.21.12 is installed; `onnx.reference` cannot run without the C++ extension.
-- relalg is single-table Boolean selection plus four I32 aggregates (`crates/lance-graph-relalg/src/ir.rs:47-62`, `:99-110`). The "mathematical polyfill landing zone" proposal holds only for the Boolean/compare/reduce fragment.
+- relalg is single-table Boolean selection plus four I32 aggregates (`crates/lance-graph-relalg/src/ir.rs`). The "mathematical polyfill landing zone" proposal holds only for the Boolean/compare/reduce fragment.
 
 ## BLOCKING corrections adopted (opusC)
 
@@ -33,8 +33,8 @@
 - OP-ONNX-6: certificate rebinding beyond #1740 (focus/scope/ABI/geometry).
 - OP-ONNX-7: prover revision not recorded (egglog `branch = "main"`): a certificate-identity gap, not a dependency defect.
 - OP-ONNX-8: onnxruntime int32 `ReduceSum` saturation unexplained.
-- OP-ONNX-9: `dr-mathematical-compiler-v1.md:79` calls egglog's self-check "independent".
-- OP-ONNX-10: `dr-mathematical-compiler-v1.md:19` versus D-RA-2.
+- OP-ONNX-9: `dr-mathematical-compiler-v1.md` calls egglog's self-check "independent".
+- OP-ONNX-10: `dr-mathematical-compiler-v1.md` versus D-RA-2.
 - OP-ONNX-11..13: R2 closing-view check placement; `observe_focus` scope omission; refusal granularity and strings in the contract.
 - OP-ONNX-14: which proof object datafrog, Ascent or MeTTa/MORK/PathMap would produce; the operator rule names them, but only egglog produces one here today.
 
