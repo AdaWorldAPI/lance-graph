@@ -13,6 +13,9 @@ members = [
     # `ogar-r2il`). The contract may never depend on OGAR (`ogar-loco` depends on
     # the contract), but members other than the contract may.
     "crates/lance-graph-r2il",
+    # ONNX mathematical compatibility facade over existing ndarray functions
+    # (D-ONNX-NATIVE-0). Depends on ndarray only; nothing native depends on it.
+    "crates/lance-graph-onnx",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",
