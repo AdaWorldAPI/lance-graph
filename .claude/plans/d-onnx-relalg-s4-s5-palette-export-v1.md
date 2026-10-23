@@ -1,4 +1,15 @@
 # D-ONNX-RELALG-CAP S4–S5 — reuse existing BGZ / Helix / ndarray numerical execution
+
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **Quack binding + DR64³ + Palette256³ is the intended internal integration.** `GraphProto` owns no internal representation (A1).
+> 2. **Dispatch.** Internally a native typed operation selects an existing kernel. "ONNX operator → existing method" is the external conformance adapter [7], not the internal contract (A1).
+> 3. **Compiled-artifact identity is the native binding**: Quack resolution under a sealed frame plus a codebook generation. Codebook runtime identity is MISSING today (D-NFR S15) and is the precondition for admitting any `CompiledLinear` / `CompiledAttention`; ONNX model / layer / node identity is external provenance (A7).
+> 4. **OP-ONNX-2 (importer, protobuf fork) and O1 model selection gate only the optional external-file adapter**, not native S4 (A2).
+> 5. **Exact versus approximate** is unchanged: approximate methods are opt-in with a named error contract and the exact native method as fallback.
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
 **Date:** 2026-10-23 · **Status:** PROPOSED integration and falsification plan; documentation only  
 **Parents:** #1744, #1745, #1750 (CONFLICTING S0 ownership, no canonical merge approved), #1746 (intake/value dispatch), #1747 (focus), #1748 (physical execution).  
 **Existing implementation anchors:** AdaWorldAPI/ndarray #42 and #100; lance-graph #1726 and #1731.  
@@ -66,6 +77,7 @@ Check existing owners/types before adding fields. At minimum attest:
 
 ### S4b: typed ONNX dispatch to existing implementations
 **Sonnet:** design the smallest immutable *ONNX operator → existing method* dispatch, not new `Rel::Tanh`, `Rel::MatMul` or a universal numerical expression tree. `GraphProto` remains interchange graph; RelAlg handles admissible Boolean/relational support and result demand; ndarray/Burn/Palette256 methods remain numerical owners. A standalone `Tanh` does not need a DR register.
+> ⊘ **D-NFC A1: that dispatch is the external conformance adapter; internally `GraphProto` is not the interchange graph.**
 
 **Opus:** assess exact vs approximate eligibility, law family and use of cached compiled artifacts. Numerical operator semantics (and any partial model delegation) require separately specified reference and conversion policies. Do not use an ONNX runtime merely as a witness of a mathematical theorem.
 
@@ -99,6 +111,7 @@ Check existing owners/types before adding fields. At minimum attest:
 ## 5. Risk register and exact open points
 - **OP-ONNX-1:** typed value-math dispatch ownership without a new AST.
 - **OP-ONNX-2:** model importer and protobuf fork choice.
+  > ⊘ **D-NFC A2: gates the optional adapter only.**
 - **OP-ONNX-4:** witnessed intra-register bit enumeration vs forbidden cross-table gather.
 - **OP-ONNX-5/7/9:** independent checker, prover revision, stale 'independent' wording.
 - **OP-ONNX-BIND-1 (NEW PROPOSAL):** immutable model/layer/weight/codebook/assignment identity and safe invalidation for Burn `CompiledAttention`/`CompiledLinear`.
@@ -155,3 +168,4 @@ Haiku source/test/CI inventory. Sonnet draft typed integration and plan costs. I
 **Source references:** `huggingface/optimum-onnx/optimum/exporters/onnx/{model_configs.py,convert.py}`, `optimum/onnxruntime/{quantization.py,optimization.py}`; native `AdaWorldAPI/ndarray/crates/burn/src/ops/matmul.rs`; existing `lance-graph/crates/bgz-tensor`. `ORTQuantizer` does not create BGZ codebooks merely by choosing a different INT8 type. Optimum stays in the **offline Python compiler**. No Python/ORT runtime requirement on the target edge CPU.
 
 **Gate:** S4 native adaptation requires a source-verified candidate and model/layer provenance plus owner signoff; O1 model selection and protobuf fork decision are still operator-owned prerequisites per #1750. #1744/#1745/#1750 S0 remains unresolved. Neither doc plan can auto-merge or authorize runtime changes.
+> ⊘ **D-NFC A2: native adaptation does not wait on O1 model selection or the protobuf fork decision.**
