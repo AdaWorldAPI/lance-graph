@@ -73,6 +73,12 @@ PROTECTED = (
     ".claude/board/TECH_DEBT.md",
     ".claude/board/AGENT_LOG.md",
     ".claude/board/INTEGRATION_PLANS.md",
+    # Added 2026-10-23 with the amended closeout table (root CLAUDE.md
+    # § Closeout): crumbs, torque rows and goldstaub entries are regraded in
+    # place, never deleted, so a shrink is always a dropped entry.
+    ".claude/board/BREADCRUMBS.md",
+    ".claude/board/TORQUE.md",
+    ".claude/board/GOLDSTAUB.md",
 )
 
 REMEDY = """

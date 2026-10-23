@@ -437,6 +437,8 @@ updating the relevant board file in the SAME commit is incomplete.**
 | A genuine Eureka (passes the § Closeout admission gate below) | `.claude/board/EPIPHANIES.md` PREPEND dated entry |
 | An ordinary correction / lesson learned | **NOTHING** — one closeout line, see § Closeout below |
 | A tech-debt observation | `.claude/board/TECH_DEBT.md` entry |
+| A half-seen pattern / an idea someone is now probing / method gold with a receipt | `.claude/board/BREADCRUMBS.md` crumb / `TORQUE.md` row / `GOLDSTAUB.md` entry (see § Closeout) |
+| A fruit (any ledger row a session could pick up) | a `**Fruit:**` line on that row, then `python3 .claude/tools/fruits_index.py --write` |
 | An unresolved issue / blocker | `.claude/board/ISSUES.md` entry |
 | A completed agent run | `.claude/board/AGENT_LOG.md` PREPEND entry (D-ids, commit, tests, outcome) |
 
@@ -567,14 +569,26 @@ At closeout each entry is reconciled against project truth — reuse what exists
 delivered · **SUPERSEDED** = a higher-numbered sibling or its status says so ·
 **AMBIGUOUS** = no house-format status and no board row), `SUPERSESSION-INDEX`'s
 `route` column, and `preflight_drift` for board-claim-vs-cargo-reality. Then
-exactly four destinations, and no fifth:
+exactly the destinations below, and no other:
+
+> ⊘ **AMENDED 2026-10-23 (operator: "breadcrumbs of something bigger", "go
+> ahead").** This read *"exactly four destinations, and no fifth"*. Four left
+> no home for a NEW, promising but not-yet-DURABLE idea, for a half-seen
+> pattern, or for method gold. Each was either squeezed into EPIPHANIES (the
+> proof-of-work abuse the gate was written against) or died at closeout.
+> Measured that day: `IDEAS.md`'s newest Open row was 2026-09-07, while 260
+> entries landed in `entries/` in October. The three rows marked **(new)** are
+> the amendment. The EPIPHANIES gate itself is unchanged.
 
 | the entry is… | destination |
 |---|---|
 | fixed / obsolete / duplicate / already represented | **nothing durable** — it dies in the tier; git keeps the journey |
 | still genuinely unresolved | one compact **OPEN** row (`ISSUES.md` or `STATUS_BOARD.md`) |
 | implemented / closed | one compact **DONE** row (`STATUS_BOARD.md`, or `LATEST_STATE.md` if it changed the inventory) |
-| NEW **and** LOAD-BEARING **and** DURABLE, and still true after reconciliation | `EPIPHANIES.md` — the rare case |
+| a half-seen pattern: rhymes with another observation, claims nothing **(new)** | one crumb in `BREADCRUMBS.md` (three linked crumbs force a naming attempt) |
+| NEW and promising, not yet DURABLE: an idea with a next probe **(new)** | `IDEAS.md` Open row; once a session moves on it, a `TORQUE.md` row (owner, next probe, kill, promote, 14-day stall back to IDEAS) |
+| a method/efficiency insight that costs again whenever forgotten, with a receipt **(new)** | one `GOLDSTAUB.md` entry: claim + receipt + scope + date, never rewritten |
+| NEW **and** LOAD-BEARING **and** DURABLE, and still true after reconciliation | `EPIPHANIES.md` — the rare case, entered from a TORQUE or IDEAS row after its probe ran |
 
 A surviving Eureka must clear **both** gates: the three-way admission test above
 *and* still being true against the current implementation. **`MIRROR` is never
