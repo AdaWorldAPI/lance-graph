@@ -77,3 +77,38 @@ Record explicit oracle data, negative disables and end-to-end costs.
 
 ## Source crosswalk
 #1745, #1746, #1641, #1663, #1685, #1700, #1707, #1738, #1740; .claude/architecture/cartesian-epistemic-self-model.md; .claude/plans/dr-mathematical-compiler-v1.md.
+---
+
+## 2026-10-23 Cross-session review amendment: physical bit enumeration ≠ arbitrary gather
+
+**P0:** #1744 and #1745 define competing S0 docs at the same path. This research plan does not choose or replace the canonical source.
+
+### Existing R1 and proposed R2
+Per #1744 source reconnaissance, the *logical* 64³ index space X×Y×Z can already be traversed by the existing typed Boolean composition `R:X→Y`, `S:Y→Z` with Y contracted into `R∘S`. It is an **existing binary-composition procedure over a conceptual ternary iteration space**, not a built ternary cube or implemented DR64³ ABI.
+
+A proposed *triangle/closing relation* adds `Q:X→Z` and `(R∘S)∧Q`; it must check both `Q.row == R.row` and `Q.column == S.column`, and frame/focus/scope validity, independently of ordinary adjacent-operand Chain compatibility. Which owner holds this extra admission check is OP-ONNX-11, not settled.
+
+### OP-ONNX-4: bit-position scan must receive an explicit contract ruling
+The current code has an apparent contradiction:
+- `crates/dr-math-binding-probe/src/relcomp.rs`: `compose` uses `bits.trailing_zeros()` as a row index into an **already bound** 64×64 relation.
+- `crates/dir-rmap-probe/src/compose.rs`: `ones(word)` enumerates set-bit coordinates within the DR256 support.
+- `crates/dir-rmap-probe/src/qr.rs`: its documented D-RU-6 policy says no inner loop scans bits to obtain a position, instead iterating fixed slots and testing bits.
+
+**Do not silently declare either side wrong or broaden ADMISSION B.** Investigate and request the contract owner's decision on a narrow separation:
+1. **Witnessed intra-register enumeration**: indices are bounded local bit coordinates of a sealed already-bound register, with the source/target basis known and stable.
+2. **Forbidden data-driven cross-table gather**: a payload value from an unrelated table selects a position in another table without an admitted sealed mapping and explicit counted preparation.
+
+Any admissibility proposal must show the frame/coordinate identity, scope authorization, bounds, no hidden foreign read, unchanged Bag/K3 semantics and measured alternatives.
+
+Falsification probes:
+- Addressed loop and `trailing_zeros` enumeration agree on every set bit, including empty/full rows, same frame, same scope, same declared coordinate allocation.
+- Stale binder or another register's row is refused, even if local ordinal values coincide.
+- A relation payload value masquerading as a target table index is refused.
+- Compare scan-vs-coordinate-test costs on sparse and dense masks; do not let performance alone decide legality.
+
+### Focus completeness is a separate admission premise
+A focused local view must either contain every value that contributes to the declared numerical result, be expanded through an **admitted** coordinate mapping, or refuse. Even a support-certified omission of a numerical zero may not permit omission of IEEE `0*Infinity` or other semantically exceptional contributions.
+
+The 1/16 ratio may describe a 64×64×256 focus over a 256³ logical domain, not a DR64³ cube. Use LogicalShape / FocusWindow / PhysicalView distinctly.
+
+**Gate S3a/b:** typed contracted-oracle parity, bounded admitted addressing, independent negative-gather tests and explicit focus coverage. S3c's larger reference domain is observational validation, not a path from finite sample to universal mathematical theorem.
