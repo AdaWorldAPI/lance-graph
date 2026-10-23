@@ -1,3 +1,7 @@
+## 2026-10-23 — d-onnx-native-v1 — ONNX vocabulary over existing native functions → `.claude/plans/d-onnx-native-v1.md`
+
+**Status:** D-ONNX-NATIVE-0 IMPLEMENTED as a draft PR (`crates/lance-graph-onnx`), not merged. The path is ONNX name → existing native function: ALIAS where the contract is identical, a small INLINE adapter where it is not, a typed `Refusal` otherwise. No graph, dispatcher or initialization. R2IL routing (D-MPF-4, #1752) is separate and is not imported.
+
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.
