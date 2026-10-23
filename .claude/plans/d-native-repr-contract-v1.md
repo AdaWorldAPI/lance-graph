@@ -45,6 +45,7 @@ Every row cites the defining source. "Read" means the body was read for this doc
 | S15 | codebook runtime identity (family, generation, digest) | MISSING | `Palette`, `CalibratedCodebook` (no such field); `bgz-tensor/src/manifest.rs` `ModelEntry.sha256` | The only digest is per hydrated shard file. Nothing binds a palette index to the codebook generation that issued it, so a stale or foreign codebook cannot be refused at use. |
 | S16 | DR coordinate → palette-valued property | MISSING | (no type) | Nothing says which DR axis carries which palette plane, under which frame. ADMISSION B stands: a DR ordinal is never a palette index and a palette index is never a positional gather into another table. |
 | S17 | native execution | SHIPPED | `lance-graph-r2il::procs` (~30 procedures), `FoldDialect`, `lance-graph-mask-risc` terminals, `ndarray::simd` | Selection, Boolean combination and integer folds (count, any, all, sum, min, max, group sum, blend, keep). The DR compose kernel in S9 is NOT on mask-risc; it is the probe's own loop. Floats and approximations run in existing ndarray / bgz kernels, outside the fold algebra. |
+| S17a | R2IL route per ClassId (DIRECT / COMPOSE / LOWER / REFUSE), resolved once and held in the binding | LAB | `math-polyfill-probe/examples/classid_route.rs` (D-MPF-4) | No production ClassId-keyed table exists. LOWER targets `r2conc::SlabState::step`, machine semantics only. |
 
 `lance-graph-contract::alpha_focus` and `rubicon_witness` use "focus" for an ATTENTION mask (rung × tenant). That is a different concept from DR's spatial focus; do not cite them for S7 or S11.
 
@@ -56,6 +57,8 @@ Every row cites the defining source. "Read" means the body was read for this doc
 | mutable, re-checked at every use | frame seal (S6), focus revision and scope (S7), lane witness (S3), codebook generation (S15, once it exists) | never cached away. `bind_dr64` re-runs all three checks per borrow, and each is an O(1) pointer or value comparison. |
 
 The D-MPF-2 measurement (#1752) attributes ~73–78 ns per call to R2IL procedure composition and ~45–63 ns to an ONNX-shaped wrapper that rebinds every call. Reusing a validated binding can only remove the RESOLUTION and PROGRAM-BUILD part of that. It cannot remove the guard checks, and it must not. Until the guard checks are timed separately from program construction, no claim that a boundary can be removed is made.
+
+> ⊘ (D-MPF-4, #1752 plan §10) "R2IL procedure composition" above is the FoldDialect strategy re-run per call, not R2IL routing. For a fixed query, the existing `last_program()` → `CompiledProgram` facility removes it. A ClassId-prebound route runs at the direct `ndarray::simd` cost plus 27–28 ns for the frame/focus/scope guard. That guard is the one per-run check that must remain, and it is a versioned-identity check, not resolution.
 
 ## 4. The smallest missing seam
 

@@ -18,8 +18,11 @@ Every affected PR references this diagram instead of restating its own.
 ```text
   ARCHITECTURAL DEPENDENCY (each layer needs only the ones above it)
 
-  [1] R2IL mathematical polyfill              SHIPPED  lance-graph-r2il::procs + FoldDialect
-        │                                              (D-MPF-1/2, #1752: measured, draft)
+  [1] R2IL mathematical router               SHIPPED  route per ClassId, once: DIRECT / COMPOSE
+        │   (ClassId → LazyLock → prebound              onto ndarray::simd (via mask-risc where a
+        │    native callable → kernel)                  program is needed), LOWER to r2sleigh only
+        │                                              for machine semantics, else REFUSE (D-MPF-4).
+        │                                              The ClassId-keyed table itself: LAB (#1752).
   [2] Quack binding                           SHIPPED  bind once → numeric Query (S1–S3)
         │   binding store / frame validity    MISSING  (S5; smallest seam = D-NFR-1)
   [3] DR64³ relational / focus geometry       LAB      frame, focus, scope, 64×64 register,
@@ -39,6 +42,13 @@ Every affected PR references this diagram instead of restating its own.
   tests can start now. They test the native layers against ONNX's definitions;
   they never define the native representation.
 ```
+
+> ⊘ **Correction to layer [1] (2026-10-23, D-MPF-4, `.claude/plans/d-mpf-math-polyfill-v1.md` §10).** Layer [1] first read "R2IL mathematical polyfill — `lance-graph-r2il::procs` + FoldDialect". That equated R2IL with one of its strategies, and the replaced wording stays visible here for that reason.
+>
+> - **R2IL** is an opcode table (`ogar-r2il`) with two readings: machine (`0xC400`: r2sleigh's `r2conc` / `r2sym`) and fold (`0xC401`: `FoldDialect`).
+> - **Layer [1]** is the router. It resolves a route once per ClassId and stores the callable in the binding. `FoldDialect`, mask-risc programs and direct `ndarray::simd` calls are strategies beneath it.
+> - **R2Sleigh** is required only for machine semantics: carry/borrow flags, address-space load/store, branches, width-exact integers. No population operation in the current set needs it.
+> - **Hard invariant:** ClassId → LazyLock → prepared native dispatch table → direct kernel execution. No per-call registry or hash lookup, backend `match`, capability probe, R2Sleigh decision, dialect reconstruction, ONNX dispatch or CPUID. Quack binding, DR frame/focus/scope and Palette codebook revisions are enforced by rebinding or by a versioned identity check, never by re-routing.
 
 ## 3. Root assumptions behind the contradictions
 
@@ -72,11 +82,14 @@ What the PRs already got right, and is kept unchanged: no new AST or graph forma
 | mask-risc, compiled program | 94–99 |
 | R2IL procedure composition | 171–172 |
 | ONNX-shaped wrapper (rebinds every call) | 217–234 |
+| ClassId-prebound route, guard included (D-MPF-4) | 61–67 |
+| ClassId-prebound route, callable alone (D-MPF-4) | 36–39 |
 
 - The 50 ns one-word target is not met. The ndarray step alone is 39 ns.
 - The earlier "1.6× faster than the scalar loop" is SUPERSEDED: it compared against an `i128` filter-chain oracle. A fair `i64` loop is ~3× faster than the fold at 64 K rows.
 - At 64 K rows all paths converge on `ndarray::simd::masked_sum_i32`, a scalar set-bit walk.
 - The ONNX-shaped wrapper is a diagnostic compatibility boundary, not an architectural layer.
+- ⊘ (D-MPF-4) The mask-risc and R2IL-composition rows are what those paths cost when chosen per call. They are not a floor for R2IL routing. A route resolved once per ClassId equals the ndarray row: the callable alone costs 36–39 ns. The frame/focus/scope guard adds 27–28 ns. "R2IL prepared" (FoldDialect's `last_program` kept as a `CompiledProgram`) equals the mask-risc row.
 
 ## 6. S0 reconciliation proposal (owner-facing, not a decision)
 
