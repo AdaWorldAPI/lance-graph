@@ -118,3 +118,29 @@ At 64 rows the 172 ns split as: ndarray floor 39 (memset, 4 compares, the bit wa
 **One proposed optimization (not made; owner of `ndarray::simd`):** choose the body by density. When a word has more than ~16 set bits, sum it branch-free; otherwise keep the walk. Negative controls already measured: the branch-free form equals the oracle at 0 %, 50 % and 100 %; its time is flat in selectivity (the mechanism is the missing branch, not the data); and the walk is 7–10× faster at 0 %, which is why the walk must stay for sparse words. Expected effect at 50 %: fold ~31 µs → ~18 µs at 64 K rows. Even then a one-pass fold stays slower than the scalar loop; the mask form pays off when the mask is reused or combined (NULL planes, several predicates), which this probe does not measure.
 
 **Fixed cost (G4):** the 50 ns gate is not met and is not reachable by tuning one layer: the floor alone is 39 ns at one word. A second proposal, for the r2il owner: keep the `ops` vector's capacity across folds (reclaim it from the previous program) to remove the one allocation per fold. Not made.
+
+## 8. Layer benchmark — ndarray primitives → mask-risc → R2IL polyfill
+
+`examples/layers.rs`: five folds over `x > t` (t = 0, about half the rows), each through the three layers on the same resident `&[i32]`. Each layer's result is checked against the `i128` oracle at every size before it is timed. Runs 2 and 3 of three, ns per call (run 1 dropped as noisy at 64 rows). "Before r2il" is the mask-risc column, "after" is the R2IL column.
+
+| rows | op | scalar | ndarray | mask-risc | Δ | R2IL | Δ | allocs nd/mr/r2il |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 64 | count | 8–15 | 17–21 | 87–121 | +70–100 | 153–175 | +54–66 | 0/0/1 |
+| 64 | exists | 6 | 17 | 90–95 | +73–78 | 149–172 | +59–77 | 0/0/1 |
+| 64 | sum | 11–12 | 36–38 | 88–90 | +52 | 162–172 | +74–81 | 0/0/1 |
+| 64 | min | 28–30 | 39–41 | 89–92 | +50–52 | 177 | +85–88 | 0/0/1 |
+| 64 | max | 34–38 | 39–41 | 99–107 | +58–68 | 175–179 | +72–76 | 0/0/1 |
+| 4 096 | count | 421–428 | 253–254 | 321–324 | +68–71 | 383–386 | +61 | 0/0/1 |
+| 4 096 | exists | 6 | 255–280 | 317–349 | +62–69 | 381–385 | +36–64 | 0/0/1 |
+| 4 096 | sum | 606–628 | 1 548–1 691 | 1 598–1 808 | +50–116 | 1 661–1 825 | +18–63 | 0/0/1 |
+| 4 096 | min | 1 701–1 717 | 1 671–1 843 | 1 729–1 864 | +21–58 | 1 743–1 931 | +14–67 | 0/0/1 |
+| 4 096 | max | 1 690–1 923 | 1 613–1 825 | 1 698–1 743 | −82–+85 | 1 803–1 935 | +60–236 | 0/0/1 |
+| 65 536 | count | 9 386–9 850 | 4 809–5 367 | 4 988–5 380 | noise | 5 066 | noise | 0/0/1 |
+| 65 536 | exists | 6 | 4 754–5 172 | 4 952–5 491 | noise | 5 341–5 540 | noise | 0/0/1 |
+| 65 536 | sum | 9 924–10 951 | 28 658–30 789 | 28 661–30 575 | noise | 30 228–30 975 | noise | 0/0/1 |
+| 65 536 | min | 28 676–30 353 | 32 996–33 760 | 31 903–32 749 | noise | 32 326–32 784 | noise | 0/0/1 |
+| 65 536 | max | 27 833–30 056 | 29 384–32 385 | 34 665–34 770 | noise | 32 332–33 131 | noise | 0/0/1 |
+
+- **Per call:** mask-risc adds ~50–100 ns over ndarray, and the R2IL polyfill adds another ~55–90 ns plus one allocation. Both costs are fixed: at 4 096 rows they shrink to tens of ns, and at 65 536 rows they are inside run-to-run noise. The polyfill layers cost per call, not per row.
+- **Per row:** count is the one fold where the ndarray path beats the scalar loop (~0.08 vs ~0.15 ns/row, `popcount_batch_u64`). For sum the ndarray path is ~3× slower than the scalar loop (the bit walk, §7). For min and max it matches the scalar loop, which does not vectorize them either (~0.45–0.5 ns/row).
+- **Exists is not equal work:** the scalar loop stops at the first hit (row 4 here), so it takes 6 ns at every size. All three layers build the whole mask first. That is an algorithmic difference, not overhead: a fused predicate + `Any` that stops at the first non-empty tile would close it. Proposal only.
