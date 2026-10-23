@@ -8,6 +8,8 @@
 > 4. **Identity witnesses are native**: a sealed frame plus a codebook generation (the latter MISSING, D-NFR S15), not ONNX model / layer / node identity (A7). ADMISSION B is unchanged: a DR ordinal is never a palette index.
 >
 > Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+>
+> **⊘ Layers [1] and [7] as finally drawn (2026-10-23; #1752 §10, #1753, #1754).** Where this note or the plan says "R2IL polyfill (#1752)", read the R2IL **router**: a route resolved once per ClassId onto `ndarray::simd` (through mask-risc where a program is needed), with `FoldDialect` one strategy beneath it (D-MPF-4). Layer [7], the ONNX conformance adapter, is an external **leaf** facade implemented as `lance-graph-onnx` (#1754): ONNX names over existing native functions, no dispatch, and nothing native depends on it.
 
 **Date:** 2026-10-23 · **Status:** PROPOSED research, no DR64³/DR256³ implementation claimed
 **Parents:** #1745 S0; #1746 S1–S2 · **Source owners:** D-QR-CAP, D-RELALG-UNIFIED, D-DRMC, D-RMAP/Quack, CE64.
