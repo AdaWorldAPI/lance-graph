@@ -117,3 +117,23 @@ The previous "no value math in relalg" is a **boundary** rather than a request t
 **S1 test additions (proposed, not run):** same-shape separate MatMul layers, duplicate d_head across models, stale palette/weight generation, changed Q/K data, NaN/Inf, tanh SIMD versus reference including tails, and no-registration fallback. Reject or fallback on collision. S2 may choose existing numerical dispatch without a new RelAlg value expression variant.
 
 **P0 S0 collision:** #1744, #1745 and #1750 all create the canonical capstone path. Do not merge this stage as a claim of a settled S0 owner. EXO-50 coordinates. Reuse already implemented primitives; new work should only fill verified semantic/binding gaps.
+
+---
+
+## 2026-10-23 independent Optimum offline frontend — #1751
+
+**New separate draft:** [D-OPTIMUM-BGZ-OFFLINE-v1 / PR #1751](https://github.com/AdaWorldAPI/lance-graph/pull/1751). This is **not** a replacement S1 importer, a mandatory runtime dependency, or a competing ONNX graph/AST.
+
+### S1 interoperability refinement
+An out-of-tree offline `huggingface/optimum-onnx` adapter may be used to export an operator-approved model and prepare a controlled ONNX reference fixture using existing `main_export`, `BertOnnxConfig` and `validate_models_outputs`. ONNX `ModelProto` remains the graph. On the eventual native path, preserve graph/node/initializer identity, version/opset/IR, dtype/shapes and codebook lineage before promoting any `ndarray` compiled method. Optimum/ONNX Runtime are **not** guaranteed at edge inference.
+
+Optimum `ORTQuantizer` and `ORTCalibrationDataReader` are existing calibration-data and ORT INT8/QDQ *workflow* sources, **not** BGZ WeightPalette codebook constructors or admissible ONNX operator rewrites by themselves. Avoid treating ORT graph optimization/fusion as identity preserving: retain a pinned unoptimized graph and a documented node/weight lineage if using transformed graphs.
+
+### S2 minimal routing test
+For a selected compact BERT layer (model revision chosen by operator, not assumed):
+1. Optimum-validated original ONNX reference.
+2. Existing ndarray tensor/Burn numerical MatMul under the declared dtype and shape semantics.
+3. Optional existing BGZ-compiled layer candidate with separate identity and APPROXIMATE policy, **not an exact replacement on shape match**.
+4. Typed refusal/fallback for unsupported and identity-conflicting cases.
+
+**Stage gate:** offline conversion evidence does not make full-model native support or exact palette arithmetic true. Preserve strict native-only refusal and the S0 owner blocking conditions (#1744/#1745/#1750). Only #1751 owns offline Optimum adapter exploration. No Python dependency or duplicated importer mandated in lance-graph.
