@@ -98,3 +98,22 @@ Do **not** assume that splitting one ONNX GraphProto across native and external 
 3. Measure the overhead of both, including complete model input/output conversions, before treating partial native acceleration as useful.
 
 STRICT_NATIVE remains the only initial native S1 acceptance target. Neither delegation proposal authorizes an ONNX interpreter or scheduler in lance-graph.
+
+---
+
+## 2026-10-23 discovered reuse: ONNX value-math dispatch is not greenfield
+
+The previous "no value math in relalg" is a **boundary** rather than a request to invent a tensor AST. Existing numerical owners already implement pertinent operators:
+- `AdaWorldAPI/ndarray/src/hpc/vml.rs::vstanh` is called from Burn `FloatTensorOps::float_tanh` (compiled SIMD hot path with scalar/strided fallback). A version-pinned ONNX Tanh with an admitted dtype/shape may dispatch here after differential numeric policy checks, without passing through DR or adding `Rel::Tanh`.
+- `AdaWorldAPI/ndarray/crates/burn/src/ops/matmul.rs` already has `CompiledAttention`, `CompiledLinear` and ordinary `general_mat_mul`. Both compiled methods can be selected based only on d_head or shape; model/layer/weight/codebook authority is absent. This **is not yet admissible general ONNX MatMul execution**.
+- `crates/bgz-tensor`, `crates/helix`, `crates/bgz17` already implement different 256-based palettes, FisherZ, quantization, distance and composition tables. They are not numerical semantics substitutes without typed conversion/quality contracts.
+
+**S1 importer must retain sufficient identity to disambiguate:** ModelProto/GraphProto identity, opset domain and node identity, exact weights/initializer digest, layer designation, dtype and shape, immutable codebook/calibration digest, frame, focus, scope and artifact generation. Reconcile with existing signatures before proposing a new type. None of these should be lost when a model is lowered to a physical candidate. A repeated MatMul shape does not prove it is the registered model layer.
+
+**Per-operator candidate routing has two legality classes:**
+1. **EXACT / declared numeric tolerance:** regular `ndarray`/Burn Tanh or GEMM candidate, checked against independent ONNX oracle.
+2. **APPROXIMATE OPT-IN:** codebook-compiled attention or centroid linear candidate, only if model/layer/codebook is witnessed and a bounded calibration/error/quality contract is explicitly requested. A correlation result such as bgz-tensor's reported ρ ≥ 0.999 is *not* bit-equivalence or ONNX normative semantics.
+
+**S1 test additions (proposed, not run):** same-shape separate MatMul layers, duplicate d_head across models, stale palette/weight generation, changed Q/K data, NaN/Inf, tanh SIMD versus reference including tails, and no-registration fallback. Reject or fallback on collision. S2 may choose existing numerical dispatch without a new RelAlg value expression variant.
+
+**P0 S0 collision:** #1744, #1745 and #1750 all create the canonical capstone path. Do not merge this stage as a claim of a settled S0 owner. EXO-50 coordinates. Reuse already implemented primitives; new work should only fill verified semantic/binding gaps.
