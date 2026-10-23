@@ -87,6 +87,61 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — A certificate replaces the deltas: lane 0 keeps the delta, a receipt or seal, and in time a proof reference — never the operations
+
+`[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGA-5 D-TGB-4 D-TGB-7 D-DRMC D-CGW-4]`
+
+Operator direction (provenance): lane 0 is main, 1..63 are thoughts, and each
+lane may run on the order of 10^6 operations. Written with session 01G22yT6's
+mapping (EXO-50, 2026-10-23).
+
+**Storage arithmetic, not a measurement.** 64 lanes × 10^6 operations is
+6.4·10^7 deltas per cycle: 1–2 GB at 16–32 bytes each, or 33 GB at 512-byte
+rows. A few cycles a minute reaches terabytes within hours. A receipt per
+landed thought is about 64 × ~100 bytes per cycle. So deltas stay in RAM and
+die at squash; only the squashed delta, receipts and seals reach disk.
+
+**What exists.**
+- **D-TGB-4** (#1674, EXO-58 done) replaces history with a receipt. It
+  proves only the replay half, not admissibility.
+- **egglog** checks a proof for every admissible solution.
+- **DR64** refuses every recipe with `NoCertifiedCompiler`. That is the
+  certified-compiler-boundary row below, and its scope is the operator's call.
+- **The joint replay** (proof + receipt + lane read) is the 2026-10-23 IDEAS
+  row below.
+- **The causal verdict** is computed (`pearl.rs:259`) but promotes nothing
+  (ISS-D-CGW-4-PROMOTION-GATE).
+
+**The rungs.**
+1. **The gate:** squash every chain of origin into the most-updated lane,
+   refusing on contradiction or divergence, with blame kept over lanes.
+   MEASURED in `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`:
+   landing the squash equals landing the finals, and the delta stays N
+   cells while the history grows k·N. Update count is activity, not
+   insight, so the target choice is only a tie-free rule. Correctness comes
+   from the gate.
+2. **The determinism falsifier** (01G22yT6). The receipt replaces the
+   history only if every lane is deterministic given its seeds. Inject one
+   nondeterministic read (an outside read, thread timing) into the D-TGB-4
+   replay test. The replay must refuse, not reproduce different writes
+   silently.
+3. **Promotion at squash time.** CE64 bits 59..63 advance (correlation →
+   causality, MUL-calibrated rather than overconfident) only when the
+   squash is contradiction-free and blame shows independent lanes
+   (EXO-138's stamp condition).
+4. **Compiled thought.** An egglog / eggcc certificate replaces the order
+   list. Lane 0 then stores the delta plus a seal that points at the
+   certificate, and a certified thought is reusable by reference.
+
+**Next probe:** rung 2, which is cheapest and guards the whole storage
+argument. **Kill:** a lane that is deterministic given its seeds cannot be
+defined for the planned writers (outside reads are essential). In that case
+receipts cannot replace deltas, and the arithmetic above stands against the
+design.
+
+**Fruit:** High-signal
+**Status:** Open.
+
 ## 2026-10-23 — One replay that checks proof, receipt and commit witness together
 
 `[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGB-7 D-RFT-5 D-DRMC]`

@@ -1,7 +1,7 @@
 # 2026-10-23: D-TGA-5 lab precursor — squash the chain of origin into the most-updated lane, gated on contradiction (pre-registration)
 
-**Status:** PRE-REGISTERED. Everything above the line was fixed before any
-probe code was written. Results go below it.
+**Status:** MEASURED, all seven predictions hold. Everything above the line was
+fixed before any probe code was written. The results are below it.
 
 **Source:** an operator direction (provenance, not validation): the first
 squash gate is "which thought lane was updated most". That lane's chain of
@@ -86,3 +86,56 @@ refuses P4's inputs, which means it fires on everything.
   reported.
 
 ---
+
+## Results (`cd crates/thought-git-probe && cargo test --test squash_gate`)
+
+9 tests pass: P1–P7, plus a seal test and a check against the oracle's own
+divergence record. All 15 + 10 + 7 + 9 tests in the crate pass. clippy
+`-D warnings` and fmt are clean.
+
+| prediction | result |
+|---|---|
+| P1 | the squash lands to the same `Version` as the final states, on every one of the 48 fixture cells |
+| P2 | `Divergence { cell (5,2), offers [(7, lane 4), (8, lane 9)] }`; on the same input `oracle::squash` keeps 8 silently |
+| P3 | `Contradiction { cell (1,0), given 101, offered 999, lane 5 }` |
+| P4 | accepted; the input has 3 rewrites of one cell in one lane plus one cell two lanes agree on |
+| P5 | ops per lane `(3,2) (7,4) (12,6)`, target 12; a tie goes to the lower id (11 over 20) |
+| P6 | blame equals the independent reference; the shared cell carries bits 3 and 7 |
+| P7 | see the table below |
+
+P7, with N = 8:
+
+| k | history writes | delta cells | order entries |
+|---|---|---|---|
+| 1 | 8 | 8 | 1 |
+| 2 | 16 | 8 | 2 |
+| 4 | 32 | 8 | 4 |
+| 8 | 64 | 8 | 8 |
+| 16 | 128 | 8 | 16 |
+| 32 | 256 | 8 | 32 |
+| 64 | 512 | 8 | 64 |
+
+Every anchor was asserted before each disable, and the file was restored
+after each one. Every disable turned its test red:
+
+| disable | tests that went red |
+|---|---|
+| D1 | P2, plus the oracle cross-check |
+| D2 | P3 |
+| D3 | P4, plus P1, P5, P6, P7 and the seal test (all of them rewrite in a lane) |
+| D4 | P5 |
+| D5 | P6 |
+
+**Bearing on EXO-138.** Blame survives the squash as one `u64` over lanes,
+the same shape as P-E2's stamp. The lane read can therefore serve as the
+stamp at squash time, provided this bitset is kept when the squash lands.
+
+**Bearing on EXO-132 (lumpability).** Squash is a quotient: a chain of
+operations collapses to one delta. P1 tests that quotient for one reader,
+landing on the next version, and it holds. It does not test a reader of an
+intermediate state (a mid-chain read), and by design the squash cannot
+answer one. The full condition, raised by 01G22yT6: every later read,
+including the 59..63 promotion, gets the same answer from the squash as
+from the chain. That is a hypothesis, not tested here.
+
+Closeout: `STATUS: measured | OUTCOME: the most-updated lane absorbs the chain of origin under a contradiction/divergence gate; landing the squash equals landing the finals; blame survives; the stored delta stays N while the history grows k·N | OPEN: slot reuse (D-TGA-5's own falsifier); squash against a non-empty prior version; the order list still grows with thought count; CE64 59..63 promotion and certificates (IDEAS)`

@@ -163,7 +163,10 @@ fn clean_lanes() -> Vec<Lane> {
     vec![
         Lane::new(
             3,
-            vec![commit(1, vec![(cell(4, 1), 41)]), commit(2, vec![(cell(6, 2), 62)])],
+            vec![
+                commit(1, vec![(cell(4, 1), 41)]),
+                commit(2, vec![(cell(6, 2), 62)]),
+            ],
         ),
         Lane::new(
             7,
@@ -176,8 +179,14 @@ fn clean_lanes() -> Vec<Lane> {
         Lane::new(
             12,
             vec![
-                commit(6, vec![(cell(8, 1), 81), (cell(8, 2), 82), (cell(0, 0), 100)]),
-                commit(7, vec![(cell(9, 1), 91), (cell(9, 2), 92), (cell(10, 1), 101)]),
+                commit(
+                    6,
+                    vec![(cell(8, 1), 81), (cell(8, 2), 82), (cell(0, 0), 100)],
+                ),
+                commit(
+                    7,
+                    vec![(cell(9, 1), 91), (cell(9, 2), 92), (cell(10, 1), 101)],
+                ),
             ],
         ),
     ]
@@ -199,14 +208,26 @@ fn p1_landing_the_squash_equals_landing_every_final_state() {
 
     let finals: Vec<Thought> = lanes
         .iter()
-        .map(|l| commit(1000 + u32::from(l.id), l.final_state().into_iter().collect()))
+        .map(|l| {
+            commit(
+                1000 + u32::from(l.id),
+                l.final_state().into_iter().collect(),
+            )
+        })
         .collect();
     let via_finals = next_version(&g, &main_version(), &finals);
     let via_squash = next_version(&g, &main_version(), &[s.as_thought(999)]);
 
-    assert_eq!(via_squash, via_finals, "squash differs from landing the finals");
+    assert_eq!(
+        via_squash, via_finals,
+        "squash differs from landing the finals"
+    );
     for c in probe_cells() {
-        assert_eq!(via_squash.read(&g, c), via_finals.read(&g, c), "read at {c:?}");
+        assert_eq!(
+            via_squash.read(&g, c),
+            via_finals.read(&g, c),
+            "read at {c:?}"
+        );
     }
     // Anti-vacuity: the comparison covers a rewritten cell and a shared cell.
     assert_eq!(via_squash.read(&g, cell(5, 1)), Some(52));
@@ -310,7 +331,11 @@ fn p6_blame_names_every_lane_that_wrote_a_cell() {
         (1 << 3) | (1 << 7),
         "a cell two lanes agreed on keeps both lanes"
     );
-    assert_eq!(s.blame[&cell(0, 0)], 1 << 12, "agreement with a given is still blamed");
+    assert_eq!(
+        s.blame[&cell(0, 0)],
+        1 << 12,
+        "agreement with a given is still blamed"
+    );
 }
 
 /// P7. The stored delta does not grow with the history.
