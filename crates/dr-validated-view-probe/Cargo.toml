@@ -1,0 +1,20 @@
+[package]
+name = "dr-validated-view-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "D-NFR-6 lab probe: validate a DR64 binding once, then run several native ndarray operations over a lifetime-borrowed view; falsifiers for stale frame, focus, scope and semantics; guard cost breakdown. Lab only: no production contract or ABI."
+
+# Own workspace root, like dr-math-binding-probe, which it path-deps.
+[workspace]
+
+[dependencies]
+# The existing validator (bind_dr64, FrameStore, Guards, refusals), reused,
+# not reimplemented.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The native kernels. Same source string as mask-risc's copy.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
