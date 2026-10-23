@@ -50,6 +50,12 @@ landed in (`epiphany_provenance.py`).
 - 2026-10-23: P-S2 (#1726). `ComposeTable` is UNSTABLE in both worlds
   (agreement 0.025 / 0.043 at k=2), because the codebook is not closed
   under bind.
+- 2026-10-23: EXO-129 probe (#1731, pre-registered in
+  `entries/2026-10-23-exo129-learned-lut-preregistration.md`). The learned
+  table reads 0.017 / 0.009 at k=2 in W1 / W2, worse than ComposeTable.
+  Purity (≈ 0.47 there) ranks k=2 agreement across six settings
+  (ρ = 0.935, but only three distinct points), and P^k magnitude fails. The
+  next step moved to IDEAS 2026-10-23 "Lumpability as the closure check".
 **Next probe:** pre-register, then build a synthetic world with a known true
 transition map. Compare a `PaletteLut` filled from observed transitions
 against `ComposeTable` and the exact chain at k = 1..6, in two unlike worlds.
@@ -58,4 +64,4 @@ worlds.
 **Promote:** it holds ≥ 0.90 at k=2 in both worlds, and a disable run
 (shuffled transitions) collapses it.
 **Last moved:** 2026-10-23
-**Status:** TORQUE
+**Status:** KILLED (#1731: the learned table falls below 0.90 at k=2 in both W1 and W2)
