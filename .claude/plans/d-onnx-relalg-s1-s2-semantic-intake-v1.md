@@ -61,3 +61,32 @@ Haiku: source census + official ONNX schema inventory. Sonnet: typed matrix and 
 
 ## References
 PR #1745 S0; #1641 D-RELALG-UNIFIED; #1654 D-RA-2; #1682 Quack K3/NULL; #1685 Bag/Distinct; #1707 DRMC associativity; .claude/plans/d-relalg-unified-v1.md.
+---
+
+## 2026-10-23 Cross-session review amendment: P0 S0 conflict, value dispatch and interoperability
+
+**Reconciliation gate:** PR #1744 also owns the prospective canonical S0 path `.claude/plans/d-onnx-relalg-cap-v1.md`, colliding with #1745. Do not merge both; obtain operator/EXO-50 ownership decision first. The source-backed #1744 inventory (narrow `Rel`, 14 OP-ONNX open questions, board closeout) remains authoritative *for observed capability*, subject to current-main recheck. This document is a companion proposal, not a replacement S0.
+
+### S2 binding decision candidate — OP-ONNX-1
+**Propose:** ONNX `GraphProto` / versioned operator schemas continue to own the computational graph and numerical operator meaning. Existing `lance-graph-relalg::Rel` is only a Boolean/selection/planning subset; do NOT add `MatMul`, `Tanh`, `Conv`, `Gemm` or a general value-expr AST to `Rel`. The *value-math dispatch boundary* is a typed method/backend choice using existing ClassView/method, ndarray numerical kernels and approved external backends; RelAlg may provide a support/filter/demand plan where relevant. A small immutable dispatch descriptor can be proposed only if existing signatures demonstrably lack necessary information; it is not permission for another graph language.
+
+This is a recommendation for OP-ONNX-1, **not an operator decision**. The semantics contract must survive lowering even if there is no relational involvement. Probe a numeric `Tanh` bypassing DR and one typed support-guided `MatMul` path.
+
+### S1 whole-model policies — OP-ONNX-13
+Specify **two modes**, with separate compatibility/evidence claims:
+1. `STRICT_NATIVE` (S1 admissible default): refuse the whole model if any node, dtype, shape, attribute, effect or version is outside the admitted native subset. Never partially execute and present an incomplete output.
+2. `DELEGATED_GRAPH` (future opt-in research): route unsupported *connected subgraphs* to a specifically authorized ONNX-compatible external backend. Validate graph partition boundaries, execution order, shape/dtype/mutability, value transfer, permissions/scope, dependency closure and full-model oracle parity. External delegation is not a second proprietary runtime or a hidden fallback. No implementation or provider adoption is authorized by this proposal.
+
+An ONNX `Gather` may be unsupported in our *native* binder due to ADMISSION B, but that does not imply its ONNX semantics are intrinsically forbidden for an authorized external tensor backend. Do not conflate local addressing policy with ONNX standard legality. Unresolved effects, state or tensor transfer result in typed refusal even in delegated mode.
+
+### Version and references
+#1744 used an explicitly pinned ONNX v1.23.x, IR 14 / ai.onnx opset 28 for its inventory. Treat 1.24.0 development documentation (opset 29) as a distinct unpinned preview until a release is verified; never merge those operator counts silently. Opset 22 is historical comparison. Pin actual schema before using a fixture.
+
+### New falsifiers and stage gate
+- VS1: Value-only `Tanh` needlessly requires DR64 or a `Rel` enum extension (design failure).
+- VS2: STRICT_NATIVE partially executes unsupported input then returns a plausible complete tensor (refusal failure).
+- VS3: Delegated partition drops symbolic dimensions, dtype, state dependencies, execution ordering or safety scope (refusal/fallback required).
+- VS4: `Gather` within an independent tensor backend is treated as a forbidden *cross-table local binder gather* without examining the distinct execution authority (classification failure).
+- VS5: Claiming compatibility based on parser success or custom-domain serialization (evidence failure).
+
+Gate remains documentation-only: operator chooses value dispatch and delegated-mode governance; implementation is separately authorized, and #1744/#1745 S0 conflict resolved before shared capstone merge.
