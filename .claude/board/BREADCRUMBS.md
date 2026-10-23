@@ -49,8 +49,8 @@ module states that the receipt proves replay equals the original run, not that
 the derivation is admissible; that promotion is D-TGB-7's. Same three parts as
 trail T-ADMISSION: built before (sealed receipt), witness with an issuer
 (the cycle commit), refused promotion (replay → proof).
-**Receipt:** `crates/thought-git-probe/src/receipt.rs:20-45`, `:82`, `:473`,
-`:681` on main `8f610a85`; lance-graph #1674, #1684; GPT /05 three-artifact
+**Receipt:** `crates/thought-git-probe/src/receipt.rs` on main `8f610a85`
+(module doc, `pub struct CommitWitness`, `Refusal::NoCommitWitness`); lance-graph #1674, #1684; GPT /05 three-artifact
 note (EXO-50, `session_019fbZ92dFKQ5BJHrA3YcH9A/007`).
 **Rhymes-with:** BC-2026-10-23-8, BC-2026-10-23-9 (draft #1730)
 **Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)

@@ -26,7 +26,7 @@ correct. The doc contradicts the decision. Linear EXO-65.
 
 ## TD-SYLLOGIZE-WRITES-ALL-HOT-PLASTICITY — WIRE-50 is decided, its writers are not updated (2026-10-23) — OPEN
 
-`CausalEdge64::syllogize` (`crates/causal-edge/src/syllogism.rs:185`) builds
+`syllogize` (`crates/causal-edge/src/syllogism.rs`, `pub fn syllogize`) builds
 its conclusion with `CausalEdge64::pack(.., PlasticityState::ALL_HOT, ..)`,
 i.e. bits 50..52 = `0b111` on every derived edge. WIRE-50 (#1640) reads those
 bits as `Option<Maturation3>`. Also undecided on the same writers: epistemic
