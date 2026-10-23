@@ -1,7 +1,8 @@
 # 2026-10-23: P-S2 — does a Palette256 compose table survive multi-hop composition? (pre-registration)
 
-**Status:** PRE-REGISTERED. Fixed before any probe code was written. Results
-are appended below the line, never edited into the section above it.
+**Status:** MEASURED — **UNSTABLE** in both worlds. The pre-registration
+above the line was fixed before any probe code was written; results are
+below it.
 
 ## Question
 
@@ -67,4 +68,51 @@ property of real data. Both wait for a labelled corpus.
 
 ## Results
 
-(appended after the run)
+Probe: `crates/bgz-tensor/tests/p_s2_compose_chain_probe.rs` (release).
+
+| measure | clustered | uniform |
+|---|---|---|
+| agreement k = 1 (guard) | 1.000 | 1.000 |
+| agreement k = 2 | **0.025** | **0.043** |
+| agreement k = 3..6 | 0.013, 0.006, 0.005, 0.004 | 0.021, 0.011, 0.003, 0.005 |
+| unbind recovery | **0.071** | **0.169** |
+| image size per relation (min / median / max) | 92 / 111 / 129 | 147 / 161 / 256 |
+| reachable set after 1..6 hops (of 256) | 118, 70, 53, 43, 29, 26 | 158, 116, 94, 80, 69, 59 |
+
+Verdict: **unstable**. Agreement falls from 1.000 to 0.025 at the second hop,
+which is at the level of a random guess among a few dozen states, not slow
+drift. The table loses XOR's self-inverse (7–17 % recovery against 100 %
+exact). In the uniform world the median image size (161) matches a random map
+on 256 states (≈162); the clustered table collapses faster than a random map.
+
+**Mechanism (post-hoc diagnostic, not pre-registered):** P-D3's radius flag
+applied to the bind result before it is snapped. 100 % (clustered) and 88.9 %
+(uniform) of all 65 536 bound pairs lie outside the palette's support, so the
+table answers with a confident `u8` for vectors the codebook does not cover.
+Caveat: radii come from 4 training rows per entry, so the flag is strict; the
+size of the agreement collapse does not depend on it.
+
+Disable runs:
+- Exact chain in place of the table chain: the pinning test fails
+  ("the compose table now passes; re-register P-S2"), so the pin can fire.
+- Constant law: unbind recovery < 0.01 (`unbind_recovery_collapses_for_a_constant_law`).
+- Exact chain against itself reads 1.000 at every k
+  (`agreement_reads_one_for_the_exact_chain`).
+
+What this does and does not show:
+- It shows that a law derived by binding representatives and snapping does not
+  compose. A multi-hop law must keep its output inside the codebook's support,
+  which a derived XOR-bind does not do in Base17 space.
+- It does not test calibrated laws (`PaletteLut` filled from observed
+  transitions). Those are the remaining candidate for pairwise composition and
+  need data to fill them.
+- Synthetic worlds only; real weight palettes are not measured.
+- `compose_chain`'s doc comment claimed equivalence to two-layer stacking; it
+  now states the measurement instead.
+- CI runs `bgz-tensor` with `--lib` only, so this probe runs locally, like
+  P-D3.
+
+Closeout: `STATUS: measured | OUTCOME: ComposeTable chains do not survive two
+hops (agreement 0.025/0.043, unbind 0.07/0.17); bind results leave the
+codebook support | OPEN: whether a calibrated PaletteLut composes; real
+palettes; P-L3/P-SH1 wait for labelled data`

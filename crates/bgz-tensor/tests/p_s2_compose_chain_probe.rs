@@ -67,19 +67,22 @@ struct World {
 
 fn worlds() -> Vec<World> {
     let mut rng = Lcg(0x0005_2C0D);
-    [("clustered", clustered(&mut rng)), ("uniform", uniform(&mut rng))]
-        .into_iter()
-        .map(|(name, rows)| {
-            let palette = WeightPalette::build(&rows, 256);
-            assert_eq!(palette.len(), 256, "{name}: palette is not full");
-            let table = ComposeTable::build(&palette);
-            World {
-                name,
-                palette,
-                table,
-            }
-        })
-        .collect()
+    [
+        ("clustered", clustered(&mut rng)),
+        ("uniform", uniform(&mut rng)),
+    ]
+    .into_iter()
+    .map(|(name, rows)| {
+        let palette = WeightPalette::build(&rows, 256);
+        assert_eq!(palette.len(), 256, "{name}: palette is not full");
+        let table = ComposeTable::build(&palette);
+        World {
+            name,
+            palette,
+            table,
+        }
+    })
+    .collect()
 }
 
 fn nearest(w: &World, v: &Base17) -> u8 {
@@ -87,7 +90,9 @@ fn nearest(w: &World, v: &Base17) -> u8 {
 }
 
 fn table_chain(w: &World, ops: &[u8]) -> u8 {
-    ops[1..].iter().fold(ops[0], |acc, &b| w.table.compose(acc, b))
+    ops[1..]
+        .iter()
+        .fold(ops[0], |acc, &b| w.table.compose(acc, b))
 }
 
 /// One bind per hop in Base17 space, one snap at the end.
@@ -171,10 +176,7 @@ fn compose_table_under_multi_hop_composition() {
         println!("{}: unbind recovery {recovery:.4}", w.name);
         println!(
             "{}: per-relation image size min {} median {} max {}",
-            w.name,
-            images[0],
-            images[128],
-            images[255]
+            w.name, images[0], images[128], images[255]
         );
         println!("{}: reachable set after k hops {reach_sizes:?}", w.name);
         let stable = agree[1] >= 0.90 && recovery >= 0.90;
