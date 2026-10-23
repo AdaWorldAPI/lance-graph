@@ -1,6 +1,17 @@
 # D-DR3-HOLO-ONNX-v1 — S3a/S3b/S3c Cartesian / Holographic register plan
+
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **DR64³ is the intended native relational / focus representation** (layer [3] of the canonical diagram), not an optional ONNX-side optimization (A5). Only its physical realization (dense, sparse, tiled) is a measured choice.
+> 2. **Its architectural parents are the native polyfill (#1752) and the Quack binding (D-NFR S1–S3)**, not ONNX intake (#1746), which is a downstream conformance adapter.
+> 3. **What exists today** (D-NFR §2): frame seal, focus and scope guards, typed method axes and the 64×64 register are LAB (`dr-math-binding-probe`); the 256-slot global → local focus is LAB (`dir-rmap-probe`); the third axis has no type (the register is DR64²). Nothing here claims more.
+> 4. **Identity witnesses are native**: a sealed frame plus a codebook generation (the latter MISSING, D-NFR S15), not ONNX model / layer / node identity (A7). ADMISSION B is unchanged: a DR ordinal is never a palette index.
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
 **Date:** 2026-10-23 · **Status:** PROPOSED research, no DR64³/DR256³ implementation claimed
 **Parents:** #1745 S0; #1746 S1–S2 · **Source owners:** D-QR-CAP, D-RELALG-UNIFIED, D-DRMC, D-RMAP/Quack, CE64.
+> ⊘ **D-NFC A5: architectural parents are #1752 and the Quack binding; #1745 / #1746 are downstream (S0 dispute unchanged).**
 
 ## Thesis
 A proposed 3-domain Cartesian relation A×B×C can be evaluated as (i) explicit reference semantics or (ii) a holographically focused, version-witnessed set of existing borrowed relationship views. DR64³ (64³ cells, 32 KiB dense 1-bit equivalent) and DR256³ (256³, 2 MiB dense 1-bit equivalent) are **logical comparison shapes**, not new global identities, implementation ABIs or obligatory allocations.
@@ -140,6 +151,7 @@ Keep three distinct notions:
 ## 2026-10-23 Optimum relationship (#1751): DR focus is optional for one-layer numerical compilation
 
 Separate [PR #1751](https://github.com/AdaWorldAPI/lance-graph/pull/1751) proposes offline Optimum ONNX export and an existing BGZ/ndarray compiled linear candidate. **This work does not require a DR64³ or DR256³ implementation.** DR global-to-local focus remains an optional later physical view, only for operations with a witnessed relational/support dependency.
+> ⊘ **D-NFC A5: true for that external Optimum probe only. In the architecture DR64³ is the intended native relational representation, not an optional view.**
 
 If a future Optimum-compiled BGZ sidecar is eligible for DR-assisted execution, ClassView/DR must verify source-issued model/layer/weight/codebook identity and coordinate/frame/focus/scope ownership. Neither tensor initializer names nor shape-matching palette cache entries are sufficient witnesses. Do not turn a palette-code index into a cross-table positional gather or conflate it with the identity axis.
 
