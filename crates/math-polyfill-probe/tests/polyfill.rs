@@ -3,7 +3,9 @@
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_r2il::procs::{count, select_lt};
-use lance_graph_r2il::{FoldDialect, FoldError, Val, INT_ADD, INT_LESS, INT_MULT, INT_S_DIV, LOAD};
+use lance_graph_r2il::{
+    FoldDialect, FoldError, Val, INT_ADD, INT_LESS, INT_MULT, INT_SUB, INT_S_DIV, LOAD,
+};
 use lance_graph_relalg::{run, Answer, Cmp, Measure, Query, Rel};
 use math_polyfill_probe::{eval, oracle, Expr, Layout};
 use ogar_loco::Dialect;
@@ -227,6 +229,36 @@ fn an_expression_that_leaves_i64_is_refused() {
     assert_eq!(oracle(&f.x, &f.y, &f.v, &f.valid, e).1, None);
     let got = with_planes(&f, |p| eval(&mut FoldDialect::new(p, &Foreign::NONE), L, e));
     assert_eq!(got, Err(FoldError::Overflow(INT_MULT)));
+}
+
+/// FAILS IF: the final subtraction wraps. One selected row with `v = -2`
+/// and `k = i64::MAX`: the product `k * 1` fits, `-2 - i64::MAX` does not.
+/// Found by review on #1752; the oracle already said `None`.
+#[test]
+fn an_expression_that_overflows_at_the_subtraction_is_refused() {
+    let f = Fix {
+        x: vec![0],
+        y: vec![0],
+        v: vec![-2],
+        valid: vec![1],
+    };
+    let e = Expr {
+        lo: 0,
+        hi: 1,
+        k: i64::MAX,
+    };
+    assert_eq!(oracle(&f.x, &f.y, &f.v, &f.valid, e), (1, None));
+    let got = with_planes(&f, |p| eval(&mut FoldDialect::new(p, &Foreign::NONE), L, e));
+    assert_eq!(got, Err(FoldError::Overflow(INT_SUB)));
+    // Silent twin: the same subtraction with room to spare answers.
+    let fits = Expr {
+        k: i64::MAX - 2,
+        ..e
+    };
+    let got = with_planes(&f, |p| {
+        eval(&mut FoldDialect::new(p, &Foreign::NONE), L, fits)
+    });
+    assert_eq!(got, Ok(-2 - (i64::MAX - 2)));
 }
 
 /// FAILS IF: division by zero answers instead of refusing.
