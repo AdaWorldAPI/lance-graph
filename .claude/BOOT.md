@@ -95,6 +95,9 @@ version matters — typically mid-session, not at cold start):
    | `ISSUES.md` | Dated entry bodies | Status line (Open / Resolved / Wontfix / Superseded) + Resolution line (append on close) |
    | `IDEAS.md` | Dated entry bodies | Status line (Open / Implemented / Rejected / Deferred / Reactivated) + Rationale (append) |
    | `TECH_DEBT.md` | Dated entry bodies | Status line (Open / Paid / Moot) + Payoff line (append) + Priority / Scope (filled at creation, stable) |
+   | `BREADCRUMBS.md` | Crumb bodies (Observation / Receipt) | `Cluster:` line (UNCLUSTERED / RHYME / NAMED / KILLED) + `Rhymes-with:` (append ids) |
+   | `TORQUE.md` | Row bodies (Source / Kill / Promote) | `Status:` + `Last moved:` + `Evidence so far:` (append lines) + `Fruit:` |
+   | `GOLDSTAUB.md` | Entry bodies (Claim / Receipt / Scope / Date), never rewritten | a `⊘ SUPERSEDED <date> by <entry>` line; a duplicate's receipt appended to the existing entry |
 
    Core invariant: **rows are history; specific fields are state;
    never delete a row.** Supersedure is a new row that cites the
