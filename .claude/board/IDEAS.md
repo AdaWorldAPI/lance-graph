@@ -103,6 +103,12 @@ refusing with its own error. **Kill:** the capsule fingerprint cannot be made
 stable across a replay without depending on the commit itself. D-RFT-5 is on
 hold until the D-RFT ID table is adopted, so this stays lab-only.
 
+**Correction (2026-10-23, operator):** the "commit witness" here is the CE64
+lane dimension, not the probe's `CommitWitness` struct: NodeGuids are
+identical across lanes, so a vertical read of the thought's NodeGuids shows
+which lanes wrote them. The probe's third disable becomes "the vertical read
+shows a lane other than the thought's own and lane 0".
+
 **Fruit:** High-signal
 **Status:** Open.
 

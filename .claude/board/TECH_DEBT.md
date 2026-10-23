@@ -1,19 +1,3 @@
-## TD-BGZ-TENSOR-CI-RUNS-LIB-ONLY — nine probe test files, P-S2 and P-D3 among them, run in no CI (2026-10-23) — OPEN
-
-`.github/workflows/rust-test.yml:274` runs
-`cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib`. The crate has
-nine integration test files under `tests/`, including
-`p_s2_compose_chain_probe.rs`, `p_d3_ood_support_probe.rs` and the
-`palette256_*` / `palette_*` probes from #1709–#1726. Their verdicts are cited
-on the board, but a regression in any of them would turn nothing red. Fix:
-run `--tests` (or name the files). Not checked: whether all nine pass in CI's
-environment today. (causal-edge's probes do run: `rust-test.yml:265` has no
-`--lib`.)
-
-**Fruit:** Low-hanging
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`rust-test.yml:274`,
-`ls crates/bgz-tensor/tests`).
-
 ## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
 
 `crates/causal-edge/src/edge.rs:944`: "Witness corpus root handle (6-bit,
@@ -23,32 +7,6 @@ correct. The doc contradicts the decision. Linear EXO-65.
 
 **Fruit:** Low-hanging
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
-
-## TD-SYLLOGIZE-WRITES-ALL-HOT-PLASTICITY — WIRE-50 is decided, its writers are not updated (2026-10-23) — OPEN
-
-`syllogize` (`crates/causal-edge/src/syllogism.rs`, `pub fn syllogize`) builds
-its conclusion with `CausalEdge64::pack(.., PlasticityState::ALL_HOT, ..)`,
-i.e. bits 50..52 = `0b111` on every derived edge. WIRE-50 (#1640) reads those
-bits as `Option<Maturation3>`. Also undecided on the same writers: epistemic
-bits 59..63 written as 0, and bits 46..49 read as activation by `wire` while
-`deposit_counterfactual` (contract `counterfactual.rs:140`) writes −6 there.
-A field-isolation test is required for any change here
-(I-LEGACY-API-FEATURE-GATED).
-
-**Fruit:** High-signal
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`syllogism.rs:185-230`).
-
-## TD-STATUS-BOARD-HAS-NO-ROWS-FOR-RULED-AND-SHIPPED-WORK — six rulings, D-DRMC and the P-* probes are absent (2026-10-23) — OPEN
-
-STATUS_BOARD on main `8f610a85` has 0 rows whose first cell names ADMISSION,
-ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-DRMC-0..5, D-TLAC or D-RV-0..9.
-D-RFT-2..5 exist only as one combined PROPOSAL row, and D-QSP-1/2 have no
-row. "What is open" cannot be answered from the board for any of them. Fix:
-one row each, status from its own entry. (Draft #1727 adds PR_ARC and
-LATEST_STATE catch-up, not these rows.)
-
-**Fruit:** Low-hanging
-**Status:** OPEN. **Basis:** census of `^| *<id>` in STATUS_BOARD.md.
 
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 
