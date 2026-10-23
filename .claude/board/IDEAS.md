@@ -96,12 +96,28 @@ Agents filter by `@`-mention or domain to see what's theirs.
 **Scope:** @palette-engineer domain:codec
 **Fruit:** High-signal
 
-Named from crumb trail T-CLOSURE (`BREADCRUMBS.md`, Linear EXO-132; crumbs BC-1..4 and BC-2026-10-23-14 here, BC-5/-6 in #1730) after EXO-129 (#1731). A one-byte palette state can be composed by a 256×256 table, learned or derived, only if the cell determines the next cell under the operation. That is lumpability of the partition in the Markov-chain sense. **Purity**, the share of observed transitions that equal their cell's modal result, is a data-only observable for it. Measured so far: purity 1.0 → the exact law composes at every k (XOR-group world); purity ≈ 0.47 → no table reaches 0.03 at k = 2 (P-S2 worlds). The rank evidence is thin (three distinct points). Scope (from #1730's NULL/K3 crumb): closure decides correctness, not cost. The candidate use is a plan-time `closed(carrier, op)` check that decides lookup vs snap vs refit before a composition is compiled into a LUT.
+Named from crumb trail T-CLOSURE (`BREADCRUMBS.md`, Linear EXO-132; crumbs BC-1..4 and BC-2026-10-23-14 here, BC-5/-6 from #1730) after EXO-129 (#1731). A one-byte palette state can be composed by a 256×256 table, learned or derived, only if the cell determines the next cell under the operation. That is lumpability of the partition in the Markov-chain sense. **Purity**, the share of observed transitions that equal their cell's modal result, is a data-only observable for it. Measured so far: purity 1.0 → the exact law composes at every k (XOR-group world); purity ≈ 0.47 → no table reaches 0.03 at k = 2 (P-S2 worlds). The rank evidence is thin (three distinct points). Scope (from #1730's NULL/K3 crumb): closure decides correctness, not cost. The candidate use is a plan-time `closed(carrier, op)` check that decides lookup vs snap vs refit before a composition is compiled into a LUT.
 
 **Next probe (not run):** on real Moore/DR pair data with labels, measure purity per operation and test whether a bar (for example P ≥ 0.99) separates compositions that hold at k = 2..64 from those that do not. Distribution-dependent, so it needs real data (GOLDSTAUB G-2026-10-23-1).
 **Kill:** a cell partition with purity ≥ 0.99 whose k = 2 composition still falls below 0.90, or one with purity < 0.9 that composes at ≥ 0.90.
 
 Cross-ref: TORQUE T-2026-10-23-1 (KILLED), #1726, #1731, EXO-129, EXO-132.
+
+## 2026-10-23 — A certified-compiler boundary for DR64: typed relational statements, egglog laws with checked proofs, a lowering check
+
+`[P2 domain:dr-math D-DRMC]`
+
+After X15, `dr-math-binding-probe` admits a recipe only through an opaque `RecipeCertificate` that a certified compiler issues; none exists, so every admission ends in `NoCertifiedCompiler` (`entries/2026-10-22-coresearch-drmc-stack.md` § Applied, #1703). The boundary needs three parts: a typed relational statement language over ClassView domains, egglog laws over it whose proofs a checker independent of the producer re-checks, and a check that the lowering preserves the statement. First law: associativity of Boolean relation composition, already measured as a probe (D-DRMC-5, #1707: 14 orders, one relation). Kill: the statement language cannot type the composition D-DRMC-5 already runs. Scope question for the operator: how far the boundary goes (LEDGER-REVISION-2026-10-23e Q2).
+**Fruit:** Heavy
+**Status:** Open
+
+## 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18
+
+`[P1 domain:dr-math D-DRMC]`
+
+Pre-registered in `entries/2026-10-22-coresearch-drmc-stack.md`, none run. X6: `validity: None` must refuse or report `Unattested`, never silently mean all-known. X7: a compile-fail test that no `PopulationReport` → premise conversion exists. X8: two certified bindings for one key (today the first falls back). X16: a law found on class 1 must not reach class 22 (2 counterexamples) unchecked. X18: a census may veto ACT-R eligibility, never qualify it. Each is one falsifier on an existing crate; X6, X7 and X18 are the cheapest.
+**Fruit:** High-signal
+**Status:** Open
 
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
