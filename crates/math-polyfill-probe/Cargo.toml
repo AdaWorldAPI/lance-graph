@@ -16,5 +16,11 @@ lance-graph-r2il = { path = "../lance-graph-r2il" }
 lance-graph-relalg = { path = "../lance-graph-relalg" }
 ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 
+# Examples only: the ndarray::simd floor the D-MPF-2 cost split compares
+# against. Same source string as the copy mask-risc already pulls, so the
+# lock keeps one ndarray.
+[dev-dependencies]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
+
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

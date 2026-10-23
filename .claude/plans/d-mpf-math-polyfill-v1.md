@@ -1,6 +1,6 @@
 # D-MPF — the mathematical polyfill API, Stage 1 (source audit + folding probe)
 
-**Status:** D-MPF-1 MEASURED, lab only (`crates/math-polyfill-probe`). D-MPF-2.. PROPOSED. Independent of ONNX and of the open S0 drafts (#1744, #1745, #1750); it does not choose between them.
+**Status:** D-MPF-1 MEASURED, D-MPF-2 MEASURED (§7), lab only (`crates/math-polyfill-probe`). D-MPF-3.. PROPOSED. Independent of ONNX and of the open S0 drafts (#1744, #1745, #1750); it does not choose between them.
 
 ## 1. Finding: the Stage 1 polyfill API already exists
 
@@ -51,6 +51,7 @@ Typing the procedures carry today: domain `i32`/`u32` lanes, `i64` scalars; Bool
 What the numbers say:
 
 - **Per row, the target holds:** above ~4 K rows the expression costs under 1 ns/row and beats the scalar loop by 1.6–1.7×; the fold alone (`exec`) is ~0.27 ns/row at 64 K.
+  > ⊘ **Corrected by D-MPF-2 (§7):** "beats the scalar loop" compared against the `i128` filter-chain oracle, not an equal-work loop. A branch-free `i64` loop over the same `&[i32]` with a runtime threshold takes ~11 µs at 64 K rows (0.17 ns/row) and is ~3× faster than the SIMD-path fold. The per-row figure (<1 ns/row) stands; the comparison does not.
 - **Per call at register scale, it does not:** at 64 rows (one `u64` word) one fold costs ~120 ns in mask-risc plus ~150 ns of dialect lowering, and the scalar loop (~80 ns) is faster than the whole expression (~600 ns). "Nanosecond hot execution" is therefore not met by the existing per-call API for one-word populations.
 - `relalg::run` adds ~2.5 µs of fixed cost (normalize through the contract) over the dialect; worth it for rewrites, not for a hot one-word path.
 - Materializing the mask (`keep+bind` vs `count+bind`) costs nothing measurable.
@@ -63,7 +64,7 @@ What the numbers say:
 | G1 | no element-wise value arithmetic (`x + y` per row) on the fold path | `lane_plus_lane_is_refused` | OPEN, owner decision: R2IL/mask-risc vs an existing ndarray kernel behind a typed method |
 | G2 | no unsigned lane compare | `unsigned_compare_is_refused` | OPEN (known since D-SQLP-1) |
 | G3 | no float lane kind; nothing IEEE is admitted | contract `Refusal::Ieee` | OPEN; floats route to ndarray kernels, measured, never certified |
-| G4 | ~270 ns fixed cost per fold at one word | cost table row 64 | OPEN; D-MPF-2 measures where it goes before anything is changed |
+| G4 | ~270 ns fixed cost per fold at one word | cost table row 64 | ATTRIBUTED (§7); no change made |
 
 No new primitive is proposed in this PR. G1 is the first place a counterexample shows composition is insufficient.
 
@@ -85,3 +86,35 @@ No new primitive is proposed in this PR. G1 is the first place a counterexample 
 | MPF-OP-2 | which repository is the ONNX/protobuf fork | operator | OPEN |
 | MPF-OP-3 | is a one-word fast path a mask-risc concern | mask-risc owner | OPEN (D-MPF-2) |
 | MPF-OP-4 | S0 owner among #1744/#1745/#1750 | operator / EXO-50 | OPEN |
+
+## 7. D-MPF-2 — where the cost goes (measured, nothing changed)
+
+`examples/fixed_cost.rs`, `examples/floor_split.rs`, `examples/codegen_probe.rs` + `codegen-witness.sh`. Host: AVX-512 (`target-cpu=native`), 4 cores, other load present; two clean runs of three kept, one dropped as noisy. Every arm equals the `i128` oracle at every size before timing. No primitive, contract or ABI was changed.
+
+**Per call, one question (`Σ x > t`), each arm one layer more than the last** (ns, two runs):
+
+| rows | scalar `i64` | ndarray floor | mask-risc compiled | + recognition | + `Program::new` | dialect |
+|---:|---:|---:|---:|---:|---:|---:|
+| 64 | 12 | 39 | 94–99 | 97–100 | 113–125 | 171–172 |
+| 4 096 | 664–686 | 1 721–1 831 | 1 789–1 901 | 1 792–1 911 | 1 811–1 936 | 1 839–1 975 |
+| 65 536 | 10 967–11 817 | 30 884–42 348 | 31 048–31 051 | 30 578–31 190 | 32 925–36 005 | 33 765–36 822 |
+
+Allocations per call: 0 for the first four arms, 1 for `Program::new` and for the dialect (its `ops` vector is moved into each program and re-grown on the next fold).
+
+At 64 rows the 172 ns split as: ndarray floor 39 (memset, 4 compares, the bit walk), mask-risc execution ~57 (precheck, validation, tile dispatch, scratch carve), program build ~20 + 1 allocation, dialect ~50 (stack, epoch, op accumulation, result extraction). Recognition (`compile`) is ~3 ns.
+
+**Per row, the floor is the bottleneck, not mask-risc:** at 64 K rows mask-risc compiled ≈ ndarray floor. Inside the floor (`floor_split`, 65 536 rows, three runs):
+
+| selected | compare | `masked_sum_i32` | branch-free sum | scalar |
+|---:|---:|---:|---:|---:|
+| 0 | 5.4–9.2 µs | 1.2–1.7 µs | 12.2–20.8 µs | 10.8–11.5 µs |
+| 32 429 | 5.5–6.0 µs | 24.6–26.5 µs | 12.2–12.5 µs | 10.7–10.9 µs |
+| 65 536 | 5.2–5.6 µs | 43.8–52.6 µs | 12.2–17.7 µs | 11.1–12.4 µs |
+
+**LLVM** (`codegen-witness.sh`, PASS ×3): `gt_i32_to_mask` is one `vpcmpltd` + `kmov` per 16 lanes; `masked_sum_i32` is a scalar `tzcnt`/`blsr` walk with no vector register; the branch-free sum vectorizes (`vpsrlvq`, `vptestmq`, `vpmovsxdq`, `vpaddq`); the scalar row loop vectorizes on ymm.
+
+**Bottleneck:** `ndarray::simd::masked_sum_i32` walks set bits one at a time, so its cost tracks the popcount (0.03 → 0.67 ns/row from 0 % to 100 % selected) and it is ~75 % of the fold at half selectivity.
+
+**One proposed optimization (not made; owner of `ndarray::simd`):** choose the body by density. When a word has more than ~16 set bits, sum it branch-free; otherwise keep the walk. Negative controls already measured: the branch-free form equals the oracle at 0 %, 50 % and 100 %; its time is flat in selectivity (the mechanism is the missing branch, not the data); and the walk is 7–10× faster at 0 %, which is why the walk must stay for sparse words. Expected effect at 50 %: fold ~31 µs → ~18 µs at 64 K rows. Even then a one-pass fold stays slower than the scalar loop; the mask form pays off when the mask is reused or combined (NULL planes, several predicates), which this probe does not measure.
+
+**Fixed cost (G4):** the 50 ns gate is not met and is not reachable by tuning one layer: the floor alone is 39 ns at one word. A second proposal, for the r2il owner: keep the `ops` vector's capacity across folds (reclaim it from the previous program) to remove the one allocation per fold. Not made.
