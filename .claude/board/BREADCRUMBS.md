@@ -41,6 +41,25 @@ Coordination happens in Linear (`CC: Thread` label `Breadcrumb`, milestone
 
 ## Crumbs
 
+### BC-2026-10-23-13 — a replay receipt is sealed before landing, and its witness is issued only by the write path
+**Observation:** D-TGB-4's receipt is built and sealed at stage time; a
+landing is accepted only with a `CommitWitness` that `VersionStore::commit_cycle`
+alone produces, and its absence refuses with `Refusal::NoCommitWitness`. The
+module states that the receipt proves replay equals the original run, not that
+the derivation is admissible; that promotion is D-TGB-7's. Same three parts as
+trail T-ADMISSION: built before (sealed receipt), witness with an issuer
+(the cycle commit), refused promotion (replay → proof).
+**Receipt:** `crates/thought-git-probe/src/receipt.rs` on main `8f610a85`
+(module doc, `pub struct CommitWitness`, `Refusal::NoCommitWitness`); lance-graph #1674, #1684; GPT /05 three-artifact
+note (EXO-50, `session_019fbZ92dFKQ5BJHrA3YcH9A/007`).
+**Rhymes-with:** BC-2026-10-23-8, BC-2026-10-23-9 (draft #1730)
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+**Correction (2026-10-23, operator):** the witness is not issued by the write
+path. It is the lane dimension: identical NodeGuids across lanes give a
+vertical read of which thoughts wrote a node. The probe's `CommitWitness`
+restates that read as a lab stand-in. The issuer question raised on EXO-135
+(component or version) is answered: neither, it is the lane.
+
 ### Trail T-ADMISSION — what may be built before execution, under what witness, and what may never be promoted from it?
 Six crumbs (BC-2026-10-23-7 … -12) from six sources: a decision record, two
 probe reviews, a co-research map and two plan rows.
@@ -179,3 +198,17 @@ under every operation it assumes; otherwise snap (lossy, P-S2), extend the
 carrier (K3, Bag multiplicity) or refuse (`Complement` under K3,
 `BagNeedsMultiplicity`). Scope limiter from BC-2026-10-23-6: closure decides
 correctness, not cost. Proposed regrade RHYME → NAMED left to the trail owner.
+
+
+**Evidence appended 2026-10-23 (session_019fbZ92dFKQ5BJHrA3YcH9A):** BC-4 is
+a near-counterexample to the word "closed". A Distinct carrier IS closed under
+join (a set joined with a set is a set), yet the Bag answer is wrong; K3 is the
+same: {T, F} is closed under ∧ ∨ ¬, the failure is that NULL has no image in
+it. Candidate refinement, HYPOTHESIS, not adopted: the condition is that the
+map from the true domain into the carrier commutes with the operation and with
+the measure read at the end (`h(a ⊕ b) = h(a) ⊕' h(b)`, abstract-interpretation
+soundness); closure of the carrier is necessary, not sufficient. Cheap test it
+implies: the one-step commutation defect rate (P-S2: 100% / 88.9% of bound
+pairs outside support) should predict k-step agreement without running k hops.
+**Kill for the refinement:** a case where the map commutes at one step and the
+k-step composition still fails.

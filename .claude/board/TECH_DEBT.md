@@ -1,3 +1,13 @@
+## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
+
+`crates/causal-edge/src/edge.rs:944`: "Witness corpus root handle (6-bit,
+0..=63). 0 = no corpus anchor." The 2026-10-21 decision (#1597) reads W = 0 as
+main and 1..63 as a thought-git slot, which is why `execute` writing W = 0 is
+correct. The doc contradicts the decision. Linear EXO-65.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
+
 ## TD-STATUS-BOARD-ROWS-MISSING-FOR-OCT-PLANS-1 (2026-10-23) — OPEN
 
 **Fruit:** Low-hanging

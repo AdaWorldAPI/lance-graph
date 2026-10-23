@@ -30,6 +30,20 @@ Each entry: `**Claim:**`, `**Receipt:**`, `**Scope:**`, `**Date:**`.
 
 ## Entries
 
+### G-2026-10-23-5 — a stacked PR is finished only when its commits are on main
+**Claim:** When PR B is based on PR A's branch and A merges first, merging B
+lands B into A's dead branch, not into main. GitHub shows B as "merged" either
+way. After merging any stacked PR, check `git log origin/main..origin/<base>`
+is empty, or retarget B to main before merging it.
+**Receipt:** lance-graph twice in two days: #1694/#1695 merged into a stage
+branch and needed #1696 ("land #1694/#1695 catalogue and heritage stages on
+main"); #1701-#1704 merged into stage branches and needed #1708 ("land the
+stranded D-DRMC stack"). Earlier receipt: lance-graph-java
+`ISS-LGJ-STACK-TAIL-STRANDED-MINOR-8` (2026-08-25), where the rule already sits
+in that repo's `CLAUDE.md` iron rules.
+**Scope:** every stacked PR in every AdaWorldAPI repo.
+**Date:** 2026-10-23
+
 ### G-2026-10-23-4 — count invocation and allocation boundaries before optimizing a fold
 **Claim:** The mask work inside a fold costs a few nanoseconds; a slow fold
 usually measures how often execution crosses a boundary per answer (an
