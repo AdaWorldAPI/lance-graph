@@ -5,7 +5,7 @@ PROPOSAL, docs only. Plan `.claude/plans/d-onnx-relalg-cap-v1.md`; entry `entrie
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-ONNX-CAP-S0** | announcement, corrected routing, coverage matrix (opset 28, 226 names), open points, housekeeping | In PR (this branch) | no claim of "ONNX-compatible", float certification or DR64³ existence |
-| **D-ONNX-CAP-S1** | standalone probe crate: decode `onnx.proto` (v1.23.2), classify every node or refuse it with a typed reason | Blocked (operator: one target model; protobuf fork coordinates) | every node of the target model gets a route or a typed refusal; none silently dropped |
+| **D-ONNX-CAP-S1** | standalone probe crate: decode `onnx.proto` (v1.23.2), classify every node or refuse it with a typed reason | Blocked (operator: one target model; protobuf fork coordinates). ⊘ D-NFC A2 (#1753): this is the optional external-file conformance adapter; it blocks no native work | every node of the target model gets a route or a typed refusal; none silently dropped |
 | **D-ONNX-CAP-S2** | integer island through existing relalg + one nonlinear op on an existing ndarray kernel | Queued (after S1) | island answers equal an independent reference; float ops measured, never certified |
 | **D-ONNX-CAP-S3** | DR64³ lab probe over the existing R∘S chain; DR256³ separate | Blocked (original DR64³ plan not found; OPEN doc dependency) | no new identity, no CausalEdge64 change |
 | **D-ONNX-CAP-S4** | Palette256 + cognitive methods as typed methods | Queued | not claimed as equivalence |

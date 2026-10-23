@@ -1,5 +1,16 @@
 # D-ONNX-RELALG-CAP: adapt the ONNX ecosystem onto existing lance-graph surfaces (capstone, S0)
 
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **Native polyfill first.** The R2IL polyfill (#1752) is native Stage 1 and needs no ONNX intake (A2).
+> 2. **`ModelProto` is not the internal graph.** It is external input read only by a conformance adapter [7]; native typed operations and R2IL procedures are the internal contract (A1). This plan's S1 is that adapter.
+> 3. **OP-6 (protobuf fork) and OP-7 (target model) gate only the optional external-file adapter**, not native work (A2).
+> 4. **Native fallback.** Refused nodes fall back to nothing internal in ONNX: the exact native method is the reference, and an external runtime is a differential oracle only (A4).
+> 5. **Representation.** Quack binding + DR64³ + Palette256³ is the intended native representation (D-NFR); this S0 does not own it.
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
+
 **Status:** PROPOSAL (2026-10-23) — S0 docs-only; nothing implemented.
 
 Basis: `origin/main` at `59538865`; ndarray sibling at `1ecbccb`; ONNX tag v1.23.2 (ai.onnx opset 28, IR 14, ai.onnx.ml 5) and tag v1.17.0 (opset 22, IR 10). Every statement is labelled EXISTS (read at the cited file:line), PROPOSED (this document's suggestion), or UNKNOWN (not established by anything read). Evidence base: scout maps, a Haiku inventory, and three Opus reviews (A: minimal semantic integration; B: Cartesian / DR64 integration; C: adversarial). Reviewer C's corrections are binding on this document.
@@ -29,6 +40,7 @@ Putting ONNX numerics into relalg would need either a new tensor IR inside relal
 ### 2.1 Corrected routing (PROPOSED)
 
 The ONNX `ModelProto` is the only graph. There is no second graph format, no new AST, no "ONNX-to-RelAlg IR", and no new relational executor. An intake classifier walks the decoded `NodeProto` list in its mandated topological order and sends each node to exactly one of four owners:
+> ⊘ **D-NFC A1: superseded — `ModelProto` is the only graph the external adapter reads; it is not the internal representation.**
 
 ```
 ONNX ModelProto (decoded with ONNX's own schema)        <- the only graph
@@ -433,6 +445,7 @@ Each stage names its scope, the existing code it reuses, its deliverable, a pre-
 - **Owner of this plan:** the operator assigns. UNKNOWN until assigned.
 - **Pending acknowledgement:** CC1 ProofRef ACK is pending (EXO-50 thread, messages 07–07e; no ACK posted as of 2026-10-23). S2–S5 inherit no certification until it is resolved (OP-3).
 - **Blocking inputs before S1:** (1) the operator chooses one target model (OP-7); (2) the operator provides AdaWorldAPI protobuf fork coordinates, or confirms none exists and decides what then (OP-6).
+  > ⊘ **D-NFC A2: these block only the optional external-file adapter, not native work.**
 - **PR dependencies:** none open. #1742 (RecipeCertificate keeps egglog `ProofStore` + `ProofId`) and #1743 (GF(2) elimination pre-registration) merged 2026-10-23.
 - **Crate home for the importer:** UNKNOWN. It must not be relalg or the contract. Candidates: a new lab crate, `lance-graph-ogar`, or thinking-engine (which already holds the only candle dependency). Standalone probe crate is the S1 PROPOSAL.
 
