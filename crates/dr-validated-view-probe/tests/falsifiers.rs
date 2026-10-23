@@ -80,7 +80,8 @@ fn the_fixture_is_not_vacuous() {
 #[test]
 fn after_the_borrow_ends_every_change_is_refused_at_acquisition() {
     let (mut t, mut g, m, guards) = setup(64);
-    drop(validate_presence(&t, &g, m, &guards).unwrap());
+    // A view is `Copy`; every copy carries the same borrow, which ends here.
+    let _ = validate_presence(&t, &g, m, &guards).unwrap();
 
     t.advance(revisions(2), data(64, 9));
     assert_eq!(
