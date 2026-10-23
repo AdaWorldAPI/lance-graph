@@ -103,6 +103,11 @@ Named from crumb trail T-CLOSURE (`BREADCRUMBS.md`, Linear EXO-132; crumbs BC-1.
 
 Cross-ref: TORQUE T-2026-10-23-1 (KILLED), #1726, #1731, EXO-129, EXO-132.
 
+**Scope sharpened 2026-10-23 (EXO-50, from three sessions; all HYPOTHESIS):**
+- Purity tests *deterministic* lumpability (the next cell is independent of the representative). Purity below 1 refutes a single-valued table, not *strong* lumpability of a stochastic map (equal block mass from every representative); a sample cannot certify either (GPT:gpt-ada-01). A real-data gate has to say which of the two it tests.
+- The condition is that the map into the carrier commutes with the operation and with the final measure, not only that the carrier is closed. BC-4 (Distinct closed under join, Bag wrong) and BC-5 ({T,F} closed, NULL has no image) are closed carriers that fail (session_019fbZ92, #1732).
+- Crumb 2 is an instance through the support map N → B, lumpable for ∨/∧ and not for counting, so it should fail exactly where BC-4 fails. Crumb 3 is the identity quotient and cannot discriminate (session_01VncKoy).
+
 ## 2026-10-23 — One replay that checks proof, receipt and commit witness together
 
 `[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGB-7 D-RFT-5 D-DRMC]`
