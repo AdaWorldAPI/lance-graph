@@ -1,6 +1,9 @@
 ## 2026-10-23 — d-nfr-6-validate-once-v1 — validate a binding once, then execute without repeated guards → `.claude/plans/d-nfr-6-validate-once-v1.md`
 
 **Status:** MEASURED, lab only (`crates/dr-validated-view-probe`). The per-call 27–28 ns guard is `FrameStore::check`'s refcount traffic; a view validated once by the existing `bind_dr64`, and kept valid by borrowing the table that owns data, frame and focus, runs native operations at direct cost. Externally owned revocation keeps a one-load check per operation. Proposals D-NFR-6a need the probe owner's review.
+## 2026-10-23 — d-onnx-relalg-cap-capstone-1750-v1 — ONNX intake onto existing lance-graph surfaces (capstone S0, #1750) → `.claude/plans/d-onnx-relalg-cap-capstone-1750-v1.md`
+
+**Status:** PROPOSAL, S0 docs only; nothing implemented. The pipeline "ONNX graph → RelAlg polyfill → Cartesian projection → native execution" is false as stated: relalg is a single-table integer selection with Count/Sum/Min/Max/Keep, so it receives only the integer selection/aggregate island; numeric ops route to existing ndarray kernels; Gather/Scatter, control flow and `ai.onnx.ml` are typed refusals. The ONNX `ModelProto` stays the only graph (D-RA-2 = A; no new AST, primitive or executor). The original DR64³ master plan was not found on `main` or 833 branches and is recorded as an OPEN documentation dependency. S1 is blocked on the operator naming one target model and the protobuf fork coordinates. Entry `2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md`. #1744's S0 (below) kept the base path; the native-first correction (#1753) governs where they differ.
 
 ## 2026-10-23 — d-onnx-relalg-cap-v1 — ONNX as an import membrane over the existing substrate → `.claude/plans/d-onnx-relalg-cap-v1.md`
 
