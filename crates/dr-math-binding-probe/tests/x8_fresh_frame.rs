@@ -287,16 +287,18 @@ fn report_costs() {
         black_box(ch2.eval(black_box(&from)).unwrap());
     }
     let eval_ns = t.elapsed().as_secs_f64() * 1e9 / f64::from(iters);
-    let bytes = cert.proof().len()
-        + std::mem::size_of::<LawReference>()
+    // The proof is egglog's arena, whose heap size is not measured here; the
+    // rest of the certificate is counted in bytes.
+    let bytes = std::mem::size_of::<LawReference>()
         + std::mem::size_of::<CompiledReference>()
         + 32
         + std::mem::size_of_val(cert.program());
     println!(
         "L1 costs (reported, not gates): cold certify {cold_us:.0} us; \
          hot execute_certified {hot_ns:.0} ns/call; plain eval of the requested order {eval_ns:.0} ns/call; \
-         certificate {bytes} B ({} B proof text, {} steps)",
-        cert.proof().len(),
-        cert.program().len()
+         certificate without proof {bytes} B, {} steps; proof {} nodes ({} B rendered, display only)",
+        cert.program().len(),
+        cert.proof().node_count(),
+        cert.proof().render().len()
     );
 }

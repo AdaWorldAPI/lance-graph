@@ -55,3 +55,7 @@ reference (option B, joint with CC1) is not designed here.
 **Coverage.** Thought-Git linkage, R2IL/Quack lowering and a second law are not covered.
 
 `L1 | STATUS: measured | OUTCOME: certificate reused on a fresh frame with 0 egglog calls, 3 refusals pinned by disable runs | OPEN: independent checker, option B reference, L2 (distributivity + false ∩ variant)`
+
+## Correction (2026-10-23, follow-up PR)
+
+The 1 284 B certificate size counted egglog's rendered proof (1 012 B) as the proof. The certificate now holds egglog's `ProofStore` + `ProofId`; `report_costs` prints the certificate without the proof (272 B, 9 steps) and the proof as 8 nodes, with the 1 012 B rendering for display only. The arena's heap size is not measured.

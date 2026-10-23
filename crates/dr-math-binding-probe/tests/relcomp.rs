@@ -293,8 +293,26 @@ fn egglog_proves_every_reassociation_of_a_five_chain() {
     let law = admit_composition_assoc(shape()).unwrap();
     for to in all_orders(5) {
         let proof = prove_reassociation(&law, &left_deep(5), &to).unwrap();
-        assert!(!proof.is_empty());
+        assert!(proof.node_count() > 0);
     }
+}
+
+/// The proof is egglog's object, not a rendering: its node count grows with
+/// the number of rotations, so a trivial equation has a smaller proof than a
+/// full left-deep to right-deep reassociation.
+#[test]
+fn the_proof_object_grows_with_the_reassociation() {
+    let law = admit_composition_assoc(shape()).unwrap();
+    let same = prove_reassociation(&law, &left_deep(5), &left_deep(5)).unwrap();
+    let far = prove_reassociation(&law, &left_deep(5), &right_deep(5)).unwrap();
+    assert!(
+        far.node_count() > same.node_count(),
+        "far {} vs same {}",
+        far.node_count(),
+        same.node_count()
+    );
+    let root = far.store().get(far.root());
+    assert_ne!(root.lhs(), root.rhs());
 }
 
 /// Can-it-refuse: commutation is not implied by associativity, so egglog
@@ -337,7 +355,7 @@ fn a_reassociation_recipe_gets_a_certificate() {
         cert.compiled().compiled_digest,
         lowering_digest(&lower(&to))
     );
-    assert!(cert.proof().contains("Comp"));
+    assert!(cert.proof().render().contains("Comp"));
 }
 
 /// The digest binds the certificate to the checked lowering: a nonzero digest
