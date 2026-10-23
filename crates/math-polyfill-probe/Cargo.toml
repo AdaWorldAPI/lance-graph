@@ -1,0 +1,30 @@
+[package]
+name = "math-polyfill-probe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "D-MPF-1 lab probe: a small mathematical expression submitted through the existing R2IL procedures (lance-graph-r2il::procs) and relalg, lowered onto mask-risc, checked against an independent row-loop oracle, with typed refusals and a per-stage cost split. Adds no primitive, AST or executor."
+
+# Own workspace root, like lance-graph-relalg: it path-deps the r2il crate,
+# which git-deps OGAR. Verify via
+# `cargo test --release --manifest-path crates/math-polyfill-probe/Cargo.toml`.
+[workspace]
+
+[dependencies]
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+# Examples only: the ndarray::simd floor the D-MPF-2 cost split compares
+# against. Same source string as the copy mask-risc already pulls, so the
+# lock keeps one ndarray.
+[dev-dependencies]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
+# classid_route only: the DR lab FrameStore / Guards / Refusal, so the
+# prebound route is checked by the existing frame-focus-scope validator
+# instead of a stand-in.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }

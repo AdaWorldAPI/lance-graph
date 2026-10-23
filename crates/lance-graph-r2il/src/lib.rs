@@ -1077,7 +1077,8 @@ impl Dialect for FoldDialect<'_> {
                 let a = stack.pop().ok_or(FoldError::Underflow(f))?;
                 match (a, b) {
                     (Val::Scalar(x), Val::Scalar(y)) => {
-                        stack.push(Val::Scalar(x - y));
+                        let r = x.checked_sub(y).ok_or(FoldError::Overflow(f))?;
+                        stack.push(Val::Scalar(r));
                         Ok(())
                     }
                     (Val::Address(_), Val::Address(_)) => Err(FoldError::LaneVersusLane(f)),
