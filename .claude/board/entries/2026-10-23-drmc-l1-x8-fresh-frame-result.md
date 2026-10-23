@@ -1,4 +1,4 @@
-# 2026-10-23 — L1 result: a certified reassociation reused on a fresh frame (D-DRMC-5 + X8)
+# 2026-10-23 — EXP-DRMC-L1 — L1 result: a certified reassociation reused on a fresh frame (D-DRMC-5 + X8)
 
 **Status:** MEASURED, lab only (`crates/dr-math-binding-probe`). Pre-registration:
 `2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md`. Code: `src/recipe.rs`, `src/relcomp.rs`

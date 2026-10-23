@@ -32,8 +32,8 @@ exactly one of them, never both.
 | 2026-10-23 | `ps2-compose-chain-preregistration` |  | [2026-10-23-ps2-compose-chain-preregistration.md](2026-10-23-ps2-compose-chain-preregistration.md) |
 | 2026-10-23 | `ledger-revision-1635-1726` |  | [2026-10-23-ledger-revision-1635-1726.md](2026-10-23-ledger-revision-1635-1726.md) |
 | 2026-10-23 | `exo129-learned-lut-preregistration` |  | [2026-10-23-exo129-learned-lut-preregistration.md](2026-10-23-exo129-learned-lut-preregistration.md) |
-| 2026-10-23 | `D-DRMC-5` |  | [2026-10-23-drmc-l1-x8-fresh-frame-result.md](2026-10-23-drmc-l1-x8-fresh-frame-result.md) |
-| 2026-10-23 | `D-DRMC-5` | pre-registration | [2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md](2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md) |
+| 2026-10-23 | `EXP-DRMC-L1` | L1 result: a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) | [2026-10-23-drmc-l1-x8-fresh-frame-result.md](2026-10-23-drmc-l1-x8-fresh-frame-result.md) |
+| 2026-10-23 | `EXP-DRMC-L1-PREREG` | L1 (CC2 Law Frontier): a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) — pre-registration | [2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md](2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md) |
 | 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
 | 2026-10-23 | `coresearch-thought-git-markov` |  | [2026-10-23-coresearch-thought-git-markov.md](2026-10-23-coresearch-thought-git-markov.md) |
 | 2026-10-23 | `coresearch-thought-git-markov-cc2` |  | [2026-10-23-coresearch-thought-git-markov-cc2.md](2026-10-23-coresearch-thought-git-markov-cc2.md) |

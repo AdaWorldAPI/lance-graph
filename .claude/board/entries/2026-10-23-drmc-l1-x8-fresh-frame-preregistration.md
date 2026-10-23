@@ -1,4 +1,4 @@
-# 2026-10-23 — L1 (CC2 Law Frontier): a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) — pre-registration
+# 2026-10-23 — EXP-DRMC-L1-PREREG — L1 (CC2 Law Frontier): a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) — pre-registration
 
 **Status:** PRE-REGISTERED. This entry is committed before any code. Lab only:
 `crates/dr-math-binding-probe`, no production crate touched.
