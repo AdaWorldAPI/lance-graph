@@ -1,3 +1,26 @@
+## ISS-FISHERZ-ENCODE-SATURATES-SILENTLY — out-of-family cosines encode to the edge code with no flag (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/bgz-tensor/src/fisher_z.rs:67`, `i8_val.clamp(-128.0, 127.0) as i8`, read at `main` `8f610a85`) + MEASURED.
+**Fruit:** Low-hanging
+
+- `FisherZTable::encode` clamps anything beyond the family's
+  `[z_min, z_max]` onto the edge code, and nothing reports it. An
+  out-of-family pair therefore reads as maximal in-family similarity. Below
+  `z_min` the value lands on −128, which `decode` maps one step past `z_min`.
+- **Receipt:** P-D3, `crates/bgz-tensor/tests/p_d3_ood_support_probe.rs`
+  (`entries/2026-10-22-probes-pd4-pe2-pd3.md`). The clamp condition holds on
+  0/120 in-range cosines and 403/403 saturating ones, and
+  `encode(1.0) == encode(0.99995)`.
+- This is H5 of the H1–H5 falsifiers (EXO-50, session_01G22yT6 /tanh-01). H5
+  was proposed and never added.
+- **What closes it:** a checked encode that reports out-of-range values (a
+  count, or an `Option`) beside the existing one, with no change to the code
+  points. Add a can-fire test (a value past `z_max` is reported) and a
+  stay-silent test (in-family values are not).
+- Note: until TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 is fixed, a test under
+  `bgz-tensor/tests/` does not run in CI. Put this one in the crate's lib
+  tests.
+
 ## ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN
 
 ADMISSION B (`entries/2026-10-20-six-decisions.md` §1, ruled in
@@ -89,6 +112,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 
 - DECISIONS WIRE-50 A (pyramid order; presence outside 50..52) and C40 (46..49 = activation i4; `isa.rs`'s opcode reading behind a declared legacy reader).
 - Both touch `causal-edge` and the same field-isolation tests (I-LEGACY-API-FEATURE-GATED), so they belong in ONE test-first PR, not two.
+- **Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420`):** `crates/causal-edge/src/syllogism.rs:185` `syllogize` packs `PlasticityState::ALL_HOT` into every derived edge. Under `causal-edge-v2-layout` that lands in bits 50..52 (`layout.rs:38` `PLAST_SHIFT = 50`, `edge.rs:265`), the bits WIRE-50 A gives to presence. `pack` writes nothing into the epistemic field (bits 59..63, `layout.rs:72` `TRUTH_SHIFT = 59`), so every derived edge reads epistemic code 0. Same PR, same field-isolation tests.
 
 ## ISS-SUPERVISOR-DISPATCH-CAPACITY-DRAIN — Health-only dispatch, unread mailbox capacity, unbounded drain (2026-10-23)
 

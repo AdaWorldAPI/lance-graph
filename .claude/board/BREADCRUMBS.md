@@ -84,6 +84,7 @@ the trail a RHYME only.
 **Rhymes-with trail:** T-CLOSURE (its refusals `BagNeedsMultiplicity` and
 `Complement` under K3 may be the same refused promotion seen from the algebra side).
 **Verdict:** RHYME, 2026-10-23; naming attempt open. Linear EXO-135.
+**Evidence (2026-10-23, after the operator's witness correction on BC-13):** part (2) of the shared shape is restated as "a witness read off the lane dimension (CE64 W, bits 53..58) at the time of use"; nothing issues it. Open against the kill condition: BC-2026-10-23-9's recipe certificate is issued by a certified compiler, a component, which is a different witness semantics from a lane read. Either the certificate reduces to a vertical read of the compiled recipe's lane, or the trail holds two witness kinds and its kill condition fires for BC-9. Not decided here.
 
 ### BC-2026-10-23-12 — D-CMR-5's preimage is a projection built in preparation and witnessed by version
 **Observation:** the lawful design for `f⁻¹(S)` is a co-addressed tile fold
