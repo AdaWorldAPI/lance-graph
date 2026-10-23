@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-454 entries, 2026-08-06 .. 2026-10-23.
+455 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -38,6 +38,7 @@ exactly one of them, never both.
 | 2026-10-23 | `D-TGA-5D` |  | [2026-10-23-d-tga-5d-protected-readers-preregistration.md](2026-10-23-d-tga-5d-protected-readers-preregistration.md) |
 | 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
 | 2026-10-23 | `D-ONNX-RELALG-CAP` | S0 result: ONNX as import membrane, DR64³ plan not found | [2026-10-23-d-onnx-relalg-cap-s0.md](2026-10-23-d-onnx-relalg-cap-s0.md) |
+| 2026-10-23 | `D-NFR-6` |  | [2026-10-23-d-nfr-6-validate-once.md](2026-10-23-d-nfr-6-validate-once.md) |
 | 2026-10-23 | `coresearch-thought-git-markov` |  | [2026-10-23-coresearch-thought-git-markov.md](2026-10-23-coresearch-thought-git-markov.md) |
 | 2026-10-23 | `coresearch-thought-git-markov-cc2` |  | [2026-10-23-coresearch-thought-git-markov-cc2.md](2026-10-23-coresearch-thought-git-markov-cc2.md) |
 | 2026-10-23 | `coresearch-julia-egraphs` |  | [2026-10-23-coresearch-julia-egraphs.md](2026-10-23-coresearch-julia-egraphs.md) |

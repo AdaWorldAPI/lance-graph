@@ -1,3 +1,7 @@
+## 2026-10-23 — d-nfr-6-validate-once-v1 — validate a binding once, then execute without repeated guards → `.claude/plans/d-nfr-6-validate-once-v1.md`
+
+**Status:** MEASURED, lab only (`crates/dr-validated-view-probe`). The per-call 27–28 ns guard is `FrameStore::check`'s refcount traffic; a view validated once by the existing `bind_dr64`, and kept valid by borrowing the table that owns data, frame and focus, runs native operations at direct cost. Externally owned revocation keeps a one-load check per operation. Proposals D-NFR-6a need the probe owner's review.
+
 ## 2026-10-23 — d-onnx-relalg-cap-v1 — ONNX as an import membrane over the existing substrate → `.claude/plans/d-onnx-relalg-cap-v1.md`
 
 **Status:** PROPOSAL, documentation only (S0). S1..S5 PLANNED, not authorized. The original DR64³ plan was not found; the DR64³ section is a new, labelled proposal. relalg takes only the Boolean/compare/reduce fragment; the home for value maths is OPEN (OP-ONNX-1), and so is the importer dependency (OP-ONNX-2). Entry: `entries/2026-10-23-d-onnx-relalg-cap-s0.md`.

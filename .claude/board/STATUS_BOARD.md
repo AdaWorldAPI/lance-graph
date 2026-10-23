@@ -1,3 +1,12 @@
+## D-NFR-6 — validate once, execute without repeated guards (2026-10-23)
+
+Lab only: `crates/dr-validated-view-probe`, plan `.claude/plans/d-nfr-6-validate-once-v1.md`. Parent D-NFR (#1753); guard figure from D-MPF-4 (#1752).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-NFR-6** | one `bind_dr64` validation authorizes many native operations over a lifetime-borrowed view; guard cost split; shared-revocation escape | MEASURED (`entries/2026-10-23-d-nfr-6-validate-once.md`) | 5 compile_fail doctests (E0502/E0597, codes pinned); 8 runtime falsifiers; 4 disable runs, each red on one test; asm read |
+| **D-NFR-6a** | `FrameStore::check` by pointer comparison; `BoundDr64` borrows its frame | PROPOSAL (owner coordination) | same refusals, fewer `lock` RMWs, measured |
+
 ## D-ONNX-RELALG-CAP — ONNX as import membrane (2026-10-23)
 
 Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
