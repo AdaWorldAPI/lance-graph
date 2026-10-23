@@ -1,3 +1,23 @@
+## TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 (2026-10-23) — OPEN
+
+CI runs `bgz-tensor` with `--lib` only (`.github/workflows/rust-test.yml:274`),
+so nothing under `crates/bgz-tensor/tests/` runs in CI. The crate is
+workspace-excluded, so no other step reaches it.
+
+On main `8f610a85` that directory holds 9 lab probes, 23 tests. Among them are
+P-S2 (`p_s2_compose_chain_probe.rs`, #1726), the evidence behind TORQUE row
+T-2026-10-23-1, and P-D3. Draft #1731 adds the EXO-129 probe in the same
+directory, so its PR checks would pass without running it.
+
+**Receipt:** `cargo test --manifest-path crates/bgz-tensor/Cargo.toml --tests`
+on main `8f610a85` with `CARGO_PROFILE_{DEV,TEST}_DEBUG=0 CARGO_INCREMENTAL=0`:
+207 lib tests plus all 9 integration files (3+4+2+3+2+2+2+2+3 = 23 tests), 0 failed.
+No test reads a file or an env var, so nothing blocks gating them.
+**Fix:** drop `--lib` from that step (or add a second `--tests` step). The
+step comment gives no reason for `--lib`.
+**Fruit:** Low-hanging
+**Status:** OPEN
+
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 
 #1430 aligned the classid docs and two hand-written shifts with the canon-high
