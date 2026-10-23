@@ -12,6 +12,8 @@
 > 5. **Representation.** Quack binding + DR64³ + Palette256³ is the intended native representation (D-NFR); this S0 does not own it.
 >
 > Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+>
+> **⊘ Layers [1] and [7] as finally drawn (2026-10-23; #1752 §10, #1753, #1754).** Where this note or the plan says "R2IL polyfill (#1752)", read the R2IL **router**: a route resolved once per ClassId onto `ndarray::simd` (through mask-risc where a program is needed), with `FoldDialect` one strategy beneath it (D-MPF-4). Layer [7], the ONNX conformance adapter, is an external **leaf** facade implemented as `lance-graph-onnx` (#1754): ONNX names over existing native functions, no dispatch, and nothing native depends on it.
 
 
 **Status:** PROPOSAL (2026-10-23) — S0 docs-only; nothing implemented.
