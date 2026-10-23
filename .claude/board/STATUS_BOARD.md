@@ -12,6 +12,19 @@ Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-depe
 | **D-NFR-4** | end-to-end acceptance fixture (nine steps, each measured) | Proposed | all nine steps pass, each step's cost reported separately |
 | **D-NFR-5** | one binding and one focus reused across several operations | Proposed | reuse saving measured against rebinding and a fused scalar / SIMD baseline, guards run on every use |
 
+## D-ONNX-CAP — ONNX intake onto existing lance-graph surfaces (2026-10-23)
+
+PROPOSAL, docs only. Plan `.claude/plans/d-onnx-relalg-cap-capstone-1750-v1.md`; entry `entries/2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md` (#1750; #1744's S0 below kept the base path). ONNX `ModelProto` stays the only graph; relalg receives only the integer selection/aggregate island; no new primitive, AST or executor.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-CAP-S0** | announcement, corrected routing, coverage matrix (opset 28, 226 names), open points, housekeeping | Shipped (docs, #1750) | no claim of "ONNX-compatible", float certification or DR64³ existence |
+| **D-ONNX-CAP-S1** | standalone probe crate: decode `onnx.proto` (v1.23.2), classify every node or refuse it with a typed reason | Blocked (operator: one target model; protobuf fork coordinates). ⊘ D-NFC A2 (#1753): this is the optional external-file conformance adapter; it blocks no native work | every node of the target model gets a route or a typed refusal; none silently dropped |
+| **D-ONNX-CAP-S2** | integer island through existing relalg + one nonlinear op on an existing ndarray kernel | Queued (after S1) | island answers equal an independent reference; float ops measured, never certified |
+| **D-ONNX-CAP-S3** | DR64³ lab probe over the existing R∘S chain; DR256³ separate | Blocked (original DR64³ plan not found; OPEN doc dependency) | no new identity, no CausalEdge64 change |
+| **D-ONNX-CAP-S4** | Palette256 + cognitive methods as typed methods | Queued | not claimed as equivalence |
+| **D-ONNX-CAP-S5** | export + native codegen evaluation | Queued | LLVM/JIT documented only; separate decisions |
+
 ## D-ONNX-RELALG-CAP — ONNX as import membrane (2026-10-23)
 
 Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
@@ -28,7 +41,7 @@ Lab only (`crates/dr-math-binding-probe`). Charter and probes: #1700, #1707, #17
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **EXP-DRMC-L1** | a D-DRMC-5 reassociation certificate issued on one frame executes on an independently issued frame without egglog | MEASURED (#1740 `c42140b7`; `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`); certificate holds egglog's `ProofStore` + `ProofId` (follow-up PR) | zero egglog calls on the hit path, equal to an independent oracle at densities 0/4/32/63; wrong ABI, other order, other length refused; D1-D3 red |
+| **EXP-DRMC-L1** | a D-DRMC-5 reassociation certificate issued on one frame executes on an independently issued frame without egglog | MEASURED (#1740 `c42140b7`; `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`); certificate holds egglog's `ProofStore` + `ProofId` (#1742 `801c8b1f`) | zero egglog calls on the hit path, equal to an independent oracle at densities 0/4/32/63; wrong ABI, other order, other length refused; D1-D3 red |
 | **EXP-DRMC-L2** | distributivity plus a false ∩ variant | Held (behind the ProofRef agreement with CC1, EXO-50 07-07e) | — |
 
 ## D-RFT / D-QSP — ClassView × Quack semantic substrate (2026-10-21)
