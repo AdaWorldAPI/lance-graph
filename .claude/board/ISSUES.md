@@ -21,6 +21,114 @@
   `bgz-tensor/tests/` does not run in CI. Put this one in the crate's lib
   tests.
 
+## ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN
+
+ADMISSION B (`entries/2026-10-20-six-decisions.md` §1, ruled in
+`ISS-ADMISSION-PREP-BINDING`) admits a frozen-codebook lookup or a
+version-witnessed key-range seek in preparation, "under the attestation the
+plan defines". No contract type carries that attestation. `OrderedLaneWitness`
+(contract `ordered_lane.rs`) covers sealed facet lanes only.
+
+Items that stop at it, each read on main `8f610a85`:
+- D-CMR-5: STATUS_BOARD row "BLOCKED: lawful design proposed", a
+  version-witnessed projection with frozen-codebook endpoints;
+- D-RU-6: "slot assignment must be argued as an attested frozen-codebook
+  lookup under ADMISSION = B";
+- `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER` (D-DIAMOND-1);
+- #1659's failed gate (lanes sealed in key order);
+- the DR256 IAM register's codebook witness (#1666, listed open);
+- the D-QR plans in #1661/#1662;
+- the DRMC frame seal (who issues it, G1) and the Palette256 "attest the
+  codebook at bind" follow-up.
+
+Open question: one witness type with two kinds (frozen codebook, sorted key
+per sealed version), or two types. See Linear EXO-114 and BREADCRUMBS trail
+T-ADMISSION (crumb BC-2026-10-23-13 asks the same question from the issuer
+side).
+
+**Correction (2026-10-23, operator on this session's question):** "no
+contract type" is the wrong frame. The witness is the lane dimension of
+CE64 (W, bits 53..58): NodeGuids are identical across lanes, so one address
+read down through the lanes shows which thoughts wrote to it. A codebook
+sealed on main is frozen for a reader when, for every one of its NodeGuids,
+only lane 0 holds a value in that reader's merge set; an untouched key range
+keeps main's sealed order the same way. That is a fold over existing presence
+bits, not a new type. Still open: (a) whether a projection built in
+preparation (D-CMR-5) must repeat the vertical read at use time, or pin its
+merge set; (b) whether #1659's ordered-lane gate is the same property.
+
+**Correction (2026-10-23, same day, from EXO-114):** the vertical read covers
+the frozen codebook fully, but a sorted key only halfway. It shows the rows
+are untouched since sealing; it cannot show they were sealed in key order.
+Lance keeps no physical order (fragments in write order, `order_by` is
+scan-time), so a seek or range still needs the order attest EXO-114 describes:
+O(1) or an O(n) check minted once per sealed version. Sorted key = vertical
+read (untouched) + per-version order attest (sorted when sealed). (b) above is
+that second half.
+
+**Fruit:** Heavy
+**Status:** OPEN (reframed, see correction). **Basis:** VERIFIED-IN-CODE
+(STATUS_BOARD rows D-CMR-5, D-RU-6; `ordered_lane.rs`); witness reading per
+`entries/2026-10-20-d-tga-slot-axis-witness-pointer.md`.
+
+## ISS-ADMISSION-B-CALL-SITE-CLASSIFICATION-NOT-STARTED — Semijoin, EqU32Via and Gather are unclassified, and no owner is named (2026-10-23) — OPEN
+
+#1640 ruled ADMISSION B but nothing classified the call sites it governs.
+On main `8f610a85`: `Filter::Semijoin` is defined in
+`crates/lance-graph-quack/src/lib.rs:387`; `EqU32Via` appears in
+`crepe-plan-probe/src/{native,mork_api}.rs` and
+`r2il-mask-abi-probe/tests/row_bridge.rs`; the gather hop sits behind an
+opt-in feature (6791e4ac). STATUS_BOARD carries 0 rows for ADMISSION,
+ACTION-GATE, FLOAT-REFS, WIRE-50 or O30. NOT IN subqueries, anti-joins and any
+gather in the DR math stack wait on the classification. Who owns it is an
+operator decision (raised on EXO-50 by session 01G22 /036).
+
+**Fruit:** Heavy
+**Status:** OPEN (operator decision on ownership). **Basis:** VERIFIED-IN-CODE
+(paths above); STATUS_BOARD census.
+
+## ISS-SIX-DECISIONS-NOT-EXECUTED-ACTION-GATE — `commit` still fails open where the decision says fail closed (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-contract/src/action.rs:266` `pub fn commit`, `:328` `pub fn commit_via`; read at `main` `19c1324a`).
+**Fruit:** High-signal
+
+- DECISION ACTION-GATE A (`entries/2026-10-20-six-decisions.md`): `commit_via` canonical, fail closed, a `Public` / `Restricted` declaration on every action.
+- In code: `commit` still exists and checks role names only; `commit_via` adds `grant_permits`; with `required_role: None` both skip RBAC, pinned by `commit_via_no_required_role_proceeds_regardless_of_rbac`. No `Public`/`Restricted` type exists.
+- **What closes it:** test first: flip the pinning test to expect a refusal for an undeclared action, add the declaration, route `commit` through `commit_via` or deprecate it. Each guard disable-verified red.
+- Source: `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-23e.md` §3a.
+
+## ISS-SIX-DECISIONS-NOT-EXECUTED-FLOAT-REFS — the fold path still pulls OGAR `main` into the default build (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph/Cargo.toml:58` unconditional `lance-graph-r2il`; `crates/lance-graph-r2il/Cargo.toml:19-20` OGAR `branch = "main"`; no `fold` feature in any `crates/*/Cargo.toml`, 39 manifests read in full by a Haiku scout, `:51-58` re-read).
+**Fruit:** High-signal
+
+- DECISION FLOAT-REFS B: the fold path off by default.
+- **What closes it:** first a census of every `lance_graph::fold` import in the workspace and sibling repos (Haiku `harvest-scout`, a closed search space), then the `fold` feature, with the default build checked to no longer resolve OGAR.
+
+## ISS-SIX-DECISIONS-NOT-EXECUTED-WIRE50-ISA-LEGACY — CE64 50..52 presence and the 46..49 legacy reading have no code (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`Option<Maturation3>` only in `crates/lance-graph-planner/tests/maturation_ladder.rs`, EXPERIMENTAL; no `ISA_LEGACY` / `legacy_opcode` / `LegacyRead` in `crates/`, scout over the named patterns; `causal-edge/src/edge.rs` has `fn activation(self) -> i8`).
+**Fruit:** High-signal
+
+- DECISIONS WIRE-50 A (pyramid order; presence outside 50..52) and C40 (46..49 = activation i4; `isa.rs`'s opcode reading behind a declared legacy reader).
+- Both touch `causal-edge` and the same field-isolation tests (I-LEGACY-API-FEATURE-GATED), so they belong in ONE test-first PR, not two.
+
+## ISS-SUPERVISOR-DISPATCH-CAPACITY-DRAIN — Health-only dispatch, unread mailbox capacity, unbounded drain (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-supervisor/src/supervisor.rs:203-213` DispatchToG handles only `ConsumerEnvelope::Health`, else `DispatchNotImplemented`; `:42` `mailbox_capacity`, `:389` `spawn_linked` of a `StubConsumerActor` with no capacity; `crates/lance-graph-callcenter/src/drain.rs:97` `mpsc::unbounded_channel()`).
+**Fruit:** High-signal
+
+- Carried unchanged since ledger revision (d) (SUP-DISPATCH, SUP-CAPACITY, SUP-DRAIN).
+- **What closes it:** three independent slices, capacity first (a field no one reads), each with a can-fire test (a full mailbox refuses) and a stay-silent test.
+
+## ISS-D-CGW-4-PROMOTION-GATE — the counterfactual verdict is computed but promotes nothing (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-planner/src/pearl.rs:259-263` `counterfactual_verdict` calls `Reaction::verdict`; callers found only in `pearl.rs` tests `:747-815`; STATUS_BOARD row D-CGW-4 Queued).
+**Fruit:** High-signal
+
+- D-CGW-4: `CausalCandidate` → `Causes` only with `IncreaseEligible` ∧ `Necessary`. The verdict exists; the promotion gate does not.
+- **What closes it:** the gate on a production path, with a test where `Necessary` without `IncreaseEligible` stays `CausalCandidate` and a disable run.
+
 ## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
 
 **Status:** RULED 2026-10-20 (ADMISSION option B, `entries/2026-10-20-six-decisions.md` §1): same-table, version-witnessed key-range seeks over an attested sorted key are admitted in preparation; a position derived from another column or table is not, whatever the phase. Frozen codebook lookups are admitted under the attestation the plan defines (`d-relalg-unified-v1.md` § Decisions). D-MPS-8 stays conditionally blocked (a value-to-relationship-table read position is option C); D-RPR-1 and D-RST-4/6 are admitted only where they classify under B. Was: OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
@@ -40,6 +148,7 @@
 ## ISS-RECURSION-DRIVER — no lawful (co-addressed, non-gather) recursion driver exists (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`STATUS_BOARD.md` D-RA-4 row: "VIOLATION — GATHER. DO NOT BUILD").
+**Fruit:** Heavy
 
 - One missing driver under five names:
   - D-SRAM-4 (BLOCKED, `souffle-ram-64-thought-stack-v1.md:141`);
@@ -53,6 +162,7 @@
 ## ISS-RETRACTION-PROVENANCE — per-derived-cell provenance for selective retraction is undecided (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (no source bitset or read-provenance plane in `crates/`).
+**Fruit:** Heavy
 
 - One decision under four names:
   - D-TGA-3 (`thought-git-api-v1.md:184`, source bitset or read-provenance plane);
@@ -65,6 +175,7 @@
 ## ISS-DURABLEREF-THOUGHTCOMMITID — the two identity types four plans depend on do not exist (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`DurableRef` and `ThoughtCommitId` appear in `crates/` only in doc comments, `mork-pathmap-probe/src/rmap.rs:70` and `:690`).
+**Fruit:** High-signal
 
 - Owned by D-RST-1, coordinated with #1605's CPG-00 (no duplicate). Needed by:
   - D-RMAP-1A §7 / D-RMAP-1A-V;
@@ -77,6 +188,7 @@
 ## ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC — ndarray's BF16 16×16 polyfill allocates per output element (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`ndarray/src/simd_ops.rs`, `bf16_tile_gemm_16x16`) and MEASURED (D-RMAP-2 §5a: a 256 × 256 `A·A` takes about 19 ms, about 0.9 GMAC/s, on an AVX-512 host without AMX or `avx512_bf16`).
+**Fruit:** High-signal
 
 - Per 16 × 16 call: two decode buffers (`vec!` for A and B), then for each of the 256 output elements a fresh `vec![0.0; k]` filled by a strided read of a B column, an FMA chain and a horizontal `reduce_sum`. About 257 heap allocations per call.
 - `bf16_tile_gemm_16x16_packed` on the same tier unpacks the VNNI buffer back to row-major (another allocation) before calling it.
@@ -93,6 +205,7 @@
 ## ISS-GATHER-HOP-1616 — the merged `OutgoingHop` reads positions taken from another lane's values (2026-10-19)
 
 **Status:** BLOCKED (quarantined). GATHER-DECISION recorded 2026-10-20 (`entries/2026-10-20-six-decisions.md` §1): `OutgoingHop` stays quarantined; it closes only by a rewrite as a co-addressed read. Was: BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).
+**Fruit:** Heavy
 
 - #1616 merged a hop of exactly the shape the 2026-10-16 no-gather ruling bans (D-HOLO H14c/H14d: the join is the layout). The remediation PR does not delete it and does not rename it into a BIND; it compiles only under the off-by-default feature `quarantined-gather-hop`.
 - Default build: a `compile_fail` doctest proves `OutgoingHop` is unreachable (disable-verified). The six original tests run in CI with the feature on.
@@ -2612,6 +2725,8 @@ the crate enters `lance-graph`'s build graph; or (b) add it explicitly to the
 workspace job that runs on every PR. (a) is preferable: it closes two issues
 with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
+
+**Fruit:** Low-hanging
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
 `lance-graph-planner`, `cognitive-shader-driver` and `sigma-tier-router`, so

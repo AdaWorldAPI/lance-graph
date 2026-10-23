@@ -87,6 +87,78 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — One replay that checks proof, receipt and commit witness together
+
+`[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGB-7 D-RFT-5 D-DRMC]`
+
+Three artifacts now exist separately (GPT /05 on EXO-50): the Math Foundry
+`ReplayCapsule` / DRMC `RecipeCertificate` (a checkable derivation, #1696,
+#1708), the D-TGB-4 receipt (#1674) and the `CommitWitness` (#1684). If
+`Receipt.program` carried the capsule's program fingerprint, one replay could
+check all three: the derivation is certified, the replay equals the original
+run, and the landed version contains the thought. **Next probe:** a lab test
+in `thought-git-probe` that lands a certified recipe and replays it, with
+three disables (wrong fingerprint, stale receipt, missing witness), each
+refusing with its own error. **Kill:** the capsule fingerprint cannot be made
+stable across a replay without depending on the commit itself. D-RFT-5 is on
+hold until the D-RFT ID table is adopted, so this stays lab-only.
+
+**Correction (2026-10-23, operator):** the "commit witness" here is the CE64
+lane dimension, not the probe's `CommitWitness` struct: NodeGuids are
+identical across lanes, so a vertical read of the thought's NodeGuids shows
+which lanes wrote them. The probe's third disable becomes "the vertical read
+shows a lane other than the thought's own and lane 0".
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-23 — OGAR #357's first kill test (TLAC-P01) is now buildable from real guards
+
+`[P1 @layer-boundary-warden @falsifier-auditor domain:iam D-CMR-3 D-TLAC]`
+
+The test: one `A & !B & C` shape, compiled from IAM, HubSPO and Rubicon
+guards, must not conflate class, universe, tenant, generation or authority.
+In October all three sources gained real code: OGAR `GroupRolePolicy` (#355),
+`SubjectRoles` (#356), D-IAM-3 (#358), and lance-graph's DR256 IAM register
+(#1666) plus the shared Kleene model (#1668, #1682, #1687). 0 hits for
+`TLAC` in lance-graph crates on main `8f610a85`. **Next probe:** route the
+three guards through the contract set algebra (needs D-CMR-3 for the Quack
+side, or start with the two that already decide through `set_rules`) and
+assert that equal normalized shapes keep distinct bindings. **Kill:** two of
+the three guards cannot be expressed in one normalized shape at all.
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-23 — The MeTTa four-binding case can run against the D-MPS-9 oracle
+
+`[P2 @falsifier-auditor domain:mork D-MTP-1 D-MPS-9]`
+
+#1498 asked for a probe of the four-result nondeterministic binding; none
+exists (no hit for it in `crates/`). #1690 added a general MORK `query_multi`
+oracle (D-MPS-9, MEASURED). **Next probe:** one test comparing the four
+bindings, by fold, against that oracle. **Kill:** the oracle returns a
+deduplicated set where MeTTa returns a bag.
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
+## 2026-10-23 — A certified-compiler boundary for DR64: typed relational statements, egglog laws with checked proofs, a lowering check
+
+`[P2 domain:dr-math D-DRMC]`
+
+After X15, `dr-math-binding-probe` admits a recipe only through an opaque `RecipeCertificate` that a certified compiler issues; none exists, so every admission ends in `NoCertifiedCompiler` (`entries/2026-10-22-coresearch-drmc-stack.md` § Applied, #1703). The boundary needs three parts: a typed relational statement language over ClassView domains, egglog laws over it whose proofs a checker independent of the producer re-checks, and a check that the lowering preserves the statement. First law: associativity of Boolean relation composition, already measured as a probe (D-DRMC-5, #1707: 14 orders, one relation). Kill: the statement language cannot type the composition D-DRMC-5 already runs. Scope question for the operator: how far the boundary goes (LEDGER-REVISION-2026-10-23e Q2).
+**Fruit:** Heavy
+**Status:** Open
+
+## 2026-10-23 — The five unrun D-DRMC probes: X6, X7, X8, X16, X18
+
+`[P1 domain:dr-math D-DRMC]`
+
+Pre-registered in `entries/2026-10-22-coresearch-drmc-stack.md`, none run. X6: `validity: None` must refuse or report `Unattested`, never silently mean all-known. X7: a compile-fail test that no `PopulationReport` → premise conversion exists. X8: two certified bindings for one key (today the first falls back). X16: a law found on class 1 must not reach class 22 (2 counterexamples) unchecked. X18: a census may veto ACT-R eligibility, never qualify it. Each is one falsifier on an existing crate; X6, X7 and X18 are the cheapest.
+**Fruit:** High-signal
+**Status:** Open
+
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
 `[P1 @simd-savant @kernel-membrane-warden @layer-boundary-warden domain:medcare/mask D-NXG-2 D-NXG-12]`

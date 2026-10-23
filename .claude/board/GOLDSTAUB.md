@@ -30,6 +30,39 @@ Each entry: `**Claim:**`, `**Receipt:**`, `**Scope:**`, `**Date:**`.
 
 ## Entries
 
+### G-2026-10-23-5 — a stacked PR is finished only when its commits are on main
+**Claim:** When PR B is based on PR A's branch and A merges first, merging B
+lands B into A's dead branch, not into main. GitHub shows B as "merged" either
+way. After merging any stacked PR, check `git log origin/main..origin/<base>`
+is empty, or retarget B to main before merging it.
+**Receipt:** lance-graph twice in two days: #1694/#1695 merged into a stage
+branch and needed #1696 ("land #1694/#1695 catalogue and heritage stages on
+main"); #1701-#1704 merged into stage branches and needed #1708 ("land the
+stranded D-DRMC stack"). Earlier receipt: lance-graph-java
+`ISS-LGJ-STACK-TAIL-STRANDED-MINOR-8` (2026-08-25), where the rule already sits
+in that repo's `CLAUDE.md` iron rules.
+**Scope:** every stacked PR in every AdaWorldAPI repo.
+**Date:** 2026-10-23
+
+### G-2026-10-23-4 — count invocation and allocation boundaries before optimizing a fold
+**Claim:** The mask work inside a fold costs a few nanoseconds; a slow fold
+usually measures how often execution crosses a boundary per answer (an
+invocation, a compile, an allocation). Report boundaries per answer before
+naming a lever; change the algebra or the kernel only after that count is minimal.
+**Receipt:** `cd crates/dir-rmap-probe && cargo run --release --example rft1_cost`
+(lance-graph #1688, `entries/2026-10-21-d-rft-1-cost-breakdown.md`): one
+`count_and(3)` invocation 54–70 ns against 2.2–2.8 ns for the same AND, AND,
+popcount in `ndarray::simd`; 2769 invocations per pass predict 87 % of the
+measured time. #1685 removed the boundaries: 310 µs → 11.8–12.4 µs, PostgreSQL
+lane parity unchanged. Same pattern for allocations: ndarray
+`bf16_tile_gemm_16x16` makes 2 + 256 heap allocations per 16×16 call
+(`src/simd_ops.rs:593-608`, ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC). Linear EXO-134.
+**Scope:** folds over mask-risc, r2il and `ndarray::simd` in lance-graph and its
+probes; not cold, out-of-fold compile phases.
+**Date:** 2026-10-23
+**Open:** `count_and(1)` costs more per invocation than `count_and(3)`
+(95–121 vs 54–70 ns) in every run; unexplained.
+
 ### G-2026-10-23-1 — on synthetic data, the world construction can decide a probe's verdict before it runs
 **Claim:** A probe whose verdict depends on the data distribution (evidence
 LUT vs geometry LUT, shadow-mask salience) decides nothing on synthetic data,

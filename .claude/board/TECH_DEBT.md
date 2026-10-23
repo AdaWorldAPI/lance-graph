@@ -42,6 +42,22 @@ step comment gives no reason for `--lib`.
 **Fruit:** Low-hanging
 **Status:** OPEN
 
+## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
+
+`crates/causal-edge/src/edge.rs:944`: "Witness corpus root handle (6-bit,
+0..=63). 0 = no corpus anchor." The 2026-10-21 decision (#1597) reads W = 0 as
+main and 1..63 as a thought-git slot, which is why `execute` writing W = 0 is
+correct. The doc contradicts the decision. Linear EXO-65.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
+
+## TD-STATUS-BOARD-ROWS-MISSING-FOR-OCT-PLANS-1 (2026-10-23) — OPEN
+
+**Fruit:** Low-hanging
+
+STATUS_BOARD has no rows for D-DRMC-0..5, D-QR-SAP / IAM / CAP / POLY (plans #1661–#1663), D-RFT-1-COST and the Palette256 probes P-D3, P-E2, P-D4, P-S2, although each has a plan or a board entry (`LEDGER-REVISION-2026-10-23e.md` §3c, checked by searching the board for each D-id, so a row under another name could exist). Payoff: "is it shipped" answerable from the board. Method: a Haiku `census-counter` lists every D-id in `INTEGRATION_PLANS.md` and `.claude/plans/` with no STATUS row; the owning sessions supply the wording; a `spec-editor` applies it.
+
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 
 #1430 aligned the classid docs and two hand-written shifts with the canon-high
