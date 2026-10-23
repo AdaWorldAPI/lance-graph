@@ -112,3 +112,25 @@ A focused local view must either contain every value that contributes to the dec
 The 1/16 ratio may describe a 64×64×256 focus over a 256³ logical domain, not a DR64³ cube. Use LogicalShape / FocusWindow / PhysicalView distinctly.
 
 **Gate S3a/b:** typed contracted-oracle parity, bounded admitted addressing, independent negative-gather tests and explicit focus coverage. S3c's larger reference domain is observational validation, not a path from finite sample to universal mathematical theorem.
+
+---
+
+## 2026-10-23 shared compiled-artifact identity gate
+
+Source-backed `AdaWorldAPI/ndarray` Burn MatMul currently selects `CompiledAttention` from a d_head-keyed cache and `CompiledLinear` by matrix shape; both omit full current model/layer/weight/codebook identity verification. Existing `bgz-tensor`, `helix`, `bgz17` palettes are implemented but not all interchangeable.
+
+**S3b holographic global→local binding must not make the same mistake.** A focus/window is not an authority grant to use a compiled table or quantizer. The relevant model graph/op/layer, source-issued weight identity, codebook/calibration generation, assignment provenance, snapshot frame, scope and value-semiring must all be attested by the correct existing owner before any borrowed DR or compiled numerical view is eligible.
+
+Keep three distinct notions:
+- Co-addressed Boolean *presence* and legal support enumeration.
+- A numeric value lane with an admitted reduction/semiring.
+- A registered model-specific compiled approximate artifact with a separate quality/identity contract.
+
+**Falsifiers for the global-to-local/cube adapter:**
+- Two model layers share the same dimensions and DR focus but not weights: fail closed rather than reusing another layer's compiled kernel.
+- A valid local register support is rebound to a different codebook generation: refuse and force re-attestation.
+- Existing 64³ Boolean relational composition is unchanged without a numeric method; only a separately validated typed mapping may connect to 256² palette lookups.
+- Finite-domain Helix metric proof (e.g. 256³ exhaustive triangle check for circular distance) does not establish DR256³ relation composition, numerical MatMul or ONNX compatibility.
+- Out-of-focus numerical contributions must expand/fallback/refuse even when the cached palette assignment appears complete.
+
+**P0 coordination:** three competing S0 docs #1744/#1745/#1750 need EXO-50 owner decision. This branch changes no CausalEdge64/DR ABI or other owners' code. #1749 owns the companion reuse-and-cache-admission research plan.
