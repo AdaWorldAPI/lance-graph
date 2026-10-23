@@ -81,7 +81,8 @@ fn oracle_sum(x: &[i32], m: &[u64]) -> i64 {
 #[inline(never)]
 fn hybrid_sum(x: &[i32], m: &[u64], th: u32) -> i64 {
     let mut acc = 0i64;
-    for (w, chunk) in x.chunks_exact(64).enumerate() {
+    let (chunks, _) = x.as_chunks::<64>();
+    for (w, chunk) in chunks.iter().enumerate() {
         let word = m[w];
         let c = word.count_ones();
         if c == 0 {
