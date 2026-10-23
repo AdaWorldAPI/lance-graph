@@ -62,3 +62,20 @@ Haiku evidence inventory, Sonnet plan and comparative matrices, Opus proof/typed
 
 ## Crosswalk
 #1745, #1746, #1747, #1748, #1700, #1707, #1738, #1740 and existing D-RELALG-UNIFIED / D-DRMC / CE64 architectural docs.
+---
+
+## 2026-10-23 Cross-session review amendment: value dispatch, portability, proof authority
+
+**P0:** #1744 and #1745 S0 conflict must be resolved by owner/operator decision. This companion plan is not permission to merge or overwrite either. Preserve #1744's source-backed admission limits, #1742's proof-storage implementation and #1745's three-peer physical strategy as independent evidence.
+
+### S4 value methods
+Under OP-ONNX-1, propose retaining ONNX's own node/function semantics as the numerical vocabulary and delegating eligible *typed numerical methods* to existing ndarray/backend kernels without making `lance-graph-relalg::Rel` a generic `ValueExpr` AST. RelAlg supplies relational support/focus where useful. A numerical-only Tanh may bypass DR entirely. All Palette256 metric conversions remain explicit, typed and version-attested; finite LUT parity does not certify real-valued Tanh.
+
+S4 stateful methods and NNUE incremental updates require affected-dependency/invalidation witnesses. TrainingInfo/state mutation cannot enter a supposedly pure ONNX/RelAlg rewrite by accident.
+
+### S5 proof and codegen
+PR #1742 has retained egglog's `ProofStore`/`ProofId` in the lab certificate path; egglog internal proof checking is **not an independent checker**. Split law admission, external proof rechecking, input/binding eligibility, numerical approximation and physical cost selection into separate gates. Keep the proof object rather than reducing it to render/hash. Cross-frame reuse from #1740 is narrow, not a general production contract.
+
+ONNX export must make a distinction among standard-operator portable execution, correctly serialized custom-domain graphs and actual runtime support. An authorized delegated-graph research mode (see #1746) may preserve whole-model interoperability via external providers; it is not permission to introduce another proprietary execution runtime.
+
+S5 auto-selection and LLVM AOT/JIT remain research until #1748 demonstrates verified semantic parity and meaningful end-to-end wins. Compilation, bind, proof/replay, cache reuse, data transfer and output materialization all contribute to break-even.
