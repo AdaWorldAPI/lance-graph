@@ -87,6 +87,22 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that
+
+`[P2 @palette-engineer @truth-architect domain:codec/palette]`
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @palette-engineer domain:codec
+**Fruit:** High-signal
+
+Named from crumb trail T-CLOSURE (`BREADCRUMBS.md`, five crumbs, Linear EXO-132) after EXO-129 (#1731). A one-byte palette state can be composed by a 256×256 table, learned or derived, only if the cell determines the next cell under the operation. That is lumpability of the partition in the Markov-chain sense. **Purity**, the share of observed transitions that equal their cell's modal result, is a data-only observable for it. Measured so far: purity 1.0 → the exact law composes at every k (XOR-group world); purity ≈ 0.47 → no table reaches 0.03 at k = 2 (P-S2 worlds). The rank evidence is thin (three distinct points). The candidate use is a plan-time `closed(carrier, op)` check that decides lookup vs snap vs refit before a composition is compiled into a LUT.
+
+**Next probe (not run):** on real Moore/DR pair data with labels, measure purity per operation and test whether a bar (for example P ≥ 0.99) separates compositions that hold at k = 2..64 from those that do not. Distribution-dependent, so it needs real data (GOLDSTAUB G-2026-10-23-1).
+**Kill:** a cell partition with purity ≥ 0.99 whose k = 2 composition still falls below 0.90, or one with purity < 0.9 that composes at ≥ 0.90.
+
+Cross-ref: TORQUE T-2026-10-23-1 (KILLED), #1726, #1731, EXO-129, EXO-132.
+
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
 `[P1 @simd-savant @kernel-membrane-warden @layer-boundary-warden domain:medcare/mask D-NXG-2 D-NXG-12]`

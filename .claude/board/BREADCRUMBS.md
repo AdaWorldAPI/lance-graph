@@ -41,6 +41,17 @@ Coordination happens in Linear (`CC: Thread` label `Breadcrumb`, milestone
 
 ## Crumbs
 
+### BC-2026-10-23-5 — where a state sits inside its cell decides where it goes next
+**Observation:** In EXO-129, about half of the members of a palette cell go to
+a different next cell than the cell's modal result (purity ≈ 0.47). A table
+learned from reached states does worse on population starts than on the
+states it saw. In the XOR-group world (purity 1.0) the exact law composes
+even under noisy snapping.
+**Receipt:** lance-graph #1731,
+`entries/2026-10-23-exo129-learned-lut-preregistration.md`.
+**Rhymes-with:** BC-2026-10-23-1, BC-2026-10-23-4
+**Cluster:** NAMED → IDEAS 2026-10-23 "Lumpability as the closure check"
+
 ### BC-2026-10-23-4 — the same join is right under Distinct and wrong under Bag
 **Observation:** D-RFT-1's composition gives the right answer under Distinct
 (set semantics) and the wrong one under Bag unless multiplicity is carried as
@@ -48,7 +59,7 @@ a bit product on the support. The carrier's closure under the multiplicity
 operation decides correctness.
 **Receipt:** lance-graph #1685.
 **Rhymes-with:** BC-2026-10-23-1, BC-2026-10-23-2, BC-2026-10-23-3
-**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+**Cluster:** NAMED → IDEAS 2026-10-23 "Lumpability as the closure check" (trail T-CLOSURE)
 
 ### BC-2026-10-23-3 — Warshall closure is well defined because the register is closed under ∨ and ∧
 **Observation:** DR256's transitive closure over the 256×256 bit register
@@ -56,7 +67,7 @@ needs no snapping. Every intermediate stays a 256×256 bit matrix.
 **Receipt:** `dir-rmap-probe` Qr register (D-QR plans, INTEGRATION_PLANS
 catch-up 2026-10-23).
 **Rhymes-with:** BC-2026-10-23-1, BC-2026-10-23-2, BC-2026-10-23-4
-**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+**Cluster:** NAMED → IDEAS 2026-10-23 "Lumpability as the closure check" (trail T-CLOSURE)
 
 ### BC-2026-10-23-2 — spectral radius is degenerate on Boolean and byte-map carriers
 **Observation:** On the Boolean DAG nest ρ = 0 (nilpotent), and on the finite
@@ -66,7 +77,7 @@ it acts in.
 **Receipt:** evaluated in session 01G22yT6htkcdyXsihxxXdrg on 2026-10-23
 (review of an external relay); no PR.
 **Rhymes-with:** BC-2026-10-23-1, BC-2026-10-23-3, BC-2026-10-23-4
-**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+**Cluster:** NAMED → IDEAS 2026-10-23 "Lumpability as the closure check" (trail T-CLOSURE)
 
 ### BC-2026-10-23-1 — a compose table collapses because its codebook is not closed under bind
 **Observation:** `ComposeTable` agreement with exact composition drops to
@@ -75,7 +86,7 @@ codebook's support, so every hop snaps.
 **Receipt:** lance-graph #1726,
 `entries/2026-10-23-ps2-compose-chain-preregistration.md`.
 **Rhymes-with:** BC-2026-10-23-2, BC-2026-10-23-3, BC-2026-10-23-4
-**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+**Cluster:** NAMED → IDEAS 2026-10-23 "Lumpability as the closure check" (trail T-CLOSURE)
 
 ### Trail T-CLOSURE — is the carrier closed under the operation the plan composes with?
 Four crumbs from four independent sources: a probe, a review, a register
@@ -87,3 +98,9 @@ must refit the carrier.
 **Kill:** a closed carrier on which the composition still fails.
 **First probe:** TORQUE row T-2026-10-23-1 (EXO-129).
 **Verdict:** RHYME, 2026-10-23.
+**Naming attempt, 2026-10-23 (after crumb 5):** *lumpability* (Kemeny–Snell).
+A partition of the state space composes under an operation exactly when it is
+lumpable for that operation, i.e. when every member of a cell goes to the
+same cell. Purity is its data-only observable. Named, not adopted. See
+IDEAS 2026-10-23. Whether crumbs 2 and 3 (spectral radius, Warshall over
+∨/∧) are instances of it, or only rhyme with it, is still open.
