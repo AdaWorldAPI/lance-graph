@@ -15,8 +15,10 @@
 //! - Stage B's `ReplayCapsule` is replay and audit evidence for its own E1
 //!   substitution language, not a proof authority for anything else.
 //!
-//! No certified-compiler boundary exists for a Boolean-DR64 law yet, so this
-//! layer checks everything it can and then refuses with `NoCertifiedCompiler`.
+//! This single-operand layer has no certifier for any law shape, so it checks
+//! everything it can and then refuses with `NoCertifiedCompiler`. One law is
+//! certified elsewhere: associativity of Boolean-Distinct composition over a
+//! chain of DR64 operands, by [`crate::relcomp::certify_reassociation`].
 use crate::{AxisKind, BoundDr64, Population, Truth};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
