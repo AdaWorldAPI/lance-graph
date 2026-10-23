@@ -227,7 +227,11 @@ pub mod fixture {
                     edges: EdgeBlock::from_bytes(&[0; 16]),
                     value: [0; 480],
                 };
-                let class = if s % 3 == 0 { CLASS_B } else { CLASS_A };
+                let class = if s.is_multiple_of(3) {
+                    CLASS_B
+                } else {
+                    CLASS_A
+                };
                 let mut facet = [0u8; FACET_BYTES];
                 facet[..4].copy_from_slice(&class.to_le_bytes());
                 for (j, b) in facet[4..].iter_mut().enumerate() {
