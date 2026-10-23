@@ -28,6 +28,9 @@
 //! - Overflow: refused, never wrapped (`FoldError::Overflow`).
 //! - Exactness: the answer is exact, and must equal [`oracle`] bit for bit.
 
+pub mod native;
+pub mod onnx_compat;
+
 use lance_graph_r2il::procs::{and_cmp_i32, count, is_not_null, sum, Order};
 use lance_graph_r2il::{FoldDialect, FoldError, Val, INT_MULT, INT_SUB};
 use ogar_loco::Dialect;
