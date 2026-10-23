@@ -26,15 +26,21 @@ impl Lane {
         Self { id, chain }
     }
 
-    /// Total writes in the chain.
-    fn ops(&self) -> usize {
-        self.chain.iter().map(|t| t.writes.len()).sum()
+    /// The thoughts whose writes land: only `Outcome::Commit`, as in
+    /// `next_version`. Plan, Prune and Veto stay in the history only.
+    fn landed(&self) -> impl Iterator<Item = &Thought> {
+        self.chain.iter().filter(|t| t.outcome == Outcome::Commit)
     }
 
-    /// The chain folded in order: later writes replace earlier ones.
+    /// Total landed writes in the chain.
+    fn ops(&self) -> usize {
+        self.landed().map(|t| t.writes.len()).sum()
+    }
+
+    /// The landed chain folded in order: later writes replace earlier ones.
     fn final_state(&self) -> BTreeMap<Cell, u64> {
         let mut f = BTreeMap::new();
-        for t in &self.chain {
+        for t in self.landed() {
             for &(c, v) in &t.writes {
                 f.insert(c, v);
             }
@@ -136,7 +142,9 @@ fn squash_gate(g: &Givens, lanes: &[Lane]) -> Result<Squashed, Refusal> {
             fnv1a(&mut seal, u64::from(l.id));
             fnv1a(&mut seal, u64::from(t.id));
             for &(c, v) in &t.writes {
-                *blame.entry(c).or_default() |= 1u64 << l.id;
+                if t.outcome == Outcome::Commit {
+                    *blame.entry(c).or_default() |= 1u64 << l.id;
+                }
                 fnv1a(&mut seal, u64::from(c.row));
                 fnv1a(&mut seal, u64::from(c.lane));
                 fnv1a(&mut seal, v);
@@ -398,4 +406,42 @@ fn a_refused_squash_is_a_divergence_the_oracle_also_records() {
     assert_eq!(v.divergences.len(), 1);
     assert_eq!(v.divergences[0].cell, cell(5, 2));
     assert!(squash_gate(&g, &lanes).is_err());
+}
+
+/// P8. Only committed writes are squashed, as only committed writes land.
+/// The chain is landed one thought per version with `next_version`, which
+/// drops Plan, Prune and Veto; the squash must read the same everywhere.
+/// The pruned and vetoed thoughts stay in `order` and the seal: they are
+/// history, not state. Disable D6 (fold every write in `final_state`) turns
+/// this red.
+#[test]
+fn p8_a_pruned_or_vetoed_write_is_not_squashed() {
+    let g = givens();
+    let lanes = vec![Lane::new(
+        3,
+        vec![
+            commit(1, vec![(cell(4, 1), 41)]),
+            Thought::new(2, vec![(cell(5, 1), 51)], Outcome::Prune),
+            Thought::new(3, vec![(cell(4, 1), 99)], Outcome::Veto),
+            Thought::new(4, vec![(cell(6, 1), 61)], Outcome::Plan),
+            commit(5, vec![(cell(7, 2), 72)]),
+        ],
+    )];
+    let s = squash_gate(&g, &lanes).expect("one lane squashes");
+
+    let mut chain = main_version();
+    for t in &lanes[0].chain {
+        chain = next_version(&g, &chain, std::slice::from_ref(t));
+    }
+    let via_squash = next_version(&g, &main_version(), &[s.as_thought(999)]);
+    for c in probe_cells() {
+        assert_eq!(via_squash.read(&g, c), chain.read(&g, c), "read at {c:?}");
+    }
+    // Anti-vacuity: the dropped writes really were offered, and the kept ones land.
+    assert_eq!(via_squash.read(&g, cell(4, 1)), Some(41));
+    assert_eq!(via_squash.read(&g, cell(5, 1)), None);
+    assert_eq!(via_squash.read(&g, cell(6, 1)), None);
+    assert_eq!(via_squash.read(&g, cell(7, 2)), Some(72));
+    // History keeps every thought, landed or not.
+    assert_eq!(s.order.len(), 5);
 }
