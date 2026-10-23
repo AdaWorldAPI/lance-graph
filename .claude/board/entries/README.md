@@ -25,17 +25,19 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-452 entries, 2026-08-06 .. 2026-10-23.
+454 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-23 | `ps2-compose-chain-preregistration` |  | [2026-10-23-ps2-compose-chain-preregistration.md](2026-10-23-ps2-compose-chain-preregistration.md) |
 | 2026-10-23 | `ledger-revision-1635-1726` |  | [2026-10-23-ledger-revision-1635-1726.md](2026-10-23-ledger-revision-1635-1726.md) |
+| 2026-10-23 | `EXP-GF2-ELIM-PREREG` | Gaussian elimination over GF(2) with a replayable row-operation witness — pre-registration | [2026-10-23-gf2-elimination-preregistration.md](2026-10-23-gf2-elimination-preregistration.md) |
 | 2026-10-23 | `exo129-learned-lut-preregistration` |  | [2026-10-23-exo129-learned-lut-preregistration.md](2026-10-23-exo129-learned-lut-preregistration.md) |
 | 2026-10-23 | `EXP-DRMC-L1` | L1 result: a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) | [2026-10-23-drmc-l1-x8-fresh-frame-result.md](2026-10-23-drmc-l1-x8-fresh-frame-result.md) |
 | 2026-10-23 | `EXP-DRMC-L1-PREREG` | L1 (CC2 Law Frontier): a certified reassociation reused on a fresh frame (D-DRMC-5 + X8) — pre-registration | [2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md](2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md) |
 | 2026-10-23 | `D-TGA-5D` |  | [2026-10-23-d-tga-5d-protected-readers-preregistration.md](2026-10-23-d-tga-5d-protected-readers-preregistration.md) |
 | 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
+| 2026-10-23 | `D-ONNX-RELALG-CAP` | S0 result: ONNX as import membrane, DR64³ plan not found | [2026-10-23-d-onnx-relalg-cap-s0.md](2026-10-23-d-onnx-relalg-cap-s0.md) |
 | 2026-10-23 | `coresearch-thought-git-markov` |  | [2026-10-23-coresearch-thought-git-markov.md](2026-10-23-coresearch-thought-git-markov.md) |
 | 2026-10-23 | `coresearch-thought-git-markov-cc2` |  | [2026-10-23-coresearch-thought-git-markov-cc2.md](2026-10-23-coresearch-thought-git-markov-cc2.md) |
 | 2026-10-23 | `coresearch-julia-egraphs` |  | [2026-10-23-coresearch-julia-egraphs.md](2026-10-23-coresearch-julia-egraphs.md) |

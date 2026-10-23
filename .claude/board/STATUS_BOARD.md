@@ -1,3 +1,22 @@
+## D-ONNX-RELALG-CAP — ONNX as import membrane (2026-10-23)
+
+Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-0** | S0 capstone plan, coverage matrix, open-points register OP-ONNX-1..14 | In PR (docs only) | consistent with code at `59538865`; no DR64³ claim |
+| **D-ONNX-1** | S1 intake probe: ONNX-subset reader with typed refusals; Boolean/compare/reduce fragment onto relalg | Queued (not authorized) | onnxruntime differential (a test, not a proof); waits on OP-ONNX-1, OP-ONNX-2 |
+| **D-ONNX-3** | S3 DR64³ R1/R2 contraction probe (new proposal) | Queued (not authorized) | four arms bit-exact; waits on OP-ONNX-4 |
+
+## D-DRMC — DR × math binding probe, law frontier (2026-10-23)
+
+Lab only (`crates/dr-math-binding-probe`). Charter and probes: #1700, #1707, #1708; L1 in #1740.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **EXP-DRMC-L1** | a D-DRMC-5 reassociation certificate issued on one frame executes on an independently issued frame without egglog | MEASURED (#1740 `c42140b7`; `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`); certificate holds egglog's `ProofStore` + `ProofId` (follow-up PR) | zero egglog calls on the hit path, equal to an independent oracle at densities 0/4/32/63; wrong ABI, other order, other length refused; D1-D3 red |
+| **EXP-DRMC-L2** | distributivity plus a false ∩ variant | Held (behind the ProofRef agreement with CC1, EXO-50 07-07e) | — |
+
 ## D-RFT / D-QSP — ClassView × Quack semantic substrate (2026-10-21)
 
 Plans in #1667 (`d-rft-relalg-thought-git-frontier-v1.md`, `d-qsp-classview-quack-postgresql-parity-v1.md`, `d-lfa-lance-graph-flow-rubicon-assimilation-v1.md`; merged). Only the rows below have a claim or evidence; the other D-RFT / D-QSP / D-LFA ids stay as #1667 lists them.
@@ -385,8 +404,8 @@ Plan: `.claude/plans/ce64-hypothesis-layers-v1.md`. Plateau: `.claude/knowledge/
 | **D-TGA-2** | Read plane R and status | Queued | a read outside R is never reported stale |
 | **D-TGA-3** | rebase (four masks, no data moved) | Queued | rebase-then-squash == from-scratch re-run on v+1, including a deletion in main (retract then re-derive); disables: no stale re-run, no conflict check, no retraction |
 | **D-TGA-4** | land through the revision gate into the next Lance version (D-HL-8) | Queued | landing a thought that is behind is refused |
-| **D-TGA-5** | squash_into (partial squash) and blame | Shipped (lab, #1736: `crates/thought-git-probe/src/squash.rs` + `tests/squash_gate.rs`, `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`; most-updated target, contradiction/divergence gate, blame over lanes, P8 Commit-only, 6 disables red) | blame returns original sources after slot reuse (slot reuse not yet covered) |
-| **D-TGA-5D** | Probe D: protected readers of a squash (Final / Intermediate / Contradictions / Divergences / Multiplicity) | In PR (lab: `tests/protected_readers.rs`, `entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`; 7 tests, 5 disables red) | a protected reader the retained data cannot answer refuses the squash; intermediate reads are never retainable |
+| **D-TGA-5** | squash_into (partial squash) and blame | Shipped (lab, #1736: `crates/thought-git-probe/tests/squash_gate.rs`; the gate moved into `src/squash.rs` in #1739; `entries/2026-10-23-d-tga-5-squash-gate-preregistration.md`; most-updated target, contradiction/divergence gate, blame over lanes, P8 Commit-only, 6 disables red) | blame returns original sources after slot reuse (slot reuse not yet covered) |
+| **D-TGA-5D** | Probe D: protected readers of a squash (Final / Intermediate / Contradictions / Divergences / Multiplicity) | Shipped (lab, #1739 merged `9a458cae`: `crates/thought-git-probe/src/squash.rs` + `tests/protected_readers.rs`, `entries/2026-10-23-d-tga-5d-protected-readers-preregistration.md`; 7 tests, 5 disables red) | a protected reader the retained data cannot answer refuses the squash; intermediate reads are never retainable |
 | **D-TGA-6** | MergeQueue | Queued | independent thoughts == landed by hand in FIFO order; a thought reading another negated lands after it; a cycle through negation refused at enqueue |
 | **D-TGB-0** | thought git basics: fixtures per write-intention outcome, squash-stack and anomaly fixtures, absent-not-zero fixture, from-scratch oracle (`thought-git-basics-v1.md`) | Shipped (lab, #1630; probe `crates/thought-git-probe`, 19 tests; `PREREGISTRATION.md`) | 5 oracle disables verified red-then-green; every signal has a can-fire and a can-stay-silent case on real contract code; the pearl half on edges moves to D-TGB-3 |
 | **D-TGB-1** | slot pool, autonomous: taken by `branch`, freed by `squash`/`discard`/`land` (the write is the Rubicon decision, 2026-10-20) | Shipped (lab, #1630/#1631; `crates/thought-git-probe/src/slots.rs`). Slot pool only: no production land, rebase or persistence (D-TGB-2..5 Queued) | at 63 taken `branch` picks a FIFO or least-used candidate, squashes it along its dependency chain if it has one, else evicts it (DECISIONS 2026-10-20; was: squash unremarkable first, else refuse); stale handles refused; 6 tests |

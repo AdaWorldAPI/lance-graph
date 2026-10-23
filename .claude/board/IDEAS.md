@@ -283,6 +283,7 @@ deduplicated set where MeTTa returns a bag.
 `[P2 domain:dr-math D-DRMC]`
 
 After X15, `dr-math-binding-probe` admits a recipe only through an opaque `RecipeCertificate` that a certified compiler issues; none exists, so every admission ends in `NoCertifiedCompiler` (`entries/2026-10-22-coresearch-drmc-stack.md` § Applied, #1703). The boundary needs three parts: a typed relational statement language over ClassView domains, egglog laws over it whose proofs a checker independent of the producer re-checks, and a check that the lowering preserves the statement. First law: associativity of Boolean relation composition, already measured as a probe (D-DRMC-5, #1707: 14 orders, one relation). Kill: the statement language cannot type the composition D-DRMC-5 already runs. Scope question for the operator: how far the boundary goes (LEDGER-REVISION-2026-10-23e Q2).
+**Amended 2026-10-23 (D-ONNX-RELALG-CAP S0):** "none exists" is scoped too broadly. The single-operand `admit_recipe` path still ends in `NoCertifiedCompiler` (`recipe.rs`). `relcomp::certify_reassociation` (#1707) IS an issuer: it covers associativity of Boolean-Distinct relation composition, egglog-proved, digest-bound (correction #1738), and its certificates re-execute on fresh frames (#1740). Still missing: an independent proof checker; any second law; the multi-binding catalogue; any production path. The egglog dependency floats on `branch = "main"`, and no certificate field names the prover revision.
 **Fruit:** Heavy
 **Status:** Open
 
@@ -291,6 +292,7 @@ After X15, `dr-math-binding-probe` admits a recipe only through an opaque `Recip
 `[P1 domain:dr-math D-DRMC]`
 
 Pre-registered in `entries/2026-10-22-coresearch-drmc-stack.md`, none run. X6: `validity: None` must refuse or report `Unattested`, never silently mean all-known. X7: a compile-fail test that no `PopulationReport` → premise conversion exists. X8: two certified bindings for one key (today the first falls back). X16: a law found on class 1 must not reach class 22 (2 counterexamples) unchecked. X18: a census may veto ACT-R eligibility, never qualify it. Each is one falsifier on an existing crate; X6, X7 and X18 are the cheapest.
+**Amended 2026-10-23 (D-ONNX-RELALG-CAP S0):** one half of X8 has run. #1740 (`c42140b7`, `dr-math-binding-probe/tests/x8_fresh_frame.rs`, 7/7) re-executes a D-DRMC-5 certificate on independently issued fresh frames with 0 egglog calls. The half named above, two certified bindings for one key in the `egglog-r2il-probe` catalogue (whose `insert` overwrites), is untouched: #1740 changes no catalogue file. X6, X7, X16 and X18 are still unrun.
 **Fruit:** High-signal
 **Status:** Open
 

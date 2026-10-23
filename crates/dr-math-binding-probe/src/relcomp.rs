@@ -13,8 +13,8 @@
 //!    for the `BooleanCompose` shape over two-valued Distinct relations. An
 //!    [`AdmittedLaw`] cannot be built any other way.
 //! 3. **Proof**: egglog, given only the admitted rule, proves that two
-//!    association orders of the same chain are equal, and checks its own
-//!    proof. An equation the admitted rule does not imply (commutation) is
+//!    association orders of the same chain are equal, and checks the proof
+//!    with its own checker (not an independent check). An equation the admitted rule does not imply (commutation) is
 //!    refused.
 //! 4. **Lowering**: an order lowers to a list of compose steps;
 //!    [`lower`]/[`raise`] round-trip, and the steps keep the leaves in chain
@@ -32,6 +32,7 @@
 //! The compose kernel is plain `u64` word arithmetic, no intrinsics.
 use std::cell::Cell;
 
+use egglog::proof::{Justification, ProofId, ProofStore};
 use egglog::{CommandOutput, EGraph};
 use sha2::{Digest, Sha256};
 
@@ -287,14 +288,80 @@ pub enum ProofRefusal {
     NotProved(String),
 }
 
+/// egglog's proof of one equation, kept as egglog's own object: the
+/// hash-consed proof arena and the id of the root proof in it. Never reduced
+/// to a string or a digest; [`EggProof::render`] is for display only.
+///
+/// egglog checks this proof before returning it (its crate-private
+/// `check_proof`, before and after simplification, panicking on failure).
+/// That is egglog's own check, not an independent one.
+#[derive(Clone)]
+pub struct EggProof {
+    store: ProofStore,
+    root: ProofId,
+}
+
+impl EggProof {
+    /// The proof arena. [`ProofStore::get`] reads any node in it.
+    pub fn store(&self) -> &ProofStore {
+        &self.store
+    }
+
+    /// The root proof, an id into [`EggProof::store`].
+    pub fn root(&self) -> ProofId {
+        self.root
+    }
+
+    /// egglog's pretty-printed rendering. For display; not the proof.
+    pub fn render(&self) -> String {
+        self.store.proof_to_string(self.root)
+    }
+
+    /// Distinct proof nodes reachable from the root; a shared sub-proof
+    /// counts once.
+    pub fn node_count(&self) -> usize {
+        let mut seen = std::collections::HashSet::new();
+        let mut todo = vec![self.root];
+        while let Some(id) = todo.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            match self.store.get(id).justification() {
+                Justification::Fiat | Justification::Eval => {}
+                Justification::Rule { premise_proofs, .. } => todo.extend(premise_proofs),
+                Justification::MergeFn {
+                    old_proof,
+                    new_proof,
+                    ..
+                } => todo.extend([*old_proof, *new_proof]),
+                Justification::Trans(a, b) => todo.extend([*a, *b]),
+                Justification::Sym(a) => todo.push(*a),
+                Justification::Congr {
+                    proof, child_proof, ..
+                } => todo.extend([*proof, *child_proof]),
+                Justification::ContainerNormalize { proof } => todo.push(*proof),
+            }
+        }
+        seen.len()
+    }
+}
+
+impl std::fmt::Debug for EggProof {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EggProof")
+            .field("root", &format_args!("{}", self.root))
+            .field("nodes", &self.node_count())
+            .finish()
+    }
+}
+
 /// Ask egglog to prove `from = to` using only the admitted associativity rule
-/// (both directions). Returns egglog's proof text; egglog checks every proof
-/// it returns.
+/// (both directions). Returns egglog's proof object (see [`EggProof`]).
 pub fn prove_reassociation(
     law: &AdmittedLaw,
     from: &RelExpr,
     to: &RelExpr,
-) -> Result<String, ProofRefusal> {
+) -> Result<EggProof, ProofRefusal> {
     if from.leaves() != to.leaves() {
         return Err(ProofRefusal::DifferentLeaves);
     }
@@ -303,14 +370,18 @@ pub fn prove_reassociation(
     prove_equation(law, &from.egglog_term(), &to.egglog_term(), fuel)
 }
 
-/// Ask egglog to prove an arbitrary equation between two `Rel` terms from the
-/// admitted rule, running it `fuel` times. Proves only; issues nothing.
+/// Ask egglog to prove an arbitrary equation between two `Rel` terms, running
+/// it `fuel` times. Proves only; issues nothing.
+///
+/// The `_law` argument gates the call (only an [`AdmittedLaw`] can be passed)
+/// but does not choose the rules: the rewrites are fixed in `HEADER`, the two
+/// directions of associativity, the only law this probe admits.
 pub fn prove_equation(
     _law: &AdmittedLaw,
     lhs: &str,
     rhs: &str,
     fuel: usize,
-) -> Result<String, ProofRefusal> {
+) -> Result<EggProof, ProofRefusal> {
     EGGLOG_CALLS.with(|n| n.set(n.get() + 1));
     let program = format!(
         "{HEADER}(let lhs {lhs})\n(let rhs {rhs})\n(run assoc {fuel})\n(prove (= lhs rhs))\n"
@@ -323,7 +394,10 @@ pub fn prove_equation(
             CommandOutput::ProveExists {
                 proof_store,
                 proof_id,
-            } => Some(proof_store.proof_to_string(proof_id)),
+            } => Some(EggProof {
+                store: proof_store,
+                root: proof_id,
+            }),
             _ => None,
         })
         .ok_or_else(|| ProofRefusal::NotProved("no proof returned".to_owned()))

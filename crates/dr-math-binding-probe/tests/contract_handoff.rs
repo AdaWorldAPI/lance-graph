@@ -1,6 +1,7 @@
 //! D-DRMC-4: cross-layer *contract* fixture, no proof engine or write path.
-//! No certified-compiler boundary exists for DR64 laws, so the recipe offer
-//! refuses with `NoCertifiedCompiler`; ACT-R arbitration runs on the census
+//! The single-operand recipe offer has no certifier for any law shape, so it
+//! refuses with `NoCertifiedCompiler` (the one certified law, reassociation of
+//! a DR64 chain, goes through `relcomp::certify_reassociation`); ACT-R arbitration runs on the census
 //! eligibility alone and never on a proof.
 use dr_math_binding_probe::{
     Axis, AxisKind, BoundDr64, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Operand,
@@ -134,7 +135,7 @@ fn class_dependency_to_mathematical_offer_to_act_r_proposal_has_no_effect_path()
         (1, 1, 0, 0)
     );
 
-    // Every metadata check passes; no DR64 certificate can be issued.
+    // Every metadata check passes; this single-operand path has no certifier.
     assert_eq!(
         admit_recipe(
             r.clone(),
