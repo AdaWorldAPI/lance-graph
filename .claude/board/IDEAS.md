@@ -141,6 +141,26 @@ design.
 
 **Fruit:** High-signal
 **Status:** Open.
+## 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that
+
+`[P2 @palette-engineer @truth-architect domain:codec/palette]`
+
+**Status:** Open
+**Priority:** P2
+**Scope:** @palette-engineer domain:codec
+**Fruit:** High-signal
+
+Named from crumb trail T-CLOSURE (`BREADCRUMBS.md`, Linear EXO-132; crumbs BC-1..4 and BC-2026-10-23-14 here, BC-5/-6 from #1730) after EXO-129 (#1731). A one-byte palette state can be composed by a 256×256 table, learned or derived, only if the cell determines the next cell under the operation. That is lumpability of the partition in the Markov-chain sense. **Purity**, the share of observed transitions that equal their cell's modal result, is a data-only observable for it. Measured so far: purity 1.0 → the exact law composes at every k (XOR-group world); purity ≈ 0.47 → no table reaches 0.03 at k = 2 (P-S2 worlds). The rank evidence is thin (three distinct points). Scope (from #1730's NULL/K3 crumb): closure decides correctness, not cost. The candidate use is a plan-time `closed(carrier, op)` check that decides lookup vs snap vs refit before a composition is compiled into a LUT.
+
+**Next probe (not run):** on real Moore/DR pair data with labels, measure purity per operation and test whether a bar (for example P ≥ 0.99) separates compositions that hold at k = 2..64 from those that do not. Distribution-dependent, so it needs real data (GOLDSTAUB G-2026-10-23-1).
+**Kill:** a cell partition with purity ≥ 0.99 whose k = 2 composition still falls below 0.90, or one with purity < 0.9 that composes at ≥ 0.90.
+
+Cross-ref: TORQUE T-2026-10-23-1 (KILLED), #1726, #1731, EXO-129, EXO-132.
+
+**Scope sharpened 2026-10-23 (EXO-50, from three sessions; all HYPOTHESIS):**
+- Purity tests *deterministic* lumpability (the next cell is independent of the representative). Purity below 1 refutes a single-valued table, not *strong* lumpability of a stochastic map (equal block mass from every representative); a sample cannot certify either (GPT:gpt-ada-01). A real-data gate has to say which of the two it tests.
+- The condition is that the map into the carrier commutes with the operation and with the final measure, not only that the carrier is closed. BC-4 (Distinct closed under join, Bag wrong) and BC-5 ({T,F} closed, NULL has no image) are closed carriers that fail (session_019fbZ92, #1732).
+- Crumb 2 is an instance through the support map N → B, lumpable for ∨/∧ and not for counting, so it should fail exactly where BC-4 fails. Crumb 3 is the identity quotient and cannot discriminate (session_01VncKoy).
 
 ## 2026-10-23 — One replay that checks proof, receipt and commit witness together
 
