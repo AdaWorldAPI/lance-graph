@@ -87,6 +87,56 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 (Prepend new ideas here with today's date. Format:)
 
+## 2026-10-23 — One replay that checks proof, receipt and commit witness together
+
+`[P1 @thought-struct-scribe @truth-architect domain:thought-git D-TGB-7 D-RFT-5 D-DRMC]`
+
+Three artifacts now exist separately (GPT /05 on EXO-50): the Math Foundry
+`ReplayCapsule` / DRMC `RecipeCertificate` (a checkable derivation, #1696,
+#1708), the D-TGB-4 receipt (#1674) and the `CommitWitness` (#1684). If
+`Receipt.program` carried the capsule's program fingerprint, one replay could
+check all three: the derivation is certified, the replay equals the original
+run, and the landed version contains the thought. **Next probe:** a lab test
+in `thought-git-probe` that lands a certified recipe and replays it, with
+three disables (wrong fingerprint, stale receipt, missing witness), each
+refusing with its own error. **Kill:** the capsule fingerprint cannot be made
+stable across a replay without depending on the commit itself. D-RFT-5 is on
+hold until the D-RFT ID table is adopted, so this stays lab-only.
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-23 — OGAR #357's first kill test (TLAC-P01) is now buildable from real guards
+
+`[P1 @layer-boundary-warden @falsifier-auditor domain:iam D-CMR-3 D-TLAC]`
+
+The test: one `A & !B & C` shape, compiled from IAM, HubSPO and Rubicon
+guards, must not conflate class, universe, tenant, generation or authority.
+In October all three sources gained real code: OGAR `GroupRolePolicy` (#355),
+`SubjectRoles` (#356), D-IAM-3 (#358), and lance-graph's DR256 IAM register
+(#1666) plus the shared Kleene model (#1668, #1682, #1687). 0 hits for
+`TLAC` in lance-graph crates on main `8f610a85`. **Next probe:** route the
+three guards through the contract set algebra (needs D-CMR-3 for the Quack
+side, or start with the two that already decide through `set_rules`) and
+assert that equal normalized shapes keep distinct bindings. **Kill:** two of
+the three guards cannot be expressed in one normalized shape at all.
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-23 — The MeTTa four-binding case can run against the D-MPS-9 oracle
+
+`[P2 @falsifier-auditor domain:mork D-MTP-1 D-MPS-9]`
+
+#1498 asked for a probe of the four-result nondeterministic binding; none
+exists (no hit for it in `crates/`). #1690 added a general MORK `query_multi`
+oracle (D-MPS-9, MEASURED). **Next probe:** one test comparing the four
+bindings, by fold, against that oracle. **Kill:** the oracle returns a
+deduplicated set where MeTTa returns a bag.
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
 ## 2026-09-07 — SPOG-aware bakes: one artifact per G, and the crosswalk as a chain of masked equality sweeps (PROBE-CROSSWALK-MASK-1)
 
 `[P1 @simd-savant @kernel-membrane-warden @layer-boundary-warden domain:medcare/mask D-NXG-2 D-NXG-12]`

@@ -101,3 +101,16 @@ must refit the carrier.
 **Kill:** a closed carrier on which the composition still fails.
 **First probe:** TORQUE row T-2026-10-23-1 (EXO-129).
 **Verdict:** RHYME, 2026-10-23.
+
+**Evidence appended 2026-10-23 (session_019fbZ92dFKQ5BJHrA3YcH9A):** BC-4 is
+a near-counterexample to the word "closed". A Distinct carrier IS closed under
+join (a set joined with a set is a set), yet the Bag answer is wrong; K3 is the
+same: {T, F} is closed under ∧ ∨ ¬, the failure is that NULL has no image in
+it. Candidate refinement, HYPOTHESIS, not adopted: the condition is that the
+map from the true domain into the carrier commutes with the operation and with
+the measure read at the end (`h(a ⊕ b) = h(a) ⊕' h(b)`, abstract-interpretation
+soundness); closure of the carrier is necessary, not sufficient. Cheap test it
+implies: the one-step commutation defect rate (P-S2: 100% / 88.9% of bound
+pairs outside support) should predict k-step agreement without running k hops.
+**Kill for the refinement:** a case where the map commutes at one step and the
+k-step composition still fails.

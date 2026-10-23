@@ -1,3 +1,48 @@
+## ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN
+
+ADMISSION B (`entries/2026-10-20-six-decisions.md` §1, ruled in
+`ISS-ADMISSION-PREP-BINDING`) admits a frozen-codebook lookup or a
+version-witnessed key-range seek in preparation, "under the attestation the
+plan defines". No contract type carries that attestation. `OrderedLaneWitness`
+(contract `ordered_lane.rs`) covers sealed facet lanes only.
+
+Items that stop at it, each read on main `8f610a85`:
+- D-CMR-5: STATUS_BOARD row "BLOCKED: lawful design proposed", a
+  version-witnessed projection with frozen-codebook endpoints;
+- D-RU-6: "slot assignment must be argued as an attested frozen-codebook
+  lookup under ADMISSION = B";
+- `ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER` (D-DIAMOND-1);
+- #1659's failed gate (lanes sealed in key order);
+- the DR256 IAM register's codebook witness (#1666, listed open);
+- the D-QR plans in #1661/#1662;
+- the DRMC frame seal (who issues it, G1) and the Palette256 "attest the
+  codebook at bind" follow-up.
+
+Open question: one witness type with two kinds (frozen codebook, sorted key
+per sealed version), or two types. See Linear EXO-114 and BREADCRUMBS trail
+T-ADMISSION (crumb BC-2026-10-23-13 asks the same question from the issuer
+side).
+
+**Fruit:** Heavy
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (STATUS_BOARD rows D-CMR-5,
+D-RU-6; `ordered_lane.rs`).
+
+## ISS-ADMISSION-B-CALL-SITE-CLASSIFICATION-NOT-STARTED — Semijoin, EqU32Via and Gather are unclassified, and no owner is named (2026-10-23) — OPEN
+
+#1640 ruled ADMISSION B but nothing classified the call sites it governs.
+On main `8f610a85`: `Filter::Semijoin` is defined in
+`crates/lance-graph-quack/src/lib.rs:387`; `EqU32Via` appears in
+`crepe-plan-probe/src/{native,mork_api}.rs` and
+`r2il-mask-abi-probe/tests/row_bridge.rs`; the gather hop sits behind an
+opt-in feature (6791e4ac). STATUS_BOARD carries 0 rows for ADMISSION,
+ACTION-GATE, FLOAT-REFS, WIRE-50 or O30. NOT IN subqueries, anti-joins and any
+gather in the DR math stack wait on the classification. Who owns it is an
+operator decision (raised on EXO-50 by session 01G22 /036).
+
+**Fruit:** Heavy
+**Status:** OPEN (operator decision on ownership). **Basis:** VERIFIED-IN-CODE
+(paths above); STATUS_BOARD census.
+
 ## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
 
 **Status:** RULED 2026-10-20 (ADMISSION option B, `entries/2026-10-20-six-decisions.md` §1): same-table, version-witnessed key-range seeks over an attested sorted key are admitted in preparation; a position derived from another column or table is not, whatever the phase. Frozen codebook lookups are admitted under the attestation the plan defines (`d-relalg-unified-v1.md` § Decisions). D-MPS-8 stays conditionally blocked (a value-to-relationship-table read position is option C); D-RPR-1 and D-RST-4/6 are admitted only where they classify under B. Was: OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
@@ -2589,6 +2634,8 @@ the crate enters `lance-graph`'s build graph; or (b) add it explicitly to the
 workspace job that runs on every PR. (a) is preferable: it closes two issues
 with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
+
+**Fruit:** Low-hanging
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
 `lance-graph-planner`, `cognitive-shader-driver` and `sigma-tier-router`, so
