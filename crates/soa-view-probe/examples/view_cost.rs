@@ -73,18 +73,24 @@ fn probe_b_match(view: &NodeRowPacket<'_>, p: &[u8; 16], c: &[u8; 16], sel: &mut
     ndarray::simd::popcount_batch_u64(sel)
 }
 
-fn median_ns(reps: usize, iters: usize, mut f: impl FnMut()) -> f64 {
-    let mut t: Vec<f64> = (0..reps)
-        .map(|_| {
-            let s = Instant::now();
-            for _ in 0..iters {
-                f();
-            }
-            s.elapsed().as_nanos() as f64 / iters as f64
-        })
-        .collect();
+/// Median ns per call over `reps` timed batches, plus the allocations made
+/// by the operation itself (counted around the call loop only).
+fn median_ns(reps: usize, iters: usize, mut f: impl FnMut()) -> (f64, usize) {
+    let mut t = [0f64; 21];
+    assert!(reps <= t.len());
+    let mut allocs = 0;
+    for slot in t.iter_mut().take(reps) {
+        let a0 = ALLOCS.load(Ordering::Relaxed);
+        let s = Instant::now();
+        for _ in 0..iters {
+            f();
+        }
+        *slot = s.elapsed().as_nanos() as f64 / iters as f64;
+        allocs += ALLOCS.load(Ordering::Relaxed) - a0;
+    }
+    let t = &mut t[..reps];
     t.sort_by(f64::total_cmp);
-    t[reps / 2]
+    (t[reps / 2], allocs)
 }
 
 fn main() {
@@ -94,7 +100,7 @@ fn main() {
     care[..4].fill(0xFF);
     care[4] = 0x80;
 
-    println!("rows   op      A direct ns   B packet ns   allocs A/B");
+    println!("  rows op       A µs/call  B µs/call  A ns/row  B ns/row   allocs A/B");
     for n in [64usize, 4096, 65536] {
         let owner = rows(n);
         let view = NodeRowPacket::new(&owner, 1);
@@ -116,15 +122,14 @@ fn main() {
         );
 
         let row = |name: &str, a: &mut dyn FnMut(), b: &mut dyn FnMut()| {
-            let a0 = ALLOCS.load(Ordering::Relaxed);
-            let ta = median_ns(21, iters, &mut *a);
-            let a1 = ALLOCS.load(Ordering::Relaxed);
-            let tb = median_ns(21, iters, &mut *b);
-            let b1 = ALLOCS.load(Ordering::Relaxed);
+            let (ta, aa) = median_ns(21, iters, &mut *a);
+            let (tb, ab) = median_ns(21, iters, &mut *b);
             println!(
-                "{n:>6} {name:<7} {ta:>12.1} {tb:>13.1}   {}/{}",
-                a1 - a0,
-                b1 - a1
+                "{n:>6} {name:<7} {:>10.2} {:>10.2} {:>9.2} {:>9.2}   {aa}/{ab}",
+                ta / 1000.0,
+                tb / 1000.0,
+                ta / n as f64,
+                tb / n as f64
             );
         };
         let s = std::cell::RefCell::new(&mut sel);

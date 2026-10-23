@@ -1,6 +1,8 @@
 # D-NFR-6 — validate once, execute without repeated guards
 
-**Date:** 2026-10-23 · **Status:** MEASURED, lab only · **Plan:** `.claude/plans/d-nfr-6-validate-once-v1.md` · **Crate:** `crates/dr-validated-view-probe`
+> ⊘ Superseded by `2026-10-23-d-nfr-6-soa-borrow.md`: the `Table` + frame guard design is withdrawn.
+
+**Date:** 2026-10-23 · **Status:** SUPERSEDED (was MEASURED, lab only) · **Plan:** `.claude/plans/d-nfr-6-validate-once-v1.md` · **Crate:** `crates/dr-validated-view-probe`
 
 - **Q1, the guard:** the 27–28 ns per-call guard (#1752 route) is `FrameStore::check` (25.7–28.3 ns; 96 instructions; six `lock` RMWs) plus two `u64` compares (~1.3 ns). The cost is the temporary `Weak`s from `Arc::downgrade`; the pointer comparisons cost ~1 ns each. `bind_dr64` adds a `Frame` clone (two more `lock inc`): 59–67 ns total.
 - **Q2/Q5, validate once:** a `Table` owns data, frame store and focus map; every change takes `&mut`. `validate` runs the existing `bind_dr64` once and returns a `View<'t>`. While a view lives, advance, refocus and revoke are compile errors (E0502), and a view cannot outlive its table or leak a `'static` borrow (E0597). After the borrow, stale guards are refused at re-acquisition.

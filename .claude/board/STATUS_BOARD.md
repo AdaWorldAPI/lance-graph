@@ -1,11 +1,11 @@
-## D-NFR-6 — validate once, execute without repeated guards (2026-10-23)
+## D-NFR-6 — native operations over the SoaEnvelope borrow, no guard (2026-10-23)
 
-Lab only: `crates/dr-validated-view-probe`, plan `.claude/plans/d-nfr-6-validate-once-v1.md`. Parent D-NFR (#1753); guard figure from D-MPF-4 (#1752).
+Lab only: `crates/soa-view-probe`, plan `.claude/plans/d-nfr-6-soa-borrow-v2.md` (supersedes `d-nfr-6-validate-once-v1.md`). Parent D-NFR (#1753).
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-NFR-6** | one `bind_dr64` validation authorizes many native operations over a lifetime-borrowed view; guard cost split; shared-revocation escape | MEASURED (`entries/2026-10-23-d-nfr-6-validate-once.md`) | 5 compile_fail doctests (E0502/E0597, codes pinned); 8 runtime falsifiers; 4 disable runs, each red on one test; asm read |
-| **D-NFR-6a** | `FrameStore::check` by pointer comparison; `BoundDr64` borrows its frame | PROPOSAL (owner coordination) | same refusals, fewer `lock` RMWs, measured |
+| **D-NFR-6** | views are `NodeRowPacket` borrows (512-byte rows, 16-byte facets); operations are one ndarray kernel each; mutation through the owner's `&mut`; no `Table`, no frame guard | MEASURED (`entries/2026-10-23-d-nfr-6-soa-borrow.md`) | 3 compile_fail examples (E0502/E0597/E0599); 4 runtime falsifiers; 3 disable runs red; packet = direct within noise, 0 allocations, asm shows only kernel calls |
+| ~~**D-NFR-6a**~~ | ~~`FrameStore::check` by pointer comparison~~ | WITHDRAWN (v2: a faster unneeded guard is not the fix) | — |
 
 ## D-MPF — mathematical polyfill API, Stage 1 (2026-10-23)
 

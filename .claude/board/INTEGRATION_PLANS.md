@@ -1,6 +1,11 @@
+## 2026-10-23 — d-nfr-6-soa-borrow-v2 — native operations over the SoaEnvelope borrow, no guard → `.claude/plans/d-nfr-6-soa-borrow-v2.md`
+
+**Status:** MEASURED, lab only (`crates/soa-view-probe`). Supersedes `d-nfr-6-validate-once-v1`: views are `NodeRowPacket` borrows, operations are one ndarray kernel each, mutation is the owner's `&mut`; no `Table`, no frame guard. Packet equals direct ndarray within noise at 0 allocations. D-NFR-6a withdrawn.
+**Confidence:** measured on one AVX-512 host; no independent review yet.
+
 ## 2026-10-23 — d-nfr-6-validate-once-v1 — validate a binding once, then execute without repeated guards → `.claude/plans/d-nfr-6-validate-once-v1.md`
 
-**Status:** MEASURED, lab only (`crates/dr-validated-view-probe`). The per-call 27–28 ns guard is `FrameStore::check`'s refcount traffic; a view validated once by the existing `bind_dr64`, and kept valid by borrowing the table that owns data, frame and focus, runs native operations at direct cost. Externally owned revocation keeps a one-load check per operation. Proposals D-NFR-6a need the probe owner's review.
+**Status:** SUPERSEDED by d-nfr-6-soa-borrow-v2 (was MEASURED, lab only, `crates/dr-validated-view-probe`, removed). The per-call 27–28 ns guard is `FrameStore::check`'s refcount traffic; a view validated once by the existing `bind_dr64`, and kept valid by borrowing the table that owns data, frame and focus, runs native operations at direct cost. Externally owned revocation keeps a one-load check per operation. Proposals D-NFR-6a need the probe owner's review.
 ## 2026-10-23 — d-mpf-math-polyfill-v1 — the mathematical polyfill API, Stage 1 → `.claude/plans/d-mpf-math-polyfill-v1.md`
 
 **Status:** D-MPF-1 MEASURED, lab only; D-MPF-2.. PROPOSED. The Stage 1 polyfill API is the shipped R2IL procedure layer plus checked scalar arithmetic over mask-risc, with relalg as the rewriting frontend; no new primitive. One expression matches an independent row loop; at 64 K rows it costs under 1 ns/row, at one word ~600 ns per call. Gaps by counterexample: element-wise arithmetic, unsigned compare, floats, one-word fixed cost. Independent of ONNX and of the S0 drafts. Entry `2026-10-23-d-mpf-1-polyfill-probe.md`.

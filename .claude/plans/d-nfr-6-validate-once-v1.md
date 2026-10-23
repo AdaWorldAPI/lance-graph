@@ -1,6 +1,8 @@
 # D-NFR-6 — validate a binding once, then execute without repeated guards
 
-**Status:** MEASURED, lab only (`crates/dr-validated-view-probe`). No production contract, ABI or other crate is changed. Parent: D-NFR (`d-native-repr-contract-v1.md`, #1753); the per-call guard figure comes from D-MPF-4 (#1752 §10).
+> ⊘ **SUPERSEDED by `d-nfr-6-soa-borrow-v2.md` (2026-10-23).** The `Table` below kept its own `FrameStore` beside the SoA and checked a frame per access, re-deriving ownership that `SoaEnvelope`'s borrow already gives (views are `&self`, the owner's `&mut` cannot start while one is live). The crate was reworked into `crates/soa-view-probe`; D-NFR-6a is withdrawn. The measurements below remain the record of what the guard cost.
+
+**Status:** SUPERSEDED; was MEASURED, lab only (`crates/dr-validated-view-probe`, removed). No production contract, ABI or other crate is changed. Parent: D-NFR (`d-native-repr-contract-v1.md`, #1753); the per-call guard figure comes from D-MPF-4 (#1752 §10).
 
 **Question.** The #1752 ClassId route runs a frame/focus/scope guard on every call, and that guard measured 27–28 ns. Is that guard needed on every operation, or can ownership and borrowing guarantee the same thing at binding time?
 
