@@ -162,3 +162,47 @@ The 63-lanes-as-iid-columns arithmetic also breaks I-NOISE-FLOOR-JIRAK. The bloc
 - **Internal, VERIFIED-IN-CODE (scout 1):** receipt.rs:339-418; oracle.rs:67-122; slots.rs:174-234; squash_gate.rs:89-235 (pr1736); exo129_learned_lut_probe.rs:142-190; pearl.rs:282, 405-424; perturbation-sim eigen.rs:93.
 
 Council: premise auditor; scouts: code cartographer, internal prior art, literature, systems, concepts and ontology; co-architects: bridge, firewall and fit, falsifier. Session 01G22yT6.
+
+## Corrigendum (2026-10-23, operator correction; append-only, nothing above is deleted)
+
+**DECISION** (operator, 2026-10-23, relayed in EXO-50 GPT:gpt-ada-01/…-11 and in chat): the SPO/CE64/Thought-Git
+substrate is not probabilistic. Probabilistic "spoFC" semantics are legacy.
+Every probabilistic model is a **counterfactual** (Rung 3), and it must be certified by the cold
+egglog / eggcc-inspired reasoning compiler before it counts.
+- **SCOPE:** Thought-Git knowledge, truth and squash semantics, and head selection.
+- **BASIS:** the premise audit above (ops are deterministic, no P), plus the operator's architecture: multi-lane exploration
+  compiles into checked, reusable recipes.
+- **REVISIT WHEN:** never on cost grounds.
+
+What this withdraws from the map above:
+- **The stochastic layer as a home for the Markov tools.** The "Answer" section called the exo129 snap
+  kernel a legitimate stochastic layer. It is an artifact of lossy quantization: it is a legacy reading, not
+  a substrate property. Markov / MCMC / lumpability (X3–X8, X11–X13, and PR-4, PR-6) remain at most
+  specialized counterfactual research tools, and only where someone explicitly defines a stochastic process.
+  They are not Thought-Git's organizing mathematics.
+- **Head by vote, stationary mass or P̂.** X17's stationary mass was already SKIP. Also withdrawn are:
+  - the chat-side proposal of a source-deduplicated majority vote;
+  - "certificate is P̂" (X1).
+  Agreement among lanes, at any count and with any root diversity, never confers proof authority. It
+  never moves 59..63.
+- **Head rule.** The head of a thought family is preferably a NEW proof-carrying synthesis. It must have
+  lawfully admitted rules that preserve the children's required semantics, dependencies and replay
+  evidence, and it must pass the exact D-TGA-5 gate (no ε, no majority relaxation of R1/R2).
+  - If there is no proof, a candidate stays an unadmitted counterfactual. It is never squashed into a
+    claimed truth.
+  - A proof certifies a conditional law under stated axioms. Empirical, source and causal claims still
+    need independent attestation.
+  - Proof certificate, CE64 59..63 state and Thought-Git replay/commit witness are three separate objects.
+- **Tactic naming error.** Chat-side text called #11 "ICR". #11 is CR (Contradiction Resolution) and
+  #31 is ICR (Iterative Counterfactual Reasoning). MPC #27 / HKF #34 are candidate generators, not
+  certified mergers.
+
+What survives unchanged:
+- squash = path composition, checked by commutation (X2, PR-2);
+- receipt classes keyed without `thought`, guarded by roots (PR-5);
+- PR-1 as a short confirmation that lanes are not a stochastic chain;
+- the requested storno of the #1736 IDEAS "certificate is P̂" and "4ε tolerance" bullets.
+
+PR-7 is superseded: the head-selection probe moves to the CC2 proof-discovery plan
+(`entries/2026-10-23-cc2-proof-compiling-gap-map.md`, when it lands). Its F5 synthesis fixture and its
+F6 correlated-copies fixture keep their shape, with ground truth from an independent oracle, never a vote.
