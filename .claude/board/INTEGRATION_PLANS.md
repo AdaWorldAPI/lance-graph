@@ -1,3 +1,7 @@
+## 2026-10-23 — d-mpf-math-polyfill-v1 — the mathematical polyfill API, Stage 1 → `.claude/plans/d-mpf-math-polyfill-v1.md`
+
+**Status:** D-MPF-1 MEASURED, lab only; D-MPF-2.. PROPOSED. The Stage 1 polyfill API is the shipped R2IL procedure layer plus checked scalar arithmetic over mask-risc, with relalg as the rewriting frontend; no new primitive. One expression matches an independent row loop; at 64 K rows it costs under 1 ns/row, at one word ~600 ns per call. Gaps by counterexample: element-wise arithmetic, unsigned compare, floats, one-word fixed cost. Independent of ONNX and of the S0 drafts. Entry `2026-10-23-d-mpf-1-polyfill-probe.md`.
+
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.

@@ -1,3 +1,13 @@
+## D-MPF — mathematical polyfill API, Stage 1 (2026-10-23)
+
+Lab only (`crates/math-polyfill-probe`). Plan `.claude/plans/d-mpf-math-polyfill-v1.md`; entry `entries/2026-10-23-d-mpf-1-polyfill-probe.md`.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-MPF-1** | one expression (SUM − k·COUNT, NULL plane) through the existing r2il procedures; oracle; typed refusals; cost split | MEASURED (this branch) | equal to an `i128` row loop at 64..65 537 rows; D1–D3 red; 0.86–0.91 ns/row at 64 K, ~600 ns per call at 64 rows |
+| **D-MPF-2** | attribute the one-word fixed cost (~120 ns mask-risc + ~150 ns dialect) | Queued | a one-word fold under 50 ns equal to the oracle, or a recorded reason |
+| **D-MPF-3** | element-wise integer arithmetic (G1) | Blocked (owner decision) | `lane_plus_lane_is_refused` turns into an admitted, oracle-checked op |
+
 ## D-DRMC — DR × math binding probe, law frontier (2026-10-23)
 
 Lab only (`crates/dr-math-binding-probe`). Charter and probes: #1700, #1707, #1708; L1 in #1740.
