@@ -73,6 +73,42 @@ and the exact L/U spread. The others are not:
 - Buchholz and Franceschinis-Muntz bounding-aggregation papers (not located);
 - bisimulation metrics (abstract only).
 
+## ⊘ Correction 2026-10-23: the probabilistic premise was a category error
+
+DECISION (operator, 2026-10-23): the substrate is not probabilistic. SPO-FC
+being probabilistic today is legacy. Every probabilistic model counts as a
+**counterfactual** and must be certified by the egglog / eggcc reasoning
+compiler before anything rests on it. The 64 lanes × ~10^6 folds run per
+second are the **material** a thought is compiled from, until it is a proof
+that later operations can call by reference. They are not a population to be
+aggregated statistically.
+SCOPE: this map and the IDEAS row "A certificate replaces the deltas" (its
+Markov block). BASIS: the operator's statement; consistent with F1 (versions
+are deterministic), #1703 (population evidence only nominates) and
+`dr-math-binding-probe` (`admit_recipe` ends in `NoCertifiedCompiler`).
+REVISIT WHEN: never on statistical grounds.
+
+What this changes in the map:
+- The Bittracher/Schütte and Askarian papers describe at most the **search
+  over counterfactuals**, never the admission and never the certificate.
+  All their rows (I1–I6, I10, I11) drop to PARK as counterfactual-layer
+  descriptions. The certificate/model split (I9) holds and is sharpened: the
+  certificate is a checked egglog proof, not a replay witness and not P̂.
+- The premise gate failed. Phase 0 split certificate from aggregation but
+  never asked whether the substrate is stochastic at all. F1 (versions are
+  deterministic) already said it is not; the brief should have stopped there.
+- Head selection: the head is the thought whose compiled proof is admitted.
+  The children's folds are the search trace. After admission they are
+  discarded, except the seal and the refuted branches the proof cites.
+- What actually blocks this: no certificate exists for DR64 (`dr-math-binding-probe`,
+  `NoCertifiedCompiler`). The open items there are a typed relational statement
+  language, egglog laws with checked proofs, and a lowering check. The candidate
+  first law is associativity of Boolean relation composition. `crates/egglog-r2il-probe`
+  holds the cold compile path; `.arxiv/2026-10_eggcc_effect_safe_extraction_statewalk_r2il_map.md`
+  holds the effect-safe extraction lesson.
+- Still valid: the P8 fix (only committed writes squash) and probe D
+  (squash = chain for every later read). Both are deterministic.
+
 ## Closeout
 
-`coresearch | STATUS: open | OUTCOME: one defect fixed in #1736 (P8); map with 7 probes | OPEN: real lane traces needed for F1/F3/I3/I7; promotion reader unpinned`
+`coresearch | STATUS: open | OUTCOME: one defect fixed in #1736 (P8); probabilistic premise withdrawn (category error) | OPEN: DR64 certified compiler (typed statement language + checked egglog laws + lowering check); probe D; promotion reader unpinned`

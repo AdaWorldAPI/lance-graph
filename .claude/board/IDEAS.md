@@ -186,6 +186,12 @@ The grades are per claim.
 - **Ties.** This is the stochastic form of EXO-132's lumpability, the
   distinction GPT /08 asked for: almost-lumpability in L1, not deterministic
   congruence.
+- ⊘ **Superseded 2026-10-23 (same day).** DECISION (operator): the substrate
+  is not probabilistic; a probabilistic model is a counterfactual that the
+  egglog/eggcc compiler must certify. The certificate is a checked proof, not
+  P̂, and the 64 × 10^6 folds are compilation material, not samples. The block
+  above is kept as the record of a withdrawn framing; see
+  `entries/2026-10-23-coresearch-thought-git-markov.md` § Correction.
 
 **Next probe:** rung 2, which is cheapest and guards the whole storage
 argument. **Kill:** a lane that is deterministic given its seeds cannot be
