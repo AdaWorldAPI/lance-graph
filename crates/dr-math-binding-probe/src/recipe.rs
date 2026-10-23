@@ -78,24 +78,49 @@ pub struct CompiledReference {
 ///
 /// ```compile_fail
 /// use dr_math_binding_probe::recipe::RecipeCertificate;
-/// let forged = RecipeCertificate { law: todo!(), compiled: todo!(), proof: todo!() };
+/// let forged = RecipeCertificate { law: todo!(), compiled: todo!(), source_digest: [0; 32], program: vec![], proof: todo!() };
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecipeCertificate {
     law: LawReference,
     compiled: CompiledReference,
+    /// Digest of the query the proof starts from (`lowering_digest` of the
+    /// `from` order). The certificate answers this query and no other; the
+    /// compiled digest names the program that answers it.
+    source_digest: [u8; 32],
+    /// The checked step list `compiled.compiled_digest` names, kept so a
+    /// reuse runs the program without searching for it or re-lowering.
+    program: Vec<crate::relcomp::Step>,
     proof: String,
 }
 
 impl RecipeCertificate {
     /// Only the in-crate certifiers call this, after their own checks
     /// (today: [`crate::relcomp::certify_reassociation`]).
-    pub(crate) fn issue(law: LawReference, compiled: CompiledReference, proof: String) -> Self {
+    pub(crate) fn issue(
+        law: LawReference,
+        compiled: CompiledReference,
+        source_digest: [u8; 32],
+        program: Vec<crate::relcomp::Step>,
+        proof: String,
+    ) -> Self {
         Self {
             law,
             compiled,
+            source_digest,
+            program,
             proof,
         }
+    }
+
+    /// The checked step list this certificate's compiled digest names.
+    pub fn program(&self) -> &[crate::relcomp::Step] {
+        &self.program
+    }
+
+    /// Digest of the query this certificate answers.
+    pub fn source_digest(&self) -> &[u8; 32] {
+        &self.source_digest
     }
 
     /// The checked proof the certifier was given (egglog's rendering).
