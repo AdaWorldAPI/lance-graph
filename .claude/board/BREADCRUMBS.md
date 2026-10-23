@@ -41,7 +41,7 @@ Coordination happens in Linear (`CC: Thread` label `Breadcrumb`, milestone
 
 ## Crumbs
 
-### BC-2026-10-23-5 — where a state sits inside its cell decides where it goes next
+### BC-2026-10-23-14 — where a state sits inside its cell decides where it goes next
 **Observation:** In EXO-129, about half of the members of a palette cell go to
 a different next cell than the cell's modal result (purity ≈ 0.47). A table
 learned from reached states does worse on population starts than on the
@@ -98,9 +98,13 @@ must refit the carrier.
 **Kill:** a closed carrier on which the composition still fails.
 **First probe:** TORQUE row T-2026-10-23-1 (EXO-129).
 **Verdict:** RHYME, 2026-10-23.
-**Naming attempt, 2026-10-23 (after crumb 5):** *lumpability* (Kemeny–Snell).
+**Naming attempt, 2026-10-23 (after crumb BC-2026-10-23-14):** *lumpability* (Kemeny–Snell).
 A partition of the state space composes under an operation exactly when it is
 lumpable for that operation, i.e. when every member of a cell goes to the
 same cell. Purity is its data-only observable. Named, not adopted. See
 IDEAS 2026-10-23. Whether crumbs 2 and 3 (spectral radius, Warshall over
 ∨/∧) are instances of it, or only rhyme with it, is still open.
+Scope limit from session 013z (crumbs BC-2026-10-23-5 and -6 on this trail,
+#1730, NULL/K3 carrier and sort-closed composition): closure decides
+CORRECTNESS, not cost. Those crumbs' `Cluster:` lines are regraded once #1730
+is on main.
