@@ -2,19 +2,19 @@
 
 <!-- 2026-10-23 catch-up (D-ONNX-RELALG-CAP S0): #1726–#1741, same rule. Hygiene-only, no entry: #1727, #1728, #1730, #1732, #1733, #1734, #1735. -->
 
-## 2026-10-23 — lance-graph PR #1741 (merged `59538865`, branch `board/coresearch-julia-egraphs-20261023`, head `dcef8cc1`) — board: coresearch map — Julia e-graphs vs egglog/datafrog/Ascent; Lisp vs Prolog for MeTTa
+## 2026-10-23 — lance-graph PR #1741 (merged `59538865`, branch `board/coresearch-julia-egraphs-20261023`, head `dcef8cc1`) — board: coresearch map, Julia e-graphs vs egglog/datafrog/Ascent; Lisp vs Prolog for MeTTa
 
 - **Added:** board only.
-- **Docs:** entry `2026-10-23-coresearch-julia-egraphs.md`.
-- **Locked / deferred:** see the PR body and its board entry; not restated here.
-- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+- **Docs:** entry `2026-10-23-coresearch-julia-egraphs.md`. Probes P-J1..P-J4 named, none authorized.
+- **Confidence:** recorded from the merge commit.
 
-## 2026-10-23 — lance-graph PR #1740 (merged `c42140b7`, branch `lab/drmc-l1-x8-fresh-frame-20261023`, head `95b2cb18`) — dr-math-binding-probe: L1, reuse a D-DRMC-5 certificate on a fresh frame (X8)
+## 2026-10-23 — lance-graph PR #1740 (merged `c42140b7`, branch `lab/drmc-l1-x8-fresh-frame-20261023`, head `95b2cb18`) — lab: L1, a D-DRMC-5 certificate executes on a fresh frame without egglog
 
-- **Added:** `crates/dr-math-binding-probe` (`src/recipe.rs`, `src/relcomp.rs`, `tests/x8_fresh_frame.rs`).
-- **Docs:** entries `2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md`, `2026-10-23-drmc-l1-x8-fresh-frame-result.md`.
-- **Locked / deferred:** see the PR body and its board entry; not restated here.
-- **Confidence:** CATCH-UP (2026-10-23): recorded from the merge commit, not re-reviewed.
+- **Added:** `crates/dr-math-binding-probe` (`RecipeCertificate::{source_digest, program}`, `relcomp::{execute_certified, egglog_calls, ReuseRefusal}`, `tests/x8_fresh_frame.rs`).
+- **Locked:** a certificate answers its own query only; another order, another ABI or another chain length is refused. D1-D3 disable runs each turned their named test red.
+- **Deferred:** the certificate held egglog's proof as a rendered string; replaced by egglog's `ProofStore` + `ProofId` in the follow-up PR.
+- **Docs:** entries `2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md`, `…-result.md`.
+- **Confidence:** MEASURED (lab).
 
 ## 2026-10-23 — lance-graph PR #1739 (merged `9a458cae`, branch `ccr-d3ce1263-ied9yh`, head `52fab2cd`) — thought-git-probe: Probe D (D-TGA-5D), protected readers of a squash
 
