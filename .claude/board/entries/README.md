@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-446 entries, 2026-08-06 .. 2026-10-23.
+448 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,8 @@ exactly one of them, never both.
 | 2026-10-23 | `exo129-learned-lut-preregistration` |  | [2026-10-23-exo129-learned-lut-preregistration.md](2026-10-23-exo129-learned-lut-preregistration.md) |
 | 2026-10-23 | `D-TGA-5` |  | [2026-10-23-d-tga-5-squash-gate-preregistration.md](2026-10-23-d-tga-5-squash-gate-preregistration.md) |
 | 2026-10-23 | `coresearch-thought-git-markov` |  | [2026-10-23-coresearch-thought-git-markov.md](2026-10-23-coresearch-thought-git-markov.md) |
+| 2026-10-23 | `coresearch-thought-git-markov-cc2` |  | [2026-10-23-coresearch-thought-git-markov-cc2.md](2026-10-23-coresearch-thought-git-markov-cc2.md) |
+| 2026-10-23 | `cc2-proof-compiling-gap-map` |  | [2026-10-23-cc2-proof-compiling-gap-map.md](2026-10-23-cc2-proof-compiling-gap-map.md) |
 | 2026-10-22 | `probes-pd4-pe2-pd3` |  | [2026-10-22-probes-pd4-pe2-pd3.md](2026-10-22-probes-pd4-pe2-pd3.md) |
 | 2026-10-22 | `pal256-salience-mp3-probe` |  | [2026-10-22-pal256-salience-mp3-probe.md](2026-10-22-pal256-salience-mp3-probe.md) |
 | 2026-10-22 | `pal256-nars-bayes-evidence-contract` |  | [2026-10-22-pal256-nars-bayes-evidence-contract.md](2026-10-22-pal256-nars-bayes-evidence-contract.md) |
