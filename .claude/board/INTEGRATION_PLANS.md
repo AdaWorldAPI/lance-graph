@@ -1,3 +1,7 @@
+## 2026-10-23 — d-native-repr-contract-v1 + d-native-first-dependency-correction-v1 — the native polyfill is the root → `.claude/plans/d-native-repr-contract-v1.md`, `.claude/plans/d-native-first-dependency-correction-v1.md`
+
+**Status:** D-NFR-0 / D-NFC-0 documentation (DECISION 2026-10-23: corrections to #1746–#1751 and #1750 approved). D-NFR-1..5 PROPOSED, not authorized. ONNX is an external compatibility specification; the R2IL polyfill is the native root; Quack binding + DR64³ + Palette256³ is the intended native representation, with its shipped, lab and missing seams separated. The smallest missing seam is that a Quack-bound query does not know its frame. The #1744 / #1745 / #1750 S0 dispute is not decided.
+
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.

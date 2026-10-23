@@ -1,3 +1,17 @@
+## D-NFR / D-NFC — native representation contract + dependency correction (2026-10-23)
+
+Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-dependency-correction-v1.md` (D-NFC). Nothing implemented; no ABI or execution contract changed.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-NFC-0** | one canonical dependency diagram and seven root assumptions, applied as marked supersessions to #1746–#1751 and #1750 | In PR | each affected PR cites the diagram; S0 dispute left open |
+| **D-NFR-0** | seam table Quack → DR64³ → Palette256³ → execution, cited to source | In PR | every seam SHIPPED / LAB / PROPOSED / MISSING with its source |
+| **D-NFR-1** | lab adapter: a Quack-bound query sealed under a frame | Proposed | after one revision moves, the stored binding is refused with the matching `Refusal`; before, it equals an oracle |
+| **D-NFR-2** | codebook generation carried in the frame seal | Proposed | a palette value bound under generation g is refused under g+1 |
+| **D-NFR-3** | one DR axis bound to one palette plane under a frame | Proposed | Cartesian and numerical oracles agree; a mismatched codebook is refused |
+| **D-NFR-4** | end-to-end acceptance fixture (nine steps, each measured) | Proposed | all nine steps pass, each step's cost reported separately |
+| **D-NFR-5** | one binding and one focus reused across several operations | Proposed | reuse saving measured against rebinding and a fused scalar / SIMD baseline, guards run on every use |
+
 ## D-DRMC — DR × math binding probe, law frontier (2026-10-23)
 
 Lab only (`crates/dr-math-binding-probe`). Charter and probes: #1700, #1707, #1708; L1 in #1740.
