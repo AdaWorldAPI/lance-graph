@@ -127,3 +127,46 @@ F-P15: ARM speed or power claims reported without real ARM hardware and measurem
 F-P16: an optimized plan falls back mid-computation without accounting for intermediate representations, data transfer or effects.
 
 **Updated gate S3d:** one genuine ONNX numerical operator has legal T/D/H execution on the same declared semantics, a heterogeneous-density crossover sweep, cold/warm/reuse scenarios, and independent reference parity. Hardware-specific conclusions require measurement on that hardware; an ARM target may remain pending without blocking the x86 proof-of-concept.
+
+---
+
+## 2026-10-23 physical-plan expansion: implemented compiled palette candidates
+
+**Important baseline correction:** `AdaWorldAPI/ndarray` already contains alternative physical execution methods, not merely prospective kernel ideas:
+- PR #42: registered 256×256 `CompiledAttention` lookup, d_head-keyed, with ordinary Burn MatMul fallback.
+- PR #100: `CompiledLinear` centroid/assignment execution, shape-matched, VNNI/scalar and ordinary MatMul fallback.
+- Burn `float_tanh` dispatches to `ndarray::hpc::vml::vstanh` on eligible f32 SIMD layouts.
+- `bgz-tensor`/ `bgz17` / `helix` already supply codebooks, FisherZ, 256² LUTs and metric tests. Do NOT build replacements in S3d.
+
+### Four *candidate* lanes, two different semantic frontiers
+The existing three arms **T** (conventional numeric Tensor), **D** (DR legal deterministic support+typed numerical fold), and **H** (hybrid DR support + numeric microkernel) remain the **exact/numerically-toleranced competition**, subject to the ONNX op's declared semantics.
+
+Introduce **P — existing compiled palette** as an **independently reported fourth candidate**, not silently counted as an exact arm:
+- P-attention: 256² `CompiledAttention` distance-index scores; its `try_attention_matmul` ignores incoming lhs/rhs values, uses cached assignments and returns scaled negative distance. This is *not* an exact ONNX `MatMul` result by construction.
+- P-linear: 256-centroid `CompiledLinear` with per-row assignments and input quantization; `try_compiled_linear` ignores its lhs weight values and uses an approximate scale-only correction (zero-point bias correction is not implemented). It may differ from standard numeric MatMul.
+
+**Admission:** P competes on the *approximate / explicitly calibrated quality frontier* only after an identity-safe model/layer/weight/codebook binding has been demonstrated. It can join an exact/tolerance-governed frontier only if independently proven compliant with the declared operator tolerance for the admitted domain. Otherwise P is REJECT/REFUSE for STRICT_NATIVE. A cached-hit shape alone is not a witness.
+
+### Fair costs and crossover
+Benchmark T, D, H and when admissible P, separately tracking:
+- Compile/calibrate codebook, source/weight digest, quantize + assign rows, build palette and distance/compose/FisherZ table.
+- Cache registration, model/layer/weight/codebook digest validation, frame rebind and invalidation.
+- Per-run input quantization, zero-point/scaling correction, support construction, DR focus expand and per-tile dispatch.
+- Kernel, fallback, host/device transfer, output materialization, memory bytes and peak residency.
+- N=1/warm/repeated/incremental; cache hit/miss and collided-key negative controls.
+- x86 AMX/AVX, existing ndarray ARM NEON and scalar baselines, actual hardware measured only.
+
+For each eligible operator compare end-to-end latency **and** independent numeric/semantic quality, including held-out task metrics if approximations are admitted. No speedup may compensate for an unacknowledged semantic violation.
+
+### Mandatory added falsifiers
+F-P17: cache `d_head` collision between two independent models;
+F-P18: identical matmul shapes but different linear weight matrices (same-shape cached artifact);
+F-P19: stale codebook/assignment generation or mismatched current Q/K values;
+F-P20: CompiledLinear missing zero-point correction yields excessive numeric error;
+F-P21: FisherZ saturation or unsupported multi-hop composition (#1726/#1731) is treated as a valid score law;
+F-P22: claiming CI-gated palette parity when `bgz-tensor` integration tests are excluded from CI (EXO-137).
+
+### Source evidence
+`AdaWorldAPI/ndarray/crates/burn/src/ops/matmul.rs` and `src/hpc/vml.rs`; lance-graph `crates/bgz-tensor/src/{attention.rs,fisher_z.rs,palette.rs}`, `crates/helix/src/distance.rs`, `crates/bgz17/src/lib.rs`; ndarray #42/#100; lance-graph #1726/#1731; Linear EXO-137/EXO-139.
+
+**S3d gate revision:** a three-arm exact comparison still tests the Tensor/DR/Hybrid thesis. An additional P-arm is a *reuse benchmark* only under separately admitted model-specific accuracy/quality semantics. No unguarded Burn compiled interception may be promoted as generic ONNX transparent MatMul.
