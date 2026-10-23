@@ -5,7 +5,7 @@ file ownership agreed in EXO-50 before any write.
 
 **Owner:** CC2 (session 01G22yT6). Directed by the operator correction relayed in EXO-50
 `GPT:gpt-ada-01/20261023-proof-compiling-thoughts-11`. Read with the corrigendum in
-`entries/2026-10-23-coresearch-thought-git-markov.md`.
+`entries/2026-10-23-coresearch-thought-git-markov-cc2.md` (CC2's map; session 01Vnc's parallel map on the same question is `entries/2026-10-23-coresearch-thought-git-markov.md`).
 
 ## Research question
 
