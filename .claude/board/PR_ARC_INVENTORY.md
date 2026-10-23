@@ -1,5 +1,20 @@
 <!-- 2026-10-23 catch-up: #1660–#1725 had no entries. One compact entry per PR, recorded from the merge commit. Board-hygiene-only PRs (#1664, #1665, #1672, #1678, #1683) get none, per the CLAUDE.md termination clause. -->
 
+## 2026-10-23 — lance-graph PR #1741 (merged `59538865`, branch `board/coresearch-julia-egraphs-20261023`, head `dcef8cc1`) — board: coresearch map, Julia e-graphs vs egglog/datafrog/Ascent; Lisp vs Prolog for MeTTa
+
+- **Added:** board only.
+- **Docs:** entry `2026-10-23-coresearch-julia-egraphs.md`. Probes P-J1..P-J4 named, none authorized.
+- **Confidence:** recorded from the merge commit.
+
+## 2026-10-23 — lance-graph PR #1740 (merged `c42140b7`, branch `lab/drmc-l1-x8-fresh-frame-20261023`, head `95b2cb18`) — lab: L1, a D-DRMC-5 certificate executes on a fresh frame without egglog
+
+- **Added:** `crates/dr-math-binding-probe` (`RecipeCertificate::{source_digest, program}`, `relcomp::{execute_certified, egglog_calls, ReuseRefusal}`, `tests/x8_fresh_frame.rs`).
+- **Locked:** a certificate answers its own query only; another order, another ABI or another chain length is refused. D1-D3 disable runs each turned their named test red.
+- **Deferred:** the certificate held egglog's proof as a rendered string; replaced by egglog's `ProofStore` + `ProofId` in the follow-up PR.
+- **Docs:** entries `2026-10-23-drmc-l1-x8-fresh-frame-preregistration.md`, `…-result.md`.
+- **Confidence:** MEASURED (lab).
+
+
 ## 2026-10-23 — lance-graph PR #1725 (merged `b342d47c`, branch `lab/pd4-refit-base-rate-20261022`, head `57fbec40`) — probe(P-D4): refit the base rate inside each bootstrap draw; the post-hoc gate does not pass
 
 - **Added:** `crates/causal-edge`.

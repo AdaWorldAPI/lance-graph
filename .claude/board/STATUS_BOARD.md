@@ -1,3 +1,12 @@
+## D-DRMC — DR × math binding probe, law frontier (2026-10-23)
+
+Lab only (`crates/dr-math-binding-probe`). Charter and probes: #1700, #1707, #1708; L1 in #1740.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **EXP-DRMC-L1** | a D-DRMC-5 reassociation certificate issued on one frame executes on an independently issued frame without egglog | MEASURED (#1740 `c42140b7`; `entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md`); certificate holds egglog's `ProofStore` + `ProofId` (follow-up PR) | zero egglog calls on the hit path, equal to an independent oracle at densities 0/4/32/63; wrong ABI, other order, other length refused; D1-D3 red |
+| **EXP-DRMC-L2** | distributivity plus a false ∩ variant | Held (behind the ProofRef agreement with CC1, EXO-50 07-07e) | — |
+
 ## D-RFT / D-QSP — ClassView × Quack semantic substrate (2026-10-21)
 
 Plans in #1667 (`d-rft-relalg-thought-git-frontier-v1.md`, `d-qsp-classview-quack-postgresql-parity-v1.md`, `d-lfa-lance-graph-flow-rubicon-assimilation-v1.md`; merged). Only the rows below have a claim or evidence; the other D-RFT / D-QSP / D-LFA ids stay as #1667 lists them.

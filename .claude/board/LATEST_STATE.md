@@ -1,3 +1,8 @@
+## 2026-10-23 — main after #1741 (merged `59538865`)
+
+- **On main since #1725:** L1 for D-DRMC-5 (#1740): a reassociation certificate executes on a fresh frame without egglog. The Julia e-graphs coresearch map (#1741). #1726–#1739 have no per-PR records yet.
+- **Contract inventory delta:** none; lab crates and board only.
+
 ## 2026-10-23 — main after #1725 (merged `b342d47c`)
 
 - **On main since #1682:** the D-QR plan family (#1660–#1663), D-QSP/D-RFT/D-LFA plans and probes (#1667–#1688), the math-foundry / egglog-r2il arc (#1690–#1699, #1705, #1717), the D-DRMC charter and probes (#1700, #1707, #1708), the Ascent BYODS plan (#1706), the Palette256 evidence and plasticity probes (#1709–#1722), and the decision-side probes P-D4, P-E2, P-D3 with the P-D4 correction (#1723–#1725). Per-PR records: `PR_ARC_INVENTORY.md` catch-up entries.
