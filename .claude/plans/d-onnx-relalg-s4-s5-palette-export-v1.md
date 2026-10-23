@@ -137,3 +137,21 @@ Haiku source/test/CI inventory. Sonnet draft typed integration and plan costs. I
 - ndarray historical PRs: https://github.com/AdaWorldAPI/ndarray/pull/42 ; https://github.com/AdaWorldAPI/ndarray/pull/100
 - Existing method falsifiers: https://github.com/AdaWorldAPI/lance-graph/pull/1726 ; https://github.com/AdaWorldAPI/lance-graph/pull/1731
 - Linear CI/encoding debt: https://linear.app/exo-red/issue/EXO-137/bgz-tensor-integration-tests-never-run-in-ci-rust-testyml-runs-lib ; https://linear.app/exo-red/issue/EXO-139/fisherztableencode-clamps-out-of-family-cosines-to-the-edge-code-with
+
+---
+
+## 2026-10-23 separate cold frontend plan: PR #1751
+
+**New independently owned research plan:** [D-OPTIMUM-BGZ-OFFLINE-v1](https://github.com/AdaWorldAPI/lance-graph/pull/1751), a docs-only cold Optimum ONNX export/calibration → existing BGZ/Palette256 sidecar adapter, with an operator-approved compact BERT-layer numeric probe.
+
+**Ownership correction and stage framing:**
+- **#1751 O0–O3 owns** source-backed `huggingface/optimum-onnx` API inventories; pinned model export and ORT/source comparison; calibration workflow reuse; layer/weight/codebook fingerprints; an optional *illustrative, non-destructive* compiled sidecar manifest. It **does not** implement a runtime or require an Optimum fork.
+- **This #1749 S4 owns** the native `bgz-tensor`/`helix`/`bgz17` and ndarray compiled method *admission contract*: existing `CompiledLinear`/`CompiledAttention` identity, exact vs approximate quality, explicit cache-invalidation and fail-closed fallback. Do not duplicate Optimum exporter or build a second palette compiler.
+- **This #1749 S5 owns** versioned output/sidecar compatibility review, native method reuse, cold proof/certification boundaries and measured optional codegen; no general custom ONNX operator portability implied.
+- **#1748 owns** physical Tensor/DR/Hybrid and quality-gated compiled palette crossover benchmarks, with Optimum-exported fixtures from #1751 when available.
+
+**Critical seam:** the Optimum-exported original `MatMul/Gemm` remains the semantic reference; the existing BGZ/CompiledLinear representation is *a candidate* with calibration and numerical errors. Model revision, initializer weight digest, node/path, codebook family+generation and assignments must match at runtime before using a compiled artifact. The global Burn dimension-keyed paths must not become silently enabled for arbitrary imported ONNX models. For POC, prohibit unguarded cache registration; use a local harness or separately authorized identity-bound runtime entrypoint.
+
+**Source references:** `huggingface/optimum-onnx/optimum/exporters/onnx/{model_configs.py,convert.py}`, `optimum/onnxruntime/{quantization.py,optimization.py}`; native `AdaWorldAPI/ndarray/crates/burn/src/ops/matmul.rs`; existing `lance-graph/crates/bgz-tensor`. `ORTQuantizer` does not create BGZ codebooks merely by choosing a different INT8 type. Optimum stays in the **offline Python compiler**. No Python/ORT runtime requirement on the target edge CPU.
+
+**Gate:** S4 native adaptation requires a source-verified candidate and model/layer provenance plus owner signoff; O1 model selection and protobuf fork decision are still operator-owned prerequisites per #1750. #1744/#1745/#1750 S0 remains unresolved. Neither doc plan can auto-merge or authorize runtime changes.
