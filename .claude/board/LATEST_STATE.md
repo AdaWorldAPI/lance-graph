@@ -1,7 +1,7 @@
 ## 2026-10-23 — main after #1741 (merged `59538865`)
 
-- **On main since #1725:** L1 for D-DRMC-5 (#1740): a reassociation certificate executes on a fresh frame without egglog. The Julia e-graphs coresearch map (#1741). #1726–#1739 have no per-PR records yet.
-- **Contract inventory delta:** none; lab crates and board only.
+- **On main since #1725:** Palette256 compose and learned-LUT probes (#1726, #1731), the BREADCRUMBS / TORQUE / GOLDSTAUB ledgers and `fruits_index.py` (#1729), the thought-git squash gate and Probe D (#1736, #1739, lab, `thought-git-probe`), the D-DRMC-5 fresh-frame reuse L1 (#1740, lab, `dr-math-binding-probe`), the "no certified compiler" scope correction (#1738), and coresearch maps (#1737, #1741). Per-PR records: `PR_ARC_INVENTORY.md`.
+- **Contract inventory delta:** none. Every PR in this range is a lab crate, a probe, a ledger or a board entry.
 
 ## 2026-10-23 — main after #1725 (merged `b342d47c`)
 

@@ -1,6 +1,9 @@
 ## 2026-10-23 — d-mpf-math-polyfill-v1 — the mathematical polyfill API, Stage 1 → `.claude/plans/d-mpf-math-polyfill-v1.md`
 
 **Status:** D-MPF-1 MEASURED, lab only; D-MPF-2.. PROPOSED. The Stage 1 polyfill API is the shipped R2IL procedure layer plus checked scalar arithmetic over mask-risc, with relalg as the rewriting frontend; no new primitive. One expression matches an independent row loop; at 64 K rows it costs under 1 ns/row, at one word ~600 ns per call. Gaps by counterexample: element-wise arithmetic, unsigned compare, floats, one-word fixed cost. Independent of ONNX and of the S0 drafts. Entry `2026-10-23-d-mpf-1-polyfill-probe.md`.
+## 2026-10-23 — d-onnx-relalg-cap-v1 — ONNX as an import membrane over the existing substrate → `.claude/plans/d-onnx-relalg-cap-v1.md`
+
+**Status:** PROPOSAL, documentation only (S0). S1..S5 PLANNED, not authorized. The original DR64³ plan was not found; the DR64³ section is a new, labelled proposal. relalg takes only the Boolean/compare/reduce fragment; the home for value maths is OPEN (OP-ONNX-1), and so is the importer dependency (OP-ONNX-2). Entry: `entries/2026-10-23-d-onnx-relalg-cap-s0.md`.
 
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
