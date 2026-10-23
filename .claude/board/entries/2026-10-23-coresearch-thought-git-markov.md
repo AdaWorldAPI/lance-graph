@@ -100,15 +100,26 @@ What this changes in the map:
 - Head selection: the head is the thought whose compiled proof is admitted.
   The children's folds are the search trace. After admission they are
   discarded, except the seal and the refuted branches the proof cites.
-- What actually blocks this: no certificate exists for DR64 (`dr-math-binding-probe`,
-  `NoCertifiedCompiler`). The open items there are a typed relational statement
-  language, egglog laws with checked proofs, and a lowering check. The candidate
-  first law is associativity of Boolean relation composition. `crates/egglog-r2il-probe`
-  holds the cold compile path; `.arxiv/2026-10_eggcc_effect_safe_extraction_statewalk_r2il_map.md`
-  holds the effect-safe extraction lesson.
+- ⊘ (corrected the same day) This line first said "no certificate exists for
+  DR64". That was stale. D-DRMC-5 (`crates/dr-math-binding-probe/src/relcomp.rs`,
+  commits a554da1c and 903e664d) already certifies reassociation of a Boolean
+  relation-composition chain end to end:
+  - typed chain;
+  - law admitted only for two-valued Distinct relations;
+  - egglog proof, checked by egglog, with commutation refused;
+  - lowering round trip;
+  - `RecipeCertificate` bound to `lowering_digest`.
+
+  Re-run 2026-10-23: 37 tests green, 12 of them in `relcomp`. `NoCertifiedCompiler`
+  applies only to the single-operand `admit_recipe` path. Still open, per the
+  crate README:
+  - choosing an order (specialization selection, without evaluating every order);
+  - rebinding a certificate to a second frame (X8);
+  - wiring into R2IL/Quack;
+  - for thought-git, referencing a certificate from a squash.
 - Still valid: the P8 fix (only committed writes squash) and probe D
   (squash = chain for every later read). Both are deterministic.
 
 ## Closeout
 
-`coresearch | STATUS: open | OUTCOME: one defect fixed in #1736 (P8); probabilistic premise withdrawn (category error) | OPEN: DR64 certified compiler (typed statement language + checked egglog laws + lowering check); probe D; promotion reader unpinned`
+`coresearch | STATUS: open | OUTCOME: one defect fixed in #1736 (P8); probabilistic premise withdrawn (category error) | OPEN: certificate referenced from a squash; order selection; X8 rebinding; probe D; promotion reader unpinned`
