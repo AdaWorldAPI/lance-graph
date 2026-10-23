@@ -18,11 +18,15 @@ Every affected PR references this diagram instead of restating its own.
 ```text
   ARCHITECTURAL DEPENDENCY (each layer needs only the ones above it)
 
-  [1] R2IL mathematical router               SHIPPED  route per ClassId, once: DIRECT / COMPOSE
+  [1] R2IL mathematical router               LAB      route per ClassId, once: DIRECT / COMPOSE
         │   (ClassId → LazyLock → prebound              onto ndarray::simd (via mask-risc where a
         │    native callable → kernel)                  program is needed), LOWER to r2sleigh only
-        │                                              for machine semantics, else REFUSE (D-MPF-4).
-        │                                              The ClassId-keyed table itself: LAB (#1752).
+        │                                              for machine semantics, else REFUSE (D-MPF-4;
+        │                                              `math-polyfill-probe/examples/classid_route.rs`,
+        │                                              #1752). No production ClassId-keyed table
+        │                                              exists (seam S17a).
+        │   strategies beneath it                SHIPPED  ndarray::simd; mask-risc programs;
+        │                                              lance-graph-r2il FoldDialect + procs
   [2] Quack binding                           SHIPPED  bind once → numeric Query (S1–S3)
         │   binding store / frame validity    MISSING  (S5; smallest seam = D-NFR-1)
   [3] DR64³ relational / focus geometry       LAB      frame, focus, scope, 64×64 register,
@@ -53,6 +57,8 @@ Every affected PR references this diagram instead of restating its own.
 > - `lance-graph-onnx` (#1754) implements this. Its only normal dependency is `ndarray`; `cargo tree -i` shows nothing depends on it; it has no `LazyLock`, ClassId routing or per-call choice.
 > - It does not import R2IL's router [1]. The router and the facade are independent.
 > - Which S0 draft documents [7] (§6) is still the owners' decision. #1754 does not decide it.
+
+> ⊘ **Status of layer [1] (2026-10-23, review on #1753).** The router row first read SHIPPED. Only the strategies beneath it ship: `ndarray::simd`, mask-risc programs, and `lance-graph-r2il`'s FoldDialect and procedures. The ClassId-keyed router exists only as the #1752 lab example; no production table exists (seam S17a). The row now reads LAB, with the strategies on their own SHIPPED line.
 
 > ⊘ **Correction to layer [1] (2026-10-23, D-MPF-4, `.claude/plans/d-mpf-math-polyfill-v1.md` §10).** Layer [1] first read "R2IL mathematical polyfill — `lance-graph-r2il::procs` + FoldDialect". That equated R2IL with one of its strategies, and the replaced wording stays visible here for that reason.
 >
