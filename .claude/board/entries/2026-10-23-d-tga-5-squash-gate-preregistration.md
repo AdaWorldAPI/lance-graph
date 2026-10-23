@@ -137,5 +137,9 @@ intermediate state (a mid-chain read), and by design the squash cannot
 answer one. The full condition, raised by 01G22yT6: every later read,
 including the 59..63 promotion, gets the same answer from the squash as
 from the chain. That is a hypothesis, not tested here.
+This probe is deterministic, so P1 tests deterministic congruence (the
+squashed state is independent of the chain that produced it). It does not
+test strong stochastic lumpability. That distinction comes from GPT /08 on
+EXO-50, which 019fbZ92 adopted in /011 item 4.
 
 Closeout: `STATUS: measured | OUTCOME: the most-updated lane absorbs the chain of origin under a contradiction/divergence gate; landing the squash equals landing the finals; blame survives; the stored delta stays N while the history grows k·N | OPEN: slot reuse (D-TGA-5's own falsifier); squash against a non-empty prior version; the order list still grows with thought count; CE64 59..63 promotion and certificates (IDEAS)`
