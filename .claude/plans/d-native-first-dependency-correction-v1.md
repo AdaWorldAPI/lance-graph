@@ -32,9 +32,13 @@ Every affected PR references this diagram instead of restating its own.
   [5] Native execution                        SHIPPED  mask-risc + ndarray::simd; bgz17 / Helix
         │
   [6] egglog transformation + certification   LAB      Boolean / Distinct laws only (S12)
-        │
-  [7] ONNX mathematical conformance adapters  PROPOSED one operator's semantics → native call
-        │
+
+  External leaf facades (nothing in [1]–[6] depends on them):
+
+  [7] ONNX vocabulary facade                  DRAFT    lance-graph-onnx (#1754): ONNX names
+        ┄┄> [5] native functions                       re-exported (ALIAS) or behind a minimal
+                                                       adapter (INLINE); typed refusals; no
+                                                       dispatch, no init; depends on ndarray only
   [8] Tract / ORT reference comparison,       OPTIONAL differential oracles, offline tooling
       Optimum model export                             never in the execution path
 
@@ -42,6 +46,13 @@ Every affected PR references this diagram instead of restating its own.
   tests can start now. They test the native layers against ONNX's definitions;
   they never define the native representation.
 ```
+
+> ⊘ **Correction to layer [7] (2026-10-23, D-ONNX-NATIVE-0, `.claude/plans/d-onnx-native-v1.md`).** The diagram first drew [7] "ONNX mathematical conformance adapters — PROPOSED, one operator's semantics → native call" inside the vertical chain, between [6] and [8]. That placement read as if the chain passed through ONNX.
+>
+> - [7] is a **leaf**: an ONNX name maps straight onto an existing native function, and no native layer depends on it.
+> - `lance-graph-onnx` (#1754) implements this. Its only normal dependency is `ndarray`; `cargo tree -i` shows nothing depends on it; it has no `LazyLock`, ClassId routing or per-call choice.
+> - It does not import R2IL's router [1]. The router and the facade are independent.
+> - Which S0 draft documents [7] (§6) is still the owners' decision. #1754 does not decide it.
 
 > ⊘ **Correction to layer [1] (2026-10-23, D-MPF-4, `.claude/plans/d-mpf-math-polyfill-v1.md` §10).** Layer [1] first read "R2IL mathematical polyfill — `lance-graph-r2il::procs` + FoldDialect". That equated R2IL with one of its strategies, and the replaced wording stays visible here for that reason.
 >
