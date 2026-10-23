@@ -1,6 +1,18 @@
 # D-ONNX-RELALG-CAP S3d — Tensor × DR × Hybrid physical strategy shootout
+
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **Native methods first.** Benchmarks compare physical implementations (tensor / DR / hybrid / palette) of one native mathematical contract with an independent oracle. The #1752 layer benchmark is the baseline shape: ndarray → mask-risc → R2IL, with a fair scalar loop alongside (A3).
+> 2. **ONNX conformance is a separate test dimension** on the same operations, not the definition of the benchmarked operation (A3).
+> 3. **The prerequisite on #1746 typed ONNX intake is removed** (A2). The prerequisite is a native contract with an oracle.
+> 4. **The architectural target is not the benchmark winner.** DR64³ + Palette256³ is the intended representation; a benchmark decides only its physical realization (A5).
+> 5. **Exact versus approximate.** A compiled palette candidate competes only on a declared approximate frontier with a named error contract; its fallback is the exact native method.
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
 **Date:** 2026-10-23 · **Status:** PROPOSED differential experiment plan (docs only)
 **Prerequisites:** #1745 semantic capstone, #1746 typed ONNX intake, appropriate #1747 S3a/S3b verified contracts.
+> ⊘ **D-NFC A2/A3: #1746 typed ONNX intake is not a prerequisite; a native contract with an oracle is.**
 **Purpose:** physically compare legal recipes for *the same* ONNX mathematical operation, not change the mathematics to make DR win.
 
 ## Architecture and scope
@@ -127,6 +139,7 @@ F-P15: ARM speed or power claims reported without real ARM hardware and measurem
 F-P16: an optimized plan falls back mid-computation without accounting for intermediate representations, data transfer or effects.
 
 **Updated gate S3d:** one genuine ONNX numerical operator has legal T/D/H execution on the same declared semantics, a heterogeneous-density crossover sweep, cold/warm/reuse scenarios, and independent reference parity. Hardware-specific conclusions require measurement on that hardware; an ARM target may remain pending without blocking the x86 proof-of-concept.
+> ⊘ **D-NFC A3: read as one native numerical operation; its ONNX conformance is checked separately.**
 
 ---
 
@@ -186,5 +199,6 @@ F-P22: claiming CI-gated palette parity when `bgz-tensor` integration tests are 
 - S3d no longer promises to develop palette quantizers, compiled linear routines or a new NEON frontend. The experiment tests existing methods and crossover.
 
 **Falsifier:** a physical plan wins on mean execution latency while failing model-layer binding, held-out numerical quality, exact declared ONNX semantics or reproducibility. Such a plan is ineligible regardless of speed. S3d requires #1746 semantic intake + #1749 compiled-method admission; #1751 supplies optional offline fixtures but doesn't remove these gates.
+> ⊘ **D-NFC A2: requires a native semantic contract, not ONNX intake.**
 
 No benchmarks run in this documentation amendment.
