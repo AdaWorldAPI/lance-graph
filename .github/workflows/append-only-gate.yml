@@ -23,6 +23,9 @@ on:
       # The EPIPHANIES projection's tool, so its staleness check runs whenever
       # the renderer changes -- not only when the board data does.
       - .claude/tools/compact_epiphanies.py
+      # The fruits generator, for the same reason: FRUITS.md is computed from
+      # the ledgers, so a change to the renderer must re-check it.
+      - .claude/tools/fruits_index.py
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -70,3 +73,15 @@ jobs:
         # hold instead is that it matches its inputs: a hand-edit, or a rows
         # change without a regenerate, fails here.
         run: python3 .claude/tools/compact_epiphanies.py --check
+
+      - name: Self-test the fruits generator
+        # The generator must show it admits only tagged rows (can fire), never
+        # guesses an untagged row in (can stay silent), and refuses an unknown
+        # tier, before its verdict on the real ledgers is worth anything.
+        run: python3 .claude/tools/fruits_index.py --self-test
+
+      - name: Check FRUITS.md is current
+        # FRUITS.md is GENERATED from the `**Fruit:**` lines in TORQUE, IDEAS,
+        # TECH_DEBT and ISSUES. A hand-kept list drifts from its ledgers, and
+        # the gap is where a ball gets dropped.
+        run: python3 .claude/tools/fruits_index.py --check
