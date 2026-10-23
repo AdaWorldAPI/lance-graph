@@ -16,9 +16,9 @@ The pipeline "ONNX graph → RelAlg polyfill → Cartesian projection → native
 
 Why (EXISTS):
 
-- `lance-graph-relalg` is a single-table Boolean selection over `i32`/`u32` lanes with one terminal measure. `Rel` is `All/Empty/Plane/Atom/And/Or/Not`; `Atom` compares a lane to a constant; `Measure` is `Count/Sum/Min/Max/Keep` (`crates/lance-graph-relalg/src/ir.rs:34-112`; opus-c item 1, opus-a Q1.1).
+- `lance-graph-relalg` is a single-table Boolean selection over `i32`/`u32` lanes with one terminal measure. `Rel` is `All/Empty/Plane/Atom/And/Or/Not`; `Atom` compares a lane to a constant; `Measure` is `Count/Sum/Min/Max/Keep` (`crates/lance-graph-relalg/src/ir.rs`, enums `Rel`, `Atom`, `Measure`; opus-c item 1, opus-a Q1.1).
 - It has no tensors, no shapes, no floats, no arithmetic between lanes, no matmul, no nonlinear functions (consolidated F3).
-- The contract rewrite layer refuses IEEE arithmetic and Bag populations by name: `Refusal::Ieee`, `Refusal::Bag` (`crates/lance-graph-contract/src/set_rules.rs:44,213,465-472,581-586`).
+- The contract rewrite layer refuses IEEE arithmetic and Bag populations by name: `Refusal::Ieee`, `Refusal::Bag` (`crates/lance-graph-contract/src/set_rules.rs`, enum `Refusal`).
 - R2IL refuses lane-versus-lane arithmetic (`LaneVersusLane`, `crates/lance-graph-r2il/src/lib.rs:217-220`).
 - Nothing in the DR64/DR256 code is a tensor. ONNX `MatMul` and `Einsum` do not accept `tensor(bool)` (opus-b Q5), so no ONNX operator maps to Boolean relation composition.
 
@@ -50,7 +50,7 @@ relalg is the landing zone for **one family only**: predicate selection over one
 - interior nodes are only `Not`, `And`, `Or`, and `Equal`, `Less`, `Greater`, `LessOrEqual`, `GreaterOrEqual` of a lane against a constant (ordered compares on `int32` only, because `NoUnsignedLaneCompare`, `lib.rs:213-216`);
 - it ends in one terminator: count (`ReduceSum(Cast(mask))`), `ReduceSum`/`ReduceMin`/`ReduceMax` over all axes of an `int32` tensor restricted by the mask, or the mask itself (`Keep`, as `Compress`/`NonZero` before compaction).
 
-`Xor` enters relalg only as `(a AND NOT b) OR (NOT a AND b)`; `Rel` has no `Xor`. An integer `Where` is a mask-risc terminal (`Terminal::BlendI32`, `crates/lance-graph-mask-risc/src/ir.rs:318`), not a relalg node. About 16 of the 226 opset-28 names can reach relalg, only in this restricted domain (opus-a verdict 4).
+`Xor` enters relalg only as `(a AND NOT b) OR (NOT a AND b)`; `Rel` has no `Xor`. An integer `Where` is a mask-risc terminal (`Terminal::BlendI32`, `crates/lance-graph-mask-risc/src/ir.rs`, enum `Terminal`), not a relalg node. About 16 of the 226 opset-28 names can reach relalg, only in this restricted domain (opus-a verdict 4).
 
 ### 2.3 What does not land in relalg
 
@@ -76,7 +76,7 @@ Reviewer C binds the wording: calling relalg "the polyfill landing zone for ONNX
 | 3. Relational addressing and binding | ClassView, `WideFieldMask`, relalg `Query`, `BoundDr64` with frame/focus/scope guards (`crates/dr-math-binding-probe/src/lib.rs:217-273`). | Carry bag multiplicity, NULL, rank, evidence or a proof in a bit; add a general relational AST. |
 | 4. Physical execution | R2IL `FoldDialect`, mask-risc `MaskOp`/`Terminal` (integer and bit lanes), `ndarray::simd` and `ndarray::hpc` kernels. | Grow a second executor; add an LLVM AOT path; add a mask-risc opcode just to make something lower. |
 | 5. Learned state transitions | cognitive-shader-driver, thinking-engine, NNUE-style accumulators, learned LUTs (PROPOSED treatment: versioned state). | Act as a rewrite rule, an egglog fact, an `algebra_law` entry, or a certifier. |
-| 6. Proof and certification | egglog as cold certifier (`crates/dr-math-binding-probe/src/relcomp.rs:421` `certify_reassociation`; `crates/egglog-r2il-probe`). | Claim independent checking (the checker is egglog's own); certify float, Bag or Ieee anything; carry a proof across shape, codebook, frame version or snapshot. |
+| 6. Proof and certification | egglog as cold certifier (`crates/dr-math-binding-probe/src/relcomp.rs` `fn certify_reassociation`; `crates/egglog-r2il-probe`). | Claim independent checking (the checker is egglog's own); certify float, Bag or Ieee anything; carry a proof across shape, codebook, frame version or snapshot. |
 
 Rules are not learned weights. A plastic weight, an NNUE accumulator update or a learned table is state: versioned and replayable. "Learned f approximates ONNX subgraph g" is an empirical claim with a held-out error bound, never an equivalence (opus-c item 9; `dr-mathematical-compiler-v1.md:21`). A method that consumes a learned table produces a proposal; it cannot certify and cannot feed a certifier.
 
@@ -101,7 +101,7 @@ Rules are not learned weights. A plastic weight, an NNUE accumulator update or a
 
 All four prior ONNX mentions treat ONNX as a model runtime or an export format, not as a math IR lowered onto relalg (consolidated F2). This capstone must say whether it supersedes, absorbs or ignores them. PROPOSED: D9's custom-op export is superseded for portable export (a custom domain would not be portable); DU-1 and the ScenarioWorld dispatch are absorbed as consumers of the numeric island; the centroid-attention encoder stays independent. This is an operator decision (OP-8), not a settled one.
 
-No ONNX parser or runtime exists in any `Cargo.toml` (`ort`, `tract`, `rten`, `wonnx`, `onnx`, `onnx-protobuf`: 0 hits; `ModelProto`/`GraphProto`/`NodeProto`/`opset`: 0 hits in `crates/**/*.rs`). `candle` 0.9 is optional in thinking-engine (`calibration` feature, `crates/thinking-engine/Cargo.toml:28-37`); `prost` 0.13 is optional and LAB-ONLY in cognitive-shader-driver (consolidated F2).
+No ONNX parser or runtime exists in any `Cargo.toml` (`ort`, `tract`, `rten`, `wonnx`, `onnx`, `onnx-protobuf`: 0 hits; `ModelProto`/`GraphProto`/`NodeProto`/`opset`: 0 hits in `crates/**/*.rs`). `candle` 0.9 is optional in thinking-engine (`calibration` feature, `crates/thinking-engine/Cargo.toml` `[features] calibration`); `prost` 0.13 is optional and LAB-ONLY in cognitive-shader-driver (consolidated F2).
 
 ## 5. DR64³ recovery result
 
@@ -117,7 +117,7 @@ What does NOT exist: a ternary operand type (`MethodSignature` has two axes, `li
 
 **"64³ Explore → 256³ Validate → Certified Method → 64³ Reuse" is invalid as a single track** (opus-c item 10, opus-b Q4). A finite-population validation never admits a law (`recipe.rs:10-11`; `dr-mathematical-compiler-v1.md:82`). The honest shape is two tracks that meet only at reuse: (A) explore and validate on finite populations (observational), and (B) admit, prove, lower, certify (algebraic). The Validate → Certified arrow does not exist. Reuse (L1, #1740) EXISTS for one law, on same-shape frames.
 
-Constraints that bind any S3 work: 256³ is a paging scheme, not resident (`d-relalg-unified-v1.md:231`); a bit means participation only (`dr-mathematical-compiler-v1.md:11`); CausalEdge64 gains zero bits (`.claude/v3/soa_layout/le-contract.md:159`); no performance claim before an ns/µs measurement; a ms figure is a failed gate (`CLAUDE.md`). A dense float tensor is not a Boolean participation relation, and a mapping of tensors onto DR cubes is undefined.
+Constraints that bind any S3 work: 256³ is a paging scheme, not resident (`d-relalg-unified-v1.md:231`); a bit means participation only (`dr-mathematical-compiler-v1.md:11`); CausalEdge64 gains zero bits (`.claude/v3/soa_layout/le-contract.md`); no performance claim before an ns/µs measurement; a ms figure is a failed gate (`CLAUDE.md`). A dense float tensor is not a Boolean participation relation, and a mapping of tensors onto DR cubes is undefined.
 
 ## 6. ONNX coverage matrix
 
@@ -367,7 +367,7 @@ Mapping-breaking ONNX semantics that the importer must handle or refuse (opus-a 
 | ai.onnx.ml.TreeEnsembleRegressor (deprecated) | ai.onnx.ml | (see Operators-ml.md) | Compositionally representable | ndarray view or kernel composition; inline FunctionProto body | each leaf = conjunction of threshold atoms = `Rel::And[Atom…]` SHAPE, but thresholds are float/double with NaN missing-value tracks; i32 lanes would change semantics → gap; leaf-value aggregation needs float sums |
 | ai.onnx.ml.ZipMap | ai.onnx.ml | (see Operators-ml.md) | Unsupported/unknown | typed refusal | map/sequence types (onnx.proto:918-921) |
 
-Corrections to the fact base found while building the matrix (opus-a, re-verified against the sibling checkout): `mish_f32` and `swish_f32` DO exist (`ndarray/src/hpc/linalg/activations_ext.rs:168,143`); consolidated F6 ("no mish") and opus-c item 5 ("Mish would need a new ndarray primitive") are therefore wrong on that point. `erf_f32` exists but is private (`:188`). The sentence "There is no shared relational AST, and none is built" is at `.claude/board/INTEGRATION_PLANS.md:16`, not at `ISSUES.md:16` (consolidated F3 and opus-c item 1 cite the latter; `ISSUES.md` has no such line). Accuracy of the ndarray SIMD polynomial kernels (`vsexp`, `vstanh`) against ONNX reference outputs is UNKNOWN until a tolerance policy exists.
+Corrections to the fact base found while building the matrix (opus-a, re-verified against the sibling checkout): `mish_f32` and `swish_f32` DO exist (`ndarray/src/hpc/linalg/activations_ext.rs:168,143`); consolidated F6 ("no mish") and opus-c item 5 ("Mish would need a new ndarray primitive") are therefore wrong on that point. `erf_f32` exists but is private (`:188`). The sentence "There is no shared relational AST, and none is built" is in `.claude/board/INTEGRATION_PLANS.md` under the entry "d-relalg-unified-v1 — JC/R statistics and Datalog sharing work through the contract set IR", not in `ISSUES.md` (consolidated F3 and opus-c item 1 cite the latter; `ISSUES.md` has no such line). Accuracy of the ndarray SIMD polynomial kernels (`vsexp`, `vstanh`) against ONNX reference outputs is UNKNOWN until a tolerance policy exists.
 
 ## 7. Stages S0–S5
 
@@ -415,7 +415,7 @@ Each stage names its scope, the existing code it reuses, its deliverable, a pre-
 ### S4 — Palette256 and cognitive methods
 
 - **Scope (PROPOSED):** state how ONNX weights or activations enter the palette substrate, and how cognitive methods consume ONNX-derived values, as **typed methods, not equivalences**.
-- **Reuse:** `bgz_tensor::attention::ComposeTable` and `WeightPalette`; the P-S2 probe (`entries/2026-10-23-ps2-compose-chain-preregistration.md`: multi-hop composition through the compose table is UNSTABLE in both test worlds); `.claude/knowledge/identity-temporal-evidence-primer.md:1017-1040` ("the stored form is the code, never the decode").
+- **Reuse:** `bgz_tensor::attention::ComposeTable` and `WeightPalette`; the P-S2 probe (`entries/2026-10-23-ps2-compose-chain-preregistration.md`: multi-hop composition through the compose table is UNSTABLE in both test worlds); `.claude/knowledge/identity-temporal-evidence-primer.md` ("the stored form is the code, never the decode").
 - **Rules (binding; opus-c items 8 and 9):** the Palette256 code is the resident value. Float weights or activations are quantized once through a named, frozen codebook with a recorded fidelity figure (ρ). Fisher-Z decode is kernel-local only. Palette L1 distance, Fisher-Z alignment, Hamming popcount on Binary16K, and cosine are four different metrics with no implicit conversion. A tensor op on palette codes is not "the same" as on floats; results are approximations with a measured ρ against the float oracle. NNUE-style accumulators and learned LUTs are versioned state and proposals.
 - **Gate:** a held-out error bound against the float oracle, stated before the run; no stage output is labelled equivalent or certified.
 - **Non-goals:** treating a learned table as a law, an egglog fact or a certifier; mixing the four metrics.
@@ -457,7 +457,7 @@ Each stage names its scope, the existing code it reuses, its deliverable, a pre-
 | OP-15 | Is the set-bit row read in `relcomp::compose` (`relcomp.rs:214-218`) admissible under the D-RU-6 address rule that `qr.rs:22-23` follows? | operator | S3 | opus-b Q2 | A′ equals A without it | report by origin | OPEN |
 | OP-16 | Third-axis typing if a ternary slab is ever needed; per-axis focus window. | operator | S3 | `MethodSignature` has two axes (`lib.rs:46-53`); `Focus` is one revision (`:167-170`) | S3 chain-form result | none before S3 | OPEN |
 | OP-17 | Distributivity of Boolean compose over OR (needed for DR256 block paging). | operator | L2 | L1 result lists L2 as open (opus-b Q3) | block result differs from a direct DR256 compose | no DR256³ claim | OPEN |
-| OP-18 | How far the certified-compiler boundary goes (scope question for the operator). | operator | none | `IDEAS.md:285`, LEDGER-REVISION-2026-10-23e Q2 | n/a | none yet | OPEN |
+| OP-18 | How far the certified-compiler boundary goes (scope question for the operator). | operator | none | `IDEAS.md` entry "A certified-compiler boundary for DR64", LEDGER-REVISION-2026-10-23e Q2 | n/a | none yet | OPEN |
 | OP-19 | Palette256 quantization: which named frozen codebook and what ρ for ONNX weights? | operator | S1, OP-7 | opus-c item 8 | ρ below the stated bound on held-out data | none yet | OPEN |
 
 ## 10. Housekeeping audit
@@ -466,7 +466,7 @@ None of these are done by S0. Classes: SAFE NOW (edit with this docs PR), SEPARA
 
 | Item | Evidence | Class |
 |---|---|---|
-| Stale "no certified DR64 law exists" wording. Still true: the single-operand `admit_recipe` path refuses. Stale: `certify_reassociation` (`relcomp.rs:421`, #1707) certifies one law, and #1740 reuses it. Sites: `crates/dr-math-binding-probe/src/recipe.rs:17`, `tests/contract_handoff.rs:2`, `IDEAS.md:285`, and the generated `FRUITS.md:23`. | consolidated F7; harvest-dr.md | SEPARATE PR. Fix code comments and `IDEAS.md` in the same PR that cites them; regenerate `FRUITS.md`, do not hand-edit. Remaining limitations to keep: no independent checker, same-shape reuse only. |
+| Stale "no certified DR64 law exists" wording. Still true: the single-operand `admit_recipe` path refuses. Stale: `certify_reassociation` (#1707) certifies one law, and #1740 reuses it. | consolidated F7; harvest-dr.md | DONE: code comments in `dr-math-binding-probe` (`recipe.rs` module doc, `tests/contract_handoff.rs`) fixed in #1742; `IDEAS.md` status amended and `FRUITS.md` regenerated in this PR. Remaining limitations kept: no independent checker, same-shape reuse only. |
 | X8 measured in #1740 (`tests/x8_fresh_frame.rs`) but the board row "The five unrun D-DRMC probes: X6, X7, X8, X16, X18" still lists it as unrun. The board defines X8 as "two certified bindings for one key (today the first falls back)", which differs from "fresh frame"; whether #1740 closes X8 as defined is UNCLEAR. | quotes-board.md (IDEAS.md/FRUITS.md rows); opus-b Q4 | SEPARATE PR, after the definition is checked |
 | `PR_ARC_INVENTORY.md` has no entries for #1726–#1739; its top entry is #1725 (catch-up comment: "#1660–#1725 had no entries"). | worktree read, line 1-3 | SEPARATE PR (board catch-up) |
 | `STATUS_BOARD.md` row D-TGA-5D (`:389`) says "In PR" although #1739 merged (merge `9a458cae6`). | worktree read | SEPARATE PR (board) |
@@ -492,3 +492,4 @@ None of these are done by S0. Classes: SAFE NOW (edit with this docs PR), SEPARA
 - It does not claim "no new graph format is created" while routing the whole graph through relalg. The diagram in section 2.1 routes nodes to existing owners; the ONNX `GraphProto` is the only graph.
 - It does not claim that a runtime (ort, tract, candle) is part of the execution path, or that an LLVM AOT path exists.
 - It does not claim "existing native execution" for any operator with no R2IL procedure, mask-risc terminal or ndarray kernel today (for example softplus as a named kernel, `If`, `Loop`, `Scan`).
+
