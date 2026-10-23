@@ -14,6 +14,8 @@ correct. The doc contradicts the decision. Linear EXO-65.
 
 STATUS_BOARD has no rows for D-DRMC-0..5, D-QR-SAP / IAM / CAP / POLY (plans #1661–#1663), D-RFT-1-COST and the Palette256 probes P-D3, P-E2, P-D4, P-S2, although each has a plan or a board entry (`LEDGER-REVISION-2026-10-23e.md` §3c, checked by searching the board for each D-id, so a row under another name could exist). Payoff: "is it shipped" answerable from the board. Method: a Haiku `census-counter` lists every D-id in `INTEGRATION_PLANS.md` and `.claude/plans/` with no STATUS row; the owning sessions supply the wording; a `spec-editor` applies it.
 
+**Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420` by leading cell):** also without a row: ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0..9, D-QSP-1/2. ADMISSION is recorded only as a decision inside the D-RU-0 row; D-RFT-2..5 share one PROPOSAL row with D-LFA-0.
+
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 
 #1430 aligned the classid docs and two hand-written shifts with the canon-high
