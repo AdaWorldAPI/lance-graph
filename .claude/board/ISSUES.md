@@ -55,6 +55,48 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 **Status:** OPEN (operator decision on ownership). **Basis:** VERIFIED-IN-CODE
 (paths above); STATUS_BOARD census.
 
+## ISS-SIX-DECISIONS-NOT-EXECUTED-ACTION-GATE — `commit` still fails open where the decision says fail closed (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-contract/src/action.rs:266` `pub fn commit`, `:328` `pub fn commit_via`; read at `main` `19c1324a`).
+**Fruit:** High-signal
+
+- DECISION ACTION-GATE A (`entries/2026-10-20-six-decisions.md`): `commit_via` canonical, fail closed, a `Public` / `Restricted` declaration on every action.
+- In code: `commit` still exists and checks role names only; `commit_via` adds `grant_permits`; with `required_role: None` both skip RBAC, pinned by `commit_via_no_required_role_proceeds_regardless_of_rbac`. No `Public`/`Restricted` type exists.
+- **What closes it:** test first: flip the pinning test to expect a refusal for an undeclared action, add the declaration, route `commit` through `commit_via` or deprecate it. Each guard disable-verified red.
+- Source: `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-23e.md` §3a.
+
+## ISS-SIX-DECISIONS-NOT-EXECUTED-FLOAT-REFS — the fold path still pulls OGAR `main` into the default build (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph/Cargo.toml:58` unconditional `lance-graph-r2il`; `crates/lance-graph-r2il/Cargo.toml:19-20` OGAR `branch = "main"`; no `fold` feature in any `crates/*/Cargo.toml`, 39 manifests read in full by a Haiku scout, `:51-58` re-read).
+**Fruit:** High-signal
+
+- DECISION FLOAT-REFS B: the fold path off by default.
+- **What closes it:** first a census of every `lance_graph::fold` import in the workspace and sibling repos (Haiku `harvest-scout`, a closed search space), then the `fold` feature, with the default build checked to no longer resolve OGAR.
+
+## ISS-SIX-DECISIONS-NOT-EXECUTED-WIRE50-ISA-LEGACY — CE64 50..52 presence and the 46..49 legacy reading have no code (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`Option<Maturation3>` only in `crates/lance-graph-planner/tests/maturation_ladder.rs`, EXPERIMENTAL; no `ISA_LEGACY` / `legacy_opcode` / `LegacyRead` in `crates/`, scout over the named patterns; `causal-edge/src/edge.rs` has `fn activation(self) -> i8`).
+**Fruit:** High-signal
+
+- DECISIONS WIRE-50 A (pyramid order; presence outside 50..52) and C40 (46..49 = activation i4; `isa.rs`'s opcode reading behind a declared legacy reader).
+- Both touch `causal-edge` and the same field-isolation tests (I-LEGACY-API-FEATURE-GATED), so they belong in ONE test-first PR, not two.
+
+## ISS-SUPERVISOR-DISPATCH-CAPACITY-DRAIN — Health-only dispatch, unread mailbox capacity, unbounded drain (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-supervisor/src/supervisor.rs:203-213` DispatchToG handles only `ConsumerEnvelope::Health`, else `DispatchNotImplemented`; `:42` `mailbox_capacity`, `:389` `spawn_linked` of a `StubConsumerActor` with no capacity; `crates/lance-graph-callcenter/src/drain.rs:97` `mpsc::unbounded_channel()`).
+**Fruit:** High-signal
+
+- Carried unchanged since ledger revision (d) (SUP-DISPATCH, SUP-CAPACITY, SUP-DRAIN).
+- **What closes it:** three independent slices, capacity first (a field no one reads), each with a can-fire test (a full mailbox refuses) and a stay-silent test.
+
+## ISS-D-CGW-4-PROMOTION-GATE — the counterfactual verdict is computed but promotes nothing (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-planner/src/pearl.rs:259-263` `counterfactual_verdict` calls `Reaction::verdict`; callers found only in `pearl.rs` tests `:747-815`; STATUS_BOARD row D-CGW-4 Queued).
+**Fruit:** High-signal
+
+- D-CGW-4: `CausalCandidate` → `Causes` only with `IncreaseEligible` ∧ `Necessary`. The verdict exists; the promotion gate does not.
+- **What closes it:** the gate on a production path, with a test where `Necessary` without `IncreaseEligible` stays `CausalCandidate` and a disable run.
+
 ## ISS-ADMISSION-PREP-BINDING — may preparation translate global identities into focus slots before a fold? (2026-10-20)
 
 **Status:** RULED 2026-10-20 (ADMISSION option B, `entries/2026-10-20-six-decisions.md` §1): same-table, version-witnessed key-range seeks over an attested sorted key are admitted in preparation; a position derived from another column or table is not, whatever the phase. Frozen codebook lookups are admitted under the attestation the plan defines (`d-relalg-unified-v1.md` § Decisions). D-MPS-8 stays conditionally blocked (a value-to-relationship-table read position is option C); D-RPR-1 and D-RST-4/6 are admitted only where they classify under B. Was: OPEN (operator ruling). **Basis:** VERIFIED-IN-CODE (`crates/mork-pathmap-probe/src/{rmap,join,chain}.rs`) and MEASURED (D-RMAP-1A §8, Schnellverschluss §7b, D-RPR §11.10).
@@ -74,6 +116,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 ## ISS-RECURSION-DRIVER — no lawful (co-addressed, non-gather) recursion driver exists (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`STATUS_BOARD.md` D-RA-4 row: "VIOLATION — GATHER. DO NOT BUILD").
+**Fruit:** Heavy
 
 - One missing driver under five names:
   - D-SRAM-4 (BLOCKED, `souffle-ram-64-thought-stack-v1.md:141`);
@@ -87,6 +130,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 ## ISS-RETRACTION-PROVENANCE — per-derived-cell provenance for selective retraction is undecided (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (no source bitset or read-provenance plane in `crates/`).
+**Fruit:** Heavy
 
 - One decision under four names:
   - D-TGA-3 (`thought-git-api-v1.md:184`, source bitset or read-provenance plane);
@@ -99,6 +143,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 ## ISS-DURABLEREF-THOUGHTCOMMITID — the two identity types four plans depend on do not exist (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`DurableRef` and `ThoughtCommitId` appear in `crates/` only in doc comments, `mork-pathmap-probe/src/rmap.rs:70` and `:690`).
+**Fruit:** High-signal
 
 - Owned by D-RST-1, coordinated with #1605's CPG-00 (no duplicate). Needed by:
   - D-RMAP-1A §7 / D-RMAP-1A-V;
@@ -111,6 +156,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 ## ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC — ndarray's BF16 16×16 polyfill allocates per output element (2026-10-20)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`ndarray/src/simd_ops.rs`, `bf16_tile_gemm_16x16`) and MEASURED (D-RMAP-2 §5a: a 256 × 256 `A·A` takes about 19 ms, about 0.9 GMAC/s, on an AVX-512 host without AMX or `avx512_bf16`).
+**Fruit:** High-signal
 
 - Per 16 × 16 call: two decode buffers (`vec!` for A and B), then for each of the 256 output elements a fresh `vec![0.0; k]` filled by a strided read of a B column, an FMA chain and a horizontal `reduce_sum`. About 257 heap allocations per call.
 - `bf16_tile_gemm_16x16_packed` on the same tier unpacks the VNNI buffer back to row-major (another allocation) before calling it.
@@ -127,6 +173,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 ## ISS-GATHER-HOP-1616 — the merged `OutgoingHop` reads positions taken from another lane's values (2026-10-19)
 
 **Status:** BLOCKED (quarantined). GATHER-DECISION recorded 2026-10-20 (`entries/2026-10-20-six-decisions.md` §1): `OutgoingHop` stays quarantined; it closes only by a rewrite as a co-addressed read. Was: BLOCKED (quarantined; waits on GATHER-DECISION). **Basis:** VERIFIED-IN-CODE (`crates/lance-graph-mask-risc/src/graph_hop.rs`: two `MaskOp::Gather` over `frontier[sources[i]]` and `visible[targets[i]]`, then `ScatterOrU32` by `targets[i]`).
+**Fruit:** Heavy
 
 - #1616 merged a hop of exactly the shape the 2026-10-16 no-gather ruling bans (D-HOLO H14c/H14d: the join is the layout). The remediation PR does not delete it and does not rename it into a BIND; it compiles only under the off-by-default feature `quarantined-gather-hop`.
 - Default build: a `compile_fail` doctest proves `OutgoingHop` is unreachable (disable-verified). The six original tests run in CI with the feature on.

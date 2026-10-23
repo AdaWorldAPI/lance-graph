@@ -60,6 +60,90 @@ vertical read of which thoughts wrote a node. The probe's `CommitWitness`
 restates that read as a lab stand-in. The issuer question raised on EXO-135
 (component or version) is answered: neither, it is the lane.
 
+### Trail T-ADMISSION — what may be built before execution, under what witness, and what may never be promoted from it?
+Six crumbs (BC-2026-10-23-7 … -12) from six sources: a decision record, two
+probe reviews, a co-research map and two plan rows.
+**Shared shape (candidate, not adopted):** each crumb has (1) something built
+before execution (coordinates, a projection, a slot table, a recipe), (2) a
+witness naming who issued it and against which version, and (3) a promotion
+that is refused (evidence → premise, census → qualification, replay → proof,
+hidden gather → co-addressed read).
+**Kill:** two crumbs whose witnesses need incompatible semantics; that makes
+the trail a RHYME only.
+**Rhymes-with trail:** T-CLOSURE (its refusals `BagNeedsMultiplicity` and
+`Complement` under K3 may be the same refused promotion seen from the algebra side).
+**Verdict:** RHYME, 2026-10-23; naming attempt open. Linear EXO-135.
+
+### BC-2026-10-23-12 — D-CMR-5's preimage is a projection built in preparation and witnessed by version
+**Observation:** the lawful design for `f⁻¹(S)` is a co-addressed tile fold
+over a version-witnessed projection of `f`, built in preparation by a
+sequential same-table scan.
+**Receipt:** STATUS_BOARD row D-CMR-5; `entries/2026-10-21-d-cmr-5-rescope.md`.
+**Rhymes-with:** BC-2026-10-23-7, BC-2026-10-23-11
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-11 — D-RU-6's slot assignment must be argued as an attested frozen-codebook lookup
+**Observation:** the recursion driver stays Queued/Lab until its slot
+assignment is shown to be an attested lookup in a frozen codebook under
+ADMISSION B.
+**Receipt:** STATUS_BOARD row D-RU-6.
+**Rhymes-with:** BC-2026-10-23-7, BC-2026-10-23-12
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-10 — Palette256 puts its property in evidence accounting plus a decision gate
+**Observation:** the co-research map found the property in evidence
+accounting and a decision gate, not in the encoding; where the evidence stamp
+lives is open (G5).
+**Receipt:** `entries/2026-10-22-coresearch-pal256-evidence-probes.md`.
+**Rhymes-with:** BC-2026-10-23-8
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-9 — a recipe certificate only a certified compiler may issue; none exists for DR64
+**Observation:** after X15, recipe admission in `dr-math-binding-probe` ends in
+`NoCertifiedCompiler`; a replay capsule is evidence, not the issuing authority.
+**Receipt:** `entries/2026-10-22-coresearch-drmc-stack.md` § Applied, lance-graph #1703.
+**Rhymes-with:** BC-2026-10-23-8
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-8 — evidence nominates, a separate validator admits
+**Observation:** D-DRMC X7: no conversion from a `PopulationReport` to a law
+premise may exist; a population-derived premise can at most be a named,
+undischarged hypothesis.
+**Receipt:** `entries/2026-10-22-coresearch-drmc-stack.md` (X7, probe not run).
+**Rhymes-with:** BC-2026-10-23-9, BC-2026-10-23-10
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-7 — preparation may establish coordinates; it may not conceal a relational gather
+**Observation:** ADMISSION B separates preparation (coordinates) from
+execution (co-addressed sets) and forbids an unaccounted gather in either.
+**Receipt:** `entries/2026-10-20-six-decisions.md`, lance-graph #1640.
+**Rhymes-with:** BC-2026-10-23-11, BC-2026-10-23-12
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
+### BC-2026-10-23-6 — Boolean composition is admitted only within compatible domains
+**Observation:** D-DRMC-5 admits `BooleanCompose` only over two-valued
+Distinct operands with compatible ClassView domains and refuses commutation.
+Closure here is "closed within a sort"; this counts as a T-CLOSURE crumb only
+if sort typing is accepted as closure. Same probe, near-miss counterexample:
+14 association orders give the same relation (closed and correct) at
+6 414–15 310 row-ORs, so closure decides correctness, not cost.
+**Receipt:** lance-graph #1707, `entries/2026-10-22-drmc-5-assoc-probe.md`.
+**Rhymes-with:** BC-2026-10-23-4, BC-2026-10-23-5
+**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+
+### BC-2026-10-23-5 — two-valued rewrites break on a carrier that holds NULL
+**Observation:** `set_algebra::normalize` (De Morgan, lane covers) is sound on
+{T, F} only. On nullable lanes the carrier is {T, F, U} and the rewrites turn
+UNKNOWN into TRUE. Extending the carrier to Kleene K3 closed it;
+`Complement` and `RelationalDifference` still refuse under `ThreeValued`.
+**Receipt:** lance-graph #1668, `entries/2026-10-21-d-rft-0-kleene-normalization.md`;
+`cargo +1.99.0 run --release -p lance-graph-contract --example k3_pg_parity`:
+two-valued `normalize` wrong on 474 of 2000 expressions against PostgreSQL
+16.14, `normalize_kleene` equal on 2000/2000. Same shape in #1686 / #1687
+(`bool_or`/`bool_and` read NULL as FALSE).
+**Rhymes-with:** BC-2026-10-23-1, BC-2026-10-23-4
+**Cluster:** RHYME (trail T-CLOSURE, Linear EXO-132)
+
 ### BC-2026-10-23-4 — the same join is right under Distinct and wrong under Bag
 **Observation:** D-RFT-1's composition gives the right answer under Distinct
 (set semantics) and the wrong one under Bag unless multiplicity is carried as
@@ -106,6 +190,15 @@ must refit the carrier.
 **Kill:** a closed carrier on which the composition still fails.
 **First probe:** TORQUE row T-2026-10-23-1 (EXO-129).
 **Verdict:** RHYME, 2026-10-23.
+**Evidence appended 2026-10-23 (session_013z2e1YXkm6o6HNrDn5BPWA):** crumbs
+BC-2026-10-23-5 (K3 NULL, independent of the palette and DR256 lines) and
+BC-2026-10-23-6 (sort-closed composition, weaker). Naming attempt, HYPOTHESIS,
+not adopted: a rewrite or composition is sound only when the carrier is closed
+under every operation it assumes; otherwise snap (lossy, P-S2), extend the
+carrier (K3, Bag multiplicity) or refuse (`Complement` under K3,
+`BagNeedsMultiplicity`). Scope limiter from BC-2026-10-23-6: closure decides
+correctness, not cost. Proposed regrade RHYME → NAMED left to the trail owner.
+
 
 **Evidence appended 2026-10-23 (session_019fbZ92dFKQ5BJHrA3YcH9A):** BC-4 is
 a near-counterexample to the word "closed". A Distinct carrier IS closed under
