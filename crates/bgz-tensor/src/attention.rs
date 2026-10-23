@@ -209,8 +209,14 @@ impl ComposeTable {
 
     /// Multi-hop composition: a → b → c.
     ///
-    /// Composes three archetypes in sequence. Equivalent to two-layer
-    /// attention stacking but computed in O(1).
+    /// Composes three archetypes in sequence in O(1).
+    ///
+    /// Each hop snaps back onto the palette, so the chain is not the same as
+    /// binding all three and snapping once. P-S2
+    /// (`tests/p_s2_compose_chain_probe.rs`) measured agreement with that
+    /// exact composition of 0.025 (clustered) and 0.043 (uniform) at two
+    /// hops on synthetic palettes; most bind results fall outside the
+    /// palette's support. Treat multi-hop results as unverified.
     #[inline]
     pub fn compose_chain(&self, a: u8, b: u8, c: u8) -> u8 {
         let ab = self.compose(a, b);
