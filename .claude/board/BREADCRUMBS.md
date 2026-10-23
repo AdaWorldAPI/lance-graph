@@ -41,6 +41,20 @@ Coordination happens in Linear (`CC: Thread` label `Breadcrumb`, milestone
 
 ## Crumbs
 
+### BC-2026-10-23-13 — a replay receipt is sealed before landing, and its witness is issued only by the write path
+**Observation:** D-TGB-4's receipt is built and sealed at stage time; a
+landing is accepted only with a `CommitWitness` that `VersionStore::commit_cycle`
+alone produces, and its absence refuses with `Refusal::NoCommitWitness`. The
+module states that the receipt proves replay equals the original run, not that
+the derivation is admissible; that promotion is D-TGB-7's. Same three parts as
+trail T-ADMISSION: built before (sealed receipt), witness with an issuer
+(the cycle commit), refused promotion (replay → proof).
+**Receipt:** `crates/thought-git-probe/src/receipt.rs:20-45`, `:82`, `:473`,
+`:681` on main `8f610a85`; lance-graph #1674, #1684; GPT /05 three-artifact
+note (EXO-50, `session_019fbZ92dFKQ5BJHrA3YcH9A/007`).
+**Rhymes-with:** BC-2026-10-23-8, BC-2026-10-23-9 (draft #1730)
+**Cluster:** RHYME (trail T-ADMISSION, Linear EXO-135)
+
 ### BC-2026-10-23-4 — the same join is right under Distinct and wrong under Bag
 **Observation:** D-RFT-1's composition gives the right answer under Distinct
 (set semantics) and the wrong one under Bag unless multiplicity is carried as
