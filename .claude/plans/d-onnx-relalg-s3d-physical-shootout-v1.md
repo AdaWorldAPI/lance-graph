@@ -87,3 +87,43 @@ For each operation × density × hardware × result demand, record T/D/H legalit
 
 ## Sources
 #1745 S0, #1746 S1/S2, #1747 S3a/b/c, #1685 lab precedent, #1707 bounded law certification, #1740 narrow fresh-frame reuse, .claude/plans/dr-mathematical-compiler-v1.md.
+---
+
+## 2026-10-23 Cross-session review amendment: per-tile crossover, reuse and ARM target
+
+**Dependency warning:** #1744 and #1745 have overlapping S0 ownership. Do not promote this plan to implementation until the canonical S0 and OP-ONNX-1 value-dispatch decision are settled. #1744's observed limitations replace any unverified assumption that numeric operators already lower through `Rel`.
+
+### P5: Within-operator tile crossover
+The whole-query three-arm comparison is insufficient to justify a hybrid planner. Generate a **single typed MatMul or masked reduce workload containing mixed dense and sparse regions**. Use identical inputs, output shape, accumulation policy and support-completeness evidence. Compare:
+- T: whole-operator prepacked dense numerical kernel.
+- D: entire operator via admitted support selection and typed numerical fold.
+- H: each *tile* chooses DR fold or packed numerical microkernel using a declared threshold, including support construction, tile classification, switch dispatch, packing, output merging and materialization.
+- H-off control: same tile partition without heterogeneous switching, to reveal dispatch overhead.
+
+Sweep matrix shape, inner dimension, tile size, sparse/dense distribution, mask clustering, repeated calls and the allocation/source-witness pattern. Report **crossover regions** and regimes where hybrid is strictly worse, not just a winning median. Record physical selection decisions as performance evidence, not law certificates.
+
+### P6: Reuse economics and incremental updates
+Record separate regimes:
+1. **Cold:** import/bind/pack/compile/cache acquisition included.
+2. **Warm:** same frame, unchanged inputs and reused prepared buffers.
+3. **Repeated inference:** N calls (e.g. N=1, 8, 64, 256; adjust by runtime) showing amortized costs.
+4. **Incremental update:** one tile/weight/edge or registered input changes, requiring exact invalidation of dependent contributions, compared with full recomputation and NNUE-like incremental update where supported.
+
+Cost must report the setup and revalidation of support, optional prepacking and numeric kernels for *all* arms. For incremental operation, track exactly which epoch/frame/scope and dependency witness permits buffer reuse. Do not treat a changed binding as an unchanged hot hit.
+
+Use explicit break-even estimates: selected H beats T or D only when total comparable cost with reuse is lower, and result parity is preserved.
+
+### P7: ARM NEON and hardware-portability target
+Add an **independent ARM64/NEON experiment target**, preferably a Raspberry Pi-class machine when actually available, without assuming such hardware exists in CI. If unavailable, mark TARGET BLOCKED / NOT MEASURED rather than simulating throughput. Compare appropriate ARM numerical library (including prepacked path) versus existing or explicitly scoped SIMD/bitfold paths, with cold-start latency, memory budget, peak bytes, energy only if measured. Record CPU model, RAM, compilation flags and NEON availability. Do not extrapolate an AMX result to ARM.
+
+Optional GPU arm is a distinct environment with host↔device transfer and launch overhead measured, not an implicit Tensor winner.
+
+### New falsifiers
+F-P11: H chooses tiles on density alone but all-in switch+packing overhead loses to both uniform plans.
+F-P12: T receives a cold baseline while DR silently reuses warmed support; fix unfair comparison.
+F-P13: DR skips mathematical contributors based on a physical focus rather than a validated dependency mask.
+F-P14: incremental method misses one dependency and disagrees with fresh full recomputation.
+F-P15: ARM speed or power claims reported without real ARM hardware and measurements.
+F-P16: an optimized plan falls back mid-computation without accounting for intermediate representations, data transfer or effects.
+
+**Updated gate S3d:** one genuine ONNX numerical operator has legal T/D/H execution on the same declared semantics, a heterogeneous-density crossover sweep, cold/warm/reuse scenarios, and independent reference parity. Hardware-specific conclusions require measurement on that hardware; an ARM target may remain pending without blocking the x86 proof-of-concept.
