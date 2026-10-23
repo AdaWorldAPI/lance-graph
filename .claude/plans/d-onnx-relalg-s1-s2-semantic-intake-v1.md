@@ -1,4 +1,15 @@
 # D-ONNX-RELALG-CAP S1–S2: versioned ONNX intake and minimal mathematical polyfill
+
+> **⊘ SUPERSESSION — D-NFC (2026-10-23, operator-approved architecture correction; canonical text `.claude/plans/d-native-first-dependency-correction-v1.md` and representation seams `.claude/plans/d-native-repr-contract-v1.md`, both in [#1753](https://github.com/AdaWorldAPI/lance-graph/pull/1753)).**
+>
+> 1. **Native polyfill API first.** The existing R2IL polyfill (#1752) is native Stage 1 and has no ONNX prerequisite: no importer, no protobuf fork, no target model (root assumption A2).
+> 2. **ONNX semantics are external mappings.** This plan's S1/S2 become the ONNX conformance-adapter layer [7] of the canonical diagram: one operator's ONNX definition mapped onto a native call and checked against it. They do not define the native representation (A1).
+> 3. **No internal ONNX graph.** `GraphProto` and the operator schemas do not own the internal computational graph or numerical meaning; native typed operations and compiled R2IL procedures do (A1).
+> 4. **Native fallback.** The fallback is the exact native method on the uncompressed data. A whole-model delegated ONNX backend is at most an optional external comparison [8], never the canonical fallback (A4). Approximate methods name their error contract; a rank correlation is not an error bound.
+> 5. **Identity.** Internal identity is the native binding (Quack resolution under a sealed frame, plus codebook generation, D-NFR S5/S6/S15). ONNX model / node / initializer identity is external provenance carried by the adapter (A7).
+>
+> Passages below that contradict these points are marked ⊘ in place; nothing else in this plan changes. The #1744 / #1745 / #1750 S0 ownership dispute is unchanged.
+
 **Date:** 2026-10-23 · **Status:** PROPOSED / documentation only · **Parent:** PR #1745 (S0)
 **Scope:** ONNX semantic preservation and an evidence-driven mapping to current contract + RelAlg; NO universal ONNX import claims or runtime implementation.
 
@@ -69,6 +80,7 @@ PR #1745 S0; #1641 D-RELALG-UNIFIED; #1654 D-RA-2; #1682 Quack K3/NULL; #1685 Ba
 
 ### S2 binding decision candidate — OP-ONNX-1
 **Propose:** ONNX `GraphProto` / versioned operator schemas continue to own the computational graph and numerical operator meaning. Existing `lance-graph-relalg::Rel` is only a Boolean/selection/planning subset; do NOT add `MatMul`, `Tanh`, `Conv`, `Gemm` or a general value-expr AST to `Rel`. The *value-math dispatch boundary* is a typed method/backend choice using existing ClassView/method, ndarray numerical kernels and approved external backends; RelAlg may provide a support/filter/demand plan where relevant. A small immutable dispatch descriptor can be proposed only if existing signatures demonstrably lack necessary information; it is not permission for another graph language.
+> ⊘ **D-NFC A1: superseded — native typed operations and R2IL procedures own the internal representation; `GraphProto` is external input to the conformance adapter only.**
 
 This is a recommendation for OP-ONNX-1, **not an operator decision**. The semantics contract must survive lowering even if there is no relational involvement. Probe a numeric `Tanh` bypassing DR and one typed support-guided `MatMul` path.
 
@@ -94,6 +106,7 @@ Gate remains documentation-only: operator chooses value dispatch and delegated-m
 ### Delegation sequencing safeguard (review refinement)
 Do **not** assume that splitting one ONNX GraphProto across native and external runtimes can be done without a new scheduler. Evaluate in this order:
 1. **Whole-model delegated fallback**: preserve the imported graph unchanged and execute it in an explicitly authorized established ONNX backend when STRICT_NATIVE refuses, with model-level security/version/numerical checks. This avoids inventing a mixed graph executor.
+  > ⊘ **D-NFC A4: not the canonical fallback — the exact native method is. A delegated ONNX run is an optional external comparison.**
 2. **Mixed subgraph delegation**: only if a source-verified existing scheduling/partition bridge already meets ordering, data transfer, intermediate lifetime, scope and control-flow constraints. Otherwise keep it OPEN, not promised.
 3. Measure the overhead of both, including complete model input/output conversions, before treating partial native acceleration as useful.
 
@@ -109,6 +122,7 @@ The previous "no value math in relalg" is a **boundary** rather than a request t
 - `crates/bgz-tensor`, `crates/helix`, `crates/bgz17` already implement different 256-based palettes, FisherZ, quantization, distance and composition tables. They are not numerical semantics substitutes without typed conversion/quality contracts.
 
 **S1 importer must retain sufficient identity to disambiguate:** ModelProto/GraphProto identity, opset domain and node identity, exact weights/initializer digest, layer designation, dtype and shape, immutable codebook/calibration digest, frame, focus, scope and artifact generation. Reconcile with existing signatures before proposing a new type. None of these should be lost when a model is lowered to a physical candidate. A repeated MatMul shape does not prove it is the registered model layer.
+> ⊘ **D-NFC A7: these fields are external provenance for the adapter; internal identity is the native binding (frame seal + codebook generation).**
 
 **Per-operator candidate routing has two legality classes:**
 1. **EXACT / declared numeric tolerance:** regular `ndarray`/Burn Tanh or GEMM candidate, checked against independent ONNX oracle.
