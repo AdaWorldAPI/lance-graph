@@ -21,6 +21,10 @@ ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # lock keeps one ndarray.
 [dev-dependencies]
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
+# classid_route only: the DR lab FrameStore / Guards / Refusal, so the
+# prebound route is checked by the existing frame-focus-scope validator
+# instead of a stand-in.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
