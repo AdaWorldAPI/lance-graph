@@ -1,3 +1,7 @@
+## 2026-10-23 — d-onnx-relalg-cap-v1 — ONNX as an import membrane over the existing substrate → `.claude/plans/d-onnx-relalg-cap-v1.md`
+
+**Status:** PROPOSAL, documentation only (S0). S1..S5 PLANNED, not authorized. The original DR64³ plan was not found; the DR64³ section is a new, labelled proposal. relalg takes only the Boolean/compare/reduce fragment; the home for value maths is OPEN (OP-ONNX-1), and so is the importer dependency (OP-ONNX-2). Entry: `entries/2026-10-23-d-onnx-relalg-cap-s0.md`.
+
 ## 2026-10-23 — catch-up: plans from #1660–#1708 had no index entry
 
 **Status:** INDEX CATCH-UP; no plan status changes. Each status below is the plan's own status line on `main` at `b342d47c`.

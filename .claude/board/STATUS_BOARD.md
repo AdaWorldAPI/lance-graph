@@ -1,3 +1,13 @@
+## D-ONNX-RELALG-CAP — ONNX as import membrane (2026-10-23)
+
+Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-0** | S0 capstone plan, coverage matrix, open-points register OP-ONNX-1..14 | In PR (docs only) | consistent with code at `59538865`; no DR64³ claim |
+| **D-ONNX-1** | S1 intake probe: ONNX-subset reader with typed refusals; Boolean/compare/reduce fragment onto relalg | Queued (not authorized) | onnxruntime differential (a test, not a proof); waits on OP-ONNX-1, OP-ONNX-2 |
+| **D-ONNX-3** | S3 DR64³ R1/R2 contraction probe (new proposal) | Queued (not authorized) | four arms bit-exact; waits on OP-ONNX-4 |
+
 ## D-RFT / D-QSP — ClassView × Quack semantic substrate (2026-10-21)
 
 Plans in #1667 (`d-rft-relalg-thought-git-frontier-v1.md`, `d-qsp-classview-quack-postgresql-parity-v1.md`, `d-lfa-lance-graph-flow-rubicon-assimilation-v1.md`; merged). Only the rows below have a claim or evidence; the other D-RFT / D-QSP / D-LFA ids stay as #1667 lists them.
