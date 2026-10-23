@@ -99,6 +99,14 @@ Disable runs:
 - Exact chain against itself reads 1.000 at every k
   (`agreement_reads_one_for_the_exact_chain`).
 
+Prior art, found after the run: `tests/palette_multihop_error_probe.rs`
+(merged in #1721) already proves the mechanism by construction. A codebook
+closed under XOR composes exactly over 64 hops; a three-entry codebook that is
+not closed has a three-hop counterexample. P-S2 adds the size of the effect
+for full 256-entry palettes: bind results leave the codebook for 89–100 % of
+pairs, and agreement falls to 0.025–0.043 at two hops. The out-of-support
+share is the same condition as "not closed", measured with P-D3's radius flag.
+
 What this does and does not show:
 - It shows that a law derived by binding representatives and snapping does not
   compose. A multi-hop law must keep its output inside the codebook's support,
