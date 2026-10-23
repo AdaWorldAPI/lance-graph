@@ -1,3 +1,47 @@
+## TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1 — `Opcode::Revision` pools a duplicated source; a measured site of TD-NARS-REVISION-UNGUARDED (2026-10-23)
+
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE + MEASURED.
+**Fruit:** High-signal
+
+- `crates/causal-edge/src/isa.rs:209` `truth_code` (and `:197` `truth`) runs
+  `Opcode::Revision` through `truth::revision` on four scalars. There is no
+  stamp, so nothing can see that the two operands share evidence.
+- **Receipt:** P-E2, `crates/causal-edge/tests/p_e2_stamp_gate_probe.rs`
+  (`entries/2026-10-22-probes-pd4-pe2-pd3.md`). Revising one source with
+  itself k times starting from c = 128 gives c = 170 / 204 / 227 at
+  k = 2 / 4 / 8, with posterior sd ratio 0.837 / 0.658 / 0.491.
+- The test-local ONA-shape gate already exists in that file and is
+  disable-verified. It checks stamp overlap first, and on overlap keeps the
+  stronger belief. With it, duplicates give Δc = 0 and an sd ratio of 1.000,
+  while disjoint sources still pool.
+- This is the same defect as TD-NARS-REVISION-UNGUARDED (2026-07-23, ndarray
+  `nars.rs` and planner `nars_engine.rs`). That row does not list this site.
+- **Open:** where the stamp lives (G5 in the entry). The guard belongs at the
+  belief store, not in the pure truth function.
+- **What closes it:** pick the stamp's home, then call `Revision` only through
+  a gate that refuses or chooses on overlap. Move P-E2's three tests onto the
+  production path; each must go red when its guard is removed.
+
+## TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 (2026-10-23) — OPEN
+
+CI runs `bgz-tensor` with `--lib` only (`.github/workflows/rust-test.yml:274`),
+so nothing under `crates/bgz-tensor/tests/` runs in CI. The crate is
+workspace-excluded, so no other step reaches it.
+
+On main `8f610a85` that directory holds 9 lab probes, 23 tests. Among them are
+P-S2 (`p_s2_compose_chain_probe.rs`, #1726), the evidence behind TORQUE row
+T-2026-10-23-1, and P-D3. Draft #1731 adds the EXO-129 probe in the same
+directory, so its PR checks would pass without running it.
+
+**Receipt:** `cargo test --manifest-path crates/bgz-tensor/Cargo.toml --tests`
+on main `8f610a85` with `CARGO_PROFILE_{DEV,TEST}_DEBUG=0 CARGO_INCREMENTAL=0`:
+207 lib tests plus all 9 integration files (3+4+2+3+2+2+2+2+3 = 23 tests), 0 failed.
+No test reads a file or an env var, so nothing blocks gating them.
+**Fix:** drop `--lib` from that step (or add a second `--tests` step). The
+step comment gives no reason for `--lib`.
+**Fruit:** Low-hanging
+**Status:** OPEN
+
 ## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
 
 `crates/causal-edge/src/edge.rs:944`: "Witness corpus root handle (6-bit,
