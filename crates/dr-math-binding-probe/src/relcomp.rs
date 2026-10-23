@@ -30,6 +30,8 @@
 //! one is the specialization-selection question, still open (see README).
 //!
 //! The compose kernel is plain `u64` word arithmetic, no intrinsics.
+use std::cell::Cell;
+
 use egglog::{CommandOutput, EGraph};
 use sha2::{Digest, Sha256};
 
@@ -261,6 +263,18 @@ pub fn admit_composition_assoc(shape: LawShape) -> Result<AdmittedLaw, LawRefusa
 
 // ── proof (egglog) ─────────────────────────────────────────────────────────
 
+thread_local! {
+    static EGGLOG_CALLS: Cell<u64> = const { Cell::new(0) };
+}
+
+/// How many times this thread has run egglog through [`prove_equation`], the
+/// only egglog call site in this crate. Lets a test assert that a cached
+/// recipe executes without the prover. Thread-local, so parallel tests do not
+/// see each other's calls.
+pub fn egglog_calls() -> u64 {
+    EGGLOG_CALLS.with(Cell::get)
+}
+
 const HEADER: &str = "(datatype Rel (Base String) (Comp Rel Rel))\n(ruleset assoc)\n\
 (rewrite (Comp (Comp a b) c) (Comp a (Comp b c)) :ruleset assoc)\n\
 (rewrite (Comp a (Comp b c)) (Comp (Comp a b) c) :ruleset assoc)\n";
@@ -297,6 +311,7 @@ pub fn prove_equation(
     rhs: &str,
     fuel: usize,
 ) -> Result<String, ProofRefusal> {
+    EGGLOG_CALLS.with(|n| n.set(n.get() + 1));
     let program = format!(
         "{HEADER}(let lhs {lhs})\n(let rhs {rhs})\n(run assoc {fuel})\n(prove (= lhs rhs))\n"
     );
@@ -422,5 +437,73 @@ pub fn certify_reassociation(
     if compiled.compiled_digest != lowering_digest(&steps) {
         return Err(CertifyRefusal::CompiledMismatch);
     }
-    Ok(RecipeCertificate::issue(law, compiled, proof))
+    let source_digest = lowering_digest(&lower(from));
+    Ok(RecipeCertificate::issue(
+        law,
+        compiled,
+        source_digest,
+        steps,
+        proof,
+    ))
+}
+
+// ── reuse on a bound chain (X8) ────────────────────────────────────────────
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReuseRefusal {
+    /// The runtime ABI is not the one the certificate was compiled for.
+    WrongTarget,
+    /// The requested order is not the query the certificate answers.
+    NotCertifiedQuery,
+    /// The requested order does not cover this chain's positions in order.
+    NotThisChain,
+    /// The certified program does not run on this chain (malformed steps or a
+    /// leaf outside the chain).
+    ProgramDoesNotFit,
+}
+
+/// Answer `requested` on `chain` with a certified recipe, without proving
+/// anything: check the target, check that `requested` is the query the
+/// certificate answers, then run the certified step list with the compose
+/// kernel. The chain carries its own frame, focus, scope and semiring guards
+/// (checked by [`Chain::new`]); the certificate carries none of them, so the
+/// same certificate serves any chain that passes them.
+///
+/// On any refusal nothing is computed: the caller decides on a baseline.
+pub fn execute_certified(
+    cert: &RecipeCertificate,
+    chain: &Chain<'_>,
+    requested: &RelExpr,
+    runtime_abi: u32,
+) -> Result<(Rows, Work), ReuseRefusal> {
+    if cert.compiled().target_abi != runtime_abi {
+        return Err(ReuseRefusal::WrongTarget);
+    }
+    if lowering_digest(&lower(requested)) != *cert.source_digest() {
+        return Err(ReuseRefusal::NotCertifiedQuery);
+    }
+    if requested.leaves() != (0..chain.len()).collect::<Vec<_>>() {
+        return Err(ReuseRefusal::NotThisChain);
+    }
+    run_steps(chain, cert.program()).ok_or(ReuseRefusal::ProgramDoesNotFit)
+}
+
+fn run_steps(chain: &Chain<'_>, steps: &[Step]) -> Option<(Rows, Work)> {
+    let mut work = Work::default();
+    let mut stack: Vec<Rows> = Vec::new();
+    for s in steps {
+        match *s {
+            Step::Push(i) => stack.push(*chain.operands.get(i)?.rows),
+            Step::Compose => {
+                let b = stack.pop()?;
+                let a = stack.pop()?;
+                stack.push(compose(&a, &b, &mut work));
+            }
+        }
+    }
+    if stack.len() == 1 {
+        stack.pop().map(|r| (r, work))
+    } else {
+        None
+    }
 }
