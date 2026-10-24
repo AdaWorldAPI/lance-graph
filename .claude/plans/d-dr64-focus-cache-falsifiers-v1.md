@@ -57,6 +57,16 @@ Sweep reuse N = 1, 8, 64, 256 and switching patterns AAA... / ABCABC... / advers
 | W7 | Intent-only or no artifact change, and a mixed artifact-backed cycle | Intent-only does not write a new version; changed dirty rows coalesce and publish one sealed successor version; historical DR map version unchanged | Force an empty WAL append |
 | W8 | Active view still pinned after cache eviction under heavy memory pressure | Bound resident usage may exceed soft budget while live readers exist, but result remains correct and evicted inactive views rebuild deterministically | Evict live underlying SoA snapshot |
 
+**The three amortization fractions are measured, not assumed.** The foreign-key cache exception rests on them, so DRF-P2 reports each per workload, with its denominator:
+
+| ID | Quantity | Definition | Pre-registered expectation |
+| --- | --- | --- | --- |
+| A1 | dirty fraction | distinct canonical rows written back ÷ distinct rows read, per focus version | small (W1's 37 / 4,096 shape); no target |
+| A2 | read-hit fraction | facet reads served from the resident cache ÷ all facet reads, after the cold build | 70–90% |
+| A3 | value-free learning fraction | learning steps answered from Boolean relationship planes alone ÷ all learning steps | "many"; no target |
+
+If A2 lands below the expected band, or A3 is near zero, report it as the reason before reporting any timing; the exception's basis is then weaker than stated and the break-even below decides it.
+
 Break-even test: C wins only when its **full** gather+64 folds+dirty+submit cost is lower than the legitimate A baseline for equivalent work. Report the lower and upper crossover N and the conditions (density, locality, cache budget, dirty fraction, focus churn) under which the win reverses.
 
 ## 5. Relationship and learning separation falsifiers
