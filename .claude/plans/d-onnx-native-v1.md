@@ -60,6 +60,8 @@ Every ALIAS and INLINE row was checked against the native source. The checks cov
 | `ReduceMin`/`ReduceMax` of a masked population | `masked_min_i32`/`masked_max_i32` | the empty-population result is undecided (ONNX ReduceMin over an empty set is ±inf for floats and undefined for ints) |
 | comparisons on u64 | `{lt,le,gt,ge}_u64_to_mask` | ONNX has no unsigned-64 compare-with-scalar distinct from int64; needs a dtype decision |
 
+> ⊘ 2026-10-24: ndarray #368 and #369 merged. `Tanh` and `Exp` are now ALIAS in the named `bounded` module (`onnx::bounded::{tanh_f32, exp_f32}`, the native `vml::vstanh` / `vml::vsexp`): ≤ 2 ULP gated, 1 ULP measured, special values exact. `Log` and `Sigmoid` stay out until their kernels have a measured bound.
+
 ### REFUSE
 
 | ONNX | reason |
