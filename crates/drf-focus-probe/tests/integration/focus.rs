@@ -344,3 +344,115 @@ fn p2_mispredicted_focus_and_64_fast_switches_leave_no_lease_and_no_corruption()
     assert_eq!(mgr.evict_unused(), 2);
     assert!(mgr.is_empty());
 }
+
+const OFF2: usize = 64;
+
+#[test]
+fn w1_dirty_rows_coalesce_to_one_image_per_distinct_row() {
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    // 4096 slots over 37 distinct rows: 37 * 512 B of final images.
+    let m = map_from(300, 9, |s| (s % 37) as u16 * 11);
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let mut wb = f.writeback();
+    // 64 thoughts, each touching every slot of its row with the same value.
+    for t in 0..64usize {
+        for s in (t..SLOTS).step_by(64) {
+            let ord = m.ord[s] as i32;
+            wb.stage(s, facet(), ord * 2).unwrap();
+        }
+    }
+    assert_eq!(wb.dirty_rows(), 37);
+    let imgs = wb.flush(&soa).unwrap();
+    assert_eq!(imgs.len(), 37);
+    assert_eq!(imgs.len() * ROW, 18_944);
+    for w in imgs.windows(2) {
+        assert!(w[0].ord < w[1].ord, "images in ordinal order");
+    }
+    for img in &imgs {
+        let src = &r[img.ord as usize];
+        let v = i32::from_le_bytes(img.row[OFF..OFF + 4].try_into().unwrap());
+        assert_eq!(v, img.ord as i32 * 2);
+        // Bytes outside the written facet equal the sealed source row.
+        assert_eq!(&img.row[..OFF], &src[..OFF]);
+        assert_eq!(&img.row[OFF + 4..], &src[OFF + 4..]);
+    }
+    // The focus's own gathered column is untouched.
+    assert_eq!(f.sum_where(&[u64::MAX; 64]), oracle(&m, &[u64::MAX; 64]));
+}
+
+#[test]
+fn w2_two_aliasing_slots_writing_different_facets_both_survive_in_any_order() {
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    // Slots 0 and 1 both point at row 500.
+    let m = map_from(301, 9, |s| if s < 2 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let other = Facet::new(OFF2).unwrap();
+    let image = |first: bool| {
+        let mut wb = f.writeback();
+        if first {
+            wb.stage(0, facet(), 7).unwrap();
+            wb.stage(1, other, -9).unwrap();
+        } else {
+            wb.stage(1, other, -9).unwrap();
+            wb.stage(0, facet(), 7).unwrap();
+        }
+        let imgs = wb.flush(&soa).unwrap();
+        assert_eq!(imgs.len(), 1);
+        imgs[0].row
+    };
+    let (a, b) = (image(true), image(false));
+    assert_eq!(a, b, "order must not matter");
+    assert_eq!(i32::from_le_bytes(a[OFF..OFF + 4].try_into().unwrap()), 7);
+    assert_eq!(
+        i32::from_le_bytes(a[OFF2..OFF2 + 4].try_into().unwrap()),
+        -9
+    );
+}
+
+#[test]
+fn w3_same_facet_different_values_refuse_and_equal_values_coalesce() {
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(302, 9, |s| if s < 2 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 7).unwrap();
+    wb.stage(1, facet(), 8).unwrap();
+    assert_eq!(
+        wb.flush(&soa).err(),
+        Some(Refusal::Conflict {
+            ord: 500,
+            offset: OFF
+        })
+    );
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 7).unwrap();
+    wb.stage(1, facet(), 7).unwrap();
+    assert_eq!(wb.flush(&soa).unwrap().len(), 1);
+    // Out-of-focus slot and a flush against another source are refused.
+    let mut wb = f.writeback();
+    assert_eq!(
+        wb.stage(SLOTS, facet(), 1),
+        Err(Refusal::SlotOutOfFocus { slot: SLOTS })
+    );
+    wb.stage(0, facet(), 1).unwrap();
+    let moved = Soa {
+        rows: &r,
+        id: sid(1, 1, 2, 9),
+    };
+    assert!(matches!(wb.flush(&moved), Err(Refusal::StaleMap { .. })));
+}

@@ -82,9 +82,24 @@ impl Facet {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Refusal {
-    OrdinalOutOfRange { slot: usize, ord: u16 },
-    StaleMap { map_seal: u64, source_seal: u64 },
+    OrdinalOutOfRange {
+        slot: usize,
+        ord: u16,
+    },
+    StaleMap {
+        map_seal: u64,
+        source_seal: u64,
+    },
     FacetOutOfRow,
+    /// Slot index outside the 64x64 focus.
+    SlotOutOfFocus {
+        slot: usize,
+    },
+    /// Two staged writes give one facet of one row different values (W3).
+    Conflict {
+        ord: u16,
+        offset: usize,
+    },
 }
 
 fn read_i32(row: &Row, offset: usize) -> i32 {
@@ -270,4 +285,100 @@ pub fn direct_sum_where(
 #[inline(always)]
 fn prefetch(p: *const u8) {
     ndarray::simd::prefetch_read_t0(p);
+}
+
+/// One staged facet write, addressed by canonical ordinal.
+#[derive(Clone, Copy)]
+struct Patch {
+    ord: u16,
+    offset: usize,
+    value: i32,
+}
+
+/// The final image of one dirty canonical row, owned for handoff to a writer.
+pub struct RowImage {
+    pub ord: u16,
+    pub row: Row,
+}
+
+/// Writes staged against one focus, coalesced per canonical row at flush
+/// (D-DRF W1-W3). The focus itself is never mutated.
+pub struct Writeback<'f> {
+    focus: &'f Focus,
+    patches: Vec<Patch>,
+}
+
+impl Focus {
+    pub fn writeback(&self) -> Writeback<'_> {
+        Writeback {
+            focus: self,
+            patches: Vec::new(),
+        }
+    }
+}
+
+impl Writeback<'_> {
+    /// Stage `value` into `facet` of the row behind `slot`.
+    pub fn stage(&mut self, slot: usize, facet: Facet, value: i32) -> Result<(), Refusal> {
+        let ord = *self
+            .focus
+            .map
+            .ord
+            .get(slot)
+            .ok_or(Refusal::SlotOutOfFocus { slot })?;
+        self.patches.push(Patch {
+            ord,
+            offset: facet.offset(),
+            value,
+        });
+        Ok(())
+    }
+
+    /// Distinct canonical rows touched so far.
+    pub fn dirty_rows(&self) -> usize {
+        let mut ords: Vec<u16> = self.patches.iter().map(|p| p.ord).collect();
+        ords.sort_unstable();
+        ords.dedup();
+        ords.len()
+    }
+
+    /// One image per distinct dirty row, in ordinal order: the sealed source row
+    /// with every staged facet applied. Writes to different facets of one row
+    /// all survive (W2); two different values for the same facet refuse (W3).
+    pub fn flush(mut self, soa: &Soa<'_>) -> Result<Vec<RowImage>, Refusal> {
+        check_seal(soa, &self.focus.map)?;
+        if self.focus.key.source != soa.id {
+            return Err(Refusal::StaleMap {
+                map_seal: self.focus.map.seal,
+                source_seal: soa.id.index_seal,
+            });
+        }
+        self.patches.sort_by_key(|p| (p.ord, p.offset));
+        for w in self.patches.windows(2) {
+            if w[0].ord == w[1].ord && w[0].offset == w[1].offset && w[0].value != w[1].value {
+                return Err(Refusal::Conflict {
+                    ord: w[0].ord,
+                    offset: w[0].offset,
+                });
+            }
+        }
+        let mut out: Vec<RowImage> = Vec::new();
+        for p in &self.patches {
+            if out.last().is_none_or(|img| img.ord != p.ord) {
+                // The focus was built from this same source, so every ordinal
+                // was range-checked then; refuse rather than index if not.
+                let row = *soa
+                    .rows
+                    .get(p.ord as usize)
+                    .ok_or(Refusal::OrdinalOutOfRange {
+                        slot: usize::MAX,
+                        ord: p.ord,
+                    })?;
+                out.push(RowImage { ord: p.ord, row });
+            }
+            let img = out.last_mut().expect("pushed above");
+            img.row[p.offset..p.offset + Facet::WIDTH].copy_from_slice(&p.value.to_le_bytes());
+        }
+        Ok(out)
+    }
 }
