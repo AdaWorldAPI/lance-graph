@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fractal Graph | Generative Relations PoC</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1320;--panel:#152237;--line:#2d415a;--bright:#90f2df;--fg:#eef5ff;--soft:#a8b9d0}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,sans-serif;margin:0;padding:24px}
+main{max-width:1170px;margin:0 auto}h1{font-size:clamp(1.6rem,3vw,2.3rem);margin:0 0 10px}p{color:var(--soft);line-height:1.6}
+section{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:19px}.hero{margin-bottom:20px}.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,410px);gap:20px;align-items:start}
+canvas#canvas{width:100%;aspect-ratio:1;max-width:512px;display:block;image-rendering:pixelated;border:1px solid #35435e;background:#101a29;margin:auto}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.tile{padding:15px;border:1px solid var(--line);border-radius:10px}.tile small{display:block;color:var(--soft);font-size:12px}.tile strong{display:block;font-size:clamp(17px,2vw,26px);margin-top:7px;font-variant-numeric:tabular-nums}
+label{display:block;color:var(--soft);font-size:13px;margin:14px 0 8px}.rangehead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}input[type=range]{width:100%;accent-color:var(--bright)}select,button{color:var(--fg);background:#20314b;border:1px solid #496178;border-radius:9px;font:inherit;padding:11px 13px}
+select{width:100%}button{cursor:pointer;font-weight:600}button:hover{border-color:var(--bright)}button:disabled{opacity:.35;cursor:not-allowed}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.notes{font-size:13px;line-height:1.6;color:var(--soft)}.formula{background:#0c1928;color:var(--bright);border-radius:8px;padding:14px;font-family:ui-monospace,monospace;overflow-x:auto}
+#status{min-height:32px;color:var(--bright)}footer{font-size:12px;padding:12px 4px;color:var(--soft)}
+@media(max-width:790px){.layout{grid-template-columns:1fr}.kpi{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<main>
+<header class="hero">
+<h1>Fractal Graph: <span style="color:#90f2df">render math, not edges.</span></h1>
+<p>Ein reproduzierbarer Proof of Concept. Die Kantenrelation wächst exponentiell mit der Tiefe, die sichtbare Arbeit bleibt an die Anzahl der Bildpixel gebunden.</p>
+</header>
+<div class="layout">
+<section>
+<canvas id="canvas" width="512" height="512" aria-label="Fraktale Adjazenzmatrix"></canvas>
+<p id="viewInfo" class="notes"></p>
+</section>
+<section>
+<div class="rangehead"><strong>Rekursionstiefe</strong><strong id="depthValue">26</strong></div>
+<input id="depth" type="range" min="4" max="26" step="1" value="26" aria-label="Fraktaltiefe n">
+<label for="mode">Ansicht</label>
+<select id="mode"><option value="full">Full View: exakte 512²-Pixel-Aggregation</option><option value="zoom">Zoom: echte 512²-Kantenkachel</option><option value="empty">Zoom: leere Region (Kontrollfall)</option></select>
+<div class="kpi">
+<div class="tile"><small>Kantenanzahl 3ⁿ</small><strong id="edges">2.541.865.828.329</strong></div>
+<div class="tile"><small>Knoten je Achse 2ⁿ</small><strong id="nodes">67.108.864</strong></div>
+<div class="tile"><small>CPU: Pixel berechnen</small><strong id="compute">-</strong></div>
+<div class="tile"><small>Canvas: Pixel übertragen</small><strong id="transfer">-</strong></div>
+</div>
+<div class="formula">E(u,v) ⇔ (u &amp; v) == 0</div>
+<div class="controls">
+<button id="rerender">5× neu messen</button>
+<button id="enumerate">Alle Kanten iterieren</button>
+</div>
+<p id="status" role="status"></p>
+<p class="notes">Die explizite Iteration ist bei Tiefe ≥14 deaktiviert, damit der Browser nicht blockiert. Die beiden Renderzeiten messen Browser-JavaScript, nicht native C++-Leistung. Die Full View zeigt bei Tiefe über 9 eine <b>exakte Projektion</b>, keine materialisierten Kanten.</p>
+</section>
+</div>
+<footer>Das Muster entsteht durch B⊗n mit B=[[1,1],[1,0]]. Eine volle Enumeration braucht Θ(3ⁿ), Pixel-Rendering Θ(P) für P Ausgabepixel. Alle Funktionen arbeiten offline.</footer>
+</main>
+<script>
+'use strict';
+const canvas=document.querySelector('#canvas');
+const ctx=canvas.getContext('2d',{alpha:false});
+const depth=document.querySelector('#depth');
+const mode=document.querySelector('#mode');
+const status=document.querySelector('#status');
+const number=new Intl.NumberFormat('de-DE');
+const S=512;
+let lastImage;
+function offsets(n,view){
+ if(n<=9 || view==='full')return [0,0];
+ const u=2**(n-1);
+ if(view==='empty')return [u,u];
+ return [u,n<=10?0:2**(n-2)];
+}
+function renderBits(n,view){
+ const image=ctx.createImageData(S,S);
+ const data=image.data;
+ const [offu,offv]=offsets(n,view);
+ const shift=Math.max(9-n,0);
+ for(let y=0;y<S;y++){
+  const u=(view==='full'?y>>>shift:y+offu);
+  for(let x=0;x<S;x++){
+   const v=(view==='full'?x>>>shift:x+offv);
+   const exists=(u & v)===0;
+   const p=4*(y*S+x);
+   data[p]=exists?144:14;
+   data[p+1]=exists?239:27;
+   data[p+2]=exists?221:44;
+   data[p+3]=255;
+  }
+ }
+ return image;
+}
+function run(){
+ const n=Number(depth.value);const view=mode.value;
+ document.querySelector('#depthValue').textContent=n;
+ document.querySelector('#edges').textContent=number.format(3**n);
+ document.querySelector('#nodes').textContent=number.format(2**n);
+ if(n<9 && view!=='full'){mode.value='full';return run();}
+ document.querySelector('#enumerate').disabled=n>13 || view!=='full';
+ let best=Infinity, image;
+ for(let rep=0;rep<5;rep++){
+  const t0=performance.now();image=renderBits(n,view);
+  const elapsed=performance.now()-t0;
+  if(elapsed<best)best=elapsed;
+ }
+ let t0=performance.now();ctx.putImageData(image,0,0);
+ const transfer=performance.now()-t0;
+ lastImage=image;
+ document.querySelector('#compute').textContent=best.toFixed(3)+' ms';
+ document.querySelector('#transfer').textContent=transfer.toFixed(3)+' ms';
+ const k=Math.min(n,9);
+ const [offu,offv]=offsets(n,view);
+ document.querySelector('#viewInfo').textContent=view==='full'
+  ? `Exakte Gesamtansicht: ${number.format(3**(n-k))} Kanten pro aktivem Pixel; ${2**k}×${2**k} logische Pixel. Bei n>9 wird über 2^(n-9)×2^(n-9) Blöcke aggregiert.`
+  : `Pixelgenauer 512×512-Ausschnitt bei Tiefe ${n}; Startkoordinaten u=${number.format(offu)}, v=${number.format(offv)}.`;
+ status.textContent='';
+}
+function explicit(n){
+ const k=Math.min(n,9), side=2**k, shift=n-k;
+ const flags=new Uint8Array(side*side);
+ function visit(bit,u,v){
+  if(bit<0){flags[(u>>>shift)*side+(v>>>shift)]=1;return;}
+  const m=2**bit;
+  visit(bit-1,u,v);
+  visit(bit-1,u,v+m);
+  visit(bit-1,u+m,v);
+ }
+ const t0=performance.now();visit(n-1,0,0);
+ const ms=performance.now()-t0;
+ for(let row=0;row<side;row++){
+  for(let col=0;col<side;col++){
+   if(flags[row*side+col] !== Number((row&col)===0)){
+    throw Error(`Pixel parity failure at ${row},${col}`);
+   }
+  }
+ }
+ return ms;
+}
+depth.addEventListener('input',run);mode.addEventListener('change',run);
+document.querySelector('#rerender').addEventListener('click',run);
+document.querySelector('#enumerate').addEventListener('click',()=>{
+ const n=Number(depth.value);
+ if(n>13 || mode.value!=='full')return;
+ try{
+  const ms=explicit(n);
+  status.textContent=`✓ Explizite Iteration: ${ms.toFixed(3)} ms für ${number.format(3**n)} Kanten. Pixel exakt identisch.`;
+ }catch(err){status.textContent=String(err);}
+});
+run();
+</script>
+</body>
+</html>
