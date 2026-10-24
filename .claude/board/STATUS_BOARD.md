@@ -1,3 +1,16 @@
+## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
+
+**Status: S0 PROPOSAL / DOCS ONLY.** Plan: [d-sag-6-rust-codegraph-math-logic-tracert-v1.md](../plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md). Agent prompt: [d-sag-6-rust-codegraph-logic-tracert-claude-code.md](../prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). Continuation of D-SAG / D-DRMC / Ascent-BYODS, **not** a revived SoftwareGraph, separate registry, runtime or new proof authority. Parallel #1759 only reconciles existing board status.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-SAG-6-0** | authority/ownership map, Rust Codegraph math/logic traceroute contract, Claude Code prompt | DOCS / PROPOSAL (this PR) | no Rust/Cargo/ABI edits; source/proof/execution authority separated |
+| **D-SAG-6-1** | pinned rust-analyzer HIR, rustc MIR/Charon, AdaWorldAPI/ruff fork capability audit | PROPOSED (read-only) | code-backed availability and unsupported inventory; F01–F15 preregistered |
+| **D-SAG-6-2** | source-revision-bound typed Rust Codegraph projection to existing DR/SoA/Quack | PROPOSED; separate approval | identity, capture, trait dispatch, sealed-coordinate and stale-source refusals |
+| **D-SAG-6-3** | Datalog/Ascent candidates versus Datafrog/independent Rust oracle | PROPOSED; separate approval | pure filter/count vs impure-closure/panic/Bag/K3 controls |
+| **D-SAG-6-4** | egglog guarded law + effect-aware extraction + proof/replay traceroute | PROPOSED; separate approval | independent checker gap explicit; no effect reorder or forged proof promotion |
+| **D-SAG-6-5** | optional approved Rust source edit and comparative MLIR lowering | PROPOSED; separate approval | rustc/tests/differential target parity; FMA/NaN/signed-zero and effect gates |
+
 ## D-ONNX-NATIVE — ONNX vocabulary over existing native functions (2026-10-23)
 
 Plan: `.claude/plans/d-onnx-native-v1.md`. Crate: `crates/lance-graph-onnx` (ALIAS / INLINE only; no dispatch).

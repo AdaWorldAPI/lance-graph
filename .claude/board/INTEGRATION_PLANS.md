@@ -1,3 +1,9 @@
+## 2026-10-24 — D-SAG-6 Rust Codegraph → Mathematics → Logic → Tracert → `.claude/plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md`
+
+**Status:** S0 PROPOSAL / DOCUMENTATION ONLY, no code, benchmarks, new compiler, proof certification or source rewrite. **Prompt:** `.claude/prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md`. **Handoff:** [Linear EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id).
+
+Rust HIR/MIR (source/semantic input) and the [AdaWorldAPI/ruff](https://github.com/AdaWorldAPI/ruff) polyglot structural crosswalk feed a typed, read-only Codegraph on existing DR/Quack/SoA ownership. Datalog/Ascent/Datafrog analyze logic beside RelAlg/egglog's guarded mathematical transformations; a provenance traceroute links derivations, independent proof-check status, effect-safe extraction and native prepared R2IL/ndarray recipes. MLIR is optional downstream; it does not own Rust semantics. S1+ implementation is separately gated by D-SAG capstone, D-DRMC/Math Foundry and OGAR owners. Parallel #1759 is a distinct board catch-up; no overlap in claims.
+
 ## 2026-10-24 — index catch-up: six ONNX-family plans merged without an index entry (#1745–#1749, #1751)
 
 - `d-onnx-relalg-cap-convergence-1745-v1` (#1745), `d-onnx-relalg-s1-s2-semantic-intake-v1` (#1746), `d-dr3-holo-onnx-s3a-s3c-v1` (#1747), `d-onnx-relalg-s3d-physical-shootout-v1` (#1748), `d-onnx-relalg-s4-s5-palette-export-v1` (#1749), `d-optimum-bgz-offline-frontend-v1` (#1751) → `.claude/plans/<name>.md`.
