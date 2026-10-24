@@ -24,7 +24,7 @@
 
 ## TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 (2026-10-23) — OPEN
 
-CI runs `bgz-tensor` with `--lib` only (`.github/workflows/rust-test.yml:274`),
+CI runs `bgz-tensor` with `--lib` only (`.github/workflows/rust-test.yml`, step "Run bgz-tensor tests (workspace-excluded, ndarray sibling)"),
 so nothing under `crates/bgz-tensor/tests/` runs in CI. The crate is
 workspace-excluded, so no other step reaches it.
 

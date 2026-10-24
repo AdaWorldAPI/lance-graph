@@ -1,0 +1,21 @@
+[package]
+name = "lance-graph-onnx"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "ONNX mathematical compatibility facade: ONNX operator names and semantics over existing native ndarray functions. Aliases where the contract is identical, minimal adapters where it is not, typed refusals otherwise. No graph, interpreter, dispatcher or runtime initialization."
+
+[dependencies]
+# The one native dependency, on the coordinate lance-graph-mask-risc uses. The
+# workspace root's `[patch."https://github.com/AdaWorldAPI/ndarray"]` points it
+# at the sibling checkout, so the workspace holds one ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+# Cross-checks and the diagnostic baseline only. The facade itself never calls
+# them: the normal path is "ONNX-compatible Rust API -> existing native function".
+[dev-dependencies]
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+lance-graph-relalg = { path = "../lance-graph-relalg" }
+# The trait that carries `FoldDialect::call`, on the coordinate lance-graph-r2il uses.
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
