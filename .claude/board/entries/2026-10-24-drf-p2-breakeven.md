@@ -24,8 +24,9 @@ AVX2 rows agree within ~15%. N* cold = smallest N with `build_cold + N·fold < d
 (N−1)·direct_warm`: the first touch is cold on both paths, later reads are warm.
 
 - **Break-even:** 1–3 folds of one focus in every cell, warm or cold. The cold first touch
-  (≈30 µs at 1024 rows, 80–150 µs at 65 536) costs both paths about the same; a single
-  fold of a focus does not win when rows are cold.
+  (≈30 µs at 1024 rows, 80–150 µs at 65 536) costs both paths about the same. Cold, the
+  full-mask cells already win at one fold (e.g. 65 536 random: 137 961 + 670 = 138 631 ns
+  vs 147 286 ns direct); the 25 % cells need 2–3, because a sparse direct read is cheaper.
 - **A2** at cold N*: 0.19–0.67 — below the pre-registered 70–90 % band because N* is so small;
   A2 = N·pop / (N·pop + 4096) rises with N (0.98 at N = 64, full mask).
 - **A1, A3:** NOT RUN (no writeback, no learning in this probe).
