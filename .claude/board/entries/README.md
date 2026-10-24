@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-465 entries, 2026-08-06 .. 2026-10-24.
+466 entries, 2026-08-06 .. 2026-10-24.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-24 | `tanh-precision-symmetric-i8` |  | [2026-10-24-tanh-precision-symmetric-i8.md](2026-10-24-tanh-precision-symmetric-i8.md) |
+| 2026-10-24 | `D-DRF-P2` |  | [2026-10-24-drf-p2-breakeven.md](2026-10-24-drf-p2-breakeven.md) |
 | 2026-10-24 | `D-DRF-P1` |  | [2026-10-24-drf-p1-focus-lease-probe.md](2026-10-24-drf-p1-focus-lease-probe.md) |
 | 2026-10-24 | `D-DRF-1` |  | [2026-10-24-d-drf-1-focus-lease-foreign-cache.md](2026-10-24-d-drf-1-focus-lease-foreign-cache.md) |
 | 2026-10-23 | `ps2-compose-chain-preregistration` |  | [2026-10-23-ps2-compose-chain-preregistration.md](2026-10-23-ps2-compose-chain-preregistration.md) |

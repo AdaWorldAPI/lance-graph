@@ -1,5 +1,6 @@
 # drf-focus-probe — D-DRF-P1, lab only. Immutable DR64 focus, lease by focus load,
-# stale/foreign-key refusal, intra-focus prefetch lookahead. No timing claims.
+# stale/foreign-key refusal, intra-focus prefetch lookahead. Timings only in
+# examples/p2_breakeven.rs, reported, not gated.
 # Own [workspace] root, excluded from the lance-graph workspace. Run from here:
 #   cargo test
 [package]

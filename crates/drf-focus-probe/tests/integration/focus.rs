@@ -309,3 +309,38 @@ fn p1_direct_equals_oracle_equals_focus_for_all_lookaheads() {
     let s: Vec<i64> = patterns.iter().map(|(_, m)| oracle(m, &masks[0])).collect();
     assert!(s.windows(2).any(|w| w[0] != w[1]));
 }
+
+#[test]
+fn p2_mispredicted_focus_and_64_fast_switches_leave_no_lease_and_no_corruption() {
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let mgr = FocusManager::new();
+    let full = [u64::MAX; 64];
+    // Predict B, use C: B is loaded and never read.
+    let b = map_from(100, 9, |s| (s % NROWS) as u16);
+    let c = map_from(101, 9, |s| ((s * 7) % NROWS) as u16);
+    drop(mgr.load(&soa, &b, Scope(1), facet()).unwrap());
+    let fc = mgr.load(&soa, &c, Scope(1), facet()).unwrap();
+    assert_eq!(fc.sum_where(&full), oracle(&c, &full));
+    // 64 fast switches; only the last one stays held.
+    let mut held = None;
+    for k in 0..64u64 {
+        let m = map_from(200 + k, 9, |s| ((s + k as usize) % NROWS) as u16);
+        let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+        assert_eq!(f.sum_where(&full), oracle(&m, &full), "switch {k}");
+        held = Some((f, m));
+    }
+    assert_eq!(mgr.len(), 66);
+    // Every unheld entry is reclaimed: B and 63 switches. C and the last stay.
+    assert_eq!(mgr.evict_unused(), 64);
+    assert_eq!(mgr.len(), 2);
+    let (last, lm) = held.unwrap();
+    assert_eq!(last.sum_where(&full), oracle(&lm, &full));
+    assert_eq!(fc.sum_where(&full), oracle(&c, &full));
+    drop((last, fc));
+    assert_eq!(mgr.evict_unused(), 2);
+    assert!(mgr.is_empty());
+}
