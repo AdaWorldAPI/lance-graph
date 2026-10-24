@@ -3,28 +3,39 @@
 **Status:** MEASURED (lab). **Probe:** `crates/drf-focus-probe/examples/p2_breakeven.rs`.
 **Command:** `cargo run --release --example p2_breakeven` (native AVX-512) and with
 `RUSTFLAGS="-C target-cpu=x86-64-v3"` (AVX2). Medians, ns per call, 4096-slot focus,
-512 B rows, i32 facet, direct lookahead 16. Both paths asserted equal first.
+512 B rows, i32 facet, direct lookahead 16, ndarray #376 fold body. Both paths asserted equal first.
+Host: Xeon 2.1 GHz, L2 8 MiB (4 instances), L3 260 MiB.
 
-| rows (MiB) | map | density | build | fold | direct | N* |
-|---|---|---|---|---|---|---|
-| 1024 (0.5) | random | 1.00 | 3 827 | 2 341 | 8 198 | 1 |
-| 1024 (0.5) | random | 0.25 | 3 824 | 475 | 5 502 | 1 |
-| 65536 (32) | random | 1.00 | 20 733 | 2 323 | 20 227 | 2 |
-| 65536 (32) | random | 0.25 | 19 924 | 516 | 17 514 | 2 |
-| 65536 (32) | clustered | 1.00 | 16 642 | 2 312 | 15 457 | 2 |
+**Warm vs cold.** A focus touches one cache line per distinct ordinal: 248–256 KiB here,
+whatever the row count. So repeated reps are **warm** even for 65 536 rows (32 MiB of rows).
+The **cold** arm streams a 512 MiB buffer (twice the L3) outside the timed region before
+each rep (21 reps). The first version of this entry called the 65 536-row warm numbers
+"DRAM"; that was wrong (codex review on #1763).
 
-AVX2 rows agree within ~10%. Clustered 1024-row cases match random 1024 (same N*).
+| rows | map | dens | build warm | fold warm | direct warm | build cold | direct cold | N* warm | N* cold |
+|---|---|---|---|---|---|---|---|---|---|
+| 1024 | random | 1.00 | 3 804 | 690 | 8 239 | 33 623 | 35 972 | 1 | 1 |
+| 1024 | random | 0.25 | 3 821 | 429 | 5 271 | 34 666 | 28 748 | 1 | 3 |
+| 65536 | random | 1.00 | 23 256 | 670 | 20 982 | 137 961 | 147 286 | 2 | 1 |
+| 65536 | random | 0.25 | 23 638 | 430 | 20 611 | 143 249 | 141 826 | 2 | 2 |
+| 65536 | clustered | 1.00 | 15 572 | 690 | 15 020 | 79 300 | 80 321 | 2 | 1 |
 
-- **Break-even:** the focus pays off from the 1st (L2-resident) or 2nd (32 MiB, DRAM)
-  repeated fold of the same focus. No win when a focus is folded only once on DRAM.
-- **A2** at N*: 0.20–0.67 — below the pre-registered 70–90% band, because N* is so small;
-  A2 rises with N (N·pop / (N·pop + 4096)). At N=64 full mask, A2 = 0.98.
+AVX2 rows agree within ~15%. N* cold = smallest N with `build_cold + N·fold < direct_cold +
+(N−1)·direct_warm`: the first touch is cold on both paths, later reads are warm.
+
+- **Break-even:** 1–3 folds of one focus in every cell, warm or cold. The cold first touch
+  (≈30 µs at 1024 rows, 80–150 µs at 65 536) costs both paths about the same. Cold, the
+  full-mask cells already win at one fold (e.g. 65 536 random: 137 961 + 670 = 138 631 ns
+  vs 147 286 ns direct); the 25 % cells need 2–3, because a sparse direct read is cheaper.
+- **A2** at cold N*: 0.19–0.67 — below the pre-registered 70–90 % band because N* is so small;
+  A2 = N·pop / (N·pop + 4096) rises with N (0.98 at N = 64, full mask).
 - **A1, A3:** NOT RUN (no writeback, no learning in this probe).
 - **P2 falsifier:** predicted-unused focus + 63 abandoned switches all reclaimed by
   `evict_unused`; held foci stay correct. Disable (keep all entries) → red.
 
-Fold cost: `ndarray::simd::masked_sum_i32` walked set bits one by one, ≈0.57 ns per
-selected slot. ndarray #376 (D-MPF-2b hybrid body, threshold 16) re-measured with the same
-probe: full-mask fold 2 341 → 650 ns (AVX-512), 2 306 → 559 ns (AVX2); 25 % masks unchanged
-(~470 ns). N* stays 1–2; with the cheaper fold it reaches 1 for full masks on AVX2 at 32 MiB.
-OPEN: cold page faults, focus churn under a memory budget, and dirty-row writeback (A1, W1–W8).
+Fold cost: before ndarray #376, `masked_sum_i32` walked set bits one by one; full-mask fold
+2 341 → 650 ns (AVX-512), 2 306 → 559 ns (AVX2); 25 % masks unchanged (~470 ns).
+
+OPEN: the warm 65 536-row build (23 µs vs 3.8 µs at 1024 rows, same cache-line footprint)
+suggests TLB misses across 32 MiB of 4 KiB pages; not measured. Also open: focus churn under
+a memory budget, and dirty-row writeback (A1, W1–W8).
