@@ -1,0 +1,18 @@
+# drf-focus-probe — D-DRF-P1, lab only. Immutable DR64 focus, lease by focus load,
+# stale/foreign-key refusal, intra-focus prefetch lookahead. No timing claims.
+# Own [workspace] root, excluded from the lance-graph workspace. Run from here:
+#   cargo test
+[package]
+name = "drf-focus-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Lab probe D-DRF-P1: sealed 64x64 u16 map, full-witness FocusKey, OnceLock-leased gathered facet column, direct prefetch arm. Results only; no production path."
+
+[workspace]
+
+[dependencies]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
