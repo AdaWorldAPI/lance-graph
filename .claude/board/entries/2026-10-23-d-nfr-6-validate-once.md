@@ -1,4 +1,4 @@
-# D-NFR-6 — validate once, execute without repeated guards
+# D-NFR-6-v1 — validate once, execute without repeated guards (superseded)
 
 > ⊘ Superseded by `2026-10-23-d-nfr-6-soa-borrow.md`: the `Table` + frame guard design is withdrawn.
 
