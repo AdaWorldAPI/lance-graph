@@ -138,6 +138,8 @@ exclude = [
     # half of the OGIT(ontology)/OGAR(ogar) clean separation. Verify via
     # `cargo test --manifest-path crates/lance-graph-ogar/Cargo.toml`.
     "crates/lance-graph-ogar",
+    # D-DRF-P1 lab probe (immutable DR64 focus lease). Own [workspace]; ndarray only.
+    "crates/drf-focus-probe",
     # A lance-graph ReportResult as an addressed OGAR ObjectSlot source
     # (implements ogar-doc-ir's DocObjectSource::grid_of). EXCLUDED for the same
     # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via
