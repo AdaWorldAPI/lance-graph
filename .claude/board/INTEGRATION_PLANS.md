@@ -1,3 +1,10 @@
+## 2026-10-24 — index catch-up: six ONNX-family plans merged without an index entry (#1745–#1749, #1751)
+
+- `d-onnx-relalg-cap-convergence-1745-v1` (#1745), `d-onnx-relalg-s1-s2-semantic-intake-v1` (#1746), `d-dr3-holo-onnx-s3a-s3c-v1` (#1747), `d-onnx-relalg-s3d-physical-shootout-v1` (#1748), `d-onnx-relalg-s4-s5-palette-export-v1` (#1749), `d-optimum-bgz-offline-frontend-v1` (#1751) → `.claude/plans/<name>.md`.
+
+**Status:** PROPOSAL, documentation only; nothing authorized. #1746–#1749 and #1751 carry the D-NFC supersession note (`d-native-first-dependency-correction-v1.md`, #1753), which governs where they disagree with it. #1745 carries none (D-NFC §7: "not edited; §6 proposal").
+**Confidence:** index row only; read from each plan's header.
+
 ## 2026-10-24 — d-dr64-focus-lease-foreign-cache-v1 + d-dr64-focus-cache-falsifiers-v1 — immutable DR64 focus, leased foreign cache, sparse writeback → `.claude/plans/d-dr64-focus-lease-foreign-cache-v1.md`, `.claude/plans/d-dr64-focus-cache-falsifiers-v1.md`
 
 **Status:** D-DRF-1 REFERENCE DESIGN / PRE-REGISTRATION ONLY (#1756); DRF-P1..P4 PROPOSED, not authorized. The DR map stays an immutable versioned reference; focus load acquires an ephemeral residency lease; caches are disposable; dirty rows coalesce by canonical destination and go through the existing CycleWriter. DECISION 2026-10-24: the DR64³ foreign-key cache is a scoped exception to the zero-copy law (cost basis, several ontologies, learning into live-generated ONNX), lapsing if DRF-P2 does not measure a whole-run win. Entry `2026-10-24-d-drf-1-focus-lease-foreign-cache.md`.
