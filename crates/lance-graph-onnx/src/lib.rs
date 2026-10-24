@@ -194,9 +194,9 @@ binary!(
 /// `Neg`. INLINE: `ndarray`'s element map with `-v`, the same body as its
 /// `Neg for &ArrayRef` impl.
 ///
-/// Not an alias of `ndarray::hpc::vml::vsneg`: its 16-lane body computes
-/// `0.0 - v`, so `Neg(+0.0)` gives `+0.0` instead of `-0.0` whenever the input
-/// has at least 16 elements (its scalar tail computes `-v` and is correct).
+/// Not an alias of `ndarray::hpc::vml::vsneg`, which is `f32`-only and writes
+/// into an output view. Both give `-0.0` for `+0.0` (vsneg since ndarray
+/// #368; pinned by the conformance test).
 #[inline]
 pub fn neg<T: Ieee, S: Data<Elem = T>, D: Dimension>(a: &ArrayBase<S, D>) -> Array<T, D> {
     a.map(|&v| -v)
