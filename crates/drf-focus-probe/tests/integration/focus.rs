@@ -504,7 +504,14 @@ fn w3_ordered_same_facet_writes_apply_by_declared_position_in_every_staging_orde
     let mgr = FocusManager::new();
     let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
     let writes = [(0usize, 30i32, 3u64), (1, 10, 1), (2, 20, 2)];
-    let perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    let perms = [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ];
     for perm in perms {
         let mut wb = f.writeback();
         for i in perm {
@@ -513,7 +520,11 @@ fn w3_ordered_same_facet_writes_apply_by_declared_position_in_every_staging_orde
         }
         let imgs = wb.flush(&soa).unwrap();
         assert_eq!(imgs.len(), 1);
-        assert_eq!(imgs[0].row[OFF..OFF + 4], 30i32.to_le_bytes(), "order {perm:?}");
+        assert_eq!(
+            imgs[0].row[OFF..OFF + 4],
+            30i32.to_le_bytes(),
+            "order {perm:?}"
+        );
     }
     // 64 positioned writes over 4 rows in a scrambled staging order: each row
     // ends with the value of its highest declared position (scalar oracle).
@@ -548,7 +559,10 @@ fn w3_equal_positions_or_mixed_ordering_with_different_values_refuse() {
     let m = map_from(306, 9, |s| if s < 2 { 500 } else { (s % NROWS) as u16 });
     let mgr = FocusManager::new();
     let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
-    let conflict = Some(Refusal::Conflict { ord: 500, offset: OFF });
+    let conflict = Some(Refusal::Conflict {
+        ord: 500,
+        offset: OFF,
+    });
     // Same declared position, different values: no order to apply them in.
     let mut wb = f.writeback();
     wb.stage_at(0, facet(), 1, 5).unwrap();
@@ -567,5 +581,8 @@ fn w3_equal_positions_or_mixed_ordering_with_different_values_refuse() {
     let mut wb = f.writeback();
     wb.stage(0, facet(), 4).unwrap();
     wb.stage_at(1, facet(), 4, 9).unwrap();
-    assert_eq!(wb.flush(&soa).unwrap()[0].row[OFF..OFF + 4], 4i32.to_le_bytes());
+    assert_eq!(
+        wb.flush(&soa).unwrap()[0].row[OFF..OFF + 4],
+        4i32.to_le_bytes()
+    );
 }
