@@ -60,6 +60,8 @@ Every ALIAS and INLINE row was checked against the native source. The checks cov
 | `ReduceMin`/`ReduceMax` of a masked population | `masked_min_i32`/`masked_max_i32` | the empty-population result is undecided (ONNX ReduceMin over an empty set is ±inf for floats and undefined for ints) |
 | comparisons on u64 | `{lt,le,gt,ge}_u64_to_mask` | ONNX has no unsigned-64 compare-with-scalar distinct from int64; needs a dtype decision |
 
+> ⊘ 2026-10-24: ndarray #368 and #369 merged. `Tanh` and `Exp` are now ALIAS in the named `bounded` module (`onnx::bounded::{tanh_f32, exp_f32}`, the native `vml::vstanh` / `vml::vsexp`): ≤ 2 ULP gated, 1 ULP measured, special values exact. `Log` and `Sigmoid` stay out until their kernels have a measured bound.
+
 ### REFUSE
 
 | ONNX | reason |
@@ -117,6 +119,7 @@ The old 50 ns target does not apply to aliases. An alias's cost is the native fu
 ## 6. Proposed (not implemented)
 
 - An ndarray owner fix for `vml::vsneg` (+0) and `vml::vsexp` (±inf, overflow halving): AdaWorldAPI/ndarray#368, open. After it lands, `Neg` could become an ALIAS.
+  - ⊘ 2026-10-24: #368 merged. The tripwire `vml_vsneg_is_not_onnx_neg_on_positive_zero` failed as designed and was replaced by `vml_vsneg_matches_onnx_neg_on_positive_zero` (lance-graph#1757). `Neg` stays INLINE for now: `vsneg` is f32-only and writes into a view, while `neg` is generic over f32/f64.
 - A native unmasked `i32 → i64` sum in `ndarray::simd`, so that `ReduceSum::sum_i32` becomes a direct call.
 - The NATIVE rows in §2, each with its open decision named.
 - `#1752` `onnx_compat` stays as the independent probe. This crate is the facade, and #1752's measurements are kept as the diagnostic baseline.

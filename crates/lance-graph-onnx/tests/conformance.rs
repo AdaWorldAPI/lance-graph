@@ -71,19 +71,20 @@ fn unary_aliases_are_exact_on_special_values_and_every_tail_length() {
 }
 
 /// The aliases are the native items, not wrappers around them.
-/// Why `Neg` is not an alias: the vml kernel's SIMD body loses the sign of
-/// zero. If ndarray fixes it, this test fails and `Neg` can become an alias.
+/// `vsneg` used to lose the sign of zero in its SIMD body, which is why `Neg`
+/// is not an alias. ndarray #368 fixed it; this test now pins that `vsneg`
+/// and `Neg` agree on +0 in the SIMD body and the tail. Making `Neg` an
+/// alias is a separate change: `vsneg` is `f32`-only and writes into a view.
 #[test]
-fn vml_vsneg_is_not_onnx_neg_on_positive_zero() {
-    let x = Array1::<f32>::zeros(16);
-    let mut out = Array1::<f32>::zeros(16);
+fn vml_vsneg_matches_onnx_neg_on_positive_zero() {
+    let x = Array1::<f32>::zeros(17);
+    let mut out = Array1::<f32>::zeros(17);
     ndarray::hpc::vml::vsneg(x.view(), out.view_mut());
-    assert_eq!(
-        out[0].to_bits(),
-        0.0f32.to_bits(),
-        "vsneg(+0) is +0 on the SIMD path"
-    );
-    assert_eq!(onnx::neg(&x)[0].to_bits(), (-0.0f32).to_bits());
+    let y = onnx::neg(&x);
+    for i in [0, 16] {
+        assert_eq!(out[i].to_bits(), (-0.0f32).to_bits(), "vsneg(+0) at {i}");
+        assert_eq!(y[i].to_bits(), (-0.0f32).to_bits(), "Neg(+0) at {i}");
+    }
 }
 
 #[test]
@@ -111,6 +112,107 @@ fn aliases_are_the_native_symbols() {
         onnx::abs_f32 as Un,
         ndarray::hpc::vml::vsabs as Un
     ));
+    assert!(std::ptr::fn_addr_eq(
+        onnx::bounded::tanh_f32 as Un,
+        ndarray::hpc::vml::vstanh as Un
+    ));
+    assert!(std::ptr::fn_addr_eq(
+        onnx::bounded::exp_f32 as Un,
+        ndarray::hpc::vml::vsexp as Un
+    ));
+}
+
+/// ULP distance on the total order of `f32`, with `-0` and `+0` one apart.
+fn ulp_distance(a: f32, b: f32) -> u32 {
+    let key = |x: f32| {
+        let i = x.to_bits() as i32;
+        if i < 0 {
+            i32::MIN - i
+        } else {
+            i
+        }
+    };
+    (key(a) as i64 - key(b) as i64).unsigned_abs() as u32
+}
+
+/// The ONNX reference for a bounded operator: `f64` evaluation rounded once.
+/// Where that result is a zero, an infinity or NaN, or the input is a zero,
+/// the operator must match it bit for bit; elsewhere within 2 ULP.
+fn check_bounded(name: &str, x: f32, got: f32, want: f32) {
+    if x == 0.0 || want == 0.0 || want.is_infinite() || want.is_nan() {
+        assert!(
+            same(got, want),
+            "{name}({x:e}) = {got:e}, want exactly {want:e}"
+        );
+    } else {
+        let u = ulp_distance(got, want);
+        assert!(u <= 2, "{name}({x:e}) = {got:e}, want {want:e} ({u} ULP)");
+    }
+}
+
+#[test]
+fn bounded_aliases_hold_their_ulp_bound_on_special_values_and_every_tail_length() {
+    let cases: [(
+        &str,
+        fn(ndarray::ArrayView1<f32>, ndarray::ArrayViewMut1<f32>),
+        fn(f64) -> f64,
+    ); 2] = [
+        ("Tanh", onnx::bounded::tanh_f32, f64::tanh),
+        ("Exp", onnx::bounded::exp_f32, f64::exp),
+    ];
+    for n in 0..70 {
+        let x = Array1::from(samples(n));
+        let mut out = Array1::<f32>::zeros(n);
+        for (name, op, reference) in cases {
+            op(x.view(), out.view_mut());
+            for i in 0..n {
+                check_bounded(name, x[i], out[i], reference(x[i] as f64) as f32);
+            }
+        }
+    }
+}
+
+#[test]
+fn bounded_aliases_hold_their_ulp_bound_across_magnitudes() {
+    // Log-spaced magnitudes from subnormal to 1e4, both signs; the tanh small
+    // branch, its 0.625 switch and saturation, and exp's subnormal and
+    // overflow edges all fall inside.
+    let n = 1 << 16;
+    let x = Array1::from_iter((0..2 * n).map(|i| {
+        let t = (i % n) as f64 / n as f64;
+        let m = (10f64.powf(-44.0 + 48.0 * t)) as f32;
+        if i < n {
+            m
+        } else {
+            -m
+        }
+    }));
+    let mut out = Array1::<f32>::zeros(x.len());
+    onnx::bounded::tanh_f32(x.view(), out.view_mut());
+    for i in 0..x.len() {
+        check_bounded("Tanh", x[i], out[i], (x[i] as f64).tanh() as f32);
+        assert!(
+            out[i].abs() <= 1.0,
+            "Tanh({:e}) = {:e} outside [-1, 1]",
+            x[i],
+            out[i]
+        );
+        if i >= n {
+            assert_eq!(
+                out[i].to_bits(),
+                (-out[i - n]).to_bits(),
+                "Tanh is odd at {:e}",
+                x[i]
+            );
+        }
+    }
+    // Exp over its full f32 range, including subnormal results and overflow.
+    let e = Array1::from_iter((0..n).map(|i| -104.0 + 194.0 * (i as f32 + 0.5) / n as f32));
+    let mut out = Array1::<f32>::zeros(e.len());
+    onnx::bounded::exp_f32(e.view(), out.view_mut());
+    for i in 0..e.len() {
+        check_bounded("Exp", e[i], out[i], (e[i] as f64).exp() as f32);
+    }
 }
 
 /// Reference ONNX broadcasting: right-aligned, a 1 stretches.

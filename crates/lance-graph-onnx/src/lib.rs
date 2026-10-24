@@ -31,9 +31,12 @@
 //!   element `i`, and bits past the last element are zero. That is the
 //!   representation of every `ndarray::simd` mask kernel. Use [`mask_words`]
 //!   to size one.
-//! - **Exact versus approximate**: every operator here is exact (IEEE-754 for
-//!   floats, exact integers). Polynomial `Exp`/`Log`/`Tanh`/`Sigmoid` and
-//!   palette operations are approximate and are not exported.
+//! - **Exact versus bounded**: every operator at the crate root is exact
+//!   (IEEE-754 for floats, exact integers). Transcendental operators whose
+//!   native kernel has a measured ULP bound live in [`bounded`], never at the
+//!   root, so a caller who needs exact results cannot pick one up by accident.
+//!   `Log`, `Sigmoid` and palette operations have no measured bound yet and
+//!   are not exported.
 //!
 //! # Example
 //!
@@ -61,6 +64,24 @@ use ndarray::{Array, ArrayBase, ArrayRef, Data, DimMax, Dimension};
 pub use ndarray::hpc::vml::vsabs as abs_f32;
 /// `Sqrt` (`float`). Alias of `ndarray::hpc::vml::vssqrt`.
 pub use ndarray::hpc::vml::vssqrt as sqrt_f32;
+
+/// ALIAS operators whose native kernel is within a measured ULP bound of the
+/// correctly rounded result, rather than exact.
+///
+/// The bound is relative to `f64` evaluation rounded once to `f32`. Special
+/// values are exact: `±0` keeps its sign, `NaN` stays `NaN`, and infinities
+/// map to the ONNX limits. The bounds are gated in ndarray's own tests (≤ 2
+/// ULP) and re-checked here; the measured maximum is 1 ULP.
+pub mod bounded {
+    /// `Exp` (`float`). Alias of `ndarray::hpc::vml::vsexp`. At most 1 ULP on
+    /// `[-104, 89]`, subnormal results included; `exp(+inf) = +inf`,
+    /// `exp(-inf) = 0`, and results past the `f32` range saturate to `+inf`.
+    pub use ndarray::hpc::vml::vsexp as exp_f32;
+    /// `Tanh` (`float`). Alias of `ndarray::hpc::vml::vstanh`. At most 1 ULP
+    /// over all 2³² `f32` inputs (exhaustive, AVX-512; sampled on AVX2, the
+    /// x86-64 baseline and NEON), odd, monotone and within `[-1, 1]`.
+    pub use ndarray::hpc::vml::vstanh as tanh_f32;
+}
 
 /// `Equal(X, T)`, scalar `T`. Alias of `ndarray::simd::eq_i32_to_mask`.
 pub use ndarray::simd::eq_i32_to_mask as equal_i32;
@@ -194,9 +215,9 @@ binary!(
 /// `Neg`. INLINE: `ndarray`'s element map with `-v`, the same body as its
 /// `Neg for &ArrayRef` impl.
 ///
-/// Not an alias of `ndarray::hpc::vml::vsneg`: its 16-lane body computes
-/// `0.0 - v`, so `Neg(+0.0)` gives `+0.0` instead of `-0.0` whenever the input
-/// has at least 16 elements (its scalar tail computes `-v` and is correct).
+/// Not an alias of `ndarray::hpc::vml::vsneg`, which is `f32`-only and writes
+/// into an output view. Both give `-0.0` for `+0.0` (vsneg since ndarray
+/// #368; pinned by the conformance test).
 #[inline]
 pub fn neg<T: Ieee, S: Data<Elem = T>, D: Dimension>(a: &ArrayBase<S, D>) -> Array<T, D> {
     a.map(|&v| -v)
