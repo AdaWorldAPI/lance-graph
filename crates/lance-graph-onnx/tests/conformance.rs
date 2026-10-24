@@ -71,19 +71,20 @@ fn unary_aliases_are_exact_on_special_values_and_every_tail_length() {
 }
 
 /// The aliases are the native items, not wrappers around them.
-/// Why `Neg` is not an alias: the vml kernel's SIMD body loses the sign of
-/// zero. If ndarray fixes it, this test fails and `Neg` can become an alias.
+/// `vsneg` used to lose the sign of zero in its SIMD body, which is why `Neg`
+/// is not an alias. ndarray #368 fixed it; this test now pins that `vsneg`
+/// and `Neg` agree on +0 in the SIMD body and the tail. Making `Neg` an
+/// alias is a separate change: `vsneg` is `f32`-only and writes into a view.
 #[test]
-fn vml_vsneg_is_not_onnx_neg_on_positive_zero() {
-    let x = Array1::<f32>::zeros(16);
-    let mut out = Array1::<f32>::zeros(16);
+fn vml_vsneg_matches_onnx_neg_on_positive_zero() {
+    let x = Array1::<f32>::zeros(17);
+    let mut out = Array1::<f32>::zeros(17);
     ndarray::hpc::vml::vsneg(x.view(), out.view_mut());
-    assert_eq!(
-        out[0].to_bits(),
-        0.0f32.to_bits(),
-        "vsneg(+0) is +0 on the SIMD path"
-    );
-    assert_eq!(onnx::neg(&x)[0].to_bits(), (-0.0f32).to_bits());
+    let y = onnx::neg(&x);
+    for i in [0, 16] {
+        assert_eq!(out[i].to_bits(), (-0.0f32).to_bits(), "vsneg(+0) at {i}");
+        assert_eq!(y[i].to_bits(), (-0.0f32).to_bits(), "Neg(+0) at {i}");
+    }
 }
 
 #[test]
