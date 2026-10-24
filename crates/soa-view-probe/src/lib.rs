@@ -16,6 +16,11 @@
 //!   stride every other SoA in lance-graph uses. Each method body is that one
 //!   call; there is no per-operation check to pay for.
 //!
+//! **Assumption:** every mutation goes through that same owner by ordinary
+//! borrowing. The guarantee does not cover rows reachable through interior
+//! mutability (`Cell`, atomics, a lock) or an `unsafe` write path beside the
+//! owner; neither exists for `NodeRow`, whose fields are plain byte arrays.
+//!
 //! What this crate does not do, on purpose: it does not check frame
 //! provenance or external authorization. Those are real questions (who sealed
 //! these bytes; may this caller read them), but they belong to whoever hands

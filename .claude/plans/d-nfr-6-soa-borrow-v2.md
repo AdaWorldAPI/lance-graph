@@ -21,6 +21,8 @@ Frame provenance (who sealed these bytes) and external authorization (may this c
 
 No new ownership type, no frame, no epoch, no dispatch.
 
+**Assumption:** all mutation goes through the owner by ordinary borrowing (`&mut`). The guarantee does not extend to interior mutability or an `unsafe` write path beside the owner; `NodeRow`'s fields are plain byte arrays, so neither exists here.
+
 ## 3. Falsifiers
 
 | claim | how it is pinned | disable run |
