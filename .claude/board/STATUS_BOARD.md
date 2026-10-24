@@ -1,3 +1,12 @@
+## D-ONNX-NATIVE — ONNX vocabulary over existing native functions (2026-10-23)
+
+Plan: `.claude/plans/d-onnx-native-v1.md`. Crate: `crates/lance-graph-onnx` (ALIAS / INLINE only; no dispatch).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-NATIVE-0** | crosswalk + minimal facade: elementwise float arithmetic, int32 comparisons, Boolean ops, Where, ReduceSum, ReduceSum(Where(Greater)) | IMPLEMENTED, draft PR (`entries/2026-10-23-d-onnx-native-0-facade.md`) | 11 conformance tests + doctest; 4 disable runs red on their own test; alias = native symbol; asm diff |
+| **D-ONNX-NATIVE-1** | the NATIVE rows: approximate transcendentals, float ReduceSum tolerance, empty-population min/max | PROPOSAL | each row names its open decision (plan §2) |
+
 ## D-NFR / D-NFC — native representation contract + dependency correction (2026-10-23)
 
 Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-dependency-correction-v1.md` (D-NFC). Nothing implemented; no ABI or execution contract changed.

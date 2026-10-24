@@ -187,6 +187,14 @@ jobs:
         run: cargo clippy --manifest-path crates/lance-graph-r2il/Cargo.toml --all-targets -- -D warnings
       - name: Run r2il-mask-abi-probe mask-ABI differential (excluded tier, OGAR + ndarray siblings)
         run: cargo test --manifest-path crates/r2il-mask-abi-probe/Cargo.toml
+      # lance-graph-onnx (D-ONNX-NATIVE-0): ONNX names over existing native
+      # functions. A workspace member, and `cargo build --workspace` does not
+      # run a member's tests. Its conformance tests cross-check against
+      # mask-risc, r2il (OGAR sibling) and relalg, so it runs here beside them.
+      - name: Run lance-graph-onnx conformance tests
+        run: cargo test --release --manifest-path crates/lance-graph-onnx/Cargo.toml
+      - name: Clippy lance-graph-onnx
+        run: cargo clippy --manifest-path crates/lance-graph-onnx/Cargo.toml --all-targets -- -D warnings
       # deepnsm: standalone 0-dep codec crate, workspace-excluded, so the
       # lance-graph test steps above never reached it. ~217 lib + integration +
       # doctests, fast (no lance/datafusion/ndarray deps). Gating.
