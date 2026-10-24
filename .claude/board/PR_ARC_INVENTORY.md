@@ -1,3 +1,82 @@
+<!-- 2026-10-24 catch-up: #1742–#1758 had no entries. One compact entry per PR, recorded from the merge commit and its changed-file list; Confidence lines carry no measurement beyond what the PR's own board entry records. -->
+
+## 2026-10-24 — lance-graph PR #1758 (merged `0dcaf8b5`, branch `feat/onnx-tanh-alias-20261024`, head `4b3685e8`) — lance-graph-onnx: Tanh and Exp as ULP-bounded aliases (`onnx::bounded`)
+
+- **Added:** `crates/lance-graph-onnx/src/lib.rs` (`onnx::bounded` aliases), `tests/conformance.rs`.
+- **Docs:** `.claude/plans/d-onnx-native-v1.md`.
+- **Confidence:** recorded from the merge commit.
+
+## 2026-10-24 — lance-graph PR #1757 (merged `76e44b59`, branch `lab/symmetric-i8-tanh-research-20261024`, head `ddd2c993`) — bgz-tensor: symmetric signed-i8 probe + Fisher-Z error decomposition (lab, no wire change)
+
+- **Added:** `crates/bgz-tensor/tests/symmetric_i8_quantization_probe.rs`, `examples/fisher_z_error_decomposition.rs`; `crates/lance-graph-onnx` src + conformance tests touched.
+- **Docs:** entry `2026-10-24-tanh-precision-symmetric-i8.md`; `d-onnx-native-v1.md`.
+- **Confidence:** lab; see the entry.
+
+## 2026-10-24 — lance-graph PR #1756 (merged `06adcbce`, branch `docs/dr64-focus-lease-foreign-cache-20261024`, head `d16be839`) — docs(D-DRF-1): immutable DR64 focus leases, foreign-cache amortization, sparse writeback
+
+- **Added:** docs only — plans `d-dr64-focus-lease-foreign-cache-v1.md`, `d-dr64-focus-cache-falsifiers-v1.md`; `zero-copy-warden.md` and `zero-copy-lens-law.md` amended.
+- **Docs:** entry `2026-10-24-d-drf-1-focus-lease-foreign-cache.md`. Falsifier matrix pre-registered, NOT RUN.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-24 — lance-graph PR #1755 (merged `23404736`, branch `lab/d-nfr-6-validate-once-20261023`, head `bca2d937`) — lab(D-NFR-6): native operations over the SoaEnvelope borrow — no Table, no frame guard
+
+- **Added:** `crates/soa-view-probe` (lib, `tests/falsifiers.rs`, `examples/view_cost.rs`), `.github/workflows/soa-view-probe.yml`.
+- **Docs:** plans `d-nfr-6-soa-borrow-v2.md`, `d-nfr-6-validate-once-v1.md` (v1 superseded, D-NFR-6a withdrawn); entries `2026-10-23-d-nfr-6-soa-borrow.md`, `…-validate-once.md`.
+- **Confidence:** MEASURED (lab), per the entry.
+
+## 2026-10-24 — lance-graph PR #1754 (merged `cc0bffa7`, branch `feat/lance-graph-onnx-20261023`, head `ad4d064e`) — D-ONNX-NATIVE-0: lance-graph-onnx, ONNX names over existing native functions
+
+- **Added:** new crate `crates/lance-graph-onnx` (src, `tests/conformance.rs`, `examples/alias_cost.rs`); workspace `Cargo.toml`; `rust-test.yml` line.
+- **Docs:** plan `d-onnx-native-v1.md`; entry `2026-10-23-d-onnx-native-0-facade.md`; `TECH_DEBT.md` row.
+- **Confidence:** IMPLEMENTED; conformance tests + disable runs per the entry.
+
+## 2026-10-24 — lance-graph PR #1753 (merged `c3681ba5`, branch `docs/native-first-repr-contract-20261023`, head `bad13fc2`) — D-NFR-0 / D-NFC-0: native representation contract and canonical dependency correction
+
+- **Added:** docs only — plans `d-native-repr-contract-v1.md`, `d-native-first-dependency-correction-v1.md`.
+- **Docs:** entry `2026-10-23-d-nfr-0-native-repr-contract.md`.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-24 — lance-graph PR #1752 (merged `5367fae8`, branch `lab/math-polyfill-probe-20261023`, head `aaece43b`) — lab(mpf): D-MPF-1, the Stage 1 math polyfill already exists
+
+- **Added:** `crates/math-polyfill-probe` (examples incl. `fixed_cost`, `cost_split`, `hybrid`, `classid_route`, codegen witness), `math-polyfill-probe.yml`; `crates/lance-graph-r2il` (`src/lib.rs`, `tests/dialect.rs`) touched.
+- **Docs:** plan `d-mpf-math-polyfill-v1.md`; entries `d-mpf-1-polyfill-probe`, `d-mpf-2-fixed-cost`, `d-mpf-4-classid-route`.
+- **Confidence:** MEASURED (lab), per the entries.
+
+## 2026-10-24 — lance-graph PR #1751 (merged `389b6d0e`, branch `research/d-optimum-bgz-offline-frontend-20261023`, head `915f8964`) — docs(onnx) O0–O4: Optimum offline compiler frontend → BGZ/Palette256 sidecar
+
+- **Added:** docs only — plan `d-optimum-bgz-offline-frontend-v1.md`.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-24 — lance-graph PR #1750 (merged `2c3d16c6`, branch `docs/d-onnx-relalg-cap-20261023`, head `bb064276`) — docs(board): D-ONNX-RELALG-CAP S0 capstone (second version) + board reconciliation
+
+- **Added:** docs only — plan `d-onnx-relalg-cap-capstone-1750-v1.md` (moved off #1744's base path at merge); entry `…-s0-capstone-1750.md`; `FRUITS.md`, `IDEAS.md`, `STATUS_BOARD.md`, `INTEGRATION_PLANS.md` rows.
+- **Deferred:** reconciliation of the three S0 capstones (#1744 / #1745 / #1750) is open.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-24 — lance-graph PRs #1745–#1749 (merged `fe97956c`, `f2085407`, `9f7e78f3`, `6a02664c`, `f6e275a6`; branches `research/d-onnx-relalg-*-20261023`) — docs(onnx): S0 convergence amendment (HOLD), S1–S2 intake, S3a–S3c DR³/holo, S3d physical shootout, S4–S5 palette export
+
+- **Added:** docs only — one plan each: `d-onnx-relalg-cap-convergence-1745-v1.md`, `d-onnx-relalg-s1-s2-semantic-intake-v1.md`, `d-dr3-holo-onnx-s3a-s3c-v1.md`, `d-onnx-relalg-s3d-physical-shootout-v1.md`, `d-onnx-relalg-s4-s5-palette-export-v1.md`.
+- **Deferred:** no board rows, no entries; #1745 is marked HOLD by its own title.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-24 — lance-graph PR #1744 (merged `aa84cc17`, branch `ccr-d3ce1263-ied9yh`, head `30c8c1be`) — D-ONNX-RELALG-CAP S0: ONNX as an import membrane; board closeout #1726–#1741
+
+- **Added:** docs only — plan `d-onnx-relalg-cap-v1.md` (OP-ONNX-1..14), entry `2026-10-23-d-onnx-relalg-cap-s0.md`; STATUS_BOARD D-ONNX-0/1/3, D-TGA-5D shipped.
+- **Locked:** only egglog associativity is called certified; no float law admitted; DR64³ is a new labelled proposal (original plan NOT FOUND).
+- **Confidence:** PROPOSAL (docs).
+
+## 2026-10-23 — lance-graph PR #1743 (merged `f0b046b9`, branch `board/gf2-elim-preregistration-20261023`, head `b622acec`) — board: pre-register EXP-GF2-ELIM
+
+- **Docs:** entry `2026-10-23-gf2-elimination-preregistration.md`. Pre-registered, NOT RUN.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-23 — lance-graph PR #1742 (merged `801c8b1f`, branch `lab/drmc-proofstore-certificate-20261023`, head `c0802ce5`) — lab(drmc): certificate keeps egglog's ProofStore + ProofId, not its rendering
+
+- **Added:** `crates/dr-math-binding-probe` (`recipe.rs`, `relcomp.rs`, tests `relcomp`, `x8_fresh_frame`, `contract_handoff`); `crates/egglog-r2il-probe/src/lib.rs` touched.
+- **Locked:** the D-DRMC-5 certificate holds `EggProof { store, root }`; closes #1740's Deferred line.
+- **Docs:** entry `2026-10-23-drmc-l1-x8-fresh-frame-result.md` updated.
+- **Confidence:** MEASURED (lab).
+
 <!-- 2026-10-23 catch-up: #1660–#1725 had no entries. One compact entry per PR, recorded from the merge commit. Board-hygiene-only PRs (#1664, #1665, #1672, #1678, #1683) get none, per the CLAUDE.md termination clause. -->
 
 <!-- 2026-10-23 catch-up (D-ONNX-RELALG-CAP S0): #1726–#1741, same rule. Hygiene-only, no entry: #1727, #1728, #1730, #1732, #1733, #1734, #1735. -->

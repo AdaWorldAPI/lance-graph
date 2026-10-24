@@ -4,7 +4,7 @@ Plan: `.claude/plans/d-onnx-native-v1.md`. Crate: `crates/lance-graph-onnx` (ALI
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-ONNX-NATIVE-0** | crosswalk + minimal facade: elementwise float arithmetic, int32 comparisons, Boolean ops, Where, ReduceSum, ReduceSum(Where(Greater)) | IMPLEMENTED, draft PR (`entries/2026-10-23-d-onnx-native-0-facade.md`) | 11 conformance tests + doctest; 4 disable runs red on their own test; alias = native symbol; asm diff |
+| **D-ONNX-NATIVE-0** | crosswalk + minimal facade: elementwise float arithmetic, int32 comparisons, Boolean ops, Where, ReduceSum, ReduceSum(Where(Greater)) | Shipped (#1754 `cc0bffa7`; `entries/2026-10-23-d-onnx-native-0-facade.md`) | 11 conformance tests + doctest; 4 disable runs red on their own test; alias = native symbol; asm diff |
 | **D-ONNX-NATIVE-1** | the NATIVE rows: approximate transcendentals, float ReduceSum tolerance, empty-population min/max | PROPOSAL | each row names its open decision (plan §2) |
 
 ## D-DRF — immutable DR64 focus, leased foreign cache, sparse writeback (2026-10-24)
@@ -13,7 +13,7 @@ Docs only (#1756). Plans `d-dr64-focus-lease-foreign-cache-v1.md` and `d-dr64-fo
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | In PR | falsifier matrix G1–G7, L1–L4, P1–P3, M1–M2, W1–W8, R1–R7 pre-registered, NOT RUN |
+| **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | Shipped, docs only (#1756 `06adcbce`) | falsifier matrix G1–G7, L1–L4, P1–P3, M1–M2, W1–W8, R1–R7 pre-registered, NOT RUN |
 | **DRF-P1** | two-focus lazy load / lease / prefetch / last-reader eviction | Proposed | L1–L3, P1–P2; stale-map and race fixtures first |
 | **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Proposed | whole-run cost incl. cold build; the foreign-key cache exception lapses if B/C does not win |
 | **DRF-P3** | relationship cube / slices and typed dirty-row reduction oracle | Proposed | R1–R3, W1–W3; no Bag/NULL/evidence loss |
@@ -39,7 +39,7 @@ Lab only: `crates/soa-view-probe`, plan `.claude/plans/d-nfr-6-soa-borrow-v2.md`
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-NFR-6** | views are `NodeRowPacket` borrows (512-byte rows, 16-byte facets); operations are one ndarray kernel each; mutation through the owner's `&mut`; no `Table`, no frame guard | MEASURED (`entries/2026-10-23-d-nfr-6-soa-borrow.md`) | 3 compile_fail examples (E0502/E0597/E0599); 4 runtime falsifiers; 3 disable runs red; packet = direct within noise, 0 allocations, asm shows only kernel calls |
+| **D-NFR-6** | views are `NodeRowPacket` borrows (512-byte rows, 16-byte facets); operations are one ndarray kernel each; mutation through the owner's `&mut`; no `Table`, no frame guard | MEASURED, merged (#1755 `23404736`; `entries/2026-10-23-d-nfr-6-soa-borrow.md`) | 3 compile_fail examples (E0502/E0597/E0599); 4 runtime falsifiers; 3 disable runs red; packet = direct within noise, 0 allocations, asm shows only kernel calls |
 | ~~**D-NFR-6a**~~ | ~~`FrameStore::check` by pointer comparison~~ | WITHDRAWN (v2: a faster unneeded guard is not the fix) | — |
 
 ## D-MPF — mathematical polyfill API, Stage 1 (2026-10-23)
@@ -48,7 +48,7 @@ Lab only (`crates/math-polyfill-probe`). Plan `.claude/plans/d-mpf-math-polyfill
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-MPF-1** | one expression (SUM − k·COUNT, NULL plane) through the existing r2il procedures; oracle; typed refusals; cost split | MEASURED (this branch) | equal to an `i128` row loop at 64..65 537 rows; D1–D3 red; 0.86–0.91 ns/row at 64 K, ~600 ns per call at 64 rows |
+| **D-MPF-1** | one expression (SUM − k·COUNT, NULL plane) through the existing r2il procedures; oracle; typed refusals; cost split | MEASURED, merged (#1752 `5367fae8`) | equal to an `i128` row loop at 64..65 537 rows; D1–D3 red; 0.86–0.91 ns/row at 64 K, ~600 ns per call at 64 rows |
 | **D-MPF-2** | attribute the one-word fixed cost (~120 ns mask-risc + ~150 ns dialect) | Measured (#1752) | gate not met, reason recorded: floor alone 39 ns at one word; per-row bottleneck is `masked_sum_i32`'s bit walk (plan §7) |
 | **D-MPF-3** | element-wise integer arithmetic (G1) | Blocked (owner decision) | `lane_plus_lane_is_refused` turns into an admitted, oracle-checked op |
 | **D-MPF-2b** | dense/sparse hybrid masked sum (per-word density threshold) and one mask reused across count/sum/min/max | Measured (#1752) | hybrid th=16 is 2–3.7× (uniform) and 4–5× (clustered) faster than the walk, and never slower; reuse ~2× when sparse; a fused scalar pass is 6× faster at 50 % (plan §9) |
@@ -73,7 +73,7 @@ Plan `d-onnx-relalg-cap-v1.md`, PROPOSAL. Only S0 is in a PR.
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-ONNX-0** | S0 capstone plan, coverage matrix, open-points register OP-ONNX-1..14 | In PR (docs only) | consistent with code at `59538865`; no DR64³ claim |
+| **D-ONNX-0** | S0 capstone plan, coverage matrix, open-points register OP-ONNX-1..14 | Shipped, docs only (#1744 `aa84cc17`) | consistent with code at `59538865`; no DR64³ claim |
 | **D-ONNX-1** | S1 intake probe: ONNX-subset reader with typed refusals; Boolean/compare/reduce fragment onto relalg | Queued (not authorized) | onnxruntime differential (a test, not a proof); waits on OP-ONNX-1, OP-ONNX-2 |
 | **D-ONNX-3** | S3 DR64³ R1/R2 contraction probe (new proposal) | Queued (not authorized) | four arms bit-exact; waits on OP-ONNX-4 |
 

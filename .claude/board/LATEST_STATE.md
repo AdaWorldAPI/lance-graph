@@ -1,3 +1,10 @@
+## 2026-10-24 — main after #1758 (merged `0dcaf8b5`)
+
+- New crates on main: `lance-graph-onnx` (#1754; ONNX names over existing native functions, `onnx::bounded` Tanh/Exp aliases in #1758), `math-polyfill-probe` (#1752, lab), `soa-view-probe` (#1755, lab).
+- `dr-math-binding-probe`: the D-DRMC-5 certificate holds egglog's `ProofStore` + `ProofId` (#1742).
+- Docs only: three S0 capstones for D-ONNX-RELALG-CAP are on main (#1744 base path, #1745 convergence amendment on HOLD, #1750 second capstone) plus S1–S5 plans (#1746–#1749) and O0–O4 (#1751); where they disagree, D-NFC (#1753) governs; which draft documents the conformance-adapter layer is for the three owners on EXO-50 (OPEN). #1744's S0 now carries the D-NFC owner note. D-NFR-0 / D-NFC-0 (#1753), D-DRF-1 (#1756) are proposals with falsifiers NOT RUN.
+- Per-PR records: `PR_ARC_INVENTORY.md` catch-up #1742–#1758.
+
 ## 2026-10-23 — main after #1741 (merged `59538865`)
 
 - **On main since #1725:** Palette256 compose and learned-LUT probes (#1726, #1731), the BREADCRUMBS / TORQUE / GOLDSTAUB ledgers and `fruits_index.py` (#1729), the thought-git squash gate and Probe D (#1736, #1739, lab, `thought-git-probe`), the D-DRMC-5 fresh-frame reuse L1 (#1740, lab, `dr-math-binding-probe`), the "no certified compiler" scope correction (#1738), and coresearch maps (#1737, #1741). Per-PR records: `PR_ARC_INVENTORY.md`.

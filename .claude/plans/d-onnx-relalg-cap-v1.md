@@ -1,5 +1,14 @@
 # D-ONNX-RELALG-CAP — ONNX as import membrane over the existing substrate (S0)
 
+> **⊘ SUPERSESSION — D-NFC (2026-10-24, owner note per `d-native-first-dependency-correction-v1.md` §6 step 1).** This S0 adopts §1 and §2 of `.claude/plans/d-native-first-dependency-correction-v1.md` (#1753, operator DECISION 2026-10-23) by reference. Where this text and that correction disagree, the correction governs. In particular:
+>
+> 1. **A1.** Native typed expressions and compiled R2IL procedures are the internal contract. An ONNX file is external input, read only by the conformance adapter (layer [7]).
+> 2. **A2.** Native Stage 1 has no ONNX prerequisite. The importer (OP-ONNX-2) and any target model gate only the optional external-file adapter, not native work. The shipped native polyfill is #1752.
+> 3. **OP-ONNX-1 (home for value maths)** is answered by D-NFC §4: floating-point operations run in existing ndarray / bgz / Helix kernels with explicit numerical validation and no algebraic certificate. `crates/lance-graph-onnx` (#1754, #1758) puts ONNX names over those native functions. relalg still takes no value maths.
+> 4. **Unchanged:** the egglog associativity certificate is the only certified law; no float law is admitted; ADMISSION B; DR64³ identity is not invented here.
+>
+> Which S0 draft (#1744 / #1745 / #1750) documents layer [7] is for the three owners on EXO-50 (D-NFC §6 step 3); this note does not decide it. The rest of this plan is unchanged.
+
 **Status:** PROPOSAL, documentation only, 2026-10-23. No code in this plan's PR. Read at `origin/main` `59538865`. ONNX facts are read from the upstream clone at commit `0c8af065` and cited as `onnx:<path>:line`. Stages S1..S5 are PLANNED and not authorized.
 
 **Corrected statement (replaces the original proposal wording).** ONNX is a read-only interchange membrane. An imported model is refused unless every op is in an explicit admitted subset. Admitted ops lower, as written, onto existing contract set-algebra forms and R2IL/Quack/mask-risc terminals through relalg's planning and lowering. Value-indexed ops (`Gather*`, `Scatter*`, `NonZero`, `Unique`, `Compress`), training graphs and float reassociation are refused. The only certified law remains Boolean-Distinct reassociation (egglog, #1707). Every other stage is a differential test. DR64³ and DR256³ are unimplemented proposals with no measured figures. (Source: opusC, "Minimal corrected capstone sentence", adjusted to add `Compress`, which opusA §1 lists as unsupported.)
@@ -159,7 +168,7 @@ The 64³ Explore → 256³ Validate → Certified Method → 64³ Reuse progress
 
 | ID | Question | Owner | Dependency | Evidence | Falsifier | Decision | Status |
 |---|---|---|---|---|---|---|---|
-| OP-ONNX-1 | Home for value maths (arithmetic, MatMul, Exp/Tanh/Mish): relalg cannot take it without a new IR | operator | none | opusA §2; D-RA-2 `.claude/plans/d-relalg-unified-v1.md`; `crates/lance-graph-relalg/src/lib.rs` | any proposal adding value-producing nodes to `Rel` | none | OPEN |
+| OP-ONNX-1 | Home for value maths (arithmetic, MatMul, Exp/Tanh/Mish): relalg cannot take it without a new IR | operator | none | opusA §2; D-RA-2 `.claude/plans/d-relalg-unified-v1.md`; `crates/lance-graph-relalg/src/lib.rs` | any proposal adding value-producing nodes to `Rel` | none | ANSWERED 2026-10-24: D-NFC §4 (#1753) + `lance-graph-onnx` (#1754) |
 | OP-ONNX-2 | Importer dependency (options A-E) | operator | OP-ONNX-1 for scope | §5 above | S1 reads real ONNX bytes | none | OPEN |
 | OP-ONNX-3 | DR64³/DR256³ original plan missing | operator | none | §6 negative search (BRIEF) | the plan is located | none | OPEN |
 | OP-ONNX-4 | Does bit-position scanning in one co-addressed frame violate ADMISSION B / D-RU-6? | operator | none | `relcomp.rs`; `compose.rs`; `qr.rs`; `.claude/board/ISSUES.md` | a ruling | none | OPEN |
