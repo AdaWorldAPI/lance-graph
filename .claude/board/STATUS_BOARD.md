@@ -7,6 +7,18 @@ Plan: `.claude/plans/d-onnx-native-v1.md`. Crate: `crates/lance-graph-onnx` (ALI
 | **D-ONNX-NATIVE-0** | crosswalk + minimal facade: elementwise float arithmetic, int32 comparisons, Boolean ops, Where, ReduceSum, ReduceSum(Where(Greater)) | IMPLEMENTED, draft PR (`entries/2026-10-23-d-onnx-native-0-facade.md`) | 11 conformance tests + doctest; 4 disable runs red on their own test; alias = native symbol; asm diff |
 | **D-ONNX-NATIVE-1** | the NATIVE rows: approximate transcendentals, float ReduceSum tolerance, empty-population min/max | PROPOSAL | each row names its open decision (plan §2) |
 
+## D-DRF — immutable DR64 focus, leased foreign cache, sparse writeback (2026-10-24)
+
+Docs only (#1756). Plans `d-dr64-focus-lease-foreign-cache-v1.md` and `d-dr64-focus-cache-falsifiers-v1.md`. The foreign-key cache is a scoped exception to the zero-copy law (DECISION 2026-10-24, `zero-copy-lens-law.md`).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | In PR | falsifier matrix G1–G7, L1–L4, P1–P3, M1–M2, W1–W8, R1–R7 pre-registered, NOT RUN |
+| **DRF-P1** | two-focus lazy load / lease / prefetch / last-reader eviction | Proposed | L1–L3, P1–P2; stale-map and race fixtures first |
+| **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Proposed | whole-run cost incl. cold build; the foreign-key cache exception lapses if B/C does not win |
+| **DRF-P3** | relationship cube / slices and typed dirty-row reduction oracle | Proposed | R1–R3, W1–W3; no Bag/NULL/evidence loss |
+| **DRF-P4** | optional plasticity overlay + ONNX candidate stream | Proposed | R4–R7; base DR revision bit-identical |
+
 ## D-NFR / D-NFC — native representation contract + dependency correction (2026-10-23)
 
 Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-dependency-correction-v1.md` (D-NFC). Nothing implemented; no ABI or execution contract changed.

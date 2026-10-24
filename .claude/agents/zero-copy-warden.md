@@ -89,6 +89,18 @@ excluded in both directions (see the 16 MB scale anchor): never let
 "it's expensive to recompute" argue FOR a store, and never let "it's
 cheap" argue against a lane.
 
+**SCOPED-EXCEPTION — the DR64³ foreign-key cache** *(DECISION 2026-10-24)*.
+The law's § "The DR64³ foreign-key cache exception" admits one
+cast-reproducible cache on a cost basis, in one scope: a DR64 focus whose
+foreign-key reads span several ontologies, reused across many thoughts,
+feeding relationship learning and live-generated ONNX (D-DRF-1 §5). Before
+returning MATERIALIZES for a gathered foreign facet, check that scope and
+every condition (disposable, recomputable from sealed references, full
+witness key, no uncommitted truth, build cost reported). All met → not a
+finding; say which condition you checked. Any missing → the ordinary
+verdict. This is the only place a cost argument is admitted; do not extend
+it by analogy.
+
 **LENS-CLEAN** — every read is a cast at the point of use:
 `from_register_ref(&rows[pos].value[a..b])`, offsets derived from the
 tenant descriptor, filtering done by predicate rather than by gather.

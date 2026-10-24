@@ -1,0 +1,8 @@
+# D-DRF-1 — immutable DR64 focus, leased foreign cache, sparse writeback
+
+**Date:** 2026-10-24 · **Status:** REFERENCE DESIGN, pre-registered, NOT RUN · **Plans:** `.claude/plans/d-dr64-focus-lease-foreign-cache-v1.md`, `.claude/plans/d-dr64-focus-cache-falsifiers-v1.md` · **PR:** #1756
+
+- **Design:** the DR map is an immutable, versioned reference; a changed map is a new sealed revision. Focus load acquires an ephemeral residency lease, released with the last reader. Caches are disposable and recomputable from sealed references. Dirty local positions translate through the original map, coalesce by canonical destination under a declared reduction, and go as owned rows through `collect_casts → CycleWriterHandle::try_submit → DetachedCycleBatch::freeze → WalSink::commit_cycle`.
+- **DECISION (2026-10-24):** the DR64³ foreign-key cache is a scoped exception to the zero-copy law. SCOPE: foreign-key reads spanning several ontologies (about 8), reused across many thoughts, feeding relationship learning and live-generated ONNX. BASIS: the alternative is scattered row reads repeated per ontology, thought and learning iteration. REVISIT WHEN: DRF-P2; the exception lapses where the gather-and-reuse arm does not win on whole-run cost including cold build. Recorded in `zero-copy-lens-law.md` and `zero-copy-warden.md` (SCOPED-EXCEPTION).
+- **Checked against source:** geometry arithmetic; the writer chain exists as named; `LanceCycleWriter` copies into Arrow builders (its own module doc); `DurableRef` / `ThoughtCommitId` are specified, not shipped.
+- **Open:** whether the cache wins at all (DRF-P2); the residency lease's reader-lifetime mechanism (DRF-P1).
