@@ -10,9 +10,11 @@
 - **W2 PASS:** two slots aliasing one row write different facets; the single image keeps
   both, identical for both staging orders.
 - **W3 PASS (refusal arm):** two different values for one facet of one row →
-  `Refusal::Conflict`; equal values coalesce. Stale source at flush → `StaleMap`.
+  `Refusal::Conflict`; equal values coalesce. Two facets whose byte ranges overlap
+  (offsets 16 and 17) also refuse; facets that only touch both survive (codex P2 on #1765).
+  Stale source at flush → `StaleMap`.
 - **Disables, each red:** one image per patch (W1/W2/W3), last-payload-wins row replacement
-  (W2), conflict check removed (W3).
+  (W2), conflict check removed (W3), overlap clause removed (W3 overlap).
 
 OPEN: W3's "declared stream position" ordering (deterministic noncommuting apply) is not
 built; this probe only refuses. W4–W8 (owned handoff to a CycleWriter, WAL, durability,
