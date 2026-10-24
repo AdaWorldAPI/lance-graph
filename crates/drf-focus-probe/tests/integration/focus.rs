@@ -482,7 +482,8 @@ fn w3_overlapping_facets_at_different_offsets_refuse_and_adjacent_facets_both_su
     // Silence twin: facets that only touch (OFF, OFF + 4) do not overlap.
     let mut wb = f.writeback();
     wb.stage(0, facet(), 1).unwrap();
-    wb.stage(1, Facet::new(OFF + Facet::WIDTH).unwrap(), 2).unwrap();
+    wb.stage(1, Facet::new(OFF + Facet::WIDTH).unwrap(), 2)
+        .unwrap();
     let imgs = wb.flush(&soa).unwrap();
     assert_eq!(imgs.len(), 1);
     let row = &imgs[0].row;

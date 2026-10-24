@@ -95,7 +95,8 @@ pub enum Refusal {
     SlotOutOfFocus {
         slot: usize,
     },
-    /// Two staged writes give one facet of one row different values (W3).
+    /// Two staged writes give one facet of one row different values, or
+    /// write overlapping byte ranges of one row (W3).
     Conflict {
         ord: u16,
         offset: usize,
@@ -344,7 +345,8 @@ impl Writeback<'_> {
 
     /// One image per distinct dirty row, in ordinal order: the sealed source row
     /// with every staged facet applied. Writes to different facets of one row
-    /// all survive (W2); two different values for the same facet refuse (W3).
+    /// all survive (W2); two different values for the same facet, or two
+    /// facets whose byte ranges overlap, refuse (W3).
     pub fn flush(mut self, soa: &Soa<'_>) -> Result<Vec<RowImage>, Refusal> {
         check_seal(soa, &self.focus.map)?;
         if self.focus.key.source != soa.id {
@@ -355,10 +357,19 @@ impl Writeback<'_> {
         }
         self.patches.sort_by_key(|p| (p.ord, p.offset));
         for w in self.patches.windows(2) {
-            if w[0].ord == w[1].ord && w[0].offset == w[1].offset && w[0].value != w[1].value {
+            if w[0].ord != w[1].ord {
+                continue;
+            }
+            // Same facet with a different value, or two facets whose byte
+            // ranges overlap: either would silently overwrite a staged write.
+            // Sorted by offset, so checking neighbours finds every overlap.
+            let same = w[0].offset == w[1].offset;
+            if (same && w[0].value != w[1].value)
+                || (!same && w[1].offset < w[0].offset + Facet::WIDTH)
+            {
                 return Err(Refusal::Conflict {
-                    ord: w[0].ord,
-                    offset: w[0].offset,
+                    ord: w[1].ord,
+                    offset: w[1].offset,
                 });
             }
         }
