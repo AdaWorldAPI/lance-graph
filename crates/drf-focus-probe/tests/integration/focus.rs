@@ -456,3 +456,36 @@ fn w3_same_facet_different_values_refuse_and_equal_values_coalesce() {
     };
     assert!(matches!(wb.flush(&moved), Err(Refusal::StaleMap { .. })));
 }
+
+#[test]
+fn w3_overlapping_facets_at_different_offsets_refuse_and_adjacent_facets_both_survive() {
+    // Codex P2 on #1765: offsets 16 and 17 share bytes 17..20, so the second
+    // write would silently corrupt the first. Refuse it.
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(303, 9, |s| if s < 2 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 1).unwrap();
+    wb.stage(1, Facet::new(OFF + 1).unwrap(), 2).unwrap();
+    assert_eq!(
+        wb.flush(&soa).err(),
+        Some(Refusal::Conflict {
+            ord: 500,
+            offset: OFF + 1
+        })
+    );
+    // Silence twin: facets that only touch (OFF, OFF + 4) do not overlap.
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 1).unwrap();
+    wb.stage(1, Facet::new(OFF + Facet::WIDTH).unwrap(), 2).unwrap();
+    let imgs = wb.flush(&soa).unwrap();
+    assert_eq!(imgs.len(), 1);
+    let row = &imgs[0].row;
+    assert_eq!(row[OFF..OFF + 4], 1i32.to_le_bytes());
+    assert_eq!(row[OFF + 4..OFF + 8], 2i32.to_le_bytes());
+}
