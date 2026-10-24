@@ -1,0 +1,17 @@
+[package]
+name = "soa-view-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "D-NFR-6 lab probe: native ndarray operations over a SoaEnvelope borrow (NodeRowPacket, 512-byte rows, 16-byte facets). Mutation safety is the borrow; no runtime guard. Lab only: no production contract or ABI."
+
+# Own workspace root: a lab crate excluded from the root workspace.
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The native kernels. Same source string as mask-risc's copy.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }

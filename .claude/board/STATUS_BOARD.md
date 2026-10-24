@@ -13,13 +13,22 @@ Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-depe
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-NFC-0** | one canonical dependency diagram and seven root assumptions, applied as marked supersessions to #1746–#1751 and #1750 | In PR | each affected PR cites the diagram; S0 dispute left open |
-| **D-NFR-0** | seam table Quack → DR64³ → Palette256³ → execution, cited to source | In PR | every seam SHIPPED / LAB / PROPOSED / MISSING with its source |
+| **D-NFC-0** | one canonical dependency diagram and seven root assumptions, applied as marked supersessions to #1746–#1751 and #1750 | Shipped (#1753) | each affected PR cites the diagram; S0 dispute left open |
+| **D-NFR-0** | seam table Quack → DR64³ → Palette256³ → execution, cited to source | Shipped (#1753) | every seam SHIPPED / LAB / PROPOSED / MISSING with its source |
 | **D-NFR-1** | lab adapter: a Quack-bound query sealed under a frame | Proposed | after one revision moves, the stored binding is refused with the matching `Refusal`; before, it equals an oracle |
 | **D-NFR-2** | codebook generation carried in the frame seal | Proposed | a palette value bound under generation g is refused under g+1 |
 | **D-NFR-3** | one DR axis bound to one palette plane under a frame | Proposed | Cartesian and numerical oracles agree; a mismatched codebook is refused |
 | **D-NFR-4** | end-to-end acceptance fixture (nine steps, each measured) | Proposed | all nine steps pass, each step's cost reported separately |
 | **D-NFR-5** | one binding and one focus reused across several operations | Proposed | reuse saving measured against rebinding and a fused scalar / SIMD baseline, guards run on every use |
+
+## D-NFR-6 — native operations over the SoaEnvelope borrow, no guard (2026-10-23)
+
+Lab only: `crates/soa-view-probe`, plan `.claude/plans/d-nfr-6-soa-borrow-v2.md` (supersedes `d-nfr-6-validate-once-v1.md`). Parent D-NFR (#1753).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-NFR-6** | views are `NodeRowPacket` borrows (512-byte rows, 16-byte facets); operations are one ndarray kernel each; mutation through the owner's `&mut`; no `Table`, no frame guard | MEASURED (`entries/2026-10-23-d-nfr-6-soa-borrow.md`) | 3 compile_fail examples (E0502/E0597/E0599); 4 runtime falsifiers; 3 disable runs red; packet = direct within noise, 0 allocations, asm shows only kernel calls |
+| ~~**D-NFR-6a**~~ | ~~`FrameStore::check` by pointer comparison~~ | WITHDRAWN (v2: a faster unneeded guard is not the fix) | — |
 
 ## D-MPF — mathematical polyfill API, Stage 1 (2026-10-23)
 

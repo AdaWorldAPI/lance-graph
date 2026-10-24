@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-460 entries, 2026-08-06 .. 2026-10-23.
+462 entries, 2026-08-06 .. 2026-10-23.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -40,6 +40,8 @@ exactly one of them, never both.
 | 2026-10-23 | `D-ONNX-RELALG-CAP` | S0 result: ONNX as import membrane, DR64³ plan not found | [2026-10-23-d-onnx-relalg-cap-s0.md](2026-10-23-d-onnx-relalg-cap-s0.md) |
 | 2026-10-23 | `E-D-ONNX-RELALG-CAP-S0-1` |  | [2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md](2026-10-23-d-onnx-relalg-cap-s0-capstone-1750.md) |
 | 2026-10-23 | `D-ONNX-NATIVE-0` |  | [2026-10-23-d-onnx-native-0-facade.md](2026-10-23-d-onnx-native-0-facade.md) |
+| 2026-10-23 | `D-NFR-6-v1` |  | [2026-10-23-d-nfr-6-validate-once.md](2026-10-23-d-nfr-6-validate-once.md) |
+| 2026-10-23 | `D-NFR-6` |  | [2026-10-23-d-nfr-6-soa-borrow.md](2026-10-23-d-nfr-6-soa-borrow.md) |
 | 2026-10-23 | `D-NFR-0` |  | [2026-10-23-d-nfr-0-native-repr-contract.md](2026-10-23-d-nfr-0-native-repr-contract.md) |
 | 2026-10-23 | `D-MPF-4` |  | [2026-10-23-d-mpf-4-classid-route.md](2026-10-23-d-mpf-4-classid-route.md) |
 | 2026-10-23 | `D-MPF-2` |  | [2026-10-23-d-mpf-2-fixed-cost.md](2026-10-23-d-mpf-2-fixed-cost.md) |

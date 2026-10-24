@@ -1,3 +1,11 @@
+## 2026-10-23 — d-nfr-6-soa-borrow-v2 — native operations over the SoaEnvelope borrow, no guard → `.claude/plans/d-nfr-6-soa-borrow-v2.md`
+
+**Status:** MEASURED, lab only (`crates/soa-view-probe`). Supersedes `d-nfr-6-validate-once-v1`: views are `NodeRowPacket` borrows, operations are one ndarray kernel each, mutation is the owner's `&mut`; no `Table`, no frame guard. Packet equals direct ndarray within noise at 0 allocations. D-NFR-6a withdrawn.
+**Confidence:** measured on one AVX-512 host; no independent review yet.
+
+## 2026-10-23 — d-nfr-6-validate-once-v1 — validate a binding once, then execute without repeated guards → `.claude/plans/d-nfr-6-validate-once-v1.md`
+
+**Status:** SUPERSEDED by d-nfr-6-soa-borrow-v2 (was MEASURED, lab only, `crates/dr-validated-view-probe`, removed). The per-call 27–28 ns guard is `FrameStore::check`'s refcount traffic; a view validated once by the existing `bind_dr64`, and kept valid by borrowing the table that owns data, frame and focus, runs native operations at direct cost. Externally owned revocation keeps a one-load check per operation. Proposals D-NFR-6a need the probe owner's review.
 ## 2026-10-23 — d-onnx-native-v1 — ONNX vocabulary over existing native functions → `.claude/plans/d-onnx-native-v1.md`
 
 **Status:** D-ONNX-NATIVE-0 IMPLEMENTED as a draft PR (`crates/lance-graph-onnx`), not merged. The path is ONNX name → existing native function: ALIAS where the contract is identical, a small INLINE adapter where it is not, a typed `Refusal` otherwise. No graph, dispatcher or initialization. R2IL routing (D-MPF-4, #1752) is separate and is not imported.
