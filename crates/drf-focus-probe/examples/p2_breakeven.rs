@@ -31,7 +31,39 @@ fn median_ns(reps: usize, mut f: impl FnMut()) -> f64 {
     v[reps / 2]
 }
 
+/// Stream a buffer twice the size of the last-level cache, outside the timed
+/// region, so the rows a cold rep touches come from DRAM.
+fn evict(buf: &mut [u64]) {
+    let mut acc = 0u64;
+    for (i, v) in buf.iter_mut().enumerate() {
+        *v = v.wrapping_add(i as u64);
+        acc ^= *v;
+    }
+    black_box(acc);
+}
+
+fn median_cold_ns(reps: usize, buf: &mut [u64], mut f: impl FnMut()) -> f64 {
+    let mut v: Vec<f64> = (0..reps)
+        .map(|_| {
+            evict(buf);
+            let t = Instant::now();
+            f();
+            t.elapsed().as_nanos() as f64
+        })
+        .collect();
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    v[reps / 2]
+}
+
+/// Smallest N with focus (build + N folds) below direct (first read at `d0`,
+/// later reads at `d`). `None` if it never crosses within 10 000.
+fn crossover(build: f64, fold: f64, d0: f64, d: f64) -> Option<u64> {
+    (1..=10_000u64).find(|&n| build + n as f64 * fold < d0 + (n - 1) as f64 * d)
+}
+
 fn main() {
+    // 512 MiB: twice the 260 MiB L3 on the measuring host.
+    let mut evict_buf = vec![0u64; 64 << 20];
     let isa = if cfg!(target_feature = "avx512f") {
         "avx512f"
     } else if cfg!(target_feature = "avx2") {
@@ -40,9 +72,21 @@ fn main() {
         "scalar"
     };
     println!("isa={isa} slots={SLOTS} row={ROW}B facet=i32@{OFF}");
+    println!("warm = repeated reps, rows stay cached; cold = 512 MiB evicted before each rep");
     println!(
-        "{:<10} {:>7} {:<10} {:>6} {:>11} {:>9} {:>11} {:>7} {:>12}",
-        "rows", "MiB", "map", "dens", "build_ns", "fold_ns", "direct_ns", "N*", "A2@N*"
+        "{:<6} {:>8} {:<10} {:>5} {:>9} {:>7} {:>9} {:>9} {:>11} {:>6} {:>6} {:>7}",
+        "rows",
+        "lineKiB",
+        "map",
+        "dens",
+        "build_w",
+        "fold_w",
+        "direct_w",
+        "build_c",
+        "direct_c",
+        "N*_w",
+        "N*_c",
+        "A2@N*c"
     );
     let mut st = 0x9E37_79B9_7F4A_7C15u64;
     for nrows in [1024usize, 65536] {
@@ -104,25 +148,39 @@ fn main() {
                     focus.sum_where(&mask),
                     direct_sum_where(&soa, &map, facet, &mask, 16).unwrap()
                 );
-                let nstar = if direct > fold {
-                    format!("{}", (build / (direct - fold)).ceil() as u64)
-                } else {
-                    "never".into()
-                };
-                let a2 = match nstar.parse::<f64>() {
-                    Ok(n) => format!("{:.3}", n * pop as f64 / (n * pop as f64 + SLOTS as f64)),
-                    Err(_) => "-".into(),
-                };
+                let build_c = median_cold_ns(21, &mut evict_buf, || {
+                    let mgr = FocusManager::new();
+                    black_box(mgr.load(&soa, &map, Scope(1), facet).unwrap());
+                });
+                let direct_c = median_cold_ns(21, &mut evict_buf, || {
+                    black_box(direct_sum_where(&soa, &map, facet, black_box(&mask), 16).unwrap());
+                });
+                let show = |n: Option<u64>| n.map_or("never".to_string(), |n| n.to_string());
+                let nw = crossover(build, fold, direct, direct);
+                let nc = crossover(build_c, fold, direct_c, direct);
+                let a2 = nc.map_or("-".into(), |n| {
+                    let r = n as f64 * pop as f64;
+                    format!("{:.3}", r / (r + SLOTS as f64))
+                });
+                let mut seen = vec![false; nrows];
+                let lines = map
+                    .ord
+                    .iter()
+                    .filter(|&&o| !std::mem::replace(&mut seen[o as usize], true))
+                    .count();
                 println!(
-                    "{:<10} {:>7.1} {:<10} {:>6.2} {:>11.0} {:>9.0} {:>11.0} {:>7} {:>12}",
+                    "{:<6} {:>8} {:<10} {:>5.2} {:>9.0} {:>7.0} {:>9.0} {:>9.0} {:>11.0} {:>6} {:>6} {:>7}",
                     nrows,
-                    (nrows * ROW) as f64 / (1 << 20) as f64,
+                    lines * 64 / 1024,
                     mname,
                     pop as f64 / SLOTS as f64,
                     build,
                     fold,
                     direct,
-                    nstar,
+                    build_c,
+                    direct_c,
+                    show(nw),
+                    show(nc),
                     a2
                 );
             }
