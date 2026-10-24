@@ -1,4 +1,4 @@
-# D-DRF W3 — ordered same-facet writes apply by declared stream position (lab)
+# D-DRF-W3 — ordered same-facet writes apply by declared stream position (lab)
 
 **Status:** TEST-PINNED (lab). **Code:** `crates/drf-focus-probe/src/lib.rs`
 (`Writeback::stage_at`, `flush`). **Tests:** `tests/integration/focus.rs`
