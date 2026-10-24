@@ -1,3 +1,7 @@
+## 2026-10-24 — d-dr64-focus-lease-foreign-cache-v1 + d-dr64-focus-cache-falsifiers-v1 — immutable DR64 focus, leased foreign cache, sparse writeback → `.claude/plans/d-dr64-focus-lease-foreign-cache-v1.md`, `.claude/plans/d-dr64-focus-cache-falsifiers-v1.md`
+
+**Status:** D-DRF-1 REFERENCE DESIGN / PRE-REGISTRATION ONLY (#1756); DRF-P1..P4 PROPOSED, not authorized. The DR map stays an immutable versioned reference; focus load acquires an ephemeral residency lease; caches are disposable; dirty rows coalesce by canonical destination and go through the existing CycleWriter. DECISION 2026-10-24: the DR64³ foreign-key cache is a scoped exception to the zero-copy law (cost basis, several ontologies, learning into live-generated ONNX), lapsing if DRF-P2 does not measure a whole-run win. Entry `2026-10-24-d-drf-1-focus-lease-foreign-cache.md`.
+
 ## 2026-10-23 — d-nfr-6-soa-borrow-v2 — native operations over the SoaEnvelope borrow, no guard → `.claude/plans/d-nfr-6-soa-borrow-v2.md`
 
 **Status:** MEASURED, lab only (`crates/soa-view-probe`). Supersedes `d-nfr-6-validate-once-v1`: views are `NodeRowPacket` borrows, operations are one ndarray kernel each, mutation is the owner's `&mut`; no `Table`, no frame guard. Packet equals direct ndarray within noise at 0 allocations. D-NFR-6a withdrawn.

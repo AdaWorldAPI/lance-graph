@@ -29,6 +29,7 @@
 | "Projection is not chasing" — indirection cost is zero here | **FINDING** (mechanism), *unbenchmarked* | Follows from `target = cur + off` being computed arithmetic over a contiguous strided slab. **No micro-benchmark has been run**; the claim is structural, not measured. |
 | The rung test (elevation licenses a store; a projection never does) | **CONJECTURE** | Operator ruling + one shipped precedent (`Locus::Quorum` / `Contradiction`). **No probe has run.** Falsifier stated in § "The one apparent exception"; gated as `PROBE-RUNG-ELIGIBILITY`, NOT RUN. |
 | Grey/white per-lane assignment | **CONJECTURE** | Framing only. The doc says so at the table: *"the governing frame, not a census."* Census = plan §6 Q0, NOT RUN. |
+| The DR64³ foreign-key cache exception pays for itself | **HYPOTHESIS** | DECISION 2026-10-24, scoped (§ "The DR64³ foreign-key cache exception"). Rests on three unmeasured fractions: dirty rows, read hits (expected 70–90%), value-free learning steps; DRF-P2 is the gate and the exception lapses if it fails. |
 | The 16 MB / 2×16 MB scale anchor | **FINDING** (arithmetic) | 32k rows × 512 B = 16 MB, checked. The grey/white *split* of that budget is operator-stated, not measured. |
 
 **Nothing in this doc is promoted past its row above.** Where a section reads as
@@ -249,6 +250,17 @@ are stored entropy work, and `CONTENT_LOCI` excludes them ("no self-reference").
 They qualify **not** because reconciling observations is expensive, but because a
 contradiction is a strictly higher epistemic object than the observations it
 reconciles. That is the shape every future derivation tenant must match.
+
+## The DR64³ foreign-key cache exception (2026-10-24)
+
+**DECISION:** a second exception, separate from the rung test above and not derived from it. A gathered foreign facet cache is a cast-reproducible projection, so by the rung test it is a violation; this decision admits it anyway, in one scope only, on a cost basis that this law otherwise rejects. Admitting it here, by name, is what keeps it from becoming a general hatch.
+
+- **SCOPE:** foreign-key operations over a DR64 focus whose referenced rows span several ontologies (the motivating case is about 8), reused across many thoughts, with relationship learning over the result feeding live-generated ONNX as the mathematical compiler substrate. Plan: `.claude/plans/d-dr64-focus-lease-foreign-cache-v1.md` §5 (D-DRF-1).
+- **BASIS:** the cost is amortized in three places. (1) Writes: only dirty rows are written back, coalesced by canonical destination, so a focus touched by many thoughts commits a few full-row images, not one write per operation. (2) Reads: most accesses (expected 70–90%) are reads served from the versioned cache; without it each of them is a scattered 512-byte-stride read into a foreign table, repeated per ontology, per thought and per learning iteration, which leaves the nanosecond fold. (3) Learning: the relationship maps are Boolean support planes, and many learning steps need only those, not the row values, so they skip the value gather entirely. The three figures (dirty fraction, read-hit fraction, value-free learning fraction) are HYPOTHESES until DRF-P2 measures them. The 16 MB scale anchor's "cost is not an argument" holds for lens reads inside one table; it does not cover this cross-table, repeated, learning-driven case.
+- **CONDITIONS:** disposable and never authoritative; clearing and recomputing from the sealed references gives the same answers; keyed by the full witness (map revision, index seal, source snapshot, focus, palette generation, facet layout, operation, scope); holds no uncommitted truth; build cost reported separately.
+- **REVISIT WHEN:** DRF-P2 measures the gather-and-reuse arm against the direct arm on whole-run cost including cold build. If it does not win at the operator's workload, the exception lapses there and the cache is removed.
+
+The warden applies this as **SCOPED-EXCEPTION**: inside the scope and meeting every condition, not a finding; outside it, or missing a condition, the ordinary verdicts apply.
 
 ## The canonical measured instance (2026-07-28)
 
