@@ -1,6 +1,9 @@
 ## 2026-10-23 — d-onnx-native-v1 — ONNX vocabulary over existing native functions → `.claude/plans/d-onnx-native-v1.md`
 
 **Status:** D-ONNX-NATIVE-0 IMPLEMENTED as a draft PR (`crates/lance-graph-onnx`), not merged. The path is ONNX name → existing native function: ALIAS where the contract is identical, a small INLINE adapter where it is not, a typed `Refusal` otherwise. No graph, dispatcher or initialization. R2IL routing (D-MPF-4, #1752) is separate and is not imported.
+## 2026-10-23 — d-native-repr-contract-v1 + d-native-first-dependency-correction-v1 — the native polyfill is the root → `.claude/plans/d-native-repr-contract-v1.md`, `.claude/plans/d-native-first-dependency-correction-v1.md`
+
+**Status:** D-NFR-0 / D-NFC-0 documentation (DECISION 2026-10-23: corrections to #1746–#1751 and #1750 approved). D-NFR-1..5 PROPOSED, not authorized. ONNX is an external compatibility specification; the R2IL polyfill is the native root; Quack binding + DR64³ + Palette256³ is the intended native representation, with its shipped, lab and missing seams separated. The smallest missing seam is that a Quack-bound query does not know its frame. The #1744 / #1745 / #1750 S0 dispute is not decided.
 ## 2026-10-23 — d-mpf-math-polyfill-v1 — the mathematical polyfill API, Stage 1 → `.claude/plans/d-mpf-math-polyfill-v1.md`
 
 **Status:** D-MPF-1 MEASURED, lab only; D-MPF-2.. PROPOSED. The Stage 1 polyfill API is the shipped R2IL procedure layer plus checked scalar arithmetic over mask-risc, with relalg as the rewriting frontend; no new primitive. One expression matches an independent row loop; at 64 K rows it costs under 1 ns/row, at one word ~600 ns per call. Gaps by counterexample: element-wise arithmetic, unsigned compare, floats, one-word fixed cost. Independent of ONNX and of the S0 drafts. Entry `2026-10-23-d-mpf-1-polyfill-probe.md`.
