@@ -23,7 +23,8 @@ AVX2 rows agree within ~10%. Clustered 1024-row cases match random 1024 (same N*
 - **P2 falsifier:** predicted-unused focus + 63 abandoned switches all reclaimed by
   `evict_unused`; held foci stay correct. Disable (keep all entries) → red.
 
-OPEN: the fold cost is `ndarray::simd::masked_sum_i32`, which walks set bits one by one
-(`src/simd_masking_ops.rs:814`), ≈0.57 ns per selected slot. A dense SIMD masked sum would
-lower `fold` and move N* only further toward the focus. Not changed here.
+Fold cost: `ndarray::simd::masked_sum_i32` walked set bits one by one, ≈0.57 ns per
+selected slot. ndarray #376 (D-MPF-2b hybrid body, threshold 16) re-measured with the same
+probe: full-mask fold 2 341 → 650 ns (AVX-512), 2 306 → 559 ns (AVX2); 25 % masks unchanged
+(~470 ns). N* stays 1–2; with the cheaper fold it reaches 1 for full masks on AVX2 at 32 MiB.
 OPEN: cold page faults, focus churn under a memory budget, and dirty-row writeback (A1, W1–W8).
