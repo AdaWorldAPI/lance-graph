@@ -1,3 +1,21 @@
+## D-DTM-1 — Distributed Thought-Delta Membrane / computational understanding exchange (2026-10-25)
+
+**Status: S0 PROPOSAL / DOCUMENTATION ONLY.** Authoritative [capstone](../plans/d-dtm-1-distributed-thought-delta-reasoning-interchange-v1.md) and [handoff prompt](../prompts/d-dtm-1-reasoning-interchange-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id), append-only comment inbox, not a project/task tracker. This maps existing source owners onto an *external transport interchange*, not a new graph/ABI/executor; all proposed P1–P8 implementation work requires independent approval.
+
+| D-id | scope | status | gate / falsifier |
+| --- | --- | --- | --- |
+| **D-DTM-S0** | ownership/reference audit, semantics/capability crosswalk, PR DAG, frozen F01–F15 and read-only CC brief | DOCUMENTATION ONLY (this PR) | no Rust/Cargo/ABI/protocol/compilation change; EXO-50 handoff |
+| **D-DTM-P1** | two-node fixture + independent oracle + cold/warm baselines | PROPOSED / NOT RUN | same typed results; Bag/K3, missing-data and version refusal; no hidden copy |
+| **D-DTM-P2** | reuse sealed focus/mask independently of value facets | PROPOSED / BLOCKED on D-DRAV AV1/AV2 and binding admission | stale map, alias and value-derived support invalidation |
+| **D-DTM-P3** | reference E1 proof/replay method catalogue via immutable digest and semantic key | PROPOSED / NOT RUN | reuse #1693/#1694, no new verifier or law; forged, stale, wrong target refusal |
+| **D-DTM-P4** | binary Kafka delta/reference delivery comparative lab | PROPOSED / NOT RUN | bytes/copies/ack vs apply; idempotent replay, partition failure |
+| **D-DTM-P5** | Flight DoExchange remote fold lab, not a full Kafka-over-Flight protocol | PROPOSED / NOT RUN | valid Arrow IPC, typed refusals, cancellation, batching vs direct |
+| **D-DTM-P6** | cross-worker historical/causal receipt and coherent snapshot closure | PROPOSED / BLOCKED on EXO-148 and dependency/snapshot contract | Strict concrete horizon excludes future rows; per-partition offsets not global time |
+| **D-DTM-P7** | optional ONNX/TFLite + MeTTa/MORK symbolic and learned adapter crosswalk | PROPOSED / NOT RUN | native-first and differential oracle, licence/opset/float proof refusals |
+| **D-DTM-P8** | two-node end-to-end cost and verified reasoning reuse test | PROPOSED / NOT RUN | full cost vs independent baseline; warm/cold, 1/8/64/256 repeats, stale/failure cases |
+
+**Evidence boundaries:** D-SAG-6 #1760 merged docs; Math Foundry #1693/#1694 E1 lab merged; D-NFC #1753 native-first; #1775 D-DRAV draft / AV1–AV12 NOT RUN; MORK oracle with unresolved production licence/allocator; EXO-148 stable durable types unresolved. No complete distributed reasoning implementation or measured AI/data-center scaling claim.
+
 ## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
 
 **Status: S0 PROPOSAL / DOCS ONLY.** Plan: [d-sag-6-rust-codegraph-math-logic-tracert-v1.md](../plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md). Agent prompt: [d-sag-6-rust-codegraph-logic-tracert-claude-code.md](../prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). Continuation of D-SAG / D-DRMC / Ascent-BYODS, **not** a revived SoftwareGraph, separate registry, runtime or new proof authority. Parallel #1759 only reconciles existing board status.
