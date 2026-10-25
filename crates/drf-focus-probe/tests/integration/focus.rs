@@ -490,3 +490,99 @@ fn w3_overlapping_facets_at_different_offsets_refuse_and_adjacent_facets_both_su
     assert_eq!(row[OFF..OFF + 4], 1i32.to_le_bytes());
     assert_eq!(row[OFF + 4..OFF + 8], 2i32.to_le_bytes());
 }
+
+#[test]
+fn w3_ordered_same_facet_writes_apply_by_declared_position_in_every_staging_order() {
+    // Two slots alias row 500. The writes do not commute (overwrite), so the
+    // result must follow the declared stream position, not the staging order.
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(304, 9, |s| if s < 3 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let writes = [(0usize, 30i32, 3u64), (1, 10, 1), (2, 20, 2)];
+    let perms = [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ];
+    for perm in perms {
+        let mut wb = f.writeback();
+        for i in perm {
+            let (slot, value, pos) = writes[i];
+            wb.stage_at(slot, facet(), value, pos).unwrap();
+        }
+        let imgs = wb.flush(&soa).unwrap();
+        assert_eq!(imgs.len(), 1);
+        assert_eq!(
+            imgs[0].row[OFF..OFF + 4],
+            30i32.to_le_bytes(),
+            "order {perm:?}"
+        );
+    }
+    // 64 positioned writes over 4 rows in a scrambled staging order: each row
+    // ends with the value of its highest declared position (scalar oracle).
+    let m = map_from(305, 9, |s| [10u16, 20, 30, 40][s % 4]);
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let mut wb = f.writeback();
+    let mut want = [(0u64, 0i32); 4];
+    for k in 0..64usize {
+        let slot = (k * 37) % 64;
+        let pos = ((k * 23) % 64) as u64;
+        let value = (k as i32) * 7 - 100;
+        wb.stage_at(slot, facet(), value, pos).unwrap();
+        if pos >= want[slot % 4].0 {
+            want[slot % 4] = (pos, value);
+        }
+    }
+    let imgs = wb.flush(&soa).unwrap();
+    assert_eq!(imgs.len(), 4);
+    for (i, img) in imgs.iter().enumerate() {
+        assert_eq!(img.ord, [10u16, 20, 30, 40][i]);
+        assert_eq!(img.row[OFF..OFF + 4], want[i].1.to_le_bytes());
+    }
+}
+
+#[test]
+fn w3_equal_positions_or_mixed_ordering_with_different_values_refuse() {
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(306, 9, |s| if s < 2 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let conflict = Some(Refusal::Conflict {
+        ord: 500,
+        offset: OFF,
+    });
+    // Same declared position, different values: no order to apply them in.
+    let mut wb = f.writeback();
+    wb.stage_at(0, facet(), 1, 5).unwrap();
+    wb.stage_at(1, facet(), 2, 5).unwrap();
+    assert_eq!(wb.flush(&soa).err(), conflict);
+    // An unordered write next to an ordered one, different values.
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 1).unwrap();
+    wb.stage_at(1, facet(), 2, 5).unwrap();
+    assert_eq!(wb.flush(&soa).err(), conflict);
+    // Silence twins: equal values coalesce in both cases.
+    let mut wb = f.writeback();
+    wb.stage_at(0, facet(), 4, 5).unwrap();
+    wb.stage_at(1, facet(), 4, 5).unwrap();
+    assert_eq!(wb.flush(&soa).unwrap().len(), 1);
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 4).unwrap();
+    wb.stage_at(1, facet(), 4, 9).unwrap();
+    assert_eq!(
+        wb.flush(&soa).unwrap()[0].row[OFF..OFF + 4],
+        4i32.to_le_bytes()
+    );
+}

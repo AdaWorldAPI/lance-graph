@@ -294,6 +294,10 @@ struct Patch {
     ord: u16,
     offset: usize,
     value: i32,
+    /// Declared stream position. `None` sorts before every `Some`, so an
+    /// unordered write is applied first and can only coexist with ordered
+    /// writes of the same value (checked in `flush`).
+    pos: Option<u64>,
 }
 
 /// The final image of one dirty canonical row, owned for handoff to a writer.
@@ -319,8 +323,32 @@ impl Focus {
 }
 
 impl Writeback<'_> {
-    /// Stage `value` into `facet` of the row behind `slot`.
+    /// Stage `value` into `facet` of the row behind `slot`, with no declared
+    /// order: a second write to the same facet must carry the same value.
     pub fn stage(&mut self, slot: usize, facet: Facet, value: i32) -> Result<(), Refusal> {
+        self.push(slot, facet, value, None)
+    }
+
+    /// Stage `value` at declared stream position `pos`. Writes to one facet
+    /// apply in position order whatever order they were staged in; two
+    /// different values at one position refuse (W3).
+    pub fn stage_at(
+        &mut self,
+        slot: usize,
+        facet: Facet,
+        value: i32,
+        pos: u64,
+    ) -> Result<(), Refusal> {
+        self.push(slot, facet, value, Some(pos))
+    }
+
+    fn push(
+        &mut self,
+        slot: usize,
+        facet: Facet,
+        value: i32,
+        pos: Option<u64>,
+    ) -> Result<(), Refusal> {
         let ord = *self
             .focus
             .map
@@ -331,6 +359,7 @@ impl Writeback<'_> {
             ord,
             offset: facet.offset(),
             value,
+            pos,
         });
         Ok(())
     }
@@ -345,8 +374,9 @@ impl Writeback<'_> {
 
     /// One image per distinct dirty row, in ordinal order: the sealed source row
     /// with every staged facet applied. Writes to different facets of one row
-    /// all survive (W2); two different values for the same facet, or two
-    /// facets whose byte ranges overlap, refuse (W3).
+    /// all survive (W2). Writes to one facet apply in declared position
+    /// order; different values with no order between them (equal positions,
+    /// or an unordered write), or facets whose byte ranges overlap, refuse (W3).
     pub fn flush(mut self, soa: &Soa<'_>) -> Result<Vec<RowImage>, Refusal> {
         check_seal(soa, &self.focus.map)?;
         if self.focus.key.source != soa.id {
@@ -355,16 +385,17 @@ impl Writeback<'_> {
                 source_seal: soa.id.index_seal,
             });
         }
-        self.patches.sort_by_key(|p| (p.ord, p.offset));
+        self.patches.sort_by_key(|p| (p.ord, p.offset, p.pos));
         for w in self.patches.windows(2) {
             if w[0].ord != w[1].ord {
                 continue;
             }
-            // Same facet with a different value, or two facets whose byte
-            // ranges overlap: either would silently overwrite a staged write.
-            // Sorted by offset, so checking neighbours finds every overlap.
+            // Same facet: different values need two distinct declared
+            // positions, else nothing says which wins. Different facets must
+            // not overlap. Sorted by offset, so neighbours find every overlap.
             let same = w[0].offset == w[1].offset;
-            if (same && w[0].value != w[1].value)
+            let ordered = matches!((w[0].pos, w[1].pos), (Some(a), Some(b)) if a != b);
+            if (same && w[0].value != w[1].value && !ordered)
                 || (!same && w[1].offset < w[0].offset + Facet::WIDTH)
             {
                 return Err(Refusal::Conflict {
@@ -373,6 +404,7 @@ impl Writeback<'_> {
                 });
             }
         }
+        // Applying in sorted order leaves each facet at its highest position.
         let mut out: Vec<RowImage> = Vec::new();
         for p in &self.patches {
             if out.last().is_none_or(|img| img.ord != p.ord) {

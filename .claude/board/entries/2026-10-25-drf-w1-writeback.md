@@ -1,4 +1,4 @@
-# D-DRF W1–W3 — staged writeback coalesced per canonical row (lab)
+# D-DRF-W1 — W1–W3: staged writeback coalesced per canonical row (lab)
 
 **Status:** TEST-PINNED (lab). **Code:** `crates/drf-focus-probe/src/lib.rs` (`Focus::writeback`,
 `Writeback::{stage, dirty_rows, flush}`, `RowImage`). **Tests:** `w1_*`, `w2_*`, `w3_*` in
