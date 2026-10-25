@@ -619,3 +619,31 @@ fn w3_an_unordered_write_conflicts_with_every_different_positioned_value_in_its_
     let imgs = wb.flush(&soa).unwrap();
     assert_eq!(imgs[0].row[OFF..OFF + 4], 1i32.to_le_bytes());
 }
+
+#[test]
+fn g_two_facets_of_one_map_are_two_foci_not_one_cached_column() {
+    // The focus caches ONE gathered facet column, so the facet is part of
+    // what the cache entry means. Keying without it hands the second caller
+    // the first facet's column.
+    const OFF2: usize = 64;
+    let mut r = rows();
+    for (i, row) in r.iter_mut().enumerate() {
+        row[OFF2..OFF2 + 4].copy_from_slice(&(-(i as i32)).to_le_bytes());
+    }
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(308, 9, |s| (s % NROWS) as u16);
+    let mgr = FocusManager::new();
+    let a = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let b = mgr.load(&soa, &m, Scope(1), Facet::new(OFF2).unwrap()).unwrap();
+    assert_eq!(a.column()[5], facet_of(5) as i32);
+    assert_eq!(b.column()[5], -5, "second facet must gather its own column");
+    assert!(!Arc::ptr_eq(&a, &b));
+    assert_eq!(mgr.builds(), 2);
+    // Silence twin: the same facet again is a cache hit.
+    let a2 = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    assert!(Arc::ptr_eq(&a, &a2));
+    assert_eq!(mgr.builds(), 2);
+}
