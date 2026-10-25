@@ -87,38 +87,50 @@ fn main() {
         "{:>6} {:>8} {:>7} {:>9} {:>9} {:>9} {:>9}",
         "P_req", "pages", "lines", "build_w", "build_c", "ns/slot_w", "ns/page_w"
     );
-    // Slot i reads row (i % P) * 8 + (i / P) % 8: P requested pages, 8 rows per page.
-    for p_req in [64usize, 128, 256, 512, 1024, 1536, 2048, 3072, 4096] {
-        let mut ord = Box::new([0u16; SLOTS]);
-        for (i, o) in ord.iter_mut().enumerate() {
-            *o = (((i % p_req) * 8 + (i / p_req) % 8) % NROWS) as u16;
-        }
-        let pages: HashSet<usize> = ord
-            .iter()
-            .map(|&o| (rows.as_ptr() as usize + o as usize * ROW + OFF) / PAGE)
-            .collect();
-        let lines: HashSet<usize> = ord
-            .iter()
-            .map(|&o| (rows.as_ptr() as usize + o as usize * ROW + OFF) / 64)
-            .collect();
-        let map = Arc::new(SealedMap::new(MapId(p_req as u64), 7, ord));
-        let warm = median_ns(401, || {
-            let mgr = FocusManager::new();
-            black_box(mgr.load(&soa, &map, Scope(1), facet).unwrap());
-        });
-        let cold = median_cold_ns(21, &mut evict_buf, || {
-            let mgr = FocusManager::new();
-            black_box(mgr.load(&soa, &map, Scope(1), facet).unwrap());
-        });
+    // Two generators over the same P. "skewed": slot i reads row (i % P) * 8 + (i / P) % 8, so the
+    // number of distinct within-page offsets shrinks as P grows (8 at P=512, 1 at P=4096) and
+    // cache-set coverage changes with P. "balanced": the offset is rotated by page, so every
+    // offset is used and the offsets-per-page spread no longer depends on P.
+    for arm in ["skewed", "balanced"] {
+        println!("-- {arm}");
         println!(
-            "{:>6} {:>8} {:>7} {:>9.0} {:>9.0} {:>9.2} {:>9.2}",
-            p_req,
-            pages.len(),
-            lines.len(),
-            warm,
-            cold,
-            warm / SLOTS as f64,
-            warm / pages.len() as f64
+            "{:>6} {:>7} {:>7} {:>5} {:>9} {:>9} {:>9}",
+            "P_req", "pages", "lines", "offs", "build_w", "build_c", "ns/slot_w"
         );
+        for p_req in [64usize, 128, 256, 512, 1024, 1536, 2048, 3072, 4096] {
+            let mut ord = Box::new([0u16; SLOTS]);
+            for (i, o) in ord.iter_mut().enumerate() {
+                let (page, visit) = (i % p_req, i / p_req);
+                let off = if arm == "skewed" {
+                    visit % 8
+                } else {
+                    (visit + page % 8) % 8
+                };
+                *o = ((page * 8 + off) % NROWS) as u16;
+            }
+            let addr = |o: u16| rows.as_ptr() as usize + o as usize * ROW + OFF;
+            let pages: HashSet<usize> = ord.iter().map(|&o| addr(o) / PAGE).collect();
+            let lines: HashSet<usize> = ord.iter().map(|&o| addr(o) / 64).collect();
+            let offs: HashSet<usize> = ord.iter().map(|&o| (addr(o) % PAGE) / 64).collect();
+            let map = Arc::new(SealedMap::new(MapId(p_req as u64), 7, ord));
+            let warm = median_ns(401, || {
+                let mgr = FocusManager::new();
+                black_box(mgr.load(&soa, &map, Scope(1), facet).unwrap());
+            });
+            let cold = median_cold_ns(21, &mut evict_buf, || {
+                let mgr = FocusManager::new();
+                black_box(mgr.load(&soa, &map, Scope(1), facet).unwrap());
+            });
+            println!(
+                "{:>6} {:>7} {:>7} {:>5} {:>9.0} {:>9.0} {:>9.2}",
+                p_req,
+                pages.len(),
+                lines.len(),
+                offs.len(),
+                warm,
+                cold,
+                warm / SLOTS as f64
+            );
+        }
     }
 }
