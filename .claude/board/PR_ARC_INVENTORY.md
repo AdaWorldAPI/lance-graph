@@ -1,3 +1,77 @@
+<!-- 2026-10-25 catch-up: #1760–#1771 (#1759 is board hygiene only, no entry). Recorded from merge commits and changed files. -->
+
+## 2026-10-25 — lance-graph PR #1771 (merged `332b420c`, branch `lab/drf-w6-resample-isolate-20261025`, head `7125af32`) — test(drf-w4/w6): isolate the resampling refusal to changed bytes
+
+- **Added:** `tests/integration/handoff.rs` (unstaged byte flipped, base held at 0, reconcile control).
+- **Docs:** entry `2026-10-25-drf-w4-handoff.md` updated.
+- **Confidence:** lab; fixes the Codex P2 on #1767; disable run red.
+
+## 2026-10-25 — lance-graph PR #1770 (merged `b149ffc1`, branch `lab/drf-w8-budget-20261025`, head `984c2db5`) — lab(drf-w8): evict unpinned foci to a resident budget, LRU first
+
+- **Added:** `FocusManager::{evict_to_budget, resident_bytes}`, `BudgetReport`, `FOCUS_BYTES`; `tests/integration/budget.rs`.
+- **Docs:** entry `2026-10-25-drf-w8-budget.md`.
+- **Confidence:** lab; Codex review failed to complete, not re-run.
+
+## 2026-10-25 — lance-graph PR #1769 (merged `94d254a1`, branch `lab/drf-focuskey-facet-20261025`, head `e6f127cd`) — lab(drf-g): key a focus on its facet too
+
+- **Added:** `FocusKey::facet`; `Facet: Hash`; facet test + silence twin.
+- **Docs:** entry `2026-10-25-drf-focuskey-facet.md`.
+- **Confidence:** lab; bug fix (second facet returned the first facet's column).
+
+## 2026-10-25 — lance-graph PR #1768 (merged `6d62d9e8`, branch `lab/drf-w3-unordered-group-20261025`, head `1f593677`) — lab(drf-w3): check an unordered write against its whole facet group
+
+- **Added:** `Writeback::flush` group check.
+- **Docs:** entry `2026-10-25-drf-w3-ordered-apply.md` updated.
+- **Confidence:** lab; fixes the Codex P2 on #1766.
+
+## 2026-10-25 — lance-graph PR #1767 (merged `79a2c5b6`, branch `lab/drf-w4-handoff-20261025`, head `44794a45`) — lab(drf-w4): hand flushed row images to the real CycleWriter (W4-W7)
+
+- **Added:** feature `handoff`, `src/handoff.rs` (`RowImage::into_slot(s)`); `tests/integration/handoff.rs` over a fake WAL.
+- **Docs:** entry `2026-10-25-drf-w4-handoff.md`.
+- **Confidence:** lab; W5 not run; the fake WAL stands in for Lance.
+
+## 2026-10-25 — lance-graph PR #1766 (merged `e6d15784`, branch `lab/drf-w3-ordered-apply-20261025`, head `960cb72c`) — lab(drf-w3): same-facet writes apply by declared stream position
+
+- **Added:** `Writeback::stage_at`, ordered apply + conflict refusal.
+- **Docs:** entries `2026-10-25-drf-w1-writeback.md`, `-w3-ordered-apply.md`.
+- **Confidence:** lab.
+
+## 2026-10-25 — lance-graph PR #1765 (merged `22bac9d3`, branch `lab/drf-w1-writeback-20261025`, head `8e91f734`) — lab(drf-w1): staged writeback coalesced per canonical row (W1–W3)
+
+- **Added:** `Writeback`, `Patch`, `RowImage`, `Refusal::Conflict`.
+- **Docs:** entry `2026-10-25-drf-w1-writeback.md`.
+- **Confidence:** lab; overlapping-facet fix from Codex P2.
+
+## 2026-10-25 — lance-graph PR #1764 (merged `2bfb2908`, branch `lab/drf-p2-cold-arm-20261024`, head `5c0d240e`) — lab(drf-p2): cold-cache arm; correct the DRAM claim
+
+- **Added:** `examples/p2_breakeven.rs` cold arm.
+- **Docs:** entry `2026-10-24-drf-p2-breakeven.md` corrected.
+- **Confidence:** lab; timings reported, not gated.
+
+## 2026-10-25 — lance-graph PR #1763 (merged `e8aabd95`, branch `lab/drf-p2-cost-20261024`, head `21906968`) — lab(drf-p2): focus vs direct break-even + mis-predict/switch lease falsifier
+
+- **Added:** `examples/p2_breakeven.rs`; P2 lease test.
+- **Docs:** entry `2026-10-24-drf-p2-breakeven.md`.
+- **Confidence:** lab; break-even 1–3 folds; A1/A3 not run.
+
+## 2026-10-25 — lance-graph PR #1762 (merged `62d6c70f`, branch `lab/drf-p1-focus-lease-20261024`, head `cdc20dc3`) — lab(drf-p1): focus lease + gather along the u16 map
+
+- **Added:** new crate `drf-focus-probe` (workspace-excluded): `FocusManager`, `Focus`, `SealedMap`.
+- **Docs:** entry `2026-10-24-drf-p1-focus-lease-probe.md`.
+- **Confidence:** lab; L1/G4 disable runs red.
+
+## 2026-10-25 — lance-graph PR #1761 (merged `eeb9b646`, branch `probe/fractal-virtual-relation-20261024`, head `00a856fa`) — probe(fractal): benchmark virtual 3^n graph relations vs enumeration
+
+- **Added:** `probes/fractal-virtual-relation/` (C++ probe, measurements, demo).
+- **Docs:** README in the probe directory.
+- **Confidence:** recorded from the merge commit.
+
+## 2026-10-25 — lance-graph PR #1760 (merged `4c8f5b92`, branch `docs/d-sag-6-rust-codegraph-logic-tracert-20261024`, head `1840579d`) — docs(D-SAG-6): Rust Codegraph → Mathematics → Logic → Tracert, prompt and board
+
+- **Added:** docs only.
+- **Docs:** plan `d-sag-6-rust-codegraph-math-logic-tracert-v1.md`, prompt, STATUS_BOARD + INTEGRATION_PLANS rows.
+- **Confidence:** recorded from the merge commit.
+
 <!-- 2026-10-24 catch-up: #1742–#1758 had no entries. One compact entry per PR, recorded from the merge commit and its changed-file list; Confidence lines carry no measurement beyond what the PR's own board entry records. -->
 
 ## 2026-10-24 — lance-graph PR #1758 (merged `0dcaf8b5`, branch `feat/onnx-tanh-alias-20261024`, head `4b3685e8`) — lance-graph-onnx: Tanh and Exp as ULP-bounded aliases (`onnx::bounded`)

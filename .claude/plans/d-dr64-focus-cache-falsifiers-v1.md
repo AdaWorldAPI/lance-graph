@@ -1,6 +1,6 @@
 # D-DRF-1 falsification preregistration — lease, prefetch, foreign gather and writeback
 
-**Status:** PRE-REGISTERED, NOT RUN (2026-10-24). Companion to [D-DRF-1](d-dr64-focus-lease-foreign-cache-v1.md). This is a **proposed** lab matrix, not a declaration that a DR focus cache, third relationship axis or ONNX learning stream exists.
+**Status:** PRE-REGISTERED (2026-10-24); PARTLY RUN in the lab crate `drf-focus-probe` (2026-10-25): G1/G3/G4/G6, L1–L3, P1–P2, W1–W4, W6–W8 green (#1762–#1771); W5, M1–M2, R1–R7, G2/G5/G7, L4, P3 NOT RUN. Results: `STATUS_BOARD.md` § D-DRF. Companion to [D-DRF-1](d-dr64-focus-lease-foreign-cache-v1.md). This is a **proposed** lab matrix, not a declaration that a DR focus cache, third relationship axis or ONNX learning stream exists.
 
 ## 1. All-in decision rule
 
