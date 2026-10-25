@@ -99,14 +99,14 @@ Thus "no longer need the values" means **either the operation is genuinely value
 
 For a fixed logical workload, report separately:
 
-\[
+$
 T_{\mathrm{total}} =
-T_{\mathrm{bind\,+\,map}} +
+T_{\mathrm{bind+map}} +
 T_{\mathrm{locate}} +
 T_{\mathrm{hydrate}} +
 T_{\mathrm{execute}} +
-T_{\mathrm{reduce\,+\,handoff}}
-\]
+T_{\mathrm{reduce+handoff}}
+$
 
 Report initial and rebind costs, total wall time, allocation/bytes resident, actual source reads, and amortized **per-map** reuse (N=1/8/64/256). This is an accounting decomposition, **not** a model asserting these terms are always independent or additive in overlapped pipelines. A compute-only warm number cannot decide a full-run storage plan.
 
