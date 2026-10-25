@@ -8,13 +8,18 @@ over a reconciliation-first fake WAL. Plan: `.claude/plans/d-dr64-focus-cache-fa
 - **W4 PASS:** 64 writes over 37 rows → 37 owned casts. The focus and the borrow end at
   flush; the source is then changed while the WAL holds the commit. Nothing is durable until
   the WAL releases (`durable().through == None`, ticket unresolved); what lands is the flushed
-  snapshot. Stream positions continue across cycles (37 → 74).
+  snapshot; the changed byte is one no write stages, and regenerating now gives different
+  rows. Stream positions continue across cycles (37 → 74).
 - **W2 through the writer PASS:** two facets of one row land together. Contrast arm: one cast
   per raw patch loses the first facet, because the writer's freeze keeps the later payload
   whole. The per-row coalesce in `flush` is what makes the handoff safe.
 - **W6 PASS:** lost acknowledgement → `ResubmitFrozen`, handed-back casts equal the frozen
   batch byte for byte, re-submit on a fresh writer → `Reconciled`, one append. Regenerating
-  cycle 1 from the changed source → `HashConflict` → `Escalate`. A full queue hands the casts
+  cycle 1 from the changed source → `HashConflict` → `Escalate`. Every arm frames cycle 1 on
+  base 0 (the batch hash covers the base), and a control regenerating from the unchanged
+  source reconciles, so the changed bytes are the only cause. (Codex P2 on #1767: the first
+  version changed a staged byte that flush overwrites, and its conflict came from the base
+  moving 0 → 1.) A full queue hands the casts
   back unchanged; a poisoned writer refuses new submissions.
 - **W7 PASS:** a cycle with no dirty row gives zero casts → `NoChange`, the WAL is never
   called, the head stays; the next dirty cycle publishes exactly one version.
