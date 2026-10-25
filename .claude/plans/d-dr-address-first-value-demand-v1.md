@@ -99,15 +99,14 @@ Thus "no longer need the values" means **either the operation is genuinely value
 
 For a fixed logical workload, report separately:
 
-$
+```math
 T_{\mathrm{total}} =
 T_{\mathrm{bind+map}} +
 T_{\mathrm{locate}} +
 T_{\mathrm{hydrate}} +
 T_{\mathrm{execute}} +
 T_{\mathrm{reduce+handoff}}
-$
-
+```
 Report initial and rebind costs, total wall time, allocation/bytes resident, actual source reads, and amortized **per-map** reuse (N=1/8/64/256). This is an accounting decomposition, **not** a model asserting these terms are always independent or additive in overlapped pipelines. A compute-only warm number cannot decide a full-run storage plan.
 
 [D-DRF-1's A1/A2/A3](d-dr64-focus-cache-falsifiers-v1.md) keep their original meanings: **A1** = distinct dirty canonical rows / distinct rows read; **A2** = facet reads served from resident cache / all facet reads after cold build; **A3** = relationship-only learning steps / all learning steps. **A1 and A3 are NOT RUN** without a representative write/learning stream. Map-only eligibility measured on a synthetic fixture is *not* an A3 observation. The cache-exception lapse rule remains undecided for the intended workload.
@@ -129,7 +128,7 @@ Report initial and rebind costs, total wall time, allocation/bytes resident, act
 | AV11 | Deliberately omit one dependency contributor outside local DR64 focus | Expand by a legal witnessed mapping or refuse, never silently treat absence as FALSE/zero |
 | AV12 | Sparse relation mutation that changes a transitive dependency or inverse index | Incremental map update matches full rebuild, or explicitly refuses and rebuilds; unchanged-index shortcut must fail |
 
-The latest [#1774 TLB lab](https://github.com/AdaWorldAPI/lance-graph/pull/1774) provides **locality evidence only**: balanced within-page offsets remove an earlier artificial 512→1,024-page jump; warm gathers get slower above roughly 2,048 pages at 4,096 distinct lines. The original 1,024-versus-65,536-row P2 gap also changed the number of distinct lines. Huge pages, hardware counters and a causal split were not verified there. None of this proves that direct NVMe reads are cheap or that map-only learning is common.
+The latest [#1774 TLB lab](https://github.com/AdaWorldAPI/lance-graph/pull/1774) provides **locality evidence only**: balanced within-page offsets remove an earlier artificial 512→1,024-page jump; warm gathers get slower above roughly 2,048 pages at 4,096 distinct lines. The original 1,024-versus-65,536-row P2 gap also changed the number of distinct lines. For the source row buffer, the lab reports `/proc/self/smaps` KernelPageSize 4 kB and AnonHugePages 0 kB, and its seeded shuffled-visit arm retains the qualitative flat-then-rise pattern. The verified 2 MiB-page arm, hardware counters, and the causal split remain outstanding. None of this proves that direct NVMe reads are cheap or that map-only learning is common.
 
 ## 8. Minimal staged next steps (not implementation authorization)
 
