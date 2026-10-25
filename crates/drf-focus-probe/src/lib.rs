@@ -391,7 +391,17 @@ impl Writeback<'_> {
             });
         }
         self.patches.sort_by_key(|p| (p.ord, p.offset, p.pos));
+        // Value of the current facet group's unordered writes. `None` sorts
+        // first, so they all precede the group's positioned writes; an
+        // unordered write has no order against ANY of them, not just the
+        // first, so every positioned value must equal it.
+        let mut unordered: Option<i32> = None;
         for w in self.patches.windows(2) {
+            if (w[0].ord, w[0].offset) != (w[1].ord, w[1].offset) {
+                unordered = None;
+            } else if w[0].pos.is_none() {
+                unordered = Some(w[0].value);
+            }
             if w[0].ord != w[1].ord {
                 continue;
             }
@@ -401,6 +411,7 @@ impl Writeback<'_> {
             let same = w[0].offset == w[1].offset;
             let ordered = matches!((w[0].pos, w[1].pos), (Some(a), Some(b)) if a != b);
             if (same && w[0].value != w[1].value && !ordered)
+                || (same && unordered.is_some_and(|u| u != w[1].value))
                 || (!same && w[1].offset < w[0].offset + Facet::WIDTH)
             {
                 return Err(Refusal::Conflict {
