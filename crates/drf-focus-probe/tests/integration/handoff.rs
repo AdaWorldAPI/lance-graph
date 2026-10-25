@@ -17,6 +17,8 @@ use tokio::sync::Semaphore;
 const NROWS: usize = 1000;
 const OFF: usize = 16;
 const OFF2: usize = 64;
+/// A byte no test stages: changing it changes a row without any write touching it.
+const UNSTAGED: usize = 200;
 const OWNER: u32 = 7;
 
 fn rows() -> Vec<Row> {
@@ -171,6 +173,10 @@ fn dirty_cycle(src: &[Row], cycle: u64, next_pos: u64) -> (Vec<SweepSlot>, u64) 
     into_slots(wb.flush(&soa).unwrap(), CycleId(cycle), OWNER, next_pos)
 }
 
+fn payloads(slots: &[SweepSlot]) -> Vec<(u64, Vec<u8>)> {
+    slots.iter().map(|s| (s.row, s.payload.clone())).collect()
+}
+
 async fn until(n: &AtomicUsize, v: usize) {
     while n.load(Ordering::SeqCst) < v {
         tokio::task::yield_now().await;
@@ -186,9 +192,13 @@ async fn w4_owned_handoff_outlives_the_source_and_durability_waits_for_the_wal()
     let expect: BTreeMap<u64, Vec<u8>> = slots.iter().map(|s| (s.row, s.payload.clone())).collect();
     // The focus and the borrow of `src` ended inside `dirty_cycle`; the thought
     // goes on and changes the source while the writer still holds the casts.
+    // The changed byte is one no write staged, so a regeneration now would
+    // produce different rows.
     for r in src.iter_mut() {
-        r[OFF] ^= 0xFF;
+        r[UNSTAGED] ^= 0xFF;
     }
+    let (now, _) = dirty_cycle(&src, 1, 0);
+    assert!(now.iter().all(|s| s.payload != expect[&s.row]));
 
     let mut wal = FakeWal::new();
     let gate = Arc::new(Semaphore::new(0));
@@ -334,14 +344,18 @@ async fn w6_lost_ack_resubmits_the_same_frozen_casts_and_resampling_fails_closed
     let exit = run.await.unwrap();
     assert_eq!(landed.lock().unwrap().len(), 1, "it did land once");
 
-    // Meanwhile the source moved on.
+    // Meanwhile the source moved on, in a byte no write staged.
     for r in src.iter_mut() {
-        r[OFF] ^= 0x55;
+        r[UNSTAGED] ^= 0x55;
     }
+    // Every arm below frames cycle 1 on its own base, 0. The batch hash covers
+    // the base, so a different base alone would already conflict; holding it
+    // fixed leaves the payload bytes as the only thing that can differ.
+    assert_eq!(exit.mark.head, DatasetVersion(0));
 
     // Right: re-submit the SAME frozen casts on a fresh writer. Reconciled, no
     // second append.
-    let (writer, h) = cycle_writer(exit.sink, exit.mark.head, 4);
+    let (writer, h) = cycle_writer(exit.sink, DatasetVersion(0), 4);
     let run = tokio::spawn(writer.run());
     let ok = h
         .try_submit(CycleId(1), failure.casts.clone())
@@ -352,12 +366,36 @@ async fn w6_lost_ack_resubmits_the_same_frozen_casts_and_resampling_fails_closed
     assert!(matches!(ok.outcome, CommitOutcome::Reconciled { .. }));
     assert_eq!(landed.lock().unwrap().len(), 1);
 
-    // Wrong: regenerate cycle 1 from the live (changed) source. Different
-    // bytes, different hash: the WAL fails closed instead of overwriting.
-    let (resampled, _) = dirty_cycle(&src, 1, 0);
     drop(h);
     let exit = run.await.unwrap();
-    let (writer, h) = cycle_writer(exit.sink, exit.mark.head, 4);
+
+    // Control: regenerating from the source as it WAS gives the same batch,
+    // so it reconciles too. Regeneration itself is not what conflicts.
+    let (same, _) = dirty_cycle(&rows(), 1, 0);
+    assert_eq!(payloads(&same), original);
+    let (writer, h) = cycle_writer(exit.sink, DatasetVersion(0), 4);
+    let run = tokio::spawn(writer.run());
+    let ok = h
+        .try_submit(CycleId(1), same)
+        .unwrap()
+        .sealed()
+        .await
+        .unwrap();
+    assert!(matches!(ok.outcome, CommitOutcome::Reconciled { .. }));
+    drop(h);
+    let exit = run.await.unwrap();
+
+    // Wrong: regenerate cycle 1 from the live (changed) source. Different
+    // bytes, same base, different hash: the WAL fails closed instead of
+    // overwriting.
+    let (resampled, _) = dirty_cycle(&src, 1, 0);
+    assert!(
+        payloads(&resampled)
+            .iter()
+            .zip(&original)
+            .all(|(a, b)| a.0 == b.0 && a.1 != b.1)
+    );
+    let (writer, h) = cycle_writer(exit.sink, DatasetVersion(0), 4);
     let run = tokio::spawn(writer.run());
     let err = h
         .try_submit(CycleId(1), resampled)
