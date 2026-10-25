@@ -1,0 +1,14 @@
+# D-DRAV-1 — address-first DR separates map residency from value demand
+
+**Date:** 2026-10-25 · **Status:** PROPOSED, documentation only / no runtime authorization · **Plan:** `.claude/plans/d-dr-address-first-value-demand-v1.md` · **PR:** [#1775](https://github.com/AdaWorldAPI/lance-graph/pull/1775) (draft)
+
+- **Question:** should a sealed DR64/DR256 address/relationship map remain useful after optional gathered value facets have been released, and when does a typed operation actually need source values?
+- **Thesis:** map/address, Boolean support, canonical/derived values and storage physical locators are distinct objects with different costs and leases. An 8 KiB DR64 u16 map is not a 2 MiB materialized SoA. MAP (complete relationship-only support), BORROW, GATHER, COMPILED and STORAGE are **hypothetical physical execution choices**, not new semantic authorities, shipped paths or a mandate to gather.
+- **Authority:** D-RMAP-1A owns RelationshipMap/RelationOrder and BIND; D-DRF-1 owns focus lease, admitted materialization and dirty writeback; D-NFC/D-NFR keep ONNX/TFLite as downstream interoperability leaves; Quack retains native query semantics. No CE64 changes, foreign-gather firewall relaxation, storage backend/ABI, numeric equivalence claim or new executor.
+- **Dirty changes:** unchanged relationship topology may reuse a pinned map; value-derived relationship support requires dependency invalidation/resealing, including remote/inverse/transitive effects. Alias-safe typed per-row coalescing hands detached owned work to existing CycleWriter; enqueue is **not** durable publication.
+- **I/O:** sealed logical ordinal is not a physical NVMe LBA. Storage plans must count page/extent reads, batching, read amplification, hydration, reordering and restoration to DR-local semantics; no nanosecond claims for cold random I/O.
+- **Evidence boundary:** #1774 shows page-locality cost after cache-line/offset controls and verified 4 KiB mapping; shuffled visits preserve the qualitative rise. Huge-page arm, counters, physical NVMe and decomposition of the older 1,024-vs-65,536-row gap are still absent. That probe says nothing about how frequently real thought/learning operations are value-free.
+- **Pre-registered:** AV1–AV12 are **QUEUED / NOT RUN** in STATUS_BOARD; AV1 and AV2 are the cheapest independent-lab candidates. A1/A3 remain **NOT RUN** without an actual workload, so D-DRF-1's scoped cache-exception lapse rule is **not decided**.
+- **Revisit when:** independent MAP-vs-BORROW/GATHER oracle parity, invalidation and rehydration tests, realistic thought demand, and physical I/O results can choose a strategy without changing logical results.
+
+**Review questions:** independent map/value leases; value-derived relation invalidation; full-address witnesses on compaction and ACL changes; whether the five physical candidates fit existing BIND/Quack ownership.
