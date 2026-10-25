@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-473 entries, 2026-08-06 .. 2026-10-25.
+475 entries, 2026-08-06 .. 2026-10-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,8 +33,10 @@ exactly one of them, never both.
 | 2026-10-25 | `D-DRF-W4` |  | [2026-10-25-drf-w4-handoff.md](2026-10-25-drf-w4-handoff.md) |
 | 2026-10-25 | `D-DRF-W3` |  | [2026-10-25-drf-w3-ordered-apply.md](2026-10-25-drf-w3-ordered-apply.md) |
 | 2026-10-25 | `D-DRF-W1` |  | [2026-10-25-drf-w1-writeback.md](2026-10-25-drf-w1-writeback.md) |
+| 2026-10-25 | `D-DRF-TLB` |  | [2026-10-25-drf-tlb-probe.md](2026-10-25-drf-tlb-probe.md) |
 | 2026-10-25 | `D-DRF-G-FACET` |  | [2026-10-25-drf-focuskey-facet.md](2026-10-25-drf-focuskey-facet.md) |
 | 2026-10-25 | `D-DRF-CHURN` |  | [2026-10-25-drf-churn-policy.md](2026-10-25-drf-churn-policy.md) |
+| 2026-10-25 | `D-DRAV-1` |  | [2026-10-25-drav-av1-membership.md](2026-10-25-drav-av1-membership.md) |
 | 2026-10-25 | `D-DRAV-1` |  | [2026-10-25-d-drav-1-address-first-value-demand.md](2026-10-25-d-drav-1-address-first-value-demand.md) |
 | 2026-10-24 | `tanh-precision-symmetric-i8` |  | [2026-10-24-tanh-precision-symmetric-i8.md](2026-10-24-tanh-precision-symmetric-i8.md) |
 | 2026-10-24 | `D-DRF-P2` |  | [2026-10-24-drf-p2-breakeven.md](2026-10-24-drf-p2-breakeven.md) |

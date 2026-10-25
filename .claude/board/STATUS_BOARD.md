@@ -5,7 +5,7 @@
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-DRAV-1** | documentation-only proposal: independent map/value leases, dirty support invalidation, physical storage addressing and native-first ONNX/TFLite value demand | Proposed, docs only (#1775 draft) | source/ACL/index seals, no value-free numerical overclaim, no runtime changes |
-| **D-DRAV-AV1** | map-only after gathered values evicted | Queued (NOT RUN; not authorized) | independent scalar Boolean oracle, provenance and zero value reads |
+| **D-DRAV-AV1** | map-only after gathered values evicted | Shipped, lab (#1776): membership mask over a bound map; signature takes no rows/facet, 6 oracle tests, 3 disable runs; ~2 µs exec vs ~13 µs value gather; `entries/2026-10-25-drav-av1-membership.md` | independent scalar Boolean oracle, provenance and zero value reads |
 | **D-DRAV-AV2** | value-dependent operation after cache eviction | Queued (NOT RUN; not authorized) | rehydrate exact witnessed snapshot or refuse stale access |
 | **D-DRAV-AV3** | dirty value-only vs value-derived relationship change | Queued (NOT RUN; not authorized) | only dependent support invalidated; successor map/reseal or refusal |
 | **D-DRAV-AV4** | compaction, ABA, cross-dataset and ACL collision | Queued (NOT RUN; not authorized) | stale mapping / scope use refuses even at identical ordinal |
@@ -17,6 +17,24 @@
 | **D-DRAV-AV10** | ONNX/TFLite value-demand and compiled artifact witnesses | Queued (NOT RUN; not authorized) | topology-only vs runtime numerical dependency, independent oracle |
 | **D-DRAV-AV11** | missing contributor outside focused relationship view | Queued (NOT RUN; not authorized) | admitted expansion or explicit refusal; never silently zero |
 | **D-DRAV-AV12** | sparse mutation affecting inverse/transitive relationships | Queued (NOT RUN; not authorized) | incremental maintenance equals complete rebuilt oracle or fallback |
+
+## D-DTM-1 — Distributed Thought-Delta Membrane / computational understanding exchange (2026-10-25)
+
+**Status: S0 PROPOSAL / DOCUMENTATION ONLY.** Authoritative [capstone](../plans/d-dtm-1-distributed-thought-delta-reasoning-interchange-v1.md) and [handoff prompt](../prompts/d-dtm-1-reasoning-interchange-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id), append-only comment inbox, not a project/task tracker. This maps existing source owners onto an *external transport interchange*, not a new graph/ABI/executor; all proposed P1–P8 implementation work requires independent approval.
+
+| D-id | scope | status | gate / falsifier |
+| --- | --- | --- | --- |
+| **D-DTM-S0** | ownership/reference audit, semantics/capability crosswalk, PR DAG, frozen F01–F15 and read-only CC brief | DOCUMENTATION ONLY (this PR) | no Rust/Cargo/ABI/protocol/compilation change; EXO-50 handoff |
+| **D-DTM-P1** | two-node fixture + independent oracle + cold/warm baselines | PROPOSED / NOT RUN | same typed results; Bag/K3, missing-data and version refusal; no hidden copy |
+| **D-DTM-P2** | reuse sealed focus/mask independently of value facets | PROPOSED / BLOCKED on D-DRAV AV1/AV2 and binding admission | stale map, alias and value-derived support invalidation |
+| **D-DTM-P3** | reference E1 proof/replay method catalogue via immutable digest and semantic key | PROPOSED / NOT RUN | reuse #1693/#1694, no new verifier or law; forged, stale, wrong target refusal |
+| **D-DTM-P4** | binary Kafka delta/reference delivery comparative lab | PROPOSED / NOT RUN | bytes/copies/ack vs apply; idempotent replay, partition failure |
+| **D-DTM-P5** | Flight DoExchange remote fold lab, not a full Kafka-over-Flight protocol | PROPOSED / NOT RUN | valid Arrow IPC, typed refusals, cancellation, batching vs direct |
+| **D-DTM-P6** | cross-worker historical/causal receipt and coherent snapshot closure | PROPOSED / BLOCKED on EXO-148 and dependency/snapshot contract | Strict concrete horizon excludes future rows; per-partition offsets not global time |
+| **D-DTM-P7** | optional ONNX/TFLite + MeTTa/MORK symbolic and learned adapter crosswalk | PROPOSED / NOT RUN | native-first and differential oracle, licence/opset/float proof refusals |
+| **D-DTM-P8** | two-node end-to-end cost and verified reasoning reuse test | PROPOSED / NOT RUN | full cost vs independent baseline; warm/cold, 1/8/64/256 repeats, stale/failure cases |
+
+**Evidence boundaries:** D-SAG-6 #1760 merged docs; Math Foundry #1693/#1694 E1 lab merged; D-NFC #1753 native-first; #1775 D-DRAV draft / AV1–AV12 NOT RUN; MORK oracle with unresolved production licence/allocator; EXO-148 stable durable types unresolved. No complete distributed reasoning implementation or measured AI/data-center scaling claim.
 
 ## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
 
@@ -48,9 +66,9 @@ Docs #1756; lab crate `drf-focus-probe` #1762–#1771 (workspace-excluded, no CI
 |---|---|---|---|
 | **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | Shipped, docs only (#1756 `06adcbce`) | falsifier matrix pre-registered; run so far (lab): G1/G3/G4/G6, L1–L3, P1–P2, W1–W4, W6–W8. NOT RUN: G2/G5/G7, L4, P3, M1–M2, W5, R1–R7 |
 | **DRF-P1** | two-focus lazy load / lease / prefetch / last-reader eviction | Shipped, lab (#1762 `62d6c70f`; key gains `facet`, #1769 `94d254a1`) | L1–L3, G1/G3/G4/G6, P1 green; `entries/2026-10-24-drf-p1-focus-lease-probe.md`, `entries/2026-10-25-drf-focuskey-facet.md` |
-| **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Partly measured, lab (#1763 `e8aabd95`, #1764 `2bfb2908`) | break-even 1–3 folds warm and cold; A1/A3 NOT RUN, so the exception's lapse rule is not decided; `entries/2026-10-24-drf-p2-breakeven.md` |
+| **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Partly measured, lab (#1763 `e8aabd95`, #1764 `2bfb2908`) | break-even 1–3 folds warm and cold; A1/A3 NOT RUN (they need a real workload), so the exception's lapse rule is not decided; gather cost rises with distinct pages at constant cache lines and balanced offsets (flat to 2 048 pages, 2.5-3x by 4 096), but the original 1 024 vs 65 536 gap also changed the line count and is not decomposed; 2 MiB-page control and counters not run; `entries/2026-10-24-drf-p2-breakeven.md`, `entries/2026-10-25-drf-tlb-probe.md` |
 | **DRF-W** | writeback W1–W4, W6–W8: per-row coalesce, conflict refusal, handoff to the real CycleWriter, lost-ack resubmit, no-change cycle, eviction budget | Shipped, lab (#1765–#1768, #1770, #1771; `22bac9d3`…`332b420c`) | W5 (descriptor-only cast) NOT RUN; fake WAL stands in for Lance; `entries/2026-10-25-drf-w1-writeback.md`, `-w3-ordered-apply`, `-w4-handoff`, `-w8-budget` |
-| **DRF-CHURN** | eviction victim order under churn (LRU vs MRU) | In PR (#1772) | measured: neither wins both cyclic and phased; default unchanged; `entries/2026-10-25-drf-churn-policy.md` (on #1772) |
+| **DRF-CHURN** | eviction victim order under churn (LRU vs MRU) | Shipped, lab (#1772) | measured: neither wins both cyclic and phased; default unchanged; `entries/2026-10-25-drf-churn-policy.md` |
 | **DRF-P3** | relationship cube / slices and typed dirty-row reduction oracle | Proposed | R1–R3, W1–W3; no Bag/NULL/evidence loss |
 | **DRF-P4** | optional plasticity overlay + ONNX candidate stream | Proposed | R4–R7; base DR revision bit-identical |
 
