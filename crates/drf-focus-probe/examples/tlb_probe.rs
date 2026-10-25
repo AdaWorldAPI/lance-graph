@@ -57,6 +57,33 @@ fn median_cold_ns(reps: usize, buf: &mut [u64], mut f: impl FnMut()) -> f64 {
     v[reps / 2]
 }
 
+/// Kernel page size and huge-page bytes for the mapping holding `addr`, read from smaps. Policy
+/// (`transparent_hugepage/enabled`) does not say how a given buffer is actually backed.
+fn backing(addr: usize) -> String {
+    let Ok(text) = std::fs::read_to_string("/proc/self/smaps") else {
+        return "smaps unreadable".into();
+    };
+    let mut hit = false;
+    let mut out = String::from("mapping not found");
+    for line in text.lines() {
+        if let Some((range, _)) = line.split_once(' ')
+            && let Some((lo, hi)) = range.split_once('-')
+            && let (Ok(lo), Ok(hi)) = (usize::from_str_radix(lo, 16), usize::from_str_radix(hi, 16))
+        {
+            hit = (lo..hi).contains(&addr);
+            continue;
+        }
+        if hit && (line.starts_with("KernelPageSize") || line.starts_with("AnonHugePages")) {
+            if out == "mapping not found" {
+                out.clear();
+            }
+            out.push_str(&line.split_whitespace().collect::<Vec<_>>().join(" "));
+            out.push_str("; ");
+        }
+    }
+    out
+}
+
 fn main() {
     let thp = std::fs::read_to_string("/sys/kernel/mm/transparent_hugepage/enabled")
         .unwrap_or_else(|_| "unreadable".into());
@@ -69,6 +96,7 @@ fn main() {
             r
         })
         .collect();
+    println!("row buffer backing: {}", backing(rows.as_ptr() as usize));
     let soa = Soa {
         rows: &rows,
         id: SourceId {
@@ -91,7 +119,7 @@ fn main() {
     // number of distinct within-page offsets shrinks as P grows (8 at P=512, 1 at P=4096) and
     // cache-set coverage changes with P. "balanced": the offset is rotated by page, so every
     // offset is used and the offsets-per-page spread no longer depends on P.
-    for arm in ["skewed", "balanced"] {
+    for arm in ["skewed", "balanced", "shuffled"] {
         println!("-- {arm}");
         println!(
             "{:>6} {:>7} {:>7} {:>5} {:>9} {:>9} {:>9}",
@@ -108,10 +136,24 @@ fn main() {
                 };
                 *o = ((page * 8 + off) % NROWS) as u16;
             }
+            if arm == "shuffled" {
+                // Same set of ordinals as `balanced`, seeded Fisher-Yates visit order.
+                let mut x = 0x9E37_79B9_7F4A_7C15u64 ^ p_req as u64;
+                for i in (1..SLOTS).rev() {
+                    x ^= x << 13;
+                    x ^= x >> 7;
+                    x ^= x << 17;
+                    ord.swap(i, (x % (i as u64 + 1)) as usize);
+                }
+            }
             let addr = |o: u16| rows.as_ptr() as usize + o as usize * ROW + OFF;
             let pages: HashSet<usize> = ord.iter().map(|&o| addr(o) / PAGE).collect();
             let lines: HashSet<usize> = ord.iter().map(|&o| addr(o) / 64).collect();
             let offs: HashSet<usize> = ord.iter().map(|&o| (addr(o) % PAGE) / 64).collect();
+            let mut hist = [0usize; 8];
+            for &o in ord.iter() {
+                hist[(addr(o) % PAGE) / 512] += 1;
+            }
             let map = Arc::new(SealedMap::new(MapId(p_req as u64), 7, ord));
             let warm = median_ns(401, || {
                 let mgr = FocusManager::new();
@@ -131,6 +173,9 @@ fn main() {
                 cold,
                 warm / SLOTS as f64
             );
+            if p_req == 4096 || p_req == 512 {
+                println!("       offset-bin histogram (8 x 512 B): {hist:?}");
+            }
         }
     }
 }
