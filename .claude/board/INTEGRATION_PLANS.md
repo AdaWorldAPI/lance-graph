@@ -1,3 +1,10 @@
+## 2026-10-25 — D-NAM native algebra method × DTO dialect capstone → `.claude/plans/d-nam-native-algebra-dto-capstone-v1.md`
+
+**Status:** D-NAM-0 PROPOSAL / DOCS ONLY; staged D-NAM-1..5 implementation **engineering specifications**, not yet approved/run. Source-first [handoff](../prompts/d-nam-native-dto-claude-code-handoff.md), [EXO-152](https://linear.app/exo-red/issue/EXO-152), append-only [EXO-50](https://linear.app/exo-red/issue/EXO-50).
+
+**Trajectory:** D-NAM-1 versioned method crosswalk and four concrete normalization fixtures → D-NAM-2 ONNX/TFLite leaf DTOs + quantization/BOOL format → D-NAM-3 MLIR indexing + SQL/RelAlg lawful normalization → D-NAM-4 Quack/SoA/DR/R2IL prepared binding → D-NAM-5 partial reverse DTO, oracle, cost and merge closeout. Separate draft PR plans: `d-nam-{1-native-method-crosswalk-spec,2-onnx-tflite-leaf-dto,3-mlir-sql-relalg-normalization,4-quack-soa-dr-native-recipes,5-reverse-dto-certification-gates}-v1.md` (on their own branches until merged). D-RA-2 owner #1644, native-first #1753, ONNX alias #1754/#1758 preserved; no new tensor AST, interpreter, runtime dispatch or production ABI. D-DTM-1 #1777 is a distinct transport arc.
+
+
 ## 2026-10-25 — D-DRAV-1 address-first DR: independently reusable map, demand-driven values → `.claude/plans/d-dr-address-first-value-demand-v1.md`
 
 **Status:** PROPOSAL / DOCUMENTATION ONLY ([#1775](https://github.com/AdaWorldAPI/lance-graph/pull/1775), draft), not a runtime, ABI, optimizer, storage-backend or ONNX/TFLite implementation. **Board entry:** [D-DRAV-1](entries/2026-10-25-d-drav-1-address-first-value-demand.md). **Falsifiers:** AV1–AV12 QUEUED / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md); A1/A3 remain NOT RUN on actual workloads and D-DRF-1's scoped foreign-cache exception is undecided.

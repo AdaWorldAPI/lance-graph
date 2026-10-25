@@ -1,3 +1,19 @@
+## D-NAM — Native Algebra Methods × ONNX/TFLite/MLIR/SQL DTO crosswalk (2026-10-25)
+
+**Status:** D-NAM-0 **PROPOSAL / DOCUMENTATION ONLY**, draft capstone; D-NAM-1..5 engineering specs are **not implemented, approved, tested or merged**. [Capstone](../plans/d-nam-native-algebra-dto-capstone-v1.md); [Claude Code source-first handoff](../prompts/d-nam-native-dto-claude-code-handoff.md). [EXO-152](https://linear.app/exo-red/issue/EXO-152) is the plan record; [EXO-50](https://linear.app/exo-red/issue/EXO-50) append-only messages only.
+
+| Stage | owner / target | current state and dependency gate |
+| --- | --- | --- |
+| **D-NAM-0** | docs + board alignment | DOCS ONLY: preserve D-RA-2=A and D-NFC #1753; no runtime change |
+| **D-NAM-1** | existing method identity / cold semantic DTO normalization | SPEC / PROPOSED: real source owner, versioned admission, refused negative tests |
+| **D-NAM-2** | ONNX #1754/#1758 leaf; proposed TFLite leaf | SPEC / PROPOSED: pinned external schemas, BOOL and affine quantization contract, independent oracle |
+| **D-NAM-3** | contract set algebra + RelAlg/Quack SQL, MLIR indexing | SPEC / PROPOSED: K3/Bag/NaN and FP law refusals, no new Rel AST |
+| **D-NAM-4** | Quack/SoA/DR bind; R2IL / ndarray kernels | SPEC / PROPOSED: prepared recipe, no per-call DTO dispatch, identity/ADMISSION B and measured costs |
+| **D-NAM-5** | conditional export and full conformance closure | SPEC / PROPOSED: inverse mapping witnessed, end-to-end oracle and cost, all PR commits landed |
+
+**Owners:** [EXO-86](https://linear.app/exo-red/issue/EXO-86), [EXO-102](https://linear.app/exo-red/issue/EXO-102), [EXO-115](https://linear.app/exo-red/issue/EXO-115), [EXO-126](https://linear.app/exo-red/issue/EXO-126), [EXO-127](https://linear.app/exo-red/issue/EXO-127). No new universal tensor/graph AST; no ONNX/TFLite native runtime. D-DTM-1 transport [#1777](https://github.com/AdaWorldAPI/lance-graph/pull/1777) is adjacent future consumer, not dependency.
+
+
 ## D-DRAV — address-first DR map and demand-driven value residency (2026-10-25)
 
 **Status: PROPOSAL, DOCS ONLY (#1775 draft).** Plan: [d-dr-address-first-value-demand-v1.md](../plans/d-dr-address-first-value-demand-v1.md). Ledger: [2026-10-25-d-drav-1-address-first-value-demand.md](entries/2026-10-25-d-drav-1-address-first-value-demand.md). Specializes D-DRF-1/D-RMAP-1A without a new owner, executor, ABI, storage backend or admission rule. MAP/BORROW/GATHER/COMPILED/STORAGE are candidate physical paths; A1/A3 remain **NOT RUN**, the cache-exception lapse condition undecided. #1774 is a separate locality probe, not proof of cheap NVMe random access.
