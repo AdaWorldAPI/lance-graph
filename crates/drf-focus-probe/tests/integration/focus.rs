@@ -586,3 +586,33 @@ fn w3_equal_positions_or_mixed_ordering_with_different_values_refuse() {
         4i32.to_le_bytes()
     );
 }
+
+#[test]
+fn w3_an_unordered_write_conflicts_with_every_different_positioned_value_in_its_group() {
+    // Codex P2 on #1766: after the sort the unordered write sits next to the
+    // equal-valued position-5 write only, so a neighbour check never compares
+    // it with the value-2 write at position 6. Nothing orders 1 against 2.
+    let r = rows();
+    let soa = Soa {
+        rows: &r,
+        id: sid(1, 1, 1, 9),
+    };
+    let m = map_from(307, 9, |s| if s < 3 { 500 } else { (s % NROWS) as u16 });
+    let mgr = FocusManager::new();
+    let f = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 1).unwrap();
+    wb.stage_at(1, facet(), 1, 5).unwrap();
+    wb.stage_at(2, facet(), 2, 6).unwrap();
+    assert_eq!(
+        wb.flush(&soa).err(),
+        Some(Refusal::Conflict { ord: 500, offset: OFF })
+    );
+    // Silence twin: every positioned value equals the unordered one.
+    let mut wb = f.writeback();
+    wb.stage(0, facet(), 1).unwrap();
+    wb.stage_at(1, facet(), 1, 5).unwrap();
+    wb.stage_at(2, facet(), 1, 6).unwrap();
+    let imgs = wb.flush(&soa).unwrap();
+    assert_eq!(imgs[0].row[OFF..OFF + 4], 1i32.to_le_bytes());
+}
