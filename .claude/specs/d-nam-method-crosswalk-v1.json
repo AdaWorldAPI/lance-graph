@@ -1,0 +1,180 @@
+{
+  "schema": "d-nam-crosswalk-v1",
+  "status": "CANDIDATES_ONLY_NOT_A_RUNTIME",
+  "generated_at": "2026-10-25",
+  "owner": "EXO-152",
+  "source_prs": [
+    1752,
+    1753,
+    1754,
+    1758
+  ],
+  "methods": [
+    {
+      "native_id": "cmp.i32.gt_scalar",
+      "carrier": "i32",
+      "native_anchor": "ndarray::simd::gt_i32_to_mask",
+      "semantic": "signed rank-1 i32 lane comparison against one scalar threshold, result internal packed mask",
+      "readings": [
+        {
+          "dialect": "ONNX",
+          "expression": "Greater(X, threshold)",
+          "status": "candidate",
+          "version": null,
+          "notes": "threshold broadcasting and external BOOL packing to be verified"
+        },
+        {
+          "dialect": "TFLite",
+          "expression": "GREATER(X, threshold)",
+          "status": "candidate",
+          "version": null,
+          "notes": "builtin opcode options and TFLite BOOL storage to be verified"
+        },
+        {
+          "dialect": "MLIR",
+          "expression": "arith.cmpi sgt",
+          "status": "candidate",
+          "version": null,
+          "notes": "signed predicate and indexing domain required"
+        },
+        {
+          "dialect": "RelAlg",
+          "expression": "Rel::i32(lane, Cmp::Gt, threshold)",
+          "status": "candidate",
+          "version": "repo main 2026-10-25",
+          "notes": "only same-table i32 lane"
+        }
+      ],
+      "refusal": [
+        "non-i32 input",
+        "lane-vs-lane comparison",
+        "unproven broadcast shape",
+        "SQL UNKNOWN folded to false"
+      ]
+    },
+    {
+      "native_id": "select.i32.mask",
+      "carrier": "i32",
+      "native_anchor": "ndarray::simd::blend_i32",
+      "semantic": "for each same-address slot, mask bit selects X else Y; internal mask packed",
+      "readings": [
+        {
+          "dialect": "ONNX",
+          "expression": "Where(C, X, Y)",
+          "status": "candidate",
+          "version": null,
+          "notes": "exact shape/broadcast restrictions need validation"
+        },
+        {
+          "dialect": "TFLite",
+          "expression": "SELECT_V2(C, X, Y)",
+          "status": "candidate",
+          "version": null,
+          "notes": "same ranks/shapes and bool bytes require explicit mapping"
+        },
+        {
+          "dialect": "MLIR",
+          "expression": "arith.select",
+          "status": "candidate",
+          "version": null,
+          "notes": "value op, not set membership"
+        },
+        {
+          "dialect": "RelAlg",
+          "expression": "unrepresentable as Rel::Keep (mask only)",
+          "status": "refused",
+          "version": "repo main 2026-10-25",
+          "reason": "RelAlg::Keep emits mask, not selected i32 values"
+        }
+      ],
+      "refusal": [
+        "non-i32 values",
+        "shape mismatch",
+        "mask tail bits not zero"
+      ]
+    },
+    {
+      "native_id": "fold.i32.sum_where_gt",
+      "carrier": "i32/i64 accumulator",
+      "native_anchor": "ndarray::simd::gt_i32_to_mask + ndarray::simd::masked_sum_i32",
+      "semantic": "sum selected i32 values with i64 internal sum; external i32 result only if range guard passes",
+      "readings": [
+        {
+          "dialect": "ONNX",
+          "expression": "Greater -> Where(X, 0) -> ReduceSum",
+          "status": "candidate",
+          "version": null,
+          "notes": "rank one, reduction axes/keepdims/output dtype and overflow guard required"
+        },
+        {
+          "dialect": "TFLite",
+          "expression": "GREATER -> SELECT_V2(X, 0) -> SUM",
+          "status": "candidate",
+          "version": null,
+          "notes": "operator versions, keep_dims, zero-fill and dtype semantics require pinned oracle"
+        },
+        {
+          "dialect": "MLIR",
+          "expression": "linalg.generic guarded reduction",
+          "status": "candidate",
+          "version": null,
+          "notes": "reduction loop and index map must agree"
+        },
+        {
+          "dialect": "RelAlg",
+          "expression": "Rel::i32(lane, Gt, threshold) + Measure::Sum(lane)",
+          "status": "candidate",
+          "version": "repo main 2026-10-25",
+          "notes": "same table with Boolean selection; external output narrowing guarded"
+        }
+      ],
+      "refusal": [
+        "sum exceeds i32 for i32 result",
+        "NULL/Bag semantics differ",
+        "unknown empty-axes handling",
+        "wrong mask scope"
+      ]
+    },
+    {
+      "native_id": "value.f32.tanh_bounded",
+      "carrier": "f32",
+      "native_anchor": "ndarray::hpc::vml::vstanh",
+      "semantic": "bounded f32 elementwise tanh, preserves tested IEEE special values; no Boolean algebra law",
+      "readings": [
+        {
+          "dialect": "ONNX",
+          "expression": "Tanh",
+          "status": "candidate",
+          "version": null,
+          "notes": "lance-graph-onnx::bounded::tanh_f32 merged via #1758; pin ONNX operator version"
+        },
+        {
+          "dialect": "TFLite",
+          "expression": "TANH",
+          "status": "candidate",
+          "version": null,
+          "notes": "f32 only candidate; quantized TANH is not an alias"
+        },
+        {
+          "dialect": "MLIR",
+          "expression": "math.tanh",
+          "status": "candidate",
+          "version": null,
+          "notes": "numerical accuracy and rounding policy required"
+        },
+        {
+          "dialect": "RelAlg",
+          "expression": "none (outside set algebra)",
+          "status": "refused",
+          "version": "repo main 2026-10-25",
+          "reason": "Rel does not carry f32 value arithmetic"
+        }
+      ],
+      "refusal": [
+        "quantized tanh conflated with f32",
+        "tanh floated into Rel",
+        "unbounded approximation claimed exact"
+      ]
+    }
+  ]
+}
