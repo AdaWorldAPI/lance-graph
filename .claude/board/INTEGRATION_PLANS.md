@@ -1,3 +1,11 @@
+## 2026-10-25 — D-DRAV-1 address-first DR: independently reusable map, demand-driven values → `.claude/plans/d-dr-address-first-value-demand-v1.md`
+
+**Status:** PROPOSAL / DOCUMENTATION ONLY ([#1775](https://github.com/AdaWorldAPI/lance-graph/pull/1775), draft), not a runtime, ABI, optimizer, storage-backend or ONNX/TFLite implementation. **Board entry:** [D-DRAV-1](entries/2026-10-25-d-drav-1-address-first-value-demand.md). **Falsifiers:** AV1–AV12 QUEUED / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md); A1/A3 remain NOT RUN on actual workloads and D-DRF-1's scoped foreign-cache exception is undecided.
+
+The sealed DR64/DR256 address/relationship map is an independently useful, version/scope-witnessed structure, not a mandatory prelude to copying all referenced SoA values. Optional local facet caches can be evicted separately; topology-only relationship execution may avoid value fetches where contributor completeness and typed semantics are proven. Five *physical candidates* (MAP / BORROW / GATHER / COMPILED / STORAGE) retain D-RMAP-1A's map/index authority, D-DRF-1's lease and typed writeback contract, native Quack semantics, the no-foreign-gather firewall and existing CycleWriter durability boundaries. Dirty-value changes retain unaffected topology; value-derived support or physical index changes demand appropriate invalidation, successor sealing or refusal. Numeric ONNX/TFLite kernels do not become value-free merely because topology is mapped.
+
+**Evidence:** #1774 has independently counted cache lines and offsets, smaps-verified 4 KiB backing and a seeded shuffled-order arm; it does not prove TLB causality, huge-page benefit, NVMe economics or map-only learning frequency. First proposed lab controls: AV1/AV2 against a scalar oracle, subject to separate approval.
+
 ## 2026-10-24 — D-SAG-6 Rust Codegraph → Mathematics → Logic → Tracert → `.claude/plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md`
 
 **Status:** S0 PROPOSAL / DOCUMENTATION ONLY, no code, benchmarks, new compiler, proof certification or source rewrite. **Prompt:** `.claude/prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md`. **Handoff:** [Linear EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id).
