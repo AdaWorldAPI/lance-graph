@@ -138,3 +138,49 @@ fn churn_cyclic_switching_rebuilds_every_load_once_the_budget_is_one_short() {
     assert_eq!(cyclic_builds(3, 2, 10), 30, "every load is a rebuild");
     assert_eq!(cyclic_builds(3, 1, 10), 30);
 }
+
+/// Builds for a load sequence (indices into `k` maps) with an eviction pass
+/// after every load.
+fn builds_for(k: u64, seq: &[usize], budget_foci: usize, order: Evict) -> usize {
+    let r = rows();
+    let s = soa(&r);
+    let maps: Vec<_> = (1..=k).map(map).collect();
+    let mgr = FocusManager::new();
+    for &i in seq {
+        drop(mgr.load(&s, &maps[i], Scope(1), facet()).unwrap());
+        mgr.evict_to_budget_by(budget_foci * FOCUS_BYTES, order);
+    }
+    mgr.builds()
+}
+
+fn cycle(rounds: usize) -> Vec<usize> {
+    (0..rounds).flat_map(|_| [0, 1, 2]).collect()
+}
+
+/// AAAA BBBB CCCC, `rounds` times.
+fn phases(rounds: usize) -> Vec<usize> {
+    (0..rounds)
+        .flat_map(|_| [0, 1, 2])
+        .flat_map(|i| [i; 4])
+        .collect()
+}
+
+#[test]
+fn churn_mru_keeps_part_of_a_cycle_that_lru_loses_whole() {
+    // 30 cyclic loads over 3 foci. Expected counts worked out by hand before
+    // the run: MRU evicts the focus just loaded, so the other two stay hot.
+    assert_eq!(builds_for(3, &cycle(10), 2, Evict::Lru), 30);
+    assert_eq!(builds_for(3, &cycle(10), 2, Evict::Mru), 12);
+    assert_eq!(builds_for(3, &cycle(10), 1, Evict::Lru), 30);
+    assert_eq!(builds_for(3, &cycle(10), 1, Evict::Mru), 21);
+    // Both policies agree when the set fits.
+    assert_eq!(builds_for(3, &cycle(10), 3, Evict::Mru), 3);
+}
+
+#[test]
+fn churn_lru_wins_when_foci_are_used_in_phases() {
+    // AAAA BBBB CCCC twice, budget 2. MRU evicts C right after each load, so
+    // every C load in the phase rebuilds; LRU rebuilds once per phase.
+    assert_eq!(builds_for(3, &phases(2), 2, Evict::Lru), 6);
+    assert_eq!(builds_for(3, &phases(2), 2, Evict::Mru), 10);
+}
