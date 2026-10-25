@@ -8,6 +8,9 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+#[cfg(feature = "handoff")]
+pub mod handoff;
+
 /// Canonical SoA row ABI.
 pub const ROW: usize = 512;
 /// One SoA row.
@@ -301,9 +304,11 @@ struct Patch {
 }
 
 /// The final image of one dirty canonical row, owned for handoff to a writer.
+/// `row` is exactly [`ROW`] bytes. It is a `Vec` so the handoff can move it
+/// into the writer's payload without a second copy.
 pub struct RowImage {
     pub ord: u16,
-    pub row: Row,
+    pub row: Vec<u8>,
 }
 
 /// Writes staged against one focus, coalesced per canonical row at flush
@@ -410,13 +415,14 @@ impl Writeback<'_> {
             if out.last().is_none_or(|img| img.ord != p.ord) {
                 // The focus was built from this same source, so every ordinal
                 // was range-checked then; refuse rather than index if not.
-                let row = *soa
+                let row = soa
                     .rows
                     .get(p.ord as usize)
                     .ok_or(Refusal::OrdinalOutOfRange {
                         slot: usize::MAX,
                         ord: p.ord,
-                    })?;
+                    })?
+                    .to_vec();
                 out.push(RowImage { ord: p.ord, row });
             }
             let img = out.last_mut().expect("pushed above");

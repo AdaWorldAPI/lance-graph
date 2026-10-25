@@ -2,7 +2,8 @@
 # stale/foreign-key refusal, intra-focus prefetch lookahead. Timings only in
 # examples/p2_breakeven.rs, reported, not gated.
 # Own [workspace] root, excluded from the lance-graph workspace. Run from here:
-#   cargo test
+#   cargo test                      (W1-W3, focus, prefetch)
+#   cargo test --features handoff   (W4-W7 against the real CycleWriter)
 [package]
 name = "drf-focus-probe"
 version = "0.0.0"
@@ -14,6 +15,17 @@ description = "Lab probe D-DRF-P1: sealed 64x64 u16 map, full-witness FocusKey, 
 
 [dependencies]
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+# W4-W7 handoff to the real CycleWriter (`cargo test --features handoff`).
+lance-graph-planner = { path = "../lance-graph-planner", optional = true }
+
+[features]
+handoff = ["dep:lance-graph-planner"]
+
+[dev-dependencies]
+lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycle-driver"] }
+lance-graph-planner = { path = "../lance-graph-planner" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+tokio = { version = "1", features = ["rt", "macros", "sync"] }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }

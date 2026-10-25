@@ -408,7 +408,7 @@ fn w2_two_aliasing_slots_writing_different_facets_both_survive_in_any_order() {
         }
         let imgs = wb.flush(&soa).unwrap();
         assert_eq!(imgs.len(), 1);
-        imgs[0].row
+        imgs.into_iter().next().unwrap().row
     };
     let (a, b) = (image(true), image(false));
     assert_eq!(a, b, "order must not matter");
