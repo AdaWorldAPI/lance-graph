@@ -1,3 +1,23 @@
+## D-DRAV — address-first DR map and demand-driven value residency (2026-10-25)
+
+**Status: PROPOSAL, DOCS ONLY (#1775 draft).** Plan: [d-dr-address-first-value-demand-v1.md](../plans/d-dr-address-first-value-demand-v1.md). Ledger: [2026-10-25-d-drav-1-address-first-value-demand.md](entries/2026-10-25-d-drav-1-address-first-value-demand.md). Specializes D-DRF-1/D-RMAP-1A without a new owner, executor, ABI, storage backend or admission rule. MAP/BORROW/GATHER/COMPILED/STORAGE are candidate physical paths; A1/A3 remain **NOT RUN**, the cache-exception lapse condition undecided. #1774 is a separate locality probe, not proof of cheap NVMe random access.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-DRAV-1** | documentation-only proposal: independent map/value leases, dirty support invalidation, physical storage addressing and native-first ONNX/TFLite value demand | Proposed, docs only (#1775 draft) | source/ACL/index seals, no value-free numerical overclaim, no runtime changes |
+| **D-DRAV-AV1** | map-only after gathered values evicted | Queued (NOT RUN; not authorized) | independent scalar Boolean oracle, provenance and zero value reads |
+| **D-DRAV-AV2** | value-dependent operation after cache eviction | Queued (NOT RUN; not authorized) | rehydrate exact witnessed snapshot or refuse stale access |
+| **D-DRAV-AV3** | dirty value-only vs value-derived relationship change | Queued (NOT RUN; not authorized) | only dependent support invalidated; successor map/reseal or refusal |
+| **D-DRAV-AV4** | compaction, ABA, cross-dataset and ACL collision | Queued (NOT RUN; not authorized) | stale mapping / scope use refuses even at identical ordinal |
+| **D-DRAV-AV5** | duplicate-target dirty edits, conflicts and disjoint facets | Queued (NOT RUN; not authorized) | typed deterministic reduction, no lost fields, conflict refusal |
+| **D-DRAV-AV6** | queue-full, delayed WAL, ambiguous acknowledgement | Queued (NOT RUN; not authorized) | owned payload and lease safety; same frozen batch retry |
+| **D-DRAV-AV7** | MAP / BORROW / GATHER semantic parity | Queued (NOT RUN; not authorized) | preserve Bag, SQL K3, evidence and focus completeness; else refuse |
+| **D-DRAV-AV8** | same ordinals in visit and storage-ordered I/O variants | Queued (NOT RUN; not authorized) | same ordered results; count reads, bytes, reorder costs |
+| **D-DRAV-AV9** | verified 4 KiB vs 2 MiB backing | Queued (NOT RUN; not authorized) | offset/line controls; TLB causality not inferred from time alone |
+| **D-DRAV-AV10** | ONNX/TFLite value-demand and compiled artifact witnesses | Queued (NOT RUN; not authorized) | topology-only vs runtime numerical dependency, independent oracle |
+| **D-DRAV-AV11** | missing contributor outside focused relationship view | Queued (NOT RUN; not authorized) | admitted expansion or explicit refusal; never silently zero |
+| **D-DRAV-AV12** | sparse mutation affecting inverse/transitive relationships | Queued (NOT RUN; not authorized) | incremental maintenance equals complete rebuilt oracle or fallback |
+
 ## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
 
 **Status: S0 PROPOSAL / DOCS ONLY.** Plan: [d-sag-6-rust-codegraph-math-logic-tracert-v1.md](../plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md). Agent prompt: [d-sag-6-rust-codegraph-logic-tracert-claude-code.md](../prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). Continuation of D-SAG / D-DRMC / Ascent-BYODS, **not** a revived SoftwareGraph, separate registry, runtime or new proof authority. Parallel #1759 only reconciles existing board status.
