@@ -1,3 +1,7 @@
+## 2026-10-25 — d-dtm-1-distributed-thought-delta-reasoning-interchange-v1 — computational understanding interchange and staged PR DAG → `.claude/plans/d-dtm-1-distributed-thought-delta-reasoning-interchange-v1.md`
+
+**Status:** S0 PROPOSAL / DOCUMENTATION ONLY (this PR). Hand-off prompt: `.claude/prompts/d-dtm-1-reasoning-interchange-claude-code.md`; EXO-50 is the append-only coordination inbox. Proposes separate P1–P8: independent oracle, DR map/value demand binding, existing proof capsule catalogue, Kafka binary delta log, Flight DoExchange remote fold, temporal replay and consistent snapshot, optional ONNX/TFLite/MeTTa/MORK boundary, and two-node end-to-end falsifier. **None of P1–P8 approved or run.** Preserve D-SAG-6, D-RMAP-1A, D-DRF/D-DRAV, D-DRMC, D-NFC and Quack owners; #1775 remains draft, EXO-148 durable ID type blocker remains unresolved. No runtime/ABI/protocol implementation.
+
 ## 2026-10-24 — D-SAG-6 Rust Codegraph → Mathematics → Logic → Tracert → `.claude/plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md`
 
 **Status:** S0 PROPOSAL / DOCUMENTATION ONLY, no code, benchmarks, new compiler, proof certification or source rewrite. **Prompt:** `.claude/prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md`. **Handoff:** [Linear EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id).
