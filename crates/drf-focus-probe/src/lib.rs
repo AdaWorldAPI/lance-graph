@@ -5,7 +5,7 @@
 //! The lease begins at `FocusManager::load`, not at the first fold.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 #[cfg(feature = "handoff")]
@@ -177,11 +177,35 @@ impl Focus {
 
 type Slot = Arc<OnceLock<Result<Arc<Focus>, Refusal>>>;
 
+/// Resident bytes of one built focus: its gathered i32 column. The sealed map
+/// is caller-owned and shared through an `Arc`, so it is not counted here.
+pub const FOCUS_BYTES: usize = SLOTS * 4;
+
+/// What one [`FocusManager::evict_to_budget`] pass did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BudgetReport {
+    /// Entries removed by this pass.
+    pub evicted: usize,
+    /// Resident bytes after the pass.
+    pub resident_bytes: usize,
+    /// Of those, bytes held by foci that outside readers still reference.
+    pub pinned_bytes: usize,
+    /// Still above the budget: only pinned foci remain to evict (W8).
+    pub over_budget: bool,
+}
+
+struct Entry {
+    slot: Slot,
+    /// Manager tick of the most recent `load` of this key.
+    last: u64,
+}
+
 /// No global statics (L3): the lease table is owned by the manager.
 #[derive(Default)]
 pub struct FocusManager {
-    entries: Mutex<HashMap<FocusKey, Slot>>,
+    entries: Mutex<HashMap<FocusKey, Entry>>,
     builds: AtomicUsize,
+    tick: AtomicU64,
 }
 
 impl FocusManager {
@@ -202,9 +226,15 @@ impl FocusManager {
             map: map.id,
             scope,
         };
+        let now = self.tick.fetch_add(1, Ordering::SeqCst);
         let slot: Slot = {
             let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
-            g.entry(key).or_default().clone()
+            let e = g.entry(key).or_insert_with(|| Entry {
+                slot: Slot::default(),
+                last: now,
+            });
+            e.last = now;
+            e.slot.clone()
         };
         let res = slot.get_or_init(|| {
             self.builds.fetch_add(1, Ordering::SeqCst);
@@ -214,7 +244,7 @@ impl FocusManager {
             // A refusal is not a lease: do not leave it resident.
             let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
             if let Some(cur) = g.get(&key)
-                && Arc::ptr_eq(cur, &slot)
+                && Arc::ptr_eq(&cur.slot, &slot)
             {
                 g.remove(&key);
             }
@@ -234,11 +264,62 @@ impl FocusManager {
     pub fn evict_unused(&self) -> usize {
         let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let before = g.len();
-        g.retain(|_, slot| match slot.get() {
+        g.retain(|_, e| match e.slot.get() {
             Some(Ok(f)) => Arc::strong_count(f) > 1,
             _ => true,
         });
         before - g.len()
+    }
+
+    /// Bytes of every built focus the manager holds, pinned or not.
+    pub fn resident_bytes(&self) -> usize {
+        let g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        g.values()
+            .filter(|e| matches!(e.slot.get(), Some(Ok(_))))
+            .count()
+            * FOCUS_BYTES
+    }
+
+    /// Evict unpinned foci, least recently loaded first, until the resident
+    /// bytes fit `budget_bytes`. A focus an outside reader still holds is
+    /// never evicted, so the manager may stay over budget (W8); a slot still
+    /// being built counts as pinned. An evicted focus is rebuilt on its next
+    /// `load`.
+    pub fn evict_to_budget(&self, budget_bytes: usize) -> BudgetReport {
+        let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let mut resident = 0;
+        let mut pinned = 0;
+        let mut victims: Vec<(u64, FocusKey)> = Vec::new();
+        for (k, e) in g.iter() {
+            match e.slot.get() {
+                Some(Ok(f)) => {
+                    resident += FOCUS_BYTES;
+                    if Arc::strong_count(f) > 1 {
+                        pinned += FOCUS_BYTES;
+                    } else {
+                        victims.push((e.last, *k));
+                    }
+                }
+                Some(Err(_)) => {}
+                None => pinned += FOCUS_BYTES,
+            }
+        }
+        victims.sort_unstable_by_key(|v| v.0);
+        let mut evicted = 0;
+        for (_, k) in victims {
+            if resident <= budget_bytes {
+                break;
+            }
+            g.remove(&k);
+            resident -= FOCUS_BYTES;
+            evicted += 1;
+        }
+        BudgetReport {
+            evicted,
+            resident_bytes: resident,
+            pinned_bytes: pinned,
+            over_budget: resident > budget_bytes,
+        }
     }
 
     pub fn len(&self) -> usize {

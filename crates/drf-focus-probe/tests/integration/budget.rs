@@ -54,14 +54,20 @@ fn w8_a_pinned_focus_survives_eviction_and_may_exceed_the_budget() {
     assert_eq!(rep.evicted, 2, "only the two unpinned foci go");
     assert_eq!(rep.resident_bytes, FOCUS_BYTES);
     assert_eq!(rep.pinned_bytes, FOCUS_BYTES);
-    assert!(rep.over_budget, "a live reader may hold the manager over budget");
+    assert!(
+        rep.over_budget,
+        "a live reader may hold the manager over budget"
+    );
     assert_eq!(mgr.len(), 1);
     // The pinned view is untouched and still correct.
     assert_eq!(a.sum_where(&ALL), want);
 
     drop(a);
     let rep = mgr.evict_to_budget(0);
-    assert_eq!((rep.evicted, rep.resident_bytes, rep.over_budget), (1, 0, false));
+    assert_eq!(
+        (rep.evicted, rep.resident_bytes, rep.over_budget),
+        (1, 0, false)
+    );
     assert!(mgr.is_empty());
 }
 
@@ -95,7 +101,10 @@ fn w8_eviction_takes_the_least_recently_loaded_focus_first() {
     drop(mgr.load(&s, &ma, Scope(1), facet()).unwrap());
     assert_eq!(mgr.builds(), 3);
     let rep = mgr.evict_to_budget(2 * FOCUS_BYTES);
-    assert_eq!((rep.evicted, rep.resident_bytes, rep.over_budget), (1, 2 * FOCUS_BYTES, false));
+    assert_eq!(
+        (rep.evicted, rep.resident_bytes, rep.over_budget),
+        (1, 2 * FOCUS_BYTES, false)
+    );
     // An exact fit evicts nothing.
     assert_eq!(mgr.evict_to_budget(2 * FOCUS_BYTES).evicted, 0);
     // A and C are hits, B was the one evicted.
