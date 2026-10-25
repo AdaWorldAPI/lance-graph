@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-25 | `D-DRF-W8` |  | [2026-10-25-drf-w8-budget.md](2026-10-25-drf-w8-budget.md) |
 | 2026-10-25 | `D-DRF-W4` |  | [2026-10-25-drf-w4-handoff.md](2026-10-25-drf-w4-handoff.md) |
 | 2026-10-25 | `D-DRF-W3` |  | [2026-10-25-drf-w3-ordered-apply.md](2026-10-25-drf-w3-ordered-apply.md) |
 | 2026-10-25 | `D-DRF-W1` |  | [2026-10-25-drf-w1-writeback.md](2026-10-25-drf-w1-writeback.md) |
