@@ -15,7 +15,7 @@
 //! are bound. The slot loop only reads the map and the set. Building a row set
 //! from canonical values is preparation and is not part of this claim.
 
-use crate::{Refusal, SLOTS, Scope, SealedMap, SourceId, TILE_WORDS};
+use crate::{Refusal, Scope, SealedMap, SourceId, TILE_WORDS};
 use std::sync::Arc;
 
 /// Words in a bitset over the whole u16 ordinal domain.
@@ -114,8 +114,12 @@ pub fn membership(map: &BoundMap, set: &RowSet) -> Result<SlotMask, Refusal> {
         });
     }
     let mut m = [0u64; TILE_WORDS];
-    for (slot, &o) in map.map.ord.iter().enumerate().take(SLOTS) {
-        m[slot >> 6] |= (set.contains(o) as u64) << (slot & 63);
+    for (w, chunk) in m.iter_mut().zip(map.map.ord.as_chunks::<64>().0) {
+        let mut word = 0u64;
+        for (bit, &o) in chunk.iter().enumerate() {
+            word |= (set.contains(o) as u64) << bit;
+        }
+        *w = word;
     }
     Ok(m)
 }
