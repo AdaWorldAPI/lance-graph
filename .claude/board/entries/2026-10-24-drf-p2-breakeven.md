@@ -39,3 +39,8 @@ Fold cost: before ndarray #376, `masked_sum_i32` walked set bits one by one; ful
 OPEN: the warm 65 536-row build (23 µs vs 3.8 µs at 1024 rows, same cache-line footprint)
 suggests TLB misses across 32 MiB of 4 KiB pages; not measured. Also open: focus churn under
 a memory budget, and dirty-row writeback (A1, W1–W8).
+
+Correction (2026-10-25, see `2026-10-25-drf-tlb-probe.md`): the "same cache-line footprint" and
+"whatever the row count" statements above are wrong for the 1 024-row random case (about 1 005
+distinct lines against about 3 970 at 65 536 rows). The 3.8 vs 23 µs gap is not attributable to
+TLB alone.
