@@ -1,4 +1,4 @@
-# D-DRAV-1 AV1 — map-only membership mask (lab, reported not gated)
+# D-DRAV-AV1 — map-only membership mask (lab, reported not gated)
 
 **Status:** MEASURED (lab). Contract: [D-DRAV-1](../plans/d-dr-address-first-value-demand-v1.md)
 (#1775, draft) AV1. Code: `crates/drf-focus-probe/src/membership.rs`, tests

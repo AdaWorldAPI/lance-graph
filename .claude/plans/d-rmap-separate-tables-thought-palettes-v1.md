@@ -6,6 +6,8 @@
 >
 > **Operator ruling for this proposal:** RelationshipMaps live in separate explicit tables, expose a zero-copy map of existing indexed values, and are not stored inside RelAlg. Each thought selects a *palette of global RelationshipMaps* using another independent table. Nothing is crammed into CausalEdge64.
 
+> **Related physical-lifetime study (2026-10-25):** [D-DRAV-1](d-dr-address-first-value-demand-v1.md) treats the attested relationship/address map as independently reusable from optional gathered payload values, and compares map-only, borrowed, materialized and physical-storage execution. RelationshipMapStore, BIND, Quack and source ownership remain as defined here; this is **not** a new mapping authority or backend implementation.
+
 ## 1. Ownership contract
 
 | Owner | Owns | Must not own |
