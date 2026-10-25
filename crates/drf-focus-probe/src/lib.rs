@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 #[cfg(feature = "handoff")]
 pub mod handoff;
+pub mod membership;
 
 /// Canonical SoA row ABI.
 pub const ROW: usize = 512;
@@ -106,6 +107,16 @@ pub enum Refusal {
     Conflict {
         ord: u16,
         offset: usize,
+    },
+    /// A map and a row set bound to different sources or scopes (AV1).
+    DomainMismatch {
+        map: SourceId,
+        set: SourceId,
+    },
+    /// Same source, different authorized scope (AV1).
+    ScopeMismatch {
+        map: Scope,
+        set: Scope,
     },
 }
 
