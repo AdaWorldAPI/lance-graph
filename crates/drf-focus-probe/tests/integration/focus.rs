@@ -637,7 +637,9 @@ fn g_two_facets_of_one_map_are_two_foci_not_one_cached_column() {
     let m = map_from(308, 9, |s| (s % NROWS) as u16);
     let mgr = FocusManager::new();
     let a = mgr.load(&soa, &m, Scope(1), facet()).unwrap();
-    let b = mgr.load(&soa, &m, Scope(1), Facet::new(OFF2).unwrap()).unwrap();
+    let b = mgr
+        .load(&soa, &m, Scope(1), Facet::new(OFF2).unwrap())
+        .unwrap();
     assert_eq!(a.column()[5], facet_of(5) as i32);
     assert_eq!(b.column()[5], -5, "second facet must gather its own column");
     assert!(!Arc::ptr_eq(&a, &b));

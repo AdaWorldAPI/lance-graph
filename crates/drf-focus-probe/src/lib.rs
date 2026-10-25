@@ -62,10 +62,13 @@ pub struct FocusKey {
     pub source: SourceId,
     pub map: MapId,
     pub scope: Scope,
+    /// The focus caches one gathered column, so the facet is part of what an
+    /// entry means: two facets of one map are two foci.
+    pub facet: Facet,
 }
 
 /// Declared i32 LE facet at a byte offset inside a row.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Facet {
     offset: usize,
 }
@@ -153,6 +156,7 @@ impl Focus {
                 source: soa.id,
                 map: map.id,
                 scope,
+                facet,
             },
             map,
             facet_col: col,
@@ -201,6 +205,7 @@ impl FocusManager {
             source: soa.id,
             map: map.id,
             scope,
+            facet,
         };
         let slot: Slot = {
             let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
