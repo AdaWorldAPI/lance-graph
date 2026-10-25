@@ -10,6 +10,8 @@
   over 4 rows in a scrambled staging order match a scalar oracle (highest position per row).
 - **W3 PASS (refusal arm):** different values at one declared position, or an unordered
   `stage` next to a positioned one, refuse with `Conflict`. Equal values coalesce in both.
+  An unordered write is checked against every positioned value of its facet, not only its
+  sorted neighbour (`stage 1`, `stage_at 1@5`, `stage_at 2@6` refuses; codex P2 on #1766).
 - **Mechanism:** patches sort by `(ord, offset, pos)` and apply in that order, so the
   sort is the order of application; no second pass.
 - **Disables, each red on its own test:** sort without `pos` (staging order wins); treat
