@@ -198,6 +198,15 @@ pub struct BudgetReport {
     pub over_budget: bool,
 }
 
+/// Victim order for [`FocusManager::evict_to_budget_by`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Evict {
+    /// Least recently loaded first.
+    Lru,
+    /// Most recently loaded first.
+    Mru,
+}
+
 struct Entry {
     slot: Slot,
     /// Manager tick of the most recent `load` of this key.
@@ -291,6 +300,12 @@ impl FocusManager {
     /// being built counts as pinned. An evicted focus is rebuilt on its next
     /// `load`.
     pub fn evict_to_budget(&self, budget_bytes: usize) -> BudgetReport {
+        self.evict_to_budget_by(budget_bytes, Evict::Lru)
+    }
+
+    /// [`evict_to_budget`](Self::evict_to_budget) with the victim order
+    /// chosen by `order`. Pinning and the stop rule are the same.
+    pub fn evict_to_budget_by(&self, budget_bytes: usize, order: Evict) -> BudgetReport {
         let mut g = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let mut resident = 0;
         let mut pinned = 0;
@@ -309,7 +324,10 @@ impl FocusManager {
                 None => pinned += FOCUS_BYTES,
             }
         }
-        victims.sort_unstable_by_key(|v| v.0);
+        match order {
+            Evict::Lru => victims.sort_unstable_by_key(|v| v.0),
+            Evict::Mru => victims.sort_unstable_by_key(|v| std::cmp::Reverse(v.0)),
+        }
         let mut evicted = 0;
         for (_, k) in victims {
             if resident <= budget_bytes {
