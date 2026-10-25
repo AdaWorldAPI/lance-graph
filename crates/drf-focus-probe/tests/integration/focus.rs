@@ -606,7 +606,10 @@ fn w3_an_unordered_write_conflicts_with_every_different_positioned_value_in_its_
     wb.stage_at(2, facet(), 2, 6).unwrap();
     assert_eq!(
         wb.flush(&soa).err(),
-        Some(Refusal::Conflict { ord: 500, offset: OFF })
+        Some(Refusal::Conflict {
+            ord: 500,
+            offset: OFF
+        })
     );
     // Silence twin: every positioned value equals the unordered one.
     let mut wb = f.writeback();
