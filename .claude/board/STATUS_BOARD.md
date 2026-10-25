@@ -22,13 +22,15 @@ Plan: `.claude/plans/d-onnx-native-v1.md`. Crate: `crates/lance-graph-onnx` (ALI
 
 ## D-DRF — immutable DR64 focus, leased foreign cache, sparse writeback (2026-10-24)
 
-Docs only (#1756). Plans `d-dr64-focus-lease-foreign-cache-v1.md` and `d-dr64-focus-cache-falsifiers-v1.md`. The foreign-key cache is a scoped exception to the zero-copy law (DECISION 2026-10-24, `zero-copy-lens-law.md`).
+Docs #1756; lab crate `drf-focus-probe` #1762–#1771 (workspace-excluded, no CI job runs it). Plans `d-dr64-focus-lease-foreign-cache-v1.md` and `d-dr64-focus-cache-falsifiers-v1.md`. The foreign-key cache is a scoped exception to the zero-copy law (DECISION 2026-10-24, `zero-copy-lens-law.md`).
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | Shipped, docs only (#1756 `06adcbce`) | falsifier matrix G1–G7, L1–L4, P1–P3, M1–M2, W1–W8, R1–R7 pre-registered, NOT RUN |
-| **DRF-P1** | two-focus lazy load / lease / prefetch / last-reader eviction | Proposed | L1–L3, P1–P2; stale-map and race fixtures first |
-| **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Proposed | whole-run cost incl. cold build; the foreign-key cache exception lapses if B/C does not win |
+| **D-DRF-1** | reference semantics: geometry, focus lease, lookahead prefetch, foreign-key cache exception, dirty-row writeback, learning overlay | Shipped, docs only (#1756 `06adcbce`) | falsifier matrix pre-registered; run so far (lab): G1/G3/G4/G6, L1–L3, P1–P2, W1–W4, W6–W8. NOT RUN: G2/G5/G7, L4, P3, M1–M2, W5, R1–R7 |
+| **DRF-P1** | two-focus lazy load / lease / prefetch / last-reader eviction | Shipped, lab (#1762 `62d6c70f`; key gains `facet`, #1769 `94d254a1`) | L1–L3, G1/G3/G4/G6, P1 green; `entries/2026-10-24-drf-p1-focus-lease-probe.md`, `entries/2026-10-25-drf-focuskey-facet.md` |
+| **DRF-P2** | 64-thought foreign-table A/B/C (direct+prefetch vs gather+reuse vs gather+reuse+writeback) | Partly measured, lab (#1763 `e8aabd95`, #1764 `2bfb2908`) | break-even 1–3 folds warm and cold; A1/A3 NOT RUN, so the exception's lapse rule is not decided; `entries/2026-10-24-drf-p2-breakeven.md` |
+| **DRF-W** | writeback W1–W4, W6–W8: per-row coalesce, conflict refusal, handoff to the real CycleWriter, lost-ack resubmit, no-change cycle, eviction budget | Shipped, lab (#1765–#1768, #1770, #1771; `22bac9d3`…`332b420c`) | W5 (descriptor-only cast) NOT RUN; fake WAL stands in for Lance; `entries/2026-10-25-drf-w1-writeback.md`, `-w3-ordered-apply`, `-w4-handoff`, `-w8-budget` |
+| **DRF-CHURN** | eviction victim order under churn (LRU vs MRU) | In PR (#1772) | measured: neither wins both cyclic and phased; default unchanged; `entries/2026-10-25-drf-churn-policy.md` (on #1772) |
 | **DRF-P3** | relationship cube / slices and typed dirty-row reduction oracle | Proposed | R1–R3, W1–W3; no Bag/NULL/evidence loss |
 | **DRF-P4** | optional plasticity overlay + ONNX candidate stream | Proposed | R4–R7; base DR revision bit-identical |
 

@@ -1,3 +1,11 @@
+## 2026-10-25 — main after #1771 (merged `332b420c`)
+
+- New lab crate on main: `drf-focus-probe` (#1762, workspace-excluded, no CI job). It carries the D-DRF-1 focus lease + gather (DRF-P1), the focus-vs-direct break-even (DRF-P2, #1763/#1764) and the writeback falsifiers W1–W4, W6–W8 (#1765–#1771). Feature `handoff` hands flushed rows to the real `lance-graph-supervisor` CycleWriter; a fake WAL stands in for Lance.
+- Not run: W5 (descriptor-only cast), M1–M2, R1–R7, DRF-P2 A1/A3. Open: eviction policy under churn (#1772 in PR), TLB cost of the 65 536-row build, a real Lance WAL.
+- Also on main: D-SAG-6 docs (#1760); fractal virtual-relation probe (#1761).
+- **Contract inventory delta:** none (lab crate, probes, docs).
+- Per-PR records: `PR_ARC_INVENTORY.md` catch-up #1760–#1771.
+
 ## 2026-10-24 — main after #1758 (merged `0dcaf8b5`)
 
 - New crates on main: `lance-graph-onnx` (#1754; ONNX names over existing native functions, `onnx::bounded` Tanh/Exp aliases in #1758), `math-polyfill-probe` (#1752, lab), `soa-view-probe` (#1755, lab).
