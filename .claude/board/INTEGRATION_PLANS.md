@@ -1,3 +1,9 @@
+## 2026-10-25 — D-TFLP TFLite models on the native polyfill → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v1.md`
+
+**Status:** PROPOSAL / DOCUMENTATION ONLY. **Board entry:** [D-TFLP-0](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). **Stages:** D-TFLP-1..8 Queued / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md).
+
+int8 TFLite tensors are Palette256 codes with an affine decode; TFLM int8 kernels are functions of codes and conversion-time parameters, so elementwise ops become exhaustive 256 / 65,536-entry tables that are bit-exact by construction and closed under chaining. Softmax is a diff-keyed table plus a row reduction; FC/conv fold the input zero point into the bias and reuse the existing u8×i8 / i8×i8 GEMMs and #375 requantization. `lance-graph-tflite` follows the `lance-graph-onnx` pattern with a TABLE verdict and a cold importer. Semantics read from `AdaWorldAPI/tflite-micro` and `AdaWorldAPI/Rust`; neither linked. Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784).
+
 ## 2026-10-25 — D-DRAV-1 address-first DR: independently reusable map, demand-driven values → `.claude/plans/d-dr-address-first-value-demand-v1.md`
 
 **Status:** PROPOSAL / DOCUMENTATION ONLY ([#1775](https://github.com/AdaWorldAPI/lance-graph/pull/1775), draft), not a runtime, ABI, optimizer, storage-backend or ONNX/TFLite implementation. **Board entry:** [D-DRAV-1](entries/2026-10-25-d-drav-1-address-first-value-demand.md). **Falsifiers:** AV1–AV12 QUEUED / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md); A1/A3 remain NOT RUN on actual workloads and D-DRF-1's scoped foreign-cache exception is undecided.
