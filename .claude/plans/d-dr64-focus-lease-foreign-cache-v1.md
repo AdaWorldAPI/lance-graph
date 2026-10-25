@@ -4,6 +4,8 @@
 
 **Canonical authority:** D-RMAP-1A (separate RelationshipMap tables and thought palettes), D-NFC (native-first dependency direction), D-NFR (representation status), D-MBX persistence, and the Rust-owned SoA. This note specializes their **focus residency / cache / writeback / optional learning** gap; it does not replace their semantic ownership.
 
+> **2026-10-25 address/value separation proposal:** [D-DRAV-1](d-dr-address-first-value-demand-v1.md) examines retaining the sealed DR map while independently evicting gathered value facets, map-only relationship execution, witnessed physical storage lookup, and value-demand-based ONNX/TFLite lowering. It is a proposed physical-plan/lifetime refinement; it does **not** loosen this plan's source lease, foreign-gather admission, dirty-writeback, or semantic constraints.
+
 ## 0. Operator decision and thesis
 
 1. **One DR64 focus is the common case.** It is not a mandate to allocate DR256 or a complete cubic tensor.
