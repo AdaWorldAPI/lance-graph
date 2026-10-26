@@ -1,17 +1,21 @@
 ## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
 
-**Status:** PLAN / DOCS ONLY, six independent draft PRs, no source ingestion, no new 64-slot ABI, no runtime or tests run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
+**Status:** PLAN / DOCS ONLY, six documentation PRs **MERGED** ([#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794)–[#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799)), no production source ingestion, no new 64-slot ABI, no runtime adapter or DT64-Q0 executable proof run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
 
-| Stage | Plan / draft | Gate |
+| Stage | Mainline documentation receipt | Gate |
 |---|---|---|
-| DT64-0 | charter / THIS PR | protect ClassView presence vs predicate truth; NFR-OP-2 open |
-| DT64-1 | [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) | 64 typed candidate mappings, sourced/candidate/blocked differentiated |
-| DT64-2 | [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) | IAM/Odoo/SAP/Exchange cross-system identity joins require source attestations; licence source absent |
-| DT64-3 | [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) | forward/inverse/predicate SPO projection parity and K3/Bag falsifiers; no mandated DR³ physical cube |
-| DT64-4 | [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) | dependency support and hypothesis/time receipts; EXO-148 missing durable IDs |
-| DT64-5 | [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) | D-NAM/EXO-152 native method route, ONNX as leaf, computed result ≠ source fact |
+| DT64-0 | [#1799 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1799) | protect ClassView presence vs predicate truth; NFR-OP-2 open |
+| DT64-1 | [#1794 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1794) | 64 typed candidate mappings, sourced/candidate/blocked differentiated |
+| DT64-2 | [#1795 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1795) | IAM/Odoo/SAP/Exchange cross-system identity joins require source attestations; licence source absent |
+| DT64-3 | [#1796 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1796) | forward/inverse/predicate SPO projection parity and K3/Bag falsifiers; no mandated DR³ physical cube |
+| DT64-4 | [#1797 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1797) | dependency support and hypothesis/time receipts; EXO-148 missing durable IDs |
+| DT64-5 | [#1798 (MERGED, docs)](https://github.com/AdaWorldAPI/lance-graph/pull/1798) | D-NAM/EXO-152 native method route, ONNX as leaf, computed result ≠ source fact |
 
-**Shared Q0 execution seam (docs only, #1799):** [DT64 → borrowed Quack](../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md). One attested semantic binding, source-owner immutable borrow, separate compiled recipe. First fixture: eight IAM/Exchange/SAP predicates, scalar/direct/Quack and optional DR64² comparison, three directed queries, mandatory #1792 1,032-vs-31 stale Keep refusal/recompute. No invented runtime, 64³ allocation, new execution authority or numerical method code. D-NAM/EXO-152 owns SourceParity/CertifiedMath certificates; DT64 only references handles. No tests yet.
+**Shared Q0 execution seam (docs only, MERGED #1799):** [DT64 → borrowed Quack](../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md). One attested semantic binding, source-owner immutable borrow, separate compiled recipe. First fixture: eight IAM/Exchange/SAP predicates, scalar/direct/Quack and optional DR64² comparison, three directed queries, mandatory #1792 1,032-vs-31 stale Keep refusal/recompute. No invented runtime, 64³ allocation, new execution authority or numerical method code. D-NAM/EXO-152 owns SourceParity/CertifiedMath certificates; DT64 only references handles. No tests yet.
+
+**Quack / DR64 coordination and merge-state receipt (2026-10-26):** [D-DT64-Q0](../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md) is the **single canonical semantic-binding contract**. The former [D-DT64-QB pointer](../plans/d-dt64-quack-borrowed-binding-seam-v1.md) is deliberately NON-AUTHORITATIVE. [#1792 MERGED](https://github.com/AdaWorldAPI/lance-graph/pull/1792) establishes that an owner-borrowed Quack computation needs no redundant per-operation mutation guard; a detached `Keep` must **recompute or refuse** absent a complete dependency/snapshot witness (P2 old **1,032** versus fresh **31**). Existing Quack/RelAlg/R2IL/mask-risc and ndarray own execution. DT64 cold-binds type, schema/catalogue, actual owner/source snapshot, typed focus/local-global coordinates, permission/knownness and source lanes, then references a separately reusable compiled recipe. **The eight first candidates** are DT64 slots 08, 11, 12, 13, 14, 17, 18, 32 (candidate ordinals, NOT ABI); **11/12/17 are unary** and do not acquire invented inverse edges. The first proposed lab compares direct source, independent scalar oracle, Quack and optionally a **512 B DR64²** typed relation; DR64³ physical axis NFR-OP-2 and generalized Binding Store remain OPEN. Source snapshot pinning is NOT `QueryReference::at`. A physical cross-source read requires its owner-issued snapshot and scope; EXO-46 remains the production global-to-local admission decision. 
+
+**Numerical boundary:** [#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800) (source-specific TFLM Softmax calibration evidence), [#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) (Codec8 code-space admission and [HANDOFF](../../.claude/probes/pal256-admission-v1/HANDOFF.md)), [#1803](https://github.com/AdaWorldAPI/lance-graph/pull/1803) (fixture compaction) are **MERGED LAB evidence**, not DT64 predicate slots, numerics implemented in Quack or a source-attested production binding store. D-NAM/[EXO-152](https://linear.app/exo-red/issue/EXO-152) owns SourceParity/CertifiedMath and method certificates. [EXO-50](https://linear.app/exo-red/issue/EXO-50) carries append-only coordination only; no actor/source rights inferred from a receipt.
 
 **Hard blockers:** [EXO-46](https://linear.app/exo-red/issue/EXO-46) production focus admission, [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) escaped-Keep authority and physical snapshot, NFR-OP-2 axis selection, source-specific negative observation/ACL, EXO-148, missing Entra license and Odoo method source verification. Direct bitmask first; no claimed holographic global reconstruction until independent oracle.
 
@@ -129,11 +133,11 @@ Docs only. Plans `d-native-repr-contract-v1.md` (D-NFR) and `d-native-first-depe
 |---|---|---|---|
 | **D-NFC-0** | one canonical dependency diagram and seven root assumptions, applied as marked supersessions to #1746–#1751 and #1750 | Shipped (#1753) | each affected PR cites the diagram; S0 dispute left open |
 | **D-NFR-0** | seam table Quack → DR64³ → Palette256³ → execution, cited to source | Shipped (#1753) | every seam SHIPPED / LAB / PROPOSED / MISSING with its source |
-| **D-NFR-1** | lab adapter: a Quack-bound query sealed under a frame | Proposed | after one revision moves, the stored binding is refused with the matching `Refusal`; before, it equals an oracle |
+| **D-NFR-1** | source-attested borrowed Quack adapter; no invented FrameStore | Proposed (ownership falsifiers merged #1792, no production adapter) | identical live owner borrow equals oracle; escaped Keep with stale dependencies recomputes/refuses; true owner/source identity required |
 | **D-NFR-2** | codebook generation carried in the frame seal | Proposed | a palette value bound under generation g is refused under g+1 |
 | **D-NFR-3** | one DR axis bound to one palette plane under a frame | Proposed | Cartesian and numerical oracles agree; a mismatched codebook is refused |
 | **D-NFR-4** | end-to-end acceptance fixture (nine steps, each measured) | Proposed | all nine steps pass, each step's cost reported separately |
-| **D-NFR-5** | one binding and one focus reused across several operations | Proposed | reuse saving measured against rebinding and a fused scalar / SIMD baseline, guards run on every use |
+| **D-NFR-5** | one admitted borrowed binding and one focus reused across several operations | Proposed | measure reuse against rebinding and fused scalar/SIMD baseline; no redundant per-operation mutation guard while immutable owner borrow is live (#1755/#1792) |
 
 ## D-NFR-6 — native operations over the SoaEnvelope borrow, no guard (2026-10-23)
 
