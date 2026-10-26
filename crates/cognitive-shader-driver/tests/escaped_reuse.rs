@@ -111,3 +111,76 @@ fn a_later_cycle_write_moves_both_stamps() {
     assert_eq!(after.1[2], before.1[2], "an unwritten row's stamp moved");
     assert_ne!(kept, mask_eq(&mb, A));
 }
+
+/// D-NFR-1 amendment, mutation path 2 of 3: the columns are PUBLIC FIELDS, so
+/// a write needs neither `write_row` nor a setter. A generation bumped inside
+/// those methods would not see this one. FAILS IF a direct field write moved
+/// a stamp, or did not reach the predicate input.
+#[test]
+fn a_direct_public_field_write_bypasses_every_stamp() {
+    let mut mb = mailbox();
+    let kept = mask_eq(&mb, A);
+    let before = stamps(&mb);
+    mb.entity_type[1] = A; // public field, no method
+    assert_eq!(stamps(&mb), before, "a field write moved a stamp");
+    let fresh = mask_eq(&mb, A);
+    assert_ne!(kept, fresh);
+    assert_eq!(fresh, kept | 0b10, "expected exactly row 1 to join");
+}
+
+/// The stamps are themselves public fields, so even a reader that compared
+/// them could be shown values that no longer describe the data. Here only
+/// owner METHODS are used: `reset_row` returns the row's stamp to the
+/// never-written sentinel and a same-cycle `write_row` puts back the value the
+/// reader recorded, with different data underneath. FAILS IF the stamp pair
+/// differs after the round trip (it would then witness the change).
+#[test]
+fn reset_then_same_cycle_write_restores_the_stamps_over_new_data() {
+    let mut mb = mailbox();
+    let kept = mask_eq(&mb, A);
+    let before = stamps(&mb);
+    mb.reset_row(1);
+    assert_eq!(
+        mb.last_write_cycle_at(1),
+        u32::MAX,
+        "reset did not clear the stamp"
+    );
+    let cell = WriteCell {
+        entity_type: Some(A),
+        ..Default::default()
+    };
+    assert_eq!(
+        mb.write_row(1, mb.current_cycle(), &cell),
+        WriteOutcome::Accepted
+    );
+    assert_eq!(stamps(&mb), before, "the round trip left a trace");
+    assert_ne!(kept, mask_eq(&mb, A));
+}
+
+/// Two owners, one numeric stamp. Mailboxes 1 and 2 are both at cycle 1 with
+/// every row written in cycle 1, so `(current_cycle, last_write_cycle)` is
+/// identical; their `entity_type` columns differ. A reuse key without the
+/// owner's identity would alias them. Expected masks are computed from the
+/// fixture rule, not from the code under test. FAILS IF the stamps differ (the
+/// premise is false) or the two answers coincide (nothing to alias).
+#[test]
+fn equal_stamps_on_two_owners_do_not_identify_one_answer() {
+    let one = mailbox();
+    let mut two = MailboxSoA::<ROWS>::new(2, 0, 0.5);
+    two.set_populated(ROWS);
+    two.tick();
+    let c = two.current_cycle();
+    for r in 0..ROWS {
+        let cell = WriteCell {
+            entity_type: Some(if r % 2 == 0 { A } else { B }),
+            ..Default::default()
+        };
+        assert_eq!(two.write_row(r, c, &cell), WriteOutcome::Accepted);
+    }
+    assert_eq!(stamps(&one), stamps(&two), "premise: equal numeric stamps");
+    assert_ne!(one.mailbox_id(), two.mailbox_id());
+    let expect = |m: usize| (0..ROWS).fold(0u64, |a, r| a | (u64::from(r % m == 0) << r));
+    assert_eq!(mask_eq(&one, A), expect(3));
+    assert_eq!(mask_eq(&two, A), expect(2));
+    assert_ne!(mask_eq(&one, A), mask_eq(&two, A));
+}
