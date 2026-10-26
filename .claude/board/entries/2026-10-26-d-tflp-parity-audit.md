@@ -360,3 +360,89 @@ dispatcher or table layer. LOGISTIC follows the same three stages after TANH.
 - Capstone §4: preparation time marked as depending on A3's open seam.
 - Capstone §9 item 1: closed for the instruction question (all arms non-saturating); the
   accumulator-range half stays open.
+
+## Amendment 2 (2026-10-26) — canonical operators and native ClassId aliases
+
+Read for this amendment: `crates/lance-graph-contract/src/{class_view.rs:48-54,rbac.rs:325-331,ogar_codebook.rs}`
+(the `ConceptDomain` list and the `0x08XX` rows), `crates/math-polyfill-probe/src/onnx_compat.rs`,
+the D-NAM-2 and D-NAM-PZL plans, capstone §3.1, and TFLM `micro/kernels/{exp.cc,elementwise.cc}`.
+
+### B1. Two syntax domains, one execution substrate
+
+| | canonical (ONNX, TFLite) | native (ours) |
+|---|---|---|
+| recognised by | the canonical format | our ClassId metadata envelope |
+| identifier | (domain, operator, version) | (ClassId, alias) |
+| authority | the upstream spec | our recipe definition |
+| may lower to | an existing native LUT or polyfill, **after** certification | the same, by explicit alias |
+| identity after lowering | unchanged: still the canonical operator | unchanged: still the alias |
+
+Four identities stay separate and are all recorded: canonical identifier, native identifier,
+implementation (native method or polyfill), and prepared data (model parameters, calibration,
+LUT revision, codebook generation). The prepared-data half is the D-NAM-PZL "recipe receipt"
+(`d-nam-palette-native-lut-capstone-v1.md:40`); no new identity scheme is needed. Two names may
+resolve to one implementation only where both contracts permit it. There is no shared
+operator registry and no runtime dialect switch: resolution happens before execution and the
+compiled recipe is frozen.
+
+### B2. Worked example: canonical Mish vs a native Mish alias
+
+- **Canonical.** ONNX defines `Mish` (opset 18, floating-point types only), which
+  `lance-graph-onnx` does not admit today; an f32 reading would be BOUNDED, like Tanh. TFLite
+  has no Mish builtin; a converted model carries it as a chain (`x · tanh(softplus(x))`) or as
+  a custom op. A custom op with an unverified
+  implementation and version is REFUSE. A chain is certified op by op, including each
+  intermediate quantization: composing 256-entry code→code tables reproduces intermediate
+  requantization by construction, and the multiply is a function of one input code, so a
+  fused table is exact **if every op in the chain is itself reproduced exactly**.
+- **Finding against capstone §3.1.** In TFLite Micro the chain cannot be all-int8: `EXP` is
+  float32 only (`exp.cc:41`) and `LOG` is float32 only (`elementwise.cc:46-47,390-392`). A
+  converted int8 model therefore carries dequantize/float/quantize islands, and their output
+  depends on the platform `expf`/`logf`, which no TFLM commit pins. "Exact against running the
+  chain op by op in TFLM" holds only with a pinned libm, or as BOUNDED otherwise. Full TFLite
+  may differ (its kernels were not read): OPEN.
+- **Native.** A ClassId alias such as `mish2lut` names our own recipe: a 256-entry table under a
+  stated Codec8 policy (for example `Asym` input, a named output space and rounding), built
+  from the mathematical function. Its contract is ours. It is a calibrated or mathematically
+  certified native approximation, never "TFLite Mish", and it cannot be exported under a
+  canonical name.
+- **If certification fails** for the canonical chain, the LUT is not substituted under the
+  canonical name; the chain runs through its admitted per-op implementations or is refused.
+
+Certification of a canonical reading is conditional on operator version, dtype, shape, layout,
+code space, arithmetic, rounding, NaN behaviour, saturation and output representation (§A5),
+and lands in one of four classes: exact equivalence, bounded compatibility, calibrated native
+approximation, or unsupported. A proof for one operator version or one alias certifies no
+other reading.
+
+### B3. Codec8 under both domains
+
+Both domains reuse `Codec8<T, S, R, N>` and `Calibration` (§A1-A2) unchanged; data
+representation and operator execution stay separate contracts. Because `Asym` and `Sym` share
+`Elem = i8` (§A2), an alias that consumes a canonical tensor must take the code space from the
+canonical operator's quantization, never from the byte buffer: a TFLite activation code −128 is
+a value and must never reach a `Sym + NaNAtMin` table as NaN.
+
+### B4. Implemented vs planned
+
+| claim | status | evidence |
+|---|---|---|
+| canonical ONNX operators admitted natively | IMPLEMENTED for a narrow f32/i32 subset | `lance-graph-onnx`; `math-polyfill-probe/src/onnx_compat.rs` (a probe of the same composition) |
+| upstream model recognition (ONNX `ModelProto`, TFLite FlatBuffer) | **NOT IMPLEMENTED** | no parser or format detection in `crates/` (search for `ModelProto`, `TFL3`, `.tflite`, `flatbuffer` found only tokenizer paths and the probe's doc comment saying it has no `ModelProto`); D-TFLP §4 importer is planned |
+| native ClassId metadata envelope for our models | **NOT IMPLEMENTED** | no envelope type found; D-NAM-PZL describes the recipe receipt as a plan |
+| ClassId concepts for native methods / LUT recipes | **NOT MINTED** | `ConceptDomain` has no ML, operator or method domain; concepts are minted in OGAR `ogar-vocab`, never in a consumer, so an alias like `mish2lut` needs an OGAR mint (operator decision) |
+| certified canonical→LUT lowering | **NOT IMPLEMENTED** | no tables exist (§A1); the TFLM TANH oracle (§A7) is the first gate |
+| compile-time alias resolution | PLANNED | consistent with Codec8 D8; no code |
+
+### B5. Contradictions to resolve (none fixed here)
+
+1. **Two `ClassId` types.** `class_view.rs:54` is `u16`, a per-row shape discriminator;
+   `rbac.rs:331` is `u32`, the composed classid (canon high half, app prefix low half). A
+   "native ClassId alias" must say which it means. By the canon it is the `u32` classid whose
+   high half is an OGAR-minted concept; the `u16` is a different coordinate.
+2. **Capstone §3.1 Mish exactness** (B2): conditional on pinned float math in TFLM Micro.
+3. **"Recognised automatically upstream"** is the intended design; no recognition exists today,
+   so nothing currently enforces that a canonical model never carries our envelope. That
+   exclusivity has to be a check in the importer when it is built.
+
+The next numerical gate is unchanged: the independently compiled TFLM TANH oracle (§A7).
