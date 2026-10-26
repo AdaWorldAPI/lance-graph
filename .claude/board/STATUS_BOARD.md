@@ -36,6 +36,8 @@
 
 **Status: PROPOSAL, DOCS ONLY.** Plan: [v2](../plans/d-tflp-tflite-palette-polyfill-capstone-v2.md) (revises [v1](../plans/d-tflp-tflite-palette-polyfill-capstone-v1.md)). Ledger: [2026-10-25-d-tflp-0-tflite-palette-polyfill.md](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784); no executor, tensor IR or `Rel` variant.
 
+**Executed evidence distinct from numbered implementation stages:** [D-TFLP TANH proof / learning / Tract harvest entry](entries/2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md) cites [research `4082dbb79`](https://github.com/AdaWorldAPI/lance-graph/commit/4082dbb79): **TANH SourceParity and independently certified mathematical tables, each 569,344/569,344 on 2,224 calibrations, with 17 source-vs-math differences traced**; a source-faithful TANH→LOGISTIC fused table matches 569,344/569,344 tested outputs with mandatory intermediate rounding. [#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800)/[#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) provide additional merged LAB Softmax/Codec8 evidence. **The D-TFLP-1 row remains NOT RUN for the specific planned production ndarray port**, not for these completed experiments. Dynamic learning/recalibration, legacy 8-byte FamilyGamma generation receipts, whole-model parity and production binding remain OPEN. Tract typed-graph/cooking is the next **cold architectural harvest candidate** under [#1802](https://github.com/AdaWorldAPI/lance-graph/pull/1802), not a chosen runtime or certified model importer.
+
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-TFLP-0** | capstone, asset map, board rows | Shipped (#1785); v2 revision docs only | no code or ABI change |
