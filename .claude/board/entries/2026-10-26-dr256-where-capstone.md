@@ -67,3 +67,17 @@ witness. P2 scope is unchanged.
 - P2's 1,032-vs-31 shows a detached `Keep` has no dependency witness, not that a borrow can see a mutation.
 - NFR-OP-1 narrowed: answered for in-borrow (source owner) and persisted (`QueryReference::at`); open only
   for an owner-issued generation that every write path advances.
+
+## D-NFR-1 ownership amendment (2026-10-26, plan Part E.5–E.9)
+
+- PROVEN: safe immutable owner borrows exclude overlapping safe owner mutation (#1755).
+- PROVEN: current cycle and write stamps cannot validate escaped masks. New falsifiers: direct public-field
+  write (`mb.entity_type[1] = A`), `reset_row` + same-cycle `write_row` restoring both stamps over new data,
+  two owners with equal stamps and different answers, one `QueryReference::at(5, 0)` admitting different rows
+  from two sources. Each disable-verified; one non-binding disable recorded.
+- PROVEN: Quack, cypher-quack and mask-risc reference no `MailboxSoA` / `SoaEnvelope` type.
+- NOT YET PROVEN: that one generation comparison suffices for escaped reuse. Every `MailboxSoA` column and
+  both stamps are `pub` fields, so method-local bumps would miss direct writes.
+- OPEN: complete mutation-path ownership; physical snapshot attestation (`QueryReference` names no dataset;
+  `checkout_version` is a separate, unrecorded step); the escaped-reuse authority contract (NFR-OP-1).
+- Until then: recompute R under a new borrow or refuse escaped reuse.

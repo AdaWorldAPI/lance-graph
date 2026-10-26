@@ -904,7 +904,8 @@ fleet (cycle_driver::MailboxFleet)     │     cognitive_pass(fleet: &F, …, th
   owner_mut(&mut) for seal/write  ─────┘       └ the production borrow window (private fn, feature `cycle-driver`)
 
 nominal:  SoaEnvelope::mailbox_owner() (default 0) ─► BatchWriter::cast(on_behalf, …) ─► resolve_owner cache
-persisted: Lance version ◄─ QueryReference::at(v, rung)   (QueryReference::default() = u64::MAX, NOT a horizon)
+horizon:   QueryReference::at(v, rung) — row admission policy only, names no dataset (default() = u64::MAX)
+physical:  Dataset::open(path).checkout_version(v) (e.g. graph/versioned.rs) — a separate step, not recorded by the reference
 ```
 
 Every arrow on the reader side is a `&` borrow: `Planes<'_>`, `LaneRef<'a>`, `StridedRef<'a>`,
@@ -921,8 +922,13 @@ what the caller lends it. No reader-side type owns operand bytes.
 - **B. Nominal (provenance).** `mailbox_owner()` stamps which mailbox owns the bytes; `cast(on_behalf, …)`
   routes a write on its behalf; `resolve_owner` caches a resolver's answer. None of this is authorization:
   `cast` accepts any id, and the cache is not an ACL. `cast_on_behalf` sits behind `with-planner`.
-- **C. Persisted (snapshot).** Only a pinned `QueryReference::at(v, rung)` or a Lance version names a horizon
-  a later reader can return to. `QueryReference::default()` is unbounded by design (F-QREF-STRICT).
+- **C. Persisted (snapshot).** Two things, not one (amended, E.9):
+  - *horizon:* `QueryReference::at(v, rung)` decides which rows are contemporary (`row_version <= v`) and in
+    which epistemic mode. Its fields are `server_id` (`at` sets 0), `ref_version`, `hlc_tick`, `mode`, `rung`:
+    no dataset, table or owner. `QueryReference::default()` is unbounded (F-QREF-STRICT).
+  - *physical snapshot:* a reader opens one dataset and calls `checkout_version(v)`
+    (`lance-graph/src/graph/versioned.rs::at_version`). Nothing in the repo ties a `QueryReference` to that
+    call; no consumer of `ref_version` opens a dataset.
 
 ## E.3 What P2's 1,032-vs-31 result shows, restated
 
@@ -950,50 +956,118 @@ mutation; A rules that out at compile time.
   - Disable runs, each red only in its own test: setter stamps → the setter test fails; `tick` a no-op → the
     twin fails; owner write removed → the packet test fails.
 
-So the owner's existing stamps witness exactly one thing: **a `write_row` in a later cycle**. They cannot
+So the owner's existing stamps witness at most one thing: **a `write_row` in a later cycle**, and E.9 shows
+even that is not a complete witness. They cannot
 witness a same-cycle write or a raw setter. An escaped mask therefore needs a rebind (recompute under a new
 borrow) or a refusal from an owner-issued contract; it cannot be revalidated from `(cycle, last_write_cycle)`
 as the mailbox stands.
 
-## E.5 Classification of D-NFR-1, and the smallest remaining seam
+## E.5 Two execution lifetimes
 
-- **Inside a borrow: a thin adapter, not a new authority.** Lending `MailboxSoaView` columns or
-  `NodeRowPacket` bytes to `Planes` (as `LaneRef::U32` / `U64` / `Strided`) and running the bound `Query` in
-  the same scope needs no frame, no lease and no guard: A already holds. Gaps that are type gaps, not
-  authority gaps: `entity_type`/`class_id` are `u16` and `energy` is `f32`, and `LaneRef` has neither; the
-  `u32` classid inside a `NodeRow` facet is reachable today through `Strided`. No Quack caller does this yet.
-- **Across a borrow (escaped reuse): a missing contract, shown by counterexample (E.4).** The mailbox's
-  write paths do not all advance a stamp a reader could hold. The smallest fix is on the OWNER side: make
-  every mutating path advance one owner-issued generation (or route the raw setters through `write_row` and
-  make a same-cycle write move a stamp). The query engine then keeps that generation beside a `Keep` and
-  compares it at reuse. That is D.3(2)'s dependency witness, issued by the source rather than reconstructed
-  in Quack. Not built here: it changes a write path, which this correction is not authorized to do.
-- **Persisted reuse:** C only. A mask kept past a cycle seal needs `QueryReference::at`, never `default()`.
+- **A. Borrow-scoped execution.** The owner lends immutable lanes; the selection and every read that depends on
+  it run inside the same borrow. Rust proves no safe owner mutation overlaps, so no generation comparison is
+  needed. The next possible D-NFR-1 lab step is a thin, zero-copy adapter that lends real owner lanes
+  (`MailboxSoaView` columns or `NodeRowPacket` bytes) to `Planes`. Type gaps, not authority gaps:
+  `entity_type`/`class_id` are `u16` and `energy` is `f32`, and `LaneRef` has neither; the `u32` classid in a
+  `NodeRow` facet is reachable through `Strided`.
+- **B. Escaped intermediate reuse.** An owned `Keep` mask outlives the borrow. It must not be reused because a
+  previous cycle or row stamp looks unchanged (E.4, E.9). A future reuse contract has to establish all of:
+  1. source and owner identity;
+  2. a complete mutation witness for every input that determines the selection;
+  3. valid focus and coordinates;
+  4. scope and authorization;
+  5. the codebook interpretation;
+  6. snapshot consistency across every contributing source.
 
-Neither half needs a `FrameStore`, a read lease, a cache, a new ABI or a source-generation type in Quack. The
-lab `FrameStore` in `dr-math-binding-probe` stays a lab stand-in.
+  A single owner generation may become a sound, conservative component of item 2 once every mutation path is
+  closed. It is not by itself a multi-source binding witness. **Until such a contract exists: recompute R
+  under a new borrow, or refuse escaped reuse.**
+
+D-DRMC's separation stays: the law, the compiled recipe and the source-bound operands are separate
+identities, and only the last carries any of items 1–6.
 
 ## E.6 NFR-OP-1, corrected
 
-Was: "who owns the production frame store (S6): Quack, ClassView, or the source owner?" — OPEN. Corrected:
-
-- **For in-borrow execution: answered.** The source owner, through the borrow. No frame store is needed.
-- **For escaped reuse: narrowed, still OPEN.** The question is no longer who owns a frame store but whether
-  the mailbox owner will issue a generation that every write path advances (E.5). Owner: the mailbox /
-  write-path owner (`v3-mailbox-warden` scope), not Quack.
-- **For persisted reuse: answered by C** (`QueryReference::at` / Lance version).
-- **Delegated authority** (may this caller read this mailbox at all) stays open and is not a frame question.
+- **In-borrow execution: answered.** The source owner, through the borrow. No frame store.
+- **Escaped reuse: OPEN.** The question is the escaped-reuse authority contract (E.5 B, items 1–6), not who
+  owns a frame store. The mutation-path part belongs to the mailbox / write-path owner, not Quack.
+- **Persisted reuse:** the horizon is `QueryReference::at`; the physical snapshot attestation (which dataset,
+  which owner, which checkout) is OPEN (E.9).
+- **Delegated authority** (may this caller read this mailbox) is open and is not a frame question.
 
 ## E.7 Cost
 
-A in-borrow execution costs what the kernel costs: #1755 measured the packet path equal to direct ndarray,
-and adding a per-operation frame check would re-check per call what the compiler has already proved. Escaped
-reuse pays one integer comparison per kept mask at reuse, and only once the owner issues the generation. The
-cost lands where the risk is (escape), never on the in-borrow path.
+In-borrow execution costs what the kernel costs: #1755 measured the packet path equal to direct ndarray, and a
+per-operation check would re-check what the compiler proved. Escaped reuse has no priced design yet; a
+generation compare would be one integer per kept mask, but that is the cost of one component, not of the
+contract in E.5 B.
 
-## E.8 What changed in this correction
+## E.8 What this correction changed
 
-- Two test files (E.4). No production code, ABI, writer or WAL change; no P3–P5; ScatterOr untouched.
-- D.3(1) and D.6's first "ready" bullet read through E.5 / E.6: the in-borrow adapter no longer waits on
-  NFR-OP-1.
-- #1792's measurements (B.6) are unchanged; only their interpretation is restated (E.3).
+- Test files only (E.4, E.9). No production code, ABI, writer, WAL, field visibility or mutation wrapper; no
+  generation, FrameStore or cache; P3–P5 unauthorized; ScatterOr unchanged.
+- D.3(1) and D.6's first "ready" bullet are read through E.5: the in-borrow adapter no longer waits on
+  NFR-OP-1; escaped reuse does.
+- #1792's measurements (B.6) are unchanged; only their reading is restated (E.3).
+
+## E.9 Amendment: mutation entrances and snapshot identity (2026-10-26)
+
+**Mutation entrances of `MailboxSoA<N>`** (`cognitive-shader-driver/src/mailbox_soa.rs`). Every column is a
+`pub` field: `energy`, `plasticity_counter`, `last_active_cycle`, `last_write_cycle`, `edges`, `qualia`,
+`meta`, `entity_type`, `temporal`, `expert`, `sigma`, `content`, `topic`, `angle`, the three style lanes,
+`current_cycle`, `mailbox_id`, `w_slot`, `threshold`. Only `stale_write_count`, `populated` and `phase` are
+`pub(crate)`. Entrances, all `&mut self`:
+
+| entrance | moves `last_write_cycle`? | moves `current_cycle`? |
+|---|---|---|
+| direct field write (`mb.entity_type[r] = …`) | no | no |
+| `set_*` (12 setters) | no | no |
+| `write_row`, same cycle | re-stamps the same value | no |
+| `write_row`, later cycle (after `tick`) | yes | via `tick` |
+| `reset_row` | back to `u32::MAX` | no |
+| `apply_edges`, `consume_firing` | no (touch `energy`, `plasticity_counter`, `last_active_cycle`) | no |
+| `promote_family`, `set_style_*`, `set_populated` | no | no |
+| `advance_phase` (`MailboxSoaOwner`) | no | no |
+| writing `current_cycle` / `last_write_cycle` themselves | the stamps are public fields | yes |
+
+No interior mutability and no `unsafe` mutable path over these columns; the two `unsafe` blocks are read-only
+reinterpretations (`edges_raw`, `meta_raw`). Known direct-field writers today: tests and planner/supervisor
+examples (`energy[…] =`, one `current_cycle = 1`); production writes through `backing.rs` use the setters.
+Quack, cypher-quack and mask-risc reference none of `MailboxSoA`, `MailboxSoaView`, `NodeRowPacket` or
+`SoaEnvelope` (searched in those three crates).
+
+Consequence: a generation bumped inside `write_row` and the setters would miss direct field writes, and a
+stamp a reader compares can be rewritten through the same public fields. A future contract therefore needs one
+of: all mutable access encapsulated behind the owner (a breaking change for every direct-field caller, tests and
+examples included); an owner-scoped mutation capability; immutable snapshot publication; or another existing
+owner mechanism. **Not chosen here**: each has ABI and caller consequences that are not yet listed.
+
+**Snapshot identity.** See the corrected E.2 C. A reusable mask must not be accepted under an equal numeric
+version from a different source or owner.
+
+**New falsifiers** (commits `33cd88f12`, `367e6e3b5`; each disable-verified, red only in its own test):
+- `escaped_reuse.rs::a_direct_public_field_write_bypasses_every_stamp` — `mb.entity_type[1] = A`; stamps
+  unchanged; mask gains exactly row 1. Disable: remove the write.
+- `escaped_reuse.rs::reset_then_same_cycle_write_restores_the_stamps_over_new_data` — owner methods alone
+  return both stamps to the recorded values over different data. Disable: `reset_row` advances the cycle.
+  (A first disable, "`write_row` stops stamping", did not bind: the fixture writes through the same path, so
+  every stamp stayed at the sentinel. Recorded, not counted.)
+- `escaped_reuse.rs::equal_stamps_on_two_owners_do_not_identify_one_answer` — mailboxes 1 and 2 with equal
+  `(current_cycle, last_write_cycle)` give the hand-computed masks `r % 3 == 0` and `r % 2 == 0`. Disable: give
+  owner 2 owner 1's data.
+- `lance-graph-planner/tests/horizon_is_not_a_snapshot.rs::one_pinned_reference_two_sources_two_answers` —
+  one `QueryReference::at(5, 0)` admits `0b1011` from source A and `0b0101` from source B. Disable: B = A.
+- `…::the_reference_has_no_source_identity` — an exhaustive destructure; adding a source field breaks the
+  build, which is the point at which this test must be replaced.
+
+**Status**
+- PROVEN: safe immutable owner borrows exclude overlapping safe owner mutation (#1755).
+- PROVEN: the current cycle and write stamps cannot validate escaped masks (E.4, E.9).
+- PROVEN: Quack has no borrowed-`MailboxSoA` integration, production or lab (search above).
+- NOT YET PROVEN: that a single generation comparison suffices for escaped reuse.
+- OPEN: complete mutation-path ownership; physical snapshot attestation; the escaped-reuse authority contract
+  (NFR-OP-1).
+
+A borrowed computation inherits its owner's immutability. A detached result must inherit a verifiable
+dependency and snapshot identity. Ownership is not reconstructed inside Quack, and an incomplete mutation stamp
+is not source authority.
