@@ -54,3 +54,8 @@ OPEN: S-INGRESS (operator); which single coordinate→`_rowid` authority; stable
 0 mismatches), contract `k3_pg_parity` (2,000/2,000). Counterexample: `BLOCK(K(NOT P))` admits UNKNOWN rows, only
 `BLOCK(U \ K(P))` equals `ALLOW(K(P))`. Lance 13 BLOCK fails open on fragments added after mask build. Verdict and
 gates: plan § A.8. Next step unchanged: P1.
+
+**Addendum 2 (same day, consolidation):** plan § A.9. PgLance (Lance 1.0, row-at-a-time FDW, no pushdown, no
+mask) is a tuple-conversion reference arm only. DuckDB @1641475 adds two rules for the native polyfill: a code
+table pays only when amortised over enough rows, and a predicate may be complemented only on a no-NULL path.
+Nothing displaces P1.

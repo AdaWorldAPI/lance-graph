@@ -461,3 +461,70 @@ projected read → Quack/ndarray terminal`:
 
 Recommended next step is unchanged: **P1** (A.6). No K3 counterexample found a correctness blocker on the
 production path; the BLOCK negative fixture becomes required only when BLOCK is pursued.
+
+### A.9 Consolidation amendment (2026-10-26): delta only
+
+Reads A.0–A.8 as authority and adds only what they do not already say. No experiment was rerun.
+
+**1. SQL capability status.** VERIFIED against PostgreSQL 16.15 (A.8): WHERE over nullable leaves with
+NOT/AND/OR, exact on TRUE and FALSE rows; NULL operands; the aggregate subset in `qsp_agg_pg_parity`; contract
+`normalize_kleene`. MISSING or caller-dependent: COUNT(expr)/MIN/MAX (caller adds `is_not_null`), COUNT DISTINCT
+NULL keys, GROUP BY/HAVING with nullable key or value, column-to-column compare, COALESCE/NULLIF, nullable
+arithmetic, LEFT join, subquery IN/NOT IN, and a named nullable `P OR NOT P` fixture. Unchanged from A.8.
+
+**2. What blocks ALLOW.** Wiring, not semantics: one version-checked coordinate authority (A.1, A.5); the
+DR ordinal → `_rowid` composition, which no code performs and which must look up through both maps rather than
+store a third table; S-INGRESS (operator); P3 equivalence; and measured construction cost against bytes saved.
+
+**3. Why BLOCK stays gated.** `BLOCK(U \ K(P))` equals `ALLOW(K(P))`, so it is expressible. It stays parked
+because the six gates in A.8 are unmet, because it fails open on fragments added after the mask was built, and
+because its gain is mask size, not rows read, while it loads metadata for every fragment. One outside
+confirmation: DuckDB folds `a != b` into `!(a == b)` and `a >= b` into `!(b > a)` only on its no-NULL path
+(`binary_executor.hpp:22-38,112-118`, `OperationNoNull`). Complementing a predicate is legal only where NULL
+is absent, which is the same rule as gate (1).
+
+**4. PgLance** (`lance-format/pglance`, Apache-2.0, `lance = "1.0"`, `arrow = "56.2"`; not Lance 13, so nothing
+about Lance 13 is inferred from it). What it provides: a measured-shape reference for the cost of leaving the
+fold, since it converts one row at a time and one cell at a time (`scan.rs:286-412` calls
+`arrow_value_to_datum` per row per attribute, `convert.rs:208`, which re-dispatches on the Arrow type for every
+cell and decodes dictionaries per cell, `:658`); a type map Arrow → PostgreSQL (`type_mapping.rs`), including the
+refusal of `u64 > i64::MAX` (`convert.rs:354-368`) and NULL → `isnull` (`:213`). What it does not provide: no
+filter pushdown (`get_foreign_plan` keeps every qual in PostgreSQL, `scan.rs:90`); no projection pushdown
+(`create_stream` scans all columns, `:574`); no row mask, no ALLOW or BLOCK; no version pin (`Dataset::open`
+at the latest version on each scan, `:146`); a fixed estimate of 1,000 rows (`:48`). Usable only as a
+reference arm for tuple-conversion overhead. Not imported, and no FDW is proposed.
+
+**5. DuckDB physical specialization → native polyfill.** At @1641475 DuckDB picks the physical type once per
+vector (`execute_comparison.cpp:40`, one `switch` over the type, then a monomorphised loop), specialises on
+vector form (flat, constant, dictionary) and on validity (a separate no-NULL path), and leaves ternary
+expressions generic (`ternary_executor.hpp:17-35`, routed through `VariadicExecutor`). D-NAM-4 already moves the
+choice earlier, to preparation, with no lookup in the loop, so the type dispatch adds nothing new. Two rules
+are new and worth carrying:
+
+- *A code table pays only when it is amortised.* DuckDB evaluates a function over a dictionary instead of the
+  rows only when the dictionary has at most half as many entries as the rows and the function cannot error
+  (`unary_executor.hpp:124-127`). Its cross-chunk cache is limited to storage dictionaries under 20,000 entries,
+  and above 2,048 entries only when the chunk is at least half full, "to protect against selective filters"
+  (`execute_function.cpp:51-84`). This is upstream evidence that a 64 KiB table is not faster by default;
+  `d-tflp-tflite-palette-polyfill-capstone-v1.md:277` leaves ADD-by-table vs ADD-computed as an open question that D-TFLP-2 measures; this rule adds the row-count condition.
+- *Complement only without NULL* (item 3).
+
+| shape | ONNX | TFLite | native route (prepared once) |
+|---|---|---|---|
+| unary float | Tanh, Exp | float activation | ndarray VML (`vstanh`, `vsexp`, `hpc/vml.rs`) |
+| unary int8 | quantized activation | TANH, LOGISTIC | 256-entry table built at preparation (`d-tflp-tflite-palette-polyfill-capstone-v1.md:53`; PZL-1 in `d-nam-palette-native-lut-capstone-v1.md:69`) |
+| binary float | Add, Mul | ADD, MUL | ndarray direct (`vsadd`, `vsmul`) |
+| binary int8 | quantized op, where admitted | ADD, MUL | 65,536-entry table or fixed-point SIMD (`simd_fixedpoint.rs`); measure both and keep the faster (open question at `d-tflp-tflite-palette-polyfill-capstone-v1.md:277`), apply the amortisation rule |
+| predicate | Greater | GREATER | ndarray compare to mask, then R2IL / mask-risc |
+| reduction | ReduceSum | SUM, Softmax stages | ndarray fold; Softmax is not a unary table (`d-nam-palette-native-lut-capstone-v1.md:58`) |
+
+RelAlg is not extended with Tanh, MatMul or Conv (D-NAM-3: no float math in `Rel`). Nothing in the hot path
+matches an ONNX or TFLite operator.
+
+**Evidence roles stay separate.** PostgreSQL = SQL semantics; DuckDB = reference performance and
+specialisation; PgLance = tuple-conversion overhead; Quack / R2IL / mask-risc = resident folds; ndarray =
+kernels; Lance 13 = I/O in bytes, ranges and rows; DRF = reuse. They are never combined into one speed-up.
+
+**6. Does anything displace P1?** No. PgLance has no masked read to compare against, and DuckDB's rules apply to
+the native polyfill, not to the Lance handoff. P1 (A.6) remains the smallest next step; M1 is its prerequisite;
+S-INGRESS and the coordinate authority remain operator decisions.
