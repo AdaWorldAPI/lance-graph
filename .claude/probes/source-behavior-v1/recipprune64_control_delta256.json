@@ -1,0 +1,37 @@
+{
+ "arm": "source + 256",
+ "window": "E_h + |delta| per band",
+ "reciprocal_error_bound_per_band": {
+  "4": 6,
+  "5": 6,
+  "6": 6,
+  "7": 6,
+  "8": 6,
+  "9": 6,
+  "10": 6,
+  "11": 6,
+  "12": 6
+ },
+ "calibrations": [
+  0
+ ],
+ "pruned_candidates": 3037,
+ "exhaustive_candidates": 3037,
+ "identical_sets": true,
+ "missed_by_pruning": 0,
+ "extra_in_pruning": 0,
+ "missed_examples": [],
+ "extra_examples": [],
+ "s_values_evaluated": 6351,
+ "distinct_pairs_evaluated": 6351,
+ "exhaustive_s_values": 267911168,
+ "per_calibration": {
+  "0": {
+   "intervals": 2573,
+   "s_evaluated": 6351,
+   "pairs_evaluated": 6351,
+   "exhaustive_candidates": 3037
+  }
+ },
+ "wall_s": 7.3
+}

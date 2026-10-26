@@ -1,0 +1,54 @@
+{
+ "note": "exact-reciprocal arm, all 14 calibrations; window overridden by the second recipprune64 argument",
+ "rows": [
+  {
+   "window": 0,
+   "pruned": 107,
+   "missed": 494,
+   "extra": 0,
+   "s_evaluated": 249
+  },
+  {
+   "window": 1,
+   "pruned": 306,
+   "missed": 295,
+   "extra": 0,
+   "s_evaluated": 844
+  },
+  {
+   "window": 2,
+   "pruned": 453,
+   "missed": 148,
+   "extra": 0,
+   "s_evaluated": 1401
+  },
+  {
+   "window": 3,
+   "pruned": 575,
+   "missed": 26,
+   "extra": 0,
+   "s_evaluated": 2023
+  },
+  {
+   "window": 4,
+   "pruned": 599,
+   "missed": 2,
+   "extra": 0,
+   "s_evaluated": 2745
+  },
+  {
+   "window": 5,
+   "pruned": 601,
+   "missed": 0,
+   "extra": 0,
+   "s_evaluated": 3425
+  },
+  {
+   "window": "E_h = 6 (measured bound)",
+   "pruned": 601,
+   "missed": 0,
+   "extra": 0,
+   "s_evaluated": 4078
+  }
+ ]
+}
