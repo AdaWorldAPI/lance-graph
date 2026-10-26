@@ -1,3 +1,41 @@
+<!-- 2026-10-26 catch-up: #1788–#1792 (this session's PRs). #1772–#1787 are not recorded here; that gap predates this PR. -->
+
+## 2026-10-26 — lance-graph PR #1792 (merged `30ca36ec0`, branch `claude/dr256-where-capstone`, head `2971b870`) — D-DR256-WHERE: capstone, DR64³ inventory, P2 Quack-path lab, evidence reconciliation, D-NFR-1 ownership correction
+
+- **Added:** plan `dr256-where-capstone-v1.md` (P0 census, Amendment A DR64³ inventory, B P2, C compiler compatibility, D reconciliation, E D-NFR-1); `drf-focus-probe/examples/{where_occupancy,p2_quack_where}.rs`; test-only falsifiers `soa-view-probe/tests/falsifiers.rs` (escaped mask vs packet cycle), `cognitive-shader-driver/tests/escaped_reuse.rs` (6), `lance-graph-planner/tests/horizon_is_not_a_snapshot.rs` (2).
+- **Locked:** in-borrow Quack execution needs no frame store; the current cycle/write stamps cannot validate an escaped `Keep` mask; `QueryReference::at` is a horizon, not a physical snapshot.
+- **Deferred:** escaped-reuse authority contract (NFR-OP-1, narrowed); production binding store; P3–P5; ScatterOr unchanged.
+- **Docs:** entry `2026-10-26-dr256-where-capstone.md`; `d-native-repr-contract-v1.md` NFR-OP-1 row.
+- **Confidence:** lab; each falsifier disable-verified, one non-binding disable recorded; no production code.
+
+## 2026-10-26 — lance-graph PR #1791 (merged `cd4901122`, branch `claude/dr256-on-demand-lab`, head `2cf36939`) — lab(D-DR256-OD): on-demand global mask, u16 scatter, bounded reuse, L1 interference
+
+- **Added:** `drf-focus-probe/examples/dr256_on_demand.rs` (arms A–E, N ∈ {1,2,4,8,64}); depends on ndarray #377 `mask_scatter_or_u16`.
+- **Deferred:** mask-risc `LaneRef::U16` (designed, not built); a witnessed derived-population contract for reusing a scattered G (proposal only).
+- **Docs:** entry `2026-10-26-dr256-on-demand-l1.md` (pre-registered `e01d38879`).
+- **Confidence:** lab; rebuild-per-thought reaches ms at chaotic/full N = 64 (a failed gate); timings reported, not gated.
+
+## 2026-10-26 — lance-graph PR #1790 (merged `3830229dd`, branch `claude/dr256-global-mask-lab`, head `a68bf8e7`) — lab(D-DR256): 64 mapped DR64 registers -> one global 8 KiB mask
+
+- **Added:** `drf-focus-probe/examples/global_union.rs` (oracle, ndarray ×64, one mask-risc program, `G AND h`); dev-dependency `lance-graph-mask-risc`; index-XOR and gate-drop negative controls asserted on every run.
+- **Locked:** further Boolean algebra over a scattered G is blocked by the `ScatterOrU32` survival condition (`ir.rs:329-337`, unchanged).
+- **Docs:** entry `2026-10-26-dr256-global-union-lab.md`.
+- **Confidence:** lab; controls made permanent after Codex review.
+
+## 2026-10-26 — lance-graph PR #1789 (merged `ab1f3a83f`, branch `claude/dqm-p1-chunk-touched`, head `08a8bcb6`) — probe(D-DQM P1): chunk-touched predictor vs H14c/H14d Lance bytes — FAIL
+
+- **Added:** `.claude/probes/p1-chunk-touched-v1/{p1.py,results.csv}` (offline, committed data only).
+- **Locked:** verdict FAIL on the registered can-fire control (clustered 1 %: predicted 0.44, measured 0.24 / 0.19); no estimator proposed.
+- **Docs:** entry `2026-10-26-dqm-p1-chunk-touched.md`, pinned to registration `62523c0e4`.
+- **Confidence:** measured; registered kill thresholds pass, the FAIL rests on the control (stated after Codex review).
+
+## 2026-10-26 — lance-graph PR #1788 (merged `10291a8cc`, branch `claude/dqm-lance13-crosswalk`, head `c33eb056`) — docs(D-DQM): DR64 ↔ DuckDB ↔ Lance 13 capability crosswalk
+
+- **Added:** Appendix A in `duckdb-dr-quack-machine-room-reuse-v1.md` (A.0–A.10, probes P1–P5 pre-registered in A.6).
+- **Deferred:** S-INGRESS; one coordinate → `_rowid` authority; P2–P5.
+- **Docs:** entry `2026-10-26-coresearch-lance13-masked-read-dr64.md`; `INTEGRATION_PLANS.md`.
+- **Confidence:** docs; unread claims marked UNVERIFIED.
+
 <!-- 2026-10-25 catch-up: #1760–#1771 (#1759 is board hygiene only, no entry). Recorded from merge commits and changed files. -->
 
 ## 2026-10-25 — lance-graph PR #1771 (merged `332b420c`, branch `lab/drf-w6-resample-isolate-20261025`, head `7125af32`) — test(drf-w4/w6): isolate the resampling refusal to changed bytes
