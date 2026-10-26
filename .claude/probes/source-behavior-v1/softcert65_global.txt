@@ -1,0 +1,16 @@
+SOFTCERT 1
+source_revision 5f64e4ad
+source_digest 0566576b4fb0be4df914ce36e369de295d22e227d661c13a0cec17f5d7f2eb3c
+reciprocal GetReciprocal(x,12)
+domain 524288 268435455
+monotone_exact 1
+E 4 6
+E 5 6
+E 6 6
+E 7 6
+E 8 6
+E 9 6
+E 10 6
+E 11 6
+E 12 6
+scan_seconds 5.413
