@@ -383,3 +383,22 @@ y = Σ p_i V_i.
     identically; a checked decode refuses it. It is never clamped to −127, and an asymmetric
     −128 is never read as NaN — the latter is not yet enforced at the binding (Amendment 6.4 N8.1).
 - **Status.** TESTED-LAB (`.claude/probes/int8-semantics-v1/`, lab commit `383e9c07c`).
+- **L7, parity has an admission domain, and output equivalence needs three levels (Amendment 6.4
+  follow-up N11–N13).**
+  - **Admission.** A source byte belongs to the SourceParity contract only on SUPPORTED inputs: no C++
+    undefined operation is reachable and no source guard fires. For TFLM int8 softmax that is exactly
+    2^19 ≤ S < 2^28 (derivation over the source text). Rows outside it are UNSUPPORTED (a guard aborts) or
+    UNDEFINED (signed overflow from 4,096 maxima, a shift by 32 from 8,192; both bounds proved minimal).
+    Agreement of several builds on an UNDEFINED row is an artifact observation and never extends parity.
+  - **Three levels.** For a substitution of one stage (here the reciprocal), an arithmetic superset
+    candidate is not yet a witness. It must be a reachable pair (a SUPPORTED row exists with that sum and
+    that element) and then a witness row (the real kernel reproduces the source byte, and the row is
+    re-checked to have that sum). Exhaustive absence over the superset proves output equivalence only if
+    the superset covers every admitted case and the tested output computation is the source's; both hold
+    for softmax (N12), so calibration 9 is PROVED equivalent and 13 calibrations have 529 reachable
+    witnesses, with the other 72 candidates PROVED unreachable.
+  - **Boundary pruning.** The byte is a monotone step function of the stage value; with a measured bound
+    E on the stage's deviation, only inputs within E of a visible threshold can change a byte. On the
+    softmax reciprocal (E = 6), this reproduces the exhaustive candidate set exactly from 4,078
+    evaluations, and narrower windows lose candidates (494 at window 0).
+- **Status.** TESTED-LAB (`.claude/probes/source-behavior-v1/`, README section "Amendment 6.4 follow-up").
