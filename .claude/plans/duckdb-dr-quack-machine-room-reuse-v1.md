@@ -527,7 +527,7 @@ specialisation; PgLance = tuple-conversion overhead; Quack / R2IL / mask-risc = 
 kernels; Lance 13 = I/O in bytes, ranges and rows; DRF = reuse. They are never combined into one speed-up.
 
 **6. Does anything displace P1?** No. PgLance has no masked read to compare against, and DuckDB's rules apply to
-the native polyfill, not to the Lance handoff. P1 (A.6) remains the smallest next step; M1 is its prerequisite;
+the native polyfill, not to the Lance handoff. P1 (A.6) remains the smallest next step; it has no dependency on M1 (it reads no DuckDB output);
 S-INGRESS and the coordinate authority remain operator decisions.
 
 ### A.10 Scope clarification (2026-10-26): sealed-read masks only; writer and resident engine unchanged
@@ -595,4 +595,5 @@ stays parked behind the six A.8 gates. Recommendations awaiting the operator (no
 measured DR-mask → Lance-mask conversion at the sealed-read boundary, never claimed zero-copy; one checked binding
 carrying both the dataset-version witness (H14c) and the index-seal witness (DRF), built from the existing maps, with
 no third table and no Lance types in the contract. **P1** (A.6) remains next, offline over committed sealed
-H14c/H14d data; M1 is its prerequisite.
+H14c/H14d data. P1 does not depend on M1. M1's status is unchanged: answer parity passed;
+the Quack-vs-DuckDB timing comparison is inconclusive because the measured boundaries differ.
