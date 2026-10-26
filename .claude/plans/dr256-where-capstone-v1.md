@@ -467,13 +467,20 @@ P3–P5 stay unauthorized. No new opcode, selection vector, temporary-table stor
   `lower_fused` (`lib.rs:1383`, `:1397`) produce a mask-risc `Program`; `CompiledProgram` (`ir.rs:1427`)
   keeps the recognised lowering. The `Draft` surface binds only `=` / `<>` and returns COUNT or rows;
   ordered compares and sums are built on the numeric `Query`.
-- **Binding store:** the exact token `BindStore` occurs in no file in the history of any of the 880 remote
-  branches (`git log --all -S BindStore`: empty). The "Quack Binding Store" is a proposal: D-QSP
-  (`d-qsp-classview-quack-postgresql-parity-v1.md`, PROPOSAL / DOCS ONLY; "do not put a behavior choice
-  into the binding store") and D-NFR S5 (MISSING; smallest seam D-NFR-1). Nothing here adds one.
-- **Role for the binding store, as instructed:** the owner of named reusable binding descriptors with their
-  witness and lifetime (frame revisions, focus, scope, codebook generation), never a data store or an
-  evaluator. That is the same shape as D-NFR-1 and lifetime 1/2 of A.2.
+- **Binding store — classification, corrected 2026-10-26 (§D supersedes the earlier "what exists" wording):**
+  - the generalized Quack Binding Store: PLANNED / UNBUILT. The token `BindStore` occurs in no file in the
+    history of any of the 880 remote branches. It is defined by D-QSP (PROPOSAL; "do not put a behavior
+    choice into the binding store") and D-NFR S5, with D-NFR-1 as the smallest seam;
+  - Quack numeric binding: IMPLEMENTED (this section);
+  - RelAlg named-intermediate reuse: IMPLEMENTED (#1649, #1653);
+  - versioned DR population reuse: IMPLEMENTED IN LAB (#1666 `Pop`);
+  - typed DR method binding: IMPLEMENTED IN LAB (#1701, on main via #1708);
+  - reusable compiled mathematical recipes: IMPLEMENTED IN LAB (#1693, #1694 via #1696/#1698, #1707, #1740);
+  - source-attested production integration: STILL MISSING.
+- **Role of the binding store:** a DTO / ClassView-to-native-algebra binding authority over folding algebra.
+  It owns reusable binding descriptors, their witnesses and lifetimes, and connects the existing lifetimes
+  (§D.3). It is not a query-result cache, a temporary table, a population bitmap store, a behaviour chooser,
+  a graph database or an evaluator.
 
 ## B.2 RelAlg `SetProgram` lets versus Quack `Keep → Plane`
 
@@ -562,11 +569,23 @@ Full P = 1..64 tables are in the probe output. Other arms:
 | stale codebook | the old binding still answers (4,096 rows vs 4,051 fresh), **silently** |
 | scope change (half the live words cleared) | a reused R keeps 4,051 rows vs 2,023 fresh, **silently** |
 | selection change | 2,023 vs 2,086, **silently** |
-| property version change | reads through the reused R equal the fresh oracle; no value cache exists, so nothing goes stale |
+| property change NOT read by R's criteria | R stays valid if its other witnesses hold; the value read through it equals the fresh oracle, because the read uses the current lane and no value cache exists |
+| property change read by R's criteria (R2 = R ∧ `val_0 >= 0`; `--controls` run, seed `0x0D0D_F00D`) | reused R2 has 1,032 rows vs 31 fresh, and a `val_1` read through it differs, **silently** |
 | relalg under a newer version | refused with `VersionMismatch { program: 7, table: 8 }` |
 
 Disable runs (red, then restored): dropping the presence plane from QB fails the QB oracle; keeping the
-codebook unchanged fails the stale-codebook control's non-vacuity assertion.
+codebook unchanged fails the stale-codebook control's non-vacuity assertion; skipping the `val_0` mutation
+fails the predicate-dependent control's non-vacuity assertion.
+
+**Invalidation semantics (corrected).** "No value cache, so a property change is harmless" was too broad:
+- a property change that does not influence R keeps R valid, provided R's other witnesses still hold;
+- a property change that affects R's criteria, validity, presence, relation support or coordinate
+  interpretation invalidates R; it must be recomputed (measured above);
+- a property change that affects only a later demanded value must be read under a valid current binding;
+  an old payload is never reused.
+
+A dependency witness must cover exactly the inputs that determine the result: not every property, and not
+only the population's row count.
 
 ## B.7 Decision evidence
 
@@ -586,7 +605,8 @@ codebook unchanged fails the stale-codebook control's non-vacuity assertion.
    candidate is the existing `_under` discipline extended to the `And` + masked-fold pair over a kept R.
    It must be measured before it is proposed (P3), and it must keep "a gate never changes an answer".
 5. **A witness on a kept R is the blocking correctness gap.** Every reuse control ran silently stale through
-   Quack. RelAlg already refuses by version value; `dr-math-binding-probe` refuses by seal identity (lab).
+   Quack. RelAlg already refuses by version value; `dr-math-binding-probe` refuses by seal identity (lab);
+   #1666's `Pop` refuses by witness equality (lab; this was omitted when first written, see §C.2).
    The binding store (D-NFR-1 / D-QSP) is the owner. Until it exists, a kept R may be reused only inside one
    caller-controlled window where the caller can guarantee frame, scope and selection did not move.
 6. **Java** cannot express QB today (`Mask` has no sum). Its `sumOf` is the QA pattern at ~0.6 µs crossing

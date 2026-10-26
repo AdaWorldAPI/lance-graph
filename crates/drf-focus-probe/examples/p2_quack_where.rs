@@ -35,7 +35,7 @@ use lance_graph_mask_risc::{
     Scratch, Value,
 };
 use lance_graph_quack::bind::{table, Binder, BoundField, FieldKind, FieldRef, TableId};
-use lance_graph_quack::{lower, lower_fused, Agg, Col, Filter, Mask, Query};
+use lance_graph_quack::{lower, lower_fused, Agg, Cmp, Col, Filter, Mask, Query};
 use lance_graph_relalg::{run_program, run_recompute, Answer, Measure, ProgramError};
 use ndarray::simd::{mask_and, masked_sum_i32, popcount_batch_u64};
 use std::collections::BTreeSet;
@@ -216,6 +216,11 @@ fn run_sum(c: &CompiledProgram, planes: &Planes<'_>, s: &mut Scratch<'_>) -> i64
 }
 
 fn main() {
+    if std::env::args().any(|a| a == "--controls") {
+        // Correctness controls only; no benchmark arm runs.
+        controls(&mut Rng(0x0D0D_F00D));
+        return;
+    }
     let reps = 101;
     println!("# D-DR256-WHERE P2 — Quack path. ns, median of {reps}. All arms oracle-checked.");
     let mut rng = Rng(0x0D0D_F00D);
@@ -443,8 +448,38 @@ fn controls(rng: &mut Rng) {
     assert_ne!(r_after, r_sel, "selection control must change R");
     println!("selection change: reused R {} vs fresh {} — SILENT", popcount_batch_u64(&r_after), popcount_batch_u64(&r_sel));
 
-    // 4. Property version: val_0 changes. R does not depend on it, and nothing
-    //    caches values, so reading through the reused R is correct.
+    // 4a. Predicate-dependent property mutation. R2 also requires
+    //     val_0 >= 0, so val_0 is a criteria input of R2. Mutating val_0 on
+    //     selected rows must change the fresh R2; the reused R2 is then stale,
+    //     and so is any property read through it. Quack does not refuse.
+    let crit2 = Filter::and([
+        keep_q(&Catalog { code_x: 9 }).filter,
+        Filter::Cmp(Col(2), Cmp::GeI32(0)),
+    ]);
+    let q2 = Query { filter: crit2, agg: Agg::Rows };
+    let r2_before = keep(&q2, &w);
+    for i in 0..N {
+        if bit(&r_sel, i) && i % 2 == 0 {
+            w.vals[0][i] = -1 - w.vals[0][i].abs().min(1000);
+        }
+    }
+    let r2_after = keep(&q2, &w);
+    assert_ne!(r2_before, r2_after, "predicate-dependent mutation must change R2");
+    let read = |r: &[u64], w: &World| {
+        let mut m = vec![0u64; WORDS];
+        mask_and(r, &w.pres[1], &mut m);
+        masked_sum_i32(&w.vals[1], &m)
+    };
+    assert_ne!(read(&r2_before, &w), read(&r2_after, &w), "a read through the stale R2 must differ");
+    println!(
+        "predicate-dependent property mutation: reused R2 {} vs fresh {}; val_1 read differs — SILENT (no dependency witness)",
+        popcount_batch_u64(&r2_before),
+        popcount_batch_u64(&r2_after)
+    );
+
+    // 4b. Property mutation outside R's criteria: val_0 changes again, R (which
+    //     does not read val_0) stays valid, and a value read must come from the
+    //     current lane. Nothing caches values, so it does.
     for v in w.vals[0].iter_mut().step_by(3) {
         *v = v.wrapping_add(11);
     }
