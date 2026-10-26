@@ -1371,3 +1371,219 @@ Linear-connected session may mirror:
 
 **Next narrow gate:** decide the Rust resolver seam (implement outward-rounded intervals in the
 lab, or ratify test-only resolution), then held-out validation.
+
+## Amendment 6.2 (2026-10-26) — source-behavior preservation, prepared transcoding, certified LUT composition
+
+Scope: lab probes, derivations, documentation. No production code, API, codec, ClassId or runtime
+was changed, and no PR was opened. Linear was not reachable. Amendments 5, 6 and 6.1 and their
+committed results are unchanged. Probe: `.claude/probes/source-behavior-v1/` (raw results in
+`results.json`, `compose.json`; explanation in `comparison.md`).
+
+### K0. Architectural clarification
+
+A pure, finite-code unary operator can be prepared once as its complete output mapping, and
+then executed by lookup with no source runtime. Three **semantic contracts** follow. They are
+receipts on a prepared artifact, not new Rust types or runtime modes:
+
+| contract | question it answers |
+|---|---|
+| `SourceParity` | Did we produce exactly the bytes this pinned source implementation produces? |
+| `CertifiedMath` | Did we satisfy the operation's declared mathematical and rounding contract? |
+| `AdaptivePrecision` | What is the cheapest method that satisfies the consumer's required contract? |
+
+- **They answer different questions.** A source can be historically imperfect, and parity with it
+  is still useful. A more accurate implementation can still break byte parity with an older
+  model. Neither is preferred by default, and neither may impersonate the other.
+- **Nothing here supports a claim about TFLite adoption.**
+- **"Roundtrip" is not the cause of the 17 discrepancies.** K1 shows the int8 path has no float
+  decode/encode at all.
+
+Ledger D-PAL256-ALG-1 entry **K** carries the definitions:
+- `L_math[q] = Q_out(f(D_in(q)))`;
+- `L_src[q] = K_src(q)`;
+- the fingerprint `Δ = L_src − L_math`;
+- the finite-domain equivalence proof, the composition theorem, and their restrictions.
+
+### K1. Source-level TANH discrepancy trace
+
+- **Source.** TFLM checkout `5f64e4ad`, whose `tensorflow/` tree is identical to `8f6596d`
+  (empty diff).
+  - prepare: `kernels/tanh.cc` `CalculateArithmeticOpData`, Q4.27 input multiplier;
+  - eval: `internal/reference/integer_ops/tanh.h`;
+  - fixed point: `internal/fixedpoint.h` (`tanh` → `neg_tanh_on_negative_values` →
+    `exp_on_negative_values` → `one_minus_x_over_one_plus_x_for_x_in_0_1`), then
+    `RoundingDivideByPOT(raw, 24)` and clamp.
+
+  Read from source; the trace harness calls these same functions.
+- **Trace harness.** `source_trace.cc` re-executes the int8 loop body stage by stage, and aborts
+  unless its byte equals the real kernel's on every code. It held on all 9 traced calibrations.
+
+**Result: one mechanism for all 17 cells.**
+- **Input rescale.** For 15 cells (scales 2^-8 … 2^-15, zp 0) the Q4.27 input is exactly 2^19,
+  so x = ±1/256 exactly. For 2 cells (scale bits `0x3932159a`, zp 91, codes 68/114) multiplier
+  rounding gives 524280 against an ideal 524280.42: it moves the value away from the boundary.
+- **Earliest divergence: `exp_on_negative_values`.** It returns e^(−2/256) low by 355.7 Q0.31
+  units. An exact division on that value gives 8,388,744.6 (8,388,616.6 for `0x3932159a`), which
+  is above the rounding boundary 2^23 = 8,388,608. The ideal is 8,388,565.3, which is below it.
+- **Later stages.** Newton–Raphson division: −0.6 units. `RoundingDivideByPOT`: correct rounding
+  of its input.
+- **Not involved:** saturation, and any float conversion.
+- **Δ** is −1 on 9 cells and +1 on 8. The distance of 128·tanh(x) from the half is 2.5e-6 to
+  9.8e-6.
+- The full per-cell record is in `results.json` → `discrepancies`: calibration, scale bits, zp,
+  code, decoded x, both bytes, Δ, prepare parameters, every intermediate raw value, and the
+  stage.
+
+### K2. Dual-table experiment
+
+Per calibration (2,224, the Amendment 6.1 list):
+
+| artifact | definition | reference | result |
+|---|---|---|---|
+| `SourceParity` | TFLM kernel bytes (sweep oracle, reused) | the kernel itself; 7 committed fixtures | 569,344 / 569,344; 7/7 fixtures |
+| `CertifiedMath` | interval-certified `clamp(round_away(128·tanh(scale·(q − zp))))`, exact real decode | independent mp.tanh at 60 digits | 569,344 / 569,344 |
+| control H: f32 decode vs exact decode | — | — | 0 differing cells (evidence on this set, not an identity) |
+
+- **Distinct receipts.** Each artifact carries a receipt: contract, op, version, storage, code
+  space, input/output scale bits and zp, rounding, saturation, NaN policy, decode, source
+  revision, reference and preparation. Receipt digests differ on every calibration, including
+  the 2,215 where the bytes are identical.
+- **The contracts stay visibly different.** The 17 differences persist between them.
+- **Preparation never touches calibrations.** Calibrations are read-only inputs.
+- **Execution (Rust, `parity/`)** is `table[code + 128]`, and the binary contains no
+  TFLM/tanh/gemmlowp symbol (`nm` count 0).
+
+### K3. Numerical fingerprint economics
+
+Measured. Full table in `comparison.md`.
+- **Fingerprint:** 9 of 2,224 calibrations carry one, 17 entries in all, with |Δ| = 1.
+- **Lookup:** direct 0.28-0.52 ns/elem; math + sparse overlay 3.6-3.7 ns/elem; reconstructing a
+  table once costs 9-13 ns. 16 Mi inputs, median of 7, Xeon @ 2.10 GHz, rustc 1.99.0, release.
+- **Validation:** sha256 per table 245-327 ns; all 4,448 tables 1.2 ms cold.
+- **Rust reconstruction** from math + patch equals SourceParity bit for bit in all 2,224
+  calibrations. Disable `DISABLE=patch` (one patch entry dropped) gives 9 failures.
+- **Storage:** both complete tables 1,281,024 B; math + patch 716,162 B; shared math + keyed
+  exceptions 712,020 B.
+
+**Verdict:** the runtime form stays the complete 256-byte table. A patch is a cold-storage option,
+worth it only when both contracts are stored. It is reconstructed and digest-checked at load,
+never applied per element.
+
+### K4. Source-behavior-preserving unary fusion
+
+- **Chain**, legal in TFLM, with LOGISTIC's int8 prepare requiring output zp −128:
+  - K1 = TANH (calibration under test → 1/128, 0);
+  - K2 = LOGISTIC (1/128, 0 → 1/256, −128).
+- **Proof:** ledger K5.
+
+| comparison, 569,344 cells | differing |
+|---|---|
+| fused table `L2[L1[q]]` (independently prepared stage tables) vs two-kernel sequence | **0** |
+| `math_iq`: certified math keeping the intermediate quantization, vs sequence | 48,806, fully explained: 48,789 cells pass intermediate code ±1, where TFLM LOGISTIC gives ±1 against a correctly rounded 0 (the same near-half shape; LOGISTIC was not stage-traced), plus the 17 TANH cells |
+| `math_cont`: continuous σ(tanh(x)) without the intermediate quantization, vs sequence | **69,652** |
+
+- **Counterexample**, scale 1/128, zp 0, code −128: the source gives −46 (TANH −97 → σ(−97/128));
+  continuous math gives −47.
+- **Consequence:** a source-parity fused table must keep every intermediate quantization
+  boundary. The mathematical arm is a different, deliberately different, artifact.
+- **The fused table** is composed in 0.04 s for all calibrations, with no source runtime at
+  execution time.
+
+### K5. Negative controls (all executed)
+
+| control | result |
+|---|---|
+| A. omitted intermediate quantization (`math_cont`) | 69,652 differing cells: detected |
+| B. wrong input scale (1 ulp) / wrong zp | refused: `no_artifact_for_receipt` |
+| B. wrong intermediate calibration (1/64) | 433,646 differing cells: detected |
+| C. wrong source revision / op version | refused: `no_artifact_for_receipt` |
+| D. CertifiedMath table under a SourceParity receipt, on a byte-EQUAL calibration | refused: `contract_mismatch` (Python); Rust returns the source artifact, never the math one |
+| E. missing stage (TANH skipped) | 562,407 differing cells: detected |
+| F. one byte corrupted after preparation | refused: `table_digest_mismatch` (Python and Rust); accepted again once restored |
+| G. code spaces | SourceParity: Asym admitted; Sym, SymNaN and UnitFull refused with named reasons. CertifiedMath: Asym admitted, Sym only for −127..127, SymNaN with table[−128] = NaN code, UnitFull refused |
+| H. f32 vs exact decode | 0 differing cells, and the 6.1 result reproduced |
+| I. signed zero, saturation, exceptional values | int8 has no NaN or inf, so none were invented. Both saturation branches (radius test) are reproduced byte for byte by SourceParity. tanh(0) = 0 in both tables |
+| sampled vs exhaustive | 8 sampled codes agree on a discrepancy calibration; the exhaustive 256 do not: sampling is not admission |
+| Rust: index mapping (i8 + 128 vs U8 storage ^ 0x80) | 0 failures; `DISABLE=xor` gives 569,344 failures |
+
+The admission checks are **lab demonstrations**: a receipt hash with a digest check. No runtime
+identity binding is shipped. That belongs to the native method-binding architecture, and no
+second registry or AST was created.
+
+### K6. Runtime identity and calibration requirements (documentation only)
+
+The minimum a prepared table must eventually be bound to:
+- **Source identity:** framework, kernel implementation and path, kernel tree revision,
+  operator, version, backend (TFLM reference ≠ CMSIS-NN ≠ xtensa ≠ full TFLite).
+- **Interpretation:** storage, code space, input and output scale and zp (per-axis or per-block
+  where they apply), rounding, saturation, NaN, inf, and signed zero where observable.
+- **Artifact:** the complete table (or an authenticated reconstruction), its full digest, the
+  calibration generation, the contract, every intermediate quantization boundary for a fused
+  table, provenance, preparation version, and validation evidence with its independent
+  reference.
+
+Artifact identity and semantic identity are separate: 2,215 calibrations here have equal bytes
+under two different contracts. A new calibration means a new generation and a new validation.
+Active semantics are never mutated in place.
+
+### K7. Learning and IR boundaries (documentation only)
+
+- **Learning.**
+  - Byte parity in the forward pass is not gradient parity. Quantized operators are
+    nondifferentiable at their rounding boundaries, and a fused table carries none of the
+    source's backward pass, straight-through estimator, surrogate gradients or optimizer state.
+  - Learning admission is a separate future gate. No gradients were invented here.
+  - Calibration staging (OBSERVE → PREHEAT → PROPOSE → VALIDATE → COMMIT) regenerates both tables
+    per generation.
+- **TFLite / TFLM.**
+  - Operator versions, quantization parameters, kernel numerics and backend identity are kept.
+  - One pinned TFLM reference backend does not give "TFLite parity".
+- **ONNX.**
+  - Opset, attributes, Q/DQ semantics and execution-provider identity are kept.
+  - Conforming to the specification is not the same as matching one execution provider's bytes.
+- **BERT.** A TANH table is one building block. GEMM, softmax normalization, LayerNorm, GELU,
+  masks and residuals keep native algebra (ledger K, not admitted). No BERT claim is made.
+
+### K8. Prioritized to-do (updates Amendment 6.1 H5; completed rows marked)
+
+| stage | item | acceptance | status |
+|---|---|---|---|
+| P0 | Trace the 17 TANH differences | stage-attributed, harness byte-equal to the kernel | **DONE** (K1) |
+| P0 | Independent CertifiedMath and SourceParity tables | exhaustive parity with their own references | **DONE** (K2) |
+| P0 | Exhaustive 256-code parity + negative controls | every control can fail | **DONE** (K5) |
+| P0 | Rust resolver seam (6.1 H5) | as stated there | OPEN |
+| P1 | Source-preserving unary fusion | proof + exhaustive parity + omitted-quantization counterexample | **DONE** for TANH→LOGISTIC (K4); other chains NOT RUN |
+| P1 | Stage trace of the LOGISTIC ±1/128 discrepancy | trace harness byte-equal to the kernel | NOT RUN |
+| P1 | Complete tables vs sparse fingerprints | measured economics | **DONE** (K3) |
+| P1 | Artifact identity and invalidation | lab refusals | **DONE (lab)**; runtime binding OPEN |
+| P1 | TFLM softmax calibration sweep (< 2^9 domain) | 0 differing bytes or a typed refusal | NOT RUN |
+| P2 | Bind contract + codebook generation to the prepared recipe receipt | one decision per (generation, β, operator, contract) | PROPOSED |
+| P2 | Adaptive calibration / precision-selection measurements | per-generation validation | NOT RUN |
+| P2 | Rust multiprecision escape, only if a measured need appears | — | DEFERRED |
+| P3 | BERT-class validation; ONNX IR and TFLite IR admission; learning/backward admission | see K7 | NOT RUN |
+
+### K9. BOARD_SYNC_PENDING (Amendment 6.2)
+
+Linear was not reachable; no issue state, acceptance or ownership is claimed. Sections to mirror:
+
+| Linear issue | local sections |
+|---|---|
+| EXO-152 (D-NAM / Palette256 numerical preparation) | ledger entry K; Amendment 6.2 K0, K2, K8 |
+| EXO-50 (handoff) | one line pointing at Amendment 6.2 and its commit |
+| EXO-129 / EXO-132 (carrier closure) | ledger K5: exact finite composition of one admitted function, explicitly NOT palette-chain closure |
+| EXO-127 (offline proof / compilation scope) | ledger K4/K5 proofs; K6 artifact identity |
+
+### K10. NOT RUN
+
+- LOGISTIC stage trace.
+- Other fusion chains (TANH→TANH; three or more stages).
+- The int16 kernels and non-reference TFLM backends (CMSIS-NN, xtensa); full TFLite.
+- ONNX of any kind.
+- TFLM softmax sweep.
+- Rust interval resolver.
+- Learning/backward semantics.
+- BERT, ONNX IR and TFLite IR arms.
+- Held-out calibration generations.
+
+**Next narrow gate:** the LOGISTIC stage trace (is it the same `exp_on_negative_values` error?),
+then the TFLM softmax sweep in its < 2^9 domain, as the first non-unary source-parity case.
