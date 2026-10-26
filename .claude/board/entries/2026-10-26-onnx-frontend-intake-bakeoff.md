@@ -20,6 +20,8 @@ Do not introduce ONNX protobuf, Tract, Burn, any interpreter or model graph into
 - [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799): **D-DT64-Q0 canonical borrowed binding**; do not duplicate its receipt or supersede it with QB.
 - [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794): predicate slots are not ONNX node ids; [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795): source owner/snapshot/ACL; [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796): typed directed relation semantics and no MatMul=Boolean DR compose; [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797): numeric score is not an observed business fact.
 - [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) merged: fresh borrow can execute; escaped stale Keep cannot be trusted from recipe/cycle alone.
+- [#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800) **merged**: lab Softmax source-parity fixtures, Rust replay and certified preparation gate; does not import a real model.
+- [#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) **merged**: lab Codec8 source-code-space admission, and existing DT64/Quack/D-NAM handoff; does not implement a native TFLite runtime or production binding owner.
 
 ## Staged acceptance gates
 
