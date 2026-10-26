@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-479 entries, 2026-08-06 .. 2026-10-26.
+480 entries, 2026-08-06 .. 2026-10-26.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |
 | 2026-10-26 | `D-DR256-WHERE` |  | [2026-10-26-dr256-where-capstone.md](2026-10-26-dr256-where-capstone.md) |
+| 2026-10-26 | `D-DQM` | FAIL | [2026-10-26-dqm-p1-chunk-touched.md](2026-10-26-dqm-p1-chunk-touched.md) |
 | 2026-10-26 | `coresearch-lance13-masked-read-dr64` |  | [2026-10-26-coresearch-lance13-masked-read-dr64.md](2026-10-26-coresearch-lance13-masked-read-dr64.md) |
 | 2026-10-25 | `D-DRF-W8` |  | [2026-10-25-drf-w8-budget.md](2026-10-25-drf-w8-budget.md) |
 | 2026-10-25 | `D-DRF-W4` |  | [2026-10-25-drf-w4-handoff.md](2026-10-25-drf-w4-handoff.md) |
