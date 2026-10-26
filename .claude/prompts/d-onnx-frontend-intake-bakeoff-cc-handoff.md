@@ -6,7 +6,8 @@
 1. Verify current main and PRs #1752, #1753, #1754, #1758, #1744, #1750, #1779–#1784, #1792 and #1794–#1799. Do not assume the six DT64 draft docs are merged.
 2. Read the existing ONNX S0/S1 and D-NAM method plans. Locate existing `lance-graph-onnx`, `math-polyfill-probe`, Quack binding and ndarray numeric APIs. Search for overlapping experiments before adding any new crate.
 3. Read `#1799` **canonical D-DT64-Q0**. The retired QB note is only a pointer. DT64 owns source-object semantics, not ONNX graph execution. #1798 is the relevant native numerical method leaf.
-4. Pin and record candidate versions/commits, licenses, toolchains and transitive dependencies. Check Burn `onnx-ir` independently of the Burn execution backend and Tract `InferenceModel→TypedModel` without assuming that its optimized representation is source-faithful. No fetching live business DTO data.
+4. Verify that merged [#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800) and [#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) are already on main. #1800 lands Softmax fixture replay and calibration-specific numeric certification as LAB; #1801 lands Codec8 semantic admission as LAB. Reuse the refusal and receipt tests. Neither supplies a production ONNX/TFLite model interpreter. Prepared numeric table digest does not replace original calibration/source receipt.
+5. Pin and record candidate versions/commits, licenses, toolchains and transitive dependencies. Check Burn `onnx-ir` independently of the Burn execution backend and Tract `InferenceModel→TypedModel` without assuming that its optimized representation is source-faithful. No fetching live business DTO data.
 
 ## Stage S1/S2 (future, requires explicit separate approval)
 
