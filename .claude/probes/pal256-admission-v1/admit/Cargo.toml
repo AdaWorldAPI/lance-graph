@@ -1,0 +1,17 @@
+[package]
+name = "admit"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# D-TFLP Amendment 6.5 P0 lab adapter: semantic admission of 8-bit artifacts against a consumer
+# codec. Lab only; not a workspace member; does not change ndarray.
+# ndarray is five levels up: admit -> pal256-admission-v1 -> probes -> .claude -> lance-graph -> /home/user.
+[dependencies]
+ndarray = { path = "../../../../../ndarray", default-features = false, features = ["std"] }
+sha2 = "0.10"
+
+[profile.release]
+debug = 0
+
+[workspace]

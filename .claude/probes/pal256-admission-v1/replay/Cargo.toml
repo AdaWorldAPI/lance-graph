@@ -1,0 +1,16 @@
+[package]
+name = "replay"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# D-TFLP Amendment 6.5 P2: replay of the committed softmax reciprocal fixtures without TFLM.
+# Lab only; not a workspace member.
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+debug = 0
+
+[workspace]
