@@ -7,7 +7,8 @@
 
 **Status:** WORKING-MODEL. Lab evidence only; nothing here is SHIPPED in production.
 **Source of measurements:** `.claude/board/entries/2026-10-26-d-tflp-parity-audit.md`
-Amendments 4, 5 and 6; probes under `.claude/probes/fisherz-softmax-v1/`.
+Amendments 4, 5, 6 and 6.1; probes under `.claude/probes/fisherz-softmax-v1/` and
+`.claude/probes/tanh-sweep-v1/`.
 
 The question each entry answers: **which algebraic fact lets a computation over 8-bit
 codes stay in code space, under which hypotheses, and when does it stop being true.**
@@ -43,13 +44,24 @@ y = Σ p_i V_i.
   required.
 - **Derivation.** Same cancellation as A, without needing affinity: c is common.
 - **Hypotheses.** One β per table; c fixed at build time (e.g. the codebook maximum).
-- **Exact / approximate.** Exact in real arithmetic. In fixed point, a row whose maximum
-  lies far below c keeps few significant bits (dynamic-range loss, not an algebra error).
-  In f64, an inexact sum of equal weights breaks exact ties (Amendment 5 F3, arm U: 3,072
-  p-code mismatches, all on rows with 512 tied maxima where p = 1/512 is a rounding half).
-- **Not applicable.** When exact midpoint ties must round per the declared rule and the sum
-  is not exact.
-- **Falsification.** Tie rows (n·k tied maxima with 256·p an exact half).
+- **Exact / approximate.** Exact in real arithmetic, **including** rows whose quantized p lies
+  exactly on a rounding midpoint (e.g. 512 tied maxima, p = 1/512, 256·p = ½): the identity
+  gives the exact p, and the declared rounding rule then decides the code. Three things must
+  be kept apart:
+  1. the identity (exact, no exceptions for finite representatives and β > 0);
+  2. a certified numerical approximation of it (entry G);
+  3. an implementation's rounding behaviour.
+  The measured failures are in 3, not 1: an f64 sum of equal weights that is not exact lands
+  an ulp off the half and the code breaks the wrong way (Amendment 5 F3, arm U: 3,072 p-code
+  mismatches, all on 512-tie rows). That is an implementation error, not a counterexample to
+  the identity. In fixed point, a row whose maximum lies far below c keeps few significant
+  bits; measured in Amendment 6.1 with the reference at the codebook maximum: 81 / 261 rows
+  need escalation (13 with the row maximum), and some rows have every F24 weight round to 0.
+- **⊘ Struck (Amendment 6.1):** "Not applicable when exact midpoint ties must round per the
+  declared rule and the sum is not exact." That conflated the identity with an implementation.
+- **Not applicable.** Per-row β; a representative that is not the admitted source value.
+- **Falsification.** Tie rows (n·k tied maxima with 256·p an exact half) test the
+  *implementation* of the identity; they cannot falsify the identity itself.
 - **Permitted lowering.** Unary table + row-max re-reference (a pair table only as a cache
   of re-referenced rows), or a unary table with exact summation.
 - **Evidence.** Amendment 5 F2 (correction of Amendment 4 E4.2/E4.3), F3.
@@ -143,11 +155,24 @@ y = Σ p_i V_i.
   control: without the identity check the bound certifies a wrong code).
 - **Exact / approximate.** The bound is rigorous; whether it certifies is data-dependent.
   An exact rounding midpoint can never be certified by any bound of nonzero width.
+- **Tighter per-entry errors (Amendment 6.1).** The bound holds with any certified
+  `ε_i ≥ |2^F w_i − W_i|` and `E = Σ ε_i`, provided `Ŝ > E`:
+  - **exact zero:** `x(q_i) = x_max` exactly gives `w_i = e^0 = 1` and `W_i = 2^F` with no
+    rounding, so `ε_i = 0`. On a row where every element is at the maximum the whole bound is
+    zero: the arm's own exact rational `p̂ = 1/n` is then certified, including on a midpoint,
+    because a zero-width interval has the same code at both ends. This needs no table data:
+    `ε_i` follows from the representative's equality with the row maximum.
+  - **per entry:** `ε_i = ⌈dev_i · 2^G⌉ / 2^G` with `dev_i = max(|lo − W_i|, |hi − W_i|)` from
+    the entry's certified interval (G = 8; `e_i ≤ 128` fits a u8; 256 bytes per table row).
+  - a refinement that cannot be certified falls back to `ε_i = ½`.
 - **Falsification.** A certified output whose code differs from the 40-digit reference
-  ("miss"). Measured: 0 misses of 248,778 outputs (Amendment 6 G1).
+  ("miss"). Measured: 0 misses of 248,778 outputs in each of 7 arms (Amendment 6 G1;
+  Amendment 6.1 H1, Python and Rust).
 - **Permitted lowering.** Integer `S` (u64) and `N` (i128); round integer outputs from
-  `(N, S)` by quotient and remainder; escalate uncertified rows (H).
-- **Status.** TESTED-LAB.
+  `(N, S)` by quotient and remainder; compare the bound against the nearest rounding
+  boundaries by cross-multiplication with a 256-bit product (measured widths: S 37, N 101,
+  bound numerator 123 bits; no overflow refusal); escalate uncertified rows (H).
+- **Status.** TESTED-LAB (Python and the Rust lab reproduce each other's decisions exactly).
 
 ## H. FMA and escalation
 
@@ -165,11 +190,65 @@ y = Σ p_i V_i.
      evaluation at 64…512 bits terminates; it returns only when both interval ends give
      one code, so the result equals the code of the exact value under any rounding rule.
      Exhaustion at 512 bits is UNRESOLVED (fail closed), never a guess.
-- **Hypotheses.** β and representatives are finite f64 (rational); outward rounding; the
-  plain f64 recomputation of Amendment 5 arm C is **not** a certified resolver.
+- **Hypotheses (made explicit, Amendment 6.1).** The Lindemann–Weierstrass step holds when:
+  β is finite, positive and a binary floating-point value read exactly; the representatives
+  are finite binary floating-point values read exactly; every `V_i` is an exact rational;
+  the weights are the real exponentials `e^{β(x_i − x_max)}`; and grouping is by the
+  effective representative value, so distinct groups have distinct exponents. It does
+  **not** extend to arbitrary real parameters, approximated representatives, or any
+  operation that changes the exact exponential relationship. Under these hypotheses a
+  normalized `p_i` is never rational when the row has two or more distinct exponents, and
+  `y` is rational if and only if every group has the same V-mean. Outward rounding is
+  required; the plain f64 recomputation of Amendment 5 arm C is **not** a certified resolver.
+- **Row vs output classification.** A row is "escalated" when any of its outputs is
+  uncertified; each output then carries its own resolver. In the two-representative
+  midpoint control (group V-means 5/2) the p outputs are certified by the bound, and only y
+  needs the equal-group-mean rule (code 3, correct). With that rule disabled, y is
+  UNRESOLVED at 512 bits and no code is returned (Amendment 6.1 H3).
 - **Exact / approximate.** Exact when it returns.
 - **Permitted lowering.** Reuse ndarray `simd::mul_add_f64` (`ExactFma`) only where operands
   are real-valued; never on a build without hardware FMA in a hot loop (software path costs
   ~20×). No second FMA implementation.
 - **Evidence.** Amendment 5 F1, F5; Amendment 6 G1.
 - **Status.** TESTED-LAB (Python lab resolver; no Rust resolver exists).
+
+## I. Exact-uniform row (Amendment 6.1)
+
+- **Statement.** If every active element of a row has the same effective representative
+  (`x(q_1) = … = x(q_n)`, compared as values after masking and NaN admission, not as code
+  bytes), then `p_i = 1/n` and `y = (Σ V_i)/n`, exactly.
+- **Derivation.** All exponents are 0, so every weight is 1.
+- **Hypotheses.** Masked elements are removed first. Under a NaN-carrying code space
+  (Sym + NaNAtMin) a NaN code in the active row is refused before this test. Two distinct
+  codes with equal representatives count as uniform; equal codes are not needed.
+- **Exact / approximate.** Exact. With exact `V_i`, the final code comes from the exact
+  numerator and denominator, so exact midpoints (`n = 512`, `256·p = ½`) round by the declared
+  rule with no ambiguity.
+- **Not applicable.** Any row with two distinct representatives (use G, then H).
+- **Falsification.** A shortcut output that differs from the reference (measured: 0 of 50,883).
+- **Permitted lowering.** A value-equality test over the active row before any table read;
+  no exponential, no bound, no f64.
+- **Evidence.** Amendment 6.1 H1: 38 of 261 rows take it, and escalated rows fall from 13 to 3.
+  The exact-zero bound (G) reaches the same 3 without the shortcut. The shortcut's value is
+  that it skips the arithmetic, not that it certifies more.
+- **Status.** TESTED-LAB.
+
+## J. TANH int8 code→code table vs TFLite Micro (Amendment 6.1)
+
+- **Statement.** For int8 TANH with the TFLite output contract (scale 1/128, zero point 0), the
+  code→code table `code(c) = clamp(round_away(128 · tanh(x(c))))` is correctly rounded at every
+  cell. It equals TFLite Micro's bytes except where `128·tanh(x)` lies within TFLM's internal
+  fixed-point error of a rounding half.
+- **Derivation.** For rational `x ≠ 0`, `tanh(x)` is transcendental, so no cell is an exact tie
+  and TiesAway and TiesEven give the same table (the Codec8 plan's claim, now with a reason).
+- **Hypotheses.** The input real value is `scale·(c − zp)` exactly (TFLite spec), or Codec8's f32
+  decode of it. The two gave identical tables on all 569,344 swept cells.
+- **Exact / approximate.** The table is exact (interval-certified at 64 bits for every cell).
+  TFLM is approximate.
+- **Counterexample (measured).** At `|x| ≈ 1/256`, `128·tanh(x) = 0.4999975`, 2.5e-6 below the
+  half. The correct code is 0; TFLM gives ±1. Seen at every power-of-two scale where ±1/256
+  is reachable (2^-8 … 2^-15, 15 cells) and at one random calibration (scale bits 0x3932159a,
+  zp 91; distance 9.8e-6; 2 cells): 17 of 569,344 cells.
+- **Permitted lowering.** A prepared 256-entry table. A "TFLM-parity" table is a different
+  artifact and must be generated from TFLM's own arithmetic. The two must not share a receipt.
+- **Status.** TESTED-LAB.
