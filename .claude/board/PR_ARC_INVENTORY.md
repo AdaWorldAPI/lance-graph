@@ -13,12 +13,13 @@
 ## 2026-10-26 — lance-graph PR #1801 (merged `f1ff647f`, branch `claude/d-tflp-codec8-admission`, head `01ef5077`) — probes(D-TFLP 6.5): Codec8 semantic admission + DT64/Quack/D-NAM handoff
 
 - **Added:** probe files under `.claude/probes/`; entry `2026-10-26-d-tflp-65-landing.md`.
-- **Confidence:** MEASURED (lab), docs and probes only; no crate, ABI or kernel change.
+- **Confidence:** MEASURED (lab): `pal256-admission-v1/admit/`, Codec8 8-bit semantic admission (`Receipt` + `bind`), 17 tests, 6×6 producer × consumer matrix binding only on the diagonal; identity claim TESTED_COMPATIBLE_FOR_PINNED_CODEC_SET (21 instantiations on ndarray `af4910a1`). The bit-exact TFLite certification is #1800. No crate, ABI or kernel change.
 
 ## 2026-10-26 — lance-graph PR #1800 (merged `7d485dcb`, branch `claude/d-tflp-softmax-evidence`, head `26666aa0`) — probes(D-TFLP 6.5): softmax fixture replay + certified preparation gate
 
 - **Added:** probe files under `.claude/probes/`.
-- **Confidence:** MEASURED (lab); production impact none.
+- **Confidence:** CERTIFIED bit-exact against the original TFLite Micro int8 SOFTMAX kernel (TFLM `5f64e4ad`, `kernels/internal/reference/softmax.h`, g++ 13.3.0, x86-64; source digest `0566576b…2eb3c`). Every fixture row was confirmed by the real kernel (`softmax_oracle.cc`) before it was written; the TFLM-free Rust replay (`pal256-admission-v1/replay/`) reproduces the kernel's bytes on all 529 witness, 27 reduced and 7 equivalence rows; the exact-reciprocal negative control fails all 556 witness rows; 9 tamper cases refused. Scope: the 14 calibrations, int8 in / scale 1/256 / zp −128, `S ∈ [2^19, 2^28)`, one TFLM revision, one compiler. Production impact none.
+- **Correction 2026-10-26:** the replay crate `.claude/probes/pal256-admission-v1/replay/` landed with this PR, not with #1801; #1801 carries only `admit/`.
 
 ## 2026-10-26 — lance-graph PR #1799 (merged `7b3cba7e`, branch `research/dt64-predicate-holographic-capstone-20261026`, head `6c769223`) — docs(DT64-0): versioned DTO predicate adapter capstone, staged PR board, EXO-50 gates
 
