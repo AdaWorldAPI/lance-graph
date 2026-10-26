@@ -11,6 +11,8 @@
 | DT64-4 | [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) | dependency support and hypothesis/time receipts; EXO-148 missing durable IDs |
 | DT64-5 | [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) | D-NAM/EXO-152 native method route, ONNX as leaf, computed result ≠ source fact |
 
+**Shared Q0 execution seam (docs only, #1799):** [DT64 → borrowed Quack](../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md). One attested semantic binding, source-owner immutable borrow, separate compiled recipe. First fixture: eight IAM/Exchange/SAP predicates, scalar/direct/Quack and optional DR64² comparison, three directed queries, mandatory #1792 1,032-vs-31 stale Keep refusal/recompute. No invented runtime, 64³ allocation, new execution authority or numerical method code. D-NAM/EXO-152 owns SourceParity/CertifiedMath certificates; DT64 only references handles. No tests yet.
+
 **Hard blockers:** [EXO-46](https://linear.app/exo-red/issue/EXO-46) production focus admission, [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) escaped-Keep authority and physical snapshot, NFR-OP-2 axis selection, source-specific negative observation/ACL, EXO-148, missing Entra license and Odoo method source verification. Direct bitmask first; no claimed holographic global reconstruction until independent oracle.
 
 ## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
