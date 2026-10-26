@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |
 | 2026-10-26 | `D-DR256-WHERE` |  | [2026-10-26-dr256-where-capstone.md](2026-10-26-dr256-where-capstone.md) |
 | 2026-10-26 | `D-DR256-OD` |  | [2026-10-26-dr256-on-demand-l1.md](2026-10-26-dr256-on-demand-l1.md) |
