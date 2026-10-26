@@ -49,3 +49,12 @@
 **Agent handoff:** [Source-first CC brief](../../prompts/d-dt64-source-first-claude-code-handoff.md) (read-only first; no code authorization).
 
 **Handoff:** [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) append-only [coordination message](https://linear.app/exo-red/issue/EXO-50) posted as `GPT:gpt-ada-01/D-DT64-1799-20261026` with all six PR receipts; acknowledgement requested. [EXO-121](https://linear.app/exo-red/issue/EXO-121), [EXO-122](https://linear.app/exo-red/issue/EXO-122), [EXO-123](https://linear.app/exo-red/issue/EXO-123), [EXO-126](https://linear.app/exo-red/issue/EXO-126), [EXO-127](https://linear.app/exo-red/issue/EXO-127), [EXO-151](https://linear.app/exo-red/issue/EXO-151), [EXO-152](https://linear.app/exo-red/issue/EXO-152).
+
+
+## DT64-QB — parallel Quack/algebra coordination correction
+
+**Source:** [D-DT64-QB-0](../../plans/d-dt64-quack-borrowed-binding-seam-v1.md). This is the first execution contract, **NOT** a new runtime or authorized implementation. DT64 = semantic binding-store adapter; Quack/RelAlg/R2IL/mask-risc = relational evaluation; ndarray = native numerics; D-NAM/EXO-152 = prepared numerical-method semantics and certificates. The eight IAM/Exchange/SAP candidate predicates are catalogue slots **08, 11, 12, 13, 14, 17, 18, 32**. Unary group/mailbox classifications do not acquire invented inverse edges; directional projections apply to typed binary predicates only.
+
+**Admission:** typed source object + predicate; schema/catalogue revisions; owner + ACTUAL physical source snapshot; sealed global/local focus; optional codebook generation; permission and completeness authority; live borrowed lanes; independently reusable compiled recipe identity. `ClassView FieldMask`, DR coordinate, predicate slot and Palette256 numeric code remain distinct. Borrow-scoped run needs no redundant ownership guard; detached Keep requires source-attested dependency or recomputation/refusal; #1792 old 1,032 vs fresh 31 remains falsifier. #1792 itself is MERGED, but source attestation and escaped reuse remain OPEN.
+
+**First independently authorized candidate:** S0 source census, then S1 eight-predicate borrowed adapter against independent scalar oracle, S2 directed SPO views and optional DR64² comparative route, S3 recipe rebind and stale Keep refusal. No DR³ mandatory, no source data replication, no ONNX, no writes. Later DT64-4/5 are independent research successors, not blockers. This correction changes no code/test claims.
