@@ -139,3 +139,39 @@ fn facet_slots_are_the_canonical_16_byte_grid() {
     view.classid_mask(FacetSlot::KEY, CLASS_A, &mut sel);
     assert_eq!(sel[0], 0b111);
 }
+
+/// D-NFR-1 escaped reuse. A mask computed through a view is an owned
+/// `Vec<u64>`: it outlives the borrow, so the borrow no longer protects it.
+/// The packet's `cycle()` is the stamp a reader would naturally keep beside
+/// it, but it is whatever the caller passed to `NodeRowPacket::new`, not a
+/// record of writes. FAILS IF: the escaped mask still answers correctly after
+/// the owner writes (the predicate input did not change), or if the cycle
+/// stamp differs between the two views (it would then be a witness after all).
+#[test]
+fn an_escaped_mask_is_not_witnessed_by_the_packet_cycle() {
+    let mut owner = rows(130);
+    let kept = {
+        let view = NodeRowPacket::new(&owner, 5);
+        let mut sel = vec![0u64; 3];
+        view.classid_mask(slot0(), CLASS_A, &mut sel);
+        sel
+    }; // borrow released; `kept` escapes
+    let (a, _, _) = oracle(&owner, CLASS_A);
+    assert!(a > 0 && a < 130, "fixture must mix classes");
+
+    let flip = owner
+        .iter()
+        .position(|r| facet(r).0 == CLASS_B)
+        .expect("a CLASS_B row");
+    owner[flip].value[..4].copy_from_slice(&CLASS_A.to_le_bytes());
+
+    let view = NodeRowPacket::new(&owner, 5); // same caller stamp
+    assert_eq!(view.cycle(), 5);
+    let mut fresh = vec![0u64; 3];
+    view.classid_mask(slot0(), CLASS_A, &mut fresh);
+    assert_ne!(kept, fresh, "the escaped mask still matches");
+    assert_eq!(
+        ndarray::simd::popcount_batch_u64(&fresh),
+        ndarray::simd::popcount_batch_u64(&kept) + 1
+    );
+}
