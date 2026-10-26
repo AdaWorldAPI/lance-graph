@@ -44,7 +44,7 @@ No single scalar `status` or `u64 frame` replaces these. `SourceBinding` is a *p
 1. Source principal GUID, group GUID and `member` facts must come from one versioned AD snapshot.
 2. `GroupProperty::SecurityEnabled` checks SID, not mail address. A group with only SMTP may forward mail but not role authority.
 3. Existing `GroupRoles::from_policy` takes a versioned policy. Join with actual security-identifier membership chain.
-4. One role with two independent grant paths remains true when one path disappears. `RoleEvidence::Unread` is not FALSE.
+4. One role with two independent grant paths remains true when one path disappears. `RoleEvidence::Undetermined { unread }` is not FALSE (distinct from `NotHeld` and `NotDeclared`).
 5. `ADMIN_IN_SCOPE` is derived only when the requested role and object/resource scope are bound; the word “admin” in a group name does not grant it.
 6. Oracle: `dir-sim::View` / `actors::GroupRoles::role_evidence` on exact same snapshot, not a new duplicate evaluator.
 
