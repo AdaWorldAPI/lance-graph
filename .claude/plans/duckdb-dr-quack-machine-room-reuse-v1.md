@@ -374,3 +374,90 @@ gated on the operator naming S-INGRESS and on P3.
 6. **Must not be duplicated:** H14c/H14d pipelines and measurements, the two coordinate maps (unify, don't add a
    third), DRF MAP/BORROW/GATHER, mask-risc terminals, ndarray kernels, the DuckDB differential oracle, Lance's
    scanner and range planner.
+
+### A.8 Amendment (2026-10-26, later the same day): SQL K3 → Keep → Lance ALLOW/BLOCK
+
+Append-only; A.0–A.7 stand. Scope: whether a SQL three-valued `WHERE` can lower to one final Keep that Lance 13
+consumes as an allow or block list.
+
+**SQL K3 evidence, re-run today against a live PostgreSQL 16.15** (the examples print `SKIP` without a server, so
+none of this gates CI; these runs are the evidence):
+
+| run | result |
+|---|---|
+| `cargo run -p lance-graph-quack --example k3_where_pg_parity` | 2,000 expressions × 200 rows, 55,916 UNKNOWN verdicts: `sql_where` → `lower` / `lower_fused` → mask-risc keeps PostgreSQL's TRUE **and** FALSE rows exactly |
+| `… --example qsp_null_operand_pg_parity` | 2,000 expressions incl. 250 NOT-IN-with-NULL: exact, also with every NULL payload scrambled |
+| `… --example qsp_agg_pg_parity` | 3,600 queries, COUNT(*) / COUNT(x) / SUM / MIN / MAX / AVG: 0 mismatches (naive SUM wrong on 1,962) |
+| `cargo run -p lance-graph-contract --example k3_pg_parity` | `normalize_kleene` = Kleene oracle = PostgreSQL on 2,000/2,000; two-valued `normalize` wrong on 474 |
+| `cargo test -p lance-graph-quack --test sql_null_3vl --test sql_aggregate_null` | 10 + 3 passed |
+
+How the TRUE-only Keep is built (`lance-graph-quack/src/lib.rs` `Filter::sql_where` / `rewrite`): each subformula
+lowers to one polarity, `T(φ)` or `F(φ)`; a nullable leaf becomes `valid ∧ leaf` (or `valid ∧ ¬leaf`), `NOT` flips
+polarity, `AND`/`OR` take their De Morgan duals; the result is `T(self)`, a two-valued filter. A second program is
+needed to observe `F`. Payload at invalid slots is loaded inside a live 64-row word and then masked by the validity
+gate (ndarray `pack_under`); it never reaches the answer (`tests/sql_null_operand.rs` `invalid_payload_changes_nothing`).
+No rewrite on this path applies a two-valued law: Quack does not call `lance-graph-relalg` or contract
+`set_algebra::normalize`; the fuser evaluates truth tables over the leaves it is given.
+
+**Remaining SQL gaps for the scan use case** (owner in brackets; nothing here blocks a filter-only scan):
+
+- COUNT(expr), MIN, MAX are correct only when the caller conjoins `is_not_null(valid)`; no lowering helper enforces
+  it [Quack, a `lower_count_expr`-style wrapper like `lower_sum`].
+- COUNT DISTINCT (`CountDistinctOrderedU32`) requires a key lane ordered over every row; a NULL key's stale payload
+  can trip `LaneNotOrdered`, and no NULL test exists [Quack].
+- GROUP BY / HAVING take no validity for key or value; NULL group keys are not modelled; tested on NULL-free data
+  only (`duckdb_differential.rs` group cases) [Quack].
+- MISSING: column-to-column comparison (G7, deliberately absent in the IR), COALESCE/NULLIF, nullable arithmetic,
+  LEFT join (null extension), subquery IN / NOT IN. A NULL in a FOREIGN value lane is not modelled.
+- Test gap: no named `x = c OR NOT (x = c)` / `x = c AND NOT (x = c)` case on a nullable `Cmp` in
+  `sql_null_3vl.rs` (only the fk leaves and the random trees). The contract rewriter pins it
+  (`set_rules.rs` `experiment_e_null_normalizes_in_the_kleene_form`).
+- Unguarded hazard (no production caller today): contract `Sym` and Quack `Filter::Plane` are two-valued by
+  contract; binding either to a collapsed K3 TRUE mask makes `NOT` the complement of Keep.
+
+**The ALLOW/BLOCK boundary.** `U` = the live rows of the scanned version, `K = {r ∈ U | P(r) = TRUE}`,
+`B = U \ K`. `ALLOW(K) == BLOCK(B)` is the required equivalence. `BLOCK(K(NOT P))` is **not** equivalent: it
+admits every row where P is UNKNOWN. Live PostgreSQL counterexample, rows `x ∈ {5, 3, NULL}`, `P = (x = 5)`:
+`WHERE P` → {1}; `U \ K(NOT P)` → {1, 3} (the NULL row leaks); `U \ (U \ K(P))` → {1}; `WHERE P OR NOT P` → {1, 2}.
+
+What Lance 13 does with each (source-read, `lance-13.0.0`):
+
+- The block universe is the scanned dataset version's fragment set (`scanner.rs` `mask_as_take_input`:
+  `fragments_covered = self.dataset.fragment_bitmap`), per fragment the physical rows minus the deletion vector
+  (`io/exec/filtered_read.rs` `full_frag_range` intersected with the mask ranges). Deleted rows drop out under both
+  lists unless `with_deleted_rows`.
+- **Fail-open asymmetry:** a fragment added after the mask was built is fully visible under BLOCK and excluded under
+  ALLOW. An allow list built from an older version fails closed (omission); a block list fails open (extra rows).
+  BLOCK therefore needs the version check to be exact, not best-effort.
+- BLOCK loads metadata for every fragment ("A block-list may select rows from every fragment",
+  `filtered_read.rs`); ALLOW skips fragments with no candidates; an empty ALLOW skips every fragment (no data I/O).
+  A block-everything mask is not short-circuited.
+- Both become offset ranges per roaring run; scattered blocked rows mean many small ranges. Stable-id segments of
+  type `RangeWithHoles` / `Ranges` / `Array` take a per-id path.
+- With an external mask the scalar index is not used and limit/offset are not pushed below the mask
+  (`effective_filter_plan` → refine-only). Lance's own `filter(...)` runs as a refine on top of the mask; a NULL
+  filter result is dropped (Arrow `prep_null_mask_filter`, NULL → false), i.e. WHERE-TRUE-only, but over Lance's
+  expression language, not Quack's.
+- One scanner ≠ one I/O: reads are scheduled per fragment and data file, per column page, merged per scheduling step
+  into one sorted request. With a mask and no `filter`, all projected columns are read in one `FilteredReadExec`;
+  with a `filter`, filter columns join the projection and late columns are fetched by a second `take`.
+
+**BLOCK admission gates (all unmet; BLOCK stays PARKED):** (1) Keep built from `sql_where` T-polarity, never from
+`NOT P`; (2) `B` computed against the exact live-row universe of the version the scan will open (not the 4,096-slot
+focus); (3) one version check that refuses if the dataset moved between mask build and scan (BLOCK fails open);
+(4) `_rowid` space correct in stable-id mode; (5) executable negative fixture: `BLOCK(K(NOT P))` must differ from
+`ALLOW(K)` on a NULL row, and `BLOCK(U \ K)` must equal it; (6) COUNT, SUM, attribution and Bag duplicates equal
+across ALLOW and BLOCK. Even with all six, BLOCK's expected advantage is mask size and construction, not rows read,
+and it costs metadata loads for every fragment.
+
+**Verdict on the full chain** `SQL K3 → collapsed Keep → DR64 identities → version-checked Lance ALLOW/BLOCK →
+projected read → Quack/ndarray terminal`:
+
+- semantics: **LEGAL** for the SQL subset Quack admits (PostgreSQL-verified above);
+- ALLOW route: **BLOCKED BY WIRING** (one coordinate authority, ord → `_rowid` composition, S-INGRESS);
+- BLOCK route: **BLOCKED BY GATES** (above), not semantically impossible;
+- outside the admitted subset (column-to-column, COALESCE, nullable arithmetic, LEFT join, subquery IN): refused or
+  missing upstream of the mask, never silently lowered.
+
+Recommended next step is unchanged: **P1** (A.6). No K3 counterexample found a correctness blocker on the
+production path; the BLOCK negative fixture becomes required only when BLOCK is pursued.

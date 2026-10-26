@@ -48,3 +48,9 @@ local-store block size; Yao 1977 itself (read through Whang 1983); the H14c/H14d
 
 OPEN: S-INGRESS (operator); which single coordinate→`_rowid` authority; stable row ids for lane datasets
 (H14c, still open); K-knee claim (`LANE_FOLD_INTEGRATION.md`, section "What this must not integrate") has no code.
+
+**Addendum (same day, SQL K3 → ALLOW/BLOCK):** MEASURED against a live PostgreSQL 16.15: `k3_where_pg_parity`
+(2,000 expr, exact TRUE and FALSE rows), `qsp_null_operand_pg_parity` (2,000, exact), `qsp_agg_pg_parity` (3,600,
+0 mismatches), contract `k3_pg_parity` (2,000/2,000). Counterexample: `BLOCK(K(NOT P))` admits UNKNOWN rows, only
+`BLOCK(U \ K(P))` equals `ALLOW(K(P))`. Lance 13 BLOCK fails open on fragments added after mask build. Verdict and
+gates: plan § A.8. Next step unchanged: P1.
