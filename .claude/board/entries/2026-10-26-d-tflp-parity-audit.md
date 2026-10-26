@@ -729,3 +729,167 @@ If an int8 probability output is wanted, it belongs in the D-TFLP SOFTMAX stage,
 
 The next falsifier is the same calibration sweep as for TANH (Amendment 3), looking for any byte where
 the F = 24 arm and TFLM differ.
+
+## Amendment 5 (2026-10-26) — precision: exact integers, ndarray FMA, and a selective f64 escape hatch
+
+Probe: `.claude/probes/fisherz-softmax-v1/precision/` (Rust arms calling ndarray's real `simd::mul_add_f64`,
+a 40-digit mpmath reference, 261 cases; a separate deskew experiment). Audit and probe only; no production
+code changed. Correction to scope: `bgz-tensor::FamilyGamma` is a legacy reference, not a dependency; the
+identities below are stated for any affine or monotone codebook.
+
+### F1. ndarray's FMA, as implemented
+
+- `simd::mul_add_f64` / `mul_add_f32` (`src/simd_ops.rs:154,168`) call `simd_fma::ExactFma`, and
+  `simd_fma.rs:1-17` defines the contract: one rounding, to nearest-even, for every input. The
+  realization depends on the target:
+
+  | target | realization |
+  |---|---|
+  | x86 with `target_feature = "fma"`, and every aarch64 | hardware `mul_add` |
+  | otherwise, f32 | computed in f64 with round-to-odd (Boldo-Melquiond) |
+  | otherwise, f64 | integer arithmetic with a 128-bit window and a sticky bit (`simd_fma.rs:139-142`) |
+  | WASM `F64x8::mul_add` | Dekker split + two-sum + round-to-odd inside a checked operand range (`simd_wasm.rs:2465-2481`); outside it, falls back per lane to the integer `fma_f64` (`:551-575`) |
+  | NEON | `vfmaq_f32` / `vfmaq_f64` |
+
+- `simd::add_mul_f64` (`simd_ops.rs:212`) is **element-wise** `acc[i] += a[i]·b[i]`, single-rounded per
+  lane. It is not a dot product and has no reduction. A softmax-weighted sum is a reduction, so its
+  ordering and accumulation error belong to the caller. The runtime twin `simd_runtime/add_mul.rs` has the
+  same per-lane semantics, dispatched once by `LazyLock`.
+- **Measured:** the baseline x86-64 build (no `fma` target feature, so the integer `fma_f64` runs) and a
+  `target-cpu=native` build (hardware FMA) gave bit-identical results on all 261 cases. Cost is another
+  matter (F5).
+
+### F2. The identity, without FamilyGamma — and a correction to Amendment 4
+
+For any representatives x(q):
+
+  `e^{β(x_i − x_max)} = e^{β x_i} · e^{−β x_max}`
+
+The second factor is common to the numerator and the denominator, so
+
+  `p_i = E[q_i] / Σ_j E[q_j]`, with `E[q] = e^{β(x(q) − c)}` for **any** constant c.
+
+- **Correction to Amendment 4 E4.2 and E4.3 (overclaims).** A nonuniform palette, and a softmax over
+  cosines, need only a **unary** 256-entry table over representatives, not a 256×256 pair table. The row
+  maximum is a dynamic-range device, not part of the mathematics. It matters only when the table is fixed
+  point: with c fixed at the codebook maximum, a row whose maximum lies far below c keeps few significant
+  bits per weight.
+- **Affine codes** `x = a + s·q`: `E` depends only on `q − q_max`, so a fixed-point difference table with
+  the row maximum loses nothing, and `a` cancels.
+- **Common offsets.** Any common additive offset cancels exactly. With `EULER_GAMMA` added to every value
+  the change measured `0.0` at 40 digits; a code-dependent offset of the same size moved p by 0.31.
+  γ is not a softmax correction and was not used as one.
+
+### F3. Results, 261 cases
+
+Four codebooks: affine with step 0.0084 or 0.039; nonuniform normal or lognormal quantiles. β ∈ {1, 8},
+plus β = 32 on the steep affine codebook. Row lengths 2-4096 across five distributions, and flat rows of
+511, 512, 513 and 4096 tied maxima. V has four integer columns, including an alternating ±127 cancellation
+column, and one real-valued column.
+
+| arm | p max abs err | fused y max abs err | p output-code mismatches | y output-code mismatches | Σp − 1 |
+|---|---|---|---|---|---|
+| A: F24 weights relative to the row max (a pair table; on affine codebooks it equals the 256-entry difference table), exact u64 S and i128 N | 9.6e-5 | 1.2e-2 | 0 | 3 | exact |
+| B: same F24 weights as f64 (exact), f64 sum, `mul_add_f64` dot | 9.6e-5 | 1.2e-2 | 0 | 3 | 6.7e-16 |
+| M: B with separate multiply and add | — | 1.2e-2 | — | 3 | — |
+| U: unary f64 table, codebook maximum as reference, no row max | 9.3e-14 | 1.2e-11 | 3,072 (all on the 512-tie rows) | 1 | 1.1e-13 |
+| C: per-element f64 exp vs row max, Neumaier sums | 1.4e-16 | 2.5e-14 | 0 | 0 | 6.7e-16 |
+
+Output codes: p uses TFLM's contract (scale 1/256, zp −128), y rounds to the nearest integer. Both round
+ties away from zero; the reference code is computed from the 40-digit values.
+
+- **A and B are the same arm.** F24 weights are integers below 2^53, so as f64 they are exact. Their
+  error is entirely table rounding: weights below 2^-25 round to zero (up to 4,095 per row), the analogue of
+  TFLM's `diff_min` cut. Accumulator widths measured: S ≤ 37 bits, N ≤ 38 bits (u64 / i128 suffice; i64
+  suffices for N here).
+- **Integer outputs can be rounded exactly from (N, S).** The quotient and remainder give the correctly
+  rounded code of the arm's own rational N/S, with no float conversion at all. The 3 mismatches come from
+  the weights, not the division: in each the reference lies within **7.3e-9** of a .5 boundary.
+- **FMA vs separate multiply/add.**
+  - On the integer columns the two are bit-identical: products of F24 weights and |V| ≤ 127 are exact, so
+    fusing changes nothing.
+  - On the real-valued column they differ in 58 of 261 cases, but FMA was closer to the reference in 26
+    and further in 32. The worst error is identical.
+  - One single-rounded multiply-add per step does not control accumulation error in a sequential dot
+    product.
+- **U loses exact ties.** Every 512-tie row has the true p = 1/512, which is exactly a rounding half
+  (256 · 1/512 = 0.5). U's sum of 512 equal f64 weights is not exact, so p lands an ulp off and the half
+  breaks the wrong way. Its single y mismatch is likewise a reference exactly on .5. A and B represent
+  1/512 exactly; C's compensated sum does too.
+- **Flat rows are not a problem for any arm.** 511, 512, 513 and 4096 tied maxima all produce the
+  correctly rounded codes in A, B and C.
+
+### F4. The TFLM abort, root cause
+
+`softmax.h:115-119` computes `shifted_scale = GetReciprocal(sum_of_exps, 12, &num_bits_over_unit)`, then
+`exponent = num_bits_over_unit + 31 − 8` and `TFLITE_CHECK(0 <= exponent && exponent <= 31)`.
+`num_bits_over_unit` is the number of integer bits of the sum (`common.h:968-974`), so the check fails
+exactly when the sum reaches 2^9.
+
+- **It is a shift-range limit, not an accumulator overflow.** The final per-element step is an int32
+  `RoundingDivideByPOT`, which cannot shift by more than 31.
+- **Correct outputs do exist for such rows:** every p ≤ 1/512, so every code is −128 or −127.
+- **Second, independent limit:** the Q12 sum itself overflows at 4,096 tied maxima.
+- A native implementation must not reproduce the abort. Parity with TFLM is claimed only where the sum is
+  below 2^9 (the Amendment 4 domain).
+
+### F5. Cost (this host: x86-64 with AVX-512 and FMA; scalar loops over 4096-element rows; three runs; noisy)
+
+| arm | baseline x86-64 build (software FMA) | `target-cpu=native` (hardware FMA) |
+|---|---|---|
+| A, difference table | 1.5-2.1 ns/elem | 1.6-2.5 |
+| A, pair table | 2.0-2.8 | 2.0-2.2 |
+| B, F24 + `mul_add_f64` | **31-36** | 1.7-2.0 |
+| U, unary f64 + `mul_add_f64` | **33-37** | 1.4-2.0 |
+| C, f64 exp + Neumaier | 11-16 | 8.7-14 |
+
+- The correctly rounded software `fma_f64` costs about 20× the hardware instruction. A build without
+  `fma` should not put `mul_add_f64` on a softmax hot path; plain integer accumulation is as accurate
+  here and an order of magnitude cheaper.
+- With hardware FMA, the integer and FMA arms cost about the same.
+- Per-element `exp` (C) costs 4-7× more than any table arm.
+- These are measurements of scalar loops, not of a vectorized kernel.
+
+### F6. Palette deskew
+
+Each of the four representatives tested is still one 256-entry table, so deskew is free at run time:
+- bin midpoint;
+- conditional mean;
+- conditional median;
+- log-mean-exp, `(1/β)·log E[e^{βt} | q]`: the value whose exponential is the bin's expected weight.
+
+Error is measured against the softmax over the true held-out values.
+
+- **Bounded skewed source** (2·Beta(2,5) − 1, cosine-like), β = 4, n = 4096:
+  - total variation 0.0515 (midpoint) → 0.0210 (conditional mean) / 0.0215 (log-mean-exp);
+  - weight-sum bias +5.6% (midpoint) → −0.37% (mean) / **+0.13% (log-mean-exp)**.
+  - At β = 1 every corrected representative beats the midpoint as well (TV 0.0019 → 0.0012).
+  - Log-mean-exp is the least biased for the denominator, as Jensen's inequality predicts; the
+    conditional mean is as good or slightly better for TV. The correction is **β-dependent** for
+    log-mean-exp.
+- **Heavy-tailed source** (lognormal): no correction helps. The open-ended top bin of an
+  equal-probability codebook holds the row maximum, so TV is 0.81-0.91 at n = 4096 whatever the
+  representative, and the weight-sum bias diverges. This needs a codebook with tail resolution, not a δ.
+- **Codebook versions:** two calibrations of the same distribution (400k samples each) gave matching
+  results when the tables were swapped. Version keying (the recipe receipt) is still required, but this
+  probe did not demonstrate a harmful mismatch.
+
+### F7. Decision
+
+- **Default.** Prepared table + exact integer accumulation (A) meets the int8-output contract on every
+  case except references within 7.3e-9 of a rounding half. It needs no floating point until the output
+  boundary, and none at all for integer outputs.
+- **Escape hatch.** The error of A is bounded by its table rounding; an explicit bound is derivable from
+  F and n. When the integer result falls inside that bound of a rounding half, recompute that row with C.
+  This is per row and amortized; it removes all mismatches observed. The bound and its trigger rate have
+  not been measured yet.
+- **FMA is not needed** for A's integer path and gave no accuracy benefit on these reductions. Use it where
+  operands are genuinely real-valued and a single multiply-add is the operation.
+- **Unary f64 tables (U)** are the natural form for nonuniform or deskewed palettes. Avoid them where exact
+  ties matter, or sum their weights exactly.
+- **Deskew** is worth it for bounded skewed codebooks and costs nothing at run time; it does not fix tail
+  resolution.
+
+**Smallest justified next step:** none in production yet. The next probe is the escape-hatch bound — derive
+it, measure how often it triggers, and confirm that it catches every mismatch — together with the
+calibration sweep against TFLM already named in Amendments 3 and 4.

@@ -1,0 +1,14 @@
+[package]
+name = "precision-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ndarray = { path = "/home/user/ndarray" }
+
+[profile.release]
+debug = 0
+
+# Standalone: not a member of the lance-graph workspace.
+[workspace]
