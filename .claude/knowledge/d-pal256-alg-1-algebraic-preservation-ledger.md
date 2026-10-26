@@ -345,3 +345,20 @@ y = Σ p_i V_i.
   accumulated Q12 rounding; F24 matches the contract, so the two remain separate receipts.
 - **Status.** TESTED-LAB (TFLM reference kernels, x86_64 gcc, kernel tree `8f6596d`). The
   reciprocal stage has no binding falsifier yet (0 deciding rows in 1.8 M searched).
+- **L4, source parity is per artifact (Amendment 6.3 addendum M2).** Observational equivalence
+  `P_θ(q) = K_{s,b,θ}(q)` is established per build b. Six x86 builds of the pinned TFLM reference
+  kernels (gcc −O0/−O2/−O3 native/no-vectorize, clang 18, UBSan) give identical bytes on the
+  tested corpus, two of them with compiler-generated vector code. That is evidence for those
+  builds only. Rows that reach undefined behaviour (the softmax int32 sum past 2^31; a 32-bit
+  shift by 32) are `UNDEFINED_OR_UNSUPPORTED` and refused, never pinned as portable bytes.
+- **L5, a stage is removable only if it is unobservable on the admitted domain (M4, M6).** The
+  softmax exp stage is removable by preparation: its argument depends only on d, so the prepared
+  weights are the source values (`INTERNAL_EQUIVALENT`). The source reciprocal is not removable:
+  an exhaustive superset over every admitted (S, weight) finds 601 byte-changing pairs, and 529
+  are kernel-confirmed reachable rows (shortest: 4 elements) in 13 of 14 calibrations; one
+  calibration has none. **Correction to L3:** "no binding falsifier yet" is superseded; the
+  reciprocal stage now has 529.
+- **L6, error cost is per code after quantization (M5).** Measured on LOGISTIC (1/128, 0): an
+  exp error on 214 of 256 codes reaches the output byte on 2. Those 2 entries reach 48,806 fused
+  cells through fan-in. An adaptive-precision decision weighs crossing probability × fan-in, not
+  internal error magnitude.

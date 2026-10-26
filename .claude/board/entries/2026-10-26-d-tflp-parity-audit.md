@@ -1850,3 +1850,288 @@ Linear was not reachable; no issue state, acceptance or ownership is claimed. Se
 **Next narrow gate:** a non-vacuous `diff_min` control and a targeted reciprocal-boundary search
 (rows whose SRDHM product lands within a few raw units of a rounding half), so that both softmax
 normalization stages have a binding falsifier — or a proof that none exists in the admitted domain.
+
+### Amendment 6.3 addendum (2026-10-26) — source semantics vs implementation fingerprint vs compiled backend
+
+Scope: lab probes and documentation only. No production code, runtime, codec or API changed.
+Amendments 6–6.3 and their committed artifacts are unchanged; one 6.3 statement is corrected
+in M9. Probes (lab commit `180e358bd`): `.claude/probes/source-behavior-v1/` (`backend63.py`, `prop63.py`,
+`recipwit63.*`, `recipall63.*`, `reach63.*`, `reachcheck63.py`, `perf63.cc`, `perf63.txt`,
+`lutperf/`; build lines in its `README.md`). Source: the 6.3 TFLM checkout `5f64e4ad`.
+
+#### M0. Four contracts, five lab classes
+
+The four contracts are kept apart:
+1. **Mathematical:** the ideal operator plus its declared output rounding.
+2. **Quantization:** scale, zero point, code space, saturation, supported domain.
+3. **Source implementation:** the fixed-point exp, the reciprocal, intermediate rounding.
+4. **Compiled backend:** compiler, flags, ISA, vector code, overflow behaviour.
+
+Source parity is observational: `P_θ(q) = K_{s,b,θ}(q)` for every admitted q, for a named build b.
+The lab labels `INTERNAL_EQUIVALENT`, `OUTPUT_EQUIVALENT`, `OUTPUT_DIVERGENT`, `UNKNOWN` and
+`UNDEFINED_OR_UNSUPPORTED` are used below as classifications only; no type was added.
+
+#### M1. Who owns each numerical decision (read from source and object code)
+
+| decision | owner | file:line |
+|---|---|---|
+| TANH / LOGISTIC / SOFTMAX kernel selection | TFLM reference kernels; `OPTIMIZED_KERNEL_DIR` empty in the build | `kernels/tanh.cc:16,166,175`, `logistic.cc:16,64,80`, `softmax.cc:22,36,42` → `internal/reference/…` |
+| exp, 1/(1+x), SRDHM, RoundingDivideByPOT, Rescale | TFLM's vendored copy of gemmlowp `fixedpoint.h`, **scalar templates only**: it includes only `<algorithm> <cassert> <cmath> <cstdint> <limits> <type_traits>` (`:22-27`); NEON appears only in comments (`:145,226,317,325`) | `internal/fixedpoint.h` |
+| reciprocal | TFLM `GetReciprocal` | `internal/common.h:968-982` |
+| abort guard | TFLM `TFLITE_CHECK(0 <= exponent && exponent <= 31)` | `reference/softmax.h:119` |
+| prepare constants | TFLM `PreprocessSoftmaxScaling`, `CalculateInputRadius`, `QuantizeMultiplier` (double arithmetic) | `softmax_common.cc:105-131`, `logistic_common.cc:45-60`, `tanh.cc` prepare |
+| vector code, if any | the compiler — see M2 | — |
+
+**Alternative backends present in the tree, not built or run:**
+- `kernels/cmsis_nn/softmax.cc`;
+- `kernels/xtensa/{logistic,softmax,softmax_int8_int16}.cc`;
+- `kernels/ceva/{logistic,softmax}.cc`;
+- no TANH variant in any of them.
+
+The build defines `-DTF_LITE_DISABLE_X86_NEON` (`tools/make/Makefile:195`).
+
+**SIMD actually present (objdump of the archive members).** In the baseline build (gcc 13.3,
+kernels `-O2`, core `-Os`):
+- `tanh.o`, `logistic.o` and `softmax.o` contain **no packed integer arithmetic**;
+- xmm registers appear only in scalar-float prepare code, two `pxor` zeroings, and four `movdqu`
+  in `SoftmaxEval` (a 16-byte struct copy).
+
+The int8 arithmetic is scalar. Two of the tested builds do vectorize the same source:
+- **gcc `-O3 -march=native`:** 123 ymm uses and 242 packed integer instructions, in
+  `SoftmaxEval` (218) and `LogisticEval` (24);
+- **clang 18 `-O2`:** 230 packed integer instructions (SSE xmm), in `TanhEval`/`Tanh` (69),
+  `LogisticEval` (46) and both int8 `Softmax` instantiations (53 each).
+
+These are compiler-generated; nothing in the source asks for them.
+
+#### M2. Compiler/backend differential (output bytes, `backend63.json`)
+
+**Held constant:** source revision; corpus (2,224 TANH and 2,224 LOGISTIC input calibrations ×
+256 codes; the 840 softmax rows of 6.3; 14 overflow rows); scales and zero points. Each library
+variant was built from the same checkout into its own `gen_<variant>/`. The three oracle sources
+were linked unchanged against it.
+
+| source revision | kernels | compiler | flags (kernels / core) | ISA | vector code in kernels | TANH tables differing | LOGISTIC tables differing | admitted softmax rows differing |
+|---|---|---|---|---|---|---|---|---|
+| `5f64e4ad` | reference | g++ 13.3.0 | `-O2` / `-Os` (baseline) | x86-64 | none | — | — | — |
+| `5f64e4ad` | reference | g++ 13.3.0 | `-O0` / `-O0` | x86-64 | none | 0 / 2,224 | 0 / 2,224 | 0 / 729 |
+| `5f64e4ad` | reference | g++ 13.3.0 | `-O2 -fno-tree-vectorize -fno-tree-slp-vectorize` / `-Os` | x86-64 | none | 0 | 0 | 0 |
+| `5f64e4ad` | reference | g++ 13.3.0 | `-O3 -march=native` / same | x86-64 + AVX-512 host | ymm, packed int (gcc auto-vectorizer) | 0 | 0 | 0 |
+| `5f64e4ad` | reference | clang 18.1.3 | `-O2` / `-Os` (+`-Wno-error=double-promotion`) | x86-64 | SSE packed int (clang vectorizer) | 0 | 0 | 0 |
+| `5f64e4ad` | reference | g++ 13.3.0 | `-O1 -fsanitize=undefined` | x86-64 | none | 0 | 0 | 0 |
+
+- **Aborting rows.** All builds abort on the same 111 corpus rows. Under UBSan, 14 of them (ties,
+  n = 4,096) abort with a sanitizer report instead of the `TFLITE_CHECK` (M3).
+- **Not run:**
+  - ARM NEON, WASM SIMD, CMSIS-NN, Xtensa, CEVA and full TFLite;
+  - any non-x86 target;
+  - gcc/clang versions other than these two.
+- **Result.** On this corpus the compiled byte behaviour is the same across all six builds,
+  including two that execute real compiler-generated vector code. This is `OUTPUT_EQUIVALENT` for
+  these builds on this corpus. It is not a claim about other compilers, targets or backends.
+
+#### M3. Signed-overflow boundary (softmax accumulation)
+
+- **Add.** `fixedpoint.h:91-95`: `// Integer addition. Not saturating. Overflow is undefined
+  behavior.` `Add(a, b) { return a + b; }`. This is the `sum_of_exps + Rescale<12>(…)` of
+  `reference/softmax.h:109`.
+- **Range.** Each admitted weight is `Rescale<12>(exp)`, at most `Rescale<12>(One) = 524,288 = 2^19`
+  (exp ≤ 1; measured B[0] = 524,288). The partial sums are monotone non-decreasing and
+  non-negative. So a row overflows int32 iff its exact sum exceeds INT32_MAX, which first happens
+  at 4,096 maximal elements (4,096 · 2^19 = 2^31).
+- **Guard order.** The abort guard (`softmax.h:119`) runs **after** the loop, so it cannot prevent
+  the overflow.
+- **Inside the admitted domain** (real sum < 512, i.e. S < 2^28 raw) no partial sum exceeds 2^28,
+  so no signed overflow is reachable. This is a derivation, not a sanitizer result. UBSan was
+  additionally silent on all 729 admitted corpus rows and on all TANH/LOGISTIC calibrations.
+  Silence is not proof; the derivation is.
+- **Outside the domain**, measured (`backend63.json` → `overflow_rows`):
+
+| ties n | exact sum | wrapped int32 S | ordinary builds (all 5) | UBSan (signed overflow) | UBSan (shift) |
+|---|---|---|---|---|---|
+| 4,095 | 4,095 | no wrap | abort (exponent) | abort (exponent) | abort |
+| 4,096 … 8,191 | ≥ 2^31 | negative | abort (exponent 35) | **signed-overflow report**, `fixedpoint.h:94` | abort |
+| 8,192 | 2^32 | **0** | **completes, all −128** | signed-overflow report | **shift report**, `common.h:976` (`<< 32` on uint32) |
+| 8,193 | 2^32 + 2^19 | 2^19 (= 1.0) | **completes, all 127** | signed-overflow report | completes, all 127 |
+| 8,194 | | 2^20 | completes, all 0 | report | completes |
+| 8,300 / 8,703 | | admitted range | completes, −126 / −127 | report | completes |
+| 8,704 / 12,288 | | exponent > 31 | abort | report | abort |
+| 16,384 / 16,385 | | 0 / 2^19 | completes, −128 / 127 | report | shift report / completes |
+
+- **The true answer** for n tied inputs is ≈ 256/n − 128 → −128 for every n here. So n = 8,193
+  returning 127 everywhere is a **confident wrong result**, not an abort.
+- **Across builds.** All five ordinary builds produce identical bytes on these rows (wraparound in
+  practice). That is an observation of five artifacts, not a property of the source: the language
+  gives no meaning to the add, and n = 8,192 has a second undefined shift.
+- **Classification:** `UNDEFINED_OR_UNSUPPORTED`. The 6.3 recipe refuses these rows
+  (`q12_accumulator_overflow` when S > INT32_MAX). It never reproduces a wrapped result.
+- **Pinning.** If a consumer ever needs those bytes, they belong to an explicitly pinned
+  nonportable artifact (compiler, flags, target named). They are never part of a portable source
+  contract.
+- **Not run:** a 64-bit-int sum variant of TFLM, and other compilers' optimisation of the UB add.
+
+#### M4. Reciprocal observability
+
+- **The question.** Within the admitted softmax domain (6.3 L3), can replacing only the source
+  reciprocal (`GetReciprocal`, `common.h:968-982`) by a correctly rounded one,
+  `round(2^62 / (S << headroom))`, change an output byte? Every other stage stays the source's.
+- **Reduction (from `reference/softmax.h:115-139`).** For a fixed calibration, an admitted output
+  byte is a function of (S, A[d]) only. The search space is therefore every row sum S in
+  [B[0], 2^28) (the max element contributes B[0], and exponent ≤ 31 ⇔ S < 2^28) × every distinct
+  admitted weight. This is a superset of all reachable (S, d) pairs.
+
+**Exhaustive superset (`recipall63.cc`, `recipall63.json`).** 14 calibrations, 3,750,756,352
+values of S (23 min on 3 cores):
+
+| measure | count |
+|---|---|
+| S where source and exact reciprocal differ | 3,281,945,604 (87.5 %) |
+| (S, weight) pairs where the output byte changes | **601**, in 13 of 14 calibrations |
+| calibration 9 (scale 0.5, zp −25, β 2.0) | **0 pairs**: the substitution is output-equivalent on that calibration's whole admitted domain (`PROVED` by exhaustion) |
+
+**Reachability (`reach63.cc`, `reach63.json`).** A pair is only a candidate until an int8 row has
+exactly that sum and contains the element. The solver (an unbounded min-coin DP over the admitted
+weights) built rows for **529 of 601** candidates. All 529 were run through the real TFLM kernel,
+and each is an **authentic witness**: the kernel byte equals the source-reciprocal byte and differs
+from the exact-reciprocal byte.
+
+- The independent 6.3 Python recipe (`reachcheck63.py`) reproduces both bytes on all 529.
+- The 72 remaining candidates are `UNKNOWN`: no row was found, which does not show that none
+  exists.
+- Witness rows are 4 to 507 elements long, with Δ = −1 on 279 and +1 on 250.
+
+**Shortest witness:** calibration 10 (scale 1/256, zp 20, β 1.0), row `[127, 1, −2, −90]`. The
+kernel gives `[−31, −69, −69, −87]`. The element −2 (difference −129) is −69 from the kernel; the
+correctly rounded reciprocal gives −70.
+
+**Negative control.** A deliberately perturbed reciprocal (source + 256 raw units) on calibration 0
+changes 3,037 pairs (`recipall63_control_delta256.json`), so the detector can see a reciprocal
+change.
+
+**Classification.** Replacing the source reciprocal is `OUTPUT_DIVERGENT` on the admitted domain
+(13 of 14 calibrations have reachable witnesses) and `OUTPUT_EQUIVALENT` on calibration 9.
+SourceParity therefore requires the source reciprocal, which the 6.3 recipe keeps. The 6.3 corpus
+simply contained no witness row. Its 1.8 M two-level family search (`recip63.json`) found 0
+witnesses, a statement about that family, as 6.3 L3 said.
+
+**Two-level rows cannot carry a witness on this evidence.** The two-level family
+`[max]*k + [max+d]*m` was also searched natively (`recipwit63.cc`):
+- m ≤ 64: 82,393,847 rows, 0 witnesses, nearest product 11 raw units from a rounding half
+  (`recipwit63.json`);
+- m ≤ 8,192: 5,724,274,337 rows, 0 witnesses, nearest margin 1 raw unit.
+
+The m ≤ 8,192 JSON was overwritten by the m ≤ 64 rerun, so only its header numbers survive. They
+were read from the file before it was overwritten. Every witness the solver built uses at least 4 distinct
+codes. This is the solver's construction, not a proof that no 2- or 3-code witness exists.
+
+#### M5. Error propagation, TANH → LOGISTIC (`prop63.json`; the 6.3 four-arm counts unchanged)
+
+- **Large internal error, small observable effect.** LOGISTIC at (1/128, 0) has no saturated code
+  (radius exceeds the code range).
+  - The kernel's exp value is off by more than 0.5 raw unit on **214 of 256** codes; the range is
+    −355.7 to +472.3 Q0.31 units.
+  - The pre-rounding output value is off on **243 of 256** codes, by up to 148.9 units, which is
+    1.8·10⁻⁵ of an output step.
+  - **2** output bytes differ from the certified table.
+- **Small upstream error, amplified by fan-in.** Those 2 wrong LOGISTIC entries (codes −1 and +1)
+  are read by every input whose TANH code lands on them:
+  - 48,806 fused cells in total;
+  - 0 in 1,139 of 2,224 calibrations and up to 171 in one;
+  - median distinct intermediate codes per calibration 17;
+  - largest single-code fan-in median 109, maximum 256.
+- **TANH's own error.** 17 cells are visible after stage 1.
+  - Hidden by a certified LOGISTIC in all 17 (SC ≡ CC).
+  - Preserved by the source LOGISTIC in all 17 (SS ≠ CS).
+  - Cancelled: 0.
+  - Amplification of TANH's error itself: 0. Its 17 cells are 17 inputs each.
+- **Consequence for adaptive precision.** The cost of an error is (internal error × probability of
+  crossing a rounding boundary × fan-in of the affected code), not the internal error. The
+  measurement that matters is per code, after quantization.
+
+#### M6. Compiling away unobservable behaviour
+
+| substitution | class | evidence |
+|---|---|---|
+| source TANH → 256-entry SourceParity table | **PROVED** per calibration (finite pure function, ledger K4); **EXHAUSTIVE_ADMITTED_DOMAIN** on 2,224 calibrations × 6 builds (M2) | 6.2 K2; `backend63.json`; perf63: 0 mismatches on 16 Mi random codes |
+| source LOGISTIC → 256-entry table | same | `backend63.json`; perf63 |
+| TANH → LOGISTIC fused table | **EXHAUSTIVE_ADMITTED_DOMAIN** (6.2 K4, 569,344 cells) | unchanged |
+| softmax exp stage → prepared weights A[d], B[d] | **PROVED**: per calibration the exp argument depends only on d (`softmax.h:103-110`), so the 256 prepared values *are* the source values (`INTERNAL_EQUIVALENT`) | 6.3 L3: 0 / 337,878; perf63: 0 mismatches |
+| softmax source reciprocal → correctly rounded reciprocal | **REFUTED** — see M4 | `reach63.json` |
+| softmax source rounding sequence → one prepared code mapping | **REFUTED as a unary table**: the denominator is per row (ledger K) | — |
+| softmax recipe with source reciprocal, exact sum, source tail | **EXHAUSTIVE over the admitted (S, d) superset is not run for the recipe as a whole**; TESTED on 337,878 corpus cells + perf63 rows; every stage is either source-identical (exp, reciprocal, tail) or exact (integer sum below 2^31, no rounding) | 6.3 L3 |
+
+A prepared recipe may drop the source's *runtime* but not its *stages*: weights may be prepared,
+the reduction stays dynamic, and the reciprocal must stay the source's for SourceParity.
+
+#### M7. Artifact identity
+
+- **Shared table bytes, separate receipts.** On the tested corpus the six x86 builds produce
+  byte-identical TANH/LOGISTIC tables and softmax bytes. A SourceParity table prepared from one of
+  them is therefore valid for all six, with the same digest.
+- **What the receipt records.** It must name the build set actually verified (source revision,
+  kernel path, compiler and flags, ISA). A backend not in that set needs its own run:
+  - **same bytes:** the same digest, and the receipt gains a verified backend;
+  - **different bytes:** a separately identified artifact.
+- **No per-backend artifacts by default.** None are needed where outputs agree, and none were
+  created.
+- **Execution is backend-independent once prepared.** The native execution form (`table[code]`,
+  or the integer recipe) has no backend dependence. The dependence lives entirely in how the
+  table was prepared and verified.
+
+#### M8. Performance (`perf63.txt`; Xeon @ 2.10 GHz, 4 cores, single thread, median of 7, 16 Mi elements; output parity checked on every timed buffer: 0 mismatches everywhere)
+
+| path | baseline gcc | gcc -O3 native (vectorized) | clang (vectorized) |
+|---|---|---|---|
+| TFLM TANH kernel, ns/elem | 85.9 | 72.8 | 69.3 |
+| prepared TANH table, scalar C lookup | 0.64 | 0.65 | 0.49 |
+| TFLM LOGISTIC kernel | 81.0 | 73.4 | 78.9 |
+| prepared LOGISTIC table | 0.71 | 0.75 | 0.64 |
+| TFLM softmax kernel, n = 64 / 256 / 511 | 67.3 / 86.7 / 84.2 | 64.7 / 67.2 / 78.8 | 55.5 / 48.1 / 46.3 |
+| source-compatible softmax recipe | 11.7 / 9.1 / 8.6 | 11.3 / 9.1 / 8.0 | 10.6 / 7.6 / 6.6 |
+
+- **Preparation is separate:** one 256-entry table 13-18 µs (the kernel run on 256 codes); softmax
+  weights 4.5-10 µs per calibration.
+- **Native SIMD lookup (`lutperf/`, Rust, ndarray `U8x64`).**
+  - The 256-byte table is applied with four `permute_bytes` (`vpermb`, AVX-512 VBMI, present in
+    the binary: 4 instances), three `cmpgt_mask` and three `mask_blend`.
+  - **0.098 ns/elem**, against 0.514 for the scalar Rust lookup, with 0 mismatches on 16 Mi codes.
+  - That is ≈ 20 GB/s of 1-byte input plus 1-byte output: 16 Mi codes in 1.64 ms, streaming
+    from DRAM, since 32 MiB exceeds the caches.
+  - Table footprint: 256 bytes, four 64-byte vectors in registers.
+  - **ndarray already provides the operation.** No new SIMD code was written.
+- **What the speed-ups are not.**
+  - The vectorized TFLM builds are 15-45 % faster than baseline. The prepared forms are 7-130×
+    faster than any build.
+  - The gain comes from removing per-element fixed-point evaluation (table) or per-element exp
+    (recipe), not from SIMD alone.
+  - The single SIMD-attributable number is the 5.2× of `vpermb` over the scalar lookup, measured
+    on the same table and the same data.
+- **Not measured:** non-x86, multi-thread, other batch shapes, and the AVX2 fallback of
+  `permute_bytes` (scalar via stack per its source comment; not run on this host).
+
+#### M9. Correction to Amendment 6.3
+
+6.3 L3, L4 and ledger L3 say the source reciprocal had "no binding falsifier", and that a correctly
+rounded reciprocal changed no byte. Both statements were scoped to their measured family (two-level
+rows, 1.8 M rows) and to the corpus, and they are true there. M4 shows that they do not extend to
+the admitted domain: reachable rows exist where the reciprocal decides a byte. L6's row "OPEN: none
+in 1.8 M two-level rows" is resolved by M4. The other 6.3 results are unchanged.
+
+#### M10. BOARD_SYNC_PENDING, NOT RUN, next gate
+
+Linear was not reachable, and no issue state is claimed.
+- **EXO-152** (D-NAM / Palette256 numerical preparation): ledger entry L (L4-L6 appended); M4, M6,
+  M7.
+- **EXO-50** (handoff): one line pointing at this addendum and its commit.
+
+**NOT RUN:**
+- non-x86 execution (NEON, WASM SIMD), CMSIS-NN, Xtensa, CEVA, full TFLite;
+- compilers other than gcc 13.3 / clang 18.1;
+- a softmax exhaustive check of the whole recipe (as opposed to the reciprocal stage);
+- reachability of the 72 unsolved reciprocal candidates (M4);
+- other LOGISTIC/TANH calibrations for M5's internal-error count;
+- multi-threaded or batched timing.
+
+**Next narrow gate:** the same backend differential on one non-x86 target, either aarch64 under
+`qemu-aarch64-static` (the target-ISA arm of M2) or `OPTIMIZED_KERNEL_DIR=cmsis_nn` softmax built
+for host, comparing bytes against the 6.3 corpus and the M4 witnesses.
