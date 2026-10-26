@@ -1,0 +1,8 @@
+P0 disable runs (each check replaced by `if false && ...`, anchor asserted to occur exactly once, file restored after):
+code-space  -> FAILED n1_f4_after_asym_payload_to_symnan_refused, n2_symnan_payload_to_asym_consumer_refused
+               (F4 is then still refused, as NanPolicyMismatch: the NaN-policy check is a second line of defence)
+storage     -> FAILED n3_biased_u8_payload_to_raw_signed_consumer_refused
+integrity   -> FAILED n8_one_corrupted_byte_refused
+range-scan  -> FAILED p5_tflm_symmetric_weight_still_rejects_minus128
+operator    -> FAILED n7_same_bytes_incompatible_receipt_refused
+All other tests stayed green in each run (14 or 15 of 16 passed).

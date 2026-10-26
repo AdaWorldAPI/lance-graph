@@ -1,0 +1,11 @@
+{
+ "rows_are_producers_columns_are_consumers": true,
+ "matrix": {
+  "I8/Asym/TiesAway/NoNaN (TfliteAct)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "bind", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "RoundingMismatch", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "CodeSpaceMismatch", "U8/Asym/TiesAway/NoNaN (biased)": "StorageMismatch", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "CodeSpaceMismatch"},
+  "I8/Asym/TiesEven/NoNaN (OnnxQ)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "RoundingMismatch", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "bind", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "CodeSpaceMismatch", "U8/Asym/TiesAway/NoNaN (biased)": "StorageMismatch", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "CodeSpaceMismatch"},
+  "I8/Sym/TiesAway/NoNaN (TfliteWeight)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "CodeSpaceMismatch", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "bind", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "NanPolicyMismatch", "U8/Asym/TiesAway/NoNaN (biased)": "CodeSpaceMismatch", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "StorageMismatch"},
+  "I8/Sym/TiesAway/NaNAtMin (SymNaN)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "CodeSpaceMismatch", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "NanPolicyMismatch", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "bind", "U8/Asym/TiesAway/NoNaN (biased)": "CodeSpaceMismatch", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "StorageMismatch"},
+  "U8/Asym/TiesAway/NoNaN (biased)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "StorageMismatch", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "StorageMismatch", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "CodeSpaceMismatch", "U8/Asym/TiesAway/NoNaN (biased)": "bind", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "CodeSpaceMismatch"},
+  "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": {"I8/Asym/TiesAway/NoNaN (TfliteAct)": "CodeSpaceMismatch", "I8/Asym/TiesEven/NoNaN (OnnxQ)": "CodeSpaceMismatch", "I8/Sym/TiesAway/NoNaN (TfliteWeight)": "StorageMismatch", "I8/Sym/TiesAway/NaNAtMin (SymNaN)": "StorageMismatch", "U8/Asym/TiesAway/NoNaN (biased)": "CodeSpaceMismatch", "U8/Sym/TiesAway/NaNAtMin (biased SymNaN)": "bind"}
+ }
+}
