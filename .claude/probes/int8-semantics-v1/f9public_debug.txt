@@ -1,0 +1,41 @@
+
+thread 'main' (28293) panicked at /home/user/ndarray/src/hpc/amx_matmul.rs:1028:13:
+attempt to subtract with overflow
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::panicking::panic_const::panic_const_sub_overflow
+   3: ndarray::hpc::amx_matmul::subtract_i8_to_u8_bias
+   4: ndarray::hpc::amx_matmul::matmul_i8_to_i32
+   5: f9public::run::{closure#0}
+   6: <f9public::run::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+   7: <core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}> as core::ops::function::FnOnce<()>>::call_once
+   8: std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}>, i32>
+   9: __rust_try
+  10: std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}>, i32>
+  11: f9public::run
+  12: f9public::main
+  13: <fn() as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+F9PUB i_unsigned_acc_overflow k=70000 a=127 w=127 debug_assertions=true PANIC want=1129030000
+
+thread 'main' (28293) panicked at /home/user/ndarray/src/hpc/amx_matmul.rs:1028:29:
+attempt to multiply with overflow
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::panicking::panic_const::panic_const_mul_overflow
+   3: ndarray::hpc::amx_matmul::subtract_i8_to_u8_bias
+   4: ndarray::hpc::amx_matmul::matmul_i8_to_i32
+   5: f9public::run::{closure#0}
+   6: <f9public::run::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+   7: <core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}> as core::ops::function::FnOnce<()>>::call_once
+   8: std::panicking::catch_unwind::do_call::<core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}>, i32>
+   9: __rust_try
+  10: std::panic::catch_unwind::<core::panic::unwind_safe::AssertUnwindSafe<f9public::run::{closure#0}>, i32>
+  11: f9public::run
+  12: f9public::main
+  13: <fn() as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+F9PUB ii_colsum_x128_overflow k=140000 a=0 w=127 debug_assertions=true PANIC want=0
+F9PUB control_in_range k=1000 a=127 w=127 debug_assertions=true got=16129000 want=16129000 exact=true

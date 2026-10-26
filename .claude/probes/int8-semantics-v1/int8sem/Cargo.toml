@@ -1,0 +1,26 @@
+[package]
+name = "int8sem"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Amendment 6.4 lab probe: numerical meaning of 8-bit codes (TFLM vs ndarray scalar/SIMD vs exact).
+# Lab only. Not a member of any workspace.
+#
+# Path: this dir is /home/user/lance-graph/.claude/probes/int8-semantics-v1/int8sem
+#   .. -> int8-semantics-v1, ../.. -> probes, ../../.. -> .claude, ../../../.. -> lance-graph,
+#   ../../../../.. -> /home/user   => ndarray is ../../../../../ndarray (FIVE levels up; the spec's
+#   four would resolve to lance-graph/ndarray, which does not exist).
+[dependencies]
+ndarray = { path = "../../../../../ndarray", default-features = false, features = ["std"] }
+
+[features]
+default = ["rd"]
+# `ndarray::simd::vnni_dot_u8_i8` is only re-exported under ndarray's `runtime-dispatch`
+# (ndarray/src/simd.rs:826-827). Without this feature that arm prints "NOT RUN".
+rd = ["ndarray/runtime-dispatch"]
+
+[profile.release]
+debug = 0
+
+[workspace]
