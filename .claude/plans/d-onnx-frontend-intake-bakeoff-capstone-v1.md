@@ -60,6 +60,10 @@ This capstone modifies the ONNX S1 **implementation choice**, not the D-RA-2 / D
 - [#1784](https://github.com/AdaWorldAPI/lance-graph/pull/1784): Palette-native LUT and numerical contract with explicit source codebook/calibration semantics.
 - [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) (merged): borrowed sources vs escaped stale `Keep`; recipe reuse does not authorize reuse of old data.
 
+- **[#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800) (MERGED 2026-10-26):** D-TFLP 6.5 *lab-only* source-oracle Softmax fixture replay + independently checked per-calibration reciprocal preparation gate. Includes 529 kernel-confirmed witnesses, bounded-source semantics and receipts; no ONNX model importer or production kernel. Reuse the test patterns/fixtures where numerical operators need falsification, without falsely treating them as transformer model coverage.
+- **[#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) (MERGED 2026-10-26):** D-TFLP 6.5 *lab-only* Codec8 semantic admission and D-NAM/DT64/Quack handoff, including explicit Asym −128 versus SymNaN refusal. **Not** a shipping TFLite execution backend or general prepared binding store. Cite its `HANDOFF.md` as existing numerical receipt precedent, and do not reimplement it in the importer. Both PRs are now on main; check HEAD ancestry in the future S1 implementation.
+
+
 ### DT64 PR #1794–#1799 crosswalk (read actual draft heads during S1)
 
 | DT64 PR | Relevant constraint for ONNX intake | Scope explicitly **not** inherited |
