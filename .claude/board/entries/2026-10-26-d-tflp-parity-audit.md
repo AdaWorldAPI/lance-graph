@@ -446,3 +446,136 @@ a value and must never reach a `Sym + NaNAtMin` table as NaN.
    exclusivity has to be a check in the importer when it is built.
 
 The next numerical gate is unchanged: the independently compiled TFLM TANH oracle (§A7).
+
+## Amendment 3 (2026-10-26) — Stage B oracle result, and the hotplug pattern for a Quack bindstore
+
+### C1. Stage B: the independent TFLM int8 TANH oracle (DONE)
+
+Stage B is done. The oracle runs TFLM's own TANH kernel and records its bytes.
+
+| item | value |
+|---|---|
+| harness | ndarray `tools/tflm_oracle/tanh_int8_oracle.cc` (README with reproduction beside it) |
+| fixture | ndarray `tests/data/tflm/tanh_int8_8f6596d.json` |
+| commit | ndarray `11954d7d`, branch `claude/bpe-tokenization-architecture-3xd4eh` |
+| kernel under test | real `tflite::Register_TANH()` (`tanh.cc` prepare + `integer_ops/tanh.h` eval), run through `tflite::micro::KernelRunner` |
+| build | `libtensorflow-microlite.a`, built by TFLM's own Makefile |
+| TFLM self-check | TFLM's own tanh tests passed on that build (3 tests) |
+| kernel tree | identical to upstream `8f6596d` (0 diff lines under `tensorflow/`) |
+
+**Cases.** 7 input calibrations × 256 codes. Output contract: scale 1/128, zp 0.
+
+| input scale | input zp |
+|---|---|
+| 1/128 | 0 |
+| 0.05 | -3 |
+| 0.1 | 20 |
+| 0.0137 | -128 |
+| 0.5 | 127 |
+| 0.0001 | 0 |
+| 0.0234375 | 60 |
+
+Prepare parameters are recorded per case: `input_multiplier`, `input_left_shift`, `input_range_radius`. They are recomputed with the same TFLM functions for the record. They do not feed the output bytes.
+
+**Provenance in the fixture.**
+- sha256 of `tanh.cc`, `integer_ops/tanh.h`, `common.h`, `fixedpoint.h`, and of the harness.
+- g++ 13.3.0 and the TFLM Makefile flags.
+- Three third-party deps were installed from git: flatbuffers v25.9.23, kissfft v130, eyalroz/printf f8ed5a9b.
+- Reason: GitHub archive zips return 403 through the proxy. The archive md5s were therefore NOT verified.
+- None of the three is on the TANH int8 path.
+
+**Determinism.** Two runs are byte-identical. A rebuild with `-Werror` is also byte-identical.
+
+**Measured results.**
+
+| finding | status |
+|---|---|
+| Endpoint asymmetry confirmed (e.g. scale 0.05: outputs span -128..127) | measured |
+| TFLM's int8 TANH prepare ACCEPTS a non-conforming output declaration (scale 0.1, zp 5) and gives bytes identical to the conforming case | measured |
+| Amendment 1 §A5 is therefore confirmed by execution (it was read from source before) | measured |
+| On all 7×256 codes, TFLM output equals `clamp(round(128·tanh(scale·(q−zp))), −128, 127)` in f64 with ties-to-even rounding | measured, 0 differing codes |
+| Max deviation from exact tanh was 1.0 LSB (scales 0.05 and 0.1); 0.5 to 0.76 LSB elsewhere | measured |
+
+The last two rows are a measurement on these 7 calibrations only. They are not a general claim.
+
+**What this does to Amendment 1 §A3.** The principle "a correctly rounded math table is not automatically bit-identical to TFLM" stays true as a principle. It has NO counterexample yet. The cheapest next falsifier is a sweep over many input calibrations that looks for a code where the two differ.
+
+**Consequence for Stage C.** A plain math table already matches these fixtures. A Stage C mutation test must therefore be checked to actually change an expected byte. Otherwise it can pass for the wrong reason.
+
+**Not done:** Stage C (native port) and LOGISTIC.
+
+### C2. What the existing hotplug mechanism is
+
+`lance-graph-contract/src/hotplug.rs` is the zero-dep socket.
+
+| piece | where | what it is |
+|---|---|---|
+| `HotPlug { consumer: &'static str, classids: &'static [u16], covered: &'static [&'static str] }` | line 54 | one const per consumer |
+| `trait CapabilityAuthority { fn activate(&self, plug: &HotPlug) -> Result<Activation, ActivationDrift>; }` | lines 722-725 | the authority seam |
+| `Activation` | line 73 | `(concept, classid)` vocab rows, capability NAMES, per-concept storage `ReadMode`s and register laws |
+| `ActivationDrift` | line 526 | names each failure |
+
+`Activation` has no `Default`. Its read modes are private. Lookups return `Result` and fail closed (`NoReadingFor`).
+
+`ActivationDrift` variants: UnknownClassid, UnexpectedConsumer, Uncovered, Undeclared, NoCapabilitiesFor, NoReadingFor, slab/register drifts, MirrorDrift.
+
+**The authority is OGAR.** `ogar_vocab::capability_registry::resolve_hotplug(consumer, classids, covered)` (`capability_registry.rs:432`) checks:
+- every id is minted;
+- every id has at least one capability in an authoritative ActionDef domain table;
+- the consumer is an expected executor;
+- coverage, in both directions.
+
+The bridge is `lance-graph-ogar`'s `OgarAuthority` (`lib.rs:565-567`). That crate is workspace-excluded and depends on both sides.
+
+**What it provides:**
+- capability DECLARATION (the const);
+- VALIDATION (minted ids, coverage both ways, expected executor, mirror drift);
+- STORAGE-READING resolution per concept.
+
+**What it does not do.** It does not bind methods. It does not execute behaviour. Capabilities are strings checked for coverage. The consumer's own executor runs them.
+
+**Keying.** OGAR-minted canon-high concept ids (u16), and capability names from OGAR ActionDef tables.
+
+### C3. Recommendation: keep the systems separate; reuse the discipline, not the types
+
+**1. What it provides.** See C2.
+
+**2. Can it be reused without `ogar-vocab`?** The socket is zero-dep. Its semantics are not.
+- `HotPlug.classids` are OGAR-minted concept ids. `covered` names OGAR capability tables.
+- Using it for native method binding would need a minted classid per operator, model or LUT recipe. That is out of scope here, and minting is forbidden in lance-graph.
+- It would also make canonical ONNX/TFLite admission depend on an ontology authority.
+- So: no type reuse.
+
+**3. Who owns what (facts).**
+
+| system | role |
+|---|---|
+| Quack | resolve-once membrane: query names and literals → numeric `Query` (`bind.rs`: `Binder`). Lowers to a mask-risc Program and never evaluates. Deps are only `lance-graph-mask-risc` and `lance-graph-contract`; "No ndarray dep". |
+| `Registrar` (Quack trait) | names a table-catalog seam. It has NO production implementation (`bind.rs:405`). |
+| R2IL | the fold dialect, with named refusals |
+| mask-risc | the single executor and terminals over masks |
+| ndarray | kernels, Codec8 policies, fixed-point requantize, GEMM, and now the TFLM oracle fixture |
+
+Numeric operator binding (LUT, GEMM, requantize) is not a masking operation. Today it has no home in Quack.
+
+**4. OGAR activation: optional semantic enrichment only.**
+- The one legitimate overlap is a NATIVE model (Amendment 2's ClassId domain) that already carries an OGAR concept.
+- Activating that concept through HotPlug could attach vocabulary or a storage reading.
+- It is never on the canonical ONNX/TFLite path.
+- It is not needed to bind or execute a numeric recipe.
+
+**5. How to avoid duplication.**
+- (a) Do not add a second capability registry. Capability names stay in OGAR tables. A model-binding profile is not a capability.
+- (b) The profile's identity already exists: the D-NAM-PZL recipe receipt. It carries model/layer/weight identity, the codebook+calibration digest, the exact-vs-bounded declaration, and the LUT table identity. Key profiles by that, not by ClassId.
+- (c) Dispatch stays compile-time Codec8 policy plus prepared data. No runtime polyfill dispatch table is needed.
+- (d) Copy the shape `bind.rs` already says it follows: "the same lifecycle as hotplug's SlabDeclaration → resolve_for_context → ResolvedReading". That means:
+  - a zero-dep trait for an external owner;
+  - resolve once at a boundary;
+  - a typed drift enum;
+  - fail closed;
+  - no `Default`.
+- An ICC-like profile store is then a second seam beside `Registrar`, with no owner yet. Name it. Do not build it. Its owner is the same open decision as Amendment 1 §A3 (build-time vs load-time preparation).
+
+**Verdict.** Keep the systems separate. Extract no abstraction now: there is one candidate user and its owner is undecided.
+
+**Next gate.** A sweep over many input calibrations that looks for any code where TFLM's TANH bytes differ from the f64 reference, before Stage C starts.
