@@ -55,3 +55,15 @@ witness. P2 scope is unchanged.
   silently.
 - Smallest seams: D-NFR-1 frame (needs NFR-OP-1); an input-generation dependency witness for kept planes
   (binding store; NFR-OP-3 for the type); D-NFR-2 codebook generation.
+
+## D-NFR-1 ownership correction (2026-10-26, plan Part E)
+
+- In-borrow execution needs no frame: views, `Planes<'_>` and `LaneRef<'a>` are borrows, and #1755's
+  `compile_fail` tests already forbid an overlapping owner write. D-NFR-1 inside a borrow is a thin adapter.
+- Escaped reuse is a real gap, shown by counterexample: `escaped_reuse.rs` (raw setter and same-cycle
+  `write_row` change the answer without moving `current_cycle` or `last_write_cycle`; a later-cycle write
+  moves both) and `an_escaped_mask_is_not_witnessed_by_the_packet_cycle` (the packet cycle is caller-supplied).
+  Disable runs red-then-green, one per test.
+- P2's 1,032-vs-31 shows a detached `Keep` has no dependency witness, not that a borrow can see a mutation.
+- NFR-OP-1 narrowed: answered for in-borrow (source owner) and persisted (`QueryReference::at`); open only
+  for an owner-issued generation that every write path advances.

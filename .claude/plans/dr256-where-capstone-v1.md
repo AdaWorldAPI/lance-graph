@@ -879,3 +879,121 @@ stale operands, and a cached result is never keyed by the recipe alone.
   - witness unification (NFR-OP-3).
 
 No new public ABI, persistent metadata, runtime cache or engine was added. P3–P5 remain unauthorized.
+
+---
+
+# Part E — D-NFR-1 ownership correction (2026-10-26)
+
+**Principle: ownership is inherited from the source, not reconstructed in the query engine.** D.3(1) and D.6
+asked NFR-OP-1 to name "who issues the production frame" before D-NFR-1 could start. That asked too much.
+The source already owns its bytes, and Rust already enforces it inside a borrow. What remains open is
+narrower and is stated in E.5.
+
+## E.1 Authority and access, as built
+
+```
+owner (holds the bytes)                      reader (borrows them)
+──────────────────────                       ─────────────────────
+MailboxSoA<N>  ──impl MailboxSoaOwner──┐     &MailboxSoA ─ MailboxSoaView ─ entity_type / meta_raw / edges_raw
+  write_row(&mut, row, cycle, cell)    │                                     │
+  set_*(&mut) (12 raw setters)         │                                     ▼
+  tick(&mut)                           │     LaneRef::{U32, U64} ─► Planes<'_> ─► mask_risc::execute ─► Value / Keep
+Vec<NodeRow>   ────────────────────────┤     NodeRowPacket<'_> (SoaEnvelope) ─► LaneRef::Strided ─► same
+                                       │
+fleet (cycle_driver::MailboxFleet)     │     cognitive_pass(fleet: &F, …, think: FnMut(&F::Owner))
+  owner_mut(&mut) for seal/write  ─────┘       └ the production borrow window (private fn, feature `cycle-driver`)
+
+nominal:  SoaEnvelope::mailbox_owner() (default 0) ─► BatchWriter::cast(on_behalf, …) ─► resolve_owner cache
+persisted: Lance version ◄─ QueryReference::at(v, rung)   (QueryReference::default() = u64::MAX, NOT a horizon)
+```
+
+Every arrow on the reader side is a `&` borrow: `Planes<'_>`, `LaneRef<'a>`, `StridedRef<'a>`,
+`NodeRowPacket<'a>`, `MailboxSoaView`'s `&self` slices. A Quack `Query` lowers to a `Program` that reads only
+what the caller lends it. No reader-side type owns operand bytes.
+
+## E.2 Three guarantees, kept apart
+
+- **A. Structural (compile time).** No owner `&mut` while any view or lane borrow is live; no view outlives
+  the owner; no view is cloned into a second holder. Pinned by #1755's `compile_fail` E0502 / E0597 / E0599
+  (`soa-view-probe/src/lib.rs`). Holds for every reader on the right of E.1, with nothing to check at run
+  time. Limit, stated in that crate: interior mutability or an `unsafe` write beside the owner is not
+  covered; neither exists for `NodeRow` or `MailboxSoA`'s columns.
+- **B. Nominal (provenance).** `mailbox_owner()` stamps which mailbox owns the bytes; `cast(on_behalf, …)`
+  routes a write on its behalf; `resolve_owner` caches a resolver's answer. None of this is authorization:
+  `cast` accepts any id, and the cache is not an ACL. `cast_on_behalf` sits behind `with-planner`.
+- **C. Persisted (snapshot).** Only a pinned `QueryReference::at(v, rung)` or a Lance version names a horizon
+  a later reader can return to. `QueryReference::default()` is unbounded by design (F-QREF-STRICT).
+
+## E.3 What P2's 1,032-vs-31 result shows, restated
+
+B.6 control 4a kept `R2 = R ∧ (val_0 ≥ 0)` as a detached `Keep` mask, mutated `val_0`, and reused R2: 1,032
+rows against 31 fresh. Between the two runs the lane borrow had ended, so A never applied. The result shows
+that **a detached mask carries no dependency witness**. It does not show that a valid borrow can observe a
+mutation; A rules that out at compile time.
+
+## E.4 Falsifiers: borrow-scoped versus escaped
+
+- **Borrow-scoped (exists, #1755).** The three `compile_fail` examples plus the compiling twin. A safe
+  mutation cannot overlap the read; nothing new is needed.
+- **Escaped (added here, commit `769d461d4`).**
+  - `soa-view-probe/tests/falsifiers.rs::an_escaped_mask_is_not_witnessed_by_the_packet_cycle`. A mask
+    computed through a `NodeRowPacket` escapes the borrow; the owner writes one classid; a new packet built
+    with the same caller stamp (`cycle() == 5`) gives a different mask. The packet's `cycle` is what the
+    caller passed to `new`, not a record of writes.
+  - `cognitive-shader-driver/tests/escaped_reuse.rs`, three tests:
+    - a raw setter (`set_entity_type`) changes the answer while `current_cycle` and every
+      `last_write_cycle` stay put;
+    - a same-cycle `write_row` is accepted and re-stamps the row with the cycle it already had, so it is
+      equally invisible;
+    - the twin: a write in a later cycle moves `current_cycle` and the written row's stamp, and leaves an
+      unwritten row's stamp alone.
+  - Disable runs, each red only in its own test: setter stamps → the setter test fails; `tick` a no-op → the
+    twin fails; owner write removed → the packet test fails.
+
+So the owner's existing stamps witness exactly one thing: **a `write_row` in a later cycle**. They cannot
+witness a same-cycle write or a raw setter. An escaped mask therefore needs a rebind (recompute under a new
+borrow) or a refusal from an owner-issued contract; it cannot be revalidated from `(cycle, last_write_cycle)`
+as the mailbox stands.
+
+## E.5 Classification of D-NFR-1, and the smallest remaining seam
+
+- **Inside a borrow: a thin adapter, not a new authority.** Lending `MailboxSoaView` columns or
+  `NodeRowPacket` bytes to `Planes` (as `LaneRef::U32` / `U64` / `Strided`) and running the bound `Query` in
+  the same scope needs no frame, no lease and no guard: A already holds. Gaps that are type gaps, not
+  authority gaps: `entity_type`/`class_id` are `u16` and `energy` is `f32`, and `LaneRef` has neither; the
+  `u32` classid inside a `NodeRow` facet is reachable today through `Strided`. No Quack caller does this yet.
+- **Across a borrow (escaped reuse): a missing contract, shown by counterexample (E.4).** The mailbox's
+  write paths do not all advance a stamp a reader could hold. The smallest fix is on the OWNER side: make
+  every mutating path advance one owner-issued generation (or route the raw setters through `write_row` and
+  make a same-cycle write move a stamp). The query engine then keeps that generation beside a `Keep` and
+  compares it at reuse. That is D.3(2)'s dependency witness, issued by the source rather than reconstructed
+  in Quack. Not built here: it changes a write path, which this correction is not authorized to do.
+- **Persisted reuse:** C only. A mask kept past a cycle seal needs `QueryReference::at`, never `default()`.
+
+Neither half needs a `FrameStore`, a read lease, a cache, a new ABI or a source-generation type in Quack. The
+lab `FrameStore` in `dr-math-binding-probe` stays a lab stand-in.
+
+## E.6 NFR-OP-1, corrected
+
+Was: "who owns the production frame store (S6): Quack, ClassView, or the source owner?" — OPEN. Corrected:
+
+- **For in-borrow execution: answered.** The source owner, through the borrow. No frame store is needed.
+- **For escaped reuse: narrowed, still OPEN.** The question is no longer who owns a frame store but whether
+  the mailbox owner will issue a generation that every write path advances (E.5). Owner: the mailbox /
+  write-path owner (`v3-mailbox-warden` scope), not Quack.
+- **For persisted reuse: answered by C** (`QueryReference::at` / Lance version).
+- **Delegated authority** (may this caller read this mailbox at all) stays open and is not a frame question.
+
+## E.7 Cost
+
+A in-borrow execution costs what the kernel costs: #1755 measured the packet path equal to direct ndarray,
+and adding a per-operation frame check would re-check per call what the compiler has already proved. Escaped
+reuse pays one integer comparison per kept mask at reuse, and only once the owner issues the generation. The
+cost lands where the risk is (escape), never on the in-borrow path.
+
+## E.8 What changed in this correction
+
+- Two test files (E.4). No production code, ABI, writer or WAL change; no P3–P5; ScatterOr untouched.
+- D.3(1) and D.6's first "ready" bullet read through E.5 / E.6: the in-borrow adapter no longer waits on
+  NFR-OP-1.
+- #1792's measurements (B.6) are unchanged; only their interpretation is restated (E.3).
