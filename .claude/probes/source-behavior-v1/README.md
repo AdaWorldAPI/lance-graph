@@ -30,3 +30,23 @@ DISABLE=patch ./parity/target/release/source-behavior-parity artifacts.bin   # m
 DISABLE=xor   ./parity/target/release/source-behavior-parity artifacts.bin   # must report index failures
 nm parity/target/release/source-behavior-parity | grep -ciE 'tflite|tanh|gemmlowp'   # must be 0
 ```
+
+## Amendment 6.3
+
+| file | role |
+|---|---|
+| `trace63.cc` | TFLM harness. `ltrace`: LOGISTIC int8 stage trace, aborts unless byte-equal to the real kernel on all 256 codes. `softexp`: softmax prepare (`PreprocessSoftmaxScaling`, `CalculateInputRadius`) and the per-difference source weights `exp_on_negative_values` and `Rescale<12>` for d = −255..0. `recip`: TFLM `GetReciprocal`. Only TFLM's own primitives are called. |
+| `attrib63.py` | A: LOGISTIC ±1/128 attribution against independent ideals. B: four-arm (SS/SC/CS/CC) attribution of the 569,344 TANH→LOGISTIC cells from the 6.2 `artifacts.bin` (sha256 checked) → `attrib63.json`. |
+| `softmax63.py` | C: the TFLM int8 SOFTMAX oracle (reused `../fisherz-softmax-v1/softmax_oracle.cc`), a source-compatible prepared recipe (source weights + integer reduction + the reciprocal, re-implemented and checked against TFLM's), the F24 exact-first/exact-zero arm, and an independent reference → `softmax63.json`. |
+| `recip_search63.py` | Searches rows where the source reciprocal, not an exact one, decides a byte; confirms each hit with the kernel → `recip63.json`. |
+| `softdiff63.py` | Stage attribution of the softmax cells where TFLM differs from the math contract: one source stage at a time replaced by exact arithmetic → `softdiff63.json`. |
+
+Build `trace63.cc` with the same g++ line as `source_trace.cc`. Build `softmax_oracle.cc` with that line plus
+`-Wno-error=unused-result`, because the committed oracle ignores a `scanf` result.
+
+```sh
+uv run attrib63.py ./trace63 artifacts.bin attrib63.json
+uv run softmax63.py ./softmax_oracle ./trace63 softmax63.json
+uv run recip_search63.py ./softmax_oracle ./trace63 recip63.json
+uv run softdiff63.py ./trace63 softdiff63.json
+```

@@ -1,0 +1,6 @@
+{
+ "searched": "per calibration: rows [max]*k + [max+d], k=1..511, d=-255..-1; first hit only",
+ "hits": [],
+ "rows_searched": 1824270,
+ "rows_where_source_reciprocal_differs": 1573237
+}

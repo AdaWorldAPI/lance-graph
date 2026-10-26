@@ -1,0 +1,1807 @@
+{
+ "calibrations": [
+  {
+   "scale": 0.05,
+   "zp": 99,
+   "beta": 1.0,
+   "mult": 1717986944,
+   "shift": 22,
+   "diff_min": -496
+  },
+  {
+   "scale": 0.05,
+   "zp": 99,
+   "beta": 2.0,
+   "mult": 1717986944,
+   "shift": 23,
+   "diff_min": -248
+  },
+  {
+   "scale": 0.1,
+   "zp": 22,
+   "beta": 1.0,
+   "mult": 1717986944,
+   "shift": 23,
+   "diff_min": -248
+  },
+  {
+   "scale": 0.1,
+   "zp": 1,
+   "beta": 2.0,
+   "mult": 1717986944,
+   "shift": 24,
+   "diff_min": -124
+  },
+  {
+   "scale": 0.0625,
+   "zp": 119,
+   "beta": 1.0,
+   "mult": 1073741824,
+   "shift": 23,
+   "diff_min": -248
+  },
+  {
+   "scale": 0.0625,
+   "zp": -84,
+   "beta": 2.0,
+   "mult": 1073741824,
+   "shift": 24,
+   "diff_min": -124
+  },
+  {
+   "scale": 0.0234375,
+   "zp": 69,
+   "beta": 1.0,
+   "mult": 1610612736,
+   "shift": 21,
+   "diff_min": -992
+  },
+  {
+   "scale": 0.0234375,
+   "zp": -88,
+   "beta": 2.0,
+   "mult": 1610612736,
+   "shift": 22,
+   "diff_min": -496
+  },
+  {
+   "scale": 0.5,
+   "zp": -90,
+   "beta": 1.0,
+   "mult": 1073741824,
+   "shift": 26,
+   "diff_min": -31
+  },
+  {
+   "scale": 0.5,
+   "zp": -25,
+   "beta": 2.0,
+   "mult": 1073741824,
+   "shift": 27,
+   "diff_min": -15
+  },
+  {
+   "scale": 0.00390625,
+   "zp": 20,
+   "beta": 1.0,
+   "mult": 1073741824,
+   "shift": 19,
+   "diff_min": -3968
+  },
+  {
+   "scale": 0.00390625,
+   "zp": -91,
+   "beta": 2.0,
+   "mult": 1073741824,
+   "shift": 20,
+   "diff_min": -1984
+  },
+  {
+   "scale": 0.0137,
+   "zp": 29,
+   "beta": 1.0,
+   "mult": 1882913664,
+   "shift": 20,
+   "diff_min": -1984
+  },
+  {
+   "scale": 0.0137,
+   "zp": -98,
+   "beta": 2.0,
+   "mult": 1882913664,
+   "shift": 21,
+   "diff_min": -992
+  }
+ ],
+ "rows": 840,
+ "elements": 587748,
+ "counts": {
+  "source_ok_rows": 729,
+  "source_abort_rows": 111,
+  "recipe_refused_rows": 111,
+  "refusal_matches_abort": 111,
+  "refusal_mismatch": 0,
+  "recipe_vs_oracle_cells": 337878,
+  "recipe_vs_oracle_diff": 0,
+  "oracle_vs_f24_diff": 3,
+  "oracle_vs_ref_diff": 3,
+  "f24_vs_ref_diff": 0,
+  "f24_unresolved": 0,
+  "cells_compared": 337878,
+  "disable_rescale12_diff": 2,
+  "disable_reciprocal_diff": 0,
+  "disable_diff_min_diff": 0
+ },
+ "f24_row_classes": {
+  "bound": 631,
+  "shortcut": 98
+ },
+ "by_length": {
+  "n2": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 168
+  },
+  "n3": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 252
+  },
+  "n16": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 1344
+  },
+  "n64": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 5376
+  },
+  "n256": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 21504
+  },
+  "n511": {
+   "rows": 84,
+   "abort": 0,
+   "diff_cells_vs_ref": 0,
+   "cells": 42924
+  },
+  "n512": {
+   "rows": 84,
+   "abort": 14,
+   "diff_cells_vs_ref": 0,
+   "cells": 35840
+  },
+  "n513": {
+   "rows": 84,
+   "abort": 14,
+   "diff_cells_vs_ref": 0,
+   "cells": 35910
+  },
+  "n1024": {
+   "rows": 84,
+   "abort": 34,
+   "diff_cells_vs_ref": 1,
+   "cells": 51200
+  },
+  "n4096": {
+   "rows": 84,
+   "abort": 49,
+   "diff_cells_vs_ref": 2,
+   "cells": 143360
+  }
+ },
+ "aborts": [
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.05,
+    99,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.1,
+    22,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.1,
+    1,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0625,
+    119,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0625,
+    -84,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "uniform",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0234375,
+    69,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0234375,
+    -88,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.5,
+    -90,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.5,
+    -90,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.5,
+    -90,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.5,
+    -90,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.5,
+    -90,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.5,
+    -25,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.5,
+    -25,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.5,
+    -25,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.5,
+    -25,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "uniform",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "two_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "uniform",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "spike",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    20,
+    1.0
+   ],
+   "dist": "two_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "uniform",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "spike",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.00390625,
+    -91,
+    2.0
+   ],
+   "dist": "two_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "uniform",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0137,
+    29,
+    1.0
+   ],
+   "dist": "two_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 512,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 513,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_33"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 1024,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "uniform",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_32"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "near_max",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "ties",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE q12_accumulator_overflow"
+  },
+  {
+   "cal": [
+    0.0137,
+    -98,
+    2.0
+   ],
+   "dist": "low_range",
+   "n": 4096,
+   "oracle": [
+    "ABORT",
+    "-6"
+   ],
+   "recipe": "REFUSE source_abort_exponent_34"
+  }
+ ],
+ "oracle_vs_ref_examples": [
+  {
+   "scale": 0.05,
+   "zp": 99,
+   "beta": 1.0,
+   "dist": "spike",
+   "n": 4096,
+   "index": 4095,
+   "d": 0,
+   "oracle": 124,
+   "ref": 125,
+   "f24": 125,
+   "cells_differing_in_row": 1
+  },
+  {
+   "scale": 0.0234375,
+   "zp": -88,
+   "beta": 2.0,
+   "dist": "spike",
+   "n": 1024,
+   "index": 1023,
+   "d": 0,
+   "oracle": 127,
+   "ref": 126,
+   "f24": 126,
+   "cells_differing_in_row": 1
+  },
+  {
+   "scale": 0.0234375,
+   "zp": -88,
+   "beta": 2.0,
+   "dist": "spike",
+   "n": 4096,
+   "index": 4095,
+   "d": 0,
+   "oracle": 122,
+   "ref": 121,
+   "f24": 121,
+   "cells_differing_in_row": 1
+  }
+ ],
+ "reciprocal_check": {
+  "values": 20004,
+  "mismatches": 0
+ },
+ "timing_python_s": {
+  "oracle_all": 1.305153720999897,
+  "recipe_all": 0.3348167109950282,
+  "f24_all": 10.050216647009165
+ }
+}
