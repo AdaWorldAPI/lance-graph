@@ -32,8 +32,12 @@ dispatcher.
 In an int8-quantized TFLite model every activation tensor holds codes
 `q ∈ {-128..127}` with a per-tensor affine decode `real = scale · (q − zero_point)`.
 That is a 256-entry palette whose representatives are fixed by two numbers.
-Weights are per-channel symmetric (zero point 0), so each output channel is its
-own 256-entry palette.
+Weights are symmetric (zero point 0), so each output channel is its
+own 256-entry palette. ⊘ Was "per-channel symmetric": the int8 spec requires zero
+point 0 for per-tensor and per-axis weights alike, and TFLM's FC prepare asserts it
+(`fully_connected_common.cc:147`). A nonzero `weights_offset`, which the generic
+reference kernel accepts, is outside the admitted profile and is refused at
+admission (audit `entries/2026-10-26-d-tflp-parity-audit.md`, Amendment 1 §A4).
 
 The TFLM int8 reference kernels compute each output code from the input codes
 and from parameters that are fixed when the model is converted
@@ -198,7 +202,13 @@ op name and reason, so a model reports exactly what it is missing.
   once, enumerate subgraphs, tensors (shape, type, quantization params, buffers)
   and operators (builtin code, options, version). No FlatBuffer access after load.
 - **Bind once:** each node gets its verdict and its prepared object (table,
-  folded bias, requant parameters, view) at load. No per-call dispatch, no
+  folded bias, requant parameters, view) at load. ⊘ OPEN: "at load" holds only if
+  production load-time preparation is admitted. ndarray Codec8 (plan
+  `quantized-codec8-v2.md` D8, §9) generates production calibrations and tables at
+  build time from a manifest and keeps run-time calibration behind
+  `lab-calibration`. Each TFLM TANH/LOGISTIC table is a pure function of one input
+  `Calibration`, so build-time models need no new seam; models known only at run
+  time do (audit Amendment 1 §A3). No per-call dispatch, no
   string matching in the hot path.
 - **Identity:** every table and folded bias is keyed by model digest, subgraph,
   tensor/operator index and parameter set, never by shape alone (Burn
@@ -266,9 +276,10 @@ for the chosen model.
 ## 9. Open points
 
 1. Accumulator range in GEMM: i32 accumulation of `k` products must not
-   overflow for the model's `k`; verify which VNNI instruction each arm uses
-   (non-saturating `vpdpbusd` vs saturating `vpdpbusds`) before claiming
-   parity for large `k`.
+   overflow for the model's `k`. ⊘ The instruction half is closed: every arm of
+   `gemm_u8_i8` and `matmul_i8_to_i32` uses non-saturating `vpdpbusd` (AMX
+   `tdpbusd`, WASM `extmul`+`extadd`), all accumulating in i32 (audit 2026-10-26).
+   The range half stays open.
 2. Full-runtime vs TFLM kernel parity (§6), op by op.
 3. Target models for D-TFLP-6/7: to be named (PZL-5 proposes a speech model on
    ARM64; the Pi model is unverified).
