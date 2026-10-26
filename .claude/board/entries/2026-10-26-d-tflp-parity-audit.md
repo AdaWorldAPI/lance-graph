@@ -579,3 +579,153 @@ Numeric operator binding (LUT, GEMM, requantize) is not a masking operation. Tod
 **Verdict.** Keep the systems separate. Extract no abstraction now: there is one candidate user and its owner is undecided.
 
 **Next gate.** A sweep over many input calibrations that looks for any code where TFLM's TANH bytes differ from the f64 reference, before Stage C starts.
+
+## Amendment 4 (2026-10-26) — which parts of the Fisher-z / softmax roundtrip never needed to exist
+
+Read: `crates/bgz-tensor/src/fisher_z.rs` (FamilyGamma, FisherZTable, lines 1-225), ndarray
+`src/hpc/codec8.rs` and `.claude/knowledge/coresearch-2026-10-24-i8-codec8-map.md` (X20, X25-X28),
+`d-nam-palette-native-lut-capstone-v1.md` (§58 softmax, §60 closure gate, F6), ndarray
+`hpc/activations.rs` `softmax_f32`, TFLM `reference/softmax.h:70-140` and `softmax_common.cc:100-135`.
+Probe: `.claude/probes/fisherz-softmax-v1/` (script, TFLM harness, results). Production code unchanged.
+
+### E1. The contract being substituted
+
+`FamilyGamma` (fisher_z.rs:63-76): encode `trunc(clamp((atanh(clamp(c, ±0.9999)) − z_min)/z_range · 254 − 127, −128, 127))`
+(`as i8` truncates toward zero; it does not round); decode `z(q) = z_min + (q + 127)/254 · z_range`,
+then `tanh`. `z_range ≥ 1e-10 > 0` by construction (`:57`). So the codes are an affine int8 quantization
+of z with scale `s = z_range/254` and a real, generally non-integer, zero point `−127 − 254·z_min/z_range`.
+Exactness below is always about the decoded **representatives** `z(q)`; the original values were lost at
+encode (E4.6).
+
+### E2. Derivation, with every cancelled term
+
+1. `z = atanh c` ⇒ `e^{2z} = (1+c)/(1−c)` ⇒ `e^{βz} = ((1+c)/(1−c))^{β/2}`, so
+   `p_i = ((1+c_i)/(1−c_i))^{β/2} / Σ_j ((1+c_j)/(1−c_j))^{β/2}`. At β = 2 the weights are the rational
+   odds `(1+c)/(1−c)`: no transcendental function remains when starting from cosines. (Not our case:
+   the stored quantity is q, not c.)
+2. Binary: `p_1 = σ(β(z_1 − z_2))` and `2σ(x) − 1 = tanh(x/2)`, so `atanh(2p_1 − 1) = β(z_1 − z_2)/2`.
+   The output map is `atanh(2p − 1)` (half the logit of p) — not a FamilyGamma Fisher-z of a probability.
+3. Substitute E1: `z(q_1) − z(q_2) = (z_range/254)(q_1 − q_2)`. `z_min` cancels, `+127` cancels, so
+   **`atanh(2p_1 − 1) = β·z_range·(q_1 − q_2)/508`**.
+   Cancelled from the runtime path: decode, tanh, exp, the normalization, atanh. What remains is one
+   integer subtraction; the factor `β·z_range/508` is a per-family constant, and a consumer that accepts
+   `q_1 − q_2` as the statistic needs not even that.
+4. N-way: `p_i = e^{k(q_i − q_max)} / Σ_j e^{k(q_j − q_max)}`, **`k = β·z_range/254`**. Since k > 0, the
+   maximum is the maximum code; `d_i = q_i − q_max ∈ [−255, 0]`.
+
+Conditions under which (3) and (4) hold exactly over the reals: one FamilyGamma for every element; the
+softmax is over `β·z` (path A below), not over `cos = tanh z`; `q = −128` included (decode is the affine
+continuation, finite); p is never 0 or 1 for real arithmetic because `|Δq| ≤ 255`.
+
+### E3. What is static and what is dynamic (path A)
+
+| part | when | cost |
+|---|---|---|
+| `L[d] = round(2^F·e^{k d})`, d ∈ [−255, 0] | preparation, per (β, z_range); **independent of z_min** | 256 entries: 1 KiB (u32) or 2 KiB (u64) |
+| max over codes | run time | one i8 horizontal max |
+| `d_i = q_i − q_max` | run time | one subtract per element (fits i16; `q_max − q_i` fits u8) |
+| `w_i = L[d_i]` | run time | one gather per element (256 × u32 is too wide for a single byte permute) |
+| `S = Σ w_i` | run time | integer adds; `S ≤ N·2^F` |
+| normalization | run time, once per row | one reciprocal or division per row; per element only if p itself is the output |
+
+- **Fused consumers:** `y = Σ_i w_i V_i / S` divides once per output component, so p is never materialized.
+- **Ranking and argmax** need no exponential at all: the order of codes is the order of p.
+- **Histogram form:** `S = Σ_c h[c]·L[c − q_max]` is the same integer and was asserted equal on every case.
+  Whether it is faster than direct gathers is unmeasured.
+- **Masking:** a masked element is excluded from both the max and the sum.
+- **Temperature change:** a new β means a new L, i.e. 256 exponentials at preparation time.
+
+**The existing TFLM int8 softmax already is this algorithm.** `softmax.h` computes
+`input_diff = input − max_in_row`, folds `β·input_scale` into one multiplier (`softmax_common.cc:123-126`),
+never reads the input zero point, accumulates in Q12, and takes one reciprocal per row. Fed FamilyGamma
+codes with `input_scale = f32(z_range/254)`, it computes FisherZ softmax directly, and the non-integer zero
+point is irrelevant.
+
+### E4. Where it stops being true (counterexamples, measured unless marked derived)
+
+1. **Mixed calibrations in one row.** `z_min` and `z_range` no longer cancel. A 5-element vector under G1
+   and G3 gave a code-formula error of 0.48 in p and the wrong argmax (reference index 3, code index 0).
+2. **Path B, softmax over `cos = tanh z`.** The weight depends on both codes, not on their difference: at
+   d = −10 under G2 the weights are 0.991 (codes 117, 127) and 0.920 (codes −110, −100). It stays in code
+   space only as a pair table `L2[q_i][q_max]` (65,536 entries per (β, gamma)), still followed by an
+   integer sum and one normalization.
+3. **Path C, a native Palette256 whose codes are indices, not an affine axis** (derived, not probed). No
+   difference structure exists, and the code maximum is not the value maximum unless the palette is
+   ordered. It needs a representative-indexed pair table, as in path B.
+4. **Path D, `Palette256:Palette256` laws** (derived). A `FisherZTable[a][b]` lookup returns FamilyGamma
+   codes under one gamma, so path A applies to its output. The softmax output, however, is a probability,
+   not a FisherZ code. Feeding it into another palette law is a re-encode under the closure gate
+   (capstone §60, EXO-129/132), so the chain is not closed.
+5. **The f32 roundtrip is worse than redundant.**
+   - Binary, exhaustive over 65,536 pairs: the f32 chain `decode → softmax → atanh(2p−1)` is non-finite
+     on up to 58,564 pairs (G3, β = 32), 13,954 for G1 at β = 32, and 45 for G2 already at β = 8.
+   - A 50-digit evaluation of the explicit chain also overflows for G3 at β = 32.
+   - The closed form is finite for every pair; its f64 evaluation agrees with the 50-digit chain to ≤ 7e-15
+     wherever the chain is finite.
+6. **FamilyGamma's own codec is not a fixed point** (a finding about an existing contract; not changed
+   here, since FamilyGamma is a declared non-consumer of Codec8).
+   - `encode(decode(q)) ≠ q` for 59-77 of 256 codes per gamma, because `as i8` truncates toward zero
+     after f32 rounding.
+   - −128 is reachable only for inputs below the family and decodes to a finite cosine (G2: −0.3077),
+     never NaN.
+   - `FisherZTable::lookup_i8` returns code 0 for out-of-range centroids, which decodes to
+     `z_min + 127/254·z_range` (cosine 0.64 under G2), not to a neutral value.
+   - Encode is monotone (0 order inversions over 20,000 sorted inputs) but merges 19,743 adjacent distinct
+     inputs. Ranking survives quantization; resolution does not.
+7. **The TFLM reference itself aborts on flat rows.** `TFLITE_CHECK(0 <= exponent && exponent <= 31)`
+   (`softmax.h`) kills the process once the row's sum of exponentials reaches 2^9.
+   - Measured boundary: 511 tied maximal elements pass, 512 abort.
+   - Probe: 14 of 120 cases aborted, with real sums ≥ 1,692; every passing case had a sum ≤ 478. They
+     include n = 4096 uniform at β = 1 with only 18 ties.
+   - A native port must not inherit this. It needs a wider accumulator or a pre-shift.
+8. **Output saturation.** p ≈ 1 maps to TFLM code 127, i.e. 255/256, so the error is 1/256 at the top end.
+
+### E5. Probe results (120 N-way cases: n ∈ {2, 3, 16, 256, 4096} × 6 distributions × 2 gammas × β ∈ {1, 8}; binary exhaustive 3 gammas × 5 β)
+
+| claim | evidence class | result |
+|---|---|---|
+| binary identity over the reals | symbolic + 50-digit check | ≤ 7e-18 wherever the chain is finite (the residual is the 50-digit chain's own cancellation); undefined only at G3 β = 32, where the chain overflows |
+| closed form vs decoded representatives (f64) | numeric | ≤ 7e-15 |
+| f32 chain, N-way, vs reference | numeric | ≤ 8.1e-5 (spike vs floor, G3, β = 1, n = 4096) |
+| L + integer sum, F = 16 (u32, S ≤ 29 bits at n = 4096) | numeric | p error ≤ 6.7e-3, fused y error ≤ 2.2e-2 (4,095 floor terms of `e^{−9.94}·2^16 ≈ 3.1` each rounded) |
+| L + integer sum, F = 24 (u64, S ≤ 37 bits) | numeric | p error ≤ 1.0e-4, fused y error ≤ 1.3e-4; the worst case is terms that round to 0, TFLM's `diff_min` analogue |
+| TFLM int8 softmax vs reference rounded to 1/256 | bitwise, independent reference | **0 differing bytes** over 47,608 elements in 106 non-aborted cases |
+| TFLM input zero-point invariance (0 vs 37) | bitwise | identical in every case |
+| F = 24 table arm rounded to 1/256 vs TFLM | bitwise | **0 differing bytes** over the same 47,608 elements; F = 16 differs in 1 element |
+| bit parity with float ONNX/TFLite softmax | — | not claimed: float paths differ by rounding, and the binary inverse is non-finite in f32 |
+
+### E6. The strongest valid statement
+
+For one FamilyGamma per row and a softmax over `β·z` (path A):
+- calibration is paid once (a 256-entry table per (β, z_range));
+- no decode, tanh, per-element exp or atanh exists at run time;
+- what runs is a code maximum, code differences, one gather and an integer add per element, and one
+  normalization per row, or none for ranking, argmax and fused consumers;
+- the binary case reduces to `q_1 − q_2`;
+- it is exact over decoded representatives, and on the probe it is byte-identical to TFLM's int8 softmax
+  whenever TFLM does not abort.
+
+It stops at:
+- mixed calibrations (E4.1);
+- softmax over cosines or over non-affine palette indices, which become 64 KiB pair tables (E4.2-3);
+- chaining a probability back into palette laws (E4.4);
+- the original pre-quantization values (E1, E4.6);
+- float parity (E5);
+- denominators past TFLM's limit (E4.7).
+
+### E7. Recommendation
+
+No new kernel is justified. The algorithm already exists twice: as TFLM's int8 softmax (the reference)
+and as a table plus integer sum built only from existing ndarray primitives (gather, integer add, max).
+
+The smallest legitimate next step is a decision rather than code: whether the FisherZ consumers need
+probabilities at all, or only ranking, a difference, or a fused weighted sum. In those cases nothing is
+built.
+
+If an int8 probability output is wanted, it belongs in the D-TFLP SOFTMAX stage, with:
+- TFLM as the oracle;
+- this probe's F = 24 table arm as the native candidate;
+- a wider accumulator to remove the 512 abort.
+
+The next falsifier is the same calibration sweep as for TANH (Amendment 3), looking for any byte where
+the F = 24 arm and TFLM differ.
