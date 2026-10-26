@@ -142,7 +142,7 @@ KEPT).
 | D-id | change vs v1 | gate |
 |---|---|---|
 | D-TFLP-0 | shipped (#1785); this v2 is its revision | docs |
-| D-TFLP-1 | KEPT; first experiment | G1 exhaustive vs TFLM `tanh.h`/`logistic.h`, ≥5 param sets, disable run red |
+| D-TFLP-1 | ⊘ "first experiment" was wrong: the gate was already EXCEEDED in lab (research `4082dbb79`, 2,224 calibrations, 569,344 cells, source + certified-math tables, fused TANH→LOGISTIC, controls, TFLM-free replay; see the D-TFLP-EVIDENCE-1 entry). Remaining: land the builder in ndarray | met; the ndarray landing must reproduce the same 569,344 cells |
 | D-TFLP-2 | MERGED with open point 5: table **and** fixed-point arm, keep the faster per target | G1 over all 65,536 pairs; measured ns per arm; SRAM budget refusal |
 | D-TFLP-3 | + G3 padding/zero point, groups/dilation/stride/edges, `weights_offset` refusal, wrap range | G1 + G3 cases |
 | D-TFLP-4 | REWRITTEN: source reciprocal + per-row algorithm; exact reciprocal only behind a PROVED receipt | #1800 replay fixtures pass; `--reciprocal exact` negative control fails 556 witnesses |
