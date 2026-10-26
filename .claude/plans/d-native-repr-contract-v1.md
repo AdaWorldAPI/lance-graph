@@ -101,7 +101,7 @@ No step adds a runtime.
 
 | id | question | owner | status |
 |---|---|---|---|
-| NFR-OP-1 | who owns the production frame store (S6): Quack, ClassView, or the source owner? | operator | OPEN |
+| NFR-OP-1 | who owns the production frame store (S6): Quack, ClassView, or the source owner? Narrowed 2026-10-26 (`dr256-where-capstone-v1.md` Part E): in-borrow execution needs none (the source owner, through the borrow); persisted reuse has a horizon (`QueryReference::at`) but no physical snapshot identity; physical snapshot attestation is open; open for the escaped-reuse authority contract (source/owner identity, complete mutation witness over every entrance incl. public fields, focus, scope, codebook, multi-source snapshot consistency; Part E.5 B, E.9) | operator / mailbox write-path owner | OPEN (narrowed) |
 | NFR-OP-2 | what the DR64³ third axis indexes: relation ordinal, property ordinal, or palette plane | DR owner | OPEN |
 | NFR-OP-3 | whether `dir-rmap-probe`'s `Witness` and `dr-math-binding-probe`'s `Frame` become one type | DR owner | OPEN |
 | NFR-OP-4 | the exact-versus-approximate admission rule for palette values inside a native fold | bgz owner | OPEN |
