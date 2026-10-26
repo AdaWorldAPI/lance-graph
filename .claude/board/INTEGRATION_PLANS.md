@@ -3,6 +3,18 @@
 **Status:** PROPOSAL / DOCUMENTATION ONLY. **Board entry:** [D-TFLP-0](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). **Stages:** D-TFLP-1..8 Queued / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md).
 
 int8 TFLite tensors are Palette256 codes with an affine decode; TFLM int8 kernels are functions of codes and conversion-time parameters, so elementwise ops become exhaustive 256 / 65,536-entry tables that are bit-exact by construction and closed under chaining. Softmax is a diff-keyed table plus a row reduction; FC/conv fold the input zero point into the bias and reuse the existing u8×i8 / i8×i8 GEMMs and #375 requantization. `lance-graph-tflite` follows the `lance-graph-onnx` pattern with a TABLE verdict and a cold importer. Semantics read from `AdaWorldAPI/tflite-micro` and `AdaWorldAPI/Rust`; neither linked. Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784).
+## 2026-10-26 — DuckDB ↔ DR/Quack machine-room reuse → `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md`
+
+**Status: M0 PROPOSAL / DOCS ONLY** (this draft PR). [Plan](../plans/duckdb-dr-quack-machine-room-reuse-v1.md). Extends the *existing* September `duckdb-to-v3-translation-matrix-v1.md`, rather than re-harvesting or porting DuckDB. Existing authority: Quack lowers; mask-risc executes; ndarray supplies SIMD peers; DR/D-DRAV own sealed global→local `u16` map, resident masks and optional independently accounted D-DRF facet cache. DuckDB's vector/dictionary/executor source is a read-only precedent, not a new ABI or compute owner.
+
+**Stages proposed, NOT RUN / NOT APPROVED:** M1 timed arm in existing DuckDB semantic differential; M2 DRF MAP/BORROW/GATHER amortization crossover with source/scope/seal and distinct-line/page controls; M3 one narrow, separately gated implementation *only if* a real difference survives full accounting; M4 explicit KEEP/ADAPT/REJECT decision. Continue the lane-fold capstone's open DuckDB timing item. The 2026-10-24 P2 figures remain host-bound and the 2026-10-25 TLB analysis does not establish huge-page causality. No Quack/mask-risc/ndarray/DataFusion runtime change in M0.
+
+## 2026-10-25 — D-NAM native algebra method × DTO dialect capstone → `.claude/plans/d-nam-native-algebra-dto-capstone-v1.md`
+
+**Status:** D-NAM-0 PROPOSAL / DOCS ONLY; staged D-NAM-1..5 implementation **engineering specifications**, not yet approved/run. Source-first [handoff](../prompts/d-nam-native-dto-claude-code-handoff.md), [EXO-152](https://linear.app/exo-red/issue/EXO-152), append-only [EXO-50](https://linear.app/exo-red/issue/EXO-50).
+
+**Trajectory:** D-NAM-1 versioned method crosswalk and four concrete normalization fixtures → D-NAM-2 ONNX/TFLite leaf DTOs + quantization/BOOL format → D-NAM-3 MLIR indexing + SQL/RelAlg lawful normalization → D-NAM-4 Quack/SoA/DR/R2IL prepared binding → D-NAM-5 partial reverse DTO, oracle, cost and merge closeout. Separate draft PR plans: `d-nam-{1-native-method-crosswalk-spec,2-onnx-tflite-leaf-dto,3-mlir-sql-relalg-normalization,4-quack-soa-dr-native-recipes,5-reverse-dto-certification-gates}-v1.md` (on their own branches until merged). D-RA-2 owner #1644, native-first #1753, ONNX alias #1754/#1758 preserved; no new tensor AST, interpreter, runtime dispatch or production ABI. D-DTM-1 #1777 is a distinct transport arc.
+
 
 ## 2026-10-25 — D-DRAV-1 address-first DR: independently reusable map, demand-driven values → `.claude/plans/d-dr-address-first-value-demand-v1.md`
 
