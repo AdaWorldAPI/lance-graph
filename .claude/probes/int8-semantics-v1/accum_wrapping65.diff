@@ -1,0 +1,50 @@
+diff --git a/src/hpc/amx_matmul.rs b/src/hpc/amx_matmul.rs
+index 65abadfd..581ec872 100644
+--- a/src/hpc/amx_matmul.rs
++++ b/src/hpc/amx_matmul.rs
+@@ -992,7 +992,7 @@ pub fn matmul_i8_to_i32(
+             for p in 0..k {
+                 let av = a_i8[i * k + p] as i32;
+                 for j in 0..n {
+-                    c[i * n + j] += av * b_i8[p * n + j] as i32;
++                    c[i * n + j] = c[i * n + j].wrapping_add(av * b_i8[p * n + j] as i32);
+                 }
+             }
+         }
+@@ -1020,12 +1020,12 @@ fn subtract_i8_to_u8_bias(c: &mut [i32], b_i8: &[i8], m: usize, n: usize, k: usi
+     let mut colsum = vec![0i32; n];
+     for p in 0..k {
+         for j in 0..n {
+-            colsum[j] += b_i8[p * n + j] as i32;
++            colsum[j] = colsum[j].wrapping_add(b_i8[p * n + j] as i32);
+         }
+     }
+     for i in 0..m {
+         for j in 0..n {
+-            c[i * n + j] -= 128 * colsum[j];
++            c[i * n + j] = c[i * n + j].wrapping_sub(colsum[j].wrapping_mul(128));
+         }
+     }
+ }
+diff --git a/src/hpc/int8_tile_gemm.rs b/src/hpc/int8_tile_gemm.rs
+index b5f93fbd..76d82de4 100644
+--- a/src/hpc/int8_tile_gemm.rs
++++ b/src/hpc/int8_tile_gemm.rs
+@@ -210,7 +210,7 @@ pub unsafe fn int8_gemm_vpdpbusd_zmm(a_u8: &[u8], b_i8: &[i8], c: &mut [i32], m:
+                     let a_val = a_u8[a_row_off + kk] as i32;
+                     let tail_row = kk * n;
+                     for jj in 0..j_count {
+-                        out_buf[jj] += a_val * b_i8[tail_row + j_base + jj] as i32;
++                        out_buf[jj] = out_buf[jj].wrapping_add(a_val * b_i8[tail_row + j_base + jj] as i32);
+                     }
+                 }
+             }
+@@ -302,7 +302,7 @@ pub unsafe fn int8_gemm_vpdpbusd_ymm(a_u8: &[u8], b_i8: &[i8], c: &mut [i32], m:
+                     let a_val = a_u8[a_row_off + kk] as i32;
+                     let tail_row = kk * n;
+                     for jj in 0..j_count {
+-                        out_buf[jj] += a_val * b_i8[tail_row + j_base + jj] as i32;
++                        out_buf[jj] = out_buf[jj].wrapping_add(a_val * b_i8[tail_row + j_base + jj] as i32);
+                     }
+                 }
+             }

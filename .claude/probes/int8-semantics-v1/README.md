@@ -30,3 +30,14 @@ m ∈ {1, 2, 3, 16, 17}, n = 1 … 33, k ∈ {1, 2, 3, 4, 5, 31, 63, 64, 65, 128
 codes, all (−128, −128), all (127, −128)). It covers the N-tail and K-tail paths the n = 16 corpus did not.
 The uncorrected u8×i8 arm is the negative control and must differ on exactly the cells with a non-zero
 column sum. Run: `./int8sem/target/release/tailsweep tailsweep64.json`.
+
+**Amendment 6.5 P0.5 (accumulator contract):**
+- `accum_wrapping65.diff` is a PROPOSED change to ndarray. It was never applied to the ndarray checkout.
+  It turns five i32 adds/subtracts on the `matmul_i8_to_i32` path into `wrapping_*`:
+  - the scalar tier (`amx_matmul.rs:995`);
+  - the bias correction (`:1023`, `:1028`);
+  - the two VNNI K-tails (`int8_tile_gemm.rs:213`, `:305`).
+- `int8sem/src/bin/f9wrap65.rs` → `f9wrap65.txt`: six cases, run against the current ndarray and
+  against a throwaway worktree with the diff applied, each in debug and release.
+- On the proposed tree, `tailsweep` gave output identical to `tailsweep64.json`, and
+  `cargo test -p ndarray --lib -- hpc::amx_matmul hpc::int8_tile_gemm` gave 23 passed, 1 ignored.

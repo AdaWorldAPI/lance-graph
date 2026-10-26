@@ -1,0 +1,26 @@
+current debug F9W i_biased_acc_overflow tier=avx512vnni_zmm mnk=1x16x70000 a=127 w=127 debug=true PANIC want=1129030000 fits_i32=true
+current debug F9W ii_colsum_x128_overflow tier=avx512vnni_zmm mnk=1x16x140000 a=0 w=127 debug=true PANIC want=0 fits_i32=true
+current debug F9W iii_ktail_after_overflow tier=avx512vnni_zmm mnk=1x16x70003 a=127 w=127 debug=true PANIC want=1129078387 fits_i32=true
+current debug F9W iv_amx_tier_biased_overflow tier=amx mnk=16x16x70016 a=127 w=127 debug=true PANIC want=1129288064 fits_i32=true
+current debug F9W v_true_result_out_of_range tier=avx512vnni_zmm mnk=1x16x200000 a=127 w=127 debug=true PANIC want=3225800000 fits_i32=false
+current debug F9W control_in_range tier=avx512vnni_zmm mnk=1x16x1000 a=127 w=127 debug=true got=16129000 want=16129000 fits_i32=true exact=true mod2^32=true
+current release F9W i_biased_acc_overflow tier=avx512vnni_zmm mnk=1x16x70000 a=127 w=127 debug=false got=1129030000 want=1129030000 fits_i32=true exact=true mod2^32=true
+current release F9W ii_colsum_x128_overflow tier=avx512vnni_zmm mnk=1x16x140000 a=0 w=127 debug=false got=0 want=0 fits_i32=true exact=true mod2^32=true
+current release F9W iii_ktail_after_overflow tier=avx512vnni_zmm mnk=1x16x70003 a=127 w=127 debug=false got=1129078387 want=1129078387 fits_i32=true exact=true mod2^32=true
+current release F9W iv_amx_tier_biased_overflow tier=amx mnk=16x16x70016 a=127 w=127 debug=false got=1129288064 want=1129288064 fits_i32=true exact=true mod2^32=true
+current release F9W v_true_result_out_of_range tier=avx512vnni_zmm mnk=1x16x200000 a=127 w=127 debug=false got=-1069167296 want=3225800000 fits_i32=false exact=false mod2^32=true
+current release F9W control_in_range tier=avx512vnni_zmm mnk=1x16x1000 a=127 w=127 debug=false got=16129000 want=16129000 fits_i32=true exact=true mod2^32=true
+error: rustc 1.97.0 is not supported by the following packages:
+error: rustc 1.97.0 is not supported by the following packages:
+proposed debug F9W i_biased_acc_overflow tier=avx512vnni_zmm mnk=1x16x70000 a=127 w=127 debug=true got=1129030000 want=1129030000 fits_i32=true exact=true mod2^32=true
+proposed debug F9W ii_colsum_x128_overflow tier=avx512vnni_zmm mnk=1x16x140000 a=0 w=127 debug=true got=0 want=0 fits_i32=true exact=true mod2^32=true
+proposed debug F9W iii_ktail_after_overflow tier=avx512vnni_zmm mnk=1x16x70003 a=127 w=127 debug=true got=1129078387 want=1129078387 fits_i32=true exact=true mod2^32=true
+proposed debug F9W iv_amx_tier_biased_overflow tier=amx mnk=16x16x70016 a=127 w=127 debug=true got=1129288064 want=1129288064 fits_i32=true exact=true mod2^32=true
+proposed debug F9W v_true_result_out_of_range tier=avx512vnni_zmm mnk=1x16x200000 a=127 w=127 debug=true got=-1069167296 want=3225800000 fits_i32=false exact=false mod2^32=true
+proposed debug F9W control_in_range tier=avx512vnni_zmm mnk=1x16x1000 a=127 w=127 debug=true got=16129000 want=16129000 fits_i32=true exact=true mod2^32=true
+proposed release F9W i_biased_acc_overflow tier=avx512vnni_zmm mnk=1x16x70000 a=127 w=127 debug=false got=1129030000 want=1129030000 fits_i32=true exact=true mod2^32=true
+proposed release F9W ii_colsum_x128_overflow tier=avx512vnni_zmm mnk=1x16x140000 a=0 w=127 debug=false got=0 want=0 fits_i32=true exact=true mod2^32=true
+proposed release F9W iii_ktail_after_overflow tier=avx512vnni_zmm mnk=1x16x70003 a=127 w=127 debug=false got=1129078387 want=1129078387 fits_i32=true exact=true mod2^32=true
+proposed release F9W iv_amx_tier_biased_overflow tier=amx mnk=16x16x70016 a=127 w=127 debug=false got=1129288064 want=1129288064 fits_i32=true exact=true mod2^32=true
+proposed release F9W v_true_result_out_of_range tier=avx512vnni_zmm mnk=1x16x200000 a=127 w=127 debug=false got=-1069167296 want=3225800000 fits_i32=false exact=false mod2^32=true
+proposed release F9W control_in_range tier=avx512vnni_zmm mnk=1x16x1000 a=127 w=127 debug=false got=16129000 want=16129000 fits_i32=true exact=true mod2^32=true
