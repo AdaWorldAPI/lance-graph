@@ -941,7 +941,9 @@ impl CausalEdge64 {
 impl CausalEdge64 {
     // ── Read Accessors ──────────────────────────────────────────────────────
 
-    /// Witness corpus root handle (6-bit, 0..=63). 0 = no corpus anchor.
+    /// Thought layer (6-bit, 0..=63): 0 = main (the givens), 1..=63 =
+    /// hypothesis lanes. It names the lane the state belongs to and points
+    /// nowhere (decided 2026-10-17, #1597).
     ///
     /// WARNING: Returns GARBAGE for non-zero v1 edges — bits 53-58 were
     /// temporal MSBs in v1. Apply a version gate before calling on edges
