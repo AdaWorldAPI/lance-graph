@@ -1,3 +1,8 @@
+## 2026-10-25 — D-TFLP TFLite models on the native polyfill → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v1.md`
+
+**Status:** PROPOSAL / DOCUMENTATION ONLY. **Board entry:** [D-TFLP-0](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). **Stages:** D-TFLP-1..8 Queued / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md).
+
+int8 TFLite tensors are Palette256 codes with an affine decode; TFLM int8 kernels are functions of codes and conversion-time parameters, so elementwise ops become exhaustive 256 / 65,536-entry tables that are bit-exact by construction and closed under chaining. Softmax is a diff-keyed table plus a row reduction; FC/conv fold the input zero point into the bias and reuse the existing u8×i8 / i8×i8 GEMMs and #375 requantization. `lance-graph-tflite` follows the `lance-graph-onnx` pattern with a TABLE verdict and a cold importer. Semantics read from `AdaWorldAPI/tflite-micro` and `AdaWorldAPI/Rust`; neither linked. Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784).
 ## 2026-10-26 — DuckDB ↔ DR/Quack machine-room reuse → `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md`
 
 **Status: M0 PROPOSAL / DOCS ONLY** (this draft PR). [Plan](../plans/duckdb-dr-quack-machine-room-reuse-v1.md). Extends the *existing* September `duckdb-to-v3-translation-matrix-v1.md`, rather than re-harvesting or porting DuckDB. Existing authority: Quack lowers; mask-risc executes; ndarray supplies SIMD peers; DR/D-DRAV own sealed global→local `u16` map, resident masks and optional independently accounted D-DRF facet cache. DuckDB's vector/dictionary/executor source is a read-only precedent, not a new ABI or compute owner.

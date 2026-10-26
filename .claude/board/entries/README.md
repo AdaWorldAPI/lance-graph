@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-475 entries, 2026-08-06 .. 2026-10-25.
+476 entries, 2026-08-06 .. 2026-10-25.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -37,6 +37,7 @@ exactly one of them, never both.
 | 2026-10-25 | `D-DRF-G-FACET` |  | [2026-10-25-drf-focuskey-facet.md](2026-10-25-drf-focuskey-facet.md) |
 | 2026-10-25 | `D-DRF-CHURN` |  | [2026-10-25-drf-churn-policy.md](2026-10-25-drf-churn-policy.md) |
 | 2026-10-25 | `D-DRAV-AV1` |  | [2026-10-25-drav-av1-membership.md](2026-10-25-drav-av1-membership.md) |
+| 2026-10-25 | `D-TFLP-0` |  | [2026-10-25-d-tflp-0-tflite-palette-polyfill.md](2026-10-25-d-tflp-0-tflite-palette-polyfill.md) |
 | 2026-10-25 | `D-DRAV-1` |  | [2026-10-25-d-drav-1-address-first-value-demand.md](2026-10-25-d-drav-1-address-first-value-demand.md) |
 | 2026-10-24 | `tanh-precision-symmetric-i8` |  | [2026-10-24-tanh-precision-symmetric-i8.md](2026-10-24-tanh-precision-symmetric-i8.md) |
 | 2026-10-24 | `D-DRF-P2` |  | [2026-10-24-drf-p2-breakeven.md](2026-10-24-drf-p2-breakeven.md) |

@@ -1,3 +1,19 @@
+## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
+
+**Status: PROPOSAL, DOCS ONLY.** Plan: [d-tflp-tflite-palette-polyfill-capstone-v1.md](../plans/d-tflp-tflite-palette-polyfill-capstone-v1.md). Ledger: [2026-10-25-d-tflp-0-tflite-palette-polyfill.md](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784); no executor, tensor IR or `Rel` variant.
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-TFLP-0** | capstone, asset map, board rows | Proposed, docs only | no code or ABI change |
+| **D-TFLP-1** | ndarray: gemmlowp `tanh`/`logistic`/`exp_on_negative_values` + 256-entry Tanh/Logistic tables | Queued (NOT RUN) | bit-identical to TFLM `tanh.h`/`logistic.h` over all 256 codes, ≥ 5 parameter sets; disable run red |
+| **D-TFLP-2** | ndarray: 65,536-entry ADD/MUL tables | Queued (NOT RUN) | bit-identical to `add.h`/`mul.h` over all pairs; disable run red |
+| **D-TFLP-3** | ndarray: FC/conv via bias fold + existing GEMM + `requantize_i32_to_i8` | Queued (NOT RUN) | bit-identical to `fully_connected.h`/`conv.h`; accumulator range for the model's k |
+| **D-TFLP-4** | ndarray: softmax diff-keyed exp table + row reduction | Queued (NOT RUN) | bit-identical to `reference/softmax.h` int8 path |
+| **D-TFLP-5** | lance-graph-tflite facade (ALIAS/INLINE/TABLE/REFUSE), cold importer, bind once | Queued (NOT RUN) | ndarray-only native dep; identity-keyed tables, never shape-keyed |
+| **D-TFLP-6** | op census on pinned real int8 models | Queued (NOT RUN) | per-model ops by verdict |
+| **D-TFLP-7** | one whole model end to end | Queued (NOT RUN) | output bit-identical to TFLM; load µs, memory, hot-path ns reported |
+| **D-TFLP-8** | domain-B Palette256:palette256 cosine tables (PZL-3) | Queued (NOT RUN) | PZL gates, EXO-132 k-hop closure |
+
 ## D-NAM — Native Algebra Methods × ONNX/TFLite/MLIR/SQL DTO crosswalk (2026-10-25)
 
 **Status:** D-NAM-0 **PROPOSAL / DOCUMENTATION ONLY**, draft capstone; D-NAM-1..5 engineering specs are **not implemented, approved, tested or merged**. [Capstone](../plans/d-nam-native-algebra-dto-capstone-v1.md); [Claude Code source-first handoff](../prompts/d-nam-native-dto-claude-code-handoff.md). [EXO-152](https://linear.app/exo-red/issue/EXO-152) is the plan record; [EXO-50](https://linear.app/exo-red/issue/EXO-50) append-only messages only.
