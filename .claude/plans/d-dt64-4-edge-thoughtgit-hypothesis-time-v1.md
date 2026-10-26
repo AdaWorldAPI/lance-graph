@@ -1,5 +1,7 @@
 # D-DT64-4: Edge×Edge dependency algebra, Thought-Git, time and hypothesis projection
 
+> **DT64↔Quack coordination Q0 (2026-10-26):** [Minimal source-attested borrowed binding contract, capstone #1799](https://github.com/AdaWorldAPI/lance-graph/blob/research/dt64-predicate-holographic-capstone-20261026/.claude/plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md). Edge×edge, hypothesis and time series remain future consumers of the exact DT64→Quack borrowed binding, not new dimensions of the first interface. Thought-Git durable identifiers remain EXO-148-owned. All first-landing tests require #1792's detached-\`Keep\` 1,032-vs-31 refusal/recompute. Coordination note only; not new implementation authorization.
+
 **Date:** 2026-10-26. **Status:** RESEARCH PLAN / docs only. **Parents:** DT64-0–3 proposed, D-RFT/EXO-126, D-DRMC/EXO-127, D-HL/EXO-78, D-TGB/EXO-98 and EXO-148, #1792 owner/snapshot findings.
 **Do not:** create write path, replay persistence, a knowledge-confidence engine or learning without separate authority.
 
