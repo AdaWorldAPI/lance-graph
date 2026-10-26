@@ -1,0 +1,1 @@
+REQUANT_TAIL cases=4400 cells=219800 mismatches=0

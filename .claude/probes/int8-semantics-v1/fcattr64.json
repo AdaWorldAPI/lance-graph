@@ -1,0 +1,70 @@
+{
+ "counts": {
+  "conforming|clamp_bound_cell": 2,
+  "conforming|integer_rounding:double_rounding": 416,
+  "extended|integer_rounding:double_rounding": 354,
+  "ties|integer_rounding:negative_half_tie": 837
+ },
+ "examples": {
+  "conforming|integer_rounding:double_rounding": {
+   "case": "C1_pc0_izp0_ozp-128",
+   "batch": 4,
+   "channel": 7,
+   "acc": 6119,
+   "mult": 1628303079,
+   "shift": -6,
+   "real": "5354840049265/451981957136384",
+   "exact": "32766266261452535/451981957136384",
+   "D": 72,
+   "Q": 72,
+   "S1": 72,
+   "A": 73,
+   "out_zp": -128
+  },
+  "conforming|clamp_bound_cell": {
+   "case": "C1_pc1_izp0_ozp11",
+   "batch": 11,
+   "channel": 6,
+   "acc": 7090,
+   "mult": 1119458329,
+   "shift": -5,
+   "real": "22756508526501/1396939320983552",
+   "exact": "80671822726446045/698469660491776",
+   "D": 115,
+   "Q": 115,
+   "S1": 115,
+   "A": 116,
+   "out_zp": 11
+  },
+  "extended|integer_rounding:double_rounding": {
+   "case": "X1_pc0_izp0_ozp-128",
+   "batch": 8,
+   "channel": 0,
+   "acc": 6541,
+   "mult": 1628303079,
+   "shift": -6,
+   "real": "5354840049265/451981957136384",
+   "exact": "35026008762242365/451981957136384",
+   "D": 77,
+   "Q": 77,
+   "S1": 77,
+   "A": 78,
+   "out_zp": -128
+  },
+  "ties|integer_rounding:negative_half_tie": {
+   "case": "T_half_ozp0",
+   "batch": 0,
+   "channel": 0,
+   "acc": -15,
+   "mult": 1073741824,
+   "shift": 0,
+   "real": "1/2",
+   "exact": "-15/2",
+   "D": -8,
+   "Q": -8,
+   "S1": -7,
+   "A": -7,
+   "out_zp": 0
+  }
+ }
+}
