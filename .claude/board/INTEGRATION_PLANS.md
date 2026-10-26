@@ -1,3 +1,9 @@
+## 2026-10-26 — DuckDB ↔ DR/Quack machine-room reuse → `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md`
+
+**Status: M0 PROPOSAL / DOCS ONLY** (this draft PR). [Plan](../plans/duckdb-dr-quack-machine-room-reuse-v1.md). Extends the *existing* September `duckdb-to-v3-translation-matrix-v1.md`, rather than re-harvesting or porting DuckDB. Existing authority: Quack lowers; mask-risc executes; ndarray supplies SIMD peers; DR/D-DRAV own sealed global→local `u16` map, resident masks and optional independently accounted D-DRF facet cache. DuckDB's vector/dictionary/executor source is a read-only precedent, not a new ABI or compute owner.
+
+**Stages proposed, NOT RUN / NOT APPROVED:** M1 timed arm in existing DuckDB semantic differential; M2 DRF MAP/BORROW/GATHER amortization crossover with source/scope/seal and distinct-line/page controls; M3 one narrow, separately gated implementation *only if* a real difference survives full accounting; M4 explicit KEEP/ADAPT/REJECT decision. Continue the lane-fold capstone's open DuckDB timing item. The 2026-10-24 P2 figures remain host-bound and the 2026-10-25 TLB analysis does not establish huge-page causality. No Quack/mask-risc/ndarray/DataFusion runtime change in M0.
+
 ## 2026-10-25 — D-NAM native algebra method × DTO dialect capstone → `.claude/plans/d-nam-native-algebra-dto-capstone-v1.md`
 
 **Status:** D-NAM-0 PROPOSAL / DOCS ONLY; staged D-NAM-1..5 implementation **engineering specifications**, not yet approved/run. Source-first [handoff](../prompts/d-nam-native-dto-claude-code-handoff.md), [EXO-152](https://linear.app/exo-red/issue/EXO-152), append-only [EXO-50](https://linear.app/exo-red/issue/EXO-50).
