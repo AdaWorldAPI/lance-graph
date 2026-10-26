@@ -1,3 +1,8 @@
+## 2026-10-26 — lance-graph PR #1806 (merged `99a08622`, branch `docs/d-tflp-v2-synergy-20261026`, head `19a75ae3`) — docs(D-TFLP v2): synergy revision after #1786–#1803
+
+- **Added:** docs only: plan `d-tflp-tflite-palette-polyfill-capstone-v2.md`, entry `2026-10-26-d-tflp-v2-synergy-revision.md`, v1 plan note, STATUS_BOARD/INTEGRATION_PLANS rows. D-TFLP-4 now defaults to the source reciprocal, with #1800's fixtures as its test oracle.
+- **Confidence:** PROPOSAL; D-TFLP-1..8 NOT RUN. (#1804 changes only the board and gets no entry.)
+
 <!-- 2026-10-26 catch-up: #1772–#1803 had no entries. Board-hygiene-only #1773 and #1793 get none (termination clause). Recorded from merge commits, changed files and each PR's own Status line. -->
 
 ## 2026-10-26 — lance-graph PR #1803 (merged `13e37026`, branch `claude/d-tflp-compact-evidence`, head `63e8ced3`) — probes(D-TFLP 6.5): compact softmax data files, drop the run record
