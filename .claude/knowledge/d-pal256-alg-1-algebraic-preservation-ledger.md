@@ -362,3 +362,24 @@ y = Σ p_i V_i.
   exp error on 214 of 256 codes reaches the output byte on 2. Those 2 entries reach 48,806 fused
   cells through fan-in. An adaptive-precision decision weighs crossing probability × fan-in, not
   internal error magnitude.
+
+- **K7, a byte's meaning belongs to the contract, not to storage or execution (Amendment 6.4,
+  extends entry K).** Three things are separate for an 8-bit code q: its storage pattern
+  (raw i8 byte, or Codec8 `U8` biased `q+128`), its value under the tensor contract
+  (`scale·(q − zp)`, or NaN under a `Sym+NaNAtMin` code space), and the instruction that
+  executes it (VNNI/AMX are unsigned×signed, so ndarray shifts one operand by 128 and subtracts
+  `128·colsum`). SourceParity holds when the execution recovers the contract value exactly:
+  - measured `ndarray scalar = ndarray SIMD = TFLM` on every FC cell (AMX, AVX-512 VNNI,
+    AVX-VNNI, scalar; NEON and WASM simd128 dot products), and on 2,009,224 fixed-point cases
+    (SRDHM, RoundingDivideByPOT, MultiplyByQuantizedMultiplier) and 219,800 requantize tails;
+  - the bias correction is exact under wrapping i32 arithmetic, so the precondition is that the
+    TRUE accumulator fits i32, not that each intermediate does. In release the SIMD tiers wrap
+    and stay exact; debug builds panic on in-range inputs (`amx_matmul.rs:1028`).
+  - The source's fingerprint relative to exact math is integer rounding: double rounding
+    (SRDHM then RoundingDivideByPOT) and round-half-away at negative half ties; multiplier
+    quantization contributed 0 cells. That fingerprint is source behaviour and is preserved,
+    never "fixed".
+  - −128 under a symmetric weight contract is a nonconforming input. TFLM and ndarray compute it
+    identically; a checked decode refuses it. It is never clamped to −127, and an asymmetric
+    −128 is never read as NaN — the latter is not yet enforced at the binding (Amendment 6.4 N8.1).
+- **Status.** TESTED-LAB (`.claude/probes/int8-semantics-v1/`, lab commit `383e9c07c`).

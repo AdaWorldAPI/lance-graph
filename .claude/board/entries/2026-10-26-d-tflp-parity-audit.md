@@ -2135,3 +2135,265 @@ Linear was not reachable, and no issue state is claimed.
 **Next narrow gate:** the same backend differential on one non-x86 target, either aarch64 under
 `qemu-aarch64-static` (the target-ISA arm of M2) or `OPTIMIZED_KERNEL_DIR=cmsis_nn` softmax built
 for host, comparing bytes against the 6.3 corpus and the M4 witnesses.
+
+
+## Amendment 6.4 (2026-10-26) — signed/unsigned SIMD, −128, and quantization semantics
+
+Scope: source audit, lab probes and documentation. No production kernel, Codec8 API, model data
+or runtime was changed, and Amendment 6.3's artifacts and results are unchanged. Lab commit:
+`383e9c07c`, `.claude/probes/int8-semantics-v1/` (build and run lines in its `README.md`).
+- TFLM: the 6.3 checkout `5f64e4ad`, baseline library.
+- ndarray: `11954d7d`.
+- Host: Xeon @ 2.10 GHz with AMX-INT8, AVX-512 VNNI, AVX-VNNI and AVX-512 VBMI.
+
+The question is whether each byte means the same number in the source reference, the ndarray
+scalar path and the ndarray SIMD paths, including −128, −1 and 0. A second question is whether
+the rounding stages reproduce the source's own rules.
+
+### N1. Four statements, kept apart
+
+1. **Weight format.** Conforming TFLite symmetric weights are quantized to −127..127. This is a
+   model-format rule.
+   - TFLM itself does **not** enforce it. The int8 FC prepare guards only the weight zero point,
+     and only with a debug check: `TFLITE_DCHECK(filter->params.zero_point == 0)`
+     (`kernels/fully_connected_common.cc:147`). No value-range check exists.
+   - The conv/depthwise accumulator comment assumes the range: "accumulation is [-127, 127] *
+     ([-128, 127] - [-128, 127])" (`reference/integer_ops/conv.h:105-109`,
+     `depthwise_conv.h:90-94`).
+2. **Activations and nonlinear outputs** use −128..127; −128 is a value.
+3. **TFLM reference arithmetic** multiplies whatever int8 it is given, −128 included:
+   `acc += filter_val * (input_val + input_offset)` (`reference/integer_ops/fully_connected.h:64`).
+4. **ndarray SIMD** may use a different physical operand (u8 = i8 + 128) and must correct for it.
+
+Statement 1 says nothing about statements 3 and 4, and the probe treats them separately.
+
+### N2. Data semantics (verified against code)
+
+| domain | valid codes | meaning of −128 | evidence |
+|---|---|---|---|
+| TFLite activation | −128..127 | a value | `fully_connected.h:64` uses the code directly; Codec8 `TfliteAct = Codec8<I8, Asym, TiesAway, NoNaN>` (`codec8.rs:626`) |
+| TFLite symmetric weight | −127..127 | nonconforming input; TFLM still computes with it | N1 |
+| TFLite TANH output (scale 1/128, zp 0) | −128..127 | −1.0, the negative saturation endpoint | 6.1 output contract |
+| TFLite LOGISTIC output (1/256, zp −128) | −128..127 | 0.0, probability zero | `logistic_common.cc:45-60` requires zp −128 |
+| TFLite SOFTMAX output (1/256, zp −128) | −128..127 | 0.0, probability zero | 6.3 L3; `reference/softmax.h:124` writes −128 for excluded elements |
+| Codec8 `Asym` | −128..127 | a value | `codec8.rs:96-97`, `:68` |
+| Codec8 `Sym` + `NoNaN` | −127..127 | invalid: `decode_checked` returns `InvalidCode` | `codec8.rs:540-544`; `TfliteWeight` (`:629`) |
+| Codec8 `Sym` + `NaNAtMin` | −127..127 plus the sentinel | NaN | `codec8.rs:296-297` |
+| Codec8 `UnitFull` | 0..255 | not a signed code; storage is U8 only | `codec8.rs:104-105`, `:189-198` |
+
+- **Encoders:** no Codec8 encoder emits −128 for `Sym`; the clamp is at `S::MIN = −127`
+  (`codec8.rs:429-431`). The unchecked decoder still decodes −128 linearly as −128.0 under
+  `Sym + NoNaN` (`codec8.rs:883-890` test). Only the checked path rejects it.
+- **Imported −128 weights:** no code path clamps an imported −128 weight to −127, and nothing in
+  this probe does.
+
+### N3. i8 ↔ u8 mappings (`arms64.json` → `codec_index_checks`)
+
+- Raw (`q as u8`) and biased (`(q + 128) as u8`) are each bijective on all 256 codes, with
+  0 inverse failures.
+- **Codec8.** U8 storage for `Asym`/`Sym` is the biased mapping, verified on all 256 codes
+  (0 mismatches against `Stores::store`). The source says so: `codec8.rs:126`, "the signed code
+  XOR 0x80".
+- **Our lookup tables.** The 6.2 SourceParity tables and the 6.3 perf/lutperf probes index
+  biased (`table[code + 128]`, i.e. `table[code ^ 0x80]`).
+- **TFLM.** This checkout's int8 TANH/LOGISTIC are not table-based, and its only tables are
+  softmax's int16 `exp_lut` / `one_over_one_plus_x_lut` (`kernels/softmax_common.cc:37-43`). So
+  no raw-indexed int8 table exists in the pinned source. Full TFLite's `LUTPopulate` was not read.
+- **ndarray's own raw convention.** `simd_avx2::dot_i8(a: &[u8], b: &[u8]) -> i64` reads each
+  byte **as i8** (raw), per its doc at `simd_avx2.rs:411-420` (`simd_avx.rs:128` is the same).
+  The `&[u8]` type carries no signal of that.
+  - Measured (`crossdot_x86_64_v3.txt`): exact on raw bytes, 0 mismatches over 2,424 cases.
+  - **Fed Codec8's biased U8 storage it is wrong:** 799 of 800 conforming cases, 800 of 800
+    extended. For example (−128, −128) returns 0 instead of 16,384.
+  - This is a layout mismatch, not an arithmetic one. Nothing in the types prevents it.
+- **F2 (wrong table index).** The 6.2 TANH SourceParity table read raw instead of biased changes
+  **256 of 256** bytes, including −128 (159 → 0), −1, 0 and 127.
+
+### N4. SIMD capability matrix (instructions read and, where marked, executed)
+
+| backend | operand signedness | −128 handling | saturation | accumulator | status |
+|---|---|---|---|---|---|
+| Scalar `matmul_i8_to_i32` tier 4 (`amx_matmul.rs:991-998`) | i8 × i8 | exact | none | i32 `+=` (release wraps, debug panics) | **verified**, executed (lab mirror of the loop) |
+| Scalar `simd_int_ops::dot_i8` (`:201`) | i8 × i8 | exact | none | i32 `wrapping_add`; **the doc claim "with 4M lanes the sum stays well within i32::MAX" (`:195-196`) is false**: it wraps at 131,072 lanes of (−128)², and at 4M lanes returns 1,111,490,560 instead of 65,536,000,000 | **verified**, executed on x86_64, aarch64, wasm32 |
+| AVX2 / AVX `dot_i8` (`simd_avx2.rs:421`, `simd_avx.rs:128`) | bytes read as i8 (raw) | exact (`vpmovsxbw` + `vpmaddwd`) | none (the earlier `vpmaddubsw` form was removed, `:418-420`) | i32 lanes folded to i64 | **verified**, executed (`vpmaddwd` ×26 in binary) |
+| AVX-VNNI (`int8_tile_gemm.rs:250`, `_mm256_dpbusd_avx_epi32`) | u8 (= i8 + 128) × i8 + bias | exact through the shift + `128·colsum` correction | none (`VPDPBUSD`, not `VPDPBUSDS`) | i32, wraps | **verified**, executed |
+| AVX-512 VNNI (`int8_tile_gemm.rs:150`, `_mm512_dpbusd_epi32`) | same | same | none | i32, wraps; scalar K-tail `+=` | **verified**, executed (also the dispatch tier for unaligned shapes) |
+| AMX (`int8_gemm_amx_tiled`, `TDPBUSD`) | u8 × i8 + bias | same | none | i32, wraps | **verified**, executed on 16/16/64-aligned shapes (74 cases per suite plus the k = 64 extreme pairs) |
+| NEON `dot_i8x16_neon` (`simd_neon.rs:196`) | i8 × i8 (`vmull_s8` → i16, exact: \|16384\| fits) | exact | none | `vpaddlq_s16` → i32 | **verified**, executed under `qemu-aarch64-static` (`smull`/`saddlp` present) |
+| WASM SIMD128 `dot_i8_to_i32_wasm` (`simd_wasm.rs:1695`) | i8 × i8 (`i16x8.extmul`) | exact | none | `i32x4.extadd_pairwise`, then i32 sums | **verified**, executed under node WASI (opcodes present) |
+
+- **No saturating int8 instruction** in any executed binary: `vpmaddubsw` 0, `vpdpbusds` 0;
+  `vpdpbusd` and AMX `tdpbusd` present. The only `vpdpbusds` in ndarray is a feature table entry
+  (`hpc/jitson/validator.rs:337`).
+- **Not covered:** `avxvnniint8` (VPDPBSSD), `neon,dotprod` (SDOT), `amx` on other silicon,
+  `simd_neon_dotprod.rs`.
+
+### N5. Differential results (`arms64.json`, `fcattr64.json`)
+
+**Fixed-point primitives, ndarray vs TFLM** (`srdhm_i32`, `rounding_divide_by_pot_i32`,
+`multiply_by_quantized_multiplier_i32` against `SaturatingRoundingDoublingHighMul`,
+`RoundingDivideByPOT`, `MultiplyByQuantizedMultiplier`): **0 mismatches** on 200,121 / 1,601,095
+/ 208,008 cases. These include `i32::MIN × i32::MIN`, every exponent 0..31 with exact half ties of
+both signs, and every shift −31..30. M cases whose left shift overflows i32 were skipped (TFLM's
+int32 multiply is undefined there).
+
+**Requantize epilogue:** `requantize_i32_to_i8` vs the element-wise TFLM order (MBQM, `+ out_zp`,
+clamp) gives 0 mismatches. This covers 219,800 cells, lengths 1..257 (tail and full blocks),
+1/3/5/16 channels, and `i32::MIN`/`MAX` accumulators (`requanttail.txt`).
+
+**Dot products (k = in_dim ∈ {1, 2, 15, 16, 17, 31, 32, 33, 63, 64, 65, 128, 256, 257}):**
+- Arms: scalar i32, corrected lab, `matmul_i8_to_i32` (dispatch: AMX on aligned shapes, AVX-512
+  VNNI otherwise), direct `vpdpbusd_zmm`, `vpdpbusd_ymm`, `amx_tiled`, `vnni_dot_u8_i8` +
+  correction, `simd_int_ops::dot_i8`.
+- **Every arm: 0 mismatches against the i64 oracle** on 119,808 conforming and 119,808 extended
+  (weights including −128) cells.
+- **Extreme pairs:** all 8 required pairs, at k = 1 and k = 64 (16×16×64, AMX), 0 mismatches. That
+  is (−128,−128) = 16,384, (−128,−127) = 16,256, (−128,127) = −16,256, (−1,−128) = 128,
+  (0,−128) = 0, (1,−128) = −128, (127,−128) = −16,256 and (127,127) = 16,129.
+- **NEON and WASM** (`crossdot_*.txt`): 0 mismatches on pair, conforming, extended and
+  cancellation fixtures; the only non-zero rows are the deliberate biased-input misuse (N3).
+
+**FC four arms** (705 cases: 16 rows × 16 channels; in_zp ∈ {0, −128, 37, −5}; out_zp ∈
+{−128, 0, 11}; per-tensor and per-channel; narrow clamp −100/90; exhaustive 256-code rows; tie
+fixtures). Multipliers are TFLM Prepare's own (`FCQ`); they equal ndarray `quantize_multiplier` on
+every channel.
+
+| suite | cells | A vs B (port) | B vs C (SIMD) | A vs C | A vs D | B vs D |
+|---|---|---|---|---|---|---|
+| conforming | 119,808 | 0 | 0 | 0 | 418 | 418 |
+| extended (−128 weights) | 119,808 | 0 | 0 | 0 | 354 | 354 |
+| ties | 2,304 | 0 | 0 | 0 | 837 | 837 |
+
+A = TFLM kernel; B = scalar accumulator + ndarray MBQM; C = `matmul_i8_to_i32` + exact
+`−in_zp·Σw` fold + `requantize_i32_to_i8`; D = exact rational, ties away from zero. Accumulators of
+B and C agree on every cell.
+
+**Where A ≠ D comes from** (`fcattr64.py`, per cell):
+- **416 conforming and 354 extended cells: double rounding.** TFLM rounds in SRDHM and again in
+  `RoundingDivideByPOT`. The single-rounding formula with the same multiplier gives the exact
+  answer. Multiplier quantization contributes 0 cells.
+  - Example: `C1_pc0_izp0_ozp-128`, acc 6,119, mult 1,628,303,079, shift −6 → exact 72.49… → 72;
+    TFLM 73.
+- **837 tie cells: negative half ties.** SRDHM's nudge `1 − 2^30` rounds a negative half toward +∞:
+  acc −15 × 0.5 = −7.5 → TFLM −7, ties-away −8. Positive ties agree. This is the documented
+  `srdhm_i32` behaviour (`simd_fixedpoint.rs:35-43`), which ndarray reproduces.
+- **2 cells at the output clamp boundary,** also double rounding.
+
+**Classification.** A vs D is source numerical deviation, not a port defect. A = B = C is
+SourceParity, held for both suites. The extended suite is labelled an extension: TFLM's reference
+arithmetic is defined on −128 weights and both ndarray paths match it, but no conformance is
+claimed.
+
+### N6. Rounding, operation by operation
+
+| operation | source rule | ndarray | evidence |
+|---|---|---|---|
+| float encode `round(x / scale) + zp` | ties away, round **then** add zp (`micro_utils.h:40`) | Codec8 `TfliteAct` (ties away), `OnnxQ` (ties even); both round then add | F8a: Codec8 encoders equal round-then-add on 786/786 pairs |
+| SRDHM | nudge ±2^30 then truncating division: negative halves toward +∞; `MIN×MIN` saturates | `srdhm_i32` | 0 / 200,121; T1/T2 unit tests |
+| RoundingDivideByPOT | ties away from zero | `rounding_divide_by_pot_i32` | 0 / 1,601,095 |
+| MBQM (double rounding) | SRDHM then RDBPOT | `multiply_by_quantized_multiplier_i32` | 0 / 208,008 |
+| MBQM (single rounding) | not the pinned build's default (`TFLITE_SINGLE_ROUNDING` undefined) | `…_single_rounding_i32` | not compared against TFLM (NOT RUN) |
+| output zp, clamp, narrowing | add, clamp, then cast (`fully_connected.h:71-73`) | same order (`simd_fixedpoint.rs:272-282`) | FC A = B = C; F7 |
+| table index | biased (ours) | — | N3 |
+
+**Negative-half table (F8a).** The TiesAway / TiesEven values are measured. They differ from
+SRDHM's rule, which is why the integer stages get their own oracle.
+
+| x | −2.5 | −1.5 | −0.5 | +0.5 | +1.5 | +2.5 |
+|---|---|---|---|---|---|---|
+| TiesAway | −3 | −2 | −1 | 1 | 2 | 3 |
+| TiesEven | −2 | −2 | 0 | 0 | 2 | 2 |
+
+Moving the zero point across the rounding changes the code:
+- **TiesAway:** 6 of 786 (x, zp) pairs; for example x = +0.5, zp = −3 gives −2 (round then add)
+  against −3 (add then round).
+- **TiesEven:** 510 of 786.
+
+### N7. Negative controls
+
+| control | mutation | effect | binds? |
+|---|---|---|---|
+| F1 | drop `−128·colsum` (zmm arm) | 119,376 / 119,808 conforming, 119,744 / 119,808 extended cells change | yes |
+| F2 | raw instead of biased table index | 256 / 256 bytes of the TANH table change | yes |
+| F3 | RDBPOT → floor shift / → ties-even (arm B) | 42,608 / 378 conforming cells change; ties suite 384 / 384 | yes |
+| F4 | Asym −128 fed to `Codec8<I8, Sym, TiesAway, NaNAtMin>::decode_checked` | **`Ok`, decodes as NaN**: the boundary does not reject | no rejection exists, a **missing seam** (N8) |
+| F5 | emulated `VPMADDUBSW` (pairwise i16 saturation) on the shifted operands | 91,417 / 239,616 cells wrong; (127,127)×2 gives 255 instead of 32,258 | yes; and no executed binary contains `vpmaddubsw` |
+| F6 | `TfliteWeight::decode_checked` on weights with −128 | 348 / 348 extended cases `InvalidCode`, 0 / 357 conforming rejected | yes |
+| F7 | `as i8` before the clamp (arm B) | 33,705 conforming / 48,104 extended cells change | yes; inert on the ties suite (outputs in range) |
+| F8a | zero point across float rounding | 6 (TiesAway) / 510 (TiesEven) of 786 | yes |
+| F8b | omit the `−in_zp·Σw` fold (arm C) | 49,381 / 41,581 / 48,722 cells for in_zp −128 / −5 / 37 | yes; inert for in_zp = 0 by construction |
+| F9 | u8 accumulator past i32 while the result fits | see below | release: exact; debug: **panic** |
+
+**F9 in detail** (`f9public_*.txt`, public `matmul_i8_to_i32`):
+- **Case (i):** k = 70,000, a = 127, w = 127. The true result 1,129,030,000 fits i32; the u8
+  accumulator (2,266,950,000) does not.
+- **Case (ii):** k = 140,000, a = 0, w = 127. The result is 0, but `128·colsum` overflows.
+- **Release:** both exact. `VPDPBUSD` wraps mod 2³², and `c -= 128·colsum` wraps too, so modular
+  arithmetic recovers the exact value.
+- **Debug:** both panic at `amx_matmul.rs:1028`, the subtraction (column 13) or `128 * colsum`
+  (column 29).
+- **The scalar tier** computes both in either profile.
+- **Consequence:** the SIMD tiers are correct whenever the true result fits i32 and integer
+  overflow wraps. The result is never silently wrong in range, but correctness depends on the
+  build profile, and the same input panics on one path and not on another.
+- **Not handled:** a true result outside i32 wraps silently in release on every tier, scalar
+  included. No refusal exists.
+
+### N8. Missing seams (smallest genuine gaps; no new kernels proposed)
+
+1. **Code-space identity does not travel with the bytes.** `Asym` and `Sym+NaNAtMin` both take
+   `&[i8]`, so a numeric −128 reaches a NaN decoder unchallenged (F4). The receipt that binds a
+   prepared recipe must carry storage, code space, NaN policy, rounding, scales/zero points and
+   the codebook generation (already listed in 6.2 K6). No runtime dispatch is proposed; the gap
+   is at the binding, not in Codec8.
+2. **The raw-byte convention is unmarked.** `simd_avx2::dot_i8(&[u8], &[u8])` means raw i8 bytes,
+   while Codec8 `U8` means biased. A caller can join them silently (N3). A test or a doc
+   cross-reference would mark it; the API is not changed here.
+3. **The i32 accumulator contract is implicit.** `matmul_i8_to_i32`'s correctness precondition
+   (true result fits i32; wrapping arithmetic) is not stated. Debug builds panic on in-range
+   inputs on the SIMD tiers only. The fix would be `wrapping_*` in `subtract_i8_to_u8_bias` plus a
+   stated precondition, a production change not made here.
+4. **A wrong doc bound:** `simd_int_ops::dot_i8`'s "4M lanes" claim (the real bound is 131,071
+   lanes in the worst case).
+5. **No differential test in ndarray against TFLM.** This probe is the only one. The
+   2,009,224-case fixed-point corpus and the FC four-arm harness are candidates to become
+   committed fixtures.
+
+### N9. Recommendation, per finding
+
+| finding | class |
+|---|---|
+| TFLM vs exact math, 770 non-tie + 837 tie cells | numerical-approximation difference (source behaviour; kept for SourceParity) |
+| ndarray scalar / SIMD vs TFLM, 0 cells | no defect |
+| −128 weights computed identically by TFLM and ndarray | nonconforming-input extension; Codec8 `TfliteWeight` checked decode refuses them (F6) |
+| F4, NaN decoder accepts an Asym −128 | missing seam (N8.1) |
+| `simd_avx2::dot_i8` on biased bytes | codebook indexing / layout trap; no defect in the function itself (N8.2) |
+| `matmul_i8_to_i32` debug panic on in-range results | profile-dependent behaviour (N8.3) |
+| `simd_int_ops::dot_i8` "4M lanes" | documentation defect (N8.4) |
+| softmax undefined behaviour past 8,192 ties (6.3 addendum M3) | unsupported-domain refusal (unchanged) |
+| missing committed differential vs TFLM | missing differential test (N8.5) |
+
+No SIMD implementation error, conforming-source parity defect or codebook indexing error was
+found in executed code.
+
+### N10. BOARD_SYNC_PENDING, NOT RUN, next gate
+
+Linear was not reachable, and no issue state is claimed.
+- **EXO-152** (D-NAM / Palette256 numerical preparation): ledger entry K7; N2, N5, N8.
+- **EXO-50** (handoff): one line pointing at this amendment and commits `383e9c07c` (lab) and its
+  doc commit.
+
+**NOT RUN:**
+- TFLM single-rounding build vs `…_single_rounding_i32`;
+- optimized TFLM kernels (CMSIS-NN FC/conv, Xtensa, CEVA);
+- conv/depthwise kernels, read only;
+- `avxvnniint8`, NEON `dotprod`, AMX on other silicon;
+- WASM without simd128;
+- full TFLite `LUTPopulate`;
+- accumulators whose true result exceeds i32;
+- per-axis quantized dimensions other than 0;
+- int16 paths.
+
+**Next narrow gate:** turn N8.5 into a fixture — commit the fixed-point corpus digest and a
+reduced FC four-arm set as an ndarray test that runs without TFLM, with the TFLM bytes stored as
+expected output — and add a precondition check for N8.3.
