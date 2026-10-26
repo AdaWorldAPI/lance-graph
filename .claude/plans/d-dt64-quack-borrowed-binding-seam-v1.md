@@ -35,7 +35,8 @@ SemanticBinding<'source> [PROPOSED DOCUMENT SHAPE ONLY] {
               typed_domain, typed_range, arity, direction,
               source_field_or_relationship_anchor),
   schema: (source_schema_id, schema_digest, binding_revision),
-  source: (owner_identity, actual_physical_snapshot_ref,
+  source: (owner_identity, owner_borrowed_snapshot_identity,
+           physical_dataset_checkout_if_persisted,
            observed_at, valid_time_if_known),
   coordinate: (source_global_to_local_witness, focus_generation, row_order),
   codebook: optional (identity, generation, validity_contract),
@@ -46,7 +47,7 @@ SemanticBinding<'source> [PROPOSED DOCUMENT SHAPE ONLY] {
 }
 ```
 
-This is an **obligation checklist**, not permission to add a duplicate struct to the contract. Seek existing `ClassView`, `MailboxSoaView`, `SoaEnvelope`, Quack `Col`/`Query`, mask-risc `LaneRef`, D-DRMC recipe and D-RMAP focus witness shapes first; name which precise fields are absent. If no source owner/physical snapshot witness exists, keep it OPEN and refuse escaped use. Do not invent an owner from a numeric cycle.
+This is an **obligation checklist**, not permission to add a duplicate struct to the contract. Seek existing `ClassView`, `MailboxSoaView`, `SoaEnvelope`, Quack `Col`/`Query`, mask-risc `LaneRef`, D-DRMC recipe and D-RMAP focus witness shapes first; name which precise fields are absent. For a resident in-process immutable owner borrow, the *actual source snapshot* is the owner-backed borrowed read window; no fictitious Lance checkout is required inside that lifetime. For a persisted Lance read, attest the specific dataset and physical checkout separately from the QueryReference horizon. If the required owner/snapshot witness does not exist, keep it OPEN and refuse escaped use. Do not invent an owner from a numeric cycle.
 
 At runtime inside a live immutable source borrow, Quack executes direct borrowed lanes with **no extra per-op ownership check**; outer preparation validates source/type/scope/coordinates. If an input must be decoded or widened, charge copy/calibration and label it non-zero-copy. Existing Quack lane types may not accept `u16` class IDs or `f32` energy directly. Use already-supported U32/U64 and typed masks for first fixture; do not build new LaneRef variants as a prerequisite.
 
