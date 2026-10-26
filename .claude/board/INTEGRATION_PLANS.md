@@ -1,3 +1,6 @@
+## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
+
+**Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.
 ## 2026-10-26 — index catch-up: thirteen plans merged without an index row (#1779–#1784, #1794–#1799, #1802)
 
 - D-NAM leaves (EXO-152): `d-nam-1-native-method-crosswalk-spec-v1` (#1779), `d-nam-2-onnx-tflite-leaf-dto-v1` (#1780), `d-nam-3-mlir-sql-relalg-normalization-v1` (#1781), `d-nam-4-quack-soa-dr-native-recipes-v1` (#1782), `d-nam-5-reverse-dto-certification-gates-v1` (#1783), `d-nam-palette-native-lut-capstone-v1` (#1784). Capstone `d-nam-native-algebra-dto-capstone-v1` (#1778) is already indexed.

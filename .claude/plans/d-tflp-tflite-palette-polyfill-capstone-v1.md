@@ -1,5 +1,7 @@
 # D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256, exhaustive tables (capstone v1)
 
+> ⊘ **Revised 2026-10-26 by [v2](d-tflp-tflite-palette-polyfill-capstone-v2.md).** §1 items 1–3 (exactness), §3.1 Mish, §3.2, §3.3 softmax, §3.4 padding, §4 identity, §7 D-TFLP-2/-3/-4 and §9 are corrected there. §1–§2 and §5 stand.
+
 **Date:** 2026-10-25. **Status:** PROPOSAL / DOCUMENTATION ONLY. No code, no ABI, no
 crate in this PR. Every stage below is NOT RUN and is approved separately.
 **Parent arcs:** D-NAM ([EXO-152](https://linear.app/exo-red/issue/EXO-152), #1778–#1783),
