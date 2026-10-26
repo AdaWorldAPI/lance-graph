@@ -8,7 +8,7 @@
 
 | stage | PR | deliverable and status |
 |---|---|---|
-| DT64-0 | capstone draft, this branch | charter, dependency and question register, .claude board integration; docs only |
+| DT64-0 | [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799), this branch | charter, dependency and question register, .claude board integration; docs only |
 | DT64-1 | [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) | 64 typed predicate catalogue including 8 IAM/ODoo/SAP scenarios; docs only |
 | DT64-2 | [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) | source snapshots, identity namespace & join witnesses, IAM/Odoo/SAP mapping and negative test specs; docs only |
 | DT64-3 | [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) | three directed SPO query orientations, K3/Bag/Distinct, DR focus and falsifier ladder; docs only |
@@ -42,4 +42,6 @@
 
 **Falsifier principle:** an independent scalar oracle plus disable control must bind before any correctness or speed claim. Costed: cold identity mapping, focus seal, masks/index bytes, hot folding, output, witness. If direct/CSR wins a narrow mapping, KEEP_DIRECT. Separate Boolean relationships, numerical model output, and unverifiable hypotheses.
 
-**Agent handoff:** [Source-first CC brief](../../prompts/d-dt64-source-first-claude-code-handoff.md) (read-only first; no code authorization).\n\n**Handoff:** [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) append-only message once links and PR0 receipt exist. [EXO-121](https://linear.app/exo-red/issue/EXO-121), [EXO-122](https://linear.app/exo-red/issue/EXO-122), [EXO-123](https://linear.app/exo-red/issue/EXO-123), [EXO-126](https://linear.app/exo-red/issue/EXO-126), [EXO-127](https://linear.app/exo-red/issue/EXO-127), [EXO-151](https://linear.app/exo-red/issue/EXO-151), [EXO-152](https://linear.app/exo-red/issue/EXO-152).
+**Agent handoff:** [Source-first CC brief](../../prompts/d-dt64-source-first-claude-code-handoff.md) (read-only first; no code authorization).
+
+**Handoff:** [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) append-only [coordination message](https://linear.app/exo-red/issue/EXO-50) posted as `GPT:gpt-ada-01/D-DT64-1799-20261026` with all six PR receipts; acknowledgement requested. [EXO-121](https://linear.app/exo-red/issue/EXO-121), [EXO-122](https://linear.app/exo-red/issue/EXO-122), [EXO-123](https://linear.app/exo-red/issue/EXO-123), [EXO-126](https://linear.app/exo-red/issue/EXO-126), [EXO-127](https://linear.app/exo-red/issue/EXO-127), [EXO-151](https://linear.app/exo-red/issue/EXO-151), [EXO-152](https://linear.app/exo-red/issue/EXO-152).
