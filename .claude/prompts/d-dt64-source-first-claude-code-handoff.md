@@ -37,3 +37,12 @@ No new runtime, interpreter, planner, relalg variant, implicit proof checker, wr
 Read [EXO-50](https://linear.app/exo-red/issue/EXO-50) inbox messages before implementation; post **new** comment using mandatory message envelope and full actual CC session ID. Reference PRs by exact number and stage. Do not edit another agent's message; do not claim the inbox comment is approval.
 
 Done means plans have an accurate status/evidence matrix, no cross-repo source claims have drifted, and all independently measurable risks have a falsifier. Nothing ships until code PRs are separately approved, tested and merged.
+
+
+## Cross-session Quack handoff: narrower first gate (2026-10-26)
+
+**Read first:** `.claude/plans/d-dt64-quack-borrowed-binding-seam-v1.md`. This is the controlling description for the FIRST executable lab. DT64 must supply semantic source object/predicate identity, schema+catalogue versions, source owner/physical snapshot identity, global/local coordinate witness, codebook generation as applicable, permission+completeness scope, a live borrowed lane and independently reusable compiled recipe reference. Quack/RelAlg/R2IL/mask-risc execute; ndarray numerical kernels and D-NAM method certificates remain separate. No mandatory tensor/DR³ or new runtime.
+
+Use catalogue slots **08,11,12,13,14,17,18,32** as candidate eight-predicate fixtures, with sourced dir-sim and SAP references; **11,12,17 are unary classifications**, not fabricated object edges. Three SPO query orientations are tested on genuinely binary relations only. Independent scalar source oracle plus existing dir-sim/SAP tests, distinct UNKNOWN/NULL/FALSE/DENIED, and full bind+prepare+fold+output cost. The P2 **1,032-old vs 31-fresh** stale- Keep counterexample and same-cycle/reset/public-field mutations from #1792 must prevent escaped reuse. Borrowed recipes may outlive source *as recipes*, not as cached masks. No production adapter implementation without a separate operator decision.
+
+**Post-merge status correction:** #1792 merged to main; its source owner escaped-result authority remains OPEN. Local ClassView FieldMask bit, 64 semantic predicate slot, DR coordinate and Palette256 code are different domains. Stage DT64-QB-S0 census → S1 borrowed-binding lab → S2 directional algebra and optional DR64² cost test → S3 recipe rebind/stale Keep refusal → S4 adoption decision. Do not gate this proof on the proposed Thought-Git or ONNX work.
