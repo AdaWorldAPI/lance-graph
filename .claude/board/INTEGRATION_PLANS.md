@@ -1,3 +1,7 @@
+## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
+
+**Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.
+
 ## 2026-10-26 — D-DT64 64-slot versioned DTO adapter / holographic relational projections → `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`
 
 **Status:** DESIGN ONLY, six draft docs PRs. **Board:** [D-DT64-0](entries/2026-10-26-dt64-holographic-interface.md) and [STATUS_BOARD](STATUS_BOARD.md). **Stages:** [DT64-1 #1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) predicate/source catalogue, [DT64-2 #1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) IAM/Odoo/SAP/EXO DTO authority, [DT64-3 #1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) directed DR projections, [DT64-4 #1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) edge×edge and Thought-Git temporal hypotheses, [DT64-5 #1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) native method/ONNX/time series. [EXO-50](https://linear.app/exo-red/issue/EXO-50) is append-only handoff; all these are independent docs-only branches and **NOT** production PRs or measured probes.
