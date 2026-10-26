@@ -252,3 +252,73 @@ y = Σ p_i V_i.
 - **Permitted lowering.** A prepared 256-entry table. A "TFLM-parity" table is a different
   artifact and must be generated from TFLM's own arithmetic. The two must not share a receipt.
 - **Status.** TESTED-LAB.
+
+## K. Source-behavior preservation by prepared transcoding (Amendment 6.2)
+
+- **K1, mathematical table.** For a finite input code space `C_in` (|C_in| = 256 for 8-bit codes),
+  source decode `D_in,θ`, mathematical unary `f` and declared output quantization `Q_out,θ`
+  (rounding, saturation):
+
+  `L_math,θ[q] = Q_out,θ( f( D_in,θ(q) ) )`
+
+  The table is prepared with intervals or exact rationals. The result is a code.
+- **K2, source table.** For a specific source kernel with observable output `K_src,θ(q)`:
+
+  `L_src,θ[q] = K_src,θ(q)`
+
+  It stores the kernel's bytes, deviations included. It requires a pinned, specified kernel
+  (framework, kernel tree, operator, version, backend, calibration), not a correctly rounded one.
+- **K3, numerical fingerprint.**
+
+  `Δ_θ[q] = L_src,θ[q] − L_math,θ[q]`
+
+  Computed in a wider signed integer. Δ records where the source differs from correctly rounded
+  behaviour; by itself it does not say why. The cause is established only by tracing the kernel.
+- **K4, finite-domain equivalence (proof).** Let `K_src,θ` be pure and deterministic over
+  `C_in` under the pinned conditions. If `L[q] = K_src,θ(q)` for all 256 q (exhaustive
+  comparison), then `L` and `K_src,θ` are the same function on `C_in`, by extensionality of
+  functions on a finite set.
+  - Lookup `y = L[q]` then reproduces the kernel's output for every admissible input, with no
+    source runtime.
+  - **Restrictions:** this is equivalence for that θ, that kernel revision, that backend and
+    that code space only. It is not equivalence for other calibrations, other kernel versions
+    (e.g. CMSIS-NN, xtensa or full TFLite), other shapes or other hardware. Sampling is not
+    exhaustive: measured, 8 sampled codes agreed on a calibration where the full 256 do not.
+- **K5, composition.** Let `K_1: C_0 → C_1` and `K_2: C_1 → C_2` be pure, finite, with
+  `C_1` interpreted by `K_2` exactly as `K_1` produces it (same calibration, same code space).
+  Then
+
+  `L_fused[q] = K_2(K_1(q))`
+
+  is a single unary table over `C_0`. The proof is the same as K4: on a finite domain, the
+  composition of two functions is a function.
+  - The intermediate rounding is not removed. It is executed once, during preparation, and its
+    effect lives in the stored codes.
+  - By induction this holds for any finite chain `K_n ∘ … ∘ K_1` under the same conditions.
+  - It is NOT palette-chain closure in the EXO-129/132 sense: it is the exact composition of
+    one admitted finite function, not a law about composing palette semantics.
+- **Not admitted (refuse, or use native algebra):** MatMul/GEMM, attention reductions, softmax
+  over arbitrary-length rows (a unary table suffices for the weights, but normalization is
+  row-dependent; entries B and G), LayerNorm, dynamic normalization, masks that change the
+  domain, shape-dependent, stateful or value-indexed operators, dynamic calibration, unbound
+  external operands. A binary operator may admit a 256×256 table; that is a separate admission.
+- **Exact vs approximate.** `L_src` is exact with respect to the source (byte parity). `L_math`
+  is exact with respect to its declared mathematical contract. Neither stands in for the other:
+  they need distinct semantic receipts even when their bytes coincide (2,215 of 2,224 measured
+  calibrations coincide, 9 do not).
+- **Falsification.**
+  - Exhaustive 256-code comparison against the pinned kernel.
+  - An independent mathematical reference for `L_math`.
+  - Controls: an omitted intermediate quantization, a missing stage, a wrong intermediate
+    calibration, a wrong receipt, a corrupted byte.
+- **Permitted lowering.** `out = table[code + 128]`, one prepared 256-byte table per (contract,
+  θ, receipt). A sparse Δ patch is a cold-storage option only, reconstructed and digest-checked
+  at load. It is never a per-element runtime stage.
+- **Evidence (Amendment 6.2 K1-K5, `.claude/probes/source-behavior-v1/`).**
+  - TFLM int8 TANH: SourceParity = kernel bytes on all 569,344 cells. CertifiedMath = an
+    independent mp.tanh reference on all cells. 17 cells differ (Δ ∈ {−1, +1}).
+  - All 17 differences trace to gemmlowp's fixed-point `exp_on_negative_values` (the kernel's exp
+    value undershoots by 355.7 Q0.31 units). No float roundtrip is on the path.
+  - TANH → LOGISTIC fusion: the fused table equals the two-kernel sequence on all 569,344 cells.
+  - The continuous mathematical composition differs from the sequence on 69,652 cells.
+- **Status.** TESTED-LAB (TFLM reference kernels, x86_64 gcc, kernel tree `8f6596d`).

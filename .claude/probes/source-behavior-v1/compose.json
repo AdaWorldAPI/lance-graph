@@ -1,0 +1,443 @@
+{
+ "chain": {
+  "K1": "TANH int8 (in: calibration; out: scale 1/128 zp 0)",
+  "K2": "LOGISTIC int8 (in: scale 1/128 zp 0; out: scale 1/256 zp -128)",
+  "connection": "K1's int8 output tensor is K2's input tensor; calibrations equal by construction"
+ },
+ "calibrations": 2224,
+ "cells": 569344,
+ "logistic_at_intermediate_source_vs_math": {
+  "diff_cells": 2,
+  "cells": [
+   [
+    -1,
+    -1,
+    0
+   ],
+   [
+    1,
+    1,
+    0
+   ]
+  ]
+ },
+ "counts": {
+  "fused_vs_sequence": 0,
+  "L1_vs_sequence_stage1": 0,
+  "math_iq_vs_sequence": 48806,
+  "math_cont_vs_sequence": 69652,
+  "math_cont_vs_math_iq": 57376,
+  "missing_stage_vs_sequence": 562407,
+  "wrong_intermediate_calibration_vs_sequence": 433646
+ },
+ "examples": {
+  "math_cont_vs_sequence": [
+   {
+    "scale_bits": "3c000000",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -128,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "3d4ccccd",
+    "zp": -3,
+    "kind": "fixture7",
+    "code": -54,
+    "x": -2.550000037997961,
+    "tanh_x": -0.9878803979322908,
+    "source_intermediate": -126,
+    "source_final": -58,
+    "arm_final": -59
+   },
+   {
+    "scale_bits": "3dcccccd",
+    "zp": 20,
+    "kind": "fixture7",
+    "code": 8,
+    "x": -1.2000000178813934,
+    "tanh_x": -0.8336546124663378,
+    "source_intermediate": -107,
+    "source_final": -51,
+    "arm_final": -50
+   },
+   {
+    "scale_bits": "3c6075f7",
+    "zp": -128,
+    "kind": "fixture7",
+    "code": -125,
+    "x": 0.04110000003129244,
+    "tanh_x": 0.04107687348035436,
+    "source_intermediate": 5,
+    "source_final": 2,
+    "arm_final": 3
+   },
+   {
+    "scale_bits": "3f000000",
+    "zp": 127,
+    "kind": "fixture7",
+    "code": 125,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "38d1b717",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -78,
+    "x": -0.007799999802955426,
+    "tanh_x": -0.007799841622816885,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3cc00000",
+    "zp": 60,
+    "kind": "fixture7",
+    "code": -49,
+    "x": -2.5546875,
+    "tanh_x": -0.987992808406857,
+    "source_intermediate": -126,
+    "source_final": -58,
+    "arm_final": -59
+   },
+   {
+    "scale_bits": "3f800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -1,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "3f000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -2,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "3e800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -4,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "3e000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -8,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -47
+   },
+   {
+    "scale_bits": "3d800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -41,
+    "x": -2.5625,
+    "tanh_x": -0.9881778622875124,
+    "source_intermediate": -126,
+    "source_final": -58,
+    "arm_final": -59
+   }
+  ],
+  "math_iq_vs_sequence": [
+   {
+    "scale_bits": "3c000000",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -1,
+    "x": -0.0078125,
+    "tanh_x": -0.007812341058161014,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "38d1b717",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -117,
+    "x": -0.01169999970443314,
+    "tanh_x": -0.011699465862704617,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3c000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -1,
+    "x": -0.0078125,
+    "tanh_x": -0.007812341058161014,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3b800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -3,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3b000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -6,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3a800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -12,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3a000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -24,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "39800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -48,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "39000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -96,
+    "x": -0.01171875,
+    "tanh_x": -0.011718213587663012,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "38800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -128,
+    "x": -0.0078125,
+    "tanh_x": -0.007812341058161014,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "38000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -128,
+    "x": -0.00390625,
+    "tanh_x": -0.00390623013190634,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   },
+   {
+    "scale_bits": "3ab26b80",
+    "zp": 64,
+    "kind": "random",
+    "code": 56,
+    "x": -0.010889887809753418,
+    "tanh_x": -0.010889457354154178,
+    "source_intermediate": -1,
+    "source_final": -1,
+    "arm_final": 0
+   }
+  ],
+  "missing_stage_vs_sequence": [
+   {
+    "scale_bits": "3c000000",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -128,
+    "x": -1.0,
+    "tanh_x": -0.7615941559557649,
+    "source_intermediate": -97,
+    "source_final": -46,
+    "arm_final": -59
+   },
+   {
+    "scale_bits": "3d4ccccd",
+    "zp": -3,
+    "kind": "fixture7",
+    "code": -126,
+    "x": -6.150000091642141,
+    "tanh_x": -0.9999908965541789,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3dcccccd",
+    "zp": 20,
+    "kind": "fixture7",
+    "code": -126,
+    "x": -14.600000217556953,
+    "tanh_x": -0.9999999999995834,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3c6075f7",
+    "zp": -128,
+    "kind": "fixture7",
+    "code": -128,
+    "x": 0.0,
+    "tanh_x": 0.0,
+    "source_intermediate": 0,
+    "source_final": 0,
+    "arm_final": -59
+   },
+   {
+    "scale_bits": "3f000000",
+    "zp": 127,
+    "kind": "fixture7",
+    "code": -126,
+    "x": -126.5,
+    "tanh_x": -1.0,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "38d1b717",
+    "zp": 0,
+    "kind": "fixture7",
+    "code": -128,
+    "x": -0.012799999676644802,
+    "tanh_x": -0.012799300671841055,
+    "source_intermediate": -2,
+    "source_final": -1,
+    "arm_final": -59
+   },
+   {
+    "scale_bits": "3cc00000",
+    "zp": 60,
+    "kind": "fixture7",
+    "code": -126,
+    "x": -4.359375,
+    "tanh_x": -0.9996730705950916,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3f800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -126,
+    "x": -126.0,
+    "tanh_x": -1.0,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3f000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -126,
+    "x": -63.0,
+    "tanh_x": -1.0,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3e800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -126,
+    "x": -31.5,
+    "tanh_x": -1.0,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3e000000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -126,
+    "x": -15.75,
+    "tanh_x": -0.9999999999999583,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   },
+   {
+    "scale_bits": "3d800000",
+    "zp": 0,
+    "kind": "pow2_zp0",
+    "code": -126,
+    "x": -7.875,
+    "tanh_x": -0.9999997110039925,
+    "source_intermediate": -128,
+    "source_final": -59,
+    "arm_final": -58
+   }
+  ]
+ },
+ "timing_python_s": {
+  "stage_tables_from_source": 0.1484707210000238,
+  "sequence_two_kernel_calls_all": 0.4648607379999703,
+  "fused_table_composition_all": 0.04021947699953898,
+  "certified_math_arms_all": 132.12680407999886
+ }
+}
