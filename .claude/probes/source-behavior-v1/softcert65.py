@@ -245,4 +245,4 @@ if MUTATE:
     print("IDENTITY", "pass" if ok else "FAIL", ident, flush=True)
 
 json.dump(dict(certificate=cert_text.splitlines(), table_identity_controls=ident, source_digest=DIGEST, runs=runs, mutations=mut,
-               wall_s=round(time.perf_counter() - t_all, 1)), open(OUT, "w"), indent=1)
+               wall_s=round(time.perf_counter() - t_all, 1)), open(OUT, "w"), separators=(",", ":"))

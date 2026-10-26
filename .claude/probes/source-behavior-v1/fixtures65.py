@@ -104,7 +104,7 @@ for r in runs:
             s, z, b = r["cal"]; key = f"{f32bits(s)}:{f32bits(b)}"
             unr.append(dict(cal_index=r["index"], table=key, table_sha256=tdig[key], S=u["S"], d=u["d"], status=u["status"]))
 
-files = {"softmax_tables65.json": json.dumps(dict(tables=tables, sha256=tdig), indent=1) + "\n",
+files = {"softmax_tables65.json": json.dumps(dict(tables=tables, sha256=tdig), separators=(",", ":")) + "\n",
          "witness65_full.jsonl": "".join(canon(x) + "\n" for x in full),
          "witness65_reduced.jsonl": "".join(canon(x) + "\n" for x in reduced),
          "equivalence65.jsonl": "".join(canon(x) + "\n" for x in eqv),
