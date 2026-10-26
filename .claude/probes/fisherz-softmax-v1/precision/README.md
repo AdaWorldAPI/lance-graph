@@ -12,10 +12,16 @@ precision arms, scored against an independent 40-digit mpmath reference.
 - `driver.py`: generates 261 cases, runs the binary, scores every arm.
 - `deskew.py`: per-code representative corrections against true values.
 - `results_*.json`, `deskew.json`: the runs recorded in the amendment.
+- `cert.py` (Amendment 6): the certified F24 bound. Same 261 cases and seed as
+  `driver.py`; table entries certified by 96-bit interval arithmetic; exact
+  rational arm A; per-output bound; per-row escalation (exact rational, then
+  outward-rounded intervals 64-512 bits, fail closed); negative controls.
+  `cert.json` is the recorded run. Costs it records are Python, not kernel, costs.
 
 ```sh
 cargo build --release                                   # baseline x86-64: software FMA
 RUSTFLAGS="-C target-cpu=native" cargo build --release  # hardware FMA
 uv run driver.py target/release/precision-probe results.json
 uv run deskew.py deskew.json
+uv run cert.py cert.json
 ```

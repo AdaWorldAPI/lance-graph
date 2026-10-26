@@ -893,3 +893,234 @@ Error is measured against the softmax over the true held-out values.
 **Smallest justified next step:** none in production yet. The next probe is the escape-hatch bound — derive
 it, measure how often it triggers, and confirm that it catches every mismatch — together with the
 calibration sweep against TFLM already named in Amendments 3 and 4.
+
+## Amendment 6 (2026-10-26) — Palette256 adaptive precision: algebraic ledger, certified bound, to-do
+
+Scope: documentation, derivation and one lab probe. No production code, public API, ClassId,
+codec or generated index changed; no PR opened. Linear was not reachable from this session, so
+nothing below was read from, written to, or checked against a Linear issue.
+
+### G0. The algebraic preservation ledger
+
+The ledger is in `.claude/knowledge/d-pal256-alg-1-algebraic-preservation-ledger.md`
+(D-PAL256-ALG-1). For each of eight facts it gives: the statement, the derivation, the hypotheses,
+exact vs approximate, where it does not apply, the falsifier, the permitted lowering, the evidence
+and the status.
+
+| entry | fact | status |
+|---|---|---|
+| A | affine softmax cancellation: one difference table | TESTED-LAB |
+| B | nonuniform palettes need a unary table, not a pair table | TESTED-LAB |
+| C | binary log-odds; Fisher z is half a log-odds; the roundtrip is unsafe | identities derived; roundtrip failure TESTED-LAB |
+| D | argmax ≠ softmax; interval early exit `ℓ_k > max_{j≠k} u_j` | PROPOSED |
+| E | four different "gamma" corrections | two TESTED-LAB, two derived |
+| F | distribution-aware deskew `v_β(q) = (1/β) log E[e^{βX} | Q = q]`; `E[W_i/ΣW] ≠ E[W_i]/ΣE[W]` | TESTED-LAB |
+| G | fixed-point error bound for the F24 arm | TESTED-LAB (G1 below) |
+| H | FMA does not bound a reduction; certified per-row escalation | TESTED-LAB (Python resolver only) |
+
+Nothing in the ledger is SHIPPED. Nothing in it is REFUTED. D is UNKNOWN beyond its derivation.
+
+### G1. The certified F24 bound — probe result
+
+Probe: `.claude/probes/fisherz-softmax-v1/precision/cert.py`, run recorded in `cert.json`.
+It uses the same generator, seed and 261 cases as Amendment 5, and the same 40-digit mpmath
+reference. Wall time: 33 s.
+
+**Method.**
+1. **Table build.** Every F24 entry `W = round(2^24 · e^{β(x_a − x_m)})` is evaluated in
+   outward-rounded interval arithmetic at 96 bits. An entry counts as certified when its interval
+   cannot straddle a .5 point. This proves `|2^24 w − W| ≤ ½`, the hypothesis of ledger entry G.
+2. **Arm A in exact rationals.** Compute `ŷ = N/Ŝ` and `p̂ = W/Ŝ`, then the ledger G bound on each.
+3. **Certification.** An output is certified when the code is the same at both ends of its bound.
+4. **Escalation.** Any row with an uncertified output is recomputed by the ledger H resolver:
+   - exact rationals for a single representative;
+   - the exact-rational-y test for equal group means;
+   - otherwise intervals at 64, 128, 256 and 512 bits, stopping at 512 as UNRESOLVED.
+
+**Results (all 261 cases).**
+
+| quantity | value |
+|---|---|
+| outputs | 1,305 y + 247,473 p = 248,778 |
+| table entries not certified to ½ | 0 |
+| entries where an ordinary f64 `math.exp` generator disagrees | 0 |
+| `Ŝ > E` (bound defined) | 261 / 261 rows |
+| outputs certified directly | 1,299 y, 242,865 p |
+| **misses** (certified but wrong code) | **0 y, 0 p** |
+| arm-A wrong codes before escalation | 3 y, 0 p (the Amendment 5 three, each within 7.3e-9 of a half) |
+| rows escalated | 13 / 261 (5.0%) |
+| uncertified outputs | 6 y + 4,608 p (1.85% of all outputs) |
+| uncertified outputs where A was already right (false alarms) | 4,611; 4,608 of them on the nine 512-tie rows |
+| how the escalated rows resolved | 10 exact-rational, 3 interval at 64 bits, 0 unresolved |
+| **final wrong codes after escalation** | **0 y, 0 p** |
+| largest y bound | 1.55e-2 |
+
+- **The false alarms on tie rows are forced.** On those rows `p = 1/512` exactly and
+  `256 · p = ½`. A bound of nonzero width around an exact midpoint can never certify. The
+  exact-rational path is what resolves them, and it gives the right code on every row.
+- **The cost below is Python lab cost, not kernel cost.** It shows the ratio between the two paths
+  and nothing about a production implementation.
+
+  | path | median s/element | worst row |
+  |---|---|---|
+  | base (arm A + bound) | 9.9e-5 | 0.48 s |
+  | escalation | 1.65e-5 | 0.18 s |
+
+**The fallback implements the declared rounding rule (ties away from zero, TFLM's output rule).**
+- **Exact-rational path.** It applies the rule to the exact value, so it is correct by construction.
+- **Interval path.** It returns only when both ends give the same code. The exact value lies
+  between them, so the result is that value's code whatever the tie rule. The path therefore
+  never decides a tie.
+- **When a tie can happen.** β and the representatives are f64, hence rational.
+  Lindemann–Weierstrass then gives:
+  - p is irrational whenever the row has two or more distinct representatives;
+  - y is rational only when every distinct-representative group has the same V-mean, and that
+    case is caught exactly before the interval path runs.
+- **Consequence.** Every row the interval path receives has an irrational value and terminates at
+  finite precision. 512 bits is a practical cap; reaching it fails closed, it is never a guess.
+- **Disable run.** With the equal-means test removed, the control below came back
+  `UNRESOLVED` at 512 bits. With it, the result is code 3, which matches the reference. The test is
+  load-bearing.
+
+**Negative controls (all executed).**
+
+| control | result |
+|---|---|
+| NaN or ±inf representative | refused at table generation |
+| β ∈ {0, −1, NaN} | refused |
+| wrong codebook, no identity check | **the bound certifies a wrong code** (claims 2, reference differs). The bound is conditional on table identity. |
+| wrong codebook, with the digest check (sha256 of representatives + β + F + rounding) | refused; the digests differ |
+| exactly rational y on a midpoint with two representatives (group V-means both 5/2) | resolves to code 3 = reference |
+| saturation | covered by the clamped codes of the 4096-length and spike rows; no separate control |
+| mask (elements excluded before the max and the sums) | reference-side shape check only; **no arm consumes a mask** |
+
+**Corrections made while running the probe (probe-local, recorded so they are not repeated).**
+- `mpmath.workprec` does not reach the interval context; `mp.iv.prec` is separate. A first table
+  built "at 96 bits" was really built at 53.
+- `mpf.man_exp` returns the magnitude only. The first run lost the sign of negative references and
+  reported 565 spurious y misses. Exact conversion now uses `_mpf_`.
+
+### G2. Corrections to earlier text
+
+1. **Amendment 5 F7, "the bound and its trigger rate have not been measured yet":** now measured (G1).
+2. **Amendment 5 F7, "recompute that row with C":** superseded. Arm C is a plain f64 recomputation
+   and is not a certified resolver: it removed the observed mismatches without proving it would. The
+   escape hatch is the ledger H resolver.
+3. **Amendment 5 F5, cost of arm C:** the benchmark closure computed `S/N` instead of `N/S`. It is now
+   fixed in `src/main.rs`. Rebuilt timing is 8.7-9.6 ns/element, inside the published range. The
+   accuracy arm was already correct, so no accuracy number changes.
+4. **Two different `GammaProfile` structs exist and must not be conflated:**
+   - bgz-tensor `gamma_phi.rs:51`: 8 role offsets + φ-scale; `METADATA_BYTES` is 36 (it was 28
+     before the role extension);
+   - highheelbgz `rehydrate.rs:29`: 6 role offsets + φ-scale, `BYTE_SIZE` 28.
+5. **A stale comment in a production file (not edited — production code is out of scope here):**
+   `bgz-tensor/src/gamma_calibration.rs:304` says `// 28 + 12 = 40 bytes`. The constants give
+   36 + 12 = 48, and the test at `:435` asserts 48.
+
+### G3. Gamma metadata precedents (inventory only — no new type proposed)
+
+| struct | file:line | bytes | carries |
+|---|---|---|---|
+| `FamilyGamma` | `bgz-tensor/src/fisher_z.rs:28` | 8 | `z_min`, `z_range` (affine Fisher-z decode; legacy reference) |
+| `HhtlDTensor::gamma_meta` | `bgz-tensor/src/hhtl_d.rs:154` | 16 | `[f32; 4]` |
+| `GammaProfile` | `highheelbgz/src/rehydrate.rs:29` | 28 | 6 role gammas + φ-scale |
+| `GammaProfile` | `bgz-tensor/src/gamma_phi.rs:51` | 36 metadata | 8 role gammas + φ-scale (+ name, count) |
+| `RoleGamma` | `bgz-tensor/src/gamma_calibration.rs:52` | 36 | 8 roles + φ |
+| `CosineGamma` | `bgz-tensor/src/gamma_calibration.rs:142` | 12 | cosine-family calibration |
+| `CalibrationProfile` | `bgz-tensor/src/gamma_calibration.rs:293` | 48 | `RoleGamma` + `CosineGamma` |
+| `EulerGammaOffset` | design docs only (`ISSUES.md:3571-3612`; ndarray `w3-w6-soa-aos-design.md:542-546`, `cognitive-distance-typing.md:23,27`) | — | no Rust type |
+
+Two related facts:
+- **`RollingFloor` has three independent implementations:** `helix/src/quantize.rs:50`,
+  `perturbation-sim/src/rolling_floor.rs:72` and ndarray `src/hpc/rolling_floor.rs:506`. This is
+  inventory only; consolidating them is not proposed here.
+- **Every precedent above is a few bytes of compile- or preparation-time metadata beside a table.**
+  None is a runtime dispatch structure. A Codec8 `Calibration` (Amendment 1) belongs to the same
+  family, and a fifth gamma struct should not be added without first reusing one of these.
+
+### G4. Where each policy lives, and calibration staging
+
+| policy | placement | reason |
+|---|---|---|
+| storage, code space, rounding rule, NaN policy (Codec8 parameters) | compile time | type parameters; a mismatch is a type error |
+| codebook representatives, β, F, deskew representative, table contents, identity digest | preparation time (load or build, keyed by the recipe receipt) | data; immutable once committed |
+| certification, escalation | run time, per row | data-dependent; amortized, never per-element dispatch |
+
+The name "Belichtungsmesser" already belongs to the banded cascade search (ndarray `simd.rs:796`;
+holograph). The staging below borrows the metaphor, but it is a **calibration** lifecycle, not that
+search. Status: PROPOSED vocabulary, nothing built.
+
+1. **OBSERVE** — collect value statistics per code; no table changes.
+2. **PREHEAT** — build candidate tables off the hot path (interval-certified entries).
+3. **PROPOSE** — a candidate (codebook, β, deskew representative) with its digest.
+4. **VALIDATE** — held-out probe: escalation rate, misses = 0, TV and bias against the incumbent.
+5. **COMMIT** — the new digest becomes a new immutable version; old rows keep their version.
+
+**Calibration learning changes the measuring instrument (tables, representatives). It never
+changes model weights.** Model learning is out of scope for this staging. A codebook is never
+mutated in place.
+
+### G5. Future objectives — BERT, ONNX IR, TFLite IR (all NOT RUN)
+
+1. **BERT-style int8 attention.**
+   - Attention logits are dynamic int32 accumulations, not palette codes. Ledger A applies only after
+     they are requantized to codes with a static per-tensor affine scale, which is what TFLM's int8
+     softmax does.
+   - GELU over int8 is an activation table (Codec8).
+   - LayerNorm needs a reciprocal square root of a dynamic variance, so it is not a palette operation.
+   - **Acceptance:** for one fixed encoder layer, byte equality with a reference int8 implementation
+     on the softmax output wherever the TFLM domain applies (row sum < 2^9), and 0 misses under the
+     G bound elsewhere.
+2. **ONNX IR admission.**
+   - A `DequantizeLinear → Softmax → QuantizeLinear` pattern with static scale and zero point is
+     admitted to the ledger A/B lowering. Anything else stays on the canonical path.
+   - ONNX `QuantizeLinear` rounding is round-half-to-even per the spec (to be verified against the
+     spec text before use). It differs from TFLM's ties-away output rule, so the declared rule is
+     part of the admission key.
+   - **Acceptance:** a fixture with an exact-tie row produces different codes under the two rules,
+     and each matches its own reference.
+3. **TFLite IR.**
+   - The int8 `SOFTMAX` output contract (scale 1/256, zp −128) is parity-checkable only where the
+     sum of exponentials is < 2^9 (Amendment 5 F4).
+   - **Acceptance:** a calibration sweep of TFLM softmax bytes against arm A, 0 differing bytes in
+     that domain, and every abort recorded.
+
+### G6. Prioritized to-do
+
+| pri | item | acceptance criterion | status |
+|---|---|---|---|
+| P0 | Calibration sweep of TFLM int8 TANH (Amendment 3 next gate) | many input calibrations; any code where TFLM ≠ f64 reference is recorded with its parameters | OPEN, NOT RUN |
+| P0 | Reproduce G1 in a Rust lab arm (integers + bound + ledger H resolver; ndarray only for FMA where real-valued) | identical certification and escalation decisions to `cert.json` on all 261 cases; 0 misses | OPEN |
+| P1 | Held-out validation: a distinct codebook generation and fresh rows | misses = 0; escalation rate reported; a digest mismatch is refused | NOT RUN |
+| P1 | Argmax interval early exit (ledger D) | 0 wrong argmax; early-exit rate measured; tie rule pinned by a test | NOT RUN |
+| P1 | TFLM int8 softmax calibration sweep in the < 2^9 domain | 0 differing bytes vs arm A; aborts listed | NOT RUN |
+| P1 | Fix the stale `// 28 + 12 = 40` comment (`gamma_calibration.rs:304`) | comment says 48; existing test unchanged | OPEN — needs authorization (production file) |
+| P2 | Deskew β-sweep and per-β table cost | TV and bias per β; tables per (codebook, β) counted | NOT RUN |
+| P2 | ONNX DQ→Softmax→Q admission fixture (G5.2) | two rounding rules, two references, both matched | NOT RUN |
+| P2 | BERT int8 attention-softmax arm (G5.1) | G5.1 criterion | NOT RUN |
+| P3 | Decide `EulerGammaOffset`: a type or removal from design docs | an owner decision recorded | OPEN |
+| P3 | `RollingFloor` ×3: consolidate or document the split | an owner decision recorded | OPEN (inventory only) |
+| P3 | Calibration staging (G4) written into a plan if adopted | plan file with D-ids | PROPOSED |
+
+### G7. BOARD_SYNC_PENDING
+
+Linear is unavailable to this session. No issue was queried, created, modified or validated, and no
+substitute ID was invented. The four issues below are the ones the repository's own plans already
+cite. Each needs a human or a Linear-connected session to mirror the named sections.
+
+| Linear issue | what the repo says it is (by citation) | sections to mirror |
+|---|---|---|
+| EXO-152 | D-NAM plan (`d-nam-native-algebra-dto-capstone-v1.md:3`; capstone `d-tflp-…-v1.md:5`) | G0 ledger link, G6 to-do |
+| EXO-50 | append-only session handoff / message bus (capstone `:7`) | a one-line handoff pointing at this amendment and the commit |
+| EXO-129 / EXO-132 | closure gate for chains; k-hop palette closure (capstone `:65,229,261`) | ledger C (the softmax output is not a palette code; no chain closure claimed) |
+| EXO-127 | egglog/DialEgg offline proof scope; does not authorize FP reassociation (`d-nam-…-v1.md:29`) | ledger H (FMA/reduction order is not reassociated; escalation is not a rewrite) |
+
+### G8. NOT RUN
+
+- Held-out validation on a distinct codebook generation (G6 P1).
+- Any Rust implementation of the bound or of the resolver; costs in G1 are Python.
+- Argmax early exit; TANH and softmax calibration sweeps against TFLM; BERT, ONNX and TFLite IR arms.
+- A saturation-specific control and a mask-consuming arm.
+
+**Next narrow gate:** P0 Rust reproduction of G1, i.e. the same 261 decisions with integers only,
+in parallel with the TANH calibration sweep.

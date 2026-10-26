@@ -172,7 +172,8 @@ fn bench() {
         let m = q.iter().map(|&a| x[a as usize]).fold(f64::NEG_INFINITY, f64::max);
         let w = q.iter().map(|&a| (beta * (x[a as usize] - m)).exp());
         let ws: Vec<f64> = w.collect();
-        nsum(ws.iter().cloned()) / nsum((0..n).map(|i| ws[i] * v[i]))
+        // y = N / S (was S / N: inverted in the Amendment 5 run; timing unaffected)
+        nsum((0..n).map(|i| ws[i] * v[i])) / nsum(ws.iter().cloned())
     });
 }
 
