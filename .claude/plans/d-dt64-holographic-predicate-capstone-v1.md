@@ -4,6 +4,16 @@
 **Owner:** DT64 predicate mapping and evidence contract; coordinate existing source owners via EXO-50 before any code.
 **References:** [D-QR-CAP / EXO-121](https://linear.app/exo-red/issue/EXO-121), [D-QR-IAM / EXO-123](https://linear.app/exo-red/issue/EXO-123), [D-QR-SAP / EXO-122](https://linear.app/exo-red/issue/EXO-122), [D-QSP / EXO-126](https://linear.app/exo-red/issue/EXO-126), [D-DRMC / EXO-127](https://linear.app/exo-red/issue/EXO-127), [EXO-46](https://linear.app/exo-red/issue/EXO-46), [EXO-148](https://linear.app/exo-red/issue/EXO-148), [EXO-151](https://linear.app/exo-red/issue/EXO-151), [EXO-152](https://linear.app/exo-red/issue/EXO-152), [EXO-50](https://linear.app/exo-red/issue/EXO-50); [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792).
 
+## Coordination lock: first common DT64 ↔ Quack seam
+
+[**D-DT64-Q0 borrowed binding seam**](d-dt64-q0-borrowed-quack-binding-seam-v1.md) records the 2026-10-26 cross-session architecture agreement and supersedes any broader reading of the first executable stage in this charter. It is **coordination, not a new CC instruction**. One source-attested semantic binding contains typed source-object/predicate IDs, schema/catalogue version, source owner and actual pinned snapshot, focus witness, optional codebook generation, permission/completeness scope, **borrowed native input lanes** and a link to an independently reusable compiled recipe. This plan introduces **no production Rust struct/ABI**.
+
+- **DT64 owns semantics and binding**, not evaluation, method execution, ONNX, or a physical tensor.
+- **Quack/RelAlg/R2IL/mask-risc own relational execution**, ndarray numerical kernels; **D-NAM/EXO-152 owns prepared numerical method identity/certificates**. SourceParity, CertifiedMath, calibration and implementation fingerprint do not inhabit DT64 predicate bits.
+- **First landing is narrow:** eight sourced IAM/Exchange/SAP predicate candidates, owner-borrowed algebra, directed (s,p)→o / (p,o)→s / (s,o)→p access, independent scalar oracle and optional measured DR64². Odoo remains an explicitly documented later source-mapping extension, not a forced prerequisite for the first exact fixture.
+- **#1792's 1,032 vs 31 stale Keep** falsifier remains mandatory. The compiled recipe may outlive a borrow; a detached Keep cannot be reused across source changes without a complete dependency witness, so recompute/refuse.
+- **No DR64³ construction, new runtime, generalized replica or production writes** follow from the Q0 seam.
+
 ## Thesis and precise terminology
 
 DT64 = **DTO Tensor 64**, a versioned *semantic adapter plate*: register up to 64 separately typed Boolean predicate mappings in a stable ordered catalogue. Source DTOs from IAM/AD/Entra/Exchange, Odoo and SAP bind into witnessed canonical identities, typed predicates and borrowed lanes. Quack / relalg / R2IL / mask-risc / ndarray operate over admitted native data. DT64 is **not** a replacement database, copied global entity table, new executor, or inference from similar field names.
