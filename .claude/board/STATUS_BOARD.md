@@ -1,3 +1,18 @@
+## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
+
+**Status:** PLAN / DOCS ONLY, six independent draft PRs, no source ingestion, no new 64-slot ABI, no runtime or tests run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
+
+| Stage | Plan / draft | Gate |
+|---|---|---|
+| DT64-0 | charter / THIS PR | protect ClassView presence vs predicate truth; NFR-OP-2 open |
+| DT64-1 | [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) | 64 typed candidate mappings, sourced/candidate/blocked differentiated |
+| DT64-2 | [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) | IAM/Odoo/SAP/Exchange cross-system identity joins require source attestations; licence source absent |
+| DT64-3 | [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) | forward/inverse/predicate SPO projection parity and K3/Bag falsifiers; no mandated DR³ physical cube |
+| DT64-4 | [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) | dependency support and hypothesis/time receipts; EXO-148 missing durable IDs |
+| DT64-5 | [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) | D-NAM/EXO-152 native method route, ONNX as leaf, computed result ≠ source fact |
+
+**Hard blockers:** [EXO-46](https://linear.app/exo-red/issue/EXO-46) production focus admission, [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) escaped-Keep authority and physical snapshot, NFR-OP-2 axis selection, source-specific negative observation/ACL, EXO-148, missing Entra license and Odoo method source verification. Direct bitmask first; no claimed holographic global reconstruction until independent oracle.
+
 ## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
 
 **Status: PROPOSAL, DOCS ONLY.** Plan: [d-tflp-tflite-palette-polyfill-capstone-v1.md](../plans/d-tflp-tflite-palette-polyfill-capstone-v1.md). Ledger: [2026-10-25-d-tflp-0-tflite-palette-polyfill.md](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784); no executor, tensor IR or `Rel` variant.
