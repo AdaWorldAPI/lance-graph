@@ -1,3 +1,12 @@
+## 2026-10-26 — index catch-up: thirteen plans merged without an index row (#1779–#1784, #1794–#1799, #1802)
+
+- D-NAM leaves (EXO-152): `d-nam-1-native-method-crosswalk-spec-v1` (#1779), `d-nam-2-onnx-tflite-leaf-dto-v1` (#1780), `d-nam-3-mlir-sql-relalg-normalization-v1` (#1781), `d-nam-4-quack-soa-dr-native-recipes-v1` (#1782), `d-nam-5-reverse-dto-certification-gates-v1` (#1783), `d-nam-palette-native-lut-capstone-v1` (#1784). Capstone `d-nam-native-algebra-dto-capstone-v1` (#1778) is already indexed.
+- DT64 leaves: `d-dt64-1-predicate-catalogue-source-crosswalk-v1` (#1794), `d-dt64-2-iam-odoo-sap-source-admission-v1` (#1795), `d-dt64-3-directed-dr-projection-falsifiers-v1` (#1796), `d-dt64-4-edge-thoughtgit-hypothesis-time-v1` (#1797), `d-dt64-5-native-method-onnx-timeseries-v1` (#1798); `d-dt64-quack-borrowed-binding-seam-v1` (#1799) is a non-authoritative pointer to the canonical `d-dt64-q0-borrowed-quack-binding-seam-v1`.
+- `d-onnx-frontend-intake-bakeoff-capstone-v1` (#1802), D-ONNX-INTAKE-0.
+
+**Status:** all PROPOSAL / SPEC / docs only, read from each plan's own header; nothing authorized. #1779 also ships a static crosswalk JSON and a fail-closed validator (`tools/d_nam_validate_crosswalk.py`), not a native mapping.
+**Confidence:** index row only.
+
 ## 2026-10-26 — D-DT64 64-slot versioned DTO adapter / holographic relational projections → `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`
 
 **Status:** DESIGN ONLY, six documentation PRs **MERGED** to main (#1794–#1799). **Board:** [D-DT64-0](entries/2026-10-26-dt64-holographic-interface.md) and [STATUS_BOARD](STATUS_BOARD.md). **Stages:** [DT64-1 #1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) predicate/source catalogue, [DT64-2 #1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) IAM/Odoo/SAP/EXO DTO authority, [DT64-3 #1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) directed DR projections, [DT64-4 #1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) edge×edge and Thought-Git temporal hypotheses, [DT64-5 #1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) native method/ONNX/time series. [EXO-50](https://linear.app/exo-red/issue/EXO-50) is append-only handoff; these are merged documentation-only design receipts, **NOT** production adapters or a measured DT64→Quack proof.
