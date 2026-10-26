@@ -26,6 +26,8 @@ lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycl
 lance-graph-planner = { path = "../lance-graph-planner" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 tokio = { version = "1", features = ["rt", "macros", "sync"] }
+# examples/global_union.rs (D-DR256 lab): the one mask-RISC evaluator, unchanged.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
