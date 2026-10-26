@@ -2397,3 +2397,177 @@ Linear was not reachable, and no issue state is claimed.
 **Next narrow gate:** turn N8.5 into a fixture — commit the fixed-point corpus digest and a
 reduced FC four-arm set as an ndarray test that runs without TFLM, with the TFLM bytes stored as
 expected output — and add a precondition check for N8.3.
+
+### Amendment 6.4 follow-up (2026-10-26) — source-domain gate, reciprocal reachability levels, boundary pruning, integer gates
+
+Scope: lab probes and documentation only, no production change. Amendment 6.3 and 6.4 artifacts and
+results are unchanged; new files sit beside them (`.claude/probes/source-behavior-v1/`, README section
+"Amendment 6.4 follow-up"; `.claude/probes/int8-semantics-v1/tailsweep64.json`). Lab commit:
+`3def43df0`. The reciprocal work (N12, N13) and the integer matmul work (N14) are kept
+apart on purpose: one concerns softmax normalisation, the other exact integer accumulation, and a failed
+result in one must not be diagnosed through the other.
+
+#### N11. Source-domain / portability gate (separate from SourceParity)
+
+SourceParity is a claim about the source's *defined* behaviour on an *admitted* domain. Six builds agreeing
+(6.3 addendum M2) is evidence for those six artifacts. It cannot extend parity to rows where the C++ source
+has no defined meaning. Every softmax row therefore passes this gate first, and lands in exactly one class:
+
+| class | meaning | consequence |
+|---|---|---|
+| SUPPORTED | no undefined operation is reachable and no source guard fires | byte parity is meaningful and claimed |
+| UNSUPPORTED | a source guard aborts deterministically (defined behaviour) | typed refusal; no byte claim |
+| UNDEFINED | a C++ operation with no defined result is reachable | refusal; bytes some builds return are **not** part of any contract |
+
+**Exact source guards and undefined operations, int8 SOFTMAX (TFLM `5f64e4ad`):**
+
+| site | operation | defined when | otherwise |
+|---|---|---|---|
+| `softmax_common.cc:128-130` → `quantization_util.cc:339-355` | `diff_min = −floor(31·2^26 / 2^left_shift)` | always | — |
+| `reference/softmax.h:103` | `if (input_diff >= diff_min)`: element admitted | — | element outputs −128, independent of the row sum |
+| `common.h:396-400` | `x * (1 << left_shift)` on an admitted difference | \|d\|·2^left_shift ≤ 31·2^26 < 2^31, guaranteed by the radius | not reached (element not admitted) |
+| `reference/softmax.h:109` → `fixedpoint.h:91-95` | `sum_of_exps + Rescale<12>(…)`, plain int32 `a + b`, comment "Overflow is undefined behavior" | exact sum ≤ INT32_MAX | **UNDEFINED** (signed overflow); no guard runs before it |
+| `common.h:970-977` (`GetReciprocal`) | `uint32(x) << clz(x)` | x ≠ 0 (shift ≤ 31) | **UNDEFINED** at x = 0 (`<< 32`) |
+| `reference/softmax.h:118-119` | `TFLITE_CHECK(0 <= exponent && exponent <= 31)`, exponent = 35 − clz(S) | passes for 0 ≤ S < 2^28 (S = 0 gives clz 32, exponent 3: it passes *after* the undefined shift) | **UNSUPPORTED** (abort) for S ≥ 2^28 or S < 0 — it runs after the sum, so it cannot undo an overflow, and it does not catch S = 0 |
+| `fixedpoint.h:357-358` | `assert(0 <= exponent <= 31)` in `RoundingDivideByPOT` | compiled out under `NDEBUG`; unreachable once the CHECK passed | — |
+
+**Admitted domain (derivation).** A row is SUPPORTED iff its exact admitted-weight sum S satisfies
+2^19 ≤ S < 2^28. The lower bound comes from the row maximum (weight Rescale<12>(1) = 2^19). In that range
+every partial sum is non-negative, monotone and ≤ S < 2^31, so no add overflows. S ≠ 0, so the shift is
+defined, and the exponent lies in [23, 31], so the CHECK passes. The output tail (`SaturatingRoundingDoublingHighMul`,
+saturating; `RoundingDivideByPOT` with exponent ≤ 31 on x ≤ INT32_MAX, whose `+1` occurs only for exponent ≥ 1,
+i.e. x>>exponent ≤ 2^30; `+ (−128)`; clamp) has no undefined operation either. This is a proof over the
+source text, not a sanitizer result.
+
+**Minimal counterexamples (proved minimal).** Every admitted weight is ≤ 2^19.
+- Signed overflow needs exact sum > 2^31 − 1, so at least 4,096 admitted elements; **4,096 maxima** is
+  minimal and reaches `fixedpoint.h:94`.
+- The undefined shift needs a wrapped sum of exactly 0, i.e. exact sum a positive multiple of 2^32, so at
+  least 8,192 admitted elements; **8,192 maxima** is minimal and reaches `common.h:976`. It can only be
+  reached after an overflow, so it is UNDEFINED twice.
+- Between them, 512 … 4,095 maxima are UNSUPPORTED (exponent 32 … 34, CHECK aborts, defined).
+- The confident wrong bytes of 6.3 addendum M3 (8,193 maxima → all 127; 8,300 / 8,703 → −126 / −127) are
+  UNDEFINED rows. Their agreement across five builds is an observation of artifacts, never parity.
+
+**Sanitizer evidence (`ubsanctl64.txt`, `recipall64_ubsan.json`).**
+- Can-fire control, same flags as below (`-O1 -fsanitize=undefined -fno-sanitize-recover=undefined`):
+  `add` (4,096 maxima) → `fixedpoint.h:94:14: signed integer overflow`, exit 1; `shift` (`GetReciprocal(0)`)
+  → `common.h:976:54: shift exponent 32`, exit 1. Can-stay-silent: `none` (511 maxima) → exit 0.
+- The whole admitted superset under UBSan: `recipall63.cc` and `trace63.cc` rebuilt with those flags
+  (against `gen_ubsan/`) ran every S in [2^19, 2^28) × every admitted weight of all 14 calibrations, plus the
+  exp stage for every difference: **0 sanitizer reports** over 3,750,756,352 S values (44 min on 3 cores; with `-fno-sanitize-recover` any report aborts the run, and every process exited 0), and the result is identical to the unsanitized run: the same 601 candidates, the same per-calibration counts. The derivation above is the proof; the run shows the
+  build has no surprise on the tested calibrations.
+- **Not covered:** other calibrations' `left_shift` values (the radius argument covers them; no run did), and
+  compilers whose optimiser exploits the undefined add before the CHECK.
+
+**Rule.** Every SourceParity statement in Amendments 6.2 – 6.4 (6.3 L3, addendum M2, M4, M6, N12, N13 below)
+is restricted to SUPPORTED rows. UNSUPPORTED and UNDEFINED rows are refused with the guard named, and a
+recipe never reproduces a wrapped sum or a post-overflow byte. If a consumer ever needs those bytes, they
+belong to a pinned, named, non-portable artifact (6.3 addendum M3, unchanged).
+
+#### N12. Reciprocal observability: three levels kept apart (supersedes M4's "72 UNKNOWN")
+
+| level | definition | count | evidence |
+|---|---|---|---|
+| arithmetic superset | every S in [B[0], 2^28) × every distinct admitted weight, per calibration | 3,750,756,352 S values (× weights), 14 calibrations | `recipall63.json` |
+| superset candidates | (S, weight) where the byte under the source reciprocal differs from the byte under the correctly rounded one | **601** | same |
+| reachable pairs | some SUPPORTED row has sum exactly S and an element at that difference | **529** | `reach64.json` |
+| proved unreachable pairs | no row can: remainder R = S − B[0] − B[d] < 0 (**40**), or R below the smallest representable value of its residue class mod B[0] (**32**) | **72** | `reach64.json` |
+| unknown pairs | — | **0** | — |
+| witness rows | one constructed row per reachable pair, re-checked (positive counts, admitted codes, recomputed sum = S) and run through the real TFLM kernel: kernel byte = source-reciprocal byte ≠ exact byte | **529** (13 of 14 calibrations; rows 4 … 507 elements, 4 … 10 distinct codes) | `reach64.json` |
+
+**Why the superset covers every admitted case.**
+1. A SUPPORTED row has S ∈ [B[0], 2^28) (N11).
+2. An admitted element's byte depends only on (S, A[d]): the reciprocal and exponent are functions of S,
+   the weight is a function of d (`reference/softmax.h:115-139`).
+3. A non-admitted element outputs −128 whatever the reciprocal (`softmax.h:143-145`).
+4. Rows have no length limit in the superset: only S is bounded, and S < 2^28 is exactly the admission bound.
+**Why the tested computation is the source's.** `recipall63`'s `out_byte` calls the same header functions
+(`SaturatingRoundingDoublingHighMul`, `RoundingDivideByPOT`), with the same exponent (`nb + 23`), offset and
+clamp as `softmax.h:124-142`, and `GetReciprocal` itself for the source arm. It reproduced the kernel byte on
+all 529 witness rows. So exhaustive absence of a candidate on a calibration is output equivalence on its
+whole SUPPORTED domain: **calibration 9 stays PROVED equivalent**; the other 13 are **OUTPUT_DIVERGENT**
+with reachable witnesses.
+
+**Reachability is exact, not searched.** B[0] is itself a weight, so R is representable iff
+R ≥ minrep[R mod B[0]], where minrep comes from Dijkstra over the residue graph mod B[0] (`reach64.cc`).
+- Cross-check: a plain unbounded-coin DP over [0, 2^21] agrees with the residue rule on every value, 0
+  mismatches in all 14 calibrations (`reach64_xcheck.txt`). All 32 gap cases (calibrations 10, 11) have
+  S ≤ 1,692,428, inside that checked range.
+- All 529 pairs reach63 had built are reachable again; none of reach63's 72 unknowns is reachable.
+- **Disable run (and a defect it found in the witness check).** With the gap test removed, the solver
+  emitted rows with negative multiplicities for the 32 gap pairs, and **15 of them passed as kernel
+  "witnesses"**: the row actually built had a different sum, and the check compared only bytes. The solver
+  now refuses negative counts (exit 7, the disable run fails loudly), and the driver recomputes each row's
+  sum from the admitted weights and requires it to equal S before the kernel runs. The 6.3 reach63 witnesses
+  are unaffected: reach63 only accepted rows whose recomputed sum was S.
+
+#### N13. Pruning around the final quantization boundaries (`recipprune64.*`)
+
+For fixed weight w and exponent ex, the output byte is a non-decreasing step function of the reciprocal sh:
+unsat ≥ m + 1 iff sh ≥ T_m = ⌈(β_m·2^31 − 2^30)/w⌉ with β_m = m·2^ex + 2^(ex−1), and only the steps
+m = 0 … 254 are visible (unsat ≥ 255 clamps to 127). The two arms give different bytes iff some T_m lies
+between them. With E_h = max |sh_src − sh_exact| over exponent band h, a differing byte needs
+sh_exact(S) ∈ [T_m − E_h, T_m + E_h]. sh_exact is non-increasing in S within a band, so that is one S
+interval per (w, h, m), found by binary search.
+
+- **Measured bound:** E_h = 6 in every band h = 4 … 12, from a scan of the reciprocal alone over all
+  S ∈ [2^19, 2^28) (no weight loop); monotonicity of the exact reciprocal asserted on every step.
+- **Result:** the pruned candidate set equals the exhaustive one, **601 = 601, 0 missed, 0 extra**,
+  evaluating **4,078 (S, weight) pairs** instead of 3,750,756,352 S values × every weight. Wall time 7.2 s,
+  most of it the bound scan, against 23 min on 3 cores for the exhaustive run.
+- **The window binds** (`recipprune64_window_sweep.json`): window 0 → 494 missed, 1 → 295, 2 → 148,
+  3 → 26, 4 → 2, 5 → 0, 6 (the measured bound) → 0. That 5 already suffices on this data is an observation;
+  only E_h is a proof.
+- **Negative control preserved:** the δ = 256 mutation detector. Re-run exhaustively on calibration 0 with
+  every candidate listed (`recipall64_control_delta256_full.json`; the 6.3 file kept 10 samples): 267,911,168 S values, the perturbed reciprocal differs from the source on 267,911,159 of them, and **3,037** (S, weight) pairs change a byte, the same count 6.3 recorded.
+  The pruned search with window E_h + 256: **the identical 3,037-pair set** (0 missed, 0 extra) from 6,351 evaluations (`recipprune64_control_delta256.json`). The pruning therefore sees a reciprocal change the exhaustive detector sees, and loses nothing under a mutation that is 40× its own error bound.
+- **Scope.** Soundness rests on E_h being the true maximum (measured by exhaustion of the reciprocal, which is
+  calibration-independent) and on the exact reciprocal's monotonicity (asserted). The pruning is a second,
+  independent derivation of the exhaustive result, not a replacement for it on new calibrations unless both
+  conditions are re-checked there.
+
+#### N14. Integer matmul: three acceptance gates, kept separate
+
+| gate | statement | status | evidence |
+|---|---|---|---|
+| **IntegerExact** | AMX, AVX-512 VNNI, AVX-VNNI, scalar and the ndarray dot arms equal an i64 oracle whenever the true result fits i32 | **TESTED, 0 mismatches** | 6.4 `arms64.json`; `tailsweep64.json` (below) |
+| **SourceParity** | the full int8 FC output (offsets, requantization with double rounding, clamp) equals pinned TFLM bytes on SUPPORTED inputs | **TESTED, 0 mismatches** (A = B = C) | 6.4 N5 |
+| **NativeCodeSpace** | one native operation handles every supported Palette256 code-space policy, including the distinct meanings of −128 | **NOT MET** | 6.4 F4 / N8.1: an asymmetric −128 reaches a NaN decoder unchallenged |
+
+IntegerExact details:
+- **The bias identity** Σ q·w = Σ (q+128)·w − 128·Σ w is applied over exactly the multiplied elements:
+  `subtract_i8_to_u8_bias` sums the real K rows (`amx_matmul.rs:1019-1031`).
+- **No K padding exists.** The VPDPBUSD paths take the K-tail (k mod 4) in scalar code on the same
+  +128-shifted activations (`int8_tile_gemm.rs:207-216`). AMX runs only when K % 64 = 0. N-tail lanes get
+  weight 0 and are dropped before the store (`int8_tile_gemm.rs:169-186, 218-220`).
+- **No saturating instruction** (`vpmaddubsw`, `vpdpbusds`) in any executed binary (6.4 N4). The lab's
+  `vpmaddubsw` model is the F5 control.
+- **N/K-tail sweep (new, `tailsweep64.json`):** m ∈ {1, 2, 3, 16, 17}, n = 1 … 33, k ∈ {1, 2, 3, 4, 5, 31,
+  63, 64, 65, 128, 129}, three fills each (uniform codes, all (−128, −128), all (127, −128)): 5,445 shapes,
+  722,007 cells, **0 mismatches** on every corrected arm (scalar, `matmul_i8_to_i32`, zmm, ymm, `simd_int_ops`,
+  `vnni_dot_u8_i8` corrected, lab-corrected; AMX on its 12 aligned shapes). The 6.4 run used n = 16 only
+  (plus n = 1 in the extreme pairs), so this closes the N-tail gap.
+- **Negative control:** the uncorrected u8×i8 arm differs on exactly the 721,613 cells whose column sum is
+  non-zero, and on no other.
+- **Precondition, unchanged:** the true accumulator must fit i32; past it, release wraps and debug panics on
+  the SIMD tiers (6.4 F9, N8.3).
+
+#### N15. Status changes, BOARD_SYNC_PENDING, next gate
+
+- M4 "72 candidates UNKNOWN" → **72 PROVED unreachable** (N12).
+- M2 OUTPUT_EQUIVALENT (six builds) is **restricted to SUPPORTED rows**; the overflow rows are UNDEFINED or
+  UNSUPPORTED (N11).
+- The witness definition now requires the row's recomputed sum to equal S (N12, the defect the disable run
+  found).
+- NativeCodeSpace is recorded as **NOT MET** (N14).
+- Linear was not reachable. **EXO-152**: N11 – N14. **EXO-50**: one line pointing at this section. No issue
+  state is claimed.
+
+**NOT RUN:** a UBSan run over other calibrations; compilers that exploit the undefined add before the CHECK;
+non-x86 targets for the reciprocal; IntegerExact on AMX silicon other than this host and on `avxvnniint8`.
+
+**Next narrow gate:** turn the pruned search into the admission check a prepared softmax recipe runs per
+calibration: compute E_h once, prune, and either PROVE output equivalence for the cheaper reciprocal (as for
+calibration 9) or keep the source reciprocal with its witness list — then measure the cost of that check
+against the exhaustive one on all 14 calibrations.
