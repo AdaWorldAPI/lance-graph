@@ -423,3 +423,7 @@ y = Σ p_i V_i.
      source recipe, which needs no substitution, is the large saving.
 - **Status.** TESTED-LAB (`.claude/probes/pal256-admission-v1/`, `.claude/probes/source-behavior-v1/`
   README "Amendment 6.5").
+
+**L8 landing note (2026-10-26).** The 6.5 evidence is proposed for `main` in draft PRs #1800
+(softmax replay and certified gate, with the table-identity check) and #1801 (8-bit admission,
+TESTED_COMPATIBLE_FOR_PINNED_CODEC_SET). No ledger row changes status as a result.

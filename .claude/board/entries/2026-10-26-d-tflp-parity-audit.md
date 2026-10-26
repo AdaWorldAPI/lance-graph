@@ -3031,3 +3031,27 @@ Not pursued (NOT RUN).
 - **EXO-50:** one line pointing at this amendment (BOARD_SYNC_PENDING).
 
 No issue state is claimed.
+
+## Landing note (2026-10-26)
+
+The 6.5 work has been moved to `main` as two draft PRs, branched from `88e173959`. This branch was
+not rebased, and every hash cited above is unchanged.
+
+- **#1800**, `claude/d-tflp-softmax-evidence`:
+  - replay and fixtures (`66b7431fc`);
+  - the certification gate (`26666aa0f`).
+  - The gate now recomputes the prepared table from the claimed (scale, β) and refuses
+    `table_identity_mismatch`. It prints the numerical key `(mult, shift)` and the semantic receipt as
+    separate outputs.
+  - Re-run results are identical to this branch: 601/529/72 and 514/446/68. Fixtures regenerate
+    byte-identical.
+  - The replay gained four tamper tests: wrong calibration identity, another table, missing maximum
+    and wrong sum.
+- **#1801**, `claude/d-tflp-codec8-admission`:
+  - `admit/`, with the identity claim narrowed to TESTED_COMPATIBLE_FOR_PINNED_CODEC_SET
+    (21 instantiations, signatures pairwise distinct);
+  - `HANDOFF.md` for DT64, Quack and D-NAM;
+  - the board entry `2026-10-26-d-tflp-65-landing.md`.
+- `int8-semantics-v1/accum_wrapping65.diff` stays here only. It needs an owner decision on overflow
+  semantics.
+- EXO-152 / EXO-50: BOARD_SYNC_PENDING.
