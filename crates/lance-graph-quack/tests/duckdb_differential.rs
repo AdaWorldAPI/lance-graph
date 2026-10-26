@@ -77,6 +77,29 @@ fn alloc_delta(before: usize) -> usize {
     BYTES.load(Ordering::Relaxed) - before
 }
 
+/// Opt-in timing arm: `QUACK_DIFF_TIMED_REPS=N` runs each timed site N extra
+/// times AFTER parity has been asserted. Unset or unparsable means `0`, and
+/// the default run is unchanged.
+fn timed_reps() -> usize {
+    std::env::var("QUACK_DIFF_TIMED_REPS")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0)
+}
+
+/// Median of `reps` per-run wall times in ns. Callers only call it when
+/// `reps > 0`; with `reps == 0` it returns `0` rather than indexing.
+fn median_ns(reps: usize, mut f: impl FnMut()) -> u64 {
+    let mut samples: Vec<u64> = Vec::with_capacity(reps);
+    for _ in 0..reps {
+        let t = std::time::Instant::now();
+        f();
+        samples.push(u64::try_from(t.elapsed().as_nanos()).unwrap_or(u64::MAX));
+    }
+    samples.sort_unstable();
+    samples.get(reps / 2).copied().unwrap_or(0)
+}
+
 // ---------------------------------------------------------------------
 // cases.tsv — hand-rolled TSV, no serde in this crate's dependency graph.
 // ---------------------------------------------------------------------
@@ -170,15 +193,32 @@ struct CaseMetrics {
     /// a zero-materialisation proof: the terminal is O(1) WHEN GIVEN that
     /// view; producing the view is the open question. `0` everywhere else.
     fixture_view_bytes: usize,
+    /// Median ns of one BIND rep: the site's lowering call(s) plus its
+    /// `Scratch::for_program` sizing, repeated. `None` unless
+    /// `QUACK_DIFF_TIMED_REPS > 0` and the site is timed.
+    t_compile_or_bind_ns: Option<u64>,
+    /// Median ns of one EXECUTE rep: the site's `execute_into` call(s) only,
+    /// after binding, with the `Out` buffer reset before each rep. `None`
+    /// unless `QUACK_DIFF_TIMED_REPS > 0` and the site is timed.
+    t_execute_ns: Option<u64>,
+    /// How many reps each median was taken over (`0` when not timed).
+    timed_reps: usize,
 }
 
 fn print_metric(id: &str, m: &CaseMetrics) {
     let scratch_bytes = m.scratch_words * std::mem::size_of::<u64>();
+    let timing = match (m.t_compile_or_bind_ns, m.t_execute_ns) {
+        (Some(b), Some(e)) => format!(
+            " t_compile_or_bind_ns={b} t_execute_ns={e} timed_reps={}",
+            m.timed_reps
+        ),
+        _ => String::new(),
+    };
     match m.programs {
         Some(k) => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={} programs={k}",
+             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={} programs={k}{timing}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -194,7 +234,7 @@ fn print_metric(id: &str, m: &CaseMetrics) {
         None => eprintln!(
             "METRIC case={id} ops={} scratch_words={} tile_words={} scratch_bytes={} \
              alloc_bytes_exec={} rows_materialized={} index_vec_len={} out_bytes={} \
-             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={}",
+             pair_relation_bytes={} population_state_bytes={} fixture_view_bytes={}{timing}",
             m.ops,
             m.scratch_words,
             m.tile_words,
@@ -214,7 +254,8 @@ fn print_metric(id: &str, m: &CaseMetrics) {
 /// encode. The encoding matches `oracle.py`'s exactly — see
 /// `tests/duckdb/README.txt`.
 fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String, CaseMetrics) {
-    let program = lower(&Query { filter, agg }).expect("lowers");
+    let query = Query { filter, agg };
+    let program = lower(&query).expect("lowers");
     let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
     let tile_words = scratch.words();
     let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
@@ -270,6 +311,38 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
         }
     };
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm — runs only after parity inputs are final.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower(&query).expect("lowers");
+            let s = Scratch::for_program(&p, planes.n_rows).expect("carves");
+            std::hint::black_box((p, s));
+        });
+        let is_keep = matches!(program.terminal, Terminal::Keep { .. });
+        let first_kept = kept_buf.clone();
+        let t_exec = median_ns(reps, || {
+            kept_buf.iter_mut().for_each(|w| *w = 0);
+            let out = if is_keep {
+                Out::Mask(&mut kept_buf)
+            } else {
+                Out::None
+            };
+            let v =
+                execute_into(&program, planes, &Foreign::NONE, &mut scratch, out).expect("runs");
+            assert_eq!(v, value, "case {id}: timed rep diverged from the first run");
+            if is_keep {
+                assert_eq!(
+                    kept_buf, first_kept,
+                    "case {id}: timed rep kept-mask diverged from the first run"
+                );
+            }
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     (
         encoded,
         CaseMetrics {
@@ -284,6 +357,9 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
             pair_relation_bytes: 0,
             population_state_bytes: 0,
             fixture_view_bytes: 0,
+            t_compile_or_bind_ns,
+            t_execute_ns,
+            timed_reps: reps,
         },
     )
 }
@@ -346,6 +422,7 @@ fn run_group(
 
     let mut ops = plan.filter.ops.len();
     let mut pairs = Vec::with_capacity(plan.groups.len());
+    let mut first_vals: Vec<Value> = Vec::with_capacity(plan.groups.len());
     for (k, prog) in plan.groups.iter().enumerate() {
         let mut g_scratch = Scratch::for_program(prog, planes.n_rows).expect("carves");
         scratch_words_total +=
@@ -356,6 +433,7 @@ fn run_group(
             execute_into(prog, &widened, &Foreign::NONE, &mut g_scratch, Out::None).expect("runs");
         alloc_bytes_exec += alloc_delta(before);
         ops += prog.ops.len();
+        first_vals.push(v);
 
         let val_str = match v {
             Value::Count(c) => c.to_string(),
@@ -366,6 +444,63 @@ fn run_group(
     }
     let encoded = pairs.join(";");
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm — one rep = the whole phase-1 + K-program sequence.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower_group_by(&g, 0).expect("lowers");
+            let fs = Scratch::for_program(&p.filter, planes.n_rows).expect("carves");
+            let gs: Vec<Scratch> = p
+                .groups
+                .iter()
+                .map(|prog| Scratch::for_program(prog, planes.n_rows).expect("carves"))
+                .collect();
+            std::hint::black_box((p, fs, gs));
+        });
+        let mut g_scratches: Vec<Scratch> = plan
+            .groups
+            .iter()
+            .map(|prog| Scratch::for_program(prog, planes.n_rows).expect("carves"))
+            .collect();
+        let mut rep_bits = vec![0u64; words_for(planes.n_rows)];
+        let t_exec = median_ns(reps, || {
+            rep_bits.iter_mut().for_each(|w| *w = 0);
+            let k_val = execute_into(
+                &plan.filter,
+                planes,
+                &Foreign::NONE,
+                &mut f_scratch,
+                Out::Mask(&mut rep_bits),
+            )
+            .expect("runs");
+            assert_eq!(
+                k_val, kept,
+                "case {id}: timed phase-1 diverged from the first run"
+            );
+            assert_eq!(
+                rep_bits, kept_bits,
+                "case {id}: timed phase-1 kept-mask diverged from the first run"
+            );
+            let rep_masks: [&[u64]; 1] = [rep_bits.as_slice()];
+            let rep_widened = Planes {
+                n_rows: planes.n_rows,
+                masks: &rep_masks,
+                lanes: planes.lanes,
+            };
+            for (k, (prog, gs)) in plan.groups.iter().zip(g_scratches.iter_mut()).enumerate() {
+                let v =
+                    execute_into(prog, &rep_widened, &Foreign::NONE, gs, Out::None).expect("runs");
+                assert_eq!(
+                    v, first_vals[k],
+                    "case {id}: timed group-{k} diverged from the first run"
+                );
+            }
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     (
         encoded,
         CaseMetrics {
@@ -380,6 +515,9 @@ fn run_group(
             pair_relation_bytes: 0,
             population_state_bytes: 0,
             fixture_view_bytes: 0,
+            t_compile_or_bind_ns,
+            t_execute_ns,
+            timed_reps: reps,
         },
     )
 }
@@ -397,11 +535,11 @@ fn run_group_reduce(
     agg: GroupAgg,
     groups: usize,
 ) -> (String, CaseMetrics) {
-    let program = lower(&Query {
+    let query = Query {
         filter,
         agg: Agg::GroupReduce { key, agg },
-    })
-    .expect("lowers");
+    };
+    let program = lower(&query).expect("lowers");
     let fold = match program.terminal {
         Terminal::GroupReduce { fold, .. } => fold,
         other => panic!("case {id}: lowered onto {other:?}, not GroupReduce"),
@@ -415,6 +553,8 @@ fn run_group_reduce(
         execute_into(&program, planes, foreign, &mut scratch, Out::I64(&mut out)).expect("runs");
     let alloc_bytes_exec = alloc_delta(before);
     assert_eq!(value, Value::GroupReduced, "case {id}");
+    // The raw sink as the first run left it, kept only for the opt-in timing arm.
+    let first_raw = (timed_reps() > 0).then(|| out.clone());
     // Through the consumer boundary: the raw sink never reaches the encoder.
     let empty_is_null = !matches!(fold, GroupFold::Count);
     let present = normalize_group_sink(fold, &mut out);
@@ -431,6 +571,30 @@ fn run_group_reduce(
         .collect::<Vec<_>>()
         .join(";");
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = match first_raw {
+        Some(first_raw) if reps > 0 => {
+            let t_bind = median_ns(reps, || {
+                let p = lower(&query).expect("lowers");
+                let s = Scratch::for_program(&p, planes.n_rows).expect("carves");
+                std::hint::black_box((p, s));
+            });
+            let t_exec = median_ns(reps, || {
+                out.fill(0x5a5a_i64);
+                let v = execute_into(&program, planes, foreign, &mut scratch, Out::I64(&mut out))
+                    .expect("runs");
+                assert_eq!(v, value, "case {id}: timed rep diverged from the first run");
+                assert_eq!(
+                    out, first_raw,
+                    "case {id}: timed rep sink diverged from the first run"
+                );
+            });
+            (Some(t_bind), Some(t_exec))
+        }
+        _ => (None, None),
+    };
     (
         encoded,
         CaseMetrics {
@@ -445,6 +609,9 @@ fn run_group_reduce(
             pair_relation_bytes: 0,
             population_state_bytes: 0,
             fixture_view_bytes: 0,
+            t_compile_or_bind_ns,
+            t_execute_ns,
+            timed_reps: reps,
         },
     )
 }
@@ -880,14 +1047,14 @@ fn group_sum_cc() {
 
     // The one-terminal spelling: ONE program, `Terminal::GroupSumI32`, no
     // K-program loop.
-    let program = lower(&Query {
+    let query = Query {
         filter: filter.clone(),
         agg: Agg::GroupSumI32 {
             key: COST_CENTER,
             val: AMOUNT,
         },
-    })
-    .expect("lowers");
+    };
+    let program = lower(&query).expect("lowers");
     let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
     let tile_words = scratch.words();
     let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
@@ -910,6 +1077,39 @@ fn group_sum_cc() {
         .collect::<Vec<_>>()
         .join(";");
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower(&query).expect("lowers");
+            let s = Scratch::for_program(&p, planes.n_rows).expect("carves");
+            std::hint::black_box((p, s));
+        });
+        let first_out = out;
+        let t_exec = median_ns(reps, || {
+            out = [0i64; 8];
+            let v = execute_into(
+                &program,
+                &planes,
+                &Foreign::NONE,
+                &mut scratch,
+                Out::I64(&mut out),
+            )
+            .expect("runs");
+            assert_eq!(
+                v, value,
+                "case group_sum_cc: timed rep diverged from the first run"
+            );
+            assert_eq!(
+                out, first_out,
+                "case group_sum_cc: timed rep sink diverged from the first run"
+            );
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     let m = CaseMetrics {
         ops: program.ops.len(),
         scratch_words,
@@ -922,6 +1122,9 @@ fn group_sum_cc() {
         pair_relation_bytes: 0,
         population_state_bytes: 0,
         fixture_view_bytes: 0,
+        t_compile_or_bind_ns,
+        t_execute_ns,
+        timed_reps: reps,
     };
     print_metric("group_sum_cc", &m);
     assert_case(&cases, "group_sum_cc", &encoded);
@@ -974,11 +1177,11 @@ fn join_sum_country() {
         Filter::cmp(STATUS, Cmp::EqU32(1)),
         Filter::eq_u32_via(PARTNER_ID, ForeignLane(0), 3),
     ]);
-    let line_program = lower(&Query {
+    let query = Query {
         filter: line_filter,
         agg: Agg::SumI32(AMOUNT),
-    })
-    .expect("lowers");
+    };
+    let line_program = lower(&query).expect("lowers");
     let mut scratch = Scratch::for_program(&line_program, planes.n_rows).expect("carves");
     let tile_words = scratch.words();
     let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
@@ -992,6 +1195,27 @@ fn join_sum_country() {
         other => panic!("expected a sum, got {other:?}"),
     };
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower(&query).expect("lowers");
+            let s = Scratch::for_program(&p, planes.n_rows).expect("carves");
+            std::hint::black_box((p, s));
+        });
+        let t_exec = median_ns(reps, || {
+            let v = execute_into(&line_program, &planes, &foreign, &mut scratch, Out::None)
+                .expect("runs");
+            assert_eq!(
+                v, value,
+                "case join_sum_country: timed rep diverged from the first run"
+            );
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     let m = CaseMetrics {
         ops: line_program.ops.len(),
         scratch_words,
@@ -1009,6 +1233,9 @@ fn join_sum_country() {
         pair_relation_bytes: 0,
         population_state_bytes: 0,
         fixture_view_bytes: 0,
+        t_compile_or_bind_ns,
+        t_execute_ns,
+        timed_reps: reps,
     };
     print_metric("join_sum_country", &m);
     assert_case(&cases, "join_sum_country", &encoded);
@@ -1044,11 +1271,11 @@ fn join_count_docs_with_posted() {
     // ── Arm 1: the generated (unordered) layout is REFUSED. ──
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
-    let runs = lower(&Query {
+    let query = Query {
         filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
         agg: Agg::CountDistinctOrderedU32 { key: DOC_ID_U32 },
-    })
-    .expect("lowers");
+    };
+    let runs = lower(&query).expect("lowers");
     assert!(matches!(runs.terminal, Terminal::CountKeyRunsU32 { .. }));
     let mut r_scratch = Scratch::for_program(&runs, planes.n_rows).expect("carves");
     let refused = execute_into(&runs, &planes, &Foreign::NONE, &mut r_scratch, Out::None);
@@ -1093,6 +1320,27 @@ fn join_count_docs_with_posted() {
         Value::Count(c) => c.to_string(),
         other => panic!("expected a count, got {other:?}"),
     };
+    // Opt-in timing arm — the ordered-view arm only; the refusal arm is not
+    // timed.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower(&query).expect("lowers");
+            let s = Scratch::for_program(&p, c_planes.n_rows).expect("carves");
+            std::hint::black_box((p, s));
+        });
+        let t_exec = median_ns(reps, || {
+            let v = execute_into(&runs, &c_planes, &Foreign::NONE, &mut c_scratch, Out::None)
+                .expect("runs");
+            assert_eq!(
+                v, c_value,
+                "case join_count_docs_with_posted: timed rep diverged from the first run"
+            );
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     let m = CaseMetrics {
         ops: runs.ops.len(),
         scratch_words: c_scratch_words,
@@ -1109,6 +1357,9 @@ fn join_count_docs_with_posted() {
         // NULL flag. Not the terminal's state — and not evidence that a
         // resident doc-major view exists.
         fixture_view_bytes: order.len() * (std::mem::size_of::<usize>() + 9 * 4 + 1),
+        t_compile_or_bind_ns,
+        t_execute_ns,
+        timed_reps: reps,
     };
     print_metric("join_count_docs_with_posted_ordered_view_given", &m);
     // A distinct count is permutation-invariant: same DuckDB row, same answer.
@@ -1130,15 +1381,15 @@ fn join_group_sum_country() {
     let lanes = fx.line.lanes();
     let planes = lanes.planes();
 
-    let program = lower(&Query {
+    let query = Query {
         filter: Filter::cmp(STATUS, Cmp::EqU32(1)),
         agg: Agg::GroupSumViaI32 {
             fk: PARTNER_ID,
             key: ForeignLane(0),
             val: AMOUNT,
         },
-    })
-    .expect("lowers");
+    };
+    let program = lower(&query).expect("lowers");
     let mut scratch = Scratch::for_program(&program, planes.n_rows).expect("carves");
     let tile_words = scratch.words();
     let scratch_words = scratch_words_for(tile_words, scratch.slots()).expect("sized");
@@ -1168,6 +1419,39 @@ fn join_group_sum_country() {
         .collect::<Vec<_>>()
         .join(";");
     let out_bytes = encoded.len();
+
+    // Opt-in timing arm.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let p = lower(&query).expect("lowers");
+            let s = Scratch::for_program(&p, planes.n_rows).expect("carves");
+            std::hint::black_box((p, s));
+        });
+        let first_out = out;
+        let t_exec = median_ns(reps, || {
+            out = [0i64; 8];
+            let v = execute_into(
+                &program,
+                &planes,
+                &foreign,
+                &mut scratch,
+                Out::I64(&mut out),
+            )
+            .expect("runs");
+            assert_eq!(
+                v, value,
+                "case join_group_sum_country: timed rep diverged from the first run"
+            );
+            assert_eq!(
+                out, first_out,
+                "case join_group_sum_country: timed rep sink diverged from the first run"
+            );
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     let m = CaseMetrics {
         ops: program.ops.len(),
         scratch_words,
@@ -1184,6 +1468,9 @@ fn join_group_sum_country() {
         pair_relation_bytes: 0,
         population_state_bytes: 0,
         fixture_view_bytes: 0,
+        t_compile_or_bind_ns,
+        t_execute_ns,
+        timed_reps: reps,
     };
     print_metric("join_group_sum_country", &m);
     assert_case(&cases, "join_group_sum_country", &encoded);
@@ -1268,6 +1555,24 @@ fn run_scalar(
     let value = execute_into(program, planes, foreign, &mut scratch, Out::None)
         .unwrap_or_else(|e| panic!("case {id}: {e:?}"));
     let alloc_bytes_exec = alloc_delta(before);
+
+    // Opt-in timing arm. The lowering happens in the caller, so one bind rep
+    // here is the `Scratch::for_program` sizing only.
+    let reps = timed_reps();
+    let (t_compile_or_bind_ns, t_execute_ns) = if reps > 0 {
+        let t_bind = median_ns(reps, || {
+            let s = Scratch::for_program(program, planes.n_rows).expect("carves");
+            std::hint::black_box(s);
+        });
+        let t_exec = median_ns(reps, || {
+            let v = execute_into(program, planes, foreign, &mut scratch, Out::None)
+                .unwrap_or_else(|e| panic!("case {id}: {e:?}"));
+            assert_eq!(v, value, "case {id}: timed rep diverged from the first run");
+        });
+        (Some(t_bind), Some(t_exec))
+    } else {
+        (None, None)
+    };
     (
         value,
         CaseMetrics {
@@ -1282,6 +1587,9 @@ fn run_scalar(
             pair_relation_bytes: 0,
             population_state_bytes: 0,
             fixture_view_bytes: 0,
+            t_compile_or_bind_ns,
+            t_execute_ns,
+            timed_reps: reps,
         },
     )
 }
