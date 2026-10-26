@@ -1,6 +1,8 @@
 # D-TFLP parity audit — #1785 × TFLite × ONNX × RelAlg × native polyfill
 
-**Status:** AUDIT (read-only; no runtime code, no public API touched). Every
+**Status:** AUDIT, amended 2026-10-26 (Amendment 1 at the end: Codec8 ownership,
+compile-time vs load-time preparation, FC weight zero point, output quantization, evidence
+classes). Read-only; no runtime code, no public API touched. Every
 `file:line` below was read at source on 2026-10-26 against `main` after #1785
 (`841491c7e`), ndarray `master`, and TFLM `8f6596d`.
 **Inputs:** `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v1.md`
@@ -27,7 +29,11 @@ itself across backends), **TFLM** (bytes equal to the TFLM reference kernel),
    against `reference_epilogue`, which is built from the same scalar family; the only TFLM
    golden is `quantize_multiplier(3.7) == (1_986_422_374, 2)`. Bit-exactness with TFLM is
    CLAIMED in the module doc, not tested.
-3. **The capstone's "weights zero point 0" is per-channel only.** TFLM per-tensor FC has
+3. ⊘ **Struck by Amendment 1 §A4 — the capstone was right.** The TFLite int8 spec requires
+   weight zero point 0 for per-tensor and per-axis weights alike, and TFLM's own FC prepare
+   asserts it (`fully_connected_common.cc:147`, a `DCHECK`). The kernel capability below is
+   an extension outside the conforming profile. Original text: *The capstone's "weights zero
+   point 0" is per-channel only.* TFLM per-tensor FC has
    `filter_offset = params.weights_offset` (`fully_connected.h:145`) and
    `acc += (filter_val + filter_offset) * (input_val + input_offset)` (`:167`). The
    `filter_offset·Σa` term depends on the activation and cannot be folded into the bias.
@@ -60,6 +66,10 @@ itself across backends), **TFLM** (bytes equal to the TFLM reference kernel),
 Statuses: EXACT-CANDIDATE (exact arithmetic exists, no oracle run) / EXACT-VERIFIED /
 BOUNDED / CALIBRATED / INTEGRATION-GAP / MISSING / REFUSE.
 
+⊘ Read every "EXACT-VERIFIED" below as **NATIVE-VERIFIED** (Amendment 1 §A6): the check is
+the native kernel against a scalar Rust specification in `lance-graph-onnx/tests/conformance.rs`.
+No ONNX Runtime, TFLM or TFLite interpreter was executed for any row.
+
 | op | native method (owner) | status | guards | exactness class | independent oracle | negative control | missing seam | action |
 |---|---|---|---|---|---|---|---|---|
 | Greater i32 (scalar t) | `gt_i32_to_mask` (ndarray) | ONNX: EXACT-VERIFIED; TFLite: EXACT-CANDIDATE | scalar threshold only; no broadcast | EXACT | scalar `x > t` in onnx conformance | `Refusal::Broadcast` | no TFLite facade | none |
@@ -73,7 +83,8 @@ BOUNDED / CALIBRATED / INTEGRATION-GAP / MISSING / REFUSE.
 | Mish | `mish_f32` (activations_ext.rs:168) | REFUSE for TFLite (no builtin); f32 unbounded | — | none stated | — | — | no stated bound | out of scope |
 | Softmax int8 | none | MISSING | `diff_min` cut | target EXACT | TFLM `softmax.h:70-135` (fixed-point `exp_on_negative_values`) | two-row counterexample | exp + 1/(1+x) + row sum | after D-TFLP-1 (shares exp) |
 | FC per-channel | `gemm_u8_i8` / `matmul_i8_to_i32` (+128 shift, `subtract_i8_to_u8_bias`) | EXACT-CANDIDATE | i32 range | EXACT within range | TFLM `fully_connected.h:34-78` | accumulator overflow | bias fold + requant binding | D-TFLP-later |
-| FC per-tensor | same | INTEGRATION-GAP | `weights_offset ≠ 0` | needs `fo·Σa` row term | TFLM `fully_connected.h:135-181` | `weights_offset=1` fixture | extra row-sum or refuse | capstone fix |
+| FC per-tensor, zp 0 (conforming) | same | EXACT-CANDIDATE (⊘ was INTEGRATION-GAP; Amendment 1 §A4) | i32 range | EXACT within range | TFLM `fully_connected.h:135-181` | accumulator overflow | bias fold + requant binding | D-TFLP-later |
+| FC, `weights_offset ≠ 0` | none | REFUSE at admission (outside the int8 profile) | — | — | — | `weights_offset=1` must be refused | none; no row-sum is built for it | none |
 | Conv / Depthwise | same GEMM after im2col | INTEGRATION-GAP | per-channel multiplier | EXACT-CANDIDATE | TFLM `conv.h:118,127` | — | im2col + padding offsets | later |
 | Relational composition | `Rel` + `Measure` (relalg), mask-risc terminals | EXACT (Boolean) | K3 for nullable lanes (WHERE-terminal only) | EXACT | PostgreSQL parity example | `p ∧ ¬p` under NULL | — | none |
 | Numeric contraction | GEMM above | not relational | — | — | — | — | must not be a `Rel` variant | none |
@@ -125,6 +136,9 @@ under `Rel` (K3 drops NULL rows, ONNX has no NULL). Do not assert universal equa
 
 ## E. Smallest follow-up
 
+⊘ Superseded by Amendment 1 §A7 (staged: documentation, then an independent oracle, then
+a native probe, each separately approved; the port reuses Codec8 policies).
+
 **D-TFLP-1, narrowed to TANH alone:** port gemmlowp `tanh` (with the `exp_on_negative_values`
 it needs) as scalar fixed-point next to `simd_fixedpoint.rs`, and one test that compares all
 256 int8 codes, for ≥5 (scale, zp) parameter sets, against **vectors captured from compiled
@@ -135,8 +149,9 @@ the same shape and follows if TANH lands green.
 
 ## F. Documentation alignment (minimal)
 
-- Capstone §1 / §3.4: restrict "weights zero point 0" to per-channel; per-tensor FC needs a
-  `weights_offset·Σa` row term or a refusal.
+- ⊘ Struck (Amendment 1 §A4): *Capstone §1 / §3.4: restrict "weights zero point 0" to
+  per-channel; per-tensor FC needs a `weights_offset·Σa` row term or a refusal.* The capstone
+  is correct for conforming models; only §1's "per-channel" is narrower than the spec.
 - Capstone §3.1: state that the table must be generated from the fixed-point kernel, not from
   `LUTPopulateInt8`'s float path; note the asymmetric ends.
 - Capstone §3.4: cite `matmul_i8_to_i32`'s existing shift + `subtract_i8_to_u8_bias` instead
@@ -168,3 +183,180 @@ MIRROR
   "full TFLite" claim stays OPEN.
 - STILL OPEN: whether the softmax row sum (gemmlowp `FixedPoint` accumulation) can saturate
   for long rows; not read in this pass.
+
+## Amendment 1 (2026-10-26) — Codec8 ownership and the corrections it forces
+
+Read for this amendment, in full: ndarray `src/hpc/codec8.rs` (934 lines) and
+`.claude/plans/quantized-codec8-v2.md` (v3, ratified 2026-10-24), at ndarray `195844bd`;
+TFLM `micro/kernels/{tanh.cc,logistic_common.cc,softmax_common.cc,fully_connected_common.cc}`
+prepare paths at `8f6596d`; capstone §1, §3, §4, §5, §6, §9.
+
+### A1. Codec8 ownership and implemented status
+
+Owner: ndarray `src/hpc/codec8.rs`. Facades in lance-graph re-export it (plan §2: "Re-export,
+not re-implementation").
+
+| plan phase (D9) | content | status at `195844bd` |
+|---|---|---|
+| (a) | markers, `Codec8<T,S,R,N>`, `Calibration`, checked/unchecked encode/decode, aliases | **SHIPPED** (`4c82adf3`, `9c8d0ceb`): 16 `#[test]`, 3 `compile_fail` doctests (two E0277, one E0080), `examples/codec8_asm_probe.rs`, `scripts/codec8_asm_diff.sh` |
+| (b) | SIMD primitives + codec8 SIMD | not built (scalar loops; G5 shows they autovectorise) |
+| (c) | `tools/gen_codec8_tables.py`, `src/hpc/codec8/tables.rs` | **not built** (no generator, no `codec8/` directory) |
+| (d) | 64 KiB laws | not built |
+| (e) | head-to-head probes (G14) | not run |
+| (f) | lance-graph facades | not built; `lance-graph-onnx` does not use Codec8; no `lance-graph-tflite` crate |
+| D8 | `lab-calibration` feature, `LabCodec8` | **not built** (absent from `Cargo.toml`; only named in the `Calibration` doc, `codec8.rs:307`) |
+
+### A2. The five compile-time axes and the presets
+
+| axis | markers | source |
+|---|---|---|
+| storage | `I8`, `U8` | `codec8.rs:122,130`; U8 stores `code ^ 0x80` for Asym/Sym, raw for UnitFull (`:169-198`) |
+| code space | `Asym` −128..127, `Sym` −127..127, `UnitFull` 0..255 | `:73,81,89`, ranges `:95-106` |
+| rounding | `TiesAway`, `TiesEven`, `Floor` | `:214,218,222` |
+| NaN policy | `NoNaN` (all spaces), `NaNAtMin` (`Sym` only, code −128) | `:284,288,296` |
+| calibration | `Calibration { SCALE, ZERO_POINT }`, checked by `const` assert on both directions | `:334`, `:442-447` |
+
+Presets: `TfliteAct = <I8, Asym, TiesAway, NoNaN>` (`:626`), `TfliteWeight = <I8, Sym,
+TiesAway, NoNaN>` (`:629`), `OnnxQ = <I8, Asym, TiesEven, NoNaN>` (`:632`), `SpoFcTruth =
+<U8, UnitFull, Floor, NoNaN>` (`:635`). `NativeLane = <I8, Sym, R, NaNAtMin>` is not exported;
+it waits on plan §8 item 1 (rounding).
+
+Code-domain guards that exist: `Codec8<I8, Asym, _, NaNAtMin>` and `Codec8<I8, UnitFull, ..>`
+fail to compile (E0277); `Sym + NoNaN` decode rejects −128 (`decode_checked`, `:533-549`).
+**A guard that does not exist:** `Asym` and `Sym` share `Elem = i8`, so a raw `&[i8]` produced
+in one space type-checks as input to the other. A TFLM tanh output byte −128 (an `Asym` value)
+handed to a `Sym + NaNAtMin` decode reads as NaN. The facade binding must carry the code
+space with the buffer; nothing below it does today. This is a binding obligation, not a new
+abstraction.
+
+### A3. Compile-time vs load-time table preparation
+
+Two separate decisions, which the capstone conflates:
+
+1. **Codec policy** (storage, code space, rounding, NaN policy) is compile-time in both plans.
+   A prepared table read by a monomorphised lookup involves no runtime policy dispatch. No
+   conflict here.
+2. **Table content and calibration** is where they differ. Codec8 production calibrations are
+   marker types generated from a calibration manifest (plan D8); "runtime calibration in
+   production" is listed as superseded (plan §9). Capstone §4 builds every table "at load"
+   from the model file.
+
+What the source settles:
+
+- The TFLM int8 TANH output for a code is a function of the **input** calibration only:
+  prepare reads `input->params.scale` into `input_multiplier`, `input_left_shift` and
+  `input_range_radius` (`tanh.cc:61-72`), eval subtracts the input zero point, and the output
+  arithmetic is fixed at Q0.7 (`integer_ops/tanh.h`, `kOutputScale = 7`). LOGISTIC is the same
+  with a fixed output zero point of −128 (`logistic_common.cc:46-62`). So each table is a pure
+  function of one `Calibration` marker.
+- Therefore, **for models that are build inputs**, a TFLM table fits D7/D8 unchanged: the
+  manifest supplies `SCALE`/`ZERO_POINT`, the generator writes a const table. No new seam.
+- **For models that arrive at run time**, the only route the ratified plan allows is
+  `lab-calibration` (owned `Box<[T::Elem; 256]>`, fallible `prepare()`, `&self` lookup, off by
+  default) — which is lab-only and unbuilt.
+
+**Missing seam (OPEN, operator decision):** production preparation of tables for models not
+known at build time. Options, none chosen: (i) models are build inputs only (per-model
+generation); (ii) a production owned-table route modelled on `LabCodec8` — runtime *data*
+under compile-time *policy* — which reverses the §9 supersession and needs a ruling;
+(iii) load-time preparation stays in the lab. Capstone §4 should say it depends on this
+decision rather than assume load time.
+
+**Domain A vs Domain B on the shared table shape.** Codec8 D7 defines a table cell as the
+correctly rounded tanh of the exact decoded f32 value, certified against mpmath (G7). That is
+a mathematical contract. The TFLM TANH table cell is whatever `integer_ops/tanh.h` outputs.
+The two may share storage (`[i8; 256]`), index convention and generator plumbing, but they are
+different source identities with different certification: G7 does not certify a TFLM table,
+and a TFLM golden-vector gate does not certify a D7 table. Plan §3's finding that TiesEven and
+TiesAway give identical tanh tables concerns the mathematical table only.
+
+**Ownership conflict to flag:** Codec8 plan §7 lists "A port of TFLM's gemmlowp code (facade
+work, later)" as a non-goal, while §2 says facades only re-export. The fixed-point
+`tanh`/`logistic`/`exp_on_negative_values` therefore has no owner today. By the re-export
+ruling it belongs in ndarray beside `simd_fixedpoint.rs`; the Codec8 plan would need one line
+changed to say so.
+
+### A4. FC weight zero point (corrects gap 3)
+
+- **Conforming int8 FC:** weight zero point 0, per-tensor and per-axis alike (TFLite int8
+  quantization spec; TFLM asserts it in prepare, `fully_connected_common.cc:143-147`, as a
+  `DCHECK`, so only in debug builds). The capstone's bias fold (§3.4) is an exact
+  mathematical identity here. Byte identity still depends on accumulator range, rounding and
+  requantisation, which stay EXACT-CANDIDATE until an oracle runs.
+- **`weights_offset ≠ 0`:** the generic reference kernel accepts it (`fully_connected.h:145,167`)
+  and it adds `weights_offset·Σa`, which no bias can absorb. Classify as outside the admitted
+  profile: REFUSE at admission. Build no row-sum for it.
+- Kept: accumulator overflow gates, per-channel multiplier/shift tests, reduction lengths that
+  are not multiples of 16/64, and the per-arm instruction check (all arms `vpdpbusd` / AMX
+  `tdpbusd`, non-saturating; shift and bias correction already in `matmul_i8_to_i32`,
+  `amx_matmul.rs:960-966,1019`).
+
+### A5. Output quantization as admission constraints
+
+Spec profile for int8: TANH 1/128 and 0; LOGISTIC 1/256 and −128; SOFTMAX 1/256 and −128.
+TFLM Micro enforces less than the spec:
+
+| op | TFLM int8 prepare checks | source |
+|---|---|---|
+| TANH | none on the output | `tanh.cc:61-72` (the zp/scale checks at `:87-88,123` are the int16 branch) |
+| LOGISTIC | output zero point = −128; scale not checked | `logistic_common.cc:46-47` |
+| SOFTMAX | output zero point = −128 and scale = 1/256 | `softmax_common.cc:103-104` |
+
+The output arithmetic is fixed inside the kernels, so a model declaring another output scale
+gets TFLM bytes under a wrong label. Our admission checks the spec, which makes it stricter
+than TFLM for TANH and LOGISTIC; the negative admission tests are exactly those cases.
+
+D-TFLP-1 fixtures vary the **input** calibration (scale, zero point; small and large scales,
+zero points near both ends, codes beyond `input_range_radius`) and keep the operator's output
+quantization fixed. They are fixtures, not codec modes. The existing Codec8 tests for
+`Asym`/`Sym`/`NaNAtMin`/`UnitFull` and the three roundings stay as they are. `TfliteAct`'s
+`TiesAway` covers only the quantize step; the kernel's intermediate rounding
+(`SaturatingRoundingDoublingHighMul`, `RoundingDivideByPOT`) and saturation are separate and
+must match on their own.
+
+### A6. Evidence classes
+
+1. **Native**: native SIMD/polyfill output equals an independent scalar specification.
+2. **TFLM**: bytes equal a pinned, independently compiled TFLite Micro kernel.
+3. **Full TFLite**: output equals a separately pinned TFLite interpreter.
+4. **ONNX**: output equals an ONNX Runtime fixture for a stated opset and domain.
+5. **Cross-dialect**: two external readings normalise to one admitted native method under
+   identical guards.
+
+| row | class reached | not reached |
+|---|---|---|
+| Greater / Where / ReduceSum i32 | 1 (scalar spec in `conformance.rs`) | 2, 3, 4 — no external runtime executed |
+| Tanh / Exp f32 | 1, BOUNDED against f64 | 4 |
+| Codec8 `TfliteAct` | 1 (G2: equals `quantize_f32_to_i8`, an in-tree function) | 2 |
+| requantize (#375) | 1, partly self-referential | 2 |
+| int8 TANH / LOGISTIC / SOFTMAX / FC | none | all |
+| cross-dialect fixture (§D) | specified, not run | 5 |
+
+A source-backed argument (e.g. the bias fold) is not an executed oracle, and a passing manifest
+validator is not semantic certification. TFLM int8 TANH and ONNX f32 Tanh remain different
+contracts even if both later run through ndarray.
+
+### A7. The smallest remaining uncertainty and its gate
+
+**Uncertainty:** whether a 256-byte table produced by a port of TFLM's int8 TANH prepare and
+eval equals TFLM's own output for every code. Nothing in any tree measures it.
+
+**Single gate (Stage B, needs authorisation):** compile `integer_ops/tanh.h` plus the
+`tanh.cc` prepare at TFLM `8f6596d`, standalone, and record for all 256 input codes over at
+least five legal input calibrations: commit, kernel path, `input_multiplier` /
+`input_left_shift` / `input_range_radius`, input and output quantization, compiler and flags,
+and the full output bytes. Committed as a fixture, generated apart from any native code.
+
+Stage A is this amendment. Stage C (separately approved, only after B reproduces): the scalar
+fixed-point port in ndarray, Codec8 policies reused, all bytes compared with the fixture, and
+two mutations that change an expected byte (drop the saturation branch; round ties to even
+in `RoundingDivideByPOT`). Generation cost reported apart from lookup cost. No new codec,
+dispatcher or table layer. LOGISTIC follows the same three stages after TANH.
+
+### A8. Documentation changes made with this amendment
+
+- Capstone §1: "per-channel symmetric" widened to the spec's per-tensor or per-axis zero point
+  0, with nonzero offsets marked out of profile.
+- Capstone §4: preparation time marked as depending on A3's open seam.
+- Capstone §9 item 1: closed for the instruction question (all arms non-saturating); the
+  accumulator-range half stays open.
