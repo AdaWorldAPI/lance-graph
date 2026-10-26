@@ -1,6 +1,6 @@
 # D-DT64-0 — DT64 64-slot versioned predicate adapter, inverted DR projections and staged PRs
 
-**Date:** 2026-10-26. **Status:** DOCS / DRAFT, no production adapter, schema ABI, method, test or runtime implementation. **Source:** `../plans/d-dt64-holographic-predicate-capstone-v1.md`.
+**Date:** 2026-10-26. **Status:** DOCS / DRAFT, no production adapter, schema ABI, method, test or runtime implementation. **Source:** `../../plans/d-dt64-holographic-predicate-capstone-v1.md`.
 
 **User request:** detailed technical mapping of IAM, Entra/Exchange, Odoo and SAP DTOs into a proposed 64-predicate DT64 semantic interface; directed/holographic DR access, edge×edge, Thought-Git hypothesis/time, ONNX numeric lowerings; stage documentation PRs; link the open contracts in EXO-50.
 
