@@ -1,0 +1,23 @@
+{
+ "source": "TFLM 5f64e4ad (tensorflow/ tree identical to 8f6596d)",
+ "kernel": "TFLM 5f64e4ad tensorflow/lite/micro/kernels/internal/reference/softmax.h, int8, g++ 13.3.0 -Os/-O2 baseline library, x86_64",
+ "certificate": "softcert65_global.txt",
+ "generator": [
+  "softcert65.py SOFTCERT TRACE63 ORACLE run.json",
+  "fixtures65.py run.json TRACE63 ORACLE OUTDIR"
+ ],
+ "counts": {
+  "full": 529,
+  "reduced": 27,
+  "equivalence_rows": 7,
+  "unreachable": 10,
+  "tables": 14
+ },
+ "sha256": {
+  "softmax_tables65.json": "f401c65e7d7e1cc3fb6111e840a716253ea933c600a18795c2cea33f61290b4e",
+  "witness65_full.jsonl": "c05e68f2c03edf521ca8839bad36787bc8f9195640b6e3225f9cbc347db4e7b4",
+  "witness65_reduced.jsonl": "9b1b06a3a41086e2bee82f8800f48ad82a47fdb615c8a80be56243fd433f3890",
+  "equivalence65.jsonl": "2cf24afb34151bce45f2810e4cc768ae4d7eeb330143d669d9e92febfef7ab87",
+  "unreachable65.jsonl": "bbab72b8b321a21df55c03f05e6653c5d440c65fddf8eaf29baee90b29f7386c"
+ }
+}
