@@ -25,3 +25,31 @@ uv run driver.py target/release/precision-probe results.json
 uv run deskew.py deskew.json
 uv run cert.py cert.json
 ```
+
+## Amendment 6.1
+
+- `cert2.py`: candidate arms over the SAME 261 cases. It loads the generator,
+  reference and resolvers from `cert.py`'s own text (asserting a marker), so
+  `cert.py` and `cert.json` are untouched. Arms: `base` (= Amendment 6,
+  re-verified per case against `cert.json`), `zero` (exact-zero error for
+  entries at the row maximum), `pe` (certified per-entry error, G = 8),
+  `first` / `first_pe` (exact-uniform shortcut first), `unary` / `unary_pe`
+  (table referenced to the codebook maximum). Negative controls consume masks
+  and refusals inside the candidate pipeline. Writes `cert2.json`, plus an
+  optional canonical fixture for the Rust lab (35 MB, NOT committed;
+  regenerate it, then check the sha256 recorded in the amendment).
+- `src/bin/certlab.rs`: the Rust lab. It reads the fixture (no Rust-side
+  regeneration), recomputes the F24 table in f64 and compares it with the
+  certified table, then runs every arm in exact integers. Arithmetic is
+  checked, with 256-bit cross-multiplication. It compares every per-output
+  certification flag, row class and code with Python. Interval resolution is
+  not implemented in Rust: those outputs are DEFERRED to Python's result and
+  counted. `--bench` prints per-stage ns/element; this is unoptimized lab code.
+- `src/bin/vstanh_dump.rs`: ndarray `hpc::vml::vstanh` over hex f32 input,
+  used by `../../tanh-sweep-v1/sweep.py`.
+
+```sh
+uv run cert2.py cert2.json fixture.txt
+cargo build --release --bins
+./target/release/certlab fixture.txt [--bench]
+```

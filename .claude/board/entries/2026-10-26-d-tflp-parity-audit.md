@@ -1124,3 +1124,250 @@ cite. Each needs a human or a Linear-connected session to mirror the named secti
 
 **Next narrow gate:** P0 Rust reproduction of G1, i.e. the same 261 decisions with integers only,
 in parallel with the TANH calibration sweep.
+
+## Amendment 6.1 (2026-10-26) — exact before approximate: shortcut, tighter bounds, Rust parity, TANH sweep
+
+Scope: lab probes and documentation. No production code, public API, codec, ClassId or runtime was
+changed, and no PR was opened. Linear was not reachable; nothing here was read from or written to
+Linear. Amendment 6 artifacts are unchanged: `cert.py` and `cert.json` are byte-identical, and the
+new arms reproduce Amendment 6 per case (H1).
+
+Governing order, measured below: **exact mathematics → certified approximation → escalation**.
+
+### H0. Mathematical corrections (ledger D-PAL256-ALG-1)
+
+1. **Entry B, unary softmax.** The identity holds for every finite codebook and β > 0, including
+   rows whose quantized p lies exactly on a rounding midpoint. The struck sentence ("not
+   applicable when exact midpoint ties must round") confused the identity with an f64
+   implementation. The ledger now separates the exact identity, its certified approximation, and
+   an implementation's rounding.
+2. **Exact-zero error (entry G).** `x(q_i) = x_max` gives `w_i = e^0 = 1` and `W_i = 2^24` exactly,
+   so `ε_i = 0`, not ½. On an all-maximum row the bound is zero and certifies the arm's own exact
+   `p̂ = 1/n`, even on a midpoint.
+3. **Exact-uniform row (new entry I).** Equal effective representatives give `p = 1/n` and
+   `y = ΣV/n` exactly, with no exponential, bound or f64. Equality is between values after masking
+   and NaN admission, never between code bytes.
+4. **Per-entry error (entry G).** The bound holds for any certified `ε_i`. Per-entry `ε_i` come from
+   each cell's certification interval (grid 2^-8, one u8 per cell).
+5. **Lindemann–Weierstrass hypotheses (entry H)** are stated explicitly (β and representatives
+   exact finite binary values, V exact rationals, real exponentials, grouping by distinct
+   exponent). They are not extended to approximate representatives.
+6. **Correction to Amendment 6 G1, the rational-midpoint control.** Amendment 6 reported the row as
+   resolved by "interval", because `escalate()` was called on the whole row and labelled it by its
+   last stage. Per output: the p outputs are certified by the bound; y is resolved by the
+   equal-group-mean rule (code 3, correct); the row is "escalated". `cert2.json` reports row and
+   output classes separately.
+7. **Correction to Amendment 6 G1, wrong codebook.** "With the digest check: refused" compared two
+   digests and was a **simulated** admission check, not a guard. Amendment 6.1 adds an actual
+   prepared-artifact lookup (H3 C). The 64-bit truncated digest is a lab key, not an ABI. A future
+   receipt must bind model/layer, representatives, β, code space, rounding mode, calibration
+   generation, weights and operator semantics. No ABI is designed here.
+
+### H1. Exact-first and bound variants — `cert2.py` / `cert2.json` (Python, 261 cases, 248,778 outputs)
+
+| arm | rows: shortcut / bound / escalated | outputs: shortcut / bound / exact (in escalation) / interval@64 | misses | final wrong |
+|---|---|---|---|---|
+| base (= Amendment 6) | 0 / 248 / **13** | 0 / 244,164 / 4,610 / 4 | 0 | 0 |
+| zero (exact-zero ε) | 0 / 258 / **3** | 0 / 248,774 / 0 / 4 | 0 | 0 |
+| pe (per-entry ε) | 0 / 259 / **2** | 0 / 248,775 / 0 / 3 | 0 | 0 |
+| first (shortcut, ε = ½) | 38 / 220 / **3** | 50,883 / 197,891 / 0 / 4 | 0 | 0 |
+| first_pe | 38 / 221 / **2** | 50,883 / 197,892 / 0 / 3 | 0 | 0 |
+| unary (codebook-max reference) | 0 / 180 / **81** | 0 / 213,633 / 16,978 / 18,167 | 0 | 0 |
+| unary_pe | 0 / 182 / **79** | 0 / 213,727 / 16,978 / 18,073 | 0 | 0 |
+
+- **The hypothesis holds.** Exact-first takes rows needing general escalation from 13 to **3**
+  (1.15% of rows).
+  - The 38 shortcut rows are the 36 tie rows plus two rows whose codes happen to coincide.
+  - The 3 remaining rows are lognormal, β = 8, n ∈ {16, 4096}. Each resolves at 64 bits.
+- **Exact-zero alone also reaches 3.** The shortcut does not certify anything exact-zero cannot. It
+  skips the arithmetic.
+- **Per-entry ε saves one more row** (2 instead of 3): the lognormal spike row, n = 4096.
+- **Unary (one 256-entry table at the codebook maximum) is mathematically sufficient but
+  numerically poor.**
+  - 81 escalated rows against 13.
+  - Some rows have every F24 weight round to zero (S = 0), handled as uncertified.
+  - This is dynamic-range loss, not an algebra failure.
+- **Per-case reproduction.** The base arm matches `cert.json` on all 261 cases: certified counts
+  and escalation decision.
+- **Decision differences.** No arm changes any final code: per case, against base and against the
+  reference.
+- **Python wall time per arm** (lab cost only, never a runtime estimate): 14.8 s (first) to 19.0 s
+  (base).
+- **Economics.**
+
+  | form | storage | rows needing escalation here |
+  |---|---|---|
+  | rowmax W (u32), per reference row | 1 KiB | 13 (½), 3 (zero), 2 (pe) |
+  | + per-entry ε (u8), per reference row | +256 B | (included above) |
+  | rowmax rows actually built per (codebook, β), incl. the one unary row | 11-17 rows (≤ 17 KiB) | — |
+  | full pair table | 256 KiB (+64 KiB ε) | never required |
+  | unary table | 1 KiB | 81 |
+
+  - **Recommended policy (lab):** exact-first + exact-zero, which needs no metadata.
+  - Per-entry ε is optional: one row saved at +25% table bytes.
+  - The pair table remains a cache of re-referenced rows, never a requirement.
+
+### H2. Rust lab parity — `src/bin/certlab.rs`
+
+- **Input.** The canonical fixture written by `cert2.py` (sha256
+  `07586643fc6f626dff8ea235271858c012f0e0c9ce576f0bf28e2bc417400969`, 35.6 MB, not committed; it
+  regenerates identically). Rust generates no random data.
+- **R0, baseline parity.** For every arm, Rust matches Python on:
+  - per-output certification flags: 0 mismatches;
+  - row classes: 0 mismatches;
+  - certified hat codes: 0 mismatches;
+  - final codes against the reference: 0 wrong, 0 misses.
+
+  Rust's uncertified f64 table generator also agrees with the certified F24 table on every used
+  entry (0 disagreements).
+- **Integer widths.** All values are checked; overflow refuses rather than wraps. Measured maxima:
+
+  | quantity | bits | type |
+  |---|---|---|
+  | S | 37 | u64 |
+  | N | 101 | i128 |
+  | scaled denominator | 101 | u128 |
+  | bound numerator | 123 | u128 |
+
+  Comparisons use a 256-bit product. Overflow refusals: 0.
+- **R1.** The exact-first, exact-zero, per-entry and unary arms all reproduce Python's decisions
+  exactly (same table as H1).
+- **Disable runs (each caught by the parity check).**
+  - Halving the y bound: 1-4 flag mismatches per arm (the halved bound still produced no wrong
+    code on this corpus; parity, not luck, caught it).
+  - Ignoring the tie side of the p comparison: the zero and pe arms mismatch on all 9 tie-512
+    rows. The exact-zero midpoint certification depends on the tie-side rule.
+- **R2, resolver seam (stated, not closed).** Rust implements exact rational (single
+  representative) and equal-group-mean. It does **not** implement outward-rounded high-precision
+  intervals (no multiprecision dependency was added). Those outputs, 3-4 per arm on this corpus
+  and 18,073-18,167 on the unary arms, are DEFERRED to the Python reference result and counted.
+  Owners: Rust integer certification and exact rationals = this lab; the interval resolver =
+  unowned in Rust (test-only Python); final source rounding = the declared rule (ties away from
+  zero, TFLM).
+- **R3, timing.** Release build on an Intel Xeon @ 2.10 GHz, 4 cores, rustc 1.99.0, default
+  baseline x86-64 target (no `target-cpu`), no FMA used, no dependencies beyond ndarray (linked,
+  unused here). Unoptimized lab code: per-call allocations and an exact f64 decomposition on every
+  call. Two runs; median of 7 batches each; noisy.
+
+  | stage | ns |
+  |---|---|
+  | f64 table generation, per entry | 3.5-13.8 |
+  | shortcut test, per element | 0.7-1.7 |
+  | integer sums (S and 5 N columns), per element | 16-33 |
+  | bound + certification, full row, per element, ε = ½ | 127-231 |
+  | bound + certification, full row, per element, per-entry ε | 125-229 |
+  | exact shortcut resolution of a 4096 tie row, per element | 29 |
+
+  Not timed: preparation of certification metadata (done in Python), the interval fallback (not in
+  Rust), and complete row latency as a separate stage.
+
+### H3. Negative controls (`cert2.json` → `negative_controls`; all executed)
+
+| control | result |
+|---|---|
+| A. shortcut disabled vs base, every 7th case (38 cases) | identical outputs |
+| B. rational midpoint ±5/2, two representatives | code ±3, y by `exact_group_mean`, p by bound |
+| B disable: equal-group-mean off | y **UNRESOLVED** at 512 bits, no code returned |
+| C. prepared-artifact lookup: correct codebook | accepted |
+| C. declared digest A, data from codebook B | refused: `artifact_identity_mismatch` |
+| C. wrong β under a correct digest | refused: `artifact_identity_mismatch` |
+| C. unknown digest | refused: `no_artifact_for_digest` |
+| D. mask consumed by the candidate pipeline (max, sums, y, p = 0 code for masked) | correct, all arms |
+| D disable: mask ignored | y 3 instead of 1, p wrong: fails as it must |
+| D: masked maximum on a steep codebook, mask honoured vs max-selection disabled | both correct; disabled forces 64-bit interval escalation (precision, not correctness) |
+| D: all elements masked | refused: `empty_after_mask` |
+| D: uniform only after masking | shortcut fires, correct |
+| E. large logit gap, 255 weights round to 0 | certified, correct |
+| E. 4095 probabilities near zero | certified, correct |
+| E. y saturates high / low (±300) | 127 / −128, correct |
+| E. y exactly 127.5 (uniform) | 127 (128 clamped), correct |
+| E. uniform midpoint ±5/2 | ±3 in every arm (base via exact rational, zero via bound, first via shortcut) |
+| E. β = 0, −1, ±inf, NaN | refused: `beta must be finite and positive` |
+| E. non-finite representative | refused (Amendment 6) |
+| E. SymNaN code 0x80 in an active row | refused: `symnan_code_in_active_row` |
+| E. same row under the asymmetric space | 0x80 is an ordinary code, correct |
+
+The SymNaN control is a lab admission rule. The ndarray Codec8 `NaNAtMin` semantics (code −128 =
+NaN, `Sym` only) were not wired into this probe.
+
+### H4. TANH calibration sweep — `.claude/probes/tanh-sweep-v1/` (P0)
+
+- **Oracle.** The real TFLM int8 TANH (`RunTanh` copied verbatim from the ndarray oracle), with the
+  TFLM `tensorflow/` tree identical to `8f6596d`. Harness check: all 7 committed fixture
+  calibrations are reproduced byte for byte, prepare parameters included.
+- **Calibrations.** 2,224 (7 fixture, 17 power-of-two with zp 0, 2,000 random, 200 random with
+  zp 0), giving 569,344 cells. Output contract scale 1/128, zp 0. Prepare and invoke succeeded on
+  every calibration.
+
+| comparison | differing cells |
+|---|---|
+| TFLM vs correctly rounded tanh of the exact real input | **17** |
+| TFLM vs correctly rounded tanh of Codec8's f32 decode | 17 (the same cells) |
+| exact-real vs f32-decode reference | 0 |
+| certified LUT (64-bit intervals; every cell decided at 64 bits) vs reference | 0 |
+| numpy float32 `tanhf`, then round | 0 |
+| ndarray `vstanh`, then round | 0 |
+
+- **Mismatch inventory.**
+  - Every one of the 17 is the 0/±1 boundary at `|x| ≈ 1/256`, where `128·tanh(x)` lies
+    2.5e-6 to 9.8e-6 **below** ½. The correctly rounded code is 0; TFLM returns ±1.
+  - 15 cells at power-of-two scales 2^-8 to 2^-15 (both signs where ±1/256 is reachable; one
+    sign at 2^-15).
+  - 2 cells at one random calibration (scale bits `0x3932159a`, zp 91).
+  - No mismatch was found at any other boundary, including saturation.
+  - This is the first counterexample to "a correctly rounded table equals TFLM" (Amendment 3
+    C1 had none).
+- **Consequence.** A TFLM-parity table is a separate artifact, generated from TFLM's arithmetic. It
+  must not be confused with the correctly rounded table.
+- **Special values and semantics.**
+  - int8 inputs cannot be NaN or inf, and decode overflow is unreachable at these scales.
+  - TFLM evaluates input code −128 as a value. Under `Sym + NaNAtMin` the same byte is NaN →
+    NaN code. That is a contract difference, not a numeric mismatch.
+  - TiesAway and TiesEven give identical tables, proved: no cell can be an exact tie.
+- **Not covered.**
+  - ONNX: no source oracle was run, and the probe does not force TFLM's convention onto it.
+  - U8 `UnitFull` tables: no source oracle.
+  - The int16 TANH kernel; LOGISTIC.
+
+### H5. Prioritized to-do (supersedes the Amendment 6 G6 table where rows overlap)
+
+| stage | item | acceptance criterion | status |
+|---|---|---|---|
+| P0 | Rust interval/multiprecision resolver, or a ratified decision to keep it test-only | Rust resolves the 3-4 deferred outputs with outward rounding; disable → UNRESOLVED | OPEN (seam stated) |
+| P0 | Exact-first + exact-zero as the lab default; per-entry ε optional | parity with `cert2.json` decisions; 0 misses | TESTED-LAB (Python + Rust) |
+| P0 | Optimized Rust certification (no per-call allocation; precomputed V decomposition) | same decisions; per-stage ns reported with tier | NOT RUN |
+| P0 | Held-out validation on a distinct codebook generation | 0 misses; escalation rate; identity refusal | NOT RUN |
+| P1 | TFLM-parity TANH table as a separate artifact (gemmlowp arithmetic) | 0 differing bytes vs TFLM on the 2,224-calibration sweep | NOT RUN |
+| P1 | TFLM int8 softmax calibration sweep, sum < 2^9 domain | 0 differing bytes vs arm A; aborts listed | NOT RUN |
+| P1 | Codec8 phase (c) generator: cross-check against this sweep's certified LUT | G7 equality on all swept cells | NOT RUN |
+| P1 | Argmax interval early exit (ledger D) | 0 wrong argmax; early-exit rate | NOT RUN |
+| P1 | Stale `// 28 + 12 = 40` comment, `gamma_calibration.rs:304` | says 48 | OPEN, needs authorization |
+| P2 | Precision-selection policy bound to the recipe receipt (shortcut / bound / per-entry / escalate / argmax) | one prepared decision per (codebook generation, β, operator); no per-element dispatch | PROPOSED |
+| P2 | Calibration staging OBSERVE→…→COMMIT; deskew β-sweep | per-β TV/bias; new generation = new version | PROPOSED / NOT RUN |
+| P3 | BERT-class layer, ONNX IR and TFLite IR admission arms (Amendment 6 G5) | as stated there | NOT RUN |
+| P3 | `EulerGammaOffset` decision; `RollingFloor` ×3 | owner decision recorded | OPEN (inventory only) |
+
+### H6. BOARD_SYNC_PENDING (update to Amendment 6 G7)
+
+Linear was not reachable. No issue state, acceptance or ownership is claimed. Sections a
+Linear-connected session may mirror:
+
+| Linear issue | mirror |
+|---|---|
+| EXO-152 (numerical ledger, precision milestones) | ledger entries B (corrected), G (exact-zero, per-entry), I, J; H5 to-do |
+| EXO-50 (handoff) | a one-line pointer to this amendment and its commit |
+| EXO-129 / 132 (palette-chain closure) | unchanged: no chain closure claimed |
+| EXO-127 (offline proof scope) | H2 R2: the interval resolver is not a rewrite and is not in Rust |
+
+### H7. NOT RUN
+
+- A Rust interval resolver.
+- Optimized Rust kernels, Rust preparation-cost timing, and complete row latency.
+- Held-out validation.
+- ONNX, U8 `UnitFull`, int16 TANH and LOGISTIC sweeps; a TFLM-parity table.
+- The softmax TFLM sweep.
+- Argmax early exit.
+- BERT, ONNX IR and TFLite IR arms.
+
+**Next narrow gate:** decide the Rust resolver seam (implement outward-rounded intervals in the
+lab, or ratify test-only resolution), then held-out validation.
