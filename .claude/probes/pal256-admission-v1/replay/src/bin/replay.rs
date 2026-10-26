@@ -45,6 +45,7 @@ fn main() -> ExitCode {
     let recip = if args.iter().any(|a| a == "exact") { Recip::Exact } else { Recip::Source };
     let full = args.iter().any(|a| a == "--full");
     let mut fails: Vec<String> = Vec::new();
+    let t0 = std::time::Instant::now();
     // 1. integrity
     let man: Value = serde_json::from_str(&fs::read_to_string(dir.join("manifest65.json")).unwrap()).unwrap();
     for (name, want) in man["sha256"].as_object().unwrap() {
@@ -57,6 +58,7 @@ fn main() -> ExitCode {
         println!("REFUSE integrity: {fails:?}");
         return ExitCode::from(2);
     }
+    let t_integrity = t0.elapsed();
     // 2. tables
     let tj: Value = serde_json::from_str(&fs::read_to_string(dir.join("softmax_tables65.json")).unwrap()).unwrap();
     let mut tables: BTreeMap<String, Table> = BTreeMap::new();
@@ -67,6 +69,7 @@ fn main() -> ExitCode {
         }
         tables.insert(key.clone(), table(t));
     }
+    let t_tables = t0.elapsed() - t_integrity;
     // 3. fixtures
     let lines = |f: &str| fs::read_to_string(dir.join(f)).unwrap().lines().map(|l| serde_json::from_str::<Value>(l).unwrap()).collect::<Vec<_>>();
     let mut ok = BTreeMap::<&str, u32>::new();
@@ -136,6 +139,8 @@ fn main() -> ExitCode {
             fails.push(format!("unreachable S={s} d={d}"));
         }
     }
+    let t_total = t0.elapsed();
+    eprintln!("timing_us integrity={} tables={} fixtures={} total={}", t_integrity.as_micros(), t_tables.as_micros(), (t_total - t_integrity - t_tables).as_micros(), t_total.as_micros());
     println!("recip={recip:?} passed={ok:?} failures={}", fails.len());
     for f in fails.iter().take(10) {
         println!("  {f}");

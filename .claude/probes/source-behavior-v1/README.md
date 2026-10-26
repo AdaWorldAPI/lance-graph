@@ -91,3 +91,22 @@ uv run recipprune64.py ./recipprune64 ./trace63 recipall63.json recipprune64.jso
 uv run recipprune64.py ./recipprune64 ./trace63 recipall64_control_delta256_full.json recipprune64_control_delta256.json 256
 uv run recipprune64.py ./recipprune64 ./trace63 recipall63.json /tmp/w.json 0 <window>     # disable runs
 ```
+
+## Amendment 6.5 (admission gate, fixtures, economics)
+
+| file | role |
+|---|---|
+| `softcert65.cc` | `global`: source-global certificate of the TFLM int8 softmax reciprocal (domain, monotone exact reference, E_h per band) → `softcert65_global.txt`. `gate`: per-calibration decision PROVED_OUTPUT_EQUIVALENT / REQUIRES_SOURCE_RECIPROCAL / REFUSE_UNKNOWN from that certificate and one calibration's prepared weights; boundary-pruned search plus exact reachability; built-in mutation switches. |
+| `softcert65.py` | Runs the gate on the 14 known and 8 held-out calibrations and validates every decision without the gate's code; `--mutations` runs 10 certifier and 3 input mutations → `softcert65_run.json`. |
+| `heldout65.py` | 8 held-out calibrations and their exhaustive superset reference (unchanged `recipall63`) → `recipall65_heldout.json`. Two of the eight have the same β·scale as a known calibration and therefore the identical weight table; six are genuinely new. |
+| `fixtures65.py` → `fixtures65/` | Durable witness fixtures and their SHA-256 manifest; replayed without TFLM by `../pal256-admission-v1/replay`. |
+| `perf65.cc` → `perf65.txt`, `perf65_runs23.txt` | Kernel vs source recipe vs exact-reciprocal recipe vs the reciprocal alone, calibrations 9 and 10, n = 8 … 511, three runs, parity beside every arm. |
+
+The certifier and the benchmark build with the `trace63.cc` g++ line (`perf65` links the TFLM library).
+
+```sh
+./softcert65 global 5f64e4ad $(cat <tflm>/…/{common.h,fixedpoint.h,reference/softmax.h} | sha256sum | cut -c1-64) > softcert65_global.txt
+uv run heldout65.py ./recipall63 ./trace63 recipall65_heldout.json 3
+uv run softcert65.py ./softcert65 ./trace63 ./softmax_oracle softcert65_run.json --mutations
+uv run fixtures65.py softcert65_run.json ./trace63 ./softmax_oracle fixtures65
+```

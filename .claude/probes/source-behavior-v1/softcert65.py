@@ -69,6 +69,7 @@ def gate(cal, tab, mutation=None, rev=REV, dig=DIGEST):
     cur = None
     for l in r.stdout.splitlines():
         t = l.split()
+        if not t: continue
         if t[0] == "T": res["timings"][t[1]] = float(t[2])
         elif t[0] == "I": res["info"] = dict(zip(t[1::2], map(int, t[2::2])))
         elif t[0] == "C" and len(t) >= 9:
