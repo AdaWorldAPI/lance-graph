@@ -1,4 +1,4 @@
-# 2026-10-26 — D-TFLP v2: synergy revision after #1786–#1803
+# 2026-10-26 — D-TFLP-V2: synergy revision after #1786–#1803
 
 **Status:** PROPOSAL, docs only. Plan: `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`.
 
