@@ -505,8 +505,9 @@ are new and worth carrying:
   rows only when the dictionary has at most half as many entries as the rows and the function cannot error
   (`unary_executor.hpp:124-127`). Its cross-chunk cache is limited to storage dictionaries under 20,000 entries,
   and above 2,048 entries only when the chunk is at least half full, "to protect against selective filters"
-  (`execute_function.cpp:51-84`). This is upstream evidence that a 64 KiB table is not faster by default;
-  `d-tflp-tflite-palette-polyfill-capstone-v1.md:277` leaves ADD-by-table vs ADD-computed as an open question that D-TFLP-2 measures; this rule adds the row-count condition.
+  (`execute_function.cpp:51-84`). DuckDB's dictionary-execution thresholds demonstrate workload-dependent
+  amortization, but do not establish the crossover between a 65,536-entry LUT and bit-exact SIMD arithmetic. That
+  remains an independent D-TFLP-2 measurement (open question at `d-tflp-tflite-palette-polyfill-capstone-v1.md:277`).
 - *Complement only without NULL* (item 3).
 
 | shape | ONNX | TFLite | native route (prepared once) |
@@ -528,3 +529,70 @@ kernels; Lance 13 = I/O in bytes, ranges and rows; DRF = reuse. They are never c
 **6. Does anything displace P1?** No. PgLance has no masked read to compare against, and DuckDB's rules apply to
 the native polyfill, not to the Lance handoff. P1 (A.6) remains the smallest next step; M1 is its prerequisite;
 S-INGRESS and the coordinate authority remain operator decisions.
+
+### A.10 Scope clarification (2026-10-26): sealed-read masks only; writer and resident engine unchanged
+
+Documentation only. Nothing here is an implementation requirement. Squash, release and their dependency handling,
+`MailboxSoA`, `CycleWriter`, the 512-byte node layout, DR64 execution and model handling are out of scope and
+unchanged. A.9 item 5 was corrected in place (one sentence: the DuckDB thresholds show amortisation, not the
+LUT/SIMD crossover, which stays a separate D-TFLP-2 measurement).
+
+**Where A.3–A.9 apply.** Everything about Lance masks in this appendix concerns **reading committed, sealed Lance
+versions**. It is not a statement about how changes are written. The write path is:
+resident SoA (DR64 focus = 4,096 of 65,536 addresses, i.e. 1/16 of the address space; up to 64 thought layers, a
+separate axis from the 32 × 16-byte slots of the 512-byte node) → repeated native folds → existing squash/release →
+coalesced dirty payload → existing asynchronous `CycleWriter` handoff → background freeze/WAL/Lance commit. The
+focus reduction is the optimisation; it never licenses dropping a changed field, and a read projection must never
+be reused as a write projection. Field-activity share and amortisation depth (operator targets: roughly 40–70 % of
+lanes in focused nodes, up to about a million operations per handoff) are execution economics, not persistence
+rules.
+
+**Writer ownership, verified in source.**
+- Exclusivity comes from holding `MailboxSoA` by move, with column writes through the owner's `&mut self` ops
+  (`mailbox_soa.rs:747-750`, `:790-800`). `MailboxSoaOwner`'s contract-level mutation surface is the phase
+  transition only (`soa_view.rs:295-301`).
+- `MailboxSoA::cast_on_behalf(&self, …)` pairs the cast with `self.mailbox_id()` (`mailbox_soa.rs:765-772`). The
+  `&self` borrow does not hand the SoA to anyone.
+- `BatchWriter` is "ephemeral staging, not a durable WAL" (`batch_writer.rs:23`). Its payload is a descriptor; deltas
+  stay in the SoA backing store until flush (Addendum-6, `:29-32`). Its own doc notes `cast()` has no production call
+  site yet (`:16-19`).
+- `CycleWriterHandle::try_submit` moves the `Vec<SweepSlot>` into the writer and returns a `SealTicket` without
+  waiting (`cycle_writer.rs:166-179`). The writer task owns the sink and calls the existing `seal_cycle`
+  (`cycle_writer.rs:314-315`; `seal_cycle` is defined in `cycle_driver.rs:434`, not in `persist_sink.rs`). It frames
+  each cycle on the head the previous one published, so the caller need not know it (`:29-34`). Transitions apply only
+  after the ticket resolves `Ok`; a failed seal poisons the queue and hands every cast back (`:36-50`).
+- These are two ownership boundaries: a staged `BatchWriter` descriptor still refers to live SoA bytes, while a
+  submitted `Vec<SweepSlot>` is owned by the writer (`SweepSlot.payload: Vec<u8>`, `persist_sink.rs:193`). Neither is
+  a general zero-copy guarantee.
+
+**Lance mask ownership is separate.** `Scanner::with_row_addr_prefilter(&mut self, mask: RowAddrMask)` takes the mask
+by value and keeps it in the scanner (`lance-13.0.0/src/dataset/scanner.rs:1663-1665`). The resident DR mask can stay
+borrowed while the Lance mask is built; that conversion is a representation copy at the sealed-read boundary (the
+crepe probe's bit enumeration, `crepe-plan-probe/src/lance_store.rs:264-268`). It does not touch `MailboxSoA`'s
+write ownership and belongs outside the resident fold.
+
+**MemWAL is outside this mask capability.** From the Lance 13.0.0 and lancedb 0.40.0 sources:
+- The MemWAL scanner's block list is internal, built from primary-key membership between generations
+  (`dataset/mem_wal/scanner/block_list.rs:4-17`) and applied as `PkBlockFilterExec` to drop superseded vector
+  candidates.
+- `LsmScanner` exposes `project`, `filter`, `limit`, `nearest`, full-text search, `with_row_address`,
+  `with_memtable_gen`, and no `RowAddrMask` or external ALLOW/BLOCK input (`mem_wal/scanner/builder.rs:429-563`).
+- The fresh tier has no stable `_rowid`; lancedb rejects `with_row_id` there and joins hybrid search on a
+  primary-key surrogate (`lancedb-0.40.0/src/query/wal_fusion.rs:4-16`). A MemWAL `_rowaddr` only orders rows within
+  one generation (`builder.rs:551-555`).
+- `use_lsm(false)` reads the sealed base only and misses fresh records (`lancedb-0.40.0/src/table/query/lsm.rs:6-21`).
+  Filtering fresh rows by primary key is a different operation in a different coordinate space.
+- lancedb's `materialized_view/vector_dedup.rs:414-434` is a sealed-dataset precedent for coordinate checking
+  (offsets → `_rowid` in stable-id mode, out-of-fragment refusal, one fragment per scan), not a MemWAL interface.
+- Our WAL components (`persist_sink.rs`, `cycle_writer.rs`, `batch_writer.rs`) have no read-side mask.
+
+Consequently there is no MemWAL mask adapter, no use of a block list to skip clean rows during writes, and no
+primary-key substitute for DR ordinals. Add **MemWAL primary key** as a sixth space to the A.1 list: DR64 focus slot
+≠ canonical SoA ordinal ≠ stable `_rowid` ≠ physical `_rowaddr` ≠ Arrow output position ≠ MemWAL primary key.
+
+**Status, unchanged:** ALLOW is a possible sealed-read integration behind the coordinate and S-INGRESS gates; BLOCK
+stays parked behind the six A.8 gates. Recommendations awaiting the operator (not authorised): S-INGRESS as a named,
+measured DR-mask → Lance-mask conversion at the sealed-read boundary, never claimed zero-copy; one checked binding
+carrying both the dataset-version witness (H14c) and the index-seal witness (DRF), built from the existing maps, with
+no third table and no Lance types in the contract. **P1** (A.6) remains next, offline over committed sealed
+H14c/H14d data; M1 is its prerequisite.

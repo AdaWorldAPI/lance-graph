@@ -59,3 +59,7 @@ gates: plan § A.8. Next step unchanged: P1.
 mask) is a tuple-conversion reference arm only. DuckDB @1641475 adds two rules for the native polyfill: a code
 table pays only when amortised over enough rows, and a predicate may be complemented only on a no-NULL path.
 Nothing displaces P1.
+
+**Addendum 3 (same day, scope):** plan § A.10. Lance row masks apply only to reading sealed Lance versions; the
+lancedb 0.40 MemWAL has no external ALLOW/BLOCK input and no stable `_rowid`. The resident engine and the
+`CycleWriter` handoff are unchanged. A.9's LUT sentence was corrected (amortisation, not the LUT/SIMD crossover).
