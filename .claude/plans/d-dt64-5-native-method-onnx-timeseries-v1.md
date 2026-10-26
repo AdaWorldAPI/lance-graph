@@ -1,5 +1,7 @@
 # D-DT64-5: Versioned DTO behavior → native method bindings, time-series and ONNX leaf compatibility
 
+> **DT64↔Quack coordination Q0 (2026-10-26):** [Minimal source-attested borrowed binding contract, capstone #1799](https://github.com/AdaWorldAPI/lance-graph/blob/research/dt64-predicate-holographic-capstone-20261026/.claude/plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md). DT64 references prepared methods and numerical certificates, but never generates or certifies the numerical implementation. D-NAM/EXO-152 owns calibration, source-specific fingerprints and SourceParity versus CertifiedMath; ndarray executes kernels. ONNX/TFLite are external leaves. All first-landing tests require #1792's detached-\`Keep\` 1,032-vs-31 refusal/recompute. Coordination note only; not new implementation authorization.
+
 **Date:** 2026-10-26. **Status:** ENGINEERING PLAN / docs only. **Parent:** DT64-0–4 candidate drafts; D-NAM/EXO-152 is authoritative for native method crosswalk, Quack and external leaf mapping.
 **No:** new runtime, ONNX inference interpreter, tensor AST, model retraining, changes to TFLite parity, or unapproved production code.
 
