@@ -92,3 +92,7 @@ AD/Entra/Exchange   Odoo          SAP CATS / business
 Existing: IAM `dir-rmap-probe/tests/classview_dr.rs` compiled role closure and speed (lab), SAP `lance-graph-sap/src/{schema,bind,edge}.rs` 23 fields and ordered hash/BAPI, Odoo extracted blueprint corpus, DR logic/Quack lab, #1792 borrow-vs-escaped refusal. Missing: DT64 registry implementation, Odoo method fold, SAP↔IAM↔Odoo trusted identity join, general DR³ physical layout, cross-frame binding store, cross-source snapshot attestation and proof checker.
 
 No live SAP/Odoo/AD/Entra connectivity, provisioning, license changes, account mutation, BAPI writes, rollout, authorization shortcut, runtime graph engine, ONNX interpreter, new FrameStore, or automatic claim that every DT64 bit is a fact.
+
+## Agent handoff
+
+Source-first review and proposed falsifier protocol: [d-dt64-source-first-claude-code-handoff.md](../prompts/d-dt64-source-first-claude-code-handoff.md). No implementation or production authorization is conferred by this prompt.
