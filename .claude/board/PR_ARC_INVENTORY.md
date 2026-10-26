@@ -1,3 +1,130 @@
+<!-- 2026-10-26 catch-up: #1772–#1803 had no entries. Board-hygiene-only #1773 and #1793 get none (termination clause). Recorded from merge commits, changed files and each PR's own Status line. -->
+
+## 2026-10-26 — lance-graph PR #1803 (merged `13e37026`, branch `claude/d-tflp-compact-evidence`, head `63e8ced3`) — probes(D-TFLP 6.5): compact softmax data files, drop the run record
+
+- **Added:** `.claude/probes/source-behavior-v1/` fixtures and certificate runs (no crate).
+- **Confidence:** LAB evidence, compacted; production impact none.
+
+## 2026-10-26 — lance-graph PR #1802 (merged `e1ceceec`, branch `docs/d-onnx-frontend-intake-bakeoff-20261026`, head `1f515d07`) — docs(D-ONNX-INTAKE-0): Burn onnx-ir vs Tract cold frontend capstone
+
+- **Added:** docs only: plan `d-onnx-frontend-intake-bakeoff-capstone-v1.md`, CC handoff prompt, entry `2026-10-26-onnx-frontend-intake-bakeoff.md`.
+- **Confidence:** PROPOSAL; no importer, no test run. Bears on OP-ONNX-2 (importer choice), still OPEN.
+
+## 2026-10-26 — lance-graph PR #1801 (merged `f1ff647f`, branch `claude/d-tflp-codec8-admission`, head `01ef5077`) — probes(D-TFLP 6.5): Codec8 semantic admission + DT64/Quack/D-NAM handoff
+
+- **Added:** probe files under `.claude/probes/`; entry `2026-10-26-d-tflp-65-landing.md`.
+- **Confidence:** MEASURED (lab), docs and probes only; no crate, ABI or kernel change.
+
+## 2026-10-26 — lance-graph PR #1800 (merged `7d485dcb`, branch `claude/d-tflp-softmax-evidence`, head `26666aa0`) — probes(D-TFLP 6.5): softmax fixture replay + certified preparation gate
+
+- **Added:** probe files under `.claude/probes/`.
+- **Confidence:** MEASURED (lab); production impact none.
+
+## 2026-10-26 — lance-graph PR #1799 (merged `7b3cba7e`, branch `research/dt64-predicate-holographic-capstone-20261026`, head `6c769223`) — docs(DT64-0): versioned DTO predicate adapter capstone, staged PR board, EXO-50 gates
+
+- **Added:** docs only: capstone `d-dt64-holographic-predicate-capstone-v1.md`, D-DT64-Q0 seam `d-dt64-q0-borrowed-quack-binding-seam-v1.md` (canonical), entry `2026-10-26-dt64-holographic-interface.md`, STATUS_BOARD/INTEGRATION_PLANS rows.
+- **Confidence:** DESIGN; blockers named in the entry include EXO-46, EXO-148, EXO-152, NFR-OP-2.
+
+## 2026-10-26 — lance-graph PR #1798 (merged `ccee8bf5`, branch `research/dt64-native-onnx-methods-20261026`, head `64c20a87`) — docs(DT64-5): native DTO behavior and ONNX/time-series lowering gates
+
+- **Added:** docs only: `d-dt64-5-native-method-onnx-timeseries-v1.md`.
+- **Confidence:** ENGINEERING PLAN; D-NAM/EXO-152 authoritative for the method crosswalk.
+
+## 2026-10-26 — lance-graph PR #1797 (merged `2b6ecf1d`, branch `research/dt64-thoughtgit-temporal-20261026`, head `ee58fe05`) — docs(DT64-4): edge dependencies, Thought-Git hypothesis, temporal projections
+
+- **Added:** docs only: `d-dt64-4-edge-thoughtgit-hypothesis-time-v1.md`.
+- **Confidence:** RESEARCH PLAN; durable Thought-Git replay waits on EXO-148 (`thought_commit` OPEN).
+
+## 2026-10-26 — lance-graph PR #1796 (merged `30299d2d`, branch `research/dt64-inverted-dr-projections-20261026`, head `81e34a8a`) — docs(DT64-3): directed DR inverse projections and falsifiers
+
+- **Added:** docs only: `d-dt64-3-directed-dr-projection-falsifiers-v1.md`.
+- **Confidence:** GATED PLAN.
+
+## 2026-10-26 — lance-graph PR #1795 (merged `4a3ef346`, branch `research/dt64-source-adapters-20261026`, head `2426e801`) — docs(DT64-2): source-admitted IAM / Odoo / SAP DTO mappings
+
+- **Added:** docs only: `d-dt64-2-iam-odoo-sap-source-admission-v1.md`.
+- **Confidence:** SPECIFICATION.
+
+## 2026-10-26 — lance-graph PR #1794 (merged `c2f2466a`, branch `research/dt64-catalogue-mappings-20261026`, head `db7b90dc`) — docs(DT64-1): 64 typed predicate mappings for IAM / Odoo / SAP
+
+- **Added:** docs only: `d-dt64-1-predicate-catalogue-source-crosswalk-v1.md`.
+- **Confidence:** DESIGN; 64 candidate mappings, not a registry.
+
+## 2026-10-26 — lance-graph PR #1787 (merged `87b2899b`, branch `docs/d-dqm-duckdb-quack-landing-zone-20261026`, head `ebe057f2`) — docs(quack): audit DuckDB vector techniques against DR landing zones
+
+- **Added:** docs only: `duckdb-dr-quack-machine-room-reuse-v1.md`.
+- **Confidence:** PROPOSAL; follow-ups #1788 (crosswalk) and #1789 (P1 probe, FAIL).
+
+## 2026-10-26 — lance-graph PR #1786 (merged `aed0cadc`, branch `docs/virtual-associative-fold-syndrome-scratchpad-20261025`, head `e08d4839`) — docs(brainstorm): virtual associative folds, comma syndromes, emergency Pickaxe
+
+- **Added:** `.claude/ideas/` scratchpad + `IDEAS.md` row.
+- **Confidence:** IDEA.
+
+## 2026-10-26 — lance-graph PR #1785 (merged `841491c7`, branch `docs/d-tflp-palette-polyfill-20261025`, head `8d480420`) — docs(D-TFLP-0): TFLite models on the native polyfill, int8 codes as Palette256
+
+- **Added:** docs only: `d-tflp-tflite-palette-polyfill-capstone-v1.md`, entry `2026-10-25-d-tflp-0-tflite-palette-polyfill.md`.
+- **Confidence:** PROPOSAL; D-TFLP-1..8 NOT RUN.
+
+## 2026-10-25 — lance-graph PR #1784 (merged `18fbe43a`, branch `docs/d-nam-palette-native-lut-capstone-20261025`, head `08088da2`) — docs(D-NAM-PZL): palette-native LUT lowering and capstone alignment (S0)
+
+- **Added:** docs only: `d-nam-palette-native-lut-capstone-v1.md`, CC prompt.
+- **Confidence:** PROPOSAL; PZL-0..5 NOT RUN.
+
+## 2026-10-25 — lance-graph PR #1783 (merged `fb7a4ae5`, branch `docs/d-nam-5-bidirectional-conformance-20261025`, head `21f447df`) — spec(D-NAM-5): conditional reverse DTO and cross-dialect conformance closure
+
+- **Added:** docs only: `d-nam-5-reverse-dto-certification-gates-v1.md`.
+- **Confidence:** SPEC.
+
+## 2026-10-25 — lance-graph PR #1782 (merged `9e9dae5d`, branch `docs/d-nam-4-native-bind-recipe-20261025`, head `5cd4a6e1`) — spec(D-NAM-4): Quack/SoA/DR prepared binding to existing R2IL/ndarray recipes
+
+- **Added:** docs only.
+- **Confidence:** SPEC.
+
+## 2026-10-25 — lance-graph PR #1781 (merged `ae58ec84`, branch `docs/d-nam-3-mlir-relalg-20261025`, head `1844b5d4`) — spec(D-NAM-3): MLIR indexing and SQL/RelAlg lawful method normalization
+
+- **Added:** docs only: `d-nam-3-mlir-sql-relalg-normalization-v1.md`.
+- **Confidence:** SPEC.
+
+## 2026-10-25 — lance-graph PR #1780 (merged `bd776751`, branch `docs/d-nam-2-onnx-tflite-dto-20261025`, head `9c5eef04`) — spec(D-NAM-2): ONNX/TFLite leaf DTO adapters, BOOL and quantization contracts
+
+- **Added:** docs only.
+- **Confidence:** SPEC.
+
+## 2026-10-25 — lance-graph PR #1779 (merged `538bc171`, branch `docs/d-nam-1-method-normalization-20261025`, head `3bb5977d`) — spec(D-NAM-1): versioned native method DTO crosswalk and normalization gates
+
+- **Added:** `.claude/specs/d-nam-method-crosswalk-v1.json` + `tools/d_nam_validate_crosswalk.py` (fail-closed validator).
+- **Confidence:** SPEC + static tooling; no native mapping, no certification.
+
+## 2026-10-25 — lance-graph PR #1778 (merged `96b4b282`, branch `docs/d-nam-0-capstone-20261025`, head `c1c81ff0`) — docs(D-NAM-0): capstone for native algebra method × external DTO dialects
+
+- **Added:** docs only: `d-nam-native-algebra-dto-capstone-v1.md`, CC prompt, STATUS_BOARD/INTEGRATION_PLANS rows.
+- **Confidence:** PROPOSED; Linear EXO-152.
+
+## 2026-10-25 — lance-graph PR #1777 (merged `7eb62a57`, branch `docs/d-dtm-1-reasoning-interchange-20261025`, head `11b5cbc4`) — docs(D-DTM-1): distributed thought-delta reasoning interchange capstone and PR map
+
+- **Added:** docs only: `d-dtm-1-distributed-thought-delta-reasoning-interchange-v1.md`, CC prompt.
+- **Confidence:** S0 documentation; P1–P8 not approved; EXO-148 named as blocker.
+
+## 2026-10-25 — lance-graph PR #1776 (merged `5a7cae35`, branch `lab/drav-av1-membership-20261025`, head `c5fe8ba1`) — lab(drav-av1): map-only membership mask over a bound DR64 map
+
+- **Added:** `crates/drf-focus-probe`; entry `2026-10-25-drav-av1-membership.md`.
+- **Confidence:** MEASURED (lab); A3 NOT RUN.
+
+## 2026-10-25 — lance-graph PR #1775 (merged `e71760a3`, branch `docs/dr-address-first-value-demand-20261025`, head `59bd0104`) — docs(D-DRAV-1): address-first DR map and demand-driven value residency
+
+- **Added:** docs only: `d-dr-address-first-value-demand-v1.md`, entry `2026-10-25-d-drav-1-address-first-value-demand.md`.
+- **Confidence:** PROPOSAL.
+
+## 2026-10-25 — lance-graph PR #1774 (merged `b4702b71`, branch `lab/drf-tlb-probe-20261025`, head `2c6894a5`) — lab(drf-tlb): gather cost against distinct pages touched
+
+- **Added:** `crates/drf-focus-probe/examples/tlb_probe.rs`; entry `2026-10-25-drf-tlb-probe.md`.
+- **Confidence:** MEASURED (lab), PARTLY EXPLAINED.
+
+## 2026-10-25 — lance-graph PR #1772 (merged `c9177272`, branch `lab/drf-churn-policy-20261025`, head `020a8771`) — lab(drf-churn): measure MRU against LRU under focus churn
+
+- **Added:** `crates/drf-focus-probe`; entry `2026-10-25-drf-churn-policy.md`.
+- **Confidence:** MEASURED (lab); neither order wins both workloads, default stays LRU.
+
 <!-- 2026-10-26 catch-up: #1788–#1792 (this session's PRs). #1772–#1787 are not recorded here; that gap predates this PR. -->
 
 ## 2026-10-26 — lance-graph PR #1792 (merged `30ca36ec0`, branch `claude/dr256-where-capstone`, head `2971b870`) — D-DR256-WHERE: capstone, DR64³ inventory, P2 Quack-path lab, evidence reconciliation, D-NFR-1 ownership correction
