@@ -28,7 +28,7 @@ The gate no longer trusts that the supplied table belongs to the claimed calibra
 - On any difference it refuses with `table_identity_mismatch`.
 - The Python driver keeps its own independent table check as a second line.
 
-Controls in `softcert65_run.json`:
+Controls in the run record (see "Run record" below):
 
 | control | result |
 |---|---|
@@ -37,7 +37,7 @@ Controls in `softcert65_run.json`:
 | calibration 1's table under calibration 2's identity (`table_identity_controls`) | accepted, same decision, **equal numeric key, different receipt** |
 | calibration 3's table under calibration 2's identity | `REFUSE_UNKNOWN table_identity_mismatch` |
 
-## Results (`softcert65_run.json`)
+## Results (run record)
 
 Every decision is validated without the gate's code. The table is recomputed, the candidate set is
 compared with the exhaustive superset reference, every witness row is rebuilt and run through the real
@@ -105,12 +105,24 @@ Then run from this directory:
 ```sh
 ./softcert65 global 5f64e4ad $(cat $TFLM_DIR/tensorflow/lite/micro/kernels/internal/{common.h,fixedpoint.h,reference/softmax.h} | sha256sum | cut -c1-64)
 uv run heldout65.py ./recipall63 ./trace63 recipall65_heldout.json 3
-TFLM_DIR=... uv run softcert65.py ./softcert65 ./trace63 ./softmax_oracle softcert65_run.json --mutations   # ~50 s
-uv run fixtures65.py softcert65_run.json ./trace63 ./softmax_oracle fixtures65   # byte-identical today
+TFLM_DIR=... uv run softcert65.py ./softcert65 ./trace63 ./softmax_oracle /tmp/run.json --mutations   # ~50 s
+uv run fixtures65.py /tmp/run.json ./trace63 ./softmax_oracle fixtures65   # byte-identical today
 ./perf65 > perf65.txt
 ```
 
 The fixtures are replayed without TFLM by `../pal256-admission-v1/replay`.
+
+## Run record (not committed)
+
+The gate's full validation record (every candidate, witness, mutation and timing; about 290 KB) is an
+output, not an input: neither the replay nor any script reads it. It is therefore not kept on `main`.
+Regenerate it with the `softcert65.py` command above. The copy produced while landing is
+`git show 26666aa0f:.claude/probes/source-behavior-v1/softcert65_run.json` (#1800). A re-run gives
+identical decisions, witnesses, unreachable pairs and mutation verdicts; only timings differ.
+
+JSON data files (`recipall63.json`, `recipall65_heldout.json`, `fixtures65/softmax_tables65.json`) are
+written compactly, one line each; their generators write the same form, so regeneration stays
+byte-identical.
 
 ## What this does not establish
 
@@ -135,4 +147,4 @@ Changes made while landing:
 - table-identity verification in the gate, with `N`/`U` outputs and the `skip_table_identity` switch;
 - `TFLM_DIR` instead of a hard-coded path;
 - the identity controls;
-- `softcert65_run.json` regenerated with them. Decisions, witnesses and unreachable pairs are identical to the research run.
+- the run record regenerated with them. Decisions, witnesses and unreachable pairs are identical to the research run.
