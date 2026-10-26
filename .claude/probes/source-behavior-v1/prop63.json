@@ -1,0 +1,37 @@
+{
+ "internal_vs_observable_logistic_1_128": {
+  "codes_nonsaturated": 256,
+  "exp_error_nonzero": 214,
+  "exp_err_min": -355.6661465107456,
+  "exp_err_max": 472.3045628290559,
+  "selected_error_nonzero": 243,
+  "selected_err_max_abs": 148.9421089438281,
+  "output_byte_differs_from_certified": 2
+ },
+ "fan_in": {
+  "calibrations": 2224,
+  "inputs_on_pm1_source_tanh": {
+   "total": 48806,
+   "min": 0,
+   "median": 0.0,
+   "max": 171,
+   "calibrations_with_zero": 1139
+  },
+  "inputs_on_pm1_certified_tanh": {
+   "total": 48789,
+   "min": 0,
+   "max": 171
+  },
+  "distinct_intermediate_codes": {
+   "min": 1,
+   "median": 17.0,
+   "max": 203
+  },
+  "largest_single_intermediate_fan_in": {
+   "min": 2,
+   "median": 109.0,
+   "max": 256
+  }
+ },
+ "stage1_visible_tanh_cells": 17
+}

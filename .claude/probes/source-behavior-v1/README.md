@@ -50,3 +50,23 @@ uv run softmax63.py ./softmax_oracle ./trace63 softmax63.json
 uv run recip_search63.py ./softmax_oracle ./trace63 recip63.json
 uv run softdiff63.py ./trace63 softdiff63.json
 ```
+
+## Amendment 6.3 addendum (backend / observability)
+
+| file | role |
+|---|---|
+| `backend63.py` | Links the three unchanged oracle sources against each TFLM library variant (`gen_<variant>/`, same checkout, built with `make … microlite BASE_GENDIR=gen_<variant>` and the flags in `backend63.json`) and compares output bytes: 2,224 TANH and 2,224 LOGISTIC calibrations, the 840 softmax rows, and 14 overflow rows (ties, n = 4,095 … 16,385) → `backend63.json`. |
+| `prop63.py` | Error propagation TANH → LOGISTIC: internal vs observable error, fan-in onto intermediate codes → `prop63.json`. |
+| `recipwit63.cc` + `recipwit63.py` | Reciprocal observability on reachable rows `[max]*k + [max+d]*m`; witnesses re-run through the real kernel; perturbed-reciprocal negative control → `recipwit63.json`. |
+| `recipall63.cc` + `recipall63.py` | Exhaustive superset check: every S in [B[0], 2^28) × every admitted weight → `recipall63.json`. |
+| `reach63.cc` + `reach63.py` | Turns each superset candidate into a real int8 row (min-coin DP over admitted weights) and runs it through the TFLM kernel → `reach63.json`. `recipall63_control_delta256.json`: the same superset check with the reciprocal perturbed by +256 (negative control). |
+| `reachcheck63.py` | Independent check of every witness with the `softmax63.py` Python recipe. |
+| `perf63.cc` | Kernel Invoke vs prepared lookup / source-compatible softmax recipe, with output parity on every timed buffer. |
+| `lutperf/` | Scalar 256-byte lookup vs the same lookup composed from ndarray `U8x64::{permute_bytes, cmpgt_mask, mask_blend}`. |
+
+Variant flags (appended after TFLM's own; kernels are `KERNEL_OPTIMIZATION_LEVEL`, everything else
+`CORE_OPTIMIZATION_LEVEL`): `gccO0` `-O0`/`-O0`; `gccO2novec` kernels `-O2 -fno-tree-vectorize
+-fno-tree-slp-vectorize`; `gccO3native` `-O3 -march=native`/both; `clang` `TOOLCHAIN=clang
+CXX_TOOL=clang++ CC_TOOL=clang` with `-Wno-error=double-promotion` appended (clang rejects a float→double
+promotion in `micro_utils.h` under `-Werror`); `ubsan` `-O1 -fsanitize=undefined
+-fno-sanitize-recover=undefined`; `ubsanshift` the same with `-fno-sanitize=signed-integer-overflow`.
