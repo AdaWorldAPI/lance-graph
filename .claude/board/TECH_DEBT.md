@@ -61,7 +61,7 @@ main and 1..63 as a thought-git slot, which is why `execute` writing W = 0 is
 correct. The doc contradicts the decision. Linear EXO-65.
 
 **Fruit:** Low-hanging
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
+**Status:** RESOLVED 2026-10-26 (`edge.rs:944` and `layout.rs:53` now read W as the thought layer: 0 = main, 1..=63 hypothesis lanes, points nowhere; comment-only). **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`).
 
 ## TD-STATUS-BOARD-ROWS-MISSING-FOR-OCT-PLANS-1 (2026-10-23) — OPEN
 

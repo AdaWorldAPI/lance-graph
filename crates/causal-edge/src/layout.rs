@@ -50,8 +50,9 @@ pub const PLAST_SHIFT: u32 = 50;
 pub const V1_TEMPORAL_SHIFT: u32 = 52;
 
 // ── v2 NEW fields (reclaimed from dropped temporal 12 bits) ─────────────────
-/// W slot: 6-bit witness corpus root handle (bits 53-58), 0..=63.
-/// 0 = no corpus anchor. Per cognitive-substrate-convergence-v1.md L-6.
+/// W slot: 6-bit thought layer (bits 53-58), 0..=63. 0 = main (the givens),
+/// 1..=63 = hypothesis lanes; it names a lane and points nowhere (decided
+/// 2026-10-17, #1597; supersedes the L-6 "corpus anchor" reading).
 pub const W_SHIFT: u32 = 53;
 
 /// Topology coordinate of the epistemic ladder: 2-bit ordinal (bits 59-60).
