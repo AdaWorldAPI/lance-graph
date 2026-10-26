@@ -402,3 +402,24 @@ y = Σ p_i V_i.
     softmax reciprocal (E = 6), this reproduces the exhaustive candidate set exactly from 4,078
     evaluations, and narrower windows lose candidates (494 at window 0).
 - **Status.** TESTED-LAB (`.claude/probes/source-behavior-v1/`, README section "Amendment 6.4 follow-up").
+- **L8, three preparation questions, answered in order, before a substitution (Amendment 6.5 O1–O5).**
+  1. **What do the bytes mean?** An 8-bit artifact's meaning is not in its bytes. It is the codec
+     signature (code range, sentinel, stored layout, rounding), the calibration, the operator and the
+     generation. A binding must compare these before reading a value, and identical bytes under
+     different receipts are different artifacts.
+     TESTED as a lab adapter. The original F4 is now refused, not misread; 30 of 36 producer ×
+     consumer pairs are refused.
+  2. **Which behaviour is required?** For a stage substitution under SourceParity, preparation splits
+     into two parts:
+     - a source-global certificate that depends only on the stage's algorithm, arithmetic and supported
+       domain (softmax reciprocal: E_h = 6 on [2^19, 2^28), by exhaustion);
+     - a per-calibration decision from the prepared table.
+
+     The decision's identity is the table, not the calibration's nominal parameters (β·scale decides;
+     the input zero point never enters).
+     TESTED on 14 known and 8 held-out calibrations, each validated against an exhaustive reference.
+  3. **Which implementation is cheapest?** Only implementations that passed question 2 compete. The
+     exact reciprocal saves about 26 ns per row and is admitted on one calibration of 22. The prepared
+     source recipe, which needs no substitution, is the large saving.
+- **Status.** TESTED-LAB (`.claude/probes/pal256-admission-v1/`, `.claude/probes/source-behavior-v1/`
+  README "Amendment 6.5").
