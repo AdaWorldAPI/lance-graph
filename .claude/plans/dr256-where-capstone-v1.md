@@ -761,3 +761,121 @@ masked reads. P3–P5 remain unauthorized.
 > Reason before materialization. Bind meaning to witnessed coordinates. Reuse the derivation and compiled
 > mathematics. Execute against native DR/SoA data only when demanded. Materialize only what the result
 > requires.
+
+---
+
+# D. Evidence reconciliation (2026-10-26): binding store, DR³, P2
+
+Corrections already applied in place: B.1 (binding-store classification), B.6 (three-way invalidation
+semantics + the predicate-dependent falsifier), B.7(5) (`Pop`), C.2 (correction note). This section adds
+only the implementation spine, the missing seam and the authorization boundary.
+
+**Placement legend:**
+- PROD: a member of the production workspace (contract, quack, mask-risc, r2il);
+- LAB: an own-workspace or excluded crate (relalg, dir-rmap-probe, crepe-plan-probe, mork-pathmap-probe,
+  egglog-r2il-probe, dr-math-binding-probe).
+
+All files listed below were confirmed present on `origin/main`.
+
+## D.1 Implementation spine
+
+| PR | source | stores / borrows | semantic identity kept | witness | lifetime / invalidation | executes through | status |
+|---|---|---|---|---|---|---|---|
+| #1649 | `contract/src/set_program.rs`, `relalg/src/program.rs` | `SetProgram { version, resident, lets, queries }`; one scratch plane per let | the set expression; lets are immutable | `version: u64`, by value | one `run_program` call; refused on version mismatch | relalg → mask-risc | type PROD (contract); executor LAB (relalg) |
+| #1653 | `crepe-plan-probe/src/cse.rs` | shared sides laid out once per group; lets via `share` | per-rule answers equal the reference | side generations; version | per evaluation | relalg `run_program` | LAB. Measured: the gain is laying the core out once; lets save ops, not time |
+| #1659 | `mork-pathmap-probe` (`RelationView`, `Side`, `JoinDomain`), `crepe-plan-probe` (`Store`) | borrows refcounted lane buffers (shared with Lance); builds only the index map `$i` | relation lanes | none beyond the caller | per prepare | folds (`bag_count`, `matching`) and ndarray compares | LAB |
+| #1666 | `dir-rmap-probe/src/{qr.rs, pop.rs}` | DR256 register (256 slots, Warshall closure); `Pop { witness, tiles, kept }` | populations over one register version; ClassView methods bound to relalg queries | `Witness { version, users, groups, Weak<Snapshot> }`, compared by issue | `and` / `and_not` / `or` refuse `Stale`; `repair` re-derives after edits, never clears | relalg `Rel::Plane` → mask-risc | LAB |
+| #1681 | `dir-rmap-probe/src/compose.rs`; `lance-graph-r2il` procedures | user → group → role composition; Bag and Distinct readings | Bag ≠ Distinct; NULL key = presence clear | one `Witness`; seal | refuses XOR, seal mismatch, stale binding, overflow | r2il `FoldDialect` → mask-risc | LAB (the r2il procedures are PROD) |
+| #1685 | `dir-rmap-probe/src/compose.rs` | reads the resolved register (`Page::roles`, `Qr::role_slots`) instead of recomputing; the presence plane is borrowed | as #1681 | as #1681 | as #1681 | `ndarray::simd` AND + popcount | LAB |
+| #1701 | `dr-math-binding-probe/src/lib.rs` | borrows a 512 B DR64 register (+ validity) | `MethodSignature { owner_class, method_ordinal, row/column Axis, truth, population }` | `Frame` (source, relation map, coordinates; by issue), `Focus`, `Scope`: three separate guards | re-checked per borrow; typed refusals | none (binding only) | LAB, on main via #1708 |
+| #1703 | `dr-math-binding-probe/src/recipe.rs` | metadata: `LawShape`, `LawReference`, `CompiledReference`, `RecipeCertificate` | law ≠ compiled recipe ≠ data binding; a law is reusable across ClassIds | the binding is separate (`BoundDr64`) | admission refuses `NoCertifiedCompiler` for single-operand shapes | none | LAB, on main via #1708 |
+| #1707 | `dr-math-binding-probe/src/relcomp.rs` | `Chain` of bound operands; `AdmittedLaw`; `RecipeCertificate` with egglog proof text | associativity of Boolean-Distinct composition only | one frame issue, focus and scope across the chain | commutation and Bag / K3 refused | the probe's compose kernel (not mask-risc) | LAB |
+| #1740 | `relcomp.rs` (`execute_certified`) | certificate: `source_digest` + compiled steps | which query a certificate answers | the frame is checked per execution | refuses `WrongTarget`, `NotCertifiedQuery`, `NotThisChain`; 0 egglog calls on a hit | stored steps | LAB |
+| #1693 | `egglog-r2il-probe/src/artifact.rs` | `ReplayCapsule`: premises, extraction, proof text, R2IL steps | the E1 exact-integer problem | none | `recheck` regenerates and compares text (not an independent checker) | R2IL scalar steps | LAB |
+| #1694 | `egglog-r2il-probe/src/catalogue.rs` | `Catalogue { BTreeMap<SemanticKey, Entry> }` | `SemanticKey { goal, target, premises }` | `BindingWitness { source_generation, scope, coordinate_generation }` (caller-supplied), `TargetAbi` | `execute_or` falls back on a miss, a stale binding or a changed ABI; one entry per key (#1698 P1 gate) | R2IL | LAB; on main via #1696 / #1698 (#1694 itself merged into a feature branch) |
+| #1696 / #1698 | integration PRs | — | — | — | #1698 adds dedicated CI and `REVIEW_GATES.md`; P0 gates open: exact → checked overflow, premise consistency | — | landed on main |
+| (trace) | `egglog-r2il-probe/src/trace.rs` | nine hops, premises → verdict | derivation display | — | — | — | LAB; a trace is not a proof |
+
+Production today: Quack numeric binding (`bind.rs`), `CompiledProgram`, mask-risc terminals including the
+power sums, r2il procedures, and the contract's `SetProgram` type. Everything else in the table is lab.
+
+## D.2 P2: what holds, what was incomplete
+
+- **Holds** (Amendment B; not re-measured):
+  - bind and lower ≈ 200 ns; `lower_fused` ≈ 360 ns;
+  - building R ≈ 20 µs;
+  - reusing R is 0.05–0.60 of recomputing it per property;
+  - mask-risc skips dead words in gated predicates only;
+  - block skipping pays at sparse selections and stops paying near full occupancy;
+  - the failing P = 64 arms exceed 1,000 µs;
+  - the Quack reuse controls run silently stale;
+  - scalar occupancy is ≈ 2 % of building R.
+
+  The P1 ndarray ratios are not a Quack result; B.6 is.
+- **Incomplete, now corrected:**
+  - #1666 `Pop` already refuses stale populations (B.7(5), C.2);
+  - "a property change is harmless" became the three-way rule, with a measured falsifier (B.6).
+- **The dependency rule against existing witnesses:**
+  - `Pop.witness` and `Frame` are sound but whole-snapshot: any change refuses;
+  - relalg's `version` is whole-table;
+  - a bound Quack `Query` already names every input it reads (`Col` / `Mask` indices in its `Filter`).
+    So a per-input witness needs no new semantic data, only a generation for each named input under a frame.
+
+## D.3 The smallest missing production seam
+
+Not a storage abstraction. In order:
+
+1. **A frame on a bound `Query`** (D-NFR-1). Precondition: NFR-OP-1 decides who issues the production frame;
+   not implicitly Quack. Frame, focus and scope stay three guards, never one revision number.
+2. **A dependency witness for a kept plane:** the frame issue plus the generations of the inputs the bound
+   filter already names. Owner: the binding store (D-QSP), informed by `Pop`. Whether `Pop.witness`,
+   `Frame` and this become one type is NFR-OP-3. That is the reason not to add another `Pop`: the open
+   question is the witness type, not the population type.
+3. **The codebook generation inside the frame** (D-NFR-2): the stale-codebook control (B.6) is its falsifier.
+
+Not seams, but deferred decisions with owners: DR³ physical contract (NFR-OP-2), cross-frame named
+intermediates (D-QSP / D-NFR), #1791 scattered-mask reuse, S-INGRESS.
+
+## D.4 D-DRMC alignment: one recipe, many witnessed bindings, no copied populations
+
+- **Law identity** (`LawShape` / `LawReference`, #1703) excludes class, method and source version.
+- **Recipe identity** (`RecipeCertificate`: law ref, compiled ref, `source_digest`, steps, proof text;
+  #1707) names an executable sequence and target ABI.
+- **Binding identity** (`Frame` / `Focus` / `Scope` + borrowed `rows`, #1701) is checked per execution.
+- **#1740** runs the same certificate on fresh frames with 0 egglog calls. Each execution borrows that frame's
+  operands; no population is copied into the certificate or the catalogue.
+- **#1694's catalogue** keys recipes by `SemanticKey` + `TargetAbi`, with a separate `BindingWitness`. Its
+  one-entry-per-key limit is a known gate (#1698 P1), not a design to copy.
+
+So the binding store, when built, references recipes and bindings separately: a recipe hit never authorizes
+stale operands, and a cached result is never keyed by the recipe alone.
+
+## D.5 DuckDB implications after counting what exists
+
+| DuckDB idea | existing answer | still useful? |
+|---|---|---|
+| CSE / reusable intermediates | relalg `share` + lets (#1649 / #1653), `Keep → Plane`, `Pop` | no new cache; #1653 measured that lets save ops, not time |
+| prepared execution | `CompiledProgram`; `RecipeCertificate` (#1740) | yes, through the binding seam (D.3) |
+| selective late materialization | masked terminals; reuse of a kept R (B.6) | the remaining gap is block gating at sparse selections (B.7(2)) |
+| predicate transfer | exact semijoin / gather; register composition (#1681 / #1685) | no Bloom filter |
+| adaptive filtering | `and_by_skip`; gated predicates | strategy choice only, never semantics |
+| zone maps | witnessed `Range` | per-block value statistics only if source-sealed and measured |
+| frontier reuse | #1740 recipe reuse; #1791 (lab) | gated on the #1791 contract |
+
+## D.6 Authorization boundary
+
+- **Ready for a separately approved implementation** (none authorized by this PR):
+  - D-NFR-1 as a lab adapter, once NFR-OP-1 names the frame owner;
+  - a Quack `Agg` route to the existing power-sum terminals;
+  - a P3 measurement of gate-aware `And` + masked fold over a kept R.
+- **Blocked:**
+  - the production binding store (D-QSP);
+  - cross-frame named intermediates;
+  - #1791 scattered-mask reuse;
+  - S-INGRESS / the joint coordinate witness;
+  - the passive proof reference (CC1 agreement);
+  - an independent proof checker;
+  - the DR³ physical contract (NFR-OP-2);
+  - witness unification (NFR-OP-3).
+
+No new public ABI, persistent metadata, runtime cache or engine was added. P3–P5 remain unauthorized.

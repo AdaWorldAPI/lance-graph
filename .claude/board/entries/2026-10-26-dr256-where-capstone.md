@@ -42,3 +42,16 @@ Existing lab precedents:
 
 Correction to P2: a witnessed kept population exists in the lab (#1666); a Quack `Keep` plane still has no
 witness. P2 scope is unchanged.
+
+## Evidence reconciliation (2026-10-26, plan § D)
+
+- Binding store: the generalized Quack Binding Store is PLANNED / UNBUILT. Quack numeric binding is
+  IMPLEMENTED. RelAlg let reuse is IMPLEMENTED (type in the contract, executor lab). Witnessed DR
+  populations, typed DR method binding and compiled recipes are IMPLEMENTED IN LAB. Source-attested
+  production integration is MISSING.
+- Spine linked with source: #1649, #1653, #1659, #1666, #1681, #1685, #1693, #1694 (via #1696 / #1698),
+  #1701 / #1703 (via #1708), #1707, #1740.
+- New falsifier: a predicate-dependent property mutation leaves a reused R2 at 1,032 rows vs 31 fresh,
+  silently.
+- Smallest seams: D-NFR-1 frame (needs NFR-OP-1); an input-generation dependency witness for kept planes
+  (binding store; NFR-OP-3 for the type); D-NFR-2 codebook generation.
