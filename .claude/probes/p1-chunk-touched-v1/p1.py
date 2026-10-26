@@ -2,7 +2,8 @@
 """D-DQM P1: does a chunk-touched predictor explain the Lance 13 masked-read bytes
 already measured in D-HOLO H14c and H14d?
 
-Pre-registration: `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md` § A.6 (P1).
+Pre-registration: `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md` § A.6 (P1),
+pinned at commit 62523c0e4 (registered before this probe ran; text unchanged on main).
 Offline only. Reads the committed board entries, regenerates each cell's mask from the
 probes' own seeded generators, and compares. No Lance run, no runtime code.
 

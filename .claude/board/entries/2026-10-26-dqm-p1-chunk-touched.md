@@ -1,7 +1,16 @@
 # 2026-10-26 — D-DQM P1: chunk-touched predictor vs measured Lance 13 bytes — FAIL
 
 **Status:** MEASURED (offline, over committed data). Verdict **FAIL**. Authorises nothing.
-Pre-registration: `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md` § A.6 (P1), on PR #1788.
+Pre-registration: `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md` § A.6 (P1), pinned at commit
+`62523c0e4` (2026-10-26 03:34 UTC, merged to `main` via #1788). This probe ran at 06:28 UTC the same day. The § A.6
+text is byte-identical from `62523c0e4` to `main` at #1788's merge. Audit it with
+`git show 62523c0e4:.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md`. The P1 bullet, verbatim:
+
+> Measure the predicted ratio (non-zero 64-word groups / total groups, assuming 4,096-value chunks) against the
+> measured masked/unmasked byte ratio per cell. Kill: |predicted − measured| > 0.10 in more than 10 % of cells,
+> or rank correlation < 0.9; then test the 64 KiB-merge hypothesis once, no third tuning. Can fire: uniform 1 %
+> ≈ 1.00, clustered 1 % ≈ 0.2. Can stay silent: masks offset by 2,048 rows (every run crosses a chunk boundary)
+> must raise the clustered prediction.
 Code and per-cell output: `.claude/probes/p1-chunk-touched-v1/{p1.py,results.csv}`.
 Run: `python3 -I .claude/probes/p1-chunk-touched-v1/p1.py .` (about 2 s, standard library only).
 
@@ -50,7 +59,13 @@ Controls (1 %, k = 1, full tile):
 | H14c | clustered | 704 | 7/16 | 0.438 | 0.242 | **miss** |
 | H14d | clustered | 640 | 7/16 | 0.438 | 0.191 | **miss** |
 
-**Verdict: FAIL.** The A.6 thresholds pass on the registered population only because 63 of 136 cells select no
+**What was registered and what was added.** Registered: the population (every cell), the two kill thresholds,
+the can-fire expectations (uniform 1 % ≈ 1.00, clustered 1 % ≈ 0.2), the can-stay-silent shift, and one 64 KiB
+follow-up. Added here, not registered: the "cells with a selection" and per-fixture rows of the results table
+(sensitivity readings, not scored), and treating a missed can-fire expectation as failing. The registration lists
+that expectation as a control, not as a kill condition. Without that step the registered kill thresholds pass.
+
+**Verdict: FAIL**, on the registered can-fire control, not on the thresholds. The A.6 thresholds pass on the registered population only because 63 of 136 cells select no
 row and are trivially exact (predicted 0, measured 0 bytes). The A.6 can-fire control fails: clustered 1 % is
 predicted at 0.44 against 0.24 and 0.19 measured, a miss of 0.20 and 0.25. The miss exceeds 0.19, so any control
 tolerance below that gives the same answer. On cells with a selection the error threshold fires, and the
@@ -61,7 +76,8 @@ H14c clustered 50 % k = 2 (1.00 vs 0.70); uniform 0.1 % k = 1 (46 rows: 1.00 vs 
 mini-block chunks of at most 8 KiB, which holds about 512 values for H14c's 16-byte lanes and about 2,048 for
 4-byte columns. Testing a smaller chunk would be a third tuning attempt, which A.6 forbids.
 
-**The one registered follow-up (64 KiB range merge, reported separately): FAIL.** 16/136 (11.8 %) cells over 0.10
+**The one registered follow-up (64 KiB range merge, reported separately): FAIL.** Registered as following a kill;
+run here because the verdict is FAIL by the control, so it is reported, not used to decide. 16/136 (11.8 %) cells over 0.10
 (21.9 % of cells with a selection), Spearman 0.988. The clustered controls get worse (0.56 and 0.63), because
 merging only adds bytes and the baseline already over-predicts. Note: both probes wrote to a local temp
 directory, where lance-io's merge block is `DEFAULT_LOCAL_BLOCK_SIZE` = 4 KiB, not the 64 KiB cloud default
