@@ -1,0 +1,96 @@
+{
+ "family": "rows [max]*k + [max+d]*m, k=1..511, d=-255..-1 (admitted), m=0..M_MAX, real sum < 512",
+ "m_max": 64,
+ "calibrations": 14,
+ "rows_searched": 82393847,
+ "witnesses": 0,
+ "nearest_margin_raw": 11,
+ "per_calibration": {
+  "0": {
+   "rows": 8432486,
+   "witnesses": 0,
+   "nearest_margin_raw": 11
+  },
+  "4": {
+   "rows": 7338410,
+   "witnesses": 0,
+   "nearest_margin_raw": 11
+  },
+  "8": {
+   "rows": 897994,
+   "witnesses": 0,
+   "nearest_margin_raw": 803
+  },
+  "12": {
+   "rows": 8331673,
+   "witnesses": 0,
+   "nearest_margin_raw": 22
+  },
+  "1": {
+   "rows": 4677927,
+   "witnesses": 0,
+   "nearest_margin_raw": 17
+  },
+  "5": {
+   "rows": 3653605,
+   "witnesses": 0,
+   "nearest_margin_raw": 17
+  },
+  "9": {
+   "rows": 432774,
+   "witnesses": 0,
+   "nearest_margin_raw": 803
+  },
+  "13": {
+   "rows": 8400816,
+   "witnesses": 0,
+   "nearest_margin_raw": 22
+  },
+  "2": {
+   "rows": 4677927,
+   "witnesses": 0,
+   "nearest_margin_raw": 17
+  },
+  "6": {
+   "rows": 8388988,
+   "witnesses": 0,
+   "nearest_margin_raw": 23
+  },
+  "10": {
+   "rows": 8142915,
+   "witnesses": 0,
+   "nearest_margin_raw": 59
+  },
+  "3": {
+   "rows": 2339443,
+   "witnesses": 0,
+   "nearest_margin_raw": 17
+  },
+  "7": {
+   "rows": 8429912,
+   "witnesses": 0,
+   "nearest_margin_raw": 11
+  },
+  "11": {
+   "rows": 8248977,
+   "witnesses": 0,
+   "nearest_margin_raw": 69
+  }
+ },
+ "witness_samples": [],
+ "negative_control_outputs_changed_by_delta": {
+  "1": 0,
+  "2": 0,
+  "4": 0,
+  "8": 0,
+  "16": 0,
+  "64": 0,
+  "256": 25,
+  "1024": 165,
+  "4096": 469,
+  "16384": 1707,
+  "65536": 7228,
+  "262144": 29093,
+  "1048576": 114505
+ }
+}

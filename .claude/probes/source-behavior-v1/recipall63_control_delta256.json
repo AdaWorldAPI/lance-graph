@@ -1,0 +1,94 @@
+{
+ "arm": "perturbed reciprocal +256",
+ "domain": "every S in [B[0], 2^28) x every distinct admitted weight; a superset of all reachable (S, d)",
+ "calibrations": 1,
+ "s_values_checked": 267911168,
+ "s_where_reciprocal_differs": 267911159,
+ "candidate_pairs": 3037,
+ "candidate_samples": [
+  {
+   "cal": 0,
+   "S": 526567,
+   "d": -56,
+   "source_byte": -113,
+   "exact_byte": -112
+  },
+  {
+   "cal": 0,
+   "S": 526594,
+   "d": -5,
+   "source_byte": 70,
+   "exact_byte": 71
+  },
+  {
+   "cal": 0,
+   "S": 528725,
+   "d": -17,
+   "source_byte": -20,
+   "exact_byte": -19
+  },
+  {
+   "cal": 0,
+   "S": 529563,
+   "d": -28,
+   "source_byte": -66,
+   "exact_byte": -65
+  },
+  {
+   "cal": 0,
+   "S": 531489,
+   "d": -2,
+   "source_byte": 100,
+   "exact_byte": 101
+  },
+  {
+   "cal": 0,
+   "S": 531843,
+   "d": -12,
+   "source_byte": 10,
+   "exact_byte": 11
+  },
+  {
+   "cal": 0,
+   "S": 532835,
+   "d": -13,
+   "source_byte": 3,
+   "exact_byte": 4
+  },
+  {
+   "cal": 0,
+   "S": 533215,
+   "d": -9,
+   "source_byte": 32,
+   "exact_byte": 33
+  },
+  {
+   "cal": 0,
+   "S": 533828,
+   "d": -45,
+   "source_byte": -102,
+   "exact_byte": -101
+  },
+  {
+   "cal": 0,
+   "S": 536918,
+   "d": -13,
+   "source_byte": 2,
+   "exact_byte": 3
+  }
+ ],
+ "per_calibration": {
+  "0": {
+   "cal": [
+    0.05,
+    99,
+    1.0
+   ],
+   "s_lo": 524288,
+   "s_hi": 268435455,
+   "s_where_reciprocal_differs": 267911159,
+   "candidate_pairs": 3037
+  }
+ },
+ "wall_s": 394.7
+}

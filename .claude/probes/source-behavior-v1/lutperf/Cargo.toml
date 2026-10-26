@@ -1,0 +1,15 @@
+[package]
+name = "lutperf63"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Lab probe (Amendment 6.3 addendum): a 256-byte SourceParity table applied by scalar lookup vs the
+# same lookup composed from ndarray's existing U8x64 primitives. Not a workspace member.
+[dependencies]
+ndarray = { path = "../../../../../ndarray", default-features = false, features = ["std"] }
+
+[profile.release]
+debug = 0
+
+[workspace]

@@ -1,0 +1,19 @@
+== baseline
+tanh,N=16777216,kernel_ns_per_elem=85.887,lut_ns_per_elem=0.644,table_prep_ns=17989,mismatches=0
+logistic,N=16777216,kernel_ns_per_elem=80.979,lut_ns_per_elem=0.710,table_prep_ns=17528,mismatches=0
+softmax,n=64,rows=65536,kernel_ns_per_elem=67.299,recipe_ns_per_elem=11.706,weight_prep_ns=6357,refused=0,mismatches=0
+softmax,n=256,rows=16384,kernel_ns_per_elem=86.677,recipe_ns_per_elem=9.055,weight_prep_ns=6686,refused=0,mismatches=0
+softmax,n=511,rows=8192,kernel_ns_per_elem=84.162,recipe_ns_per_elem=8.627,weight_prep_ns=6755,refused=0,mismatches=0
+== gccO3native
+tanh,N=16777216,kernel_ns_per_elem=72.824,lut_ns_per_elem=0.653,table_prep_ns=13097,mismatches=0
+logistic,N=16777216,kernel_ns_per_elem=73.395,lut_ns_per_elem=0.752,table_prep_ns=14742,mismatches=0
+softmax,n=64,rows=65536,kernel_ns_per_elem=64.671,recipe_ns_per_elem=11.306,weight_prep_ns=10091,refused=0,mismatches=0
+softmax,n=256,rows=16384,kernel_ns_per_elem=67.213,recipe_ns_per_elem=9.147,weight_prep_ns=8243,refused=0,mismatches=0
+softmax,n=511,rows=8192,kernel_ns_per_elem=78.784,recipe_ns_per_elem=8.017,weight_prep_ns=6357,refused=0,mismatches=0
+== clang
+tanh,N=16777216,kernel_ns_per_elem=69.303,lut_ns_per_elem=0.492,table_prep_ns=17195,mismatches=0
+logistic,N=16777216,kernel_ns_per_elem=78.850,lut_ns_per_elem=0.635,table_prep_ns=17352,mismatches=0
+softmax,n=64,rows=65536,kernel_ns_per_elem=55.455,recipe_ns_per_elem=10.622,weight_prep_ns=4664,refused=0,mismatches=0
+softmax,n=256,rows=16384,kernel_ns_per_elem=48.051,recipe_ns_per_elem=7.554,weight_prep_ns=4538,refused=0,mismatches=0
+softmax,n=511,rows=8192,kernel_ns_per_elem=46.344,recipe_ns_per_elem=6.553,weight_prep_ns=4495,refused=0,mismatches=0
+lut,N=16777216,scalar_ns_per_elem=0.514,ndarray_u8x64_ns_per_elem=0.098,mismatches=0,vbmi_path=true
