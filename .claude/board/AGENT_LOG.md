@@ -1,3 +1,10 @@
+## 2026-10-26 — fruit revision after #1786/#1787 and ndarray #368–#376 (Haiku)
+
+- Six Haiku runs. Three `substrate-mapper` runs (D-NAM plans, D-DRF/D-DRAV/D-DTM plans and entries, the two docs from #1786/#1787). One ndarray `substrate-mapper` (PARTIAL: it skipped `simd_masking_ops.rs` as over-limit). One `quote-harvester` (the fruit rows). One `census-counter` (34 D-ids against STATUS_BOARD).
+- Checks on the main thread: 5 of 34 census counts re-run, all equal. Its two substring-only hits read at the source and found to be collisions (D-DRMC-5 inside EXP-DRMC-L1; P-S2 inside D-ONNX-CAP-S2). 2 of 15 fruit rows spot-checked, 0 wrong. The AV1 scalar-membership numbers read in their entry, and held.
+- Misses: one mapper bounced BRIEF-INCOMPLETE because the brief named no caller space (resumed). The quote-harvester has no Write tool, so it reported inline. The ndarray mapper reported "0 hits" for `masked_sum_i32` callers after skipping the file that defines it; the main thread grep found it in 13 lance-graph files. Two main-thread errors were caught by reading dates: D-DRF-P2 already measured the #376 fold, and lance-graph-onnx #1758 post-dates ndarray #368/#369. Neither is stale.
+- Result: ledger amendments (ISSUES ×4, TECH_DEBT ×2) and two new fruits (TD-MPF-2-FOLD-NUMBERS-PREDATE-NDARRAY-376; IDEAS 2026-10-26 D-NAM-2 TFLite leaf). FRUITS.md regenerated. Written by the orchestrating main thread only.
+
 ## 2026-10-22 — Stage B E1 probe (Opus spec, Sonnet draft)
 
 - One Sonnet drafter from a written spec (no cargo). The main thread replaced its hand-written variable expansion (a second rewriter outside egglog) with an egglog constructor cost, fixed a test that pinned egglog's cost tie-break, withheld the out-of-fold egglog timing pending an operator ruling, compiled, and ran 6 disable runs (all red).

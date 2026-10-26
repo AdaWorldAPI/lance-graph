@@ -1,3 +1,13 @@
+## TD-MPF-2-FOLD-NUMBERS-PREDATE-NDARRAY-376 — the measurement that proposed the fix still reports the old fold (2026-10-26)
+
+**Status:** OPEN. **Basis:** MEASURED elsewhere (D-DRF-P2), not re-run here.
+**Fruit:** Low-hanging
+
+- `entries/2026-10-23-d-mpf-2-fixed-cost.md` measured `ndarray::simd::masked_sum_i32` as a scalar set-bit walk: 1.7 / 25 / 44 µs at 0 / 50 / 100 % selected, 64 K rows. From that it concluded that an equal-work `i64` loop is about 3× faster than the fold. It then proposed a density-chosen body, without implementing it.
+- That proposal is now implemented. ndarray #376 (`195844bd`, 2026-10-25) sums dense words branch-free and walks sparse ones. D-DRF-P2 (`entries/2026-10-24-drf-p2-breakeven.md:36`) measured the effect on another workload: a full-mask fold went from 2 341 to 650 ns (AVX-512) and from 2 306 to 559 ns (AVX2), and 25 % masks were unchanged.
+- So D-MPF-2's 50 % and 100 % numbers, its "3× slower than scalar" verdict, and its OPEN question (does the mask form beat a scalar loop) were all measured on the old fold. Callers that inherit the new body: `math-polyfill-probe` (fixed_cost, hybrid), `drf-focus-probe`, `lance-graph-mask-risc`, and `lance-graph-onnx` `ReduceSum(Where(Greater))`.
+- **What closes it:** re-run the D-MPF-2 probe against ndarray `195844bd` or later, record the target-cpu, and append the numbers to that entry. If the gap to scalar closes, D-MPF-1's mask-vs-scalar question changes answer.
+
 ## TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1 — `Opcode::Revision` pools a duplicated source; a measured site of TD-NARS-REVISION-UNGUARDED (2026-10-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE + MEASURED.
@@ -39,6 +49,7 @@ on main `8f610a85` with `CARGO_PROFILE_{DEV,TEST}_DEBUG=0 CARGO_INCREMENTAL=0`:
 No test reads a file or an env var, so nothing blocks gating them.
 **Fix:** drop `--lib` from that step (or add a second `--tests` step). The
 step comment gives no reason for `--lib`.
+**Amendment 2026-10-26 (main `87b2899bd`):** this has got worse. `crates/bgz-tensor/tests/` now holds 11 files, against 9 at `8f610a85`, and `rust-test.yml:282` still runs `--lib`. Every probe added since this row was filed is also outside CI. The fix is unchanged and is still a single line.
 **Fruit:** Low-hanging
 **Status:** OPEN
 
@@ -59,6 +70,14 @@ correct. The doc contradicts the decision. Linear EXO-65.
 STATUS_BOARD has no rows for D-DRMC-0..5, D-QR-SAP / IAM / CAP / POLY (plans #1661–#1663), D-RFT-1-COST and the Palette256 probes P-D3, P-E2, P-D4, P-S2, although each has a plan or a board entry (`LEDGER-REVISION-2026-10-23e.md` §3c, checked by searching the board for each D-id, so a row under another name could exist). Payoff: "is it shipped" answerable from the board. Method: a Haiku `census-counter` lists every D-id in `INTEGRATION_PLANS.md` and `.claude/plans/` with no STATUS row; the owning sessions supply the wording; a `spec-editor` applies it.
 
 **Receipt (2026-10-23, from `session_019fbZ92dFKQ5BJHrA3YcH9A/010`, re-read at `5f1df420` by leading cell):** also without a row: ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0..9, D-QSP-1/2. ADMISSION is recorded only as a decision inside the D-RU-0 row; D-RFT-2..5 share one PROPOSAL row with D-LFA-0.
+
+**Status:** OPEN (line added 2026-10-26).
+
+**Census 2026-10-26 (Haiku `census-counter`, STATUS_BOARD at `87b2899bd`; the orchestrator re-ran 5 of the 34 counts and all matched):**
+- Still no row, by leading cell or by substring: D-DRMC-0..4, D-QR-SAP/IAM/CAP/POLY, D-RFT-1-COST, P-D3, P-E2, P-D4, ACTION-GATE, FLOAT-REFS, WIRE-50, O30, D-TLAC, D-RV-0/1/9, D-QSP-1/2. None was closed by a row since 2026-10-23.
+- Two substring hits are collisions, not rows. `D-DRMC-5` appears only in the text of row EXP-DRMC-L1 (line 155). `P-S2` appears only inside `D-ONNX-CAP-S2` (line 134).
+- Rows present: D-DRAV-AV1 (line 24) and D-DTM-S0 (line 43).
+- **Correction to a likely next entry:** the DuckDB plan from #1787 (`duckdb-dr-quack-machine-room-reuse-v1.md`) defines no D-ids. It uses milestones M0–M4 and has an INTEGRATION_PLANS entry (2 hits). So it lacks a STATUS row because it has no ids to row, not because a row was missed. The fix is to mint ids when M1 is authorized, not a STATUS edit now.
 
 ## TD-CANON-HIGH-AUDIT-RESIDUE-1 (2026-10-16, filed from #1430) — OPEN
 

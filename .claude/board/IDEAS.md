@@ -85,6 +85,25 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-10-26 — The D-NAM-2 TFLite int8 leaf now has its arithmetic below it: ndarray #375 + codec8 phase (f)
+
+`[P1 @truth-architect domain:onnx-tflite D-NAM-2 D-NAM-4 D-NAM-PZL]`
+
+**Status:** OPEN — connection only; nothing built in lance-graph.
+**Fruit:** High-signal
+
+**What D-NAM-2 requires** (`d-nam-2-onnx-tflite-leaf-dto-v1.md:12`): treat TFLite affine `real = scale·(q − zero_point)` as its own contract, not Palette256. Preserve zero points, per-channel scales, accumulator width, rounding, bias, saturation and activation range, and keep "exact quantized interpretation" separate from "calibrated approximation". STATUS_BOARD:9 calls it SPEC / PROPOSED, with an independent oracle as a prerequisite.
+
+**What landed in ndarray on 2026-10-24:**
+- #375 (`84addbd8`): TFLite/gemmlowp fixed-point requantization, bit-exact. It includes `quantize_multiplier`, `multiply_by_quantized_multiplier_*`, `rounding_divide_by_pot_i32`, `srdhm_*` and `requantize_i32_to_i8`, with per-lane AVX methods. That covers the "exact quantized interpretation" arm.
+- #370 codec8 (plan `quantized-codec8-v2.md`, ratified by a 5+3 council): 8-bit code spaces and certified tanh tables. Its line 39 rules that `lance-graph-tflite` and `lance-graph-onnx` are `pub use` facades, and phase (f), line 171, is "facade PRs in lance-graph".
+
+**The connection:** the leaf D-NAM-2 specifies and the facade codec8 schedules are the same lance-graph PR. It would be a `lance-graph-tflite` crate (none exists yet) that re-exports #375 and codec8, as `lance-graph-onnx` already re-exports `vstanh` / `vsexp`. That satisfies D-NAM-2 point 4 without a second implementation.
+
+**Tension to settle first.** D-NAM PZL-1 (`d-nam-palette-native-lut-capstone-v1.md:69`) says "no new codec" for its single-LUT example. codec8's certified tanh tables are a code space. Before any facade PR, one owner decides whether PZL-1's LUT is a codec8 table (adopt) or a separate offline example (keep both, documented as different contracts). Otherwise there will be two 256-entry tanh tables with two owners. Also, D-NAM-2 says TFLite int8 TANH "is not a free f32 alias". The codec8 tanh table is exactly that non-free arm and must not be wired as an alias.
+
+**First gate if authorized:** a golden test that feeds ndarray's #375 golden vectors through the facade path unchanged (re-export, not re-implementation). Add a disable-run: replacing one `pub use` with a hand copy must fail a symbol-identity check.
+
 ## 2026-10-25 — Virtual associative folds + comma syndromes + emergency Thought-Git Pickaxe (brainstorm cluster)
 
 `[P3 @truth-architect @thought-struct-scribe domain:thought-git domain:memory]`

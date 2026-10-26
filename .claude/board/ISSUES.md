@@ -20,6 +20,7 @@
 - Note: until TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 is fixed, a test under
   `bgz-tensor/tests/` does not run in CI. Put this one in the crate's lib
   tests.
+- **Amendment 2026-10-26:** ndarray's ratified codec8 plan (`quantized-codec8-v2.md`, #370, 2026-10-24) lists Fisher-Z as out of scope, so the new checked `encode_checked` there does not cover this. The fix stays here, in `bgz-tensor`. Its shape matches codec8 `encode_checked` (report, do not clamp silently), and reusing that name would keep the two consistent.
 
 ## ISS-ORDER-AND-CODEBOOK-WITNESS-HAS-NO-CONTRACT-TYPE — seven open items wait on one witness nobody owns (2026-10-23) — OPEN
 
@@ -185,6 +186,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
   - the Schnellverschluss `generation` stand-in (`mork-pathmap-schnellverschluss-v1.md:145`).
 - Every probe witness is a `u64` stand-in until they land. The never-reused rule for `ThoughtCommitId` is not yet written anywhere authoritative.
 - **What closes it:** the contract types plus a reuse test (STATUS_BOARD D-RST-1).
+- **Amendment 2026-10-26 (re-read at `87b2899bd`; still unresolved, so the dependents grew):** two plans from 2026-10-25 also wait on these types. D-DR64 / D-DRF focus cache: `d-dr64-focus-lease-foreign-cache-v1.md:52` requires a durable reference in the cache key, and falsifier G5 (`d-dr64-focus-cache-falsifiers-v1.md:27`) must reject a reused thought slot. D-DTM-1 (`d-dtm-1-…-v1.md:25`, `:51`) uses them as its source and thought identities and tracks this issue as Linear EXO-148. This is now the most-cited missing type on the board, so it stays High-signal.
 
 ## ISS-BF16-POLYFILL-PER-ELEMENT-ALLOC — ndarray's BF16 16×16 polyfill allocates per output element (2026-10-20)
 
@@ -195,6 +197,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
 - `bf16_tile_gemm_16x16_packed` on the same tier unpacks the VNNI buffer back to row-major (another allocation) before calling it.
 - Consequence: on hosts without the tile tiers, the BF16 tile path cannot be compared with the bit arm on cost; it measures allocation, not arithmetic.
 - **What closes it:** an outer-product polyfill in ndarray (broadcast `A[i, kk]`, FMA into a 16-lane accumulator per row, no per-element buffer), with the existing exactness tests, then the D-RMAP-2 §5a probe re-run.
+- **Amendment 2026-10-26 (re-read at ndarray `195844bd`):** still open. ndarray #374 (FMA instruction on AVX2+FMA, exact scalar FMA elsewhere, 2026-10-24) changed the multiply-add underneath. It did not touch this loop: `bf16_tile_gemm_16x16` still allocates `vec![0.0f32; k]` inside `for i / for j`. The fix is the same outer-product rewrite, and it now gets #374's FMA for free.
 
 ## ISS-MORK-LIBRARY-GLOBAL-ALLOCATOR — linking MORK replaces the binary's allocator (2026-10-19)
 
@@ -2728,6 +2731,7 @@ with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
 
 **Fruit:** Low-hanging
+**Status:** OPEN (line added 2026-10-26: the section had no Status line, so FRUITS.md showed it as `—`; the open state is the heading's own).
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
 `lance-graph-planner`, `cognitive-shader-driver` and `sigma-tier-router`, so
