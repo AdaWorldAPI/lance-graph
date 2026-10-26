@@ -61,7 +61,10 @@ fn a_raw_setter_changes_the_answer_without_moving_any_stamp() {
     mb.set_entity_type(1, A); // row 1 was B
     assert_eq!(stamps(&mb), before, "a setter moved a stamp");
     let fresh = mask_eq(&mb, A);
-    assert_ne!(kept, fresh, "the mutation did not reach the predicate input");
+    assert_ne!(
+        kept, fresh,
+        "the mutation did not reach the predicate input"
+    );
     assert_eq!(fresh, kept | 0b10);
 }
 
