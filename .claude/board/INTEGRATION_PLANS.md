@@ -1,3 +1,7 @@
+## 2026-10-26 — D-DQM Appendix A: DR64 ↔ DuckDB ↔ Lance 13 capability crosswalk → `.claude/plans/duckdb-dr-quack-machine-room-reuse-v1.md` § Appendix A
+
+**Status:** DOCUMENTATION ONLY, follow-up to merged #1787. **Board entry:** [coresearch](entries/2026-10-26-coresearch-lance13-masked-read-dr64.md). Source-backed crosswalk of 17 DuckDB capabilities (pinned @`1641475`) against DR64/Quack/mask-risc/ndarray/DRF/Lance 13, re-audit of September gaps G1–G8 (G1 u8, G2 unsigned, G4, G6 CLOSED), Lance 13 masked read (H14c #1573 / H14d #1575) as an existing layer, coordinate-domain table, cost ledger over five paths, missing-feature register (wiring vs code vs intentional exclusion), probes P1–P5. Recommends one probe PR (P1, offline chunk-touched estimator vs committed H14c/H14d bytes), no implementation. OPEN: seam S-INGRESS (copy status of words → Lance `RowAddrMask`), one coordinate→`_rowid` authority. Corrects: the M2 input's "handoff must stay a fold"; September R6 (K3 planes exist) and R5 (hex tenant superseded).
+
 ## 2026-10-25 — D-TFLP TFLite models on the native polyfill → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v1.md`
 
 **Status:** PROPOSAL / DOCUMENTATION ONLY. **Board entry:** [D-TFLP-0](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). **Stages:** D-TFLP-1..8 Queued / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md).
