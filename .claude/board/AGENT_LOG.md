@@ -1,3 +1,9 @@
+## 2026-10-26 — causal-edge clippy, bgz-tensor CI gate, W-slot doc (Haiku spec-editor)
+
+- Five Haiku `spec-editor` runs, one file each, every edit written in full by the main thread: `edge.rs` (W doc; then 5 clippy fixes), `layout.rs` (W doc), `rust-test.yml` (`--tests`), `v2_layout_tests.rs` (module rename). 10 edits, 10 applied, 0 refused; every diff read on the main thread and matched the spec.
+- Misses: none in the edits. One agent flagged correctly that the rename changes test paths (checked: no file names the old path); one noted a line rustfmt would re-align (it did; `cargo fmt` applied on the main thread).
+- Main thread only: clippy, tests and fmt on both causal-edge feature sets; bgz-tensor `--tests` (241 passed); the one-line precedence fix in `tests/ce64_isa_contract.rs`; the clippy CI step. Written by the orchestrating main thread only.
+
 ## 2026-10-26 — fruit revision after #1786/#1787 and ndarray #368–#376 (Haiku)
 
 - Six Haiku runs. Three `substrate-mapper` runs (D-NAM plans, D-DRF/D-DRAV/D-DTM plans and entries, the two docs from #1786/#1787). One ndarray `substrate-mapper` (PARTIAL: it skipped `simd_masking_ops.rs` as over-limit). One `quote-harvester` (the fruit rows). One `census-counter` (34 D-ids against STATUS_BOARD).

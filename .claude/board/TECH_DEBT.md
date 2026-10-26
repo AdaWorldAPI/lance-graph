@@ -51,7 +51,7 @@ No test reads a file or an env var, so nothing blocks gating them.
 step comment gives no reason for `--lib`.
 **Amendment 2026-10-26 (main `87b2899bd`):** this has got worse. `crates/bgz-tensor/tests/` now holds 11 files, against 9 at `8f610a85`, and `rust-test.yml:282` still runs `--lib`. Every probe added since this row was filed is also outside CI. The fix is unchanged and is still a single line.
 **Fruit:** Low-hanging
-**Status:** OPEN
+**Status:** RESOLVED 2026-10-26 (CI step now `--tests`; measured locally: 12 binaries = lib + 11 integration files, 241 passed, 0 failed).
 
 ## TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN
 

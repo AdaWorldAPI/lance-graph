@@ -269,8 +269,19 @@ jobs:
       # touches. Gating them here would fail this PR for defects it did not
       # introduce; they are recorded in ISSUES
       # ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS instead.
+      #
+      # ⊘ 2026-10-26: those findings are cleared (six remained when re-measured,
+      # plus one in tests/ that only became visible once the lib compiled under
+      # clippy), and the lint step below now gates both feature sets.
       - name: Run causal-edge tests (workspace-excluded, previously ungated)
         run: cargo test --manifest-path crates/causal-edge/Cargo.toml
+      # Both layouts: the default (v2) and the v1 opt-out that downstream crates
+      # use via `default-features = false`. Each compiles different code, so a
+      # gate on one leaves the other's lints unguarded.
+      - name: Lint causal-edge (workspace-excluded, both feature sets)
+        run: |
+          cargo clippy --manifest-path crates/causal-edge/Cargo.toml --all-targets -- -D warnings
+          cargo clippy --manifest-path crates/causal-edge/Cargo.toml --all-targets --no-default-features -- -D warnings
       # bgz-tensor: workspace-EXCLUDED metric-algebraic codec crate (deps the
       # ndarray sibling checked out above + in-repo holograph). None of the
       # steps above reach it, so its 207 lib tests — including the V3
@@ -278,8 +289,10 @@ jobs:
       # ran on a developer machine. A green CI that never built the new module
       # is exactly the "blind gate" this repo has repeatedly closed
       # (deepnsm / supervisor / ogar above). One scoped step arms it. Gating.
+      # `--tests`, not `--lib`: the lab probes under crates/bgz-tensor/tests/
+      # never ran in CI under `--lib` (TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1).
       - name: Run bgz-tensor tests (workspace-excluded, ndarray sibling)
-        run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --lib
+        run: cargo test --manifest-path crates/bgz-tensor/Cargo.toml --tests
       # sigker: workspace-EXCLUDED path-signature codec (mandatory path dep on
       # the ndarray sibling checked out above). None of the steps above reach
       # it, so its 62 tests only ever ran on a developer machine — including

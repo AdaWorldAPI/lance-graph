@@ -171,7 +171,8 @@ jobs:
       # causal-edge: workspace-excluded, so `cargo fmt --all` never reaches it.
       # It is rustfmt-clean today (verified before adding this step); the check
       # keeps it that way. Its clippy debt is NOT gated here — see the
-      # rust-test.yml step for why.
+      # rust-test.yml step for why. (⊘ 2026-10-26: the debt is cleared and
+      # clippy is now gated in rust-test.yml, next to the causal-edge tests.)
       - name: Rustfmt causal-edge (workspace-excluded, previously ungated)
         run: cargo fmt --manifest-path crates/causal-edge/Cargo.toml -- --check
       # The same ten crates the test steps above arm. All ten verified

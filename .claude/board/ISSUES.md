@@ -2731,7 +2731,7 @@ with one edge instead of adding a gate around an unused artifact.
 ## ISS-CAUSAL-EDGE-CARRIES-SEVEN-PRE-EXISTING-CLIPPY-FINDINGS (2026-08-22) — OPEN
 
 **Fruit:** Low-hanging
-**Status:** OPEN (line added 2026-10-26: the section had no Status line, so FRUITS.md showed it as `—`; the open state is the heading's own).
+**Status:** RESOLVED 2026-10-26. Re-measured at `fff7fd166`: six findings remained (identical-if `edge.rs:120`, too-many-arguments on `pack`/`pack_v2`, collapsible-if ×2, module_inception), plus one in `tests/ce64_isa_contract.rs:229` (precedence) that surfaced once the lib compiled. All fixed with no behaviour change; tests 165 (default) / 66 (v1) unchanged. Clippy `-D warnings` is now gated in `rust-test.yml` on both feature sets.
 
 `crates/causal-edge` is workspace-EXCLUDED but a path-dep of `lance-graph`,
 `lance-graph-planner`, `cognitive-shader-driver` and `sigma-tier-router`, so
