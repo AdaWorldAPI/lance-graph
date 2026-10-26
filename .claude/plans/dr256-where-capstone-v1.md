@@ -602,3 +602,142 @@ this measurement:
 - a binding must be reusable **without** materializing intermediates: lifetime 1 does that, and the QB
   pattern shows one kept plane is enough;
 - it must not become a second execution engine: every arm here ran on the one mask-risc executor.
+
+---
+
+# Future mathematical compiler compatibility: DR³, BindStore and traceroute of thought
+
+**Status:** architecture compatibility note (2026-10-26). P2 implementation scope is **unchanged** and lab-only.
+Nothing here authorizes the compiler, a binding store, a proof store or any new runtime object.
+**Authorities referenced, not restated:**
+- D-DRMC-0 `dr-mathematical-compiler-v1.md` (the compiler charter: three contracts, cold vs hot, staged falsifiers);
+- D-NFR-0 `d-native-repr-contract-v1.md` and D-NFC `d-native-first-dependency-correction-v1.md` (native-first);
+- D-ONNX-RELALG-CAP `d-onnx-relalg-cap-v1.md` (ONNX as an import membrane);
+- D-DR3 `d-dr3-holo-onnx-s3a-s3c-v1.md`;
+- D-RPR-0 `recursive-perspective-rebinding-v1.md`;
+- D-QSP (binding store proposal).
+
+## C.1 Pipeline
+
+The pipeline is D-DRMC-0's "Cold vs hot" diagram. This document adds nothing to it:
+
+```text
+Datalog / MeTTa / egglog / DialEgg      cold: rules, equality saturation, dependency analysis
+        ▼
+derivation + proof (traceroute)         cold: why, and which transformation was certified
+        ▼
+typed semantic binding                  frame / focus / scope guards; ClassView method; DR axes
+        ▼
+native lowering                         Quack / R2IL / method route
+        ▼
+mask-risc / ndarray::simd               hot: the one executor
+        ▼
+demanded result + read receipt
+```
+
+Reasoning stages are cold, preparatory or explicitly scheduled. No egglog, Datalog or DialEgg dependency
+enters an ordinary DR64/DR256 fold; the runtime consumes admitted operations and bindings only.
+
+## C.2 What exists (all lab unless stated) and what is planned
+
+| capability | status | source |
+|---|---|---|
+| numeric binding (names → numbers, once) | SHIPPED | Quack `Draft::bind` (`bind.rs:288`) |
+| prepared program | SHIPPED | `CompiledProgram` (`mask-risc ir.rs:1427`) |
+| typed DR64 class/method operand binding with witnessed Identity / Property axes, frame / focus / scope guards | LAB, merged | D-DRMC-1, #1701, integrated into main by #1708; `dr-math-binding-probe` (`MethodSignature`, `FrameStore`, `bind_dr64`) |
+| law identity ≠ compiled recipe ≠ data binding, reusable across ClassIds | LAB, merged | D-DRMC-3, #1703 (stacked; on main via #1708); `recipe.rs` (`LawShape`, `LawReference`, `RecipeCertificate`, `admit_recipe`) |
+| certified recipe reused on a fresh frame without rerunning egglog | LAB, merged | #1740 / X8: `execute_certified` refuses `WrongTarget` / `NotCertifiedQuery` / `NotThisChain`; 0 egglog calls on the hit path; hot reuse 2,142 ns vs 7,216 ns plain eval; cold certify reported 15,696 µs (cold, not a gate) |
+| version-witnessed reusable populations and method folds over a DR256 register | LAB, merged | #1666 `dir-rmap-probe/src/pop.rs`: `Pop { witness, tiles, kept }`; `and` / `and_not` / `or` refuse `Stale` on a witness mismatch; `repair` re-derives after edits; methods lowered through relalg `Rel::Plane` |
+| zero-copy relation lanes; a side as an index map `$i` | LAB, merged | #1659 `mork-pathmap-probe` / `crepe-plan-probe` (`RelationView`, `Side`, `JoinDomain`) |
+| logical traceroute of one derivation (premises → laws → saturation → extracted → proof → R2IL → value → oracle → verdict) | LAB | `egglog-r2il-probe/src/trace.rs` (`HOPS`) |
+| replay capsule for E1 substitutions | LAB | Stage B `ReplayCapsule`: replay and audit evidence, **not** a proof authority (`dr-math-binding-probe/RECIPE_ADMISSION.md`) |
+| generalized production binding store | PROPOSED | D-QSP; D-NFR S5 MISSING; smallest seam D-NFR-1 |
+| independent proof checker | MISSING | #1740 "no independent proof checker yet"; D-DRMC-0 boundary 2 |
+| passive proof reference in a contract | PENDING agreement | #1740 option B, to be agreed with CC1 before any contract PR |
+
+**Correction to Amendment B.7(5):** a witnessed kept population already exists as a lab precedent. #1666's
+`Pop` refuses a combination across versions by witness equality. P2's finding stands for Quack itself: a
+`Keep` plane passed as `Plane(i)` carries no witness and ran silently stale in all three controls.
+
+## C.3 Binding store and named-intermediate ownership
+
+The binding store is the intended owner of named, reusable binding **descriptors**: their witnesses,
+lifetimes and dependencies. It is not a data store or an evaluator, and it carries no behaviour choice
+(D-QSP). The four lifetimes (A.2) keep separate owners:
+
+| lifetime | today's carrier | owner |
+|---|---|---|
+| 1. bound expression | Quack `Query`; `BoundDr64`; relalg `SetExpr` / `SetProgram` | binding store (planned) |
+| 2. prepared computation | `CompiledProgram`; `RecipeCertificate` + compiled steps | mask-risc for programs; the certified-compiler boundary for recipes (D-DRMC-0) |
+| 3. computed intermediate | `Keep` plane in caller scratch; relalg let plane (one call); `Pop` (lab) | the caller's buffer, under the descriptor's witness |
+| 4. materialized result | consumer egress buffer | consumer |
+
+None of these is forced into one cache entry. A descriptor references a computed intermediate; it does not
+own it.
+
+## C.4 ONNX / TFLite annotation boundary
+
+Per D-NFC A1/A2 and D-ONNX-RELALG-CAP:
+- **They provide:** operator identity and version, type/shape constraints, numerical interpretation (quantization, rounding, saturation), eligible native mappings and differential-test references.
+- **They do not own:** the internal graph, symbolic inference, graph identity or causal semantics.
+- **Internal authority:** native typed expressions, R2IL routing and ndarray.
+- **Not added:** a tensor AST, an ONNX runtime dependency, a generic dispatch engine or an ONNX → RelAlg graph.
+
+## C.5 Derivation ≠ proof ≠ binding ≠ execution ≠ replay
+
+| stage | answers | existing precedent | never mistaken for |
+|---|---|---|---|
+| derivation | why an expression was obtained | `egglog-r2il-probe` trace hops 1–4 | a proof |
+| proof | which transformation was certified, under which assumptions | egglog `ProofStore` + `ProofId` (`relcomp.rs`), `RecipeCertificate` | an independent check (none yet) |
+| binding | which data, identities, coordinates and versions | `Frame` / `Focus` / `Scope`, `Pop.witness`, `SetProgram.version` | a data copy |
+| execution | which compiled operation ran and its result | mask-risc `Value`; `execute_certified` | a durable record |
+| replay | whether the result can be reconstructed | `ReplayCapsule` (E1 only); oracle hops 7–9 | proof authority or a Thought-Git commit |
+
+A future traceroute references these stages through immutable identities. It stores no intermediate
+population, symbolic graph or duplicated SoA payload. Provenance and proof witnesses stay off the hot DR
+register coordinates.
+
+## C.6 Connection to DR256::WHERE
+
+WHERE remains population selection plus an execution decision. Popcount, active words and blocks, and
+witnessed geometry inform both query scheduling and later compiled-method scheduling. The DR64 vs DR256
+choice is a physical strategy only: in P2 the same `Query { And[Plane(R), Plane(pres_p)], SumI32 }` produced
+identical answers under every arm, including the non-Quack block schedule. That confirms a selected-property
+read is expressible without binding the consumer to a physical strategy, for exact integer folds. Declared
+numerical semantics (D-NFR S14, NFR-OP-4) govern any approximate fold.
+
+## C.7 P2 compatibility checks (answers)
+
+1. **Binding / binding-store ownership and relalg let reuse:** B.1, B.2, C.2. The binding store does not
+   exist; Quack binds numerically; relalg lets are per call with a value-compared version.
+2. **Do bound numeric queries keep their semantic identity and witnesses?** Partly.
+   - A `Query` keeps its numeric meaning and is reusable.
+   - It holds no ClassId / method / law identity; that lives in `MethodSignature` and `LawShape`, which are lab.
+   - It holds no witness: three P2 controls ran silently stale.
+3. **Do reusable intermediate planes keep the dependencies needed for invalidation?**
+   - Quack `Keep` planes: no.
+   - relalg let planes: a version value, for one call only.
+   - #1666 `Pop`: yes, by witness equality (lab).
+4. **Are selected-property reads independent of the DR64/DR256 strategy?** Yes, for exact integer folds (C.6).
+5. **Missing hooks** (documented, not implemented; each with its existing owner):
+   - a frame on a bound query — D-NFR-1, owner decision NFR-OP-1;
+   - a dependency witness on a kept plane — the binding store, generalizing `Pop`-style witnesses; D-RMAP-1A-V for map / palette generations;
+   - codebook generation in the frame — D-NFR-2;
+   - a passive proof reference — D-DRMC, pending the CC1 agreement;
+   - an independent proof checker — D-DRMC-0 boundary 2;
+   - a Quack `Agg` route to the power-sum terminals — A.7.
+
+No metadata field or runtime object was added to satisfy a future feature.
+
+## C.8 Unresolved admission gates
+
+NFR-OP-1/2/3, ISS-ADMISSION-PREP-BINDING, the #1791 witnessed-derived-population contract, S-INGRESS and
+the joint coordinate witness (#1788), the independent proof checker, and the CC1 proof-reference agreement.
+The scatter survival condition (`ir.rs:329-337`) is unchanged.
+
+**P2 scope is unchanged:** lab-only measurement of existing Quack / mask-risc WHERE and multi-property
+masked reads. P3–P5 remain unauthorized.
+
+> Reason before materialization. Bind meaning to witnessed coordinates. Reuse the derivation and compiled
+> mathematics. Execute against native DR/SoA data only when demanded. Materialize only what the result
+> requires.

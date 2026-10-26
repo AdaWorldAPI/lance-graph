@@ -27,3 +27,18 @@ contract; S-INGRESS and the joint witness (#1788).
 - Stale codebook, scope change and selection change all run silently stale through Quack. relalg refuses
   by version value.
 - `BindStore` occurs in no file in any branch's history; the binding store is proposal only (D-QSP, D-NFR S5).
+
+## Compiler compatibility (2026-10-26)
+
+Plan § "Future mathematical compiler compatibility". It references D-DRMC-0, D-NFR / D-NFC, D-ONNX-RELALG-CAP,
+D-DR3 and D-RPR rather than restating them.
+
+Existing lab precedents:
+- #1701 / #1708: typed DR64 binding.
+- #1703: law ≠ recipe ≠ binding.
+- #1740: a certified recipe reused on a fresh frame, 0 egglog calls.
+- #1666: `Pop` refuses stale populations by witness.
+- #1659: zero-copy relation lanes.
+
+Correction to P2: a witnessed kept population exists in the lab (#1666); a Quack `Keep` plane still has no
+witness. P2 scope is unchanged.
