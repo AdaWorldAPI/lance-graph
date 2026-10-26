@@ -30,6 +30,7 @@ exactly one of them, never both.
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-26 | `ledger-revision-1727-1784` |  | [2026-10-26-ledger-revision-1727-1784.md](2026-10-26-ledger-revision-1727-1784.md) |
+| 2026-10-26 | `D-DQM` |  | [2026-10-26-dqm-m1-timed-arm.md](2026-10-26-dqm-m1-timed-arm.md) |
 | 2026-10-25 | `D-DRF-W8` |  | [2026-10-25-drf-w8-budget.md](2026-10-25-drf-w8-budget.md) |
 | 2026-10-25 | `D-DRF-W4` |  | [2026-10-25-drf-w4-handoff.md](2026-10-25-drf-w4-handoff.md) |
 | 2026-10-25 | `D-DRF-W3` |  | [2026-10-25-drf-w3-ordered-apply.md](2026-10-25-drf-w3-ordered-apply.md) |
