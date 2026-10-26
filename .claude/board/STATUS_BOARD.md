@@ -19,6 +19,19 @@
 
 **Hard blockers:** [EXO-46](https://linear.app/exo-red/issue/EXO-46) production focus admission, [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) escaped-Keep authority and physical snapshot, NFR-OP-2 axis selection, source-specific negative observation/ACL, EXO-148, missing Entra license and Odoo method source verification. Direct bitmask first; no claimed holographic global reconstruction until independent oracle.
 
+## D-ONNX-INTAKE — cold ONNX frontend bake-off into existing native methods (2026-10-26)
+
+**Status:** S0 DOCS ONLY, merged (#1802). Plan: [d-onnx-frontend-intake-bakeoff-capstone-v1.md](../plans/d-onnx-frontend-intake-bakeoff-capstone-v1.md); entry: [2026-10-26-onnx-frontend-intake-bakeoff.md](entries/2026-10-26-onnx-frontend-intake-bakeoff.md). Burn `onnx-ir` vs Tract as optional cold importers; ORT is the independent oracle, never a fallback. No native crate may depend on an importer. Revises the S1 frontend choice of D-ONNX-1 / D-ONNX-CAP-S1, not their constraints. Coordinator D-NAM / [EXO-152](https://linear.app/exo-red/issue/EXO-152).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-ONNX-INTAKE-0** | S0 capstone: candidates, ownership crosswalk, staged bake-off, falsifiers | Shipped, docs only (#1802) | no importer, test or model parity claimed |
+| **D-ONNX-INTAKE-1** | S1 cold import of one pinned real model plus a synthetic graph, unoptimized; source preservation | Queued (NOT RUN; not authorized) | metadata counted preserved/lost/renamed against raw protobuf/ORT; adversarial fixtures refuse |
+| **D-ONNX-INTAKE-2** | S2 node coverage on the same raw model | Queued (NOT RUN; not authorized) | separate denominators; coverage under declared semantic admission, not op-name similarity |
+| **D-ONNX-INTAKE-3** | S3 one complete static subgraph on existing native methods | Queued (NOT RUN; not authorized) | scalar oracle + ORT; no Burn/Tract in the native call path; unsupported nodes refuse |
+| **D-ONNX-INTAKE-4** | S4 numeric/quantization parity for real model blockers | Queued (conditional; not authorized) | IntegerExact / bounded FP / SourceParity / CertifiedMath kept distinct |
+| **D-ONNX-INTAKE-5** | S5 whole-model forward pass and cost closure | Goal, not authorized | outputs vs ORT under declared tolerance; every cost stage reported |
+
 ## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
 
 **Status: PROPOSAL, DOCS ONLY.** Plan: [v2](../plans/d-tflp-tflite-palette-polyfill-capstone-v2.md) (revises [v1](../plans/d-tflp-tflite-palette-polyfill-capstone-v1.md)). Ledger: [2026-10-25-d-tflp-0-tflite-palette-polyfill.md](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). Specializes D-NAM-2 (#1780) and D-NAM-PZL (#1784); no executor, tensor IR or `Rel` variant.
