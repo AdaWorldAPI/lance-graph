@@ -1,6 +1,6 @@
 # 2026-10-26 — D-DR256-WHERE capstone: P0 census + P1 occupancy / shared-schedule lab
 
-**Status:** P0 DONE, P1 DONE (lab, reported not gated). P2–P5 PROPOSED, NOT AUTHORIZED.
+**Status:** P0 DONE, P1 DONE (lab, reported not gated). P2–P5 PROPOSED, NOT AUTHORIZED. Amendment A (DR64³ gap inventory): `2026-10-26-dr64-cubed-amendment.md`.
 Plan: `.claude/plans/dr256-where-capstone-v1.md`. Lab: `crates/drf-focus-probe/examples/where_occupancy.rs`.
 
 - WHERE, COUNT, ANY, gated predicates, witnessed range reads, exact fk semijoin and single-property

@@ -236,3 +236,218 @@ MIRROR
 - BIAS CHECK: the census first recorded `Any` as early-exit from an earlier session's note; reading
   `exec.rs:1793` showed it is not on the generic path. Treat other remembered properties the same way.
 - STILL OPEN: whether any consumer has a compatible thought window of N ≥ 2 in practice.
+
+---
+
+# Amendment A (2026-10-26) — DR64³ holographic binding, named intermediates, derived relational views
+
+**Status:** GAP INVENTORY + STAGED PLAN, documentation only. Nothing here is implemented or authorized.
+**Builds on, does not restate:** D-NFR-0 seam table S1–S17a (`.claude/plans/d-native-repr-contract-v1.md`,
+#1753), D-RMAP-1A (RelationshipMap tables), D-DRAV-1 (map/value lifetimes), D-DRF-1 (focus lease), D-RPR-0
+(perspective rebinding), D-QR-CAP (fixture matrix), H14c/H14d. Where a row below says "S*n*", the evidence is
+that D-NFR row, re-checked in this session where marked "read".
+
+## A.0 Premise, and how it is recorded
+
+The operator direction of 2026-10-26 is: **DR #1 Identity** (selected identity population, sealed DR64 focus)
+and **DR #2 Properties** (selected property vocabulary of ≤ 64 property IDs, ClassView-typed) are materialized
+foundations; **DR #3 Identity × Properties** is the working relational view, bound and not necessarily
+materialized; **Identity × Identity** (a named relation, optional declared inverse) and **Properties ×
+Properties** (higher-order statistics) are optional, on-demand views.
+
+Recorded as `WORKING-MODEL` (direction), not as verified fact. It gives a concrete reading of D-NFR's open
+point NFR-OP-2 ("what the DR64³ third axis indexes"): DR #3 itself is a two-axis register over typed
+(Identity, Property) axes, and the third axis indexes a **relation ordinal** for the Identity × Identity view.
+Closing NFR-OP-2 formally is still the DR owner's decision.
+
+## A.1 Implementation status (verified this session)
+
+| item | status | source |
+|---|---|---|
+| canonical SoA identity rows | SHIPPED | 512-byte node, `canonical_node.rs` (unchanged here) |
+| DR #1 sealed global→local focus map | LAB | S11 `dir-rmap-probe/src/focus.rs`; `drf-focus-probe` (`SealedMap`, `FocusKey`); no production crate defines either (closed search over `crates/*.rs`: only probe crates and one planner example) |
+| DR #2 property vocabulary and presence | SHIPPED (contract) | `class_view.rs`: `FieldMask` (64 presence bits, "presence, NEVER semantics", C2), `WideFieldMask` past 64 |
+| DR #2 typed property axis in a binding | LAB | S8 `dr-math-binding-probe`: `AxisKind::{Identity, Property, Community, Capability}` (read) |
+| DR #3 Identity × Properties as a typed register | LAB | S8 + S9: `MethodSignature { row: Axis, column: Axis, truth, population }` over a borrowed `[u64; 64]` (read). DR64², no third axis |
+| DR64³ third axis | PROPOSED, no type | S10; NFR-OP-2 open |
+| frame (source × relation map × coordinates) with stale refusal | LAB | S6 `FrameStore` / `Frame`, compared by issue, never by value (read) |
+| focus and scope as separate guards | LAB | S7 `Guards`, `bind_dr64` (read) |
+| Quack binding membrane (names → numeric, once) | SHIPPED | S1 `lance-graph-quack/src/bind.rs:288` `bind(&dyn Binder) -> Result<Query, BindError>` (read) |
+| prepared program reuse | SHIPPED | S2 `CompiledProgram` (`mask-risc/src/ir.rs:1427`), `execute_compiled` (`exec.rs:1469`) (read) |
+| a bound `Query` knows its frame | MISSING | S5 × S6, D-NFR §4 (the smallest missing seam) |
+| shared temporary planes across programs | ALREADY for `Keep` (`Filter::Plane`); FORBIDDEN for scatter output (`ir.rs:329-337`) | §1 above |
+| native per-property masked read | ALREADY, one property per `Query` | `Agg` → masked terminals, `quack/src/lib.rs:2421-2466` (read) |
+| grouped univariate / bivariate moments | SHIPPED in mask-risc, **not reachable from Quack** | `Terminal::GroupPowerSumsI32` (`ir.rs:465`), `GroupCrossPowerSumsI32` (`ir.rs:480`); `terminal_of` has no route to either (read). Sums are exact: `u128` / `i128` accumulators (`ndarray simd_masking_ops.rs:2194`, `:2448`) |
+| relationship tables | PROPOSED / LAB | D-RMAP-1A PROPOSAL; D-RMAP-1A-P, D-MPS-8, D-RMAP-DIR-1 MEASURED probe only; D-RST-2 `RelationshipMapStore` Queued, lab only |
+| prefetch of the next focus | LAB / NOT AUTHORIZED | D-DRF-1 lookahead (lab); D-RPR-1 not authorized |
+| #1790, #1791, #1792, ndarray #377 | open drafts | none merged |
+
+## A.2 Named intermediates — four lifetimes, existing carriers
+
+| lifetime | existing carrier | invalidation | gap |
+|---|---|---|---|
+| 1. bound, unevaluated expression | a Quack `Query` (S1), or a `BoundDr64` (S8, lab) | `Query`: none today (S5 × S6 missing); `BoundDr64`: frame/focus/scope re-checked per borrow | D-NFR-1 adapter: `Binder` names the `FrameRevisions`, binding returns `Query` + sealed `Frame`, every run checks the frame before lowering |
+| 2. prepared relational view | `CompiledProgram` + an S11 focus + a `BoundDr64` | as 1, plus the focus revision | none beyond D-NFR-1 for the Quack half; the DR half is lab |
+| 3. computed mask or reduction | `Keep` output in caller-owned `Out::Mask` / `Scratch`; a `Value` | its lifetime is the caller's buffer; reuse only as a plane under the same frame | a scattered mask has no lawful reuse (#1791 proposal) |
+| 4. explicitly materialized output | a consumer-owned buffer at the egress (`materialize*`-style naming) | owned by the consumer | none |
+
+Rules: no new public type, no result store, no new versioning authority. Mutable guards are re-checked at
+every use (D-NFR §3); a cached binding never caches a guard away. `quack.bind(identities, properties,
+criteria)` is therefore **lifetime 1 + the D-NFR-1 frame**, not a new object.
+
+## A.3 Population WHERE
+
+Unchanged from §2 and §4: `Agg::Rows → Keep` returns the selection; `Count` / `Any` answer without
+producing a global mask. The one missing statistic is occupancy (active words and blocks), which waits for P2.
+`ScatterOrU32` stays a demanded result only.
+
+## A.4 DR64 versus DR256: which strategy inputs exist today
+
+| input | available? | where |
+|---|---|---|
+| exact survivor count | yes | `Agg::Count` / `popcount_batch_u64` |
+| occupied 64-row words, 256-row blocks | no (lab only) | §8 P1; P3 gap |
+| distinct canonical identities | partly | `CountKeyRunsU32` over a key-ordered lane; scatter-count over a map (#1790) |
+| DR64 focus coverage | lab | S11 |
+| legality and cost of rebinding | lab | S6/S7 guards; D-RMAP-1A-P incremental rebind (probe) |
+| selected property count, widths, offsets | yes | `Binder` + `Planes` lanes + ClassView basis |
+| SoA / cache / page locality | **no predictor** | P1 (#1789) FAILED: chunk-touched share does not predict Lance bytes; H14d: bytes follow page locality |
+| compatible future readers N | lab | #1791 (N* = 2 for count) |
+| materialization and invalidation cost | measured per case only | #1790, #1791, D-DRAV-AV1 (~2 µs map-only vs ~13 µs value gather) |
+
+Consequence: no policy may switch on popcount, and none may claim a physical-locality predictor. A selection
+of 4,096 identities fits one DR64 focus by count while costing 0.63–0.95 of a full pass if scattered (§8).
+
+## A.5 Whole-population selected-property reads
+
+| step | today | status |
+|---|---|---|
+| 1. resolve property IDs at BIND | `Binder` (S1) | ALREADY |
+| 2. layout, presence, validity | layout: `Planes` lanes; ClassView presence (C2, structural); Quack validity planes (SQL 3VL, `Filter::sql_where`) | ALREADY, and they are **different concepts**: presence ≠ SQL validity |
+| 3. admitted population mask | `Keep` | ALREADY |
+| 4–5. walk live words, skip zero words/blocks | ndarray masked folds cost less on sparse masks (§8: 2.0 µs vs 16.8 µs); mask-risc tile behaviour not measured | P2 |
+| 6. read payload only at surviving valid addresses | filter `R ∧ Presence[p]` + masked terminal, one property per `Query` | ALREADY (per property) |
+| 7. reuse row-local reads across properties | no multi-`Agg` query | MISSING; P1 says the gain is block skipping, not sharing, so do not build it before P2 |
+| 8. fused reductions | masked terminals; H14d fused Σ ≈ 5× under the explicit payload terminal | ALREADY |
+| 9. materialize only at egress | lifetime 4 | ALREADY |
+| source-side masked read | Lance 13 row-address prefilter (H14c/H14d) | MEASURED, gated on S-INGRESS (#1788) |
+
+Open gap, not yet sized: **per-property presence planes over a population.** ClassView presence is per row
+(`FieldMask` on the SoA row). H14c/H14d build presence planes `P_l` inside their probes. No production
+transposition from per-row `FieldMask` to per-field population planes was found; the search was not closed,
+so this is OPEN, not MISSING. Logical reads stay Σp popcount(R ∧ Presence[p]); H14d proves
+"payload reads == Σ_l popcount(R ∧ P_l)" counted, and that logical pruning does not bound Lance bytes.
+
+## A.6 Identity × Identity (named relation, declared inverse)
+
+- **Precedent, all lab or proposal:** D-RMAP-1A (separate RelationshipMap tables, PROPOSAL); D-MPS-8 (native
+  join over a versioned relationship table, leapfrog as one mask-risc `And`, MEASURED probe); D-RMAP-DIR-1
+  (DR256 register: 256 × 256 bit matrix, `Carriers` "held by the register in both orientations",
+  `dir-rmap-probe/src/compose.rs:153`; arm B a bidirectional CSR).
+- **An inverse read is a physical access path, not a bit.** A bidirectional CSR is a maintained second index
+  (a cost, D-HOLO H5). Without one, the inverse is a full sweep with the forward predicate, or a refusal.
+- **Admission rule for an orientation bit:** only on a relation binding whose schema declares a valid inverse
+  (e.g. `causes` / `caused_by`), and only where an eligible reverse access path exists in the same frame.
+  The bit names the reading direction; it never asserts symmetry, causality, invertibility of an arbitrary
+  predicate, or a reverse index that does not exist. Canonical edges are never duplicated to reverse a read.
+- **Gap:** no typed inverse declaration was found in the contract (`schema.org inverseOf` appears only in an
+  ontology hydrator, `hydrators/schemaorg.rs:31`); not a closed search, so OPEN.
+
+## A.7 Properties × Properties (higher-order statistics)
+
+- **Boolean co-occurrence (XᵀX entry a,b):** `Count` over `Plane(R) ∧ P_a ∧ P_b`, one program per requested
+  pair (fused ternlog popcount). ALREADY. All-pairs is a reference arm only, never the default.
+- **Numerical covariance / Pearson:** mask-risc `GroupCrossPowerSumsI32` folds `n, Σx, Σy, Σx², Σy², Σxy`
+  exactly in one pass, both lanes read in place. Pairwise sample eligibility is the mask
+  `R ∧ Valid[x] ∧ Valid[y]`. Correlation and covariance are consumer projections of those sums.
+- **Gaps:** (a) no Quack `Agg` reaches the power-sum terminals; adding one is a front-end mapping to an existing
+  terminal, not a new opcode (law 6 holds). (b) the terminals are grouped; an ungrouped request would need a
+  constant key lane, which is a 256 KiB materialization over 65,536 rows. The smallest form needs measurement
+  against that lane before it is proposed.
+- Co-occurrence is never reported as correlation, and neither is evidence of causality.
+
+## A.8 Prefetch and behaviour binding
+
+Three things are prefetched separately and never implied by each other:
+
+1. **sealed addresses / relationship bindings** — D-DRAV-AV1: map-only membership ~2 µs vs ~13 µs value
+   gather (lab, #1776).
+2. **selected property payload** — D-DRF-1 lookahead (lab); D-DRAV-AV2 (rehydrate exact snapshot or refuse)
+   NOT RUN.
+3. **disposable derived values** — D-DRF foreign cache, scoped exception undecided.
+
+`lance_graph_contract::property::PrefetchDepth` is a schema-level property-visibility tier (Identity / Detail
+/ Similar / Full) by property kind. It is not a physical prefetch and must not be cited as one.
+`alpha_focus` is an attention mask, not DR focus (D-NFR note). Preparing the next perspective is D-RPR-1,
+NOT AUTHORIZED. Later behaviour lowering reuses the same lifetime-1/2 bindings; no behaviour VM, ONNX
+interpreter or dynamic dispatcher.
+
+## A.9 DuckDB harvest, priority A/B/C
+
+DuckDB references are the ones pinned in #1788 A.2 (`TryLateMaterialization`, `RowGroup::CheckZonemap`, at
+`1641475`) plus the DuckDB documentation verified in §6. "Owner" is the layer a change would land in.
+
+| technique | DuckDB ref | our equivalent | missing | semantic gate | falsifier | owner | decision |
+|---|---|---|---|---|---|---|---|
+| **A** projection pushdown | projection in scans | `Binder` resolves only named fields; masked terminals read only named lanes | nothing at the fold; Lance-side column projection under S-INGRESS | read set == requested property set | bytes read ∝ selected properties, not table width | Quack / source owner | KEEP |
+| **A** zone-map pruning | `RowGroup::CheckZonemap` | witnessed `Range` on ordered lanes (S3) | a per-block **value** min/max statistic with a seal | statistic sealed with the lane version; stale → sweep | pruned blocks × answer parity vs sweep; gain on a real predicate stream | mask-risc + lane owner | ADAPT, only if measured |
+| **A** selective late materialization | `TryLateMaterialization` | masked terminals over survivors; lifetime 4 | per-property block schedule (P2) | values read only at `R ∧ Valid[p]` | P2 B/S vs per-property programs | Quack / mask-risc | ADAPT (P2 first) |
+| **A** adaptive predicate ordering | `AdaptiveFilter` | `and_by_skip` (`lib.rs:752`) | dead-word/dead-block measurements as its input | order never changes the answer (law 3) | shuffled-data control | Quack | KEEP |
+| **A** CSE / prepared reuse | optimizer CSE, prepared statements | `Keep` → `Plane`; `CompiledProgram` | frame on the bound query (D-NFR-1) | same frame, same answer | stale frame refused | Quack + frame owner | ADAPT (D-NFR-1) |
+| **A** filter propagation to source | dynamic filters, scan pushdown | Lance row-address prefilter (H14c/H14d) | S-INGRESS ruling; coordinate authority | rows scanned == `|R|` | bytes vs locality (P1 FAILED as predictor) | source owner | DEFER (S-INGRESS) |
+| **A** operator / terminal fusion | fused pipelines | fused ternlog lowerings, fused Σ | none found | fused == explicit | H14d fused vs explicit | mask-risc | KEEP |
+| **B** join-filter pushdown over SoA relations | join filters | `EqU32Via` / `Semijoin → Gather` (exact) | none for addressed keys | exact fk | — | Quack | KEEP |
+| **B** index vs masked scan | ART threshold `MAX(2048, 0.001·N)` | witnessed `Range` vs sweep | none | — | — | Quack | KEEP |
+| **B** sorted physical read batching | scan ordering | none at the fold; Lance ranges | page-scale clustering (H14d OPEN) | order never changes the answer | bytes at equal `|R|` | source owner | DEFER |
+| **B** reusable state across thought frontiers | recursive-CTE operator state | `CompiledProgram`; #1791 D (lab) | #1791 contract for scattered masks | witness per window | #1791 N* | Quack + DR owner | DEFER (contract) |
+| **B** exact selectivity feedback | adaptive filter stats | exact popcount; occupancy gap | occupancy (P3) | stats never change answers | P2 consumer decision | ndarray | ADAPT (P3) |
+| **B** costed intermediate planes | CTE materialization | `Keep` → `Plane` | a cost rule | — | reuse vs recompute at N | Quack | DEFER (P2) |
+| **B** factorized / shared sufficient statistics | factorized aggregates | `GroupPowerSumsI32` / `GroupCrossPowerSumsI32` | Quack `Agg` route; ungrouped form | exact i128/u128 sums | vs independent f64 oracle and exact integer oracle | Quack | ADAPT (PR E) |
+| **C** Bloom filters | RPT+ (research) | exact masks / gathers | — | — | — | — | REJECT (exact wins on addressed keys) |
+| **C** general join-order planning | optimizer | none | — | — | — | — | REJECT (no second planner) |
+| **C** adaptive cardinality estimation | statistics | exact counts | — | — | — | — | REJECT (exact counts exist) |
+| **C** compression-aware scheduling | compressed execution | — | — | — | — | — | DEFER |
+| **C** dictionary-vector reuse | dictionary vectors | sealed u16 map + mask (#377) | mask-risc `LaneRef::U16` | — | #1791 | mask-risc | DEFER (P4) |
+| **C** top-N / early-out | top-N, limit pushdown | `Any` early exit on fused path only | early exit on generic path | result semantics allow it | C7 / G8 measurement | mask-risc | DEFER |
+
+No SelectionVector, row iterator, hash execution engine or copied tuple store is proposed.
+
+## A.10 Benchmark geometry additions
+
+On top of §3: number of DR64 focus bindings; duplicate map targets; physical cache lines and pages touched
+(byte counts, not wall time, for storage); Identity × Properties narrow vs broad projections; Identity ×
+Identity forward vs declared inverse (with and without a reverse access path); Properties × Properties
+requested pairs vs all-pairs reference; empty / missing / nullable values (presence and SQL validity
+separately); stale binding, changed focus, changed property generation. Preparation, source reads, native
+execution, amortized reuse and materialization are reported separately. Historical 1 % / 25 % / 100 %
+fixtures stay as controls.
+
+## A.11 Distinctions kept
+
+Materialized foundation vs derived view; relation support vs proven fact; named intermediate vs payload copy;
+global membership vs adjacency; thought version vs binding/focus generation; source-side masked read vs
+resident mask operation; disposable cache vs authoritative persistence; presence vs SQL validity; population
+count vs Bag multiplicity (`bind_dr64` refuses Bag). A bounded focus does not make unseen contributors false:
+expand lawfully, use an eligible global route, or refuse (S11 refuses `OutOfFocus`).
+
+## A.12 PR ladder A–F, mapped to existing work (none authorized)
+
+| PR | scope | existing D-id it is | depends on | first gate |
+|---|---|---|---|---|
+| A | this amendment: roles, status, lifetimes, owners | — (docs) | — | review |
+| A′ | frame on a bound Quack query | **D-NFR-1** (do not open a second one) | NFR-OP-1 owner decision | second run after a revision is refused |
+| B | population WHERE with occupancy | capstone P2 → P3 | — | P2 names a consumer decision |
+| C | selected-property masked reads through Quack | capstone P2; D-DRAV-AV2 for payload residency | B's P2 | Quack-path B/S vs per-property programs; independent oracle; byte accounting |
+| D | DR64/DR256 amortization | **D-NFR-5** + #1791 | #1791 contract; ndarray #377 for P4 | reuse saving measured with guards on every use |
+| E | derived views: Identity × Properties typing; Identity × Identity inverse; Properties × Properties `Agg` route | D-RMAP-1A / D-MPS-8 / D-RMAP-DIR-2 for relations; new only for the power-sum `Agg` route | A′; ISS-ADMISSION-PREP-BINDING for relations | exact sums vs integer oracle; inverse refused without an access path |
+| F | DuckDB experiments, one per demonstrated gap | A.9 ADAPT rows | P2 | each beats existing native execution or is rejected |
+
+Coordination: EXO-50 is the append-only handoff; D-QR-CAP's fixture matrix (`QR64` / `QR256`, ClassId 7
+basis, `WideFieldMask` 0/63/64/108) is reused as the fixture source rather than duplicated.
+
+## A.13 Open points
+
+- NFR-OP-1 (frame store owner), NFR-OP-2 (third axis), NFR-OP-3 (one witness type) — unchanged, operator / DR owner.
+- Per-property presence planes over a population: production source not found (A.5).
+- Typed inverse declaration for relations (A.6).
+- The #1791 witnessed-derived-population contract, S-INGRESS and the joint coordinate witness (#1788).
