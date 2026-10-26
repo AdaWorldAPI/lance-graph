@@ -1,3 +1,7 @@
+## 2026-10-26 — D-DR256-WHERE population-masked reads, thought amortization, DuckDB harvest → `.claude/plans/dr256-where-capstone-v1.md`
+
+**Status:** P0 census DONE, P1 lab DONE (reported, not gated); P2–P5 PROPOSED, NOT AUTHORIZED. **Board entry:** [D-DR256-WHERE](entries/2026-10-26-dr256-where-capstone.md). Smallest gap: exact occupancy over a `Keep` mask; multi-property gain is dead-block skipping, measured at ndarray level only. No runtime, ABI, planner, writer or WAL change; the scatter survival condition stays in force.
+
 ## 2026-10-25 — D-TFLP TFLite models on the native polyfill → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v1.md`
 
 **Status:** PROPOSAL / DOCUMENTATION ONLY. **Board entry:** [D-TFLP-0](entries/2026-10-25-d-tflp-0-tflite-palette-polyfill.md). **Stages:** D-TFLP-1..8 Queued / NOT RUN in [STATUS_BOARD.md](STATUS_BOARD.md).
