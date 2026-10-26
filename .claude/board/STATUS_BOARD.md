@@ -1,11 +1,3 @@
-## D-ONNX-INTAKE — cold ONNX frontend bake-off (2026-10-26)
-
-S0 capstone, docs only. Plan `.claude/plans/d-onnx-frontend-intake-bakeoff-capstone-v1.md`; entry `entries/2026-10-26-onnx-frontend-intake-bakeoff.md` (#1802). Coordinator D-NAM / EXO-152.
-
-| D-id | scope | status | gate / falsifier |
-|---|---|---|---|
-| **D-ONNX-INTAKE-0** | Burn `onnx-ir` vs Tract as competing cold ONNX semantic-intake frontends over one pinned model; ORT as independent output oracle | Shipped, docs only (#1802 `e1ceceec`) | no importer, test or model run; parser choice (OP-ONNX-2) still OPEN; S1+ needs a separate operator gate |
-
 ## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
 
 **Status:** PLAN / DOCS ONLY, six documentation PRs **MERGED** ([#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794)–[#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799)), no production source ingestion, no new 64-slot ABI, no runtime adapter or DT64-Q0 executable proof run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
