@@ -322,3 +322,26 @@ y = Σ p_i V_i.
   - TANH → LOGISTIC fusion: the fused table equals the two-kernel sequence on all 569,344 cells.
   - The continuous mathematical composition differs from the sequence on 69,652 cells.
 - **Status.** TESTED-LAB (TFLM reference kernels, x86_64 gcc, kernel tree `8f6596d`).
+
+## L. Source causality and row-dependent source parity (Amendment 6.3)
+
+- **L1, causal partition of a fused fingerprint.** For a two-stage chain with source and certified
+  tables per stage, the four arms SS, SC, CS, CC (every arm keeping the intermediate code) give the
+  partition. A cell of SS ≠ CC is attributed to one stage only if correcting that stage alone
+  reaches CC and the other stage agrees on both paths; otherwise it is conjunctive. Fingerprint
+  counts per stage are not additive in general. Measured on TANH → LOGISTIC (569,344 cells):
+  48,789 LOGISTIC-only, 17 conjunctive, 0 TANH-only; SC ≡ CC.
+- **L2, shared source cause.** TFLM int8 TANH and LOGISTIC both evaluate gemmlowp
+  `exp_on_negative_values` at −1/128 and get the same integer (2,130,771,442, low by 355.67 Q0.31
+  units, of which −355.97 is degree-4 Taylor truncation). In both traced cases this truncation, not
+  division or output rounding, decides the byte. Measured at one argument; not a general claim.
+- **L3, row-dependent source parity (softmax).** Softmax is not admitted as a unary table (entry K).
+  It admits a prepared recipe: per-calibration weight tables taken from the source's own
+  primitives (exp, `Rescale<12>`, admitted flag), then per row an exact integer sum, the source
+  reciprocal and the source output rounding. Domain: Q12 sum ≤ INT32_MAX and exponent ∈ [0, 31],
+  i.e. Σ exp < 512; outside it, a typed refusal, never a byte claim. Measured on TFLM int8
+  (840 rows, 14 calibrations): 0 differing cells on 337,878 admitted outputs, 111/111 aborting
+  rows refused. The source differs from the mathematical contract on 3 cells, caused by the
+  accumulated Q12 rounding; F24 matches the contract, so the two remain separate receipts.
+- **Status.** TESTED-LAB (TFLM reference kernels, x86_64 gcc, kernel tree `8f6596d`). The
+  reciprocal stage has no binding falsifier yet (0 deciding rows in 1.8 M searched).

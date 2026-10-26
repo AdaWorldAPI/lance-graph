@@ -1587,3 +1587,266 @@ Linear was not reachable; no issue state, acceptance or ownership is claimed. Se
 
 **Next narrow gate:** the LOGISTIC stage trace (is it the same `exp_on_negative_values` error?),
 then the TFLM softmax sweep in its < 2^9 domain, as the first non-unary source-parity case.
+
+## Amendment 6.3 (2026-10-26) — LOGISTIC numerical causality and softmax source-parity feasibility
+
+Scope: lab probes and documentation only. No production code, API, codec, ClassId or runtime
+was changed, and no PR was opened. Linear was not reachable. Amendment 6.2 and its committed
+results (`results.json`, `compose.json`, `artifacts.bin`, the 48,806 count) are unchanged; this
+amendment reads them, it does not regenerate them. Probe files: `.claude/probes/source-behavior-v1/`
+(`trace63.cc`, `attrib63.py`/`.json`, `softmax63.py`/`.json`, `softdiff63.py`/`.json`,
+`recip_search63.py`, `recip63.json`; build and run lines in its `README.md`).
+
+Source: TFLM checkout `5f64e4ad1763fbe53f40534c39aabe22037a6e79`, `tensorflow/` tree identical
+to `8f6596d`, library built with the g++ 13.3.0 line of `tanh-sweep-v1/README.md`. All line
+numbers below are in `tensorflow/lite/micro/kernels/internal/` at that checkout, read from the
+file.
+
+### L1. LOGISTIC stage trace at ±1/128
+
+**Source path.**
+- `reference/integer_ops/logistic.h:27-61`, `Logistic(input_zero_point, input_range_radius,
+  input_multiplier, input_left_shift, …)`:
+  - `kInputIntegerBits = 4` (`:32`);
+  - radius test, saturating to −128 / 127 (`:41-45`);
+  - `MultiplyByQuantizedMultiplier(input, input_multiplier, input_left_shift)` into Q4.27 (`:47-48`);
+  - `gemmlowp::logistic`, then `RoundingDivideByPOT(output_in_q0, 31 − kOutputIntegerBits)` = 23
+    (`:54`), `−128`, clamp.
+- `fixedpoint.h:863` `logistic` → `logistic_on_positive_values` (`:856-858`) =
+  `one_over_one_plus_x_for_x_in_0_1(exp_on_negative_values(−a))`;
+  `exp_on_negative_values` (`:736-783`) → `exp_on_interval_between_negative_one_quarter_and_0_excl`
+  (`:711`), a degree-4 Taylor polynomial about −1/8; `one_over_one_plus_x_for_x_in_0_1`
+  (`:832-853`) is Newton–Raphson division. For negative inputs the kernel selects
+  `One − r` with `One` raw = 2^31 − 1.
+- Prepare: `kernels/logistic_common.cc:45-60` (int8 output zp −128 required).
+
+**Harness.** `trace63 ltrace <scale_bits> <zp>` re-executes the loop body stage by stage using
+the same primitives and aborts (exit 3) unless its byte equals the real kernel's. At (1/128, 0)
+it matched on all 256 codes before any number below was read.
+
+**The trace** (Q0.31 raw units; ideals from 60-digit mpmath, `attrib63.json` → `A_logistic_trace`):
+
+| quantity | code −1 (x = −1/128) | code +1 (x = +1/128) |
+|---|---|---|
+| Q4.27 input | −1,048,576 (= −2^20, exact) | 1,048,576 (exact) |
+| quarter-interval remainder | 0 — no barrel multipliers | 0 |
+| exp(−1/128): kernel | 2,130,771,442 | 2,130,771,442 |
+| exp(−1/128): true | 2,130,771,797.666 | same |
+| exp error | **−355.666** | same |
+| of which Taylor truncation (exact poly − true) | −355.967 | same |
+| of which fixed-point rounding (kernel − exact poly) | +0.301 | same |
+| r = 1/(1+e): kernel | 1,077,936,196 | 1,077,936,196 |
+| r from exact division of the kernel's e | 1,077,936,196.279 (division error −0.279) | same |
+| selected value: kernel | 1,069,547,451 (= One − r) | 1,077,936,196 (= r) |
+| selected value: true | 1,069,547,541.333 | 1,077,936,106.667 |
+| rounding boundary (half step of 2^23) | 1,069,547,520 | 1,077,936,128 |
+| q23 → byte (kernel) | 127 → **−1** | 129 → **+1** |
+| byte of the math contract | 0 | 0 |
+
+**Attribution.** The true value lies on the "0" side of the boundary; an exact division applied to
+the kernel's exp value already lies on the other side. So the earliest divergent stage is
+**the exp polynomial core** — specifically degree-4 Taylor truncation (−355.97 units), not
+fixed-point rounding (+0.30) and not the division (−0.28). The input rescale is exact and no
+barrel stage runs.
+
+**Relation to TANH (measured, not assumed).** The kernel's exp raw value is the same integer as in
+the Amendment 6.2 TANH trace (2,130,771,442 — `div_input_e_equals_tanh_62_value: true`), because
+both evaluate `exp_on_negative_values` at the same argument −1/128 (TANH computes e^(−2|x|) at
+|x| = 1/256). The two operators then diverge in different stages after it (TANH: `one_minus_x_over_one_plus_x_for_x_in_0_1` and `RoundingDivideByPOT(raw, 24)`; LOGISTIC: one-over-one-plus-x and `(raw, 23)`), and in both
+the deciding error is the same truncation error carried through. This is one source cause shared by
+two operators at one argument; it is not a claim about any other argument.
+
+**Scope of the LOGISTIC fingerprint at (1/128, 0).** Source vs certified tables differ at
+intermediate codes −1 and +1 only (`logistic_source_vs_certified_codes`).
+
+### L2. Four-arm attribution over the 569,344 TANH → LOGISTIC cells
+
+Arms (TANH stage, LOGISTIC stage), every arm keeping the int8 intermediate code:
+SS = source/source (the 6.2 two-kernel sequence), SC = source TANH / certified LOGISTIC,
+CS = certified TANH / source LOGISTIC, CC = certified/certified. TANH tables are the 6.2
+`artifacts.bin` (sha256 prefix `db55e763` asserted); LOGISTIC tables are the kernel-verified trace
+(L2S) and interval-certified σ (L2C).
+
+| comparison | differing cells |
+|---|---|
+| SS ≠ CC | **48,806** (reproduces 6.2) |
+| SS ≠ SC | 48,806 |
+| SS ≠ CS | 17 |
+| CS ≠ CC | 48,789 |
+| SC ≠ CC | **0** |
+| TANH source ≠ certified (intermediate code differs) | 17 |
+| intermediate code ∈ {−1, +1} on the source-TANH path | 48,806 |
+| intermediate code ∈ {−1, +1} on the certified-TANH path | 48,789 |
+
+**Partition of the 48,806 SS ≠ CC cells** (`attrib63.json` → `classes_of_SS_ne_CC`):
+
+| class | definition | cells |
+|---|---|---|
+| LOGISTIC only | TANH codes agree; the source LOGISTIC error at ±1 alone | **48,789** |
+| conjunctive | TANH differs (source ±1, certified 0); correcting EITHER stage alone already gives CC | **17** |
+| TANH only | LOGISTIC agrees on both paths | 0 |
+| neither single correction reaches CC | — | 0 |
+| one correction reaches CC, the other not | — | 0 |
+
+(JSON label note: the conjunctive class is stored as `both_required`, the empty
+"neither single correction" class as `each_alone_sufficient`; the definitions above are the
+ones the code applies, `attrib63.py:113-121`.)
+
+**What this says.**
+- The 48,806 are **not** 48,789 + 17 independent contributions. The LOGISTIC error is necessary
+  in every one of them; the TANH error contributes only conjunctively, in 17 cells, by moving the
+  intermediate code from 0 onto the ±1 where LOGISTIC's own error then fires.
+- **TANH's error never reaches the output on its own**: with a certified LOGISTIC (SC), the output
+  equals CC on all 569,344 cells. Cancellation counts: the TANH error is absorbed by the certified
+  LOGISTIC in 17 cells; the LOGISTIC error is absent on the certified-TANH path in the same 17;
+  cells where both errors are present and cancel to CC in SS: 0.
+- Counterexample to the additive reading (calibration 15, scale bits `3b800000`, input codes with
+  TANH source ±1 / certified 0): SS = ±1, SC = 0, CS = 0, CC = 0. Either repair alone removes the
+  deviation, so neither stage "owns" it.
+
+### L3. TFLM int8 SOFTMAX — source behaviour, domain and parity
+
+**Source path** (`reference/softmax.h:70-147`, int8 overload):
+- `kScaledDiffIntegerBits = 5` (Q5.26 differences), `kAccumulationIntegerBits = 12` (`:81-82`).
+- elements with `input_diff >= diff_min` contribute
+  `Rescale<12>(exp_on_negative_values(SRDHM-scaled diff))` to an int32 sum (`:103-110`); `Add` in
+  `fixedpoint.h:93-95` is a plain int32 add, so a sum past INT32_MAX is undefined behaviour, not
+  saturation.
+- `GetReciprocal(sum, 12, &num_bits_over_unit)` (`common.h:968-982`, `:115`);
+  `exponent = num_bits_over_unit + 31 − 8 = num_bits_over_unit + 23`;
+  `TFLITE_CHECK(0 <= exponent && exponent <= 31)` (`:119`).
+- output = `RoundingDivideByPOT(SRDHM(shifted_scale, exp_in_0), exponent) − 128`, clamped (`:133`);
+  elements below `diff_min` output −128 (`:124`).
+- Prepare: `kernels/softmax_common.cc:105-131` → `PreprocessSoftmaxScaling`
+  (`quantization_util.cc:283+`) and `CalculateInputRadius(5, shift)`.
+
+**Separation of the five parts**, as implemented by the source-compatible recipe in `softmax63.py`
+(no new runtime; a lab reimplementation for measurement):
+
+| part | where it lives | per calibration or per row |
+|---|---|---|
+| 1. prepared weights | A[d] = kernel exp raw (Q0.31), B[d] = `Rescale<12>` raw, admitted flag, d = −255..0 — read from the kernel's own primitives via `trace63 softexp` | per calibration, 256 entries |
+| 2. integer accumulation | S = Σ B[d] in exact integers | per row |
+| 3. dynamic normalization | source `GetReciprocal` (reimplemented; 0 mismatches against TFLM's on 20,004 sums) | per row |
+| 4. output rounding/saturation | SRDHM, `RoundingDivideByPOT(·, exponent)`, −128, clamp | per element |
+| 5. source-specific approximation | carried by A/B (exp polynomial, Q12 rounding) and the reciprocal | — |
+
+**Domain.** Admitted: `S ≤ INT32_MAX` and `0 ≤ exponent ≤ 31`. The exponent bound is
+`num_bits_over_unit ≤ 8`, i.e. a Q12.19 sum below 2^28 raw = **a real-valued Σ exp below 512**.
+Outside it the recipe returns a typed refusal and makes no byte claim:
+`source_abort_exponent_<e>` or `q12_accumulator_overflow`. It never reproduces an abort as a
+numerical result.
+
+**Corpus.** 14 calibrations (scales {0.05, 0.1, 1/16, 0.0234375, 0.5, 1/256, 0.0137} × β ∈
+{1.0, 2.0}, zp drawn with `Random(63)`), rows n ∈ {2, 3, 16, 64, 256, 511, 512, 513, 1024, 4096}
+× distributions {uniform, near_max, ties, spike, low_range, two_max}: **840 rows, 587,748
+elements.** Kernel oracle = the committed `../fisherz-softmax-v1/softmax_oracle.cc`.
+
+| result | count |
+|---|---|
+| rows the kernel completes | 729 (337,878 output cells) |
+| rows the kernel aborts | 111 |
+| recipe refusals | 111, all on exactly the aborting rows (`refusal_mismatch` 0) |
+| **recipe vs kernel, on the 337,878 admitted cells** | **0 differing** |
+| kernel vs independent reference (mpmath, correctly rounded) | 3 differing |
+| F24 exact-first/exact-zero arm vs reference | 0 differing, 0 unresolved (631 rows by bound, 98 by shortcut) |
+| kernel vs F24 | 3 differing (the same 3) |
+
+**Aborts, by cause** (`softmax63.json` → `aborts`):
+- ties: n = 512 and 513 → exponent 32 (14 + 14); n = 1024 → exponent 33 (14); n = 4096 →
+  **Q12 accumulator overflow** (14: Σ = 4096 → 2^31 raw, past INT32_MAX; the kernel's observed
+  abort there follows undefined behaviour and is not modelled).
+- every other aborting row is n ∈ {1024, 4096} with Σ exp ≥ 512 → exponent 32–34 (55 rows across
+  uniform, near_max, spike, low_range, two_max).
+- no abort at n ≤ 511 (by_length: 0 at n = 2 … 511). Amendment 5's finding (abort at 512 tied
+  inputs) is reproduced, and is now separated from the Q12 overflow that first appears at 4096
+  ties.
+
+**The 3 kernel ≠ math cells** — all at the row maximum (d = 0) of `spike` rows:
+
+| scale | zp | β | n | kernel | math |
+|---|---|---|---|---|---|
+| 0.05 | 99 | 1.0 | 4096 | 124 | 125 |
+| 0.0234375 | −88 | 2.0 | 1024 | 127 | 126 |
+| 0.0234375 | −88 | 2.0 | 4096 | 122 | 121 |
+
+Stage attribution (`softdiff63.json`, one source stage at a time swapped into an exact pipeline):
+source input multiplier only → math code; source exp values with an exact sum → math code; source
+exp values **with the Q12-rescaled sum** and an exact division → kernel code; source reciprocal
+with an exact tail → kernel code. The earliest stage that produces the deviation is **the per-element
+`Rescale<12>` rounding (Q0.31 → Q12.19) accumulated over the row's many small weights**, which moves
+the sum (e.g. S = 532,478 raw) enough to move the max element's byte by one; the direction varies
+(−1 once, +1 twice). The recipe keeps that rounding, which is why it matches the kernel.
+
+**Does the source reciprocal ever decide a byte?** Searched in closed form over two-level rows
+`[max]*k + [max+d]`, k = 1..511, d = −255..−1, all 14 calibrations: **1,824,270 rows, of which
+1,573,237 (86 %) have a source reciprocal that differs from the correctly rounded one, and 0 rows
+where that changes an output byte** (`recip63.json`). The search is not vacuous — the reciprocal
+does differ — but its error, a few raw units against a scale of ~2^31, did not cross a rounding
+boundary anywhere searched. This is a measurement on that family, not a proof for all
+rows.
+
+### L4. Negative controls (all executed)
+
+| control | result | evidence value |
+|---|---|---|
+| LOGISTIC trace vs kernel, 256 codes | aborts on any mismatch; held | precondition |
+| four-arm: artifacts.bin digest | asserted `db55e763…` | precondition |
+| softmax recipe, `rescale12` disabled (truncating `>> 12` instead of rounding) | 2 differing cells vs kernel | **binding** |
+| softmax recipe, `reciprocal` disabled (correctly rounded reciprocal) | 0 differing cells | **inert** on this corpus; L3's search confirms it stays inert on 1.8 M two-level rows. Not evidence that the reciprocal is irrelevant everywhere |
+| softmax recipe, `diff_min` disabled | 0 differing cells | **vacuous by construction**: a non-admitted weight is prepared as 0 and its output is −128 either way. Not evidence |
+| refusal vs abort, 111 rows | 111/111 matched, 0 mismatch | binding (a wrong domain bound would mismatch) |
+| reciprocal reimplementation vs TFLM `GetReciprocal` | 0 mismatches on 20,004 sums | precondition |
+| F24 vs independent reference | 0 differing, 0 unresolved | binding on the reference, not on the source |
+
+### L5. Answers
+
+- **LOGISTIC.** Its ±1 deviations at (1/128, 0) come from the degree-4 Taylor truncation in
+  `exp_on_negative_values`' core, the same integer exp value TANH used; division and output
+  rounding are not the cause. This was traced, not assumed.
+- **The 48,806 cells.** LOGISTIC is necessary in all of them; TANH contributes only conjunctively
+  (17 cells). A certified LOGISTIC alone removes every output deviation (SC ≡ CC).
+- **Softmax.** Inside the source's own domain (Σ exp < 512, no Q12 overflow), a prepared
+  source-compatible recipe — per-calibration weight tables plus per-row integer reduction and the
+  source reciprocal — reproduced the kernel on all 337,878 admitted cells of this corpus, and
+  refused exactly the 111 rows the kernel aborts. The F24 arm matches the mathematical contract
+  instead, and differs from the kernel on 3 cells. The two remain distinct contracts.
+- **What is not claimed.** No parity outside the admitted domain, for other backends
+  (CMSIS-NN, xtensa, full TFLite), int16 softmax, other shapes, or for rows outside this corpus.
+  Softmax is not a unary table: its normalization is row-dependent (ledger entries B, G, K).
+
+### L6. Prioritized to-do (updates Amendment 6.2 K8; completed rows marked)
+
+| stage | item | acceptance | status |
+|---|---|---|---|
+| P1 | Stage trace of the LOGISTIC ±1/128 discrepancy | trace harness byte-equal to the kernel | **DONE** (L1) |
+| P1 | Causal partition of the 48,806 fused cells | four arms, classes summing to the total | **DONE** (L2) |
+| P1 | TFLM softmax calibration sweep (< 2^9 domain) | 0 differing bytes or a typed refusal | **DONE on this corpus** (L3): 0 differing, 111/111 typed refusals |
+| P1 | A softmax row where the source reciprocal decides a byte | kernel-confirmed counterexample, or a proof of absence | OPEN: none in 1.8 M two-level rows |
+| P1 | Non-vacuous `diff_min` control | a row where a below-`diff_min` element would change a byte if admitted | OPEN |
+| P0 | Rust resolver seam (6.1 H5) | as stated there | OPEN |
+| P2 | Other LOGISTIC/TANH calibrations: does every ±1 cell trace to the same exp core? | per-calibration trace | NOT RUN |
+| P3 | BERT-class validation; ONNX IR and TFLite IR admission; learning/backward | see K7 | NOT RUN |
+
+### L7. BOARD_SYNC_PENDING (Amendment 6.3)
+
+Linear was not reachable; no issue state, acceptance or ownership is claimed. Sections to mirror:
+
+| Linear issue | local sections |
+|---|---|
+| EXO-152 (D-NAM / Palette256 numerical preparation; links as in G7 and K9) | ledger entry L; Amendment 6.3 L1-L3, L6 |
+| EXO-50 (handoff) | one line pointing at Amendment 6.3 and its commit |
+
+### L8. NOT RUN
+
+- LOGISTIC traces at any calibration other than (1/128, 0); other operators sharing the exp core.
+- int16 softmax; non-reference TFLM backends; full TFLite; ONNX of any kind.
+- Softmax rows outside the 840-row corpus beyond the two-level reciprocal family; softmax shapes
+  other than a single last-axis row; β other than 1.0 and 2.0.
+- A Rust implementation of the softmax recipe (Python lab only; timings in `softmax63.json` are
+  Python and are not a runtime claim).
+- Learning/backward semantics; BERT, ONNX IR and TFLite IR arms; held-out calibration generations.
+
+**Next narrow gate:** a non-vacuous `diff_min` control and a targeted reciprocal-boundary search
+(rows whose SRDHM product lands within a few raw units of a rounding half), so that both softmax
+normalization stages have a binding falsifier — or a proof that none exists in the admitted domain.
