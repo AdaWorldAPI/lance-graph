@@ -4,6 +4,10 @@
 
 **User request:** detailed technical mapping of IAM, Entra/Exchange, Odoo and SAP DTOs into a proposed 64-predicate DT64 semantic interface; directed/holographic DR access, edge×edge, Thought-Git hypothesis/time, ONNX numeric lowerings; stage documentation PRs; link the open contracts in EXO-50.
 
+## Cross-session Q0 coordination, same six-PR architecture
+
+[Borrowed DT64 → Quack binding seam](../../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md) added on #1799, DOCS ONLY. A source-attested binding consists of typed source/predicate identity, schema+catalogue version, actual owner/source snapshot, global/local witness, relevant codebook generation, scope/completeness, `&source`-borrowed input lanes, and separate reusable Quack recipe. DT64 does not execute; Quack/relalg/R2IL/mask-risc do; ndarray does numeric kernels; D-NAM/EXO-152 owns prepared numerical certificates and explicit SourceParity vs CertifiedMath. **Eight grounded IAM/Exchange/SAP predicates** are the first minimal lab fixture; Odoo cross-system join is not implied. The #1792 1,032-vs-31 changed-property stale-mask counterexample is required. Optional DR64² only after cost proof; no DR64³ runtime. Q0 is a coordination amendment under DT64-0, **not** an additional implementation stage or a CC instruction.
+
 ## Draft sequence with exact GitHub receipts
 
 | stage | PR | deliverable and status |
