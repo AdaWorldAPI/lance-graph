@@ -1,3 +1,22 @@
+## ISS-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE — two `impl Vocabulary` claim the same 34 op bytes and disagree (2026-10-26)
+
+**Status:** OPEN (latent). **Basis:** VERIFIED-IN-CODE (OGAR `crates/ogar-loco/src/nars.rs:133-175`, read at OGAR `68cb29b`; lance-graph `crates/lance-graph-ogar/src/recipe_vocab.rs:134-185`, read at `main` `87b2899b`).
+**Fruit:** High-signal
+
+- Both map recipe `id` to `FnIndex(DOMAIN_FLOOR + id - 1)` and both
+  `impl Vocabulary` over that range. They disagree on two columns:
+  `nars.rs:142-147` gives `Datapath` recipes arity 2 and `Gate` / `Control`
+  arity 1, with no value codebook; `recipe_vocab.rs:142-144` gives every recipe
+  arity 1 (its doc: a second operand "would be a value with no source"), and
+  `:171-176` declares `CB_ATTENTION_FOCUS`.
+- Latent today: `NarsVocabulary` has no consumer outside its own file, and
+  `lance-graph-ogar` is excluded from the workspace. It pulls `ogar-loco` at
+  `branch = "main"` (`lance-graph-ogar/Cargo.toml:140`), so both meet the next
+  time that crate resolves against a newer OGAR.
+- **What closes it:** an operator ruling on the arity (revision (f) Q7), then
+  one implementation delegating to the other. The change spans OGAR and
+  lance-graph. Ledger: `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-26f.md` S1.
+
 ## ISS-FISHERZ-ENCODE-SATURATES-SILENTLY — out-of-family cosines encode to the edge code with no flag (2026-10-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/bgz-tensor/src/fisher_z.rs:67`, `i8_val.clamp(-128.0, 127.0) as i8`, read at `main` `8f610a85`) + MEASURED.

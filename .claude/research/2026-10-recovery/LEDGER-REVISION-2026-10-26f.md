@@ -31,7 +31,7 @@ at `18fbe43a` unless marked *navigation only* (a search hit, not read).
 | S9 | `LATEST_STATE.md` says `ruff#115` is still open | `:1017` unchanged; ruff#115 was closed 2026-09-18 and its 8 docstrings landed as ruff `1b26e67` | **EXCLUDED.** Dated append-only entry; recorded here instead of edited |
 | S10 | The five doors | (1) the facet as one register: `shared_prefix_tiles` is one `xor` + `tzcnt` over `as_u128()` with the canon/custom tile swap (`facet.rs:327-338`); the 16-byte facet match predicate shipped (#1326, `ternary_match_strided16_to_mask`). (2) `TruthU8` in rail slots: no code (*navigation only*: 0 hits in contract, mask-risc, ndarray simd/hpc). (3) `pack<const L>`: ndarray `simd_masking_ops.rs:4688` `fn pack<T, const L>`, the one predicate tail (#313). (4) generation-keyed mask tile: no code under that name; D-DRF's facet-keyed focus with eviction is the nearest thing (K26). (5) random-access width: the `u16` address is settled by the lane-fold capstone; gather along the `u16` map exists in the D-DRF lab | (1) and (3) **CLOSED**. (2) OPEN, unbuilt. (4) OPEN, partly met by D-DRF (K26). (5) **CLOSED as a ruling**, its executor is lab-only |
 | S11 | Decisions 1 / 1b / 3 (alpha channel first; quack as the spine; belief needs proper wiring) | alpha: `contract::alpha` + `spog_tenants` shipped; D-SPOG-W-0 / D-ALPHA-G-0 (#1371, #1372). Quack: the Cypher → Quack seam exists (#1376), `cypher-mask-lowering-v2` is a PROPOSAL. Belief: `RevisionKind` (`contract/src/revision.rs:199`), `BeliefArena` (`planner/src/nars/belief.rs:124`); `Opcode::Revision` pools a duplicated source (TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1, #1733) | Alpha **landed**. Quack **landed as a seam**, multi-hop open (S2). Belief **merged into** the TD row: "proper wiring" now has a measured defect to start from |
-| S12 | The #1240 post-merge board commit | on branch `claude/clone-repositories-71a5sw` (`d52cc2086`), no PR | OPEN, low |
+| S12 | The #1240 post-merge board commit | written 2026-09-18 (`d52cc2086`), never merged; by 2026-10-26 it was about 500 PRs behind `main`, and its LATEST_STATE / PR_ARC entries described a state long superseded | **EXCLUDED.** The branch was restarted from `main` without it. Its one live finding, the duplicate vocabulary, is S1 and has a fresh ISSUES row |
 
 ## 2. New closed ends (C73–C84)
 
@@ -155,8 +155,7 @@ extract (9), aperture cap (10). Point 7 is a citation rule, not work.
 3. **FLOAT-REFS consumer audit** (carried) — `harvest-scout`: every `lance_graph::fold` import in the workspace and sibling repos.
 4. **GATHER-CODE quotes** (carried) — `quote-harvester` over `quack/src/lib.rs:2077, 2092, 2296, 2390`, `mask-risc/src/exec.rs` (the `MaskOp::Gather` arm), `reference.rs:437, 822, 922`.
 5. **ROWS-MISSING** (carried, grown) — `census-counter`: every D-id in `INTEGRATION_PLANS.md` and `.claude/plans/` with no STATUS row, now including D-NAM-*, D-ONNX-*, D-DRF-*, D-DRAV-*.
-6. **S12** — a PR for `d52cc2086`.
-7. **DRF-NO-CI** — one workflow file (Sonnet).
+6. **DRF-NO-CI** — one workflow file (Sonnet).
 
 ### High-signal (one Sonnet slice each, test first, decision already made)
 
