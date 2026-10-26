@@ -2571,3 +2571,463 @@ non-x86 targets for the reciprocal; IntegerExact on AMX silicon other than this 
 calibration: compute E_h once, prune, and either PROVE output equivalence for the cheaper reciprocal (as for
 calibration 9) or keep the source reciprocal with its witness list — then measure the cost of that check
 against the exhaustive one on all 14 calibrations.
+
+## Amendment 6.5 (2026-10-26) — Palette256 semantic admission, certified softmax preparation, regression consolidation
+
+**Baseline reconciliation.** The brief names `ee7e4a984` (docs) and `3def43df0` (lab). Both were
+rewritten by the rebase onto `main` after #1792. Their content is unchanged, as `d5b2303cc` and
+`6c6965ab7`: the diff over this entry, the ledger and the probes is empty apart from `main`'s own
+files. Nothing after that baseline was reset or duplicated.
+
+**Lab commits:**
+
+| commit | content |
+|---|---|
+| `ba475baf8` | P0 binding contract |
+| `27a18f644` | P0.5 accumulator contract |
+| `e15f3b30e` | P0 disable runs |
+| `4b657dd25` | P1 gate |
+| `3fbd44792` | P2 fixtures and replay |
+| `d1672b694` | P3 harness |
+| `4519fd43e` | results |
+
+**Production files changed: none.** ndarray's checkout is clean. The accumulator change below is a diff
+file, applied only in a throwaway worktree that was then removed.
+
+Five tracks, kept apart:
+- semantic identity (P0);
+- integer exactness (P0.5);
+- source compatibility and softmax certification (P1, P2);
+- performance economics (P3);
+- landing plan (P4).
+
+Statuses use PROVED / TESTED / REFUTED / UNKNOWN / NOT RUN.
+
+### O1. Semantic identity: what do these bytes mean? (P0)
+
+**Where the identity is lost (traced, `ndarray` `src/hpc/codec8.rs`).** A codec's meaning lives only in
+its type parameters: `Codec8<T: Storage, S: CodeSpace, R: Rounding, N: NanPolicy>` plus a `Calibration`.
+`decode_checked` takes a bare `&[T::Elem]`.
+
+- The chain *logical code space → encoding/storage → prepared artifact receipt → consumer binding →
+  decode* breaks at the second arrow. Once encoded, the bytes carry nothing.
+- **There is no production seam.** Outside `codec8.rs`, `Codec8` is used only by three lab probes
+  (`int8sem`, `crossdot`, `source-behavior-v1/parity`) and `examples/codec8_asm_probe.rs`. No lance-graph
+  crate consumes it.
+- The binding store is MISSING (`d-native-repr-contract-v1.md` S5).
+- The intended integration point is the **native method binding and recipe receipt** of
+  `d-nam-palette-native-lut-capstone-v1.md` (lines 38–40, step PZL-4). That step already requires that two
+  same-shape layers with different weights or calibration refuse the wrong table.
+
+**The decoder is correct.** `Codec8<I8, Sym, TiesAway, NaNAtMin>` decoding −128 as NaN is its declared
+policy. Nothing in `codec8.rs` was changed or proposed.
+
+**Smallest safe contract, built as a lab adapter** (`pal256-admission-v1/admit/`):
+
+- **No registry.** A codec's identity is a `CodecSignature` derived from `Codec8`'s own sealed traits:
+  - `CodeSpace::MIN/MAX`;
+  - `NanPolicy::NAN_CODE`;
+  - the raw bytes `Stores::store` writes for −128 and 0, which separate I8 from biased U8;
+  - `Rounding::round` on 0.5, 1.5, 2.5 and −0.5, which separates TiesAway, TiesEven and Floor.
+
+  Two codec types with equal signatures behave identically; unequal ones differ on some input.
+- **The receipt** carries:
+  - the codec signature, which covers the logical code space, storage, NaN policy, rounding, and
+    saturation (the code range);
+  - scale bits and zero point;
+  - the operator contract;
+  - the codebook generation;
+  - an optional source identity (revision and backend, for SourceParity);
+  - the length;
+  - the SHA-256 of the payload.
+- **`bind(artifact, expect)`** checks length and integrity, then signature, calibration, operator,
+  generation, source, then the payload's code range, in that order. It refuses with a named `Refusal`
+  before any value is interpreted.
+- **Binding happens once.** A `Bound` view then decodes through the consumer's own codec, with no
+  per-element check added to the hot path.
+- **Byte equality is not identity.** `bind` compares receipts, so identical bytes with different receipts
+  bind to different consumers.
+
+**Positive tests (TESTED, `tests/admission.rs`):**
+- P1/P2: Asym −128, −127, −1, 0, 127 decode to their numbers.
+- P3: SymNaN −128 decodes to NaN.
+- P4: Sym −127..127 are all valid.
+- P5: a payload claiming TFLM symmetric weights (Sym/NoNaN) that stores −128 is refused at bind
+  (`InvalidCode{index: 1, code: −128}`). The decoder's own check agrees, unchanged.
+- P6: signed-code and biased-U8 indexing agree on all 256 codes, and `U8::store(c) == I8::store(c) ^ 0x80`.
+
+**Negative controls (TESTED).** The payload is identical in the accepted and the refused arm of every
+test; only the consumer or one receipt field changes.
+
+| control | result |
+|---|---|
+| **F4 before** | the bare decoder accepts the Asym payload and returns NaN for −128 (`f4_before_…`). |
+| **F4 after (N1)** | `CodeSpaceMismatch{(−128, 127) vs (−127, 127)}`; the same artifact binds to its own consumer |
+| N2 SymNaN → Asym | `CodeSpaceMismatch`; → Sym/NoNaN: `NanPolicyMismatch` |
+| N3 biased U8 → raw I8 | `StorageMismatch` |
+| N4 wrong generation | `GenerationMismatch{7, 8}` |
+| N5 wrong rounding | `RoundingMismatch` |
+| N6 wrong scale / zero point | `ScaleMismatch` / `ZeroPointMismatch{0, 5}` |
+| N7 same bytes, same digest, other operator | `OperatorMismatch` |
+| N8 one corrupted byte | `IntegrityMismatch` |
+| N9 source required / wrong revision | `SourceMismatch` |
+| N10 truncated | `LengthMismatch{5, 4}` |
+
+**Compatibility matrix (`matrix65.json`).** Six producers × six consumers, each producer encoding its full
+code range plus its sentinel: TfliteAct, OnnxQ, TfliteWeight, SymNaN, biased U8 Asym, biased U8 SymNaN.
+Bindings occur **only on the diagonal**; all 30 off-diagonal cells are refused. The refusal is the first
+failing check: CodeSpace, Storage, NanPolicy or Rounding.
+
+**Disable runs (`disable65_p0.txt`).** Removing each check fails exactly its own tests:
+- code space → N1, N2;
+- storage → N3;
+- integrity → N8;
+- range scan → P5;
+- operator → N7.
+
+With the code-space check removed, F4 is still refused by the next differing check in order, the NaN policy (`NanPolicyMismatch`; read from `bind`, the test asserts only that `CodeSpaceMismatch` is gone). The NaN-policy check is a
+second line of defence for that case.
+
+**Status.**
+- TESTED (lab): incompatible bindings are refused before interpretation.
+- NOT a production feature: no production code calls `bind`.
+- UNKNOWN: the real owner of the receipt (the D-NAM PZL-4 binding, blocked on owner-issued generation
+  identity).
+
+### O2. Integer exactness: the i32 accumulator contract (P0.5; separate from O1)
+
+Four quantities, kept distinct:
+
+1. **The mathematical accumulator** Σ q·w: exact in i64. The 6.4 i64 oracle computes it.
+2. **The intended modular intermediate:** the biased u8×i8 sum and `128·colsum` may exceed i32. VPDPBUSD
+   and TDPBUSD wrap by design, and the correction is exact mod 2^32.
+3. **Final i32 representability:** the result equals the true value iff the true value fits i32.
+4. **Native output acceptance:** whether a caller may use the value. Nothing checks condition 3 today; it
+   is a documented-nowhere precondition (6.4 N8.3). **It is not enforced.**
+
+**Measured (`f9wrap65.txt`).** Six cases, against the current ndarray and against a worktree with
+`accum_wrapping65.diff` applied, each in debug and release:
+
+| case | final fits i32 | current debug | current release | proposed debug = release |
+|---|---|---|---|---|
+| i biased accumulator overflow (zmm) | yes | **panic** | exact | exact |
+| ii `128·colsum` overflow (zmm) | yes | **panic** | exact | exact |
+| iii K-tail after overflow (k % 4 = 3) | yes | **panic** | exact | exact |
+| iv AMX tier, biased overflow | yes | **panic** | exact | exact |
+| v true result out of range | **no** | panic | value mod 2^32 | value mod 2^32, **no panic** |
+| control in range | yes | exact | exact | exact |
+
+**The proposed diff (`int8-semantics-v1/accum_wrapping65.diff`).** Five lines, never applied to ndarray:
+`wrapping_add` / `wrapping_sub` / `wrapping_mul` at:
+- `amx_matmul.rs:995` (scalar tier);
+- `amx_matmul.rs:1023` and `:1028` (bias correction);
+- `int8_tile_gemm.rs:213` and `:305` (VNNI K-tails).
+
+Single products are untouched: |product| ≤ 255·128 cannot overflow.
+
+On the proposed tree:
+- `tailsweep` output is byte-identical to `tailsweep64.json`;
+- `cargo test -p ndarray --lib -- hpc::amx_matmul hpc::int8_tile_gemm` gives 23 passed, 1 ignored.
+- The scalar-tier line was **NOT RUN**: tier selection always picks VNNI on this host.
+
+**Recommendation, separate from O1.** Apply the diff together with a stated precondition and a test that
+pins case v.
+
+The trade-off must be named. Today's debug panic is the only, accidental, signal of a genuinely
+out-of-range result. After the change debug matches release and gives a silent modular value there.
+
+If an out-of-range signal is wanted, it has to be explicit, never an arithmetic accident:
+- a `checked_matmul_i8_to_i32` that accumulates in i64;
+- or a debug-only i64 re-check, which doubles debug cost.
+
+`fallback_path` in `int8_tile_gemm.rs:321` is a separate u8×i8 API with its own result contract and is out
+of scope.
+
+### O3. Source compatibility: the prepared-softmax reciprocal gate (P1)
+
+**Two stages, with different inputs.**
+
+**Source-global certificate** (`softcert65 global` → `softcert65_global.txt`, **5.41 s, once**). It depends only on:
+- the reciprocal algorithm (`GetReciprocal`, `common.h:968-982`, and `one_over_one_plus_x_for_x_in_0_1`,
+  `fixedpoint.h:832-853`);
+- x_integer_digits = 12;
+- int32 arithmetic;
+- the supported sum domain [2^19, 2^28) (6.4 N11).
+
+It does **not** depend on any calibration, because the reciprocal is a function of S alone.
+
+Contents, measured on every S in the domain:
+- each S's band h = clz(S) ∈ 4..12, with exponent 35 − h;
+- the exact reference round(2^62 / (S ≪ h)) is non-increasing within each band;
+- both reciprocals are positive;
+- **E_h = 6 for every h = 4..12.**
+
+The certificate records the source revision (`5f64e4ad`) and a SHA-256 over `common.h`, `fixedpoint.h` and
+`reference/softmax.h` (`0566576b…`). The gate refuses on any mismatch.
+
+**What E_h does and does not cover.** It is specific to this reciprocal algorithm and build. It is not a
+TFLite mathematical guarantee. Reuse it only under a matching revision and digest. A different reciprocal,
+x_integer_digits, accumulator type or domain needs a new certificate.
+
+**Per-calibration gate** (`softcert65 gate`). Inputs:
+- the certificate;
+- one calibration's prepared source weights (trace63 `softexp`: admitted flag, A = exp, B = Rescale<12>).
+
+Steps:
+1. The calibration's own assumptions are checked: the maximum is admitted, B[0] = 2^19 (the domain's lower
+   bound), and every admitted weight is in range.
+2. The boundary-pruned search runs with window E_h.
+3. Exact reachability (residue rule mod B[0]) runs on the candidates, building and re-checking a witness
+   row for each reachable pair.
+
+Decision:
+- `PROVED_OUTPUT_EQUIVALENT` when no reachable pair changes a byte;
+- `REQUIRES_SOURCE_RECIPROCAL` when at least one does;
+- `REFUSE_UNKNOWN` when any assumption, identity or bound fails.
+
+The decision is made at preparation time. Nothing enters the hot loop.
+
+**Independent validation (`softcert65.py`).** It does not use the gate's code. Per calibration:
+- **Table:** recomputed from the claimed calibration; its digest must match.
+- **Candidates:** the set must equal the exhaustive superset reference.
+- **Witnesses:** each row needs positive counts of admitted codes and must contain the maximum; its
+  recomputed sum must be S. The 6.3 Python recipe must give the claimed source byte, and with the exact
+  reciprocal the claimed alternative byte. The TFLM kernel must give the source byte.
+- **Unreachable claims:** a negative remainder is recomputed; a gap claim is re-checked by an unbounded-coin
+  DP on Python integers.
+- **Equivalence:** for a PROVED decision, 300 random admitted rows must agree between the kernel, the source
+  recipe and the exact recipe.
+
+**14 known calibrations (reconciled with 6.4 N12): TESTED, all valid.**
+- 601 candidates, 529 reachable witnesses (all 529 confirmed by recipe and kernel), 72 proved unreachable
+  (all re-proved), 0 unknown.
+- Calibration 9: `PROVED_OUTPUT_EQUIVALENT`, 0 candidates, 300/300 random rows identical.
+- The other 13: `REQUIRES_SOURCE_RECIPROCAL`.
+
+**Held-out calibrations: TESTED, all valid.** Eight new triples (`heldout65.py`):
+- scale ∈ {0.03, 0.2, 1/128, 0.125, 0.07, 0.25, 0.0019, 0.04};
+- β ∈ {0.5, 1, 1.5, 2, 3}, including three betas the corpus never used.
+
+Each was checked against its own exhaustive superset reference (`recipall65_heldout.json`, 647.7 s on 3
+cores). All 8 give `REQUIRES_SOURCE_RECIPROCAL`: 514 candidates, 446 reachable witnesses (each confirmed
+by recipe and kernel), 68 proved unreachable.
+
+**Finding: the calibration identity the gate needs is the prepared table, not (scale, zp, β).**
+- Two held-out calibrations turned out to have **the same weight table as a known one**:
+  - (0.2, β 1) = known 3 (0.1, β 2);
+  - (1/128, β 1) = known 11 (1/256, β 2).
+- TFLM's softmax prepare uses only β·scale, and softmax works on differences, so the input zero point
+  never enters. Only **six** held-out calibrations are genuinely new.
+- The same effect shows in the `wrong_calibration` mutation: substituting calibration 2's table for
+  calibration 1 (both β·scale = 0.1) changes nothing.
+- **Consequence:** the decision must be keyed on the table digest. That catches every real substitution
+  (13/14) and correctly treats the 14th as no substitution at all.
+
+**Soundness review of the pruning, verified against the source:**
+1. **Threshold inequality.** For admitted w > 0 and sh > 0, SRDHM gives x = ⌊(sh·w + 2^30) / 2^31⌋.
+   Then x ≥ β_m ⇔ sh ≥ T_m = ⌈(β_m·2^31 − 2^30) / w⌉, with β_m = m·2^ex + 2^(ex−1). The ceiling is the
+   correct direction: the smallest sh reaching the step.
+2. **Rounding direction.** All values are non-negative, so `RoundingDivideByPOT` rounds half up and
+   unsat ≥ m+1 ⇔ x ≥ β_m. A weight of 0 gives −128 under both arms and is skipped.
+3. **Endpoints.** A byte differs ⇔ some T_m ∈ (min(sh_s, sh_x), max(sh_s, sh_x)], so |sh_x − T_m| ≤ E_h.
+   The window [T_m − E_h, T_m + E_h] is closed on both sides, and the binary searches take the first S with
+   sh_x ≤ T + E and the last with sh_x ≥ T − E.
+4. **Saturation.** Only steps m = 0..254 are visible; unsat ≥ 255 clamps to 127, and unsat ≥ 0 since x ≥ 0.
+   `T > INT32_MAX` thresholds are skipped, because no reciprocal reaches them.
+5. **Monotonicity and bound.** Both are certified on every S. A band transition is handled per band with
+   that band's exponent; each S belongs to exactly one band.
+6. **Weights.** Every distinct admitted A is enumerated.
+7. **Reachability.** Exact (6.4 N12), cross-checked.
+8. **Domain.** Only the supported [2^19, 2^28) is searched.
+9. **Arithmetic.** Thresholds are __int128. Reachability additions use `__builtin_add_overflow`. Row sums
+   are __int128, refused on mismatch.
+
+**Mutation controls (`softcert65_run.json`, 14 known calibrations each).**
+
+"Affected" counts calibrations whose result changed; the rest are unchanged ("valid"). Calibration 9 has
+no candidates, so mutations of the search cannot change it.
+
+| mutation | affected | caught as |
+|---|---|---|
+| E_h − 1 | **0/14** | **ineffective**: one unit of slack (6.4: window 5 already complete) |
+| E_h − 2 | 2/14 | candidate set differs |
+| one-sided window [T, T+E] (reversed inequality) | 12/14 | candidate set differs |
+| excluded lower endpoint | **0/14** | **ineffective**: absorbed by the same slack |
+| wrong exponent band | 13/14 | candidate set and decision |
+| wrong weight in threshold | 4/14 | candidate set differs |
+| missing mandatory row maximum | 8/14 | witness invalid (+ unreachable claim) |
+| omitted reachability check | 13/14 | witness without a row |
+| negative multiplicities allowed | 2/14 (the calibrations with gap cases) | typed refusal `witness_negative_multiplicity` / witness invalid |
+| witness sum ≠ S | 13/14 | typed refusal `witness_sum_mismatch` |
+| wrong source revision | 14/14 | typed refusal `source_revision_mismatch` |
+| wrong source digest | 14/14 | typed refusal `source_digest_mismatch` |
+| wrong calibration table | 13/14 | table digest (+ candidate set / witness / decision) |
+
+Every mutation that changes anything on the corpus is detected or refused. The two ineffective ones are
+recorded as such, never counted as controls.
+
+### O4. Durable witness regressions (P2)
+
+`source-behavior-v1/fixtures65/` is regenerated by the gate plus `fixtures65.py`, never by the exhaustive
+search. Contents:
+- the prepared tables of the 14 calibrations, each with its SHA-256;
+- **`witness65_full.jsonl`, all 529 witnesses**. Each carries:
+  - the calibration's scale and β bits and zero point;
+  - the table key and digest;
+  - S, its band and exponent, d and weight;
+  - the row as a code → count map (order is irrelevant: each byte depends only on S and its own d);
+  - both reciprocals and both bytes;
+  - the kernel byte, re-measured by a fresh TFLM run independent of the gate;
+  - the kernel identity.
+- **`witness65_reduced.jsonl`, 27 witnesses:**
+  - the shortest witness of each of the 13 divergent calibrations;
+  - one per exponent band h = 4..12;
+  - three threshold endpoints with margin 0 (one arm sits exactly on T_m);
+  - the minimum (4) and maximum (507) row length;
+  - the fewest (4) and most (10) distinct codes;
+  - the lowest output byte (−128, lower saturation) and the highest.
+- `equivalence65.jsonl`: 7 calibration-9 rows with full kernel bytes.
+- `unreachable65.jsonl`: 10 proved-unreachable candidates, both kinds.
+- `manifest65.json` with every file's SHA-256 (witness65_full `c05e68f2…`, reduced `9b1b06a3…`,
+  tables `f401c65e…`).
+
+**Gap in the reduced suite:** no witness lies anywhere near +127 saturation; the highest witnessed byte
+is −48. Upper-saturation behaviour is not covered by this corpus. The reduced suite is a regression
+tier, **not a completeness proof**.
+
+**Independent replay (`pal256-admission-v1/replay/`, Rust, no TFLM).** A port of the source output path:
+`GetReciprocal` with `one_over_one_plus_x`, SRDHM and RDPOT, with every int32 `Add`/`Sub` that is
+undefined in C++ done as `checked_*` here. A step that would need undefined behaviour is refused.
+
+Checks run in order: manifest integrity → table digests → each fixture. Every fixture gets: positive
+multiplicities, admitted codes, the maximum present, the recomputed S, and S in the supported domain.
+
+**Result: 529/529 full, 27/27 reduced, 7/7 equivalence rows, 10/10 unreachable, 0 failures** (TESTED).
+The Rust table digests equal the Python ones.
+
+Seven tamper tests each fail for their own reason:
+- clean: passes;
+- changed source byte, re-stamped: semantic failure;
+- the same change without re-stamping: integrity refusal (exit 2);
+- negative multiplicity: `NonPositiveMultiplicity`;
+- 600 maxima: `UnsupportedDomain`;
+- tampered table: table digest;
+- the exact reciprocal: all 556 witness checks fail while the 7 equivalence rows still pass.
+
+Oracle regeneration needs the pinned TFLM checkout (`fixtures65.py`). Without it, only the replay runs.
+
+### O5. Preparation economics (P3)
+
+Measured on a Xeon @ 2.10 GHz with 4 cores, single thread.
+
+**Preparation, decomposed:**
+
+| step | cost |
+|---|---|
+| source-global certificate (all 2^28 − 2^19 S) | **5.41 s, once per source revision** |
+| certificate load and check (reuse) | 0.04 ms median |
+| weight-table generation (trace63, incl. process start) | 1.6 ms median |
+| table parse and check | 0.08 ms |
+| threshold construction + pruned evaluation | 8.3 ms median (0.56–46 ms) |
+| reachability graph (Dijkstra mod 2^19; skipped with no candidates) | 270 ms median (0.003–437 ms) |
+| witness construction | 0.05 ms |
+| **gate total, marginal per calibration** | **284 ms median; calibration 9: 2.6 ms** |
+| replay cold load: manifest integrity | 0.75 ms |
+| replay cold load: table digests | 0.9 ms |
+| replay fixtures (dominated by the independent DP on unreachable cases) | ≈ 115 ms |
+
+The 6.4 figure of 7.2 s is now decomposed:
+- 5.4 s is the source-global bound, which is reusable;
+- the marginal per-calibration cost is 2.6–479 ms, dominated by reachability, which runs only when
+  candidates exist.
+
+**Execution** (`perf65.txt`, `perf65_runs23.txt`; three runs; parity beside every arm). All
+source-recipe arms show 0 mismatches against the kernel.
+
+- **Reciprocal alone, per row:** source **27.6–32.5 ns**, exact **3.5 ns**. Saving ≈ **26 ns per row**, stable
+  across runs, calibrations and n.
+- **Complete recipe, source − exact, per row:**
+  - n ≤ 64: 15–37 ns, consistent with the isolated saving;
+  - n ≥ 256: within run-to-run noise (−279 to +1,416 ns per row on a 1–7 µs row).
+
+  The saving is real but too small to resolve against whole-row cost at large n.
+- **Parity:**
+  - the exact arm is admitted only on calibration 9, with 0 mismatches in every run;
+  - on calibration 10 (not admitted), random rows already give **1 mismatch at n = 8 in all three runs**.
+    This is an observed divergence on ordinary data, consistent with the gate's decision.
+- **Kernel vs prepared source recipe** (6.3's result, re-measured): kernel 152–37,110 ns per row against
+  recipe 68–7,809 ns per row. The prepared source recipe is the large gain, and it needs no reciprocal
+  substitution at all.
+
+**Amortisation, computed only where the saving is positive** (calibration 9, Δ ≈ 26 ns per row):
+
+| reuse model | rows | saving | marginal gate (2.6 ms) paid back? | + global certificate (5.41 s) paid back? |
+|---|---|---|---|---|
+| one-shot, 1 row | 1 | 26 ns | no | no |
+| 100 executions × 64 rows | 6,400 | 0.17 ms | no | no |
+| 10,000 × 64 | 640,000 | 16.6 ms | **yes** | no |
+| 1,000,000 × 64 | 6.4·10^7 | 1.66 s | yes | no (unless the certificate is shared) |
+| long-lived inference | ≥ 2.1·10^8 | ≥ 5.4 s | yes | **yes** |
+| cached compilation (decision stored with the recipe identity) | any | per row | 0 after first | 0 after first |
+
+- **Break-even:** N = ⌈ΔT_prepare / Δ⌉ ≈ **98,000 rows** for the marginal gate, and ≈ **2.1·10^8 rows**
+  if the global certificate is charged to this one calibration.
+- The certificate is reusable across every calibration and model on the same source revision, so in
+  practice it is charged once.
+- **For the 13 REQUIRES calibrations the runtime saving is zero.** Their 0.1–0.48 s gate buys evidence
+  (the witness list and a refusal to substitute), not speed.
+
+**Policy, unchanged and now measured.** Decide at preparation, store the decision with the recipe
+identity, and execute the chosen method directly.
+
+Sparse per-row reciprocal exceptions are **not recommended**:
+- a per-row membership test over the witnessed S values would cost about as much as the 26 ns it saves;
+- and it would add a branch to the hot loop.
+
+Not pursued (NOT RUN).
+
+### O6. Landing plan (P4). Nothing is opened; each step is separately approved.
+
+| PR | owner | seam | inputs → outputs | acceptance | depends on | risk / rollback | not established |
+|---|---|---|---|---|---|---|---|
+| **PR-A** semantic binding | lance-graph (D-NAM PZL-4 binding), ndarray only for read-only signature access | recipe receipt / native method binding (`d-nam-palette-native-lut-capstone-v1.md` 38–40); `Codec8` sealed traits unchanged | artifact bytes + receipt → `Bound` view or a named refusal | O1 positives and N1–N10 ported; the 6×6 matrix diagonal-only; refusal before interpretation; no hot-loop check | owner-issued generation identity (S5/S6 frame owner) | low; revert the binding layer; codec untouched | production consumers; persistence of receipts |
+| **PR-B** accumulator contract + FC differential | ndarray | `amx_matmul.rs:995, 1023, 1028`; `int8_tile_gemm.rs:213, 305`; new committed fixture test | `accum_wrapping65.diff` + precondition doc + case-v test + the 6.4 fixed-point and FC corpora as fixtures (N8.5) | debug = release on `f9wrap65`; tailsweep identical; module tests green; out-of-range behaviour stated and pinned | none (independent of PR-A) | removes the accidental debug signal; rollback is a five-line revert | an explicit checked/i64 API (option, not proposed) |
+| **PR-C** softmax proof gate | lab first; later the D-NAM recipe binding | `softcert65` global + gate; decision stored in the recipe receipt keyed by **table digest** | certificate + prepared table → decision + witnesses | 14 known reproduce 6.4; held-out validated against exhaustive references; every effective mutation caught | PR-D (fixtures as its regression) | wrong certificate reuse → refused by revision/digest; rollback keeps the source reciprocal (always correct) | certificates for other revisions or backends; non-x86 |
+| **PR-D** fixtures + replay | lance-graph lab (`fixtures65/`, `replay/`), may land first | committed fixtures + Rust replay | fixtures → pass/fail with reasons | 529 + 27 + 7 + 10 pass; seven tamper tests fail for their own reasons | none | low; data plus a test binary | upper-saturation coverage; other kernels |
+| **PR-E** economics | lab only | `perf65` | timings | parity beside every timing; noise reported | PR-C | none (evidence only) | a throughput claim at large n (noise-bound) |
+
+### O7. Status, NOT RUN, limitations, board
+
+| claim | status |
+|---|---|
+| incompatible artifact bindings refused before interpretation (lab adapter) | TESTED |
+| F4: "wrong interpretation accepted" → "incompatible binding refused" | TESTED (lab); production NOT RUN (no seam) |
+| debug/release agreement under the wrapping diff | TESTED (zmm, ymm, AMX); scalar tier NOT RUN on this host |
+| E_h = 6 for the pinned reciprocal on [2^19, 2^28) | PROVED by exhaustion over S (calibration-independent) |
+| gate decisions on 14 known + 8 held-out calibrations | TESTED, each validated against an exhaustive reference |
+| calibration 9 output-equivalent under the exact reciprocal | PROVED (exhaustive superset; 6.4) and re-confirmed by the gate |
+| decision identity = prepared table (β·scale), not (scale, zp, β) | TESTED (2 held-out duplicates; wrong_calibration 13/14) |
+| fixture replay without TFLM | TESTED |
+| reciprocal substitution saves ≈ 26 ns per row | TESTED (isolated); full-recipe saving at n ≥ 256 UNKNOWN (noise) |
+
+**NOT RUN:**
+- the production integration of `bind` and of the gate;
+- PR-A … PR-E;
+- the scalar matmul tier with the diff;
+- certificates for any other TFLM revision, compiler or non-x86 backend;
+- softmax with int16 or another output type;
+- sparse reciprocal exceptions;
+- ONNX/TFLite model import;
+- learning/backward semantics.
+
+**Open limitations:**
+- Upper-saturation witnesses are absent.
+- The accumulator overflow handling is only proposed.
+- Undefined source behaviour remains refused (6.4 N11), never reproduced.
+- The receipt's production owner is unbuilt.
+
+**Board.** Linear was not verified in this session.
+- **EXO-152:** O1 – O5 (BOARD_SYNC_PENDING).
+- **EXO-50:** one line pointing at this amendment (BOARD_SYNC_PENDING).
+
+No issue state is claimed.
