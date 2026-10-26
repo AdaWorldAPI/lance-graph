@@ -11,9 +11,11 @@ use lance_graph_planner::temporal::{classify, QueryReference, TemporalStatus};
 
 /// Contemporary-row mask of one source under one reference.
 fn admitted(rows: &[(u64, u64)], q: &QueryReference) -> u64 {
-    rows.iter().enumerate().fold(0u64, |m, (i, &(row_v, knowable))| {
-        m | (u64::from(classify(row_v, knowable, q) == TemporalStatus::Contemporary) << i)
-    })
+    rows.iter()
+        .enumerate()
+        .fold(0u64, |m, (i, &(row_v, knowable))| {
+            m | (u64::from(classify(row_v, knowable, q) == TemporalStatus::Contemporary) << i)
+        })
 }
 
 /// FAILS IF two sources under the same pinned reference give the same answer
