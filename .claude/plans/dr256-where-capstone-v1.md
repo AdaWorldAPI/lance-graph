@@ -451,3 +451,154 @@ basis, `WideFieldMask` 0/63/64/108) is reused as the fixture source rather than 
 - Per-property presence planes over a population: production source not found (A.5).
 - Typed inverse declaration for relations (A.6).
 - The #1791 witnessed-derived-population contract, S-INGRESS and the joint coordinate witness (#1788).
+
+---
+
+# Amendment B (2026-10-26) — P2: WHERE integration audit and the Quack-path measurement
+
+**Status:** P2 DONE, lab only (`crates/drf-focus-probe/examples/p2_quack_where.rs`), reported, not gated.
+P3–P5 stay unauthorized. No new opcode, selection vector, temporary-table store or query cache.
+
+## B.1 Binding store: what exists
+
+- **Quack `Binder` → `Query` → `Program`** (read): `Draft::bind(&dyn Binder)` (`quack/src/bind.rs:288`)
+  resolves table, fields and textual literals once and returns a numeric `Query` that holds no name. The
+  bound filter here is `And([Plane(live), Cmp(Col(0), EqI32(1)), Cmp(Col(1), NeU32(5))])`. `lower` /
+  `lower_fused` (`lib.rs:1383`, `:1397`) produce a mask-risc `Program`; `CompiledProgram` (`ir.rs:1427`)
+  keeps the recognised lowering. The `Draft` surface binds only `=` / `<>` and returns COUNT or rows;
+  ordered compares and sums are built on the numeric `Query`.
+- **Binding store:** the exact token `BindStore` occurs in no file in the history of any of the 880 remote
+  branches (`git log --all -S BindStore`: empty). The "Quack Binding Store" is a proposal: D-QSP
+  (`d-qsp-classview-quack-postgresql-parity-v1.md`, PROPOSAL / DOCS ONLY; "do not put a behavior choice
+  into the binding store") and D-NFR S5 (MISSING; smallest seam D-NFR-1). Nothing here adds one.
+- **Role for the binding store, as instructed:** the owner of named reusable binding descriptors with their
+  witness and lifetime (frame revisions, focus, scope, codebook generation), never a data store or an
+  evaluator. That is the same shape as D-NFR-1 and lifetime 1/2 of A.2.
+
+## B.2 RelAlg `SetProgram` lets versus Quack `Keep → Plane`
+
+| | RelAlg `SetProgram` (`contract/src/set_program.rs`, `relalg/src/program.rs`) | Quack `Keep → Plane` |
+|---|---|---|
+| reuse scope | one `run_program` call: each let computed once into scratch, read by every query of that call | as long as the caller keeps the 8 KiB buffer |
+| materialization | one `n_rows/8` plane per let, **allocated per call** (`vec![vec![0; words]; lets]`) | one caller-owned buffer, allocated once |
+| witness | `version: u64`, compared by value; mismatch refused (`ProgramError::VersionMismatch`, measured) | none: a kept plane carries no witness |
+| shared-part discovery | `share()` lifts common conjunct subsets into lets | caller decides |
+| semantics | two-valued set algebra (K3 rewrites guarded in `set_rules`) | `Filter::sql_where` gives K3 over validity planes |
+
+## B.3 lance-graph-java `View.where()`
+
+`View` (`java/.../View.java`) is an immutable, lazy predicate list:
+- `where` crosses zero times and only narrows; the ABI's OR combine is unreachable from `View`.
+- `count()` is one crossing; `sumOf` / `minOf` / `maxOf` are two (evaluate, reduce).
+- `select()` returns a native generation-checked `Mask` handle.
+
+The native side lowers the plan straight to one mask-risc `Program` (`lgj-abi/src/plan_lower.rs`), not
+through Quack. AND terms are gated `under` the accumulator; OR is deliberately not gated.
+
+**Reuse limit:** Java `Mask` offers `count`, `minus`, `ternlog` and `materializeRows`, but no masked sum.
+So a Java consumer cannot reuse one selection across property reads; each `sumOf` re-evaluates the chain
+(the QA pattern below). Closing that needs a surface change, which is out of scope.
+
+**Crossing cost** (recorded in `lance-graph-java/bench/RESULTS.md`, not re-measured here; there is no JDK in
+this container): bare downcall 21.9 ns, `lgj_mask_count` 117.9 ns, ~0.6 µs plan-evaluation floor; native
+beats a Java scalar loop above ~16,384 rows.
+
+## B.4 mask-risc skipping, as executed
+
+- **Gated predicates skip.** `*_to_mask_under` writes zero and skips the compares for an empty gate word
+  (`ndarray simd_masking_ops.rs:4979` doc + `pack_under`). Quack and Java both emit gates.
+- **Masked folds skip reads, not words.** `masked_sum_i32` (`:815`) visits every word but reads values only
+  under set bits.
+- **Mask ops and the tile loop do not skip.** `execute_extent` runs every op on every tile (`exec.rs:1633`
+  onward). There is no whole-tile or 256-row-block skip.
+- **`Any`** exits early only on the fused ternlog path (§2).
+
+## B.5 Capability crosswalk (semantics are NOT identical across rows)
+
+| | Quack | RelAlg | Java `View` / lgj-abi | mask-risc |
+|---|---|---|---|---|
+| predicates | numeric `Cmp`: I32 6 ops, U32 eq/ne/match, U64 match, strided, `Range`, `EqU32Via`, `Semijoin`; `Draft` text surface `=` / `<>` only | `Atom`: I32 6 ops, U32 eq/ne | U32 eq/ne, I32 6 ops, ternary match U32 | `Pred` (all of these) |
+| Boolean | And / Or / Not; `sql_where` K3 | And / Or / Not; normalize; symbolic decide | AND narrowing only (OR unreachable) | And / Or / Xor / AndNot / Not / Ternlog |
+| terminals | Count, Any, All, Sum/Min/Max I32, Rows, Blend, ScatterOr, CountDistinctOrdered, GroupSum(Via), GroupReduce — **no power sums** | Count, Sum, Min, Max, Keep | count, sum, min, max, select | all of these + Group(Cross)PowerSums |
+| reusable intermediate | numeric `Query`; `CompiledProgram`; caller-kept `Keep` plane | lets within one call | immutable `View`; native `Mask` handle | `CompiledProgram`; `Out::Mask` |
+| witness on reuse | none (S5 × S6) | `version: u64` by value | handle generation (use-after-close), not data version | none |
+
+## B.6 P2 measurement (two runs, avx512f, 4 cores; ns, median of 101; all arms equal a per-row oracle)
+
+Fixed costs: `Draft::bind` 199–203 ns; `lower` 201–203 ns; `lower_fused` 357–360 ns. Occupancy (lab
+scalar) 341–476 ns per R.
+
+**Selection creation.**
+- `Keep(R)` into an 8 KiB caller buffer costs ~20 µs on every fixture, empty included (some cells
+  ~35–39 µs in one run only).
+- The floor is the first predicate: its gate is the all-ones live plane, so it compares all 65,536 rows.
+- COUNT without a mask costs the same: the predicate work dominates, not the 8 KiB write.
+
+**Property reads, run 1 / run 2:**
+
+| fixture | active blocks | P | QA (recompute R per property) | QB (Plane(R) reused) | NB (block schedule) | QB/QA | NB/QB |
+|---|---|---|---|---|---|---|---|
+| empty | 0 | 8 | 182,483 / 182,894 | 17,698 / 17,512 | 56 / 77 | 0.10 / 0.10 | 0.00 / 0.00 |
+| contiguous 256 | 1 | 8 | 192,709 / 189,486 | 17,635 / 17,646 | 447 / 447 | 0.09 / 0.09 | 0.03 / 0.03 |
+| uniform 256 | 161 | 8 | 198,764 / 185,288 | 19,985 / 17,967 | 7,237 / 7,022 | 0.10 / 0.10 | 0.36 / 0.39 |
+| clustered 4096 | 57 | 8 | 213,772 / 193,851 | 26,742 / 26,688 | 6,923 / 6,950 | 0.13 / 0.14 | 0.26 / 0.26 |
+| dense 4096 (64 words) | 16 | 8 | 347,040 / 190,299 | 35,964 / 22,944 | 7,359 / 6,313 | 0.10 / 0.12 | 0.20 / 0.28 |
+| scattered 4096 (1/16) | 256 | 8 | 408,813 / 239,441 | 86,086 / 58,839 | 63,964 / 44,999 | 0.21 / 0.25 | 0.74 / 0.76 |
+| uniform 32768 | 256 | 8 | 441,027 / 349,031 | 101,805 / 107,175 | 100,741 / 107,105 | 0.23 / 0.31 | 0.99 / 1.00 |
+| full 65536 | 256 | 8 | 293,556 / 449,012 | 105,916 / 126,118 | 104,734 / 107,537 | 0.36 / 0.28 | 0.99 / 0.85 |
+
+Full P = 1..64 tables are in the probe output. Other arms:
+- `lower_fused` equals `lower` within noise for both QA and QB; the 2-plane conjunction has nothing to fuse.
+- relalg `run_program` (one let) costs one selection plus P reads plus a per-call plane allocation. That is
+  56–216 µs at P=8, between QB and QA. `run_recompute` equals QA.
+- **Failed gate (above 1,000 µs):** QA at P = 64 on all 8 fixtures and at P = 32 on 5–6 of them; QB at
+  P = 64 on uniform 32768 and full 65536 (both runs) and scattered 4096 (one run). Those shapes are outside
+  the fold budget.
+
+**Controls** (scattered 4096, all asserted):
+
+| control | result |
+|---|---|
+| stale codebook | the old binding still answers (4,096 rows vs 4,051 fresh), **silently** |
+| scope change (half the live words cleared) | a reused R keeps 4,051 rows vs 2,023 fresh, **silently** |
+| selection change | 2,023 vs 2,086, **silently** |
+| property version change | reads through the reused R equal the fresh oracle; no value cache exists, so nothing goes stale |
+| relalg under a newer version | refused with `VersionMismatch { program: 7, table: 8 }` |
+
+Disable runs (red, then restored): dropping the presence plane from QB fails the QB oracle; keeping the
+codebook unchanged fails the stale-codebook control's non-vacuity assertion.
+
+## B.7 Decision evidence
+
+1. **Reusing R is already available and is the large win.** QB is 0.05–0.60 of QA across every fixture and P
+   (0.07–0.39 at P = 1 and 8): keep
+   R once, read properties through `Plane(R)`. It needs no new code; it needs a witness (below).
+2. **Existing execution does NOT deliver P1's block skipping.** At sparse selections, NB is 0.02–0.39 of QB
+   (e.g. empty: ~2.2 µs per property vs 54 ns; clustered 4096: 3.3 µs vs 0.86 µs). At 256 of 256 active
+   blocks NB/QB is 0.63–1.08, so a block schedule gives no reliable gain there. The gap is real and confined to
+   sparse selections.
+3. **The occupancy statistic is cheap enough as scalar code** (341–476 ns, about 2 % of building R), and its
+   use is now concrete: active blocks decide whether a block-gated read pays. A SIMD ndarray fold is NOT
+   warranted on cost. Whether a fold or a statistic emitted alongside `Keep` is the right shape is P3's
+   question.
+4. **A shared-schedule specialization is warranted only as gating, not as a new opcode.** The measured gap
+   is that mask ops and masked folds do not consult a gate the way predicates already do. The smallest
+   candidate is the existing `_under` discipline extended to the `And` + masked-fold pair over a kept R.
+   It must be measured before it is proposed (P3), and it must keep "a gate never changes an answer".
+5. **A witness on a kept R is the blocking correctness gap.** Every reuse control ran silently stale through
+   Quack. RelAlg already refuses by version value; `dr-math-binding-probe` refuses by seal identity (lab).
+   The binding store (D-NFR-1 / D-QSP) is the owner. Until it exists, a kept R may be reused only inside one
+   caller-controlled window where the caller can guarantee frame, scope and selection did not move.
+6. **Java** cannot express QB today (`Mask` has no sum). Its `sumOf` is the QA pattern at ~0.6 µs crossing
+   floor plus the chain. Not changed here.
+
+## B.8 Compiler-input requirement (recorded, not built)
+
+The binding store must preserve reusable, version-witnessed semantic bindings (the numeric `Query`, the
+frame revisions, the method signature, the codebook generation) as inputs to a mathematical compiler:
+Datalog / egglog / DialEgg certification (D-NFR S12, `relcomp.rs` egglog proofs) and versioned
+ONNX/TFLite conformance annotations, lowering through R2IL to existing kernels. Two constraints follow from
+this measurement:
+- a binding must be reusable **without** materializing intermediates: lifetime 1 does that, and the QB
+  pattern shows one kept plane is enough;
+- it must not become a second execution engine: every arm here ran on the one mask-risc executor.

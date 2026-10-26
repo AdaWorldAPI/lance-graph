@@ -1,6 +1,6 @@
 # 2026-10-26 — D-DR256-WHERE capstone: P0 census + P1 occupancy / shared-schedule lab
 
-**Status:** P0 DONE, P1 DONE (lab, reported not gated). P2–P5 PROPOSED, NOT AUTHORIZED. Amendment A (DR64³ gap inventory): `2026-10-26-dr64-cubed-amendment.md`.
+**Status:** P0 DONE, P1 DONE (lab, reported not gated). P2–P5 PROPOSED, NOT AUTHORIZED. Amendment A (DR64³ gap inventory): `2026-10-26-dr64-cubed-amendment.md`. Amendment B (P2 Quack-path lab, DONE): see the plan § Amendment B.
 Plan: `.claude/plans/dr256-where-capstone-v1.md`. Lab: `crates/drf-focus-probe/examples/where_occupancy.rs`.
 
 - WHERE, COUNT, ANY, gated predicates, witnessed range reads, exact fk semijoin and single-property
@@ -17,3 +17,13 @@ Plan: `.claude/plans/dr256-where-capstone-v1.md`. Lab: `crates/drf-focus-probe/e
 
 OPEN: P2 (real Quack path); whether any consumer reads occupancy to choose a strategy; the #1791
 contract; S-INGRESS and the joint witness (#1788).
+
+## P2 (2026-10-26, Amendment B)
+
+- Reusing a kept R (`Keep` → `Plane`) costs 0.05–0.60 of recomputing R per property. It is available today.
+- mask-risc does not skip dead 256-row blocks in mask ops or folds. A block schedule is 0.02–0.39 of the
+  Quack reuse path at sparse selections and 0.63–1.08 at full occupancy.
+- Building R costs ~20 µs regardless of size; COUNT without a mask costs the same.
+- Stale codebook, scope change and selection change all run silently stale through Quack. relalg refuses
+  by version value.
+- `BindStore` occurs in no file in any branch's history; the binding store is proposal only (D-QSP, D-NFR S5).
