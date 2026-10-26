@@ -1,6 +1,6 @@
 # D-DT64-0 — DT64 64-slot versioned predicate adapter, inverted DR projections and staged PRs
 
-**Date:** 2026-10-26. **Status:** DOCS / DRAFT, no production adapter, schema ABI, method, test or runtime implementation. **Source:** `../../plans/d-dt64-holographic-predicate-capstone-v1.md`.
+**Date:** 2026-10-26. **Status:** DOCS MERGED (#1794–#1799); no production adapter, 64-slot ABI, method execution or DT64-Q0 live adapter/test implementation. #1792 is merged lab evidence, not source-attested production binding. **Source:** `../../plans/d-dt64-holographic-predicate-capstone-v1.md`.
 
 **User request:** detailed technical mapping of IAM, Entra/Exchange, Odoo and SAP DTOs into a proposed 64-predicate DT64 semantic interface; directed/holographic DR access, edge×edge, Thought-Git hypothesis/time, ONNX numeric lowerings; stage documentation PRs; link the open contracts in EXO-50.
 
@@ -8,18 +8,18 @@
 
 [Borrowed DT64 → Quack binding seam](../../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md) added on #1799, DOCS ONLY. A source-attested binding consists of typed source/predicate identity, schema+catalogue version, actual owner/source snapshot, global/local witness, relevant codebook generation, scope/completeness, `&source`-borrowed input lanes, and separate reusable Quack recipe. DT64 does not execute; Quack/relalg/R2IL/mask-risc do; ndarray does numeric kernels; D-NAM/EXO-152 owns prepared numerical certificates and explicit SourceParity vs CertifiedMath. **Eight grounded IAM/Exchange/SAP predicates** are the first minimal lab fixture; Odoo cross-system join is not implied. The #1792 1,032-vs-31 changed-property stale-mask counterexample is required. Optional DR64² only after cost proof; no DR64³ runtime. Q0 is a coordination amendment under DT64-0, **not** an additional implementation stage or a CC instruction.
 
-## Draft sequence with exact GitHub receipts
+## Merged documentation sequence with exact GitHub receipts
 
 | stage | PR | deliverable and status |
 |---|---|---|
-| DT64-0 | [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799), this branch | charter, dependency and question register, .claude board integration; docs only |
+| DT64-0 | [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799), merged docs | charter, dependency and question register, .claude board integration; docs only |
 | DT64-1 | [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794) | 64 typed predicate catalogue including 8 IAM/ODoo/SAP scenarios; docs only |
 | DT64-2 | [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795) | source snapshots, identity namespace & join witnesses, IAM/Odoo/SAP mapping and negative test specs; docs only |
 | DT64-3 | [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796) | three directed SPO query orientations, K3/Bag/Distinct, DR focus and falsifier ladder; docs only |
 | DT64-4 | [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797) | edge dependency, Thought-Git hypothesis/time, replay receipts and retractions; docs only |
 | DT64-5 | [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798) | native behavioral recipes, Odoo/SAP/IAM computations, numerical time series and ONNX leaf semantics; docs only |
 
-**All plans on independent branches from main** (NOT implementation). Merge/admission order is logical, but each PR must be re-reviewed and rebased after predecessors; no hidden stacked commits. No tests claimed run. PRs from other sessions are not modified.
+**All six design PRs are merged to main**, NOT implementation. The next Quack/DR64 executable slice is a separate source-oracle laboratory gate, not shipped. No DT64-Q0 runtime or benchmark claimed. PRs from other sessions are not modified.
 
 ## Key source evidence already present
 
@@ -58,3 +58,12 @@
 **Admission:** typed source object + predicate; schema/catalogue revisions; owner + ACTUAL physical source snapshot; sealed global/local focus; optional codebook generation; permission and completeness authority; live borrowed lanes; independently reusable compiled recipe identity. `ClassView FieldMask`, DR coordinate, predicate slot and Palette256 numeric code remain distinct. Borrow-scoped run needs no redundant ownership guard; detached Keep requires source-attested dependency or recomputation/refusal; #1792 old 1,032 vs fresh 31 remains falsifier. #1792 itself is MERGED, but source attestation and escaped reuse remain OPEN.
 
 **First independently authorized candidate:** S0 source census, then S1 eight-predicate borrowed adapter against independent scalar oracle, S2 directed SPO views and optional DR64² comparative route, S3 recipe rebind and stale Keep refusal. No DR³ mandatory, no source data replication, no ONNX, no writes. Later DT64-4/5 are independent research successors, not blockers. This correction changes no code/test claims.
+
+## 2026-10-26 merged Quack/DR64 Q0 coordination receipt
+
+**Source-of-truth:** [D-DT64-Q0](../../plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md), merged via [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799). Its [QB compatibility document](../../plans/d-dt64-quack-borrowed-binding-seam-v1.md) remains non-authoritative. Related **MERGED** [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792) carries the actual Quack P2 occupancy/reuse and D-NFR-1 ownership falsifiers, including an invalid detached mask selecting **1,032** rows against **31** fresh. #1755 proves borrow-scoped mutation exclusion; it does not prove detached mask or remote source versions.
+
+**First optional LAB (not run):** typed IAM/Exchange/SAP slots 08,11,12,13,14,17,18,32; 11/12/17 are unary and may not be inverted as binary SPO. Source-owned immutable lanes and actual physical snapshot binding, independently attested permission/knownness, Quack prepared compiled recipe and source-shaped scalar oracle; optional DR64² 512-byte tile only after cost accounting. Source data and codebook authority are not defined by the DT64 slot ID or `ClassView FieldMask`. Physical DR³ NFR-OP-2 OPEN, EXO-46 admission OPEN and source-attested escaped-`Keep` contract OPEN. D-NAM/EXO-152 owns numeric SourceParity/CertifiedMath; merged [#1800](https://github.com/AdaWorldAPI/lance-graph/pull/1800), [#1801](https://github.com/AdaWorldAPI/lance-graph/pull/1801) and [#1803](https://github.com/AdaWorldAPI/lance-graph/pull/1803) are *LAB receipts*, no production numeric adapter or DT64 ABI.
+
+**Coordination:** [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) is append-only. This addendum supplies source-linkable mainline status, not an operator approval for the Quack adapter or a merge instruction.
+
