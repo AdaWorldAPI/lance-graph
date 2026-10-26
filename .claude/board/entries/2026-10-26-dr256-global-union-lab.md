@@ -64,7 +64,14 @@ Probe: `crates/drf-focus-probe/examples/global_union.rs` (workspace-excluded lab
   registers naming different entities give two members, where a slot-number union would give 1: no false merge.
 - Stale seal → `StaleMap`; ordinal outside a declared 61,440 universe → `OrdinalOutOfRange`; one register at
   another source version → `DomainMismatch`; another scope → `ScopeMismatch`. All refuse before any union.
-- Disable runs: XOR-ing the index lane breaks B parity; dropping the gather gate breaks `G AND h` parity.
+- Negative controls, asserted in the probe on every run (added after codex review on #1790; the first version
+  reported these from uncommitted disable runs, which the command could not reproduce):
+  - index XOR: flipping bit 15 of every index (a bijection on the universe) must make B1 disagree with the
+    oracle on chaotic, clustered and scattered, and must leave `empty` and `full` equal. Bit 0 would not do:
+    the clustered block (x 64..128) is closed under XOR 1, and a run with bit 0 fails on that fixture.
+  - gather gate: the `G AND h` program without its `under` gate must disagree with the oracle on every
+    fixture whose L is not all ones, and agree on `full`.
+  - Each control goes red when its perturbation is removed (`^ 0`; gate kept), so it cannot pass vacuously.
 - The Boolean union collapses multiplicity (2 selected slots → 1 member), so G is never a count, a Bag, a
   provenance record or a K3 result. Inputs must already be TRUE-only.
 
