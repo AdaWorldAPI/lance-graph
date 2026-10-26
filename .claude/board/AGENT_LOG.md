@@ -4,6 +4,12 @@
 - Checks on the main thread, all held: `half_add_mask` at `simd_masking_ops.rs:6523`, `full_add_mask` at `:6545`, the re-export at `simd.rs:1062`, `sum8_u8_add_masked` at `simd_scalar.rs:550`, `U24x5` at `examples/microtile/tile.rs:60` (plus its "lab fixture only" line); `FocusKey`/`SourceId`/`check_seal` in `drf-focus-probe`, `FocusLease` in `lance-graph-nsl`, `Focus`/`Guards` in `dt64/dr.rs`; workspace membership read in `Cargo.toml`.
 - Misses: the ndarray run ran `carry` over all of `src/` instead of the matched files only and hit its cap (self-reported). The lance-graph run hit its cap on three patterns and listed substring false positives (`allocator`, `release(`, `RelationshipMapping`), all self-reported. Neither card concluded or edited. Retired: none.
 - Result: `entries/2026-11-03-d-dram-1-census.md`. Written by the orchestrating main thread only.
+## 2026-10-26 — causal-edge clippy, bgz-tensor CI gate, W-slot doc (Haiku spec-editor)
+
+- Five Haiku `spec-editor` runs, one file each, every edit written in full by the main thread: `edge.rs` (W doc; then 5 clippy fixes), `layout.rs` (W doc), `rust-test.yml` (`--tests`), `v2_layout_tests.rs` (module rename). 10 edits, 10 applied, 0 refused; every diff read on the main thread and matched the spec.
+- Misses: none in the edits. One agent flagged correctly that the rename changes test paths (checked: no file names the old path); one noted a line rustfmt would re-align (it did; `cargo fmt` applied on the main thread).
+- Main thread only: clippy, tests and fmt on both causal-edge feature sets; bgz-tensor `--tests` (241 passed); the one-line precedence fix in `tests/ce64_isa_contract.rs`; the clippy CI step. Written by the orchestrating main thread only.
+
 ## 2026-10-26 — fruit revision after #1786/#1787 and ndarray #368–#376 (Haiku)
 
 - Six Haiku runs. Three `substrate-mapper` runs (D-NAM plans, D-DRF/D-DRAV/D-DTM plans and entries, the two docs from #1786/#1787). One ndarray `substrate-mapper` (PARTIAL: it skipped `simd_masking_ops.rs` as over-limit). One `quote-harvester` (the fruit rows). One `census-counter` (34 D-ids against STATUS_BOARD).
