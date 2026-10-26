@@ -215,6 +215,22 @@ fn arm_c(p: &Program, fx: &Fx, lane: &[u32], h: &[u64], buf: &mut [u64], g: &mut
     execute_into(p, &planes, &foreign, &mut sc, Out::Mask(g)).expect("and runs");
 }
 
+/// Negative control for C: the same program without the local-mask gate, so
+/// h is gathered through every slot, selected or not.
+fn and_program_ungated() -> Program {
+    Program::new(
+        vec![MaskOp::Gather { lane: 0, foreign: 0, under: None, dst: 0 }],
+        Terminal::ScatterOrU32 { mask: S0, lane: 0, out_rows: U as u32 },
+    )
+}
+
+/// Fixtures whose answer cannot move under a bijection of the address space
+/// (nothing selected, or everything): a perturbation control must stay equal
+/// there, so it is checked two-sided rather than skipped.
+fn permutation_invariant(name: &str) -> bool {
+    matches!(name, "empty" | "full")
+}
+
 // ------------------------------------------------------------------ helpers
 
 fn pop(w: &[u64]) -> u32 {
@@ -304,6 +320,21 @@ fn main() {
         let (ok1, ok2) = (g_b1 == want, g_b2 == want);
         assert!(ok1 && ok2, "{}: parity", fx.name);
 
+        // Negative control (asserted, every run): flip bit 15 of every index,
+        // a bijection on the 65,536-address universe. The parity check must
+        // reject it wherever the answer can move, and only there. Bit 0 would
+        // be undetectable on the clustered block (x 64..128 is closed under
+        // XOR 1); bit 15 moves y 128..192 to 0..64.
+        let bad: Vec<u32> = lane.iter().map(|&i| i ^ 0x8000).collect();
+        let mut g_bad = vec![0u64; GW];
+        arm_b1(fx, &bad, &mut g_bad);
+        assert_eq!(
+            g_bad != want,
+            !permutation_invariant(fx.name),
+            "{}: index-XOR control",
+            fx.name
+        );
+
         let t_bind = time(|| {
             black_box(bind_all(&fx.maps, &sources, &scopes, universe).unwrap());
         });
@@ -337,6 +368,8 @@ fn main() {
     let p_h = h_program(imm);
     let mut buf_u = vec![0u64; scratch_words_for(words_for(U), p_h.scratch_slots as usize).unwrap()];
     let p_and = and_program();
+    let p_and_ungated = and_program_ungated();
+    assert!(p_and_ungated.scratch_slots <= p_and.scratch_slots);
     let mut buf_and =
         vec![0u64; scratch_words_for(words_for(POP), p_and.scratch_slots as usize).unwrap()];
     println!("csv_c,fixture,h_bits,g_and_h_bits,parity,h_ns,gather_scatter_ns");
@@ -352,6 +385,13 @@ fn main() {
         arm_c(&p_and, fx, &lane, &h, &mut buf_and, &mut got);
         let ok = got == want;
         assert!(ok, "{}: G AND h parity", fx.name);
+
+        // Negative control (asserted, every run): drop the gather gate. The
+        // result then ignores L, so parity must fail unless L selects every slot.
+        let mut ungated = vec![0u64; GW];
+        arm_c(&p_and_ungated, fx, &lane, &h, &mut buf_and, &mut ungated);
+        let l_full = fx.local.iter().all(|&w| w == u64::MAX);
+        assert_eq!(ungated != want, !l_full, "{}: gate-drop control", fx.name);
         let t_h = time(|| {
             black_box(arm_h(&p_h, &xyz, &mut buf_u));
         });
@@ -359,6 +399,7 @@ fn main() {
         println!("csv_c,{},{},{},{},{:.0},{:.0}", fx.name, pop(&h), pop(&want), ok, t_h, t_c);
     }
 
+    println!("negative controls: index-XOR and gate-drop fire on every non-invariant fixture, silent on the rest");
     controls(&src, scope);
 }
 
