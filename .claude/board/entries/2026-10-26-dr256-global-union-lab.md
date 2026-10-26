@@ -26,7 +26,12 @@ Probe: `crates/drf-focus-probe/examples/global_union.rs` (workspace-excluded lab
 - **What stays legal.** A Boolean function h of global resident planes can be built with `Ternlog` + `Keep` and
   then pushed down: `Gather` h through each map under `L` (`MaskOp::Gather`, `ir.rs:277`, gated form), then
   scatter. This gives `scatter(L AND h∘ord) = G AND h` without reading G. `G OR h`, `NOT G`, `G XOR h` and
-  `G1 AND G2` of two scattered masks cannot be written this way; they would consume G.
+  `G1 AND G2` of two scattered masks are not expressible through the current mask-risc terminal; they would
+  consume G. That is not "not expressible at all": `mask_scatter_or_u32` preserves its destination, so seeding
+  the demanded output with h before the scatter could yield `G OR h` as one terminal result without an
+  intermediate G. mask-risc zeroes `Out::Mask` first (`exec.rs:1604-1607`), so this is a hypothesis for a
+  later contract review, not a capability. The demonstrated consumer needs neither: G is the demanded output,
+  and its zero bits already exclude the other 61,440 addresses without a complement.
 
 ## Results (two runs, avx512f, 4 cores, load 0.9–2.9; ns per run, median of 31 batches; reported, not gated)
 
@@ -72,5 +77,4 @@ Probe: `crates/drf-focus-probe/examples/global_union.rs` (workspace-excluded lab
   copy or 64 ndarray calls.
 - Keeping G resident for reuse would be a maintained inverse; D-HOLO H5 found that is a cost, not a default.
 
-OPEN: whether any consumer needs `G OR h` / `NOT G` (blocked by the survival condition) rather than `G AND h`
-(legal); whether G should ever feed a sealed-read `RowAddrMask` (separate decision; MemWAL has no such input).
+OPEN: further Boolean operators over G wait for a concrete consumer (the current one needs only G); whether G should ever feed a sealed-read `RowAddrMask` (separate decision; MemWAL has no such input).
