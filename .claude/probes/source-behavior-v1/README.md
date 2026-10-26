@@ -70,3 +70,24 @@ Variant flags (appended after TFLM's own; kernels are `KERNEL_OPTIMIZATION_LEVEL
 CXX_TOOL=clang++ CC_TOOL=clang` with `-Wno-error=double-promotion` appended (clang rejects a float→double
 promotion in `micro_utils.h` under `-Werror`); `ubsan` `-O1 -fsanitize=undefined
 -fno-sanitize-recover=undefined`; `ubsanshift` the same with `-fno-sanitize=signed-integer-overflow`.
+
+## Amendment 6.4 follow-up (source domain gate, reciprocal levels, pruning)
+
+| file | role |
+|---|---|
+| `ubsanctl64.cc` | Can-fire / can-stay-silent control for the UBSan flags: `add` (4,096 maxima, `fixedpoint.h:94`) and `shift` (`GetReciprocal(0)`, `common.h:976`) must be reported; `none` (511 maxima) must exit 0 → `ubsanctl64.txt`. |
+| `recipall64_ubsan.json` | `recipall63.cc` and `trace63.cc` rebuilt with `-O1 -fsanitize=undefined -fno-sanitize-recover=undefined` against `gen_ubsan/`, run over the full admitted superset of all 14 calibrations (`recipall63.py`, unchanged driver). |
+| `reach64.cc` + `reach64.py` | Exact reachability of every superset candidate: residue rule mod B[0] (Dijkstra over the admitted weights), so each pair is reachable or PROVED unreachable; rows are re-checked (positive counts, admitted codes, sum = S) before the kernel runs → `reach64.json`. |
+| `reach64_xcheck.py` | The residue rule against a plain unbounded-coin DP on [0, 2^21], per calibration → `reach64_xcheck.txt` (mismatches must be 0). |
+| `recipprune64.cc` + `recipprune64.py` | The superset search pruned to S intervals around the visible quantization thresholds, using a measured reciprocal-error bound per exponent band; the candidate set must equal the exhaustive one → `recipprune64.json` (exact arm), `recipprune64_control_delta256.json` (negative control), `recipprune64_window_sweep.json` (window disable runs). `recipall64_control_delta256_full.json`: the exhaustive δ = 256 control re-run listing every candidate (the 6.3 file kept 10 samples). |
+
+`recipprune64.cc` and `ubsanctl64.cc` build with the `trace63.cc` g++ line (`ubsanctl64` with the UBSan flags
+and `-Igen_ubsan/…/genfiles/`); `reach64.cc` is plain C++17.
+
+```sh
+uv run reach64.py ./reach64 ./trace63 ./softmax_oracle recipall63.json reach64.json
+uv run reach64_xcheck.py ./reach64 ./trace63 reach64_xcheck.txt
+uv run recipprune64.py ./recipprune64 ./trace63 recipall63.json recipprune64.json
+uv run recipprune64.py ./recipprune64 ./trace63 recipall64_control_delta256_full.json recipprune64_control_delta256.json 256
+uv run recipprune64.py ./recipprune64 ./trace63 recipall63.json /tmp/w.json 0 <window>     # disable runs
+```

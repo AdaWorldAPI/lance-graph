@@ -1,0 +1,17 @@
+{
+ "shapes": {"m": [1,2,3,16,17], "n": "1..=33", "k": [1,2,3,4,5,31,63,64,65,128,129], "fills": ["uniform", "(-128,-128)", "(127,-128)"]},
+ "matmul_i8_to_i32_tier_by_case_count": {"amx": 12, "avx512vnni_zmm": 5433},
+ "arms": {
+  "amx_tiled": {"cases_run": 12, "cells": 4608, "mismatches_vs_i64_oracle": 0, "not_run": 5433},
+  "corrected_lab": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "matmul_i8_to_i32": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "scalar_i32": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "simd_int_ops_dot_i8": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "uncorrected_u8xi8": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 721613, "not_run": 0},
+  "vnni_dot_u8_i8_corrected": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "vpdpbusd_ymm": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0},
+  "vpdpbusd_zmm": {"cases_run": 5445, "cells": 722007, "mismatches_vs_i64_oracle": 0, "not_run": 0}
+ },
+ "control_cells_with_nonzero_colsum": 721613,
+ "first_unexpected_mismatches": []
+}

@@ -24,3 +24,9 @@ D=$(mktemp -d); ./int8sem/target/release/gen $D
 ./int8sem/target/release/arms $D <6.2 artifacts.bin>      # writes $D/arms64.json
 uv run fcattr64.py $D fcattr64.json
 ```
+
+**Follow-up:** `int8sem/src/bin/tailsweep.rs` → `tailsweep64.json`. Every dot arm vs the i64 oracle on
+m ∈ {1, 2, 3, 16, 17}, n = 1 … 33, k ∈ {1, 2, 3, 4, 5, 31, 63, 64, 65, 128, 129}, three fills each (uniform
+codes, all (−128, −128), all (127, −128)). It covers the N-tail and K-tail paths the n = 16 corpus did not.
+The uncorrected u8×i8 arm is the negative control and must differ on exactly the cells with a non-zero
+column sum. Run: `./int8sem/target/release/tailsweep tailsweep64.json`.

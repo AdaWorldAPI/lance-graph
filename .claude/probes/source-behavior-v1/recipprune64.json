@@ -1,0 +1,128 @@
+{
+ "arm": "correctly rounded reciprocal",
+ "window": "E_h + |delta| per band",
+ "reciprocal_error_bound_per_band": {
+  "4": 6,
+  "5": 6,
+  "6": 6,
+  "7": 6,
+  "8": 6,
+  "9": 6,
+  "10": 6,
+  "11": 6,
+  "12": 6
+ },
+ "calibrations": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13
+ ],
+ "pruned_candidates": 601,
+ "exhaustive_candidates": 601,
+ "identical_sets": true,
+ "missed_by_pruning": 0,
+ "extra_in_pruning": 0,
+ "missed_examples": [],
+ "extra_examples": [],
+ "s_values_evaluated": 4078,
+ "distinct_pairs_evaluated": 4078,
+ "exhaustive_s_values": 3750756352,
+ "per_calibration": {
+  "0": {
+   "intervals": 139,
+   "s_evaluated": 150,
+   "pairs_evaluated": 150,
+   "exhaustive_candidates": 20
+  },
+  "1": {
+   "intervals": 72,
+   "s_evaluated": 77,
+   "pairs_evaluated": 77,
+   "exhaustive_candidates": 10
+  },
+  "2": {
+   "intervals": 72,
+   "s_evaluated": 77,
+   "pairs_evaluated": 77,
+   "exhaustive_candidates": 10
+  },
+  "3": {
+   "intervals": 42,
+   "s_evaluated": 45,
+   "pairs_evaluated": 45,
+   "exhaustive_candidates": 3
+  },
+  "4": {
+   "intervals": 103,
+   "s_evaluated": 109,
+   "pairs_evaluated": 109,
+   "exhaustive_candidates": 17
+  },
+  "5": {
+   "intervals": 52,
+   "s_evaluated": 54,
+   "pairs_evaluated": 54,
+   "exhaustive_candidates": 8
+  },
+  "6": {
+   "intervals": 295,
+   "s_evaluated": 320,
+   "pairs_evaluated": 320,
+   "exhaustive_candidates": 43
+  },
+  "7": {
+   "intervals": 134,
+   "s_evaluated": 146,
+   "pairs_evaluated": 146,
+   "exhaustive_candidates": 17
+  },
+  "8": {
+   "intervals": 20,
+   "s_evaluated": 20,
+   "pairs_evaluated": 20,
+   "exhaustive_candidates": 2
+  },
+  "9": {
+   "intervals": 15,
+   "s_evaluated": 15,
+   "pairs_evaluated": 15,
+   "exhaustive_candidates": 0
+  },
+  "10": {
+   "intervals": 1153,
+   "s_evaluated": 1299,
+   "pairs_evaluated": 1299,
+   "exhaustive_candidates": 200
+  },
+  "11": {
+   "intervals": 778,
+   "s_evaluated": 853,
+   "pairs_evaluated": 853,
+   "exhaustive_candidates": 141
+  },
+  "12": {
+   "intervals": 566,
+   "s_evaluated": 611,
+   "pairs_evaluated": 611,
+   "exhaustive_candidates": 90
+  },
+  "13": {
+   "intervals": 278,
+   "s_evaluated": 302,
+   "pairs_evaluated": 302,
+   "exhaustive_candidates": 40
+  }
+ },
+ "wall_s": 7.2
+}
