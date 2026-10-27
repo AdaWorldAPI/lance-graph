@@ -417,6 +417,11 @@ impl Workbench {
             ids.insert(r.subject.clone());
             ids.insert(r.object.clone());
         }
+        // An identity read in full with no edge at all still resolves, so its
+        // NotHeld is reachable.
+        for (subject, _, _) in &corpus.coverage {
+            ids.insert(subject.clone());
+        }
         let ids: Vec<GlobalId> = ids.into_iter().collect();
         let index: BTreeMap<GlobalId, u32> = ids
             .iter()
