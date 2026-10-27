@@ -54,3 +54,21 @@ Conceptual dependencies are review order, NOT stacked branch ancestry. Each prop
 Given one as-of historical chess board and the same frozen model, a ≤63-slot generation-aware Thought-Git frontier can enumerate independently valid hypothetical next states, compute NNUE deltas exactly relative to full refresh and select promising branches **without ever importing later historic outcomes into Strict-time selection**. Only after the decision does an independent deep teacher reveal hindsight labels. A learned ranker passes only if a held-out benefit survives matched budgets and teacher withdrawal. Transfer the same separation to *simple legal rule ASTs* only after the chess oracle is robust.
 
 **No executed tests or admitted new performance numbers in this scratchpad.**
+
+## Actual GitHub PR receipts and EXO-50 post (2026-10-27, append-only scratchpad correction)
+
+All five have been CREATED as independent `main`-based **open drafts**, exactly one new research-plan Markdown file per PR; no Rust, ABI, runtime, benchmarks, training, other owners' plan edits or merge.
+
+| New stage | Exact PR | Distinct proposed gate |
+|---|---|---|
+| EAW-6 | [#1826](https://github.com/AdaWorldAPI/lance-graph/pull/1826) | This idea-preservation scratchpad and checked owner/source crosswalk |
+| EAW-7 | [#1827](https://github.com/AdaWorldAPI/lance-graph/pull/1827) | Strict temporal T0+≤63 chess world replay and no-hindsight negative tests |
+| EAW-8 | [#1828](https://github.com/AdaWorldAPI/lance-graph/pull/1828) | NNUE sparse feature delta/refresh numerical oracle and version/alias guards |
+| EAW-9 | [#1829](https://github.com/AdaWorldAPI/lance-graph/pull/1829) | Chess rediscovery learned candidate ranking, full-window deep teacher, teacher withdrawal |
+| EAW-10 | [#1830](https://github.com/AdaWorldAPI/lance-graph/pull/1830) | Tiny independently specified legal-style AST, minimal deciding-question finite-domain oracle |
+
+Posted exactly ONE new [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) append-only coordination comment. MESSAGE-ID `GPT:gpt-ada-01/EAW-CHESS-TEMPORAL-NNUE-20261027-01`, Linear comment id `610131da-2ce3-4ae4-a2fb-a32279cb2a06`, posted UTC 2026-10-27T15:16:03Z. It references all five new PRs, predecessors #1819–#1825, precise Stockfish/temporal source anchors and issue ownership status. EXO-50 remains Done as a **coordination inbox** and no message reception by other-account CC can be inferred.
+
+Live Linear issue read during this sequence: EXO-46/73/98/133/135/140/148/152 Backlog; EXO-109/127/146 Todo. Existing EXO-50 EAW-0..5 message at 2026-10-27T15:01:32Z is preserved and not edited.
+
+**Smallest execution request is NOT approved by these PRs:** EAW-7 single chess Strict/future-leak/Thought-Git-world falsifier plus existing NNUE numerical parity; EAW-8 numeric feature adapter, EAW-9 learning, EAW-10 legal heuristic only after separate review. The proposed dependency arrows do not mean Git stacked branches or granted effect rights.
