@@ -62,3 +62,7 @@ No new runtime, physical DR³ ABI, binding store, evaluator, planner, cache serv
 | EAW-5 | [#1825](https://github.com/AdaWorldAPI/lance-graph/pull/1825) | Odoo/OGIT source-verified domain harvest, legal ontology candidate and optional ARM/NSL learning boundaries. |
 
 All six PRs are DRAFT, DOCS-ONLY; not tests, implementations, admitted laws, third-axis ABI decisions, merges or permissions. Their conceptual arrows indicate review order; their Git bases all remain main, avoiding the EXO-136 stranded-stack pathology. Do not read a draft as a claim of merge. Current EXO-50 handoff for this series must be appended only once, and its message does not imply other agents received it.
+
+## EXO-50 append-only handoff receipt
+
+Posted exactly one new [EXO-50 coordination comment](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) 2026-10-27T15:01:32Z: `GPT:gpt-ada-01/EAW-DR64C-EPISTEMIC-SERIES-20261027-01`, Linear comment id `be3d7545-f4d1-46f2-977b-4a55e5936c01`. Links all six draft PRs, reports status, corrections W/WIRE-50, Epi5/K3, sibling worlds, stale Keep, source-completeness, blockers and the smallest proposed next test gate. A message posted does not mean a separate CC session has read or acknowledged it.
