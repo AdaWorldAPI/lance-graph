@@ -19,7 +19,7 @@ The 64³ address space (262,144 possible incidence cells; 32 KiB as a hypothetic
 | numerical models | NSL experiment; ONNX external target; ndarray kernels; #1802 | ONNX training inside DT64 |
 | law admission | D-DRMC; egglog; optional DialEgg/MLIR | learned correlation = proof |
 
-Canonical existing plans: [DT64 Q0](../../.claude/plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md), [SAG-6](../../.claude/plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md), [Thought Git](../../.claude/plans/thought-git-api-v1.md). Existing notes are authority, not rewritten here.
+Canonical existing plans: [DT64 Q0](../../../.claude/plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md), [SAG-6](../../../.claude/plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md), [Thought Git](../../../.claude/plans/thought-git-api-v1.md). Existing notes are authority, not rewritten here.
 
 ## Planned review chain (draft-branch stack)
 | Gate | Document | Research question | Minimum kill test |
