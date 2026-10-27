@@ -144,6 +144,11 @@
 | **D-SAG-6-3** | Datalog/Ascent candidates versus Datafrog/independent Rust oracle | PROPOSED; separate approval | pure filter/count vs impure-closure/panic/Bag/K3 controls |
 | **D-SAG-6-4** | egglog guarded law + effect-aware extraction + proof/replay traceroute | PROPOSED; separate approval | independent checker gap explicit; no effect reorder or forged proof promotion |
 | **D-SAG-6-5** | optional approved Rust source edit and comparative MLIR lowering | PROPOSED; separate approval | rustc/tests/differential target parity; FMA/NaN/signed-zero and effect gates |
+| **D-SAG-6-W0** | dogfood workbench amendment: project-graph projection beside D-SAG-6-2, reuse matrix, MCP/board/Railway plan ([plan](../plans/d-sag-6-w-dogfood-mcp-workbench-v1.md), [W2-W4](../plans/d-sag-6-w-mcp-board-railway-v1.md)) | DOCS / PROPOSAL | no deployment, no mint, no DT64/DR64³ runtime |
+| **D-SAG-6-W1** | `crates/sag6-workbench-probe`: real Linear/GitHub/debt-row slice, one-hop queries via Quack `lower` + mask-risc `execute_into`, `FrameStore` reused, multi-hop and method binding refused | LAB, 15/15 tests, 8/8 disables red (2026-10-27) | F01/F04/F06/F07/F10/F11/F13/F14/F15 + W-cache + W-replay |
+| **D-SAG-6-W2** | read-only MCP surface (rmcp streamable HTTP), seven tools over W1 functions | PROPOSED; separate approval | no write tool; opaque frame handles; NOT_HELD only under complete coverage |
+| **D-SAG-6-W3** | `/board` server-rendered views over the same handler table | PROPOSED; separate approval | no frontend business logic |
+| **D-SAG-6-W4** | isolated Railway service + read-only sync job | NOT AUTHORIZED | domain (`mcp.exo.red` is `adarail-production`), ownership, read-only tokens: operator |
 
 ## D-ONNX-NATIVE — ONNX vocabulary over existing native functions (2026-10-23)
 

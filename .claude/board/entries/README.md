@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-505 entries, 2026-08-06 .. 2026-10-30.
+506 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -47,6 +47,7 @@ exactly one of them, never both.
 | 2026-10-28 | `D-DRCA-2` |  | [2026-10-28-d-drca-2-dr256-where-dr3.md](2026-10-28-d-drca-2-dr256-where-dr3.md) |
 | 2026-10-28 | `D-DRCA-1` |  | [2026-10-28-d-drca-1-hhtl16-dr-projection.md](2026-10-28-d-drca-1-hhtl16-dr-projection.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
+| 2026-10-27 | `D-SAG-6-W` |  | [2026-10-27-d-sag-6-w-dogfood-workbench.md](2026-10-27-d-sag-6-w-dogfood-workbench.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |
