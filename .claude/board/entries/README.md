@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-487 entries, 2026-08-06 .. 2026-10-26.
+488 entries, 2026-08-06 .. 2026-10-27.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-27 | `D-SAG-6-W` |  | [2026-10-27-d-sag-6-w-dogfood-workbench.md](2026-10-27-d-sag-6-w-dogfood-workbench.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |

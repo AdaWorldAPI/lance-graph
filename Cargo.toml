@@ -140,6 +140,9 @@ exclude = [
     "crates/lance-graph-ogar",
     # D-DRF-P1 lab probe (immutable DR64 focus lease). Own [workspace]; ndarray only.
     "crates/drf-focus-probe",
+    # D-SAG-6-W1 lab probe (read-only source-attested project graph over Quack).
+    # Own [workspace]; pulls dr-math-binding-probe (egglog git) for FrameStore.
+    "crates/sag6-workbench-probe",
     # A lance-graph ReportResult as an addressed OGAR ObjectSlot source
     # (implements ogar-doc-ir's DocObjectSource::grid_of). EXCLUDED for the same
     # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via

@@ -1,0 +1,26 @@
+# sag6-workbench-probe — D-SAG-6-W1, lab only. A read-only, source-attested
+# project graph (GitHub PRs / commits / source symbols, Linear issues and
+# relations, technical-debt rows, Claude session ids) evaluated through the
+# existing Quack lowering and the mask-risc executor. No second graph engine,
+# no DT64 runtime, no DR64³, no writes to any source system.
+# Plan: .claude/plans/d-sag-6-w-dogfood-mcp-workbench-v1.md
+# Own [workspace] root, excluded from the lance-graph workspace. Run from here:
+#   cargo test
+[package]
+name = "sag6-workbench-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Lab probe D-SAG-6-W1: source-attested project-graph fixture, one-hop queries through Quack + mask-risc, frame staleness through dr-math-binding-probe's FrameStore, typed refusals for multi-hop and unminted predicates."
+
+[workspace]
+
+[dependencies]
+# One-hop evaluation: Filter/Cmp/Agg lowered by Quack, executed by mask-risc.
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# `hash::fnv1a`, the workspace's one deterministic digest.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# FrameStore / Frame / Refusal: the one implementation of frame staleness and
+# foreign-frame refusal (D-DRMC lab). Reused, not mirrored.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
