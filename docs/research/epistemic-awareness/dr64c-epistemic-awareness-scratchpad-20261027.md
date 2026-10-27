@@ -49,3 +49,16 @@ No new runtime, physical DR³ ABI, binding store, evaluator, planner, cache serv
 - DR64³ currently a LAB holographic gap inventory (D-DR64C-A), production third-axis NFR-OP-2 OPEN. D-RU-2 existing let planes and mask-risc ternlog are already native; the stage work must benchmark rather than reimplement.
 - EXO-140 ADMISSION-B individual Semijoin/EqU32Via/Gather call-site classification OPEN; never hide a value-addressed join in `lift`. EXO-109 independent oracle; EXO-133 synthetic-world verdict caveat; EXO-135 evidence-to-law promotion firewall; EXO-132 carrier closure; EXO-73 lawful recursion driver OPEN.
 - Existing #1813..#1818 are *open* (some review-ready, bases still draft); #1819 independent main-based OPEN. #1818 is physically stacked on optional CFA-4 and is not yet detached. Odoo #44/#45 and OGAR #363 merged. #1812 operator-rejected closed-unmerged quarantined.
+
+## Real GitHub draft PR index (created 2026-10-27; six INDEPENDENT main-based branches)
+
+| Stage | Exact PR | Only new research artifact / ownership |
+|---|---|---|
+| EAW-0 | [#1820](https://github.com/AdaWorldAPI/lance-graph/pull/1820) | This scratchpad, idea conservation, live correction for W/WIRE-50. |
+| EAW-1 | [#1821](https://github.com/AdaWorldAPI/lance-graph/pull/1821) | Exact DR64³ coordinate, relationship presence/absence/unknownness, source completeness and 3D factorization negative oracle. |
+| EAW-2 | [#1822](https://github.com/AdaWorldAPI/lance-graph/pull/1822) | CausalEdge64 declared EpistemicState5 and activation/maturation projection onto existing DR positions. |
+| EAW-3 | [#1823](https://github.com/AdaWorldAPI/lance-graph/pull/1823) | Existing TERNLOGQ/RelAlg 3-aligned-plane Sudoku fixed-point fold and cost/independent oracle matrix. |
+| EAW-4 | [#1824](https://github.com/AdaWorldAPI/lance-graph/pull/1824) | Existing Thought-Git world isolation versus in-world convergence; EAW-WORLD-0 synthesis falsifier. |
+| EAW-5 | [#1825](https://github.com/AdaWorldAPI/lance-graph/pull/1825) | Odoo/OGIT source-verified domain harvest, legal ontology candidate and optional ARM/NSL learning boundaries. |
+
+All six PRs are DRAFT, DOCS-ONLY; not tests, implementations, admitted laws, third-axis ABI decisions, merges or permissions. Their conceptual arrows indicate review order; their Git bases all remain main, avoiding the EXO-136 stranded-stack pathology. Do not read a draft as a claim of merge. Current EXO-50 handoff for this series must be appended only once, and its message does not imply other agents received it.
