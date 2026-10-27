@@ -30,6 +30,21 @@ For compatible source/coordinate witnesses, population computation can reuse exi
 
 **Never treat two valid mappings to the same polyfill as “redundant methods to remove.”** Conflict is a useful diagnostic signal, not the primary purpose of the model. CFA-2 proposals to suppress/delete MethodIds or to infer dependency from removing two “redundant methods” require re-scoping to typed **hypothetical changes to dimensional bindings/guard valuations/source input populations**, leaving the admitted algebra and source method inventory intact.
 
+### Normal convergence of rules into a shared state (operator clarification)
+
+**Convergence is expected Odoo/domain semantics, not automatically a collision or a last-wins ambiguity.** A taxable item may have several simultaneously applicable source-attested rules contributing to one shared semantic outcome; tax rates are subordinate/qualified rules, while dual-ledger accounting can route the *same business determination* to two distinct ledger destinations. These are examples to source-harvest and verify, **not** claims that the current #44 Odoo corpus already represents complete tax/ledger behavior.
+
+One algebra/polyfill may have multiple dimensional mappings; one resulting state may depend on **multiple distinct valid mappings**, even when all use existing native algebra. Preserve *both*:
+- **many mappings -> one qualified outcome** (convergence/aggregation/constraint combination) with declared combine laws, dependency/source provenance and exact result scope;
+- **one qualified outcome -> several typed destinations** (routing/fanout to ledger A and ledger B) with distinct destination identities, permissions and source transaction obligations.
+
+For a candidate binding tuple, distinguish `(source_method, ON, WHEN, DO, source_scope, tax_rule, routing_destination, recipe_ref, version_witness)` conceptually. The source's actual schema determines whether tax/base/rates/routing are axes, predicates, referenced relationships or separate qualified reductions; **do not invent a fixed new Rust struct or prescribe a specific Odoo operator**.
+
+Not every convergence means `OR`, `SUM` or ordinary write union. Source-specific laws (rate selection vs combination, sequential rounding, tax-on-tax dependencies, ledger balancing, posting order and access control) determine lawful algebraic composition. A shared target key is neither evidence of error nor permission to choose last-wins; **a real conflict requires incompatible source-qualified results under the same fully typed coordinate/snapshot and an applicable domain law**.
+
+Thought-Git <64 counterfactual exploration should test *changes of guards, tax subrule parameters, source state and ledger routing* while keeping existing mapped recipes and all concurrently valid rules. Compare a baseline's **converged outcome and each routed projection** with alternative, independently witnessed worlds; synthesize conditional composition/routing candidates where warranted by exact algebra, not by deleting source methods. Test a model whose final taxability bit agrees while tax amounts, intermediate calculations, or ledger destinations differ. A candidate conditional synthesis is not a posted journal entry or a certified law.
+
+
 ## 1. Existing owners and evidence (read first; do not reimplement)
 
 | Existing authority | What exists / precisely what does not | Reference |
@@ -57,7 +72,7 @@ For compatible source/coordinate witnesses, population computation can reuse exi
 
 **A. Source census / falsifier preregistration (docs only):** enumerate actual ON event harvest, method IDs and guard source for Odoo; record every unattested onchange/constrains/WHERE operand as **UNKNOWN**, not inferred. Inventory in the real current Quack path which input planes are borrowed and where mutation closure is absent. Pin a source-independent scalar reference/evaluator; do not create a second production predicate interpreter.
 
-**B. Factorization parity (test-only):** independently compute expected per-mapping, per-object eligibility from source-scoped fixtures. Compare dense logical ON×WHEN×DO evaluation with factored ON×DO + `WHERE` (same registry/snapshot; compare exact source MethodIds, dimensional mappings, algebra/recipe references, guard verdicts and whole masks, never popcount only). Include **two valid mappings to the same polyfill at identical ON/DO but different guards**, inheritance/versioned overrides versus coexistence, one mapping with multiple capabilities, absent ON and missing guards. A 256-wide block/pad must not change #44 outcomes.
+**B. Factorization parity (test-only):** independently compute expected per-mapping, per-object eligibility from source-scoped fixtures. Compare dense logical ON×WHEN×DO evaluation with factored ON×DO + `WHERE` (same registry/snapshot; compare exact source MethodIds, dimensional mappings, algebra/recipe references, guard verdicts and whole masks, never popcount only). Include **two valid mappings to the same polyfill at identical ON/DO but different guards**, inheritance/versioned overrides versus coexistence, one mapping with multiple capabilities, absent ON and missing guards. A 256-wide block/pad must not change #44 outcomes. Add a lawful **many-rules -> one state** convergence fixture (taxability with source-defined tax-rate subrules), and a **one state -> two destinations** routing fixture (distinct ledger identities). Oracle must verify *all contributing mappings, qualified subresults, both routed outputs*, and declared order/rounding/authorization laws. Neither fixture may assume the current #44 harvest already attests those Odoo facts.
 
 **C. Watch economics / repaired mask parity (test-only):** compare **cold full sweep**, **fresh Quack WHERE**, **same-borrow kept population**, **source-derived affected-set repair** and **forced rebuild/refusal** under 65,536-row sparse, clustered, full, chaotic, cross-record and multiversion distributions. Charges: watch preparation/subscription, dependency fanout, updates, invalidation/check, binds, data reads, mask fold, source access, memory footprint and I/O. Include N=1/2/4/8/64 compatible/incompatible uses; report crossover `N*`, not assumed 0-cost guards. Realizes existing P2 findings, not a new Quack executor.
 
@@ -82,6 +97,8 @@ For compatible source/coordinate witnesses, population computation can reuse exi
 6. Change source owner, ACL, completeness, scope, codebook or coordinate seal -> stale cache must never be consumed (**RED**).
 7. In a **hypothetical changed source population**, invalidate one of two independent support paths (not a source method): the still-supported membership must remain (**RED** if repair blindly clears it).
 8. Mix counterfactual sibling worlds, discard protected differences, conflate a candidate synthesized conditional mapping with a certified law, or infer permission from branch probability -> world-isolation/evidence/admission test fails (**RED**).
+11. Retain final taxability but drop one independently applicable tax subrule, collapse qualified tax intermediate, or silently last-win at the common state -> source-independent convergence oracle differs (**RED**).
+12. Route an agreed accounting outcome to only one ledger, alias the two ledger destinations by local ordinal, or merge their accounting writes without source-defined routing/authorization -> both-ledger typed projection oracle differs (**RED**).
 9. Change only thought completion order / method-file order -> deterministic outputs remain identical (**stay green**); explicit source-defined precedence may be changed only by a pinned registry version.
 10. Disable the mechanism thought to save time (watch/repair) and re-run charged benchmark; a speedup claim with no measurable delta must be **retracted**.
 
