@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-27
 - **Status:** PROPOSAL / docs only. Covers W2-W4 of D-SAG-6-W (sibling doc `d-sag-6-w-dogfood-mcp-workbench-v1.md`). Deployment is NOT authorized by this document.
-- **Depends on:** W1 lab crate `crates/sag6-workbench-probe`. Every function named below exists there and is covered by `tests/falsifiers.rs` (15 tests). Fields marked **W2** do not exist in W1 and need the sync job's richer snapshots.
+- **Depends on:** W1 lab crate `crates/sag6-workbench-probe`. Every function named below exists there and is covered by `tests/falsifiers.rs` (16 tests). Fields marked **W2** do not exist in W1 and need the sync job's richer snapshots.
 - **Sources:** design-notes facts only (Linear read 2026-10-27; lance-graph main `aa569bc`).
 
 ## 0. Scope and non-goals

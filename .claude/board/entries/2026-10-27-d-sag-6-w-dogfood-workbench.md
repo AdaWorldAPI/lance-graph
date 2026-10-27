@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-27. **Status:** W0 docs + W1 LAB (`crates/sag6-workbench-probe`, own `[workspace]`, excluded from root); W2–W3 PROPOSED; W4 deployment NOT AUTHORIZED. **Source:** [`d-sag-6-w-dogfood-mcp-workbench-v1.md`](../../plans/d-sag-6-w-dogfood-mcp-workbench-v1.md), [`d-sag-6-w-mcp-board-railway-v1.md`](../../plans/d-sag-6-w-mcp-board-railway-v1.md). Parent: D-SAG-6 (#1760).
 
-**Measured (W1):** `cd crates/sag6-workbench-probe && cargo test` → 15 passed. Eight disable runs (coverage, frame check, symbol revision, inverse column, chain refusal, grade laundering, method binding) each turned the named test red; tree clean after restore. The Quack + mask-risc path equals a `GlobalId`-keyed scalar oracle for every identity × predicate × direction of the fixture; `blocked_by` equals Linear's own `blockedBy` lists, and only the two `blocks` rows are stored.
+**Measured (W1):** `cd crates/sag6-workbench-probe && cargo test` → 16 passed. Eight disable runs (coverage, frame check, symbol revision, inverse column, chain refusal, grade laundering, method binding) each turned the named test red; tree clean after restore. The Quack + mask-risc path equals a `GlobalId`-keyed scalar oracle for every identity × predicate × direction of the fixture; `blocked_by` equals Linear's own `blockedBy` lists, and only the two `blocks` rows are stored.
 
 **Fixture:** 19 real records read 2026-10-27 — Linear EXO-111/112/140/148/50 relations, the source lines the issues name pinned at lance-graph `aa569bc` (`mul.rs:1086`, quack `lib.rs:387`, `rmap.rs:70`), their `ISSUES.md` rows (:74, :176), cited PRs #1640/#1730/#1732, one recorded session id, and one inferred edge (`graph_hop.rs:55`) graded `Hypothesis`.
 

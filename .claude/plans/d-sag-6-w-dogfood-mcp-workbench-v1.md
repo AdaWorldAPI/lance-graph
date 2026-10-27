@@ -23,7 +23,7 @@ D-SAG-6-2 is the Rust MIR/Codegraph projection and stays future. D-SAG-6-W is a 
 | D-id | Deliverable | Gate | Status |
 |---|---|---|---|
 | **D-SAG-6-W0** | this document | scope and authority statements explicit | docs only |
-| **D-SAG-6-W1** | lab fixture `crates/sag6-workbench-probe` | §5 gates with independent scalar baseline and disable-red-runs | LAB, 15/15 tests, 8/8 disables red (2026-10-27) |
+| **D-SAG-6-W1** | lab fixture `crates/sag6-workbench-probe` | §5 gates with independent scalar baseline and disable-red-runs | LAB, 16/16 tests, 8/8 disables red (2026-10-27) |
 | **D-SAG-6-W2** | read-only MCP surface (`rmcp`, streamable HTTP) over the W1 query contract | all W1 gates unchanged; no write tool exists | PROPOSED, separate approval |
 | **D-SAG-6-W3** | `/board` view over the same query contract | same contract; no second query path | PROPOSED, separate approval |
 | **D-SAG-6-W4** | Railway deployment | separate operator authorization (§7) | NOT AUTHORIZED |
@@ -96,7 +96,7 @@ The independent scalar baseline is a plain loop over the original edge records, 
 
 ## 5. Falsifiers — W1 results
 
-Run: `cd crates/sag6-workbench-probe && cargo test` — **15 passed, 0 failed** (2026-10-27, lance-graph `aa569bc` + this crate). Every test names what makes it fail; the baseline oracle compares by `GlobalId` over the raw records and shares no code with the ordinal lanes or the Quack program.
+Run: `cd crates/sag6-workbench-probe && cargo test` — **16 passed, 0 failed** (2026-10-27, lance-graph `aa569bc` + this crate). Every test names what makes it fail; the baseline oracle compares by `GlobalId` over the raw records and shares no code with the ordinal lanes or the Quack program.
 
 | # | Falsifier | Parent gate | Test (`tests/falsifiers.rs`) |
 |---|---|---|---|
@@ -104,6 +104,7 @@ Run: `cd crates/sag6-workbench-probe && cargo test` — **15 passed, 0 failed** 
 | 2 | A coordinate from another workbench, same corpus and same ordinal, is `ForeignFrame`; the silence twin accepts it where issued | F07 | `a_coordinate_from_another_frame_is_refused` |
 | 3 | An unread edge set answers `Undetermined`, an incomplete one `complete: false` | F06 | `missing_coverage_is_undetermined_not_false` |
 | 3b | Silence twin: a fully read empty edge set answers `NotHeld` | F06 | `a_fully_read_empty_edge_set_is_not_held` |
+| 3c | An identity read in full with no edge at all still resolves and answers `NotHeld` (codex review #1812) | F06 | `a_fully_read_identity_with_no_edges_is_not_held` |
 | 4 | Reload refuses earlier coordinates: identical corpus `FrameResealed`, changed snapshot `SourceChanged` | F11 | `a_reload_invalidates_every_earlier_coordinate` |
 | 5 | No predicate binds a prepared method, even with a real OGAR classid (`0x0102`) | F04 / F14 | `an_unbound_predicate_refuses_every_prepared_method` |
 | 6 | Queries leave the canonical records unchanged (W1 has no write path; all query methods take `&self`) | F13 | `queries_do_not_change_the_canonical_records` |

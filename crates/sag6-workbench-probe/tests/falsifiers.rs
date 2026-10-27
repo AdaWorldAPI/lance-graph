@@ -410,3 +410,30 @@ fn every_witness_carries_its_source() {
         assert!(w.locator.starts_with("https://"), "{}", w.locator);
     }
 }
+
+/// F06, isolated identity (codex review on #1812). FAILS IF an identity that
+/// was read in full but has no edge at all cannot be resolved, which would
+/// leave its honest `NotHeld` unreachable.
+#[test]
+fn a_fully_read_identity_with_no_edges_is_not_held() {
+    let mut corpus = fixture::corpus();
+    let isolated = GlobalId::linear("EXO-900");
+    assert!(
+        corpus
+            .records()
+            .all(|r| r.subject != isolated && r.object != isolated),
+        "the identity must have no edge, or this test measures nothing"
+    );
+    corpus.mark_complete(isolated.clone(), Predicate::Blocks, Direction::Forward);
+    let wb = Workbench::new(corpus);
+    let at = local(&wb, &isolated);
+    assert_eq!(
+        wb.query_relationships(&at, Predicate::Blocks, Direction::Forward),
+        Answer::NotHeld
+    );
+    // Silence twin: a direction that was not declared read stays UNKNOWN.
+    assert!(matches!(
+        wb.query_relationships(&at, Predicate::Blocks, Direction::Inverse),
+        Answer::Undetermined { .. }
+    ));
+}

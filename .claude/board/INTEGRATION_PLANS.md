@@ -1,6 +1,6 @@
 ## 2026-10-27 — D-SAG-6-W: dogfood MCP workbench → `.claude/plans/d-sag-6-w-dogfood-mcp-workbench-v1.md` (+ `d-sag-6-w-mcp-board-railway-v1.md`)
 
-**Status:** W0 PROPOSAL docs; W1 LAB fixture `crates/sag6-workbench-probe` (15/15 tests, 8/8 disables red); W2-W3 PROPOSED; W4 deployment NOT AUTHORIZED. Amends D-SAG-6 (#1760) with a project-graph projection beside D-SAG-6-2. **Board:** [entry](entries/2026-10-27-d-sag-6-w-dogfood-workbench.md), [STATUS_BOARD](STATUS_BOARD.md) D-SAG-6-W0..W4. One-hop runs on Quack + mask-risc; multi-hop refused (EXO-140, ISS-GATHER-HOP-1616); no OGAR classid bound (no GitHub/Linear port).
+**Status:** W0 PROPOSAL docs; W1 LAB fixture `crates/sag6-workbench-probe` (16/16 tests, 8/8 disables red); W2-W3 PROPOSED; W4 deployment NOT AUTHORIZED. Amends D-SAG-6 (#1760) with a project-graph projection beside D-SAG-6-2. **Board:** [entry](entries/2026-10-27-d-sag-6-w-dogfood-workbench.md), [STATUS_BOARD](STATUS_BOARD.md) D-SAG-6-W0..W4. One-hop runs on Quack + mask-risc; multi-hop refused (EXO-140, ISS-GATHER-HOP-1616); no OGAR classid bound (no GitHub/Linear port).
 **Confidence:** LAB on a 19-record real slice; no timing; nothing beyond the slice claimed.
 
 ## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
