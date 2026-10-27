@@ -334,7 +334,70 @@ compares only `edge.w_slot()` with the mailbox's slot and reads no classid.
 
 ## ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD — a 2-D fold costs one pass per partition member (2026-09-23)
 
-**Status:** OPEN. **Basis:** VERIFIED-IN-CODE. mask-risc's `GroupKey` is one
+> **⊘ ROOT CAUSE SUPERSEDED (2026-10-27).** The symptom and the measurement
+> below stand. The cause and the closing condition do not: a composite-key
+> group fold already exists. What Report lacks is **destination binding /
+> coordinate resolution**, not a fold primitive. The original text is kept
+> below as history.
+>
+> **Status:** OPEN, re-scoped. **Basis:** VERIFIED-IN-CODE at lance-graph
+> `aa569bc5`, ndarray `af4910a1`:
+> - mask-risc `GroupKey::Pair { hi, lo, stride }` (`ir.rs:505`), executed for
+>   Count / MinI32 / MaxI32 / SumSymI32 (`exec.rs:1995-2024`) and power sums
+>   (`exec.rs:2056`), with a reference oracle (`reference.rs:695, :740`).
+> - Quack `GroupAddr::Pair` lowers onto it (`lance-graph-quack/src/lib.rs:2460`);
+>   `tests/duckdb_differential.rs:783-823` checks it against DuckDB.
+> - ndarray exports `masked_group_count_u32_pair` and the min / max / sum /
+>   sum_sym / power-sum `_pair` siblings (`src/simd.rs:933-957`).
+> - `lance-graph-report/src/exec.rs:42-69` names the gap itself: once a compact
+>   destination ordinal or functional reference is bound, the existing
+>   `GroupAddr::Local` / `Via` keyed fold is the execution primitive.
+>   `CoordSpec` has only `Field`, `Bucket` and `MaskSet`, so Report cannot bind
+>   a functional reference (`user → department`), a composed route, or several
+>   semantic coordinates to one compact destination ordinal.
+> - Report deliberately does not lower to `Pair`: `hi · stride + lo` addresses
+>   the dense Cartesian product, which is valid only where a consumer asks for a
+>   dense mixed-radix destination universe.
+>
+> **History of the stale premise.** `GroupKey::Pair` / `GroupAddr::Pair` landed
+> on 2026-09-23 (`869ba24d`, merged in #1275), the day this entry was filed. A
+> Report lowering onto `Pair` was tried and reverted before merge in #1331, and
+> `9e26e376` (2026-10-05) moved the gap wording in `exec.rs`; the record is
+> `entries/2026-10-05-report-pair-key-and-stack-recon.md`. This entry and the
+> D-RPT-5 row were not updated then.
+>
+> **Open question (replaces "what closes it"):** can a source-attested semantic
+> destination be bound to a compact, witnessed local coordinate, so that Report
+> uses the existing Quack keyed fold (`Local` / `Via`) instead of one pass per
+> partition member? Relation to other contracts, none of which provides this
+> binding today:
+> - **D-DT64-Q0** (`plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md`, #1799)
+>   lists a "global↔local coordinate witness" among its binding components and
+>   assigns it to the D-RMAP / EXO-46 preparation membrane. DT64 records and
+>   validates bindings. It does not issue local ordinals, and its first
+>   executable proof is NOT RUN.
+> - **EXO-46** (counted global→focus binding membrane for production) is OPEN.
+>   ADMISSION-B (`entries/2026-10-20-six-decisions.md` §1) admits same-table,
+>   version-witnessed seeks and frozen codebook decoding as representation
+>   translation. It does not admit a position read from another table's column.
+>   A `Via` destination must stay inside that ruling.
+> - **DR64³** (D-NFC, `plans/d-dr3-holo-onnx-s3a-s3c-v1.md`) is the intended
+>   native relational/focus representation, but its third axis has no type
+>   (NFR-OP-2 OPEN). Like Report refusing dense `Pair`, Q0 Phase Q3 says a dense
+>   cube is not a prerequisite and keeps the direct path when construction cost
+>   dominates.
+>
+> **Not measured yet:** whether a bound compact ordinal turns the 25-pass
+> 32×12 / 4M-row case into one keyed-fold pass plus binding cost. That needs
+> the binding to exist first, and binding cost has to be counted separately
+> from fold cost.
+>
+> **What does NOT close it (unchanged):** a report-side row loop or a
+> population-sized composite key lane. Also: automatic lowering to dense
+> `Pair`, and a query-local interner presented as the canonical path (it is a
+> fallback only).
+
+**Status (historical, 2026-09-23):** OPEN. **Basis:** VERIFIED-IN-CODE. mask-risc's `GroupKey` is one
 `U32` lane or a `Via` hop, so `lance-graph-report` folds the widest coordinate as
 the key and evaluates every other coordinate as a PARTITION. A partition is a
 member conjunct, run tile-local, one pass per member tuple.
@@ -343,7 +406,7 @@ member conjunct, run tile-local, one pass per member tuple.
 - **Consequence:** a high-cardinality, densely-observed partition side exceeds
   `PlannerPolicy::pass_budget`, and the plan is REFUSED (`ReportError::PassBudget`).
   It is never run slowly, and never allocated densely.
-- **What closes it:** a multi-lane (composite-key) masked group fold in `ndarray::simd`,
+- **What closes it (⊘ superseded 2026-10-27; this fold already existed, see above):** a multi-lane (composite-key) masked group fold in `ndarray::simd`,
   named in mask-risc as a `GroupKey` variant, so that ONE pass folds (a, b) → a
   dense or sparse cell.
 - **What does NOT close it:** a report-side row loop, or a population-sized composite
