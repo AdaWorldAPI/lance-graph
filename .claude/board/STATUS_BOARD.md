@@ -932,7 +932,7 @@ Entry: `entries/2026-09-23-report-plan-zero-copy-pivot-docir-convergence.md`.
 | **D-RPT-2** | z8run `crates/z8run-lance`: 8 native nodes, handle envelopes, physical-key cache (AdaWorldAPI/z8run#1) | Shipped | z8run-lance `tests/nodes.rs` |
 | **D-RPT-3** | OGAR `SlotOutcome::Grid` / `grid_of` / typst `emit_grid` (AdaWorldAPI/OGAR#307) | Shipped | ogar-doc-ir resolver grid tests |
 | **D-RPT-4** | `crates/lance-graph-report-ogar`: ReportSource (DocObjectSource) over any object source; Live/Revision; emit_typst | Shipped | `tests/convergence.rs` |
-| **D-RPT-5** | composite-key (multi-lane) group fold primitive in ndarray::simd / mask-risc | Queued | `ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD` |
+| **D-RPT-5** | composite-key (multi-lane) group fold primitive in ndarray::simd / mask-risc | ⊘ Superseded as scoped (2026-10-27): the primitive already exists (`GroupKey::Pair`, `GroupAddr::Pair`, ndarray `masked_group_*_pair`, since 2026-09-23). Open remainder: Report destination binding / coordinate resolution, blocked on EXO-46 | `ISS-REPORT-NO-COMPOSITE-KEY-GROUP-FOLD` (re-scoped); `entries/2026-10-27-harvest-integration-composite-key-and-simd-scope.md` |
 
 ## D-WFL — CodeRabbit round 3 on `9fd6956d` (2026-09-19): three findings, all valid, all outside the diff
 
