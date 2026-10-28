@@ -30,10 +30,12 @@ REVISIT WHEN form (plan §1):
 
 ## Findings that shaped the plan (VERIFIED-IN-CODE unless marked)
 
-- The merged DT64 plans use none of the ON / WHEN / DO terms (the three
-  plans read in full). The ON×WHEN×DO registry exists only as the odoo-rs lab design
-  `docs/DT64-ON-WHEN-DO-REGISTRY.md` (#44 / #45 merged, test-only) and in the
-  docs #1814 and #1819 (now merged). #1814 rules out folding WHEN as a
+- The three DT64 plans do not name ON / WHEN / DO, but ON×WHEN×DO is
+  established in merged lance-graph research docs: the D-CFA series
+  (`docs/research/counterfactual-behavior/`, incl. #1814) and the EAW
+  series (`docs/research/epistemic-awareness/`), plus #1819. As a registry
+  it exists as the odoo-rs lab design `docs/DT64-ON-WHEN-DO-REGISTRY.md`
+  (#44 / #45 merged, test-only). #1814 rules out folding WHEN as a
   two-valued OR of atoms; #1819 makes convergence of several mappings
   normal. The plan's dispatch fold and its collision question now follow
   both.
