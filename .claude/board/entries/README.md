@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-490 entries, 2026-08-06 .. 2026-10-28.
+491 entries, 2026-08-06 .. 2026-10-28.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-28 | `D-SAG-6-1` |  | [2026-10-28-d-sag-6-1-audit-reference-ledger.md](2026-10-28-d-sag-6-1-audit-reference-ledger.md) |
 | 2026-10-28 | `D-DT64-6` |  | [2026-10-28-d-dt64-6-routing-bindstore-behavior.md](2026-10-28-d-dt64-6-routing-bindstore-behavior.md) |
+| 2026-10-28 | `D-DT64-6-1a` |  | [2026-10-28-d-dt64-6-ogit-predicates-impl.md](2026-10-28-d-dt64-6-ogit-predicates-impl.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
