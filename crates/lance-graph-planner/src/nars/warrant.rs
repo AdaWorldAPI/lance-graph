@@ -10,9 +10,11 @@
 //!
 //! # What a judgment may claim
 //!
-//! - **Truth:** the tactic's NARS truth over the premises' pooled evidence.
-//!   The ledger stays the authority: [`DerivationLedger::pooled`] answers for
-//!   the conclusion afterwards.
+//! - **Truth:** the truth of the ledger proof through the new derivation,
+//!   returned with that proof's roots. It equals the tactic's own truth
+//!   unless a premise's evidence depends on the conclusion itself: the
+//!   ledger's cycle guard drops that evidence from the proof, and the
+//!   judgment reports what the proof actually rests on.
 //! - **Roots:** the source roots of the proof through the new derivation,
 //!   which are the union of the premises' roots. A thought that replays the
 //!   same premises adds no root.
@@ -223,7 +225,7 @@ impl Step {
 pub struct Judgment {
     /// The conclusion.
     pub stmt: CStmt,
-    /// The tactic's truth over the premises.
+    /// The truth of the proof through [`Self::derivation`].
     pub truth: TruthValue,
     /// The derivation admitted into the ledger.
     pub derivation: DerivationId,
@@ -324,18 +326,17 @@ pub fn fire(
         let derivation = ledger
             .admit(chain, &arena, c)
             .map_err(FireRefusal::Figure)?;
-        let roots = ledger
+        let proof = ledger
             .proofs(c.stmt, &Ablation::none())
             .map_err(FireRefusal::Ledger)?
             .into_iter()
             .find(|p| p.uses.contains(&derivation))
-            .map(|p| p.roots)
             .ok_or(FireRefusal::NoProof(c.stmt))?;
         out.push(Judgment {
             stmt: c.stmt,
-            truth: c.truth,
+            truth: proof.truth,
             derivation,
-            roots,
+            roots: proof.roots,
             thought,
             state: JUDGMENT_STATE,
         });
@@ -597,6 +598,49 @@ mod tests {
                 .unwrap()
                 .certification(),
             Certification3::Causes
+        );
+    }
+
+    /// A premise whose pooled evidence runs through the conclusion: `1 → 9`
+    /// is observed weakly and also derived through `1 → 2`. RCR then
+    /// proposes `1 → 2` from `1 → 9` and `2 → 9`. The admitted proof cannot
+    /// use the derivation through `1 → 2` (it would support itself), so the
+    /// judgment carries the proof's weaker truth and its roots, not the
+    /// snapshot truth.
+    #[test]
+    fn a_judgment_reports_the_truth_its_roots_support() {
+        let d = decls();
+        let mut l = DerivationLedger::new();
+        l.observe(inh(1, 2), TruthValue::new(0.9, 0.9), 1);
+        l.observe(inh(2, 9), TruthValue::new(0.9, 0.9), 2);
+        l.observe(inh(1, 9), TruthValue::new(0.1, 0.1), 3);
+        l.derive(
+            ChainId(0),
+            crate::nars::support::Law::Deduction,
+            [inh(1, 2), inh(2, 9)],
+            inh(1, 9),
+        )
+        .unwrap();
+        let st = raw(Topology2::Direct, Certification3::Associated);
+        let ms: Vec<Marker> = [inh(1, 9), inh(2, 9)]
+            .into_iter()
+            .map(|s| Marker::ground(&l, s, declared(&d, st), THOUGHT).unwrap())
+            .collect();
+        let js = fire(&mut l, ChainId(1), THOUGHT, Step::Rcr, &ms).unwrap();
+        let j = js.iter().find(|j| j.stmt == inh(1, 2)).expect("1→2");
+        let snapshot = ms[1].truth().abduction(&ms[0].truth());
+        assert!(j.truth.confidence < snapshot.confidence / 10.0);
+        let proof = l
+            .proofs(inh(1, 2), &Ablation::none())
+            .unwrap()
+            .into_iter()
+            .find(|p| p.uses.contains(&j.derivation))
+            .unwrap();
+        assert_eq!(j.truth, proof.truth);
+        assert_eq!(j.roots, proof.roots);
+        assert!(
+            !j.roots.contains(&1),
+            "the conclusion's own source is not a root"
         );
     }
 
