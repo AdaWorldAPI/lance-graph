@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-498 entries, 2026-08-06 .. 2026-10-28.
+499 entries, 2026-08-06 .. 2026-10-28.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-28 | `thought-layers-nan-skip` |  | [2026-10-28-thought-layers-nan-skip.md](2026-10-28-thought-layers-nan-skip.md) |
 | 2026-10-28 | `lane-layout-from-classview` |  | [2026-10-28-lane-layout-from-classview.md](2026-10-28-lane-layout-from-classview.md) |
 | 2026-10-28 | `D-SAG-6-1` |  | [2026-10-28-d-sag-6-1-audit-reference-ledger.md](2026-10-28-d-sag-6-1-audit-reference-ledger.md) |
+| 2026-10-28 | `D-EPI-COT-C3C` |  | [2026-10-28-d-epi-cot-c3c-learn.md](2026-10-28-d-epi-cot-c3c-learn.md) |
 | 2026-10-28 | `D-EPI-COT-C3B` |  | [2026-10-28-d-epi-cot-c3b-scent.md](2026-10-28-d-epi-cot-c3b-scent.md) |
 | 2026-10-28 | `D-EPI-COT` |  | [2026-10-28-d-epi-cot-c0-c2.md](2026-10-28-d-epi-cot-c0-c2.md) |
 | 2026-10-28 | `D-DT64-6` |  | [2026-10-28-d-dt64-6-routing-bindstore-behavior.md](2026-10-28-d-dt64-6-routing-bindstore-behavior.md) |
