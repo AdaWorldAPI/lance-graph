@@ -32,3 +32,11 @@ Plan: `docs/research/epistemic-cot/c3-plan.md` §8.
 - ASC and CR are not run through `fire`.
 - The lab affordance law still has its own rule type.
 - C3b and C3c wait on the bits 50..52 order decision and the TFLite location.
+
+## Addendum, same day: ledger → `pearl::hydrate`
+
+- `nars::mediator::hydrate_from_ledger` connects the ledger's grounded deductions of `A → Y` through `B` to the unchanged `pearl::hydrate`. It returns derivations, roots, the `Hydration` result, the edge and the mediated-path sensitivity.
+- The ledger never creates a chain, and a path the chain does not witness leaves the edge unchanged. A chain-only path has no ledger receipt and is refused.
+- `Law::Deduction` admits `Impl` in an explicit step: never closure, and `Rel` never composes.
+- 5 tests; 5 disables red. The first grounding disable did not bind (no proofs exist without evidence); it was replaced before recording.
+- Maturation order for new declared readings is `7 = Staunen … 0 = Wisdom`. The TFLite kernels are in ndarray.

@@ -258,3 +258,72 @@ same 8 sites on main `694b243bd` as on this branch:
   and the ledger already pools them.
 - **The lab affordance law** still has its own rule type.
 - **C3b and C3c,** which wait on the decisions in §7.
+
+## 9. Ledger → `pearl::hydrate` seam
+
+**Existing:** `planner::pearl::{reason, revise, hydrate}` (#1390/#1391) already
+writes bits 59..63. `hydrate` moves `IndirectUnknown` to `IndirectKnown` when
+both bindings `A → B` and `B → Y` are in the sealed chain. None of the files
+named `hydrate.rs` is that gate:
+
+- `deepnsm-v2/src/hydrate.rs` addresses parsed triples to their verse;
+- `lance-graph/src/graph/hydrate.rs` loads bgz7 vectors into Lance;
+- `bgz-tensor/src/hydrate.rs` is a download binary.
+
+**Added:** `nars::mediator::hydrate_from_ledger`.
+
+1. It finds the ledger's grounded deductions of `A → Y` through `B`.
+2. It hands the path to the unchanged `pearl::hydrate`.
+3. It returns a receipt: derivation ids, source roots, the `Hydration`
+   result, the edge after `hydrate`, and `A → Y`'s sensitivity with the
+   mediated derivations removed.
+
+What each side is allowed to do:
+
+- **The ledger never creates a chain.** A ledger path whose links are not
+  both in the sealed chain leaves the edge unchanged.
+- **The adapter refuses a chain-only path.** If the ledger has no grounded
+  path through `B`, there is no receipt.
+- **Only subject and object are read** from each chain step. The step tag is
+  not a predicate; that was the #1572 guard, which was withdrawn.
+
+To record causal mediator paths, `Law::Deduction` now admits `Impl` in an
+explicit step:
+
+- `Copula::transits` still keeps `Impl` out of blanket closure, and `Rel`
+  still never composes.
+- The step earns NARS truth only. It certifies nothing.
+
+| falsifier | test | disable |
+|---|---|---|
+| chain-witnessed ledger path hydrates (raw5 22 → 21) with roots | `a_ledger_path_witnessed_by_the_chain_hydrates` | — |
+| ledger path alone does not hydrate | `a_ledger_path_alone_does_not_hydrate` | — (`pearl::hydrate` owns it) |
+| grounded path through B required | `the_adapter_needs_a_grounded_ledger_path_through_the_mediator` | accept ungrounded derivations; accept any mediator |
+| redundant mediated path not reported as necessary | `a_redundant_mediated_path_is_not_reported_as_necessary` | — |
+| edge must be the target | `the_edge_must_be_the_target_relation` | skip the edge check |
+| `Impl` chains, `Rel` never | `l8_an_invalid_figure_is_not_admitted` | `Rel` composes; `Impl` refused |
+
+**One disable did not bind on its first form.** Falling back to "any proof"
+changed nothing, because without evidence there are no proofs at all.
+Accepting derivations without a proof does bind, and that is the form
+recorded.
+
+**Maturation (operator, 2026-10-28):** `7 = Staunen … 0 = Wisdom` (the #1494
+order) is the order for new, explicitly declared maturation readings.
+
+- Wisdom stays revisable: an independently witnessed contradiction reopens
+  it.
+- No existing class is reinterpreted. `deepnsm-v2` keeps its opposite
+  `novelty_wisdom` order.
+- Before any production write, four things must be settled: the reading,
+  its provenance, a migration, and the `CausalEdge64::learn` collision.
+- Until then, maturation stays transient and fail-closed.
+
+**TFLite (operator, 2026-10-28):** the kernels are in `AdaWorldAPI/ndarray`:
+
+- `src/simd_fixedpoint.rs`: TFLite fixed-point arithmetic;
+- `src/simd_stride.rs`: `lut9`;
+- `src/hpc/codec9.rs`: Palette512.
+
+`AdaWorldAPI/tflite-micro` is the reference, and lance-graph #1800 has the
+softmax oracle. No `lance-graph-tflite` crate. No training kernel exists yet.
