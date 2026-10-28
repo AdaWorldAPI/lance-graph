@@ -207,10 +207,10 @@ fn keep(res: &Resident, filter: Filter) -> Vec<u64> {
     out
 }
 
-/// TRUE and FALSE masks of `class = 'employee' AND sel = want` (K3). The TRUE
-/// mask comes from Quack's own `Draft::bind`; the FALSE mask from the same
-/// leaves under `NOT`, both through `Filter::sql_where`.
-fn where_k3(res: &Resident, cb: &Codebook, want: i32) -> (Vec<u64>, Vec<u64>) {
+/// WHERE `class = 'employee' AND sel = want`: the TRUE rows, through Quack's
+/// own `Draft::bind` (three-valued over the nullable `sel`), checked against
+/// the same filter built by hand.
+fn where_k3(res: &Resident, cb: &Codebook, want: i32) -> Vec<u64> {
     let bound = table("node")
         .where_eq("class", "employee")
         .where_eq("sel", want)
@@ -221,15 +221,28 @@ fn where_k3(res: &Resident, cb: &Codebook, want: i32) -> (Vec<u64>, Vec<u64>) {
         Filter::Cmp(SEL, Cmp::EqI32(want)),
     ]);
     let nullable = [(SEL, VSEL)];
-    let t_direct = Filter::and([Filter::plane(LIVE), raw.clone()]).sql_where(&nullable);
-    let f = Filter::and([Filter::plane(LIVE), Filter::negate(raw)]).sql_where(&nullable);
+    let t_direct = Filter::and([Filter::plane(LIVE), raw]).sql_where(&nullable);
     let t = keep(res, bound.filter);
     assert_eq!(
         t,
         keep(res, t_direct),
         "Draft::bind and the hand-built filter must agree"
     );
-    (t, keep(res, f))
+    t
+}
+
+/// WHERE `NOT (class = 'employee' AND sel = want)`: a second WHERE, evaluated
+/// by the same three-valued `sql_where`. `NOT UNKNOWN` stays UNKNOWN, so a
+/// NULL row is kept by neither this nor [`where_k3`].
+fn where_not(res: &Resident, cb: &Codebook, want: i32) -> Vec<u64> {
+    let raw = Filter::and([
+        Filter::Cmp(CLASS, Cmp::EqU32(cb.encode(EMP))),
+        Filter::Cmp(SEL, Cmp::EqI32(want)),
+    ]);
+    keep(
+        res,
+        Filter::and([Filter::plane(LIVE), Filter::negate(raw)]).sql_where(&[(SEL, VSEL)]),
+    )
 }
 
 fn bit(m: &[u64], g: u64) -> bool {
@@ -427,7 +440,6 @@ fn bind<'a>(
 fn select(
     map: &LocalMap,
     t: &[u64],
-    f: &[u64],
     gst: &FrameStore,
     gseal: &Frame,
     lst: &FrameStore,
@@ -438,7 +450,6 @@ fn select(
     project(
         map,
         t,
-        f,
         Under {
             global_store: gst,
             global: gseal,
@@ -475,14 +486,13 @@ fn global_selection_is_exact_and_only_frame_identities_are_projected() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     // Whole-mask comparison against the oracle, every one of 65,536 addresses.
     let (mut gt, mut gf, mut gu) = (0u32, 0u32, 0u32);
     for (g, r) in w.src.iter().enumerate() {
         let g64 = g as u64;
         let v = verdict(r, WANT);
         assert_eq!(bit(&t, g64), v == Some(Some(true)), "TRUE at {g}");
-        assert_eq!(bit(&f, g64), v == Some(Some(false)), "FALSE at {g}");
         gt += u32::from(v == Some(Some(true)));
         gf += u32::from(v == Some(Some(false)));
         gu += u32::from(v == Some(None));
@@ -490,23 +500,14 @@ fn global_selection_is_exact_and_only_frame_identities_are_projected() {
     let m = maps(&w);
     let (gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     let a = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
     let (ot, of, ou) = oracle_local(&w.src, &w.emp_ids, WANT);
-    assert_eq!((a.truth(), a.falsity(), a.unknown()), (ot, of, ou));
+    assert_eq!(a.truth(), ot);
+    // Neither a FALSE nor an UNKNOWN identity is selected.
+    assert_eq!(a.truth() & (of | ou), 0);
     assert_eq!(a.slots(), u64::MAX);
     // Anti-vacuity: all three verdicts occur in the frame, and the global
     // selection reaches far beyond it. Projection work is the frame, not the
@@ -525,7 +526,7 @@ fn equal_local_ordinals_of_two_tables_never_alias() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let gst = global_store(&cb);
     let seal = gst.seal();
@@ -534,7 +535,6 @@ fn equal_local_ordinals_of_two_tables_never_alias() {
     let se = select(
         &m.emp,
         &t,
-        &f,
         &gst,
         &seal,
         &lemp,
@@ -547,7 +547,6 @@ fn equal_local_ordinals_of_two_tables_never_alias() {
     let sd = select(
         &m.dept,
         &t,
-        &f,
         &gst,
         &seal,
         &ldept,
@@ -563,11 +562,9 @@ fn equal_local_ordinals_of_two_tables_never_alias() {
     let ae = se.admit(&gst, &lemp, &be, CRITERIA).unwrap();
     let ad = sd.admit(&gst, &ldept, &bd, CRITERIA).unwrap();
     // The employee selection occupies ordinals the department frame also has;
-    // projected through the department map it selects no department (every
-    // department is FALSE for `class = 'employee'`, never UNKNOWN).
+    // projected through the department map it selects no department.
     assert_ne!(ae.truth() & ad.slots(), 0);
     assert_eq!(ad.truth(), 0);
-    assert_eq!(ad.falsity(), ad.slots());
     // An employee selection cannot be read against a department-row register,
     // even when that register sits in the very frame the selection was made in.
     let bd_in_emp = bind(&lemp, &ge, dept_attr_sig(), &rd, None);
@@ -589,22 +586,11 @@ fn selected_identity_by_property_matches_the_oracle_and_survives_rotation() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let (gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     let a = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
@@ -649,65 +635,116 @@ fn selected_identity_by_property_matches_the_oracle_and_survives_rotation() {
     }));
 }
 
-// ── 4. NULL / UNKNOWN: never FALSE ────────────────────────────────────────
+// ── 4. NULL / UNKNOWN: NOT UNKNOWN is UNKNOWN ─────────────────────────────
+
+const NOT_CRITERIA: Criteria = Criteria { id: 0xC1_0001 };
 
 #[test]
-fn unknown_stays_unknown_in_selection_negation_and_property() {
+fn unknown_is_neither_selected_nor_negated_and_never_read_as_false() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
+    // The negation is its own WHERE through Quack's three-valued sql_where.
+    let tn = where_not(&res, &cb, WANT);
+    // Globally: the negated WHERE keeps exactly the oracle's FALSE rows, and
+    // a NULL row is kept by neither WHERE.
+    let mut gap = 0u32;
+    for (g, r) in w.src.iter().enumerate() {
+        let (g64, v) = (g as u64, verdict(r, WANT));
+        assert_eq!(bit(&tn, g64), v == Some(Some(false)), "NOT at {g}");
+        if v == Some(None) {
+            assert!(!bit(&t, g64) && !bit(&tn, g64), "UNKNOWN at {g}");
+            gap += 1;
+        }
+    }
+    assert!(gap > 1000);
     let m = maps(&w);
     let (gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        certified_sig(),
-    )
-    .unwrap();
     let (val, known) = certified_planes(&w);
     let b = bind(&lst, &g, certified_sig(), &val, Some(&known));
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), certified_sig()).unwrap();
     let a = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
-    // NOT(selection) is FALSE, not "every slot not TRUE".
-    assert_ne!(a.unknown(), 0);
-    assert_eq!(a.falsity() & a.unknown(), 0);
-    assert_ne!(a.falsity(), a.slots() & !a.truth());
+    let under = |criteria| Under {
+        global_store: &gst,
+        global: &seal,
+        local_store: &lst,
+        guards: &g,
+        axis: emp_id(),
+        method: certified_sig(),
+        criteria,
+    };
+    let neg = project(&m.emp, &tn, under(NOT_CRITERIA)).unwrap();
+    let an = neg.admit(&gst, &lst, &b, NOT_CRITERIA).unwrap();
+    // A selection is not reusable as its own negation.
+    assert_eq!(
+        neg.admit(&gst, &lst, &b, CRITERIA),
+        Err(ReuseRefusal::CriteriaChanged)
+    );
+    // In the frame: the UNKNOWN slots are in neither selection, so the
+    // complement of a selection is not its negation.
+    let (ot, of, ou) = oracle_local(&w.src, &w.emp_ids, WANT);
+    assert_eq!((a.truth(), an.truth()), (ot, of));
+    assert_eq!(a.truth() & an.truth(), 0);
+    assert_eq!(a.slots() & !(a.truth() | an.truth()), ou);
+    assert_ne!(ou, 0);
+    assert_ne!(a.slots() & !a.truth(), an.truth());
     // The NULL rows' payload is 1 = WANT, so an engine reading payloads at
-    // NULL would have kept them: none is TRUE.
+    // NULL would have kept them: none is selected by either WHERE.
     for &e in &w.emp_ids {
         if w.src[e as usize].sel.is_none() {
-            assert_eq!((a.truth() >> pos(&w.emp_ids, e)) & 1, 0);
+            let x = pos(&w.emp_ids, e);
+            assert_eq!((a.truth() | an.truth()) >> x & 1, 0);
         }
     }
-    // Three-valued property over the selected identities, column by column.
-    let (mut u_cells, mut f_cells) = (0u32, 0u32);
-    for (y, &s) in w.skills.iter().enumerate() {
-        let (ct, cf, cu) = selected_column_k3(&b, &a, y as u8).unwrap();
-        let (mut et, mut ef, mut eu) = (0u64, 0u64, 0u64);
-        for &e in &w.emp_ids {
-            if verdict(&w.src[e as usize], WANT) != Some(Some(true)) {
-                continue;
+    // Three-valued property over the selected identities, in the register's
+    // own value + validity form.
+    let check = |b: &BoundDr64<'_>| {
+        let (mut u_cells, mut f_cells) = (0u32, 0u32);
+        for (y, &s) in w.skills.iter().enumerate() {
+            let (cv, ck) = selected_column_k3(b, &a, y as u8).unwrap();
+            let (mut et, mut ef, mut eu) = (0u64, 0u64, 0u64);
+            for &e in &w.emp_ids {
+                if verdict(&w.src[e as usize], WANT) != Some(Some(true)) {
+                    continue;
+                }
+                let bitpos = 1u64 << pos(&w.emp_ids, e);
+                match w.certified.iter().find(|c| c.0 == e && c.1 == s) {
+                    Some((_, _, Some(true))) => et |= bitpos,
+                    Some((_, _, Some(false))) => ef |= bitpos,
+                    // No fact, or a fact with unknown certification: UNKNOWN.
+                    _ => eu |= bitpos,
+                }
             }
-            let bitpos = 1u64 << pos(&w.emp_ids, e);
-            match w.certified.iter().find(|c| c.0 == e && c.1 == s) {
-                Some((_, _, Some(true))) => et |= bitpos,
-                Some((_, _, Some(false))) => ef |= bitpos,
-                // No fact, or a fact with unknown certification: UNKNOWN.
-                _ => eu |= bitpos,
-            }
+            assert_eq!(cv, et, "TRUE, certified column {s}");
+            assert_eq!(ck & !cv, ef, "FALSE, certified column {s}");
+            assert_eq!(a.truth() & !ck, eu, "UNKNOWN, certified column {s}");
+            u_cells += (a.truth() & !ck).count_ones();
+            f_cells += (ck & !cv).count_ones();
         }
-        assert_eq!((ct, cf, cu), (et, ef, eu), "certified column {s}");
-        u_cells += cu.count_ones();
-        f_cells += cf.count_ones();
-    }
-    assert!(u_cells > 0 && f_cells > 0);
+        assert!(u_cells > 0 && f_cells > 0);
+    };
+    check(&b);
+    // A stale payload bit under an UNKNOWN cell of a selected identity is
+    // never returned as TRUE.
+    let (x, y) = w
+        .emp_ids
+        .iter()
+        .filter(|&&e| verdict(&w.src[e as usize], WANT) == Some(Some(true)))
+        .flat_map(|&e| w.skills.iter().map(move |&s| (e, s)))
+        .find(|&(e, s)| {
+            !matches!(
+                w.certified.iter().find(|c| c.0 == e && c.1 == s),
+                Some((_, _, Some(_)))
+            )
+        })
+        .map(|(e, s)| (pos(&w.emp_ids, e), pos(&w.skills, s)))
+        .unwrap();
+    let mut dirty = val;
+    dirty[x as usize] |= 1 << y;
+    let bd = bind(&lst, &g, certified_sig(), &dirty, Some(&known));
+    check(&bd);
     // The Boolean folds read payload bits as presence, so they refuse a
     // selection admitted against this three-valued register.
     assert_eq!(selected_count(b.rows, &a), None);
@@ -722,22 +759,11 @@ fn source_change_after_where_refuses_reuse_and_rebind_matches() {
     let mut w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let (mut gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     let before = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
@@ -757,12 +783,11 @@ fn source_change_after_where_refuses_reuse_and_rebind_matches() {
     );
     // Rebind: WHERE again, project again, under the new seal.
     let res2 = resident(&w.src, &cb);
-    let (t2, f2) = where_k3(&res2, &cb, WANT);
+    let t2 = where_k3(&res2, &cb, WANT);
     let seal2 = gst.seal();
     let sel2 = select(
         &m.emp,
         &t2,
-        &f2,
         &gst,
         &seal2,
         &lst,
@@ -773,10 +798,7 @@ fn source_change_after_where_refuses_reuse_and_rebind_matches() {
     .unwrap();
     let after = sel2.admit(&gst, &lst, &b, CRITERIA).unwrap();
     assert_eq!(after.truth(), 0);
-    assert_eq!(
-        (after.truth(), after.falsity(), after.unknown()),
-        oracle_local(&w.src, &w.emp_ids, WANT)
-    );
+    assert_eq!(after.truth(), oracle_local(&w.src, &w.emp_ids, WANT).0);
     // The silent alternative: the old projection would still answer.
     assert_ne!(
         selected_count(b.rows, &before).unwrap(),
@@ -791,22 +813,11 @@ fn scope_or_focus_change_refuses_with_identical_coordinates() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let (gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     // Same frame issue, same coordinate numbers, same register bytes.
     let g_scope = Guards {
@@ -839,7 +850,7 @@ fn fk_projection_over_selection_matches_and_a_changed_reference_refuses() {
     let mut w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let gst = global_store(&cb);
     // One frame over both tables; its coordinates name the employee map, the
@@ -851,18 +862,7 @@ fn fk_projection_over_selection_matches_and_a_changed_reference_refuses() {
     };
     let mut lst = FrameStore::new(both);
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        works_in_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), works_in_sig()).unwrap();
     let rw = plane(&w.works_in, &w.emp_ids, &w.dept_ids);
     let rl = plane(&w.located_at, &w.dept_ids, &w.sites);
     let bw = bind(&lst, &g, works_in_sig(), &rw, None);
@@ -906,18 +906,7 @@ fn fk_projection_over_selection_matches_and_a_changed_reference_refuses() {
     let rl2 = plane(&w.located_at, &w.dept_ids, &w.sites);
     let bw2 = bind(&lst, &g2, works_in_sig(), &rw, None);
     let bl2 = bind(&lst, &g2, located_at_sig(), &rl2, None);
-    let sel2 = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g2,
-        emp_id(),
-        works_in_sig(),
-    )
-    .unwrap();
+    let sel2 = select(&m.emp, &t, &gst, &seal, &lst, &g2, emp_id(), works_in_sig()).unwrap();
     let a2 = sel2.admit(&gst, &lst, &bw2, CRITERIA).unwrap();
     let chain2 = Chain::new(&lst, vec![bw2, bl2]).unwrap();
     let (es2, _) = chain2
@@ -939,24 +928,13 @@ fn reseal_and_coordinate_changes_refuse() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let gst = global_store(&cb);
     let seal = gst.seal();
     let mut lst = local_store(&m.emp);
     let g = guards(&lst, FOCUS, SCOPE);
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     let before = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
@@ -985,7 +963,6 @@ fn reseal_and_coordinate_changes_refuse() {
         select(
             &m.emp,
             &t,
-            &f,
             &gst,
             &seal,
             &lst,
@@ -998,18 +975,7 @@ fn reseal_and_coordinate_changes_refuse() {
     );
     // Through the new map it projects, with the bits moved to the new
     // ordinals.
-    let sel2 = select(
-        &map2,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g2,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel2 = select(&map2, &t, &gst, &seal, &lst, &g2, emp_id(), has_skill_sig()).unwrap();
     let r2 = plane(&w.has_skill, &reordered, &w.skills);
     let b2 = bind(&lst, &g2, has_skill_sig(), &r2, None);
     let a2 = sel2.admit(&gst, &lst, &b2, CRITERIA).unwrap();
@@ -1027,23 +993,12 @@ fn foreign_owner_codebook_criteria_and_schema_refuse() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let mut gst = global_store(&cb);
     let lst = local_store(&m.emp);
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     // Another owner at identical numbers.
@@ -1076,15 +1031,14 @@ fn foreign_owner_codebook_criteria_and_schema_refuse() {
         Err(ReuseRefusal::Global(Refusal::MapChanged))
     );
     let res2 = resident(&w.src, &cb2);
-    let (t_stale, _) = where_k3(&res2, &cb, WANT);
-    let (t_fresh, f_fresh) = where_k3(&res2, &cb2, WANT);
+    let t_stale = where_k3(&res2, &cb, WANT);
+    let t_fresh = where_k3(&res2, &cb2, WANT);
     assert_eq!(t_fresh, t);
     assert!(t_stale.iter().all(|&x| x == 0));
     let seal2 = gst.seal();
     let sel2 = select(
         &m.emp,
         &t_fresh,
-        &f_fresh,
         &gst,
         &seal2,
         &lst,
@@ -1109,12 +1063,11 @@ fn empty_and_full_global_selections_are_exact() {
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     // Empty: no row has sel = 99. Every frame employee is FALSE or UNKNOWN.
-    let (t0, f0) = where_k3(&res, &cb, 99);
+    let t0 = where_k3(&res, &cb, 99);
     assert!(t0.iter().all(|&x| x == 0));
     let s0 = select(
         &m.emp,
         &t0,
-        &f0,
         &gst,
         &seal,
         &lst,
@@ -1124,14 +1077,10 @@ fn empty_and_full_global_selections_are_exact() {
     )
     .unwrap();
     let a0 = s0.admit(&gst, &lst, &b, CRITERIA).unwrap();
-    assert_eq!(
-        (a0.truth(), a0.falsity(), a0.unknown()),
-        oracle_local(&w.src, &w.emp_ids, 99)
-    );
+    assert_eq!(a0.truth(), oracle_local(&w.src, &w.emp_ids, 99).0);
     assert_eq!(selected_count(b.rows, &a0).unwrap(), 0);
     // Full: the every-address plane. All 65,536 TRUE, every slot selected.
     let full = keep(&res, Filter::plane(ALL));
-    let none = vec![0u64; GLOBAL_WORDS];
     assert_eq!(
         full.iter().map(|w| w.count_ones()).sum::<u32>(),
         GLOBAL as u32
@@ -1139,7 +1088,6 @@ fn empty_and_full_global_selections_are_exact() {
     let s1 = select(
         &m.emp,
         &full,
-        &none,
         &gst,
         &seal,
         &lst,
@@ -1149,7 +1097,7 @@ fn empty_and_full_global_selections_are_exact() {
     )
     .unwrap();
     let a1 = s1.admit(&gst, &lst, &b, CRITERIA).unwrap();
-    assert_eq!((a1.truth(), a1.falsity(), a1.unknown()), (u64::MAX, 0, 0));
+    assert_eq!(a1.truth(), u64::MAX);
     assert_eq!(
         selected_count(b.rows, &a1).unwrap() as usize,
         w.has_skill.len()
@@ -1159,7 +1107,6 @@ fn empty_and_full_global_selections_are_exact() {
         select(
             &m.emp,
             &full[..10],
-            &none,
             &gst,
             &seal,
             &lst,
@@ -1170,21 +1117,6 @@ fn empty_and_full_global_selections_are_exact() {
         .err(),
         Some(ProjectRefusal::WrongWidth)
     );
-    assert_eq!(
-        select(
-            &m.emp,
-            &full,
-            &full,
-            &gst,
-            &seal,
-            &lst,
-            &g,
-            emp_id(),
-            has_skill_sig()
-        )
-        .err(),
-        Some(ProjectRefusal::NotThreeValued)
-    );
     let far = LocalMap::prepare(&[GLOBAL as u64]).unwrap();
     let lfar = local_store(&far);
     let gfar = guards(&lfar, FOCUS, SCOPE);
@@ -1192,7 +1124,6 @@ fn empty_and_full_global_selections_are_exact() {
         select(
             &far,
             &full,
-            &none,
             &gst,
             &seal,
             &lfar,
@@ -1212,7 +1143,7 @@ fn stale_keep_negative_control_is_refused_not_answered() {
     let mut w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     // The detached Keep: kept outside any guard, then the criteria input
     // (`sel`) changes on half the selected rows of the whole universe.
     let detached = t.clone();
@@ -1224,7 +1155,7 @@ fn stale_keep_negative_control_is_refused_not_answered() {
         }
     }
     let res2 = resident(&w.src, &cb);
-    let (fresh, _) = where_k3(&res2, &cb, WANT);
+    let fresh = where_k3(&res2, &cb, WANT);
     let pop = |m: &[u64]| m.iter().map(|x| x.count_ones()).sum::<u32>();
     // Unguarded, the detached mask answers silently with the old population.
     assert_eq!(pop(&detached) - pop(&fresh), moved);
@@ -1237,7 +1168,6 @@ fn stale_keep_negative_control_is_refused_not_answered() {
     let sel = select(
         &m.emp,
         &detached,
-        &f,
         &gst,
         &seal,
         &lst,
@@ -1264,7 +1194,6 @@ fn stale_keep_negative_control_is_refused_not_answered() {
         select(
             &m.emp,
             &detached,
-            &f,
             &gst,
             &seal2,
             &lst,
@@ -1283,25 +1212,14 @@ fn projection_admission_and_folds_do_not_allocate() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let (gst, lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
     let r = plane(&w.has_skill, &w.emp_ids, &w.skills);
     let b = bind(&lst, &g, has_skill_sig(), &r, None);
     let before = allocs();
-    let sel = select(
-        &m.emp,
-        &t,
-        &f,
-        &gst,
-        &seal,
-        &lst,
-        &g,
-        emp_id(),
-        has_skill_sig(),
-    )
-    .unwrap();
+    let sel = select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).unwrap();
     let a = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
     let mut acc = selected_count(b.rows, &a).unwrap();
     for y in 0..40u8 {
@@ -1319,43 +1237,19 @@ fn projection_under_a_stale_global_seal_or_local_frame_is_refused() {
     let w = world(SEED);
     let cb = Codebook { shift: 0 };
     let res = resident(&w.src, &cb);
-    let (t, f) = where_k3(&res, &cb, WANT);
+    let t = where_k3(&res, &cb, WANT);
     let m = maps(&w);
     let (mut gst, mut lst) = (global_store(&cb), local_store(&m.emp));
     let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
     // Silence twin: current seals project.
-    assert!(
-        select(
-            &m.emp,
-            &t,
-            &f,
-            &gst,
-            &seal,
-            &lst,
-            &g,
-            emp_id(),
-            has_skill_sig()
-        )
-        .is_ok()
-    );
+    assert!(select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).is_ok());
     // The global owner moved between WHERE and projection.
     gst.advance(FrameRevisions {
         source: 2,
         ..gst.revisions()
     });
     assert_eq!(
-        select(
-            &m.emp,
-            &t,
-            &f,
-            &gst,
-            &seal,
-            &lst,
-            &g,
-            emp_id(),
-            has_skill_sig()
-        )
-        .err(),
+        select(&m.emp, &t, &gst, &seal, &lst, &g, emp_id(), has_skill_sig()).err(),
         Some(ProjectRefusal::Global(Refusal::SourceChanged))
     );
     // Another owner's seal at identical numbers.
@@ -1365,7 +1259,6 @@ fn projection_under_a_stale_global_seal_or_local_frame_is_refused() {
         select(
             &m.emp,
             &t,
-            &f,
             &other,
             &seal_now,
             &lst,
@@ -1382,7 +1275,6 @@ fn projection_under_a_stale_global_seal_or_local_frame_is_refused() {
         select(
             &m.emp,
             &t,
-            &f,
             &gst,
             &seal_now,
             &lst,

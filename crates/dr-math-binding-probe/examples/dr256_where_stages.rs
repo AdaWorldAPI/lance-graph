@@ -38,7 +38,7 @@ use lance_graph_mask_risc::{
     Foreign, LaneRef, Out, Planes, Program, Scratch, execute_into, words_for,
 };
 use lance_graph_quack::bind::{Binder, BoundField, FieldKind, TableId, table};
-use lance_graph_quack::{Agg, Cmp, Col, Filter, Mask, Query, lower};
+use lance_graph_quack::{Agg, Col, Filter, Mask, Query, lower};
 
 // ── allocation counter ────────────────────────────────────────────────────
 
@@ -425,42 +425,26 @@ struct Inputs<'a> {
     lanes: [LaneRef<'a>; 2],
 }
 
-/// The TRUE and FALSE Keep programs of `class = 'employee' AND sel = WANT`
-/// and their reusable output buffers.
+/// The one WHERE `Keep` program of `class = 'employee' AND sel = WANT` and its
+/// reusable output buffer.
 struct Eng {
     kt: Kept,
-    kf: Kept,
     ot: Vec<u64>,
-    of: Vec<u64>,
 }
 impl Eng {
     fn where_true(&mut self, inp: &Inputs<'_>) {
         self.kt.run(inp, &mut self.ot);
     }
-    fn where_false(&mut self, inp: &Inputs<'_>) {
-        self.kf.run(inp, &mut self.of);
-    }
-    fn where_both(&mut self, inp: &Inputs<'_>) {
-        self.where_true(inp);
-        self.where_false(inp);
-    }
 }
 
-/// The TRUE-side filter as Quack's own bind makes it, and the FALSE-side
-/// filter built from the same leaves under NOT (`Filter::sql_where`).
-fn filters(cb: &Codebook) -> (Filter, Filter) {
-    let bound = table("node")
+/// The WHERE filter as Quack's own bind makes it (three-valued over `sel`).
+fn filter(cb: &Codebook) -> Filter {
+    table("node")
         .where_eq("class", "employee")
         .where_eq("sel", WANT)
         .bind(cb)
-        .expect("binds");
-    let raw = Filter::and([
-        Filter::Cmp(CLASS, Cmp::EqU32(cb.encode(EMP))),
-        Filter::Cmp(SEL, Cmp::EqI32(WANT)),
-    ]);
-    let nullable = [(SEL, VSEL)];
-    let f = Filter::and([Filter::plane(LIVE), Filter::negate(raw)]).sql_where(&nullable);
-    (bound.filter, f)
+        .expect("binds")
+        .filter
 }
 
 fn proj(
@@ -474,7 +458,6 @@ fn proj(
     project(
         map,
         &eng.ot,
-        &eng.of,
         Under {
             global_store: gst,
             global: seal,
@@ -490,7 +473,7 @@ fn proj(
 
 // ── the three reuse strategies ────────────────────────────────────────────
 
-/// One full read: WHERE TRUE+FALSE, project, admit, count.
+/// One full read: WHERE, project, admit, count.
 #[allow(clippy::too_many_arguments)]
 fn fresh_read(
     eng: &mut Eng,
@@ -502,7 +485,7 @@ fn fresh_read(
     g: &Guards,
     b: &BoundDr64<'_>,
 ) -> u64 {
-    eng.where_both(inp);
+    eng.where_true(inp);
     let sel = proj(map, eng, gst, seal, lst, g);
     let a = sel.admit(gst, lst, b, CRITERIA).unwrap();
     u64::from(selected_count(b.rows, &a).unwrap())
@@ -537,7 +520,7 @@ fn total_warm(
     g: &Guards,
     b: &BoundDr64<'_>,
 ) -> u64 {
-    eng.where_both(inp);
+    eng.where_true(inp);
     let sel = proj(map, eng, gst, seal, lst, g);
     let mut acc = 0u64;
     for _ in 0..n {
@@ -575,7 +558,7 @@ fn total_rebind(
             "the old selection must be refused after the source moved"
         );
         let seal = gst.seal();
-        eng.where_both(inp);
+        eng.where_true(inp);
         let sel = proj(map, eng, gst, &seal, lst, g);
         let a = sel.admit(gst, lst, b, CRITERIA).unwrap();
         acc += u64::from(selected_count(b.rows, &a).unwrap());
@@ -636,7 +619,7 @@ fn main() {
         black_box(bound);
         1
     });
-    let (ftrue, ffalse) = filters(&cb);
+    let ftrue = filter(&cb);
     let q_true = Query {
         filter: ftrue.clone(),
         agg: Agg::Rows,
@@ -654,27 +637,17 @@ fn main() {
     };
     let mut eng = Eng {
         kt: Kept::new(ftrue),
-        kf: Kept::new(ffalse),
         ot: vec![0u64; words_for(GLOBAL)],
-        of: vec![0u64; words_for(GLOBAL)],
     };
 
     // ── WHERE evaluation ─────────────────────────────────────────────────
     println!();
     println!("== WHERE evaluation (program lowered once; execute_into only) ==");
-    sink ^= measure("WHERE TRUE  Keep (65,536 rows)", 1, || {
+    sink ^= measure("WHERE Keep (65,536 rows)", 1, || {
         eng.where_true(black_box(&inp));
         eng.ot[0] ^ eng.ot[GLOBAL_WORDS - 1]
     });
-    sink ^= measure("WHERE FALSE Keep (65,536 rows)", 1, || {
-        eng.where_false(black_box(&inp));
-        eng.of[0] ^ eng.of[GLOBAL_WORDS - 1]
-    });
-    sink ^= measure("WHERE TRUE + FALSE", 1, || {
-        eng.where_both(black_box(&inp));
-        eng.ot[0] ^ eng.of[GLOBAL_WORDS - 1]
-    });
-    eng.where_both(&inp);
+    eng.where_true(&inp);
 
     // ── frames, register, selection ──────────────────────────────────────
     let gst = global_store(&cb);

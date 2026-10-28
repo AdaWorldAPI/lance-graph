@@ -10,12 +10,11 @@
 //! # What this module does not do
 //!
 //! It evaluates no predicate. The global selection is the output of Quack's
-//! existing WHERE (`Query { filter, agg: Agg::Rows }` → mask-risc `Keep`),
-//! handed in as two borrowed 8 KiB masks: the rows where the criteria are
-//! TRUE and the rows where they are FALSE (`Filter::sql_where` of the
-//! criteria and of their negation). A row in neither is UNKNOWN. This
-//! module has no Quack or mask-risc dependency; the tests and the stage
-//! example wire the real engine to it.
+//! existing typed WHERE (`Query { filter, agg: Agg::Rows }` → mask-risc
+//! `Keep`, three-valued through `Filter::sql_where`), handed in as one
+//! borrowed 8 KiB mask: the rows where the criteria are TRUE. This module
+//! has no Quack or mask-risc dependency; the tests and the stage example
+//! wire the real engine to it.
 //!
 //! It stores nothing. A [`LocalSelection`] is a caller-owned value, the
 //! projection of one selection into one frame, with the guards it was made
@@ -24,7 +23,7 @@
 //! # The three steps
 //!
 //! 1. **Global → local** ([`project`]): for each local ordinal `l` of the
-//!    table's [`LocalMap`], test bit `global(l)` of the TRUE and FALSE masks.
+//!    table's [`LocalMap`], test bit `global(l)` of the WHERE mask.
 //!    The work is `map.len()` probes, never a pass over 65,536 rows, and a
 //!    selected identity outside the frame is not promoted into it. The frame
 //!    must carry `map.digest()` as its `coordinates` revision, so a selection
@@ -39,13 +38,25 @@
 //!    over the identity axis, ANDed into reads of the borrowed rows. No
 //!    Cartesian product is built and no row is copied. The Boolean folds
 //!    refuse a three-valued or bag register; [`selected_column_k3`] reads
-//!    validity and serves both.
+//!    value and validity and serves both.
 //!
-//! # Three-valued semantics
+//! # Epistemic absence
 //!
-//! WHERE keeps TRUE only. UNKNOWN is carried separately
-//! ([`Admitted::unknown`]) and is never folded into FALSE: the complement of a
-//! selection is its FALSE set, not "every slot not TRUE".
+//! `$null`, NaN, SQL NULL, an unset Arrow validity bit and K3 UNKNOWN are one
+//! logical value here: no TRUE/FALSE judgment has been established. It says
+//! nothing about whether the entity or relationship exists, and it carries no
+//! finer epistemic state (that is CausalEdge64 Epi5, under its own evidence
+//! contract, and is not derived from absence alone).
+//!
+//! - WHERE selects TRUE. A slot that is not selected is FALSE **or** UNKNOWN;
+//!   [`Admitted`] gives no complement, because the complement of a selection
+//!   would read UNKNOWN as FALSE.
+//! - `NOT UNKNOWN` is UNKNOWN. A negated selection is a second WHERE over the
+//!   negated criteria, evaluated by Quack's typed three-valued `sql_where`,
+//!   never the complement of the first.
+//! - A three-valued property keeps the existing value + validity
+//!   representation (Arrow-style, `BoundDr64::validity`); no separate FALSE
+//!   mask is introduced.
 use crate::hhtl16::{self, LocalMap};
 use crate::relcomp::Rows;
 use crate::{
@@ -74,8 +85,6 @@ pub enum ProjectRefusal {
     OutOfUniverse,
     /// The local frame was not sealed under this map's coordinate assignment.
     MapNotFrame,
-    /// A row that is both TRUE and FALSE: not a three-valued selection.
-    NotThreeValued,
     /// The global source seal is not current.
     Global(Refusal),
     /// The local frame is not current.
@@ -108,7 +117,6 @@ pub enum ReuseRefusal {
 #[derive(Clone, Debug)]
 pub struct LocalSelection {
     truth: u64,
-    falsity: u64,
     slots: u64,
     axis: Axis,
     method: MethodSignature,
@@ -124,7 +132,6 @@ pub struct LocalSelection {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Admitted {
     truth: u64,
-    falsity: u64,
     slots: u64,
     /// The register admitted against is two-valued and distinct, so the
     /// Boolean folds may read its payload bits as presence.
@@ -132,17 +139,10 @@ pub struct Admitted {
 }
 
 impl Admitted {
-    /// Identities where the criteria are TRUE: what WHERE keeps.
+    /// Identities where the criteria are TRUE: what WHERE keeps. The other
+    /// occupied slots are FALSE or UNKNOWN, and this type does not say which.
     pub fn truth(&self) -> u64 {
         self.truth
-    }
-    /// Identities where the criteria are FALSE.
-    pub fn falsity(&self) -> u64 {
-        self.falsity
-    }
-    /// Identities where the criteria are UNKNOWN. Never part of FALSE.
-    pub fn unknown(&self) -> u64 {
-        self.slots & !(self.truth | self.falsity)
     }
     /// The occupied local slots of the frame.
     pub fn slots(&self) -> u64 {
@@ -169,17 +169,16 @@ pub struct Under<'a> {
     pub criteria: Criteria,
 }
 
-/// Project a three-valued global selection into one table's frame.
+/// Project a global WHERE selection into one table's frame.
 ///
-/// `truth` and `falsity` are the `Keep` outputs of WHERE for the criteria and
-/// for their negation. Work: `map.len()` probes into each mask.
+/// `truth` is the `Keep` output of WHERE: the rows where the criteria are
+/// TRUE. Work: `map.len()` probes into it.
 pub fn project(
     map: &LocalMap,
     truth: &[u64],
-    falsity: &[u64],
     under: Under<'_>,
 ) -> Result<LocalSelection, ProjectRefusal> {
-    if truth.len() != GLOBAL_WORDS || falsity.len() != GLOBAL_WORDS {
+    if truth.len() != GLOBAL_WORDS {
         return Err(ProjectRefusal::WrongWidth);
     }
     under
@@ -193,23 +192,17 @@ pub fn project(
     if under.guards.frame.revisions().coordinates != map.digest() {
         return Err(ProjectRefusal::MapNotFrame);
     }
-    let (mut t, mut f, mut slots) = (0u64, 0u64, 0u64);
+    let (mut t, mut slots) = (0u64, 0u64);
     for l in 0..map.len() as u8 {
         let g = map.global(l).ok_or(ProjectRefusal::OutOfUniverse)?;
         if g >= GLOBAL as u64 {
             return Err(ProjectRefusal::OutOfUniverse);
         }
-        let (bt, bf) = (bit(truth, g), bit(falsity, g));
-        if bt && bf {
-            return Err(ProjectRefusal::NotThreeValued);
-        }
-        t |= u64::from(bt) << l;
-        f |= u64::from(bf) << l;
+        t |= u64::from(bit(truth, g)) << l;
         slots |= 1 << l;
     }
     Ok(LocalSelection {
         truth: t,
-        falsity: f,
         slots,
         axis: under.axis,
         method: under.method,
@@ -262,7 +255,6 @@ impl LocalSelection {
         }
         Ok(Admitted {
             truth: self.truth,
-            falsity: self.falsity,
             slots: self.slots,
             boolean: register.method.truth == Truth::TwoValued
                 && register.method.population == Population::Distinct,
@@ -300,16 +292,20 @@ pub fn selected_column(rows: &Rows, a: &Admitted, y: u8) -> Option<u64> {
     hhtl16::column(rows, y).map(|c| c & a.truth)
 }
 
-/// Three-valued column `y` over the selected identities: (known TRUE, known
-/// FALSE, UNKNOWN). A two-valued register has no UNKNOWN.
-pub fn selected_column_k3(r: &BoundDr64<'_>, a: &Admitted, y: u8) -> Option<(u64, u64, u64)> {
+/// Column `y` over the selected identities in the register's own
+/// representation: `(value, validity)`, both restricted to the selection.
+/// A selected identity whose validity bit is clear is UNKNOWN, whatever its
+/// value bit holds; the value bit is masked by validity so a stale payload
+/// under an UNKNOWN cell is never returned as TRUE. A two-valued register is
+/// valid at every selected identity.
+pub fn selected_column_k3(r: &BoundDr64<'_>, a: &Admitted, y: u8) -> Option<(u64, u64)> {
     let sel = a.truth;
     let col = hhtl16::column(r.rows, y)?;
     let known = match r.validity {
         Some(_) => hhtl16::column_validity(r, y)?,
         None => u64::MAX,
     };
-    Some((col & known & sel, !col & known & sel, !known & sel))
+    Some((col & known & sel, known & sel))
 }
 
 /// One cell `(x, y)`, read only if `x` is selected. `None` outside the
