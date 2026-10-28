@@ -10,23 +10,40 @@ Three paths were tried against the frozen NSL oracles:
 - **B1. Palette512 (9-bit sign-magnitude, SM9) edge weights.**
 - **B2. SM9 neighbor features:** the graph-loss distance computed in code
   space, and input features stored as SM9 behind a model.
+- **C. The palette mechanism proper,** not uniform quantization: a palette256
+  index as the needle (which row) with the Fisher-z i8 pair LUT for the
+  distance between two needles (FamilyGamma). Plus the TFLM-shaped softmax
+  table keyed by `q - q_max` (the max reads exp(0) = 1) for NSL's KL / JS
+  losses, and residual coding (source codes plus a separately scaled
+  residual).
+
+A and B were measured first, with uniform quantization only. Section C adds
+the palette and softmax mechanisms. It overturns the B1 conclusion for
+top-k selection and replaces the B2 production answer.
 
 ## Recommendation
 
 | path | verdict | why |
 |---|---|---|
 | A. label codebook | **ADOPT** | Exact NSL parity (18 of 19 fixtures; NaN refused). Cold build halved, query unchanged. |
-| B1. SM9 weights for **selection** | **REJECT** | Changes the top neighbor for 7–21% of seeds, and the packed order for 45–60%. |
+| B1. SM9 weights (fixed 1/255) for **selection** | **REJECT** | Changes the top neighbor for 7–21% of seeds, and the packed order for 45–60%. |
+| C1. **Fisher-z i8** weights (FamilyGamma fitted to the observed range) | **PROBE** | Top-1 changes for 0.6–0.8% of seeds and the top-4 order for about 5%: 9–34× better than SM9, 3× better than a fitted affine u8. Not exact, so the compat path keeps f64 order. A compact store or a quantized top-k behind a tolerance contract. |
 | B1'. exact f64 order, SM9 weight **value** for the loss | **PROBE** | Selection stays exact; the stored weight error is ≤ 0.25%. Breaks bit parity of `NL_nbr_*_weight`, so it needs its own tolerance contract. |
-| B2. SM9 distance in the **training loss** | **REJECT** | Logits are recomputed every step and never stored, so there is nothing to save. Quantizing them destroys close pairs, which is where regularization drives them. |
-| B2'. SM9 **stored neighbor features** | **PROBE** | 3.6× less storage than f32, about 1% loss error for pairs differing by 0.05 or more, failure below about 0.01. Needs a real model and a training run (B01, Cora) before adoption. |
+| B2. both endpoints quantized, distance in code space | **REJECT** | Fails once seed and neighbor differ by less than about 0.01, the converged state. Holds for L2, L1, cosine, and KL / JS through the softmax table. |
+| C2. palette256 needle + pair LUT for the **distance** | **REJECT** | 47–99.8% of close pairs land on one centroid and read distance 0. Loss error 50–100%, LUT reading irrelevant. Right for identity, wrong for a residual. |
+| C3. TFLM-shaped softmax table, int8 **output** grid (1/256) | **REJECT** | 17% median KL error even for distant pairs. Probabilities below 1/512 round to 0. An int16 output grid adds nothing over input error. |
+| C4. **residual coding**: source codes + int8 residual on its own scale | **PROBE (strongest)** | Median loss error flat across noise 0.5 → 0.001: 0.02–0.07% for L2, L1 and cosine; 0.2–0.5% for KL and JS. At small KL that is inside TF's own f32 error. Needs a real stored-feature use and a training run. |
+| B2'. SM9 **stored neighbor features**, endpoints coded independently | **SUPERSEDED by C4** | About 1% error for pairs differing by 0.05 or more, failure below about 0.01. |
 
 The production path is:
 
-1. A, plus the frozen-join CSR, as the neighbor store.
-2. The loss in f32 (`loss::graph_loss`, within 3 ULP of TensorFlow).
-3. SM9 only as a storage format for neighbor input features, behind a
-   gate that falls back to f32 for near-duplicate pairs.
+1. A, plus the frozen-join CSR, as the neighbor store; f64 weights for the
+   compat path (exact NSL order).
+2. The loss in f32 (`loss::graph_loss`: within 3 ULP of TensorFlow for L2 / L1
+   / cosine, inside TF's own cancellation budget for KL / JS).
+3. If stored features or weights must shrink: neighbors coded as a residual
+   against their seed (C4), and weights as Fisher-z i8 (C1). Both are PROBE
+   until a training run on real data.
 
 ## A. Label codebook
 
@@ -130,6 +147,144 @@ noise floor.
 The pattern is the same. The model is fixed and random, so this does not
 show what happens as training converges.
 
+## C. The palette mechanism
+
+The palette doctrine (`E-PALETTE256-IS-A-NEEDLE-THE-COLON-IS-THE-DISTRIBUTION-1`)
+splits a value into two parts:
+
+- **the needle:** a palette256 index, exact. It says which entry a value is.
+- **the distribution:** read from a pair LUT. Here that is the Fisher-z i8
+  table of `bgz-tensor::fisher_z`. It stores atanh(cosine) on a range fitted
+  to the data, so resolution is spent near ±1, where the tails are.
+
+Same index reads 1.0 from the address, never from the table. TFLite's palette
+polyfill (D-TFLP) applies the same idea to softmax: a table keyed by
+`x − max_row`, so the maximum reads table[0] = 1 exactly, plus one row
+reduction.
+
+The mirrors in `eval.rs` (test-only) are:
+
+- `FamilyGamma`: atanh clamped to ±0.9999, i8 truncation. It matches
+  bgz-tensor's own encode/decode test, and its truncation is pinned.
+- `softmax_table_row`, keyed by `q − q_max`.
+- `Palette`: spherical k-means, k = 256. Self-pairs read 1 from the address;
+  the table's own diagonal decodes below 1.
+
+All three are pinned by named tests.
+
+### C1. Fisher-z weights: the MP3 effect is real, for selection
+
+Same `build_graph`-shaped weights and seed as B1:
+
+| threshold | encoding | codes used | top-1 changed | top-4 order | full order |
+|---|---|---|---|---|---|
+| 0.80 | SM9 at 1/255 | 52 | 7.2% | 24.7% | 45.1% |
+| 0.80 | affine u8, fitted range | 256 | 2.4% | 7.2% | 26.9% |
+| 0.80 | Fisher-z i8, fitted | 242 | **0.8%** | **5.0%** | 42.6% |
+| 0.95 | SM9 at 1/255 | 14 | 20.6% | 50.2% | 60.5% |
+| 0.95 | affine u8, fitted range | 256 | 1.6% | 6.4% | 27.7% |
+| 0.95 | Fisher-z i8, fitted | 252 | **0.6%** | **4.8%** | 40.4% |
+
+There are two effects.
+
+**Fitting the range** is most of the gain over SM9. SM9 wastes 80–95% of its
+codes below the threshold.
+
+**The atanh stretch** buys another 3× at top-1. It spends codes near 1, where
+the strongest neighbors live and where `max_nbrs` cuts. It pays for that at
+the low end: the full order is worse than affine. That trade is right for
+NSL, which keeps only the top `max_nbrs`.
+
+On the palette LUT itself (below), the same shape shows up. Fisher-z has a
+larger maximum error overall (1.5e-2 vs affine 3.2e-3), and a smaller one
+for pairs with cosine above 0.9 (2.2e-3 vs 3.2e-3).
+
+### C2. Palette needle for the loss distance
+
+Spherical k-means with k = 256 is trained on 8,192 rows of 64 clustered
+prototypes (d = 32). Then 200 × 16 fresh pairs are drawn. The loss is
+NSL cosine, with each row's cosine read as pair(index(seed), index(neighbor)).
+
+| spread | noise | same needle | rel err, f32 LUT | Fisher-z LUT | affine LUT |
+|---|---|---|---|---|---|
+| 0.05 | 0.14 | 47.1% | 0.96 | 0.96 | 0.96 |
+| 0.05 | 0.01 | 91.2% | 0.55 | 0.54 | 0.53 |
+| 0.05 | 0.001 | 99.2% | 1.0 | 1.0 | 1.0 |
+| 0.15 | 0.05 | 84.6% | 0.46 | 0.48 | 0.48 |
+| 0.15 | 0.001 | 99.8% | 1.0 | 1.0 | 1.0 |
+
+Values are median relative error.
+
+The LUT reading does not matter: the error is the codebook's. A needle answers
+which row a value is, exactly. It cannot carry the gap between a seed and its
+near-duplicate neighbor, and that gap is all the graph loss measures. The
+doctrine says the same thing from the other side: the distribution is read
+from the colon pair, and two equal needles have none.
+
+### C3. NSL's KL / JS through the softmax table
+
+The oracle was extended with six cases: KL and JS with `transform_fn=SOFTMAX`
+on 10-class logits, at three noise levels. The earlier cases are
+byte-identical. The f64 reference lands inside TF's own f32 cancellation
+budget (≤ 0.10 of it). Measured in ULP, TF's value moves by up to 22,000 at
+the smallest divergence, because the KL is a difference of near-equal f32
+terms.
+
+Logits are quantized under one shared scale. The softmax uses the table keyed
+by `q − q_max`, and the divergence is NSL's. The sweep uses 400 seeds,
+16 pairs × 10 classes, logits ~ 2·N(0,1), and reports median relative error:
+
+| dist | noise | in9 | in8 | in8 + int8 output (1/256) | in8 + int16 output | **in8 + int8 residual** |
+|---|---|---|---|---|---|---|
+| KL | 0.5 | 2.2e-3 | 4.4e-3 | 1.7e-1 | 4.3e-3 | **1.7e-3** |
+| KL | 0.05 | 2.0e-2 | 4.8e-2 | 6.4e-1 | 4.7e-2 | **1.7e-3** |
+| KL | 0.01 | 2.1e-1 | 8.1e-1 | 7.1 | 8.1e-1 | **1.8e-3** |
+| KL | 0.001 | 7.3 | 16 | 220 | 16 | **5.3e-3** |
+| JS | 0.05 | 1.8e-2 | 4.2e-2 | 2.9e-1 | 4.2e-2 | **1.9e-3** |
+| JS | 0.001 | 7.8 | 15 | 33 | 15 | **1.8e-3** |
+
+Findings:
+
+- **The needle is exact, and it does not help here.** The max reads exactly 1,
+  but the divergence between two near-equal distributions lives in the
+  logit differences below the input step.
+- **The int8 output grid is the dominant error.** TFLM int8 softmax writes
+  probabilities at 1/256. Any class below 1/512 becomes 0, and NSL's
+  `ln(p + 1e-7)` turns that into a large term. An int16 output grid matches
+  input-only error. "TFLM-shaped" here means the table and the reduction; the
+  table is f64, not TFLM's fixed-point one, so this is not byte parity.
+- **Residual coding fixes all of it.** Code the seed's logits, then code
+  `neighbor − seed` on its own scale. The residual's step is set by the gap
+  itself, so the gap survives at every noise level.
+
+### C4. Residual coding across every NSL distance
+
+Same 400-seed sweep as B2. Seed int8 plus residual int8, median / p95:
+
+| dist | d | noise 0.5 | 0.05 | 0.01 | 0.001 |
+|---|---|---|---|---|---|
+| L2 | 32 | 4.5e-4 / 1.3e-3 | 4.5e-4 / 1.2e-3 | 4.3e-4 / 1.3e-3 | 4.7e-4 / 1.3e-3 |
+| L1 | 32 | 2.5e-4 / 7.9e-4 | 3.1e-4 / 7.8e-4 | 2.9e-4 / 8.2e-4 | 2.5e-4 / 8.7e-4 |
+| cosine | 32 | 6.8e-4 / 1.7e-3 | 6.9e-4 / 2.0e-3 | 6.7e-4 / 2.0e-3 | 7.2e-4 / 2.0e-3 |
+| L2 | 128 | 2.3e-4 / 7.0e-4 | 2.7e-4 / 6.8e-4 | 2.4e-4 / 7.8e-4 | 2.5e-4 / 7.4e-4 |
+
+Compare B2 at noise 0.001: an error of 9–19 with both endpoints coded
+independently. Here it is flat, and 2× better at d = 128. The falsifier
+`residual_coding_keeps_a_near_duplicate_loss_that_endpoint_coding_loses` is
+two-sided on the same near-duplicate case: endpoint coding has a relative
+error above 1, residual coding below 1%.
+
+This is the palette doctrine's own answer, made concrete:
+
+- the needle (the seed's codes) says where the pair is;
+- the residual carries the distribution (how far apart the two are).
+
+It is `EdgeCodecFlavor::CoarseResidue` in miniature.
+
+**Limit.** The residual is per pair. A neighbor shared by many seeds needs one
+residual per seed it serves. That is the copy NSL makes and this crate
+removed, unless neighbors are coded against a shared anchor.
+
 ## Literature (checked against the papers where cited)
 
 - **Neural Graph Machines** (Bui, Ravi, Ramavajjala, arXiv 1703.04818): the
@@ -166,3 +321,7 @@ So B2' needs, in order:
 - Cora or MNIST scale (B01, B02).
 - SIMD timing of an SM9 kernel.
 - The plain HashMap + SoA control from H1.
+- C1 and C4 on real `build_graph` output and real stored features.
+- A shared-anchor residual for neighbors used by many seeds.
+- TFLM byte parity of the softmax table. The TFLM reference is not built
+  here; the probe is `.claude/probes/fisherz-softmax-v1/softmax_oracle.cc`.

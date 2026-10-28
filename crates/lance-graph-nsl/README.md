@@ -12,8 +12,8 @@ features into every seed that selects it. This crate instead stores every
 example once (`FeatureTable`), interns node IDs into a sorted label codebook
 (`Graph`: an ID's code is its rank, so NSL's ID tie-break is an integer
 compare) and keeps neighbors as row references (`Adjacency`, a CSR sorted in
-NSL order). `loss::graph_loss` is NSL's graph loss (L2, L1, cosine;
-`SUM_BY_NONZERO_WEIGHTS`) in f32. `compat_lines` writes the records
+NSL order). `loss::graph_loss` is NSL's graph loss (L2, L1, cosine, and KL / JS after
+softmax; `SUM_BY_NONZERO_WEIGHTS`) in f32. `compat_lines` writes the records
 NSL would have produced, so the two can be compared line by line.
 
 | NSL behaviour | here |
@@ -65,8 +65,8 @@ Two runs give the same golden file.
 | oracle script sha256 | `52abffbc09fc21db8d82b255e275864b66b4f2bbd0e66e6d980621113b81d9fd` |
 | fixtures.txt sha256 | `252a2fa38f0b5f2efdbea0e72901f951ac0d580403af20ecee6a7aa5dae8cae3` |
 | nsl_golden.txt sha256 | `221cb9640c66815241cb77482e443df009fb98f32eaab94d393adf8eea58e087` |
-| loss oracle script sha256 | `0541442ae78d172aaf2c2a8ab883716f46c754c1339ccd6a3fd55e72ac56c6b5` |
-| nsl_loss_golden.txt sha256 | `e75fb5094bf429286c416cf470e95ee99dc9c14377bdd3e52c0ab31c7b5bc754` |
+| loss oracle script sha256 | `6ded468a096a8cdd0016e9aafe96d8519e0009b4df5266df4b03d3e4be90a180` |
+| nsl_loss_golden.txt sha256 | `6d71cb9ad0504cf4680f66b7c01b422f32d1c49d35b28c60d3e202cb212578ca` |
 | distances.py / configs.py sha256 | in the loss golden header |
 | rustc | 1.99.0, x86_64-unknown-linux-gnu, Intel Xeon @ 2.80GHz (avx512f) |
 | tolerance | exact bits (f32 weight and feature hex) |
@@ -97,12 +97,21 @@ implementation from a plausible wrong one.
 ## Results
 
 - 18 of 19 packing fixtures match the golden byte for byte; G12b is refused by design.
-- `graph_loss` agrees with TensorFlow within 0–3 ULP on all 10 loss cases.
-- 16 tests plus 6 ignored probes. 19 disables, each red on a named test.
+- `graph_loss` agrees with TensorFlow within 0–3 ULP on the 10 L2 / L1 /
+  cosine cases. On the 6 KL / JS cases the gate is TensorFlow's own f32
+  cancellation budget (eps32 times the summed term magnitudes). TF's KL is a
+  difference of near-equal f32 terms, so at small divergences it sits up to
+  22,000 ULP from the f64 value. The reference lands at 0.10 of that budget
+  or less.
+- 22 tests plus 9 ignored probes. 27 disables: 26 are red on a named test.
+  One is not load-bearing: the KL / JS arm of the nonzero count duplicates
+  the `Axis::Last` arm, which these cases already take.
 - Cost probe, release, 20,001 edges, 1,000 seeds: `neighbors(seed, 16)` 1 ns
   per seed. Cold builds, reported, not gates: TSV parse ≈ 3,700 µs, freeze
   ≈ 1,000 µs.
-- Palette512 / SM9 evaluation (edge weights, loss distance, stored features)
+- Palette512 / SM9, palette256 needle + Fisher-z LUT, TFLM-shaped softmax
+  table and residual-coding evaluation (edge weights, loss distance, stored
+  features)
   and the production recommendation: `docs/research/nsl/production-path-evaluation.md`.
 
 ## Not covered
