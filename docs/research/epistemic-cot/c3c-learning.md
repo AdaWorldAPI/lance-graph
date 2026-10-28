@@ -132,7 +132,7 @@ before `lut9` merged. None of them mention `lut9`. Where they apply here:
   confidence 0.8–0.95 and decoys 0.15–0.45, so 1.00 measures that the learner
   finds a separating feature. It does not measure performance on realistic,
   overlapping evidence.
-- **One fixture family, one host.** HIRO and Odoo outcomes are not used yet.
+- **One fixture family, one host.** HIRO and ERP-consumer outcomes are not used yet.
 - **No discrimination target yet.** The target is "this lead hydrated".
   C3c-plan §5 asks for "this ablation discriminated between competing
   intermediates", which needs the ledger's `sensitivity` as the label. That
