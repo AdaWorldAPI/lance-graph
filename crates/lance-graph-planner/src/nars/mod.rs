@@ -15,6 +15,7 @@ pub mod ghost_prior;
 pub mod inference;
 pub mod insight;
 pub mod insights;
+pub mod mediator;
 pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
@@ -25,6 +26,7 @@ pub mod support;
 pub mod tactic_select;
 pub mod tactics;
 pub mod truth;
+pub mod warrant;
 
 pub use basin_resonance::{rank_basins, Basin, BasinKind, ResonanceConfig};
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
