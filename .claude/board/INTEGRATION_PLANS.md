@@ -1,3 +1,8 @@
+## 2026-10-28 — D-DRDT: DR = HHTL16 Cartesian direct routing, DT = ClassId binding store → `.claude/plans/d-drdt-dr-dt-ownership-amendment-v1.md`
+
+**Status:** PROPOSED, docs only; amends D-DT64-6 §1 (per-cell WHEN×ON×DO, DR#3) and supersedes the DT64 "tensor register" noun of Bardioc-rs #9. **Board:** [entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRDT. Records the DR/DT contract, reads the DR64/DR256 overview against existing pieces, gives the reuse/gap table for Cartesian and relational fold operators (proof: #1834, D-DRCA-1) and hands off DT method identity / guard / effect order and the DR #4 interface.
+**Confidence:** decisions recorded; one lab proof; no production change.
+
 ## 2026-10-28 — D-DT64-6 predicates: implementation plan for the OGIT predicate expansion → `.claude/plans/d-dt64-6-ogit-predicates-impl-v1.md`
 
 **Status:** PROPOSED, docs only; companion to #1831 (D-DT64-6). **Board:** [entry](entries/2026-10-28-d-dt64-6-ogit-predicates-impl.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6 (the rows #1831 added). Adds D-DT64-6-1a (511 `owl:ObjectProperty` verbs and root `ogit:` names that `ttl_parse` skips today) and details 6-1..6-4 with files, tests and acceptance counts.
