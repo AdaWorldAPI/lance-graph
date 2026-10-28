@@ -7,7 +7,7 @@ No code, ABI, test, runtime or merge authorization. Read at lance-graph `main`
 
 ## What this records
 
-Seven user decisions from session 2026-10-28, in DECISION / SCOPE / BASIS /
+Eight user decisions from session 2026-10-28, in DECISION / SCOPE / BASIS /
 REVISIT WHEN form (plan §1):
 
 1. DT64 has three levels, all 64×64×64, reached by focused global→local:
@@ -23,6 +23,10 @@ REVISIT WHEN form (plan §1):
 6. Global behaviour needs no classid and lives in lance-graph; consumers need
    a classid through the hotplug pattern.
 7. OGIT is immutable and read unpinned.
+8. DR64 references existing identities and mints none. The global→local
+   prefetch amortizes by holding a copy of the register (identity
+   references and local positions only, no values), valid while its frame
+   is current and rebuilt when the frame check refuses.
 
 ## Findings that shaped the plan (VERIFIED-IN-CODE unless marked)
 

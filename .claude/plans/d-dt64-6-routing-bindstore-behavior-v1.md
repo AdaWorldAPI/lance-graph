@@ -43,6 +43,11 @@ Evidence states used below: VERIFIED-IN-CODE (file:line re-read), CURRENT-CONTRA
 **BASIS:** the user's statement in session, 2026-10-28 (decision, not measurement)
 **REVISIT WHEN:** an OGIT change breaks a reader and a provenance receipt is not enough.
 
+**DECISION (2026-10-28):** DR64 direct routing references existing identities; it mints none. For the global→local register, the prefetch amortizes its cost by holding a copy: the copy is taken once per frame and reused by every read under that frame.
+**SCOPE:** what the held copy contains and how long it lives. It contains identity references and local positions only (the pointer table), never business values, so it is not a data replica. It is valid only while its frame is current: a frame check that fails (source, relation map or coordinate revision moved, or a foreign store) discards it and prefetches again, never reads through it.
+**BASIS:** the user's statement in session, 2026-10-28 (decision, not measurement). Consistent with the zero-copy law's single carve-out, global→local inversion materializing only the pointer table (lance-graph `CLAUDE.md`, "No millisecond results" section, bullet "There are no boundaries"), and with Q0's demand that any copy be explicit and accounted (Q0 Phase Q0 and Phase Q3, which count source read/prefetch in the cost).
+**REVISIT WHEN:** a measurement shows re-prefetching per read is cheaper than holding the copy, or the copy is found to carry values.
+
 ## 2. Grounding table
 
 What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and "lance-graph#NNNN" (PR heads: #1814 @bbd8980, #1819 @60eca64) label other checkouts; those lines were read in a session crosswalk on 2026-10-28 and are not re-read in this file. In-repo sources are cited by symbol or section heading, not by line number, so a later edit to the target does not silently re-point the citation. Every in-repo source below was read in full on 2026-10-28.
@@ -98,6 +103,8 @@ Everything in this section is WORKING-MODEL or PROPOSED. None of it is decided b
 5. DO bits that are property writes land on DR#3 cells as resident changes, then follow the persistence path (EXO-55).
 
 (PROPOSED)
+
+**The held register copy is keyed to its frame (D8).** The prefetch builds the local register once: local position → reference to an existing global identity. Reads in steps 1–4 of the dispatch order above go through that copy without re-resolving identities. The copy records the frame it was built under, and every read checks the frame first, as `FrameStore::check` does in `crates/dr-math-binding-probe/src/lib.rs`. Any refusal (`ForeignFrame`, `SourceChanged`, `MapChanged`, `CoordinatesChanged`, `FrameResealed`) drops the copy and re-prefetches. A new focus over the same frame reuses the copy, because a focus is not a new frame (same file, struct `Focus`). The measured cost must include building the copy, amortized over the reads it serves (Q0 Phase Q3). (PROPOSED)
 
 **Only routing is versioned.** DR64 maps a position to a classid and changes between versions. The classid → behaviour binding in DT64 does not change. Replay "as of version v" means which classid each address routed to at v; that classid's behaviour is the same as it is today. (PROPOSED reading of D5)
 
