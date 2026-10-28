@@ -484,9 +484,13 @@ impl DerivationLedger {
     /// A [`Refusal`] from evaluation.
     pub fn grounded_since(&self, mark: usize) -> Result<Vec<CStmt>, Refusal> {
         let mut out = Vec::new();
-        for d in self.derivations.iter().skip(mark) {
+        for (i, d) in self.derivations.iter().enumerate().skip(mark) {
+            let id = DerivationId(i as u32);
             if !out.contains(&d.conclusion)
-                && self.pooled(d.conclusion, &Ablation::none())?.is_some()
+                && self
+                    .proofs(d.conclusion, &Ablation::none())?
+                    .iter()
+                    .any(|p| p.uses.contains(&id))
             {
                 out.push(d.conclusion);
             }
@@ -513,7 +517,40 @@ impl DerivationLedger {
     /// A [`Refusal`] from evaluation.
     pub fn pooled(&self, stmt: CStmt, ablation: &Ablation) -> Result<Option<Pooled>, Refusal> {
         let mut eval = Eval::new(self, ablation);
-        eval.pooled(stmt)
+        let Some(mut pooled) = eval.pooled(stmt)? else {
+            return Ok(None);
+        };
+        pooled.chains = self.chains_deriving(stmt, ablation)?;
+        Ok(Some(pooled))
+    }
+
+    /// The chains that derive `stmt` on their own: with every other chain's
+    /// derivations removed (observations stay, they belong to no chain), a
+    /// proof of `stmt` through at least one derivation remains. Judged per
+    /// chain, never from the pooled proof's combined provenance, which mixes
+    /// chains wherever a premise has proofs from more than one.
+    fn chains_deriving(
+        &self,
+        stmt: CStmt,
+        ablation: &Ablation,
+    ) -> Result<BTreeSet<ChainId>, Refusal> {
+        let all: BTreeSet<ChainId> = self.derivations.iter().map(|d| d.chain).collect();
+        let mut out = BTreeSet::new();
+        for chain in all {
+            let mut only = ablation.clone();
+            only.derivations.extend(
+                self.derivations
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, d)| d.chain != chain)
+                    .map(|(i, _)| DerivationId(i as u32)),
+            );
+            let mut eval = Eval::new(self, &only);
+            if eval.proofs(stmt)?.iter().any(|p| !p.uses.is_empty()) {
+                out.insert(chain);
+            }
+        }
+        Ok(out)
     }
 
     /// `stmt`'s evidence in the baseline and under `ablation`.
@@ -640,7 +677,6 @@ impl<'a> Eval<'a> {
                 contradiction = contradiction.max((a.truth.frequency - b.truth.frequency).abs());
             }
         }
-        let chains = proofs.iter().filter_map(|p| self.single_chain(p)).collect();
         Ok(Some(Pooled {
             truth,
             roots,
@@ -648,7 +684,7 @@ impl<'a> Eval<'a> {
             proofs: proofs.len(),
             pooled: chosen.len(),
             contradiction,
-            chains,
+            chains: BTreeSet::new(),
         }))
     }
 
@@ -732,17 +768,6 @@ impl<'a> Eval<'a> {
             }
         }
     }
-
-    /// The chain a proof belongs to, if every derivation it uses is from one
-    /// chain. A bare observation belongs to no chain.
-    fn single_chain(&self, proof: &Proof) -> Option<ChainId> {
-        let mut chains = proof
-            .uses
-            .iter()
-            .map(|id| self.ledger.derivations[id.0 as usize].chain);
-        let first = chains.next()?;
-        chains.all(|c| c == first).then_some(first)
-    }
 }
 
 #[cfg(test)]
@@ -798,6 +823,46 @@ mod tests {
             "independent roots pool"
         );
         assert_eq!(disjoint.roots, BTreeSet::from([1, 2, 3, 4]));
+    }
+
+    /// A chain that derives a conclusion on its own is credited even when
+    /// one of its premises also has a proof from another chain. A derives
+    /// 1→3 through 2 and then 1→5 through 3; B derives 1→3 through 4. Only
+    /// A reaches 1→5.
+    #[test]
+    fn a_chain_is_credited_when_a_premise_is_shared_with_another_chain() {
+        let mut l = DerivationLedger::new();
+        for (i, (s, p)) in [(1, 2), (2, 3), (1, 4), (4, 3), (3, 5)]
+            .into_iter()
+            .enumerate()
+        {
+            l.observe(inh(s, p), t(0.9, 0.9), i as SourceId + 1);
+        }
+        l.derive(A, Law::Deduction, [inh(1, 2), inh(2, 3)], inh(1, 3))
+            .unwrap();
+        l.derive(A, Law::Deduction, [inh(1, 3), inh(3, 5)], inh(1, 5))
+            .unwrap();
+        l.derive(B, Law::Deduction, [inh(1, 4), inh(4, 3)], inh(1, 3))
+            .unwrap();
+        let p = l.pooled(inh(1, 5), &Ablation::none()).unwrap().unwrap();
+        assert_eq!(p.chains, BTreeSet::from([A]));
+        let both = l.pooled(inh(1, 3), &Ablation::none()).unwrap().unwrap();
+        assert_eq!(both.chains, BTreeSet::from([A, B]));
+    }
+
+    /// A step is productive only if its own premises are grounded, not
+    /// merely because its conclusion already has support.
+    #[test]
+    fn an_ungrounded_step_is_not_productive_beside_existing_support() {
+        let mut l = DerivationLedger::new();
+        l.observe(inh(1, 3), t(0.9, 0.9), 1);
+        let mark = l.mark();
+        l.derive(A, Law::Deduction, [inh(1, 2), inh(2, 3)], inh(1, 3))
+            .unwrap();
+        assert!(l.grounded_since(mark).unwrap().is_empty());
+        l.observe(inh(1, 2), t(0.9, 0.9), 2);
+        l.observe(inh(2, 3), t(0.9, 0.9), 3);
+        assert_eq!(l.grounded_since(mark).unwrap(), vec![inh(1, 3)]);
     }
 
     /// F1, the thought-slot form: one derivation replayed in 63 chains over the
