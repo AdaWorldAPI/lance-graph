@@ -278,6 +278,10 @@ pub mod population;
 /// Reusable mathematical law / proof / compiled artifact identity separation (lab only).
 pub mod recipe;
 
+/// HHTL16 Cartesian direct routing: address map, rotation and fold-based
+/// projections over a bound DR64 register (D-DRCA-1, lab only).
+pub mod hhtl16;
+
 /// Associativity of Boolean relation composition: typing, law admission,
 /// egglog proof, lowering check and the first certificate.
 pub mod relcomp;
