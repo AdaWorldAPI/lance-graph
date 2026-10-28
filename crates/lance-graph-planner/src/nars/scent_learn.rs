@@ -480,21 +480,24 @@ mod tests {
         assert!(step_one(&step, EpiLane9::NEVER_TOUCHED).never_touched());
     }
 
-    /// PZ2 in the learner. A present feature whose delta rounds to zero is
-    /// marked seen (`+0`), not left "never touched". Here x = 1 and the
-    /// residual is 127, so the raw delta is 127/255 ≈ 0.498, which truncates to 0.
+    /// PZ2 in the learner: −0.49 → −0 → +0. A present feature whose delta
+    /// truncates to zero is marked seen (`+0`), not left "never touched".
+    /// x = 1, so |delta| = 127/255 ≈ 0.498 truncates to 0. The residual is
+    /// negative, so only the zero rule (`M == 0`) can set P; a positive
+    /// residual would set it through the sign alone.
     #[test]
-    fn pz2_a_present_feature_with_a_zero_step_is_marked_seen() {
+    fn pz2_a_negative_delta_truncating_to_zero_is_marked_seen() {
         let step = prepare(UpdateRule::Symmetric(HALF)).unwrap();
         let mut l = ScentLearner::new(step.spec());
         let mut lead = fixed_lead(0.9, 0.8);
         lead.uncertainty = 0.002;
         assert_eq!(features(&lead)[3], 1, "fixture must give x = 1");
         assert_eq!(
-            l.learn(&step, &lead, Outcome::Hydrated, 1),
-            Ok(Learned::Updated { residual: 127 })
+            l.learn(&step, &lead, Outcome::Refuted, 1),
+            Ok(Learned::Updated { residual: -127 })
         );
-        assert_eq!(l.weights()[3].value(), Some(0));
+        assert_eq!(l.weights()[3], lane(0));
+        assert!(!l.weights()[3].never_touched());
     }
 
     /// PZ3. `lut9` evaluates odd functions only. An asymmetric or biased
