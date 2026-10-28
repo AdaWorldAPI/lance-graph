@@ -398,5 +398,9 @@ impl FocusLease {
     }
 }
 
+pub mod loss;
+
+#[cfg(test)]
+mod eval;
 #[cfg(test)]
 mod tests;
