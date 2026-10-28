@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-28 | `D-SAG-6-1` |  | [2026-10-28-d-sag-6-1-audit-reference-ledger.md](2026-10-28-d-sag-6-1-audit-reference-ledger.md) |
 | 2026-10-28 | `D-DT64-6` |  | [2026-10-28-d-dt64-6-routing-bindstore-behavior.md](2026-10-28-d-dt64-6-routing-bindstore-behavior.md) |
 | 2026-10-28 | `D-DT64-6` |  | [2026-10-28-d-dt64-6-ogit-predicates-impl.md](2026-10-28-d-dt64-6-ogit-predicates-impl.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
