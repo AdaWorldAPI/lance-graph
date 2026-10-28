@@ -1,0 +1,18 @@
+# run 2
+cal=9,n=8,rows=524288,kernel_ns_per_row=153.6,source_recipe_ns_per_row=73.4,exact_recipe_ns_per_row=56.2,source_recip_ns_per_row=31.46,exact_recip_ns_per_row=3.92,weight_prep_ns=714,source_mismatches=0,exact_mismatches=0
+cal=10,n=8,rows=524288,kernel_ns_per_row=562.8,source_recipe_ns_per_row=84.3,exact_recipe_ns_per_row=47.6,source_recip_ns_per_row=28.41,exact_recip_ns_per_row=3.54,weight_prep_ns=6330,source_mismatches=0,exact_mismatches=1
+cal=9,n=64,rows=65536,kernel_ns_per_row=495.0,source_recipe_ns_per_row=293.7,exact_recipe_ns_per_row=272.7,source_recip_ns_per_row=30.83,exact_recip_ns_per_row=3.45,weight_prep_ns=736,source_mismatches=0,exact_mismatches=0
+cal=10,n=64,rows=65536,kernel_ns_per_row=4288.6,source_recipe_ns_per_row=332.5,exact_recipe_ns_per_row=310.8,source_recip_ns_per_row=28.19,exact_recip_ns_per_row=3.45,weight_prep_ns=9503,source_mismatches=0,exact_mismatches=0
+cal=9,n=256,rows=16384,kernel_ns_per_row=1826.6,source_recipe_ns_per_row=1274.6,exact_recipe_ns_per_row=1029.3,source_recip_ns_per_row=32.53,exact_recip_ns_per_row=3.66,weight_prep_ns=699,source_mismatches=0,exact_mismatches=0
+cal=10,n=256,rows=16384,kernel_ns_per_row=17184.3,source_recipe_ns_per_row=1756.3,exact_recipe_ns_per_row=1226.2,source_recip_ns_per_row=28.74,exact_recip_ns_per_row=3.45,weight_prep_ns=8658,source_mismatches=0,exact_mismatches=0
+cal=9,n=511,rows=8208,kernel_ns_per_row=3297.7,source_recipe_ns_per_row=2708.2,exact_recipe_ns_per_row=1920.1,source_recip_ns_per_row=29.37,exact_recip_ns_per_row=3.51,weight_prep_ns=1038,source_mismatches=0,exact_mismatches=0
+cal=10,n=511,rows=8208,kernel_ns_per_row=33331.6,source_recipe_ns_per_row=6769.1,exact_recipe_ns_per_row=6902.2,source_recip_ns_per_row=28.00,exact_recip_ns_per_row=3.45,weight_prep_ns=8100,source_mismatches=0,exact_mismatches=0
+# run 3
+cal=9,n=8,rows=524288,kernel_ns_per_row=151.8,source_recipe_ns_per_row=72.4,exact_recipe_ns_per_row=50.3,source_recip_ns_per_row=31.11,exact_recip_ns_per_row=3.57,weight_prep_ns=742,source_mismatches=0,exact_mismatches=0
+cal=10,n=8,rows=524288,kernel_ns_per_row=553.8,source_recipe_ns_per_row=74.7,exact_recipe_ns_per_row=47.6,source_recip_ns_per_row=28.69,exact_recip_ns_per_row=3.55,weight_prep_ns=6755,source_mismatches=0,exact_mismatches=1
+cal=9,n=64,rows=65536,kernel_ns_per_row=497.3,source_recipe_ns_per_row=292.7,exact_recipe_ns_per_row=277.7,source_recip_ns_per_row=31.73,exact_recip_ns_per_row=3.52,weight_prep_ns=725,source_mismatches=0,exact_mismatches=0
+cal=10,n=64,rows=65536,kernel_ns_per_row=4374.2,source_recipe_ns_per_row=310.2,exact_recipe_ns_per_row=285.7,source_recip_ns_per_row=28.24,exact_recip_ns_per_row=3.45,weight_prep_ns=6438,source_mismatches=0,exact_mismatches=0
+cal=9,n=256,rows=16384,kernel_ns_per_row=1654.6,source_recipe_ns_per_row=1006.4,exact_recipe_ns_per_row=996.2,source_recip_ns_per_row=31.76,exact_recip_ns_per_row=3.45,weight_prep_ns=713,source_mismatches=0,exact_mismatches=0
+cal=10,n=256,rows=16384,kernel_ns_per_row=16124.0,source_recipe_ns_per_row=1203.1,exact_recipe_ns_per_row=1193.0,source_recip_ns_per_row=28.43,exact_recip_ns_per_row=3.45,weight_prep_ns=6778,source_mismatches=0,exact_mismatches=0
+cal=9,n=511,rows=8208,kernel_ns_per_row=3103.9,source_recipe_ns_per_row=1916.4,exact_recipe_ns_per_row=2195.4,source_recip_ns_per_row=32.19,exact_recip_ns_per_row=3.54,weight_prep_ns=703,source_mismatches=0,exact_mismatches=0
+cal=10,n=511,rows=8208,kernel_ns_per_row=33507.2,source_recipe_ns_per_row=6471.3,exact_recipe_ns_per_row=6447.6,source_recip_ns_per_row=27.62,exact_recip_ns_per_row=3.45,weight_prep_ns=6355,source_mismatches=0,exact_mismatches=0

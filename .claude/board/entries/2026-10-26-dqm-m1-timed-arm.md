@@ -1,4 +1,4 @@
-# 2026-10-26 — D-DQM M1: timed arm in both differential halves; exit gate NOT met
+# 2026-10-26 — D-DQM-M1: timed arm in both differential halves; exit gate NOT met
 
 **Status:** MEASURED (both arms ran); M1 exit gate open. No performance claim.
 

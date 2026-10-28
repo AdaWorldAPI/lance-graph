@@ -169,7 +169,7 @@ The 64³ Explore → 256³ Validate → Certified Method → 64³ Reuse progress
 | ID | Question | Owner | Dependency | Evidence | Falsifier | Decision | Status |
 |---|---|---|---|---|---|---|---|
 | OP-ONNX-1 | Home for value maths (arithmetic, MatMul, Exp/Tanh/Mish): relalg cannot take it without a new IR | operator | none | opusA §2; D-RA-2 `.claude/plans/d-relalg-unified-v1.md`; `crates/lance-graph-relalg/src/lib.rs` | any proposal adding value-producing nodes to `Rel` | none | ANSWERED 2026-10-24: D-NFC §4 (#1753) + `lance-graph-onnx` (#1754) |
-| OP-ONNX-2 | Importer dependency (options A-E) | operator | OP-ONNX-1 for scope | §5 above | S1 reads real ONNX bytes | none | OPEN |
+| OP-ONNX-2 | Importer dependency (options A-E) | operator | OP-ONNX-1 for scope | §5 above | S1 reads real ONNX bytes | none | OPEN; 2026-10-26: #1802 (D-ONNX-INTAKE-0) proposes Burn `onnx-ir` vs Tract as competing cold frontends, docs only, no choice made |
 | OP-ONNX-3 | DR64³/DR256³ original plan missing | operator | none | §6 negative search (BRIEF) | the plan is located | none | OPEN |
 | OP-ONNX-4 | Does bit-position scanning in one co-addressed frame violate ADMISSION B / D-RU-6? | operator | none | `relcomp.rs`; `compose.rs`; `qr.rs`; `.claude/board/ISSUES.md` | a ruling | none | OPEN |
 | OP-ONNX-5 | Independent proof checker; none exists | plan owner | #1741 P-J4 | `.claude/board/entries/2026-10-23-drmc-l1-x8-fresh-frame-result.md` | a replay checker that rejects a tampered proof | none | OPEN |
