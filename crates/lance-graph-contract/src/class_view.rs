@@ -1358,6 +1358,20 @@ pub trait ClassView {
         None
     }
 
+    /// The epistemic lane layout this class declares
+    /// ([`lane_codec`](crate::lane_codec)): lane width, code space, and where
+    /// the value and presence bytes sit (absent = presence 0, value 0). The
+    /// consumer fixes it at compile time as an
+    /// [`EpiLaneClass::SPEC`](crate::lane_codec::EpiLaneClass::SPEC); this
+    /// lookup names that constant for a classid. `None` = undeclared, and a
+    /// writer REFUSES: a lane read under a guessed layout could take a
+    /// negative 9-bit value for absent. Selection only; never changes
+    /// stored bytes.
+    #[inline]
+    fn epi_lanes(&self, _class: ClassId) -> Option<crate::lane_codec::EpiLaneSpec> {
+        None
+    }
+
     /// Which value-slab schema preset this class materialises in
     /// [`NodeRow::value`](crate::canonical_node::NodeRow::value).
     ///

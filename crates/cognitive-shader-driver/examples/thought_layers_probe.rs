@@ -31,7 +31,10 @@ use std::collections::HashMap;
 
 use lance_graph_contract::alpha::{AlphaAddr, AlphaAllocation, AlphaMask, AlphaOverlay};
 use lance_graph_contract::canonical_node::{EdgeBlock, NodeGuid, NodeRow, TailVariant};
+use lance_graph_contract::class_view::{ClassId, ClassView};
+use lance_graph_contract::lane_codec::{EpiLaneClass, EpiLaneSpec, LaneWidth};
 use ndarray::hpc::codec9::EpiLane9;
+use std::marker::PhantomData;
 
 /// One thought's writes for [`ThoughtTables::write_parallel`].
 pub type ThoughtJob = (ThoughtId, Vec<(AlphaAddr, [u8; 512])>);
@@ -89,6 +92,9 @@ pub enum Refusal {
     KeyChanged,
     /// A slot-placed thought changed bytes outside its slot.
     OutsideSlot,
+    /// The class declares no lane layout, or a different one than the write
+    /// was compiled for.
+    LaneLayout,
 }
 
 /// One row's change against the base: the slots that differ and their XOR.
@@ -185,84 +191,51 @@ pub struct Table {
     deltas: HashMap<u32, RowDelta>,
 }
 
-/// Epistemic lanes per layout: one presence bit and one byte each.
-pub const EPI_LANES: usize = 16;
-
-/// The width of a row's epistemic lanes.
-///
-/// Both widths read "never touched" (NaN, `$null`, UNKNOWN) as presence 0
-/// and value 0. At U9 the presence bit is also the sign, so presence 0 with
-/// a nonzero magnitude is a negative number (DR512, `ndarray::hpc::codec9`).
-/// At U8 presence 0 with a nonzero value cannot be produced: it would mean
-/// U9 bytes read through a U8 layout, which the layout type rules out at
-/// compile time, so it is not checked per lane.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LaneWidth {
-    U8,
-    U9,
+/// Whether a lane of `row` is absent (presence 0, value 0) under `spec`. A
+/// 9-bit lane is read through `ndarray`'s DR512 codeword, so the probe and the
+/// codec share one definition.
+fn never_touched(spec: &EpiLaneSpec, row: &[u8; 512], lane: usize) -> bool {
+    let (p, m) = (spec.present(row, lane), spec.value(row, lane));
+    match spec.width {
+        LaneWidth::Bits9 => EpiLane9::from_codeword(u16::from(m) | (u16::from(p) << 8))
+            .is_some_and(EpiLane9::never_touched),
+        LaneWidth::Bits8 => EpiLaneSpec::absent(m, p),
+    }
 }
 
-/// Where a row's epistemic lanes sit: [`EPI_LANES`] value bytes from
-/// `values` and their presence bits, little-endian, in the two bytes at
-/// `presence`. Lab layout: production reads it from the class's ClassView.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EpiLanes {
-    width: LaneWidth,
-    values: usize,
-    presence: usize,
+/// Every absent lane of `new` takes the lane of `prior`: its value byte and
+/// its presence bit. Returns the lanes kept.
+fn keep_unknown(spec: &EpiLaneSpec, prior: &[u8; 512], new: &mut [u8; 512]) -> u64 {
+    let mut kept = 0u64;
+    for lane in 0..usize::from(spec.lanes) {
+        if never_touched(spec, new, lane) {
+            new[usize::from(spec.values) + lane] = prior[usize::from(spec.values) + lane];
+            kept |= 1 << lane;
+        }
+    }
+    for lane in (0..usize::from(spec.lanes)).filter(|l| kept >> l & 1 == 1) {
+        let (byte, bit) = (usize::from(spec.presence) + lane / 8, 1u8 << (lane % 8));
+        new[byte] = (new[byte] & !bit) | (prior[byte] & bit);
+    }
+    kept
 }
 
-impl EpiLanes {
-    /// A layout outside the key slot whose value bytes and presence word do
-    /// not overlap; `None` otherwise.
+/// A class bound to the lane layout `L`: [`ThoughtTables::bind_lanes`] checked
+/// once that the ClassView declares `L::SPEC` for the class. Writes take the
+/// binding and do not look the class up again. A binding shared across
+/// threads belongs in a `OnceLock` set when the registry loads; `LazyLock`
+/// does not fit, because its initializer cannot take the view.
+#[derive(Debug)]
+pub struct LaneBinding<L> {
+    class: ClassId,
+    layout: PhantomData<L>,
+}
+
+impl<L> LaneBinding<L> {
+    /// The class bound.
     #[must_use]
-    pub const fn new(width: LaneWidth, values: usize, presence: usize) -> Option<Self> {
-        let disjoint = values + EPI_LANES <= presence || presence + 2 <= values;
-        if values < SLOT
-            || presence < SLOT
-            || values + EPI_LANES > 512
-            || presence + 2 > 512
-            || !disjoint
-        {
-            return None;
-        }
-        Some(Self {
-            width,
-            values,
-            presence,
-        })
-    }
-
-    fn present(&self, row: &[u8; 512], lane: usize) -> bool {
-        let word = u16::from_le_bytes([row[self.presence], row[self.presence + 1]]);
-        (word >> lane) & 1 == 1
-    }
-
-    /// Presence 0 and value 0: the lane holds no value.
-    fn never_touched(&self, row: &[u8; 512], lane: usize) -> bool {
-        let (p, m) = (self.present(row, lane), row[self.values + lane]);
-        match self.width {
-            LaneWidth::U9 => EpiLane9::from_codeword(u16::from(m) | (u16::from(p) << 8))
-                .is_some_and(EpiLane9::never_touched),
-            LaneWidth::U8 => !p && m == 0,
-        }
-    }
-
-    /// Every never-touched lane of `new` takes the lane of `prior`, value
-    /// and presence bit together. Returns the lanes it kept.
-    fn keep_unknown(&self, prior: &[u8; 512], new: &mut [u8; 512]) -> u16 {
-        let mut kept = 0u16;
-        for lane in 0..EPI_LANES {
-            if self.never_touched(new, lane) {
-                new[self.values + lane] = prior[self.values + lane];
-                kept |= 1 << lane;
-            }
-        }
-        let word = u16::from_le_bytes([new[self.presence], new[self.presence + 1]]);
-        let from = u16::from_le_bytes([prior[self.presence], prior[self.presence + 1]]);
-        let merged = (word & !kept) | (from & kept);
-        new[self.presence..self.presence + 2].copy_from_slice(&merged.to_le_bytes());
-        kept
+    pub fn class(&self) -> ClassId {
+        self.class
     }
 }
 
@@ -443,27 +416,44 @@ impl<'a> ThoughtTables<'a> {
         })
     }
 
-    /// A sparse write of epistemic lanes. A lane the thought leaves never
-    /// touched (presence 0, value 0) is not written: it keeps what the
-    /// thought read there before, so UNKNOWN never overwrites a known value
-    /// and the merge on read returns the earlier value. Every other lane,
-    /// including a U9 negative (presence 0, magnitude > 0) and +0, is
-    /// written as given. Bytes outside the lanes are written as by
-    /// [`write`](Self::write).
+    /// Bind `class` to the lane layout `L`, once.
+    ///
+    /// # Errors
+    /// [`Refusal::LaneLayout`] when `view` declares no layout or another one
+    /// for `class`.
+    pub fn bind_lanes<L: EpiLaneClass>(
+        view: &impl ClassView,
+        class: ClassId,
+    ) -> Result<LaneBinding<L>, Refusal> {
+        if view.epi_lanes(class) != Some(L::SPEC) {
+            return Err(Refusal::LaneLayout);
+        }
+        Ok(LaneBinding {
+            class,
+            layout: PhantomData,
+        })
+    }
+
+    /// A sparse write of epistemic lanes laid out as `L` declares. An absent
+    /// lane (presence 0, value 0) is not written: it keeps what the thought
+    /// read there before, so UNKNOWN never overwrites a known value and the
+    /// merge on read returns the earlier value. Every other lane, including a
+    /// 9-bit negative (presence 0, magnitude > 0) and +0, is written as given.
+    /// Bytes outside the lanes are written as by [`write`](Self::write).
     ///
     /// # Errors
     /// As [`write`](Self::write).
-    pub fn write_epi(
+    pub fn write_epi<L: EpiLaneClass>(
         &mut self,
+        _binding: &LaneBinding<L>,
         thought: ThoughtId,
         addr: AlphaAddr,
         rung: u8,
         row: &[u8; 512],
-        lanes: &EpiLanes,
     ) -> Result<Written, Refusal> {
         let prior = self.read(thought, addr)?;
         let mut new = *row;
-        lanes.keep_unknown(&prior, &mut new);
+        keep_unknown(&L::SPEC, &prior, &mut new);
         self.write(thought, addr, rung, &new)
     }
 
@@ -889,125 +879,208 @@ mod tests {
     }
 
     // ── Epistemic lanes: NaN is not written, merge on read keeps the prior ──
+    //
+    // The layout of each class is a compile-time constant (`EpiLaneClass`);
+    // the ClassView names the same constant for the classid.
 
-    const VALUES: usize = 2 * SLOT;
-    const PRESENCE: usize = 3 * SLOT;
+    use lance_graph_contract::lane_codec::{checked, CodeSpace};
+    use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 
-    fn lanes(width: LaneWidth) -> EpiLanes {
-        EpiLanes::new(width, VALUES, PRESENCE).expect("lab layout")
+    const VALUES: u16 = 2 * SLOT as u16;
+    const PRESENCE: u16 = 3 * SLOT as u16;
+    const CLASS: ClassId = 7;
+
+    /// DR512: 9-bit sign-magnitude, presence bit = sign.
+    struct Dr512;
+    impl EpiLaneClass for Dr512 {
+        const SPEC: EpiLaneSpec = checked(EpiLaneSpec {
+            width: LaneWidth::Bits9,
+            space: CodeSpace::Sym,
+            values: VALUES,
+            presence: PRESENCE,
+            lanes: 16,
+        });
     }
 
-    /// Base rows whose lanes all hold +(5 + lane): presence 1, value set.
+    /// ONNX `QuantizeLinear` uint8 with zero point 128, plus a presence plane.
+    struct OnnxU8;
+    impl EpiLaneClass for OnnxU8 {
+        const SPEC: EpiLaneSpec = checked(EpiLaneSpec {
+            width: LaneWidth::Bits8,
+            space: CodeSpace::from_zero_point(128),
+            values: VALUES,
+            presence: PRESENCE,
+            lanes: 16,
+        });
+    }
+
+    /// TFLite symmetric int8 weights (zero point 0).
+    struct TfliteSym;
+    impl EpiLaneClass for TfliteSym {
+        const SPEC: EpiLaneSpec = checked(EpiLaneSpec {
+            width: LaneWidth::Bits8,
+            space: CodeSpace::from_zero_point(0),
+            values: VALUES,
+            presence: PRESENCE,
+            lanes: 16,
+        });
+    }
+
+    /// A ClassView that declares one layout (or none) for every class.
+    struct View(Option<EpiLaneSpec>);
+    impl ClassView for View {
+        fn fields(&self, _class: ClassId) -> &[FieldRef] {
+            &[]
+        }
+        fn template(&self, _class: ClassId) -> DisplayTemplate {
+            DisplayTemplate::Card
+        }
+        fn dolce_category_id(&self, _class: ClassId) -> u8 {
+            0
+        }
+        fn epi_lanes(&self, _class: ClassId) -> Option<EpiLaneSpec> {
+            self.0
+        }
+    }
+
+    fn view<L: EpiLaneClass>() -> View {
+        View(Some(L::SPEC))
+    }
+
+    fn bound<L: EpiLaneClass>() -> LaneBinding<L> {
+        ThoughtTables::bind_lanes::<L>(&view::<L>(), CLASS).expect("declared")
+    }
+
+    /// Base rows whose lanes all hold value 5 + lane with presence 1.
     fn epi_rows() -> Vec<NodeRow> {
+        let (v, p) = (usize::from(VALUES) - 32, usize::from(PRESENCE) - 32);
         let mut rows = base(8);
         for r in &mut rows {
-            for lane in 0..EPI_LANES {
-                r.value[VALUES - 32 + lane] = 5 + lane as u8;
+            for lane in 0..16 {
+                r.value[v + lane] = 5 + lane as u8;
             }
-            r.value[PRESENCE - 32..PRESENCE - 32 + 2].copy_from_slice(&u16::MAX.to_le_bytes());
+            r.value[p..p + 2].copy_from_slice(&u16::MAX.to_le_bytes());
         }
         rows
     }
 
     fn set_lane(row: &mut [u8; 512], lane: usize, present: bool, value: u8) {
-        row[VALUES + lane] = value;
-        let mut w = u16::from_le_bytes([row[PRESENCE], row[PRESENCE + 1]]);
+        let (v, p) = (usize::from(VALUES), usize::from(PRESENCE));
+        row[v + lane] = value;
+        let mut w = u16::from_le_bytes([row[p], row[p + 1]]);
         w = (w & !(1 << lane)) | (u16::from(present) << lane);
-        row[PRESENCE..PRESENCE + 2].copy_from_slice(&w.to_le_bytes());
+        row[p..p + 2].copy_from_slice(&w.to_le_bytes());
     }
 
     fn lane(row: &[u8; 512], lane: usize) -> (bool, u8) {
-        let w = u16::from_le_bytes([row[PRESENCE], row[PRESENCE + 1]]);
-        ((w >> lane) & 1 == 1, row[VALUES + lane])
+        let (v, p) = (usize::from(VALUES), usize::from(PRESENCE));
+        let w = u16::from_le_bytes([row[p], row[p + 1]]);
+        ((w >> lane) & 1 == 1, row[v + lane])
     }
 
-    #[test]
-    fn layouts_over_the_key_or_overlapping_are_refused() {
-        assert!(
-            EpiLanes::new(LaneWidth::U9, 0, PRESENCE).is_none(),
-            "key slot"
-        );
-        assert!(
-            EpiLanes::new(LaneWidth::U9, VALUES, VALUES + 8).is_none(),
-            "overlap"
-        );
-        assert!(
-            EpiLanes::new(LaneWidth::U9, 500, PRESENCE).is_none(),
-            "past the row"
-        );
-        assert!(EpiLanes::new(LaneWidth::U8, VALUES, PRESENCE).is_some());
+    fn one_thought(rows: &[NodeRow]) -> (AlphaAllocation<'_>, ThoughtId) {
+        (AlphaAllocation::over(rows), ThoughtId(1))
     }
 
-    /// NaN over a known base value: the read returns the base value and
-    /// nothing is stored. Both widths.
+    fn placed<'a>(alloc: &'a AlphaAllocation<'a>) -> ThoughtTables<'a> {
+        let mut tt = ThoughtTables::over(alloc, 1);
+        let t = tt.open_table().unwrap();
+        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        tt
+    }
+
+    /// The contract's never-touched rule and ndarray's DR512 codeword agree on
+    /// all 512 codes.
     #[test]
-    fn nan_over_a_known_value_is_not_written() {
-        for width in [LaneWidth::U8, LaneWidth::U9] {
-            let rows = epi_rows();
-            let alloc = AlphaAllocation::over(&rows);
-            let mut tt = ThoughtTables::over(&alloc, 1);
-            let t = tt.open_table().unwrap();
-            tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
-            let mut row = row_bytes(&rows[2]);
-            set_lane(&mut row, 4, false, 0);
-            let w = tt
-                .write_epi(ThoughtId(1), rows[2].key, 1, &row, &lanes(width))
-                .unwrap();
-            assert_eq!(w, Written::NoChange, "{width:?}");
-            assert_eq!(tt.stored_bytes(), 0, "{width:?}");
-            let read = tt.read(ThoughtId(1), rows[2].key).unwrap();
-            assert_eq!(lane(&read, 4), (true, 9), "{width:?}: base value kept");
-            assert!(
-                tt.looked(ThoughtId(1)).unwrap().contains(2),
-                "the look is recorded"
+    fn contract_and_codec9_agree_on_never_touched() {
+        for code in 0u16..512 {
+            let e = EpiLane9::from_codeword(code).unwrap();
+            assert_eq!(
+                EpiLaneSpec::absent(e.magnitude(), e.presence()),
+                e.never_touched(),
+                "code {code:#x}"
             );
         }
     }
 
-    /// NaN after the thought's own write keeps what the thought wrote, not
-    /// the base: the merge on read returns the earlier value.
+    /// Binding refuses a class with no declared layout or a different one;
+    /// the declared one binds once.
+    #[test]
+    fn binding_refuses_an_undeclared_or_different_layout() {
+        for v in [View(None), view::<OnnxU8>()] {
+            assert!(matches!(
+                ThoughtTables::bind_lanes::<Dr512>(&v, CLASS),
+                Err(Refusal::LaneLayout)
+            ));
+        }
+        let b = ThoughtTables::bind_lanes::<Dr512>(&view::<Dr512>(), CLASS).unwrap();
+        assert_eq!(b.class(), CLASS);
+    }
+
+    fn nan_over_known<L: EpiLaneClass>() {
+        let rows = epi_rows();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
+        let mut row = row_bytes(&rows[2]);
+        set_lane(&mut row, 4, false, 0);
+        let w = tt
+            .write_epi(&bound::<L>(), th, rows[2].key, 1, &row)
+            .unwrap();
+        assert_eq!(w, Written::NoChange);
+        assert_eq!(tt.stored_bytes(), 0);
+        assert_eq!(
+            lane(&tt.read(th, rows[2].key).unwrap(), 4),
+            (true, 9),
+            "base kept"
+        );
+        assert!(tt.looked(th).unwrap().contains(2), "the look is recorded");
+    }
+
+    /// NaN over a known base value: nothing stored, the base value is read.
+    #[test]
+    fn nan_over_a_known_value_is_not_written() {
+        nan_over_known::<Dr512>();
+        nan_over_known::<OnnxU8>();
+    }
+
+    /// NaN after the thought's own write keeps what the thought wrote.
     #[test]
     fn nan_after_an_own_write_keeps_the_own_value() {
         let rows = epi_rows();
-        let alloc = AlphaAllocation::over(&rows);
-        let mut tt = ThoughtTables::over(&alloc, 1);
-        let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
-        let l = lanes(LaneWidth::U9);
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
+        let b = bound::<Dr512>();
         let mut row = row_bytes(&rows[1]);
         set_lane(&mut row, 3, true, 40);
-        tt.write_epi(ThoughtId(1), rows[1].key, 1, &row, &l)
-            .unwrap();
+        tt.write_epi(&b, th, rows[1].key, 1, &row).unwrap();
         set_lane(&mut row, 3, false, 0);
-        let w = tt
-            .write_epi(ThoughtId(1), rows[1].key, 1, &row, &l)
-            .unwrap();
+        let w = tt.write_epi(&b, th, rows[1].key, 1, &row).unwrap();
         assert_eq!(w, Written::NoChange);
-        let read = tt.read(ThoughtId(1), rows[1].key).unwrap();
-        assert_eq!(lane(&read, 3), (true, 40), "own write kept, not the base 8");
+        assert_eq!(
+            lane(&tt.read(th, rows[1].key).unwrap(), 3),
+            (true, 40),
+            "not the base 8"
+        );
     }
 
-    /// U9: presence 0 with magnitude 5 is −5, written and read back.
+    /// 9-bit: presence 0 with magnitude 5 is -5, written and read back.
     #[test]
-    fn a_u9_negative_is_written() {
+    fn a_nine_bit_negative_is_written() {
         let rows = epi_rows();
-        let alloc = AlphaAllocation::over(&rows);
-        let mut tt = ThoughtTables::over(&alloc, 1);
-        let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
         let mut row = row_bytes(&rows[0]);
         set_lane(&mut row, 6, false, 5);
         let w = tt
-            .write_epi(ThoughtId(1), rows[0].key, 1, &row, &lanes(LaneWidth::U9))
+            .write_epi(&bound::<Dr512>(), th, rows[0].key, 1, &row)
             .unwrap();
         assert!(matches!(w, Written::Stored { .. }));
-        let (p, m) = lane(&tt.read(ThoughtId(1), rows[0].key).unwrap(), 6);
-        let v = EpiLane9::from_codeword(u16::from(m) | (u16::from(p) << 8)).unwrap();
-        assert_eq!(v.value(), Some(-5));
+        let (p, m) = lane(&tt.read(th, rows[0].key).unwrap(), 6);
+        let e = EpiLane9::from_codeword(u16::from(m) | (u16::from(p) << 8)).unwrap();
+        assert_eq!(e.value(), Some(-5));
     }
 
-    /// A computed −0.499 is encoded as +0 in the same step and is written:
-    /// +0 is a value, never NaN.
+    /// A computed -0.499 is encoded as +0 in the same step and is written.
     #[test]
     fn a_computed_negative_zero_is_written_as_plus_zero() {
         use ndarray::hpc::codec8::{Calibration, TiesEven};
@@ -1020,47 +1093,74 @@ mod tests {
         let code = Codec9::<TiesEven, Unit>::encode_touched(-0.499).unwrap();
         assert_eq!((code.presence(), code.magnitude()), (true, 0));
         let rows = epi_rows();
-        let alloc = AlphaAllocation::over(&rows);
-        let mut tt = ThoughtTables::over(&alloc, 1);
-        let t = tt.open_table().unwrap();
-        tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
         let mut row = row_bytes(&rows[5]);
         set_lane(&mut row, 0, code.presence(), code.magnitude());
         let w = tt
-            .write_epi(ThoughtId(1), rows[5].key, 1, &row, &lanes(LaneWidth::U9))
+            .write_epi(&bound::<Dr512>(), th, rows[5].key, 1, &row)
             .unwrap();
         assert!(
             matches!(w, Written::Stored { .. }),
             "+0 replaces the base 5"
         );
-        let read = tt.read(ThoughtId(1), rows[5].key).unwrap();
-        assert_eq!(lane(&read, 0), (true, 0));
+        assert_eq!(lane(&tt.read(th, rows[5].key).unwrap(), 0), (true, 0));
     }
 
-    /// A NaN lane next to a changed lane: only the changed lane is stored,
-    /// and the NaN lane reads its prior value.
+    fn nan_beside_change<L: EpiLaneClass>() {
+        let rows = epi_rows();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
+        let mut row = row_bytes(&rows[4]);
+        set_lane(&mut row, 1, false, 0);
+        set_lane(&mut row, 2, true, 99);
+        let w = tt
+            .write_epi(&bound::<L>(), th, rows[4].key, 1, &row)
+            .unwrap();
+        assert_eq!(w, Written::Stored { slots: 1 << 2 }, "value slot only");
+        let read = tt.read(th, rows[4].key).unwrap();
+        assert_eq!(lane(&read, 1), (true, 6));
+        assert_eq!(lane(&read, 2), (true, 99));
+    }
+
+    /// A NaN lane next to a changed lane: only the change is stored.
     #[test]
     fn nan_beside_a_change_stores_only_the_change() {
-        for width in [LaneWidth::U8, LaneWidth::U9] {
-            let rows = epi_rows();
-            let alloc = AlphaAllocation::over(&rows);
-            let mut tt = ThoughtTables::over(&alloc, 1);
-            let t = tt.open_table().unwrap();
-            tt.place(ThoughtId(1), Placement::Table(t)).unwrap();
-            let mut row = row_bytes(&rows[4]);
-            set_lane(&mut row, 1, false, 0);
-            set_lane(&mut row, 2, true, 99);
-            let w = tt
-                .write_epi(ThoughtId(1), rows[4].key, 1, &row, &lanes(width))
-                .unwrap();
-            assert_eq!(
-                w,
-                Written::Stored { slots: 1 << 2 },
-                "{width:?}: value slot only"
-            );
-            let read = tt.read(ThoughtId(1), rows[4].key).unwrap();
-            assert_eq!(lane(&read, 1), (true, 6), "{width:?}");
-            assert_eq!(lane(&read, 2), (true, 99), "{width:?}");
-        }
+        nan_beside_change::<Dr512>();
+        nan_beside_change::<OnnxU8>();
+    }
+
+    /// Asymmetric 8-bit with a presence plane: value 0 with presence 1 is a
+    /// code like any other and is written.
+    #[test]
+    fn an_asym_zero_code_is_written() {
+        let rows = epi_rows();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
+        let mut row = row_bytes(&rows[3]);
+        set_lane(&mut row, 5, true, 0);
+        let w = tt
+            .write_epi(&bound::<OnnxU8>(), th, rows[3].key, 1, &row)
+            .unwrap();
+        assert!(matches!(w, Written::Stored { .. }));
+        assert_eq!(lane(&tt.read(th, rows[3].key).unwrap(), 5), (true, 0));
+    }
+
+    /// Symmetric int8: absent is presence 0 and value 0 like every layout;
+    /// code -128 with presence 1 is a value and is written.
+    #[test]
+    fn a_sym_int8_min_code_is_a_value() {
+        let rows = epi_rows();
+        let (alloc, th) = one_thought(&rows);
+        let mut tt = placed(&alloc);
+        let b = bound::<TfliteSym>();
+        let mut row = row_bytes(&rows[6]);
+        set_lane(&mut row, 7, false, 0);
+        let w = tt.write_epi(&b, th, rows[6].key, 1, &row).unwrap();
+        assert_eq!(w, Written::NoChange, "absent: base kept");
+        set_lane(&mut row, 7, true, 0x80);
+        let w = tt.write_epi(&b, th, rows[6].key, 1, &row).unwrap();
+        assert!(matches!(w, Written::Stored { .. }));
+        assert_eq!(lane(&tt.read(th, rows[6].key).unwrap(), 7), (true, 0x80));
     }
 }
