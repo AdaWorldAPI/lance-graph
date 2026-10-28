@@ -17,4 +17,11 @@ D-DT64-6-1a (new: verb classification and root namespace in `ttl_parse`), D-DT64
 
 ## Open
 
-Root-namespace form in `OgitUri`; fate of the per-verb placeholder `LinkSpec`; per-frame catalogues versus DT64-1's single catalogue; whether the allowed table is exposed through `OntologyRegistry`.
+Root-namespace form in `OgitUri`; which reader owns the allowed table (OGAR, lance-graph-ontology, or a generated TSV snapshot both read; plan §6); per-frame catalogues versus DT64-1's single catalogue; whether the allowed table is exposed through `OntologyRegistry`. The `LinkSpec` replacement is decided by #1831.
+
+## Update (same day): measurements and reconciliation, plan §§6–9
+
+- OGAR rejects 102 OGIT files on `b5731a8`: the 12 `rdfs:Class` verbs and 90 files written with column-aligned whitespace after `a`. Accepting both forms (a proposed OGAR stage, D-DT64-6-1b) measured 102 → 90 → 0 rejected (MEASURED, changes reverted).
+- `extract_allowed_block` loses 116 cells in 5 files: a `)` in a comment inside the list (4 files) and `ogit:allowed` written in a description (1 file). No file has two cells on a line or a cell over two lines (MEASURED).
+- File universes 960 / 953 / 952 / 939 / 931 and row counts per category (allowed versus from-to) are separated in plan §7.3.
+- Corrections recorded for merged #1831 §2 and #1833 §2 (the "successor" attribution); description is not a fourth axis beside ON, WHEN and DO (plan §8); crai-rs CR-H2 waits on the D-SAG-6-1 audit (plan §9).

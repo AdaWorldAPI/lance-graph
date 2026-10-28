@@ -1,6 +1,6 @@
 # D-DT64-6 predicates: implementation plan for the OGIT predicate expansion (stages 6-1 to 6-4)
 
-**Date:** 2026-10-28. **Status:** PROPOSED / DOCS ONLY. **Parent:** [D-DT64-6](https://github.com/AdaWorldAPI/lance-graph/blob/claude/clone-ndarray-lance-graph-dqfjlx/.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md) ([#1831](https://github.com/AdaWorldAPI/lance-graph/pull/1831), merged as `42b4b83`; the link still points at its branch), §5 stages D-DT64-6-1 to D-DT64-6-4. **Not:** code, test, ABI or merge authorization. Each stage below needs its own owner approval before any code.
+**Date:** 2026-10-28. **Status:** PROPOSED / DOCS ONLY. **Parent:** [D-DT64-6](https://github.com/AdaWorldAPI/lance-graph/blob/main/.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md) ([#1831](https://github.com/AdaWorldAPI/lance-graph/pull/1831), squash-merged into `main` as `42b4b83`; `32e8d07` is a commit on the PR branch and is not on `main`), §5 stages D-DT64-6-1 to D-DT64-6-4. **Not:** code, test, ABI or merge authorization. Each stage below needs its own owner approval before any code.
 
 This plan turns #1831's one-line stage descriptions into implementable work: file and symbol, the change, the tests that must fail before and pass after, and the acceptance numbers. Measurements were taken on 2026-10-28 against lance-graph `main` `eeaaafb`, OGAR `main` `6b43a48` and AdaWorldAPI/OGIT `master` `b5731a8`. OGIT is read unpinned (#1831 D7); the commit is recorded as a provenance receipt, never as a gate.
 
@@ -20,11 +20,13 @@ Evidence states as in #1831: VERIFIED-IN-CODE (read in full here), MEASURED (com
 | allowed edges whose verb is root `ogit:` | ≈2,330 of ≈2,932 (79%) | Appendix A script (regex, approximate) |
 | allowed edges with src, verb and dst all in `ogit.<Domain>:` | ≈550 (19%) | same script |
 
-Shape of one allowed block (`NTO/Schedule/entities/Calendar.ttl`): the entity is the source; each list cell is a blank node `[ verb target ]`.
+Shape of one allowed block (`NTO/Schedule/entities/Calendar.ttl`): the entity is the source; each list cell is a blank node `[ verb target ]`. In the file each cell is on its own line, the first indented with spaces and the second with a tab:
 
 ```turtle
-ogit.Schedule:Calendar a rdfs:Class; rdfs:subClassOf ogit:Entity;
-  ogit:allowed ( [ ogit:contains ogit.Schedule:Event ] [ ogit:belongs ogit.Auth:Account ] );
+  ogit:allowed (
+    [ ogit:contains  ogit.Schedule:Event ]
+	[ ogit:belongs  ogit.Auth:Account ]
+  );
 ```
 
 Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-to ( [ ogit:from ogit.WorkOrder:Customer ; ogit:to ogit.WorkOrder:Order ] )`.
@@ -65,7 +67,7 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 - Real-data arm (skips without `OGIT_FORK_PATH`): `hydrate_real_ogit.rs` gains `every_verb_file_yields_one_verb`, asserting `== 523` Edge proposals and `unclassified.is_empty()`. The expected number is measured from the checkout in the test (count `verbs/*.ttl` files), not hard-coded, because OGIT is unpinned.
 - Disable run: remove the new arm → `object_property_verb_is_a_verb` and the real-data count go red. Commit before disabling.
 
-**Acceptance.** 523 verbs and 931 + root entity subjects classified on OGIT `master`, with zero unclassified. No change to existing Entity and Attribute proposal counts other than the added root-namespace ones; this is checked by diffing proposal counts per namespace before and after.
+**Acceptance.** Every verb file and every entity file under an `entities` directory (953 on `b5731a8`, §7.3), root namespace included, classified on OGIT `master`, with zero unclassified. No change to existing Entity and Attribute proposal counts other than the added root-namespace ones; this is checked by diffing proposal counts per namespace before and after.
 
 ### D-DT64-6-1 — two-reader partition reconciliation (OGAR, read-only)
 
@@ -73,7 +75,7 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 
 **Change.** A new test, `verbs_and_entities_partition_identically`. Both readers load the same `ogit_checkout::root()` in one run, and each prints its partition as accepted / rejected / duplicate / unresolved, per kind (entity, verb). Every set difference is listed with the file and the reason. Known differences live in a named const with one line of reason each, the same pattern as `ONLY_IN_THE_TABLES`. Unexplained differences fail the test.
 
-**Explains.** The 523 / 2,894 (odoo-rs §8) versus 518 / 2,756 (eaw-5 line 24, OGAR #363) gap. OGIT file counts are identical at `2315167` and `b5731a8`, so the gap is on the reader side. The test records the observed OGIT commit as a provenance line in its output only.
+**Explains.** The 523 / 2,894 count that #1831 §5 cites versus 518 / 2,756 (eaw-5 line 24, OGAR #363) gap. OGIT file counts are identical at `2315167` and `b5731a8`, so the gap is on the reader side. The test records the observed OGIT commit as a provenance line in its output only.
 
 **Gate.** D-DT64-6-1a merged and consumed by OGAR. Until then, the test expects 511 + 183 verbs missing on the lance-graph side and says so.
 
@@ -83,7 +85,7 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 1. Entity pass: in `parse_into_proposals`, for `SubjectKind::Entity`, read the `ogit:allowed` list with a new `walk_rdf_list_nodes` that returns blank-node list items (today's `walk_rdf_list` returns only IRIs). Each cell must have exactly one `(predicate, Iri)` pair, giving `(entity, verb, target)`. A cell with any other shape is reported, not skipped.
 2. Verb pass: for the 12 `from-to` verbs, read `ogit:from-to ( [ ogit:from A ; ogit:to B ] )` into `(A, verb, B)`.
 3. Output: a new `AllowedEdge { src: String, verb: String, dst: String, source_uri, origin: AllowedOrigin::{EntityAllowed, VerbFromTo} }` collection beside the proposals, as a parse result field, not a new `MappingProposalKind` (#1831 §7: "No second registry"). It holds canonical names, no classids (#1831 D-DT64-6-2: classid-free). Duplicates are counted, not deduplicated silently.
-4. The per-verb placeholder `LinkSpec` stays as it is until a consumer needs typed links. A per-verb `LinkSpec` can only summarise many `(src, dst)` pairs and is not the table. Replacing it is a separate decision recorded in OPEN below.
+4. The per-verb placeholder `LinkSpec`: merged #1831 decides this. Its §5 row D-DT64-6-2 says the placeholder "is replaced from" the one table, and its §7 says "D-DT64-6-2 replaces the placeholder `LinkSpec` from the one table". This plan does not reopen that. What stays open is which reader owns the one table (§6).
 5. Unresolved: a `dst` or `verb` that is not a declared subject in the same parse is reported as `unresolved`, using the same three-way partition OGAR reports.
 
 **Tests.**
@@ -157,15 +159,16 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 OGIT#11 changes inputs this plan reads. §0 stays as measured on OGIT `master` `b5731a8`; re-measure on the branch before any stage starts.
 
 - `ogit:assesses` was undeclared. It becomes `ogit.Healthcare:assesses`, and its target `AnatomicalStructure` is declared. Other undeclared allowed targets in `NTO/Healthcare` and `NTO/WorkOrder` are fixed.
-- `tools/import_check.py` (in OGIT#11) reports 0 errors on the branch and writes the verb catalogue (533 verbs: 521 `owl:ObjectProperty`, 12 `rdfs:Class`) and the allowed table (2,966 unique `(source, verb, target)` rows). Its counts include verbs declared outside `verbs/` directories, so they differ from §0's file counts. The table is a candidate cross-check for 6-2; it is not a second parser to adopt (§5).
+- `tools/import_check.py` (in OGIT#11) reports 0 errors on the branch head `0bf9a80` and writes the verb catalogue (531 verbs: 519 `owl:ObjectProperty`, 12 `rdfs:Class`) and the allowed table (2,965 rows: 2,948 from `ogit:allowed`, 17 from the 12 verbs' `ogit:from-to`). Its counts include verbs declared outside `verbs/` directories, so they differ from §0's file counts. The table is a candidate cross-check for 6-2; it is not a second parser to adopt (§5).
 - The SGO layout is unchanged: root `ogit:` files stay in `SGO/sgo` and `SGO/core`. The OGIT validator's directory check reads the canonical path, so they validate only in a checkout whose path contains `/ogit/` (GitHub CI's `OGIT`, OGAR CI's `ogit`).
 - `tools/ogit_validate.py` (in OGIT#11) runs the OGIT validator's checks without Java.
+- `NTO/Accounting` loses three files (two verbs and one attribute) and one attribute is renamed (`counterpartyCountryCode`). OGAR#364 lowers the Accounting row floor in `ogar-from-schema` `ttl_emit.rs` from 36 to 33 to match.
 - OGAR#364 re-measures `ontology_cache`'s `ONLY_IN_THE_TABLES` for the branch: the three Healthcare Assessment subclasses, each now in its own file, are the only entities OGAR's reader takes and the cache misses. 6-1's partition test starts from that list.
 
 ## 4. Open
 
 1. Root namespace representation in `OgitUri`: option (a) or (b) in 6-1a.
-2. Whether the per-verb placeholder `LinkSpec` is replaced, summarised or kept once the allowed table exists.
+2. Which reader owns the allowed table (§6). The `LinkSpec` replacement itself is decided by #1831.
 3. Per-frame catalogues versus DT64-1's single catalogue (6-3).
 4. Whether `AllowedEdge` is exposed through `OntologyRegistry` or only from the parse result.
 5. Law candidates from schema mirroring (inverse, symmetric) stay unadmitted (#1831 §7); none of these stages admits a law.
@@ -174,9 +177,110 @@ OGIT#11 changes inputs this plan reads. §0 stays as measured on OGIT `master` `
 
 No new `MappingProposalKind`, no second registry, no classids in the allowed table, no OGIT pin, no consumer copy, no law admission, no change to `ClassView::FieldMask`, no runtime DT64 engine.
 
+## 6. Reconciliation with merged #1831: who owns the allowed table (OPEN)
+
+Merged #1831 (`d-dt64-6-routing-bindstore-behavior-v1.md`, §5 row D-DT64-6-2 and §7) says one reader owns the table, that OGAR `OgitTables::Allowed` already is that table, and that the default is to read it rather than grow a second expansion in `lance-graph-ontology`. §2 stage D-DT64-6-2 above proposes `walk_rdf_list_nodes` and `AllowedEdge` in `lance-graph-ontology`, which is that second expansion. The two plans disagree, and the owner decides.
+
+There is a dependency cycle to respect: `ogar-action-handler` depends on `lance-graph-ontology` (feature `ontology-cache`), so `lance-graph-ontology` cannot depend on OGAR.
+
+| Option | Who parses `ogit:allowed` | Who checks | Cost |
+|---|---|---|---|
+| **A** OGAR owns | OGAR `OgitTables` | the standing OGAR test (§2, 6-1) | `lance-graph-ontology` cannot read the table without inverting the dependency; a consumer that needs it reads OGAR's. OGAR's reader must first be fixed (§7.1, §7.2). |
+| **B** lance-graph-ontology owns | `lance-graph-ontology` `ttl_parse` (oxttl) | OGAR's `ontology_cache.rs` compares it with `OgitTables::Allowed` | Two parsers exist, but one is the authority and the other only a parity guard. Contradicts #1831 §7 ("No second … `ogit:allowed` parser") unless the owner amends it. |
+| **C** generated snapshot (suggested, PROPOSED) | one generator writes `verbs.tsv` and `allowed.tsv` from the OGIT tree; OGAR and `lance-graph-ontology` both read the files | a regenerate-and-diff check, as for `SUPERSESSION-INDEX.md` | No Turtle parsing in either reader and no dependency edge between them. The snapshot carries the OGIT commit as a provenance line, never as a gate (#1831 D7). Fits OGIT being changed mostly by this organization. Needs an owner for the generator. `tools/import_check.py` in OGIT#11 already writes both files; a Rust generator in ruff (an OGIT RDF/OWL harvester) is the alternative. |
+
+The snapshot's columns, as `import_check.py --emit-allowed` writes them: `source, verb, target, file, origin` with origin `allowed` or `from-to`; `--emit-verbs`: `verb, file, shape, uses`.
+
+## 7. Measurements for the D-DT64-6-1 partition (2026-10-28)
+
+Measured on OGIT `master` `b5731a8`, in a checkout directory named `OGIT`, with OGAR `main` `6b43a48`'s reader code (OGAR#364 changes no reader code) and OGIT#11's `tools/import_check.py` as the full Turtle parse. The OGAR numbers come from a throwaway example that called `OgitTables::load` and `ttl::parse_file` and was deleted after the run; it is not committed.
+
+### 7.1 OGAR's verb and class rejections
+
+`OgitTables::load` on `b5731a8`: 939 types, 1,940 attributes, 518 verbs, 2,771 allowed rows, 0 duplicates, 508 unresolved, **102 rejected files**.
+
+| Rejected | Count | Why | Paths |
+|---|---|---|---|
+| verbs declared `a rdfs:Class; rdfs:subClassOf ogit:Verb` | 12 | `parse_verb` (`ogar-from-schema` `sgo.rs`) requires the text `a owl:ObjectProperty` | `NTO/WorkOrder/verbs/` |
+| files whose type is written with column alignment (`a      owl:DatatypeProperty`) | 90: 74 attributes, 14 entities, 2 verbs | `detect_kind` (`ttl.rs`) and `parse_verb` match the type by substring with exactly one space after `a` | `NTO/CustomerSupport` 40, `NTO/Mobile` 47, `SGO/sgo` 3 (attributes `public`, `source`, `timeZone`) |
+
+A sibling OGAR stage to D-DT64-6-1a, here called **D-DT64-6-1b (OGAR, PROPOSED)**, would change both readers. The counts below come from applying each change locally and reverting it:
+
+| Change | rejected | types | attributes | verbs | allowed | unresolved |
+|---|---|---|---|---|---|---|
+| none (`b5731a8`) | 102 | 939 | 1,940 | 518 | 2,771 | 508 |
+| A: `parse_verb` also accepts the `rdfs:Class` verb form | 90 | 939 | 1,940 | 530 | 2,771 | 508 |
+| A + B: the type match also tolerates any whitespace after `a` | 0 | 953 | 2,014 | 532 | 2,823 | 495 |
+
+Change A alone does not move `allowed`, because the 12 `rdfs:Class` verbs carry `ogit:from-to`, which `OgitTables::Allowed` does not read. Whether `Allowed` gains the from-to rows is part of the §6 decision. Not measured on the OGIT#11 branch.
+
+### 7.2 Limits of `extract_allowed_block`
+
+`extract_allowed_block` (`ogar-from-schema` `ttl.rs`) takes the first occurrence of `ogit:allowed`, the first `(` after it and the first `)` after that, and reads the first two words of each line in between. Compared file by file with the full parse over the 953 files under an `entities` directory:
+
+| Case | Files | Effect in OGAR |
+|---|---|---|
+| more than one cell on a line | 0 | none on `b5731a8` |
+| a cell spanning lines | 0 | none on `b5731a8` |
+| a comment inside the list that contains `)` (each has `(2026-05-02)`) | 4: `NTO/Location/entities/Address.ttl`, `NTO/Politics/entities/Position.ttl`, `SGO/sgo/entities/Organization.ttl`, `SGO/sgo/entities/Person.ttl` | the block ends at that `)`; the cells after it are lost (1, 2, 37 and 71 cells) and one bogus pair `# ---` is read |
+| `ogit:allowed` written in a description before the real block | 1: `NTO/Integration/entities/ConnectorRun.ttl` | the block is read from `(concept doc Section 7.1)` in the description: the bogus pair `concept doc` is read, and all 5 real cells are lost |
+| a second allowed list in the same file | 1: `NTO/Healthcare/entities/Assessment.ttl` (four subjects, four lists) | only the first subject is read; this is the known `ONLY_IN_THE_TABLES` case |
+| file rejected as an entity (§7.1) | 14 | the file's cells are not read at all |
+
+In total OGAR reads 2,797 per-file pairs where the full parse reads 2,947: 116 cells are lost in the five files above, 5 bogus pairs are added, and the 14 rejected files hold the other 39. Each case is either a known-difference entry in the 6-1 test or an OGAR fix; the line-oriented walker cannot be fixed for comments and descriptions without tokenizing Turtle strings and comments.
+
+### 7.3 Which files the counts mean
+
+| Universe | Files | Read by |
+|---|---|---|
+| files containing the text `ogit:allowed` | 960 | lexical count (§0) |
+| … under a directory named `entities` (any case, so `NTO/Credit/Entities` counts) | 952 | `kind_of` |
+| … under `NTO/Healthcare/enumerations/` | 7 | neither reader's entity pass; `kind_of` ignores the directory. These are `rdfs:Class` enumerations with allowed lists. |
+| … the root `ogit.ttl` | 1 | neither |
+| `.ttl` files under an `entities` directory | 953 (952 above plus `NTO/WorkOrder/entities/Tenant.ttl`, which has no allowed list) | `kind_of` → `parse_file` |
+| … accepted as entities by OGAR | 939 (953 − 14 rejected) | `OgitTables` |
+| … with a non-empty allowed list as OGAR reads it | 686 | `OgitTables` |
+| entity files containing `subClassOf ogit:Entity` with one space (any case) | 931 | the §0 grep. It misses the 8 `NTO/Meteorology` entities, which write `rdfs:subClassOf     ogit:Entity` with column alignment, and the 14 rejected files; 939 − 8 = 931 |
+
+Row counts, by category, never mixed:
+
+| Rows | `b5731a8` | OGIT#11 `0bf9a80` | Read by |
+|---|---|---|---|
+| `ogit:allowed` cells, full parse, all files | 2,950 | 2,948 | `import_check.py` |
+| `ogit:from-to` cells (12 verbs) | 17 | 17 | `import_check.py`; not `OgitTables::Allowed` |
+| `OgitTables::Allowed` rows (resolved, deduplicated) | 2,771 | NOT MEASURED | OGAR |
+
+### 7.4 Corrections to merged documents
+
+- #1831, `d-dt64-6-routing-bindstore-behavior-v1.md` §2, row on OGAR's verb reader: "`extract_allowed_block` reads one `[ verb target ]` pair per line from the first `ogit:allowed (`…`)`". That is the mechanism, but a `)` in a comment and an `ogit:allowed` in a description both end or misplace the block (§7.2). The same row says `parse_verb` rejects the `rdfs:Class` verbs; it also rejects column-aligned `owl:ObjectProperty` verbs (§7.1).
+- #1831, same file, §5 rows D-DT64-6-1 and D-DT64-6-3, and this plan's §0: the 2,894 and 523 figures came from a consumer-side count, not from either reader. They should be replaced by the 6-1 partition when it runs.
+- #1833, `d-sag-6-1-audit-reference-ledger-v1.md` §2, second row: it says "#1831 plan §2 and board entry" call crai-rs "the successor to #1760". Merged #1831 says the opposite: its §2 row reads "a consumer of #1760, not its successor", and its board entry says #1760 "is consumed by crai-rs CR-H0 / CR-H1". The row's right-hand column is correct; its attribution is wrong. The left column should read: "earlier drafts".
+
+## 8. Description versus ON / WHEN / DO
+
+An `ogit:allowed` row says what may be linked to what. It is a description, not behaviour: it names no event (ON), no guard (WHEN) and no effect (DO).
+
+- ruff `ruff_spo_triplet` `role.rs`, `PredicateRole`: `DESCRIPTION` is `DESCRIBES | STRUCTURE | RELATES | PRESENTS`; `DO_ARM` is `EFFECTS | TRIGGERS`; `GUARD` is `CONSTRAINS | REQUIRES | AUTHORIZES`. The test `a_description_is_not_an_action_or_a_guard` pins that a description predicate has neither a DO nor a guard role. An allowed row is `RELATES`.
+- OGAR `docs/HIRO-DO-ARM-LIFT.md` §1: behaviour has three slices (identity, contract, body), and DO is lossless only when the `ActionDef` points to the body. An allowed row has none of the three.
+- #1814 `cfa-1-typed-incidence.md`, "Logical shape": ON is an event edge, WHEN a typed three-valued guard, DO an effect descriptor that grants nothing.
+- #1819 `on-do-watched-where-factored-dispatch-plan-20261027.md` §1: a candidate DO-presence mask never proves that a mapping applies.
+- #1831 §1 (WHEN × ON × DO attaches per DR#3 cell) and §3 (dispatch order).
+
+Description is therefore **not a fourth axis** beside ON, WHEN and DO. It is what a DT64 descriptor already records about a predicate (§2, 6-3: `observed_or_derived` = observed-schema). An OGIT verb placed in a DT64 slot carries description only. Its ON, WHEN and DO cells are UNKNOWN until a source attests behaviour for it (#1831 §5, D-DT64-6-5), and an empty cell is never read as "no behaviour".
+
+## 9. D-SAG-6-1 references
+
+#1833 (`d-sag-6-1-audit-reference-ledger-v1.md`, merged) is the reference list for the D-SAG-6-1 audit; §1 lists what #1760 §7 does not, §2 the stale statuses. This plan adds:
+
+| Reference | State |
+|---|---|
+| crai-rs `docs/ROADMAP.md`, section "crai-rs staged harvest roadmap", stage table row **CR-H2** (conditional): its dependency column lists "D-SAG-6-1 Rust HIR/MIR/Charon audit", so CR-H2 waits on the D-SAG-6-1 audit (crai-rs `main` `378a24a`, private) | MISSING from #1760 §7; read in full here |
+| #1833's own §2 second row | STALE: attribution wrong (§7.4) |
+| this plan's §7 measurements | MISSING from both; relevant where D-SAG-6-1 compares the Ruff → OGAR bridge with OGIT readers |
+
 ## Appendix A — namespace split of the allowed edges (approximate)
 
-Regex over the TTL tree, not a Turtle parser, so the totals differ slightly from OGAR's reader (≈2,932 here versus 2,894 in odoo-rs §8). It is enough to show the share of root-namespace verbs; D-DT64-6-1 replaces it with exact counts from both readers. Run as `python3 -I allowed_ns.py <OGIT checkout>`.
+Regex over the TTL tree, not a Turtle parser, so the totals differ slightly from OGAR's reader (≈2,932 here versus the 2,894 that #1831 §5 cites). It is enough to show the share of root-namespace verbs; D-DT64-6-1 replaces it with exact counts from both readers. Run as `python3 -I allowed_ns.py <OGIT checkout>`.
 
 ```python
 import re,sys,pathlib,collections
