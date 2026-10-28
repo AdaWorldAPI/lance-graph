@@ -555,4 +555,40 @@ mod tests {
             eprintln!("{line}");
         }
     }
+
+    /// Report, not a gate: does subtracting the expected quantization bias
+    /// (two independent uniform errors, 2 * s^2 / 12 per element) rescue L2?
+    #[test]
+    #[ignore]
+    fn l2_bias_correction_probe() {
+        let mut r = Rng(0x2545_F491_4F6C_DD1D);
+        eprintln!(
+            "{:>4} {:>6} | {:>17} {:>17}",
+            "dim", "noise", "sm9 med/p95", "corrected med/p95"
+        );
+        for dim in [32usize, 128] {
+            for noise in [0.14, 0.05, 0.01, 0.001] {
+                let (mut raw, mut cor) = (vec![], vec![]);
+                for _ in 0..400 {
+                    let c = synth(&mut r, 16, dim, noise, Distance::L2);
+                    let f = f64::from(graph_loss(&c.src, &c.tgt, &c.w, c.dim, c.dist, c.axis));
+                    let q = f64::from(loss_shared(&c, 255, false));
+                    let s = shared_scale(&c.src, &c.tgt, 255);
+                    let bias = 2.0 * s * s / 12.0; // per element, before the mean
+                    raw.push(((q - f) / f).abs());
+                    cor.push(((q - bias - f) / f).abs());
+                }
+                let mp = |v: &Vec<f64>| {
+                    format!("{:.1e}/{:.1e}", pct(v.clone(), 0.5), pct(v.clone(), 0.95))
+                };
+                eprintln!(
+                    "{:>4} {:>6} | {:>17} {:>17}",
+                    dim,
+                    noise,
+                    mp(&raw),
+                    mp(&cor)
+                );
+            }
+        }
+    }
 }

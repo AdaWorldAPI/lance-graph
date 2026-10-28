@@ -9,13 +9,16 @@ research plan in `AdaWorldAPI/neural-structured-learning`
 Given a TSV graph and labeled/unlabeled examples, it chooses each seed's
 neighbors exactly as NSL's `pack_nbrs` does. NSL then copies each neighbor's
 features into every seed that selects it. This crate instead stores every
-example once (`FeatureTable`) and keeps neighbors as row references
-(`Adjacency`, a CSR sorted in NSL order). `compat_lines` writes the records
+example once (`FeatureTable`), interns node IDs into a sorted label codebook
+(`Graph`: an ID's code is its rank, so NSL's ID tie-break is an integer
+compare) and keeps neighbors as row references (`Adjacency`, a CSR sorted in
+NSL order). `loss::graph_loss` is NSL's graph loss (L2, L1, cosine;
+`SUM_BY_NONZERO_WEIGHTS`) in f32. `compat_lines` writes the records
 NSL would have produced, so the two can be compared line by line.
 
 | NSL behaviour | here |
 |---|---|
-| directed edges, missing weight = 1.0, duplicates keep the max | `Graph::from_tsv`, `add_edge` |
+| directed edges, missing weight = 1.0, duplicates keep the max, first of equal weights wins | `Graph::from_tsv` (stable sort) |
 | only neighbors with an example are selected | `Adjacency::build` |
 | order: (weight, ID) descending on the parsed f64; `0.0 == -0.0` | `partial_cmp`, not `total_cmp` |
 | emitted weight is the f64 cast to f32 | `compat_lines` |
@@ -41,7 +44,11 @@ loading only `tools/graph_utils.py` and `tools/pack_nbrs.py`. The package
 
 ```
 python -I oracle/nsl_pack_oracle.py <neural-structured-learning checkout>
+python -I oracle/nsl_loss_oracle.py <neural-structured-learning checkout>
 ```
+
+The loss oracle runs NSL's unmodified `lib/distances.pairwise_distance_wrapper`
+(and `configs/`), freezing the seeded inputs together with TensorFlow's result.
 
 Two runs give the same golden file.
 
@@ -56,8 +63,11 @@ Two runs give the same golden file.
 | graph_utils.py sha256 | `ffae995c76e5cfdf070ebfd872112b4cd3d4dacb0ffdb99cea09da96f45cbb8c` |
 | pack_nbrs.py sha256 | `ff9ae806f04581736f4c54ad31a16dc4fc1f885a7b7907484cab921767630a7c` |
 | oracle script sha256 | `52abffbc09fc21db8d82b255e275864b66b4f2bbd0e66e6d980621113b81d9fd` |
-| fixtures.txt sha256 | `ac3e57a2d8b6de47a4a79de853c2e00c30d18a3cf99e9cf86edcb5e1e5867b0e` |
-| nsl_golden.txt sha256 | `16f05fd0269dc849be81781ec2783422ede590633e0659713311f352dbfbf8a0` |
+| fixtures.txt sha256 | `252a2fa38f0b5f2efdbea0e72901f951ac0d580403af20ecee6a7aa5dae8cae3` |
+| nsl_golden.txt sha256 | `221cb9640c66815241cb77482e443df009fb98f32eaab94d393adf8eea58e087` |
+| loss oracle script sha256 | `0541442ae78d172aaf2c2a8ab883716f46c754c1339ccd6a3fd55e72ac56c6b5` |
+| nsl_loss_golden.txt sha256 | `e75fb5094bf429286c416cf470e95ee99dc9c14377bdd3e52c0ab31c7b5bc754` |
+| distances.py / configs.py sha256 | in the loss golden header |
 | rustc | 1.99.0, x86_64-unknown-linux-gnu, Intel Xeon @ 2.80GHz (avx512f) |
 | tolerance | exact bits (f32 weight and feature hex) |
 | randomness | none in the fixtures; the cost probe uses a fixed xorshift seed |
@@ -70,7 +80,7 @@ implementation from a plausible wrong one.
 | fixture | input | observable |
 |---|---|---|
 | G01 / G01b | two weights / one edge without a weight | C then B / the missing weight is 1.0 |
-| G02 | A→B .4 and .9 | one B at .9 |
+| G02 / G02b / G02c | A→B .4 and .9 / 0.0 then -0.0 / -0.0 then 0.0 | one B at .9 / first of equal weights kept (+0, then −0 bits) |
 | G03 / G03b | equal weights / equal as f32, different as f64 | reverse ID tie-break / f64 decides |
 | G04 | A→missing .99 | missing filtered |
 | G05 | B both seed and unlabeled | seed features copied |
@@ -86,14 +96,14 @@ implementation from a plausible wrong one.
 
 ## Results
 
-- 16 of 17 fixtures match the golden byte for byte; G12b is refused by design.
-- 12 tests plus an ignored cost probe. Each of 11 disables turns a named test red:
-  dedup by min, reversed tie, seal check removed, lease bypassed, sort on f32,
-  `total_cmp`, NaN accepted, unlabeled features winning, cap ignored, no
-  symmetrization, default weight 0.
-- Cost probe, release, 20,001 edges, 1,000 seeds: `neighbors(seed, 16)` 1–2 ns
-  per seed. Cold builds, reported, not gates: TSV parse ≈ 7,600 µs, freeze
-  ≈ 2,000 µs.
+- 18 of 19 packing fixtures match the golden byte for byte; G12b is refused by design.
+- `graph_loss` agrees with TensorFlow within 0–3 ULP on all 10 loss cases.
+- 16 tests plus 6 ignored probes. 19 disables, each red on a named test.
+- Cost probe, release, 20,001 edges, 1,000 seeds: `neighbors(seed, 16)` 1 ns
+  per seed. Cold builds, reported, not gates: TSV parse ≈ 3,700 µs, freeze
+  ≈ 1,000 µs.
+- Palette512 / SM9 evaluation (edge weights, loss distance, stored features)
+  and the production recommendation: `docs/research/nsl/production-path-evaluation.md`.
 
 ## Not covered
 
