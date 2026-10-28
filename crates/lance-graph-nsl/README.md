@@ -103,7 +103,7 @@ implementation from a plausible wrong one.
   difference of near-equal f32 terms, so at small divergences it sits up to
   22,000 ULP from the f64 value. The reference lands at 0.10 of that budget
   or less.
-- 22 tests plus 9 ignored probes. 27 disables: 26 are red on a named test.
+- 25 tests plus 11 ignored probes. 30 disables: 29 are red on a named test.
   One is not load-bearing: the KL / JS arm of the nonzero count duplicates
   the `Axis::Last` arm, which these cases already take.
 - Cost probe, release, 20,001 edges, 1,000 seeds: `neighbors(seed, 16)` 1 ns

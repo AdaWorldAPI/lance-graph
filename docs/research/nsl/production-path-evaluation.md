@@ -28,6 +28,8 @@ top-k selection and replaces the B2 production answer.
 | A. label codebook | **ADOPT** | Exact NSL parity (18 of 19 fixtures; NaN refused). Cold build halved, query unchanged. |
 | B1. SM9 weights (fixed 1/255) for **selection** | **REJECT** | Changes the top neighbor for 7–21% of seeds, and the packed order for 45–60%. |
 | C1. **Fisher-z i8** weights (FamilyGamma fitted to the observed range) | **PROBE** | Top-1 changes for 0.6–0.8% of seeds and the top-4 order for about 5%: 9–34× better than SM9, 3× better than a fitted affine u8. Not exact, so the compat path keeps f64 order. A compact store or a quantized top-k behind a tolerance contract. |
+| C5. **z-linear at 9 bits** (SM9 reach, 511 codes, same 8-byte envelope) | **PROBE (best for weights)** | Top-1 changes for 0.3–0.4% of seeds, top-4 for 2.9–4.3%. About half the 8-bit error, and 4× below FamilyGamma i8 on the palette512 LUT. |
+| C5'. **Euler-gamma Gumbel deskew** in the 8-byte envelope | **REJECT for selection** | It does flatten the codes (entropy 6.6 → 7.7 bits) and cuts mean error 1.4–3×. But it moves codes out of the tail, so top-1 order gets 2–3× worse and the LUT's max error grows 20×. A perfect quantile deskew does the same. |
 | B1'. exact f64 order, SM9 weight **value** for the loss | **PROBE** | Selection stays exact; the stored weight error is ≤ 0.25%. Breaks bit parity of `NL_nbr_*_weight`, so it needs its own tolerance contract. |
 | B2. both endpoints quantized, distance in code space | **REJECT** | Fails once seed and neighbor differ by less than about 0.01, the converged state. Holds for L2, L1, cosine, and KL / JS through the softmax table. |
 | C2. palette256 needle + pair LUT for the **distance** | **REJECT** | 47–99.8% of close pairs land on one centroid and read distance 0. Loss error 50–100%, LUT reading irrelevant. Right for identity, wrong for a residual. |
@@ -280,6 +282,80 @@ This is the palette doctrine's own answer, made concrete:
 - the residual carries the distribution (how far apart the two are).
 
 It is `EdgeCodecFlavor::CoarseResidue` in miniature.
+
+### C5. Euler-gamma deskew in the 8-byte envelope, and 9 bits
+
+The question: can `std::f64::consts::EULER_GAMMA` deskew the value
+distribution, still inside FamilyGamma's 8 bytes of metadata (two f32)?
+
+The 8-byte envelope can hold two shapes over z = atanh(c):
+
+- **z-linear:** `(z_min, z_range)`, codes spread evenly over z. This is
+  FamilyGamma, but with rounding instead of truncation.
+- **z-Gumbel:** the Gumbel probability-integral transform, with
+  `beta = sd·√6/π` (its sign set by the skew) and
+  `mu = mean − EULER_GAMMA·beta`. Codes are equal-probability bins.
+
+EULER_GAMMA is the mean of the standard Gumbel distribution, so it is what
+places the location; `euler_gamma_puts_the_gumbel_location_where_the_sample_has_it`
+pins this. The z-Gumbel shape is the deskew: on Gumbel-shaped z it turns the
+code histogram flat.
+
+The helix "constant γ shove" (`z + EULER_GAMMA·const`) is the wrong place for
+γ. A constant shift before a range fit cancels exactly, so the codes do not
+change.
+
+Each shape is run at 255 levels (i8 reach) and 511 levels (the numeric reach
+of a 9-bit SM9 lane, i.e. 2 × u9: a palette512 index pair keys a 512 × 512
+LUT of 9-bit values). The equal-count quantile is the ceiling for any deskew.
+It needs 255 / 511 floats, not 8 bytes.
+
+| data | encoding | entropy (bits) | mean abs err | top-10% err | max err | top-1 order | top-4 order |
+|---|---|---|---|---|---|---|---|
+| uniform w ≥ 0.8 | FamilyGamma i8 | 6.56 | 1.4e-3 | 1.5e-4 | 5.4e-3 | 0.6% | 5.7% |
+| | z-linear 8 | 6.57 | 7.1e-4 | 7.5e-5 | 2.7e-3 | 0.9% | 5.2% |
+| | z-Gumbel 8 | 7.72 | 2.6e-4 | 2.1e-4 | 1.1e-3 | 2.1% | 6.8% |
+| | quantile 8 (ceiling) | 7.99 | 2.0e-4 | 1.9e-4 | 5.5e-4 | 1.6% | 6.5% |
+| | **z-linear 9** | 7.57 | 3.5e-4 | 3.7e-5 | 1.4e-3 | **0.4%** | **2.9%** |
+| | z-Gumbel 9 | 8.71 | 1.3e-4 | 1.0e-4 | 5.5e-4 | 0.8% | 3.0% |
+| embedding cosines ≥ 0.8 | FamilyGamma i8 | 7.10 | 4.0e-4 | 2.7e-4 | 1.0e-3 | 0.7% | 8.7% |
+| | z-linear 8 | 7.11 | 2.0e-4 | 1.4e-4 | 5.2e-4 | 0.5% | 7.7% |
+| | z-Gumbel 8 | 7.92 | 1.5e-4 | 5.2e-4 | 9.5e-3 | 1.4% | 7.0% |
+| | **z-linear 9** | 8.11 | 1.0e-4 | 6.7e-5 | 2.6e-4 | **0.3%** | **4.3%** |
+| | z-Gumbel 9 | 8.92 | 7.4e-5 | 2.6e-4 | 6.4e-3 | 0.8% | 4.5% |
+| palette512 pair cosines | FamilyGamma i8 | 5.80 | 7.0e-3 | 5.6e-3 | 1.5e-2 | – | – |
+| | z-linear 8 | 5.80 | 3.5e-3 | 2.7e-3 | 7.3e-3 | – | – |
+| | z-Gumbel 8 | 7.70 | 2.0e-3 | 1.2e-2 | 1.6e-1 | – | – |
+| | **z-linear 9** | 6.80 | 1.7e-3 | 1.4e-3 | 3.6e-3 | – | – |
+| | z-Gumbel 9 | 8.69 | 1.1e-3 | 7.1e-3 | 1.4e-1 | – | – |
+
+The embedding cosines come from 200 clusters × 20 neighbors, d = 32, the same
+shape as `build_graph`. The z skew is +0.8 to +4.6 on all three sets.
+
+Findings:
+
+- **The deskew works, and it is the wrong goal here.** The Gumbel envelope
+  raises entropy by 1–2 bits and lowers the mean error. It gets there by
+  taking codes away from the long right tail in z, which is where the
+  strongest neighbors and the closest pairs sit. Top-1 order gets 2–3× worse,
+  and the LUT's maximum error grows 20×. The quantile ceiling shows the same
+  pattern, so this is a property of deskewing, not of the Gumbel fit.
+  Selection and "which pairs are close" need resolution in the tail; that is
+  the MP3 effect the z-stretch already gives. A flat code histogram optimizes
+  the average, and the average is not what NSL reads.
+- **Rounding beats FamilyGamma's truncation.** At the same 255 levels and the
+  same range, z-linear has half FamilyGamma's mean and max error.
+  bgz-tensor's `encode` truncates (`as i8`), which biases every value toward
+  zero by up to one step.
+- **9 bits (2 × u9) is the real gain.** z-linear at 511 levels halves the error
+  of 8 bits and halves top-4 order changes, at the same 8 bytes of metadata.
+  On the palette512 LUT it is 4× below FamilyGamma i8 (mean 1.7e-3, max
+  3.6e-3).
+- **palette512 needles still collide** (`palette512_needle_probe`, f32 LUT).
+  The share of close pairs on one centroid drops from 47% to 25% at noise 0.14
+  and from 91% to 87% at noise 0.01, but the median loss error stays at
+  0.59–0.93. The needle says which entry; the residual has to carry the gap
+  (C4).
 
 **Limit.** The residual is per pair. A neighbor shared by many seeds needs one
 residual per seed it serves. That is the copy NSL makes and this crate
