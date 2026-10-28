@@ -39,6 +39,13 @@ REVISIT WHEN form (plan §1):
   two-valued OR of atoms; #1819 makes convergence of several mappings
   normal. The plan's dispatch fold and its collision question now follow
   both.
+- #1760 (D-SAG-6) is carried forward by crai-rs CR-H0 / CR-H1 (crai-rs #1
+  and #2, private): D-SAG-6 is the motor, Ruff + DT64 the transmission,
+  #1814's ON×WHEN×DO the guard ledger. The plan places DT64-6 as that
+  transmission's behaviour binding, applies D-SAG-6 F06 / F07 / F11 to it,
+  and requires a behaviour registration to reference ordered effects,
+  since a DO set or deduplicated SPO bag cannot separate `*x = 1; *x += 1`
+  from its reverse.
 - `lance-graph-ontology::ttl_parse` leaves `ogit:allowed` unexpanded
   (`ttl_parse.rs` module doc, "What this parser handles today"). The typed verb signature table exists only in OGAR
   `OgitTables::Allowed`, and OGAR depends on lance-graph-ontology.
