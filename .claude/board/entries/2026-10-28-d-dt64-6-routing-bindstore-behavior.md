@@ -46,6 +46,13 @@ REVISIT WHEN form (plan §1):
   and requires a behaviour registration to reference ordered effects,
   since a DO set or deduplicated SPO bag cannot separate `*x = 1; *x += 1`
   from its reverse.
+- odoo-rs #46 (Odoo Codegraph harvest schema, docs) is the Odoo intake:
+  its `dt64_candidates` array (source nodes → existing `algebra_ref`,
+  no seat mint) feeds the per-cell registry, every
+  `emitted_by` MethodId is kept (the single-emitter map lost 26 / 37
+  edges), and effective behaviour needs a pinned `registry_snapshot`.
+  It narrows open question 2 (inheritance before the cell lookup).
+  Searched OGAR and ndarray too: no #1760 / D-SAG-6 successor there.
 - `lance-graph-ontology::ttl_parse` leaves `ogit:allowed` unexpanded
   (`ttl_parse.rs` module doc, "What this parser handles today"). The typed verb signature table exists only in OGAR
   `OgitTables::Allowed`, and OGAR depends on lance-graph-ontology.
