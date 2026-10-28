@@ -472,7 +472,10 @@ mod tests {
         let step = prepare(UpdateRule::Symmetric(QUARTER)).unwrap();
         let minus_one = lane(-1);
         let out = step_one(&step, minus_one);
-        assert!(!out.never_touched(), "-1 · 1/4 is 0 in the table but the lane was touched");
+        assert!(
+            !out.never_touched(),
+            "-1 · 1/4 is 0 in the table but the lane was touched"
+        );
         assert_eq!(out.value(), Some(0));
         assert!(step_one(&step, EpiLane9::NEVER_TOUCHED).never_touched());
     }
@@ -935,7 +938,7 @@ mod tests {
     fn pz5_learned_order_beats_source_blind_baselines_on_held_out_worlds() {
         let d = decls();
         let l = train(TRAIN, 0..40, &d);
-        let test = 1000..1060;
+        let test = 1000..1600;
         let learned = mean(HELD_OUT, test.clone(), Policy::Learned(&l), &d);
         let by_scent = mean(HELD_OUT, test.clone(), Policy::Scent, &d);
         let rr = mean(HELD_OUT, test.clone(), Policy::RoundRobin, &d);
@@ -961,13 +964,14 @@ mod tests {
             ..HELD_OUT
         };
         let l = train(blind, 0..40, &d);
-        let test = 1000..1060;
+        let test = 1000..1600;
         let learned = mean(blind_test, test.clone(), Policy::Learned(&l), &d);
         let random = mean(blind_test, test.clone(), Policy::Random(7), &d);
         eprintln!("uninformative: learned {learned:.2}, random {random:.2}");
-        assert!(learned > 3.0, "learned {learned}");
+        // 600 worlds: the standard error of each mean is about 0.1.
+        assert!(learned > 4.0, "learned {learned}");
         assert!(
-            (learned - random).abs() < 1.5,
+            (learned - random).abs() < 0.5,
             "learned {learned}, random {random}"
         );
     }
