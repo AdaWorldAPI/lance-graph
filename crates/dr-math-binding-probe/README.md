@@ -65,3 +65,74 @@ Disable runs, each turning its named test red and restored from the commit: iden
 Warm reads made 0 global→local lookups. Single host, single run; reported, not gates.
 
 **Not done:** DR256::WHERE selection over 65,536 addresses and the stay / rebind / masked-read choice; focus larger than 64; any SIMD kernel (the column read is a scalar per-row gather, the largest warm cost after the folds); a real source owner, ACL or ClassView registry; DT method semantics (DR #4 handoff, amendment plan).
+
+## D-DRCA-2: DR256::WHERE × DR#3 (`where_dr3`)
+
+Lab test of the composition `global selection → optional amortized global→local mapping → HHTL16 Cartesian projection → native fold`. Module `src/where_dr3.rs`, test `tests/dr256_where_dr3.rs`, costs `examples/dr256_where_stages.rs`.
+
+- **WHERE is Quack's.** `table("node").where_eq("class", "employee").where_eq("sel", 1).bind(..)` (`Draft::bind`, three-valued through `Filter::sql_where`), lowered and executed by mask-risc's `Keep` terminal over 65,536 addresses. The FALSE set is the same leaves under `NOT`, also through `sql_where`. A row in neither is UNKNOWN. The module evaluates no predicate and depends on neither engine: it takes the two `Keep` masks as borrowed words.
+- **Global → local.** `project` tests bit `global(l)` of both masks for each local slot of the table's `LocalMap`: `map.len()` probes, never a pass over the universe, no map search. A selected identity outside the frame is not projected. The frame must carry `LocalMap::digest()` as its `coordinates` revision, so a selection cannot be projected through one coordinate assignment and read under another.
+- **Admission.** Every read goes through `LocalSelection::admit`, which re-checks the global source seal (owner, source revision, codebook, address space), the local frame, register frame identity, identity axis, DR method, focus, scope and criteria. The only readable form is the `Admitted` it returns. A `LocalSelection` is a caller-owned value; there is no store or cache.
+- **Folds.** The selection is a `u64` over the identity axis, ANDed into reads of the borrowed rows (`selected_count`, `selected_column`, `selected_column_k3`, `selected_cell`). No Cartesian product, no copied row.
+- **K3.** WHERE keeps TRUE. UNKNOWN is carried separately and never folded into FALSE; the negation of a selection is its FALSE set.
+
+Oracle: the source is plain Rust values per global address (`class`, `sel: Option<i32>`, `live`). Verdicts are a `match` on `Option`, local positions are `position()` in the frame's source-order id list, and registers are built from those positions, not through the map. It shares no code with Quack, mask-risc, `hhtl16` or `where_dr3`. NULL rows carry the payload the predicate tests for, so an engine that read NULL payloads would keep them.
+
+Thirteen tests against that oracle:
+
+- the global selection, whole mask over all 65,536 addresses, and its in-frame TRUE / FALSE / UNKNOWN (all three non-empty; most selected identities lie outside the frame);
+- equal local ordinals of two tables: the employee selection projected through the department map selects no department, and reading it against a department-row register is refused (`AxisMismatch`, `DifferentFrame`);
+- selected Identity × Property cell by cell, by column and by count, and the same relationships through the YZ rotation;
+- UNKNOWN: kept apart from FALSE in the selection, in its negation and in a three-valued property column;
+- a source change after WHERE (refused, then rebound to the oracle);
+- a scope or focus change with identical coordinates (refused; the unchanged register admits);
+- selected employees' sites through a witnessed FK (`Chain`), then a changed referenced property (refused, rebound);
+- a reseal at equal numbers and a new coordinate assignment (refused; the old map is refused under the new frame, and the new map projects to the new ordinals);
+- a foreign owner at equal numbers, other criteria, another DR method, and a new codebook (refused; the stale binding run silently keeps nobody);
+- empty and full selections, plus malformed widths, TRUE ∧ FALSE overlap and an id outside the universe;
+- the #1792 shape: a detached `Keep` reused after its criteria input changed answers silently with the old population; projected under the old seal it is refused;
+- projection under a stale global seal, a foreign owner's seal or a resealed local frame;
+- projection, admission and folds allocate nothing.
+
+Disable runs, each restored from the commit and each turning at least one test red: the two projection-time seal checks, `MapNotFrame`, the TRUE ∧ FALSE check, TRUE/FALSE swapped, the eight admission guards (global, local, frame issue, axis, method, focus, scope, criteria), UNKNOWN computed as "not TRUE", the three-valued column reporting UNKNOWN as FALSE, and `selected_count` ignoring the selection. The first pass found the two projection-time seal checks covered by no test; the projection test above was added for them and both now go red.
+
+The original #1792 control is unchanged and still reproduces: `cargo run --release --example p2_quack_where -- --controls` in `crates/drf-focus-probe` prints `reused R2 1032 vs fresh 31`.
+
+`cargo run --release --example dr256_where_stages` on a 4-vCPU shared Xeon @ 2.10 GHz (avx512f), median of 21 runs, two runs. Per-op rows below are batched over 40–256 calls where a single call is below timer resolution.
+
+| stage | run 1 | run 2 | allocs |
+|---|---|---|---|
+| cold: encode 65,536 source rows into planes and lanes (fixture) | 409 µs | — | 5 |
+| cold: `LocalMap::prepare` (64 ids) | 642 ns | — | 3 |
+| cold: `FrameStore::new` + seal | 786 ns | — | 2 |
+| `Draft::bind` | 308 ns | — | 10 |
+| `lower` | 318 ns | — | 7 |
+| WHERE TRUE + FALSE `Keep`, 65,536 rows (lowered once) | 42.2 µs | 70.5 µs | 0 |
+| `project` (64 probes) | 1,023 ns | 1,028 ns | 0 |
+| `admit` | 65.8 ns | 80.1 ns | 0 |
+| warm read (`admit` + `selected_count`) | 70.7 ns | 89.9 ns | 0 |
+| rotated cell read, selection applied | 10.7 ns | 9.6 ns | 0 |
+| `selected_count` | 13.2 ns | 30.3 ns | 0 |
+| `selected_column` | 15.0 ns | 16.6 ns | 0 |
+| end-to-end fresh read | 44.3 µs | 73.3 µs | 0 |
+
+Totals for N compatible reads (µs; fresh = WHERE + project + admit + read each time; warm = WHERE + project once, then admit + read; rebind = the owner advances before every read, the old selection is refused, then WHERE + project + admit + read):
+
+| N | fresh | warm | rebind | fresh / warm |
+|---|---|---|---|---|
+| 1 | 41.6 / 72.3 | 42.9 / 70.2 | 42.1 / 70.3 | 0.97 / 1.03 |
+| 2 | 85.9 / 142.4 | 43.8 / 70.0 | 86.5 / 140.8 | 1.96 / 2.03 |
+| 4 | 173.0 / 281.9 | 41.9 / 69.8 | 168.9 / 289.2 | 4.13 / 4.04 |
+| 8 | 347.9 / 586.3 | 43.0 / 69.7 | 340.5 / 589.6 | 8.10 / 8.41 |
+| 64 | exceeds 1,000 µs (failed gate) | 45.9 / 45.6 | exceeds 1,000 µs (failed gate) | — |
+
+Warm reuse breaks even at N = 1 and pays from N = 2. At N = 64 only warm reuse stays inside the fold budget. Rebind costs the same as fresh: invalidation is a cheap refusal followed by the full work. Absolute numbers move by up to 1.7× between runs on this shared host; only ratios within a run are used. These are microbenchmarks, reported, not gates.
+
+**Open limitations.**
+
+- **The seal attests the caller's claim, not the mask's provenance.** A detached `Keep` projected under a new seal after its source changed is accepted (pinned by the #1792-shape test, so a fix turns it red). Closing this needs the producer to bind a mask to the seal it was computed under; Quack's bound `Query` has no frame today (D-NFR S5).
+- `Criteria` is a caller-supplied id; Quack exposes no digest of a bound query.
+- The global codebook revision rides in `FrameRevisions::relation_map`; the owner, ACL and scope are the lab `FrameStore`, `Scope { id }` equality.
+- The FALSE set costs a second WHERE program. A terminal producing both K3 masks in one pass is not built.
+- One 64-slot frame per table; no larger focus, no DR256 resident register, no reuse of a scattered (`ScatterOrU32`) mask.
+- `project` is 64 scalar probes (~1 µs); admission (~65–80 ns) is not broken down.
