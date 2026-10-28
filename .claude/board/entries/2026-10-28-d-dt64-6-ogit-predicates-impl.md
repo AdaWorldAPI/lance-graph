@@ -1,4 +1,4 @@
-# D-DT64-6 predicates: implementation plan for the OGIT predicate expansion
+# D-DT64-6-1a to 6-4: implementation plan for the OGIT predicate expansion
 
 **Status:** PROPOSED / DOCS ONLY. Plan: [d-dt64-6-ogit-predicates-impl-v1.md](../../plans/d-dt64-6-ogit-predicates-impl-v1.md). Companion to [#1831](https://github.com/AdaWorldAPI/lance-graph/pull/1831) (D-DT64-6), which stages the OGIT work in one line per stage. No code, test, ABI or merge authorization.
 Read at lance-graph `main` `eeaaafb`, OGAR `main` `6b43a48`, AdaWorldAPI/OGIT `master` `b5731a8` (provenance receipt, not a pin).
