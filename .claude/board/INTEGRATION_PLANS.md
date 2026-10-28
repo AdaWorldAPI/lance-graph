@@ -1,3 +1,8 @@
+## 2026-10-28 — D-SAG-6-1 reference ledger and stale-status corrections → `.claude/plans/d-sag-6-1-audit-reference-ledger-v1.md`
+
+**Status:** PROPOSED, docs only; prerequisite reading for D-SAG-6-1 (#1760), not the audit. **Board:** [entry](entries/2026-10-28-d-sag-6-1-audit-reference-ledger.md). Lists the references #1760 §7 lacks (ruff `ruff_spo_triplet` files and plans, `ogar-from-ruff`, CFA #1813/#1814/#1818, #1792, #1799, contract files, D-DTM-1, ndarray primitives, crai-rs CR-H0/H1) and corrects stale status (crai-rs lists #1813–#1830 as open; ruff has no Rust frontend; `ProposedMethod` is not defined in code).
+**Confidence:** reference ledger only; D-SAG-6-1 unstarted.
+
 ## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
 
 **Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.
