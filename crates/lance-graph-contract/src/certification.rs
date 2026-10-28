@@ -515,6 +515,21 @@ mod tests {
         assert_eq!(m.causes(), Ok(true));
         assert_eq!(m.measured_only(&measured).causes(), Ok(true));
 
+        // Unknowns in the control arm: treated 1 of 4 measured, control 3 of
+        // 8 measured plus 8 unmeasured. Read as negatives the control rate
+        // is 3/16 and treated (1/4) looks higher; restricted it is 3/8 and
+        // treated is lower.
+        let mut b = ModelBuilder::new();
+        b.sources(SupportBasis::InterventionBacked, &[1, 2]);
+        let (t, _) = b.arm(true, 4, 1);
+        let (c_known, _) = b.arm(false, 8, 3);
+        let (c_unknown, _) = b.arm(false, 8, 0);
+        let m = b.build();
+        let measured = t.union(&c_known);
+        assert!(!c_unknown.intersects(&measured));
+        assert_eq!(m.causes(), Ok(true), "unknown controls read as negatives");
+        assert_eq!(m.measured_only(&measured).causes(), Ok(false));
+
         // An arm with no measured unit refuses instead of deciding.
         let (m, _) = build(2, 6);
         let control_only = m.trial.difference(&m.assigned);
