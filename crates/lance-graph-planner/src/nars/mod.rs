@@ -37,8 +37,8 @@ pub use insights::{extract_main_insights, InsightConfig, InsightKind, InsightRea
 pub use reach_out::{reach_out_integrate, FeltOutcome, ReachOutConfig};
 pub use regulate::{regulate_cycle, CycleConfig, CycleOutcome};
 pub use support::{
-    Ablation, ChainId, Derivation, DerivationId, DerivationLedger, Law, Load, Observation, Pooled,
-    Proof, SourceId, Truncated,
+    Ablation, ChainId, Derivation, DerivationId, DerivationLedger, Law, Load, NotAFigure,
+    Observation, Pooled, Proof, Refusal, Sensitivity, SourceId,
 };
 pub use tactic_select::{tactic_for_bias, TacticChoice};
 pub use tactics::{
