@@ -5,8 +5,9 @@
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | D-DT64-6-0 | plan + board (docs) | In PR | docs review |
-| D-DT64-6-1 | OGIT reader reconciliation: `ttl_parse` vs OGAR `OgitTables`, same checkout, one run, identical partition | Queued | owner approval; read-only |
-| D-DT64-6-2 | expand `ogit:allowed` in lance-graph-ontology into a classid-free (src, verb, dst) table | Queued | D-DT64-6-1 green |
+| D-DT64-6-1a | classify every OGIT verb file in both readers (today `ttl_parse` accepts the 12 `rdfs:Class` verbs, OGAR `parse_verb` the 511 `owl:ObjectProperty` verbs) | Queued | owner approval |
+| D-DT64-6-1 | OGIT reader reconciliation: `ttl_parse` vs OGAR `OgitTables`, same checkout, one run, identical partition | Queued | D-DT64-6-1a green; owner approval; read-only |
+| D-DT64-6-2 | classid-free (src, verb, dst) table from entity `ogit:allowed` blocks plus the 12 `ogit:from-to` verbs; default source OGAR `OgitTables::Allowed`, no second parser | Queued | D-DT64-6-1 green |
 | D-DT64-6-3 | register OGIT verbs as DT64 predicates in 64-wide blocks | Queued | D-DT64-6-2 green |
 | D-DT64-6-4 | consumer read-only access via HotPlug activation | Queued | D-DT64-6-3 green |
 | D-DT64-6-5 | OGIT becomes cross-check oracle once a domain has attested predicates | Queued | one attested domain |
