@@ -50,7 +50,7 @@ Evidence states used below: VERIFIED-IN-CODE (file:line re-read), CURRENT-CONTRA
 
 ## 2. Grounding table
 
-What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and "lance-graph#NNNN" (PR heads: #1814 @bbd8980, #1819 @60eca64) label other checkouts; those lines were read in a session crosswalk on 2026-10-28 and are not re-read in this file. In-repo sources are cited by symbol or section heading, not by line number, so a later edit to the target does not silently re-point the citation. Every in-repo source below was read in full on 2026-10-28.
+What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and #1814 and #1819, both merged into lance-graph `main` and read in full here on 2026-10-28, are cited from this repo; the other two label other checkouts, whose lines were read in a session crosswalk on 2026-10-28 and are not re-read in this file. In-repo sources are cited by symbol or section heading, not by line number, so a later edit to the target does not silently re-point the citation. Every in-repo source below was read in full on 2026-10-28.
 
 | Item | Evidence state | Citation |
 |---|---|---|
@@ -74,8 +74,8 @@ What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and "lance-
 | Capstone: the Odoo method fold is listed as missing | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`, section "Evidence and non-goals" |
 | Capstone: 64×64×64 = 262,144 cells = 32 KiB dense; never eagerly allocate a cube for an 8- or 23-field question | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`, section "Logical capacity and materialization" |
 | odoo-rs registry: lab design, "Nothing here is production code"; §1 axes of at most 64 positions per frame; §3 dispatch fold; §5 collisions; §8 OGIT counts; §10 measured results; §11 open points | CURRENT-CONTRACT (other repo, lab design doc) | `odoo-rs:docs/DT64-ON-WHEN-DO-REGISTRY.md:3,13-24,55-56,98-99,139-169,200-210,246-258` |
-| lance-graph#1814 cfa-1 (OPEN, docs only): "S1 is a proposed method-analysis view, not equivalent to the existing DT64-0 logical 64-predicate catalogue" | OPEN (PR not merged) | `lance-graph#1814:docs/research/counterfactual-behavior/cfa-1-typed-incidence.md:3,8` |
-| lance-graph#1819 (OPEN, docs only): ON×DO 256² presence bitmap plus borrowed Quack WHERE populations; "NOT IMPLEMENTED, MEASURED, ADMITTED OR MERGE-AUTHORIZED" | OPEN (PR not merged) | `lance-graph#1819:docs/research/on-do-watched-where-factored-dispatch-plan-20261027.md:3,9,119` |
+| #1814 cfa-1 (merged, docs only, falsifiers not run): S1 is a proposed method-analysis view, not equivalent to the DT64-0 logical 64-predicate catalogue; WHEN is a reference to a typed guard with a three-valued result and cannot be folded as a simple OR of satisfied atoms; one cell maps to zero, one or several method identities | CURRENT-CONTRACT (research doc, not an implementation) | `docs/research/counterfactual-behavior/cfa-1-typed-incidence.md`, sections "Question", "Logical shape, no Rust ABI commitment" and "Kill tests" (I01, I03) |
+| #1819 (merged, docs only, not implemented or measured): ON×DO 256² presence bitmap plus borrowed Quack WHERE populations; the 256² bitmap and the 65,536-row WHERE mask are equal-sized but different coordinate domains; several mappings onto one polyfill, and convergence of rules into one state, are normal and must all be kept | CURRENT-CONTRACT (research doc, not an implementation) | `docs/research/on-do-watched-where-factored-dispatch-plan-20261027.md`, sections "Research question", "Operator correction" and "Normal convergence of rules into a shared state" |
 | OGAR `KausalSpec` variants `StateGuard`, `LifecycleTrigger`, `Depends`, `Constrains`, `Onchange`, `ContextDepends`, `External` | VERIFIED-IN-CODE (other repo) | `OGAR:crates/ogar-vocab/src/lib.rs:610-652` |
 | OGAR mints `action_handler` 0x0C07, `action_applicability` 0x0C08, `automation_trigger` 0x0C09; `action_capability` is RESERVED | VERIFIED-IN-CODE (other repo) | `OGAR:crates/ogar-vocab/src/lib.rs:1415-1440` |
 | OGAR DO-arm lift: schema half coded; behavioural half is CONJECTURE | CURRENT-CONTRACT (other repo) | `OGAR:docs/HIRO-DO-ARM-LIFT.md:86-90,161` |
@@ -99,7 +99,7 @@ Everything in this section is WORKING-MODEL or PROPOSED. None of it is decided b
 1. `DR256::WHERE` selects the population (8 KiB mask).
 2. Quack evaluates each needed guard into `G`.
 3. DR64 routes each address to its classid.
-4. The registry fold `OR over w in G of C[e][w]` (odoo-rs §3) gives the DO mask per event.
+4. odoo-rs §3 gives the DO mask per event as the fold `OR over w in G of C[e][w]`. That fold is two-valued and treats each WHEN as one atom, which #1814 rules out (kill test I03: with `WHEN = A AND B`, A true and B false or unknown must not fire). The fold therefore stands only for candidate DO presence, the `ON_DO[e]` mask of #1819. Selection evaluates each registration's typed guard over the population in K3, and UNKNOWN never counts as FALSE.
 5. DO bits that are property writes land on DR#3 cells as resident changes, then follow the persistence path (EXO-55).
 
 (PROPOSED)
@@ -143,13 +143,13 @@ All OPEN.
 
 1. Which unit is immutable: a `(classid, DT64 binding version)` entry, or one classid per revision? The second reopens the bit-placement question. This conflicts with D5's wording "classid behaviour is permanently immutable".
 2. Does per-class inheritance resolution (`_inherit`, C3 order, odoo-rs §9 P6) run before the cell lookup?
-3. Coexisting methods in one cell: odoo-rs reports a "collision" (`odoo-rs:docs/DT64-ON-WHEN-DO-REGISTRY.md:98-99`); lance-graph#1819 treats convergence as normal. A polymorphism reading (classid × polyfill) is proposed: several registered mappings are normal, and "collision" applies only to equally specific registrations with no declared order.
+3. Coexisting methods in one cell: odoo-rs reports a "collision" (`odoo-rs:docs/DT64-ON-WHEN-DO-REGISTRY.md:98-99`). Merged #1819 settles the direction: several mappings and convergence are normal and must all be kept, and a real conflict needs incompatible source-qualified results under the same fully typed coordinate and snapshot plus an applicable domain law. Still open: whether odoo-rs's "collision" cells meet that bar or are ordinary convergence.
 4. WHEN has no attested source data. The Odoo corpus carries only check-method kinds.
 5. The Q0 line 9 amendment in §4 is not accepted yet.
 6. Laws beyond Boolean associativity (inverse, symmetric, transitive) need instance evidence before admission (odoo-rs §11).
 7. EXO-46 (global↔local admission), EXO-148 (durable identities for replay) and NFR-OP-2 (physical DR³ third axis) remain open. The levels here are logical.
 8. The capstone's second axis is "targets" (Identity × Identity × Predicate), while D1 level 2 says Identity × Property × Predicate. D2 reads the capstone cube as the optional derived view. The owner of DT64-1..3 must confirm.
-9. Odoo slice 1 needs 194 ON and 219 DO positions, so 4 blocks of 64 each. lance-graph#1819 proposes a padded 256×256 plane instead. The two shapes are not reconciled.
+9. Odoo slice 1 needs 194 ON and 219 DO positions, so 4 blocks of 64 each. Merged #1819 proposes a padded 256×256 plane instead. The two shapes are not reconciled.
 
 ## 7. Non-goals and guards
 
@@ -161,14 +161,14 @@ All OPEN.
 - OGIT verbs are not Ruff `PredicateRole` bits and not the merged DT64 slot ids.
 - Laws (inverse, symmetric) stay unadmitted until instance evidence exists. Schema mirroring is not evidence (`OGAR:crates/ogar-action-handler/tests/ogit_schema_composition.rs:19-21`).
 - The 518 / 2,756 figures are a board claim, not verified here, and are never merged with 523 / 2,894.
-- The ruff role-bit names (`TRIGGERS`, `REQUIRES`, `ENABLES`, `EFFECTS`) are quoted from odoo-rs and lance-graph#1814, not checked against ruff.
+- The ruff role names are quoted, not checked against ruff: #1814 lists READS, DERIVES, EFFECTS, REQUIRES, AUTHORIZES and TRIGGERS; the odoo-rs list was read in another checkout.
 - ON, WHEN and DO are not DT64-0 slot terms. The merged plans use none of them.
 - `ClassView::FieldMask` stays field presence, never predicate truth (capstone, section "Thesis and precise terminology").
 - Do not cite the quarantined item. Nothing here derives from it.
 
 ## 8. Sources
 
-- lance-graph [#1760](https://github.com/AdaWorldAPI/lance-graph/pull/1760), [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792), [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794), [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795), [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796), [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797), [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798), [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799), [#1814](https://github.com/AdaWorldAPI/lance-graph/pull/1814) (OPEN, docs), [#1819](https://github.com/AdaWorldAPI/lance-graph/pull/1819) (OPEN, docs).
+- lance-graph [#1760](https://github.com/AdaWorldAPI/lance-graph/pull/1760), [#1792](https://github.com/AdaWorldAPI/lance-graph/pull/1792), [#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794), [#1795](https://github.com/AdaWorldAPI/lance-graph/pull/1795), [#1796](https://github.com/AdaWorldAPI/lance-graph/pull/1796), [#1797](https://github.com/AdaWorldAPI/lance-graph/pull/1797), [#1798](https://github.com/AdaWorldAPI/lance-graph/pull/1798), [#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799), [#1814](https://github.com/AdaWorldAPI/lance-graph/pull/1814) (merged, docs), [#1819](https://github.com/AdaWorldAPI/lance-graph/pull/1819) (merged, docs).
 - odoo-rs [#44](https://github.com/AdaWorldAPI/odoo-rs/pull/44), [#45](https://github.com/AdaWorldAPI/odoo-rs/pull/45), [#46](https://github.com/AdaWorldAPI/odoo-rs/pull/46) (test-only lab and harvest schema).
 - OGAR [#363](https://github.com/AdaWorldAPI/OGAR/pull/363) (`ogit_schema_composition.rs`).
 - Board coordination: Linear EXO-50 (append-only; coordination, not approval).

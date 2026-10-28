@@ -3,7 +3,7 @@
 **Status:** PROPOSED / DOCS ONLY. Plan: [d-dt64-6-routing-bindstore-behavior-v1.md](../../plans/d-dt64-6-routing-bindstore-behavior-v1.md).
 No code, ABI, test, runtime or merge authorization. Read at lance-graph `main`
 `72697cc31`, odoo-rs `main` `558f12a`, OGAR `main` `6b43a48`; lance-graph #1814
-(`bbd8980`) and #1819 (`60eca64`) are OPEN docs PRs.
+and #1819 have since merged as docs and were read in full on `main`.
 
 ## What this records
 
@@ -33,7 +33,10 @@ REVISIT WHEN form (plan §1):
 - The merged DT64 plans use none of the ON / WHEN / DO terms (the three
   plans read in full). The ON×WHEN×DO registry exists only as the odoo-rs lab design
   `docs/DT64-ON-WHEN-DO-REGISTRY.md` (#44 / #45 merged, test-only) and in the
-  OPEN docs PRs #1814 and #1819.
+  docs #1814 and #1819 (now merged). #1814 rules out folding WHEN as a
+  two-valued OR of atoms; #1819 makes convergence of several mappings
+  normal. The plan's dispatch fold and its collision question now follow
+  both.
 - `lance-graph-ontology::ttl_parse` leaves `ogit:allowed` unexpanded
   (`ttl_parse.rs` module doc, "What this parser handles today"). The typed verb signature table exists only in OGAR
   `OgitTables::Allowed`, and OGAR depends on lance-graph-ontology.
