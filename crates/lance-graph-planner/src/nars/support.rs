@@ -103,6 +103,17 @@ pub enum Refusal {
     Pool,
 }
 
+/// Whether an explicit deduction step may chain two statements of `cop`.
+///
+/// Wider than [`Copula::transits`], which governs blanket closure: `Impl` is
+/// never closed transitively, but an admitted step may chain it, as the
+/// copula's own documentation requires ("causal chaining goes through explicit
+/// tactics"). The step earns NARS truth only; it certifies no cause. `Rel`
+/// never composes.
+fn composes(cop: Copula) -> bool {
+    matches!(cop, Copula::Inh | Copula::Sim | Copula::Impl)
+}
+
 /// The NARS law a derivation applies, as [`TruthValue`] implements it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Law {
@@ -136,7 +147,7 @@ impl Law {
         let [a, b] = premises;
         let drawn = match self {
             Law::Deduction => {
-                if a.cop != b.cop || !a.cop.transits() {
+                if a.cop != b.cop || !composes(a.cop) {
                     return None;
                 }
                 if a.s == b.p {
@@ -1109,6 +1120,16 @@ mod tests {
         assert!(l
             .derive(A, Law::Deduction, [rel(1, 2), rel(2, 3)], rel(1, 3))
             .is_err());
+        // An explicit implication step chains, though closure never would.
+        let imp = |s, p| CStmt {
+            s,
+            cop: Copula::Impl,
+            p,
+        };
+        let mut chained = DerivationLedger::new();
+        assert!(chained
+            .derive(A, Law::Deduction, [imp(1, 2), imp(2, 3)], imp(1, 3))
+            .is_ok());
         assert!(l.derivations().is_empty());
         assert!(l.grounded_since(0).unwrap().is_empty());
         assert!(l
