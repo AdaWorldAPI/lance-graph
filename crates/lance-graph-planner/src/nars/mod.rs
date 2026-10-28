@@ -19,6 +19,7 @@ pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
 pub mod scent;
+pub mod scent_learn;
 pub mod stance;
 pub mod support;
 pub mod tactic_select;
