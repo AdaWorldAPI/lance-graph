@@ -475,6 +475,23 @@ mod tests {
         assert!(step_one(&step, EpiLane9::NEVER_TOUCHED).never_touched());
     }
 
+    /// PZ2 in the learner. A present feature whose delta rounds to zero is
+    /// marked seen (`+0`), not left "never touched". Here x = 1 and the
+    /// residual is 127, so the raw delta is 127/255 ≈ 0.498, which rounds to 0.
+    #[test]
+    fn pz2_a_present_feature_with_a_zero_step_is_marked_seen() {
+        let step = prepare(UpdateRule::Symmetric(HALF)).unwrap();
+        let mut l = ScentLearner::new(step.spec());
+        let mut lead = fixed_lead(0.9, 0.8);
+        lead.uncertainty = 0.002;
+        assert_eq!(features(&lead)[3], 1, "fixture must give x = 1");
+        assert_eq!(
+            l.learn(&step, &lead, Outcome::Hydrated, 1),
+            Ok(Learned::Updated { residual: 127 })
+        );
+        assert_eq!(l.weights()[3].value(), Some(0));
+    }
+
     /// PZ3. `lut9` evaluates odd functions only. An asymmetric or biased
     /// rule is refused, not mapped; their degenerate odd forms are admitted.
     #[test]
