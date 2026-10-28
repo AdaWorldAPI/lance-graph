@@ -1,3 +1,8 @@
+## 2026-10-28 — D-DT64-6: DR64 routing, DT64 bind store, per-cell WHEN×ON×DO behaviour, OGIT reference predicates → `.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md`
+
+**Status:** PROPOSED, docs only; nothing authorized. **Board:** [entry](entries/2026-10-28-d-dt64-6-routing-bindstore-behavior.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6. Records eight user decisions (three DT64 levels; primary DR#3 Identity × Properties; WHEN×ON×DO per DR#3 cell; DR64 = direct routing, DT64 = DTO bind store; immutable classid → behaviour via hotplug; global needs no classid; OGIT read unpinned; DR64 references existing identity and the global→local prefetch holds a frame-keyed register copy) and stages D-DT64-6-0..5 with 6-1a (classify the verb files both readers miss: lance-graph accepts 12, OGAR 511, of 523), OGIT reader reconciliation, one `(src, verb, dst)` table from the entity `ogit:allowed` blocks with no second parser, DT64 predicate registration, consumer HotPlug access. Requests an amendment to D-DT64-Q0's "One-sentence contract" (persistent binding store); not applied.
+**Confidence:** plan row only; stages unstarted.
+
 ## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
 
 **Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.
