@@ -1,28 +1,26 @@
 //! Epistemic lane layout of a class, chosen by the consumer at compile time.
 //!
 //! A class that carries quantized values in its row declares, once, how its
-//! lanes are stored: their width, the code space, which code means "never
-//! touched" (NaN, `$null`, UNKNOWN) and where the value bytes and the presence
-//! bits sit. The consumer picks this at compile time, typically from the
-//! quantization annotations it already has (ONNX `QuantizeLinear` /
-//! TFLite tensor quantization: a zero point of 0 is [`CodeSpace::Sym`], any
-//! other zero point is [`CodeSpace::Asym`]), and states it as a constant:
+//! lanes are stored: their width, the code space, and where the value bytes
+//! and the presence bits sit. The consumer picks this at compile time,
+//! typically from the quantization annotations it already has (ONNX
+//! `QuantizeLinear` / TFLite tensor quantization: a zero point of 0 is
+//! [`CodeSpace::Sym`], any other zero point is [`CodeSpace::Asym`]), and
+//! states it as a constant:
 //!
 //! ```
 //! use lance_graph_contract::lane_codec::{
-//!     checked, CodeSpace, EpiLaneClass, EpiLaneSpec, LaneWidth, NanCode,
+//!     checked, CodeSpace, EpiLaneClass, EpiLaneSpec, LaneWidth,
 //! };
 //!
-//! /// A class whose lanes are ONNX uint8 values with zero point 128 and a
-//! /// presence plane.
+//! /// A class whose lanes are ONNX uint8 values with zero point 128.
 //! struct SensorReading;
 //! impl EpiLaneClass for SensorReading {
 //!     const SPEC: EpiLaneSpec = checked(EpiLaneSpec {
 //!         width: LaneWidth::Bits8,
 //!         space: CodeSpace::from_zero_point(128),
-//!         nan: NanCode::PresenceZero,
 //!         values: 64,
-//!         presence: Some(96),
+//!         presence: 96,
 //!         lanes: 16,
 //!     });
 //! }
@@ -33,7 +31,7 @@
 //!
 //! ```compile_fail,E0080
 //! use lance_graph_contract::lane_codec::{
-//!     checked, CodeSpace, EpiLaneClass, EpiLaneSpec, LaneWidth, NanCode,
+//!     checked, CodeSpace, EpiLaneClass, EpiLaneSpec, LaneWidth,
 //! };
 //! struct Bad;
 //! impl EpiLaneClass for Bad {
@@ -41,9 +39,8 @@
 //!     const SPEC: EpiLaneSpec = checked(EpiLaneSpec {
 //!         width: LaneWidth::Bits9,
 //!         space: CodeSpace::Asym,
-//!         nan: NanCode::PresenceZero,
 //!         values: 64,
-//!         presence: Some(96),
+//!         presence: 96,
 //!         lanes: 16,
 //!     });
 //! }
@@ -52,28 +49,27 @@
 //!
 //! [`ClassView::epi_lanes`](crate::class_view::ClassView::epi_lanes) names the
 //! same constant for a class, so a reader holding only a classid can resolve
-//! it, and a writer generic over [`EpiLaneClass`] can refuse a row whose class
+//! it, and a writer generic over [`EpiLaneClass`] can refuse a class that
 //! declares a different layout.
 //!
-//! # Never touched
+//! # Absent
 //!
-//! - [`NanCode::PresenceZero`]: presence 0 **and** value 0, at 8 and 9 bits
-//!   alike. At 9 bits the presence bit is also the sign (DR512, `ndarray`
-//!   `hpc::codec9`), so presence 0 with a nonzero magnitude is a negative
-//!   value. At 8 bits presence 0 with a nonzero value is a layout mix-up; the
-//!   width in this spec is what rules it out.
-//! - [`NanCode::SymMin`]: the code `-128` (byte `0x80`) of a narrow symmetric
-//!   8-bit lane, which never encodes a value (`ndarray` `codec8::NaNAtMin`).
-//! - [`NanCode::None`]: every code is a value; nothing is ever skipped.
+//! Every lane has a presence bit; the presence plane is not optional. A lane
+//! is absent (never touched: NaN, `$null`, UNKNOWN) when its presence bit is 0
+//! **and** its value is 0, at 8 and 9 bits alike. At 9 bits the presence bit
+//! is also the sign (DR512, `ndarray` `hpc::codec9`), so presence 0 with a
+//! nonzero magnitude is a negative value. At 8 bits presence 0 with a nonzero
+//! value cannot arise except by reading a 9-bit lane through an 8-bit layout;
+//! the width in this spec is what rules that out.
 //!
-//! A sparse write leaves a never-touched lane unwritten, so it keeps the value
-//! read before. This module describes layout only; it stores nothing and adds
-//! no bytes to a row.
+//! A sparse write leaves an absent lane unwritten, so it keeps the value read
+//! before. This module describes layout only; it stores nothing and adds no
+//! bytes to a row.
 
 /// Bits per lane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LaneWidth {
-    /// One byte per lane.
+    /// One value byte and one presence bit per lane.
     Bits8,
     /// One magnitude byte per lane plus its presence/sign bit (DR512).
     Bits9,
@@ -100,17 +96,6 @@ impl CodeSpace {
     }
 }
 
-/// Which stored code means "never touched".
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum NanCode {
-    /// No code: every stored code is a value.
-    None,
-    /// Presence 0 and value 0.
-    PresenceZero,
-    /// Byte `0x80` (code `-128`) of a narrow symmetric 8-bit lane.
-    SymMin,
-}
-
 /// Where a class keeps its epistemic lanes, and how they are coded.
 ///
 /// Offsets are bytes into the 512-byte row (key, edge block, value slab).
@@ -120,11 +105,10 @@ pub enum NanCode {
 pub struct EpiLaneSpec {
     pub width: LaneWidth,
     pub space: CodeSpace,
-    pub nan: NanCode,
     /// First value byte; one byte per lane.
     pub values: u16,
-    /// First presence byte, if the class has a presence plane.
-    pub presence: Option<u16>,
+    /// First presence byte.
+    pub presence: u16,
     /// Number of lanes, `1..=64`.
     pub lanes: u8,
 }
@@ -143,16 +127,8 @@ pub enum SpecError {
     OutOfSlab,
     /// The value bytes and the presence bytes overlap.
     Overlap,
-    /// A 9-bit lane is sign-magnitude: it is symmetric, its never-touched
-    /// code is presence 0 and value 0, and it needs the presence plane.
-    NineBitIsDr512,
-    /// `PresenceZero` without a presence plane.
-    NoPresencePlane,
-    /// A presence plane under `None` or `SymMin`, where it would mean nothing.
-    UnusedPresencePlane,
-    /// `SymMin` needs an 8-bit symmetric lane: in an asymmetric space code
-    /// `-128` is a value.
-    SymMinNeedsSym8,
+    /// A 9-bit lane is sign-magnitude and therefore symmetric.
+    NineBitIsSym,
 }
 
 impl EpiLaneSpec {
@@ -171,43 +147,28 @@ impl EpiLaneSpec {
             return Err(SpecError::LaneCount);
         }
         let v_end = self.values + self.lanes as u16;
-        if self.values < VALUE_SLAB_START || v_end > ROW_BYTES {
+        let p_end = self.presence + self.presence_bytes();
+        if self.values < VALUE_SLAB_START
+            || v_end > ROW_BYTES
+            || self.presence < VALUE_SLAB_START
+            || p_end > ROW_BYTES
+        {
             return Err(SpecError::OutOfSlab);
         }
-        if let Some(p) = self.presence {
-            let p_end = p + self.presence_bytes();
-            if p < VALUE_SLAB_START || p_end > ROW_BYTES {
-                return Err(SpecError::OutOfSlab);
-            }
-            if p < v_end && self.values < p_end {
-                return Err(SpecError::Overlap);
-            }
+        if self.presence < v_end && self.values < p_end {
+            return Err(SpecError::Overlap);
         }
-        match (self.width, self.space, self.nan, self.presence) {
-            (LaneWidth::Bits9, CodeSpace::Sym, NanCode::PresenceZero, Some(_)) => Ok(()),
-            (LaneWidth::Bits9, _, _, _) => Err(SpecError::NineBitIsDr512),
-            (LaneWidth::Bits8, _, NanCode::PresenceZero, None) => Err(SpecError::NoPresencePlane),
-            (LaneWidth::Bits8, _, NanCode::PresenceZero, Some(_)) => Ok(()),
-            (LaneWidth::Bits8, _, NanCode::None | NanCode::SymMin, Some(_)) => {
-                Err(SpecError::UnusedPresencePlane)
-            }
-            (LaneWidth::Bits8, CodeSpace::Sym, NanCode::SymMin, None) => Ok(()),
-            (LaneWidth::Bits8, CodeSpace::Asym, NanCode::SymMin, None) => {
-                Err(SpecError::SymMinNeedsSym8)
-            }
-            (LaneWidth::Bits8, _, NanCode::None, None) => Ok(()),
+        match (self.width, self.space) {
+            (LaneWidth::Bits9, CodeSpace::Asym) => Err(SpecError::NineBitIsSym),
+            _ => Ok(()),
         }
     }
 
-    /// Whether a lane holding `value` with presence bit `present` was never
-    /// touched. `present` is ignored when the class has no presence plane.
+    /// Whether a lane holding `value` with presence bit `present` is absent:
+    /// presence 0 and value 0.
     #[must_use]
-    pub const fn never_touched(&self, value: u8, present: bool) -> bool {
-        match self.nan {
-            NanCode::None => false,
-            NanCode::PresenceZero => !present && value == 0,
-            NanCode::SymMin => value == 0x80,
-        }
+    pub const fn absent(value: u8, present: bool) -> bool {
+        !present && value == 0
     }
 
     /// Lane `lane`'s value byte in `row`.
@@ -216,11 +177,10 @@ impl EpiLaneSpec {
         row[self.values as usize + lane]
     }
 
-    /// Lane `lane`'s presence bit in `row`; `false` without a presence plane.
+    /// Lane `lane`'s presence bit in `row`.
     #[must_use]
     pub fn present(&self, row: &[u8], lane: usize) -> bool {
-        self.presence
-            .is_some_and(|p| (row[p as usize + lane / 8] >> (lane % 8)) & 1 == 1)
+        (row[self.presence as usize + lane / 8] >> (lane % 8)) & 1 == 1
     }
 }
 
@@ -233,16 +193,7 @@ pub const fn checked(spec: EpiLaneSpec) -> EpiLaneSpec {
         Err(SpecError::LaneCount) => panic!("EpiLaneSpec: lanes must be 1..=64"),
         Err(SpecError::OutOfSlab) => panic!("EpiLaneSpec: lanes must lie in the value slab"),
         Err(SpecError::Overlap) => panic!("EpiLaneSpec: value and presence bytes overlap"),
-        Err(SpecError::NineBitIsDr512) => {
-            panic!("EpiLaneSpec: a 9-bit lane is Sym + PresenceZero with a presence plane")
-        }
-        Err(SpecError::NoPresencePlane) => {
-            panic!("EpiLaneSpec: PresenceZero needs a presence plane")
-        }
-        Err(SpecError::UnusedPresencePlane) => {
-            panic!("EpiLaneSpec: a presence plane needs NanCode::PresenceZero")
-        }
-        Err(SpecError::SymMinNeedsSym8) => panic!("EpiLaneSpec: SymMin needs an 8-bit Sym lane"),
+        Err(SpecError::NineBitIsSym) => panic!("EpiLaneSpec: a 9-bit lane is Sym"),
     }
 }
 
@@ -259,36 +210,22 @@ mod tests {
     const DR512: EpiLaneSpec = EpiLaneSpec {
         width: LaneWidth::Bits9,
         space: CodeSpace::Sym,
-        nan: NanCode::PresenceZero,
         values: 64,
-        presence: Some(96),
+        presence: 96,
         lanes: 16,
     };
 
     #[test]
     fn valid_layouts_pass() {
         assert_eq!(DR512.validate(), Ok(()));
-        let u8_asym = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            space: CodeSpace::Asym,
-            ..DR512
-        };
-        assert_eq!(u8_asym.validate(), Ok(()));
-        let tflite = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            nan: NanCode::SymMin,
-            presence: None,
-            ..DR512
-        };
-        assert_eq!(tflite.validate(), Ok(()));
-        let plain = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            space: CodeSpace::Asym,
-            nan: NanCode::None,
-            presence: None,
-            ..DR512
-        };
-        assert_eq!(plain.validate(), Ok(()));
+        for space in [CodeSpace::Sym, CodeSpace::Asym] {
+            let b8 = EpiLaneSpec {
+                width: LaneWidth::Bits8,
+                space,
+                ..DR512
+            };
+            assert_eq!(b8.validate(), Ok(()));
+        }
     }
 
     #[test]
@@ -312,14 +249,28 @@ mod tests {
         );
         assert_eq!(
             e(EpiLaneSpec {
-                presence: Some(511),
+                presence: 16,
                 ..DR512
             }),
             SpecError::OutOfSlab
         );
         assert_eq!(
             e(EpiLaneSpec {
-                presence: Some(70),
+                presence: 511,
+                ..DR512
+            }),
+            SpecError::OutOfSlab
+        );
+        assert_eq!(
+            e(EpiLaneSpec {
+                presence: 70,
+                ..DR512
+            }),
+            SpecError::Overlap
+        );
+        assert_eq!(
+            e(EpiLaneSpec {
+                presence: 63,
                 ..DR512
             }),
             SpecError::Overlap
@@ -329,55 +280,29 @@ mod tests {
                 space: CodeSpace::Asym,
                 ..DR512
             }),
-            SpecError::NineBitIsDr512
+            SpecError::NineBitIsSym
         );
+    }
+
+    /// Adjacent regions do not overlap: presence ending where the values
+    /// start, and presence starting where the values end, both pass.
+    #[test]
+    fn adjacent_regions_pass() {
         assert_eq!(
-            e(EpiLaneSpec {
-                presence: None,
+            EpiLaneSpec {
+                presence: 62,
                 ..DR512
-            }),
-            SpecError::NineBitIsDr512
+            }
+            .validate(),
+            Ok(())
         );
         assert_eq!(
-            e(EpiLaneSpec {
-                nan: NanCode::SymMin,
+            EpiLaneSpec {
+                presence: 80,
                 ..DR512
-            }),
-            SpecError::NineBitIsDr512
-        );
-        let b8 = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            ..DR512
-        };
-        assert_eq!(
-            e(EpiLaneSpec {
-                presence: None,
-                ..b8
-            }),
-            SpecError::NoPresencePlane
-        );
-        assert_eq!(
-            e(EpiLaneSpec {
-                nan: NanCode::None,
-                ..b8
-            }),
-            SpecError::UnusedPresencePlane
-        );
-        assert_eq!(
-            e(EpiLaneSpec {
-                nan: NanCode::SymMin,
-                ..b8
-            }),
-            SpecError::UnusedPresencePlane
-        );
-        assert_eq!(
-            e(EpiLaneSpec {
-                nan: NanCode::SymMin,
-                space: CodeSpace::Asym,
-                presence: None,
-                ..b8
-            }),
-            SpecError::SymMinNeedsSym8
+            }
+            .validate(),
+            Ok(())
         );
     }
 
@@ -395,26 +320,20 @@ mod tests {
         assert_eq!(CodeSpace::from_zero_point(-3), CodeSpace::Asym);
     }
 
-    /// Presence 0 and value 0 is the only never-touched code under
-    /// `PresenceZero`; a 9-bit negative and +0 are values.
+    /// Presence 0 and value 0 is the only absent code; a 9-bit negative
+    /// (presence 0, value > 0) and +0 (presence 1, value 0) are values.
     #[test]
-    fn never_touched_by_policy() {
-        assert!(DR512.never_touched(0, false));
-        assert!(!DR512.never_touched(5, false), "9-bit -5");
-        assert!(!DR512.never_touched(0, true), "+0");
-        let tflite = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            nan: NanCode::SymMin,
-            presence: None,
-            ..DR512
-        };
-        assert!(tflite.never_touched(0x80, false));
-        assert!(!tflite.never_touched(0, false), "code 0 is a value");
-        let plain = EpiLaneSpec {
-            nan: NanCode::None,
-            ..tflite
-        };
-        assert!((0..=255u8).all(|v| !plain.never_touched(v, false)));
+    fn absent_is_presence_zero_and_value_zero() {
+        assert!(EpiLaneSpec::absent(0, false));
+        assert!(!EpiLaneSpec::absent(5, false), "9-bit -5");
+        assert!(!EpiLaneSpec::absent(0, true), "+0");
+        assert_eq!(
+            (0..=255u8)
+                .flat_map(|v| [(v, false), (v, true)])
+                .filter(|&(v, p)| EpiLaneSpec::absent(v, p))
+                .count(),
+            1
+        );
     }
 
     #[test]
@@ -426,12 +345,5 @@ mod tests {
         assert!(DR512.present(&row, 9));
         assert!(!DR512.present(&row, 1));
         assert!(!DR512.present(&row, 8));
-        let none = EpiLaneSpec {
-            width: LaneWidth::Bits8,
-            nan: NanCode::None,
-            presence: None,
-            ..DR512
-        };
-        assert!(!none.present(&row, 2));
     }
 }
