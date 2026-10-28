@@ -32,5 +32,5 @@ if __name__ == "__main__":
         elif t[0] == "X": cand.append(dict(cal=int(t[1]), S=int(t[2]), d=int(t[3]), source_byte=int(t[4]), exact_byte=int(t[5])))
     res = dict(arm="correctly rounded reciprocal", calibrations=HELDOUT, candidate_pairs=len(cand), candidate_samples=cand,
                per_calibration=per, wall_s=round(time.perf_counter() - t0, 1))
-    json.dump(res, open(OUT, "w"), indent=1)
+    open(OUT, "w").write(json.dumps(res, separators=(",", ":")) + "\n")
     print(json.dumps({k: v for k, v in res.items() if k != "candidate_samples"}, indent=1))

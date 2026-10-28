@@ -27,7 +27,17 @@
 //
 // Mutations (negative controls; argv after the gate arguments): e_minus1, e_minus2, one_sided_window,
 // exclude_lower_endpoint, wrong_band, wrong_weight_threshold, no_mandatory_max, no_reachability,
-// allow_negative_multiplicity, witness_sum_off_by_max. A mutated run prints "MUTATION name".
+// allow_negative_multiplicity, witness_sum_off_by_max, skip_table_identity. A mutated run prints "MUTATION name".
+//
+// Table identity (landing hardening): the gate does not trust that the supplied table belongs to the claimed
+// calibration. It recomputes the prepared table from the claimed (scale, beta) with the pinned TFLM
+// primitives (PreprocessSoftmaxScaling, CalculateInputRadius, MultiplyByQuantizedMultiplierGreaterThanOne,
+// exp_on_negative_values, Rescale<12>; trace63 `softexp`, softmax_common.cc:128-130, softmax.h:104-110) and
+// refuses `table_identity_mismatch` on any differing field. Two outputs are kept apart:
+//   "N numeric_key mult shift"            the prepared table is a function of (mult, shift) alone; equal keys
+//                                         mean identical weights (a cache key, NOT semantic identity);
+//   "U receipt scale_bits zp beta_bits"   the semantic identity the decision is issued for. The input zero
+//                                         point never enters the table; it is carried, not checked.
 //
 // usage:  softcert65 global REVISION DIGEST > cert.txt
 //         softcert65 gate CERT EXPECTED_REVISION EXPECTED_DIGEST [MUTATION] < calibration
@@ -49,6 +59,7 @@
 
 #include "tensorflow/lite/micro/kernels/internal/common.h"
 #include "tensorflow/lite/micro/kernels/internal/fixedpoint.h"
+#include "tensorflow/lite/micro/kernels/internal/quantization_util.h"
 
 using namespace tflite::micro;
 
@@ -134,6 +145,25 @@ int main(int argc, char** argv) {
     if (std::scanf("%7s %d %d %lld %lld %lld", tag, &d, &ad, &resc, &a, &b) != 6 || std::strcmp(tag, "E") || d != i - 255) refuse("calibration_table_malformed");
     adm[i] = ad; A[i] = a; B[i] = b;
   }
+  // the supplied table must be the one the claimed calibration prepares
+  if (mut != "skip_table_identity") {
+    float scale, beta; std::memcpy(&scale, &sbits, 4); std::memcpy(&beta, &bbits, 4);
+    int32_t rm = 0; int rsh = 0;
+    PreprocessSoftmaxScaling(static_cast<double>(beta), static_cast<double>(scale), 5, &rm, &rsh);
+    const int rdmin = -1.0 * CalculateInputRadius(5, rsh);
+    if (rm != pm || rsh != psh || rdmin != pdmin) refuse("table_identity_mismatch");
+    for (int i = 0; i < 256; ++i) {
+      const int d = i - 255;
+      int ead = 0; int64_t ea = 0, eb = 0;
+      if (d >= rdmin) {
+        const int32_t r = MultiplyByQuantizedMultiplierGreaterThanOne(d, rm, rsh);
+        const FixedPoint<int32_t, 0> e = exp_on_negative_values(FixedPoint<int32_t, 5>::FromRaw(r));
+        ead = 1; ea = e.raw(); eb = Rescale<12>(e).raw();
+      }
+      if (ead != adm[i] || ea != A[i] || eb != B[i]) refuse("table_identity_mismatch");
+    }
+  }
+  std::printf("N numeric_key %lld %lld\nU receipt %08x %d %08x\n", pm, psh, sbits, zp, bbits);
   // assumptions the certificate relies on
   if (!adm[255]) refuse("row_maximum_not_admitted");
   if (B[255] != DOMAIN_LO) refuse("maximum_weight_not_domain_lower_bound");  // S >= B[0] = 2^19

@@ -81,10 +81,20 @@ fn main() -> ExitCode {
                 fails.push(format!("{name} {id}: table_sha256"));
                 continue;
             }
+            // the calibration identity the witness claims must be the one its table was prepared for
+            let claimed = format!("{}:{}", w["scale_bits"].as_str().unwrap_or(""), w["beta_bits"].as_str().unwrap_or(""));
+            if claimed != key || tj["tables"][key]["scale_bits"].as_str() != w["scale_bits"].as_str() {
+                fails.push(format!("{name} {id}: calibration identity {claimed} != table {key}"));
+                continue;
+            }
             let t = &tables[key];
             let row = row_pairs(&w["row"]);
             let d = w["d"].as_i64().unwrap() as i32;
             let r = (|| -> Result<(), String> {
+                // differences are relative to code 127: the row maximum is mandatory
+                if row.iter().map(|&(c, _)| c).max() != Some(127) {
+                    return Err("no mandatory maximum (code 127)".into());
+                }
                 let s = row_sum(t, &row).map_err(|e| e.to_string())?;
                 if s != w["S"].as_i64().unwrap() {
                     return Err(format!("sum {s} != stored S"));

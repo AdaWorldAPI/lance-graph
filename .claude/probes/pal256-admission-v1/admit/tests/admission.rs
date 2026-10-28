@@ -4,7 +4,7 @@
 //! arm. Only the consumer (or one receipt field) changes. A refusal caused by different input
 //! values would not show that admission works.
 use admit::*;
-use ndarray::hpc::codec8::{Asym, Calibration, Codec8, Codec8Error, NaNAtMin, NoNaN, Sym, TiesAway, TiesEven, I8, U8};
+use ndarray::hpc::codec8::{Asym, Calibration, Codec8, Codec8Error, Floor, NaNAtMin, NoNaN, Sym, TiesAway, TiesEven, UnitFull, I8, U8};
 
 struct One;
 impl Calibration for One {
@@ -198,4 +198,33 @@ fn n10_truncated_payload_refused() {
     let mut a = asym_artifact();
     a.payload.pop();
     assert_eq!(bind(&a, &Expect::<I8, Asym, TiesAway, NoNaN, One>::new(OP, 7, src())).err(), Some(Refusal::LengthMismatch { receipt: 5, payload: 4 }));
+}
+
+// ---------------------------------------------------------------- pinned codec set
+
+/// The identity claim is scoped to this list: every instantiation ndarray's sealed traits admit.
+/// Adding a codec impl to ndarray without adding it here leaves it outside the claim.
+#[test]
+fn signatures_are_pairwise_distinct_on_the_pinned_codec_set() {
+    macro_rules! sigs {
+        ($( ($t:ty, $s:ty, $n:ty) ),*) => {{
+            let mut v = Vec::new();
+            $(
+                v.push((concat!(stringify!($t), "/", stringify!($s), "/TiesAway/", stringify!($n)), signature::<$t, $s, TiesAway, $n>()));
+                v.push((concat!(stringify!($t), "/", stringify!($s), "/TiesEven/", stringify!($n)), signature::<$t, $s, TiesEven, $n>()));
+                v.push((concat!(stringify!($t), "/", stringify!($s), "/Floor/", stringify!($n)), signature::<$t, $s, Floor, $n>()));
+            )*
+            v
+        }};
+    }
+    let all = sigs!(
+        (I8, Asym, NoNaN), (I8, Sym, NoNaN), (U8, Asym, NoNaN), (U8, Sym, NoNaN), (U8, UnitFull, NoNaN),
+        (I8, Sym, NaNAtMin), (U8, Sym, NaNAtMin)
+    );
+    assert_eq!(all.len(), 21);
+    for (i, (a, sa)) in all.iter().enumerate() {
+        for (b, sb) in &all[i + 1..] {
+            assert_ne!(sa, sb, "{a} and {b} share a signature");
+        }
+    }
 }

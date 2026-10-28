@@ -1,3 +1,20 @@
+## 2026-10-26 — main after #1803 (merged `13e37026`)
+
+- Code on main since #1759: `crates/drf-focus-probe` (D-DRF P1/P2, writeback W1–W4/W6–W8, budget, churn, TLB, DRAV-AV1; workspace-excluded, no CI job) and, from #1792, D-NFR-1 falsifier tests only (`cognitive-shader-driver/tests/escaped_reuse.rs`, `lance-graph-planner/tests/horizon_is_not_a_snapshot.rs`, `soa-view-probe/tests/falsifiers.rs`). No production source changed. DR256 global-mask labs (#1790, #1791, #1792 P2) and D-TFLP 6.5 probes (#1800, #1801, #1803) are lab evidence, production impact none.
+- One registered FAIL: D-DQM P1 chunk-touched predictor (#1789); locality is not predictable, so no strategy policy may claim it (#1792 amendment A).
+- Docs-only families: D-NAM (#1778–#1784, EXO-152), DT64 (#1794–#1799, canonical seam D-DT64-Q0), D-DTM-1 (#1777), D-DRAV-1 (#1775), D-TFLP-0 (#1785), D-DQM (#1787, #1788), D-ONNX-INTAKE-0 (#1802), D-SAG-6 (#1760).
+- Cross-cutting blocker named by D-DTM-1, DT64-1/-4 and D-RMAP-1A: EXO-148 (`DurableRef` / `ThoughtCommitId` do not exist).
+- Per-PR records: `PR_ARC_INVENTORY.md` catch-up #1772–#1803.
+
+## 2026-10-26 — main after #1792 (merged `30ca36ec0`)
+
+- D-DQM: Lance 13 crosswalk and pre-registered probes (#1788); P1 chunk-touched byte predictor FAILED (#1789).
+- D-DR256 labs in `drf-focus-probe`: one global 8 KiB mask from 64 mapped registers (#1790); on-demand rebuild vs bounded reuse, u16 scatter, L1 interference (#1791, with ndarray #377 `mask_scatter_or_u16`).
+- D-DR256-WHERE capstone (#1792): WHERE/COUNT/ANY already exist in Quack/mask-risc; reused R costs 0.05–0.60 of recompute; stale inputs run silently stale. D-NFR-1: in-borrow execution needs no frame; escaped reuse must recompute or refuse.
+- Open: NFR-OP-1 (escaped-reuse authority contract), S-INGRESS, one `_rowid` authority, mask-risc `LaneRef::U16`, P3–P5.
+- **Contract inventory delta:** none (lab examples, test-only falsifiers, docs).
+- Per-PR records: `PR_ARC_INVENTORY.md` catch-up #1788–#1792. Not recorded: #1772–#1787.
+
 ## 2026-10-25 — main after #1771 (merged `332b420c`)
 
 - New lab crate on main: `drf-focus-probe` (#1762, workspace-excluded, no CI job). It carries the D-DRF-1 focus lease + gather (DRF-P1), the focus-vs-direct break-even (DRF-P2, #1763/#1764) and the writeback falsifiers W1–W4, W6–W8 (#1765–#1771). Feature `handoff` hands flushed rows to the real `lance-graph-supervisor` CycleWriter; a fake WAL stands in for Lance.

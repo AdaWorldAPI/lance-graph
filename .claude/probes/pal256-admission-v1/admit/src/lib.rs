@@ -14,9 +14,15 @@
 //! No registry is introduced. A codec's identity is a [`CodecSignature`] DERIVED from `Codec8`'s
 //! own sealed traits: the code range (`CodeSpace::MIN/MAX`), the NaN code (`NanPolicy::NAN_CODE`),
 //! the raw bytes `Stores::store` writes for -128 and 0 (which separates I8 from biased U8), and the
-//! rounding observed on four half-ties (which separates TiesAway, TiesEven and Floor). Two codec
-//! types with the same signature behave identically on every input; two with different signatures
-//! differ on at least one.
+//! rounding observed on four half-ties (which separates TiesAway, TiesEven and Floor).
+//!
+//! Scope of the identity claim: TESTED_COMPATIBLE_FOR_PINNED_CODEC_SET. The pinned set is every
+//! `Codec8<T, S, R, N>` instantiation the sealed traits admit in ndarray `src/hpc/codec8.rs` as of
+//! master `af4910a1`: 5 `Stores` pairs x 3 roundings with `NoNaN`, plus the 2 `Sym` pairs x 3
+//! roundings with `NaNAtMin`, i.e. 21 types. `tests/admission.rs` checks that their 21 signatures
+//! are pairwise distinct. The signature is therefore injective on that set, nothing more: a new
+//! `Rounding`, `NanPolicy`, `CodeSpace` or `Stores` impl is not covered until it is added to that
+//! test (four half-ties cannot separate every conceivable rounding rule).
 //!
 //! Byte equality is not identity: [`bind`] compares receipts, so two artifacts with identical
 //! payload bytes and different receipts bind to different consumers.

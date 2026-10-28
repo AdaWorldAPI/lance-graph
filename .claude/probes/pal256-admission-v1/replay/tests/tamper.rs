@@ -117,3 +117,53 @@ fn exact_reciprocal_fails_every_witness_but_keeps_equivalence_rows() {
     assert!(out.contains("failures=556"), "{out}");
     assert!(out.contains("\"equivalence\": 7"), "{out}");
 }
+
+#[test]
+fn missing_mandatory_maximum_is_rejected() {
+    let d = copy("nomax");
+    edit_first(&d, "witness65_reduced.jsonl", |v| {
+        v["row"].as_object_mut().unwrap().remove("127");
+    });
+    restamp(&d, "witness65_reduced.jsonl");
+    let (c, out) = run(&d, &[]);
+    assert_eq!(c, 1, "{out}");
+    assert!(out.contains("no mandatory maximum"), "{out}");
+}
+
+#[test]
+fn incorrect_computed_sum_is_rejected() {
+    let d = copy("sum");
+    edit_first(&d, "witness65_reduced.jsonl", |v| v["S"] = Value::from(v["S"].as_i64().unwrap() + 1));
+    restamp(&d, "witness65_reduced.jsonl");
+    let (c, out) = run(&d, &[]);
+    assert_eq!(c, 1, "{out}");
+    assert!(out.contains("!= stored S"), "{out}");
+}
+
+/// The witness keeps its table and digest but claims another calibration: the identity check must fire,
+/// not a byte comparison that might happen to agree.
+#[test]
+fn wrong_calibration_identity_is_rejected() {
+    let d = copy("ident");
+    edit_first(&d, "witness65_reduced.jsonl", |v| v["scale_bits"] = Value::from("3dcccccd"));
+    restamp(&d, "witness65_reduced.jsonl");
+    let (c, out) = run(&d, &[]);
+    assert_eq!(c, 1, "{out}");
+    assert!(out.contains("calibration identity"), "{out}");
+}
+
+/// The witness points at another calibration's table but keeps its own table digest.
+#[test]
+fn witness_pointing_at_another_table_is_rejected() {
+    let d = copy("othertable");
+    let tj: Value = serde_json::from_str(&fs::read_to_string(d.join("softmax_tables65.json")).unwrap()).unwrap();
+    edit_first(&d, "witness65_reduced.jsonl", |v| {
+        let own = v["table"].as_str().unwrap().to_string();
+        let other = tj["tables"].as_object().unwrap().keys().find(|k| **k != own).unwrap().clone();
+        v["table"] = Value::String(other);
+    });
+    restamp(&d, "witness65_reduced.jsonl");
+    let (c, out) = run(&d, &[]);
+    assert_eq!(c, 1, "{out}");
+    assert!(out.contains("table_sha256"), "{out}");
+}

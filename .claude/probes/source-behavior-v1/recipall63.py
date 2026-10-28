@@ -41,5 +41,5 @@ res = dict(arm="perturbed reciprocal +" + DELTA if DELTA else "correctly rounded
            s_where_reciprocal_differs=sum(v["s_where_reciprocal_differs"] for v in per.values()),
            candidate_pairs=sum(v["candidate_pairs"] for v in per.values()),
            candidate_samples=cand, per_calibration=per, wall_s=round(time.perf_counter() - t0, 1))
-json.dump(res, open(RESULT_PATH, "w"), indent=1)
+open(RESULT_PATH, "w").write(json.dumps(res, separators=(",", ":")) + "\n")
 print(json.dumps({k: v for k, v in res.items() if k != "per_calibration"}, indent=1))

@@ -4,7 +4,7 @@
 # ///
 """D-TFLP Amendment 6.5 P1: run the softmax reciprocal admission gate and validate every decision independently.
 
-Usage: softcert65.py SOFTCERT TRACE63 ORACLE OUT.json [--mutations]
+Usage: TFLM_DIR=<tflite-micro checkout> softcert65.py SOFTCERT TRACE63 ORACLE OUT.json [--mutations]
 
 Per calibration (the 14 of softmax63.py and the 8 held-out ones of heldout65.py):
   1. prepare the source weights (trace63 `softexp`);
@@ -23,6 +23,14 @@ Per calibration (the 14 of softmax63.py and the 8 held-out ones of heldout65.py)
                    bytes from the kernel, the source recipe and the exact-reciprocal recipe.
 With --mutations, every certifier mutation and three input mutations are run on the 14 known calibrations
 and each run is classified as typed refusal, detected by validation, or no observable effect.
+
+Table identity: the gate itself recomputes the prepared table from the claimed (scale, beta) and refuses
+`table_identity_mismatch`; the driver's own table check above stays as an independent second check. Two
+input controls separate the cases: `input:wrong_calibration` (calibration i+1's table under calibration i's
+identity: refused, except where the two tables are identical) and `input:same_table_other_identity`
+(calibration 1's table under calibration 2's identity, the one known pair with equal beta*scale: accepted,
+same numeric key, different semantic receipt). `input:wrong_calibration+skip_table_identity` disables the
+gate's check to show it is the gate, not only the driver, that rejects.
 """
 import hashlib, json, random, subprocess, sys, time
 from fractions import Fraction
@@ -30,7 +38,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 CERT_BIN, TRACE, ORACLE, OUT, *flags = sys.argv[1:]
 MUTATE = "--mutations" in flags
-TFLM = Path("/home/user/adaworldapi/tflite-micro/tensorflow/lite/micro/kernels/internal")
+import os
+if "TFLM_DIR" not in os.environ: sys.exit("set TFLM_DIR to a tflite-micro checkout at revision 5f64e4ad")
+TFLM = Path(os.environ["TFLM_DIR"]) / "tensorflow/lite/micro/kernels/internal"
 REV = "5f64e4ad"
 DIGEST = hashlib.sha256(b"".join((TFLM / f).read_bytes() for f in ("common.h", "fixedpoint.h", "reference/softmax.h"))).hexdigest()
 CERT = HERE / "softcert65_global.txt"
@@ -77,6 +87,8 @@ def gate(cal, tab, mutation=None, rev=REV, dig=DIGEST):
             res["cands"].append(cur)
         elif t[0] == "M" and cur is not None: cur["mult"][int(t[1])] = int(t[2])
         elif t[0] == "D": res["decision"], res["reason"] = t[1], t[2]
+        elif t[0] == "N": res["numeric_key"] = (int(t[2]), int(t[3]))
+        elif t[0] == "U": res["receipt"] = (t[2], int(t[3]), t[4])
     return res
 
 def gap_unreachable(R, coins):
@@ -198,15 +210,16 @@ mut = []
 if MUTATE:
     MUTS = ["e_minus1", "e_minus2", "one_sided_window", "exclude_lower_endpoint", "wrong_band", "wrong_weight_threshold", "no_mandatory_max",
             "no_reachability", "allow_negative_multiplicity", "witness_sum_off_by_max"]
-    for m in MUTS + ["input:wrong_revision", "input:wrong_digest", "input:wrong_calibration"]:
+    for m in MUTS + ["input:wrong_revision", "input:wrong_digest", "input:wrong_calibration", "input:wrong_calibration+skip_table_identity"]:
         per = []
         for i, cal in enumerate(CAL):
             tab, _ = table(cal)
             claimed = None
             if m == "input:wrong_revision": res = gate(cal, tab, rev="8f6596d")
             elif m == "input:wrong_digest": res = gate(cal, tab, dig="0" * 64)
-            elif m == "input:wrong_calibration":
-                other = CAL[(i + 1) % len(CAL)]; tab, _ = table(other); res = gate(cal, tab); claimed = cal
+            elif m.startswith("input:wrong_calibration"):
+                other = CAL[(i + 1) % len(CAL)]; tab, _ = table(other); claimed = cal
+                res = gate(cal, tab, "skip_table_identity" if m.endswith("skip_table_identity") else None)
             else: res = gate(cal, tab, m)
             if res["decision"] is None: per.append("crash"); continue
             v = validate(cal, tab, res, REF_K[i], claimed) if res["decision"] != "REFUSE_UNKNOWN" else None
@@ -215,5 +228,21 @@ if MUTATE:
         mut.append(dict(mutation=m, per_calibration=per, calibrations_affected=eff, effective=eff > 0))
         print("MUT", m, eff, "/ 14", sorted(set(per)), flush=True)
 
-json.dump(dict(certificate=cert_text.splitlines(), source_digest=DIGEST, runs=runs, mutations=mut,
-               wall_s=round(time.perf_counter() - t_all, 1)), open(OUT, "w"), indent=1)
+# Negative control for the cache-key / semantic-identity split: calibrations 1 (0.05, beta 2) and
+# 2 (0.1, beta 1) prepare the identical table. Calibration 1's table offered under calibration 2's identity
+# must be accepted with the same numeric key and a different receipt; a different table must be refused.
+ident = None
+if MUTATE:
+    t1, _ = table(CAL[1]); r1 = gate(CAL[1], t1); r12 = gate(CAL[2], t1)
+    t3, _ = table(CAL[3]); r32 = gate(CAL[2], t3)
+    ident = dict(
+        same_table_other_identity=dict(decision=r12["decision"], numeric_key_equal=r12.get("numeric_key") == r1.get("numeric_key"),
+                                       receipt_differs=r12.get("receipt") != r1.get("receipt"), receipt=r12.get("receipt"), own_receipt=r1.get("receipt")),
+        different_table=dict(decision=r32["decision"], reason=r32["reason"]))
+    ok = r12["decision"] == r1["decision"] and ident["same_table_other_identity"]["numeric_key_equal"] and ident["same_table_other_identity"]["receipt_differs"] \
+        and r32["decision"] == "REFUSE_UNKNOWN" and r32["reason"] == "table_identity_mismatch"
+    ident["pass"] = ok
+    print("IDENTITY", "pass" if ok else "FAIL", ident, flush=True)
+
+json.dump(dict(certificate=cert_text.splitlines(), table_identity_controls=ident, source_digest=DIGEST, runs=runs, mutations=mut,
+               wall_s=round(time.perf_counter() - t_all, 1)), open(OUT, "w"), separators=(",", ":"))

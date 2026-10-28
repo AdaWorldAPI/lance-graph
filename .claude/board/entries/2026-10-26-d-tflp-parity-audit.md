@@ -1,4 +1,4 @@
-# D-TFLP parity audit — #1785 × TFLite × ONNX × RelAlg × native polyfill
+# D-TFLP-AUDIT — parity audit, #1785 × TFLite × ONNX × RelAlg × native polyfill
 
 **Status:** AUDIT, amended 2026-10-26 (Amendment 1 at the end: Codec8 ownership,
 compile-time vs load-time preparation, FC weight zero point, output quantization, evidence
