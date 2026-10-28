@@ -117,71 +117,122 @@ impl FeatureTable {
     }
 }
 
-/// A directed weighted graph keyed by node ID, duplicates collapsed to the
-/// maximum weight.
+/// A directed weighted graph over a label codebook: every node ID is stored
+/// once, sorted, and an edge names its endpoints by rank in that order. One
+/// edge per (source, target); duplicates keep the maximum, and between equal
+/// weights the first read, as `graph_utils.add_edge` does.
 #[derive(Debug, Default, Clone)]
 pub struct Graph {
-    out: HashMap<String, HashMap<String, f64>>,
+    labels: Vec<String>,
+    edges: Vec<(u32, u32, f64)>,
+    offsets: Vec<u32>,
 }
 
 impl Graph {
     /// Parses NSL's TSV form: `src<TAB>dst[<TAB>weight]`, extra columns ignored.
     pub fn from_tsv(text: &str) -> Result<Self, NslError> {
-        let mut g = Graph::default();
+        let mut code: HashMap<&str, u32> = HashMap::new();
+        let mut first: Vec<&str> = Vec::new();
+        let mut raw: Vec<(u32, u32, f64)> = Vec::new();
         for (i, line) in text.lines().enumerate() {
-            let cols: Vec<&str> = line.split('\t').collect();
-            if cols.len() < 2 {
-                return Err(NslError::MalformedLine { line: i + 1 });
-            }
-            let w = match cols.get(2) {
+            let mut cols = line.split('\t');
+            let (src, dst) = match (cols.next(), cols.next()) {
+                (Some(s), Some(d)) => (s, d),
+                _ => return Err(NslError::MalformedLine { line: i + 1 }),
+            };
+            let w = match cols.next() {
                 Some(t) => parse_weight(t).ok_or_else(|| NslError::BadWeight {
                     line: i + 1,
-                    text: (*t).to_string(),
+                    text: t.to_string(),
                 })?,
                 None => 1.0,
             };
-            g.add_edge(cols[0], cols[1], w)?;
+            if w.is_nan() {
+                return Err(NslError::NanWeight {
+                    src: src.into(),
+                    dst: dst.into(),
+                });
+            }
+            let mut ends = [0u32; 2];
+            for (k, l) in [src, dst].into_iter().enumerate() {
+                ends[k] = *code.entry(l).or_insert_with(|| {
+                    first.push(l);
+                    (first.len() - 1) as u32
+                });
+            }
+            let (s, d) = (ends[0], ends[1]);
+            raw.push((s, d, w));
         }
-        Ok(g)
+        let mut order: Vec<u32> = (0..first.len() as u32).collect();
+        order.sort_unstable_by(|&a, &b| first[a as usize].cmp(first[b as usize]));
+        let mut rank = vec![0u32; first.len()];
+        for (r, &o) in order.iter().enumerate() {
+            rank[o as usize] = r as u32;
+        }
+        for e in &mut raw {
+            e.0 = rank[e.0 as usize];
+            e.1 = rank[e.1 as usize];
+        }
+        let labels = order
+            .iter()
+            .map(|&o| first[o as usize].to_string())
+            .collect();
+        Ok(Graph::from_coded(labels, raw))
     }
 
-    /// `graph_utils.add_edge`: keep the larger weight.
-    pub fn add_edge(&mut self, src: &str, dst: &str, w: f64) -> Result<(), NslError> {
-        if w.is_nan() {
-            return Err(NslError::NanWeight {
-                src: src.into(),
-                dst: dst.into(),
-            });
-        }
-        let t = self.out.entry(src.to_string()).or_default();
-        match t.get_mut(dst) {
-            Some(old) if w > *old => *old = w,
-            Some(_) => {}
-            None => {
-                t.insert(dst.to_string(), w);
+    /// Collapses coded edges in read order. The sort is stable, so for one
+    /// pair the first read comes first and only a strictly larger weight
+    /// replaces it.
+    fn from_coded(labels: Vec<String>, mut raw: Vec<(u32, u32, f64)>) -> Self {
+        raw.sort_by_key(|e| (e.0, e.1));
+        let mut edges: Vec<(u32, u32, f64)> = Vec::with_capacity(raw.len());
+        for e in raw {
+            match edges.last_mut() {
+                Some(l) if (l.0, l.1) == (e.0, e.1) => {
+                    if e.2 > l.2 {
+                        l.2 = e.2;
+                    }
+                }
+                _ => edges.push(e),
             }
         }
-        Ok(())
-    }
-
-    /// `graph_utils.add_undirected_edges`: add every reversed edge.
-    pub fn symmetrize(&mut self) {
-        let edges: Vec<(String, String, f64)> = self
-            .out
-            .iter()
-            .flat_map(|(s, t)| t.iter().map(move |(d, w)| (s.clone(), d.clone(), *w)))
-            .collect();
-        for (s, d, w) in edges {
-            self.add_edge(&d, &s, w)
-                .expect("weights were checked on insert");
+        let mut offsets = vec![0u32; labels.len() + 1];
+        for e in &edges {
+            offsets[e.0 as usize + 1] += 1;
+        }
+        for i in 0..labels.len() {
+            offsets[i + 1] += offsets[i];
+        }
+        Graph {
+            labels,
+            edges,
+            offsets,
         }
     }
 
-    fn out_edges(&self, src: &str) -> impl Iterator<Item = (&str, f64)> {
-        self.out
-            .get(src)
-            .into_iter()
-            .flat_map(|t| t.iter().map(|(d, w)| (d.as_str(), *w)))
+    /// `graph_utils.add_undirected_edges`: every reversed edge, after the
+    /// originals, so an existing edge wins a tie.
+    pub fn symmetrize(&mut self) {
+        let mut raw = self.edges.clone();
+        raw.extend(self.edges.iter().map(|&(s, d, w)| (d, s, w)));
+        *self = Graph::from_coded(std::mem::take(&mut self.labels), raw);
+    }
+
+    /// The code of a node ID: its rank among all labels.
+    pub fn code(&self, label: &str) -> Option<u32> {
+        self.labels
+            .binary_search_by(|l| l.as_str().cmp(label))
+            .ok()
+            .map(|c| c as u32)
+    }
+
+    pub fn label(&self, code: u32) -> &str {
+        &self.labels[code as usize]
+    }
+
+    fn out_edges(&self, code: u32) -> &[(u32, u32, f64)] {
+        let c = code as usize;
+        &self.edges[self.offsets[c] as usize..self.offsets[c + 1] as usize]
     }
 }
 
@@ -209,14 +260,14 @@ pub struct NeighborBatch {
     pub selected: Vec<Selected>,
 }
 
-/// NSL order: weight descending, then neighbor ID descending. Python's tuple
-/// comparison treats `0.0` and `-0.0` as equal, so `partial_cmp`, not
-/// `total_cmp`; NaN never reaches here.
-fn nsl_order(table: &FeatureTable, a: &Selected, b: &Selected) -> Ordering {
-    b.weight
-        .partial_cmp(&a.weight)
-        .expect("NaN refused at insert")
-        .then_with(|| table.id(b.row).cmp(table.id(a.row)))
+/// NSL order on `(weight, label code)`: weight descending, then ID
+/// descending. Codes are ranks in sorted label order, so comparing codes is
+/// comparing IDs. Python's tuple comparison treats `0.0` and `-0.0` as equal,
+/// so `partial_cmp`, not `total_cmp`; NaN never reaches here.
+fn nsl_order(a: &(f64, u32, u32), b: &(f64, u32, u32)) -> Ordering {
+    b.0.partial_cmp(&a.0)
+        .expect("NaN refused at parse")
+        .then_with(|| b.1.cmp(&a.1))
 }
 
 /// The graph frozen against one feature table: per seed row, the neighbors
@@ -230,19 +281,30 @@ pub struct Adjacency {
 
 impl Adjacency {
     /// Joins `graph` to `table` and sorts every seed's neighbors, as
-    /// `pack_nbrs._join_examples` does before slicing to `max_nbrs`.
+    /// `pack_nbrs._join_examples` does before slicing to `max_nbrs`. Each
+    /// label is looked up in the table once, not once per edge.
     pub fn build(graph: &Graph, table: &FeatureTable) -> Self {
+        let row_of_code: Vec<Option<u32>> = graph.labels.iter().map(|l| table.row(l)).collect();
         let mut offsets = Vec::with_capacity(table.seeds + 1);
         let mut sel = Vec::new();
+        let mut scratch: Vec<(f64, u32, u32)> = Vec::new();
         offsets.push(0);
         for seed in table.seed_rows() {
-            let start = sel.len();
+            scratch.clear();
+            if let Some(c) = graph.code(table.id(seed)) {
+                scratch.extend(
+                    graph
+                        .out_edges(c)
+                        .iter()
+                        .filter_map(|&(_, d, w)| row_of_code[d as usize].map(|row| (w, d, row))),
+                );
+            }
+            scratch.sort_by(nsl_order);
             sel.extend(
-                graph
-                    .out_edges(table.id(seed))
-                    .filter_map(|(d, weight)| table.row(d).map(|row| Selected { row, weight })),
+                scratch
+                    .iter()
+                    .map(|&(weight, _, row)| Selected { row, weight }),
             );
-            sel[start..].sort_by(|a, b| nsl_order(table, a, b));
             offsets.push(sel.len() as u32);
         }
         Adjacency { offsets, sel }

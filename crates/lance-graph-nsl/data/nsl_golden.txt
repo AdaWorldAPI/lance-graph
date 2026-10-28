@@ -2,7 +2,7 @@
 # tensorflow 2.21.0, python 3.13.17
 # sha256 graph_utils.py ffae995c76e5cfdf070ebfd872112b4cd3d4dacb0ffdb99cea09da96f45cbb8c
 # sha256 pack_nbrs.py ff9ae806f04581736f4c54ad31a16dc4fc1f885a7b7907484cab921767630a7c
-# sha256 fixtures.txt ac3e57a2d8b6de47a4a79de853c2e00c30d18a3cf99e9cf86edcb5e1e5867b0e
+# sha256 fixtures.txt 252a2fa38f0b5f2efdbea0e72901f951ac0d580403af20ecee6a7aa5dae8cae3
 # seed <fixture> <seed> <num_nbrs> <sorted feature keys>
 # nbr <fixture> <seed> <index> <nbr id> <weight f32 hex> <tag> <x f32 hex>
 seed G01 A 2 NL_nbr_0_id,NL_nbr_0_tag,NL_nbr_0_weight,NL_nbr_0_x,NL_nbr_1_id,NL_nbr_1_tag,NL_nbr_1_weight,NL_nbr_1_x,NL_num_nbrs,id,tag,x
@@ -13,6 +13,10 @@ nbr G01b A 0 B 3f800000 nbr-B 40000000
 nbr G01b A 1 C 3f000000 nbr-C 40400000
 seed G02 A 1 NL_nbr_0_id,NL_nbr_0_tag,NL_nbr_0_weight,NL_nbr_0_x,NL_num_nbrs,id,tag,x
 nbr G02 A 0 B 3f666666 nbr-B 40000000
+seed G02b A 1 NL_nbr_0_id,NL_nbr_0_tag,NL_nbr_0_weight,NL_nbr_0_x,NL_num_nbrs,id,tag,x
+nbr G02b A 0 B 00000000 nbr-B 40000000
+seed G02c A 1 NL_nbr_0_id,NL_nbr_0_tag,NL_nbr_0_weight,NL_nbr_0_x,NL_num_nbrs,id,tag,x
+nbr G02c A 0 B 80000000 nbr-B 40000000
 seed G03 A 2 NL_nbr_0_id,NL_nbr_0_tag,NL_nbr_0_weight,NL_nbr_0_x,NL_nbr_1_id,NL_nbr_1_tag,NL_nbr_1_weight,NL_nbr_1_x,NL_num_nbrs,id,tag,x
 nbr G03 A 0 C 3f666666 nbr-C 40400000
 nbr G03 A 1 B 3f666666 nbr-B 40000000

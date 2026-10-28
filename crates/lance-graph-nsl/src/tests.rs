@@ -109,7 +109,7 @@ fn every_fixture_matches_the_frozen_nsl_oracle() {
         assert_eq!(compat_lines(&f.id, &t, &b), want, "{}", f.id);
         compared += 1;
     }
-    assert_eq!(compared, 16, "fixtures compared: 17 minus the refused G12b");
+    assert_eq!(compared, 18, "fixtures compared: 19 minus the refused G12b");
 }
 
 #[test]

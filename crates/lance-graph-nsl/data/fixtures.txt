@@ -34,6 +34,22 @@ edge A B 0.4
 edge A B 0.9
 end
 
+# added: equal duplicates keep the FIRST weight read (0.0 then -0.0 keeps 0.0)
+fixture G02b cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A B 0.0
+edge A B -0.0
+end
+
+# added: the same pair in the other order keeps -0.0
+fixture G02c cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A B -0.0
+edge A B 0.0
+end
+
 fixture G03 cap=none undirected=0
 seed A seed-A 1.0
 unlabeled B nbr-B 2.0
