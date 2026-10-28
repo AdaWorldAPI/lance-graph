@@ -139,62 +139,94 @@ None of these are fixed in this change; C3 owns them.
 ## 4. What C1/C2 add: `nars::support`
 
 `DerivationLedger` sits beside `BeliefArena` and does not change it. It
-appends observations (statement, truth, source) and derivations (chain, law,
-premises, conclusion). Under any `Ablation` (sources removed, derivations
-removed) it computes:
+appends observations (statement, truth, source) and admitted derivations
+(chain, law, premises, conclusion).
+
+**Admission.** `derive` refuses a step whose terms do not fit its law's
+figure (`Law::conclusion`), using the figures the planner tactics use:
+
+- deduction: `{M→P, S→M}` in either order;
+- induction: `{S→G, S→P} ⊢ G→P`;
+- abduction: `{P→M, S→M} ⊢ S→P`;
+- analogy: `{S cop P, S↔S′}`.
+
+`admit` records a tactic's `Candidate` directly. The tactics stay the
+authority that proposes steps; the ledger keeps what was admitted.
+
+Under any `Ablation` (sources removed, derivations removed) it computes:
 
 - **proofs**: one per surviving observation, one per derivation whose
   premises have evidence. A derivation reads its premises' *pooled* evidence,
   as NARS derives from revised beliefs. A statement may not support itself on
   one path;
-- **pooled truth**: proofs with disjoint source roots are revised together;
-  one that shares a root is skipped. Roots are exact source ids, not the
-  arena's modulo-64 stamp;
+- **pooled truth**: the root-disjoint set of proofs with the most total
+  evidence weight `Σ c/(1−c)`, revised together. Proofs sharing a root are
+  never pooled; roots are exact source ids, not the arena's modulo-64 stamp;
 - **chains** that still derive the statement on their own;
-- **`load(stmt, x, y)`**: `FirstCritical`, `SecondCritical`, `Synergistic`
-  (each single ablation removes it), `Redundant` (only the joint one does),
-  `NotLoadBearing`, `Absent`.
+- **`load(stmt, x, y)`**, about existence: `FirstCritical`, `SecondCritical`,
+  `Synergistic` (each single ablation removes it), `Redundant` (only the joint
+  one does), `NotLoadBearing`, `Absent`;
+- **`sensitivity(stmt, ablation)`**, about strength: Δfrequency, Δconfidence,
+  chains lost, roots lost. A conclusion can survive while its evidence
+  collapses; `load` says `NotLoadBearing` and `sensitivity` shows the drop.
+
+**Bounds.** Each refuses rather than return a partial answer:
+`Refusal::Steps` (`MAX_STEPS`, work), `Refusal::Depth` (`MAX_DEPTH = 64`,
+recursion depth), and `Refusal::Pool` (`MAX_POOL = 20` undominated proofs per
+statement for the exact selection). The evidence horizon stays k = 1, as
+`TruthValue` fixes it.
 
 Falsifiers covered, each with a disable that turns it red:
 
 | Falsifier | Test | Disable that fails it |
 |---|---|---|
-| F1 shared root not double-counted | `f1_shared_root_is_not_double_counted`, `sixty_three_replays_of_one_root_count_once` | revise every proof |
+| F1 / L7 shared root not double-counted | `f1_shared_root_is_not_double_counted`, `sixty_three_replays_of_one_root_count_once` | revise every proof; drop the dominance filter |
 | F2 lost proof ≠ lost conclusion | `f2_a_lost_proof_is_not_a_lost_conclusion` | ignore source ablation; drop the joint check |
-| F3 joint ablation exposes redundancy | `f3_joint_ablation_exposes_overdetermination` | same two |
+| F3 / L5 joint ablation exposes redundancy | `f3_joint_ablation_exposes_overdetermination` | same two |
+| L6 survival with collapsed evidence | `l6_a_surviving_conclusion_can_still_lose_evidence` | (exact values asserted) |
+| L8 invalid figure not admitted | `l8_an_invalid_figure_is_not_admitted` | skip the figure check |
+| figures = tactics | `figures_match_the_planner_tactics`, `tactic_candidates_are_admitted` | — |
+| C: most evidence, not strongest proof | `selection_prefers_more_evidence_over_the_single_strongest_proof` | greedy pick by confidence |
 | F9 scalar change is not productive | `f9_only_a_grounded_derivation_is_productive` | count ungrounded conclusions |
 | F10 contradiction revises; original replays | `f10_a_new_contradiction_revises_and_the_original_replays` | ignore source ablation |
 | no self-support | `a_statement_does_not_support_itself` | remove the path guard (stack overflow) |
-| refuse past the bound | `evaluation_refuses_past_the_bound` | remove the step budget |
+| bounds | `evaluation_refuses_past_the_step_bound`, `…_depth_bound`, `selection_refuses_past_the_pool_bound` | remove each bound |
 
-The F10 test asserts exact values: the premise 2→3 is revised to
-`(0.9,0.9) ⊕ (0.05,0.9)` with contradiction 0.85, and the conclusion is
-`deduction((0.9,0.9), revised) ⊕ deduction((0.9,0.9),(0.9,0.9))`. Chain B's
-independent support keeps the conclusion's frequency at 0.72 instead of
-letting it fall to chain A's 0.43.
+**Exact values.**
+- F10: the premise 2→3 is revised to `(0.9,0.9) ⊕ (0.05,0.9)` with
+  contradiction 0.85. The conclusion is
+  `deduction((0.9,0.9), revised) ⊕ deduction((0.9,0.9),(0.9,0.9))`. Chain B's
+  independent support keeps the conclusion's frequency at 0.72 instead of
+  letting it fall to chain A's 0.43.
+- L6: removing source 1 leaves the conclusion derivable through the weaker
+  chain B. Its frequency falls by more than 0.3 and its confidence by more
+  than 0.5, while `load` reports `NotLoadBearing`.
 
-A first version enumerated one proof per *observation* and pooled at the
-conclusion only. On F10 the counter-evidence then sat in a proof that shared
-source 1 with the existing ones and was skipped: the contradiction was
-recorded and the truth did not move. Pooling at each premise fixed it.
+**Two earlier versions were wrong.**
+- The first pooled only at the conclusion. On F10 the counter-evidence sat in
+  a proof that shared source 1 with the others and was skipped, so the truth
+  did not move. Pooling at each premise fixed it.
+- The second pooled greedily by single-proof confidence. That can keep one
+  strong proof over roots {1, 2} and drop two independent proofs over {1}
+  and {2} that together carry more evidence. The exact selection fixed it.
 
 ## 5. Open, with the reason each is open
 
+- **The Epi5 bridge (C3):** relating ledger results, `CertificationModel` and
+  `EpistemicState5` (L1–L4: association without causation; `Direct × Causes`;
+  `IndirectKnown × Causes`; `IndirectUnknown × Causes`). This goes in a
+  follow-up PR, not this one. Load-bearing is not a new bit: the ledger's
+  receipts explain why an existing Epi5 reading is warranted; nothing here
+  writes one.
 - **F4 (Simpson under stratification):** handled by the existing
   certification fixture; not re-tested here.
-- **F5 (abductive intermediate stays IndirectUnknown):** needs C6 and an Epi5
-  write path; nothing here writes Epi5.
+- **F5 (abductive intermediate stays IndirectUnknown):** C3/C6.
 - **F6 (trigger vs mechanism)** and **outcome dependence:** need a
   method/effect model (HIRO ON/WHEN/DO); C4.
 - **F7 (model-scoped dependency vs certified cause):** C3/C4.
 - **F8 (eligibility differs by topology/certification at one address):** the
-  eligibility law is lab-only (`affordance_law.rs`); a contract home is needed
-  before a contract-level test.
-- **Wiring the planner tactics to record into the ledger:** not done. Today a
-  caller records a `Candidate` as a derivation by hand.
-- **Figure check:** the ledger does not verify that a step's terms fit its
-  law; the tactic that builds the step does.
+  eligibility law is lab-only (`affordance_law.rs`); C3.
 - **Cost:** evaluation is not memoized (the path guard makes evidence
-  path-dependent) and is bounded by `MAX_STEPS`. The budget bounds work, not
-  recursion depth; a very deep acyclic chain could still exhaust the stack.
-- **Evidence horizon k:** fixed at 1 in `TruthValue`; declaring it is C3.
+  path-dependent); bounded by the three refusals above.
+- **Evidence horizon k:** fixed at 1 in `TruthValue` (and `HORIZON = 1` in
+  `lance-graph-nal`). Declaring it is a separate change.
