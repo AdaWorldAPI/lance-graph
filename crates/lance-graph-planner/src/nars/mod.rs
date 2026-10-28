@@ -15,6 +15,7 @@ pub mod ghost_prior;
 pub mod inference;
 pub mod insight;
 pub mod insights;
+pub mod mediator;
 pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
