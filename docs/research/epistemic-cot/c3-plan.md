@@ -1,7 +1,7 @@
 # D-EPI-COT C3 — plan: Epi5 bridge, scenting, numerical learning
 
-Status: PLAN. Nothing here is implemented. C1/C2 (`nars::support`) is unchanged
-by this document.
+Status: PLAN, with the first C3 slice delivered (§8). C1/C2 (`nars::support`)
+is unchanged.
 
 C3 has three parts, in this order:
 
@@ -169,3 +169,161 @@ The learned output is a ranking. It is never passed in as an observation.
 2. Whether the `learn` gate's behaviour on `deepnsm-v2` edges is a live
    defect, which depends on whether those edges ever reach `learn`.
 3. Where the TFLite kernels live (§5).
+
+## 8. Delivered: first C3 slice
+
+Source pins: lance-graph main `694b243bd`, ndarray master `2cbe131`.
+
+### Owner and overlap map
+
+| file | owner contract | change |
+|---|---|---|
+| `lance-graph-contract/src/epistemic_state5.rs` | D-EPI-CANON-0 | adds `RecipeRule` (additive) |
+| `lance-graph-contract/src/certification.rs` | P7a #1369 / D-PEARL-PROD-0 | adds `CertificationModel::measured_only` (additive) |
+| `lance-graph-planner/src/nars/warrant.rs` | D-EPI-COT (new) | new module |
+| `lance-graph-planner/src/pearl.rs` | D-PEARL-PROD-0 | unchanged; still the only writer of bits 59..63 |
+| `cognitive-shader-driver/examples/shared/affordance_law.rs` | D-GSO-AFF-0 | unchanged; still uses its own rule type (follow-up) |
+
+EXO-50, read to its latest message (08:45Z): no open message claims these
+files. Numeric admission stays with EXO-152.
+
+### What runs
+
+- **`RecipeRule`** (contract): `requires` / `forbids` over declared facts, a
+  per-state check and the V1 population. This moves the lab law's rule into the
+  contract. The lab still has its own copy; switching it over is a follow-up.
+- **`CertificationModel::measured_only`** (contract): units whose outcome
+  was not measured are excluded from every mask, including the trial arms,
+  instead of being read as negatives. An arm left with no measured unit
+  refuses with `EmptyArm`.
+- **`nars::warrant`** (planner):
+  - **`Marker::ground`** builds a marker from three things: the ledger's
+    pooled truth and roots, the bits 59..63 projected through
+    `Epi5Declarations`, and the thought slot and generation. It refuses
+    with `NoEvidence`, an `Epi5` read error, or `Slot`.
+  - **`tactic_rule`** gives the eligibility rule for recipes 4, 6, 7, 8
+    and 11. These are policy pins, documented in the module.
+  - **`fire`**:
+    1. checks every premise against its rule;
+    2. refuses a stale or duplicate marker;
+    3. runs the planner's own RCR, TR or CAS function;
+    4. admits each candidate through `DerivationLedger::admit`.
+
+    Each judgment carries the tactic's truth, the roots of the proof through
+    the new derivation, the thought, and `Unknown × Open`.
+
+### Falsifiers
+
+Each is disable-verified: the named disable turns its test red.
+
+| falsifier | test | disable |
+|---|---|---|
+| acceptance path, roots preserved | `a_tactic_consumes_grounded_markers_and_keeps_their_roots` | — |
+| eligibility follows declared facts | `eligibility_follows_the_declared_facts` | skip the rule check; drop RCR's `forbids` |
+| no marker without evidence or declaration | `a_marker_needs_evidence_and_a_declared_reading` | skip the slot check |
+| no promotion from premises; only trial arms promote | `a_judgment_is_never_promoted_by_its_premises` | judgment takes a premise's state |
+| replayed thoughts add no evidence | `replaying_a_step_in_many_thoughts_adds_no_evidence` | — (ledger L7) |
+| stale marker refused | `a_stale_marker_is_refused` | skip the staleness check |
+| duplicate premise refused | `a_duplicate_premise_is_refused` | skip the duplicate check |
+| UNKNOWN is not negative | `unmeasured_outcomes_are_not_read_as_negatives` | trial arms not restricted (red only after adding unmeasured control units) |
+| rule population | `a_recipe_rule_population_matches_its_per_state_check` | `holds` ignores `forbids` |
+
+L1–L5 are already pinned by `pearl.rs` tests; this slice does not duplicate
+them:
+
+- L1: `f1_observation_alone_never_promotes_to_causes`.
+- L2 and L3: `cui_bono_script_moves_the_state_only_where_evidence_earned_it`,
+  which ends at `IndirectKnown × Causes`.
+- L4: `hydration_only_promotes_the_edge_whose_path_it_is` and
+  `f5_a_proposed_beneficiary_is_not_evidence`.
+- L5: `f7_one_at_a_time_removal_is_not_the_definition_of_causality`, the
+  overdetermined trial.
+
+### Clippy
+
+`cargo clippy -p lance-graph-planner --lib --tests -D warnings` reports the
+same 8 sites on main `694b243bd` as on this branch:
+`nested_bands.rs` 601/978/1025, `cache/nars_engine.rs:1413` and
+`tests/moore_nars16_probe.rs`. `--lib` alone is clean.
+
+### Still open
+
+- **Statistics:** effect size, sample-size bounds, uncertainty, and
+  multiple-comparison correction across the up to five populations
+  `associated` tries. Today `CertificationModel` reports none of these, and
+  nothing here asserts more than it reports.
+- **Missingness:** missing-at-random is assumed by `measured_only`; it is
+  not tested.
+- **ASC and CR (7, 11)** are not run through `fire`. They are revisions,
+  and the ledger already pools them.
+- **The lab affordance law** still has its own rule type.
+- **C3b and C3c,** which wait on the decisions in §7.
+
+## 9. Ledger → `pearl::hydrate` seam
+
+**Existing:** `planner::pearl::{reason, revise, hydrate}` (#1390/#1391) already
+writes bits 59..63. `hydrate` moves `IndirectUnknown` to `IndirectKnown` when
+both bindings `A → B` and `B → Y` are in the sealed chain. None of the files
+named `hydrate.rs` is that gate:
+
+- `deepnsm-v2/src/hydrate.rs` addresses parsed triples to their verse;
+- `lance-graph/src/graph/hydrate.rs` loads bgz7 vectors into Lance;
+- `bgz-tensor/src/hydrate.rs` is a download binary.
+
+**Added:** `nars::mediator::hydrate_from_ledger`.
+
+1. It finds the ledger's grounded deductions of `A → Y` through `B`.
+2. It hands the path to the unchanged `pearl::hydrate`.
+3. It returns a receipt: derivation ids, source roots, the `Hydration`
+   result, the edge after `hydrate`, and `A → Y`'s sensitivity with the
+   mediated derivations removed.
+
+What each side is allowed to do:
+
+- **The ledger never creates a chain.** A ledger path whose links are not
+  both in the sealed chain leaves the edge unchanged.
+- **The adapter refuses a chain-only path.** If the ledger has no grounded
+  path through `B`, there is no receipt.
+- **Only subject and object are read** from each chain step. The step tag is
+  not a predicate; that was the #1572 guard, which was withdrawn.
+
+To record causal mediator paths, `Law::Deduction` now admits `Impl` in an
+explicit step:
+
+- `Copula::transits` still keeps `Impl` out of blanket closure, and `Rel`
+  still never composes.
+- The step earns NARS truth only. It certifies nothing.
+
+| falsifier | test | disable |
+|---|---|---|
+| chain-witnessed ledger path hydrates (raw5 22 → 21) with roots | `a_ledger_path_witnessed_by_the_chain_hydrates` | — |
+| ledger path alone does not hydrate | `a_ledger_path_alone_does_not_hydrate` | — (`pearl::hydrate` owns it) |
+| grounded path through B required | `the_adapter_needs_a_grounded_ledger_path_through_the_mediator` | accept ungrounded derivations; accept any mediator |
+| redundant mediated path not reported as necessary | `a_redundant_mediated_path_is_not_reported_as_necessary` | — |
+| edge must be the target | `the_edge_must_be_the_target_relation` | skip the edge check |
+| `Impl` chains, `Rel` never | `l8_an_invalid_figure_is_not_admitted` | `Rel` composes; `Impl` refused |
+
+**One disable did not bind on its first form.** Falling back to "any proof"
+changed nothing, because without evidence there are no proofs at all.
+Accepting derivations without a proof does bind, and that is the form
+recorded.
+
+**Maturation (operator, 2026-10-28):** `7 = Staunen … 0 = Wisdom` (the #1494
+order) is the order for new, explicitly declared maturation readings.
+
+- Wisdom stays revisable: an independently witnessed contradiction reopens
+  it.
+- No existing class is reinterpreted. `deepnsm-v2` keeps its opposite
+  `novelty_wisdom` order.
+- Before any production write, four things must be settled: the reading,
+  its provenance, a migration, and the `CausalEdge64::learn` collision.
+- Until then, maturation stays transient and fail-closed.
+
+**TFLite (operator, 2026-10-28):** the kernels are in `AdaWorldAPI/ndarray`:
+
+- `src/simd_fixedpoint.rs`: TFLite fixed-point arithmetic;
+- `src/simd_stride.rs`: `lut9`;
+- `src/hpc/codec9.rs`: Palette512.
+
+`AdaWorldAPI/tflite-micro` is the reference, and lance-graph #1800 has the
+softmax oracle. No `lance-graph-tflite` crate. No training kernel exists yet.
