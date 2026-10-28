@@ -4,13 +4,12 @@
 
 ## Result
 
-- A three-valued global WHERE (Quack `Draft::bind` + `Filter::sql_where`, mask-risc `Keep`, 65,536 addresses) projects into a 64-slot DR frame by `map.len()` probes through the counted `LocalMap`. No new predicate evaluator, routing engine or mask store.
-- Every read is re-admitted against owner, source, codebook, frame, register frame, axis, DR method, focus, scope and criteria; each refusal is pinned by a test against an independent source-ID oracle.
-- UNKNOWN stays apart from FALSE in the selection, its negation and a three-valued property column.
-- Projection, admission and folds allocate nothing. Warm read 71–90 ns; fresh read 44–73 µs (WHERE dominates). Warm reuse breaks even at N = 1 and pays from N = 2 (1.96–2.03×), 8.1–8.4× at N = 8; at N = 64 fresh and rebind exceed 1,000 µs (failed gate), warm stays at 46 µs.
-- Seventeen disable runs each turn a test red (the Boolean folds refuse a three-valued register, the Codex #1834 finding applied here). The first pass found the projection-time seal checks unpinned; a test was added.
-- The #1792 control still reproduces (`reused R2 1032 vs fresh 31`).
+- One Quack WHERE (`Draft::bind` + `Filter::sql_where`, mask-risc `Keep`, 65,536 addresses) projects into a 64-slot DR frame by `map.len()` probes through the counted `LocalMap`. No new predicate evaluator, routing engine, mask store or epistemic sidecar.
+- Epistemic absence (`$null`, NaN, SQL NULL, unset validity, K3 UNKNOWN) is one logical value. WHERE selects TRUE; the unselected slots are FALSE or UNKNOWN and no complement is offered. A negation is its own WHERE, so `NOT UNKNOWN` stays UNKNOWN. A three-valued property keeps value + validity. No Epi5 state is derived from absence.
+- Every read is re-admitted against owner, source, codebook, frame, register frame, axis, DR method (the ClassId-bound `MethodSignature`), focus, scope and criteria; each refusal is pinned by a test against an independent source-ID oracle.
+- Projection, admission and folds allocate nothing. Measured back to back on the same fixture, the single WHERE halves the fresh read (41.5–43.2 µs → 20.6 µs). Warm reuse pays from N = 2 (2.0×), 7.9–8.0× at N = 8; at N = 64 fresh and rebind exceed 1,000 µs (failed gate), warm stays at 24–25 µs.
+- Sixteen disable runs each turn a test red. The #1792 control still reproduces (`reused R2 1032 vs fresh 31`).
 
 ## Open
 
-A detached `Keep` projected under a NEW seal is accepted: the seal attests the caller's claim, not mask provenance (needs a producer-side frame on Quack's bound query, D-NFR S5). `Criteria` is caller-supplied. The FALSE set costs a second WHERE program. One 64-slot frame per table; no DR256 resident register; no scattered-mask reuse.
+A detached `Keep` projected under a NEW seal is accepted: the seal attests the caller's claim, not mask provenance (independent gate, D-NFR S5: a producer-side frame on Quack's bound query). `Criteria` is caller-supplied. One 64-slot frame per table; no DR256 resident register; no scattered-mask reuse.
