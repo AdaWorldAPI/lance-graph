@@ -8,7 +8,7 @@
 - Every read is re-admitted against owner, source, codebook, frame, register frame, axis, DR method, focus, scope and criteria; each refusal is pinned by a test against an independent source-ID oracle.
 - UNKNOWN stays apart from FALSE in the selection, its negation and a three-valued property column.
 - Projection, admission and folds allocate nothing. Warm read 71–90 ns; fresh read 44–73 µs (WHERE dominates). Warm reuse breaks even at N = 1 and pays from N = 2 (1.96–2.03×), 8.1–8.4× at N = 8; at N = 64 fresh and rebind exceed 1,000 µs (failed gate), warm stays at 46 µs.
-- Sixteen disable runs each turn a test red. The first pass found the projection-time seal checks unpinned; a test was added.
+- Seventeen disable runs each turn a test red (the Boolean folds refuse a three-valued register, the Codex #1834 finding applied here). The first pass found the projection-time seal checks unpinned; a test was added.
 - The #1792 control still reproduces (`reused R2 1032 vs fresh 31`).
 
 ## Open

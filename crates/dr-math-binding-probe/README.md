@@ -74,7 +74,7 @@ Lab test of the composition `global selection → optional amortized global→lo
 - **Global → local.** `project` tests bit `global(l)` of both masks for each local slot of the table's `LocalMap`: `map.len()` probes, never a pass over the universe, no map search. A selected identity outside the frame is not projected. The frame must carry `LocalMap::digest()` as its `coordinates` revision, so a selection cannot be projected through one coordinate assignment and read under another.
 - **Admission.** Every read goes through `LocalSelection::admit`, which re-checks the global source seal (owner, source revision, codebook, address space), the local frame, register frame identity, identity axis, DR method, focus, scope and criteria. The only readable form is the `Admitted` it returns. A `LocalSelection` is a caller-owned value; there is no store or cache.
 - **Folds.** The selection is a `u64` over the identity axis, ANDed into reads of the borrowed rows (`selected_count`, `selected_column`, `selected_column_k3`, `selected_cell`). No Cartesian product, no copied row.
-- **K3.** WHERE keeps TRUE. UNKNOWN is carried separately and never folded into FALSE; the negation of a selection is its FALSE set.
+- **K3.** WHERE keeps TRUE. UNKNOWN is carried separately and never folded into FALSE; the negation of a selection is its FALSE set. The Boolean folds read payload bits as presence, so they refuse a selection admitted against a three-valued or bag register (the rule `hhtl16::cooccurrence` and `relcomp::Chain::new` apply); `selected_column_k3` reads validity and serves both.
 
 Oracle: the source is plain Rust values per global address (`class`, `sel: Option<i32>`, `live`). Verdicts are a `match` on `Option`, local positions are `position()` in the frame's source-order id list, and registers are built from those positions, not through the map. It shares no code with Quack, mask-risc, `hhtl16` or `where_dr3`. NULL rows carry the payload the predicate tests for, so an engine that read NULL payloads would keep them.
 
@@ -83,7 +83,7 @@ Thirteen tests against that oracle:
 - the global selection, whole mask over all 65,536 addresses, and its in-frame TRUE / FALSE / UNKNOWN (all three non-empty; most selected identities lie outside the frame);
 - equal local ordinals of two tables: the employee selection projected through the department map selects no department, and reading it against a department-row register is refused (`AxisMismatch`, `DifferentFrame`);
 - selected Identity × Property cell by cell, by column and by count, and the same relationships through the YZ rotation;
-- UNKNOWN: kept apart from FALSE in the selection, in its negation and in a three-valued property column;
+- UNKNOWN: kept apart from FALSE in the selection, in its negation and in a three-valued property column, and the Boolean folds refuse that three-valued register;
 - a source change after WHERE (refused, then rebound to the oracle);
 - a scope or focus change with identical coordinates (refused; the unchanged register admits);
 - selected employees' sites through a witnessed FK (`Chain`), then a changed referenced property (refused, rebound);
@@ -94,7 +94,7 @@ Thirteen tests against that oracle:
 - projection under a stale global seal, a foreign owner's seal or a resealed local frame;
 - projection, admission and folds allocate nothing.
 
-Disable runs, each restored from the commit and each turning at least one test red: the two projection-time seal checks, `MapNotFrame`, the TRUE ∧ FALSE check, TRUE/FALSE swapped, the eight admission guards (global, local, frame issue, axis, method, focus, scope, criteria), UNKNOWN computed as "not TRUE", the three-valued column reporting UNKNOWN as FALSE, and `selected_count` ignoring the selection. The first pass found the two projection-time seal checks covered by no test; the projection test above was added for them and both now go red.
+Disable runs, each restored from the commit and each turning at least one test red: the two projection-time seal checks, `MapNotFrame`, the TRUE ∧ FALSE check, TRUE/FALSE swapped, the eight admission guards (global, local, frame issue, axis, method, focus, scope, criteria), UNKNOWN computed as "not TRUE", the three-valued column reporting UNKNOWN as FALSE, `selected_count` ignoring the selection, and the Boolean folds accepting a three-valued register. The first pass found the two projection-time seal checks covered by no test; the projection test above was added for them and both now go red.
 
 The original #1792 control is unchanged and still reproduces: `cargo run --release --example p2_quack_where -- --controls` in `crates/drf-focus-probe` prints `reused R2 1032 vs fresh 31`.
 
