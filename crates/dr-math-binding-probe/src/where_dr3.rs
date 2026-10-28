@@ -37,16 +37,21 @@
 //! 3. **Fold** ([`selected_count`], [`selected_column`],
 //!    [`selected_column_k3`], [`selected_cell`]): the selection is a `u64`
 //!    over the identity axis, ANDed into reads of the borrowed rows. No
-//!    Cartesian product is built and no row is copied.
+//!    Cartesian product is built and no row is copied. The Boolean folds
+//!    refuse a three-valued or bag register; [`selected_column_k3`] reads
+//!    validity and serves both.
 //!
 //! # Three-valued semantics
 //!
 //! WHERE keeps TRUE only. UNKNOWN is carried separately
 //! ([`Admitted::unknown`]) and is never folded into FALSE: the complement of a
 //! selection is its FALSE set, not "every slot not TRUE".
-use crate::hhtl16::{self, LocalMap, MapRefusal};
+use crate::hhtl16::{self, LocalMap};
 use crate::relcomp::Rows;
-use crate::{Axis, BoundDr64, Focus, Frame, FrameStore, Guards, MethodSignature, Refusal, Scope};
+use crate::{
+    Axis, BoundDr64, Focus, Frame, FrameStore, Guards, MethodSignature, Population, Refusal, Scope,
+    Truth,
+};
 
 /// Addresses in one DR256 global population.
 pub const GLOBAL: usize = 65_536;
@@ -121,6 +126,9 @@ pub struct Admitted {
     truth: u64,
     falsity: u64,
     slots: u64,
+    /// The register admitted against is two-valued and distinct, so the
+    /// Boolean folds may read its payload bits as presence.
+    boolean: bool,
 }
 
 impl Admitted {
@@ -256,30 +264,46 @@ impl LocalSelection {
             truth: self.truth,
             falsity: self.falsity,
             slots: self.slots,
+            boolean: register.method.truth == Truth::TwoValued
+                && register.method.population == Population::Distinct,
         })
     }
 }
 
+// The Boolean folds below read payload bits as presence. They refuse (return
+// `None`) when the selection was admitted against a three-valued or bag
+// register, where a payload bit under an UNKNOWN cell would count as present
+// and a zero-filled one as absent: the rule `hhtl16::cooccurrence` and
+// `relcomp::Chain::new` apply. `rows` must be the admitted register's rows or
+// a Boolean derivation of them (a `Chain` composition).
+
 /// Identity × Property cells over the selected identities: Σ over set bits
-/// `x` of `sel` of `popcount(rows[x])`.
-pub fn selected_count(rows: &Rows, sel: u64) -> u32 {
-    let (mut s, mut n) = (sel, 0u32);
+/// `x` of the TRUE selection of `popcount(rows[x])`.
+pub fn selected_count(rows: &Rows, a: &Admitted) -> Option<u32> {
+    if !a.boolean {
+        return None;
+    }
+    let (mut s, mut n) = (a.truth, 0u32);
     while s != 0 {
         let x = s.trailing_zeros() as usize;
         n += rows[x].count_ones();
         s &= s - 1;
     }
-    n
+    Some(n)
 }
 
 /// The selected identities holding property `y`: one column read, ANDed.
-pub fn selected_column(rows: &Rows, sel: u64, y: u8) -> Option<u64> {
-    hhtl16::column(rows, y).map(|c| c & sel)
+pub fn selected_column(rows: &Rows, a: &Admitted, y: u8) -> Option<u64> {
+    if !a.boolean {
+        return None;
+    }
+    hhtl16::column(rows, y).map(|c| c & a.truth)
 }
 
 /// Three-valued column `y` over the selected identities: (known TRUE, known
 /// FALSE, UNKNOWN). A two-valued register has no UNKNOWN.
-pub fn selected_column_k3(r: &BoundDr64<'_>, sel: u64, y: u8) -> Option<(u64, u64, u64)> {
+pub fn selected_column_k3(r: &BoundDr64<'_>, a: &Admitted, y: u8) -> Option<(u64, u64, u64)> {
+    let sel = a.truth;
     let col = hhtl16::column(r.rows, y)?;
     let known = match r.validity {
         Some(_) => hhtl16::column_validity(r, y)?,
@@ -288,8 +312,12 @@ pub fn selected_column_k3(r: &BoundDr64<'_>, sel: u64, y: u8) -> Option<(u64, u6
     Some((col & known & sel, !col & known & sel, !known & sel))
 }
 
-/// One cell `(x, y)`, read only if `x` is selected.
-pub fn selected_cell(rows: &Rows, sel: u64, x: u8, y: u8) -> Result<bool, MapRefusal> {
-    let code = hhtl16::address(x, y)?;
-    Ok((sel >> x) & 1 == 1 && hhtl16::cell(rows, code)?)
+/// One cell `(x, y)`, read only if `x` is selected. `None` outside the
+/// register or for a non-Boolean admission.
+pub fn selected_cell(rows: &Rows, a: &Admitted, x: u8, y: u8) -> Option<bool> {
+    if !a.boolean {
+        return None;
+    }
+    let code = hhtl16::address(x, y).ok()?;
+    Some((a.truth >> x) & 1 == 1 && hhtl16::cell(rows, code).ok()?)
 }

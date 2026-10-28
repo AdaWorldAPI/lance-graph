@@ -505,7 +505,7 @@ fn fresh_read(
     eng.where_both(inp);
     let sel = proj(map, eng, gst, seal, lst, g);
     let a = sel.admit(gst, lst, b, CRITERIA).unwrap();
-    u64::from(selected_count(b.rows, a.truth()))
+    u64::from(selected_count(b.rows, &a).unwrap())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -542,7 +542,7 @@ fn total_warm(
     let mut acc = 0u64;
     for _ in 0..n {
         let a = sel.admit(gst, lst, b, CRITERIA).unwrap();
-        acc += u64::from(selected_count(b.rows, black_box(a.truth())));
+        acc += u64::from(selected_count(b.rows, black_box(&a)).unwrap());
     }
     acc
 }
@@ -578,7 +578,7 @@ fn total_rebind(
         eng.where_both(inp);
         let sel = proj(map, eng, gst, &seal, lst, g);
         let a = sel.admit(gst, lst, b, CRITERIA).unwrap();
-        acc += u64::from(selected_count(b.rows, a.truth()));
+        acc += u64::from(selected_count(b.rows, &a).unwrap());
         *prev = sel;
     }
     acc
@@ -716,7 +716,7 @@ fn main() {
             let a = black_box(&sel)
                 .admit(black_box(&gst), black_box(&lst), black_box(&b), CRITERIA)
                 .unwrap();
-            acc += u64::from(selected_count(black_box(b.rows), black_box(a.truth())));
+            acc += u64::from(selected_count(black_box(b.rows), black_box(&a)).unwrap());
         }
         acc
     });
@@ -734,14 +734,14 @@ fn main() {
     sink ^= measure("fold: selected_count", BATCH, || {
         let mut acc = 0u64;
         for _ in 0..BATCH {
-            acc += u64::from(selected_count(black_box(b.rows), black_box(a.truth())));
+            acc += u64::from(selected_count(black_box(b.rows), black_box(&a)).unwrap());
         }
         acc
     });
     sink ^= measure("fold: selected_column (one column)", 40, || {
         let mut acc = 0u64;
         for y in 0..40u8 {
-            acc ^= selected_column(black_box(b.rows), black_box(a.truth()), black_box(y)).unwrap();
+            acc ^= selected_column(black_box(b.rows), black_box(&a), black_box(y)).unwrap();
         }
         acc
     });

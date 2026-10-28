@@ -616,7 +616,7 @@ fn selected_identity_by_property_matches_the_oracle_and_survives_rotation() {
         for (y, &s) in w.skills.iter().enumerate() {
             let y = y as u8;
             let want = selected(e) && holds(e, s);
-            assert_eq!(selected_cell(b.rows, a.truth(), x, y).unwrap(), want);
+            assert_eq!(selected_cell(b.rows, &a, x, y).unwrap(), want);
             // YZ rotation: the rotated address (y, x) reads the same fact, and
             // the selection still applies to the identity coordinate.
             let rot =
@@ -627,7 +627,7 @@ fn selected_identity_by_property_matches_the_oracle_and_survives_rotation() {
         }
     }
     for (y, &s) in w.skills.iter().enumerate() {
-        let col = selected_column(b.rows, a.truth(), y as u8).unwrap();
+        let col = selected_column(b.rows, &a, y as u8).unwrap();
         let expect = w
             .emp_ids
             .iter()
@@ -636,7 +636,7 @@ fn selected_identity_by_property_matches_the_oracle_and_survives_rotation() {
         assert_eq!(col, expect, "column {s}");
     }
     selected_facts += w.has_skill.iter().filter(|&&(e, _)| selected(e)).count() as u32;
-    assert_eq!(selected_count(b.rows, a.truth()), selected_facts);
+    assert_eq!(selected_count(b.rows, &a).unwrap(), selected_facts);
     assert_eq!(cells, selected_facts);
     assert_eq!(rotated_hits, cells);
     // Anti-vacuity: the selection removes facts, and keeps some.
@@ -689,7 +689,7 @@ fn unknown_stays_unknown_in_selection_negation_and_property() {
     // Three-valued property over the selected identities, column by column.
     let (mut u_cells, mut f_cells) = (0u32, 0u32);
     for (y, &s) in w.skills.iter().enumerate() {
-        let (ct, cf, cu) = selected_column_k3(&b, a.truth(), y as u8).unwrap();
+        let (ct, cf, cu) = selected_column_k3(&b, &a, y as u8).unwrap();
         let (mut et, mut ef, mut eu) = (0u64, 0u64, 0u64);
         for &e in &w.emp_ids {
             if verdict(&w.src[e as usize], WANT) != Some(Some(true)) {
@@ -708,6 +708,11 @@ fn unknown_stays_unknown_in_selection_negation_and_property() {
         f_cells += cf.count_ones();
     }
     assert!(u_cells > 0 && f_cells > 0);
+    // The Boolean folds read payload bits as presence, so they refuse a
+    // selection admitted against this three-valued register.
+    assert_eq!(selected_count(b.rows, &a), None);
+    assert_eq!(selected_column(b.rows, &a, 0), None);
+    assert_eq!(selected_cell(b.rows, &a, 0, 0), None);
 }
 
 // ── 5. source change after WHERE: refuse, then rebind ─────────────────────
@@ -774,8 +779,8 @@ fn source_change_after_where_refuses_reuse_and_rebind_matches() {
     );
     // The silent alternative: the old projection would still answer.
     assert_ne!(
-        selected_count(b.rows, before.truth()),
-        selected_count(b.rows, after.truth())
+        selected_count(b.rows, &before).unwrap(),
+        selected_count(b.rows, &after).unwrap()
     );
 }
 
@@ -876,7 +881,7 @@ fn fk_projection_over_selection_matches_and_a_changed_reference_refuses() {
     let mut hits = 0u32;
     for &e in &w.emp_ids {
         for &s in &w.sites {
-            let got = selected_cell(&es, a.truth(), pos(&w.emp_ids, e), pos(&w.sites, s)).unwrap();
+            let got = selected_cell(&es, &a, pos(&w.emp_ids, e), pos(&w.sites, s)).unwrap();
             assert_eq!(got, selected(e) && at_site(&w, e, s), "({e}, {s})");
             hits += u32::from(got);
         }
@@ -920,8 +925,7 @@ fn fk_projection_over_selection_matches_and_a_changed_reference_refuses() {
         .unwrap();
     for &e in &w.emp_ids {
         for &s in &w.sites {
-            let got =
-                selected_cell(&es2, a2.truth(), pos(&w.emp_ids, e), pos(&w.sites, s)).unwrap();
+            let got = selected_cell(&es2, &a2, pos(&w.emp_ids, e), pos(&w.sites, s)).unwrap();
             assert_eq!(got, selected(e) && at_site(&w, e, s));
         }
     }
@@ -1011,8 +1015,8 @@ fn reseal_and_coordinate_changes_refuse() {
     let a2 = sel2.admit(&gst, &lst, &b2, CRITERIA).unwrap();
     assert_eq!(a2.truth(), oracle_local(&w.src, &reordered, WANT).0);
     assert_eq!(
-        selected_count(b2.rows, a2.truth()),
-        selected_count(&r, before.truth())
+        selected_count(b2.rows, &a2).unwrap(),
+        selected_count(&r, &before).unwrap()
     );
 }
 
@@ -1124,7 +1128,7 @@ fn empty_and_full_global_selections_are_exact() {
         (a0.truth(), a0.falsity(), a0.unknown()),
         oracle_local(&w.src, &w.emp_ids, 99)
     );
-    assert_eq!(selected_count(b.rows, a0.truth()), 0);
+    assert_eq!(selected_count(b.rows, &a0).unwrap(), 0);
     // Full: the every-address plane. All 65,536 TRUE, every slot selected.
     let full = keep(&res, Filter::plane(ALL));
     let none = vec![0u64; GLOBAL_WORDS];
@@ -1147,7 +1151,7 @@ fn empty_and_full_global_selections_are_exact() {
     let a1 = s1.admit(&gst, &lst, &b, CRITERIA).unwrap();
     assert_eq!((a1.truth(), a1.falsity(), a1.unknown()), (u64::MAX, 0, 0));
     assert_eq!(
-        selected_count(b.rows, a1.truth()) as usize,
+        selected_count(b.rows, &a1).unwrap() as usize,
         w.has_skill.len()
     );
     // Malformed inputs are refused, not read.
@@ -1299,9 +1303,9 @@ fn projection_admission_and_folds_do_not_allocate() {
     )
     .unwrap();
     let a = sel.admit(&gst, &lst, &b, CRITERIA).unwrap();
-    let mut acc = selected_count(b.rows, a.truth());
+    let mut acc = selected_count(b.rows, &a).unwrap();
     for y in 0..40u8 {
-        acc ^= selected_column(b.rows, a.truth(), y).unwrap().count_ones();
+        acc ^= selected_column(b.rows, &a, y).unwrap().count_ones();
     }
     assert_eq!(allocs(), before, "acc={acc}");
     let _ = hhtl16::LOCAL + where_dr3::GLOBAL;
