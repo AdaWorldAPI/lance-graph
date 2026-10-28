@@ -1307,3 +1307,86 @@ fn projection_admission_and_folds_do_not_allocate() {
     let _ = hhtl16::LOCAL + where_dr3::GLOBAL;
     let _ = Population::Distinct;
 }
+
+// ── 13. a projection under a stale seal is refused before any read ────────
+
+#[test]
+fn projection_under_a_stale_global_seal_or_local_frame_is_refused() {
+    let w = world(SEED);
+    let cb = Codebook { shift: 0 };
+    let res = resident(&w.src, &cb);
+    let (t, f) = where_k3(&res, &cb, WANT);
+    let m = maps(&w);
+    let (mut gst, mut lst) = (global_store(&cb), local_store(&m.emp));
+    let (seal, g) = (gst.seal(), guards(&lst, FOCUS, SCOPE));
+    // Silence twin: current seals project.
+    assert!(
+        select(
+            &m.emp,
+            &t,
+            &f,
+            &gst,
+            &seal,
+            &lst,
+            &g,
+            emp_id(),
+            has_skill_sig()
+        )
+        .is_ok()
+    );
+    // The global owner moved between WHERE and projection.
+    gst.advance(FrameRevisions {
+        source: 2,
+        ..gst.revisions()
+    });
+    assert_eq!(
+        select(
+            &m.emp,
+            &t,
+            &f,
+            &gst,
+            &seal,
+            &lst,
+            &g,
+            emp_id(),
+            has_skill_sig()
+        )
+        .err(),
+        Some(ProjectRefusal::Global(Refusal::SourceChanged))
+    );
+    // Another owner's seal at identical numbers.
+    let other = global_store(&cb);
+    let seal_now = gst.seal();
+    assert_eq!(
+        select(
+            &m.emp,
+            &t,
+            &f,
+            &other,
+            &seal_now,
+            &lst,
+            &g,
+            emp_id(),
+            has_skill_sig()
+        )
+        .err(),
+        Some(ProjectRefusal::Global(Refusal::ForeignFrame))
+    );
+    // The local frame moved.
+    lst.advance(lst.revisions());
+    assert_eq!(
+        select(
+            &m.emp,
+            &t,
+            &f,
+            &gst,
+            &seal_now,
+            &lst,
+            &g,
+            emp_id(),
+            has_skill_sig()
+        )
+        .err(),
+        Some(ProjectRefusal::Local(Refusal::FrameResealed))
+    );
+}
