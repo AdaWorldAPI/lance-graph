@@ -50,7 +50,7 @@ use std::cell::Cell;
 use lance_graph_contract::morton8x8::Morton8x8;
 
 use crate::relcomp::Rows;
-use crate::{AxisKind, BoundDr64};
+use crate::{AxisKind, BoundDr64, Population, Truth};
 
 /// Local coordinates are `0..64` (one DR64 register).
 pub const LOCAL: usize = 64;
@@ -220,9 +220,16 @@ pub fn column_validity(r: &BoundDr64<'_>, y: u8) -> Option<u64> {
 
 /// Property × Property, Boolean: `P[p] = OR over rows x holding p of rows[x]`,
 /// i.e. `Rᵀ ∘ R` computed from the canonical rows in outer-product form. No
-/// transposed copy is built. Refuses a binding that is not Identity × Property.
+/// transposed copy is built. Refuses a binding that is not Identity × Property,
+/// and one that is not two-valued and distinct: the fold reads payload bits
+/// only, so an UNKNOWN cell would count as present (or, zero-filled, as
+/// absent), and a bag's multiplicity would be lost. The same rule as
+/// `relcomp::Chain::new`.
 pub fn cooccurrence(r: &BoundDr64<'_>) -> Option<Rows> {
     if r.method.row.kind != AxisKind::Identity || r.method.column.kind != AxisKind::Property {
+        return None;
+    }
+    if r.method.truth != Truth::TwoValued || r.method.population != Population::Distinct {
         return None;
     }
     let mut out = [0u64; LOCAL];

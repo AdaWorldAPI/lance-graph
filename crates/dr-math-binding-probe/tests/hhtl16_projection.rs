@@ -526,6 +526,27 @@ fn unknown_is_not_false_in_either_orientation() {
     }
     // All three values occur, so a FALSE/UNKNOWN collapse would be caught.
     assert!(t > 0 && f > 0 && u > 0);
+    // Boolean co-occurrence reads payload bits only, so it refuses a
+    // three-valued binding. Payload under an UNKNOWN cell is set here, so a
+    // fold that accepted the binding would report a pair no fact supports.
+    let mut dirty = val;
+    let (x, y) = (m.emp.local(1001).unwrap(), m.skill.local(2005).unwrap());
+    assert_eq!(certified(1001, 2005), None);
+    dirty[x as usize] |= 1 << y;
+    let bd = bind_dr64(
+        &st,
+        s3,
+        s3,
+        &at,
+        (FOCUS, SCOPE),
+        Operand {
+            rows: &dirty,
+            validity: Some(&known),
+        },
+    )
+    .unwrap();
+    assert!(cooccurrence(&bd).is_none());
+    assert!(cooccurrence(&b).is_none());
 }
 
 #[test]
