@@ -44,8 +44,9 @@ def sha256(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def loss(src, tgt, w, dist, axis, reduction):
-    cfg = configs.DistanceConfig(distance_type=dist, reduction=reduction, sum_over_axis=axis)
+def loss(src, tgt, w, dist, axis, reduction, transform="none"):
+    cfg = configs.DistanceConfig(distance_type=dist, reduction=reduction, sum_over_axis=axis,
+                                 transform_fn=transform)
     out = distances.pairwise_distance_wrapper(
         tf.constant(src, tf.float32), tf.constant(tgt, tf.float32),
         weights=tf.constant(w.reshape(-1, 1), tf.float32), distance_config=cfg)
@@ -89,6 +90,14 @@ def cases():
     s = np.stack([h["A"], h["B"]]).astype(np.float32)
     t = np.stack([h["C"], h["C"]]).astype(np.float32)
     yield "toy_00a", s, t, np.array([0.9, 0.4], np.float32), "l2", None, R.SUM_BY_NONZERO_WEIGHTS
+    # Appended (keeps the stream for the cases above): softmax-transformed
+    # divergences on 10-class logits, transform_fn=SOFTMAX along the last axis.
+    for dist in ("kl_divergence", "jensen_shannon_divergence"):
+        for noise in (0.5, 0.1, 0.01):
+            s = (2.0 * rs.normal(0, 1, (n, 10))).astype(np.float32)
+            t = (s + rs.normal(0, noise, (n, 10))).astype(np.float32)
+            tag = "kl" if dist == "kl_divergence" else "js"
+            yield "%s_softmax_n%s" % (tag, str(noise).replace(".", "p")), s, t, weights(), dist, -1, R.SUM_BY_NONZERO_WEIGHTS
 
 
 def main():
@@ -101,11 +110,12 @@ def main():
     ]
     count = 0
     for name, s, t, w, dist, axis, red in cases():
+        transform = "softmax" if dist in ("kl_divergence", "jensen_shannon_divergence") else "none"
         lines.append("case %s %s %s %s %d %d" % (name, dist, "none" if axis is None else axis, red, s.shape[0], s.shape[1]))
         lines += ["src " + " ".join(hx(v) for v in row) for row in s]
         lines += ["tgt " + " ".join(hx(v) for v in row) for row in t]
         lines.append("w " + " ".join(hx(v) for v in w))
-        lines.append("tf " + hx(loss(s, t, w, dist, axis, red)))
+        lines.append("tf " + hx(loss(s, t, w, dist, axis, red, transform)))
         lines.append("end")
         count += 1
     with open(os.path.join(DATA, "nsl_loss_golden.txt"), "w") as f:
