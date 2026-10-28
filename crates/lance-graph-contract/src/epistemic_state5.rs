@@ -306,6 +306,59 @@ pub const fn facts_population(required: Facts) -> Population {
     population
 }
 
+/// A recipe's epistemic obligations: the facts a state must assert
+/// (`requires`) and must not assert (`forbids`) for the recipe to be eligible
+/// on an edge in that state.
+///
+/// This is the affordance law's rule, moved from the D-GSO-AFF-0 lab
+/// (`cognitive-shader-driver/examples/shared/affordance_law.rs`) so a
+/// production consumer can read it. Eligibility is a read-only derivation from
+/// declared facts: it does not authorize execution, does not say a
+/// conclusion is true, and never writes an edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct RecipeRule {
+    /// Facts every eligible state asserts.
+    pub requires: Facts,
+    /// Facts no eligible state asserts.
+    pub forbids: Facts,
+}
+
+impl RecipeRule {
+    /// A rule with these obligations.
+    #[must_use]
+    pub const fn new(requires: Facts, forbids: Facts) -> Self {
+        Self { requires, forbids }
+    }
+
+    /// Whether a state asserting `facts` satisfies the rule.
+    #[must_use]
+    pub const fn holds(self, facts: Facts) -> bool {
+        facts & self.requires == self.requires && facts & self.forbids == 0
+    }
+
+    /// Whether `state` satisfies the rule.
+    #[must_use]
+    pub const fn admits(self, state: EpistemicState5) -> bool {
+        self.holds(state.facts())
+    }
+
+    /// The V1 codes on which the rule holds. Reserved codes never appear.
+    #[must_use]
+    pub const fn population(self) -> Population {
+        let mut population = 0;
+        let mut raw = 0;
+        while raw < CODES {
+            if let Some(facts) = COMPILED_FACTS_V1[raw] {
+                if self.holds(facts) {
+                    population |= 1 << raw;
+                }
+            }
+            raw += 1;
+        }
+        population
+    }
+}
+
 /// A reading generation. V1 is the 2 × 3 product above.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Epi5Gen {
@@ -538,6 +591,39 @@ mod tests {
 
     fn code(t: T, c: C) -> u8 {
         EpistemicState5::new(Epi5Gen::V1, t, c).raw()
+    }
+
+    /// A rule's population is exactly the meaningful codes it admits, and
+    /// `forbids` removes codes `requires` alone would keep.
+    #[test]
+    fn a_recipe_rule_population_matches_its_per_state_check() {
+        let rule = RecipeRule::new(ASSOCIATED, INTERMEDIATE_KNOWN);
+        let mut expected = 0;
+        for raw in 0u8..32 {
+            if let Ok(s) = EpistemicState5::decode(Epi5Gen::V1, raw) {
+                if rule.admits(s) {
+                    expected |= 1 << raw;
+                }
+            }
+        }
+        assert_eq!(rule.population(), expected);
+        assert_eq!(
+            RecipeRule::new(ASSOCIATED, 0).population() & !rule.population(),
+            facts_population(ASSOCIATED | INTERMEDIATE_KNOWN),
+            "forbids removes exactly the states that assert the forbidden fact"
+        );
+        assert!(!rule.admits(EpistemicState5::new(
+            Epi5Gen::V1,
+            T::IndirectKnown,
+            C::Causes
+        )));
+        assert!(rule.admits(EpistemicState5::new(
+            Epi5Gen::V1,
+            T::IndirectUnknown,
+            C::Causes
+        )));
+        assert!(!rule.admits(EpistemicState5::new(Epi5Gen::V1, T::Direct, C::Open)));
+        assert_eq!(rule.population() >> 24, 0, "reserved codes never admitted");
     }
 
     /// The layout is the product: `raw5 = t | c << 2`, 24 meaningful, 8
