@@ -1,0 +1,295 @@
+//! D-DRCA-2: `DR256::WHERE` × DR#3, lab only.
+//!
+//! The invariant under test:
+//!
+//! ```text
+//! global selection → optional amortized global→local mapping
+//!                  → HHTL16 Cartesian projection → native fold
+//! ```
+//!
+//! # What this module does not do
+//!
+//! It evaluates no predicate. The global selection is the output of Quack's
+//! existing WHERE (`Query { filter, agg: Agg::Rows }` → mask-risc `Keep`),
+//! handed in as two borrowed 8 KiB masks: the rows where the criteria are
+//! TRUE and the rows where they are FALSE (`Filter::sql_where` of the
+//! criteria and of their negation). A row in neither is UNKNOWN. This
+//! module has no Quack or mask-risc dependency; the tests and the stage
+//! example wire the real engine to it.
+//!
+//! It stores nothing. A [`LocalSelection`] is a caller-owned value, the
+//! projection of one selection into one frame, with the guards it was made
+//! under. There is no cache, map of selections or persistent mask store.
+//!
+//! # The three steps
+//!
+//! 1. **Global → local** ([`project`]): for each local ordinal `l` of the
+//!    table's [`LocalMap`], test bit `global(l)` of the TRUE and FALSE masks.
+//!    The work is `map.len()` probes, never a pass over 65,536 rows, and a
+//!    selected identity outside the frame is not promoted into it. The frame
+//!    must carry `map.digest()` as its `coordinates` revision, so a selection
+//!    cannot be projected through one assignment and read under another.
+//! 2. **Admission** ([`LocalSelection::admit`]): every read re-checks the
+//!    global source seal (owner, source revision, codebook, address space),
+//!    the local frame, the focus, the scope, the identity axis, the DR
+//!    method and the criteria. Any mismatch refuses; nothing is silently
+//!    reused. The only way to read is through the [`Admitted`] it returns.
+//! 3. **Fold** ([`selected_count`], [`selected_column`],
+//!    [`selected_column_k3`], [`selected_cell`]): the selection is a `u64`
+//!    over the identity axis, ANDed into reads of the borrowed rows. No
+//!    Cartesian product is built and no row is copied.
+//!
+//! # Three-valued semantics
+//!
+//! WHERE keeps TRUE only. UNKNOWN is carried separately
+//! ([`Admitted::unknown`]) and is never folded into FALSE: the complement of a
+//! selection is its FALSE set, not "every slot not TRUE".
+use crate::hhtl16::{self, LocalMap, MapRefusal};
+use crate::relcomp::Rows;
+use crate::{Axis, BoundDr64, Focus, Frame, FrameStore, Guards, MethodSignature, Refusal, Scope};
+
+/// Addresses in one DR256 global population.
+pub const GLOBAL: usize = 65_536;
+/// `u64` words in one global mask (8 KiB).
+pub const GLOBAL_WORDS: usize = GLOBAL / 64;
+
+/// What the global selection was bound under, besides the source seal: the
+/// identity of the criteria (a caller-supplied digest of the bound query).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Criteria {
+    pub id: u64,
+}
+
+/// Why a projection was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProjectRefusal {
+    /// A global mask that is not exactly [`GLOBAL_WORDS`] words.
+    WrongWidth,
+    /// A local slot whose global id lies outside the 65,536 addresses.
+    OutOfUniverse,
+    /// The local frame was not sealed under this map's coordinate assignment.
+    MapNotFrame,
+    /// A row that is both TRUE and FALSE: not a three-valued selection.
+    NotThreeValued,
+    /// The global source seal is not current.
+    Global(Refusal),
+    /// The local frame is not current.
+    Local(Refusal),
+}
+
+/// Why a reuse was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReuseRefusal {
+    /// The global source moved: another owner (`ForeignFrame`), new data
+    /// (`SourceChanged`), a new codebook (`MapChanged`), a new address space
+    /// (`CoordinatesChanged`) or a reseal.
+    Global(Refusal),
+    /// The local frame moved, the same five ways.
+    Local(Refusal),
+    /// The register was bound under a different frame issue.
+    DifferentFrame,
+    /// The register's row axis is not the axis the selection was projected
+    /// onto (equal local ordinals of two tables).
+    AxisMismatch,
+    /// The register's DR method is not the one the selection was made for.
+    SchemaChanged,
+    FocusChanged,
+    ScopeChanged,
+    CriteriaChanged,
+}
+
+/// One global selection projected into one table's frame. Caller-owned;
+/// readable only through [`LocalSelection::admit`].
+#[derive(Clone, Debug)]
+pub struct LocalSelection {
+    truth: u64,
+    falsity: u64,
+    slots: u64,
+    axis: Axis,
+    method: MethodSignature,
+    global: Frame,
+    local: Frame,
+    focus: Focus,
+    scope: Scope,
+    criteria: Criteria,
+    probes: u32,
+}
+
+/// The selection, after every guard held. No public constructor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Admitted {
+    truth: u64,
+    falsity: u64,
+    slots: u64,
+}
+
+impl Admitted {
+    /// Identities where the criteria are TRUE: what WHERE keeps.
+    pub fn truth(&self) -> u64 {
+        self.truth
+    }
+    /// Identities where the criteria are FALSE.
+    pub fn falsity(&self) -> u64 {
+        self.falsity
+    }
+    /// Identities where the criteria are UNKNOWN. Never part of FALSE.
+    pub fn unknown(&self) -> u64 {
+        self.slots & !(self.truth | self.falsity)
+    }
+    /// The occupied local slots of the frame.
+    pub fn slots(&self) -> u64 {
+        self.slots
+    }
+}
+
+fn bit(mask: &[u64], g: u64) -> bool {
+    (mask[(g >> 6) as usize] >> (g & 63)) & 1 == 1
+}
+
+/// What one global selection is projected under.
+#[derive(Clone, Copy, Debug)]
+pub struct Under<'a> {
+    /// The owner of the 65,536-address source, and its seal.
+    pub global_store: &'a FrameStore,
+    pub global: &'a Frame,
+    /// The owner of the DR frame, and the guards of the target register.
+    pub local_store: &'a FrameStore,
+    pub guards: &'a Guards,
+    /// The identity axis and DR method the selection is for.
+    pub axis: Axis,
+    pub method: MethodSignature,
+    pub criteria: Criteria,
+}
+
+/// Project a three-valued global selection into one table's frame.
+///
+/// `truth` and `falsity` are the `Keep` outputs of WHERE for the criteria and
+/// for their negation. Work: `map.len()` probes into each mask.
+pub fn project(
+    map: &LocalMap,
+    truth: &[u64],
+    falsity: &[u64],
+    under: Under<'_>,
+) -> Result<LocalSelection, ProjectRefusal> {
+    if truth.len() != GLOBAL_WORDS || falsity.len() != GLOBAL_WORDS {
+        return Err(ProjectRefusal::WrongWidth);
+    }
+    under
+        .global_store
+        .check(under.global)
+        .map_err(ProjectRefusal::Global)?;
+    under
+        .local_store
+        .check(&under.guards.frame)
+        .map_err(ProjectRefusal::Local)?;
+    if under.guards.frame.revisions().coordinates != map.digest() {
+        return Err(ProjectRefusal::MapNotFrame);
+    }
+    let (mut t, mut f, mut slots) = (0u64, 0u64, 0u64);
+    for l in 0..map.len() as u8 {
+        let g = map.global(l).ok_or(ProjectRefusal::OutOfUniverse)?;
+        if g >= GLOBAL as u64 {
+            return Err(ProjectRefusal::OutOfUniverse);
+        }
+        let (bt, bf) = (bit(truth, g), bit(falsity, g));
+        if bt && bf {
+            return Err(ProjectRefusal::NotThreeValued);
+        }
+        t |= u64::from(bt) << l;
+        f |= u64::from(bf) << l;
+        slots |= 1 << l;
+    }
+    Ok(LocalSelection {
+        truth: t,
+        falsity: f,
+        slots,
+        axis: under.axis,
+        method: under.method,
+        global: under.global.clone(),
+        local: under.guards.frame.clone(),
+        focus: under.guards.focus,
+        scope: under.guards.scope,
+        criteria: under.criteria,
+        probes: map.len() as u32,
+    })
+}
+
+impl LocalSelection {
+    /// Mask probes the projection made (the global → local work).
+    pub fn probes(&self) -> u32 {
+        self.probes
+    }
+
+    /// Re-check every guard against the register about to be read.
+    pub fn admit(
+        &self,
+        global_store: &FrameStore,
+        local_store: &FrameStore,
+        register: &BoundDr64<'_>,
+        criteria: Criteria,
+    ) -> Result<Admitted, ReuseRefusal> {
+        global_store
+            .check(&self.global)
+            .map_err(ReuseRefusal::Global)?;
+        local_store
+            .check(&self.local)
+            .map_err(ReuseRefusal::Local)?;
+        if !register.frame.same_issue(&self.local) {
+            return Err(ReuseRefusal::DifferentFrame);
+        }
+        if register.method.row != self.axis {
+            return Err(ReuseRefusal::AxisMismatch);
+        }
+        if register.method != self.method {
+            return Err(ReuseRefusal::SchemaChanged);
+        }
+        if register.focus != self.focus {
+            return Err(ReuseRefusal::FocusChanged);
+        }
+        if register.scope != self.scope {
+            return Err(ReuseRefusal::ScopeChanged);
+        }
+        if criteria != self.criteria {
+            return Err(ReuseRefusal::CriteriaChanged);
+        }
+        Ok(Admitted {
+            truth: self.truth,
+            falsity: self.falsity,
+            slots: self.slots,
+        })
+    }
+}
+
+/// Identity × Property cells over the selected identities: Σ over set bits
+/// `x` of `sel` of `popcount(rows[x])`.
+pub fn selected_count(rows: &Rows, sel: u64) -> u32 {
+    let (mut s, mut n) = (sel, 0u32);
+    while s != 0 {
+        let x = s.trailing_zeros() as usize;
+        n += rows[x].count_ones();
+        s &= s - 1;
+    }
+    n
+}
+
+/// The selected identities holding property `y`: one column read, ANDed.
+pub fn selected_column(rows: &Rows, sel: u64, y: u8) -> Option<u64> {
+    hhtl16::column(rows, y).map(|c| c & sel)
+}
+
+/// Three-valued column `y` over the selected identities: (known TRUE, known
+/// FALSE, UNKNOWN). A two-valued register has no UNKNOWN.
+pub fn selected_column_k3(r: &BoundDr64<'_>, sel: u64, y: u8) -> Option<(u64, u64, u64)> {
+    let col = hhtl16::column(r.rows, y)?;
+    let known = match r.validity {
+        Some(_) => hhtl16::column_validity(r, y)?,
+        None => u64::MAX,
+    };
+    Some((col & known & sel, !col & known & sel, !known & sel))
+}
+
+/// One cell `(x, y)`, read only if `x` is selected.
+pub fn selected_cell(rows: &Rows, sel: u64, x: u8, y: u8) -> Result<bool, MapRefusal> {
+    let code = hhtl16::address(x, y)?;
+    Ok((sel >> x) & 1 == 1 && hhtl16::cell(rows, code)?)
+}

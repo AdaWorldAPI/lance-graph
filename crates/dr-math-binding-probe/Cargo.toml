@@ -20,3 +20,8 @@ sha2 = "0.10"
 
 [dev-dependencies]
 lance-graph-act-r = { path = "../lance-graph-act-r" }
+# D-DRCA-2 (tests/dr256_where_dr3.rs, examples/dr256_where_stages.rs): the
+# real WHERE path. Quack binds and lowers, mask-risc executes the `Keep`
+# terminal; the library itself never names either.
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }

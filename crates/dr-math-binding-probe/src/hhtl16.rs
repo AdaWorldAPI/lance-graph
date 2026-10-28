@@ -128,6 +128,23 @@ impl LocalMap {
     pub fn lookups(&self) -> u64 {
         self.lookups.get()
     }
+
+    /// FNV-1a over the local → global table, in local order. A frame states
+    /// which coordinate assignment it was sealed under by carrying this value
+    /// as its `coordinates` revision, so a selection projected through one
+    /// assignment cannot be read under another (D-DRCA-2). A digest, not an
+    /// identity: two maps over the same ids in the same order are the same
+    /// assignment.
+    pub fn digest(&self) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for &g in &self.globals {
+            for b in g.to_le_bytes() {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+        h
+    }
 }
 
 /// The HHTL16 Cartesian address of cell `(x, y)` of a 64 × 64 register.
