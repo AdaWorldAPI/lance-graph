@@ -275,6 +275,114 @@ impl FamilyGamma {
     }
 }
 
+/// The two shapes an 8-byte envelope (two f32) can carry over z = atanh(c).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Shape {
+    /// `a = z_min`, `b = z_range`, codes spread linearly over z.
+    ZLinear,
+    /// Gumbel probability-integral transform over z: `a = mu`, `b = beta`,
+    /// fitted by moments, `beta = sd * sqrt(6) / pi` signed by the skew,
+    /// `mu = mean - EULER_GAMMA * beta`. Codes are equal-probability bins, so
+    /// a Gumbel-shaped z lands on a flat code histogram (the deskew).
+    ZGumbel,
+}
+
+/// Two f32 of metadata (8 bytes) plus `levels` codes: 255 is the i8 reach of
+/// [`FamilyGamma`], 511 is the numeric reach of a 9-bit SM9 lane.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Envelope {
+    pub shape: Shape,
+    pub a: f32,
+    pub b: f32,
+    pub levels: u32,
+}
+
+fn gumbel_cdf(t: f64) -> f64 {
+    (-(-t).exp()).exp()
+}
+
+impl Envelope {
+    pub(crate) fn fit(shape: Shape, vals: &[f32], levels: u32) -> Self {
+        let z: Vec<f64> = vals.iter().map(|&v| f64::from(atanh_clamp(v))).collect();
+        let (a, b) = match shape {
+            Shape::ZLinear => {
+                let lo = z.iter().copied().fold(f64::INFINITY, f64::min);
+                let hi = z.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+                (lo, (hi - lo).max(1e-10))
+            }
+            Shape::ZGumbel => {
+                let n = z.len() as f64;
+                let m = z.iter().sum::<f64>() / n;
+                let var = z.iter().map(|&x| (x - m).powi(2)).sum::<f64>() / n;
+                let skew = z.iter().map(|&x| (x - m).powi(3)).sum::<f64>() / n;
+                let beta = (var.sqrt() * 6f64.sqrt() / std::f64::consts::PI).max(1e-10)
+                    * if skew < 0.0 { -1.0 } else { 1.0 };
+                (m - std::f64::consts::EULER_GAMMA * beta, beta)
+            }
+        };
+        Envelope {
+            shape,
+            a: a as f32,
+            b: b as f32,
+            levels,
+        }
+    }
+
+    pub(crate) fn encode(&self, c: f32) -> u32 {
+        let z = f64::from(atanh_clamp(c));
+        let (a, b, top) = (f64::from(self.a), f64::from(self.b), self.levels - 1);
+        match self.shape {
+            Shape::ZLinear => (((z - a) / b) * f64::from(top))
+                .round()
+                .clamp(0.0, f64::from(top)) as u32,
+            Shape::ZGumbel => {
+                let g = gumbel_cdf((z - a) / b);
+                let u = if b > 0.0 { g } else { 1.0 - g };
+                ((u * f64::from(self.levels)) as u32).min(top)
+            }
+        }
+    }
+
+    pub(crate) fn decode(&self, code: u32) -> f32 {
+        let (a, b, l) = (f64::from(self.a), f64::from(self.b), f64::from(self.levels));
+        let z = match self.shape {
+            Shape::ZLinear => a + f64::from(code) / (l - 1.0) * b,
+            Shape::ZGumbel => {
+                let u = (f64::from(code) + 0.5) / l;
+                let g = if b > 0.0 { u } else { 1.0 - u };
+                a + b * -(-g.ln()).ln()
+            }
+        };
+        z.tanh() as f32
+    }
+}
+
+/// Ceiling for any deskew, not an 8-byte envelope: `levels` equal-count bins
+/// from the sorted data, each decoded to its median.
+pub(crate) struct Quantiles {
+    bounds: Vec<f32>,
+    reps: Vec<f32>,
+}
+
+impl Quantiles {
+    pub(crate) fn fit(vals: &[f32], levels: usize) -> Self {
+        let mut v = vals.to_vec();
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let at = |q: f64| v[((v.len() - 1) as f64 * q).round() as usize];
+        let bounds = (1..levels).map(|i| at(i as f64 / levels as f64)).collect();
+        let reps = (0..levels)
+            .map(|i| at((i as f64 + 0.5) / levels as f64))
+            .collect();
+        Quantiles { bounds, reps }
+    }
+    pub(crate) fn encode(&self, c: f32) -> usize {
+        self.bounds.partition_point(|&b| b < c)
+    }
+    pub(crate) fn decode(&self, code: usize) -> f32 {
+        self.reps[code]
+    }
+}
+
 /// Affine 8-bit control for [`FamilyGamma`]: the same fitted range, spent
 /// uniformly on the cosine instead of on atanh(cosine). Rounds to nearest.
 #[derive(Clone, Copy)]
@@ -1250,6 +1358,306 @@ mod tests {
                 }
                 eprintln!("{line}");
             }
+        }
+    }
+
+    fn gumbel_sample(r: &mut Rng, n: usize, mu: f64, beta: f64) -> Vec<f32> {
+        (0..n)
+            .map(|_| {
+                let g = -(-r.u().max(1e-300).ln()).ln();
+                (mu + beta * g).tanh() as f32
+            })
+            .collect()
+    }
+
+    fn entropy_bits(codes: impl Iterator<Item = u64>) -> f64 {
+        let mut h = std::collections::HashMap::<u64, usize>::new();
+        let mut n = 0usize;
+        for c in codes {
+            *h.entry(c).or_default() += 1;
+            n += 1;
+        }
+        h.values()
+            .map(|&k| {
+                let p = k as f64 / n as f64;
+                -p * p.log2()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn euler_gamma_puts_the_gumbel_location_where_the_sample_has_it() {
+        let mut r = Rng(0xE0E0_1234_5678_9ABC);
+        let v = gumbel_sample(&mut r, 50_000, 0.6, 0.25);
+        let e = Envelope::fit(Shape::ZGumbel, &v, 255);
+        // mean of mu + beta*G is mu + EULER_GAMMA*beta; the fit undoes it
+        assert!((f64::from(e.a) - 0.6).abs() < 0.01, "mu {}", e.a);
+        assert!((f64::from(e.b) - 0.25).abs() < 0.01, "beta {}", e.b);
+    }
+
+    #[test]
+    fn the_gumbel_envelope_flattens_a_gumbel_sample_and_not_a_flat_one() {
+        let mut r = Rng(0x2468_1357_ACE0_BDF1);
+        let ent = |v: &[f32], sh: Shape| {
+            let e = Envelope::fit(sh, v, 255);
+            entropy_bits(v.iter().map(|&c| u64::from(e.encode(c))))
+        };
+        // can-fire: skewed (Gumbel) z, the Gumbel envelope uses the codes evenly
+        let g = gumbel_sample(&mut r, 50_000, 0.6, 0.25);
+        let (lin, gum) = (ent(&g, Shape::ZLinear), ent(&g, Shape::ZGumbel));
+        assert!(gum > 7.9 && gum > lin + 0.5, "gumbel {gum} linear {lin}");
+        // silent: flat z, the linear envelope is already flat and wins
+        let flat: Vec<f32> = (0..50_000)
+            .map(|_| (0.2 + 1.0 * r.u()).tanh() as f32)
+            .collect();
+        let (lin, gum) = (ent(&flat, Shape::ZLinear), ent(&flat, Shape::ZGumbel));
+        assert!(lin > gum, "flat: linear {lin} gumbel {gum}");
+    }
+
+    #[test]
+    fn a_left_skewed_sample_flips_the_sign_of_beta_and_stays_monotone() {
+        let mut r = Rng(0x0F0F_F0F0_1111_2222);
+        let v: Vec<f32> = gumbel_sample(&mut r, 20_000, 0.6, 0.25)
+            .iter()
+            .map(|&c| (1.2 - f64::from(atanh_clamp(c))).tanh() as f32)
+            .collect();
+        let e = Envelope::fit(Shape::ZGumbel, &v, 511);
+        assert!(e.b < 0.0, "beta {}", e.b);
+        let mut s = v.clone();
+        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert!(s.windows(2).all(|w| e.encode(w[0]) <= e.encode(w[1])));
+        assert!(s
+            .windows(2)
+            .all(|w| e.decode(e.encode(w[0])) <= e.decode(e.encode(w[1]))));
+    }
+
+    fn embed_edges(r: &mut Rng, thr: f64) -> Vec<(usize, usize, f64)> {
+        let (dim, clusters, per) = (32usize, 200usize, 20usize);
+        let unit = |v: Vec<f64>| {
+            let n = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+            v.into_iter().map(|x| x / n).collect::<Vec<f64>>()
+        };
+        let protos: Vec<Vec<f64>> = (0..clusters)
+            .map(|_| unit((0..dim).map(|_| r.n()).collect()))
+            .collect();
+        let pt = |p: &Vec<f64>, r: &mut Rng| unit(p.iter().map(|&x| x + 0.08 * r.n()).collect());
+        let nbrs: Vec<Vec<f64>> = (0..clusters * per)
+            .map(|i| pt(&protos[i / per], r))
+            .collect();
+        let mut out = vec![];
+        for s in 0..2000 {
+            let c = (r.u() * clusters as f64) as usize;
+            let sv = pt(&protos[c], r);
+            for (j, nb) in nbrs.iter().enumerate().skip(c * per).take(per) {
+                let cos: f64 = sv.iter().zip(nb).map(|(a, b)| a * b).sum();
+                if cos >= thr {
+                    out.push((s, j, format!("{cos:.6}").parse().unwrap()));
+                }
+            }
+        }
+        out
+    }
+
+    /// Report, not a gate: can the 8-byte envelope deskew the value
+    /// distribution, and what does a 9-bit (SM9-reach) code add over i8?
+    /// Data: uniform build_graph weights, cosine weights of clustered
+    /// embeddings (build_graph-shaped, sim >= 0.8), and the off-diagonal pair
+    /// cosines of a palette512 (the palette512:palette512 LUT).
+    #[test]
+    #[ignore]
+    fn deskew_envelope_probe() {
+        let mut r = Rng(0x7F4A_7C15_9E37_79B9);
+        let (n_seed, n_nbr) = (2000usize, 4000usize);
+        let seeds: Vec<Example> = (0..n_seed).map(|i| ex(&format!("s{i:05}"))).collect();
+        let nbrs: Vec<Example> = (0..n_nbr).map(|i| ex(&format!("n{i:05}"))).collect();
+        let mut uniform = vec![];
+        for s in 0..n_seed {
+            let deg = 1 + (64usize >> (r.u() * 7.0) as usize);
+            for _ in 0..deg {
+                let d = (r.u() * n_nbr as f64) as usize;
+                uniform.push((
+                    s,
+                    d,
+                    format!("{:.6}", 0.8 + 0.2 * r.u()).parse::<f64>().unwrap(),
+                ));
+            }
+        }
+        let embed = embed_edges(&mut r, 0.8);
+        let train = {
+            let protos: Vec<Vec<f64>> = (0..64)
+                .map(|_| (0..32).map(|_| r.n() / 32f64.sqrt()).collect())
+                .collect();
+            clustered(&mut r, &protos, 8192, 0.05, 0.0)
+        };
+        let pal = Palette::train(&train.src, 32, 512, 12);
+        let k = pal.centroids.len();
+        let lut: Vec<(usize, usize, f64)> = (0..k)
+            .flat_map(|i| ((i + 1)..k).map(move |j| (i, j)))
+            .map(|(i, j)| (i, j, f64::from(pal.lut_f32[i * k + j])))
+            .collect();
+        for (label, edges, ordered) in [
+            ("uniform w>=0.8", &uniform, true),
+            ("embed w>=0.8", &embed, true),
+            ("lut512 pairs", &lut, false),
+        ] {
+            let vals: Vec<f32> = edges.iter().map(|e| e.2 as f32).collect();
+            let mut sorted = vals.clone();
+            sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let p90 = sorted[sorted.len() * 9 / 10];
+            let m = vals.iter().map(|&x| f64::from(x)).sum::<f64>() / vals.len() as f64;
+            let sk = {
+                let z: Vec<f64> = vals.iter().map(|&v| f64::from(atanh_clamp(v))).collect();
+                let zm = z.iter().sum::<f64>() / z.len() as f64;
+                let sd = (z.iter().map(|x| (x - zm).powi(2)).sum::<f64>() / z.len() as f64).sqrt();
+                z.iter().map(|x| ((x - zm) / sd).powi(3)).sum::<f64>() / z.len() as f64
+            };
+            eprintln!("{label}: n {} mean {m:.4} z-skew {sk:.2}", vals.len());
+            let fg = FamilyGamma::from_cosines(&vals);
+            let env = |sh, l| Envelope::fit(sh, &vals, l);
+            let (l8, g8, l9, g9) = (
+                env(Shape::ZLinear, 255),
+                env(Shape::ZGumbel, 255),
+                env(Shape::ZLinear, 511),
+                env(Shape::ZGumbel, 511),
+            );
+            let (q8, q9) = (Quantiles::fit(&vals, 255), Quantiles::fit(&vals, 511));
+            type Enc<'a> = Box<dyn Fn(f32) -> (u64, f32) + 'a>;
+            let encs: Vec<(&str, Enc)> = vec![
+                (
+                    "fisher_z_i8",
+                    Box::new(|c| {
+                        let e = fg.encode(c);
+                        (e as u8 as u64, fg.decode(e))
+                    }),
+                ),
+                (
+                    "zlin_8",
+                    Box::new(|c| {
+                        let e = l8.encode(c);
+                        (u64::from(e), l8.decode(e))
+                    }),
+                ),
+                (
+                    "zgumbel_8",
+                    Box::new(|c| {
+                        let e = g8.encode(c);
+                        (u64::from(e), g8.decode(e))
+                    }),
+                ),
+                (
+                    "quantile_8*",
+                    Box::new(|c| {
+                        let e = q8.encode(c);
+                        (e as u64, q8.decode(e))
+                    }),
+                ),
+                (
+                    "zlin_9",
+                    Box::new(|c| {
+                        let e = l9.encode(c);
+                        (u64::from(e), l9.decode(e))
+                    }),
+                ),
+                (
+                    "zgumbel_9",
+                    Box::new(|c| {
+                        let e = g9.encode(c);
+                        (u64::from(e), g9.decode(e))
+                    }),
+                ),
+                (
+                    "quantile_9*",
+                    Box::new(|c| {
+                        let e = q9.encode(c);
+                        (e as u64, q9.decode(e))
+                    }),
+                ),
+            ];
+            let exact = ordered.then(|| {
+                let tsv: String = edges
+                    .iter()
+                    .map(|&(s, d, w)| format!("s{s:05}\tn{d:05}\t{w:.17}\n"))
+                    .collect();
+                order(&tsv, &seeds, &nbrs)
+            });
+            for (name, enc) in &encs {
+                let ent = entropy_bits(vals.iter().map(|&c| enc(c).0));
+                let errs: Vec<f64> = vals
+                    .iter()
+                    .map(|&c| (f64::from(enc(c).1) - f64::from(c)).abs())
+                    .collect();
+                let mean = errs.iter().sum::<f64>() / errs.len() as f64;
+                let top: Vec<f64> = vals
+                    .iter()
+                    .zip(&errs)
+                    .filter(|(v, _)| **v >= p90)
+                    .map(|(_, e)| *e)
+                    .collect();
+                let topm = top.iter().sum::<f64>() / top.len() as f64;
+                let mut line = format!(
+                    "  {name:12} entropy {ent:.2} b | abs err mean {mean:.2e} top10% {topm:.2e} max {:.2e}",
+                    errs.iter().copied().fold(0.0, f64::max)
+                );
+                if let Some(a) = &exact {
+                    let tsv: String = edges
+                        .iter()
+                        .map(|&(s, d, w)| {
+                            format!("s{s:05}\tn{d:05}\t{:.17}\n", f64::from(enc(w as f32).1))
+                        })
+                        .collect();
+                    let b = order(&tsv, &seeds, &nbrs);
+                    for kk in [1usize, 4] {
+                        let ch = a
+                            .iter()
+                            .zip(&b)
+                            .filter(|(x, y)| x.iter().take(kk).ne(y.iter().take(kk)))
+                            .count();
+                        line +=
+                            &format!(" | top{kk} order {:.1}%", 100.0 * ch as f64 / n_seed as f64);
+                    }
+                }
+                eprintln!("{line}");
+            }
+        }
+        eprintln!("(* quantile = ceiling, needs 255/511 floats of metadata, not 8 bytes)");
+    }
+
+    /// Report, not a gate: palette256 vs palette512 needles on the same
+    /// clustered pairs. Share of pairs reading the address 1.0, and the NSL
+    /// cosine loss error with an exact (f32) pair LUT.
+    #[test]
+    #[ignore]
+    fn palette512_needle_probe() {
+        let mut r = Rng(0x94D0_49BB_1331_11EB);
+        let protos: Vec<Vec<f64>> = (0..64)
+            .map(|_| (0..32).map(|_| r.n() / 32f64.sqrt()).collect())
+            .collect();
+        let train = clustered(&mut r, &protos, 8192, 0.05, 0.0);
+        let p256 = Palette::train(&train.src, 32, 256, 12);
+        let p512 = Palette::train(&train.src, 32, 512, 12);
+        for noise in [0.14, 0.05, 0.01] {
+            let (mut n2, mut n5, mut e2, mut e5) = (0.0, 0.0, vec![], vec![]);
+            for _ in 0..200 {
+                let c = clustered(&mut r, &protos, 16, 0.05, noise);
+                let f = f64::from(graph_loss(&c.src, &c.tgt, &c.w, c.dim, c.dist, c.axis));
+                for (p, n, e) in [(&p256, &mut n2, &mut e2), (&p512, &mut n5, &mut e5)] {
+                    *n += (0..16)
+                        .filter(|&i| {
+                            let rr = i * 32..(i + 1) * 32;
+                            p.index(&c.src[rr.clone()]) == p.index(&c.tgt[rr])
+                        })
+                        .count() as f64
+                        / 16.0;
+                    e.push(((f64::from(loss_palette_cosine(&c, p, Lut::F32)) - f) / f).abs());
+                }
+            }
+            eprintln!(
+                "noise {noise:>5}: needle k256 {:.1}% k512 {:.1}% | loss rel err med k256 {:.2} k512 {:.2}",
+                100.0 * n2 / 200.0,
+                100.0 * n5 / 200.0,
+                pct(e2, 0.5),
+                pct(e5, 0.5)
+            );
         }
     }
 }
