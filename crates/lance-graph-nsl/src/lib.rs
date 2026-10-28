@@ -219,23 +219,56 @@ fn nsl_order(table: &FeatureTable, a: &Selected, b: &Selected) -> Ordering {
         .then_with(|| table.id(b.row).cmp(table.id(a.row)))
 }
 
-/// Selects every seed's neighbors, as `pack_nbrs._join_examples` does.
-pub fn select(graph: &Graph, table: &FeatureTable, cap: Option<usize>) -> Vec<NeighborBatch> {
-    table
-        .seed_rows()
-        .map(|seed| {
-            let mut sel: Vec<Selected> = graph
-                .out_edges(table.id(seed))
-                .filter_map(|(d, weight)| table.row(d).map(|row| Selected { row, weight }))
-                .collect();
-            sel.sort_by(|a, b| nsl_order(table, a, b));
-            if let Some(c) = cap {
-                sel.truncate(c);
-            }
-            NeighborBatch {
-                seed,
-                selected: sel,
-            }
+/// The graph frozen against one feature table: per seed row, the neighbors
+/// that have an example, already in NSL order (CSR). Built once; a query is a
+/// borrowed slice.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Adjacency {
+    offsets: Vec<u32>,
+    sel: Vec<Selected>,
+}
+
+impl Adjacency {
+    /// Joins `graph` to `table` and sorts every seed's neighbors, as
+    /// `pack_nbrs._join_examples` does before slicing to `max_nbrs`.
+    pub fn build(graph: &Graph, table: &FeatureTable) -> Self {
+        let mut offsets = Vec::with_capacity(table.seeds + 1);
+        let mut sel = Vec::new();
+        offsets.push(0);
+        for seed in table.seed_rows() {
+            let start = sel.len();
+            sel.extend(
+                graph
+                    .out_edges(table.id(seed))
+                    .filter_map(|(d, weight)| table.row(d).map(|row| Selected { row, weight })),
+            );
+            sel[start..].sort_by(|a, b| nsl_order(table, a, b));
+            offsets.push(sel.len() as u32);
+        }
+        Adjacency { offsets, sel }
+    }
+
+    /// The first `cap` neighbors of a seed row (`None` = all), borrowed.
+    pub fn neighbors(&self, seed: u32, cap: Option<usize>) -> &[Selected] {
+        let (a, b) = (
+            self.offsets[seed as usize] as usize,
+            self.offsets[seed as usize + 1] as usize,
+        );
+        let all = &self.sel[a..b];
+        &all[..cap.map_or(all.len(), |c| c.min(all.len()))]
+    }
+
+    pub fn seeds(&self) -> u32 {
+        (self.offsets.len() - 1) as u32
+    }
+}
+
+/// Every seed's batch, owned, for the compatibility serialization.
+pub fn select(adj: &Adjacency, cap: Option<usize>) -> Vec<NeighborBatch> {
+    (0..adj.seeds())
+        .map(|seed| NeighborBatch {
+            seed,
+            selected: adj.neighbors(seed, cap).to_vec(),
         })
         .collect()
 }

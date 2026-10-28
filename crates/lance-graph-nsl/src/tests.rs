@@ -88,7 +88,7 @@ fn run(f: &Fixture) -> Result<(FeatureTable, Vec<NeighborBatch>), NslError> {
         g.symmetrize();
     }
     let t = FeatureTable::new(&f.seeds, &f.unlabeled)?;
-    let b = select(&g, &t, f.cap);
+    let b = select(&Adjacency::build(&g, &t), f.cap);
     Ok((t, b))
 }
 
@@ -293,5 +293,61 @@ fn duplicate_examples_are_refused() {
     assert!(
         FeatureTable::new(&[e("A")], &[e("A")]).is_ok(),
         "seed and unlabeled may share"
+    );
+}
+
+/// Cost probe (not a gate). Power-law out-degree graph, `cargo test --release
+/// -- --ignored --nocapture cost_probe`.
+#[test]
+#[ignore]
+fn cost_probe() {
+    let n = 2000usize;
+    let mut x = 0x9E37_79B9_7F4A_7C15u64;
+    let mut next = || {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x
+    };
+    let ex = |i: usize| Example {
+        id: format!("n{i:05}"),
+        tag: format!("t{i}"),
+        x: i as f32,
+    };
+    let seeds: Vec<Example> = (0..n / 2).map(ex).collect();
+    let unl: Vec<Example> = (n / 2..n).map(ex).collect();
+    let mut tsv = String::new();
+    let mut edges = 0;
+    for s in 0..n / 2 {
+        let deg = 1 + (64 >> (next() % 7)) as usize; // 2..65, heavy at the low end
+        for _ in 0..deg {
+            let d = (next() % n as u64) as usize;
+            let w = (next() % 1000) as f64 / 1000.0;
+            tsv.push_str(&format!("n{s:05}\tn{d:05}\t{w}\n"));
+            edges += 1;
+        }
+    }
+    let t0 = std::time::Instant::now();
+    let g = Graph::from_tsv(&tsv).unwrap();
+    let parse = t0.elapsed();
+    let t = FeatureTable::new(&seeds, &unl).unwrap();
+    let reps: usize = 20;
+    let t1 = std::time::Instant::now();
+    let adj = Adjacency::build(&g, &t);
+    let build = t1.elapsed();
+    let t2 = std::time::Instant::now();
+    let mut sel = 0;
+    for _ in 0..reps {
+        for seed in 0..adj.seeds() {
+            sel += std::hint::black_box(adj.neighbors(seed, Some(16))).len();
+        }
+    }
+    let per_seed = t2.elapsed().as_nanos() / (reps * n / 2) as u128;
+    eprintln!(
+        "edges {edges}: cold parse {} us, cold freeze {} us (reported, not gates); \
+         neighbors cap 16: {per_seed} ns per seed ({} selected per pass)",
+        parse.as_micros(),
+        build.as_micros(),
+        sel / reps
     );
 }
