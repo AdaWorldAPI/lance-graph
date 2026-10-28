@@ -1,6 +1,6 @@
 # D-DT64-6 predicates: implementation plan for the OGIT predicate expansion (stages 6-1 to 6-4)
 
-**Date:** 2026-10-28. **Status:** PROPOSED / DOCS ONLY. **Parent:** [D-DT64-6](https://github.com/AdaWorldAPI/lance-graph/blob/claude/clone-ndarray-lance-graph-dqfjlx/.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md) ([#1831](https://github.com/AdaWorldAPI/lance-graph/pull/1831), open; the link points at its branch until it merges), §5 stages D-DT64-6-1 to D-DT64-6-4. **Not:** code, test, ABI or merge authorization. Each stage below needs its own owner approval before any code.
+**Date:** 2026-10-28. **Status:** PROPOSED / DOCS ONLY. **Parent:** [D-DT64-6](https://github.com/AdaWorldAPI/lance-graph/blob/claude/clone-ndarray-lance-graph-dqfjlx/.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md) ([#1831](https://github.com/AdaWorldAPI/lance-graph/pull/1831), merged as `42b4b83`; the link still points at its branch), §5 stages D-DT64-6-1 to D-DT64-6-4. **Not:** code, test, ABI or merge authorization. Each stage below needs its own owner approval before any code.
 
 This plan turns #1831's one-line stage descriptions into implementable work: file and symbol, the change, the tests that must fail before and pass after, and the acceptance numbers. Measurements were taken on 2026-10-28 against lance-graph `main` `eeaaafb`, OGAR `main` `6b43a48` and AdaWorldAPI/OGIT `master` `b5731a8`. OGIT is read unpinned (#1831 D7); the commit is recorded as a provenance receipt, never as a gate.
 
@@ -151,6 +151,16 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 | 6-2 | lance-graph (code), OGAR (parity test) | lance-graph-ontology; OGAR for the test | 6-1 green |
 | 6-3 | lance-graph lab | DT64 catalogue owner | 6-2 green; DT64-1 owner ruling |
 | 6-4 | OGAR + consumer | consumer owner with OGAR authority | 6-3 green |
+
+## 3a. Update 2026-10-28: AdaWorldAPI/OGIT#11 (open)
+
+OGIT#11 changes inputs this plan reads. §0 stays as measured on OGIT `master` `b5731a8`; re-measure on the branch before any stage starts.
+
+- `ogit:assesses` was undeclared. It becomes `ogit.Healthcare:assesses`, and its target `AnatomicalStructure` is declared. Other undeclared allowed targets in `NTO/Healthcare` and `NTO/WorkOrder` are fixed.
+- `tools/import_check.py` (in OGIT#11) reports 0 errors on the branch and writes the verb catalogue (533 verbs: 521 `owl:ObjectProperty`, 12 `rdfs:Class`) and the allowed table (2,966 unique `(source, verb, target)` rows). Its counts include verbs declared outside `verbs/` directories, so they differ from §0's file counts. The table is a candidate cross-check for 6-2; it is not a second parser to adopt (§5).
+- The SGO layout is unchanged: root `ogit:` files stay in `SGO/sgo` and `SGO/core`. The OGIT validator's directory check reads the canonical path, so they validate only in a checkout whose path contains `/ogit/` (GitHub CI's `OGIT`, OGAR CI's `ogit`).
+- `tools/ogit_validate.py` (in OGIT#11) runs the OGIT validator's checks without Java.
+- OGAR#364 re-measures `ontology_cache`'s `ONLY_IN_THE_TABLES` for the branch: the three Healthcare Assessment subclasses, each now in its own file, are the only entities OGAR's reader takes and the cache misses. 6-1's partition test starts from that list.
 
 ## 4. Open
 
