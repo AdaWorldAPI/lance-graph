@@ -18,6 +18,6 @@
 ## Open
 
 - The label should become "the ablation discriminated", using the ledger's `sensitivity`.
-- Overlapping-evidence fixtures and real HIRO/Odoo outcomes.
+- Overlapping-evidence fixtures and real HIRO and ERP-consumer outcomes.
 - `lance-graph-nsl` is gated on the NSL H7 oracle and the H1 G01–G12 fixtures; it is not built here.
 - The spec binding is transient. Production generation binding stays with EXO-152 PZL-4/G1.
