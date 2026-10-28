@@ -45,29 +45,29 @@ Evidence states used below: VERIFIED-IN-CODE (file:line re-read), CURRENT-CONTRA
 
 ## 2. Grounding table
 
-What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and "lance-graph#NNNN" (PR heads: #1814 @bbd8980, #1819 @60eca64) label other checkouts; those lines were read in a session crosswalk on 2026-10-28 and are not re-read in this file.
+What exists today. "odoo-rs" (main @558f12a), "OGAR" (main @6b43a48) and "lance-graph#NNNN" (PR heads: #1814 @bbd8980, #1819 @60eca64) label other checkouts; those lines were read in a session crosswalk on 2026-10-28 and are not re-read in this file. In-repo sources are cited by symbol or section heading, not by line number, so a later edit to the target does not silently re-point the citation. Every in-repo source below was read in full on 2026-10-28.
 
 | Item | Evidence state | Citation |
 |---|---|---|
-| `AxisKind` has `Identity`, `Property`, `Community`, `Capability` | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs:19-24` |
-| The 64×64 bitplane is 512 B and "carries neither global ids, bag multiplicity nor provenance" | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs:8-10` |
-| `Focus { revision }`: which 64×64 window is read; a new focus over the same frame is not a new frame | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs:165-170` |
-| `FrameRevisions { source, relation_map, coordinates }`; `FrameStore::seal` compares frames by identity of issue (in-memory lab stand-in) | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs:73-109` |
-| `Operand` carries validity bits with the relation bits | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs:187-195` |
-| D-DRMC compares a guarded `Identity×Property` DR64 against `Identity²` | CURRENT-CONTRACT | `.claude/plans/dr-mathematical-compiler-v1.md:67,86` |
-| "Direct routing: field position → the executable bound to it" | VERIFIED-IN-CODE (lab test) | `crates/dir-rmap-probe/tests/classview_dr.rs:66` |
-| "Direct routing: method position -> fold" and "position -> executable" | VERIFIED-IN-CODE (lab tests) | `crates/dir-rmap-probe/tests/qr_focus.rs:145`, `qr_register.rs:53` (grep hit lines; not read further) |
-| `hotplug.rs`: "the plug-and-play pattern EVERY consumer migrates to" | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs:1-2` |
-| OGAR is the authority; it verifies "expected consumer, coverage both directions, ids minted exactly once" | VERIFIED-IN-CODE | `hotplug.rs:11-14` |
-| The consumer "declares one `HotPlug` const naming its classids + covered capabilities, calls `activate` in its own binary/tests" | VERIFIED-IN-CODE | `hotplug.rs:15-17` |
-| `HotPlug { consumer, classids: &'static [u16], covered }` | VERIFIED-IN-CODE | `hotplug.rs:54-62` |
-| "A consumer composes its own full `u32` (`concept << 16 \| its app prefix`)" | VERIFIED-IN-CODE | `hotplug.rs:96-97` |
-| `CapabilityAuthority::activate(&HotPlug) -> Result<Activation, ActivationDrift>` | VERIFIED-IN-CODE | `hotplug.rs:722-726` |
-| The `HotPlug` declaration is a compile-time const; verification is the `activate` call, run once in the consumer | WORKING-MODEL | reading of `hotplug.rs:15-17` |
-| `ttl_parse` builds `LinkSpec` with placeholder subject/object types; `ogit:from-to` / `ogit:allowed` "are not yet expanded" | VERIFIED-IN-CODE | `crates/lance-graph-ontology/src/ttl_parse.rs:18-21` |
-| The merged DT64 plans do not use the ON / WHEN / DO terms; the third axis is predicates | CURRENT-CONTRACT | `grep -nE "WHEN\|ON×\|ON/\|trigger\|Applicability"` over `d-dt64-holographic-predicate-capstone-v1.md`, `d-dt64-1-predicate-catalogue-source-crosswalk-v1.md`, `d-dt64-q0-borrowed-quack-binding-seam-v1.md`: zero hits |
-| Capstone: "Odoo method fold" is listed as missing | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md:102` |
-| Capstone: 64×64×64 = 262,144 cells = 32 KiB dense; never eagerly allocate a cube for an 8- or 23-field question | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md:27` |
+| `AxisKind` has `Identity`, `Property`, `Community`, `Capability` | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs`, enum `AxisKind` |
+| The 64×64 bitplane is 512 B and carries no global ids, bag multiplicity or provenance | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs`, module doc comment |
+| `Focus` (one `revision` field): which 64×64 window is read; a new focus over the same frame is not a new frame | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs`, struct `Focus` |
+| `FrameRevisions` holds source, relation map and coordinate revisions; `FrameStore` compares frames by identity of issue (in-memory lab stand-in) | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs`, structs `FrameRevisions`, `FrameStore` and `FrameStore::check` |
+| `Operand` carries validity bits with the relation bits | VERIFIED-IN-CODE | `crates/dr-math-binding-probe/src/lib.rs`, struct `Operand` |
+| D-DRMC compares a guarded Identity×Property DR64 against Identity² | CURRENT-CONTRACT | `.claude/plans/dr-mathematical-compiler-v1.md`, sections "Staged falsifiers and review gates" (stage 1) and "Experimental success criterion" |
+| Direct routing maps a field position to the executable bound to it | VERIFIED-IN-CODE (lab test) | `crates/dir-rmap-probe/tests/classview_dr.rs`, doc comment on `type Route` |
+| Direct routing maps a method position to a fold, and a position on a page to an executable | VERIFIED-IN-CODE (lab tests) | `crates/dir-rmap-probe/tests/qr_focus.rs` and `crates/dir-rmap-probe/tests/qr_register.rs`, doc comments on `type Route` |
+| `hotplug.rs` is the plug-and-play pattern every consumer migrates to | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, module doc comment |
+| OGAR is the authority; it verifies expected consumer, coverage in both directions, and ids minted exactly once | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, module doc comment, role 2 |
+| The consumer declares one `HotPlug` const naming its classids and covered capabilities, and calls `activate` in its own binary or tests | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, module doc comment, role 3 |
+| `HotPlug` has fields `consumer`, `classids` (a `u16` slice) and `covered` | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, struct `HotPlug` |
+| A consumer composes its own full `u32` as concept shifted left 16, OR its app prefix | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, doc comment on `Activation::read_modes` |
+| `CapabilityAuthority::activate` takes a `HotPlug` and returns an `Activation` or an `ActivationDrift` | VERIFIED-IN-CODE | `crates/lance-graph-contract/src/hotplug.rs`, trait `CapabilityAuthority` |
+| The `HotPlug` declaration is a compile-time const; verification is the `activate` call, run once in the consumer | WORKING-MODEL | reading of the `hotplug.rs` module doc comment, role 3 |
+| `ttl_parse` builds `LinkSpec` with placeholder subject/object types; `ogit:from-to` and `ogit:allowed` are not yet expanded | VERIFIED-IN-CODE | `crates/lance-graph-ontology/src/ttl_parse.rs`, module doc section "What this parser handles today" |
+| The merged DT64 plans do not use ON, WHEN or DO as terms; the third axis is predicates | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`, `.claude/plans/d-dt64-1-predicate-catalogue-source-crosswalk-v1.md`, `.claude/plans/d-dt64-q0-borrowed-quack-binding-seam-v1.md`, each read in full on 2026-10-28 |
+| Capstone: the Odoo method fold is listed as missing | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`, section "Evidence and non-goals" |
+| Capstone: 64×64×64 = 262,144 cells = 32 KiB dense; never eagerly allocate a cube for an 8- or 23-field question | CURRENT-CONTRACT | `.claude/plans/d-dt64-holographic-predicate-capstone-v1.md`, section "Logical capacity and materialization" |
 | odoo-rs registry: lab design, "Nothing here is production code"; §1 axes of at most 64 positions per frame; §3 dispatch fold; §5 collisions; §8 OGIT counts; §10 measured results; §11 open points | CURRENT-CONTRACT (other repo, lab design doc) | `odoo-rs:docs/DT64-ON-WHEN-DO-REGISTRY.md:3,13-24,55-56,98-99,139-169,200-210,246-258` |
 | lance-graph#1814 cfa-1 (OPEN, docs only): "S1 is a proposed method-analysis view, not equivalent to the existing DT64-0 logical 64-predicate catalogue" | OPEN (PR not merged) | `lance-graph#1814:docs/research/counterfactual-behavior/cfa-1-typed-incidence.md:3,8` |
 | lance-graph#1819 (OPEN, docs only): ON×DO 256² presence bitmap plus borrowed Quack WHERE populations; "NOT IMPLEMENTED, MEASURED, ADMITTED OR MERGE-AUTHORIZED" | OPEN (PR not merged) | `lance-graph#1819:docs/research/on-do-watched-where-factored-dispatch-plan-20261027.md:3,9,119` |
@@ -103,7 +103,7 @@ Everything in this section is WORKING-MODEL or PROPOSED. None of it is decided b
 
 **Override = a new derived classid plus a re-route.** odoo-rs models an override as `Retract` plus `Register` at one cell. Under D5 an override registers a new classid and re-routes the cell to it. The old binding stays readable forever. A `Retract` may remove a route; it must never alter a classid's behaviour. (PROPOSED)
 
-**Consumer composed classid as the derived DTO classid.** For a consumer, the derived DTO classid can be its own composed `u32` (`concept << 16 | app prefix`, `hotplug.rs:96-97`). OGAR mints the concept once, the app prefix is the consumer's, and hotplug activates the pair. No new bits, no extra mint, no reuse of the render prefix. Global revisions are versioned in DT64 directly and need no classid (D6). OGAR doctrine says the low half chooses the render skin and neither half carries behaviour; DT64 stores the resolution and the classid stays an address. (PROPOSED; the doctrine is from `OGAR CLAUDE.md`, not re-read here)
+**Consumer composed classid as the derived DTO classid.** For a consumer, the derived DTO classid can be its own composed `u32` (`concept << 16 | app prefix`, `hotplug.rs`, doc comment on `Activation::read_modes`). OGAR mints the concept once, the app prefix is the consumer's, and hotplug activates the pair. No new bits, no extra mint, no reuse of the render prefix. Global revisions are versioned in DT64 directly and need no classid (D6). OGAR doctrine says the low half chooses the render skin and neither half carries behaviour; DT64 stores the resolution and the classid stays an address. (PROPOSED; the doctrine is from `OGAR CLAUDE.md`, not re-read here)
 
 ## 4. Amendment requested to D-DT64-Q0 line 9
 
@@ -127,7 +127,7 @@ Each stage is docs or lab work needing its own approval. None is authorized by t
 | D-DT64-6-1 | OGIT reader reconciliation. Run `lance-graph-ontology` `ttl_parse` and OGAR `OgitTables` over the SAME checkout in ONE run. Both print the same partition: accepted / rejected / duplicate / unresolved. Explain 523 files / 2,894 edges (odoo-rs §8) versus 518 / 2,756 (board claim for OGAR #363, NOT VERIFIED here). Record the observed OGIT commit as a provenance receipt only, never as a gate. | Totals fail to reconcile exactly after the partition is printed; or the receipt is used as a pin. | lance-graph-ontology and OGAR owners | Owner approval before code; read-only run. |
 | D-DT64-6-2 | Expand `ogit:allowed` in `lance-graph-ontology` into a global, classid-free `(src type, verb, dst type)` table, replacing the placeholder `LinkSpec`. No second registry. | Pair-for-pair equality with OGAR `OgitTables::Allowed` fails; or a rejected / unresolved file is dropped instead of reported. | lance-graph-ontology owner | D-DT64-6-1 green; owner approval. |
 | D-DT64-6-3 | Register OGIT verbs as DT64 predicates in 64-wide blocks. 378 used verbs; p95 10, max 123 per class, 2 classes above 64 (odoo-rs §8). Ordinals are per frame, never global ids. | A global verb id appears in a descriptor; or a class above 64 verbs is truncated. | DT64 catalogue owner | D-DT64-6-2 green. |
-| D-DT64-6-4 | Consumer read-only access to the OGIT predicates through HotPlug activation. No consumer copy. | A consumer holds its own copy of the table. | consumer owner with OGAR authority | D-DT64-6-3 green; the `activate` call as in `hotplug.rs:722-726`. |
+| D-DT64-6-4 | Consumer read-only access to the OGIT predicates through HotPlug activation. No consumer copy. | A consumer holds its own copy of the table. | consumer owner with OGAR authority | D-DT64-6-3 green; the `activate` call as in `hotplug.rs`, trait `CapabilityAuthority`. |
 | D-DT64-6-5 | Exit from reference-only. Once a real domain (Odoo or IAM) has source-attested predicates, OGIT becomes a cross-check oracle, not the authority. | OGIT disagrees with attested predicates and OGIT wins by default. | DT64 catalogue owner | One domain with source-attested predicates. |
 
 ## 6. Open questions
@@ -156,7 +156,7 @@ All OPEN.
 - The 518 / 2,756 figures are a board claim, not verified here, and are never merged with 523 / 2,894.
 - The ruff role-bit names (`TRIGGERS`, `REQUIRES`, `ENABLES`, `EFFECTS`) are quoted from odoo-rs and lance-graph#1814, not checked against ruff.
 - ON, WHEN and DO are not DT64-0 slot terms. The merged plans use none of them.
-- `ClassView::FieldMask` stays field presence, never predicate truth (`d-dt64-holographic-predicate-capstone-v1.md:23`).
+- `ClassView::FieldMask` stays field presence, never predicate truth (capstone, section "Thesis and precise terminology").
 - Do not cite the quarantined item. Nothing here derives from it.
 
 ## 8. Sources

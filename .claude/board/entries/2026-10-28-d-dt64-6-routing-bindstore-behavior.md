@@ -26,15 +26,15 @@ REVISIT WHEN form (plan §1):
 
 ## Findings that shaped the plan (VERIFIED-IN-CODE unless marked)
 
-- The merged DT64 plans use none of the ON / WHEN / DO terms (grep, zero
-  hits). The ON×WHEN×DO registry exists only as the odoo-rs lab design
+- The merged DT64 plans use none of the ON / WHEN / DO terms (the three
+  plans read in full). The ON×WHEN×DO registry exists only as the odoo-rs lab design
   `docs/DT64-ON-WHEN-DO-REGISTRY.md` (#44 / #45 merged, test-only) and in the
   OPEN docs PRs #1814 and #1819.
 - `lance-graph-ontology::ttl_parse` leaves `ogit:allowed` unexpanded
-  (`ttl_parse.rs:18-21`). The typed verb signature table exists only in OGAR
+  (`ttl_parse.rs` module doc, "What this parser handles today"). The typed verb signature table exists only in OGAR
   `OgitTables::Allowed`, and OGAR depends on lance-graph-ontology.
 - "Direct routing" already names position → executable maps in
-  `crates/dir-rmap-probe/tests/classview_dr.rs:66`.
+  `crates/dir-rmap-probe/tests/classview_dr.rs` (doc on `type Route`).
 - `D-DT64-Q0` line 9 forbids "the persistent Binding Store"; decision 4
   needs an amendment there. Requested in plan §4, not applied.
 
