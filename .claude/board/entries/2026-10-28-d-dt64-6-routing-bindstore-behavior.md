@@ -39,8 +39,8 @@ REVISIT WHEN form (plan §1):
   two-valued OR of atoms; #1819 makes convergence of several mappings
   normal. The plan's dispatch fold and its collision question now follow
   both.
-- #1760 (D-SAG-6) is carried forward by crai-rs CR-H0 / CR-H1 (crai-rs #1
-  and #2, private): D-SAG-6 is the motor, Ruff + DT64 the transmission,
+- #1760 (D-SAG-6) is consumed by crai-rs CR-H0 / CR-H1 (crai-rs #1 and #2,
+  private), a sidecar retrofit and not a successor: D-SAG-6 is the motor, Ruff + DT64 the transmission,
   #1814's ON×WHEN×DO the guard ledger. The plan places DT64-6 as that
   transmission's behaviour binding, applies D-SAG-6 F06 / F07 / F11 to it,
   and requires a behaviour registration to reference ordered effects,
@@ -56,14 +56,25 @@ REVISIT WHEN form (plan §1):
 - `lance-graph-ontology::ttl_parse` leaves `ogit:allowed` unexpanded
   (`ttl_parse.rs` module doc, "What this parser handles today"). The typed verb signature table exists only in OGAR
   `OgitTables::Allowed`, and OGAR depends on lance-graph-ontology.
+- The two OGIT readers see disjoint verb sets. Of 523 verb files (OGIT
+  `b5731a8`, receipt only), `ttl_parse` `classify` accepts the 12
+  `rdfs:Class` verbs (all WorkOrder, all with `ogit:from-to`) and OGAR
+  `parse_verb` the 511 `owl:ObjectProperty` verbs. `ogit:allowed` sits in
+  960 entity-side files and in no verb file, so the `(src, verb, dst)`
+  table comes from entity blocks. 518 / 2,756 is OGAR #363's reader output
+  (eaw-5), a reader difference, not OGIT drift. Hence D-DT64-6-1a, and
+  D-DT64-6-2 reads OGAR's table instead of adding a second parser.
+- Ruff has no Rust frontend (`ruff_*_spo`: C++, C#, MeTTa, Python, Ruby,
+  SQLAlchemy); the role names #1814 cites are `PredicateRole` bits in
+  `ruff_spo_triplet/src/role.rs`.
 - "Direct routing" already names position → executable maps in
   `crates/dir-rmap-probe/tests/classview_dr.rs` (doc on `type Route`).
-- `D-DT64-Q0` line 9 forbids "the persistent Binding Store"; decision 4
+- `D-DT64-Q0`'s "One-sentence contract" forbids "the persistent Binding Store"; decision 4
   needs an amendment there. Requested in plan §4, not applied.
 
 ## Open
 
 Plan §6: the immutable unit; inheritance before cell lookup; collision vs
 convergence for coexisting methods; WHEN has no attested source; the Q0
-amendment; the capstone's "targets" axis vs Identity × Property; 64-wide
+contract amendment; the capstone's "targets" axis vs Identity × Property; 64-wide
 blocks vs the #1819 256² plane; EXO-46, EXO-148 and NFR-OP-2.
