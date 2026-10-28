@@ -81,12 +81,14 @@ Shape of the 12 `from-to` verbs (`NTO/WorkOrder/verbs/Issued.ttl`): `ogit:from-t
 
 ### D-DT64-6-2 — the `(src, verb, dst)` allowed table in lance-graph-ontology
 
-**Change.**
+**Precondition (OPEN, §6).** The change below is a second `ogit:allowed` parser. Merged #1831 makes "Two parsers produce the table" a falsifier of D-DT64-6-2 (§5) and rules out a second parser (§7), so this design fails its parent's acceptance unless the owner first chooses §6 option B **and** amends that guard. Under #1831's default, option A, D-DT64-6-2 is only the standing parity test in OGAR plus a consumer reading `OgitTables::Allowed`, and items 1–3 below do not apply. Under option C neither reader parses `ogit:allowed`. The rest of this stage describes option B only.
+
+**Change (option B only).**
 1. Entity pass: in `parse_into_proposals`, for `SubjectKind::Entity`, read the `ogit:allowed` list with a new `walk_rdf_list_nodes` that returns blank-node list items (today's `walk_rdf_list` returns only IRIs). Each cell must have exactly one `(predicate, Iri)` pair, giving `(entity, verb, target)`. A cell with any other shape is reported, not skipped.
 2. Verb pass: for the 12 `from-to` verbs, read `ogit:from-to ( [ ogit:from A ; ogit:to B ] )` into `(A, verb, B)`.
 3. Output: a new `AllowedEdge { src: String, verb: String, dst: String, source_uri, origin: AllowedOrigin::{EntityAllowed, VerbFromTo} }` collection beside the proposals, as a parse result field, not a new `MappingProposalKind` (#1831 §7: "No second registry"). It holds canonical names, no classids (#1831 D-DT64-6-2: classid-free). Duplicates are counted, not deduplicated silently.
 4. The per-verb placeholder `LinkSpec`: merged #1831 decides this. Its §5 row D-DT64-6-2 says the placeholder "is replaced from" the one table, and its §7 says "D-DT64-6-2 replaces the placeholder `LinkSpec` from the one table". This plan does not reopen that. What stays open is which reader owns the one table (§6).
-5. Unresolved: a `dst` or `verb` that is not a declared subject in the same parse is reported as `unresolved`, using the same three-way partition OGAR reports.
+5. Unresolved, resolved across the whole checkout. `parse_ttl_directory_with_provenance` calls `parse_into_proposals` once per file, and OGIT declares entities and verbs in separate files, so a per-file check would report almost every valid reference (the Calendar cells' `ogit:contains` and `ogit.Auth:Account` are declared elsewhere). Resolution is therefore a second pass after the directory walk: collect every declared subject from all files first, then report as `unresolved` each `verb` or `dst` that no file declares, using the same three-way partition OGAR reports.
 
 **Tests.**
 - `allowed_block_yields_one_edge_per_cell`: Calendar-shaped inline TTL → exactly 2 edges with the right (src, verb, dst). Fails on `main`.
@@ -277,6 +279,46 @@ Description is therefore **not a fourth axis** beside ON, WHEN and DO. It is wha
 | crai-rs `docs/ROADMAP.md`, section "crai-rs staged harvest roadmap", stage table row **CR-H2** (conditional): its dependency column lists "D-SAG-6-1 Rust HIR/MIR/Charon audit", so CR-H2 waits on the D-SAG-6-1 audit (crai-rs `main` `378a24a`, private) | MISSING from #1760 §7; read in full here |
 | #1833's own §2 second row | STALE: attribution wrong (§7.4) |
 | this plan's §7 measurements | MISSING from both; relevant where D-SAG-6-1 compares the Ruff → OGAR bridge with OGIT readers |
+
+## 10. Corrections to merged #1831 from the D-CFA and EAW research docs (2026-10-28)
+
+Each note names the merged parent file `d-dt64-6-routing-bindstore-behavior-v1.md` (#1831) and the section it corrects; the parent is not edited. Every source below was read in full on `main` `f98da6b`. Research paths are under `docs/research/`.
+
+**10.1 #1813 is the start of the ON×WHEN×DO series (§2 grounding table).** #1831 cites #1814 and #1819 and the `counterfactual-behavior/` directory, never #1813. #1813 (`counterfactual-behavior/README.md`, sections "Claim to falsify" and "Non-negotiable semantics"; `thought-dependency-scratchpad.md`, "Breadcrumb keys") is the first document: it fixes the 64³ incidence relation as logical, separates thought slots from cube coordinates, and keeps each cell able to reference several methods.
+
+**10.2 #1814 is the source-harvesting contract the per-cell registry follows (§1 D3, §2, §3).** #1831 cites `cfa-1-typed-incidence.md` only for its summary and kill test I03. Its sections "Question", "Logical shape, no Rust ABI commitment" and "Kill tests" are the contract: ON, WHEN and DO are harvested from the source owners (OGAR, Ruff, the ERP harvest, rust-analyzer), never manufactured. "Logical shape" also gives D3's field lists: REGISTRATION (MethodId, signature, source identity, revision and schema, kind and phase, declared precedence or supersession, optional recipe reference, cells, permissions) and WITNESS (focus, snapshot, scope, codebook generation, knownness). THOUGHT is never a fourth axis.
+
+**10.3 #1819 gives the binding tuple and the watch rules (§1 D3, D4, D8; §2; §3; §6 Q3).** From `on-do-watched-where-factored-dispatch-plan-20261027.md`:
+- "Operator correction: methods are mapped onto algebra": a binding is `r = (source MethodId, ON, WHEN, DO, focus, scope, schema/version/snapshot witness, compiled_polyfill_ref)`; two bindings of one polyfill are distinct, never redundant; `selected(r, e, source)` needs ON to match, DO within `ON_DO[e]` and `WHERE_TRUE(WHEN, scope, borrowed_source)`. This is the shape D3/D4's registry carries.
+- "Normal convergence": many mappings to one qualified outcome, and one outcome to several typed destinations, are both kept; a real conflict needs incompatible source-qualified results under one coordinate and snapshot plus a domain law. #1831 §6 Q3 paraphrases this.
+- §2 "watch as a possible source-owned invalidation": warm reuse of a Keep holds only while the snapshot and every predicate and scope witness stay valid; a compiled recipe may be reused on a fresh binding when its old mask may not; repair needs a complete change set from the owner, otherwise full re-evaluation or REFUSE; a watch signal is never a version witness. D8's frame-keyed register copy should cite this beside `FrameStore::check`.
+- §2 items 5 and 6: DO records capability identity, not authorization; `ScatterOrU32` output stays terminal-only.
+- §1 "Existing owners": Quack `Filter::sql_where`, `lower_fused` and mask-risc terminals; #1792; #1790/#1791 (workload-specific); `dir-rmap-probe::pop::Pop` as an existence example only; the K3 validity planes of #1334/#1677/#1687.
+
+**10.4 #1815 grounds ordered behaviour and the override rule (§1 D5, D8; §2; §3; §6).** From `cfa-2-ablation-replay.md`:
+- "What a comparison must preserve" (order, multiplicity, trace, read and write sets, full observation boundary), with kill tests A06 and A12, is the in-repo basis for #1831 §3's "references ordered behaviour"; crai-rs stays a second, private source.
+- D5's immutability and re-route rule: A01 (T0 refuses interventions), A09 (ablating one of two methods in a cell removes only that one), A11 (a changed source under unchanged coordinates needs rebinding, recompute or refusal; also grounds D8's re-prefetch).
+- DO has no effect authority: A10.
+- "Thesis": 64³ intervention addresses are not 64³ concurrent programs, and Thought-Git slots are independent of the ON/WHEN/DO ordinals.
+- **OPEN:** cfa-2's interventions include "suppress one registered MethodId" and "suppress all methods at a cell"; #1819's operator correction re-scopes those as hypothetical changes to bindings, guard valuations or input populations, leaving the method inventory intact. #1831 states neither. Interventions on registry cells take #1819's form unless the owner rules otherwise.
+
+**10.5 OPEN: is the per-cell registry inside DT64? (§1 D3, D4).** D3/D4 place the ON×WHEN×DO registry in DT64 ("DT64 is the DTO bind store", WHEN×ON×DO per DR#3 cell). Three sources keep them apart: `thought-dependency-scratchpad.md` B1 ("DT64-Q0 is typed witness/binding and a borrowed input seam, not the new S1 ON/WHEN/DO cube"), cfa-1 "Question" (S1 is "not equivalent" to the DT64-0 catalogue) and cfa-1 "Logical shape" (the mapping stays "a cold proposed view until its owner agrees"). #1831's own §2 rows and §7 already repeat the first two, so the tension is inside #1831. The user decisions stand; the owner of DT64-1..3 rules. Add `epistemic-awareness/dr64c-epistemic-awareness-scratchpad-20261027.md`, "Research safety / epistemic firewall" ("No new runtime, physical DR³ ABI, binding store, …"), to the sources #1831 §4 lists against a persistent store.
+
+**10.6 OGIT-derived predicates carry no guards or effects (D-DT64-6-3).** cfa-1 "Corpus options" item 2 names `OgitTables` `ogit:allowed` as schema facets only ("represent UNKNOWN rather than invent"), and kill tests I04 and I07 apply. Every OGIT-derived descriptor therefore has ON, WHEN and DO UNKNOWN, as §8 says.
+
+**10.7 The CausalEdge64 evidence view is missing from D1 (§1 D1).** dr64c scratchpad item 5 and `eaw-1-relationship-presence-and-dr64c-coordinates.md` "Two overlapping address views" give two views over one base address: Identity × Property/Edge × Predicate (rule binding) and Identity × Property/Edge × CausalEdge64 evidence, where the edge record is a payload, not 64 more coordinates. `eaw-2-…` "A necessary TWO-DOMAIN mapping": the Epi5 `u32` code selector is not a DR64 row mask.
+
+**10.8 Presence is five quantities (§1 D3; D-DT64-6-2 reporting).** EAW-1 "Hypothesis, explicitly distinct from authority" separates P (attested present), K (scoped completeness), Unknown, A (K3 applicability) and M (mapping occurrences). A D3 registration is M, never P, and a 0 bit proves nothing. EAW-5 "What the merged source data actually shows" and kill test E5-5: OGAR's 102 rejected files and 508 unresolved references (§7.1) are UNKNOWN coverage, never negative edges.
+
+**10.9 Immutability is a goal (§1 D5, D8).** dr64c scratchpad item 6: "Version labels alone never prove physical immutability", and versioned meaning and replay "are goals with open admission gates". EAW-1: a source-changing replay "must bind a new frame or refuse". D5 is a policy decision whose physical guarantee is open.
+
+**10.10 The ternlog fold has three operands (§3 dispatch step 4).** `eaw-3-…` "Scope and semantics": Eligible = AND3(P, A_TRUE, E_TRUE); a fourth operand needs another operation or a precomposed plane, and a TRUE-only mask is not K3 negation.
+
+**10.11 Worlds stay separate (§3).** `eaw-4-…`, section on the #45 sibling landing: `next_version` over sibling worlds is a comparison instrument, not one world. Any registry work that uses Thought-Git puts the world boundary in the caller.
+
+**10.12 D-DT64-6-1 has a parent (§5 D-DT64-6-1).** `eaw-5-…` "Suggested source-harvest ladder" H4 is the OGIT corpus step (accepted and rejected files, an independent raw-corpus coverage read, no inverse inferred from names such as `consistsOf`/`isPartOf`). D-DT64-6-1 is that step, not a standalone stage.
+
+**10.13 Dated status (stale, not edited).** All of #1813–#1830 are merged on `main` (`git log origin/main`). `counterfactual-behavior/stack-receipts.md` calls #1813–#1818 draft PRs, and the dr64c scratchpad's "Live audit correction" and EAW-5 call #1813–#1819 open; #1831 §2 says "#1814 and #1819 have merged since". All are dated 2026-10-27 and stale.
 
 ## Appendix A — namespace split of the allowed edges (approximate)
 
