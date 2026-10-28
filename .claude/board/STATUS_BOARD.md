@@ -1,3 +1,15 @@
+## D-DT64-6 predicates — implementation plan for the OGIT predicate expansion (2026-10-28)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-dt64-6-ogit-predicates-impl-v1.md); [board entry](entries/2026-10-28-d-dt64-6-ogit-predicates-impl.md). Details #1831's D-DT64-6-1..4 and adds 6-1a. No code, ABI, test or runtime.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DT64-6-1a | `ttl_parse` classifies `owl:ObjectProperty` verbs (511 of 523) and keeps root `ogit:` subjects | Queued | owner approval; `OgitUri` root form chosen |
+| D-DT64-6-1 | OGAR `ontology_cache.rs`: two-reader partition test, entities and verbs | Queued | D-DT64-6-1a merged |
+| D-DT64-6-2 | `(src, verb, dst)` table from entity `ogit:allowed` + verb `ogit:from-to`; pair-for-pair vs `OgitTables::Allowed` | Queued | D-DT64-6-1 green |
+| D-DT64-6-3 | per-ClassView-frame OGIT verb catalogues filling DT64-1 descriptors | Queued | D-DT64-6-2 green; DT64-1 owner ruling |
+| D-DT64-6-4 | consumer read access via HotPlug activation, no consumer copy | Queued | D-DT64-6-3 green |
+
 ## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
 
 **Status:** PLAN / DOCS ONLY, six documentation PRs **MERGED** ([#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794)–[#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799)), no production source ingestion, no new 64-slot ABI, no runtime adapter or DT64-Q0 executable proof run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
