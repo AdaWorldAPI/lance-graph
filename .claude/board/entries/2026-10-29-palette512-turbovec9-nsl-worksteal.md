@@ -351,6 +351,107 @@ No trained Predicate64×Thought64 epiphany recognizer exists. No
 hardware performance claim or production register/bit assignment
 is introduced here.
 
+### Stronger W8 projection: Predicate64 × Thought64 × CausalEdge64
+
+**Operator extension, 2026-10-29.** This is not merely a
+Predicate×Thought score grid. Each admitted pair `(p,t)` can resolve
+a complete **typed CausalEdge64 word**. The result can be viewed
+as 64 *bit-slices* over 64 selected predicates × 64 thought slots:
+
+```text
+E_F[p,t]      = admitted CausalEdge64 value, IF valid/present
+B_F[b,p,t]    = (E_F[p,t].raw >> b) & 1, b ∈ 0..63
+L_F[p,t]      = derived evidence/ablation/read-only learning label
+```
+
+This is a **64×64×64-bit logical view, 32 KiB dense payload**
+(`64×64×8 B`), or 64 separate 512-byte bitplanes. There is no
+automatic dense allocation, and value-validity / proof sources /
+witnesses / codebook / ClassView metadata are **additional**. A
+zero CE64 word is *not* equivalent to an absent relation; require
+an independently valid presence/read contract. This is **not**
+a 64-element axis of independently stored causal-edge objects.
+If the operator instead intends 64 separate edge-ordinal slots
+each containing a full CausalEdge64, that is a **different**
+64×64×64×64-bit payload (2 MiB dense), requiring edge-ordinal
+authority and an explicit identity binding before investigation.
+
+**Bitplanes are not independent semantic features.** A
+`CausalEdge64` has coordinated fields: S/P/O codeword indices,
+NARS frequency/confidence, Pearl causal mask, orientation,
+signed i4 activation/inference reading, three bits for
+plasticity/maturation by declared class reading, the six-bit W
+thought slot, and upper five bits `EpistemicState5` when
+provenance + ClassId × rail declaration admits that reading.
+Within Epi5, topology and certification are **different**
+coordinates. No raw per-bit CE64 regularizer may learn new truth
+or causality from an incidental XOR/popcount distance.
+`CausalEdgeV3` is a staged 96-bit successor, a distinct
+typed control; do not silently reinterpret its 12-byte payload
+as CE64.
+
+**Existing double witness, not double identity.**
+The `t` coordinate is a *selected* thought slot (0 sealed
+givens, 1..63 hypotheses, slot 64 invalid), while
+`CausalEdge64::w_slot()` carries bits 53..58. A source-attested
+projection can check that they agree, alongside source seal,
+frame/focus/scope, ClassId/rail, and codebook generation.
+`Predicate64` is a *focus of 64 predicate ordinals*: it does
+not convert CE64's 8-bit palette P code into a 6-bit global
+predicate ID. Check the binding (typed map/selection) and
+source; never trust numeric ordinal equality across domains.
+
+**Epiphany transition signal (read-only):** Group a fixed
+predicate `p` across thought slices and compare
+source-verified **typed** transitions, not raw bits. For
+example, a causal claim may remain
+`IndirectUnknown × Causes` (causality certified,
+mediator unknown) in one thought and become
+`IndirectKnown × Causes` when a grounded mediator is
+hydrated in another. This is *topology resolution*, not
+earned causality by thought agreement. Learning can predict
+which combinations of earlier root-disjoint derivations
+will make this *verified* transition possible, then schedule
+the next investigation. A reward requires:
+(a) independently verified, source-grounded conclusion;
+(b) replay-deduplicated root sets;
+(c) explicit ledger `Load::Synergistic` / sensitivity
+or appropriately discriminating controls;
+(d) held-out world / source / generation success;
+(e) stable frame and no mutually exclusive
+counterfactual-world union. An unexpected CE64 word,
+changed bit, or repeated speculative replay is not itself
+an epiphany.
+
+**Work-steal the actual mechanisms, not a new engine:**
+`causal-edge/src/edge.rs` typed field readers and `w_slot`;
+`epistemic_state5::Epi5Declarations` for raw5 authority;
+`nars::support::DerivationLedger::{load,sensitivity}`;
+`nars::mediator::hydrate_from_ledger` and `pearl::hydrate`;
+C3b `scent`, C3c `ScentLearner`;
+`cognitive-shader-driver/examples/thought_layers_probe.rs`
+for exact XOR deltas and no-NaN-write; mask-risc /
+ndarray masked folds for bitplane projections;
+`lance-graph-nsl` frozen Google graph-loss oracle.
+The **learned output remains a priority/ranking**,
+not mutation of CausalEdge64's Pearl/Epi5/NARS
+truth, or new ledger evidence.
+
+**Tightly scoped falsifier E8:** On one fixed frame,
+enumerate `p=0..63`, `t=0..63` and compare
+(1) a scalar source+proof oracle, (2) a borrowed
+`[CausalEdge64; 64×64]` control, and
+(3) bit-sliced projection/fold **without copying
+the edge values**. Check byte-identical typed reads,
+missing-vs-zero, W-slot mismatches, a reserved Epi5
+code, foreign class/rail and changed frame,
+one true cross-thought synergy and one 63-replay
+negative control. Measure query demand, prep and
+bytes alongside verified-epiphany precision;
+no correctness claim from speed. **DR64³'s proposed
+third axis remains NFR-OP-2 OPEN:** this learning
+view cannot silently settle that question.
+
 ### W8 research handoff (no new PR required yet)
 
 **D-DR3-EPI-0 / candidate only**: work-steal the current
@@ -456,7 +557,7 @@ Google-NSL loss/gradient/held-out task evaluation.
 | **W5 / LG bridge** | Compatibility audit against current TurboVec API, then version-aware thin adapter | Standalone `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml` green |
 | **W6 / cross** | Compare fixed-budget i4, i4+QJL, i8, i9 and DR512 on **different** respective use-cases | No apples-to-oranges byte count, direct accuracy, p95 latency and L1 behavior |
 | **W7 / LG DR³ + NSL** | **D-DR3-ERL-0**, source-witnessed typed relation → shared anchor → exact node residual → on-demand edge delta; compare CSR+SoA baseline | Bitwise/integer exactness independent oracle, guard refusal, no per-edge feature copy, loss/gradient parity, and end-to-end memory/time win vs simpler control |
-| **W8 / LG planner + NSL** | **D-DR3-EPI-0**, learning view Predicate64 × Thought64 over DR witnessed relations; use existing ledger load/sensitivity + C3c lead ranking to predict productive cross-thought proofs | E1–E7: 64-slot bounds, root dedup, synergistic ablation, incompatible hypotheses, held-out labels, false-discovery controls, CSR+SoA comparison; no CE64/Epi5 truth writes |
+| **W8 / LG planner + NSL** | **D-DR3-EPI-0**, derived Predicate64 × Thought64 × CausalEdge64 typed read, plus ledger ablation and C3c ranking: predict grounded epistemic/topology transitions across thought paths | E1–E8: 64-slot and CE64-W parity, CE64 field/Epi5 declaration, source dedup, synergistic ablation, hypothesis incompatibility, held-out precision, borrowed/bit-sliced vs scalar oracle; no CE64/Epi5 truth writes |
 
 Do not open duplicate issues in ndarray/OGAR/Linear for the same
 W-number without checking existing boards. **No existing production
