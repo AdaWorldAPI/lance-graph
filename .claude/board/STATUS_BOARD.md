@@ -1,3 +1,14 @@
+## D-DRDT — DR = HHTL16 Cartesian direct routing, DT = ClassId binding store (2026-10-28)
+
+**Status:** PROPOSED / DOCS ONLY (amendment); D-DRCA-1 is a lab proof. [Plan](../plans/d-drdt-dr-dt-ownership-amendment-v1.md); [board entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md). No ABI, runtime or schema store.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DRDT-0 | amendment: DR/DT ownership, reuse/gap analysis, DT and DR #4 handoff (docs) | In PR | docs review |
+| D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | In PR (#1834) | review; lab only |
+| D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Queued | D-DRCA-1 merged |
+| D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | Queued | DT MethodId contract (D-DRDT §4) |
+
 ## D-DT64-6 — DR64 routing, DT64 bind store, per-cell WHEN×ON×DO, OGIT reference predicates (2026-10-28)
 
 **Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-dt64-6-routing-bindstore-behavior-v1.md); [board entry](entries/2026-10-28-d-dt64-6-routing-bindstore-behavior.md). No code, ABI, test or runtime.
@@ -5,8 +16,9 @@
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | D-DT64-6-0 | plan + board (docs) | In PR | docs review |
-| D-DT64-6-1 | OGIT reader reconciliation: `ttl_parse` vs OGAR `OgitTables`, same checkout, one run, identical partition | Queued | owner approval; read-only |
-| D-DT64-6-2 | expand `ogit:allowed` in lance-graph-ontology into a classid-free (src, verb, dst) table | Queued | D-DT64-6-1 green |
+| D-DT64-6-1a | classify every OGIT verb file in both readers (today `ttl_parse` accepts the 12 `rdfs:Class` verbs, OGAR `parse_verb` the 511 `owl:ObjectProperty` verbs) | Queued | owner approval |
+| D-DT64-6-1 | OGIT reader reconciliation: `ttl_parse` vs OGAR `OgitTables`, same checkout, one run, identical partition | Queued | D-DT64-6-1a green; owner approval; read-only |
+| D-DT64-6-2 | classid-free (src, verb, dst) table from entity `ogit:allowed` blocks plus the 12 `ogit:from-to` verbs; default source OGAR `OgitTables::Allowed`, no second parser | Queued | D-DT64-6-1 green |
 | D-DT64-6-3 | register OGIT verbs as DT64 predicates in 64-wide blocks | Queued | D-DT64-6-2 green |
 | D-DT64-6-4 | consumer read-only access via HotPlug activation | Queued | D-DT64-6-3 green |
 | D-DT64-6-5 | OGIT becomes cross-check oracle once a domain has attested predicates | Queued | one attested domain |

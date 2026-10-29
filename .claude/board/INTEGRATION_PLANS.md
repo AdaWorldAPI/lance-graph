@@ -1,8 +1,20 @@
+## 2026-10-28 — D-DRDT: DR = HHTL16 Cartesian direct routing, DT = ClassId binding store → `.claude/plans/d-drdt-dr-dt-ownership-amendment-v1.md`
+
+**Status:** PROPOSED, docs only; amends D-DT64-6 §1 (per-cell WHEN×ON×DO, DR#3) and supersedes the DT64 "tensor register" noun of Bardioc-rs #9. **Board:** [entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRDT. Records the DR/DT contract, reads the DR64/DR256 overview against existing pieces, gives the reuse/gap table for Cartesian and relational fold operators (proof: #1834, D-DRCA-1) and hands off DT method identity / guard / effect order and the DR #4 interface.
+**Confidence:** decisions recorded; one lab proof; no production change.
+
+## 2026-10-28 — D-DT64-6 predicates: implementation plan for the OGIT predicate expansion → `.claude/plans/d-dt64-6-ogit-predicates-impl-v1.md`
+
+**Status:** PROPOSED, docs only; companion to #1831 (D-DT64-6). **Board:** [entry](entries/2026-10-28-d-dt64-6-ogit-predicates-impl.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6 (the rows #1831 added). Adds D-DT64-6-1a (511 `owl:ObjectProperty` verbs and root `ogit:` names that `ttl_parse` skips today) and details 6-1..6-4 with files, tests and acceptance counts.
+**Confidence:** plan row only; stages unstarted.
+
+## 2026-10-28 — D-SAG-6-1 reference ledger and stale-status corrections → `.claude/plans/d-sag-6-1-audit-reference-ledger-v1.md`
+
+**Status:** PROPOSED, docs only; prerequisite reading for D-SAG-6-1 (#1760), not the audit. **Board:** [entry](entries/2026-10-28-d-sag-6-1-audit-reference-ledger.md). Lists the references #1760 §7 lacks (ruff `ruff_spo_triplet` files and plans, `ogar-from-ruff`, CFA #1813/#1814/#1818, #1792, #1799, contract files, D-DTM-1, ndarray primitives, crai-rs CR-H0/H1) and corrects stale status (crai-rs lists #1813–#1830 as open; ruff has no Rust frontend; `ProposedMethod` is not defined in code).
+**Confidence:** reference ledger only; D-SAG-6-1 unstarted.
 ## 2026-10-28 — D-DT64-6: DR64 routing, DT64 bind store, per-cell WHEN×ON×DO behaviour, OGIT reference predicates → `.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md`
 
 **Status:** PROPOSED, docs only; nothing authorized. **Board:** [entry](entries/2026-10-28-d-dt64-6-routing-bindstore-behavior.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6. Records eight user decisions (three DT64 levels; primary DR#3 Identity × Properties; WHEN×ON×DO per DR#3 cell; DR64 = direct routing, DT64 = DTO bind store; immutable classid → behaviour via hotplug; global needs no classid; OGIT read unpinned; DR64 references existing identity and the global→local prefetch holds a frame-keyed register copy) and stages D-DT64-6-0..5 with 6-1a (classify the verb files both readers miss: lance-graph accepts 12, OGAR 511, of 523), OGIT reader reconciliation, one `(src, verb, dst)` table from the entity `ogit:allowed` blocks with no second parser, DT64 predicate registration, consumer HotPlug access. Requests an amendment to D-DT64-Q0's "One-sentence contract" (persistent binding store); not applied.
-**Confidence:** plan row only; stages unstarted.
-
 ## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
 
 **Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.

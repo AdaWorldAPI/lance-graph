@@ -119,6 +119,7 @@ pub mod hotplug;
 pub mod identity_quad;
 pub mod jit;
 pub mod kanban;
+pub mod lane_codec;
 pub mod legacy_outliers;
 pub mod literal_graph;
 pub mod mail;

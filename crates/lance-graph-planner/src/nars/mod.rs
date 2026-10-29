@@ -15,13 +15,18 @@ pub mod ghost_prior;
 pub mod inference;
 pub mod insight;
 pub mod insights;
+pub mod mediator;
 pub mod meta_basin;
 pub mod reach_out;
 pub mod regulate;
+pub mod scent;
+pub mod scent_learn;
 pub mod stance;
+pub mod support;
 pub mod tactic_select;
 pub mod tactics;
 pub mod truth;
+pub mod warrant;
 
 pub use basin_resonance::{rank_basins, Basin, BasinKind, ResonanceConfig};
 pub use belief::{Belief, BeliefArena, CStmt, Copula, ReviseOutcome, Stamp};
@@ -35,6 +40,10 @@ pub use insight::{arena_graph_signals, detect, flow_state, InsightMush, Snapshot
 pub use insights::{extract_main_insights, InsightConfig, InsightKind, InsightReason, MainInsight};
 pub use reach_out::{reach_out_integrate, FeltOutcome, ReachOutConfig};
 pub use regulate::{regulate_cycle, CycleConfig, CycleOutcome};
+pub use support::{
+    Ablation, ChainId, Derivation, DerivationId, DerivationLedger, Law, Load, NotAFigure,
+    Observation, Pooled, Proof, Refusal, Sensitivity, SourceId,
+};
 pub use tactic_select::{tactic_for_bias, TacticChoice};
 pub use tactics::{
     asc_challenge, cas_abstract, challenge_target, cr_synthesize, rcr_abduce, tr_diverge,

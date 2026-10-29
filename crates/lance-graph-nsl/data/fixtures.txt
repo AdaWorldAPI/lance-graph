@@ -1,0 +1,173 @@
+# NSL neighbor-packing fixtures (H1 01a G01-G12, plus marked additions).
+# One source of truth: the Python oracle and the Rust tests both read this file.
+#
+#   fixture <ID> cap=<none|N> undirected=<0|1>
+#   seed      <id> <tag> <x>     labeled Example: features id, tag, x
+#   unlabeled <id> <tag> <x>     unlabeled Example: same features
+#   edge <src> <dst> [<weight>]  one TSV line; the weight text is kept verbatim
+#   end
+#
+# G09 and G10 are properties of the Rust side (stale seal, shared gather) and
+# reuse G08's graph; NSL has no counterpart, so the oracle does not run them.
+
+fixture G01 cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B 0.2
+edge A C 0.7
+end
+
+# added: an edge without a weight column defaults to 1.0
+fixture G01b cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B
+edge A C 0.5
+end
+
+fixture G02 cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A B 0.4
+edge A B 0.9
+end
+
+# added: equal duplicates keep the FIRST weight read (0.0 then -0.0 keeps 0.0)
+fixture G02b cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A B 0.0
+edge A B -0.0
+end
+
+# added: the same pair in the other order keeps -0.0
+fixture G02c cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A B -0.0
+edge A B 0.0
+end
+
+fixture G03 cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B 0.9
+edge A C 0.9
+end
+
+# added: equal as f32, different as f64. NSL sorts the parsed f64.
+fixture G03b cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B 0.30000000000000004
+edge A C 0.3
+end
+
+fixture G04 cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+edge A missing 0.99
+edge A B 0.1
+end
+
+fixture G05 cap=none undirected=0
+seed A seed-A 1.0
+seed B seed-B 5.0
+unlabeled B nbr-B 6.0
+edge A B 0.5
+end
+
+fixture G06 cap=none undirected=0
+seed A seed-A 1.0
+seed B seed-B 2.0
+edge B A 0.3
+end
+
+fixture G07 cap=none undirected=0
+seed A seed-A 1.0
+seed B seed-B 2.0
+edge A B 0.6
+end
+
+# added: G07 with symmetrization on
+fixture G07u cap=none undirected=1
+seed A seed-A 1.0
+seed B seed-B 2.0
+edge A B 0.6
+end
+
+fixture G08 cap=none undirected=0
+seed A seed-A 1.0
+seed B seed-B 2.0
+seed D seed-D 4.0
+unlabeled C nbr-C 3.0
+edge A C 0.5
+edge B C 0.6
+edge D C 0.7
+end
+
+fixture G11a cap=0 undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+unlabeled D nbr-D 4.0
+edge A B 0.1
+edge A C 0.2
+edge A D 0.3
+end
+
+fixture G11b cap=1 undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+unlabeled D nbr-D 4.0
+edge A B 0.1
+edge A C 0.2
+edge A D 0.3
+end
+
+fixture G11c cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+unlabeled D nbr-D 4.0
+edge A B 0.1
+edge A C 0.2
+edge A D 0.3
+end
+
+# negative and infinite weights: Python orders them totally, so must we
+fixture G12a cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+unlabeled D nbr-D 4.0
+unlabeled E nbr-E 5.0
+edge A B -0.5
+edge A C inf
+edge A D -inf
+edge A E 0.0
+end
+
+# NaN: NSL's order depends on input order. The oracle records it; Rust refuses.
+fixture G12b cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B nan
+edge A C 0.5
+end
+
+# added: Python compares 0.0 == -0.0, so the ID breaks the tie (C first).
+# An IEEE total order would put B (+0.0) first.
+fixture G12c cap=none undirected=0
+seed A seed-A 1.0
+unlabeled B nbr-B 2.0
+unlabeled C nbr-C 3.0
+edge A B 0.0
+edge A C -0.0
+end
