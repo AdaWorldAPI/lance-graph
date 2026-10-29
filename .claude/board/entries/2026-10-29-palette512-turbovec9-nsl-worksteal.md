@@ -25,6 +25,15 @@ Never reinterpret one codeword as the other, even though the widths match.
 A mapping needs a decoded numeric interpretation and a selected encoding
 policy. Never manufacture evidence by converting NEVER_TOUCHED into +0.
 
+**Concrete LUT reuse boundary (source checked 2026-10-29):** ndarray
+`src/simd_stride.rs::lut9` is an **odd-function** transform backed by
+one `[u8; 256]` magnitude LUT, with `table[0] == 0` and a prescribed
+presence/rounded-zero repair. It cannot implement an arbitrary TurboVec9
+**512-centroid** decode table, despite the method's '9' name. Reuse the
+underlying `lut_u8`/SIMD-byte operations or introduce a measured,
+semantics-neutral 512-address gather **only if a consumer demonstrates
+the need**; never silently turn `lut9` into a generic U9 lookup.
+
 **Storage math (payload only)**: 9b/dim = 1.125 B/dim vs i8 1 B,
 i4 = 0.5 B and f32 = 4 B. Therefore 9b costs **12.5% over i8**
 and **2.25× i4**, and saves **71.875% vs f32** before metadata,
