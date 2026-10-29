@@ -390,12 +390,19 @@ or causality from an incidental XOR/popcount distance.
 typed control; do not silently reinterpret its 12-byte payload
 as CE64.
 
-**Existing double witness, not double identity.**
+**Thought breadcrumb with stage-specific validity, not double identity.**
 The `t` coordinate is a *selected* thought slot (0 sealed
-givens, 1..63 hypotheses, slot 64 invalid), while
-`CausalEdge64::w_slot()` carries bits 53..58. A source-attested
-projection can check that they agree, alongside source seal,
-frame/focus/scope, ClassId/rail, and codebook generation.
+givens, 1..63 hypotheses, slot 64 invalid). The operator's 2026-10-17
+O3 decision makes CE64 `W` bits 53..58 a **thought breadcrumb
+stamped at merge/materialization**, not the corpus-root identifier
+still described in stale `edge.rs`/`layout.rs` comments.
+A read of an **unchanged givens** CE64 in thought t>0 can legitimately
+carry `W=0`; **do not assert W==t for all merged reads**. On a
+materialized write whose producer claims thought t, require the
+producer's W to identify that thought and validate its frame/generation.
+After a Lance seal the W value is not authoritative for identifying
+the active thought (epistemic-frontier-capstone.md §4/§8).
+Independent source roots stay in the DerivationLedger, never W.
 `Predicate64` is a *focus of 64 predicate ordinals*: it does
 not convert CE64's 8-bit palette P code into a 6-bit global
 predicate ID. Check the binding (typed map/selection) and
@@ -443,7 +450,8 @@ enumerate `p=0..63`, `t=0..63` and compare
 `[CausalEdge64; 64×64]` control, and
 (3) bit-sliced projection/fold **without copying
 the edge values**. Check byte-identical typed reads,
-missing-vs-zero, W-slot mismatches, a reserved Epi5
+missing-vs-zero, **inherited W=0 vs materialized W=t**, a
+stale W-reading corpus-root claim, a reserved Epi5
 code, foreign class/rail and changed frame,
 one true cross-thought synergy and one 63-replay
 negative control. Measure query demand, prep and
@@ -557,7 +565,7 @@ Google-NSL loss/gradient/held-out task evaluation.
 | **W5 / LG bridge** | Compatibility audit against current TurboVec API, then version-aware thin adapter | Standalone `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml` green |
 | **W6 / cross** | Compare fixed-budget i4, i4+QJL, i8, i9 and DR512 on **different** respective use-cases | No apples-to-oranges byte count, direct accuracy, p95 latency and L1 behavior |
 | **W7 / LG DR³ + NSL** | **D-DR3-ERL-0**, source-witnessed typed relation → shared anchor → exact node residual → on-demand edge delta; compare CSR+SoA baseline | Bitwise/integer exactness independent oracle, guard refusal, no per-edge feature copy, loss/gradient parity, and end-to-end memory/time win vs simpler control |
-| **W8 / LG planner + NSL** | **D-DR3-EPI-0**, derived Predicate64 × Thought64 × CausalEdge64 typed read, plus ledger ablation and C3c ranking: predict grounded epistemic/topology transitions across thought paths | E1–E8: 64-slot and CE64-W parity, CE64 field/Epi5 declaration, source dedup, synergistic ablation, hypothesis incompatibility, held-out precision, borrowed/bit-sliced vs scalar oracle; no CE64/Epi5 truth writes |
+| **W8 / LG planner + NSL** | **D-DR3-EPI-0**, derived Predicate64 × Thought64 × CausalEdge64 typed read, plus ledger ablation and C3c ranking: predict grounded epistemic/topology transitions across thought paths | E1–E8: 64-slot and stage-specific CE64-W materialization checks, CE64 field/Epi5 declaration, source dedup, synergistic ablation, hypothesis incompatibility, held-out precision, borrowed/bit-sliced vs scalar oracle; no CE64/Epi5 truth writes |
 
 Do not open duplicate issues in ndarray/OGAR/Linear for the same
 W-number without checking existing boards. **No existing production
