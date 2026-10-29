@@ -291,6 +291,7 @@ Google-NSL loss/gradient/held-out task evaluation.
 | **W4 / ndarray** | Import `dot4_u8_i8_add` + nibble ops ONLY if needed by a proven consumer; parity all backends and saturating-AVX2 counterexample | Same results vs scalar at boundary values; VNNI/GFNI tiers gated |
 | **W5 / LG bridge** | Compatibility audit against current TurboVec API, then version-aware thin adapter | Standalone `cargo test --manifest-path crates/lance-graph-turbovec/Cargo.toml` green |
 | **W6 / cross** | Compare fixed-budget i4, i4+QJL, i8, i9 and DR512 on **different** respective use-cases | No apples-to-oranges byte count, direct accuracy, p95 latency and L1 behavior |
+| **W7 / LG DR³ + NSL** | **D-DR3-ERL-0**, source-witnessed typed relation → shared anchor → exact node residual → on-demand edge delta; compare CSR+SoA baseline | Bitwise/integer exactness independent oracle, guard refusal, no per-edge feature copy, loss/gradient parity, and end-to-end memory/time win vs simpler control |
 
 Do not open duplicate issues in ndarray/OGAR/Linear for the same
 W-number without checking existing boards. **No existing production
