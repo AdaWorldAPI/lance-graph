@@ -112,6 +112,28 @@ That compares *algorithm shapes*, but it predates current TurboVec
 block-Hadamard, vector-major VNNI and current API; remeasure before
 projecting ratios onto TurboVec9.
 
+## Graph retention falsifier: initial three-noise result
+
+2026-10-29 TurboVec PR #7 CI run
+https://github.com/AdaWorldAPI/turbovec/actions/runs/40880844314,
+`n=2048, dim=128, nq=64, k=10`, four ground-truth group neighbors
+independent of quantized search; five tests passed.
+
+| Noise | f32 graph-edge coverage | scalar i4 | scalar U9 | Finding |
+|---|---:|---:|---:|---|
+| 0.8 | 1.00000 | 1.00000 | 1.00000 | i4 already perfect on labels; U9 has no edge gain |
+| 1.7 | 0.48438 | 0.42578 | 0.47656 | U9 +5.078 percentage points vs i4 |
+| 2.5 | 0.06250 | 0.06641 | 0.07031 | neither encoder recovers a severely noisy graph |
+
+f32 top-k **vector** recall for U9: 0.98125 / 0.97187 /
+0.97031, vs scalar i4 0.77812 / 0.65469 / 0.67969.
+Yet the **explicit graph-label** coverage can be identical or almost
+equally poor. This explicitly refutes "higher ANN recall proves better
+structured learning". f32 is not the label-truth upper bound: at
+noise=2.5 approximate ranking even exceeds f32's chance of retrieving
+a labeled edge by coincidence. No model was trained; next gate is
+Google-NSL loss/gradient/held-out task evaluation.
+
 ## Ordered work packages and stop conditions
 
 | ID / destination | Concrete deliverable | Admission gate |
