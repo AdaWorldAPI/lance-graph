@@ -62,6 +62,144 @@ main**. First run its standalone cargo gate and repair as a separate
 version-aware compatibility PR; do not let this block the independent
 NSL and TurboVec lab probes.
 
+## DR64³ as the structured exact-residual learning substrate (2026-10-29 hypothesis)
+
+**Operator hypothesis, not a proven new learner:** the intended DR64³
+native relational/focus representation can provide the **addresses,
+typed dependencies and rebindable context** for an *exactly recoverable*
+residual learning format. That is stronger and more central than
+treating DR512 as ancillary graph metadata or using TurboVec9 merely
+to retrieve candidates.
+
+### Structural law: relation first, values second
+
+Think of a logical relationship `R_F(i,j,r)` where `i` and `j`
+are globally typed identity operands admitted to the same witnessed
+frame `F`, and `r` denotes a typed relation/property **only if**
+the DR owner resolves NFR-OP-2 to that axis. No physical 64³ cube,
+64³ allocated array, new ID codec or fixed third-axis ABI is asserted.
+The current prototype remains a DR64² borrowed register with typed
+frame/focus/scope guards; DR64³ is an intended logical native form
+(D-NFR S9–S10, D-DR3-HOLO-ONNX, D-DR64C-A).
+
+Within the admitted coordinate/relationship frame, a node feature or
+learned state can be described by a shared, sealed anchor
+`a_F(c,p)` and an exact node residual `e_F(i,p)`:
+
+```text
+F       = source/relation/coordinate/codebook generation witness
+R_F     = typed relationship projection over admitted identities
+x_F(i,p) = a_F(cluster(i),p) (+) e_F(i,p)
+delta_F(i,j,p) = x_F(j,p) (-) x_F(i,p)
+```
+
+Here `(+)` and `(-)` are chosen **typed algebraic operations**, not
+an automatic property of palette rounding or vector superposition.
+For a common anchor, the anchor cancels and
+`delta = e_F(j,p) - e_F(i,p)`; for different anchors include the anchor
+difference. A pairwise difference is **computed on demand**, not
+stored once per edge or cloned into NSL's neighbor samples. Relation
+`R_F` filters/selects the eligible pairs and their typed roles.
+Where the intended learning method needs an edge-specific correction,
+key it by the admitted relationship and witness; do not mislabel it
+as the node residual.
+
+**"Exact" has three non-interchangeable meanings:**
+
+1. **Exact routing/identity:** the read addresses the correct source,
+   identities, typed relation, frame, presence, focus and scope, with
+   stale/foreign/out-of-focus refusal. This is the DR claim.
+2. **Losslessly recoverable payload:** represent the *original
+   codewords* as anchor-codeword XOR delta, or use checked integers/
+   fixed-point with an exactly defined scale and sufficient width.
+   `anchor_bits XOR delta_bits == original_bits` holds bitwise, but
+   XOR has **no numeric gradient meaning** until decoded. Checked
+   integer `anchor + residual == original` holds only if no overflow,
+   and a different calibration is a different type/witness.
+3. **Exact training arithmetic:** the loss/gradient equal the declared
+   f32/f64/TF oracle under the same operation order. Neither (1) nor
+   (2) proves this; comparing gradients and convergence is a separate
+   gate. Floating `anchor + (x-anchor)` is not generally bitwise
+   reconstructive because of rounding/cancellation.
+
+**Existing approximate VSA is NOT an exact multi-item residual:**
+`bgz-tensor/src/holographic_residual.rs` uses XOR binding plus
+majority-vote bundling and sign-only, BF16-scaled reconstruction.
+Single-item XOR unbinds exactly, but multi-item bundling can collide;
+its own test only admits average cosine >0.5. Work-steal its
+binding ideas and its falsifier, **not** its exactness claim. A new
+lossless path must either retain an invertible per-address payload,
+use collision-free structured slots with accounted capacity, or
+provide an explicit lossless exception/fallback. A frame is an
+addressability contract, not an information-theoretic compressor.
+
+**Palette512 (DR512)** is one optional **typed value reading** behind
+this geometry. Its never-touched `P=0,M=0` must never become touched
+`+0` by applying a delta, merge or quantizer; a negative nonzero
+`P=0,M>0` remains a written value. The sparse Thought-Git probe
+already skips never-touched and merges over previous observed state;
+it is a distinct *thought overlay*, not DR³'s invented third axis.
+The physical values may be dense, sparse, integer, float or encoded
+codewords as admitted by the owner. DR does not acquire learning
+semantics, and DT's ClassId method binding remains authoritative.
+
+**TurboVec-U9** serves as an optional *approximate candidate generator*
+for nearby embeddings or hard negatives. Its 512 numeric Lloyd-Max
+centroid indices are NOT the DR512 words. The **exact** training path
+must re-admit candidate IDs under `F`, follow typed `R_F` when an
+edge is asserted, reconstruct the relevant values/residuals or refuse.
+Approximate retrieval never confers graph membership, source
+authorization or exact numerical evidence.
+
+### Smallest decisive falsifier: native structured residual vs NSL
+
+1. Use the existing `dr-math-binding-probe` and `lance-graph-nsl`
+   fixtures. On a fixed, witnessed 64-slot focus, preserve the Google
+   NSL `pack_nbrs` order/weight/dedup and select neighbor **ordinals**,
+   never duplicate feature records.
+2. On integer/fixed-point feature lanes, compare exact
+   anchor+residual reconstruction with an **independent scalar
+   oracle** on every admitted edge; test negative/positive,
+   touched-zero, never-touched, overflow, changed scale, changed
+   relation and stale frame. Require bitwise original recovery for
+   the separate XOR-codeword control.
+3. Include a **same-anchor**, **cross-anchor**, **shared neighbor used
+   by many seeds**, and **out-of-focus** case. The shared neighbor
+   must carry one node residual plus references, not N copies;
+   escaped focus must rebind through existing admission or refuse.
+4. Read residuals only at graph-demanded addresses through existing
+   borrow/fold/typed projection. Compare decoded floats and NSL
+   L1/L2/cosine/KL/JS loss and gradient against the frozen TF
+   reference at near-zero gaps (down to 1e-3 or lower).
+   Float parity is a **separate** criterion from exact storage.
+5. Report end-to-end bytes including anchors, residuals, bitsets,
+   tables, codebook, frame witnesses and rebuilds; count allocations,
+   global→local lookups, address-space escapes, stale refusals, and
+   ns/queried edge. Compare standalone per-edge residual encoding,
+   shared-anchor per-node residuals and full f32 storage.
+6. Prove which part of DR³ is actually necessary by disabling its
+   typed relation/focus projection and comparing against a plain
+   CSR + SoA + exact residual control. If only the *address binding*
+   matters, admit the minimal reusable part, not a gratuitous 3D
+   materialization.
+
+This uses **existing DR and NSL labs** as oracles. No new codec,
+gradient engine, physical DR³ cube or production contract follows
+until the exactness, correctness, memory and learner-benefit gates
+are measured. The third-axis meaning remains explicitly OPEN.
+
+### Potential work package W7 (lance-graph owner)
+
+**D-DR3-ERL-0 (PROPOSED):** a docs+falsifier-only probe for
+`typed relation → shared anchor → exact node residual → on-demand
+pair delta → NSL loss`, using the existing DR/Quack/NSL substrate.
+Owned in lance-graph; ndarray owns only existing exact numerical
+kernels and Codec9, TurboVec only approximate candidate search.
+No authorization to introduce physical layouts or modify production
+ABI. Accept if it beats the CSR+SoA exact control in at least one
+measured dimension *without losing exactness*; otherwise keep the
+simpler control.
+
 ## Why U9 may offer complementary learning benefits
 
 Google NSL regularizes a model with labeled/unlabeled neighbor
