@@ -200,6 +200,170 @@ ABI. Accept if it beats the CSR+SoA exact control in at least one
 measured dimension *without losing exactness*; otherwise keep the
 simpler control.
 
+## Predicate64 × Thought64: learning to recognize grounded epiphany candidates
+
+**2026-10-29 operator hypothesis, PROPOSED research only.** Once
+DR64³ provides witnessed addressability and exact structured residuals,
+a *derived* `Predicate64 × Thought64` learning projection may recognize
+which cross-thought compositions deserve investigation. This is a
+**second-order learner about productive reasoning**, not proof of a
+new fact. It reuses the C0–C3c epistemic-CoT substrate instead of
+adding another truth engine, a new CE64 encoding or an automatic
+epiphany publisher.
+
+### Axis semantics and the boundary to existing DR³
+
+- **Predicate64**: at most 64 *admitted, typed predicate slots* within
+  a witnessed focus. Neither a new universal 64-predicate ontology
+  nor a predicate-ID bitwidth contract.
+- **Thought64**: the existing 64-slot thought budget **0..63**,
+  with slot **0 = sealed givens** and **1..63 = speculative
+  hypotheses**. There is **no slot 64**. A statement about "thought
+  64" can name the 64-th occupied slot / a full 64-thought window,
+  never silently address an out-of-range slot.
+- `L_F[p,t]` is a *read-only, derived* projection of whether predicate
+  `p` is present, derived or contested under thought `t` and
+  sealed frame `F`, together with references to its source roots,
+  proof chains, and residual values. The input is not 4,096
+  independent observations. Labels from the same source root across
+  63 replayed thoughts contribute evidence **once**.
+- A 64×64 Boolean presence/support plane is **4,096 bits =
+  512 bytes**, if materialized. Actual proof roots, numerical residuals
+  and witness identities remain in their existing carriers and
+  do **not** magically fit in that plane. The logical 64³
+  comparison shape is 32 KiB at one bit per cell; no physical
+  allocation or choice of DR³'s still-open third axis follows.
+- DR³'s third-axis owner decision (NFR-OP-2) remains **OPEN**. This
+  thought axis is a separately witnessed **learning projection**
+  over DR relations, not a unilateral redefinition of the third
+  DR axis. Frame/focus/scope/coordinate/admission checks still apply.
+  The corrected `WORLD / ANGLE / THOUGHT` words are metaphors, not
+  new mutable schema types.
+
+### What could count as an epiphany?
+
+A **candidate** is a derived conclusion `c` or mediator `m`
+that was absent or not grounded in the sealed givens and becomes
+groundedly derivable through an eligible *combination* of thought
+paths. To learn that this was an illuminating composition, use
+**externalized, replay-deduplicated evidence and ablation labels**:
+
+1. Construct two independently identified premise chains `A`, `B`
+   through the existing `DerivationLedger`, keeping the proof root
+   sets and their exact original source identities. A repeated
+   source in another thought is **not** independent.
+2. Compare `c` with `A` alone, `B` alone and both, under a fixed,
+   admitted frame; independently check inference-law validity and
+   compatibility of mutually exclusive thought contexts. The model
+   must not combine incompatible hypothetical worlds into a truth.
+3. Read `DerivationLedger::load(c, ablate(A), ablate(B))`: its
+   existing `Load::Synergistic` means either ablation alone destroys
+   the conclusion; `Redundant` means two routes can support it.
+   `Sensitivity` supplies the change in pooled frequency,
+   confidence and proof chains. This is **derivation
+   dependence**, *not* a causal intervention or a guaranteed Eureka.
+4. Label a **verified useful discovery** only after a separately
+   held-out test, grounded source or other admitted verification
+   discriminates the proposed mediator from noise, at a controlled
+   search budget. `scent_learn` currently learns from
+   "hydrated/refuted" outcomes, whereas the C3c plan explicitly
+   recommends **discriminating ablation sensitivity** as the next
+   target. Keep candidate, investigated, corroborated and
+   canonical epiphany **distinct statuses**.
+5. The learner emits a ranking / resource-allocation hint, never
+   NARS truth, CE64/Epi5 bits, certification, ledger roots or
+   automatic `.claude/board/EPIPHANIES.md` entries. That canonical
+   board is generated from a curated source: research predictions
+   must not publish themselves as surviving mechanisms.
+
+The strong hypothesis is **cross-thought composition novelty**, not
+"high surprise". A good score might learn which predicate/relationship
+configurations have historically produced independently verified,
+load-bearing new bridges. This is appropriate for NSL
+**structured learning**: adjacency consists of *typed,
+source-attested proof/derivation relationships*, rather than
+automatically equating neighboring embeddings.
+
+### Exact-residual connection and possible implementation
+
+```text
+seated frame F + identity / relation map (DR) + ClassId meaning (DT)
+   → selected predicate p / thought slot t (0 givens, 1..63 branches)
+   → source-attested premise chains and sparse ThoughtDelta
+   → exact anchor + residual values for demanded cells
+   → grouped masks / folds / derivation-ledger ablation
+   → epiphany candidate features (read-only)
+   → NSL / scent_learn ranking update from independently checked outcome
+   → candidate investigated in a NEW admitted thought (no truth write)
+```
+
+The shared-anchor exact residual is useful because it can measure a
+small change in *one relation across multiple thoughts*, instead of
+subtracting separately rounded absolute vectors. It does **not**
+make the semantic claim exact by itself. Compare the same exact
+codewords using the existing sparse XOR row delta control and a
+separate checked-integer/fixed-point numeric control. Don't use
+lossy majority-vote holographic bundling for the exactness gate.
+
+### Falsifiers: learn **epiphany utility**, not correlation with replay
+
+- **E1: 64-slot boundaries.** 0 givens, 1..63 valid branches; slot
+  64 rejects. Empty / never-touched lanes contribute no update;
+  negative DR512 lanes are still touched; rounded zero is +0.
+- **E2: cross-thought shared sources.** The same proof replayed in
+  63 thoughts must not increase evidence or learner reward.
+  Two root-disjoint observations inside one thought must contribute
+  twice. Neither number of thoughts nor number of paths alone is a
+  learning label.
+- **E3: actual synergy.** Independently typed and eligible chains
+  A+B derive a novel conclusion that neither supports alone; ablate
+  A, B, and both. Pinned `Load::Synergistic` and sensitivity receipts
+  must agree with an independent scalar oracle; redundant, critical,
+  contradictory and non-load-bearing controls must *not* be
+  mislabeled as synergistic.
+- **E4: incompatible hypotheses.** Branches about mutually exclusive
+  counterfactual worlds cannot silently union their premises.
+  Missing or stale source/frame, foreign identity, different
+  codebook generation, invalid scope and out-of-focus reads refuse
+  or rebind through existing laws.
+- **E5: guard against hindsight.** Learn from chronologically
+  earlier investigation outcomes; measure candidate ranking on held-out
+  *worlds, roots and thought generations*, never on the same
+  inference/verification labels used to train it. Baselines:
+  unlearned C3b scent, C3c learned order, uncertainty-only, random,
+  and a simple predicate-frequency heuristic.
+- **E6: multiple-comparison discipline.** A 64×64 search surface
+  and combinations across paths can manufacture rare-looking
+  patterns from noise. Test an uninformative twin and shuffled
+  root/label controls, then report candidate precision,
+  false-discovery rate, verified discoveries/investigation,
+  token/CPU budget and end-to-end latency.
+- **E7: structural ablation.** Disable the Predicate×Thought
+  interaction but preserve identical per-thought inputs, or replace
+  DR³ with a plain witnessed CSR+SoA read. If it does not outperform
+  these simpler controls on *verified useful discoveries*, do not
+  attribute a benefit to the new logical axis.
+
+**Explicit limitations:** The current `DerivationLedger` proves
+logical derivation dependence, not intervention causality. C3c
+`ScentLearner` ranks fixture mediators, not verified epiphanies.
+No trained Predicate64×Thought64 epiphany recognizer exists. No
+hardware performance claim or production register/bit assignment
+is introduced here.
+
+### W8 research handoff (no new PR required yet)
+
+**D-DR3-EPI-0 / candidate only**: work-steal the current
+`DerivationLedger::{load,sensitivity,grounded_since}`,
+`nars::scent::scent`, `nars::scent_learn::ScentLearner`,
+`ThoughtTables::write_epi` and `lance-graph-nsl`
+`FeatureTable` / `NeighborBatch` fixtures. Make a small,
+independently labeled 64-thought × 64-predicate scalar
+oracle and staged falsifiers E1–E7 *before* introducing new
+storage or learned weights. It belongs in lance-graph, not ndarray
+and not the upstream NSL implementation. A separate PR must
+first check current ownership / open work and be approved.
+
 ## Why U9 may offer complementary learning benefits
 
 Google NSL regularizes a model with labeled/unlabeled neighbor
