@@ -55,6 +55,8 @@ exclude = [
     "crates/bgz17",
     "crates/deepnsm",
     "crates/deepnsm-v2",
+    # NSL neighbor selection vs a frozen NSL oracle: zero deps, own [workspace].
+    "crates/lance-graph-nsl",
     "crates/lance-graph-osint",
     "crates/reader-lm",
     "crates/bge-m3",

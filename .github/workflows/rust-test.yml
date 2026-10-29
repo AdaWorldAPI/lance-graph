@@ -206,6 +206,10 @@ jobs:
       # posture as deepnsm; one scoped step arms it. Gating.
       - name: Run deepnsm-v2 tests
         run: cargo test --manifest-path crates/deepnsm-v2/Cargo.toml
+      # lance-graph-nsl: standalone zero-dep crate, workspace-excluded; its tests
+      # compare against the frozen NSL oracle in crates/lance-graph-nsl/data.
+      - name: Run lance-graph-nsl tests
+        run: cargo test --manifest-path crates/lance-graph-nsl/Cargo.toml
       # lance-graph-supervisor: every test in the crate (including the W2b
       # real-owner probes over the production MailboxSoA, PR #634) is gated
       # behind the `supervisor` feature (ractor dep), so no step above ever
