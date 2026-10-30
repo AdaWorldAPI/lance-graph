@@ -188,7 +188,7 @@ fn main() {
     }
     fn top<'a>(m: &std::collections::BTreeMap<&'a str, usize>) -> Vec<(&'a str, usize)> {
         let mut v: Vec<_> = m.iter().map(|(k, c)| (*k, *c)).collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1));
+        v.sort_by_key(|a| std::cmp::Reverse(a.1));
         v
     }
     println!(

@@ -608,6 +608,40 @@ fn guard_pair_or_scalar(v: &NodeView) -> K3 {
     }
 }
 
+/// Binary int64 arithmetic as admitted here: equal known shapes, or one
+/// side with one element and rank at most the other's (it broadcasts). Other
+/// broadcasts are not admitted.
+fn guard_binary_i64(v: &NodeView) -> K3 {
+    let (Some(a), Some(b)) = (arg_shape(v, 0), arg_shape(v, 1)) else {
+        return K3::Unknown;
+    };
+    let (Some(ka), Some(kb)) = (known(&Some(a.clone())), known(&Some(b.clone()))) else {
+        return K3::Unknown;
+    };
+    let one = |s: &[usize]| s.iter().product::<usize>() == 1;
+    if ka == kb || (one(&kb) && kb.len() <= ka.len()) || (one(&ka) && ka.len() <= kb.len()) {
+        K3::True
+    } else {
+        K3::False
+    }
+}
+
+/// `Range`: three one-element inputs; a constant zero delta is FALSE.
+fn guard_range(v: &NodeView) -> K3 {
+    let mut t = K3::True;
+    for i in 0..3 {
+        match arg_shape(v, i).map(|s| known(&Some(s.clone()))) {
+            Some(Some(s)) if s.iter().product::<usize>() == 1 && s.len() <= 1 => {}
+            Some(Some(_)) => return K3::False,
+            _ => t = K3::Unknown,
+        }
+    }
+    match v.consts.get(2).copied().flatten().and_then(Value::i64s) {
+        Some(d) if d.first() == Some(&0) => K3::False,
+        _ => t,
+    }
+}
+
 /// `ConstantOfShape`: a constant, non-negative shape and a one-element value.
 fn guard_constant_of_shape(v: &NodeView) -> K3 {
     match v.node.attr("value") {
@@ -1056,6 +1090,68 @@ fn compare_i64(
     }])
 }
 
+/// The most elements `Range` may produce: a policy bound, so a large or
+/// wrong-signed range refuses instead of allocating.
+pub const RANGE_CAPACITY: usize = 1 << 16;
+
+fn arith_refusal(n: &SourceNode, e: ndarray::hpc::checked_i64::I64ArithError) -> Refusal {
+    runtime(n, format!("checked int64: {e}"))
+}
+
+fn binary_i64(
+    a: &[&Value],
+    n: &SourceNode,
+    op: ndarray::hpc::checked_i64::I64Op,
+) -> Result<Vec<Value>, Refusal> {
+    let x = i64_arg(a, 0, n)?;
+    let y = i64_arg(a, 1, n)?;
+    let shape = if x.len() == 1 && y.ndim() >= x.ndim() {
+        y.shape().to_vec()
+    } else {
+        x.shape().to_vec()
+    };
+    let xs: Vec<i64> = x.iter().copied().collect();
+    let ys: Vec<i64> = y.iter().copied().collect();
+    let mut out = vec![0i64; shape.iter().product()];
+    ndarray::hpc::checked_i64::checked_binary_i64(op, &xs, &ys, &mut out)
+        .map_err(|e| arith_refusal(n, e))?;
+    Ok(vec![Value::I64(
+        ArrayD::from_shape_vec(IxDyn(&shape), out).expect("broadcast length"),
+    )])
+}
+
+fn do_add_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    binary_i64(a, n, ndarray::hpc::checked_i64::I64Op::Add)
+}
+
+fn do_sub_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    binary_i64(a, n, ndarray::hpc::checked_i64::I64Op::Sub)
+}
+
+fn do_mul_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    binary_i64(a, n, ndarray::hpc::checked_i64::I64Op::Mul)
+}
+
+fn do_div_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    binary_i64(a, n, ndarray::hpc::checked_i64::I64Op::Div)
+}
+
+fn do_range_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let mut s = [0i64; 3];
+    for (i, v) in s.iter_mut().enumerate() {
+        let x = i64_arg(a, i, n)?;
+        *v = match (x.len(), x.iter().next()) {
+            (1, Some(&v)) => v,
+            _ => return Err(runtime(n, format!("arg {i}: not a scalar"))),
+        };
+    }
+    let mut out = vec![0i64; RANGE_CAPACITY];
+    let len = ndarray::hpc::checked_i64::range_i64(s[0], s[1], s[2], &mut out)
+        .map_err(|e| arith_refusal(n, e))?;
+    out.truncate(len);
+    Ok(vec![i64_vector(out)])
+}
+
 fn do_equal_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     compare_i64(
         a,
@@ -1249,7 +1345,7 @@ pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
     Registry {
-        version: 3,
+        version: 4,
         regs: vec![
             reg!(
                 0x0F01,
@@ -1506,6 +1602,61 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
+                0x0F76,
+                "hpc::checked_i64::checked_binary_i64(Add)",
+                "Add",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_binary_i64,
+                do_add_i64,
+                Exact
+            ),
+            reg!(
+                0x0F77,
+                "hpc::checked_i64::checked_binary_i64(Sub)",
+                "Sub",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_binary_i64,
+                do_sub_i64,
+                Exact
+            ),
+            reg!(
+                0x0F78,
+                "hpc::checked_i64::checked_binary_i64(Mul)",
+                "Mul",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_binary_i64,
+                do_mul_i64,
+                Exact
+            ),
+            reg!(
+                0x0F79,
+                "hpc::checked_i64::checked_binary_i64(Div), truncating",
+                "Div",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_binary_i64,
+                do_div_i64,
+                Exact
+            ),
+            reg!(
+                0x0F7A,
+                "hpc::checked_i64::range_i64, capacity RANGE_CAPACITY",
+                "Range",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_range,
+                do_range_i64,
+                Exact
+            ),
+            reg!(
                 0x0F33,
                 "ndarray::hpc::vml::vserf",
                 "Erf",
@@ -1644,6 +1795,63 @@ pub fn registry() -> Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checked_i64_guards_fire_and_stay_silent() {
+        let fi = |d: &[usize]| Fact {
+            dtype: Some(DType::I64),
+            shape: Some(d.iter().map(|&x| Dim::Known(x)).collect()),
+        };
+        let sc = |x: i64| Value::I64(ArrayD::from_shape_vec(IxDyn(&[]), vec![x]).unwrap());
+        let r = node("Range", 3, vec![]);
+        let (s0, d0, d1) = (fi(&[]), sc(0), sc(1));
+        let view = |d: &Value| -> K3 {
+            guard_range(&NodeView {
+                node: &r,
+                args: vec![Some(&s0), Some(&s0), Some(&s0)],
+                consts: vec![None, None, Some(d)],
+            })
+        };
+        assert_eq!(view(&d0), K3::False, "a constant zero step");
+        assert_eq!(view(&d1), K3::True);
+        let b = node("Add", 2, vec![]);
+        let g = |x: &[usize], y: &[usize]| {
+            let (fx, fy) = (fi(x), fi(y));
+            guard_binary_i64(&NodeView {
+                node: &b,
+                args: vec![Some(&fx), Some(&fy)],
+                consts: vec![None, None],
+            })
+        };
+        assert_eq!(g(&[2], &[2]), K3::True);
+        assert_eq!(g(&[2], &[]), K3::True);
+        assert_eq!(g(&[1], &[2, 3]), K3::True, "a one-element side broadcasts");
+        assert_eq!(g(&[2], &[2, 1]), K3::False);
+        assert_eq!(g(&[2], &[3]), K3::False);
+    }
+
+    #[test]
+    fn checked_i64_dos_refuse() {
+        let n = |op: &str| node(op, 2, vec![]);
+        let v = |x: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(&[x.len()]), x).unwrap());
+        let s = |x: i64| Value::I64(ArrayD::from_shape_vec(IxDyn(&[]), vec![x]).unwrap());
+        let what = |r: Result<Vec<Value>, Refusal>| match r {
+            Err(Refusal::Runtime { what, .. }) => what,
+            other => panic!("{other:?}"),
+        };
+        let (a, z, big) = (v(vec![6, 3]), v(vec![1, 0]), v(vec![i64::MAX, 1]));
+        assert!(what(do_div_i64(&[&a, &z], &n("Div"))).contains("by zero"));
+        assert!(what(do_mul_i64(&[&big, &v(vec![2])], &n("Mul"))).contains("overflows"));
+        assert!(what(do_add_i64(&[&big, &v(vec![1])], &n("Add"))).contains("overflows"));
+        assert!(what(do_range_i64(&[&s(0), &s(3), &s(0)], &n("Range"))).contains("delta 0"));
+        let cap = RANGE_CAPACITY as i64;
+        assert!(what(do_range_i64(&[&s(0), &s(cap + 1), &s(1)], &n("Range"))).contains("elements"));
+        // Div truncates toward zero; a one-element left side broadcasts.
+        match &do_div_i64(&[&v(vec![-7]), &v(vec![2, -2])], &n("Div")).unwrap()[0] {
+            Value::I64(o) => assert_eq!(o.iter().copied().collect::<Vec<_>>(), [-3, 3]),
+            other => panic!("{other:?}"),
+        }
+    }
 
     fn pow_view<'a>(node: &'a SourceNode, base: &'a Fact, exp: &'a Value) -> NodeView<'a> {
         NodeView {

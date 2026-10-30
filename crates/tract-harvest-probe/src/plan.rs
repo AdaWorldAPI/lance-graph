@@ -81,6 +81,9 @@ pub fn resolve<'r>(
         .zip(graph.facts.iter().cloned())
         .collect();
     let fold = crate::fold::fold(src, &names, registry);
+    if let Some((_, e)) = fold.refused.first() {
+        return Err(e.clone());
+    }
     for (p, name) in graph.props.iter().enumerate() {
         if let Some(v) = fold.values.get(name) {
             graph.consts[p] = Some(v.clone());

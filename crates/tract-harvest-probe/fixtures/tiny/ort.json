@@ -218,6 +218,43 @@
      "bits": [0,1,2]
     }
    }
+  },
+  "i64_data": {
+   "sha256": "dd38dc137088f36590196761652fa5014d1155e715b8faa89bc7d733ad006684",
+   "ort": {
+    "MI": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-8,15]
+    }
+   }
+  },
+  "neg_i64_overflow": {
+   "sha256": "d814bf7de5706e82527a6b6b8e32a5498567b9a1a8b89db37a5b9f8a90de7f09",
+   "ort": {
+    "Y": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-9223372036854775808,3]
+    }
+   }
+  },
+  "neg_i64_div0": {
+   "sha256": "6dfe608a028e710cec389f3ebc08627f1e2650bbdc953b40c3c15cd840279777"
+  },
+  "neg_range_zero": {
+   "sha256": "d8d6adae82e79dcaee9dc19eccb632d2e7f97be1213f4221142c32afd93a6359",
+   "ort_error": "InvalidArgument: [ONNXRuntimeError] : 2 : INVALID_ARGUMENT : Non-zero status code returned while running Range node. Name:'n_bad' Status Message: delta in Range operator can not be zero!"
+  },
+  "neg_i64_bcast": {
+   "sha256": "86202779fa45f294c0a355ea2fd45b66d2f3740d727ae8591ad4fd1428ea1c13",
+   "ort": {
+    "Y": {
+     "shape": [2,2],
+     "dtype": "int64",
+     "bits": [3,4,4,5]
+    }
+   }
   }
  },
  "erf_sweep": {
