@@ -72,37 +72,34 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 - A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
 - The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
 
-| Mistaber node | tenant 1 (`is_a` / DN chain) | tenant 2 (`part_of`) | what stays outside the rails |
+**Reading (operator, 2026-10-30): one tenant = 16 × `(u8:u8)` = 1 identity + 15 exact 64k addresses.** Each of the 16 pairs addresses 65,536 positions. Pair 0 is the node's own identity. Pairs 1–15 are exact addresses of other nodes: no edge table, no 255 cap per level. Two tenants give one row 30 exact references, all in-row. A pair reading `(0, 0)` is unbound. The ClassView elects whether a tenant is read as a chain (prefix ancestry, `is_ancestor_of`) or as an address set; the bytes are the same either way.
+
+| Mistaber node | tenant 1 (`is_a`): identity + addresses | tenant 2 (`part_of`): identity + addresses | overflow |
 |---|---|---|---|
-| makor citation `sa("yd:87:3")` | `sa > yd > siman 87 > seif 3` (depth 4 of 16; a commentary seif katan is level 5) | the work it sits in, or empty | nothing |
-| rule `r_…` | the rule's own chain, e.g. `corpus > yd_87 > seif_3 > rule k` | its world scope. `scope(r, w)` has one world per rule, so membership fits one path | its `makor` citations: a rule may cite several, so they are edges to makor nodes |
-| world | its primary-parent chain, e.g. `base > mechaber > shach` | era or school, if wanted | every further parent (`ashk_ah` has two) stays an edge in the accessibility register (X3 still holds: one rail is one path) |
-| holding | none; it is derived | none | lens row keyed by (proposition, world), lineage pointing at rule and makor nodes |
+| makor citation `sa("yd:87:3")` | its seif identity; slots 1–15 = its ancestors (siman, chelek, work) as exact addresses | the work it sits in | none |
+| rule `r_…` | its identity; slots = every makor it cites (exact addresses) | its world scope (one, by `scope/2`) | more than 15 makorot: refused, counted |
+| world | its identity; slots = every parent world (`ashk_ah`: mechaber and rema both) | era or school | more than 15 parents: refused, counted |
+| holding | (proposition, world) identity | slots = immediate rule, source rule, origin world, each makor of the source rule | more than 15 lineage targets: refused, counted |
+
+This replaces the earlier table, which kept a rule's extra makorot and `ashk_ah`'s second parent as edges outside the rails. In-row addresses carry them. X3 changes from "worlds as value ids plus an edge DAG" to "worlds as identities whose parents are in-row addresses". The DR64 fixpoint still computes holdings; it reads parents from the rows instead of a separate register.
 
 **The vertical match is free in this corpus.** Mistaber lays out `dsl/corpus/yd_87/seif_3.hll`, so a rule's `part_of` chain (file → seif → siman) and its makor's DN chain name the same positions. Under the operator's format this is the ideal case. It is still two rails, never one composed relation.
 
-**Capacity: settled by the operator (2026-10-30): the last two bytes of the rail are a 64k leaf.** Each tenant is a 16-level byte chain. Levels 15 and 16, read together as a `(u8:u8)` pair, address 65,536 positions (65,025 with the 0-hole kept in each byte). The two bytes stay separate digits, so nothing is widened into a u16.
+**Capacity: settled.** With every level a `(u8:u8)` pair, each of the 16 slots addresses 64k positions. All 3,701 YD seifim, every siman and every commentary seif katan get exact addresses. The earlier one-byte-per-level reading, and the "last two bytes as the leaf" step that followed it, are superseded by the reading above. A hilchot level remains optional, for basin structure only.
 
-- Tenant 1 (makor): levels 1–14 carry the structure (`sa > yd > …`); the last two bytes carry the seif as a leaf. All 3,701 seifim of YD fit, with room for every commentary seif katan. Siman 403 needs no special level.
-- Tenant 2 (`part_of`): the same pair gives 64k membership ids (world, era, school).
-
-Ordinal 0 is still never encoded; the pair `(0, 0)` is the hole that ends the chain.
-
-The earlier options (a 9-bit level, a hilchot split, a continuation slot) are not needed for capacity. A hilchot level remains optional for basin structure.
-
-X1 and P1 are amended accordingly: P1's 9-bit arm is replaced by the pair-leaf arm (3,701 distinct seif leaves, 0 refusals, 0 aliases; disable run: read only the last byte → aliases).
+X1 and P1 are amended accordingly: P1's 9-bit arm is replaced by a pair-address arm (3,701 distinct seif addresses, 0 refusals, 0 aliases; disable run: read one byte of each pair → aliases).
 
 **P11 (new, pre-registered, not run).** On F1 and the C-mammal goldens, give every rule, world and makor node both rails and check:
 
 - (a) `is_ancestor_of` on tenant 1 reproduces citation containment exactly (seif ⊂ siman ⊂ chelek);
 - (b) tenant 2 gives each rule exactly one world, the one `scope/2` names;
-- (c) the `ashk_ah` two-parent case is refused as a rail and found as an edge;
+- (c) `ashk_ah` carries both parents as in-row addresses, and the fixpoint reads them from the row;
 - (d) holdings are unchanged (11/11 goldens).
 
 Disable runs:
 
 - compose the two rails, so a rule inherits its makor's chain: (a) or (b) must go red;
-- store the second parent of `ashk_ah` in tenant 2: (c) must go red.
+- drop `ashk_ah`'s second address: (c) and the goldens must go red.
 
 ## Addendum: property inheritance and the syntax tenants (operator, 2026-10-30)
 
