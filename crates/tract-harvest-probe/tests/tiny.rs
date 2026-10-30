@@ -385,3 +385,35 @@ fn unknown_shapes_refuse() {
         other => panic!("{:?}", other.map(|_| ())),
     }
 }
+
+/// An input outside the facts the plan was resolved on is refused before any
+/// node runs: `X` resolved as `[7]` (rank 1, what `ReduceSum`'s WHEN admitted)
+/// supplied as `[2,3]`, or with the wrong dtype.
+#[test]
+fn inputs_outside_the_resolved_facts_are_refused() {
+    let reg = registry();
+    let (fx, p) = plan("base", &reg);
+    let p = p.unwrap();
+    let mut ins = inputs(None);
+    ins[0].1 = Value::I32(ArrayD::from_shape_vec(IxDyn(&[2, 3]), vec![1; 6]).unwrap());
+    match p.run(&fx.store, &ins) {
+        Err(Refusal::Runtime { node, what }) => {
+            assert_eq!(node, "X");
+            assert!(what.contains("shape [2, 3]"), "{what}");
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+    let mut ins = inputs(None);
+    ins[1].1 = Value::I32(ArrayD::from_shape_vec(IxDyn(&[2, 3]), vec![1; 6]).unwrap());
+    assert!(matches!(
+        p.run(&fx.store, &ins),
+        Err(Refusal::Runtime { .. })
+    ));
+    // an initializer is not an input the caller may overwrite
+    let mut ins = inputs(None);
+    ins.push(("B", f32_value(&[3], &[0; 3])));
+    assert!(matches!(
+        p.run(&fx.store, &ins),
+        Err(Refusal::Runtime { .. })
+    ));
+}

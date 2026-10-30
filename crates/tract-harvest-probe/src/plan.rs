@@ -149,6 +149,13 @@ impl Plan<'_> {
                     node: (*name).into(),
                     what: "no such graph input".into(),
                 })?;
+            if !g.inputs.contains(&p) {
+                return Err(Refusal::Runtime {
+                    node: (*name).into(),
+                    what: "not a graph input".into(),
+                });
+            }
+            check_against_fact(name, v, &g.facts[p])?;
             vals[p] = Some(v.clone());
         }
         for s in &self.steps {
@@ -229,4 +236,35 @@ pub fn coverage(
         out.entry(key).or_insert([0; 3])[k] += 1;
     }
     out
+}
+
+/// A run-time input must satisfy the facts the plan was resolved on: its
+/// dtype, rank and every known dimension. Otherwise the WHEN guards that held
+/// at resolution say nothing about this run.
+fn check_against_fact(name: &str, v: &Value, f: &crate::registry::Fact) -> Result<(), Refusal> {
+    use crate::registry::Dim;
+    let refuse = |what: String| Refusal::Runtime {
+        node: name.into(),
+        what,
+    };
+    if let Some(dt) = f.dtype {
+        if dt != v.dtype() {
+            return Err(refuse(format!(
+                "dtype {:?}, resolved for {dt:?}",
+                v.dtype()
+            )));
+        }
+    }
+    if let Some(shape) = &f.shape {
+        let got = v.shape();
+        let fits = got.len() == shape.len()
+            && got.iter().zip(shape).all(|(g, d)| match d {
+                Dim::Known(k) => g == k,
+                Dim::Symbol(_) => true,
+            });
+        if !fits {
+            return Err(refuse(format!("shape {got:?}, resolved for {shape:?}")));
+        }
+    }
+    Ok(())
 }
