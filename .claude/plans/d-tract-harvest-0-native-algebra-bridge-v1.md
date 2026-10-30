@@ -245,6 +245,24 @@ This works because every registration carries its own classid and none is regist
 
 **Tests.** `one_lens_many_items` (every item under the one lens, ordinal = position, a foreign lens reads nothing). The bind-store test now covers the `Lens` and `Item` failures. Results are unchanged: tiny and Jina suites green, Jina 7,274 routed and resolved, 346 unrouted. Disable runs red: lens check removed from `Registry::get`; lens check removed from `resolve`.
 
+### 0.8 The registry is a field view over lens-agnostic algebra (2026-10-30)
+
+The user said the classid + `WideFieldMask` ergonomics is the Redmine ERB field-view pattern. The table below is this session's reading of that, and registry version 7 implements the reading. Redmine's own field formats (string, list, date) are agnostic. A tracker's custom fields label a format and add their own validation. The tracker enables a subset of those fields.
+
+| Redmine | registry v7 |
+|---|---|
+| field format (agnostic) | `Registry::methods`: one `Method { name, do_, numeric }` per algebra address, by position, no label, no lens |
+| custom field (label + validation) | `Registry::regs`: a `Registration` labels one address (`method: u16`) with an op signature and its WHEN; its position is the ordinal of `MethodKey { lens, ordinal }` |
+| fields enabled for a tracker | `Registry::exposed`, a `lance-graph-contract` `WideFieldMask` over field positions |
+
+- `Registry::build(lens, version, drafts)` interns equal addresses by name. It panics if one name has two bodies. 48 fields label fewer addresses; the three `Constant` fields share one.
+- A field outside `exposed` is absent: `lookup` does not match it, `get` and `bind::resolve` do not return it (`Unresolved::Item`), and its node is UNREGISTERED. Other routes resolve unchanged.
+- `Registry::revision()` hashes the version and the exposed positions. It is the frame's `relation_map` revision and seeds the route version, so hiding a field is a new revision.
+
+**Tests.** `fields_label_shared_algebra_addresses`, `a_masked_field_is_absent`; all earlier tests unchanged. Jina still 7,274 routed and resolved, 346 unrouted. Disable runs red: mask ignored in `lookup`; mask ignored in `get`; mask left out of `revision`; interning removed.
+
+**Open.** The WHEN guards are on the fields. Some are only meaningful for one address, for example a Reshape guard over its target shape. Whether a guard belongs with its field or its address is not settled here. `exposed` is set to full by `build`, and no production lens is minted.
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.
