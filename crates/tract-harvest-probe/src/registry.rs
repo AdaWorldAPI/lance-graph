@@ -1125,7 +1125,7 @@ fn do_constant_of_shape(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refu
                 let mut w = vec![0u64; lance_graph_onnx::mask_words(len)];
                 if words.first().is_some_and(|w| w & 1 == 1) {
                     w.fill(u64::MAX);
-                    if len % 64 != 0 {
+                    if !len.is_multiple_of(64) {
                         if let Some(last) = w.last_mut() {
                             *last = (1u64 << (len % 64)) - 1;
                         }
