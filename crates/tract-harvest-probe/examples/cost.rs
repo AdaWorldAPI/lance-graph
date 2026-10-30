@@ -4,19 +4,23 @@
 //! `python3 tools/fetch_jina_slice.py` first; they are skipped and said so
 //! otherwise).
 //!
-//! Cold: source inventory (raw protobuf), Tract import + into_typed, admission
-//! (pattern match + recipe preparation). Hot: one native recipe run, against
-//! Tract's own runnable of the same typed graph. Allocations are counted per
-//! hot call.
+//! Cold: source inventory (raw protobuf), Tract typing (facts), laying the
+//! graph onto the DR#3 tile and resolving every node against the registry.
+//! Hot: one plan run (routing each node to its DO), against Tract's own
+//! runnable of the same typed graph. Allocations are counted per hot call.
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-use ndarray::{Array2, ArrayD, IxDyn};
-use tract_harvest_probe::admit;
+use dr_math_binding_probe::FrameStore;
+use ndarray::{ArrayD, IxDyn};
+use tract_harvest_probe::dr3::{tract_facts, OnnxGraph};
+use tract_harvest_probe::plan::{resolve, revisions};
+use tract_harvest_probe::registry::registry;
 use tract_harvest_probe::source::SourceInventory;
+use tract_harvest_probe::value::Value;
 use tract_onnx::prelude::*;
 
 struct Counting;
@@ -64,14 +68,50 @@ fn median(runs: usize, mut f: impl FnMut()) -> f64 {
     t[runs / 2]
 }
 
-fn cold(label: &str, bytes: &[u8]) {
+fn typed(bytes: &[u8]) -> TypedModel {
+    let onnx = tract_onnx::onnx();
+    onnx.model_for_proto_model(&onnx.proto_model_for_read(&mut &*bytes).unwrap())
+        .unwrap()
+        .into_typed()
+        .unwrap()
+}
+
+/// Cold costs, then the hot plan run against Tract's typed runnable.
+fn measure(
+    label: &str,
+    bytes: &[u8],
+    pins: &[(usize, DatumType, Vec<usize>)],
+    inputs: Vec<(&str, Value)>,
+    tract_in: impl Fn() -> TVec<TValue>,
+    runs: usize,
+) {
+    let reg = registry();
     let src_us = median(51, || {
         black_box(SourceInventory::from_bytes(black_box(bytes)).unwrap());
     }) / 1e3;
-    let typed_us = median(51, || {
-        black_box(admit::typed(black_box(bytes)).unwrap());
+    let facts_us = median(51, || {
+        black_box(tract_facts(black_box(bytes), pins).unwrap());
     }) / 1e3;
-    println!("{label:>6} cold: source inventory {src_us:9.1} µs | Tract import+into_typed {typed_us:9.1} µs");
+    let src = SourceInventory::from_bytes(bytes).unwrap();
+    let facts = tract_facts(bytes, pins).unwrap();
+    let resolve_us = median(51, || {
+        let g = OnnxGraph::build(&src, &facts).unwrap();
+        let store = FrameStore::new(revisions(&src, &reg, &g));
+        black_box(resolve(&src, g, &reg, &store).unwrap());
+    }) / 1e3;
+    let g = OnnxGraph::build(&src, &facts).unwrap();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    let p = resolve(&src, g, &reg, &store).unwrap();
+    let hot_ns = median(runs, || {
+        black_box(p.run(&store, black_box(&inputs)).unwrap());
+    });
+    let (_, na, nb) = counted(|| p.run(&store, &inputs).unwrap());
+    let plan = typed(bytes).into_runnable().unwrap();
+    let tract_ns = median(runs, || {
+        black_box(plan.run(tract_in()).unwrap());
+    });
+    println!("{label:>5} cold: source {src_us:8.1} µs | Tract facts {facts_us:8.1} µs | tile+resolve {resolve_us:7.1} µs ({} steps)", p.steps.len());
+    println!("{label:>5} hot:  graph plan {hot_ns:9.0} ns ({na} allocs, {nb} B) | Tract typed runnable {tract_ns:9.0} ns (incl. input tensors)");
 }
 
 fn main() {
@@ -79,35 +119,38 @@ fn main() {
 
     // ── fixture A ──
     let tiny = std::fs::read(format!("{dir}/tiny/div3.onnx")).unwrap();
-    cold("tiny", &tiny);
-    let src = SourceInventory::from_bytes(&tiny).unwrap();
-    let typed = admit::typed(&tiny).unwrap();
-    let admit_us = median(51, || {
-        black_box(admit::admit_tiny(&src, &typed).unwrap());
-    }) / 1e3;
-    let r = admit::admit_tiny(&src, &typed).unwrap();
     let x = vec![3, -1, 4, -1, 5, -9, 2];
-    let f = Array2::from_shape_vec((2, 3), vec![1.5f32, -0.25, 3.0, 0.1, 7.0, -2.5]).unwrap();
-    let mut scratch = vec![0u64; 1];
-    let native_ns = median(20001, || {
-        black_box(r.run(black_box(&x), black_box(&f), &mut scratch).unwrap());
-    });
-    let (_, na, nb) = counted(|| r.run(&x, &f, &mut scratch).unwrap());
-    let plan = typed.clone().into_runnable().unwrap();
-    let inputs = || -> TVec<TValue> {
-        tvec![
-            tract_ndarray::Array1::from(x.clone())
-                .into_dyn()
-                .into_tensor()
-                .into(),
-            f.clone().into_dyn().into_tensor().into()
-        ]
-    };
-    let tract_ns = median(20001, || {
-        black_box(plan.run(inputs()).unwrap());
-    });
-    let (_, ta, tb) = counted(|| plan.run(inputs()).unwrap());
-    println!("  tiny admission {admit_us:7.1} µs | hot native {native_ns:7.0} ns ({na} allocs, {nb} B) | Tract typed runnable {tract_ns:7.0} ns ({ta} allocs, {tb} B, incl. input tensors)");
+    let f = vec![1.5f32, -0.25, 3.0, 0.1, 7.0, -2.5];
+    let ins = vec![
+        (
+            "X",
+            Value::I32(ArrayD::from_shape_vec(IxDyn(&[7]), x.clone()).unwrap()),
+        ),
+        (
+            "F",
+            Value::F32(ArrayD::from_shape_vec(IxDyn(&[2, 3]), f.clone()).unwrap()),
+        ),
+    ];
+    measure(
+        "tiny",
+        &tiny,
+        &[],
+        ins,
+        || {
+            tvec![
+                tract_ndarray::Array1::from(x.clone())
+                    .into_dyn()
+                    .into_tensor()
+                    .into(),
+                tract_ndarray::Array2::from_shape_vec((2, 3), f.clone())
+                    .unwrap()
+                    .into_dyn()
+                    .into_tensor()
+                    .into()
+            ]
+        },
+        20001,
+    );
 
     // ── fixture B ──
     let slice = match std::fs::read(format!("{dir}/jina/slice.onnx")) {
@@ -117,13 +160,6 @@ fn main() {
             return;
         }
     };
-    cold("jina", &slice);
-    let src = SourceInventory::from_bytes(&slice).unwrap();
-    let typed = admit::typed(&slice).unwrap();
-    let admit_us = median(51, || {
-        black_box(admit::admit_rmsnorm(&src, &typed).unwrap());
-    }) / 1e3;
-    let r = admit::admit_rmsnorm(&src, &typed).unwrap();
     let raw = std::fs::read(format!("{dir}/jina/gather_rows.f32")).unwrap();
     let xs: Vec<f32> = raw
         .as_chunks::<4>()
@@ -132,21 +168,15 @@ fn main() {
         .map(|c| f32::from_le_bytes(*c))
         .collect();
     let rows = xs.len() / 1024;
-    let x = ArrayD::from_shape_vec(IxDyn(&[1, rows, 1024]), xs).unwrap();
-    let native_ns = median(2001, || {
-        black_box(r.run(black_box(&x)).unwrap());
-    });
-    let (_, na, nb) = counted(|| r.run(&x).unwrap());
-    let plan = typed.clone().into_runnable().unwrap();
-    let tract_ns = median(2001, || {
-        black_box(plan.run(tvec![x.clone().into_tensor().into()]).unwrap());
-    });
-    let decl = typed.into_decluttered().unwrap().into_runnable().unwrap();
-    let decl_ns = median(2001, || {
-        black_box(decl.run(tvec![x.clone().into_tensor().into()]).unwrap());
-    });
-    println!(
-        "  jina admission {admit_us:7.1} µs | hot native {native_ns:7.0} ns ({na} allocs, {nb} B) for {rows}x1024 \
-         | Tract typed {tract_ns:7.0} ns | Tract decluttered (fused RmsNorm) {decl_ns:7.0} ns"
+    let xa = ArrayD::from_shape_vec(IxDyn(&[1, rows, 1024]), xs).unwrap();
+    let src = SourceInventory::from_bytes(&slice).unwrap();
+    let input = src.inputs[0].clone();
+    measure(
+        "jina",
+        &slice,
+        &[(0, DatumType::F32, vec![1, rows, 1024])],
+        vec![(input.as_str(), Value::F32(xa.clone()))],
+        || tvec![xa.clone().into_tensor().into()],
+        2001,
     );
 }

@@ -9,6 +9,8 @@
 use sha2::{Digest, Sha256};
 use tract_onnx::pb;
 
+use crate::value::{decode, Value};
+
 /// SHA-256 of a byte string, lower-case hex.
 pub fn sha256_hex(bytes: &[u8]) -> String {
     let mut h = Sha256::new();
@@ -16,8 +18,37 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
     h.finalize().iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// One attribute value, as the protobuf states it.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Attr {
+    Int(i64),
+    Float(f32),
+    Ints(Vec<i64>),
+    Floats(Vec<f32>),
+    Str(String),
+    /// A tensor attribute (a `Constant`'s value), decoded; `None` if the
+    /// tensor's dtype has no [`Value`].
+    Tensor(Option<Value>),
+    /// Graph, sparse tensor, type proto or other: kept by name only.
+    Other(i32),
+}
+
+impl Attr {
+    fn from_proto(a: &pb::AttributeProto) -> Self {
+        match a.r#type {
+            1 => Attr::Float(a.f),
+            2 => Attr::Int(a.i),
+            3 => Attr::Str(String::from_utf8_lossy(&a.s).into_owned()),
+            4 => Attr::Tensor(a.t.as_ref().and_then(decode)),
+            6 => Attr::Floats(a.floats.clone()),
+            7 => Attr::Ints(a.ints.clone()),
+            t => Attr::Other(t),
+        }
+    }
+}
+
 /// One source node, as the protobuf states it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SourceNode {
     /// `NodeProto.name`; may be empty in real exports.
     pub name: String,
@@ -27,11 +58,17 @@ pub struct SourceNode {
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
     pub attributes: Vec<String>,
+    /// The attribute values, in source order.
+    pub attrs: Vec<(String, Attr)>,
 }
 
 impl SourceNode {
     pub fn default_domain(&self) -> bool {
         self.domain.is_empty() || self.domain == "ai.onnx"
+    }
+
+    pub fn attr(&self, name: &str) -> Option<&Attr> {
+        self.attrs.iter().find(|(n, _)| n == name).map(|(_, a)| a)
     }
 }
 
@@ -48,13 +85,15 @@ pub enum Placement {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SourceInitializer {
     pub name: String,
     pub dims: Vec<i64>,
     /// `TensorProto.data_type` (1 = FLOAT, 6 = INT32, 7 = INT64).
     pub data_type: i32,
     pub placement: Placement,
+    /// The decoded value of an inline initializer; `None` for external data.
+    pub value: Option<Value>,
 }
 
 /// What the model file says, independent of any importer.
@@ -66,6 +105,10 @@ pub struct SourceInventory {
     pub opsets: Vec<(String, i64)>,
     pub nodes: Vec<SourceNode>,
     pub initializers: Vec<SourceInitializer>,
+    /// Graph inputs that are not initializers, in source order.
+    pub inputs: Vec<String>,
+    /// Graph outputs, in source order.
+    pub outputs: Vec<String>,
 }
 
 impl SourceInventory {
@@ -90,12 +133,29 @@ impl SourceInventory {
                         inputs: n.input.clone(),
                         outputs: n.output.clone(),
                         attributes: n.attribute.iter().map(|a| a.name.clone()).collect(),
+                        attrs: n
+                            .attribute
+                            .iter()
+                            .map(|a| (a.name.clone(), Attr::from_proto(a)))
+                            .collect(),
                     })
                     .collect()
             })
             .unwrap_or_default();
-        let initializers = g
+        let initializers: Vec<SourceInitializer> = g
             .map(|g| g.initializer.iter().map(initializer).collect())
+            .unwrap_or_default();
+        let inputs = g
+            .map(|g| {
+                g.input
+                    .iter()
+                    .filter(|i| !initializers.iter().any(|t| t.name == i.name))
+                    .map(|i| i.name.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let outputs = g
+            .map(|g| g.output.iter().map(|o| o.name.clone()).collect())
             .unwrap_or_default();
         let opsets = m
             .opset_import
@@ -115,6 +175,8 @@ impl SourceInventory {
             opsets,
             nodes,
             initializers,
+            inputs,
+            outputs,
         }
     }
 
@@ -165,6 +227,7 @@ fn initializer(t: &pb::TensorProto) -> SourceInitializer {
         dims: t.dims.clone(),
         data_type: t.data_type,
         placement,
+        value: decode(t),
     }
 }
 

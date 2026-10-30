@@ -7,7 +7,7 @@
 //! Indices follow the ONNX rule: `-dim <= i < dim`, negative counting from the
 //! end; anything else is refused before a byte is read.
 
-use crate::admit::Refusal;
+use crate::registry::Refusal;
 use crate::source::{Placement, SourceInventory};
 
 /// One gathered row: the source index, the normalized row, and its bytes.
@@ -24,32 +24,27 @@ pub fn row_ranges(
     table: &str,
     ids: &[i64],
 ) -> Result<Vec<RowRange>, Refusal> {
-    let init = src.initializer(table).ok_or_else(|| Refusal::Pattern {
+    let refuse = |what: String| Refusal::Runtime {
         node: table.into(),
-        expected: "an initializer",
-        found: "absent".into(),
-    })?;
+        what,
+    };
+    let init = src
+        .initializer(table)
+        .ok_or_else(|| refuse("not an initializer".into()))?;
     if init.data_type != 1 || init.dims.len() != 2 {
-        return Err(Refusal::Dtype {
-            node: table.into(),
-            found: format!("dtype {} rank {}", init.data_type, init.dims.len()),
-        });
+        return Err(refuse(format!(
+            "dtype {} rank {}",
+            init.data_type,
+            init.dims.len()
+        )));
     }
     let (rows, cols) = (init.dims[0], init.dims[1]);
     let Placement::External { offset, length, .. } = &init.placement else {
-        return Err(Refusal::Pattern {
-            node: table.into(),
-            expected: "external data",
-            found: "inline".into(),
-        });
+        return Err(refuse("inline, expected external data".into()));
     };
     let row_bytes = cols as u64 * 4;
     if *length != rows as u64 * row_bytes {
-        return Err(Refusal::Pattern {
-            node: table.into(),
-            expected: "length == rows * cols * 4",
-            found: format!("{length}"),
-        });
+        return Err(refuse(format!("length {length} != rows * cols * 4")));
     }
     ids.iter()
         .map(|&i| {
@@ -58,11 +53,7 @@ pub fn row_ranges(
             } else if (-rows..0).contains(&i) {
                 i + rows
             } else {
-                return Err(Refusal::RewriteAssumption {
-                    node: table.into(),
-                    law: "Gather index in [-dim, dim)",
-                    found: i.to_string(),
-                });
+                return Err(refuse(format!("Gather index {i} outside [-dim, dim)")));
             };
             Ok(RowRange {
                 index: i,

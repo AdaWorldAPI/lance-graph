@@ -1,8 +1,9 @@
 # tract-harvest-probe — D-TRACT-HARVEST-0, lab only.
-# Tract is a COLD, optional frontend here: it parses and types an ONNX graph,
-# and admission lowers an admitted subgraph onto existing native functions
-# (lance-graph-onnx aliases/inlines, ndarray). The native recipes never call
-# Tract, and no native crate depends on this one.
+# Tract is a COLD, optional frontend here: it types an ONNX graph. The graph
+# itself is laid onto a DR#3 tile (nodes = Identity, values = Property) and
+# every node is resolved through a DT64 ON x WHEN x DO registry onto existing
+# native functions (lance-graph-onnx aliases/inlines, ndarray). Execution never
+# calls Tract, and no native crate depends on this one.
 # Own [workspace] root, excluded from the lance-graph workspace. Run from here:
 #   cargo test
 #   cargo run --release --example stages     (per-stage provenance inventory)
@@ -12,13 +13,16 @@ name = "tract-harvest-probe"
 version = "0.0.0"
 edition = "2021"
 publish = false
-description = "Lab probe D-TRACT-HARVEST-0: Tract as a cold typed ONNX frontend, admission onto existing native methods, ORT parity. Results only; no production path."
+description = "Lab probe D-TRACT-HARVEST-0: ONNX graph as a DR#3 graph resolved through a DT64 ON x WHEN x DO registry onto existing native methods; Tract as cold typing frontend; ORT parity. Results only; no production path."
 
 [workspace]
 
 [dependencies]
 tract-onnx = { git = "https://github.com/AdaWorldAPI/tract", branch = "main" }
 lance-graph-onnx = { path = "../lance-graph-onnx" }
+# The DR64 relation register, Boolean composition and the frame store.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 sha2 = "0.10"
 # The protobuf types are tract-onnx's own (`tract_onnx::pb`); decoding them needs the trait.

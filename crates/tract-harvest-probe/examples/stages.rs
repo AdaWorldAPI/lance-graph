@@ -3,9 +3,10 @@
 //! `cargo run --release --example stages -- fixtures/jina/onnx_model.onnx`
 //!
 //! Weights are not needed: Tract's lazy external data keeps every external
-//! initializer as a named weight whose bytes are never read.
+//! initializer as a named weight whose bytes are never read. The registry
+//! coverage reads facts from the source path (weights stay lazy there too).
 use std::time::Instant;
-use tract_harvest_probe::{provenance, source::SourceInventory};
+use tract_harvest_probe::{dr3, plan, provenance, registry, source::SourceInventory};
 use tract_onnx::prelude::*;
 
 fn main() -> TractResult<()> {
@@ -64,5 +65,34 @@ fn main() -> TractResult<()> {
         *ops.entry(n.op.name().to_string()).or_default() += 1;
     }
     println!("decluttered op histogram: {ops:?}");
+
+    // Registration coverage: per op type, [WHEN true, WHEN not true, unregistered].
+    let pins: Vec<_> = std::env::args()
+        .nth(2)
+        .and_then(|s| s.parse::<usize>().ok())
+        .map(|seq| {
+            (0..inf.inputs.len())
+                .map(|i| (i, i64::datum_type(), vec![1, seq]))
+                .collect()
+        })
+        .unwrap_or_default();
+    let facts = dr3::tract_facts_path(std::path::Path::new(&path), &pins);
+    match facts {
+        Ok(facts) => {
+            let reg = registry::registry();
+            let cov = plan::coverage(&src, &facts, &reg);
+            let tot = cov
+                .values()
+                .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]);
+            println!(
+                "registry v{} coverage [when-true, when-not-true, unregistered] total {tot:?}",
+                reg.version
+            );
+            for (op, c) in &cov {
+                println!("  {op:>24} {c:?}");
+            }
+        }
+        Err(e) => println!("registry coverage NOT RUN: typing failed: {e:?}"),
+    }
     Ok(())
 }
