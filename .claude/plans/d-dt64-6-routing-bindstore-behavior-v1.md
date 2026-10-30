@@ -259,3 +259,9 @@ The Bag carrier (who admits a counted population into `bind_dr64`); the D-DRDT �
 Disable runs (on commit `7936665e2`; each patch asserted to apply exactly once; restored with `git checkout`): each of the eight guards removed in turn leaves exactly one test red (10 passed, 1 failed): the `GuardDropped` arm, the `BehaviourImmutable` arm, the route-log version cut, the Kleene witness, the field-basis check, the schema-revision check, the duplicate-MethodId check, the out-of-basis check.
 
 Not done: wiring OGAR's `CapabilityAuthority` (D6, the production route for consumer classids); persistence of the store (EXO-55 owns the writer path); a router (DR #4) that carries `MethodRef`s; §6 questions 1–9, including whether the immutable unit is the classid or `(classid, binding version)` — this crate implements the D5 wording (the classid).
+
+**A.5 addendum (2026-10-30, after the XLOG session's critique and the operator's correction).** A classid is a codebook lens, never one per codebook item. Two changes follow:
+- `ClassSchema` no longer declares a view class. `view_class(classid)` is the codebook's own split (`ogar_codebook::classid_concept`).
+- `Effect` carries an `EffectOp`: `Algebra(AlgebraRef)`, or `Call(MethodRef)` for reusing another lens's entry by reference. A `Call` is admitted when the caller registers (`CallRefused` wraps the reason), and `callers_of(lens)` lists who reuses it.
+
+In the test, XLOG's per-Y count is three Calls into one algebra lens: group-count twice, then checked i64 Mul. That binds two classes in total; no algebra item gets a classid. Route targets stay bare classids (XLOG: a per-route mask would break D5). Open, with the owners: whether tract-harvest-probe's per-op lab classids (`0x0F01…`) become entries under one lens (EXO-50 message 27); the `MethodSignature` vs `MethodRef` identity (dr-math owner); where the ONNX/XLOG algebra entries are registered.

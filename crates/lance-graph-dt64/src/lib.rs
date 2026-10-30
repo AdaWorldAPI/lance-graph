@@ -48,10 +48,12 @@
 //! # Classids
 //!
 //! A bound class is a `u32`, the key [`ActionDef::object_class`] and
-//! [`ClassMethods::classid`] already use (for a consumer: its composed
-//! `concept << 16 | app prefix`, D-DT64-6 §3). Its field basis is read from
-//! the [`ClassView`] under [`ClassSchema::view_class`], declared explicitly at
-//! registration; this crate never derives one id from the other's bits.
+//! [`ClassMethods::classid`] already use. A classid is a codebook lens: its
+//! field basis is the [`ClassView`] of its concept half ([`view_class`], the
+//! codebook's own `classid_concept` split), labels are resolved late through
+//! that view, and its entries are the [`MethodId`]s inside it. A codebook item
+//! never gets a classid of its own; another class reuses it by reference
+//! ([`EffectOp::Call`]).
 //!
 //! [`ActionDef::object_class`]: lance_graph_contract::action::ActionDef::object_class
 //! [`ClassMethods::classid`]: lance_graph_contract::codegen_manifest::ClassMethods::classid
@@ -61,6 +63,7 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
@@ -99,13 +102,26 @@ impl AlgebraRef {
     }
 }
 
-/// One DO step: which field position of the class it writes, and the
-/// polyfill that writes it. A method's effects are an ORDERED list.
+/// One DO step: which field position of the class it writes, and what writes
+/// it. A method's effects are an ORDERED list.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Effect {
     /// Field position in the class basis (the `WideFieldMask` bit).
     pub target: u8,
-    pub algebra: AlgebraRef,
+    pub op: EffectOp,
+}
+
+/// What carries out one effect.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EffectOp {
+    /// A polyfill named by reference; compared, never resolved or run here.
+    Algebra(AlgebraRef),
+    /// An entry of another class's codebook, reused by reference: the method
+    /// `(class, MethodId)` at its signature revision with its guard witness.
+    /// Admitted against the store when the calling class registers, so an
+    /// unknown or stale callee is refused then, never at run time. A class
+    /// cannot call itself: it is not bound yet while it registers.
+    Call(MethodRef),
 }
 
 /// WHEN: a guard over the population, stated as the set description Quack's
@@ -186,14 +202,20 @@ impl MethodBinding {
     }
 }
 
-/// A class's schema as bound: which [`ClassView`] class carries its field
-/// basis, the schema revision, and the field count the methods were bound
-/// against.
+/// A class's schema as bound: the schema revision and the field count the
+/// methods were bound against. The field basis itself is the [`ClassView`]
+/// class [`view_class`] of the classid, never declared here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClassSchema {
-    pub view_class: ClassId,
     pub schema_rev: SchemaRev,
     pub field_count: usize,
+}
+
+/// The [`ClassView`] class a classid is read through: its concept half, by
+/// the codebook's own split ([`classid_concept`]). The classid is the lens;
+/// this crate does no bit arithmetic of its own.
+pub fn view_class(class: u32) -> ClassId {
+    classid_concept(class)
 }
 
 /// The widest basis a [`WideFieldMask`] addresses (positions are `u8`).
@@ -275,6 +297,12 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
+    /// An [`EffectOp::Call`] was not admitted; `callee` says why.
+    CallRefused {
+        class: u32,
+        method: MethodId,
+        callee: Box<Refusal>,
+    },
     /// No classid was routed to the position at that version.
     Unrouted {
         position: u16,
@@ -366,6 +394,17 @@ impl BindStore {
         derived_from: Option<u32>,
     ) -> Result<(), Refusal> {
         validate(class, &schema, &methods)?;
+        for m in &methods {
+            for e in &m.effects {
+                if let EffectOp::Call(callee) = &e.op {
+                    self.admit(callee).map_err(|r| Refusal::CallRefused {
+                        class,
+                        method: m.id,
+                        callee: Box::new(r),
+                    })?;
+                }
+            }
+        }
         let entry = ClassEntry {
             schema,
             methods,
@@ -379,6 +418,24 @@ impl BindStore {
                 Ok(())
             }
         }
+    }
+
+    /// Every `(class, method)` whose DO calls an entry of `class`: who reuses
+    /// that lens.
+    pub fn callers_of(&self, class: u32) -> Vec<(u32, MethodId)> {
+        let mut out = Vec::new();
+        for (&caller, entry) in &self.classes {
+            for m in &entry.methods {
+                let calls = m
+                    .effects
+                    .iter()
+                    .any(|e| matches!(&e.op, EffectOp::Call(r) if r.class == class));
+                if calls {
+                    out.push((caller, m.id));
+                }
+            }
+        }
+        out
     }
 
     /// Number of bound classes.
@@ -449,7 +506,7 @@ impl BindStore {
                 asked: schema_rev,
             });
         }
-        let fields = view.fields(entry.schema.view_class);
+        let fields = view.fields(view_class(class));
         if fields.len() != entry.schema.field_count {
             return Err(Refusal::FieldBasisChanged {
                 class,
