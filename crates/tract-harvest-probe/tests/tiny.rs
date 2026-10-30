@@ -1258,3 +1258,105 @@ fn facts_of_another_model_refuse_to_bind() {
     let own = tract_fact_sources(&bytes("base"), &[]).unwrap();
     assert!(own.merged_for(&base).is_ok());
 }
+
+/// The bind-store lookup is by classid alone, so a classid may name one
+/// registration only.
+#[test]
+fn classids_are_unique() {
+    let reg = registry();
+    let mut seen = std::collections::BTreeMap::new();
+    for r in &reg.regs {
+        assert_eq!(seen.insert(r.classid, r.method), None, "{:#06x}", r.classid);
+    }
+    assert!(seen.len() > 1);
+}
+
+const BIND_VARIANTS: &[&str] = &[
+    "base",
+    "div3",
+    "erf",
+    "erf_sweep",
+    "gen2",
+    "i64_arith",
+    "i64_data",
+    "lstm_full",
+    "lstm_skip",
+    "matmul",
+    "rope",
+    "shape_fold",
+    "shape_i64",
+    "shape_sym",
+    "trig_sweep",
+];
+
+/// The ONNX registry splits into a route (position → classid, by signature,
+/// once) and a bind-store resolve (classid → registration) that gives back
+/// exactly what the one-step signature lookup gives, for every node of every
+/// fixture. An unregistered node has no route and resolves as `Route`.
+#[test]
+fn route_then_resolve_equals_signature_lookup() {
+    use tract_harvest_probe::bind::{resolve, route, Unresolved};
+    let reg = registry();
+    let (mut routed, mut unrouted) = (0, 0);
+    for v in BIND_VARIANTS {
+        let b = bytes(v);
+        let src = SourceInventory::from_bytes(&b).unwrap();
+        let facts =
+            tract_harvest_probe::fold::with_initializer_facts(&src, &tract_facts(&b, &[]).unwrap());
+        let routes = route(&src, &facts, &reg);
+        for (n, node) in src.nodes.iter().enumerate() {
+            let args: Vec<_> = node.inputs.iter().map(|i| facts.get(i)).collect();
+            match (reg.lookup(node, &args), resolve(&routes, &reg, n)) {
+                (Some(a), Ok(b)) => {
+                    assert!(std::ptr::eq(a, b), "{v} node {n}");
+                    routed += 1;
+                }
+                (None, Err(Unresolved::Route { node })) => {
+                    assert_eq!(node, n);
+                    unrouted += 1;
+                }
+                (a, b) => panic!(
+                    "{v} node {n}: lookup {:?} vs resolve {:?}",
+                    a.map(|r| r.method),
+                    b.map(|r| r.method)
+                ),
+            }
+        }
+    }
+    assert!(
+        routed > 50 && unrouted > 0,
+        "routed {routed}, unrouted {unrouted}"
+    );
+}
+
+/// A classid the bind store does not hold is its own failure, and a
+/// different registry (or any re-route) is a different route version.
+#[test]
+fn bind_store_names_the_failed_link_and_versions_routes() {
+    use tract_harvest_probe::bind::{resolve, route, Unresolved};
+    let reg = registry();
+    let b = bytes("rope");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let routes = route(&src, &facts, &reg);
+    let (&n, &cid) = routes.map.iter().next().unwrap();
+    let mut without = registry();
+    without.regs.retain(|r| r.classid != cid);
+    assert_eq!(
+        resolve(&routes, &without, n).map(|r| r.classid),
+        Err(Unresolved::Class {
+            node: n,
+            classid: cid
+        })
+    );
+    // Re-routing against the smaller registry drops that node's route and
+    // moves the version.
+    let rerouted = route(&src, &facts, &without);
+    assert!(!rerouted.map.contains_key(&n));
+    assert_ne!(rerouted.version, routes.version);
+    // Same routes, other registry version: another version too.
+    let mut bumped = registry();
+    bumped.version += 1;
+    assert_ne!(route(&src, &facts, &bumped).version, routes.version);
+    assert_eq!(route(&src, &facts, &reg), routes);
+}

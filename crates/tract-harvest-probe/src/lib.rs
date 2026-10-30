@@ -18,6 +18,7 @@
 //!
 //! Execution never calls Tract. No native crate depends on this crate.
 
+pub mod bind;
 pub mod dr3;
 pub mod fold;
 pub mod gather;

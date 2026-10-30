@@ -214,6 +214,25 @@ MatMul admits a rank-2 right operand (the left's leading dims flatten into rows)
 
 Disable runs (each red): Transpose `perm` ignored; Cos computed with sin; compare broadcast removed; And broadcast ignored; manifest digest check removed; MatMul weight-row flattening dropped. The last one stayed green until the weight case was given two batches (with one batch the flattening is a no-op). 70 tests green (23 lib, 35 tiny, 9 Jina; the Jina tests need the fetch scripts).
 
+### 0.6 ONNX as a consumer of the DR64 route / DT64 bind store (2026-10-30)
+
+D-DT64-6 §1 records DR64 as direct routing (position → bound target) and DT64 as the DTO bind store (classid → behaviour). The DT64 drafts on EXO-50 (-06 to -09) resolve `address → classid → method`. `Registry::lookup` does both halves in one step. `src/bind.rs` separates them without changing the registry:
+
+- `bind::route(src, facts, registry)` is the binder: the signature match runs once per node and only `node position → classid` is kept, sparse. `Routes::version` digests the registry version and every entry, so a re-route is a new version.
+- `bind::resolve(routes, registry, node)` is the bind-store side: the registration is found by classid alone (`Registry::by_classid`), and the failed link is named (`Unresolved::Route` for an unrouted position, which is UNKNOWN; `Unresolved::Class` for a classid the store does not hold).
+
+This works because every registration carries its own classid and none is registered twice (`classids_are_unique`).
+
+**Acceptance.**
+- `route_then_resolve_equals_signature_lookup`: for every node of 15 tiny fixtures, resolve returns the same registration (pointer-equal) as `lookup`; unregistered nodes resolve as `Route`.
+- `bind_store_names_the_failed_link_and_versions_routes`: a removed classid resolves as `Class`; re-routing against it drops the route and moves the version; a registry version bump moves the version.
+- `full_graph_facts_and_coverage` (Jina, [1,10], inv_freq inlined): **7,274 routed and resolved, 346 unrouted**, equal to the coverage census.
+- Disable runs (each red): classid match loosened; registry version dropped from the route digest.
+
+**Finding.** `OnnxGraph::build` refuses a graph over one 64-node tile (`TileOverflow`), and Jina has 7,620 nodes. The binder therefore reads per-value facts, not the one-tile graph; a node position is the source node index. Mapping that index onto DR64 tile coordinates (and multi-tile execution) is DR's, not Tract's.
+
+**Not done here:** the DT64 crate, the DR route table, `K3` re-homing, OGAR classids. When those exist, `route` writes DR's table and `resolve` becomes DT64's; the equality test is the migration gate (G1 in the -06 draft, with the census now 7,274 / 0 / 346).
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.
