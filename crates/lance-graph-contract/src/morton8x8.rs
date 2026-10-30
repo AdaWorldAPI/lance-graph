@@ -295,7 +295,11 @@ mod tests {
             for start in (0..=u16::MAX as u32).step_by(run as usize) {
                 let first = Morton8x8::from_code(start as u16);
                 let (x0, y0) = (u32::from(first.x()), u32::from(first.y()));
-                assert_eq!((x0 % side, y0 % side), (0, 0), "j={j} run {start}: corner not aligned");
+                assert_eq!(
+                    (x0 % side, y0 % side),
+                    (0, 0),
+                    "j={j} run {start}: corner not aligned"
+                );
                 let mut seen = vec![false; run as usize];
                 for c in start..start + run {
                     let m = Morton8x8::from_code(c as u16);
