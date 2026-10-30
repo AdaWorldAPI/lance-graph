@@ -1366,7 +1366,9 @@ fn bind_store_names_the_failed_link_and_versions_routes() {
 #[test]
 fn fields_label_shared_algebra_addresses() {
     let reg = registry();
-    assert_eq!(reg.regs.len(), 48);
+    // 59 hand-written fields plus the generated ones (plan §0.10).
+    assert_eq!(reg.regs.len(), 65);
+    assert_eq!(tract_harvest_probe::registry::hand_written().regs.len(), 59);
     assert!(reg.methods.len() < reg.regs.len(), "{}", reg.methods.len());
     for r in &reg.regs {
         assert!(usize::from(r.method) < reg.methods.len());
