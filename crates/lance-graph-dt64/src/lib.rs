@@ -109,6 +109,19 @@ pub struct Effect {
     /// Field position in the class basis (the `WideFieldMask` bit).
     pub target: u8,
     pub op: EffectOp,
+    /// What the step reads, in order. Order is load-bearing (a `Sub` or a
+    /// keyed count), so two steps with the same op and different arguments
+    /// are different steps.
+    pub args: Vec<Arg>,
+}
+
+/// One input of an effect.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Arg {
+    /// A field position of the calling class (checked against its basis).
+    Field(u8),
+    /// A constant parameter: a key column index, a lane.
+    Const(i64),
 }
 
 /// What carries out one effect.
@@ -180,6 +193,9 @@ pub struct MethodBinding {
     /// The source name (`MethodSig::name`, `ActionDef::predicate`). Carried,
     /// never used as identity.
     pub name: String,
+    /// How many arguments a [`EffectOp::Call`] of this method passes. Part of
+    /// the signature: a change is a new [`SigRev`].
+    pub inputs: u8,
     /// ON: the field positions whose change triggers the method.
     pub on: WideFieldMask,
     /// WHEN: `None` for an unguarded method.
@@ -297,6 +313,13 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
+    /// A call passes another number of arguments than the entry takes.
+    ArityMismatch {
+        class: u32,
+        method: MethodId,
+        expected: u8,
+        got: usize,
+    },
     /// An [`EffectOp::Call`] was not admitted; `callee` says why.
     CallRefused {
         class: u32,
@@ -397,11 +420,20 @@ impl BindStore {
         for m in &methods {
             for e in &m.effects {
                 if let EffectOp::Call(callee) = &e.op {
-                    self.admit(callee).map_err(|r| Refusal::CallRefused {
+                    let refused = |r| Refusal::CallRefused {
                         class,
                         method: m.id,
                         callee: Box::new(r),
-                    })?;
+                    };
+                    let entry = self.admit(callee).map_err(refused)?;
+                    if usize::from(entry.inputs) != e.args.len() {
+                        return Err(refused(Refusal::ArityMismatch {
+                            class: callee.class,
+                            method: callee.method,
+                            expected: entry.inputs,
+                            got: e.args.len(),
+                        }));
+                    }
                 }
             }
         }
@@ -592,7 +624,13 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
     for m in methods {
         let positions = mask_positions(&m.on)
             .chain(mask_positions(&m.reads))
-            .chain(m.effects.iter().map(|e| e.target));
+            .chain(m.effects.iter().map(|e| e.target))
+            .chain(m.effects.iter().flat_map(|e| {
+                e.args.iter().filter_map(|a| match a {
+                    Arg::Field(p) => Some(*p),
+                    Arg::Const(_) => None,
+                })
+            }));
         for position in positions {
             if !inside(position) {
                 return Err(Refusal::FieldOutOfBasis {

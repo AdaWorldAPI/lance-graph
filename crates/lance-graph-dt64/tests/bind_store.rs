@@ -6,7 +6,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, BindStore, ClassSchema, Effect, EffectOp, Guard, MethodBinding,
+    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, EffectOp, Guard, MethodBinding,
     MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 
@@ -60,6 +60,7 @@ fn effect(target: u8, algebra: &str) -> Effect {
     Effect {
         target,
         op: EffectOp::Algebra(AlgebraRef::new(algebra)),
+        args: vec![],
     }
 }
 
@@ -70,6 +71,7 @@ fn method(id: u32, effects: Vec<Effect>) -> MethodBinding {
         id: MethodId(id),
         sig_rev: SigRev(1),
         name: format!("m{id}"),
+        inputs: 0,
         on: WideFieldMask::from_positions(&[0]),
         when: Some(Guard::new(SetExpr::eq_u32(1, 1), Logic::Kleene)),
         reads: WideFieldMask::from_positions(&[0, 1]),
@@ -490,11 +492,12 @@ const XLOG: u32 = 0x7F01_0001;
 const GROUP_COUNT: MethodId = MethodId(1);
 const MUL_I64: MethodId = MethodId(2);
 
-fn leaf(id: MethodId, native: &str) -> MethodBinding {
+fn leaf(id: MethodId, native: &str, inputs: u8) -> MethodBinding {
     MethodBinding {
         id,
         sig_rev: SigRev(1),
         name: native.to_string(),
+        inputs,
         on: WideFieldMask::from_positions(&[]),
         when: None,
         reads: WideFieldMask::from_positions(&[]),
@@ -511,10 +514,12 @@ fn algebra_store() -> BindStore {
         ALG,
         schema(1, 1),
         vec![
-            leaf(GROUP_COUNT, "ndarray::simd::masked_group_count_u32"),
+            // (relation field, key column)
+            leaf(GROUP_COUNT, "ndarray::simd::masked_group_count_u32", 2),
             leaf(
                 MUL_I64,
                 "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
+                2,
             ),
         ],
     )
@@ -540,6 +545,7 @@ fn xlog_count(s: &BindStore) -> MethodBinding {
         id: MethodId(1),
         sig_rev: SigRev(1),
         name: "count q(Y)".to_string(),
+        inputs: 0,
         on: WideFieldMask::from_positions(&[0, 1]),
         when: None,
         reads: WideFieldMask::from_positions(&[0, 1]),
@@ -547,14 +553,19 @@ fn xlog_count(s: &BindStore) -> MethodBinding {
             Effect {
                 target: 2,
                 op: call(s, ALG, GROUP_COUNT),
+                // R keyed by its y column (1)
+                args: vec![Arg::Field(0), Arg::Const(1)],
             },
             Effect {
                 target: 3,
                 op: call(s, ALG, GROUP_COUNT),
+                // S keyed by its y column (0)
+                args: vec![Arg::Field(1), Arg::Const(0)],
             },
             Effect {
                 target: 4,
                 op: call(s, ALG, MUL_I64),
+                args: vec![Arg::Field(2), Arg::Field(3)],
             },
         ],
         population: Population::Bag,
@@ -586,7 +597,7 @@ fn a_consumer_reuses_algebra_entries_by_reference() {
 
     // The reused lens cannot change under its caller (D5).
     assert_eq!(
-        s.register(ALG, schema(1, 1), vec![leaf(GROUP_COUNT, "other")]),
+        s.register(ALG, schema(1, 1), vec![leaf(GROUP_COUNT, "other", 2)]),
         Err(Refusal::BehaviourImmutable(ALG))
     );
 }
@@ -601,6 +612,7 @@ fn a_call_to_an_unknown_or_stale_entry_is_refused_at_registration() {
             effects: vec![Effect {
                 target: 2,
                 op: EffectOp::Call(callee),
+                args: vec![Arg::Const(0), Arg::Const(0)],
             }],
             ..method(5, vec![])
         };
@@ -652,4 +664,48 @@ fn a_call_to_an_unknown_or_stale_entry_is_refused_at_registration() {
         })
     );
     assert_eq!(s.class_count(), 1, "no refused caller was bound");
+}
+
+/// The operands are part of the binding (XLOG's correction): counting R twice
+/// is a different binding from counting R and S, and a call with the wrong
+/// number of operands, or an operand outside the caller's basis, is refused at
+/// registration.
+#[test]
+fn call_operands_are_bound_and_checked() {
+    let s = algebra_store();
+    let count = xlog_count(&s);
+    let mut twice_r = count.clone();
+    twice_r.effects[1].args = vec![Arg::Field(0), Arg::Const(1)];
+    assert_ne!(count, twice_r, "operands tell the two counts apart");
+    let mut swapped = count.clone();
+    swapped.effects[2].args = vec![Arg::Field(3), Arg::Field(2)];
+    assert_ne!(count, swapped, "operand order is part of the step");
+
+    let mut s2 = algebra_store();
+    let mut short = count.clone();
+    short.effects[2].args = vec![Arg::Field(2)];
+    assert_eq!(
+        s2.register(XLOG, schema(1, 5), vec![short]),
+        Err(Refusal::CallRefused {
+            class: XLOG,
+            method: MethodId(1),
+            callee: Box::new(Refusal::ArityMismatch {
+                class: ALG,
+                method: MUL_I64,
+                expected: 2,
+                got: 1
+            })
+        })
+    );
+    let mut outside = count.clone();
+    outside.effects[2].args = vec![Arg::Field(2), Arg::Field(7)];
+    assert_eq!(
+        s2.register(XLOG, schema(1, 5), vec![outside]),
+        Err(Refusal::FieldOutOfBasis {
+            class: XLOG,
+            method: MethodId(1),
+            position: 7
+        })
+    );
+    assert_eq!(s2.register(XLOG, schema(1, 5), vec![count]), Ok(()));
 }
