@@ -713,32 +713,6 @@ impl TrustTexture {
     }
 }
 
-impl MulAssessment {
-    /// The `EpistemicState5` an edge derived by resonance may carry.
-    ///
-    /// Similarity meets no certification obligation (`Associated` needs at
-    /// least two observational sources; see [`crate::certification`]), so
-    /// the certification is always `Open`. Similarity never grounds a
-    /// relation directly, so the topology is never `Direct`: it is
-    /// `IndirectUnknown` (something links the two, the mechanism is open),
-    /// and `Unknown` when this assessment flags the confidence as
-    /// unreliable ([`is_unskilled_overconfident`](Self::is_unskilled_overconfident),
-    /// or `Uncertain` trust).
-    ///
-    /// Without this stamp an emitted edge keeps `raw5 = 0`, which reads as
-    /// `Direct × Open`: the strongest topology claim, made by default.
-    #[must_use]
-    pub fn resonance_epistemic_state(&self) -> EpistemicState5 {
-        let topology =
-            if self.is_unskilled_overconfident() || self.trust.texture == TrustTexture::Uncertain {
-                Topology2::Unknown
-            } else {
-                Topology2::IndirectUnknown
-            };
-        EpistemicState5::new(Epi5Gen::V1, topology, Certification3::Open)
-    }
-}
-
 /// Calibration of many edges at once: every edge's projected bits 59..63
 /// against the one certification the population's sealed model witnesses.
 ///
@@ -2564,30 +2538,6 @@ mod tests {
         assert_eq!(n, [6, 15, 0, 15]);
     }
 
-    #[test]
-    fn a_resonance_edge_never_claims_direct_or_any_certification() {
-        use crate::epistemic_state5::{Certification3, Topology2};
-        let mut seen = [0usize; 4];
-        for f in 0..=10 {
-            for d in 0..=10 {
-                for k in 0..=4 {
-                    let input = SituationInput {
-                        felt_competence: f as f64 / 10.0,
-                        demonstrated_competence: d as f64 / 10.0,
-                        source_reliability: k as f64 / 4.0,
-                        ..SituationInput::default()
-                    };
-                    let st = MulAssessment::compute(&input).resonance_epistemic_state();
-                    assert_eq!(st.certification(), Certification3::Open);
-                    assert_ne!(st.topology(), Topology2::Direct, "{input:?}");
-                    seen[st.topology().ordinal() as usize] += 1;
-                }
-            }
-        }
-        // both reachable states occur on the grid (anti-vacuity)
-        assert!(seen[2] > 0 && seen[3] > 0, "{seen:?}");
-    }
-
     fn st(t: crate::epistemic_state5::Topology2, c: Certification3) -> EpistemicState5 {
         EpistemicState5::new(Epi5Gen::V1, t, c)
     }
@@ -2654,27 +2604,6 @@ mod tests {
         // Plateau needs a Supports witness: calibrated on Associated is a slope
         let low = EpiTally::from_states([st(IndirectKnown, C::Associated)], Ok(C::Associated));
         assert_eq!(low.dk_position(), DkPosition::SlopeOfEnlightenment);
-    }
-
-    #[test]
-    fn mount_stupid_stamps_unknown_and_a_calibrated_reading_does_not() {
-        use crate::epistemic_state5::Topology2;
-        let over = MulAssessment::compute(&SituationInput {
-            felt_competence: 0.95,
-            demonstrated_competence: 0.10,
-            ..SituationInput::default()
-        });
-        assert!(over.is_unskilled_overconfident());
-        assert_eq!(
-            over.resonance_epistemic_state().topology(),
-            Topology2::Unknown
-        );
-        let calm = MulAssessment::compute(&SituationInput::default());
-        assert_eq!(calm.trust.texture, TrustTexture::Calibrated);
-        assert_eq!(
-            calm.resonance_epistemic_state().topology(),
-            Topology2::IndirectUnknown
-        );
     }
 
     #[test]

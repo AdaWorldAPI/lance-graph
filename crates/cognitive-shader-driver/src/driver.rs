@@ -38,7 +38,6 @@ use lance_graph_contract::cognitive_shader::{
     ShaderSink, ALPHA_COMPOSITE_DIMS,
 };
 use lance_graph_contract::collapse_gate::{GateDecision, MergeMode, ALPHA_SATURATION_THRESHOLD};
-use lance_graph_contract::epistemic_state5::Topology2;
 use lance_graph_contract::grammar::free_energy::{FreeEnergy, EPIPHANY_MARGIN};
 use lance_graph_contract::grammar::inference::NarsInference;
 use lance_graph_contract::grammar::thinking_styles::{
@@ -510,19 +509,6 @@ impl ShaderDriver {
             GateDecision::HOLD
         };
 
-        // Bits 59..63 of every emitted edge: what a resonance hit may claim.
-        // Never Direct, never certified beyond Open; Unknown when MUL flags
-        // the confidence or trust falls below the context profile's floor.
-        // Without this the field stays 0, which reads as Direct × Open.
-        let epistemic = {
-            let st = mul.resonance_epistemic_state();
-            if trust_below_floor {
-                st.with_topology(Topology2::Unknown)
-            } else {
-                st
-            }
-        };
-
         // [5] Emit one CausalEdge64 per strong hit (up to 8).
         let mut emitted = [0u64; 8];
         let mut emitted_n = 0u8;
@@ -545,8 +531,7 @@ impl ShaderDriver {
                 style_ord_to_inference(style_ord),
                 PlasticityState::from_bits(0),
                 (h.cycle_index & 0xFFF) as u16,
-            )
-            .with_epistemic_raw5(epistemic.raw());
+            );
             emitted[emitted_n as usize] = edge.0;
             emitted_n += 1;
         }
