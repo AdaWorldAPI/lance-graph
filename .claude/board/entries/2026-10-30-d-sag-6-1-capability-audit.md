@@ -50,10 +50,46 @@ So Kythe works as the human view only if our producer writes Kythe entries. Its 
 
 ruff `main` `f2cb523` has frontends `cpp`, `csharp`, `metta`, `python`, `ruby` and `sqlalchemy` (`*_spo`), plus `ruff_r2il`. It has no Rust frontend.
 
+## 5. Charon on one crate, out-of-process — MEASURED
+
+Charon `61123872` (2026-10-30, `charon_version` 0.1.304) was built from source in the scratchpad. It needs `nightly-2026-09-17` with `rustc-dev`, `llvm-tools` and `rust-src` (≈1.5 GB, installed with `--profile minimal`). The `charon` and `charon-driver` binaries are built with `--no-default-features --features rustc`, which drops the optional minirust export and its git submodule. Build time 1 min 45 s.
+
+Run on `crates/lance-graph-mask-risc` in place, with target and output outside the repository. `git status` was clean afterwards.
+
+```
+RUSTUP_TOOLCHAIN=nightly-2026-09-17 CARGO_TARGET_DIR=<scratch> charon cargo --dest <scratch>/out
+```
+
+| Quantity | Value |
+|---|---|
+| wall time | 13.5 s (including compiling the ndarray dependency) |
+| peak `charon-driver` RSS | 976 MB |
+| errors | 0; `has_errors: false` |
+| output | one LLBC JSON file, 72.5 MB |
+| local function declarations | 459, every one with a `Structured` body (none opaque or failed) |
+| external function declarations | 416: 410 `Opaque` (Charon's default for dependencies), 5 `Intrinsic`, 1 `Structured` |
+| other declarations | 201 types, 781 globals, 50 traits, 539 trait impls, 99 files |
+
+Each function carries:
+- its path;
+- a span plus the verbatim `source_text`;
+- doc comments;
+- the generic signature;
+- a structured body with locals.
+
+The 459 is Charon's own count: it lists closures, trait-impl methods and generated items separately. A text count finds 197 `fn` lines in `src/`, and the two numbers are not comparable one-to-one.
+
+**Stable reader: does not hold today.** Charon's manifest says `--no-default-features` compiles `charon-lib` on a stable toolchain. At this commit, `cargo check --no-default-features --lib` on 1.99.0 fails: `src/utils.rs` uses the unstable library feature `drop_guard` (3× E0658). A stable consumer (ruff on 1.99) cannot link `charon-lib` now. It would have to read the LLBC JSON with its own types, or wait until `drop_guard` stabilises or Charon drops it.
+
+Not measured:
+- MIR-level coverage on crates with heavy unsafe, inline asm or proc macros;
+- the cost of translating dependencies (`--extract-opaque-bodies`);
+- the miri full-MIR sysroot. `cargo-miri` was not installed, so Charon fell back to rustc's default sysroot, with a warning.
+
 ## Consequence for the D-SAG-6 design
 
 - The stable route for the Rust reading is `ra_ap`. It gives the symbol graph (definitions, references and spans) and MIR for 98% of bodies, in about 1.5 minutes and 6 GB for this workspace.
-- Charon is out under the stable rule.
+- Charon cannot be a dependency under the stable rule. Out-of-process it works: it translated every local body of `lance-graph-mask-risc` in 13.5 s. Its output must be read with our own types until `charon-lib` builds on stable.
 - Kythe and SCIP are export targets for the human view, generated from the same rows.
 
 Open:
