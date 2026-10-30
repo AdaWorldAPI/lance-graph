@@ -182,6 +182,10 @@ Consequences:
     the frame, using the presence bit to tell absent from zero.
   - This is gate G5's alignment rule applied to width: a frame keeps its fixed width and positions,
     whatever is present.
+  - **This is why coordinates freeze so easily.** Width is fixed and underflow never compacts, so no
+    write, no absence and no sparse merge ever moves a position. Freezing the coordinates is therefore
+    just sealing the map under a version (DR's amortized global → local map). There is nothing to
+    renumber, and replay "as of v" reads the same positions.
 - The rods (§3) are a property of a selected field, not a fourth address axis. This narrows Q1 to: does
   the rod width belong to the selected field's DT law?
 - A cross-product reference is two ranges and need not be materialized. Whether it is, and how much, is
