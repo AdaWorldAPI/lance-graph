@@ -291,3 +291,49 @@ The physical lane kind (u32 code vs i32, which picks XLOG's comparator) is the S
 - `MethodBinding::footprint()` is ON ∪ reads ∪ writes, and `Resolved::methods_touching(mask)` lists the methods a meaning mask reaches. A risk or RBAC mask thereby applies to behaviour, not only to fields.
 
 Open, for the frame owner (D8): registering a class or declaring an algebra entry moves no revision a frame can check; only routes are versioned. Classes and entries are immutable and append-only, so nothing a frame read can change. Whether a frame should still record the store's catalogue extent (for example a count of bindings) is undecided.
+
+**A.5 addendum 7 (2026-10-30, after #1869 and #1870 merged).** #1870 settles addendum 1's open question on tract-harvest-probe's per-op classids: there is one ONNX lens classid (`ONNX_LENS`), and each op signature is a field under it labelling a classid-free algebra address. That is the shape this crate implements: the lens is a registered class, its fields come from its `ClassView`, and each method's effects reference `AlgebraEntry`s by `AlgebraRef`. Addendum 1's `EffectOp::Call` text is superseded by addendum 3. Still open: whether tract's `MethodKey { lens, ordinal }` and this crate's `MethodRef { class, method }` are one identity (EXO-50); the frame extent question above.
+
+**A.5 addendum 8 (2026-10-30, operator: "ever heard of polyfill?").** The question "who declares the catalogue entries and assigns their ids" had an answer all along: the polyfill. In `ndarray::simd` a consumer names a facade word and nothing else. Nobody declares the word to the consumer and nobody assigns it a number, and which backend realizes it is decided per build. So:
+- `AlgebraId` is removed. `AlgebraRef` is the word's facade path; there is no second, numeric spelling.
+- The per-entry `SigRev` and `AlgebraRevisionMismatch` are removed. A changed realization keeps the word, and a different operation is a different word.
+- `AlgebraEntry { word, inputs }` only mirrors the word's arity so `ArityMismatch` can be checked. The polyfill decides what the word is; the store mirrors it, and a word mirrored with two arities is refused (`AlgebraImmutable`).
+
+Which polyfill (operator: "check lance-graph-relalg and lance-graph-mask-risc, that's the polyfill"): `lance-graph-relalg` describes a selection and lowers it, `lance-graph-mask-risc`'s op vocabulary (`Pred`, `MaskOp`, `Terminal`) is the one polyfill above `ndarray::simd` that every fold lowers to, and `ndarray::simd` computes. So a keyed count names mask-risc's `Terminal::GroupReduce { key: GroupKey::Lane, fold: GroupFold::Count }`, not the `ndarray::simd` word it delegates to. mask-risc has no elementwise i64 arithmetic, so XLOG's multiply names an `ndarray::simd` word. That word was reachable only as `ndarray::hpc::checked_i64::checked_binary_i64`; a consumer never names `hpc`, so ndarray #407 re-exports it through `ndarray::simd`. Disable runs (on commit `d140ab4c8`): removing the `AlgebraImmutable` arm or the `UnknownAlgebra` check each leaves exactly one test red (18 passed, 1 failed).
+
+**A.5 addendum 9 (2026-10-30, operator: "your DTO mapping is one classid one meaning surface, same as ClassView WideFieldMask; did you use the pattern").** No: addendum 8 kept the polyfill as a string-keyed catalogue beside `ClassView`, a second meaning surface. Now the polyfill vocabulary is one lens classid, read the way every class is read:
+- Its words are the fields of that lens, and their labels (the mask-risc op or `ndarray::simd` word) come from its `ClassView`.
+- A word is a field position, `AlgebraRef { lens, word }`, and a set of words is a `WideFieldMask`.
+- `declare_algebra(lens, schema_rev, arity)` binds the lens with one operand count per word. It is immutable like a class (`AlgebraImmutable`).
+- `resolve_algebra` reads the lens through its `ClassView`, with the same schema-revision and field-basis checks as `resolve` (one shared `check_basis`). `field_view` gives each word's position and label.
+- `words_used(class, lens)` gives a consumer's words as a mask over the lens.
+
+No word gets a classid. This is the ONNX shape of #1870, applied to the polyfill. Disable runs on `9d2fba457`, each turning tests red:
+
+| guard removed | failing tests |
+|---|---|
+| the `words_used` lens filter | 1 |
+| the `AlgebraImmutable` arm | 1 |
+| the arity position | 5 |
+| the shared basis check | 4 |
+
+Which classid the polyfill lens carries in production is OGAR's mint (D6), not this crate's; the test uses a lab value.
+
+**A.5 addendum 10 (2026-10-30, operator: "make sure that consumers like ONNX are not limited to 64 but instead can choose the other modes like DR256² × 64").** A.1 already gives the binding this job: it names DR64 or DR256 and states its cost in those units. Until now the store only capped a class at 256 fields. `ClassSchema` now carries an `Extent` the consumer chooses:
+- The extent is Identity × Property × Predicate, each axis `Width::W64` or `Width::W256`. `Extent::DR64_CUBE` and `Extent::DR256_SQ_X64` are named, and any other combination is allowed.
+- Registration refuses fields past the property axis (`FieldsExceedExtent`) and methods past the predicate axis (`MethodsExceedExtent`).
+- The extent is part of the immutable binding (D5).
+- `dense_bytes` states what a dense Boolean volume of the extent would cost if anyone materialized one: DR64³ is 32 KiB and DR256² × 64 is 512 KiB. It is a cost statement and allocates nothing (§7).
+- The polyfill lens declares its extent too.
+
+The test registers an ONNX graph with 200 values: DR64³ refuses it, naming the axis, and DR256² × 64 binds it. A graph with 70 nodes needs a 256-wide predicate axis.
+
+Disable runs on the extent commit:
+
+| guard removed | failing tests |
+|---|---|
+| the property-axis check | 1 |
+| the predicate-axis check | 1 |
+| W256 read as 64 | 2 |
+
+Still capped at 64: `tract-harvest-probe`'s `dr3::TILE = 64`, a single DR64 tile built from `relcomp::Rows = [u64; 64]`. That is the tract session's lab crate. Its full model (4,146 of 7,620 nodes WHEN-true) already reports ">64 positions untiled". Lifting it is that session's change; the binding side no longer forces 64.

@@ -6,8 +6,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraEntry, AlgebraId, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard,
-    MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
+    MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand, Width,
 };
 
 /// A ClassView with one class of `n` fields; `n` can be changed to model a
@@ -23,6 +23,16 @@ impl View {
             class,
             fields: (0..n)
                 .map(|i| FieldRef::new(format!("urn:f{i}"), format!("f{i}")))
+                .collect(),
+        }
+    }
+
+    fn with_labels(class: ClassId, labels: &[&str]) -> View {
+        View {
+            class,
+            fields: labels
+                .iter()
+                .map(|l| FieldRef::new(format!("urn:{l}"), (*l).to_string()))
                 .collect(),
         }
     }
@@ -49,63 +59,58 @@ const ORDER_V2: u32 = 0x0A1E_0002;
 /// The lens ORDER is read through: its concept half (`view_class`).
 const VIEW_CLASS: ClassId = 0x0A1E;
 
+/// A schema in the DR64³ extent.
 fn schema(rev: u32, fields: usize) -> ClassSchema {
+    schema_in(rev, fields, Extent::DR64_CUBE)
+}
+
+fn schema_in(rev: u32, fields: usize, extent: Extent) -> ClassSchema {
     ClassSchema {
         schema_rev: SchemaRev(rev),
         field_count: fields,
+        extent,
     }
 }
 
-/// The classid-free algebra catalogue the tests bind against (lab ids).
-const ASSIGN: AlgebraId = AlgebraId(1);
-const ACCUMULATE: AlgebraId = AlgebraId(2);
-const GROUP_COUNT: AlgebraId = AlgebraId(10);
-const MUL_I64: AlgebraId = AlgebraId(11);
+/// The polyfill vocabulary is one lens classid (lab), its words the fields
+/// of that lens. No word has a classid of its own.
+const POLYFILL: u32 = 0x7F0A_0001;
+/// The words' labels, by position: what the polyfill lens's ClassView holds.
+/// relalg describes, mask-risc folds, `ndarray::simd` computes; the two
+/// `lab::` words stand in for any nullary step in the ordering tests.
+const WORDS: [&str; 4] = [
+    "lab::assign",
+    "lab::accumulate",
+    // mask-risc's keyed count, COUNT(*) GROUP BY key: (relation, key column)
+    "lance_graph_mask_risc::Terminal::GroupReduce(GroupKey::Lane, GroupFold::Count)",
+    // ndarray #407: checked i64 multiply on the ndarray::simd facade
+    "ndarray::simd::checked_binary_i64(I64Op::Mul)",
+];
+const ARITY: [u8; 4] = [0, 0, 2, 2];
 
-fn entry(id: AlgebraId, polyfill: &str, inputs: u8) -> AlgebraEntry {
-    AlgebraEntry {
-        id,
-        sig_rev: SigRev(1),
-        polyfill: polyfill.to_string(),
-        inputs,
+const fn word(word: u8) -> AlgebraRef {
+    AlgebraRef {
+        lens: POLYFILL,
+        word,
     }
 }
+const ASSIGN: AlgebraRef = word(0);
+const ACCUMULATE: AlgebraRef = word(1);
+const GROUP_COUNT: AlgebraRef = word(2);
+const MUL_I64: AlgebraRef = word(3);
 
-/// A store holding only the algebra catalogue: no classid anywhere.
+/// A store holding only the polyfill lens: one classid, no consumer.
 fn catalogue() -> BindStore {
     let mut s = BindStore::new();
-    for e in [
-        entry(ASSIGN, "assign", 0),
-        entry(ACCUMULATE, "accumulate", 0),
-        // (relation field, key column)
-        entry(GROUP_COUNT, "ndarray::simd::masked_group_count_u32", 2),
-        entry(
-            MUL_I64,
-            "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
-            2,
-        ),
-    ] {
-        s.declare_algebra(e).unwrap();
-    }
+    s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, ARITY.to_vec())
+        .unwrap();
     s
 }
 
-fn uses(id: AlgebraId) -> AlgebraRef {
-    AlgebraRef {
-        id,
-        sig_rev: SigRev(1),
-    }
-}
-
-fn effect(target: u8, algebra: &str) -> Effect {
-    let id = match algebra {
-        "assign" => ASSIGN,
-        "accumulate" => ACCUMULATE,
-        other => panic!("no lab entry {other}"),
-    };
+fn effect(target: u8, algebra: AlgebraRef) -> Effect {
     Effect {
         target,
-        algebra: uses(id),
+        algebra,
         args: vec![],
     }
 }
@@ -132,10 +137,7 @@ fn store_with_order() -> BindStore {
     s.register(
         ORDER,
         schema(1, 4),
-        vec![method(
-            10,
-            vec![effect(2, "assign"), effect(3, "accumulate")],
-        )],
+        vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])],
     )
     .unwrap();
     s
@@ -173,16 +175,10 @@ fn an_unregistered_class_is_unknown_not_empty() {
 #[test]
 fn class_behaviour_is_immutable() {
     let mut s = store_with_order();
-    let same = vec![method(
-        10,
-        vec![effect(2, "assign"), effect(3, "accumulate")],
-    )];
+    let same = vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])];
     assert_eq!(s.register(ORDER, schema(1, 4), same), Ok(()));
 
-    let reordered = vec![method(
-        10,
-        vec![effect(3, "accumulate"), effect(2, "assign")],
-    )];
+    let reordered = vec![method(10, vec![effect(3, ACCUMULATE), effect(2, ASSIGN)])];
     assert_eq!(
         s.register(ORDER, schema(1, 4), reordered),
         Err(Refusal::BehaviourImmutable(ORDER))
@@ -206,10 +202,7 @@ fn override_is_a_derived_class_and_a_reroute_and_replay_reads_the_old_route() {
         ORDER,
         ORDER_V2,
         schema(1, 4),
-        vec![method(
-            11,
-            vec![effect(3, "accumulate"), effect(2, "assign")],
-        )],
+        vec![method(11, vec![effect(3, ACCUMULATE), effect(2, ASSIGN)])],
     )
     .unwrap();
     let v2 = s.route(7, ORDER_V2).unwrap();
@@ -278,8 +271,8 @@ fn routes_and_derivations_need_bound_classes() {
 #[test]
 fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard_refuses() {
     let mut s = catalogue();
-    let a = method(20, vec![effect(2, "assign"), effect(2, "accumulate")]);
-    let b = method(21, vec![effect(2, "accumulate"), effect(2, "assign")]);
+    let a = method(20, vec![effect(2, ASSIGN), effect(2, ACCUMULATE)]);
+    let b = method(21, vec![effect(2, ACCUMULATE), effect(2, ASSIGN)]);
     // The negative mold: equal unordered read and write sets.
     assert_eq!(a.reads, b.reads);
     assert_eq!(a.writes(), b.writes());
@@ -300,8 +293,8 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
     // Each faithful reference admits its own binding with its own order.
     let ra = MethodRef::of(ORDER, &a);
     let rb = MethodRef::of(ORDER, &b);
-    assert_eq!(s.admit(&ra).unwrap().effects[0].algebra.id, ASSIGN);
-    assert_eq!(s.admit(&rb).unwrap().effects[0].algebra.id, ACCUMULATE);
+    assert_eq!(s.admit(&ra).unwrap().effects[0].algebra, ASSIGN);
+    assert_eq!(s.admit(&rb).unwrap().effects[0].algebra, ACCUMULATE);
 
     // A route that dropped the guard witness refuses.
     let dropped = MethodRef {
@@ -349,7 +342,7 @@ fn a_guard_added_to_an_unguarded_method_refuses() {
     let mut s = catalogue();
     let free = MethodBinding {
         when: None,
-        ..method(30, vec![effect(2, "assign")])
+        ..method(30, vec![effect(2, ASSIGN)])
     };
     s.register(ORDER, schema(1, 4), vec![free.clone()]).unwrap();
     assert!(s.admit(&MethodRef::of(ORDER, &free)).is_ok());
@@ -426,7 +419,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         s.register(
             ORDER,
             schema(1, 4),
-            vec![method(1, vec![]), method(1, vec![effect(2, "assign")])]
+            vec![method(1, vec![]), method(1, vec![effect(2, ASSIGN)])]
         ),
         Err(Refusal::DuplicateMethodId {
             class: ORDER,
@@ -437,7 +430,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         s.register(
             ORDER,
             schema(1, 4),
-            vec![method(1, vec![effect(4, "assign")])]
+            vec![method(1, vec![effect(4, ASSIGN)])]
         ),
         Err(Refusal::FieldOutOfBasis {
             class: ORDER,
@@ -470,8 +463,8 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
     assert_eq!(
         s.register(
             ORDER,
-            schema(1, 256),
-            vec![method(1, vec![effect(255, "assign")])]
+            schema_in(1, 256, Extent::DR256_SQ_X64),
+            vec![method(1, vec![effect(255, ASSIGN)])]
         ),
         Ok(())
     );
@@ -543,18 +536,18 @@ fn xlog_count() -> MethodBinding {
             // R keyed by its y column (1)
             Effect {
                 target: 2,
-                algebra: uses(GROUP_COUNT),
+                algebra: GROUP_COUNT,
                 args: vec![Arg::Field(0), Arg::Const(1)],
             },
             // S keyed by its y column (0)
             Effect {
                 target: 3,
-                algebra: uses(GROUP_COUNT),
+                algebra: GROUP_COUNT,
                 args: vec![Arg::Field(1), Arg::Const(0)],
             },
             Effect {
                 target: 4,
-                algebra: uses(MUL_I64),
+                algebra: MUL_I64,
                 args: vec![Arg::Field(2), Arg::Field(3)],
             },
         ],
@@ -570,7 +563,7 @@ fn onnx_mul() -> MethodBinding {
         name: "Mul(int64)".to_string(),
         effects: vec![Effect {
             target: 2,
-            algebra: uses(MUL_I64),
+            algebra: MUL_I64,
             args: vec![Arg::Field(0), Arg::Field(1)],
         }],
         population: Population::Distinct,
@@ -584,17 +577,39 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
     s.register(ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
 
-    // One algebra entry, reused by both classids; nothing minted for it.
+    // One word, reused by both classids by position; nothing minted for it.
     assert_eq!(
         s.users_of(MUL_I64),
         vec![(XLOG, MethodId(1)), (ONNX, MethodId(1))]
     );
     assert_eq!(s.users_of(GROUP_COUNT), vec![(XLOG, MethodId(1))]);
     assert!(s.users_of(ASSIGN).is_empty());
-    assert_eq!(s.class_count(), 2, "only the consumers carry classids");
     assert_eq!(
-        s.algebra(MUL_I64).unwrap().polyfill,
-        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)"
+        s.class_count(),
+        2,
+        "the consumers; the polyfill is one lens"
+    );
+    assert_eq!(s.arity(MUL_I64), Some(2));
+    // Which words each consumer uses, as a mask over the polyfill lens.
+    assert_eq!(
+        s.words_used(XLOG, POLYFILL),
+        Ok(WideFieldMask::from_positions(&[2, 3]))
+    );
+    assert_eq!(
+        s.words_used(ONNX, POLYFILL),
+        Ok(WideFieldMask::from_positions(&[3]))
+    );
+    // Another lens's mask is empty: the mask is over one lens only.
+    s.declare_algebra(
+        0x7F0B_0001,
+        SchemaRev(1),
+        Extent::DR64_CUBE,
+        vec![2, 2, 2, 2],
+    )
+    .unwrap();
+    assert_eq!(
+        s.words_used(XLOG, 0x7F0B_0001),
+        Ok(WideFieldMask::from_positions(&[]))
     );
 
     // The classid switches the labels: each reads its own lens.
@@ -608,19 +623,38 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     );
 }
 
-/// An algebra entry is immutable once declared (D5 applied to D6).
+/// The polyfill lens is read like any class: one classid, one ClassView, the
+/// words as fields, a set of words as a WideFieldMask. Its binding is
+/// immutable like a class's.
 #[test]
-fn an_algebra_entry_is_immutable() {
+fn the_polyfill_is_one_lens_read_through_its_classview() {
     let mut s = catalogue();
-    let same = entry(
-        MUL_I64,
-        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
-        2,
-    );
-    assert_eq!(s.declare_algebra(same), Ok(()));
+    let view = View::with_labels(view_class(POLYFILL), &WORDS);
+    let lens = s.resolve_algebra(&view, POLYFILL, SchemaRev(1)).unwrap();
+    let rows: Vec<(u8, &str)> = lens
+        .field_view(&WideFieldMask::from_positions(&[2, 3]))
+        .map(|r| (r.position, r.label))
+        .collect();
+    assert_eq!(rows, vec![(2, WORDS[2]), (3, WORDS[3])]);
+    assert_eq!(lens.methods.len(), 0, "its words are fields, not methods");
+    // A ClassView whose basis moved under the lens is refused, as for a class.
+    let moved = View::with_labels(view_class(POLYFILL), &[WORDS[0]]);
     assert_eq!(
-        s.declare_algebra(entry(MUL_I64, "wrapping_mul", 2)),
-        Err(Refusal::AlgebraImmutable(MUL_I64))
+        s.resolve_algebra(&moved, POLYFILL, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::FieldBasisChanged {
+            class: POLYFILL,
+            bound: 4,
+            view: 1
+        }
+    );
+    assert_eq!(
+        s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, ARITY.to_vec()),
+        Ok(())
+    );
+    assert_eq!(
+        s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, vec![0, 0, 2, 3]),
+        Err(Refusal::AlgebraImmutable(POLYFILL))
     );
 }
 
@@ -661,21 +695,11 @@ fn effect_operands_and_entries_are_checked() {
         }
     );
     assert_eq!(
-        refused(&mut s, &|e| e.algebra = uses(AlgebraId(99))),
+        refused(&mut s, &|e| e.algebra = word(4)),
         Refusal::UnknownAlgebra {
             class: XLOG,
             method: MethodId(1),
-            algebra: AlgebraId(99)
-        }
-    );
-    assert_eq!(
-        refused(&mut s, &|e| e.algebra.sig_rev = SigRev(0)),
-        Refusal::AlgebraRevisionMismatch {
-            class: XLOG,
-            method: MethodId(1),
-            algebra: MUL_I64,
-            bound: SigRev(1),
-            asked: SigRev(0)
+            algebra: word(4)
         }
     );
     assert_eq!(s.class_count(), 0, "no refused class was bound");
@@ -808,3 +832,61 @@ fn a_risk_mask_reaches_the_methods_that_touch_it() {
         0
     );
 }
+
+/// A consumer chooses its extent; nothing caps it at 64. An ONNX graph with
+/// 200 values and 70 nodes does not fit DR64³ and is refused there with the
+/// axis named; DR256² × 64 holds the 200 values, and a 256-wide predicate
+/// axis holds the 70 methods. The cost is stated, not allocated.
+#[test]
+fn a_consumer_chooses_its_extent_and_is_not_capped_at_64() {
+    assert_eq!(Extent::DR64_CUBE.dense_bytes(), 32 * 1024);
+    assert_eq!(Extent::DR256_SQ_X64.dense_bytes(), 512 * 1024);
+
+    let node = |id: u32| MethodBinding {
+        id: MethodId(id),
+        when: None,
+        on: WideFieldMask::from_positions(&[]),
+        reads: WideFieldMask::from_positions(&[]),
+        ..method(id, vec![])
+    };
+    let mut s = catalogue();
+    assert_eq!(
+        s.register(ONNX, schema(1, 200), vec![node(1)]),
+        Err(Refusal::FieldsExceedExtent {
+            class: ONNX,
+            field_count: 200,
+            property: Width::W64
+        })
+    );
+    assert_eq!(
+        s.register(ONNX, schema_in(1, 200, Extent::DR256_SQ_X64), vec![node(1)]),
+        Ok(()),
+        "200 values fit the 256-wide property axis"
+    );
+
+    let nodes: Vec<MethodBinding> = (1..=70).map(node).collect();
+    assert_eq!(
+        s.register(
+            ONNX_BIG,
+            schema_in(1, 200, Extent::DR256_SQ_X64),
+            nodes.clone()
+        ),
+        Err(Refusal::MethodsExceedExtent {
+            class: ONNX_BIG,
+            methods: 70,
+            predicate: Width::W64
+        })
+    );
+    let wide = Extent {
+        predicate: Width::W256,
+        ..Extent::DR256_SQ_X64
+    };
+    assert_eq!(s.register(ONNX_BIG, schema_in(1, 200, wide), nodes), Ok(()));
+    // The extent is part of the binding, so it cannot be changed later.
+    assert_eq!(
+        s.register(ONNX, schema_in(1, 200, wide), vec![node(1)]),
+        Err(Refusal::BehaviourImmutable(ONNX))
+    );
+}
+
+const ONNX_BIG: u32 = 0x7F03_0002;
