@@ -26,6 +26,10 @@
 //!     Filter(Scan S, col1 == z)?))
 //! ```
 //!
+//! together with the same join with its sides swapped (XLOG's optimizer
+//! orders joins from statistics) and the optimizer's `ChainJoin` promotion,
+//! which is admitted only when it agrees with its own `fallback` plan.
+//!
 //! i.e. `q(Y) :- r(x?, Y), s(Y, z?)`: one-step, α-acyclic, set semantics.
 //! For that body the intersection of the forward and backward candidate
 //! masks IS the answer (it is the semijoin reduction of a two-atom chain).
@@ -138,14 +142,6 @@ pub fn admit(body: &RirNode) -> Result<ChainQuery, LowerRefusal> {
     let RirNode::Project { input, columns } = body else {
         return Err(LowerRefusal::UnsupportedNode(node_name(body)));
     };
-    // Join output columns are left ++ right: r(X,Y) s(Y,Z) -> [X,Y,Y,Z].
-    // The answer is Y, i.e. output column 1 (or 2, its equal twin).
-    if !matches!(
-        columns.as_slice(),
-        [ProjectExpr::Column(1)] | [ProjectExpr::Column(2)]
-    ) {
-        return Err(LowerRefusal::UnsupportedProjection);
-    }
     let RirNode::Join {
         left,
         right,
@@ -159,14 +155,30 @@ pub fn admit(body: &RirNode) -> Result<ChainQuery, LowerRefusal> {
     if *join_type != JoinType::Inner {
         return Err(LowerRefusal::UnsupportedJoin(*join_type));
     }
-    if left_keys.as_slice() != [1] || right_keys.as_slice() != [0] {
-        return Err(LowerRefusal::NeedsInverse {
-            left_keys: left_keys.clone(),
-            right_keys: right_keys.clone(),
-        });
+    // Join output columns are left ++ right. XLOG's cost-based optimizer
+    // picks the join order from statistics, so both orders of the same chain
+    // occur for the same rule:
+    //   r(X,Y) ⋈ s(Y,Z): keys [1]/[0], columns [X,Y,Y,Z], Y at 1 or 2;
+    //   s(Y,Z) ⋈ r(X,Y): keys [0]/[1], columns [Y,Z,X,Y], Y at 0 or 3.
+    let column = match columns.as_slice() {
+        [ProjectExpr::Column(c)] => *c,
+        _ => return Err(LowerRefusal::UnsupportedProjection),
+    };
+    let (r_side, s_side, y_cols) = match (left_keys.as_slice(), right_keys.as_slice()) {
+        ([1], [0]) => (left, right, [1, 2]),
+        ([0], [1]) => (right, left, [0, 3]),
+        _ => {
+            return Err(LowerRefusal::NeedsInverse {
+                left_keys: left_keys.clone(),
+                right_keys: right_keys.clone(),
+            });
+        }
+    };
+    if !y_cols.contains(&column) {
+        return Err(LowerRefusal::UnsupportedProjection);
     }
-    let (left, left_bound) = scan_with_bound(left, 0)?;
-    let (right, right_bound) = scan_with_bound(right, 1)?;
+    let (left, left_bound) = scan_with_bound(r_side, 0)?;
+    let (right, right_bound) = scan_with_bound(s_side, 1)?;
     Ok(ChainQuery {
         left,
         left_bound,

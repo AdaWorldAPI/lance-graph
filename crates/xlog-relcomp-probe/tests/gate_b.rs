@@ -370,6 +370,39 @@ fn differential_against_scalar_enumeration() {
     }
 }
 
+/// XLOG orders joins from statistics: with a large, unselective S it plans
+/// `s ⋈ r` instead of `r ⋈ s` for the SAME rule. Admission must accept both
+/// orders and land on the same query; the answer must not depend on it.
+#[test]
+fn join_order_chosen_by_xlog_statistics_does_not_change_the_answer() {
+    let mut src = String::from("pred r(u32, u32).\npred s(u32, u32).\npred q(u32).\n");
+    for b in 0..64 {
+        src += &format!("r(1, {b}).\n");
+    }
+    for a in 0..64 {
+        for c in (0..64).filter(|&c| c != 4) {
+            src += &format!("s({a}, {c}).\n");
+        }
+    }
+    src += "s(5, 4).\nq(Y) :- r(1, Y), s(Y, 4).\n?- q(Y).\n";
+    let c = compile(&src);
+    let RirNode::Project { input, .. } = rule(&c, "q") else {
+        panic!("expected Project")
+    };
+    let RirNode::Join { left_keys, .. } = input.as_ref() else {
+        panic!("expected Join")
+    };
+    assert_eq!(left_keys, &vec![0], "XLOG picked s ⋈ r for this data");
+
+    let p = prepare(&c).expect("the swapped order lowers");
+    assert_eq!(name_of(&c, p.q.left), "r");
+    assert_eq!(name_of(&c, p.q.right), "s");
+    let (got, _) = answer(&p).unwrap();
+    assert_eq!(got, BTreeSet::from([5]));
+    assert_eq!(got, scalar(&p.r, &p.s, Some(1), Some(4)));
+    assert_eq!(got, xlog_oracle(&c));
+}
+
 // ── magic sets ─────────────────────────────────────────────────────────────
 
 /// XLOG's magic-set rewrite targets bound RECURSIVE queries only. On this
