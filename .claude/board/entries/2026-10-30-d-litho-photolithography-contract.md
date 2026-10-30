@@ -24,5 +24,5 @@
 ## Amendment (2026-10-30, plan §3a)
 
 - The address space is fixed-width in the identity direction only.
-- Edges and properties are selected against it. Either a cross-product coordinate-range reference (two ranges, never a dense product) or a PSCustomObject-style named selection (`ClassView × WideFieldMask`).
+- Edges and properties are selected against it. Either a cross-product coordinate-range reference (two ranges, not necessarily materialized) or a PSCustomObject-style named selection (`ClassView × WideFieldMask`).
 - The selection is versioned via a lance-graph table. Q5, which table, is open for the DR/DT owner.

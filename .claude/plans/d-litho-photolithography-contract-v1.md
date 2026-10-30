@@ -126,7 +126,7 @@ mid-program.
 are not further fixed-width axes. They are projected against that fixed width in one of two ways:
 
 - **as a cross-product coordinate-range reference:** an (identity range × edge/property range) pair
-  that names a region, never a materialized product;
+  that names a region and is not necessarily materialized;
 - **PSCustomObject-style:** a named selection of properties and edges, the way `Select-Object -Property`
   picks fields from an object. The existing carrier is `ClassView × WideFieldMask`
   (`lance-graph-contract/src/class_view.rs`; D-DRDT §1 names it the shared contract).
@@ -142,7 +142,9 @@ Consequences:
   axes. Only the identity direction has fixed width (the 64-row word, the 65,536-address DR256 domain).
 - The rods (§3) are a property of a selected field, not a fourth address axis. This narrows Q1 to: does
   the rod width belong to the selected field's DT law?
-- A cross-product reference is two ranges, never a dense product. That is design rule 6 and the §5
+- A cross-product reference is two ranges and need not be materialized. Whether it is, and how much, is
+  an execution choice made on demand, not part of the address. What stays forbidden is a *mandatory* dense
+  product. That is design rule 6 and the §5
   non-goals restated as an addressing rule.
 - **Open (Q5):** which lance-graph table carries the selection version. Candidates are
   `FrameRevisions` (`dr-math-binding-probe/src/lib.rs`: `relation_map` or `coordinates`) or a dedicated
