@@ -300,3 +300,21 @@ Open, for the frame owner (D8): registering a class or declaring an algebra entr
 - `AlgebraEntry { word, inputs }` only mirrors the word's arity so `ArityMismatch` can be checked. The polyfill decides what the word is; the store mirrors it, and a word mirrored with two arities is refused (`AlgebraImmutable`).
 
 Which polyfill (operator: "check lance-graph-relalg and lance-graph-mask-risc, that's the polyfill"): `lance-graph-relalg` describes a selection and lowers it, `lance-graph-mask-risc`'s op vocabulary (`Pred`, `MaskOp`, `Terminal`) is the one polyfill above `ndarray::simd` that every fold lowers to, and `ndarray::simd` computes. So a keyed count names mask-risc's `Terminal::GroupReduce { key: GroupKey::Lane, fold: GroupFold::Count }`, not the `ndarray::simd` word it delegates to. mask-risc has no elementwise i64 arithmetic, so XLOG's multiply names an `ndarray::simd` word. That word was reachable only as `ndarray::hpc::checked_i64::checked_binary_i64`; a consumer never names `hpc`, so ndarray #407 re-exports it through `ndarray::simd`. Disable runs (on commit `d140ab4c8`): removing the `AlgebraImmutable` arm or the `UnknownAlgebra` check each leaves exactly one test red (18 passed, 1 failed).
+
+**A.5 addendum 9 (2026-10-30, operator: "your DTO mapping is one classid one meaning surface, same as ClassView WideFieldMask; did you use the pattern").** No: addendum 8 kept the polyfill as a string-keyed catalogue beside `ClassView`, a second meaning surface. Now the polyfill vocabulary is one lens classid, read the way every class is read:
+- Its words are the fields of that lens, and their labels (the mask-risc op or `ndarray::simd` word) come from its `ClassView`.
+- A word is a field position, `AlgebraRef { lens, word }`, and a set of words is a `WideFieldMask`.
+- `declare_algebra(lens, schema_rev, arity)` binds the lens with one operand count per word. It is immutable like a class (`AlgebraImmutable`).
+- `resolve_algebra` reads the lens through its `ClassView`, with the same schema-revision and field-basis checks as `resolve` (one shared `check_basis`). `field_view` gives each word's position and label.
+- `words_used(class, lens)` gives a consumer's words as a mask over the lens.
+
+No word gets a classid. This is the ONNX shape of #1870, applied to the polyfill. Disable runs on `9d2fba457`, each turning tests red:
+
+| guard removed | failing tests |
+|---|---|
+| the `words_used` lens filter | 1 |
+| the `AlgebraImmutable` arm | 1 |
+| the arity position | 5 |
+| the shared basis check | 4 |
+
+Which classid the polyfill lens carries in production is OGAR's mint (D6), not this crate's; the test uses a lab value.
