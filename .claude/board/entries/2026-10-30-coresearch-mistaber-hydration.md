@@ -81,13 +81,16 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 
 **The vertical match is free in this corpus.** Mistaber lays out `dsl/corpus/yd_87/seif_3.hll`, so a rule's `part_of` chain (file → seif → siman) and its makor's DN chain name the same positions. Under the operator's format this is the ideal case. It is still two rails, never one composed relation.
 
-**Capacity, stated against the byte rail.** Byte levels with `1 + index` slots stop at 255. Shulchan Arukh YD has 403 simanim, so a siman cannot be one byte level. Three options, none chosen here:
+**Capacity: settled by the operator (2026-10-30): the last two bytes of the rail are a 64k leaf.** Each tenant is a 16-level byte chain. Levels 15 and 16, read together as a `(u8:u8)` pair, address 65,536 positions (65,025 with the 0-hole kept in each byte). The two bytes stay separate digits, so nothing is widened into a u16.
 
-1. a 9-bit codec9 level, as the operator proposed: 511 values plus the never-touched sentinel. The byte rails are 8-bit, so this is a carving decision for the ClassView, not something a consumer can widen;
-2. split the level by literary structure (hilchot), which also serves basins;
-3. a continuation slot at the next level, the slab's own escape.
+- Tenant 1 (makor): levels 1–14 carry the structure (`sa > yd > …`); the last two bytes carry the seif as a leaf. All 3,701 seifim of YD fit, with room for every commentary seif katan. Siman 403 needs no special level.
+- Tenant 2 (`part_of`): the same pair gives 64k membership ids (world, era, school).
 
-X1 and P1 are amended accordingly: the capacity question is about the rail's slot width, not the HHTL16 depth.
+Ordinal 0 is still never encoded; the pair `(0, 0)` is the hole that ends the chain.
+
+The earlier options (a 9-bit level, a hilchot split, a continuation slot) are not needed for capacity. A hilchot level remains optional for basin structure.
+
+X1 and P1 are amended accordingly: P1's 9-bit arm is replaced by the pair-leaf arm (3,701 distinct seif leaves, 0 refusals, 0 aliases; disable run: read only the last byte → aliases).
 
 **P11 (new, pre-registered, not run).** On F1 and the C-mammal goldens, give every rule, world and makor node both rails and check:
 
@@ -140,7 +143,7 @@ They do not touch the fixpoint.
 ## Open points for the operator
 
 - **Undeclared worlds.** Should an undeclared world be refused? Upstream derives `holds(p,x)` for an undeclared child world (golden F6). A native refusal would be a declared divergence from the golden, not a pass.
-- **Siman capacity.** Settled by the operator: HHTL16 has 16 levels, and the codec9 presence bit gives a level 511 values. Still open: should the level codec be the signed DR512 codec9, or an unsigned U9 reading (a new symbol, in ndarray)? Is a hilchot level wanted for basin structure? If so, where does its boundary data come from?
+- **Siman capacity.** Settled (operator, 2026-10-30): the last two bytes of each HHTL16 rail form a `(u8:u8)` 64k leaf. Still open: is a hilchot level wanted for basin structure, and where would its boundary data come from?
 - **SupportLedger derived-from slot.** Contract change; owner and timing.
 - **D-ARG-1..3.** Prerequisite for X10. Owner and order.
 
