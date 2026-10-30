@@ -57,8 +57,9 @@
 //! # Agnostic algebra, switched by the classid
 //!
 //! Addresses and algebra methods are agnostic. The algebra is the polyfill
-//! (D-DT64-6 D4: mask-risc / `ndarray::simd`), classid-free global behaviour
-//! (D6). As with `ndarray::simd`, a consumer names a facade word and nothing
+//! (D-DT64-6 D4), classid-free global behaviour (D6): `lance-graph-relalg`
+//! describes, `lance-graph-mask-risc`'s op vocabulary folds, `ndarray::simd`
+//! computes. As with `ndarray::simd`, a consumer names a polyfill word and nothing
 //! else: the word's path is its identity ([`AlgebraRef`]), nobody assigns it
 //! a number, and which backend realizes it is the polyfill's business. The
 //! store's catalogue ([`AlgebraEntry`], [`BindStore::declare_algebra`]) only
@@ -99,7 +100,8 @@ pub struct SchemaRev(pub u32);
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
-/// A polyfill word, named by its facade path (`"ndarray::simd::masked_group_count_u32"`):
+/// A polyfill word, named by its path (a mask-risc op such as
+/// `Terminal::GroupReduce`, or an `ndarray::simd` facade word):
 /// classid-free global behaviour (D-DT64-6 D6). The path is the identity, as
 /// in `ndarray::simd`; there is no second, numeric spelling. The store never
 /// resolves or runs it.

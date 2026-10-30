@@ -61,13 +61,15 @@ fn schema(rev: u32, fields: usize) -> ClassSchema {
 /// nullary step in the ordering tests.
 const ASSIGN: AlgebraRef = AlgebraRef("lab::assign");
 const ACCUMULATE: AlgebraRef = AlgebraRef("lab::accumulate");
-/// A real facade word: `(relation field, key column)`.
-const GROUP_COUNT: AlgebraRef = AlgebraRef("ndarray::simd::masked_group_count_u32");
-/// NOT a facade word: checked i64 arithmetic exists only as
-/// `ndarray::hpc::checked_i64::checked_binary_i64`. Under the polyfill rule a
-/// consumer never names `hpc`, so this is a missing `ndarray::simd` word, kept
-/// here so XLOG's count can be stated at all.
-const MUL_I64: AlgebraRef = AlgebraRef("ndarray::hpc::checked_i64::checked_binary_i64(Mul)");
+/// mask-risc's keyed count, `COUNT(*) GROUP BY key`: `(relation field, key
+/// column)`. mask-risc is the polyfill above `ndarray::simd` that folds lower
+/// to (relalg describes, mask-risc folds, ndarray computes).
+const GROUP_COUNT: AlgebraRef =
+    AlgebraRef("lance_graph_mask_risc::Terminal::GroupReduce(GroupKey::Lane, GroupFold::Count)");
+/// Checked i64 multiply on the `ndarray::simd` facade (ndarray #407; it was
+/// reachable only through `hpc` before). mask-risc folds masks, not i64
+/// elementwise arithmetic, so the multiply names the facade word.
+const MUL_I64: AlgebraRef = AlgebraRef("ndarray::simd::checked_binary_i64(I64Op::Mul)");
 
 fn entry(word: AlgebraRef, inputs: u8) -> AlgebraEntry {
     AlgebraEntry { word, inputs }
