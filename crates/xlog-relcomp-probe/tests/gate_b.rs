@@ -538,6 +538,33 @@ fn refuses_a_chain_join_that_disagrees_with_its_fallback() {
     );
 }
 
+/// A scanned predicate that a rule also defines has tuples no fact lists.
+/// Reading only its facts would under-answer silently: here the rule derives
+/// r(1, 7), and s(7, 4) holds, so the true answer is {2, 7}, not {2}.
+#[test]
+fn refuses_a_scanned_relation_that_a_rule_derives() {
+    let src = FIXTURE.replace(
+        "pred q(u32).",
+        "pred q(u32).\npred t(u32, u32).\nt(1, 7).\nr(X, Y) :- t(X, Y).",
+    );
+    let c = compile(&src);
+    // The query still compiles to the admitted two-scan shape...
+    assert!(admit(rule(&c, "q")).is_ok());
+    // ...so the refusal has to come from the relation, not the plan.
+    assert_eq!(
+        facts(&c.program, "r"),
+        Err(LowerRefusal::DerivedRelation {
+            predicate: "r".to_string()
+        })
+    );
+    assert!(matches!(
+        prepare(&c),
+        Err(LowerRefusal::DerivedRelation { .. })
+    ));
+    // A relation defined by facts only is still read.
+    assert_eq!(facts(&c.program, "s").map(|v| v.len()), Ok(3));
+}
+
 #[test]
 fn refuses_a_stale_frame() {
     let mut st = store();

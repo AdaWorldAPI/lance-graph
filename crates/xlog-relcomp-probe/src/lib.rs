@@ -77,6 +77,9 @@ pub enum LowerRefusal {
     /// A fact argument is not a non-negative integer that fits `u32`
     /// (a symbol is a different identity domain, never a slot).
     FactTerm { predicate: String },
+    /// A scanned predicate is also the head of a rule, so its facts are not
+    /// its whole relation. Reading only the facts would under-answer.
+    DerivedRelation { predicate: String },
     /// A relation read by the rule is not binary.
     Arity { predicate: String, arity: usize },
     /// The relation id has no name in the compiler's table.
@@ -251,7 +254,21 @@ pub fn admit_program(program: &Program) -> Result<(), LowerRefusal> {
 }
 
 /// The ground binary `u32` tuples of one predicate, from the program's facts.
+/// Refused when a rule also defines the predicate (see
+/// [`LowerRefusal::DerivedRelation`]).
 pub fn facts(program: &Program, predicate: &str) -> Result<Vec<(u32, u32)>, LowerRefusal> {
+    // A rule with this head derives tuples no fact lists. The register would
+    // hold only part of the relation, so refuse instead of under-answering.
+    // (Conservative: a same-name rule of another arity is refused too.)
+    if program
+        .rules
+        .iter()
+        .any(|r| !r.is_fact() && r.head.predicate == predicate)
+    {
+        return Err(LowerRefusal::DerivedRelation {
+            predicate: predicate.to_string(),
+        });
+    }
     let mut out = Vec::new();
     for rule in program.rules.iter().filter(|r| r.is_fact()) {
         if rule.head.predicate != predicate {
