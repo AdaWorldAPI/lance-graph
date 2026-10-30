@@ -39,6 +39,7 @@ exactly one of them, never both.
 | 2026-10-30 | `D-LITHO-1` |  | [2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md](2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md) |
 | 2026-10-30 | `D-DT64-6-BS` |  | [2026-10-30-d-dt64-6-bs-bind-store-crate.md](2026-10-30-d-dt64-6-bs-bind-store-crate.md) |
 | 2026-10-30 | `D-DRCA-3` |  | [2026-10-30-d-drca-3-dr4-method-routing.md](2026-10-30-d-drca-3-dr4-method-routing.md) |
+| 2026-10-30 | `coresearch-mistaber-hydration` |  | [2026-10-30-coresearch-mistaber-hydration.md](2026-10-30-coresearch-mistaber-hydration.md) |
 | 2026-10-29 | `palette512-turbovec9-nsl-worksteal` |  | [2026-10-29-palette512-turbovec9-nsl-worksteal.md](2026-10-29-palette512-turbovec9-nsl-worksteal.md) |
 | 2026-10-28 | `thought-layers-nan-skip` |  | [2026-10-28-thought-layers-nan-skip.md](2026-10-28-thought-layers-nan-skip.md) |
 | 2026-10-28 | `lane-layout-from-classview` |  | [2026-10-28-lane-layout-from-classview.md](2026-10-28-lane-layout-from-classview.md) |

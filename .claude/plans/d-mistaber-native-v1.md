@@ -74,7 +74,7 @@ A lens row is one (mode, source rule), or one (mode) with empty rule fields when
 
 ## 5. Evidence (D-MIST-NATIVE-0)
 
-`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 11 tests.
+`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 12 tests.
 
 Goldens: F1-modes, F1-reversed, F2-cycle, F5-gates, F6-undeclared-child, C-mammal-C2/C4/C6/C6i, E-xlog-plain/override. All are exact, compared as sorted lists, so a duplicate atom would also fail.
 
@@ -101,3 +101,31 @@ No timing was taken, and none is claimed. `mistaber-rs` §7 defers mask folds (c
 ## 7. Not in scope
 
 A port of the HLL compiler or Clingo. Stable-model semantics. Any CE64 bit, any Epi5 code. Writes to `BrainyBlaze/mistaber`.
+
+## 8. Mistaber on DR64³ (2026-10-30, lab test, no new type)
+
+The probe's registers are DR64² in the D-DRDT sense: row = proposition (64), bit = world (64). They are read through the HHTL16 address `Morton8x8::from_xy(p, w)` (`dr-math-binding-probe::hhtl16::cell`). The lineage already lives on three logical 64 × 64 × 64 index spaces, each a stack of DR64² slices along a third axis:
+
+| cube | third axis | cell `(z, p, w)` | stored? |
+|---|---|---|---|
+| V | parent world | `holds_via(inherited(z), p, w)` = `holds[p]∋z ∧ children[z]∋w ∧ ¬block[p]∋w` | no; it is the uncontracted iteration space of `compose`, built on demand |
+| O | origin world | `inheritance_source(p, w, z)` | yes, `Holdings::origins` |
+| L | rule | `holds_via_rule` source rule `z` of `(p, w)` | yes, `Holdings::sources` |
+
+Contracting V or O over the third axis (OR over `z`) gives the `holds` register back: `direct ∪ ⋃_z V[z] = holds` and `⋃_z O[z] = holds`. L does not contract to `holds`, because a holding can have no rule (F1 `g` in `a`). Bag multiplicity is the count along the third axis of V × L. The Set projection is the contraction.
+
+**Test:** `tests::the_third_axis_contracts_back_to_holds`, over all 11 goldens. It also checks that every cell of all three cubes reads the same through its HHTL16 address. Anti-vacuity: at least one cell has two parents (the F1 diamond) and at least one has two origins.
+
+**Disable runs** (committed first, then each broken, red, restored):
+
+- drop `¬block` from `inherited_from`: red, `E-xlog-override V`, `left: 3, right: 1`;
+- drop the last origin world: red, `F2-cycle O`, `left: 0, right: 4`.
+
+**Axis typing, a data point for NFR-OP-2.** The D-DR256 Amendment A working model reads DR #3 as Identity × Property, with the third axis indexing a relation ordinal for the Identity × Identity view. Mistaber needs two kinds of third axis:
+
+- two cubes (V, O) have an Identity third axis: a world;
+- one cube (L) has a rule ordinal, closer to a method or relation ordinal.
+
+So "the third axis is a relation ordinal" covers L and not V or O. Closing NFR-OP-2 stays the DR owner's decision.
+
+**Size.** Dense, each cube is 32 KiB of bits, 96 KiB for the three. The probe stores only O and L, and only as many slices as there are worlds and rules. V is never stored, because every V slice is one `compose` row read. Nothing here allocates a cube.
