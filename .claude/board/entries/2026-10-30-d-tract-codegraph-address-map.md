@@ -90,7 +90,17 @@ Each reading's classid selects its op table and fact type at compile time.
 Other readings with the same shape (checked where code exists):
 - **egglog:** `TermDag` terms (`egglog-r2il-probe/src/term.rs`), plus equivalence classes.
 - **DialEgg / MLIR:** ops, SSA operands, results, regions. Plans only; no code in the tree.
-- **ruff:** `ruff_python_semantic` bindings and resolved references (def-use) with scopes. Not the `ruff_*_spo` triples, which have no ordered operand slot.
+- **ruff (shipped, R2IL only):** `ruff_r2il`'s `ore` stage (latest commit `75f4f84`) walks r2ssa's graph and emits typed rows (`ore.rs:694-800`):
+  - `OreFact::Op`: opcode, ordinal, `input_arity`, `has_output`.
+  - `OreFact::Operand`: position `Input(n)` or `Output`, value id, and the varnode's space, offset and size.
+  - `OreFact::Edge`: a CFG edge tagged `Normal`, `True`, `False` or `Back`.
+  - `OreFact::PhiInput`, `MemoryUse` and `MemoryDef`.
+
+  `furnace` turns these into flat `FlatFact` rows: `Copy`, 88 bytes, facet-addressed, each referring to others only by `FactId`. That is the codegraph shape as a flat edge list. It has no graph container and no rewrite or pass layer, and its lance-graph sink is a trait with an offline backend only. Conflict to settle: `ogar-r2il` says `ruff_r2il` "is NOT on this path and never will be" because it pre-converts R2IL. That is fine for a harvest, but it cannot serve as the executed codegraph without contradicting that ruling.
+- **ruff (not a codegraph):**
+  - `ruff_spo_triplet::ir::ModelGraph` lists the names a function reads, writes, raises, traverses and calls. It has no operand slots or value ids, and `expand()` collapses it to triples.
+  - `ruff_cpp_spo::walk_free_functions` is a function-level call graph.
+- **ruff (not ours):** `ruff_python_semantic`'s bindings and references form a def-use graph in upstream ruff. Nothing here exports it; it is only a possible source for a Python reading. No codegraph for the Python, C# or Ruby frontends is planned (`ruff/.claude/plans/r2il-behavioral-ir-v1.md` covers R2IL only).
 - **ACT-R:** no code or plan found. A production graph would also need a guard (WHEN) field.
 
 ## 8. What the Tract codegraph is made of (bf7ca16)
