@@ -4,7 +4,7 @@
 
 The question: Tract compiles by rewriting one typed op graph (`declutter` then per-op `codegen` patches). We want the same codegraph for every disassembled program, addressed in the substrate. How is that address minted, where can the graph be inspected today, and should `lance-graph-r2il` get a second classid for it?
 
-"KPEA" appears nowhere in lance-graph, OGAR or ndarray (searched; a search only finds candidates). This map reads it as "the codegraph Tract keeps and burn does not". Confirm or correct the term.
+"KPEA" means the Tract-style codegraph (confirmed by the operator, 2026-10-30): the typed op graph Tract keeps and rewrites, which burn does not have. Per the operator it was the main reason for choosing Tract.
 
 ## 1. R2IL already has two classids for one table
 
@@ -62,10 +62,65 @@ The probe's lab lens `ONNX_LENS = 0x0F00` sits in the Geo domain `0x0FXX` (`ogar
 - an ONNX graph lowered onto the codegraph reading where its ops map to R2IL/fold ops, or
 - its own concept.
 
+## 7. The shapes match: one container, classid dispatch per reading
+
+| Element | Tract `TypedModel` | r2ssa `SsaGraph` | probe `OnnxGraph` (`dr3.rs`) |
+|---|---|---|---|
+| node | `Node { id, op, inputs, outputs }` | `GraphInst { id, block, ordinal, output, payload }` | index + `args` / `outs` |
+| op | `dyn Op` (open set) | `SSAOp<ValueId>` (closed R2IL enum) | `MethodKey` (lens + ordinal) |
+| value | `OutletId { node, slot }` | `ValueId`, defined by `def_of` | output index |
+| use | `InletId { node, slot }` | `UseSite { inst, input_idx }` | `args[node][slot]` |
+| fact | shape + dtype (`Outlet.fact`) | width + storage (`SSAVar`) | `facts` |
+
+All three are def-use graphs with operands addressed as (node, position). Differences:
+- r2ssa has blocks and `Phi`; Tract is one DAG with nested bodies inside `Scan`/`If`/`Loop`.
+- Tract nodes may have several outputs.
+- A fact is a tensor type in one and a bit width in the other.
+
+So one container carries:
+- op tag;
+- ordered (node, slot) inputs and outputs;
+- a fact per value;
+- block id;
+- a body reference for nested regions (as `ogar-loco::Program` already has);
+- optionally an equivalence class.
+
+Each reading's classid selects its op table and fact type at compile time.
+
+Other readings with the same shape (checked where code exists):
+- **egglog:** `TermDag` terms (`egglog-r2il-probe/src/term.rs`), plus equivalence classes.
+- **DialEgg / MLIR:** ops, SSA operands, results, regions. Plans only; no code in the tree.
+- **ruff:** `ruff_python_semantic` bindings and resolved references (def-use) with scopes. Not the `ruff_*_spo` triples, which have no ordered operand slot.
+- **ACT-R:** no code or plan found. A production graph would also need a guard (WHEN) field.
+
+## 8. What the Tract codegraph is made of (bf7ca16)
+
+`Optimizer::declutter()` (`core/src/optim/mod.rs:104`) is a pass list:
+- `PropConst`
+- `PropagateUniformTdim`
+- `PropagateRoi`
+- `FoldUniformMask`
+- per-op `declutter`
+- `PushSliceUp`
+- `PushSplitDown`
+- `ConcatThenEinsum`
+- `ChangeAxes`
+
+`Optimizer::codegen()` is `PropConst`, `MergeConsecutiveSameRoleAxes`, per-op `codegen`, `declutter` again, `PushSplitDown`, then per-op `fuse`.
+
+| Per-op hook | Implementations | Files |
+|---|---|---|
+| `fn declutter` | 47 | 37 |
+| `fn codegen` | 17 | 13 |
+| `fn fuse` | 6 | 4 |
+| `fn change_axes` | 27 | 26 |
+| `fn axes_mapping` | 31 | 29 |
+
+The counts are a grep census over `core`, `hir`, `onnx-opl`, `onnx` and `linalg` (`linalg` in the implementation counts only). Each `fn` reads as one implementation; trait declarations are included. The harvest so far covers per-op semantics only; none of these rewrites are harvested yet.
+
 ## Open for DT64
 
-1. What does KPEA mean: the Tract-style codegraph, or something else?
-2. One table, three readings (`0xC402`), or a separate concept for the graph?
-3. OGAR to mint `0xC400`–`0xC402` together?
-4. Which crate owns the `r2ssa` import, and does it satisfy the execute-not-pre-convert ruling?
-5. Where does the ONNX lens move to?
+1. One table, three readings (`0xC402`), or a separate concept for the graph?
+2. OGAR to mint `0xC400`–`0xC402` together?
+3. Which crate owns the `r2ssa` import, and does it satisfy the execute-not-pre-convert ruling?
+4. Where does the ONNX lens move to?
