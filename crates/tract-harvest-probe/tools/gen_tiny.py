@@ -168,6 +168,21 @@ def bits(a):
     return [int(v) for v in a.ravel()]
 
 
+def dumps_compact(v, depth=0):
+    """JSON with one key per line, but every list of scalars on one line, so
+    a sweep is one line instead of one line per element."""
+    pad = " " * (depth + 1)
+    if isinstance(v, dict):
+        items = [f"{pad}{json.dumps(k)}: {dumps_compact(x, depth + 1)}" for k, x in v.items()]
+        return "{\n" + ",\n".join(items) + "\n" + " " * depth + "}" if items else "{}"
+    if isinstance(v, list) and all(not isinstance(x, (dict, list)) for x in v):
+        return json.dumps(v, separators=(",", ":"))
+    if isinstance(v, list):
+        items = [pad + dumps_compact(x, depth + 1) for x in v]
+        return "[\n" + ",\n".join(items) + "\n" + " " * depth + "]" if items else "[]"
+    return json.dumps(v)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     manifest = {"ort_version": ort.__version__, "ort_graph_optimization_level": "ORT_DISABLE_ALL", "onnx_version": onnx.__version__, "variants": {}}
@@ -226,7 +241,7 @@ def main():
     }
     manifest["inputs"] = {k: {"shape": list(a.shape), "dtype": str(a.dtype), "bits": bits(a)} for k, a in INPUTS.items()}
     with open(os.path.join(OUT, "ort.json"), "w") as f:
-        json.dump(manifest, f, indent=1)
+        f.write(dumps_compact(manifest) + "\n")
     print(json.dumps({k: list(v.keys()) for k, v in manifest["variants"].items()}))
 
 
