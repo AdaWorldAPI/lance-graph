@@ -59,14 +59,17 @@
 //! Addresses and algebra methods are agnostic. The algebra is the polyfill
 //! (D-DT64-6 D4), classid-free global behaviour (D6): `lance-graph-relalg`
 //! describes, `lance-graph-mask-risc`'s op vocabulary folds, `ndarray::simd`
-//! computes. As with `ndarray::simd`, a consumer names a polyfill word and nothing
-//! else: the word's path is its identity ([`AlgebraRef`]), nobody assigns it
-//! a number, and which backend realizes it is the polyfill's business. The
-//! store's catalogue ([`AlgebraEntry`], [`BindStore::declare_algebra`]) only
-//! mirrors the words' arity so a binding can be checked; it decides nothing.
-//! A classid switches labels (its [`ClassView`]) and polyfill (its bindings'
-//! [`Effect`]s, each a word with ordered operands) over them. Two consumers
-//! reuse a word by naming it; [`BindStore::users_of`] lists them.
+//! computes. The polyfill vocabulary is one meaning surface like any other: one
+//! lens classid, its words are the fields of that lens, their labels come
+//! from its [`ClassView`], and a word is a field position ([`AlgebraRef`]), so
+//! a set of words is a [`WideFieldMask`]. No word gets a classid of its own.
+//! The store binds the lens ([`BindStore::declare_algebra`]: schema revision
+//! and each word's operand count) so a binding can be checked; it decides
+//! nothing about what a word does. A consumer classid switches labels (its
+//! [`ClassView`]) and polyfill (its bindings' [`Effect`]s, each a word with
+//! ordered operands) over them. Two consumers reuse a word by naming its
+//! position; [`BindStore::users_of`] lists them, and
+//! [`BindStore::words_used`] gives a class's words as a mask over the lens.
 //!
 //! [`ActionDef::object_class`]: lance_graph_contract::action::ActionDef::object_class
 //! [`ClassMethods::classid`]: lance_graph_contract::codegen_manifest::ClassMethods::classid
@@ -100,21 +103,22 @@ pub struct SchemaRev(pub u32);
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
-/// A polyfill word, named by its path (a mask-risc op such as
-/// `Terminal::GroupReduce`, or an `ndarray::simd` facade word):
-/// classid-free global behaviour (D-DT64-6 D6). The path is the identity, as
-/// in `ndarray::simd`; there is no second, numeric spelling. The store never
-/// resolves or runs it.
+/// A polyfill word: a field position under the polyfill's lens classid. The
+/// word's name (a mask-risc op, an `ndarray::simd` facade word) is that
+/// field's label in the lens's [`ClassView`], resolved late like any other
+/// label; the store never resolves or runs the word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AlgebraRef(pub &'static str);
+pub struct AlgebraRef {
+    pub lens: u32,
+    pub word: u8,
+}
 
-/// The store's mirror of one polyfill word: its name and how many operands it
-/// takes. The word itself is declared by the polyfill; this entry exists only
-/// so a binding's operand count can be checked. Immutable once mirrored.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AlgebraEntry {
-    pub word: AlgebraRef,
-    pub inputs: u8,
+/// A bound polyfill lens: its schema, as for any class, and the operand count
+/// of each word (one per field position).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AlgebraLens {
+    schema: ClassSchema,
+    arity: Vec<u8>,
 }
 
 /// One DO step: which field position of the class it writes, the polyfill
@@ -319,7 +323,7 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
-    /// An effect names a word the catalogue does not mirror.
+    /// An effect names a lens that is not bound, or a position outside it.
     UnknownAlgebra {
         class: u32,
         method: MethodId,
@@ -341,8 +345,8 @@ pub enum Refusal {
         effect: usize,
         position: u8,
     },
-    /// The word is already mirrored with another arity.
-    AlgebraImmutable(AlgebraRef),
+    /// The polyfill lens is already bound with other content.
+    AlgebraImmutable(u32),
     /// No classid was routed to the position at that version.
     Unrouted {
         position: u16,
@@ -489,8 +493,8 @@ impl<'s, 'v> Resolved<'s, 'v> {
 #[derive(Debug, Clone, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
-    /// The mirror of the polyfill words bindings use (D6).
-    algebra: BTreeMap<AlgebraRef, AlgebraEntry>,
+    /// The bound polyfill lenses, by lens classid (D6).
+    algebra: BTreeMap<u32, AlgebraLens>,
     /// Per position, the route events in version order: `(version, class)`,
     /// `None` for a retract.
     routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
@@ -542,17 +546,17 @@ impl BindStore {
         for m in &methods {
             for e in &m.effects {
                 let (method, algebra) = (m.id, e.algebra);
-                let entry = self.algebra.get(&algebra).ok_or(Refusal::UnknownAlgebra {
+                let inputs = self.arity(algebra).ok_or(Refusal::UnknownAlgebra {
                     class,
                     method,
                     algebra,
                 })?;
-                if usize::from(entry.inputs) != e.args.len() {
+                if usize::from(inputs) != e.args.len() {
                     return Err(Refusal::ArityMismatch {
                         class,
                         method,
                         algebra,
-                        expected: entry.inputs,
+                        expected: inputs,
                         got: e.args.len(),
                     });
                 }
@@ -573,22 +577,82 @@ impl BindStore {
         }
     }
 
-    /// Mirror a polyfill word's arity. Idempotent for an identical entry; the
-    /// same word with another arity is refused.
-    pub fn declare_algebra(&mut self, entry: AlgebraEntry) -> Result<(), Refusal> {
-        match self.algebra.get(&entry.word) {
-            Some(bound) if *bound == entry => Ok(()),
-            Some(_) => Err(Refusal::AlgebraImmutable(entry.word)),
+    /// Bind a polyfill lens: one classid whose fields are the polyfill's
+    /// words, `arity[p]` being the operand count of the word at position `p`.
+    /// Idempotent for an identical binding; any other is refused (D5).
+    pub fn declare_algebra(
+        &mut self,
+        lens: u32,
+        schema_rev: SchemaRev,
+        arity: Vec<u8>,
+    ) -> Result<(), Refusal> {
+        if arity.len() > MAX_FIELDS {
+            return Err(Refusal::BasisTooWide {
+                class: lens,
+                field_count: arity.len(),
+            });
+        }
+        let bound = AlgebraLens {
+            schema: ClassSchema {
+                schema_rev,
+                field_count: arity.len(),
+            },
+            arity,
+        };
+        match self.algebra.get(&lens) {
+            Some(b) if *b == bound => Ok(()),
+            Some(_) => Err(Refusal::AlgebraImmutable(lens)),
             None => {
-                self.algebra.insert(entry.word, entry);
+                self.algebra.insert(lens, bound);
                 Ok(())
             }
         }
     }
 
-    /// The mirrored entry for `word`, if any.
-    pub fn algebra(&self, word: AlgebraRef) -> Option<&AlgebraEntry> {
-        self.algebra.get(&word)
+    /// The operand count of `word`, if its lens is bound and the position is
+    /// inside it.
+    pub fn arity(&self, word: AlgebraRef) -> Option<u8> {
+        self.algebra
+            .get(&word.lens)?
+            .arity
+            .get(usize::from(word.word))
+            .copied()
+    }
+
+    /// The polyfill lens read through its [`ClassView`], exactly as a class
+    /// is: [`Resolved::field_view`] gives each word's position and label. It
+    /// has no methods; its words are its fields.
+    pub fn resolve_algebra<'s, 'v, V: ClassView + ?Sized>(
+        &'s self,
+        view: &'v V,
+        lens: u32,
+        schema_rev: SchemaRev,
+    ) -> Result<Resolved<'s, 'v>, Refusal> {
+        let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
+        check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
+            class: lens,
+            schema: &bound.schema,
+            fields,
+            methods: &[],
+            derived_from: None,
+        })
+    }
+
+    /// The words of `lens` that `class`'s methods use, as a mask over the
+    /// lens.
+    pub fn words_used(&self, class: u32, lens: u32) -> Result<WideFieldMask, Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let words: Vec<u8> = entry
+            .methods
+            .iter()
+            .flat_map(|m| &m.effects)
+            .filter(|e| e.algebra.lens == lens)
+            .map(|e| e.algebra.word)
+            .collect();
+        Ok(WideFieldMask::from_positions(&words))
     }
 
     /// Every `(classid, method)` whose DO uses `word`: which classids switch
@@ -666,21 +730,7 @@ impl BindStore {
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        if entry.schema.schema_rev != schema_rev {
-            return Err(Refusal::SchemaRevisionMismatch {
-                class,
-                bound: entry.schema.schema_rev,
-                asked: schema_rev,
-            });
-        }
-        let fields = view.fields(view_class(class));
-        if fields.len() != entry.schema.field_count {
-            return Err(Refusal::FieldBasisChanged {
-                class,
-                bound: entry.schema.field_count,
-                view: fields.len(),
-            });
-        }
+        let fields = check_basis(view, class, &entry.schema, schema_rev)?;
         Ok(Resolved {
             class,
             schema: &entry.schema,
@@ -735,6 +785,32 @@ impl BindStore {
             (Some(_), Some(_)) => Err(Refusal::GuardMismatch { class, method }),
         }
     }
+}
+
+/// The lens's fields from the [`ClassView`], refused when the schema revision
+/// or the field basis is not the bound one.
+fn check_basis<'v, V: ClassView + ?Sized>(
+    view: &'v V,
+    class: u32,
+    schema: &ClassSchema,
+    schema_rev: SchemaRev,
+) -> Result<&'v [FieldRef], Refusal> {
+    if schema.schema_rev != schema_rev {
+        return Err(Refusal::SchemaRevisionMismatch {
+            class,
+            bound: schema.schema_rev,
+            asked: schema_rev,
+        });
+    }
+    let fields = view.fields(view_class(class));
+    if fields.len() != schema.field_count {
+        return Err(Refusal::FieldBasisChanged {
+            class,
+            bound: schema.field_count,
+            view: fields.len(),
+        });
+    }
+    Ok(fields)
 }
 
 /// Registration checks: the basis fits a [`WideFieldMask`], MethodIds are

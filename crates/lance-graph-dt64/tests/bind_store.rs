@@ -6,8 +6,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraEntry, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard,
-    MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard, MethodBinding, MethodId,
+    MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 
 /// A ClassView with one class of `n` fields; `n` can be changed to model a
@@ -23,6 +23,16 @@ impl View {
             class,
             fields: (0..n)
                 .map(|i| FieldRef::new(format!("urn:f{i}"), format!("f{i}")))
+                .collect(),
+        }
+    }
+
+    fn with_labels(class: ClassId, labels: &[&str]) -> View {
+        View {
+            class,
+            fields: labels
+                .iter()
+                .map(|l| FieldRef::new(format!("urn:{l}"), (*l).to_string()))
                 .collect(),
         }
     }
@@ -56,36 +66,38 @@ fn schema(rev: u32, fields: usize) -> ClassSchema {
     }
 }
 
-/// Polyfill words the tests bind against, named by path: the path is the
-/// identity, as in `ndarray::simd`. The two `lab::` words stand in for any
-/// nullary step in the ordering tests.
-const ASSIGN: AlgebraRef = AlgebraRef("lab::assign");
-const ACCUMULATE: AlgebraRef = AlgebraRef("lab::accumulate");
-/// mask-risc's keyed count, `COUNT(*) GROUP BY key`: `(relation field, key
-/// column)`. mask-risc is the polyfill above `ndarray::simd` that folds lower
-/// to (relalg describes, mask-risc folds, ndarray computes).
-const GROUP_COUNT: AlgebraRef =
-    AlgebraRef("lance_graph_mask_risc::Terminal::GroupReduce(GroupKey::Lane, GroupFold::Count)");
-/// Checked i64 multiply on the `ndarray::simd` facade (ndarray #407; it was
-/// reachable only through `hpc` before). mask-risc folds masks, not i64
-/// elementwise arithmetic, so the multiply names the facade word.
-const MUL_I64: AlgebraRef = AlgebraRef("ndarray::simd::checked_binary_i64(I64Op::Mul)");
+/// The polyfill vocabulary is one lens classid (lab), its words the fields
+/// of that lens. No word has a classid of its own.
+const POLYFILL: u32 = 0x7F0A_0001;
+/// The words' labels, by position: what the polyfill lens's ClassView holds.
+/// relalg describes, mask-risc folds, `ndarray::simd` computes; the two
+/// `lab::` words stand in for any nullary step in the ordering tests.
+const WORDS: [&str; 4] = [
+    "lab::assign",
+    "lab::accumulate",
+    // mask-risc's keyed count, COUNT(*) GROUP BY key: (relation, key column)
+    "lance_graph_mask_risc::Terminal::GroupReduce(GroupKey::Lane, GroupFold::Count)",
+    // ndarray #407: checked i64 multiply on the ndarray::simd facade
+    "ndarray::simd::checked_binary_i64(I64Op::Mul)",
+];
+const ARITY: [u8; 4] = [0, 0, 2, 2];
 
-fn entry(word: AlgebraRef, inputs: u8) -> AlgebraEntry {
-    AlgebraEntry { word, inputs }
+const fn word(word: u8) -> AlgebraRef {
+    AlgebraRef {
+        lens: POLYFILL,
+        word,
+    }
 }
+const ASSIGN: AlgebraRef = word(0);
+const ACCUMULATE: AlgebraRef = word(1);
+const GROUP_COUNT: AlgebraRef = word(2);
+const MUL_I64: AlgebraRef = word(3);
 
-/// A store holding only the mirror of the words used: no classid anywhere.
+/// A store holding only the polyfill lens: one classid, no consumer.
 fn catalogue() -> BindStore {
     let mut s = BindStore::new();
-    for e in [
-        entry(ASSIGN, 0),
-        entry(ACCUMULATE, 0),
-        entry(GROUP_COUNT, 2),
-        entry(MUL_I64, 2),
-    ] {
-        s.declare_algebra(e).unwrap();
-    }
+    s.declare_algebra(POLYFILL, SchemaRev(1), ARITY.to_vec())
+        .unwrap();
     s
 }
 
@@ -559,15 +571,35 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
     s.register(ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
 
-    // One word, reused by both classids by name; nothing minted for it.
+    // One word, reused by both classids by position; nothing minted for it.
     assert_eq!(
         s.users_of(MUL_I64),
         vec![(XLOG, MethodId(1)), (ONNX, MethodId(1))]
     );
     assert_eq!(s.users_of(GROUP_COUNT), vec![(XLOG, MethodId(1))]);
     assert!(s.users_of(ASSIGN).is_empty());
-    assert_eq!(s.class_count(), 2, "only the consumers carry classids");
-    assert_eq!(s.algebra(MUL_I64).unwrap().inputs, 2);
+    assert_eq!(
+        s.class_count(),
+        2,
+        "the consumers; the polyfill is one lens"
+    );
+    assert_eq!(s.arity(MUL_I64), Some(2));
+    // Which words each consumer uses, as a mask over the polyfill lens.
+    assert_eq!(
+        s.words_used(XLOG, POLYFILL),
+        Ok(WideFieldMask::from_positions(&[2, 3]))
+    );
+    assert_eq!(
+        s.words_used(ONNX, POLYFILL),
+        Ok(WideFieldMask::from_positions(&[3]))
+    );
+    // Another lens's mask is empty: the mask is over one lens only.
+    s.declare_algebra(0x7F0B_0001, SchemaRev(1), vec![2, 2, 2, 2])
+        .unwrap();
+    assert_eq!(
+        s.words_used(XLOG, 0x7F0B_0001),
+        Ok(WideFieldMask::from_positions(&[]))
+    );
 
     // The classid switches the labels: each reads its own lens.
     let xv = View::with_fields(view_class(XLOG), 5);
@@ -580,15 +612,38 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     );
 }
 
-/// A mirrored word is immutable: the same name with another arity is
-/// refused, because a word's name is its identity.
+/// The polyfill lens is read like any class: one classid, one ClassView, the
+/// words as fields, a set of words as a WideFieldMask. Its binding is
+/// immutable like a class's.
 #[test]
-fn a_mirrored_word_is_immutable() {
+fn the_polyfill_is_one_lens_read_through_its_classview() {
     let mut s = catalogue();
-    assert_eq!(s.declare_algebra(entry(MUL_I64, 2)), Ok(()));
+    let view = View::with_labels(view_class(POLYFILL), &WORDS);
+    let lens = s.resolve_algebra(&view, POLYFILL, SchemaRev(1)).unwrap();
+    let rows: Vec<(u8, &str)> = lens
+        .field_view(&WideFieldMask::from_positions(&[2, 3]))
+        .map(|r| (r.position, r.label))
+        .collect();
+    assert_eq!(rows, vec![(2, WORDS[2]), (3, WORDS[3])]);
+    assert_eq!(lens.methods.len(), 0, "its words are fields, not methods");
+    // A ClassView whose basis moved under the lens is refused, as for a class.
+    let moved = View::with_labels(view_class(POLYFILL), &[WORDS[0]]);
     assert_eq!(
-        s.declare_algebra(entry(MUL_I64, 3)),
-        Err(Refusal::AlgebraImmutable(MUL_I64))
+        s.resolve_algebra(&moved, POLYFILL, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::FieldBasisChanged {
+            class: POLYFILL,
+            bound: 4,
+            view: 1
+        }
+    );
+    assert_eq!(
+        s.declare_algebra(POLYFILL, SchemaRev(1), ARITY.to_vec()),
+        Ok(())
+    );
+    assert_eq!(
+        s.declare_algebra(POLYFILL, SchemaRev(1), vec![0, 0, 2, 3]),
+        Err(Refusal::AlgebraImmutable(POLYFILL))
     );
 }
 
@@ -629,12 +684,11 @@ fn effect_operands_and_entries_are_checked() {
         }
     );
     assert_eq!(
-        refused(&mut s, &|e| e.algebra =
-            AlgebraRef("ndarray::simd::no_such_word")),
+        refused(&mut s, &|e| e.algebra = word(4)),
         Refusal::UnknownAlgebra {
             class: XLOG,
             method: MethodId(1),
-            algebra: AlgebraRef("ndarray::simd::no_such_word")
+            algebra: word(4)
         }
     );
     assert_eq!(s.class_count(), 0, "no refused class was bound");
