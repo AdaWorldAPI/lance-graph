@@ -56,12 +56,20 @@
 //!
 //! # Agnostic algebra, switched by the classid
 //!
-//! Addresses and algebra methods are agnostic. The algebra catalogue
-//! ([`AlgebraEntry`], [`BindStore::declare_algebra`]) is classid-free global
-//! behaviour (D-DT64-6 D6). A classid switches labels (its [`ClassView`]) and
-//! polyfill (its bindings' [`Effect`]s, each an [`AlgebraRef`] with ordered
-//! operands) over them. Two consumers reuse one entry by referring to the
-//! same [`AlgebraId`]; [`BindStore::users_of`] lists them.
+//! Addresses and algebra methods are agnostic. The algebra is the polyfill
+//! (D-DT64-6 D4), classid-free global behaviour (D6): `lance-graph-relalg`
+//! describes, `lance-graph-mask-risc`'s op vocabulary folds, `ndarray::simd`
+//! computes. The polyfill vocabulary is one meaning surface like any other: one
+//! lens classid, its words are the fields of that lens, their labels come
+//! from its [`ClassView`], and a word is a field position ([`AlgebraRef`]), so
+//! a set of words is a [`WideFieldMask`]. No word gets a classid of its own.
+//! The store binds the lens ([`BindStore::declare_algebra`]: schema revision
+//! and each word's operand count) so a binding can be checked; it decides
+//! nothing about what a word does. A consumer classid switches labels (its
+//! [`ClassView`]) and polyfill (its bindings' [`Effect`]s, each a word with
+//! ordered operands) over them. Two consumers reuse a word by naming its
+//! position; [`BindStore::users_of`] lists them, and
+//! [`BindStore::words_used`] gives a class's words as a mask over the lens.
 //!
 //! [`ActionDef::object_class`]: lance_graph_contract::action::ActionDef::object_class
 //! [`ClassMethods::classid`]: lance_graph_contract::codegen_manifest::ClassMethods::classid
@@ -95,45 +103,26 @@ pub struct SchemaRev(pub u32);
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
-/// A classid-free algebra method: global behaviour (D-DT64-6 D6, "global
-/// behaviour needs no classid and lives in lance-graph"). Addresses and
-/// algebra methods are agnostic; a classid's binding is what switches labels
-/// and polyfill over them.
+/// A polyfill word: a field position under the polyfill's lens classid. The
+/// word's name (a mask-risc op, an `ndarray::simd` facade word) is that
+/// field's label in the lens's [`ClassView`], resolved late like any other
+/// label; the store never resolves or runs the word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AlgebraId(pub u32);
-
-/// One entry of the algebra catalogue: the polyfill (D4: over mask-risc /
-/// ndarray) named by reference, how many operands it takes, and its signature
-/// revision. Immutable once declared; versioned in the store directly (D6).
-/// The store never resolves or runs the polyfill.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AlgebraEntry {
-    pub id: AlgebraId,
-    pub sig_rev: SigRev,
-    pub polyfill: String,
-    pub inputs: u8,
-}
-
-/// What a class binds an effect to: an algebra entry at the signature
-/// revision it was bound against.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AlgebraRef {
-    pub id: AlgebraId,
-    pub sig_rev: SigRev,
+    pub lens: u32,
+    pub word: u8,
 }
 
-impl AlgebraRef {
-    /// The faithful reference to `entry`.
-    pub fn of(entry: &AlgebraEntry) -> AlgebraRef {
-        AlgebraRef {
-            id: entry.id,
-            sig_rev: entry.sig_rev,
-        }
-    }
+/// A bound polyfill lens: its schema, as for any class, and the operand count
+/// of each word (one per field position).
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AlgebraLens {
+    schema: ClassSchema,
+    arity: Vec<u8>,
 }
 
-/// One DO step: which field position of the class it writes, the algebra
-/// entry that writes it, and what it reads. A method's effects are an ORDERED
+/// One DO step: which field position of the class it writes, the polyfill
+/// word that writes it, and what it reads. A method's effects are an ORDERED
 /// list.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Effect {
@@ -239,13 +228,70 @@ impl MethodBinding {
     }
 }
 
-/// A class's schema as bound: the schema revision and the field count the
-/// methods were bound against. The field basis itself is the [`ClassView`]
-/// class [`view_class`] of the classid, never declared here.
+/// Positions per axis of a DR focus (D-DRF-1 §1): DR64 or DR256.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Width {
+    W64,
+    W256,
+}
+
+impl Width {
+    pub const fn positions(self) -> usize {
+        match self {
+            Width::W64 => 64,
+            Width::W256 => 256,
+        }
+    }
+}
+
+/// The logical extent a class binds over, chosen by the consumer per axis:
+/// Identity × Property × Predicate. D-DT64-6 A.1: the DT binding names DR64
+/// or DR256 and states its cost in those units. Logical only: nothing is
+/// allocated here, and no cube is assumed to exist (§7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Extent {
+    pub identity: Width,
+    pub property: Width,
+    /// The class's predicates: its methods (ON × WHEN × DO registrations).
+    pub predicate: Width,
+}
+
+impl Extent {
+    /// DR64³: 64 × 64 × 64.
+    pub const DR64_CUBE: Extent = Extent {
+        identity: Width::W64,
+        property: Width::W64,
+        predicate: Width::W64,
+    };
+    /// DR256² × 64: a 256 × 256 Identity × Property tile under 64 predicates.
+    pub const DR256_SQ_X64: Extent = Extent {
+        identity: Width::W256,
+        property: Width::W256,
+        predicate: Width::W64,
+    };
+
+    /// Logical cells.
+    pub const fn cells(self) -> usize {
+        self.identity.positions() * self.property.positions() * self.predicate.positions()
+    }
+
+    /// What a dense Boolean volume of this extent would cost, in bytes, if
+    /// anyone materialized it (DR64³ is 32 KiB, D-DRF-1 §1). A statement of
+    /// cost, not an allocation.
+    pub const fn dense_bytes(self) -> usize {
+        self.cells() / 8
+    }
+}
+
+/// A class's schema as bound: the schema revision, the field count the
+/// methods were bound against, and the extent the consumer chose. The field
+/// basis itself is the [`ClassView`] class [`view_class`] of the classid,
+/// never declared here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClassSchema {
     pub schema_rev: SchemaRev,
     pub field_count: usize,
+    pub extent: Extent,
 }
 
 /// The [`ClassView`] class a classid is read through: its concept half, by
@@ -307,6 +353,18 @@ pub enum Refusal {
     },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
+    /// More fields than the extent's Property axis holds.
+    FieldsExceedExtent {
+        class: u32,
+        field_count: usize,
+        property: Width,
+    },
+    /// More methods than the extent's Predicate axis holds.
+    MethodsExceedExtent {
+        class: u32,
+        methods: usize,
+        predicate: Width,
+    },
     /// Asked at another schema revision than the one bound.
     SchemaRevisionMismatch {
         class: u32,
@@ -334,25 +392,17 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
-    /// An effect names an algebra entry the catalogue does not hold.
+    /// An effect names a lens that is not bound, or a position outside it.
     UnknownAlgebra {
         class: u32,
         method: MethodId,
-        algebra: AlgebraId,
-    },
-    /// An effect was bound against another revision of the entry.
-    AlgebraRevisionMismatch {
-        class: u32,
-        method: MethodId,
-        algebra: AlgebraId,
-        bound: SigRev,
-        asked: SigRev,
+        algebra: AlgebraRef,
     },
     /// An effect passes another number of operands than the entry takes.
     ArityMismatch {
         class: u32,
         method: MethodId,
-        algebra: AlgebraId,
+        algebra: AlgebraRef,
         expected: u8,
         got: usize,
     },
@@ -364,8 +414,8 @@ pub enum Refusal {
         effect: usize,
         position: u8,
     },
-    /// The algebra entry is already declared with other content.
-    AlgebraImmutable(AlgebraId),
+    /// The polyfill lens is already bound with other content.
+    AlgebraImmutable(u32),
     /// No classid was routed to the position at that version.
     Unrouted {
         position: u16,
@@ -512,8 +562,8 @@ impl<'s, 'v> Resolved<'s, 'v> {
 #[derive(Debug, Clone, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
-    /// The classid-free algebra catalogue (D6).
-    algebra: BTreeMap<AlgebraId, AlgebraEntry>,
+    /// The bound polyfill lenses, by lens classid (D6).
+    algebra: BTreeMap<u32, AlgebraLens>,
     /// Per position, the route events in version order: `(version, class)`,
     /// `None` for a retract.
     routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
@@ -564,27 +614,18 @@ impl BindStore {
         validate(class, &schema, &methods)?;
         for m in &methods {
             for e in &m.effects {
-                let (method, algebra) = (m.id, e.algebra.id);
-                let entry = self.algebra.get(&algebra).ok_or(Refusal::UnknownAlgebra {
+                let (method, algebra) = (m.id, e.algebra);
+                let inputs = self.arity(algebra).ok_or(Refusal::UnknownAlgebra {
                     class,
                     method,
                     algebra,
                 })?;
-                if entry.sig_rev != e.algebra.sig_rev {
-                    return Err(Refusal::AlgebraRevisionMismatch {
-                        class,
-                        method,
-                        algebra,
-                        bound: entry.sig_rev,
-                        asked: e.algebra.sig_rev,
-                    });
-                }
-                if usize::from(entry.inputs) != e.args.len() {
+                if usize::from(inputs) != e.args.len() {
                     return Err(Refusal::ArityMismatch {
                         class,
                         method,
                         algebra,
-                        expected: entry.inputs,
+                        expected: inputs,
                         got: e.args.len(),
                     });
                 }
@@ -605,31 +646,86 @@ impl BindStore {
         }
     }
 
-    /// Declare a classid-free algebra entry. Idempotent for an identical
-    /// entry; any other content under a declared id is refused.
-    pub fn declare_algebra(&mut self, entry: AlgebraEntry) -> Result<(), Refusal> {
-        match self.algebra.get(&entry.id) {
-            Some(bound) if *bound == entry => Ok(()),
-            Some(_) => Err(Refusal::AlgebraImmutable(entry.id)),
+    /// Bind a polyfill lens: one classid whose fields are the polyfill's
+    /// words, `arity[p]` being the operand count of the word at position `p`.
+    /// Idempotent for an identical binding; any other is refused (D5).
+    pub fn declare_algebra(
+        &mut self,
+        lens: u32,
+        schema_rev: SchemaRev,
+        extent: Extent,
+        arity: Vec<u8>,
+    ) -> Result<(), Refusal> {
+        let schema = ClassSchema {
+            schema_rev,
+            field_count: arity.len(),
+            extent,
+        };
+        validate(lens, &schema, &[])?;
+        let bound = AlgebraLens { schema, arity };
+        match self.algebra.get(&lens) {
+            Some(b) if *b == bound => Ok(()),
+            Some(_) => Err(Refusal::AlgebraImmutable(lens)),
             None => {
-                self.algebra.insert(entry.id, entry);
+                self.algebra.insert(lens, bound);
                 Ok(())
             }
         }
     }
 
-    /// The algebra entry `id`, if declared.
-    pub fn algebra(&self, id: AlgebraId) -> Option<&AlgebraEntry> {
-        self.algebra.get(&id)
+    /// The operand count of `word`, if its lens is bound and the position is
+    /// inside it.
+    pub fn arity(&self, word: AlgebraRef) -> Option<u8> {
+        self.algebra
+            .get(&word.lens)?
+            .arity
+            .get(usize::from(word.word))
+            .copied()
     }
 
-    /// Every `(classid, method)` whose DO uses algebra entry `id`: which
-    /// classids switch over it.
-    pub fn users_of(&self, id: AlgebraId) -> Vec<(u32, MethodId)> {
+    /// The polyfill lens read through its [`ClassView`], exactly as a class
+    /// is: [`Resolved::field_view`] gives each word's position and label. It
+    /// has no methods; its words are its fields.
+    pub fn resolve_algebra<'s, 'v, V: ClassView + ?Sized>(
+        &'s self,
+        view: &'v V,
+        lens: u32,
+        schema_rev: SchemaRev,
+    ) -> Result<Resolved<'s, 'v>, Refusal> {
+        let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
+        check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
+            class: lens,
+            schema: &bound.schema,
+            fields,
+            methods: &[],
+            derived_from: None,
+        })
+    }
+
+    /// The words of `lens` that `class`'s methods use, as a mask over the
+    /// lens.
+    pub fn words_used(&self, class: u32, lens: u32) -> Result<WideFieldMask, Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let words: Vec<u8> = entry
+            .methods
+            .iter()
+            .flat_map(|m| &m.effects)
+            .filter(|e| e.algebra.lens == lens)
+            .map(|e| e.algebra.word)
+            .collect();
+        Ok(WideFieldMask::from_positions(&words))
+    }
+
+    /// Every `(classid, method)` whose DO uses `word`: which classids switch
+    /// over it.
+    pub fn users_of(&self, word: AlgebraRef) -> Vec<(u32, MethodId)> {
         let mut out = Vec::new();
         for (&class, entry) in &self.classes {
             for m in &entry.methods {
-                if m.effects.iter().any(|e| e.algebra.id == id) {
+                if m.effects.iter().any(|e| e.algebra == word) {
                     out.push((class, m.id));
                 }
             }
@@ -698,21 +794,7 @@ impl BindStore {
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        if entry.schema.schema_rev != schema_rev {
-            return Err(Refusal::SchemaRevisionMismatch {
-                class,
-                bound: entry.schema.schema_rev,
-                asked: schema_rev,
-            });
-        }
-        let fields = view.fields(view_class(class));
-        if fields.len() != entry.schema.field_count {
-            return Err(Refusal::FieldBasisChanged {
-                class,
-                bound: entry.schema.field_count,
-                view: fields.len(),
-            });
-        }
+        let fields = check_basis(view, class, &entry.schema, schema_rev)?;
         Ok(Resolved {
             class,
             schema: &entry.schema,
@@ -769,14 +851,56 @@ impl BindStore {
     }
 }
 
-/// Registration checks: the basis fits a [`WideFieldMask`], MethodIds are
-/// unique in the class, and every field position a binding names is inside
-/// the declared basis.
+/// The lens's fields from the [`ClassView`], refused when the schema revision
+/// or the field basis is not the bound one.
+fn check_basis<'v, V: ClassView + ?Sized>(
+    view: &'v V,
+    class: u32,
+    schema: &ClassSchema,
+    schema_rev: SchemaRev,
+) -> Result<&'v [FieldRef], Refusal> {
+    if schema.schema_rev != schema_rev {
+        return Err(Refusal::SchemaRevisionMismatch {
+            class,
+            bound: schema.schema_rev,
+            asked: schema_rev,
+        });
+    }
+    let fields = view.fields(view_class(class));
+    if fields.len() != schema.field_count {
+        return Err(Refusal::FieldBasisChanged {
+            class,
+            bound: schema.field_count,
+            view: fields.len(),
+        });
+    }
+    Ok(fields)
+}
+
+/// Registration checks: the basis fits a [`WideFieldMask`] and the chosen
+/// extent, the methods fit the extent's predicate axis, MethodIds are unique
+/// in the class, and every field position a binding names is inside the
+/// declared basis.
 fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Result<(), Refusal> {
     if schema.field_count > MAX_FIELDS {
         return Err(Refusal::BasisTooWide {
             class,
             field_count: schema.field_count,
+        });
+    }
+    let extent = schema.extent;
+    if schema.field_count > extent.property.positions() {
+        return Err(Refusal::FieldsExceedExtent {
+            class,
+            field_count: schema.field_count,
+            property: extent.property,
+        });
+    }
+    if methods.len() > extent.predicate.positions() {
+        return Err(Refusal::MethodsExceedExtent {
+            class,
+            methods: methods.len(),
+            predicate: extent.predicate,
         });
     }
     for (i, m) in methods.iter().enumerate() {
