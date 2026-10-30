@@ -35,18 +35,23 @@ op, terminal, runtime or contract type.
 > used it only as a teaching aid. This file is a **reading aid** that maps the metaphor onto existing seams;
 > it is not a contract, it names no production type, and "D-LITHO" names no component. Production vocabulary
 > is the existing one:
-> - binding: the **D-DT64-Q0** source-attested binding seam (an interface seam, *not* a persistent store) and
->   Quack `Binder` / `Draft::bind` (D-NFR-0 S1, S2);
+> - **the bind store is DT** (authoritative: [D-DT64-6](d-dt64-6-routing-bindstore-behavior-v1.md) §1 D4,
+>   [D-DRDT](d-drdt-dr-dt-ownership-amendment-v1.md) §1): the existing DTO binding store addressed by ClassId,
+>   `ClassId → class schema + method schema` — `ClassView::fields` / `WideFieldMask`, `codegen_manifest::methods_for`,
+>   `action::actions_for`, versioned activation through `hotplug`. It stores bindings and their version log,
+>   never business data (D-DT64-6 §4's reading of the Q0 sentence). DR routes; DT assigns meaning and methods;
+>   a classid's behaviour is immutable, a change is a derived classid plus a re-route (D5);
+> - Quack `Binder` / `Draft::bind` is the operational query-binding membrane (D-NFR-0 S1, S2); its prepared
+>   numeric bindings are not DT's semantic bindings (D-DRDT §1). D-NFR-0's S5 "MISSING" is Quack's, not DT's;
 > - frame, focus, scope: `dr-math-binding-probe` `Frame` / `FrameStore` / `Focus` / `Scope` (S6, S7, lab);
-> - typed axes, truth, population: `MethodSignature` + `bind_dr64` (S8, lab), which refuses Bag with
+>   typed axes, truth, population: `MethodSignature` + `bind_dr64` (S8, lab), which refuses Bag with
 >   `BagNeedsMultiplicity`;
-> - the **binding store is MISSING** (D-NFR-0 S5); the smallest seam is the S5 × S6 adapter (D-NFR-1, not
->   built). Whether the ON × WHEN × DO registry lives in DT64 is OPEN (D-DT64-6 predicates plan §10.5);
+> - DT gaps named by D-DRDT §4: MethodId independent of name, K3 / conjunctive guards, ordered effects, one
+>   lookup joining class, method and activation at one version;
 > - ONNX: `tract-harvest-probe` registry + plan (§3b), over `lance-graph-onnx`.
 >
-> Earlier wording in this file and on EXO-50 that called XLOG "the first consumer of the bind store", or the
-> rods "DR's missing counted semiring", is withdrawn: there is no bind store yet, and the Bag refusal is S8's
-> existing, documented behaviour (D-QSP: a tile carries no bag multiplicity without a further lawful carrier).
+> XLOG (#1864) is a consumer of the DT bind store; its fixture fails today on S8's `BagNeedsMultiplicity`.
+> The rods are a measured fact (G4), not a proposed carrier.
 
 ## Overview
 
@@ -259,7 +264,7 @@ than the byte-dot, refused).
 
 ## 11. Pre-registered gates (none run)
 
-- **G1 status:** discharged for ONNX (§3b); delivered for XLOG as a failing fixture in #1864 (expected {2:4, 3:1, 7:1}, refused today with `BagNeedsMultiplicity`). It fails on S8's `BagNeedsMultiplicity` refusal in `bind_dr64`; there is no bind store to consume (D-NFR-0 S5 MISSING).
+- **G1 status:** discharged for ONNX (§3b); delivered for XLOG as a failing fixture in #1864 (expected {2:4, 3:1, 7:1}, refused today with `BagNeedsMultiplicity`). XLOG consumes the DT bind store (D-DT64-6 D4, D-DRDT §1); the fixture fails today on S8's `BagNeedsMultiplicity` in `bind_dr64`.
 - **G1, binding sufficiency.** One named consumer states one operation as a DTO binding over DR
   coordinates, with a failing fixture and expected values. **Fails if** the statement needs a dimension
   decision.
