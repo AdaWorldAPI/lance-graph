@@ -235,7 +235,7 @@ This works because every registration carries its own classid and none is regist
 
 ### 0.7 CORRECTION: a classid is a codebook lens, not a codebook item (2026-10-30)
 
-**Superseded.** Every "classid" in §0.2–§0.6 that names a single op signature (0x0F01…0x0F82, including the classid column of the §0.5 table and "13 lab classids" in the EXO-50 messages) was a mistake. The registry spent one classid per codebook item. The binding question offered "op signature → one immutable classid" as the recommended option, the user accepted it, and the module doc then attributed it to a user decision.
+**Superseded.** Every "classid" in §0.2–§0.6 that names a single op signature (0x0F01…0x0F82, including the classid column of the §0.5 table and "13 lab classids" in the EXO-50 messages) was a mistake. The registry spent one classid per codebook item. It was this session's assumption: a binding question offered "op signature → one immutable classid" as the recommended option, and the module doc then attributed it to a "user decision" the user never made.
 
 **Now (registry version 6).**
 - The ONNX operator codebook is read through one lens, `registry::ONNX_LENS` (a lab classid, not minted).

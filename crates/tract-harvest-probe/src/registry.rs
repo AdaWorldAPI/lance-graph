@@ -9,7 +9,7 @@
 //! separately; reordering is a new [`Registry::version`]. (An earlier version
 //! of this crate gave every op signature its own classid. That spent one
 //! identity per codebook item, and the module doc attributed it to a user
-//! decision that was in fact this session's recommendation.)
+//! decision that was never made: it was this session's assumption.)
 //!
 //! An ONNX node is a registered method once its **op signature**
 //! `(domain, op_type, dtype, discrete attributes)` matches a
