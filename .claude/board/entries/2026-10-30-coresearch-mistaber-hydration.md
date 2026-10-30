@@ -87,7 +87,13 @@ HHTL16PartOf  1234567890123456   (y bytes)
 column k  =  Morton8x8::from_xy(isa[k], partof[k])
 ```
 
-Not in code yet: which 32 bytes of the 512-byte row carry the two arrays. `NodeRow` today is `key` 0..16, `edges` 16..32 and `value` 32..512 (`canonical_node.rs`).
+**Placement: the two Register128 rails** (operator pointer, read in `canonical_node.rs` and `register128.rs`). `ValueTenant::Register0` sits at row bytes 252..268 and `Register1` at 268..284 (D-LXC-29). Each is 16 raw content-blind bytes with **no classid inside**, which is unlike the Facet96 lanes (`Tekamolo`, `CausalWitness`), whose first four bytes are a classid. So column 1 can be a 2-byte identity without colliding with a classid. Meaning comes from the SPOG context the population was resolved under. The slab must declare `SlabReading::Register128`, and `ResolvedReading::bind_register128` binds it once, refusing any other slab.
+
+- `Register0` = `HHTL16ISA` (x bytes)
+- `Register1` = `HHTL16PartOf` (y bytes)
+- column `k` = `Morton8x8::from_xy(R0[k], R1[k])`
+
+The opt-in is the slab declaration, so a class that does not declare it keeps its other readings.
 
 **The Kripke probe is already DR64-shaped.** Its `Rows = [u64; 64]` registers (accessibility, holds, block) are the registers `hhtl16` reads. `cell(Morton8x8::from_xy(world, proposition))` reads one holding. `column` gives the worlds that hold a proposition, `row` gives the propositions a world holds, and `rotate_yz` switches between the two without copying. The HHTL16 codes of the rows above are the global identities that `LocalMap` maps onto the 64 local coordinates.
 
