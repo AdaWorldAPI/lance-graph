@@ -1,3 +1,8 @@
+## 2026-10-30 — D-TRACT-HARVEST-0: Tract as a cold ONNX frontend, admitted onto native methods → `.claude/plans/d-tract-harvest-0-native-algebra-bridge-v1.md`
+
+**Status:** LAB PROBE IMPLEMENTED (`crates/tract-harvest-probe`, own workspace, no native dependents); runs the Tract arm of D-ONNX-INTAKE S1/S3 (#1802, #1810); Burn not run. **Board:** [entry](entries/2026-10-30-d-tract-harvest-0-native-algebra-bridge.md), [STATUS_BOARD](STATUS_BOARD.md) D-TRACT-HARVEST-0. Tiny graph bit-exact with ORT (optimizer off); Jina v5 small layer-0 RMSNorm slice bounded (max 4 ulp, deviation confined to the float mean). Records the Tract provenance gaps (domain ignored, equal constants merged, declutter Div→Mul(recip) and fusion name loss) and the next PR sequence (float reduction tolerance, admitted f32 MatMul first).
+**Confidence:** lab evidence on two fixtures; no whole-model claim.
+
 ## 2026-10-28 — D-DRDT: DR = HHTL16 Cartesian direct routing, DT = ClassId binding store → `.claude/plans/d-drdt-dr-dt-ownership-amendment-v1.md`
 
 **Status:** PROPOSED, docs only; amends D-DT64-6 §1 (per-cell WHEN×ON×DO, DR#3) and supersedes the DT64 "tensor register" noun of Bardioc-rs #9. **Board:** [entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRDT. Records the DR/DT contract, reads the DR64/DR256 overview against existing pieces, gives the reuse/gap table for Cartesian and relational fold operators (proof: #1834, D-DRCA-1) and hands off DT method identity / guard / effect order and the DR #4 interface.

@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-502 entries, 2026-08-06 .. 2026-10-29.
+503 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
 | 2026-10-29 | `palette512-turbovec9-nsl-worksteal` |  | [2026-10-29-palette512-turbovec9-nsl-worksteal.md](2026-10-29-palette512-turbovec9-nsl-worksteal.md) |
 | 2026-10-28 | `thought-layers-nan-skip` |  | [2026-10-28-thought-layers-nan-skip.md](2026-10-28-thought-layers-nan-skip.md) |
 | 2026-10-28 | `lane-layout-from-classview` |  | [2026-10-28-lane-layout-from-classview.md](2026-10-28-lane-layout-from-classview.md) |
