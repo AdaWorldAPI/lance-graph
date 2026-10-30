@@ -27,7 +27,9 @@
 //!   the certification, not certifications.
 //! - **Topology changes only through [`hydrate`]**: `IndirectUnknown` becomes
 //!   `IndirectKnown` when both bindings `A → B` and `B → Y` exist in the sealed
-//!   chain. Proposing a candidate is not evidence.
+//!   chain under the edge's own predicate. Proposing a candidate is not
+//!   evidence, and neither is a step of another relation between the same
+//!   nodes.
 //! - **Only bits 59..63 move.** The projection, mantissa, frequency and
 //!   confidence of the edge are inputs, never outputs.
 //! - **A pass cannot be asserted.** [`Measured`] has private fields; only
@@ -426,7 +428,8 @@ pub fn revise(m: &Measured, reading: Reading<'_>) -> Result<CausalEdge64, Epi5Re
 /// What a candidate intermediate B turned out to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hydration {
-    /// No binding of B to the path exists in the sealed chain.
+    /// No binding of B to the path exists in the sealed chain under the
+    /// edge's predicate.
     ProposedOnly,
     /// One of `A → B`, `B → Y` exists.
     Partial,
@@ -438,6 +441,11 @@ pub enum Hydration {
 /// bindings `a → b` and `b → y` are present in the sealed chain. Certification
 /// never moves here.
 ///
+/// A binding is a step whose recorded edge has the queried edge's predicate:
+/// the step must be this relation's, as the path must be this edge's own. A
+/// step of another relation between the same nodes (an `is_a` edge, an
+/// inheritance edge) is not a binding.
+///
 /// # Errors
 ///
 /// The edge's bits 59..63 do not project under `reading`.
@@ -447,7 +455,12 @@ pub fn hydrate(
     sealed: &[ChainStep],
     reading: Reading<'_>,
 ) -> Result<(CausalEdge64, Hydration), Epi5ReadError> {
-    let has = |s: u8, o: u8| sealed.iter().any(|(_, e)| e.s_idx() == s && e.o_idx() == o);
+    let p = edge.p_idx();
+    let has = |s: u8, o: u8| {
+        sealed
+            .iter()
+            .any(|(_, e)| e.s_idx() == s && e.p_idx() == p && e.o_idx() == o)
+    };
     let found = match (has(a, b), has(b, y)) {
         (true, true) => Hydration::Hydrated,
         (false, false) => Hydration::ProposedOnly,
@@ -1282,6 +1295,53 @@ mod tests {
             Topology2::IndirectUnknown,
         );
         let (out, _) = hydrate(own, (A, B, Y), &rp.steps, reading(&d)).unwrap();
+        assert_eq!(state(out).0, Topology2::IndirectKnown);
+    }
+
+    /// A step between the right nodes under another predicate.
+    fn foreign(s: u8, o: u8) -> ChainStep {
+        const OTHER: u8 = 0x07;
+        let e = CausalEdge64::pack(
+            s,
+            OTHER,
+            o,
+            200,
+            200,
+            CausalMask::SO,
+            causal_edge::Orientation::from_code(0b101),
+            InferenceType::Deduction,
+            PlasticityState::S_HOT,
+            0,
+        );
+        (OTHER, e)
+    }
+
+    #[test]
+    fn steps_of_another_relation_do_not_hydrate() {
+        // #1863: hydrate matched subject and object only, so A -is_a-> B and
+        // B -is_a-> Y raised the topology of A -causes-> Y.
+        let d = declarations();
+        let q = query(
+            CausalMask::SO,
+            Certification3::Open,
+            Topology2::IndirectUnknown,
+        );
+        assert_ne!(foreign(A, B).1.p_idx(), q.p_idx());
+        let sealed = vec![foreign(A, B), foreign(B, Y)];
+        let (out, h) = hydrate(q, (A, B, Y), &sealed, reading(&d)).unwrap();
+        assert_eq!(h, Hydration::ProposedOnly);
+        assert_eq!(out, q);
+        // One binding of this relation, one of another: Partial, no move.
+        let mixed = vec![
+            (PREDICATE, edge(A, B, 40, 220, CausalMask::SPO)),
+            foreign(B, Y),
+        ];
+        let (out, h) = hydrate(q, (A, B, Y), &mixed, reading(&d)).unwrap();
+        assert_eq!(h, Hydration::Partial);
+        assert_eq!(out, q);
+        // Can-fire twin: the same nodes under the edge's predicate hydrate.
+        let (out, h) = hydrate(q, (A, B, Y), &chain_steps(), reading(&d)).unwrap();
+        assert_eq!(h, Hydration::Hydrated);
         assert_eq!(state(out).0, Topology2::IndirectKnown);
     }
 
