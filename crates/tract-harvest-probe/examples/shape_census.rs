@@ -98,6 +98,12 @@ fn main() {
     for op in OPS {
         println!("  {op:>10} {:?}", cov.get(*op));
     }
+    let not_true: Vec<_> = cov
+        .iter()
+        .filter(|(_, c)| c[1] > 0)
+        .map(|(k, c)| (k.as_str(), c[1]))
+        .collect();
+    println!("  WHEN not true by op: {not_true:?}");
     println!("foldable by dependency but not folded:");
     for (why, c) in by {
         println!("  {c:>5}  {why}");

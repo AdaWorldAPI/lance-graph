@@ -591,6 +591,81 @@ fn guard_reshape(v: &NodeView) -> K3 {
     }
 }
 
+/// A binary int64 comparison as admitted here: the right side has the left
+/// side's shape (pairwise) or one element (scalar). Other broadcasts are not
+/// admitted.
+fn guard_pair_or_scalar(v: &NodeView) -> K3 {
+    let (Some(a), Some(b)) = (arg_shape(v, 0), arg_shape(v, 1)) else {
+        return K3::Unknown;
+    };
+    if a == b && a.iter().all(|d| matches!(d, Dim::Known(_))) {
+        return K3::True;
+    }
+    match known(&Some(b.clone())) {
+        Some(s) if s.iter().product::<usize>() == 1 && b.len() <= a.len() => K3::True,
+        Some(_) if known(&Some(a.clone())).is_some() => K3::False,
+        _ => K3::Unknown,
+    }
+}
+
+/// `ConstantOfShape`: a constant, non-negative shape and a one-element value.
+fn guard_constant_of_shape(v: &NodeView) -> K3 {
+    match v.node.attr("value") {
+        None => {}
+        Some(Attr::Tensor(Some(t))) if t.shape().iter().product::<usize>() == 1 => {}
+        Some(_) => return K3::False,
+    }
+    match v.consts.first().copied().flatten().and_then(Value::i64s) {
+        Some(d) if d.iter().all(|&x| x >= 0) => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
+    }
+}
+
+/// The multidirectional broadcast of two shapes, or `None`.
+fn broadcast_shapes(a: &[usize], b: &[usize]) -> Option<Vec<usize>> {
+    let r = a.len().max(b.len());
+    let at = |s: &[usize], i: usize| {
+        if i + s.len() >= r {
+            s[i + s.len() - r]
+        } else {
+            1
+        }
+    };
+    (0..r)
+        .map(|i| match (at(a, i), at(b, i)) {
+            (x, y) if x == y || y == 1 => Some(x),
+            (1, y) => Some(y),
+            _ => None,
+        })
+        .collect()
+}
+
+/// `Expand`: a constant target over a fully known input shape that
+/// broadcasts against it.
+fn guard_expand(v: &NodeView) -> K3 {
+    let Some(target) = v.consts.get(1).copied().flatten().and_then(Value::i64s) else {
+        return K3::Unknown;
+    };
+    let Some(input) = v
+        .args
+        .first()
+        .copied()
+        .flatten()
+        .and_then(|f| known(&f.shape))
+    else {
+        return K3::Unknown;
+    };
+    if target.iter().any(|&t| t < 0) {
+        return K3::False;
+    }
+    let t: Vec<usize> = target.iter().map(|&t| t as usize).collect();
+    match broadcast_shapes(&input, &t) {
+        Some(_) => K3::True,
+        None => K3::False,
+    }
+}
+
 // ── DO polyfills: existing native functions only ───────────────────────────
 
 fn f32_arg<'a>(
@@ -946,6 +1021,152 @@ fn do_erf(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     Ok(vec![Value::F32(out)])
 }
 
+/// An int64 comparison into a packed `tensor(bool)`: the `_pair` kernel when
+/// the right side has the left side's length, the scalar kernel for a
+/// one-element right side.
+fn compare_i64(
+    a: &[&Value],
+    n: &SourceNode,
+    pair: fn(&[i64], &[i64], &mut [u64]),
+    scalar: fn(&[i64], i64, &mut [u64]),
+) -> Result<Vec<Value>, Refusal> {
+    let x = i64_arg(a, 0, n)?;
+    let y = i64_arg(a, 1, n)?;
+    let xs: Vec<i64> = x.iter().copied().collect();
+    let mut words = vec![0u64; lance_graph_onnx::mask_words(xs.len())];
+    if y.shape() == x.shape() {
+        let ys: Vec<i64> = y.iter().copied().collect();
+        pair(&xs, &ys, &mut words);
+    } else if let (1, Some(&t)) = (y.len(), y.iter().next()) {
+        scalar(&xs, t, &mut words);
+    } else {
+        return Err(runtime(
+            n,
+            format!("{:?} against {:?} is not admitted", x.shape(), y.shape()),
+        ));
+    }
+    Ok(vec![Value::Bool {
+        shape: x.shape().to_vec(),
+        words,
+    }])
+}
+
+fn do_equal_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    compare_i64(
+        a,
+        n,
+        ndarray::simd::eq_i64_pair_to_mask,
+        ndarray::simd::eq_i64_to_mask,
+    )
+}
+
+fn do_less_or_equal_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    compare_i64(
+        a,
+        n,
+        ndarray::simd::le_i64_pair_to_mask,
+        ndarray::simd::le_i64_to_mask,
+    )
+}
+
+/// `Where(C, X, Y)` over int64: `blend_i64`, or `blend_i64_scalar` for a
+/// scalar `Y`.
+fn do_where_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let Some(Value::Bool { shape, words }) = a.first() else {
+        return Err(runtime(n, "condition is not a bool tensor"));
+    };
+    let x = i64_arg(a, 1, n)?;
+    let y = i64_arg(a, 2, n)?;
+    if shape.as_slice() != x.shape() {
+        return Err(runtime(n, "condition and X shapes differ"));
+    }
+    let xs: Vec<i64> = x.iter().copied().collect();
+    let mut out = vec![0i64; xs.len()];
+    if let (1, Some(&yv)) = (y.len(), y.iter().next()) {
+        ndarray::simd::blend_i64_scalar(words, &xs, yv, &mut out);
+    } else if y.shape() == x.shape() {
+        let ys: Vec<i64> = y.iter().copied().collect();
+        ndarray::simd::blend_i64(words, &xs, &ys, &mut out);
+    } else {
+        return Err(runtime(n, "Y does not broadcast to X"));
+    }
+    Ok(vec![Value::I64(
+        ArrayD::from_shape_vec(IxDyn(x.shape()), out).expect("same length"),
+    )])
+}
+
+/// `ConstantOfShape`: `ArrayD::from_elem` of the attribute's one element
+/// (ONNX default: float 0); a bool value fills the packed mask.
+fn do_constant_of_shape(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let dims = a
+        .first()
+        .and_then(|v| v.i64s())
+        .ok_or_else(|| runtime(n, "no shape"))?;
+    let shape: Vec<usize> = dims
+        .iter()
+        .map(|&d| usize::try_from(d).map_err(|_| runtime(n, format!("negative dimension {d}"))))
+        .collect::<Result<_, _>>()?;
+    let len: usize = shape.iter().product();
+    let sh = IxDyn(&shape);
+    let out = match n.attr("value") {
+        None => Value::F32(ArrayD::from_elem(sh, 0.0)),
+        Some(Attr::Tensor(Some(t))) => match t {
+            Value::F32(v) => Value::F32(ArrayD::from_elem(
+                sh,
+                v.iter().copied().next().unwrap_or(0.0),
+            )),
+            Value::I32(v) => {
+                Value::I32(ArrayD::from_elem(sh, v.iter().copied().next().unwrap_or(0)))
+            }
+            Value::I64(v) => {
+                Value::I64(ArrayD::from_elem(sh, v.iter().copied().next().unwrap_or(0)))
+            }
+            Value::Bool { words, .. } => {
+                let mut w = vec![0u64; lance_graph_onnx::mask_words(len)];
+                if words.first().is_some_and(|w| w & 1 == 1) {
+                    w.fill(u64::MAX);
+                    if len % 64 != 0 {
+                        if let Some(last) = w.last_mut() {
+                            *last = (1u64 << (len % 64)) - 1;
+                        }
+                    }
+                }
+                Value::Bool { shape, words: w }
+            }
+        },
+        Some(_) => return Err(runtime(n, "value is not a decodable tensor")),
+    };
+    Ok(vec![out])
+}
+
+/// `Expand`: `ndarray`'s `broadcast` to the multidirectional broadcast of the
+/// input shape and the target.
+fn do_expand(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
+    let target: Vec<usize> = a
+        .get(1)
+        .and_then(|v| v.i64s())
+        .ok_or_else(|| runtime(n, "no target shape"))?
+        .iter()
+        .map(|&t| usize::try_from(t).map_err(|_| runtime(n, format!("negative dimension {t}"))))
+        .collect::<Result<_, _>>()?;
+    let shape = broadcast_shapes(&x.shape(), &target).ok_or_else(|| {
+        runtime(
+            n,
+            format!("{:?} does not broadcast to {target:?}", x.shape()),
+        )
+    })?;
+    fn bc<T: Clone>(a: &ArrayD<T>, s: &[usize]) -> Option<ArrayD<T>> {
+        a.broadcast(IxDyn(s)).map(|v| v.to_owned())
+    }
+    let bad = || runtime(n, "broadcast failed");
+    Ok(vec![match x {
+        Value::F32(v) => Value::F32(bc(v, &shape).ok_or_else(bad)?),
+        Value::I64(v) => Value::I64(bc(v, &shape).ok_or_else(bad)?),
+        other => return Err(runtime(n, format!("Expand of {:?}", other.dtype()))),
+    }])
+}
+
 // ── the table ───────────────────────────────────────────────────────────────
 
 const OPSETS: RangeInclusive<i64> = 13..=18;
@@ -1023,7 +1244,7 @@ pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
     Registry {
-        version: 2,
+        version: 3,
         regs: vec![
             reg!(
                 0x0F01,
@@ -1211,6 +1432,72 @@ pub fn registry() -> Registry {
                 NO_ATTRS,
                 guard_where,
                 do_where_i32,
+                Exact
+            ),
+            reg!(
+                0x0F70,
+                "simd::eq_i64_pair_to_mask / eq_i64_to_mask",
+                "Equal",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_pair_or_scalar,
+                do_equal_i64,
+                Exact
+            ),
+            reg!(
+                0x0F71,
+                "simd::le_i64_pair_to_mask / le_i64_to_mask",
+                "LessOrEqual",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_pair_or_scalar,
+                do_less_or_equal_i64,
+                Exact
+            ),
+            reg!(
+                0x0F72,
+                "simd::blend_i64 / blend_i64_scalar",
+                "Where",
+                Some(1),
+                I64,
+                NO_ATTRS,
+                guard_where,
+                do_where_i64,
+                Exact
+            ),
+            reg!(
+                0x0F73,
+                "ndarray ArrayD::from_elem of the value attribute",
+                "ConstantOfShape",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_constant_of_shape,
+                do_constant_of_shape,
+                Exact
+            ),
+            reg!(
+                0x0F74,
+                "ndarray broadcast, multidirectional",
+                "Expand",
+                Some(0),
+                I64,
+                NO_ATTRS,
+                guard_expand,
+                do_expand,
+                Exact
+            ),
+            reg!(
+                0x0F75,
+                "ndarray broadcast, multidirectional",
+                "Expand",
+                Some(0),
+                F32,
+                NO_ATTRS,
+                guard_expand,
+                do_expand,
                 Exact
             ),
             reg!(
@@ -1482,6 +1769,38 @@ mod tests {
             ]),
             [] as [i64; 0]
         );
+    }
+
+    /// int64 compares admit a same-shape or a one-element right side only.
+    #[test]
+    fn pair_or_scalar_admission() {
+        use Dim::*;
+        let n = node("Equal", 2, vec![]);
+        let check = |a: Vec<Dim>, b: Vec<Dim>| {
+            let (fa, fb) = (f(a), f(b));
+            guard_pair_or_scalar(&NodeView {
+                node: &n,
+                args: vec![Some(&fa), Some(&fb)],
+                consts: vec![None, None],
+            })
+        };
+        assert_eq!(check(vec![Known(3)], vec![Known(3)]), K3::True);
+        assert_eq!(check(vec![Known(3)], vec![Known(1)]), K3::True);
+        assert_eq!(check(vec![Known(3)], vec![]), K3::True);
+        assert_eq!(
+            check(vec![Known(3), Known(1)], vec![Known(1), Known(3)]),
+            K3::False,
+            "general broadcast not admitted"
+        );
+        assert_eq!(check(vec![Symbol("N".into())], vec![Known(3)]), K3::Unknown);
+    }
+
+    #[test]
+    fn broadcast_shapes_rules() {
+        assert_eq!(broadcast_shapes(&[1, 3], &[2, 1]), Some(vec![2, 3]));
+        assert_eq!(broadcast_shapes(&[2, 3], &[2, 2, 3]), Some(vec![2, 2, 3]));
+        assert_eq!(broadcast_shapes(&[3], &[1]), Some(vec![3]));
+        assert_eq!(broadcast_shapes(&[2, 3], &[4, 3]), None);
     }
 
     /// `0` copies, one `-1` infers, the element count must match.

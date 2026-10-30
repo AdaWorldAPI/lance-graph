@@ -135,6 +135,36 @@ def build_shape(variant):
         inits.append(nh.from_array(np.zeros((2, 2), np.float32), "G"))
         nodes = [h.make_node("Concat", ["F", "G"], ["C"], name="n_concat", axis=0)]
         outs = [h.make_tensor_value_info("C", T.FLOAT, [4, 3])]
+    elif variant == "shape_i64":
+        # int64 compares, Where, ConstantOfShape, Expand over Shape(F) = [2, 3].
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        inits += [i64("k24", [2, 4]), i64("seven", 7), i64("k33", [3, 3]), i64("row", [[1, 2, 3]]),
+                  i64("k223", [2, 2, 3])]
+        nodes = [
+            h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+            h.make_node("Equal", ["s", "k24"], ["eq"], name="n_equal"),
+            h.make_node("Where", ["eq", "s", "seven"], ["W"], name="n_where"),
+            h.make_node("LessOrEqual", ["W", "k33"], ["LE"], name="n_le"),
+            h.make_node("ConstantOfShape", ["s"], ["CS"], name="n_cos",
+                        value=nh.from_array(np.array([5], np.int64))),
+            h.make_node("Expand", ["row", "s"], ["ER"], name="n_expand_row"),
+            h.make_node("Expand", ["F", "k223"], ["EF"], name="n_expand_f"),
+        ]
+        outs = [h.make_tensor_value_info("W", T.INT64, [2]),
+                h.make_tensor_value_info("LE", T.BOOL, [2]),
+                h.make_tensor_value_info("CS", T.INT64, [2, 3]),
+                h.make_tensor_value_info("ER", T.INT64, [2, 3]),
+                h.make_tensor_value_info("EF", T.FLOAT, [2, 2, 3])]
+    elif variant in ("lstm_skip", "lstm_full"):
+        # An omitted optional output before a present one: Tract numbers a
+        # node's outlets after dropping empty names (onnx/src/model.rs:150).
+        hs = 2
+        inp = [h.make_tensor_value_info("X", T.FLOAT, [5, 1, 3])]
+        inits = [nh.from_array(np.full((1, 4 * hs, 3), 0.1, np.float32), "W"),
+                 nh.from_array(np.full((1, 4 * hs, hs), 0.2, np.float32), "R")]
+        outs_ = ["", "Y_h"] if variant == "lstm_skip" else ["Y", "Y_h"]
+        nodes = [h.make_node("LSTM", ["X", "W", "R"], outs_, name="n_lstm", hidden_size=hs)]
+        outs = [h.make_tensor_value_info("Y_h", T.FLOAT, [1, 1, hs])]
     g = h.make_graph(nodes, f"tiny_{variant}", inp, outs, inits)
     return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
 
@@ -163,6 +193,8 @@ INPUTS = {
 
 def bits(a):
     a = np.ascontiguousarray(a)
+    if a.dtype == np.bool_:
+        return [int(v) for v in a.ravel()]
     if a.dtype == np.float32:
         return [int(v) for v in a.view(np.uint32).ravel()]
     return [int(v) for v in a.ravel()]
@@ -201,12 +233,14 @@ def main():
         except Exception as e:  # ORT refusing a variant is itself evidence
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
-    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat"]:
+    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full"]:
         data = build_shape(v).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)
         entry = {"sha256": hashlib.sha256(data).hexdigest()}
-        feeds = {"F": INPUTS["F"]} if v != "shape_sym" else {"X": np.arange(6, dtype=np.float32)}
+        feeds = {"shape_sym": {"X": np.arange(6, dtype=np.float32)},
+                 "lstm_skip": {"X": np.ones((5, 1, 3), np.float32)},
+                 "lstm_full": {"X": np.ones((5, 1, 3), np.float32)}}.get(v, {"F": INPUTS["F"]})
         try:
             sess = session(data)
             outs = sess.run(None, feeds)

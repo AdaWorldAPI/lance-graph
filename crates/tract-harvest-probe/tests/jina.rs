@@ -446,7 +446,7 @@ fn new_weight_generation_refuses_the_old_plan() {
 /// 7,620 source values with a full fact; the typed stage labels 2,546, of
 /// which 1,988 are admitted (a typed fact is admitted only from the outlet
 /// that is the value's source producer, `dr3::admit`); the two agree wherever
-/// both speak. Registry v2 coverage with these facts, cold folding included,
+/// both speak. Registry v3 coverage with these facts, cold folding included,
 /// pinned exactly so any change forces a re-measure.
 #[test]
 #[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py"]
@@ -492,5 +492,5 @@ fn full_graph_facts_and_coverage() {
             .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
     };
     assert_eq!(tot(&fs.typed), [3841, 226, 3553]);
-    assert_eq!(tot(&fs.merged()), [6404, 56, 1160]);
+    assert_eq!(tot(&fs.merged()), [6581, 114, 925]);
 }
