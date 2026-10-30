@@ -5,6 +5,9 @@
 //! implements the assessment logic; consumers pass SituationInput
 //! and receive MulAssessment.
 
+use crate::certification::NotGrounded;
+use crate::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
+
 /// Situation input: what the consumer knows about the current context.
 ///
 /// All fields are 0.0–1.0 unless noted.
@@ -662,6 +665,77 @@ impl MulAssessment {
     pub fn is_unskilled_overconfident(&self) -> bool {
         self.dk_position == DkPosition::MountStupid
             || self.trust.texture == TrustTexture::Overconfident
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Epi5 wiring: calibration from the claim, not from a feeling
+//
+// `TrustTexture`'s four variants are the four outcomes of comparing what a
+// claim asserts with what its evidence certifies. `CausalEdge64` bits 61..63
+// carry the asserted `Certification3`; a sealed `CertificationModel` returns
+// the witnessed one. So the Dunning-Kruger gap ("felt" against
+// "demonstrated") has an exact, typed form whenever both are known, and
+// neither side is self-reported.
+// ═══════════════════════════════════════════════════════════════════════════
+
+impl TrustTexture {
+    /// Calibration of one claim: what bits 61..63 assert (`claimed`) against
+    /// what the sealed evidence certifies (`witnessed`).
+    ///
+    /// - `Err(_)`: the model cannot decide → [`Uncertain`](Self::Uncertain).
+    /// - the evidence does not license the claim → [`Overconfident`](Self::Overconfident).
+    /// - the evidence licenses strictly more → [`Underconfident`](Self::Underconfident).
+    /// - each licenses the other → [`Calibrated`](Self::Calibrated).
+    ///
+    /// Compared by facts ([`Certification3::entails`]), never by codes.
+    ///
+    /// ```
+    /// use lance_graph_contract::certification::NotGrounded;
+    /// use lance_graph_contract::epistemic_state5::Certification3 as C;
+    /// use lance_graph_contract::mul::TrustTexture;
+    ///
+    /// assert_eq!(TrustTexture::from_certification(C::Causes, Ok(C::Supports)), TrustTexture::Overconfident);
+    /// assert_eq!(TrustTexture::from_certification(C::Related, Ok(C::Related)), TrustTexture::Calibrated);
+    /// assert_eq!(TrustTexture::from_certification(C::Open, Err(NotGrounded::TooFewSources)), TrustTexture::Uncertain);
+    /// ```
+    #[must_use]
+    pub fn from_certification(
+        claimed: Certification3,
+        witnessed: Result<Certification3, NotGrounded>,
+    ) -> Self {
+        match witnessed {
+            Err(_) => Self::Uncertain,
+            Ok(w) if !w.entails(claimed) => Self::Overconfident,
+            Ok(w) if !claimed.entails(w) => Self::Underconfident,
+            Ok(_) => Self::Calibrated,
+        }
+    }
+}
+
+impl MulAssessment {
+    /// The `EpistemicState5` an edge derived by resonance may carry.
+    ///
+    /// Similarity meets no certification obligation (`Associated` needs at
+    /// least two observational sources; see [`crate::certification`]), so
+    /// the certification is always `Open`. Similarity never grounds a
+    /// relation directly, so the topology is never `Direct`: it is
+    /// `IndirectUnknown` (something links the two, the mechanism is open),
+    /// and `Unknown` when this assessment flags the confidence as
+    /// unreliable ([`is_unskilled_overconfident`](Self::is_unskilled_overconfident),
+    /// or `Uncertain` trust).
+    ///
+    /// Without this stamp an emitted edge keeps `raw5 = 0`, which reads as
+    /// `Direct × Open`: the strongest topology claim, made by default.
+    #[must_use]
+    pub fn resonance_epistemic_state(&self) -> EpistemicState5 {
+        let topology =
+            if self.is_unskilled_overconfident() || self.trust.texture == TrustTexture::Uncertain {
+                Topology2::Unknown
+            } else {
+                Topology2::IndirectUnknown
+            };
+        EpistemicState5::new(Epi5Gen::V1, topology, Certification3::Open)
     }
 }
 
@@ -2341,6 +2415,84 @@ pub mod i4_eval {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn certification_calibration_covers_the_six_by_six_grid_exactly() {
+        use crate::epistemic_state5::Certification3 as C;
+        let mut n = [0usize; 4];
+        for (i, &claimed) in C::ALL.iter().enumerate() {
+            for (j, &witnessed) in C::ALL.iter().enumerate() {
+                let t = TrustTexture::from_certification(claimed, Ok(witnessed));
+                let want = if i == j {
+                    TrustTexture::Calibrated
+                } else if i > j {
+                    TrustTexture::Overconfident
+                } else {
+                    TrustTexture::Underconfident
+                };
+                assert_eq!(t, want, "claimed {claimed:?} witnessed {witnessed:?}");
+                n[t as usize] += 1;
+            }
+            for e in [
+                crate::certification::NotGrounded::EmptyArm,
+                crate::certification::NotGrounded::TooFewSources,
+                crate::certification::NotGrounded::NoIdentificationDesign,
+                crate::certification::NotGrounded::NoDeclaredStratum,
+            ] {
+                assert_eq!(
+                    TrustTexture::from_certification(claimed, Err(e)),
+                    TrustTexture::Uncertain
+                );
+            }
+        }
+        // Calibrated, Overconfident, Uncertain (only from Err), Underconfident
+        assert_eq!(n, [6, 15, 0, 15]);
+    }
+
+    #[test]
+    fn a_resonance_edge_never_claims_direct_or_any_certification() {
+        use crate::epistemic_state5::{Certification3, Topology2};
+        let mut seen = [0usize; 4];
+        for f in 0..=10 {
+            for d in 0..=10 {
+                for k in 0..=4 {
+                    let input = SituationInput {
+                        felt_competence: f as f64 / 10.0,
+                        demonstrated_competence: d as f64 / 10.0,
+                        source_reliability: k as f64 / 4.0,
+                        ..SituationInput::default()
+                    };
+                    let st = MulAssessment::compute(&input).resonance_epistemic_state();
+                    assert_eq!(st.certification(), Certification3::Open);
+                    assert_ne!(st.topology(), Topology2::Direct, "{input:?}");
+                    seen[st.topology().ordinal() as usize] += 1;
+                }
+            }
+        }
+        // both reachable states occur on the grid (anti-vacuity)
+        assert!(seen[2] > 0 && seen[3] > 0, "{seen:?}");
+    }
+
+    #[test]
+    fn mount_stupid_stamps_unknown_and_a_calibrated_reading_does_not() {
+        use crate::epistemic_state5::Topology2;
+        let over = MulAssessment::compute(&SituationInput {
+            felt_competence: 0.95,
+            demonstrated_competence: 0.10,
+            ..SituationInput::default()
+        });
+        assert!(over.is_unskilled_overconfident());
+        assert_eq!(
+            over.resonance_epistemic_state().topology(),
+            Topology2::Unknown
+        );
+        let calm = MulAssessment::compute(&SituationInput::default());
+        assert_eq!(calm.trust.texture, TrustTexture::Calibrated);
+        assert_eq!(
+            calm.resonance_epistemic_state().topology(),
+            Topology2::IndirectUnknown
+        );
+    }
 
     #[test]
     fn compute_default_input_is_calibratedish() {

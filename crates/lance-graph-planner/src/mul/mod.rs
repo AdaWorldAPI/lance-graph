@@ -152,7 +152,8 @@ mod tests {
         let gate = gate_check(&assessment);
 
         // Mount Stupid should block
-        matches!(gate, MulGateDecision::Sandbox { .. });
+        assert_eq!(assessment.dk_position, DkPosition::MountStupid);
+        assert!(matches!(gate, MulGateDecision::Sandbox { .. }), "{gate:?}");
     }
 
     #[test]
@@ -171,6 +172,6 @@ mod tests {
         let assessment = assess(&input);
         let gate = gate_check(&assessment);
 
-        matches!(gate, MulGateDecision::Proceed { .. });
+        assert!(matches!(gate, MulGateDecision::Proceed { .. }), "{gate:?}");
     }
 }
