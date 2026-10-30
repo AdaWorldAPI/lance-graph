@@ -64,6 +64,43 @@ Sources (scouts): `toc.rs`, `hydrate.rs`, `promote.rs`, `hhtl.rs`, `causal_audit
 - **P9.** Renumbering census across SA editions; then renumber one seif and require that lineage still resolves to the same node.
 - **P10.** Unknown labels refused, with exact counts. Disable run: a hash fallback.
 
+## Addendum: the HHTL16 two-tenant opt-in format (operator, 2026-10-30)
+
+The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a distinguished-name chain or a NodeGuid), tenant 2 is `part_of`. Tenant 2 ideally matches tenant 1 vertically, but it may also carry one-to-many, location or membership. Read against the code and the plans:
+
+- `rail_geometry.rs` already reads two rails per row: `RailAxis::{Taxonomy, Mereology}`, with `RailCarving::AxisSlab` giving 12 levels plus a 12-level continuation, one byte per level (VERIFIED-IN-CODE). `dual_rail_placement` places by the primary rail and overlays the secondary.
+- A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
+- The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
+
+| Mistaber node | tenant 1 (`is_a` / DN chain) | tenant 2 (`part_of`) | what stays outside the rails |
+|---|---|---|---|
+| makor citation `sa("yd:87:3")` | `sa > yd > siman 87 > seif 3` (depth 4 of 16; a commentary seif katan is level 5) | the work it sits in, or empty | nothing |
+| rule `r_…` | the rule's own chain, e.g. `corpus > yd_87 > seif_3 > rule k` | its world scope. `scope(r, w)` has one world per rule, so membership fits one path | its `makor` citations: a rule may cite several, so they are edges to makor nodes |
+| world | its primary-parent chain, e.g. `base > mechaber > shach` | era or school, if wanted | every further parent (`ashk_ah` has two) stays an edge in the accessibility register (X3 still holds: one rail is one path) |
+| holding | none; it is derived | none | lens row keyed by (proposition, world), lineage pointing at rule and makor nodes |
+
+**The vertical match is free in this corpus.** Mistaber lays out `dsl/corpus/yd_87/seif_3.hll`, so a rule's `part_of` chain (file → seif → siman) and its makor's DN chain name the same positions. Under the operator's format this is the ideal case. It is still two rails, never one composed relation.
+
+**Capacity, stated against the byte rail.** Byte levels with `1 + index` slots stop at 255. Shulchan Arukh YD has 403 simanim, so a siman cannot be one byte level. Three options, none chosen here:
+
+1. a 9-bit codec9 level, as the operator proposed: 511 values plus the never-touched sentinel. The byte rails are 8-bit, so this is a carving decision for the ClassView, not something a consumer can widen;
+2. split the level by literary structure (hilchot), which also serves basins;
+3. a continuation slot at the next level, the slab's own escape.
+
+X1 and P1 are amended accordingly: the capacity question is about the rail's slot width, not the HHTL16 depth.
+
+**P11 (new, pre-registered, not run).** On F1 and the C-mammal goldens, give every rule, world and makor node both rails and check:
+
+- (a) `is_ancestor_of` on tenant 1 reproduces citation containment exactly (seif ⊂ siman ⊂ chelek);
+- (b) tenant 2 gives each rule exactly one world, the one `scope/2` names;
+- (c) the `ashk_ah` two-parent case is refused as a rail and found as an edge;
+- (d) holdings are unchanged (11/11 goldens).
+
+Disable runs:
+
+- compose the two rails, so a rule inherits its makor's chain: (a) or (b) must go red;
+- store the second parent of `ashk_ah` in tenant 2: (c) must go red.
+
 ## Open points for the operator
 
 - **Undeclared worlds.** Should an undeclared world be refused? Upstream derives `holds(p,x)` for an undeclared child world (golden F6). A native refusal would be a declared divergence from the golden, not a pass.
@@ -82,4 +119,4 @@ Sources (scouts): `toc.rs`, `hydrate.rs`, `promote.rs`, `hhtl.rs`, `causal_audit
 
 ## Closeout
 
-STATUS: done (map only; X1 corrected by the operator: 16 levels, codec9 9-bit levels) | OUTCOME: three-axis split (makor node / world value + DAG edges / holding derived); ten probes named; one ruled interim (attestor-keyed source) | OPEN: undeclared-world policy, hilchot data, SupportLedger derived-from owner, D-ARG-1..3 order.
+STATUS: done (map only; X1 corrected by the operator: 16 levels, codec9 9-bit levels; HHTL16 two-tenant mapping added, P11) | OUTCOME: three-axis split (makor node / world value + DAG edges / holding derived); ten probes named; one ruled interim (attestor-keyed source) | OPEN: undeclared-world policy, hilchot data, SupportLedger derived-from owner, D-ARG-1..3 order.
