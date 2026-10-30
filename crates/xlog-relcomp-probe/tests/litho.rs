@@ -1,8 +1,9 @@
-//! D-LITHO-1: the first consumer operation written in the photolithography
-//! grammar (`.claude/plans/d-litho-photolithography-contract-v1.md`), and the
-//! first thing that grammar needs which the register does not carry yet.
+//! D-LITHO-1: Gate B written out as the sequence of register operations it
+//! is, and the first thing the register does not carry yet. The plan
+//! (`.claude/plans/d-litho-photolithography-contract-v1.md`) is a mental
+//! model; nothing here uses its vocabulary as types or names.
 //!
-//! Part 1 writes Gate B (`q(Y) :- r(1, Y), s(Y, 4)`) as an exposure sequence.
+//! Part 1 writes Gate B (`q(Y) :- r(1, Y), s(Y, 4)`) as explicit steps.
 //! Each step is an existing call; the test asserts the sequence equals
 //! `propagate` and both references, so the write-up cannot drift from the code.
 //!
@@ -111,7 +112,7 @@ fn pack_column0(rows: &Rows) -> u64 {
         .fold(0, |m, (i, w)| m | ((w & 1) << i))
 }
 
-// ── Part 1: Gate B as an exposure sequence ─────────────────────────────────
+// ── Part 1: Gate B as explicit steps ──────────────────────────────────────
 
 const GATE_B: &str = "pred r(u32, u32).
 pred s(u32, u32).
@@ -122,32 +123,33 @@ q(Y) :- r(1, Y), s(Y, 4).
 ?- q(Y).
 ";
 
-/// | grammar   | Gate B                                   | call                     |
-/// |-----------|------------------------------------------|--------------------------|
-/// | wafer     | the R and S registers, borrowed          | `register`, `bind_dr64`  |
-/// | frame     | the Y domain, one 64-bit word            | `AddressMap::new(Y, ..)` |
-/// | alignment | chain typing; one frame, focus, scope    | `Chain::new`             |
-/// | reticle 1 | col0 == 1 on R: the row slot x           | `AddressMap::slot`       |
-/// | reticle 2 | col1 == 4 on S: the selector C[z] = 1    | a 64 x 1 relation        |
-/// | exposure 1| forward = R[x]                           | one row read             |
-/// | exposure 2| backward = preimage of {z} under S       | `compose`, column 0      |
-/// | layer     | forward, backward, then And              | `&`                      |
-/// | develop   | the answer mask, read as ids             | `AddressMap::ids`        |
-/// | dose/rods | none: Boolean, one rod (k = 0)           | —                        |
+/// Gate B, step by step, each an existing call:
+///
+/// 1. fill and bind the R and S registers (`register`, `bind_dr64`);
+/// 2. type the chain: one frame, focus and scope, R's columns are S's rows
+///    (`Chain::new`);
+/// 3. turn the bound constants into a row slot x (col0 == 1 on R) and a
+///    one-column selector `C[z] = 1` (col1 == 4 on S);
+/// 4. forward = the row `R[x]`;
+/// 5. backward = the preimage of {z} under S (`compose` with the selector,
+///    then column 0);
+/// 6. answer = forward And backward, read out as ids.
+///
+/// Boolean throughout: one bit per (row, column), no counts.
 #[test]
-fn gate_b_is_an_exposure_sequence_over_existing_calls() {
+fn gate_b_as_explicit_steps_over_existing_calls() {
     let c = compile(GATE_B);
     admit_program(&c.program).unwrap();
     let q = admit(rule(&c, "q")).unwrap();
     let r = facts(&c.program, "r").unwrap();
     let s = facts(&c.program, "s").unwrap();
 
-    // Frame: one word per axis; the Y word is the one the answer develops in.
+    // One 64-slot word per axis; the answer is read in the Y word.
     let xs = AddressMap::new(X, r.iter().map(|t| t.0).chain(q.left_bound)).unwrap();
     let ys = AddressMap::new(Y, r.iter().map(|t| t.1).chain(s.iter().map(|t| t.0))).unwrap();
     let zs = AddressMap::new(Z, s.iter().map(|t| t.1).chain(q.right_bound)).unwrap();
 
-    // Wafer: written once, then only borrowed.
+    // Registers: written once, then only borrowed.
     let rr = register(&r, &xs, &ys).unwrap();
     let ss = register(&s, &ys, &zs).unwrap();
     let st = store();
@@ -168,29 +170,28 @@ fn gate_b_is_an_exposure_sequence_over_existing_calls() {
     let bound_r = bind(sig_r(), &rr).unwrap();
     let bound_s = bind(sig_s(), &ss).unwrap();
 
-    // Alignment: R's column domain is S's row domain, one frame, one focus.
+    // Typing: R's column domain is S's row domain, one frame, one focus.
     Chain::new(&st, vec![bound_r.clone(), bound_s.clone()]).unwrap();
 
-    // Reticles: the two bound constants, as a slot and as a selector.
+    // The two bound constants, as a row slot and as a selector.
     let x = xs.slot(q.left_bound.unwrap()).unwrap();
     let mut selector = [0u64; SLOTS];
     selector[zs.slot(q.right_bound.unwrap()).unwrap()] = 1;
 
-    // Exposures. Valid masks keep padding bits out of the developed word.
+    // Forward and backward. The valid mask keeps padding bits out.
     let valid = ys.valid();
     let forward = bound_r.rows[x] & valid;
     let mut work = Work::default();
     let backward = pack_column0(&compose(bound_s.rows, &selector, &mut work)) & valid;
 
-    // Layer stack and develop.
-    let developed = ys.ids(forward & backward);
+    let answer = ys.ids(forward & backward);
 
     assert_eq!(ys.ids(forward), vec![2, 3]);
     assert_eq!(ys.ids(backward), vec![2, 7]);
-    assert_eq!(developed, vec![2]);
+    assert_eq!(answer, vec![2]);
     assert_eq!(work.row_ors, 3, "one row OR per edge of S");
 
-    // The write-up is the code: the sequence equals `propagate`.
+    // The steps equal `propagate`.
     let p = propagate(
         &st,
         &g,
@@ -209,7 +210,7 @@ fn gate_b_is_an_exposure_sequence_over_existing_calls() {
 }
 
 #[test]
-fn an_exposure_on_a_stale_frame_is_refused_at_alignment() {
+fn binding_on_a_stale_frame_is_refused() {
     let rr = [0u64; SLOTS];
     let mut st = store();
     let g = guards(&st);
@@ -391,7 +392,7 @@ fn multiplicity_fixture_shape() {
     assert_eq!((xs.len(), ys.len(), zs.len()), (3, 3, 3));
     assert_eq!((r.len(), s.len()), (4, 4));
     // The largest count is |X| * |Z| restricted to one Y: here 2 * 2 = 4,
-    // which needs three rods (k = 0, 1, 2) in a counting register.
+    // which needs three bits per Y in a counting register.
     assert_eq!(expected().values().max(), Some(&4));
 }
 
@@ -447,7 +448,7 @@ fn the_boolean_register_answers_support_only() {
         &ys,
     )
     .unwrap();
-    // Support is right; multiplicity is not representable in one rod.
+    // Support is right; one bit per cell cannot hold a count.
     assert_eq!(
         ys.ids(p.answer),
         expected().keys().copied().collect::<Vec<_>>()
@@ -510,10 +511,10 @@ fn the_register_path_carries_bag_counts() {
         None,
         &ys,
     );
-    let developed: BTreeMap<u32, u64> = ys
+    let read_out: BTreeMap<u32, u64> = ys
         .ids(p.unwrap().answer)
         .into_iter()
         .map(|y| (y, 1))
         .collect();
-    assert_eq!(developed, expected());
+    assert_eq!(read_out, expected());
 }

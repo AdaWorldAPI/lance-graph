@@ -244,29 +244,25 @@ Before any wider adoption, one of these is needed: an arrow-major alignment,
 or a facts-free `xlog-core` feature. Arrow 60 against 58 is the one hard
 blocker to linking XLOG in-tree.
 
-## 11. D-LITHO-1: Gate B in the exposure grammar, and bag multiplicity
+## 11. D-LITHO-1: Gate B as explicit steps, and bag multiplicity
 
-`tests/litho.rs`, against the photolithography contract
-(`.claude/plans/d-litho-photolithography-contract-v1.md`).
+`tests/litho.rs`. The D-LITHO plan is a mental model for this work; its
+vocabulary is not used as types, names or steps here.
 
-**Gate B as an exposure sequence.** Every step is an existing call, and the
-test asserts the sequence equals `propagate`.
+**Gate B as explicit steps.** Each is an existing call, and the test asserts
+the steps equal `propagate`.
 
-| Grammar | Gate B | Call |
+| Step | Gate B | Call |
 |---|---|---|
-| wafer | R and S registers, borrowed, never copied | `register`, `bind_dr64` |
-| frame | the Y domain, one 64-bit word | `AddressMap::new(Y, ..)` |
-| alignment | one frame, focus and scope; R's columns are S's rows | `Chain::new`; a stale frame is refused at `bind_dr64` |
-| reticle 1 | `col0 == 1` on R: row slot x | `AddressMap::slot` |
-| reticle 2 | `col1 == 4` on S: selector `C[z] = 1` | a 64 x 1 relation |
-| exposure 1 | forward = `R[x]` = {2, 3} | one row read |
-| exposure 2 | backward = preimage of {z} under S = {2, 7} | `compose`, then column 0 (3 row ORs) |
-| layer | forward, then backward, then And | `&` |
-| develop | {2} | `AddressMap::ids` |
-| dose / rods | none: Boolean, one rod | — |
+| registers | R and S, filled once, then borrowed | `register`, `bind_dr64` |
+| typing | one frame, focus and scope; R's columns are S's rows; a stale frame is refused | `Chain::new`, `bind_dr64` |
+| bound constants | `col0 == 1` on R as row slot x; `col1 == 4` on S as selector `C[z] = 1` | `AddressMap::slot`, a 64 x 1 relation |
+| forward | `R[x]` = {2, 3} | one row read |
+| backward | preimage of {z} under S = {2, 7} | `compose`, then column 0 (3 row ORs) |
+| answer | forward And backward = {2}, read as ids | `&`, `AddressMap::ids` |
 
-Reticles: the R/S registers and address maps are prepared once per frame
-revision; the two selectors are constants of the query and prepared per query.
+Boolean throughout. The registers and address maps are prepared once per
+frame revision; the slot and selector are query constants, prepared per query.
 
 **Bag multiplicity (the failing fixture).** `q(Y) :- r(X, Y), s(Y, Z)` with
 R = {(1,2), (5,2), (1,3), (9,7)}, S = {(2,4), (2,6), (3,4), (7,8)}. Y = 2 has
@@ -280,8 +276,8 @@ Expected {2: 4, 3: 1, 7: 1}, checked by:
    full body bindings). A set walk gives {2: 2, ...}, the distinct-X count, so
    Gate B's set-valued oracle cannot be reused here.
 
-Demand shape: 3 X, 3 Y, 3 Z ids; 4 of 9 cells set in each relation; one tile
-(one Y word) demanded; largest count 4, i.e. three rods.
+Demand shape: 3 X, 3 Y, 3 Z ids; 4 of 9 cells set in each relation; one
+64-slot Y word; largest count 4, i.e. three bits per Y.
 
 Today: the register path answers support only ({2, 3, 7}); `admit` refuses
 the count plan (`UnsupportedNode("GroupBy")`); the binder refuses a Bag
@@ -290,16 +286,12 @@ operand (`Refusal::BagNeedsMultiplicity`). The ignored
 `{2: 1, ...}` vs `{2: 4, ...}`.
 
 Disable runs: switching oracle 2 to set semantics turns
-`both_oracles_agree_on_the_per_y_counts` red; dropping the backward exposure
-turns `gate_b_is_an_exposure_sequence_over_existing_calls` red.
+`both_oracles_agree_on_the_per_y_counts` red; dropping the backward step
+turns `gate_b_as_explicit_steps_over_existing_calls` red.
 
-**G1 (grammar sufficiency).** Gate B needs no term the grammar lacks.
-Multiplicity is not yet written as rod instructions; two things the grammar
-does not say would be needed to write it:
-- how many rods a frame has, and what a carry out of the top rod does (here
-  the bound is |X|·|Z| per Y, at most 4096 in one 64 x 64 frame pair, so 13
-  rods);
-- a product of two rod fields. For a two-atom chain the count factorizes per
-  Y as deg_R(y) · deg_S(y) (XLOG's own factorized count multiplies trie-range
-  lengths the same way). The listed verbs (mask, combine, compare, carry,
-  fold) can express it as masked, rod-shifted carries, but no verb names it.
+**What carrying counts would need.** Gate B needs nothing new. Counts need
+two things nothing defines yet:
+- a per-Y count width, and what happens when a count exceeds it (the bound
+  here is |X|·|Z| per Y, at most 4096, i.e. 13 bits);
+- a per-Y product: for a two-atom chain the count is deg_R(y) · deg_S(y)
+  (XLOG's own factorized count multiplies trie-range lengths the same way).

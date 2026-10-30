@@ -17,7 +17,7 @@
 | D-XLOG-DR64-0 | XLOG RIR (Join / ChainJoin / swapped order) → `bind_dr64` + `Chain` + `compose`; forward∧backward over one 64-slot axis; 2 oracles, 11 refusals, 9 disable runs, cost probe | Shipped (#1857) | lab only |
 | D-XLOG-DR64-1 | arrow 60 vs 58: align or a facts-free `xlog-core` before any in-tree use | Queued | XLOG upstream / owner decision |
 | D-XLOG-DR64-2 | query-bound recursion via native semi-naive deltas; compare with XLOG magic sets | Queued | after D-XLOG-DR64-1 |
-| D-XLOG-DR64-3 | D-LITHO-1: Gate B as an exposure sequence; failing bag-multiplicity fixture (2 oracles); G1 gaps named | In PR | review; lab only |
+| D-XLOG-DR64-3 | D-LITHO-1: Gate B as explicit register steps; failing bag-multiplicity fixture (2 oracles); count width and per-Y product named as open | In PR | review; lab only |
 
 ## D-DRDT — DR = HHTL16 Cartesian direct routing, DT = ClassId binding store (2026-10-28)
 
