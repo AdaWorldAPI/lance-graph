@@ -103,6 +103,33 @@ Other readings with the same shape (checked where code exists):
 - **ruff (not ours):** `ruff_python_semantic`'s bindings and references form a def-use graph in upstream ruff. Nothing here exports it; it is only a possible source for a Python reading. No codegraph for the Python, C# or Ruby frontends is planned (`ruff/.claude/plans/r2il-behavioral-ir-v1.md` covers R2IL only).
 - **ACT-R:** no code or plan found. A production graph would also need a guard (WHEN) field.
 
+## 7b. Proposal: a Rust reading, and the row layout (not built)
+
+**The Rust reading.** It has two levels in the same container. No Rust code-analysis graph exists in lance-graph, ruff or OGAR today.
+- **Item graph.** Nodes are crates, modules, items, impls and trait methods. Edges are contains, implements, uses, calls and re-exports. Every node carries a source span (file plus byte range) and its name resolution, since refactoring edits source text.
+- **Body graph per function, from MIR:**
+  - basic block = block id;
+  - `place = rvalue` or a terminator (`Call`, `SwitchInt`, `Drop`) = op;
+  - operands (`Copy` / `Move` / `Constant`) = ordered input slots;
+  - written place = output;
+  - type plus move/borrow kind = fact;
+  - closures = body reference.
+- **Source.** The stable route is rust-analyzer's `ra_ap_*` crates (items, spans, name resolution, its own MIR lowering). rustc's stable_mir needs nightly, which the repos rule out. Versions and the completeness of `ra_ap`'s MIR are UNVERIFIED.
+
+**Purpose and cost.** These readings serve refactoring and analysis, and they are cold. Tract itself rewrites once at load (`into_optimized`); inference runs the bound plan. The rule is that analysis output reaches execution only as an already-bound plan, never as a codegraph consulted at run time.
+
+**Row layout.** This holds for every reading: R2IL, ONNX, egglog, MLIR and Rust.
+
+| Part | Layout |
+|---|---|
+| key | the V3 4+12 facet per node, value and use site. Classid high half = the reading's concept; low half = the app lens. The 12 bytes are carved by the reading's ClassView, e.g. `4×(u8:u8:u8)` = function, block, instruction, operand slot. Each byte is a cascade tier, so an axis exceeds 256 positions without widening. |
+| edges | one row per use, keyed by the use site, pointing at the defining value's key. Variable arity becomes more rows (the `ruff_r2il` rule). |
+| attributes | facts, spans, attributes and pass provenance in value columns. The row is not 16 bytes; `ruff_r2il`'s `FlatFact` is 88 bytes and carries a 16-byte key. |
+
+**Do not copy `ruff_r2il`'s `VarnodeFacet` (`facet.rs:47`).**
+- It puts the space class in the classid's low half. The file records this as a known tension.
+- It reads the 12 bytes as a u64 offset plus a size, a wide axis-free reading the canon discourages.
+
 ## 8. What the Tract codegraph is made of (bf7ca16)
 
 `Optimizer::declutter()` (`core/src/optim/mod.rs:104`) is a pass list:
