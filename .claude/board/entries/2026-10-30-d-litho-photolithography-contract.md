@@ -23,7 +23,7 @@
 
 ## Amendment (2026-10-30, plan §3a)
 
-- The address space is fixed-width in the identity direction only.
+- ~~The address space is fixed-width in the identity direction only.~~ Corrected the same day: every axis assumes fixed width 64 or 256 for now. Underflow is carried by the presence bit (sparse write, merge on read).
 - Edges and properties are selected against it. Either a cross-product coordinate-range reference (two ranges, not necessarily materialized) or a PSCustomObject-style named selection (`ClassView × WideFieldMask`).
 - The selection is versioned via a lance-graph table. Q5, which table, is open for the DR/DT owner.
 - Always present: identity = `NodeGuid`, and property mappings. Not material: `ClassView` → methods, and 64 thoughts → Thought-Git (references, resolved on demand).

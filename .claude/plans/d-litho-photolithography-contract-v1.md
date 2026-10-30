@@ -122,8 +122,16 @@ mid-program.
 
 ## 3a. Address-space shape (user nudge, 2026-10-30)
 
-**DECISION (2026-10-30):** The address space is fixed-width in one direction only. Edges and properties
-are not further fixed-width axes. They are projected against that fixed width in one of two ways:
+**DECISION (2026-10-30, corrected the same day):** Every axis (identity, edges, properties) assumes a fixed
+width of 64 (DR64) or 256 (DR256) for now. The one exception is underflow: a selection smaller than the
+width. Underflow is carried by the **presence bit**, so writes stay sparse and are **merged on read**.
+
+> ⊘ The first wording read "the address space is fixed-width in one direction only (identity); edges and
+> properties are not further fixed-width axes". It was superseded by the user's correction: "we use fixed
+> width 64 or 256 assumptions for everything for now except for underflow; we have the presence bit to do
+> sparse write merge on read".
+
+Edges and properties are selected against the fixed width in one of two ways:
 
 - **as a cross-product coordinate-range reference:** an (identity range × edge/property range) pair
   that names a region and is not necessarily materialized;
@@ -135,13 +143,14 @@ The selection is **versioned via a table in lance-graph**, so a projection is re
 route.
 **SCOPE:** §3's bead position, and every reading of the Identity × Edge × Property geometry in §1.
 **BASIS:** the user's statement in session (decision, not measurement).
-**REVISIT WHEN:** a projection needs a second fixed-width axis.
+**REVISIT WHEN:** a selection needs a width other than 64 or 256 that the presence bit cannot express as
+underflow.
 
 **DECISION (2026-10-30, second nudge):** What is always there, and what is not material:
 
 | Always present | Not material (resolved on demand, never stored per cell) |
 |---|---|
-| **identity = `NodeGuid`** (`lance-graph-contract/src/canonical_node.rs`), the fixed-width direction | **`ClassView` → methods** (DT, via hotplug) |
+| **identity = `NodeGuid`** (`lance-graph-contract/src/canonical_node.rs`) | **`ClassView` → methods** (DT, via hotplug) |
 | **property mappings**: the selection of properties and edges against the identity width (§3a above) | **64 thoughts → Thought-Git** ([D-DT64-4](d-dt64-4-edge-thoughtgit-hypothesis-time-v1.md); D-DRDT: "Thought-Git sits above both") |
 
 **SCOPE:** what a frame may assume exists, and what an exposure may only reference.
@@ -166,8 +175,13 @@ Consequences:
   route, and DR assigns no meaning. Execution (mask-risc, ndarray) comes after both.
 
 Consequences:
-- §1's "Identity (X) × Edge (Y) × Property (Z)" is a selection geometry, not three fixed-width address
-  axes. Only the identity direction has fixed width (the 64-row word, the 65,536-address DR256 domain).
+- §1's "Identity (X) × Edge (Y) × Property (Z)" has fixed-width axes, 64 or 256 each.
+  - Underflow: positions a selection leaves unused are marked absent by the presence bit, never
+    compacted away.
+  - A sparse write sets only present positions. The read merges the written positions with the rest of
+    the frame, using the presence bit to tell absent from zero.
+  - This is gate G5's alignment rule applied to width: a frame keeps its fixed width and positions,
+    whatever is present.
 - The rods (§3) are a property of a selected field, not a fourth address axis. This narrows Q1 to: does
   the rod width belong to the selected field's DT law?
 - A cross-product reference is two ranges and need not be materialized. Whether it is, and how much, is
