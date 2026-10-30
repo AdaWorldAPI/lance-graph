@@ -256,6 +256,6 @@ The Bag carrier (who admits a counted population into `bind_dr64`); the D-DRDT �
 | A.1: population, truth, value demand | `Population` / `Truth` from `set_rules` and `ValueDemand` ride the binding; a Bag is recorded, never refused here (admitting it is the binder's call) | `population_truth_and_demand_ride_the_binding` |
 | Registration hygiene | `DuplicateMethodId`, `FieldOutOfBasis` (ON, reads, effect targets), `BasisTooWide` (> 256) | `registration_refuses_…` |
 
-Disable runs (committed first, each guard removed, the named test red, restored with `git checkout`): listed in the commit that records them.
+Disable runs (on commit `7936665e2`; each patch asserted to apply exactly once; restored with `git checkout`): each of the eight guards removed in turn leaves exactly one test red (10 passed, 1 failed): the `GuardDropped` arm, the `BehaviourImmutable` arm, the route-log version cut, the Kleene witness, the field-basis check, the schema-revision check, the duplicate-MethodId check, the out-of-basis check.
 
 Not done: wiring OGAR's `CapabilityAuthority` (D6, the production route for consumer classids); persistence of the store (EXO-55 owns the writer path); a router (DR #4) that carries `MethodRef`s; §6 questions 1–9, including whether the immutable unit is the classid or `(classid, binding version)` — this crate implements the D5 wording (the classid).
