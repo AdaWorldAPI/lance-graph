@@ -210,17 +210,28 @@ fn stale_weight_generation_is_refused() {
     );
 }
 
-/// `B` of shape `[4]` against `F` `[2,3]`: ORT refuses at load, and so does
-/// Tract's typing; admission reports the frontend refusal, never runs.
+/// `B` of shape `[4]` against `F` `[2,3]`. ORT refuses at load. Tract types
+/// it, recording the impossible broadcast symbolically (`broadcast((3), (4))`),
+/// and only fails when the plan runs. So a typed Tract model can carry an
+/// unsatisfiable shape constraint, and admission must decide it: the native
+/// broadcast check refuses before anything runs.
 #[test]
 fn incompatible_shape_is_refused() {
     assert!(ort()["variants"]["neg_shape"]["ort_error"]
         .as_str()
         .unwrap()
         .contains("Incompatible"));
+    let typed = admit::typed(&bytes("neg_shape")).expect("Tract types the impossible broadcast");
+    let add = typed.nodes().iter().find(|n| n.name == "n_add").unwrap();
+    assert!(
+        format!("{:?}", add.outputs[0].fact).contains("broadcast((3), (4))"),
+        "{:?}",
+        add.outputs[0].fact
+    );
     match admit_variant("neg_shape") {
-        Err(Refusal::Frontend(_))
-        | Err(Refusal::Native(lance_graph_onnx::Refusal::Broadcast { .. })) => {}
+        Err(Refusal::Native(lance_graph_onnx::Refusal::Broadcast { lhs, rhs })) => {
+            assert_eq!((lhs, rhs), (vec![2, 3], vec![4]))
+        }
         other => panic!("{other:?}"),
     }
 }

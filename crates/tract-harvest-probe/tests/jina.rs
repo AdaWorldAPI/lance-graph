@@ -392,3 +392,35 @@ fn new_weight_generation_is_refused_by_the_old_recipe() {
         other => panic!("{other:?}"),
     }
 }
+
+/// The first Cast widened to f64 and `Cast_1` narrowing back to f32: the op
+/// pattern is intact (Tract inserts no cast), so only the dtype check can
+/// refuse. The f64 intermediate changes rounding, so the recipe must not run.
+#[test]
+#[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py"]
+fn cast_to_double_is_refused_by_the_dtype_check() {
+    let b = mutate(|m| {
+        let g = m.graph.as_mut().unwrap();
+        let n = g
+            .node
+            .iter_mut()
+            .find(|n| n.name == "/layers.0/input_layernorm/Cast")
+            .unwrap();
+        n.attribute[0].i = 11; // DOUBLE
+        for c in ["Constant", "Constant_2", "Constant_3"] {
+            let t = g
+                .node
+                .iter_mut()
+                .find(|n| n.name == format!("/layers.0/input_layernorm/{c}"))
+                .unwrap();
+            let t = t.attribute[0].t.as_mut().unwrap();
+            let v = f32::from_le_bytes(t.raw_data[..4].try_into().unwrap());
+            t.data_type = 11;
+            t.raw_data = f64::from(v).to_le_bytes().to_vec();
+        }
+    });
+    match admit_slice(&b) {
+        Err(Refusal::Dtype { node, .. }) => assert!(node.ends_with("/Cast"), "{node}"),
+        other => panic!("{other:?}"),
+    }
+}
