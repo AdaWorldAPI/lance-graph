@@ -2317,11 +2317,12 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        // A rank-3 left against a rank-2 weight.
-        let a3w = fv(&[1, 2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        // A rank-3 left against a rank-2 weight; two batches, so the weight
+        // must be applied to every flattened row, not only the first batch.
+        let a3w = fv(&[2, 1, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         match &do_matmul_f32(&[&a3w, &b], &n("MatMul")).unwrap()[0] {
             Value::F32(o) => {
-                assert_eq!(o.shape(), [1, 2, 2]);
+                assert_eq!(o.shape(), [2, 1, 2]);
                 assert_eq!(
                     o.iter().copied().collect::<Vec<_>>(),
                     [58.0, 64.0, 139.0, 154.0]
