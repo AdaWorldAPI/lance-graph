@@ -116,3 +116,7 @@ Reproduce the census:
 ```
 cargo run --release --example unregistered_census -- fixtures/jina/onnx_model.onnx 10
 ```
+
+## 6. Outcome (same day, plan §0.10)
+
+All 346 are now bound: 6 generated fields (Neg, IsNaN, Sigmoid; Bool rows for Reshape, Expand, Gather) and 11 hand-written ones. Jina at [1, 10] is 7,620 registered with WHEN TRUE, 0 unregistered. The Cast i64→bool hint was dropped from the table: keyed on the input dtype alone, it pointed at the i64→f32 DO.
