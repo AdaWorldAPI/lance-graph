@@ -1,3 +1,15 @@
+## D-XLOG-NATIVE — XLOG plan vocabulary over the existing relational algebra (2026-10-30)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-xlog-native-v1.md); [board entry](entries/2026-10-30-d-xlog-native-crosswalk.md). No crate yet.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto mask-risc / relalg (ALIAS / INLINE / NATIVE / REFUSE), source-read | In PR | docs review |
+| D-XLOG-NATIVE-1 | test the selection rows (EqU32, NeU32, I32 comparisons, And/Or/AndNot) on mask-risc against the probe's two oracles | Queued | N2 |
+| D-XLOG-NATIVE-2 | test GroupReduce Count keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
+| D-XLOG-NATIVE-3 | ask the mask-risc / relalg owners for a production home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
+| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (no `xlog-*` dep, no plan type) once plan §4 holds | Queued | N1–N4 |
+
 ## D-LITHO — the photolithography contract (2026-10-30)
 
 **Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-litho-photolithography-contract-v1.md); [board entry](entries/2026-10-30-d-litho-photolithography-contract.md). No ABI, kernel, mask-risc op or runtime.
