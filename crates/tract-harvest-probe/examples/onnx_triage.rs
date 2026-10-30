@@ -21,13 +21,7 @@ mod sources;
 fn main() {
     let path = std::env::args().nth(1).expect("model path");
     let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
-    let dir = Path::new(&path).parent();
-    let manifest = dir
-        .and_then(|d| d.parent())
-        .map(|g| g.join("jina_constants.json"));
-    if let (Some(dir), Some(m)) = (dir, manifest.filter(|m| m.exists())) {
-        src.inline_constants_from_manifest(&m, dir).unwrap();
-    }
+    sources::inline_matching_constants(&mut src, Path::new(&path));
     let pins: Vec<_> = std::env::args()
         .nth(2)
         .and_then(|s| s.parse::<usize>().ok())
@@ -83,6 +77,26 @@ fn main() {
         })
         .collect();
 
+    // Which runtimes register each op (data/onnx_op_coverage.tsv, generated
+    // by tools/onnx_op_coverage.py from each runtime's own registry).
+    let coverage =
+        std::fs::read_to_string(crate_dir.join("data/onnx_op_coverage.tsv")).unwrap_or_default();
+    let mut header: Vec<String> = Vec::new();
+    let mut also: std::collections::BTreeMap<String, Vec<String>> = Default::default();
+    for line in coverage.lines().filter(|l| !l.starts_with('#')) {
+        let c: Vec<&str> = line.split('\t').collect();
+        if header.is_empty() {
+            header = c.iter().skip(1).map(|s| s.to_string()).collect();
+            continue;
+        }
+        let names = header
+            .iter()
+            .zip(&c[1..])
+            .filter(|(h, v)| **v == "1" && h.as_str() != "probe")
+            .map(|(h, _)| h.clone())
+            .collect();
+        also.insert(c[0].to_string(), names);
+    }
     let findings = triage::triage(&src, &facts, &constants, &reg, &frontend, &hints);
     let groups = triage::groups(&findings);
 
@@ -125,8 +139,8 @@ fn main() {
         .count();
     println!("- unbound nodes with a verified native word: {hinted}\n");
 
-    println!("| nodes | op | value dtype | gap | Tract parser (attrs = default) | native words | roles |");
-    println!("|---|---|---|---|---|---|---|");
+    println!("| nodes | op | value dtype | gap | Tract parser (attrs = default) | registered by | native words | roles |");
+    println!("|---|---|---|---|---|---|---|---|");
     for g in &groups {
         let gap = match &g.gap {
             triage::Gap::Dtype { registered } => format!("dtype (registered: {registered:?})"),
@@ -176,13 +190,24 @@ fn main() {
             })
             .collect();
         let roles: Vec<String> = g.roles.iter().map(|(r, c)| format!("{r} ×{c}")).collect();
+        let by = also
+            .get(&g.op_type)
+            .map(|v| {
+                if v.is_empty() {
+                    "none".to_string()
+                } else {
+                    v.join(", ")
+                }
+            })
+            .unwrap_or_else(|| "not a default-domain op".into());
         println!(
-            "| {} | {} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} |",
             g.nodes,
             g.op_type,
             g.value_dtype,
             gap,
             tract,
+            by,
             if words.is_empty() {
                 "—".into()
             } else {

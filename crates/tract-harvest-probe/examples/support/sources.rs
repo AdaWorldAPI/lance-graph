@@ -61,3 +61,31 @@ pub fn load(crate_dir: &Path) -> (Files, Files) {
     }
     (t, n)
 }
+
+/// Inline the external constants a `jina_constants.json` manifest next to the
+/// model's directory names, but only when the model has a `Constant` node
+/// producing every output it lists: the manifest belongs to one model, and a
+/// different model in a sibling directory must not pick it up.
+pub fn inline_matching_constants(
+    src: &mut tract_harvest_probe::source::SourceInventory,
+    model: &Path,
+) -> Option<usize> {
+    let dir = model.parent()?;
+    let manifest = dir.parent()?.join("jina_constants.json");
+    let text = std::fs::read_to_string(&manifest).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let outputs: Vec<&str> = json["constants"]
+        .as_array()?
+        .iter()
+        .filter_map(|c| c["output"].as_str())
+        .collect();
+    let has = |o: &str| {
+        src.nodes
+            .iter()
+            .any(|n| n.op_type == "Constant" && n.outputs.iter().any(|x| x == o))
+    };
+    if outputs.is_empty() || !outputs.iter().all(|o| has(o)) {
+        return None;
+    }
+    Some(src.inline_constants_from_manifest(&manifest, dir).unwrap())
+}

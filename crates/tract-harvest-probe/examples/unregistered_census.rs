@@ -12,6 +12,9 @@ use tract_harvest_probe::registry::{registry, render_signature, signature_dtype,
 use tract_harvest_probe::{dr3, fold, source::SourceInventory};
 use tract_onnx::prelude::*;
 
+#[path = "support/sources.rs"]
+mod sources;
+
 fn fact(f: Option<&Fact>) -> String {
     let Some(f) = f else { return "?".into() };
     let dt = f.dtype.map(|d| format!("{d:?}")).unwrap_or("?".into());
@@ -32,13 +35,7 @@ fn fact(f: Option<&Fact>) -> String {
 fn main() {
     let path = std::env::args().nth(1).expect("model path");
     let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
-    let dir = std::path::Path::new(&path).parent();
-    let manifest = dir
-        .and_then(|d| d.parent())
-        .map(|g| g.join("jina_constants.json"));
-    if let (Some(dir), Some(m)) = (dir, manifest.filter(|m| m.exists())) {
-        src.inline_constants_from_manifest(&m, dir).unwrap();
-    }
+    sources::inline_matching_constants(&mut src, std::path::Path::new(&path));
     let pins: Vec<_> = std::env::args()
         .nth(2)
         .and_then(|s| s.parse::<usize>().ok())

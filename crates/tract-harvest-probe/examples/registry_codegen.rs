@@ -61,13 +61,7 @@ fn main() {
     let path = std::env::args().nth(1).expect("model path");
     let seq = std::env::args().nth(2);
     let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
-    let dir = Path::new(&path).parent();
-    let manifest = dir
-        .and_then(|d| d.parent())
-        .map(|g| g.join("jina_constants.json"));
-    if let (Some(dir), Some(m)) = (dir, manifest.filter(|m| m.exists())) {
-        src.inline_constants_from_manifest(&m, dir).unwrap();
-    }
+    sources::inline_matching_constants(&mut src, Path::new(&path));
     let pins: Vec<_> = seq
         .as_deref()
         .and_then(|s| s.parse::<usize>().ok())
