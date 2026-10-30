@@ -339,3 +339,48 @@ fn equal_initializers_stay_distinct_positions() {
         "{names:?}"
     );
 }
+
+/// The node list reversed in the protobuf (no longer topological): the
+/// schedule comes from `dep`, not from source order, so the graph still runs
+/// and matches ORT.
+#[test]
+fn schedule_comes_from_dep_not_source_order() {
+    use prost::Message;
+    let mut m = tract_onnx::pb::ModelProto::decode(&*bytes("base")).unwrap();
+    m.graph.as_mut().unwrap().node.reverse();
+    let b = m.encode_to_vec();
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    assert_eq!(
+        src.nodes[0].name, "n_div",
+        "anti-vacuity: the source order is reversed"
+    );
+    let facts = tract_facts(&bytes("base"), &[]).unwrap();
+    let g = OnnxGraph::build(&src, &facts).unwrap();
+    let reg = registry();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    let p = resolve(&src, g, &reg, &store).unwrap();
+    assert_eq!(
+        outputs(&p.run(&store, &inputs(None)).unwrap()),
+        ort_out("base")
+    );
+}
+
+/// With dtypes but no shapes every shape guard is UNKNOWN, and UNKNOWN
+/// refuses: it never counts as TRUE.
+#[test]
+fn unknown_shapes_refuse() {
+    let src = SourceInventory::from_bytes(&bytes("base")).unwrap();
+    let mut facts = tract_facts(&bytes("base"), &[]).unwrap();
+    for f in facts.values_mut() {
+        f.shape = None;
+    }
+    let g = OnnxGraph::build(&src, &facts).unwrap();
+    let reg = registry();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    match resolve(&src, g, &reg, &store) {
+        Err(Refusal::When { node, truth, .. }) => {
+            assert_eq!((node.as_str(), truth), ("n_greater", K3::Unknown))
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
