@@ -72,7 +72,7 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 - A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
 - The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
 
-**Reading (operator, 2026-10-30): two 16-byte registers of the 512-byte SoA node row zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.** These are registers of the row itself, not `ValueTenant` lanes; which 32 bytes of the 512 they occupy is the ClassView's carving.
+**Reading (operator, 2026-10-30): two 16-byte registers of the 512-byte SoA node row zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.** These are two of the row's 32 sixteen-byte slots, not `ValueTenant` lanes. From `canonical_node.rs`: `NodeRow` is `key` 0..16, `edges` 16..32 (an `EdgeFacet`, a second content-blind facet by the 2026-09-17 ruling), and `value` 32..512; `GUIDS_PER_NODE = 512 / 16 = 32`. The `ValueTenant` lanes are carved inside the 480-byte value slab only. Which two slots carry the `is_a` and `part_of` registers is OPEN (asked of the operator).
 
 ```text
 is_a register       1234567890123456
