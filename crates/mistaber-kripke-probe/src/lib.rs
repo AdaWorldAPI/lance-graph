@@ -563,6 +563,73 @@ impl Holdings<'_> {
 mod tests {
     use super::*;
 
+    fn all_goldens() -> Vec<Golden> {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("goldens");
+        let mut paths: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .filter(|p| p.extension().is_some_and(|x| x == "tsv"))
+            .collect();
+        paths.sort();
+        paths
+            .iter()
+            .map(|p| parse_golden(&std::fs::read_to_string(p).unwrap()).unwrap())
+            .collect()
+    }
+
+    /// The probe's lineage already lives on three 64 x 64 x 64 index spaces,
+    /// each a stack of 64 x 64 registers (row = proposition, bit = world)
+    /// along a third axis:
+    ///
+    /// - V[parent]: `holds_via(inherited(parent), p, w)`, built on demand;
+    /// - O[origin]: `inheritance_source(p, w, origin)`;
+    /// - L[rule]:  the source rule of `holds_via_rule`.
+    ///
+    /// Contracting V or O over its third axis must give back the 64 x 64
+    /// `holds` register, and each cell must read the same through its HHTL16
+    /// address.
+    #[test]
+    fn the_third_axis_contracts_back_to_holds() {
+        use dr_math_binding_probe::hhtl16;
+        use lance_graph_contract::morton8x8::Morton8x8;
+        let (mut two_parents, mut two_origins) = (false, false);
+        for g in all_goldens() {
+            let kb = Kb::load(&g.facts).unwrap();
+            let h = kb.solve();
+            let nw = kb.worlds.0.len();
+            let v: Vec<Rows> = (0..nw)
+                .map(|par| std::array::from_fn(|p| h.inherited_from(par, p)))
+                .collect();
+            for p in 0..SLOTS {
+                let via_parent = v.iter().fold(h.direct[p], |a, s| a | s[p]);
+                assert_eq!(via_parent, h.holds[p], "{} V", g.fixture_id);
+                let via_origin = h.origins.iter().fold(0, |a, s| a | s[p]);
+                assert_eq!(via_origin, h.holds[p], "{} O", g.fixture_id);
+                for w in 0..nw {
+                    let parents = v.iter().filter(|s| s[p] >> w & 1 == 1).count();
+                    let origins = h.origins.iter().filter(|s| s[p] >> w & 1 == 1).count();
+                    two_parents |= parents >= 2;
+                    two_origins |= origins >= 2;
+                }
+            }
+            for cube in [&v, &h.origins, &h.sources] {
+                for slice in cube.iter() {
+                    for p in 0..kb.props.0.len() {
+                        for w in 0..nw {
+                            let code = Morton8x8::from_xy(p as u8, w as u8);
+                            let bit = slice[p] >> w & 1 == 1;
+                            assert_eq!(hhtl16::cell(slice, code), Ok(bit));
+                        }
+                    }
+                }
+            }
+        }
+        // Anti-vacuity: the third axis carries more than one entry somewhere,
+        // so contraction is a real OR and not a copy of one slice.
+        assert!(two_parents, "no cell with two parents");
+        assert!(two_origins, "no cell with two origins");
+    }
+
     #[test]
     fn lineage_never_leaves_the_held_cells() {
         // F5: r_orphan has a rule companion but no assertion, so p holds
