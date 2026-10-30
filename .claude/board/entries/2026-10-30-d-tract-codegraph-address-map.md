@@ -4,7 +4,9 @@
 
 The question: Tract compiles by rewriting one typed op graph (`declutter` then per-op `codegen` patches). We want the same codegraph for every disassembled program, addressed in the substrate. How is that address minted, where can the graph be inspected today, and should `lance-graph-r2il` get a second classid for it?
 
-"KPEA" means the Tract-style codegraph (confirmed by the operator, 2026-10-30): the typed op graph Tract keeps and rewrites, which burn does not have. Per the operator it was the main reason for choosing Tract.
+The codegraph meant here is the Tract-style codegraph: the typed op graph Tract keeps and rewrites, which burn does not have (operator, 2026-10-30: it was the main reason for choosing Tract). "KPEA" names a private consumer computation whose codegraph is wanted. It is not defined in this repository, and this entry carries no detail about it.
+
+> Correction (same day): an earlier version of this paragraph defined "KPEA" as the Tract codegraph itself. That was wrong: the search behind it covered lance-graph, OGAR and ndarray only.
 
 ## 1. R2IL already has two classids for one table
 
