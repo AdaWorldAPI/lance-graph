@@ -137,6 +137,23 @@ route.
 **BASIS:** the user's statement in session (decision, not measurement).
 **REVISIT WHEN:** a projection needs a second fixed-width axis.
 
+**DECISION (2026-10-30, second nudge):** What is always there, and what is not material:
+
+| Always present | Not material (resolved on demand, never stored per cell) |
+|---|---|
+| **identity = `NodeGuid`** (`lance-graph-contract/src/canonical_node.rs`), the fixed-width direction | **`ClassView` → methods** (DT, via hotplug) |
+| **property mappings**: the selection of properties and edges against the identity width (§3a above) | **64 thoughts → Thought-Git** ([D-DT64-4](d-dt64-4-edge-thoughtgit-hypothesis-time-v1.md); D-DRDT: "Thought-Git sits above both") |
+
+**SCOPE:** what a frame may assume exists, and what an exposure may only reference.
+**BASIS:** the user's statement in session (decision, not measurement).
+**REVISIT WHEN:** a method or a thought has to be stored per cell to be correct.
+
+Consequences:
+- **The wafer has two layers: `NodeGuid` identities and property mappings.** Exposures read these.
+- **Methods come through `ClassView` resolution.** A shader names a method; it never carries a copy of one.
+- **The 64 thoughts are references into Thought-Git**, not lanes on the frame. A thought is versioned history, not exposed state.
+- **This supplies the identity coordinate that §3's bead position needs:** it is a `NodeGuid`, mapped to a frame position by the DR law.
+
 Consequences:
 - §1's "Identity (X) × Edge (Y) × Property (Z)" is a selection geometry, not three fixed-width address
   axes. Only the identity direction has fixed width (the 64-row word, the 65,536-address DR256 domain).
