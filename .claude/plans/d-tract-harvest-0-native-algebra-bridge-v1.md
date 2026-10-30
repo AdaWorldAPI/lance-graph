@@ -183,6 +183,37 @@ The rotary-embedding chain is shape-only (its angles depend on positions, not to
 
 Disable runs (each red): DO refusal not surfaced by `resolve`; binary guard always TRUE; overflow ignored; zero-step guard removed; range capacity widened; one-element left side not broadcast; initializer facts not filled in `fold`. 60 tests green (21 lib, 31 tiny, 8 Jina).
 
+### 0.5 The rotary chain (2026-10-30)
+
+Registry v5 registers what §0.4 listed as the remaining shape-only blockers, each on an ndarray word consumed as built:
+
+| classid | op | DO | numerics |
+|---|---|---|---|
+| 0x0F7B | Cast int64 → f32 | `v as f32` (round to nearest, as ONNX) | exact |
+| 0x0F7C | Cast bool → bool | identity | exact |
+| 0x0F7D | MatMul f32 | `matmul_plan` + `ndarray::simd::matmul_f32_batched` | bounded (sgemm accumulation order; exact when K = 1) |
+| 0x0F7E / 0x0F7F | Transpose f32 / int64 | `permuted_axes` + `as_standard_layout` | exact |
+| 0x0F80 / 0x0F81 | Cos / Sin | `ndarray::hpc::vml::vscos` / `vssin` | bounded |
+| 0x0F82 | And (bool) | `mask_and` after broadcasting the bit words | exact |
+
+MatMul admits a rank-2 right operand (the left's leading dims flatten into rows), equal leading dims, or all-ones right leading dims; anything else is WHEN FALSE. Equal and LessOrEqual now admit any multidirectional broadcast (both sides broadcast with ndarray, then the pair kernel); the earlier pair-or-scalar rule was the census's one WHEN-false node. `attrs_match` accepts an integer list for a rule without a pinned value (Transpose's `perm`).
+
+**External constant.** The rotary `inv_freq` (`Constant_2836`, 64 f32) lives in the external weight file. `tools/fetch_jina_constants.py` fetches only external-data Constants of at most 64 KiB as HTTP ranges into `fixtures/jina/` (gitignored); `fixtures/jina_constants.json` commits offset, length, dims and SHA-256. `SourceInventory::inline_constants_from_manifest` refuses a wrong digest or length, and `inline_external_constant` refuses a target that is not exactly one undecoded default-domain Constant. The same script extracts the 40-node rotary subgraph with the model's own opset and runs it under ORT `ORT_DISABLE_ALL` for `input_ids` [1, 10] (outputs and digests in the manifest).
+
+**Acceptance.**
+- `rotary_chain_folds_and_matches_ort` (tiny `rope` variant, synthetic inv_freq): the chain folds with no run-time step through the v5 classids; the causal mask matches ORT exactly (55 set bits); cos and sin are within 1 ULP.
+- `trig_sweep_against_f64_and_ort` (41,579 points: the rotary angles, a grid over ±4π, special values): `vscos`/`vssin` are ≤ 1 ULP from f64 and ≤ 2 ULP from ORT, which is itself 2 ULP from f64 at points.
+- `matmul_f32_against_ort` (a [1,4,64] × [64,8] weight and a [1,2,4,16] × [1,2,16,4] attention shape): 0 ULP measured, pinned ≤ 2.
+- `jina_rotary_fold_matches_ort` (real Jina, inv_freq inlined): both folded rotary outputs match ORT within 1 ULP over 1,280 values each.
+
+**Jina census (`[1,10]`, inv_freq inlined).** WHEN-true / not-true / unregistered **7,274 / 0 / 346** (v4 6,871 / 1 / 748); typed-facts coverage 4,238 / 256 / 3,126. Cold-folded nodes 5,159 (v4 5,139); retained folded values 1,440 (~38 KB). **Shape-only blocked nodes: 0** (v4: 20). The 346 unregistered nodes are run-time ops (Slice, Neg, IsNaN, Sigmoid, Softmax, GatherElements, f16 casts and similar); the 252 run-time MatMuls are now admitted (196 rank-3 × weight, 56 rank-4 attention). Not folded: 2,461 run-time nodes, unchanged. No full Jina runtime was started.
+
+**Findings for the ndarray owner (reported, not changed here).** `ndarray::simd`'s documentation says `matmul_f32` uses "BF16 compute on AMX hosts", but `matmul_f32_batched` measured as exact f32 sgemm (0 ULP against ORT). `hpc::amx_matmul` is compiled on x86_64 only.
+
+**Cost (cold, reported, not gated).** `examples/cost.rs`: `i64_arith` cold 20.6 + 350.2 + 30.2 µs, hot plan 2,150 ns against Tract's 712 ns (the run still clones the 7 folded outputs); Jina RMSNorm slice plan 14.5 µs against Tract 113.6 µs. No rotary cost row was taken.
+
+Disable runs (each red): Transpose `perm` ignored; Cos computed with sin; compare broadcast removed; And broadcast ignored; manifest digest check removed; MatMul weight-row flattening dropped. The last one stayed green until the weight case was given two batches (with one batch the flattening is a no-op). 70 tests green (23 lib, 35 tiny, 9 Jina; the Jina tests need the fetch scripts).
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.

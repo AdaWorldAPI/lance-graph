@@ -1,0 +1,48 @@
+{
+ "license": "cc-by-nc-4.0 (data never committed)",
+ "constants": [
+  {
+   "node": "Constant_2836",
+   "output": "onnx::Expand_398",
+   "dtype": "f32",
+   "dims": [
+    1,
+    64,
+    1
+   ],
+   "location": "model.onnx_data",
+   "offset": 2384199680,
+   "length": 256,
+   "sha256": "4b659c349432de9f79dd9cb4ee360c56e20be3809e01d4bbccbf2ebeae925c3d",
+   "file": "const_onnx__Expand_398.bin"
+  }
+ ],
+ "rotary": {
+  "seq": 10,
+  "nodes": 40,
+  "ort_version": "1.29.0",
+  "graph_optimization_level": "ORT_DISABLE_ALL",
+  "outputs": [
+   {
+    "name": "/rotary_emb/Cast_4_output_0",
+    "shape": [
+     1,
+     10,
+     128
+    ],
+    "file": "rotary__rotary_emb_Cast_4_output_0.f32",
+    "sha256": "7885dd5dec23c592ac6a7be82db5a0fc381cf97e47f1f218d779be3bb2f02c40"
+   },
+   {
+    "name": "/rotary_emb/Cast_5_output_0",
+    "shape": [
+     1,
+     10,
+     128
+    ],
+    "file": "rotary__rotary_emb_Cast_5_output_0.f32",
+    "sha256": "045f4f467b6710f07dddd2b0040adfa4e6e030edadc39b9f47bd0de4b28d1717"
+   }
+  ]
+ }
+}

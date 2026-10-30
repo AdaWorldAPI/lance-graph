@@ -109,9 +109,138 @@ pub struct SourceInventory {
     pub inputs: Vec<String>,
     /// Graph outputs, in source order.
     pub outputs: Vec<String>,
+    /// One SHA-256 per external `Constant` inlined after decoding, over its
+    /// output name, dtype, shape and little-endian contents, in inlining
+    /// order. The bytes were not part of `model_sha256`, so a plan's source
+    /// revision includes these.
+    pub inlined: Vec<String>,
+}
+
+/// SHA-256 over an inlined constant's output name, dtype, shape and
+/// little-endian contents.
+fn inlined_digest(output: &str, value: &Value) -> String {
+    let mut b = Vec::new();
+    let mut field = |f: &[u8]| {
+        b.extend((f.len() as u64).to_le_bytes());
+        b.extend_from_slice(f);
+    };
+    field(output.as_bytes());
+    field(format!("{:?}", value.dtype()).as_bytes());
+    let shape: Vec<u8> = value
+        .shape()
+        .iter()
+        .flat_map(|d| (*d as u64).to_le_bytes())
+        .collect();
+    field(&shape);
+    let data: Vec<u8> = match value {
+        Value::F32(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::I32(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::I64(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::Bool { words, .. } => words.iter().flat_map(|v| v.to_le_bytes()).collect(),
+    };
+    field(&data);
+    sha256_hex(&b)
 }
 
 impl SourceInventory {
+    /// Inline every external-data `Constant` listed in a manifest written by
+    /// `tools/fetch_jina_constants.py` (`{"constants": [{output, dtype, dims,
+    /// sha256, file}]}`), reading each file from `data_dir` and refusing a
+    /// digest, length or dtype that does not match. Returns how many were
+    /// inlined.
+    pub fn inline_constants_from_manifest(
+        &mut self,
+        manifest: &std::path::Path,
+        data_dir: &std::path::Path,
+    ) -> Result<usize, String> {
+        use sha2::{Digest, Sha256};
+        let m: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(manifest).map_err(|e| format!("{}: {e}", manifest.display()))?,
+        )
+        .map_err(|e| e.to_string())?;
+        let list = m["constants"]
+            .as_array()
+            .ok_or("manifest without constants")?;
+        for c in list {
+            let field = |k: &str| c[k].as_str().ok_or(format!("constant without {k}"));
+            let (output, file, digest) = (field("output")?, field("file")?, field("sha256")?);
+            let bytes = std::fs::read(data_dir.join(file)).map_err(|e| format!("{file}: {e}"))?;
+            let got: String = Sha256::digest(&bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            if got != digest {
+                return Err(format!("{file}: sha256 {got} != {digest}"));
+            }
+            let dims: Vec<usize> = c["dims"]
+                .as_array()
+                .ok_or("constant without dims")?
+                .iter()
+                .map(|d| d.as_u64().map(|d| d as usize).ok_or("bad dim"))
+                .collect::<Result<_, _>>()?;
+            let n: usize = dims.iter().product();
+            let value = match field("dtype")? {
+                "f32" if bytes.len() == 4 * n => Value::F32(
+                    ndarray::ArrayD::from_shape_vec(
+                        ndarray::IxDyn(&dims),
+                        bytes
+                            .as_chunks::<4>()
+                            .0
+                            .iter()
+                            .map(|b| f32::from_le_bytes(*b))
+                            .collect(),
+                    )
+                    .map_err(|e| e.to_string())?,
+                ),
+                "i64" if bytes.len() == 8 * n => Value::I64(
+                    ndarray::ArrayD::from_shape_vec(
+                        ndarray::IxDyn(&dims),
+                        bytes
+                            .as_chunks::<8>()
+                            .0
+                            .iter()
+                            .map(|b| i64::from_le_bytes(*b))
+                            .collect(),
+                    )
+                    .map_err(|e| e.to_string())?,
+                ),
+                t => {
+                    return Err(format!(
+                        "{output}: {t} with {} bytes for {dims:?}",
+                        bytes.len()
+                    ))
+                }
+            };
+            self.inline_external_constant(output, value)?;
+        }
+        Ok(list.len())
+    }
+
+    /// Supply the value of a `Constant` whose tensor lives in external data
+    /// (the source decoder leaves it `None`). Refused unless `output` is the
+    /// output of exactly one default-domain `Constant` with an undecoded
+    /// tensor; the caller is responsible for the bytes (a pinned range).
+    pub fn inline_external_constant(&mut self, output: &str, value: Value) -> Result<(), String> {
+        let mut hits = self.nodes.iter_mut().filter(|n| {
+            n.op_type == "Constant"
+                && n.default_domain()
+                && n.outputs.first().is_some_and(|o| o == output)
+        });
+        let (Some(node), None) = (hits.next(), hits.next()) else {
+            return Err(format!("{output}: not the output of exactly one Constant"));
+        };
+        match node.attrs.iter_mut().find(|(n, _)| n == "value") {
+            Some((_, a @ Attr::Tensor(None))) => {
+                let digest = inlined_digest(output, &value);
+                *a = Attr::Tensor(Some(value));
+                self.inlined.push(digest);
+                Ok(())
+            }
+            Some((_, Attr::Tensor(Some(_)))) => Err(format!("{output}: value is already decoded")),
+            _ => Err(format!("{output}: no tensor value attribute")),
+        }
+    }
+
     /// Read the inventory from model bytes. The protobuf is decoded with the
     /// same `prost` types Tract uses, but nothing of Tract's import runs.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, prost::DecodeError> {
@@ -177,6 +306,7 @@ impl SourceInventory {
             initializers,
             inputs,
             outputs,
+            inlined: vec![],
         }
     }
 

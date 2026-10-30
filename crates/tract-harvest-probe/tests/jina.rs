@@ -446,15 +446,23 @@ fn new_weight_generation_refuses_the_old_plan() {
 /// 7,620 source values with a full fact; the typed stage labels 2,546, of
 /// which 1,988 are admitted (a typed fact is admitted only from the outlet
 /// that is the value's source producer, `dr3::admit`); the two agree wherever
-/// both speak. Registry v3 coverage with these facts, cold folding included,
-/// pinned exactly so any change forces a re-measure.
+/// both speak. Registry coverage with these facts, cold folding included,
+/// pinned exactly so any change forces a re-measure. The one external-data
+/// Constant (the rotary `inv_freq`) is inlined from its pinned range.
 #[test]
-#[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py"]
+#[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py && python3 tools/fetch_jina_constants.py"]
 fn full_graph_facts_and_coverage() {
     use tract_harvest_probe::dr3::tract_fact_sources_path;
     use tract_harvest_probe::plan::coverage;
     let path = std::path::PathBuf::from(format!("{FIX}/jina/onnx_model.onnx"));
-    let src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let inlined = src
+        .inline_constants_from_manifest(
+            std::path::Path::new(&format!("{FIX}/jina_constants.json")),
+            std::path::Path::new(&format!("{FIX}/jina")),
+        )
+        .unwrap();
+    assert_eq!(inlined, 1);
     let pins: Vec<_> = (0..2).map(|i| (i, DatumType::I64, vec![1, 10])).collect();
     let fs = tract_fact_sources_path(&path, &pins).unwrap();
     let values: Vec<&String> = src
@@ -491,6 +499,59 @@ fn full_graph_facts_and_coverage() {
             .values()
             .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
     };
-    assert_eq!(tot(&fs.typed), [3954, 227, 3439]);
-    assert_eq!(tot(&fs.merged()), [6871, 1, 748]);
+    assert_eq!(tot(&fs.typed), [4238, 256, 3126]);
+    assert_eq!(tot(&fs.merged()), [7274, 0, 346]);
+}
+
+/// The real Jina rotary embedding, folded cold at `[1, 10]` from the source
+/// and the pinned `inv_freq` range, against ORT (`ORT_DISABLE_ALL`) running
+/// the same 40 nodes extracted from the graph (`tools/fetch_jina_constants.py`;
+/// its outputs are gitignored, their digests committed).
+#[test]
+#[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py && python3 tools/fetch_jina_constants.py"]
+fn jina_rotary_fold_matches_ort() {
+    use tract_harvest_probe::dr3::tract_fact_sources_path;
+    use tract_harvest_probe::fold::fold;
+    let path = std::path::PathBuf::from(format!("{FIX}/jina/onnx_model.onnx"));
+    let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let manifest = std::path::PathBuf::from(format!("{FIX}/jina_constants.json"));
+    src.inline_constants_from_manifest(&manifest, std::path::Path::new(&format!("{FIX}/jina")))
+        .unwrap();
+    let pins: Vec<_> = (0..2).map(|i| (i, DatumType::I64, vec![1, 10])).collect();
+    let fs = tract_fact_sources_path(&path, &pins).unwrap();
+    let f = fold(&src, &fs.merged(), &registry());
+    assert!(f.refused.is_empty(), "{:?}", f.refused);
+    let m: Json = serde_json::from_slice(&std::fs::read(&manifest).unwrap()).unwrap();
+    let mut worst = 0;
+    for o in m["rotary"]["outputs"].as_array().unwrap() {
+        let name = o["name"].as_str().unwrap();
+        let bytes = std::fs::read(format!("{FIX}/jina/{}", o["file"].as_str().unwrap())).unwrap();
+        assert_eq!(sha256_hex(&bytes), o["sha256"].as_str().unwrap(), "{name}");
+        let want: Vec<f32> = bytes
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|b| f32::from_le_bytes(*b))
+            .collect();
+        let got = match f.values.get(name) {
+            Some(Value::F32(a)) => a,
+            other => panic!("{name} did not fold: {other:?}"),
+        };
+        let shape: Vec<usize> = o["shape"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d.as_u64().unwrap() as usize)
+            .collect();
+        assert_eq!(got.shape(), shape.as_slice(), "{name}");
+        let d = got
+            .iter()
+            .zip(&want)
+            .map(|(&g, &w)| ulp(g, w))
+            .max()
+            .unwrap();
+        eprintln!("{name}: {} values, max ULP vs ORT {d}", want.len());
+        worst = worst.max(d);
+    }
+    assert!(worst <= 1, "{worst} ULP");
 }

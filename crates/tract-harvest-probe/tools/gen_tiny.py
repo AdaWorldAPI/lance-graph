@@ -87,6 +87,12 @@ def i64(name, v):
     return nh.from_array(np.array(v, np.int64), name)
 
 
+_mm = np.random.default_rng(20261031)
+MATMUL_FEEDS = {"A": _mm.standard_normal((1, 4, 64)).astype(np.float32),
+                "Q": _mm.standard_normal((1, 2, 4, 16)).astype(np.float32),
+                "K": _mm.standard_normal((1, 2, 16, 4)).astype(np.float32)}
+
+
 def build_shape(variant):
     """D-TRACT-SHAPE-1 shape plumbing.
 
@@ -193,6 +199,54 @@ def build_shape(variant):
                  h.make_node("Gather", ["s", "r1"], ["n3"], name="n_gather", axis=0),
                  node[0]]
         outs = [h.make_tensor_value_info("Y", T.INT64, None)]
+    elif variant == "rope":
+        # The Jina rotary-embedding and causal-mask structure, self-authored:
+        # positions come from the input's shape (Shape -> Gather -> Range), so
+        # with a fixed shape the whole chain is shape-only and folds.
+        # inv_freq is synthetic, 1 / 10000^(2i/64) for i < 32.
+        inp = [h.make_tensor_value_info("ids", T.INT64, [1, 10])]
+        inv = (1.0 / (10000.0 ** (np.arange(0, 64, 2, dtype=np.float64) / 64.0))).astype(np.float32)
+        inits += [i64("r0", 0), i64("r1", 1), i64("ax0", [0]), i64("ax1", [1]), i64("ax2", [2]),
+                  i64("mshape", [10, 10]),
+                  nh.from_array(inv.reshape(1, 32, 1), "inv_freq"),
+                  nh.from_array(np.array(1.0, np.float32), "scale")]
+        nodes = [
+            h.make_node("Shape", ["ids"], ["s"], name="n_shape"),
+            h.make_node("Gather", ["s", "r1"], ["n"], name="n_gather", axis=0),
+            h.make_node("Range", ["r0", "n", "r1"], ["pos"], name="n_range"),
+            h.make_node("Unsqueeze", ["pos", "ax0"], ["pos1"], name="n_unsq0"),
+            h.make_node("Unsqueeze", ["pos1", "ax1"], ["pos2"], name="n_unsq1"),
+            h.make_node("Cast", ["pos2"], ["posf"], name="n_cast_pos", to=1),
+            h.make_node("MatMul", ["inv_freq", "posf"], ["fr"], name="n_matmul"),
+            h.make_node("Transpose", ["fr"], ["frt"], name="n_transpose", perm=[0, 2, 1]),
+            h.make_node("Concat", ["frt", "frt"], ["emb"], name="n_concat", axis=-1),
+            h.make_node("Cos", ["emb"], ["c"], name="n_cos"),
+            h.make_node("Sin", ["emb"], ["sn"], name="n_sin"),
+            h.make_node("Mul", ["c", "scale"], ["COS"], name="n_mul_cos"),
+            h.make_node("Mul", ["sn", "scale"], ["SIN"], name="n_mul_sin"),
+            # Causal mask: key position <= query position, broadcast [10,1] vs [1,10].
+            h.make_node("Unsqueeze", ["pos", "ax1"], ["q"], name="n_unsq_q"),
+            h.make_node("Unsqueeze", ["pos", "ax0"], ["k"], name="n_unsq_k"),
+            h.make_node("LessOrEqual", ["k", "q"], ["le"], name="n_le"),
+            h.make_node("Cast", ["le"], ["leb"], name="n_cast_bool", to=9),
+            h.make_node("ConstantOfShape", ["mshape"], ["ones"], name="n_ones",
+                        value=nh.from_array(np.array([True]), "v")),
+            h.make_node("And", ["ones", "leb"], ["MASK"], name="n_and"),
+        ]
+        outs = [h.make_tensor_value_info("COS", T.FLOAT, None), h.make_tensor_value_info("SIN", T.FLOAT, None),
+                h.make_tensor_value_info("MASK", T.BOOL, None)]
+    elif variant == "matmul":
+        # f32 MatMul with K > 1 (accumulation order matters): an activation
+        # against a weight, and an attention-shaped batched product.
+        rng = np.random.default_rng(20261030)
+        inp = [h.make_tensor_value_info("A", T.FLOAT, [1, 4, 64]),
+               h.make_tensor_value_info("Q", T.FLOAT, [1, 2, 4, 16]),
+               h.make_tensor_value_info("K", T.FLOAT, [1, 2, 16, 4])]
+        inits += [nh.from_array(rng.standard_normal((64, 8)).astype(np.float32), "W")]
+        nodes = [h.make_node("MatMul", ["A", "W"], ["Y1"], name="n_mm_weight"),
+                 h.make_node("MatMul", ["Q", "K"], ["Y2"], name="n_mm_attn")]
+        outs = [h.make_tensor_value_info("Y1", T.FLOAT, [1, 4, 8]),
+                h.make_tensor_value_info("Y2", T.FLOAT, [1, 2, 4, 4])]
     elif variant in ("lstm_skip", "lstm_full"):
         # An omitted optional output before a present one: Tract numbers a
         # node's outlets after dropping empty names (onnx/src/model.rs:150).
@@ -212,6 +266,26 @@ def build_erf_sweep():
                      [h.make_tensor_value_info("X", T.FLOAT, ["N"])],
                      [h.make_tensor_value_info("Y", T.FLOAT, ["N"])])
     return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
+
+
+def build_trig_sweep():
+    g = h.make_graph([h.make_node("Cos", ["X"], ["C"], name="n_cos"),
+                      h.make_node("Sin", ["X"], ["S"], name="n_sin")], "trig_sweep",
+                     [h.make_tensor_value_info("X", T.FLOAT, ["N"])],
+                     [h.make_tensor_value_info("C", T.FLOAT, ["N"]),
+                      h.make_tensor_value_info("S", T.FLOAT, ["N"])])
+    return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
+
+
+def trig_sweep_inputs():
+    """Rotary angles: every position up to 8192 times every synthetic inv_freq,
+    plus a dense grid over [-4 pi, 4 pi], signed zeros, infinities and NaN."""
+    inv = (1.0 / (10000.0 ** (np.arange(0, 64, 2, dtype=np.float64) / 64.0))).astype(np.float32)
+    pos = np.arange(0, 8192, 7, dtype=np.float32)
+    rot = (pos[:, None] * inv[None, :]).ravel()
+    grid = np.linspace(-4 * np.pi, 4 * np.pi, 4097, dtype=np.float64).astype(np.float32)
+    special = np.array([0.0, -0.0, np.inf, -np.inf, np.nan, 1e-30, 3.4e38, -3.4e38, 1e6, 8191.0], np.float32)
+    return np.concatenate([rot, grid, special])
 
 
 def erf_sweep_inputs():
@@ -272,15 +346,19 @@ def main():
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
     for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith",
-              "i64_data", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
+              "i64_data", "rope", "matmul", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
         data = build_shape(v).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)
         entry = {"sha256": hashlib.sha256(data).hexdigest()}
+        if v == "matmul":
+            entry["inputs"] = {k: {"shape": list(a.shape), "bits": bits(a)} for k, a in MATMUL_FEEDS.items()}
         feeds = {"shape_sym": {"X": np.arange(6, dtype=np.float32)},
                  "lstm_skip": {"X": np.ones((5, 1, 3), np.float32)},
                  "lstm_full": {"X": np.ones((5, 1, 3), np.float32)},
-                 "i64_data": {"F": INPUTS["F"], "I": np.array([-4, 5], np.int64)}}.get(v, {"F": INPUTS["F"]})
+                 "i64_data": {"F": INPUTS["F"], "I": np.array([-4, 5], np.int64)},
+                 "rope": {"ids": np.arange(10, dtype=np.int64).reshape(1, 10)},
+                 "matmul": MATMUL_FEEDS}.get(v, {"F": INPUTS["F"]})
         if v == "neg_i64_div0":
             # An integer zero divisor is undefined behaviour in ORT's kernel;
             # it is not run. The refusal here needs no oracle.
@@ -307,6 +385,20 @@ def main():
         "X_bits": bits(xs),
         "ort_bits": bits(session(data).run(["Y"], {"X": xs})[0]),
         "f64_ref_bits": bits(ref),
+    }
+    # Cos/Sin sweep: ORT's outputs and f64 references rounded once to f32.
+    data = build_trig_sweep().SerializeToString()
+    with open(os.path.join(OUT, "trig_sweep.onnx"), "wb") as f:
+        f.write(data)
+    xs = trig_sweep_inputs()
+    oc, os_ = session(data).run(["C", "S"], {"X": xs})
+    manifest["trig_sweep"] = {
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "X_bits": bits(xs),
+        "ort_cos_bits": bits(oc),
+        "ort_sin_bits": bits(os_),
+        "f64_cos_bits": bits(np.cos(xs.astype(np.float64)).astype(np.float32)),
+        "f64_sin_bits": bits(np.sin(xs.astype(np.float64)).astype(np.float32)),
     }
     # div3 sweep: 256 seeded F inputs through ORT, so a property that holds for
     # some values only (Div vs Mul(recip)) is tested on a population.
