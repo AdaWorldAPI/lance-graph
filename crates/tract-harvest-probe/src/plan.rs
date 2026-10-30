@@ -57,7 +57,11 @@ fn digest64(parts: &[&[u8]]) -> u64 {
 pub fn revisions(src: &SourceInventory, registry: &Registry, graph: &OnnxGraph) -> FrameRevisions {
     let coords: Vec<&[u8]> = graph.props.iter().map(|p| p.as_bytes()).collect();
     FrameRevisions {
-        source: digest64(&[src.model_sha256.as_bytes()]),
+        source: digest64(
+            &std::iter::once(src.model_sha256.as_bytes())
+                .chain(src.inlined.iter().map(|d| d.as_bytes()))
+                .collect::<Vec<_>>(),
+        ),
         relation_map: registry.version,
         coordinates: digest64(&coords),
     }

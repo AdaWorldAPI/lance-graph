@@ -682,6 +682,7 @@ mod tests {
             ],
             inputs: vec!["x".into()],
             model_sha256: String::new(),
+            inlined: vec![],
             ir_version: 8,
             opsets: vec![],
             initializers: vec![],
@@ -705,6 +706,7 @@ mod tests {
             nodes,
             inputs: inputs.iter().map(|s| s.to_string()).collect(),
             model_sha256: String::new(),
+            inlined: vec![],
             ir_version: 8,
             opsets: vec![],
             initializers: inits

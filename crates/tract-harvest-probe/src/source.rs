@@ -109,6 +109,37 @@ pub struct SourceInventory {
     pub inputs: Vec<String>,
     /// Graph outputs, in source order.
     pub outputs: Vec<String>,
+    /// One SHA-256 per external `Constant` inlined after decoding, over its
+    /// output name, dtype, shape and little-endian contents, in inlining
+    /// order. The bytes were not part of `model_sha256`, so a plan's source
+    /// revision includes these.
+    pub inlined: Vec<String>,
+}
+
+/// SHA-256 over an inlined constant's output name, dtype, shape and
+/// little-endian contents.
+fn inlined_digest(output: &str, value: &Value) -> String {
+    let mut b = Vec::new();
+    let mut field = |f: &[u8]| {
+        b.extend((f.len() as u64).to_le_bytes());
+        b.extend_from_slice(f);
+    };
+    field(output.as_bytes());
+    field(format!("{:?}", value.dtype()).as_bytes());
+    let shape: Vec<u8> = value
+        .shape()
+        .iter()
+        .flat_map(|d| (*d as u64).to_le_bytes())
+        .collect();
+    field(&shape);
+    let data: Vec<u8> = match value {
+        Value::F32(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::I32(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::I64(a) => a.iter().flat_map(|v| v.to_le_bytes()).collect(),
+        Value::Bool { words, .. } => words.iter().flat_map(|v| v.to_le_bytes()).collect(),
+    };
+    field(&data);
+    sha256_hex(&b)
 }
 
 impl SourceInventory {
@@ -200,7 +231,9 @@ impl SourceInventory {
         };
         match node.attrs.iter_mut().find(|(n, _)| n == "value") {
             Some((_, a @ Attr::Tensor(None))) => {
+                let digest = inlined_digest(output, &value);
                 *a = Attr::Tensor(Some(value));
+                self.inlined.push(digest);
                 Ok(())
             }
             Some((_, Attr::Tensor(Some(_)))) => Err(format!("{output}: value is already decoded")),
@@ -273,6 +306,7 @@ impl SourceInventory {
             initializers,
             inputs,
             outputs,
+            inlined: vec![],
         }
     }
 

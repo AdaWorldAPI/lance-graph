@@ -1171,7 +1171,8 @@ fn trig_sweep_against_f64_and_ort() {
 #[test]
 fn external_constants_inline_only_when_pinned() {
     use tract_harvest_probe::source::{sha256_hex, Attr, SourceNode};
-    let mut src = SourceInventory::from_bytes(&bytes("base")).unwrap();
+    let (mut src, g) = graph("base");
+    let reg = registry();
     src.nodes.push(SourceNode {
         name: "c_ext".into(),
         op_type: "Constant".into(),
@@ -1211,10 +1212,25 @@ fn external_constants_inline_only_when_pinned() {
         .inline_constants_from_manifest(&manifest(&good, "[3]"), &dir)
         .unwrap_err();
     assert!(e.contains("bytes"), "{e}");
+    let pristine = src.clone();
     assert_eq!(
         src.inline_constants_from_manifest(&manifest(&good, "[2]"), &dir),
         Ok(1)
     );
+    // The inlined bytes are not in `model_sha256`, so the source revision has
+    // to carry them: another value inlined into the same model is another
+    // source.
+    let mut other = pristine.clone();
+    other
+        .inline_external_constant(
+            "ext_out",
+            Value::F32(ArrayD::from_shape_vec(IxDyn(&[2]), vec![1.5, -2.5]).unwrap()),
+        )
+        .unwrap();
+    let rev = |s: &SourceInventory| revisions(s, &reg, &g).source;
+    assert_eq!(src.model_sha256, other.model_sha256);
+    assert_ne!(rev(&src), rev(&pristine));
+    assert_ne!(rev(&src), rev(&other));
     match src.nodes.last().unwrap().attr("value") {
         Some(Attr::Tensor(Some(Value::F32(a)))) => {
             assert_eq!(a.iter().copied().collect::<Vec<_>>(), [1.5, -2.0])
