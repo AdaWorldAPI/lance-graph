@@ -1,0 +1,3 @@
+target/
+# CC-BY-NC-4.0 model data: fetched by tools/fetch_jina_slice.py, never committed.
+fixtures/jina/

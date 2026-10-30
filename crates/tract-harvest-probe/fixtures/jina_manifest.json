@@ -1,0 +1,192 @@
+{
+ "repo": "jinaai/jina-embeddings-v5-text-small-retrieval",
+ "revision": "6856e76bb72982e58de0620458a4e8b3614da340",
+ "license": "cc-by-nc-4.0 (weights never committed)",
+ "pins": {
+  "onnx/model.onnx": "463fb3fec2adf9c47a946626dc2a0884e43091f95466083fb1754950000a7c1a",
+  "tokenizer.json": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+ },
+ "text": "Harvest the algebra. Keep the native substrate.",
+ "token_ids": [
+  26490,
+  7019,
+  279,
+  46876,
+  13,
+  13655,
+  279,
+  9867,
+  52957,
+  13
+ ],
+ "offsets": [
+  [
+   0,
+   3
+  ],
+  [
+   3,
+   7
+  ],
+  [
+   7,
+   11
+  ],
+  [
+   11,
+   19
+  ],
+  [
+   19,
+   20
+  ],
+  [
+   20,
+   25
+  ],
+  [
+   25,
+   29
+  ],
+  [
+   29,
+   36
+  ],
+  [
+   36,
+   46
+  ],
+  [
+   46,
+   47
+  ]
+ ],
+ "graph": {
+  "ir_version": 8,
+  "opset": [
+   [
+    "ai.onnx",
+    18
+   ]
+  ],
+  "nodes": 7620,
+  "initializers": 317
+ },
+ "slice": {
+  "nodes": [
+   "/layers.0/input_layernorm/Cast",
+   "/layers.0/input_layernorm/Constant",
+   "/layers.0/input_layernorm/Pow",
+   "/layers.0/input_layernorm/Constant_1",
+   "/layers.0/input_layernorm/ReduceMean",
+   "/layers.0/input_layernorm/Constant_2",
+   "/layers.0/input_layernorm/Add",
+   "/layers.0/input_layernorm/Sqrt",
+   "/layers.0/input_layernorm/Constant_3",
+   "/layers.0/input_layernorm/Div",
+   "/layers.0/input_layernorm/Mul",
+   "/layers.0/input_layernorm/Cast_1",
+   "/layers.0/input_layernorm/Mul_1"
+  ],
+  "input": "/embed_tokens/Gather_output_0",
+  "output": "/layers.0/input_layernorm/Mul_1_output_0",
+  "intermediate": "/layers.0/input_layernorm/ReduceMean_output_0",
+  "shape": [
+   1,
+   10,
+   1024
+  ],
+  "sha256": "ba60320a3ae7c814bed9220a53c0ea045085cd9991a37038b5a65a72c91db535"
+ },
+ "embedding": {
+  "name": "embed_tokens.weight",
+  "dims": [
+   151936,
+   1024
+  ],
+  "location": "model.onnx_data",
+  "base_offset": 0,
+  "ranges": [
+   {
+    "token_id": 26490,
+    "offset": 108503040,
+    "length": 4096,
+    "sha256": "aea7a739cdb78cb86f156dcfed697126bda6149abb87cb07e8dba9617190da63"
+   },
+   {
+    "token_id": 7019,
+    "offset": 28749824,
+    "length": 4096,
+    "sha256": "514eae438ee7d5750d3354f14d33d6e83722394a89de01ff955a7f7acfe37ef1"
+   },
+   {
+    "token_id": 279,
+    "offset": 1142784,
+    "length": 4096,
+    "sha256": "9e31691e271bbd8718894686deefb844692356afeda9d89d4fafbcad5a9e57cf"
+   },
+   {
+    "token_id": 46876,
+    "offset": 192004096,
+    "length": 4096,
+    "sha256": "bbdcbba8ff0b0136c659b425be43cf608ee1328ec8bb743b9cde1f9f76eea109"
+   },
+   {
+    "token_id": 13,
+    "offset": 53248,
+    "length": 4096,
+    "sha256": "6a0841de1494fe9b533dee77da18e8d22bc6084970b68e467147b5caf0346aad"
+   },
+   {
+    "token_id": 13655,
+    "offset": 55930880,
+    "length": 4096,
+    "sha256": "5f028b53d322247fdf8d23a5a67fea0c3397095c4e703272e8bab68b34ff3abf"
+   },
+   {
+    "token_id": 279,
+    "offset": 1142784,
+    "length": 4096,
+    "sha256": "9e31691e271bbd8718894686deefb844692356afeda9d89d4fafbcad5a9e57cf"
+   },
+   {
+    "token_id": 9867,
+    "offset": 40415232,
+    "length": 4096,
+    "sha256": "807f2d5aa261ca0124b930f4062c858079d243beb5c76fb9399f3a6572819014"
+   },
+   {
+    "token_id": 52957,
+    "offset": 216911872,
+    "length": 4096,
+    "sha256": "e40061a6c1abdfcee309b5fa706dc784aecf88c925062bc5d4edb4dc3451c142"
+   },
+   {
+    "token_id": 13,
+    "offset": 53248,
+    "length": 4096,
+    "sha256": "6a0841de1494fe9b533dee77da18e8d22bc6084970b68e467147b5caf0346aad"
+   }
+  ]
+ },
+ "norm_weight": {
+  "name": "layers.0.input_layernorm.weight",
+  "offset": 622330880,
+  "length": 4096,
+  "sha256": "f9fd0ee309a218e18408ae63eea065ac46f45e771af6400f6b2e6bed7bb85539"
+ },
+ "ort": {
+  "version": "1.29.0",
+  "provider": "CPUExecutionProvider",
+  "literal": {
+   "graph_optimization_level": "ORT_DISABLE_ALL",
+   "out_sha256": "422f89d92d88260a0572dca3f759d88ec192cfdff8e3d412d5fa4420aa1dbc1d",
+   "mid_sha256": "a4e7c2041e161233c262021a75e54f0303ca19ad2c36fedc1a5dd099d337a3e5"
+  },
+  "optimized": {
+   "graph_optimization_level": "ORT_ENABLE_ALL",
+   "out_sha256": "530a0eb261dfa5ead4a69caa514e49d071d8db32559ed56c1bf2623bdae89c8c",
+   "mid_sha256": "a4e7c2041e161233c262021a75e54f0303ca19ad2c36fedc1a5dd099d337a3e5"
+  }
+ }
+}
