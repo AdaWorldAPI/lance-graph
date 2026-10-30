@@ -1,0 +1,27 @@
+# op → native word. Columns (tab-separated): op  dtype  word  template  numeric
+# `template` names how a generator maps the word onto the op:
+#   unary_view   fn(ArrayView<T, D>, ArrayViewMut<T, D>) elementwise, same shape
+#   mask_not     a "not X" mask word whose complement is the op (bool out)
+#   blend        fn(mask_words, a, b|scalar, dst): Where on a packed condition
+#   softmax_rows ArrayView2 softmax over axis 1, after reshaping to [rows, last]
+#   gather_rows  row gather by i64 indices (ONNX negative indices)
+#   view         an ndarray view/reshape method on ArrayBase, no new algebra
+#   fold_checked a checked scalar op folded over the reduced axis
+#   dtype_row    the op's existing DO, given one more dtype arm
+# `numeric` is exact or bounded. Every `word` is checked against the ndarray
+# source the probe builds with before a report cites it.
+Neg	f32	ndarray::hpc::vml::vsneg	unary_view	exact
+Sigmoid	f32	ndarray::hpc::activations::sigmoid_f32	unary_view	bounded
+IsNaN	f32	ndarray::simd_masking_ops::not_nan_f32_to_mask	mask_not	exact
+Where	f32	ndarray::simd_masking_ops::blend_f32	blend	exact
+Where	f32	ndarray::simd_masking_ops::blend_f32_scalar	blend	exact
+Softmax	f32	ndarray::hpc::activations::softmax_axis_f32	softmax_rows	bounded
+Gather	f32	ndarray::hpc::gather::gather_rows_f32	gather_rows	exact
+Slice	f32	ndarray::ArrayBase::slice_each_axis	view	exact
+Slice	bool	ndarray::ArrayBase::slice_each_axis	view	exact
+Squeeze	f32	ndarray::ArrayBase::remove_axis	view	exact
+Flatten	bool	ndarray::ArrayBase::into_shape_with_order	view	exact
+ReduceSum	i64	ndarray::hpc::checked_i64::checked_i64	fold_checked	exact
+Reshape	bool	tract_harvest_probe::registry::do_reshape	dtype_row	exact
+Expand	bool	tract_harvest_probe::registry::do_expand	dtype_row	exact
+Gather	bool	tract_harvest_probe::registry::do_gather_i64	dtype_row	exact

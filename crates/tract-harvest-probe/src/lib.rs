@@ -26,4 +26,6 @@ pub mod plan;
 pub mod provenance;
 pub mod registry;
 pub mod source;
+pub mod tract_index;
+pub mod triage;
 pub mod value;

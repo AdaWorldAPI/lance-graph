@@ -367,7 +367,7 @@ impl Registry {
     }
 }
 
-fn attrs_match(node: &SourceNode, rules: &[AttrRule]) -> bool {
+pub(crate) fn attrs_match(node: &SourceNode, rules: &[AttrRule]) -> bool {
     // Every node attribute is either the tensor `value` of a Constant or a
     // listed discrete attribute with the required value.
     let listed = node.attrs.iter().all(|(n, a)| {
