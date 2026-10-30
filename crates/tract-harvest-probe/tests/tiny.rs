@@ -365,8 +365,9 @@ fn schedule_comes_from_dep_not_source_order() {
     );
 }
 
-/// With dtypes but no shapes every shape guard is UNKNOWN, and UNKNOWN
-/// refuses: it never counts as TRUE.
+/// Tract's shapes removed: `Greater` still resolves (its threshold `T` takes
+/// its shape from the source initializer), `Where` has no shapes left, its
+/// WHEN is UNKNOWN, and UNKNOWN refuses: it never counts as TRUE.
 #[test]
 fn unknown_shapes_refuse() {
     let src = SourceInventory::from_bytes(&bytes("base")).unwrap();
@@ -379,7 +380,7 @@ fn unknown_shapes_refuse() {
     let store = FrameStore::new(revisions(&src, &reg, &g));
     match resolve(&src, g, &reg, &store) {
         Err(Refusal::When { node, truth, .. }) => {
-            assert_eq!((node.as_str(), truth), ("n_greater", K3::Unknown))
+            assert_eq!((node.as_str(), truth), ("n_where", K3::Unknown))
         }
         other => panic!("{:?}", other.map(|_| ())),
     }
