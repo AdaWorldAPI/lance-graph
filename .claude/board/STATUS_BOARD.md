@@ -1,3 +1,13 @@
+## D-XLOG-DR64 — XLOG frontend lowered onto the DR64 relation register, CPU only (2026-10-30)
+
+**Status:** LAB PROBE; test-only, standalone crate, no production API. [Board entry](entries/2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md); README in `crates/xlog-relcomp-probe`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-XLOG-DR64-0 | XLOG RIR (Join / ChainJoin / swapped order) → `bind_dr64` + `Chain` + `compose`; forward∧backward over one 64-slot axis; 2 oracles, 11 refusals, 9 disable runs, cost probe | In PR | review; lab only |
+| D-XLOG-DR64-1 | arrow 60 vs 58: align or a facts-free `xlog-core` before any in-tree use | Queued | XLOG upstream / owner decision |
+| D-XLOG-DR64-2 | query-bound recursion via native semi-naive deltas; compare with XLOG magic sets | Queued | after D-XLOG-DR64-1 |
+
 ## D-DRDT — DR = HHTL16 Cartesian direct routing, DT = ClassId binding store (2026-10-28)
 
 **Status:** PROPOSED / DOCS ONLY (amendment); D-DRCA-1 is a lab proof. [Plan](../plans/d-drdt-dr-dt-ownership-amendment-v1.md); [board entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md). No ABI, runtime or schema store.
