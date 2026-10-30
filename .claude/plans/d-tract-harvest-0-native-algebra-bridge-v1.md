@@ -61,7 +61,7 @@ ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-val
 **OPEN (graph design):**
 - More than 64 nodes or values needs several DR64 tiles; the full graph is only censused, not tiled.
 - ~~Facts for the 5,074 values Tract's typed stage leaves unlabelled~~ CLOSED 2026-10-30, see §0.1.
-- Registry entries for the shape-plumbing ops (`Unsqueeze`, `Shape`, `Gather` on shapes, `Concat`, `Reshape`) and the admitted f32 `MatMul`.
+- ~~Registry entries for the shape-plumbing ops~~ registered 2026-10-30, see §0.2. Still open: the admitted f32 `MatMul`, and int64 shape arithmetic (§0.2).
 - The plan clones constants per run; hot allocation is not yet minimal.
 - Classids are lab-local; minting through OGAR is a separate decision.
 
@@ -78,6 +78,42 @@ ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-val
 The 169 refusals came entirely from missing facts. A further 226 nodes became registered once their dtype was known: `Mul` 452 WHEN-true (was 282), `Add` 253 (was 141), `Div` 113 (was 1). What remains unregistered is the op groups themselves: `Unsqueeze` 888, `Shape` 430, `Gather` 373, `Concat` 284, `MatMul` 253, `Reshape` 228, `Transpose` 141, `Slice` 140, `Cast` (other targets) 119, `Mul` (non-f32) 115, `Where` 114.
 
 Tests: `inference_stage_facts_cover_every_value_and_agree_with_typed` (tiny), `full_graph_facts_and_coverage` (Jina, counts pinned exactly), `undetermined_input_dim_gives_no_shape_and_typing_failure_is_recorded`, `dr3::tests::fact_sources_disagree_and_merge`. `unknown_shapes_refuse` re-pinned: `T` now has a Tract fact (the typed stage had merged it with `Z`), so `n_greater` is the first UNKNOWN. Disable runs, each red on the named tests: merge from typed only; undetermined dim as a symbol; typed failure propagated; `disagreements` always empty.
+
+### 0.2 Cold shape folding (D-TRACT-SHAPE-1, 2026-10-30)
+
+**Classification.** `fold::classify` gives every value a dependency class: `Const` (source constants only), `Shape` (constants and fully known input shapes), `Symbolic` (a shape with a symbolic dimension) or `Data` (an input value, or a shape the facts do not determine). A `Shape` node takes the class of its input's shape, every other node the strongest class of its inputs. Jina, inputs pinned `[1,10]`:
+
+| op | Const | Shape | Symbolic | Data |
+|---|---|---|---|---|
+| Unsqueeze (888) | 0 | 830 | 0 | 58 |
+| Shape (430) | 0 | 430 | 0 | 0 |
+| Gather (373) | 0 | 371 | 0 | 2 |
+| Concat (284) | 0 | 228 | 0 | 56 |
+| Reshape (228) | 0 | 58 | 0 | 170 |
+| all 7,620 nodes | 2,760 | 2,399 | 0 | 2,461 |
+
+Unpinned, Tract's `analyse` fails at `/Flatten` (two symbols), so the Symbolic class is shown on the `shape_sym` fixture instead.
+
+**Folding.** `fold::fold` executes a node at resolution only when its class is `Const` or `Shape` and either every input is a known constant or it is `Shape` over a fully known shape. It uses the node's own registration: lookup, WHEN must be TRUE, then the same DO a run would call. `plan::resolve` folds before binding, writes the folded values into the tile's constants (so later guards read them) and keeps folded nodes in `Plan::folded`, not in the steps. A run whose inputs differ from the resolved facts is refused before any step (`check_against_fact`), so a folded shape is never applied to an input it was not computed for. Symbolic and Data nodes stay dynamic.
+
+**Registry v2.** Lab classids: `Shape` F32/I64/I32/Bool 0x0F60–0x0F63 (`start`/`end` clamped), `Gather` on int64 data 0x0F64 (`ndarray` `select`; constant indices in `[-d, d)`, else FALSE; run-time indices UNKNOWN), `Unsqueeze` I64/F32 0x0F65/0x0F66, `Concat` I64/F32 0x0F67/0x0F68 (`ndarray::concatenate`; equal non-axis dims, two different symbols UNKNOWN), `Reshape` I64/F32 0x0F69/0x0F6A (`allowzero = 0`, constant target, known input shape), `Cast` i64→i64 identity 0x0F11, `Erf` 0x0F33 (`ndarray::hpc::vml::vserf`, Bounded ≤ 2 ULP on [-5, 5]). Scalar-Y `Where` now calls `ndarray::simd::blend_i32_scalar` (one allocation and 28 B less per call on fixture A; no new kernel). `AttrRule.value: None` admits any integer attribute (an axis) read by the DO; a fixed value still keys a separate signature.
+
+**Fact identity.** A Tract fact is admitted for a source value only if exactly one outlet of the stage carries the label and that outlet is the value's source producer by Tract's own naming rule (`dr3::source_producers`, `onnx/src/model.rs:122,150`); a matching label alone is not authority (`dr3::admit`). Jina: inference 7,937 admitted, 0 rejected; typed 1,988 of 2,546 full facts admitted, 558 rejected (557 from an outlet Tract renamed during typing, 1 label on two outlets). Coverage is unaffected because the inference stage covers every value. Tract's `TDim` (the type its `Shape` emits) is read as int64, the ONNX type. A Tract panic during `analyse` or typing is a frontend refusal (Tract indexes out of bounds on a constant out-of-range `Gather` index, `core/src/ops/array/gather.rs:75`).
+
+**Coverage, Jina pinned `[1,10]`, [WHEN-true, WHEN-not-true, unregistered]:** registry v1 (§0.1) 4,146 / 0 / 3,474 → registry v2 with folding **6,404 / 56 / 1,160**. 4,440 nodes fold in 7.3 ms (facts 221 ms); 1,972 folded values are still read by non-folded nodes (~20 KB). Per op: Unsqueeze 888/0/0, Shape 430/0/0, Gather 371/0/2 (f32 embedding and bool data), Concat 284/0/0, Reshape 170/56/2 (56 UNKNOWN: target computed by unregistered int64 arithmetic; 2 bool data). Every registered shape-class node that does not fold is blocked by an upstream unregistered node, none by its own WHEN: `Unsqueeze` 181, `Cast` 117, `Concat` 57, `Mul` 2. The unregistered shape-class nodes are int64 arithmetic: `Mul` 115, `ConstantOfShape` 59, `Equal` 58, `Where` 58, `Div` 56, `Range` 4, `Expand` 2, `Add` 1, `LessOrEqual` 1, `And` 1, plus `Cast` to bool/float 2, `Cos`/`Sin`/`MatMul`/`Transpose` 1 each.
+
+**Fixtures and oracle.** New in `tools/gen_tiny.py`, frozen ORT 1.29.0 `ORT_DISABLE_ALL`: `shape_fold` (the chain folds; `Reshape(F)` and `Unsqueeze(F)` run bit-exact), `shape_sym` (nothing folds; Reshape WHEN UNKNOWN, refused), `neg_gather_index` (ORT fails the run, Tract panics, the frontend refuses), `neg_concat` (ORT and Tract both reject), `erf` (fixture A with Erf; ≤ 2 ULP vs ORT), `erf_sweep` (4,115 points: dense [-6, 6], signed zeros, infinities, NaN, subnormals; max 2 ULP vs `math.erf` rounded to f32 and vs ORT; specials exact). `neg_unsupported` now uses `Acosh`.
+
+**Cost (reported, `examples/cost.rs`, AVX-512 host, `target-cpu=native`):** `shape_fold` cold tile+fold+resolve 12.4 µs (2 steps, 4 folded), hot 1.7 µs, 37 allocations; `erf` 4,096 elements hot 8.5 µs vs Tract 2.0 µs (`vserf` alone 7.9 µs, 1.9 ns/element); fixture A hot 3.3 µs, 55 allocations (56 before scalar-Y Where); Jina slice tile+fold+resolve 20 µs (9 steps, 4 folded Constants).
+
+Tests (40, all green): `shape_chain_folds_and_the_data_nodes_run_against_ort`, `folded_shapes_refuse_a_run_with_other_input_dims`, `a_node_reading_input_values_never_folds`, `a_symbolic_shape_is_not_folded_and_unknown_is_not_true`, `an_out_of_range_gather_index_is_refused_not_a_panic`, `a_concat_dimension_mismatch_is_refused_by_the_frontend`, `erf_in_the_graph_against_ort`, `erf_sweep_against_f64_and_ort`, and unit tests `a_label_alone_does_not_admit_a_fact`, `source_producers_follow_tract_naming`, `concat_never_aliases_two_symbols`, `gather_index_range_is_three_valued`, `reshape_target_rules`, `attr_rules_any_and_fixed`, `shape_start_end_clamp`. Re-pinned: `full_graph_facts_and_coverage` (typed 1,988 admitted, 558 rejected, coverage above), the RMSNorm slice (9 steps + 4 folded Constants), `unregistered_op_is_refused` (Acosh). Disable runs, each red on the named test: no folding; label as authority; two symbols aliased; Reshape UNKNOWN as TRUE; symbolic shape classed as known; no stale-input check; Gather range always TRUE; no panic catch; Shape `end` ignored. Not load-bearing (documented in the code): the fold's dependency-class skip, since a Symbolic or Data node never has every input known.
+
+**OPEN (owner decisions):**
+- int64 shape arithmetic (`Mul`, `Div`, `Add`, `Equal`, `Where`, `Range`) has no ndarray word; its overflow and division semantics (wrap or refuse; truncation; division by zero) need a decision before an ndarray ask.
+- An axis attribute is a DO parameter under one classid per (op, dtype); the alternative is a classid per axis value.
+- `Erf` is Bounded at 2 ULP; `vserf` is about 4x slower than Tract's `erf` on this host.
+- `ConstantOfShape` and `Expand` map onto ndarray `from_elem` / `broadcast` and are not registered yet.
+- Multi-tile orchestration and full Jina MatMul execution remain separate gates.
 
 ## 1. The acceptance chain, demonstrated
 
