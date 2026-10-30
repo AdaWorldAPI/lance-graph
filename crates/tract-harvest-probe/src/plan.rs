@@ -62,7 +62,7 @@ pub fn revisions(src: &SourceInventory, registry: &Registry, graph: &OnnxGraph) 
                 .chain(src.inlined.iter().map(|d| d.as_bytes()))
                 .collect::<Vec<_>>(),
         ),
-        relation_map: registry.version,
+        relation_map: registry.revision(),
         coordinates: digest64(&coords),
     }
 }
@@ -122,8 +122,8 @@ pub fn resolve<'r>(
             node: n,
             name: node.name.clone(),
             key: registry.key_of(reg),
-            method: reg.method,
-            numeric: reg.numeric,
+            method: registry.method(reg).name,
+            numeric: registry.method(reg).numeric,
             reg: reg_ix,
         };
         if fold.nodes.contains(&n) {
@@ -201,7 +201,7 @@ impl Plan<'_> {
                     })
                 })
                 .collect::<Result<_, _>>()?;
-            let out = (self.registry.regs[s.reg].do_)(&args, node)?;
+            let out = (self.registry.method(&self.registry.regs[s.reg]).do_)(&args, node)?;
             for (&p, v) in g.outs[s.node].iter().zip(out) {
                 vals[p] = Some(v);
             }

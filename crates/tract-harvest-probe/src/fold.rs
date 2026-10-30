@@ -247,7 +247,7 @@ pub fn fold(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Reg
                 if present.len() != node.inputs.iter().filter(|i| !i.is_empty()).count() {
                     None
                 } else {
-                    match (reg.do_)(&present, node) {
+                    match (registry.method(reg).do_)(&present, node) {
                         Ok(v) => Some(v),
                         Err(e) => {
                             out.refused.push((n, e));

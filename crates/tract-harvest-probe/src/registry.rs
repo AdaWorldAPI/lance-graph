@@ -11,6 +11,20 @@
 //! identity per codebook item, and the module doc attributed it to a user
 //! decision that was never made: it was this session's assumption.)
 //!
+//! **The registry is a field view over lens-agnostic algebra** (the Redmine
+//! ERB field-view pattern: agnostic field formats, per-tracker labelled
+//! custom fields, a per-tracker set of enabled fields):
+//!
+//! - [`Registry::methods`] are the algebra addresses: one DO body each,
+//!   addressed by position, carrying no ONNX label and no lens. Several items
+//!   may share one (the three `Constant` dtypes read the same body).
+//! - [`Registry::regs`] are the lens's fields: each labels one algebra
+//!   address with an op signature and the WHEN that admits it. A field's
+//!   position is its ordinal.
+//! - [`Registry::exposed`] is the lens's [`WideFieldMask`]: which field
+//!   positions it shows. A field outside the mask is absent — it neither
+//!   matches nor resolves — and is never a different behaviour.
+//!
 //! An ONNX node is a registered method once its **op signature**
 //! `(domain, op_type, dtype, discrete attributes)` matches a
 //! [`Registration`]. The registration carries:
@@ -32,7 +46,7 @@
 
 use std::ops::RangeInclusive;
 
-use lance_graph_contract::class_view::ClassId;
+use lance_graph_contract::class_view::{ClassId, WideFieldMask};
 use ndarray::{ArrayD, Axis, IxDyn};
 
 use crate::source::{Attr, SourceNode};
@@ -143,9 +157,18 @@ pub struct MethodKey {
     pub ordinal: u16,
 }
 
-/// One registered method: an item of the codebook.
+/// One lens-agnostic algebra address: a DO body and how exactly it
+/// reproduces ONNX. It carries no label; the fields of a lens label it.
+#[derive(Debug, Clone, Copy)]
+pub struct Method {
+    pub name: &'static str,
+    pub do_: Polyfill,
+    pub numeric: Numeric,
+}
+
+/// One field of the lens: an op-signature label and its WHEN over the
+/// algebra address [`Registration::method`].
 pub struct Registration {
-    pub method: &'static str,
     pub domain: &'static str,
     pub op_type: &'static str,
     /// Which argument's dtype keys the signature (`None`: the output's, for
@@ -159,8 +182,9 @@ pub struct Registration {
     pub opsets: RangeInclusive<i64>,
     pub when: Guard,
     pub guard: &'static str,
-    pub do_: Polyfill,
-    pub numeric: Numeric,
+    /// The algebra address this field labels: a position in
+    /// [`Registry::methods`].
+    pub method: u16,
 }
 
 /// The registration table, versioned. Its version is the frame's
@@ -169,8 +193,12 @@ pub struct Registry {
     /// The codebook lens every item is read through.
     pub lens: ClassId,
     pub version: u64,
-    /// The items; an item's ordinal is its index here.
+    /// The lens-agnostic algebra addresses, by position.
+    pub methods: Vec<Method>,
+    /// The lens's fields; a field's ordinal is its index here.
     pub regs: Vec<Registration>,
+    /// Which field positions the lens exposes.
+    pub exposed: WideFieldMask,
 }
 
 /// The dtype a node's signature is keyed by.
@@ -217,7 +245,65 @@ pub fn render_signature(node: &SourceNode, dtype: Option<DType>) -> String {
 }
 
 impl Registry {
-    /// The registration whose signature this node has, if any.
+    /// Build a lens from `(algebra address, field)` drafts: equal addresses
+    /// (by name) are one position, and every field is exposed.
+    ///
+    /// # Panics
+    /// If two drafts name one address with different bodies or numerics, or
+    /// the table outgrows its address widths.
+    pub fn build(lens: ClassId, version: u64, drafts: Vec<(Method, Registration)>) -> Self {
+        let mut methods: Vec<Method> = Vec::new();
+        let mut regs = Vec::with_capacity(drafts.len());
+        for (m, mut r) in drafts {
+            let ix = match methods.iter().position(|x| x.name == m.name) {
+                Some(ix) => {
+                    let x = &methods[ix];
+                    assert!(
+                        std::ptr::fn_addr_eq(x.do_, m.do_) && x.numeric == m.numeric,
+                        "address {:?} has two bodies",
+                        m.name
+                    );
+                    ix
+                }
+                None => {
+                    methods.push(m);
+                    methods.len() - 1
+                }
+            };
+            r.method = u16::try_from(ix).expect("at most 65,536 addresses");
+            regs.push(r);
+        }
+        assert!(regs.len() <= 256, "a WideFieldMask position is a u8");
+        let exposed = WideFieldMask::full_for(regs.len());
+        Registry {
+            lens,
+            version,
+            methods,
+            regs,
+            exposed,
+        }
+    }
+
+    /// The algebra address `reg` labels.
+    pub fn method(&self, reg: &Registration) -> &Method {
+        &self.methods[usize::from(reg.method)]
+    }
+
+    /// Does the lens expose field `ordinal`?
+    pub fn exposes(&self, ordinal: usize) -> bool {
+        u8::try_from(ordinal).is_ok_and(|p| self.exposed.has(p))
+    }
+
+    /// The revision a frame and a route are keyed by: the table version and
+    /// the exposed field positions. Hiding a field is a new revision.
+    pub fn revision(&self) -> u64 {
+        let shown: Vec<u8> = (0..self.regs.len())
+            .filter(|&i| self.exposes(i))
+            .map(|i| i as u8)
+            .collect();
+        crate::plan::digest64(&[&self.version.to_le_bytes(), &shown])
+    }
+
     /// The key of `reg`, which must be an item of this table.
     pub fn key_of(&self, reg: &Registration) -> MethodKey {
         let ix = self
@@ -233,23 +319,26 @@ impl Registry {
 
     /// The item at `key`, if it is read through this table's lens.
     pub fn get(&self, key: MethodKey) -> Option<&Registration> {
-        if key.lens != self.lens {
+        if key.lens != self.lens || !self.exposes(usize::from(key.ordinal)) {
             return None;
         }
         self.regs.get(usize::from(key.ordinal))
     }
 
+    /// The exposed field whose signature this node has, if any.
     pub fn lookup(&self, node: &SourceNode, args: &[Option<&Fact>]) -> Option<&Registration> {
         let domain = if node.domain.is_empty() {
             "ai.onnx"
         } else {
             node.domain.as_str()
         };
-        self.regs.iter().find(|r| {
-            r.domain == domain
+        self.regs.iter().enumerate().find_map(|(i, r)| {
+            (self.exposes(i)
+                && r.domain == domain
                 && r.op_type == node.op_type
                 && signature_dtype(node, args, r.dtype_arg) == Some(r.dtype)
-                && attrs_match(node, r.attrs)
+                && attrs_match(node, r.attrs))
+            .then_some(r)
         })
     }
 }
@@ -1657,19 +1746,24 @@ const ALLOWZERO_0: &[AttrRule] = &[AttrRule {
 
 macro_rules! reg {
     ($m:expr, $op:expr, $arg:expr, $dt:expr, $attrs:expr, $when:path, $do:path, $num:expr) => {
-        Registration {
-            method: $m,
-            domain: "ai.onnx",
-            op_type: $op,
-            dtype_arg: $arg,
-            dtype: $dt,
-            attrs: $attrs,
-            opsets: OPSETS,
-            when: $when,
-            guard: stringify!($when),
-            do_: $do,
-            numeric: $num,
-        }
+        (
+            Method {
+                name: $m,
+                do_: $do,
+                numeric: $num,
+            },
+            Registration {
+                domain: "ai.onnx",
+                op_type: $op,
+                dtype_arg: $arg,
+                dtype: $dt,
+                attrs: $attrs,
+                opsets: OPSETS,
+                when: $when,
+                guard: stringify!($when),
+                method: 0,
+            },
+        )
     };
 }
 
@@ -1677,10 +1771,10 @@ macro_rules! reg {
 pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
-    Registry {
-        lens: ONNX_LENS,
-        version: 6,
-        regs: vec![
+    Registry::build(
+        ONNX_LENS,
+        7,
+        vec![
             reg!(
                 "Constant: the attribute tensor",
                 "Constant",
@@ -2163,7 +2257,7 @@ pub fn registry() -> Registry {
                 Exact
             ),
         ],
-    }
+    )
 }
 
 #[cfg(test)]

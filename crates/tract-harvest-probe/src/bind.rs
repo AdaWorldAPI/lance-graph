@@ -56,7 +56,7 @@ pub fn route(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Re
             map.insert(n, registry.key_of(r));
         }
     }
-    let mut parts: Vec<Vec<u8>> = vec![registry.version.to_le_bytes().to_vec()];
+    let mut parts: Vec<Vec<u8>> = vec![registry.revision().to_le_bytes().to_vec()];
     parts.extend(map.iter().map(|(n, k)| {
         let mut b = (*n as u64).to_le_bytes().to_vec();
         b.extend(k.lens.to_le_bytes());

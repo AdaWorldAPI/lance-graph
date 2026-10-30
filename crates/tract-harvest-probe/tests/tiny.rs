@@ -1364,3 +1364,67 @@ fn bind_store_names_the_failed_link_and_versions_routes() {
     assert_ne!(route(&src, &facts, &bumped).version, routes.version);
     assert_eq!(route(&src, &facts, &reg), routes);
 }
+
+/// The ERB field-view split: algebra addresses are lens-agnostic positions,
+/// the lens's fields label them, and several fields may label one address.
+#[test]
+fn fields_label_shared_algebra_addresses() {
+    let reg = registry();
+    assert_eq!(reg.regs.len(), 48);
+    assert!(reg.methods.len() < reg.regs.len(), "{}", reg.methods.len());
+    for r in &reg.regs {
+        assert!(usize::from(r.method) < reg.methods.len());
+    }
+    let constants: Vec<u16> = reg
+        .regs
+        .iter()
+        .filter(|r| r.op_type == "Constant")
+        .map(|r| r.method)
+        .collect();
+    assert_eq!(constants.len(), 3);
+    assert!(constants.iter().all(|&m| m == constants[0]));
+    // Every address is labelled by some field: none is dead.
+    for m in 0..reg.methods.len() {
+        assert!(reg.regs.iter().any(|r| usize::from(r.method) == m), "{m}");
+    }
+}
+
+/// A field outside the lens's mask is absent: it neither matches nor
+/// resolves, its node is UNREGISTERED, and the revision moves. The other
+/// fields still read the shared algebra address it labelled.
+#[test]
+fn a_masked_field_is_absent() {
+    use lance_graph_contract::class_view::WideFieldMask;
+    use tract_harvest_probe::bind::{resolve, route, Unresolved};
+    let reg = registry();
+    let b = bytes("rope");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let routes = route(&src, &facts, &reg);
+    let (&n, &key) = routes.map.iter().next_back().unwrap();
+    let hidden = usize::from(key.ordinal);
+    let mut masked = registry();
+    let shown: Vec<u8> = (0..masked.regs.len())
+        .filter(|&i| i != hidden)
+        .map(|i| i as u8)
+        .collect();
+    masked.exposed = WideFieldMask::from_positions(&shown);
+    assert!(!masked.exposes(hidden) && masked.exposes(0));
+    assert!(masked.get(key).is_none());
+    assert_eq!(
+        resolve(&routes, &masked, n).map(|r| r.method),
+        Err(Unresolved::Item { node: n, key })
+    );
+    let node = &src.nodes[n];
+    let args: Vec<_> = node.inputs.iter().map(|i| facts.get(i)).collect();
+    assert!(reg.lookup(node, &args).is_some());
+    assert!(masked.lookup(node, &args).is_none());
+    assert!(!route(&src, &facts, &masked).map.contains_key(&n));
+    assert_ne!(masked.revision(), reg.revision());
+    assert_eq!(masked.version, reg.version);
+    // Every route to another field still resolves, to the same ordinal.
+    for (&m, &k) in routes.map.iter().filter(|(_, k)| k.ordinal != key.ordinal) {
+        let r = resolve(&routes, &masked, m).unwrap();
+        assert_eq!(masked.key_of(r), k);
+    }
+}
