@@ -5,7 +5,7 @@
 ## 2026-10-30 — D-MIST-NATIVE: Mistaber's Kripke holdings as a vocabulary over existing algebra → `.claude/plans/d-mistaber-native-v1.md`
 
 **Status:** D-MIST-NATIVE-0 LAB PROBE (`crates/mistaber-kripke-probe`, own workspace); D-MIST-NATIVE-1..4 PROPOSED. **Board:** [entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md), [STATUS_BOARD](STATUS_BOARD.md) D-MIST-NATIVE. `holds` is a stratified least fixpoint over the existing DR64 `relcomp::compose`; holdings are one lens read by `WideFieldMask` selections, `holds/2` a Set projection. Endgame: an onnx-shaped `lance-graph-mistaber` facade, blocked on a production home for `compose`.
-**Confidence:** 10/10 Clingo goldens exact, 5 disable runs fail as expected; lab only, no timing.
+**Confidence:** 11/11 Clingo goldens exact, 6 disable runs fail as expected; lab only, no timing.
 
 ## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
 

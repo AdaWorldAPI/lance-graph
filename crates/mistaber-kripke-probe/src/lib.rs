@@ -283,7 +283,9 @@ fn lfp(
         }
         cur = next;
     }
-    unreachable!("a monotone fixpoint over 64 x 64 bits converges within 4096 steps")
+    unreachable!(
+        "each step extends every proposition by one hop; 64 worlds have no path longer than 63 hops"
+    )
 }
 
 /// One holding mode: its cells, and per rule the cells that rule supports.

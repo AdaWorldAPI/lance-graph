@@ -4,7 +4,7 @@
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-MIST-NATIVE-0 | Kripke `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`; 10 Clingo goldens exact; holdings lens with Set/Bag projection; 5 disable runs | In PR | lab only |
+| D-MIST-NATIVE-0 | Kripke `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`; 11 Clingo goldens exact; holdings lens with Set/Bag projection; 6 disable runs | In PR | lab only |
 | D-MIST-NATIVE-1 | `lance-graph-mistaber`: onnx-shaped ALIAS/INLINE/REFUSE facade (plan §3) | Queued | production home for `compose` (plan Q1) |
 | D-MIST-NATIVE-2 | lineage origins into `SupportLedger` (`EvidenceSourceId`, `TextAttested`) | Queued | after D-MIST-NATIVE-1 |
 | D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |

@@ -27,11 +27,11 @@ D-MIST-NATIVE-0 is the probe that tests this claim. Its findings:
 ## 2. Checklist
 
 - [x] D-MIST-NATIVE-0: probe `crates/mistaber-kripke-probe` (own workspace root, CI workflow).
-  - Reproduces all 10 Clingo goldens exactly.
-  - 5 disable runs fail as expected.
+  - Reproduces all 11 Clingo goldens exactly.
+  - 6 disable runs fail as expected.
   - Bag/set falsifier on the diamond.
   - Refusals: unknown fact, arity, 65th value on an axis, a selection that is no predicate.
-- [x] Goldens exported by `mistaber-rs` (`oracle/export_goldens.py`, `test_goldens.py`, F5-gates fixture); F3-naf refused at export.
+- [x] Goldens exported by `mistaber-rs` (`oracle/export_goldens.py`, `test_goldens.py`, F5-gates and F6-undeclared-child fixtures); F3-naf refused at export.
 - [ ] D-MIST-NATIVE-1: `lance-graph-mistaber`, an onnx-shaped facade (crosswalk §3). Blocked on a production home for `compose` (§6, Q1).
 - [ ] D-MIST-NATIVE-2: lineage origins into `SupportLedger` as `EvidenceSourceId` with `SupportBasis::TextAttested`. This is the only lawful route to Epi5 (#1863/#1868 closed the topology route for non-causal steps).
 - [ ] D-MIST-NATIVE-3: axes past 64 (worlds, propositions, rules). Refused today; tiling or a wider register is open.
@@ -74,21 +74,22 @@ A lens row is one (mode, source rule), or one (mode) with empty rule fields when
 
 ## 5. Evidence (D-MIST-NATIVE-0)
 
-`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 10 tests.
+`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 11 tests.
 
-Goldens: F1-modes, F1-reversed, F2-cycle, F5-gates, C-mammal-C2/C4/C6/C6i, E-xlog-plain/override. All are exact, compared as sorted lists, so a duplicate atom would also fail.
+Goldens: F1-modes, F1-reversed, F2-cycle, F5-gates, F6-undeclared-child, C-mammal-C2/C4/C6/C6i, E-xlog-plain/override. All are exact, compared as sorted lists, so a duplicate atom would also fail.
 
 Disable runs (each made after committing, red, then restored):
 
 | Disable | Fails |
 |---|---|
 | drop `¬Block` in the fixpoint | `every_golden_is_reproduced_exactly` |
+| count one bag row per mode instead of per (mode, source rule) | `bag_counts_lens_rows_not_modes` (`left: 1, right: 2`) |
 | drop the `holds` gate on lineage | `lineage_never_leaves_the_held_cells` (`left: 3, right: 1`) |
 | drop the world mask on direct holdings | `every_golden_…` (F5 ghost world) |
 | drop the world mask on rule atoms | `every_golden_…` (F5) |
 | moderate from any holding instead of direct | `every_golden_…` |
 
-The lineage gate is also enforced at render time (`inherited_from` checks `holds` at the parent). This is why the golden comparison could not catch its removal, and why it has its own unit test. F5-gates was added to `mistaber-rs` because no earlier fixture exercised the world mask or that gate.
+The lineage gate is also enforced at render time (`inherited_from` checks `holds` at the parent). This is why the golden comparison could not catch its removal, and why it has its own unit test. F5-gates was added to `mistaber-rs` because no earlier fixture exercised the world mask or that gate. F6-undeclared-child pins the opposite case: upstream's inherited rule has no `world(W_child)` condition, so a holding reaches an undeclared child world, and the probe deliberately applies no world mask on inheritance (found in review on #1873).
 
 No timing was taken, and none is claimed. `mistaber-rs` §7 defers mask folds (class E) until a repeated workload exists.
 
@@ -96,7 +97,6 @@ No timing was taken, and none is claimed. `mistaber-rs` §7 defers mask folds (c
 
 - **Q1 (blocks D-MIST-NATIVE-1):** `compose` lives in `dr-math-binding-probe`, a lab crate. A production `lance-graph-mistaber` cannot depend on it. Where should the Boolean relation register and `compose` live in production: ndarray's SIMD facade, the contract, or a native relation crate? `xlog-relcomp-probe` faces the same question; D-XLOG-NATIVE-3 asks the ndarray and mask-risc owners for a native home for its many-to-many join. Both should get one answer.
 - **Q2:** the lens classid comes from the OGAR codebook via hotplug, and none is minted. Does it need a concept, or a lab stand-in as in `dto_binding.rs`?
-- **Q3:** licence. `BrainyBlaze/mistaber`'s licence must be checked before Mistaber fixture text enters a production crate. The probe copies only domain-neutral fixtures authored in `mistaber-rs`.
 
 ## 7. Not in scope
 

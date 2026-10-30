@@ -33,8 +33,8 @@ fn sorted(mut v: Vec<String>) -> Vec<String> {
 #[test]
 fn every_golden_is_reproduced_exactly() {
     let all = goldens();
-    // Anti-vacuity: the ten exported fixtures, not an empty directory.
-    assert_eq!(all.len(), 10);
+    // Anti-vacuity: the eleven exported fixtures, not an empty directory.
+    assert_eq!(all.len(), 11);
     for g in &all {
         let kb = Kb::load(&g.facts).expect(&g.fixture_id);
         let got = kb.solve().materialize_atoms(Projection::Set);
