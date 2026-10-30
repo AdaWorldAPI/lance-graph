@@ -427,3 +427,49 @@ fn new_weight_generation_refuses_the_old_plan() {
         other => panic!("{:?}", other.map(|_| ())),
     }
 }
+
+/// The full graph (inputs pinned to [1, 10]): the inference stage labels all
+/// 7,620 source values with a full fact, the typed stage 2,546, and the two
+/// agree wherever both speak. Registry v1 coverage with these facts, pinned
+/// exactly so any change forces a re-measure.
+#[test]
+#[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py"]
+fn full_graph_facts_and_coverage() {
+    use tract_harvest_probe::dr3::tract_fact_sources_path;
+    use tract_harvest_probe::plan::coverage;
+    let path = std::path::PathBuf::from(format!("{FIX}/jina/onnx_model.onnx"));
+    let src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let pins: Vec<_> = (0..2).map(|i| (i, DatumType::I64, vec![1, 10])).collect();
+    let fs = tract_fact_sources_path(&path, &pins).unwrap();
+    let values: Vec<&String> = src
+        .nodes
+        .iter()
+        .flat_map(|n| &n.outputs)
+        .filter(|o| !o.is_empty())
+        .collect();
+    let full = |m: &std::collections::HashMap<String, tract_harvest_probe::registry::Fact>| {
+        values
+            .iter()
+            .filter(|o| {
+                m.get(o.as_str())
+                    .is_some_and(|f| f.dtype.is_some() && f.shape.is_some())
+            })
+            .count()
+    };
+    assert_eq!(values.len(), 7620);
+    assert_eq!(full(&fs.inference), 7620);
+    assert_eq!(full(&fs.typed), 2546);
+    assert!(
+        fs.disagreements().is_empty(),
+        "{:?}",
+        &fs.disagreements()[..fs.disagreements().len().min(5)]
+    );
+    let reg = registry();
+    let tot = |m| {
+        coverage(&src, m, &reg)
+            .values()
+            .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
+    };
+    assert_eq!(tot(&fs.typed), [3751, 169, 3700]);
+    assert_eq!(tot(&fs.merged()), [4146, 0, 3474]);
+}

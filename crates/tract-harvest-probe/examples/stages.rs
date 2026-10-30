@@ -76,20 +76,52 @@ fn main() -> TractResult<()> {
                 .collect()
         })
         .unwrap_or_default();
-    let facts = dr3::tract_facts_path(std::path::Path::new(&path), &pins);
-    match facts {
-        Ok(facts) => {
-            let reg = registry::registry();
-            let cov = plan::coverage(&src, &facts, &reg);
-            let tot = cov
-                .values()
-                .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]);
+    match dr3::tract_fact_sources_path(std::path::Path::new(&path), &pins) {
+        Ok(fs) => {
+            let values: Vec<&str> = src
+                .nodes
+                .iter()
+                .flat_map(|n| n.outputs.iter().map(String::as_str))
+                .filter(|o| !o.is_empty())
+                .collect();
+            let full = |m: &std::collections::HashMap<String, registry::Fact>| {
+                values
+                    .iter()
+                    .filter(|v| {
+                        m.get(**v)
+                            .is_some_and(|f| f.dtype.is_some() && f.shape.is_some())
+                    })
+                    .count()
+            };
+            let merged = fs.merged();
             println!(
-                "registry v{} coverage [when-true, when-not-true, unregistered] total {tot:?}",
-                reg.version
+                "facts (dtype and shape known) for {} source values: inference {}, typed {}, merged {}",
+                values.len(),
+                full(&fs.inference),
+                full(&fs.typed),
+                full(&merged)
             );
-            for (op, c) in &cov {
-                println!("  {op:>24} {c:?}");
+            let dis = fs.disagreements();
+            println!("inference vs typed disagreements: {}", dis.len());
+            for (k, a, b) in dis.iter().take(10) {
+                println!("  {k}: inference {a:?} | typed {b:?}");
+            }
+            let reg = registry::registry();
+            for (name, facts) in [
+                ("typed", &fs.typed),
+                ("inference", &fs.inference),
+                ("merged", &merged),
+            ] {
+                let cov = plan::coverage(&src, facts, &reg);
+                let tot = cov
+                    .values()
+                    .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]]);
+                println!("registry v{} coverage with {name} facts [when-true, when-not-true, unregistered] {tot:?}", reg.version);
+                if name == "merged" {
+                    for (op, c) in &cov {
+                        println!("  {op:>24} {c:?}");
+                    }
+                }
             }
         }
         Err(e) => println!("registry coverage NOT RUN: typing failed: {e:?}"),
