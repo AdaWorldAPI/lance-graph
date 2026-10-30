@@ -233,6 +233,18 @@ This works because every registration carries its own classid and none is regist
 
 **Not done here:** the DT64 crate, the DR route table, `K3` re-homing, OGAR classids. When those exist, `route` writes DR's table and `resolve` becomes DT64's; the equality test is the migration gate (G1 in the -06 draft, with the census now 7,274 / 0 / 346).
 
+### 0.7 CORRECTION: a classid is a codebook lens, not a codebook item (2026-10-30)
+
+**Superseded.** Every "classid" in §0.2–§0.6 that names a single op signature (0x0F01…0x0F82, including the classid column of the §0.5 table and "13 lab classids" in the EXO-50 messages) was a mistake. The registry spent one classid per codebook item. The binding question offered "op signature → one immutable classid" as the recommended option, the user accepted it, and the module doc then attributed it to a user decision.
+
+**Now (registry version 6).**
+- The ONNX operator codebook is read through one lens, `registry::ONNX_LENS` (a lab classid, not minted).
+- Each op signature is an item, addressed as `MethodKey { lens, ordinal }`. The ordinal is the item's position in `Registry::regs`, derived and never allocated; a reorder is a new registry version.
+- `Bound`, `Refusal::When` and `Plan::census` carry the key. `Registry::key_of` and `Registry::get` translate; `get` refuses a foreign lens.
+- `bind::Routes` maps `node position → MethodKey`. `bind::resolve` names the failed link as `Route`, `Lens` or `Item`.
+
+**Tests.** `one_lens_many_items` (every item under the one lens, ordinal = position, a foreign lens reads nothing). The bind-store test now covers the `Lens` and `Item` failures. Results are unchanged: tiny and Jina suites green, Jina 7,274 routed and resolved, 346 unrouted. Disable runs red: lens check removed from `Registry::get`; lens check removed from `resolve`.
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.
