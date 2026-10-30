@@ -196,6 +196,42 @@ fn main() {
         20001,
     );
 
+    // ── checked int64 shape arithmetic (registry v4) ──
+    let fin = || {
+        tvec![tract_ndarray::Array2::from_shape_vec((2, 3), f.clone())
+            .unwrap()
+            .into_dyn()
+            .into_tensor()
+            .into()]
+    };
+    let fval = || Value::F32(ArrayD::from_shape_vec(IxDyn(&[2, 3]), f.clone()).unwrap());
+    let i64a = std::fs::read(format!("{dir}/tiny/i64_arith.onnx")).unwrap();
+    measure("i64", &i64a, &[], vec![("F", fval())], fin, 20001);
+    let i64d = std::fs::read(format!("{dir}/tiny/i64_data.onnx")).unwrap();
+    measure(
+        "i64rt",
+        &i64d,
+        &[],
+        vec![
+            ("F", fval()),
+            (
+                "I",
+                Value::I64(ArrayD::from_shape_vec(IxDyn(&[2]), vec![-4, 5]).unwrap()),
+            ),
+        ],
+        || {
+            let mut t = fin();
+            t.push(
+                tract_ndarray::Array1::from(vec![-4i64, 5])
+                    .into_dyn()
+                    .into_tensor()
+                    .into(),
+            );
+            t
+        },
+        20001,
+    );
+
     // ── fixture B ──
     let slice = match std::fs::read(format!("{dir}/jina/slice.onnx")) {
         Ok(b) => b,

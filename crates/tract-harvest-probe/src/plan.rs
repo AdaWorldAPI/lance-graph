@@ -244,6 +244,7 @@ pub fn coverage(
             consts.insert(o.as_str(), v);
         }
     }
+    let facts = &crate::fold::with_initializer_facts(src, facts);
     let fold = crate::fold::fold(src, facts, registry);
     for (k, v) in &fold.values {
         consts.insert(k.as_str(), v);

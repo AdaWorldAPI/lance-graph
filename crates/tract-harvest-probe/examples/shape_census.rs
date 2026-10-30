@@ -8,7 +8,14 @@ use std::time::Instant;
 use tract_harvest_probe::{dr3, fold, registry, source::SourceInventory};
 use tract_onnx::prelude::*;
 
-const OPS: &[&str] = &["Unsqueeze", "Shape", "Gather", "Concat", "Reshape"];
+const OPS: &[&str] = &[
+    "Unsqueeze",
+    "Shape",
+    "Gather",
+    "Concat",
+    "Reshape",
+    "Expand",
+];
 
 fn main() {
     let path = std::env::args().nth(1).expect("model path");
@@ -172,6 +179,57 @@ fn main() {
             .or_default() += 1;
     }
     println!("Reshape with WHEN not TRUE: {blocked_reshape}; unregistered ops their target depends on: {roots:?}");
+    // Every shape-only blocked node, traced upstream through blocked
+    // producers to the first node blocked for its own reason (unregistered or
+    // WHEN not TRUE): the producer/guard that unblocks it.
+    let why: std::collections::HashMap<usize, &str> =
+        f.blocked.iter().map(|(i, w)| (*i, w.as_str())).collect();
+    let mut first = std::collections::BTreeMap::<(String, String), usize>::new();
+    for &i in why.keys() {
+        let mut roots = std::collections::BTreeSet::new();
+        let mut stack = vec![i];
+        let mut seen = std::collections::HashSet::new();
+        while let Some(j) = stack.pop() {
+            if !seen.insert(j) {
+                continue;
+            }
+            match why.get(&j) {
+                Some(r) if !r.ends_with("an input is not folded upstream") => {
+                    roots.insert(format!("{} [{}]", src.nodes[j].name, r));
+                }
+                Some(_) => {
+                    for inp in &src.nodes[j].inputs {
+                        if inp.is_empty() || consts.contains_key(inp.as_str()) {
+                            continue;
+                        }
+                        match producer.get(inp.as_str()) {
+                            Some(&p) if why.contains_key(&p) => stack.push(p),
+                            Some(&p) => {
+                                roots.insert(format!(
+                                    "{} {} [not folded, {:?}]",
+                                    src.nodes[p].op_type, src.nodes[p].name, node_dep[p]
+                                ));
+                            }
+                            None => {
+                                roots.insert(format!("{inp} [graph input]"));
+                            }
+                        }
+                    }
+                }
+                None => {}
+            }
+        }
+        *first
+            .entry((
+                src.nodes[i].op_type.clone(),
+                roots.into_iter().collect::<Vec<_>>().join(" + "),
+            ))
+            .or_default() += 1;
+    }
+    println!("shape-only blocked, by op -> first unresolved producer/guard:");
+    for ((op, r), c) in &first {
+        println!("  {c:>3}  {op:<12} <- {r}");
+    }
     // Not folded: runtime (reads an input value) vs shape-only (blocked).
     let mut runtime = std::collections::BTreeMap::<&str, usize>::new();
     let mut shape_only = std::collections::BTreeMap::<&str, usize>::new();
