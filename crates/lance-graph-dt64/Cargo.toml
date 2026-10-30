@@ -1,0 +1,10 @@
+[package]
+name = "lance-graph-dt64"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "DT64: the ClassId-addressed binding store. Class schema (through ClassView), method schema (MethodId, signature revision, K3 guard, ordered effects), immutable class behaviour, and the versioned route log from DR positions to classids. Stores bindings and their version log, never business data; executes nothing."
+
+[dependencies]
+# The one dependency. The contract is zero-dep, so this crate is too.
+lance-graph-contract = { path = "../lance-graph-contract" }
