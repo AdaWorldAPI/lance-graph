@@ -60,10 +60,24 @@ ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-val
 
 **OPEN (graph design):**
 - More than 64 nodes or values needs several DR64 tiles; the full graph is only censused, not tiled.
-- Facts for the 5,074 values Tract's typed stage leaves unlabelled: from the inference model (labels kept 7,620/7,620) or from ONNX shape inference.
+- ~~Facts for the 5,074 values Tract's typed stage leaves unlabelled~~ CLOSED 2026-10-30, see §0.1.
 - Registry entries for the shape-plumbing ops (`Unsqueeze`, `Shape`, `Gather` on shapes, `Concat`, `Reshape`) and the admitted f32 `MatMul`.
 - The plan clones constants per run; hot allocation is not yet minimal.
 - Classids are lab-local; minting through OGAR is a separate decision.
+
+### 0.1 Facts from Tract's inference stage (2026-10-30)
+
+`dr3::FactSources` reads facts from both Tract stages and keeps them apart. The **inference** stage (the inference model after `analyse`) keeps every source label. A fact there may be partial, so a shape is taken only when its rank and every dimension are determined; an undetermined dimension never becomes a symbol, because two of them need not be equal. The **typed** stage is complete per outlet but labels only the values that survive typing. `merged()` prefers the inference fact and fills a missing dtype or shape from the typed one; `disagreements()` compares the two wherever both describe a value. If typing fails, the inference facts are kept and the typed error is recorded (`typed_error`). Tract refuses to type a graph with an undetermined input dimension, but its inference stage still runs.
+
+| Jina, inputs pinned `[1,10]` | inference | typed | merged |
+|---|---|---|---|
+| source values with a full fact (dtype and shape), of 7,620 | **7,620** | 2,546 | 7,620 |
+| disagreements where both stages speak | 0 (all 2,546 agree) | | |
+| registry v1 coverage [WHEN-true, WHEN-not-true, unregistered] | 4,146 / 0 / 3,474 | 3,751 / 169 / 3,700 | **4,146 / 0 / 3,474** |
+
+The 169 refusals came entirely from missing facts. A further 226 nodes became registered once their dtype was known: `Mul` 452 WHEN-true (was 282), `Add` 253 (was 141), `Div` 113 (was 1). What remains unregistered is the op groups themselves: `Unsqueeze` 888, `Shape` 430, `Gather` 373, `Concat` 284, `MatMul` 253, `Reshape` 228, `Transpose` 141, `Slice` 140, `Cast` (other targets) 119, `Mul` (non-f32) 115, `Where` 114.
+
+Tests: `inference_stage_facts_cover_every_value_and_agree_with_typed` (tiny), `full_graph_facts_and_coverage` (Jina, counts pinned exactly), `undetermined_input_dim_gives_no_shape_and_typing_failure_is_recorded`, `dr3::tests::fact_sources_disagree_and_merge`. `unknown_shapes_refuse` re-pinned: `T` now has a Tract fact (the typed stage had merged it with `Z`), so `n_greater` is the first UNKNOWN. Disable runs, each red on the named tests: merge from typed only; undetermined dim as a symbol; typed failure propagated; `disagreements` always empty.
 
 ## 1. The acceptance chain, demonstrated
 
