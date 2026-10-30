@@ -1,3 +1,13 @@
+## D-LITHO — the photolithography contract (2026-10-30)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-litho-photolithography-contract-v1.md); [board entry](entries/2026-10-30-d-litho-photolithography-contract.md). No ABI, kernel, mask-risc op or runtime.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-LITHO-0 | contract: vocabulary, Abacus address grammar, design rules, ownership, consumers (docs) | In PR (#1859) | docs review |
+| D-LITHO-1 | first consumer operation written in the grammar, with a failing fixture | Queued | G1; needs a consumer signature (EXO-50) |
+| D-LITHO-2 | law-not-rotation, Morton-tile, dose-identity and alignment-refusal falsifiers | Queued | G2–G5; after D-LITHO-1 |
+
 ## D-XLOG-DR64 — XLOG frontend lowered onto the DR64 relation register, CPU only (2026-10-30)
 
 **Status:** LAB PROBE; test-only, standalone crate, no production API. [Board entry](entries/2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md); README in `crates/xlog-relcomp-probe`.
