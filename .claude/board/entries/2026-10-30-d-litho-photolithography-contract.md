@@ -20,3 +20,9 @@
 - Q3: which mask-risc verbs a consumer's first operation lacks; unasked until G1.
 - Q4: "DR64K" and "Membrane64" are undefined in code and plans.
 - Errata: the shared DR64/DR256 diagram says 65,336 addresses; the correct number is 65,536.
+
+## Amendment (2026-10-30, plan §3a)
+
+- The address space is fixed-width in the identity direction only.
+- Edges and properties are selected against it. Either a cross-product coordinate-range reference (two ranges, never a dense product) or a PSCustomObject-style named selection (`ClassView × WideFieldMask`).
+- The selection is versioned via a lance-graph table. Q5, which table, is open for the DR/DT owner.

@@ -93,7 +93,7 @@ not as an execution choice (§6).
 |---|---|
 | **Frame** | one demanded tile |
 | **Rod** | significance k of a value field exposed on that frame |
-| **Bead position** | a coordinate (identity, edge, property) mapped by a DR address law to a position in the frame |
+| **Bead position** | an identity coordinate mapped by a DR address law to a position in the frame; edges and properties are selected against it (§3a), never addressed as fixed-width axes |
 | **Instruction** | "expose these rods at these positions" with a verb: mask, combine, compare, carry, fold |
 
 **Law.** A law is a deterministic map from coordinates to a frame and a position. The rod is part of the
@@ -119,6 +119,34 @@ changes the mask, never the words.
 ripple, a carry-save tree or something else is execution, and execution belongs to §6. Reading one cell's
 value across all rods (a per-position decode) is a develop step: it is named as a terminal, never assumed
 mid-program.
+
+## 3a. Address-space shape (user nudge, 2026-10-30)
+
+**DECISION (2026-10-30):** The address space is fixed-width in one direction only. Edges and properties
+are not further fixed-width axes. They are projected against that fixed width in one of two ways:
+
+- **as a cross-product coordinate-range reference:** an (identity range × edge/property range) pair
+  that names a region, never a materialized product;
+- **PSCustomObject-style:** a named selection of properties and edges, the way `Select-Object -Property`
+  picks fields from an object. The existing carrier is `ClassView × WideFieldMask`
+  (`lance-graph-contract/src/class_view.rs`; D-DRDT §1 names it the shared contract).
+
+The selection is **versioned via a table in lance-graph**, so a projection is replayable "as of v" like a
+route.
+**SCOPE:** §3's bead position, and every reading of the Identity × Edge × Property geometry in §1.
+**BASIS:** the user's statement in session (decision, not measurement).
+**REVISIT WHEN:** a projection needs a second fixed-width axis.
+
+Consequences:
+- §1's "Identity (X) × Edge (Y) × Property (Z)" is a selection geometry, not three fixed-width address
+  axes. Only the identity direction has fixed width (the 64-row word, the 65,536-address DR256 domain).
+- The rods (§3) are a property of a selected field, not a fourth address axis. This narrows Q1 to: does
+  the rod width belong to the selected field's DT law?
+- A cross-product reference is two ranges, never a dense product. That is design rule 6 and the §5
+  non-goals restated as an addressing rule.
+- **Open (Q5):** which lance-graph table carries the selection version. Candidates are
+  `FrameRevisions` (`dr-math-binding-probe/src/lib.rs`: `relation_map` or `coordinates`) or a dedicated
+  selection table. This is the DR/DT owner's decision.
 
 ## 4. Design rules
 
