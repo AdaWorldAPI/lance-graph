@@ -739,6 +739,121 @@ impl MulAssessment {
     }
 }
 
+/// Calibration of many edges at once: every edge's projected bits 59..63
+/// against the one certification the population's sealed model witnesses.
+///
+/// A chain of edges combines elsewhere (`lance-graph-planner::pearl::hydrate`
+/// raises `IndirectUnknown` to `IndirectKnown` when both links are sealed
+/// bindings); this is the population combination: N claims, one witness.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct EpiTally {
+    /// Claim and witness license each other.
+    pub calibrated: u32,
+    /// The witness does not license the claim.
+    pub overconfident: u32,
+    /// The witness licenses strictly more than the claim.
+    pub underconfident: u32,
+    /// The witness is not grounded, or the edge's topology is `Unknown`.
+    pub uncertain: u32,
+    /// The witnessed certification, when grounded.
+    pub witnessed: Option<Certification3>,
+}
+
+impl EpiTally {
+    /// Tally projected states against the population's witness.
+    ///
+    /// The states must already be projected through their declaration
+    /// (`Epi5Declarations::project_state5`); this crate never reads raw bits.
+    /// An edge whose topology is `Unknown` counts as `uncertain` whatever it
+    /// claims: an unresolved relation cannot be calibrated.
+    #[must_use]
+    pub fn from_states(
+        states: impl IntoIterator<Item = EpistemicState5>,
+        witnessed: Result<Certification3, NotGrounded>,
+    ) -> Self {
+        let mut t = Self {
+            witnessed: witnessed.ok(),
+            ..Self::default()
+        };
+        for st in states {
+            let texture = if st.topology() == Topology2::Unknown {
+                TrustTexture::Uncertain
+            } else {
+                TrustTexture::from_certification(st.certification(), witnessed)
+            };
+            match texture {
+                TrustTexture::Calibrated => t.calibrated += 1,
+                TrustTexture::Overconfident => t.overconfident += 1,
+                TrustTexture::Underconfident => t.underconfident += 1,
+                TrustTexture::Uncertain => t.uncertain += 1,
+            }
+        }
+        t
+    }
+
+    /// Number of edges tallied.
+    #[must_use]
+    pub const fn total(&self) -> u32 {
+        self.calibrated + self.overconfident + self.underconfident + self.uncertain
+    }
+
+    /// The population's texture, worst first:
+    ///
+    /// 1. no edges, or more uncertain than decided → `Uncertain`;
+    /// 2. any overclaim → `Overconfident` (one edge certifying itself beyond
+    ///    its evidence is enough to hold the population);
+    /// 3. more under- than calibrated → `Underconfident`;
+    /// 4. otherwise `Calibrated`.
+    ///
+    /// The order is a policy pin: overclaims outrank everything decided
+    /// because they are the failure an execution gate must not pass.
+    #[must_use]
+    pub const fn texture(&self) -> TrustTexture {
+        let decided = self.calibrated + self.overconfident + self.underconfident;
+        if self.total() == 0 || self.uncertain > decided {
+            TrustTexture::Uncertain
+        } else if self.overconfident > 0 {
+            TrustTexture::Overconfident
+        } else if self.underconfident > self.calibrated {
+            TrustTexture::Underconfident
+        } else {
+            TrustTexture::Calibrated
+        }
+    }
+
+    /// The population's Dunning-Kruger position, from counts, not feelings.
+    ///
+    /// - `MountStupid`: at least half the decided edges overclaim, and the
+    ///   evidence certifies no more than `Associated`.
+    /// - `Plateau`: every edge calibrated against a witness of at least
+    ///   `Supports`.
+    /// - `ValleyOfDespair`: more underclaims than calibrated edges.
+    /// - `SlopeOfEnlightenment`: everything else, including any population
+    ///   with an ungrounded witness.
+    ///
+    /// The cut points (one half, `Associated`, `Supports`) are policy pins.
+    #[must_use]
+    pub fn dk_position(&self) -> DkPosition {
+        let decided = self.calibrated + self.overconfident + self.underconfident;
+        let Some(w) = self.witnessed else {
+            return DkPosition::SlopeOfEnlightenment;
+        };
+        if decided > 0 && 2 * self.overconfident >= decided && Certification3::Associated.entails(w)
+        {
+            DkPosition::MountStupid
+        } else if self.total() > 0
+            && self.calibrated == self.total()
+            && w.entails(Certification3::Supports)
+        {
+            DkPosition::Plateau
+        } else if self.underconfident > self.calibrated {
+            DkPosition::ValleyOfDespair
+        } else {
+            DkPosition::SlopeOfEnlightenment
+        }
+    }
+}
+
 fn trust_texture_from(felt: f64, demonstrated: f64, composite: f64) -> TrustTexture {
     let gap = felt - demonstrated;
     if composite < 0.25 {
@@ -2471,6 +2586,74 @@ mod tests {
         }
         // both reachable states occur on the grid (anti-vacuity)
         assert!(seen[2] > 0 && seen[3] > 0, "{seen:?}");
+    }
+
+    fn st(t: crate::epistemic_state5::Topology2, c: Certification3) -> EpistemicState5 {
+        EpistemicState5::new(Epi5Gen::V1, t, c)
+    }
+
+    #[test]
+    fn the_tally_counts_each_edge_against_the_population_witness() {
+        use crate::epistemic_state5::Topology2::*;
+        use Certification3 as C;
+        let edges = [
+            st(IndirectKnown, C::Related), // calibrated
+            st(Direct, C::Causes),         // overclaim
+            st(IndirectUnknown, C::Open),  // underclaim
+            st(Unknown, C::Related),       // unresolved: uncertain
+        ];
+        let t = EpiTally::from_states(edges, Ok(C::Related));
+        assert_eq!(
+            (t.calibrated, t.overconfident, t.underconfident, t.uncertain),
+            (1, 1, 1, 1)
+        );
+        assert_eq!(t.texture(), TrustTexture::Overconfident);
+        let ungrounded = EpiTally::from_states(edges, Err(NotGrounded::TooFewSources));
+        assert_eq!(ungrounded.uncertain, 4);
+        assert_eq!(ungrounded.texture(), TrustTexture::Uncertain);
+        assert_eq!(EpiTally::default().texture(), TrustTexture::Uncertain);
+    }
+
+    #[test]
+    fn one_overclaim_holds_the_population_and_none_lets_it_pass() {
+        use crate::epistemic_state5::Topology2::*;
+        use Certification3 as C;
+        let mut edges = vec![st(IndirectKnown, C::Supports); 63];
+        let calm = EpiTally::from_states(edges.clone(), Ok(C::Supports));
+        assert_eq!(calm.texture(), TrustTexture::Calibrated);
+        assert_eq!(calm.dk_position(), DkPosition::Plateau);
+        edges.push(st(Direct, C::Causes));
+        let one = EpiTally::from_states(edges, Ok(C::Supports));
+        assert_eq!(one.overconfident, 1);
+        assert_eq!(one.texture(), TrustTexture::Overconfident);
+        assert_eq!(one.dk_position(), DkPosition::SlopeOfEnlightenment);
+    }
+
+    #[test]
+    fn dk_position_from_counts_reaches_all_four_positions() {
+        use crate::epistemic_state5::Topology2::*;
+        use Certification3 as C;
+        // Mount Stupid: half the edges claim Causes, the evidence says Associated
+        let stupid = EpiTally::from_states(
+            [st(Direct, C::Causes), st(IndirectKnown, C::Associated)],
+            Ok(C::Associated),
+        );
+        assert_eq!(stupid.dk_position(), DkPosition::MountStupid);
+        // the same overclaim against Supports evidence is not Mount Stupid
+        let strong = EpiTally::from_states(
+            [st(Direct, C::Causes), st(IndirectKnown, C::Supports)],
+            Ok(C::Supports),
+        );
+        assert_ne!(strong.dk_position(), DkPosition::MountStupid);
+        // Valley: the evidence licenses more than the edges dare to claim
+        let valley = EpiTally::from_states(
+            [st(IndirectKnown, C::Open), st(IndirectKnown, C::Associated)],
+            Ok(C::Supports),
+        );
+        assert_eq!(valley.dk_position(), DkPosition::ValleyOfDespair);
+        // Plateau needs a Supports witness: calibrated on Associated is a slope
+        let low = EpiTally::from_states([st(IndirectKnown, C::Associated)], Ok(C::Associated));
+        assert_eq!(low.dk_position(), DkPosition::SlopeOfEnlightenment);
     }
 
     #[test]
