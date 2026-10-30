@@ -161,9 +161,27 @@ The fold records a DO refusal (`Folded::refused`) instead of treating it as "not
 
 **Refusals, and where each happens.** Constant overflow (`neg_i64_overflow`; ORT wraps it to `i64::MIN`) refuses at resolution through our DO. An unadmitted broadcast (`[2]` against `[2, 1]`, `neg_i64_bcast`) is WHEN FALSE. A constant zero divisor (`neg_i64_div0`; ORT is not run, integer division by zero is undefined there) and a zero `Range` step (`neg_range_zero`; ORT refuses too) are already refused by Tract's analysis, the second as a panic that `no_panic` turns into a frontend refusal. Our DOs' own refusals for both are pinned by `checked_i64_dos_refuse`.
 
-**Jina census (`[1,10]`).** WHEN-true / not-true / unregistered **6,869 / 3 / 748** (v3 6,581 / 114 / 925). Cold-folded nodes 5,135 (v3 4,499); retained folded values 1,448 (~17 KB). **All 58 shape-dependent Reshapes now fold; the 56 that v3 blocked on int64 `Mul` resolve.** Shape-only nodes still blocked: 24 (v3 660): unregistered Cast 2 (+5 downstream), And, Cos, Sin, MatMul, Transpose; `/LessOrEqual` WHEN FALSE (two Unsqueezes, a broadcast the compare guard does not admit); one `Range` WHEN UNKNOWN (an input not folded upstream). Runtime nodes not folded: 2,461, unchanged. Cold fold 8,899 µs over the whole graph (cold, reported, not gated). No full Jina runtime was started.
+**Jina census (`[1,10]`).** WHEN-true / not-true / unregistered **6,871 / 1 / 748** (v3 6,581 / 114 / 925); typed-facts coverage 3,954 / 227 / 3,439 (was 3,841 / 226 / 3,553). Cold-folded nodes 5,139 (v3 4,499); retained folded values 1,446 (~17.5 KB). **All 58 shape-dependent Reshapes fold; the 56 that v3 blocked on int64 `Mul` resolve.** Expand: 60 nodes, 58 of them read a run-time value (Data class, never foldable), 1 folds, 1 is blocked (below). No full Jina runtime was started.
 
-Disable runs (each red): DO refusal not surfaced by `resolve`; binary guard always TRUE; overflow ignored; zero-step guard removed; range capacity widened; one-element left side not broadcast. 59 tests green (21 lib, 30 tiny, 8 Jina).
+`fold` and `coverage` now give an initializer without an admitted fact its protobuf dtype and dims (`fold::with_initializer_facts`), the rule `OnnxGraph::build` already applied: Jina's `_one` is carried by two Tract outlets and rejected, which left `_pos_range`'s Range UNKNOWN in the census though a plan would have folded it.
+
+**Remaining shape-only blocked nodes: 20, each traced to its first unresolved producer or guard** (`examples/shape_census.rs`):
+
+| first unresolved | blocks |
+|---|---|
+| `/rotary_emb/Cos`, `/rotary_emb/Sin` (unregistered f32 Cos, Sin) | Cos, Sin, 2 Mul, 2 Unsqueeze, 2 Cast |
+| `/rotary_emb/MatMul` (unregistered f32 MatMul; the ndarray word exists) | MatMul |
+| `/rotary_emb/Transpose` (unregistered) | Transpose, Concat |
+| `/rotary_emb/Cast_1`, `/Cast_4` (unregistered Cast signatures) | 3 Cast |
+| `Constant_2836` (rotary `inv_freq`, 64 f32 stored in the external weight file, not loaded here) | 2 Cast, 1 Expand |
+| `/And` (unregistered bool And) | And |
+| `/LessOrEqual` WHEN FALSE (multidirectional broadcast of two Unsqueezes; the guard admits pair or scalar only) | LessOrEqual |
+
+The rotary-embedding chain is shape-only (its angles depend on positions, not token values), so it folds once Cos, Sin, MatMul, Transpose and the Cast signatures are registered and its constant is available. Runtime nodes not folded: 2,461, unchanged.
+
+**Cost (cold, reported, not gated).** Census fold over the whole graph 7,832 µs. `examples/cost.rs`: `i64_arith` (7 nodes folded, 0 steps) cold 20.6 + 343.1 + 29.5 µs (source, Tract facts, tile+fold+resolve); a plan run still costs 2,114 ns against Tract's 723 ns, because the run clones the 7 folded outputs (38 allocations). `i64_data` (one run-time Mul): plan 954 ns, Tract 1,219 ns. Erf (4,096 values) plan 4,181 ns, Tract 1,930 ns, on ndarray `5c6d98b0` (after #402); no A/B against pre-#402 was taken.
+
+Disable runs (each red): DO refusal not surfaced by `resolve`; binary guard always TRUE; overflow ignored; zero-step guard removed; range capacity widened; one-element left side not broadcast; initializer facts not filled in `fold`. 60 tests green (21 lib, 31 tiny, 8 Jina).
 
 ## 1. The acceptance chain, demonstrated
 
