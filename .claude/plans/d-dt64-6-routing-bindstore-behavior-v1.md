@@ -318,3 +318,22 @@ No word gets a classid. This is the ONNX shape of #1870, applied to the polyfill
 | the shared basis check | 4 |
 
 Which classid the polyfill lens carries in production is OGAR's mint (D6), not this crate's; the test uses a lab value.
+
+**A.5 addendum 10 (2026-10-30, operator: "make sure that consumers like ONNX are not limited to 64 but instead can choose the other modes like DR256² × 64").** A.1 already gives the binding this job: it names DR64 or DR256 and states its cost in those units. Until now the store only capped a class at 256 fields. `ClassSchema` now carries an `Extent` the consumer chooses:
+- The extent is Identity × Property × Predicate, each axis `Width::W64` or `Width::W256`. `Extent::DR64_CUBE` and `Extent::DR256_SQ_X64` are named, and any other combination is allowed.
+- Registration refuses fields past the property axis (`FieldsExceedExtent`) and methods past the predicate axis (`MethodsExceedExtent`).
+- The extent is part of the immutable binding (D5).
+- `dense_bytes` states what a dense Boolean volume of the extent would cost if anyone materialized one: DR64³ is 32 KiB and DR256² × 64 is 512 KiB. It is a cost statement and allocates nothing (§7).
+- The polyfill lens declares its extent too.
+
+The test registers an ONNX graph with 200 values: DR64³ refuses it, naming the axis, and DR256² × 64 binds it. A graph with 70 nodes needs a 256-wide predicate axis.
+
+Disable runs on the extent commit:
+
+| guard removed | failing tests |
+|---|---|
+| the property-axis check | 1 |
+| the predicate-axis check | 1 |
+| W256 read as 64 | 2 |
+
+Still capped at 64: `tract-harvest-probe`'s `dr3::TILE = 64`, a single DR64 tile built from `relcomp::Rows = [u64; 64]`. That is the tract session's lab crate. Its full model (4,146 of 7,620 nodes WHEN-true) already reports ">64 positions untiled". Lifting it is that session's change; the binding side no longer forces 64.
