@@ -242,6 +242,7 @@ than the byte-dot, refused).
 
 ## 11. Pre-registered gates (none run)
 
+- **G1 status:** discharged for ONNX (§3b); delivered for XLOG as a failing fixture in #1864 (expected {2:4, 3:1, 7:1}, refused today with `BagNeedsMultiplicity`). XLOG is the first non-ONNX consumer of the bind store.
 - **G1, binding sufficiency.** One named consumer states one operation as a DTO binding over DR
   coordinates, with a failing fixture and expected values. **Fails if** the statement needs a dimension
   decision.

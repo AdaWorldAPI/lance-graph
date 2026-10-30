@@ -5,8 +5,8 @@
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | D-LITHO-0 | contract: vocabulary, Abacus address grammar, design rules, ownership, consumers (docs); §4 = DR facts the DTO layer must know (cited) | Shipped (#1859, #1860); §4 correction in PR | docs review |
-| D-LITHO-1 | first consumer operation written in the grammar, with a failing fixture | Queued | G1; needs a consumer signature (EXO-50) |
-| D-LITHO-2 | law-not-rotation, Morton-tile, dose-identity and alignment-refusal falsifiers | Queued | G2–G5; after D-LITHO-1 |
+| D-LITHO-1 | first consumer operation as a DTO binding, with a failing fixture | In PR (#1864, XLOG; wired by #1857, #1861) | G1 for a non-ONNX consumer: NodeGuid stand-in, R/S as ClassView × WideFieldMask, count method by reference with `Population::Bag`, expected {2:4, 3:1, 7:1}; refused today with `BagNeedsMultiplicity` |
+| D-LITHO-2 | law-not-rotation, Morton-tile, dose-identity and alignment-refusal falsifiers | In PR (#1862): G3, G4 PASS; G5 discharged for ONNX (`tract-harvest-probe`) | G2 not run |
 
 ## D-XLOG-DR64 — XLOG frontend lowered onto the DR64 relation register, CPU only (2026-10-30)
 
