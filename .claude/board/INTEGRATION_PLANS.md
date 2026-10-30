@@ -1,3 +1,8 @@
+## 2026-10-30 — D-DRCA-3: DR #4 method routing falsifier (lab) → `.claude/plans/d-drca-3-dr4-method-routing-v1.md`
+
+**Status:** lab probe in `dr-math-binding-probe` (`src/dr4.rs`, `tests/dr4_method_routing.rs`); first DR #4 falsifier of D-DRDT §5. **Board:** [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRCA-3. DT-owned method key, guard witness and effect order are carried opaque; the effect-order oracle is ndarray #395's order law. No DT resolver (D-CMH-1), no MethodKey mint, no contract change.
+**Confidence:** 12 tests, 7 disable runs red; lab only.
+
 ## 2026-10-28 — D-DRDT: DR = HHTL16 Cartesian direct routing, DT = ClassId binding store → `.claude/plans/d-drdt-dr-dt-ownership-amendment-v1.md`
 
 **Status:** PROPOSED, docs only; amends D-DT64-6 §1 (per-cell WHEN×ON×DO, DR#3) and supersedes the DT64 "tensor register" noun of Bardioc-rs #9. **Board:** [entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRDT. Records the DR/DT contract, reads the DR64/DR256 overview against existing pieces, gives the reuse/gap table for Cartesian and relational fold operators (proof: #1834, D-DRCA-1) and hands off DT method identity / guard / effect order and the DR #4 interface.

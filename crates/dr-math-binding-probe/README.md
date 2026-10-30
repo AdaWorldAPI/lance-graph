@@ -135,3 +135,18 @@ One WHERE halves the fresh read. Warm reuse breaks even at N = 1 and pays from N
 - A negated selection costs its own WHERE, which is the price of `NOT UNKNOWN` staying UNKNOWN.
 - One 64-slot frame per table; no larger focus, no DR256 resident register, no reuse of a scattered (`ScatterOrU32`) mask.
 - `project` is 64 scalar probes (~1 µs); admission (~76–82 ns) is not broken down.
+
+## D-DRCA-3: DR #4 method routing (`dr4`)
+
+The first DR #4 falsifier of D-DRDT §5 (#1835): two methods on one cell with the same read/write sets and a different effect order must stay distinct through routing, and a dropped guard must refuse. Module `src/dr4.rs`, test `tests/dr4_method_routing.rs`, plan `.claude/plans/d-drca-3-dr4-method-routing-v1.md`.
+
+- **DR carries DT's values opaque.** `MethodKey`, `GuardWitness` and `EffectOrderRef` are 16-byte references that `route` compares for equality and never interprets. The method key is DT's to mint (D-CMH §2.1); the test mints its own, named as such. `Resolution` (class, frame, methods) is DT's answer handed in by the caller; this crate has no DT resolver (that is D-CMH-1's `PreparedClass`).
+- **One entry per input method, in input order.** Key, signature revision, read and write field sets, guard witness and effect-order reference pass through unchanged, with the register's frame on the result. Nothing is merged: two methods whose effects commute are still two entries, because merging is the law owner's decision.
+- **Refusals, in order:** a stale register frame (`Frame(..)`); a resolution made under another frame issue, including another store at equal numbers (`ResolvedUnderOtherFrame`); the resolution or a method for another class (`ForeignClass`); a duplicate key (`DuplicateMethod`; equal read/write sets are not a duplicate); coordinates outside 64 × 64 (`OutOfRegister`); a numeric fold (`UnsupportedAlgebra`); a presence read over a three-valued register (`NotBoolean`); a declared guard with no witness (`GuardDropped`) or another one (`GuardMismatch`). DR checks witnesses; it evaluates no guard.
+- **Values** come from the existing register reads: cell, row and column presence, and K3 value + validity with the value masked by validity.
+
+Oracle: the DT stub in the test holds each method's real effects and guard. The effect-order law is ndarray #395's `Effect` / `run_effects` / `commutes` / `check_reorder` (`examples/pof_antennas/order_law.rs`), ported verbatim. In the core fixture `[Set(1), Add(1)]` and `[Add(1), Set(1)]` give 2 and 1 and the swap is refused, so the two references DR keeps apart are provably different methods; the commuting control `[Add(2), Add(3)]` and its reverse give equal results and the swap is legal, and routing still keeps both. Values are compared against plain scalar loops over the register words.
+
+Twelve tests; seven disable runs, each restored from the commit and each turning its named test red: entries collapsed by equal read/write sets (3 tests red), a dropped guard accepted, a mismatched witness accepted, the resolution frame not checked, a method's class not checked, a duplicate key accepted, the K3 value not masked by validity.
+
+**Not done.** The DT resolver (D-CMH-1), a minted `MethodKey`, guard evaluation, effect execution, DR #4 over a `LocalSelection` (D-DRCA-2) or a `Chain` composition, production placement.

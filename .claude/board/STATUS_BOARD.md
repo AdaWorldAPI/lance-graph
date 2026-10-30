@@ -5,9 +5,9 @@
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | D-DRDT-0 | amendment: DR/DT ownership, reuse/gap analysis, DT and DR #4 handoff (docs) | In PR | docs review |
-| D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | In PR (#1834) | review; lab only |
-| D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Queued | D-DRCA-1 merged |
-| D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | Queued | DT MethodId contract (D-DRDT §4) |
+| D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | Shipped (#1834) | review; lab only |
+| D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Shipped (#1836) | lab only |
+| D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | In PR (lab: `dr4.rs`, 12 tests, 7 disable runs; [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md)) | lab uses a test-minted method key; the real key and the DT resolver stay with D-CMH (MethodKey mint, D-CMH-1) |
 
 ## D-DT64-6 — DR64 routing, DT64 bind store, per-cell WHEN×ON×DO, OGIT reference predicates (2026-10-28)
 
