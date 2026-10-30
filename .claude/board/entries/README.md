@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-512 entries, 2026-08-06 .. 2026-10-30.
+513 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-30 | `D-XLOG-DR64-0` | XLOG's CPU frontend lowers onto DR64 relcomp (answer {2}, 2 oracles); its optimizer emits ChainJoin and swapped orders; arrow 60 vs 58 blocks in-tree use; masks lose to scalar on selective data | [2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md](2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md) |
 | 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
 | 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
+| 2026-10-30 | `D-MIST-NATIVE-1a` |  | [2026-10-30-d-mist-native-1a-hhtl16-rows.md](2026-10-30-d-mist-native-1a-hhtl16-rows.md) |
 | 2026-10-30 | `D-MIST-NATIVE-0` |  | [2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md](2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md) |
 | 2026-10-30 | `D-LITHO` |  | [2026-10-30-d-litho-photolithography-contract.md](2026-10-30-d-litho-photolithography-contract.md) |
 | 2026-10-30 | `D-LITHO-1` |  | [2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md](2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md) |
