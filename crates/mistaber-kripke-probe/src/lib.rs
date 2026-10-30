@@ -286,6 +286,28 @@ fn lfp(
     unreachable!("a monotone fixpoint over 64 x 64 bits converges within 4096 steps")
 }
 
+/// One holding mode: its cells, and per rule the cells that rule supports.
+struct Mode {
+    label: String,
+    cells: Rows,
+    rules: Vec<Rows>,
+}
+
+impl Mode {
+    /// Lens rows at `(p, w)`: one per supporting rule, one if the holding has
+    /// none, zero if the mode does not hold there.
+    fn rows(&self, p: usize, w: usize) -> usize {
+        if self.cells[p] >> w & 1 == 0 {
+            return 0;
+        }
+        self.rules
+            .iter()
+            .filter(|r| r[p] >> w & 1 == 1)
+            .count()
+            .max(1)
+    }
+}
+
 /// The solved holdings lens.
 pub struct Holdings<'a> {
     kb: &'a Kb,
@@ -319,33 +341,56 @@ impl Holdings<'_> {
         self.kb.children[parent] & !self.block[p]
     }
 
-    /// Every mode as `(label, proposition × world mask)`.
-    fn modes(&self) -> Vec<(String, Rows)> {
+    /// Every mode with its cells and, per rule, the cells that rule supports
+    /// under that mode.
+    fn modes(&self) -> Vec<Mode> {
+        let kb = self.kb;
+        let n = kb.props.0.len();
+        let direct = |table: &Rows, rules: &[Rows]| Mode {
+            cells: and_row(table, kb.world_set),
+            rules: rules
+                .iter()
+                .map(|r| and(r, &and_row(table, kb.world_set)))
+                .collect(),
+            label: String::new(),
+        };
         let mut out = vec![
-            (
-                "asserted".to_owned(),
-                and_row(&self.kb.asserts, self.kb.world_set),
-            ),
-            (
-                "endorsed".to_owned(),
-                and_row(&self.kb.endorses, self.kb.world_set),
-            ),
+            Mode {
+                label: "asserted".to_owned(),
+                ..direct(&kb.asserts, &kb.asserts_rule)
+            },
+            Mode {
+                label: "endorsed".to_owned(),
+                ..direct(&kb.endorses, &kb.endorses_rule)
+            },
         ];
-        for par in 0..self.kb.worlds.0.len() {
-            let m: Rows = std::array::from_fn(|p| {
-                if p < self.kb.props.0.len() {
+        for par in 0..kb.worlds.0.len() {
+            let cells: Rows = std::array::from_fn(|p| {
+                if p < n {
                     self.inherited_from(par, p)
                 } else {
                     0
                 }
             });
-            out.push((format!("inherited({})", self.w(par)), m));
+            let rules = self
+                .sources
+                .iter()
+                .map(|src| {
+                    std::array::from_fn(|p| if src[p] >> par & 1 == 1 { cells[p] } else { 0 })
+                })
+                .collect();
+            out.push(Mode {
+                label: format!("inherited({})", self.w(par)),
+                cells,
+                rules,
+            });
         }
         out
     }
 
-    /// How many lens rows (modes) hold `p` in `w`: the multiplicity a bag
-    /// projection to `holds/2` would report.
+    /// How many lens rows hold `p` in `w`: the multiplicity a bag projection
+    /// to `holds/2` reports. A lens row is one (mode, source rule); a holding
+    /// with no rule is one row with empty rule fields.
     pub fn bag_multiplicity(&self, prop: &str, world: &str) -> usize {
         let (Some(p), Some(w)) = (
             self.kb.props.0.iter().position(|n| n == prop),
@@ -353,10 +398,7 @@ impl Holdings<'_> {
         ) else {
             return 0;
         };
-        self.modes()
-            .iter()
-            .filter(|(_, m)| m[p] >> w & 1 == 1)
-            .count()
+        self.modes().iter().map(|m| m.rows(p, w)).sum()
     }
 
     /// Materialize one predicate as atoms: a [`WideFieldMask`] selection over
@@ -385,20 +427,33 @@ impl Holdings<'_> {
                     }
                 }
                 Projection::Bag => {
-                    for (_, m) in self.modes() {
-                        for (p, &row) in m.iter().enumerate().take(self.kb.props.0.len()) {
+                    for m in self.modes() {
+                        for (p, &row) in m.cells.iter().enumerate().take(self.kb.props.0.len()) {
                             for w in bits(row) {
-                                out.push(format!("holds({},{})", self.p(p), self.w(w)));
+                                for _ in 0..m.rows(p, w) {
+                                    out.push(format!("holds({},{})", self.p(p), self.w(w)));
+                                }
                             }
                         }
                     }
                 }
             },
             (true, true, false, false, 3) => {
-                for (mode, m) in self.modes() {
-                    for (p, &row) in m.iter().enumerate().take(self.kb.props.0.len()) {
+                for m in self.modes() {
+                    for (p, &row) in m.cells.iter().enumerate().take(self.kb.props.0.len()) {
                         for w in bits(row) {
-                            out.push(format!("holds_via({mode},{},{})", self.p(p), self.w(w)));
+                            let copies = match proj {
+                                Projection::Set => 1,
+                                Projection::Bag => m.rows(p, w),
+                            };
+                            for _ in 0..copies {
+                                out.push(format!(
+                                    "holds_via({},{},{})",
+                                    m.label,
+                                    self.p(p),
+                                    self.w(w)
+                                ));
+                            }
                         }
                     }
                 }

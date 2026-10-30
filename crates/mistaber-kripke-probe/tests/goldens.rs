@@ -99,8 +99,9 @@ fn set_projection_is_required_on_the_diamond() {
 }
 
 #[test]
-fn bag_and_set_agree_where_no_holding_has_two_modes() {
-    // Silence twin: on a chain without a diamond the two projections coincide.
+fn bag_and_set_agree_where_every_holding_has_one_lens_row() {
+    // Silence twin: one mode and one source rule per holding, so the two
+    // projections coincide.
     let g = golden("C-mammal-C4");
     let kb = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
@@ -144,4 +145,45 @@ fn a_selection_that_is_no_predicate_is_refused() {
             "{f:?}"
         );
     }
+}
+
+#[test]
+fn bag_counts_lens_rows_not_modes() {
+    // p holds in e by ONE mode, inherited(d), traced to TWO source rules
+    // (r_base_p, r_b_endorse): two lens rows, one holds_via fact, one holds
+    // fact. g holds in a with no rule at all: one lens row, empty rule fields.
+    let g = golden("F1-modes");
+    let kb = Kb::load(&g.facts).unwrap();
+    let h = kb.solve();
+    assert_eq!(h.bag_multiplicity("p", "e"), 2);
+    assert_eq!(h.bag_multiplicity("g", "a"), 1);
+    let count = |sel: &[u8], proj, atom: &str| {
+        h.materialize_selection(&WideFieldMask::from_positions(sel), proj)
+            .unwrap()
+            .iter()
+            .filter(|a| *a == atom)
+            .count()
+    };
+    let via = "holds_via(inherited(d),p,e)";
+    assert_eq!(count(&[0, 1, 2], Projection::Set, via), 1);
+    assert_eq!(count(&[0, 1, 2], Projection::Bag, via), 2);
+    assert_eq!(count(&[0, 1], Projection::Set, "holds(p,e)"), 1);
+    assert_eq!(count(&[0, 1], Projection::Bag, "holds(p,e)"), 2);
+    // The five-field selection is the lens itself: Set and Bag agree.
+    assert_eq!(
+        sorted(
+            h.materialize_selection(
+                &WideFieldMask::from_positions(&[0, 1, 2, 3, 4]),
+                Projection::Set
+            )
+            .unwrap()
+        ),
+        sorted(
+            h.materialize_selection(
+                &WideFieldMask::from_positions(&[0, 1, 2, 3, 4]),
+                Projection::Bag
+            )
+            .unwrap()
+        ),
+    );
 }

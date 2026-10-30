@@ -70,7 +70,7 @@ A narrower selection can make two lens rows equal. In the diamond (F1), `p` hold
 | bag (column subset, multiplicity kept) | ALIAS to the selection |
 | set (Datalog head) | the selection **followed by** a distinct/existence fold |
 
-`set_projection_is_required_on_the_diamond` pins both: bag multiplicity 2, set count 1, and the bag reading does not reproduce the golden. `bag_and_set_agree_where_no_holding_has_two_modes` is the silence twin. The same split was sent to the XLOG session for the #1866 crosswalk (EXO-50).
+A lens row is one (mode, source rule), or one (mode) with empty rule fields when the holding has no rule. Two rows can also share a mode: `p` holds in `e` only by `inherited(d)` but traces to two source rules, so a bag projection gives two `holds_via(inherited(d),p,e)` and two `holds(p,e)` (`bag_counts_lens_rows_not_modes`; caught in review on #1873, where Bag first counted modes). `set_projection_is_required_on_the_diamond` pins both: bag multiplicity 2, set count 1, and the bag reading does not reproduce the golden. `bag_and_set_agree_where_no_holding_has_two_modes` is the silence twin. The same split was sent to the XLOG session for the #1866 crosswalk (EXO-50).
 
 ## 5. Evidence (D-MIST-NATIVE-0)
 
