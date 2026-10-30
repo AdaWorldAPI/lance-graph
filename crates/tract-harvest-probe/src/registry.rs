@@ -1460,6 +1460,30 @@ mod tests {
         );
     }
 
+    /// `Shape`'s `start`/`end` (opset 15): negative counts from the end,
+    /// both clamp to `[0, rank]`, an empty range is an empty shape.
+    #[test]
+    fn shape_start_end_clamp() {
+        let at = |a: Vec<(String, Attr)>| shape_slice(&[2, 3, 5, 7], &node("Shape", 1, a));
+        assert_eq!(at(vec![]), [2, 3, 5, 7]);
+        assert_eq!(
+            at(vec![
+                ("start".into(), Attr::Int(1)),
+                ("end".into(), Attr::Int(-1))
+            ]),
+            [3, 5]
+        );
+        assert_eq!(at(vec![("start".into(), Attr::Int(-10))]), [2, 3, 5, 7]);
+        assert_eq!(at(vec![("end".into(), Attr::Int(10))]), [2, 3, 5, 7]);
+        assert_eq!(
+            at(vec![
+                ("start".into(), Attr::Int(3)),
+                ("end".into(), Attr::Int(1))
+            ]),
+            [] as [i64; 0]
+        );
+    }
+
     /// `0` copies, one `-1` infers, the element count must match.
     #[test]
     fn reshape_target_rules() {

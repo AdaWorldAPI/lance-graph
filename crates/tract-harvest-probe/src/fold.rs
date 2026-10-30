@@ -178,6 +178,9 @@ pub fn fold(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Reg
     loop {
         let mut changed = false;
         for (n, node) in src.nodes.iter().enumerate() {
+            // Skips work only: a Symbolic or Data node never has every
+            // input known, so it could not fold anyway (measured: removing
+            // this test changes no result).
             if out.nodes.contains(&n) || node_dep[n] > Dep::Shape {
                 continue;
             }
