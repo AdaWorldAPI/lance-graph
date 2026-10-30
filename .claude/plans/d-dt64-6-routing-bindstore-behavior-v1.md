@@ -219,13 +219,13 @@ DR owns every fact below. DT decides none of them, but a binding cannot be state
 |---|---|---|
 | DR#3 Identity × Property | `dr3::OnnxGraph`: nodes = Identity, values = Property, `TILE = 64`, else `TileOverflow` | `dep_composition_is_the_source_dataflow` |
 | ON / DO share the property domain (§3) | `on`, `do_` relations; `dep = do_ ∘ read_by` via `relcomp::compose`; schedule from `dep` | `schedule_comes_from_dep_not_source_order` |
-| D4 classid → polyfill; D5 immutable classid | `registry::Registry`: op signature → one classid (lab ordinals `0x0F..`), DO in `lance-graph-onnx` | `base_through_the_graph_is_bit_exact_against_ort` |
+| D4 classid → polyfill; D5 immutable classid | `registry::Registry`: one ONNX lens classid (`ONNX_LENS`, lab `0x0F00`); each op signature is a field under it (`MethodKey { lens, ordinal }`) labelling a classid-free algebra address; `exposed` is the lens's `WideFieldMask`; DO in `lance-graph-onnx` | `base_through_the_graph_is_bit_exact_against_ort` |
 | WHEN is K3; UNKNOWN never TRUE (§3 step 4) | `Registration::when` returns `K3`; resolution refuses non-TRUE | `unknown_shapes_refuse`, `incompatible_broadcast_is_when_false` |
 | Unregistered is UNKNOWN (F06) | `Refusal::Unregistered` | `unregistered_op_is_refused` |
 | D8 frame-keyed binding | `Frame` revisions = (source digest, registry version, coordinate digest); `FrameStore::check` per run | `stale_generation_is_refused`, `registry_change_is_a_frame_change` |
 | Numeric annotation | `Numeric::{Exact, Bounded}`; ULP measured vs ORT and f64 | `erf_sweep_against_f64_and_ort`, `trig_sweep_against_f64_and_ort` |
 
-Production step (registry module doc): the lab ordinals become OGAR-minted concepts activated through `hotplug` (D6).
+Production step (registry module doc): the one ONNX lens classid becomes an OGAR-minted concept activated through `hotplug` (D6), with its fields as capabilities. Op signatures never get classids of their own. (Corrected 2026-10-30; this row first read "op signature → one classid", which was the tract session's mistake.)
 
 ## A.3 Measured gates (lab)
 

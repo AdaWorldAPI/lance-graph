@@ -13,7 +13,7 @@
 | source | `source.rs`, `value.rs` | raw protobuf: node names, domain, opset, discrete attributes, initializer and `Constant` values decoded once (bool packed into mask words) |
 | facts | `dr3::tract_facts` | Tract, cold: dtype and shape per labelled value (no declutter) |
 | graph | `dr3::OnnxGraph` | nodes = **Identity**, values = **Property** on one 64x64 tile; `on`, `do_` as `Rows`; `dep = do_ ∘ read_by` by `dr_math_binding_probe::relcomp::compose`; ordered args beside the relations |
-| registry | `registry.rs` | `Registration { classid, op signature (domain, op_type, dtype, attribute rules, opsets), WHEN: K3 guard, DO: polyfill, Numeric }`, versioned; 16 lab classids `0x0F01..0x0F51` |
+| registry | `registry.rs` | `Registration { op signature (domain, op_type, dtype, attribute rules, opsets), WHEN: K3 guard, DO: polyfill, Numeric }`, versioned; one ONNX lens classid `ONNX_LENS` (0x0F00); each op signature is a field under it (§0.7, §0.8) |
 | plan | `plan.rs` | resolve once: signature lookup (unregistered = UNKNOWN, refused), opset, WHEN must be TRUE, schedule from `dep`; sealed in a `FrameStore` frame (source digest, registry version, coordinates); `run` checks the frame, then routes each node to its DO |
 
 ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-valued guard over the facts and constant operands (multidirectional broadcast, `Pow` exponent exactly 2.0, single reduction axis, scalar threshold, `Where` operand shapes); DO = an existing function, never a new kernel (`lance_graph_onnx::{add,sub,mul,div,abs_f32,sqrt_f32,greater_i32,where_i32,ReduceSum}`, `ndarray` `mean_axis`). Classids are **lab ordinals**, not OGAR-minted concepts; production would mint them in OGAR and activate through `lance-graph-contract::hotplug`.
@@ -23,7 +23,7 @@ ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-val
 | check | result |
 |---|---|
 | tiny `base`, `gen2`, `neg_where_nonzero` through the graph | bit-exact vs ORT literal; `Where(c, X, 1)` now **runs** (17): there is no masked-sum rewrite to refuse, `Where` and `ReduceSum` are separate methods |
-| tiny `div3`, 256 seeded inputs | bit-exact on every element (`Div` keeps classid `0x0F23`) |
+| tiny `div3`, 256 seeded inputs | bit-exact on every element (`Div` keeps its field) |
 | `dep` vs the source edges | equal on 3 variants; the schedule is a topological order of it, and a protobuf with the node list reversed still runs bit-exact |
 | Jina v5 small layer-0 input RMSNorm (13 nodes, Constants included) | 9,259/10,240 exact, max 4 ulp; mean 9/10 exact, max 1 ulp; `ReduceMean` the only Bounded method; every row with a bit-exact mean is bit-exact on all 1,024 outputs |
 | full Jina graph (7,620 nodes, inputs pinned `[1,10]`), registry v1 coverage | **3,751** WHEN-true, **169** registered but WHEN not true, **3,700** unregistered. All 113 RMSNorm `Pow`/`ReduceMean`/`Sqrt` resolve. The 169 are facts Tract does not keep: its typed stage labels only 2,546 of 7,620 source outputs, so those shapes are UNKNOWN and the guard refuses them. The largest unregistered groups: `Unsqueeze` 888, `Shape` 430, `Gather` 373, `Concat` 284, `MatMul` 253, `Reshape` 228, `Mul` (non-f32 / other signatures) 228 |
@@ -32,10 +32,10 @@ ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-val
 
 | input | refusal |
 |---|---|
-| `B[4]` vs `F[2,3]` | `When { n_add, 0x0F20, False }` (broadcast guard over the facts) |
+| `B[4]` vs `F[2,3]` | `When { n_add, Add field, False }` (broadcast guard over the facts) |
 | `Erf` | `Unregistered { n_abs, "ai.onnx:Erf(Some(F32)){}" }` |
 | `com.example:Abs` (Tract imports it as `Abs`) | `Unregistered`, signature `com.example:Abs…`: the source domain keys the signature |
-| `Pow(x, 2.0000002)` | `When { Pow, 0x0F32, False }` |
+| `Pow(x, 2.0000002)` | `When { Pow, Pow field, False }` |
 | `Cast_1` to FLOAT16, `Cast` to DOUBLE | `Unregistered`, signature names `to=10` / `to=11` |
 | Tract's shapes removed | `When { n_where, Unknown }`: UNKNOWN never counts as TRUE |
 | store advanced to `gen2`, or to a changed Jina weight | `Frame(SourceChanged)` at run time |
@@ -96,7 +96,7 @@ Unpinned, Tract's `analyse` fails at `/Flatten` (two symbols), so the Symbolic c
 
 **Folding.** `fold::fold` executes a node at resolution only when its class is `Const` or `Shape` and either every input is a known constant or it is `Shape` over a fully known shape. It uses the node's own registration: lookup, WHEN must be TRUE, then the same DO a run would call. `plan::resolve` folds before binding, writes the folded values into the tile's constants (so later guards read them) and keeps folded nodes in `Plan::folded`, not in the steps. A run whose inputs differ from the resolved facts is refused before any step (`check_against_fact`), so a folded shape is never applied to an input it was not computed for. Symbolic and Data nodes stay dynamic.
 
-**Registry v2.** Lab classids: `Shape` F32/I64/I32/Bool 0x0F60–0x0F63 (`start`/`end` clamped), `Gather` on int64 data 0x0F64 (`ndarray` `select`; constant indices in `[-d, d)`, else FALSE; run-time indices UNKNOWN), `Unsqueeze` I64/F32 0x0F65/0x0F66, `Concat` I64/F32 0x0F67/0x0F68 (`ndarray::concatenate`; equal non-axis dims, two different symbols UNKNOWN), `Reshape` I64/F32 0x0F69/0x0F6A (`allowzero = 0`, constant target, known input shape), `Cast` i64→i64 identity 0x0F11, `Erf` 0x0F33 (`ndarray::hpc::vml::vserf`, Bounded ≤ 2 ULP on [-5, 5]). Scalar-Y `Where` now calls `ndarray::simd::blend_i32_scalar` (one allocation and 28 B less per call on fixture A; no new kernel). `AttrRule.value: None` admits any integer attribute (an axis) read by the DO; a fixed value still keys a separate signature.
+**Registry v2.** Fields: `Shape` F32/I64/I32/Bool (`start`/`end` clamped), `Gather` on int64 data (`ndarray` `select`; constant indices in `[-d, d)`, else FALSE; run-time indices UNKNOWN), `Unsqueeze` I64/F32, `Concat` I64/F32 (`ndarray::concatenate`; equal non-axis dims, two different symbols UNKNOWN), `Reshape` I64/F32 (`allowzero = 0`, constant target, known input shape), `Cast` i64→i64 identity, `Erf` (`ndarray::hpc::vml::vserf`, Bounded ≤ 2 ULP on [-5, 5]). Scalar-Y `Where` now calls `ndarray::simd::blend_i32_scalar` (one allocation and 28 B less per call on fixture A; no new kernel). `AttrRule.value: None` admits any integer attribute (an axis) read by the DO; a fixed value still keys a separate signature.
 
 **Fact identity.** A Tract fact is admitted for a source value only if exactly one outlet of the stage carries the label and that outlet is the value's source producer by Tract's own naming rule (`dr3::source_producers`, `onnx/src/model.rs:122,150`); a matching label alone is not authority (`dr3::admit`). Jina: inference 7,937 admitted, 0 rejected; typed 1,988 of 2,546 full facts admitted, 558 rejected (557 from an outlet Tract renamed during typing, 1 label on two outlets). Coverage is unaffected because the inference stage covers every value. Tract's `TDim` (the type its `Shape` emits) is read as int64, the ONNX type. A Tract panic during `analyse` or typing is a frontend refusal (Tract indexes out of bounds on a constant out-of-range `Gather` index, `core/src/ops/array/gather.rs:75`).
 
@@ -110,7 +110,7 @@ Tests (40, all green): `shape_chain_folds_and_the_data_nodes_run_against_ort`, `
 
 **OPEN (owner decisions):**
 - int64 shape arithmetic (`Mul`, `Div`, `Add`, `Equal`, `Where`, `Range`) has no ndarray word; its overflow and division semantics (wrap or refuse; truncation; division by zero) need a decision before an ndarray ask.
-- An axis attribute is a DO parameter under one classid per (op, dtype); the alternative is a classid per axis value.
+- An axis attribute is a DO parameter under one field per (op, dtype); the alternative is a field per axis value.
 - `Erf` is Bounded at 2 ULP; `vserf` is about 4x slower than Tract's `erf` on this host.
 - `ConstantOfShape` and `Expand` map onto ndarray `from_elem` / `broadcast` and are not registered yet.
 - Multi-tile orchestration and full Jina MatMul execution remain separate gates.
@@ -119,7 +119,7 @@ Tests (40, all green): `shape_chain_folds_and_the_data_nodes_run_against_ort`, `
 
 Owner decisions: int64 shape arithmetic GO under checked, fail-closed admission (Div truncates toward zero; a zero divisor or an overflow refuses); an axis stays a guarded parameter of one method unless a different axis changes the behaviour law; ConstantOfShape and Expand registered on existing ndarray capabilities; Erf numerically accepted as Bounded, its performance open.
 
-**Registry v3.** int64 `Equal` 0x0F70 and `LessOrEqual` 0x0F71 (ndarray #400 `eq/le_i64_pair_to_mask`, scalar right side `eq/le_i64_to_mask`; a same-shape or one-element right side only, other broadcasts not admitted), int64 `Where` 0x0F72 (`blend_i64` / `blend_i64_scalar`), `ConstantOfShape` 0x0F73 (`ArrayD::from_elem` of the value attribute, constant non-negative shape), `Expand` int64/f32 0x0F74/0x0F75 (`ndarray` `broadcast` to the multidirectional broadcast). Fixture `shape_i64`: every int64 node over `Shape(F)` folds, `Expand(F)` runs, every output equals ORT.
+**Registry v3.** int64 `Equal` and `LessOrEqual` (ndarray #400 `eq/le_i64_pair_to_mask`, scalar right side `eq/le_i64_to_mask`; a same-shape or one-element right side only, other broadcasts not admitted), int64 `Where` (`blend_i64` / `blend_i64_scalar`), `ConstantOfShape` (`ArrayD::from_elem` of the value attribute, constant non-negative shape), `Expand` int64/f32 (`ndarray` `broadcast` to the multidirectional broadcast). Fixture `shape_i64`: every int64 node over `Shape(F)` folds, `Expand(F)` runs, every output equals ORT.
 
 **Optional output slots.** Tract numbers a node's outlets after dropping empty output names (`onnx/src/model.rs:150`). Fixtures `lstm_skip` (`LSTM` outputs `["", "Y_h"]`) and `lstm_full` pin that `source_producers` names slot 0 resp. 1 for `Y_h` and that the admitted fact is `Y_h`'s (ORT `[1,1,2]`), not the omitted `Y`'s (`[5,1,1,2]`). Disable run (count empty slots): red.
 
@@ -153,7 +153,7 @@ Disable runs (each red): Equal kernel replaced by `le`; slot counted over empty 
 
 ### 0.4 Checked int64 arithmetic on ndarray #401 (2026-10-30)
 
-ndarray #401 shipped `ndarray::hpc::checked_i64` (consumed as built; ndarray is another session's). Registry v4 registers int64 `Add`/`Sub`/`Mul`/`Div` (0x0F76-79) on `checked_binary_i64` and `Range` (0x0F7A) on `range_i64`, bounded by `RANGE_CAPACITY = 65,536` (a policy pin). Guards: equal known shapes, or a one-element side whose rank is at most the other's; anything else FALSE, unknown shapes UNKNOWN. `Range` needs three one-element inputs; a constant zero step is FALSE. `Div` truncates toward zero; overflow, a zero divisor, a zero step and a range over capacity refuse with the ndarray error text.
+ndarray #401 shipped `ndarray::hpc::checked_i64` (consumed as built; ndarray is another session's). Registry v4 registers int64 `Add`/`Sub`/`Mul`/`Div` on `checked_binary_i64` and `Range` on `range_i64`, bounded by `RANGE_CAPACITY = 65,536` (a policy pin). Guards: equal known shapes, or a one-element side whose rank is at most the other's; anything else FALSE, unknown shapes UNKNOWN. `Range` needs three one-element inputs; a constant zero step is FALSE. `Div` truncates toward zero; overflow, a zero divisor, a zero step and a range over capacity refuse with the ndarray error text.
 
 The fold records a DO refusal (`Folded::refused`) instead of treating it as "not folded", and `plan::resolve` returns it, so invalid constant arithmetic refuses the plan.
 
@@ -187,21 +187,21 @@ Disable runs (each red): DO refusal not surfaced by `resolve`; binary guard alwa
 
 Registry v5 registers what §0.4 listed as the remaining shape-only blockers, each on an ndarray word consumed as built:
 
-| classid | op | DO | numerics |
-|---|---|---|---|
-| 0x0F7B | Cast int64 → f32 | `v as f32` (round to nearest, as ONNX) | exact |
-| 0x0F7C | Cast bool → bool | identity | exact |
-| 0x0F7D | MatMul f32 | `matmul_plan` + `ndarray::simd::matmul_f32_batched` | bounded (sgemm accumulation order; exact when K = 1) |
-| 0x0F7E / 0x0F7F | Transpose f32 / int64 | `permuted_axes` + `as_standard_layout` | exact |
-| 0x0F80 / 0x0F81 | Cos / Sin | `ndarray::hpc::vml::vscos` / `vssin` | bounded |
-| 0x0F82 | And (bool) | `mask_and` after broadcasting the bit words | exact |
+| op | DO | numerics |
+|---|---|---|
+| Cast int64 → f32 | `v as f32` (round to nearest, as ONNX) | exact |
+| Cast bool → bool | identity | exact |
+| MatMul f32 | `matmul_plan` + `ndarray::simd::matmul_f32_batched` | bounded (sgemm accumulation order; exact when K = 1) |
+| Transpose f32 / int64 | `permuted_axes` + `as_standard_layout` | exact |
+| Cos / Sin | `ndarray::hpc::vml::vscos` / `vssin` | bounded |
+| And (bool) | `mask_and` after broadcasting the bit words | exact |
 
 MatMul admits a rank-2 right operand (the left's leading dims flatten into rows), equal leading dims, or all-ones right leading dims; anything else is WHEN FALSE. Equal and LessOrEqual now admit any multidirectional broadcast (both sides broadcast with ndarray, then the pair kernel); the earlier pair-or-scalar rule was the census's one WHEN-false node. `attrs_match` accepts an integer list for a rule without a pinned value (Transpose's `perm`).
 
 **External constant.** The rotary `inv_freq` (`Constant_2836`, 64 f32) lives in the external weight file. `tools/fetch_jina_constants.py` fetches only external-data Constants of at most 64 KiB as HTTP ranges into `fixtures/jina/` (gitignored); `fixtures/jina_constants.json` commits offset, length, dims and SHA-256. `SourceInventory::inline_constants_from_manifest` refuses a wrong digest or length, and `inline_external_constant` refuses a target that is not exactly one undecoded default-domain Constant. The same script extracts the 40-node rotary subgraph with the model's own opset and runs it under ORT `ORT_DISABLE_ALL` for `input_ids` [1, 10] (outputs and digests in the manifest).
 
 **Acceptance.**
-- `rotary_chain_folds_and_matches_ort` (tiny `rope` variant, synthetic inv_freq): the chain folds with no run-time step through the v5 classids; the causal mask matches ORT exactly (55 set bits); cos and sin are within 1 ULP.
+- `rotary_chain_folds_and_matches_ort` (tiny `rope` variant, synthetic inv_freq): the chain folds with no run-time step through the v5 fields; the causal mask matches ORT exactly (55 set bits); cos and sin are within 1 ULP.
 - `trig_sweep_against_f64_and_ort` (41,579 points: the rotary angles, a grid over ±4π, special values): `vscos`/`vssin` are ≤ 1 ULP from f64 and ≤ 2 ULP from ORT, which is itself 2 ULP from f64 at points.
 - `matmul_f32_against_ort` (a [1,4,64] × [64,8] weight and a [1,2,4,16] × [1,2,16,4] attention shape): 0 ULP measured, pinned ≤ 2.
 - `jina_rotary_fold_matches_ort` (real Jina, inv_freq inlined): both folded rotary outputs match ORT within 1 ULP over 1,280 values each.
@@ -218,16 +218,16 @@ Disable runs (each red): Transpose `perm` ignored; Cos computed with sin; compar
 
 D-DT64-6 §1 records DR64 as direct routing (position → bound target) and DT64 as the DTO bind store (classid → behaviour). The DT64 drafts on EXO-50 (-06 to -09) resolve `address → classid → method`. `Registry::lookup` does both halves in one step. `src/bind.rs` separates them without changing the registry:
 
-- `bind::route(src, facts, registry)` is the binder: the signature match runs once per node and only `node position → classid` is kept, sparse. `Routes::version` digests the registry version and every entry, so a re-route is a new version.
-- `bind::resolve(routes, registry, node)` is the bind-store side: the registration is found by classid alone (`Registry::by_classid`), and the failed link is named (`Unresolved::Route` for an unrouted position, which is UNKNOWN; `Unresolved::Class` for a classid the store does not hold).
+- `bind::route(src, facts, registry)` is the binder: the signature match runs once per node and only `node position → MethodKey { lens, ordinal }` is kept, sparse. `Routes::version` digests the registry version and every entry, so a re-route is a new version.
+- `bind::resolve(routes, registry, node)` is the bind-store side: the field is found by its key alone (`Registry::get`), and the failed link is named (`Unresolved::Route` for an unrouted position, which is UNKNOWN; `Unresolved::Lens` for a foreign lens; `Unresolved::Item` for a key the lens does not hold or does not expose).
 
-This works because every registration carries its own classid and none is registered twice (`classids_are_unique`).
+This works because every field has one position under the one ONNX lens, so a key names one field.
 
 **Acceptance.**
 - `route_then_resolve_equals_signature_lookup`: for every node of 15 tiny fixtures, resolve returns the same registration (pointer-equal) as `lookup`; unregistered nodes resolve as `Route`.
-- `bind_store_names_the_failed_link_and_versions_routes`: a removed classid resolves as `Class`; re-routing against it drops the route and moves the version; a registry version bump moves the version.
+- `bind_store_names_the_failed_link_and_versions_routes`: a key the lens does not hold resolves as `Item`, a foreign lens as `Lens`; re-routing against it drops the route and moves the version; a registry version bump moves the version.
 - `full_graph_facts_and_coverage` (Jina, [1,10], inv_freq inlined): **7,274 routed and resolved, 346 unrouted**, equal to the coverage census.
-- Disable runs (each red): classid match loosened; registry version dropped from the route digest.
+- Disable runs (each red): key match loosened; registry version dropped from the route digest.
 
 **Finding.** `OnnxGraph::build` refuses a graph over one 64-node tile (`TileOverflow`), and Jina has 7,620 nodes. The binder therefore reads per-value facts, not the one-tile graph; a node position is the source node index. Mapping that index onto DR64 tile coordinates (and multi-tile execution) is DR's, not Tract's.
 
@@ -235,7 +235,7 @@ This works because every registration carries its own classid and none is regist
 
 ### 0.7 CORRECTION: a classid is a codebook lens, not a codebook item (2026-10-30)
 
-**Superseded.** Every "classid" in §0.2–§0.6 that names a single op signature (0x0F01…0x0F82, including the classid column of the §0.5 table and "13 lab classids" in the EXO-50 messages) was a mistake. The registry spent one classid per codebook item. It was this session's assumption: a binding question offered "op signature → one immutable classid" as the recommended option, and the module doc then attributed it to a "user decision" the user never made.
+**Superseded.** Every per-op-signature classid (0x0F01…0x0F82, and "13 lab classids" in the EXO-50 messages) was a mistake. They have been removed from §0.1–§0.6; ONNX has one classid, `ONNX_LENS`. The registry spent one classid per codebook item. It was this session's assumption: a binding question offered "op signature → one immutable classid" as the recommended option, and the module doc then attributed it to a "user decision" the user never made.
 
 **Now (registry version 6).**
 - The ONNX operator codebook is read through one lens, `registry::ONNX_LENS` (a lab classid, not minted).
