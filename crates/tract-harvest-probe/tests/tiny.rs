@@ -1024,6 +1024,102 @@ fn invalid_int64_arithmetic_refuses() {
     }
 }
 
+/// The Jina rotary-embedding and causal-mask structure (self-authored
+/// fixture `rope`): positions come from the input's shape, so at a fixed
+/// shape every node folds, including Cast i64 -> f32, MatMul, Transpose, an
+/// f32 Concat, Cos, Sin, a broadcast LessOrEqual, Cast bool and And. The
+/// mask matches ORT exactly; Cos and Sin are compared bit for bit and the
+/// largest ULP distance is pinned.
+#[test]
+fn rotary_chain_folds_and_matches_ort() {
+    let reg = registry();
+    let (fx, p) = plan("rope", &reg);
+    let p = p.unwrap();
+    assert!(
+        p.steps.is_empty(),
+        "{:?}",
+        p.steps.iter().map(|b| &b.name).collect::<Vec<_>>()
+    );
+    let folded: Vec<u16> = p.folded.iter().map(|b| b.classid).collect();
+    for c in [
+        0x0F7B, 0x0F7C, 0x0F7D, 0x0F7E, 0x0F80, 0x0F81, 0x0F82, 0x0F71,
+    ] {
+        assert!(folded.contains(&c), "classid {c:#06x} did not fold");
+    }
+    let ids = Value::I64(ArrayD::from_shape_vec(IxDyn(&[1, 10]), (0..10).collect()).unwrap());
+    let out = p.run(&fx.store, &[("ids", ids)]).unwrap();
+    assert_eq!(ints(&out, "MASK"), ort_ints("rope", "MASK"));
+    let mask = ints(&out, "MASK").1;
+    assert_eq!(mask.iter().sum::<i64>(), 55, "lower triangle of 10 x 10");
+    let mut worst = 0;
+    for k in ["COS", "SIN"] {
+        let (shape, got) = f32_bits(&out, k);
+        let (want_shape, want) = ort_f32("rope", k);
+        assert_eq!(shape, want_shape, "{k}");
+        let d = got
+            .iter()
+            .zip(&want)
+            .map(|(&g, &w)| ulp(f32::from_bits(g), f32::from_bits(w)))
+            .max()
+            .unwrap();
+        eprintln!("rope {k}: max ULP vs ORT {d}");
+        worst = worst.max(d);
+    }
+    assert!(worst <= 1, "{worst} ULP");
+}
+
+/// Cos and Sin (`vscos` / `vssin`) over rotary angles (position x inv_freq up
+/// to 8192), a dense grid of [-4 pi, 4 pi] and special values: distance to
+/// ORT and to f64 rounded once to f32, measured and pinned (at most 1 ULP
+/// from f64, at most 2 from ORT, which is itself 2 from f64); NaN for
+/// infinities and NaN.
+#[test]
+fn trig_sweep_against_f64_and_ort() {
+    let o = ort();
+    let sw = &o["trig_sweep"];
+    let f = |k: &str| -> Vec<f32> { u32s(&sw[k]).into_iter().map(f32::from_bits).collect() };
+    let xs = f("X_bits");
+    let b = bytes("trig_sweep");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let g = OnnxGraph::build(&src, &facts).unwrap();
+    let reg = registry();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    let p = resolve(&src, g, &reg, &store).unwrap();
+    let x = Value::F32(ArrayD::from_shape_vec(IxDyn(&[xs.len()]), xs.clone()).unwrap());
+    let out = p.run(&store, &[("X", x)]).unwrap();
+    for (k, ort_k, ref_k) in [
+        ("C", "ort_cos_bits", "f64_cos_bits"),
+        ("S", "ort_sin_bits", "f64_sin_bits"),
+    ] {
+        let ys: Vec<f32> = f32_bits(&out, k)
+            .1
+            .into_iter()
+            .map(f32::from_bits)
+            .collect();
+        let (orts, refs) = (f(ort_k), f(ref_k));
+        let (mut vs_ref, mut vs_ort, mut ort_vs_ref) = (0u32, 0u32, 0u32);
+        for (((&x, &y), &t), &r) in xs.iter().zip(&ys).zip(&orts).zip(&refs) {
+            if x.is_finite() {
+                vs_ref = vs_ref.max(ulp(y, r));
+                ort_vs_ref = ort_vs_ref.max(ulp(t, r));
+            } else {
+                assert!(y.is_nan() && t.is_nan(), "{k}({x}) = {y}, ORT {t}");
+            }
+            vs_ort = vs_ort.max(ulp(y, t));
+        }
+        eprintln!(
+            "{k} sweep: {} points, max ULP vs f64 {vs_ref}, vs ORT {vs_ort} (ORT vs f64 {ort_vs_ref})",
+            xs.len()
+        );
+        // vscos/vssin round per lane through libm f32 and stay within 1 ULP
+        // of f64; ORT itself is 2 ULP from f64 on this sweep, which is the
+        // whole of the measured distance to ORT.
+        assert!(vs_ref <= 1, "{k}: {vs_ref} ULP vs f64");
+        assert!(vs_ort <= 2, "{k}: {vs_ort} ULP vs ORT");
+    }
+}
+
 /// Facts read from one model refuse to bind to another (a stale binding):
 /// `gen2` has `base`'s value names but different bytes.
 #[test]

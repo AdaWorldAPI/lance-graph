@@ -112,8 +112,8 @@ pub type Guard = fn(&NodeView) -> K3;
 ///
 /// - `value: Some(v)`: the attribute must equal `v` (or be absent with
 ///   `default == Some(v)`); a different value is a different signature.
-/// - `value: None`: any integer, read by the DO as a parameter (an axis).
-///   Absent is admitted only if `default` is `Some` (the ONNX default the DO
+/// - `value: None`: any integer or integer list, read by the DO as a
+///   parameter (an axis, a permutation). Absent is admitted only if `default` is `Some` (the ONNX default the DO
 ///   applies). The method's behaviour does not depend on which value: the
 ///   same immutable function reads it.
 #[derive(Debug, Clone, Copy)]
@@ -217,7 +217,9 @@ fn attrs_match(node: &SourceNode, rules: &[AttrRule]) -> bool {
     let listed = node.attrs.iter().all(|(n, a)| {
         (n == "value" && matches!(a, Attr::Tensor(_)))
             || rules.iter().any(|r| {
-                r.name == n && matches!(a, Attr::Int(v) if r.value.is_none_or(|w| *v == w))
+                r.name == n
+                    && (matches!(a, Attr::Int(v) if r.value.is_none_or(|w| *v == w))
+                        || (r.value.is_none() && matches!(a, Attr::Ints(_))))
             })
     });
     let defaults = rules.iter().all(|r| {
@@ -639,6 +641,106 @@ fn guard_range(v: &NodeView) -> K3 {
     match v.consts.get(2).copied().flatten().and_then(Value::i64s) {
         Some(d) if d.first() == Some(&0) => K3::False,
         _ => t,
+    }
+}
+
+/// int64 compares: a same-shape or one-element right side (the scalar
+/// kernel), or any multidirectional broadcast of two known shapes (both
+/// sides broadcast to the common shape, then the pair kernel). An
+/// incompatible pair is FALSE; an unknown dimension is UNKNOWN.
+fn guard_compare_i64(v: &NodeView) -> K3 {
+    match guard_pair_or_scalar(v) {
+        K3::True => K3::True,
+        K3::Unknown => K3::Unknown,
+        K3::False => {
+            let (Some(a), Some(b)) = (
+                known(&arg_shape(v, 0).cloned()),
+                known(&arg_shape(v, 1).cloned()),
+            ) else {
+                return K3::Unknown;
+            };
+            if broadcast_shapes(&a, &b).is_some() {
+                K3::True
+            } else {
+                K3::False
+            }
+        }
+    }
+}
+
+/// `MatMul` f32 as admitted here: two rank-2 operands, or two rank-3
+/// operands whose batch sizes agree or whose right batch is 1, with matching
+/// inner dimensions. Other ranks and batch broadcasts are not admitted.
+fn guard_matmul(v: &NodeView) -> K3 {
+    let (Some(a), Some(b)) = (
+        known(&arg_shape(v, 0).cloned()),
+        known(&arg_shape(v, 1).cloned()),
+    ) else {
+        return K3::Unknown;
+    };
+    let ok = match (a.as_slice(), b.as_slice()) {
+        ([_, k], [kb, _]) => k == kb,
+        ([ba, _, k], [bb, kb, _]) => k == kb && (ba == bb || *bb == 1),
+        _ => false,
+    };
+    if ok {
+        K3::True
+    } else {
+        K3::False
+    }
+}
+
+/// `Transpose`: `perm` (default: reversed axes) is a permutation of the
+/// input's rank.
+fn guard_transpose(v: &NodeView) -> K3 {
+    let Some(r) = arg_shape(v, 0).map(Vec::len) else {
+        return K3::Unknown;
+    };
+    match transpose_perm(v.node, r) {
+        Some(_) => K3::True,
+        None => K3::False,
+    }
+}
+
+fn transpose_perm(n: &SourceNode, rank: usize) -> Option<Vec<usize>> {
+    let perm: Vec<usize> = match n.attr("perm") {
+        None => (0..rank).rev().collect(),
+        Some(Attr::Ints(p)) => p
+            .iter()
+            .map(|&x| usize::try_from(x).ok())
+            .collect::<Option<_>>()?,
+        Some(_) => return None,
+    };
+    let mut seen = vec![false; rank];
+    if perm.len() != rank {
+        return None;
+    }
+    for &p in &perm {
+        if p >= rank || std::mem::replace(&mut seen[p], true) {
+            return None;
+        }
+    }
+    Some(perm)
+}
+
+/// Element-wise bool `And`: both shapes known and equal.
+fn guard_same_known_shape(v: &NodeView) -> K3 {
+    match (
+        known(&arg_shape(v, 0).cloned()),
+        known(&arg_shape(v, 1).cloned()),
+    ) {
+        (Some(a), Some(b)) if a == b => K3::True,
+        (Some(_), Some(_)) => K3::False,
+        _ => K3::Unknown,
+    }
+}
+
+/// `Cast` to the input's own dtype (bool to bool): the identity.
+fn guard_cast_bool_identity(v: &NodeView) -> K3 {
+    match v.args.first().copied().flatten().and_then(|f| f.dtype) {
+        Some(DType::Bool) => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
     }
 }
 
@@ -1077,17 +1179,48 @@ fn compare_i64(
         let ys: Vec<i64> = y.iter().copied().collect();
         pair(&xs, &ys, &mut words);
     } else if let (1, Some(&t)) = (y.len(), y.iter().next()) {
+        if y.ndim() > x.ndim() {
+            return compare_broadcast(x, y, n, pair);
+        }
         scalar(&xs, t, &mut words);
     } else {
-        return Err(runtime(
-            n,
-            format!("{:?} against {:?} is not admitted", x.shape(), y.shape()),
-        ));
+        return compare_broadcast(x, y, n, pair);
     }
     Ok(vec![Value::Bool {
         shape: x.shape().to_vec(),
         words,
     }])
+}
+
+/// Both sides broadcast to their common shape (ndarray `broadcast`), then
+/// the pair kernel.
+fn compare_broadcast(
+    x: &ArrayD<i64>,
+    y: &ArrayD<i64>,
+    n: &SourceNode,
+    pair: fn(&[i64], &[i64], &mut [u64]),
+) -> Result<Vec<Value>, Refusal> {
+    let shape = broadcast_shapes(x.shape(), y.shape()).ok_or_else(|| {
+        runtime(
+            n,
+            format!("{:?} and {:?} do not broadcast", x.shape(), y.shape()),
+        )
+    })?;
+    let bx: Vec<i64> = x
+        .broadcast(IxDyn(&shape))
+        .ok_or_else(|| runtime(n, "broadcast failed"))?
+        .iter()
+        .copied()
+        .collect();
+    let by: Vec<i64> = y
+        .broadcast(IxDyn(&shape))
+        .ok_or_else(|| runtime(n, "broadcast failed"))?
+        .iter()
+        .copied()
+        .collect();
+    let mut words = vec![0u64; lance_graph_onnx::mask_words(bx.len())];
+    pair(&bx, &by, &mut words);
+    Ok(vec![Value::Bool { shape, words }])
 }
 
 /// The most elements `Range` may produce: a policy bound, so a large or
@@ -1150,6 +1283,108 @@ fn do_range_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
         .map_err(|e| arith_refusal(n, e))?;
     out.truncate(len);
     Ok(vec![i64_vector(out)])
+}
+
+fn do_cast_i64_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    // `as` rounds to nearest, ties to even, as C++ `static_cast` under the
+    // default rounding mode.
+    Ok(vec![Value::F32(i64_arg(a, 0, n)?.mapv(|v| v as f32))])
+}
+
+fn do_matmul_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    use ndarray::{Ix2, Ix3};
+    let x = f32_arg(a, 0, n)?;
+    let y = f32_arg(a, 1, n)?;
+    let bad = |e: String| runtime(n, e);
+    match (x.ndim(), y.ndim()) {
+        (2, 2) => {
+            let (xv, yv) = (
+                x.view()
+                    .into_dimensionality::<Ix2>()
+                    .map_err(|e| bad(e.to_string()))?,
+                y.view()
+                    .into_dimensionality::<Ix2>()
+                    .map_err(|e| bad(e.to_string()))?,
+            );
+            let mut out = ndarray::Array2::<f32>::zeros((xv.nrows(), yv.ncols()));
+            ndarray::hpc::amx_matmul::matmul_f32(xv, yv, out.view_mut())
+                .map_err(|e| bad(format!("{e:?}")))?;
+            Ok(vec![Value::F32(out.into_dyn())])
+        }
+        (3, 3) => {
+            let (xv, yv) = (
+                x.view()
+                    .into_dimensionality::<Ix3>()
+                    .map_err(|e| bad(e.to_string()))?,
+                y.view()
+                    .into_dimensionality::<Ix3>()
+                    .map_err(|e| bad(e.to_string()))?,
+            );
+            let (b, m, _) = xv.dim();
+            let mut out = ndarray::Array3::<f32>::zeros((b, m, yv.dim().2));
+            ndarray::simd::matmul_f32_batched(xv, yv, out.view_mut())
+                .map_err(|e| bad(format!("{e:?}")))?;
+            Ok(vec![Value::F32(out.into_dyn())])
+        }
+        (r, s) => Err(bad(format!("rank {r} x rank {s} is not admitted"))),
+    }
+}
+
+fn do_transpose(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
+    let perm = transpose_perm(n, x.shape().len()).ok_or_else(|| runtime(n, "bad perm"))?;
+    Ok(vec![match x {
+        Value::F32(v) => Value::F32(
+            v.view()
+                .permuted_axes(IxDyn(&perm))
+                .as_standard_layout()
+                .into_owned(),
+        ),
+        Value::I64(v) => Value::I64(
+            v.view()
+                .permuted_axes(IxDyn(&perm))
+                .as_standard_layout()
+                .into_owned(),
+        ),
+        other => return Err(runtime(n, format!("Transpose of {:?}", other.dtype()))),
+    }])
+}
+
+fn do_cos(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = f32_arg(a, 0, n)?;
+    let mut out = ArrayD::<f32>::zeros(x.raw_dim());
+    ndarray::hpc::vml::vscos(x.view(), out.view_mut());
+    Ok(vec![Value::F32(out)])
+}
+
+fn do_sin(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = f32_arg(a, 0, n)?;
+    let mut out = ArrayD::<f32>::zeros(x.raw_dim());
+    ndarray::hpc::vml::vssin(x.view(), out.view_mut());
+    Ok(vec![Value::F32(out)])
+}
+
+fn do_and_bool(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    match (a.first(), a.get(1)) {
+        (
+            Some(Value::Bool {
+                shape: sa,
+                words: wa,
+            }),
+            Some(Value::Bool {
+                shape: sb,
+                words: wb,
+            }),
+        ) if sa == sb => {
+            let mut words = vec![0u64; wa.len()];
+            ndarray::simd::mask_and(wa, wb, &mut words);
+            Ok(vec![Value::Bool {
+                shape: sa.clone(),
+                words,
+            }])
+        }
+        _ => Err(runtime(n, "And needs two bool tensors of one shape")),
+    }
 }
 
 fn do_equal_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
@@ -1277,6 +1512,19 @@ const CAST_TO_F32: &[AttrRule] = &[AttrRule {
     value: Some(1),
     default: None,
 }];
+const CAST_TO_BOOL: &[AttrRule] = &[AttrRule {
+    name: "to",
+    value: Some(9),
+    default: None,
+}];
+/// `perm` is any list; its guard checks it is a permutation. The default
+/// `-1` only marks the attribute optional (absent means reversed axes); no
+/// body reads it.
+const TRANSPOSE_PERM: &[AttrRule] = &[AttrRule {
+    name: "perm",
+    value: None,
+    default: Some(-1),
+}];
 const CAST_TO_I64: &[AttrRule] = &[AttrRule {
     name: "to",
     value: Some(7),
@@ -1345,7 +1593,7 @@ pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
     Registry {
-        version: 4,
+        version: 5,
         regs: vec![
             reg!(
                 0x0F01,
@@ -1537,23 +1785,23 @@ pub fn registry() -> Registry {
             ),
             reg!(
                 0x0F70,
-                "simd::eq_i64_pair_to_mask / eq_i64_to_mask",
+                "simd::eq_i64_pair_to_mask / eq_i64_to_mask (ndarray broadcast first when shapes differ)",
                 "Equal",
                 Some(0),
                 I64,
                 NO_ATTRS,
-                guard_pair_or_scalar,
+                guard_compare_i64,
                 do_equal_i64,
                 Exact
             ),
             reg!(
                 0x0F71,
-                "simd::le_i64_pair_to_mask / le_i64_to_mask",
+                "simd::le_i64_pair_to_mask / le_i64_to_mask (ndarray broadcast first when shapes differ)",
                 "LessOrEqual",
                 Some(0),
                 I64,
                 NO_ATTRS,
-                guard_pair_or_scalar,
+                guard_compare_i64,
                 do_less_or_equal_i64,
                 Exact
             ),
@@ -1654,6 +1902,94 @@ pub fn registry() -> Registry {
                 NO_ATTRS,
                 guard_range,
                 do_range_i64,
+                Exact
+            ),
+            reg!(
+                0x0F7B,
+                "Cast i64 -> f32: as f32 (round to nearest even)",
+                "Cast",
+                Some(0),
+                I64,
+                CAST_TO_F32,
+                guard_true,
+                do_cast_i64_f32,
+                Exact
+            ),
+            reg!(
+                0x0F7C,
+                "Cast bool -> bool: identity",
+                "Cast",
+                Some(0),
+                Bool,
+                CAST_TO_BOOL,
+                guard_cast_bool_identity,
+                do_identity,
+                Exact
+            ),
+            reg!(
+                0x0F7D,
+                "hpc::amx_matmul::matmul_f32 / simd::matmul_f32_batched (f32 sgemm, never AMX)",
+                "MatMul",
+                Some(0),
+                F32,
+                NO_ATTRS,
+                guard_matmul,
+                do_matmul_f32,
+                Bounded("sgemm accumulation order; exact when K = 1")
+            ),
+            reg!(
+                0x0F7E,
+                "ndarray permuted_axes, standard layout",
+                "Transpose",
+                Some(0),
+                F32,
+                TRANSPOSE_PERM,
+                guard_transpose,
+                do_transpose,
+                Exact
+            ),
+            reg!(
+                0x0F7F,
+                "ndarray permuted_axes, standard layout",
+                "Transpose",
+                Some(0),
+                I64,
+                TRANSPOSE_PERM,
+                guard_transpose,
+                do_transpose,
+                Exact
+            ),
+            reg!(
+                0x0F80,
+                "ndarray::hpc::vml::vscos",
+                "Cos",
+                Some(0),
+                F32,
+                NO_ATTRS,
+                guard_true,
+                do_cos,
+                Bounded("libm f32 cos per lane; ULP against ORT measured in tests")
+            ),
+            reg!(
+                0x0F81,
+                "ndarray::hpc::vml::vssin",
+                "Sin",
+                Some(0),
+                F32,
+                NO_ATTRS,
+                guard_true,
+                do_sin,
+                Bounded("libm f32 sin per lane; ULP against ORT measured in tests")
+            ),
+            reg!(
+                0x0F82,
+                "simd::mask_and on packed tensor(bool)",
+                "And",
+                Some(0),
+                Bool,
+                NO_ATTRS,
+                guard_same_known_shape,
+                do_and_bool,
                 Exact
             ),
             reg!(
@@ -1795,6 +2131,153 @@ pub fn registry() -> Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rotary_guards_fire_and_stay_silent() {
+        use Dim::*;
+        let k = |d: &[usize]| f(d.iter().map(|&x| Known(x)).collect());
+        let two = |op: &str, g: Guard, a: Fact, b: Fact| {
+            let n = node(op, 2, vec![]);
+            g(&NodeView {
+                node: &n,
+                args: vec![Some(&a), Some(&b)],
+                consts: vec![None, None],
+            })
+        };
+        // MatMul: rank 2, rank 3 with equal or shared right batch.
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[2, 3]), k(&[3, 4])),
+            K3::True
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[5, 2, 3]), k(&[1, 3, 4])),
+            K3::True
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[2, 3]), k(&[2, 4])),
+            K3::False
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[1, 2, 3]), k(&[5, 3, 4])),
+            K3::False
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[2, 3]), k(&[1, 3, 4])),
+            K3::False
+        );
+        // Compares: pair, scalar and any multidirectional broadcast.
+        assert_eq!(
+            two("LessOrEqual", guard_compare_i64, k(&[1, 10]), k(&[10, 1])),
+            K3::True
+        );
+        assert_eq!(
+            two("LessOrEqual", guard_compare_i64, k(&[2, 3]), k(&[4, 3])),
+            K3::False
+        );
+        assert_eq!(
+            two(
+                "LessOrEqual",
+                guard_compare_i64,
+                k(&[2]),
+                f(vec![Symbol("N".into())])
+            ),
+            K3::Unknown
+        );
+        // And: equal known shapes only.
+        assert_eq!(
+            two("And", guard_same_known_shape, k(&[3, 3]), k(&[3, 3])),
+            K3::True
+        );
+        assert_eq!(
+            two("And", guard_same_known_shape, k(&[3, 3]), k(&[1, 3])),
+            K3::False
+        );
+        // Transpose: perm must permute the rank; absent means reversed.
+        let x = k(&[1, 2, 3]);
+        let t = |attrs: Vec<(String, Attr)>| {
+            let n = node("Transpose", 1, attrs);
+            guard_transpose(&NodeView {
+                node: &n,
+                args: vec![Some(&x)],
+                consts: vec![None],
+            })
+        };
+        assert_eq!(
+            t(vec![("perm".into(), Attr::Ints(vec![0, 2, 1]))]),
+            K3::True
+        );
+        assert_eq!(t(vec![]), K3::True);
+        assert_eq!(
+            t(vec![("perm".into(), Attr::Ints(vec![0, 1, 1]))]),
+            K3::False
+        );
+        assert_eq!(t(vec![("perm".into(), Attr::Ints(vec![0, 1]))]), K3::False);
+        assert_eq!(
+            t(vec![("perm".into(), Attr::Ints(vec![0, 1, 3]))]),
+            K3::False
+        );
+    }
+
+    #[test]
+    fn rotary_dos() {
+        let fv =
+            |s: &[usize], v: Vec<f32>| Value::F32(ArrayD::from_shape_vec(IxDyn(s), v).unwrap());
+        let iv =
+            |s: &[usize], v: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(s), v).unwrap());
+        let n = |op: &str| node(op, 2, vec![]);
+        // MatMul with K = 3 against the naive product.
+        let a = fv(&[2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        let b = fv(&[3, 2], vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        match &do_matmul_f32(&[&a, &b], &n("MatMul")).unwrap()[0] {
+            Value::F32(o) => assert_eq!(
+                o.iter().copied().collect::<Vec<_>>(),
+                [58.0, 64.0, 139.0, 154.0]
+            ),
+            other => panic!("{other:?}"),
+        }
+        // Batched with a shared right operand.
+        let a3 = fv(&[2, 1, 2], vec![1.0, 2.0, 3.0, 4.0]);
+        let b3 = fv(&[1, 2, 1], vec![10.0, 1.0]);
+        match &do_matmul_f32(&[&a3, &b3], &n("MatMul")).unwrap()[0] {
+            Value::F32(o) => {
+                assert_eq!(o.shape(), [2, 1, 1]);
+                assert_eq!(o.iter().copied().collect::<Vec<_>>(), [12.0, 34.0]);
+            }
+            other => panic!("{other:?}"),
+        }
+        // Transpose [0, 2, 1] moves elements, not just the shape.
+        let x = iv(&[1, 2, 3], vec![0, 1, 2, 3, 4, 5]);
+        let tn = node(
+            "Transpose",
+            1,
+            vec![("perm".into(), Attr::Ints(vec![0, 2, 1]))],
+        );
+        match &do_transpose(&[&x], &tn).unwrap()[0] {
+            Value::I64(o) => {
+                assert_eq!(o.shape(), [1, 3, 2]);
+                assert_eq!(o.iter().copied().collect::<Vec<_>>(), [0, 3, 1, 4, 2, 5]);
+            }
+            other => panic!("{other:?}"),
+        }
+        // Broadcast compare [1, 3] <= [3, 1]: lower triangle, tail bits clear.
+        let k = iv(&[1, 3], vec![0, 1, 2]);
+        let q = iv(&[3, 1], vec![0, 1, 2]);
+        match &do_less_or_equal_i64(&[&k, &q], &n("LessOrEqual")).unwrap()[0] {
+            Value::Bool { shape, words } => {
+                assert_eq!(shape, &[3, 3]);
+                // Row i holds j <= i: bits 0; 3, 4; 6, 7, 8.
+                assert_eq!(words, &[0b1_1101_1001]);
+            }
+            other => panic!("{other:?}"),
+        }
+        // i64 -> f32 rounds to nearest even.
+        match &do_cast_i64_f32(&[&iv(&[2], vec![16_777_217, -3])], &n("Cast")).unwrap()[0] {
+            Value::F32(o) => {
+                assert_eq!(o.iter().copied().collect::<Vec<_>>(), [16_777_216.0, -3.0])
+            }
+            other => panic!("{other:?}"),
+        }
+    }
 
     #[test]
     fn checked_i64_guards_fire_and_stay_silent() {
@@ -2171,7 +2654,7 @@ mod tests {
         assert_eq!(
             check(vec![Known(3), Known(1)], vec![Known(1), Known(3)]),
             K3::False,
-            "general broadcast not admitted"
+            "the scalar/pair kernels alone do not admit a general broadcast"
         );
         assert_eq!(check(vec![Symbol("N".into())], vec![Known(3)]), K3::Unknown);
     }
