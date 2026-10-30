@@ -52,7 +52,7 @@ coordinates; it does not define them.
 - [x] Design rules (§6), non-goals (§7), ownership (§8), consumers (§9).
 - [ ] Owner replies on EXO-50 (§10).
 - [ ] First consumer writes one binding with a failing fixture (§11, G1).
-- [ ] Gates G1–G5 (§11). None run.
+- [ ] Gates G1–G5 (§11). G3 PASS; G1, G2, G4, G5 not run.
 
 ## 1. Decisions recorded
 
@@ -122,6 +122,12 @@ Over a coordinate DR has routed:
 - **Meaning of a rod:** width, signedness and what a count stands for come through DT64 and hotplug
   (`Activation::register_law_for`, `RegisterLaw`), never from the coordinate.
 
+## 3a. Co-architecture readings (WORKING-MODEL)
+
+- **The Abacus rods are DR's missing counted semiring.** D-DRDT §3: a count matrix "would need a counted semiring (D-DT64-3 §3); not built"; D-DRF-1 §1: a Boolean cell carries no multiplicity. A dose stack of k Boolean planes develops to Σ 2^k · popcount(mask_k) without changing the Boolean cell. XLOG bag multiplicity and SPO evidence counts (w⁺, w) are rods over Boolean DR planes; G4 is that semiring's soundness gate.
+- **The die map is DR256's occupancy statistic.** `dr256-where-capstone-v1.md` B.7(2) measured that mask ops and masked folds do not skip dead 256-row blocks (NB/QB 0.02–0.39 at sparse selections), and P3 waits for "a consumer decision that reads active blocks". By G3 a 256-row block is a 16 × 16 die; a stepper exposes only patterned dies. Candidate consumer decision for P3: build the die map once from `Keep`, step only active dies. Unmeasured through Quack.
+- **A DTO binding is D-DRF-1's "caller".** Frame witness + declared axes (`AxisKind`, `dr-math-binding-probe`) + declared semiring (Boolean or rods) + law (an address map over `Morton8x8`) + method references. Nothing else reaches a shader.
+
 ## 4. What the DTO layer must know (DR's facts, applied here)
 
 Every fact below is DR's. This contract decides none of them; the authoritative text is the cited source.
@@ -133,7 +139,7 @@ The right-hand column is what the DTO layer does with the fact. Sources were rea
 | Dense 64³ Boolean volume 32 KiB; 256³ 2 MiB. Map plus cube is 40 KiB, not 32 KiB. A 64³ cell is not a pointer, a row or a thought. | D-DRF-1 §1 | A binding never assumes a cube exists. A cube is a separate admitted view. |
 | **Axis semantics are declared by the caller.** What the third axis physically indexes is NFR-OP-2, owned by the DR physical ABI. | D-DRF-1 §1; DT64 capstone (DT64-OP-2) | **The DTO layer is that caller.** Each binding declares its typed axes (Identity, Property, relation selector) and never decides the physical third axis. |
 | The HHTL16 address is `Morton8x8`: `x` on even bits, `y` on odd bits; each nibble is a 4 × 4 refinement, fan-out 16; a power-of-two subgrid is a code prefix (pinned for 4 × 4). | `crates/lance-graph-contract/src/morton8x8.rs` (`a_power_of_two_subgrid_is_a_code_prefix`); D-DRDT §1–§2 | A law is a deterministic map over this address. Rotation changes the coordinate law and is never a mask op (`MaskOp::Rotate` must not exist, `crates/lance-graph-mask-risc/tests/rotation.rs`). |
-| In code order a 64-row mask word is an aligned 8 × 8 square and a 256-row block a 16 × 16 square. | Derived from the prefix property; **not pinned beyond 4 × 4** | Relied on only after G3 (§11) passes. Until then a binding may not cite DR's "active words / blocks" as spatial tiles. |
+| In code order a 64-row mask word is an aligned 8 × 8 square and a 256-row block a 16 × 16 square. | `morton8x8.rs`, `every_aligned_code_run_is_an_aligned_square` (G3, PASS, disable-verified) | A binding may read DR256's active 256-row blocks as 16 × 16 dies: the stepper's die map (§3a). |
 | Fixed width 64 or 256. Underflow is carried by the presence bit, written sparse and merged on read; absent is never FALSE or zero. | user ruling 2026-10-30 (EXO-50 messages 17–18); matches D-DRF-1 G7, D-DRAV-1 AV11, `dr256-where-capstone-v1.md` A.11 | An out-of-focus contributor is expanded through a witnessed binding or refused. |
 | The sealed global → local map is immutable and versioned; a change is a successor revision. The focus lease begins at load. | D-DRF-1 §0, §2, §3; D-DRDT §1 | This is why coordinates freeze: a binding pins one map revision. The same ordinal under another frame is refused (D-DRF-1 G3; D-SAG-6 F07). |
 | A Boolean cell is support under a declared semiring; it carries no Bag multiplicity, SQL NULL or evidence. Presence is not validity. `ClassView::FieldMask` is presence, never predicate truth. | D-DRF-1 §1; `dr256-where-capstone-v1.md` A.5, A.11; DT64 capstone | Every binding declares its semiring. A count-shaped reading needs a counted semiring, not a Boolean cell. |
@@ -220,7 +226,7 @@ than the byte-dot, refused).
   address map over the canonical words, and its answer equals the canonical answer read through the map.
   DR's existing proof is `crates/lance-graph-mask-risc/tests/rotation.rs`; G2 is the same check for the
   first DTO binding that uses a non-identity view. **Fails if** the binding needs a rotated copy or a mask op.
-- **G3, Morton tile.** Over all 65,536 codes, every aligned 64-code run is one aligned 8 × 8 (`x`, `y`)
+- **G3, Morton tile. PASS** (`every_aligned_code_run_is_an_aligned_square`, j = 0..=8; disable run: runs starting one code late → red). Over all 65,536 codes, every aligned 64-code run is one aligned 8 × 8 (`x`, `y`)
   square and every aligned 256-code run one 16 × 16 square, checked against decoded `Morton8x8::{x, y}`.
   This extends DR's pinned 4 × 4 prefix test; the test belongs beside it in `morton8x8.rs`, owned by DR.
   Disable run: shift the block boundary by one code; the test turns red.
