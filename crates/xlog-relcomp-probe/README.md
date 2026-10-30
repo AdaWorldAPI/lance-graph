@@ -295,3 +295,22 @@ two things nothing defines yet:
   here is |X|·|Z| per Y, at most 4096, i.e. 13 bits);
 - a per-Y product: for a two-atom chain the count is deg_R(y) · deg_S(y)
   (XLOG's own factorized count multiplies trie-range lengths the same way).
+
+**The same operation as a DTO binding** (`tests/dto_binding.rs`, EXO-50
+message 19). DR routes first: lab ids map to local slots under a sealed frame.
+Then DT64 binds meaning:
+
+- identities: `NodeGuid` references (V3 tail, lab classid `0x7F01 << 16`, a
+  stand-in, not a minted concept), decoding back to the Y ids 2, 3, 7;
+- property mappings: R and S as fields 0 and 1 of a `ClassView`, selected by
+  `WideFieldMask::from_positions(&[0, 1])`;
+- method: `(owner_class 0x7F01, method_ordinal 1)` with `Population::Bag`,
+  named by reference only;
+- expected values: {2: 4, 3: 1, 7: 1}, keyed by identity.
+
+The binding refuses a stale route (`MapChanged`), and executing the bound Bag
+method is refused by `bind_dr64` (`BagNeedsMultiplicity`): that is the failing
+half. No DT64 bind store exists (D-DT64-6 is PROPOSED); the binding is a
+test-local value and persists nothing. Disable runs: dropping the route check
+turns `dt64_does_not_bind_against_a_stale_route` red; declaring the method
+Distinct turns the method and refusal tests red.
