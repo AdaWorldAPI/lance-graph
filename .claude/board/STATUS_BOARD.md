@@ -56,7 +56,7 @@
 | **D-ONNX-INTAKE-3** | S3 one complete static subgraph on existing native methods | Tract arm RUN as lab (D-TRACT-HARVEST-0): tiny graph exact, Jina RMSNorm slice bounded | scalar oracle + ORT; no Burn/Tract in the native call path; unsupported nodes refuse |
 | **D-ONNX-INTAKE-4** | S4 numeric/quantization parity for real model blockers | Queued (conditional; not authorized) | IntegerExact / bounded FP / SourceParity / CertifiedMath kept distinct |
 | **D-ONNX-INTAKE-5** | S5 whole-model forward pass and cost closure | Goal, not authorized | outputs vs ORT under declared tolerance; every cost stage reported |
-| **D-TRACT-HARVEST-0** | Tract as cold typed frontend; admission onto lance-graph-onnx/ndarray; ORT (optimizer off) oracle; `crates/tract-harvest-probe` | Lab probe implemented (this PR); plan [d-tract-harvest-0-native-algebra-bridge-v1.md](../plans/d-tract-harvest-0-native-algebra-bridge-v1.md) | 17 tests, 12 disable runs red; whole-model native NOT reachable (first blocker MatMul) |
+| **D-TRACT-HARVEST-0** | ONNX graph as a DR#3 graph (nodes Identity, values Property, dep = do_ ∘ read_by) resolved through a DT64 ON×WHEN×DO registry (op signature → classid → native DO); Tract cold facts; ORT (optimizer off) oracle; `crates/tract-harvest-probe` | Lab probe implemented (this PR, redesigned to the graph); plan [d-tract-harvest-0-native-algebra-bridge-v1.md](../plans/d-tract-harvest-0-native-algebra-bridge-v1.md) §0 | 20 tests, 7 disable runs red; full model 3,751/7,620 nodes WHEN-true, >64 positions untiled, first unregistered groups Unsqueeze/Shape/Gather/Concat/MatMul |
 
 ## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
 

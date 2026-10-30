@@ -1,6 +1,69 @@
-# D-TRACT-HARVEST-0 — Tract as a cold ONNX frontend, admitted onto native methods
+# D-TRACT-HARVEST-0 — the ONNX graph as a DR#3 graph through the DT64 registry (Tract as cold frontend)
 
 **Date:** 2026-10-30. **Status:** LAB PROBE IMPLEMENTED (crates/tract-harvest-probe, own workspace, excluded from the lance-graph workspace). Not a production path; no native crate depends on it. Implements the S1 (source preservation) and S3 (one admitted native subgraph) stages of D-ONNX-INTAKE (#1802) for the Tract arm only; Burn onnx-ir was not run. **Coordinator:** D-NAM / EXO-152.
+
+## 0. Redesign (2026-10-30): the ONNX graph as a DR#3 graph, resolved through the DT64 registry
+
+> **Supersedes** the fixed admission recipes (`admit.rs`, removed) and with them §7 and the recipe-specific rows of §1, §8 and §9. The operator's correction: *"We want the graph … The mapping of the Graph should then resolve to polyfill and predicate methods in DT64 verb 'on when do' schema."* Two decisions taken with it: the graph's home is the lance-graph DR#3 graph, and the binding key is the op signature → one immutable classid. Sections 1-13 below are kept as the record of the recipe probe; their measurements still hold, since the same native functions run.
+
+**Shape** (`crates/tract-harvest-probe`):
+
+| layer | file | what it holds |
+|---|---|---|
+| source | `source.rs`, `value.rs` | raw protobuf: node names, domain, opset, discrete attributes, initializer and `Constant` values decoded once (bool packed into mask words) |
+| facts | `dr3::tract_facts` | Tract, cold: dtype and shape per labelled value (no declutter) |
+| graph | `dr3::OnnxGraph` | nodes = **Identity**, values = **Property** on one 64x64 tile; `on`, `do_` as `Rows`; `dep = do_ ∘ read_by` by `dr_math_binding_probe::relcomp::compose`; ordered args beside the relations |
+| registry | `registry.rs` | `Registration { classid, op signature (domain, op_type, dtype, attribute rules, opsets), WHEN: K3 guard, DO: polyfill, Numeric }`, versioned; 16 lab classids `0x0F01..0x0F51` |
+| plan | `plan.rs` | resolve once: signature lookup (unregistered = UNKNOWN, refused), opset, WHEN must be TRUE, schedule from `dep`; sealed in a `FrameStore` frame (source digest, registry version, coordinates); `run` checks the frame, then routes each node to its DO |
+
+ON × WHEN × DO per node: ON = its input Property positions; WHEN = a three-valued guard over the facts and constant operands (multidirectional broadcast, `Pow` exponent exactly 2.0, single reduction axis, scalar threshold, `Where` operand shapes); DO = an existing function, never a new kernel (`lance_graph_onnx::{add,sub,mul,div,abs_f32,sqrt_f32,greater_i32,where_i32,ReduceSum}`, `ndarray` `mean_axis`). Classids are **lab ordinals**, not OGAR-minted concepts; production would mint them in OGAR and activate through `lance-graph-contract::hotplug`.
+
+**Results:**
+
+| check | result |
+|---|---|
+| tiny `base`, `gen2`, `neg_where_nonzero` through the graph | bit-exact vs ORT literal; `Where(c, X, 1)` now **runs** (17): there is no masked-sum rewrite to refuse, `Where` and `ReduceSum` are separate methods |
+| tiny `div3`, 256 seeded inputs | bit-exact on every element (`Div` keeps classid `0x0F23`) |
+| `dep` vs the source edges | equal on 3 variants; the schedule is a topological order of it, and a protobuf with the node list reversed still runs bit-exact |
+| Jina v5 small layer-0 input RMSNorm (13 nodes, Constants included) | 9,259/10,240 exact, max 4 ulp; mean 9/10 exact, max 1 ulp; `ReduceMean` the only Bounded method; every row with a bit-exact mean is bit-exact on all 1,024 outputs |
+| full Jina graph (7,620 nodes, inputs pinned `[1,10]`), registry v1 coverage | **3,751** WHEN-true, **169** registered but WHEN not true, **3,700** unregistered. All 113 RMSNorm `Pow`/`ReduceMean`/`Sqrt` resolve. The 169 are facts Tract does not keep: its typed stage labels only 2,546 of 7,620 source outputs, so those shapes are UNKNOWN and the guard refuses them. The largest unregistered groups: `Unsqueeze` 888, `Shape` 430, `Gather` 373, `Concat` 284, `MatMul` 253, `Reshape` 228, `Mul` (non-f32 / other signatures) 228 |
+
+**Refusals, each with its own test:**
+
+| input | refusal |
+|---|---|
+| `B[4]` vs `F[2,3]` | `When { n_add, 0x0F20, False }` (broadcast guard over the facts) |
+| `Erf` | `Unregistered { n_abs, "ai.onnx:Erf(Some(F32)){}" }` |
+| `com.example:Abs` (Tract imports it as `Abs`) | `Unregistered`, signature `com.example:Abs…`: the source domain keys the signature |
+| `Pow(x, 2.0000002)` | `When { Pow, 0x0F32, False }` |
+| `Cast_1` to FLOAT16, `Cast` to DOUBLE | `Unregistered`, signature names `to=10` / `to=11` |
+| Tract's shapes removed | `When { n_where, Unknown }`: UNKNOWN never counts as TRUE |
+| store advanced to `gen2`, or to a changed Jina weight | `Frame(SourceChanged)` at run time |
+| registry version changed | `Frame(MapChanged)` |
+| sum past int32 | `Native(OutOfDtypeRange)` at run time |
+
+`ReduceMean` over axis -2 instead of -1 is a different valid program, not a refusal: nothing assumes the RMSNorm pattern, so the graph runs it with the mean shaped `[1,1,1024]`.
+
+**Disable runs** (committed first, anchor asserted, `--no-fail-fast`; each went red on exactly the named test, tree restored):
+
+| guard disabled | red test |
+|---|---|
+| broadcast WHEN → TRUE | `incompatible_broadcast_is_when_false` |
+| `Pow` exponent WHEN → TRUE | `pow_exponent_other_than_two_is_when_false` |
+| attribute rules ignored | `cast_to_half_is_unregistered`, `cast_to_double_is_unregistered` |
+| domain dropped from the signature | `foreign_domain_is_unregistered_although_tract_accepts_it` |
+| frame check skipped in `run` | `stale_generation_is_refused`, `registry_change_is_a_frame_change`, `new_weight_generation_refuses_the_old_plan` |
+| UNKNOWN accepted as TRUE | `unknown_shapes_refuse` |
+| schedule = source order | `schedule_comes_from_dep_not_source_order` |
+
+**Cost** (`examples/cost.rs`, release, reported, not gated): tiny cold Tract facts 140 µs, tile + resolve 7.4 µs; hot plan 3.4 µs (54 allocs) vs Tract typed 3.6 µs. Jina slice cold facts 175 µs, tile + resolve 11.9 µs; hot plan 14.9 µs (62 allocs, 263 KB: every value materialized, the plan clones its constants per run) vs Tract typed 113 µs.
+
+**OPEN (graph design):**
+- More than 64 nodes or values needs several DR64 tiles; the full graph is only censused, not tiled.
+- Facts for the 5,074 values Tract's typed stage leaves unlabelled: from the inference model (labels kept 7,620/7,620) or from ONNX shape inference.
+- Registry entries for the shape-plumbing ops (`Unsqueeze`, `Shape`, `Gather` on shapes, `Concat`, `Reshape`) and the admitted f32 `MatMul`.
+- The plan clones constants per run; hot allocation is not yet minimal.
+- Classids are lab-local; minting through OGAR is a separate decision.
 
 ## 1. The acceptance chain, demonstrated
 
