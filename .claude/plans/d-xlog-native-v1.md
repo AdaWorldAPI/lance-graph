@@ -34,6 +34,7 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 | XLOG | `ndarray::simd` | category | mask-risc cross-check | note |
 |---|---|---|---|---|
 | `Scan { rel }` | the column slices | ALIAS | — | naming the resident columns |
+| `Project` keeping a subset of columns (no `Computed`, no dedup) | none: a `WideFieldMask` selection over the relation lens's `ClassView` fields | ALIAS | — | the ERB / Redmine field-view pattern (`ogar-consumer-preflight.md`, operator 2026-10-10: "Classview can be used for any compute masking"; `cross-glove-business-parity-v1.md` §C.9.3–§C.9.4). The classid picks the view, the mask picks the fields; no column is copied and no native function runs. Already the shape of `xlog-relcomp-probe/tests/dto_binding.rs` |
 | `Filter`, `Column(c) == U32(v)` | `eq_u32_to_mask` | INLINE | `Pred::EqU32` | column index → slice |
 | `Filter`, `Column(c) != U32(v)` | `ne_u32_to_mask` | INLINE | `Pred::NeU32` | |
 | `Filter`, `Lt/Le/Gt/Ge/Eq/Ne` on an `I32` column | `{lt,le,gt,ge,eq,ne}_i32_to_mask` | INLINE | `Pred::*I32` | the same symbols `lance-graph-onnx` aliases for `Less` … `Equal` |
@@ -85,6 +86,7 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 
 ## 3. What the crosswalk says
 
+- Column projection is not an operation: it is a `ClassView × WideFieldMask` selection, the field-view pattern the classid switches over otherwise agnostic addresses.
 - Most of XLOG's single-table vocabulary is a name over `ndarray::simd` functions that already exist, and several are the same symbols `lance-graph-onnx` already aliases (`mask_and/or/not`, the `*_i32_to_mask` comparisons, `masked_sum_i32`). Two facades, one algebra.
 - The two things D-XLOG-DR64-0 and D-LITHO-1 rely on most have no native function: the many-to-many join, and the bag count over it (a per-key product of two counts).
 - Ordered `u32` comparison is missing from the polyfill. The probe's fixtures use `u32` columns throughout.
