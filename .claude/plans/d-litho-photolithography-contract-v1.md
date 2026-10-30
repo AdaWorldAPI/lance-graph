@@ -52,7 +52,7 @@ coordinates; it does not define them.
 - [x] Design rules (§6), non-goals (§7), ownership (§8), consumers (§9).
 - [ ] Owner replies on EXO-50 (§10).
 - [ ] First consumer writes one binding with a failing fixture (§11, G1).
-- [ ] Gates G1–G5 (§11). G3, G4 PASS; G1, G2, G5 not run.
+- [ ] Gates G1–G5 (§11). G3, G4 PASS; G1, G5 discharged for ONNX by `tract-harvest-probe` (§3b); G1 open for XLOG; G2 not run.
 
 ## 1. Decisions recorded
 
@@ -128,6 +128,33 @@ Over a coordinate DR has routed:
 - **The die map is DR256's occupancy statistic.** `dr256-where-capstone-v1.md` B.7(2) measured that mask ops and masked folds do not skip dead 256-row blocks (NB/QB 0.02–0.39 at sparse selections), and P3 waits for "a consumer decision that reads active blocks". By G3 a 256-row block is a 16 × 16 die; a stepper exposes only patterned dies. Candidate consumer decision for P3: build the die map once from `Keep`, step only active dies. Unmeasured through Quack.
 - **A DTO binding is D-DRF-1's "caller".** Frame witness + declared axes (`AxisKind`, `dr-math-binding-probe`) + declared semiring (Boolean or rods) + law (an address map over `Morton8x8`) + method references. Nothing else reaches a shader.
 
+## 3b. Reference implementation: the ONNX path is already wired (`tract-harvest-probe`)
+
+The contract describes code that exists. For ONNX the whole chain runs in `crates/tract-harvest-probe`
+(D-TRACT-HARVEST-0) over `lance-graph-onnx` and is checked bit for bit against ORT (`tests/tiny.rs`,
+`tests/jina.rs`). Read in full 2026-10-30.
+
+| Lithography | Code | Proof |
+|---|---|---|
+| Wafer, never moved | `SourceInventory`: protobuf names, attributes, initializers; external data is never loaded, `gather::row_ranges` turns `Gather` into byte ranges | `external_constants_inline_only_when_pinned` |
+| Die (one DR64 tile) | `dr3::OnnxGraph`: nodes = **Identity**, values = **Property**, `TILE = 64`; more than 64 → `Refusal::TileOverflow` | `dep_composition_is_the_source_dataflow` |
+| The law over DR coordinates | `on` / `do_` as 64 × 64 relations, `dep = do_ ∘ read_by` (`relcomp::compose`); the schedule is read off `dep`, never source order | `schedule_comes_from_dep_not_source_order` |
+| Reticle, written once | `registry::Registry`: op signature (domain, op_type, dtype, attrs, opset) → one immutable classid, `method`, WHEN, DO, `Numeric`; versioned | `base_through_the_graph_is_bit_exact_against_ort` (8 classids) |
+| DT64 assigns meaning after routing | `plan::resolve`: lookup → classid → WHEN in K3 (UNKNOWN refuses) → DO in `lance-graph-onnx` (ALIAS / INLINE onto `ndarray::simd` / `hpc`) | `unknown_shapes_refuse`, `unregistered_op_is_refused` |
+| Exposure paid in the reticle | `fold`: Const / Shape-only nodes run once at resolution through the same DO | `shape_chain_folds_and_the_data_nodes_run_against_ort` |
+| Dose quality (the ONNX annotation) | `Numeric::{Exact, Bounded}`; ULP bounds measured against ORT and f64 | `erf_sweep_against_f64_and_ort`, `trig_sweep_against_f64_and_ort` |
+| Alignment | `Frame` revisions = (source digest, registry version, coordinate digest); `FrameStore::check` before every run | `stale_generation_is_refused`, `registry_change_is_a_frame_change` |
+| Develop | `Plan::run` returns values by name; inputs outside the resolved facts are refused | `inputs_outside_the_resolved_facts_are_refused` |
+
+Consequences:
+- **G1 and G5 are discharged for ONNX** by the tests above. They stay open for XLOG (bag multiplicity),
+  which is not an ONNX graph.
+- An ONNX consumer needs no D-LITHO machinery: it registers op signatures in the registry. In production
+  the classid lab ordinals (`0x0F..`) become OGAR-minted concepts activated through `hotplug`
+  (`registry.rs` module doc).
+- G4 (rods) adds what this path does not have: a count held as Boolean planes. ONNX `ReduceSum` here reads
+  an `i32` lane through `masked_sum_i32`, which needs no rods.
+
 ## 4. What the DTO layer must know (DR's facts, applied here)
 
 Every fact below is DR's. This contract decides none of them; the authoritative text is the cited source.
@@ -194,7 +221,7 @@ fixture yet.
 
 | Consumer | Likely first binding |
 |---|---|
-| ONNX methods (Tract registry, D-TRACT-HARVEST-0) | count-shaped reductions over a predicate |
+| ONNX methods (Tract registry, D-TRACT-HARVEST-0) | **wired** (§3b): registry classid per op signature, plan over DR#3, ORT-checked |
 | TFLite int8 leaf (D-TFLP) | the same count-shaped reductions |
 | XLOG (D-XLOG-DR64-0) | bag multiplicity per answer tuple (EXO-50 message 12) |
 | egglog-mlir / DialEgg | offline proof that two exposure sequences develop the same result |
