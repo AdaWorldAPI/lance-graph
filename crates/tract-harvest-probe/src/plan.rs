@@ -1,6 +1,6 @@
 //! Resolve once, then route: every Identity position of the DR#3 graph is
 //! bound to the registration of its op signature, its WHEN is evaluated over
-//! the cold facts, and the result is a schedule of `(node, classid, DO)` read
+//! the cold facts, and the result is a schedule of `(node, method key, DO)` read
 //! off the `dep` relation. Execution routes each node to its DO and nothing
 //! else; it never consults Tract.
 //!
@@ -11,12 +11,11 @@
 use std::collections::HashMap;
 
 use dr_math_binding_probe::{Frame, FrameRevisions, FrameStore};
-use lance_graph_contract::class_view::ClassId;
 use sha2::{Digest, Sha256};
 
 use crate::dr3::OnnxGraph;
 use crate::registry::{
-    render_signature, signature_dtype, NodeView, Numeric, Refusal, Registry, K3,
+    render_signature, signature_dtype, MethodKey, NodeView, Numeric, Refusal, Registry, K3,
 };
 use crate::source::SourceInventory;
 use crate::value::Value;
@@ -26,7 +25,8 @@ use crate::value::Value;
 pub struct Bound {
     pub node: usize,
     pub name: String,
-    pub classid: ClassId,
+    /// The codebook item: the registry's lens and the item's ordinal.
+    pub key: MethodKey,
     pub method: &'static str,
     pub numeric: Numeric,
     reg: usize,
@@ -62,7 +62,7 @@ pub fn revisions(src: &SourceInventory, registry: &Registry, graph: &OnnxGraph) 
                 .chain(src.inlined.iter().map(|d| d.as_bytes()))
                 .collect::<Vec<_>>(),
         ),
-        relation_map: registry.version,
+        relation_map: registry.revision(),
         coordinates: digest64(&coords),
     }
 }
@@ -121,9 +121,9 @@ pub fn resolve<'r>(
         let bound = Bound {
             node: n,
             name: node.name.clone(),
-            classid: reg.classid,
-            method: reg.method,
-            numeric: reg.numeric,
+            key: registry.key_of(reg),
+            method: registry.method(reg).name,
+            numeric: registry.method(reg).numeric,
             reg: reg_ix,
         };
         if fold.nodes.contains(&n) {
@@ -138,7 +138,7 @@ pub fn resolve<'r>(
         if truth != K3::True {
             return Err(Refusal::When {
                 node: node.name.clone(),
-                classid: reg.classid,
+                key: registry.key_of(reg),
                 truth,
                 guard: reg.guard,
             });
@@ -201,7 +201,7 @@ impl Plan<'_> {
                     })
                 })
                 .collect::<Result<_, _>>()?;
-            let out = (self.registry.regs[s.reg].do_)(&args, node)?;
+            let out = (self.registry.method(&self.registry.regs[s.reg]).do_)(&args, node)?;
             for (&p, v) in g.outs[s.node].iter().zip(out) {
                 vals[p] = Some(v);
             }
@@ -214,9 +214,9 @@ impl Plan<'_> {
             .collect())
     }
 
-    /// `(classid, method)` per scheduled node, for receipts.
-    pub fn census(&self) -> Vec<(ClassId, &'static str)> {
-        self.steps.iter().map(|s| (s.classid, s.method)).collect()
+    /// `(method key, method)` per scheduled node, for receipts.
+    pub fn census(&self) -> Vec<(MethodKey, &'static str)> {
+        self.steps.iter().map(|s| (s.key, s.method)).collect()
     }
 }
 
