@@ -456,3 +456,52 @@ fn inference_stage_facts_cover_every_value_and_agree_with_typed() {
         assert!(both > 0, "{v}: anti-vacuity, the stages overlap");
     }
 }
+
+/// `X`'s dimension removed from the input type: Tract's typed stage refuses
+/// the graph, the inference stage still runs. `X`'s dtype is known, its shape
+/// is not, and an undetermined dimension is never turned into a symbol (two
+/// undetermined dimensions need not be equal). The plan then refuses at the
+/// first guard that needs that shape.
+#[test]
+fn undetermined_input_dim_gives_no_shape_and_typing_failure_is_recorded() {
+    use prost::Message;
+    use tract_harvest_probe::dr3::tract_fact_sources;
+    use tract_harvest_probe::value::DType;
+    let mut m = tract_onnx::pb::ModelProto::decode(&*bytes("base")).unwrap();
+    let x = m
+        .graph
+        .as_mut()
+        .unwrap()
+        .input
+        .iter_mut()
+        .find(|i| i.name == "X")
+        .unwrap();
+    let Some(tract_onnx::pb::type_proto::Value::TensorType(t)) =
+        x.r#type.as_mut().and_then(|t| t.value.as_mut())
+    else {
+        panic!("X is a tensor");
+    };
+    t.shape.as_mut().unwrap().dim[0].value = None;
+    let b = m.encode_to_vec();
+    let fs = tract_fact_sources(&b, &[]).unwrap();
+    assert!(
+        fs.typed_error
+            .as_deref()
+            .is_some_and(|e| e.contains("determined fact")),
+        "{:?}",
+        fs.typed_error
+    );
+    assert!(fs.typed.is_empty());
+    let x = &fs.inference["X"];
+    assert_eq!((x.dtype, &x.shape), (Some(DType::I32), &None));
+    // F is untouched and fully known: the stage did run.
+    assert!(fs.inference["F"].shape.is_some());
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let g = OnnxGraph::build(&src, &fs.merged()).unwrap();
+    let reg = registry();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    match resolve(&src, g, &reg, &store) {
+        Err(Refusal::When { truth, .. }) => assert_eq!(truth, K3::Unknown),
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}

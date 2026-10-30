@@ -278,6 +278,10 @@ fn facts_of(
 pub struct FactSources {
     pub inference: HashMap<String, Fact>,
     pub typed: HashMap<String, Fact>,
+    /// Why the typed stage failed, if it did. The inference facts stand on
+    /// their own (Tract refuses to type a graph with an undetermined input
+    /// dimension, or more than one symbol through `Flatten`).
+    pub typed_error: Option<String>,
 }
 
 impl FactSources {
@@ -385,7 +389,13 @@ fn fact_sources_of(
     }
 
     // Typed stage.
-    let m = m.into_typed().map_err(fe)?;
+    let m = match m.into_typed() {
+        Ok(m) => m,
+        Err(e) => {
+            out.typed_error = Some(format!("{e:#}"));
+            return Ok(out);
+        }
+    };
     for node in m.nodes() {
         for slot in 0..node.outputs.len() {
             let o = OutletId::new(node.id, slot);
@@ -400,4 +410,55 @@ fn fact_sources_of(
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fact(dt: DType, shape: &[usize]) -> Fact {
+        Fact {
+            dtype: Some(dt),
+            shape: Some(shape.iter().map(|&d| Dim::Known(d)).collect()),
+        }
+    }
+
+    /// `disagreements` reports a dtype or shape conflict and stays silent on
+    /// agreement or on a value only one stage describes; `merged` prefers the
+    /// inference fact and fills only what it lacks from the typed one.
+    #[test]
+    fn fact_sources_disagree_and_merge() {
+        let mut fs = FactSources::default();
+        fs.inference
+            .insert("same".into(), fact(DType::F32, &[2, 3]));
+        fs.typed.insert("same".into(), fact(DType::F32, &[2, 3]));
+        fs.inference
+            .insert("shape".into(), fact(DType::F32, &[2, 3]));
+        fs.typed.insert("shape".into(), fact(DType::F32, &[3, 2]));
+        fs.inference.insert("dtype".into(), fact(DType::F32, &[1]));
+        fs.typed.insert("dtype".into(), fact(DType::I32, &[1]));
+        fs.inference
+            .insert("only_inf".into(), fact(DType::I64, &[4]));
+        fs.typed
+            .insert("only_typed".into(), fact(DType::Bool, &[5]));
+        fs.inference.insert(
+            "partial".into(),
+            Fact {
+                dtype: Some(DType::F32),
+                shape: None,
+            },
+        );
+        fs.typed.insert("partial".into(), fact(DType::F32, &[7]));
+        let d: Vec<String> = fs.disagreements().into_iter().map(|(k, ..)| k).collect();
+        assert_eq!(d, ["dtype", "shape"]);
+        let m = fs.merged();
+        assert_eq!(m["shape"], fact(DType::F32, &[2, 3]), "inference wins");
+        assert_eq!(m["only_typed"], fact(DType::Bool, &[5]));
+        assert_eq!(m["only_inf"], fact(DType::I64, &[4]));
+        assert_eq!(
+            m["partial"],
+            fact(DType::F32, &[7]),
+            "typed fills the missing shape"
+        );
+    }
 }
