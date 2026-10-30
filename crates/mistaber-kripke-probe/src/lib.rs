@@ -501,3 +501,31 @@ impl Holdings<'_> {
         out
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lineage_never_leaves_the_held_cells() {
+        // F5: r_orphan has a rule companion but no assertion, so p holds
+        // nowhere. Its lineage must stay at its own cell, not flow to a.
+        let g = parse_golden(include_str!("../goldens/F5-gates.tsv")).unwrap();
+        let kb = Kb::load(&g.facts).unwrap();
+        let h = kb.solve();
+        let r = kb.rules.0.iter().position(|n| n == "r_orphan").unwrap();
+        let p = kb.props.0.iter().position(|n| n == "p").unwrap();
+        let base = kb.worlds.0.iter().position(|n| n == "base").unwrap();
+        assert_eq!(h.holds[p], 0);
+        assert_eq!(h.sources[r][p], 1 << base);
+        // Every lineage cell outside the base lies inside holds.
+        for s in h.sources.iter().chain(&h.origins) {
+            for (i, row) in s.iter().enumerate() {
+                let base_row = (0..kb.rules.0.len())
+                    .map(|r| (kb.asserts_rule[r][i] | kb.endorses_rule[r][i]) & kb.world_set)
+                    .fold(h.direct[i], |a, b| a | b);
+                assert_eq!(row & !base_row & !h.holds[i], 0);
+            }
+        }
+    }
+}
