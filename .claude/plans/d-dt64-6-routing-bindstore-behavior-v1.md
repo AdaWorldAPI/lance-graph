@@ -211,9 +211,9 @@ DR owns every fact below. DT decides none of them, but a binding cannot be state
 | Map and value lifetimes are separate; a map-only operation needs no value fetch. | D-DRAV-1 §2, §6 | A method binding declares value-free or value-demanding. |
 | The 64-thought plane is separate from the relation selector and the map index. | D-DRF-1 §1; R2 | Thoughts are reserved, not claimed (allocate on Thought-Git `Commit`), never a cube axis. |
 
-## A.2 The bind store already runs for ONNX: `tract-harvest-probe`
+## A.2 The bind-store shape runs in a lab for ONNX: `tract-harvest-probe`
 
-`crates/tract-harvest-probe` is D1–D8 of this plan running for ONNX op signatures, checked bit for bit against ORT (`tests/tiny.rs`, `tests/jina.rs`). Read in full 2026-10-30.
+**Status:** the bind store is a plan-level decision (D4, D-DRDT §1); no bind store type exists in the codebase. What exists: the contract pieces DT is built from (`ClassView::fields`, `methods_for`, `actions_for`, `hotplug`) and this lab crate. `crates/tract-harvest-probe` runs the shape of D1–D8 for ONNX op signatures, checked bit for bit against ORT (`tests/tiny.rs`, `tests/jina.rs`). Read in full 2026-10-30.
 
 | This plan | `tract-harvest-probe` | Test |
 |---|---|---|
@@ -233,7 +233,7 @@ Production step (registry module doc): the lab ordinals become OGAR-minted conce
 |---|---|---|
 | Morton tile | `lance-graph-contract` `morton8x8::tests::every_aligned_code_run_is_an_aligned_square` (j = 0..=8) | PASS; disable run (runs start one code late) red |
 | Count as Boolean planes | `lance-graph-mask-risc/tests/dose.rs`: K = 6 planes over a 4,096-row focus, `And` + `Count` per plane, weighted 2^k, equals the per-position sum at 0/3/50/97/100 % selection; every plane load-bearing | PASS; disable run (swap adjacent weights) red. A measured fact, not an adopted Bag carrier |
-| First non-ONNX consumer | XLOG #1864: `NodeGuid` stand-in, R/S as `ClassView` × `WideFieldMask`, count method by reference, `Population::Bag`, expected {2:4, 3:1, 7:1} | failing fixture by design: refused with `BagNeedsMultiplicity` |
+| First non-ONNX consumer (stated in a test; no store built) | XLOG #1864: `NodeGuid` stand-in, R/S as `ClassView` × `WideFieldMask`, count method by reference, `Population::Bag`, expected {2:4, 3:1, 7:1} | failing fixture by design: refused with `BagNeedsMultiplicity` |
 
 ## A.4 Open (unchanged owners)
 
