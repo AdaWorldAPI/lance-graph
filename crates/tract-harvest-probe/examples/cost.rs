@@ -110,7 +110,13 @@ fn measure(
     let tract_ns = median(runs, || {
         black_box(plan.run(tract_in()).unwrap());
     });
-    println!("{label:>5} cold: source {src_us:8.1} µs | Tract facts {facts_us:8.1} µs | tile+resolve {resolve_us:7.1} µs ({} steps)", p.steps.len());
+    let retained: usize = p
+        .folded
+        .iter()
+        .flat_map(|b| p.graph.outs[b.node].iter())
+        .filter_map(|&o| p.graph.consts[o].as_ref())
+        .count();
+    println!("{label:>5} cold: source {src_us:8.1} µs | Tract facts {facts_us:8.1} µs | tile+fold+resolve {resolve_us:7.1} µs ({} steps, {} folded, {retained} folded constants)", p.steps.len(), p.folded.len());
     println!("{label:>5} hot:  graph plan {hot_ns:9.0} ns ({na} allocs, {nb} B) | Tract typed runnable {tract_ns:9.0} ns (incl. input tensors)");
 }
 
@@ -148,6 +154,44 @@ fn main() {
                     .into_tensor()
                     .into()
             ]
+        },
+        20001,
+    );
+
+    // ── shape folding (D-TRACT-SHAPE-1) ──
+    let shape = std::fs::read(format!("{dir}/tiny/shape_fold.onnx")).unwrap();
+    measure(
+        "shape",
+        &shape,
+        &[],
+        vec![(
+            "F",
+            Value::F32(ArrayD::from_shape_vec(IxDyn(&[2, 3]), f.clone()).unwrap()),
+        )],
+        || {
+            tvec![tract_ndarray::Array2::from_shape_vec((2, 3), f.clone())
+                .unwrap()
+                .into_dyn()
+                .into_tensor()
+                .into()]
+        },
+        20001,
+    );
+    let erf = std::fs::read(format!("{dir}/tiny/erf_sweep.onnx")).unwrap();
+    let ex: Vec<f32> = (0..4096).map(|i| -6.0 + 12.0 * i as f32 / 4095.0).collect();
+    measure(
+        "erf",
+        &erf,
+        &[(0, DatumType::F32, vec![ex.len()])],
+        vec![(
+            "X",
+            Value::F32(ArrayD::from_shape_vec(IxDyn(&[ex.len()]), ex.clone()).unwrap()),
+        )],
+        || {
+            tvec![tract_ndarray::Array1::from(ex.clone())
+                .into_dyn()
+                .into_tensor()
+                .into()]
         },
         20001,
     );

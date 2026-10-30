@@ -270,7 +270,7 @@ fn incompatible_broadcast_is_when_false() {
     }
 }
 
-/// `Erf` has no registration: UNKNOWN, refused by signature.
+/// `Acosh` has no registration: UNKNOWN, refused by signature.
 #[test]
 fn unregistered_op_is_refused() {
     let reg = registry();
@@ -278,7 +278,7 @@ fn unregistered_op_is_refused() {
         Err(Refusal::Unregistered { node, signature }) => {
             assert_eq!(node, "n_abs");
             assert!(
-                signature.starts_with("ai.onnx:Erf(Some(F32))"),
+                signature.starts_with("ai.onnx:Acosh(Some(F32))"),
                 "{signature}"
             );
         }
@@ -504,4 +504,266 @@ fn undetermined_input_dim_gives_no_shape_and_typing_failure_is_recorded() {
         Err(Refusal::When { truth, .. }) => assert_eq!(truth, K3::Unknown),
         other => panic!("{:?}", other.map(|_| ())),
     }
+}
+
+// ── D-TRACT-SHAPE-1: cold shape folding ─────────────────────────────────────
+
+fn ort_f32(v: &str, out: &str) -> (Vec<usize>, Vec<u32>) {
+    let e = &ort()["variants"][v]["ort"][out];
+    let shape = e["shape"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_u64().unwrap() as usize)
+        .collect();
+    (shape, u32s(&e["bits"]))
+}
+
+fn f32_bits(m: &std::collections::HashMap<String, Value>, k: &str) -> (Vec<usize>, Vec<u32>) {
+    match &m[k] {
+        Value::F32(a) => (a.shape().to_vec(), a.iter().map(|v| v.to_bits()).collect()),
+        other => panic!("{k}: {other:?}"),
+    }
+}
+
+fn f_input() -> Value {
+    f32_value(&[2, 3], &u32s(&ort()["inputs"]["F"]["bits"]))
+}
+
+/// Distance in units in the last place between two f32 (NaN only matches NaN).
+fn ulp(a: f32, b: f32) -> u32 {
+    if a.is_nan() || b.is_nan() {
+        return if a.is_nan() && b.is_nan() {
+            0
+        } else {
+            u32::MAX
+        };
+    }
+    let key = |x: f32| {
+        let b = x.to_bits() as i64;
+        if b & 0x8000_0000 != 0 {
+            0x8000_0000 - b
+        } else {
+            b
+        }
+    };
+    (key(a) - key(b)).unsigned_abs() as u32
+}
+
+/// `Concat(Unsqueeze(Gather(Shape(F), 1), [0]), [-1])` depends on F's shape
+/// only, which the facts know: it folds at resolution through the registered
+/// DOs. `Reshape(F, ·)` and `Unsqueeze(F, ·)` read F's values and run. The run
+/// agrees with ORT bit for bit.
+#[test]
+fn shape_chain_folds_and_the_data_nodes_run_against_ort() {
+    let reg = registry();
+    let (fx, p) = plan("shape_fold", &reg);
+    let p = p.unwrap();
+    let folded: Vec<(&str, u16)> = p
+        .folded
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(
+        folded,
+        [
+            ("n_shape", 0x0F60),
+            ("n_gather", 0x0F64),
+            ("n_unsq_d", 0x0F65),
+            ("n_concat", 0x0F67)
+        ]
+    );
+    let steps: Vec<(&str, u16)> = p
+        .steps
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(steps, [("n_reshape", 0x0F6A), ("n_unsq_f", 0x0F66)]);
+    let t = p.graph.props.iter().position(|n| n == "t").unwrap();
+    assert_eq!(
+        p.graph.consts[t].as_ref().and_then(Value::i64s),
+        Some(vec![3, -1])
+    );
+    let out = p.run(&fx.store, &[("F", f_input())]).unwrap();
+    assert_eq!(f32_bits(&out, "R"), ort_f32("shape_fold", "R"));
+    assert_eq!(f32_bits(&out, "U"), ort_f32("shape_fold", "U"));
+}
+
+/// The folded target `[3, -1]` was computed from F's resolved shape [2, 3]. A
+/// run with another F shape is refused before any step, so the fold is never
+/// applied to an input it was not computed for.
+#[test]
+fn folded_shapes_refuse_a_run_with_other_input_dims() {
+    let reg = registry();
+    let (fx, p) = plan("shape_fold", &reg);
+    let p = p.unwrap();
+    let f = Value::F32(ArrayD::zeros(IxDyn(&[3, 2])));
+    match p.run(&fx.store, &[("F", f)]) {
+        Err(Refusal::Runtime { node, what }) => {
+            assert_eq!(node, "F");
+            assert!(what.contains("resolved for"), "{what}");
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// F's shape is fully known, yet `Unsqueeze(F)` and `Reshape(F, ·)` read F's
+/// values: their class is Data and neither folds.
+#[test]
+fn a_node_reading_input_values_never_folds() {
+    use tract_harvest_probe::fold::{classify, fold, Dep};
+    let b = bytes("shape_fold");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let (_, dep) = classify(&src, &facts);
+    let by: Vec<(&str, Dep)> = src.nodes.iter().map(|n| n.name.as_str()).zip(dep).collect();
+    assert_eq!(
+        by,
+        [
+            ("n_shape", Dep::Shape),
+            ("n_gather", Dep::Shape),
+            ("n_unsq_d", Dep::Shape),
+            ("n_concat", Dep::Shape),
+            ("n_reshape", Dep::Data),
+            ("n_unsq_f", Dep::Data)
+        ]
+    );
+    let f = fold(&src, &facts, &registry());
+    assert!(!f.values.contains_key("R") && !f.values.contains_key("U"));
+}
+
+/// Over `X float[N]` the same chain has a symbolic dimension: nothing folds
+/// (the symbol is not a value), the Reshape target is not a constant, and its
+/// WHEN is UNKNOWN, which resolution refuses rather than treating as TRUE.
+#[test]
+fn a_symbolic_shape_is_not_folded_and_unknown_is_not_true() {
+    use tract_harvest_probe::fold::{classify, fold, Dep};
+    let b = bytes("shape_sym");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let (_, dep) = classify(&src, &facts);
+    assert_eq!(dep[0], Dep::Symbolic, "Shape(X) of X[N]");
+    assert!(dep.iter().all(|d| *d >= Dep::Symbolic));
+    assert!(fold(&src, &facts, &registry()).nodes.is_empty());
+    let reg = registry();
+    match plan("shape_sym", &reg).1 {
+        Err(Refusal::When {
+            node,
+            classid,
+            truth,
+            ..
+        }) => {
+            assert_eq!(
+                (node.as_str(), classid, truth),
+                ("n_reshape", 0x0F6A, K3::Unknown)
+            );
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// `Gather(Shape(F), 5)`: the index is outside `[-2, 2)`. ORT fails the run;
+/// Tract panics during `analyse` (`tract-core` `gather.rs`), which the cold
+/// frontend turns into a refusal instead of a crash. The guard's own FALSE on
+/// this index is `registry::tests::gather_index_range_is_three_valued`.
+#[test]
+fn an_out_of_range_gather_index_is_refused_not_a_panic() {
+    assert!(ort()["variants"]["neg_gather_index"]["ort_error"]
+        .as_str()
+        .unwrap()
+        .contains("out of data bounds"));
+    match tract_facts(&bytes("neg_gather_index"), &[]) {
+        Err(Refusal::Frontend(e)) => assert!(e.contains("panicked during analyse"), "{e}"),
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// `Concat([2,3], [2,2], axis=0)`: ORT rejects the model and Tract's
+/// inference refuses it, so the cold frontend refuses before any guard runs
+/// (the guard's own FALSE on this case is a unit test in `registry`).
+#[test]
+fn a_concat_dimension_mismatch_is_refused_by_the_frontend() {
+    assert!(ort()["variants"]["neg_concat"]["ort_error"].is_string());
+    match tract_facts(&bytes("neg_concat"), &[]) {
+        Err(Refusal::Frontend(e)) => assert!(e.contains("n_concat"), "{e}"),
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// `Erf` (fixture A with Erf for Abs) runs through `vserf`; the Erf output is
+/// within 2 ULP of ORT and the integer branch is exact.
+#[test]
+fn erf_in_the_graph_against_ort() {
+    let reg = registry();
+    let (fx, p) = plan("erf", &reg);
+    let p = p.unwrap();
+    let erf = p.steps.iter().find(|s| s.name == "n_abs").unwrap();
+    assert_eq!(erf.classid, 0x0F33);
+    let out = p.run(&fx.store, &inputs(None)).unwrap();
+    let (shape, got) = f32_bits(&out, "A");
+    let (oshape, want) = ort_f32("erf", "A");
+    assert_eq!(shape, oshape);
+    let worst = got
+        .iter()
+        .zip(&want)
+        .map(|(&a, &b)| ulp(f32::from_bits(a), f32::from_bits(b)))
+        .max()
+        .unwrap();
+    assert!(worst <= 2, "Erf vs ORT: {worst} ULP");
+    assert_eq!(outputs(&out).0, ort_out("erf").0);
+}
+
+/// Erf over a dense grid of [-6, 6] plus signed zeros, infinities, NaN and
+/// subnormals: within 2 ULP of erf in f64 rounded to f32 over [-5, 5] (the
+/// ndarray #399 contract), exact on the special values, and the measured
+/// distance to ORT pinned.
+#[test]
+fn erf_sweep_against_f64_and_ort() {
+    let o = ort();
+    let sw = &o["erf_sweep"];
+    let xs: Vec<f32> = u32s(&sw["X_bits"])
+        .into_iter()
+        .map(f32::from_bits)
+        .collect();
+    let refs: Vec<f32> = u32s(&sw["f64_ref_bits"])
+        .into_iter()
+        .map(f32::from_bits)
+        .collect();
+    let orts: Vec<f32> = u32s(&sw["ort_bits"])
+        .into_iter()
+        .map(f32::from_bits)
+        .collect();
+    let b = bytes("erf_sweep");
+    let src = SourceInventory::from_bytes(&b).unwrap();
+    let facts = tract_facts(&b, &[]).unwrap();
+    let g = OnnxGraph::build(&src, &facts).unwrap();
+    let reg = registry();
+    let store = FrameStore::new(revisions(&src, &reg, &g));
+    let p = resolve(&src, g, &reg, &store).unwrap();
+    let x = Value::F32(ArrayD::from_shape_vec(IxDyn(&[xs.len()]), xs.clone()).unwrap());
+    let out = p.run(&store, &[("X", x)]).unwrap();
+    let ys: Vec<f32> = f32_bits(&out, "Y")
+        .1
+        .into_iter()
+        .map(f32::from_bits)
+        .collect();
+    let (mut in5, mut all, mut vs_ort) = (0u32, 0u32, 0u32);
+    for ((&x, &y), (&r, &t)) in xs.iter().zip(&ys).zip(refs.iter().zip(&orts)) {
+        let d = ulp(y, r);
+        if x.abs() <= 5.0 {
+            in5 = in5.max(d);
+        }
+        all = all.max(d);
+        vs_ort = vs_ort.max(ulp(y, t));
+        if x == 0.0 || x.is_infinite() || x.is_nan() {
+            assert_eq!(y.to_bits(), r.to_bits(), "erf({x:e}) = {y:e}, want {r:e}");
+        }
+    }
+    eprintln!(
+        "Erf sweep: {} points, max ULP vs f64 {in5} on [-5,5] ({all} overall), vs ORT {vs_ort}",
+        xs.len()
+    );
+    assert!(in5 <= 2, "{in5} ULP on [-5, 5]");
+    assert!(all <= 2, "{all} ULP overall");
+    assert!(vs_ort <= 2, "{vs_ort} ULP vs ORT");
 }
