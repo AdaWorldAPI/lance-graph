@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-505 entries, 2026-08-06 .. 2026-10-30.
+506 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-30 | `D-XLOG-DR64-0` | XLOG's CPU frontend lowers onto DR64 relcomp (answer {2}, 2 oracles); its optimizer emits ChainJoin and swapped orders; arrow 60 vs 58 blocks in-tree use; masks lose to scalar on selective data | [2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md](2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md) |
 | 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
 | 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
 | 2026-10-30 | `D-DRCA-3` |  | [2026-10-30-d-drca-3-dr4-method-routing.md](2026-10-30-d-drca-3-dr4-method-routing.md) |
