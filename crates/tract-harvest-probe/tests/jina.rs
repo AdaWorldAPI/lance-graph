@@ -501,6 +501,22 @@ fn full_graph_facts_and_coverage() {
     };
     assert_eq!(tot(&fs.typed), [4238, 256, 3126]);
     assert_eq!(tot(&fs.merged()), [7274, 0, 346]);
+    // The same graph as a bind-store consumer: every registered node has a
+    // route to its classid and resolves through it; the rest have none.
+    // 7,620 nodes: more than one 64-node tile, so the binder must not need
+    // the one-tile `OnnxGraph`.
+    let routes = tract_harvest_probe::bind::route(&src, &fs.merged(), &reg);
+    let resolved = (0..src.nodes.len())
+        .filter(|&n| tract_harvest_probe::bind::resolve(&routes, &reg, n).is_ok())
+        .count();
+    assert_eq!(
+        (
+            routes.map.len(),
+            resolved,
+            src.nodes.len() - routes.map.len()
+        ),
+        (7274, 7274, 346)
+    );
 }
 
 /// The real Jina rotary embedding, folded cold at `[1, 10]` from the source

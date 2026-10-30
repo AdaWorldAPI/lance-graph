@@ -44,7 +44,7 @@ pub struct Plan<'r> {
     frame: Frame,
 }
 
-fn digest64(parts: &[&[u8]]) -> u64 {
+pub(crate) fn digest64(parts: &[&[u8]]) -> u64 {
     let mut h = Sha256::new();
     for p in parts {
         h.update((p.len() as u64).to_le_bytes());
