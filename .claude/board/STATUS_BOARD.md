@@ -55,6 +55,7 @@
 | D-DT64-6-3 | register OGIT verbs as DT64 predicates in 64-wide blocks | Queued | D-DT64-6-2 green |
 | D-DT64-6-4 | consumer read-only access via HotPlug activation | Queued | D-DT64-6-3 green |
 | D-DT64-6-5 | OGIT becomes cross-check oracle once a domain has attested predicates | Queued | one attested domain |
+| D-DT64-6-BS | `crates/lance-graph-dt64`: the bind store (workspace member, contract-only dep). Closes D-DRDT §4 gaps 1–4 (MethodId + SigRev, K3 guard as `SetExpr` + `Logic`, ordered effects, one `resolve`); D5 immutable classid, derived classid + versioned route log; D-DRDT §5 falsifier | In PR (#1862) | 11 tests green, clippy/fmt clean; disable runs (Amendment A.5) |
 
 ## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
 

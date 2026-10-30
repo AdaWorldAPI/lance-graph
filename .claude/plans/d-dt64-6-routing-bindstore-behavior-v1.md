@@ -238,3 +238,24 @@ Production step (registry module doc): the lab ordinals become OGAR-minted conce
 ## A.4 Open (unchanged owners)
 
 The Bag carrier (who admits a counted population into `bind_dr64`); the D-DRDT §4 DT gaps (MethodId, K3 guards, effect order, one lookup); §6 questions 1–9.
+
+## A.5 (2026-10-30) The bind store as production code: `crates/lance-graph-dt64`
+
+**Status:** VERIFIED-IN-CODE. This supersedes A.2's status line ("no bind store type exists in the codebase") and closes the four D-DRDT §4 gaps listed in A.4. A workspace member; its only dependency is `lance-graph-contract` (zero-dep). It stores bindings and their version log, never business data, and evaluates nothing.
+
+| Decision / gap | In `lance-graph-dt64` | Test (`tests/bind_store.rs`) |
+|---|---|---|
+| D-DRDT §4 gap 1: method identity independent of name | `MethodId` + `SigRev`; the source name rides in `MethodBinding::name` | `same_read_write_sets_…` (stale `SigRev` refused) |
+| gap 2: K3, conjunctive WHEN | `Guard { expr: SetExpr, logic: Logic }` from `set_algebra`, the description Quack's WHERE evaluates (§3); `Guard::witness` is the normal form under its own logic (`normalize_kleene` for K3) | `a_kleene_guard_never_treats_unknown_as_true` (`x<5 ∨ x≥5` is `All` two-valued, not under Kleene) |
+| gap 3: effect order | `MethodBinding::effects: Vec<Effect>` (field position + `AlgebraRef`, the D4 polyfill reference); `writes()` is the unordered set | `same_read_write_sets_…` (equal reads/writes, unequal bindings, both kept) |
+| gap 4: one lookup | `BindStore::resolve(view, classid, schema_rev)`: fields borrowed from the `ClassView`, methods from the store; `resolve_at` by DR position and route version | `one_lookup_joins_…`, `override_is_…` |
+| D5 immutable classid; override = derived classid + re-route | `register` idempotent for an identical binding, else `BehaviourImmutable`; `register_derived` records the base | `class_behaviour_is_immutable`, `override_is_…` |
+| Only routing is versioned (§3) | append-only route log, `route` / `retract` / `routed_at(version, position)`; future versions refused | `override_is_…`, `routes_and_derivations_…` |
+| F06: unregistered is UNKNOWN | `Refusal::{UnknownClass, Unrouted, UnknownMethod}`, never an empty answer | `an_unregistered_class_is_unknown_not_empty` |
+| D-DRDT §5: refuse another schema revision; preserve guard witnesses; the first DR #4 falsifier | `resolve` refuses `SchemaRevisionMismatch` and `FieldBasisChanged`; `admit(MethodRef)` refuses `GuardDropped` / `GuardAdded` / `GuardMismatch` / `SignatureRevisionMismatch` | `schema_revision_and_field_basis_are_checked`, `same_read_write_sets_…`, `a_guard_added_…` |
+| A.1: population, truth, value demand | `Population` / `Truth` from `set_rules` and `ValueDemand` ride the binding; a Bag is recorded, never refused here (admitting it is the binder's call) | `population_truth_and_demand_ride_the_binding` |
+| Registration hygiene | `DuplicateMethodId`, `FieldOutOfBasis` (ON, reads, effect targets), `BasisTooWide` (> 256) | `registration_refuses_…` |
+
+Disable runs (committed first, each guard removed, the named test red, restored with `git checkout`): listed in the commit that records them.
+
+Not done: wiring OGAR's `CapabilityAuthority` (D6, the production route for consumer classids); persistence of the store (EXO-55 owns the writer path); a router (DR #4) that carries `MethodRef`s; §6 questions 1–9, including whether the immutable unit is the classid or `(classid, binding version)` — this crate implements the D5 wording (the classid).
