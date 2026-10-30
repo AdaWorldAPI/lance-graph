@@ -12,9 +12,9 @@
 # source the probe builds with before a report cites it.
 Neg	f32	ndarray::hpc::vml::vsneg	unary_view	exact
 Sigmoid	f32	ndarray::hpc::activations::sigmoid_f32	unary_view	bounded
-IsNaN	f32	ndarray::simd_masking_ops::not_nan_f32_to_mask	mask_not	exact
-Where	f32	ndarray::simd_masking_ops::blend_f32	blend	exact
-Where	f32	ndarray::simd_masking_ops::blend_f32_scalar	blend	exact
+IsNaN	f32	ndarray::simd::not_nan_f32_to_mask	mask_not	exact
+Where	f32	ndarray::simd::blend_f32	blend	exact
+Where	f32	ndarray::simd::blend_f32_scalar	blend	exact
 Softmax	f32	ndarray::hpc::activations::softmax_axis_f32	softmax_rows	bounded
 Gather	f32	ndarray::hpc::gather::gather_rows_f32	gather_rows	exact
 Slice	f32	ndarray::ArrayBase::slice_each_axis	view	exact

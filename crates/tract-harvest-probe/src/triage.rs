@@ -326,15 +326,21 @@ mod tests {
     }
 
     /// The three gap kinds on one graph, plus a bound node that is not
-    /// reported: Where with f32 values is a dtype gap (keyed on argument 1,
-    /// not the bool condition), Neg is a missing op, Reshape with
-    /// `allowzero = 1` is an attribute gap, and Add f32 binds.
+    /// reported: Where with f64 values is a dtype gap (keyed on argument 1,
+    /// not the bool condition), Tile is a missing op, Reshape with
+    /// `allowzero = 1` is an attribute gap, and Add f32 binds. Chosen so the
+    /// registry growing does not close them.
     #[test]
     fn classifies_dtype_attr_and_op_gaps() {
         let src = SourceInventory {
             nodes: vec![
-                node("/layers.3/attn/Where_7", "Where", &["c", "x", "y"], vec![]),
-                node("/layers.3/attn/Neg", "Neg", &["x"], vec![]),
+                node(
+                    "/layers.3/attn/Where_7",
+                    "Where",
+                    &["c", "x64", "y"],
+                    vec![],
+                ),
+                node("/layers.3/attn/Tile", "Tile", &["x", "shape"], vec![]),
                 node(
                     "r",
                     "Reshape",
@@ -354,7 +360,8 @@ mod tests {
         let facts: HashMap<String, Fact> = [
             ("c", fact(DType::Bool, &[2, 3])),
             ("x", fact(DType::F32, &[2, 3])),
-            ("y", fact(DType::F32, &[2, 3])),
+            ("y", fact(DType::F64, &[2, 3])),
+            ("x64", fact(DType::F64, &[2, 3])),
             ("shape", fact(DType::I64, &[1])),
         ]
         .into_iter()
@@ -362,7 +369,7 @@ mod tests {
         .collect();
         let consts: HashSet<&str> = ["shape"].into_iter().collect();
         let tract: BTreeSet<String> = ["Where", "Reshape"].iter().map(|s| s.to_string()).collect();
-        let hints = parse_hints("Neg\tf32\tndarray::hpc::vml::vsneg\tunary_view\texact\n").unwrap();
+        let hints = parse_hints("Tile\tf32\tndarray::ArrayBase::broadcast\tview\texact\n").unwrap();
         let reg = registry();
         let f = triage(&src, &facts, &consts, &reg, &tract, &hints);
         let got: Vec<(&str, &str, Option<DType>)> = f
@@ -372,8 +379,8 @@ mod tests {
         assert_eq!(
             got,
             vec![
-                ("Where", "dtype", Some(DType::F32)),
-                ("Neg", "op", Some(DType::F32)),
+                ("Where", "dtype", Some(DType::F64)),
+                ("Tile", "op", Some(DType::F32)),
                 ("Reshape", "attr", Some(DType::F32)),
             ]
         );

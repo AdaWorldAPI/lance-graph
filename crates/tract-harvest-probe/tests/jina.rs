@@ -493,8 +493,11 @@ fn full_graph_facts_and_coverage() {
             .values()
             .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
     };
-    assert_eq!(tot(&fs.typed), [4238, 256, 3126]);
-    assert_eq!(tot(&fs.merged()), [7274, 0, 346]);
+    // Typed facts alone leave shapes unknown, so some guards stay UNKNOWN.
+    assert_eq!(tot(&fs.typed), [4384, 286, 2950]);
+    // With the merged facts every node is registered and WHEN TRUE (was
+    // 7,274 / 0 / 346 before the fields of plan §0.10).
+    assert_eq!(tot(&fs.merged()), [7620, 0, 0]);
     // The same graph as a bind-store consumer: every registered node has a
     // route to its codebook item and resolves through it; the rest have none.
     let routes = tract_harvest_probe::bind::route(&src, &fs.merged(), &reg);
@@ -507,7 +510,7 @@ fn full_graph_facts_and_coverage() {
             resolved,
             src.nodes.len() - routes.map.len()
         ),
-        (7274, 7274, 346)
+        (7620, 7620, 0)
     );
     // DR64 is global to local: the whole graph lays over tiles, `dep`
     // composed tile by tile is the source dataflow, and it schedules.

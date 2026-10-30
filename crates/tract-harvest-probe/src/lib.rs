@@ -22,6 +22,7 @@ pub mod bind;
 pub mod dr3;
 pub mod fold;
 pub mod gather;
+mod generated;
 pub mod plan;
 pub mod provenance;
 pub mod registry;

@@ -9,53 +9,14 @@
 //! builds with. Native words come from `data/native_words.tsv`; a word whose
 //! `fn` is not found in that source is marked `unverified`.
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use tract_harvest_probe::registry::registry;
 use tract_harvest_probe::{dr3, fold, source::SourceInventory, tract_index, triage};
 use tract_onnx::prelude::*;
 
-fn lock_rev(lock: &str, url_part: &str) -> Option<String> {
-    lock.lines()
-        .filter(|l| l.starts_with("source = \"git+") && l.contains(url_part))
-        .find_map(|l| {
-            l.rsplit('#')
-                .next()
-                .map(|r| r.trim_end_matches('"').to_string())
-        })
-}
-
-fn checkout(prefix: &str, rev: &str) -> Option<PathBuf> {
-    let home = std::env::var("CARGO_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from(std::env::var("HOME").unwrap()).join(".cargo"));
-    let base = home.join("git/checkouts");
-    std::fs::read_dir(&base).ok()?.flatten().find_map(|d| {
-        let name = d.file_name().to_string_lossy().to_string();
-        if !name.starts_with(prefix) {
-            return None;
-        }
-        let p = d.path().join(&rev[..7]);
-        p.exists().then_some(p)
-    })
-}
-
-fn rs_files(dir: &Path, out: &mut Vec<(String, String)>) {
-    let Ok(rd) = std::fs::read_dir(dir) else {
-        return;
-    };
-    let mut entries: Vec<_> = rd.flatten().map(|e| e.path()).collect();
-    entries.sort();
-    for p in entries {
-        if p.is_dir() {
-            rs_files(&p, out);
-        } else if p.extension().is_some_and(|e| e == "rs") {
-            if let Ok(t) = std::fs::read_to_string(&p) {
-                out.push((p.to_string_lossy().to_string(), t));
-            }
-        }
-    }
-}
+#[path = "support/sources.rs"]
+mod sources;
 
 fn main() {
     let path = std::env::args().nth(1).expect("model path");
@@ -84,11 +45,13 @@ fn main() {
 
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     let lock = std::fs::read_to_string(crate_dir.join("Cargo.lock")).unwrap_or_default();
-    let tract_dir = lock_rev(&lock, "/tract").and_then(|r| checkout("tract-", &r));
-    let nd_dir = lock_rev(&lock, "/ndarray").and_then(|r| checkout("ndarray-", &r));
+    let tract_dir =
+        sources::lock_rev(&lock, "/tract").and_then(|r| sources::checkout("tract-", &r));
+    let nd_dir =
+        sources::lock_rev(&lock, "/ndarray").and_then(|r| sources::checkout("ndarray-", &r));
     let mut tract_files = Vec::new();
     if let Some(d) = &tract_dir {
-        rs_files(&d.join("onnx/src"), &mut tract_files);
+        sources::rs_files(&d.join("onnx/src"), &mut tract_files);
     }
     let tix = tract_index::index(&tract_files);
     let frontend: BTreeSet<String> = tix.keys().cloned().collect();
@@ -99,10 +62,10 @@ fn main() {
     .unwrap();
     let mut nd_files = Vec::new();
     if let Some(d) = &nd_dir {
-        rs_files(&d.join("src"), &mut nd_files);
+        sources::rs_files(&d.join("src"), &mut nd_files);
     }
     let mut own = Vec::new();
-    rs_files(&crate_dir.join("src"), &mut own);
+    sources::rs_files(&crate_dir.join("src"), &mut own);
     let verified: Vec<bool> = hints
         .iter()
         .map(|h| {

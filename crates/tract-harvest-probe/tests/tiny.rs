@@ -1419,3 +1419,129 @@ fn a_masked_field_is_absent() {
         assert_eq!(masked.key_of(r), k);
     }
 }
+
+fn jina_input(k: &'static str) -> (&'static str, Value) {
+    let o = ort();
+    let e = &o["variants"]["jina_ops"]["inputs"][k];
+    let shape: Vec<usize> = e["shape"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_u64().unwrap() as usize)
+        .collect();
+    let bits = e["bits"].as_array().unwrap();
+    let v = match e["dtype"].as_str().unwrap() {
+        "float32" => f32_value(&shape, &u32s(&e["bits"])),
+        "int64" => Value::I64(
+            ndarray::ArrayD::from_shape_vec(
+                ndarray::IxDyn(&shape),
+                bits.iter().map(|b| b.as_i64().unwrap()).collect(),
+            )
+            .unwrap(),
+        ),
+        "bool" => {
+            let mut words = vec![0u64; bits.len().div_ceil(64)];
+            for (i, b) in bits.iter().enumerate() {
+                if b.as_i64().unwrap() != 0 {
+                    words[i / 64] |= 1 << (i % 64);
+                }
+            }
+            Value::Bool { shape, words }
+        }
+        d => panic!("{k}: {d}"),
+    };
+    (k, v)
+}
+
+/// Jina's 14 unregistered op types, one node per shape pattern
+/// (`tools/gen_tiny.py` `jina_ops`), resolved and run node by node against
+/// ORT (`ORT_DISABLE_ALL`). Exact ops agree bit for bit; Sigmoid and Softmax
+/// are bounded and reported in ULP.
+#[test]
+fn jina_ops_against_ort() {
+    let reg = registry();
+    let (fx, p) = plan("jina_ops", &reg);
+    let p = p.unwrap_or_else(|e| panic!("{e:?}"));
+    let ins: Vec<_> = [
+        "X", "M", "C", "Y", "NAN_IN", "SM_IN", "SG_IN", "CI", "RI", "BE", "GE",
+    ]
+    .into_iter()
+    .map(jina_input)
+    .collect();
+    let out = p.run(&fx.store, &ins).unwrap();
+    let f32_outs = [
+        ("slice_hi", 0),
+        ("slice_lo", 0),
+        ("neg", 0),
+        ("where_a", 0),
+        ("where_b", 0),
+        ("gather_f", 0),
+        ("gather_el", 0),
+        ("squeeze", 0),
+        ("sigmoid", 4),
+        ("softmax", 4),
+    ];
+    for (k, bound) in f32_outs {
+        let (shape, got) = f32_bits(&out, k);
+        let (want_shape, want) = ort_f32("jina_ops", k);
+        assert_eq!(shape, want_shape, "{k}");
+        let d = got
+            .iter()
+            .zip(&want)
+            .map(|(&g, &w)| ulp(f32::from_bits(g), f32::from_bits(w)))
+            .max()
+            .unwrap();
+        if bound == 0 {
+            eprintln!("jina_ops {k}: max ULP vs ORT {d}");
+            assert_eq!(d, 0, "{k}");
+            continue;
+        }
+        // Bounded ops: the reference is f64 over the same input; ORT is
+        // reported, not asserted (its sigmoid flushes sigmoid(-20) = 2.06e-9
+        // to 0, which is 8e8 ULP from the true value).
+        let input = |name: &str| match &ins.iter().find(|(n, _)| *n == name).unwrap().1 {
+            Value::F32(a) => a.iter().map(|&v| v as f64).collect::<Vec<f64>>(),
+            _ => unreachable!(),
+        };
+        let reference: Vec<f64> = if k == "sigmoid" {
+            input("SG_IN")
+                .iter()
+                .map(|x| 1.0 / (1.0 + (-x).exp()))
+                .collect()
+        } else {
+            input("SM_IN")
+                .chunks(3)
+                .flat_map(|row| {
+                    let m = row.iter().cloned().fold(f64::MIN, f64::max);
+                    let e: Vec<f64> = row.iter().map(|x| (x - m).exp()).collect();
+                    let s: f64 = e.iter().sum();
+                    e.into_iter().map(move |v| v / s)
+                })
+                .collect()
+        };
+        let vs_f64 = got
+            .iter()
+            .zip(&reference)
+            .map(|(&g, &r)| ulp(f32::from_bits(g), r as f32))
+            .max()
+            .unwrap();
+        eprintln!("jina_ops {k}: max ULP vs f64 {vs_f64}, vs ORT {d}");
+        assert!(vs_f64 <= bound, "{k}: {vs_f64} ULP from f64 > {bound}");
+    }
+    for k in [
+        "slice_bool",
+        "isnan",
+        "cast_bool",
+        "flatten_b",
+        "gather_b",
+        "reshape_b1",
+        "reshape_b2",
+        "expand_b",
+        "reduce_i64",
+    ] {
+        assert_eq!(ints(&out, k), ort_ints("jina_ops", k), "{k}");
+    }
+    // The isnan output is not vacuous: the input carries NaN and ±inf.
+    let (_, isnan) = ints(&out, "isnan");
+    assert_eq!(isnan.iter().filter(|&&b| b == 1).count(), 2);
+}

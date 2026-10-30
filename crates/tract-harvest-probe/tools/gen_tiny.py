@@ -261,6 +261,90 @@ def build_shape(variant):
     return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
 
 
+_jn = np.random.default_rng(20261101)
+JINA_FEEDS = {
+    "X": _jn.standard_normal((1, 2, 3, 8)).astype(np.float32),
+    "M": _jn.integers(0, 2, (1, 1, 3, 3)).astype(np.bool_),
+    "C": _jn.integers(0, 2, (1, 2, 3, 3)).astype(np.bool_),
+    "Y": _jn.standard_normal((1, 2, 3, 3)).astype(np.float32),
+    "NAN_IN": _jn.standard_normal((1, 2, 3, 3)).astype(np.float32),
+    "SM_IN": _jn.standard_normal((1, 2, 3, 3)).astype(np.float32),
+    "SG_IN": _jn.standard_normal((1, 3, 6)).astype(np.float32),
+    "CI": np.array([[1, 0, 1, 1]], np.int64),
+    "RI": np.array([[1, 0, 1, 1]], np.int64),
+    "BE": _jn.integers(0, 2, (1, 1, 3, 3)).astype(np.bool_),
+    "GE": _jn.standard_normal((1, 4, 5)).astype(np.float32),
+}
+JINA_FEEDS["NAN_IN"][0, 0, 0, 0] = np.nan
+JINA_FEEDS["NAN_IN"][0, 1, 2, 2] = np.nan
+JINA_FEEDS["NAN_IN"][0, 0, 1, 1] = np.inf
+JINA_FEEDS["NAN_IN"][0, 1, 0, 1] = -np.inf
+JINA_FEEDS["SG_IN"].reshape(-1)[:5] = np.array([-20.0, -1.0, 0.0, 1.0, 20.0], np.float32)
+
+
+def build_jina_ops():
+    """Jina's 14 unregistered op types, one node per shape pattern.
+
+    Every node's output is also a graph output, so each op is checked
+    separately against ORT. Independent graph inputs per op where the pattern
+    allows it, so a failure points at one op."""
+    f32min = np.array([-3.4028234663852886e38], np.float32)
+    inits = [
+        i64("st0", [0]), i64("st4", [4]), i64("en3", [3]), i64("en4", [4]), i64("en8", [8]),
+        i64("ax3", [3]), i64("step1", [1]),
+        nh.from_array(f32min, "Xc"),
+        nh.from_array(np.array([0.0], np.float32), "Xc0"),
+        nh.from_array(f32min.copy(), "Yc"),
+        nh.from_array(_jn.standard_normal((5, 4)).astype(np.float32), "GD"),
+        i64("gidx", [[4, 0, 2]]),
+        i64("gidx_b", [[[[0, 1, 2, 3]]]]),
+        i64("shp4", [4]), i64("shp1114", [1, 1, 1, 4]), i64("shp1133", [1, 1, 3, 3]),
+        i64("rs_axes", [1]),
+        i64("ge_idx", np.full((1, 1, 5), 3, np.int64)),
+        i64("sq_axes", [1]),
+    ]
+    nodes = [
+        h.make_node("Slice", ["X", "st4", "en8", "ax3", "step1"], ["slice_hi"], name="n_slice_hi"),
+        h.make_node("Slice", ["X", "st0", "en4", "ax3", "step1"], ["slice_lo"], name="n_slice_lo"),
+        h.make_node("Neg", ["slice_lo"], ["neg"], name="n_neg"),
+        h.make_node("Slice", ["M", "st0", "en3", "ax3", "step1"], ["slice_bool"], name="n_slice_bool"),
+        h.make_node("Where", ["C", "Xc", "Y"], ["where_a"], name="n_where_a"),
+        h.make_node("Where", ["slice_bool", "Xc0", "Yc"], ["where_b"], name="n_where_b"),
+        h.make_node("IsNaN", ["NAN_IN"], ["isnan"], name="n_isnan"),
+        h.make_node("Softmax", ["SM_IN"], ["softmax"], name="n_softmax", axis=-1),
+        h.make_node("Sigmoid", ["SG_IN"], ["sigmoid"], name="n_sigmoid"),
+        h.make_node("Gather", ["GD", "gidx"], ["gather_f"], name="n_gather_f", axis=0),
+        h.make_node("Cast", ["CI"], ["cast_bool"], name="n_cast_bool", to=9),
+        h.make_node("Flatten", ["cast_bool"], ["flatten_b"], name="n_flatten_b", axis=2),
+        h.make_node("Gather", ["flatten_b", "gidx_b"], ["gather_b"], name="n_gather_b", axis=0),
+        h.make_node("Reshape", ["gather_b", "shp4"], ["reshape_b1"], name="n_reshape_b1"),
+        h.make_node("Reshape", ["reshape_b1", "shp1114"], ["reshape_b2"], name="n_reshape_b2"),
+        h.make_node("Expand", ["BE", "shp1133"], ["expand_b"], name="n_expand_b"),
+        h.make_node("ReduceSum", ["RI", "rs_axes"], ["reduce_i64"], name="n_reduce_i64", keepdims=0),
+        h.make_node("GatherElements", ["GE", "ge_idx"], ["gather_el"], name="n_gather_el", axis=1),
+        h.make_node("Squeeze", ["gather_el", "sq_axes"], ["squeeze"], name="n_squeeze"),
+    ]
+    vi = h.make_tensor_value_info
+    inp = [vi("X", T.FLOAT, [1, 2, 3, 8]), vi("M", T.BOOL, [1, 1, 3, 3]),
+           vi("C", T.BOOL, [1, 2, 3, 3]), vi("Y", T.FLOAT, [1, 2, 3, 3]),
+           vi("NAN_IN", T.FLOAT, [1, 2, 3, 3]), vi("SM_IN", T.FLOAT, [1, 2, 3, 3]),
+           vi("SG_IN", T.FLOAT, [1, 3, 6]), vi("CI", T.INT64, [1, 4]),
+           vi("RI", T.INT64, [1, 4]), vi("BE", T.BOOL, [1, 1, 3, 3]),
+           vi("GE", T.FLOAT, [1, 4, 5])]
+    outs = [vi("slice_hi", T.FLOAT, [1, 2, 3, 4]), vi("slice_lo", T.FLOAT, [1, 2, 3, 4]),
+            vi("neg", T.FLOAT, [1, 2, 3, 4]), vi("slice_bool", T.BOOL, [1, 1, 3, 3]),
+            vi("where_a", T.FLOAT, [1, 2, 3, 3]), vi("where_b", T.FLOAT, [1, 1, 3, 3]),
+            vi("isnan", T.BOOL, [1, 2, 3, 3]), vi("softmax", T.FLOAT, [1, 2, 3, 3]),
+            vi("sigmoid", T.FLOAT, [1, 3, 6]), vi("gather_f", T.FLOAT, [1, 3, 4]),
+            vi("cast_bool", T.BOOL, [1, 4]), vi("flatten_b", T.BOOL, [4, 1]),
+            vi("gather_b", T.BOOL, [1, 1, 1, 4, 1]), vi("reshape_b1", T.BOOL, [4]),
+            vi("reshape_b2", T.BOOL, [1, 1, 1, 4]), vi("expand_b", T.BOOL, [1, 1, 3, 3]),
+            vi("reduce_i64", T.INT64, [1]), vi("gather_el", T.FLOAT, [1, 1, 5]),
+            vi("squeeze", T.FLOAT, [1, 5])]
+    g = h.make_graph(nodes, "tiny_jina_ops", inp, outs, inits)
+    return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
+
+
 def build_erf_sweep():
     g = h.make_graph([h.make_node("Erf", ["X"], ["Y"], name="n_erf")], "erf_sweep",
                      [h.make_tensor_value_info("X", T.FLOAT, ["N"])],
@@ -346,8 +430,8 @@ def main():
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
     for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith",
-              "i64_data", "rope", "matmul", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
-        data = build_shape(v).SerializeToString()
+              "i64_data", "rope", "matmul", "jina_ops", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
+        data = (build_jina_ops() if v == "jina_ops" else build_shape(v)).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)
         entry = {"sha256": hashlib.sha256(data).hexdigest()}
@@ -358,7 +442,11 @@ def main():
                  "lstm_full": {"X": np.ones((5, 1, 3), np.float32)},
                  "i64_data": {"F": INPUTS["F"], "I": np.array([-4, 5], np.int64)},
                  "rope": {"ids": np.arange(10, dtype=np.int64).reshape(1, 10)},
-                 "matmul": MATMUL_FEEDS}.get(v, {"F": INPUTS["F"]})
+                 "matmul": MATMUL_FEEDS,
+                 "jina_ops": JINA_FEEDS}.get(v, {"F": INPUTS["F"]})
+        if v == "jina_ops":
+            entry["inputs"] = {k: {"shape": list(a.shape), "dtype": str(a.dtype), "bits": bits(a)}
+                               for k, a in JINA_FEEDS.items()}
         if v == "neg_i64_div0":
             # An integer zero divisor is undefined behaviour in ORT's kernel;
             # it is not run. The refusal here needs no oracle.
