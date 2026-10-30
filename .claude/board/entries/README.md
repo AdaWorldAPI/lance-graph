@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-514 entries, 2026-08-06 .. 2026-10-30.
+515 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-10-30 | `D-TRACT-HARVEST` |  | [2026-10-30-d-tract-onnx-coverage-map.md](2026-10-30-d-tract-onnx-coverage-map.md) |
 | 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
 | 2026-10-30 | `D-TRACT-CODEGRAPH-ADDRESS` |  | [2026-10-30-d-tract-codegraph-address-map.md](2026-10-30-d-tract-codegraph-address-map.md) |
+| 2026-10-30 | `D-SAG-6-1-AUDIT` |  | [2026-10-30-d-sag-6-1-capability-audit.md](2026-10-30-d-sag-6-1-capability-audit.md) |
 | 2026-10-30 | `D-MIST-NATIVE-0` |  | [2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md](2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md) |
 | 2026-10-30 | `D-LITHO` |  | [2026-10-30-d-litho-photolithography-contract.md](2026-10-30-d-litho-photolithography-contract.md) |
 | 2026-10-30 | `D-LITHO-1` |  | [2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md](2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md) |

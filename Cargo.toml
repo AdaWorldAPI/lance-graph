@@ -148,6 +148,9 @@ exclude = [
     # D-TRACT-HARVEST-0 lab probe: Tract as a cold ONNX frontend. Own [workspace];
     # no native crate depends on it. `cargo test --manifest-path crates/tract-harvest-probe/Cargo.toml`.
     "crates/tract-harvest-probe",
+    # D-SAG-6-1 lab probe: rust-analyzer (`ra_ap_*`) as a cold Rust indexer.
+    # Own [workspace]; nothing depends on it. `cargo run --release` from its dir.
+    "crates/sag-ra-probe",
     # A lance-graph ReportResult as an addressed OGAR ObjectSlot source
     # (implements ogar-doc-ir's DocObjectSource::grid_of). EXCLUDED for the same
     # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via
