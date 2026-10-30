@@ -73,6 +73,7 @@ use std::collections::BTreeMap;
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::ontology::FieldRef;
+use lance_graph_contract::property::{PropertySchema, PropertySpec};
 use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 
@@ -394,6 +395,14 @@ pub struct FieldRow<'v> {
     pub predicate: &'v str,
 }
 
+/// A fieldview row with its meaning (see [`Resolved::field_meaning`]).
+#[derive(Debug, Clone, Copy)]
+pub struct FieldMeaning<'v, 'p> {
+    pub row: FieldRow<'v>,
+    /// The field's semantics by predicate; `None` is UNKNOWN.
+    pub spec: Option<&'p PropertySpec>,
+}
+
 impl<'s, 'v> Resolved<'s, 'v> {
     /// Every method whose ON includes `field`, in registration order. Several
     /// are normal and all are returned.
@@ -415,6 +424,53 @@ impl<'s, 'v> Resolved<'s, 'v> {
                 predicate: f.predicate_iri.as_str(),
             })
         })
+    }
+
+    /// The fieldview with meaning: each selected row joined by predicate to
+    /// its [`PropertySpec`] (obligation, semantic type, marking). `spec` is
+    /// `None` when the schema has no entry: UNKNOWN meaning, never a default.
+    pub fn field_meaning<'m, 'p>(
+        &self,
+        mask: &'m WideFieldMask,
+        schema: &'p PropertySchema,
+    ) -> impl Iterator<Item = FieldMeaning<'v, 'p>> + 'm
+    where
+        'v: 'm,
+        'p: 'm,
+    {
+        self.field_view(mask).map(move |row| FieldMeaning {
+            row,
+            spec: schema.get(row.predicate),
+        })
+    }
+
+    /// A mask from meaning: the lens's fields whose spec satisfies `pred`
+    /// (a risk mask is `|s| s.marking >= Marking::Pii`, a presence obligation
+    /// is `|s| s.kind == PropertyKind::Required`). A field with no spec is
+    /// never selected, whatever `pred` would say about a default.
+    pub fn mask_where(
+        &self,
+        schema: &PropertySchema,
+        pred: impl Fn(&PropertySpec) -> bool,
+    ) -> WideFieldMask {
+        self.positions(|f| schema.get(&f.predicate_iri).is_some_and(&pred))
+    }
+
+    /// The lens's fields the schema says nothing about: UNKNOWN meaning,
+    /// surfaced rather than defaulted.
+    pub fn unspecified(&self, schema: &PropertySchema) -> WideFieldMask {
+        self.positions(|f| schema.get(&f.predicate_iri).is_none())
+    }
+
+    fn positions(&self, keep: impl Fn(&FieldRef) -> bool) -> WideFieldMask {
+        let picked: Vec<u8> = self
+            .fields
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| keep(f))
+            .filter_map(|(i, _)| u8::try_from(i).ok())
+            .collect();
+        WideFieldMask::from_positions(&picked)
     }
 
     /// The action addresses the class exposes: its method ordinals, in

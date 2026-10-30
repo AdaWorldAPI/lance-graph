@@ -703,3 +703,46 @@ fn the_fieldview_projects_mask_positions_with_late_labels() {
     assert_eq!(r.field_view(&WideFieldMask::from_positions(&[])).count(), 0);
     assert_eq!(r.action_ordinals().collect::<Vec<_>>(), vec![MethodId(1)]);
 }
+
+/// Field meaning through the lens: the fieldview row joined by predicate to
+/// the contract's `PropertySpec` (obligation, semantic type, marking). The
+/// same pattern yields masks from meaning: a risk mask, an obligation mask.
+/// A field with no spec is UNKNOWN and never defaults into a mask.
+#[test]
+fn meaning_masks_come_from_the_same_fieldview() {
+    use lance_graph_contract::cam::CodecRoute;
+    use lance_graph_contract::property::{
+        Marking, PropertyKind, PropertySchema, PropertySpec, SemanticType,
+    };
+    static SPECS: [PropertySpec; 3] = [
+        PropertySpec::required("urn:f0")
+            .with_semantic_type(SemanticType::Iban)
+            .with_marking(Marking::Pii),
+        PropertySpec::optional("urn:f1", CodecRoute::Passthrough),
+        PropertySpec::required("urn:f2").with_marking(Marking::Financial),
+        // urn:f3 is deliberately absent: UNKNOWN meaning.
+    ];
+    let schema = PropertySchema {
+        entity_type: "order",
+        properties: &SPECS,
+    };
+    let s = store_with_order();
+    let view = View::with_fields(VIEW_CLASS, 4);
+    let r = s.resolve(&view, ORDER, SchemaRev(1)).unwrap();
+
+    let rows: Vec<(u8, Option<Marking>)> = r
+        .field_meaning(&WideFieldMask::from_positions(&[0, 3]), &schema)
+        .map(|m| (m.row.position, m.spec.map(|s| s.marking)))
+        .collect();
+    assert_eq!(rows, vec![(0, Some(Marking::Pii)), (3, None)]);
+
+    let risk = r.mask_where(&schema, |s| s.marking >= Marking::Pii);
+    assert_eq!(risk, WideFieldMask::from_positions(&[0, 2]));
+    let required = r.mask_where(&schema, |s| s.kind == PropertyKind::Required);
+    assert_eq!(required, WideFieldMask::from_positions(&[0, 2]));
+    // Falsifier: a default spec would be Internal; the unspecified field 3
+    // must still not join a mask that Internal satisfies.
+    let low = r.mask_where(&schema, |s| s.marking <= Marking::Internal);
+    assert_eq!(low, WideFieldMask::from_positions(&[1]));
+    assert_eq!(r.unspecified(&schema), WideFieldMask::from_positions(&[3]));
+}
