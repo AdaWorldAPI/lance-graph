@@ -1,8 +1,14 @@
-//! D-MIST-NATIVE-0: Mistaber's Kripke holding rules as a least fixpoint over
-//! the existing DR64 Boolean relation register.
+//! D-MIST-NATIVE-0/1a: Mistaber's Kripke holding rules as a least fixpoint
+//! over the existing DR64 Boolean relation register, on HHTL16 node rows.
 //!
 //! Plan: `.claude/plans/d-mistaber-native-v1.md`. Reference answers: Clingo
 //! golden files exported by `AdaWorldAPI/mistaber-rs` (`goldens/SOURCE`).
+//!
+//! # Identity
+//!
+//! A node is an address, never a name. Each population (world, proposition,
+//! rule) is a set of [`rows::NodeRow`](lance_graph_contract::canonical_node::NodeRow)s
+//! in the HHTL16 format of [`rows`]; names live only in [`membrane`].
 //!
 //! # The fixpoint
 //!
@@ -17,8 +23,8 @@
 //! ```
 //!
 //! with `H` a proposition × world relation and `children` the world × world
-//! relation `parent → child`. Each step is one
-//! [`compose`](dr_math_binding_probe::relcomp::compose) plus an AND-NOT: no new
+//! relation `parent → child`, derived from the parent addresses in the world
+//! rows. Each step is one DR64-bound composition plus an AND-NOT: no new
 //! algebra. The two lineages (`holds_via_rule`'s source rule and
 //! `inheritance_source`'s origin) are the same fixpoint gated by the final
 //! `H`, one per rule or origin.
@@ -26,7 +32,7 @@
 //! # The holdings lens
 //!
 //! Holdings are read through one lens whose fields are [`HOLDINGS_FIELDS`].
-//! A predicate is a [`WideFieldMask`] selection over it: `holds/2` selects
+//! A predicate is a [`WideFieldMask`](lance_graph_contract::class_view::WideFieldMask) selection over it: `holds/2` selects
 //! proposition and world, `holds_via/3` adds the mode, `holds_via_rule/5`
 //! adds both rules. Selecting fewer fields can make two lens rows equal, so
 //! the projection is [`Projection::Set`] (Datalog: one fact) or
@@ -36,12 +42,26 @@
 //! # Not covered, refused
 //!
 //! Anything that is not one fixpoint of facts: a fact kind outside the Kripke
-//! inputs, more than 64 worlds, propositions or rules (one register), and a
-//! selection that is not one of the three predicates.
+//! inputs, more than 64 worlds, propositions or rules (one register), more
+//! than 15 parents of one world (one row), and a selection that is not one of
+//! the three predicates.
 #![forbid(unsafe_code)]
 
-use dr_math_binding_probe::relcomp::{Rows, Work, compose};
-use lance_graph_contract::class_view::WideFieldMask;
+pub mod membrane;
+pub mod rows;
+
+use dr_math_binding_probe::hhtl16::{LocalMap, MapRefusal};
+use dr_math_binding_probe::relcomp::{Chain, RelExpr, Rows, Work};
+use dr_math_binding_probe::{
+    Axis, AxisKind, BoundDr64, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Operand,
+    Scope, bind_dr64,
+};
+use lance_graph_contract::canonical_node::NodeRow;
+use lance_graph_contract::morton8x8::Morton8x8;
+use lance_graph_contract::register128::RegisterLanes;
+
+pub use membrane::{Golden, Intake, NameTable, Pop, Relation, intake, intake_under, parse_golden};
+use rows::{COLUMNS, Population, UNBOUND, columns, identity};
 
 /// The slot count of one register axis.
 pub const SLOTS: usize = 64;
@@ -60,8 +80,8 @@ const F_MODE: u8 = 2;
 const F_IMMEDIATE: u8 = 3;
 const F_SOURCE: u8 = 4;
 
-/// The immediate rule upstream attributes every inherited holding to.
-const INHERIT_RULE: &str = "r_kripke_inherit";
+const FOCUS: Focus = Focus { revision: 1 };
+const SCOPE: Scope = Scope { id: 1 };
 
 /// Why an input or a selection is refused.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,6 +92,14 @@ pub enum Refusal {
     Arity(String),
     /// More than [`SLOTS`] distinct values on one axis.
     TooMany(&'static str),
+    /// The same address twice in one population.
+    Duplicate(&'static str),
+    /// An address no row of the population holds.
+    Unmapped(&'static str),
+    /// A world with more parents than one row holds.
+    TooManyParents { parents: usize },
+    /// The register rails could not be bound.
+    Register(lance_graph_contract::hotplug::ActivationDrift),
     /// A golden line that is neither header, fact nor atom.
     Format(String),
     /// A field selection that is not `holds/2`, `holds_via/3` or
@@ -88,48 +116,48 @@ pub enum Projection {
     Bag,
 }
 
-#[derive(Default)]
-struct Interner(Vec<String>);
+/// Types that hold addresses and numbers, never names.
+#[doc(hidden)]
+pub trait AddressOnly {}
 
-impl Interner {
-    fn id(&mut self, name: &str, axis: &'static str) -> Result<usize, Refusal> {
-        if let Some(i) = self.0.iter().position(|n| n == name) {
-            return Ok(i);
-        }
-        if self.0.len() == SLOTS {
-            return Err(Refusal::TooMany(axis));
-        }
-        self.0.push(name.to_owned());
-        Ok(self.0.len() - 1)
-    }
+macro_rules! address_only {
+    ($($t:ty),* $(,)?) => { $(impl AddressOnly for $t {})* };
 }
+address_only!(
+    u8,
+    u16,
+    u32,
+    u64,
+    usize,
+    bool,
+    Morton8x8,
+    NodeRow,
+    RegisterLanes,
+    LocalMap,
+    FrameStore,
+    Work,
+    ModeTag,
+    Population,
+    Kb,
+    Mode,
+);
+impl<T: AddressOnly, const N: usize> AddressOnly for [T; N] {}
+impl<T: AddressOnly> AddressOnly for Vec<T> {}
+impl<T: AddressOnly> AddressOnly for Option<T> {}
+impl<T: AddressOnly + ?Sized> AddressOnly for &T {}
+impl AddressOnly for Holdings<'_> {}
 
-/// A golden file: its fixture id, input facts and expected atoms.
-pub struct Golden {
-    pub fixture_id: String,
-    pub facts: Vec<Vec<String>>,
-    pub atoms: Vec<String>,
-}
-
-/// Parse one golden TSV.
-pub fn parse_golden(text: &str) -> Result<Golden, Refusal> {
-    let mut g = Golden {
-        fixture_id: String::new(),
-        facts: Vec::new(),
-        atoms: Vec::new(),
-    };
-    for line in text.lines() {
-        let mut cols = line.split('\t');
-        match cols.next() {
-            Some("# fixture") => g.fixture_id = cols.next().unwrap_or_default().to_owned(),
-            Some(h) if h.starts_with('#') => {}
-            Some("fact") => g.facts.push(cols.map(str::to_owned).collect()),
-            Some("atom") => g.atoms.push(cols.collect::<Vec<_>>().join("\t")),
-            _ => return Err(Refusal::Format(line.to_owned())),
-        }
-    }
-    Ok(g)
-}
+/// Compiles only for address-only types.
+///
+/// ```compile_fail
+/// mistaber_kripke_probe::assert_address_only::<String>();
+/// ```
+///
+/// ```compile_fail
+/// mistaber_kripke_probe::assert_address_only::<Vec<String>>();
+/// ```
+#[doc(hidden)]
+pub fn assert_address_only<T: AddressOnly + ?Sized>() {}
 
 fn or(a: &Rows, b: &Rows) -> Rows {
     std::array::from_fn(|i| a[i] | b[i])
@@ -157,90 +185,198 @@ fn bits(mut x: u64) -> impl Iterator<Item = usize> {
     })
 }
 
-/// The Kripke inputs, one register per relation.
+fn prepare(p: &Population, axis: &'static str) -> Result<LocalMap, Refusal> {
+    let ids: Vec<u64> = p
+        .rows
+        .iter()
+        .map(|r| u64::from(identity(&p.lanes, r).code()))
+        .collect();
+    LocalMap::prepare(&ids).map_err(|e| match e {
+        MapRefusal::TooMany => Refusal::TooMany(axis),
+        MapRefusal::Duplicate => Refusal::Duplicate(axis),
+        _ => Refusal::Unmapped(axis),
+    })
+}
+
+fn local(map: &LocalMap, a: Morton8x8, axis: &'static str) -> Result<usize, Refusal> {
+    map.local(u64::from(a.code()))
+        .map(usize::from)
+        .map_err(|_| Refusal::Unmapped(axis))
+}
+
+fn global(map: &LocalMap, local: usize) -> Morton8x8 {
+    let g = map.global(local as u8).expect("a mapped local position");
+    Morton8x8::from_code(g as u16)
+}
+
+/// The Kripke inputs: three populations of rows, their local maps, and one
+/// register per relation.
 pub struct Kb {
-    worlds: Interner,
-    props: Interner,
-    rules: Interner,
+    worlds: Population,
+    props: Population,
+    rules: Population,
+    world_map: LocalMap,
+    prop_map: LocalMap,
+    rule_map: LocalMap,
     world_set: u64,
     asserts: Rows,
     endorses: Rows,
     overridden: Rows,
-    /// Row `parent`, bit `child`: `accessible(child, parent)`.
+    /// Row `parent`, bit `child`: derived from the parent addresses in the
+    /// world rows, nowhere else.
     children: Rows,
     asserts_rule: Vec<Rows>,
     endorses_rule: Vec<Rows>,
+    store: FrameStore,
 }
 
 impl Kb {
     /// Load fact tuples (`kind, args…`). Refuses any fact kind the Kripke
     /// rules do not read.
-    pub fn load(facts: &[Vec<String>]) -> Result<Self, Refusal> {
+    pub fn load(facts: &[Vec<String>]) -> Result<(Self, NameTable), Refusal> {
+        let (taken, names) = intake(facts)?;
+        Ok((Self::assemble(taken)?, names))
+    }
+
+    /// Map each population to local positions and fill the relation
+    /// registers. The 64-slot limit is enforced here, by the local maps.
+    pub fn assemble(i: Intake) -> Result<Self, Refusal> {
+        let world_map = prepare(&i.worlds, "world")?;
+        let prop_map = prepare(&i.props, "proposition")?;
+        let rule_map = prepare(&i.rules, "rule")?;
         let mut kb = Kb {
-            worlds: Interner::default(),
-            props: Interner::default(),
-            rules: Interner::default(),
+            store: FrameStore::new(FrameRevisions {
+                source: 1,
+                relation_map: 1,
+                coordinates: world_map.digest(),
+            }),
             world_set: 0,
             asserts: [0; SLOTS],
             endorses: [0; SLOTS],
             overridden: [0; SLOTS],
             children: [0; SLOTS],
-            asserts_rule: Vec::new(),
-            endorses_rule: Vec::new(),
+            asserts_rule: vec![[0; SLOTS]; rule_map.len()],
+            endorses_rule: vec![[0; SLOTS]; rule_map.len()],
+            worlds: i.worlds,
+            props: i.props,
+            rules: i.rules,
+            world_map,
+            prop_map,
+            rule_map,
         };
-        for f in facts {
-            let (kind, args) = f.split_first().ok_or(Refusal::Format(String::new()))?;
-            let want = match kind.as_str() {
-                "world" => 1,
-                "asserts" | "endorses" | "accessible" => 2,
-                "override" | "asserts_rule" | "endorses_rule" => 3,
-                _ => return Err(Refusal::UnknownFact(kind.clone())),
-            };
-            if args.len() != want {
-                return Err(Refusal::Arity(kind.clone()));
-            }
-            match kind.as_str() {
-                "world" => kb.world_set |= 1 << kb.worlds.id(&args[0], "world")?,
-                "accessible" => {
-                    let child = kb.worlds.id(&args[0], "world")?;
-                    let parent = kb.worlds.id(&args[1], "world")?;
-                    kb.children[parent] |= 1 << child;
+        kb.derive_children()?;
+        for rel in &i.relations {
+            match *rel {
+                Relation::Declared { world } => {
+                    kb.world_set |= 1 << local(&kb.world_map, world, "world")?;
                 }
-                _ => {
-                    let w = kb.worlds.id(&args[0], "world")?;
-                    let p = kb.props.id(&args[1], "proposition")?;
-                    match kind.as_str() {
-                        "asserts" => kb.asserts[p] |= 1 << w,
-                        "endorses" => kb.endorses[p] |= 1 << w,
-                        "override" => kb.overridden[p] |= 1 << w,
-                        _ => {
-                            let r = kb.rules.id(&args[2], "rule")?;
-                            for v in [&mut kb.asserts_rule, &mut kb.endorses_rule] {
-                                v.resize(kb.rules.0.len(), [0; SLOTS]);
-                            }
-                            let table = if kind == "asserts_rule" {
-                                &mut kb.asserts_rule
-                            } else {
-                                &mut kb.endorses_rule
-                            };
-                            table[r][p] |= 1 << w;
-                        }
-                    }
+                Relation::Asserts { world, prop } => {
+                    let (lw, lp) = kb.cell(world, prop)?;
+                    kb.asserts[lp] |= 1 << lw;
+                }
+                Relation::Endorses { world, prop } => {
+                    let (lw, lp) = kb.cell(world, prop)?;
+                    kb.endorses[lp] |= 1 << lw;
+                }
+                Relation::Overridden { world, prop } => {
+                    let (lw, lp) = kb.cell(world, prop)?;
+                    kb.overridden[lp] |= 1 << lw;
+                }
+                Relation::AssertsRule { world, prop, rule } => {
+                    let (lw, lp) = kb.cell(world, prop)?;
+                    let lr = local(&kb.rule_map, rule, "rule")?;
+                    kb.asserts_rule[lr][lp] |= 1 << lw;
+                }
+                Relation::EndorsesRule { world, prop, rule } => {
+                    let (lw, lp) = kb.cell(world, prop)?;
+                    let lr = local(&kb.rule_map, rule, "rule")?;
+                    kb.endorses_rule[lr][lp] |= 1 << lw;
                 }
             }
         }
         Ok(kb)
     }
 
+    /// Local `(world, proposition)` positions of one cell.
+    fn cell(&self, world: Morton8x8, prop: Morton8x8) -> Result<(usize, usize), Refusal> {
+        Ok((
+            local(&self.world_map, world, "world")?,
+            local(&self.prop_map, prop, "proposition")?,
+        ))
+    }
+
+    /// The only writer of `children`: every bound column of a world row after
+    /// column 0 is a parent of the world in column 0.
+    fn derive_children(&mut self) -> Result<(), Refusal> {
+        for row in &self.worlds.rows {
+            let cols = columns(&self.worlds.lanes, row);
+            let lw = local(&self.world_map, cols[0], "world")?;
+            for a in cols[1..COLUMNS].iter().filter(|a| **a != UNBOUND) {
+                let lp = local(&self.world_map, *a, "world")?;
+                self.children[lp] |= 1 << lw;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn world_address(&self, local: usize) -> Morton8x8 {
+        global(&self.world_map, local)
+    }
+
+    pub fn prop_address(&self, local: usize) -> Morton8x8 {
+        global(&self.prop_map, local)
+    }
+
+    pub fn rule_address(&self, local: usize) -> Morton8x8 {
+        global(&self.rule_map, local)
+    }
+
+    pub fn world_count(&self) -> usize {
+        self.world_map.len()
+    }
+
+    pub fn prop_count(&self) -> usize {
+        self.prop_map.len()
+    }
+
+    pub fn rule_count(&self) -> usize {
+        self.rules.rows.len()
+    }
+
     /// Solve: the holds fixpoint, then both lineages.
     pub fn solve(&self) -> Holdings<'_> {
+        let (wc, pc) = (self.worlds.lanes.concept(), self.props.lanes.concept());
+        let w_axis = Axis {
+            class: wc,
+            kind: AxisKind::Identity,
+        };
+        let p_axis = Axis {
+            class: pc,
+            kind: AxisKind::Property,
+        };
+        let m_access = MethodSignature::presence(wc, 0, w_axis, w_axis);
+        let m_holds = MethodSignature::presence(pc, 0, p_axis, w_axis);
+        let m_asserts = MethodSignature::presence(pc, 1, p_axis, w_axis);
+        let m_endorses = MethodSignature::presence(pc, 2, p_axis, w_axis);
+        let m_overridden = MethodSignature::presence(pc, 3, p_axis, w_axis);
+        let guards = Guards {
+            frame: self.store.seal(),
+            focus: FOCUS,
+            scope: SCOPE,
+        };
+        let access = bind(&self.store, &guards, m_access, &self.children);
+        let asserts = bind(&self.store, &guards, m_asserts, &self.asserts);
+        let endorses = bind(&self.store, &guards, m_endorses, &self.endorses);
+        let overridden = bind(&self.store, &guards, m_overridden, &self.overridden);
         let mut work = Work::default();
-        let block = or(&or(&self.asserts, &self.endorses), &self.overridden);
-        let direct = and_row(&or(&self.asserts, &self.endorses), self.world_set);
-        let (holds, steps) = lfp(&direct, None, &self.children, &block, &mut work);
-        let lineage =
-            |base: &Rows, work: &mut Work| lfp(base, Some(&holds), &self.children, &block, work).0;
-        let sources = (0..self.rules.0.len())
+        let block = or(&or(asserts.rows, endorses.rows), overridden.rows);
+        let direct = and_row(&or(asserts.rows, endorses.rows), self.world_set);
+        let hop = |from: &Rows, work: &mut Work| -> Rows {
+            hop(&self.store, &guards, m_holds, &access, from, work)
+        };
+        let (holds, steps) = lfp(&direct, None, &hop, &block, &mut work);
+        let lineage = |base: &Rows, work: &mut Work| lfp(base, Some(&holds), &hop, &block, work).0;
+        let sources = (0..self.rule_count())
             .map(|r| {
                 let base = and_row(
                     &or(&self.asserts_rule[r], &self.endorses_rule[r]),
@@ -249,7 +385,7 @@ impl Kb {
                 lineage(&base, &mut work)
             })
             .collect();
-        let origins = (0..self.worlds.0.len())
+        let origins = (0..self.world_count())
             .map(|o| lineage(&and_row(&direct, 1 << o), &mut work))
             .collect();
         Holdings {
@@ -265,19 +401,61 @@ impl Kb {
     }
 }
 
+/// Bind one register through the DR64 admission.
+fn bind<'a>(
+    store: &FrameStore,
+    guards: &Guards,
+    m: MethodSignature,
+    rows: &'a Rows,
+) -> BoundDr64<'a> {
+    bind_dr64(
+        store,
+        m,
+        m,
+        guards,
+        (FOCUS, SCOPE),
+        Operand {
+            rows,
+            validity: None,
+        },
+    )
+    .expect("a register of this store binds under its own frame")
+}
+
+/// `from ∘ children` as a typed two-operand chain.
+fn hop(
+    store: &FrameStore,
+    guards: &Guards,
+    m_holds: MethodSignature,
+    children: &BoundDr64<'_>,
+    from: &Rows,
+    work: &mut Work,
+) -> Rows {
+    let chain = Chain::new(
+        store,
+        vec![bind(store, guards, m_holds, from), children.clone()],
+    )
+    .expect("holds ∘ children is typed");
+    let (rows, w) = chain
+        .eval(&RelExpr::comp(RelExpr::Leaf(0), RelExpr::Leaf(1)))
+        .expect("the order covers the chain");
+    work.row_ors += w.row_ors;
+    rows
+}
+
 /// `X = base ∪ ((gate(X) ∘ children) ∧ ¬block)` to its least fixpoint.
 /// `gate = None` gates by `X` itself; `Some(h)` gates by `X ∧ h`.
 fn lfp(
     base: &Rows,
     gate: Option<&Rows>,
-    children: &Rows,
+    hop: &dyn Fn(&Rows, &mut Work) -> Rows,
     block: &Rows,
     work: &mut Work,
 ) -> (Rows, usize) {
     let mut cur = *base;
     for step in 1..=SLOTS + 1 {
         let from = gate.map_or(cur, |h| and(&cur, h));
-        let next = or(base, &and_not(&compose(&from, children, work), block));
+        let next = or(base, &and_not(&hop(&from, work), block));
         if next == cur {
             return (cur, step);
         }
@@ -288,9 +466,18 @@ fn lfp(
     )
 }
 
+/// Which holding a [`Mode`] is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModeTag {
+    Asserted,
+    Endorsed,
+    /// Inherited from the world at this local position.
+    Inherited(usize),
+}
+
 /// One holding mode: its cells, and per rule the cells that rule supports.
 struct Mode {
-    label: String,
+    tag: ModeTag,
     cells: Rows,
     rules: Vec<Rows>,
 }
@@ -327,14 +514,6 @@ pub struct Holdings<'a> {
 }
 
 impl Holdings<'_> {
-    fn w(&self, i: usize) -> &str {
-        &self.kb.worlds.0[i]
-    }
-
-    fn p(&self, i: usize) -> &str {
-        &self.kb.props.0[i]
-    }
-
     /// `holds_via(inherited(parent), p, ·)` as a world mask.
     fn inherited_from(&self, parent: usize, p: usize) -> u64 {
         if self.holds[p] >> parent & 1 == 0 {
@@ -347,26 +526,20 @@ impl Holdings<'_> {
     /// under that mode.
     fn modes(&self) -> Vec<Mode> {
         let kb = self.kb;
-        let n = kb.props.0.len();
-        let direct = |table: &Rows, rules: &[Rows]| Mode {
+        let n = kb.prop_count();
+        let direct = |tag, table: &Rows, rules: &[Rows]| Mode {
+            tag,
             cells: and_row(table, kb.world_set),
             rules: rules
                 .iter()
                 .map(|r| and(r, &and_row(table, kb.world_set)))
                 .collect(),
-            label: String::new(),
         };
         let mut out = vec![
-            Mode {
-                label: "asserted".to_owned(),
-                ..direct(&kb.asserts, &kb.asserts_rule)
-            },
-            Mode {
-                label: "endorsed".to_owned(),
-                ..direct(&kb.endorses, &kb.endorses_rule)
-            },
+            direct(ModeTag::Asserted, &kb.asserts, &kb.asserts_rule),
+            direct(ModeTag::Endorsed, &kb.endorses, &kb.endorses_rule),
         ];
-        for par in 0..kb.worlds.0.len() {
+        for par in 0..kb.world_count() {
             let cells: Rows = std::array::from_fn(|p| {
                 if p < n {
                     self.inherited_from(par, p)
@@ -382,179 +555,11 @@ impl Holdings<'_> {
                 })
                 .collect();
             out.push(Mode {
-                label: format!("inherited({})", self.w(par)),
+                tag: ModeTag::Inherited(par),
                 cells,
                 rules,
             });
         }
-        out
-    }
-
-    /// How many lens rows hold `p` in `w`: the multiplicity a bag projection
-    /// to `holds/2` reports. A lens row is one (mode, source rule); a holding
-    /// with no rule is one row with empty rule fields.
-    pub fn bag_multiplicity(&self, prop: &str, world: &str) -> usize {
-        let (Some(p), Some(w)) = (
-            self.kb.props.0.iter().position(|n| n == prop),
-            self.kb.worlds.0.iter().position(|n| n == world),
-        ) else {
-            return 0;
-        };
-        self.modes().iter().map(|m| m.rows(p, w)).sum()
-    }
-
-    /// Materialize one predicate as atoms: a [`WideFieldMask`] selection over
-    /// [`HOLDINGS_FIELDS`]. For the test oracle only.
-    pub fn materialize_selection(
-        &self,
-        sel: &WideFieldMask,
-        proj: Projection,
-    ) -> Result<Vec<String>, Refusal> {
-        let has = |f| sel.has(f);
-        let base = has(F_PROP) && has(F_WORLD);
-        let mut out = Vec::new();
-        match (
-            base,
-            has(F_MODE),
-            has(F_IMMEDIATE),
-            has(F_SOURCE),
-            sel.count(),
-        ) {
-            (true, false, false, false, 2) => match proj {
-                Projection::Set => {
-                    for p in 0..self.kb.props.0.len() {
-                        for w in bits(self.holds[p]) {
-                            out.push(format!("holds({},{})", self.p(p), self.w(w)));
-                        }
-                    }
-                }
-                Projection::Bag => {
-                    for m in self.modes() {
-                        for (p, &row) in m.cells.iter().enumerate().take(self.kb.props.0.len()) {
-                            for w in bits(row) {
-                                for _ in 0..m.rows(p, w) {
-                                    out.push(format!("holds({},{})", self.p(p), self.w(w)));
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            (true, true, false, false, 3) => {
-                for m in self.modes() {
-                    for (p, &row) in m.cells.iter().enumerate().take(self.kb.props.0.len()) {
-                        for w in bits(row) {
-                            let copies = match proj {
-                                Projection::Set => 1,
-                                Projection::Bag => m.rows(p, w),
-                            };
-                            for _ in 0..copies {
-                                out.push(format!(
-                                    "holds_via({},{},{})",
-                                    m.label,
-                                    self.p(p),
-                                    self.w(w)
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-            (true, true, true, true, 5) => self.rule_atoms(&mut out),
-            _ => return Err(Refusal::Selection),
-        }
-        Ok(out)
-    }
-
-    fn rule_atoms(&self, out: &mut Vec<String>) {
-        let kb = self.kb;
-        for (r, rule) in kb.rules.0.iter().enumerate() {
-            for (mode, table) in [
-                ("asserted", &kb.asserts_rule[r]),
-                ("endorsed", &kb.endorses_rule[r]),
-            ] {
-                for (p, &row) in table.iter().enumerate().take(kb.props.0.len()) {
-                    for w in bits(row & kb.world_set) {
-                        out.push(format!(
-                            "holds_via_rule({mode},{},{},{rule},{rule})",
-                            self.p(p),
-                            self.w(w)
-                        ));
-                    }
-                }
-            }
-            for par in 0..kb.worlds.0.len() {
-                for p in 0..kb.props.0.len() {
-                    if self.sources[r][p] >> par & 1 == 1 {
-                        for w in bits(self.inherited_from(par, p)) {
-                            out.push(format!(
-                                "holds_via_rule(inherited({}),{},{},{INHERIT_RULE},{rule})",
-                                self.w(par),
-                                self.p(p),
-                                self.w(w)
-                            ));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Every Kripke atom the golden files carry, sorted. `proj` applies to
-    /// `holds/2`, the only selection where rows can coincide.
-    pub fn materialize_atoms(&self, proj: Projection) -> Vec<String> {
-        let sel = |f: &[u8]| WideFieldMask::from_positions(f);
-        let mut out = Vec::new();
-        for (s, pr) in [
-            (sel(&[F_PROP, F_WORLD]), proj),
-            (sel(&[F_PROP, F_WORLD, F_MODE]), Projection::Set),
-            (
-                sel(&[F_PROP, F_WORLD, F_MODE, F_IMMEDIATE, F_SOURCE]),
-                Projection::Set,
-            ),
-        ] {
-            out.extend(
-                self.materialize_selection(&s, pr)
-                    .expect("a supported selection"),
-            );
-        }
-        let kb = self.kb;
-        for p in 0..kb.props.0.len() {
-            let inherited: u64 = (0..kb.worlds.0.len())
-                .map(|par| self.inherited_from(par, p))
-                .fold(0, |a, b| a | b);
-            let moderate: u64 = bits(self.direct[p])
-                .map(|par| self.inherited_from(par, p))
-                .fold(0, |a, b| a | b);
-            let strong = self.direct[p];
-            for (level, m) in [
-                ("strong", strong),
-                ("moderate", moderate),
-                ("weak", inherited & !strong & !moderate),
-            ] {
-                for w in bits(m) {
-                    out.push(format!(
-                        "holding_strength({level},{},{})",
-                        self.p(p),
-                        self.w(w)
-                    ));
-                }
-            }
-            for (o, cells) in self.origins.iter().enumerate() {
-                for w in bits(cells[p]) {
-                    out.push(format!(
-                        "inheritance_source({},{},{})",
-                        self.p(p),
-                        self.w(w),
-                        self.w(o)
-                    ));
-                }
-            }
-            for w in bits(kb.overridden[p]) {
-                out.push(format!("overridden({},{})", self.p(p), self.w(w)));
-            }
-        }
-        out.sort();
         out
     }
 }
@@ -577,6 +582,15 @@ mod tests {
             .collect()
     }
 
+    fn fact(parts: &[&str]) -> Vec<String> {
+        parts.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn local_of(map: &LocalMap, names: &NameTable, pop: Pop, name: &str) -> usize {
+        let a = names.address_of(pop, name).expect(name);
+        usize::from(map.local(u64::from(a.code())).expect(name))
+    }
+
     /// The probe's lineage already lives on three 64 x 64 x 64 index spaces,
     /// each a stack of 64 x 64 registers (row = proposition, bit = world)
     /// along a third axis:
@@ -594,9 +608,9 @@ mod tests {
         use lance_graph_contract::morton8x8::Morton8x8;
         let (mut two_parents, mut two_origins) = (false, false);
         for g in all_goldens() {
-            let kb = Kb::load(&g.facts).unwrap();
+            let (kb, _names) = Kb::load(&g.facts).unwrap();
             let h = kb.solve();
-            let nw = kb.worlds.0.len();
+            let nw = kb.world_count();
             let v: Vec<Rows> = (0..nw)
                 .map(|par| std::array::from_fn(|p| h.inherited_from(par, p)))
                 .collect();
@@ -614,7 +628,7 @@ mod tests {
             }
             for cube in [&v, &h.origins, &h.sources] {
                 for slice in cube.iter() {
-                    for p in 0..kb.props.0.len() {
+                    for p in 0..kb.prop_count() {
                         for w in 0..nw {
                             let code = Morton8x8::from_xy(p as u8, w as u8);
                             let bit = slice[p] >> w & 1 == 1;
@@ -635,20 +649,159 @@ mod tests {
         // F5: r_orphan has a rule companion but no assertion, so p holds
         // nowhere. Its lineage must stay at its own cell, not flow to a.
         let g = parse_golden(include_str!("../goldens/F5-gates.tsv")).unwrap();
-        let kb = Kb::load(&g.facts).unwrap();
+        let (kb, names) = Kb::load(&g.facts).unwrap();
         let h = kb.solve();
-        let r = kb.rules.0.iter().position(|n| n == "r_orphan").unwrap();
-        let p = kb.props.0.iter().position(|n| n == "p").unwrap();
-        let base = kb.worlds.0.iter().position(|n| n == "base").unwrap();
+        let r = local_of(&kb.rule_map, &names, Pop::Rule, "r_orphan");
+        let p = local_of(&kb.prop_map, &names, Pop::Proposition, "p");
+        let base = local_of(&kb.world_map, &names, Pop::World, "base");
         assert_eq!(h.holds[p], 0);
         assert_eq!(h.sources[r][p], 1 << base);
         // Every lineage cell outside the base lies inside holds.
         for s in h.sources.iter().chain(&h.origins) {
             for (i, row) in s.iter().enumerate() {
-                let base_row = (0..kb.rules.0.len())
+                let base_row = (0..kb.rule_count())
                     .map(|r| (kb.asserts_rule[r][i] | kb.endorses_rule[r][i]) & kb.world_set)
                     .fold(h.direct[i], |a, b| a | b);
                 assert_eq!(row & !base_row & !h.holds[i], 0);
+            }
+        }
+    }
+
+    /// Destructures each struct exhaustively (no `..`), so adding a field
+    /// that is not address-only, or any field at all, stops compiling here.
+    fn fields_are_address_only(kb: &Kb, h: &Holdings<'_>, m: &Mode, p: &Population) {
+        fn ok<T: AddressOnly + ?Sized>(_: &T) {}
+        let Kb {
+            worlds,
+            props,
+            rules,
+            world_map,
+            prop_map,
+            rule_map,
+            world_set,
+            asserts,
+            endorses,
+            overridden,
+            children,
+            asserts_rule,
+            endorses_rule,
+            store,
+        } = kb;
+        ok(worlds);
+        ok(props);
+        ok(rules);
+        ok(world_map);
+        ok(prop_map);
+        ok(rule_map);
+        ok(world_set);
+        ok(asserts);
+        ok(endorses);
+        ok(overridden);
+        ok(children);
+        ok(asserts_rule);
+        ok(endorses_rule);
+        ok(store);
+        let Holdings {
+            kb,
+            block,
+            direct,
+            holds,
+            sources,
+            origins,
+            steps,
+            work,
+        } = h;
+        ok(kb);
+        ok(block);
+        ok(direct);
+        ok(holds);
+        ok(sources);
+        ok(origins);
+        ok(steps);
+        ok(work);
+        let Mode { tag, cells, rules } = m;
+        ok(tag);
+        ok(cells);
+        ok(rules);
+        let Population { lanes, rows } = p;
+        ok(lanes);
+        ok(rows);
+    }
+
+    /// FAILS IF a String, a `NameTable` or a `Golden` becomes a field of
+    /// `Kb`, `Holdings`, `Mode` or `Population` (compile error), or the bound
+    /// stops rejecting `String` (the two compile_fail doctests on
+    /// `assert_address_only`).
+    #[test]
+    fn the_solved_state_holds_no_string() {
+        let g = all_goldens()
+            .into_iter()
+            .find(|g| g.fixture_id == "F1-modes")
+            .unwrap();
+        let (kb, _names) = Kb::load(&g.facts).unwrap();
+        let h = kb.solve();
+        let modes = h.modes();
+        fields_are_address_only(&kb, &h, &modes[0], &kb.worlds);
+        assert!(modes.len() > 2, "inherited modes exist");
+    }
+
+    /// FAILS IF a world with two parents does not get both as in-row
+    /// addresses that derive to exactly the old accessibility register.
+    #[test]
+    fn a_world_with_two_parents_derives_the_old_accessibility() {
+        let facts = vec![
+            fact(&["world", "base"]),
+            fact(&["world", "mechaber"]),
+            fact(&["world", "rema"]),
+            fact(&["world", "ashk_ah"]),
+            fact(&["accessible", "mechaber", "base"]),
+            fact(&["accessible", "rema", "base"]),
+            fact(&["accessible", "ashk_ah", "mechaber"]),
+            fact(&["accessible", "ashk_ah", "rema"]),
+            fact(&["asserts", "mechaber", "p"]),
+            fact(&["asserts", "rema", "q"]),
+        ];
+        let oracle = |facts: &[Vec<String>], label: &str| {
+            let (kb, names) = Kb::load(facts).unwrap();
+            let mut pairs = std::collections::BTreeSet::new();
+            for f in facts.iter().filter(|f| f[0] == "accessible") {
+                let c = local_of(&kb.world_map, &names, Pop::World, &f[1]);
+                let p = local_of(&kb.world_map, &names, Pop::World, &f[2]);
+                assert_eq!(kb.children[p] >> c & 1, 1, "{label}: {} <- {}", f[1], f[2]);
+                pairs.insert((c, p));
+            }
+            let total: u32 = kb.children.iter().map(|r| r.count_ones()).sum();
+            assert_eq!(total as usize, pairs.len(), "{label}");
+            kb
+        };
+        let kb = oracle(&facts, "ashk_ah");
+        let (_, names) = Kb::load(&facts).unwrap();
+        let atoms = kb.solve().materialize_atoms(&names, Projection::Set);
+        for a in [
+            "holds(p,ashk_ah)",
+            "holds(q,ashk_ah)",
+            "holds_via(inherited(rema),q,ashk_ah)",
+        ] {
+            assert!(atoms.contains(&a.to_owned()), "{a}");
+        }
+        let mut with_edges = 0;
+        for g in all_goldens() {
+            let kb = oracle(&g.facts, &g.fixture_id);
+            with_edges += usize::from(kb.children.iter().any(|r| *r != 0));
+        }
+        assert!(with_edges > 0, "some golden has accessibility");
+
+        // Accessibility is not a relation: this match stops compiling if an
+        // accessible variant is added.
+        let (taken, _) = intake(&facts).unwrap();
+        for rel in &taken.relations {
+            match rel {
+                Relation::Declared { .. }
+                | Relation::Asserts { .. }
+                | Relation::Endorses { .. }
+                | Relation::Overridden { .. }
+                | Relation::AssertsRule { .. }
+                | Relation::EndorsesRule { .. } => {}
             }
         }
     }

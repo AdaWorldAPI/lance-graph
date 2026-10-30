@@ -74,7 +74,7 @@ A lens row is one (mode, source rule), or one (mode) with empty rule fields when
 
 ## 5. Evidence (D-MIST-NATIVE-0)
 
-`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 12 tests.
+`cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml`: 18 tests + 2 doctests (since §9).
 
 Goldens: F1-modes, F1-reversed, F2-cycle, F5-gates, F6-undeclared-child, C-mammal-C2/C4/C6/C6i, E-xlog-plain/override. All are exact, compared as sorted lists, so a duplicate atom would also fail.
 
@@ -129,3 +129,40 @@ Contracting V or O over the third axis (OR over `z`) gives the `holds` register 
 So "the third axis is a relation ordinal" covers L and not V or O. Closing NFR-OP-2 stays the DR owner's decision.
 
 **Size.** Dense, each cube is 32 KiB of bits, 96 KiB for the three. The probe stores only O and L, and only as many slices as there are worlds and rules. V is never stored, because every V slice is one `compose` row read. Nothing here allocates a cube.
+
+## 9. D-MIST-NATIVE-1a: HHTL16 rows replace the name interner (2026-10-30)
+
+**Status:** LAB, in PR. The probe holds no names in its solved state. Names live only in `src/membrane.rs`, which parses the goldens and renders atoms.
+
+- **Rows** (`src/rows.rs`). World, proposition and rule nodes are 512-byte `NodeRow`s in the HHTL16 opt-in format. `Register0` holds the x bytes and `Register1` the y bytes. Column k is `Morton8x8::from_xy(R0[k], R1[k])`. Column 0 is the node's identity; columns 1..=15 are addresses, which for a world are its parents. Address = first-appearance ordinal + 1, so no two collide and none is unbound.
+- **Classid per population.** Each population is bound once: `Activation` → `resolve_for_context(concept, Register128 slab)` → `bind_register128(Two)`. The concept lives on `RegisterLanes::concept()`. The key, edges and value bytes carry no classid. Concepts are lab stand-ins `0x7F11..13`; none is minted.
+- **Accessibility is derived** from world rows (`Kb::derive_children`, its only writer). A 16th parent is refused with `TooManyParents { parents }`. Global address → local 0..64 goes through `hhtl16::LocalMap`, which refuses a 65th node, a duplicate or an unmapped address.
+- **Binding.** The accessibility register and the three input registers are bound through `bind_dr64`. Every `holds ∘ children` step runs through `relcomp::Chain::new(..).eval(..)`. The fixpoint and lineage algebra are unchanged.
+- **No-String guard.** A doc-hidden `AddressOnly` trait plus an exhaustive destructure of `Kb`, `Holdings`, `Mode` and `Population`. A String field fails to compile, and two `compile_fail` doctests show the bound can fire.
+
+**Tests:** 18 tests and 2 doctests. All 11 goldens stay exact. New tests cover:
+
+- rows round-tripping through `get`/`set`;
+- a two-parent world deriving the old accessibility;
+- the 16th parent being refused;
+- the classid being on the lanes and not in the rows;
+- `LocalMap` refusals.
+
+**Disable runs** (committed first, each then broken, red, restored):
+
+| # | breakage | red |
+|---|---|---|
+| D1 | read only parent column 1 | goldens, diamond Set/Bag, two-parent derivation, contraction, classid test |
+| D2 | truncate parents instead of refusing | `a_16th_parent_is_refused` (`left: None`) |
+| D3 | classid minted into the key | `the_classid_lives_on_the_lanes_not_in_the_rows` |
+| D4 | accessibility signature typed Property × Identity | 12 tests (the `Chain` typing refuses `holds ∘ children`) |
+| D5 | address without `+1` | round-trip, goldens and 7 others |
+| D6 | accessibility orientation reversed | goldens, orientation, contraction and 5 others |
+| D7 | a `NameTable` field on `Kb` | compile errors E0063 and E0027 (exhaustive destructure) |
+
+Known limit: replacing `hop` with raw `compose` turns nothing red. The binding is a typing guard, not semantics, and D4 is the only proof that the path is live.
+
+**Open (operator):**
+
+- the row key is all zero, so identity exists only in column 0. Should the key also carry the address?
+- a real binding takes concept ids from the OGAR codebook through hotplug.
