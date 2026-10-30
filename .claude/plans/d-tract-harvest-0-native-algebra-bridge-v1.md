@@ -115,6 +115,42 @@ Tests (40, all green): `shape_chain_folds_and_the_data_nodes_run_against_ort`, `
 - `ConstantOfShape` and `Expand` map onto ndarray `from_elem` / `broadcast` and are not registered yet.
 - Multi-tile orchestration and full Jina MatMul execution remain separate gates.
 
+### 0.3 After #400 / #1853 (2026-10-30)
+
+Owner decisions: int64 shape arithmetic GO under checked, fail-closed admission (Div truncates toward zero; a zero divisor or an overflow refuses); an axis stays a guarded parameter of one method unless a different axis changes the behaviour law; ConstantOfShape and Expand registered on existing ndarray capabilities; Erf numerically accepted as Bounded, its performance open.
+
+**Registry v3.** int64 `Equal` 0x0F70 and `LessOrEqual` 0x0F71 (ndarray #400 `eq/le_i64_pair_to_mask`, scalar right side `eq/le_i64_to_mask`; a same-shape or one-element right side only, other broadcasts not admitted), int64 `Where` 0x0F72 (`blend_i64` / `blend_i64_scalar`), `ConstantOfShape` 0x0F73 (`ArrayD::from_elem` of the value attribute, constant non-negative shape), `Expand` int64/f32 0x0F74/0x0F75 (`ndarray` `broadcast` to the multidirectional broadcast). Fixture `shape_i64`: every int64 node over `Shape(F)` folds, `Expand(F)` runs, every output equals ORT.
+
+**Optional output slots.** Tract numbers a node's outlets after dropping empty output names (`onnx/src/model.rs:150`). Fixtures `lstm_skip` (`LSTM` outputs `["", "Y_h"]`) and `lstm_full` pin that `source_producers` names slot 0 resp. 1 for `Y_h` and that the admitted fact is `Y_h`'s (ORT `[1,1,2]`), not the omitted `Y`'s (`[5,1,1,2]`). Disable run (count empty slots): red.
+
+**Coverage, Jina pinned `[1,10]`:** 6,404 / 56 / 1,160 → **6,581 / 114 / 925**; 4,499 nodes fold. The 114 not-true: Reshape 56 and Expand 57 UNKNOWN (target computed by unregistered int64 arithmetic), LessOrEqual 1 not admitted (a `[S,1]` vs `[1,S]` broadcast). Unregistered shape-class nodes left: Mul 115, Div 56, Range 4, Add 1, plus Cast to bool/float 2, And, Cos, Sin, MatMul, Transpose 1 each.
+
+**ndarray ask (D-TRACT-SHAPE-1, after #400).** #400 already supplies the int64 compares (`eq/lt/le/gt/ge_i64[_pair]_to_mask`) and `blend_i64[_scalar]`; they are registered. What is missing, by exact signature (fail-closed: `Err` and an unchanged `dst` content contract is not required, but no partial result may be returned as success):
+
+```rust
+pub enum IntArithError { Overflow { index: usize }, DivideByZero { index: usize }, ZeroStep }
+pub fn add_i64_checked(a: &[i64], b: &[i64], dst: &mut [i64]) -> Result<(), IntArithError>;
+pub fn sub_i64_checked(a: &[i64], b: &[i64], dst: &mut [i64]) -> Result<(), IntArithError>;
+pub fn mul_i64_checked(a: &[i64], b: &[i64], dst: &mut [i64]) -> Result<(), IntArithError>;
+/// Truncates toward zero; `i64::MIN / -1` is Overflow.
+pub fn div_i64_trunc_checked(a: &[i64], b: &[i64], dst: &mut [i64]) -> Result<(), IntArithError>;
+// one-element right side, as blend_i64_scalar
+pub fn add_i64_scalar_checked(a: &[i64], b: i64, dst: &mut [i64]) -> Result<(), IntArithError>;
+pub fn sub_i64_scalar_checked(a: &[i64], b: i64, dst: &mut [i64]) -> Result<(), IntArithError>;
+pub fn mul_i64_scalar_checked(a: &[i64], b: i64, dst: &mut [i64]) -> Result<(), IntArithError>;
+pub fn div_i64_trunc_scalar_checked(a: &[i64], b: i64, dst: &mut [i64]) -> Result<(), IntArithError>;
+/// ONNX Range: max(ceil((limit - start) / delta), 0) elements; delta 0 is ZeroStep.
+pub fn range_i64_checked(start: i64, limit: i64, delta: i64) -> Result<Vec<i64>, IntArithError>;
+```
+
+Accuracy: exact (integers). Panics only on a length mismatch, as the #400 kernels. Fixtures: `crates/tract-harvest-probe/fixtures/tiny/i64_arith.onnx` with ORT `ORT_DISABLE_ALL` outputs in `ort.json` (`Div([-7, 7], [2, 3]) = [-3, 2]`, `Mul([2, 3], [3, -4]) = [6, -12]`, `Add([2, 3], [-5, 10]) = [-3, 13]`, `Sub = [7, -7]`, `Range(0, 3, 1) = [0, 1, 2]`); refusal cases ORT does not cover: `add(i64::MAX, 1)`, `mul(i64::MIN, -1)`, `div(i64::MIN, -1)`, `div(x, 0)`, `range(0, 5, 0)` each `Err`; `div(-7, 2) = -3`, `div(7, -2) = -3`, `range(5, 0, -2) = [5, 3, 1]`, `range(0, 0, 1) = []`. Test `int64_arithmetic_is_refused_until_checked_words_exist` pins the current refusal.
+
+Disable runs (each red): Equal kernel replaced by `le`; slot counted over empty outputs; general broadcast admitted; broadcast mismatch accepted; ConstantOfShape ignoring its value. 46 tests green.
+
+**Hardening (same PR).** `source_producers` enumerates each node's ONNX output positions first and maps a position to Tract's slot with `dr3::tract_slot` (named outputs before it). `FactSources` records the source it was read from; `merged_for` refuses facts of another model. Tests: `["", "Y"]` and multi-output mapping; producer collisions (two producers, a value that is also an input or initializer, duplicate node names, unnamed node without a first output); a fact from a renamed producer; facts of another model; int64 compares and Where over 70 elements (tail bits clear, scalar and pair); ConstantOfShape (default float 0, empty shape gives a scalar, zero dims, bool fill, 1-D shape input, K3 refusals) and Expand (multidirectional broadcast). Disable runs (each red): ONNX position used as the slot; no binding check; collisions keep a producer; bool fill tail bits; ConstantOfShape rank. 55 tests green.
+
+**Census (Jina, `[1,10]`, `examples/shape_census.rs`).** WHEN-true / not-true / unregistered **6,581 / 114 / 925** (registry v1 4,146 / 0 / 3,474; v2 6,404 / 56 / 1,160). Cold-folded nodes 4,499 (v2 4,440, +59 ConstantOfShape; v1 plan had no folding). **The 56 Reshapes blocked in v2 still do not resolve: the first unregistered op their target depends on is int64 `Mul` in all 56.** Not folded: runtime 2,461 (Mul 450, Add 253, MatMul 252, Cast 228, Reshape 170, Slice 140, Transpose 140, Div/Pow/ReduceMean/Sqrt 113 each, …) and shape-only blocked 660 (Unsqueeze 181, Cast 119, Mul 117, Equal 58, Where 58, Concat 57, Div 56, Range 4, …). The integration acceptance (a whole shape-arithmetic chain folding or executing through admitted methods and matching ORT) waits on the checked int64 words; `i64_arith` is its fixture. No full Jina runtime is started.
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.

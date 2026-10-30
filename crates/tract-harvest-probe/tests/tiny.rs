@@ -767,3 +767,158 @@ fn erf_sweep_against_f64_and_ort() {
     assert!(all <= 2, "{all} ULP overall");
     assert!(vs_ort <= 2, "{vs_ort} ULP vs ORT");
 }
+
+// ── int64 compares, Where, ConstantOfShape, Expand (registry v3) ────────────
+
+fn ort_ints(v: &str, out: &str) -> (Vec<usize>, Vec<i64>) {
+    let e = &ort()["variants"][v]["ort"][out];
+    let shape = e["shape"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d.as_u64().unwrap() as usize)
+        .collect();
+    (
+        shape,
+        e["bits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|b| b.as_i64().unwrap())
+            .collect(),
+    )
+}
+
+fn ints(m: &std::collections::HashMap<String, Value>, k: &str) -> (Vec<usize>, Vec<i64>) {
+    match &m[k] {
+        Value::I64(a) => (a.shape().to_vec(), a.iter().copied().collect()),
+        Value::Bool { shape, words } => (
+            shape.clone(),
+            (0..shape.iter().product::<usize>())
+                .map(|i| ((words[i / 64] >> (i % 64)) & 1) as i64)
+                .collect(),
+        ),
+        other => panic!("{k}: {other:?}"),
+    }
+}
+
+/// Every int64 node over `Shape(F)` folds through ndarray #400's compares and
+/// blends, `from_elem` and `broadcast`; `Expand(F)` reads F and runs. Every
+/// output agrees with ORT exactly.
+#[test]
+fn int64_shape_ops_fold_and_match_ort() {
+    let reg = registry();
+    let (fx, p) = plan("shape_i64", &reg);
+    let p = p.unwrap();
+    let folded: Vec<(&str, u16)> = p
+        .folded
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(
+        folded,
+        [
+            ("n_shape", 0x0F60),
+            ("n_equal", 0x0F70),
+            ("n_where", 0x0F72),
+            ("n_le", 0x0F71),
+            ("n_cos", 0x0F73),
+            ("n_expand_row", 0x0F74)
+        ]
+    );
+    let steps: Vec<(&str, u16)> = p
+        .steps
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(steps, [("n_expand_f", 0x0F75)]);
+    let out = p.run(&fx.store, &[("F", f_input())]).unwrap();
+    for k in ["W", "LE", "CS", "ER"] {
+        assert_eq!(ints(&out, k), ort_ints("shape_i64", k), "{k}");
+    }
+    assert_eq!(f32_bits(&out, "EF"), ort_f32("shape_i64", "EF"));
+}
+
+/// An omitted optional output before a present one (`LSTM` outputs
+/// `["", "Y_h"]`): Tract numbers outlets after dropping empty names, so
+/// `Y_h` is slot 0, not 1. `source_producers` must name that outlet, and the
+/// fact admitted for `Y_h` must be `Y_h`'s (ORT's shape `[1, 1, 2]`), not the
+/// omitted `Y`'s (`[5, 1, 1, 2]`). With both outputs present `Y_h` is slot 1.
+#[test]
+fn an_omitted_optional_output_does_not_shift_the_producer() {
+    use tract_harvest_probe::dr3::{source_producers, tract_fact_sources, Outlet};
+    use tract_harvest_probe::registry::{Dim, Fact};
+    let dims = |s: &[usize]| Some(s.iter().map(|&d| Dim::Known(d)).collect::<Vec<_>>());
+    for (v, slot) in [("lstm_skip", 0), ("lstm_full", 1)] {
+        let b = bytes(v);
+        let src = SourceInventory::from_bytes(&b).unwrap();
+        let p = source_producers(&src);
+        assert_eq!(
+            p["Y_h"],
+            Some(Outlet {
+                node: "n_lstm".into(),
+                slot
+            }),
+            "{v}"
+        );
+        let (shape, _) = ort_f32(v, "Y_h");
+        assert_eq!(shape, [1, 1, 2]);
+        let fs = tract_fact_sources(&b, &[]).unwrap();
+        assert_eq!(
+            fs.inference.get("Y_h"),
+            Some(&Fact {
+                dtype: Some(tract_harvest_probe::value::DType::F32),
+                shape: dims(&shape)
+            }),
+            "{v}"
+        );
+    }
+    let fs = tract_fact_sources(&bytes("lstm_full"), &[]).unwrap();
+    assert_eq!(
+        fs.inference["Y"].shape,
+        dims(&[5, 1, 1, 2]),
+        "the other output's shape differs"
+    );
+}
+
+/// int64 shape arithmetic is refused until ndarray supplies checked words
+/// (the D-TRACT-SHAPE-1 ndarray ask): `Div` must truncate toward zero and
+/// refuse a zero divisor; `Mul`/`Add`/`Sub` must refuse overflow; `Range`
+/// must refuse a zero step. ORT's outputs for this fixture are frozen in
+/// `ort.json` (`i64_arith`) as the oracle for the registration that follows.
+#[test]
+fn int64_arithmetic_is_refused_until_checked_words_exist() {
+    let o = ort();
+    let e = &o["variants"]["i64_arith"]["ort"];
+    assert_eq!(
+        e["DV"]["bits"],
+        serde_json::json!([-3, 2]),
+        "Div truncates toward zero"
+    );
+    let reg = registry();
+    match plan("i64_arith", &reg).1 {
+        Err(Refusal::Unregistered { node, signature }) => {
+            assert_eq!(node, "n_div");
+            assert!(
+                signature.starts_with("ai.onnx:Div(Some(I64))"),
+                "{signature}"
+            );
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// Facts read from one model refuse to bind to another (a stale binding):
+/// `gen2` has `base`'s value names but different bytes.
+#[test]
+fn facts_of_another_model_refuse_to_bind() {
+    use tract_harvest_probe::dr3::tract_fact_sources;
+    let base = SourceInventory::from_bytes(&bytes("base")).unwrap();
+    let gen2 = tract_fact_sources(&bytes("gen2"), &[]).unwrap();
+    match gen2.merged_for(&base) {
+        Err(Refusal::Frontend(e)) => assert!(e.contains("applied to model"), "{e}"),
+        other => panic!("{:?}", other.map(|m| m.len())),
+    }
+    let own = tract_fact_sources(&bytes("base"), &[]).unwrap();
+    assert!(own.merged_for(&base).is_ok());
+}

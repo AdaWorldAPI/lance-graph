@@ -295,6 +295,8 @@ pub struct FactSources {
     /// dimension, or more than one symbol through `Flatten`).
     pub typed_error: Option<String>,
     pub rejected: Vec<Rejected>,
+    /// The `model_sha256` of the source these facts were read from.
+    pub source_sha256: String,
 }
 
 impl FactSources {
@@ -313,6 +315,18 @@ impl FactSources {
             }
         }
         out
+    }
+
+    /// [`merged`](Self::merged), but only for the source the facts were read
+    /// from: facts of another model (a stale binding) refuse.
+    pub fn merged_for(&self, src: &SourceInventory) -> Result<HashMap<String, Fact>, Refusal> {
+        if self.source_sha256 != src.model_sha256 {
+            return Err(Refusal::Frontend(format!(
+                "facts read from model {} applied to model {}",
+                self.source_sha256, src.model_sha256
+            )));
+        }
+        Ok(self.merged())
     }
 
     /// Values both stages describe, where they disagree on dtype or shape.
@@ -382,7 +396,11 @@ pub fn source_producers(src: &SourceInventory) -> HashMap<String, Option<Outlet>
     for n in &src.nodes {
         let name = node_name(n);
         let unique = name.as_ref().is_some_and(|m| by_name[m] == 1);
-        for (slot, o) in n.outputs.iter().filter(|o| !o.is_empty()).enumerate() {
+        for (position, o) in n.outputs.iter().enumerate() {
+            if o.is_empty() {
+                continue; // an omitted optional output names no value
+            }
+            let slot = tract_slot(&n.outputs, position);
             put(
                 o,
                 name.clone()
@@ -392,6 +410,15 @@ pub fn source_producers(src: &SourceInventory) -> HashMap<String, Option<Outlet>
         }
     }
     out
+}
+
+/// The Tract outlet slot of ONNX output `position`: Tract numbers a node's
+/// outlets after dropping empty output names (`onnx/src/model.rs:150`,
+/// `output.iter().filter(|s| !s.is_empty()).enumerate()`), so the slot is the
+/// number of named outputs before `position`. The ONNX position itself is
+/// not the slot whenever an omitted optional output precedes it.
+pub fn tract_slot(outputs: &[String], position: usize) -> usize {
+    outputs[..position].iter().filter(|o| !o.is_empty()).count()
 }
 
 /// Admit one stage's facts: a fact for source value `v` is kept only if
@@ -504,7 +531,10 @@ fn fact_sources_of(
             .map_err(fe)?;
     }
     let producers = source_producers(src);
-    let mut out = FactSources::default();
+    let mut out = FactSources {
+        source_sha256: src.model_sha256.clone(),
+        ..FactSources::default()
+    };
 
     // Inference stage: analyse without stopping at the first node it cannot
     // type, then read whatever each labelled outlet determined. An unlabelled
@@ -664,6 +694,120 @@ mod tests {
         assert_eq!(p["v3"], Some(outlet("v3", 0)));
         assert_eq!((p["v4"].clone(), p["v5"].clone()), (None, None));
         assert_eq!(p["v6"], None);
+    }
+
+    fn inv(
+        nodes: Vec<crate::source::SourceNode>,
+        inputs: &[&str],
+        inits: &[&str],
+    ) -> SourceInventory {
+        SourceInventory {
+            nodes,
+            inputs: inputs.iter().map(|s| s.to_string()).collect(),
+            model_sha256: String::new(),
+            ir_version: 8,
+            opsets: vec![],
+            initializers: inits
+                .iter()
+                .map(|n| crate::source::SourceInitializer {
+                    name: n.to_string(),
+                    data_type: 1,
+                    dims: vec![],
+                    placement: crate::source::Placement::Inline {
+                        sha256: String::new(),
+                    },
+                    value: None,
+                })
+                .collect(),
+            outputs: vec![],
+        }
+    }
+
+    fn node(name: &str, outs: &[&str]) -> crate::source::SourceNode {
+        crate::source::SourceNode {
+            name: name.into(),
+            op_type: "Split".into(),
+            domain: String::new(),
+            inputs: vec!["x".into()],
+            outputs: outs.iter().map(|s| s.to_string()).collect(),
+            attributes: vec![],
+            attrs: vec![],
+        }
+    }
+
+    /// The ONNX position of an output is enumerated first and then mapped to
+    /// Tract's slot, which counts only the named outputs before it.
+    #[test]
+    fn tract_slot_counts_named_outputs_before_the_position() {
+        let o = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(tract_slot(&o(&["", "Y"]), 1), 0);
+        assert_eq!(tract_slot(&o(&["A", "", "B", "C"]), 2), 1);
+        assert_eq!(tract_slot(&o(&["A", "", "B", "C"]), 3), 2);
+        assert_eq!(tract_slot(&o(&["A", "B"]), 1), 1);
+    }
+
+    /// `["", "Y"]`: Y is slot 0. Several outputs with a gap: slots 0, 1, 2.
+    #[test]
+    fn producers_with_omitted_and_multiple_outputs() {
+        let p = source_producers(&inv(
+            vec![node("a", &["", "Y"]), node("b", &["P", "", "Q", "R"])],
+            &["x"],
+            &[],
+        ));
+        assert_eq!(p["Y"], Some(outlet("a", 0)));
+        assert_eq!(
+            (p["P"].clone(), p["Q"].clone(), p["R"].clone()),
+            (
+                Some(outlet("b", 0)),
+                Some(outlet("b", 1)),
+                Some(outlet("b", 2))
+            )
+        );
+        assert!(!p.contains_key(""), "an omitted output names no value");
+    }
+
+    /// Two producers for one value, a value that is also a graph input or an
+    /// initializer, two nodes with one name, and an unnamed node without a
+    /// first output: no producer, so no fact is admitted for those values.
+    #[test]
+    fn producer_collisions_have_no_producer() {
+        let p = source_producers(&inv(
+            vec![
+                node("a", &["v"]),
+                node("b", &["v"]),
+                node("c", &["x"]),
+                node("d", &["w"]),
+                node("dup", &["u1"]),
+                node("dup", &["u2"]),
+                node("", &["", "z"]),
+                node("e", &["k"]),
+            ],
+            &["x"],
+            &["k"],
+        ));
+        for v in ["v", "x", "u1", "u2", "z", "k"] {
+            assert_eq!(p[v], None, "{v}");
+        }
+        assert_eq!(
+            p["w"],
+            Some(outlet("d", 0)),
+            "a unique producer still counts"
+        );
+    }
+
+    /// A fact bound to a producer of an older source: the same label on an
+    /// outlet the current source no longer has is rejected.
+    #[test]
+    fn a_fact_from_a_renamed_producer_is_rejected() {
+        let now = source_producers(&inv(vec![node("n_new", &["v"])], &["x"], &[]));
+        let raw = vec![("v".to_string(), outlet("n_old", 0), fact(DType::F32, &[2]))];
+        let (ok, rej) = admit("t", raw, &now);
+        assert!(ok.is_empty());
+        assert!(
+            rej[0].reason.contains("is not the source producer"),
+            "{}",
+            rej[0].reason
+        );
     }
 
     /// `disagreements` reports a dtype or shape conflict and stays silent on

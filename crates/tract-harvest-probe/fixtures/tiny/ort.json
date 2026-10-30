@@ -138,6 +138,86 @@
   "neg_concat": {
    "sha256": "f92f5872d18536685cf38fa0a627ceb7fdd7fda6bf908113d1127358c647aed2",
    "ort_error": "Fail: [ONNXRuntimeError] : 1 : FAIL : Node (n_concat) Op (Concat) [ShapeInferenceError] Can't merge shape info. Both inferred and declared dimension have values but they differ. Inferred=2 Declared=3 Dimens"
+  },
+  "shape_i64": {
+   "sha256": "19d1dd7da1b55a36b977d582f8a4b3f4a26b6ffc5bc571027701c9f7352a230b",
+   "ort": {
+    "W": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [2,7]
+    },
+    "LE": {
+     "shape": [2],
+     "dtype": "bool",
+     "bits": [1,0]
+    },
+    "CS": {
+     "shape": [2,3],
+     "dtype": "int64",
+     "bits": [5,5,5,5,5,5]
+    },
+    "ER": {
+     "shape": [2,3],
+     "dtype": "int64",
+     "bits": [1,2,3,1,2,3]
+    },
+    "EF": {
+     "shape": [2,2,3],
+     "dtype": "float32",
+     "bits": [1069547520,3196059648,1077936128,1036831949,1088421888,3223322624,1069547520,3196059648,1077936128,1036831949,1088421888,3223322624]
+    }
+   }
+  },
+  "lstm_skip": {
+   "sha256": "e979463f372fd8bfa4cb2ca46a06c4459f5866786f2b593933e9f34d8f5819f4",
+   "ort": {
+    "Y_h": {
+     "shape": [1,1,2],
+     "dtype": "float32",
+     "bits": [1049333655,1049333655]
+    }
+   }
+  },
+  "lstm_full": {
+   "sha256": "3d5456afad55b4f5fb01ba3c81ed6f7123d72e028f22e6ed5ad00c6a85286ce1",
+   "ort": {
+    "Y_h": {
+     "shape": [1,1,2],
+     "dtype": "float32",
+     "bits": [1049333655,1049333655]
+    }
+   }
+  },
+  "i64_arith": {
+   "sha256": "042a71f755ea7ef7ffe16ef1a3dd57bcdadbc3ee5f4b752d5dbc1de9543399db",
+   "ort": {
+    "DV": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-3,2]
+    },
+    "ML": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [6,-12]
+    },
+    "AD": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-3,13]
+    },
+    "SB": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [7,-7]
+    },
+    "RG": {
+     "shape": [3],
+     "dtype": "int64",
+     "bits": [0,1,2]
+    }
+   }
   }
  },
  "erf_sweep": {

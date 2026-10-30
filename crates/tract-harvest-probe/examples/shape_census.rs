@@ -98,8 +98,107 @@ fn main() {
     for op in OPS {
         println!("  {op:>10} {:?}", cov.get(*op));
     }
+    let not_true: Vec<_> = cov
+        .iter()
+        .filter(|(_, c)| c[1] > 0)
+        .map(|(k, c)| (k.as_str(), c[1]))
+        .collect();
+    println!("  WHEN not true by op: {not_true:?}");
     println!("foldable by dependency but not folded:");
     for (why, c) in by {
         println!("  {c:>5}  {why}");
     }
+
+    // The Reshapes whose WHEN is not TRUE: which unregistered ops their
+    // target depends on (the first unregistered or unfolded-unregistered
+    // ancestors along the target input).
+    let producer: std::collections::HashMap<&str, usize> = src
+        .nodes
+        .iter()
+        .enumerate()
+        .flat_map(|(i, n)| n.outputs.iter().map(move |o| (o.as_str(), i)))
+        .collect();
+    let mut consts: std::collections::HashMap<&str, &tract_harvest_probe::value::Value> = src
+        .initializers
+        .iter()
+        .filter_map(|i| i.value.as_ref().map(|v| (i.name.as_str(), v)))
+        .collect();
+    for (k, v) in &f.values {
+        consts.insert(k.as_str(), v);
+    }
+    let mut blocked_reshape = 0;
+    let mut roots = std::collections::BTreeMap::<String, usize>::new();
+    for n in src.nodes.iter().filter(|n| n.op_type == "Reshape") {
+        let args: Vec<_> = n.inputs.iter().map(|i| facts.get(i)).collect();
+        let Some(r) = reg.lookup(n, &args) else {
+            continue;
+        };
+        let c = n
+            .inputs
+            .iter()
+            .map(|i| consts.get(i.as_str()).copied())
+            .collect();
+        if (r.when)(&registry::NodeView {
+            node: n,
+            args,
+            consts: c,
+        }) == registry::K3::True
+        {
+            continue;
+        }
+        blocked_reshape += 1;
+        let mut stack = vec![n.inputs[1].as_str()];
+        let mut seen = std::collections::HashSet::new();
+        let mut found = std::collections::BTreeSet::new();
+        while let Some(v) = stack.pop() {
+            if consts.contains_key(v) || !seen.insert(v) {
+                continue;
+            }
+            let Some(&p) = producer.get(v) else { continue };
+            let pn = &src.nodes[p];
+            let pargs: Vec<_> = pn.inputs.iter().map(|i| facts.get(i)).collect();
+            if reg.lookup(pn, &pargs).is_none() {
+                found.insert(format!(
+                    "{}({:?})",
+                    pn.op_type,
+                    registry::signature_dtype(pn, &pargs, Some(0)).unwrap()
+                ));
+            } else {
+                stack.extend(pn.inputs.iter().map(String::as_str));
+            }
+        }
+        *roots
+            .entry(found.into_iter().collect::<Vec<_>>().join(" + "))
+            .or_default() += 1;
+    }
+    println!("Reshape with WHEN not TRUE: {blocked_reshape}; unregistered ops their target depends on: {roots:?}");
+    // Not folded: runtime (reads an input value) vs shape-only (blocked).
+    let mut runtime = std::collections::BTreeMap::<&str, usize>::new();
+    let mut shape_only = std::collections::BTreeMap::<&str, usize>::new();
+    for (i, n) in src.nodes.iter().enumerate() {
+        if f.nodes.contains(&i) {
+            continue;
+        }
+        let m = if node_dep[i] >= fold::Dep::Symbolic {
+            &mut runtime
+        } else {
+            &mut shape_only
+        };
+        *m.entry(n.op_type.as_str()).or_default() += 1;
+    }
+    fn top<'a>(m: &std::collections::BTreeMap<&'a str, usize>) -> Vec<(&'a str, usize)> {
+        let mut v: Vec<_> = m.iter().map(|(k, c)| (*k, *c)).collect();
+        v.sort_by(|a, b| b.1.cmp(&a.1));
+        v
+    }
+    println!(
+        "not folded: runtime {} nodes {:?}",
+        runtime.values().sum::<usize>(),
+        top(&runtime)
+    );
+    println!(
+        "not folded: shape-only (blocked) {} nodes {:?}",
+        shape_only.values().sum::<usize>(),
+        top(&shape_only)
+    );
 }
