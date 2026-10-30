@@ -101,6 +101,42 @@ Disable runs:
 - compose the two rails, so a rule inherits its makor's chain: (a) or (b) must go red;
 - store the second parent of `ashk_ah` in tenant 2: (c) must go red.
 
+## Addendum: property inheritance and the syntax tenants (operator, 2026-10-30)
+
+The operator pointed at two more organs: the episodic-witness basins (24 × i4) for property inheritance over a mammal taxonomy, and the Markov context build (relative-pronoun anaphora pointers, 24 × i4 syntax resolution, the TEKAMOLO tenant). Checked against code:
+
+- `contract::causal_witness::CausalWitnessFacet` reads a 12-byte register as 24 signed i4 loci, each an offset in −8..+7 inside the `temporal.rs` window, with 0 meaning unbound. It is labelled EXPERIMENTAL, not in the §3 catalogue. There are 16 named loci; 8 are reserved. They include `Antecedent` (relative pronoun to its antecedent), `BasinAnchor` (the `part_of:is_a` basin), `SupportedBy` / `Supports`, `Quorum` and `Contradiction`.
+- `deepnsm-v2::wave` resolves inside ±8 and returns `Escalate` when the offset overflows.
+- `contract::tekamolo_facet::TekamoloFacet` reads the same 16-byte facet in `G4D3`: four 256:256:256 lanes (Temporal, Kausal, Modal, Lokal). All-zero means unaddressed.
+- `cognitive-shader-driver/examples/ontology_agreement_probe.rs` already folds property claims as three quorums over a `NiblePath` hierarchy: local (the node and its siblings), up (ancestors) and down (descendants). Its fixture holds mammal > placental (dog, cat, whale, bat) and monotreme (platypus, echidna), with properties fur, eggs, flight and milk. Whale fur and platypus eggs are its named conflicts.
+
+**Two inheritances; keep them apart.**
+
+| | taxonomic (`is_a` rail) | Mistaber (Kripke worlds) |
+|---|---|---|
+| question | does whale inherit `terrestrial` from mammal? | does observer `reader` hold `lays_eggs(platypus)` from `obs1`? |
+| axis | tenant 1, the class chain | accessibility register (edges) |
+| default and exception | up/down quorum; `Contradiction` / BasinConflict (whale is not terrestrial, platypus lays eggs) | inherited unless `asserts`, `endorses` or `overridden` at the child |
+| organ | `ontology_agreement_probe` quorums + witness loci | the DR64 fixpoint (#1873) |
+
+The C-mammal goldens already use both axes at once: the proposition's subject (`platypus`) is a class node, and the worlds (`obs1`, `obs2`, `reader`) are observers. Mistaber's own crosswalk refuses "taxonomy → worlds" as a category error. So the combination is a pair: (class node on the `is_a` rail, proposition) is held per world. It is never a world placed in the taxonomy.
+
+**The syntax tenants serve encoding, not solving.** TEKAMOLO lanes and `Antecedent` loci describe the source TEXT of a seif. They map onto two of Mistaber's four encoding-decision types:
+
+- event identification: which clause is legally salient, and what a relative pronoun refers to;
+- feature selection: time, cause, manner and place conditions become rule-body features.
+
+They do not touch the fixpoint.
+
+**Limit found:** the TEKAMOLO heuristics are German only. `de/tekamolo.tsv` is the one lexicon in `deepnsm-v2` (closed search over its tracked files), and its own docs say German forms ground German text and nothing else. The Shulchan Arukh is Hebrew, and Sefaria's translation is English. Either lexicon must exist before the tenant can read a seif; otherwise every lane reads unaddressed.
+
+**Still open:** which register the operator's "24 × i4 flavours" names. The board left this open on 2026-09-01: `atoms::I4x32` matches the name, and the 24-nibble facet matches the count. This note uses `CausalWitnessFacet` because it is the 24 × i4 basin and anaphora reading in code.
+
+- **P12 (pre-registered, not run).** Put the C-mammal subjects on an `is_a` rail (mammal > placental > {whale, elephant, fox}; marsupial > {wombat, possum}; monotreme > platypus). Run the up/down quorum for `terrestrial` and `lays_eggs`. Expected: whale `terrestrial` → Contradiction; platypus `lays_eggs` → BasinConflict up, and corroborated locally once echidna is present. The Mistaber goldens must stay 11/11. Disable runs:
+  - read a world as a taxonomy ancestor: a golden goes red;
+  - drop the `Contradiction` locus: whale reads terrestrial.
+- **P13.** Census first: how many SA YD seifim in the English translation contain a relative pronoun whose antecedent lies beyond ±8 tokens. That count tells whether `Escalate` or the window carries most of the anaphora before any lexicon is built.
+
 ## Open points for the operator
 
 - **Undeclared worlds.** Should an undeclared world be refused? Upstream derives `holds(p,x)` for an undeclared child world (golden F6). A native refusal would be a declared divergence from the golden, not a pass.
@@ -119,4 +155,4 @@ Disable runs:
 
 ## Closeout
 
-STATUS: done (map only; X1 corrected by the operator: 16 levels, codec9 9-bit levels; HHTL16 two-tenant mapping added, P11) | OUTCOME: three-axis split (makor node / world value + DAG edges / holding derived); ten probes named; one ruled interim (attestor-keyed source) | OPEN: undeclared-world policy, hilchot data, SupportLedger derived-from owner, D-ARG-1..3 order.
+STATUS: done (map only; X1 corrected by the operator: 16 levels, codec9 9-bit levels; HHTL16 two-tenant mapping added, P11; taxonomy-vs-world inheritance split and syntax tenants, P12-P13) | OUTCOME: three-axis split (makor node / world value + DAG edges / holding derived); ten probes named; one ruled interim (attestor-keyed source) | OPEN: undeclared-world policy, hilchot data, SupportLedger derived-from owner, D-ARG-1..3 order.
