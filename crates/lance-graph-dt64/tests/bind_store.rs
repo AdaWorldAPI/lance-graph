@@ -746,3 +746,65 @@ fn meaning_masks_come_from_the_same_fieldview() {
     assert_eq!(low, WideFieldMask::from_positions(&[1]));
     assert_eq!(r.unspecified(&schema), WideFieldMask::from_positions(&[3]));
 }
+
+/// The recipe's order must be what it says: a step reads only declared reads
+/// or what an earlier step wrote. XLOG's count with the multiply moved first
+/// reads the counts before they exist and is refused.
+#[test]
+fn a_step_cannot_read_what_no_earlier_step_wrote() {
+    let mut s = catalogue();
+    let mut mul_first = xlog_count();
+    mul_first.effects.rotate_right(1);
+    assert_eq!(
+        s.register(XLOG, schema(1, 5), vec![mul_first]),
+        Err(Refusal::UndeclaredRead {
+            class: XLOG,
+            method: MethodId(1),
+            effect: 0,
+            position: 2
+        })
+    );
+    // A read of a field outside `reads` and never written is refused too.
+    let mut stray = xlog_count();
+    stray.effects[0].args = vec![Arg::Field(4), Arg::Const(1)];
+    assert_eq!(
+        s.register(XLOG, schema(1, 5), vec![stray]),
+        Err(Refusal::UndeclaredRead {
+            class: XLOG,
+            method: MethodId(1),
+            effect: 0,
+            position: 4
+        })
+    );
+    // The faithful order binds.
+    assert_eq!(s.register(XLOG, schema(1, 5), vec![xlog_count()]), Ok(()));
+}
+
+/// Meaning reaches behaviour: a method's footprint (ON, reads, writes)
+/// intersected with a risk mask says which actions touch risk.
+#[test]
+fn a_risk_mask_reaches_the_methods_that_touch_it() {
+    let mut s = catalogue();
+    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    let view = View::with_fields(view_class(XLOG), 5);
+    let r = s.resolve(&view, XLOG, SchemaRev(1)).unwrap();
+
+    assert_eq!(
+        r.methods[0].footprint(),
+        WideFieldMask::from_positions(&[0, 1, 2, 3, 4])
+    );
+    // A mask over the product (written) and one over the inputs (read) both
+    // reach the count; a mask over nothing it touches reaches nothing.
+    for m in [[4u8], [0u8]] {
+        let ids: Vec<MethodId> = r
+            .methods_touching(&WideFieldMask::from_positions(&m))
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(ids, vec![MethodId(1)]);
+    }
+    assert_eq!(
+        r.methods_touching(&WideFieldMask::from_positions(&[200]))
+            .count(),
+        0
+    );
+}

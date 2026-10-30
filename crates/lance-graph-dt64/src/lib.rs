@@ -231,6 +231,12 @@ impl MethodBinding {
         let targets: Vec<u8> = self.effects.iter().map(|e| e.target).collect();
         WideFieldMask::from_positions(&targets)
     }
+
+    /// Every field the method touches: ON, reads and writes. Intersected with
+    /// a meaning mask it says what behaviour touches risk.
+    pub fn footprint(&self) -> WideFieldMask {
+        self.on.union(&self.reads).union(&self.writes())
+    }
 }
 
 /// A class's schema as bound: the schema revision and the field count the
@@ -349,6 +355,14 @@ pub enum Refusal {
         algebra: AlgebraId,
         expected: u8,
         got: usize,
+    },
+    /// Step `effect` reads a field that is neither in the method's `reads`
+    /// nor written by an earlier step: read before written.
+    UndeclaredRead {
+        class: u32,
+        method: MethodId,
+        effect: usize,
+        position: u8,
     },
     /// The algebra entry is already declared with other content.
     AlgebraImmutable(AlgebraId),
@@ -471,6 +485,20 @@ impl<'s, 'v> Resolved<'s, 'v> {
             .filter_map(|(i, _)| u8::try_from(i).ok())
             .collect();
         WideFieldMask::from_positions(&picked)
+    }
+
+    /// The methods whose [`MethodBinding::footprint`] meets `mask`: the
+    /// behaviour a risk or RBAC mask reaches, in registration order.
+    pub fn methods_touching<'m>(
+        &self,
+        mask: &'m WideFieldMask,
+    ) -> impl Iterator<Item = &'s MethodBinding> + 'm
+    where
+        's: 'm,
+    {
+        self.methods
+            .iter()
+            .filter(move |m| !m.footprint().intersect(mask).is_empty())
     }
 
     /// The action addresses the class exposes: its method ordinals, in
@@ -778,6 +806,25 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
                     position,
                 });
             }
+        }
+        // Dataflow: a step reads only what the method declares it reads or
+        // what an earlier step of the same method wrote. Otherwise the order
+        // of the recipe is not what it says.
+        let mut available = m.reads.clone();
+        for (effect, e) in m.effects.iter().enumerate() {
+            for a in &e.args {
+                if let Arg::Field(position) = *a {
+                    if !available.has(position) {
+                        return Err(Refusal::UndeclaredRead {
+                            class,
+                            method: m.id,
+                            effect,
+                            position,
+                        });
+                    }
+                }
+            }
+            available = available.with(e.target);
         }
     }
     Ok(())

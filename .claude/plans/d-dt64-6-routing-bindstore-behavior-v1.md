@@ -285,3 +285,9 @@ Scope of that projection (XLOG session; quote verified at `.claude/knowledge/oga
 - `Resolved::unspecified(schema)` surfaces the fields with no spec. A field with no spec is UNKNOWN and never takes the spec default (`Internal` / `PlainText`); a test pins that.
 
 The physical lane kind (u32 code vs i32, which picks XLOG's comparator) is the SoA column's (`soa_envelope::ColumnKind`), not a meaning. The store does not hold it.
+
+**A.5 addendum 6 (2026-10-30): dataflow and behaviour footprint.**
+- `register` refuses `UndeclaredRead` when a step reads a field that is neither in the method's `reads` nor written by an earlier step. A recipe's order must be what it says: XLOG's count with the multiply moved first is refused.
+- `MethodBinding::footprint()` is ON ∪ reads ∪ writes, and `Resolved::methods_touching(mask)` lists the methods a meaning mask reaches. A risk or RBAC mask thereby applies to behaviour, not only to fields.
+
+Open, for the frame owner (D8): registering a class or declaring an algebra entry moves no revision a frame can check; only routes are versioned. Classes and entries are immutable and append-only, so nothing a frame read can change. Whether a frame should still record the store's catalogue extent (for example a count of bindings) is undecided.
