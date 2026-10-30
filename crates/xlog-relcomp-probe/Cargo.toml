@@ -1,0 +1,27 @@
+# D-XLOG-DR64-0: isolated, test-only CPU interop probe. NOT a workspace member,
+# NOT a runtime. Verify with
+#   cargo test --release --manifest-path crates/xlog-relcomp-probe/Cargo.toml
+[package]
+name = "xlog-relcomp-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Lowers a restricted, XLOG-compiled RIR (BrainyBlaze/xlog, CPU-only crates) onto the existing DR64 Boolean relation register and compose kernel (dr-math-binding-probe), and checks it against independent references."
+
+# Own workspace root: XLOG's xlog-core pins arrow 60, the lance stack pins
+# arrow 58. Keeping this out of the lance-graph graph is the point.
+[workspace]
+
+[dependencies]
+# The existing native relation register, binding guards and compose kernel.
+# Consumed read-only through its public API.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+# XLOG's CUDA-free compiler crates, pinned to one upstream commit
+# (MIT OR Apache-2.0; notices in the upstream repository).
+xlog-core = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
+xlog-ir = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
+xlog-logic = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
