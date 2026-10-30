@@ -1068,6 +1068,52 @@ fn rotary_chain_folds_and_matches_ort() {
     assert!(worst <= 1, "{worst} ULP");
 }
 
+/// f32 MatMul with K > 1, against a weight and attention-shaped: sgemm's
+/// accumulation order differs from ORT's, so the distance is measured and
+/// pinned, not assumed zero.
+#[test]
+fn matmul_f32_against_ort() {
+    let o = ort();
+    let ins = &o["variants"]["matmul"]["inputs"];
+    let input = |k: &'static str| {
+        let shape: Vec<usize> = ins[k]["shape"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d.as_u64().unwrap() as usize)
+            .collect();
+        (k, f32_value(&shape, &u32s(&ins[k]["bits"])))
+    };
+    let reg = registry();
+    let (fx, p) = plan("matmul", &reg);
+    let p = p.unwrap();
+    let steps: Vec<(&str, u16)> = p
+        .steps
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(steps, [("n_mm_weight", 0x0F7D), ("n_mm_attn", 0x0F7D)]);
+    let out = p
+        .run(&fx.store, &[input("A"), input("Q"), input("K")])
+        .unwrap();
+    let mut worst = 0;
+    for k in ["Y1", "Y2"] {
+        let (shape, got) = f32_bits(&out, k);
+        let (want_shape, want) = ort_f32("matmul", k);
+        assert_eq!(shape, want_shape, "{k}");
+        let d = got
+            .iter()
+            .zip(&want)
+            .map(|(&g, &w)| ulp(f32::from_bits(g), f32::from_bits(w)))
+            .max()
+            .unwrap();
+        eprintln!("matmul {k}: max ULP vs ORT {d}");
+        worst = worst.max(d);
+    }
+    // Measured 0 ULP on this host; sgemm may pick another kernel elsewhere.
+    assert!(worst <= 2, "{worst} ULP");
+}
+
 /// Cos and Sin (`vscos` / `vssin`) over rotary angles (position x inv_freq up
 /// to 8192), a dense grid of [-4 pi, 4 pi] and special values: distance to
 /// ORT and to f64 rounded once to f32, measured and pinned (at most 1 ULP

@@ -668,9 +668,14 @@ fn guard_compare_i64(v: &NodeView) -> K3 {
     }
 }
 
-/// `MatMul` f32 as admitted here: two rank-2 operands, or two rank-3
-/// operands whose batch sizes agree or whose right batch is 1, with matching
-/// inner dimensions. Other ranks and batch broadcasts are not admitted.
+/// `MatMul` f32 as admitted here, for left `[.., m, k]` and right
+/// `[.., k, n]` with matching `k`:
+/// - a rank-2 right operand (a weight): the left's leading dimensions are
+///   flattened into `m`;
+/// - equal leading dimensions on both sides (flattened into one batch axis),
+///   or right leading dimensions all 1 (shared by every left batch entry).
+///
+/// Other ranks and batch broadcasts are not admitted.
 fn guard_matmul(v: &NodeView) -> K3 {
     let (Some(a), Some(b)) = (
         known(&arg_shape(v, 0).cloned()),
@@ -678,16 +683,41 @@ fn guard_matmul(v: &NodeView) -> K3 {
     ) else {
         return K3::Unknown;
     };
-    let ok = match (a.as_slice(), b.as_slice()) {
-        ([_, k], [kb, _]) => k == kb,
-        ([ba, _, k], [bb, kb, _]) => k == kb && (ba == bb || *bb == 1),
-        _ => false,
-    };
-    if ok {
+    if matmul_plan(&a, &b).is_some() {
         K3::True
     } else {
         K3::False
     }
+}
+
+/// How an admitted `MatMul` runs: `(batch, m, k, n, right_batch)` over
+/// flattened views, and the output shape.
+type MatmulPlan = ((usize, usize, usize, usize, usize), Vec<usize>);
+
+fn matmul_plan(a: &[usize], b: &[usize]) -> Option<MatmulPlan> {
+    if a.len() < 2 || b.len() < 2 {
+        return None;
+    }
+    let (m, k) = (a[a.len() - 2], a[a.len() - 1]);
+    let (kb, n) = (b[b.len() - 2], b[b.len() - 1]);
+    if k != kb {
+        return None;
+    }
+    let (la, lb) = (&a[..a.len() - 2], &b[..b.len() - 2]);
+    let mut out = la.to_vec();
+    out.extend([m, n]);
+    let batch: usize = la.iter().product();
+    if lb.is_empty() {
+        // A weight: every left row against one [k, n].
+        return Some(((1, batch * m, k, n, 1), out));
+    }
+    if la == lb {
+        return Some(((batch, m, k, n, batch), out));
+    }
+    if la.len() == lb.len() && lb.iter().all(|&d| d == 1) {
+        return Some(((batch, m, k, n, 1), out));
+    }
+    None
 }
 
 /// `Transpose`: `perm` (default: reversed axes) is a permutation of the
@@ -723,16 +753,35 @@ fn transpose_perm(n: &SourceNode, rank: usize) -> Option<Vec<usize>> {
     Some(perm)
 }
 
-/// Element-wise bool `And`: both shapes known and equal.
-fn guard_same_known_shape(v: &NodeView) -> K3 {
+/// Element-wise bool `And`: two known shapes that broadcast.
+fn guard_and(v: &NodeView) -> K3 {
     match (
         known(&arg_shape(v, 0).cloned()),
         known(&arg_shape(v, 1).cloned()),
     ) {
-        (Some(a), Some(b)) if a == b => K3::True,
+        (Some(a), Some(b)) if broadcast_shapes(&a, &b).is_some() => K3::True,
         (Some(_), Some(_)) => K3::False,
         _ => K3::Unknown,
     }
+}
+
+/// A packed `tensor(bool)` broadcast to `to` and repacked: the same bits a
+/// broadcast view reads.
+fn broadcast_bool(shape: &[usize], words: &[u64], to: &[usize]) -> Option<Vec<u64>> {
+    let len: usize = shape.iter().product();
+    let bits = ArrayD::from_shape_vec(
+        IxDyn(shape),
+        (0..len)
+            .map(|i| (words[i / 64] >> (i % 64)) & 1 == 1)
+            .collect(),
+    )
+    .ok()?;
+    let b = bits.broadcast(IxDyn(to))?;
+    let mut out = vec![0u64; lance_graph_onnx::mask_words(b.len())];
+    for (i, &v) in b.iter().enumerate() {
+        out[i / 64] |= u64::from(v) << (i % 64);
+    }
+    Some(out)
 }
 
 /// `Cast` to the input's own dtype (bool to bool): the identity.
@@ -1292,42 +1341,28 @@ fn do_cast_i64_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> 
 }
 
 fn do_matmul_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
-    use ndarray::{Ix2, Ix3};
     let x = f32_arg(a, 0, n)?;
     let y = f32_arg(a, 1, n)?;
     let bad = |e: String| runtime(n, e);
-    match (x.ndim(), y.ndim()) {
-        (2, 2) => {
-            let (xv, yv) = (
-                x.view()
-                    .into_dimensionality::<Ix2>()
-                    .map_err(|e| bad(e.to_string()))?,
-                y.view()
-                    .into_dimensionality::<Ix2>()
-                    .map_err(|e| bad(e.to_string()))?,
-            );
-            let mut out = ndarray::Array2::<f32>::zeros((xv.nrows(), yv.ncols()));
-            ndarray::hpc::amx_matmul::matmul_f32(xv, yv, out.view_mut())
-                .map_err(|e| bad(format!("{e:?}")))?;
-            Ok(vec![Value::F32(out.into_dyn())])
-        }
-        (3, 3) => {
-            let (xv, yv) = (
-                x.view()
-                    .into_dimensionality::<Ix3>()
-                    .map_err(|e| bad(e.to_string()))?,
-                y.view()
-                    .into_dimensionality::<Ix3>()
-                    .map_err(|e| bad(e.to_string()))?,
-            );
-            let (b, m, _) = xv.dim();
-            let mut out = ndarray::Array3::<f32>::zeros((b, m, yv.dim().2));
-            ndarray::simd::matmul_f32_batched(xv, yv, out.view_mut())
-                .map_err(|e| bad(format!("{e:?}")))?;
-            Ok(vec![Value::F32(out.into_dyn())])
-        }
-        (r, s) => Err(bad(format!("rank {r} x rank {s} is not admitted"))),
-    }
+    let ((b, m, k, nn, rb), out_shape) = matmul_plan(x.shape(), y.shape())
+        .ok_or_else(|| bad(format!("{:?} x {:?} is not admitted", x.shape(), y.shape())))?;
+    // Standard-layout copies only when an input is not already contiguous;
+    // the reshapes below are then views.
+    let (xs, ys) = (x.as_standard_layout(), y.as_standard_layout());
+    let xv = xs
+        .view()
+        .into_shape_with_order((b, m, k))
+        .map_err(|e| bad(e.to_string()))?;
+    let yv = ys
+        .view()
+        .into_shape_with_order((rb, k, nn))
+        .map_err(|e| bad(e.to_string()))?;
+    let mut out = ndarray::Array3::<f32>::zeros((b, m, nn));
+    ndarray::simd::matmul_f32_batched(xv, yv, out.view_mut()).map_err(|e| bad(format!("{e:?}")))?;
+    Ok(vec![Value::F32(
+        out.into_shape_with_order(IxDyn(&out_shape))
+            .map_err(|e| bad(e.to_string()))?,
+    )])
 }
 
 fn do_transpose(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
@@ -1365,26 +1400,34 @@ fn do_sin(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
 }
 
 fn do_and_bool(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
-    match (a.first(), a.get(1)) {
-        (
-            Some(Value::Bool {
-                shape: sa,
-                words: wa,
-            }),
-            Some(Value::Bool {
-                shape: sb,
-                words: wb,
-            }),
-        ) if sa == sb => {
-            let mut words = vec![0u64; wa.len()];
-            ndarray::simd::mask_and(wa, wb, &mut words);
-            Ok(vec![Value::Bool {
-                shape: sa.clone(),
-                words,
-            }])
+    let (
+        Some(Value::Bool {
+            shape: sa,
+            words: wa,
+        }),
+        Some(Value::Bool {
+            shape: sb,
+            words: wb,
+        }),
+    ) = (a.first(), a.get(1))
+    else {
+        return Err(runtime(n, "And needs two bool tensors"));
+    };
+    let shape = broadcast_shapes(sa, sb)
+        .ok_or_else(|| runtime(n, format!("{sa:?} and {sb:?} do not broadcast")))?;
+    let bc = |s: &Vec<usize>, w: &Vec<u64>| {
+        if *s == shape {
+            Some(w.clone())
+        } else {
+            broadcast_bool(s, w, &shape)
         }
-        _ => Err(runtime(n, "And needs two bool tensors of one shape")),
-    }
+    };
+    let (Some(xa), Some(xb)) = (bc(sa, wa), bc(sb, wb)) else {
+        return Err(runtime(n, "broadcast failed"));
+    };
+    let mut words = vec![0u64; xa.len()];
+    ndarray::simd::mask_and(&xa, &xb, &mut words);
+    Ok(vec![Value::Bool { shape, words }])
 }
 
 fn do_equal_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
@@ -1928,7 +1971,7 @@ pub fn registry() -> Registry {
             ),
             reg!(
                 0x0F7D,
-                "hpc::amx_matmul::matmul_f32 / simd::matmul_f32_batched (f32 sgemm, never AMX)",
+                "simd::matmul_f32_batched (f32 sgemm, never AMX)",
                 "MatMul",
                 Some(0),
                 F32,
@@ -1983,12 +2026,12 @@ pub fn registry() -> Registry {
             ),
             reg!(
                 0x0F82,
-                "simd::mask_and on packed tensor(bool)",
+                "simd::mask_and on packed tensor(bool) (ndarray broadcast first when shapes differ)",
                 "And",
                 Some(0),
                 Bool,
                 NO_ATTRS,
-                guard_same_known_shape,
+                guard_and,
                 do_and_bool,
                 Exact
             ),
@@ -2144,9 +2187,17 @@ mod tests {
                 consts: vec![None, None],
             })
         };
-        // MatMul: rank 2, rank 3 with equal or shared right batch.
+        // MatMul: a rank-2 weight, equal leading dims, or a shared right batch.
         assert_eq!(
             two("MatMul", guard_matmul, k(&[2, 3]), k(&[3, 4])),
+            K3::True
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[1, 10, 8]), k(&[8, 4])),
+            K3::True
+        );
+        assert_eq!(
+            two("MatMul", guard_matmul, k(&[1, 2, 5, 8]), k(&[1, 2, 8, 5])),
             K3::True
         );
         assert_eq!(
@@ -2165,6 +2216,7 @@ mod tests {
             two("MatMul", guard_matmul, k(&[2, 3]), k(&[1, 3, 4])),
             K3::False
         );
+        assert_eq!(two("MatMul", guard_matmul, k(&[3]), k(&[3, 4])), K3::False);
         // Compares: pair, scalar and any multidirectional broadcast.
         assert_eq!(
             two("LessOrEqual", guard_compare_i64, k(&[1, 10]), k(&[10, 1])),
@@ -2183,15 +2235,10 @@ mod tests {
             ),
             K3::Unknown
         );
-        // And: equal known shapes only.
-        assert_eq!(
-            two("And", guard_same_known_shape, k(&[3, 3]), k(&[3, 3])),
-            K3::True
-        );
-        assert_eq!(
-            two("And", guard_same_known_shape, k(&[3, 3]), k(&[1, 3])),
-            K3::False
-        );
+        // And: any two known shapes that broadcast.
+        assert_eq!(two("And", guard_and, k(&[3, 3]), k(&[3, 3])), K3::True);
+        assert_eq!(two("And", guard_and, k(&[]), k(&[1, 1, 3, 3])), K3::True);
+        assert_eq!(two("And", guard_and, k(&[3, 3]), k(&[2, 3])), K3::False);
         // Transpose: perm must permute the rank; absent means reversed.
         let x = k(&[1, 2, 3]);
         let t = |attrs: Vec<(String, Attr)>| {
@@ -2267,6 +2314,34 @@ mod tests {
                 assert_eq!(shape, &[3, 3]);
                 // Row i holds j <= i: bits 0; 3, 4; 6, 7, 8.
                 assert_eq!(words, &[0b1_1101_1001]);
+            }
+            other => panic!("{other:?}"),
+        }
+        // A rank-3 left against a rank-2 weight.
+        let a3w = fv(&[1, 2, 3], vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        match &do_matmul_f32(&[&a3w, &b], &n("MatMul")).unwrap()[0] {
+            Value::F32(o) => {
+                assert_eq!(o.shape(), [1, 2, 2]);
+                assert_eq!(
+                    o.iter().copied().collect::<Vec<_>>(),
+                    [58.0, 64.0, 139.0, 154.0]
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        // And broadcasts a row [1, 3] against a [2, 3] block.
+        let row = Value::Bool {
+            shape: vec![1, 3],
+            words: vec![0b101],
+        };
+        let blk = Value::Bool {
+            shape: vec![2, 3],
+            words: vec![0b110_111],
+        };
+        match &do_and_bool(&[&row, &blk], &n("And")).unwrap()[0] {
+            Value::Bool { shape, words } => {
+                assert_eq!(shape, &[2, 3]);
+                assert_eq!(words, &[0b100_101]);
             }
             other => panic!("{other:?}"),
         }

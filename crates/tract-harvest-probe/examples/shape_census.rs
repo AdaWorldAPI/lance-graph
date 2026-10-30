@@ -19,7 +19,17 @@ const OPS: &[&str] = &[
 
 fn main() {
     let path = std::env::args().nth(1).expect("model path");
-    let src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    let mut src = SourceInventory::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+    // External-data Constants (the rotary inv_freq), when fetched by
+    // tools/fetch_jina_constants.py.
+    let dir = std::path::Path::new(&path).parent().unwrap();
+    let manifest = dir.parent().unwrap().join("jina_constants.json");
+    if manifest.exists() {
+        match src.inline_constants_from_manifest(&manifest, dir) {
+            Ok(k) => println!("inlined {k} external constants"),
+            Err(e) => println!("external constants not inlined: {e}"),
+        }
+    }
     let pins: Vec<_> = std::env::args()
         .nth(2)
         .and_then(|s| s.parse::<usize>().ok())

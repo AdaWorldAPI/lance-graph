@@ -87,6 +87,12 @@ def i64(name, v):
     return nh.from_array(np.array(v, np.int64), name)
 
 
+_mm = np.random.default_rng(20261031)
+MATMUL_FEEDS = {"A": _mm.standard_normal((1, 4, 64)).astype(np.float32),
+                "Q": _mm.standard_normal((1, 2, 4, 16)).astype(np.float32),
+                "K": _mm.standard_normal((1, 2, 16, 4)).astype(np.float32)}
+
+
 def build_shape(variant):
     """D-TRACT-SHAPE-1 shape plumbing.
 
@@ -229,6 +235,18 @@ def build_shape(variant):
         ]
         outs = [h.make_tensor_value_info("COS", T.FLOAT, None), h.make_tensor_value_info("SIN", T.FLOAT, None),
                 h.make_tensor_value_info("MASK", T.BOOL, None)]
+    elif variant == "matmul":
+        # f32 MatMul with K > 1 (accumulation order matters): an activation
+        # against a weight, and an attention-shaped batched product.
+        rng = np.random.default_rng(20261030)
+        inp = [h.make_tensor_value_info("A", T.FLOAT, [1, 4, 64]),
+               h.make_tensor_value_info("Q", T.FLOAT, [1, 2, 4, 16]),
+               h.make_tensor_value_info("K", T.FLOAT, [1, 2, 16, 4])]
+        inits += [nh.from_array(rng.standard_normal((64, 8)).astype(np.float32), "W")]
+        nodes = [h.make_node("MatMul", ["A", "W"], ["Y1"], name="n_mm_weight"),
+                 h.make_node("MatMul", ["Q", "K"], ["Y2"], name="n_mm_attn")]
+        outs = [h.make_tensor_value_info("Y1", T.FLOAT, [1, 4, 8]),
+                h.make_tensor_value_info("Y2", T.FLOAT, [1, 2, 4, 4])]
     elif variant in ("lstm_skip", "lstm_full"):
         # An omitted optional output before a present one: Tract numbers a
         # node's outlets after dropping empty names (onnx/src/model.rs:150).
@@ -328,16 +346,19 @@ def main():
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
     for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith",
-              "i64_data", "rope", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
+              "i64_data", "rope", "matmul", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
         data = build_shape(v).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)
         entry = {"sha256": hashlib.sha256(data).hexdigest()}
+        if v == "matmul":
+            entry["inputs"] = {k: {"shape": list(a.shape), "bits": bits(a)} for k, a in MATMUL_FEEDS.items()}
         feeds = {"shape_sym": {"X": np.arange(6, dtype=np.float32)},
                  "lstm_skip": {"X": np.ones((5, 1, 3), np.float32)},
                  "lstm_full": {"X": np.ones((5, 1, 3), np.float32)},
                  "i64_data": {"F": INPUTS["F"], "I": np.array([-4, 5], np.int64)},
-                 "rope": {"ids": np.arange(10, dtype=np.int64).reshape(1, 10)}}.get(v, {"F": INPUTS["F"]})
+                 "rope": {"ids": np.arange(10, dtype=np.int64).reshape(1, 10)},
+                 "matmul": MATMUL_FEEDS}.get(v, {"F": INPUTS["F"]})
         if v == "neg_i64_div0":
             # An integer zero divisor is undefined behaviour in ORT's kernel;
             # it is not run. The refusal here needs no oracle.
