@@ -337,3 +337,21 @@ Disable runs on the extent commit:
 | W256 read as 64 | 2 |
 
 Still capped at 64: `tract-harvest-probe`'s `dr3::TILE = 64`, a single DR64 tile built from `relcomp::Rows = [u64; 64]`. That is the tract session's lab crate. Its full model (4,146 of 7,620 nodes WHEN-true) already reports ">64 positions untiled". Lifting it is that session's change; the binding side no longer forces 64.
+
+**A.5 addendum 11 (2026-10-30, operator: "reserve but don't claim, thin provisioning; Jina as a result is not able to use its 7000 nodes").** Addendum 10 gave each axis one width, W64 or W256, so the most any class could address was 256 identities, and Jina's 7,620 nodes could not be bound. Each axis is now a reservation, `Axis { tile: W64 | W256, tiles }`:
+- `Extent::DR256_GLOBAL_X64` reserves the whole DR256 identity space: 65,536 positions in 256 tiles of 256.
+- Reserving claims nothing. `BindStore::claimed(class, version)` counts the identity tiles that hold a position routed to the class at that version.
+- `tile_bytes` states the cost of one claimed tile: 256 × 256 × 64 / 8 = 512 KiB. Routing Jina's 7,620 nodes claims 30 tiles (15 MiB stated, nothing allocated), out of 256 reserved.
+- `route` refuses a position past the class's identity reservation (`OutsideReservation`) and moves no version.
+- An axis wider than it can address is refused (`ReservationTooWide`), never truncated.
+
+Disable runs, each failing exactly one test:
+
+| guard removed | failing tests |
+|---|---|
+| the reservation check in `route` | 1 |
+| claiming by tile (counting positions instead) | 1 |
+| the too-wide check | 1 |
+| costing the reservation instead of the claim | 1 |
+
+Still capped, and stated: one class's property axis is at most 256 fields, because a `WideFieldMask` position is a `u8` (contract). Wider would mean tiled field addressing in the contract, which this crate does not own. In the bind store, Jina's nodes are identity positions, and an ONNX lens's fields are its op signatures, so this does not block Jina here. The tract lab's own DR#3 layout puts Jina's 7,620 values on its property axis, and `dr3::TILE = 64` is that session's to lift.
