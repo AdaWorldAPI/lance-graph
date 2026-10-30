@@ -28,3 +28,4 @@
 - The selection is versioned via a lance-graph table. Q5, which table, is open for the DR/DT owner.
 - Always present: identity = `NodeGuid`, and property mappings. Not material: `ClassView` → methods, and 64 thoughts → Thought-Git (references, resolved on demand).
 - DR does the amortized global (`NodeGuid`) → local (frame position) mapping: prepared once per focus, sealed and versioned. Exposures work on local positions only.
+- Order: DR routes (global → local, address → classid), then DT64 assigns meaning and methods to the mapped position. DT64 does not route; DR assigns no meaning.

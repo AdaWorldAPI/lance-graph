@@ -161,6 +161,9 @@ Consequences:
   - Exposures, folds and develops work on local positions only.
   - A `NodeGuid` reappears only where a result leaves the frame, through the same sealed map.
   - A frame exposed under a map other than its sealed one is an alignment defect (rule 4, gate G5).
+- **The order is fixed: DR routes, then DT64 assigns.** Routing (global → local, address → classid) is DR's
+  concern alone. Only once a position is mapped does DT64 give it meaning and methods. DT64 does not
+  route, and DR assigns no meaning. Execution (mask-risc, ndarray) comes after both.
 
 Consequences:
 - §1's "Identity (X) × Edge (Y) × Property (Z)" is a selection geometry, not three fixed-width address
@@ -202,7 +205,7 @@ Consequences:
 | Concern | Owner |
 |---|---|
 | Coordinate geometry, address laws, Morton / HHTL16 traversal, global → local routing | DR (D-DRDT) |
-| Class meaning, field laws, method identity, guards, effect order | DT, through hotplug / ogar-vocab (D-DRDT §1, D-CMH) |
+| Class meaning, field laws, method identity, guards, effect order, assigned **after** DR has mapped | DT64, through `ClassView` / hotplug / ogar-vocab (D-DRDT §1, D-CMH, D-DT64-6) |
 | The address grammar and the shader mental model | this contract (the Abacus) |
 | Straight-line programs over slots, tiled execution, terminals | `lance-graph-mask-risc` |
 | Kernels (mask ops, `half_add_mask` / `full_add_mask`, popcount) | ndarray, through `ndarray::simd` |
