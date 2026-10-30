@@ -152,7 +152,15 @@ Consequences:
 - **The wafer has two layers: `NodeGuid` identities and property mappings.** Exposures read these.
 - **Methods come through `ClassView` resolution.** A shader names a method; it never carries a copy of one.
 - **The 64 thoughts are references into Thought-Git**, not lanes on the frame. A thought is versioned history, not exposed state.
-- **This supplies the identity coordinate that §3's bead position needs:** it is a `NodeGuid`, mapped to a frame position by the DR law.
+- **This supplies the identity coordinate that §3's bead position needs.** Globally it is a `NodeGuid`. Inside
+  a frame it is a local position.
+- **DR does the global → local mapping, amortized** (D-DRDT §1: "global-to-local preparation is optional
+  and amortized"; DR256-WHERE: the DR64 focus = mask + sealed u16 address map).
+  - The map is prepared once per focus and sealed under a version. That is the reticle cost of rule 2,
+    paid once and never per exposure.
+  - Exposures, folds and develops work on local positions only.
+  - A `NodeGuid` reappears only where a result leaves the frame, through the same sealed map.
+  - A frame exposed under a map other than its sealed one is an alignment defect (rule 4, gate G5).
 
 Consequences:
 - §1's "Identity (X) × Edge (Y) × Property (Z)" is a selection geometry, not three fixed-width address

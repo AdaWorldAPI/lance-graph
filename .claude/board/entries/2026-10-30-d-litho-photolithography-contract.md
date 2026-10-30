@@ -27,3 +27,4 @@
 - Edges and properties are selected against it. Either a cross-product coordinate-range reference (two ranges, not necessarily materialized) or a PSCustomObject-style named selection (`ClassView × WideFieldMask`).
 - The selection is versioned via a lance-graph table. Q5, which table, is open for the DR/DT owner.
 - Always present: identity = `NodeGuid`, and property mappings. Not material: `ClassView` → methods, and 64 thoughts → Thought-Git (references, resolved on demand).
+- DR does the amortized global (`NodeGuid`) → local (frame position) mapping: prepared once per focus, sealed and versioned. Exposures work on local positions only.
