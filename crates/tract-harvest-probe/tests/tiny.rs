@@ -146,7 +146,7 @@ fn dep_composition_is_the_source_dataflow() {
         let (dep, work) = g.dep();
         assert_eq!(dep, g.dep_from_edges(), "{v}");
         assert!(
-            dep.iter().any(|&r| r != 0),
+            dep.pairs().next().is_some(),
             "{v}: anti-vacuity, there are edges"
         );
         assert!(work.row_ors > 0);
@@ -154,12 +154,8 @@ fn dep_composition_is_the_source_dataflow() {
         let pos: Vec<usize> = (0..g.nodes)
             .map(|n| order.iter().position(|&o| o == n).unwrap())
             .collect();
-        for (i, row) in dep.iter().enumerate().take(g.nodes) {
-            for j in 0..g.nodes {
-                if row >> j & 1 == 1 {
-                    assert!(pos[i] < pos[j], "{v}: {i} before {j}");
-                }
-            }
+        for (i, j) in dep.pairs() {
+            assert!(pos[i] < pos[j], "{v}: {i} before {j}");
         }
     }
 }
@@ -1394,7 +1390,6 @@ fn fields_label_shared_algebra_addresses() {
 /// fields still read the shared algebra address it labelled.
 #[test]
 fn a_masked_field_is_absent() {
-    use lance_graph_contract::class_view::WideFieldMask;
     use tract_harvest_probe::bind::{resolve, route, Unresolved};
     let reg = registry();
     let b = bytes("rope");
@@ -1404,11 +1399,7 @@ fn a_masked_field_is_absent() {
     let (&n, &key) = routes.map.iter().next_back().unwrap();
     let hidden = usize::from(key.ordinal);
     let mut masked = registry();
-    let shown: Vec<u8> = (0..masked.regs.len())
-        .filter(|&i| i != hidden)
-        .map(|i| i as u8)
-        .collect();
-    masked.exposed = WideFieldMask::from_positions(&shown);
+    masked.expose(hidden, false);
     assert!(!masked.exposes(hidden) && masked.exposes(0));
     assert!(masked.get(key).is_none());
     assert_eq!(

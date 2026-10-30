@@ -497,8 +497,6 @@ fn full_graph_facts_and_coverage() {
     assert_eq!(tot(&fs.merged()), [7274, 0, 346]);
     // The same graph as a bind-store consumer: every registered node has a
     // route to its codebook item and resolves through it; the rest have none.
-    // 7,620 nodes: more than one 64-node tile, so the binder must not need
-    // the one-tile `OnnxGraph`.
     let routes = tract_harvest_probe::bind::route(&src, &fs.merged(), &reg);
     let resolved = (0..src.nodes.len())
         .filter(|&n| tract_harvest_probe::bind::resolve(&routes, &reg, n).is_ok())
@@ -510,6 +508,29 @@ fn full_graph_facts_and_coverage() {
             src.nodes.len() - routes.map.len()
         ),
         (7274, 7274, 346)
+    );
+    // DR64 is global to local: the whole graph lays over tiles, `dep`
+    // composed tile by tile is the source dataflow, and it schedules.
+    let merged = fs.merged();
+    let g = OnnxGraph::build(&src, &merged).unwrap();
+    assert_eq!(g.nodes, 7620);
+    let (dep, _) = g.dep();
+    assert_eq!(dep, g.dep_from_edges());
+    assert!(dep.tiles.len() > 100, "{} tiles", dep.tiles.len());
+    let order = g.schedule().unwrap();
+    let pos: Vec<usize> = {
+        let mut p = vec![0; order.len()];
+        for (k, &n) in order.iter().enumerate() {
+            p[n] = k;
+        }
+        p
+    };
+    assert!(dep.pairs().all(|(i, j)| pos[i] < pos[j]));
+    println!(
+        "jina tiles: {} props, {} dep tiles, {} dep edges",
+        g.props.len(),
+        dep.tiles.len(),
+        dep.pairs().count()
     );
 }
 
