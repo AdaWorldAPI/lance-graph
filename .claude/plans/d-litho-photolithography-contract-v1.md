@@ -24,6 +24,12 @@ op, terminal, runtime or contract type.
 > underflow, coordinate freezing, an address law and a "rotation" reading. All of that is DR's, is already
 > written in D-DRF-1, and was written here without reading D-DRF-1 first. It is removed. §4 lists what this
 > contract assumes DR provides, by reference only.
+>
+> **⊘ Correction to the correction (2026-10-30, user).** "Of course you need to know the dimensions in order
+> to apply the law effectively." Removing the dimensions overcorrected. The error was stating them as this
+> contract's decisions, not stating them at all. §4 now lists the DR facts the DTO layer must know, each
+> cited to its DR source, with what the DTO layer does with it. They are DR's; this contract decides none of
+> them. Gates G2 and G3 are restored in §11.
 
 ## Overview
 
@@ -42,11 +48,11 @@ coordinates; it does not define them.
 
 - [x] Record the user decisions of 2026-10-30 (§1).
 - [x] Vocabulary, with the owner of each row (§2).
-- [x] What the DTO layer binds (§3); what it assumes from DR (§4); the order (§5).
+- [x] What the DTO layer binds (§3); the DR facts it must know and apply (§4); the order (§5).
 - [x] Design rules (§6), non-goals (§7), ownership (§8), consumers (§9).
 - [ ] Owner replies on EXO-50 (§10).
 - [ ] First consumer writes one binding with a failing fixture (§11, G1).
-- [ ] Gates G1, G4, G5 (§11). None run.
+- [ ] Gates G1–G5 (§11). None run.
 
 ## 1. Decisions recorded
 
@@ -55,10 +61,11 @@ coordinates; it does not define them.
 **BASIS:** the user's statement in session (decision, not measurement).
 **REVISIT WHEN:** an operation is needed that has no counterpart in the exposure model.
 
-**DECISION (2026-10-30):** This contract is the DTO layer of a holographic hypercube 64ⁿ or 256ⁿ.
-Dimensions are not its concern.
-**SCOPE:** everything below. Axes, widths, coordinates and routing are DR's (§4).
-**BASIS:** the user's statement in session (decision, not measurement).
+**DECISION (2026-10-30):** This contract is the DTO layer of a holographic hypercube 64ⁿ or 256ⁿ. It owns
+and decides no dimension, but it must know DR's dimensions to apply the law.
+**SCOPE:** everything below. Axes, widths, coordinates and routing are DR's; §4 lists the ones the DTO layer
+applies, cited.
+**BASIS:** the user's statements in session (decision, not measurement).
 **REVISIT WHEN:** a DTO binding cannot be stated without choosing a dimension.
 
 **DECISION (2026-10-30):** The Abacus is the mental model of a shader. It concerns naming, not
@@ -115,18 +122,26 @@ Over a coordinate DR has routed:
 - **Meaning of a rod:** width, signedness and what a count stands for come through DT64 and hotplug
   (`Activation::register_law_for`, `RegisterLaw`), never from the coordinate.
 
-## 4. Assumed from DR (not decided here)
+## 4. What the DTO layer must know (DR's facts, applied here)
 
-By reference only. The authoritative text is in the cited plans.
+Every fact below is DR's. This contract decides none of them; the authoritative text is the cited source.
+The right-hand column is what the DTO layer does with the fact. Sources were read in full on 2026-10-30.
 
-- **The hypercube, its dimensions and axis semantics:** 64ⁿ / 256ⁿ, the DR64 focus, the u16 pointer map,
-  the 64³ Boolean relation volume (D-DRF-1 §1). Which axis is which is declared by the caller and decided
-  under NFR-OP-2, not here.
-- **Global → local routing**, amortized, sealed and versioned; the focus lease (D-DRF-1 §2–§3; D-DRDT §1).
-- **Fixed widths, the presence bit and sparse write / merge on read, and why coordinates freeze.** The
-  user's statements of 2026-10-30 on these points are relayed to the DR owner (EXO-50 messages 17–18). They
-  are DR's rules, recorded here only as what the DTO layer relies on.
-- **Projection and views:** a view is a different DR projection over the same words, never a data move.
+| DR fact | Source | What the DTO layer does with it |
+|---|---|---|
+| DR64 focus: 64 × 64 = 4,096 positions; Boolean tile 512 B; u16 position → SoA-row map 8 KiB; at most 2 MiB of distinct 512 B rows. DR256: 65,536 positions; 8 KiB; 128 KiB; 32 MiB. The 32 × 128-bit and 64 × 64-bit views are the same 512 B tile. | D-DRF-1 §1; falsifier G1 (PASS, lab, `drf-focus-probe`) | Every binding names DR64 or DR256 and states its cost in these units, never as one row per position. |
+| Dense 64³ Boolean volume 32 KiB; 256³ 2 MiB. Map plus cube is 40 KiB, not 32 KiB. A 64³ cell is not a pointer, a row or a thought. | D-DRF-1 §1 | A binding never assumes a cube exists. A cube is a separate admitted view. |
+| **Axis semantics are declared by the caller.** What the third axis physically indexes is NFR-OP-2, owned by the DR physical ABI. | D-DRF-1 §1; DT64 capstone (DT64-OP-2) | **The DTO layer is that caller.** Each binding declares its typed axes (Identity, Property, relation selector) and never decides the physical third axis. |
+| The HHTL16 address is `Morton8x8`: `x` on even bits, `y` on odd bits; each nibble is a 4 × 4 refinement, fan-out 16; a power-of-two subgrid is a code prefix (pinned for 4 × 4). | `crates/lance-graph-contract/src/morton8x8.rs` (`a_power_of_two_subgrid_is_a_code_prefix`); D-DRDT §1–§2 | A law is a deterministic map over this address. Rotation changes the coordinate law and is never a mask op (`MaskOp::Rotate` must not exist, `crates/lance-graph-mask-risc/tests/rotation.rs`). |
+| In code order a 64-row mask word is an aligned 8 × 8 square and a 256-row block a 16 × 16 square. | Derived from the prefix property; **not pinned beyond 4 × 4** | Relied on only after G3 (§11) passes. Until then a binding may not cite DR's "active words / blocks" as spatial tiles. |
+| Fixed width 64 or 256. Underflow is carried by the presence bit, written sparse and merged on read; absent is never FALSE or zero. | user ruling 2026-10-30 (EXO-50 messages 17–18); matches D-DRF-1 G7, D-DRAV-1 AV11, `dr256-where-capstone-v1.md` A.11 | An out-of-focus contributor is expanded through a witnessed binding or refused. |
+| The sealed global → local map is immutable and versioned; a change is a successor revision. The focus lease begins at load. | D-DRF-1 §0, §2, §3; D-DRDT §1 | This is why coordinates freeze: a binding pins one map revision. The same ordinal under another frame is refused (D-DRF-1 G3; D-SAG-6 F07). |
+| A Boolean cell is support under a declared semiring; it carries no Bag multiplicity, SQL NULL or evidence. Presence is not validity. `ClassView::FieldMask` is presence, never predicate truth. | D-DRF-1 §1; `dr256-where-capstone-v1.md` A.5, A.11; DT64 capstone | Every binding declares its semiring. A count-shaped reading needs a counted semiring, not a Boolean cell. |
+| `Keep` → `Plane` is reusable under the same frame; `ScatterOrU32` is only ever a demanded result. A detached `Keep` has no witness and is recomputed or refused (1,032 vs 31). | `lance-graph-mask-risc/src/ir.rs:329-337`; `dr256-where-capstone-v1.md` B.6, E.5 | Named intermediates follow the four lifetimes of `dr256-where-capstone-v1.md` A.2; no escaped reuse. |
+| Map and value lifetimes are separate; a map-only operation is legal without fetching values. | D-DRAV-1 §2, §6 | A method binding declares whether it is value-free or value-demanding. |
+| The 64-thought occupancy plane is separate from the relation selector and the mapping index. | D-DRF-1 §1; falsifier R2 | Thoughts are reserved, not claimed (§1), and are never an axis of a DR cube. |
+
+Projection and views: a view is a different DR projection over the same words, never a data move.
 
 ## 5. Order
 
@@ -152,7 +167,7 @@ meaning.
 - Any bypass of version witnesses.
 - A new writer or persistence path.
 - An Abacus runtime type. H13 stays deferred in ndarray.
-- Any definition of dimensions, axes, widths or coordinates (§1, §4).
+- Any decision on dimensions, axes, widths or coordinates. They are DR's; §4 cites the ones applied here.
 
 ## 8. Ownership
 
@@ -201,8 +216,16 @@ than the byte-dot, refused).
   per-position oracle. Disable run: drop one rod; the test turns red.
 - **G5, alignment refusal.** A binding used under a DR seal or binding version other than its own is
   refused, never executed. Disable run: skip the witness check; the test turns red.
-- G2 (law, not rotation) and G3 (Morton tile) are withdrawn as dimension gates. If wanted, they belong in
-  DR's own falsifier plan ([D-DRF falsifiers](d-dr64-focus-cache-falsifiers-v1.md)).
+- **G2, law, not rotation.** A DTO binding that reads a rotated or transposed view does so through an
+  address map over the canonical words, and its answer equals the canonical answer read through the map.
+  DR's existing proof is `crates/lance-graph-mask-risc/tests/rotation.rs`; G2 is the same check for the
+  first DTO binding that uses a non-identity view. **Fails if** the binding needs a rotated copy or a mask op.
+- **G3, Morton tile.** Over all 65,536 codes, every aligned 64-code run is one aligned 8 × 8 (`x`, `y`)
+  square and every aligned 256-code run one 16 × 16 square, checked against decoded `Morton8x8::{x, y}`.
+  This extends DR's pinned 4 × 4 prefix test; the test belongs beside it in `morton8x8.rs`, owned by DR.
+  Disable run: shift the block boundary by one code; the test turns red.
+- G5 covers frame refusal on reuse: D-DRF-1 G3 / G4 / G6 applied to a DTO binding, not a second copy.
+- The earlier withdrawal of G2 and G3 (2026-10-30) is superseded by the correction at the top.
 
 ## Errata to the shared diagram
 

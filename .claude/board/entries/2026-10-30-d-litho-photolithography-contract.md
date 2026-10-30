@@ -50,3 +50,16 @@
   - the order DR routes → DT64 assigns;
   - gates G1, G4, G5.
 - Lesson: D-DRF-1 was not read before geometry was written into this plan.
+
+## Correction to the scope correction (2026-10-30, user)
+
+"Of course you need to know the dimensions in order to apply the law effectively."
+
+- The removal above overcorrected. The error was stating DR's dimensions as this contract's decisions, not stating them.
+- Plan §4 is now "What the DTO layer must know": DR's facts, each cited (D-DRF-1 §1–§3, `morton8x8.rs`, D-DRAV-1, `dr256-where-capstone-v1.md`, `mask-risc` `ir.rs:329-337` and `tests/rotation.rs`), with what the DTO layer does with each. The key one: D-DRF-1 says axis semantics are declared by the caller, and the DTO layer is that caller.
+- The 8 × 8 / 16 × 16 Morton tile reading is derived from the prefix property and pinned only for 4 × 4; it is gated as G3 before use.
+- Gates G2 (law, not rotation) and G3 (Morton tile) are restored. Q1 stays withdrawn: deciding rod width is still DR's.
+- Strikes the "Removed as DR's concern" list above; it stays in place as history.
+
+MIRROR
+- LESSON: geometry was first written without reading DR's plans, then removed instead of attributed; both times the sources were not read in full.
