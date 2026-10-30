@@ -23,7 +23,9 @@
 //!   position is its ordinal.
 //! - [`Registry::exposed`] is the lens's [`WideFieldMask`]: which field
 //!   positions it shows. A field outside the mask is absent — it neither
-//!   matches nor resolves — and is never a different behaviour.
+//!   matches nor resolves — and is never a different behaviour. The codebook
+//!   is not capped at one mask: field `o` is position `o % 256` of block
+//!   `o / 256` (global to local), up to 65,536 fields.
 //!
 //! An ONNX node is a registered method once its **op signature**
 //! `(domain, op_type, dtype, discrete attributes)` matches a
@@ -96,8 +98,8 @@ pub enum Numeric {
 pub enum Refusal {
     /// The cold frontend could not import or type the graph.
     Frontend(String),
-    /// More than 64 positions on one axis: the graph needs several DR64 tiles.
-    TileOverflow { axis: &'static str, count: usize },
+    /// More positions on one axis than the u16 address width (65,536).
+    AddressOverflow { axis: &'static str, count: usize },
     /// No registration for this op signature: UNKNOWN, never "no behaviour".
     Unregistered { node: String, signature: String },
     /// A registered signature outside the opsets its registration covers.
@@ -147,6 +149,9 @@ pub struct AttrRule {
     pub default: Option<i64>,
 }
 
+/// Field positions per exposure block: one `WideFieldMask`.
+pub const MASK_BLOCK: usize = 256;
+
 /// The lab classid of the ONNX operator codebook: one lens over every item.
 pub const ONNX_LENS: ClassId = 0x0F00;
 
@@ -168,6 +173,7 @@ pub struct Method {
 
 /// One field of the lens: an op-signature label and its WHEN over the
 /// algebra address [`Registration::method`].
+#[derive(Clone)]
 pub struct Registration {
     pub domain: &'static str,
     pub op_type: &'static str,
@@ -197,8 +203,9 @@ pub struct Registry {
     pub methods: Vec<Method>,
     /// The lens's fields; a field's ordinal is its index here.
     pub regs: Vec<Registration>,
-    /// Which field positions the lens exposes.
-    pub exposed: WideFieldMask,
+    /// Which field positions the lens exposes, in blocks of
+    /// [`MASK_BLOCK`] (a `WideFieldMask` position is a `u8`).
+    pub exposed: Vec<WideFieldMask>,
 }
 
 /// The dtype a node's signature is keyed by.
@@ -273,8 +280,10 @@ impl Registry {
             r.method = u16::try_from(ix).expect("at most 65,536 addresses");
             regs.push(r);
         }
-        assert!(regs.len() <= 256, "a WideFieldMask position is a u8");
-        let exposed = WideFieldMask::full_for(regs.len());
+        assert!(regs.len() <= 1 << 16, "a field ordinal is a u16");
+        let exposed = (0..regs.len().div_ceil(MASK_BLOCK))
+            .map(|b| WideFieldMask::full_for((regs.len() - b * MASK_BLOCK).min(MASK_BLOCK)))
+            .collect();
         Registry {
             lens,
             version,
@@ -291,7 +300,22 @@ impl Registry {
 
     /// Does the lens expose field `ordinal`?
     pub fn exposes(&self, ordinal: usize) -> bool {
-        u8::try_from(ordinal).is_ok_and(|p| self.exposed.has(p))
+        self.exposed
+            .get(ordinal / MASK_BLOCK)
+            .is_some_and(|m| m.has((ordinal % MASK_BLOCK) as u8))
+    }
+
+    /// Show or hide field `ordinal`. Hiding is a new [`revision`](Self::revision).
+    pub fn expose(&mut self, ordinal: usize, on: bool) {
+        let (b, local) = (ordinal / MASK_BLOCK, (ordinal % MASK_BLOCK) as u8);
+        if self.exposed.len() <= b {
+            self.exposed.resize(b + 1, WideFieldMask::EMPTY);
+        }
+        let kept: Vec<u8> = (0..=u8::MAX)
+            .filter(|&p| p != local && self.exposed[b].has(p))
+            .chain(on.then_some(local))
+            .collect();
+        self.exposed[b] = WideFieldMask::from_positions(&kept);
     }
 
     /// The revision a frame and a route are keyed by: the table version and
@@ -299,7 +323,7 @@ impl Registry {
     pub fn revision(&self) -> u64 {
         let shown: Vec<u8> = (0..self.regs.len())
             .filter(|&i| self.exposes(i))
-            .map(|i| i as u8)
+            .flat_map(|i| (i as u16).to_le_bytes())
             .collect();
         crate::plan::digest64(&[&self.version.to_le_bytes(), &shown])
     }
@@ -2263,6 +2287,36 @@ pub fn registry() -> Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The codebook is not capped at one 256-position mask: 600 fields span
+    /// three exposure blocks, every one resolves, and hiding a field in a
+    /// later block hides that field only and moves the revision.
+    #[test]
+    fn codebook_spans_mask_blocks() {
+        let base = registry();
+        let drafts: Vec<(Method, Registration)> = (0..600)
+            .map(|i| {
+                let r = &base.regs[i % base.regs.len()];
+                (*base.method(r), r.clone())
+            })
+            .collect();
+        let mut big = Registry::build(ONNX_LENS, 1, drafts);
+        assert_eq!(big.exposed.len(), 3);
+        assert_eq!(big.methods.len(), base.methods.len());
+        let key = |o: u16| MethodKey {
+            lens: ONNX_LENS,
+            ordinal: o,
+        };
+        assert!((0..600u16).all(|o| big.get(key(o)).is_some()));
+        assert!(big.get(key(600)).is_none());
+        let before = big.revision();
+        big.expose(599, false);
+        assert!(big.get(key(599)).is_none());
+        assert!(big.get(key(599 - 256)).is_some() && big.get(key(598)).is_some());
+        assert_ne!(big.revision(), before);
+        big.expose(599, true);
+        assert_eq!(big.revision(), before);
+    }
 
     #[test]
     fn rotary_guards_fire_and_stay_silent() {

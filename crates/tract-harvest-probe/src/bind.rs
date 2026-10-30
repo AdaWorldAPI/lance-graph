@@ -43,8 +43,8 @@ pub enum Unresolved {
 }
 
 /// Bind every node by signature once, keeping only its codebook key. The
-/// binder reads per-value facts, not a tile: a node position is the source
-/// node index, so a graph larger than one 64-node tile routes too.
+/// binder reads per-value facts: a node position is the global source node
+/// index, the same one the DR64 tiles map to local bits.
 /// Initializers without a fact get their protobuf dtype and dims, as in
 /// `fold`.
 pub fn route(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Registry) -> Routes {

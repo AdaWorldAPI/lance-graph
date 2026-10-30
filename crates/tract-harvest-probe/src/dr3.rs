@@ -1,7 +1,12 @@
 //! An ONNX graph as a DR#3 graph (user decision 2026-10-30): every node is an
 //! **Identity** position, every tensor value (graph input, initializer, node
-//! output) a **Property** position, and the dataflow is two relations over one
-//! 64 × 64 tile:
+//! output) a **Property** position, and the dataflow is two relations:
+//!
+//! DR64 is global to local, not a size limit. A global position `p` lives in
+//! tile `p / 64` at local bit `p % 64`; a relation is the set of its non-empty
+//! 64 × 64 tiles ([`Tiled`]), and composition composes tile by tile with the
+//! one DR64 kernel. The only ceiling is the address width: 65,536 positions
+//! per axis.
 //!
 //! - `on[node]`: the Property positions the node reads (its ON);
 //! - `do_[node]`: the Property positions the node writes (its DO).
@@ -32,14 +37,84 @@ use crate::value::{DType, Value};
 /// Positions per axis in one DR64 tile.
 pub const TILE: usize = 64;
 
+/// Positions per axis a graph may address (the u16 address width).
+pub const MAX_POSITIONS: usize = 1 << 16;
+
+/// A Boolean relation over global positions, held as its non-empty 64 × 64
+/// DR64 tiles keyed `(row tile, column tile)`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Tiled {
+    pub tiles: std::collections::BTreeMap<(u16, u16), Rows>,
+}
+
+impl Tiled {
+    pub fn set(&mut self, i: usize, j: usize) {
+        let t = self
+            .tiles
+            .entry(((i / TILE) as u16, (j / TILE) as u16))
+            .or_insert([0; 64]);
+        t[i % TILE] |= 1 << (j % TILE);
+    }
+
+    pub fn contains(&self, i: usize, j: usize) -> bool {
+        self.tiles
+            .get(&((i / TILE) as u16, (j / TILE) as u16))
+            .is_some_and(|t| t[i % TILE] >> (j % TILE) & 1 == 1)
+    }
+
+    /// Every `(i, j)` in the relation, global positions.
+    pub fn pairs(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.tiles.iter().flat_map(|(&(ti, tj), t)| {
+            t.iter().enumerate().flat_map(move |(r, &row)| {
+                let mut bits = row;
+                std::iter::from_fn(move || {
+                    (bits != 0).then(|| {
+                        let c = bits.trailing_zeros() as usize;
+                        bits &= bits - 1;
+                        (ti as usize * TILE + r, tj as usize * TILE + c)
+                    })
+                })
+            })
+        })
+    }
+
+    pub fn transpose(&self) -> Tiled {
+        Tiled {
+            tiles: self
+                .tiles
+                .iter()
+                .map(|(&(ti, tj), t)| ((tj, ti), transpose(t)))
+                .collect(),
+        }
+    }
+
+    /// `out = self ∘ other`: tile `(ti, tj)` is the OR over `k` of the DR64
+    /// composition of tile `(ti, k)` with tile `(k, tj)`.
+    pub fn compose(&self, other: &Tiled, work: &mut Work) -> Tiled {
+        let mut out = Tiled::default();
+        for (&(ti, k), a) in &self.tiles {
+            for (&(_, tj), b) in other.tiles.range((k, 0)..=(k, u16::MAX)) {
+                let c = compose(a, b, work);
+                if c.iter().any(|&r| r != 0) {
+                    let o = out.tiles.entry((ti, tj)).or_insert([0; 64]);
+                    for (x, y) in o.iter_mut().zip(c) {
+                        *x |= y;
+                    }
+                }
+            }
+        }
+        out
+    }
+}
+
 /// The graph on its two axes.
 pub struct OnnxGraph {
     /// Identity axis: node index in source order.
     pub nodes: usize,
     /// Property axis: value names, position = index.
     pub props: Vec<String>,
-    pub on: Rows,
-    pub do_: Rows,
+    pub on: Tiled,
+    pub do_: Tiled,
     /// Ordered arguments per node (`None`: an omitted optional input).
     pub args: Vec<Vec<Option<usize>>>,
     /// Ordered outputs per node.
@@ -67,10 +142,10 @@ fn transpose(r: &Rows) -> Rows {
 }
 
 impl OnnxGraph {
-    /// Lay the source graph onto the tile. `facts` is keyed by value name.
+    /// Lay the source graph onto DR64 tiles. `facts` is keyed by value name.
     pub fn build(src: &SourceInventory, facts: &HashMap<String, Fact>) -> Result<Self, Refusal> {
-        if src.nodes.len() > TILE {
-            return Err(Refusal::TileOverflow {
+        if src.nodes.len() > MAX_POSITIONS {
+            return Err(Refusal::AddressOverflow {
                 axis: "Identity",
                 count: src.nodes.len(),
             });
@@ -105,20 +180,20 @@ impl OnnxGraph {
                     .collect::<Vec<_>>(),
             );
         }
-        if props.len() > TILE {
-            return Err(Refusal::TileOverflow {
+        if props.len() > MAX_POSITIONS {
+            return Err(Refusal::AddressOverflow {
                 axis: "Property",
                 count: props.len(),
             });
         }
 
-        let (mut on, mut do_) = ([0u64; 64], [0u64; 64]);
+        let (mut on, mut do_) = (Tiled::default(), Tiled::default());
         for (n, (a, o)) in args.iter().zip(&outs).enumerate() {
             for &p in a.iter().flatten() {
-                on[n] |= 1 << p;
+                on.set(n, p);
             }
             for &p in o {
-                do_[n] |= 1 << p;
+                do_.set(n, p);
             }
         }
 
@@ -167,20 +242,26 @@ impl OnnxGraph {
     }
 
     /// `dep[i]` has bit `j` iff node `i` writes a value node `j` reads.
-    pub fn dep(&self) -> (Rows, Work) {
+    pub fn dep(&self) -> (Tiled, Work) {
         let mut w = Work::default();
-        let d = compose(&self.do_, &transpose(&self.on), &mut w);
+        let d = self.do_.compose(&self.on.transpose(), &mut w);
         (d, w)
     }
 
     /// The same relation computed directly from the source edges, for the
     /// check that the composition is the dataflow and nothing else.
-    pub fn dep_from_edges(&self) -> Rows {
-        let mut d = [0u64; 64];
+    pub fn dep_from_edges(&self) -> Tiled {
+        let mut producer: HashMap<usize, Vec<usize>> = HashMap::new();
         for (i, o) in self.outs.iter().enumerate() {
-            for (j, a) in self.args.iter().enumerate() {
-                if a.iter().flatten().any(|p| o.contains(p)) {
-                    d[i] |= 1 << j;
+            for &p in o {
+                producer.entry(p).or_default().push(i);
+            }
+        }
+        let mut d = Tiled::default();
+        for (j, a) in self.args.iter().enumerate() {
+            for p in a.iter().flatten() {
+                for &i in producer.get(p).into_iter().flatten() {
+                    d.set(i, j);
                 }
             }
         }
@@ -192,26 +273,25 @@ impl OnnxGraph {
     pub fn schedule(&self) -> Result<Vec<usize>, Refusal> {
         let (dep, _) = self.dep();
         let mut indeg = vec![0usize; self.nodes];
-        for row in dep.iter().take(self.nodes) {
-            let mut bits = *row;
-            while bits != 0 {
-                indeg[bits.trailing_zeros() as usize] += 1;
-                bits &= bits - 1;
+        let mut succ: Vec<Vec<usize>> = vec![Vec::new(); self.nodes];
+        for (i, j) in dep.pairs() {
+            indeg[j] += 1;
+            succ[i].push(j);
+        }
+        let mut ready: std::collections::BTreeSet<usize> =
+            (0..self.nodes).filter(|&n| indeg[n] == 0).collect();
+        let mut order = Vec::with_capacity(self.nodes);
+        while let Some(next) = ready.pop_first() {
+            order.push(next);
+            for &j in &succ[next] {
+                indeg[j] -= 1;
+                if indeg[j] == 0 {
+                    ready.insert(j);
+                }
             }
         }
-        let mut done = 0u64;
-        let mut order = Vec::with_capacity(self.nodes);
-        while order.len() < self.nodes {
-            let next = (0..self.nodes)
-                .find(|&n| done & (1 << n) == 0 && indeg[n] == 0)
-                .ok_or(Refusal::Cycle)?;
-            done |= 1 << next;
-            order.push(next);
-            let mut bits = dep[next];
-            while bits != 0 {
-                indeg[bits.trailing_zeros() as usize] -= 1;
-                bits &= bits - 1;
-            }
+        if order.len() < self.nodes {
+            return Err(Refusal::Cycle);
         }
         Ok(order)
     }
@@ -656,6 +736,51 @@ mod tests {
         assert!(why[0].0 == "b" && why[0].1.contains("is not the source producer"));
         assert_eq!(why[1], ("c", "label carried by 2 outlets"));
         assert_eq!(why[2], ("d", "source producer not unique"));
+    }
+
+    /// DR64 is global to local: a 200-node chain (four Identity tiles, five
+    /// Property tiles) builds, `dep` composed tile by tile equals the source
+    /// edges including a cross-tile edge, and the schedule is the chain order.
+    #[test]
+    fn graphs_beyond_one_tile_lay_over_tiles() {
+        use crate::source::SourceNode;
+        const N: usize = 200;
+        let nodes: Vec<SourceNode> = (0..N)
+            .map(|i| SourceNode {
+                name: format!("n{i}"),
+                op_type: if i == N - 1 { "Add" } else { "Abs" }.into(),
+                domain: String::new(),
+                inputs: if i == 0 {
+                    vec!["x".into()]
+                } else if i == N - 1 {
+                    vec![format!("v{}", i - 1), "v0".into()]
+                } else {
+                    vec![format!("v{}", i - 1)]
+                },
+                outputs: vec![format!("v{i}")],
+                attributes: vec![],
+                attrs: vec![],
+            })
+            .collect();
+        let src = SourceInventory {
+            nodes,
+            inputs: vec!["x".into()],
+            model_sha256: String::new(),
+            inlined: vec![],
+            ir_version: 8,
+            opsets: vec![],
+            initializers: vec![],
+            outputs: vec![format!("v{}", N - 1)],
+        };
+        let g = OnnxGraph::build(&src, &HashMap::new()).unwrap();
+        assert_eq!((g.nodes, g.props.len()), (N, N + 1));
+        let (dep, work) = g.dep();
+        assert_eq!(dep, g.dep_from_edges());
+        assert!(dep.tiles.len() > 1 && work.row_ors > 0);
+        assert_eq!(dep.pairs().count(), N);
+        assert!(dep.contains(0, N - 1), "cross-tile edge v0 -> last");
+        assert!(dep.contains(63, 64), "edge across a tile boundary");
+        assert_eq!(g.schedule().unwrap(), (0..N).collect::<Vec<_>>());
     }
 
     /// Tract's naming: a named node, else its first output; a duplicated
