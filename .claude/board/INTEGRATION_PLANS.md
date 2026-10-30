@@ -1,3 +1,8 @@
+## 2026-10-30 — D-XLOG-NATIVE: XLOG plan vocabulary over the ndarray::simd polyfill → `.claude/plans/d-xlog-native-v1.md`
+
+**Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto the `ndarray::simd` polyfill that `lance-graph-onnx` aliases, in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), name-checked, not tested; shared operations are the same native symbols as ONNX's. Decides that a `lance-graph-xlog` crate (ndarray only, like `lance-graph-onnx`; no `xlog-*` dependency, no plan type) waits until selection rows are tested and the many-to-many join has a native home.
+**Confidence:** name-checked crosswalk; no code.
+
 ## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
 
 **Status:** RETIRED 2026-10-30, folded into D-DT64-6 Amendment A (`d-dt64-6-routing-bindstore-behavior-v1.md`); "photolithography" was a metaphor. **Board:** [entry](entries/2026-10-30-d-litho-photolithography-contract.md), [STATUS_BOARD](STATUS_BOARD.md) D-LITHO. Photolithography as the shader north star: vocabulary (wafer, reticle, exposure, dose, develop), the Abacus as address grammar and mental model (frame, rod, bead position under a DR law), "views are laws, never rotations", ownership, consumers, gates G1–G5 (not run). Clarifies D-DRDT's "rotation" wording without editing it.
