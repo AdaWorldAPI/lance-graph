@@ -944,9 +944,9 @@ fn int64_arithmetic_on_data_runs_and_refuses_overflow() {
 }
 
 /// Invalid constant arithmetic refuses the plan instead of leaving the node
-/// unfolded: overflow (ORT wraps it), a zero divisor (undefined in ORT), a
-/// zero Range step (ORT refuses too), and a broadcast this registration does
-/// not admit (`[2]` against `[2, 1]`).
+/// unfolded: overflow (ORT wraps it) and a broadcast this registration does
+/// not admit (`[2]` against `[2, 1]`). A zero divisor (undefined in ORT) and a
+/// zero Range step (ORT refuses too) are already refused by Tract's analysis.
 #[test]
 fn invalid_int64_arithmetic_refuses() {
     let reg = registry();
@@ -955,16 +955,29 @@ fn invalid_int64_arithmetic_refuses() {
         serde_json::json!([i64::MIN, 3]),
         "ORT wraps on overflow"
     );
-    for (v, want) in [("neg_i64_overflow", "verflow"), ("neg_i64_div0", "by zero")] {
-        match plan(v, &reg).1 {
-            Err(Refusal::Runtime { node, what }) => {
-                assert_eq!(node, "n_bad", "{v}");
-                assert!(what.contains(want), "{v}: {what}");
-            }
-            other => panic!("{v}: {:?}", other.map(|_| ())),
+    // Tract's own analysis evaluates the constant Div and refuses the zero
+    // divisor before our fold runs; the registry DO refuses it too
+    // (`checked_i64_dos_refuse`).
+    // A zero Range step makes Tract's dimension arithmetic panic; `no_panic`
+    // turns that into a frontend refusal.
+    for (v, want) in [
+        ("neg_i64_div0", "Division by zero"),
+        ("neg_range_zero", "divide by zero"),
+    ] {
+        match tract_facts(&bytes(v), &[]) {
+            Err(Refusal::Frontend(e)) => assert!(e.contains(want), "{v}: {e}"),
+            other => panic!("{v}: {:?}", other.map(|f| f.len())),
         }
     }
-    for (v, classid) in [("neg_range_zero", 0x0F7A), ("neg_i64_bcast", 0x0F76)] {
+    match plan("neg_i64_overflow", &reg).1 {
+        Err(Refusal::Runtime { node, what }) => {
+            assert_eq!(node, "n_bad");
+            assert!(what.contains("overflows"), "{what}");
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+    {
+        let (v, classid) = ("neg_i64_bcast", 0x0F76);
         match plan(v, &reg).1 {
             Err(Refusal::When {
                 node,

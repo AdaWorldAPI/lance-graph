@@ -1796,6 +1796,63 @@ pub fn registry() -> Registry {
 mod tests {
     use super::*;
 
+    #[test]
+    fn checked_i64_guards_fire_and_stay_silent() {
+        let fi = |d: &[usize]| Fact {
+            dtype: Some(DType::I64),
+            shape: Some(d.iter().map(|&x| Dim::Known(x)).collect()),
+        };
+        let sc = |x: i64| Value::I64(ArrayD::from_shape_vec(IxDyn(&[]), vec![x]).unwrap());
+        let r = node("Range", 3, vec![]);
+        let (s0, d0, d1) = (fi(&[]), sc(0), sc(1));
+        let view = |d: &Value| -> K3 {
+            guard_range(&NodeView {
+                node: &r,
+                args: vec![Some(&s0), Some(&s0), Some(&s0)],
+                consts: vec![None, None, Some(d)],
+            })
+        };
+        assert_eq!(view(&d0), K3::False, "a constant zero step");
+        assert_eq!(view(&d1), K3::True);
+        let b = node("Add", 2, vec![]);
+        let g = |x: &[usize], y: &[usize]| {
+            let (fx, fy) = (fi(x), fi(y));
+            guard_binary_i64(&NodeView {
+                node: &b,
+                args: vec![Some(&fx), Some(&fy)],
+                consts: vec![None, None],
+            })
+        };
+        assert_eq!(g(&[2], &[2]), K3::True);
+        assert_eq!(g(&[2], &[]), K3::True);
+        assert_eq!(g(&[1], &[2, 3]), K3::True, "a one-element side broadcasts");
+        assert_eq!(g(&[2], &[2, 1]), K3::False);
+        assert_eq!(g(&[2], &[3]), K3::False);
+    }
+
+    #[test]
+    fn checked_i64_dos_refuse() {
+        let n = |op: &str| node(op, 2, vec![]);
+        let v = |x: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(&[x.len()]), x).unwrap());
+        let s = |x: i64| Value::I64(ArrayD::from_shape_vec(IxDyn(&[]), vec![x]).unwrap());
+        let what = |r: Result<Vec<Value>, Refusal>| match r {
+            Err(Refusal::Runtime { what, .. }) => what,
+            other => panic!("{other:?}"),
+        };
+        let (a, z, big) = (v(vec![6, 3]), v(vec![1, 0]), v(vec![i64::MAX, 1]));
+        assert!(what(do_div_i64(&[&a, &z], &n("Div"))).contains("by zero"));
+        assert!(what(do_mul_i64(&[&big, &v(vec![2])], &n("Mul"))).contains("overflows"));
+        assert!(what(do_add_i64(&[&big, &v(vec![1])], &n("Add"))).contains("overflows"));
+        assert!(what(do_range_i64(&[&s(0), &s(3), &s(0)], &n("Range"))).contains("delta 0"));
+        let cap = RANGE_CAPACITY as i64;
+        assert!(what(do_range_i64(&[&s(0), &s(cap + 1), &s(1)], &n("Range"))).contains("elements"));
+        // Div truncates toward zero; a one-element left side broadcasts.
+        match &do_div_i64(&[&v(vec![-7]), &v(vec![2, -2])], &n("Div")).unwrap()[0] {
+            Value::I64(o) => assert_eq!(o.iter().copied().collect::<Vec<_>>(), [-3, 3]),
+            other => panic!("{other:?}"),
+        }
+    }
+
     fn pow_view<'a>(node: &'a SourceNode, base: &'a Fact, exp: &'a Value) -> NodeView<'a> {
         NodeView {
             node,
