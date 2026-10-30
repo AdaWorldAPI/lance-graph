@@ -188,6 +188,36 @@
      "bits": [1049333655,1049333655]
     }
    }
+  },
+  "i64_arith": {
+   "sha256": "042a71f755ea7ef7ffe16ef1a3dd57bcdadbc3ee5f4b752d5dbc1de9543399db",
+   "ort": {
+    "DV": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-3,2]
+    },
+    "ML": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [6,-12]
+    },
+    "AD": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [-3,13]
+    },
+    "SB": {
+     "shape": [2],
+     "dtype": "int64",
+     "bits": [7,-7]
+    },
+    "RG": {
+     "shape": [3],
+     "dtype": "int64",
+     "bits": [0,1,2]
+    }
+   }
   }
  },
  "erf_sweep": {

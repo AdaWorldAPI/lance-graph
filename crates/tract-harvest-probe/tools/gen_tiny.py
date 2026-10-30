@@ -155,6 +155,22 @@ def build_shape(variant):
                 h.make_tensor_value_info("CS", T.INT64, [2, 3]),
                 h.make_tensor_value_info("ER", T.INT64, [2, 3]),
                 h.make_tensor_value_info("EF", T.FLOAT, [2, 2, 3])]
+    elif variant == "i64_arith":
+        # The int64 shape arithmetic no ndarray word covers yet (the ndarray
+        # ask): truncating Div on negatives, Mul, Add, Sub, Range.
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        inits += [i64("negs", [-7, 7]), i64("mul_k", [3, -4]), i64("add_k", [-5, 10]),
+                  i64("r0", 0), i64("r1", 1)]
+        nodes = [
+            h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+            h.make_node("Div", ["negs", "s"], ["DV"], name="n_div"),
+            h.make_node("Mul", ["s", "mul_k"], ["ML"], name="n_mul"),
+            h.make_node("Add", ["s", "add_k"], ["AD"], name="n_add"),
+            h.make_node("Sub", ["s", "add_k"], ["SB"], name="n_sub"),
+            h.make_node("Gather", ["s", "r1"], ["n3"], name="n_gather", axis=0),
+            h.make_node("Range", ["r0", "n3", "r1"], ["RG"], name="n_range"),
+        ]
+        outs = [h.make_tensor_value_info(o, T.INT64, None) for o in ["DV", "ML", "AD", "SB", "RG"]]
     elif variant in ("lstm_skip", "lstm_full"):
         # An omitted optional output before a present one: Tract numbers a
         # node's outlets after dropping empty names (onnx/src/model.rs:150).
@@ -233,7 +249,7 @@ def main():
         except Exception as e:  # ORT refusing a variant is itself evidence
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
-    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full"]:
+    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith"]:
         data = build_shape(v).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)

@@ -880,3 +880,30 @@ fn an_omitted_optional_output_does_not_shift_the_producer() {
         "the other output's shape differs"
     );
 }
+
+/// int64 shape arithmetic is refused until ndarray supplies checked words
+/// (the D-TRACT-SHAPE-1 ndarray ask): `Div` must truncate toward zero and
+/// refuse a zero divisor; `Mul`/`Add`/`Sub` must refuse overflow; `Range`
+/// must refuse a zero step. ORT's outputs for this fixture are frozen in
+/// `ort.json` (`i64_arith`) as the oracle for the registration that follows.
+#[test]
+fn int64_arithmetic_is_refused_until_checked_words_exist() {
+    let o = ort();
+    let e = &o["variants"]["i64_arith"]["ort"];
+    assert_eq!(
+        e["DV"]["bits"],
+        serde_json::json!([-3, 2]),
+        "Div truncates toward zero"
+    );
+    let reg = registry();
+    match plan("i64_arith", &reg).1 {
+        Err(Refusal::Unregistered { node, signature }) => {
+            assert_eq!(node, "n_div");
+            assert!(
+                signature.starts_with("ai.onnx:Div(Some(I64))"),
+                "{signature}"
+            );
+        }
+        other => panic!("{:?}", other.map(|_| ())),
+    }
+}
