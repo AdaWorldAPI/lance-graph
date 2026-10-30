@@ -36,8 +36,8 @@ fn every_golden_is_reproduced_exactly() {
     // Anti-vacuity: the eleven exported fixtures, not an empty directory.
     assert_eq!(all.len(), 11);
     for g in &all {
-        let kb = Kb::load(&g.facts).expect(&g.fixture_id);
-        let got = kb.solve().materialize_atoms(Projection::Set);
+        let (kb, names) = Kb::load(&g.facts).expect(&g.fixture_id);
+        let got = kb.solve().materialize_atoms(&names, Projection::Set);
         assert_eq!(got, sorted(g.atoms.clone()), "{}", g.fixture_id);
     }
 }
@@ -62,9 +62,9 @@ fn the_goldens_are_not_trivial() {
 fn orientation_is_load_bearing() {
     let a = golden("F1-modes");
     let b = golden("F1-reversed");
-    let (ka, kb) = (Kb::load(&a.facts).unwrap(), Kb::load(&b.facts).unwrap());
-    let sa = ka.solve().materialize_atoms(Projection::Set);
-    let sb = kb.solve().materialize_atoms(Projection::Set);
+    let ((ka, na), (kb, nb)) = (Kb::load(&a.facts).unwrap(), Kb::load(&b.facts).unwrap());
+    let sa = ka.solve().materialize_atoms(&na, Projection::Set);
+    let sb = kb.solve().materialize_atoms(&nb, Projection::Set);
     assert!(sa.contains(&"holds(p,a)".to_owned()));
     assert!(!sb.contains(&"holds(p,a)".to_owned()));
 }
@@ -72,9 +72,9 @@ fn orientation_is_load_bearing() {
 #[test]
 fn a_cycle_supports_nothing_and_terminates() {
     let g = golden("F2-cycle");
-    let kb = Kb::load(&g.facts).unwrap();
+    let (kb, names) = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
-    let got = h.materialize_atoms(Projection::Set);
+    let got = h.materialize_atoms(&names, Projection::Set);
     let held: Vec<_> = got.iter().filter(|a| a.starts_with("holds(")).collect();
     assert_eq!(held, ["holds(t,z)"]);
     assert!(h.steps <= 4, "{} steps", h.steps);
@@ -84,18 +84,25 @@ fn a_cycle_supports_nothing_and_terminates() {
 fn set_projection_is_required_on_the_diamond() {
     // p holds in d by inherited(a) and inherited(b): two lens rows, one fact.
     let g = golden("F1-modes");
-    let kb = Kb::load(&g.facts).unwrap();
+    let (kb, names) = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
-    assert_eq!(h.bag_multiplicity("p", "d"), 2);
-    assert_eq!(h.bag_multiplicity("p", "a"), 1);
+    assert_eq!(h.bag_multiplicity(&names, "p", "d"), 2);
+    assert_eq!(h.bag_multiplicity(&names, "p", "a"), 1);
     let sel = WideFieldMask::from_positions(&[0, 1]);
-    let set = h.materialize_selection(&sel, Projection::Set).unwrap();
-    let bag = h.materialize_selection(&sel, Projection::Bag).unwrap();
+    let set = h
+        .materialize_selection(&names, &sel, Projection::Set)
+        .unwrap();
+    let bag = h
+        .materialize_selection(&names, &sel, Projection::Bag)
+        .unwrap();
     let count = |v: &[String]| v.iter().filter(|a| *a == "holds(p,d)").count();
     assert_eq!(count(&set), 1);
     assert_eq!(count(&bag), 2);
     // The bag reading does not reproduce the golden.
-    assert_ne!(h.materialize_atoms(Projection::Bag), sorted(g.atoms));
+    assert_ne!(
+        h.materialize_atoms(&names, Projection::Bag),
+        sorted(g.atoms)
+    );
 }
 
 #[test]
@@ -103,11 +110,11 @@ fn bag_and_set_agree_where_every_holding_has_one_lens_row() {
     // Silence twin: one mode and one source rule per holding, so the two
     // projections coincide.
     let g = golden("C-mammal-C4");
-    let kb = Kb::load(&g.facts).unwrap();
+    let (kb, names) = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
     assert_eq!(
-        h.materialize_atoms(Projection::Bag),
-        h.materialize_atoms(Projection::Set)
+        h.materialize_atoms(&names, Projection::Bag),
+        h.materialize_atoms(&names, Projection::Set)
     );
 }
 
@@ -135,12 +142,12 @@ fn a_65th_world_is_refused_not_wrapped() {
 #[test]
 fn a_selection_that_is_no_predicate_is_refused() {
     let g = golden("F1-modes");
-    let kb = Kb::load(&g.facts).unwrap();
+    let (kb, names) = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
     for f in [&[0u8][..], &[0, 2], &[0, 1, 3], &[0, 1, 2, 4]] {
         let sel = WideFieldMask::from_positions(f);
         assert_eq!(
-            h.materialize_selection(&sel, Projection::Set),
+            h.materialize_selection(&names, &sel, Projection::Set),
             Err(Refusal::Selection),
             "{f:?}"
         );
@@ -153,12 +160,12 @@ fn bag_counts_lens_rows_not_modes() {
     // (r_base_p, r_b_endorse): two lens rows, one holds_via fact, one holds
     // fact. g holds in a with no rule at all: one lens row, empty rule fields.
     let g = golden("F1-modes");
-    let kb = Kb::load(&g.facts).unwrap();
+    let (kb, names) = Kb::load(&g.facts).unwrap();
     let h = kb.solve();
-    assert_eq!(h.bag_multiplicity("p", "e"), 2);
-    assert_eq!(h.bag_multiplicity("g", "a"), 1);
+    assert_eq!(h.bag_multiplicity(&names, "p", "e"), 2);
+    assert_eq!(h.bag_multiplicity(&names, "g", "a"), 1);
     let count = |sel: &[u8], proj, atom: &str| {
-        h.materialize_selection(&WideFieldMask::from_positions(sel), proj)
+        h.materialize_selection(&names, &WideFieldMask::from_positions(sel), proj)
             .unwrap()
             .iter()
             .filter(|a| *a == atom)
@@ -173,6 +180,7 @@ fn bag_counts_lens_rows_not_modes() {
     assert_eq!(
         sorted(
             h.materialize_selection(
+                &names,
                 &WideFieldMask::from_positions(&[0, 1, 2, 3, 4]),
                 Projection::Set
             )
@@ -180,6 +188,7 @@ fn bag_counts_lens_rows_not_modes() {
         ),
         sorted(
             h.materialize_selection(
+                &names,
                 &WideFieldMask::from_positions(&[0, 1, 2, 3, 4]),
                 Projection::Bag
             )
