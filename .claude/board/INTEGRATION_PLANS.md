@@ -1,7 +1,7 @@
-## 2026-10-30 — D-XLOG-NATIVE: XLOG plan vocabulary over the existing relational algebra → `.claude/plans/d-xlog-native-v1.md`
+## 2026-10-30 — D-XLOG-NATIVE: XLOG plan vocabulary over the ndarray::simd polyfill → `.claude/plans/d-xlog-native-v1.md`
 
-**Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto mask-risc / relalg in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), source-read, not tested. Decides that a `lance-graph-xlog` crate (shaped like `lance-graph-onnx`, no `xlog-*` dependency, no plan type) waits until selection rows are tested, the many-to-many join has a production home, and relalg's workspace membership is settled.
-**Confidence:** source-read crosswalk; no code.
+**Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto the `ndarray::simd` polyfill that `lance-graph-onnx` aliases, in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), name-checked, not tested; shared operations are the same native symbols as ONNX's. Decides that a `lance-graph-xlog` crate (ndarray only, like `lance-graph-onnx`; no `xlog-*` dependency, no plan type) waits until selection rows are tested and the many-to-many join has a native home.
+**Confidence:** name-checked crosswalk; no code.
 
 ## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
 
