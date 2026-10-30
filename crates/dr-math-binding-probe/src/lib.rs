@@ -290,3 +290,7 @@ pub mod relcomp;
 /// projected into one table's 64-slot frame and read over DR#3, with every
 /// reuse re-admitted against its guards.
 pub mod where_dr3;
+
+/// D-DRCA-3: DR #4 method routing over one admitted register. DT-owned
+/// method key, guard witness and effect order are carried opaque.
+pub mod dr4;
