@@ -915,6 +915,34 @@ fn int64_arithmetic_folds_and_matches_ort() {
     assert_eq!(ints(&out, "DV").1, [-3, 2], "Div truncates toward zero");
 }
 
+/// An initializer whose fact the frontend did not admit (on Jina, `_one` is
+/// carried by two Tract outlets and rejected) still has the source's own
+/// dtype and dims: `Range` folds without the fact. A refused fold leaves no
+/// value behind: the overflowing node's output is never written.
+#[test]
+fn source_declared_initializer_facts_and_refusal_leave_no_output() {
+    use tract_harvest_probe::fold::fold;
+    let reg = registry();
+    let src = SourceInventory::from_bytes(&bytes("i64_arith")).unwrap();
+    let mut facts = tract_facts(&bytes("i64_arith"), &[]).unwrap();
+    facts.remove("r0");
+    facts.remove("r1");
+    assert!(!facts.contains_key("r0") && !facts.contains_key("r1"));
+    let f = fold(&src, &facts, &reg);
+    let rg = src.nodes.iter().position(|n| n.name == "n_range").unwrap();
+    assert!(f.nodes.contains(&rg), "{:?}", f.blocked);
+    assert!(f.refused.is_empty());
+
+    let src = SourceInventory::from_bytes(&bytes("neg_i64_overflow")).unwrap();
+    let facts = tract_facts(&bytes("neg_i64_overflow"), &[]).unwrap();
+    let f = fold(&src, &facts, &reg);
+    let bad = src.nodes.iter().position(|n| n.name == "n_bad").unwrap();
+    assert_eq!(f.refused.iter().map(|(n, _)| *n).collect::<Vec<_>>(), [bad]);
+    assert!(!f.nodes.contains(&bad));
+    assert!(!f.values.contains_key("Y"), "a refused node writes nothing");
+    assert!(f.values.contains_key("s"), "its producer still folded");
+}
+
 /// int64 arithmetic on a run-time input stays a step and runs per run; a run
 /// whose values overflow refuses (ORT wraps: `neg_i64_overflow` records
 /// `i64::MIN` for `2 * 2^62`).

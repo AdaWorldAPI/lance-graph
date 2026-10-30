@@ -169,9 +169,31 @@ pub fn shape_value(shape: &[Dim], node: &crate::source::SourceNode) -> Option<Va
     ))
 }
 
+/// `facts` plus the source's own declaration for every initializer that has
+/// no admitted fact: its dtype and dims are stated by the protobuf and need
+/// no frontend authority. The same rule `OnnxGraph::build` applies, so a
+/// census over raw facts sees what a plan sees.
+pub fn with_initializer_facts(
+    src: &SourceInventory,
+    facts: &HashMap<String, Fact>,
+) -> HashMap<String, Fact> {
+    let mut out = facts.clone();
+    for i in &src.initializers {
+        let e = out.entry(i.name.clone()).or_default();
+        if e.dtype.is_none() {
+            *e = Fact {
+                dtype: Some(crate::value::DType::from_onnx(i.data_type)),
+                shape: Some(i.dims.iter().map(|&d| Dim::Known(d as usize)).collect()),
+            };
+        }
+    }
+    out
+}
+
 /// Fold every node whose result is invariant under the source and the
 /// facts. Uses the registry's own WHEN and DO; never a separate evaluator.
 pub fn fold(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Registry) -> Folded {
+    let facts = &with_initializer_facts(src, facts);
     let mut known: HashMap<String, Value> = src
         .initializers
         .iter()

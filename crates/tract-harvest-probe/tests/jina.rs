@@ -491,6 +491,6 @@ fn full_graph_facts_and_coverage() {
             .values()
             .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
     };
-    assert_eq!(tot(&fs.typed), [3841, 226, 3553]);
-    assert_eq!(tot(&fs.merged()), [6869, 3, 748]);
+    assert_eq!(tot(&fs.typed), [3954, 227, 3439]);
+    assert_eq!(tot(&fs.merged()), [6871, 1, 748]);
 }
