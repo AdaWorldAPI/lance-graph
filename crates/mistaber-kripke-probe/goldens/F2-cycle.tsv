@@ -1,0 +1,17 @@
+# fixture	F2-cycle
+# upstream_commit	b50bf3323056793830c35795eace57e43caa23b5
+# kripke_lp_sha256	6c55720475add0f81915c46a84da8146235cee38dffa0db73e72a7bf0e58a9e9
+# fixture_sha256	3148c09d8414db582b9e69343d3bfc142a755c17f369b6d05588deeb630756d5
+fact	world	x
+fact	world	y
+fact	world	z
+fact	accessible	x	y
+fact	accessible	y	x
+fact	accessible	z	x
+fact	asserts	z	t
+fact	asserts_rule	z	t	r_z_t
+atom	holding_strength(strong,t,z)
+atom	holds(t,z)
+atom	holds_via(asserted,t,z)
+atom	holds_via_rule(asserted,t,z,r_z_t,r_z_t)
+atom	inheritance_source(t,z,z)

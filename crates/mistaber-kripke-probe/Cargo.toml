@@ -1,0 +1,23 @@
+# D-MIST-NATIVE-0: isolated, test-only probe. NOT a workspace member, NOT a
+# runtime. Verify with
+#   cargo test --release --manifest-path crates/mistaber-kripke-probe/Cargo.toml
+[package]
+name = "mistaber-kripke-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Mistaber's Kripke holding rules as a least fixpoint over the existing DR64 Boolean relation register (dr-math-binding-probe::relcomp::compose), checked against Clingo golden files exported by AdaWorldAPI/mistaber-rs."
+
+# Own workspace root, like xlog-relcomp-probe: dr-math-binding-probe pulls
+# egglog by git, which must not enter the lance-graph graph.
+[workspace]
+
+[dependencies]
+# The relation register and its compose kernel. Public API only.
+dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+# The holdings lens's field selection (ClassView x WideFieldMask).
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }

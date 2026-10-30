@@ -1,0 +1,30 @@
+# fixture	C-mammal-C6
+# upstream_commit	b50bf3323056793830c35795eace57e43caa23b5
+# kripke_lp_sha256	6c55720475add0f81915c46a84da8146235cee38dffa0db73e72a7bf0e58a9e9
+# fixture_sha256	134b3908182ec5aacc1c137fc6ae0dfab5090a583a5a1d0115dc4f17594826dc
+fact	world	obs1
+fact	world	obs2
+fact	world	obs3
+fact	world	reader
+fact	accessible	obs2	obs1
+fact	accessible	reader	obs2
+fact	accessible	reader	obs3
+fact	asserts	obs1	lays_eggs(platypus)
+fact	asserts_rule	obs1	lays_eggs(platypus)	r_obs1
+fact	endorses	obs2	lays_eggs(platypus)
+fact	endorses_rule	obs2	lays_eggs(platypus)	r_obs2_endorse
+atom	holding_strength(moderate,lays_eggs(platypus),reader)
+atom	holding_strength(strong,lays_eggs(platypus),obs1)
+atom	holding_strength(strong,lays_eggs(platypus),obs2)
+atom	holds(lays_eggs(platypus),obs1)
+atom	holds(lays_eggs(platypus),obs2)
+atom	holds(lays_eggs(platypus),reader)
+atom	holds_via(asserted,lays_eggs(platypus),obs1)
+atom	holds_via(endorsed,lays_eggs(platypus),obs2)
+atom	holds_via(inherited(obs2),lays_eggs(platypus),reader)
+atom	holds_via_rule(asserted,lays_eggs(platypus),obs1,r_obs1,r_obs1)
+atom	holds_via_rule(endorsed,lays_eggs(platypus),obs2,r_obs2_endorse,r_obs2_endorse)
+atom	holds_via_rule(inherited(obs2),lays_eggs(platypus),reader,r_kripke_inherit,r_obs2_endorse)
+atom	inheritance_source(lays_eggs(platypus),obs1,obs1)
+atom	inheritance_source(lays_eggs(platypus),obs2,obs2)
+atom	inheritance_source(lays_eggs(platypus),reader,obs2)

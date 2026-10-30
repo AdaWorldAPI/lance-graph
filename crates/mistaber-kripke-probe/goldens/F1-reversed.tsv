@@ -1,0 +1,63 @@
+# fixture	F1-reversed
+# upstream_commit	b50bf3323056793830c35795eace57e43caa23b5
+# kripke_lp_sha256	6c55720475add0f81915c46a84da8146235cee38dffa0db73e72a7bf0e58a9e9
+# fixture_sha256	174928c11850e5d35d4b4ecf692fc951bfbf59cbdf0f949cd2a851059af864f6
+fact	world	base
+fact	world	a
+fact	world	b
+fact	world	c
+fact	world	d
+fact	world	e
+fact	asserts	base	p
+fact	asserts_rule	base	p	r_base_p
+fact	accessible	base	a
+fact	accessible	b	base
+fact	endorses	b	p
+fact	endorses_rule	b	p	r_b_endorse
+fact	accessible	c	base
+fact	override	c	p	q
+fact	accessible	d	a
+fact	accessible	d	b
+fact	accessible	e	d
+fact	asserts	base	g
+atom	holding_strength(moderate,g,b)
+atom	holding_strength(moderate,g,c)
+atom	holding_strength(moderate,p,d)
+atom	holding_strength(strong,g,base)
+atom	holding_strength(strong,p,b)
+atom	holding_strength(strong,p,base)
+atom	holding_strength(weak,g,d)
+atom	holding_strength(weak,g,e)
+atom	holding_strength(weak,p,e)
+atom	holds(g,b)
+atom	holds(g,base)
+atom	holds(g,c)
+atom	holds(g,d)
+atom	holds(g,e)
+atom	holds(p,b)
+atom	holds(p,base)
+atom	holds(p,d)
+atom	holds(p,e)
+atom	holds_via(asserted,g,base)
+atom	holds_via(asserted,p,base)
+atom	holds_via(endorsed,p,b)
+atom	holds_via(inherited(b),g,d)
+atom	holds_via(inherited(b),p,d)
+atom	holds_via(inherited(base),g,b)
+atom	holds_via(inherited(base),g,c)
+atom	holds_via(inherited(d),g,e)
+atom	holds_via(inherited(d),p,e)
+atom	holds_via_rule(asserted,p,base,r_base_p,r_base_p)
+atom	holds_via_rule(endorsed,p,b,r_b_endorse,r_b_endorse)
+atom	holds_via_rule(inherited(b),p,d,r_kripke_inherit,r_b_endorse)
+atom	holds_via_rule(inherited(d),p,e,r_kripke_inherit,r_b_endorse)
+atom	inheritance_source(g,b,base)
+atom	inheritance_source(g,base,base)
+atom	inheritance_source(g,c,base)
+atom	inheritance_source(g,d,base)
+atom	inheritance_source(g,e,base)
+atom	inheritance_source(p,b,b)
+atom	inheritance_source(p,base,base)
+atom	inheritance_source(p,d,b)
+atom	inheritance_source(p,e,b)
+atom	overridden(p,c)
