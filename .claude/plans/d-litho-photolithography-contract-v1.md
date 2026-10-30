@@ -52,7 +52,7 @@ coordinates; it does not define them.
 - [x] Design rules (§6), non-goals (§7), ownership (§8), consumers (§9).
 - [ ] Owner replies on EXO-50 (§10).
 - [ ] First consumer writes one binding with a failing fixture (§11, G1).
-- [ ] Gates G1–G5 (§11). G3 PASS; G1, G2, G4, G5 not run.
+- [ ] Gates G1–G5 (§11). G3, G4 PASS; G1, G2, G5 not run.
 
 ## 1. Decisions recorded
 
@@ -218,7 +218,7 @@ than the byte-dot, refused).
 - **G1, binding sufficiency.** One named consumer states one operation as a DTO binding over DR
   coordinates, with a failing fixture and expected values. **Fails if** the statement needs a dimension
   decision.
-- **G4, dose identity.** A dose stack of k binary masks develops to Σ 2^k · popcount(mask_k), equal to the
+- **G4, dose identity. PASS** (`crates/lance-graph-mask-risc/tests/dose.rs`: K = 6 rods over a 4,096-row focus, one `And` + `Count` program per rod, densities 0/3/50/97/100 %; every rod load-bearing; disable run: swap adjacent rod weights → red). A dose stack of k binary masks develops to Σ 2^k · popcount(mask_k), equal to the
   per-position oracle. Disable run: drop one rod; the test turns red.
 - **G5, alignment refusal.** A binding used under a DR seal or binding version other than its own is
   refused, never executed. Disable run: skip the witness check; the test turns red.
