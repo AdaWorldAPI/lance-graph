@@ -72,15 +72,24 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 - A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
 - The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
 
-**Reading (operator, 2026-10-30): two 16-byte registers of the 512-byte SoA node row zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.** These are two of the row's 32 sixteen-byte slots, not `ValueTenant` lanes. From `canonical_node.rs`: `NodeRow` is `key` 0..16, `edges` 16..32 (an `EdgeFacet`, a second content-blind facet by the 2026-09-17 ruling), and `value` 32..512; `GUIDS_PER_NODE = 512 / 16 = 32`. The `ValueTenant` lanes are carved inside the 480-byte value slab only. Which two slots carry the `is_a` and `part_of` registers is OPEN (asked of the operator).
+**Reading: HHTL16, the opt-in format (operator, 2026-10-30).** What the code already defines:
+
+- The HHTL16 Cartesian address is `Morton8x8` (`contract/src/morton8x8.rs`, VERIFIED-IN-CODE): an `(x, y)` byte pair interleaved into one `u16` Z-order code. Each hex nibble is one 4 × 4 refinement, fan-out 16, and `nibble_climb` reads the trie ascent from `a XOR b`.
+- The D-DRDT amendment names it: "DR = HHTL16 Cartesian addressing" (`d-drdt-dr-dt-ownership-amendment-v1.md`).
+- `dr-math-binding-probe/src/hhtl16.rs` reads a bound DR64 register through it. `row` gives the identity orientation and `column` the property orientation, and `rotate_yz` is an address map over the one stored relation, never a copy. Measured in D-DRCA-1.
+- The capstone plan proposed the vertical zipper: `HHTL16ISA[16]` and `HHTL16PartOf[16]`, 16 × 8-bit each, with persisted-vs-view left open on EXO-50 (`d-qr-abi-classview-rails-capstone-v1.md` §2, §5). The operator has now named it the opt-in format.
+
+Zipped vertically, column `k` is `Morton8x8::from_xy(isa[k], partof[k])`: one exact 64k address. Column 1 is the node's identity and columns 2–16 are 15 exact addresses. That is 32 bytes and 16 Morton codes, and each column climbs its own 4-level nibble trie.
 
 ```text
-is_a register       1234567890123456
-part_of register    1234567890123456
-                    ^ column k = (is_a[k] : part_of[k]) = one 64k address
+HHTL16ISA     1234567890123456   (x bytes)
+HHTL16PartOf  1234567890123456   (y bytes)
+column k  =  Morton8x8::from_xy(isa[k], partof[k])
 ```
 
-Column 1 is the node's identity; columns 2–16 are 15 exact addresses of other nodes. That is 32 of the row's 512 bytes, 15 in-row references, no edge table and no 255 cap. A column reading `(0, 0)` is unbound. The bytes stay two separate digits; nothing is widened into a u16. This is an addressing reading of the two registers, not a composition of the `is_a` and `part_of` relations.
+Not in code yet: which 32 bytes of the 512-byte row carry the two arrays. `NodeRow` today is `key` 0..16, `edges` 16..32 and `value` 32..512 (`canonical_node.rs`).
+
+**The Kripke probe is already DR64-shaped.** Its `Rows = [u64; 64]` registers (accessibility, holds, block) are the registers `hhtl16` reads. `cell(Morton8x8::from_xy(world, proposition))` reads one holding. `column` gives the worlds that hold a proposition, `row` gives the propositions a world holds, and `rotate_yz` switches between the two without copying. The HHTL16 codes of the rows above are the global identities that `LocalMap` maps onto the 64 local coordinates.
 
 | Mistaber node | column 1 (identity) | columns 2–16 (exact addresses) | overflow |
 |---|---|---|---|
