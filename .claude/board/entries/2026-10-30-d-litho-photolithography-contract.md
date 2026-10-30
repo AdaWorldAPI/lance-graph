@@ -30,3 +30,23 @@
 - DR does the amortized global (`NodeGuid`) → local (frame position) mapping: prepared once per focus, sealed and versioned. Exposures work on local positions only.
 - Order: DR routes (global → local, address → classid), then DT64 assigns meaning and methods to the mapped position. DT64 does not route; DR assigns no meaning.
 - Thoughts: reserve, don't claim; the model is thin provisioning. The 64 positions are reserved as logical address space and absent (presence bit). Storage is allocated only when a thought lands via `Commit`. A live branch's pool slot is occupancy, not allocation. Thick provisioning (all 64, or a dense block, up front) is forbidden.
+
+## Scope correction (2026-10-30, user)
+
+"You're the DTO layer of a holographic hypercube 64ⁿ or 256ⁿ. Everything in regards to dimensions is not your concern."
+
+- The plan is rewritten as the DTO layer over DR's hypercube.
+- Removed as DR's concern, already written in D-DRF-1 §1–§3:
+  - the Morton fact above;
+  - the "rotation" reading;
+  - the address law;
+  - axis widths, presence-bit underflow and coordinate freezing (now listed under "assumed from DR", by reference);
+  - Q1, and gates G2 and G3.
+- Kept as DTO-layer:
+  - identity = `NodeGuid`;
+  - property mappings (`ClassView × WideFieldMask`, versioned, Q5);
+  - methods by reference;
+  - thoughts reserve-don't-claim (thin provisioning);
+  - the order DR routes → DT64 assigns;
+  - gates G1, G4, G5.
+- Lesson: D-DRF-1 was not read before geometry was written into this plan.
