@@ -281,11 +281,52 @@ fn guard_cast_identity(v: &NodeView) -> K3 {
     }
 }
 
+/// `Pow(x, e)` admitted as `Mul(x, x)` only when every exponent element is
+/// exactly 2.0 AND broadcasting `e` against `x` leaves `x`'s shape unchanged
+/// (the polyfill ignores `e`, so it cannot grow the output).
 fn guard_pow2(v: &NodeView) -> K3 {
-    match v.consts.get(1).copied().flatten().and_then(Value::f32s) {
-        Some(e) if !e.is_empty() && e.iter().all(|x| x.to_bits() == 2.0f32.to_bits()) => K3::True,
-        Some(_) => K3::False,
-        None => K3::Unknown,
+    let Some(e) = v.consts.get(1).copied().flatten() else {
+        return K3::Unknown;
+    };
+    match e.f32s() {
+        Some(x) if !x.is_empty() && x.iter().all(|x| x.to_bits() == 2.0f32.to_bits()) => {}
+        _ => return K3::False,
+    }
+    let Some(base) = v
+        .args
+        .first()
+        .copied()
+        .flatten()
+        .and_then(|f| f.shape.as_ref())
+    else {
+        return K3::Unknown;
+    };
+    exponent_keeps_shape(base, &e.shape())
+}
+
+/// Does broadcasting a tensor of `exp` shape against `base` leave `base`'s
+/// shape unchanged?
+fn exponent_keeps_shape(base: &[Dim], exp: &[usize]) -> K3 {
+    if exp.len() > base.len() {
+        return if exp.iter().take(exp.len() - base.len()).all(|&d| d == 1) {
+            exponent_keeps_shape(base, &exp[exp.len() - base.len()..])
+        } else {
+            K3::False
+        };
+    }
+    let mut unknown = false;
+    for (b, &e) in base.iter().rev().zip(exp.iter().rev()) {
+        match b {
+            _ if e == 1 => {}
+            Dim::Known(k) if *k == e => {}
+            Dim::Known(_) => return K3::False,
+            Dim::Symbol(_) => unknown = true,
+        }
+    }
+    if unknown {
+        K3::Unknown
+    } else {
+        K3::True
     }
 }
 
@@ -772,5 +813,75 @@ pub fn registry() -> Registry {
                 Exact
             ),
         ],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pow_view<'a>(node: &'a SourceNode, base: &'a Fact, exp: &'a Value) -> NodeView<'a> {
+        NodeView {
+            node,
+            args: vec![Some(base), None],
+            consts: vec![None, Some(exp)],
+        }
+    }
+
+    fn twos(shape: &[usize]) -> Value {
+        Value::F32(ArrayD::from_elem(IxDyn(shape), 2.0))
+    }
+
+    #[test]
+    fn pow2_requires_the_exponent_not_to_grow_the_base() {
+        let node = SourceNode {
+            name: "p".into(),
+            op_type: "Pow".into(),
+            domain: String::new(),
+            inputs: vec!["x".into(), "e".into()],
+            outputs: vec!["y".into()],
+            attributes: vec![],
+            attrs: vec![],
+        };
+        let base = |s: &[usize]| Fact {
+            dtype: Some(DType::F32),
+            shape: Some(s.iter().map(|&d| Dim::Known(d)).collect()),
+        };
+        // scalar and broadcast-neutral exponents
+        for (b, e) in [
+            (&[1, 10, 1024][..], &[][..]),
+            (&[1, 10, 1024], &[1]),
+            (&[2, 3], &[1, 3]),
+            (&[2, 3], &[1, 1, 1]),
+        ] {
+            assert_eq!(
+                guard_pow2(&pow_view(&node, &base(b), &twos(e))),
+                K3::True,
+                "{b:?} ^ {e:?}"
+            );
+        }
+        // the exponent would grow the output: the polyfill must not run
+        for (b, e) in [(&[1][..], &[2][..]), (&[2, 1], &[2, 3]), (&[3], &[2, 3])] {
+            assert_eq!(
+                guard_pow2(&pow_view(&node, &base(b), &twos(e))),
+                K3::False,
+                "{b:?} ^ {e:?}"
+            );
+        }
+        // a symbolic base dim against a non-1 exponent dim is UNKNOWN
+        let sym = Fact {
+            dtype: Some(DType::F32),
+            shape: Some(vec![Dim::Symbol("S".into())]),
+        };
+        assert_eq!(guard_pow2(&pow_view(&node, &sym, &twos(&[4]))), K3::Unknown);
+        // a non-2 exponent is FALSE whatever its shape
+        assert_eq!(
+            guard_pow2(&pow_view(
+                &node,
+                &base(&[3]),
+                &Value::F32(ArrayD::from_elem(IxDyn(&[]), 3.0))
+            )),
+            K3::False
+        );
     }
 }
