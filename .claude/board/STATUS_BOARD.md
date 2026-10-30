@@ -1,3 +1,15 @@
+## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
+
+**Status:** LAB PROBE; test-only, standalone crate, no production API. [Plan](../plans/d-mistaber-native-v1.md); [board entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md).
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-MIST-NATIVE-0 | Kripke `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`; 10 Clingo goldens exact; holdings lens with Set/Bag projection; 5 disable runs | In PR | lab only |
+| D-MIST-NATIVE-1 | `lance-graph-mistaber`: onnx-shaped ALIAS/INLINE/REFUSE facade (plan §3) | Queued | production home for `compose` (plan Q1) |
+| D-MIST-NATIVE-2 | lineage origins into `SupportLedger` (`EvidenceSourceId`, `TextAttested`) | Queued | after D-MIST-NATIVE-1 |
+| D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
+| D-MIST-NATIVE-4 | intake from compiled HLL | Queued | upstream provenance defects (`mistaber-rs#3`, `#4`) |
+
 ## D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill, the algebra under lance-graph-onnx (2026-10-30)
 
 **Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-xlog-native-v1.md); [board entry](entries/2026-10-30-d-xlog-native-crosswalk.md). No crate yet.

@@ -2,6 +2,10 @@
 
 **Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto the `ndarray::simd` polyfill that `lance-graph-onnx` aliases, in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), name-checked, not tested; shared operations are the same native symbols as ONNX's. Decides that a `lance-graph-xlog` crate (ndarray only, like `lance-graph-onnx`; no `xlog-*` dependency, no plan type) waits until selection rows are tested and the many-to-many join has a native home.
 **Confidence:** name-checked crosswalk; no code.
+## 2026-10-30 — D-MIST-NATIVE: Mistaber's Kripke holdings as a vocabulary over existing algebra → `.claude/plans/d-mistaber-native-v1.md`
+
+**Status:** D-MIST-NATIVE-0 LAB PROBE (`crates/mistaber-kripke-probe`, own workspace); D-MIST-NATIVE-1..4 PROPOSED. **Board:** [entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md), [STATUS_BOARD](STATUS_BOARD.md) D-MIST-NATIVE. `holds` is a stratified least fixpoint over the existing DR64 `relcomp::compose`; holdings are one lens read by `WideFieldMask` selections, `holds/2` a Set projection. Endgame: an onnx-shaped `lance-graph-mistaber` facade, blocked on a production home for `compose`.
+**Confidence:** 10/10 Clingo goldens exact, 5 disable runs fail as expected; lab only, no timing.
 
 ## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
 
