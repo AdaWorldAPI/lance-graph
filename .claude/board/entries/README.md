@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-507 entries, 2026-08-06 .. 2026-10-30.
+508 entries, 2026-08-06 .. 2026-10-30.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
 | 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
 | 2026-10-30 | `D-LITHO` |  | [2026-10-30-d-litho-photolithography-contract.md](2026-10-30-d-litho-photolithography-contract.md) |
+| 2026-10-30 | `D-LITHO-1` |  | [2026-10-30-d-litho-1-xlog-exposure-sequence-and-bag-fixture.md](2026-10-30-d-litho-1-xlog-exposure-sequence-and-bag-fixture.md) |
 | 2026-10-30 | `D-DRCA-3` |  | [2026-10-30-d-drca-3-dr4-method-routing.md](2026-10-30-d-drca-3-dr4-method-routing.md) |
 | 2026-10-29 | `palette512-turbovec9-nsl-worksteal` |  | [2026-10-29-palette512-turbovec9-nsl-worksteal.md](2026-10-29-palette512-turbovec9-nsl-worksteal.md) |
 | 2026-10-28 | `thought-layers-nan-skip` |  | [2026-10-28-thought-layers-nan-skip.md](2026-10-28-thought-layers-nan-skip.md) |
