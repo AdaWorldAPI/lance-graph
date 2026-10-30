@@ -151,6 +151,20 @@ Disable runs (each red): Equal kernel replaced by `le`; slot counted over empty 
 
 **Census (Jina, `[1,10]`, `examples/shape_census.rs`).** WHEN-true / not-true / unregistered **6,581 / 114 / 925** (registry v1 4,146 / 0 / 3,474; v2 6,404 / 56 / 1,160). Cold-folded nodes 4,499 (v2 4,440, +59 ConstantOfShape; v1 plan had no folding). **The 56 Reshapes blocked in v2 still do not resolve: the first unregistered op their target depends on is int64 `Mul` in all 56.** Not folded: runtime 2,461 (Mul 450, Add 253, MatMul 252, Cast 228, Reshape 170, Slice 140, Transpose 140, Div/Pow/ReduceMean/Sqrt 113 each, …) and shape-only blocked 660 (Unsqueeze 181, Cast 119, Mul 117, Equal 58, Where 58, Concat 57, Div 56, Range 4, …). The integration acceptance (a whole shape-arithmetic chain folding or executing through admitted methods and matching ORT) waits on the checked int64 words; `i64_arith` is its fixture. No full Jina runtime is started.
 
+### 0.4 Checked int64 arithmetic on ndarray #401 (2026-10-30)
+
+ndarray #401 shipped `ndarray::hpc::checked_i64` (consumed as built; ndarray is another session's). Registry v4 registers int64 `Add`/`Sub`/`Mul`/`Div` (0x0F76-79) on `checked_binary_i64` and `Range` (0x0F7A) on `range_i64`, bounded by `RANGE_CAPACITY = 65,536` (a policy pin). Guards: equal known shapes, or a one-element side whose rank is at most the other's; anything else FALSE, unknown shapes UNKNOWN. `Range` needs three one-element inputs; a constant zero step is FALSE. `Div` truncates toward zero; overflow, a zero divisor, a zero step and a range over capacity refuse with the ndarray error text.
+
+The fold records a DO refusal (`Folded::refused`) instead of treating it as "not folded", and `plan::resolve` returns it, so invalid constant arithmetic refuses the plan.
+
+**Integration acceptance.** `int64_arithmetic_folds_and_matches_ort`: the whole `i64_arith` chain (Shape → Div/Mul/Add/Sub, Gather → Range) folds through admitted methods with no runtime step and matches ORT `ORT_DISABLE_ALL` exactly (`Div([-7, 7], [2, 3]) = [-3, 2]`). `i64_data`: int64 `Mul` on a run-time input stays a step, matches ORT, and a run with `i64::MAX` refuses with an overflow.
+
+**Refusals, and where each happens.** Constant overflow (`neg_i64_overflow`; ORT wraps it to `i64::MIN`) refuses at resolution through our DO. An unadmitted broadcast (`[2]` against `[2, 1]`, `neg_i64_bcast`) is WHEN FALSE. A constant zero divisor (`neg_i64_div0`; ORT is not run, integer division by zero is undefined there) and a zero `Range` step (`neg_range_zero`; ORT refuses too) are already refused by Tract's analysis, the second as a panic that `no_panic` turns into a frontend refusal. Our DOs' own refusals for both are pinned by `checked_i64_dos_refuse`.
+
+**Jina census (`[1,10]`).** WHEN-true / not-true / unregistered **6,869 / 3 / 748** (v3 6,581 / 114 / 925). Cold-folded nodes 5,135 (v3 4,499); retained folded values 1,448 (~17 KB). **All 58 shape-dependent Reshapes now fold; the 56 that v3 blocked on int64 `Mul` resolve.** Shape-only nodes still blocked: 24 (v3 660): unregistered Cast 2 (+5 downstream), And, Cos, Sin, MatMul, Transpose; `/LessOrEqual` WHEN FALSE (two Unsqueezes, a broadcast the compare guard does not admit); one `Range` WHEN UNKNOWN (an input not folded upstream). Runtime nodes not folded: 2,461, unchanged. Cold fold 8,899 µs over the whole graph (cold, reported, not gated). No full Jina runtime was started.
+
+Disable runs (each red): DO refusal not surfaced by `resolve`; binary guard always TRUE; overflow ignored; zero-step guard removed; range capacity widened; one-element left side not broadcast. 59 tests green (21 lib, 30 tiny, 8 Jina).
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.
