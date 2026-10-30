@@ -228,13 +228,70 @@ impl MethodBinding {
     }
 }
 
-/// A class's schema as bound: the schema revision and the field count the
-/// methods were bound against. The field basis itself is the [`ClassView`]
-/// class [`view_class`] of the classid, never declared here.
+/// Positions per axis of a DR focus (D-DRF-1 §1): DR64 or DR256.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Width {
+    W64,
+    W256,
+}
+
+impl Width {
+    pub const fn positions(self) -> usize {
+        match self {
+            Width::W64 => 64,
+            Width::W256 => 256,
+        }
+    }
+}
+
+/// The logical extent a class binds over, chosen by the consumer per axis:
+/// Identity × Property × Predicate. D-DT64-6 A.1: the DT binding names DR64
+/// or DR256 and states its cost in those units. Logical only: nothing is
+/// allocated here, and no cube is assumed to exist (§7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Extent {
+    pub identity: Width,
+    pub property: Width,
+    /// The class's predicates: its methods (ON × WHEN × DO registrations).
+    pub predicate: Width,
+}
+
+impl Extent {
+    /// DR64³: 64 × 64 × 64.
+    pub const DR64_CUBE: Extent = Extent {
+        identity: Width::W64,
+        property: Width::W64,
+        predicate: Width::W64,
+    };
+    /// DR256² × 64: a 256 × 256 Identity × Property tile under 64 predicates.
+    pub const DR256_SQ_X64: Extent = Extent {
+        identity: Width::W256,
+        property: Width::W256,
+        predicate: Width::W64,
+    };
+
+    /// Logical cells.
+    pub const fn cells(self) -> usize {
+        self.identity.positions() * self.property.positions() * self.predicate.positions()
+    }
+
+    /// What a dense Boolean volume of this extent would cost, in bytes, if
+    /// anyone materialized it (DR64³ is 32 KiB, D-DRF-1 §1). A statement of
+    /// cost, not an allocation.
+    pub const fn dense_bytes(self) -> usize {
+        self.cells() / 8
+    }
+}
+
+/// A class's schema as bound: the schema revision, the field count the
+/// methods were bound against, and the extent the consumer chose. The field
+/// basis itself is the [`ClassView`] class [`view_class`] of the classid,
+/// never declared here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ClassSchema {
     pub schema_rev: SchemaRev,
     pub field_count: usize,
+    pub extent: Extent,
 }
 
 /// The [`ClassView`] class a classid is read through: its concept half, by
@@ -296,6 +353,18 @@ pub enum Refusal {
     },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
+    /// More fields than the extent's Property axis holds.
+    FieldsExceedExtent {
+        class: u32,
+        field_count: usize,
+        property: Width,
+    },
+    /// More methods than the extent's Predicate axis holds.
+    MethodsExceedExtent {
+        class: u32,
+        methods: usize,
+        predicate: Width,
+    },
     /// Asked at another schema revision than the one bound.
     SchemaRevisionMismatch {
         class: u32,
@@ -584,21 +653,16 @@ impl BindStore {
         &mut self,
         lens: u32,
         schema_rev: SchemaRev,
+        extent: Extent,
         arity: Vec<u8>,
     ) -> Result<(), Refusal> {
-        if arity.len() > MAX_FIELDS {
-            return Err(Refusal::BasisTooWide {
-                class: lens,
-                field_count: arity.len(),
-            });
-        }
-        let bound = AlgebraLens {
-            schema: ClassSchema {
-                schema_rev,
-                field_count: arity.len(),
-            },
-            arity,
+        let schema = ClassSchema {
+            schema_rev,
+            field_count: arity.len(),
+            extent,
         };
+        validate(lens, &schema, &[])?;
+        let bound = AlgebraLens { schema, arity };
         match self.algebra.get(&lens) {
             Some(b) if *b == bound => Ok(()),
             Some(_) => Err(Refusal::AlgebraImmutable(lens)),
@@ -813,14 +877,30 @@ fn check_basis<'v, V: ClassView + ?Sized>(
     Ok(fields)
 }
 
-/// Registration checks: the basis fits a [`WideFieldMask`], MethodIds are
-/// unique in the class, and every field position a binding names is inside
-/// the declared basis.
+/// Registration checks: the basis fits a [`WideFieldMask`] and the chosen
+/// extent, the methods fit the extent's predicate axis, MethodIds are unique
+/// in the class, and every field position a binding names is inside the
+/// declared basis.
 fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Result<(), Refusal> {
     if schema.field_count > MAX_FIELDS {
         return Err(Refusal::BasisTooWide {
             class,
             field_count: schema.field_count,
+        });
+    }
+    let extent = schema.extent;
+    if schema.field_count > extent.property.positions() {
+        return Err(Refusal::FieldsExceedExtent {
+            class,
+            field_count: schema.field_count,
+            property: extent.property,
+        });
+    }
+    if methods.len() > extent.predicate.positions() {
+        return Err(Refusal::MethodsExceedExtent {
+            class,
+            methods: methods.len(),
+            predicate: extent.predicate,
         });
     }
     for (i, m) in methods.iter().enumerate() {

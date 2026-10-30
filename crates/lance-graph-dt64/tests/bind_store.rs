@@ -6,8 +6,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard, MethodBinding, MethodId,
-    MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
+    MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand, Width,
 };
 
 /// A ClassView with one class of `n` fields; `n` can be changed to model a
@@ -59,10 +59,16 @@ const ORDER_V2: u32 = 0x0A1E_0002;
 /// The lens ORDER is read through: its concept half (`view_class`).
 const VIEW_CLASS: ClassId = 0x0A1E;
 
+/// A schema in the DR64³ extent.
 fn schema(rev: u32, fields: usize) -> ClassSchema {
+    schema_in(rev, fields, Extent::DR64_CUBE)
+}
+
+fn schema_in(rev: u32, fields: usize, extent: Extent) -> ClassSchema {
     ClassSchema {
         schema_rev: SchemaRev(rev),
         field_count: fields,
+        extent,
     }
 }
 
@@ -96,7 +102,7 @@ const MUL_I64: AlgebraRef = word(3);
 /// A store holding only the polyfill lens: one classid, no consumer.
 fn catalogue() -> BindStore {
     let mut s = BindStore::new();
-    s.declare_algebra(POLYFILL, SchemaRev(1), ARITY.to_vec())
+    s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, ARITY.to_vec())
         .unwrap();
     s
 }
@@ -457,7 +463,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
     assert_eq!(
         s.register(
             ORDER,
-            schema(1, 256),
+            schema_in(1, 256, Extent::DR256_SQ_X64),
             vec![method(1, vec![effect(255, ASSIGN)])]
         ),
         Ok(())
@@ -594,8 +600,13 @@ fn consumers_switch_over_shared_classid_free_algebra() {
         Ok(WideFieldMask::from_positions(&[3]))
     );
     // Another lens's mask is empty: the mask is over one lens only.
-    s.declare_algebra(0x7F0B_0001, SchemaRev(1), vec![2, 2, 2, 2])
-        .unwrap();
+    s.declare_algebra(
+        0x7F0B_0001,
+        SchemaRev(1),
+        Extent::DR64_CUBE,
+        vec![2, 2, 2, 2],
+    )
+    .unwrap();
     assert_eq!(
         s.words_used(XLOG, 0x7F0B_0001),
         Ok(WideFieldMask::from_positions(&[]))
@@ -638,11 +649,11 @@ fn the_polyfill_is_one_lens_read_through_its_classview() {
         }
     );
     assert_eq!(
-        s.declare_algebra(POLYFILL, SchemaRev(1), ARITY.to_vec()),
+        s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, ARITY.to_vec()),
         Ok(())
     );
     assert_eq!(
-        s.declare_algebra(POLYFILL, SchemaRev(1), vec![0, 0, 2, 3]),
+        s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, vec![0, 0, 2, 3]),
         Err(Refusal::AlgebraImmutable(POLYFILL))
     );
 }
@@ -821,3 +832,61 @@ fn a_risk_mask_reaches_the_methods_that_touch_it() {
         0
     );
 }
+
+/// A consumer chooses its extent; nothing caps it at 64. An ONNX graph with
+/// 200 values and 70 nodes does not fit DR64³ and is refused there with the
+/// axis named; DR256² × 64 holds the 200 values, and a 256-wide predicate
+/// axis holds the 70 methods. The cost is stated, not allocated.
+#[test]
+fn a_consumer_chooses_its_extent_and_is_not_capped_at_64() {
+    assert_eq!(Extent::DR64_CUBE.dense_bytes(), 32 * 1024);
+    assert_eq!(Extent::DR256_SQ_X64.dense_bytes(), 512 * 1024);
+
+    let node = |id: u32| MethodBinding {
+        id: MethodId(id),
+        when: None,
+        on: WideFieldMask::from_positions(&[]),
+        reads: WideFieldMask::from_positions(&[]),
+        ..method(id, vec![])
+    };
+    let mut s = catalogue();
+    assert_eq!(
+        s.register(ONNX, schema(1, 200), vec![node(1)]),
+        Err(Refusal::FieldsExceedExtent {
+            class: ONNX,
+            field_count: 200,
+            property: Width::W64
+        })
+    );
+    assert_eq!(
+        s.register(ONNX, schema_in(1, 200, Extent::DR256_SQ_X64), vec![node(1)]),
+        Ok(()),
+        "200 values fit the 256-wide property axis"
+    );
+
+    let nodes: Vec<MethodBinding> = (1..=70).map(node).collect();
+    assert_eq!(
+        s.register(
+            ONNX_BIG,
+            schema_in(1, 200, Extent::DR256_SQ_X64),
+            nodes.clone()
+        ),
+        Err(Refusal::MethodsExceedExtent {
+            class: ONNX_BIG,
+            methods: 70,
+            predicate: Width::W64
+        })
+    );
+    let wide = Extent {
+        predicate: Width::W256,
+        ..Extent::DR256_SQ_X64
+    };
+    assert_eq!(s.register(ONNX_BIG, schema_in(1, 200, wide), nodes), Ok(()));
+    // The extent is part of the binding, so it cannot be changed later.
+    assert_eq!(
+        s.register(ONNX, schema_in(1, 200, wide), vec![node(1)]),
+        Err(Refusal::BehaviourImmutable(ONNX))
+    );
+}
+
+const ONNX_BIG: u32 = 0x7F03_0002;
