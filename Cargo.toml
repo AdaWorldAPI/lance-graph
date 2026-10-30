@@ -16,6 +16,9 @@ members = [
     # ONNX mathematical compatibility facade over existing ndarray functions
     # (D-ONNX-NATIVE-0). Depends on ndarray only; nothing native depends on it.
     "crates/lance-graph-onnx",
+    # DT64: the ClassId-addressed binding store (D-DRDT §1/§4, D-DT64-6 §1/§3).
+    # Depends on the zero-dep contract only.
+    "crates/lance-graph-dt64",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",

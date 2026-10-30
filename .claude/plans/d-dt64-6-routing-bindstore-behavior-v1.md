@@ -238,3 +238,56 @@ Production step (registry module doc): the lab ordinals become OGAR-minted conce
 ## A.4 Open (unchanged owners)
 
 The Bag carrier (who admits a counted population into `bind_dr64`); the D-DRDT §4 DT gaps (MethodId, K3 guards, effect order, one lookup); §6 questions 1–9.
+
+## A.5 (2026-10-30) The bind store as production code: `crates/lance-graph-dt64`
+
+**Status:** VERIFIED-IN-CODE. This supersedes A.2's status line ("no bind store type exists in the codebase") and closes the four D-DRDT §4 gaps listed in A.4. A workspace member; its only dependency is `lance-graph-contract` (zero-dep). It stores bindings and their version log, never business data, and evaluates nothing.
+
+| Decision / gap | In `lance-graph-dt64` | Test (`tests/bind_store.rs`) |
+|---|---|---|
+| D-DRDT §4 gap 1: method identity independent of name | `MethodId` + `SigRev`; the source name rides in `MethodBinding::name` | `same_read_write_sets_…` (stale `SigRev` refused) |
+| gap 2: K3, conjunctive WHEN | `Guard { expr: SetExpr, logic: Logic }` from `set_algebra`, the description Quack's WHERE evaluates (§3); `Guard::witness` is the normal form under its own logic (`normalize_kleene` for K3) | `a_kleene_guard_never_treats_unknown_as_true` (`x<5 ∨ x≥5` is `All` two-valued, not under Kleene) |
+| gap 3: effect order | `MethodBinding::effects: Vec<Effect>` (field position + `AlgebraRef`, the D4 polyfill reference); `writes()` is the unordered set | `same_read_write_sets_…` (equal reads/writes, unequal bindings, both kept) |
+| gap 4: one lookup | `BindStore::resolve(view, classid, schema_rev)`: fields borrowed from the `ClassView`, methods from the store; `resolve_at` by DR position and route version | `one_lookup_joins_…`, `override_is_…` |
+| D5 immutable classid; override = derived classid + re-route | `register` idempotent for an identical binding, else `BehaviourImmutable`; `register_derived` records the base | `class_behaviour_is_immutable`, `override_is_…` |
+| Only routing is versioned (§3) | append-only route log, `route` / `retract` / `routed_at(version, position)`; future versions refused | `override_is_…`, `routes_and_derivations_…` |
+| F06: unregistered is UNKNOWN | `Refusal::{UnknownClass, Unrouted, UnknownMethod}`, never an empty answer | `an_unregistered_class_is_unknown_not_empty` |
+| D-DRDT §5: refuse another schema revision; preserve guard witnesses; the first DR #4 falsifier | `resolve` refuses `SchemaRevisionMismatch` and `FieldBasisChanged`; `admit(MethodRef)` refuses `GuardDropped` / `GuardAdded` / `GuardMismatch` / `SignatureRevisionMismatch` | `schema_revision_and_field_basis_are_checked`, `same_read_write_sets_…`, `a_guard_added_…` |
+| A.1: population, truth, value demand | `Population` / `Truth` from `set_rules` and `ValueDemand` ride the binding; a Bag is recorded, never refused here (admitting it is the binder's call) | `population_truth_and_demand_ride_the_binding` |
+| Registration hygiene | `DuplicateMethodId`, `FieldOutOfBasis` (ON, reads, effect targets), `BasisTooWide` (> 256) | `registration_refuses_…` |
+
+Disable runs (on commit `7936665e2`; each patch asserted to apply exactly once; restored with `git checkout`): each of the eight guards removed in turn leaves exactly one test red (10 passed, 1 failed): the `GuardDropped` arm, the `BehaviourImmutable` arm, the route-log version cut, the Kleene witness, the field-basis check, the schema-revision check, the duplicate-MethodId check, the out-of-basis check.
+
+Not done: wiring OGAR's `CapabilityAuthority` (D6, the production route for consumer classids); persistence of the store (EXO-55 owns the writer path); a router (DR #4) that carries `MethodRef`s; §6 questions 1–9, including whether the immutable unit is the classid or `(classid, binding version)` — this crate implements the D5 wording (the classid).
+
+**A.5 addendum (2026-10-30, after the XLOG session's critique and the operator's correction).** A classid is a codebook lens, never one per codebook item. Two changes follow:
+- `ClassSchema` no longer declares a view class. `view_class(classid)` is the codebook's own split (`ogar_codebook::classid_concept`).
+- `Effect` carries an `EffectOp`: `Algebra(AlgebraRef)`, or `Call(MethodRef)` for reusing another lens's entry by reference. A `Call` is admitted when the caller registers (`CallRefused` wraps the reason), and `callers_of(lens)` lists who reuses it.
+
+In the test, XLOG's per-Y count is three Calls into one algebra lens: group-count twice, then checked i64 Mul. That binds two classes in total; no algebra item gets a classid. Route targets stay bare classids (XLOG: a per-route mask would break D5). Open, with the owners: whether tract-harvest-probe's per-op lab classids (`0x0F01…`) become entries under one lens (EXO-50 message 27); the `MethodSignature` vs `MethodRef` identity (dr-math owner); where the ONNX/XLOG algebra entries are registered.
+
+**A.5 addendum 2 (2026-10-30, XLOG correction).** A Call had no operands, so the stored binding could not tell XLOG's count from one that counts R twice. Fix: `Effect { target, op, args: Vec<Arg> }`, where `Arg` is `Field(u8)` (a position checked against the caller's basis) or `Const(i64)` (a key column, a lane). `MethodBinding::inputs` is part of the entry's signature, and a Call passing another arity is refused at registration (`ArityMismatch` inside `CallRefused`). XLOG's count: `cnt_r = Call(group-count, [r, key 1])`, `cnt_s = Call(group-count, [s, key 0])`, `count = Call(Mul i64, [cnt_r, cnt_s])`. `demand` stays `Values`, because the key column is read as a value; that is stated here, not settled.
+
+**A.5 addendum 3 (2026-10-30, operator).** "The classid switches the behaviour, labels and polyfill over otherwise agnostic addresses or algebra methods." Addendum 1 gave the algebra its own lens classid and had consumers reach it by a class-to-class `Call`, which was wrong. Now:
+- The algebra is a classid-free catalogue in the store: `AlgebraEntry { id: AlgebraId, sig_rev, polyfill, inputs }`, declared once with `declare_algebra`, immutable, and versioned in DT directly. This is D6: "global behaviour needs no classid".
+- A consumer classid switches labels (its `ClassView`) and polyfill (`Effect { target, algebra: AlgebraRef, args }`) over those entries. `register` refuses `UnknownAlgebra`, `AlgebraRevisionMismatch` and `ArityMismatch`.
+- `users_of(AlgebraId)` lists the classids that use an entry.
+- `EffectOp::Call` and `MethodBinding::inputs` are removed.
+
+In the test, XLOG's count and an ONNX `Mul(int64)` node reuse the same entry under their own classids; only the two consumers carry classids.
+
+**A.5 addendum 4 (2026-10-30, operator).** "Classid widefieldmask ergonomics is the ERB Redmine fieldview pattern." This matches OGAR `ogar-render-askama::field_view` ("the ERB pattern fieldview ClassView rendering from memory without serialization") and openproject-nexgen-rs ("fieldview/erb → classview/askama"). `Resolved::field_view(&WideFieldMask)` yields `FieldRow { position, label, predicate }`, ascending, with the position as the layout address and labels borrowed late from the ClassView. It is OGAR's `FieldView` minus the value, since the store holds none. `Resolved::action_ordinals()` gives the methods as action addresses (T2). Not wired into OGAR's renderer: OGAR builds its `FieldView`s itself, and that call site is the OGAR owner's.
+Scope of that projection (XLOG session; quote verified at `.claude/knowledge/ogar-consumer-preflight.md:277` and `cross-glove-business-parity-v1.md:881`): operator, 2026-10-10, *"Classview can be used for any compute masking, we explicitly expanded the ERB redmine fieldview pattern for risk mask of everything."* `ClassView × WideFieldMask` is one masking pattern; rendering, RBAC, SPOG and risk masks are uses of it, and so are a binding's ON and `reads` sets. `field_view` is that pattern's read, not a render-only API.
+
+**A.5 addendum 5 (2026-10-30): field meaning and meaning-masks through the lens.** DT owns field semantics (D-DRDT §1). The contract already carries them per predicate: `property::PropertySpec { kind, codec_route, semantic_type, marking }`, keyed by the same predicate as `FieldRef::predicate_iri`.
+- `Resolved::field_meaning(mask, schema)` joins each fieldview row to its spec.
+- `Resolved::mask_where(schema, pred)` derives `WideFieldMask`s from meaning: a risk mask from `marking >= Pii`, an obligation mask from `kind == Required`. This is the "risk mask of everything" over the same pattern.
+- `Resolved::unspecified(schema)` surfaces the fields with no spec. A field with no spec is UNKNOWN and never takes the spec default (`Internal` / `PlainText`); a test pins that.
+
+The physical lane kind (u32 code vs i32, which picks XLOG's comparator) is the SoA column's (`soa_envelope::ColumnKind`), not a meaning. The store does not hold it.
+
+**A.5 addendum 6 (2026-10-30): dataflow and behaviour footprint.**
+- `register` refuses `UndeclaredRead` when a step reads a field that is neither in the method's `reads` nor written by an earlier step. A recipe's order must be what it says: XLOG's count with the multiply moved first is refused.
+- `MethodBinding::footprint()` is ON ∪ reads ∪ writes, and `Resolved::methods_touching(mask)` lists the methods a meaning mask reaches. A risk or RBAC mask thereby applies to behaviour, not only to fields.
+
+Open, for the frame owner (D8): registering a class or declaring an algebra entry moves no revision a frame can check; only routes are versioned. Classes and entries are immutable and append-only, so nothing a frame read can change. Whether a frame should still record the store's catalogue extent (for example a count of bindings) is undecided.

@@ -1,3 +1,9 @@
+## 2026-10-30 — lance-graph PR #1862 (merged `abe0b7afc`, branch `ccr-45a41fb4-0j3i0l`, head `4707683dc`) — D-DT64-6 Amendment A; D-LITHO folded
+
+- **Added:** D-DT64-6 Amendment A (the DR facts a DT binding applies, the `tract-harvest-probe` reference path, measured gates); `morton8x8::tests::every_aligned_code_run_is_an_aligned_square`; `lance-graph-mask-risc/tests/dose.rs`; D-LITHO retired and folded into D-DT64-6.
+- **Not in it:** the `lance-graph-dt64` crate. Its commits were pushed after the merge and land in the follow-up PR.
+- **Confidence:** two lab tests PASS (disable runs red); the rest is docs.
+
 ## 2026-10-26 — lance-graph PR #1806 (merged `99a08622`, branch `docs/d-tflp-v2-synergy-20261026`, head `19a75ae3`) — docs(D-TFLP v2): synergy revision after #1786–#1803
 
 - **Added:** docs only: plan `d-tflp-tflite-palette-polyfill-capstone-v2.md`, entry `2026-10-26-d-tflp-v2-synergy-revision.md`, v1 plan note, STATUS_BOARD/INTEGRATION_PLANS rows. D-TFLP-4 now defaults to the source reciprocal, with #1800's fixtures as its test oracle.
