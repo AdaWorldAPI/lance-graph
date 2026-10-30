@@ -244,44 +244,90 @@ impl Width {
     }
 }
 
-/// The logical extent a class binds over, chosen by the consumer per axis:
-/// Identity × Property × Predicate. D-DT64-6 A.1: the DT binding names DR64
-/// or DR256 and states its cost in those units. Logical only: nothing is
-/// allocated here, and no cube is assumed to exist (§7).
+/// One axis of a reservation: `tiles` tiles of `tile` positions each.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Axis {
+    pub tile: Width,
+    pub tiles: u32,
+}
+
+impl Axis {
+    pub const fn new(tile: Width, tiles: u32) -> Axis {
+        Axis { tile, tiles }
+    }
+
+    /// Positions reserved on this axis.
+    pub const fn reserved(self) -> usize {
+        self.tile.positions() * self.tiles as usize
+    }
+
+    /// The tile a position falls in.
+    pub const fn tile_of(self, position: usize) -> usize {
+        position / self.tile.positions()
+    }
+}
+
+/// What a class reserves, per axis: Identity × Property × Predicate, each a
+/// number of DR64 or DR256 tiles (D-DT64-6 A.1: the binding names DR64 or
+/// DR256 and states its cost). Thin provisioning: a reservation costs
+/// nothing; only the identity tiles a route actually touches are claimed
+/// ([`BindStore::claimed`]), and nothing is ever allocated here (§7).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Extent {
-    pub identity: Width,
-    pub property: Width,
+    pub identity: Axis,
+    pub property: Axis,
     /// The class's predicates: its methods (ON × WHEN × DO registrations).
-    pub predicate: Width,
+    pub predicate: Axis,
 }
 
 impl Extent {
-    /// DR64³: 64 × 64 × 64.
+    /// DR64³: one 64-wide tile per axis.
     pub const DR64_CUBE: Extent = Extent {
-        identity: Width::W64,
-        property: Width::W64,
-        predicate: Width::W64,
+        identity: Axis::new(Width::W64, 1),
+        property: Axis::new(Width::W64, 1),
+        predicate: Axis::new(Width::W64, 1),
     };
-    /// DR256² × 64: a 256 × 256 Identity × Property tile under 64 predicates.
+    /// DR256² × 64: one 256 × 256 Identity × Property tile under 64
+    /// predicates.
     pub const DR256_SQ_X64: Extent = Extent {
-        identity: Width::W256,
-        property: Width::W256,
-        predicate: Width::W64,
+        identity: Axis::new(Width::W256, 1),
+        property: Axis::new(Width::W256, 1),
+        predicate: Axis::new(Width::W64, 1),
+    };
+    /// The whole DR256 identity space (65,536 positions, 256 tiles of 256)
+    /// reserved over a 256-wide property axis and 64 predicates. Reserving
+    /// it claims nothing.
+    pub const DR256_GLOBAL_X64: Extent = Extent {
+        identity: Axis::new(Width::W256, 256),
+        property: Axis::new(Width::W256, 1),
+        predicate: Axis::new(Width::W64, 1),
     };
 
-    /// Logical cells.
-    pub const fn cells(self) -> usize {
-        self.identity.positions() * self.property.positions() * self.predicate.positions()
+    /// Logical cells reserved.
+    pub const fn reserved_cells(self) -> usize {
+        self.identity.reserved() * self.property.reserved() * self.predicate.reserved()
     }
 
-    /// What a dense Boolean volume of this extent would cost, in bytes, if
-    /// anyone materialized it (DR64³ is 32 KiB, D-DRF-1 §1). A statement of
-    /// cost, not an allocation.
-    pub const fn dense_bytes(self) -> usize {
-        self.cells() / 8
+    /// What one claimed identity tile would cost as a dense Boolean volume,
+    /// in bytes: a statement of cost, not an allocation. DR64³ is 32 KiB
+    /// (D-DRF-1 §1).
+    pub const fn tile_bytes(self) -> usize {
+        self.identity.tile.positions() * self.property.reserved() * self.predicate.reserved() / 8
     }
 }
+
+/// What a class has claimed of its reservation at one route version.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Claim {
+    /// Distinct identity tiles holding at least one position routed to the
+    /// class.
+    pub identity_tiles: usize,
+    /// `identity_tiles × Extent::tile_bytes`.
+    pub bytes: usize,
+}
+
+/// The widest identity or predicate reservation: route positions are `u16`.
+pub const MAX_RESERVED: usize = 1 << 16;
 
 /// A class's schema as bound: the schema revision, the field count the
 /// methods were bound against, and the extent the consumer chose. The field
@@ -353,17 +399,31 @@ pub enum Refusal {
     },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
-    /// More fields than the extent's Property axis holds.
+    /// More fields than the class reserved on its Property axis.
     FieldsExceedExtent {
         class: u32,
         field_count: usize,
-        property: Width,
+        reserved: usize,
     },
-    /// More methods than the extent's Predicate axis holds.
+    /// More methods than the class reserved on its Predicate axis.
     MethodsExceedExtent {
         class: u32,
         methods: usize,
-        predicate: Width,
+        reserved: usize,
+    },
+    /// A reservation wider than the axis can address: identity and predicate
+    /// up to [`MAX_RESERVED`], property up to [`MAX_FIELDS`] (a
+    /// `WideFieldMask` position is a `u8`).
+    ReservationTooWide {
+        class: u32,
+        axis: &'static str,
+        reserved: usize,
+    },
+    /// A route to a position outside the class's identity reservation.
+    OutsideReservation {
+        class: u32,
+        position: u16,
+        reserved: usize,
     },
     /// Asked at another schema revision than the one bound.
     SchemaRevisionMismatch {
@@ -744,11 +804,43 @@ impl BindStore {
     }
 
     /// Route `position` to the bound `class`; returns the new version.
+    /// A position past the class's identity reservation is refused.
     pub fn route(&mut self, position: u16, class: u32) -> Result<RouteVersion, Refusal> {
-        if !self.classes.contains_key(&class) {
-            return Err(Refusal::UnknownClass(class));
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let reserved = entry.schema.extent.identity.reserved();
+        if usize::from(position) >= reserved {
+            return Err(Refusal::OutsideReservation {
+                class,
+                position,
+                reserved,
+            });
         }
         Ok(self.push_route(position, Some(class)))
+    }
+
+    /// What `class` has claimed of its reservation at `version`: the identity
+    /// tiles that hold a position routed to it then. A reservation alone
+    /// claims nothing.
+    pub fn claimed(&self, class: u32, version: RouteVersion) -> Result<Claim, Refusal> {
+        let extent = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?
+            .schema
+            .extent;
+        let mut tiles = std::collections::BTreeSet::new();
+        for &position in self.routes.keys() {
+            if self.routed_at(version, position)? == Some(class) {
+                tiles.insert(extent.identity.tile_of(usize::from(position)));
+            }
+        }
+        Ok(Claim {
+            identity_tiles: tiles.len(),
+            bytes: tiles.len() * extent.tile_bytes(),
+        })
     }
 
     /// Remove `position`'s route; returns the new version. The classid it
@@ -889,18 +981,31 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
         });
     }
     let extent = schema.extent;
-    if schema.field_count > extent.property.positions() {
+    for (axis, reserved, max) in [
+        ("identity", extent.identity.reserved(), MAX_RESERVED),
+        ("property", extent.property.reserved(), MAX_FIELDS),
+        ("predicate", extent.predicate.reserved(), MAX_RESERVED),
+    ] {
+        if reserved > max {
+            return Err(Refusal::ReservationTooWide {
+                class,
+                axis,
+                reserved,
+            });
+        }
+    }
+    if schema.field_count > extent.property.reserved() {
         return Err(Refusal::FieldsExceedExtent {
             class,
             field_count: schema.field_count,
-            property: extent.property,
+            reserved: extent.property.reserved(),
         });
     }
-    if methods.len() > extent.predicate.positions() {
+    if methods.len() > extent.predicate.reserved() {
         return Err(Refusal::MethodsExceedExtent {
             class,
             methods: methods.len(),
-            predicate: extent.predicate,
+            reserved: extent.predicate.reserved(),
         });
     }
     for (i, m) in methods.iter().enumerate() {
