@@ -95,6 +95,19 @@ column k  =  Morton8x8::from_xy(isa[k], partof[k])
 
 The opt-in is the slab declaration, so a class that does not declare it keeps its other readings.
 
+**Classid per population, not per row (operator, 2026-10-30): for a monotonic corpus the classid goes into the metadata envelope.** What the code already gives (`hotplug.rs`, read in full for 200–470):
+
+- the slab's metadata envelope carries a `u8` reading tag (`SlabReading::from_tag`);
+- `Activation::resolve_for_context(concept, slab)` is resolved once per population, never per row;
+- `bind_register128` returns `RegisterLanes` that carry that concept: "that concept, not anything in the register bytes, is the registers' semantic identity".
+
+A population where every row has one class therefore pays zero classid bytes per row, and all 16 columns stay addresses.
+
+Two things to settle when this is built:
+
+- `SlabDeclaration` says of itself "Physical facts only — no concept, no classid, no ontology: the SPOG context supplies those". Putting the classid literally inside the declaration reverses that sentence, so it needs a decision. The alternative is a population-level concept beside the declaration, which is the shape `resolve_for_context` already takes.
+- Monotonic means one class per population. Makor, rule, world and holding nodes are four classes, so they form four populations, each resolved once.
+
 **The Kripke probe is already DR64-shaped.** Its `Rows = [u64; 64]` registers (accessibility, holds, block) are the registers `hhtl16` reads. `cell(Morton8x8::from_xy(world, proposition))` reads one holding. `column` gives the worlds that hold a proposition, `row` gives the propositions a world holds, and `rotate_yz` switches between the two without copying. The HHTL16 codes of the rows above are the global identities that `LocalMap` maps onto the 64 local coordinates.
 
 | Mistaber node | column 1 (identity) | columns 2–16 (exact addresses) | overflow |
