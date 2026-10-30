@@ -72,15 +72,15 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 - A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
 - The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
 
-**Reading (operator, 2026-10-30): the two tenants zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.**
+**Reading (operator, 2026-10-30): two 16-byte registers of the 512-byte SoA node row zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.** These are registers of the row itself, not `ValueTenant` lanes; which 32 bytes of the 512 they occupy is the ClassView's carving.
 
 ```text
-tenant 1 (is_a)     1234567890123456
-tenant 2 (part_of)  1234567890123456
+is_a register       1234567890123456
+part_of register    1234567890123456
                     ^ column k = (is_a[k] : part_of[k]) = one 64k address
 ```
 
-Column 1 is the node's identity; columns 2–16 are 15 exact addresses of other nodes. That makes 32 bytes per row, 15 in-row references, no edge table and no 255 cap. A column reading `(0, 0)` is unbound. The bytes stay two separate digits; nothing is widened into a u16. This is an addressing reading of the two tenants, not a composition of the `is_a` and `part_of` relations.
+Column 1 is the node's identity; columns 2–16 are 15 exact addresses of other nodes. That is 32 of the row's 512 bytes, 15 in-row references, no edge table and no 255 cap. A column reading `(0, 0)` is unbound. The bytes stay two separate digits; nothing is widened into a u16. This is an addressing reading of the two registers, not a composition of the `is_a` and `part_of` relations.
 
 | Mistaber node | column 1 (identity) | columns 2–16 (exact addresses) | overflow |
 |---|---|---|---|
