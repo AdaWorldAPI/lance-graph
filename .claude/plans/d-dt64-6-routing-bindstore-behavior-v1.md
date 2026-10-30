@@ -275,3 +275,5 @@ In the test, XLOG's per-Y count is three Calls into one algebra lens: group-coun
 - `EffectOp::Call` and `MethodBinding::inputs` are removed.
 
 In the test, XLOG's count and an ONNX `Mul(int64)` node reuse the same entry under their own classids; only the two consumers carry classids.
+
+**A.5 addendum 4 (2026-10-30, operator).** "Classid widefieldmask ergonomics is the ERB Redmine fieldview pattern." This matches OGAR `ogar-render-askama::field_view` ("the ERB pattern fieldview ClassView rendering from memory without serialization") and openproject-nexgen-rs ("fieldview/erb → classview/askama"). `Resolved::field_view(&WideFieldMask)` yields `FieldRow { position, label, predicate }`, ascending, with the position as the layout address and labels borrowed late from the ClassView. It is OGAR's `FieldView` minus the value, since the store holds none. `Resolved::action_ordinals()` gives the methods as action addresses (T2). Not wired into OGAR's renderer: OGAR builds its `FieldView`s itself, and that call site is the OGAR owner's.

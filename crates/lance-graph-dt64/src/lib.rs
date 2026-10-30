@@ -382,11 +382,45 @@ pub struct Resolved<'s, 'v> {
     pub derived_from: Option<u32>,
 }
 
-impl<'s> Resolved<'s, '_> {
+/// One row of the fieldview projection (the Redmine ERB fieldview pattern,
+/// OGAR `ogar-render-askama::field_view::FieldView` minus the value): the
+/// field's mask position is its layout address, and its label and predicate
+/// are borrowed late from the [`ClassView`]. The store holds no values; a
+/// renderer pairs each row with the consumer's value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FieldRow<'v> {
+    pub position: u8,
+    pub label: &'v str,
+    pub predicate: &'v str,
+}
+
+impl<'s, 'v> Resolved<'s, 'v> {
     /// Every method whose ON includes `field`, in registration order. Several
     /// are normal and all are returned.
     pub fn methods_on(&self, field: u8) -> impl Iterator<Item = &'s MethodBinding> {
         self.methods.iter().filter(move |m| m.on.has(field))
+    }
+
+    /// The fieldview: the fields `mask` selects, ascending by position, with
+    /// their labels. A position past the class's basis selects nothing.
+    pub fn field_view<'m>(&self, mask: &'m WideFieldMask) -> impl Iterator<Item = FieldRow<'v>> + 'm
+    where
+        'v: 'm,
+    {
+        let fields = self.fields;
+        mask_positions(mask).filter_map(move |p| {
+            fields.get(usize::from(p)).map(|f| FieldRow {
+                position: p,
+                label: f.label.as_str(),
+                predicate: f.predicate_iri.as_str(),
+            })
+        })
+    }
+
+    /// The action addresses the class exposes: its method ordinals, in
+    /// registration order (fieldview charter T2: behaviour by address only).
+    pub fn action_ordinals(&self) -> impl Iterator<Item = MethodId> + 's {
+        self.methods.iter().map(|m| m.id)
     }
 }
 

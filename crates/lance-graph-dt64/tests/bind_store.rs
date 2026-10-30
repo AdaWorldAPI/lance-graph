@@ -681,3 +681,25 @@ fn effect_operands_and_entries_are_checked() {
     assert_eq!(s.class_count(), 0, "no refused class was bound");
     assert_eq!(s.register(XLOG, schema(1, 5), vec![count]), Ok(()));
 }
+
+/// The classid × WideFieldMask ergonomics are the fieldview (the Redmine ERB
+/// pattern, OGAR `field_view`): the classid picks the lens, the mask selects
+/// positions, and each row carries its position as its layout address, with
+/// labels from the ClassView. Behaviour is exposed by ordinal only.
+#[test]
+fn the_fieldview_projects_mask_positions_with_late_labels() {
+    let mut s = catalogue();
+    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    let view = View::with_fields(view_class(XLOG), 5);
+    let r = s.resolve(&view, XLOG, SchemaRev(1)).unwrap();
+
+    let mask = WideFieldMask::from_positions(&[4, 0, 9]);
+    let rows: Vec<(u8, &str, &str)> = r
+        .field_view(&mask)
+        .map(|f| (f.position, f.label, f.predicate))
+        .collect();
+    // Ascending, labels from the lens; 9 is past the basis and selects nothing.
+    assert_eq!(rows, vec![(0, "f0", "urn:f0"), (4, "f4", "urn:f4")]);
+    assert_eq!(r.field_view(&WideFieldMask::from_positions(&[])).count(), 0);
+    assert_eq!(r.action_ordinals().collect::<Vec<_>>(), vec![MethodId(1)]);
+}
