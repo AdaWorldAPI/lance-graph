@@ -1,4 +1,4 @@
-# D-TRACT-HARVEST → DT64: how a codegraph gets an address, and where the codegraph already is
+# D-TRACT-CODEGRAPH-ADDRESS (for DT64): how a codegraph gets an address, and where the codegraph already is
 
 **Date 2026-10-30 · D-id D-TRACT-SHAPE-1 · Status OPEN (map, no code) · For the DT64 session**
 
