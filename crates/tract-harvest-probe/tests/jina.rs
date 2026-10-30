@@ -143,7 +143,7 @@ fn rmsnorm_slice_through_the_graph_against_ort() {
     let steps: Vec<(String, u16)> = p
         .steps
         .iter()
-        .map(|s| (s.name.trim_start_matches(P).to_string(), s.classid))
+        .map(|s| (s.name.trim_start_matches(P).to_string(), s.key.ordinal))
         .collect();
     eprintln!("schedule: {steps:?}");
     let folded: Vec<&str> = p
@@ -157,10 +157,7 @@ fn rmsnorm_slice_through_the_graph_against_ort() {
         (9, 4),
         "13 source nodes: the 4 Constants fold at resolution, 9 run"
     );
-    assert!(p
-        .folded
-        .iter()
-        .all(|b| [0x0F01, 0x0F02, 0x0F03].contains(&b.classid)));
+    assert!(p.folded.iter().all(|b| [0, 1, 2].contains(&b.key.ordinal)));
     let cid = |n: &str| steps.iter().find(|(s, _)| s == n).unwrap().1;
     assert_eq!(
         [
@@ -174,7 +171,7 @@ fn rmsnorm_slice_through_the_graph_against_ort() {
             cid("Cast_1"),
             cid("Mul_1")
         ],
-        [0x0F10, 0x0F32, 0x0F40, 0x0F20, 0x0F31, 0x0F23, 0x0F22, 0x0F10, 0x0F22]
+        [3, 11, 12, 5, 10, 8, 7, 3, 7]
     );
     let bounded: Vec<&str> = p
         .steps
@@ -334,14 +331,11 @@ fn pow_exponent_other_than_two_is_when_false() {
     });
     match plan_of(&b, &registry()).1 {
         Err(Refusal::When {
-            node,
-            classid,
-            truth,
-            ..
+            node, key, truth, ..
         }) => {
             assert_eq!(
-                (node.trim_start_matches(P), classid, truth),
-                ("Pow", 0x0F32, K3::False)
+                (node.trim_start_matches(P), key.ordinal, truth),
+                ("Pow", 11, K3::False)
             )
         }
         other => panic!("{:?}", other.map(|_| ())),
@@ -502,7 +496,7 @@ fn full_graph_facts_and_coverage() {
     assert_eq!(tot(&fs.typed), [4238, 256, 3126]);
     assert_eq!(tot(&fs.merged()), [7274, 0, 346]);
     // The same graph as a bind-store consumer: every registered node has a
-    // route to its classid and resolves through it; the rest have none.
+    // route to its codebook item and resolves through it; the rest have none.
     // 7,620 nodes: more than one 64-node tile, so the binder must not need
     // the one-tile `OnnxGraph`.
     let routes = tract_harvest_probe::bind::route(&src, &fs.merged(), &reg);

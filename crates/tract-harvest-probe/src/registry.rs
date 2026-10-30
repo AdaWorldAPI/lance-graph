@@ -1,6 +1,15 @@
 //! The DT64 ON × WHEN × DO registration of ONNX operators (D-DT64-6 §1:
 //! "Behaviour is registered as a DTO: classid → polyfill over mask-risc /
-//! ndarray"; user decision 2026-10-30: one classid per op signature).
+//! ndarray").
+//!
+//! **A classid is a codebook lens, not a codebook item.** The ONNX operator
+//! codebook is read through one lens, [`ONNX_LENS`]; each op signature is an
+//! item in it, addressed as [`MethodKey`] `{ lens, ordinal }`. The ordinal is
+//! the item's position in [`Registry::regs`], derived and never allocated
+//! separately; reordering is a new [`Registry::version`]. (An earlier version
+//! of this crate gave every op signature its own classid. That spent one
+//! identity per codebook item, and the module doc attributed it to a user
+//! decision that was in fact this session's recommendation.)
 //!
 //! An ONNX node is a registered method once its **op signature**
 //! `(domain, op_type, dtype, discrete attributes)` matches a
@@ -12,13 +21,14 @@
 //! - **DO**: the polyfill, an existing `lance-graph-onnx` / `ndarray`
 //!   function, writing the node's output positions.
 //!
-//! The classid's behaviour is immutable: a new behaviour is a new classid, never
-//! an edit (D-DT64-6 D5). An unregistered signature is UNKNOWN (D-SAG-6 F06),
-//! never "no behaviour": resolution refuses it.
+//! An item's behaviour is immutable: a new behaviour is a new item (a new
+//! ordinal under a new registry version), never an edit (D-DT64-6 D5). An
+//! unregistered signature is UNKNOWN (D-SAG-6 F06), never "no behaviour":
+//! resolution refuses it.
 //!
-//! Classids here are **lab ordinals** (0x0F01…), not OGAR-minted concepts. A
-//! production registration would mint the concept in OGAR and activate it
-//! through `lance-graph-contract::hotplug`.
+//! [`ONNX_LENS`] is a **lab** classid, not an OGAR-minted concept. A
+//! production lens would be minted in OGAR and activated through
+//! `lance-graph-contract::hotplug`, with the items as its capabilities.
 
 use std::ops::RangeInclusive;
 
@@ -81,7 +91,7 @@ pub enum Refusal {
     /// The WHEN guard is FALSE or UNKNOWN for this node.
     When {
         node: String,
-        classid: ClassId,
+        key: MethodKey,
         truth: K3,
         guard: &'static str,
     },
@@ -123,9 +133,18 @@ pub struct AttrRule {
     pub default: Option<i64>,
 }
 
-/// One registered method.
+/// The lab classid of the ONNX operator codebook: one lens over every item.
+pub const ONNX_LENS: ClassId = 0x0F00;
+
+/// One codebook item: the lens it is read through and its position there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MethodKey {
+    pub lens: ClassId,
+    pub ordinal: u16,
+}
+
+/// One registered method: an item of the codebook.
 pub struct Registration {
-    pub classid: ClassId,
     pub method: &'static str,
     pub domain: &'static str,
     pub op_type: &'static str,
@@ -147,7 +166,10 @@ pub struct Registration {
 /// The registration table, versioned. Its version is the frame's
 /// `relation_map` revision: a different table is a different frame.
 pub struct Registry {
+    /// The codebook lens every item is read through.
+    pub lens: ClassId,
     pub version: u64,
+    /// The items; an item's ordinal is its index here.
     pub regs: Vec<Registration>,
 }
 
@@ -196,6 +218,27 @@ pub fn render_signature(node: &SourceNode, dtype: Option<DType>) -> String {
 
 impl Registry {
     /// The registration whose signature this node has, if any.
+    /// The key of `reg`, which must be an item of this table.
+    pub fn key_of(&self, reg: &Registration) -> MethodKey {
+        let ix = self
+            .regs
+            .iter()
+            .position(|r| std::ptr::eq(r, reg))
+            .expect("an item of this table");
+        MethodKey {
+            lens: self.lens,
+            ordinal: u16::try_from(ix).expect("at most 65,536 items"),
+        }
+    }
+
+    /// The item at `key`, if it is read through this table's lens.
+    pub fn get(&self, key: MethodKey) -> Option<&Registration> {
+        if key.lens != self.lens {
+            return None;
+        }
+        self.regs.get(usize::from(key.ordinal))
+    }
+
     pub fn lookup(&self, node: &SourceNode, args: &[Option<&Fact>]) -> Option<&Registration> {
         let domain = if node.domain.is_empty() {
             "ai.onnx"
@@ -1613,9 +1656,8 @@ const ALLOWZERO_0: &[AttrRule] = &[AttrRule {
 }];
 
 macro_rules! reg {
-    ($cid:expr, $m:expr, $op:expr, $arg:expr, $dt:expr, $attrs:expr, $when:path, $do:path, $num:expr) => {
+    ($m:expr, $op:expr, $arg:expr, $dt:expr, $attrs:expr, $when:path, $do:path, $num:expr) => {
         Registration {
-            classid: $cid,
             method: $m,
             domain: "ai.onnx",
             op_type: $op,
@@ -1636,10 +1678,10 @@ pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
     Registry {
-        version: 5,
+        lens: ONNX_LENS,
+        version: 6,
         regs: vec![
             reg!(
-                0x0F01,
                 "Constant: the attribute tensor",
                 "Constant",
                 None,
@@ -1650,7 +1692,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F02,
                 "Constant: the attribute tensor",
                 "Constant",
                 None,
@@ -1661,7 +1702,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F03,
                 "Constant: the attribute tensor",
                 "Constant",
                 None,
@@ -1672,7 +1712,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F10,
                 "Cast f32 -> f32: identity",
                 "Cast",
                 Some(0),
@@ -1684,7 +1723,6 @@ pub fn registry() -> Registry {
             ),
             // The signature fixes input dtype I64 and `to = INT64`.
             reg!(
-                0x0F11,
                 "Cast i64 -> i64: identity",
                 "Cast",
                 Some(0),
@@ -1695,7 +1733,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F20,
                 "lance_graph_onnx::add (broadcast checked)",
                 "Add",
                 Some(0),
@@ -1706,7 +1743,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F21,
                 "lance_graph_onnx::sub (broadcast checked)",
                 "Sub",
                 Some(0),
@@ -1717,7 +1753,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F22,
                 "lance_graph_onnx::mul (broadcast checked)",
                 "Mul",
                 Some(0),
@@ -1728,7 +1763,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F23,
                 "lance_graph_onnx::div (broadcast checked)",
                 "Div",
                 Some(0),
@@ -1739,7 +1773,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F30,
                 "lance_graph_onnx::abs_f32 = vml::vsabs",
                 "Abs",
                 Some(0),
@@ -1750,7 +1783,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F31,
                 "lance_graph_onnx::sqrt_f32 = vml::vssqrt",
                 "Sqrt",
                 Some(0),
@@ -1761,7 +1793,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F32,
                 "Pow(x, 2.0) = lance_graph_onnx::mul(x, x)",
                 "Pow",
                 Some(0),
@@ -1772,7 +1803,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F40,
                 "ndarray mean_axis, keepdims 1",
                 "ReduceMean",
                 Some(0),
@@ -1783,7 +1813,6 @@ pub fn registry() -> Registry {
                 Bounded("float sum over the reduced axis; order is the implementation's")
             ),
             reg!(
-                0x0F41,
                 "lance_graph_onnx::ReduceSum::sum_i32, keepdims 0",
                 "ReduceSum",
                 Some(0),
@@ -1794,7 +1823,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F42,
                 "lance_graph_onnx::ReduceSum::sum_i32, keepdims 1",
                 "ReduceSum",
                 Some(0),
@@ -1805,7 +1833,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F50,
                 "lance_graph_onnx::greater_i32 = simd::gt_i32_to_mask",
                 "Greater",
                 Some(0),
@@ -1816,7 +1843,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F51,
                 "simd::blend_i32 (Y tensor) / simd::blend_i32_scalar (Y scalar)",
                 "Where",
                 Some(1),
@@ -1827,7 +1853,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F70,
                 "simd::eq_i64_pair_to_mask / eq_i64_to_mask (ndarray broadcast first when shapes differ)",
                 "Equal",
                 Some(0),
@@ -1838,7 +1863,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F71,
                 "simd::le_i64_pair_to_mask / le_i64_to_mask (ndarray broadcast first when shapes differ)",
                 "LessOrEqual",
                 Some(0),
@@ -1849,7 +1873,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F72,
                 "simd::blend_i64 / blend_i64_scalar",
                 "Where",
                 Some(1),
@@ -1860,7 +1883,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F73,
                 "ndarray ArrayD::from_elem of the value attribute",
                 "ConstantOfShape",
                 Some(0),
@@ -1871,7 +1893,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F74,
                 "ndarray broadcast, multidirectional",
                 "Expand",
                 Some(0),
@@ -1882,7 +1903,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F75,
                 "ndarray broadcast, multidirectional",
                 "Expand",
                 Some(0),
@@ -1893,7 +1913,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F76,
                 "hpc::checked_i64::checked_binary_i64(Add)",
                 "Add",
                 Some(0),
@@ -1904,7 +1923,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F77,
                 "hpc::checked_i64::checked_binary_i64(Sub)",
                 "Sub",
                 Some(0),
@@ -1915,7 +1933,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F78,
                 "hpc::checked_i64::checked_binary_i64(Mul)",
                 "Mul",
                 Some(0),
@@ -1926,7 +1943,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F79,
                 "hpc::checked_i64::checked_binary_i64(Div), truncating",
                 "Div",
                 Some(0),
@@ -1937,7 +1953,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F7A,
                 "hpc::checked_i64::range_i64, capacity RANGE_CAPACITY",
                 "Range",
                 Some(0),
@@ -1948,7 +1963,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F7B,
                 "Cast i64 -> f32: as f32 (round to nearest even)",
                 "Cast",
                 Some(0),
@@ -1959,7 +1973,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F7C,
                 "Cast bool -> bool: identity",
                 "Cast",
                 Some(0),
@@ -1970,7 +1983,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F7D,
                 "simd::matmul_f32_batched (f32 sgemm, never AMX)",
                 "MatMul",
                 Some(0),
@@ -1981,7 +1993,6 @@ pub fn registry() -> Registry {
                 Bounded("sgemm accumulation order; exact when K = 1")
             ),
             reg!(
-                0x0F7E,
                 "ndarray permuted_axes, standard layout",
                 "Transpose",
                 Some(0),
@@ -1992,7 +2003,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F7F,
                 "ndarray permuted_axes, standard layout",
                 "Transpose",
                 Some(0),
@@ -2003,7 +2013,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F80,
                 "ndarray::hpc::vml::vscos",
                 "Cos",
                 Some(0),
@@ -2014,7 +2023,6 @@ pub fn registry() -> Registry {
                 Bounded("libm f32 cos per lane; ULP against ORT measured in tests")
             ),
             reg!(
-                0x0F81,
                 "ndarray::hpc::vml::vssin",
                 "Sin",
                 Some(0),
@@ -2025,7 +2033,6 @@ pub fn registry() -> Registry {
                 Bounded("libm f32 sin per lane; ULP against ORT measured in tests")
             ),
             reg!(
-                0x0F82,
                 "simd::mask_and on packed tensor(bool) (ndarray broadcast first when shapes differ)",
                 "And",
                 Some(0),
@@ -2036,7 +2043,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F33,
                 "ndarray::hpc::vml::vserf",
                 "Erf",
                 Some(0),
@@ -2047,7 +2053,6 @@ pub fn registry() -> Registry {
                 Bounded("at most 2 ULP over [-5, 5] (ndarray #399)")
             ),
             reg!(
-                0x0F60,
                 "the input's shape, start/end clamped",
                 "Shape",
                 Some(0),
@@ -2058,7 +2063,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F61,
                 "the input's shape, start/end clamped",
                 "Shape",
                 Some(0),
@@ -2069,7 +2073,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F62,
                 "the input's shape, start/end clamped",
                 "Shape",
                 Some(0),
@@ -2080,7 +2083,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F63,
                 "the input's shape, start/end clamped",
                 "Shape",
                 Some(0),
@@ -2091,7 +2093,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F64,
                 "ndarray select along axis, int64 data",
                 "Gather",
                 Some(0),
@@ -2102,7 +2103,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F65,
                 "ndarray reshape: insert unit axes",
                 "Unsqueeze",
                 Some(0),
@@ -2113,7 +2113,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F66,
                 "ndarray reshape: insert unit axes",
                 "Unsqueeze",
                 Some(0),
@@ -2124,7 +2123,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F67,
                 "ndarray::concatenate along axis",
                 "Concat",
                 Some(0),
@@ -2135,7 +2133,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F68,
                 "ndarray::concatenate along axis",
                 "Concat",
                 Some(0),
@@ -2146,7 +2143,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F69,
                 "ndarray reshape, allowzero 0",
                 "Reshape",
                 Some(0),
@@ -2157,7 +2153,6 @@ pub fn registry() -> Registry {
                 Exact
             ),
             reg!(
-                0x0F6A,
                 "ndarray reshape, allowzero 0",
                 "Reshape",
                 Some(0),

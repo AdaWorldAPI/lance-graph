@@ -10,7 +10,7 @@
 //!            dr3::OnnxGraph   nodes = Identity, values = Property,
 //!                             on / do_ = 64x64 relations, dep = do_ ∘ read_by
 //!                           ▼
-//!            plan::resolve    op signature -> registry::Registration (classid),
+//!            plan::resolve    op signature -> codebook item (lens, ordinal),
 //!                             WHEN (K3) over the facts, schedule from dep, Frame sealed
 //!                           ▼
 //!            Plan::run        each node routed to its DO (lance-graph-onnx / ndarray)
