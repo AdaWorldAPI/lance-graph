@@ -263,6 +263,18 @@ The user said the classid + `WideFieldMask` ergonomics is the Redmine ERB field-
 
 **Open.** The WHEN guards are on the fields. Some are only meaningful for one address, for example a Reshape guard over its target shape. Whether a guard belongs with its field or its address is not settled here. `exposed` is set to full by `build`, and no production lens is minted.
 
+### 0.9 DR64 is global to local; the codebook spans mask blocks (2026-10-30)
+
+The user: "the codebook should not be limited to 64 if Jina asks for more" and "DR64 is global to local, not a rejection to access 64k soa". `OnnxGraph::build` refused any graph beyond one 64 × 64 tile (`TileOverflow`). That was wrong.
+
+- **Graph.** A global position `p` is bit `p % 64` of tile `p / 64`. `on` and `do_` are `dr3::Tiled` relations: their non-empty DR64 tiles, keyed `(row tile, column tile)`. `dep = do_ ∘ read_by` composes tile by tile with the same `relcomp::compose` kernel, and `schedule` reads `dep`'s pairs. The only refusal left is the u16 address width (`Refusal::AddressOverflow`, 65,536 positions per axis).
+- **Jina, measured.** The full graph (7,620 nodes, 7,939 values) builds; its tiled `dep` (391 tiles, 9,176 edges) equals the source edges; it schedules, and every edge runs forward.
+- **Codebook.** One `WideFieldMask` position is a `u8`, so the exposure mask stopped the lens at 256 fields. `Registry::exposed` is now a list of masks: field `o` is position `o % 256` of block `o / 256`, up to 65,536 fields. `Registry::expose` shows or hides one field.
+
+**Tests.** `graphs_beyond_one_tile_lay_over_tiles` (200-node chain over four Identity tiles, with a cross-tile edge), `codebook_spans_mask_blocks` (600 fields over three blocks), and the full-graph Jina assertions. Disable runs, each red: compose restricted to the diagonal column tile; `exposes` reading block 0 only; `set` dropping cross-tile bits.
+
+**Not yet.** `plan::resolve` still refuses Jina at its first unregistered node (346 remain); tiling removes the size refusal, not the coverage gap.
+
 ## 1. The acceptance chain, demonstrated
 
 The chain under test: a source-attested ONNX subgraph is imported by Tract, admitted, lowered onto existing native methods, executed without Tract, and verified against ONNX Runtime (ORT). The chain holds for both fixtures: fixture A (tiny, synthetic) is bit-exact, and fixture B (a real model slice) is bounded. The numbers are in §4. Nothing here is certified, production or merged.
