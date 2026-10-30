@@ -161,6 +161,12 @@ Consequences:
 - **The wafer has two layers: `NodeGuid` identities and property mappings.** Exposures read these.
 - **Methods come through `ClassView` resolution.** A shader names a method; it never carries a copy of one.
 - **The 64 thoughts are references into Thought-Git**, not lanes on the frame. A thought is versioned history, not exposed state.
+- **The rule for thoughts: reserve, don't claim.**
+  - All 64 thought positions are reserved at the fixed width, so their coordinates exist and freeze with
+    the rest.
+  - A position is claimed only when a thought is committed through Thought-Git. Until then the presence
+    bit marks it absent, and nothing is written or allocated for it.
+  - Reserving costs nothing because underflow never compacts. Claiming later moves no other position.
 - **This supplies the identity coordinate that §3's bead position needs.** Globally it is a `NodeGuid`. Inside
   a frame it is a local position.
 - **DR does the global → local mapping, amortized** (D-DRDT §1: "global-to-local preparation is optional

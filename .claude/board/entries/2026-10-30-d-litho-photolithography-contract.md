@@ -29,3 +29,4 @@
 - Always present: identity = `NodeGuid`, and property mappings. Not material: `ClassView` → methods, and 64 thoughts → Thought-Git (references, resolved on demand).
 - DR does the amortized global (`NodeGuid`) → local (frame position) mapping: prepared once per focus, sealed and versioned. Exposures work on local positions only.
 - Order: DR routes (global → local, address → classid), then DT64 assigns meaning and methods to the mapped position. DT64 does not route; DR assigns no meaning.
+- Thoughts: reserve, don't claim. The 64 positions are reserved at fixed width and marked absent by the presence bit until a thought is committed through Thought-Git.
