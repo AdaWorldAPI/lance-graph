@@ -36,6 +36,9 @@ pub struct Plan<'r> {
     pub graph: OnnxGraph,
     /// In schedule order.
     pub steps: Vec<Bound>,
+    /// Nodes executed once at resolution (see [`crate::fold`]): their outputs
+    /// are constants of the plan and they are not steps of a run.
+    pub folded: Vec<Bound>,
     registry: &'r Registry,
     nodes: Vec<crate::source::SourceNode>,
     frame: Frame,
@@ -63,13 +66,28 @@ pub fn revisions(src: &SourceInventory, registry: &Registry, graph: &OnnxGraph) 
 /// Bind every node of `graph` against `registry`, in schedule order.
 pub fn resolve<'r>(
     src: &SourceInventory,
-    graph: OnnxGraph,
+    mut graph: OnnxGraph,
     registry: &'r Registry,
     store: &FrameStore,
 ) -> Result<Plan<'r>, Refusal> {
     let opset = src.default_opset().unwrap_or(0);
     let order = graph.schedule()?;
+    // Cold folding over the tile's own facts: a folded output becomes a
+    // constant before any guard below reads it.
+    let names: HashMap<String, crate::registry::Fact> = graph
+        .props
+        .iter()
+        .cloned()
+        .zip(graph.facts.iter().cloned())
+        .collect();
+    let fold = crate::fold::fold(src, &names, registry);
+    for (p, name) in graph.props.iter().enumerate() {
+        if let Some(v) = fold.values.get(name) {
+            graph.consts[p] = Some(v.clone());
+        }
+    }
     let mut steps = Vec::with_capacity(order.len());
+    let mut folded = Vec::new();
     for &n in &order {
         let node = &src.nodes[n];
         let args: Vec<_> = graph.args[n]
@@ -88,6 +106,23 @@ pub fn resolve<'r>(
                 opset,
             });
         }
+        let reg_ix = registry
+            .regs
+            .iter()
+            .position(|r| std::ptr::eq(r, reg))
+            .expect("from the table");
+        let bound = Bound {
+            node: n,
+            name: node.name.clone(),
+            classid: reg.classid,
+            method: reg.method,
+            numeric: reg.numeric,
+            reg: reg_ix,
+        };
+        if fold.nodes.contains(&n) {
+            folded.push(bound);
+            continue;
+        }
         let consts = graph.args[n]
             .iter()
             .map(|p| p.and_then(|p| graph.consts[p].as_ref()))
@@ -101,19 +136,7 @@ pub fn resolve<'r>(
                 guard: reg.guard,
             });
         }
-        let reg_ix = registry
-            .regs
-            .iter()
-            .position(|r| std::ptr::eq(r, reg))
-            .expect("from the table");
-        steps.push(Bound {
-            node: n,
-            name: node.name.clone(),
-            classid: reg.classid,
-            method: reg.method,
-            numeric: reg.numeric,
-            reg: reg_ix,
-        });
+        steps.push(bound);
     }
     if store.revisions() != revisions(src, registry, &graph) {
         return Err(Refusal::Frame(
@@ -123,6 +146,7 @@ pub fn resolve<'r>(
     Ok(Plan {
         graph,
         steps,
+        folded,
         registry,
         nodes: src.nodes.clone(),
         frame: store.seal(),
@@ -192,7 +216,10 @@ impl Plan<'_> {
 /// Registration coverage of a graph too large for one tile: per op type, how
 /// many nodes have a registered signature with WHEN TRUE, a registered
 /// signature with WHEN not TRUE, or no registration. Facts and constants are
-/// looked up by value name, as [`OnnxGraph::build`] does.
+/// looked up by value name, as [`OnnxGraph::build`] does; the constants
+/// include the values [`crate::fold::fold`] computes, so a guard over a
+/// folded shape (a `Reshape` target) reads it. A folded node counts as WHEN
+/// TRUE.
 pub fn coverage(
     src: &SourceInventory,
     facts: &HashMap<String, crate::registry::Fact>,
@@ -213,6 +240,10 @@ pub fn coverage(
         {
             consts.insert(o.as_str(), v);
         }
+    }
+    let fold = crate::fold::fold(src, facts, registry);
+    for (k, v) in &fold.values {
+        consts.insert(k.as_str(), v);
     }
     let mut out = std::collections::BTreeMap::new();
     for node in &src.nodes {

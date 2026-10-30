@@ -146,7 +146,21 @@ fn rmsnorm_slice_through_the_graph_against_ort() {
         .map(|s| (s.name.trim_start_matches(P).to_string(), s.classid))
         .collect();
     eprintln!("schedule: {steps:?}");
-    assert_eq!(steps.len(), 13, "all 13 source nodes, Constants included");
+    let folded: Vec<&str> = p
+        .folded
+        .iter()
+        .map(|s| s.name.trim_start_matches(P))
+        .collect();
+    eprintln!("folded: {folded:?}");
+    assert_eq!(
+        (steps.len(), folded.len()),
+        (9, 4),
+        "13 source nodes: the 4 Constants fold at resolution, 9 run"
+    );
+    assert!(p
+        .folded
+        .iter()
+        .all(|b| [0x0F01, 0x0F02, 0x0F03].contains(&b.classid)));
     let cid = |n: &str| steps.iter().find(|(s, _)| s == n).unwrap().1;
     assert_eq!(
         [
@@ -429,9 +443,11 @@ fn new_weight_generation_refuses_the_old_plan() {
 }
 
 /// The full graph (inputs pinned to [1, 10]): the inference stage labels all
-/// 7,620 source values with a full fact, the typed stage 2,546, and the two
-/// agree wherever both speak. Registry v1 coverage with these facts, pinned
-/// exactly so any change forces a re-measure.
+/// 7,620 source values with a full fact; the typed stage labels 2,546, of
+/// which 1,988 are admitted (a typed fact is admitted only from the outlet
+/// that is the value's source producer, `dr3::admit`); the two agree wherever
+/// both speak. Registry v2 coverage with these facts, cold folding included,
+/// pinned exactly so any change forces a re-measure.
 #[test]
 #[ignore = "needs fixtures/jina: python3 tools/fetch_jina_slice.py"]
 fn full_graph_facts_and_coverage() {
@@ -458,7 +474,12 @@ fn full_graph_facts_and_coverage() {
     };
     assert_eq!(values.len(), 7620);
     assert_eq!(full(&fs.inference), 7620);
-    assert_eq!(full(&fs.typed), 2546);
+    assert_eq!(full(&fs.typed), 1988);
+    assert!(
+        fs.rejected.iter().all(|r| r.stage == "typed"),
+        "no inference fact is rejected"
+    );
+    assert_eq!(fs.rejected.len(), 558);
     assert!(
         fs.disagreements().is_empty(),
         "{:?}",
@@ -470,6 +491,6 @@ fn full_graph_facts_and_coverage() {
             .values()
             .fold([0; 3], |a, c| [a[0] + c[0], a[1] + c[1], a[2] + c[2]])
     };
-    assert_eq!(tot(&fs.typed), [3751, 169, 3700]);
-    assert_eq!(tot(&fs.merged()), [4146, 0, 3474]);
+    assert_eq!(tot(&fs.typed), [3841, 226, 3553]);
+    assert_eq!(tot(&fs.merged()), [6404, 56, 1160]);
 }

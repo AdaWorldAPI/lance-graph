@@ -41,7 +41,9 @@ def build(variant="base"):
     if variant == "neg_where_nonzero":
         z_val = 1  # ReduceSum(Where(c, X, 1)) is not a masked sum of X
     if variant == "neg_unsupported":
-        abs_op = "Erf"  # no admitted native method
+        abs_op = "Acosh"  # no admitted native method
+    if variant == "erf":
+        abs_op = "Erf"  # admitted: ndarray::hpc::vml::vserf (Bounded)
     if variant == "neg_domain":
         domain = "com.example"  # same op_type in a foreign domain
     if variant == "div3":
@@ -64,18 +66,93 @@ def build(variant="base"):
         h.make_node("Sqrt", ["A"], ["Y"], name="n_sqrt"),
         h.make_node("Div", ["Y", "B"], ["Q"], name="n_div"),
     ]
+    outs = [h.make_tensor_value_info("S", T.INT32, []),
+            h.make_tensor_value_info("Q", T.FLOAT, [2, 3])]
+    if variant == "erf":
+        outs.append(h.make_tensor_value_info("A", T.FLOAT, [2, 3]))  # the Erf output itself
     g = h.make_graph(
         nodes, f"tiny_{variant}",
         [h.make_tensor_value_info("X", T.INT32, ["N"]),
          h.make_tensor_value_info("F", T.FLOAT, [2, 3])],
-        [h.make_tensor_value_info("S", T.INT32, []),
-         h.make_tensor_value_info("Q", T.FLOAT, [2, 3])],
+        outs,
         inits)
     imports = [h.make_opsetid("", opset)]
     if domain:
         imports.append(h.make_opsetid(domain, 1))
     m = h.make_model(g, opset_imports=imports, producer_name="d-tract-harvest-0", ir_version=8)
     return m
+
+
+def i64(name, v):
+    return nh.from_array(np.array(v, np.int64), name)
+
+
+def build_shape(variant):
+    """D-TRACT-SHAPE-1 shape plumbing.
+
+    shape_fold: T = Concat(Unsqueeze(Gather(Shape(F), 1), [0]), [-1]) is
+      [3, -1], a function of F's (known) shape only, so it folds;
+      R = Reshape(F, T) and U = Unsqueeze(F, [0]) read F's values and run.
+    shape_sym: the same chain over X float[N]: Shape(X) has a symbolic
+      dimension, nothing folds, the Reshape target is not a constant and its
+      WHEN is UNKNOWN.
+    neg_gather_index: Gather(Shape(F), 5): index outside [-2, 2).
+    neg_concat: Concat(F[2,3], G[2,2], axis=0): dimension 1 differs."""
+    inits = [i64("one", 1), i64("ax0", [0]), i64("m1", [-1])]
+    if variant == "shape_fold":
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        nodes = [
+            h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+            h.make_node("Gather", ["s", "one"], ["d"], name="n_gather", axis=0),
+            h.make_node("Unsqueeze", ["d", "ax0"], ["u"], name="n_unsq_d"),
+            h.make_node("Concat", ["u", "m1"], ["t"], name="n_concat", axis=0),
+            h.make_node("Reshape", ["F", "t"], ["R"], name="n_reshape"),
+            h.make_node("Unsqueeze", ["F", "ax0"], ["U"], name="n_unsq_f"),
+        ]
+        outs = [h.make_tensor_value_info("R", T.FLOAT, [3, 2]),
+                h.make_tensor_value_info("U", T.FLOAT, [1, 2, 3])]
+    elif variant == "shape_sym":
+        inp = [h.make_tensor_value_info("X", T.FLOAT, ["N"])]
+        inits.append(i64("zero", 0))
+        nodes = [
+            h.make_node("Shape", ["X"], ["s"], name="n_shape"),
+            h.make_node("Gather", ["s", "zero"], ["d"], name="n_gather", axis=0),
+            h.make_node("Unsqueeze", ["d", "ax0"], ["u"], name="n_unsq_d"),
+            h.make_node("Concat", ["u", "m1"], ["t"], name="n_concat", axis=0),
+            h.make_node("Reshape", ["X", "t"], ["R"], name="n_reshape"),
+        ]
+        outs = [h.make_tensor_value_info("R", T.FLOAT, ["N", 1])]
+    elif variant == "neg_gather_index":
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        inits.append(i64("five", 5))
+        nodes = [
+            h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+            h.make_node("Gather", ["s", "five"], ["d"], name="n_gather", axis=0),
+        ]
+        outs = [h.make_tensor_value_info("d", T.INT64, [])]
+    elif variant == "neg_concat":
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        inits.append(nh.from_array(np.zeros((2, 2), np.float32), "G"))
+        nodes = [h.make_node("Concat", ["F", "G"], ["C"], name="n_concat", axis=0)]
+        outs = [h.make_tensor_value_info("C", T.FLOAT, [4, 3])]
+    g = h.make_graph(nodes, f"tiny_{variant}", inp, outs, inits)
+    return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
+
+
+def build_erf_sweep():
+    g = h.make_graph([h.make_node("Erf", ["X"], ["Y"], name="n_erf")], "erf_sweep",
+                     [h.make_tensor_value_info("X", T.FLOAT, ["N"])],
+                     [h.make_tensor_value_info("Y", T.FLOAT, ["N"])])
+    return h.make_model(g, opset_imports=[h.make_opsetid("", OPSET)], producer_name="d-tract-shape-1", ir_version=8)
+
+
+def erf_sweep_inputs():
+    """A dense grid over [-6, 6] (the tails saturate past ~3.9), plus signed
+    zeros, infinities, NaN, subnormals and tiny values."""
+    grid = np.linspace(-6.0, 6.0, 4097, dtype=np.float64).astype(np.float32)
+    special = np.array([0.0, -0.0, np.inf, -np.inf, np.nan, 1e-30, -1e-30, 1e-10, -1e-10,
+                        np.float32(1.4e-45), 3.4e38, -3.4e38, 0.5, 1.0, 2.0, 3.9, 4.0, 5.0], np.float32)
+    return np.concatenate([grid, special])
 
 
 INPUTS = {
@@ -91,10 +168,25 @@ def bits(a):
     return [int(v) for v in a.ravel()]
 
 
+def dumps_compact(v, depth=0):
+    """JSON with one key per line, but every list of scalars on one line, so
+    a sweep is one line instead of one line per element."""
+    pad = " " * (depth + 1)
+    if isinstance(v, dict):
+        items = [f"{pad}{json.dumps(k)}: {dumps_compact(x, depth + 1)}" for k, x in v.items()]
+        return "{\n" + ",\n".join(items) + "\n" + " " * depth + "}" if items else "{}"
+    if isinstance(v, list) and all(not isinstance(x, (dict, list)) for x in v):
+        return json.dumps(v, separators=(",", ":"))
+    if isinstance(v, list):
+        items = [pad + dumps_compact(x, depth + 1) for x in v]
+        return "[\n" + ",\n".join(items) + "\n" + " " * depth + "]" if items else "[]"
+    return json.dumps(v)
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     manifest = {"ort_version": ort.__version__, "ort_graph_optimization_level": "ORT_DISABLE_ALL", "onnx_version": onnx.__version__, "variants": {}}
-    for v in ["base", "gen2", "div3", "neg_shape", "neg_where_nonzero", "neg_unsupported", "neg_domain"]:
+    for v in ["base", "gen2", "div3", "neg_shape", "neg_where_nonzero", "neg_unsupported", "neg_domain", "erf"]:
         m = build(v)
         data = m.SerializeToString()
         path = os.path.join(OUT, f"{v}.onnx")
@@ -109,6 +201,34 @@ def main():
         except Exception as e:  # ORT refusing a variant is itself evidence
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
+    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat"]:
+        data = build_shape(v).SerializeToString()
+        with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
+            f.write(data)
+        entry = {"sha256": hashlib.sha256(data).hexdigest()}
+        feeds = {"F": INPUTS["F"]} if v != "shape_sym" else {"X": np.arange(6, dtype=np.float32)}
+        try:
+            sess = session(data)
+            outs = sess.run(None, feeds)
+            entry["ort"] = {o.name: {"shape": list(r.shape), "dtype": str(r.dtype), "bits": bits(r)}
+                            for o, r in zip(sess.get_outputs(), outs)}
+        except Exception as e:
+            entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
+        manifest["variants"][v] = entry
+    # Erf sweep: ORT's output, and erf in f64 rounded once to f32 (the
+    # reference the ULP bound is stated against).
+    import math
+    data = build_erf_sweep().SerializeToString()
+    with open(os.path.join(OUT, "erf_sweep.onnx"), "wb") as f:
+        f.write(data)
+    xs = erf_sweep_inputs()
+    ref = np.array([math.erf(float(x)) if not math.isnan(x) else math.nan for x in xs], np.float64).astype(np.float32)
+    manifest["erf_sweep"] = {
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "X_bits": bits(xs),
+        "ort_bits": bits(session(data).run(["Y"], {"X": xs})[0]),
+        "f64_ref_bits": bits(ref),
+    }
     # div3 sweep: 256 seeded F inputs through ORT, so a property that holds for
     # some values only (Div vs Mul(recip)) is tested on a population.
     rng = np.random.default_rng(20261030)
@@ -121,7 +241,7 @@ def main():
     }
     manifest["inputs"] = {k: {"shape": list(a.shape), "dtype": str(a.dtype), "bits": bits(a)} for k, a in INPUTS.items()}
     with open(os.path.join(OUT, "ort.json"), "w") as f:
-        json.dump(manifest, f, indent=1)
+        f.write(dumps_compact(manifest) + "\n")
     print(json.dumps({k: list(v.keys()) for k, v in manifest["variants"].items()}))
 
 

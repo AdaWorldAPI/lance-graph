@@ -228,6 +228,10 @@ fn dtype_of(dt: DatumType) -> DType {
         DatumType::F16 => DType::F16,
         DatumType::I32 => DType::I32,
         DatumType::I64 => DType::I64,
+        // Tract's ONNX `Shape` (onnx/src/ops/array/shape.rs) and `Size` emit
+        // `TDim`, and ops over them keep it; the ONNX type of those values
+        // is int64 (the spec's output type of `Shape`/`Size`).
+        DatumType::TDim => DType::I64,
         DatumType::Bool => DType::Bool,
         _ => DType::Other(-1),
     }
@@ -240,9 +244,7 @@ pub fn tract_facts(
     bytes: &[u8],
     pins: &[(usize, DatumType, Vec<usize>)],
 ) -> Result<HashMap<String, Fact>, Refusal> {
-    let onnx = tract_onnx::onnx();
-    let proto = onnx.proto_model_for_read(&mut &*bytes).map_err(fe)?;
-    facts_of(onnx.model_for_proto_model(&proto).map_err(fe)?, pins)
+    Ok(tract_fact_sources(bytes, pins)?.merged())
 }
 
 /// [`tract_facts`] for a model with external data next to it: the weights
@@ -251,19 +253,26 @@ pub fn tract_facts_path(
     path: &std::path::Path,
     pins: &[(usize, DatumType, Vec<usize>)],
 ) -> Result<HashMap<String, Fact>, Refusal> {
-    let onnx = tract_onnx::onnx().with_lazy_external_data(true);
-    facts_of(onnx.model_for_path(path).map_err(fe)?, pins)
+    Ok(tract_fact_sources_path(path, pins)?.merged())
 }
 
 fn fe(e: TractError) -> Refusal {
     Refusal::Frontend(format!("{e:#}"))
 }
 
-fn facts_of(
-    m: InferenceModel,
-    pins: &[(usize, DatumType, Vec<usize>)],
-) -> Result<HashMap<String, Fact>, Refusal> {
-    Ok(fact_sources_of(m, pins)?.merged())
+/// A Tract outlet: node name and output slot.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Outlet {
+    pub node: String,
+    pub slot: usize,
+}
+
+/// A Tract fact not admitted for a source value, and why.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Rejected {
+    pub stage: &'static str,
+    pub value: String,
+    pub reason: String,
 }
 
 /// Facts from both Tract stages, kept apart so they can be compared.
@@ -274,6 +283,9 @@ fn facts_of(
 ///   dimension is not a symbol: two of them need not be equal).
 /// - `typed`: the typed model, complete per outlet but labelling only the
 ///   values that survive typing (2,546 of 7,620 on the Jina graph).
+///
+/// A Tract fact is admitted for a source value only through [`admit`]: a
+/// matching label alone is not authority. Rejections are kept in `rejected`.
 #[derive(Debug, Default)]
 pub struct FactSources {
     pub inference: HashMap<String, Fact>,
@@ -282,10 +294,13 @@ pub struct FactSources {
     /// their own (Tract refuses to type a graph with an undetermined input
     /// dimension, or more than one symbol through `Flatten`).
     pub typed_error: Option<String>,
+    pub rejected: Vec<Rejected>,
 }
 
 impl FactSources {
     /// Inference facts first; the typed fact fills a missing dtype or shape.
+    /// Both maps hold only admitted facts, so this never merges two tensors
+    /// that merely share a label.
     pub fn merged(&self) -> HashMap<String, Fact> {
         let mut out = self.inference.clone();
         for (k, t) in &self.typed {
@@ -317,14 +332,120 @@ impl FactSources {
     }
 }
 
+/// The Tract outlet each source value must come from, by Tract's own naming
+/// rule (`onnx/src/model.rs`): graph inputs and initializers are nodes named
+/// after the value; a node takes its source name, else its first output's
+/// name. `None` when that identity is not unique (two source nodes with one
+/// name) or not reproducible (an unnamed node whose first output is empty,
+/// which Tract names by a running counter).
+pub fn source_producers(src: &SourceInventory) -> HashMap<String, Option<Outlet>> {
+    let mut by_name: HashMap<String, usize> = HashMap::new();
+    let node_name = |n: &crate::source::SourceNode| {
+        if !n.name.is_empty() {
+            Some(n.name.clone())
+        } else {
+            n.outputs.first().filter(|o| !o.is_empty()).cloned()
+        }
+    };
+    for n in &src.nodes {
+        if let Some(name) = node_name(n) {
+            *by_name.entry(name).or_default() += 1;
+        }
+    }
+    for v in src
+        .inputs
+        .iter()
+        .chain(src.initializers.iter().map(|i| &i.name))
+    {
+        *by_name.entry(v.clone()).or_default() += 1;
+    }
+    let mut out: HashMap<String, Option<Outlet>> = HashMap::new();
+    let mut put = |v: &str, o: Option<Outlet>| {
+        let e = out.entry(v.to_string()).or_insert(o.clone());
+        if *e != o {
+            *e = None; // the value has two producers in the source
+        }
+    };
+    for v in src
+        .inputs
+        .iter()
+        .chain(src.initializers.iter().map(|i| &i.name))
+    {
+        put(
+            v,
+            (by_name[v] == 1).then(|| Outlet {
+                node: v.clone(),
+                slot: 0,
+            }),
+        );
+    }
+    for n in &src.nodes {
+        let name = node_name(n);
+        let unique = name.as_ref().is_some_and(|m| by_name[m] == 1);
+        for (slot, o) in n.outputs.iter().filter(|o| !o.is_empty()).enumerate() {
+            put(
+                o,
+                name.clone()
+                    .filter(|_| unique)
+                    .map(|node| Outlet { node, slot }),
+            );
+        }
+    }
+    out
+}
+
+/// Admit one stage's facts: a fact for source value `v` is kept only if
+/// exactly one outlet of the stage carries `v`'s label and that outlet is
+/// `v`'s producer (see [`source_producers`]). Labels that name no source
+/// value are Tract-internal and ignored.
+pub fn admit(
+    stage: &'static str,
+    raw: Vec<(String, Outlet, Fact)>,
+    producers: &HashMap<String, Option<Outlet>>,
+) -> (HashMap<String, Fact>, Vec<Rejected>) {
+    let mut by_label: HashMap<String, Vec<(Outlet, Fact)>> = HashMap::new();
+    for (l, o, f) in raw {
+        by_label.entry(l).or_default().push((o, f));
+    }
+    let (mut ok, mut rej) = (HashMap::new(), Vec::new());
+    let mut labels: Vec<_> = by_label.into_iter().collect();
+    labels.sort_by(|a, b| a.0.cmp(&b.0));
+    for (value, mut outs) in labels {
+        let Some(want) = producers.get(&value) else {
+            continue;
+        };
+        let reason = match (outs.len(), want) {
+            (n, _) if n > 1 => Some(format!("label carried by {n} outlets")),
+            (_, None) => Some("source producer not unique".to_string()),
+            (_, Some(w)) if outs[0].0 != *w => Some(format!(
+                "Tract outlet {:?} is not the source producer {:?}",
+                outs[0].0, w
+            )),
+            _ => None,
+        };
+        match reason {
+            Some(reason) => rej.push(Rejected {
+                stage,
+                value,
+                reason,
+            }),
+            None => {
+                ok.insert(value, outs.pop().expect("one").1);
+            }
+        }
+    }
+    (ok, rej)
+}
+
 /// Both fact sources for an in-memory model.
 pub fn tract_fact_sources(
     bytes: &[u8],
     pins: &[(usize, DatumType, Vec<usize>)],
 ) -> Result<FactSources, Refusal> {
+    let src = SourceInventory::from_bytes(bytes).map_err(|e| Refusal::Frontend(e.to_string()))?;
     let onnx = tract_onnx::onnx();
     let proto = onnx.proto_model_for_read(&mut &*bytes).map_err(fe)?;
-    fact_sources_of(onnx.model_for_proto_model(&proto).map_err(fe)?, pins)
+    fact_sources_of(&src, onnx.model_for_proto_model(&proto).map_err(fe)?, pins)
 }
 
 /// Both fact sources for a model with lazy external data.
@@ -332,18 +453,24 @@ pub fn tract_fact_sources_path(
     path: &std::path::Path,
     pins: &[(usize, DatumType, Vec<usize>)],
 ) -> Result<FactSources, Refusal> {
+    let bytes = std::fs::read(path).map_err(|e| Refusal::Frontend(e.to_string()))?;
+    let src = SourceInventory::from_bytes(&bytes).map_err(|e| Refusal::Frontend(e.to_string()))?;
     let onnx = tract_onnx::onnx().with_lazy_external_data(true);
-    fact_sources_of(onnx.model_for_path(path).map_err(fe)?, pins)
+    fact_sources_of(&src, onnx.model_for_path(path).map_err(fe)?, pins)
 }
 
-fn label<F, O>(m: &Graph<F, O>, o: OutletId) -> String
+fn outlet_of<F, O>(m: &Graph<F, O>, o: OutletId) -> (Option<String>, Outlet)
 where
     F: tract_onnx::prelude::Fact + Clone + 'static,
     O: std::fmt::Debug + std::fmt::Display + AsRef<dyn Op> + AsMut<dyn Op> + Clone + 'static,
 {
-    m.outlet_label(o)
-        .map(str::to_string)
-        .unwrap_or_else(|| m.node(o.node).name.clone())
+    (
+        m.outlet_label(o).map(str::to_string),
+        Outlet {
+            node: m.node(o.node).name.clone(),
+            slot: o.slot,
+        },
+    )
 }
 
 fn dim_of(d: &TDim) -> Dim {
@@ -352,7 +479,23 @@ fn dim_of(d: &TDim) -> Dim {
         .unwrap_or_else(|| Dim::Symbol(d.to_string()))
 }
 
+/// Tract panics on some invalid graphs: a constant `Gather` index outside the
+/// gathered dimension indexes out of bounds in `tract-core`
+/// (`ops/array/gather.rs`) during `analyse`. A panic of the cold frontend is a
+/// frontend refusal, never a crash of resolution.
+fn no_panic<T>(stage: &str, f: impl FnOnce() -> T) -> Result<T, Refusal> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).map_err(|p| {
+        let why = p
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| p.downcast_ref::<&str>().copied())
+            .unwrap_or("non-string panic");
+        Refusal::Frontend(format!("Tract panicked during {stage}: {why}"))
+    })
+}
+
 fn fact_sources_of(
+    src: &SourceInventory,
     mut m: InferenceModel,
     pins: &[(usize, DatumType, Vec<usize>)],
 ) -> Result<FactSources, Refusal> {
@@ -360,12 +503,16 @@ fn fact_sources_of(
         m.set_input_fact(*i, InferenceFact::dt_shape(*dt, shape.clone()))
             .map_err(fe)?;
     }
+    let producers = source_producers(src);
     let mut out = FactSources::default();
 
     // Inference stage: analyse without stopping at the first node it cannot
-    // type, then read whatever each labelled outlet determined.
+    // type, then read whatever each labelled outlet determined. An unlabelled
+    // outlet is identified by its node's name (Tract labels a single-output
+    // node's outlet by the node only).
     let mut inf = m.clone();
-    inf.analyse(true).map_err(fe)?;
+    no_panic("analyse", || inf.analyse(true))?.map_err(fe)?;
+    let mut raw = Vec::new();
     for node in inf.nodes() {
         for slot in 0..node.outputs.len() {
             let o = OutletId::new(node.id, slot);
@@ -383,32 +530,47 @@ fn fact_sources_of(
                 shape,
             };
             if fact.dtype.is_some() || fact.shape.is_some() {
-                out.inference.insert(label(&inf, o), fact);
+                let (label, outlet) = outlet_of(&inf, o);
+                raw.push((label.unwrap_or_else(|| outlet.node.clone()), outlet, fact));
             }
         }
     }
+    let (ok, rej) = admit("inference", raw, &producers);
+    out.inference = ok;
+    out.rejected.extend(rej);
 
     // Typed stage.
-    let m = match m.into_typed() {
-        Ok(m) => m,
-        Err(e) => {
+    let m = match no_panic("typing", || m.into_typed()) {
+        Ok(Ok(m)) => m,
+        Ok(Err(e)) => {
             out.typed_error = Some(format!("{e:#}"));
             return Ok(out);
         }
+        Err(Refusal::Frontend(e)) => {
+            out.typed_error = Some(e);
+            return Ok(out);
+        }
+        Err(e) => return Err(e),
     };
+    let mut raw = Vec::new();
     for node in m.nodes() {
         for slot in 0..node.outputs.len() {
             let o = OutletId::new(node.id, slot);
             let f = m.outlet_fact(o).map_err(fe)?;
-            out.typed.insert(
-                label(&m, o),
+            let (label, outlet) = outlet_of(&m, o);
+            raw.push((
+                label.unwrap_or_else(|| outlet.node.clone()),
+                outlet,
                 Fact {
                     dtype: Some(dtype_of(f.datum_type)),
                     shape: Some(f.shape.iter().map(dim_of).collect()),
                 },
-            );
+            ));
         }
     }
+    let (ok, rej) = admit("typed", raw, &producers);
+    out.typed = ok;
+    out.rejected.extend(rej);
     Ok(out)
 }
 
@@ -421,6 +583,87 @@ mod tests {
             dtype: Some(dt),
             shape: Some(shape.iter().map(|&d| Dim::Known(d)).collect()),
         }
+    }
+
+    fn outlet(node: &str, slot: usize) -> Outlet {
+        Outlet {
+            node: node.into(),
+            slot,
+        }
+    }
+
+    /// A Tract fact is admitted for a source value only from the value's
+    /// producer outlet, and only if one outlet carries the label: a matching
+    /// label alone is not authority. Labels that name no source value are
+    /// ignored.
+    #[test]
+    fn a_label_alone_does_not_admit_a_fact() {
+        let producers: HashMap<String, Option<Outlet>> = [
+            ("a", Some(outlet("n_a", 0))),
+            ("b", Some(outlet("n_b", 1))),
+            ("c", Some(outlet("n_c", 0))),
+            ("d", None),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v))
+        .collect();
+        let x = fact(DType::F32, &[2]);
+        let raw = vec![
+            ("a".to_string(), outlet("n_a", 0), x.clone()),
+            ("b".to_string(), outlet("n_b", 0), x.clone()),
+            ("c".to_string(), outlet("n_c", 0), x.clone()),
+            ("c".to_string(), outlet("n_c.1", 0), fact(DType::I64, &[3])),
+            ("d".to_string(), outlet("n_d", 0), x.clone()),
+            ("tract_internal".to_string(), outlet("x", 0), x.clone()),
+        ];
+        let (ok, rej) = admit("t", raw, &producers);
+        assert_eq!(ok.keys().collect::<Vec<_>>(), [&"a".to_string()]);
+        let why: Vec<(&str, &str)> = rej
+            .iter()
+            .map(|r| (r.value.as_str(), r.reason.as_str()))
+            .collect();
+        assert_eq!(why.len(), 3, "{why:?}");
+        assert!(why[0].0 == "b" && why[0].1.contains("is not the source producer"));
+        assert_eq!(why[1], ("c", "label carried by 2 outlets"));
+        assert_eq!(why[2], ("d", "source producer not unique"));
+    }
+
+    /// Tract's naming: a named node, else its first output; a duplicated
+    /// name or an unnamed node without a first output has no producer.
+    #[test]
+    fn source_producers_follow_tract_naming() {
+        use crate::source::SourceNode;
+        let n = |name: &str, outs: &[&str]| SourceNode {
+            name: name.into(),
+            op_type: "Abs".into(),
+            domain: String::new(),
+            inputs: vec!["x".into()],
+            outputs: outs.iter().map(|s| s.to_string()).collect(),
+            attributes: vec![],
+            attrs: vec![],
+        };
+        let src = SourceInventory {
+            nodes: vec![
+                n("p", &["v1", "", "v2"]),
+                n("", &["v3"]),
+                n("dup", &["v4"]),
+                n("dup", &["v5"]),
+                n("", &["", "v6"]),
+            ],
+            inputs: vec!["x".into()],
+            model_sha256: String::new(),
+            ir_version: 8,
+            opsets: vec![],
+            initializers: vec![],
+            outputs: vec![],
+        };
+        let p = source_producers(&src);
+        assert_eq!(p["x"], Some(outlet("x", 0)));
+        assert_eq!(p["v1"], Some(outlet("p", 0)));
+        assert_eq!(p["v2"], Some(outlet("p", 1)), "empty outputs take no slot");
+        assert_eq!(p["v3"], Some(outlet("v3", 0)));
+        assert_eq!((p["v4"].clone(), p["v5"].clone()), (None, None));
+        assert_eq!(p["v6"], None);
     }
 
     /// `disagreements` reports a dtype or shape conflict and stays silent on
