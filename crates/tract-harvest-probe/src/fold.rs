@@ -121,6 +121,10 @@ pub struct Folded {
     pub values: HashMap<String, Value>,
     /// Foldable by dependency (Const or Shape) but not folded, with the reason.
     pub blocked: Vec<(usize, String)>,
+    /// Nodes whose DO refused on their constant inputs (an int64 overflow, a
+    /// zero divisor): the refusal holds for every run, so resolution reports
+    /// it instead of scheduling the node.
+    pub refused: Vec<(usize, crate::registry::Refusal)>,
 }
 
 impl Folded {
@@ -181,7 +185,10 @@ pub fn fold(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Reg
             // Skips work only: a Symbolic or Data node never has every
             // input known, so it could not fold anyway (measured: removing
             // this test changes no result).
-            if out.nodes.contains(&n) || node_dep[n] > Dep::Shape {
+            if out.nodes.contains(&n)
+                || node_dep[n] > Dep::Shape
+                || out.refused.iter().any(|(r, _)| *r == n)
+            {
                 continue;
             }
             let args: Vec<Option<&Fact>> = node.inputs.iter().map(|i| facts.get(i)).collect();
@@ -218,7 +225,13 @@ pub fn fold(src: &SourceInventory, facts: &HashMap<String, Fact>, registry: &Reg
                 if present.len() != node.inputs.iter().filter(|i| !i.is_empty()).count() {
                     None
                 } else {
-                    (reg.do_)(&present, node).ok()
+                    match (reg.do_)(&present, node) {
+                        Ok(v) => Some(v),
+                        Err(e) => {
+                            out.refused.push((n, e));
+                            None
+                        }
+                    }
                 }
             };
             if let Some(vals) = vals {

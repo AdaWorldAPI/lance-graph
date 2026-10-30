@@ -171,6 +171,28 @@ def build_shape(variant):
             h.make_node("Range", ["r0", "n3", "r1"], ["RG"], name="n_range"),
         ]
         outs = [h.make_tensor_value_info(o, T.INT64, None) for o in ["DV", "ML", "AD", "SB", "RG"]]
+    elif variant == "i64_data":
+        # int64 arithmetic on a run-time input: the DO runs per run, and a
+        # run whose values overflow refuses.
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3]),
+               h.make_tensor_value_info("I", T.INT64, [2])]
+        nodes = [h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+                 h.make_node("Mul", ["I", "s"], ["MI"], name="n_mul")]
+        outs = [h.make_tensor_value_info("MI", T.INT64, [2])]
+    elif variant in ("neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"):
+        inp = [h.make_tensor_value_info("F", T.FLOAT, [2, 3])]
+        node = {
+            "neg_i64_overflow": (h.make_node("Mul", ["s", "k"], ["Y"], name="n_bad"), i64("k", [2**62, 1])),
+            "neg_i64_div0": (h.make_node("Div", ["s", "k"], ["Y"], name="n_bad"), i64("k", [1, 0])),
+            "neg_range_zero": (h.make_node("Range", ["r0", "n3", "k"], ["Y"], name="n_bad"), i64("k", 0)),
+            "neg_i64_bcast": (h.make_node("Add", ["s", "k"], ["Y"], name="n_bad"),
+                              nh.from_array(np.array([[1], [2]], np.int64), "k")),
+        }[variant]
+        inits += [node[1], i64("r0", 0), i64("r1", 1)]
+        nodes = [h.make_node("Shape", ["F"], ["s"], name="n_shape"),
+                 h.make_node("Gather", ["s", "r1"], ["n3"], name="n_gather", axis=0),
+                 node[0]]
+        outs = [h.make_tensor_value_info("Y", T.INT64, None)]
     elif variant in ("lstm_skip", "lstm_full"):
         # An omitted optional output before a present one: Tract numbers a
         # node's outlets after dropping empty names (onnx/src/model.rs:150).
@@ -249,14 +271,21 @@ def main():
         except Exception as e:  # ORT refusing a variant is itself evidence
             entry["ort_error"] = type(e).__name__ + ": " + str(e).splitlines()[0][:200]
         manifest["variants"][v] = entry
-    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith"]:
+    for v in ["shape_fold", "shape_sym", "neg_gather_index", "neg_concat", "shape_i64", "lstm_skip", "lstm_full", "i64_arith",
+              "i64_data", "neg_i64_overflow", "neg_i64_div0", "neg_range_zero", "neg_i64_bcast"]:
         data = build_shape(v).SerializeToString()
         with open(os.path.join(OUT, f"{v}.onnx"), "wb") as f:
             f.write(data)
         entry = {"sha256": hashlib.sha256(data).hexdigest()}
         feeds = {"shape_sym": {"X": np.arange(6, dtype=np.float32)},
                  "lstm_skip": {"X": np.ones((5, 1, 3), np.float32)},
-                 "lstm_full": {"X": np.ones((5, 1, 3), np.float32)}}.get(v, {"F": INPUTS["F"]})
+                 "lstm_full": {"X": np.ones((5, 1, 3), np.float32)},
+                 "i64_data": {"F": INPUTS["F"], "I": np.array([-4, 5], np.int64)}}.get(v, {"F": INPUTS["F"]})
+        if v == "neg_i64_div0":
+            # An integer zero divisor is undefined behaviour in ORT's kernel;
+            # it is not run. The refusal here needs no oracle.
+            manifest["variants"][v] = entry
+            continue
         try:
             sess = session(data)
             outs = sess.run(None, feeds)

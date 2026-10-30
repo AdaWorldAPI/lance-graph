@@ -881,30 +881,105 @@ fn an_omitted_optional_output_does_not_shift_the_producer() {
     );
 }
 
-/// int64 shape arithmetic is refused until ndarray supplies checked words
-/// (the D-TRACT-SHAPE-1 ndarray ask): `Div` must truncate toward zero and
-/// refuse a zero divisor; `Mul`/`Add`/`Sub` must refuse overflow; `Range`
-/// must refuse a zero step. ORT's outputs for this fixture are frozen in
-/// `ort.json` (`i64_arith`) as the oracle for the registration that follows.
+/// The whole int64 shape-arithmetic chain (Shape → Div/Mul/Add/Sub,
+/// Gather → Range) folds through admitted methods on
+/// `ndarray::hpc::checked_i64` and matches ORT exactly. Div truncates toward
+/// zero (`-7 / 2 = -3`).
 #[test]
-fn int64_arithmetic_is_refused_until_checked_words_exist() {
-    let o = ort();
-    let e = &o["variants"]["i64_arith"]["ort"];
-    assert_eq!(
-        e["DV"]["bits"],
-        serde_json::json!([-3, 2]),
-        "Div truncates toward zero"
-    );
+fn int64_arithmetic_folds_and_matches_ort() {
     let reg = registry();
-    match plan("i64_arith", &reg).1 {
-        Err(Refusal::Unregistered { node, signature }) => {
-            assert_eq!(node, "n_div");
-            assert!(
-                signature.starts_with("ai.onnx:Div(Some(I64))"),
-                "{signature}"
-            );
+    let (fx, p) = plan("i64_arith", &reg);
+    let p = p.unwrap();
+    let folded: Vec<(&str, u16)> = p
+        .folded
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(
+        folded,
+        [
+            ("n_shape", 0x0F60),
+            ("n_div", 0x0F79),
+            ("n_mul", 0x0F78),
+            ("n_add", 0x0F76),
+            ("n_sub", 0x0F77),
+            ("n_gather", 0x0F64),
+            ("n_range", 0x0F7A)
+        ]
+    );
+    assert!(p.steps.is_empty(), "{:?}", p.steps);
+    let out = p.run(&fx.store, &[("F", f_input())]).unwrap();
+    for k in ["DV", "ML", "AD", "SB", "RG"] {
+        assert_eq!(ints(&out, k), ort_ints("i64_arith", k), "{k}");
+    }
+    assert_eq!(ints(&out, "DV").1, [-3, 2], "Div truncates toward zero");
+}
+
+/// int64 arithmetic on a run-time input stays a step and runs per run; a run
+/// whose values overflow refuses (ORT wraps: `neg_i64_overflow` records
+/// `i64::MIN` for `2 * 2^62`).
+#[test]
+fn int64_arithmetic_on_data_runs_and_refuses_overflow() {
+    let reg = registry();
+    let (fx, p) = plan("i64_data", &reg);
+    let p = p.unwrap();
+    let steps: Vec<(&str, u16)> = p
+        .steps
+        .iter()
+        .map(|b| (b.name.as_str(), b.classid))
+        .collect();
+    assert_eq!(steps, [("n_mul", 0x0F78)]);
+    let i = |v: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(&[2]), v).unwrap());
+    let out = p
+        .run(&fx.store, &[("F", f_input()), ("I", i(vec![-4, 5]))])
+        .unwrap();
+    assert_eq!(ints(&out, "MI"), ort_ints("i64_data", "MI"));
+    match p.run(&fx.store, &[("F", f_input()), ("I", i(vec![i64::MAX, 1]))]) {
+        Err(Refusal::Runtime { node, what }) => {
+            assert_eq!(node, "n_mul");
+            assert!(what.contains("verflow"), "{what}");
         }
         other => panic!("{:?}", other.map(|_| ())),
+    }
+}
+
+/// Invalid constant arithmetic refuses the plan instead of leaving the node
+/// unfolded: overflow (ORT wraps it), a zero divisor (undefined in ORT), a
+/// zero Range step (ORT refuses too), and a broadcast this registration does
+/// not admit (`[2]` against `[2, 1]`).
+#[test]
+fn invalid_int64_arithmetic_refuses() {
+    let reg = registry();
+    assert_eq!(
+        ort()["variants"]["neg_i64_overflow"]["ort"]["Y"]["bits"],
+        serde_json::json!([i64::MIN, 3]),
+        "ORT wraps on overflow"
+    );
+    for (v, want) in [("neg_i64_overflow", "verflow"), ("neg_i64_div0", "by zero")] {
+        match plan(v, &reg).1 {
+            Err(Refusal::Runtime { node, what }) => {
+                assert_eq!(node, "n_bad", "{v}");
+                assert!(what.contains(want), "{v}: {what}");
+            }
+            other => panic!("{v}: {:?}", other.map(|_| ())),
+        }
+    }
+    for (v, classid) in [("neg_range_zero", 0x0F7A), ("neg_i64_bcast", 0x0F76)] {
+        match plan(v, &reg).1 {
+            Err(Refusal::When {
+                node,
+                classid: c,
+                truth,
+                ..
+            }) => {
+                assert_eq!(
+                    (node.as_str(), c, truth),
+                    ("n_bad", classid, K3::False),
+                    "{v}"
+                );
+            }
+            other => panic!("{v}: {:?}", other.map(|_| ())),
+        }
     }
 }
 
