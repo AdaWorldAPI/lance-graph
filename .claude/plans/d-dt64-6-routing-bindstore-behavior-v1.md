@@ -267,3 +267,11 @@ Not done: wiring OGAR's `CapabilityAuthority` (D6, the production route for cons
 In the test, XLOG's per-Y count is three Calls into one algebra lens: group-count twice, then checked i64 Mul. That binds two classes in total; no algebra item gets a classid. Route targets stay bare classids (XLOG: a per-route mask would break D5). Open, with the owners: whether tract-harvest-probe's per-op lab classids (`0x0F01…`) become entries under one lens (EXO-50 message 27); the `MethodSignature` vs `MethodRef` identity (dr-math owner); where the ONNX/XLOG algebra entries are registered.
 
 **A.5 addendum 2 (2026-10-30, XLOG correction).** A Call had no operands, so the stored binding could not tell XLOG's count from one that counts R twice. Fix: `Effect { target, op, args: Vec<Arg> }`, where `Arg` is `Field(u8)` (a position checked against the caller's basis) or `Const(i64)` (a key column, a lane). `MethodBinding::inputs` is part of the entry's signature, and a Call passing another arity is refused at registration (`ArityMismatch` inside `CallRefused`). XLOG's count: `cnt_r = Call(group-count, [r, key 1])`, `cnt_s = Call(group-count, [s, key 0])`, `count = Call(Mul i64, [cnt_r, cnt_s])`. `demand` stays `Values`, because the key column is read as a value; that is stated here, not settled.
+
+**A.5 addendum 3 (2026-10-30, operator).** "The classid switches the behaviour, labels and polyfill over otherwise agnostic addresses or algebra methods." Addendum 1 gave the algebra its own lens classid and had consumers reach it by a class-to-class `Call`, which was wrong. Now:
+- The algebra is a classid-free catalogue in the store: `AlgebraEntry { id: AlgebraId, sig_rev, polyfill, inputs }`, declared once with `declare_algebra`, immutable, and versioned in DT directly. This is D6: "global behaviour needs no classid".
+- A consumer classid switches labels (its `ClassView`) and polyfill (`Effect { target, algebra: AlgebraRef, args }`) over those entries. `register` refuses `UnknownAlgebra`, `AlgebraRevisionMismatch` and `ArityMismatch`.
+- `users_of(AlgebraId)` lists the classids that use an entry.
+- `EffectOp::Call` and `MethodBinding::inputs` are removed.
+
+In the test, XLOG's count and an ONNX `Mul(int64)` node reuse the same entry under their own classids; only the two consumers carry classids.

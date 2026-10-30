@@ -52,8 +52,16 @@
 //! field basis is the [`ClassView`] of its concept half ([`view_class`], the
 //! codebook's own `classid_concept` split), labels are resolved late through
 //! that view, and its entries are the [`MethodId`]s inside it. A codebook item
-//! never gets a classid of its own; another class reuses it by reference
-//! ([`EffectOp::Call`]).
+//! never gets a classid of its own.
+//!
+//! # Agnostic algebra, switched by the classid
+//!
+//! Addresses and algebra methods are agnostic. The algebra catalogue
+//! ([`AlgebraEntry`], [`BindStore::declare_algebra`]) is classid-free global
+//! behaviour (D-DT64-6 D6). A classid switches labels (its [`ClassView`]) and
+//! polyfill (its bindings' [`Effect`]s, each an [`AlgebraRef`] with ordered
+//! operands) over them. Two consumers reuse one entry by referring to the
+//! same [`AlgebraId`]; [`BindStore::users_of`] lists them.
 //!
 //! [`ActionDef::object_class`]: lance_graph_contract::action::ActionDef::object_class
 //! [`ClassMethods::classid`]: lance_graph_contract::codegen_manifest::ClassMethods::classid
@@ -86,31 +94,53 @@ pub struct SchemaRev(pub u32);
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
-/// A reference to the polyfill that carries out one effect (D4: classid →
-/// polyfill over mask-risc / ndarray; odoo-rs #46 `algebra_ref`). Opaque to
-/// this store: it is compared, never resolved or run.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AlgebraRef(String);
+/// A classid-free algebra method: global behaviour (D-DT64-6 D6, "global
+/// behaviour needs no classid and lives in lance-graph"). Addresses and
+/// algebra methods are agnostic; a classid's binding is what switches labels
+/// and polyfill over them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AlgebraId(pub u32);
+
+/// One entry of the algebra catalogue: the polyfill (D4: over mask-risc /
+/// ndarray) named by reference, how many operands it takes, and its signature
+/// revision. Immutable once declared; versioned in the store directly (D6).
+/// The store never resolves or runs the polyfill.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AlgebraEntry {
+    pub id: AlgebraId,
+    pub sig_rev: SigRev,
+    pub polyfill: String,
+    pub inputs: u8,
+}
+
+/// What a class binds an effect to: an algebra entry at the signature
+/// revision it was bound against.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AlgebraRef {
+    pub id: AlgebraId,
+    pub sig_rev: SigRev,
+}
 
 impl AlgebraRef {
-    pub fn new(name: impl Into<String>) -> AlgebraRef {
-        AlgebraRef(name.into())
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
+    /// The faithful reference to `entry`.
+    pub fn of(entry: &AlgebraEntry) -> AlgebraRef {
+        AlgebraRef {
+            id: entry.id,
+            sig_rev: entry.sig_rev,
+        }
     }
 }
 
-/// One DO step: which field position of the class it writes, and what writes
-/// it. A method's effects are an ORDERED list.
+/// One DO step: which field position of the class it writes, the algebra
+/// entry that writes it, and what it reads. A method's effects are an ORDERED
+/// list.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Effect {
     /// Field position in the class basis (the `WideFieldMask` bit).
     pub target: u8,
-    pub op: EffectOp,
+    pub algebra: AlgebraRef,
     /// What the step reads, in order. Order is load-bearing (a `Sub` or a
-    /// keyed count), so two steps with the same op and different arguments
+    /// keyed count), so two steps with the same entry and different arguments
     /// are different steps.
     pub args: Vec<Arg>,
 }
@@ -118,23 +148,10 @@ pub struct Effect {
 /// One input of an effect.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Arg {
-    /// A field position of the calling class (checked against its basis).
+    /// A field position of the bound class (checked against its basis).
     Field(u8),
     /// A constant parameter: a key column index, a lane.
     Const(i64),
-}
-
-/// What carries out one effect.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EffectOp {
-    /// A polyfill named by reference; compared, never resolved or run here.
-    Algebra(AlgebraRef),
-    /// An entry of another class's codebook, reused by reference: the method
-    /// `(class, MethodId)` at its signature revision with its guard witness.
-    /// Admitted against the store when the calling class registers, so an
-    /// unknown or stale callee is refused then, never at run time. A class
-    /// cannot call itself: it is not bound yet while it registers.
-    Call(MethodRef),
 }
 
 /// WHEN: a guard over the population, stated as the set description Quack's
@@ -193,9 +210,6 @@ pub struct MethodBinding {
     /// The source name (`MethodSig::name`, `ActionDef::predicate`). Carried,
     /// never used as identity.
     pub name: String,
-    /// How many arguments a [`EffectOp::Call`] of this method passes. Part of
-    /// the signature: a change is a new [`SigRev`].
-    pub inputs: u8,
     /// ON: the field positions whose change triggers the method.
     pub on: WideFieldMask,
     /// WHEN: `None` for an unguarded method.
@@ -313,19 +327,30 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
-    /// A call passes another number of arguments than the entry takes.
+    /// An effect names an algebra entry the catalogue does not hold.
+    UnknownAlgebra {
+        class: u32,
+        method: MethodId,
+        algebra: AlgebraId,
+    },
+    /// An effect was bound against another revision of the entry.
+    AlgebraRevisionMismatch {
+        class: u32,
+        method: MethodId,
+        algebra: AlgebraId,
+        bound: SigRev,
+        asked: SigRev,
+    },
+    /// An effect passes another number of operands than the entry takes.
     ArityMismatch {
         class: u32,
         method: MethodId,
+        algebra: AlgebraId,
         expected: u8,
         got: usize,
     },
-    /// An [`EffectOp::Call`] was not admitted; `callee` says why.
-    CallRefused {
-        class: u32,
-        method: MethodId,
-        callee: Box<Refusal>,
-    },
+    /// The algebra entry is already declared with other content.
+    AlgebraImmutable(AlgebraId),
     /// No classid was routed to the position at that version.
     Unrouted {
         position: u16,
@@ -369,6 +394,8 @@ impl<'s> Resolved<'s, '_> {
 #[derive(Debug, Clone, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
+    /// The classid-free algebra catalogue (D6).
+    algebra: BTreeMap<AlgebraId, AlgebraEntry>,
     /// Per position, the route events in version order: `(version, class)`,
     /// `None` for a retract.
     routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
@@ -419,21 +446,29 @@ impl BindStore {
         validate(class, &schema, &methods)?;
         for m in &methods {
             for e in &m.effects {
-                if let EffectOp::Call(callee) = &e.op {
-                    let refused = |r| Refusal::CallRefused {
+                let (method, algebra) = (m.id, e.algebra.id);
+                let entry = self.algebra.get(&algebra).ok_or(Refusal::UnknownAlgebra {
+                    class,
+                    method,
+                    algebra,
+                })?;
+                if entry.sig_rev != e.algebra.sig_rev {
+                    return Err(Refusal::AlgebraRevisionMismatch {
                         class,
-                        method: m.id,
-                        callee: Box::new(r),
-                    };
-                    let entry = self.admit(callee).map_err(refused)?;
-                    if usize::from(entry.inputs) != e.args.len() {
-                        return Err(refused(Refusal::ArityMismatch {
-                            class: callee.class,
-                            method: callee.method,
-                            expected: entry.inputs,
-                            got: e.args.len(),
-                        }));
-                    }
+                        method,
+                        algebra,
+                        bound: entry.sig_rev,
+                        asked: e.algebra.sig_rev,
+                    });
+                }
+                if usize::from(entry.inputs) != e.args.len() {
+                    return Err(Refusal::ArityMismatch {
+                        class,
+                        method,
+                        algebra,
+                        expected: entry.inputs,
+                        got: e.args.len(),
+                    });
                 }
             }
         }
@@ -452,18 +487,32 @@ impl BindStore {
         }
     }
 
-    /// Every `(class, method)` whose DO calls an entry of `class`: who reuses
-    /// that lens.
-    pub fn callers_of(&self, class: u32) -> Vec<(u32, MethodId)> {
+    /// Declare a classid-free algebra entry. Idempotent for an identical
+    /// entry; any other content under a declared id is refused.
+    pub fn declare_algebra(&mut self, entry: AlgebraEntry) -> Result<(), Refusal> {
+        match self.algebra.get(&entry.id) {
+            Some(bound) if *bound == entry => Ok(()),
+            Some(_) => Err(Refusal::AlgebraImmutable(entry.id)),
+            None => {
+                self.algebra.insert(entry.id, entry);
+                Ok(())
+            }
+        }
+    }
+
+    /// The algebra entry `id`, if declared.
+    pub fn algebra(&self, id: AlgebraId) -> Option<&AlgebraEntry> {
+        self.algebra.get(&id)
+    }
+
+    /// Every `(classid, method)` whose DO uses algebra entry `id`: which
+    /// classids switch over it.
+    pub fn users_of(&self, id: AlgebraId) -> Vec<(u32, MethodId)> {
         let mut out = Vec::new();
-        for (&caller, entry) in &self.classes {
+        for (&class, entry) in &self.classes {
             for m in &entry.methods {
-                let calls = m
-                    .effects
-                    .iter()
-                    .any(|e| matches!(&e.op, EffectOp::Call(r) if r.class == class));
-                if calls {
-                    out.push((caller, m.id));
+                if m.effects.iter().any(|e| e.algebra.id == id) {
+                    out.push((class, m.id));
                 }
             }
         }

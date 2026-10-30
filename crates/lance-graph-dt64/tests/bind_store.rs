@@ -6,8 +6,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, EffectOp, Guard, MethodBinding,
-    MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    view_class, AlgebraEntry, AlgebraId, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard,
+    MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 
 /// A ClassView with one class of `n` fields; `n` can be changed to model a
@@ -56,10 +56,56 @@ fn schema(rev: u32, fields: usize) -> ClassSchema {
     }
 }
 
+/// The classid-free algebra catalogue the tests bind against (lab ids).
+const ASSIGN: AlgebraId = AlgebraId(1);
+const ACCUMULATE: AlgebraId = AlgebraId(2);
+const GROUP_COUNT: AlgebraId = AlgebraId(10);
+const MUL_I64: AlgebraId = AlgebraId(11);
+
+fn entry(id: AlgebraId, polyfill: &str, inputs: u8) -> AlgebraEntry {
+    AlgebraEntry {
+        id,
+        sig_rev: SigRev(1),
+        polyfill: polyfill.to_string(),
+        inputs,
+    }
+}
+
+/// A store holding only the algebra catalogue: no classid anywhere.
+fn catalogue() -> BindStore {
+    let mut s = BindStore::new();
+    for e in [
+        entry(ASSIGN, "assign", 0),
+        entry(ACCUMULATE, "accumulate", 0),
+        // (relation field, key column)
+        entry(GROUP_COUNT, "ndarray::simd::masked_group_count_u32", 2),
+        entry(
+            MUL_I64,
+            "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
+            2,
+        ),
+    ] {
+        s.declare_algebra(e).unwrap();
+    }
+    s
+}
+
+fn uses(id: AlgebraId) -> AlgebraRef {
+    AlgebraRef {
+        id,
+        sig_rev: SigRev(1),
+    }
+}
+
 fn effect(target: u8, algebra: &str) -> Effect {
+    let id = match algebra {
+        "assign" => ASSIGN,
+        "accumulate" => ACCUMULATE,
+        other => panic!("no lab entry {other}"),
+    };
     Effect {
         target,
-        op: EffectOp::Algebra(AlgebraRef::new(algebra)),
+        algebra: uses(id),
         args: vec![],
     }
 }
@@ -71,7 +117,6 @@ fn method(id: u32, effects: Vec<Effect>) -> MethodBinding {
         id: MethodId(id),
         sig_rev: SigRev(1),
         name: format!("m{id}"),
-        inputs: 0,
         on: WideFieldMask::from_positions(&[0]),
         when: Some(Guard::new(SetExpr::eq_u32(1, 1), Logic::Kleene)),
         reads: WideFieldMask::from_positions(&[0, 1]),
@@ -83,7 +128,7 @@ fn method(id: u32, effects: Vec<Effect>) -> MethodBinding {
 }
 
 fn store_with_order() -> BindStore {
-    let mut s = BindStore::new();
+    let mut s = catalogue();
     s.register(
         ORDER,
         schema(1, 4),
@@ -232,7 +277,7 @@ fn routes_and_derivations_need_bound_classes() {
 /// guard refuses.
 #[test]
 fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard_refuses() {
-    let mut s = BindStore::new();
+    let mut s = catalogue();
     let a = method(20, vec![effect(2, "assign"), effect(2, "accumulate")]);
     let b = method(21, vec![effect(2, "accumulate"), effect(2, "assign")]);
     // The negative mold: equal unordered read and write sets.
@@ -255,14 +300,8 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
     // Each faithful reference admits its own binding with its own order.
     let ra = MethodRef::of(ORDER, &a);
     let rb = MethodRef::of(ORDER, &b);
-    assert_eq!(
-        s.admit(&ra).unwrap().effects[0].op,
-        EffectOp::Algebra(AlgebraRef::new("assign"))
-    );
-    assert_eq!(
-        s.admit(&rb).unwrap().effects[0].op,
-        EffectOp::Algebra(AlgebraRef::new("accumulate"))
-    );
+    assert_eq!(s.admit(&ra).unwrap().effects[0].algebra.id, ASSIGN);
+    assert_eq!(s.admit(&rb).unwrap().effects[0].algebra.id, ACCUMULATE);
 
     // A route that dropped the guard witness refuses.
     let dropped = MethodRef {
@@ -307,7 +346,7 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
 /// A guard on an unguarded method is not a witness either.
 #[test]
 fn a_guard_added_to_an_unguarded_method_refuses() {
-    let mut s = BindStore::new();
+    let mut s = catalogue();
     let free = MethodBinding {
         when: None,
         ..method(30, vec![effect(2, "assign")])
@@ -382,7 +421,7 @@ fn schema_revision_and_field_basis_are_checked() {
 /// basis wider than a `WideFieldMask` addresses.
 #[test]
 fn registration_refuses_ambiguity_and_out_of_basis_positions() {
-    let mut s = BindStore::new();
+    let mut s = catalogue();
     assert_eq!(
         s.register(
             ORDER,
@@ -443,7 +482,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
 /// because admitting a counted population is the binder's call, not DT's.
 #[test]
 fn population_truth_and_demand_ride_the_binding() {
-    let mut s = BindStore::new();
+    let mut s = catalogue();
     let count = MethodBinding {
         population: Population::Bag,
         truth: Truth::TwoValued,
@@ -485,86 +524,37 @@ fn the_lens_is_the_classids_concept_half() {
     );
 }
 
-/// Lab stand-ins: one algebra lens whose entries are two native leaves, and
-/// one consumer lens (XLOG's per-Y count). No classid per algebra item.
-const ALG: u32 = 0x7F02_0001;
+/// Lab consumer classids. Each switches labels (its own ClassView) and
+/// polyfill (its bindings) over the shared, classid-free algebra.
 const XLOG: u32 = 0x7F01_0001;
-const GROUP_COUNT: MethodId = MethodId(1);
-const MUL_I64: MethodId = MethodId(2);
+const ONNX: u32 = 0x7F03_0001;
 
-fn leaf(id: MethodId, native: &str, inputs: u8) -> MethodBinding {
-    MethodBinding {
-        id,
-        sig_rev: SigRev(1),
-        name: native.to_string(),
-        inputs,
-        on: WideFieldMask::from_positions(&[]),
-        when: None,
-        reads: WideFieldMask::from_positions(&[]),
-        effects: vec![effect(0, native)],
-        population: Population::Distinct,
-        truth: Truth::TwoValued,
-        demand: ValueDemand::Values,
-    }
-}
-
-fn algebra_store() -> BindStore {
-    let mut s = BindStore::new();
-    s.register(
-        ALG,
-        schema(1, 1),
-        vec![
-            // (relation field, key column)
-            leaf(GROUP_COUNT, "ndarray::simd::masked_group_count_u32", 2),
-            leaf(
-                MUL_I64,
-                "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
-                2,
-            ),
-        ],
-    )
-    .unwrap();
-    s
-}
-
-fn call(s: &BindStore, class: u32, method: MethodId) -> EffectOp {
-    let entry = MethodRef {
-        class,
-        method,
-        sig_rev: SigRev(1),
-        guard: None,
-    };
-    s.admit(&entry).unwrap();
-    EffectOp::Call(entry)
-}
-
-/// XLOG's count `q(Y) :- r(X,Y), s(Y,Z)`: fields r=0, s=1, two counts 2 and
-/// 3, the product 4. Its DO calls the algebra lens's entries in order.
-fn xlog_count(s: &BindStore) -> MethodBinding {
+/// XLOG's count `q(Y) :- r(X,Y), s(Y,Z)`: fields r=0, s=1, the counts 2 and 3,
+/// the product 4.
+fn xlog_count() -> MethodBinding {
     MethodBinding {
         id: MethodId(1),
         sig_rev: SigRev(1),
         name: "count q(Y)".to_string(),
-        inputs: 0,
         on: WideFieldMask::from_positions(&[0, 1]),
         when: None,
         reads: WideFieldMask::from_positions(&[0, 1]),
         effects: vec![
+            // R keyed by its y column (1)
             Effect {
                 target: 2,
-                op: call(s, ALG, GROUP_COUNT),
-                // R keyed by its y column (1)
+                algebra: uses(GROUP_COUNT),
                 args: vec![Arg::Field(0), Arg::Const(1)],
             },
+            // S keyed by its y column (0)
             Effect {
                 target: 3,
-                op: call(s, ALG, GROUP_COUNT),
-                // S keyed by its y column (0)
+                algebra: uses(GROUP_COUNT),
                 args: vec![Arg::Field(1), Arg::Const(0)],
             },
             Effect {
                 target: 4,
-                op: call(s, ALG, MUL_I64),
+                algebra: uses(MUL_I64),
                 args: vec![Arg::Field(2), Arg::Field(3)],
             },
         ],
@@ -574,106 +564,71 @@ fn xlog_count(s: &BindStore) -> MethodBinding {
     }
 }
 
+/// An ONNX `Mul(int64)` node: fields a=0, b=1, y=2.
+fn onnx_mul() -> MethodBinding {
+    MethodBinding {
+        name: "Mul(int64)".to_string(),
+        effects: vec![Effect {
+            target: 2,
+            algebra: uses(MUL_I64),
+            args: vec![Arg::Field(0), Arg::Field(1)],
+        }],
+        population: Population::Distinct,
+        ..xlog_count()
+    }
+}
+
 #[test]
-fn a_consumer_reuses_algebra_entries_by_reference() {
-    let mut s = algebra_store();
-    let count = xlog_count(&s);
-    s.register(XLOG, schema(1, 5), vec![count.clone()]).unwrap();
+fn consumers_switch_over_shared_classid_free_algebra() {
+    let mut s = catalogue();
+    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    s.register(ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
 
-    assert_eq!(s.callers_of(ALG), vec![(XLOG, MethodId(1))]);
-    assert!(s.callers_of(XLOG).is_empty());
-    let got = s.admit(&MethodRef::of(XLOG, &count)).unwrap();
-    let callees: Vec<MethodId> = got
-        .effects
-        .iter()
-        .map(|e| match &e.op {
-            EffectOp::Call(r) => r.method,
-            EffectOp::Algebra(_) => panic!("XLOG declares no algebra of its own"),
-        })
-        .collect();
-    assert_eq!(callees, vec![GROUP_COUNT, GROUP_COUNT, MUL_I64]);
-    // Two classes bound, not one per algebra item.
-    assert_eq!(s.class_count(), 2);
-
-    // The reused lens cannot change under its caller (D5).
+    // One algebra entry, reused by both classids; nothing minted for it.
     assert_eq!(
-        s.register(ALG, schema(1, 1), vec![leaf(GROUP_COUNT, "other", 2)]),
-        Err(Refusal::BehaviourImmutable(ALG))
+        s.users_of(MUL_I64),
+        vec![(XLOG, MethodId(1)), (ONNX, MethodId(1))]
+    );
+    assert_eq!(s.users_of(GROUP_COUNT), vec![(XLOG, MethodId(1))]);
+    assert!(s.users_of(ASSIGN).is_empty());
+    assert_eq!(s.class_count(), 2, "only the consumers carry classids");
+    assert_eq!(
+        s.algebra(MUL_I64).unwrap().polyfill,
+        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)"
+    );
+
+    // The classid switches the labels: each reads its own lens.
+    let xv = View::with_fields(view_class(XLOG), 5);
+    let ov = View::with_fields(view_class(ONNX), 3);
+    assert_eq!(s.resolve(&xv, XLOG, SchemaRev(1)).unwrap().fields.len(), 5);
+    assert_eq!(s.resolve(&ov, ONNX, SchemaRev(1)).unwrap().fields.len(), 3);
+    assert!(
+        s.resolve(&ov, XLOG, SchemaRev(1)).is_err(),
+        "not XLOG's lens"
     );
 }
 
-/// A call is admitted when the caller registers: an unknown entry, a stale
-/// signature revision, an unbound lens and a dropped guard are refused then,
-/// and the caller is not bound.
+/// An algebra entry is immutable once declared (D5 applied to D6).
 #[test]
-fn a_call_to_an_unknown_or_stale_entry_is_refused_at_registration() {
-    let refused = |s: &mut BindStore, callee: MethodRef| {
-        let m = MethodBinding {
-            effects: vec![Effect {
-                target: 2,
-                op: EffectOp::Call(callee),
-                args: vec![Arg::Const(0), Arg::Const(0)],
-            }],
-            ..method(5, vec![])
-        };
-        s.register(XLOG, schema(1, 5), vec![m]).unwrap_err()
-    };
-    let entry = |class, method, sig| MethodRef {
-        class,
-        method,
-        sig_rev: SigRev(sig),
-        guard: None,
-    };
-    let wrap = |callee| Refusal::CallRefused {
-        class: XLOG,
-        method: MethodId(5),
-        callee: Box::new(callee),
-    };
-
-    let mut empty = BindStore::new();
-    assert_eq!(
-        refused(&mut empty, entry(ALG, GROUP_COUNT, 1)),
-        wrap(Refusal::UnknownClass(ALG))
+fn an_algebra_entry_is_immutable() {
+    let mut s = catalogue();
+    let same = entry(
+        MUL_I64,
+        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
+        2,
     );
-
-    let mut s = algebra_store();
+    assert_eq!(s.declare_algebra(same), Ok(()));
     assert_eq!(
-        refused(&mut s, entry(ALG, MethodId(9), 1)),
-        wrap(Refusal::UnknownMethod {
-            class: ALG,
-            method: MethodId(9)
-        })
+        s.declare_algebra(entry(MUL_I64, "wrapping_mul", 2)),
+        Err(Refusal::AlgebraImmutable(MUL_I64))
     );
-    assert_eq!(
-        refused(&mut s, entry(ALG, MUL_I64, 0)),
-        wrap(Refusal::SignatureRevisionMismatch {
-            class: ALG,
-            method: MUL_I64,
-            bound: SigRev(1),
-            asked: SigRev(0)
-        })
-    );
-    // A guard the entry does not have is refused too.
-    let mut guarded = entry(ALG, MUL_I64, 1);
-    guarded.guard = Some(Guard::new(SetExpr::All, Logic::TwoValued).witness());
-    assert_eq!(
-        refused(&mut s, guarded),
-        wrap(Refusal::GuardAdded {
-            class: ALG,
-            method: MUL_I64
-        })
-    );
-    assert_eq!(s.class_count(), 1, "no refused caller was bound");
 }
 
-/// The operands are part of the binding (XLOG's correction): counting R twice
-/// is a different binding from counting R and S, and a call with the wrong
-/// number of operands, or an operand outside the caller's basis, is refused at
-/// registration.
+/// The operands are part of the binding (XLOG's correction), and every effect
+/// is checked against the catalogue when its class registers.
 #[test]
-fn call_operands_are_bound_and_checked() {
-    let s = algebra_store();
-    let count = xlog_count(&s);
+fn effect_operands_and_entries_are_checked() {
+    let count = xlog_count();
     let mut twice_r = count.clone();
     twice_r.effects[1].args = vec![Arg::Field(0), Arg::Const(1)];
     assert_ne!(count, twice_r, "operands tell the two counts apart");
@@ -681,31 +636,48 @@ fn call_operands_are_bound_and_checked() {
     swapped.effects[2].args = vec![Arg::Field(3), Arg::Field(2)];
     assert_ne!(count, swapped, "operand order is part of the step");
 
-    let mut s2 = algebra_store();
-    let mut short = count.clone();
-    short.effects[2].args = vec![Arg::Field(2)];
+    let mut s = catalogue();
+    let refused = |s: &mut BindStore, f: &dyn Fn(&mut Effect)| {
+        let mut m = xlog_count();
+        f(&mut m.effects[2]);
+        s.register(XLOG, schema(1, 5), vec![m]).unwrap_err()
+    };
     assert_eq!(
-        s2.register(XLOG, schema(1, 5), vec![short]),
-        Err(Refusal::CallRefused {
+        refused(&mut s, &|e| e.args = vec![Arg::Field(2)]),
+        Refusal::ArityMismatch {
             class: XLOG,
             method: MethodId(1),
-            callee: Box::new(Refusal::ArityMismatch {
-                class: ALG,
-                method: MUL_I64,
-                expected: 2,
-                got: 1
-            })
-        })
+            algebra: MUL_I64,
+            expected: 2,
+            got: 1
+        }
     );
-    let mut outside = count.clone();
-    outside.effects[2].args = vec![Arg::Field(2), Arg::Field(7)];
     assert_eq!(
-        s2.register(XLOG, schema(1, 5), vec![outside]),
-        Err(Refusal::FieldOutOfBasis {
+        refused(&mut s, &|e| e.args = vec![Arg::Field(2), Arg::Field(7)]),
+        Refusal::FieldOutOfBasis {
             class: XLOG,
             method: MethodId(1),
             position: 7
-        })
+        }
     );
-    assert_eq!(s2.register(XLOG, schema(1, 5), vec![count]), Ok(()));
+    assert_eq!(
+        refused(&mut s, &|e| e.algebra = uses(AlgebraId(99))),
+        Refusal::UnknownAlgebra {
+            class: XLOG,
+            method: MethodId(1),
+            algebra: AlgebraId(99)
+        }
+    );
+    assert_eq!(
+        refused(&mut s, &|e| e.algebra.sig_rev = SigRev(0)),
+        Refusal::AlgebraRevisionMismatch {
+            class: XLOG,
+            method: MethodId(1),
+            algebra: MUL_I64,
+            bound: SigRev(1),
+            asked: SigRev(0)
+        }
+    );
+    assert_eq!(s.class_count(), 0, "no refused class was bound");
+    assert_eq!(s.register(XLOG, schema(1, 5), vec![count]), Ok(()));
 }
