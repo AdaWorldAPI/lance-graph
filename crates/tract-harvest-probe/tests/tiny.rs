@@ -907,3 +907,18 @@ fn int64_arithmetic_is_refused_until_checked_words_exist() {
         other => panic!("{:?}", other.map(|_| ())),
     }
 }
+
+/// Facts read from one model refuse to bind to another (a stale binding):
+/// `gen2` has `base`'s value names but different bytes.
+#[test]
+fn facts_of_another_model_refuse_to_bind() {
+    use tract_harvest_probe::dr3::tract_fact_sources;
+    let base = SourceInventory::from_bytes(&bytes("base")).unwrap();
+    let gen2 = tract_fact_sources(&bytes("gen2"), &[]).unwrap();
+    match gen2.merged_for(&base) {
+        Err(Refusal::Frontend(e)) => assert!(e.contains("applied to model"), "{e}"),
+        other => panic!("{:?}", other.map(|m| m.len())),
+    }
+    let own = tract_fact_sources(&bytes("base"), &[]).unwrap();
+    assert!(own.merged_for(&base).is_ok());
+}

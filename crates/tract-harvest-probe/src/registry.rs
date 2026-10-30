@@ -615,6 +615,11 @@ fn guard_constant_of_shape(v: &NodeView) -> K3 {
         Some(Attr::Tensor(Some(t))) if t.shape().iter().product::<usize>() == 1 => {}
         Some(_) => return K3::False,
     }
+    match arg_shape(v, 0).map(Vec::len) {
+        Some(1) => {}
+        Some(_) => return K3::False,
+        None => return K3::Unknown,
+    }
     match v.consts.first().copied().flatten().and_then(Value::i64s) {
         Some(d) if d.iter().all(|&x| x >= 0) => K3::True,
         Some(_) => K3::False,
@@ -1769,6 +1774,159 @@ mod tests {
             ]),
             [] as [i64; 0]
         );
+    }
+
+    fn i64v(shape: &[usize], v: Vec<i64>) -> Value {
+        Value::I64(ArrayD::from_shape_vec(IxDyn(shape), v).unwrap())
+    }
+
+    fn bits_of(v: &Value) -> (Vec<usize>, Vec<u64>) {
+        match v {
+            Value::Bool { shape, words } => (shape.clone(), words.clone()),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// 70 elements cross a mask word: the pair and scalar compares set the
+    /// right bits, and no bit past element 69 is set (tail bits clear).
+    #[test]
+    fn int64_compares_pack_tail_bits() {
+        let n = node("Equal", 2, vec![]);
+        let xs: Vec<i64> = (0..70).map(|i| i % 3).collect();
+        let x = i64v(&[70], xs.clone());
+        let pair = i64v(
+            &[70],
+            (0..70).map(|i| if i == 69 { 2 } else { 0 }).collect(),
+        );
+        let (shape, w) = bits_of(&do_equal_i64(&[&x, &pair], &n).unwrap()[0]);
+        assert_eq!(shape, [70]);
+        assert_eq!(w.len(), 2);
+        for i in 0..70 {
+            let want = xs[i] == if i == 69 { 2 } else { 0 };
+            assert_eq!((w[i / 64] >> (i % 64)) & 1 == 1, want, "pair {i}");
+        }
+        assert_eq!(w[1] >> 6, 0, "tail bits past element 69");
+        let one = i64v(&[], vec![1]);
+        let (_, w) = bits_of(&do_less_or_equal_i64(&[&x, &one], &n).unwrap()[0]);
+        for i in 0..70 {
+            assert_eq!((w[i / 64] >> (i % 64)) & 1 == 1, xs[i] <= 1, "scalar {i}");
+        }
+        assert_eq!(w[1] >> 6, 0);
+        let bad = i64v(&[2], vec![1, 2]);
+        assert!(
+            do_equal_i64(&[&x, &bad], &n).is_err(),
+            "a non-admitted broadcast refuses at run time too"
+        );
+    }
+
+    /// int64 `Where` over a 70-element mask, scalar and tensor `Y`.
+    #[test]
+    fn int64_where_scalar_and_tensor() {
+        let n = node("Where", 3, vec![]);
+        let mut words = vec![0u64; 2];
+        for i in (0..70).filter(|i| i % 5 == 0) {
+            words[i / 64] |= 1 << (i % 64);
+        }
+        let c = Value::Bool {
+            shape: vec![70],
+            words,
+        };
+        let x = i64v(&[70], (0..70).collect());
+        let ys = i64v(&[70], (0..70).map(|i| -i).collect());
+        let s = i64v(&[], vec![i64::MIN]);
+        for (y, f) in [
+            (&s, (|_: i64| i64::MIN) as fn(i64) -> i64),
+            (&ys, |i: i64| -i),
+        ] {
+            let out = do_where_i64(&[&c, &x, y], &n).unwrap();
+            let Value::I64(o) = &out[0] else { panic!() };
+            for (i, &v) in o.iter().enumerate() {
+                assert_eq!(v, if i % 5 == 0 { i as i64 } else { f(i as i64) }, "{i}");
+            }
+        }
+    }
+
+    /// ONNX `ConstantOfShape`: the value attribute's one element (default
+    /// float 0), an empty shape gives a scalar, a zero dimension an empty
+    /// tensor, a negative dimension or a multi-element value is FALSE, a
+    /// non-constant shape UNKNOWN; a bool value fills the mask without tail
+    /// bits.
+    #[test]
+    fn constant_of_shape_semantics() {
+        let with = |v: Option<Value>| {
+            node(
+                "ConstantOfShape",
+                1,
+                v.map(|v| vec![("value".to_string(), Attr::Tensor(Some(v)))])
+                    .unwrap_or_default(),
+            )
+        };
+        let run = |n: &SourceNode, d: Vec<i64>| {
+            do_constant_of_shape(&[&i64v(&[d.len()], d)], n)
+                .unwrap()
+                .remove(0)
+        };
+        assert_eq!(
+            run(&with(None), vec![2]),
+            Value::F32(ArrayD::zeros(IxDyn(&[2])))
+        );
+        assert_eq!(
+            run(&with(Some(i64v(&[1], vec![5]))), vec![]),
+            i64v(&[], vec![5]),
+            "empty shape: a scalar"
+        );
+        assert_eq!(
+            run(&with(Some(i64v(&[1], vec![5]))), vec![2, 0]).shape(),
+            [2, 0]
+        );
+        let tru = Value::Bool {
+            shape: vec![1],
+            words: vec![1],
+        };
+        let (shape, w) = bits_of(&run(&with(Some(tru)), vec![70]));
+        assert_eq!((shape, w), (vec![70], vec![u64::MAX, (1 << 6) - 1]));
+        let guard = |n: &SourceNode, d: Option<Vec<i64>>| {
+            let c = d.map(|d| i64v(&[d.len()], d));
+            let fact = Fact {
+                dtype: Some(DType::I64),
+                shape: Some(vec![Dim::Known(1)]),
+            };
+            guard_constant_of_shape(&NodeView {
+                node: n,
+                args: vec![Some(&fact)],
+                consts: vec![c.as_ref()],
+            })
+        };
+        assert_eq!(guard(&with(None), Some(vec![2, 3])), K3::True);
+        assert_eq!(guard(&with(None), Some(vec![-1])), K3::False);
+        assert_eq!(
+            guard(&with(Some(i64v(&[2], vec![1, 2]))), Some(vec![2])),
+            K3::False
+        );
+        assert_eq!(guard(&with(None), None), K3::Unknown);
+    }
+
+    /// ONNX `Expand`: multidirectional broadcast of the input shape and the
+    /// target, so a target dimension 1 keeps the input's and a shorter
+    /// target is padded on the left.
+    #[test]
+    fn expand_semantics() {
+        let n = node("Expand", 2, vec![]);
+        let x = i64v(&[3, 1], vec![1, 2, 3]);
+        let out = do_expand(&[&x, &i64v(&[2], vec![1, 4])], &n)
+            .unwrap()
+            .remove(0);
+        assert_eq!(out.shape(), [3, 4], "target 1 keeps the input dimension 3");
+        assert_eq!(out.i64s().unwrap()[..4], [1, 1, 1, 1]);
+        let out = do_expand(&[&x, &i64v(&[3], vec![2, 1, 1])], &n)
+            .unwrap()
+            .remove(0);
+        assert_eq!(out.shape(), [2, 3, 1]);
+        assert!(
+            do_expand(&[&x, &i64v(&[2], vec![2, 1])], &n).is_err(),
+            "3 against 2"
+        );
+        assert!(do_expand(&[&x, &i64v(&[1], vec![-1])], &n).is_err());
     }
 
     /// int64 compares admit a same-shape or a one-element right side only.
