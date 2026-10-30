@@ -1,210 +1,209 @@
-# D-LITHO: the photolithography contract — one coordinate geometry, many exposures
+# D-LITHO: the photolithography contract — the DTO layer over DR's 64ⁿ / 256ⁿ hypercube
 
 **Date:** 2026-10-30. **Status:** PROPOSED / DOCS ONLY. Nothing is authorized: no ABI, kernel, mask-risc
 op, terminal, runtime or contract type.
 **Board:** [entry](../board/entries/2026-10-30-d-litho-photolithography-contract.md),
 [STATUS_BOARD](../board/STATUS_BOARD.md) D-LITHO.
 **Builds on, read and not restated:**
-- [D-DRDT](d-drdt-dr-dt-ownership-amendment-v1.md) (#1835): DR is the HHTL16 Cartesian adapter plate, DT the ClassId binding store.
+- [D-DRF-1](d-dr64-focus-lease-foreign-cache-v1.md) §0–§3: DR64 focus geometry, the u16 pointer map, the
+  64³ Boolean relation volume, axis semantics declared by the caller, focus lease.
+- [D-DRAV-1](d-dr-address-first-value-demand-v1.md): sealed DR map kept apart from value demand.
+- [D-DRDT](d-drdt-dr-dt-ownership-amendment-v1.md) (#1835): DR is the Cartesian adapter plate; DT is the
+  ClassId binding store.
+- [D-DT64 capstone](d-dt64-holographic-predicate-capstone-v1.md): DT64 = DTO Tensor 64, a semantic adapter
+  plate that "does not itself decide DR64³ axis semantics" (NFR-OP-2 belongs to the DR physical ABI).
 - [D-DT64-6](d-dt64-6-routing-bindstore-behavior-v1.md): DR64 routing, DT64 bind store.
-- [D-DR256-WHERE](dr256-where-capstone-v1.md): the population-masked read.
-- [D-DT64 capstone](d-dt64-holographic-predicate-capstone-v1.md): 64 typed Boolean predicate slots.
-- `lance-graph-mask-risc` (`ir.rs`, `exec.rs`): straight-line programs over slots, tiled execution.
-- `lance-graph-contract`: `morton8x8.rs` (D-MORTON-0), `register128.rs` (D-LXC-29), `hotplug.rs`.
+- `lance-graph-mask-risc` (`ir.rs`, `exec.rs`), `lance-graph-contract` (`hotplug.rs`, `class_view.rs`,
+  `canonical_node.rs`).
 
-**Coordination:** Linear EXO-50, messages 10 and 11 (2026-10-30). Message 11 supersedes message 10's counter
-framing.
+**Coordination:** Linear EXO-50, messages 10–18 (2026-10-30).
+
+> **⊘ Scope correction (2026-10-30, user).** "You're the DTO layer of a holographic hypercube 64ⁿ or 256ⁿ.
+> Everything in regards to dimensions is not your concern." Earlier revisions of this plan (#1859 and the
+> first commits of #1860) defined coordinate geometry: a Morton tile fact, axis widths, presence-bit
+> underflow, coordinate freezing, an address law and a "rotation" reading. All of that is DR's, is already
+> written in D-DRF-1, and was written here without reading D-DRF-1 first. It is removed. §4 lists what this
+> contract assumes DR provides, by reference only.
 
 ## Overview
 
 Photolithography is the north star for the relational shader. The wafer (the substrate) never moves. A
-reticle (a predicate or address law) is written once and stepped across demanded dies (tiles). Each
-exposure is one field-parallel instruction. Dose levels give significance, and develop is the late,
-demanded readout. Persistence (etch and deposit) is decoupled from exposure.
+reticle is written once and stepped across demanded dies (tiles). Each exposure is one field-parallel
+instruction. Dose levels give significance, and develop is the late, demanded readout. Persistence (etch
+and deposit) is decoupled from exposure.
 
-This plan writes that down as a contract: the vocabulary, the address grammar, the design rules, and who owns
-what. The **Abacus** is the address grammar and the shader mental model (frame, rod, bead position). It
-makes no claim about materialization, execution or cost.
+This contract is the **DTO layer** of that picture. DR owns the hypercube: its dimensions, coordinates,
+routing and the sealed global → local map. Over a coordinate that DR has already routed, the DTO layer binds
+meaning: which identity, which property mappings, which methods and thoughts it may reference. The
+**Abacus** is the mental model a shader author uses to read that binding (frame, rod, bead). It names DR
+coordinates; it does not define them.
 
 ## Checklist
 
 - [x] Record the user decisions of 2026-10-30 (§1).
-- [x] Vocabulary table: lithography ↔ stack (§2).
-- [x] The address grammar (Abacus), with the Morton fact it rests on (§3).
-- [x] Design rules (§4) and non-goals (§5).
-- [x] Ownership (§6); clarify the D-DRDT word "rotation" without editing that plan (§7).
-- [x] Consumers who would express operations in the grammar (§8).
-- [ ] Owner replies on EXO-50: DR/DT owner on §9 Q1–Q2; mask-risc owner on Q3.
-- [ ] First consumer writes one operation in the grammar, with a failing fixture (§10, G1).
-- [ ] Pre-registered gates G1–G5 (§10). None run.
+- [x] Vocabulary, with the owner of each row (§2).
+- [x] What the DTO layer binds (§3); what it assumes from DR (§4); the order (§5).
+- [x] Design rules (§6), non-goals (§7), ownership (§8), consumers (§9).
+- [ ] Owner replies on EXO-50 (§10).
+- [ ] First consumer writes one binding with a failing fixture (§11, G1).
+- [ ] Gates G1, G4, G5 (§11). None run.
 
 ## 1. Decisions recorded
 
 **DECISION (2026-10-30):** The north star of the relational shader is photolithography.
-**SCOPE:** the shader contract and every design that projects, exposes or folds over DR coordinates.
+**SCOPE:** the shader contract and every design that exposes or folds over DR coordinates.
 **BASIS:** the user's statement in session (decision, not measurement).
 **REVISIT WHEN:** an operation is needed that has no counterpart in the exposure model.
 
-**DECISION (2026-10-30):** The Abacus is the addressing contract and the mental model of a shader. Its
-concern is not materialization; execution and cost belong to mask-risc, ndarray and the membrane below them.
-**SCOPE:** the Abacus. It does not cover the `domino.rs` counter fixture in ndarray, which stays a lab
-fixture (H13 DEFER).
+**DECISION (2026-10-30):** This contract is the DTO layer of a holographic hypercube 64ⁿ or 256ⁿ.
+Dimensions are not its concern.
+**SCOPE:** everything below. Axes, widths, coordinates and routing are DR's (§4).
 **BASIS:** the user's statement in session (decision, not measurement).
-**REVISIT WHEN:** a consumer cannot express an operation in frame/rod/position terms.
+**REVISIT WHEN:** a DTO binding cannot be stated without choosing a dimension.
 
-**DECISION (2026-10-30):** You do not rotate the cube. A different view is a different deterministic
-address law over the same words, as simple as defining which axis of a cube is X, Y and Z. No bit is moved
-to change a view.
-**SCOPE:** every view, projection and axis choice over DR coordinates.
+**DECISION (2026-10-30):** The Abacus is the mental model of a shader. It concerns naming, not
+materialization; execution and cost belong to mask-risc, ndarray and the layers below them.
+**SCOPE:** the Abacus as notation. It does not cover the `domino.rs` counter fixture in ndarray, which
+stays a lab fixture (H13 DEFER).
 **BASIS:** the user's statement in session (decision, not measurement).
-**REVISIT WHEN:** a demanded projection cannot be read through any law without moving bits.
 
-**DECISION (2026-10-30, carried from the shared diagram):** No mandatory dense 64K³ cube, no duplicate
-relationship authority, no eager global materialization, no bypass of version witnesses. Identity stays
-canonical ("Identity ↓"); the edges are the relational addressing space ("Edges ↑"), and the views add no
-edges.
-**SCOPE:** the coordinate geometry Identity (X) × Edge (Y) × Property (Z). It is a geometry, not a
-storage layout.
-**BASIS:** the user's diagrams, 2026-10-30 (decision, not measurement).
+**DECISION (2026-10-30):** What is always present and what is not material.
+
+| Always present | Not material (resolved on demand, never stored per cell) |
+|---|---|
+| **identity = `NodeGuid`** (`canonical_node.rs`) | **`ClassView` → methods** (DT64, via hotplug) |
+| **property mappings**, i.e. which properties and edges are selected | **64 thoughts → Thought-Git** ([D-DT64-4](d-dt64-4-edge-thoughtgit-hypothesis-time-v1.md)) |
+
+**BASIS:** the user's statements in session (decision, not measurement).
+
+**DECISION (2026-10-30):** The rule for thoughts is "reserve, don't claim". The mental model is thin
+provisioning, not thick: a thought binding allocates on its first write (a Thought-Git `Commit`), never in
+advance. Where the thought positions live is DR's and Thought-Git's (§4); the DTO layer only refuses to
+preallocate.
+**BASIS:** the user's statements in session (decision, not measurement).
 
 ## 2. Vocabulary
 
-| Lithography | This stack |
-|---|---|
-| Wafer | the substrate; never copied, never moved |
-| Die / exposure field | one demanded tile: a 64-row word or a 256-row block |
-| Stepper stepping die to die | streaming demanded tiles: one shader, many tiles |
-| Reticle (mask) | a predicate or a DR address law, reused on every die |
-| Exposure | one shader instruction, field-parallel (64-way per word) |
-| Dose levels (2^k exposure times) | Abacus rods, significance k |
-| Overlay alignment marks | version witnesses and address laws; layers line up without moving anything |
-| Develop | a fold or terminal; only what is demanded is read out |
-| Layer stack | a program: a sequence of exposures |
-| Etch / deposit after inspection | witnessed deltas → coalesced dirty rows → asynchronous writer |
+| Lithography | This stack | Owner |
+|---|---|---|
+| Wafer | the substrate; never copied, never moved | SoA owner |
+| Die / exposure field | one demanded tile | DR |
+| Stepper stepping die to die | streaming demanded tiles: one shader, many tiles | DR / execution |
+| Reticle (mask) | a predicate, or a DR projection | DT64 (predicate) / DR (projection) |
+| Exposure | one field-parallel shader instruction | mask-risc / ndarray |
+| Dose levels (2^k exposure times) | Abacus rods: significance k of a bound value | DTO notation over DR coordinates |
+| Overlay alignment marks | version witnesses: DR's sealed map, the DTO binding's version | DR / DT64 |
+| Develop | a fold or terminal; only what is demanded is read out | mask-risc |
+| Layer stack | a program: a sequence of exposures | mask-risc |
+| Etch / deposit after inspection | witnessed deltas → coalesced dirty rows → asynchronous writer | persistence (D-DRF-1 §6) |
 
 The dose stack is a mechanism, not decoration. Grayscale exposure from binary masks with doubling exposure
-times develops to Σ_k 2^k · mask_k. That is the bit-plane fold the ndarray Abacus fixtures compute exactly
-(`examples/u9_domino/domino.rs`, `Abacus::total`). The identity is cited here as a fact about the grammar,
-not as an execution choice (§6).
+times develops to Σ_k 2^k · mask_k, the bit-plane fold the ndarray Abacus fixtures compute exactly
+(`examples/u9_domino/domino.rs`, `Abacus::total`).
 
-## 3. The address grammar (the Abacus)
+## 3. What the DTO layer binds
 
-| Term | Meaning |
-|---|---|
-| **Frame** | one demanded tile |
-| **Rod** | significance k of a value field exposed on that frame |
-| **Bead position** | a coordinate (identity, edge, property) mapped by a DR address law to a position in the frame |
-| **Instruction** | "expose these rods at these positions" with a verb: mask, combine, compare, carry, fold |
+Over a coordinate DR has routed:
 
-**Law.** A law is a deterministic map from coordinates to a frame and a position. The rod is part of the
-address, not part of the value. Meaning (width, signedness, what a count stands for) is not in the grammar.
-It comes through DT and hotplug (`Activation::register_law_for`, `RegisterLaw`), the same way a
-`Register128` read gets its meaning today.
+- **Identity:** a `NodeGuid`. The DTO layer never invents or compares local ordinals as identity
+  (D-DRF-1 §2: "one ordinal shared numerically across datasets is not evidence of identical identity").
+- **Property mappings:** which properties and edges are selected, PSCustomObject-style, the way
+  `Select-Object -Property` picks fields. The carrier is `ClassView × WideFieldMask` (`class_view.rs`). The
+  selection is versioned via a table in lance-graph (Q5).
+- **Methods:** named by reference and resolved through `ClassView` / hotplug. A shader never carries a copy.
+- **Thoughts:** references into Thought-Git, thin-provisioned (§1).
+- **Meaning of a rod:** width, signedness and what a count stands for come through DT64 and hotplug
+  (`Activation::register_law_for`, `RegisterLaw`), never from the coordinate.
 
-**The Morton fact the grammar rests on** (`morton8x8.rs`, D-MORTON-0). `Morton8x8` interleaves an 8:8
-`(x, y)` pair into a `u16` Z-order code: x on the even bits, y on the odd bits. It addresses all 65,536
-positions, which is the DR256::WHERE domain (8 KiB mask = 2^16 bits).
-- In code order, the 64 rows of one mask word share every bit above bit 5, so each word is an aligned 8 × 8
-  square in (x, y).
-- A 256-row block is an aligned 16 × 16 square.
-- The "active 64-row words / 256-row blocks" of the DR64/DR256 overview are therefore spatial tiles under
-  this law, with no remapping.
+## 4. Assumed from DR (not decided here)
 
-**Projections are reticles.** Under a law, fixing one coordinate inside a frame selects a constant bit
-pattern of the word. For example, fixing the low three bits of x selects a fixed subset of the even bits. A
-projection is therefore an And with a law mask, and a fold over it is a popcount. Choosing another law
-changes the mask, never the words.
+By reference only. The authoritative text is in the cited plans.
 
-**What the grammar does not decide.** Whether an instruction runs as a mask-risc `Ternlog`, a fixed-depth
-ripple, a carry-save tree or something else is execution, and execution belongs to §6. Reading one cell's
-value across all rods (a per-position decode) is a develop step: it is named as a terminal, never assumed
-mid-program.
+- **The hypercube, its dimensions and axis semantics:** 64ⁿ / 256ⁿ, the DR64 focus, the u16 pointer map,
+  the 64³ Boolean relation volume (D-DRF-1 §1). Which axis is which is declared by the caller and decided
+  under NFR-OP-2, not here.
+- **Global → local routing**, amortized, sealed and versioned; the focus lease (D-DRF-1 §2–§3; D-DRDT §1).
+- **Fixed widths, the presence bit and sparse write / merge on read, and why coordinates freeze.** The
+  user's statements of 2026-10-30 on these points are relayed to the DR owner (EXO-50 messages 17–18). They
+  are DR's rules, recorded here only as what the DTO layer relies on.
+- **Projection and views:** a view is a different DR projection over the same words, never a data move.
 
-## 4. Design rules
+## 5. Order
 
-1. **The wafer never moves.** A view is a different reticle (law), never a copy, a transpose or a rotation.
-2. **Pay in the reticle, not per die.** Law and predicate preparation are amortized across tiles, never
-   repeated per tile.
-3. **Exposure is field-parallel.** An instruction acts on a whole frame word at once. Walking positions one
-   at a time is the wrong tool (FACET STRIDE R2, one level up).
-4. **Alignment is mandatory.** An exposure without a version witness, or under a law other than the one the
-   frame was bound with, is a defect even if it runs.
+**DR routes first** (global → local, address → classid). **DT64 then assigns** meaning and methods to the
+routed position. Execution (mask-risc, ndarray) comes after both. DT64 does not route, and DR assigns no
+meaning.
+
+## 6. Design rules
+
+1. **The wafer never moves.** A DTO binding never copies the substrate.
+2. **Pay in the reticle, not per die.** Bindings and predicates are prepared once and stepped across tiles.
+3. **Exposure is field-parallel.** A binding that has to be walked position by position is the wrong tool.
+4. **Alignment is mandatory.** A binding used under a DR seal or a binding version other than its own is a
+   defect even if it runs.
 5. **Develop only what is demanded.** Readout and writeback are late and separate from exposure.
-6. **Identity is not multiplied.** Relations are addressed as edges. A view never adds an edge and never
-   materializes an Identity × Identity matrix.
+6. **Identity is not multiplied.** Relations are addressed as edges. A binding never adds an edge.
 
-## 5. Not the goal
+## 7. Not the goal
 
 - A mandatory dense 64K³ cube, or a 65,536 × 65,536 matrix.
 - A duplicate relationship authority: SoA edges remain the relationship authority.
-- Eager global materialization, including an eager 64-property cube.
+- Eager global materialization.
 - Any bypass of version witnesses.
 - A new writer or persistence path.
-- An Abacus runtime type. H13 stays deferred in ndarray, and this plan does not reopen #400–#404.
+- An Abacus runtime type. H13 stays deferred in ndarray.
+- Any definition of dimensions, axes, widths or coordinates (§1, §4).
 
-## 6. Ownership
+## 8. Ownership
 
 | Concern | Owner |
 |---|---|
-| Coordinate geometry, address laws, Morton / HHTL16 traversal, global → local routing | DR (D-DRDT) |
-| Class meaning, field laws, method identity, guards, effect order | DT, through hotplug / ogar-vocab (D-DRDT §1, D-CMH) |
-| The address grammar and the shader mental model | this contract (the Abacus) |
-| Straight-line programs over slots, tiled execution, terminals | `lance-graph-mask-risc` |
-| Kernels (mask ops, `half_add_mask` / `full_add_mask`, popcount) | ndarray, through `ndarray::simd` |
-| Prepared numeric binding of a query | Quack `Binder` |
-| Persistence | resident computation → witnessed dirty rows → asynchronous writer (unchanged) |
+| The hypercube: dimensions, axes, coordinates, Morton / HHTL16, global → local routing, focus lease | DR (D-DRF-1, D-DRDT) |
+| Class meaning, field laws, method identity, guards, effect order, assigned after DR routes | DT64, through `ClassView` / hotplug / ogar-vocab |
+| The shader mental model and the DTO binding vocabulary | this contract |
+| Thought positions and commits | Thought-Git (D-TGB, EXO-148) |
+| Straight-line programs, tiled execution, terminals | `lance-graph-mask-risc` |
+| Kernels | ndarray, through `ndarray::simd` |
+| Persistence | resident computation → witnessed dirty rows → asynchronous writer |
 
-## 7. Clarification of D-DRDT's word "rotation"
+## 9. Consumers
 
-D-DRDT §1 lists "rotation of Cartesian axes" among DR's concerns. Under §1's third decision, a rotation is
-the choice of a different address law over the same words, never a data movement. No bit transpose kernel
-is implied or requested. D-DRDT is merged and is not edited; this section is the record of the reading.
-
-## 8. Consumers who would write in the grammar
-
-Each would express its operations as frame/rod/position instructions first. None has sent a signature or a
+Each would state its operation as a DTO binding over DR coordinates first. None has sent a signature or a
 fixture yet.
 
-| Consumer | Likely first operation |
+| Consumer | Likely first binding |
 |---|---|
-| ONNX methods (Tract registry, D-TRACT-HARVEST-0) | count-shaped reductions over a predicate (bool → `ReduceSum`, counts behind `Where` / compare) |
+| ONNX methods (Tract registry, D-TRACT-HARVEST-0) | count-shaped reductions over a predicate |
 | TFLite int8 leaf (D-TFLP) | the same count-shaped reductions |
-| egglog-mlir / DialEgg | offline proof that two instruction sequences under two laws develop the same result |
-| Identity × Edge evidence → SPO / SPOFC | evidence counts (w⁺, w) on edge rows, folded into frequency and confidence |
-| NNUE (later) | binary feature-occurrence counts |
-| cognitive-shader-driver (later) | Hamming and popcount folds over frames |
+| XLOG (D-XLOG-DR64-0) | bag multiplicity per answer tuple (EXO-50 message 12) |
+| egglog-mlir / DialEgg | offline proof that two exposure sequences develop the same result |
+| Identity × Edge evidence → SPO / SPOFC | evidence counts (w⁺, w) folded into frequency and confidence |
+| NNUE, cognitive-shader-driver (later) | feature-occurrence counts; Hamming and popcount folds |
 
-Known misfit, measured earlier and not reopened here: bit-plane *multiplication*. The ndarray probe
-`u9-abacus-probe.md` found it 5–120× slower than the byte-dot and refused it. An int8 dot is not a dose
-stack.
+Known misfit, measured earlier: bit-plane *multiplication* (ndarray `u9-abacus-probe.md`, 5–120× slower
+than the byte-dot, refused).
 
-## 9. Open questions
+## 10. Open questions
 
-- **Q1 (DR/DT).** Does the rod (significance k) belong to DR's HHTL16 address, or to DT's per-class field
-  law?
-- **Q2 (DR/DT).** Is DialEgg the place to prove that a projection under one law develops the same result as
-  the equivalent projection under another?
-- **Q3 (mask-risc).** Once a consumer writes an operation down, which of its verbs have no straight-line
-  form today? Candidates seen in the fixtures: a fixed-depth carry, overflow returned as a plane, a weighted
-  develop Σ 2^k · popcount. These are execution questions and stay unasked until G1.
-- **Q4 (naming).** The diagram's "DR64K" and "Membrane64" have no definition in code or plans. Before either
-  is used as a term, its owner defines it.
+- **Q2 (DR/DT).** Is DialEgg the place to prove that two exposure sequences develop the same result?
+- **Q3 (mask-risc).** Once a consumer writes a binding down, which verbs have no straight-line form today?
+  Unasked until G1.
+- **Q4 (naming).** "DR64K" and "Membrane64" have no definition in code or plans; their owner defines them.
+- **Q5 (DR/DT).** Which lance-graph table versions the property-mapping selection.
+- Q1 (where the rod width lives) is withdrawn: it is a dimension question, so it belongs to DR (NFR-OP-2).
 
-## 10. Pre-registered gates (none run)
+## 11. Pre-registered gates (none run)
 
-- **G1, grammar sufficiency.** One named consumer writes one operation as frame/rod/position instructions,
-  with a failing fixture and expected values. **Fails if** the operation needs a term outside §3.
-- **G2, law, not rotation.** Two different laws over the same frame, the same projection: both develop the
-  same result, and the frame bytes before and after are byte-identical. **Fails if** any bit is written to
-  change a view.
-- **G3, Morton tile.** For every word w of a 65,536-row Morton-ordered population, the 64 codes it covers
-  form one aligned 8 × 8 square. **Fails if** any word straddles two squares.
+- **G1, binding sufficiency.** One named consumer states one operation as a DTO binding over DR
+  coordinates, with a failing fixture and expected values. **Fails if** the statement needs a dimension
+  decision.
 - **G4, dose identity.** A dose stack of k binary masks develops to Σ 2^k · popcount(mask_k), equal to the
   per-position oracle. Disable run: drop one rod; the test turns red.
-- **G5, alignment refusal.** An exposure under a law, or a version witness, other than the frame's binding
-  is refused, never executed. Disable run: skip the witness check; the test turns red.
+- **G5, alignment refusal.** A binding used under a DR seal or binding version other than its own is
+  refused, never executed. Disable run: skip the witness check; the test turns red.
+- G2 (law, not rotation) and G3 (Morton tile) are withdrawn as dimension gates. If wanted, they belong in
+  DR's own falsifier plan ([D-DRF falsifiers](d-dr64-focus-cache-falsifiers-v1.md)).
 
 ## Errata to the shared diagram
 
-The DR64/DR256 overview says "65,336 global addresses". It should say 65,536 (8 KiB × 8 bits = 2^16, the
-`Morton8x8` domain).
+The DR64/DR256 overview says "65,336 global addresses". It should say 65,536 (D-DRF-1 §1: 256 × 256).
