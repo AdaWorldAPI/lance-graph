@@ -161,12 +161,19 @@ Consequences:
 - **The wafer has two layers: `NodeGuid` identities and property mappings.** Exposures read these.
 - **Methods come through `ClassView` resolution.** A shader names a method; it never carries a copy of one.
 - **The 64 thoughts are references into Thought-Git**, not lanes on the frame. A thought is versioned history, not exposed state.
-- **The rule for thoughts: reserve, don't claim.**
-  - All 64 thought positions are reserved at the fixed width, so their coordinates exist and freeze with
-    the rest.
-  - A position is claimed only when a thought is committed through Thought-Git. Until then the presence
-    bit marks it absent, and nothing is written or allocated for it.
-  - Reserving costs nothing because underflow never compacts. Claiming later moves no other position.
+- **The rule for thoughts: reserve, don't claim. The mental model is thin provisioning, not thick.**
+  - All 64 thought positions are reserved at the fixed width as logical address space, so their
+    coordinates exist and freeze with the rest. Nothing is allocated for them up front.
+  - Storage is allocated on first write, i.e. when a thought lands through Thought-Git's `Commit`. Until
+    then the presence bit marks the position absent and nothing is written.
+  - A live branch holding a slot in the Thought-Git pool (`thought-git-probe`, D-TGB-1) is resident
+    occupancy, not allocation. It claims nothing durable. A branch that is pruned or squashed leaves the
+    position as it was: reserved and absent.
+  - Thick provisioning, i.e. allocating all 64 thoughts or a dense 64 × width block in advance, is
+    exactly what this rule forbids.
+- **The same model covers the whole fixed-width frame.** The 64/256 width is the provisioned logical
+  size, the presence bit marks unallocated positions, and a sparse write allocates only what it writes.
+  That is why reserving is free and why coordinates freeze (see above).
 - **This supplies the identity coordinate that §3's bead position needs.** Globally it is a `NodeGuid`. Inside
   a frame it is a local position.
 - **DR does the global → local mapping, amortized** (D-DRDT §1: "global-to-local preparation is optional
