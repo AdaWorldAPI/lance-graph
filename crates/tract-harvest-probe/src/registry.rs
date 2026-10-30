@@ -1904,6 +1904,21 @@ mod tests {
             K3::False
         );
         assert_eq!(guard(&with(None), None), K3::Unknown);
+        let rank2 = Fact {
+            dtype: Some(DType::I64),
+            shape: Some(vec![Dim::Known(1), Dim::Known(2)]),
+        };
+        let c = i64v(&[1, 2], vec![2, 3]);
+        let n = with(None);
+        assert_eq!(
+            guard_constant_of_shape(&NodeView {
+                node: &n,
+                args: vec![Some(&rank2)],
+                consts: vec![Some(&c)]
+            }),
+            K3::False,
+            "the shape input is 1-D"
+        );
     }
 
     /// ONNX `Expand`: multidirectional broadcast of the input shape and the
