@@ -11,3 +11,5 @@ A Tract fact is admitted only from the value's source-producer outlet (a matchin
 Fixtures (ORT 1.29.0 `ORT_DISABLE_ALL`): shape chain bit-exact; Erf ≤ 2 ULP vs ORT and f64 over 4,115 points. 40 tests; 9 disable runs red.
 
 **OPEN:** int64 shape-arithmetic semantics (owner, then ndarray ask); axis as DO parameter vs classid per axis; `vserf` ~4x slower than Tract's erf; ConstantOfShape/Expand via ndarray core not yet registered; multi-tile and MatMul gates unchanged.
+
+**Follow-up (after #400 / #1853):** registry v3 adds int64 Equal/LessOrEqual (#400 compares), int64 Where (`blend_i64[_scalar]`), ConstantOfShape (`from_elem`), Expand (`broadcast`). Optional-output fixture (`LSTM ["", "Y_h"]`) pins that `source_producers` follows Tract's compacted outlet numbering and admits `Y_h`'s fact, not the omitted `Y`'s. Jina coverage 6,404/56/1,160 → 6,581/114/925. Remaining int64 arithmetic (Mul/Div/Add/Sub/Range) is refused; exact checked signatures and the `i64_arith` fixture are the ndarray ask (plan §0.3).
