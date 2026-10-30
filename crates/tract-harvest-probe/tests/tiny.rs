@@ -365,9 +365,11 @@ fn schedule_comes_from_dep_not_source_order() {
     );
 }
 
-/// Tract's shapes removed: `Greater` still resolves (its threshold `T` takes
-/// its shape from the source initializer), `Where` has no shapes left, its
-/// WHEN is UNKNOWN, and UNKNOWN refuses: it never counts as TRUE.
+/// Tract's shapes removed: the first shape guard in the schedule, `Greater`'s
+/// scalar-threshold check, is UNKNOWN, and UNKNOWN refuses: it never counts as
+/// TRUE. (Before the inference-stage facts, `T` had no Tract fact at all,
+/// because the typed stage merges `T` and `Z`, so its shape came from the
+/// source and the first UNKNOWN was `n_where`.)
 #[test]
 fn unknown_shapes_refuse() {
     let src = SourceInventory::from_bytes(&bytes("base")).unwrap();
@@ -380,7 +382,7 @@ fn unknown_shapes_refuse() {
     let store = FrameStore::new(revisions(&src, &reg, &g));
     match resolve(&src, g, &reg, &store) {
         Err(Refusal::When { node, truth, .. }) => {
-            assert_eq!((node.as_str(), truth), ("n_where", K3::Unknown))
+            assert_eq!((node.as_str(), truth), ("n_greater", K3::Unknown))
         }
         other => panic!("{:?}", other.map(|_| ())),
     }
@@ -416,4 +418,41 @@ fn inputs_outside_the_resolved_facts_are_refused() {
         p.run(&fx.store, &ins),
         Err(Refusal::Runtime { .. })
     ));
+}
+
+/// The inference stage gives a full fact (dtype and shape) for every source
+/// value, the typed stage only for those that survive typing; where both
+/// describe a value they agree.
+#[test]
+fn inference_stage_facts_cover_every_value_and_agree_with_typed() {
+    use tract_harvest_probe::dr3::tract_fact_sources;
+    for v in ["base", "div3", "neg_where_nonzero"] {
+        let src = SourceInventory::from_bytes(&bytes(v)).unwrap();
+        let fs = tract_fact_sources(&bytes(v), &[]).unwrap();
+        let values: Vec<&String> = src.nodes.iter().flat_map(|n| &n.outputs).collect();
+        let full = |m: &std::collections::HashMap<String, tract_harvest_probe::registry::Fact>| {
+            values
+                .iter()
+                .filter(|o| {
+                    m.get(o.as_str())
+                        .is_some_and(|f| f.dtype.is_some() && f.shape.is_some())
+                })
+                .count()
+        };
+        assert_eq!(
+            full(&fs.inference),
+            values.len(),
+            "{v}: inference covers all"
+        );
+        assert!(
+            fs.disagreements().is_empty(),
+            "{v}: {:?}",
+            fs.disagreements()
+        );
+        let both = values
+            .iter()
+            .filter(|o| fs.inference.contains_key(o.as_str()) && fs.typed.contains_key(o.as_str()))
+            .count();
+        assert!(both > 0, "{v}: anti-vacuity, the stages overlap");
+    }
 }
