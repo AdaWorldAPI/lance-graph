@@ -63,3 +63,12 @@
 
 MIRROR
 - LESSON: geometry was first written without reading DR's plans, then removed instead of attributed; both times the sources were not read in full.
+
+## Correction (2026-10-30, user): metaphor, and the bind store
+
+- Photolithography was the user's teaching metaphor, not a production name. The plan is now a reading aid that maps the metaphor onto existing seams (banner at the top of the plan).
+- "XLOG is the first consumer of the bind store" is withdrawn. D-NFR-0 S5 says the binding store is MISSING. D-DT64-Q0 says the binding is an interface seam, not a store. D-NFR-1 (the S5 × S6 adapter) is the smallest seam and is not built.
+- XLOG's `BagNeedsMultiplicity` is S8's existing refusal in `bind_dr64`. D-QSP already says a tile carries no bag multiplicity without a further lawful carrier. The dose test (G4) stays as a measured fact, not a proposed carrier.
+
+MIRROR
+- BLIND SPOT: the binding plans (Q0, D-NFR-0, D-QSP, D-QR-CAP) were not read before the binding was described.

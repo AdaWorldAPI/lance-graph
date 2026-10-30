@@ -31,6 +31,23 @@ op, terminal, runtime or contract type.
 > cited to its DR source, with what the DTO layer does with it. They are DR's; this contract decides none of
 > them. Gates G2 and G3 are restored in §11.
 
+> **⊘ Correction (2026-10-30, user): photolithography is a metaphor, not a production name.** The user
+> used it only as a teaching aid. This file is a **reading aid** that maps the metaphor onto existing seams;
+> it is not a contract, it names no production type, and "D-LITHO" names no component. Production vocabulary
+> is the existing one:
+> - binding: the **D-DT64-Q0** source-attested binding seam (an interface seam, *not* a persistent store) and
+>   Quack `Binder` / `Draft::bind` (D-NFR-0 S1, S2);
+> - frame, focus, scope: `dr-math-binding-probe` `Frame` / `FrameStore` / `Focus` / `Scope` (S6, S7, lab);
+> - typed axes, truth, population: `MethodSignature` + `bind_dr64` (S8, lab), which refuses Bag with
+>   `BagNeedsMultiplicity`;
+> - the **binding store is MISSING** (D-NFR-0 S5); the smallest seam is the S5 × S6 adapter (D-NFR-1, not
+>   built). Whether the ON × WHEN × DO registry lives in DT64 is OPEN (D-DT64-6 predicates plan §10.5);
+> - ONNX: `tract-harvest-probe` registry + plan (§3b), over `lance-graph-onnx`.
+>
+> Earlier wording in this file and on EXO-50 that called XLOG "the first consumer of the bind store", or the
+> rods "DR's missing counted semiring", is withdrawn: there is no bind store yet, and the Bag refusal is S8's
+> existing, documented behaviour (D-QSP: a tile carries no bag multiplicity without a further lawful carrier).
+
 ## Overview
 
 Photolithography is the north star for the relational shader. The wafer (the substrate) never moves. A
@@ -124,9 +141,9 @@ Over a coordinate DR has routed:
 
 ## 3a. Co-architecture readings (WORKING-MODEL)
 
-- **The Abacus rods are DR's missing counted semiring.** D-DRDT §3: a count matrix "would need a counted semiring (D-DT64-3 §3); not built"; D-DRF-1 §1: a Boolean cell carries no multiplicity. A dose stack of k Boolean planes develops to Σ 2^k · popcount(mask_k) without changing the Boolean cell. XLOG bag multiplicity and SPO evidence counts (w⁺, w) are rods over Boolean DR planes; G4 is that semiring's soundness gate.
+- **(withdrawn as a claim; kept as a measured fact)** **A count can be held as Boolean planes.** D-DRDT §3: a count matrix "would need a counted semiring (D-DT64-3 §3); not built"; D-DRF-1 §1: a Boolean cell carries no multiplicity. A dose stack of k Boolean planes develops to Σ 2^k · popcount(mask_k) without changing the Boolean cell. XLOG bag multiplicity and SPO evidence counts (w⁺, w) are rods over Boolean DR planes; G4 is that semiring's soundness gate.
 - **The die map is DR256's occupancy statistic.** `dr256-where-capstone-v1.md` B.7(2) measured that mask ops and masked folds do not skip dead 256-row blocks (NB/QB 0.02–0.39 at sparse selections), and P3 waits for "a consumer decision that reads active blocks". By G3 a 256-row block is a 16 × 16 die; a stepper exposes only patterned dies. Candidate consumer decision for P3: build the die map once from `Keep`, step only active dies. Unmeasured through Quack.
-- **A DTO binding is D-DRF-1's "caller".** Frame witness + declared axes (`AxisKind`, `dr-math-binding-probe`) + declared semiring (Boolean or rods) + law (an address map over `Morton8x8`) + method references. Nothing else reaches a shader.
+- **The Q0 binding is D-DRF-1's "caller".** Frame witness + declared axes (`AxisKind`, `dr-math-binding-probe`) + declared semiring (Boolean or rods) + law (an address map over `Morton8x8`) + method references. Nothing else reaches a shader.
 
 ## 3b. Reference implementation: the ONNX path is already wired (`tract-harvest-probe`)
 
@@ -242,7 +259,7 @@ than the byte-dot, refused).
 
 ## 11. Pre-registered gates (none run)
 
-- **G1 status:** discharged for ONNX (§3b); delivered for XLOG as a failing fixture in #1864 (expected {2:4, 3:1, 7:1}, refused today with `BagNeedsMultiplicity`). XLOG is the first non-ONNX consumer of the bind store.
+- **G1 status:** discharged for ONNX (§3b); delivered for XLOG as a failing fixture in #1864 (expected {2:4, 3:1, 7:1}, refused today with `BagNeedsMultiplicity`). It fails on S8's `BagNeedsMultiplicity` refusal in `bind_dr64`; there is no bind store to consume (D-NFR-0 S5 MISSING).
 - **G1, binding sufficiency.** One named consumer states one operation as a DTO binding over DR
   coordinates, with a failing fixture and expected values. **Fails if** the statement needs a dimension
   decision.
