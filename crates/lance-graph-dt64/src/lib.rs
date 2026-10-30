@@ -56,12 +56,16 @@
 //!
 //! # Agnostic algebra, switched by the classid
 //!
-//! Addresses and algebra methods are agnostic. The algebra catalogue
-//! ([`AlgebraEntry`], [`BindStore::declare_algebra`]) is classid-free global
-//! behaviour (D-DT64-6 D6). A classid switches labels (its [`ClassView`]) and
-//! polyfill (its bindings' [`Effect`]s, each an [`AlgebraRef`] with ordered
-//! operands) over them. Two consumers reuse one entry by referring to the
-//! same [`AlgebraId`]; [`BindStore::users_of`] lists them.
+//! Addresses and algebra methods are agnostic. The algebra is the polyfill
+//! (D-DT64-6 D4: mask-risc / `ndarray::simd`), classid-free global behaviour
+//! (D6). As with `ndarray::simd`, a consumer names a facade word and nothing
+//! else: the word's path is its identity ([`AlgebraRef`]), nobody assigns it
+//! a number, and which backend realizes it is the polyfill's business. The
+//! store's catalogue ([`AlgebraEntry`], [`BindStore::declare_algebra`]) only
+//! mirrors the words' arity so a binding can be checked; it decides nothing.
+//! A classid switches labels (its [`ClassView`]) and polyfill (its bindings'
+//! [`Effect`]s, each a word with ordered operands) over them. Two consumers
+//! reuse a word by naming it; [`BindStore::users_of`] lists them.
 //!
 //! [`ActionDef::object_class`]: lance_graph_contract::action::ActionDef::object_class
 //! [`ClassMethods::classid`]: lance_graph_contract::codegen_manifest::ClassMethods::classid
@@ -95,45 +99,24 @@ pub struct SchemaRev(pub u32);
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
-/// A classid-free algebra method: global behaviour (D-DT64-6 D6, "global
-/// behaviour needs no classid and lives in lance-graph"). Addresses and
-/// algebra methods are agnostic; a classid's binding is what switches labels
-/// and polyfill over them.
+/// A polyfill word, named by its facade path (`"ndarray::simd::masked_group_count_u32"`):
+/// classid-free global behaviour (D-DT64-6 D6). The path is the identity, as
+/// in `ndarray::simd`; there is no second, numeric spelling. The store never
+/// resolves or runs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct AlgebraId(pub u32);
+pub struct AlgebraRef(pub &'static str);
 
-/// One entry of the algebra catalogue: the polyfill (D4: over mask-risc /
-/// ndarray) named by reference, how many operands it takes, and its signature
-/// revision. Immutable once declared; versioned in the store directly (D6).
-/// The store never resolves or runs the polyfill.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// The store's mirror of one polyfill word: its name and how many operands it
+/// takes. The word itself is declared by the polyfill; this entry exists only
+/// so a binding's operand count can be checked. Immutable once mirrored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AlgebraEntry {
-    pub id: AlgebraId,
-    pub sig_rev: SigRev,
-    pub polyfill: String,
+    pub word: AlgebraRef,
     pub inputs: u8,
 }
 
-/// What a class binds an effect to: an algebra entry at the signature
-/// revision it was bound against.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct AlgebraRef {
-    pub id: AlgebraId,
-    pub sig_rev: SigRev,
-}
-
-impl AlgebraRef {
-    /// The faithful reference to `entry`.
-    pub fn of(entry: &AlgebraEntry) -> AlgebraRef {
-        AlgebraRef {
-            id: entry.id,
-            sig_rev: entry.sig_rev,
-        }
-    }
-}
-
-/// One DO step: which field position of the class it writes, the algebra
-/// entry that writes it, and what it reads. A method's effects are an ORDERED
+/// One DO step: which field position of the class it writes, the polyfill
+/// word that writes it, and what it reads. A method's effects are an ORDERED
 /// list.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Effect {
@@ -334,25 +317,17 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
-    /// An effect names an algebra entry the catalogue does not hold.
+    /// An effect names a word the catalogue does not mirror.
     UnknownAlgebra {
         class: u32,
         method: MethodId,
-        algebra: AlgebraId,
-    },
-    /// An effect was bound against another revision of the entry.
-    AlgebraRevisionMismatch {
-        class: u32,
-        method: MethodId,
-        algebra: AlgebraId,
-        bound: SigRev,
-        asked: SigRev,
+        algebra: AlgebraRef,
     },
     /// An effect passes another number of operands than the entry takes.
     ArityMismatch {
         class: u32,
         method: MethodId,
-        algebra: AlgebraId,
+        algebra: AlgebraRef,
         expected: u8,
         got: usize,
     },
@@ -364,8 +339,8 @@ pub enum Refusal {
         effect: usize,
         position: u8,
     },
-    /// The algebra entry is already declared with other content.
-    AlgebraImmutable(AlgebraId),
+    /// The word is already mirrored with another arity.
+    AlgebraImmutable(AlgebraRef),
     /// No classid was routed to the position at that version.
     Unrouted {
         position: u16,
@@ -512,8 +487,8 @@ impl<'s, 'v> Resolved<'s, 'v> {
 #[derive(Debug, Clone, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
-    /// The classid-free algebra catalogue (D6).
-    algebra: BTreeMap<AlgebraId, AlgebraEntry>,
+    /// The mirror of the polyfill words bindings use (D6).
+    algebra: BTreeMap<AlgebraRef, AlgebraEntry>,
     /// Per position, the route events in version order: `(version, class)`,
     /// `None` for a retract.
     routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
@@ -564,21 +539,12 @@ impl BindStore {
         validate(class, &schema, &methods)?;
         for m in &methods {
             for e in &m.effects {
-                let (method, algebra) = (m.id, e.algebra.id);
+                let (method, algebra) = (m.id, e.algebra);
                 let entry = self.algebra.get(&algebra).ok_or(Refusal::UnknownAlgebra {
                     class,
                     method,
                     algebra,
                 })?;
-                if entry.sig_rev != e.algebra.sig_rev {
-                    return Err(Refusal::AlgebraRevisionMismatch {
-                        class,
-                        method,
-                        algebra,
-                        bound: entry.sig_rev,
-                        asked: e.algebra.sig_rev,
-                    });
-                }
                 if usize::from(entry.inputs) != e.args.len() {
                     return Err(Refusal::ArityMismatch {
                         class,
@@ -605,31 +571,31 @@ impl BindStore {
         }
     }
 
-    /// Declare a classid-free algebra entry. Idempotent for an identical
-    /// entry; any other content under a declared id is refused.
+    /// Mirror a polyfill word's arity. Idempotent for an identical entry; the
+    /// same word with another arity is refused.
     pub fn declare_algebra(&mut self, entry: AlgebraEntry) -> Result<(), Refusal> {
-        match self.algebra.get(&entry.id) {
+        match self.algebra.get(&entry.word) {
             Some(bound) if *bound == entry => Ok(()),
-            Some(_) => Err(Refusal::AlgebraImmutable(entry.id)),
+            Some(_) => Err(Refusal::AlgebraImmutable(entry.word)),
             None => {
-                self.algebra.insert(entry.id, entry);
+                self.algebra.insert(entry.word, entry);
                 Ok(())
             }
         }
     }
 
-    /// The algebra entry `id`, if declared.
-    pub fn algebra(&self, id: AlgebraId) -> Option<&AlgebraEntry> {
-        self.algebra.get(&id)
+    /// The mirrored entry for `word`, if any.
+    pub fn algebra(&self, word: AlgebraRef) -> Option<&AlgebraEntry> {
+        self.algebra.get(&word)
     }
 
-    /// Every `(classid, method)` whose DO uses algebra entry `id`: which
-    /// classids switch over it.
-    pub fn users_of(&self, id: AlgebraId) -> Vec<(u32, MethodId)> {
+    /// Every `(classid, method)` whose DO uses `word`: which classids switch
+    /// over it.
+    pub fn users_of(&self, word: AlgebraRef) -> Vec<(u32, MethodId)> {
         let mut out = Vec::new();
         for (&class, entry) in &self.classes {
             for m in &entry.methods {
-                if m.effects.iter().any(|e| e.algebra.id == id) {
+                if m.effects.iter().any(|e| e.algebra == word) {
                     out.push((class, m.id));
                 }
             }

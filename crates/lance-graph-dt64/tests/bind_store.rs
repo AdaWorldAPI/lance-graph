@@ -6,7 +6,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraEntry, AlgebraId, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard,
+    view_class, AlgebraEntry, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Guard,
     MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 
@@ -56,56 +56,41 @@ fn schema(rev: u32, fields: usize) -> ClassSchema {
     }
 }
 
-/// The classid-free algebra catalogue the tests bind against (lab ids).
-const ASSIGN: AlgebraId = AlgebraId(1);
-const ACCUMULATE: AlgebraId = AlgebraId(2);
-const GROUP_COUNT: AlgebraId = AlgebraId(10);
-const MUL_I64: AlgebraId = AlgebraId(11);
+/// Polyfill words the tests bind against, named by path: the path is the
+/// identity, as in `ndarray::simd`. The two `lab::` words stand in for any
+/// nullary step in the ordering tests.
+const ASSIGN: AlgebraRef = AlgebraRef("lab::assign");
+const ACCUMULATE: AlgebraRef = AlgebraRef("lab::accumulate");
+/// A real facade word: `(relation field, key column)`.
+const GROUP_COUNT: AlgebraRef = AlgebraRef("ndarray::simd::masked_group_count_u32");
+/// NOT a facade word: checked i64 arithmetic exists only as
+/// `ndarray::hpc::checked_i64::checked_binary_i64`. Under the polyfill rule a
+/// consumer never names `hpc`, so this is a missing `ndarray::simd` word, kept
+/// here so XLOG's count can be stated at all.
+const MUL_I64: AlgebraRef = AlgebraRef("ndarray::hpc::checked_i64::checked_binary_i64(Mul)");
 
-fn entry(id: AlgebraId, polyfill: &str, inputs: u8) -> AlgebraEntry {
-    AlgebraEntry {
-        id,
-        sig_rev: SigRev(1),
-        polyfill: polyfill.to_string(),
-        inputs,
-    }
+fn entry(word: AlgebraRef, inputs: u8) -> AlgebraEntry {
+    AlgebraEntry { word, inputs }
 }
 
-/// A store holding only the algebra catalogue: no classid anywhere.
+/// A store holding only the mirror of the words used: no classid anywhere.
 fn catalogue() -> BindStore {
     let mut s = BindStore::new();
     for e in [
-        entry(ASSIGN, "assign", 0),
-        entry(ACCUMULATE, "accumulate", 0),
-        // (relation field, key column)
-        entry(GROUP_COUNT, "ndarray::simd::masked_group_count_u32", 2),
-        entry(
-            MUL_I64,
-            "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
-            2,
-        ),
+        entry(ASSIGN, 0),
+        entry(ACCUMULATE, 0),
+        entry(GROUP_COUNT, 2),
+        entry(MUL_I64, 2),
     ] {
         s.declare_algebra(e).unwrap();
     }
     s
 }
 
-fn uses(id: AlgebraId) -> AlgebraRef {
-    AlgebraRef {
-        id,
-        sig_rev: SigRev(1),
-    }
-}
-
-fn effect(target: u8, algebra: &str) -> Effect {
-    let id = match algebra {
-        "assign" => ASSIGN,
-        "accumulate" => ACCUMULATE,
-        other => panic!("no lab entry {other}"),
-    };
+fn effect(target: u8, algebra: AlgebraRef) -> Effect {
     Effect {
         target,
-        algebra: uses(id),
+        algebra,
         args: vec![],
     }
 }
@@ -132,10 +117,7 @@ fn store_with_order() -> BindStore {
     s.register(
         ORDER,
         schema(1, 4),
-        vec![method(
-            10,
-            vec![effect(2, "assign"), effect(3, "accumulate")],
-        )],
+        vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])],
     )
     .unwrap();
     s
@@ -173,16 +155,10 @@ fn an_unregistered_class_is_unknown_not_empty() {
 #[test]
 fn class_behaviour_is_immutable() {
     let mut s = store_with_order();
-    let same = vec![method(
-        10,
-        vec![effect(2, "assign"), effect(3, "accumulate")],
-    )];
+    let same = vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])];
     assert_eq!(s.register(ORDER, schema(1, 4), same), Ok(()));
 
-    let reordered = vec![method(
-        10,
-        vec![effect(3, "accumulate"), effect(2, "assign")],
-    )];
+    let reordered = vec![method(10, vec![effect(3, ACCUMULATE), effect(2, ASSIGN)])];
     assert_eq!(
         s.register(ORDER, schema(1, 4), reordered),
         Err(Refusal::BehaviourImmutable(ORDER))
@@ -206,10 +182,7 @@ fn override_is_a_derived_class_and_a_reroute_and_replay_reads_the_old_route() {
         ORDER,
         ORDER_V2,
         schema(1, 4),
-        vec![method(
-            11,
-            vec![effect(3, "accumulate"), effect(2, "assign")],
-        )],
+        vec![method(11, vec![effect(3, ACCUMULATE), effect(2, ASSIGN)])],
     )
     .unwrap();
     let v2 = s.route(7, ORDER_V2).unwrap();
@@ -278,8 +251,8 @@ fn routes_and_derivations_need_bound_classes() {
 #[test]
 fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard_refuses() {
     let mut s = catalogue();
-    let a = method(20, vec![effect(2, "assign"), effect(2, "accumulate")]);
-    let b = method(21, vec![effect(2, "accumulate"), effect(2, "assign")]);
+    let a = method(20, vec![effect(2, ASSIGN), effect(2, ACCUMULATE)]);
+    let b = method(21, vec![effect(2, ACCUMULATE), effect(2, ASSIGN)]);
     // The negative mold: equal unordered read and write sets.
     assert_eq!(a.reads, b.reads);
     assert_eq!(a.writes(), b.writes());
@@ -300,8 +273,8 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
     // Each faithful reference admits its own binding with its own order.
     let ra = MethodRef::of(ORDER, &a);
     let rb = MethodRef::of(ORDER, &b);
-    assert_eq!(s.admit(&ra).unwrap().effects[0].algebra.id, ASSIGN);
-    assert_eq!(s.admit(&rb).unwrap().effects[0].algebra.id, ACCUMULATE);
+    assert_eq!(s.admit(&ra).unwrap().effects[0].algebra, ASSIGN);
+    assert_eq!(s.admit(&rb).unwrap().effects[0].algebra, ACCUMULATE);
 
     // A route that dropped the guard witness refuses.
     let dropped = MethodRef {
@@ -349,7 +322,7 @@ fn a_guard_added_to_an_unguarded_method_refuses() {
     let mut s = catalogue();
     let free = MethodBinding {
         when: None,
-        ..method(30, vec![effect(2, "assign")])
+        ..method(30, vec![effect(2, ASSIGN)])
     };
     s.register(ORDER, schema(1, 4), vec![free.clone()]).unwrap();
     assert!(s.admit(&MethodRef::of(ORDER, &free)).is_ok());
@@ -426,7 +399,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         s.register(
             ORDER,
             schema(1, 4),
-            vec![method(1, vec![]), method(1, vec![effect(2, "assign")])]
+            vec![method(1, vec![]), method(1, vec![effect(2, ASSIGN)])]
         ),
         Err(Refusal::DuplicateMethodId {
             class: ORDER,
@@ -437,7 +410,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         s.register(
             ORDER,
             schema(1, 4),
-            vec![method(1, vec![effect(4, "assign")])]
+            vec![method(1, vec![effect(4, ASSIGN)])]
         ),
         Err(Refusal::FieldOutOfBasis {
             class: ORDER,
@@ -471,7 +444,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         s.register(
             ORDER,
             schema(1, 256),
-            vec![method(1, vec![effect(255, "assign")])]
+            vec![method(1, vec![effect(255, ASSIGN)])]
         ),
         Ok(())
     );
@@ -543,18 +516,18 @@ fn xlog_count() -> MethodBinding {
             // R keyed by its y column (1)
             Effect {
                 target: 2,
-                algebra: uses(GROUP_COUNT),
+                algebra: GROUP_COUNT,
                 args: vec![Arg::Field(0), Arg::Const(1)],
             },
             // S keyed by its y column (0)
             Effect {
                 target: 3,
-                algebra: uses(GROUP_COUNT),
+                algebra: GROUP_COUNT,
                 args: vec![Arg::Field(1), Arg::Const(0)],
             },
             Effect {
                 target: 4,
-                algebra: uses(MUL_I64),
+                algebra: MUL_I64,
                 args: vec![Arg::Field(2), Arg::Field(3)],
             },
         ],
@@ -570,7 +543,7 @@ fn onnx_mul() -> MethodBinding {
         name: "Mul(int64)".to_string(),
         effects: vec![Effect {
             target: 2,
-            algebra: uses(MUL_I64),
+            algebra: MUL_I64,
             args: vec![Arg::Field(0), Arg::Field(1)],
         }],
         population: Population::Distinct,
@@ -584,7 +557,7 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
     s.register(ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
 
-    // One algebra entry, reused by both classids; nothing minted for it.
+    // One word, reused by both classids by name; nothing minted for it.
     assert_eq!(
         s.users_of(MUL_I64),
         vec![(XLOG, MethodId(1)), (ONNX, MethodId(1))]
@@ -592,10 +565,7 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     assert_eq!(s.users_of(GROUP_COUNT), vec![(XLOG, MethodId(1))]);
     assert!(s.users_of(ASSIGN).is_empty());
     assert_eq!(s.class_count(), 2, "only the consumers carry classids");
-    assert_eq!(
-        s.algebra(MUL_I64).unwrap().polyfill,
-        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)"
-    );
+    assert_eq!(s.algebra(MUL_I64).unwrap().inputs, 2);
 
     // The classid switches the labels: each reads its own lens.
     let xv = View::with_fields(view_class(XLOG), 5);
@@ -608,18 +578,14 @@ fn consumers_switch_over_shared_classid_free_algebra() {
     );
 }
 
-/// An algebra entry is immutable once declared (D5 applied to D6).
+/// A mirrored word is immutable: the same name with another arity is
+/// refused, because a word's name is its identity.
 #[test]
-fn an_algebra_entry_is_immutable() {
+fn a_mirrored_word_is_immutable() {
     let mut s = catalogue();
-    let same = entry(
-        MUL_I64,
-        "ndarray::hpc::checked_i64::checked_binary_i64(Mul)",
-        2,
-    );
-    assert_eq!(s.declare_algebra(same), Ok(()));
+    assert_eq!(s.declare_algebra(entry(MUL_I64, 2)), Ok(()));
     assert_eq!(
-        s.declare_algebra(entry(MUL_I64, "wrapping_mul", 2)),
+        s.declare_algebra(entry(MUL_I64, 3)),
         Err(Refusal::AlgebraImmutable(MUL_I64))
     );
 }
@@ -661,21 +627,12 @@ fn effect_operands_and_entries_are_checked() {
         }
     );
     assert_eq!(
-        refused(&mut s, &|e| e.algebra = uses(AlgebraId(99))),
+        refused(&mut s, &|e| e.algebra =
+            AlgebraRef("ndarray::simd::no_such_word")),
         Refusal::UnknownAlgebra {
             class: XLOG,
             method: MethodId(1),
-            algebra: AlgebraId(99)
-        }
-    );
-    assert_eq!(
-        refused(&mut s, &|e| e.algebra.sig_rev = SigRev(0)),
-        Refusal::AlgebraRevisionMismatch {
-            class: XLOG,
-            method: MethodId(1),
-            algebra: MUL_I64,
-            bound: SigRev(1),
-            asked: SigRev(0)
+            algebra: AlgebraRef("ndarray::simd::no_such_word")
         }
     );
     assert_eq!(s.class_count(), 0, "no refused class was bound");
