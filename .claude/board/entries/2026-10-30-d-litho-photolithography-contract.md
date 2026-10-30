@@ -50,3 +50,35 @@
   - the order DR routes → DT64 assigns;
   - gates G1, G4, G5.
 - Lesson: D-DRF-1 was not read before geometry was written into this plan.
+
+## Correction to the scope correction (2026-10-30, user)
+
+"Of course you need to know the dimensions in order to apply the law effectively."
+
+- The removal above overcorrected. The error was stating DR's dimensions as this contract's decisions, not stating them.
+- Plan §4 is now "What the DTO layer must know": DR's facts, each cited (D-DRF-1 §1–§3, `morton8x8.rs`, D-DRAV-1, `dr256-where-capstone-v1.md`, `mask-risc` `ir.rs:329-337` and `tests/rotation.rs`), with what the DTO layer does with each. The key one: D-DRF-1 says axis semantics are declared by the caller, and the DTO layer is that caller.
+- The 8 × 8 / 16 × 16 Morton tile reading is derived from the prefix property and pinned only for 4 × 4; it is gated as G3 before use.
+- Gates G2 (law, not rotation) and G3 (Morton tile) are restored. Q1 stays withdrawn: deciding rod width is still DR's.
+- Strikes the "Removed as DR's concern" list above; it stays in place as history.
+
+MIRROR
+- LESSON: geometry was first written without reading DR's plans, then removed instead of attributed; both times the sources were not read in full.
+
+## Correction (2026-10-30, user): metaphor, and the bind store
+
+- Photolithography was the user's teaching metaphor, not a production name. The plan is now a reading aid that maps the metaphor onto existing seams (banner at the top of the plan).
+- "XLOG is the first consumer of the bind store" is withdrawn. D-NFR-0 S5 says the binding store is MISSING. D-DT64-Q0 says the binding is an interface seam, not a store. D-NFR-1 (the S5 × S6 adapter) is the smallest seam and is not built.
+- XLOG's `BagNeedsMultiplicity` is S8's existing refusal in `bind_dr64`. D-QSP already says a tile carries no bag multiplicity without a further lawful carrier. The dose test (G4) stays as a measured fact, not a proposed carrier.
+
+MIRROR
+- BLIND SPOT: the binding plans (Q0, D-NFR-0, D-QSP, D-QR-CAP) were not read before the binding was described.
+
+## Correction to the correction (2026-10-30, user): the bind store plans are authoritative
+
+- DT is the bind store (D-DT64-6 §1 D4; D-DRDT §1): the existing ClassId-addressed DTO binding store. It holds bindings and their version log, never business data.
+- D-NFR-0 S5's "MISSING" is about Quack, which is the query-binding membrane, not about DT.
+- XLOG (#1864) is a consumer of the DT bind store. "There is no bind store yet" is withdrawn.
+
+## Folded (2026-10-30, user)
+
+- The plan is folded into the bind store plan as D-DT64-6 Amendment A. The D-LITHO file is now only a pointer.
