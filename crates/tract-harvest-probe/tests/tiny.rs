@@ -1166,6 +1166,68 @@ fn trig_sweep_against_f64_and_ort() {
     }
 }
 
+/// External-data Constants are inlined only from a manifest whose digest,
+/// length and dtype match, and only into an undecoded Constant.
+#[test]
+fn external_constants_inline_only_when_pinned() {
+    use tract_harvest_probe::source::{sha256_hex, Attr, SourceNode};
+    let mut src = SourceInventory::from_bytes(&bytes("base")).unwrap();
+    src.nodes.push(SourceNode {
+        name: "c_ext".into(),
+        op_type: "Constant".into(),
+        domain: String::new(),
+        inputs: vec![],
+        outputs: vec!["ext_out".into()],
+        attributes: vec!["value".into()],
+        attrs: vec![("value".into(), Attr::Tensor(None))],
+    });
+    let dir = std::env::temp_dir().join(format!("tract-ext-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let data: Vec<u8> = [1.5f32, -2.0]
+        .iter()
+        .flat_map(|v| v.to_le_bytes())
+        .collect();
+    std::fs::write(dir.join("c.bin"), &data).unwrap();
+    let manifest = |sha: &str, dims: &str| {
+        let p = dir.join("m.json");
+        std::fs::write(
+            &p,
+            format!(r#"{{"constants":[{{"output":"ext_out","dtype":"f32","dims":{dims},"sha256":"{sha}","file":"c.bin"}}]}}"#),
+        )
+        .unwrap();
+        p
+    };
+    let good = sha256_hex(&data);
+    let first = src.nodes[0].outputs[0].clone();
+    let e = src
+        .inline_external_constant(&first, Value::F32(ArrayD::zeros(IxDyn(&[1]))))
+        .unwrap_err();
+    assert!(e.contains("exactly one Constant"), "{e}");
+    let e = src
+        .inline_constants_from_manifest(&manifest(&"0".repeat(64), "[2]"), &dir)
+        .unwrap_err();
+    assert!(e.contains("sha256"), "{e}");
+    let e = src
+        .inline_constants_from_manifest(&manifest(&good, "[3]"), &dir)
+        .unwrap_err();
+    assert!(e.contains("bytes"), "{e}");
+    assert_eq!(
+        src.inline_constants_from_manifest(&manifest(&good, "[2]"), &dir),
+        Ok(1)
+    );
+    match src.nodes.last().unwrap().attr("value") {
+        Some(Attr::Tensor(Some(Value::F32(a)))) => {
+            assert_eq!(a.iter().copied().collect::<Vec<_>>(), [1.5, -2.0])
+        }
+        other => panic!("{other:?}"),
+    }
+    let e = src
+        .inline_constants_from_manifest(&manifest(&good, "[2]"), &dir)
+        .unwrap_err();
+    assert!(e.contains("already decoded"), "{e}");
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 /// Facts read from one model refuse to bind to another (a stale binding):
 /// `gen2` has `base`'s value names but different bytes.
 #[test]
