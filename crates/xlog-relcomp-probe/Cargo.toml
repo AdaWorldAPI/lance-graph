@@ -23,5 +23,10 @@ xlog-core = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da66330819
 xlog-ir = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
 xlog-logic = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
 
+[dev-dependencies]
+# The shared contract types a DTO binding is stated in (NodeGuid, ClassView,
+# WideFieldMask). Same path crate dr-math-binding-probe already uses.
+lance-graph-contract = { path = "../lance-graph-contract" }
+
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
