@@ -101,6 +101,7 @@ Each refusal has a test. Nothing is approximated.
 | `NonPositiveBody` | comparison (`Z != 5`) | `refuses_comparisons_and_non_integer_facts` |
 | `Probabilistic` | `0.5::r(1, 2)`; the RIR is deterministic, the program is not | `refuses_probabilistic_programs_even_when_the_rir_is_deterministic` |
 | `FactTerm` | `r(9, -7)` | `refuses_comparisons_and_non_integer_facts` |
+| `DerivedRelation` | a scanned predicate also defined by a rule (`r(X, Y) :- t(X, Y)`); its facts are not its whole relation | `refuses_a_scanned_relation_that_a_rule_derives` |
 | `Chain(DomainMismatch)` | cross-domain alias; raised by the existing chain typing | `refuses_cross_domain_alias` |
 | `AxisMismatch` | answer read in an axis the left operand does not produce | `refuses_cross_domain_alias` |
 | `Bind(SourceChanged)` | stale frame | `refuses_a_stale_frame` |
@@ -123,6 +124,7 @@ result.
 | Negation check | 2 tests red |
 | Overflow check | boundary test red |
 | Commuted-join arm | join-order test red |
+| Derived-relation check | its test red |
 
 ## 6. Gate C: the 64-slot boundary
 

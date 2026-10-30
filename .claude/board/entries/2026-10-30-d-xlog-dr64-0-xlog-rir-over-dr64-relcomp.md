@@ -8,7 +8,7 @@ Gate B: `q(Y) :- r(1,Y), s(Y,4)` over R={(1,2),(1,3),(9,7)}, S={(2,4),(3,5),(7,4
 
 Running it found two plan shapes XLOG's optimizer emits for the same rule: `ChainJoin` with the plain join as `fallback` (unbound ends; admitted only when both agree), and swapped join sides chosen from statistics (large unselective S). Admission of an optimizing frontend has to be order- and promotion-insensitive.
 
-Refused, each with a test: inverse-needing join, negation, comparison, probabilistic program (deterministic RIR, probabilistic program), non-u32 fact, cross-domain alias (by the existing chain typing), axis mismatch, stale frame, 65 ids, ChainJoin/fallback disagreement. 8 disable runs red.
+Refused, each with a test: inverse-needing join, negation, comparison, probabilistic program (deterministic RIR, probabilistic program), non-u32 fact, a scanned relation that a rule also derives (found by the Codex review), cross-domain alias (by the existing chain typing), axis mismatch, stale frame, 65 ids, ChainJoin/fallback disagreement. 9 disable runs red.
 
 Cost (Xeon 2.8 GHz, release): hot bind + typing + propagate 267–406 ns on the selective fixture, where scalar enumeration is 11–15 ns; ~2.5–2.9 µs dense (backward `compose` does one row OR per edge of S); a prepared inverse column is ~0.9 ns. Masks beat scalar ~30x on dense. Cold is dominated by XLOG parsing fact literals (15,686 µs for 8,192 facts; reported, not a gate). Bidirectional filtering did not beat a prepared index.
 
