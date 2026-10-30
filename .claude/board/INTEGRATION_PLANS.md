@@ -1,6 +1,6 @@
 ## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
 
-**Status:** PROPOSED, docs only; nothing authorized. **Board:** [entry](entries/2026-10-30-d-litho-photolithography-contract.md), [STATUS_BOARD](STATUS_BOARD.md) D-LITHO. Photolithography as the shader north star: vocabulary (wafer, reticle, exposure, dose, develop), the Abacus as address grammar and mental model (frame, rod, bead position under a DR law), "views are laws, never rotations", ownership, consumers, gates G1–G5 (not run). Clarifies D-DRDT's "rotation" wording without editing it.
+**Status:** RETIRED 2026-10-30, folded into D-DT64-6 Amendment A (`d-dt64-6-routing-bindstore-behavior-v1.md`); "photolithography" was a metaphor. **Board:** [entry](entries/2026-10-30-d-litho-photolithography-contract.md), [STATUS_BOARD](STATUS_BOARD.md) D-LITHO. Photolithography as the shader north star: vocabulary (wafer, reticle, exposure, dose, develop), the Abacus as address grammar and mental model (frame, rod, bead position under a DR law), "views are laws, never rotations", ownership, consumers, gates G1–G5 (not run). Clarifies D-DRDT's "rotation" wording without editing it.
 **Confidence:** decisions recorded; no code.
 
 ## 2026-10-30 — D-TRACT-HARVEST-0: Tract as a cold ONNX frontend, admitted onto native methods → `.claude/plans/d-tract-harvest-0-native-algebra-bridge-v1.md`

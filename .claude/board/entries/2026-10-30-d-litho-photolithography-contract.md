@@ -78,3 +78,7 @@ MIRROR
 - DT is the bind store (D-DT64-6 §1 D4; D-DRDT §1): the existing ClassId-addressed DTO binding store. It holds bindings and their version log, never business data.
 - D-NFR-0 S5's "MISSING" is about Quack, which is the query-binding membrane, not about DT.
 - XLOG (#1864) is a consumer of the DT bind store. "There is no bind store yet" is withdrawn.
+
+## Folded (2026-10-30, user)
+
+- The plan is folded into the bind store plan as D-DT64-6 Amendment A. The D-LITHO file is now only a pointer.

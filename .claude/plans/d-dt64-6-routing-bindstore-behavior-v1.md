@@ -187,3 +187,54 @@ All OPEN.
 - OGAR [#363](https://github.com/AdaWorldAPI/OGAR/pull/363) (`ogit_schema_composition.rs`).
 - crai-rs #1 and #2, CR-H0 / CR-H1 (private repo; a sidecar consumer of #1760; links resolve only with access).
 - Board coordination: Linear EXO-50 (append-only; coordination, not approval).
+
+---
+
+# Amendment A (2026-10-30): what the bind store applies from DR, the ONNX reference path, and measured gates
+
+**Status:** PROPOSED / DOCS + two lab tests. Folded in from the retired D-LITHO note (#1859, #1860, #1862), whose "photolithography" wording was the operator's metaphor, not a production name. Nothing here changes §1–§7; it records what a DT binding must know and where the bind store already runs.
+
+## A.1 DR facts a DT binding must know and apply
+
+DR owns every fact below. DT decides none of them, but a binding cannot be stated without them. Every source was read in full on 2026-10-30.
+
+| DR fact | Source | What a DT binding does with it |
+|---|---|---|
+| DR64 focus: 64 × 64 = 4,096 positions; Boolean tile 512 B; u16 position → SoA-row map 8 KiB; at most 2 MiB of distinct 512 B rows. DR256: 65,536 positions, 8 KiB, 128 KiB, 32 MiB. | D-DRF-1 §1; falsifier G1 (PASS, lab) | Names DR64 or DR256 and states its cost in these units. |
+| Dense 64³ volume 32 KiB, 256³ 2 MiB; map plus cube 40 KiB. | D-DRF-1 §1 | Never assumes a cube exists (§7). |
+| Axis semantics are declared by the caller; the physical third axis is NFR-OP-2 (DR). | D-DRF-1 §1; capstone DT64-OP-2 | **The DT binding is that caller**: it declares typed axes (`AxisKind`) and never decides the physical third axis. |
+| HHTL16 address = `Morton8x8`; an aligned run of 4^j codes is an aligned 2^j × 2^j square (a 64-row word is 8 × 8, a 256-row block 16 × 16). | `morton8x8.rs`; D-DRDT §2; test in A.3 | A view is an address map over the canonical words; rotation is never a mask op (`mask-risc/tests/rotation.rs`). |
+| Fixed width 64 / 256; underflow carried by the presence bit; absent is never FALSE or zero. | user ruling 2026-10-30 (EXO-50 17–18); D-DRF-1 G7; D-DRAV-1 AV11 | Out-of-focus contributors are expanded through a witnessed binding or refused. |
+| The sealed map is immutable and versioned; the same ordinal under another frame is refused. | D-DRF-1 §0, §2; G3; D-SAG-6 F07 | Consistent with D8: the register copy is keyed to its frame. |
+| A Boolean cell is support under a declared semiring; no Bag, NULL or evidence. `FieldMask` is presence, never predicate truth. | D-DRF-1 §1; D-QSP; capstone | A binding declares its population; Bag is refused today (`bind_dr64`: `BagNeedsMultiplicity`). |
+| `Keep` → `Plane` reusable under one frame; `ScatterOrU32` is demand-only; a detached `Keep` is recomputed or refused (1,032 vs 31). | `mask-risc ir.rs:329-337`; `dr256-where-capstone-v1.md` B.6, E.5 | No escaped reuse without a complete dependency witness. |
+| Map and value lifetimes are separate; a map-only operation needs no value fetch. | D-DRAV-1 §2, §6 | A method binding declares value-free or value-demanding. |
+| The 64-thought plane is separate from the relation selector and the map index. | D-DRF-1 §1; R2 | Thoughts are reserved, not claimed (allocate on Thought-Git `Commit`), never a cube axis. |
+
+## A.2 The bind store already runs for ONNX: `tract-harvest-probe`
+
+`crates/tract-harvest-probe` is D1–D8 of this plan running for ONNX op signatures, checked bit for bit against ORT (`tests/tiny.rs`, `tests/jina.rs`). Read in full 2026-10-30.
+
+| This plan | `tract-harvest-probe` | Test |
+|---|---|---|
+| DR#3 Identity × Property | `dr3::OnnxGraph`: nodes = Identity, values = Property, `TILE = 64`, else `TileOverflow` | `dep_composition_is_the_source_dataflow` |
+| ON / DO share the property domain (§3) | `on`, `do_` relations; `dep = do_ ∘ read_by` via `relcomp::compose`; schedule from `dep` | `schedule_comes_from_dep_not_source_order` |
+| D4 classid → polyfill; D5 immutable classid | `registry::Registry`: op signature → one classid (lab ordinals `0x0F..`), DO in `lance-graph-onnx` | `base_through_the_graph_is_bit_exact_against_ort` |
+| WHEN is K3; UNKNOWN never TRUE (§3 step 4) | `Registration::when` returns `K3`; resolution refuses non-TRUE | `unknown_shapes_refuse`, `incompatible_broadcast_is_when_false` |
+| Unregistered is UNKNOWN (F06) | `Refusal::Unregistered` | `unregistered_op_is_refused` |
+| D8 frame-keyed binding | `Frame` revisions = (source digest, registry version, coordinate digest); `FrameStore::check` per run | `stale_generation_is_refused`, `registry_change_is_a_frame_change` |
+| Numeric annotation | `Numeric::{Exact, Bounded}`; ULP measured vs ORT and f64 | `erf_sweep_against_f64_and_ort`, `trig_sweep_against_f64_and_ort` |
+
+Production step (registry module doc): the lab ordinals become OGAR-minted concepts activated through `hotplug` (D6).
+
+## A.3 Measured gates (lab)
+
+| Gate | Test | Result |
+|---|---|---|
+| Morton tile | `lance-graph-contract` `morton8x8::tests::every_aligned_code_run_is_an_aligned_square` (j = 0..=8) | PASS; disable run (runs start one code late) red |
+| Count as Boolean planes | `lance-graph-mask-risc/tests/dose.rs`: K = 6 planes over a 4,096-row focus, `And` + `Count` per plane, weighted 2^k, equals the per-position sum at 0/3/50/97/100 % selection; every plane load-bearing | PASS; disable run (swap adjacent weights) red. A measured fact, not an adopted Bag carrier |
+| First non-ONNX consumer | XLOG #1864: `NodeGuid` stand-in, R/S as `ClassView` × `WideFieldMask`, count method by reference, `Population::Bag`, expected {2:4, 3:1, 7:1} | failing fixture by design: refused with `BagNeedsMultiplicity` |
+
+## A.4 Open (unchanged owners)
+
+The Bag carrier (who admits a counted population into `bind_dr64`); the D-DRDT §4 DT gaps (MethodId, K3 guards, effect order, one lookup); §6 questions 1–9.
