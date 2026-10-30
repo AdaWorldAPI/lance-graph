@@ -1,3 +1,8 @@
+## 2026-10-30 — main after #1862 (merged `abe0b7afc`)
+
+- #1862 landed docs and two tests: D-DT64-6 Amendment A, the Morton aligned-square test, and the mask-risc dose test; D-LITHO folded into D-DT64-6.
+- No bind store on main yet: `crates/lance-graph-dt64` is in the follow-up PR (stranded on the branch after the merge, rebased onto main).
+
 ## 2026-10-26 — main after #1803 (merged `13e37026`)
 
 - Code on main since #1759: `crates/drf-focus-probe` (D-DRF P1/P2, writeback W1–W4/W6–W8, budget, churn, TLB, DRAV-AV1; workspace-excluded, no CI job) and, from #1792, D-NFR-1 falsifier tests only (`cognitive-shader-driver/tests/escaped_reuse.rs`, `lance-graph-planner/tests/horizon_is_not_a_snapshot.rs`, `soa-view-probe/tests/falsifiers.rs`). No production source changed. DR256 global-mask labs (#1790, #1791, #1792 P2) and D-TFLP 6.5 probes (#1800, #1801, #1803) are lab evidence, production impact none.
