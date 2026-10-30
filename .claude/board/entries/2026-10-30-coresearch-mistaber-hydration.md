@@ -72,20 +72,28 @@ The operator named the opt-in format: tenant 1 is an `is_a` zipper chain (a dist
 - A slot byte stores `1 + index`; 0 is the hole that ends the chain (`read_path`). So a byte level holds **255** children.
 - The capstone plan files the 16 × 8-bit ISA and PART_OF zippers as a proposal, not ABI, and says the two must not be composed automatically (`d-qr-abi-classview-rails-capstone-v1.md` §2).
 
-**Reading (operator, 2026-10-30): one tenant = 16 × `(u8:u8)` = 1 identity + 15 exact 64k addresses.** Each of the 16 pairs addresses 65,536 positions. Pair 0 is the node's own identity. Pairs 1–15 are exact addresses of other nodes: no edge table, no 255 cap per level. Two tenants give one row 30 exact references, all in-row. A pair reading `(0, 0)` is unbound. The ClassView elects whether a tenant is read as a chain (prefix ancestry, `is_ancestor_of`) or as an address set; the bytes are the same either way.
+**Reading (operator, 2026-10-30): the two tenants zip vertically into 16 columns, each column a `(u8:u8)` 64k address: 1 identity + 15 exact addresses.**
 
-| Mistaber node | tenant 1 (`is_a`): identity + addresses | tenant 2 (`part_of`): identity + addresses | overflow |
+```text
+tenant 1 (is_a)     1234567890123456
+tenant 2 (part_of)  1234567890123456
+                    ^ column k = (is_a[k] : part_of[k]) = one 64k address
+```
+
+Column 1 is the node's identity; columns 2–16 are 15 exact addresses of other nodes. That makes 32 bytes per row, 15 in-row references, no edge table and no 255 cap. A column reading `(0, 0)` is unbound. The bytes stay two separate digits; nothing is widened into a u16. This is an addressing reading of the two tenants, not a composition of the `is_a` and `part_of` relations.
+
+| Mistaber node | column 1 (identity) | columns 2–16 (exact addresses) | overflow |
 |---|---|---|---|
-| makor citation `sa("yd:87:3")` | its seif identity; slots 1–15 = its ancestors (siman, chelek, work) as exact addresses | the work it sits in | none |
-| rule `r_…` | its identity; slots = every makor it cites (exact addresses) | its world scope (one, by `scope/2`) | more than 15 makorot: refused, counted |
-| world | its identity; slots = every parent world (`ashk_ah`: mechaber and rema both) | era or school | more than 15 parents: refused, counted |
-| holding | (proposition, world) identity | slots = immediate rule, source rule, origin world, each makor of the source rule | more than 15 lineage targets: refused, counted |
+| makor citation `sa("yd:87:3")` | the seif | its siman, chelek and work | none |
+| rule `r_…` | the rule | its world scope (one, by `scope/2`) and every makor it cites | more than 15: refused, counted |
+| world | the world | every parent world (`ashk_ah`: mechaber and rema) | more than 15: refused, counted |
+| holding | (proposition, world) | immediate rule, source rule, origin world, the source rule's makorot | more than 15: refused, counted |
 
-This replaces the earlier table, which kept a rule's extra makorot and `ashk_ah`'s second parent as edges outside the rails. In-row addresses carry them. X3 changes from "worlds as value ids plus an edge DAG" to "worlds as identities whose parents are in-row addresses". The DR64 fixpoint still computes holdings; it reads parents from the rows instead of a separate register.
+This replaces the earlier table, which kept a rule's extra makorot and `ashk_ah`'s second parent as edges outside the rails. In-row columns carry them. X3 changes from "worlds as value ids plus an edge DAG" to "worlds as identities whose parents are in-row addresses". The DR64 fixpoint still computes holdings; it reads parents from the rows instead of a separate register.
 
 **The vertical match is free in this corpus.** Mistaber lays out `dsl/corpus/yd_87/seif_3.hll`, so a rule's `part_of` chain (file → seif → siman) and its makor's DN chain name the same positions. Under the operator's format this is the ideal case. It is still two rails, never one composed relation.
 
-**Capacity: settled.** With every level a `(u8:u8)` pair, each of the 16 slots addresses 64k positions. All 3,701 YD seifim, every siman and every commentary seif katan get exact addresses. The earlier one-byte-per-level reading, and the "last two bytes as the leaf" step that followed it, are superseded by the reading above. A hilchot level remains optional, for basin structure only.
+**Capacity: settled.** With each of the 16 columns a `(u8:u8)` pair, every column addresses 64k positions. All 3,701 YD seifim, every siman and every commentary seif katan get exact addresses. The earlier one-byte-per-level reading, and the "last two bytes as the leaf" step that followed it, are superseded by the reading above. A hilchot level remains optional, for basin structure only.
 
 X1 and P1 are amended accordingly: P1's 9-bit arm is replaced by a pair-address arm (3,701 distinct seif addresses, 0 refusals, 0 aliases; disable run: read one byte of each pair → aliases).
 
