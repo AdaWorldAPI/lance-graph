@@ -86,6 +86,8 @@ against commit `b7cfe93`.
 | G12 mislabelled hand-built row | ignore it | `a_hand_built_mislabelled_row_is_never_pure` |
 | G13 parser checks relation/evidence | check → `false` | `a_possible_relation_labelled_witnessed_is_rejected` |
 | G14 nested subjects in scope | exact subject only | 9 tests, among them `count_with_tally_executes_only_…`, `witnessed_effects_are_refused_…`, `generic_and_dyn_…` |
+| G15 an in-scope closure callee is not unaudited (Codex P2, #1891) | treat it as any other callee | 8 tests, among them `a_call_into_an_in_scope_closure_…`, `count_below_is_admitted_pure_…`, `count_with_tally_executes_only_…` |
+| G16 in scope needs the `::` boundary | prefix match without `::` | `a_call_into_another_functions_closure_stays_unaudited` |
 
 Not disabled: the `admit` pass-through. `decide` needs the binding `admit`
 returns, so there is no smaller patch than removing the call. Its refusals are
