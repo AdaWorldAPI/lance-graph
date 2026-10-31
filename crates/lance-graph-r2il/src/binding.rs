@@ -71,7 +71,7 @@ use lance_graph_dt64::{
     AlgebraRef, Arg, BindStore, Effect, MethodRef, Refusal, RouteVersion, SchemaRev,
 };
 use lance_graph_mask_risc::{LaneKind, LaneRef, Planes};
-use ogar_loco::{Dialect, FnIndex, Vocabulary};
+use ogar_loco::{FnIndex, Vocabulary};
 use ogar_r2il::{R2ILVocabulary, ALL, ANY, CONCEPT_R2IL_FOLD, KEY_RUNS, MAX, MIN, SUM};
 
 use crate::{
