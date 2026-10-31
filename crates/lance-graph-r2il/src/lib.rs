@@ -101,6 +101,7 @@
 //! are pinned against `ogar_r2il::R2ILFn::MNEMONICS` by this crate's tests,
 //! so the arity table stays in `ogar_r2il` alone.
 
+pub mod binding;
 pub mod procs;
 
 use std::cell::Cell;
