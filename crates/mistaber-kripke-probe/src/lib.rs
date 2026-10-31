@@ -47,6 +47,7 @@
 //! the three predicates.
 #![forbid(unsafe_code)]
 
+pub mod makor;
 pub mod membrane;
 pub mod rows;
 
