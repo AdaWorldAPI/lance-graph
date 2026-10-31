@@ -6,7 +6,7 @@
 //! (`RustLibSource::Discover`, needs the `rust-src` component): without it
 //! `push`, `collect` and `is_empty` are unresolved and coverage drops to 31%.
 #![allow(deprecated)]
-use ra_ap_hir::{AssocItem, Crate, DefWithBody, Module, ModuleDef};
+use ra_ap_hir::{AssocItem, Crate, DefWithBody, Module, ModuleDef, ScopeDef};
 use ra_ap_ide::{
     AnalysisHost, FilePosition, GotoImplementationConfig, MonikerResult, StaticIndex,
     SymbolInformationKind, VendoredLibrariesConfig,
@@ -52,7 +52,7 @@ fn walk(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, out: &mut Vec<DefWithBod
 }
 
 fn main() -> anyhow::Result<()> {
-    let root = std::path::PathBuf::from(std::env::args().nth(1).expect("workspace root"));
+    let root = std::fs::canonicalize(std::env::args().nth(1).expect("workspace root"))?;
     let cargo = CargoConfig {
         all_targets: false,
         sysroot: Some(ra_ap_project_model::RustLibSource::Discover),
@@ -75,9 +75,22 @@ fn main() -> anyhow::Result<()> {
         proc_macro_processes: 1,
     };
     let t = Instant::now();
-    let (db, _vfs, _pm) = load_workspace_at(&root, &cargo, &load, &|_| {})?;
+    let (db, vfs, _pm) = load_workspace_at(&root, &cargo, &load, &|_| {})?;
     println!("load_workspace_ms\t{}", t.elapsed().as_millis());
     let host = AnalysisHost::with_database(db);
+
+    // RESOLVE=a::b::c,d::e: resolve each item path in this workspace the
+    // way the compiler does, following `use` re-exports, and print the
+    // canonical path of what it names. This is the witness that an old path
+    // still reaches an item after a move.
+    if let Ok(paths) = std::env::var("RESOLVE") {
+        ra_ap_hir::attach_db(host.raw_database(), || {
+            let db = host.raw_database();
+            for p in paths.split(',').filter(|p| !p.is_empty()) {
+                println!("resolve\t{p}\t{}", resolve_path(db, p));
+            }
+        });
+    }
 
     let t = Instant::now();
     let (n_local, mut bodies) = ra_ap_hir::attach_db(host.raw_database(), || {
@@ -157,6 +170,34 @@ fn main() -> anyhow::Result<()> {
                 .definition
                 .map(|r| format!("{:?}", r.range))
                 .unwrap_or_default();
+            // File (relative to the workspace root) and 1-based lines of the
+            // name and of the whole definition: the join key against Charon,
+            // whose spans are 1-based lines in the same files.
+            let pos = |r: ra_ap_ide::FileRange| {
+                let file = vfs
+                    .file_path(r.file_id)
+                    .as_path()
+                    .and_then(|a| {
+                        std::path::Path::new(a.as_str())
+                            .strip_prefix(&root)
+                            .ok()
+                            .map(|p| p.display().to_string())
+                    })
+                    .unwrap_or_else(|| "external".into());
+                let li = analysis.file_line_index(r.file_id).ok()?;
+                let (b, e) = (li.line_col(r.range.start()), li.line_col(r.range.end()));
+                Some((file, b.line + 1, e.line + 1))
+            };
+            let at = d
+                .definition
+                .and_then(pos)
+                .map(|(f, l, _)| format!("{f}:{l}"))
+                .unwrap_or_else(|| "none".into());
+            let lines = d
+                .definition_body
+                .and_then(pos)
+                .map(|(_, b, e)| format!("{b}-{e}"))
+                .unwrap_or_else(|| "none".into());
             // The moniker is rust-analyzer's crate-qualified path for the
             // definition: a candidate semantic identity, not a stable one
             // (it changes when the item moves).
@@ -206,7 +247,7 @@ fn main() -> anyhow::Result<()> {
                 })
                 .unwrap_or_else(|| "none".into());
             println!(
-                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}\tmoniker={moniker}\timpls={impls}\tbody={body}",
+                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}\tmoniker={moniker}\timpls={impls}\tbody={body}\tat={at}\tlines={lines}",
                 d.kind,
                 d.references.len()
             );
@@ -217,4 +258,72 @@ fn main() -> anyhow::Result<()> {
         t.elapsed().as_millis()
     );
     Ok(())
+}
+
+/// Resolve `crate::m1::…::item` through module scopes, which include `use`
+/// imports, so a re-export at an old path resolves to the item it names.
+/// Returns the item's canonical `crate::module::name` path, `unresolved`, or
+/// `ambiguous` (one name in several namespaces, e.g. a function and a module).
+fn resolve_path(db: &dyn ra_ap_hir::db::HirDatabase, path: &str) -> String {
+    let segs: Vec<&str> = path.split("::").collect();
+    let Some((&krate, rest)) = segs.split_first() else {
+        return "unresolved".into();
+    };
+    let Some(c) = Crate::all(db).into_iter().find(|c| {
+        c.origin(db).is_local()
+            && c.display_name(db)
+                .is_some_and(|n| n.crate_name().as_str() == krate)
+    }) else {
+        return "unresolved".into();
+    };
+    let mut module = c.root_module(db);
+    let Some((&last, mods)) = rest.split_last() else {
+        return "unresolved".into();
+    };
+    for m in mods {
+        let next = module
+            .scope(db, None)
+            .into_iter()
+            .find_map(|(n, d)| match d {
+                ScopeDef::ModuleDef(ModuleDef::Module(sub)) if n.as_str() == *m => Some(sub),
+                _ => None,
+            });
+        let Some(next) = next else {
+            return "unresolved".into();
+        };
+        module = next;
+    }
+    let hits: Vec<ModuleDef> = module
+        .scope(db, None)
+        .into_iter()
+        .filter_map(|(n, d)| match d {
+            ScopeDef::ModuleDef(def) if n.as_str() == last => Some(def),
+            _ => None,
+        })
+        .collect();
+    match hits.as_slice() {
+        [] => "unresolved".into(),
+        [def] => canonical(db, *def).unwrap_or_else(|| "unresolved".into()),
+        _ => "ambiguous".into(),
+    }
+}
+
+/// `crate::module::…::name`, the same spelling as rust-analyzer's moniker for
+/// a free item.
+fn canonical(db: &dyn ra_ap_hir::db::HirDatabase, def: ModuleDef) -> Option<String> {
+    let module = def.module(db)?;
+    let krate = module
+        .krate(db)
+        .display_name(db)?
+        .crate_name()
+        .as_str()
+        .to_owned();
+    let mut segs = vec![krate];
+    for m in module.path_to_root(db).into_iter().rev() {
+        if let Some(n) = m.name(db) {
+            segs.push(n.as_str().to_owned());
+        }
+    }
+    segs.push(def.name(db)?.as_str().to_owned());
+    Some(segs.join("::"))
 }
