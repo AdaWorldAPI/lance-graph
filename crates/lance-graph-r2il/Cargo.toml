@@ -28,3 +28,9 @@ ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # this crate executes it. Both are zero-dep beyond the contract.
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+
+[dev-dependencies]
+# The polyfill alias test (`tests/integration/polyfill.rs`) registers methods
+# by Quack's names and checks each answer against Quack's own lowering, run
+# through mask-risc. Quack is zero-OGAR and does not depend on this crate.
+lance-graph-quack = { path = "../lance-graph-quack" }

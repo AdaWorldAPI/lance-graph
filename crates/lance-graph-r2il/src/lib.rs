@@ -105,6 +105,7 @@
 
 pub mod binding;
 pub mod binding_native;
+pub mod polyfill;
 pub mod procs;
 
 use std::cell::Cell;
