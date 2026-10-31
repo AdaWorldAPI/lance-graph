@@ -342,3 +342,98 @@ The Y axis is DR's `lance_graph_dt64::dr::LocalMap` (64 or 256 wide). `admit_cou
 - adding instead of multiplying: 2 failed;
 - ignoring a bound: 5 + 1 failed;
 - admitting any aggregate: 1 failed.
+
+## Recursion and a second engine on the same relation (`src/recursive.rs`)
+
+**Recursion.** XLOG compiles `path(X, Y) :- edge(X, Y). path(X, Y) :- path(X, Z), edge(Z, Y).`
+into one recursive SCC: a base `Scan edge`, and a `ChainJoin` of `Scan path` with `Scan edge` on
+`path.1 = edge.0`, projecting columns 0 and 3, with an agreeing `fallback`. `admit_closure`
+accepts exactly that shape. It refuses non-linear recursion (`path ∘ path`) and mutual recursion,
+each with its own reason. `closure` binds `edge` under the sealed frame, types `edge ∘ edge` with
+the existing chain typing, and runs semi-naive rounds over the existing `relcomp::compose`. No new
+kernel is added.
+
+`tests/recursive.rs` (9 tests):
+- the result equals BFS over the tuples and a naive fixpoint walk of XLOG's own compiled bodies;
+- a 200-case deterministic differential against BFS passes;
+- cycles terminate;
+- semi-naive work is exactly one row OR per derived pair;
+- a stale frame is refused.
+
+**Derivations on demand.** `support(x, y)` returns the `edge` facts some derivation of
+`path(x, y)` can use: both branches of a diamond, nothing off-route. `affected(u, v)` returns the
+answers a fact can feed. Both are masks read from the closure; nothing about a derivation is stored.
+
+**A second engine.** `tests/shared_relation.rs` puts egglog on the same register. Equality comes
+from `(rule ((edge a b)) ((union a b)))`, and proofs from `prove`.
+- egglog's `a = b` equals the closure of `E ∪ Eᵀ` on every pair of a two-component graph.
+- Every directed `path` is an egglog equality; the converse fails.
+- Every `edge` fact an egglog proof rests on is a bit of the shared register. On the diamond, every
+  such fact also lies in XLOG's `support` mask for the same answer.
+- When a fact is removed and the frame advances, the XLOG bind refuses, and the removed fact is
+  found in the old egglog proof by its address, without re-running egglog.
+
+The one conversion is register bits to egglog fact text. For 6 edges that is 114 bytes, against a
+512-byte register. egglog keeps its own tables and union-find; they are not replaced by masks.
+
+Disable runs: dropping the support filter, the reflexive star in `affected`, the non-linear guard,
+the mutual-recursion guard, or semi-naive deltas each turns its test red.
+
+Not done:
+- timing, for either engine;
+- XLOG recursion beyond one linear closure;
+- egglog proofs of a directed relation (egglog's equality is symmetric by construction).
+
+## Traceroute and provenance (`src/recursive.rs`, `tests/trace.rs`, `tests/provenance.rs`)
+
+**Traceroute.** `trace(edge, valid, x, y)` replays the semi-naive rounds `closure` runs, keeps each
+round's delta, and walks back from the round in which `path(x, y)` first appeared, choosing the
+smallest `z` with `(x, z)` in the previous delta and `edge(z, y)`. It returns the chain of `edge`
+facts, or `None` when the pair does not hold. `closure` is unchanged. `tests/trace.rs` (6 tests)
+checks on the diamond, the cycle and a 200-case random differential that every chain starts at `x`,
+ends at `y`, links up, uses only bits of `edge` inside `support(x, y)`, and has the BFS
+shortest-path length.
+
+**Provenance.** `tests/provenance.rs` (6 tests) carries X6 provenance at test level:
+`Provenance { root, version, program_hash, reading }`.
+- `root` identifies the original source: an observer and the set of facts it reported, sorted and
+  deduplicated, so a reordered or repeated copy of one report is the same root.
+- `version` is the frame's `FrameRevisions`.
+- `program_hash` is FNV-1a over the consumer's program text (XLOG rules, or egglog rules), never over
+  the facts.
+- `reading` is the CE64 declared reading, read through `Epi5Declarations`: `Direct × Open` for a
+  trace of length 1, `IndirectKnown × Open` otherwise. An egglog equality has no declared reading
+  (`None`).
+
+Evidence and derivations are counted separately:
+- Independent support is the set of minimal environments of source roots that entail the answer:
+  the ATMS label, PosBool provenance. Lineage (every root any derivation touches) is a separate,
+  weaker count.
+- On the diamond, `path(1, 5)` has 2 derivations. With one observer they rest on one environment
+  `{A}`. If B reports `1->3->4` but only A reports `4->5`, the derivations rest on `{A}` and
+  `{A, B}`; absorption leaves `{A}`, so B adds no independent support, although lineage touches 2
+  roots. If B also reports `4->5`, `{A}` and `{B}` are disjoint: 2 independent supports. Lineage is
+  2 in both cases.
+- XLOG's trace and an egglog proof over one register are two consumers with two program hashes and
+  one root: 1 independent observation.
+
+Not shown: that a root hash is a durable source identity outside these tests.
+
+Disable runs for the traceroute and provenance (committed first, one patch at a time, each anchor asserted, file restored with `git checkout`):
+
+| Disabled | Red |
+|---|---|
+| `trace` picks the largest intermediate | `diamond_trace_takes_the_smallest_intermediate` |
+| `trace` drops the `edge(z, y)` check | `deterministic_differential` |
+| root depends on serialization order (no sort/dedup) | `reordering_a_report_is_not_a_new_observation` |
+| program hash covers the facts | `provenance_changes_when_and_only_when_its_inputs_change` |
+| root ignores the observer | `reordering_a_report_is_not_a_new_observation` |
+| a base fact reads as composed | `readings_follow_the_trace_of_the_real_closure`, `provenance_changes_…` |
+
+Disable runs for the minimal-environment label (2026-10-31, after the co-research on the D-STAUNEN
+arc found that the first version counted lineage and called it independent support): dropping
+absorption, keeping only the first reporter of a fact, `disjoint` always true and `disjoint` always
+false each turn `derivation_multiplicity_is_not_independent_evidence` red, at four different
+assertions.
+
+One mutant stays green and is equivalent, not a missing test: searching for the last round that holds `(x, y)` instead of the first. Each round's delta excludes everything already derived, so a pair appears in exactly one round.

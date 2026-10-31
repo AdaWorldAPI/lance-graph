@@ -33,7 +33,6 @@ pub mod onnx_compat;
 
 use lance_graph_r2il::procs::{and_cmp_i32, count, is_not_null, sum, Order};
 use lance_graph_r2il::{FoldDialect, FoldError, Val, INT_MULT, INT_SUB};
-use ogar_loco::Dialect;
 
 /// Lane and plane indexes the expression reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
