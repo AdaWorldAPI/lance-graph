@@ -67,7 +67,7 @@ Over all 21 harvested methods:
 | reads | Unknown 21 (inferred, never graded complete) |
 | effect targets | Direct 8 (source-attested writes), Unknown 13 |
 | effect algebra, effect args | NotRepresentable 21 (the value written is not captured) |
-| effect order | SoundlyDerivable 20 (at most one write), NotRepresentable 1 |
+| effect order | Unknown 20 (at most one field name; a name is not one write), NotRepresentable 1 |
 | population, truth, demand | NotRepresentable 21 |
 
 Also: a `StateGuard` is NotRepresentable as a DT64 `Guard` (string values, no value codebook); a

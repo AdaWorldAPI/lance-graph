@@ -349,22 +349,25 @@ pub fn project(a: &ActionDef, basis: &Basis) -> Projection {
             "no operands are captured",
         ),
     });
-    grades.push(g(
-        Field::EffectOrder,
-        if target_names.len() <= 1 {
-            Grade::SoundlyDerivable
-        } else {
-            Grade::NotRepresentable
-        },
-        if target_names.len() <= 1 {
-            "at most one write: order is trivial".to_owned()
-        } else {
+    // `writes` names fields, not write operations: one name can stand for
+    // several ordered writes to the same field, and an empty list does not
+    // exclude writes through calls. So no length of the list proves an order.
+    grades.push(if target_names.len() <= 1 {
+        g(
+            Field::EffectOrder,
+            Grade::Unknown,
+            "writes are field names, not operations: a field may be written more than once, and writes through calls are not captured",
+        )
+    } else {
+        g(
+            Field::EffectOrder,
+            Grade::NotRepresentable,
             format!(
-                "{} writes as a set; their order is not captured",
+                "{} written fields as a set; their order is not captured",
                 target_names.len()
-            )
-        },
-    ));
+            ),
+        )
+    });
     grades.push(g(
         Field::Population,
         Grade::NotRepresentable,

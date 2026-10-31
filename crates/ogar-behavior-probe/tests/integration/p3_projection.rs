@@ -95,10 +95,18 @@ fn two_writes_without_order_are_not_representable_as_an_ordered_do() {
         project(&a, &basis(term)).grade(Field::EffectOrder),
         Grade::NotRepresentable
     );
+    // One field name is not one write: `self.x = 1; self.x = 2` lists `x`
+    // once. Neither one name nor none proves an order.
     a.writes.truncate(1);
     assert_eq!(
         project(&a, &basis(term)).grade(Field::EffectOrder),
-        Grade::SoundlyDerivable
+        Grade::Unknown
+    );
+    a.writes.clear();
+    a.on_enter = None;
+    assert_eq!(
+        project(&a, &basis(term)).grade(Field::EffectOrder),
+        Grade::Unknown
     );
 }
 
