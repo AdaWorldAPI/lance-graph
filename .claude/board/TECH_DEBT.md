@@ -5,7 +5,7 @@
 **Fruit:** High-signal
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`).
 
-- **What closes it:** D-DT64-7-3: a compile-time lance-graph table under left side `0x0000` with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
+- **What closes it:** D-DT64-7-3: a compile-time lance-graph table at `0xFFFF :: 0xF000`, registered by DT64 (D-DT64-7 §1a), with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
 
 ## TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN
 
@@ -15,6 +15,7 @@
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`classid_canon_compat`, read on `main` `b38d88e`).
 
 - **What closes it:** the falsifier D-DT64-7-1, then the decision O3 (exclude left-empty ids, or retire the heuristic).
+- **Scope (2026-10-31, D-DT64-7 §1a):** hardcoded behaviour moved to `0xFFFF :: 0xF###`, which this reader handles (`0xFFFF >= 0x0100`). What remains is legacy `0x0000_XXXX` ids only; this no longer blocks D-DT64-7.
 
 ## TD-XLOG-NATIVE-COUNT-OVERFLOW-UNTESTED — the native bag count refuses on overflow, and no test reaches it (2026-10-31) — OPEN
 
