@@ -366,7 +366,7 @@ From PR #1884, `tests/epi5_reading.rs`:
 
 | Wave | D-id | Work | Gate (falsifier) | Depends on | Tier |
 |---|---|---|---|---|---|
-| 0 | D-DYNBAG-0 | Fix PR #1884's layering: XLOG intake as lanes (sets), support and bag count through Quack → mask-risc, oracles by folds, cost probe gains native and Quack columns | all existing Gate B / litho tests green; register differential unchanged; disable runs red; `native.rs` no longer calls `ndarray::simd` fold words | operator go-ahead on #1884 | Opus orchestrates; Sonnet implements from spec |
+| 0 | D-DYNBAG-0 | (§17) Fix PR #1884's layering: XLOG intake as lanes (sets), support and bag count through Quack → mask-risc, oracles by folds, cost probe gains native and Quack columns | all existing Gate B / litho tests green; register differential unchanged; disable runs red; `native.rs` no longer calls `ndarray::simd` fold words | operator go-ahead on #1884 | Opus orchestrates; Sonnet implements from spec |
 | 1 | D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)` | §7.5: equality with both oracles, B projection equals `relcomp::compose`, disable runs red; timed vs `relcomp::compose` in ns | D-DYNBAG-0 | Sonnet; Opus reviews |
 | 2 | D-DYNBAG-2 | Semiring parameter in relalg's `Rel` (B, ℕ) and Quack's surface; typed refusal for unsupported (op, K) | B/ℕ projection property holds for every admitted op; an unsupported pair is refused, never a fallback to B | D-DYNBAG-1 | relalg / Quack owners |
 | 3 | D-DYNBAG-3 | Missing ℕ words, backend-first: masked select over i64, elementwise min, truncated minus, i64 compare-to-mask, i64 masked sum; and, if §7.4 measures it necessary, a bit-packed i1 × i1 → i32 product | each word with can-fire and can-stay-silent tests in its owner crate | D-DYNBAG-2 | mask-risc / ndarray owners |
@@ -440,3 +440,99 @@ This plan only notes where it would sit: the "edge" row of §8, and the PostgreS
 - `crates/xlog-relcomp-probe` (PR #1884): native path, binding, Epi5 tests.
 - `crates/lance-graph-cypher-quack`: the SQL probe's template.
 - EXO-50: the membrane reference note (2026-10-31).
+
+---
+
+## 17. D-DYNBAG-0: adopted architecture, actual vs target (2026-10-31, before coding)
+
+**DECISION (operator, 2026-10-31).** XLOG consumes tuples as a logical polyfill over DT64-addressed relational projections. Quack/RelAlg describe the relation; mask-risc evaluates the bound operations; `ndarray::simd` computes only under mask-risc. A tuple is a coordinate binding, never a stored row. XLOG owns no tuple evaluator and builds no intermediate tuple collection. No new architecture, planner, runtime, tensor store or row engine is introduced: the work is wiring what exists, and labelling what does not.
+
+### 17.1 Ownership
+
+| concern | owner | XLOG's part |
+|---|---|---|
+| description | XLOG RIR (frontend), then Quack `Query` / `GroupBy` | admits a shape; never executes |
+| addressing | `lance_graph_dt64::dr`: `LocalMap`, `FrameStore`, `Guards`; one map per axis | none |
+| binding | `lance_graph_dt64`: `BindStore`, `MethodBinding`, `MethodRef`, `AlgebraRef`, `ClassView` | names its lens |
+| semiring | the bound method (B support vs ℕ multiplicity) | never the frame |
+| evaluation | `lance-graph-mask-risc::execute_into` | none |
+| compute | `ndarray::simd`, called by mask-risc | none |
+
+### 17.2 Actual data flow (PR #1884, as merged)
+
+```
+XLOG compile ─► RIR ─► admit / admit_count (ok)
+                         │
+facts() ─► Vec<(u32,u32)> (dedup'd)          ← owned tuples after intake
+                         │
+LocalMap::prepare per call                   ← rebuilt per query
+                         │
+native.rs ─► ndarray::simd directly          ← D-SOC-FENCE fold-evaluator violation
+   eq_u32_to_mask, mask_scatter_or_u32, mask_and,
+   masked_group_count_u32, checked_binary_i64
+                         │
+ids() / nonzero() ─► addressed result
+
+BindStore + FrameStore: only in tests/dto_binding.rs, never on the path above.
+```
+
+The admission and the computation are separate. A binding is resolved in a test and then ignored; the counts are computed whether or not it admits. Replacing the ndarray calls one-for-one would keep that separation, so D-DYNBAG-0 closes the chain rather than swapping calls.
+
+### 17.3 Target data flow
+
+```
+XLOG compile ─► RIR ─► admit / admit_count
+   │
+   ├─► intake (one named function): facts → u32 lanes, once; sets
+   │
+   ├─► dr: LocalMap for Y prepared once, digest sealed into the frame;
+   │        FrameStore::check / Guards::check before every reuse
+   │
+   ├─► BindStore::resolve → admit(MethodRef) → MethodBinding
+   │        (Population, AlgebraRef words: GROUP_COUNT, MUL_I64)
+   │
+   ├─► Quack description, per side (left r(X,Y), right s(Y,Z)):
+   │        Filter: Cmp(free, Eq x) | Plane(live)
+   │        Agg::GroupReduce { key: GroupAddr::Local(y_local), agg: GroupAgg::Count }
+   │        lower(&Query) → Program
+   │
+   ├─► mask-risc execute_into(Program, Planes{lanes}, Foreign::none, Scratch, Out::I64(n_y))
+   │        → deg_l[y], deg_r[y]        (each is the demanded result of its program)
+   │
+   ├─► combine (MISSING-3 below): ℕ = deg_l × deg_r ; B = (deg_l>0) ∧ (deg_r>0)
+   │
+   └─► addressed result: LocalMap::global over nonzero slots, at the boundary only
+```
+
+### 17.4 Existing APIs used (read 2026-10-31)
+
+- **Quack** (`lance-graph-quack/src/lib.rs`): `Filter::{Cmp, Plane, EqU32Via, Semijoin, And, Or, Not}`; `Query { filter, agg }`; `Agg::GroupReduce { key: GroupAddr::Local(Col), agg: GroupAgg::Count }` (one program, `Out::I64` sized to the group universe, key past it dropped); `Agg::ScatterOrU32 { fk, out_rows }` (legal only as the demanded result); `lower`, `lower_group_by_semantic`.
+- **Quack bind** (`bind.rs`): `trait Binder { table, live, field, code }`, `Draft::bind` (single table). Implementations exist in `lance-graph-glove-parity` (`CanonicalBinder`), `lance-graph-sap`, `lance-graph-dir-sim`, `lance-graph-report` tests; none is backed by `BindStore`.
+- **mask-risc** (`ir.rs`, `exec.rs`): `execute_into(&Program, &Planes, &Foreign, &mut Scratch, Out)`, `Planes { n_rows, masks, lanes }`, `Terminal::GroupReduce` / `GroupFold::Count`, `Terminal::ScatterOrU32`.
+- **DT64** (`lib.rs`): `BindStore::{route, resolve, resolve_algebra, admit}`, `MethodBinding`, `MethodRef`, `AlgebraRef { lens, word }`.
+- **DR** (`dr.rs`): `LocalMap::{prepare, local, global, len, lookups, digest}` (lookups counted; digest is the frame's coordinates revision), `FrameStore::{seal, advance, check}`, `Guards::check`.
+- **relalg**: `Rel` / `Measure` / `Query` are single-table; `join_body::is_alpha_acyclic` is the only join-body tool.
+
+### 17.5 Missing integrations (labelled; none worked around)
+
+| id | missing | owner | D-DYNBAG-0 behaviour |
+|---|---|---|---|
+| MISSING-1 | `AlgebraRef` word → Quack `Agg`/`GroupAgg` mapping (the polyfill lens's words have no Quack reading) | DT64 + Quack | a probe-local table over the two words in use, refusing any other word; filed for the owner |
+| MISSING-2 | a `Binder` backed by `BindStore` + `ClassView` (existing binders are catalogue-specific) | Quack bind + DT64 | reconcile, not add: decide whether `CanonicalBinder`'s shape is the template. No new catalogue in the probe |
+| MISSING-3 | a post-terminal combine of two group sinks: i64 elementwise multiply and i64 compare-to-mask (both listed in Wave 3) | mask-risc / ndarray | `checked_binary_i64` stays the one direct call (D-SOC-FENCE §6), TRACKED; B is derived from the two degree sinks, never from a scatter mask fed to a second program |
+| MISSING-4 | two-relation support as ONE description: relalg has no join IR; `Filter::Semijoin` needs a resident `ForeignPlane`, never a lowered output | relalg / Quack | not built; the per-side degree route above is exact for the admitted chain only |
+| MISSING-5 | a reuse cache for prepared `LocalMap`s keyed by frame | DT64 `dr` | the probe holds one map and checks the frame per query; a test asserts `lookups` does not grow with query count beyond intake |
+| MISSING-6 | `p(X, Z)` and n-ary witnesses (ℕ-compose) | Wave 1 | refused with a typed refusal; `q(Y)` support is never offered as proof of `p(X, Z)` |
+| MISSING-7 | multi-tile global → (tile, local) map | Wave 4 | width 64 or 256; past it, `MapRefusal` |
+
+### 17.6 Acceptance gates for D-DYNBAG-0
+
+1. One connected chain in a test: compile → admit → resolve/bind → Quack `Query` → `lower` → `execute_into` → addressed result. Unbinding the method (retract the route) refuses the computation, not just the test.
+2. No owned tuples after intake: `facts()` output is consumed by the intake function only.
+3. No unguarded global → local rebuild per query (MISSING-5 test).
+4. Support and multiplicity distinct, with XLOG's exact `count` semantics; base relations as sets.
+5. Gate B, bag-count, stale-frame and disable tests stay meaningful: each disable run (drop the frame check, drop the admission, swap Count for a scatter) goes red.
+6. `q(Y)` is never reported for `p(X, Z)` (MISSING-6 refusal tested).
+7. `native.rs` names no `ndarray::simd` fold word; only `checked_binary_i64` remains, listed as TRACKED.
+
+**REVISIT WHEN:** MISSING-3 or MISSING-4 lands in its owner crate; the TRACKED call is then deleted.
