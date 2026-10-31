@@ -1,3 +1,8 @@
+## 2026-10-31 — main after #1880 (merged `4d677ba`)
+
+- Mistaber makor citations are addressed through `deepnsm-v2` `hydrate` (`NiblePath`, no classid). `deepnsm-v2` is the grammar and language intake arm.
+- No contract type changed.
+
 ## 2026-10-31 — main after #1875 (merged `b7adb0c`)
 
 - D-MIST-NATIVE-0 (#1873) and D-MIST-NATIVE-1a (#1875) are on main as the lab crate `mistaber-kripke-probe`.

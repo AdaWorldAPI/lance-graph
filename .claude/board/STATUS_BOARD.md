@@ -6,7 +6,7 @@
 |---|---|---|---|
 | D-MIST-NATIVE-0 | Kripke `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`; 11 Clingo goldens exact; holdings lens with Set/Bag projection; 6 disable runs | Shipped (#1873) | lab only |
 | D-MIST-NATIVE-1a | HHTL16 Register128 rows replace the name interner: world/proposition/rule nodes as 512-byte rows (16 Morton8x8 columns, identity + up to 15 addresses), classid per population on `RegisterLanes`, accessibility derived from world rows, every compose through `bind_dr64` + `relcomp::Chain`; no String in solved state (compile-time guard); 18 tests + 2 compile_fail doctests; 7 disable runs | Shipped (#1875) | lab only |
-| D-MIST-NATIVE-1b | makor citations addressed the KJV way: 141 real rule→seif citations laid over a Yoreh De'ah outline with `deepnsm-v2` `hydrate` (NiblePath, no classid/promote/NodeRow); siman past level capacity refused into `unaddressed`; u16 ordinal overflow refused; 8 tests; 3 disable runs | In PR | lab only |
+| D-MIST-NATIVE-1b | makor citations addressed the KJV way: 141 real rule→seif citations laid over a Yoreh De'ah outline with `deepnsm-v2` `hydrate` (NiblePath, no classid/promote/NodeRow); siman past level capacity refused into `unaddressed`; u16 ordinal overflow refused; 8 tests; 3 disable runs | Shipped (#1880) | probe consumes the `deepnsm-v2` intake arm |
 | D-MIST-NATIVE-1 | `lance-graph-mistaber`: onnx-shaped ALIAS/INLINE/REFUSE facade (plan §3) | Queued | production home for `compose` (plan Q1) |
 | D-MIST-NATIVE-2 | lineage origins into `SupportLedger` (`EvidenceSourceId`, `TextAttested`) | Queued | after D-MIST-NATIVE-1 |
 | D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
