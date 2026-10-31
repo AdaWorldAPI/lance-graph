@@ -8,6 +8,12 @@ description = "The fold reading of R2IL executed over mask-risc: FoldDialect, an
 # A workspace member: the root `Cargo.toml` patches the contract and ndarray
 # git coordinates to their local paths, so there is one of each.
 
+[features]
+# The `ogar_loco::Dialect` adapter, so `ogar_loco::Interpreter` can drive the
+# dialect. Execution never needs it: `FoldDialect::call` is inherent.
+default = ["loco-dialect"]
+loco-dialect = []
+
 [dependencies]
 # The only bulk execution engine.
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
