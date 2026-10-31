@@ -1,16 +1,20 @@
 ## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
 
-Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TFLite `F3__`, proposed); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection.
+Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TF family incl. TFLite `F3__`, SQL-specific `F4__`, Gremlin-specific `F5__`; DECIDED O7); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection. O7–O10 DECIDED (plan §1d): host composition, full-classid basis for behaviour lenses, consumer-supplied `ClassView` with a basis witness.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-DT64-7-0 | plan and board rows | In PR | docs review |
+| D-DT64-7-0 | plan and board rows | Shipped (#1898, #1900) | docs review |
 | D-DT64-7-1 | `classid_canon_compat(0x0000_F123) == 0x0000` falsifier (F5, legacy ids only), with the twin `0xFFFF_F000 → 0xFFFF` | Queued | none |
-| D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | O8 |
-| D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | Queued | O7 |
-| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + the composing authority | Queued | O2 (OGAR owner), O8 |
+| D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | after L2/L3 |
+| D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | In part: positional lens shipped (#1899); OGAR still on the path | — |
+| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + host-side composing authority (O8) | Queued | O2 (OGAR owner) |
 | D-DT64-7-6 | polyglot alias views (C, Rust, Java, SQL) over one Frozen algebra: words bound by position, names as per-language `ClassView` labels; `prepare`/`run` timed in ns | Queued | D-DT64-7-3, O7 |
 | D-DT64-7-7 | semantic union census of operator sets (ONNX, TF, TFLite, GGML, Burn IR, R2IL, XLOG) after aliasing; decides the `0xF0__` layout and the tensor ranges | Queued | counts recounted from source |
+| D-DT64-7-L4 | production alias views (R2IL, SQL, Quack) from `POLYFILL` | In progress | — |
+| D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
+| D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
+| D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
 | D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
 
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
