@@ -1,4 +1,4 @@
-# D-DT64-6-BS: DR addressing as `lance_graph_dt64::dr`
+# D-DT64-6-DR: DR addressing as `lance_graph_dt64::dr`
 
 **Date 2026-10-31 · Status VERIFIED-IN-CODE · Plan [`d-dt64-6-routing-bindstore-behavior-v1.md`](../../plans/d-dt64-6-routing-bindstore-behavior-v1.md) A.5 addendum 12**
 
