@@ -1803,7 +1803,13 @@ fn guard_slice(v: &NodeView) -> K3 {
 
 fn do_slice(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
-    let int = |i: usize| a.get(i).and_then(|v| v.i64s());
+    // Plan and fold pass only the present inputs; an omitted optional input
+    // has an empty name. Map each ONNX input position onto the passed slice.
+    let int = |i: usize| {
+        n.inputs.get(i).filter(|s| !s.is_empty())?;
+        let k = n.inputs[..i].iter().filter(|s| !s.is_empty()).count();
+        a.get(k).and_then(|v| v.i64s())
+    };
     let st = int(1).ok_or_else(|| runtime(n, "no starts"))?;
     let en = int(2).ok_or_else(|| runtime(n, "no ends"))?;
     let (axes, steps) = (int(3), int(4));
@@ -2042,7 +2048,7 @@ fn do_flatten(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     Ok(vec![reshape_value(x, &shape, n)?])
 }
 
-/// `ReduceSum` over int64, axes as input 1 (absent: all), each lane folded
+/// `ReduceSum` over int64, axes as input 1 (absent or empty: all), each lane folded
 /// with `checked_i64(Add)`: an overflow refuses rather than wraps.
 fn guard_reduce_sum_i64(v: &NodeView) -> K3 {
     let Some(shape) = arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) else {
@@ -2061,12 +2067,14 @@ fn do_reduce_sum_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal
     use ndarray::hpc::checked_i64::{checked_i64, I64Op};
     let mut x = i64_arg(a, 0, n)?.clone();
     let r = x.ndim();
+    // Empty axes with `noop_with_empty_axes` absent (default 0; the
+    // registration admits no other value) reduces every axis, like absent.
     let mut axes: Vec<usize> = match a.get(1).and_then(|v| v.i64s()) {
-        Some(ax) => ax
+        Some(ax) if !ax.is_empty() => ax
             .iter()
             .map(|&v| norm_axis(v, r).ok_or_else(|| runtime(n, "axis out of range")))
             .collect::<Result<_, _>>()?,
-        None => (0..r).collect(),
+        _ => (0..r).collect(),
     };
     axes.sort_unstable();
     axes.dedup();
@@ -3438,5 +3446,32 @@ mod tests {
             )),
             K3::False
         );
+    }
+
+    /// ONNX skips an optional input with an empty name: `Slice(x, starts,
+    /// ends, "", steps)`. Plan and fold pass only the present arguments, so
+    /// `steps` arrives at index 3 and must still be read as steps, not axes.
+    #[test]
+    fn slice_reads_steps_when_axes_is_omitted() {
+        let mut n = node("Slice", 5, vec![]);
+        n.inputs[3] = String::new();
+        let x = Value::I64(ArrayD::from_shape_vec(IxDyn(&[4, 2]), (0..8).collect()).unwrap());
+        let c = |v: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(&[v.len()]), v).unwrap());
+        let (st, en, sp) = (c(vec![0]), c(vec![3]), c(vec![2]));
+        let out = do_slice(&[&x, &st, &en, &sp], &n).expect("slice");
+        assert_eq!(out[0].shape(), vec![2, 2]);
+        assert_eq!(out[0].i64s().unwrap(), vec![0, 1, 4, 5]);
+    }
+
+    /// An empty constant `axes` with `noop_with_empty_axes` absent (default
+    /// 0, the only form the registration admits) reduces every axis.
+    #[test]
+    fn reduce_sum_i64_with_empty_axes_reduces_all() {
+        let n = node("ReduceSum", 2, vec![("keepdims".into(), Attr::Int(0))]);
+        let x = Value::I64(ArrayD::from_shape_vec(IxDyn(&[2]), vec![1, 2]).unwrap());
+        let ax = Value::I64(ArrayD::from_shape_vec(IxDyn(&[0]), vec![]).unwrap());
+        let out = do_reduce_sum_i64(&[&x, &ax], &n).expect("reduce");
+        assert_eq!(out[0].shape(), Vec::<usize>::new());
+        assert_eq!(out[0].i64s().unwrap(), vec![3]);
     }
 }
