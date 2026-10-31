@@ -355,3 +355,39 @@ Disable runs, each failing exactly one test:
 | costing the reservation instead of the claim | 1 |
 
 Still capped, and stated: one class's property axis is at most 256 fields, because a `WideFieldMask` position is a `u8` (contract). Wider would mean tiled field addressing in the contract, which this crate does not own. In the bind store, Jina's nodes are identity positions, and an ONNX lens's fields are its op signatures, so this does not block Jina here. The tract lab's own DR#3 layout puts Jina's 7,620 values on its property axis, and `dr3::TILE = 64` is that session's to lift.
+
+**A.5 addendum 12 (2026-10-31, operator: "wouldn't it make sense to move DR into DT64 — at least from the lab probe crate").** DR's addressing is now the module `lance_graph_dt64::dr`, lifted from `dr-math-binding-probe`. Your diagram's "DR routes, DT interprets" becomes a module boundary inside the bind store, not a separate crate. D4 already makes DT64 the bind store for all holographic addresses, and §3 puts the route versioning there.
+
+`dr` holds:
+- reservations: `Width`, `Axis`, `Extent`, `Claim`, `MAX_RESERVED`;
+- the route log: `RouteLog` with `route`, `retract`, `routed_at`, `claimed`;
+- the frame witness: `FrameStore`, `Frame`, `FrameRevisions`, `FrameRefusal`;
+- the guards: `Focus`, `Scope`, `Guards::check`;
+- the typed axis: `AxisKind`, `ClassAxis`;
+- the global → local pointer table: `LocalMap`, `address`, `coordinates`, `rotate_yz`.
+
+It names nothing from the binding side, and a test pins that. `BindStore` keeps its API and delegates to `RouteLog`.
+
+Two changes against the probe:
+- The probe's `Axis { class, kind }` is `ClassAxis` here, because `Axis` is the reservation axis.
+- `LocalMap` and `address` take a tile `Width` instead of a fixed 64, so a DR256 tile is addressed the same way.
+
+Not lifted:
+- `relcomp`, `where_dr3`, `population`, `recipe` and the folds in `hhtl16` are computations, proofs and oracles, so they belong to Quack. `relcomp` also carries egglog and sha2, which a contract-only crate must not.
+- `dr4::route` produces values, so it is execution.
+- `bind_dr64` / `BoundDr64` wait on the `MethodSignature` vs `MethodRef` identity question (EXO-50).
+
+The probe itself is unchanged; its owner switches to `dt64::dr`.
+
+Also restored here: #1871 merged before its last two commits were pushed. `9014fa07b` (thin-provisioned extent) and addendum 11 were on the branch only and are cherry-picked into this PR.
+
+Disable runs on the `dr` commit, each turning a test red:
+
+| guard removed | failing tests |
+|---|---|
+| the foreign-store check | 2 |
+| the source-revision refusal | 1 |
+| the focus guard | 1 |
+| `LocalMap` width read as 64 | 1 |
+| address width read as 64 | 1 |
+| a `use crate::` in `dr.rs` (the boundary test) | 1 |

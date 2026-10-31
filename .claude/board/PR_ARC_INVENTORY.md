@@ -4,6 +4,27 @@
 - **Reverted inside the PR:** the #1879 commits. That PR, which put the address in the row key, answered a question selected by mistake and was closed unmerged.
 - **Confidence:** LAB, measured: 25 tests + 2 doctests; disable runs M1, M3 and M4 red; M2 (seif dedup) recorded as representation, not addressing. Merged before Codex and CI finished.
 
+## 2026-10-30 — lance-graph PR #1871 (merged `e1df34da1`, branch `ccr-45a41fb4-0j3i0l`, head `6a0124a06`) — lance-graph-dt64: the polyfill as one lens classid; DR extent; fmt fix
+
+- **Added:**
+  - The polyfill vocabulary is one lens classid. Its words are fields: `AlgebraRef { lens, word }`, labels come from the lens's ClassView, `declare_algebra`, `resolve_algebra`, `words_used`.
+  - `AlgebraId`, the string catalogue and the per-entry `SigRev` are removed.
+  - `Extent` per class, with fixed per-axis widths (W64/W256).
+  - `morton8x8.rs` formatted. Main's Style Check format step had been red since #1862.
+  - STATUS_BOARD catch-up after #1869/#1870. Plan D-DT64-6 A.5 addenda 7–10.
+- **Not in it:** the thin-provisioned extent (`9014fa07b`) and addendum 11. They were pushed after the merge and land in the follow-up PR.
+- **Confidence:** 20 tests; 7 disable runs red.
+
+## 2026-10-30 — lance-graph PR #1869 (merged `9d119bb5f`, branch `ccr-45a41fb4-0j3i0l`, head `1761d4ce8`) — lance-graph-dt64: the bind store for meaning and behaviour
+
+- **Added:**
+  - `crates/lance-graph-dt64`, a workspace member that depends only on `lance-graph-contract`.
+  - `MethodId` + `SigRev`, K3 `Guard` (`SetExpr` + `Logic`) with `witness`, ordered `Effect`s with operands.
+  - One `resolve`, D5 immutable classid with derived classid + versioned route log, `admit(MethodRef)`.
+  - `field_view` / `field_meaning` / `mask_where`, the dataflow check, `footprint`.
+  - Plan D-DT64-6 A.5 + addenda 1–6.
+- **Confidence:** 19 tests; every guard disable-verified red.
+
 ## 2026-10-31 — lance-graph PR #1875 (merged `b7adb0c`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `ed71916`) — D-MIST-NATIVE-1a: HHTL16 Register128 rows replace the name interner
 
 - **Added:**
