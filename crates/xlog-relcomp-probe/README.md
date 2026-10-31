@@ -412,3 +412,16 @@ Evidence and derivations are counted separately:
   one root: 1 independent observation.
 
 Not shown: that a root hash is a durable source identity outside these tests.
+
+Disable runs for the traceroute and provenance (committed first, one patch at a time, each anchor asserted, file restored with `git checkout`):
+
+| Disabled | Red |
+|---|---|
+| `trace` picks the largest intermediate | `diamond_trace_takes_the_smallest_intermediate` |
+| `trace` drops the `edge(z, y)` check | `deterministic_differential` |
+| root depends on serialization order (no sort/dedup) | `reordering_a_report_is_not_a_new_observation` |
+| program hash covers the facts | `provenance_changes_when_and_only_when_its_inputs_change` |
+| root ignores the observer | `reordering_a_report_is_not_a_new_observation` |
+| a base fact reads as composed | `readings_follow_the_trace_of_the_real_closure`, `provenance_changes_…` |
+
+One mutant stays green and is equivalent, not a missing test: searching for the last round that holds `(x, y)` instead of the first. Each round's delta excludes everything already derived, so a pair appears in exactly one round.
