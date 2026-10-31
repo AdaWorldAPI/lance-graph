@@ -204,11 +204,7 @@ fn masked_sum_method(t: i32) -> MethodBinding {
         when: None,
         reads,
         effects: vec![
-            step(
-                F_M,
-                W_LT,
-                vec![Arg::Field(F_A), Arg::Const(i64::from(t))],
-            ),
+            step(F_M, W_LT, vec![Arg::Field(F_A), Arg::Const(i64::from(t))]),
             step(F_S, W_SUM, vec![Arg::Field(F_M), Arg::Field(F_A)]),
         ],
         population: Population::Distinct,
@@ -446,19 +442,25 @@ fn main() {
         let p5 = d5.programs_run();
         let (p6, p7) = (d6.programs_run(), d7.programs_run());
         let mut res = Vec::with_capacity(arms.len());
+        // Every timed call is checked: `ok[i]` counts calls of arm `i` that
+        // returned the oracle's answer, and must equal the call count. An
+        // error or a wrong value is a failed sample, never a skipped one.
+        let mut ok = [0usize; 7];
         res.push(measure(reps, iters, || {
-            black_box(probe_direct(black_box(&x), black_box(t), &mut m));
+            let v = black_box(probe_direct(black_box(&x), black_box(t), &mut m));
+            ok[0] += usize::from(v == want);
         }));
         res.push(measure(reps, iters, || {
-            black_box(probe_prebound(
+            let v = black_box(probe_prebound(
                 black_box(&prebound2),
                 black_box(&x),
                 black_box(t),
                 &mut m,
             ));
+            ok[1] += usize::from(v == want);
         }));
         res.push(measure(reps, iters, || {
-            black_box(probe_guarded(
+            let v = black_box(probe_guarded(
                 black_box(&prebound3),
                 &frames,
                 now,
@@ -466,21 +468,31 @@ fn main() {
                 black_box(t),
                 &mut m,
             ));
+            ok[2] += usize::from(v == Some(want));
         }));
         res.push(measure(reps, iters, || {
-            black_box(run_cp(&cp, &mut buf));
+            let v = black_box(run_cp(&cp, &mut buf));
+            ok[3] += usize::from(v == want);
         }));
         res.push(measure(reps, iters, || {
-            black_box(run_cp(&r2, &mut buf));
+            let v = black_box(run_cp(&r2, &mut buf));
+            ok[4] += usize::from(v == want);
         }));
         res.push(measure(reps, iters, || {
-            let _ = black_box(op.eval(&mut d6, &mut stack6));
+            let v = black_box(op.eval(&mut d6, &mut stack6));
+            ok[5] += usize::from(v == Ok(want));
         }));
         res.push(measure(reps, iters, || {
-            if let Ok(r) = run(&plan, &bstore, &frames, now, &permit, fields, &mut d7) {
-                black_box(answer(&r));
-            }
+            let v = black_box(run(&plan, &bstore, &frames, now, &permit, fields, &mut d7));
+            ok[6] += usize::from(matches!(&v, Ok(r) if answer(r) == want));
         }));
+        for (i, (r, &good)) in res.iter().zip(&ok).enumerate() {
+            assert_eq!(
+                good, r.calls,
+                "arm {} returned a wrong or failed result, n={n}",
+                arms[i]
+            );
+        }
 
         // arm 5 never touches its dialect after the first fold.
         let progs = [

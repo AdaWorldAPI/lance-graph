@@ -42,3 +42,29 @@ OPEN:
 - `GROUP_SUM`/`KEEP` (sinks) and immediates (`NUMBER`, `LOAD`, `RANGE`) are refused, not translated.
 
 **D-DYNBAG-0 does not depend on R1** (§20). Its seam is binding → prepared native (Quack) plan.
+
+## Benchmark result and decision (2026-10-31)
+
+`crates/math-polyfill-probe/examples/r1_vs_prebound.rs` times seven arms over `SUM{a : a < t}`, with identical inputs and outputs. Every timed call of every arm is checked against the oracle, and the run fails if the count of correct answers differs from the call count. An error or a wrong value is a failed sample, never a skipped one. This replaces an `if let Ok(r)` in the R1 arm that discarded failures.
+
+Median ns per call, `MPF_REPS=31`, 4 cores. Three runs: one was disturbed by load and is not used, and the other two agree.
+
+| rows | direct | prebound | +guard | mask-risc prepared | R2IL prepared | dialect | R1 run |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 64 | 31.5 | 31.8 | 62.3 | 103.3 | 109.8 | 211.0 | 384.1 |
+| 512 | 123.4 | 123.9 | 150.6 | 212.3 | 215.3 | 352.1 | 497.3 |
+| 4096 | 947.2 | 945.9 | 996.3 | 1043.8 | 1049.4 | 1140.6 | 1320.9 |
+| 65536 | 18158.6 | 18078.9 | 18504.9 | 18301.8 | 18338.4 | 18509.1 | 18663.0 |
+
+Allocations per call: 0 for every prepared arm, 1 for the dialect run, and 5 for R1. At 65,536 rows the row scan dominates, and the arms differ by less than the run-to-run variance.
+
+**Conclusion.**
+- Prepared R2IL and prepared mask-risc have equivalent measured runtime.
+- R1's extra ~280 ns at 64 rows and its five allocations per invocation belong to its current implementation, not to R2IL. That implementation interprets every step through `FoldDialect` on each run, keeps per-run `BTreeMap` field values, rebuilds the stack, and allocates the receipt.
+
+**Decision (operator).** Keep #1892 intact as measured, historical evidence until a clean successor replaces it. Its OGAR-body rationale is superseded and is not a merge requirement. The successor:
+- prepares executable mask-risc programs once, through the `FoldDialect` compilation and `CompiledProgram` machinery D-MPF-4 proved;
+- keeps multi-fold ordering and every refusal;
+- keeps frame, route, focus, scope and permit validation independent.
+
+`ExecPermit` remains a lab permission, not a production authorization claim.
