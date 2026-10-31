@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-532 entries, 2026-08-06 .. 2026-10-31.
+533 entries, 2026-08-06 .. 2026-10-31.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-10-31 | `r1-r2il-binding-reading` |  | [2026-10-31-r1-r2il-binding-reading.md](2026-10-31-r1-r2il-binding-reading.md) |
 | 2026-10-31 | `r1-native-prepared-successor` |  | [2026-10-31-r1-native-prepared-successor.md](2026-10-31-r1-native-prepared-successor.md) |
 | 2026-10-31 | `ogar-behavior-probe-p2-p3-p9` |  | [2026-10-31-ogar-behavior-probe-p2-p3-p9.md](2026-10-31-ogar-behavior-probe-p2-p3-p9.md) |
+| 2026-10-31 | `D-SAG-6` |  | [2026-10-31-kythe-bridge-ra-facts.md](2026-10-31-kythe-bridge-ra-facts.md) |
 | 2026-10-31 | `D-XLOG-NATIVE-6` |  | [2026-10-31-d-xlog-native-6-ndarray-simd-execution.md](2026-10-31-d-xlog-native-6-ndarray-simd-execution.md) |
 | 2026-10-31 | `D-XLOG-NATIVE-5` |  | [2026-10-31-d-xlog-native-5-bindstore-epi5.md](2026-10-31-d-xlog-native-5-bindstore-epi5.md) |
 | 2026-10-31 | `D-TUPLE-POLYFILL-0` |  | [2026-10-31-d-tuple-polyfill-0-architecture.md](2026-10-31-d-tuple-polyfill-0-architecture.md) |
