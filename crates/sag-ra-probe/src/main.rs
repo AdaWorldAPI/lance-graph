@@ -51,6 +51,31 @@ fn walk(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, out: &mut Vec<DefWithBod
     }
 }
 
+/// A symbol's identity: crate name, then each descriptor's name followed by
+/// a suffix for its kind (`/` namespace, `#` type, `.` term, `().` method,
+/// `[]` type parameter, `()` parameter, `!` macro, `:` meta).
+fn identity(id: &ra_ap_ide::MonikerIdentifier) -> String {
+    use ra_ap_ide::MonikerDescriptorKind as K;
+    let parts: Vec<String> = id
+        .description
+        .iter()
+        .map(|d| {
+            let suffix = match d.desc {
+                K::Namespace => "/",
+                K::Type => "#",
+                K::Term => ".",
+                K::Method => "().",
+                K::TypeParameter => "[]",
+                K::Parameter => "()",
+                K::Macro => "!",
+                K::Meta => ":",
+            };
+            format!("{}{suffix}", d.name)
+        })
+        .collect();
+    format!("{}::{}", id.crate_name, parts.join("::"))
+}
+
 fn main() -> anyhow::Result<()> {
     let root = std::fs::canonicalize(std::env::args().nth(1).expect("workspace root"))?;
     let cargo = CargoConfig {
@@ -348,7 +373,10 @@ fn main() -> anyhow::Result<()> {
             let Some(MonikerResult::Moniker(m)) = &d.moniker else {
                 continue;
             };
-            let moniker = m.identifier.to_string();
+            // `MonikerIdentifier`'s Display drops each descriptor's kind, so
+            // `struct Foo` and `fn Foo` would print the same name. Keep the
+            // kind as a SCIP-style suffix so distinct symbols stay distinct.
+            let moniker = identity(&m.identifier);
             for r in &d.references {
                 let Some(file) = rel(r.range.file_id) else {
                     continue;

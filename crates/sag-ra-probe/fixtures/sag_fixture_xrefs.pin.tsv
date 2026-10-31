@@ -1,12 +1,12 @@
 # moniker	role	path (relative to the fixture root)	line (1-based)	column (0-based byte) -- read off the fixture source by hand, not from rust-analyzer
-sag_fixture::count_below	def	src/lib.rs	25	7
-sag_fixture::count_below	ref	tests/law.rs	21	23
-sag_fixture::popcount_mask	def	src/lib.rs	55	7
-sag_fixture::popcount_mask	ref	tests/law.rs	21	44
-sag_fixture::popcount_mask	ref	tests/law.rs	31	18
-sag_fixture::a::helper	def	src/lib.rs	71	11
-sag_fixture::a::helper	ref	src/lib.rs	82	7
-sag_fixture::b::helper	def	src/lib.rs	76	11
-sag_fixture::b::helper	ref	src/lib.rs	82	22
-sag_fixture::call_twice	def	src/lib.rs	94	7
-sag_fixture::twice	ref	src/lib.rs	95	4
+sag_fixture::count_below().	def	src/lib.rs	25	7
+sag_fixture::count_below().	ref	tests/law.rs	21	23
+sag_fixture::popcount_mask().	def	src/lib.rs	55	7
+sag_fixture::popcount_mask().	ref	tests/law.rs	21	44
+sag_fixture::popcount_mask().	ref	tests/law.rs	31	18
+sag_fixture::a/::helper().	def	src/lib.rs	71	11
+sag_fixture::a/::helper().	ref	src/lib.rs	82	7
+sag_fixture::b/::helper().	def	src/lib.rs	76	11
+sag_fixture::b/::helper().	ref	src/lib.rs	82	22
+sag_fixture::call_twice().	def	src/lib.rs	94	7
+sag_fixture::twice().	ref	src/lib.rs	95	4

@@ -46,3 +46,18 @@ definitions and all references of every symbol.
   of call facts (Charon, which is not installed here) and are not inferred from
   references.
 - No hover, documentation or type facts.
+
+## Review fixes (2026-10-31)
+
+- **Kind-preserving identity.** `MonikerIdentifier`'s `Display` joins the descriptor names and drops
+  their kinds (ra_ap_ide 0.0.358 `moniker.rs`), so `struct Foo` and `fn Foo` printed the same string
+  and merged into one Kythe node. The exporter now writes each descriptor with a SCIP-style kind
+  suffix: `/` namespace, `#` type, `.` term, `().` method, `[]` type parameter, `()` parameter,
+  `!` macro, `:` meta. `fixtures/kythe_ns` has both `Foo#` and `Foo().` and passes 6/6 symbols as
+  two distinct symbols.
+- **Kind names.** The table now uses rust-analyzer's debug names `Constant` and `StaticVariable`
+  (it had `Const` and `Static`), and adds `StaticMethod`. `fixtures/kythe_ns` skips no symbol. A unit
+  test fails when the names regress.
+- **Pagination.** The checker follows `next_page_token` until it is empty. `--page-size 1` forces
+  one occurrence per page: all 24 symbols on `sag_fixture` pass. With the loop disabled
+  (first page only), 14 of 24 fail.

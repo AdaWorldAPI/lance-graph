@@ -37,6 +37,18 @@ class Entries(unittest.TestCase):
     def facts(self, entries, name):
         return [e for e in entries if e.get("fact_name") == name]
 
+    def test_rust_analyzer_value_kinds_are_mapped(self):
+        # The exporter prints SymbolInformationKind's debug names; a const is
+        # `Constant` and a static is `StaticVariable`. Unmapped, they would be
+        # skipped with every anchor.
+        entries, skipped = self.build([
+            occ("k::LIMIT.", "Constant", 3, 6, "def"),
+            occ("k::COUNTER.", "StaticVariable", 23, 26, "def"),
+        ])
+        self.assertEqual(sum(skipped.values()), 0)
+        kinds = [e for e in self.facts(entries, "/kythe/node/kind")]
+        self.assertEqual(len([e for e in kinds if e["source"].get("signature") in ("k::LIMIT.", "k::COUNTER.")]), 2)
+
     def test_counts_and_roundtrip(self):
         entries, skipped = self.build([
             occ("k::foo", "Function", 3, 6, "def"),

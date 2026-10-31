@@ -67,21 +67,32 @@ def read_spans(related):
     return out
 
 
-def query_xrefs(base, corpus, moniker):
-    body = json.dumps(
-        {
+def query_xrefs(base, corpus, moniker, page_size=0):
+    """All definitions and references of one symbol, following every page."""
+    defs, refs, token = [], [], ""
+    while True:
+        req_body = {
             "ticket": [ticket(corpus, moniker)],
             "definition_kind": "ALL_DEFINITIONS",
             "reference_kind": "ALL_REFERENCES",
             "anchor_text": False,
         }
-    ).encode()
-    req = urllib.request.Request(base + "/xrefs", body, {"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        resp = json.load(r)
-    xr = pick(resp, "cross_references", "crossReferences") or {}
-    entry = next(iter(xr.values()), {})
-    return read_spans(entry.get("definition")), read_spans(entry.get("reference")), entry
+        if page_size:
+            req_body["page_size"] = page_size
+        if token:
+            req_body["page_token"] = token
+        req = urllib.request.Request(
+            base + "/xrefs", json.dumps(req_body).encode(), {"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=30) as r:
+            resp = json.load(r)
+        xr = pick(resp, "cross_references", "crossReferences") or {}
+        entry = next(iter(xr.values()), {})
+        defs.extend(entry.get("definition") or [])
+        refs.extend(entry.get("reference") or [])
+        token = pick(resp, "next_page_token", "nextPageToken") or ""
+        if not token:
+            return read_spans(defs), read_spans(refs), entry
 
 
 def run(cmd, **kw):
@@ -131,7 +142,7 @@ def check(base, args, want):
     got_all = {}
     shown = False
     for moniker in sorted(want):
-        defs, refs, entry = query_xrefs(base, args.corpus, moniker)
+        defs, refs, entry = query_xrefs(base, args.corpus, moniker, args.page_size)
         got_all[moniker] = (defs, refs)
         if not shown and entry.get("reference"):
             print("raw Kythe span for", moniker, "->", json.dumps(entry["reference"][0]["anchor"]["span"]))
@@ -166,6 +177,7 @@ def main(argv=None):
     ap.add_argument("--pin")
     ap.add_argument("--corpus", default="lance-graph")
     ap.add_argument("--port", type=int, default=18099)
+    ap.add_argument("--page-size", type=int, default=0, help="force small /xrefs pages (0 = server default)")
     args = ap.parse_args(argv)
     want = expected_sets(args.occ)
     with tempfile.TemporaryDirectory() as workdir:
