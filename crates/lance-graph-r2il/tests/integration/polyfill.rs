@@ -488,3 +488,44 @@ fn a_compound_quack_filter_registers_by_name_and_matches() {
     assert_eq!(got, oracle);
     assert!(oracle > 0 && oracle < 1000);
 }
+
+#[test]
+fn a_wrong_runtime_arity_for_the_lens_is_refused_by_the_table() {
+    // The store's declared arity is a runtime input; the table is not. A
+    // store that declares every polyfill word unary accepts a one-argument
+    // SUM at registration, and the table refuses it at prepare.
+    let mut s = BindStore::new();
+    s.declare_algebra(
+        POLYFILL_LENS,
+        REV,
+        Extent::DR64_CUBE,
+        vec![1; POLYFILL.len()],
+    )
+    .unwrap();
+    s.register(
+        CLASS,
+        ClassSchema {
+            schema_rev: REV,
+            field_count: FIELDS.len(),
+            extent: Extent::DR64_CUBE,
+        },
+        vec![method(300, &[0], vec![step(4, "SUM", vec![Arg::Field(0)])])],
+    )
+    .unwrap();
+    let version = s.route(POSITION, CLASS).unwrap();
+    let run = Run {
+        store: s,
+        version,
+        frames: FrameStore::new(REVS),
+    };
+    let err = run.prepare(&Views::language("sql"), 300).unwrap_err();
+    assert_eq!(
+        err,
+        ExecRefusal::Arity {
+            effect: 0,
+            ogar: None,
+            declared: Some(2),
+            args: 1,
+        }
+    );
+}
