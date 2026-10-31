@@ -36,8 +36,9 @@
 //!    free and only the name binds;
 //! 4. the opcode is in the subset this seam translates faithfully
 //!    ([`EXECUTABLE`]);
-//! 5. OGAR's stack arity, the arity the lens declared, and the effect's
-//!    argument count all agree, and OGAR says the opcode pushes one result.
+//! 5. OGAR's stack arity equals the effect's argument count (which DT64's
+//!    registration already ties to the lens's declared arity), and OGAR says
+//!    the opcode pushes one result.
 //!
 //! # What is checked when
 //!
@@ -206,8 +207,9 @@ pub enum ExecRefusal {
     UnknownWord { effect: usize, label: String },
     /// The opcode is not in [`EXECUTABLE`].
     NotExecutable { effect: usize, opcode: FnIndex },
-    /// OGAR's stack arity, the lens's declared arity and the effect's
-    /// argument count disagree.
+    /// OGAR's stack arity differs from the effect's argument count. The
+    /// lens's declared arity is reported; registration ties it to the
+    /// argument count.
     Arity {
         effect: usize,
         ogar: Option<u8>,
@@ -454,7 +456,10 @@ fn opcode<V: ClassView + ?Sized>(
     }
     let ogar = R2ILVocabulary.stack_arity(f);
     let declared = store.arity(e.algebra);
-    if ogar != declared || ogar.map(usize::from) != Some(e.args.len()) {
+    // `BindStore::register` already refuses an effect whose argument count
+    // differs from the lens's declared arity, so `declared == args` here;
+    // the independent check is OGAR's arity against both.
+    if ogar.map(usize::from) != Some(e.args.len()) {
         return Err(ExecRefusal::Arity {
             effect,
             ogar,
