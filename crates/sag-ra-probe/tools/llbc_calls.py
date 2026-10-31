@@ -4,8 +4,9 @@
 Run Charon with --no-dedup-serialized-ast, then:
     python3 -I llbc_calls.py <file.llbc> <crate_name>
 
-For each function of the crate it prints the calls it makes, classified as
-  static   resolved callee (Charon `Regular` / `Fun`)
+For each function of the crate it prints its Charon id and the calls it
+makes, classified as
+  static   resolved callee (Charon `Regular` / `Fun`), as `path@id`
   trait:K  trait method call; K is how the impl is chosen: `Clause` (a
            generic bound, fixed per instantiation), `Dyn` (a vtable: any impl,
            including other crates'), `TraitImpl` (a known impl). Only a known
@@ -75,7 +76,11 @@ def main(path, crate):
                 k = func["Regular"]["kind"]
                 if "Fun" in k:
                     tgt = funs.get(k["Fun"])
-                    calls.append("static:" + (name(tgt["item_meta"]["name"]) if tgt else str(k["Fun"])))
+                    calls.append(
+                        "static:"
+                        + (name(tgt["item_meta"]["name"]) if tgt else str(k["Fun"]))
+                        + f"@{k['Fun']}"
+                    )
                 else:
                     # A trait method call. Its trait reference says how the
                     # impl is chosen: `Clause` (a generic bound, fixed at
@@ -102,7 +107,7 @@ def main(path, crate):
                 else:
                     stats["deref_write_local"] += 1
         print(
-            f"{nm}\tcalls={calls}\tderef_write_arg={stats['deref_write_arg']}"
+            f"{nm}\tid={f['def_id']}\tcalls={calls}\tderef_write_arg={stats['deref_write_arg']}"
             f"\tderef_write_local={stats['deref_write_local']}\tassert={stats['Assert']}"
         )
 

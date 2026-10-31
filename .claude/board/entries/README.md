@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-10-31 | `D-SAG-6-2-JOIN-IDENT` |  | [2026-10-31-d-sag-6-2-span-join-identity.md](2026-10-31-d-sag-6-2-span-join-identity.md) |
 | 2026-10-31 | `D-SAG-6-2-LAB` |  | [2026-10-31-d-sag-6-2-lab-projection.md](2026-10-31-d-sag-6-2-lab-projection.md) |
 | 2026-10-31 | `D-SAG-6-1-CHECKLIST` |  | [2026-10-31-d-sag-6-1-checklist.md](2026-10-31-d-sag-6-1-checklist.md) |
 | 2026-10-31 | `D-MIST-NATIVE-1b` |  | [2026-10-31-d-mist-native-1b-makor-hydrate.md](2026-10-31-d-mist-native-1b-makor-hydrate.md) |
