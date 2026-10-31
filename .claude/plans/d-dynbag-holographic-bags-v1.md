@@ -640,3 +640,27 @@ R1 exists in `lance-graph-r2il` (testable with existing words such as `SUM`, `GR
 ### 19.5 F### (hypothesis, unchanged status)
 
 `F###` is a candidate compact address space for reusable atoms and compositions, not a spelling of `MethodId`. §19.2 shows atoms already have a compact address (`FnIndex` under a reading's lens) and compositions have one (`MethodBinding::effects` under a consumer classid). Whether a separate region is needed is undemonstrated. No `0xFFFF_F###` classid is minted and the CanonHigh split is unchanged.
+
+---
+
+## 20. Correction: the codegraph is the inspectable representation behind execution, not its toll gate (2026-10-31, operator)
+
+**Invariant.** R2IL / the codegraph is never a mandatory execution intermediary. A consumer resolves and binds once (cold) and then runs its own prepared native plan (Quack, mask-risc, `ndarray::simd`) with no codegraph lookup in the hot path. Tract is the precedent: `plan.rs` resolves once and `Plan::run` dispatches the bound entry after a frame check (`tract-harvest-probe/src/plan.rs:116-128,171,204`). No mandatory graph construction per invocation, no mandatory R2IL interpretation of native code, no second runtime.
+
+Four things stay distinct, and none proves another:
+
+| layer | answers | today |
+|---|---|---|
+| source / typed codegraph | which operations and dependencies the program has | r2ssa graphs, the Tract `TypedModel`, D-SAG-6 rows (LAB); the universal addressed codegraph (`0xC402`) is PROPOSED |
+| optimized plan + rewrite witnesses | which rules turned it into the executable form | `egglog-r2il-probe` law-gated rewrites (LAB, scalar) |
+| runtime execution events | what actually ran, under which frame | R1 `Receipt` (bounded by step count) |
+| logical provenance | which rules and facts derived an answer | not built; Soufflé-style lazy reconstruction is the model |
+
+Keep source operation ids, method signatures, typed operand edges, plan ids, rule ids and version witnesses, so a receipt can be related back to the codegraph. No per-row or per-op hot-path audit; bounded receipts, and reconstruction on demand.
+
+**Consequences:**
+- **R1 (#1892)** is an optional reading: `prepare` (cold) / `run` (hot) / `Receipt`. It is not a dependency of D-DYNBAG-0.
+- **D-DYNBAG-0's seam** is binding → prepared native plan. Its missing piece is a backend-owned mapping from a bound word to a Quack aggregate, built at prepare time, not R1.
+- **R2 (an R2IL keyed-count word) is dropped for D-DYNBAG-0:** Quack already has `Agg::GroupReduce { Local, Count }`.
+- **R3 (combining two group sinks) still stands.**
+- **Future:** codegraph relations (`Defines`, `Uses`, `Calls`, `DependsOn`, `Rewrites`, `Emits`, `Executed`, `Derived`) are projections over codegraph addresses for XLOG / Egglog / DialEgg analysis, never a second graph store.
