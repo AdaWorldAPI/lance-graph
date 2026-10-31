@@ -37,10 +37,12 @@ exactly one of them, never both.
 | 2026-10-31 | `D-SAG-6-2-JOIN-IDENT` |  | [2026-10-31-d-sag-6-2-span-join-identity.md](2026-10-31-d-sag-6-2-span-join-identity.md) |
 | 2026-10-31 | `D-SAG-6-2-LAB` |  | [2026-10-31-d-sag-6-2-lab-projection.md](2026-10-31-d-sag-6-2-lab-projection.md) |
 | 2026-10-31 | `D-SAG-6-1-CHECKLIST` |  | [2026-10-31-d-sag-6-1-checklist.md](2026-10-31-d-sag-6-1-checklist.md) |
+| 2026-10-31 | `D-REASONING-CODEGRAPH-0` |  | [2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md](2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md) |
 | 2026-10-31 | `D-MIST-NATIVE-1b` |  | [2026-10-31-d-mist-native-1b-makor-hydrate.md](2026-10-31-d-mist-native-1b-makor-hydrate.md) |
 | 2026-10-31 | `D-DT64-6-DR` |  | [2026-10-31-d-dt64-6-dr-addressing-module.md](2026-10-31-d-dt64-6-dr-addressing-module.md) |
 | 2026-10-31 | `D-DYNBAG-X` |  | [2026-10-31-cross-frontend-projection-crosswalk.md](2026-10-31-cross-frontend-projection-crosswalk.md) |
 | 2026-10-31 | `coresearch-mandatory-codegraph` |  | [2026-10-31-coresearch-mandatory-codegraph.md](2026-10-31-coresearch-mandatory-codegraph.md) |
+| 2026-10-31 | `D-STAUNEN` |  | [2026-10-31-coresearch-d-staunen-arc.md](2026-10-31-coresearch-d-staunen-arc.md) |
 | 2026-10-30 | `D-XLOG-NATIVE-0` |  | [2026-10-30-d-xlog-native-crosswalk.md](2026-10-30-d-xlog-native-crosswalk.md) |
 | 2026-10-30 | `D-XLOG-DR64-0` | XLOG's CPU frontend lowers onto DR64 relcomp (answer {2}, 2 oracles); its optimizer emits ChainJoin and swapped orders; arrow 60 vs 58 blocks in-tree use; masks lose to scalar on selective data | [2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md](2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md) |
 | 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
