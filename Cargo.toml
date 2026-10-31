@@ -214,6 +214,10 @@ exclude = [
     # Plan: .claude/plans/weather-soa-bake-v1.md.
     "crates/weather-poc",
     "crates/d-diamond-1-probe",
+    # X2 DT64 execution-admission policy (LAB). Own workspace root; path-deps
+    # lance-graph-dt64 and the contract only. Verify via
+    # `cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml`.
+    "crates/dt64-admission-probe",
 ]
 resolver = "2"
 
