@@ -1,3 +1,18 @@
+## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
+
+Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TFLite `F3__`, proposed); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DT64-7-0 | plan and board rows | In PR | docs review |
+| D-DT64-7-1 | `classid_canon_compat(0x0000_F123) == 0x0000` falsifier (F5, legacy ids only), with the twin `0xFFFF_F000 → 0xFFFF` | Queued | none |
+| D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | O8 |
+| D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | Queued | O7 |
+| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + the composing authority | Queued | O2 (OGAR owner), O8 |
+| D-DT64-7-6 | polyglot alias views (C, Rust, Java, SQL) over one Frozen algebra: words bound by position, names as per-language `ClassView` labels; `prepare`/`run` timed in ns | Queued | D-DT64-7-3, O7 |
+| D-DT64-7-7 | semantic union census of operator sets (ONNX, TF, TFLite, GGML, Burn IR, R2IL, XLOG) after aliasing; decides the `0xF0__` layout and the tensor ranges | Queued | counts recounted from source |
+| D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
+
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
 
 **Status:** LAB PROBE; test-only, standalone crate, no production API. [Plan](../plans/d-mistaber-native-v1.md); [board entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md).

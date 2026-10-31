@@ -63,3 +63,8 @@ PR #1896 | STATUS: open | OUTCOME: co-research map for the D-STAUNEN arc; lineag
 
 MIRROR
 - BLIND SPOT: #1896's provenance test was reviewed for multiplicity versus roots, but never against a case where a second observer depends on the first.
+
+## Correction (2026-10-31)
+
+- Rows 1b and 3: the probes are reframed as mask computations (each source root's edge mask, closure, answer bit), with no path enumeration; the trace-versus-label probe is dropped. `recursive::trace` is not the traceroute (DR256 capstone §C.5). IDEAS rows of 2026-10-31.
+- Not a crosswalk row: the stored, versioned selection a right-side `0xF###` would address is the lab `Pop { witness, .. }` precedent (`dir-rmap-probe/src/pop.rs`, #1666), owned through the planned binding store (§C.3). See D-DT64-7.

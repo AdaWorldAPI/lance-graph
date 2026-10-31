@@ -85,6 +85,72 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-10-31 — Independent support is a mask question: does one source root's edges still cover the answer?
+
+`[P1 @falsifier-designer domain:provenance D-STAUNEN X6a D-DT64-7]`
+
+`xlog-relcomp-probe` `tests/provenance.rs` computes independent support as the
+minimal-environment label over source roots (ATMS / PosBool; #1896). Its oracle
+enumerates simple paths, which is traversal; graph work is mask selection
+(D-DT64-7 D9'). **Next probe (P-X6A-MASK):** for each source root, AND the
+edge register with that root's edge mask, run the closure on the result, and
+test the answer bit. A root (or a set of roots) is a support exactly when its
+masked closure still holds the answer, so the minimal supports come from
+masks, never from walks. Fixture: the diamond with A and B as in the current
+test, plus a cycle 2→3→2 reported by B; the cycle must not change the result.
+Twin: a bypass 1→5→4 reported by C gives two disjoint supports. **Kill:** the
+mask computation and the path oracle disagree on any of these, or the cycle
+changes the minimal supports. Disable: drop the minimality filter.
+(`entries/2026-10-31-coresearch-d-staunen-arc.md` rows 1/1b.)
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
+## 2026-10-31 — The probe's support masks against `DerivationLedger::pooled`
+
+`[P1 @bridge-architect domain:provenance D-STAUNEN X6a D-EPI-COT]`
+
+Root-disjoint support already exists in production as `DerivationLedger`
+(`lance-graph-planner/src/nars/support.rs:308-323`, D-EPI-COT C1/C2). **Next
+probe (P-X6A-LEDGER):** `xlog-relcomp-probe` exports a plain-text fixture (the
+source roots and the edge mask each reported); a planner dev test replays it
+into the ledger. `pooled` must agree with the probe's mask-computed supports
+on {A}/{A,B} and on disjoint {A},{B}. On {A,B},{B,C},{A,C} they differ by
+design: three minimal supports, `pooled` selects 1. The test pins that. The
+probe crate does not depend on the planner (arrow 60 vs 58; path vs git
+ndarray). **Kill:** `pooled` and the probe disagree on a case they are meant to
+share. This decides whether X6a is already met by existing code.
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-31 — Recursion never emits a count
+
+`[P2 @falsifier-designer domain:xlog D-STAUNEN X2]`
+
+**P-REC-NO-COUNT:** no function returns a derivation multiplicity for a
+recursive fact (all-tree N[X] is infinite under recursion, arXiv 2202.10766
+§3.2); twin: the acyclic count is admitted. **Kill:** an API yields a count for
+a recursive fact. (A trace-versus-label probe proposed alongside it was dropped:
+`recursive::trace` rebuilds a node path and is not the traceroute, DR256
+capstone §C.5; D-DT64-7 F8.)
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
+## 2026-10-31 — `ref/call` edges for the Kythe bridge, from a source of call facts
+
+`[P3 @systems-scout domain:codegraph D-REASONING-CODEGRAPH-0]`
+
+`sag-ra-probe` (#1894) emits `ref` only. A reference is not a call, and calls
+are not inferred from references. **Next probe (P-KYTHE-CALL):** one function
+that both calls `f()` and takes `&f` must give exactly 1 `ref/call` and 1
+`ref`; a pure address-of gives 0 `ref/call`. It starts red. Needs a call-fact
+source; Charon is not installed here.
+
+**Fruit:** Heavy
+**Status:** Open.
+
 ## 2026-10-25 — Virtual associative folds + comma syndromes + emergency Thought-Git Pickaxe (brainstorm cluster)
 
 `[P3 @truth-architect @thought-struct-scribe domain:thought-git domain:memory]`
