@@ -597,3 +597,46 @@ Evidence: four read-only harvests at `d3c2a29`/`f3b2cfe`, each claim cited file:
 ### 18.6 Scope of D-DYNBAG-0 (unchanged, bounded to XLOG)
 
 §17 stands. One addition: the binding that selects the executed program is DT64's `MethodBinding` (its `effects` name the polyfill words), and the selection mechanism follows Tract's precedent (resolve once, dispatch through the resolved entry, frame-checked per run) without copying Tract's registry. If X1 needs a type in DT64, D-DYNBAG-0 stops and asks rather than adding it in the probe.
+
+---
+
+## 19. Polyfills are composed, not hardcoded (2026-10-31, operator decision before coding)
+
+**Invariant.** Class patterns and bound methods are reusable. Polyfills are compositions of existing algebra atoms, never hardcoded sequences. A `WideFieldMask` selects behaviour words inside a declared basis; DR projects their versioned coordinate surface; DT64 gives each consumer its semantic alias and method recipe; Quack or R2IL lowers the admitted description; mask-risc executes. A frontend never owns a fixed execution sequence that bypasses `MethodBinding`. A backend-owned mapping from an admitted atom to an existing operator is legitimate.
+
+### 19.1 What already provides the composition (read 2026-10-31)
+
+| need | existing API (`lance-graph-dt64/src/lib.rs`) |
+|---|---|
+| declare a lens of reusable, classid-free words with arities | `BindStore::declare_algebra` (`:628`), `arity` (`:654`) |
+| read a lens's words through its `ClassView` | `BindStore::resolve_algebra` (`:665`) → `Resolved::field_view` |
+| which words a consumer class uses, as a mask over the lens | `BindStore::words_used` (`:683`) |
+| which classes reuse a word | `BindStore::users_of` (`:700`) |
+| the recipe: ordered DO steps, each a word with ordered operands | `MethodBinding::effects` (`:197`), `Effect { target, algebra, args }`, `Arg::{Field, Const}` |
+| select behaviour by field | `Resolved::methods_on` (`:451`), `methods_touching` (`:520`) |
+
+### 19.2 The backend-owned atom → operator mapping already exists, under R2IL
+
+- `ogar_loco::FnIndex` is a `u8` (`OGAR crates/ogar-loco/src/lib.rs:380`), the same width as `AlgebraRef.word`.
+- The R2IL fold reading `CONCEPT_R2IL_FOLD = 0xC401` (`ogar-r2il/src/lib.rs:545`, PROVISIONAL, not in `CODEBOOK`) is a lens whose word positions are R2IL opcodes.
+- `lance_graph_r2il::FoldDialect::call` maps each opcode to a mask-risc program (`lance-graph-r2il/src/lib.rs:770`), and `ogar_loco`'s interpreter runs call sequences.
+
+So `AlgebraRef { lens: compose(0xC401, 0), word: FnIndex.0 }` names an atom the backend already knows how to run. No name-to-operator table exists in mask-risc, Quack or relalg (searched `src/` of all three for `from_name`/`by_name`/`label`/`parse`/`from_str`; none), so the R2IL lens is the only existing one.
+
+### 19.3 D-DYNBAG-0 stops here: three missing backend capabilities
+
+| id | missing | owner | why essential |
+|---|---|---|---|
+| R1 | lowering a `MethodBinding`'s ordered `effects` (`AlgebraRef` under the fold lens, `Arg`s) onto `FoldDialect` calls (this is X1, the executor seam) | `lance-graph-r2il` (the reading's crate; DT64 stays non-executing) | without it the executed path cannot follow the binding; any probe-side sequence would be the frontend-owned recipe this section forbids |
+| R2 | a keyed-count fold word (`GROUP_COUNT` → mask-risc `Terminal::GroupReduce { fold: GroupFold::Count }`, which exists) | OGAR `ogar-r2il` opcode table + `lance-graph-r2il` arm | the fold band is `VIA, RANGE, SUM, MIN, MAX, GROUP_SUM, KEY_RUNS, ANY, ALL, KEEP, SCATTER_OR, BLEND` (`ogar-r2il/src/lib.rs:499-525`); no keyed count. `GROUP_SUM` over a fabricated all-ones lane would be a per-row materialization |
+| R3 | combining two group sinks: checked i64 multiply (ℕ) and nonzero-to-mask (B) | mask-risc word + R2IL fold word (D-DYNBAG-3) | XLOG's chain is two relations over two tables; the per-Y degrees come from two programs, and support/multiplicity are their combination |
+
+Also: `0xC401` is provisional; a lab use is fine, a persisted GUID is not until OGAR mints it.
+
+### 19.4 Wave 0 resumes when
+
+R1 exists in `lance-graph-r2il` (testable with existing words such as `SUM`, `GROUP_SUM`, `POP_COUNT`, `KEEP`) and R2 lands. Then the XLOG binding's effects are `[GROUP_COUNT(left), GROUP_COUNT(right), combine]`, and the Wave 0 gate is: changing or refusing that binding changes or refuses the executed path. Until R3, the combine step stays the tracked `checked_binary_i64` call. Disable runs, register and scalar oracles, and stale-frame tests are kept unchanged.
+
+### 19.5 F### (hypothesis, unchanged status)
+
+`F###` is a candidate compact address space for reusable atoms and compositions, not a spelling of `MethodId`. §19.2 shows atoms already have a compact address (`FnIndex` under a reading's lens) and compositions have one (`MethodBinding::effects` under a consumer classid). Whether a separate region is needed is undemonstrated. No `0xFFFF_F###` classid is minted and the CanonHigh split is unchanged.
