@@ -18,21 +18,30 @@ are the same in both. One `join` row per local Charon function:
   AMBIGUOUS several candidates; nothing is picked
   UNJOINED  no candidate: UNKNOWN, never "no such item"
 
-Then one `impls` row per type and trait of this crate that rust-analyzer counted
-impls for, with Charon's count and its `trait/method-count` list beside it.
-`inherent/-` entries are inherent impl blocks, seen through their methods.
-MARKER_GAP: the counts agree once the compiler-generated marker impls in
-MARKERS are left out. DISAGREE is kept as found, not reconciled.
+Then impls are paired one by one, keyed (owner, trait, self_ty), where owner
+is a type or trait of this crate and trait is `inherent` for an inherent block:
+
+  impl_pair   one row per key: PAIRED (counts equal), RA_ONLY (rust-analyzer
+              has more) or CHARON_ONLY (Charon has more), with both counts and
+              the origin of Charon's impls: `closure` (a closure's state type,
+              which rust-analyzer has no ADT for), `derived`, or `source`. An
+              RA_ONLY inherent row also carries min_items: a block with no
+              items is invisible to Charon, which sees inherent blocks only
+              through their methods.
+  impl_scope  an impl of a type or trait of this crate that is written in
+              another crate. Charon on one crate cannot see it: reported,
+              not compared.
+  impl_summary  totals over the rows above.
+
+Nothing is excluded or renamed to make the counts agree.
 """
 import json
 import sys
+from collections import Counter
 
 # rust-analyzer kinds whose items Charon translates into a function body:
 # functions and methods, constant and static initializers, and enum-variant
 # constructors.
-MARKERS = {"core::marker::StructuralPartialEq", "core::clone::TrivialClone",
-           "core::marker::Destruct"}
-
 FN_KINDS = {"Function", "Method", "StaticMethod", "TraitMethod",
             "Constant", "StaticVariable", "EnumMember"}
 
@@ -69,6 +78,18 @@ def ra_symbols(path):
             "name": cols[1], "kind": f["kind"], "moniker": f["moniker"],
             "file": file, "line": int(ln), "impls": f.get("impls", "-"),
         })
+    return out
+
+
+def ra_impls(path):
+    out = []
+    with open(path) as fh:
+        lines = fh.readlines()
+    for line in lines:
+        cols = line.rstrip("\n").split("\t")
+        if cols[0] != "impl" or len(cols) < 6:
+            continue
+        out.append((cols[1], cols[2], cols[3], cols[4], int(cols[5])))
     return out
 
 
@@ -150,10 +171,10 @@ def main(ra_path, llbc_path, crate):
     for row in final:
         print("join\t" + "\t".join(map(str, row)))
 
-    seen = {}
     # Inherent impl blocks are not trait impls; Charon shows them only as the
     # `InherentImplBlock` path segment of their methods, so a block with no
     # methods is invisible here. rust-analyzer counts inherent blocks too.
+    blocks = {}
     for f, *_ in funs:
         for seg in f["item_meta"]["name"]:
             ty = seg.get("Impl", {}).get("Ty") if isinstance(seg.get("Impl"), dict) else None
@@ -161,31 +182,68 @@ def main(ra_path, llbc_path, crate):
                 sb = ty["skip_binder"].get("Untagged", ty["skip_binder"])
                 adt = types.get(sb["Adt"]["id"]) if "Adt" in sb else None
                 if adt:
-                    entry = f"inherent:{json.dumps(seg, sort_keys=True)}"
-                    if entry not in seen.setdefault(adt + "#blocks", set()):
-                        seen[adt + "#blocks"].add(entry)
-                        seen.setdefault(adt, []).append("inherent/-")
+                    blocks.setdefault(adt, set()).add(json.dumps(seg, sort_keys=True))
+
+    def in_crate(path):
+        return path is not None and path.split("::")[0] == crate
+
+    # Where each Charon impl comes from: a closure's state type (rust-analyzer
+    # has no ADT for it), a derive (`AutomaticallyDerived`), or written source.
+    closure_types = {types[d["def_id"]] for d in t["type_decls"]
+                     if d and isinstance(d.get("src"), dict) and "Closure" in d["src"]}
+    origin = {}
+    charon = Counter()
+    for adt, bs in blocks.items():
+        if in_crate(adt):
+            charon[(adt, "inherent", adt)] += len(bs)
+            origin.setdefault((adt, "inherent", adt), set()).add("source")
     for impl in impls.values():
         if not impl["item_meta"]["is_local"]:
             continue
         trait = traits.get(impl["impl_trait"]["id"], "?")
-        for key, label in ((types.get(self_adt(impl)), trait), (trait, types.get(self_adt(impl), "?"))):
-            if key:
-                seen.setdefault(key, []).append(f"{label}/{len(impl['methods'])}")
-    for s in ra:
-        if (s["kind"] in ("Struct", "Trait") and s["impls"] not in ("-", "cancelled")
-                and s["moniker"].split("::")[0] == crate):
-            got = seen.get(s["moniker"], [])
-            want = int(s["impls"])
-            # Compiler-generated marker impls that rust-analyzer's
-            # goto_implementation does not list. Named, so a gap they
-            # explain stays visible as MARKER_GAP rather than AGREE.
-            unmarked = [g for g in got if g.split("/")[0] not in MARKERS]
-            verdict = ("AGREE" if len(got) == want
-                       else "MARKER_GAP" if len(unmarked) == want else "DISAGREE")
-            # `trait/methods`: a zero-method impl (a compiler marker such as
-            # StructuralPartialEq) is one rust-analyzer does not report.
-            print(f"impls\t{s['moniker']}\tra={s['impls']}\tcharon={len(got)}\t{verdict}\t{','.join(sorted(got))}")
+        adt = types.get(self_adt(impl))
+        self_ty = adt if adt else "non-adt"
+        derived = any(a == {"Builtin": "AutomaticallyDerived"}
+                      for a in impl["item_meta"]["attr_info"]["attributes"])
+        kind = "closure" if adt in closure_types else "derived" if derived else "source"
+        for owner in (adt, trait):
+            if in_crate(owner):
+                charon[(owner, trait, self_ty)] += 1
+                origin.setdefault((owner, trait, self_ty), set()).add(kind)
+
+    rust_a = Counter()
+    items = {}
+    scope = []
+    for owner, trait, self_ty, impl_crate, n_items in ra_impls(ra_path):
+        if not in_crate(owner):
+            continue
+        if impl_crate != crate:
+            scope.append((owner, trait, self_ty, impl_crate))
+            continue
+        rust_a[(owner, trait, self_ty)] += 1
+        items.setdefault((owner, trait, self_ty), []).append(n_items)
+
+    paired = ra_only = charon_only = 0
+    for key in sorted(set(rust_a) | set(charon)):
+        a, b = rust_a[key], charon[key]
+        if a == b:
+            cls = "PAIRED"
+            paired += 1
+        elif a > b:
+            cls = "RA_ONLY"
+            ra_only += a - b
+        else:
+            cls = "CHARON_ONLY"
+            charon_only += b - a
+        row = (f"impl_pair\t{key[0]}\t{key[1]}\t{key[2]}\t{cls}\tra={a}\tcharon={b}"
+               f"\torigin={','.join(sorted(origin.get(key, {'-'})))}")
+        if cls == "RA_ONLY" and key[1] == "inherent":
+            row += f"\tmin_items={min(items[key])}"
+        print(row)
+    for row in sorted(scope):
+        print("impl_scope\t" + "\t".join(row))
+    print(f"impl_summary\tpaired={paired}\tra_only={ra_only}\t"
+          f"charon_only={charon_only}\tscope={len(scope)}")
 
 
 if __name__ == "__main__":
