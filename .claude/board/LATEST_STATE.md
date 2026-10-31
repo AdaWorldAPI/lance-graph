@@ -1,3 +1,10 @@
+## 2026-10-31 — main after #1875 (merged `b7adb0c`)
+
+- D-MIST-NATIVE-0 (#1873) and D-MIST-NATIVE-1a (#1875) are on main as the lab crate `mistaber-kripke-probe`.
+- Mistaber's Kripke holdings are a least fixpoint over DR64 `compose`, and its nodes are HHTL16 Register128 rows, with no String in the solved state.
+- #1874 landed the co-research hydration map and the DR64³ contraction test.
+- No contract type changed.
+
 ## 2026-10-30 — main after #1862 (merged `abe0b7afc`)
 
 - #1862 landed docs and two tests: D-DT64-6 Amendment A, the Morton aligned-square test, and the mask-risc dose test; D-LITHO folded into D-DT64-6.

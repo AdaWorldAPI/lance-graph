@@ -1,3 +1,30 @@
+## 2026-10-31 — lance-graph PR #1875 (merged `b7adb0c`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `ed71916`) — D-MIST-NATIVE-1a: HHTL16 Register128 rows replace the name interner
+
+- **Added:**
+  - `mistaber-kripke-probe/src/{rows,membrane}.rs` and `tests/rows.rs`. World, proposition and rule nodes are 512-byte rows: Register0/1, 16 `Morton8x8` columns, identity plus up to 15 addresses.
+  - The classid is per population on `RegisterLanes`, and accessibility is derived from world rows.
+  - Every compose goes through `bind_dr64` + `relcomp::Chain`.
+  - A compile-time `AddressOnly` guard keeps Strings out of the solved state.
+  - Plan `d-mistaber-native-v1.md` §9; entry `2026-10-30-d-mist-native-1a-hhtl16-rows.md`.
+- **Confidence:** LAB, measured. 11 goldens exact; 18 tests + 2 `compile_fail` doctests; 7 disable runs red. The binding is a typing guard: swapping `Chain` for raw `compose` turns nothing red.
+
+## 2026-10-30 — lance-graph PR #1874 (merged `3809611`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `aaf95e7`) — co-research map: Mistaber holdings as hydrated nodes; DR64³ contraction test
+
+- **Added:**
+  - Entry `2026-10-30-coresearch-mistaber-hydration.md`. It maps makor (literary node), world (value + edges) and holding (derived), the HHTL16 opt-in format on the two Register128 rails, classid per population, and probes P1–P13.
+  - Test `the_third_axis_contracts_back_to_holds`: the lineage cubes V[parent], O[origin] and L[rule] contract back to `holds`, and every cell reads the same through its HHTL16 address.
+  - Plan §8.
+- **Confidence:** the map is an exploration (nothing adopted); the contraction test is MEASURED with 2 disable runs red.
+
+## 2026-10-30 — lance-graph PR #1873 (merged `a6be979`, branch `claude/mistaber-ruff-harvest-9gtxd4`) — D-MIST-NATIVE-0: Kripke fixpoint over DR64 compose; pearl::hydrate predicate guard
+
+- **Added:**
+  - `crates/mistaber-kripke-probe` (own workspace, CI workflow): `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`, a holdings lens with Set/Bag projection, typed refusals.
+  - 11 goldens exported from the `mistaber-rs` Clingo oracle.
+  - Plan `d-mistaber-native-v1.md`; entry `2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md`.
+  - The predicate guard in `pearl::hydrate` landed separately in #1868.
+- **Confidence:** LAB, measured: 11/11 goldens exact; 6 disable runs red; Bag/Set falsifier on the diamond.
+
 ## 2026-10-30 — lance-graph PR #1862 (merged `abe0b7afc`, branch `ccr-45a41fb4-0j3i0l`, head `4707683dc`) — D-DT64-6 Amendment A; D-LITHO folded
 
 - **Added:** D-DT64-6 Amendment A (the DR facts a DT binding applies, the `tract-harvest-probe` reference path, measured gates); `morton8x8::tests::every_aligned_code_run_is_an_aligned_square`; `lance-graph-mask-risc/tests/dose.rs`; D-LITHO retired and folded into D-DT64-6.

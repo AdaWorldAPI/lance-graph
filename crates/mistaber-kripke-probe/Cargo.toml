@@ -18,6 +18,7 @@ description = "Mistaber's Kripke holding rules as a least fixpoint over the exis
 dr-math-binding-probe = { path = "../dr-math-binding-probe" }
 # The holdings lens's field selection (ClassView x WideFieldMask).
 lance-graph-contract = { path = "../lance-graph-contract" }
+deepnsm-v2 = { path = "../deepnsm-v2" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

@@ -25,12 +25,13 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-518 entries, 2026-08-06 .. 2026-10-31.
+519 entries, 2026-08-06 .. 2026-10-31.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-10-31 | `D-SAG-6-2-LAB` |  | [2026-10-31-d-sag-6-2-lab-projection.md](2026-10-31-d-sag-6-2-lab-projection.md) |
 | 2026-10-31 | `D-SAG-6-1-CHECKLIST` |  | [2026-10-31-d-sag-6-1-checklist.md](2026-10-31-d-sag-6-1-checklist.md) |
+| 2026-10-31 | `D-MIST-NATIVE-1b` |  | [2026-10-31-d-mist-native-1b-makor-hydrate.md](2026-10-31-d-mist-native-1b-makor-hydrate.md) |
 | 2026-10-30 | `D-XLOG-NATIVE-0` |  | [2026-10-30-d-xlog-native-crosswalk.md](2026-10-30-d-xlog-native-crosswalk.md) |
 | 2026-10-30 | `D-XLOG-DR64-0` | XLOG's CPU frontend lowers onto DR64 relcomp (answer {2}, 2 oracles); its optimizer emits ChainJoin and swapped orders; arrow 60 vs 58 blocks in-tree use; masks lose to scalar on selective data | [2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md](2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md) |
 | 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
