@@ -27,7 +27,7 @@ use lance_graph_r2il::binding::{
 use lance_graph_r2il::binding_native::{
     prepare_native, run_native, NativePlan, NativeReceipt, NativeScratch, MAX_NATIVE_OUTPUTS,
 };
-use lance_graph_r2il::{FoldDialect, FoldError, INT_ADD, INT_S_LESS, POP_COUNT};
+use lance_graph_r2il::{FoldDialect, FoldError, INT_ADD, INT_AND, INT_S_LESS, POP_COUNT};
 use ogar_loco::{FnIndex, Vocabulary};
 use ogar_r2il::{R2ILVocabulary, ANY, CONCEPT_R2IL_FOLD, MAX, MIN, SUM};
 
@@ -98,7 +98,8 @@ const W_ADD: u8 = 3;
 const W_MIN: u8 = 4;
 const W_MAX: u8 = 5;
 const W_ANY: u8 = 6;
-const WORD_OPS: [FnIndex; 7] = [INT_S_LESS, SUM, POP_COUNT, INT_ADD, MIN, MAX, ANY];
+const W_AND: u8 = 7;
+const WORD_OPS: [FnIndex; 8] = [INT_S_LESS, SUM, POP_COUNT, INT_ADD, MIN, MAX, ANY, INT_AND];
 
 fn words() -> Vec<&'static str> {
     WORD_OPS
@@ -195,6 +196,7 @@ const FEEDS: u32 = 12; // a compare constant that is a fold result
 const FEEDS_OK: u32 = 13; // the same shape with a literal constant
 const NINE_OUT: u32 = 14; // nine scalar fields
 const EIGHT_OUT: u32 = 15; // eight scalar fields
+const SHARED_AND: u32 = 16; // f3 = a < 5; f5 = a < 10; f6 = f3 AND f5; f4 = POP_COUNT(f5)
 
 fn methods() -> Vec<MethodBinding> {
     let masked_sum = || vec![lt(3, 5), step(4, W_SUM, vec![Arg::Field(3), Arg::Field(1)])];
@@ -293,6 +295,15 @@ fn methods() -> Vec<MethodBinding> {
         ),
         method(NINE_OUT, consts(9)),
         method(EIGHT_OUT, consts(8)),
+        method(
+            SHARED_AND,
+            vec![
+                lt(3, 5),
+                lt(5, 10),
+                step(6, W_AND, vec![Arg::Field(3), Arg::Field(5)]),
+                step(4, W_POP, vec![Arg::Field(5)]),
+            ],
+        ),
     ]
 }
 
@@ -825,4 +836,21 @@ fn run_native_allocates_nothing() {
         f.r1(&plan, &data, &p, NOW).unwrap();
         assert!(allocs() > before, "the counter must see `run` allocate");
     }
+}
+
+// Fails if preparing `f6 = f3 AND f5` gates `f5`'s predicate under `f3` in
+// place: the later `POP_COUNT(f5)` would then count `a < 5`, not `a < 10`.
+#[test]
+fn native_keeps_an_and_operand_that_is_read_again() {
+    let f = Fixture::new();
+    let data = Data::new(N);
+    assert_ne!(
+        data.count(5),
+        data.count(10),
+        "the fixture separates the two"
+    );
+    assert_eq!(
+        native_answer(&f, SHARED_AND, &data).values(),
+        &[(4, data.count(10))]
+    );
 }

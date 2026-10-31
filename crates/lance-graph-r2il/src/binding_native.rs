@@ -48,7 +48,7 @@ use lance_graph_mask_risc::{
     execute_compiled, scratch_words_for, tile_words_for, CompiledProgram, Foreign, Out, Planes,
     Scratch, Terminal, Value,
 };
-use ogar_loco::{Dialect, FnIndex};
+use ogar_loco::FnIndex;
 use ogar_r2il::{ALL, ANY, KEY_RUNS, MAX, MIN, SUM};
 
 use crate::binding::{
@@ -243,8 +243,7 @@ pub fn prepare_native(
             check_compare(&stack, i)?;
         }
         let before = dialect.programs_run();
-        dialect
-            .call(step.opcode, [0, 0, 0], &mut stack)
+        crate::binding::call_step(&mut dialect, &plan.steps, i, &mut stack)
             .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
         if stack.len() != 1 {
             return Err(ExecRefusal::ResultArity {

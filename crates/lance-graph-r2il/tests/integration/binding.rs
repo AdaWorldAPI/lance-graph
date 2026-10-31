@@ -47,7 +47,7 @@ const LANES: [Option<u16>; 8] = [Some(0), Some(1), Some(2), None, None, None, No
 
 /// The lens's words, deliberately NOT at their opcode numbers: only the
 /// label binds a word to an opcode.
-const WORDS: [&str; 9] = [
+const WORDS: [&str; 10] = [
     "SUM",
     "IntSLess",
     "IntSub",
@@ -57,6 +57,7 @@ const WORDS: [&str; 9] = [
     "IntEqual",
     "GROUP_SUM",
     "NotAnOpcode",
+    "IntAnd",
 ];
 const W_SUM: u8 = 0;
 const W_LT: u8 = 1;
@@ -66,6 +67,7 @@ const W_MUL: u8 = 4;
 const W_POP: u8 = 5;
 const W_GSUM: u8 = 7;
 const W_BAD: u8 = 8;
+const W_AND: u8 = 9;
 
 const FOCUS: Focus = Focus { revision: 1 };
 const SCOPE: Scope = Scope { id: 1 };
@@ -172,6 +174,8 @@ const SINK_WORD: u32 = 10; // GROUP_SUM
 const GUARDED: u32 = 11;
 const THREE_VALUED: u32 = 12;
 const COUNT: u32 = 13; // POP_COUNT of the mask
+const SHARED_AND: u32 = 14; // m = a < 5; t = a < 10; u = m AND t; s = POP_COUNT(t)
+const PRED_ONLY: u32 = 15; // m = a < 5, consumed by no fold
 
 fn methods() -> Vec<MethodBinding> {
     let with = |id, extra: Vec<Effect>| {
@@ -248,6 +252,21 @@ fn methods() -> Vec<MethodBinding> {
                 step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
                 step(4, W_POP, vec![Arg::Field(3)]),
             ],
+        ),
+        method(
+            SHARED_AND,
+            &[0],
+            vec![
+                step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
+                step(5, W_LT, vec![Arg::Field(0), Arg::Const(10)]),
+                step(6, W_AND, vec![Arg::Field(3), Arg::Field(5)]),
+                step(4, W_POP, vec![Arg::Field(5)]),
+            ],
+        ),
+        method(
+            PRED_ONLY,
+            &[0],
+            vec![step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)])],
         ),
     ]
 }
@@ -761,5 +780,58 @@ fn work_per_run_does_not_grow_with_rows() {
             (4, 2 * s.masked_sum(&s.b, 5)),
             (5, s.masked_sum(&s.b, 5) + 1)
         ]
+    );
+}
+
+#[test]
+fn an_and_operand_read_again_keeps_its_own_mask() {
+    // `t` is the right operand of `u = m AND t` and is read again by
+    // `POP_COUNT(t)`. Gating `t`'s predicate under `m` in place would make the
+    // count `count_below(5)` instead of `count_below(10)`.
+    let f = Fixture::new();
+    let data = Data::new(64);
+    assert_ne!(
+        data.count_below(5),
+        data.count_below(10),
+        "the fixture separates the two"
+    );
+    let plan = f.prepare(SHARED_AND).unwrap();
+    let r = exec(&f, &plan, &data, &permit(&[SHARED_AND]), NOW).unwrap();
+    assert_eq!(values(&r), vec![(4, data.count_below(10))]);
+}
+
+#[test]
+fn a_run_leaves_no_pending_predicates_in_the_dialect() {
+    // A plan whose predicates no fold consumes must not leave their ops in the
+    // caller's dialect: after more such runs than there are scratch slots, a
+    // folding plan on the same dialect still runs and counts only its own mask.
+    let f = Fixture::new();
+    let data = Data::new(64);
+    let pred_only = f.prepare(PRED_ONLY).unwrap();
+    let count = f.prepare(COUNT).unwrap();
+    let ok = permit(&[PRED_ONLY, COUNT]);
+    let lanes = [
+        LaneRef::I32(&data.a),
+        LaneRef::I32(&data.b),
+        LaneRef::U32(&data.k),
+    ];
+    let planes = Planes {
+        n_rows: data.a.len(),
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+    let mut d = FoldDialect::new(&planes, &foreign);
+    let fl = FieldLanes { lanes: &LANES };
+    for _ in 0..=lance_graph_r2il::MAX_SLOTS {
+        let r = run(&pred_only, &f.store, &f.frames, NOW, &ok, fl, &mut d).unwrap();
+        assert_eq!(r.programs_run, 0);
+    }
+    let r = run(&count, &f.store, &f.frames, NOW, &ok, fl, &mut d).unwrap();
+    assert_eq!(values(&r), vec![(4, data.count_below(5))]);
+    assert_eq!(
+        d.last_program().unwrap().ops.len(),
+        1,
+        "only COUNT's own predicate"
     );
 }

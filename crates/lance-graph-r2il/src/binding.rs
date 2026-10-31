@@ -325,6 +325,20 @@ pub fn run(
     if !permit.methods.contains(&plan.method) {
         return Err(ExecRefusal::NotPermitted);
     }
+    dialect.discard_pending();
+    let result = run_steps(plan, frames, fields, dialect);
+    dialect.discard_pending();
+    result
+}
+
+/// [`run`]'s body after the checks; [`run`] clears the dialect's pending
+/// state on both sides of it, on success and on error.
+fn run_steps(
+    plan: &Prepared,
+    frames: &FrameStore,
+    fields: FieldLanes<'_>,
+    dialect: &mut FoldDialect<'_>,
+) -> Result<Receipt, ExecRefusal> {
     let programs_before = dialect.programs_run();
     let mut values: BTreeMap<u8, Val> = BTreeMap::new();
     let mut stack: Vec<Val> = Vec::new();
@@ -342,8 +356,7 @@ pub fn run(
         if LANE_COMPARES.contains(&step.opcode) {
             check_compare(&stack, i)?;
         }
-        dialect
-            .call(step.opcode, [0, 0, 0], &mut stack)
+        call_step(dialect, &plan.steps, i, &mut stack)
             .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
         if stack.len() != 1 {
             return Err(ExecRefusal::ResultArity {
@@ -372,6 +385,30 @@ pub fn run(
         programs_run: dialect.programs_run() - programs_before,
         output,
     })
+}
+
+/// Call step `i`. A field a later step reads again keeps its value, so a
+/// step that takes one as an operand goes through
+/// [`FoldDialect::call_shared`], which never gates that operand's predicate
+/// in place.
+pub(crate) fn call_step(
+    dialect: &mut FoldDialect<'_>,
+    steps: &[Step],
+    i: usize,
+    stack: &mut Vec<Val>,
+) -> Result<(), FoldError> {
+    let step = &steps[i];
+    let read_later = step.args.iter().any(|a| match a {
+        Arg::Field(p) => steps[i + 1..]
+            .iter()
+            .any(|s| s.args.contains(&Arg::Field(*p))),
+        Arg::Const(_) => false,
+    });
+    if read_later {
+        dialect.call_shared(step.opcode, [0, 0, 0], stack)
+    } else {
+        dialect.call(step.opcode, [0, 0, 0], stack)
+    }
 }
 
 /// The route at the captured version, and now, must both name `class`.
