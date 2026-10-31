@@ -83,3 +83,14 @@ The scouts answered four re-asked questions: Q1 who owns the body, Q2 is the bin
 ## Closeout
 
 PR #1890 | STATUS: open | OUTCOME: exploration map; #1892 marked superseded | OPEN: operator choice of probes; OGAR ruling on opaque extern words; executable `PROC_DEF`; EXO-50
+
+## Operator correction (2026-10-31): `ogar-loco::Program` is not the method body
+
+DECISION (operator). The October 30/31 codegraph architecture stands: **Kythe semantic facts + R2IL executable semantics + DT64/DR binding.** `ogar-loco::Program` is not the canonical method body, and the ogar-loco program model is rejected as that architecture. Struck, not deleted, in this entry: every statement that an `ActionDef` points to an `ogar-loco::Program`, that `body_rev` is a digest of such a Program, or that executable `PROC_DEF` in ogar-loco is a prerequisite.
+
+Consequences:
+- No `ogar-loco::Program` body, no new codegraph store, no second interpreter or method registry, no mandatory eager graph materialisation.
+- P9's "no `ActionDef` links a Program" (category 1 = 0 of 50) is a fact about the data, not an admission gate. It blocks nothing.
+- R2IL execution is kept without the ogar-loco program model: `FoldDialect::call` is inherent and the `ogar_loco::Dialect` impl is an optional adapter (#1895). The Kythe reading from witnessed facts exists (#1894).
+
+OPEN: where the method's body revision is anchored once the Program is not the body.

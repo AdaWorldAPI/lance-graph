@@ -176,3 +176,14 @@ Stage C (b1 shared addressing). H: one prepared LocalMap serves four consumers w
 Stage D (codegraph lazy). H: the hot path of a method admitted by decide performs zero codegraph lookups; reconstruction runs only when a receipt is inspected. Measure: graph lookups on the hot path (must be 0), µs per cold reconstruction (reported, not a gate), receipt bytes per run. Kill: any hot-path lookup, or reconstruction needs a persisted graph.
 
 Stage E (effect boundary). H: no current receipt can be read back to answer "did this effect happen" without re-execution. Measure, on a fixture: for D-TGB-4 Receipt, ActionInvocation, Mediator/Fusion/Support receipts, count re-executions on read (must be 0 for any claim of replay safety) and whether an effect identity (task id, LUW, idempotency key) is present. Kill (of the hypothesis that an existing shape suffices): every shape either re-executes or lacks effect identity. Expected outcome per this run: kill fires; that hands decision 7 to the owner, it does not license a new record.
+
+## Operator correction (2026-10-31): `ogar-loco::Program` is not the method body
+
+DECISION (operator). The October 30/31 codegraph architecture stands: **Kythe semantic facts + R2IL executable semantics + DT64/DR binding.** `ogar-loco::Program` is not the canonical method body, and the ogar-loco program model is rejected as that architecture. Struck, not deleted, in this entry: every statement that an `ActionDef` points to an `ogar-loco::Program`, that `body_rev` is a digest of such a Program, or that executable `PROC_DEF` in ogar-loco is a prerequisite.
+
+Consequences:
+- No `ogar-loco::Program` body, no new codegraph store, no second interpreter or method registry, no mandatory eager graph materialisation.
+- P9's "no `ActionDef` links a Program" (category 1 = 0 of 50) is a fact about the data, not an admission gate. It blocks nothing.
+- R2IL execution is kept without the ogar-loco program model: `FoldDialect::call` is inherent and the `ogar_loco::Dialect` impl is an optional adapter (#1895). The Kythe reading from witnessed facts exists (#1894).
+
+OPEN: where the method's body revision is anchored once the Program is not the body.

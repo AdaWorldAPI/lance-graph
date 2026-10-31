@@ -148,3 +148,10 @@ Until then, the hand-authored DT64 binding stays the compatibility surface, keye
 the co-research map already proposes. P6 (hot-path independence) is unblocked only for methods
 with a body; today that is none, so P6 needs a lab body (the GCD program) rather than a harvested
 method.
+
+## Operator correction (2026-10-31)
+
+`ogar-loco::Program` is not the canonical method body; the architecture is Kythe semantic facts +
+R2IL executable semantics + DT64/DR binding. So seam item 4 above is withdrawn, and P9's empty
+category 1 (no `ActionDef` links a Program) is a measured fact, not an admission gate. P2's
+`body_rev` remains a correct digest of a `Program` value, but it is not the method's body revision.
