@@ -96,6 +96,24 @@ WORKING-MODEL items (not started; each names the decision it needs):
 | L4 | Ship the polyfill lens's language alias views (R2IL, SQL, Quack) as a library surface derived from the `POLYFILL` table (#1899), instead of test-only views. | — |
 | L5 | How a consumer codebook hands its labels over: the consumer implements `ClassView` itself (as `CatsSchema` does), or the authority returns label rows with the activation. The second changes `Activation`; the first needs no contract change. | O10 |
 
+### 1d. Decisions O7–O10 (operator, 2026-10-31, after #1898–#1900 merged)
+
+| # | decision |
+|---|---|
+| O7 | **Concern ranges.** `F0__` shared relational algebra (relalg / mask-risc polyfill); `F1__` XLOG-exclusive semantics, only after promotion; `F2__` ONNX; `F3__` the TensorFlow family including TFLite (shared concern, not necessarily shared lenses: equal names do not imply equal semantics); `F4__` genuine SQL-specific semantics (for example `NULL`); `F5__` genuine Gremlin-specific semantics; `F6__ ..= FF__` reserved. SQL and Gremlin use the shared algebra wherever semantics are exactly equal; `F4__`/`F5__` gain words only for a measured gap. Aliases never mint duplicate operators. No implementation commitment for unmeasured operator families. |
+| O8 | **Composition in the host.** DT64 owns the `0xFFFF` authority. It is composed with OGAR's authority in the host / application assembly layer, never by a dependency from `lance-graph-ogar` to `lance-graph-dt64`. The routing policy is one tested piece, not reimplemented per consumer. |
+| O9 | **Full-classid basis for behaviour lenses.** A behaviour lens's field basis resolves by the full `u32` classid, through a backward-compatible, lens-specific `ClassView` accessor. Data-class lookup and the `0xC401` R2IL reading keep their current resolution. An unknown behaviour lens fails closed; it never inherits the concept's data-field basis. `AlgebraRef.word`, `WideFieldMask` and the 256-position limit are not widened. 256 is the limit per lens, not per concern. |
+| O10 | **The consumer supplies its own `ClassView`** from its codebook. No label arrays are added to `Activation`. Activation alone does not establish label provenance: registration associates the authorized owner and activation with a versioned schema/basis witness, and refuses a missing activation, a mismatching basis, a stale revision and unauthorized ownership. An arbitrary caller-supplied view is not trusted silently. |
+
+**Execution order** (each a separate PR; each step test-first, with a disable run and a backward-compatibility twin):
+
+1. **L4:** production alias views (R2IL, SQL, Quack) derived from the existing `POLYFILL` table. No parallel opcode table, no change to the `0xC401` path.
+2. **L1:** two behaviour lenses with the same left half, different right halves and different bases resolve independently; a consumer data class and a behaviour lens sharing a left half do not cross-read. The red-first case: `0xFFFF_F000` with 17 fields and `0xFFFF_F200` with a different count must not both read `fields(0xFFFF)`.
+3. **L5:** the smallest consumer-`ClassView` and immutable basis-witness seam; `Activation` unchanged.
+4. **L2/L3:** host composition and explicit activation checks; DT64 and OGAR stay independent.
+
+Preserved throughout: the `0xC401` name-bound reading, the `FnIndex` opcode contract, positional polyfill semantics, refusal on wrong aliases, and the existing integration tests. Not introduced: a new runtime, a second authoritative registry, premature removal of the OGAR dependency, automatic XLOG promotion, a shared data-field/algebra-field namespace.
+
 ---
 
 ## 2. The classid, both sides
@@ -196,10 +214,10 @@ Each constraint is a test that fires plus a twin that stays silent, on non-trivi
 | O4 | Right-side `0xF###` selection: does one value name one stored selection over the existing 256-position basis, or one position in a wider basis (which widens `WideFieldMask` and `AlgebraRef.word` past `u8`)? D7' points to the first. | operator |
 | O5 | D-LITHO Q5: which lance-graph table versions the global → local selection, and its row shape (WORKING-MODEL: versions = frame revisions, one row per local position, read through a ClassView, selected by a `WideFieldMask`; it also holds the stored selections of D7'). | DR/DT owner |
 | O6 | Whether `recursive::trace` (#1896) stays as a semi-naive test oracle or is removed; either way it is documented as not the traceroute. | operator |
-| O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order. Per §1b, languages that only rename the shared algebra become alias views; which of SQL, Gremlin and XLOG keep a range? Does full TensorFlow share TFLite's range, or take its own? | operator |
-| O9 | Behaviour-lens basis key (L1): keep the left-half key (256 words per left side; a large operator set takes several left sides), or key behaviour lenses by the full classid (a contract `ClassView` change). | operator |
-| O10 | Label handover from a consumer codebook (L5): the consumer's own `impl ClassView`, or label rows returned by the authority with the activation. | operator |
-| O8 | Where the composing authority (and the composed `ClassView`, L2) lives: in `lance-graph-ogar` (which then depends on `lance-graph-dt64`), or in the binary that holds both authorities. | operator |
+| O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order. Per §1b, languages that only rename the shared algebra become alias views; which of SQL, Gremlin and XLOG keep a range? Does full TensorFlow share TFLite's range, or take its own? | **DECIDED §1d** |
+| O9 | Behaviour-lens basis key (L1): keep the left-half key (256 words per left side; a large operator set takes several left sides), or key behaviour lenses by the full classid (a contract `ClassView` change). | **DECIDED §1d** |
+| O10 | Label handover from a consumer codebook (L5): the consumer's own `impl ClassView`, or label rows returned by the authority with the activation. | **DECIDED §1d** |
+| O8 | Where the composing authority (and the composed `ClassView`, L2) lives: in `lance-graph-ogar` (which then depends on `lance-graph-dt64`), or in the binary that holds both authorities. | **DECIDED §1d** |
 
 ---
 
