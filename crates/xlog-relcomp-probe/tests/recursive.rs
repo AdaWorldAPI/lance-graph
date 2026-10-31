@@ -289,6 +289,11 @@ fn support_names_both_alternative_derivations_and_nothing_else() {
     let one = support(&r.edge, &r.path, r.map.valid(), s(2), s(5));
     assert_eq!(one[s(1)], 0, "1->2 is not on any route from 2");
     assert_eq!(one[s(3)], 0, "3->4 is not on any route from 2");
+    // An edge reachable from x that cannot reach y is not support: 4->5
+    // for path(1, 4).
+    let to4 = support(&r.edge, &r.path, r.map.valid(), s(1), s(4));
+    assert_eq!(to4[s(4)], 0, "4->5 does not lead to 4");
+    assert_eq!(to4[s(2)], 1 << s(4));
     // An answer that does not hold has no support.
     let none = support(&r.edge, &r.path, r.map.valid(), s(5), s(1));
     assert!(none.iter().all(|&w| w == 0));
@@ -329,10 +334,12 @@ path(X, Y) :- path(X, Z), path(Z, Y).
 ?- path(X, Y).
 ";
     let (plan, rel) = compile(&program(DIAMOND, nonlinear));
-    assert!(matches!(
+    assert_eq!(
         admit_closure(&plan, &rel),
-        Err(LowerRefusal::UnsupportedNode(_))
-    ));
+        Err(LowerRefusal::UnsupportedNode(
+            "non-linear or reordered step"
+        ))
+    );
 
     let mutual = "pred edge(u32, u32).
 pred a(u32, u32).
