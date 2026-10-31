@@ -1,0 +1,155 @@
+# D-STAUNEN-0 | Convergence scratchpad | 2026-10-31
+
+**Status: INCEPTION / WORKING HYPOTHESIS, NOT ADMITTED ARCHITECTURE.** Preserve the entire research thread before it fragments. Source-derived fact, repository-measured result, user decision and untested hypothesis must remain distinct. CC owns any implementation only after current source re-audit, explicit operator decision and falsifier.
+
+## North star
+Make **plasticity an intrinsic DT64 hypercube capability**: an activated pattern can influence which local neural/symbolic connections become eligible for adaptation; competing sparse thoughts test changes; only external evidence licenses consolidation into the next sealed WORLD version. Not a second runtime, storage engine, palette registry, graph or truth oracle. Faster bit primitives are not equivalent to biologically faithful or general learning.
+
+## Convergence mindmap
+
+```mermaid
+mindmap
+  root((DT64 built-in learning))
+    Biological cognition
+      ACT-R Anderson goals chunks productions
+      AtlasIR validated neuron physics
+      Spike STDP eligibility traces
+      Staunen novelty salience
+      Structural and myelin plasticity
+      Metaplasticity learning to learn
+    Hyperdimensional representation
+      HDC VSA bind bundle permute compare
+      SpikeHD SynapseHD Spiking Phasors
+      XOR popcount packed u64 tiles
+      DR64 DR256 global local addressing
+      Moore eight-slot typed neighborhood
+    Symbolic structure
+      XLOG typed RIR PIR EIR
+      Quack R2IL mask-risc ndarray
+      NSL graph loss and neighbors
+      Palette512 epistemic U9
+      TurboVec9 numeric centroids
+    Evidence and mind
+      CE64 activation and epistemic contract
+      WORLD 0 immutable givens
+      THOUGHTS 1 through 63 sparse branches
+      Pearl ablation causal interventions
+      Qualia operational readings optional
+      PointCare situated world context
+      Replay and evidence independence
+    Outcomes
+      Competing learning strategies
+      Useful synapse and rule change
+      Tested consolidation
+      Brain SoC long-term target
+      Falsifiable steps toward adaptive intelligence
+```
+
+## Important distinctions
+1. Staunen = candidate novelty/salience *event* modulating plasticity; it is neither facial expression nor an automatic claim of synaptic growth.
+2. Wisdom = evidentially warranted consolidation/reuse; not a biological synapse, not certification by novelty.
+3. Brain mirror neurons specifically concern observation/action coupling, not arbitrary routing to brain regions. Proposed cross-assembly recruitment is a distinct hypothesis.
+4. Gray matter synaptic/structural change and white-matter myelination are both plasticity on different mechanisms/timescales; explicit distinct simulator models required.
+5. BNN is ambiguous: binary, Bayesian or biological neural network. Always spell out.
+6. Atlas supports bounded STDP and separate surrogate-gradient/BPTT/SGD/Adam training; no universal Bayesian learner or brain-complete simulation.
+7. A Moore8 palette projection is not a biological adjacency index; any true neighbors must come from the authenticated synaptic topology.
+8. 64 CE64 bits are typed word semantics; a hypervector has many 64-bit tiles; 64 thought slots are a different axis.
+9. CE64 46..49 activation *decision* conflicts with legacy opcode reader; 50..52 novelty/wisdom vs plasticity owner ruling OPEN; W 53..58 denotes ephemeral thought slot, not durable evidence ID.
+10. No copy of WORLD per thought: 0 sealed givens, 1..63 sparse deltas over one frame; per-thought evidence roots prevent self-confirmation.
+11. CE64 is an ISA, **not a storage contract** (#1628); physiology, eligibility traces, gradients and synaptic topology belong to typed external state.
+12. Do not market subjective experience, mirror-neuron routing, AGI attainment, permanent structural synapse growth, physical Brain SoC power or nanosecond whole-brain simulation as demonstrated.
+
+## Proposed learning loop
+Observed spike / event -> HDC pattern -> novelty prediction residual -> authenticated Moore/graph neighborhood -> eligibility + signed 3rd factor -> bounded synaptic/structural candidate -> XLOG/NSL symbolic hypotheses -> 64 sparse thoughts with root-disjoint comparison and held-out external observations -> revision, ablation, consolidation, or abstention. Re-evaluate future plasticity policies = *metaplasticity*.
+
+## Concrete existing anchors
+- #1400 Moore/NARS delayed consequence recipe learning: evidence of structure-based selection; later #1440 found delayed credit inconclusive under Holm. No claim of neuronal validity.
+- #1405 Morton Moore shifts; #1408 historical tenants 18..20 not a license to ratify production slots; #1336 256×256 palette pair LUT.
+- #1839 ClassView per-class U8/U9; #1846 NSL neighbor and graph-loss oracles; #1847 distinguishes DR512 SM9 never-touched vs TurboVec9 centroids, and proposes P64×T64×CE64 (32 KiB ideal dense logical payload).
+- #1869 DT64 bind store; #1884 XLOG compiled plan/count bound to native ndarray::simd with Epi5 base `Direct×Open`, composition `IndirectKnown×Open`; joins do not certify causality.
+- #1597 bit decisions and conflicts, #1628 64 thought slots / CE64 ISA not storage, D-TGB distinct live slot generations and durable commits.
+- AtlasIR Definition/Instance/Run hashes, effect algebra and ordered events (manuscript §§2.2–2.4); Pair/Triplet STDP + bounded native BPTT (§§3.7–3.8). Biological equivalence remains empirical.
+- ACT-R bridges goal/chunk/production dynamics at cognitive level, not an assumed neural-lowering compiler. PointCare/WorldModel are candidate situated contexts only.
+
+## Stage map
+- D-STAUNEN-0 this conservation map.
+- D-STAUNEN-1 typed CE64 / DT64 plasticity and ownership admission.
+- D-STAUNEN-2 AtlasIR × SNN × HDC × Moore experimental bridge.
+- D-STAUNEN-3 XLOG × NSL × Palette512 / TurboVec9 structure and learning adapters.
+- D-STAUNEN-4 64-thought metaplasticity, evidence-root independence, evaluation and integration gates.
+
+## Minimum falsifiers
+- Novelty shuffled vs genuine; time-shuffled spikes; neuron ID permutation; topology- and Moore-shuffled; duplicate evidence across 63 thoughts; silent loss of spike timing; synaptic weights changed without Atlas permission; equality of candidate neighbors under quantization; no-learning and no-meta baselines; stale DR frame refusal; thought slot reuse; K3 UNKNOWN; bag multiplicity loss; replay determinism; OOD / held-out behavior; end-to-end runtime with preparation and state movement charged.
+
+## Source and evidence register (do not flatten status)
+- Uploaded primary manuscript: Xinjun Li, *A Unified Intermediate Representation and Execution Architecture for Heterogeneous and Distributed Neural Simulation*, 44-page manuscript, §2.2–2.5, §3.7–3.8, §4–6; https://github.com/RockLi/brian2-atlas-preprint/blob/main/paper/MANUSCRIPT.md ; source-pinned Atlas commit `ae649a244e28d7d4b3eb5df4e35215e14c1378c7`, archive `biorxiv-v1` (the tag name does not assert journal review). Atlas source https://github.com/RockLi/brian2-atlas ; frozen AtlasIR https://github.com/RockLi/brian2-atlas/blob/dev/brian2-rust/AtlasIR.md . Atlas original Apache-2.0, inherited Brian2 CeCILL-2.1.
+- A. Anderson & Lebiere, *The Atomic Components of Thought* (1998): ACT-R goals, chunks and productions: https://www.routledge.com/The-Atomic-Components-of-Thought-1st-Edition/Anderson-Lebiere/p/book/9780805828160
+- B. Lisman & Grace (2005), hippocampus–VTA novelty/LTP loop: https://doi.org/10.1016/j.neuron.2005.05.002
+- C. Frey & Morris (1997), synaptic tagging: https://doi.org/10.1038/385533a0
+- D. Gerstner et al. (2018), eligibility and neo-Hebbian three-factor rules: https://doi.org/10.3389/fncir.2018.00053
+- E. Abraham & Bear (1996), metaplasticity: https://doi.org/10.1016/S0166-2236(96)80018-X
+- F. Miconi, Stanley & Clune (2018), differentiable plasticity/meta-learning: https://arxiv.org/abs/1804.02464
+- G. Zou et al. (2022), SpikeHD SNN/HDC co-learning: https://doi.org/10.1038/s41598-022-11073-3
+- H. Orchard et al. (2024), spiking phasor/FHRR operations: https://pubmed.ncbi.nlm.nih.gov/39106467/
+- I. Zhou et al. (2026), SynapseHD SNN/HDC training: https://doi.org/10.1016/j.neucom.2025.131757
+- J. Kinavuidi, Peres & Rhodes (2026), hyperdimensional SNN decoding: https://doi.org/10.1088/2634-4386/ae4f1e
+- K. Bui, Ravi & Ramavajjala (2017), Neural Graph Machines/structured graph regularization: https://arxiv.org/abs/1703.04818
+- L. XLOG typed logic, distinct RIR/PIR/EIR/NN semantic lanes: https://github.com/BrainyBlaze/xlog
+- M. Chalmers' hard problem/qualia is philosophical framing only; no computational variable proves phenomenal experience. Do not make consciousness claims.
+- Internal: CE64 capstone https://github.com/AdaWorldAPI/lance-graph/blob/main/.claude/knowledge/epistemic-frontier-capstone.md ; CE64 layout https://github.com/AdaWorldAPI/lance-graph/blob/main/docs/architecture/ce64-semantic-upper-half.md ; #1597, #1628, #1400, #1405, #1408, #1440, #1839, #1846, #1847, #1884, #1869.
+
+## Round 2 | CC read-before-code / scientific triangulation
+**Do not treat the mindmap as permission to modify source.** Each later PR is independently reviewable and has its own decision list; stage numbers are logical review dependencies, not necessarily Git branches stacked on each other.
+
+### Owner map and source gates
+| Owner / source | What it uniquely determines | Existing anchor |
+|---|---|---|
+| `contract`, `causal-edge` | CE64 byte layout, sign, W, Epi5, legacy ISA conflicts | #1597, #1628 and `crates/causal-edge/src/layout.rs` |
+| `lance-graph-dt64` | class/field/method binding, ON/WHEN/DO guard; routes not values | #1869 |
+| DR, Alpha, Thought-Git | immutable source identity, focus generation, sparse speculative writes, protected merges | #1628, #1739, #1837 |
+| AtlasIR | physiological time, state, synapse ownership, delays, RNG, effect dependencies | Li manuscript, §2/§3 |
+| XLOG compiled plan | typed deterministic vs probabilistic vs epistemic derivation | #1884 and upstream XLOG |
+| NSL/ndarray | reproducible neighbor order, graph-loss semantics and quantized numeric operations | #1846, #1847 |
+| Moore | local projection and 8-slot readings, not graph ontology | #1400, #1405, #1408 |
+
+### Explicit hypotheses (hypothesis, not established science)
+H1. Spike-time-aware HDC signatures recognize structural novelty without destroying information needed for credit assignment.
+H2. Novelty/salience gated eligibility updates improve held-out adaptation compared with equally budgeted STDP and randomized novelty gates.
+H3. Stable identity + true adjacency + Moore-local projection reduces exact active-neighborhood work without turning anatomical connectivity into Morton coordinates.
+H4. XLOG symbolic consistency/ablation and NSL graph regularization can improve the *next* physical learning decision, not just downstream classification.
+H5. Cross-thought policy comparison improves learning outcome under equal compute and source-root-independent evidence.
+H6. Learning the admission/reward/eligibility policy itself (metaplasticity) transfers to unseen tasks without overwriting the sealed WORLD or multiplying evidence by branch count.
+
+### External biology: the missing layers
+- Hedrick et al. (2022), activity-related clustered spinogenesis (real spatial structural plasticity; does **not** imply eight Moore directions are synapses): https://doi.org/10.1038/s41593-022-01086-6 .
+- McKenzie et al. (2014), motor-skill learning requiring active central myelination: https://doi.org/10.1126/science.1254960 .
+- Denève (2008), Bayesian spiking neurons II: local spike-time-dependent learning under a Bayesian model: https://doi.org/10.1162/neco.2008.20.1.118 . This is an example, **not** proof that STDP in general is Bayes.
+- Semantic pointer spiking networks/NEF: https://pmc.ncbi.nlm.nih.gov/articles/PMC4762696/ . Prior art for VSA over spikes, not a new contribution by us.
+
+### User-intent preservation: anything omitted is a loss
+- Staunen was intended as **biological novelty initiating plasticity**, not facial affect.
+- Biological plasticity includes synaptic weights, structural spines, intrinsic excitability, and myelin, with distinct biological scales.
+- Einstein's philosophical wonder is motivation, not an experimental neural definition.
+- User asks intrinsic DT64 hypercube capability, not a pluggable bolt-on; only semantics and execution binding are intrinsic, physical algorithms are typed strategies.
+- Pattern ISA = compact CE64 state and ops, not a 64-bit complete HDC representation.
+- The structural mapping involves `Palette512/U9 × Moore`, `TurboVec9`, NSL, AtlasIR, XLOG, R2IL/Quack/ndarray and 64 thoughts without multiplying runtimes.
+- Qualia/Chalmers, ACT-R/Anderson, PointCare and Brain SoC are research context with deliberately weaker claims.
+- The competition story is *testable, lower-resource learning-to-learn and causal replay*, not human-brain emulation achieved.
+
+### Common cold/hot economics
+Do not quote a nanosecond end-to-end learning result from a single `popcount`, `mask_and`, or lookup. Follow repo `CLAUDE.md` folding doctrine: resident terminal primitives measured in ns, bounded query batches in µs; report compilation/oracle preparations separately in µs and not as fold gates. Biological wall-time workloads and scientific fidelity are a distinct paper-level measurement class, and do not establish a nanosecond biological tick.
+
+### How CC should consume these PRs
+1. Read this map, `CLAUDE.md`, the CE64 capstone and stage-specific references.
+2. Fetch current `main` and the owning upstream repositories before asserting source behavior.
+3. Reconfirm whether current branches already supersede #1846, #1847 and #1884; never fork an existing implementation by accident.
+4. Enter a source/file/contract ledger with statuses: **EXISTS / TESTED / MEASURED / DECISION / OPEN / PROPOSED**.
+5. Propose experiment-only branches under the owning stage, one falsifiable gate at a time; no source edits from this preservation PR.
+6. Close each gate with independent oracle, disable-to-red result, precision and provenance report, or named refusal.
+7. Preserve **explicitly rejected** results (quantized near-zero distances, duplicate evidence, arbitrary mirror routing) as negative tests.
+
+### Cross-stage links
+- Stage 1 https://github.com/AdaWorldAPI/lance-graph/pull/1886
+- Stage 2 https://github.com/AdaWorldAPI/lance-graph/pull/1887
+- Stage 3 https://github.com/AdaWorldAPI/lance-graph/pull/1888
+- Stage 4 https://github.com/AdaWorldAPI/lance-graph/pull/1889
