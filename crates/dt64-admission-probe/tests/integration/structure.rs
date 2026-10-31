@@ -149,3 +149,37 @@ fn a_hand_built_mislabelled_row_is_never_pure() {
         EvidenceClass::Unknown { causes } if matches!(causes[..], [UnknownCause::Mislabelled(_)])
     ));
 }
+
+/// A call from a closure shim into the closure body names a subject that has
+/// no `DEFINES` row (the span join generates closure subjects) but lies
+/// inside the analyzed scope, whose rows are already read through its
+/// prefix. It is not an unaudited external callee.
+#[test]
+fn a_call_into_an_in_scope_closure_is_not_an_unaudited_callee() {
+    let shim =
+        "CALLS\tx::f::{closure@L9}::call_once\tx::f::{closure@L9}::call_mut\tcharon\tWITNESSED\n";
+    let ev = evidence(&format!("{DEF_F}{shim}"), "x::f");
+    assert_eq!(classify(&ev), EvidenceClass::ProvenPure { assumed: vec![] });
+}
+
+/// The silent twin: a name that only shares a prefix with the scope, without
+/// the `::` boundary, or a closure of another function, is still unaudited.
+#[test]
+fn a_call_into_another_functions_closure_stays_unaudited() {
+    for callee in [
+        "x::fg::{closure@L1}::call_mut",
+        "x::h::{closure@L2}::call_mut",
+    ] {
+        let call = format!("CALLS\tx::f\t{callee}\tcharon\tWITNESSED\n");
+        let ev = evidence(&format!("{DEF_F}{call}"), "x::f");
+        match classify(&ev) {
+            EvidenceClass::Unknown { causes } => assert!(
+                causes
+                    .iter()
+                    .all(|c| matches!(c, UnknownCause::UnauditedCallee(_))),
+                "{callee}: {causes:?}"
+            ),
+            other => panic!("{callee}: {other:?}"),
+        }
+    }
+}

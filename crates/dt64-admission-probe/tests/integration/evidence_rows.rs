@@ -11,9 +11,10 @@ fn count(rows: &[dt64_admission_probe::evidence::Row], rel: Relation) -> usize {
 #[test]
 fn committed_rows_parse_with_exact_counts() {
     let rows = parse_rows(SPAN_JOINED_ROWS).unwrap();
-    assert_eq!(rows.len(), 29);
+    // 29 reconstructed rows + 3 closure shim calls (call_once -> call_mut).
+    assert_eq!(rows.len(), 32);
     assert_eq!(count(&rows, Relation::Defines), 7);
-    assert_eq!(count(&rows, Relation::Calls), 17);
+    assert_eq!(count(&rows, Relation::Calls), 20);
     assert_eq!(count(&rows, Relation::MayDispatch), 2);
     assert_eq!(count(&rows, Relation::MayPanic), 1);
     assert_eq!(count(&rows, Relation::WritesCallerMemory), 1);

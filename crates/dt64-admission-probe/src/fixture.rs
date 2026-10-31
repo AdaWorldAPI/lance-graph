@@ -25,6 +25,11 @@
 //! not change any outcome below, since every function they would touch is
 //! already refused or is pure arithmetic outside this set.
 //!
+//! Each closure also carries the producer's shim call: Charon's
+//! `call_once` calls the closure body `call_mut`, and the span join names
+//! both by the enclosing function's moniker (`project_rows.py`
+//! `subject_of`, `ENCLOSED`). Neither name gets a `DEFINES` row.
+//!
 //! Re-running Charon and the two tools on the fixture would replace these
 //! rows with measured ones; that is not done here (no `/tmp` input, no
 //! Charon run at test time).
@@ -47,15 +52,18 @@ DEFINES\tsag_fixture::count_below\tFunction\trust-analyzer\tWITNESSED
 CALLS\tsag_fixture::count_below\tcore::slice::<impl [T]>::iter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_below\tcore::iter::traits::iterator::Iterator::filter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_below\tcore::iter::traits::iterator::Iterator::count\tcharon\tWITNESSED
+CALLS\tsag_fixture::count_below::{closure@L26}::call_once\tsag_fixture::count_below::{closure@L26}::call_mut\tcharon\tWITNESSED
 DEFINES\tsag_fixture::count_with_tally\tFunction\trust-analyzer\tWITNESSED
 CALLS\tsag_fixture::count_with_tally\tcore::slice::<impl [T]>::iter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_with_tally\tcore::iter::traits::iterator::Iterator::filter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_with_tally\tcore::iter::traits::iterator::Iterator::count\tcharon\tWITNESSED
+CALLS\tsag_fixture::count_with_tally::{closure@L42}::call_once\tsag_fixture::count_with_tally::{closure@L42}::call_mut\tcharon\tWITNESSED
 WRITES_CALLER_MEMORY\tsag_fixture::count_with_tally::{closure@L42}::call_mut\t1\tcharon\tWITNESSED
 DEFINES\tsag_fixture::count_div\tFunction\trust-analyzer\tWITNESSED
 CALLS\tsag_fixture::count_div\tcore::slice::<impl [T]>::iter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_div\tcore::iter::traits::iterator::Iterator::filter\tcharon\tWITNESSED
 CALLS\tsag_fixture::count_div\tcore::iter::traits::iterator::Iterator::count\tcharon\tWITNESSED
+CALLS\tsag_fixture::count_div::{closure@L51}::call_once\tsag_fixture::count_div::{closure@L51}::call_mut\tcharon\tWITNESSED
 MAY_PANIC\tsag_fixture::count_div::{closure@L51}::call_mut\t1 assert\tcharon\tWITNESSED
 DEFINES\tsag_fixture::count_generic\tFunction\trust-analyzer\tWITNESSED
 CALLS\tsag_fixture::count_generic\tcore::slice::<impl [T]>::iter\tcharon\tWITNESSED

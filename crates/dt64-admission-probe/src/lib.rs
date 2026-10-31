@@ -267,7 +267,16 @@ impl ExecutionPolicy {
                         effects.push(row.clone())
                     }
                     (Relation::Calls, Evidence::Witnessed) => {
-                        if row.object == UNNAMED_IMPL {
+                        // A callee nested under a subject already in scope
+                        // (a closure body the span join named after its
+                        // enclosing function, with no `DEFINES` row of its
+                        // own) has its rows read through that subject's
+                        // prefix. It is in scope, not an external callee.
+                        let in_scope = visited
+                            .iter()
+                            .any(|v| row.object.starts_with(&format!("{v}::")));
+                        if in_scope {
+                        } else if row.object == UNNAMED_IMPL {
                             unknown.push(UnknownCause::UnnamedCallee(row.clone()));
                         } else if defined(&row.object) {
                             todo.push(row.object.clone());
