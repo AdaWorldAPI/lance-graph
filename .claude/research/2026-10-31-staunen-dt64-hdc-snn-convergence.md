@@ -97,3 +97,59 @@ Observed spike / event -> HDC pattern -> novelty prediction residual -> authenti
 - L. XLOG typed logic, distinct RIR/PIR/EIR/NN semantic lanes: https://github.com/BrainyBlaze/xlog
 - M. Chalmers' hard problem/qualia is philosophical framing only; no computational variable proves phenomenal experience. Do not make consciousness claims.
 - Internal: CE64 capstone https://github.com/AdaWorldAPI/lance-graph/blob/main/.claude/knowledge/epistemic-frontier-capstone.md ; CE64 layout https://github.com/AdaWorldAPI/lance-graph/blob/main/docs/architecture/ce64-semantic-upper-half.md ; #1597, #1628, #1400, #1405, #1408, #1440, #1839, #1846, #1847, #1884, #1869.
+
+## Round 2 | CC read-before-code / scientific triangulation
+**Do not treat the mindmap as permission to modify source.** Each later PR is independently reviewable and has its own decision list; stage numbers are logical review dependencies, not necessarily Git branches stacked on each other.
+
+### Owner map and source gates
+| Owner / source | What it uniquely determines | Existing anchor |
+|---|---|---|
+| `contract`, `causal-edge` | CE64 byte layout, sign, W, Epi5, legacy ISA conflicts | #1597, #1628 and `crates/causal-edge/src/layout.rs` |
+| `lance-graph-dt64` | class/field/method binding, ON/WHEN/DO guard; routes not values | #1869 |
+| DR, Alpha, Thought-Git | immutable source identity, focus generation, sparse speculative writes, protected merges | #1628, #1739, #1837 |
+| AtlasIR | physiological time, state, synapse ownership, delays, RNG, effect dependencies | Li manuscript, §2/§3 |
+| XLOG compiled plan | typed deterministic vs probabilistic vs epistemic derivation | #1884 and upstream XLOG |
+| NSL/ndarray | reproducible neighbor order, graph-loss semantics and quantized numeric operations | #1846, #1847 |
+| Moore | local projection and 8-slot readings, not graph ontology | #1400, #1405, #1408 |
+
+### Explicit hypotheses (hypothesis, not established science)
+H1. Spike-time-aware HDC signatures recognize structural novelty without destroying information needed for credit assignment.
+H2. Novelty/salience gated eligibility updates improve held-out adaptation compared with equally budgeted STDP and randomized novelty gates.
+H3. Stable identity + true adjacency + Moore-local projection reduces exact active-neighborhood work without turning anatomical connectivity into Morton coordinates.
+H4. XLOG symbolic consistency/ablation and NSL graph regularization can improve the *next* physical learning decision, not just downstream classification.
+H5. Cross-thought policy comparison improves learning outcome under equal compute and source-root-independent evidence.
+H6. Learning the admission/reward/eligibility policy itself (metaplasticity) transfers to unseen tasks without overwriting the sealed WORLD or multiplying evidence by branch count.
+
+### External biology: the missing layers
+- Hedrick et al. (2022), activity-related clustered spinogenesis (real spatial structural plasticity; does **not** imply eight Moore directions are synapses): https://doi.org/10.1038/s41593-022-01086-6 .
+- McKenzie et al. (2014), motor-skill learning requiring active central myelination: https://doi.org/10.1126/science.1254960 .
+- Denève (2008), Bayesian spiking neurons II: local spike-time-dependent learning under a Bayesian model: https://doi.org/10.1162/neco.2008.20.1.118 . This is an example, **not** proof that STDP in general is Bayes.
+- Semantic pointer spiking networks/NEF: https://pmc.ncbi.nlm.nih.gov/articles/PMC4762696/ . Prior art for VSA over spikes, not a new contribution by us.
+
+### User-intent preservation: anything omitted is a loss
+- Staunen was intended as **biological novelty initiating plasticity**, not facial affect.
+- Biological plasticity includes synaptic weights, structural spines, intrinsic excitability, and myelin, with distinct biological scales.
+- Einstein's philosophical wonder is motivation, not an experimental neural definition.
+- User asks intrinsic DT64 hypercube capability, not a pluggable bolt-on; only semantics and execution binding are intrinsic, physical algorithms are typed strategies.
+- Pattern ISA = compact CE64 state and ops, not a 64-bit complete HDC representation.
+- The structural mapping involves `Palette512/U9 × Moore`, `TurboVec9`, NSL, AtlasIR, XLOG, R2IL/Quack/ndarray and 64 thoughts without multiplying runtimes.
+- Qualia/Chalmers, ACT-R/Anderson, PointCare and Brain SoC are research context with deliberately weaker claims.
+- The competition story is *testable, lower-resource learning-to-learn and causal replay*, not human-brain emulation achieved.
+
+### Common cold/hot economics
+Do not quote a nanosecond end-to-end learning result from a single `popcount`, `mask_and`, or lookup. Follow repo `CLAUDE.md` folding doctrine: resident terminal primitives measured in ns, bounded query batches in µs; report compilation/oracle preparations separately in µs and not as fold gates. Biological wall-time workloads and scientific fidelity are a distinct paper-level measurement class, and do not establish a nanosecond biological tick.
+
+### How CC should consume these PRs
+1. Read this map, `CLAUDE.md`, the CE64 capstone and stage-specific references.
+2. Fetch current `main` and the owning upstream repositories before asserting source behavior.
+3. Reconfirm whether current branches already supersede #1846, #1847 and #1884; never fork an existing implementation by accident.
+4. Enter a source/file/contract ledger with statuses: **EXISTS / TESTED / MEASURED / DECISION / OPEN / PROPOSED**.
+5. Propose experiment-only branches under the owning stage, one falsifiable gate at a time; no source edits from this preservation PR.
+6. Close each gate with independent oracle, disable-to-red result, precision and provenance report, or named refusal.
+7. Preserve **explicitly rejected** results (quantized near-zero distances, duplicate evidence, arbitrary mirror routing) as negative tests.
+
+### Cross-stage links
+- Stage 1 https://github.com/AdaWorldAPI/lance-graph/pull/1886
+- Stage 2 https://github.com/AdaWorldAPI/lance-graph/pull/1887
+- Stage 3 https://github.com/AdaWorldAPI/lance-graph/pull/1888
+- Stage 4 https://github.com/AdaWorldAPI/lance-graph/pull/1889
