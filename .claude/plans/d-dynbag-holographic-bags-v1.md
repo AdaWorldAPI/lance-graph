@@ -536,3 +536,64 @@ XLOG compile ─► RIR ─► admit / admit_count
 7. `native.rs` names no `ndarray::simd` fold word; only `checked_binary_i64` remains, listed as TRACKED.
 
 **REVISIT WHEN:** MISSING-3 or MISSING-4 lands in its owner crate; the TRACKED call is then deleted.
+
+---
+
+## 18. Cross-frontend projection crosswalk (2026-10-31, before coding)
+
+**DECISION (operator).** XLOG is the first consumer of the projection capability, not its owner. A consumer requests a typed, versioned projection over existing DR/DT64 coordinates and method bindings. A tuple is a coordinate binding; a method is a typed behavioural binding. No frontend owns a projection runtime. Quack (relational description) and R2IL (`FoldDialect` procedures) are both legitimate surfaces, both converging on mask-risc. BindStore resolves and validates; it never executes.
+
+Evidence: four read-only harvests at `d3c2a29`/`f3b2cfe`, each claim cited file:line and spot-checked by the orchestrator. Classes: VERIFIED (production + test), LAB, PROPOSED (plan only), MISSING (nothing found in the searched space).
+
+### 18.1 The five projections are distinct, and "project" means three things
+
+| projection | existing carrier | class |
+|---|---|---|
+| coordinate (global → local, revision) | `dt64::dr::{LocalMap, FrameStore, Guards}`; `LocalMap::digest` as the frame's coordinates revision | VERIFIED |
+| field (meaning × mask → labels/lanes) | `ClassView::project(class, FieldMask)` (`class_view.rs:1079`, **64-bit `FieldMask` only**); `dt64::Resolved::field_view(&WideFieldMask)` (labels, no values) | VERIFIED; no lane borrowing from either |
+| method (MethodRef → ON/WHEN/DO, algebra words) | `dt64::MethodBinding { on, when, reads, effects, population, truth, demand }` (`lib.rs:197`); `admit` (`:796`) checks id, `SigRev`, guard witness | VERIFIED as description; **no executor of a `MethodBinding` exists anywhere**; `admit`/`resolve` have no production caller |
+| relational (select/join/fold/group/witness) | Quack `Query`/`GroupBy`/`Agg`; relalg `Rel` (single-table, `Measure::Keep`); R2IL `FoldDialect` + `procs` | VERIFIED; no join IR (relalg), semijoin needs resident foreign planes (Quack) |
+| consumer (XLOG bindings, SQL results, codegraph relations, R2IL procedures, MLIR exprs) | per frontend, below | mostly LAB / PROPOSED |
+
+"Project" is not one operation: XLOG `RirNode::Project` selects/computes **columns** (and runs on GPU in xlog-runtime); relalg `Measure::Keep` and Quack `Agg::Rows` keep **rows** as a mask; `ClassView::project` and `field_view` select **fields as labels**. No meaning selects methods (that is `Resolved::methods_on`). Do not unify them under a "Project" opcode.
+
+### 18.2 Crosswalk
+
+| frontend / source IR | projection entrypoint | identity & revision witness | method resolution | lowering | execution owner | output demand | present → gap |
+|---|---|---|---|---|---|---|---|
+| **XLOG** (`RirNode`) | `admit` / `admit_count` (structural match) | `LocalMap` digest (LAB); BindStore route log in a test only | `BindStore::admit(MethodRef::of(XLOG, …))` in `dto_binding.rs` — **asserted, never drives execution** | none: `native.rs` calls `ndarray::simd` | ndarray direct (D-SOC-FENCE violation) | support mask, per-Y count | LAB → §17: binding must select the Quack program that runs |
+| **ONNX / Tract** (protobuf + Tract facts) | `plan::resolve` → `Plan::run` | `FrameRevisions{source sha256, relation_map=registry.revision(), coordinates}`, checked every run (`plan.rs:57-68,171`) | own `Registry` (ON × WHEN(K3) × DO), selected binding **is** the one dispatched (`plan.rs:116-128,204`) | cold shape fold; one native fn per node | `lance-graph-onnx` aliases of `ndarray::simd`/`hpc` | every value by name | LAB precedent for binding-drives-execution; gap: own registry not DT64 `BindStore`, lab lens `0x0F00` in Geo domain |
+| **SQL / PostgreSQL** | Quack `lower`/`lower_fused`, `Filter::sql_where` (K3); `lance_graph_r2il::procs` | MISSING in code (D-QSP proposes a version-attested codebook witness) | `procs` are Rust functions; ClassView method ordinal PROPOSED | R2IL → `MaskOp` → mask-risc `Program` | mask-risc `execute_into` (`r2il lib.rs:716`) | scalar per fold, `GROUP_SUM`, `KEEP` | VERIFIED fold path; gaps: executable `PROC_DEF` (OPEN in OGAR), bag/join carrier, nullable arithmetic, frontends not yet routed through procs |
+| **egglog-MLIR / DialEgg** | `egglog-r2il-probe::lower_and_run` (scalar) | egglog proof self-check + independent i128 oracle | `RuleId` = law × `Arith` domain (refuses reassociation for Checked/Ieee) | `INT_MULT` over empty planes | FoldDialect scalar arm | one scalar | LAB; external `mlir-egglog` admits rewrites with no evidence (float reassociation unconditional) and runs via LLVM — not a model to adopt |
+| **Codegraph** (rust-analyzer HIR + Charon LLBC) | `sag-ra-probe` → `llbc_calls.py` → `span_join.py` → `project_rows.py` (TSV) | moniker (candidate only) + FNV body digest + `RESOLVE` move witness → `sid-N`; revision caller-recorded | rust-analyzer impls; Charon `Fun`/`Clause`/`Dyn`/`TraitImpl` | none | none (R2IL `FoldDialect` not connected) | `ProposedMethod` (PROPOSED, no type) | LAB; WITNESSED/POSSIBLE/UNKNOWN preserved in rows; gaps listed in 18.4 |
+| **Scallop** (Datalog + provenance tags) | none in lance-graph | none | `Provenance` impls (unit, boolean, natural, top-k proofs) | none | Scallop's interpreter | tagged relations | external VERIFIED; natural's `saturated` is always `true`, so recursive bag counts stop early |
+
+### 18.3 What two consumers already share (and what they do not)
+
+- **Shared and real:** DR coordinates + frame witness (XLOG uses `LocalMap`; Tract uses its own `FrameStore` revisions) and mask-risc as the evaluator (SQL via R2IL; XLOG once §17 lands).
+- **Not shared:** method binding. Tract executes through its own registry; DT64 `BindStore` is wired to nothing that executes. The integration proof the operator asks for is therefore not yet possible with existing code: no two consumers obtain their executed method through the same `BindStore`.
+
+### 18.4 Gaps for owning crates (recorded, not built in D-DYNBAG-0)
+
+| id | gap | owner |
+|---|---|---|
+| X1 | an executor seam: something that takes an admitted `MethodBinding` and selects the existing Quack/R2IL description that runs (Tract's `plan.rs:204` is the precedent shape) | DT64 + Quack/R2IL; decision needed |
+| X2 | `admit` checks id, `SigRev`, guard only; it cannot refuse on an effect or on POSSIBLE/UNKNOWN evidence, so an effectful codegraph method would be admitted if registered | DT64 |
+| X3 | `ClassView::project` takes `FieldMask` (64); DT64 uses `WideFieldMask` | contract |
+| X4 | no Quack `Binder` backed by `BindStore`/`ClassView` (8 impls, none) | Quack bind + DT64 |
+| X5 | method identity: `MethodId` is registrant-chosen; codegraph `sid-N` → `MethodId` mint does not exist and needs owner approval; impl/closure identity open | DT64 + OGAR (O2 in the logic-compiler RFC) |
+| X6 | codegraph revision witness inside the tools (workspace digest, features, target) | sag-ra-probe |
+| X7 | executable `PROC_DEF`/`PROC_CALL` | OGAR `ogar-loco` |
+| X8 | Tract registry → DT64 `BindStore`; lab lens `0x0F00` minted in OGAR | tract probe + OGAR |
+| X9 | bag/support carrier across procedures (SQL D-QSP-2, XLOG ℕ) | relalg/Quack/mask-risc (Wave 2-3) |
+
+### 18.5 Integration proof, restated against what exists
+
+- **A (XLOG):** buildable inside D-DYNBAG-0 once the executed Quack program is selected by the admitted binding (§17.6 gate 1). Oracles: scalar enumeration and the DR64 register.
+- **B (Codegraph):** buildable today only as a hand-fed fixture: rows from the D-SAG-6-2 board entry, pinned `sag_fixture` functions, `tests/law.rs` as the behaviour oracle. Admitting the pure `count_below` and refusing `count_with_tally` / `count_div` / dyn requires X2 (effect/evidence refusal), which does not exist. Wiring to live rust-analyzer/Charon output needs X5, X6.
+- **SQL bag fixture:** duplicated base tuples must keep multiplicity; XLOG's intake dedups by design (sets). Needs X9; not in D-DYNBAG-0.
+- **Not claimed:** that A and B share one binding contract today. They do only after X1 and X2.
+
+### 18.6 Scope of D-DYNBAG-0 (unchanged, bounded to XLOG)
+
+§17 stands. One addition: the binding that selects the executed program is DT64's `MethodBinding` (its `effects` name the polyfill words), and the selection mechanism follows Tract's precedent (resolve once, dispatch through the resolved entry, frame-checked per run) without copying Tract's registry. If X1 needs a type in DT64, D-DYNBAG-0 stops and asks rather than adding it in the probe.
