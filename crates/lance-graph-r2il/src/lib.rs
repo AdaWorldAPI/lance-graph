@@ -780,7 +780,6 @@ impl Dialect for FoldDialect<'_> {
     }
 }
 
-
 impl FoldDialect<'_> {
     /// Execute one R2IL call: pop its operands off the stack,
     /// push its result. The whole dispatch table this crate wires — see the
