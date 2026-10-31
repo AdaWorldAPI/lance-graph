@@ -11,7 +11,6 @@
 
 use lance_graph_r2il::procs::{is_not_null, sum};
 use lance_graph_r2il::{FoldDialect, FoldError, Val, INT_AND, INT_NOT, INT_S_LESS, LOAD};
-use ogar_loco::Dialect;
 
 /// `LOAD` space of an `I32` lane, as `FoldDialect` reads it.
 const SPACE_I32: u8 = 1;
