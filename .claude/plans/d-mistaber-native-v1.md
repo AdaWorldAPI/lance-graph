@@ -164,5 +164,28 @@ Known limit: replacing `hop` with raw `compose` turns nothing red. The binding i
 
 **Open (operator):**
 
-- the row key is all zero, so identity exists only in column 0. Should the key also carry the address?
+- ~~the row key is all zero, so identity exists only in column 0. Should the key also carry the address?~~ DECIDED 2026-10-31, see §10.
 - a real binding takes concept ids from the OGAR codebook through hotplug.
+
+## 10. D-MIST-NATIVE-1b: the row key carries the address (2026-10-31)
+
+**DECISION (operator, 2026-10-31):** "Key carries the address, classid beside the declaration."
+
+- **Key:** `rows::node_row(address)` mints a V3 key with the node's `Morton8x8` code in the `identity` tier (bytes 14..16). The classid bytes 0..4 and every other tier stay zero. `rows::key_address(row)` reads the address back.
+- **Agreement:** `Kb::assemble` refuses any row whose key address differs from column 0, with `Refusal::KeyMismatch(axis)`.
+- **Classid:** the classid stays per population on `RegisterLanes`, beside the slab declaration, and never enters the row. `SlabDeclaration` is unchanged.
+
+**Tests:** 19 tests and 2 doctests; all 11 goldens are exact. New and adjusted assertions check that:
+
+- keys are pairwise distinct;
+- each key equals its row's column 0;
+- the classid bytes are zero;
+- a mismatched key is refused.
+
+**Disable runs** (each committed, broken, red, then restored):
+
+| # | breakage | red |
+|---|---|---|
+| K1 | drop the `KeyMismatch` return | `a_key_that_disagrees_with_column_0_is_refused` |
+| K2 | mint the key without the address | 16 tests: every load now refuses `KeyMismatch` |
+| K3 | mint a classid into the key | `the_classid_lives_on_the_lanes_not_in_the_rows` |
