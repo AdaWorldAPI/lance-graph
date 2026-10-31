@@ -6,7 +6,9 @@
 //! other nodes (a world's parents). Code 0 (`(0, 0)`) is unbound.
 //!
 //! The row carries no name and no classid: the classid is the concept of the
-//! [`RegisterLanes`] the population was resolved under.
+//! [`RegisterLanes`] the population was resolved under. The row key carries
+//! the node's address (V3 `identity` tier, bytes 14..16) and equals column 0;
+//! classid bytes 0..4 and every other tier stay zero.
 
 use lance_graph_contract::canonical_node::{NodeGuid, NodeRow, ReadMode, TailVariant, ValueSchema};
 use lance_graph_contract::hotplug::{Activation, SlabDeclaration, SlabReading};
@@ -83,13 +85,29 @@ pub fn bind_populations(c: &Concepts) -> Result<[RegisterLanes; 3], Refusal> {
     Ok([out[0], out[1], out[2]])
 }
 
-/// An all-zero V3 row: key minted through `mint_for`, empty edges, empty value.
-pub fn blank_row() -> NodeRow {
+/// A V3 row whose key carries `address` in the `identity` tier, minted through
+/// `mint_for`; classid and every other tier are zero. Edges and value are
+/// empty. The address equals column 0 of the row.
+pub fn node_row(address: Morton8x8) -> NodeRow {
     NodeRow {
-        key: NodeGuid::mint_for(TailVariant::V3, NodeGuid::CLASSID_DEFAULT, 0, 0, 0, 0, 0, 0),
+        key: NodeGuid::mint_for(
+            TailVariant::V3,
+            NodeGuid::CLASSID_DEFAULT,
+            0,
+            0,
+            0,
+            0,
+            0,
+            u32::from(address.code()),
+        ),
         edges: Default::default(),
         value: [0; 480],
     }
+}
+
+/// The address the row key carries.
+pub fn key_address(row: &NodeRow) -> Morton8x8 {
+    Morton8x8::from_code(row.key.identity_v2())
 }
 
 /// `R0[k] = cols[k].x()`, `R1[k] = cols[k].y()` for `k < cols.len()`; the

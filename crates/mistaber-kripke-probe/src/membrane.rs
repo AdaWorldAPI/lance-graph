@@ -8,7 +8,7 @@ use lance_graph_contract::class_view::WideFieldMask;
 use lance_graph_contract::morton8x8::Morton8x8;
 
 use crate::rows::{
-    COLUMNS, Concepts, MAX_PARENTS, Population, address, bind_populations, blank_row, write_columns,
+    COLUMNS, Concepts, MAX_PARENTS, Population, address, bind_populations, node_row, write_columns,
 };
 use crate::{
     F_IMMEDIATE, F_MODE, F_PROP, F_SOURCE, F_WORLD, Holdings, Kb, Mode, ModeTag, Projection,
@@ -222,7 +222,7 @@ pub fn intake_under(facts: &[Vec<String>], c: Concepts) -> Result<(Intake, NameT
             .chain(ps.iter().map(|&p| address(p)))
             .collect();
         debug_assert!(cols.len() <= COLUMNS);
-        let mut row = blank_row();
+        let mut row = node_row(address(o as u16));
         write_columns(&wl, &mut row, &cols);
         worlds.rows.push(row);
     }
@@ -232,7 +232,7 @@ pub fn intake_under(facts: &[Vec<String>], c: Concepts) -> Result<(Intake, NameT
             rows: Vec::new(),
         };
         for o in 0..n {
-            let mut row = blank_row();
+            let mut row = node_row(address(o as u16));
             write_columns(&lanes, &mut row, &[address(o as u16)]);
             p.rows.push(row);
         }

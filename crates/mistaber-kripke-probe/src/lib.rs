@@ -61,7 +61,7 @@ use lance_graph_contract::morton8x8::Morton8x8;
 use lance_graph_contract::register128::RegisterLanes;
 
 pub use membrane::{Golden, Intake, NameTable, Pop, Relation, intake, intake_under, parse_golden};
-use rows::{COLUMNS, Population, UNBOUND, columns, identity};
+use rows::{COLUMNS, Population, UNBOUND, columns, identity, key_address};
 
 /// The slot count of one register axis.
 pub const SLOTS: usize = 64;
@@ -102,6 +102,8 @@ pub enum Refusal {
     Register(lance_graph_contract::hotplug::ActivationDrift),
     /// A golden line that is neither header, fact nor atom.
     Format(String),
+    /// A row whose key address differs from its column 0.
+    KeyMismatch(&'static str),
     /// A field selection that is not `holds/2`, `holds_via/3` or
     /// `holds_via_rule/5`.
     Selection,
@@ -241,6 +243,18 @@ impl Kb {
     /// Map each population to local positions and fill the relation
     /// registers. The 64-slot limit is enforced here, by the local maps.
     pub fn assemble(i: Intake) -> Result<Self, Refusal> {
+        for (p, axis) in [
+            (&i.worlds, "world"),
+            (&i.props, "proposition"),
+            (&i.rules, "rule"),
+        ] {
+            if p.rows
+                .iter()
+                .any(|r| key_address(r) != identity(&p.lanes, r))
+            {
+                return Err(Refusal::KeyMismatch(axis));
+            }
+        }
         let world_map = prepare(&i.worlds, "world")?;
         let prop_map = prepare(&i.props, "proposition")?;
         let rule_map = prepare(&i.rules, "rule")?;
