@@ -237,3 +237,53 @@ pub fn affected(path: &Rows, valid: u64, u: usize, v: usize) -> Rows {
     }
     out
 }
+
+/// The derivation semi-naive evaluation performed for `path(x, y)`, as the
+/// `edge` facts `[(x, z1), (z1, z2), ..., (zk, y)]` in slot coordinates.
+///
+/// Replays the rounds [`closure`] runs (round 1 is `edge & valid`; round
+/// r+1 is `compose(delta, edge) & valid & !path`) and keeps each round's
+/// delta. `path(x, y)` enters the delta in exactly one round r; for r = 1 the
+/// derivation is the base fact, otherwise it extends a pair `(x, z)` from
+/// round r-1 by `edge(z, y)`, taking the smallest such `z`. The chain length
+/// is therefore the shortest-path length. `None` when `path(x, y)` does not
+/// hold. Allocates; it is a cold replay and does not touch [`closure`].
+pub fn trace(edge: &Rows, valid: u64, x: usize, y: usize) -> Option<Vec<(usize, usize)>> {
+    if x >= SLOTS || y >= SLOTS {
+        return None;
+    }
+    let mut path = [0u64; SLOTS];
+    for (p, w) in path.iter_mut().zip(edge) {
+        *p = w & valid;
+    }
+    let mut deltas: Vec<Rows> = vec![path];
+    let mut work = Work::default();
+    loop {
+        let last = deltas[deltas.len() - 1];
+        let next = compose(&last, edge, &mut work);
+        let mut delta = [0u64; SLOTS];
+        let mut any = false;
+        for i in 0..SLOTS {
+            delta[i] = next[i] & valid & !path[i];
+            path[i] |= delta[i];
+            any |= delta[i] != 0;
+        }
+        if !any {
+            break;
+        }
+        deltas.push(delta);
+    }
+    let mut round = deltas.iter().position(|d| d[x] >> y & 1 == 1)?;
+    let mut chain = Vec::with_capacity(round + 1);
+    let mut end = y;
+    while round > 0 {
+        let prev = &deltas[round - 1];
+        let z = (0..SLOTS).find(|&z| prev[x] >> z & 1 == 1 && edge[z] >> end & 1 == 1)?;
+        chain.push((z, end));
+        end = z;
+        round -= 1;
+    }
+    chain.push((x, end));
+    chain.reverse();
+    Some(chain)
+}

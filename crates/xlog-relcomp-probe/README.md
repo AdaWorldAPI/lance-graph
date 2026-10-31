@@ -383,3 +383,32 @@ Not done:
 - timing, for either engine;
 - XLOG recursion beyond one linear closure;
 - egglog proofs of a directed relation (egglog's equality is symmetric by construction).
+
+## Traceroute and provenance (`src/recursive.rs`, `tests/trace.rs`, `tests/provenance.rs`)
+
+**Traceroute.** `trace(edge, valid, x, y)` replays the semi-naive rounds `closure` runs, keeps each
+round's delta, and walks back from the round in which `path(x, y)` first appeared, choosing the
+smallest `z` with `(x, z)` in the previous delta and `edge(z, y)`. It returns the chain of `edge`
+facts, or `None` when the pair does not hold. `closure` is unchanged. `tests/trace.rs` (6 tests)
+checks on the diamond, the cycle and a 200-case random differential that every chain starts at `x`,
+ends at `y`, links up, uses only bits of `edge` inside `support(x, y)`, and has the BFS
+shortest-path length.
+
+**Provenance.** `tests/provenance.rs` (6 tests) carries X6 provenance at test level:
+`Provenance { root, version, program_hash, reading }`.
+- `root` identifies the original source: an observer and the set of facts it reported, sorted and
+  deduplicated, so a reordered or repeated copy of one report is the same root.
+- `version` is the frame's `FrameRevisions`.
+- `program_hash` is FNV-1a over the consumer's program text (XLOG rules, or egglog rules), never over
+  the facts.
+- `reading` is the CE64 declared reading, read through `Epi5Declarations`: `Direct × Open` for a
+  trace of length 1, `IndirectKnown × Open` otherwise. An egglog equality has no declared reading
+  (`None`).
+
+Evidence and derivations are counted separately:
+- On the diamond, `path(1, 5)` has 2 derivations. With one observer they rest on 1 root; with a
+  second observer reporting one branch, the same 2 derivations rest on 2 roots.
+- XLOG's trace and an egglog proof over one register are two consumers with two program hashes and
+  one root: 1 independent observation.
+
+Not shown: that a root hash is a durable source identity outside these tests.
