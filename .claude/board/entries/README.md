@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-526 entries, 2026-08-06 .. 2026-10-31.
+527 entries, 2026-08-06 .. 2026-10-31.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-10-31 | `D-SAG-6-2-JOIN-IDENT` |  | [2026-10-31-d-sag-6-2-span-join-identity.md](2026-10-31-d-sag-6-2-span-join-identity.md) |
 | 2026-10-31 | `D-SAG-6-2-LAB` |  | [2026-10-31-d-sag-6-2-lab-projection.md](2026-10-31-d-sag-6-2-lab-projection.md) |
 | 2026-10-31 | `D-SAG-6-1-CHECKLIST` |  | [2026-10-31-d-sag-6-1-checklist.md](2026-10-31-d-sag-6-1-checklist.md) |
+| 2026-10-31 | `D-REASONING-CODEGRAPH-0` |  | [2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md](2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md) |
 | 2026-10-31 | `D-MIST-NATIVE-1b` |  | [2026-10-31-d-mist-native-1b-makor-hydrate.md](2026-10-31-d-mist-native-1b-makor-hydrate.md) |
 | 2026-10-31 | `D-DT64-6-DR` |  | [2026-10-31-d-dt64-6-dr-addressing-module.md](2026-10-31-d-dt64-6-dr-addressing-module.md) |
 | 2026-10-31 | `D-DYNBAG-X` |  | [2026-10-31-cross-frontend-projection-crosswalk.md](2026-10-31-cross-frontend-projection-crosswalk.md) |
