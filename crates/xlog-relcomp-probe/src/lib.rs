@@ -289,7 +289,13 @@ pub fn facts(program: &Program, predicate: &str) -> Result<Vec<(u32, u32)>, Lowe
             _ => None,
         };
         match (id(&rule.head.terms[0]), id(&rule.head.terms[1])) {
-            (Some(a), Some(b)) => out.push((a, b)),
+            // A base relation is a set: XLOG's fact loader skips a row it
+            // has already seen, so a repeated fact is not a second witness.
+            (Some(a), Some(b)) => {
+                if !out.contains(&(a, b)) {
+                    out.push((a, b));
+                }
+            }
             _ => {
                 return Err(LowerRefusal::FactTerm {
                     predicate: predicate.to_string(),

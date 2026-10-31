@@ -609,3 +609,23 @@ fn the_native_path_refuses_other_aggregates() {
         "the support rule is not a count"
     );
 }
+
+/// A repeated base fact is one tuple, as in XLOG's fact loader: the count
+/// does not change when `r(1, 2)` and `s(2, 4)` are declared twice.
+#[test]
+fn a_repeated_base_fact_is_not_a_second_witness() {
+    let src = MULT
+        .replace("r(1, 2).", "r(1, 2). r(1, 2).")
+        .replace("s(2, 4).", "s(2, 4). s(2, 4).");
+    let c = compile(&src);
+    let r = facts(&c.program, "r").unwrap();
+    let s = facts(&c.program, "s").unwrap();
+    assert_eq!((r.len(), s.len()), (4, 4), "duplicates collapse");
+    let q = admit_count(rule(&c, "qc")).unwrap();
+    let mid = y_map(&r, &s);
+    let got: BTreeMap<u32, u64> = nonzero(&mid, &bag_count(&q, &r, &s, &mid).unwrap())
+        .into_iter()
+        .map(|(y, n)| (u32::try_from(y).unwrap(), u64::try_from(n).unwrap()))
+        .collect();
+    assert_eq!(got, expected());
+}
