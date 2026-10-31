@@ -342,3 +342,44 @@ The Y axis is DR's `lance_graph_dt64::dr::LocalMap` (64 or 256 wide). `admit_cou
 - adding instead of multiplying: 2 failed;
 - ignoring a bound: 5 + 1 failed;
 - admitting any aggregate: 1 failed.
+
+## Recursion and a second engine on the same relation (`src/recursive.rs`)
+
+**Recursion.** XLOG compiles `path(X, Y) :- edge(X, Y). path(X, Y) :- path(X, Z), edge(Z, Y).`
+into one recursive SCC: a base `Scan edge`, and a `ChainJoin` of `Scan path` with `Scan edge` on
+`path.1 = edge.0`, projecting columns 0 and 3, with an agreeing `fallback`. `admit_closure`
+accepts exactly that shape. It refuses non-linear recursion (`path ∘ path`) and mutual recursion,
+each with its own reason. `closure` binds `edge` under the sealed frame, types `edge ∘ edge` with
+the existing chain typing, and runs semi-naive rounds over the existing `relcomp::compose`. No new
+kernel is added.
+
+`tests/recursive.rs` (9 tests):
+- the result equals BFS over the tuples and a naive fixpoint walk of XLOG's own compiled bodies;
+- a 200-case deterministic differential against BFS passes;
+- cycles terminate;
+- semi-naive work is exactly one row OR per derived pair;
+- a stale frame is refused.
+
+**Derivations on demand.** `support(x, y)` returns the `edge` facts some derivation of
+`path(x, y)` can use: both branches of a diamond, nothing off-route. `affected(u, v)` returns the
+answers a fact can feed. Both are masks read from the closure; nothing about a derivation is stored.
+
+**A second engine.** `tests/shared_relation.rs` puts egglog on the same register. Equality comes
+from `(rule ((edge a b)) ((union a b)))`, and proofs from `prove`.
+- egglog's `a = b` equals the closure of `E ∪ Eᵀ` on every pair of a two-component graph.
+- Every directed `path` is an egglog equality; the converse fails.
+- Every `edge` fact an egglog proof rests on is a bit of the shared register. On the diamond, every
+  such fact also lies in XLOG's `support` mask for the same answer.
+- When a fact is removed and the frame advances, the XLOG bind refuses, and the removed fact is
+  found in the old egglog proof by its address, without re-running egglog.
+
+The one conversion is register bits to egglog fact text. For 6 edges that is 114 bytes, against a
+512-byte register. egglog keeps its own tables and union-find; they are not replaced by masks.
+
+Disable runs: dropping the support filter, the reflexive star in `affected`, the non-linear guard,
+the mutual-recursion guard, or semi-naive deltas each turns its test red.
+
+Not done:
+- timing, for either engine;
+- XLOG recursion beyond one linear closure;
+- egglog proofs of a directed relation (egglog's equality is symmetric by construction).

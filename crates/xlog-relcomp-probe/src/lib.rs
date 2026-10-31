@@ -39,6 +39,7 @@
 use std::collections::BTreeMap;
 
 pub mod native;
+pub mod recursive;
 
 use dr_math_binding_probe::relcomp::{ComposeRefusal, Rows, Work, compose};
 use dr_math_binding_probe::{
