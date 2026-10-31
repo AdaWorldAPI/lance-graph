@@ -184,6 +184,7 @@ struct Run {
     edge: [u64; SLOTS],
     path: [u64; SLOTS],
     rounds: usize,
+    row_ors: u64,
 }
 
 fn run(edges: &[(u32, u32)]) -> Run {
@@ -201,6 +202,7 @@ fn run(edges: &[(u32, u32)]) -> Run {
         edge,
         path: c.rows,
         rounds: c.rounds,
+        row_ors: c.work.row_ors,
     }
 }
 
@@ -373,4 +375,17 @@ fn refuses_a_stale_frame() {
         closure(&st, &old, (FOCUS, SCOPE), sig(), &edge, map.valid()),
         Err(EvalRefusal::Bind(Refusal::SourceChanged))
     ));
+}
+
+#[test]
+fn semi_naive_composes_each_derived_pair_exactly_once() {
+    // Each derived pair enters the delta in exactly one round, and composing
+    // a delta does one row OR per set bit, so the total work is |path|.
+    // Naive evaluation recomposes the whole closure every round.
+    let chain: Vec<(u32, u32)> = (0..20).map(|i| (i, i + 1)).collect();
+    for edges in [DIAMOND, CYCLE, chain.as_slice()] {
+        let r = run(edges);
+        let derived: u64 = r.path.iter().map(|w| u64::from(w.count_ones())).sum();
+        assert_eq!(r.row_ors, derived, "{edges:?}");
+    }
 }
