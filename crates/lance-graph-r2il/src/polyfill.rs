@@ -22,7 +22,7 @@
 //! OGAR's `R2ILVocabulary` by test, not at run time.
 
 use lance_graph_contract::class_view::{ClassId, ClassView};
-use lance_graph_contract::ogar_codebook::compose_classid;
+use lance_graph_contract::ogar_codebook::{classid_concept, compose_classid};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use ogar_loco::FnIndex;
 use ogar_r2il::{ALL, ANY, KEY_RUNS, MAX, MIN, SUM};
@@ -184,8 +184,10 @@ pub fn position_of(label: &str) -> Option<u8> {
     }
 }
 
-/// The polyfill lens's labels in one language: a [`ClassView`] that answers
-/// [`HARDCODED`] with one label per [`POLYFILL`] position, and nothing else.
+/// The polyfill lens's labels in one language: a [`ClassView`] whose
+/// [`lens_fields`](ClassView::lens_fields) answers [`POLYFILL_LENS`] with one
+/// label per [`POLYFILL`] position. It holds no concept basis: a behaviour
+/// lens is read by its full classid (D-DT64-7 O9), never from [`HARDCODED`].
 ///
 /// Every label is an alias of its own position, so
 /// [`crate::binding::prepare`] binds the same plan from every language. A
@@ -222,12 +224,11 @@ impl PolyfillView {
 }
 
 impl ClassView for PolyfillView {
-    fn fields(&self, class: ClassId) -> &[FieldRef] {
-        if class == HARDCODED {
-            &self.labels
-        } else {
-            &[]
-        }
+    fn fields(&self, _class: ClassId) -> &[FieldRef] {
+        &[]
+    }
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        (lens == POLYFILL_LENS).then_some(self.labels.as_slice())
     }
     fn template(&self, _class: ClassId) -> DisplayTemplate {
         DisplayTemplate::Detail
@@ -238,9 +239,10 @@ impl ClassView for PolyfillView {
 }
 
 /// A consumer's [`ClassView`] with [`HARDCODED`] answered by a
-/// [`PolyfillView`]: every other concept, its template and its DOLCE
-/// category, come from the consumer's view unchanged. The consumer's own
-/// labels for [`HARDCODED`], if any, are not consulted.
+/// [`PolyfillView`]: the concept `0xFFFF` and every lens under it come from
+/// the polyfill view; every other concept and lens, template and DOLCE
+/// category, from the consumer's view unchanged. The consumer's own labels
+/// for `0xFFFF`, if any, are not consulted.
 ///
 /// This routes one concept and checks nothing else; whether the caller's
 /// classes are activated is not this adapter's question (D-DT64-7 L3).
@@ -264,6 +266,13 @@ impl<V: ClassView + ?Sized> ClassView for WithPolyfill<'_, V> {
             self.polyfill.fields(class)
         } else {
             self.inner.fields(class)
+        }
+    }
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        if classid_concept(lens) == HARDCODED {
+            self.polyfill.lens_fields(lens)
+        } else {
+            self.inner.lens_fields(lens)
         }
     }
     fn template(&self, class: ClassId) -> DisplayTemplate {

@@ -78,7 +78,7 @@
 
 use std::collections::BTreeMap;
 
-use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_contract::class_view::{is_behaviour_lens, ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::property::{PropertySchema, PropertySpec};
@@ -285,6 +285,9 @@ impl MethodRef {
 pub enum Refusal {
     /// The classid has no binding.
     UnknownClass(u32),
+    /// A behaviour lens (right half `0xF###`) whose basis the view does not
+    /// know by its full classid. It is never read from its left half.
+    UnknownLensBasis(u32),
     /// The classid is bound to other behaviour (D5). Override with a derived
     /// classid and a re-route.
     BehaviourImmutable(u32),
@@ -669,6 +672,18 @@ impl BindStore {
         schema_rev: SchemaRev,
     ) -> Result<Resolved<'s, 'v>, Refusal> {
         let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
+        if is_behaviour_lens(lens) {
+            let fields = view
+                .lens_fields(lens)
+                .ok_or(Refusal::UnknownLensBasis(lens))?;
+            return check_count(lens, &bound.schema, schema_rev, fields).map(|fields| Resolved {
+                class: lens,
+                schema: &bound.schema,
+                fields,
+                methods: &[],
+                derived_from: None,
+            });
+        }
         check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
             class: lens,
             schema: &bound.schema,
@@ -830,6 +845,17 @@ fn check_basis<'v, V: ClassView + ?Sized>(
     schema: &ClassSchema,
     schema_rev: SchemaRev,
 ) -> Result<&'v [FieldRef], Refusal> {
+    check_count(class, schema, schema_rev, view.fields(view_class(class)))
+}
+
+/// The revision and field-count checks of [`check_basis`], over a basis
+/// already looked up.
+fn check_count<'v>(
+    class: u32,
+    schema: &ClassSchema,
+    schema_rev: SchemaRev,
+    fields: &'v [FieldRef],
+) -> Result<&'v [FieldRef], Refusal> {
     if schema.schema_rev != schema_rev {
         return Err(Refusal::SchemaRevisionMismatch {
             class,
@@ -837,7 +863,6 @@ fn check_basis<'v, V: ClassView + ?Sized>(
             asked: schema_rev,
         });
     }
-    let fields = view.fields(view_class(class));
     if fields.len() != schema.field_count {
         return Err(Refusal::FieldBasisChanged {
             class,

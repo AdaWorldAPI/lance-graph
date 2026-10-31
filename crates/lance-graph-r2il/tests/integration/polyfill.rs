@@ -134,6 +134,11 @@ impl ClassView for Views {
             _ => &[],
         }
     }
+    // D-DT64-7 O9: the polyfill lens is a behaviour lens, read by its full
+    // classid.
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        (lens == POLYFILL_LENS).then_some(self.lens.as_slice())
+    }
     fn template(&self, _class: ClassId) -> DisplayTemplate {
         DisplayTemplate::Card
     }

@@ -1046,6 +1046,14 @@ pub fn execute_defaults<S, E>(
 /// "Single lookup" (leaf, today) vs "meta lookup" (the class, this trait): a
 /// single lookup is `uri → row`; a meta lookup is `class_id → shape`, composing
 /// many leaf lookups into one projected view.
+/// Whether `classid` addresses a behaviour lens: its right (custom) half is
+/// in `0xF000..=0xFFFF` (D-DT64-7 O9). A behaviour lens's basis is read with
+/// [`ClassView::lens_fields`], by the full classid.
+#[must_use]
+pub const fn is_behaviour_lens(classid: u32) -> bool {
+    crate::ogar_codebook::split_classid(classid).1 >= 0xF000
+}
+
 pub trait ClassView {
     /// The class's ordered field set — the bit basis. Position `i` in this slice
     /// is the stable [`FieldMask`] bit `i` (N3 append-only). This IS the
@@ -1059,6 +1067,24 @@ pub trait ClassView {
     /// (not a stored enum on the row — OD-DOLCE "use the ontology cache"). Returned
     /// as the cache's opaque category id; the consumer maps it to its own enum.
     fn dolce_category_id(&self, class: ClassId) -> u8;
+
+    /// The field basis of the behaviour lens `lens`, by its FULL classid.
+    ///
+    /// A behaviour lens is a classid whose right (custom) half is in
+    /// `0xF000..=0xFFFF` ([`is_behaviour_lens`]). Several lenses can share a
+    /// left half (`0xFFFF_F000` and `0xFFFF_F200`, or a consumer's data class
+    /// `0x7F0B_0001` and its behaviour lens `0x7F0B_F001`), so their bases
+    /// cannot be read from [`fields`](Self::fields), which is keyed by the
+    /// left half alone.
+    ///
+    /// `None` means this view does not know the lens. A reader must then
+    /// refuse; it must not fall back to the left half's basis. The default
+    /// answers `None` for every lens, so a view that never implements this
+    /// keeps its current behaviour for every other classid.
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        let _ = lens;
+        None
+    }
 
     /// The label of field position `n` in `class`, resolved late from the cache
     /// (locale resolution is the consumer's job). `None` if `n` is out of range.
