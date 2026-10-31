@@ -20,10 +20,12 @@ use dr_math_binding_probe::{
     Axis, AxisKind, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Operand,
     Population, Refusal, Scope, bind_dr64,
 };
+use lance_graph_dt64::dr::{LocalMap, Width};
 use xlog_core::{AggOp, RelId};
 use xlog_ir::{CompareOp, ConstValue, Expr, JoinType, ProjectExpr, RirNode};
 use xlog_logic::ast::Program;
 use xlog_logic::{Compiler, parse_program};
+use xlog_relcomp_probe::native::{admit_count, bag_count, nonzero};
 use xlog_relcomp_probe::{
     AddressMap, EvalRefusal, LowerRefusal, SLOTS, admit, admit_program, facts, propagate, register,
 };
@@ -517,4 +519,113 @@ fn the_register_path_carries_bag_counts() {
         .map(|y| (y, 1))
         .collect();
     assert_eq!(read_out, expected());
+}
+
+// ── Part 3: the bag count on the ndarray::simd polyfill ────────────────────
+
+fn y_map(r: &[(u32, u32)], s: &[(u32, u32)]) -> LocalMap {
+    let ys: BTreeSet<u64> = r
+        .iter()
+        .map(|t| u64::from(t.1))
+        .chain(s.iter().map(|t| u64::from(t.0)))
+        .collect();
+    LocalMap::prepare(Width::W64, &ys.into_iter().collect::<Vec<_>>()).unwrap()
+}
+
+/// XLOG's own `count` rule is admitted on the native path and answered with
+/// two keyed counts and a checked multiply; both oracles agree.
+#[test]
+fn the_native_path_carries_bag_counts() {
+    let c = compile(MULT);
+    let r = facts(&c.program, "r").unwrap();
+    let s = facts(&c.program, "s").unwrap();
+    let q = admit_count(rule(&c, "qc")).expect("the count plan is admitted");
+    assert_eq!(q, admit(rule(&c, "q")).unwrap(), "same body as q");
+    let mid = y_map(&r, &s);
+    let got: BTreeMap<u32, u64> = nonzero(&mid, &bag_count(&q, &r, &s, &mid).unwrap())
+        .into_iter()
+        .map(|(y, n)| (u32::try_from(y).unwrap(), u64::try_from(n).unwrap()))
+        .collect();
+    assert_eq!(got, expected());
+    assert_eq!(got, scalar_bag(&r, &s));
+    assert_eq!(
+        got,
+        counts(walk(rule(&c, "qc"), &edb(&c), false), 0, Some(1))
+    );
+}
+
+/// A bound end restricts both factors before the multiply.
+#[test]
+fn the_native_bag_count_respects_a_bound_end() {
+    let src = MULT.replace(
+        "qc(Y, count(X)) :- r(X, Y), s(Y, Z).",
+        "qc(Y, count(X)) :- r(X, Y), s(Y, 4).",
+    );
+    let c = compile(&src);
+    let r = facts(&c.program, "r").unwrap();
+    let s = facts(&c.program, "s").unwrap();
+    let q = admit_count(rule(&c, "qc")).unwrap();
+    assert_eq!(q.right_bound, Some(4));
+    let mid = y_map(&r, &s);
+    let got: BTreeMap<u32, u64> = nonzero(&mid, &bag_count(&q, &r, &s, &mid).unwrap())
+        .into_iter()
+        .map(|(y, n)| (u32::try_from(y).unwrap(), u64::try_from(n).unwrap()))
+        .collect();
+    // Y = 2: two X times one Z (4); Y = 3: one times one; Y = 7 has no Z = 4.
+    assert_eq!(got, BTreeMap::from([(2, 2), (3, 1)]));
+    assert_eq!(
+        got,
+        counts(walk(rule(&c, "qc"), &edb(&c), false), 0, Some(1))
+    );
+}
+
+/// Only `Count` keyed by the answer column is admitted.
+#[test]
+fn the_native_path_refuses_other_aggregates() {
+    let c = compile(MULT);
+    let RirNode::Project { input, columns } = rule(&c, "qc").clone() else {
+        panic!("expected Project")
+    };
+    let RirNode::GroupBy {
+        input: inner,
+        key_cols,
+        ..
+    } = *input
+    else {
+        panic!("expected GroupBy")
+    };
+    let sum = RirNode::Project {
+        input: Box::new(RirNode::GroupBy {
+            input: inner,
+            key_cols,
+            aggs: vec![(1, AggOp::Sum)],
+        }),
+        columns,
+    };
+    assert_eq!(admit_count(&sum), Err(LowerRefusal::UnsupportedAggregate));
+    assert_eq!(
+        admit_count(rule(&c, "q")),
+        Err(LowerRefusal::UnsupportedNode("ChainJoin")),
+        "the support rule is not a count"
+    );
+}
+
+/// A repeated base fact is one tuple, as in XLOG's fact loader: the count
+/// does not change when `r(1, 2)` and `s(2, 4)` are declared twice.
+#[test]
+fn a_repeated_base_fact_is_not_a_second_witness() {
+    let src = MULT
+        .replace("r(1, 2).", "r(1, 2). r(1, 2).")
+        .replace("s(2, 4).", "s(2, 4). s(2, 4).");
+    let c = compile(&src);
+    let r = facts(&c.program, "r").unwrap();
+    let s = facts(&c.program, "s").unwrap();
+    assert_eq!((r.len(), s.len()), (4, 4), "duplicates collapse");
+    let q = admit_count(rule(&c, "qc")).unwrap();
+    let mid = y_map(&r, &s);
+    let got: BTreeMap<u32, u64> = nonzero(&mid, &bag_count(&q, &r, &s, &mid).unwrap())
+        .into_iter()
+        .map(|(y, n)| (u32::try_from(y).unwrap(), u64::try_from(n).unwrap()))
+        .collect();
+    assert_eq!(got, expected());
 }

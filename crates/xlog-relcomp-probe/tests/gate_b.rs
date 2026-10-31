@@ -16,10 +16,12 @@ use dr_math_binding_probe::relcomp::ComposeRefusal;
 use dr_math_binding_probe::{
     Axis, AxisKind, Focus, FrameRevisions, FrameStore, Guards, MethodSignature, Refusal, Scope,
 };
+use lance_graph_dt64::dr::{LocalMap, MapRefusal, Width};
 use xlog_core::RelId;
 use xlog_ir::{CompareOp, ConstValue, Expr, JoinType, ProjectExpr, RirNode};
 use xlog_logic::ast::Program;
 use xlog_logic::{Compiler, MagicSetStatus, parse_program, rewrite_magic_sets};
+use xlog_relcomp_probe::native::{self, NativeRefusal};
 use xlog_relcomp_probe::{
     AddressMap, ChainQuery, DomainRefusal, EvalRefusal, LowerRefusal, SLOTS, admit, admit_program,
     facts, propagate, register,
@@ -265,7 +267,27 @@ fn answer(p: &Prepared) -> Result<(BTreeSet<u32>, xlog_relcomp_probe::Propagatio
         z,
         &p.ys,
     )?;
+    // The native path is the execution path; the register is its
+    // differential. Every mask must agree, not only the answer.
+    let mid = local(&p.ys);
+    let n = native::support(&p.q, &p.r, &p.s, &mid).expect("native support");
+    let ids = |m: &[u64]| -> Vec<u32> {
+        native::ids(&mid, m)
+            .into_iter()
+            .map(|g| u32::try_from(g).unwrap())
+            .collect()
+    };
+    assert_eq!(ids(&n.forward), p.ys.ids(prop.forward), "forward");
+    assert_eq!(ids(&n.backward), p.ys.ids(prop.backward), "backward");
+    assert_eq!(ids(&n.answer), p.ys.ids(prop.answer), "answer");
     Ok((p.ys.ids(prop.answer).into_iter().collect(), prop))
+}
+
+/// DR's local map for the Y axis, in the same ascending order the register's
+/// `AddressMap` assigns.
+fn local(ys: &AddressMap) -> LocalMap {
+    let globals: Vec<u64> = ys.ids(ys.valid()).into_iter().map(u64::from).collect();
+    LocalMap::prepare(Width::W256, &globals).unwrap()
 }
 
 #[test]
@@ -627,4 +649,62 @@ fn domain_boundary_63_64_65_and_tail_bits() {
     .unwrap();
     assert_eq!(p.forward, 1);
     assert_eq!(p.backward, 1);
+}
+
+// ── the native path past one 64-slot tile ─────────────────────────────────
+
+/// The register holds one 64-slot tile; the native path answers over DR's
+/// 256-wide map with the same functions, and still agrees with scalar
+/// enumeration.
+#[test]
+fn the_native_path_answers_past_one_tile() {
+    let r: Vec<(u32, u32)> = (0..200).map(|y| (y % 3, y * 5)).collect();
+    let s: Vec<(u32, u32)> = (0..200)
+        .filter(|y| y % 7 != 0)
+        .map(|y| (y * 5, y % 4))
+        .collect();
+    let ys: BTreeSet<u32> = r.iter().map(|t| t.1).chain(s.iter().map(|t| t.0)).collect();
+    assert_eq!(
+        AddressMap::new(Y, ys.iter().copied()),
+        Err(DomainRefusal::Overflow { needed: 200 })
+    );
+    let globals: Vec<u64> = ys.iter().map(|&y| u64::from(y)).collect();
+    let mid = LocalMap::prepare(Width::W256, &globals).unwrap();
+    for (xb, zb) in [
+        (None, None),
+        (Some(1), None),
+        (None, Some(2)),
+        (Some(2), Some(3)),
+    ] {
+        let q = ChainQuery {
+            left: RelId(0),
+            left_bound: xb,
+            right: RelId(1),
+            right_bound: zb,
+        };
+        let got: BTreeSet<u32> =
+            native::ids(&mid, &native::support(&q, &r, &s, &mid).unwrap().answer)
+                .into_iter()
+                .map(|g| u32::try_from(g).unwrap())
+                .collect();
+        let want = scalar(&r, &s, xb, zb);
+        assert!(!want.is_empty(), "the case selects something");
+        assert_eq!(got, want, "bounds {xb:?} {zb:?}");
+    }
+}
+
+/// A Y outside DR's map is refused, never dropped.
+#[test]
+fn the_native_path_refuses_an_unmapped_y() {
+    let mid = LocalMap::prepare(Width::W64, &[2, 3]).unwrap();
+    let q = ChainQuery {
+        left: RelId(0),
+        left_bound: None,
+        right: RelId(1),
+        right_bound: None,
+    };
+    assert_eq!(
+        native::support(&q, &[(1, 2), (1, 9)], &[(2, 4)], &mid).err(),
+        Some(NativeRefusal::Domain(MapRefusal::Unmapped))
+    );
 }

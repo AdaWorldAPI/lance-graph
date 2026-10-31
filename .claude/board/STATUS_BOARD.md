@@ -12,17 +12,46 @@
 | D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
 | D-MIST-NATIVE-4 | intake from compiled HLL | Queued | upstream provenance defects (`mistaber-rs#3`, `#4`) |
 
+## D-DYNBAG — DR{dynamic bag}: selection vector made explicit, holographic bags as polyfill, PostgreSQL endgame (2026-10-31)
+
+Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Queued | operator go-ahead |
+| D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | Queued | D-DYNBAG-0 |
+| D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
+| D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
+| D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Queued | DT64 `dr` owner |
+| D-DYNBAG-5 | `sql-quack-probe` modelled on `lance-graph-cypher-quack` | Queued | parser decision |
+| D-DYNBAG-6 | scoreboard vs DuckDB / PostgreSQL, ns units, losses reported | Queued | D-DYNBAG-5 |
+| D-DYNBAG-7 | second Datalog frontend (Scallop) through the same path | Queued | D-DYNBAG-2 |
+
+## D-SOC-FENCE — one place per concern, checked in CI (2026-10-31)
+
+Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-SOC-FENCE-0 | census of §1 candidates, read and classified; mapping file + baseline drafts | Queued | §5 decisions |
+| D-SOC-FENCE-1 | `syn`-based symbol fence + dependency fence, fixture falsifiers, report-only workflow | Queued | D-SOC-FENCE-0 |
+| D-SOC-FENCE-2 | mapping file + baseline committed; CI blocks new violations and stale entries | Queued | D-SOC-FENCE-1 |
+| D-SOC-FENCE-3 | per-crate burn-down through each concern's `reach_via` | Queued | D-SOC-FENCE-2, owning sessions |
+| D-SOC-FENCE-4 | `/v3-audit` item 1 and the lgj G11 allowlist read from the mapping file | Queued | D-SOC-FENCE-2 |
+
 ## D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill, the algebra under lance-graph-onnx (2026-10-30)
 
 **Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-xlog-native-v1.md); [board entry](entries/2026-10-30-d-xlog-native-crosswalk.md). No crate yet.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto `ndarray::simd` (ALIAS / INLINE / NATIVE / REFUSE), shared symbols with lance-graph-onnx, name-checked | In PR | docs review |
+| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto `ndarray::simd` (ALIAS / INLINE / NATIVE / REFUSE), shared symbols with lance-graph-onnx, name-checked | Shipped (#1866) | docs |
 | D-XLOG-NATIVE-1 | test the selection rows (eq/ne_u32_to_mask, i32 comparisons, mask_and/or/andnot) against the probe's two oracles, signatures checked | Queued | N2 |
 | D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
 | D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
 | D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (ndarray only, no `xlog-*` dep, no plan type) once plan §4 holds | Queued | N1–N5 |
+| D-XLOG-NATIVE-6 | probe executes on `ndarray::simd` (`src/native.rs`): support via `eq_u32_to_mask` / `mask_scatter_or_u32` / `mask_and`, bag count via `masked_group_count_u32` ×2 + `checked_binary_i64`; DR `LocalMap` up to 256; register path kept as differential (plan Amendment B) | In PR | lab probe |
+| D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | In PR | lab execution only |
 
 ## D-LITHO — the photolithography contract (2026-10-30)
 

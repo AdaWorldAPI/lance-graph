@@ -38,6 +38,8 @@
 
 use std::collections::BTreeMap;
 
+pub mod native;
+
 use dr_math_binding_probe::relcomp::{ComposeRefusal, Rows, Work, compose};
 use dr_math_binding_probe::{
     Axis, BoundDr64, Focus, FrameStore, Guards, MethodSignature, Operand, Refusal, Scope, bind_dr64,
@@ -87,6 +89,8 @@ pub enum LowerRefusal {
     /// A `ChainJoin` whose own fields and whose `fallback` plan describe
     /// different queries.
     ChainJoinDisagrees,
+    /// A `GroupBy` other than one `Count` keyed by the answer column.
+    UnsupportedAggregate,
 }
 
 /// The admitted rule body, in RIR terms.
@@ -285,7 +289,13 @@ pub fn facts(program: &Program, predicate: &str) -> Result<Vec<(u32, u32)>, Lowe
             _ => None,
         };
         match (id(&rule.head.terms[0]), id(&rule.head.terms[1])) {
-            (Some(a), Some(b)) => out.push((a, b)),
+            // A base relation is a set: XLOG's fact loader skips a row it
+            // has already seen, so a repeated fact is not a second witness.
+            (Some(a), Some(b)) => {
+                if !out.contains(&(a, b)) {
+                    out.push((a, b));
+                }
+            }
             _ => {
                 return Err(LowerRefusal::FactTerm {
                     predicate: predicate.to_string(),
