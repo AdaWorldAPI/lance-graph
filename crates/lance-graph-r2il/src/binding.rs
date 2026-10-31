@@ -26,19 +26,28 @@
 //! **never** read as an [`FnIndex`] because the two happen to be `u8`.
 //! [`prepare`] checks each effect before binding it:
 //!
-//! 1. the lens is the one this seam executes, and its concept half is
-//!    OGAR's R2IL fold reading ([`ogar_r2il::CONCEPT_R2IL_FOLD`], provisional
-//!    in OGAR: a lab lens, never a persisted identity);
+//! 1. the lens is the one this seam executes, and it is one of two readings:
+//!    - the hardcoded polyfill lens [`POLYFILL_LENS`] (`0xFFFF :: 0xF000`),
+//!      where the POSITION binds (see 3);
+//!    - a lens whose concept half is OGAR's R2IL fold reading
+//!      ([`ogar_r2il::CONCEPT_R2IL_FOLD`], provisional in OGAR: a lab lens,
+//!      never a persisted identity), where the LABEL binds;
 //! 2. the lens is bound in the store and its basis matches its `ClassView`
 //!    at the stated schema revision ([`BindStore::resolve_algebra`]);
-//! 3. the word's LABEL resolves to exactly one opcode by OGAR's own
-//!    vocabulary ([`R2ILVocabulary`]), so the position a lens gives a word is
-//!    free and only the name binds;
+//! 3. the word becomes an opcode:
+//!    - under [`POLYFILL_LENS`], word `p` is [`POLYFILL`]`[p]`; the view's
+//!      label at `p` must be one of that position's aliases (an R2IL, SQL or
+//!      Quack name), and a label belonging to another position is refused,
+//!      never followed;
+//!    - under the R2IL fold reading, the label resolves to exactly one opcode
+//!      by OGAR's own vocabulary ([`R2ILVocabulary`]), so the position is
+//!      free and only the name binds;
 //! 4. the opcode is in the subset this seam translates faithfully
 //!    ([`EXECUTABLE`]);
-//! 5. OGAR's stack arity equals the effect's argument count (which DT64's
-//!    registration already ties to the lens's declared arity), and OGAR says
-//!    the opcode pushes one result.
+//! 5. the opcode's stack arity equals the effect's argument count (which
+//!    DT64's registration already ties to the lens's declared arity) and it
+//!    pushes one result: by the polyfill table under [`POLYFILL_LENS`], by
+//!    OGAR's vocabulary under the R2IL fold reading.
 //!
 //! # What is checked when
 //!
@@ -74,6 +83,7 @@ use lance_graph_mask_risc::{LaneKind, LaneRef, Planes};
 use ogar_loco::{FnIndex, Vocabulary};
 use ogar_r2il::{R2ILVocabulary, ALL, ANY, CONCEPT_R2IL_FOLD, KEY_RUNS, MAX, MIN, SUM};
 
+use crate::polyfill::{POLYFILL, POLYFILL_LENS};
 use crate::{
     Addr, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_EQUAL, INT_MULT, INT_NOT, INT_OR,
     INT_SUB, INT_S_DIV, INT_S_LESS, INT_XOR, POP_COUNT,
@@ -199,8 +209,16 @@ pub enum ExecRefusal {
     ThreeValuedNotExecutable,
     /// An effect names a lens other than the R2IL lens.
     WrongLens { effect: usize, lens: u32 },
-    /// The R2IL lens's concept half is not OGAR's R2IL fold reading.
+    /// The lens is neither [`POLYFILL_LENS`] nor a lens whose concept half
+    /// is OGAR's R2IL fold reading.
     NotR2ilReading { lens: u32 },
+    /// Under [`POLYFILL_LENS`], the view names the word with a label that is
+    /// not an alias of its position.
+    NotAnAlias {
+        effect: usize,
+        word: AlgebraRef,
+        label: String,
+    },
     /// The word's position is outside the lens's basis.
     WordOutOfBasis { effect: usize, word: AlgebraRef },
     /// The word's label is not an R2IL opcode name, or names more than one.
@@ -275,7 +293,7 @@ pub fn prepare<V: ClassView + ?Sized>(
     if binding.truth == Truth::ThreeValued {
         return Err(ExecRefusal::ThreeValuedNotExecutable);
     }
-    if classid_concept(lens.lens) != CONCEPT_R2IL_FOLD {
+    if lens.lens != POLYFILL_LENS && classid_concept(lens.lens) != CONCEPT_R2IL_FOLD {
         return Err(ExecRefusal::NotR2ilReading { lens: lens.lens });
     }
     let steps = binding
@@ -493,6 +511,9 @@ fn opcode<V: ClassView + ?Sized>(
         })?
         .label
         .as_str();
+    if lens.lens == POLYFILL_LENS {
+        return frozen_opcode(effect, e, label);
+    }
     let mut named = (0..=u8::MAX)
         .map(FnIndex)
         .filter(|&f| R2ILVocabulary.name(f) == Some(label));
@@ -525,6 +546,33 @@ fn opcode<V: ClassView + ?Sized>(
         return Err(ExecRefusal::NoResult { effect, opcode: f });
     }
     Ok(f)
+}
+
+/// The opcode at a polyfill position: the position binds, the view's label
+/// must be one of its aliases, and the table's arity must match.
+fn frozen_opcode(effect: usize, e: &Effect, label: &str) -> Result<FnIndex, ExecRefusal> {
+    let word = POLYFILL
+        .get(usize::from(e.algebra.word))
+        .ok_or(ExecRefusal::WordOutOfBasis {
+            effect,
+            word: e.algebra,
+        })?;
+    if !word.aliases.contains(&label) {
+        return Err(ExecRefusal::NotAnAlias {
+            effect,
+            word: e.algebra,
+            label: label.to_string(),
+        });
+    }
+    if usize::from(word.arity) != e.args.len() {
+        return Err(ExecRefusal::Arity {
+            effect,
+            ogar: None,
+            declared: Some(word.arity),
+            args: e.args.len(),
+        });
+    }
+    Ok(word.opcode)
 }
 
 /// The address of the resident lane field `p` is bound to.
