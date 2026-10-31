@@ -2,7 +2,16 @@
 
 **Date 2026-10-31 · Status OPEN (exploration map; nothing adopted) · Plan refs: D-DYNBAG §17-§20, D-SOC-FENCE, d-xlog-native Amendment C**
 
-**Premise gate (premise-auditor): PREMISE-SPLIT.** A tuple inside an external runtime belongs to that runtime; substitution is only possible where a framework reads from or writes to our substrate. Amortisation splits into shared addressing (one DR map revision) and shared values (one fold pass over lanes at one version). "Tuple polyfill" may not become a carrier type: a finding that needs one counts against the hypothesis.
+**⊘ OPERATOR CORRECTION 2026-10-31 (read first; the map below predates it).** The frameworks are AdaWorldAPI forks, made so their internal representations can change. So:
+- Premise (a) is reversed: internal tuple substitution inside a fork is in scope. Every "INTERNAL-NATIVE-KEEP" and "UPSTREAM-OWNER" verdict in §1, §4 and the map below is re-read under it. Keep the algorithm (union-find, congruence, fixpoint, scheduler, effects); replace the redundant physical representation.
+- (b) stands: address reuse and value reuse are separate.
+- (c) is softened: a small typed adapter or identity witness is allowed if documented and it stores nothing twice. A new carrier still needs an owner decision.
+- Rubikon is an authorization boundary, not the substitution boundary. Redundant tuples below it may go; effect identity, order and idempotency stay.
+- Reference pattern: lance-graph-java (R5 projection vs hydration, R11 layout is a schema).
+- First target: one internal XLOG materialisation and one internal egglog projection, shown actually disappearing, measured against the unchanged upstream.
+- New classes: DIRECT / CONDITIONAL / ALGORITHM-COUPLED / ABI-EFFECT / UNKNOWN.
+
+**Premise gate (premise-auditor), as first run: PREMISE-SPLIT.** A tuple inside an external runtime belongs to that runtime; substitution is only possible where a framework reads from or writes to our substrate. Amortisation splits into shared addressing (one DR map revision) and shared values (one fold pass over lanes at one version). "Tuple polyfill" may not become a carrier type: a finding that needs one counts against the hypothesis.
 
 Scouts: six (substrate, internal prior art, relational frameworks, e-graph frameworks, workflow/agent/enterprise, literature). Reports in the session scratchpad; the synthesis below spot-checked eleven citations at source.
 
