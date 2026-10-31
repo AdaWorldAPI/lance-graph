@@ -38,6 +38,8 @@
 
 use std::collections::BTreeMap;
 
+pub mod native;
+
 use dr_math_binding_probe::relcomp::{ComposeRefusal, Rows, Work, compose};
 use dr_math_binding_probe::{
     Axis, BoundDr64, Focus, FrameStore, Guards, MethodSignature, Operand, Refusal, Scope, bind_dr64,
@@ -87,6 +89,8 @@ pub enum LowerRefusal {
     /// A `ChainJoin` whose own fields and whose `fallback` plan describe
     /// different queries.
     ChainJoinDisagrees,
+    /// A `GroupBy` other than one `Count` keyed by the answer column.
+    UnsupportedAggregate,
 }
 
 /// The admitted rule body, in RIR terms.
