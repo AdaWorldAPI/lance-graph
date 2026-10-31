@@ -1,0 +1,19 @@
+# X2 (plan d-dynbag-holographic-bags-v1 §18.4): a DT64-owned LAB probe for a
+# typed execution-admission policy layered AFTER `BindStore::admit`. NOT a
+# workspace member, nothing depends on it. Verify with
+#   cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml
+[package]
+name = "dt64-admission-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Decides whether an admitted DT64 method may execute, from D-SAG-6 evidence rows: proven pure, witnessed effect under an explicit DO grant, POSSIBLE, or UNKNOWN. BindStore::admit authenticates; this policy authorizes."
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# Consumed read-only through their public APIs; neither crate is changed.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
