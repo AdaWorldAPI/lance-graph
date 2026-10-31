@@ -69,12 +69,15 @@ Each row below is a proposal. Wave 0 confirms or corrects it by reading the cite
 | `query-surface` | `lance-graph-quack` builds Programs and never evaluates them | — | Quack crate docs ("may build a Program and must never evaluate one") |
 | `selection-description` | `lance-graph-relalg` | — | addendum 8 ("relalg describes") |
 | `dr-addressing` | `lance_graph_dt64::dr` (`FrameStore`, `Guards`, `Focus`, `Scope`, `LocalMap`, `ClassAxis`) | `dt64::dr` | addendum 12. The `dr-math-binding-probe` copies are `TRACKED` duplicates |
-| `bind-store` | `lance-graph-dt64` (`BindStore`, `MethodBinding`, the route log) | `BindStore` | D-DT64-6 D4/D5 |
+| `bind-store` | `lance-graph-dt64` (`BindStore`, `MethodBinding`, `MethodRef`, `admit`, the route log); resolves and validates, never executes | `BindStore`; no frontend registry of its own (Tract's `Registry` is `TRACKED` until D-DYNBAG §18 X8) | D-DT64-6 D4/D5; D-DYNBAG §18 |
 | `method-identity` | **OPEN** (`MethodRef` vs `MethodSignature` vs `MethodKey`, EXO-50) | — | listed with no owner; not enforced until decided |
 | `classid-split` | `ogar_codebook::{classid_concept, classid_canon, …}`, `dt64::view_class` | those functions; no bit math on a composed classid | `/v3-audit` item 1 |
 | `epi5-field` | `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}`, `Epi5Declarations::project_state5` | those; no shifts or masks on bits 59..63 elsewhere | `epistemic_state5.rs` module docs |
 | `presence` | the class's `FieldMask` / `WideFieldMask` | presence bits; never a sentinel value inside a field | `class_view.rs` C2 |
 | `tuple-template` | relalg (describes) and Quack (surface); the pointer table is `dt64::dr::LocalMap`; one named intake per frontend | descriptions over lanes; no owned row (`Vec<(..)>`, row structs) after intake, in production, probes or oracles | lance-graph CLAUDE.md P0 ("a tuple is a zero-copy fold template"); D-DYNBAG §2, §8 |
+| `procedure-reading` | `lance-graph-r2il` (`FoldDialect`, `procs`) over `ogar-loco` control flow | R2IL calls; no frontend opcode loop | `lance-graph-r2il` crate docs |
+
+**Common ownership rule (2026-10-31, D-DYNBAG §18).** Every frontend (XLOG, SQL, Codegraph, ONNX/Tract, egglog/MLIR, Scallop) is a consumer: it owns its parser and its admission of shapes, nothing else. Coordinates belong to `dt64::dr`; meaning to `ClassView`; method identity and admission to `BindStore`; relational description to Quack/relalg; procedure description to R2IL; evaluation to mask-risc; compute to `ndarray::simd` under mask-risc. A frontend that keeps its own registry, coordinate map, evaluator or tuple store is a `TRACKED` violation with a D-id, never a sanctioned exception. "Project" is not a concern: column selection (XLOG RIR), row keeping (relalg/Quack) and field labelling (ClassView/DT64) are three owners' words and are not merged.
 
 `/v3-audit` keeps its own checks. Its item 1 moves into the mapping file, so the rule is written in one place, and the command reads it from there.
 
@@ -109,7 +112,7 @@ Nothing in Waves 0–2 changes production code. Wave 3 is the only wave that tou
 
 ## 5. Decisions needed before Wave 0
 
-1. **Which concerns are in.** The ten rows of §2 are proposals; `method-identity` stays unenforced until EXO-50 decides.
+1. **Which concerns are in.** The twelve rows of §2 are proposals; `method-identity` stays unenforced until EXO-50 decides.
 2. **Whether `ndarray::hpc::*` imports are violations** in lance-graph (thinking-engine 32, bgz-tensor 13, planner 10). The lance-graph-java and tesseract-rs rule says never; whether lance-graph follows it has not been ruled.
 3. **Whether lab probes are in scope.** Proposed: yes, as `TRACKED` entries, so a probe's shortcut is visible rather than exempt.
 4. **Tool language.** Proposed: Rust with `syn`, to resolve paths. A Python regex tool would repeat the measured G11 failure.

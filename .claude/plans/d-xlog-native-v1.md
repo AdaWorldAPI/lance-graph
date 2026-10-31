@@ -1,10 +1,10 @@
 # D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill (the algebra under lance-graph-onnx)
 
-**Status:** PROPOSED. The crosswalk (§2) is docs only; it decides whether a `lance-graph-xlog` crate, wired like `lance-graph-onnx`, is worth creating. Amendment A (2026-10-31) records what moved since: the binding now names mask-risc's op vocabulary, the probe binds through the production bind store, and XLOG results have a stated Epi5 reading.
+**Status:** PROPOSED. Amendment C supersedes the direct-ndarray rule. The crosswalk (§2) is docs only; it decides whether a `lance-graph-xlog` crate, wired like `lance-graph-onnx`, is worth creating. Amendment A (2026-10-31) records what moved since: the binding now names mask-risc's op vocabulary, the probe binds through the production bind store, and XLOG results have a stated Epi5 reading.
 
 **Date:** 2026-10-30. **Parent work:** D-XLOG-DR64-0 (#1857), D-LITHO-1 (#1861, #1864; D-LITHO is now folded into D-DT64-6 Amendment A). **Precedent:** [D-ONNX-NATIVE](d-onnx-native-v1.md).
 
-**Rule.** XLOG is a vocabulary over the same algebra `lance-graph-onnx` sits on: the `ndarray::simd` polyfill. The path would be `XLOG plan node → existing ndarray::simd function` and nothing else, exactly as `ONNX operator → existing native function`. Where both vocabularies name the same operation (`And`, `Or`, `Not`, `Greater`, `Equal`, masked sums), both facades alias the same native symbol. There is no plan type, interpreter, fixpoint engine, mask-risc program or graph database. The lowering from XLOG's compiled plan stays in `crates/xlog-relcomp-probe`, outside the workspace, and becomes the crate's caller and oracle harness. mask-risc and relalg are cross-checks, as they are for `lance-graph-onnx` (dev-dependencies only).
+**Rule.** ⊘ *Superseded 2026-10-31 by the D-SOC-FENCE ownership rule (Amendment C).* The original text read: "XLOG is a vocabulary over the same algebra `lance-graph-onnx` sits on: the `ndarray::simd` polyfill. The path would be `XLOG plan node → existing ndarray::simd function` and nothing else … mask-risc and relalg are cross-checks." That made `ndarray::simd` the call path for folds, which bypasses the one evaluator. **Current rule:** XLOG plan nodes are described in Quack/relalg, evaluated by `lance-graph-mask-risc`, and computed by `ndarray::simd` only under mask-risc. Elementwise (non-fold) aliases shared with `lance-graph-onnx` stay `ndarray::simd` symbols, as D-ONNX-NATIVE sanctions.
 
 **Scope boundaries:**
 - The crate depends on `ndarray` only, on the coordinate `lance-graph-onnx` uses. It takes no `xlog-*` dependency: `xlog-core` pins arrow 60, the lance stack arrow 58 (D-XLOG-DR64-1). Only lane slices, constants and masks cross, never XLOG or arrow values.
@@ -142,6 +142,8 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 
 ## Amendment B (2026-10-31): execution on the `ndarray::simd` polyfill
 
+> ⊘ **Superseded by Amendment C** on ownership: the table below records what `native.rs` does today, not the architecture. Its fold calls are a D-SOC-FENCE `fold-evaluator` violation, fixed by D-DYNBAG-0.
+
 Operator: refactor XLOG onto the `ndarray::simd` polyfill (CubeCL as an intermediary only in the worst case). It was not needed: every function below is on the `ndarray::simd` facade, including `checked_binary_i64` (ndarray #407, merged and read in the checkout).
 
 `crates/xlog-relcomp-probe/src/native.rs` is now the probe's execution path for the admitted two-atom chain. Each step is one function:
@@ -163,3 +165,11 @@ Effect on §2:
 - The two-atom many-to-many chain projected onto Y (support and bag count) now has a native home. Its rows move from NATIVE to INLINE: they are tested against both oracles.
 - Still NATIVE: a many-to-many join whose answer keeps both ends (X, Z), and chains of more than two atoms.
 - §4 condition 2 holds for the projected chain only.
+
+## Amendment C (2026-10-31): the D-SOC-FENCE ownership rule
+
+- **Folds** (group count, scatter, masked sums, popcount terminals) are described in Quack (`Query`, `GroupBy`, `Agg::GroupReduce`) or relalg and evaluated by mask-risc `execute_into`. `ndarray::simd` is never called for them from XLOG or its probe.
+- **Elementwise aliases** (`mask_and/or/not`, `*_to_mask`) shared with `lance-graph-onnx` remain `ndarray::simd` symbols, the D-ONNX-NATIVE sanction.
+- **No mask-risc word yet:** `checked_binary_i64` is the one direct call, TRACKED in D-SOC-FENCE until mask-risc gains an i64 combine (D-DYNBAG §17.5 MISSING-3).
+- In §2, the `ndarray::simd` column is what mask-risc calls, not what XLOG calls. The NATIVE / INLINE categories now mean "has a mask-risc program", not "has an ndarray function".
+- The work is D-DYNBAG-0 (`d-dynbag-holographic-bags-v1.md` §17).
