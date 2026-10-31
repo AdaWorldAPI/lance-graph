@@ -30,7 +30,7 @@ const LANGS: [AliasLanguage; 3] = [
 fn each_language_view_labels_every_position_with_its_own_name() {
     for lang in LANGS {
         let v = PolyfillView::new(lang);
-        let fields = v.fields(HARDCODED);
+        let fields = v.lens_fields(POLYFILL_LENS).expect("the polyfill lens");
         assert_eq!(fields.len(), POLYFILL.len(), "{lang:?}: one label per word");
         for (p, w) in POLYFILL.iter().enumerate() {
             let label = fields[p].label.as_str();
@@ -51,7 +51,11 @@ fn the_word_identity_is_the_same_in_every_language() {
     for p in 0..POLYFILL.len() {
         let iris: Vec<&str> = views
             .iter()
-            .map(|v| v.fields(HARDCODED)[p].predicate_iri.as_str())
+            .map(|v| {
+                v.lens_fields(POLYFILL_LENS).unwrap()[p]
+                    .predicate_iri
+                    .as_str()
+            })
             .collect();
         assert!(iris.iter().all(|i| *i == iris[0]), "position {p}: {iris:?}");
     }
@@ -59,7 +63,7 @@ fn the_word_identity_is_the_same_in_every_language() {
     let lt = position_of("IntSLess").unwrap() as usize;
     let labels: Vec<&str> = views
         .iter()
-        .map(|v| v.fields(HARDCODED)[lt].label.as_str())
+        .map(|v| v.lens_fields(POLYFILL_LENS).unwrap()[lt].label.as_str())
         .collect();
     assert_eq!(labels, ["IntSLess", "<", "Cmp::LtI32"]);
 }
@@ -91,10 +95,16 @@ fn each_language_names_come_from_the_table_not_a_spelling_rule() {
 }
 
 #[test]
-fn a_polyfill_view_answers_only_the_hardcoded_concept() {
+fn a_polyfill_view_answers_only_the_polyfill_lens() {
     let v = PolyfillView::new(AliasLanguage::Sql);
+    assert_eq!(
+        v.lens_fields(POLYFILL_LENS).map(<[_]>::len),
+        Some(POLYFILL.len())
+    );
+    // O9: no concept basis, and no other lens under the same left half.
+    assert!(v.fields(HARDCODED).is_empty());
     assert!(v.fields(0x7F0B).is_empty());
-    assert_eq!(v.field_count(HARDCODED), POLYFILL.len());
+    assert_eq!(v.lens_fields(0xFFFF_F200), None);
 }
 
 // --------------------------------------- over a consumer view, through prepare
@@ -244,7 +254,14 @@ fn the_adapter_hides_the_consumers_own_hardcoded_labels() {
     assert!(matches!(prep(&consumer), Err(ExecRefusal::Binding(_))));
     let pv = PolyfillView::new(AliasLanguage::Quack);
     let both = WithPolyfill::new(&consumer, &pv);
-    assert_eq!(both.fields(HARDCODED).len(), POLYFILL.len());
+    assert_eq!(
+        both.lens_fields(POLYFILL_LENS).map(<[_]>::len),
+        Some(POLYFILL.len())
+    );
+    assert!(
+        both.fields(HARDCODED).is_empty(),
+        "the stale labels are hidden"
+    );
     // Every other concept is the consumer's, including template and DOLCE.
     assert_eq!(both.fields(CLASS_VIEW), consumer.fields(CLASS_VIEW));
     assert_eq!(both.template(CLASS_VIEW), DisplayTemplate::Detail);

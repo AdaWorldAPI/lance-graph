@@ -964,3 +964,138 @@ fn jina_reserves_the_dr256_identity_space_and_claims_only_routed_tiles() {
         "a refused route moves no version"
     );
 }
+
+// --------------------------------------------------------------------------
+// D-DT64-7 O9 / L1: a behaviour lens (right half 0xF###) reads its basis by
+// its full classid, through ClassView::lens_fields; it never inherits the
+// basis of its left half.
+
+/// A view holding concept bases and behaviour-lens bases separately.
+struct Lenses {
+    concepts: Vec<(ClassId, Vec<FieldRef>)>,
+    lenses: Vec<(u32, Vec<FieldRef>)>,
+}
+
+fn labels(prefix: &str, n: usize) -> Vec<FieldRef> {
+    (0..n)
+        .map(|i| FieldRef::new(format!("urn:{prefix}/{i}"), format!("{prefix}{i}")))
+        .collect()
+}
+
+impl ClassView for Lenses {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        self.concepts
+            .iter()
+            .find(|(c, _)| *c == class)
+            .map_or(&[], |(_, f)| f.as_slice())
+    }
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        self.lenses
+            .iter()
+            .find(|(l, _)| *l == lens)
+            .map(|(_, f)| f.as_slice())
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
+}
+
+const RELALG_LENS: u32 = 0xFFFF_F000;
+const ONNX_LENS: u32 = 0xFFFF_F200;
+const UNKNOWN_LENS: u32 = 0xFFFF_F300;
+
+#[test]
+fn two_behaviour_lenses_under_one_left_half_resolve_independently() {
+    let mut s = BindStore::new();
+    s.declare_algebra(RELALG_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![2; 17])
+        .unwrap();
+    s.declare_algebra(ONNX_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 5])
+        .unwrap();
+    let view = Lenses {
+        // The concept 0xFFFF itself carries a basis of neither size.
+        concepts: vec![(0xFFFF, labels("concept", 3))],
+        lenses: vec![
+            (RELALG_LENS, labels("relalg", 17)),
+            (ONNX_LENS, labels("onnx", 5)),
+        ],
+    };
+    let relalg = s.resolve_algebra(&view, RELALG_LENS, SchemaRev(1)).unwrap();
+    let onnx = s.resolve_algebra(&view, ONNX_LENS, SchemaRev(1)).unwrap();
+    assert_eq!(relalg.fields.len(), 17);
+    assert_eq!(onnx.fields.len(), 5);
+    assert_eq!(relalg.fields[0].label, "relalg0");
+    assert_eq!(onnx.fields[0].label, "onnx0");
+}
+
+#[test]
+fn a_data_class_and_a_behaviour_lens_sharing_a_left_half_do_not_cross_read() {
+    const DATA: u32 = 0x7F0B_0001;
+    const LENS: u32 = 0x7F0B_F001;
+    let mut s = BindStore::new();
+    s.register(DATA, schema(1, 2), vec![]).unwrap();
+    s.declare_algebra(LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 3])
+        .unwrap();
+    let view = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 2))],
+        lenses: vec![(LENS, labels("word", 3))],
+    };
+    let data = s.resolve(&view, DATA, SchemaRev(1)).unwrap();
+    let lens = s.resolve_algebra(&view, LENS, SchemaRev(1)).unwrap();
+    assert_eq!(data.fields.len(), 2);
+    assert_eq!(data.fields[1].label, "data1");
+    assert_eq!(lens.fields.len(), 3);
+    assert_eq!(lens.fields[2].label, "word2");
+}
+
+#[test]
+fn an_unknown_behaviour_lens_fails_closed_instead_of_inheriting_its_concept() {
+    let mut s = BindStore::new();
+    s.declare_algebra(UNKNOWN_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 3])
+        .unwrap();
+    // The concept's basis has exactly the lens's word count: inheriting it
+    // would succeed, which is the failure this guards against.
+    let view = Lenses {
+        concepts: vec![(0xFFFF, labels("concept", 3))],
+        lenses: vec![],
+    };
+    assert_eq!(
+        s.resolve_algebra(&view, UNKNOWN_LENS, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::UnknownLensBasis(UNKNOWN_LENS)
+    );
+}
+
+#[test]
+fn a_lens_outside_the_behaviour_range_still_reads_its_concept() {
+    // Backward-compatibility twin: right half 0x0001 is not a behaviour
+    // lens, so the concept basis answers and `lens_fields` is not asked.
+    let mut s = BindStore::new();
+    s.declare_algebra(POLYFILL, SchemaRev(1), Extent::DR64_CUBE, ARITY.to_vec())
+        .unwrap();
+    let view = Lenses {
+        concepts: vec![(view_class(POLYFILL), labels("w", ARITY.len()))],
+        lenses: vec![(POLYFILL, labels("ignored", 1))],
+    };
+    let lens = s.resolve_algebra(&view, POLYFILL, SchemaRev(1)).unwrap();
+    assert_eq!(lens.fields.len(), ARITY.len());
+    assert_eq!(lens.fields[0].label, "w0");
+}
+
+#[test]
+fn a_view_that_does_not_implement_lens_fields_still_compiles_and_refuses_behaviour_lenses() {
+    // `View` above implements only the required methods: the default
+    // `lens_fields` answers None, so a behaviour lens fails closed.
+    let mut s = BindStore::new();
+    s.declare_algebra(RELALG_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 2])
+        .unwrap();
+    let view = View::with_fields(0xFFFF, 2);
+    assert_eq!(view.lens_fields(RELALG_LENS), None);
+    assert_eq!(
+        s.resolve_algebra(&view, RELALG_LENS, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::UnknownLensBasis(RELALG_LENS)
+    );
+}
