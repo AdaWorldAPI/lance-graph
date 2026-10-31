@@ -200,7 +200,7 @@ fn masked_sum_method(t: i32) -> MethodBinding {
         id: MethodId(METHOD),
         sig_rev: SigRev(1),
         name: "sum_where_lt".to_string(),
-        on: reads,
+        on: reads.clone(),
         when: None,
         reads,
         effects: vec![
