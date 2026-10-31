@@ -25,6 +25,11 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master" }
 # prebound route is checked by the existing frame-focus-scope validator
 # instead of a stand-in.
 dr-math-binding-probe = { path = "../dr-math-binding-probe" }
+# r1_vs_prebound only: the R1 binding fixture (DT64 store, dr frames) and the
+# R2IL lens arities, on the coordinates lance-graph-r2il already uses.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
