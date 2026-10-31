@@ -5,6 +5,14 @@
 //! counted separately from derivation multiplicity: two consumers of one
 //! root are one independent observation, however many distinct derivations
 //! the bag algebra holds.
+//!
+//! Independent support is the set of minimal root environments that entail
+//! an answer (an ATMS label, PosBool provenance), not the lineage of roots
+//! the derivations touch. `label` and `derivations` here are a cold, test-only
+//! oracle over tiny fixtures: they enumerate paths and build owned sets of
+//! environments, which the fold never does. They are not a precedent for a
+//! label type in a query path; production root-disjoint support belongs to
+//! `lance_graph_planner::nars::support::DerivationLedger`.
 
 use std::collections::BTreeSet;
 
