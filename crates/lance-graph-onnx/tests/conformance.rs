@@ -463,7 +463,6 @@ fn composite_matches_the_oracle_mask_risc_r2il_and_relalg() {
             // The r2il fold reading: t < x, then SUM.
             let mut d = FoldDialect::new(&planes, &Foreign::NONE);
             let mut stack = vec![Val::Scalar(i64::from(t)), Val::Scalar(0)];
-            use ogar_loco::Dialect as _;
             d.call(LOAD, [1, 0, 0], &mut stack).unwrap();
             d.call(INT_S_LESS, [0; 3], &mut stack).unwrap();
             lance_graph_r2il::procs::sum(&mut d, &mut stack, 0).unwrap();

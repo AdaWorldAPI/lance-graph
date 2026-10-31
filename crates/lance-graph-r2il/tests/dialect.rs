@@ -11,7 +11,9 @@ use lance_graph_r2il::{
     Addr, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL,
     INT_MULT, INT_NOT, INT_OR, INT_SUB, INT_S_DIV, INT_S_LESS, INT_XOR, LOAD, MAX_SLOTS, POP_COUNT,
 };
-use ogar_loco::{Dialect, FnIndex};
+#[cfg(feature = "loco-dialect")]
+use ogar_loco::Dialect;
+use ogar_loco::FnIndex;
 use ogar_r2il::{
     R2ILFn, ALL, ANY, BLEND, GROUP_SUM, KEEP, KEY_RUNS, R2IL_BASE, RANGE, SCATTER_OR, SUM, VIA,
 };
@@ -213,6 +215,7 @@ fn every_named_refusal_is_still_produced() {
 
 /// FAILS IF: branching on a population stops being recorded, or branching
 /// on a scalar starts being recorded.
+#[cfg(feature = "loco-dialect")]
 #[test]
 fn branching_on_a_population_poisons_and_a_scalar_does_not() {
     let values = lane();

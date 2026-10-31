@@ -29,7 +29,6 @@ use lance_graph_mask_risc::ir::{CompiledProgram, MaskOp, Operand, Pred, Program,
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Out, Planes, Value};
 use lance_graph_r2il::procs;
 use lance_graph_r2il::{FoldDialect, FoldError, Val, INT_S_LESS, LOAD};
-use ogar_loco::Dialect;
 
 struct Counting;
 static ALLOCS: AtomicUsize = AtomicUsize::new(0);

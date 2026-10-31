@@ -23,7 +23,6 @@ use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
 use lance_graph_onnx as onnx;
 use lance_graph_r2il::{FoldDialect, Val, INT_S_LESS, LOAD};
 use ndarray::Array1;
-use ogar_loco::Dialect;
 
 struct Counting;
 static ALLOCS: AtomicUsize = AtomicUsize::new(0);
