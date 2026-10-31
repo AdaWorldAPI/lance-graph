@@ -330,6 +330,39 @@ fn main() -> anyhow::Result<()> {
             );
         }
     }
+    // XREFS=1: one `occ` line per occurrence of every symbol rust-analyzer
+    // gives a moniker: `occ <moniker> <kind> <file> <start> <end> def|ref`.
+    // Offsets are byte offsets into the file; files outside the workspace
+    // root are skipped. These are the witnessed facts a Kythe producer reads
+    // (tools/kythe_entries.py); nothing here is Kythe-specific.
+    if std::env::var("XREFS").is_ok() {
+        let rel = |file_id| {
+            vfs.file_path(file_id).as_path().and_then(|a| {
+                std::path::Path::new(a.as_str())
+                    .strip_prefix(&root)
+                    .ok()
+                    .map(|p| p.display().to_string())
+            })
+        };
+        for (_, d) in &all {
+            let Some(MonikerResult::Moniker(m)) = &d.moniker else {
+                continue;
+            };
+            let moniker = m.identifier.to_string();
+            for r in &d.references {
+                let Some(file) = rel(r.range.file_id) else {
+                    continue;
+                };
+                println!(
+                    "occ\t{moniker}\t{:?}\t{file}\t{}\t{}\t{}",
+                    d.kind,
+                    u32::from(r.range.range.start()),
+                    u32::from(r.range.range.end()),
+                    if r.is_definition { "def" } else { "ref" }
+                );
+            }
+        }
+    }
     println!(
         "static_index_ms\t{}\nfiles\t{files}\noccurrences\t{occ}\ntokens\t{toks}\ntokens_with_definition\t{defs}\nreference_rows\t{refs}",
         t.elapsed().as_millis()
