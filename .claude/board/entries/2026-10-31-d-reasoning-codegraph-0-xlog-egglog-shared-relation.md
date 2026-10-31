@@ -17,3 +17,7 @@ OPEN:
 - SQL and Java legs;
 - egglog proofs of a directed relation;
 - XLOG recursion shapes beyond one linear closure.
+
+## Correction (2026-10-31): the traceroute
+
+The traceroute is a chain of stage identities (derivation, proof, binding, execution, replay), each referenced by an immutable identity, storing no intermediate population (`dr256-where-capstone-v1.md` §C.5). `recursive::trace` rebuilds one node path; it is not that traceroute, and a per-round delta-mask store would violate §C.5. `support` and `affected` stand as mask selections. Graph work is mask selection, not traversal. See D-DT64-7 F8 and O6.

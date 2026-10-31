@@ -1,3 +1,21 @@
+## TD-FROZEN-POLYFILL-NAMED-BY-R2IL — the compile-time polyfill is declared at runtime and named through `ogar-r2il` (2026-10-31) — OPEN
+
+`BindStore::declare_algebra` (`crates/lance-graph-dt64/src/lib.rs:628`) declares the polyfill lens at runtime, and `lance-graph-r2il::binding` resolves every word through `ogar_r2il::R2ILVocabulary` and refuses any lens whose concept is not `ogar_r2il::CONCEPT_R2IL_FOLD` (`binding.rs:278`, `:496-525`; `0xC401` is provisional, not minted). By D-DT64-7 D2/D3 the polyfill is Frozen (compile time) and R2IL is harvest-side.
+
+**Fruit:** High-signal
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`).
+
+- **What closes it:** D-DT64-7-3: a compile-time lance-graph table under left side `0x0000` with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
+
+## TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN
+
+`crates/lance-graph-contract/src/ogar_codebook.rs:530-540` takes the high half only when it is `>= 0x0100`; with a non-zero low half it re-reads the id in the legacy order. A left-empty (hardcoded) classid therefore reports its right side as its concept. The strict `classid_concept` is correct; RBAC grant matching and other mixed-form readers use the compat reader.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`ogar_codebook.rs:530-540`, read on `main` `b38d88e`).
+
+- **What closes it:** the falsifier D-DT64-7-1, then the decision O3 (exclude left-empty ids, or retire the heuristic).
+
 ## TD-XLOG-NATIVE-COUNT-OVERFLOW-UNTESTED — the native bag count refuses on overflow, and no test reaches it (2026-10-31) — OPEN
 
 `crates/xlog-relcomp-probe/src/native.rs:155` multiplies per-Y counts with

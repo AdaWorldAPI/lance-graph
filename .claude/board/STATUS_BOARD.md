@@ -1,3 +1,16 @@
+## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
+
+Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time (left side `0x0000`); Learned = registered in the `BindStore` (left side `0xF###` or `Domain::AppId`); Explore = not registered. Right side = ClassView / `WideFieldMask` selection.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DT64-7-0 | plan and board rows | In PR | docs review |
+| D-DT64-7-1 | `classid_canon_compat(0x0000_F123) == 0x0000` falsifier (F5) | Queued | O3 |
+| D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | O1 |
+| D-DT64-7-3 | compile-time Frozen polyfill table under `0x0000`, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | Queued | O1 |
+| D-DT64-7-4 | behaviour-seat arm `0xF###` in `OgarAuthority` | Queued | O1, O2 (OGAR owner) |
+| D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
+
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
 
 **Status:** LAB PROBE; test-only, standalone crate, no production API. [Plan](../plans/d-mistaber-native-v1.md); [board entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md).

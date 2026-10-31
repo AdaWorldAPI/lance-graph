@@ -85,53 +85,55 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
-## 2026-10-31 — Independent support stays one label when a cycle is unrolled further
+## 2026-10-31 — Independent support is a mask question: does one source root's edges still cover the answer?
 
-`[P1 @falsifier-designer domain:provenance D-STAUNEN X6a]`
+`[P1 @falsifier-designer domain:provenance D-STAUNEN X6a D-DT64-7]`
 
 `xlog-relcomp-probe` `tests/provenance.rs` computes independent support as the
-minimal-environment label over source roots (ATMS / PosBool; #1896, after the
-co-research found the first version counted lineage). Its `derivations()`
-lists simple paths only, so recursion was never exercised. **Next probe
-(P-X6A-CYCLE):** edges 1→2, 2→3, 3→2, 3→4; A reports 1→2, 2→3, 3→4 and B
-reports 3→2. Enumerate derivations of `path(1, 4)` unrolled k = 0..3 times
-round the cycle; the label must be `{{A}}` at every k. Twin: a bypass 1→5→4
-reported by C gives `{{A}, {C}}`, disjoint, at every k. **Kill:** the label at
-some k ≥ 1 differs from k = 0. Disable: drop the minimality filter.
-(`entries/2026-10-31-coresearch-d-staunen-arc.md`, row 1b.)
+minimal-environment label over source roots (ATMS / PosBool; #1896). Its oracle
+enumerates simple paths, which is traversal; graph work is mask selection
+(D-DT64-7 D9'). **Next probe (P-X6A-MASK):** for each source root, AND the
+edge register with that root's edge mask, run the closure on the result, and
+test the answer bit. A root (or a set of roots) is a support exactly when its
+masked closure still holds the answer, so the minimal supports come from
+masks, never from walks. Fixture: the diamond with A and B as in the current
+test, plus a cycle 2→3→2 reported by B; the cycle must not change the result.
+Twin: a bypass 1→5→4 reported by C gives two disjoint supports. **Kill:** the
+mask computation and the path oracle disagree on any of these, or the cycle
+changes the minimal supports. Disable: drop the minimality filter.
+(`entries/2026-10-31-coresearch-d-staunen-arc.md` rows 1/1b.)
 
 **Fruit:** Low-hanging
 **Status:** Open.
 
-## 2026-10-31 — The probe's minimal-environment label against `DerivationLedger::pooled`
+## 2026-10-31 — The probe's support masks against `DerivationLedger::pooled`
 
 `[P1 @bridge-architect domain:provenance D-STAUNEN X6a D-EPI-COT]`
 
 Root-disjoint support already exists in production as `DerivationLedger`
 (`lance-graph-planner/src/nars/support.rs:308-323`, D-EPI-COT C1/C2). **Next
-probe (P-X6A-LEDGER):** `xlog-relcomp-probe` exports a plain-text fixture
-(source reports, their edges, the closure's derivations); a planner dev test
-replays it into the ledger. `pooled` must agree with the label on {A}/{A,B}
-and on disjoint {A},{B}. On {A,B},{B,C},{A,C} they differ by design: the label
-has 3 environments, `pooled` selects 1. The test pins that. The probe crate
-does not depend on the planner (arrow 60 vs 58; path vs git ndarray).
-**Kill:** `pooled` and the label disagree on a case they are meant to share.
-This decides whether X6a is already met by existing code.
+probe (P-X6A-LEDGER):** `xlog-relcomp-probe` exports a plain-text fixture (the
+source roots and the edge mask each reported); a planner dev test replays it
+into the ledger. `pooled` must agree with the probe's mask-computed supports
+on {A}/{A,B} and on disjoint {A},{B}. On {A,B},{B,C},{A,C} they differ by
+design: three minimal supports, `pooled` selects 1. The test pins that. The
+probe crate does not depend on the planner (arrow 60 vs 58; path vs git
+ndarray). **Kill:** `pooled` and the probe disagree on a case they are meant to
+share. This decides whether X6a is already met by existing code.
 
 **Fruit:** High-signal
 **Status:** Open.
 
-## 2026-10-31 — Recursion never emits a count, and one trace is not disjointness evidence
+## 2026-10-31 — Recursion never emits a count
 
-`[P2 @falsifier-designer domain:xlog D-STAUNEN X2 X6a]`
+`[P2 @falsifier-designer domain:xlog D-STAUNEN X2]`
 
-Two guards from the D-STAUNEN co-research, both offline. **P-REC-NO-COUNT:**
-no function returns a derivation multiplicity for a recursive fact (all-tree
-N[X] is infinite under recursion, arXiv 2202.10766 §3.2); twin: the acyclic
-count is admitted. **P-TRACE-NOT-DISJOINT:** on the diamond, the roots of
-`recursive::trace` number 1 while the `support` label has 2; twin: a chain,
-where they agree. **Kill:** an API yields a count for a recursive fact, or a
-single trace is accepted as evidence that roots are disjoint.
+**P-REC-NO-COUNT:** no function returns a derivation multiplicity for a
+recursive fact (all-tree N[X] is infinite under recursion, arXiv 2202.10766
+§3.2); twin: the acyclic count is admitted. **Kill:** an API yields a count for
+a recursive fact. (A trace-versus-label probe proposed alongside it was dropped:
+`recursive::trace` rebuilds a node path and is not the traceroute, DR256
+capstone §C.5; D-DT64-7 F8.)
 
 **Fruit:** Low-hanging
 **Status:** Open.
