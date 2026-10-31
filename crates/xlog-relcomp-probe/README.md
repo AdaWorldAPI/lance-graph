@@ -406,8 +406,14 @@ shortest-path length.
   (`None`).
 
 Evidence and derivations are counted separately:
-- On the diamond, `path(1, 5)` has 2 derivations. With one observer they rest on 1 root; with a
-  second observer reporting one branch, the same 2 derivations rest on 2 roots.
+- Independent support is the set of minimal environments of source roots that entail the answer:
+  the ATMS label, PosBool provenance. Lineage (every root any derivation touches) is a separate,
+  weaker count.
+- On the diamond, `path(1, 5)` has 2 derivations. With one observer they rest on one environment
+  `{A}`. If B reports `1->3->4` but only A reports `4->5`, the derivations rest on `{A}` and
+  `{A, B}`; absorption leaves `{A}`, so B adds no independent support, although lineage touches 2
+  roots. If B also reports `4->5`, `{A}` and `{B}` are disjoint: 2 independent supports. Lineage is
+  2 in both cases.
 - XLOG's trace and an egglog proof over one register are two consumers with two program hashes and
   one root: 1 independent observation.
 
@@ -423,5 +429,11 @@ Disable runs for the traceroute and provenance (committed first, one patch at a 
 | program hash covers the facts | `provenance_changes_when_and_only_when_its_inputs_change` |
 | root ignores the observer | `reordering_a_report_is_not_a_new_observation` |
 | a base fact reads as composed | `readings_follow_the_trace_of_the_real_closure`, `provenance_changes_…` |
+
+Disable runs for the minimal-environment label (2026-10-31, after the co-research on the D-STAUNEN
+arc found that the first version counted lineage and called it independent support): dropping
+absorption, keeping only the first reporter of a fact, `disjoint` always true and `disjoint` always
+false each turn `derivation_multiplicity_is_not_independent_evidence` red, at four different
+assertions.
 
 One mutant stays green and is equivalent, not a missing test: searching for the last round that holds `(x, y)` instead of the first. Each round's delta excludes everything already derived, so a pair appears in exactly one round.
