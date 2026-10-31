@@ -24,3 +24,7 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # the contract from git `main`; the root `[patch]` maps that to the member.
 ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The execution-binding seam (`binding`): DT64 resolves and admits a method,
+# this crate executes it. Both are zero-dep beyond the contract.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
