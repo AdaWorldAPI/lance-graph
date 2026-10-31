@@ -148,6 +148,10 @@ exclude = [
     # D-TRACT-HARVEST-0 lab probe: Tract as a cold ONNX frontend. Own [workspace];
     # no native crate depends on it. `cargo test --manifest-path crates/tract-harvest-probe/Cargo.toml`.
     "crates/tract-harvest-probe",
+    # Mandatory-codegraph probes P2/P3/P9: what OGAR's existing structures can
+    # express about behaviour. Own [workspace]; pulls OGAR and a ruff frontend.
+    # `cargo test --manifest-path crates/ogar-behavior-probe/Cargo.toml`.
+    "crates/ogar-behavior-probe",
     # D-SAG-6-1 lab probe: rust-analyzer (`ra_ap_*`) as a cold Rust indexer.
     # Own [workspace]; nothing depends on it. `cargo run --release` from its dir.
     "crates/sag-ra-probe",
