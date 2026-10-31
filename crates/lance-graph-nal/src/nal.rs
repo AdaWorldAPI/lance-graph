@@ -18,7 +18,7 @@ use lance_graph_mask_risc::{
     CompiledProgram, CrossPowerSums, Foreign, Lowering, Out, Planes, Pred, Program, Scratch, Value,
 };
 use lance_graph_r2il::{procs, FoldDialect, FoldError, Val, INT_S_LESS, LOAD, POP_COUNT};
-use ogar_loco::{Dialect, FnIndex};
+use ogar_loco::FnIndex;
 
 use crate::{
     evidence, Aperture, Bound, NalError, Statement, HORIZON, LANE_C, LANE_EVIDENCE, LANE_F, LANE_W,

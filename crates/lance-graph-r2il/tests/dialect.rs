@@ -11,7 +11,7 @@ use lance_graph_r2il::{
     Addr, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_EQUAL, INT_LESS, INT_LESS_EQUAL,
     INT_MULT, INT_NOT, INT_OR, INT_SUB, INT_S_DIV, INT_S_LESS, INT_XOR, LOAD, MAX_SLOTS, POP_COUNT,
 };
-use ogar_loco::{Dialect, FnIndex};
+use ogar_loco::FnIndex;
 use ogar_r2il::{
     R2ILFn, ALL, ANY, BLEND, GROUP_SUM, KEEP, KEY_RUNS, R2IL_BASE, RANGE, SCATTER_OR, SUM, VIA,
 };
