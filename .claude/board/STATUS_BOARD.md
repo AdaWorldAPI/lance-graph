@@ -23,6 +23,7 @@
 | D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
 | D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
 | D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (ndarray only, no `xlog-*` dep, no plan type) once plan §4 holds | Queued | N1–N5 |
+| D-XLOG-NATIVE-6 | probe executes on `ndarray::simd` (`src/native.rs`): support via `eq_u32_to_mask` / `mask_scatter_or_u32` / `mask_and`, bag count via `masked_group_count_u32` ×2 + `checked_binary_i64`; DR `LocalMap` up to 256; register path kept as differential (plan Amendment B) | In PR | lab probe |
 | D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | In PR | lab execution only |
 
 ## D-LITHO — the photolithography contract (2026-10-30)

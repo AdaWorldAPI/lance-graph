@@ -139,3 +139,27 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 `tests/epi5_reading.rs` pins these rules.
 
 **A.4 Still open.** Method identity: `MethodSignature` vs `MethodRef` vs Tract's `MethodKey` (EXO-50). Whether a frame records the store's catalogue extent (addendum 7, D8 owner). The XLOG and polyfill lenses' production classids and the XLOG Epi5 declaration (OGAR). A native home for the many-to-many join (D-XLOG-NATIVE-3).
+
+## Amendment B (2026-10-31): execution on the `ndarray::simd` polyfill
+
+Operator: refactor XLOG onto the `ndarray::simd` polyfill (CubeCL as an intermediary only in the worst case). It was not needed: every function below is on the `ndarray::simd` facade, including `checked_binary_i64` (ndarray #407, merged and read in the checkout).
+
+`crates/xlog-relcomp-probe/src/native.rs` is now the probe's execution path for the admitted two-atom chain. Each step is one function:
+
+| step | `ndarray::simd` |
+|---|---|
+| a bound end (`X == x`, `Z == z`) | `eq_u32_to_mask` |
+| each side projected onto Y | `mask_scatter_or_u32` (the demanded result, never an intermediate) |
+| support = forward ∧ backward | `mask_and` |
+| rows per Y on each side | `masked_group_count_u32` |
+| derivations per Y | `checked_binary_i64(I64Op::Mul)`; an overflow is refused |
+
+- The Y domain is DR's `lance_graph_dt64::dr::LocalMap`, at 64 or 256 wide. The native path is therefore not limited to one 64-slot tile; a 200-Y fixture is answered that the register refuses.
+- `admit_count` admits XLOG's compiled `count` rule (`Count` keyed by the answer column, over a join `admit` accepts) and refuses any other aggregate (`UnsupportedAggregate`).
+- The DR64 register path (`propagate`) stays as the differential. Every Gate B answer asserts that the native forward, backward and answer masks equal the register's.
+- The overflow refusal is not exercised by a test: per-side counts are bounded by the row count, so no fixture reaches `i64`.
+
+Effect on §2:
+- The two-atom many-to-many chain projected onto Y (support and bag count) now has a native home. Its rows move from NATIVE to INLINE: they are tested against both oracles.
+- Still NATIVE: a many-to-many join whose answer keeps both ends (X, Z), and chains of more than two atoms.
+- §4 condition 2 holds for the projected chain only.

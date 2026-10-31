@@ -326,3 +326,19 @@ certifies nothing, and a bag count is never a certification or a truth value.
 `raw5 == 0` reads as `Direct x Open`, so an unstamped composed edge would
 claim a direct relation. Without a declaration for the XLOG lens, projection
 refuses (`UndeclaredClass`).
+
+## Execution on the `ndarray::simd` polyfill (`src/native.rs`)
+
+The admitted chain is answered with `ndarray::simd` functions, one per step:
+
+- a bound end: `eq_u32_to_mask`;
+- each side projected onto Y: `mask_scatter_or_u32`;
+- the support: `mask_and`;
+- the bag count: `masked_group_count_u32` for each side, then `checked_binary_i64(Mul)`.
+
+The Y axis is DR's `lance_graph_dt64::dr::LocalMap` (64 or 256 wide). `admit_count` admits XLOG's `count` rule. The DR64 register path is kept as the differential: `tests/gate_b.rs` asserts that every native mask equals the register's. `tests/litho.rs` checks the native counts against both oracles. Disable runs, each turning tests red:
+
+- dropping the AND: 5 failed;
+- adding instead of multiplying: 2 failed;
+- ignoring a bound: 5 + 1 failed;
+- admitting any aggregate: 1 failed.
