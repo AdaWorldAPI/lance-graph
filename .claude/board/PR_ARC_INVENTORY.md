@@ -1,3 +1,9 @@
+## 2026-10-31 — lance-graph PR #1880 (merged `4d677ba`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `7b8d4b6`) — D-MIST-NATIVE-1b: makor citations addressed via deepnsm-v2 hydrate, no classid
+
+- **Added:** `mistaber-kripke-probe/fixtures/makor.tsv`, 141 real `makor` citations from the compiled Mistaber ontology. `src/makor.rs` lays them over a Yoreh De'ah outline (siman = chapter, seif = verse) with `deepnsm-v2` `hydrate`: each citation is a `Spo` at its seif's `NiblePath`, with no classid, `promote`, key or `NodeRow`. `tests/makor.rs` adds 8 tests. CI paths now include `deepnsm-v2` and its dependencies. Plan §10; entry `2026-10-31-d-mist-native-1b-makor-hydrate.md`.
+- **Reverted inside the PR:** the #1879 commits. That PR, which put the address in the row key, answered a question selected by mistake and was closed unmerged.
+- **Confidence:** LAB, measured: 25 tests + 2 doctests; disable runs M1, M3 and M4 red; M2 (seif dedup) recorded as representation, not addressing. Merged before Codex and CI finished.
+
 ## 2026-10-31 — lance-graph PR #1875 (merged `b7adb0c`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `ed71916`) — D-MIST-NATIVE-1a: HHTL16 Register128 rows replace the name interner
 
 - **Added:**

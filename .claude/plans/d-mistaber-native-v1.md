@@ -174,7 +174,8 @@ Known limit: replacing `hop` with raw `compose` turns nothing red. The binding i
 - **Fixture:** `crates/mistaber-kripke-probe/fixtures/makor.tsv` holds 141 real `makor(rule, sa("yd:siman:seif"))` citations from the compiled Mistaber ontology (`AdaWorldAPI/mistaber@b50bf33`). They cover 10 seifim: 87:1, 87:3–9, 89:1 and 100:6.
 - **Mapping** (`src/makor.rs`): Yoreh De'ah is book 0, siman is the chapter and seif is the verse. Each citation is a `Spo(rule ordinal, CITES, seif ordinal)` laid at its seif's verse node. Names exist only in `parse_makor`.
 - **Refusals:** a siman past the 255-per-level capacity has no node, and its citations are counted in `Hydration::unaddressed`, never folded into another node. More rule or seif ordinals than a `u16` holds are refused, never saturated.
-- **Dependency:** the probe depends on `deepnsm-v2`, a standalone lab crate, not an OGAR concept. The only global piece used is the contract's `NiblePath`. If the generic part (outline → spawned tree → addressed items) is ever needed outside a lab, it belongs beside `NiblePath` in the contract, with both `deepnsm-v2` and Mistaber consuming it.
+- **Dependency:** the probe depends on `deepnsm-v2`. It is not an OGAR concept; the address it hands out is the contract's `NiblePath`.
+  - ⊘ Correction (operator, 2026-10-31): an earlier version of this bullet called `deepnsm-v2` a "lab crate" and proposed moving the outline → tree → addressed-items step into the contract. Both are wrong. `deepnsm-v2` is THE grammar and language intake arm, so Mistaber's makor intake belongs there.
 
 **Tests** (`tests/makor.rs`, 8):
 

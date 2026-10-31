@@ -6,6 +6,6 @@
 - Each lands on its seif's `NiblePath`. No classid, `promote`, key or `NodeRow` is involved.
 - A siman past the 255-per-level capacity is refused into `unaddressed`.
 - 8 tests; disable runs M1, M3 and M4 red. M2 (seif dedup) is recorded as representation, not addressing.
-- `deepnsm-v2` is a lab crate, not a global concept. The global piece is the contract's `NiblePath`.
+- `deepnsm-v2` is THE grammar and language intake arm (operator, 2026-10-31; this line first called it a lab crate). The address it hands out is the contract's `NiblePath`.
 
-STATUS: measured | OUTCOME: Mistaber citations hydrate as NiblePaths with no classid | OPEN: whether the generic outline→tree→addressed-items step moves beside `NiblePath` in the contract.
+STATUS: measured | OUTCOME: Mistaber citations hydrate as NiblePaths with no classid | OPEN: none for addressing; the intake belongs in `deepnsm-v2`.
