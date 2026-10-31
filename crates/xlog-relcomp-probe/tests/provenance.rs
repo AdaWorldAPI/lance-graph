@@ -364,49 +364,105 @@ fn reordering_a_report_is_not_a_new_observation() {
     );
 }
 
+type Env = BTreeSet<u64>;
+
+/// The minimal sets of roots that entail `path(x, y)`: the ATMS label, or
+/// PosBool provenance, over source roots. A fact's label is one singleton
+/// environment per source that reports it. A derivation's label is the
+/// pairwise union of its facts' labels, and the answer's label is the union
+/// over derivations. Every environment that contains another is dropped
+/// (absorption: `A + A·B = A`).
+fn label(derivs: &[Vec<(u32, u32)>], sources: &[Source<'_>]) -> BTreeSet<Env> {
+    let mut answer: BTreeSet<Env> = BTreeSet::new();
+    for d in derivs {
+        let mut envs: BTreeSet<Env> = [Env::new()].into();
+        for f in d {
+            let reporters: Vec<u64> = sources
+                .iter()
+                .filter(|s| s.facts.contains(f))
+                .map(root)
+                .collect();
+            assert!(!reporters.is_empty(), "every fact has an observer");
+            envs = envs
+                .iter()
+                .flat_map(|e| {
+                    reporters.iter().map(move |&r| {
+                        let mut e = e.clone();
+                        e.insert(r);
+                        e
+                    })
+                })
+                .collect();
+        }
+        answer.extend(envs);
+    }
+    let all = answer.clone();
+    answer.retain(|e| !all.iter().any(|o| o != e && o.is_subset(e)));
+    answer
+}
+
+/// The roots any derivation touches: lineage. It is not independent support.
+fn lineage(derivs: &[Vec<(u32, u32)>], sources: &[Source<'_>]) -> BTreeSet<u64> {
+    derivs
+        .iter()
+        .flatten()
+        .flat_map(|f| {
+            sources
+                .iter()
+                .filter(move |s| s.facts.contains(f))
+                .map(root)
+        })
+        .collect()
+}
+
+/// Independent supports: minimal environments that share no root.
+fn disjoint(label: &BTreeSet<Env>) -> bool {
+    let envs: Vec<&Env> = label.iter().collect();
+    envs.iter()
+        .enumerate()
+        .all(|(i, a)| envs[i + 1..].iter().all(|b| a.is_disjoint(b)))
+}
+
 #[test]
 fn derivation_multiplicity_is_not_independent_evidence() {
     // path(1, 5) has two derivations, 1->2->4->5 and 1->3->4->5.
     let derivs = derivations(DIAMOND, 1, 5);
     assert_eq!(derivs.len(), 2);
-
-    // Case 1: one observer reported every fact. Two derivations, one root.
-    let roots_of = |sources: &[Source<'_>]| -> BTreeSet<u64> {
-        derivs
-            .iter()
-            .flatten()
-            .map(|f| {
-                let s = sources
-                    .iter()
-                    .find(|s| s.facts.contains(f))
-                    .expect("every fact has an observer");
-                root(s)
-            })
-            .collect()
+    let a_branch: &[(u32, u32)] = &[(1, 2), (2, 4), (4, 5)];
+    let b_branch: &[(u32, u32)] = &[(1, 3), (3, 4)];
+    let b_full: &[(u32, u32)] = &[(1, 3), (3, 4), (4, 5)];
+    let src = |o, f| Source {
+        observer: o,
+        facts: f,
     };
-    let one = [Source {
-        observer: A,
-        facts: DIAMOND,
-    }];
-    assert_eq!(roots_of(&one).len(), 1);
-    assert_ne!(derivs.len(), roots_of(&one).len());
 
-    // Case 2: a second observer reported the 1->3->4 branch. The derivations
-    // are unchanged; the independent evidence is now two roots.
-    let a_facts: &[(u32, u32)] = &[(1, 2), (2, 4), (4, 5)];
-    let b_facts: &[(u32, u32)] = &[(1, 3), (3, 4)];
-    let two = [
-        Source {
-            observer: A,
-            facts: a_facts,
-        },
-        Source {
-            observer: B,
-            facts: b_facts,
-        },
-    ];
-    assert_eq!(derivations(DIAMOND, 1, 5).len(), 2);
-    assert_eq!(roots_of(&two).len(), 2);
+    // Case 1: one observer reported every fact. Two derivations, one
+    // environment {A}.
+    let one = [src(A, DIAMOND)];
+    assert_eq!(label(&derivs, &one).len(), 1);
+    assert_eq!(lineage(&derivs, &one).len(), 1);
+
+    // Case 2: B reported 1->3->4, but 4->5 only A reported. The derivations
+    // rest on {A} and {A, B}; absorption leaves {A}. Lineage touches two
+    // roots, yet B never supports path(1, 5) without A: one independent
+    // support, not two.
+    let two = [src(A, a_branch), src(B, b_branch)];
+    assert_eq!(lineage(&derivs, &two).len(), 2);
+    let l = label(&derivs, &two);
+    assert_eq!(l.len(), 1);
+    assert_eq!(l.iter().next().unwrap().len(), 1);
+
+    // Case 3: B also reported 4->5. Now {A} and {B} each entail path(1, 5)
+    // on their own and share no root: two independent supports.
+    let three = [src(A, a_branch), src(B, b_full)];
+    let l = label(&derivs, &three);
+    assert_eq!(l.len(), 2);
+    assert!(disjoint(&l));
+    // Lineage counts two roots in both cases, so it cannot tell them apart.
+    assert_eq!(lineage(&derivs, &three).len(), 2);
+    // Two environments that share a root are not independent.
+    let shared: BTreeSet<Env> = [[1u64, 2].into(), [2u64, 3].into()].into();
+    assert!(!disjoint(&shared));
 }
 
 #[test]
