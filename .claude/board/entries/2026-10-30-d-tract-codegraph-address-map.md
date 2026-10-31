@@ -1,0 +1,165 @@
+# D-TRACT-CODEGRAPH-ADDRESS (for DT64): how a codegraph gets an address, and where the codegraph already is
+
+**Date 2026-10-30 · D-id D-TRACT-SHAPE-1 · Status OPEN (map, no code) · For the DT64 session**
+
+The question: Tract compiles by rewriting one typed op graph (`declutter` then per-op `codegen` patches). We want the same codegraph for every disassembled program, addressed in the substrate. How is that address minted, where can the graph be inspected today, and should `lance-graph-r2il` get a second classid for it?
+
+The codegraph meant here is the Tract-style codegraph: the typed op graph Tract keeps and rewrites, which burn does not have (operator, 2026-10-30: it was the main reason for choosing Tract). "KPEA" names a private consumer computation whose codegraph is wanted. It is not defined in this repository, and this entry carries no detail about it.
+
+> Correction (same day): an earlier version of this paragraph defined "KPEA" as the Tract codegraph itself. That was wrong: the search behind it covered lance-graph, OGAR and ndarray only.
+
+## 1. R2IL already has two classids for one table
+
+`ogar-r2il` declares one opcode table under two provisional concepts in the BinaryLifting domain (`0xC4XX`):
+
+| Concept | Reading | Source |
+|---|---|---|
+| `0xC400` `CONCEPT_R2IL_MACHINE` | scalar machine semantics (r2sleigh interpreter) | `ogar-r2il/src/lib.rs:536` |
+| `0xC401` `CONCEPT_R2IL_FOLD` | the same table over populations (`lance-graph-r2il::FoldDialect`) | `ogar-r2il/src/lib.rs:545` |
+
+Both are plugged with `VocabularyRegistry::plug(concept, &checked)` (`ogar-r2il/src/lib.rs:1491`). `compose` samples the table once, so arity, pushes and body refs are identical under both. Both are marked PROVISIONAL: not in `ogar-vocab`'s `CODEBOOK`, and no persisted GUID may carry them until they are.
+
+A codegraph reading would be a third concept on the same table, e.g. `0xC402`. Its nodes are R2IL ops, its edges are def-use, and it is scoped to one function. It is the same pattern again, with no new vocabulary.
+
+## 2. Minting the address
+
+Per the 32-bit address (concept 16 | local 16):
+
+- **Concept half (16 bits):** OGAR mints it. The three BinaryLifting concepts go into `ogar-vocab`'s `CODEBOOK` together, then through hotplug activation. Until then all three stay lab-only. This repo does not mint.
+- **Local half (16 bits):** this is the app lens (`ogar-vocab/src/app.rs`). Per-op signatures are fields of that lens, exposed through `WideFieldMask` blocks of 256. That is what `tract-harvest-probe` already does for ONNX (65 fields, `Registry::revision()` digests the exposed set).
+- The "behaviour-slot region `0xF000..0xFFFF`" in the architecture diagram is marked as a candidate. I found no code for it. Treat it as a proposal.
+
+## 3. Where the codegraph can be inspected today
+
+| Source | Graph | Rewrites / provenance |
+|---|---|---|
+| r2sleigh `r2ssa` (disassembled programs) | `SsaGraph` with `BlockId` / `InstId` / `ValueId` / `UseSite` (`graph.rs:13-244`), `CFG` (`cfg.rs:503`), `def_use` (`defuse.rs:123`), dominator tree, phi placement; `SsaArtifact` per function (`function/mod.rs:379`) | `OpArena` + `OpId`, with a `Pass` recorded for every op a pass minted or removed (`arena.rs:53,116`). This is the rewrite history. |
+| r2sleigh `r2rewrite` | hash-consed term arena over `r2ssa` expressions | certified rewrites, each rule a proven equivalence: the analogue of Tract's declutter |
+| r2sleigh `r2dec` | renders from sealed facts | codegen with an obligation ledger |
+| Tract | `TypedModel` = `Graph<F,O>` (`core/src/model/graph.rs:32`); `tract dump --audit-json` | `declutter()` + `optimize()` (`typed.rs:185`); per-op `TypedOp::codegen` → `TypedModelPatch` (`ops/mod.rs:376`) |
+| lance-graph `tract-harvest-probe` | `dr3::Tiled` op/dep graph (DR64, global to local, ≤ 65,536 positions) | none yet: it binds ops, it does not rewrite |
+| `ogar-loco` `Program` | functions by index, bodies by reference byte (`program.rs`) | call-graph level only, no dataflow |
+| burn-onnx | none at run time (emits Rust source + weights) | none |
+
+So the codegraph for disassembled programs already exists. Every function that goes through `r2ssa` becomes an SSA graph with def-use edges, dominators and a pass log. What it lacks is a substrate address and a resident form.
+
+## 4. `lance-graph-r2il`: second classid or second consumer?
+
+`lance-graph-r2il` describes itself as the fold reading only: `FoldDialect` folds R2IL calls into mask-risc programs and holds no graph. A third reading belongs in a sibling consumer, not in that crate:
+
+- **(a) recommended:** a new consumer reads `0xC402`. It imports an `SsaArtifact`'s ops and def-use edges as positions in a DR64 `Tiled` graph, keyed by (function GUID, `OpId`), with `Pass` provenance as a field. The fold dialect stays unchanged.
+- **(b)** giving `lance-graph-r2il` a second classid would mix the fold reading with a graph reading in one crate whose doc says it is one reading.
+
+## 5. Constraints this must respect
+
+- **"R2IL is EXECUTED, never pre-converted"** (`ogar-r2il/src/lib.rs:26-35`, 2026-08-26). The `ruff_r2il` SPO pre-pass is ruled out as a lossy static shadow. A codegraph reading must therefore be an index over the same executed ops: addresses of `OpId`s, never an exported projection that replaces them. This is the main risk and needs OGAR's call.
+- **DT64-5 scope:** no new runtime, no ONNX interpreter, no tensor AST. The codegraph is an addressed view, never an engine.
+- **Zone:** `r2ssa` derives `serde` on its artifacts. The import must read the arena in place, not round-trip through a wire format.
+- **Cost of "every program":** making a graph mandatory for admission (no substrate address without an `SsaArtifact`) is a gate on `r2engine`'s request scheduling. Its cost has not been measured.
+
+## 6. A collision found while mapping
+
+The probe's lab lens `ONNX_LENS = 0x0F00` sits in the Geo domain `0x0FXX` (`ogar-vocab/src/lib.rs:1160`). It is never persisted, but it must move. ONNX is not binary lifting, so OGAR decides where it belongs:
+
+- an ONNX graph lowered onto the codegraph reading where its ops map to R2IL/fold ops, or
+- its own concept.
+
+## 7. The shapes match: one container, classid dispatch per reading
+
+| Element | Tract `TypedModel` | r2ssa `SsaGraph` | probe `OnnxGraph` (`dr3.rs`) |
+|---|---|---|---|
+| node | `Node { id, op, inputs, outputs }` | `GraphInst { id, block, ordinal, output, payload }` | index + `args` / `outs` |
+| op | `dyn Op` (open set) | `SSAOp<ValueId>` (closed R2IL enum) | `MethodKey` (lens + ordinal) |
+| value | `OutletId { node, slot }` | `ValueId`, defined by `def_of` | output index |
+| use | `InletId { node, slot }` | `UseSite { inst, input_idx }` | `args[node][slot]` |
+| fact | shape + dtype (`Outlet.fact`) | width + storage (`SSAVar`) | `facts` |
+
+All three are def-use graphs with operands addressed as (node, position). Differences:
+- r2ssa has blocks and `Phi`; Tract is one DAG with nested bodies inside `Scan`/`If`/`Loop`.
+- Tract nodes may have several outputs.
+- A fact is a tensor type in one and a bit width in the other.
+
+So one container carries:
+- op tag;
+- ordered (node, slot) inputs and outputs;
+- a fact per value;
+- block id;
+- a body reference for nested regions (as `ogar-loco::Program` already has);
+- optionally an equivalence class.
+
+Each reading's classid selects its op table and fact type at compile time.
+
+Other readings with the same shape (checked where code exists):
+- **egglog:** `TermDag` terms (`egglog-r2il-probe/src/term.rs`), plus equivalence classes.
+- **DialEgg / MLIR:** ops, SSA operands, results, regions. Plans only; no code in the tree.
+- **ruff (shipped, R2IL only):** `ruff_r2il`'s `ore` stage (latest commit `75f4f84`) walks r2ssa's graph and emits typed rows (`ore.rs:694-800`):
+  - `OreFact::Op`: opcode, ordinal, `input_arity`, `has_output`.
+  - `OreFact::Operand`: position `Input(n)` or `Output`, value id, and the varnode's space, offset and size.
+  - `OreFact::Edge`: a CFG edge tagged `Normal`, `True`, `False` or `Back`.
+  - `OreFact::PhiInput`, `MemoryUse` and `MemoryDef`.
+
+  `furnace` turns these into flat `FlatFact` rows: `Copy`, 88 bytes, facet-addressed, each referring to others only by `FactId`. That is the codegraph shape as a flat edge list. It has no graph container and no rewrite or pass layer, and its lance-graph sink is a trait with an offline backend only. Conflict to settle: `ogar-r2il` says `ruff_r2il` "is NOT on this path and never will be" because it pre-converts R2IL. That is fine for a harvest, but it cannot serve as the executed codegraph without contradicting that ruling.
+- **ruff (not a codegraph):**
+  - `ruff_spo_triplet::ir::ModelGraph` lists the names a function reads, writes, raises, traverses and calls. It has no operand slots or value ids, and `expand()` collapses it to triples.
+  - `ruff_cpp_spo::walk_free_functions` is a function-level call graph.
+- **ruff (not ours):** `ruff_python_semantic`'s bindings and references form a def-use graph in upstream ruff. Nothing here exports it; it is only a possible source for a Python reading. No codegraph for the Python, C# or Ruby frontends is planned (`ruff/.claude/plans/r2il-behavioral-ir-v1.md` covers R2IL only).
+- **ACT-R:** no code or plan found. A production graph would also need a guard (WHEN) field.
+
+## 7b. Proposal: a Rust reading, and the row layout (not built)
+
+**The Rust reading.** It has two levels in the same container. No Rust code-analysis graph exists in lance-graph, ruff or OGAR today.
+- **Item graph.** Nodes are crates, modules, items, impls and trait methods. Edges are contains, implements, uses, calls and re-exports. Every node carries a source span (file plus byte range) and its name resolution, since refactoring edits source text.
+- **Body graph per function, from MIR:**
+  - basic block = block id;
+  - `place = rvalue` or a terminator (`Call`, `SwitchInt`, `Drop`) = op;
+  - operands (`Copy` / `Move` / `Constant`) = ordered input slots;
+  - written place = output;
+  - type plus move/borrow kind = fact;
+  - closures = body reference.
+- **Source.** The stable route is rust-analyzer's `ra_ap_*` crates (items, spans, name resolution, its own MIR lowering). rustc's stable_mir needs nightly, which the repos rule out. Versions and the completeness of `ra_ap`'s MIR are UNVERIFIED.
+
+**Purpose and cost.** These readings serve refactoring and analysis, and they are cold. Tract itself rewrites once at load (`into_optimized`); inference runs the bound plan. The rule is that analysis output reaches execution only as an already-bound plan, never as a codegraph consulted at run time.
+
+**Row layout.** This holds for every reading: R2IL, ONNX, egglog, MLIR and Rust.
+
+| Part | Layout |
+|---|---|
+| key | the V3 4+12 facet per node, value and use site. Classid high half = the reading's concept; low half = the app lens. The 12 bytes are carved by the reading's ClassView, e.g. `4×(u8:u8:u8)` = function, block, instruction, operand slot. Each byte is a cascade tier, so an axis exceeds 256 positions without widening. |
+| edges | one row per use, keyed by the use site, pointing at the defining value's key. Variable arity becomes more rows (the `ruff_r2il` rule). |
+| attributes | facts, spans, attributes and pass provenance in value columns. The row is not 16 bytes; `ruff_r2il`'s `FlatFact` is 88 bytes and carries a 16-byte key. |
+
+**Do not copy `ruff_r2il`'s `VarnodeFacet` (`facet.rs:47`).**
+- It puts the space class in the classid's low half. The file records this as a known tension.
+- It reads the 12 bytes as a u64 offset plus a size, a wide axis-free reading the canon discourages.
+
+## 8. What the Tract codegraph is made of (bf7ca16)
+
+`Optimizer::declutter()` (`core/src/optim/mod.rs:104`) is a pass list:
+- `PropConst`
+- `PropagateUniformTdim`
+- `PropagateRoi`
+- `FoldUniformMask`
+- per-op `declutter`
+- `PushSliceUp`
+- `PushSplitDown`
+- `ConcatThenEinsum`
+- `ChangeAxes`
+
+`Optimizer::codegen()` is `PropConst`, `MergeConsecutiveSameRoleAxes`, per-op `codegen`, `declutter` again, `PushSplitDown`, then per-op `fuse`.
+
+| Per-op hook | Implementations | Files |
+|---|---|---|
+| `fn declutter` | 47 | 37 |
+| `fn codegen` | 17 | 13 |
+| `fn fuse` | 6 | 4 |
+| `fn change_axes` | 27 | 26 |
+| `fn axes_mapping` | 31 | 29 |
+
+The counts are a grep census over `core`, `hir`, `onnx-opl`, `onnx` and `linalg` (`linalg` in the implementation counts only). Each `fn` reads as one implementation; trait declarations are included. The harvest so far covers per-op semantics only; none of these rewrites are harvested yet.
+
+## Open for DT64
+
+1. One table, three readings (`0xC402`), or a separate concept for the graph?
+2. OGAR to mint `0xC400`–`0xC402` together?
+3. Which crate owns the `r2ssa` import, and does it satisfy the execute-not-pre-convert ruling?
+4. Where does the ONNX lens move to?

@@ -1,0 +1,28 @@
+# sag-ra-probe — D-SAG-6-1 lab probe, read-only.
+# Measures whether rust-analyzer's published library crates (`ra_ap_*`) can
+# index a Cargo workspace on the pinned stable toolchain: load time, symbol
+# index size (the same `StaticIndex` rust-analyzer's SCIP exporter uses), MIR
+# lowering coverage per body, and peak memory (measured from outside).
+# Own [workspace] root, excluded from the lance-graph workspace. Run from here:
+#   cargo run --release -- /path/to/workspace
+# Nothing depends on this crate.
+[package]
+name = "sag-ra-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+anyhow = "1"
+ra_ap_hir = "0.0.358"
+ra_ap_ide = "0.0.358"
+ra_ap_load-cargo = "0.0.358"
+ra_ap_project_model = "0.0.358"
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+debug = 0

@@ -367,7 +367,7 @@ impl Registry {
     }
 }
 
-fn attrs_match(node: &SourceNode, rules: &[AttrRule]) -> bool {
+pub(crate) fn attrs_match(node: &SourceNode, rules: &[AttrRule]) -> bool {
     // Every node attribute is either the tensor `value` of a Constant or a
     // listed discrete attribute with the required value.
     let listed = node.attrs.iter().all(|(n, a)| {
@@ -424,7 +424,7 @@ fn broadcast_k3(a: &[Dim], b: &[Dim]) -> K3 {
     }
 }
 
-fn guard_true(_: &NodeView) -> K3 {
+pub(crate) fn guard_true(_: &NodeView) -> K3 {
     K3::True
 }
 
@@ -597,7 +597,7 @@ fn arg_shape<'a>(v: &'a NodeView, i: usize) -> Option<&'a Vec<Dim>> {
 
 /// `Gather` over shape data: the indices must be a constant (their validity
 /// is otherwise a run-time fact) inside `[-d, d)` of the gathered dimension.
-fn guard_gather(v: &NodeView) -> K3 {
+pub(crate) fn guard_gather(v: &NodeView) -> K3 {
     let Some(data) = arg_shape(v, 0) else {
         return K3::Unknown;
     };
@@ -730,7 +730,7 @@ fn reshape_target(input: &[usize], target: &[i64]) -> Option<Vec<usize>> {
 }
 
 /// `Reshape` with a constant target over a fully known input shape.
-fn guard_reshape(v: &NodeView) -> K3 {
+pub(crate) fn guard_reshape(v: &NodeView) -> K3 {
     let Some(target) = v.consts.get(1).copied().flatten().and_then(Value::i64s) else {
         return K3::Unknown;
     };
@@ -989,7 +989,7 @@ fn broadcast_shapes(a: &[usize], b: &[usize]) -> Option<Vec<usize>> {
 
 /// `Expand`: a constant target over a fully known input shape that
 /// broadcasts against it.
-fn guard_expand(v: &NodeView) -> K3 {
+pub(crate) fn guard_expand(v: &NodeView) -> K3 {
     let Some(target) = v.consts.get(1).copied().flatten().and_then(Value::i64s) else {
         return K3::Unknown;
     };
@@ -1014,7 +1014,7 @@ fn guard_expand(v: &NodeView) -> K3 {
 
 // ── DO polyfills: existing native functions only ───────────────────────────
 
-fn f32_arg<'a>(
+pub(crate) fn f32_arg<'a>(
     args: &[&'a Value],
     i: usize,
     node: &SourceNode,
@@ -1275,7 +1275,18 @@ fn reshape_value(v: &Value, shape: &[usize], n: &SourceNode) -> Result<Value, Re
 /// `Gather` over `int64` data: `ndarray`'s `select` along `axis`, then the
 /// index tensor's shape in place of that axis. An index outside `[-d, d)`
 /// refuses.
-fn do_gather_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+pub(crate) fn do_gather_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    // Bool data: the same index walk over the unpacked elements.
+    if let Some(b) = a.first().and_then(|v| unpack_bools(v)) {
+        let as_i64 = Value::I64(b.mapv(i64::from));
+        let mut args = a.to_vec();
+        args[0] = &as_i64;
+        let out = do_gather_i64(&args, n)?;
+        return Ok(match &out[0] {
+            Value::I64(v) => vec![pack_bools(&v.mapv(|x| x != 0))],
+            other => vec![other.clone()],
+        });
+    }
     let x = i64_arg(a, 0, n)?;
     let idx_v = a.get(1).ok_or_else(|| runtime(n, "no indices"))?;
     let idx = idx_v
@@ -1315,7 +1326,7 @@ fn do_unsqueeze(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     Ok(vec![reshape_value(x, &shape, n)?])
 }
 
-fn do_reshape(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+pub(crate) fn do_reshape(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
     let target = a
         .get(1)
@@ -1676,7 +1687,7 @@ fn do_constant_of_shape(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refu
 
 /// `Expand`: `ndarray`'s `broadcast` to the multidirectional broadcast of the
 /// input shape and the target.
-fn do_expand(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+pub(crate) fn do_expand(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
     let target: Vec<usize> = a
         .get(1)
@@ -1698,14 +1709,448 @@ fn do_expand(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
     Ok(vec![match x {
         Value::F32(v) => Value::F32(bc(v, &shape).ok_or_else(bad)?),
         Value::I64(v) => Value::I64(bc(v, &shape).ok_or_else(bad)?),
+        b @ Value::Bool { .. } => {
+            pack_bools(&bc(&unpack_bools(b).ok_or_else(bad)?, &shape).ok_or_else(bad)?)
+        }
         other => return Err(runtime(n, format!("Expand of {:?}", other.dtype()))),
     }])
 }
 
 // ── the table ───────────────────────────────────────────────────────────────
 
-const OPSETS: RangeInclusive<i64> = 13..=18;
-const NO_ATTRS: &[AttrRule] = &[];
+// ── hand-written fields for Jina's remaining op types (plan §0.10) ────────
+
+/// A packed bool tensor as an `ArrayD<bool>` (for the view ops, which move
+/// whole elements).
+fn unpack_bools(v: &Value) -> Option<ArrayD<bool>> {
+    let Value::Bool { shape, words } = v else {
+        return None;
+    };
+    let n: usize = shape.iter().product();
+    let bits = (0..n)
+        .map(|i| (words[i / 64] >> (i % 64)) & 1 == 1)
+        .collect();
+    ArrayD::from_shape_vec(IxDyn(shape), bits).ok()
+}
+
+/// An `ArrayD<bool>` packed, valid bits only.
+fn pack_bools(a: &ArrayD<bool>) -> Value {
+    let mut words = vec![0u64; lance_graph_onnx::mask_words(a.len())];
+    for (i, &b) in a.iter().enumerate() {
+        if b {
+            words[i / 64] |= 1 << (i % 64);
+        }
+    }
+    Value::Bool {
+        shape: a.shape().to_vec(),
+        words,
+    }
+}
+
+fn const_i64s(v: &NodeView, i: usize) -> Option<Vec<i64>> {
+    v.consts.get(i).copied().flatten().and_then(Value::i64s)
+}
+
+/// `Slice` (opset ≥ 10): per listed axis, `[start, end)` with step, ONNX
+/// clamping (negative indices count from the end, then clamp to `[0, d]`).
+/// Positive steps only.
+fn slice_spec(
+    shape: &[usize],
+    starts: &[i64],
+    ends: &[i64],
+    axes: Option<&[i64]>,
+    steps: Option<&[i64]>,
+) -> Option<Vec<Option<(usize, usize, usize)>>> {
+    let r = shape.len();
+    let axes: Vec<usize> = match axes {
+        Some(a) => a.iter().map(|&x| norm_axis(x, r)).collect::<Option<_>>()?,
+        None => (0..starts.len()).collect(),
+    };
+    if starts.len() != axes.len() || ends.len() != axes.len() {
+        return None;
+    }
+    let mut spec = vec![None; r];
+    for (k, &ax) in axes.iter().enumerate() {
+        let step = steps.map_or(Some(1), |s| s.get(k).copied())?;
+        if step <= 0 || spec[ax].is_some() {
+            return None;
+        }
+        let d = shape[ax] as i64;
+        let clamp = |v: i64| (if v < 0 { v + d } else { v }).clamp(0, d) as usize;
+        spec[ax] = Some((clamp(starts[k]), clamp(ends[k]), step as usize));
+    }
+    Some(spec)
+}
+
+fn guard_slice(v: &NodeView) -> K3 {
+    let Some(shape) = arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) else {
+        return K3::Unknown;
+    };
+    let (Some(st), Some(en)) = (const_i64s(v, 1), const_i64s(v, 2)) else {
+        return K3::Unknown;
+    };
+    let present = |i| v.node.inputs.get(i).is_some_and(|s: &String| !s.is_empty());
+    let axes = if present(3) { const_i64s(v, 3) } else { None };
+    let steps = if present(4) { const_i64s(v, 4) } else { None };
+    if (present(3) && axes.is_none()) || (present(4) && steps.is_none()) {
+        return K3::Unknown;
+    }
+    match slice_spec(&shape, &st, &en, axes.as_deref(), steps.as_deref()) {
+        Some(_) => K3::True,
+        None => K3::False,
+    }
+}
+
+fn do_slice(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
+    // Plan and fold pass only the present inputs; an omitted optional input
+    // has an empty name. Map each ONNX input position onto the passed slice.
+    let int = |i: usize| {
+        n.inputs.get(i).filter(|s| !s.is_empty())?;
+        let k = n.inputs[..i].iter().filter(|s| !s.is_empty()).count();
+        a.get(k).and_then(|v| v.i64s())
+    };
+    let st = int(1).ok_or_else(|| runtime(n, "no starts"))?;
+    let en = int(2).ok_or_else(|| runtime(n, "no ends"))?;
+    let (axes, steps) = (int(3), int(4));
+    let spec = slice_spec(&x.shape(), &st, &en, axes.as_deref(), steps.as_deref())
+        .ok_or_else(|| runtime(n, "slice parameters out of range"))?;
+    fn cut<T: Clone>(a: &ArrayD<T>, spec: &[Option<(usize, usize, usize)>]) -> ArrayD<T> {
+        a.slice_each_axis(|ax| match spec[ax.axis.index()] {
+            Some((s, e, step)) => {
+                ndarray::Slice::new(s as isize, Some(e.max(s) as isize), step as isize)
+            }
+            None => ndarray::Slice::from(..),
+        })
+        .to_owned()
+    }
+    Ok(vec![match x {
+        Value::F32(v) => Value::F32(cut(v, &spec)),
+        Value::I64(v) => Value::I64(cut(v, &spec)),
+        b @ Value::Bool { .. } => pack_bools(&cut(
+            &unpack_bools(b).ok_or_else(|| runtime(n, "bad bool"))?,
+            &spec,
+        )),
+        other => return Err(runtime(n, format!("Slice of {:?}", other.dtype()))),
+    }])
+}
+
+/// `Where(C, X, Y)` with f32 values: `X` and `Y` each either one element or
+/// `C`'s shape, so the output has `C`'s shape.
+fn guard_where_f32(v: &NodeView) -> K3 {
+    let Some(c) = arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) else {
+        return K3::Unknown;
+    };
+    let side = |i| match arg_shape(v, i).and_then(|s| known(&Some(s.clone()))) {
+        Some(s) if s.iter().product::<usize>() == 1 || s == c => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
+    };
+    match (side(1), side(2)) {
+        (K3::False, _) | (_, K3::False) => K3::False,
+        (K3::True, K3::True) => K3::True,
+        _ => K3::Unknown,
+    }
+}
+
+/// `blend_f32` / `blend_f32_scalar` (a set bit selects `X`). A scalar `X`
+/// with a tensor `Y` blends `Y` under the complemented condition.
+fn do_where_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let Some(Value::Bool { shape, words }) = a.first() else {
+        return Err(runtime(n, "condition is not a bool tensor"));
+    };
+    let len: usize = shape.iter().product();
+    let x = f32_arg(a, 1, n)?;
+    let y = f32_arg(a, 2, n)?;
+    let flat = |t: &ArrayD<f32>| t.iter().copied().collect::<Vec<f32>>();
+    let mut out = vec![0f32; len];
+    match (x.len() == 1, y.len() == 1) {
+        (false, false) => ndarray::simd::blend_f32(words, &flat(x), &flat(y), &mut out),
+        (false, true) => ndarray::simd::blend_f32_scalar(
+            words,
+            &flat(x),
+            y.iter().copied().next().unwrap_or(0.0),
+            &mut out,
+        ),
+        (true, false) => {
+            let mut inv: Vec<u64> = words.iter().map(|w| !w).collect();
+            if !len.is_multiple_of(64) {
+                if let Some(l) = inv.last_mut() {
+                    *l &= (1u64 << (len % 64)) - 1;
+                }
+            }
+            ndarray::simd::blend_f32_scalar(
+                &inv,
+                &flat(y),
+                x.iter().copied().next().unwrap_or(0.0),
+                &mut out,
+            )
+        }
+        (true, true) => {
+            let xs = vec![x.iter().copied().next().unwrap_or(0.0); len];
+            ndarray::simd::blend_f32_scalar(
+                words,
+                &xs,
+                y.iter().copied().next().unwrap_or(0.0),
+                &mut out,
+            )
+        }
+    }
+    let out = ArrayD::from_shape_vec(IxDyn(shape), out).map_err(|e| runtime(n, e.to_string()))?;
+    Ok(vec![Value::F32(out)])
+}
+
+const SOFTMAX_LAST: &[AttrRule] = &[AttrRule {
+    name: "axis",
+    value: Some(-1),
+    default: Some(-1),
+}];
+
+fn guard_known_shape(v: &NodeView) -> K3 {
+    match arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) {
+        Some(s) if !s.is_empty() => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
+    }
+}
+
+/// `Softmax` over the last axis (opset ≥ 13): `softmax_axis_f32` on the
+/// `[rows, last]` view.
+fn do_softmax_last(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = f32_arg(a, 0, n)?.as_standard_layout().into_owned();
+    let shape = x.shape().to_vec();
+    let last = *shape.last().ok_or_else(|| runtime(n, "rank 0"))?;
+    let rows = x.len() / last.max(1);
+    let x2 = x
+        .into_shape_with_order((rows, last))
+        .map_err(|e| runtime(n, e.to_string()))?;
+    let mut out = ndarray::Array2::<f32>::zeros((rows, last));
+    ndarray::hpc::activations::softmax_axis_f32(x2.view(), out.view_mut(), Axis(1));
+    let out = out
+        .into_shape_with_order(IxDyn(&shape))
+        .map_err(|e| runtime(n, e.to_string()))?;
+    Ok(vec![Value::F32(out)])
+}
+
+/// `Gather` axis 0 over a 2-D f32 table by i64 indices of any shape (run-time
+/// indices allowed): `gather_rows_f32`, which refuses an index outside
+/// `[-rows, rows)`.
+fn guard_gather_rows(v: &NodeView) -> K3 {
+    let Some(data) = arg_shape(v, 0) else {
+        return K3::Unknown;
+    };
+    if data.len() != 2 || norm_axis(int_attr(v.node, "axis", 0), 2) != Some(0) {
+        return K3::False;
+    }
+    match v.args.get(1).copied().flatten().and_then(|f| f.dtype) {
+        Some(DType::I64) => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
+    }
+}
+
+fn do_gather_rows_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let table = f32_arg(a, 0, n)?
+        .view()
+        .into_dimensionality::<ndarray::Ix2>()
+        .map_err(|e| runtime(n, e.to_string()))?;
+    let idx_v = a.get(1).ok_or_else(|| runtime(n, "no indices"))?;
+    let ids = idx_v
+        .i64s()
+        .ok_or_else(|| runtime(n, "indices are not i64"))?;
+    let cols = table.ncols();
+    let mut out = ndarray::Array2::<f32>::zeros((ids.len(), cols));
+    ndarray::hpc::gather::gather_rows_f32(table, &ids, out.view_mut())
+        .map_err(|e| runtime(n, format!("{e:?}")))?;
+    let mut shape = idx_v.shape();
+    shape.push(cols);
+    let out = out
+        .into_shape_with_order(IxDyn(&shape))
+        .map_err(|e| runtime(n, e.to_string()))?;
+    Ok(vec![Value::F32(out)])
+}
+
+/// `Squeeze` (opset ≥ 13, axes as input 1): the listed axes, each of size 1;
+/// absent axes, every size-1 axis.
+fn squeeze_shape(shape: &[usize], axes: Option<&[i64]>) -> Option<Vec<usize>> {
+    let r = shape.len();
+    let drop: Vec<usize> = match axes {
+        Some(a) => a.iter().map(|&x| norm_axis(x, r)).collect::<Option<_>>()?,
+        None => (0..r).filter(|&i| shape[i] == 1).collect(),
+    };
+    if drop.iter().any(|&i| shape[i] != 1) {
+        return None;
+    }
+    Some(
+        (0..r)
+            .filter(|i| !drop.contains(i))
+            .map(|i| shape[i])
+            .collect(),
+    )
+}
+
+fn guard_squeeze(v: &NodeView) -> K3 {
+    let Some(shape) = arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) else {
+        return K3::Unknown;
+    };
+    let present = v.node.inputs.get(1).is_some_and(|s| !s.is_empty());
+    let axes = const_i64s(v, 1);
+    if present && axes.is_none() {
+        return K3::Unknown;
+    }
+    match squeeze_shape(&shape, axes.as_deref()) {
+        Some(_) => K3::True,
+        None => K3::False,
+    }
+}
+
+fn do_squeeze(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
+    let axes = a.get(1).and_then(|v| v.i64s());
+    let shape = squeeze_shape(&x.shape(), axes.as_deref())
+        .ok_or_else(|| runtime(n, "squeezed axis is not of size 1"))?;
+    Ok(vec![reshape_value(x, &shape, n)?])
+}
+
+const FLATTEN_AXIS: &[AttrRule] = &[AttrRule {
+    name: "axis",
+    value: None,
+    default: Some(1),
+}];
+
+fn flatten_shape(shape: &[usize], axis: i64) -> Option<Vec<usize>> {
+    let r = shape.len() as i64;
+    let a = if axis < 0 { axis + r } else { axis };
+    if !(0..=r).contains(&a) {
+        return None;
+    }
+    let a = a as usize;
+    Some(vec![
+        shape[..a].iter().product(),
+        shape[a..].iter().product(),
+    ])
+}
+
+fn guard_flatten(v: &NodeView) -> K3 {
+    match arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) {
+        Some(s) => match flatten_shape(&s, int_attr(v.node, "axis", 1)) {
+            Some(_) => K3::True,
+            None => K3::False,
+        },
+        None => K3::Unknown,
+    }
+}
+
+fn do_flatten(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = a.first().ok_or_else(|| runtime(n, "no input"))?;
+    let shape = flatten_shape(&x.shape(), int_attr(n, "axis", 1))
+        .ok_or_else(|| runtime(n, "axis out of range"))?;
+    Ok(vec![reshape_value(x, &shape, n)?])
+}
+
+/// `ReduceSum` over int64, axes as input 1 (absent or empty: all), each lane folded
+/// with `checked_i64(Add)`: an overflow refuses rather than wraps.
+fn guard_reduce_sum_i64(v: &NodeView) -> K3 {
+    let Some(shape) = arg_shape(v, 0).and_then(|s| known(&Some(s.clone()))) else {
+        return K3::Unknown;
+    };
+    let present = v.node.inputs.get(1).is_some_and(|s| !s.is_empty());
+    match (present, const_i64s(v, 1)) {
+        (false, _) => K3::True,
+        (true, None) => K3::Unknown,
+        (true, Some(ax)) if ax.iter().all(|&x| norm_axis(x, shape.len()).is_some()) => K3::True,
+        _ => K3::False,
+    }
+}
+
+fn do_reduce_sum_i64(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    use ndarray::hpc::checked_i64::{checked_i64, I64Op};
+    let mut x = i64_arg(a, 0, n)?.clone();
+    let r = x.ndim();
+    // Empty axes with `noop_with_empty_axes` absent (default 0; the
+    // registration admits no other value) reduces every axis, like absent.
+    let mut axes: Vec<usize> = match a.get(1).and_then(|v| v.i64s()) {
+        Some(ax) if !ax.is_empty() => ax
+            .iter()
+            .map(|&v| norm_axis(v, r).ok_or_else(|| runtime(n, "axis out of range")))
+            .collect::<Result<_, _>>()?,
+        _ => (0..r).collect(),
+    };
+    axes.sort_unstable();
+    axes.dedup();
+    let keep = int_attr(n, "keepdims", 1) != 0;
+    for &ax in axes.iter().rev() {
+        let mut lanes = Vec::new();
+        for lane in x.lanes(Axis(ax)) {
+            let mut acc = 0i64;
+            for &v in lane {
+                acc = checked_i64(I64Op::Add, acc, v).map_err(|e| runtime(n, format!("{e:?}")))?;
+            }
+            lanes.push(acc);
+        }
+        let mut shape = x.shape().to_vec();
+        shape.remove(ax);
+        x = ArrayD::from_shape_vec(IxDyn(&shape), lanes).map_err(|e| runtime(n, e.to_string()))?;
+        if keep {
+            x.insert_axis_inplace(Axis(ax));
+        }
+    }
+    Ok(vec![Value::I64(x)])
+}
+
+/// `Cast` int64 → bool: nonzero is true.
+fn do_cast_i64_bool(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    let x = i64_arg(a, 0, n)?;
+    Ok(vec![pack_bools(&x.mapv(|v| v != 0))])
+}
+
+/// `GatherElements` over f32 with i64 indices of the data's rank: the output
+/// has the indices' shape, and element `ix` reads the data at `ix` with the
+/// axis coordinate replaced by `indices[ix]`.
+fn guard_gather_elements(v: &NodeView) -> K3 {
+    let (Some(d), Some(i)) = (arg_shape(v, 0), arg_shape(v, 1)) else {
+        return K3::Unknown;
+    };
+    if d.len() != i.len() || norm_axis(int_attr(v.node, "axis", 0), d.len()).is_none() {
+        return K3::False;
+    }
+    match v.args.get(1).copied().flatten().and_then(|f| f.dtype) {
+        Some(DType::I64) => K3::True,
+        Some(_) => K3::False,
+        None => K3::Unknown,
+    }
+}
+
+fn do_gather_elements_f32(a: &[&Value], n: &SourceNode) -> Result<Vec<Value>, Refusal> {
+    use ndarray::Dimension as _;
+    let data = f32_arg(a, 0, n)?;
+    let idx = i64_arg(a, 1, n)?;
+    let axis = norm_axis(int_attr(n, "axis", 0), data.ndim())
+        .ok_or_else(|| runtime(n, "axis out of range"))?;
+    if idx.ndim() != data.ndim() {
+        return Err(runtime(n, "indices rank differs from data rank"));
+    }
+    let d = data.shape()[axis] as i64;
+    for (ix, &k) in idx.indexed_iter() {
+        if !(-d..d).contains(&k) {
+            return Err(runtime(n, format!("index {k} outside [-{d}, {d})")));
+        }
+        for (ax, (&i, &dim)) in ix.slice().iter().zip(data.shape()).enumerate() {
+            if ax != axis && i >= dim {
+                return Err(runtime(n, "indices exceed the data on a non-gather axis"));
+            }
+        }
+    }
+    let out = ArrayD::from_shape_fn(idx.raw_dim(), |ix| {
+        let mut j = ix.clone();
+        j[axis] = idx[&ix].rem_euclid(d) as usize;
+        data[&j]
+    });
+    Ok(vec![Value::F32(out)])
+}
+
+pub(crate) const OPSETS: RangeInclusive<i64> = 13..=18;
+pub(crate) const NO_ATTRS: &[AttrRule] = &[];
 const CAST_TO_F32: &[AttrRule] = &[AttrRule {
     name: "to",
     value: Some(1),
@@ -1795,10 +2240,7 @@ macro_rules! reg {
 pub fn registry() -> Registry {
     use DType::*;
     use Numeric::*;
-    Registry::build(
-        ONNX_LENS,
-        7,
-        vec![
+    let mut drafts = vec![
             reg!(
                 "Constant: the attribute tensor",
                 "Constant",
@@ -2280,8 +2722,35 @@ pub fn registry() -> Registry {
                 do_reshape,
                 Exact
             ),
-        ],
-    )
+        reg!("ndarray slice_each_axis, positive steps", "Slice", Some(0), F32, NO_ATTRS, guard_slice, do_slice, Exact),
+        reg!("ndarray slice_each_axis, positive steps", "Slice", Some(0), Bool, NO_ATTRS, guard_slice, do_slice, Exact),
+        reg!("simd::blend_f32 / blend_f32_scalar", "Where", Some(1), F32, NO_ATTRS, guard_where_f32, do_where_f32, Exact),
+        reg!("hpc::activations::softmax_axis_f32 on [rows, last]", "Softmax", Some(0), F32, SOFTMAX_LAST, guard_known_shape, do_softmax_last,
+            Bounded("exp and a sum per row; ULP against ORT measured in tests")),
+        reg!("hpc::gather::gather_rows_f32", "Gather", Some(0), F32, GATHER_AXIS, guard_gather_rows, do_gather_rows_f32, Exact),
+        reg!("ndarray reshape: drop size-1 axes", "Squeeze", Some(0), F32, NO_ATTRS, guard_squeeze, do_squeeze, Exact),
+        reg!("ndarray reshape to [prod(..axis), prod(axis..)]", "Flatten", Some(0), Bool, FLATTEN_AXIS, guard_flatten, do_flatten, Exact),
+        reg!("checked_i64(Add) folded per lane, keepdims 0", "ReduceSum", Some(0), I64, KEEPDIMS_0, guard_reduce_sum_i64, do_reduce_sum_i64, Exact),
+        reg!("checked_i64(Add) folded per lane, keepdims 1", "ReduceSum", Some(0), I64, KEEPDIMS_1, guard_reduce_sum_i64, do_reduce_sum_i64, Exact),
+        reg!("Cast i64 -> bool: nonzero", "Cast", Some(0), I64, CAST_TO_BOOL, guard_true, do_cast_i64_bool, Exact),
+        reg!("index walk: data at indices along axis", "GatherElements", Some(0), F32, GATHER_AXIS, guard_gather_elements, do_gather_elements_f32, Exact),
+    ];
+    drafts.extend(crate::generated::drafts());
+    Registry::build(ONNX_LENS, 8, drafts)
+}
+
+/// The hand-written fields alone, without `generated`. The generator triages
+/// against this table, so regenerating is a fixed point: its own output never
+/// hides the gaps it was generated from.
+pub fn hand_written() -> Registry {
+    let mut r = registry();
+    let n = r.regs.len() - crate::generated::drafts().len();
+    r.regs.truncate(n);
+    r.exposed = Registry::build(r.lens, r.version, Vec::new()).exposed;
+    for i in 0..n {
+        r.expose(i, true);
+    }
+    r
 }
 
 #[cfg(test)]
@@ -2977,5 +3446,32 @@ mod tests {
             )),
             K3::False
         );
+    }
+
+    /// ONNX skips an optional input with an empty name: `Slice(x, starts,
+    /// ends, "", steps)`. Plan and fold pass only the present arguments, so
+    /// `steps` arrives at index 3 and must still be read as steps, not axes.
+    #[test]
+    fn slice_reads_steps_when_axes_is_omitted() {
+        let mut n = node("Slice", 5, vec![]);
+        n.inputs[3] = String::new();
+        let x = Value::I64(ArrayD::from_shape_vec(IxDyn(&[4, 2]), (0..8).collect()).unwrap());
+        let c = |v: Vec<i64>| Value::I64(ArrayD::from_shape_vec(IxDyn(&[v.len()]), v).unwrap());
+        let (st, en, sp) = (c(vec![0]), c(vec![3]), c(vec![2]));
+        let out = do_slice(&[&x, &st, &en, &sp], &n).expect("slice");
+        assert_eq!(out[0].shape(), vec![2, 2]);
+        assert_eq!(out[0].i64s().unwrap(), vec![0, 1, 4, 5]);
+    }
+
+    /// An empty constant `axes` with `noop_with_empty_axes` absent (default
+    /// 0, the only form the registration admits) reduces every axis.
+    #[test]
+    fn reduce_sum_i64_with_empty_axes_reduces_all() {
+        let n = node("ReduceSum", 2, vec![("keepdims".into(), Attr::Int(0))]);
+        let x = Value::I64(ArrayD::from_shape_vec(IxDyn(&[2]), vec![1, 2]).unwrap());
+        let ax = Value::I64(ArrayD::from_shape_vec(IxDyn(&[0]), vec![]).unwrap());
+        let out = do_reduce_sum_i64(&[&x, &ax], &n).expect("reduce");
+        assert_eq!(out[0].shape(), Vec::<usize>::new());
+        assert_eq!(out[0].i64s().unwrap(), vec![3]);
     }
 }
