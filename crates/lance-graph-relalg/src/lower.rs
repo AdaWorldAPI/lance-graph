@@ -6,7 +6,7 @@ use lance_graph_mask_risc::{Foreign, Planes, Program};
 use lance_graph_r2il::{
     FoldDialect, FoldError, Val, INT_AND, INT_EQUAL, INT_NOT, INT_OR, INT_S_LESS, LOAD, POP_COUNT,
 };
-use ogar_loco::{Dialect, FnIndex};
+use ogar_loco::FnIndex;
 use ogar_r2il::{KEEP, MAX, MIN, RANGE, SUM};
 
 use crate::ir::{Atom, Cmp, Measure, Query, Rel};
