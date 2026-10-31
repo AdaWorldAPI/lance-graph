@@ -366,7 +366,7 @@ From PR #1884, `tests/epi5_reading.rs`:
 
 | Wave | D-id | Work | Gate (falsifier) | Depends on | Tier |
 |---|---|---|---|---|---|
-| 0 | D-DYNBAG-0 | Fix PR #1884's layering: XLOG intake as lanes (sets), support and bag count through Quack → mask-risc, oracles by folds, cost probe gains native and Quack columns | all existing Gate B / litho tests green; register differential unchanged; disable runs red; `native.rs` no longer calls `ndarray::simd` fold words | operator go-ahead on #1884 | Opus orchestrates; Sonnet implements from spec |
+| 0 | D-DYNBAG-0 | (§17) Fix PR #1884's layering: XLOG intake as lanes (sets), support and bag count through Quack → mask-risc, oracles by folds, cost probe gains native and Quack columns | all existing Gate B / litho tests green; register differential unchanged; disable runs red; `native.rs` no longer calls `ndarray::simd` fold words | operator go-ahead on #1884 | Opus orchestrates; Sonnet implements from spec |
 | 1 | D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)` | §7.5: equality with both oracles, B projection equals `relcomp::compose`, disable runs red; timed vs `relcomp::compose` in ns | D-DYNBAG-0 | Sonnet; Opus reviews |
 | 2 | D-DYNBAG-2 | Semiring parameter in relalg's `Rel` (B, ℕ) and Quack's surface; typed refusal for unsupported (op, K) | B/ℕ projection property holds for every admitted op; an unsupported pair is refused, never a fallback to B | D-DYNBAG-1 | relalg / Quack owners |
 | 3 | D-DYNBAG-3 | Missing ℕ words, backend-first: masked select over i64, elementwise min, truncated minus, i64 compare-to-mask, i64 masked sum; and, if §7.4 measures it necessary, a bit-packed i1 × i1 → i32 product | each word with can-fire and can-stay-silent tests in its owner crate | D-DYNBAG-2 | mask-risc / ndarray owners |
@@ -440,3 +440,227 @@ This plan only notes where it would sit: the "edge" row of §8, and the PostgreS
 - `crates/xlog-relcomp-probe` (PR #1884): native path, binding, Epi5 tests.
 - `crates/lance-graph-cypher-quack`: the SQL probe's template.
 - EXO-50: the membrane reference note (2026-10-31).
+
+---
+
+## 17. D-DYNBAG-0: adopted architecture, actual vs target (2026-10-31, before coding)
+
+**DECISION (operator, 2026-10-31).** XLOG consumes tuples as a logical polyfill over DT64-addressed relational projections. Quack/RelAlg describe the relation; mask-risc evaluates the bound operations; `ndarray::simd` computes only under mask-risc. A tuple is a coordinate binding, never a stored row. XLOG owns no tuple evaluator and builds no intermediate tuple collection. No new architecture, planner, runtime, tensor store or row engine is introduced: the work is wiring what exists, and labelling what does not.
+
+### 17.1 Ownership
+
+| concern | owner | XLOG's part |
+|---|---|---|
+| description | XLOG RIR (frontend), then Quack `Query` / `GroupBy` | admits a shape; never executes |
+| addressing | `lance_graph_dt64::dr`: `LocalMap`, `FrameStore`, `Guards`; one map per axis | none |
+| binding | `lance_graph_dt64`: `BindStore`, `MethodBinding`, `MethodRef`, `AlgebraRef`, `ClassView` | names its lens |
+| semiring | the bound method (B support vs ℕ multiplicity) | never the frame |
+| evaluation | `lance-graph-mask-risc::execute_into` | none |
+| compute | `ndarray::simd`, called by mask-risc | none |
+
+### 17.2 Actual data flow (PR #1884, as merged)
+
+```
+XLOG compile ─► RIR ─► admit / admit_count (ok)
+                         │
+facts() ─► Vec<(u32,u32)> (dedup'd)          ← owned tuples after intake
+                         │
+LocalMap::prepare per call                   ← rebuilt per query
+                         │
+native.rs ─► ndarray::simd directly          ← D-SOC-FENCE fold-evaluator violation
+   eq_u32_to_mask, mask_scatter_or_u32, mask_and,
+   masked_group_count_u32, checked_binary_i64
+                         │
+ids() / nonzero() ─► addressed result
+
+BindStore + FrameStore: only in tests/dto_binding.rs, never on the path above.
+```
+
+The admission and the computation are separate. A binding is resolved in a test and then ignored; the counts are computed whether or not it admits. Replacing the ndarray calls one-for-one would keep that separation, so D-DYNBAG-0 closes the chain rather than swapping calls.
+
+### 17.3 Target data flow
+
+```
+XLOG compile ─► RIR ─► admit / admit_count
+   │
+   ├─► intake (one named function): facts → u32 lanes, once; sets
+   │
+   ├─► dr: LocalMap for Y prepared once, digest sealed into the frame;
+   │        FrameStore::check / Guards::check before every reuse
+   │
+   ├─► BindStore::resolve → admit(MethodRef) → MethodBinding
+   │        (Population, AlgebraRef words: GROUP_COUNT, MUL_I64)
+   │
+   ├─► Quack description, per side (left r(X,Y), right s(Y,Z)):
+   │        Filter: Cmp(free, Eq x) | Plane(live)
+   │        Agg::GroupReduce { key: GroupAddr::Local(y_local), agg: GroupAgg::Count }
+   │        lower(&Query) → Program
+   │
+   ├─► mask-risc execute_into(Program, Planes{lanes}, Foreign::none, Scratch, Out::I64(n_y))
+   │        → deg_l[y], deg_r[y]        (each is the demanded result of its program)
+   │
+   ├─► combine (MISSING-3 below): ℕ = deg_l × deg_r ; B = (deg_l>0) ∧ (deg_r>0)
+   │
+   └─► addressed result: LocalMap::global over nonzero slots, at the boundary only
+```
+
+### 17.4 Existing APIs used (read 2026-10-31)
+
+- **Quack** (`lance-graph-quack/src/lib.rs`): `Filter::{Cmp, Plane, EqU32Via, Semijoin, And, Or, Not}`; `Query { filter, agg }`; `Agg::GroupReduce { key: GroupAddr::Local(Col), agg: GroupAgg::Count }` (one program, `Out::I64` sized to the group universe, key past it dropped); `Agg::ScatterOrU32 { fk, out_rows }` (legal only as the demanded result); `lower`, `lower_group_by_semantic`.
+- **Quack bind** (`bind.rs`): `trait Binder { table, live, field, code }`, `Draft::bind` (single table). Implementations exist in `lance-graph-glove-parity` (`CanonicalBinder`), `lance-graph-sap`, `lance-graph-dir-sim`, `lance-graph-report` tests; none is backed by `BindStore`.
+- **mask-risc** (`ir.rs`, `exec.rs`): `execute_into(&Program, &Planes, &Foreign, &mut Scratch, Out)`, `Planes { n_rows, masks, lanes }`, `Terminal::GroupReduce` / `GroupFold::Count`, `Terminal::ScatterOrU32`.
+- **DT64** (`lib.rs`): `BindStore::{route, resolve, resolve_algebra, admit}`, `MethodBinding`, `MethodRef`, `AlgebraRef { lens, word }`.
+- **DR** (`dr.rs`): `LocalMap::{prepare, local, global, len, lookups, digest}` (lookups counted; digest is the frame's coordinates revision), `FrameStore::{seal, advance, check}`, `Guards::check`.
+- **relalg**: `Rel` / `Measure` / `Query` are single-table; `join_body::is_alpha_acyclic` is the only join-body tool.
+
+### 17.5 Missing integrations (labelled; none worked around)
+
+| id | missing | owner | D-DYNBAG-0 behaviour |
+|---|---|---|---|
+| MISSING-1 | `AlgebraRef` word → Quack `Agg`/`GroupAgg` mapping (the polyfill lens's words have no Quack reading) | DT64 + Quack | a probe-local table over the two words in use, refusing any other word; filed for the owner |
+| MISSING-2 | a `Binder` backed by `BindStore` + `ClassView` (existing binders are catalogue-specific) | Quack bind + DT64 | reconcile, not add: decide whether `CanonicalBinder`'s shape is the template. No new catalogue in the probe |
+| MISSING-3 | a post-terminal combine of two group sinks: i64 elementwise multiply and i64 compare-to-mask (both listed in Wave 3) | mask-risc / ndarray | `checked_binary_i64` stays the one direct call (D-SOC-FENCE §6), TRACKED; B is derived from the two degree sinks, never from a scatter mask fed to a second program |
+| MISSING-4 | two-relation support as ONE description: relalg has no join IR; `Filter::Semijoin` needs a resident `ForeignPlane`, never a lowered output | relalg / Quack | not built; the per-side degree route above is exact for the admitted chain only |
+| MISSING-5 | a reuse cache for prepared `LocalMap`s keyed by frame | DT64 `dr` | the probe holds one map and checks the frame per query; a test asserts `lookups` does not grow with query count beyond intake |
+| MISSING-6 | `p(X, Z)` and n-ary witnesses (ℕ-compose) | Wave 1 | refused with a typed refusal; `q(Y)` support is never offered as proof of `p(X, Z)` |
+| MISSING-7 | multi-tile global → (tile, local) map | Wave 4 | width 64 or 256; past it, `MapRefusal` |
+
+### 17.6 Acceptance gates for D-DYNBAG-0
+
+1. One connected chain in a test: compile → admit → resolve/bind → Quack `Query` → `lower` → `execute_into` → addressed result. Unbinding the method (retract the route) refuses the computation, not just the test.
+2. No owned tuples after intake: `facts()` output is consumed by the intake function only.
+3. No unguarded global → local rebuild per query (MISSING-5 test).
+4. Support and multiplicity distinct, with XLOG's exact `count` semantics; base relations as sets.
+5. Gate B, bag-count, stale-frame and disable tests stay meaningful: each disable run (drop the frame check, drop the admission, swap Count for a scatter) goes red.
+6. `q(Y)` is never reported for `p(X, Z)` (MISSING-6 refusal tested).
+7. `native.rs` names no `ndarray::simd` fold word; only `checked_binary_i64` remains, listed as TRACKED.
+
+**REVISIT WHEN:** MISSING-3 or MISSING-4 lands in its owner crate; the TRACKED call is then deleted.
+
+---
+
+## 18. Cross-frontend projection crosswalk (2026-10-31, before coding)
+
+**DECISION (operator).** XLOG is the first consumer of the projection capability, not its owner. A consumer requests a typed, versioned projection over existing DR/DT64 coordinates and method bindings. A tuple is a coordinate binding; a method is a typed behavioural binding. No frontend owns a projection runtime. Quack (relational description) and R2IL (`FoldDialect` procedures) are both legitimate surfaces, both converging on mask-risc. BindStore resolves and validates; it never executes.
+
+Evidence: four read-only harvests at `d3c2a29`/`f3b2cfe`, each claim cited file:line and spot-checked by the orchestrator. Classes: VERIFIED (production + test), LAB, PROPOSED (plan only), MISSING (nothing found in the searched space).
+
+### 18.1 The five projections are distinct, and "project" means three things
+
+| projection | existing carrier | class |
+|---|---|---|
+| coordinate (global → local, revision) | `dt64::dr::{LocalMap, FrameStore, Guards}`; `LocalMap::digest` as the frame's coordinates revision | VERIFIED |
+| field (meaning × mask → labels/lanes) | `ClassView::project(class, FieldMask)` (`class_view.rs:1079`, **64-bit `FieldMask` only**); `dt64::Resolved::field_view(&WideFieldMask)` (labels, no values) | VERIFIED; no lane borrowing from either |
+| method (MethodRef → ON/WHEN/DO, algebra words) | `dt64::MethodBinding { on, when, reads, effects, population, truth, demand }` (`lib.rs:197`); `admit` (`:796`) checks id, `SigRev`, guard witness | VERIFIED as description; **no executor of a `MethodBinding` exists anywhere**; `admit`/`resolve` have no production caller |
+| relational (select/join/fold/group/witness) | Quack `Query`/`GroupBy`/`Agg`; relalg `Rel` (single-table, `Measure::Keep`); R2IL `FoldDialect` + `procs` | VERIFIED; no join IR (relalg), semijoin needs resident foreign planes (Quack) |
+| consumer (XLOG bindings, SQL results, codegraph relations, R2IL procedures, MLIR exprs) | per frontend, below | mostly LAB / PROPOSED |
+
+"Project" is not one operation: XLOG `RirNode::Project` selects/computes **columns** (and runs on GPU in xlog-runtime); relalg `Measure::Keep` and Quack `Agg::Rows` keep **rows** as a mask; `ClassView::project` and `field_view` select **fields as labels**. No meaning selects methods (that is `Resolved::methods_on`). Do not unify them under a "Project" opcode.
+
+### 18.2 Crosswalk
+
+| frontend / source IR | projection entrypoint | identity & revision witness | method resolution | lowering | execution owner | output demand | present → gap |
+|---|---|---|---|---|---|---|---|
+| **XLOG** (`RirNode`) | `admit` / `admit_count` (structural match) | `LocalMap` digest (LAB); BindStore route log in a test only | `BindStore::admit(MethodRef::of(XLOG, …))` in `dto_binding.rs` — **asserted, never drives execution** | none: `native.rs` calls `ndarray::simd` | ndarray direct (D-SOC-FENCE violation) | support mask, per-Y count | LAB → §17: binding must select the Quack program that runs |
+| **ONNX / Tract** (protobuf + Tract facts) | `plan::resolve` → `Plan::run` | `FrameRevisions{source sha256, relation_map=registry.revision(), coordinates}`, checked every run (`plan.rs:57-68,171`) | own `Registry` (ON × WHEN(K3) × DO), selected binding **is** the one dispatched (`plan.rs:116-128,204`) | cold shape fold; one native fn per node | `lance-graph-onnx` aliases of `ndarray::simd`/`hpc` | every value by name | LAB precedent for binding-drives-execution; gap: own registry not DT64 `BindStore`, lab lens `0x0F00` in Geo domain |
+| **SQL / PostgreSQL** | Quack `lower`/`lower_fused`, `Filter::sql_where` (K3); `lance_graph_r2il::procs` | MISSING in code (D-QSP proposes a version-attested codebook witness) | `procs` are Rust functions; ClassView method ordinal PROPOSED | R2IL → `MaskOp` → mask-risc `Program` | mask-risc `execute_into` (`r2il lib.rs:716`) | scalar per fold, `GROUP_SUM`, `KEEP` | VERIFIED fold path; gaps: executable `PROC_DEF` (OPEN in OGAR), bag/join carrier, nullable arithmetic, frontends not yet routed through procs |
+| **egglog-MLIR / DialEgg** | `egglog-r2il-probe::lower_and_run` (scalar) | egglog proof self-check + independent i128 oracle | `RuleId` = law × `Arith` domain (refuses reassociation for Checked/Ieee) | `INT_MULT` over empty planes | FoldDialect scalar arm | one scalar | LAB; external `mlir-egglog` admits rewrites with no evidence (float reassociation unconditional) and runs via LLVM — not a model to adopt |
+| **Codegraph** (rust-analyzer HIR + Charon LLBC) | `sag-ra-probe` → `llbc_calls.py` → `span_join.py` → `project_rows.py` (TSV) | moniker (candidate only) + FNV body digest + `RESOLVE` move witness → `sid-N`; revision caller-recorded | rust-analyzer impls; Charon `Fun`/`Clause`/`Dyn`/`TraitImpl` | none | none (R2IL `FoldDialect` not connected) | `ProposedMethod` (PROPOSED, no type) | LAB; WITNESSED/POSSIBLE/UNKNOWN preserved in rows; gaps listed in 18.4 |
+| **Scallop** (Datalog + provenance tags) | none in lance-graph | none | `Provenance` impls (unit, boolean, natural, top-k proofs) | none | Scallop's interpreter | tagged relations | external VERIFIED; natural's `saturated` is always `true`, so recursive bag counts stop early |
+
+### 18.3 What two consumers already share (and what they do not)
+
+- **Shared and real:** DR coordinates + frame witness (XLOG uses `LocalMap`; Tract uses its own `FrameStore` revisions) and mask-risc as the evaluator (SQL via R2IL; XLOG once §17 lands).
+- **Not shared:** method binding. Tract executes through its own registry; DT64 `BindStore` is wired to nothing that executes. The integration proof the operator asks for is therefore not yet possible with existing code: no two consumers obtain their executed method through the same `BindStore`.
+
+### 18.4 Gaps for owning crates (recorded, not built in D-DYNBAG-0)
+
+| id | gap | owner |
+|---|---|---|
+| X1 | an executor seam: something that takes an admitted `MethodBinding` and selects the existing Quack/R2IL description that runs (Tract's `plan.rs:204` is the precedent shape) | DT64 + Quack/R2IL; decision needed |
+| X2 | `admit` checks id, `SigRev`, guard only; it cannot refuse on an effect or on POSSIBLE/UNKNOWN evidence, so an effectful codegraph method would be admitted if registered | DT64 |
+| X3 | `ClassView::project` takes `FieldMask` (64); DT64 uses `WideFieldMask` | contract |
+| X4 | no Quack `Binder` backed by `BindStore`/`ClassView` (8 impls, none) | Quack bind + DT64 |
+| X5 | method identity: `MethodId` is registrant-chosen; codegraph `sid-N` → `MethodId` mint does not exist and needs owner approval; impl/closure identity open | DT64 + OGAR (O2 in the logic-compiler RFC) |
+| X6 | codegraph revision witness inside the tools (workspace digest, features, target) | sag-ra-probe |
+| X7 | executable `PROC_DEF`/`PROC_CALL` | OGAR `ogar-loco` |
+| X8 | Tract registry → DT64 `BindStore`; lab lens `0x0F00` minted in OGAR | tract probe + OGAR |
+| X9 | bag/support carrier across procedures (SQL D-QSP-2, XLOG ℕ) | relalg/Quack/mask-risc (Wave 2-3) |
+
+### 18.5 Integration proof, restated against what exists
+
+- **A (XLOG):** buildable inside D-DYNBAG-0 once the executed Quack program is selected by the admitted binding (§17.6 gate 1). Oracles: scalar enumeration and the DR64 register.
+- **B (Codegraph):** buildable today only as a hand-fed fixture: rows from the D-SAG-6-2 board entry, pinned `sag_fixture` functions, `tests/law.rs` as the behaviour oracle. Admitting the pure `count_below` and refusing `count_with_tally` / `count_div` / dyn requires X2 (effect/evidence refusal), which does not exist. Wiring to live rust-analyzer/Charon output needs X5, X6.
+- **SQL bag fixture:** duplicated base tuples must keep multiplicity; XLOG's intake dedups by design (sets). Needs X9; not in D-DYNBAG-0.
+- **Not claimed:** that A and B share one binding contract today. They do only after X1 and X2.
+
+### 18.6 Scope of D-DYNBAG-0 (unchanged, bounded to XLOG)
+
+§17 stands. One addition: the binding that selects the executed program is DT64's `MethodBinding` (its `effects` name the polyfill words), and the selection mechanism follows Tract's precedent (resolve once, dispatch through the resolved entry, frame-checked per run) without copying Tract's registry. If X1 needs a type in DT64, D-DYNBAG-0 stops and asks rather than adding it in the probe.
+
+---
+
+## 19. Polyfills are composed, not hardcoded (2026-10-31, operator decision before coding)
+
+**Invariant.** Class patterns and bound methods are reusable. Polyfills are compositions of existing algebra atoms, never hardcoded sequences. A `WideFieldMask` selects behaviour words inside a declared basis; DR projects their versioned coordinate surface; DT64 gives each consumer its semantic alias and method recipe; Quack or R2IL lowers the admitted description; mask-risc executes. A frontend never owns a fixed execution sequence that bypasses `MethodBinding`. A backend-owned mapping from an admitted atom to an existing operator is legitimate.
+
+### 19.1 What already provides the composition (read 2026-10-31)
+
+| need | existing API (`lance-graph-dt64/src/lib.rs`) |
+|---|---|
+| declare a lens of reusable, classid-free words with arities | `BindStore::declare_algebra` (`:628`), `arity` (`:654`) |
+| read a lens's words through its `ClassView` | `BindStore::resolve_algebra` (`:665`) → `Resolved::field_view` |
+| which words a consumer class uses, as a mask over the lens | `BindStore::words_used` (`:683`) |
+| which classes reuse a word | `BindStore::users_of` (`:700`) |
+| the recipe: ordered DO steps, each a word with ordered operands | `MethodBinding::effects` (`:197`), `Effect { target, algebra, args }`, `Arg::{Field, Const}` |
+| select behaviour by field | `Resolved::methods_on` (`:451`), `methods_touching` (`:520`) |
+
+### 19.2 The backend-owned atom → operator mapping already exists, under R2IL
+
+- `ogar_loco::FnIndex` is a `u8` (`OGAR crates/ogar-loco/src/lib.rs:380`), the same width as `AlgebraRef.word`.
+- The R2IL fold reading `CONCEPT_R2IL_FOLD = 0xC401` (`ogar-r2il/src/lib.rs:545`, PROVISIONAL, not in `CODEBOOK`) is a lens whose word positions are R2IL opcodes.
+- `lance_graph_r2il::FoldDialect::call` maps each opcode to a mask-risc program (`lance-graph-r2il/src/lib.rs:770`), and `ogar_loco`'s interpreter runs call sequences.
+
+So `AlgebraRef { lens: compose(0xC401, 0), word: FnIndex.0 }` names an atom the backend already knows how to run. No name-to-operator table exists in mask-risc, Quack or relalg (searched `src/` of all three for `from_name`/`by_name`/`label`/`parse`/`from_str`; none), so the R2IL lens is the only existing one.
+
+### 19.3 D-DYNBAG-0 stops here: three missing backend capabilities
+
+| id | missing | owner | why essential |
+|---|---|---|---|
+| R1 | lowering a `MethodBinding`'s ordered `effects` (`AlgebraRef` under the fold lens, `Arg`s) onto `FoldDialect` calls (this is X1, the executor seam) | `lance-graph-r2il` (the reading's crate; DT64 stays non-executing) | without it the executed path cannot follow the binding; any probe-side sequence would be the frontend-owned recipe this section forbids |
+| R2 | a keyed-count fold word (`GROUP_COUNT` → mask-risc `Terminal::GroupReduce { fold: GroupFold::Count }`, which exists) | OGAR `ogar-r2il` opcode table + `lance-graph-r2il` arm | the fold band is `VIA, RANGE, SUM, MIN, MAX, GROUP_SUM, KEY_RUNS, ANY, ALL, KEEP, SCATTER_OR, BLEND` (`ogar-r2il/src/lib.rs:499-525`); no keyed count. `GROUP_SUM` over a fabricated all-ones lane would be a per-row materialization |
+| R3 | combining two group sinks: checked i64 multiply (ℕ) and nonzero-to-mask (B) | mask-risc word + R2IL fold word (D-DYNBAG-3) | XLOG's chain is two relations over two tables; the per-Y degrees come from two programs, and support/multiplicity are their combination |
+
+Also: `0xC401` is provisional; a lab use is fine, a persisted GUID is not until OGAR mints it.
+
+### 19.4 Wave 0 resumes when
+
+R1 exists in `lance-graph-r2il` (testable with existing words such as `SUM`, `GROUP_SUM`, `POP_COUNT`, `KEEP`) and R2 lands. Then the XLOG binding's effects are `[GROUP_COUNT(left), GROUP_COUNT(right), combine]`, and the Wave 0 gate is: changing or refusing that binding changes or refuses the executed path. Until R3, the combine step stays the tracked `checked_binary_i64` call. Disable runs, register and scalar oracles, and stale-frame tests are kept unchanged.
+
+### 19.5 F### (hypothesis, unchanged status)
+
+`F###` is a candidate compact address space for reusable atoms and compositions, not a spelling of `MethodId`. §19.2 shows atoms already have a compact address (`FnIndex` under a reading's lens) and compositions have one (`MethodBinding::effects` under a consumer classid). Whether a separate region is needed is undemonstrated. No `0xFFFF_F###` classid is minted and the CanonHigh split is unchanged.
+
+---
+
+## 20. Correction: the codegraph is the inspectable representation behind execution, not its toll gate (2026-10-31, operator)
+
+**Invariant.** R2IL / the codegraph is never a mandatory execution intermediary. A consumer resolves and binds once (cold) and then runs its own prepared native plan (Quack, mask-risc, `ndarray::simd`) with no codegraph lookup in the hot path. Tract is the precedent: `plan.rs` resolves once and `Plan::run` dispatches the bound entry after a frame check (`tract-harvest-probe/src/plan.rs:116-128,171,204`). No mandatory graph construction per invocation, no mandatory R2IL interpretation of native code, no second runtime.
+
+Four things stay distinct, and none proves another:
+
+| layer | answers | today |
+|---|---|---|
+| source / typed codegraph | which operations and dependencies the program has | r2ssa graphs, the Tract `TypedModel`, D-SAG-6 rows (LAB); the universal addressed codegraph (`0xC402`) is PROPOSED |
+| optimized plan + rewrite witnesses | which rules turned it into the executable form | `egglog-r2il-probe` law-gated rewrites (LAB, scalar) |
+| runtime execution events | what actually ran, under which frame | R1 `Receipt` (bounded by step count) |
+| logical provenance | which rules and facts derived an answer | not built; Soufflé-style lazy reconstruction is the model |
+
+Keep source operation ids, method signatures, typed operand edges, plan ids, rule ids and version witnesses, so a receipt can be related back to the codegraph. No per-row or per-op hot-path audit; bounded receipts, and reconstruction on demand.
+
+**Consequences:**
+- **R1 (#1892)** is an optional reading: `prepare` (cold) / `run` (hot) / `Receipt`. It is not a dependency of D-DYNBAG-0.
+- **D-DYNBAG-0's seam** is binding → prepared native plan. Its missing piece is a backend-owned mapping from a bound word to a Quack aggregate, built at prepare time, not R1.
+- **R2 (an R2IL keyed-count word) is dropped for D-DYNBAG-0:** Quack already has `Agg::GroupReduce { Local, Count }`.
+- **R3 (combining two group sinks) still stands.**
+- **Future:** codegraph relations (`Defines`, `Uses`, `Calls`, `DependsOn`, `Rewrites`, `Emits`, `Executed`, `Derived`) are projections over codegraph addresses for XLOG / Egglog / DialEgg analysis, never a second graph store.

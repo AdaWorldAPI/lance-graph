@@ -1,3 +1,14 @@
+## 2026-10-31 — lance-graph PR #1884 (merged `d3c2a29`, branch `ccr-85acaff0-oszq40`, head `1e85104`) — xlog-relcomp-probe: ndarray::simd execution, binding through lance-graph-dt64, Epi5 reading; plans D-SOC-FENCE and D-DYNBAG
+
+- **Added:**
+  - `xlog-relcomp-probe/src/native.rs`: the admitted two-atom chain's support and bag count on `ndarray::simd` (`eq_u32_to_mask`, `mask_scatter_or_u32`, `mask_and`, `masked_group_count_u32` ×2, `checked_binary_i64(Mul)`), Y axis on `dt64::dr::LocalMap` (up to 256); `admit_count` for XLOG's `count` rule.
+  - `tests/dto_binding.rs` rewritten onto `BindStore`, `dt64::dr::FrameStore` and `MethodRef`; `tests/epi5_reading.rs` (an XLOG base fact reads `Direct × Open`, a composed edge `IndirectKnown × Open`).
+  - `facts()` drops repeated base tuples (XLOG's loader treats a base relation as a set; Codex P2).
+  - Plans: `d-xlog-native-v1.md` Amendments A and B, `d-soc-fence-v1.md` (one place per concern, CI fence), `d-dynbag-holographic-bags-v1.md` (DR{dynamic bag}, semiring readings, PostgreSQL endgame).
+- **Locked:** none in production; lab probe only.
+- **Known defect, carried to main:** `native.rs` calls `ndarray::simd` fold words directly, bypassing Quack and mask-risc. It is the first named D-SOC-FENCE violation, to be fixed by D-DYNBAG-0.
+- **Confidence:** probe suites green locally (gate_b 18, litho 12 + 1 ignored, dto_binding 4, epi5_reading 4, gate_g 3); 8 disable runs red. The probe has no CI line. Workspace CI green on the head.
+
 ## 2026-10-31 — lance-graph PR #1880 (merged `4d677ba`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `7b8d4b6`) — D-MIST-NATIVE-1b: makor citations addressed via deepnsm-v2 hydrate, no classid
 
 - **Added:** `mistaber-kripke-probe/fixtures/makor.tsv`, 141 real `makor` citations from the compiled Mistaber ontology. `src/makor.rs` lays them over a Yoreh De'ah outline (siman = chapter, seif = verse) with `deepnsm-v2` `hydrate`: each citation is a `Spo` at its seif's `NiblePath`, with no classid, `promote`, key or `NodeRow`. `tests/makor.rs` adds 8 tests. CI paths now include `deepnsm-v2` and its dependencies. Plan §10; entry `2026-10-31-d-mist-native-1b-makor-hydrate.md`.

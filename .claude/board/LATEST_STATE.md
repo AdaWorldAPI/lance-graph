@@ -1,3 +1,9 @@
+## 2026-10-31 — main after #1884 (merged `d3c2a29`)
+
+- `xlog-relcomp-probe` executes its admitted chain on `ndarray::simd`, binds the bag count through `lance-graph-dt64`, and pins the Epi5 reading of XLOG results. Lab only.
+- Plans D-SOC-FENCE and D-DYNBAG are on main, plan only.
+- No contract type changed.
+
 ## 2026-10-31 — main after #1880 (merged `4d677ba`)
 
 - Mistaber makor citations are addressed through `deepnsm-v2` `hydrate` (`NiblePath`, no classid). `deepnsm-v2` is the grammar and language intake arm.
