@@ -110,7 +110,7 @@ fn step_edge(body: &RirNode, head: RelId) -> Result<RelId, LowerRefusal> {
                 join_type,
             } => {
                 if *join_type != JoinType::Inner {
-                    return Err(LowerRefusal::UnsupportedJoin(join_type.clone()));
+                    return Err(LowerRefusal::UnsupportedJoin(*join_type));
                 }
                 let ([lk], [rk]) = (left_keys.as_slice(), right_keys.as_slice()) else {
                     return Err(LowerRefusal::NeedsInverse {

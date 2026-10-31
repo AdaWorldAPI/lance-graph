@@ -34,6 +34,10 @@ xlog-logic = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da6633081
 lance-graph-contract = { path = "../lance-graph-contract" }
 # CausalEdge64, for the Epi5 reading of XLOG results (tests/epi5_reading.rs).
 causal-edge = { path = "../causal-edge" }
+# egglog, on the coordinate dr-math-binding-probe already uses, for the
+# shared-relation experiment (tests/shared_relation.rs): equality with proofs
+# over the same DR64 register the closure reads.
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }
