@@ -4,3 +4,4 @@
 pub mod binding;
 pub mod binding_native;
 pub mod polyfill;
+pub mod polyfill_views;
