@@ -69,11 +69,36 @@ WORKING-MODEL:
 - **Position binds, labels alias.** The Frozen table at `0xFFFF :: 0xF0__` fixes each word's position and its semantics. Each language supplies a `ClassView` over the same positions whose labels are that language's names (SQL `SUM`, a Java method name, a Rust method name, a C symbol). This is the mechanism DT64 already documents ("labels are resolved late through that view"); only the direction of binding changes.
 - **Normalization is a parity test, not a convention.** For every alias view, the label at a position must resolve to the same `AlgebraRef`; a name that maps to two positions, or a position with no name in a view that claims full coverage, refuses.
 - **What this does to the concern table (O7).** A language that only renames the shared algebra gets an alias view, not a concern range. A concern range under `0xF###` is for behaviour with no equivalent in the shared algebra (tensor operators for ONNX and TFLite; whatever XLOG adds beyond the relational core). SQL's three-valued logic is a known case: `prepare` refuses `Truth::ThreeValued` today (`binding.rs`), so SQL's NULL behaviour either gets its own words or stays refused. The `F4__` / `F5__` rows for SQL and Gremlin are therefore provisional.
-- **Capacity: 256 is per lens, not per namespace.** A word is `AlgebraRef { lens, word: u8 }` and a lens holds at most `MAX_FIELDS = 256` words (VERIFIED-IN-CODE, `lance-graph-dt64`). A concern range `0xF#__` holds up to 256 lens classids, so up to 65,536 words per concern. A large operator set therefore spans several lenses in its range; it does not need a wider word. Operator figure: TensorFlow (not Lite) has about 1,500 ops, which is about six lenses. Figures relayed from an outside summary, SECONDHAND and not recounted here: GGML graph opcodes 102, Burn IR 212 shared operation kinds (328 counting float/int/bool variants separately), ONNX about 180.
+- **Capacity: 256 is per lens, not per namespace.** A word is `AlgebraRef { lens, word: u8 }` and a lens holds at most `MAX_FIELDS = 256` words (VERIFIED-IN-CODE, `lance-graph-dt64`). A concern range `0xF#__` holds up to 256 lens classids, so up to 65,536 words per concern. ⊘ **Corrected in §1c (H3):** DT64 keys a lens's label basis by its LEFT half only, so today every lens under `0xFFFF` shares one basis of at most 256 words, and the 65,536 figure needs O9. A large operator set therefore spans several lenses in its range; it does not need a wider word. Operator figure: TensorFlow (not Lite) has about 1,500 ops, which is about six lenses. Figures relayed from an outside summary, SECONDHAND and not recounted here: GGML graph opcodes 102, Burn IR 212 shared operation kinds (328 counting float/int/bool variants separately), ONNX about 180.
 - **Datatype belongs to the lens, not the word.** The Burn IR count above is lower than its variant count because one operation kind serves several tensor types. The same split holds here: an `Effect` is a word plus ordered operands (`lance-graph-dt64`), and the operand types are the `ClassView`'s fields. A dtype-specific variant is not a new word.
 - **The semantic union is the open question, not the ceiling.** After aliasing (above), how many distinct words do relalg, R2IL, XLOG, ONNX, TF/TFLite, GGML and Burn need between them, and which belong in the shared lens versus a concern range? That count decides the layout of `0xF0__` and the tensor ranges (D-DT64-7-7).
 - **Calling overhead (HYPOTHESIS, unmeasured).** Binding by position removes the label scan from `prepare`. Nothing in the code shows a string lookup on the hot path, so any per-call cost on that path comes from somewhere not yet identified. The probe (D-DT64-7-6) reports the cost of `prepare` and of one `run`, each in nanoseconds, before and after; per the workspace rule, a millisecond reading is a failed gate, not a result.
 
+### 1c. Label hydration: from a consumer codebook to DT64 (2026-10-31, later in session)
+
+Question (operator): does the `hotplug.rs` → `ogar-vocab` → `lance-graph-ogar` delegation need planning so that labels from consumer codebooks reach DT64? **Yes.** Five findings, VERIFIED-IN-CODE on `main` `b38d88e` and OGAR `2a080a9`:
+
+- **H1. Activation carries no labels.** `hotplug::Activation` holds `(concept name, id)` rows, capability names, read modes and register laws. A field basis (the per-position labels a `ClassView` returns) does not travel through activation. The `ClassView` DT64 reads is whatever the caller passes, and nothing ties it to the codebook that activated the concept.
+- **H2. `OgarClassView` hydrates only OGAR's promoted concepts.** `ogar-class-view` builds its map from `ogar_vocab`'s `all_canonical_classes()`; any other class gets an empty basis. A consumer codebook (medcare-rs, woa-rs, …) has no route into it. The other `impl ClassView`s in the tree serve their own sources: `RegistryClassView` (OGIT cache, `lance-graph-ontology`), `WikidataClassView`, `CatsSchema` (`lance-graph-sap`).
+- **H3. DT64 keys the basis by the left half.** `lance_graph_dt64::view_class` is `classid_concept`, and `check_basis` reads `view.fields(view_class(class))`. Consequences:
+  - every lens under `0xFFFF` (`F000`, `F100`, `F200`, …) shares one basis of at most 256 words, so the right side can only select within it, which is D7' (right side = `WideFieldMask` selection);
+  - a consumer's behaviour lens `Domain::AppId :: 0xF###` shares the basis of that consumer's data class `Domain::AppId`, so data fields and algebra words would sit in one basis.
+- **H4. No view composes the sources.** A binary that runs DT64 passes one `ClassView`, which must answer canon concepts (OGAR), consumer concepts (the consumer's codebook) and `0xFFFF` (the polyfill aliases). Nothing in the tree routes by concept across those sources.
+- **H5. An unknown class fails closed.** An empty basis makes DT64 refuse with `FieldBasisChanged` (count mismatch): absence is a refusal, not an empty answer. This holds and needs no change.
+
+WORKING-MODEL items (not started; each names the decision it needs):
+
+| item | what | needs |
+|---|---|---|
+| L1 | Key behaviour-lens bases by the full classid: a `ClassView` lookup by `u32` (a defaulted contract method that falls back to the concept half), used by DT64 for lenses whose right side is `0xF###`. Without it, a concern range cannot exceed 256 words, and a consumer's behaviour words share its data basis. | O9 |
+| L2 | A composed `ClassView` routing by left side: `0xFFFF` → the polyfill alias view for the caller's language (L4); canon concepts → `OgarClassView`; a consumer's `Domain::AppId` → the view built from that consumer's codebook. It lives where the composing authority lives. | O8 |
+| L3 | Tie basis to activation: DT64 refuses to resolve a class whose concept the caller's `Activation` does not cover (C2, extended from registration to reading). | O8 |
+| L4 | Ship the polyfill lens's language alias views (R2IL, SQL, Quack) as a library surface derived from the `POLYFILL` table (#1899), instead of test-only views. | — |
+| L5 | How a consumer codebook hands its labels over: the consumer implements `ClassView` itself (as `CatsSchema` does), or the authority returns label rows with the activation. The second changes `Activation`; the first needs no contract change. | O10 |
+
+---
+
+## 2. The classid, both sides
 
 ```text
     left (high 16): concept                 right (low 16): selection within it
@@ -172,7 +197,9 @@ Each constraint is a test that fires plus a twin that stays silent, on non-trivi
 | O5 | D-LITHO Q5: which lance-graph table versions the global → local selection, and its row shape (WORKING-MODEL: versions = frame revisions, one row per local position, read through a ClassView, selected by a `WideFieldMask`; it also holds the stored selections of D7'). | DR/DT owner |
 | O6 | Whether `recursive::trace` (#1896) stays as a semi-naive test oracle or is removed; either way it is documented as not the traceroute. | operator |
 | O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order. Per §1b, languages that only rename the shared algebra become alias views; which of SQL, Gremlin and XLOG keep a range? Does full TensorFlow share TFLite's range, or take its own? | operator |
-| O8 | Where the composing authority lives: in `lance-graph-ogar` (which then depends on `lance-graph-dt64`), or in the binary that holds both authorities. | operator |
+| O9 | Behaviour-lens basis key (L1): keep the left-half key (256 words per left side; a large operator set takes several left sides), or key behaviour lenses by the full classid (a contract `ClassView` change). | operator |
+| O10 | Label handover from a consumer codebook (L5): the consumer's own `impl ClassView`, or label rows returned by the authority with the activation. | operator |
+| O8 | Where the composing authority (and the composed `ClassView`, L2) lives: in `lance-graph-ogar` (which then depends on `lance-graph-dt64`), or in the binary that holds both authorities. | operator |
 
 ---
 
