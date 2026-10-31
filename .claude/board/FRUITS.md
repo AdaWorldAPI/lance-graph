@@ -32,7 +32,7 @@ _none open_
 |---|---|---|---|
 | High-signal | TD-FROZEN-POLYFILL-NAMED-BY-R2IL — the compile-time polyfill is declared at runtime and named through `ogar-r2il` (2026-10-31) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`). | `TECH_DEBT.md` |
 | High-signal | TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1 — `Opcode::Revision` pools a duplicated source; a measured site of TD-NARS-REVISION-UNGUARDED (2026-10-23) | OPEN. **Basis:** VERIFIED-IN-CODE + MEASURED. | `TECH_DEBT.md` |
-| Low-hanging | TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (`ogar_codebook.rs:530-540`, read on `main` `b38d88e`). | `TECH_DEBT.md` |
+| Low-hanging | TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (`classid_canon_compat`, read on `main` `b38d88e`). | `TECH_DEBT.md` |
 | Low-hanging | TD-XLOG-NATIVE-COUNT-OVERFLOW-UNTESTED — the native bag count refuses on overflow, and no test reaches it (2026-10-31) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (`native.rs:45`, `:148-157`; no hit for `NativeRefusal::Count` outside `native.rs`, read on main `b38d88e`). | `TECH_DEBT.md` |
 | Low-hanging | TD-BGZ-TENSOR-INTEGRATION-TESTS-UNGATED-1 (2026-10-23) — OPEN | OPEN | `TECH_DEBT.md` |
 | Low-hanging | TD-CE64-W-SLOT-DOC-SAYS-NO-ANCHOR — `edge.rs` still documents W = 0 as "no corpus anchor" (2026-10-23) — OPEN | OPEN. **Basis:** VERIFIED-IN-CODE (`edge.rs:944` on main `8f610a85`). | `TECH_DEBT.md` |
