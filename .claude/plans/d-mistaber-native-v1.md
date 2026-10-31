@@ -166,3 +166,37 @@ Known limit: replacing `hop` with raw `compose` turns nothing red. The binding i
 
 - the row key is all zero, so identity exists only in column 0. Should the key also carry the address?
 - a real binding takes concept ids from the OGAR codebook through hotplug.
+
+## 10. D-MIST-NATIVE-1b: makor citations addressed the KJV way, no classid (2026-10-31)
+
+**DECISION (operator, 2026-10-31):** no classid for Mistaber nodes. They are addressed with the existing KJV path: `deepnsm-v2` `toc`/`hydrate` gives each node a `NiblePath` from the outline. `promote`, `key_at` and `NodeRow` are not used. Draft PR #1879 (address in the row key) answered a question the operator selected by mistake. It was closed unmerged, and its two commits are reverted on the branch.
+
+- **Fixture:** `crates/mistaber-kripke-probe/fixtures/makor.tsv` holds 141 real `makor(rule, sa("yd:siman:seif"))` citations from the compiled Mistaber ontology (`AdaWorldAPI/mistaber@b50bf33`). They cover 10 seifim: 87:1, 87:3–9, 89:1 and 100:6.
+- **Mapping** (`src/makor.rs`): Yoreh De'ah is book 0, siman is the chapter and seif is the verse. Each citation is a `Spo(rule ordinal, CITES, seif ordinal)` laid at its seif's verse node. Names exist only in `parse_makor`.
+- **Refusals:** a siman past the 255-per-level capacity has no node, and its citations are counted in `Hydration::unaddressed`, never folded into another node. More rule or seif ordinals than a `u16` holds are refused, never saturated.
+- **Dependency:** the probe depends on `deepnsm-v2`, a standalone lab crate, not an OGAR concept. The only global piece used is the contract's `NiblePath`. If the generic part (outline → spawned tree → addressed items) is ever needed outside a lab, it belongs beside `NiblePath` in the contract, with both `deepnsm-v2` and Mistaber consuming it.
+
+**Tests** (`tests/makor.rs`, 8):
+
+- all 141 citations are addressed, and each lands on its own seif's path;
+- containment reads as prefix ancestry: 87:1 and 87:3 sit under the siman-87 node, 87:x and 89:1 share only the book node, and the book node is an ancestor of all 10 paths;
+- the 10 seifim get distinct paths;
+- siman 403 is refused into `unaddressed`;
+- reading order is the fixture order;
+- a seif can carry many citing rules;
+- malformed lines are refused;
+- the 65,537th rule ordinal is refused.
+
+Full suite: 25 tests and 2 doctests.
+
+**Disable runs** (committed first, each then broken, red, restored):
+
+| # | breakage | red |
+|---|---|---|
+| M1 | `path_of` ignores the siman | 5 tests (addressing, containment, distinctness, refusal, order) |
+| M3 | rule ordinals saturate instead of refusing | `rule_ordinals_past_a_word_id_are_refused_not_saturated` |
+| M4 | markers swap siman and seif | 5 tests |
+
+M2 is a recorded limit, not a failure. Dropping the seif dedup turns only the ordinal test red: repeated markers resolve to the same node, so the dedup is representation, not addressing.
+
+**Note on ancestry granularity:** `NiblePath::common_ancestor` works per nibble, and each level spends two nibbles. So two seifim of one siman can share an interior nibble below the siman node. Tests assert level-node ancestry (`is_ancestor_of`), not equality of the common ancestor.
