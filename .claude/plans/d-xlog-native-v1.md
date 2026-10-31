@@ -1,6 +1,6 @@
 # D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill (the algebra under lance-graph-onnx)
 
-**Status:** PROPOSED / DOCS ONLY. This adds no crate, code, ABI or test. It is the crosswalk that decides whether a `lance-graph-xlog` crate, wired like `lance-graph-onnx`, is worth creating.
+**Status:** PROPOSED. The crosswalk (§2) is docs only; it decides whether a `lance-graph-xlog` crate, wired like `lance-graph-onnx`, is worth creating. Amendment A (2026-10-31) records what moved since: the binding now names mask-risc's op vocabulary, the probe binds through the production bind store, and XLOG results have a stated Epi5 reading.
 
 **Date:** 2026-10-30. **Parent work:** D-XLOG-DR64-0 (#1857), D-LITHO-1 (#1861, #1864; D-LITHO is now folded into D-DT64-6 Amendment A). **Precedent:** [D-ONNX-NATIVE](d-onnx-native-v1.md).
 
@@ -66,7 +66,7 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 | `Count`, keyed by a column of one table | `masked_group_count_u32` | INLINE | `GroupReduce { Lane, Count }` | keys past the group universe are dropped natively; the adapter refuses them instead |
 | `Count` keyed through a many-to-one key | `masked_group_count_u32_via` | INLINE | `GroupReduce { Via, Count }` | |
 | `Count` with no key | `popcount_batch_u64` | ALIAS | `Terminal::Count` | |
-| `Count` over a many-to-many join (the D-LITHO-1 multiplicity fixture) | none | NATIVE | none | deg_R(y) × deg_S(y): both factors are `masked_group_count_u32` results, but their per-key product is no native function. The probe's `BagNeedsMultiplicity` refusal stands |
+| `Count` over a many-to-many join (the D-LITHO-1 multiplicity fixture) | `masked_group_count_u32` twice, then `checked_binary_i64(I64Op::Mul)` | NATIVE | `GroupReduce { Lane, Count }` twice | deg_R(y) × deg_S(y). The binding exists (Amendment A); no executor runs it, and the probe's `BagNeedsMultiplicity` refusal stands. The multiply word is the ndarray #407 re-export, not checked from here |
 | `Sum` on an `I32` column | `masked_group_sum_i32` / `masked_sum_i32` | INLINE | `GroupSumI32` / `MaskedSumI32` | same row bound as the mask-risc terminal; beyond it, refuse. `masked_sum_i32` is the symbol ONNX's `ReduceSum(Where(..))` composition uses |
 | `Min` / `Max` on an `I32` column | `masked_group_min_i32` / `masked_group_max_i32` | INLINE | `GroupReduce { MinI32/MaxI32 }` | an empty group must be reported as absent, not as the seed value |
 | `LogSumExp` | none | REFUSE | — | a float, probabilistic aggregate |
@@ -107,6 +107,7 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 - [ ] D-XLOG-NATIVE-2: in the probe, test `masked_group_count_u32` keyed by one table's column against the RIR walk, including the out-of-universe refusal.
 - [ ] D-XLOG-NATIVE-3: ask the ndarray and mask-risc owners for a native home for the many-to-many join; the probe's Gate B is the fixture.
 - [ ] D-XLOG-NATIVE-4: create the crate once §4 holds.
+- [x] D-XLOG-NATIVE-5: bind the bag count through the production bind store (`lance-graph-dt64` and its `dr` module), and state the Epi5 reading of XLOG results (Amendment A).
 
 ## 6. Gates
 
@@ -115,3 +116,26 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 - **N3, typed refusal.** Every REFUSE and NATIVE row is a typed refusal in the adapter, never a silent fallback.
 - **N4, no dependency leak.** `cargo tree -p lance-graph-xlog` shows `ndarray` as the only normal dependency, and no `xlog-*` or arrow 60.
 - **N5, one algebra.** Every operation both facades name is the same native symbol in `lance-graph-onnx` and `lance-graph-xlog`.
+
+## Amendment A (2026-10-31): the binding's vocabulary, the production bind store, Epi5
+
+**A.1 What a binding names.** D-DT64-6 A.5 addenda 8 and 9 (operator) settle the catalogue-id question: there are no ids. The polyfill is one lens classid, its words are that lens's fields labelled through its `ClassView`, and a word is a field position (`AlgebraRef { lens, word }`). For folds the word is mask-risc's op vocabulary (`Pred`, `MaskOp`, `Terminal`); `ndarray::simd` is named only where mask-risc has no word, such as `checked_binary_i64`. So in §2 the **mask-risc column is what a binding names**, and the `ndarray::simd` column is what an executor would call. The ALIAS / INLINE categories and gates N1–N5 are about the crate's execution symbols and are unchanged.
+
+**A.2 The probe binds through production.** `crates/xlog-relcomp-probe/tests/dto_binding.rs` now routes the answer positions with `BindStore::route`, seals frames with `lance_graph_dt64::dr::FrameStore`, labels fields through `Resolved::field_view`, and admits the count by `MethodRef` (`Population::Bag`). Its steps name two polyfill words: mask-risc's keyed count twice, then the checked i64 multiply. Execution stays in the lab: `bind_dr64` and `relcomp` are not in `dt64::dr` (addendum 12), so the execution test carries the admitted population into the lab register, which refuses it (`BagNeedsMultiplicity`). `tests/litho.rs` keeps the lab frame store because `relcomp::Chain` only accepts that one.
+
+**A.3 Epi5 (CE64 bits 59..63).** If an XLOG result is ever written as a `CausalEdge64`:
+
+| result | `EpistemicState5` | raw5 |
+|---|---|---|
+| base fact (`r(1, 2)`) | `Direct × Open` | 0 |
+| composed edge (`r ; s`, X to Z through a retained Y) | `IndirectKnown × Open` | 1 |
+
+- A join certifies nothing (`Open`).
+- If an answer keeps no witness of Y, its topology is `IndirectUnknown`. That case is stated, not tested.
+- A bag count is a value field of the binding, never a certification and never frequency/confidence.
+- `raw5 == 0` is `Direct × Open`, so an unstamped composed edge silently claims a direct relation.
+- The reading is opaque until the XLOG lens has an `Epi5Declarations` entry. That is an OGAR declaration, including which rail it sits on; the probe uses a lab placeholder.
+
+`tests/epi5_reading.rs` pins these rules.
+
+**A.4 Still open.** Method identity: `MethodSignature` vs `MethodRef` vs Tract's `MethodKey` (EXO-50). Whether a frame records the store's catalogue extent (addendum 7, D8 owner). The XLOG and polyfill lenses' production classids and the XLOG Epi5 declaration (OGAR). A native home for the many-to-many join (D-XLOG-NATIVE-3).

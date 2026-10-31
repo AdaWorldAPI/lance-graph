@@ -27,6 +27,10 @@ xlog-logic = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da6633081
 # The shared contract types a DTO binding is stated in (NodeGuid, ClassView,
 # WideFieldMask). Same path crate dr-math-binding-probe already uses.
 lance-graph-contract = { path = "../lance-graph-contract" }
+# The production bind store and its DR module (tests/dto_binding.rs).
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# CausalEdge64, for the Epi5 reading of XLOG results (tests/epi5_reading.rs).
+causal-edge = { path = "../causal-edge" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

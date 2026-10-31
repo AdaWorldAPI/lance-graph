@@ -18,11 +18,12 @@
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto `ndarray::simd` (ALIAS / INLINE / NATIVE / REFUSE), shared symbols with lance-graph-onnx, name-checked | In PR | docs review |
+| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto `ndarray::simd` (ALIAS / INLINE / NATIVE / REFUSE), shared symbols with lance-graph-onnx, name-checked | Shipped (#1866) | docs |
 | D-XLOG-NATIVE-1 | test the selection rows (eq/ne_u32_to_mask, i32 comparisons, mask_and/or/andnot) against the probe's two oracles, signatures checked | Queued | N2 |
 | D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
 | D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
 | D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (ndarray only, no `xlog-*` dep, no plan type) once plan §4 holds | Queued | N1–N5 |
+| D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | In PR | lab execution only |
 
 ## D-LITHO — the photolithography contract (2026-10-30)
 

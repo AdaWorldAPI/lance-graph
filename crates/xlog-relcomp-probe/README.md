@@ -296,21 +296,33 @@ two things nothing defines yet:
 - a per-Y product: for a two-atom chain the count is deg_R(y) · deg_S(y)
   (XLOG's own factorized count multiplies trie-range lengths the same way).
 
-**The same operation as a DTO binding** (`tests/dto_binding.rs`, EXO-50
-message 19). DR routes first: lab ids map to local slots under a sealed frame.
-Then DT64 binds meaning:
+**The same operation through the production bind store**
+(`tests/dto_binding.rs`, `lance-graph-dt64`). DR routes first: the answer
+positions (the Y ids 2, 3, 7) are routed to the XLOG lens in the bind store's
+route log, under a sealed `dt64::dr::FrameStore`. Then DT64 binds meaning:
 
-- identities: `NodeGuid` references (V3 tail, lab classid `0x7F01 << 16`, a
-  stand-in, not a minted concept), decoding back to the Y ids 2, 3, 7;
-- property mappings: R and S as fields 0 and 1 of a `ClassView`, selected by
-  `WideFieldMask::from_positions(&[0, 1])`;
-- method: `(owner_class 0x7F01, method_ordinal 1)` with `Population::Bag`,
-  named by reference only;
+- identities: `NodeGuid` references (V3 tail, lab lens classid `0x7F01_0001`,
+  a stand-in, not a minted concept);
+- property mappings: R and S as fields 0 and 1 of the lens, labelled by its
+  `ClassView` through `Resolved::field_view`;
+- method: a `MethodBinding` of `Population::Bag`, admitted by `MethodRef`.
+  Its three steps name polyfill words by position: mask-risc's keyed count
+  (`Terminal::GroupReduce`) for R and for S, then
+  `ndarray::simd::checked_binary_i64(Mul)`. The polyfill is one lab lens
+  (`0x7F0A_0001`); no word has a classid;
 - expected values: {2: 4, 3: 1, 7: 1}, keyed by identity.
 
-The binding refuses a stale route (`MapChanged`), and executing the bound Bag
-method is refused by `bind_dr64` (`BagNeedsMultiplicity`): that is the failing
-half. No DT64 bind store exists (D-DT64-6 is PROPOSED); the binding is a
-test-local value and persists nothing. Disable runs: dropping the route check
-turns `dt64_does_not_bind_against_a_stale_route` red; declaring the method
-Distinct turns the method and refusal tests red.
+The binding refuses a stale frame (`MapChanged`) and a retracted position
+(`Unrouted`; the old route version still resolves). Execution has no
+production home: the admitted population is carried into the lab register,
+whose `bind_dr64` refuses it (`BagNeedsMultiplicity`). That is the failing
+half. `tests/litho.rs` keeps the lab frame store, because `relcomp::Chain`
+accepts only that one.
+
+**Epi5** (`tests/epi5_reading.rs`). An XLOG result written as a
+`CausalEdge64` carries `Direct x Open` for a base fact and
+`IndirectKnown x Open` for a composed edge whose Y is retained. A join
+certifies nothing, and a bag count is never a certification or a truth value.
+`raw5 == 0` reads as `Direct x Open`, so an unstamped composed edge would
+claim a direct relation. Without a declaration for the XLOG lens, projection
+refuses (`UndeclaredClass`).
