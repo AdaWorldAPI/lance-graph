@@ -51,6 +51,31 @@ fn walk(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, out: &mut Vec<DefWithBod
     }
 }
 
+/// A symbol's identity: crate name, then each descriptor's name followed by
+/// a suffix for its kind (`/` namespace, `#` type, `.` term, `().` method,
+/// `[]` type parameter, `()` parameter, `!` macro, `:` meta).
+fn identity(id: &ra_ap_ide::MonikerIdentifier) -> String {
+    use ra_ap_ide::MonikerDescriptorKind as K;
+    let parts: Vec<String> = id
+        .description
+        .iter()
+        .map(|d| {
+            let suffix = match d.desc {
+                K::Namespace => "/",
+                K::Type => "#",
+                K::Term => ".",
+                K::Method => "().",
+                K::TypeParameter => "[]",
+                K::Parameter => "()",
+                K::Macro => "!",
+                K::Meta => ":",
+            };
+            format!("{}{suffix}", d.name)
+        })
+        .collect();
+    format!("{}::{}", id.crate_name, parts.join("::"))
+}
+
 fn main() -> anyhow::Result<()> {
     let root = std::fs::canonicalize(std::env::args().nth(1).expect("workspace root"))?;
     let cargo = CargoConfig {
@@ -328,6 +353,42 @@ fn main() -> anyhow::Result<()> {
                 d.references.len(),
                 impl_at.join(";")
             );
+        }
+    }
+    // XREFS=1: one `occ` line per occurrence of every symbol rust-analyzer
+    // gives a moniker: `occ <moniker> <kind> <file> <start> <end> def|ref`.
+    // Offsets are byte offsets into the file; files outside the workspace
+    // root are skipped. These are the witnessed facts a Kythe producer reads
+    // (tools/kythe_entries.py); nothing here is Kythe-specific.
+    if std::env::var("XREFS").is_ok() {
+        let rel = |file_id| {
+            vfs.file_path(file_id).as_path().and_then(|a| {
+                std::path::Path::new(a.as_str())
+                    .strip_prefix(&root)
+                    .ok()
+                    .map(|p| p.display().to_string())
+            })
+        };
+        for (_, d) in &all {
+            let Some(MonikerResult::Moniker(m)) = &d.moniker else {
+                continue;
+            };
+            // `MonikerIdentifier`'s Display drops each descriptor's kind, so
+            // `struct Foo` and `fn Foo` would print the same name. Keep the
+            // kind as a SCIP-style suffix so distinct symbols stay distinct.
+            let moniker = identity(&m.identifier);
+            for r in &d.references {
+                let Some(file) = rel(r.range.file_id) else {
+                    continue;
+                };
+                println!(
+                    "occ\t{moniker}\t{:?}\t{file}\t{}\t{}\t{}",
+                    d.kind,
+                    u32::from(r.range.range.start()),
+                    u32::from(r.range.range.end()),
+                    if r.is_definition { "def" } else { "ref" }
+                );
+            }
         }
     }
     println!(
