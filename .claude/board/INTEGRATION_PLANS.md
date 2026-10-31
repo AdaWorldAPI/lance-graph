@@ -1,3 +1,8 @@
+## 2026-10-31 — D-DYNBAG: DR{dynamic bag}, holographic bags as polyfill, the PostgreSQL endgame → `.claude/plans/d-dynbag-holographic-bags-v1.md`
+
+**Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DYNBAG. DuckDB's selection vector made explicit: a Quack selection becomes a mask plus one pointer table (`dt64::dr::LocalMap`) and runs on a local tile whose width follows the survivor count (DR64 / DR256 / multi-tile). Relations on a tile are read in a semiring per operation (B for presence, ℕ for bag multiplicity; K-relations), one address with several readings. The bag-op polyfill names each relational operation once with one realization per semiring. ℕ-compose via `ndarray::simd::matmul_i8_to_i32` is the candidate home for the many-to-many join (falsifier D-DYNBAG-1). Endgame: a PostgreSQL-compatible surface (`sql-quack-probe`, modelled on `lance-graph-cypher-quack`) scored against DuckDB and PostgreSQL in ns, losses reported. The membrane stays a reference note on EXO-50.
+**Confidence:** plan; word existence verified in code, no new measurement.
+
 ## 2026-10-31 — D-SOC-FENCE: one place per concern, checked in CI → `.claude/plans/d-soc-fence-v1.md`
 
 **Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-SOC-FENCE. A mapping file (`.claude/soc/one-place.toml`) names each concern's sole owner, its basis, the symbols only the owner names and what others reach it through. A `syn`-based symbol fence plus a `cargo metadata` dependency fence report every use outside it. A two-way ratchet baseline holds known violations. Report-only first; blocking once the baseline is committed. Triggered by PR #1884's direct `ndarray::simd` fold calls bypassing Quack and mask-risc.

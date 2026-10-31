@@ -74,6 +74,7 @@ Each row below is a proposal. Wave 0 confirms or corrects it by reading the cite
 | `classid-split` | `ogar_codebook::{classid_concept, classid_canon, …}`, `dt64::view_class` | those functions; no bit math on a composed classid | `/v3-audit` item 1 |
 | `epi5-field` | `CausalEdge64::{epistemic_raw5, with_epistemic_raw5}`, `Epi5Declarations::project_state5` | those; no shifts or masks on bits 59..63 elsewhere | `epistemic_state5.rs` module docs |
 | `presence` | the class's `FieldMask` / `WideFieldMask` | presence bits; never a sentinel value inside a field | `class_view.rs` C2 |
+| `tuple-template` | relalg (describes) and Quack (surface); the pointer table is `dt64::dr::LocalMap`; one named intake per frontend | descriptions over lanes; no owned row (`Vec<(..)>`, row structs) after intake, in production, probes or oracles | lance-graph CLAUDE.md P0 ("a tuple is a zero-copy fold template"); D-DYNBAG §2, §8 |
 
 `/v3-audit` keeps its own checks. Its item 1 moves into the mapping file, so the rule is written in one place, and the command reads it from there.
 

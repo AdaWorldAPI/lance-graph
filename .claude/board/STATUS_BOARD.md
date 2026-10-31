@@ -12,6 +12,21 @@
 | D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
 | D-MIST-NATIVE-4 | intake from compiled HLL | Queued | upstream provenance defects (`mistaber-rs#3`, `#4`) |
 
+## D-DYNBAG — DR{dynamic bag}: selection vector made explicit, holographic bags as polyfill, PostgreSQL endgame (2026-10-31)
+
+Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Queued | operator go-ahead |
+| D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | Queued | D-DYNBAG-0 |
+| D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
+| D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
+| D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Queued | DT64 `dr` owner |
+| D-DYNBAG-5 | `sql-quack-probe` modelled on `lance-graph-cypher-quack` | Queued | parser decision |
+| D-DYNBAG-6 | scoreboard vs DuckDB / PostgreSQL, ns units, losses reported | Queued | D-DYNBAG-5 |
+| D-DYNBAG-7 | second Datalog frontend (Scallop) through the same path | Queued | D-DYNBAG-2 |
+
 ## D-SOC-FENCE — one place per concern, checked in CI (2026-10-31)
 
 Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
