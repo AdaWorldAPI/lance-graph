@@ -85,6 +85,11 @@ use lance_graph_contract::property::{PropertySchema, PropertySpec};
 use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 
+pub mod dr;
+
+pub use dr::{Axis, Claim, Extent, RouteVersion, Width, MAX_RESERVED};
+use dr::{RouteLog, RouteRefusal};
+
 /// A method's identity within its class, independent of its source name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MethodId(pub u32);
@@ -97,11 +102,6 @@ pub struct SigRev(pub u32);
 /// A class's schema revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SchemaRev(pub u32);
-
-/// A position in the append-only route log. `RouteVersion(0)` is the empty
-/// log; each route or retract advances it by one.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RouteVersion(pub u64);
 
 /// A polyfill word: a field position under the polyfill's lens classid. The
 /// word's name (a mask-risc op, an `ndarray::simd` facade word) is that
@@ -228,61 +228,6 @@ impl MethodBinding {
     }
 }
 
-/// Positions per axis of a DR focus (D-DRF-1 §1): DR64 or DR256.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Width {
-    W64,
-    W256,
-}
-
-impl Width {
-    pub const fn positions(self) -> usize {
-        match self {
-            Width::W64 => 64,
-            Width::W256 => 256,
-        }
-    }
-}
-
-/// The logical extent a class binds over, chosen by the consumer per axis:
-/// Identity × Property × Predicate. D-DT64-6 A.1: the DT binding names DR64
-/// or DR256 and states its cost in those units. Logical only: nothing is
-/// allocated here, and no cube is assumed to exist (§7).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Extent {
-    pub identity: Width,
-    pub property: Width,
-    /// The class's predicates: its methods (ON × WHEN × DO registrations).
-    pub predicate: Width,
-}
-
-impl Extent {
-    /// DR64³: 64 × 64 × 64.
-    pub const DR64_CUBE: Extent = Extent {
-        identity: Width::W64,
-        property: Width::W64,
-        predicate: Width::W64,
-    };
-    /// DR256² × 64: a 256 × 256 Identity × Property tile under 64 predicates.
-    pub const DR256_SQ_X64: Extent = Extent {
-        identity: Width::W256,
-        property: Width::W256,
-        predicate: Width::W64,
-    };
-
-    /// Logical cells.
-    pub const fn cells(self) -> usize {
-        self.identity.positions() * self.property.positions() * self.predicate.positions()
-    }
-
-    /// What a dense Boolean volume of this extent would cost, in bytes, if
-    /// anyone materialized it (DR64³ is 32 KiB, D-DRF-1 §1). A statement of
-    /// cost, not an allocation.
-    pub const fn dense_bytes(self) -> usize {
-        self.cells() / 8
-    }
-}
-
 /// A class's schema as bound: the schema revision, the field count the
 /// methods were bound against, and the extent the consumer chose. The field
 /// basis itself is the [`ClassView`] class [`view_class`] of the classid,
@@ -353,17 +298,31 @@ pub enum Refusal {
     },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
-    /// More fields than the extent's Property axis holds.
+    /// More fields than the class reserved on its Property axis.
     FieldsExceedExtent {
         class: u32,
         field_count: usize,
-        property: Width,
+        reserved: usize,
     },
-    /// More methods than the extent's Predicate axis holds.
+    /// More methods than the class reserved on its Predicate axis.
     MethodsExceedExtent {
         class: u32,
         methods: usize,
-        predicate: Width,
+        reserved: usize,
+    },
+    /// A reservation wider than the axis can address: identity and predicate
+    /// up to [`MAX_RESERVED`], property up to [`MAX_FIELDS`] (a
+    /// `WideFieldMask` position is a `u8`).
+    ReservationTooWide {
+        class: u32,
+        axis: &'static str,
+        reserved: usize,
+    },
+    /// A route to a position outside the class's identity reservation.
+    OutsideReservation {
+        class: u32,
+        position: u16,
+        reserved: usize,
     },
     /// Asked at another schema revision than the one bound.
     SchemaRevisionMismatch {
@@ -435,6 +394,25 @@ impl std::fmt::Display for Refusal {
 }
 
 impl std::error::Error for Refusal {}
+
+impl From<RouteRefusal> for Refusal {
+    fn from(r: RouteRefusal) -> Refusal {
+        match r {
+            RouteRefusal::OutsideReservation {
+                class,
+                position,
+                reserved,
+            } => Refusal::OutsideReservation {
+                class,
+                position,
+                reserved,
+            },
+            RouteRefusal::FutureVersion { asked, current } => {
+                Refusal::FutureVersion { asked, current }
+            }
+        }
+    }
+}
 
 /// The result of one lookup: the class schema as bound, its fields as the
 /// [`ClassView`] holds them now (borrowed), and its methods.
@@ -564,10 +542,8 @@ pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
     /// The bound polyfill lenses, by lens classid (D6).
     algebra: BTreeMap<u32, AlgebraLens>,
-    /// Per position, the route events in version order: `(version, class)`,
-    /// `None` for a retract.
-    routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
-    version: RouteVersion,
+    /// DR's route log. The store binds; DR routes.
+    routes: RouteLog,
 }
 
 impl BindStore {
@@ -740,47 +716,42 @@ impl BindStore {
 
     /// The current end of the route log.
     pub fn current_version(&self) -> RouteVersion {
-        self.version
+        self.routes.current_version()
     }
 
-    /// Route `position` to the bound `class`; returns the new version.
+    /// Route `position` to the bound `class`; returns the new version. A
+    /// position past the class's identity reservation is refused.
     pub fn route(&mut self, position: u16, class: u32) -> Result<RouteVersion, Refusal> {
-        if !self.classes.contains_key(&class) {
-            return Err(Refusal::UnknownClass(class));
-        }
-        Ok(self.push_route(position, Some(class)))
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        Ok(self
+            .routes
+            .route(position, class, entry.schema.extent.identity)?)
+    }
+
+    /// What `class` has claimed of its reservation at `version`: the identity
+    /// tiles that hold a position routed to it then. A reservation alone
+    /// claims nothing.
+    pub fn claimed(&self, class: u32, version: RouteVersion) -> Result<Claim, Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        Ok(self.routes.claimed(class, entry.schema.extent, version)?)
     }
 
     /// Remove `position`'s route; returns the new version. The classid it
     /// routed to keeps its behaviour.
     pub fn retract(&mut self, position: u16) -> RouteVersion {
-        self.push_route(position, None)
-    }
-
-    fn push_route(&mut self, position: u16, class: Option<u32>) -> RouteVersion {
-        self.version = RouteVersion(self.version.0 + 1);
-        self.routes
-            .entry(position)
-            .or_default()
-            .push((self.version, class));
-        self.version
+        self.routes.retract(position)
     }
 
     /// The classid `position` routed to at `version`, `None` if it was
     /// unrouted then.
     pub fn routed_at(&self, version: RouteVersion, position: u16) -> Result<Option<u32>, Refusal> {
-        if version > self.version {
-            return Err(Refusal::FutureVersion {
-                asked: version,
-                current: self.version,
-            });
-        }
-        let Some(events) = self.routes.get(&position) else {
-            return Ok(None);
-        };
-        // Events are in version order; take the last one at or before `version`.
-        let seen = events.partition_point(|(v, _)| *v <= version);
-        Ok(seen.checked_sub(1).and_then(|i| events[i].1))
+        Ok(self.routes.routed_at(version, position)?)
     }
 
     /// The one lookup: `(classid, schema revision) → { fields, methods }`.
@@ -889,18 +860,31 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
         });
     }
     let extent = schema.extent;
-    if schema.field_count > extent.property.positions() {
+    for (axis, reserved, max) in [
+        ("identity", extent.identity.reserved(), MAX_RESERVED),
+        ("property", extent.property.reserved(), MAX_FIELDS),
+        ("predicate", extent.predicate.reserved(), MAX_RESERVED),
+    ] {
+        if reserved > max {
+            return Err(Refusal::ReservationTooWide {
+                class,
+                axis,
+                reserved,
+            });
+        }
+    }
+    if schema.field_count > extent.property.reserved() {
         return Err(Refusal::FieldsExceedExtent {
             class,
             field_count: schema.field_count,
-            property: extent.property,
+            reserved: extent.property.reserved(),
         });
     }
-    if methods.len() > extent.predicate.positions() {
+    if methods.len() > extent.predicate.reserved() {
         return Err(Refusal::MethodsExceedExtent {
             class,
             methods: methods.len(),
-            predicate: extent.predicate,
+            reserved: extent.predicate.reserved(),
         });
     }
     for (i, m) in methods.iter().enumerate() {

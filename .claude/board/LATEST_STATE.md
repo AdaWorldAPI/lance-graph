@@ -10,6 +10,11 @@
 - #1874 landed the co-research hydration map and the DR64³ contraction test.
 - No contract type changed.
 
+## 2026-10-31 — main after #1869 and #1871 (`lance-graph-dt64`)
+
+- New production crate `crates/lance-graph-dt64` (contract-only): the bind store (D-DT64-6 A.5). It holds classes, methods, K3 guards, ordered effects and one resolve, plus the polyfill as one lens classid.
+- The thin-provisioned extent and the `dr` addressing module are not on main yet; they are in the follow-up PR.
+
 ## 2026-10-30 — main after #1862 (merged `abe0b7afc`)
 
 - #1862 landed docs and two tests: D-DT64-6 Amendment A, the Morton aligned-square test, and the mask-risc dose test; D-LITHO folded into D-DT64-6.

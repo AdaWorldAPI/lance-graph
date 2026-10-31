@@ -6,8 +6,9 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
-    MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand, Width,
+    view_class, AlgebraRef, Arg, Axis, BindStore, ClassSchema, Effect, Extent, Guard,
+    MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    Width,
 };
 
 /// A ClassView with one class of `n` fields; `n` can be changed to model a
@@ -833,35 +834,37 @@ fn a_risk_mask_reaches_the_methods_that_touch_it() {
     );
 }
 
-/// A consumer chooses its extent; nothing caps it at 64. An ONNX graph with
-/// 200 values and 70 nodes does not fit DR64³ and is refused there with the
-/// axis named; DR256² × 64 holds the 200 values, and a 256-wide predicate
-/// axis holds the 70 methods. The cost is stated, not allocated.
-#[test]
-fn a_consumer_chooses_its_extent_and_is_not_capped_at_64() {
-    assert_eq!(Extent::DR64_CUBE.dense_bytes(), 32 * 1024);
-    assert_eq!(Extent::DR256_SQ_X64.dense_bytes(), 512 * 1024);
-
-    let node = |id: u32| MethodBinding {
+fn node(id: u32) -> MethodBinding {
+    MethodBinding {
         id: MethodId(id),
         when: None,
         on: WideFieldMask::from_positions(&[]),
         reads: WideFieldMask::from_positions(&[]),
         ..method(id, vec![])
-    };
+    }
+}
+
+const ONNX_BIG: u32 = 0x7F03_0002;
+const JINA: u32 = 0x7F03_0003;
+
+/// A consumer reserves what it needs per axis, in DR64 or DR256 tiles, so
+/// nothing caps it at 64: 200 fields need a 256-wide property axis, and 70
+/// methods need a predicate axis wider than one 64 tile. The reservation is
+/// part of the immutable binding.
+#[test]
+fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
     let mut s = catalogue();
     assert_eq!(
         s.register(ONNX, schema(1, 200), vec![node(1)]),
         Err(Refusal::FieldsExceedExtent {
             class: ONNX,
             field_count: 200,
-            property: Width::W64
+            reserved: 64
         })
     );
     assert_eq!(
         s.register(ONNX, schema_in(1, 200, Extent::DR256_SQ_X64), vec![node(1)]),
-        Ok(()),
-        "200 values fit the 256-wide property axis"
+        Ok(())
     );
 
     let nodes: Vec<MethodBinding> = (1..=70).map(node).collect();
@@ -874,19 +877,90 @@ fn a_consumer_chooses_its_extent_and_is_not_capped_at_64() {
         Err(Refusal::MethodsExceedExtent {
             class: ONNX_BIG,
             methods: 70,
-            predicate: Width::W64
+            reserved: 64
         })
     );
-    let wide = Extent {
-        predicate: Width::W256,
+    let two_predicate_tiles = Extent {
+        predicate: Axis::new(Width::W64, 2),
         ..Extent::DR256_SQ_X64
     };
-    assert_eq!(s.register(ONNX_BIG, schema_in(1, 200, wide), nodes), Ok(()));
-    // The extent is part of the binding, so it cannot be changed later.
     assert_eq!(
-        s.register(ONNX, schema_in(1, 200, wide), vec![node(1)]),
-        Err(Refusal::BehaviourImmutable(ONNX))
+        s.register(ONNX_BIG, schema_in(1, 200, two_predicate_tiles), nodes),
+        Ok(())
+    );
+    assert_eq!(
+        s.register(ONNX, schema_in(1, 200, two_predicate_tiles), vec![node(1)]),
+        Err(Refusal::BehaviourImmutable(ONNX)),
+        "the reservation cannot be changed after binding"
+    );
+    // An axis wider than it can address is refused, not truncated.
+    let too_wide = Extent {
+        property: Axis::new(Width::W256, 2),
+        ..Extent::DR256_SQ_X64
+    };
+    assert_eq!(
+        s.register(JINA, schema_in(1, 4, too_wide), vec![]),
+        Err(Refusal::ReservationTooWide {
+            class: JINA,
+            axis: "property",
+            reserved: 512
+        })
     );
 }
 
-const ONNX_BIG: u32 = 0x7F03_0002;
+/// Thin provisioning: Jina's 7,620 nodes are identity positions. Reserving
+/// the whole DR256 identity space claims nothing; routing the 7,620 nodes
+/// claims the 30 tiles of 256 they fall in, and the cost is stated for those
+/// 30 tiles, not for the 256 reserved. A one-tile reservation refuses node
+/// 7,619 instead of silently dropping it.
+#[test]
+fn jina_reserves_the_dr256_identity_space_and_claims_only_routed_tiles() {
+    const NODES: u16 = 7_620;
+    let mut s = catalogue();
+    s.register(
+        JINA,
+        schema_in(1, 4, Extent::DR256_GLOBAL_X64),
+        vec![node(1)],
+    )
+    .unwrap();
+    assert_eq!(Extent::DR256_GLOBAL_X64.identity.reserved(), 65_536);
+    let none = s.claimed(JINA, s.current_version()).unwrap();
+    assert_eq!(
+        (none.identity_tiles, none.bytes),
+        (0, 0),
+        "reserving claims nothing"
+    );
+
+    for position in 0..NODES {
+        s.route(position, JINA).unwrap();
+    }
+    let claim = s.claimed(JINA, s.current_version()).unwrap();
+    assert_eq!(claim.identity_tiles, 30, "ceil(7,620 / 256)");
+    // One claimed tile: 256 identities x 256 properties x 64 predicates.
+    assert_eq!(Extent::DR256_GLOBAL_X64.tile_bytes(), 512 * 1024);
+    assert_eq!(claim.bytes, 30 * 512 * 1024);
+    assert!(claim.bytes < Extent::DR256_GLOBAL_X64.reserved_cells() / 8);
+    // Replay: before the last tile's first route, 29 tiles were claimed.
+    assert_eq!(
+        s.claimed(JINA, RouteVersion(7_424)).unwrap().identity_tiles,
+        29
+    );
+
+    // A one-tile reservation refuses a node past it, naming the reservation.
+    s.register(ONNX, schema_in(1, 4, Extent::DR256_SQ_X64), vec![node(1)])
+        .unwrap();
+    let before = s.current_version();
+    assert_eq!(
+        s.route(NODES - 1, ONNX),
+        Err(Refusal::OutsideReservation {
+            class: ONNX,
+            position: NODES - 1,
+            reserved: 256
+        })
+    );
+    assert_eq!(
+        s.current_version(),
+        before,
+        "a refused route moves no version"
+    );
+}
