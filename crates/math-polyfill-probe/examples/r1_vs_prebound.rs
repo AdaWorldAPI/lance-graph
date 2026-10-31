@@ -14,6 +14,7 @@
 //!   5 r2il prepared   FoldDialect run once, `last_program` kept, `execute_compiled`
 //!   6 dialect         `SumWhere::eval` (FoldDialect fold) per call
 //!   7 R1 run          `binding::prepare` once, `binding::run` per call
+//!   8 R1 native       `prepare_native` once, `run_native` per call
 //!
 //! `MPF_REPS`, `MPF_ITERS` as in `classid_route`. ns per call, median.
 
@@ -39,6 +40,7 @@ use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Out, Planes, Value};
 use lance_graph_r2il::binding::{
     prepare, run, ExecPermit, FieldLanes, R2ilLens, Receipt, Resolution,
 };
+use lance_graph_r2il::binding_native::{prepare_native, run_native, NativeReceipt, NativeScratch};
 use lance_graph_r2il::FoldDialect;
 use math_polyfill_probe::native::{sum_where_oracle, Pred, SumWhere};
 use ndarray::simd as nd;
@@ -272,6 +274,14 @@ fn answer(r: &Receipt) -> i64 {
         .expect("R1 receipt carries the SUM field")
 }
 
+fn answer_native(r: &NativeReceipt) -> i64 {
+    r.values()
+        .iter()
+        .find(|(f, _)| *f == F_S)
+        .map(|&(_, v)| v)
+        .expect("native receipt carries the SUM field")
+}
+
 fn main() {
     let reps = env("MPF_REPS", 21);
     let iters0 = env("MPF_ITERS", 4000);
@@ -356,6 +366,7 @@ fn main() {
         "r2il prepared",
         "dialect",
         "R1 run",
+        "R1 native",
     ];
     let mut time_rows = Vec::new();
     let mut alloc_rows = Vec::new();
@@ -420,6 +431,11 @@ fn main() {
         let mut d7 = FoldDialect::new(&planes, &Foreign::NONE);
         let fields = FieldLanes { lanes: &LANES };
 
+        // arm 8: R1 native, prepared once outside the timers
+        let np = prepare_native(&plan, &bstore, &frames, now, fields, &planes)
+            .expect("R1 prepare_native");
+        let mut ns8 = NativeScratch::for_plan(&np);
+
         // oracle check, every arm, before timing
         assert!(want != 0, "the fixture must select rows");
         assert_eq!(probe_direct(&x, t, &mut m), want, "direct nd, n={n}");
@@ -438,6 +454,13 @@ fn main() {
         assert_eq!(op.eval(&mut d6, &mut stack6), Ok(want), "dialect, n={n}");
         let r1 = run(&plan, &bstore, &frames, now, &permit, fields, &mut d7).expect("R1 run");
         assert_eq!(answer(&r1), want, "R1 run, n={n}");
+        let r8 = run_native(&np, &bstore, &frames, now, &permit, &planes, &mut ns8)
+            .expect("R1 native run");
+        assert_eq!(answer_native(&r8), want, "R1 native, n={n}");
+        assert_eq!(
+            r8.programs_run, r1.programs_run,
+            "R1 native programs, n={n}"
+        );
 
         let p5 = d5.programs_run();
         let (p6, p7) = (d6.programs_run(), d7.programs_run());
@@ -445,7 +468,7 @@ fn main() {
         // Every timed call is checked: `ok[i]` counts calls of arm `i` that
         // returned the oracle's answer, and must equal the call count. An
         // error or a wrong value is a failed sample, never a skipped one.
-        let mut ok = [0usize; 7];
+        let mut ok = [0usize; 8];
         res.push(measure(reps, iters, || {
             let v = black_box(probe_direct(black_box(&x), black_box(t), &mut m));
             ok[0] += usize::from(v == want);
@@ -486,6 +509,18 @@ fn main() {
             let v = black_box(run(&plan, &bstore, &frames, now, &permit, fields, &mut d7));
             ok[6] += usize::from(matches!(&v, Ok(r) if answer(r) == want));
         }));
+        res.push(measure(reps, iters, || {
+            let v = black_box(run_native(
+                black_box(&np),
+                &bstore,
+                &frames,
+                now,
+                &permit,
+                &planes,
+                &mut ns8,
+            ));
+            ok[7] += usize::from(matches!(&v, Ok(r) if answer_native(r) == want));
+        }));
         for (i, (r, &good)) in res.iter().zip(&ok).enumerate() {
             assert_eq!(
                 good, r.calls,
@@ -505,6 +540,13 @@ fn main() {
         assert_eq!(op.eval(&mut d6, &mut stack6), Ok(want));
         let again = run(&plan, &bstore, &frames, now, &permit, fields, &mut d7).expect("R1 run");
         assert_eq!(answer(&again), want, "R1 run after timing, n={n}");
+        let again8 = run_native(&np, &bstore, &frames, now, &permit, &planes, &mut ns8)
+            .expect("R1 native run");
+        assert_eq!(
+            answer_native(&again8),
+            want,
+            "R1 native after timing, n={n}"
+        );
 
         time_rows.push((n, res.iter().map(|r| r.ns).collect::<Vec<_>>()));
         alloc_rows.push((n, res.iter().map(|r| r.allocs).collect::<Vec<_>>()));

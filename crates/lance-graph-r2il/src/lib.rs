@@ -102,6 +102,7 @@
 //! so the arity table stays in `ogar_r2il` alone.
 
 pub mod binding;
+pub mod binding_native;
 pub mod procs;
 
 use std::cell::Cell;

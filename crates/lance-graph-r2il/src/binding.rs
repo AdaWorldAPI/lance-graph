@@ -70,7 +70,7 @@ use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guar
 use lance_graph_dt64::{
     AlgebraRef, Arg, BindStore, Effect, MethodRef, Refusal, RouteVersion, SchemaRev,
 };
-use lance_graph_mask_risc::{LaneKind, LaneRef};
+use lance_graph_mask_risc::{LaneKind, LaneRef, Planes};
 use ogar_loco::{Dialect, FnIndex, Vocabulary};
 use ogar_r2il::{R2ILVocabulary, ALL, ANY, CONCEPT_R2IL_FOLD, KEY_RUNS, MAX, MIN, SUM};
 
@@ -91,7 +91,7 @@ pub const EXECUTABLE: [FnIndex; 17] = [
 ];
 
 /// The compares whose constant operand the dialect narrows to the lane type.
-const LANE_COMPARES: [FnIndex; 2] = [INT_EQUAL, INT_S_LESS];
+pub(crate) const LANE_COMPARES: [FnIndex; 2] = [INT_EQUAL, INT_S_LESS];
 
 /// Which resident lane each class field is read from: `lanes[p]` is the
 /// index into `Planes::lanes` for field position `p`, or `None` when the
@@ -109,9 +109,9 @@ pub struct R2ilLens {
     pub schema_rev: SchemaRev,
 }
 
-/// Explicit, limited permission to execute exact method references. Lab
-/// scope: who issues it is not decided. `BindStore::admit` succeeding is
-/// never a substitute for it.
+/// Explicit, limited permission to execute exact method references. This is
+/// a lab permission, not a production authorization: who issues it is not
+/// decided. `BindStore::admit` succeeding is never a substitute for it.
 #[derive(Debug, Clone, Default)]
 pub struct ExecPermit {
     pub methods: Vec<MethodRef>,
@@ -229,6 +229,23 @@ pub enum ExecRefusal {
     Fold { effect: usize, error: FoldError },
     /// The call left other than one value on the stack.
     ResultArity { effect: usize, left: usize },
+    /// A fold step consumes a value computed from an earlier fold's result;
+    /// a native plan would freeze that value into the compiled ops.
+    FoldResultFeedsFold { effect: usize },
+    /// A step that is not a fold computes a scalar from an earlier fold's
+    /// result; a native plan would have to re-evaluate it on every run.
+    ScalarAfterFold { effect: usize },
+    /// A scalar output read from the planes without a fold. A native plan
+    /// would store it as a fixed value and miss a later change in the lanes.
+    DataScalarNotPrepared { field: u8 },
+    /// The plan writes more scalar fields than a native receipt carries.
+    TooManyOutputs { outputs: usize },
+    /// The planes' shape differs from the one the native plan was prepared
+    /// over: `(n_rows, lanes, masks)`.
+    PlanesChanged {
+        recorded: (usize, usize, usize),
+        now: (usize, usize, usize),
+    },
 }
 
 /// Resolve `r`'s method into a [`Prepared`] plan, cold. See the module docs
@@ -316,7 +333,7 @@ pub fn run(
             let v = match a {
                 Arg::Field(p) => match values.get(&p) {
                     Some(&v) => v,
-                    None => lane(dialect, fields, i, p)?,
+                    None => lane(dialect.planes, fields, i, p)?,
                 },
                 Arg::Const(c) => Val::Scalar(c),
             };
@@ -358,7 +375,7 @@ pub fn run(
 }
 
 /// The route at the captured version, and now, must both name `class`.
-fn check_route(
+pub(crate) fn check_route(
     store: &BindStore,
     class: u32,
     route: (RouteVersion, u16),
@@ -474,8 +491,8 @@ fn opcode<V: ClassView + ?Sized>(
 }
 
 /// The address of the resident lane field `p` is bound to.
-fn lane(
-    dialect: &FoldDialect<'_>,
+pub(crate) fn lane(
+    planes: &Planes<'_>,
     fields: FieldLanes<'_>,
     effect: usize,
     field: u8,
@@ -491,7 +508,7 @@ fn lane(
         field,
         lane: idx,
     };
-    let kind = match dialect.planes.lanes.get(usize::from(idx)) {
+    let kind = match planes.lanes.get(usize::from(idx)) {
         Some(LaneRef::I32(_)) => LaneKind::I32,
         Some(LaneRef::U32(_)) => LaneKind::U32,
         Some(LaneRef::U64(_)) => LaneKind::U64,
@@ -502,7 +519,7 @@ fn lane(
 
 /// A lane compare's constant must fit the lane's type: the dialect narrows
 /// it with a saturating conversion, which would change the predicate.
-fn check_compare(stack: &[Val], effect: usize) -> Result<(), ExecRefusal> {
+pub(crate) fn check_compare(stack: &[Val], effect: usize) -> Result<(), ExecRefusal> {
     let [.., a, b] = stack else {
         return Ok(());
     };
