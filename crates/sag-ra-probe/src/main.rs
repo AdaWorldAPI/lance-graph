@@ -7,7 +7,10 @@
 //! `push`, `collect` and `is_empty` are unresolved and coverage drops to 31%.
 #![allow(deprecated)]
 use ra_ap_hir::{AssocItem, Crate, DefWithBody, Module, ModuleDef};
-use ra_ap_ide::{AnalysisHost, StaticIndex, VendoredLibrariesConfig};
+use ra_ap_ide::{
+    AnalysisHost, FilePosition, GotoImplementationConfig, MonikerResult, StaticIndex,
+    SymbolInformationKind, VendoredLibrariesConfig,
+};
 use ra_ap_load_cargo::{LoadCargoConfig, ProcMacroServerChoice, load_workspace_at};
 use ra_ap_project_model::CargoConfig;
 use std::time::Instant;
@@ -24,10 +27,10 @@ fn walk(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, out: &mut Vec<DefWithBod
             ModuleDef::Static(s) => out.push(DefWithBody::Static(s)),
             ModuleDef::Trait(t) => {
                 for it in t.items(db) {
-                    if let AssocItem::Function(f) = it {
-                        if f.has_body(db) {
-                            out.push(DefWithBody::Function(f))
-                        }
+                    if let AssocItem::Function(f) = it
+                        && f.has_body(db)
+                    {
+                        out.push(DefWithBody::Function(f))
                     }
                 }
             }
@@ -36,10 +39,10 @@ fn walk(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, out: &mut Vec<DefWithBod
     }
     for i in m.impl_defs(db) {
         for it in i.items(db) {
-            if let AssocItem::Function(f) = it {
-                if f.has_body(db) {
-                    out.push(DefWithBody::Function(f))
-                }
+            if let AssocItem::Function(f) = it
+                && f.has_body(db)
+            {
+                out.push(DefWithBody::Function(f))
             }
         }
     }
@@ -55,12 +58,18 @@ fn main() -> anyhow::Result<()> {
         sysroot: Some(ra_ap_project_model::RustLibSource::Discover),
         ..Default::default()
     };
+    // MACROS=1 runs the build scripts (`load_out_dirs_from_check`, i.e. a
+    // `cargo check` of the target) and expands proc macros through the
+    // toolchain's `rust-analyzer-proc-macro-srv`. Without it, derives and
+    // attribute macros stay unexpanded.
+    let macros = std::env::var("MACROS").is_ok();
     let load = LoadCargoConfig {
-        load_out_dirs_from_check: false,
-        // Proc macros stay unexpanded: expanding them needs the build-script
-        // run (`load_out_dirs_from_check`), i.e. a full `cargo check` of the
-        // target workspace. Measured coverage below is without it.
-        with_proc_macro_server: ProcMacroServerChoice::None,
+        load_out_dirs_from_check: macros,
+        with_proc_macro_server: if macros {
+            ProcMacroServerChoice::Sysroot
+        } else {
+            ProcMacroServerChoice::None
+        },
         prefill_caches: false,
         num_worker_threads: 4,
         proc_macro_processes: 1,
@@ -148,8 +157,56 @@ fn main() -> anyhow::Result<()> {
                 .definition
                 .map(|r| format!("{:?}", r.range))
                 .unwrap_or_default();
+            // The moniker is rust-analyzer's crate-qualified path for the
+            // definition: a candidate semantic identity, not a stable one
+            // (it changes when the item moves).
+            let moniker = match &d.moniker {
+                Some(MonikerResult::Moniker(m)) => m.identifier.to_string(),
+                Some(MonikerResult::Local { .. }) => "local".into(),
+                None => "none".into(),
+            };
+            // For traits, trait methods and structs: how many impls rust-analyzer
+            // finds, including derive-generated impls (not filtered).
+            let impls = match (d.kind, d.definition) {
+                (
+                    SymbolInformationKind::Trait
+                    | SymbolInformationKind::TraitMethod
+                    | SymbolInformationKind::Struct,
+                    Some(r),
+                ) => {
+                    let pos = FilePosition {
+                        file_id: r.file_id,
+                        offset: r.range.start(),
+                    };
+                    let cfg = GotoImplementationConfig {
+                        filter_adjacent_derive_implementations: false,
+                    };
+                    match analysis.goto_implementation(&cfg, pos) {
+                        Ok(Some(info)) => info.info.len().to_string(),
+                        Ok(None) => "0".into(),
+                        Err(_) => "cancelled".into(),
+                    }
+                }
+                _ => "-".into(),
+            };
+            // FNV-1a over the definition body's text: says whether two
+            // occurrences carry the same source, never that they are the
+            // same symbol.
+            let body = d
+                .definition_body
+                .and_then(|r| {
+                    let text = analysis.file_text(r.file_id).ok()?;
+                    let t = text.get(usize::from(r.range.start())..usize::from(r.range.end()))?;
+                    Some(format!(
+                        "{:016x}",
+                        t.bytes().fold(0xcbf29ce484222325u64, |h, b| {
+                            (h ^ u64::from(b)).wrapping_mul(0x100000001b3)
+                        })
+                    ))
+                })
+                .unwrap_or_else(|| "none".into());
             println!(
-                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}",
+                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}\tmoniker={moniker}\timpls={impls}\tbody={body}",
                 d.kind,
                 d.references.len()
             );

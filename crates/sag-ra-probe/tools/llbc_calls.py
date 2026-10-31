@@ -6,10 +6,14 @@ Run Charon with --no-dedup-serialized-ast, then:
 
 For each function of the crate it prints the calls it makes, classified as
   static   resolved callee (Charon `Regular` / `Fun`)
-  trait    trait method through a generic clause: callee depends on the
-           instantiation, so it is a POSSIBLE callee, never a confirmed one
-  dynamic  call through a vtable or function pointer: callee unknown
-and three effect facts read from the body: writes through a dereference,
+  trait:K  trait method call; K is how the impl is chosen: `Clause` (a
+           generic bound, fixed per instantiation), `Dyn` (a vtable: any impl,
+           including other crates'), `TraitImpl` (a known impl). Only a known
+           impl is a confirmed callee
+  dynamic  call through a function pointer or vtable slot: callee unknown
+and effect facts read from the body: writes through a dereference rooted in
+an argument (reaches caller memory; for a closure, its captured state) or in
+a local (may still alias),
 `Assert` statements (overflow / division / bounds checks that can panic),
 and `Call` count. These are facts witnessed in Charon's output, nothing more.
 """
@@ -33,6 +37,14 @@ def walk(o, key):
     elif isinstance(o, list):
         for v in o:
             yield from walk(v, key)
+
+
+def root_local(place):
+    """The local a place is rooted in: the innermost `Local` of its projections."""
+    kind = place["kind"]
+    while isinstance(kind, dict) and "Projection" in kind:
+        kind = kind["Projection"][0]["kind"]
+    return kind["Local"] if isinstance(kind, dict) and "Local" in kind else 10**9
 
 
 def statements(o):
@@ -65,18 +77,33 @@ def main(path, crate):
                     tgt = funs.get(k["Fun"])
                     calls.append("static:" + (name(tgt["item_meta"]["name"]) if tgt else str(k["Fun"])))
                 else:
-                    calls.append("trait:" + next(iter(k)))
+                    # A trait method call. Its trait reference says how the
+                    # impl is chosen: `Clause` (a generic bound, fixed at
+                    # instantiation), `Dyn` (a vtable, any impl), `TraitImpl`
+                    # (a known impl), among others.
+                    tr = k["Trait"][0]
+                    tr = tr.get("Untagged", tr)
+                    kind = tr["kind"] if isinstance(tr["kind"], str) else next(iter(tr["kind"]))
+                    calls.append("trait:" + kind)
             else:
                 calls.append("dynamic")
         stats = collections.Counter()
+        arg_count = next(walk(f["body"], "arg_count"), 0)
         for k in statements(f["body"]):
             kk = k if isinstance(k, str) else next(iter(k))
             stats[kk] += 1
             if kk == "Assign" and "Deref" in json.dumps(k["Assign"][0]):
-                stats["deref_write"] += 1
+                # Rooted in an argument (for a closure, its captured state
+                # is argument 1) the write can reach the caller's memory;
+                # rooted in a local it may still alias one (a reference
+                # returned by a call), so it is only "local-rooted".
+                if root_local(k["Assign"][0]) <= arg_count:
+                    stats["deref_write_arg"] += 1
+                else:
+                    stats["deref_write_local"] += 1
         print(
-            f"{nm}\tcalls={calls}\tderef_write={stats['deref_write']}"
-            f"\tassert={stats['Assert']}"
+            f"{nm}\tcalls={calls}\tderef_write_arg={stats['deref_write_arg']}"
+            f"\tderef_write_local={stats['deref_write_local']}\tassert={stats['Assert']}"
         )
 
 

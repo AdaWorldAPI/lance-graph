@@ -65,6 +65,11 @@ The three derived impls (`clone`, `fmt`, `eq`) are present in Charon's output.
 
 So the two tools disagree on coverage exactly where expected: derives present in Charon and absent in rust-analyzer. Coverage must therefore be recorded per source, not assumed.
 
+> **Correction (D-SAG-6-2, same day):** the cause given above is wrong.
+> - `Clone`, `Debug` and `PartialEq` are built-in derives, and rust-analyzer expands them without the proc-macro server. `goto_implementation` on `Below` returns 4 impls (`Pred` plus the three derives), against 1 for `Even`.
+> - They are missing from `StaticIndex` because it indexes tokens written in the source, and a derived impl has none.
+> - The gap is in the index used, not in macro expansion. See [D-SAG-6-2-LAB](2026-10-31-d-sag-6-2-lab-projection.md) §1.
+
 ## 3. Call site, possible callee, observed call
 
 - **Call site:** both tools witness it.
