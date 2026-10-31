@@ -85,6 +85,70 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-10-31 — Independent support stays one label when a cycle is unrolled further
+
+`[P1 @falsifier-designer domain:provenance D-STAUNEN X6a]`
+
+`xlog-relcomp-probe` `tests/provenance.rs` computes independent support as the
+minimal-environment label over source roots (ATMS / PosBool; #1896, after the
+co-research found the first version counted lineage). Its `derivations()`
+lists simple paths only, so recursion was never exercised. **Next probe
+(P-X6A-CYCLE):** edges 1→2, 2→3, 3→2, 3→4; A reports 1→2, 2→3, 3→4 and B
+reports 3→2. Enumerate derivations of `path(1, 4)` unrolled k = 0..3 times
+round the cycle; the label must be `{{A}}` at every k. Twin: a bypass 1→5→4
+reported by C gives `{{A}, {C}}`, disjoint, at every k. **Kill:** the label at
+some k ≥ 1 differs from k = 0. Disable: drop the minimality filter.
+(`entries/2026-10-31-coresearch-d-staunen-arc.md`, row 1b.)
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
+## 2026-10-31 — The probe's minimal-environment label against `DerivationLedger::pooled`
+
+`[P1 @bridge-architect domain:provenance D-STAUNEN X6a D-EPI-COT]`
+
+Root-disjoint support already exists in production as `DerivationLedger`
+(`lance-graph-planner/src/nars/support.rs:308-323`, D-EPI-COT C1/C2). **Next
+probe (P-X6A-LEDGER):** `xlog-relcomp-probe` exports a plain-text fixture
+(source reports, their edges, the closure's derivations); a planner dev test
+replays it into the ledger. `pooled` must agree with the label on {A}/{A,B}
+and on disjoint {A},{B}. On {A,B},{B,C},{A,C} they differ by design: the label
+has 3 environments, `pooled` selects 1. The test pins that. The probe crate
+does not depend on the planner (arrow 60 vs 58; path vs git ndarray).
+**Kill:** `pooled` and the label disagree on a case they are meant to share.
+This decides whether X6a is already met by existing code.
+
+**Fruit:** High-signal
+**Status:** Open.
+
+## 2026-10-31 — Recursion never emits a count, and one trace is not disjointness evidence
+
+`[P2 @falsifier-designer domain:xlog D-STAUNEN X2 X6a]`
+
+Two guards from the D-STAUNEN co-research, both offline. **P-REC-NO-COUNT:**
+no function returns a derivation multiplicity for a recursive fact (all-tree
+N[X] is infinite under recursion, arXiv 2202.10766 §3.2); twin: the acyclic
+count is admitted. **P-TRACE-NOT-DISJOINT:** on the diamond, the roots of
+`recursive::trace` number 1 while the `support` label has 2; twin: a chain,
+where they agree. **Kill:** an API yields a count for a recursive fact, or a
+single trace is accepted as evidence that roots are disjoint.
+
+**Fruit:** Low-hanging
+**Status:** Open.
+
+## 2026-10-31 — `ref/call` edges for the Kythe bridge, from a source of call facts
+
+`[P3 @systems-scout domain:codegraph D-REASONING-CODEGRAPH-0]`
+
+`sag-ra-probe` (#1894) emits `ref` only. A reference is not a call, and calls
+are not inferred from references. **Next probe (P-KYTHE-CALL):** one function
+that both calls `f()` and takes `&f` must give exactly 1 `ref/call` and 1
+`ref`; a pure address-of gives 0 `ref/call`. It starts red. Needs a call-fact
+source; Charon is not installed here.
+
+**Fruit:** Heavy
+**Status:** Open.
+
 ## 2026-10-25 — Virtual associative folds + comma syndromes + emergency Thought-Git Pickaxe (brainstorm cluster)
 
 `[P3 @truth-architect @thought-struct-scribe domain:thought-git domain:memory]`

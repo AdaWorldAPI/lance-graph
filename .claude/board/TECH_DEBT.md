@@ -1,3 +1,18 @@
+## TD-XLOG-NATIVE-COUNT-OVERFLOW-UNTESTED — the native bag count refuses on overflow, and no test reaches it (2026-10-31) — OPEN
+
+`crates/xlog-relcomp-probe/src/native.rs:155` multiplies per-Y counts with
+`checked_binary_i64(I64Op::Mul, ..)` and maps an overflow to
+`NativeRefusal::Count` (`:45`). No test in `src/` or `tests/` produces
+`NativeRefusal::Count`. On a real fixture it is unreachable: overflowing `i64`
+needs per-side counts near 3·10⁹ rows.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`native.rs:45`, `:148-157`; no hit for `NativeRefusal::Count` outside `native.rs`, read on main `b38d88e`).
+
+- **What closes it:** split the multiply so a test can hand it counts, then
+  pin the refusal with a can-fire and a stay-silent case, or document the
+  path as unreachable and say why.
+
 ## TD-NARS-REVISION-UNGUARDED-CAUSAL-EDGE-ISA-1 — `Opcode::Revision` pools a duplicated source; a measured site of TD-NARS-REVISION-UNGUARDED (2026-10-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE + MEASURED.
