@@ -135,3 +135,18 @@ fn no_harvested_method_yields_a_sound_binding() {
     assert_eq!(dist[&(Field::On, Grade::Direct)], 10);
     assert_eq!(dist[&(Field::EffectTargets, Grade::Direct)], 8);
 }
+
+#[test]
+fn a_single_segment_name_outside_the_basis_is_not_representable() {
+    // Reaches the "not a field of this class" branch; the dotted fixture is
+    // refused earlier, by the dotted-path check.
+    let c = compiled();
+    let term = class(&c, "account_payment_term");
+    let mut a = action(&term.actions, "_compute_currency_id").clone();
+    a.kausal = Some(KausalSpec::Depends {
+        paths: vec!["company_id".into(), "no_such_field".into()],
+    });
+    let p = project(&a, &basis(term));
+    assert_eq!(p.grade(Field::On), Grade::NotRepresentable);
+    assert!(p.on.is_none());
+}
