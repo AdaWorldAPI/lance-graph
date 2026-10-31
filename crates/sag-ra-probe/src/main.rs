@@ -95,17 +95,40 @@ fn main() -> anyhow::Result<()> {
     // IMPLS=1: one `impl` row per impl of every local ADT and trait, from the
     // same `Impl::all_for_type` / `all_for_trait` calls `goto_implementation`
     // makes, so each counted impl is listed with what it is:
-    //   impl <type or trait> <trait path | inherent> <self type> <impl crate> <items>
+    //   impl <type or trait> <trait path | inherent> <self type> <impl crate> <items> <file:begin-end>
+    // The location is the impl block's source range (lines, 1-based), or
+    // `none` for an impl with no source (a builtin derive).
     if std::env::var("IMPLS").is_ok() {
-        ra_ap_hir::attach_db(host.raw_database(), || {
+        let rows = ra_ap_hir::attach_db(host.raw_database(), || {
             let db = host.raw_database();
+            let mut rows = Vec::new();
             for c in Crate::all(db)
                 .into_iter()
                 .filter(|c| c.origin(db).is_local())
             {
-                list_impls(db, c.root_module(db));
+                list_impls(db, c.root_module(db), &mut rows);
             }
+            rows
         });
+        let analysis = host.analysis();
+        for (row, loc) in rows {
+            let at = loc
+                .and_then(|(fid, range)| {
+                    let file = std::path::Path::new(vfs.file_path(fid).as_path()?.as_str())
+                        .strip_prefix(&root)
+                        .ok()?
+                        .display()
+                        .to_string();
+                    let li = analysis.file_line_index(fid).ok()?;
+                    Some(format!(
+                        "{file}:{}-{}",
+                        li.line_col(range.start()).line + 1,
+                        li.line_col(range.end()).line + 1
+                    ))
+                })
+                .unwrap_or_else(|| "none".into());
+            println!("{row}\t{at}");
+        }
     }
 
     let t = Instant::now();
@@ -382,7 +405,15 @@ fn canonical(db: &dyn ra_ap_hir::db::HirDatabase, def: ModuleDef) -> Option<Stri
     Some(segs.join("::"))
 }
 
-fn impl_row(db: &dyn ra_ap_hir::db::HirDatabase, owner: &str, imp: ra_ap_hir::Impl) {
+type ImplRow = (String, Option<(ra_ap_ide::FileId, ra_ap_ide::TextRange)>);
+
+fn impl_row(
+    db: &dyn ra_ap_hir::db::HirDatabase,
+    owner: &str,
+    imp: ra_ap_hir::Impl,
+    rows: &mut Vec<ImplRow>,
+) {
+    use ra_ap_hir::HasSource;
     let tr = imp
         .trait_(db)
         .and_then(|t| canonical(db, ModuleDef::Trait(t)))
@@ -398,13 +429,20 @@ fn impl_row(db: &dyn ra_ap_hir::db::HirDatabase, owner: &str, imp: ra_ap_hir::Im
         .display_name(db)
         .map(|n| n.crate_name().as_str().to_owned())
         .unwrap_or_else(|| "?".into());
-    println!(
-        "impl\t{owner}\t{tr}\t{self_ty}\t{krate}\t{}",
-        imp.items(db).len()
-    );
+    let loc = imp.source(db).map(|src| {
+        let fr = src.syntax().original_file_range_rooted(db);
+        (fr.file_id.file_id(db), fr.range)
+    });
+    rows.push((
+        format!(
+            "impl\t{owner}\t{tr}\t{self_ty}\t{krate}\t{}",
+            imp.items(db).len()
+        ),
+        loc,
+    ));
 }
 
-fn list_impls(db: &dyn ra_ap_hir::db::HirDatabase, m: Module) {
+fn list_impls(db: &dyn ra_ap_hir::db::HirDatabase, m: Module, rows: &mut Vec<ImplRow>) {
     for d in m.declarations(db) {
         match d {
             ModuleDef::Adt(a) => {
@@ -412,7 +450,7 @@ fn list_impls(db: &dyn ra_ap_hir::db::HirDatabase, m: Module) {
                     continue;
                 };
                 for imp in ra_ap_hir::Impl::all_for_type(db, a.ty(db)) {
-                    impl_row(db, &owner, imp);
+                    impl_row(db, &owner, imp, rows);
                 }
             }
             ModuleDef::Trait(t) => {
@@ -420,13 +458,13 @@ fn list_impls(db: &dyn ra_ap_hir::db::HirDatabase, m: Module) {
                     continue;
                 };
                 for imp in ra_ap_hir::Impl::all_for_trait(db, t) {
-                    impl_row(db, &owner, imp);
+                    impl_row(db, &owner, imp, rows);
                 }
             }
             _ => {}
         }
     }
     for c in m.children(db) {
-        list_impls(db, c)
+        list_impls(db, c, rows)
     }
 }

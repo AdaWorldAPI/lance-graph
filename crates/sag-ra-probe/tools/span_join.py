@@ -24,7 +24,10 @@ is a type or trait of this crate and trait is `inherent` for an inherent block:
   impl_pair   one row per key: PAIRED (counts equal), RA_ONLY (rust-analyzer
               has more) or CHARON_ONLY (Charon has more), with both counts and
               the origin of Charon's impls: `closure` (a closure's state type,
-              which rust-analyzer has no ADT for), `derived`, or `source`. An
+              which rust-analyzer has no ADT for), `derived`, `drop_glue`
+              (compiler drop code), or `source`. Inherent blocks are counted
+              by placing Charon's methods in rust-analyzer's block ranges;
+              `unplaced` marks methods that fit no block. An
               RA_ONLY inherent row also carries min_items: a block with no
               items is invisible to Charon, which sees inherent blocks only
               through their methods.
@@ -89,7 +92,8 @@ def ra_impls(path):
         cols = line.rstrip("\n").split("\t")
         if cols[0] != "impl" or len(cols) < 6:
             continue
-        out.append((cols[1], cols[2], cols[3], cols[4], int(cols[5])))
+        loc = cols[6] if len(cols) > 6 else "none"
+        out.append((cols[1], cols[2], cols[3], cols[4], int(cols[5]), loc))
     return out
 
 
@@ -175,7 +179,8 @@ def main(ra_path, llbc_path, crate):
     # `InherentImplBlock` path segment of their methods, so a block with no
     # methods is invisible here. rust-analyzer counts inherent blocks too.
     blocks = {}
-    for f, *_ in funs:
+    methods = {}
+    for f, _, file, beg, _ in funs:
         for seg in f["item_meta"]["name"]:
             ty = seg.get("Impl", {}).get("Ty") if isinstance(seg.get("Impl"), dict) else None
             if ty and ty.get("kind") == "InherentImplBlock":
@@ -183,20 +188,41 @@ def main(ra_path, llbc_path, crate):
                 adt = types.get(sb["Adt"]["id"]) if "Adt" in sb else None
                 if adt:
                     blocks.setdefault(adt, set()).add(json.dumps(seg, sort_keys=True))
+                    methods.setdefault(adt, []).append((file, beg, json.dumps(seg, sort_keys=True)))
 
     def in_crate(path):
         return path is not None and path.split("::")[0] == crate
 
     # Where each Charon impl comes from: a closure's state type (rust-analyzer
     # has no ADT for it), a derive (`AutomaticallyDerived`), or written source.
+    fun_meta = {f["def_id"]: f["item_meta"]["name"] for f in t["fun_decls"] if f}
     closure_types = {types[d["def_id"]] for d in t["type_decls"]
                      if d and isinstance(d.get("src"), dict) and "Closure" in d["src"]}
     origin = {}
+    # Two inherent blocks of one type can have identical Charon path segments,
+    # so segments alone undercount blocks. Each Charon inherent method is
+    # placed in the rust-analyzer inherent block whose source range contains
+    # it; a block counts once if any method lands in it. Methods that land in
+    # no block fall back to one block per distinct segment.
+    ra_blocks = {}
+    for owner, trait, self_ty, impl_crate, _, loc in ra_impls(ra_path):
+        if trait == "inherent" and impl_crate == crate and loc != "none":
+            file, lines = loc.rsplit(":", 1)
+            b, e = map(int, lines.split("-"))
+            ra_blocks.setdefault(owner, set()).add((file, b, e))
     charon = Counter()
-    for adt, bs in blocks.items():
-        if in_crate(adt):
-            charon[(adt, "inherent", adt)] += len(bs)
-            origin.setdefault((adt, "inherent", adt), set()).add("source")
+    for adt in blocks:
+        if not in_crate(adt):
+            continue
+        placed, loose = set(), set()
+        for file, beg, seg in methods[adt]:
+            hit = [blk for blk in ra_blocks.get(adt, ()) if same_file(blk[0], file) and blk[1] <= beg <= blk[2]]
+            if hit:
+                placed.add(min(hit, key=lambda blk: blk[2] - blk[1]))
+            else:
+                loose.add(seg)
+        charon[(adt, "inherent", adt)] += len(placed) + len(loose)
+        origin.setdefault((adt, "inherent", adt), set()).add("source" if not loose else "source,unplaced")
     for impl in impls.values():
         if not impl["item_meta"]["is_local"]:
             continue
@@ -205,7 +231,13 @@ def main(ra_path, llbc_path, crate):
         self_ty = adt if adt else "non-adt"
         derived = any(a == {"Builtin": "AutomaticallyDerived"}
                       for a in impl["item_meta"]["attr_info"]["attributes"])
-        kind = "closure" if adt in closure_types else "derived" if derived else "source"
+        # Drop glue: the impl's method is named with a `Builtin: DropGlue` segment.
+        glue = any(
+            seg.get("Builtin", [None])[0] == "DropGlue"
+            for m in impl.get("methods", []) if isinstance(m, dict)
+            for seg in fun_meta.get(m.get("skip_binder", {}).get("id"), []))
+        kind = ("closure" if adt in closure_types else "derived" if derived
+                else "drop_glue" if glue else "source")
         for owner in (adt, trait):
             if in_crate(owner):
                 charon[(owner, trait, self_ty)] += 1
@@ -214,7 +246,7 @@ def main(ra_path, llbc_path, crate):
     rust_a = Counter()
     items = {}
     scope = []
-    for owner, trait, self_ty, impl_crate, n_items in ra_impls(ra_path):
+    for owner, trait, self_ty, impl_crate, n_items, _ in ra_impls(ra_path):
         if not in_crate(owner):
             continue
         if impl_crate != crate:
