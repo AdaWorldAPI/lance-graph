@@ -7,8 +7,7 @@ use std::path::PathBuf;
 
 use lance_graph_contract::canonical_node::NodeRow;
 use mistaber_kripke_probe::rows::{
-    COLUMNS, Concepts, MAX_PARENTS, Population, UNBOUND, address, columns, identity, key_address,
-    node_row, write_columns,
+    COLUMNS, Concepts, MAX_PARENTS, Population, UNBOUND, address, columns, identity, write_columns,
 };
 use mistaber_kripke_probe::{Golden, Kb, Pop, Refusal, intake, intake_under, parse_golden};
 
@@ -49,18 +48,10 @@ fn rows_round_trip_identity_and_parents() {
             (Pop::Proposition, &i.props),
             (Pop::Rule, &i.rules),
         ] {
-            let keys: BTreeSet<[u8; 16]> = p.rows.iter().map(|r| *r.key.as_bytes()).collect();
-            assert_eq!(
-                keys.len(),
-                p.rows.len(),
-                "{} {pop:?} keys distinct",
-                g.fixture_id
-            );
             for (o, row) in p.rows.iter().enumerate() {
                 let id = identity(&p.lanes, row);
                 assert_eq!(id, address(o as u16), "{} {pop:?} {o}", g.fixture_id);
                 assert_ne!(id, UNBOUND);
-                assert_eq!(key_address(row), id, "{} {pop:?} {o} key", g.fixture_id);
                 assert_eq!(
                     names.address_of(pop, names.name(pop, id)),
                     Some(id),
@@ -172,10 +163,7 @@ fn the_classid_lives_on_the_lanes_not_in_the_rows() {
             assert_eq!(ra.key.as_bytes(), rb.key.as_bytes());
             assert_eq!(ra.edges.as_bytes(), rb.edges.as_bytes());
             assert_eq!(ra.value, rb.value);
-            let kb = ra.key.as_bytes();
-            assert_eq!(&kb[0..4], &[0u8; 4], "no classid in the key");
-            assert_eq!(key_address(ra), columns(&pa.lanes, ra)[0]);
-            assert_eq!(&kb[4..14], &[0u8; 10], "only the identity tier is set");
+            assert_eq!(ra.key.as_bytes(), &[0u8; 16]);
             assert_eq!(ra.edges.as_bytes(), &[0u8; 16]);
             for (at, byte) in ra.value.iter().enumerate() {
                 if !r0.contains(&at) && !r1.contains(&at) {
@@ -217,14 +205,4 @@ fn local_map_refusals_name_their_population() {
     let lanes = i.worlds.lanes;
     write_columns(&lanes, &mut i.worlds.rows[0], &[address(0), address(200)]);
     assert_eq!(Kb::assemble(i).err(), Some(Refusal::Unmapped("world")));
-}
-
-/// FAILS IF a row whose key address disagrees with column 0 is admitted.
-#[test]
-fn a_key_that_disagrees_with_column_0_is_refused() {
-    let g = f1();
-    let (mut i, _) = intake(&g.facts).unwrap();
-    assert_ne!(key_address(&i.worlds.rows[0]), address(200));
-    i.worlds.rows[0].key = node_row(address(200)).key;
-    assert_eq!(Kb::assemble(i).err(), Some(Refusal::KeyMismatch("world")));
 }
