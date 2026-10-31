@@ -55,9 +55,22 @@ WORKING-MODEL consequences, each checked against `main` `b38d88e`:
   | `0xF4__`, `0xF5__` | SQL, Gremlin (D3) | when each surface lands |
   | `0xF6__ ..= 0xFF__` | reserved | — |
 
----
+### 1b. Polyglot aliasing over one algebra (operator, 2026-10-31, later in session)
 
-## 2. The classid, both sides
+| # | decision |
+|---|---|
+| D16'' | **Behaviour is normalized across languages** (C, Rust, Java, SQL and the other frontends): each language's operator names are **aliases over one algebra**, not separate behaviour. |
+| D17'' | **A classid is cleaner than a hardcoded string.** Identity is the Frozen classid plus the word position; a name is never the key. |
+
+VERIFIED-IN-CODE (`lance-graph-r2il/src/binding.rs` module doc, step 3, and `fn opcode`): today the reverse holds. `prepare` reads the word's label from the lens's `ClassView` and scans `R2ILVocabulary` for an opcode with that name; the module doc states it: "the position a lens gives a word is free and only the name binds". The string join is in `prepare` (cold). `run` (hot) re-resolves nothing.
+
+WORKING-MODEL:
+
+- **Position binds, labels alias.** The Frozen table at `0xFFFF :: 0xF0__` fixes each word's position and its semantics. Each language supplies a `ClassView` over the same positions whose labels are that language's names (SQL `SUM`, a Java method name, a Rust method name, a C symbol). This is the mechanism DT64 already documents ("labels are resolved late through that view"); only the direction of binding changes.
+- **Normalization is a parity test, not a convention.** For every alias view, the label at a position must resolve to the same `AlgebraRef`; a name that maps to two positions, or a position with no name in a view that claims full coverage, refuses.
+- **What this does to the concern table (O7).** A language that only renames the shared algebra gets an alias view, not a concern range. A concern range under `0xF###` is for behaviour with no equivalent in the shared algebra (tensor operators for ONNX and TFLite; whatever XLOG adds beyond the relational core). SQL's three-valued logic is a known case: `prepare` refuses `Truth::ThreeValued` today (`binding.rs`), so SQL's NULL behaviour either gets its own words or stays refused. The `F4__` / `F5__` rows for SQL and Gremlin are therefore provisional.
+- **Calling overhead (HYPOTHESIS, unmeasured).** Binding by position removes the label scan from `prepare`. Nothing in the code shows a string lookup on the hot path, so any per-call cost on that path comes from somewhere not yet identified. The probe (D-DT64-7-6) reports the cost of `prepare` and of one `run`, each in nanoseconds, before and after; per the workspace rule, a millisecond reading is a failed gate, not a result.
+
 
 ```text
     left (high 16): concept                 right (low 16): selection within it
@@ -155,7 +168,7 @@ Each constraint is a test that fires plus a twin that stays silent, on non-trivi
 | O4 | Right-side `0xF###` selection: does one value name one stored selection over the existing 256-position basis, or one position in a wider basis (which widens `WideFieldMask` and `AlgebraRef.word` past `u8`)? D7' points to the first. | operator |
 | O5 | D-LITHO Q5: which lance-graph table versions the global → local selection, and its row shape (WORKING-MODEL: versions = frame revisions, one row per local position, read through a ClassView, selected by a `WideFieldMask`; it also holds the stored selections of D7'). | DR/DT owner |
 | O6 | Whether `recursive::trace` (#1896) stays as a semi-naive test oracle or is removed; either way it is documented as not the traceroute. | operator |
-| O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order (relalg, XLOG, ONNX, TFLite, SQL, Gremlin). | operator |
+| O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order. Per §1b, languages that only rename the shared algebra become alias views; which of SQL, Gremlin and XLOG keep a range? | operator |
 | O8 | Where the composing authority lives: in `lance-graph-ogar` (which then depends on `lance-graph-dt64`), or in the binary that holds both authorities. | operator |
 
 ---
@@ -169,9 +182,10 @@ Each constraint is a test that fires plus a twin that stays silent, on non-trivi
 | D-DT64-7-2 | C1–C8 as tests over a `BindStore` withdrawal API, behind the activation of C2 (C1 as revised: a plug cannot register under `0xFFFF`) | each constraint's fire and silent twin (§5) |
 | D-DT64-7-3 | Frozen polyfill table: a compile-time lance-graph table at `0xFFFF :: 0xF000` (opcode, label, arity, pushes-result), registered by DT64, with a parity test against `ogar_r2il::R2ILVocabulary` where OGAR is compiled | parity test red on one deliberately changed row; `lance-graph-r2il` builds with `ogar-loco` / `ogar-r2il` optional |
 | D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF`, plus the composing authority (O8) | a plug claiming `0xFFFF` is refused; DT64 activates it; any other concept still reaches `OgarAuthority`; an `ogar-vocab` row at `0xFFFF` fails the mirror test (O2) |
+| D-DT64-7-6 | polyglot alias views over `0xFFFF :: 0xF000` (§1b): position-bound words, one `ClassView` per language, binding by position instead of `R2ILVocabulary` label scan | every alias resolves to the same `AlgebraRef` (red on one deliberately duplicated name); `prepare` and `run` timed in ns before and after |
 | D-DT64-7-5 | O5 table design | D-LITHO Q5 answered; a selection read under a stale version refuses (`Pop`'s `Stale`, F7) |
 
-D-DT64-7-1 needs none; D-DT64-7-3 needs O7 (the `0xF0__` range only); D-DT64-7-2 needs O8; D-DT64-7-4 needs O2 and O8; D-DT64-7-5 needs O5.
+D-DT64-7-6 follows D-DT64-7-3; D-DT64-7-1 needs none; D-DT64-7-3 needs O7 (the `0xF0__` range only); D-DT64-7-2 needs O8; D-DT64-7-4 needs O2 and O8; D-DT64-7-5 needs O5.
 
 ---
 

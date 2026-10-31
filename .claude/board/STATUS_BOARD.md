@@ -9,6 +9,7 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | O8 |
 | D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | Queued | O7 |
 | D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + the composing authority | Queued | O2 (OGAR owner), O8 |
+| D-DT64-7-6 | polyglot alias views (C, Rust, Java, SQL) over one Frozen algebra: words bound by position, names as per-language `ClassView` labels; `prepare`/`run` timed in ns | Queued | D-DT64-7-3, O7 |
 | D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
 
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
