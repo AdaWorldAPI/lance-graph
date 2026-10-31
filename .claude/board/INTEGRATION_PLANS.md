@@ -1,3 +1,8 @@
+## 2026-10-31 — D-SOC-FENCE: one place per concern, checked in CI → `.claude/plans/d-soc-fence-v1.md`
+
+**Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-SOC-FENCE. A mapping file (`.claude/soc/one-place.toml`) names each concern's sole owner, its basis, the symbols only the owner names and what others reach it through. A `syn`-based symbol fence plus a `cargo metadata` dependency fence report every use outside it. A two-way ratchet baseline holds known violations. Report-only first; blocking once the baseline is committed. Triggered by PR #1884's direct `ndarray::simd` fold calls bypassing Quack and mask-risc.
+**Confidence:** plan; blast radius counted by `git grep` as candidates, not read.
+
 ## 2026-10-30 — D-XLOG-NATIVE: XLOG plan vocabulary over the ndarray::simd polyfill → `.claude/plans/d-xlog-native-v1.md`
 
 **Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto the `ndarray::simd` polyfill that `lance-graph-onnx` aliases, in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), name-checked, not tested; shared operations are the same native symbols as ONNX's. Decides that a `lance-graph-xlog` crate (ndarray only, like `lance-graph-onnx`; no `xlog-*` dependency, no plan type) waits until selection rows are tested and the many-to-many join has a native home.

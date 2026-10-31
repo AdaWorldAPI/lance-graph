@@ -12,6 +12,18 @@
 | D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
 | D-MIST-NATIVE-4 | intake from compiled HLL | Queued | upstream provenance defects (`mistaber-rs#3`, `#4`) |
 
+## D-SOC-FENCE — one place per concern, checked in CI (2026-10-31)
+
+Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-SOC-FENCE-0 | census of §1 candidates, read and classified; mapping file + baseline drafts | Queued | §5 decisions |
+| D-SOC-FENCE-1 | `syn`-based symbol fence + dependency fence, fixture falsifiers, report-only workflow | Queued | D-SOC-FENCE-0 |
+| D-SOC-FENCE-2 | mapping file + baseline committed; CI blocks new violations and stale entries | Queued | D-SOC-FENCE-1 |
+| D-SOC-FENCE-3 | per-crate burn-down through each concern's `reach_via` | Queued | D-SOC-FENCE-2, owning sessions |
+| D-SOC-FENCE-4 | `/v3-audit` item 1 and the lgj G11 allowlist read from the mapping file | Queued | D-SOC-FENCE-2 |
+
 ## D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill, the algebra under lance-graph-onnx (2026-10-30)
 
 **Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-xlog-native-v1.md); [board entry](entries/2026-10-30-d-xlog-native-crosswalk.md). No crate yet.
