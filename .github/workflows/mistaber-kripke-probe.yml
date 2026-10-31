@@ -7,6 +7,9 @@ on:
     paths:
       - "crates/mistaber-kripke-probe/**"
       - "crates/dr-math-binding-probe/**"
+      - "crates/deepnsm-v2/**"
+      - "crates/causal-edge/**"
+      - "crates/lance-graph-arm-discovery/**"
       - "crates/lance-graph-contract/**"
       - "crates/lance-graph-act-r/**"
       - "crates/lance-graph-quack/**"
@@ -18,6 +21,9 @@ on:
     paths:
       - "crates/mistaber-kripke-probe/**"
       - "crates/dr-math-binding-probe/**"
+      - "crates/deepnsm-v2/**"
+      - "crates/causal-edge/**"
+      - "crates/lance-graph-arm-discovery/**"
       - "crates/lance-graph-contract/**"
       - "crates/lance-graph-act-r/**"
       - "crates/lance-graph-quack/**"

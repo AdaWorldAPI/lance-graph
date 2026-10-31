@@ -148,3 +148,16 @@ fn malformed_lines_are_refused() {
         );
     }
 }
+
+#[test]
+fn rule_ordinals_past_a_word_id_are_refused_not_saturated() {
+    use mistaber_kripke_probe::Refusal;
+    // 65,536 distinct rules fit u16 ordinals 0..=65535; one more must refuse.
+    let fits: Vec<(String, u16, u16)> = (0..=u32::from(u16::MAX))
+        .map(|i| (format!("r{i}"), 87, 1))
+        .collect();
+    assert_eq!(hydrate_makor(&fits).expect("fits").rules, 65_536);
+    let mut over = fits;
+    over.push(("r_over".to_owned(), 87, 1));
+    assert_eq!(hydrate_makor(&over).err(), Some(Refusal::TooMany("rule")));
+}
