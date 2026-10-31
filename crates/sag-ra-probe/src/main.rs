@@ -92,6 +92,22 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
+    // IMPLS=1: one `impl` row per impl of every local ADT and trait, from the
+    // same `Impl::all_for_type` / `all_for_trait` calls `goto_implementation`
+    // makes, so each counted impl is listed with what it is:
+    //   impl <type or trait> <trait path | inherent> <self type> <impl crate> <items>
+    if std::env::var("IMPLS").is_ok() {
+        ra_ap_hir::attach_db(host.raw_database(), || {
+            let db = host.raw_database();
+            for c in Crate::all(db)
+                .into_iter()
+                .filter(|c| c.origin(db).is_local())
+            {
+                list_impls(db, c.root_module(db));
+            }
+        });
+    }
+
     let t = Instant::now();
     let (n_local, mut bodies) = ra_ap_hir::attach_db(host.raw_database(), || {
         let db = host.raw_database();
@@ -207,7 +223,11 @@ fn main() -> anyhow::Result<()> {
                 None => "none".into(),
             };
             // For traits, trait methods and structs: how many impls rust-analyzer
-            // finds, including derive-generated impls (not filtered).
+            // finds, including derive-generated impls (not filtered), and where
+            // each one is: `file:begin-end:description`, `;`-separated. The
+            // locations let a comparison pair impls one by one instead of
+            // comparing two counts.
+            let mut impl_at = Vec::new();
             let impls = match (d.kind, d.definition) {
                 (
                     SymbolInformationKind::Trait
@@ -223,7 +243,40 @@ fn main() -> anyhow::Result<()> {
                         filter_adjacent_derive_implementations: false,
                     };
                     match analysis.goto_implementation(&cfg, pos) {
-                        Ok(Some(info)) => info.info.len().to_string(),
+                        Ok(Some(info)) => {
+                            for nav in &info.info {
+                                let file = vfs
+                                    .file_path(nav.file_id)
+                                    .as_path()
+                                    .and_then(|a| {
+                                        std::path::Path::new(a.as_str())
+                                            .strip_prefix(&root)
+                                            .ok()
+                                            .map(|p| p.display().to_string())
+                                    })
+                                    .unwrap_or_else(|| "external".into());
+                                let lines = analysis
+                                    .file_line_index(nav.file_id)
+                                    .map(|li| {
+                                        format!(
+                                            "{}-{}",
+                                            li.line_col(nav.full_range.start()).line + 1,
+                                            li.line_col(nav.full_range.end()).line + 1
+                                        )
+                                    })
+                                    .unwrap_or_else(|_| "?".into());
+                                let desc = nav
+                                    .description
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .split_whitespace()
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                                    .replace(';', ",");
+                                impl_at.push(format!("{file}:{lines}:{desc}"));
+                            }
+                            info.info.len().to_string()
+                        }
                         Ok(None) => "0".into(),
                         Err(_) => "cancelled".into(),
                     }
@@ -247,9 +300,10 @@ fn main() -> anyhow::Result<()> {
                 })
                 .unwrap_or_else(|| "none".into());
             println!(
-                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}\tmoniker={moniker}\timpls={impls}\tbody={body}\tat={at}\tlines={lines}",
+                "sym\t{name}\tkind={:?}\tdef={def}\trefs={}\tmoniker={moniker}\timpls={impls}\tbody={body}\tat={at}\tlines={lines}\timpl_at={}",
                 d.kind,
-                d.references.len()
+                d.references.len(),
+                impl_at.join(";")
             );
         }
     }
@@ -326,4 +380,53 @@ fn canonical(db: &dyn ra_ap_hir::db::HirDatabase, def: ModuleDef) -> Option<Stri
     }
     segs.push(def.name(db)?.as_str().to_owned());
     Some(segs.join("::"))
+}
+
+fn impl_row(db: &dyn ra_ap_hir::db::HirDatabase, owner: &str, imp: ra_ap_hir::Impl) {
+    let tr = imp
+        .trait_(db)
+        .and_then(|t| canonical(db, ModuleDef::Trait(t)))
+        .unwrap_or_else(|| "inherent".into());
+    let self_ty = imp
+        .self_ty(db)
+        .as_adt()
+        .and_then(|a| canonical(db, ModuleDef::Adt(a)))
+        .unwrap_or_else(|| "non-adt".into());
+    let krate = imp
+        .module(db)
+        .krate(db)
+        .display_name(db)
+        .map(|n| n.crate_name().as_str().to_owned())
+        .unwrap_or_else(|| "?".into());
+    println!(
+        "impl\t{owner}\t{tr}\t{self_ty}\t{krate}\t{}",
+        imp.items(db).len()
+    );
+}
+
+fn list_impls(db: &dyn ra_ap_hir::db::HirDatabase, m: Module) {
+    for d in m.declarations(db) {
+        match d {
+            ModuleDef::Adt(a) => {
+                let Some(owner) = canonical(db, d) else {
+                    continue;
+                };
+                for imp in ra_ap_hir::Impl::all_for_type(db, a.ty(db)) {
+                    impl_row(db, &owner, imp);
+                }
+            }
+            ModuleDef::Trait(t) => {
+                let Some(owner) = canonical(db, d) else {
+                    continue;
+                };
+                for imp in ra_ap_hir::Impl::all_for_trait(db, t) {
+                    impl_row(db, &owner, imp);
+                }
+            }
+            _ => {}
+        }
+    }
+    for c in m.children(db) {
+        list_impls(db, c)
+    }
 }
