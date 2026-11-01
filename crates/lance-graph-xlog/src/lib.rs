@@ -48,6 +48,8 @@ use lance_graph_quack::{
 pub use ndarray::simd::mask_and as and;
 use ndarray::simd::{checked_binary_i64, mask_and, I64ArithError, I64Op};
 
+pub mod cube;
+
 /// The bounds of the admitted chain: `X == left`, `Z == right` when set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Bounds {
@@ -96,6 +98,20 @@ struct Side {
     live: Vec<u64>,
 }
 
+/// The live plane of `n` rows: every row set.
+pub(crate) fn all_live(n: usize) -> Vec<u64> {
+    (0..n.div_ceil(64))
+        .map(|i| {
+            let rows = (n - i * 64).min(64);
+            if rows == 64 {
+                u64::MAX
+            } else {
+                (1u64 << rows) - 1
+            }
+        })
+        .collect()
+}
+
 fn side(
     tuples: &[(u32, u32)],
     y_of: fn(&(u32, u32)) -> u32,
@@ -107,17 +123,7 @@ fn side(
         .map(|t| mid.local(u64::from(y_of(t))).map(u32::from))
         .collect::<Result<_, _>>()
         .map_err(NativeRefusal::Domain)?;
-    let n = tuples.len();
-    let live = (0..n.div_ceil(64))
-        .map(|i| {
-            let rows = (n - i * 64).min(64);
-            if rows == 64 {
-                u64::MAX
-            } else {
-                (1u64 << rows) - 1
-            }
-        })
-        .collect();
+    let live = all_live(tuples.len());
     Ok(Side {
         free: tuples.iter().map(free_of).collect(),
         y_local,
@@ -148,13 +154,24 @@ fn selected(bound: Option<u32>) -> Filter {
 
 /// Describe, lower and run one query over one side.
 fn run(side: &Side, query: &Query, out: Out<'_>) -> Result<(), NativeRefusal> {
-    let n = side.free.len();
-    let masks: [&[u64]; 1] = [&side.live];
     let lanes = [LaneRef::U32(&side.free), LaneRef::U32(&side.y_local)];
+    run_lanes(side.free.len(), &side.live, &lanes, query, out)
+}
+
+/// Lower and run one query over `n` rows: one live plane (mask 0) and the
+/// given lanes.
+pub(crate) fn run_lanes(
+    n: usize,
+    live: &[u64],
+    lanes: &[LaneRef<'_>],
+    query: &Query,
+    out: Out<'_>,
+) -> Result<(), NativeRefusal> {
+    let masks: [&[u64]; 1] = [live];
     let planes = Planes {
         n_rows: n,
         masks: &masks,
-        lanes: &lanes,
+        lanes,
     };
     let program = lower(query).map_err(NativeRefusal::Lower)?;
     let mut scratch = Scratch::for_program(&program, n).map_err(NativeRefusal::Exec)?;
