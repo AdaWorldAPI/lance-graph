@@ -55,9 +55,15 @@ The cube's update obeys the same five rules. It does not run Atlas.
 |---|---|---|
 | plan-shaped mask | the update toggles one member of the declared `C` | `NotACandidate` |
 | entries 0/1 | an edge is active or dormant; no weights in v1 | (by type) |
-| atomic, between sequences | applied between stimuli, never inside a fixpoint round | `InsideRound` |
+| atomic, between sequences | applied between stimuli, never inside a fixpoint round | `InsideRound` (cube rule) |
 | regrowth clears history | an activated edge carries no prior evidence; its record starts empty | — |
 | needs committed state | refused until the base closure is sealed under a frame | `NotSealed` |
+
+`update_mask` checks rules 1, 2 and 5 (plus an ownership layout for
+dynamic plans). The refusal names in the table are the cube's; Atlas has
+no `NotACandidate`, `InsideRound` or `Stale`, and no novelty gate. A novel
+stimulus that no single candidate closes is refused with
+`NoClosingCandidate`, changing neither generation nor masks.
 
 Plus two rules of our own:
 - **One update per novel stimulus.** A non-novel stimulus is never a
@@ -134,12 +140,34 @@ level.
 
 - [ ] **P0 — fixtures and oracle.** A seeded generator for `G*`, `C`
   (containing the true missing edges plus distractors) and stimulus streams.
-  A scalar oracle closure. Pre-register: task split, episode count, `k`,
-  minimum effect, budget.
-- [ ] **P1 — in-cube semi-naive closure.** Mask closure equals the oracle
-  and equals `xlog-cube`'s closure on random graphs. Disable runs: drop the
-  `andnot` (non-termination, caught by a round bound); use `full` in place of
-  `delta` (equal answer, more rounds; asserted on the round count).
+  A scalar oracle closure. Each novel stimulus is classified by the oracle
+  as one-edge-closable (the candidates that close it, listed) or not. The
+  primary experiment uses closable episodes; every stream also carries at
+  least one novel stimulus no single candidate closes, which P3 must refuse
+  with `NoClosingCandidate` without changing the generation or the masks.
+  `G*` lives only in the generator and the scorer: the episode type that
+  H1, H2 and the selector receive has no field for it. Pre-register: task
+  split, episode count, `k`, minimum effect, budget.
+- [ ] **P1 — in-cube semi-naive closure.** Three independent checks: a
+  scalar reference closure, the resident mask closure, and `xlog-cube`'s
+  closure. The last is a comparator only after its own nonempty `r(V,V)`
+  diagonal fixture passes; a failure there does not by itself indict the
+  resident closure. Fixed fixture: `edge = {(0,1),(1,2),(2,0),(2,3)}` has
+  exactly 12 closure pairs, including `(0,0)`, `(1,1)`, `(2,2)`, excluding
+  `(3,3)`. Disable runs: drop the `andnot` (a cyclic fixpoint never
+  empties its delta and hits the round bound); compose from `full` instead
+  of `delta`. The second gives the same closure in possibly the same number
+  of rounds, so it is caught on work, not rounds: in semi-naive evaluation
+  each closure pair enters the delta once, so rows composed equals
+  `|edge⁺|` exactly.
+
+  **Acceptance.** For nonempty cyclic and acyclic graphs, including local
+  position 63, resident `edge⁺` equals the scalar oracle bit for bit and
+  agrees with a separately validated `xlog-cube` baseline. The instrumented
+  run shows zero host-side delta differences and zero relations added to the
+  cube. **Falsifier:** one mismatched pair, an unbounded cyclic fixpoint, or
+  one host-side delta calculation. **Refusal boundary:** a P1 pass admits no
+  structural adaptation, policy selection, consolidation or learning claim.
 - [ ] **P2 — incremental activation.** After activating `(u, v)`, the
   incremental closure equals a full recompute, over every `(u, v)` in a
   random `C`. Disable run: drop the `x = u` term.
@@ -155,11 +183,18 @@ level.
 - [ ] **P6 — controls and meta-selection.** B0 no adaptation; B10 best
   fixed policy; B11 random candidate; B7 shuffled novelty (adapt on
   non-novel stimuli); B9 duplicated root (one observation repeated). The
-  meta-selector must beat B11 and match or beat B10. Report the losing
-  runs as well.
+  meta-selector must beat B11 and match B10 under a pre-registered paired
+  criterion over seeds (not a win on every seed). Report the losing runs
+  as well.
 - [ ] **P7 — Atlas differential (optional, lab).** Mirror one fixture into
   an Atlas plan whose masks are `C`, apply the same activation sequence with
-  `update_mask`, and check that Atlas accepts and refuses the same updates.
+  `update_mask`, and compare only the contract both sides share: mask
+  shape, 0/1 entries, committed state, and (for dynamic plans) the
+  ownership layout. `NotACandidate`, `InsideRound`, `Stale`,
+  `NoClosingCandidate` and novelty gating are the cube's own rules, tested
+  in P3, never demanded from Atlas. Weight restoration differs between
+  Atlas's static branch (`growth_weight`) and dynamic migration, and v1 has
+  no weights, so neither is compared.
   Needs Atlas built in the session; if it does not build, record that and
   stop rather than copying its executor.
 
