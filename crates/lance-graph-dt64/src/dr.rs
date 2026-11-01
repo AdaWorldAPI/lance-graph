@@ -506,6 +506,101 @@ impl LocalMap {
     }
 }
 
+/// A tile's name in a [`MapTable`], chosen by the caller.
+pub type TileId = u32;
+
+/// Why a [`MapTable`] read was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MapRead {
+    /// The frame is not the table's current seal.
+    Stale(FrameRefusal),
+    /// The current frame holds no map for this tile.
+    NoSuchTile(TileId),
+}
+
+/// The versioned global → local table (D-DT64-7 O5): every tile's
+/// [`LocalMap`] under one [`FrameStore`]. Maps change only through
+/// [`MapTable::advance`], which sets the `coordinates` revision from the maps
+/// it holds, and a map is read only under the frame it was sealed under.
+#[derive(Debug)]
+pub struct MapTable {
+    frames: FrameStore,
+    tiles: BTreeMap<TileId, LocalMap>,
+}
+
+impl MapTable {
+    /// An empty table at the given source and relation-map revisions.
+    pub fn new(source: u64, relation_map: u64) -> Self {
+        let tiles = BTreeMap::new();
+        let coordinates = Self::coordinates(&tiles);
+        Self {
+            frames: FrameStore::new(FrameRevisions {
+                source,
+                relation_map,
+                coordinates,
+            }),
+            tiles,
+        }
+    }
+
+    /// FNV-1a over `(tile, map digest)` in tile order.
+    fn coordinates(tiles: &BTreeMap<TileId, LocalMap>) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for (tile, map) in tiles {
+            let bytes = tile
+                .to_le_bytes()
+                .into_iter()
+                .chain(map.digest().to_le_bytes());
+            for b in bytes {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+        h
+    }
+
+    /// Insert (`Some`), replace (`Some`) or remove (`None`) tile maps, then
+    /// re-seal. Every frame sealed before is stale afterwards, even when
+    /// nothing changed.
+    pub fn advance(
+        &mut self,
+        source: u64,
+        relation_map: u64,
+        changes: Vec<(TileId, Option<LocalMap>)>,
+    ) {
+        for (tile, map) in changes {
+            match map {
+                Some(m) => {
+                    self.tiles.insert(tile, m);
+                }
+                None => {
+                    self.tiles.remove(&tile);
+                }
+            }
+        }
+        self.frames.advance(FrameRevisions {
+            source,
+            relation_map,
+            coordinates: Self::coordinates(&self.tiles),
+        });
+    }
+
+    /// Seal the current frame.
+    pub fn seal(&self) -> Frame {
+        self.frames.seal()
+    }
+
+    pub fn revisions(&self) -> FrameRevisions {
+        self.frames.revisions()
+    }
+
+    /// The map of `tile`, if `frame` is the current seal.
+    pub fn map(&self, frame: &Frame, tile: TileId) -> Result<&LocalMap, MapRead> {
+        self.frames.check(frame).map_err(MapRead::Stale)?;
+        self.tiles.get(&tile).ok_or(MapRead::NoSuchTile(tile))
+    }
+}
+
 /// The HHTL16 Cartesian address of cell `(x, y)` of one tile of `width`: the
 /// contract's [`Morton8x8`] code, `x` the row coordinate, `y` the column.
 #[inline]

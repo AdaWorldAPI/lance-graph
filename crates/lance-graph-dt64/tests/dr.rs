@@ -159,3 +159,81 @@ fn dr_does_not_depend_on_the_binding_side() {
     );
     assert!(!src.contains("super::"), "dr.rs must not name its parent");
 }
+
+// ------------------------------------------- MapTable (D-DT64-7 O5, §1e)
+
+use lance_graph_dt64::dr::{MapRead, MapTable};
+
+fn map(ids: &[u64]) -> LocalMap {
+    LocalMap::prepare(Width::W64, ids).unwrap()
+}
+
+#[test]
+fn a_map_is_read_only_under_the_frame_it_was_sealed_under() {
+    let mut t = MapTable::new(7, 11);
+    t.advance(7, 11, vec![(1, Some(map(&[10, 20, 30])))]);
+    let old = t.seal();
+    assert_eq!(t.map(&old, 1).unwrap().local(20), Ok(1));
+    t.advance(7, 11, vec![(1, Some(map(&[30, 20, 10])))]);
+    assert_eq!(
+        t.map(&old, 1).unwrap_err(),
+        MapRead::Stale(FrameRefusal::CoordinatesChanged)
+    );
+    let now = t.seal();
+    assert_eq!(t.map(&now, 1).unwrap().local(30), Ok(0));
+    assert_eq!(t.map(&now, 2).unwrap_err(), MapRead::NoSuchTile(2));
+}
+
+#[test]
+fn an_advance_that_changes_nothing_still_reseals() {
+    let mut t = MapTable::new(7, 11);
+    t.advance(7, 11, vec![(1, Some(map(&[10, 20])))]);
+    let old = t.seal();
+    let before = t.revisions();
+    t.advance(7, 11, vec![]);
+    assert_eq!(t.revisions(), before, "nothing moved");
+    assert_eq!(
+        t.map(&old, 1).unwrap_err(),
+        MapRead::Stale(FrameRefusal::FrameResealed)
+    );
+}
+
+#[test]
+fn the_coordinates_revision_is_a_function_of_the_held_maps() {
+    let at = |tiles: Vec<(u32, &[u64])>| {
+        let mut t = MapTable::new(7, 11);
+        t.advance(
+            7,
+            11,
+            tiles.into_iter().map(|(k, v)| (k, Some(map(v)))).collect(),
+        );
+        t.revisions().coordinates
+    };
+    let base = at(vec![(1, &[10, 20]), (2, &[30, 40])]);
+    assert_eq!(base, at(vec![(1, &[10, 20]), (2, &[30, 40])]), "same maps");
+    assert_ne!(base, at(vec![(1, &[20, 10]), (2, &[30, 40])]), "reordered");
+    assert_ne!(
+        base,
+        at(vec![(1, &[30, 40]), (2, &[10, 20])]),
+        "tiles swapped"
+    );
+    assert_ne!(base, at(vec![(1, &[10, 20])]), "tile removed");
+}
+
+#[test]
+fn a_removed_tile_is_gone_and_another_tables_frame_is_foreign() {
+    let mut a = MapTable::new(7, 11);
+    a.advance(7, 11, vec![(1, Some(map(&[10]))), (2, Some(map(&[20])))]);
+    a.advance(7, 11, vec![(2, None)]);
+    let f = a.seal();
+    assert!(a.map(&f, 1).is_ok());
+    assert_eq!(a.map(&f, 2).unwrap_err(), MapRead::NoSuchTile(2));
+
+    let mut b = MapTable::new(7, 11);
+    b.advance(7, 11, vec![(1, Some(map(&[10])))]);
+    assert_eq!(a.revisions(), b.revisions(), "equal numbers");
+    assert_eq!(
+        a.map(&b.seal(), 1).unwrap_err(),
+        MapRead::Stale(FrameRefusal::ForeignFrame)
+    );
+}
