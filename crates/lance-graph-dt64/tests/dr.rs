@@ -218,6 +218,9 @@ fn the_coordinates_revision_is_a_function_of_the_held_maps() {
         "tiles swapped"
     );
     assert_ne!(base, at(vec![(1, &[10, 20])]), "tile removed");
+    // Same maps in the same order under another tile name: only the tile id
+    // in the digest tells these apart.
+    assert_ne!(base, at(vec![(1, &[10, 20]), (3, &[30, 40])]), "tile renamed");
 }
 
 #[test]
