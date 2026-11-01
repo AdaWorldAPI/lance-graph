@@ -18,6 +18,9 @@ What `lance_graph_xlog::cube` does (VERIFIED-IN-CODE, `src/cube.rs`):
   place tuples are built). Each re-checks the frame.
 - Any relation joins any other on either column from the same lanes: lanes
   are stored per relation, not per join orientation.
+- `add_relation` adds a derived relation (a rule's output, a fixpoint delta)
+  under the same frame, looking up only its own ids (TEST-PINNED,
+  `an_added_relation_joins_like_a_base_one`).
 
 TEST-PINNED (`tests/cube.rs`, 6 tests):
 
