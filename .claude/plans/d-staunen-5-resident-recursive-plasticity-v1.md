@@ -310,7 +310,7 @@ Staunen, plasticity or novelty; two changed this plan:
   claim.** It runs a scalar BFS oracle, `Cube::closure` and XLOG's compiled
   recursion on the canonical 12-pair cycle (diagonal checked on each) and
   400 frozen seeded graphs, compared as sets with bag behaviour checked.
-  Delivered as xlog#6, test only. It completes P1's acceptance once merged.
+  Delivered as xlog#6, test only, merged 2026-11-01 11:54 UTC: P1 is accepted.
 - **MUL (H12).** One prediction and outcome is one calibration
   observation, not a calibration. Competence and overconfidence need a
   history of predictions and outcomes under a declared scoring rule. The
