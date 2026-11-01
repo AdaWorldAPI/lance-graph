@@ -1,6 +1,6 @@
 # D-DT64-7-5: `dr::MapTable`, the versioned global → local table
 
-**Date 2026-11-01 · ID D-DT64-7-5 · Status IN PR · Plan `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md` §1e**
+**Date 2026-11-01 · ID D-DT64-7-5 · Status SHIPPED · Plan `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md` §1e**
 
 `LocalMap` and `FrameStore` existed, and `LocalMap::digest` was documented as the frame's `coordinates` revision, but nothing tied a map to its frame. `MapTable` holds every tile's `LocalMap` under one `FrameStore`:
 
