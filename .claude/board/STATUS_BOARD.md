@@ -73,7 +73,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | Shipped (#1884) | lab execution only |
 | D-XLOG-NATIVE-7 | resident hypercube context (`lance_graph_xlog::cube`): one intake for every relation, `Copy` view handles, terminals only run programs; XLOG plans executed on it in the XLOG fork (`xlog-cube`) | In PR (#1911; xlog#2): parity + 300-case differential; 12/230 integration rules admitted | recursion, derived inputs |
 | D-XLOG-NATIVE-8 | XLOG behaviour lens `0xFFFF :: 0xF100` (`lance_graph_xlog::lens`): `functor`/`arg`/`=..` by position with helper-relation aliases; `declare` binds column counts as `arity` (side effect documented) | Shipped (#1913) | consumer half in xlog#2 |
-| D-STAUNEN-5 | resident recursive plasticity: novelty-gated activation of one declared candidate edge (Atlas `update_mask` contract), in-cube mask delta, H1 parsimony vs H2 eligibility, consolidate/revert, policy selection (plan P0–P7) | Queued | plan only |
+| D-STAUNEN-5 | resident recursive plasticity: novelty-gated activation of one declared candidate edge (Atlas `update_mask` shared contract), in-cube mask delta, H1 parsimony vs H2 eligibility, consolidate/revert, policy selection (plan P0–P7) | In progress (#1914): P0 fixtures + oracle done; P1 resident closure matches the oracle bit for bit (400 random graphs to position 63), 4 disable runs red; xlog-cube comparison pending its `r(V,V)` fixture | P2–P7 gated |
 
 ## D-LITHO — the photolithography contract (2026-10-30)
 
