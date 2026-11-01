@@ -38,7 +38,7 @@ Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
 | D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Shipped (#1906): gates 1–7 (plan §17.7); cost columns not done | operator go-ahead (given 2026-11-01) |
-| D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | Queued | D-DYNBAG-0 |
+| D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | In PR: exact vs both oracles (300 cases), projection = compose; MEASURED ~21 µs/tile on the AVX-512 VNNI tier (no AMX) vs 50 ns–2.4 µs for B (plan §7.6) | D-DYNBAG-0 |
 | D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
 | D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
 | D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Queued | DT64 `dr` owner |
