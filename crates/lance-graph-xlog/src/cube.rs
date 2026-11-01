@@ -27,7 +27,12 @@
 //!
 //! Scope: one tile (at most 256 ids across all relations), binary relations,
 //! a join of two sides, at most one bound per side and only on the side's
-//! free column. Recursion, union and difference are not here.
+//! free column. Union and difference are not here as views.
+//!
+//! [`Cube::closure`] is the one recursive terminal: `edge⁺` of one binary
+//! relation, computed semi-naively over row masks built from the relation's
+//! resident lanes (D-STAUNEN-5 P1). The delta difference is `mask_andnot`
+//! inside the cube; nothing is added to the cube and no tuple is built.
 
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -35,7 +40,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use lance_graph_dt64::dr::{Frame, LocalMap, MapRead, MapRefusal, MapTable, TileId};
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
-use ndarray::simd::{checked_binary_i64, mask_and, I64Op};
+use ndarray::simd::{checked_binary_i64, mask_and, mask_andnot, mask_any, mask_or_assign, I64Op};
 
 use crate::{all_live, run_lanes, NativeRefusal};
 
@@ -89,6 +94,12 @@ pub enum CubeRefusal {
     Map(MapRead),
     /// The computation refused.
     Native(NativeRefusal),
+    /// [`Cube::closure`] holds one `u64` per row, so the map may have at most
+    /// 64 positions; carries the map's size.
+    ClosureWidth(usize),
+    /// The fixpoint did not empty its delta within one round per position,
+    /// which a correct semi-naive closure cannot do.
+    FixpointBound,
 }
 
 /// What the cube has done since it was built.
@@ -98,6 +109,40 @@ pub struct CubeStats {
     pub programs: u64,
     /// Tuples built by [`Cube::materialize_rows`].
     pub rows_materialized: u64,
+    /// Relations added by [`Cube::add_relation`].
+    pub relations_added: u64,
+}
+
+/// `edge⁺` as one row mask per local position: bit `y` of row `x` is set
+/// when `y` is reachable from `x` in one or more steps.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Closure {
+    rows: Vec<u64>,
+}
+
+impl Closure {
+    /// One word per local position of the cube's map.
+    pub fn rows(&self) -> &[u64] {
+        &self.rows
+    }
+
+    /// Whether local position `y` is reachable from `x`.
+    pub fn contains(&self, x: u8, y: u8) -> bool {
+        self.rows
+            .get(usize::from(x))
+            .is_some_and(|r| y < 64 && r >> y & 1 == 1)
+    }
+}
+
+/// The work one [`Cube::closure`] did.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ClosureStats {
+    /// Composition rounds, including the last, which found nothing new.
+    pub rounds: u32,
+    /// Rows of `edge` or'ed into a new frontier: one per bit of every delta
+    /// composed. In semi-naive evaluation each closure pair enters a delta
+    /// exactly once, so this equals `|edge⁺|`.
+    pub rows_composed: u64,
 }
 
 /// One relation's lanes: both columns as local positions in the shared map.
@@ -168,6 +213,9 @@ impl Cube {
         let map = self.map(table)?;
         let r = rel(tuples, map)?;
         self.rels.push(r);
+        let mut s = self.stats.get();
+        s.relations_added += 1;
+        self.stats.set(s);
         Ok((self.rels.len() - 1) as RelId)
     }
 
@@ -350,6 +398,53 @@ impl Cube {
         checked_binary_i64(I64Op::Mul, &a, &b, &mut out)
             .map_err(|e| CubeRefusal::Native(NativeRefusal::Count(e)))?;
         Ok(out)
+    }
+
+    /// `edge⁺` of relation `rel`, semi-naively: `delta' = (delta ∘ edge) andnot
+    /// full`, `full |= delta'`, until a delta is empty. Rows come from the
+    /// relation's lanes, which already hold local positions, so nothing is
+    /// looked up; the difference is a mask word, not a host-side set.
+    pub fn closure(
+        &self,
+        table: &MapTable,
+        rel: RelId,
+    ) -> Result<(Closure, ClosureStats), CubeRefusal> {
+        let r = self
+            .rels
+            .get(rel as usize)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        self.map(table)?;
+        if self.n > 64 {
+            return Err(CubeRefusal::ClosureWidth(self.n));
+        }
+        let mut edge = vec![0u64; self.n];
+        for (&a, &b) in r.cols[0].iter().zip(&r.cols[1]) {
+            edge[a as usize] |= 1 << b;
+        }
+        let mut full = edge.clone();
+        let mut delta = edge.clone();
+        let mut next = vec![0u64; self.n];
+        let mut stats = ClosureStats::default();
+        // A path visits each position once, so the delta is empty by round n+1.
+        while mask_any(&delta) {
+            if stats.rounds as usize > self.n {
+                return Err(CubeRefusal::FixpointBound);
+            }
+            stats.rounds += 1;
+            for (x, &d) in delta.iter().enumerate() {
+                let mut acc = 0u64;
+                let mut bits = d;
+                while bits != 0 {
+                    acc |= edge[bits.trailing_zeros() as usize];
+                    bits &= bits - 1;
+                    stats.rows_composed += 1;
+                }
+                next[x] = acc;
+            }
+            mask_andnot(&next, &full, &mut delta);
+            mask_or_assign(&mut full, &delta);
+        }
+        Ok((Closure { rows: full }, stats))
     }
 
     /// The joined tuples `(left free, join value, right free)` as global ids:
