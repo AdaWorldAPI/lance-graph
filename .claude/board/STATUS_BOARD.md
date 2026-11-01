@@ -37,7 +37,7 @@ Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Queued | operator go-ahead |
+| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | In PR: gates 1–7 (plan §17.7); cost columns not done | operator go-ahead (given 2026-11-01) |
 | D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | Queued | D-DYNBAG-0 |
 | D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
 | D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |

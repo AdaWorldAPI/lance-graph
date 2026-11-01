@@ -572,3 +572,25 @@ fn a_distinct_method_is_not_run_as_a_bag_count() {
         Err(BoundRefusal::NotBag)
     );
 }
+
+/// Gate 6 (MISSING-6): a rule that keeps both ends, `p(X, Z)`, is refused at
+/// admission. The per-Y support or count is never offered as its answer.
+#[test]
+fn p_x_z_is_refused_not_answered_by_q_y() {
+    let src = MULT.replace(
+        "q(Y) :- r(X, Y), s(Y, Z).\n?- q(Y).",
+        "pred p(u32, u32).\np(X, Z) :- r(X, Y), s(Y, Z).\n?- p(X, Z).",
+    );
+    assert_ne!(src, MULT, "the fixture was rewritten");
+    let plan = xlog_logic::Compiler::new().compile(&src).unwrap();
+    let body = &plan
+        .rules_by_scc
+        .iter()
+        .flatten()
+        .find(|r| r.head == "p")
+        .unwrap()
+        .body;
+    let refused = xlog_relcomp_probe::admit(body);
+    assert!(refused.is_err(), "p(X, Z) admitted: {refused:?}");
+    assert!(xlog_relcomp_probe::native::admit_count(body).is_err());
+}
