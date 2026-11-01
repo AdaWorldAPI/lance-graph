@@ -114,6 +114,23 @@ Both must make `(a, b)` predicted. They differ in what else they predict.
 They are independently verifiable: each can be scored against `G*` on
 pairs it was not shown, and the two disagree on fixtures built for it.
 
+**Inherited kill condition (D-CE64-STAUNEN-0, #1395; corrected by
+D-CE64-CYCLE-0).** Raw surprise is captured by noise: the naive surprise
+scheduler resolved 0.649 against round-robin's 0.964, and pooled over
+seeds the full scheduler had no wake advantage over round-robin. The
+D-STAUNEN co-research map (2026-10-31, row 11) parks novelty gating until it
+inherits that condition. So:
+- the stimulus stream carries **observation noise**: pairs `G*` does not
+  reach, presented exactly like real stimuli, some closable by a distractor
+  alone (P0 generates them; only `World` knows which are noise);
+- H2 must be run in two forms, **raw** (any novel stimulus licenses an
+  update) and **habituated** (only novelty above the relation's own
+  habitual novelty rate licenses one), and raw H2 is expected to lose;
+- a **round-robin** arm (activate candidates in a fixed rotation on novel
+  stimuli, no scoring) joins B11 as a baseline. A policy that does not beat
+  round-robin on held-out pairs under the paired criterion has failed,
+  whatever else it wins on.
+
 ## Learning when an adaptation was useful
 
 An activated candidate is pending. Later stimuli are its evidence:
@@ -130,8 +147,15 @@ frequency/confidence counts.
 those records. That is the "learn when it was useful" claim at policy
 level.
 
-**Evidence rules (D-STAUNEN-4 M2/M3).**
+**Evidence rules (D-STAUNEN-4 M2/M3).** Outcomes are pooled as NARS
+revision over root-disjoint proofs, reusing `lance-graph-planner`
+`nars::support::DerivationLedger` (its `Eval::select` never revises two
+proofs that share a root). Fisher-Z addition is a different operation
+(naive-Bayes accumulation of independent likelihood ratios) and is not
+substituted for it (EXO-50, SPOFC, 2026-10-22).
 - A stimulus counts once: the same observation repeated is one root.
+  **Open, operator:** is a source root the observer or one report? Until
+  ruled, P0 treats one stimulus as one root.
 - A pair derived through the closure is not independent evidence for the
   edge that produced it, so a candidate cannot confirm itself.
 - Only stimuli or held-out queries arriving after the activation count.
@@ -146,7 +170,9 @@ level.
   least one novel stimulus no single candidate closes, which P3 must refuse
   with `NoClosingCandidate` without changing the generation or the masks.
   `G*` lives only in the generator and the scorer: the episode type that
-  H1, H2 and the selector receive has no field for it. Pre-register: task
+  H1, H2 and the selector receive has no field for it. The stream also
+  carries observation noise (pairs outside `reach(G*)`, labelled only in
+  `World`), including distractor traps. Pre-register: task
   split, episode count, `k`, minimum effect, budget.
 - [ ] **P1 — in-cube semi-naive closure.** Three independent checks: a
   scalar reference closure, the resident mask closure, and `xlog-cube`'s
@@ -181,7 +207,8 @@ level.
   episodes. Fixtures where they must disagree (a short distractor beside a
   recently active long path), so the comparison is not vacuous.
 - [ ] **P6 — controls and meta-selection.** B0 no adaptation; B10 best
-  fixed policy; B11 random candidate; B7 shuffled novelty (adapt on
+  fixed policy; B11 random candidate; B12 round-robin; raw vs habituated
+  H2; B7 shuffled novelty (adapt on
   non-novel stimuli); B9 duplicated root (one observation repeated). The
   meta-selector must beat B11 and match B10 under a pre-registered paired
   criterion over seeds (not a win on every seed). Report the losing runs
@@ -253,3 +280,18 @@ Two corrections to the coverage figures reported with xlog#3:
 Consequence for P1: the `r(V,V)` diagonal in `generic_join` (implemented,
 untested) is a prerequisite, because P1 compares the mask closure with
 `xlog-cube`'s.
+
+## Board references read (EXO-50, 2026-11-01)
+
+Read after the first draft, all 351 comments (2026-10-20..31). Five touch
+Staunen, plasticity or novelty; two changed this plan:
+- `CC:session_01XAqKMNZqKXSaeb9g2ypywF/REASONING-CODEGRAPH-STAUNEN-20261031-01`:
+  novelty gating measured in D-CE64-STAUNEN-0 (raw surprise lost to
+  round-robin); root-disjoint support exists in `DerivationLedger`;
+  cross-thought dedup is D-HL-3. Adopted above.
+- `session_01CG3aK3RJ7zQT4p1qZnRwoM/001`: Z-add is not NARS revision;
+  damped Hebb `ΔZ = η·s·p·(1−tanh|Z|)` is a candidate CE64 plasticity rule
+  needing an inertness test on `η`. Not used in v1 (edges are binary), and
+  CE64 bits 50..52 are not written (D-CE64-STAUNEN-0: `learn` gates on them).
+- The other three (SHARE witness = lane dimension; D-EPI-COT C3 warrant)
+  bear on P4/P6 evidence reading, not on P0/P1.

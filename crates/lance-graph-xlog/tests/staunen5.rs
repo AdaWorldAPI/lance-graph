@@ -190,6 +190,9 @@ mod fixtures {
     pub struct World {
         pub n: usize,
         pub g_star: Vec<(u8, u8)>,
+        /// Indices into `Episode::stimuli` that are observation noise: pairs
+        /// `G*` does not reach. Only the scorer may read this.
+        pub noise: Vec<usize>,
     }
 
     pub struct Stimulus {
@@ -274,8 +277,31 @@ mod fixtures {
                 });
             }
         }
+        // Observation noise (D-CE64-STAUNEN-0: raw surprise is captured by
+        // noise). Each distractor's own endpoints, when `G*` does not reach
+        // them, are reported as a stimulus: novel, and closable by that
+        // distractor alone, which is the trap a raw-novelty policy falls into.
+        let mut noise = Vec::new();
+        for &(u, v) in &candidates[withheld.len()..] {
+            if truth[u as usize] >> v & 1 == 1 || reaches(n, &base, (u, v)) {
+                continue;
+            }
+            let closing = (0..candidates.len())
+                .filter(|&i| {
+                    let mut e = base.clone();
+                    e.push(candidates[i]);
+                    reaches(n, &e, (u, v))
+                })
+                .collect();
+            noise.push(stimuli.len());
+            stimuli.push(Stimulus {
+                pair: (u, v),
+                novel: true,
+                closing,
+            });
+        }
         (
-            World { n, g_star },
+            World { n, g_star, noise },
             Episode {
                 n,
                 base,
@@ -341,4 +367,29 @@ fn adding_a_relation_is_counted() {
     let (c, _) = cube.closure(&t, 1).unwrap();
     assert!(c.contains(1, 2) && !c.contains(0, 1));
     assert_eq!(cube.stats().relations_added, 1);
+}
+
+/// Noise stimuli are indistinguishable to a policy (same type, same fields),
+/// labelled only in `World`, never reachable in `G*`; every stream carries at
+/// least one that a distractor alone would close.
+#[test]
+fn noise_stimuli_are_labelled_only_for_the_scorer() {
+    let mut traps = 0;
+    for seed in 1..40u64 {
+        let (w, e) = fixtures::generate(seed, 16, 4);
+        let truth = oracle::closure(w.n, &w.g_star);
+        let in_truth = |(a, b): (u8, u8)| truth[a as usize] >> b & 1 == 1;
+        for (i, s) in e.stimuli.iter().enumerate() {
+            assert_eq!(w.noise.contains(&i), !in_truth(s.pair), "seed {seed}");
+        }
+        let trap = w.noise.iter().any(|&i| {
+            let s = &e.stimuli[i];
+            s.novel && s.closing.iter().any(|&c| c >= 5)
+        });
+        traps += usize::from(trap);
+    }
+    assert!(
+        traps >= 35,
+        "only {traps}/39 streams carry a distractor trap"
+    );
 }
