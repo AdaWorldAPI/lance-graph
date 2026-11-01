@@ -51,7 +51,18 @@ fn local(ids: impl Iterator<Item = u32>) -> LocalMap {
 }
 
 fn main() {
-    println!("amx_available: {}", amx_available());
+    // The tier `matmul_i8_to_i32` dispatches to, in its own order:
+    // AMX, then AVX-512 VNNI, then AVX-VNNI, then the scalar reference.
+    let tier = if amx_available() {
+        "AMX TDPBUSD"
+    } else if std::is_x86_feature_detected!("avx512vnni") {
+        "AVX-512 VNNI VPDPBUSD"
+    } else if std::is_x86_feature_detected!("avxvnni") {
+        "AVX-VNNI"
+    } else {
+        "scalar reference"
+    };
+    println!("amx_available: {} | matmul tier: {tier}", amx_available());
     let full: Vec<(u32, u32)> = (0..64).flat_map(|a| (0..64).map(move |b| (a, b))).collect();
     let cases: [(&str, Tuples, Tuples); 2] = [
         (
