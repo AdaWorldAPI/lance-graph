@@ -203,6 +203,10 @@ Effect on §2:
   - Admitted: `Scan`, `Filter` (equality with a constant), `Project`, `Join` (inner, two atoms), `ChainJoin`, `GroupBy` (`count`), `Fixpoint` (bounded, linear; #1896).
   - Refused: `Union`, `Distinct` (as its own node), `Diff` (negation), `MultiWayJoin`, `TensorMaskedJoin`, `Unit`.
   - Each refused kind needs one admission rule and one native description.
+- **Target (DECISION, operator, 2026-11-01): `crates/lance-graph-xlog`.** This settles where the polyfill lives. Dependency direction:
+  - **`lance-graph-xlog` owns the semantics.** It holds the algebra descriptions and the caller-facing API in its own types (`Bounds`, `u32` tuples, DR maps, results). There is no `xlog-*` dependency and no arrow (N4), and no `RirNode` mirror (§0).
+  - **The XLOG fork depends on `lance-graph-xlog`, never the reverse.** Its executor arms translate an RIR node into a `lance-graph-xlog` call: that is the polyfill back to `pyxlog` / `xlog-cli` / `xlog-integration`. `lance-graph-xlog` carries no arrow, so the arrow 60 / 58 split never meets.
+  - **`xlog-relcomp-probe` stays the oracle harness:** XLOG compile, admission, scalar enumeration, the RIR walk, and the DR64 register differential.
 - **OPEN:**
-  - The exact caller API to polyfill. Not yet read; next step is a census of what `pyxlog` / `xlog-cli` / `xlog-integration` call on the executor.
-  - Where the polyfill lives, so that lance-graph never takes an `xlog-*` dependency (N4) and arrow 60 stays out (D-XLOG-DR64-1).
+  - The exact caller API. Next step is a census of what `pyxlog` / `xlog-cli` / `xlog-integration` call on the executor, and how each call maps onto a `lance-graph-xlog` call.
+  - Which translation the XLOG fork carries: a translator per RIR kind, or a thin adapter crate inside the fork.
