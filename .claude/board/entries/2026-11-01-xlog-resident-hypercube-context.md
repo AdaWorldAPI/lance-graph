@@ -43,7 +43,9 @@ XLOG side (MEASURED by reading `xlog-runtime` / `xlog-cuda`):
   key), 2 `synchronize`, 9 in `epistemic_workspace` / `resident` (outside the
   13 RIR kinds).
 - `xlog-cuda/build.rs` panics without `nvcc` unless `XLOG_RUSTDOC_NO_CUDA=1`
-  (empty kernel data). Whether `xlog-runtime` then compiles here: see OPEN.
+  (empty kernel data). With it, `cargo check -p xlog-runtime` finishes on a
+  host with no CUDA toolkit (MEASURED 2026-11-01, 3 warnings, 0 errors), so a
+  device-less build of the XLOG fork is reachable.
 
 Comparison with Amendment E (caller-level polyfill):
 
@@ -58,8 +60,7 @@ Comparison with Amendment E (caller-level polyfill):
   advantage at that node.
 
 **OPEN:** recursion (semi-naive delta over versioned masks), union and
-difference as views; more than one tile; n-ary relations; whether
-`xlog-runtime` builds without `nvcc`; a `CudaBuffer::View` variant and a
+difference as views; more than one tile; n-ary relations; a `CudaBuffer::View` variant and a
 device-less provider in the XLOG fork; per-node cost vs the per-call path.
 Reasoning surfaces (NARS revision, thought layers, CausalEdge64) are not in this
 probe and need their own contracts.
