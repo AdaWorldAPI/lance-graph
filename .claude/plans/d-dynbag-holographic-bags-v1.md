@@ -537,6 +537,20 @@ XLOG compile ─► RIR ─► admit / admit_count
 
 **REVISIT WHEN:** MISSING-3 or MISSING-4 lands in its owner crate; the TRACKED call is then deleted.
 
+### 17.7 Status (2026-11-01, branch `ccr-85acaff0-oszq40-dynbag0`, on #1905)
+
+| gate | state | where |
+|---|---|---|
+| 1 compile → admit → bind → Quack → `lower` → `execute_into` → addressed result | met; a retracted route yields no `MethodBinding`, so nothing runs | `tests/dto_binding.rs` `the_admitted_method_drives_the_count`, `a_retracted_route_leaves_nothing_to_run` |
+| 2 no owned tuples after intake | met: `native::Intake` holds `u32` lanes and a live plane; queries read only those | `src/native.rs` |
+| 3 no global → local lookup per query (MISSING-5) | met via `dr::MapTable` (#1905): the intake looks Y up once under a sealed frame; each query re-checks the frame | `queries_after_intake_do_not_look_y_up_again`, `a_stale_map_frame_is_refused_before_anything_runs` |
+| 4 support and multiplicity distinct | met: support = `ScatterOrU32` ×2 + `mask_and`; bag = `GroupReduce Count` ×2 + checked product; a `Distinct` method is refused as a bag count | `gate_b`, `litho`, `a_distinct_method_is_not_run_as_a_bag_count` |
+| 5 disable runs | all red: Count swapped (litho 3 red), backward dropped (gate_b 5 red), population check, frame check, unread word, intake frame re-check, lookup per query (1 red each) | — |
+| 6 `q(Y)` never answers `p(X, Z)` (MISSING-6) | met: `admit` and `admit_count` both refuse a `p(X, Z)` body (behaviour that already held, now pinned) | `p_x_z_is_refused_not_answered_by_q_y` |
+| 7 no `ndarray::simd` fold word in `native.rs` | met: only `mask_and` (elementwise alias) and `checked_binary_i64` (TRACKED, MISSING-3) | `src/native.rs` module doc |
+
+MISSING-1 stays probe-local: the caller reads each `AlgebraRef` word as a `native::Word`, and any word without a reading is refused (`BoundRefusal::UnknownWord`).
+
 ---
 
 ## 18. Cross-frontend projection crosswalk (2026-10-31, before coding)

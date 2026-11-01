@@ -418,3 +418,179 @@ fn executing_the_admitted_bag_method_is_refused_in_the_lab_register() {
     assert_eq!(e.err(), Some(lab::Refusal::BagNeedsMultiplicity));
     assert_eq!(rr.len(), SLOTS);
 }
+
+// ---------------- D-DYNBAG-0 step 2: the admitted method drives execution
+
+use lance_graph_dt64::dr::{LocalMap, MapRead, MapTable, Width};
+use xlog_relcomp_probe::ChainQuery;
+use xlog_relcomp_probe::native::{BoundRefusal, Intake, Word, bag_count_admitted, nonzero};
+
+/// MISSING-1, probe-local: the polyfill words this lens names, read as the
+/// Quack / tracked operations they stand for. Any other word is refused.
+fn word_of(a: AlgebraRef) -> Option<Word> {
+    match a {
+        GROUP_COUNT => Some(Word::GroupCount),
+        MUL_I64 => Some(Word::MulI64),
+        _ => None,
+    }
+}
+
+const Y_TILE: u32 = 11;
+
+fn y_table(r: &[(u32, u32)], s: &[(u32, u32)]) -> MapTable {
+    let ys: Vec<u64> = answer_ids(r, s).into_iter().map(u64::from).collect();
+    let mut t = MapTable::new(1, 1);
+    t.advance(
+        1,
+        1,
+        vec![(Y_TILE, Some(LocalMap::prepare(Width::W64, &ys).unwrap()))],
+    );
+    t
+}
+
+/// XLOG compiles the fixture; `admit` accepts rule `q`'s body.
+fn chain() -> ChainQuery {
+    let plan = xlog_logic::Compiler::new().compile(MULT).unwrap();
+    let body = &plan
+        .rules_by_scc
+        .iter()
+        .flatten()
+        .find(|r| r.head == "q")
+        .unwrap()
+        .body;
+    xlog_relcomp_probe::admit(body).unwrap()
+}
+
+fn admitted<'s>(store: &'s mut BindStore, r: &[(u32, u32)], s: &[(u32, u32)]) -> &'s MethodBinding {
+    let views = Views::new();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(store, &frames, answer_ids(r, s));
+    bind(store, &frames, &views, &routed).unwrap().method
+}
+
+#[test]
+fn the_admitted_method_drives_the_count() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(&mut store, &frames, answer_ids(&r, &s));
+    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let table = y_table(&r, &s);
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
+    let counts = bag_count_admitted(b.method, word_of, &intake, &table, &chain()).unwrap();
+    let got: Vec<(u64, i64)> = nonzero(intake.map(&table).unwrap(), &counts);
+    let want: Vec<(u64, i64)> = b
+        .expected
+        .iter()
+        .map(|(g, c)| (u64::from(g.identity_v2()), *c as i64))
+        .collect();
+    assert_eq!(got, want, "the binding's expected values, per Y");
+}
+
+#[test]
+fn a_retracted_route_leaves_nothing_to_run() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let mut routed = route(&mut store, &frames, answer_ids(&r, &s));
+    routed.version = store.retract(7);
+    // No binding, so no MethodBinding to hand to the executor.
+    assert!(bind(&store, &frames, &views, &routed).is_err());
+}
+
+#[test]
+fn a_stale_map_frame_is_refused_before_anything_runs() {
+    let (r, s) = fixture();
+    let mut store = bind_store();
+    let method = admitted(&mut store, &r, &s).clone();
+    let mut table = y_table(&r, &s);
+    let old = table.seal();
+    let intake = Intake::new(&table, &old, Y_TILE, &r, &s).unwrap();
+    table.advance(1, 1, vec![]);
+    let stale = Err(BoundRefusal::Map(MapRead::Stale(
+        FrameRefusal::FrameResealed,
+    )));
+    assert_eq!(
+        bag_count_admitted(&method, word_of, &intake, &table, &chain()),
+        stale
+    );
+    assert_eq!(intake.support(&table, &chain()).err(), stale.err());
+    assert_eq!(
+        Intake::new(&table, &old, Y_TILE, &r, &s).err(),
+        Some(BoundRefusal::Map(MapRead::Stale(
+            FrameRefusal::FrameResealed
+        )))
+    );
+}
+
+/// Gate 3 (MISSING-5): Y is looked up once per tuple at intake; queries read
+/// the lanes and look nothing up again.
+#[test]
+fn queries_after_intake_do_not_look_y_up_again() {
+    let (r, s) = fixture();
+    let mut store = bind_store();
+    let method = admitted(&mut store, &r, &s).clone();
+    let table = y_table(&r, &s);
+    let frame = table.seal();
+    let lookups = || table.map(&frame, Y_TILE).unwrap().lookups();
+    let before = lookups();
+    let intake = Intake::new(&table, &frame, Y_TILE, &r, &s).unwrap();
+    let at_intake = lookups();
+    assert_eq!(at_intake - before, (r.len() + s.len()) as u64);
+    for _ in 0..10 {
+        bag_count_admitted(&method, word_of, &intake, &table, &chain()).unwrap();
+        intake.support(&table, &chain()).unwrap();
+    }
+    assert_eq!(lookups(), at_intake, "no lookup after intake");
+}
+
+#[test]
+fn a_method_naming_an_unread_word_is_refused() {
+    let (r, s) = fixture();
+    let mut store = bind_store();
+    let method = admitted(&mut store, &r, &s).clone();
+    let table = y_table(&r, &s);
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
+    let only_count = |a: AlgebraRef| (a == GROUP_COUNT).then_some(Word::GroupCount);
+    assert_eq!(
+        bag_count_admitted(&method, only_count, &intake, &table, &chain()),
+        Err(BoundRefusal::UnknownWord(MUL_I64))
+    );
+}
+
+#[test]
+fn a_distinct_method_is_not_run_as_a_bag_count() {
+    let (r, s) = fixture();
+    let table = y_table(&r, &s);
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
+    let mut m = xlog_count();
+    m.population = Population::Distinct;
+    assert_eq!(
+        bag_count_admitted(&m, word_of, &intake, &table, &chain()),
+        Err(BoundRefusal::NotBag)
+    );
+}
+
+/// Gate 6 (MISSING-6): a rule that keeps both ends, `p(X, Z)`, is refused at
+/// admission. The per-Y support or count is never offered as its answer.
+#[test]
+fn p_x_z_is_refused_not_answered_by_q_y() {
+    let src = MULT.replace(
+        "q(Y) :- r(X, Y), s(Y, Z).\n?- q(Y).",
+        "pred p(u32, u32).\np(X, Z) :- r(X, Y), s(Y, Z).\n?- p(X, Z).",
+    );
+    assert_ne!(src, MULT, "the fixture was rewritten");
+    let plan = xlog_logic::Compiler::new().compile(&src).unwrap();
+    let body = &plan
+        .rules_by_scc
+        .iter()
+        .flatten()
+        .find(|r| r.head == "p")
+        .unwrap()
+        .body;
+    let refused = xlog_relcomp_probe::admit(body);
+    assert!(refused.is_err(), "p(X, Z) admitted: {refused:?}");
+    assert!(xlog_relcomp_probe::native::admit_count(body).is_err());
+}
