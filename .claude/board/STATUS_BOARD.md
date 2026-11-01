@@ -15,7 +15,7 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
 | D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
 | D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
-| D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
+| D-DT64-7-5 | the versioned global → local table, a BindStore plan item (plan §1e) | Core in PR: `dr::MapTable`; stored selections (D7') wait on O4 | O4 for the selection half |
 
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
 

@@ -118,6 +118,8 @@ Preserved throughout: the `0xC401` name-bound reading, the `FnIndex` opcode cont
 
 ### 1e. O5 design: the versioned global → local table (2026-11-01)
 
+**Status:** core shipped (`dr::MapTable`, T1–T4 green, both disable runs red). Stored selections wait on O4.
+
 O5 is a BindStore plan item (D-DT64-6 Amendment A). Litho is the mental model it came from, not a component.
 
 **What exists (VERIFIED-IN-CODE, `lance-graph-dt64/src/dr.rs`):**
@@ -145,7 +147,7 @@ So "versions = frame revisions" already works as a mechanism. **The gap:** nothi
 | Id | Falsifier |
 |---|---|
 | T1 | A map read under a frame sealed before `advance` is refused with `Stale(CoordinatesChanged)`, and read under the new seal it succeeds. Twin: an `advance` that changes nothing in a tile still re-seals, so the old frame gets `Stale(FrameResealed)`. |
-| T2 | `coordinates` is a function of the held maps. The same maps in the same tiles give the same revision. Reordering one tile's globals changes it. Swapping two tiles' maps changes it, because the `TileId` is in the digest. |
+| T2 | `coordinates` is a function of the held maps. The same maps in the same tiles give the same revision. Reordering one tile's globals changes it. Swapping two tiles' maps changes it. Renaming a tile with the same map in the same position changes it; this case alone tests that the `TileId` is in the digest (a disable run showed the swap case passes without it). |
 | T3 | A frame from another `MapTable` is refused with `Stale(ForeignFrame)`, even at equal revisions. |
 | T4 | Backward compatibility: existing `LocalMap` / `FrameStore` callers (`tests/dr.rs`, `xlog-relcomp-probe` `litho.rs` and `gate_b.rs`) are unchanged and green. |
 

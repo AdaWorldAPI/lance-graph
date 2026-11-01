@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-536 entries, 2026-08-06 .. 2026-10-31.
+537 entries, 2026-08-06 .. 2026-11-01.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-01 | `D-DT64-7-5` |  | [2026-11-01-maptable-versioned-local-map.md](2026-11-01-maptable-versioned-local-map.md) |
 | 2026-10-31 | `x2-dt64-admission-policy` |  | [2026-10-31-x2-dt64-admission-policy.md](2026-10-31-x2-dt64-admission-policy.md) |
 | 2026-10-31 | `r1-r2il-binding-reading` |  | [2026-10-31-r1-r2il-binding-reading.md](2026-10-31-r1-r2il-binding-reading.md) |
 | 2026-10-31 | `r1-native-prepared-successor` |  | [2026-10-31-r1-native-prepared-successor.md](2026-10-31-r1-native-prepared-successor.md) |
