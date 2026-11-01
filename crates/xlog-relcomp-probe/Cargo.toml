@@ -26,6 +26,8 @@ lance-graph-dt64 = { path = "../lance-graph-dt64" }
 # Folds run there, never as direct ndarray::simd calls from this crate.
 lance-graph-quack = { path = "../lance-graph-quack" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# `Population`, read off the admitted `MethodBinding` (D-DYNBAG-0 step 2).
+lance-graph-contract = { path = "../lance-graph-contract" }
 # XLOG's CUDA-free compiler crates, pinned to one upstream commit
 # (MIT OR Apache-2.0; notices in the upstream repository).
 xlog-core = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }

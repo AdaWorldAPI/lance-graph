@@ -418,3 +418,137 @@ fn executing_the_admitted_bag_method_is_refused_in_the_lab_register() {
     assert_eq!(e.err(), Some(lab::Refusal::BagNeedsMultiplicity));
     assert_eq!(rr.len(), SLOTS);
 }
+
+// ---------------- D-DYNBAG-0 step 2: the admitted method drives execution
+
+use lance_graph_dt64::dr::{LocalMap, MapRead, MapTable, Width};
+use xlog_relcomp_probe::ChainQuery;
+use xlog_relcomp_probe::native::{BoundRefusal, Word, bag_count_admitted, nonzero};
+
+/// MISSING-1, probe-local: the polyfill words this lens names, read as the
+/// Quack / tracked operations they stand for. Any other word is refused.
+fn word_of(a: AlgebraRef) -> Option<Word> {
+    match a {
+        GROUP_COUNT => Some(Word::GroupCount),
+        MUL_I64 => Some(Word::MulI64),
+        _ => None,
+    }
+}
+
+const Y_TILE: u32 = 11;
+
+fn y_table(r: &[(u32, u32)], s: &[(u32, u32)]) -> MapTable {
+    let ys: Vec<u64> = answer_ids(r, s).into_iter().map(u64::from).collect();
+    let mut t = MapTable::new(1, 1);
+    t.advance(
+        1,
+        1,
+        vec![(Y_TILE, Some(LocalMap::prepare(Width::W64, &ys).unwrap()))],
+    );
+    t
+}
+
+/// XLOG compiles the fixture; `admit` accepts rule `q`'s body.
+fn chain() -> ChainQuery {
+    let plan = xlog_logic::Compiler::new().compile(MULT).unwrap();
+    let body = &plan
+        .rules_by_scc
+        .iter()
+        .flatten()
+        .find(|r| r.head == "q")
+        .unwrap()
+        .body;
+    xlog_relcomp_probe::admit(body).unwrap()
+}
+
+#[test]
+fn the_admitted_method_drives_the_count() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(&mut store, &frames, answer_ids(&r, &s));
+    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let table = y_table(&r, &s);
+    let frame = table.seal();
+    let counts =
+        bag_count_admitted(b.method, word_of, &table, &frame, Y_TILE, &chain(), &r, &s).unwrap();
+    let map = table.map(&frame, Y_TILE).unwrap();
+    let got: Vec<(u64, i64)> = nonzero(map, &counts);
+    let want: Vec<(u64, i64)> = b
+        .expected
+        .iter()
+        .map(|(g, c)| (u64::from(g.identity_v2()), *c as i64))
+        .collect();
+    assert_eq!(got, want, "the binding's expected values, per Y");
+}
+
+#[test]
+fn a_retracted_route_leaves_nothing_to_run() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let mut routed = route(&mut store, &frames, answer_ids(&r, &s));
+    routed.version = store.retract(7);
+    // No binding, so no MethodBinding to hand to the executor.
+    assert!(bind(&store, &frames, &views, &routed).is_err());
+}
+
+#[test]
+fn a_stale_map_frame_is_refused_before_anything_runs() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(&mut store, &frames, answer_ids(&r, &s));
+    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let mut table = y_table(&r, &s);
+    let old = table.seal();
+    table.advance(1, 1, vec![]);
+    assert_eq!(
+        bag_count_admitted(b.method, word_of, &table, &old, Y_TILE, &chain(), &r, &s),
+        Err(BoundRefusal::Map(MapRead::Stale(
+            FrameRefusal::FrameResealed
+        )))
+    );
+}
+
+#[test]
+fn a_method_naming_an_unread_word_is_refused() {
+    let (r, s) = fixture();
+    let views = Views::new();
+    let mut store = bind_store();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(&mut store, &frames, answer_ids(&r, &s));
+    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let table = y_table(&r, &s);
+    let frame = table.seal();
+    let only_count = |a: AlgebraRef| (a == GROUP_COUNT).then_some(Word::GroupCount);
+    assert_eq!(
+        bag_count_admitted(
+            b.method,
+            only_count,
+            &table,
+            &frame,
+            Y_TILE,
+            &chain(),
+            &r,
+            &s
+        ),
+        Err(BoundRefusal::UnknownWord(MUL_I64))
+    );
+}
+
+#[test]
+fn a_distinct_method_is_not_run_as_a_bag_count() {
+    let (r, s) = fixture();
+    let table = y_table(&r, &s);
+    let frame = table.seal();
+    let mut m = xlog_count();
+    m.population = Population::Distinct;
+    assert_eq!(
+        bag_count_admitted(&m, word_of, &table, &frame, Y_TILE, &chain(), &r, &s),
+        Err(BoundRefusal::NotBag)
+    );
+}

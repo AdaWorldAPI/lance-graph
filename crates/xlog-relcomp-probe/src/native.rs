@@ -33,7 +33,9 @@
 //! lanes from the tuples (one local lookup per row), the live plane, and decode
 //! the answer bits back to ids. None is a computation over the population.
 
-use lance_graph_dt64::dr::{LocalMap, MapRefusal};
+use lance_graph_contract::set_rules::Population;
+use lance_graph_dt64::dr::{Frame, LocalMap, MapRead, MapRefusal, MapTable, TileId};
+use lance_graph_dt64::{AlgebraRef, MethodBinding};
 use lance_graph_mask_risc::{ExecError, Foreign, LaneRef, Out, Planes, Scratch, execute_into};
 use lance_graph_quack::{
     Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, LowerError, Mask, Query, lower,
@@ -216,6 +218,65 @@ pub fn bag_count(
     checked_binary_i64(I64Op::Mul, &per_left, &per_right, &mut out)
         .map_err(NativeRefusal::Count)?;
     Ok(out)
+}
+
+/// The operation a polyfill word stands for, as this probe reads it. The
+/// bind store names words by position only; which Quack description a word
+/// lowers to is MISSING-1 (plan §17.5), so the caller supplies the reading
+/// and any word without one is refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Word {
+    /// `GroupReduce { Local(y), Count }` over one side.
+    GroupCount,
+    /// The checked i64 product of the two per-Y counts (TRACKED, MISSING-3).
+    MulI64,
+}
+
+/// Why an admitted method was not run.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BoundRefusal {
+    /// The method is not a bag count: support is never offered as a count.
+    NotBag,
+    /// The method names a word the caller gave no reading for.
+    UnknownWord(AlgebraRef),
+    /// The method's steps are not the two-sided count this path computes.
+    Shape,
+    /// DR's Y map is not readable under the given frame.
+    Map(MapRead),
+    /// The computation itself refused.
+    Native(NativeRefusal),
+}
+
+/// Run an admitted bag-count method. Execution starts from the
+/// `MethodBinding` the bind store admitted, and from DR's Y map read under the
+/// caller's frame: no admitted method, or a stale frame, and nothing runs.
+///
+/// The method must be `Population::Bag` and its steps must read, in order,
+/// [`Word::GroupCount`], [`Word::GroupCount`], [`Word::MulI64`].
+#[allow(clippy::too_many_arguments)]
+pub fn bag_count_admitted(
+    method: &MethodBinding,
+    words: impl Fn(AlgebraRef) -> Option<Word>,
+    table: &MapTable,
+    frame: &Frame,
+    tile: TileId,
+    q: &ChainQuery,
+    left: &[(u32, u32)],
+    right: &[(u32, u32)],
+) -> Result<Vec<i64>, BoundRefusal> {
+    if method.population != Population::Bag {
+        return Err(BoundRefusal::NotBag);
+    }
+    let steps = method
+        .effects
+        .iter()
+        .map(|e| words(e.algebra).ok_or(BoundRefusal::UnknownWord(e.algebra)))
+        .collect::<Result<Vec<_>, _>>()?;
+    if steps != [Word::GroupCount, Word::GroupCount, Word::MulI64] {
+        return Err(BoundRefusal::Shape);
+    }
+    let mid = table.map(frame, tile).map_err(BoundRefusal::Map)?;
+    bag_count(q, left, right, mid).map_err(BoundRefusal::Native)
 }
 
 /// Global ids of the set bits of `mask`, in local order.
