@@ -478,7 +478,7 @@ fn the_admitted_method_drives_the_count() {
     let b = bind(&store, &frames, &views, &routed).unwrap();
     let table = y_table(&r, &s);
     let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
-    let counts = bag_count_admitted(b.method, word_of, &intake, &table, &chain()).unwrap();
+    let counts = bag_count_admitted(b.method, word_of, &intake, &table, chain().bounds()).unwrap();
     let got: Vec<(u64, i64)> = nonzero(intake.map(&table).unwrap(), &counts);
     let want: Vec<(u64, i64)> = b
         .expected
@@ -513,10 +513,10 @@ fn a_stale_map_frame_is_refused_before_anything_runs() {
         FrameRefusal::FrameResealed,
     )));
     assert_eq!(
-        bag_count_admitted(&method, word_of, &intake, &table, &chain()),
+        bag_count_admitted(&method, word_of, &intake, &table, chain().bounds()),
         stale
     );
-    assert_eq!(intake.support(&table, &chain()).err(), stale.err());
+    assert_eq!(intake.support(&table, chain().bounds()).err(), stale.err());
     assert_eq!(
         Intake::new(&table, &old, Y_TILE, &r, &s).err(),
         Some(BoundRefusal::Map(MapRead::Stale(
@@ -540,8 +540,8 @@ fn queries_after_intake_do_not_look_y_up_again() {
     let at_intake = lookups();
     assert_eq!(at_intake - before, (r.len() + s.len()) as u64);
     for _ in 0..10 {
-        bag_count_admitted(&method, word_of, &intake, &table, &chain()).unwrap();
-        intake.support(&table, &chain()).unwrap();
+        bag_count_admitted(&method, word_of, &intake, &table, chain().bounds()).unwrap();
+        intake.support(&table, chain().bounds()).unwrap();
     }
     assert_eq!(lookups(), at_intake, "no lookup after intake");
 }
@@ -555,7 +555,7 @@ fn a_method_naming_an_unread_word_is_refused() {
     let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
     let only_count = |a: AlgebraRef| (a == GROUP_COUNT).then_some(Word::GroupCount);
     assert_eq!(
-        bag_count_admitted(&method, only_count, &intake, &table, &chain()),
+        bag_count_admitted(&method, only_count, &intake, &table, chain().bounds()),
         Err(BoundRefusal::UnknownWord(MUL_I64))
     );
 }
@@ -568,7 +568,7 @@ fn a_distinct_method_is_not_run_as_a_bag_count() {
     let mut m = xlog_count();
     m.population = Population::Distinct;
     assert_eq!(
-        bag_count_admitted(&m, word_of, &intake, &table, &chain()),
+        bag_count_admitted(&m, word_of, &intake, &table, chain().bounds()),
         Err(BoundRefusal::NotBag)
     );
 }

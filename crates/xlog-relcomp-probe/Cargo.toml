@@ -24,6 +24,8 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", d
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 # D-DYNBAG-0: the description (Quack) and its one evaluator (mask-risc).
 # Folds run there, never as direct ndarray::simd calls from this crate.
+# The computation: XLOG's admitted chain over Quack -> mask-risc (D-XLOG-NATIVE-4).
+lance-graph-xlog = { path = "../lance-graph-xlog" }
 lance-graph-quack = { path = "../lance-graph-quack" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # `Population`, read off the admitted `MethodBinding` (D-DYNBAG-0 step 2).
