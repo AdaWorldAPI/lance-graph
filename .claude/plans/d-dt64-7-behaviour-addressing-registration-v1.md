@@ -246,10 +246,10 @@ Each constraint is a test that fires plus a twin that stays silent, on non-trivi
 | # | question | owner |
 |---|---|---|
 | O1 | ~~Seat ownership for left `0xF###`~~ — answered for `0xFFFF` by D13'' (lance-graph owns it, DT64 registers). Open remainder: do left sides `0xF000 ..= 0xFFFE` ever hold anything? | operator |
-| O2 | OGAR reserves concept `0xFFFF` (at least; domain `0xFF` if preferred) for lance-graph behaviour, never minted in `ogar-vocab`, with a mirror test that fails if a codebook row lands there. | OGAR owner |
+| O2 | OGAR reserves concept `0xFFFF` (at least; domain `0xFF` if preferred) for lance-graph behaviour, never minted in `ogar-vocab`, with a mirror test that fails if a codebook row lands there. | DONE: domain `0xFF` reserved (OGAR #365); contract mirror `HARDCODED_BEHAVIOUR` + guard test |
 | O3 | F5 for legacy `0x0000_XXXX` ids: exclude them, or retire the heuristic. No longer gates this plan (§1a). | operator |
 | O4 | Right-side `0xF###` selection: does one value name one stored selection over the existing 256-position basis, or one position in a wider basis (which widens `WideFieldMask` and `AlgebraRef.word` past `u8`)? D7' points to the first. | operator |
-| O5 | D-LITHO Q5: which lance-graph table versions the global → local selection, and its row shape (WORKING-MODEL: versions = frame revisions, one row per local position, read through a ClassView, selected by a `WideFieldMask`; it also holds the stored selections of D7'). | DR/DT owner |
+| O5 | (Litho is a mental model; this is a BindStore plan item, D-DT64-6 Amendment A) Which lance-graph table versions the global → local selection, and its row shape (WORKING-MODEL: versions = frame revisions, one row per local position, read through a ClassView, selected by a `WideFieldMask`; it also holds the stored selections of D7'). | DR/DT owner |
 | O6 | Whether `recursive::trace` (#1896) stays as a semi-naive test oracle or is removed; either way it is documented as not the traceroute. | operator |
 | O7 | The concern ranges inside `0xF###` (§1a table): confirm the digit-per-concern split and the order. Per §1b, languages that only rename the shared algebra become alias views; which of SQL, Gremlin and XLOG keep a range? Does full TensorFlow share TFLite's range, or take its own? | **DECIDED §1d** |
 | O9 | Behaviour-lens basis key (L1): keep the left-half key (256 words per left side; a large operator set takes several left sides), or key behaviour lenses by the full classid (a contract `ClassView` change). | **DECIDED §1d** |

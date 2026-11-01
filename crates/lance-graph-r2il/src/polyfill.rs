@@ -33,7 +33,7 @@ use crate::{
 };
 
 /// The left side of every hardcoded behaviour classid.
-pub const HARDCODED: u16 = 0xFFFF;
+pub const HARDCODED: u16 = lance_graph_contract::ogar_codebook::HARDCODED_BEHAVIOUR;
 
 /// The relational / mask-risc polyfill lens, `0xFFFF :: 0xF000`.
 pub const POLYFILL_LENS: u32 = compose_classid(HARDCODED, 0xF000);
