@@ -1,3 +1,10 @@
+## 2026-11-01 — main after #1904–#1907 (merged `39511c92e`)
+
+- New workspace crate `lance-graph-xlog` (#1907): XLOG's admitted two-atom chain (support, bag count) described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No `xlog-*` or arrow dependency. `xlog-relcomp-probe` keeps XLOG admission and calls it.
+- `lance_graph_dt64::dr::MapTable`, `MapRead`, `TileId` (#1905): the versioned global → local table. A tile's `LocalMap` is read only under the frame it was sealed under; `coordinates` is derived from the held maps.
+- `lance_graph_contract::ogar_codebook::{HARDCODED_BEHAVIOUR, HARDCODED_BEHAVIOUR_DOMAIN}` (#1904), mirroring OGAR #365: no codebook row in `0xFFXX`. `lance_graph_r2il::polyfill::HARDCODED` reads it.
+- D-DYNBAG-0 (#1906): the probe no longer calls `ndarray::simd` folds; only `mask_and` (elementwise alias) and `checked_binary_i64` (TRACKED, MISSING-3) remain direct.
+
 ## 2026-10-31 — main after #1884 (merged `d3c2a29`)
 
 - `xlog-relcomp-probe` executes its admitted chain on `ndarray::simd`, binds the bag count through `lance-graph-dt64`, and pins the Epi5 reading of XLOG results. Lab only.

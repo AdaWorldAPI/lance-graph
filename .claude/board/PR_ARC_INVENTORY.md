@@ -1,3 +1,28 @@
+## 2026-11-01 — lance-graph PR #1907 (merged `39511c92e`, branch `ccr-85acaff0-oszq40-xlogcrate`, head `1087758d1`) — lance-graph-xlog: XLOG's admitted chain over Quack → mask-risc (D-XLOG-NATIVE-4)
+
+- **Added:** `crates/lance-graph-xlog` (workspace member): `Bounds`, `Intake`, `support`, `bag_count`, `bag_count_admitted`, `Word`, `Support`, `NativeRefusal`, `BoundRefusal`, `ids`, `nonzero`, and `and` (= `ndarray::simd::mask_and`). `xlog-relcomp-probe` now calls it and keeps `admit`, `admit_count`, `ChainQuery::bounds()`.
+- **Locked:** plan `d-xlog-native-v1.md` Amendment D; deps Quack + mask-risc + DT64 + contract + ndarray (alias and TRACKED call only).
+- **Deferred:** `p(X, Z)` and longer chains (NATIVE, refused at admission); MISSING-1/2/3/4 in owner crates.
+- **Confidence:** 4 crate tests (scalar oracle under four bounds; `fn_addr_eq` against ndarray and `lance-graph-onnx`); N4 via `cargo tree -e normal`; probe suites green; disable run (bound ignored) red. Merged before Codex finished.
+
+## 2026-11-01 — lance-graph PR #1906 (merged `cbc909993`, branch `ccr-85acaff0-oszq40-dynbag0`, head `dc2099bb4`) — D-DYNBAG-0: XLOG probe through Quack → mask-risc, gated by the bind store
+
+- **Added:** probe `native.rs` runs support (`ScatterOrU32` ×2 + `mask_and`) and bag count (`GroupReduce Count` ×2 + checked product) through Quack `lower` and mask-risc `execute_into`; `Intake` (Y looked up once under a `MapTable` frame); `bag_count_admitted` (runs only from an admitted Bag `MethodBinding`, caller-read words). Probe deps gain Quack, mask-risc, contract.
+- **Locked:** plan §17.7 gate table (gates 1–7 met).
+- **Deferred:** the cost columns; MISSING-1/2/3/4.
+- **Confidence:** probe suites green; 7 disable runs red; clippy clean. The probe has no CI line.
+
+## 2026-11-01 — lance-graph PR #1905 (merged `bc45e97db`, branch `ccr-85acaff0-oszq40-o5`, head `907426515`) — dr: MapTable, the versioned global → local table (D-DT64-7 O5)
+
+- **Added:** `dr::MapTable` (`new`, `advance`, `seal`, `revisions`, `map`), `MapRead { Stale, NoSuchTile }`, `TileId`; plan D-DT64-7 §1e.
+- **Deferred:** stored selections (D7'), waiting on O4.
+- **Confidence:** 4 tests in `tests/dr.rs`; 2 disable runs red (the tile-id case was added after the first version stayed green); Codex: no findings.
+
+## 2026-11-01 — lance-graph PR #1904 (merged `e9c7de5ac`, branch `ccr-85acaff0-oszq40-o2mirror`, head `e5304db78`) — contract: mirror OGAR's 0xFFXX hardcoded-behaviour reservation (D-DT64-7 O2)
+
+- **Added:** `ogar_codebook::HARDCODED_BEHAVIOUR`, `HARDCODED_BEHAVIOUR_DOMAIN`, guard test; `r2il::polyfill::HARDCODED` reads the contract constant. Board: D-XLOG-DR64-3 marked shipped (#1864).
+- **Confidence:** contract lib 1563 passed; disable run (planted `0xFF01` row) red.
+
 ## 2026-10-31 — lance-graph PR #1884 (merged `d3c2a29`, branch `ccr-85acaff0-oszq40`, head `1e85104`) — xlog-relcomp-probe: ndarray::simd execution, binding through lance-graph-dt64, Epi5 reading; plans D-SOC-FENCE and D-DYNBAG
 
 - **Added:**

@@ -15,7 +15,7 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
 | D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
 | D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
-| D-DT64-7-5 | the versioned global → local table, a BindStore plan item (plan §1e; Litho is a mental model, folded into the bind store plan as D-DT64-6 Amendment A) | Core in PR: `dr::MapTable`; stored selections (D7') wait on O4 | O4 for the selection half |
+| D-DT64-7-5 | the versioned global → local table, a BindStore plan item (plan §1e; Litho is a mental model, folded into the bind store plan as D-DT64-6 Amendment A) | Core shipped (#1905): `dr::MapTable`; stored selections (D7') wait on O4 | O4 for the selection half |
 
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
 
@@ -37,7 +37,7 @@ Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
 
 | D-id | Deliverable | Status | Gate |
 |---|---|---|---|
-| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | In PR: gates 1–7 (plan §17.7); cost columns not done | operator go-ahead (given 2026-11-01) |
+| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Shipped (#1906): gates 1–7 (plan §17.7); cost columns not done | operator go-ahead (given 2026-11-01) |
 | D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | Queued | D-DYNBAG-0 |
 | D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
 | D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
@@ -68,7 +68,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-XLOG-NATIVE-1 | test the selection rows (eq/ne_u32_to_mask, i32 comparisons, mask_and/or/andnot) against the probe's two oracles, signatures checked | Queued | N2 |
 | D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
 | D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
-| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (shape per Amendment C/D: Quack + mask-risc + DT64, no `xlog-*` or arrow dep, no plan type) | In PR (stacked on D-DYNBAG-0) | N1, N4, N5 met; N2 scalar oracle in-crate + both oracles in the probe; N3 typed refusals |
+| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (shape per Amendment C/D: Quack + mask-risc + DT64, no `xlog-*` or arrow dep, no plan type) | Shipped (#1907) | N1, N4, N5 met; N2 scalar oracle in-crate + both oracles in the probe; N3 typed refusals |
 | D-XLOG-NATIVE-6 | probe executes on `ndarray::simd` (`src/native.rs`): support via `eq_u32_to_mask` / `mask_scatter_or_u32` / `mask_and`, bag count via `masked_group_count_u32` ×2 + `checked_binary_i64`; DR `LocalMap` up to 256; register path kept as differential (plan Amendment B) | Shipped (#1884) | lab probe; layering fix is D-DYNBAG-0 |
 | D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | Shipped (#1884) | lab execution only |
 

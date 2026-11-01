@@ -1,6 +1,6 @@
 # D-XLOG-NATIVE-4: `crates/lance-graph-xlog`
 
-**Date 2026-11-01 · ID D-XLOG-NATIVE-4 · Status IN PR (stacked on D-DYNBAG-0) · Plan `.claude/plans/d-xlog-native-v1.md` Amendment D**
+**Date 2026-11-01 · ID D-XLOG-NATIVE-4 · Status SHIPPED (stacked on D-DYNBAG-0) · Plan `.claude/plans/d-xlog-native-v1.md` Amendment D**
 
 A workspace crate holds XLOG's admitted two-atom chain over the substrate:
 - Quack describes it, mask-risc evaluates it, DT64/DR address it, and it runs from an admitted bind-store method.

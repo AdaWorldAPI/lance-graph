@@ -1,6 +1,6 @@
 # D-DYNBAG-0: the XLOG probe runs through Quack → mask-risc, gated by the bind store
 
-**Date 2026-11-01 · ID D-DYNBAG-0 · Status IN PR · Plan `.claude/plans/d-dynbag-holographic-bags-v1.md` §17.7 · Crate `crates/xlog-relcomp-probe`**
+**Date 2026-11-01 · ID D-DYNBAG-0 · Status SHIPPED · Plan `.claude/plans/d-dynbag-holographic-bags-v1.md` §17.7 · Crate `crates/xlog-relcomp-probe`**
 
 - `native.rs` describes each side as a Quack `Query` and runs it with mask-risc `execute_into`:
   - support: `ScatterOrU32`, then `mask_and`;
