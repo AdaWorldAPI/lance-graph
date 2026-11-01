@@ -154,8 +154,12 @@ proofs that share a root). Fisher-Z addition is a different operation
 (naive-Bayes accumulation of independent likelihood ratios) and is not
 substituted for it (EXO-50, SPOFC, 2026-10-22).
 - A stimulus counts once: the same observation repeated is one root.
-  **Open, operator:** is a source root the observer or one report? Until
-  ruled, P0 treats one stimulus as one root.
+  **DECISION (operator, 2026-11-01):** a source root is neither the
+  observer nor the report. It identifies the independent evidential
+  origin; observer identity, report identity and dependency lineage are
+  kept separately beside it. Repeated accounts of one event do not
+  multiply confidence. No new source-root encoding follows from this. P0's
+  stimuli each name one origin, so one stimulus is one root there.
 - A pair derived through the closure is not independent evidence for the
   edge that produced it, so a candidate cannot confirm itself.
 - Only stimuli or held-out queries arriving after the activation count.
@@ -295,3 +299,24 @@ Staunen, plasticity or novelty; two changed this plan:
   CE64 bits 50..52 are not written (D-CE64-STAUNEN-0: `learn` gates on them).
 - The other three (SHARE witness = lane dimension; D-EPI-COT C3 warrant)
   bear on P4/P6 evidence reading, not on P0/P1.
+
+## Operator review of the #1915 ACK (2026-11-01)
+
+- **Status.** P0/P1 (#1914), the 13-layer scratchpad (#1915) and the
+  `r(V,V)` diagonal (xlog#5) are merged. The scratchpad is the preserved
+  scientific direction future experiments are read against. It is not a
+  supervisory plan that must approve each mathematical test.
+- **C0, three-way closure parity, is a correctness check, not a Staunen
+  claim.** It runs a scalar BFS oracle, `Cube::closure` and XLOG's compiled
+  recursion on the canonical 12-pair cycle (diagonal checked on each) and
+  400 frozen seeded graphs, compared as sets with bag behaviour checked.
+  Delivered as xlog#6, test only, merged 2026-11-01 11:54 UTC: P1 is accepted.
+- **MUL (H12).** One prediction and outcome is one calibration
+  observation, not a calibration. Competence and overconfidence need a
+  history of predictions and outcomes under a declared scoring rule. The
+  ACK's fixture is a trace-integrity test, not a demonstration of H12.
+- **P0 ordering leak: its own gate, before P5/P6.** The generator puts the
+  withheld true edges first in `candidates` and appends noise stimuli after
+  the true ones, so index order leaks the labels. It must be fixed, with a
+  test that a policy reading only indices scores at chance, before any P5/P6
+  result is interpreted. It does not affect P1's closure result.
