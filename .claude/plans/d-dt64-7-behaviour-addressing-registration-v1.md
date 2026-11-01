@@ -116,6 +116,43 @@ Preserved throughout: the `0xC401` name-bound reading, the `FnIndex` opcode cont
 
 ---
 
+### 1e. O5 design: the versioned global → local table (2026-11-01)
+
+**Status:** core shipped (`dr::MapTable`, T1–T4 green, both disable runs red). Stored selections wait on O4.
+
+O5 is a BindStore plan item (D-DT64-6 Amendment A). Litho is the mental model it came from, not a component.
+
+**What exists (VERIFIED-IN-CODE, `lance-graph-dt64/src/dr.rs`):**
+
+| Piece | What it does |
+|---|---|
+| `LocalMap::prepare(width, globals)` | One tile's global → local table, at most 64 or 256 entries. Duplicates and overflow are refused. |
+| Row shape | One row per local position: `globals[local]`. `local()` reads global → local (counted), `global()` reads local → global. Ids only, never values. |
+| `LocalMap::digest` | FNV-1a over the local-order table. Its doc says a frame carries this value as its `coordinates` revision. |
+| `FrameStore` | `seal` / `advance` / `check`. A stale frame is refused and names the revision that moved (`CoordinatesChanged` for a new map). |
+
+So "versions = frame revisions" already works as a mechanism. **The gap:** nothing ties a `LocalMap` to the frame it was sealed under.
+- A caller can keep a map after `advance` and read through it with no refusal.
+- `coordinates` is whatever number the caller passes, not the digest of the maps in use.
+
+**Proposal (WORKING-MODEL), in `dr`, additive. No existing signature changes:**
+
+1. **`MapTable`.** It owns one `FrameStore` and the `LocalMap` of each tile, keyed by `TileId` (a `u32` the caller names). Insert and replace go through `MapTable::advance(changes)`. That sets `coordinates` to a digest over every tile's `(TileId, LocalMap::digest)` in tile order, and leaves `source` and `relation_map` as passed. Tiles are inserted only through `advance`, so the revision always matches the maps actually held.
+2. **Reads take the frame.** `MapTable::map(&Frame, tile) -> Result<&LocalMap, MapRead>`. `MapRead` is either `Stale(FrameRefusal)` or `NoSuchTile`. Old frames are refused, so a map cannot outlive its frame. This is `Pop`'s `Stale` rule (F7) applied to coordinates.
+3. **Where it sits.** DR owns the frame, so the table lives in `dr`, beside `FrameStore`. The BindStore keeps reading frames through `Guards`, exactly as `prepare` does now. A BindStore field holding the table is the alternative; it would make the store own DR state, which §3 assigns to DR.
+4. **Not in this item: stored selections (D7').** Storing a `WideFieldMask` over a tile's local positions, keyed to the frame, depends on O4: whether one `0xF###` value names one stored selection or one position in a wider basis. It is added once O4 is decided, as a sibling read with the same `Stale` refusal.
+
+**Falsifiers (test-first):**
+
+| Id | Falsifier |
+|---|---|
+| T1 | A map read under a frame sealed before `advance` is refused with `Stale(CoordinatesChanged)`, and read under the new seal it succeeds. Twin: an `advance` that changes nothing in a tile still re-seals, so the old frame gets `Stale(FrameResealed)`. |
+| T2 | `coordinates` is a function of the held maps. The same maps in the same tiles give the same revision. Reordering one tile's globals changes it. Swapping two tiles' maps changes it. Renaming a tile with the same map in the same position changes it; this case alone tests that the `TileId` is in the digest (a disable run showed the swap case passes without it). |
+| T3 | A frame from another `MapTable` is refused with `Stale(ForeignFrame)`, even at equal revisions. |
+| T4 | Backward compatibility: existing `LocalMap` / `FrameStore` callers (`tests/dr.rs`, `xlog-relcomp-probe` `litho.rs` and `gate_b.rs`) are unchanged and green. |
+
+Each falsifier gets a disable run: drop the frame check in `map`, and drop the `TileId` from the digest.
+
 ## 2. The classid, both sides
 
 ```text
