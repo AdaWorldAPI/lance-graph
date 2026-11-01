@@ -106,7 +106,7 @@ Status of every row: **name-checked, not tested.** Each native target is a funct
 - [ ] D-XLOG-NATIVE-1: in the probe, test the selection rows (`eq_u32_to_mask`, `ne_u32_to_mask`, the `i32` comparisons, `mask_and/or/andnot`) against both oracles, with each native signature checked.
 - [ ] D-XLOG-NATIVE-2: in the probe, test `masked_group_count_u32` keyed by one table's column against the RIR walk, including the out-of-universe refusal.
 - [ ] D-XLOG-NATIVE-3: ask the ndarray and mask-risc owners for a native home for the many-to-many join; the probe's Gate B is the fixture.
-- [ ] D-XLOG-NATIVE-4: create the crate once §4 holds.
+- [x] D-XLOG-NATIVE-4: create the crate once §4 holds (in PR, 2026-11-01; shape per Amendment D).
 - [x] D-XLOG-NATIVE-5: bind the bag count through the production bind store (`lance-graph-dt64` and its `dr` module), and state the Epi5 reading of XLOG results (Amendment A).
 
 ## 6. Gates
@@ -173,3 +173,16 @@ Effect on §2:
 - **No mask-risc word yet:** `checked_binary_i64` is the one direct call, TRACKED in D-SOC-FENCE until mask-risc gains an i64 combine (D-DYNBAG §17.5 MISSING-3).
 - In §2, the `ndarray::simd` column is what mask-risc calls, not what XLOG calls. The NATIVE / INLINE categories now mean "has a mask-risc program", not "has an ndarray function".
 - The work is D-DYNBAG-0 (`d-dynbag-holographic-bags-v1.md` §17).
+
+## Amendment D (2026-11-01): the crate as created
+
+**DECISION (operator, 2026-11-01: "lance-graph-xlog has priority, and dynbag").** `crates/lance-graph-xlog` is created after D-DYNBAG-0, on the shape Amendment C implies, which supersedes §4's "ndarray as its one dependency":
+
+- **Dependencies:** `lance-graph-quack`, `lance-graph-mask-risc`, `lance-graph-dt64`, `lance-graph-contract`, and `ndarray` only for the elementwise alias `and` and the TRACKED `checked_binary_i64`. No `xlog-*` dependency and no arrow (N4, checked with `cargo tree -e normal`).
+- **Contents:** the computation the probe ran (`Intake`, `support`, `bag_count`, `bag_count_admitted`, `Word`, `Support`, the refusals, `ids`, `nonzero`). Bounds arrive as plain `Bounds { left, right }`, so no XLOG type crosses.
+- **Left in the probe:** XLOG admission (`admit`, `admit_count`) and the `ChainQuery` → `Bounds` reading. The probe calls the crate and keeps both oracles.
+- **Gates:**
+  - N1 and N5: `and` is `ndarray::simd::mask_and` and `lance_graph_onnx::and`, by `fn_addr_eq`.
+  - N2: an in-crate scalar oracle under four bound combinations, plus the probe's scalar oracle and RIR walk.
+  - N3: typed refusals (`NativeRefusal`, `BoundRefusal`).
+- **§4 condition 2 holds for the projected two-atom chain only.** A join keeping both ends (`p(X, Z)`) and chains of more than two atoms remain NATIVE and are refused at admission.

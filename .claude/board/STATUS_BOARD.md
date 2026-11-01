@@ -68,7 +68,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-XLOG-NATIVE-1 | test the selection rows (eq/ne_u32_to_mask, i32 comparisons, mask_and/or/andnot) against the probe's two oracles, signatures checked | Queued | N2 |
 | D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
 | D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
-| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (ndarray only, no `xlog-*` dep, no plan type) once plan §4 holds | Queued | N1–N5 |
+| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (shape per Amendment C/D: Quack + mask-risc + DT64, no `xlog-*` or arrow dep, no plan type) | In PR (stacked on D-DYNBAG-0) | N1, N4, N5 met; N2 scalar oracle in-crate + both oracles in the probe; N3 typed refusals |
 | D-XLOG-NATIVE-6 | probe executes on `ndarray::simd` (`src/native.rs`): support via `eq_u32_to_mask` / `mask_scatter_or_u32` / `mask_and`, bag count via `masked_group_count_u32` ×2 + `checked_binary_i64`; DR `LocalMap` up to 256; register path kept as differential (plan Amendment B) | Shipped (#1884) | lab probe; layering fix is D-DYNBAG-0 |
 | D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | Shipped (#1884) | lab execution only |
 
