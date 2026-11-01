@@ -423,7 +423,7 @@ fn executing_the_admitted_bag_method_is_refused_in_the_lab_register() {
 
 use lance_graph_dt64::dr::{LocalMap, MapRead, MapTable, Width};
 use xlog_relcomp_probe::ChainQuery;
-use xlog_relcomp_probe::native::{BoundRefusal, Word, bag_count_admitted, nonzero};
+use xlog_relcomp_probe::native::{BoundRefusal, Intake, Word, bag_count_admitted, nonzero};
 
 /// MISSING-1, probe-local: the polyfill words this lens names, read as the
 /// Quack / tracked operations they stand for. Any other word is refused.
@@ -461,6 +461,13 @@ fn chain() -> ChainQuery {
     xlog_relcomp_probe::admit(body).unwrap()
 }
 
+fn admitted<'s>(store: &'s mut BindStore, r: &[(u32, u32)], s: &[(u32, u32)]) -> &'s MethodBinding {
+    let views = Views::new();
+    let frames = FrameStore::new(revisions(1));
+    let routed = route(store, &frames, answer_ids(r, s));
+    bind(store, &frames, &views, &routed).unwrap().method
+}
+
 #[test]
 fn the_admitted_method_drives_the_count() {
     let (r, s) = fixture();
@@ -470,11 +477,9 @@ fn the_admitted_method_drives_the_count() {
     let routed = route(&mut store, &frames, answer_ids(&r, &s));
     let b = bind(&store, &frames, &views, &routed).unwrap();
     let table = y_table(&r, &s);
-    let frame = table.seal();
-    let counts =
-        bag_count_admitted(b.method, word_of, &table, &frame, Y_TILE, &chain(), &r, &s).unwrap();
-    let map = table.map(&frame, Y_TILE).unwrap();
-    let got: Vec<(u64, i64)> = nonzero(map, &counts);
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
+    let counts = bag_count_admitted(b.method, word_of, &intake, &table, &chain()).unwrap();
+    let got: Vec<(u64, i64)> = nonzero(intake.map(&table).unwrap(), &counts);
     let want: Vec<(u64, i64)> = b
         .expected
         .iter()
@@ -498,44 +503,59 @@ fn a_retracted_route_leaves_nothing_to_run() {
 #[test]
 fn a_stale_map_frame_is_refused_before_anything_runs() {
     let (r, s) = fixture();
-    let views = Views::new();
     let mut store = bind_store();
-    let frames = FrameStore::new(revisions(1));
-    let routed = route(&mut store, &frames, answer_ids(&r, &s));
-    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let method = admitted(&mut store, &r, &s).clone();
     let mut table = y_table(&r, &s);
     let old = table.seal();
+    let intake = Intake::new(&table, &old, Y_TILE, &r, &s).unwrap();
     table.advance(1, 1, vec![]);
+    let stale = Err(BoundRefusal::Map(MapRead::Stale(
+        FrameRefusal::FrameResealed,
+    )));
     assert_eq!(
-        bag_count_admitted(b.method, word_of, &table, &old, Y_TILE, &chain(), &r, &s),
-        Err(BoundRefusal::Map(MapRead::Stale(
+        bag_count_admitted(&method, word_of, &intake, &table, &chain()),
+        stale
+    );
+    assert_eq!(intake.support(&table, &chain()).err(), stale.err());
+    assert_eq!(
+        Intake::new(&table, &old, Y_TILE, &r, &s).err(),
+        Some(BoundRefusal::Map(MapRead::Stale(
             FrameRefusal::FrameResealed
         )))
     );
 }
 
+/// Gate 3 (MISSING-5): Y is looked up once per tuple at intake; queries read
+/// the lanes and look nothing up again.
+#[test]
+fn queries_after_intake_do_not_look_y_up_again() {
+    let (r, s) = fixture();
+    let mut store = bind_store();
+    let method = admitted(&mut store, &r, &s).clone();
+    let table = y_table(&r, &s);
+    let frame = table.seal();
+    let lookups = || table.map(&frame, Y_TILE).unwrap().lookups();
+    let before = lookups();
+    let intake = Intake::new(&table, &frame, Y_TILE, &r, &s).unwrap();
+    let at_intake = lookups();
+    assert_eq!(at_intake - before, (r.len() + s.len()) as u64);
+    for _ in 0..10 {
+        bag_count_admitted(&method, word_of, &intake, &table, &chain()).unwrap();
+        intake.support(&table, &chain()).unwrap();
+    }
+    assert_eq!(lookups(), at_intake, "no lookup after intake");
+}
+
 #[test]
 fn a_method_naming_an_unread_word_is_refused() {
     let (r, s) = fixture();
-    let views = Views::new();
     let mut store = bind_store();
-    let frames = FrameStore::new(revisions(1));
-    let routed = route(&mut store, &frames, answer_ids(&r, &s));
-    let b = bind(&store, &frames, &views, &routed).unwrap();
+    let method = admitted(&mut store, &r, &s).clone();
     let table = y_table(&r, &s);
-    let frame = table.seal();
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
     let only_count = |a: AlgebraRef| (a == GROUP_COUNT).then_some(Word::GroupCount);
     assert_eq!(
-        bag_count_admitted(
-            b.method,
-            only_count,
-            &table,
-            &frame,
-            Y_TILE,
-            &chain(),
-            &r,
-            &s
-        ),
+        bag_count_admitted(&method, only_count, &intake, &table, &chain()),
         Err(BoundRefusal::UnknownWord(MUL_I64))
     );
 }
@@ -544,11 +564,11 @@ fn a_method_naming_an_unread_word_is_refused() {
 fn a_distinct_method_is_not_run_as_a_bag_count() {
     let (r, s) = fixture();
     let table = y_table(&r, &s);
-    let frame = table.seal();
+    let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
     let mut m = xlog_count();
     m.population = Population::Distinct;
     assert_eq!(
-        bag_count_admitted(&m, word_of, &table, &frame, Y_TILE, &chain(), &r, &s),
+        bag_count_admitted(&m, word_of, &intake, &table, &chain()),
         Err(BoundRefusal::NotBag)
     );
 }

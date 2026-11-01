@@ -189,9 +189,12 @@ pub fn support(
     mid: &LocalMap,
 ) -> Result<Support, NativeRefusal> {
     let (l, r) = sides(left, right, mid)?;
-    let n = mid.len();
-    let forward = reached(&l, q.left_bound, n)?;
-    let backward = reached(&r, q.right_bound, n)?;
+    support_of(&l, &r, q, mid.len())
+}
+
+fn support_of(l: &Side, r: &Side, q: &ChainQuery, n: usize) -> Result<Support, NativeRefusal> {
+    let forward = reached(l, q.left_bound, n)?;
+    let backward = reached(r, q.right_bound, n)?;
     let mut answer = vec![0u64; forward.len()];
     mask_and(&forward, &backward, &mut answer);
     Ok(Support {
@@ -211,13 +214,66 @@ pub fn bag_count(
     mid: &LocalMap,
 ) -> Result<Vec<i64>, NativeRefusal> {
     let (l, r) = sides(left, right, mid)?;
-    let n = mid.len();
-    let per_left = degrees(&l, q.left_bound, n)?;
-    let per_right = degrees(&r, q.right_bound, n)?;
+    bag_count_of(&l, &r, q, mid.len())
+}
+
+fn bag_count_of(l: &Side, r: &Side, q: &ChainQuery, n: usize) -> Result<Vec<i64>, NativeRefusal> {
+    let per_left = degrees(l, q.left_bound, n)?;
+    let per_right = degrees(r, q.right_bound, n)?;
     let mut out = vec![0i64; n];
     checked_binary_i64(I64Op::Mul, &per_left, &per_right, &mut out)
         .map_err(NativeRefusal::Count)?;
     Ok(out)
+}
+
+/// Both sides' lanes, built once from the tuples under one `MapTable` frame
+/// (plan §17.6 gates 2 and 3). Every query re-checks that frame and reads the
+/// lanes; none looks a Y up again.
+pub struct Intake {
+    frame: Frame,
+    tile: TileId,
+    n_y: usize,
+    left: Side,
+    right: Side,
+}
+
+impl Intake {
+    /// The one intake: each tuple's Y looked up once in the tile's map, read
+    /// under `frame`.
+    pub fn new(
+        table: &MapTable,
+        frame: &Frame,
+        tile: TileId,
+        left: &[(u32, u32)],
+        right: &[(u32, u32)],
+    ) -> Result<Self, BoundRefusal> {
+        let mid = table.map(frame, tile).map_err(BoundRefusal::Map)?;
+        let (l, r) = sides(left, right, mid).map_err(BoundRefusal::Native)?;
+        Ok(Self {
+            frame: frame.clone(),
+            tile,
+            n_y: mid.len(),
+            left: l,
+            right: r,
+        })
+    }
+
+    /// The Y map the lanes were built against, if its frame is still current.
+    pub fn map<'t>(&self, table: &'t MapTable) -> Result<&'t LocalMap, BoundRefusal> {
+        table.map(&self.frame, self.tile).map_err(BoundRefusal::Map)
+    }
+
+    /// [`support`] over the intake's lanes.
+    pub fn support(&self, table: &MapTable, q: &ChainQuery) -> Result<Support, BoundRefusal> {
+        self.map(table)?;
+        support_of(&self.left, &self.right, q, self.n_y).map_err(BoundRefusal::Native)
+    }
+
+    /// [`bag_count`] over the intake's lanes.
+    pub fn bag_count(&self, table: &MapTable, q: &ChainQuery) -> Result<Vec<i64>, BoundRefusal> {
+        self.map(table)?;
+        bag_count_of(&self.left, &self.right, q, self.n_y).map_err(BoundRefusal::Native)
+    }
 }
 
 /// The operation a polyfill word stands for, as this probe reads it. The
@@ -247,22 +303,18 @@ pub enum BoundRefusal {
     Native(NativeRefusal),
 }
 
-/// Run an admitted bag-count method. Execution starts from the
-/// `MethodBinding` the bind store admitted, and from DR's Y map read under the
-/// caller's frame: no admitted method, or a stale frame, and nothing runs.
+/// Run an admitted bag-count method over an [`Intake`]. Execution starts from
+/// the `MethodBinding` the bind store admitted, and the intake re-checks its
+/// `MapTable` frame: no admitted method, or a stale frame, and nothing runs.
 ///
 /// The method must be `Population::Bag` and its steps must read, in order,
 /// [`Word::GroupCount`], [`Word::GroupCount`], [`Word::MulI64`].
-#[allow(clippy::too_many_arguments)]
 pub fn bag_count_admitted(
     method: &MethodBinding,
     words: impl Fn(AlgebraRef) -> Option<Word>,
+    intake: &Intake,
     table: &MapTable,
-    frame: &Frame,
-    tile: TileId,
     q: &ChainQuery,
-    left: &[(u32, u32)],
-    right: &[(u32, u32)],
 ) -> Result<Vec<i64>, BoundRefusal> {
     if method.population != Population::Bag {
         return Err(BoundRefusal::NotBag);
@@ -275,8 +327,7 @@ pub fn bag_count_admitted(
     if steps != [Word::GroupCount, Word::GroupCount, Word::MulI64] {
         return Err(BoundRefusal::Shape);
     }
-    let mid = table.map(frame, tile).map_err(BoundRefusal::Map)?;
-    bag_count(q, left, right, mid).map_err(BoundRefusal::Native)
+    intake.bag_count(table, q)
 }
 
 /// Global ids of the set bits of `mask`, in local order.
