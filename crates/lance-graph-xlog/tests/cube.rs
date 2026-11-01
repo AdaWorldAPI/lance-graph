@@ -276,3 +276,39 @@ fn an_empty_domain_answers_empty() {
     assert_eq!(cube.support(&table, j), Ok(vec![]));
     assert_eq!(cube.materialize_rows(&table, j), Ok(vec![]));
 }
+
+/// A relation added after construction joins the base relations like any
+/// other, looks up only its own ids, and is refused under a stale frame or
+/// with an id outside the map.
+#[test]
+fn an_added_relation_joins_like_a_base_one() {
+    let rels: [&[(u32, u32)]; 2] = [&R, &S];
+    let mut table = table_over(&rels);
+    let mut cube = Cube::new(&table, &table.seal(), TILE, &rels).unwrap();
+    let map_lookups = || table.map(&table.seal(), TILE).unwrap().lookups();
+    let before = map_lookups();
+
+    // Every pair of R, read as a derived relation over the same ids.
+    let derived: Vec<(u32, u32)> = R.iter().map(|&(x, y)| (y, x)).collect();
+    let d = cube.add_relation(&table, &derived).unwrap();
+    assert_eq!(map_lookups(), before + 2 * derived.len() as u64);
+
+    let l = cube.scan(d).unwrap();
+    let r = cube.scan(0).unwrap();
+    let j = cube.join(l, 0, r, 1).unwrap();
+    let map = table.map(&table.seal(), TILE).unwrap();
+    let got: BTreeMap<u64, i64> = nonzero(map, &cube.bag_count(&table, j).unwrap())
+        .into_iter()
+        .collect();
+    assert_eq!(got, counts(&oracle(&derived, 0, None, &R, 1, None)));
+
+    assert!(matches!(
+        cube.add_relation(&table, &[(1, 1000)]),
+        Err(CubeRefusal::Domain(_))
+    ));
+    table.advance(1, 1, vec![]);
+    assert!(matches!(
+        cube.add_relation(&table, &derived),
+        Err(CubeRefusal::Map(MapRead::Stale(_)))
+    ));
+}

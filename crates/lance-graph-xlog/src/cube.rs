@@ -156,6 +156,21 @@ impl Cube {
         })
     }
 
+    /// Add a relation under the cube's frame: a rule's output or a fixpoint
+    /// delta. Each id of the new tuples is looked up once in the shared map;
+    /// relations already in the cube are not touched. Its ids must be in the
+    /// map, so a derived relation over the base relations' ids always fits.
+    pub fn add_relation(
+        &mut self,
+        table: &MapTable,
+        tuples: &[(u32, u32)],
+    ) -> Result<RelId, CubeRefusal> {
+        let map = self.map(table)?;
+        let r = rel(tuples, map)?;
+        self.rels.push(r);
+        Ok((self.rels.len() - 1) as RelId)
+    }
+
     pub fn stats(&self) -> CubeStats {
         self.stats.get()
     }
