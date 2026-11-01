@@ -795,3 +795,39 @@ fn q_y_is_still_not_admitted_as_p_x_z() {
         "q(Y) is not a pair rule"
     );
 }
+
+/// A `ChainJoin` is admitted only when its own projection and inputs say what
+/// the fallback says: a reordered projection or a filter on a chain input is
+/// refused, not answered as the fallback's query.
+#[test]
+fn a_chain_join_that_disagrees_with_its_fallback_is_refused() {
+    let c = compile(&pairs_src(MULT_FACTS));
+    let body = rule(&c, "p").clone();
+    let RirNode::ChainJoin { .. } = &body else {
+        panic!("the compiled pair rule is a ChainJoin: {body:?}");
+    };
+    assert!(admit_pair(&body).is_ok());
+
+    let mut swapped = body.clone();
+    if let RirNode::ChainJoin { output_columns, .. } = &mut swapped {
+        output_columns.reverse();
+    }
+    assert_eq!(
+        admit_pair(&swapped),
+        Err(LowerRefusal::UnsupportedProjection)
+    );
+
+    let mut filtered = body.clone();
+    if let RirNode::ChainJoin { left, .. } = &mut filtered {
+        let input = std::mem::replace(left.as_mut(), RirNode::Unit);
+        **left = RirNode::Filter {
+            input: Box::new(input),
+            predicate: Expr::Compare {
+                left: Box::new(Expr::Column(0)),
+                op: CompareOp::Eq,
+                right: Box::new(Expr::Const(ConstValue::U32(1))),
+            },
+        };
+    }
+    assert_eq!(admit_pair(&filtered), Err(LowerRefusal::UnsupportedFilter));
+}

@@ -55,13 +55,14 @@ pub fn admit_pair(body: &RirNode) -> Result<PairQuery, LowerRefusal> {
         right,
         left_key,
         right_key,
+        output_columns,
         fallback,
-        ..
     } = body
     {
-        let (r_side, s_side) = match (*left_key, *right_key) {
-            (1, 0) => (left, right),
-            (0, 1) => (right, left),
+        // The chain's columns are left ++ right, as for `Join` below.
+        let (r_side, s_side, xz) = match (*left_key, *right_key) {
+            (1, 0) => (left, right, (0, 3)),
+            (0, 1) => (right, left, (2, 1)),
             _ => {
                 return Err(LowerRefusal::NeedsInverse {
                     left_keys: vec![*left_key],
@@ -69,10 +70,18 @@ pub fn admit_pair(body: &RirNode) -> Result<PairQuery, LowerRefusal> {
                 });
             }
         };
-        let own = PairQuery {
-            left: scan_with_bound(r_side, 0)?.0,
-            right: scan_with_bound(s_side, 1)?.0,
-        };
+        // The chain must answer the same query as its fallback on its own:
+        // its projection and its inputs are checked, not only its relations.
+        match output_columns.as_slice() {
+            [ProjectExpr::Column(x), ProjectExpr::Column(z)] if (*x, *z) == xz => {}
+            _ => return Err(LowerRefusal::UnsupportedProjection),
+        }
+        let (l, lb) = scan_with_bound(r_side, 0)?;
+        let (r, rb) = scan_with_bound(s_side, 1)?;
+        if lb.is_some() || rb.is_some() {
+            return Err(LowerRefusal::UnsupportedFilter);
+        }
+        let own = PairQuery { left: l, right: r };
         return match admit_pair(fallback) {
             Ok(fb) if fb == own => Ok(own),
             Ok(_) => Err(LowerRefusal::ChainJoinDisagrees),
