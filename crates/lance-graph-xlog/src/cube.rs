@@ -115,6 +115,9 @@ struct Side {
     bound: Option<(u8, Option<u8>)>,
 }
 
+/// A side with the column it joins on.
+type JoinSide = (Side, u8);
+
 static NEXT_CUBE: AtomicU64 = AtomicU64::new(1);
 
 /// The resident hypercube. See the module docs.
@@ -230,7 +233,7 @@ impl Cube {
         }
     }
 
-    fn sides(&self, v: View) -> Result<((Side, u8), (Side, u8)), CubeRefusal> {
+    fn sides(&self, v: View) -> Result<(JoinSide, JoinSide), CubeRefusal> {
         let Node::Join {
             left,
             lcol,
