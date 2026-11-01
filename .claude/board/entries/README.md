@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-539 entries, 2026-08-06 .. 2026-11-01.
+540 entries, 2026-08-06 .. 2026-11-01.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-01 | `D-XLOG-NATIVE-5` |  | [2026-11-01-xlog-resident-hypercube-context.md](2026-11-01-xlog-resident-hypercube-context.md) |
 | 2026-11-01 | `D-DT64-7-5` |  | [2026-11-01-maptable-versioned-local-map.md](2026-11-01-maptable-versioned-local-map.md) |
 | 2026-11-01 | `D-XLOG-NATIVE-4` |  | [2026-11-01-lance-graph-xlog-crate.md](2026-11-01-lance-graph-xlog-crate.md) |
 | 2026-11-01 | `D-DYNBAG-0` |  | [2026-11-01-dynbag-0-xlog-through-quack-mask-risc.md](2026-11-01-dynbag-0-xlog-through-quack-mask-risc.md) |
