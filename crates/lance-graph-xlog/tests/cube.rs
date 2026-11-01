@@ -261,3 +261,18 @@ fn a_stale_frame_a_foreign_view_and_a_bound_join_column_are_refused() {
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
 }
+
+/// Two empty relations: an empty map, and every terminal answers empty
+/// instead of refusing (mask-risc rejects a zero-length `I64` sink).
+#[test]
+fn an_empty_domain_answers_empty() {
+    let rels: [&[(u32, u32)]; 2] = [&[], &[]];
+    let table = table_over(&rels);
+    let mut cube = Cube::new(&table, &table.seal(), TILE, &rels).unwrap();
+    let l = cube.scan(0).unwrap();
+    let r = cube.scan(1).unwrap();
+    let j = cube.join(l, 1, r, 0).unwrap();
+    assert_eq!(cube.bag_count(&table, j), Ok(vec![]));
+    assert_eq!(cube.support(&table, j), Ok(vec![]));
+    assert_eq!(cube.materialize_rows(&table, j), Ok(vec![]));
+}

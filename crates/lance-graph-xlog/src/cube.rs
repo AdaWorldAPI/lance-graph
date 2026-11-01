@@ -276,6 +276,10 @@ impl Cube {
 
     fn reached(&self, side: Side, join_col: u8) -> Result<Vec<u64>, CubeRefusal> {
         let mut words = vec![0u64; self.n.div_ceil(64)];
+        // An empty domain has nothing to reach; mask-risc refuses an empty sink.
+        if self.n == 0 {
+            return Ok(words);
+        }
         if let Some(filter) = Self::filter(side) {
             let q = Query {
                 filter,
@@ -291,6 +295,10 @@ impl Cube {
 
     fn degrees(&self, side: Side, join_col: u8) -> Result<Vec<i64>, CubeRefusal> {
         let mut counts = vec![0i64; self.n];
+        // An empty domain has nothing to count; mask-risc refuses an empty sink.
+        if self.n == 0 {
+            return Ok(counts);
+        }
         if let Some(filter) = Self::filter(side) {
             let q = Query {
                 filter,
