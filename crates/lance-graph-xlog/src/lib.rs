@@ -49,6 +49,7 @@ pub use ndarray::simd::mask_and as and;
 use ndarray::simd::{checked_binary_i64, mask_and, I64ArithError, I64Op};
 
 pub mod cube;
+pub mod lens;
 
 /// The bounds of the admitted chain: `X == left`, `Z == right` when set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
