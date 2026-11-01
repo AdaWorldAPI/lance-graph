@@ -8,7 +8,7 @@
 
 1. Original D-STAUNEN-0..4 (#1885..#1889) and the full relevant paginated EXO-50 comments; their status remains docs/research.
 2. Crosswalk scratchpad linked above, including its 13-dimensional mindmap and source-of-truth list.
-3. Actual 2026-11-01 XLOG changes: LG #1910, #1911, #1912, #1913; XLOG #2–#5; latest draft LG #1914. Distinguish **MERGED / DRAFT / PROPOSED / MEASURED**.
+3. Actual 2026-11-01 XLOG changes: LG #1910, #1911, #1912, #1913; XLOG #2–#5; latest draft LG #1914. *(Status as issued. #1914 merged 11:44 UTC and xlog#5 at 11:46 UTC, after this handoff was written; the ACK was given 2026-11-01.)* Distinguish **MERGED / DRAFT / PROPOSED / MEASURED**.
 4. Canonical epistemic_state5.rs; band_reading.rs; CE64 46..49 / 50..52 / 53..58 competing reader decisions and current code; MUL calibration-not-verdict and consumer census.
 5. Existing qualia.rs, proprioception.rs, qualia_profile.rs, 219 named PCS/music sidecars (#1571/#1607/#1608), cross-domain basin #993 and qualia demo #751/#752; explain the gap from 219 to proposed 512.
 6. AtlasIR/Atlas scientific owner and separate training plan; event identity and exact numeric models, not assumed to be behaviorally interchangeable with Moore or XLOG.
