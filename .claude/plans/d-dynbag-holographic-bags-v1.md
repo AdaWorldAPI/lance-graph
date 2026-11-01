@@ -612,6 +612,21 @@ Evidence: four read-only harvests at `d3c2a29`/`f3b2cfe`, each claim cited file:
 
 §17 stands. One addition: the binding that selects the executed program is DT64's `MethodBinding` (its `effects` name the polyfill words), and the selection mechanism follows Tract's precedent (resolve once, dispatch through the resolved entry, frame-checked per run) without copying Tract's registry. If X1 needs a type in DT64, D-DYNBAG-0 stops and asks rather than adding it in the probe.
 
+### 7.6 Result (2026-11-01, branch `ccr-85acaff0-oszq40-dynbag1`)
+
+- **Equality: met.** `xlog-relcomp-probe` `ncompose::pair_counts` (two DR64² i8 tiles, `matmul_i8_to_i32`) equals scalar enumeration per (x, z) and a bag walk of XLOG's RIR for `p`, on the multiplicity fixture and on a 300-case differential (ids 0..6 per axis; ℕ ≠ B in over 100 cases).
+- **Projection: met.** `count > 0` equals `relcomp::compose` on the DR64 register, as (x, z) id sets, on every case.
+- **Admission.** `ncompose::admit_pair` takes the join in both orders XLOG's optimizer emits, and a `ChainJoin` only when its own relations match its fallback. Bounds are refused. `q(Y)` is still never admitted as `p(X, Z)`.
+- **Disable runs: red.** Operands swapped: the differential fails; the hand fixture alone passes, so the differential is what catches it. Result read as B before counting: both tests fail.
+- **Cost (MEASURED, `examples/ncompose_cost.rs`, host with AVX-512F, no VNNI, no AMX, so the scalar reference tier):**
+
+  | case | `compose` (B) | `matmul_i8_to_i32` (ℕ, tiles prepared) | `pair_counts` (ℕ, from tuples) |
+  |---|---|---|---|
+  | sparse, 4 × 4 tuples | 50 ns | 20,849 ns | 21,420 ns |
+  | dense 64 × 64 | 2,402 ns | 20,829 ns | 158,637 ns |
+
+- **Answer to open decision 2 (on this host):** a dense i8 GEMM over a whole 64² tile costs about 21 µs whatever the density. It is exact, but it is the wrong carrier for sparse tiles here: 400× slower than B on sparse data and 9× on dense. Untested: the AMX and VNNI tiers, and a bit-packed i1 × i1 → i32 word (popcount of R[x] ∧ Sᵀ[z], which skips empty rows). Per §7.4 that word lands in `ndarray::simd`, backend-first, and is the D-DYNBAG-3 candidate. Building the tiles from tuples (about 17 ns per tuple lookup, dense) also dominates end-to-end time.
+
 ---
 
 ## 19. Polyfills are composed, not hardcoded (2026-10-31, operator decision before coding)
