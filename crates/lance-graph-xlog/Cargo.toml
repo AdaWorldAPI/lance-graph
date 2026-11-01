@@ -1,0 +1,21 @@
+[package]
+name = "lance-graph-xlog"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "XLOG's admitted chain query (support and bag count) over the lance-graph substrate: described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No XLOG or arrow dependency; admission of an XLOG plan stays with the caller."
+
+[dependencies]
+# The description and its one evaluator (plan d-xlog-native-v1.md Amendment C).
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# DR's Y map and frames; the admitted MethodBinding.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+# Only the elementwise alias (`and`) and the TRACKED `checked_binary_i64`, on
+# the coordinate lance-graph-mask-risc and lance-graph-onnx use.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# Gate N5: the shared alias is the same symbol in both facades.
+lance-graph-onnx = { path = "../lance-graph-onnx" }

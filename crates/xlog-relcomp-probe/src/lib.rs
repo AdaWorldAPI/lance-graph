@@ -107,6 +107,16 @@ pub struct ChainQuery {
     pub right_bound: Option<u32>,
 }
 
+impl ChainQuery {
+    /// The bounds `lance-graph-xlog` reads; the relation ids stay here.
+    pub fn bounds(&self) -> lance_graph_xlog::Bounds {
+        lance_graph_xlog::Bounds {
+            left: self.left_bound,
+            right: self.right_bound,
+        }
+    }
+}
+
 /// Admit one XLOG-compiled rule body, or say why not.
 pub fn admit(body: &RirNode) -> Result<ChainQuery, LowerRefusal> {
     // XLOG's optimizer promotes a two-atom chain to `ChainJoin` and keeps the
