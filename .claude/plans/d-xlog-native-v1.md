@@ -186,3 +186,33 @@ Effect on §2:
   - N2: an in-crate scalar oracle under four bound combinations, plus the probe's scalar oracle and RIR walk.
   - N3: typed refusals (`NativeRefusal`, `BoundRefusal`).
 - **§4 condition 2 holds for the projected two-atom chain only.** A join keeping both ends (`p(X, Z)`) and chains of more than two atoms remain NATIVE and are refused at admission.
+
+## Amendment E (2026-11-01): assimilate XLOG into our algebra; polyfill back to the caller
+
+**DECISION (operator, 2026-11-01):** "perspectively we want to assimilate it into our own algebra IR substrate and create polyfill back to the caller."
+
+- **Inward (assimilation).** XLOG's RIR node kinds become descriptions in our algebra (Quack / relalg / R2IL, evaluated by mask-risc, addressed by DT64/DR), never a backend inside XLOG's runtime.
+  - XLOG's names are an alias view over the same words, as SQL and Quack names already are over the polyfill lens (D-DT64-7 §1b).
+  - An XLOG-owned hardcoded lens uses `0xFFFF::F1__` (O7), and only after a deliberate promotion. There is no automatic XLOG promotion (D-DT64-7 §1d).
+- **Outward (polyfill back).** The surface kept stable is XLOG's caller API: what `pyxlog`, `xlog-cli` and `xlog-integration` call to run a program and read its results. It is answered by our substrate. XLOG's internal call sites and its `CudaBuffer` plumbing are not ported.
+- **Census (2026-11-01, `xlog` fork at `bff6da6`; Haiku count, three counts re-run by hand):**
+  - All execution goes through one dispatcher, `xlog-runtime` `executor/node_dispatch.rs` `execute_node_uncached`, over 13 RIR kinds and about 11 `execute_*` methods.
+  - Operator call sites: 26, plus 40 for `execute_node`.
+  - `CudaBuffer` appears on 278 lines in `xlog-runtime` and 1,924 in the workspace. This is the reason the runtime is not the seam.
+- **Coverage today** (`lance-graph-xlog` and the probe):
+  - Admitted: `Scan`, `Filter` (equality with a constant), `Project`, `Join` (inner, two atoms), `ChainJoin`, `GroupBy` (`count`), `Fixpoint` (bounded, linear; #1896).
+  - Refused: `Union`, `Distinct` (as its own node), `Diff` (negation), `MultiWayJoin`, `TensorMaskedJoin`, `Unit`.
+  - Each refused kind needs one admission rule and one native description.
+- **Target (DECISION, operator, 2026-11-01): `crates/lance-graph-xlog`.** This settles where the polyfill lives. Dependency direction:
+  - **`lance-graph-xlog` owns the semantics.** It holds the algebra descriptions and the caller-facing API in its own types (`Bounds`, `u32` tuples, DR maps, results). There is no `xlog-*` dependency and no arrow (N4), and no `RirNode` mirror (§0).
+  - **The XLOG fork depends on `lance-graph-xlog`, never the reverse.** Its executor arms translate an RIR node into a `lance-graph-xlog` call: that is the polyfill back to `pyxlog` / `xlog-cli` / `xlog-integration`. `lance-graph-xlog` carries no arrow, so the arrow 60 / 58 split never meets.
+  - **`xlog-relcomp-probe` stays the oracle harness:** XLOG compile, admission, scalar enumeration, the RIR walk, and the DR64 register differential.
+- **Worst case (operator, 2026-11-01): replace XLOG's CUDA part with CubeCL over ndarray.** Three tiers, in order of preference:
+  1. Assimilate into `lance-graph-xlog`.
+  2. Polyfill the callers, or migrate them, onto `lance-graph-xlog`.
+  3. For a kernel with no algebra counterpart, port it from CUDA to CubeCL with ndarray as the CPU backend (Amendment B's "CubeCL as an intermediary only in the worst case").
+
+  Tier 3 buys portability, not native speed. It keeps XLOG's execution model (materialized row buffers, a kernel per operator), which the no-millisecond rule warns against, so it is for the residue only. Likely candidates: `TensorMaskedJoin` and parts of `wcoj_dispatch`.
+- **OPEN:**
+  - The exact caller API. Next step is a census of what `pyxlog` / `xlog-cli` / `xlog-integration` call on the executor, and how each call maps onto a `lance-graph-xlog` call.
+  - Which translation the XLOG fork carries: a translator per RIR kind, or a thin adapter crate inside the fork.
