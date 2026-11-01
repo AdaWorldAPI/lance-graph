@@ -629,3 +629,166 @@ fn a_repeated_base_fact_is_not_a_second_witness() {
         .collect();
     assert_eq!(got, expected());
 }
+
+// ── Part 4: ℕ-compose, `p(X, Z)` with both ends kept (D-DYNBAG-1) ──────────
+
+use xlog_relcomp_probe::ncompose::{ComposeRefusal, admit_pair, pair_counts};
+
+/// The multiplicity fixture with the rule that keeps both ends.
+fn pairs_src(facts_src: &str) -> String {
+    format!(
+        "pred r(u32, u32).\npred s(u32, u32).\npred p(u32, u32).\n{facts_src}\np(X, Z) :- r(X, Y), s(Y, Z).\n?- p(X, Z).\n"
+    )
+}
+
+const MULT_FACTS: &str = "r(1, 2). r(5, 2). r(1, 3). r(9, 7).\ns(2, 4). s(2, 6). s(3, 4). s(7, 8).";
+
+fn axis(ids: impl Iterator<Item = u32>) -> LocalMap {
+    let ids: BTreeSet<u64> = ids.map(u64::from).collect();
+    LocalMap::prepare(Width::W64, &ids.into_iter().collect::<Vec<_>>()).unwrap()
+}
+
+/// The ℕ answer of `p(X, Z)` through two DR64² tiles, keyed by ids.
+fn n_compose(r: &[(u32, u32)], s: &[(u32, u32)], p: &RirNode) -> BTreeMap<(u32, u32), u64> {
+    let q = admit_pair(p).expect("p(X, Z) is admitted");
+    let xs = axis(r.iter().map(|t| t.0));
+    let ys = axis(r.iter().map(|t| t.1).chain(s.iter().map(|t| t.0)));
+    let zs = axis(s.iter().map(|t| t.1));
+    let c = pair_counts(&q, r, s, &xs, &ys, &zs).unwrap();
+    let mut out = BTreeMap::new();
+    for ((x, z), n) in c.indexed_iter().filter(|(_, n)| **n != 0) {
+        let x = u32::try_from(xs.global(x as u8).unwrap()).unwrap();
+        let z = u32::try_from(zs.global(z as u8).unwrap()).unwrap();
+        out.insert((x, z), u64::try_from(*n).unwrap());
+    }
+    out
+}
+
+/// Oracle 1: every (x, y, z) witness, per (x, z).
+fn scalar_pairs(r: &[(u32, u32)], s: &[(u32, u32)]) -> BTreeMap<(u32, u32), u64> {
+    let mut out = BTreeMap::new();
+    for &(x, y) in r {
+        for &(y2, z) in s {
+            if y == y2 {
+                *out.entry((x, z)).or_insert(0) += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Oracle 2: XLOG's own plan for `p`, walked with bag semantics, counted per
+/// output row.
+fn walked_pairs(c: &Compiled, p: &RirNode) -> BTreeMap<(u32, u32), u64> {
+    let mut out = BTreeMap::new();
+    for t in walk(p, &edb(c), false) {
+        let k = (u32::try_from(t[0]).unwrap(), u32::try_from(t[1]).unwrap());
+        *out.entry(k).or_insert(0) += 1;
+    }
+    out
+}
+
+/// B: the Boolean composition on the DR64 register, as (x, z) ids.
+fn register_pairs(r: &[(u32, u32)], s: &[(u32, u32)]) -> BTreeSet<(u32, u32)> {
+    let xs = AddressMap::new(X, r.iter().map(|t| t.0)).unwrap();
+    let ys = AddressMap::new(Y, r.iter().map(|t| t.1).chain(s.iter().map(|t| t.0))).unwrap();
+    let zs = AddressMap::new(Z, s.iter().map(|t| t.1)).unwrap();
+    let (rr, ss) = (
+        register(r, &xs, &ys).unwrap(),
+        register(s, &ys, &zs).unwrap(),
+    );
+    let rz = compose(&rr, &ss, &mut Work::default());
+    let mut out = BTreeSet::new();
+    for x in xs.ids(xs.valid()) {
+        let row = rz[xs.slot(x).unwrap()] & zs.valid();
+        for z in zs.ids(row) {
+            out.insert((x, z));
+        }
+    }
+    out
+}
+
+#[test]
+fn n_compose_counts_witnesses_per_x_z() {
+    let c = compile(&pairs_src(MULT_FACTS));
+    let (r, s) = (
+        facts(&c.program, "r").unwrap(),
+        facts(&c.program, "s").unwrap(),
+    );
+    let p = rule(&c, "p");
+    let got = n_compose(&r, &s, p);
+    let by_hand = BTreeMap::from([
+        ((1, 4), 2),
+        ((1, 6), 1),
+        ((5, 4), 1),
+        ((5, 6), 1),
+        ((9, 8), 1),
+    ]);
+    assert_eq!(got, by_hand);
+    assert_eq!(got, scalar_pairs(&r, &s), "oracle 1");
+    assert_eq!(got, walked_pairs(&c, p), "oracle 2");
+    // B is the projection of ℕ, bit for bit.
+    let support: BTreeSet<(u32, u32)> = got.keys().copied().collect();
+    assert_eq!(support, register_pairs(&r, &s));
+}
+
+/// The 300-case differential: random sets over ids 0..20.
+#[test]
+fn n_compose_differential_against_both_oracles() {
+    let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut next = |m: u64| {
+        seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+        (seed >> 33) % m
+    };
+    let mut nonempty = 0;
+    for _ in 0..300 {
+        let mut f = String::new();
+        for rel in ["r", "s"] {
+            for _ in 0..(1 + next(12)) {
+                f.push_str(&format!("{rel}({}, {}). ", next(20), next(20)));
+            }
+        }
+        let c = compile(&pairs_src(&f));
+        let (r, s) = (
+            facts(&c.program, "r").unwrap(),
+            facts(&c.program, "s").unwrap(),
+        );
+        let p = rule(&c, "p");
+        let got = n_compose(&r, &s, p);
+        assert_eq!(got, scalar_pairs(&r, &s), "{f}");
+        assert_eq!(got, walked_pairs(&c, p), "{f}");
+        let support: BTreeSet<(u32, u32)> = got.keys().copied().collect();
+        assert_eq!(support, register_pairs(&r, &s), "{f}");
+        nonempty += usize::from(got.values().any(|n| *n > 1));
+    }
+    assert!(
+        nonempty > 30,
+        "multiplicity > 1 occurred in {nonempty} cases"
+    );
+}
+
+#[test]
+fn more_ids_than_the_tile_is_refused() {
+    let r: Vec<(u32, u32)> = (0..65).map(|x| (x, 1)).collect();
+    let s = vec![(1, 2)];
+    let c = compile(&pairs_src(MULT_FACTS));
+    let q = admit_pair(rule(&c, "p")).unwrap();
+    let xs = LocalMap::prepare(Width::W64, &(0..64).collect::<Vec<u64>>()).unwrap();
+    let ys = axis([1].into_iter());
+    let zs = axis([2].into_iter());
+    assert!(matches!(
+        pair_counts(&q, &r, &s, &xs, &ys, &zs),
+        Err(ComposeRefusal::Domain(_))
+    ));
+}
+
+#[test]
+fn q_y_is_still_not_admitted_as_p_x_z() {
+    let c = compile(&pairs_src(MULT_FACTS));
+    assert!(admit(rule(&c, "p")).is_err());
+    let mult = compile(MULT);
+    assert!(
+        admit_pair(rule(&mult, "q")).is_err(),
+        "q(Y) is not a pair rule"
+    );
+}
