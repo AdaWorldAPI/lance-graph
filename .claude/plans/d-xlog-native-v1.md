@@ -207,6 +207,12 @@ Effect on §2:
   - **`lance-graph-xlog` owns the semantics.** It holds the algebra descriptions and the caller-facing API in its own types (`Bounds`, `u32` tuples, DR maps, results). There is no `xlog-*` dependency and no arrow (N4), and no `RirNode` mirror (§0).
   - **The XLOG fork depends on `lance-graph-xlog`, never the reverse.** Its executor arms translate an RIR node into a `lance-graph-xlog` call: that is the polyfill back to `pyxlog` / `xlog-cli` / `xlog-integration`. `lance-graph-xlog` carries no arrow, so the arrow 60 / 58 split never meets.
   - **`xlog-relcomp-probe` stays the oracle harness:** XLOG compile, admission, scalar enumeration, the RIR walk, and the DR64 register differential.
+- **Worst case (operator, 2026-11-01): replace XLOG's CUDA part with CubeCL over ndarray.** Three tiers, in order of preference:
+  1. Assimilate into `lance-graph-xlog`.
+  2. Polyfill the callers, or migrate them, onto `lance-graph-xlog`.
+  3. For a kernel with no algebra counterpart, port it from CUDA to CubeCL with ndarray as the CPU backend (Amendment B's "CubeCL as an intermediary only in the worst case").
+
+  Tier 3 buys portability, not native speed. It keeps XLOG's execution model (materialized row buffers, a kernel per operator), which the no-millisecond rule warns against, so it is for the residue only. Likely candidates: `TensorMaskedJoin` and parts of `wcoj_dispatch`.
 - **OPEN:**
   - The exact caller API. Next step is a census of what `pyxlog` / `xlog-cli` / `xlog-integration` call on the executor, and how each call maps onto a `lance-graph-xlog` call.
   - Which translation the XLOG fork carries: a translator per RIR kind, or a thin adapter crate inside the fork.
