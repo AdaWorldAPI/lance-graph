@@ -8,14 +8,14 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-1 | `classid_canon_compat(0x0000_F123) == 0x0000` falsifier (F5, legacy ids only), with the twin `0xFFFF_F000 → 0xFFFF` | Queued | none |
 | D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | after L2/L3 |
 | D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | In part: positional lens shipped (#1899); OGAR still on the path | — |
-| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + host-side composing authority (O8) | Queued | O2 (OGAR owner) |
+| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + host-side composing authority (O8) | Queued | O8 (O2 done: OGAR #365 + contract mirror guard) |
 | D-DT64-7-6 | polyglot alias views (C, Rust, Java, SQL) over one Frozen algebra: words bound by position, names as per-language `ClassView` labels; `prepare`/`run` timed in ns | Queued | D-DT64-7-3, O7 |
 | D-DT64-7-7 | semantic union census of operator sets (ONNX, TF, TFLite, GGML, Burn IR, R2IL, XLOG) after aliasing; decides the `0xF0__` layout and the tensor ranges | Queued | counts recounted from source |
 | D-DT64-7-L4 | production alias views (R2IL, SQL, Quack) from `POLYFILL` | In progress | — |
 | D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
 | D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
 | D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
-| D-DT64-7-5 | the versioned global → local selection table (D-LITHO Q5) | Queued | O5 (DR/DT owner) |
+| D-DT64-7-5 | the versioned global → local selection table, a BindStore plan item (Litho is a mental model, folded into the bind store plan as D-DT64-6 Amendment A) | Queued | O5 (taken by this session) |
 
 ## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
 
@@ -91,7 +91,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-XLOG-DR64-0 | XLOG RIR (Join / ChainJoin / swapped order) → `bind_dr64` + `Chain` + `compose`; forward∧backward over one 64-slot axis; 2 oracles, 11 refusals, 9 disable runs, cost probe | Shipped (#1857) | lab only |
 | D-XLOG-DR64-1 | arrow 60 vs 58: align or a facts-free `xlog-core` before any in-tree use | Queued | XLOG upstream / owner decision |
 | D-XLOG-DR64-2 | query-bound recursion via native semi-naive deltas; compare with XLOG magic sets | Queued | after D-XLOG-DR64-1 |
-| D-XLOG-DR64-3 | D-LITHO-1: Gate B as explicit register steps; failing bag-multiplicity fixture (2 oracles); count width and per-Y product named as open; same operation as a DTO binding (NodeGuid / ClassView / WideFieldMask / method ref) | In PR | review; lab only |
+| D-XLOG-DR64-3 | D-LITHO-1: Gate B as explicit register steps; failing bag-multiplicity fixture (2 oracles); count width and per-Y product named as open; same operation as a DTO binding (NodeGuid / ClassView / WideFieldMask / method ref) | Shipped (#1864) | lab only |
 
 ## D-DRDT — DR = HHTL16 Cartesian direct routing, DT = ClassId binding store (2026-10-28)
 
