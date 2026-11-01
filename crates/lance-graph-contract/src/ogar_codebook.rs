@@ -574,6 +574,17 @@ pub const fn classid_concept(classid: u32) -> u16 {
     classid_canon(classid)
 }
 
+/// The left half of every lance-graph hardcoded behaviour classid
+/// (`0xFFFF :: 0xF###`, D-DT64-7). Mirror of OGAR
+/// `ogar_vocab::HARDCODED_BEHAVIOUR`: the `0xFFXX` block is reserved there
+/// (OGAR #365) and no [`CODEBOOK`] row may land in it. lance-graph-dt64 is
+/// the registration authority for behaviour lenses under it; the codebook
+/// is never asked.
+pub const HARDCODED_BEHAVIOUR: u16 = 0xFFFF;
+
+/// The reserved high byte of [`HARDCODED_BEHAVIOUR`].
+pub const HARDCODED_BEHAVIOUR_DOMAIN: u16 = HARDCODED_BEHAVIOUR >> 8;
+
 /// The curated `(canonical_concept, u16)` codebook — wire-compatible mirror of
 /// OGAR `ogar_vocab::CODEBOOK`. Ids are stable forever (once shipped, never
 /// re-assigned); domain-encoded `0xDDCC`. Carries the two domains the contract
@@ -904,6 +915,28 @@ mod tests {
     }
 
     use super::*;
+
+    /// The `0xFFXX` block is lance-graph's hardcoded behaviour
+    /// (`0xFFFF :: 0xF###`, D-DT64-7). OGAR reserves it (OGAR #365); the
+    /// mirror must never carry a concept there either, or a behaviour lens
+    /// and a minted concept would share a left half.
+    #[test]
+    fn no_mirrored_row_lands_in_the_hardcoded_behaviour_block() {
+        assert_eq!(HARDCODED_BEHAVIOUR, 0xFFFF);
+        assert_eq!(HARDCODED_BEHAVIOUR_DOMAIN, 0xFF);
+        for (name, id) in CODEBOOK {
+            assert_ne!(
+                id >> 8,
+                HARDCODED_BEHAVIOUR_DOMAIN,
+                "{name} ({id:#06x}) landed in the reserved 0xFFXX block"
+            );
+        }
+        assert_eq!(canonical_concept_id("hardcoded_behaviour"), None);
+        assert_eq!(
+            canonical_concept_domain(HARDCODED_BEHAVIOUR),
+            ConceptDomain::Unassigned
+        );
+    }
     use crate::NodeGuid;
 
     #[test]
