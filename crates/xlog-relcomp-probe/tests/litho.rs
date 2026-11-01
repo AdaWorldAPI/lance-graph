@@ -732,7 +732,7 @@ fn n_compose_counts_witnesses_per_x_z() {
     assert_eq!(support, register_pairs(&r, &s));
 }
 
-/// The 300-case differential: random sets over ids 0..20.
+/// The 300-case differential: random sets over ids 0..6 on every axis.
 #[test]
 fn n_compose_differential_against_both_oracles() {
     let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
@@ -743,10 +743,13 @@ fn n_compose_differential_against_both_oracles() {
     let mut nonempty = 0;
     for _ in 0..300 {
         let mut f = String::new();
-        for rel in ["r", "s"] {
-            for _ in 0..(1 + next(12)) {
-                f.push_str(&format!("{rel}({}, {}). ", next(20), next(20)));
-            }
+        // X, Y and Z over 0..6: an (x, z) pair often meets through more
+        // than one y, so ℕ differs from B in most cases.
+        for _ in 0..(1 + next(12)) {
+            f.push_str(&format!("r({}, {}). ", next(6), next(6)));
+        }
+        for _ in 0..(1 + next(12)) {
+            f.push_str(&format!("s({}, {}). ", next(6), next(6)));
         }
         let c = compile(&pairs_src(&f));
         let (r, s) = (

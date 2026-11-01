@@ -46,20 +46,38 @@ pub enum ComposeRefusal {
 /// join on Y keeping X and Z, in either join order. Bounds, other
 /// projections and other joins are refused.
 pub fn admit_pair(body: &RirNode) -> Result<PairQuery, LowerRefusal> {
+    // XLOG's optimizer promotes the chain to `ChainJoin` (in either join
+    // order, chosen from statistics) and keeps the plain plan as `fallback`.
+    // Admit it only when its own relations name the same query as its
+    // fallback; a disagreement is refused, never resolved by picking one.
     if let RirNode::ChainJoin {
+        left,
+        right,
         left_key,
         right_key,
         fallback,
         ..
     } = body
     {
-        if (*left_key, *right_key) != (1, 0) {
-            return Err(LowerRefusal::NeedsInverse {
-                left_keys: vec![*left_key],
-                right_keys: vec![*right_key],
-            });
-        }
-        return admit_pair(fallback);
+        let (r_side, s_side) = match (*left_key, *right_key) {
+            (1, 0) => (left, right),
+            (0, 1) => (right, left),
+            _ => {
+                return Err(LowerRefusal::NeedsInverse {
+                    left_keys: vec![*left_key],
+                    right_keys: vec![*right_key],
+                });
+            }
+        };
+        let own = PairQuery {
+            left: scan_with_bound(r_side, 0)?.0,
+            right: scan_with_bound(s_side, 1)?.0,
+        };
+        return match admit_pair(fallback) {
+            Ok(fb) if fb == own => Ok(own),
+            Ok(_) => Err(LowerRefusal::ChainJoinDisagrees),
+            Err(e) => Err(e),
+        };
     }
     let RirNode::Project { input, columns } = body else {
         return Err(LowerRefusal::UnsupportedNode(node_name(body)));
