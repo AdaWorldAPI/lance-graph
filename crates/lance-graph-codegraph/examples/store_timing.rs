@@ -69,6 +69,33 @@ fn main() {
     time("callers", &mut || {
         black_box(g.callers(probe).expect("callers"));
     });
+    // Refresh every crate in the store from its own unchanged file: the
+    // whole intake-side diff runs and finds nothing to log.
+    let crates: Vec<String> = std::fs::read_dir(&dir)
+        .expect("store dir")
+        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            e.file_name()
+                .to_str()
+                .and_then(|n| n.strip_suffix(".rows.tsv"))
+                .map(str::to_string)
+        })
+        .collect();
+    for k in &crates {
+        let t = Instant::now();
+        let lanes = lance_graph_codegraph::artifact::read_crate(&dir, k).expect("read");
+        println!(
+            "  of which reading {k}.rows.tsv ({} rows): {} us",
+            lanes.predicate.len(),
+            t.elapsed().as_micros()
+        );
+        let t = Instant::now();
+        let stats = g.refresh_crate(&dir, k).expect("refresh");
+        println!(
+            "refresh_crate {k} (unchanged): {} us; {stats:?}",
+            t.elapsed().as_micros()
+        );
+    }
     let i = g.impact(probe).expect("impact");
     let pop = |m: &[u64]| m.iter().map(|w| w.count_ones()).sum::<u32>();
     println!(
