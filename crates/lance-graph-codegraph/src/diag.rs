@@ -9,8 +9,33 @@
 use ndarray::simd::mask_andnot;
 use ndarray::simd::mask_andnot_assign;
 
-use crate::artifact::{P_CALLS, P_UNRESOLVED};
+use crate::artifact::{ResidualCounts, P_CALLS, P_UNRESOLVED};
 use crate::graph::Codegraph;
+
+/// What the harvest is known NOT to have seen. A closed-world diagnostic
+/// (one that reads the absence of a row as a fact) may claim `Complete` only
+/// when every count is zero. Each count keeps its typed cause, so a caller
+/// can tell why a run is partial.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Coverage {
+    /// Crates whose CRATE row is not `COMPLETE`.
+    pub partial_crates: u32,
+    /// Crates read without a `<crate>.residuals.tsv`: nothing is known about
+    /// what their harvest missed.
+    pub crates_without_residuals: u32,
+    /// Residuals of every crate, by kind.
+    pub residuals: ResidualCounts,
+    /// `UNRESOLVED_CALL` rows: calls whose target the compiler did not name.
+    pub dynamic_calls: u32,
+}
+
+impl Coverage {
+    /// No known gap. This is the absence of a known gap, never a proof that
+    /// the harvest saw everything.
+    pub fn no_known_gap(&self) -> bool {
+        *self == Coverage::default()
+    }
+}
 
 /// Which diagnostic a [`Finding`] belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,11 +133,32 @@ fn has_bit(words: &[u64], p: usize) -> bool {
 }
 
 impl Codegraph {
+    /// What the loaded artifact is known not to cover. See [`Coverage`].
+    pub fn coverage(&self) -> Coverage {
+        let l = self.lanes();
+        let mut c = Coverage {
+            partial_crates: self.partial_crates(),
+            ..Coverage::default()
+        };
+        for k in l.crates() {
+            match l.residuals_of(k).flatten() {
+                Some(r) => c.residuals.add(&r),
+                None => c.crates_without_residuals += 1,
+            }
+        }
+        c.dynamic_calls = l.pred.iter().filter(|&&p| p == P_UNRESOLVED).count() as u32;
+        c
+    }
+
     /// The four diagnostics, in the order DeadFunction, UnresolvedCall,
     /// DanglingCall, UnusedImport.
     ///
     /// The overall run is [`Run::Partial`] when any `CRATE` row carries a
-    /// status other than `COMPLETE`, else [`Run::Complete`]; a `Partial` run
+    /// status other than `COMPLETE`, else [`Run::Complete`]. DeadFunction is
+    /// closed-world (it reads a missing CALLS / REFERENCES row as "nothing
+    /// reaches it"), so it is also `Partial` whenever [`Codegraph::coverage`]
+    /// reports any gap: a residual, a crate without a residuals file, or a
+    /// dynamic call. A `Partial` run
     /// still reports its findings, but the caller must not read a short list
     /// as "clean".
     pub fn diagnostics(&self, kind: CrateKind) -> [Finding; 4] {
@@ -165,7 +211,12 @@ impl Codegraph {
                 mask_andnot_assign(&mut m, self.synthetic());
                 mask_andnot_assign(&mut m, self.called());
                 mask_andnot_assign(&mut m, self.referenced());
-                (m, overall)
+                let run = if self.coverage().no_known_gap() {
+                    Run::Complete
+                } else {
+                    Run::Partial
+                };
+                (m, run)
             }
         };
 

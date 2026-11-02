@@ -12,6 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
+use lance_graph_codegraph::artifact::ResidualKind;
 use lance_graph_codegraph::diag::{CrateKind, Kind, Run};
 use lance_graph_codegraph::Codegraph;
 
@@ -137,7 +138,11 @@ fn a_dynamic_call_degrades_the_dead_run() {
 /// not know cannot be classified, so intake refuses rather than guessing.
 #[test]
 fn an_unknown_residual_reason_is_refused() {
-    let d = store("unknown", &rows(&[]), Some(&[("SOMETHING_NEW", "lib::entry")]));
+    let d = store(
+        "unknown",
+        &rows(&[]),
+        Some(&[("SOMETHING_NEW", "lib::entry")]),
+    );
     assert!(Codegraph::open(&d).is_err());
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -157,5 +162,27 @@ fn a_refresh_reads_the_new_residuals() {
     write_residuals(&d, &[("BODY_NOT_STRUCTURED", "lib::entry")]);
     g.refresh_crate(&d, "store").unwrap();
     assert_eq!(g.diagnostics(CrateKind::Lib)[0].run, Run::Partial);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fails if the cause of a partial run is not recoverable as typed data: two
+/// different gaps must report two different counts, each under its own kind.
+#[test]
+fn the_partial_cause_stays_typed() {
+    let d = store(
+        "typed",
+        &rows(&[("UNRESOLVED_CALL", "lib::entry", "dynamic")]),
+        Some(&[
+            ("BODY_NOT_STRUCTURED", "lib::entry"),
+            ("TRAIT_IMPL_METHOD_NOT_FOUND", "lib::entry"),
+            ("TRAIT_IMPL_METHOD_NOT_FOUND", "lib::helper"),
+        ]),
+    );
+    let c = Codegraph::open(&d).unwrap().coverage();
+    assert_eq!(c.residuals.of(ResidualKind::BodyNotStructured), 1);
+    assert_eq!(c.residuals.of(ResidualKind::TraitImplMethodNotFound), 2);
+    assert_eq!(c.residuals.of(ResidualKind::CalleeNotNamed), 0);
+    assert_eq!(c.dynamic_calls, 1);
+    assert_eq!(c.crates_without_residuals, 0);
     let _ = std::fs::remove_dir_all(&d);
 }

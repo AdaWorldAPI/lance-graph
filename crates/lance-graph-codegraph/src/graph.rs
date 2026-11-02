@@ -46,6 +46,8 @@ pub enum IntakeRefusal {
     Cube(CubeRefusal),
     /// A `<crate>.rows.bin` file was refused.
     Bin(crate::artifact_bin::BinRefusal),
+    /// A `<crate>.residuals.tsv` file was refused.
+    Residual(crate::artifact::ResidualRefusal),
 }
 
 /// Whether the extractor finished a crate.
@@ -720,8 +722,12 @@ impl Codegraph {
                 )));
             }
         }
+        // The residuals belong to the same import as the rows; read them now
+        // so a refusal leaves the graph unchanged.
+        let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
         // ---- prepare: everything below borrows the graph immutably ----
         let kid = syms.intern(krate);
+        fresh.set_residuals(kid, residuals);
 
         // Edges of the crate's old rows, before any new position exists. Every
         // other crate's rows are in both the old and the new lane set, so the
@@ -974,6 +980,14 @@ impl Codegraph {
     /// The artifact lanes, for the crate's own folds.
     pub(crate) fn lanes(&self) -> &Lanes {
         &self.lanes
+    }
+
+    /// Stored crates whose CRATE row is not `COMPLETE`.
+    pub(crate) fn partial_crates(&self) -> u32 {
+        self.crates
+            .values()
+            .filter(|&&s| s == RunStatus::Partial)
+            .count() as u32
     }
 
     /// Whether any stored crate's CRATE row is not `COMPLETE`.

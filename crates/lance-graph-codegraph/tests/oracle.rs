@@ -153,15 +153,25 @@ fn rev2_impact_of_double_is_transitive() {
     assert_eq!(i.unknown, m(&g, &[]));
 }
 
-/// Fails if dead code is not exactly `private_unused`, or the run is not
-/// Complete, or the mask is vacuous (nearly everything flagged).
+/// Fails if dead code is not exactly `private_unused`, or the mask is vacuous
+/// (nearly everything flagged).
+///
+/// Re-pinned from `Run::Complete`: rev1 has one dynamic call
+/// (`cg_lib::area_dyn`). A function reachable only through a pointer is dead
+/// only if every taken address was seen, which nothing proves, so the run is
+/// `Partial`. The cause is asserted to be exactly that one call.
 #[test]
 fn rev1_dead_function() {
     let g = open("rev1");
     let f = &g.diagnostics(CrateKind::Lib)[0];
     assert_eq!(f.kind, Kind::DeadFunction);
     assert_eq!(f.positions, m(&g, &["cg_lib::util::private_unused"]));
-    assert_eq!(f.run, Run::Complete);
+    assert_eq!(f.run, Run::Partial);
+    let c = g.coverage();
+    assert_eq!(c.dynamic_calls, 1);
+    assert_eq!(c.residuals.total(), 0);
+    assert_eq!(c.crates_without_residuals, 0);
+    assert_eq!(c.partial_crates, 0);
     assert!(pop(&f.positions) * 3 < pop(g.fns()));
 }
 
