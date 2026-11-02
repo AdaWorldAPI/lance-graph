@@ -48,6 +48,14 @@ pub enum IntakeRefusal {
     Bin(crate::artifact_bin::BinRefusal),
     /// A `<crate>.residuals.tsv` file was refused.
     Residual(crate::artifact::ResidualRefusal),
+    /// A row names a placeholder symbol (a `?` path segment): not an
+    /// identity, so the fact is refused. 0-based row of the read lane set.
+    Placeholder {
+        /// The offending row.
+        row: usize,
+        /// The placeholder symbol.
+        name: String,
+    },
 }
 
 /// Whether the extractor finished a crate.
@@ -534,6 +542,7 @@ impl Codegraph {
     pub fn open(dir: &Path) -> Result<Self, IntakeRefusal> {
         let mut symbols = Symbols::default();
         let lanes = artifact::read_dir(dir, &mut symbols)?;
+        artifact::refuse_placeholders(&lanes, 0..lanes.len(), &symbols)?;
         let mut pos = Positions::new();
         let staged = {
             let mut stage = PosStage::new(&pos);
@@ -725,6 +734,8 @@ impl Codegraph {
         // The residuals belong to the same import as the rows; read them now
         // so a refusal leaves the graph unchanged.
         let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
+        artifact::refuse_placeholders(&fresh, 0..fresh.len(), &syms)
+            .map_err(RefreshRefusal::Intake)?;
         // ---- prepare: everything below borrows the graph immutably ----
         let kid = syms.intern(krate);
         fresh.set_residuals(kid, residuals);

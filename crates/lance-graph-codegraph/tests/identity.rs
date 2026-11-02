@@ -52,7 +52,10 @@ fn two_unnamed_dispatch_targets_are_refused() {
 /// admitted: every unnamed method of that trait would share one symbol.
 #[test]
 fn an_unnamed_method_of_a_named_trait_is_refused() {
-    let d = store("half", &[("MAY_DISPATCH", "lib::f1", "lib::T::? via Clause")]);
+    let d = store(
+        "half",
+        &[("MAY_DISPATCH", "lib::f1", "lib::T::? via Clause")],
+    );
     assert!(Codegraph::open(&d).is_err());
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -99,5 +102,23 @@ fn distinct_named_targets_are_admitted_and_stay_distinct() {
     let b = g.callers(pb).unwrap();
     assert_eq!(a.graded.possible, f1);
     assert_eq!(b.graded.possible, f2);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fails if a refresh admits a placeholder, or if the refused refresh changes
+/// the graph.
+#[test]
+fn a_refresh_with_a_placeholder_is_refused_and_changes_nothing() {
+    let d = store("refresh", &[]);
+    let mut g = Codegraph::open(&d).unwrap();
+    let rows_before = g.rows();
+    let mut t = String::from(HEADER);
+    t += &row("DEFINES", "lib::f1", "lib::f1");
+    t += &row("MAY_DISPATCH", "lib::f1", "?::? via Clause");
+    t += "CRATE\tlib\tCOMPLETE\tCOMPILER\t-\t-\t-\n";
+    std::fs::write(d.join("store.rows.tsv"), t).unwrap();
+    assert!(g.refresh_crate(&d, "store").is_err());
+    assert_eq!(g.rows(), rows_before);
+    assert!(g.pos("?::?").is_none());
     let _ = std::fs::remove_dir_all(&d);
 }

@@ -548,6 +548,45 @@ pub enum ResidualRefusal {
     },
 }
 
+/// Whether `name` has a `?` path segment: the harvest's placeholder for a
+/// name it could not resolve. `?` inside a segment (`r#try?x`) is not one.
+fn has_placeholder(name: &str) -> bool {
+    name.split("::").any(|seg| seg == "?")
+}
+
+/// Refuse the first row of `lanes[rows]` that names a placeholder symbol.
+///
+/// A placeholder is not an identity: every unresolved target would share it,
+/// and the IMPLEMENTS join would then read distinct calls as calls of one
+/// method. The fact is refused rather than admitted under a guessed name;
+/// what the harvest could not resolve belongs in its residuals.
+pub fn refuse_placeholders(
+    lanes: &Lanes,
+    rows: std::ops::Range<usize>,
+    symbols: &impl Interner,
+) -> Result<(), IntakeRefusal> {
+    for i in rows {
+        let ids: [u32; 2] = match lanes.pred[i] {
+            P_DEFINES | P_CALLS | P_PUBLIC | P_IMPLEMENTS | P_SYNTHETIC | P_REFERENCES => {
+                [lanes.subject[i], lanes.object[i]]
+            }
+            P_MAY => [lanes.subject[i], lanes.may_target[i]],
+            P_UNRESOLVED => [lanes.subject[i], lanes.subject[i]],
+            _ => continue,
+        };
+        for id in ids {
+            let name = symbols.name(id);
+            if has_placeholder(name) {
+                return Err(IntakeRefusal::Placeholder {
+                    row: i,
+                    name: name.to_owned(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 /// The residuals file of `krate` in `dir`.
 pub const RESIDUAL_SUFFIX: &str = ".residuals.tsv";
 
