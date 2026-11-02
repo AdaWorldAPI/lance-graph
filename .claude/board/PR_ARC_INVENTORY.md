@@ -1,3 +1,19 @@
+## 2026-11-02 — lance-graph PR #1929 (merged `4fadef69d`, branch `claude/codegraph-bin-reader`) — PLATEAU: codegraph reads rows.bin; header-only unchanged refresh; changed-crate gate NOT met
+
+- **Merged as a plateau (operator, 2026-11-02), not as the completion of D-CODEGRAPH-0-BIN.**
+- **Added:**
+  - `artifact_bin.rs`: a zero-copy parse and verify of `rows.bin`, with one `BinRefusal` per malformed shape.
+  - `read_dir` prefers `rows.bin`; `read_bin_as` fills the existing `Lanes`; `prepare_refresh` reads only the 64-byte header when the digest is unchanged.
+  - `artifact::digest` folds the length little-endian.
+  - The ruff golden fixture.
+  - `examples/bin_timing.rs`.
+- **Measured** (release, mask-risc store of 17,155 rows, N = 41): unchanged refresh 2.58 µs (gate ≤ 20 µs: met); changed-crate intake 2.5–2.8 ms (gate ≤ 1 ms: **NOT met**), of which `read_bin_as` (`Symbols::intern`) takes 2.04 ms.
+- **Open:**
+  - chunk B3: interner replacement (`SYM_HASH` → global id, no intern at open or refresh, F4/F5), then a re-run of the gate;
+  - Quack counting (F7);
+  - the `INVOKES_WORD` association source.
+- **Confidence:** 20 new tests; 5 disables red.
+
 ## 2026-11-02 — lance-graph PR #1927 (merged `6768811df`, branch `claude/clone-repositories-71a5sw`) — D-DT64-AUTH method-authority census; post-merge record for #1926
 
 - **Added:**
