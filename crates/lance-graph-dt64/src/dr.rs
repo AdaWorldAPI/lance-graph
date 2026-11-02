@@ -59,6 +59,28 @@ impl Axis {
         self.tile.positions() * self.tiles as usize
     }
 
+    /// The axis a selection of `survivors` positions needs (D-DYNBAG §4.1):
+    /// up to 64 fit one DR64 tile; 65 to 256 one DR256 tile; more take
+    /// `ceil(n / 256)` DR256 tiles; none takes one DR64 tile. The width is a
+    /// cost decision: a DR64 register is 512 B and a DR256 one 8 KiB, so the
+    /// narrow tile is used whenever the selection fits it. `tiles` saturates
+    /// at `u32::MAX` rather than overflow.
+    pub const fn for_survivors(survivors: usize) -> Axis {
+        if survivors <= 64 {
+            Axis::new(Width::W64, 1)
+        } else if survivors <= 256 {
+            Axis::new(Width::W256, 1)
+        } else {
+            let tiles = survivors.div_ceil(256);
+            let tiles = if tiles > u32::MAX as usize {
+                u32::MAX
+            } else {
+                tiles as u32
+            };
+            Axis::new(Width::W256, tiles)
+        }
+    }
+
     /// The tile a position falls in.
     pub const fn tile_of(self, position: usize) -> usize {
         position / self.tile.positions()
