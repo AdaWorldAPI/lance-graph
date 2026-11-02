@@ -1,3 +1,8 @@
+## 2026-11-02 — D-TGL-PUB: G10 × G11 atomic publication lab spec → `.claude/plans/g10-g11-atomic-publication-lab-v1.md`
+
+**Status:** SPEC, lab only; nothing implemented. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-PUB; [entry](entries/2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md).
+**Confidence:** boundaries read in code (dt64 `route`/`RouteLog`, `persist_sink.rs`); the release-profile fence result was measured.
+
 ## 2026-11-02 — D-TGL: the GitHub-analogue Thought-Git lifecycle as a shared contract → `.claude/plans/thought-git-lifecycle-contract-v1.md`
 
 **Status:** CONTRACT, docs only; Codegraph lab F-LAND / F-DISCARD shipped (crate-private). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-0 … D-TGL-G12, D-TGL-EXO148; [decisions + lab](entries/2026-11-02-p4-operator-decisions-lifecycle-lab.md); [P4 review](entries/2026-11-02-p4-thought-git-codegraph-dt64-review.md).
