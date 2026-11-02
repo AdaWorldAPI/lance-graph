@@ -85,3 +85,20 @@ Five disable runs each turn their own tests red.
 G5 (resident, incremental store) is closed for the offline form. Still open: residency in lance-graph's SoA (a lance-graph-side reader of these artifacts), then the queries of slice C.
 
 ruff #131 (open) corrects four Codex findings on #129/#130: a body Charon left unstructured is still harvested, a call through a known trait impl resolves to the impl's method or the trait default, temporary files are unique per call, and a temporary name left by an interrupted import is skipped instead of aborting the import.
+
+## Slice C: queries and diagnostics (ruff #132 merged `ed8fd4194f`; `crates/lance-graph-codegraph`)
+
+Rows v2 in ruff adds the facts the queries need: `PUBLIC`, `IMPLEMENTS` (impl method → `Trait::method`), `SYNTHETIC`, `REFERENCES` (function pointers), a `CRATE … COMPLETE|PARTIAL` row, and `MAY_DISPATCH` naming the method. Charon marks trait-impl methods public, so cg_lib rev1 has 9 `PUBLIC` rows for its 7 `pub fn`s.
+
+`lance-graph-codegraph` reads the artifacts by column name (no dependency on ruff_charon) and builds one xlog cube over 15 positions (rev1). Answers are masks graded confirmed / possible / unknown; `MAY_DISPATCH` is never confirmed, and a dyn or pointer call is unknown. On the fixture:
+- `impact(double)` rev1: confirmed {Square::area, run}, possible {area_of}, unknown {area_dyn}; rev2: confirmed 4 including the 2-hop `checked`.
+- `callees(run)` rev2: 3 callees, 4 sites.
+- Dead function: rev1 `private_unused`, fnref `unused_private` (the pointer-only `helper` stays silent); rustc's `dead_code` agrees on both.
+- Dangling call: mixed store (cg_lib rev2 + cg_app rev1) exactly `run → area_dyn`, status stale; rustc reports E0425 at `cg_app/src/lib.rs:7` on the same tree.
+- Unused import: NOT_RUN, reason NO_IMPORT_FACTS (LLBC has no `use` items).
+- Release timing, ns per call: callers 5103, callees 3643, references 184, impact 387; open 166 µs and first closure 5 µs (cold, reported, not gated).
+- `cube().stats().rows_materialized == 0` after the whole suite.
+
+Twelve disable runs each turn their own test red. The one that first stayed green (dropping the impl-method exclusion from the dead-function check) is now covered by a synthetic store: Charon marks every impl method of a public trait public, so the fixtures never reach that case.
+
+Open: tiled closure for more than 64 positions and multi-tile cubes for more than 256 (mask-risc has 459 functions, so every cube query on it is refused today, as a typed UNKNOWN); import facts for unused imports; body → R2IL (G4, G7).
