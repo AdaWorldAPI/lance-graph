@@ -207,6 +207,10 @@ pub trait Interner {
     fn name(&self, id: u32) -> &str;
     /// Distinct names interned.
     fn len(&self) -> usize;
+    /// Whether nothing is interned.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl Interner for Symbols {

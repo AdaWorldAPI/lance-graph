@@ -199,9 +199,9 @@ fn a_bind_to_a_mapped_id_keeps_its_answer_across_a_rebase() {
     assert_eq!(cube.support(&table, join).unwrap(), before);
 }
 
-/// Red if `Cube::stage` changes the cube or the table (disable: let `stage`
-/// log the edges it places). Staging issues no version and logs nothing;
-/// only `commit` does.
+/// Staging issues no version and logs nothing; only `commit` does (`stage`
+/// takes `&self`, so that half is held by the type). Red if a non-extending
+/// map is staged (disable: drop the `extends` check in `Cube::stage`).
 #[test]
 fn staging_changes_nothing() {
     let (table, cube, _) = bound_to_unmapped();
