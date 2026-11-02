@@ -599,6 +599,59 @@ impl MapTable {
         self.frames.check(frame).map_err(MapRead::Stale)?;
         self.tiles.get(&tile).ok_or(MapRead::NoSuchTile(tile))
     }
+
+    /// Find which of the listed `tiles` holds `global` under `frame`.
+    /// Returns `(ordinal, local)`: the index of the holding tile in `tiles`
+    /// and the id's local position in that tile's map. Every listed tile is
+    /// read, so an id held by two of them is refused rather than resolved to
+    /// the first.
+    pub fn locate(
+        &self,
+        frame: &Frame,
+        tiles: &[TileId],
+        global: u64,
+    ) -> Result<(u32, u8), LocateRefusal> {
+        let mut found: Option<(u32, u8)> = None;
+        for (ordinal, &tile) in tiles.iter().enumerate() {
+            let map = self.map(frame, tile).map_err(LocateRefusal::Read)?;
+            // A lookup that finds nothing is not an error here; only the
+            // overall absence is.
+            if let Ok(local) = map.local(global) {
+                if found.is_some() {
+                    return Err(LocateRefusal::Ambiguous);
+                }
+                let ordinal = u32::try_from(ordinal).map_err(|_| LocateRefusal::Ambiguous)?;
+                found = Some((ordinal, local));
+            }
+        }
+        found.ok_or(LocateRefusal::Unmapped)
+    }
+}
+
+/// Why [`MapTable::locate`] refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LocateRefusal {
+    /// A listed tile could not be read under the frame (stale frame, or no
+    /// map for that tile).
+    Read(MapRead),
+    /// The id is held by more than one listed tile.
+    Ambiguous,
+    /// No listed tile holds the id.
+    Unmapped,
+}
+
+impl LocalMap {
+    /// True iff `older` is a pure prefix of `self`: same width, and every
+    /// position of `older` keeps its global id in `self`, with `self` only
+    /// appending. [`LocalMap::prepare`] does not sort the local order (only
+    /// its lookup index is sorted), so an appended id never renumbers an
+    /// existing position, whatever its value. A reorder, a removal or a
+    /// width change makes this false.
+    pub fn extends(&self, older: &LocalMap) -> bool {
+        self.width == older.width
+            && self.globals.len() >= older.globals.len()
+            && self.globals[..older.globals.len()] == older.globals[..]
+    }
 }
 
 /// The HHTL16 Cartesian address of cell `(x, y)` of one tile of `width`: the

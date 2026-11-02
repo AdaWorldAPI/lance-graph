@@ -220,7 +220,11 @@ fn the_coordinates_revision_is_a_function_of_the_held_maps() {
     assert_ne!(base, at(vec![(1, &[10, 20])]), "tile removed");
     // Same maps in the same order under another tile name: only the tile id
     // in the digest tells these apart.
-    assert_ne!(base, at(vec![(1, &[10, 20]), (3, &[30, 40])]), "tile renamed");
+    assert_ne!(
+        base,
+        at(vec![(1, &[10, 20]), (3, &[30, 40])]),
+        "tile renamed"
+    );
 }
 
 #[test]
@@ -239,4 +243,89 @@ fn a_removed_tile_is_gone_and_another_tables_frame_is_foreign() {
         a.map(&b.seal(), 1).unwrap_err(),
         MapRead::Stale(FrameRefusal::ForeignFrame)
     );
+}
+
+// ------------------------------------------- locate / extends (D-CODEGRAPH-0 wide closure)
+
+mod locate {
+    use lance_graph_dt64::dr::{LocalMap, LocateRefusal, MapRead, MapTable, TileId, Width};
+
+    fn table(tiles: Vec<(TileId, Vec<u64>)>) -> MapTable {
+        let mut t = MapTable::new(1, 1);
+        let changes = tiles
+            .into_iter()
+            .map(|(id, g)| (id, LocalMap::prepare(Width::W64, &g).ok()))
+            .collect();
+        t.advance(1, 1, changes);
+        t
+    }
+
+    /// Fails if the ordinal is the tile id instead of the index in the list,
+    /// or the local is not the position within the holding tile.
+    #[test]
+    fn locate_finds_ordinal_and_local_across_two_tiles() {
+        let t = table(vec![(7, vec![10, 20, 30]), (3, vec![40, 50])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[7, 3], 20), Ok((0, 1)));
+        assert_eq!(t.locate(&f, &[7, 3], 50), Ok((1, 1)));
+        // List order defines the ordinal.
+        assert_eq!(t.locate(&f, &[3, 7], 50), Ok((0, 1)));
+    }
+
+    /// Fails if the first hit wins instead of the overlap being refused.
+    #[test]
+    fn locate_refuses_an_id_in_two_tiles() {
+        let t = table(vec![(1, vec![5, 6]), (2, vec![6, 7])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[1, 2], 6), Err(LocateRefusal::Ambiguous));
+        // Non-vacuous: a listing that excludes the second tile resolves.
+        assert_eq!(t.locate(&f, &[1], 6), Ok((0, 1)));
+    }
+
+    /// Fails if an absent id resolves to anything, or a stale frame is read.
+    #[test]
+    fn locate_refuses_an_absent_id() {
+        let t = table(vec![(1, vec![5, 6]), (2, vec![8])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[1, 2], 99), Err(LocateRefusal::Unmapped));
+        assert_eq!(
+            t.locate(&f, &[1, 9], 5),
+            Err(LocateRefusal::Read(MapRead::NoSuchTile(9)))
+        );
+    }
+
+    fn map(width: Width, g: &[u64]) -> LocalMap {
+        LocalMap::prepare(width, g).expect("fixture")
+    }
+
+    /// Fails if appending (even an id smaller than the existing ones) is not
+    /// accepted, or if equality is not accepted as a trivial extension.
+    #[test]
+    fn extends_true_for_pure_prefix_extension() {
+        let old = map(Width::W64, &[30, 20]);
+        assert!(map(Width::W64, &[30, 20, 10]).extends(&old));
+        assert!(old.extends(&old));
+    }
+
+    /// Fails if a reorder of the same ids counts as an extension.
+    #[test]
+    fn extends_false_for_reorder() {
+        let old = map(Width::W64, &[1, 2]);
+        assert!(!map(Width::W64, &[2, 1, 3]).extends(&old));
+    }
+
+    /// Fails if dropping an id counts as an extension.
+    #[test]
+    fn extends_false_for_removal() {
+        let old = map(Width::W64, &[1, 2, 3]);
+        assert!(!map(Width::W64, &[1, 2]).extends(&old));
+        assert!(!map(Width::W64, &[1, 3]).extends(&old));
+    }
+
+    /// Fails if the width is ignored.
+    #[test]
+    fn extends_false_for_width_change() {
+        let old = map(Width::W64, &[1, 2]);
+        assert!(!map(Width::W256, &[1, 2, 3]).extends(&old));
+    }
 }
