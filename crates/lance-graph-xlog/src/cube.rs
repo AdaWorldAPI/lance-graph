@@ -34,7 +34,7 @@
 //! resident lanes (D-STAUNEN-5 P1). The delta difference is `mask_andnot`
 //! inside the cube; nothing is added to the cube and no tuple is built.
 
-use std::cell::Cell;
+use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_dt64::dr::{Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId};
@@ -200,6 +200,11 @@ pub struct Cube {
     rels: Vec<Rel>,
     /// One append-only delta log per relation, parallel to `rels`.
     logs: Vec<DeltaLog>,
+    /// Per relation, the base lanes folded with the relation's log, built on
+    /// first read when the log is non-empty and dropped whenever the base or
+    /// the log changes. A derived read: nothing persistent is written, and it
+    /// is recomputed by folding. Parallel to `rels`.
+    effective: Vec<OnceCell<Rel>>,
     nodes: Vec<Node>,
     stats: Cell<CubeStats>,
 }
@@ -227,6 +232,7 @@ impl Cube {
             snapshots: vec![snapshot(map)?],
             n: map.len(),
             logs: vec![DeltaLog::new(); rels.len()],
+            effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
             stats: Cell::new(CubeStats::default()),
@@ -281,6 +287,7 @@ impl Cube {
             snapshots,
             n: BLOCK_POSITIONS.saturating_mul(tiles.len()),
             logs: vec![DeltaLog::new(); rels.len()],
+            effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
             stats: Cell::new(CubeStats::default()),
@@ -303,6 +310,7 @@ impl Cube {
         let r = rel(tuples, map)?;
         self.rels.push(r);
         self.logs.push(DeltaLog::new());
+        self.effective.push(OnceCell::new());
         let mut s = self.stats.get();
         s.relations_added += 1;
         self.stats.set(s);
@@ -439,8 +447,38 @@ impl Cube {
         Ok(u32::from(l))
     }
 
+    /// The lanes every read goes through: relation `rel`'s base folded with
+    /// its delta log ("sparse write, merge on read"). With an empty log these
+    /// are the base lanes themselves, no copy. Otherwise they are the cached
+    /// fold, built on first use. A read never modifies the base or the log;
+    /// only [`Cube::refold`] replaces the base.
+    fn lanes(&self, rel: RelId) -> Result<&Rel, CubeRefusal> {
+        let i = rel as usize;
+        let base = self.rels.get(i).ok_or(CubeRefusal::UnknownRel(rel))?;
+        let log = self.log(rel)?;
+        if log.is_empty() {
+            return Ok(base);
+        }
+        let cell = self.effective.get(i).ok_or(CubeRefusal::UnknownRel(rel))?;
+        Ok(cell.get_or_init(|| {
+            let (src, dst) = wide::refold(&base.cols[0], &base.cols[1], log);
+            Rel {
+                n: src.len(),
+                live: all_live(src.len()),
+                cols: [src, dst],
+            }
+        }))
+    }
+
+    /// Drops relation `rel`'s cached effective lanes.
+    fn invalidate(&mut self, rel: RelId) {
+        if let Some(c) = self.effective.get_mut(rel as usize) {
+            c.take();
+        }
+    }
+
     fn run(&self, side: Side, query: &Query, out: Out<'_>) -> Result<(), CubeRefusal> {
-        let r = &self.rels[side.rel as usize];
+        let r = self.lanes(side.rel)?;
         let lanes = [LaneRef::U32(&r.cols[0]), LaneRef::U32(&r.cols[1])];
         let mut s = self.stats.get();
         s.programs += 1;
@@ -530,10 +568,7 @@ impl Cube {
         table: &MapTable,
         rel: RelId,
     ) -> Result<(Closure, ClosureStats), CubeRefusal> {
-        let r = self
-            .rels
-            .get(rel as usize)
-            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        let r = self.lanes(rel)?;
         self.check_frame(table)?;
         if self.n > 64 {
             return Err(CubeRefusal::ClosureWidth(self.n));
@@ -574,26 +609,19 @@ impl Cube {
     ///
     /// The edges used are the relation's *effective* edges: its base lanes
     /// folded with the relation's delta log ([`Cube::add_edge`],
-    /// [`Cube::retire_edge`]). The fold is done on the fly and the base is not
-    /// changed; replacing it is the explicit [`Cube::refold`]. The narrow
-    /// [`Cube::closure`] still reads the base lanes only.
+    /// [`Cube::retire_edge`]), read through the same accessor as every other
+    /// read, so the narrow [`Cube::closure`] and the terminals agree with it.
+    /// The base and the log are not changed by a read; replacing the base is
+    /// the explicit [`Cube::refold`].
     pub fn closure_wide(
         &self,
         table: &MapTable,
         rel: RelId,
     ) -> Result<(WideRows, WideStats), CubeRefusal> {
-        let r = self
-            .rels
-            .get(rel as usize)
-            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        let r = self.lanes(rel)?;
         self.check_frame(table)?;
         let n = u32::try_from(self.n).unwrap_or(u32::MAX);
-        let log = self.log(rel)?;
-        if log.is_empty() {
-            return wide::closure_wide(n, &r.cols[0], &r.cols[1]).map_err(CubeRefusal::Wide);
-        }
-        let (src, dst) = wide::refold(&r.cols[0], &r.cols[1], log);
-        wide::closure_wide(n, &src, &dst).map_err(CubeRefusal::Wide)
+        wide::closure_wide(n, &r.cols[0], &r.cols[1]).map_err(CubeRefusal::Wide)
     }
 
     fn log(&self, rel: RelId) -> Result<&DeltaLog, CubeRefusal> {
@@ -619,6 +647,7 @@ impl Cube {
         if let Some(l) = self.logs.get_mut(rel as usize) {
             l.add(s, d);
         }
+        self.invalidate(rel);
         Ok(())
     }
 
@@ -639,6 +668,7 @@ impl Cube {
         if let Some(l) = self.logs.get_mut(rel as usize) {
             l.retire(s, d);
         }
+        self.invalidate(rel);
         Ok(())
     }
 
@@ -699,6 +729,7 @@ impl Cube {
         if let Some(l) = self.logs.get_mut(rel as usize) {
             *l = DeltaLog::new();
         }
+        self.invalidate(rel);
         Ok(())
     }
 
@@ -727,6 +758,10 @@ impl Cube {
         }
         self.snapshots = next;
         self.frame = frame.clone();
+        // `n` may have grown; cached folds were built under the old one.
+        for c in &mut self.effective {
+            c.take();
+        }
         Ok(())
     }
 
@@ -745,19 +780,11 @@ impl Cube {
         }
         let map = self.map(table)?;
         let keep = &self.support(table, join)?;
-        let rows = |side: Side, jc: u8| {
-            let rel = &self.rels[side.rel as usize];
-            let fc = 1 - jc as usize;
-            let (j, f) = (&rel.cols[jc as usize], &rel.cols[fc]);
-            let bound = side.bound.map(|(_, v)| v);
-            (0..j.len())
-                .filter(move |&i| keep[j[i] as usize / 64] >> (j[i] % 64) & 1 == 1)
-                .filter(move |&i| bound.is_none_or(|v| v == Some(f[i])))
-                .map(move |i| (j[i], f[i]))
-        };
+        let (rel_l, rel_r) = (self.lanes(l.rel)?, self.lanes(r.rel)?);
+        let rows = side_rows;
         let mut out = Vec::new();
-        for (jl, fl) in rows(l, lc) {
-            for (jr, fr) in rows(r, rc) {
+        for (jl, fl) in rows(keep, l, rel_l, lc) {
+            for (jr, fr) in rows(keep, r, rel_r, rc) {
                 if jl == jr {
                     let g = |x: u32| map.global(x as u8).expect("local position from intake");
                     out.push((g(fl), g(jl), g(fr)));
@@ -769,6 +796,27 @@ impl Cube {
         self.stats.set(s);
         Ok(out)
     }
+}
+
+/// The `(join value, free value)` pairs of one side's effective lanes whose
+/// join value is in `keep` and which satisfy the side's bound.
+fn side_rows<'a>(
+    keep: &'a [u64],
+    side: Side,
+    rel: &'a Rel,
+    jc: u8,
+) -> impl Iterator<Item = (u32, u32)> + 'a {
+    let fc = 1 - jc as usize;
+    let (j, f) = (&rel.cols[jc as usize], &rel.cols[fc]);
+    let bound = side.bound.map(|(_, v)| v);
+    (0..j.len())
+        .filter(move |&i| keep[j[i] as usize / 64] >> (j[i] % 64) & 1 == 1)
+        .filter(move |&i| bound.is_none_or(|v| v == Some(f[i])))
+        .map(move |i| (j[i], f[i]))
+}
+
+fn empty_effective(n: usize) -> Vec<OnceCell<Rel>> {
+    (0..n).map(|_| OnceCell::new()).collect()
 }
 
 fn check_col(col: u8) -> Result<(), CubeRefusal> {

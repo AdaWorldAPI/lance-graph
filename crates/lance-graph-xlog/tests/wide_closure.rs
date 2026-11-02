@@ -223,7 +223,10 @@ fn three_tile_graph_with_cross_tile_cycles_matches_bfs() {
         if ring {
             assert_eq!(pairs, u64::from(ids) * u64::from(ids), "{name}: all pairs");
         } else {
-            assert!(pairs > 0 && pairs < u64::from(ids) * u64::from(ids), "{name}");
+            assert!(
+                pairs > 0 && pairs < u64::from(ids) * u64::from(ids),
+                "{name}"
+            );
         }
     }
 }
@@ -250,10 +253,7 @@ fn absent_blocks_allocate_nothing() {
     let (rows, stats) = cube.closure_wide(&table, 0).unwrap();
     let reference_a = reference(512, &vec_of(&edges));
     assert_matches_ref(&rows, &reference_a, "in-tile");
-    let rows_with_reach = reference_a
-        .iter()
-        .filter(|r| r.iter().any(|&b| b))
-        .count() as u64;
+    let rows_with_reach = reference_a.iter().filter(|r| r.iter().any(|&b| b)).count() as u64;
     assert!(rows_with_reach > 0, "fixture must reach something");
     // Each reaching row stores exactly one block (its own tile's); no cross.
     assert_eq!(stats.blocks_allocated, rows_with_reach);
@@ -331,7 +331,9 @@ fn refresh_equals_rebuild_after_every_step() {
         eff.insert(e);
     }
     assert!(eff.len() > base.len(), "step 1 must add something new");
-    let s1 = check_step("add-only", &cube, &table, &frame, &old, &base, &ref_base, &eff);
+    let s1 = check_step(
+        "add-only", &cube, &table, &frame, &old, &base, &ref_base, &eff,
+    );
     assert_eq!(s1.rows_recomputed, 0, "an add-only step recomputes no row");
 
     // Step 2: retire only, from the base.
@@ -342,8 +344,20 @@ fn refresh_equals_rebuild_after_every_step() {
         retired += usize::from(eff.remove(&e));
     }
     assert!(retired > 0, "step 2 must retire a base edge");
-    let s2 = check_step("retire-only", &cube, &table, &frame, &old, &base, &ref_base, &eff);
-    assert!(s2.rows_recomputed > 0, "a retire recomputes the rows it can reach");
+    let s2 = check_step(
+        "retire-only",
+        &cube,
+        &table,
+        &frame,
+        &old,
+        &base,
+        &ref_base,
+        &eff,
+    );
+    assert!(
+        s2.rows_recomputed > 0,
+        "a retire recomputes the rows it can reach"
+    );
     assert!(s2.rows_recomputed < N_RES as u64, "but not every row");
 
     // Step 3: mixed.
@@ -366,16 +380,27 @@ fn refresh_equals_rebuild_after_every_step() {
             break e;
         }
     };
-    cube.add_edge(&table, 0, fresh_edge.0, fresh_edge.1).unwrap();
-    cube.retire_edge(&table, 0, fresh_edge.0, fresh_edge.1).unwrap();
-    let s4 = check_step("cancel", &cube, &table, &frame, &old, &base, &ref_base, &eff);
-    assert_eq!(s4.rows_recomputed, s3.rows_recomputed, "a cancelled edge adds no work");
+    cube.add_edge(&table, 0, fresh_edge.0, fresh_edge.1)
+        .unwrap();
+    cube.retire_edge(&table, 0, fresh_edge.0, fresh_edge.1)
+        .unwrap();
+    let s4 = check_step(
+        "cancel", &cube, &table, &frame, &old, &base, &ref_base, &eff,
+    );
+    assert_eq!(
+        s4.rows_recomputed, s3.rows_recomputed,
+        "a cancelled edge adds no work"
+    );
 
     // Cancel on its own: a log of only add-then-retire leaves the closure
     // bit for bit and recomputes nothing.
     let mut quiet = tiled_cube(&table, &frame, &TILES, &base);
-    quiet.add_edge(&table, 0, fresh_edge.0, fresh_edge.1).unwrap();
-    quiet.retire_edge(&table, 0, fresh_edge.0, fresh_edge.1).unwrap();
+    quiet
+        .add_edge(&table, 0, fresh_edge.0, fresh_edge.1)
+        .unwrap();
+    quiet
+        .retire_edge(&table, 0, fresh_edge.0, fresh_edge.1)
+        .unwrap();
     assert_eq!(quiet.delta_len(0), 2);
     let (same, s) = quiet.refresh_closure(&table, 0, &old).unwrap();
     assert_rows_eq(&same, &old, "cancel-only");
@@ -461,7 +486,10 @@ fn rebase_accepts_prefix_extension_and_refuses_reorder() {
         1,
         1,
         vec![
-            (10, Some(LocalMap::prepare(Width::W256, &globals_a).unwrap())),
+            (
+                10,
+                Some(LocalMap::prepare(Width::W256, &globals_a).unwrap()),
+            ),
             (20, Some(LocalMap::prepare(Width::W256, &swapped).unwrap())),
         ],
     );
