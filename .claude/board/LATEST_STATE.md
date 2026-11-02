@@ -1,3 +1,7 @@
+## 2026-11-02 — main after #1927 (merged `6768811df`)
+
+- DT64 method-authority census (D-DT64-AUTH): a committed table and a two-way ratchet in `lance-graph-r2il` and `lance-graph-xlog` tests.
+
 ## 2026-11-02 — main after #1926 (merged `ade765d6f`)
 
 - Codegraph: the G10 × G11 publication lab (L1–L6) — prepared land, fenced durable commit, crash recovery from the durable record, branch-local routing. D-TGL-PUB lab steps 1–3 are complete; EXO-148 stays locked.

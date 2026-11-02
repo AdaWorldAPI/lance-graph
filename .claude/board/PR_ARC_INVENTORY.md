@@ -1,3 +1,14 @@
+## 2026-11-02 — lance-graph PR #1927 (merged `6768811df`, branch `claude/clone-repositories-71a5sw`) — D-DT64-AUTH method-authority census; post-merge record for #1926
+
+- **Added:**
+  - `crates/lance-graph-r2il/dt64-authority-census.tsv`: 2 LENS rows (F000 polyfill, F100 XLOG) and 6 LAB rows (`MethodSignature`, tract `Registry`, XLOG `Word`, `FnIndex`, `FoldDialect`, `procs`).
+  - r2il census test: two-way lens-mint sweep, polyfill declaration replay, stale-exception check, can-fire and silence tests. An XLOG test checks its own row.
+  - Post-merge record for #1926.
+- **Locked:** DT64 is the one method authority; every production behaviour lens is pinned by its declaration; every deviation is listed with a removal path.
+- **Deferred:** migrating any adapter; executing through DT64; lens mints spelled as raw literals are not seen by the sweep.
+- **Confidence:** r2il 6 + xlog 1 tests; 4 disables red.
+- **Stranded:** two board commits made after the merge point (D-CODEGRAPH-0-BIN writer in review, then merged as ruff #133); carried by the next PR.
+
 ## 2026-11-02 — lance-graph PR #1926 (merged `ade765d6f`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB step 3: G10 × G11 publication lab, falsifiers L1–L6
 
 - **Added:**
