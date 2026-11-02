@@ -1,17 +1,19 @@
-//! The codegraph: artifact rows interned into one tile of symbol positions
-//! and folded into six relations of an xlog [`Cube`].
+//! The codegraph: artifact rows interned into symbol positions (one 64- or
+//! 256-position tile, or several 256-position tiles) and folded into six
+//! relations of an xlog [`Cube`].
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::path::Path;
 
-use lance_graph_dt64::dr::{LocalMap, MapRefusal, MapTable, TileId, Width};
-use lance_graph_xlog::cube::{Closure, ClosureStats, Cube, CubeRefusal, RelId};
+use lance_graph_dt64::dr::{Axis, LocalMap, MapRefusal, MapTable, TileId, Width};
+use lance_graph_xlog::cube::{Cube, CubeRefusal, RelId};
+use lance_graph_xlog::wide::{WideRows, WideStats};
 
 use crate::artifact::{self, Lanes, NO_SPAN};
 
-/// A symbol's local position in the tile (at most 256 symbols).
-pub type Pos = u8;
+/// A symbol's position: its interning index, which is also its cube coordinate.
+pub type Pos = u32;
 
 /// Why a directory could not become a [`Codegraph`].
 #[derive(Debug)]
@@ -34,8 +36,6 @@ pub enum IntakeRefusal {
         /// The offending line.
         line: usize,
     },
-    /// More than 256 symbols: one tile cannot hold them. Carries the count.
-    TooMany(usize),
     /// The tile map was refused.
     Map(MapRefusal),
     /// The cube was refused.
@@ -64,7 +64,8 @@ pub const RCONF: RelId = 4;
 /// `RPOSS`: the possible reverse edges, including dispatch and `?dynamic`.
 pub const RPOSS: RelId = 5;
 
-const TILE: TileId = 0;
+/// Positions per full tile of a multi-tile store.
+const TILE_POSITIONS: usize = 256;
 const NONE: u32 = u32::MAX;
 const DYNAMIC: &str = "?dynamic";
 
@@ -92,15 +93,15 @@ pub struct Codegraph {
     table: MapTable,
     cube: Cube,
     masks: Masks,
-    rconf: OnceCell<(Closure, ClosureStats)>,
-    rposs: OnceCell<(Closure, ClosureStats)>,
+    rconf: OnceCell<(WideRows, WideStats)>,
+    rposs: OnceCell<(WideRows, WideStats)>,
 }
 
-fn intern(names: &mut Vec<String>, index: &mut HashMap<String, u32>, s: &str) -> u32 {
+fn intern(names: &mut Vec<String>, index: &mut HashMap<String, Pos>, s: &str) -> Pos {
     if let Some(&p) = index.get(s) {
         return p;
     }
-    let p = names.len() as u32;
+    let p = names.len() as Pos;
     names.push(s.to_string());
     index.insert(s.to_string(), p);
     p
@@ -111,7 +112,7 @@ fn dispatch_target(object: &str) -> &str {
     object.split(" via ").next().unwrap_or(object)
 }
 
-fn set(words: &mut [u64], p: u32) {
+fn set(words: &mut [u64], p: Pos) {
     words[p as usize / 64] |= 1 << (p % 64);
 }
 
@@ -124,7 +125,7 @@ impl Codegraph {
         // Pass 1: intern symbols in first-seen row order; remember each row's
         // subject and object ids in lanes (NONE when the row has no symbol).
         let mut names: Vec<String> = Vec::new();
-        let mut idx: HashMap<String, u32> = HashMap::new();
+        let mut idx: HashMap<String, Pos> = HashMap::new();
         let mut sid = vec![NONE; rows];
         let mut oid = vec![NONE; rows];
         let mut any_dynamic = false;
@@ -159,11 +160,6 @@ impl Codegraph {
         }
         let dyn_id = any_dynamic.then(|| intern(&mut names, &mut idx, DYNAMIC));
         let n = names.len();
-        let width = match n {
-            0..=64 => Width::W64,
-            65..=256 => Width::W256,
-            _ => return Err(IntakeRefusal::TooMany(n)),
-        };
         let words = n.div_ceil(64);
 
         // Pass 2: relations and masks.
@@ -215,19 +211,42 @@ impl Codegraph {
         for (p, name) in names.iter().enumerate() {
             let owner = name.split("::").next().unwrap_or(name);
             if crates.contains_key(owner) {
-                set(&mut m.stored_owner, p as u32);
+                set(&mut m.stored_owner, p as Pos);
             }
         }
 
-        let ids: Vec<u64> = (0..n as u64).collect();
-        let map = LocalMap::prepare(width, &ids).map_err(IntakeRefusal::Map)?;
+        // Tile t holds the global ids [t*256, min(n, (t+1)*256)). Every tile
+        // but the last is full, so tile t's local j sits at cube coordinate
+        // t*256 + j == the global id == the symbol's position. The masks and
+        // `symbol()` rely on coordinate == position.
+        let axis = Axis::for_survivors(n);
+        let mut changes = Vec::new();
+        let mut tile_ids: Vec<TileId> = Vec::new();
+        for t in 0..axis.tiles {
+            let lo = t as usize * TILE_POSITIONS;
+            let hi = n.min(lo + TILE_POSITIONS);
+            debug_assert!(
+                axis.tiles == 1 || t + 1 == axis.tiles || hi - lo == TILE_POSITIONS,
+                "only the last tile may be partly filled"
+            );
+            let ids: Vec<u64> = (lo as u64..hi as u64).collect();
+            let map = LocalMap::prepare(axis.tile, &ids).map_err(IntakeRefusal::Map)?;
+            changes.push((t, Some(map)));
+            tile_ids.push(t);
+        }
+        debug_assert!(axis.tiles == 1 || axis.tile == Width::W256);
         let mut table = MapTable::new(1, 1);
-        table.advance(1, 1, vec![(TILE, Some(map))]);
+        table.advance(1, 1, changes);
         let frame = table.seal();
         let slices: Vec<&[(u32, u32)]> = rel.iter().map(Vec::as_slice).collect();
-        let cube = Cube::new(&table, &frame, TILE, &slices).map_err(IntakeRefusal::Cube)?;
+        let cube = if axis.tiles == 1 {
+            Cube::new(&table, &frame, 0, &slices)
+        } else {
+            Cube::new_tiled(&table, &frame, &tile_ids, &slices)
+        }
+        .map_err(IntakeRefusal::Cube)?;
 
-        let index = idx.into_iter().map(|(k, v)| (k, v as Pos)).collect();
+        let index = idx.into_iter().map(|(k, v)| (k, v)).collect();
         Ok(Self {
             lanes,
             names,
@@ -248,7 +267,7 @@ impl Codegraph {
 
     /// The symbol at position `p`.
     pub fn symbol(&self, p: Pos) -> Option<&str> {
-        self.names.get(usize::from(p)).map(String::as_str)
+        self.names.get(p as usize).map(String::as_str)
     }
 
     /// Mask words per position mask: `n.div_ceil(64)`.
@@ -261,7 +280,7 @@ impl Codegraph {
         let mut w = vec![0u64; self.words()];
         for s in symbols {
             if let Some(p) = self.pos(s) {
-                set(&mut w, u32::from(p));
+                set(&mut w, p);
             }
         }
         w
@@ -365,9 +384,8 @@ impl Codegraph {
     }
 
     /// `edge⁺` of [`RCONF`] or [`RPOSS`], computed once and cached. Any other
-    /// relation is `UnknownRel`; more than 64 positions is `ClosureWidth`
-    /// (the cube's limit).
-    pub fn closure(&self, rel: RelId) -> Result<&(Closure, ClosureStats), CubeRefusal> {
+    /// relation is `UnknownRel`. Any number of positions closes.
+    pub fn closure(&self, rel: RelId) -> Result<&(WideRows, WideStats), CubeRefusal> {
         let cell = match rel {
             RCONF => &self.rconf,
             RPOSS => &self.rposs,
@@ -376,7 +394,7 @@ impl Codegraph {
         if let Some(c) = cell.get() {
             return Ok(c);
         }
-        let computed = self.cube.closure(&self.table, rel)?;
+        let computed = self.cube.closure_wide(&self.table, rel)?;
         Ok(cell.get_or_init(|| computed))
     }
 }

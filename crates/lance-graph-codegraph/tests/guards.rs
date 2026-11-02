@@ -5,8 +5,7 @@ use std::path::PathBuf;
 
 use lance_graph_codegraph::diag::{CrateKind, Run};
 use lance_graph_codegraph::graph::IntakeRefusal;
-use lance_graph_codegraph::query::QueryRefusal;
-use lance_graph_codegraph::{Codegraph, Pos};
+use lance_graph_codegraph::Codegraph;
 
 const HEADER: &str = "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n";
 
@@ -27,10 +26,13 @@ fn pop(mask: &[u64]) -> u32 {
     mask.iter().map(|w| w.count_ones()).sum()
 }
 
-/// Fails if a 70-symbol chain is refused at open, or if impact does not
-/// refuse with ClosureWidth(70) (the answer must be UNKNOWN, not empty).
+/// Re-pinned: this used to assert `ClosureWidth(70)` because the cube's
+/// closure held one `u64` per row. Closures are now wide, so a 70-symbol
+/// chain (two words per row) must close across the word boundary. The chain
+/// is f0 -> f1 -> ... -> f69, so the callers of f69 transitively are f0..f68.
+/// Fails if any of those 69 bits is lost, including those in the second word.
 #[test]
-fn closure_wider_than_64_is_refused() {
+fn a_70_function_chain_closes_across_words() {
     let mut text = String::from(HEADER);
     for i in 0..70 {
         text += &row("DEFINES", &format!("chain::f{i}"), &format!("chain::f{i}"));
@@ -44,27 +46,31 @@ fn closure_wider_than_64_is_refused() {
     }
     text += "CRATE\tchain\tCOMPLETE\tCOMPILER\t-\t-\t-\n";
     let dir = write("chain", &text);
-    let g = Codegraph::open(&dir).expect("70 symbols fit a tile");
-    let f0 = g.pos("chain::f0").unwrap();
-    let r = g.impact(f0);
-    assert!(matches!(r, Err(QueryRefusal::ClosureWidth(70))), "{r:?}");
+    let g = Codegraph::open(&dir).expect("70 symbols open");
+    let f69 = g.pos("chain::f69").unwrap();
+    let r = g.impact(f69).expect("wide closure never refuses");
+    assert_eq!(pop(&r.confirmed), 69);
+    let others: Vec<String> = (0..69).map(|i| format!("chain::f{i}")).collect();
+    let refs: Vec<&str> = others.iter().map(String::as_str).collect();
+    assert_eq!(r.confirmed, g.mask_of(&refs));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// Fails if 300 symbols are accepted into one 256-position tile.
+/// Re-pinned: this used to assert `TooMany(300)`. A store of any size opens
+/// now: 300 symbols take two 256-position tiles, and coordinates equal
+/// positions. Fails if open is refused or a position past the first tile
+/// does not round-trip.
 #[test]
-fn too_many_symbols_is_refused() {
+fn three_hundred_symbols_open_across_two_tiles() {
     let mut text = String::from(HEADER);
     for i in 0..300 {
         text += &row("DEFINES", &format!("big::s{i}"), &format!("big::s{i}"));
     }
     let dir = write("many", &text);
-    let r = Codegraph::open(&dir);
-    assert!(
-        matches!(r, Err(IntakeRefusal::TooMany(300))),
-        "{:?}",
-        r.err()
-    );
+    let g = Codegraph::open(&dir).expect("300 symbols open");
+    assert!(g.symbol(299).is_some());
+    assert_eq!(g.pos("big::s299"), Some(299));
+    assert_eq!(g.symbol(300), None);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -125,8 +131,7 @@ fn permuted_columns_read_identically() {
     assert_eq!(a.rows(), b.rows());
     assert_eq!(a.words(), b.words());
     assert!(pop(a.fns()) > 0 && pop(a.called()) > 0 && pop(a.may_targets()) > 0);
-    for pos in 0..=u8::MAX {
-        let pos: Pos = pos;
+    for pos in 0..=255_u32 {
         assert_eq!(a.symbol(pos), b.symbol(pos));
     }
     assert_eq!(a.fns(), b.fns());

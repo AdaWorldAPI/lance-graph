@@ -139,10 +139,10 @@ impl Codegraph {
                     else {
                         continue;
                     };
-                    let callee = usize::from(callee);
+                    let callee = callee as usize;
                     if !has_bit(self.fns(), callee) && has_bit(self.stored_owner(), callee) {
                         set_bit(&mut dangling_rows, r);
-                        set_bit(&mut dangling_callers, usize::from(caller));
+                        set_bit(&mut dangling_callers, caller as usize);
                     }
                 }
                 _ => {}
