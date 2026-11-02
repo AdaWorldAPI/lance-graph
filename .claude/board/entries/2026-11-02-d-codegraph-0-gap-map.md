@@ -67,3 +67,21 @@ Not yet: rust-analyzer as an independent check of the rows (the comparison is st
 ## Correction (2026-11-02): G8 withdrawn
 
 The ruff sink is not unmerged. Ruff PRs #101 (`RefinedTruthSink` + offline backend), #102 (v2 facts/residuals artifacts and their reader) and #103 (round-trip reconstruction oracle) merged on 2026-08-18. The #121 replay carried their content onto today's `main` (`crates/ruff_r2il/src/sink.rs:72` `pub trait RefinedTruthSink`; `read_facts`, `read_residuals`), where it has since changed. The three `claude/r2il-pr2-*` branches only look unmerged because they share no history with the rebuilt `main`. Slice B builds on `main`'s `sink.rs`, not on those branches.
+
+## Slice B: the offline store (ruff #130, merged `95be2e480b`)
+
+`ruff_charon::store::Store` persists per crate: relation rows, residuals, and the FNV-1a digest of every source file Charon read. The artifacts follow `ruff_r2il::sink`'s discipline (`#version` + `#schema`, readers keyed by column names). `RefinedTruthSink` is not reused: it is typed to R2IL `FlatFact`s, and these rows are call relations.
+
+The unit of update is the crate: `import` replaces all of a crate's artifacts, `stale(root)` names crates with a changed or vanished file, `with_dependents` adds their dependents, and `dangling()` reports call rows whose callee no stored crate defines.
+
+On the fixture, rev1 → rev2 (rev2 now also deletes `area_dyn` from `cg_lib` and drops its call from `cg_app`):
+- **Incremental == clean.** Refreshing both crates gives the same rows as a clean rev2 import; through the CLI the store directories are byte-identical (`diff -r`).
+- **Deletions.** `triple` and `area_dyn` leave no rows.
+- **Skipped dependent.** Refreshing only `cg_lib` leaves exactly one dangling edge, `cg_app::run → cg_lib::area_dyn`.
+- **Staleness.** `stale` is empty on unchanged sources, names `cg_lib` after a one-byte edit, and names both crates on the rev2 tree.
+
+Five disable runs each turn their own tests red.
+
+G5 (resident, incremental store) is closed for the offline form. Still open: residency in lance-graph's SoA (a lance-graph-side reader of these artifacts), then the queries of slice C.
+
+ruff #131 (open) corrects four Codex findings on #129/#130: a body Charon left unstructured is still harvested, a call through a known trait impl resolves to the impl's method or the trait default, temporary files are unique per call, and a temporary name left by an interrupted import is skipped instead of aborting the import.
