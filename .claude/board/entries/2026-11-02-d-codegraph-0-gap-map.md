@@ -36,3 +36,17 @@ What the two frontends disagree on, and who is right:
 2. **Compiled-out code.** rust-analyzer records a reference to `double` at `cg_lib/src/lib.rs` 261..267, inside `#[cfg(any())]`, and Kythe serves it as a live reference. Charon has no such item. rustc is the authority: the reference does not exist in the build. Any reader of rust-analyzer references must drop those inside its own `inactive_code` diagnostic ranges (here 210..272).
 
 OPEN from this run: a cross-crate callee is named by Charon as `cg_lib::shapes::Impl::area`, ambiguous by name; the join only covers the local crate, so cross-crate callees still need a span join against the defining crate.
+
+## The earlier sessions' runs, reproduced here (2026-11-02)
+
+Before building on D-SAG-6-1/6-2 (#1876, #1878, #1883, #1894), their recorded runs were repeated in this container with the same tools:
+
+| Run | Recorded | Here |
+|---|---|---|
+| `ident_chain.py` on `sag_ident` A→B, A→B declared, A→C, A→D | AMBIGUOUS; DECLARED (`sid-6` continues); MOVED via resolve; REBOUND | identical |
+| Kythe on `sag_fixture` | 138 rows, 591 entries, 4 `Attribute` skipped, 24/24 symbols, 3 pins fail (all inside `assert_eq!` in `tests/law.rs`), exit 1 | identical |
+| Charon + `span_join.py` on `lance-graph-mask-risc` | 459 bodies: EXACT 140, ENCLOSED 186, DERIVED 123, UNJOINED 10; impls paired 175, ra-only 0, charon-only 205 | EXACT **141**, ENCLOSED 186, DERIVED **122**, UNJOINED 10 (1 `const _`, 9 drop glue); impls identical |
+
+The one difference: the derived `PartialEq::eq` of `Operand` (`ir.rs:6`) and of `Tern2Fold` (`ir.rs:1533`) now join EXACT, because rust-analyzer reports a symbol for the derive-generated method whose name sits on the `#[derive(...)]` line and EXACT is tried before DERIVED. The joined item is the same; only the class changed. `mask-risc`'s source has not changed since #1883, so the cause is a tool or frontend version, not determined from the record. Measured here: whole-workspace rust-analyzer dump 9.2 s load + 134 s index (1,491 files, 1,144,242 occurrences); Charon on `mask-risc` 33 s build, 441 MB LLBC (`--no-dedup-serialized-ast`); `span_join.py` 63 s.
+
+Not rerun: the contract crate (7,189 bodies). At 441 MB of LLBC for 459 bodies, the Python join loading the file whole is the limit, which is one concrete reason the intake belongs in Rust over `charon_lib`'s typed reader.
