@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-550 entries, 2026-08-06 .. 2026-11-02.
+551 entries, 2026-08-06 .. 2026-11-02.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-02 | `p4-thought-git-codegraph-dt64-review` |  | [2026-11-02-p4-thought-git-codegraph-dt64-review.md](2026-11-02-p4-thought-git-codegraph-dt64-review.md) |
 | 2026-11-02 | `p4-operator-decisions-lifecycle-lab` |  | [2026-11-02-p4-operator-decisions-lifecycle-lab.md](2026-11-02-p4-operator-decisions-lifecycle-lab.md) |
 | 2026-11-02 | `D-TGL` |  | [2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md](2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md) |
+| 2026-11-02 | `D-DT64-AUTH` |  | [2026-11-02-d-dt64-auth-census-shipped.md](2026-11-02-d-dt64-auth-census-shipped.md) |
 | 2026-11-02 | `D-CODEGRAPH-0` |  | [2026-11-02-d-codegraph-0-gap-map.md](2026-11-02-d-codegraph-0-gap-map.md) |
 | 2026-11-02 | `codegraph-review-operator-decisions` |  | [2026-11-02-codegraph-review-operator-decisions.md](2026-11-02-codegraph-review-operator-decisions.md) |
 | 2026-11-02 | `codegraph-dr3-dt64-ruff-architecture-review` |  | [2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md](2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md) |

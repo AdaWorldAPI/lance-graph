@@ -1,3 +1,12 @@
+## 2026-11-02 — lance-graph PR #1926 (merged `ade765d6f`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB step 3: G10 × G11 publication lab, falsifiers L1–L6
+
+- **Added:**
+  - Codegraph `graph/publication.rs` (test-only): prepare (`prepare_refresh` + `check_route`), durable commit through `LabWal`, infallible publication (`commit_refresh`, `route`, watermark); recovery from the durable image in canonical cycle order; strict land-record codec.
+  - Post-merge record for #1925.
+- **Locked:** the land record carries no positions and no `RouteVersion`; route re-application is not idempotent, so the watermark is load-bearing for DT64; physical-order replay combined with a watermark silently loses records.
+- **Deferred:** production gates G9–G12 + EXO-148 (all open); D-TGB-7; the 512-byte writer ABI.
+- **Confidence:** codegraph 17 lib tests; 5 disables red at the intended assertion. Lab results satisfy no production gate.
+
 ## 2026-11-02 — lance-graph PR #1925 (merged `e89e61790`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB steps 1–2: `check_route`, lab `WalSink`; stale-closure fix
 
 - **Added:**

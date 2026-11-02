@@ -1,6 +1,7 @@
 # Plan: DT64 as the one method authority — census and ratchet (2026-11-02)
 
 **D-id:** D-DT64-AUTH ([STATUS_BOARD](../board/STATUS_BOARD.md)).
+**Status:** SHIPPED 2026-11-02: table `crates/lance-graph-r2il/dt64-authority-census.tsv` (const-table option chosen as a committed TSV beside the polyfill; home `lance-graph-r2il`, plus `lance-graph-xlog` for its own row since r2il does not depend on xlog); C1-C3 green with disables red ([entry](../board/entries/2026-11-02-d-dt64-auth-census-shipped.md)).
 **Source:** architecture review
 [entry](../board/entries/2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md) §2, §7 P3.
 
