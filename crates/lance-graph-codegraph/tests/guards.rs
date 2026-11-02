@@ -163,3 +163,25 @@ fn partial_crate_gives_partial_run() {
     let _ = std::fs::remove_dir_all(&dp);
     let _ = std::fs::remove_dir_all(&dc);
 }
+
+/// Fails if a trait-impl method with no direct caller is reported dead.
+/// Charon marks impl methods public whenever the trait is, so the fixtures
+/// never reach this case; an impl of a private trait is not public and is
+/// called only through dispatch.
+#[test]
+fn an_uncalled_private_impl_method_is_not_dead() {
+    let mut t = String::from(HEADER);
+    t += &row("DEFINES", "lib::impl_T_for_S::m", "lib::impl_T_for_S::m");
+    t += &row("IMPLEMENTS", "lib::impl_T_for_S::m", "lib::T::m");
+    t += &row("DEFINES", "lib::dead", "lib::dead");
+    t += "CRATE\tlib\tCOMPLETE\tCOMPILER\t-\t-\t-\n";
+    let d = write("private_impl", &t);
+    let g = Codegraph::open(&d).unwrap();
+    let dead = &g.diagnostics(CrateKind::Lib)[0].positions;
+    assert_eq!(
+        *dead,
+        g.mask_of(&["lib::dead"]),
+        "the impl method must stay silent"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
