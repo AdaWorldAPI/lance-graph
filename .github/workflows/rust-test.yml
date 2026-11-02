@@ -150,6 +150,14 @@ jobs:
         run: cargo test --manifest-path crates/lance-graph-dt64/Cargo.toml
       - name: Run xlog tests
         run: cargo test --manifest-path crates/lance-graph-xlog/Cargo.toml
+      # lance-graph-codegraph is workspace-EXCLUDED (own [workspace], as
+      # sag-ra-probe), so no line above reaches it. Its suites pin the atomic
+      # refresh (a refused refresh changes nothing; a retry equals the refresh
+      # that never failed, call-site multiplicity included), the guards, and
+      # the hand-checked oracle answers over the committed fixtures. Until
+      # this line they ran in no workflow.
+      - name: Run codegraph tests (workspace-excluded)
+        run: cargo test --manifest-path crates/lance-graph-codegraph/Cargo.toml
       # weather-poc is workspace-EXCLUDED. A new workflow introduced by the
       # same pull request cannot gate that pull request because `pull_request`
       # workflow selection comes from the base branch. Run both surfaces here

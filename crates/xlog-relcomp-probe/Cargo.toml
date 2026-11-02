@@ -45,7 +45,9 @@ causal-edge = { path = "../causal-edge" }
 # egglog, on the coordinate dr-math-binding-probe already uses, for the
 # shared-relation experiment (tests/shared_relation.rs): equality with proofs
 # over the same DR64 register the closure reads.
-egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
+# Pinned to one commit, the same in every crate that links egglog
+# (DECISION 2026-11-02; a branch and a rev are two sources to cargo).
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", rev = "5deaa5637a306c48c998f88d5d08792d2dbfd037" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 lance-graph-contract = { path = "../lance-graph-contract" }

@@ -489,7 +489,7 @@ None of these are done by S0. Classes: SAFE NOW (edit with this docs PR), SEPARA
 | `PR_ARC_INVENTORY.md` has no entries for #1726–#1739; its top entry is #1725 (catch-up comment: "#1660–#1725 had no entries"). | worktree read, line 1-3 | SEPARATE PR (board catch-up) |
 | `STATUS_BOARD.md` row D-TGA-5D (`:389`) says "In PR" although #1739 merged (merge `9a458cae6`). | worktree read | SEPARATE PR (board) |
 | STATUS_BOARD has no D-DRMC / D-QR rows on main; #1742 adds a D-DRMC section. | consolidated F7 | BLOCKED on #1742 |
-| `egglog` is a git dependency on `branch = "main"` with no `rev` (`crates/dr-math-binding-probe/Cargo.toml:15`, `crates/egglog-r2il-probe/Cargo.toml:25`). The repo tracks no lockfile, so the dependency floats. The fork rule is satisfied; reproducibility is not. | worktree read | SEPARATE PR; choosing a `rev` is an operator decision |
+| `egglog` was a git dependency on the fork's main branch with no `rev` (in `dr-math-binding-probe`, `egglog-r2il-probe` and `xlog-relcomp-probe`). The repo tracks no lockfile, so the dependency floated. The fork rule was satisfied; reproducibility was not. | worktree read | DONE 2026-11-02 (operator decision): all three pinned to one `rev` in PR #1923 |
 | D9 `TripletGraph::to_onnx()` "with custom ops for triples" conflicts with portable export (S5). | `STATUS_BOARD.md:2329`; opus-c item 13b | BLOCKED on OP-8 |
 | Citation fix: "no shared relational AST" is at `INTEGRATION_PLANS.md:16`, not `ISSUES.md:16`. | worktree read | SAFE NOW (this document uses the correct citation) |
 | Fact-base fix: `mish_f32`/`swish_f32` exist in ndarray. | `activations_ext.rs:143,168` | SAFE NOW (stated in section 6) |

@@ -102,3 +102,16 @@ Rows v2 in ruff adds the facts the queries need: `PUBLIC`, `IMPLEMENTS` (impl me
 Twelve disable runs each turn their own test red. The one that first stayed green (dropping the impl-method exclusion from the dead-function check) is now covered by a synthetic store: Charon marks every impl method of a public trait public, so the fixtures never reach that case.
 
 Open: tiled closure for more than 64 positions and multi-tile cubes for more than 256 (mask-risc has 459 functions, so every cube query on it is refused today, as a typed UNKNOWN); import facts for unused imports; body → R2IL (G4, G7).
+
+## Wide closure, merge on read, DR versioned index (branch `claude/clone-repositories-71a5sw`)
+
+Operator rulings: wider call chain, presence bits for thin provisioning, sparse write merged on read; multi-word presence; refold only when called; versioned, replayable immutability is the DR index (one RouteVersion counter, old versions readable by number).
+
+- dt64: `MapTable::locate` (global → (tile, local)), `LocalMap::extends`, `Axis::for_survivors`. The tile index is append-only: an extension is a length at a version, a replacement a new generation, a removal an event. An old frame reads its own layout; `map_at(version)` reads any version; a foreign frame or a future version is refused; lookups allocate nothing.
+- xlog: `closure_wide` over any number of positions, one row at a time, keeping only nonzero 256-position blocks with a multi-word presence mask; `Cube::new_tiled`; a per-relation delta log (multiset: ADD +1, RETIRE −1); every read sees base + log; `refresh` recomputes only rows that reached a retired edge's source; `refold` only when called; `rebase` accepts a frame only if every tile extends the old one.
+- codegraph: stores of any size; `Pos` is u32; `impact` reads whole closure rows (it copied only the first word, wrong past 64 positions); `refresh_crate` re-reads one crate and logs the edge changes (positions never renumber; growth past the reservation is NeedsReopen); rows are interned id lanes; an unchanged crate is skipped by digest.
+- Bugs found by measurement: `callers` panicked on a multi-tile store (cube mask width vs symbol width); refresh lost a duplicate call site because the fold was a set (a call graph is a bag).
+- Measured on mask-risc's store (695 symbols, 3 tiles), release: impact 286 ns, callers 29 µs, references 45 µs; closures 257 / 337 µs cold; RCONF keeps 614 of 2,304 blocks, RPOSS 951. Refresh of an unchanged crate 1.5–1.7 ms: a failed gate, caused by reading and hashing the 2.5 MB text rows file; the fix is D-CODEGRAPH-0-BIN (binary lanes with a header digest).
+- Every new guard was disable-verified red; the re-pinned tests keep their old assertion as a comment.
+
+Open: binary lanes (plan `d-codegraph-0-binary-lanes-v1.md`); counting through Quack instead of xlog's `fold_counts`; predictive prefetch, measured before claimed; cross-tile ℕ-compose (D-DYNBAG §7.4).

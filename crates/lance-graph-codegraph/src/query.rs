@@ -7,11 +7,11 @@
 //! (`UNRESOLVED_CALL`, the `?dynamic` position) or a function-pointer
 //! reference could reach it; it is never reported as "unaffected".
 
-use std::collections::HashSet;
-
 use lance_graph_xlog::cube::{CubeRefusal, RelId};
+use lance_graph_xlog::wide::WideRows;
 use ndarray::simd::{mask_and, mask_andnot_assign, mask_or_assign};
 
+use crate::artifact::{P_CALLS, P_IMPLEMENTS, P_MAY, P_REFERENCES};
 use crate::graph::{Codegraph, Pos, CALLS, IMPL, MAY, NODE, RCONF, RPOSS};
 
 /// An answer in three grades, each a position mask of `words()` words.
@@ -50,22 +50,16 @@ pub struct Sites {
 /// Why a query was refused.
 #[derive(Debug)]
 pub enum QueryRefusal {
-    /// The closure refused: more than 64 positions. The answer is UNKNOWN,
-    /// never "unaffected".
-    ClosureWidth(usize),
     /// Any other cube refusal.
     Cube(CubeRefusal),
 }
 
 fn refuse(e: CubeRefusal) -> QueryRefusal {
-    match e {
-        CubeRefusal::ClosureWidth(n) => QueryRefusal::ClosureWidth(n),
-        other => QueryRefusal::Cube(other),
-    }
+    QueryRefusal::Cube(e)
 }
 
 fn has(mask: &[u64], p: Pos) -> bool {
-    mask.get(usize::from(p) / 64)
+    mask.get(p as usize / 64)
         .is_some_and(|w| w >> (p % 64) & 1 == 1)
 }
 
@@ -89,12 +83,18 @@ impl Codegraph {
             return Ok((vec![0; self.words()], 0));
         }
         let (bound_col, join_col) = if into { (1, 0) } else { (0, 1) };
+        let words = self.words();
         let (cube, table) = self.cube_and_table_mut();
         let scan = cube.scan(rel)?;
-        let bound = cube.bind(table, scan, bound_col, u32::from(v))?;
+        let bound = cube.bind(table, scan, bound_col, v)?;
         let node = cube.scan(NODE)?;
         let join = cube.join(bound, join_col, node, 0)?;
-        let mask = cube.support(table, join)?;
+        let mut mask = cube.support(table, join)?;
+        // A multi-tile cube answers over every reserved position (256 per
+        // tile); the graph's masks cover only the interned symbols. Positions
+        // past the last symbol are never set (coordinate == position), so the
+        // tail words carry nothing and are dropped.
+        mask.resize(words, 0);
         let counts = cube.bag_count(table, join)?;
         let sites = counts.iter().fold(0u64, |a, &c| {
             a.saturating_add(u64::try_from(c).unwrap_or(0))
@@ -167,7 +167,7 @@ impl Codegraph {
         let mut unknown = vec![0u64; w];
         if let Some(d) = self.pos("?dynamic") {
             if self.symbol(f).is_some() && has(self.dynamic_callers(), f) {
-                unknown[usize::from(d) / 64] |= 1 << (d % 64);
+                unknown[d as usize / 64] |= 1 << (d % 64);
             }
         }
         Ok(Calls {
@@ -189,28 +189,30 @@ impl Codegraph {
         let rows = self.rows();
         let mut mask = vec![0u64; rows.div_ceil(64)];
         let (mut confirmed, mut possible) = (0u64, 0u64);
-        let Some(name) = self.symbol(g) else {
+        let Some(gid) = self.id_of(g) else {
             return Sites {
                 rows: mask,
                 confirmed,
                 possible,
             };
         };
-        // The Trait::method nodes `g` implements, read from the same lanes.
-        let impls: HashSet<&str> = (0..rows)
-            .filter(|&i| self.row_predicate(i) == "IMPLEMENTS" && self.row_subject(i) == name)
-            .map(|i| self.row_object(i))
+        // One fold over the integer lanes, no string compare: the
+        // `Trait::method` node ids `g` implements come from IMPLEMENTS rows by
+        // id, and each MAY_DISPATCH row carries its precomputed target id.
+        let l = self.lanes();
+        let mut impls: Vec<u32> = (0..rows)
+            .filter(|&i| l.pred[i] == P_IMPLEMENTS && l.subject[i] == gid)
+            .map(|i| l.object[i])
             .collect();
+        impls.sort_unstable();
+        impls.dedup();
         for i in 0..rows {
-            let object = self.row_object(i);
-            let hit = match self.row_predicate(i) {
-                "CALLS_RESOLVED" | "REFERENCES" if object == name => {
+            let hit = match l.pred[i] {
+                P_CALLS | P_REFERENCES if l.object[i] == gid => {
                     confirmed += 1;
                     true
                 }
-                "MAY_DISPATCH"
-                    if impls.contains(object.split(" via ").next().unwrap_or(object)) =>
-                {
+                P_MAY if impls.binary_search(&l.may_target[i]).is_ok() => {
                     possible += 1;
                     true
                 }
@@ -232,17 +234,17 @@ impl Codegraph {
     /// confirmed (dispatch edges). Unknown: when `g`, or anything it reaches
     /// in `RPOSS⁺`, is an impl or referenced and a `?dynamic` position exists,
     /// the dynamic callers (`RPOSS⁺` of `?dynamic`) not already graded. All
-    /// masks are restricted to functions. A closure wider than 64 positions
-    /// is refused as `ClosureWidth`; an out-of-range `g` yields empty masks.
+    /// masks are restricted to functions. Closures of any width are read; an
+    /// out-of-range `g` yields empty masks.
     pub fn impact(&self, g: Pos) -> Result<Graded, QueryRefusal> {
         let w = self.words();
         let cc = &self.closure(RCONF).map_err(refuse)?.0;
         let cp = &self.closure(RPOSS).map_err(refuse)?.0;
-        let row = |c: &lance_graph_xlog::cube::Closure, p: Pos| -> Vec<u64> {
+        // `row_into` zero-extends or truncates to the buffer, so a `words()`
+        // long buffer holds exactly the interned positions' bits.
+        let row = |c: &WideRows, p: Pos| -> Vec<u64> {
             let mut m = vec![0u64; w];
-            if let (Some(r), Some(slot)) = (c.rows().get(usize::from(p)), m.first_mut()) {
-                *slot = *r;
-            }
+            c.row_into(p, &mut m);
             m
         };
         if self.symbol(g).is_none() {
@@ -265,7 +267,7 @@ impl Codegraph {
         let mut unknown = vec![0u64; w];
         if let Some(d) = self.pos("?dynamic") {
             let mut reach = reach_poss;
-            reach[usize::from(g) / 64] |= 1 << (g % 64);
+            reach[g as usize / 64] |= 1 << (g % 64);
             let mut dyn_reachable = self.impl_subjects().to_vec();
             mask_or_assign(&mut dyn_reachable, self.referenced());
             if intersects(&reach, &dyn_reachable) {

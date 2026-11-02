@@ -14,7 +14,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # parse_and_run_program, `prove`, the read-only `egglog::proof` module).
 # egglog checks every proof it returns with its own checker; that check is
 # egglog's, not an independent one.
-egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
+# Pinned to one commit, the same in every crate that links egglog
+# (DECISION 2026-11-02; a branch and a rev are two sources to cargo).
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", rev = "5deaa5637a306c48c998f88d5d08792d2dbfd037" }
 # Compiled identity of a certified lowering (relcomp::lowering_digest).
 sha2 = "0.10"
 
