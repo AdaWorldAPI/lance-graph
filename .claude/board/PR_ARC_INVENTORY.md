@@ -1,3 +1,17 @@
+## 2026-11-02 — lance-graph PR #1930 (merged `5f6bf1c8a`, branch `claude/clone-repositories-71a5sw`) — /coresearch XLOG / Soufflé / Crepe / DR³ map + Persistent Relational Grammar extension; #1929 plateau record
+
+- **Added (board only):**
+  - `entries/2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md`: base exploration map. 7 operator decisions (D1–D7) and 17 pre-registered probes.
+  - Its "Persistent Relational Grammar" extension:
+    - XLOG × Egglog × DialEgg × Tamagoyaki;
+    - the persistence question re-asked by the premise gate as D8a/D8b/D9/D10/D11a/D11b;
+    - the congruence probe;
+    - the deferred /5plus3 addendum, recorded as NOT RELEASED.
+  - The #1929 plateau record.
+- **Locked:** nothing. The map ratifies nothing.
+- **Open:** every decision. No probe run.
+- **Confidence:** exploration only. 19 + 10 load-bearing citations re-read.
+
 ## 2026-11-02 — lance-graph PR #1929 (merged `4fadef69d`, branch `claude/codegraph-bin-reader`) — PLATEAU: codegraph reads rows.bin; header-only unchanged refresh; changed-crate gate NOT met
 
 - **Merged as a plateau (operator, 2026-11-02), not as the completion of D-CODEGRAPH-0-BIN.**
