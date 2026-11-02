@@ -1,3 +1,8 @@
+## 2026-11-02 — main after #1924 (merged `78f9996af`)
+
+- Codegraph refresh splits into a fenced prepare / commit (crate-private); the F-LAND / F-DISCARD lab tests pin it, in debug and release.
+- Board: the D-TGL lifecycle contract, the G8 bag contract, production gates G9–G12 + EXO-148 (open), and the G10 × G11 lab spec D-TGL-PUB.
+
 ## 2026-11-02 — main after #1922 and #1923 (merged `2e19a5adc`)
 
 - `lance-graph-codegraph` opens stores of any size on a multi-tile xlog cube.

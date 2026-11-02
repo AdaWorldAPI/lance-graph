@@ -1,3 +1,17 @@
+## 2026-11-02 — lance-graph PR #1924 (merged `78f9996af`, branch `claude/clone-repositories-71a5sw`) — F-LAND / F-DISCARD lab, D-TGL lifecycle contract, G10 × G11 lab spec
+
+- **Added:**
+  - Codegraph `prepare_refresh` / `commit_refresh` with a generation fence (`RefreshRefusal::Stale`), crate-private.
+  - Lab tests F-LAND (second branch recomputed against the current W0 == clean open, call sites included) and F-DISCARD.
+  - The post-merge record for #1923.
+- **Locked:** a preparation made against an older graph generation is refused before any change. Verified in release, where the stale change would otherwise be accepted silently.
+- **Docs:**
+  - `thought-git-lifecycle-contract-v1.md` (D-TGL: GitHub-analogue lifecycle, G8 bag contract, gates G9–G12 + EXO-148);
+  - `g10-g11-atomic-publication-lab-v1.md` (D-TGL-PUB: boundaries B1–B5, falsifiers L1–L6).
+- **Deferred:** the lab `WalSink`, the L1–L6 test, all production gates.
+- **Confidence:** 7 lib tests in debug and release; 2 disables red in debug, 1 in release.
+- **Stranded:** `check_route` (two commits after the merge point), carried by the next PR.
+
 ## 2026-11-02 — lance-graph PR #1923 (merged `2e19a5adc`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 wide closure, atomic refresh, versioned DR index (D-DYNBAG-4)
 
 - **Added:**

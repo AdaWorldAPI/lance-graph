@@ -1099,3 +1099,85 @@ fn a_view_that_does_not_implement_lens_fields_still_compiles_and_refuses_behavio
         Refusal::UnknownLensBasis(RELALG_LENS)
     );
 }
+
+/// A store for the `check_route` tests: the catalogue plus ONNX with a
+/// one-tile reservation (256 identity positions).
+fn routing_store() -> BindStore {
+    let mut s = catalogue();
+    s.register(ONNX, schema_in(1, 4, Extent::DR256_SQ_X64), vec![node(1)])
+        .unwrap();
+    s
+}
+
+/// `check_route` answers exactly what `route` would, on every case: an
+/// unknown class, the last position inside the reservation, the first
+/// outside it, and a position far past it. Red if it skips either of
+/// `route`'s two refusals (disables: drop the class lookup; drop the
+/// reservation check from `check_route` only).
+#[test]
+fn check_route_agrees_with_route_on_every_case() {
+    let s = routing_store();
+    let cases = [
+        (7, 0xBEEF_0001),
+        (0, ONNX),
+        (255, ONNX),
+        (256, ONNX),
+        (7_619, ONNX),
+    ];
+    let (mut accepted, mut unknown, mut outside) = (0, 0, 0);
+    for (position, class) in cases {
+        let checked = s.check_route(position, class);
+        let routed = s.clone().route(position, class).map(|_| ());
+        assert_eq!(checked, routed, "position {position}, class {class:#x}");
+        match checked {
+            Ok(()) => accepted += 1,
+            Err(Refusal::UnknownClass(_)) => unknown += 1,
+            Err(Refusal::OutsideReservation { .. }) => outside += 1,
+            Err(other) => panic!("unexpected refusal {other:?}"),
+        }
+    }
+    // Anti-vacuity: both outcomes and both refusals occur.
+    assert_eq!((accepted, unknown, outside), (2, 1, 2));
+}
+
+/// `check_route` writes nothing: no route event, no new `RouteVersion`, no
+/// claimed tile, for accepted and refused intents alike. Twin: `route` on the
+/// same intent does move all three, so the comparison can fail.
+#[test]
+fn check_route_writes_nothing() {
+    let mut s = routing_store();
+    let v = s.current_version();
+    let claim = s.claimed(ONNX, v).unwrap();
+    for (position, class) in [(3, ONNX), (256, ONNX), (3, 0xBEEF_0001)] {
+        let _ = s.check_route(position, class);
+    }
+    assert_eq!(s.current_version(), v, "no version issued");
+    assert_eq!(s.routed_at(s.current_version(), 3), Ok(None));
+    assert_eq!(s.claimed(ONNX, s.current_version()).unwrap(), claim);
+
+    s.route(3, ONNX).unwrap();
+    assert_ne!(s.current_version(), v, "route does move the version");
+    assert_eq!(s.routed_at(s.current_version(), 3), Ok(Some(ONNX)));
+}
+
+/// A checked route intent stays valid while the store grows: other classes
+/// are bound and other positions routed or retracted, and the same intent is
+/// still accepted, then applied without a refusal (the property a prepared
+/// land relies on to apply with no error path).
+#[test]
+fn a_checked_route_intent_stays_valid_as_the_store_grows() {
+    let mut s = routing_store();
+    assert_eq!(s.check_route(42, ONNX), Ok(()));
+    s.register(
+        JINA,
+        schema_in(1, 4, Extent::DR256_GLOBAL_X64),
+        vec![node(1)],
+    )
+    .unwrap();
+    s.route(42, JINA).unwrap();
+    s.route(7, ONNX).unwrap();
+    s.retract(7);
+    assert_eq!(s.check_route(42, ONNX), Ok(()));
+    let v = s.route(42, ONNX).expect("a checked intent applies");
+    assert_eq!(s.routed_at(v, 42), Ok(Some(ONNX)));
+}

@@ -28,3 +28,37 @@
 - **The smallest common falsifier set is L1–L6.** Each has its own disable. The decisive one is L4: without the watermark, a second recovery ticks `RouteVersion` while the Codegraph stays unchanged.
 
 OPEN: `check_route`, the lab `WalSink`, and the L1–L6 test are three separate reviewable steps (plan §4). None is implemented.
+
+## Step 1 done: `BindStore::check_route` (2026-11-02)
+- **Code:**
+  - `BindStore::check_route(&self, position, class) -> Result<(), Refusal>` applies `route`'s two refusals and writes nothing.
+  - `route` runs the same check (`route_identity`, then `RouteLog::check`) before it pushes, so the two cannot disagree.
+- **Tests** (`crates/lance-graph-dt64/tests/bind_store.rs`):
+  - agreement with `route` on 5 cases: 2 accepted, 1 `UnknownClass`, 2 `OutsideReservation` at the 255/256 boundary and beyond;
+  - writes nothing: version, `routed_at` and `claimed` unchanged; the twin `route` does move them;
+  - a checked intent stays valid as the store grows: other classes bound, other routes and retracts, then applied without a refusal.
+- **Disables (each red on the agreement test):** always accept; skip the reservation; skip the class lookup.
+  - "Writes nothing" holds by the type (`&self`), so it has no disable. Its twin shows the comparison can fail.
+- **Gates:** dt64 suites green (25 + 29); clippy and fmt clean. dt64 already runs in `rust-test.yml`.
+
+## Step 2 done: the lab `WalSink` (2026-11-02)
+- **Code:** `LabWal` in `crates/lance-graph-codegraph/src/lab_wal.rs`, `#[cfg(test)]` only. It is an in-memory `WalSink` that follows the production contract:
+  - `Fenced` against the head, with nothing written;
+  - one version per commit;
+  - reconciliation of a re-submitted `(cycle, batch_hash)`;
+  - `HashConflict` for another batch of a durable cycle;
+  - a payload-free `scan_sealed`.
+- **Lab seams:**
+  - injected faults: I/O before publish, and `Ambiguous` after publish (B3);
+  - `image(cycle)`, the durable payload read that recovery must use.
+- **Dependencies:**
+  - `lance-graph-planner`, `lance-graph-contract` and `tokio` (rt) are dev-dependencies only; `cargo tree -e normal` shows no planner.
+  - The crate's own workspace patches the ndarray git coordinate to the sibling checkout, as the root workspace does. `cargo tree -i ndarray` shows one package; `-d` shows no duplicate.
+  - CI's `test` job already checks out ndarray as a sibling.
+- **Tests:**
+  - stale base fenced, nothing written;
+  - a commit publishes one version, and the payload lives only in the image;
+  - a re-submit reconciles, a different batch conflicts;
+  - a fault before publish and one after publish leave different durable states.
+- **Disables (each red on its own test):** drop the fence; leak the payload through `scan`; skip the reconcile lookup; make `Ambiguous` publish nothing.
+- **Gates:** codegraph suites green (12 lib tests); clippy and fmt clean.

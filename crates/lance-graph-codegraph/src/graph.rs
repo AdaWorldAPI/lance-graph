@@ -838,14 +838,27 @@ impl Codegraph {
             }
             None => self.cube.frame().clone(),
         };
+        let changed = !staged.is_empty();
         self.cube.commit(&self.table, &frame, staged);
         for (slot, cell) in [(0usize, &mut self.rconf), (1, &mut self.rposs)] {
-            if let Some(next) = closures[slot].take() {
-                cell.take();
-                if let Some((rows, st)) = next {
+            match closures[slot].take() {
+                // Prepared against the cache that was there: replace it.
+                Some(Some((rows, st))) => {
+                    cell.take();
                     stats.rows_recomputed += st.rows_recomputed;
                     let _ = cell.set((rows, st));
                 }
+                // The cache was there but could not be refreshed: drop it.
+                Some(None) => {
+                    cell.take();
+                }
+                // No cache at preparation. A read between prepare and commit
+                // may have filled one (`closure` / `impact` take `&self`) from
+                // the pre-commit edges; the edges change now, so it is stale.
+                None if changed => {
+                    cell.take();
+                }
+                None => {}
             }
         }
 
@@ -1437,6 +1450,40 @@ mod lifecycle {
             5,
             "2 + 1 + 1 + 1 call sites"
         );
+    }
+
+    /// Codex P2 on #1924. A closure cache filled by a read between prepare and
+    /// commit (`impact` takes `&self`) was built from the pre-commit edges.
+    /// Red if commit keeps it (disable: drop the `None if changed` arm in
+    /// `commit_refresh`): `impact` would then answer from the old graph.
+    #[test]
+    fn a_closure_cached_between_prepare_and_commit_is_not_served_stale() {
+        let w0 = store("w0", &m_v1(), &n_v1());
+        let branch_a = store("a", &m_v2(), &n_v1());
+        let mut g = Codegraph::open(&w0).expect("open W0");
+        assert!(g.rconf.get().is_none() && g.rposs.get().is_none());
+        let a = g
+            .prepare_refresh(&branch_a, "m")
+            .expect("A")
+            .expect("A changes");
+        let b = g.pos("m::b").expect("m::b");
+        let before = g.impact(b).expect("impact");
+        // Anti-vacuity: the read did fill a cache the preparation did not see.
+        assert!(g.rconf.get().is_some() || g.rposs.get().is_some());
+        g.commit_refresh(a).expect("commit");
+        let after = g.impact(b).expect("impact");
+        let x = g.pos("m::x").expect("m::x");
+        let has = |m: &[u64]| {
+            m.get(x as usize / 64)
+                .is_some_and(|w| w >> (x % 64) & 1 == 1)
+        };
+        assert!(!has(&before.confirmed), "m::x did not exist before");
+        assert!(
+            has(&after.confirmed),
+            "impact of m::b must include its new caller m::x"
+        );
+        let mut clean = Codegraph::open(&branch_a).expect("clean");
+        assert_eq!(answers(&mut g), answers(&mut clean));
     }
 
     /// F-DISCARD. A prepared branch that is dropped leaves W0 exactly as it
