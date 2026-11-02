@@ -14,3 +14,18 @@ lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-quack = { path = "../lance-graph-quack" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# Lab only (D-TGL-PUB): the durable writer contract (`WalSink`, `CommitOutcome`,
+# `CommitError`, `DetachedCycleBatch`) for the G10 x G11 publication lab. Never
+# a production edge from the codegraph to the planner.
+lance-graph-planner = { path = "../lance-graph-planner" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+tokio = { version = "1", features = ["rt"] }
+
+# One ndarray (CARGO-COMPUTE-SUBSTRATE rule 9): the planner names the sibling
+# checkout by path, this crate and its xlog/mask-risc deps by the git
+# coordinate. Point the coordinate at the same checkout, as the lance-graph
+# root workspace does, so the graph holds one ndarray package.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }

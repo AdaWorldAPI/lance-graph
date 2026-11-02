@@ -6,6 +6,8 @@
 pub mod artifact;
 pub mod diag;
 pub mod graph;
+#[cfg(test)]
+mod lab_wal;
 pub mod query;
 
 pub use graph::{Codegraph, IntakeRefusal, Pos, RefreshRefusal, RefreshStats, RunStatus};
