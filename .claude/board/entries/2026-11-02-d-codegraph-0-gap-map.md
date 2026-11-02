@@ -63,3 +63,7 @@ Closed by this slice: the cross-crate callee ambiguity. Charon's formatter names
 Tests (6 integration, 3 unit) on the fixture's committed LLBC, with `llbc_calls.py`'s output as the reference. Disable runs, each red in exactly its own test: bound dispatch counted as resolved; no file nodes; callee id dropped from the report; impl names by path only.
 
 Not yet: rust-analyzer as an independent check of the rows (the comparison is still the Python span join), resident storage (slice B), body → R2IL (G4).
+
+## Correction (2026-11-02): G8 withdrawn
+
+The ruff sink is not unmerged. Ruff PRs #101 (`RefinedTruthSink` + offline backend), #102 (v2 facts/residuals artifacts and their reader) and #103 (round-trip reconstruction oracle) merged on 2026-08-18. The #121 replay carried their content onto today's `main` (`crates/ruff_r2il/src/sink.rs:72` `pub trait RefinedTruthSink`; `read_facts`, `read_residuals`), where it has since changed. The three `claude/r2il-pr2-*` branches only look unmerged because they share no history with the rebuilt `main`. Slice B builds on `main`'s `sink.rs`, not on those branches.

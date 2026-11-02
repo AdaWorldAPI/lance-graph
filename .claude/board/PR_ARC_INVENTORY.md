@@ -1,3 +1,23 @@
+## 2026-11-02 — lance-graph PR #1918 (merged `c11e4262e`, branch `claude/clone-repositories-71a5sw`, head `c0f81a2a8`) — D-CODEGRAPH-0 gap map and slice A evidence; D-DQM M1 timing arms; dt64/xlog CI lines
+
+- **Added:**
+  - D-CODEGRAPH-0 plan, board entry and STATUS_BOARD rows (gap map G1–G9);
+  - `sag-ra-probe`: `GRAPH=1` rust-analyzer oracle rows, `unicode-properties = "=0.1.4"` build fix, `fixtures/codegraph/{rev1,rev2}`, hand-read pins (19 xrefs, 3 calls), `tools/kythe_calls_check.py`;
+  - D-DQM M1 timing arms (DuckDB reference, Quack timed differential) and the M2 input note (Lance 13 `with_row_addr_prefilter`);
+  - ledger revision (f); `ISS-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE`;
+  - CI lines running `lance-graph-dt64` and `lance-graph-xlog` tests.
+- **Locked:** representation Kythe facts + R2IL + DT64/DR; route Charon → ruff → lance-graph + crai-rs; rust-analyzer is the independent check, never the ingestion path.
+- **Deferred:** slice B (resident rows, incremental update, through ruff's unmerged `claude/r2il-pr2-*` sink); body → R2IL (G4, G7); MCP.
+- **Confidence:**
+  - Kythe `/xrefs` 22/22 symbols and 19/19 pins on the fixture;
+  - the D-SAG-6 runs reproduced: identity chain and `sag_fixture` Kythe exact; `mask-risc` join exact but one body (a derived `PartialEq::eq` joins EXACT instead of DERIVED);
+  - Python tool tests 15/15 + 9/9.
+- **Companion:** ruff PR #129 (merged `9913e90946`), `crates/ruff_charon`:
+  - calls byte-identical to `llbc_calls.py` on the fixture and on `mask-risc` (459 functions);
+  - receipt conserved, 16,149 = 16,149 + 0;
+  - Kythe call pins 3/3;
+  - 4 disable runs, each red in its own test.
+
 ## 2026-11-01 — lance-graph PR #1907 (merged `39511c92e`, branch `ccr-85acaff0-oszq40-xlogcrate`, head `1087758d1`) — lance-graph-xlog: XLOG's admitted chain over Quack → mask-risc (D-XLOG-NATIVE-4)
 
 - **Added:** `crates/lance-graph-xlog` (workspace member): `Bounds`, `Intake`, `support`, `bag_count`, `bag_count_admitted`, `Word`, `Support`, `NativeRefusal`, `BoundRefusal`, `ids`, `nonzero`, and `and` (= `ndarray::simd::mask_and`). `xlog-relcomp-probe` now calls it and keeps `admit`, `admit_count`, `ChainQuery::bounds()`.

@@ -1,3 +1,11 @@
+## 2026-11-02 — main after #1918 (merged `c11e4262e`) and ruff #129
+
+- D-CODEGRAPH-0 (resident Codegraph, Charon → ruff → lance-graph + crai-rs): plan, gap map G1–G9, oracle fixture `sag-ra-probe/fixtures/codegraph`, hand-read Kythe pins, `tools/kythe_calls_check.py`, and `sag-ra-probe GRAPH=1` as the independent rust-analyzer check.
+- Slice A landed in ruff (#129): `crates/ruff_charon` reads Charon LLBC through `charon-lib` (AdaWorldAPI fork, stable) and emits calls, graded relation rows (`DEFINES`, `CALLS_RESOLVED`, `MAY_DISPATCH`, `UNRESOLVED_CALL`) with a conservation receipt, and Kythe entries.
+- `sag-ra-probe` builds again from a fresh resolution (`unicode-properties = "=0.1.4"`).
+- `rust-test.yml` runs the `lance-graph-dt64` and `lance-graph-xlog` tests.
+- D-DQM M1: timing arms on both sides of the Quack/DuckDB differential; exit gate open, no performance claim.
+
 ## 2026-11-01 — main after #1904–#1907 (merged `39511c92e`)
 
 - New workspace crate `lance-graph-xlog` (#1907): XLOG's admitted two-atom chain (support, bag count) described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No `xlog-*` or arrow dependency. `xlog-relcomp-probe` keeps XLOG admission and calls it.
