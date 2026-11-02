@@ -973,3 +973,197 @@ impl Codegraph {
         Ok(cell.get_or_init(|| computed))
     }
 }
+
+/// P1 falsifiers: a refused refresh changes nothing, a retry equals the
+/// refresh that never failed, and multiplicities survive. They live here
+/// (not in `tests/`) because the refusals are injected through the
+/// test-only [`Inject`] hook and the snapshot reads private state.
+#[cfg(test)]
+mod atomic {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    /// Everything a refresh may touch, in a comparable form: interner,
+    /// positions (incl. `last_owner`), lanes and digests, crate statuses,
+    /// table version, revisions and per-tile history, the cube's frame and
+    /// every delta log, masks, and the cached closures.
+    fn snapshot(g: &Codegraph) -> String {
+        let names: Vec<&str> = (0..g.symbols.len() as u32)
+            .map(|i| g.symbols.name(i))
+            .collect();
+        let mut crates: Vec<(u32, RunStatus)> = g.crates.iter().map(|(&k, &v)| (k, v)).collect();
+        crates.sort_by_key(|c| c.0);
+        let tiles: Vec<(usize, usize)> = (0..g.axis.tiles)
+            .map(|t| (g.table.generation_count(t), g.table.event_count(t)))
+            .collect();
+        let logs: Vec<_> = (0..6).map(|r| g.cube.delta_log(r).cloned()).collect();
+        format!(
+            "{names:?}\n{:?}\n{:?}\n{crates:?}\n{:?} {:?} {tiles:?}\n{:?}\n{logs:?}\n{:?}\n{:?}\n{:?}",
+            g.pos,
+            g.lanes,
+            g.table.current_version(),
+            g.table.revisions(),
+            g.cube.frame(),
+            g.masks,
+            g.rconf.get(),
+            g.rposs.get(),
+        )
+    }
+
+    fn dir(tag: &str) -> PathBuf {
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let d = std::env::temp_dir().join(format!("cg_atomic_{}_{tag}_{n}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).expect("temp dir");
+        d
+    }
+
+    const HEAD: &str = "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n";
+
+    /// v1: `m::a` calls `m::b` at two sites. v2: three sites, and a new
+    /// symbol `m::c` that also calls `m::b` (growth inside the reservation).
+    fn rows(v: u8) -> String {
+        let mut s = String::from(HEAD);
+        let mut def = |f: &str, at: u32| {
+            s.push_str(&format!(
+                "DEFINES\t{f}\t{f}\tCOMPILER\tm/src/lib.rs\t{at}\t{}\n",
+                at + 1
+            ));
+        };
+        def("m::a", 0);
+        def("m::b", 10);
+        if v == 2 {
+            def("m::c", 20);
+        }
+        let sites: &[(&str, u32)] = if v == 1 {
+            &[("m::a", 2), ("m::a", 4)]
+        } else {
+            &[("m::a", 2), ("m::a", 4), ("m::a", 6), ("m::c", 22)]
+        };
+        for &(f, at) in sites {
+            s.push_str(&format!(
+                "CALLS_RESOLVED\t{f}\tm::b\tCOMPILER\tm/src/lib.rs\t{at}\t{}\n",
+                at + 1
+            ));
+        }
+        s
+    }
+
+    /// A graph opened at v1 with both closures cached (so the refresh has a
+    /// closure to stage), and the directory now holding v2.
+    fn primed(tag: &str) -> (PathBuf, Codegraph) {
+        let d = dir(tag);
+        fs::write(d.join("m.rows.tsv"), rows(1)).expect("write");
+        let g = Codegraph::open(&d).expect("open");
+        g.closure(RCONF).expect("rconf");
+        g.closure(RPOSS).expect("rposs");
+        fs::write(d.join("m.rows.tsv"), rows(2)).expect("write");
+        (d, g)
+    }
+
+    /// The snapshot can fire: a successful refresh changes it. Without this
+    /// the "unchanged" assertions below could pass on a blind snapshot.
+    #[test]
+    fn a_successful_refresh_changes_the_snapshot() {
+        let (d, mut g) = primed("fires");
+        let before = snapshot(&g);
+        let st = g.refresh_crate(&d, "m").expect("refresh");
+        assert!(st.symbols_appended > 0 && st.edges_added > 0, "{st:?}");
+        assert_ne!(snapshot(&g), before);
+    }
+
+    /// Red if a refused reservation leaves anything behind: the interner
+    /// entries of the new names, a position, `last_owner` (disable: absorb
+    /// the staged names and positions before the reservation check).
+    #[test]
+    fn a_refused_reservation_changes_nothing() {
+        let d = dir("reopen");
+        let big = |n: usize| {
+            let mut s = String::from(HEAD);
+            for i in 0..n {
+                s.push_str(&format!(
+                    "DEFINES\tbig::f{i}\tbig::f{i}\tCOMPILER\tbig/src/lib.rs\t{i}\t{}\n",
+                    i + 1
+                ));
+            }
+            s
+        };
+        fs::write(d.join("big.rows.tsv"), big(64)).expect("write");
+        let mut g = Codegraph::open(&d).expect("open");
+        fs::write(d.join("big.rows.tsv"), big(65)).expect("write");
+        // Anti-vacuity: the refused file carries a name the interner lacks.
+        assert_eq!(g.symbols.get("big::f64"), None);
+        let before = snapshot(&g);
+        match g.refresh_crate(&d, "big") {
+            Err(RefreshRefusal::NeedsReopen { .. }) => {}
+            other => panic!("expected NeedsReopen, got {other:?}"),
+        }
+        assert_eq!(g.symbols.get("big::f64"), None, "interner leak");
+        assert_eq!(snapshot(&g), before);
+    }
+
+    /// Red if a refusal from `Cube::stage` leaves the table advanced, a
+    /// frame sealed or anything else changed (disable: advance and seal the
+    /// table before staging the batch).
+    #[test]
+    fn an_injected_stage_refusal_changes_nothing() {
+        let (d, mut g) = primed("stage");
+        let before = snapshot(&g);
+        let v = g.table.current_version();
+        g.inject = Some(Inject::Stage);
+        match g.refresh_crate(&d, "m") {
+            Err(RefreshRefusal::Cube(_)) => {}
+            other => panic!("expected the injected Cube refusal, got {other:?}"),
+        }
+        assert_eq!(g.table.current_version(), v, "a version was issued");
+        assert_eq!(snapshot(&g), before);
+    }
+
+    /// Red if a refusal while staging a closure refresh comes after any
+    /// commit step (disable: absorb the staged names and positions before
+    /// the closure block).
+    #[test]
+    fn an_injected_closure_refusal_changes_nothing() {
+        let (d, mut g) = primed("closure");
+        // Anti-vacuity: both closures are cached over empty logs, so the
+        // refresh does stage them.
+        assert!(g.rconf.get().is_some() && g.cube.delta_len(RCONF) == 0);
+        let before = snapshot(&g);
+        g.inject = Some(Inject::Closure);
+        assert!(matches!(
+            g.refresh_crate(&d, "m"),
+            Err(RefreshRefusal::Cube(_))
+        ));
+        assert_eq!(snapshot(&g), before);
+    }
+
+    /// Red if a retry after a refusal differs from the refresh that never
+    /// failed: a second version, a doubled ADD, a doubled name (disable:
+    /// advance and seal the table before staging). And red if the bag is
+    /// lost: `m::b` has four call sites, as in a clean open of v2 (disable:
+    /// deduplicate the keys before `diff_sorted`).
+    #[test]
+    fn a_retry_after_a_refusal_equals_the_refresh_that_never_failed() {
+        let (d, mut g) = primed("retry");
+        let (_, mut twin) = primed("twin");
+        twin.refresh_crate(&d, "m").expect("twin refresh");
+        for inject in [Inject::Stage, Inject::Closure] {
+            g.inject = Some(inject);
+            assert!(g.refresh_crate(&d, "m").is_err());
+        }
+        g.inject = None;
+        g.refresh_crate(&d, "m").expect("retry");
+        assert_eq!(snapshot(&g), snapshot(&twin));
+
+        let clean_dir = dir("clean");
+        fs::write(clean_dir.join("m.rows.tsv"), rows(2)).expect("write");
+        let mut clean = Codegraph::open(&clean_dir).expect("open clean");
+        let (pb, cb) = (g.pos("m::b").expect("b"), clean.pos("m::b").expect("b"));
+        let (got, want) = (g.callers(pb).expect("q"), clean.callers(cb).expect("q"));
+        assert_eq!(want.sites, 4, "fixture: four call sites of m::b");
+        assert_eq!(got.sites, want.sites, "bag multiplicity");
+    }
+}
