@@ -1,3 +1,13 @@
+## 2026-11-02 — main after #1922 and #1923 (merged `2e19a5adc`)
+
+- `lance-graph-codegraph` opens stores of any size on a multi-tile xlog cube.
+  - `refresh_crate` is atomic: a refused refresh changes nothing.
+  - The codegraph suites run in `rust-test.yml`.
+- xlog: wide closure, multiset delta log with merge on read, `Cube::stage` / `commit`; binds survive an extending rebase.
+- dt64 `dr`: a versioned append-only tile index; a frame reads its own layout; `map_at(RouteVersion)`.
+- egglog pinned to one commit in `egglog-r2il-probe`, `dr-math-binding-probe`, `xlog-relcomp-probe`.
+- Board: architecture review and decisions, P4 review, plans for binary lanes (amended) and the DT64 authority census.
+
 ## 2026-11-02 — main after #1920 and #1921 (merged `4ab93bf3e`), ruff #130–#132
 
 - New workspace-excluded crate `lance-graph-codegraph` (#1921, D-CODEGRAPH-0 slice C): reads the `ruff_charon` rows v2 artifacts by column name and answers callers, callees, references and impact as confirmed / possible / unknown masks over one xlog cube; diagnostics dead function, unresolved call, dangling call, unused import (NOT_RUN). Limits surfaced as typed refusals: closure > 64 positions, tile > 256 symbols.

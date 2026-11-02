@@ -1,3 +1,37 @@
+## 2026-11-02 — lance-graph PR #1923 (merged `2e19a5adc`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 wide closure, atomic refresh, versioned DR index (D-DYNBAG-4)
+
+- **Added:**
+  - dt64 `dr`: `MapTable::locate`, `LocalMap::extends` / `view`, `Axis::for_survivors`, versioned append-only tile index (`map(frame)`, `map_at(RouteVersion)`, shared `VersionClock`).
+  - xlog:
+    - `closure_wide` (multi-word rows, block presence);
+    - `Cube::new_tiled`;
+    - multiset delta log with merge on read;
+    - `refresh_closure`, `refold`, `rebase`;
+    - `Cube::stage` / `stage_closure` / `commit`;
+    - `Node::Bind` keeps its global id.
+  - codegraph: multi-tile stores, interned lanes, digest skip, atomic `refresh_crate` (staged interner, positions, tile map, batch, closures).
+  - CI line for the codegraph suites; egglog pinned to one commit in three crates.
+- **Locked:**
+  - positions never renumber;
+  - a refused refresh changes nothing;
+  - an old frame replays its own layout;
+  - a bind to an unmapped id is placed by an extending rebase or commit.
+- **Deferred:**
+  - binary lanes (D-CODEGRAPH-0-BIN, amended with PROV / `(artifact, FunDeclId)` / `INVOKES_WORD`);
+  - Quack counting;
+  - prefetch;
+  - cross-tile ℕ-compose;
+  - the DT64 authority census (D-DT64-AUTH, plan only).
+- **Docs:**
+  - architecture review (Codegraph × DR³ × DT64 × Ruff) and operator decisions;
+  - P4 review (Thought-Git × Codegraph × DT64);
+  - plans `d-codegraph-0-wide-closure-v1`, `d-dynbag-4-dr-versioned-mapping-v1`, `d-codegraph-0-binary-lanes-v1`, `d-dt64-method-authority-census-v1`.
+- **Confidence:**
+  - suites and clippy green; atomic-refresh and bind falsifiers with 7 disable runs red; full CI green on the merged head.
+  - mask-risc: impact 286 ns, callers 29 µs, references 45 µs.
+  - An unchanged refresh takes 1.5–1.7 ms (failed gate, TSV read).
+- **Stranded:** two commits made after the merge point (prepare/commit split with F-LAND / F-DISCARD; the D-TGL lifecycle contract). They are re-offered in a follow-up PR from the same branch, with `main` merged in (no history rewrite).
+
 ## 2026-11-02 — lance-graph PR #1921 (merged `4ab93bf3e`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice C: `lance-graph-codegraph`
 
 - **Added:** `crates/lance-graph-codegraph` (workspace-excluded): rows v2 reader keyed by schema names; one xlog cube (CALLS, NODE, MAY, IMPL, RCONF, RPOSS) and position masks; `callers` / `callees` / `references` / `impact` graded confirmed / possible / unknown; diagnostics dead function, unresolved call, dangling call, unused import NOT_RUN; store fixtures rev1, rev2, mixed, fnref; `examples/timing.rs`.
