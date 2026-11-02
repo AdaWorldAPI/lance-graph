@@ -237,7 +237,7 @@ Plan: [d-codegraph-0-resident-codegraph-v1.md](../plans/d-codegraph-0-resident-c
 
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
-| **D-CODEGRAPH-0-A** | ruff `ruff_charon`: LLBC → Kythe facts with a witness status per call, for one real crate | IN PROGRESS | rust-analyzer oracle (`sag-ra-probe GRAPH=1`) and rustc on `fixtures/codegraph`; `POSSIBLE` never counted as a confirmed caller |
+| **D-CODEGRAPH-0-A** | ruff `ruff_charon`: LLBC → Kythe facts with a witness status per call, for one real crate | LANDED on ruff `claude/clone-repositories-71a5sw` (`53c6711a84`): calls byte-identical to `llbc_calls.py` on the fixture and `mask-risc`; receipt conserved (16,149); Kythe `/xrefs` 3/3 call pins | rust-analyzer oracle (`sag-ra-probe GRAPH=1`) and rustc on `fixtures/codegraph`; `POSSIBLE` never counted as a confirmed caller |
 | **D-CODEGRAPH-0-B** | resident rows via the ruff sink; per-file digests; incremental invalidation | QUEUED | clean import == incremental import |
 | **D-CODEGRAPH-0-C** | callers / callees / impact / diagnostics; tiled closure; body → R2IL design check | QUEUED | each guard disable-verified; unused import proven only without macros, traits, globs, re-exports |
 | **D-CODEGRAPH-0-D** | local stdio MCP over C | QUEUED | only after B and C gates |

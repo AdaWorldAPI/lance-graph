@@ -50,3 +50,16 @@ Before building on D-SAG-6-1/6-2 (#1876, #1878, #1883, #1894), their recorded ru
 The one difference: the derived `PartialEq::eq` of `Operand` (`ir.rs:6`) and of `Tern2Fold` (`ir.rs:1533`) now join EXACT, because rust-analyzer reports a symbol for the derive-generated method whose name sits on the `#[derive(...)]` line and EXACT is tried before DERIVED. The joined item is the same; only the class changed. `mask-risc`'s source has not changed since #1883, so the cause is a tool or frontend version, not determined from the record. Measured here: whole-workspace rust-analyzer dump 9.2 s load + 134 s index (1,491 files, 1,144,242 occurrences); Charon on `mask-risc` 33 s build, 441 MB LLBC (`--no-dedup-serialized-ast`); `span_join.py` 63 s.
 
 Not rerun: the contract crate (7,189 bodies). At 441 MB of LLBC for 459 bodies, the Python join loading the file whole is the limit, which is one concrete reason the intake belongs in Rust over `charon_lib`'s typed reader.
+
+## Slice A: `ruff_charon` (ruff `53c6711a84`, branch `claude/clone-repositories-71a5sw`)
+
+A ruff crate (excluded from the ruff workspace, like `ruff_r2il`) reading LLBC through `charon-lib` from the AdaWorldAPI fork on stable 1.99. Three outputs:
+- `calls`: **byte-identical to `llbc_calls.py`** on `cg_lib` (12 lines), `cg_app` (2) and `lance-graph-mask-risc` (460 lines, 441 MB LLBC, 5.6 s release);
+- `rows`: `DEFINES` / `CALLS_RESOLVED` / `MAY_DISPATCH` / `UNRESOLVED_CALL`, grade `COMPILER`, byte spans, residuals, and a receipt `harvested == represented + residual`. `mask-risc`: 16,149 = 16,149 + 0 (459 DEFINES, 15,684 CALLS_RESOLVED, 2 MAY_DISPATCH, 4 UNRESOLVED_CALL);
+- `kythe`: `defines`, `ref/call`, `childof` and file nodes. Through Kythe v0.0.76 `/xrefs`, `tools/kythe_calls_check.py` with hand-read pins (`fixtures/codegraph/rev1_calls.pin.tsv`): 3/3, including `t3(1)` inside `assert_eq!` and the bound dispatch `s.area()` pointing at the trait. Without file nodes Kythe returns no references and all 3 fail.
+
+Closed by this slice: the cross-crate callee ambiguity. Charon's formatter names impls (`cg_lib::shapes::impl_Shape_for_Square::area`), so `cg_app::run`'s callee is the `Square` impl, not a path shared by two items.
+
+Tests (6 integration, 3 unit) on the fixture's committed LLBC, with `llbc_calls.py`'s output as the reference. Disable runs, each red in exactly its own test: bound dispatch counted as resolved; no file nodes; callee id dropped from the report; impl names by path only.
+
+Not yet: rust-analyzer as an independent check of the rows (the comparison is still the Python span join), resident storage (slice B), body → R2IL (G4).
