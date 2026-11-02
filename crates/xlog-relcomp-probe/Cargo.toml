@@ -35,6 +35,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 xlog-core = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
 xlog-ir = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
 xlog-logic = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
+xlog-stats = { git = "https://github.com/BrainyBlaze/xlog", rev = "bff6da663308190148c5ce58a715d86525b62e67" }
 
 [dev-dependencies]
 # The shared contract types a DTO binding is stated in (NodeGuid, ClassView,
