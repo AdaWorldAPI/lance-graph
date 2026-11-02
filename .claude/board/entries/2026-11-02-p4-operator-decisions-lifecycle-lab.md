@@ -36,3 +36,10 @@
 - The Codegraph has no `BindStore`, so F-DISCARD's "global `RouteVersion` unchanged" holds by construction. DT64 routing staging is open (G10/G11: no prepare/validate route API on `BindStore`).
 - `PreparedRefresh` / `commit_refresh` are crate-private. Nothing publishes, persists or routes.
 - Lab results do not satisfy G9–G12 or EXO-148.
+
+## Correction (codex P2 on #1924, fixed in #1925)
+- **Defect:** a read between `prepare_refresh` and `commit_refresh` (`impact` and `closure` take `&self`) could fill a closure cache the preparation had not seen. That cache was built from the pre-commit edges. `commit_refresh` kept it, because the prepared plan said "no cache", and the generation fence does not move on a read. `impact` then answered from the old graph: `m::x` was missing as a caller of `m::b`.
+- **Fix:** when the batch changes edges, `commit_refresh` drops every closure cache it has no prepared refresh for.
+- **Test:** `lifecycle::a_closure_cached_between_prepare_and_commit_is_not_served_stale`, which compares the result with a clean open.
+- **Disable:** dropping the new arm turns it red in debug and release.
+- **Why the lab tests missed it:** they never read between prepare and commit. Interleaved reads are part of the lifecycle (a PR is read while it waits), so the fixture now covers that case.
