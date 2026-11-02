@@ -37,7 +37,7 @@
 use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use lance_graph_dt64::dr::{Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId};
+use lance_graph_dt64::dr::{Frame, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap};
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 use ndarray::simd::{checked_binary_i64, mask_and, mask_andnot, mask_any, mask_or_assign, I64Op};
@@ -191,11 +191,6 @@ pub struct Cube {
     /// Built by [`Cube::new_tiled`]: lanes hold wide coordinates
     /// (`tile_ordinal * 256 + local`) instead of one tile's locals.
     tiled: bool,
-    /// The maps as they were when the cube was built or last rebased, one per
-    /// entry of `tiles`. A [`MapTable`] drops a map when it advances, so the
-    /// old assignment is gone by the time [`Cube::rebase`] must compare it;
-    /// the cube keeps its own copy of the ids (a few bytes per position).
-    snapshots: Vec<LocalMap>,
     n: usize,
     rels: Vec<Rel>,
     /// One append-only delta log per relation, parallel to `rels`.
@@ -229,7 +224,6 @@ impl Cube {
             tile,
             tiles: vec![tile],
             tiled: false,
-            snapshots: vec![snapshot(map)?],
             n: map.len(),
             logs: vec![DeltaLog::new(); rels.len()],
             effective: empty_effective(rels.len()),
@@ -269,22 +263,15 @@ impl Cube {
             .iter()
             .map(|tuples| rel_with(tuples, &place))
             .collect::<Result<_, _>>()?;
-        let snapshots = tiles
-            .iter()
-            .map(|&t| {
-                table
-                    .map(frame, t)
-                    .map_err(CubeRefusal::Map)
-                    .and_then(snapshot)
-            })
-            .collect::<Result<_, _>>()?;
+        for &t in tiles {
+            table.map(frame, t).map_err(CubeRefusal::Map)?;
+        }
         Ok(Self {
             id: NEXT_CUBE.fetch_add(1, Ordering::Relaxed),
             frame: frame.clone(),
             tile: tiles.first().copied().unwrap_or(0),
             tiles: tiles.to_vec(),
             tiled: true,
-            snapshots,
             n: BLOCK_POSITIONS.saturating_mul(tiles.len()),
             logs: vec![DeltaLog::new(); rels.len()],
             effective: empty_effective(rels.len()),
@@ -414,7 +401,7 @@ impl Cube {
         ))
     }
 
-    fn map<'t>(&self, table: &'t MapTable) -> Result<&'t LocalMap, CubeRefusal> {
+    fn map<'t>(&self, table: &'t MapTable) -> Result<TileMap<'t>, CubeRefusal> {
         table.map(&self.frame, self.tile).map_err(CubeRefusal::Map)
     }
 
@@ -736,27 +723,30 @@ impl Cube {
     /// Adopts `frame`, sealed after the table advanced to add symbols. Allowed
     /// only if, for every tile the cube holds, the new map is a pure
     /// extension of the one the cube was built (or last rebased) on
-    /// ([`LocalMap::extends`]): positions never renumber, so every stored
+    /// ([`TileMap::extends`]): positions never renumber, so every stored
     /// coordinate and logged edge keeps naming the same symbol. Otherwise
     /// [`CubeRefusal::Renumbered`] names the tile and the cube is unchanged.
     ///
     /// A single-tile cube's `n` is its map's length, so it grows with the
     /// map; a tiled cube's positions were reserved at build and stay fixed.
     pub fn rebase(&mut self, table: &MapTable, frame: &Frame) -> Result<(), CubeRefusal> {
-        let mut next = Vec::with_capacity(self.tiles.len());
-        for (&t, old) in self.tiles.iter().zip(&self.snapshots) {
+        // The table is append-only: the cube's own frame still reads the
+        // layout it was built on, so the old side of the comparison is read
+        // through the index and the cube keeps no copy of it.
+        let mut first_len = None;
+        for &t in &self.tiles {
+            let old = table.map(&self.frame, t).map_err(CubeRefusal::Map)?;
             let map = table.map(frame, t).map_err(CubeRefusal::Map)?;
             if !map.extends(old) {
                 return Err(CubeRefusal::Renumbered(t));
             }
-            next.push(snapshot(map)?);
+            first_len.get_or_insert(map.len());
         }
         if !self.tiled {
-            if let Some(m) = next.first() {
-                self.n = m.len();
+            if let Some(len) = first_len {
+                self.n = len;
             }
         }
-        self.snapshots = next;
         self.frame = frame.clone();
         // `n` may have grown; cached folds were built under the old one.
         for c in &mut self.effective {
@@ -827,15 +817,7 @@ fn check_col(col: u8) -> Result<(), CubeRefusal> {
     }
 }
 
-/// A copy of a tile's map for later comparison by [`Cube::rebase`].
-fn snapshot(map: &LocalMap) -> Result<LocalMap, CubeRefusal> {
-    let globals: Vec<u64> = (0..map.len())
-        .filter_map(|l| u8::try_from(l).ok().and_then(|l| map.global(l)))
-        .collect();
-    LocalMap::prepare(map.width(), &globals).map_err(CubeRefusal::Domain)
-}
-
-fn rel(tuples: &[(u32, u32)], map: &LocalMap) -> Result<Rel, CubeRefusal> {
+fn rel(tuples: &[(u32, u32)], map: TileMap<'_>) -> Result<Rel, CubeRefusal> {
     rel_with(tuples, &|id| {
         let l = map.local(u64::from(id)).map_err(CubeRefusal::Domain)?;
         Ok(u32::from(l))

@@ -454,7 +454,6 @@ fn refold_is_explicit_and_preserves_the_closure() {
 /// cube is left on the refused frame and the last assertions fail).
 #[test]
 fn rebase_accepts_prefix_extension_and_refuses_reorder() {
-    let globals_a: Vec<u64> = (0..100).collect();
     let globals_b: Vec<u64> = (100..200).collect();
     let (mut table, frame_a) = make_table(&[(10, 0..100), (20, 100..200)]);
     let edges = [(0u32, 1u32), (1, 150), (150, 199), (199, 0), (120, 121)];
@@ -478,24 +477,21 @@ fn rebase_accepts_prefix_extension_and_refuses_reorder() {
     let (rows_c, _) = cube.closure_wide(&table, 0).unwrap();
     assert!(bit(&dense(&rows_c, 355), 356), "appended id is addressable");
 
-    // Reorder: a second table whose tile 20 swaps its first two ids.
+    // Reorder: the SAME table advances again, tile 20 swapping its first two
+    // ids. (Previously a second, unrelated table was used and the cube's
+    // private snapshot supplied the old layout; the cube now reads its old
+    // layout through the table's index, so the comparison must stay within
+    // one table. A foreign table's frame is refused as `Map(Stale)`.)
     let mut swapped = extended.clone();
     swapped.swap(0, 1);
-    let mut other = MapTable::new(1, 1);
-    other.advance(
-        1,
-        1,
-        vec![
-            (
-                10,
-                Some(LocalMap::prepare(Width::W256, &globals_a).unwrap()),
-            ),
-            (20, Some(LocalMap::prepare(Width::W256, &swapped).unwrap())),
-        ],
+    table.advance(
+        3,
+        3,
+        vec![(20, Some(LocalMap::prepare(Width::W256, &swapped).unwrap()))],
     );
-    let frame_c = other.seal();
+    let frame_c = table.seal();
     assert_eq!(
-        cube.rebase(&other, &frame_c),
+        cube.rebase(&table, &frame_c),
         Err(CubeRefusal::Renumbered(20))
     );
     // Still on frame_b: the same table answers, and the logged edge stays.
