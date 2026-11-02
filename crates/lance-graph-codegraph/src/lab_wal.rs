@@ -59,6 +59,12 @@ impl LabWal {
         self.fault = Some(fault);
     }
 
+    /// Lab seam: reverse the stored (physical) order of the sealed cycles,
+    /// so a recovery that trusts physical order replays them wrongly.
+    pub(crate) fn reverse_physical_order(&mut self) {
+        self.sealed.reverse();
+    }
+
     /// The durable image of `cycle` (row → payload): where recovery reads
     /// land records, because `scan_sealed` carries no payload.
     pub(crate) fn image(&self, cycle: CycleId) -> Option<&BTreeMap<u64, Vec<u8>>> {

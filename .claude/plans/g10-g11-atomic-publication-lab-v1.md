@@ -82,6 +82,6 @@ The in-memory publication is one infallible step (Codegraph `commit_refresh` + t
    - it agrees with `route` on accept and refuse for every case;
    - it leaves `current_version()` unchanged.
 2. **DONE (2026-11-02):** a lab-only test `WalSink` (`LabWal`, `crates/lance-graph-codegraph/src/lab_wal.rs`) beside the Codegraph test (dev-dependency on `lance-graph-planner`; test `WalSink` impls exist in ten places, for example `lance-graph-planner/examples/blw_fusion.rs` `MemWal`). No production edge from Codegraph to the planner.
-3. The lab test itself, in-crate, because `prepare_refresh` / `commit_refresh` are crate-private.
+3. **DONE (2026-11-02):** the lab test itself (`crates/lance-graph-codegraph/src/graph/publication.rs`), in-crate, because `prepare_refresh` / `commit_refresh` are crate-private.
 
 Out of scope: `LanceCycleWriter` (needs the 512-byte ABI and real Lance), `ThoughtCommitId`/`DurableRef` (EXO-148), MergeQueue, review gates.

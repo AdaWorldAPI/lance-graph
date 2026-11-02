@@ -62,3 +62,29 @@ OPEN: `check_route`, the lab `WalSink`, and the L1–L6 test are three separate 
   - a fault before publish and one after publish leave different durable states.
 - **Disables (each red on its own test):** drop the fence; leak the payload through `scan`; skip the reconcile lookup; make `Ambiguous` publish nothing.
 - **Gates:** codegraph suites green (12 lib tests); clippy and fmt clean.
+
+## Step 3 done: L1–L6 (2026-11-02, MEASURED in the lab)
+- **Code:** `crates/lance-graph-codegraph/src/graph/publication.rs` (`#[cfg(test)]`).
+  - A branch revises one Codegraph source and carries DT64 route intents. It lands in the G10 order:
+    1. prepare (`prepare_refresh` + `check_route`);
+    2. durable commit through `LabWal`, with the land record (source + route intents, no positions, no `RouteVersion`) as payload;
+    3. an infallible publication (`commit_refresh`, `route`, watermark).
+  - Recovery reads records from the durable image above the watermark, in canonical cycle order. The record codec refuses truncated or padded bytes.
+- **Results (all green):**
+  - **L1/L5:** prepare and discard leave the Codegraph snapshot, `RouteVersion`, `routed_at(P)` and `claimed` unchanged.
+  - **L2:** `Fenced` publishes nothing; the branch lands after re-preparing against the new head.
+  - **L3:** after a crash between the durable commit and publication, recovery restores exactly the confirmed state: clean-open equality, `RouteVersion` +1, `P → C1`.
+  - **L4:** a second recovery changes nothing.
+  - **L6:** a rebuild from the base with reversed physical order equals the live state.
+- **Disables (each red at the intended assertion):**
+  - **L1/L5 eager `route`:** L1, L2 and L3 red.
+  - **L2 publish before the durable commit:** "nothing published" red.
+  - **L3 read records from `scan_sealed`:** "land record in the durable image" red.
+  - **L4 drop the watermark:** the Codegraph snapshot stays equal (digest skip) while `RouteVersion` goes 1 → 2. This is the predicted non-idempotence of `route`, now measured.
+  - **L6 drop the canonical sort:** the rebuild replays cycle 2 first, then the watermark skips cycle 1. The record is lost, not merely reordered (`RouteVersion` 1, `P → C2` only). **Physical-order replay plus a watermark loses data silently.**
+- **Gates:** codegraph suites green (17 lib tests); clippy and fmt clean.
+- **Limits:**
+  - The lab `prepare` takes `&mut` only so the L1 disable can call `route`. A production prepare should take `&self`.
+  - The `WalSink` is in memory; no 512-byte ABI and no `LanceCycleWriter`.
+  - EXO-148 stays locked.
+  - Lab results satisfy no production gate.

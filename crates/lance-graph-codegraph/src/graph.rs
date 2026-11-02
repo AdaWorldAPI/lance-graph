@@ -1272,6 +1272,9 @@ mod atomic {
 /// recomputes against the current W0; discarding leaves W0 untouched. Lab
 /// only: no Thought-Git wiring, no persistence, no routing.
 #[cfg(test)]
+mod publication;
+
+#[cfg(test)]
 mod lifecycle {
     use super::*;
     use std::collections::BTreeMap;
@@ -1281,7 +1284,7 @@ mod lifecycle {
 
     const HEAD: &str = "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n";
 
-    fn dir(tag: &str) -> PathBuf {
+    pub(super) fn dir(tag: &str) -> PathBuf {
         static NEXT: AtomicU32 = AtomicU32::new(0);
         let n = NEXT.fetch_add(1, Ordering::Relaxed);
         let d = std::env::temp_dir().join(format!("cg_lifecycle_{}_{tag}_{n}", std::process::id()));
@@ -1310,18 +1313,18 @@ mod lifecycle {
     }
 
     // W0: m::a calls m::b at two sites; n::c calls m::b once.
-    fn m_v1() -> String {
+    pub(super) fn m_v1() -> String {
         rows(
             "m.rs",
             &["m::a", "m::b"],
             &[("m::a", "m::b"), ("m::a", "m::b")],
         )
     }
-    fn n_v1() -> String {
+    pub(super) fn n_v1() -> String {
         rows("n.rs", &["n::c"], &[("n::c", "m::b")])
     }
     // Branch A revises source m: a new symbol m::x calling m::b.
-    fn m_v2() -> String {
+    pub(super) fn m_v2() -> String {
         rows(
             "m.rs",
             &["m::a", "m::b", "m::x"],
@@ -1329,7 +1332,7 @@ mod lifecycle {
         )
     }
     // Branch B revises source n: a new symbol n::y; n::c now calls it too.
-    fn n_v2() -> String {
+    pub(super) fn n_v2() -> String {
         rows(
             "n.rs",
             &["n::c", "n::y"],
@@ -1337,7 +1340,7 @@ mod lifecycle {
         )
     }
 
-    fn store(tag: &str, m: &str, n: &str) -> PathBuf {
+    pub(super) fn store(tag: &str, m: &str, n: &str) -> PathBuf {
         let d = dir(tag);
         fs::write(d.join("m.rows.tsv"), m).expect("write");
         fs::write(d.join("n.rows.tsv"), n).expect("write");
@@ -1355,7 +1358,7 @@ mod lifecycle {
 
     /// Every symbol's callers (names + call-site count), callees and
     /// impact, by name, so two graphs with different positions compare.
-    fn answers(g: &mut Codegraph) -> BTreeMap<String, String> {
+    pub(super) fn answers(g: &mut Codegraph) -> BTreeMap<String, String> {
         let all: Vec<String> = (0..g.words() * 64)
             .filter_map(|p| g.symbol(p as Pos).map(str::to_string))
             .collect();
