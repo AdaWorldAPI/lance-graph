@@ -1,3 +1,34 @@
+## 2026-11-02 — lance-graph PR #1933 (merged `d1b3ea59f`, branch `claude/clone-repositories-71a5sw`) — A10 probes + admission probe, NNUE triangle baseline, S5 erratum, #1931 record
+
+- **Added:**
+  - `cognitive-shader-driver/tests/a10_epistemic_admission_probes.rs` (F1/F3/F6);
+  - `lance-graph-planner/tests/a10_admission_probe.rs` (test-local Given/Observed/Derived/Measured admission, plus F2/F4/F5);
+  - `xlog-relcomp-probe/examples/triangle_pairing_baselines.rs`;
+  - board entries for the SGR recovery gates, A10 admission + NNUE feasibility, and A10 outcomes + S6 + NNUE baselines.
+- **Locked (measured):**
+  - F1: `raw5 = 0` is indistinguishable from an unwritten edge inside CE64.
+  - F3: `truth_code` and `learn` count a duplicated root.
+  - F4: a written certification survives the withdrawal of its support.
+  - NNUE is PARKED for the triangle optimizer: the exact-degree fold has regret 1.000 on 72/72.
+- **Not done:**
+  - The admission probe is not production.
+  - The rule-identity carrier and the production admission boundary are named gaps.
+  - The second writer, `deepnsm_v2::wire`, needs an owner decision.
+  - The S6 fork change (xlog `ea924b3`) is compiled but not run.
+- **Confidence:** each guard was disable-verified red-then-green; the triangle numbers were re-run independently.
+
+## 2026-11-02 — lance-graph PR #1932 (merged `3355be0b8`, branch `claude/sgr-coverage-gates`) — SGR recovery: residuals + coverage gate, `?::?` refusal; with ruff #135/#136
+
+- **Added:**
+  - codegraph reads `<crate>.residuals.tsv` and gives a typed `Coverage`;
+  - `DeadFunction` runs `Partial` unless there is no known gap;
+  - a placeholder (`?`) symbol segment is refused at open and at refresh;
+  - refresh skips only when the rows and the residuals are both unchanged (codex P2, `ccb7cba44`).
+- **ruff #135** (merged `9eb6e11e76`): Charon `?::?` identity residual; typed `<crate>.effects.tsv`, with assert kinds and DEREF_WRITE Arg/Local covered by the `derefw.rs` fixture.
+- **ruff #136** (merged `667936eebb`): C++ resolution status (Resolved / Lookup / Dynamic) with namespaces kept; constructors resolve; a call through a returned function pointer is dynamic.
+- **Locked:** the absence of a CALLS/REFERENCES row proves nothing unless coverage is complete.
+- **Confidence:** each gate has a can-fire and a can-stay-silent test, all disable-verified.
+
 ## 2026-11-02 — lance-graph PR #1931 (merged `ef6f34999`, branch `claude/clone-repositories-71a5sw`) — /coresearch Semantic Grammar Recovery map; #1930 post-merge record
 
 - **Added (board only):** `entries/2026-11-02-coresearch-semantic-grammar-recovery.md`. It contains:

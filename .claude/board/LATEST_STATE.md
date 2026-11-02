@@ -1,3 +1,12 @@
+## 2026-11-02 — main after #1932 and #1933 (merged `d1b3ea59f`), ruff #135/#136
+
+- Codegraph coverage gate:
+  - `DeadFunction` is `Partial` unless the residuals, dynamic calls and partial crates all show no gap.
+  - `?` placeholder symbols are refused.
+  - A residuals-only change is picked up by refresh.
+- A10 probes (test-local): the F1/F3/F4/F6 outcomes are recorded, with the admission kinds Given/Observed/Derived/Measured. No production admission writer and no CE64 change.
+- NNUE is parked for the XLOG triangle optimizer: the exact-degree fold beats the estimate argmin, with regret 1.000 against 13.1.
+
 ## 2026-11-02 — main after #1929 (merged `4fadef69d`) — plateau
 
 - Codegraph reads `<crate>.rows.bin` (written by ruff `ruff_charon`, ruff #133/#134). An unchanged refresh reads 64 bytes (2.58 µs). A changed crate still interns every symbol (2.5 ms against a 1 ms gate). This is a plateau; the interner step (B3) is open.
