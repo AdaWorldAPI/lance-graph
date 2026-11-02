@@ -1,3 +1,7 @@
+## 2026-11-02 — main after #1929 (merged `4fadef69d`) — plateau
+
+- Codegraph reads `<crate>.rows.bin` (written by ruff `ruff_charon`, ruff #133/#134). An unchanged refresh reads 64 bytes (2.58 µs). A changed crate still interns every symbol (2.5 ms against a 1 ms gate). This is a plateau; the interner step (B3) is open.
+
 ## 2026-11-02 — main after #1927 (merged `6768811df`)
 
 - DT64 method-authority census (D-DT64-AUTH): a committed table and a two-way ratchet in `lance-graph-r2il` and `lance-graph-xlog` tests.
