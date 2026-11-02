@@ -18,9 +18,7 @@
 use causal_edge::{CausalEdge64, Opcode};
 use lance_graph_contract::alpha::{stamp_of, AlphaAllocation, AlphaOverlay};
 use lance_graph_contract::canonical_node::{EdgeBlock, NodeGuid, NodeRow, TailVariant};
-use lance_graph_contract::epistemic_state5::{
-    Certification3, Epi5Gen, EpistemicState5, Topology2,
-};
+use lance_graph_contract::epistemic_state5::{Certification3, Epi5Gen, EpistemicState5, Topology2};
 use lance_graph_contract::revision::{
     BasisView, CodebookId, EncounterEvidence, EvidentialEffect, GadamerRevision, GrammarId,
     HorizonId, InterpretiveHorizon, LanguageId, LensId, QuestionId, RevisionPolicy,
@@ -51,7 +49,10 @@ fn f1_stamped_direct_open_is_bit_identical_to_an_unwritten_edge() {
     assert_eq!(direct_open().raw(), 0, "Direct × Open must be raw5 = 0");
     let unwritten = CausalEdge64(0);
     let stamped = unwritten.with_epistemic_raw5(direct_open().raw());
-    assert_eq!(stamped.0, unwritten.0, "the CE64 word cannot carry the stamp");
+    assert_eq!(
+        stamped.0, unwritten.0,
+        "the CE64 word cannot carry the stamp"
+    );
 
     // Control: a non-zero code IS visible, so the comparison can fail.
     let supports = EpistemicState5::new(Epi5Gen::V1, Topology2::Direct, Certification3::Supports);
@@ -70,7 +71,10 @@ fn f1_alpha_claim_distinguishes_what_ce64_cannot() {
     ov.claim(written, 0).expect("allocated address");
 
     assert!(ov.get(written).is_some(), "stamped: claimed");
-    assert!(ov.get(never).is_none(), "unwritten: not attended, no fallback");
+    assert!(
+        ov.get(never).is_none(),
+        "unwritten: not attended, no fallback"
+    );
     // The claim stamps the claimed row (`AlphaStamp`: cycle, saccade order,
     // visits); the base row stays all-zero. The stamp, not bits 59..63, is the
     // written-by record.
@@ -140,7 +144,9 @@ fn ancestry(independent: u64) -> BasisView<u64> {
 }
 
 fn effect(enc: &EncounterEvidence<u64>, basis: &BasisView<u64>) -> EvidentialEffect {
-    GadamerRevision.revise(&horizon(), enc, basis).evidential_effect
+    GadamerRevision
+        .revise(&horizon(), enc, basis)
+        .evidential_effect
 }
 
 /// F3, contract revision: `GadamerRevision` refuses an overlapping root and
@@ -195,7 +201,11 @@ fn f3_overlap_enforcement_depends_on_the_supplied_ancestry() {
 fn f6_maturation_never_alters_epistemic_state() {
     let codes = [
         direct_open(),
-        EpistemicState5::new(Epi5Gen::V1, Topology2::IndirectKnown, Certification3::Supports),
+        EpistemicState5::new(
+            Epi5Gen::V1,
+            Topology2::IndirectKnown,
+            Certification3::Supports,
+        ),
         EpistemicState5::new(Epi5Gen::V1, Topology2::Unknown, Certification3::Causes),
     ];
     for state in codes {
