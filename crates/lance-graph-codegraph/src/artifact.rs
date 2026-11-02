@@ -14,7 +14,13 @@ pub const ROWS_VERSION: u32 = 2;
 
 /// Columns every artifact must carry.
 const REQUIRED: [&str; 7] = [
-    "predicate", "subject", "object", "grade", "file", "start", "end",
+    "predicate",
+    "subject",
+    "object",
+    "grade",
+    "file",
+    "start",
+    "end",
 ];
 
 /// Marks an absent (`-`) span bound in [`Lanes::start`] / [`Lanes::end`].

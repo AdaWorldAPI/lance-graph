@@ -6,5 +6,6 @@
 pub mod artifact;
 pub mod diag;
 pub mod graph;
+pub mod query;
 
 pub use graph::{Codegraph, IntakeRefusal, Pos, RunStatus};

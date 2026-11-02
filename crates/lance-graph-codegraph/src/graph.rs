@@ -316,6 +316,12 @@ impl Codegraph {
         &mut self.cube
     }
 
+    /// The cube and the map table it reads under, borrowed together: views are
+    /// built through `&mut Cube` and every view constructor needs the table.
+    pub(crate) fn cube_and_table_mut(&mut self) -> (&mut Cube, &MapTable) {
+        (&mut self.cube, &self.table)
+    }
+
     /// The tile map table the cube reads under.
     pub fn table(&self) -> &MapTable {
         &self.table
