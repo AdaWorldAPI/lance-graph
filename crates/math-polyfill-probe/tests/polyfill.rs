@@ -8,7 +8,6 @@ use lance_graph_r2il::{
 };
 use lance_graph_relalg::{run, Answer, Cmp, Measure, Query, Rel};
 use math_polyfill_probe::{eval, oracle, Expr, Layout};
-use ogar_loco::Dialect;
 
 const L: Layout = Layout {
     x: 0,

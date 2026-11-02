@@ -1,0 +1,6 @@
+rel obs = {0.8::("F"), 0.6::("G"), 0.5::("H")}
+rel p1() = obs("F") and obs("G")
+rel p2() = obs("F") and obs("H")
+rel q() = p1()
+rel q() = p2()
+query q

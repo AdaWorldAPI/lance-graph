@@ -1,0 +1,4 @@
+Copied verbatim from AdaWorldAPI/mistaber-rs@62e2382 goldens/
+(oracle/export_goldens.py: Clingo over BrainyBlaze/mistaber@b50bf33
+mistaber/ontology/worlds/kripke_rules.lp, sha256 in each file's header).
+Regenerate there, then copy; never edit here.

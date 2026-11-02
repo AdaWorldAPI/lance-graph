@@ -1,3 +1,63 @@
+## 2026-11-01 — D-STAUNEN-5: resident recursive plasticity → `.claude/plans/d-staunen-5-resident-recursive-plasticity-v1.md`
+
+**Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-STAUNEN-5. First closed learning loop on the XLOG-on-cube foundation: one binary relation, its transitive closure as the prediction, a declared set of dormant candidate edges. A novel stimulus (an observed pair the closure misses) licenses one activation, under the contract of Atlas's `update_mask` (fixed mask shape, 0/1, atomic between sequences, regrowth clears history, needs committed state) plus a generation guard; Atlas is the contract source, not the executor. The delta stays in the cube as `ndarray::simd` mask words. Two competing policies (H1 parsimony, H2 novelty × eligibility) are scored on held-out pairs from a hidden graph; later evidence consolidates or reverts each update, and a selector learns which policy to use. Also records the xlog-cube coverage order (projection composition, mask filters, resident execution, computed columns, F100, N-ary gated) and that 140/230 measures admission, not checked answers.
+**Confidence:** plan; Atlas contract read from `brian2-atlas` `dev` `9ec52f9`; no code yet.
+
+## 2026-10-31 — D-DT64-7: behaviour addressing and registration → `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`
+
+**Status:** PROPOSED, docs only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DT64-7. Behaviour for fixed relalg is Frozen (compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without asking `ogar-vocab`; the range names the concern: relalg, XLOG, ONNX, TFLite, SQL, Gremlin), Learned (registered in the `BindStore` at `Domain::AppId :: 0xF###`, withdrawn only by its registrant, never deleted) or Explore (not registered). ONNX, SQL and Gremlin are Frozen; the R2IL codegraph harvest is Learned / Explore; XLOG is Learned in the lab and Frozen once minted as `lance-graph-xlog`. Findings: the Frozen polyfill is runtime-declared and named through `ogar-r2il`'s vocabulary; only routes can be withdrawn; registration moves no version; no activation is consulted; `classid_canon_compat` misreads a legacy left-empty classid (it reads `0xFFFF` correctly); the global → local selection is not yet a versioned table.
+**Confidence:** plan; every finding cited to code read on `main` `b38d88e`; no new measurement.
+
+## 2026-10-31 — D-DYNBAG: DR{dynamic bag}, holographic bags as polyfill, the PostgreSQL endgame → `.claude/plans/d-dynbag-holographic-bags-v1.md`
+
+**Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DYNBAG. DuckDB's selection vector made explicit: a Quack selection becomes a mask plus one pointer table (`dt64::dr::LocalMap`) and runs on a local tile whose width follows the survivor count (DR64 / DR256 / multi-tile). Relations on a tile are read in a semiring per operation (B for presence, ℕ for bag multiplicity; K-relations), one address with several readings. The bag-op polyfill names each relational operation once with one realization per semiring. ℕ-compose via `ndarray::simd::matmul_i8_to_i32` is the candidate home for the many-to-many join (falsifier D-DYNBAG-1). Endgame: a PostgreSQL-compatible surface (`sql-quack-probe`, modelled on `lance-graph-cypher-quack`) scored against DuckDB and PostgreSQL in ns, losses reported. The membrane stays a reference note on EXO-50.
+**Confidence:** plan; word existence verified in code, no new measurement.
+
+## 2026-10-31 — D-SOC-FENCE: one place per concern, checked in CI → `.claude/plans/d-soc-fence-v1.md`
+
+**Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-SOC-FENCE. A mapping file (`.claude/soc/one-place.toml`) names each concern's sole owner, its basis, the symbols only the owner names and what others reach it through. A `syn`-based symbol fence plus a `cargo metadata` dependency fence report every use outside it. A two-way ratchet baseline holds known violations. Report-only first; blocking once the baseline is committed. Triggered by PR #1884's direct `ndarray::simd` fold calls bypassing Quack and mask-risc.
+**Confidence:** plan; blast radius counted by `git grep` as candidates, not read.
+
+## 2026-10-30 — D-XLOG-NATIVE: XLOG plan vocabulary over the ndarray::simd polyfill → `.claude/plans/d-xlog-native-v1.md`
+
+**Status:** PROPOSED, docs only. **Board:** [entry](entries/2026-10-30-d-xlog-native-crosswalk.md), [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-NATIVE. Crosswalk of XLOG's compiled-plan nodes onto the `ndarray::simd` polyfill that `lance-graph-onnx` aliases, in the D-ONNX-NATIVE categories (ALIAS / INLINE / NATIVE / REFUSE), name-checked, not tested; shared operations are the same native symbols as ONNX's. Decides that a `lance-graph-xlog` crate (ndarray only, like `lance-graph-onnx`; no `xlog-*` dependency, no plan type) waits until selection rows are tested and the many-to-many join has a native home.
+**Confidence:** name-checked crosswalk; no code.
+## 2026-10-30 — D-MIST-NATIVE: Mistaber's Kripke holdings as a vocabulary over existing algebra → `.claude/plans/d-mistaber-native-v1.md`
+
+**Status:** D-MIST-NATIVE-0 LAB PROBE (`crates/mistaber-kripke-probe`, own workspace); D-MIST-NATIVE-1..4 PROPOSED. **Board:** [entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md), [STATUS_BOARD](STATUS_BOARD.md) D-MIST-NATIVE. `holds` is a stratified least fixpoint over the existing DR64 `relcomp::compose`; holdings are one lens read by `WideFieldMask` selections, `holds/2` a Set projection. Endgame: an onnx-shaped `lance-graph-mistaber` facade, blocked on a production home for `compose`.
+**Confidence:** 11/11 Clingo goldens exact, 6 disable runs fail as expected; lab only, no timing.
+
+## 2026-10-30 — D-LITHO: the photolithography contract → `.claude/plans/d-litho-photolithography-contract-v1.md`
+
+**Status:** RETIRED 2026-10-30, folded into D-DT64-6 Amendment A (`d-dt64-6-routing-bindstore-behavior-v1.md`); "photolithography" was a metaphor. **Board:** [entry](entries/2026-10-30-d-litho-photolithography-contract.md), [STATUS_BOARD](STATUS_BOARD.md) D-LITHO. Photolithography as the shader north star: vocabulary (wafer, reticle, exposure, dose, develop), the Abacus as address grammar and mental model (frame, rod, bead position under a DR law), "views are laws, never rotations", ownership, consumers, gates G1–G5 (not run). Clarifies D-DRDT's "rotation" wording without editing it.
+**Confidence:** decisions recorded; no code.
+
+## 2026-10-30 — D-TRACT-HARVEST-0: Tract as a cold ONNX frontend, admitted onto native methods → `.claude/plans/d-tract-harvest-0-native-algebra-bridge-v1.md`
+
+**Status:** LAB PROBE IMPLEMENTED, REDESIGNED 2026-10-30 to the ONNX graph as a DR#3 graph resolved through the DT64 ON×WHEN×DO registry (plan §0; the recipe text below is the superseded first version) (`crates/tract-harvest-probe`, own workspace, no native dependents); runs the Tract arm of D-ONNX-INTAKE S1/S3 (#1802, #1810); Burn not run. **Board:** [entry](entries/2026-10-30-d-tract-harvest-0-native-algebra-bridge.md), [STATUS_BOARD](STATUS_BOARD.md) D-TRACT-HARVEST-0. Tiny graph bit-exact with ORT (optimizer off); Jina v5 small layer-0 RMSNorm slice bounded (max 4 ulp, deviation confined to the float mean). Records the Tract provenance gaps (domain ignored, equal constants merged, declutter Div→Mul(recip) and fusion name loss) and the next PR sequence (float reduction tolerance, admitted f32 MatMul first).
+**Confidence:** lab evidence on two fixtures; no whole-model claim.
+## 2026-10-30 — D-DRCA-3: DR #4 method routing falsifier (lab) → `.claude/plans/d-drca-3-dr4-method-routing-v1.md`
+
+**Status:** lab probe in `dr-math-binding-probe` (`src/dr4.rs`, `tests/dr4_method_routing.rs`); first DR #4 falsifier of D-DRDT §5. **Board:** [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRCA-3. DT-owned method key, guard witness and effect order are carried opaque; the effect-order oracle is ndarray #395's order law. No DT resolver (D-CMH-1), no MethodKey mint, no contract change.
+**Confidence:** 12 tests, 7 disable runs red; lab only.
+
+## 2026-10-28 — D-DRDT: DR = HHTL16 Cartesian direct routing, DT = ClassId binding store → `.claude/plans/d-drdt-dr-dt-ownership-amendment-v1.md`
+
+**Status:** PROPOSED, docs only; amends D-DT64-6 §1 (per-cell WHEN×ON×DO, DR#3) and supersedes the DT64 "tensor register" noun of Bardioc-rs #9. **Board:** [entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md), [STATUS_BOARD](STATUS_BOARD.md) D-DRDT. Records the DR/DT contract, reads the DR64/DR256 overview against existing pieces, gives the reuse/gap table for Cartesian and relational fold operators (proof: #1834, D-DRCA-1) and hands off DT method identity / guard / effect order and the DR #4 interface.
+**Confidence:** decisions recorded; one lab proof; no production change.
+
+## 2026-10-28 — D-DT64-6 predicates: implementation plan for the OGIT predicate expansion → `.claude/plans/d-dt64-6-ogit-predicates-impl-v1.md`
+
+**Status:** PROPOSED, docs only; companion to #1831 (D-DT64-6). **Board:** [entry](entries/2026-10-28-d-dt64-6-ogit-predicates-impl.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6 (the rows #1831 added). Adds D-DT64-6-1a (511 `owl:ObjectProperty` verbs and root `ogit:` names that `ttl_parse` skips today) and details 6-1..6-4 with files, tests and acceptance counts.
+**Confidence:** plan row only; stages unstarted.
+
+## 2026-10-28 — D-SAG-6-1 reference ledger and stale-status corrections → `.claude/plans/d-sag-6-1-audit-reference-ledger-v1.md`
+
+**Status:** PROPOSED, docs only; prerequisite reading for D-SAG-6-1 (#1760), not the audit. **Board:** [entry](entries/2026-10-28-d-sag-6-1-audit-reference-ledger.md). Lists the references #1760 §7 lacks (ruff `ruff_spo_triplet` files and plans, `ogar-from-ruff`, CFA #1813/#1814/#1818, #1792, #1799, contract files, D-DTM-1, ndarray primitives, crai-rs CR-H0/H1) and corrects stale status (crai-rs lists #1813–#1830 as open; ruff has no Rust frontend; `ProposedMethod` is not defined in code).
+**Confidence:** reference ledger only; D-SAG-6-1 unstarted.
+## 2026-10-28 — D-DT64-6: DR64 routing, DT64 bind store, per-cell WHEN×ON×DO behaviour, OGIT reference predicates → `.claude/plans/d-dt64-6-routing-bindstore-behavior-v1.md`
+
+**Status:** PROPOSED, docs only; nothing authorized. **Board:** [entry](entries/2026-10-28-d-dt64-6-routing-bindstore-behavior.md), [STATUS_BOARD](STATUS_BOARD.md) D-DT64-6. Records eight user decisions (three DT64 levels; primary DR#3 Identity × Properties; WHEN×ON×DO per DR#3 cell; DR64 = direct routing, DT64 = DTO bind store; immutable classid → behaviour via hotplug; global needs no classid; OGIT read unpinned; DR64 references existing identity and the global→local prefetch holds a frame-keyed register copy) and stages D-DT64-6-0..5 with 6-1a (classify the verb files both readers miss: lance-graph accepts 12, OGAR 511, of 523), OGIT reader reconciliation, one `(src, verb, dst)` table from the entity `ogit:allowed` blocks with no second parser, DT64 predicate registration, consumer HotPlug access. Requests an amendment to D-DT64-Q0's "One-sentence contract" (persistent binding store); not applied.
 ## 2026-10-26 — D-TFLP v2: synergy revision → `.claude/plans/d-tflp-tflite-palette-polyfill-capstone-v2.md`
 
 **Status:** PROPOSAL, docs only; revises v1 (#1785). **Board:** [entry](entries/2026-10-26-d-tflp-v2-synergy-revision.md), [STATUS_BOARD](STATUS_BOARD.md) D-TFLP. Folds GPT's six #1785 corrections; rescopes D-TFLP-4 to the source reciprocal from #1800; splits prepared-object identity into numeric cache key + semantic receipt from #1800/#1801; adds D-TFLP-5a (intake bake-off, #1802 pattern); records boundaries with DT64-5 and DR256/DQM.

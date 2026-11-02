@@ -12,7 +12,7 @@
 //! address on top of the stack. Lane arguments are indexes into
 //! [`Planes::lanes`](lance_graph_mask_risc::Planes::lanes).
 
-use ogar_loco::{Dialect, FnIndex};
+use ogar_loco::FnIndex;
 use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, KEY_RUNS, MAX, MIN, SUM};
 
 use crate::{

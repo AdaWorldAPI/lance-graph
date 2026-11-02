@@ -289,6 +289,35 @@ impl<M: PopulationMask> CertificationModel<M> {
         )
     }
 
+    /// The model restricted to the units whose outcome was measured.
+    ///
+    /// `outcome` is a positive mask: a unit outside it reads as a known
+    /// negative. A unit whose outcome is UNKNOWN must not read that way, so
+    /// before certifying, every mask (population, strata, ordering,
+    /// robustness, and the trial arms, which `causes` reads without the
+    /// universe) is intersected with `measured`. An arm left with no measured
+    /// unit refuses as [`NotGrounded::EmptyArm`] rather than deciding.
+    #[must_use]
+    pub fn measured_only(&self, measured: &M) -> Self {
+        let keep = |m: &M| m.intersection(measured);
+        CertificationModel {
+            universe: keep(&self.universe),
+            exposed: keep(&self.exposed),
+            outcome: keep(&self.outcome),
+            strata: [
+                keep(&self.strata[0]),
+                keep(&self.strata[1]),
+                keep(&self.strata[2]),
+                keep(&self.strata[3]),
+            ],
+            ordered: keep(&self.ordered),
+            clean: keep(&self.clean),
+            trial: keep(&self.trial),
+            assigned: keep(&self.assigned),
+            ..self.clone()
+        }
+    }
+
     /// The randomized arms read as a population of their own.
     pub fn trial_view(&self) -> CertificationModel<M> {
         CertificationModel {
@@ -457,6 +486,58 @@ impl<M: PopulationMask> ModelBuilder<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Unmeasured outcomes are not negatives. Treated arm: 4 units with the
+    /// outcome, 4 whose outcome was never measured. Control arm: 3 of 8.
+    /// Reading the unmeasured units as negatives gives 4/8 against 3/8, so
+    /// `causes` holds; restricted to measured units it is 4/4 against 3/8.
+    /// The second fixture moves the gap the other way: 2 of 8 treated
+    /// measured positive, 6 unmeasured; as negatives 2/8 < 3/8 refutes, as
+    /// unknown 2/2 > 3/8 holds.
+    #[test]
+    fn unmeasured_outcomes_are_not_read_as_negatives() {
+        let build = |treated_hits: u32, treated_unknown: u32| {
+            let mut b = ModelBuilder::new();
+            b.sources(SupportBasis::InterventionBacked, &[1, 2]);
+            let (t_known, _) = b.arm(true, treated_hits, treated_hits);
+            let (t_unknown, _) = b.arm(true, treated_unknown, 0);
+            let (c, _) = b.arm(false, 8, 3);
+            let measured = t_known.union(&c);
+            assert!(!t_unknown.is_empty() && !t_unknown.intersects(&measured));
+            (b.build(), measured)
+        };
+
+        let (m, measured) = build(2, 6);
+        assert_eq!(m.causes(), Ok(false), "unknowns read as negatives refute");
+        assert_eq!(m.measured_only(&measured).causes(), Ok(true));
+
+        let (m, measured) = build(4, 4);
+        assert_eq!(m.causes(), Ok(true));
+        assert_eq!(m.measured_only(&measured).causes(), Ok(true));
+
+        // Unknowns in the control arm: treated 1 of 4 measured, control 3 of
+        // 8 measured plus 8 unmeasured. Read as negatives the control rate
+        // is 3/16 and treated (1/4) looks higher; restricted it is 3/8 and
+        // treated is lower.
+        let mut b = ModelBuilder::new();
+        b.sources(SupportBasis::InterventionBacked, &[1, 2]);
+        let (t, _) = b.arm(true, 4, 1);
+        let (c_known, _) = b.arm(false, 8, 3);
+        let (c_unknown, _) = b.arm(false, 8, 0);
+        let m = b.build();
+        let measured = t.union(&c_known);
+        assert!(!c_unknown.intersects(&measured));
+        assert_eq!(m.causes(), Ok(true), "unknown controls read as negatives");
+        assert_eq!(m.measured_only(&measured).causes(), Ok(false));
+
+        // An arm with no measured unit refuses instead of deciding.
+        let (m, _) = build(2, 6);
+        let control_only = m.trial.difference(&m.assigned);
+        assert_eq!(
+            m.measured_only(&control_only).causes(),
+            Err(NotGrounded::EmptyArm)
+        );
+    }
 
     /// Every fold of a model, so two models can be compared fold by fold.
     fn folds<M: PopulationMask>(m: &CertificationModel<M>) -> [Sat; 6] {

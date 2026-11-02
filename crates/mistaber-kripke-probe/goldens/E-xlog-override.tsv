@@ -1,0 +1,76 @@
+# fixture	E-xlog-override
+# upstream_commit	b50bf3323056793830c35795eace57e43caa23b5
+# kripke_lp_sha256	6c55720475add0f81915c46a84da8146235cee38dffa0db73e72a7bf0e58a9e9
+# fixture_sha256	52c34f88425da820335a7e07d131883b21814ba03b98ea7ca039a3faaefd7d91
+fact	world	src
+fact	world	curated
+fact	accessible	curated	src
+fact	asserts	src	r(1,2)
+fact	asserts_rule	src	r(1,2)	r_R_0
+fact	asserts	src	r(1,3)
+fact	asserts_rule	src	r(1,3)	r_R_1
+fact	asserts	src	r(9,7)
+fact	asserts_rule	src	r(9,7)	r_R_2
+fact	asserts	src	s(2,4)
+fact	asserts_rule	src	s(2,4)	r_S_0
+fact	asserts	src	s(3,5)
+fact	asserts_rule	src	s(3,5)	r_S_1
+fact	asserts	src	s(7,4)
+fact	asserts_rule	src	s(7,4)	r_S_2
+fact	override	curated	r(1,2)	retracted
+atom	holding_strength(moderate,r(1,3),curated)
+atom	holding_strength(moderate,r(9,7),curated)
+atom	holding_strength(moderate,s(2,4),curated)
+atom	holding_strength(moderate,s(3,5),curated)
+atom	holding_strength(moderate,s(7,4),curated)
+atom	holding_strength(strong,r(1,2),src)
+atom	holding_strength(strong,r(1,3),src)
+atom	holding_strength(strong,r(9,7),src)
+atom	holding_strength(strong,s(2,4),src)
+atom	holding_strength(strong,s(3,5),src)
+atom	holding_strength(strong,s(7,4),src)
+atom	holds(r(1,2),src)
+atom	holds(r(1,3),curated)
+atom	holds(r(1,3),src)
+atom	holds(r(9,7),curated)
+atom	holds(r(9,7),src)
+atom	holds(s(2,4),curated)
+atom	holds(s(2,4),src)
+atom	holds(s(3,5),curated)
+atom	holds(s(3,5),src)
+atom	holds(s(7,4),curated)
+atom	holds(s(7,4),src)
+atom	holds_via(asserted,r(1,2),src)
+atom	holds_via(asserted,r(1,3),src)
+atom	holds_via(asserted,r(9,7),src)
+atom	holds_via(asserted,s(2,4),src)
+atom	holds_via(asserted,s(3,5),src)
+atom	holds_via(asserted,s(7,4),src)
+atom	holds_via(inherited(src),r(1,3),curated)
+atom	holds_via(inherited(src),r(9,7),curated)
+atom	holds_via(inherited(src),s(2,4),curated)
+atom	holds_via(inherited(src),s(3,5),curated)
+atom	holds_via(inherited(src),s(7,4),curated)
+atom	holds_via_rule(asserted,r(1,2),src,r_R_0,r_R_0)
+atom	holds_via_rule(asserted,r(1,3),src,r_R_1,r_R_1)
+atom	holds_via_rule(asserted,r(9,7),src,r_R_2,r_R_2)
+atom	holds_via_rule(asserted,s(2,4),src,r_S_0,r_S_0)
+atom	holds_via_rule(asserted,s(3,5),src,r_S_1,r_S_1)
+atom	holds_via_rule(asserted,s(7,4),src,r_S_2,r_S_2)
+atom	holds_via_rule(inherited(src),r(1,3),curated,r_kripke_inherit,r_R_1)
+atom	holds_via_rule(inherited(src),r(9,7),curated,r_kripke_inherit,r_R_2)
+atom	holds_via_rule(inherited(src),s(2,4),curated,r_kripke_inherit,r_S_0)
+atom	holds_via_rule(inherited(src),s(3,5),curated,r_kripke_inherit,r_S_1)
+atom	holds_via_rule(inherited(src),s(7,4),curated,r_kripke_inherit,r_S_2)
+atom	inheritance_source(r(1,2),src,src)
+atom	inheritance_source(r(1,3),curated,src)
+atom	inheritance_source(r(1,3),src,src)
+atom	inheritance_source(r(9,7),curated,src)
+atom	inheritance_source(r(9,7),src,src)
+atom	inheritance_source(s(2,4),curated,src)
+atom	inheritance_source(s(2,4),src,src)
+atom	inheritance_source(s(3,5),curated,src)
+atom	inheritance_source(s(3,5),src,src)
+atom	inheritance_source(s(7,4),curated,src)
+atom	inheritance_source(s(7,4),src,src)
+atom	overridden(r(1,2),curated)

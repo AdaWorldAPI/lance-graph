@@ -1,3 +1,127 @@
+## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
+
+Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TF family incl. TFLite `F3__`, SQL-specific `F4__`, Gremlin-specific `F5__`; DECIDED O7); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection. O7–O10 DECIDED (plan §1d): host composition, full-classid basis for behaviour lenses, consumer-supplied `ClassView` with a basis witness.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DT64-7-0 | plan and board rows | Shipped (#1898, #1900) | docs review |
+| D-DT64-7-1 | `classid_canon_compat(0x0000_F123) == 0x0000` falsifier (F5, legacy ids only), with the twin `0xFFFF_F000 → 0xFFFF` | Queued | none |
+| D-DT64-7-2 | `BindStore` withdrawal with constraints C1–C8, behind an activation | Queued | after L2/L3 |
+| D-DT64-7-3 | compile-time Frozen polyfill table at `0xFFFF :: 0xF000`, registered by DT64, parity test against `R2ILVocabulary`; `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il` | In part: positional lens shipped (#1899); OGAR still on the path | — |
+| D-DT64-7-4 | DT64 `CapabilityAuthority` for concept `0xFFFF` + host-side composing authority (O8) | Queued | O8 (O2 done: OGAR #365 + contract mirror guard) |
+| D-DT64-7-6 | polyglot alias views (C, Rust, Java, SQL) over one Frozen algebra: words bound by position, names as per-language `ClassView` labels; `prepare`/`run` timed in ns | Queued | D-DT64-7-3, O7 |
+| D-DT64-7-7 | semantic union census of operator sets (ONNX, TF, TFLite, GGML, Burn IR, R2IL, XLOG) after aliasing; decides the `0xF0__` layout and the tensor ranges | Queued | counts recounted from source |
+| D-DT64-7-L4 | production alias views (R2IL, SQL, Quack) from `POLYFILL` | In progress | — |
+| D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
+| D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
+| D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
+| D-DT64-7-5 | the versioned global → local table, a BindStore plan item (plan §1e; Litho is a mental model, folded into the bind store plan as D-DT64-6 Amendment A) | Core shipped (#1905): `dr::MapTable`; stored selections (D7') wait on O4 | O4 for the selection half |
+
+## D-MIST-NATIVE — Mistaber's Kripke holdings over the DR64 relation register (2026-10-30)
+
+**Status:** LAB PROBE; test-only, standalone crate, no production API. [Plan](../plans/d-mistaber-native-v1.md); [board entry](entries/2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md).
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-MIST-NATIVE-0 | Kripke `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`; 11 Clingo goldens exact; holdings lens with Set/Bag projection; 6 disable runs | Shipped (#1873) | lab only |
+| D-MIST-NATIVE-1a | HHTL16 Register128 rows replace the name interner: world/proposition/rule nodes as 512-byte rows (16 Morton8x8 columns, identity + up to 15 addresses), classid per population on `RegisterLanes`, accessibility derived from world rows, every compose through `bind_dr64` + `relcomp::Chain`; no String in solved state (compile-time guard); 18 tests + 2 compile_fail doctests; 7 disable runs | Shipped (#1875) | lab only |
+| D-MIST-NATIVE-1b | makor citations addressed the KJV way: 141 real rule→seif citations laid over a Yoreh De'ah outline with `deepnsm-v2` `hydrate` (NiblePath, no classid/promote/NodeRow); siman past level capacity refused into `unaddressed`; u16 ordinal overflow refused; 8 tests; 3 disable runs | Shipped (#1880) | probe consumes the `deepnsm-v2` intake arm |
+| D-MIST-NATIVE-1 | `lance-graph-mistaber`: onnx-shaped ALIAS/INLINE/REFUSE facade (plan §3) | Queued | production home for `compose` (plan Q1) |
+| D-MIST-NATIVE-2 | lineage origins into `SupportLedger` (`EvidenceSourceId`, `TextAttested`) | Queued | after D-MIST-NATIVE-1 |
+| D-MIST-NATIVE-3 | axes past 64 (worlds, propositions, rules) | Queued | refused today |
+| D-MIST-NATIVE-4 | intake from compiled HLL | Queued | upstream provenance defects (`mistaber-rs#3`, `#4`) |
+
+## D-DYNBAG — DR{dynamic bag}: selection vector made explicit, holographic bags as polyfill, PostgreSQL endgame (2026-10-31)
+
+Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DYNBAG-0 | PR #1884 layering fix: XLOG intake as lanes, support + bag count via Quack → mask-risc, fold oracles, cost columns | Shipped (#1906): gates 1–7 (plan §17.7); cost columns not done | operator go-ahead (given 2026-11-01) |
+| D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | In PR: exact vs both oracles (300 cases), projection = compose; MEASURED ~21 µs/tile on the AVX-512 VNNI tier (no AMX) vs 50 ns–2.4 µs for B (plan §7.6) | D-DYNBAG-0 |
+| D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
+| D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
+| D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Queued | DT64 `dr` owner |
+| D-DYNBAG-5 | `sql-quack-probe` modelled on `lance-graph-cypher-quack` | Queued | parser decision |
+| D-DYNBAG-6 | scoreboard vs DuckDB / PostgreSQL, ns units, losses reported | Queued | D-DYNBAG-5 |
+| D-DYNBAG-7 | second Datalog frontend (Scallop) through the same path | Queued | D-DYNBAG-2 |
+
+## D-SOC-FENCE — one place per concern, checked in CI (2026-10-31)
+
+Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-SOC-FENCE-0 | census of §1 candidates, read and classified; mapping file + baseline drafts | Queued | §5 decisions |
+| D-SOC-FENCE-1 | `syn`-based symbol fence + dependency fence, fixture falsifiers, report-only workflow | Queued | D-SOC-FENCE-0 |
+| D-SOC-FENCE-2 | mapping file + baseline committed; CI blocks new violations and stale entries | Queued | D-SOC-FENCE-1 |
+| D-SOC-FENCE-3 | per-crate burn-down through each concern's `reach_via` | Queued | D-SOC-FENCE-2, owning sessions |
+| D-SOC-FENCE-4 | `/v3-audit` item 1 and the lgj G11 allowlist read from the mapping file | Queued | D-SOC-FENCE-2 |
+
+## D-XLOG-NATIVE — XLOG plan vocabulary over the ndarray::simd polyfill, the algebra under lance-graph-onnx (2026-10-30)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-xlog-native-v1.md); [board entry](entries/2026-10-30-d-xlog-native-crosswalk.md). No crate yet.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-XLOG-NATIVE-0 | crosswalk of XLOG plan nodes onto `ndarray::simd` (ALIAS / INLINE / NATIVE / REFUSE), shared symbols with lance-graph-onnx, name-checked | Shipped (#1866) | docs |
+| D-XLOG-NATIVE-1 | test the selection rows (eq/ne_u32_to_mask, i32 comparisons, mask_and/or/andnot) against the probe's two oracles, signatures checked | Queued | N2 |
+| D-XLOG-NATIVE-2 | test masked_group_count_u32 keyed by one table's column against the RIR walk, with the out-of-universe refusal | Queued | N2, N3 |
+| D-XLOG-NATIVE-3 | ask the ndarray / mask-risc owners for a native home for the many-to-many join (fixture: Gate B) | Queued | owner decision |
+| D-XLOG-NATIVE-4 | create `crates/lance-graph-xlog` (shape per Amendment C/D: Quack + mask-risc + DT64, no `xlog-*` or arrow dep, no plan type) | Shipped (#1907) | N1, N4, N5 met; N2 scalar oracle in-crate + both oracles in the probe; N3 typed refusals |
+| D-XLOG-NATIVE-6 | probe executes on `ndarray::simd` (`src/native.rs`): support via `eq_u32_to_mask` / `mask_scatter_or_u32` / `mask_and`, bag count via `masked_group_count_u32` ×2 + `checked_binary_i64`; DR `LocalMap` up to 256; register path kept as differential (plan Amendment B) | Shipped (#1884) | lab probe; layering fix is D-DYNBAG-0 |
+| D-XLOG-NATIVE-5 | bag count bound through the production bind store (`lance-graph-dt64` + `dt64::dr`), polyfill words by position; Epi5 reading of XLOG results pinned (plan Amendment A) | Shipped (#1884) | lab execution only |
+| D-XLOG-NATIVE-7 | resident hypercube context (`lance_graph_xlog::cube`): one intake for every relation, `Copy` view handles, terminals only run programs; XLOG plans executed on it in the XLOG fork (`xlog-cube`) | In PR (#1911; xlog#2): parity + 300-case differential; 12/230 integration rules admitted | recursion, derived inputs |
+| D-XLOG-NATIVE-8 | XLOG behaviour lens `0xFFFF :: 0xF100` (`lance_graph_xlog::lens`): `functor`/`arg`/`=..` by position with helper-relation aliases; `declare` binds column counts as `arity` (side effect documented) | Shipped (#1913) | consumer half in xlog#2 |
+| D-STAUNEN-5 | resident recursive plasticity: novelty-gated activation of one declared candidate edge (Atlas `update_mask` shared contract), in-cube mask delta, H1 vs H2, consolidate/revert, policy selection (plan P0–P7) | P0, P1 shipped (#1914); P1 accepted: C0 three-way parity merged (xlog#6); P0 ordering-leak gate open | P2–P7 gated; read against #1915 |
+
+## D-LITHO — the photolithography contract (2026-10-30)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-litho-photolithography-contract-v1.md); [board entry](entries/2026-10-30-d-litho-photolithography-contract.md). No ABI, kernel, mask-risc op or runtime.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-LITHO-0 | contract: vocabulary, Abacus address grammar, design rules, ownership, consumers (docs); §4 = DR facts the DTO layer must know (cited) | Folded into D-DT64-6 Amendment A (#1862) | docs review |
+| D-LITHO-1 | first consumer operation as a DTO binding, with a failing fixture | Folded into D-DT64-6 Amendment A (#1862) | G1 for a non-ONNX consumer: NodeGuid stand-in, R/S as ClassView × WideFieldMask, count method by reference with `Population::Bag`, expected {2:4, 3:1, 7:1}; refused today with `BagNeedsMultiplicity` |
+| D-LITHO-2 | law-not-rotation, Morton-tile, dose-identity and alignment-refusal falsifiers | Folded into D-DT64-6 Amendment A (#1862) | G2 not run |
+
+## D-XLOG-DR64 — XLOG frontend lowered onto the DR64 relation register, CPU only (2026-10-30)
+
+**Status:** LAB PROBE; test-only, standalone crate, no production API. [Board entry](entries/2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md); README in `crates/xlog-relcomp-probe`.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-XLOG-DR64-0 | XLOG RIR (Join / ChainJoin / swapped order) → `bind_dr64` + `Chain` + `compose`; forward∧backward over one 64-slot axis; 2 oracles, 11 refusals, 9 disable runs, cost probe | Shipped (#1857) | lab only |
+| D-XLOG-DR64-1 | arrow 60 vs 58: align or a facts-free `xlog-core` before any in-tree use | Queued | XLOG upstream / owner decision |
+| D-XLOG-DR64-2 | query-bound recursion via native semi-naive deltas; compare with XLOG magic sets | Queued | after D-XLOG-DR64-1 |
+| D-XLOG-DR64-3 | D-LITHO-1: Gate B as explicit register steps; failing bag-multiplicity fixture (2 oracles); count width and per-Y product named as open; same operation as a DTO binding (NodeGuid / ClassView / WideFieldMask / method ref) | Shipped (#1864) | lab only |
+
+## D-DRDT — DR = HHTL16 Cartesian direct routing, DT = ClassId binding store (2026-10-28)
+
+**Status:** PROPOSED / DOCS ONLY (amendment); D-DRCA-1 is a lab proof. [Plan](../plans/d-drdt-dr-dt-ownership-amendment-v1.md); [board entry](entries/2026-10-28-d-drdt-dr-dt-ownership-amendment.md). No ABI, runtime or schema store.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DRDT-0 | amendment: DR/DT ownership, reuse/gap analysis, DT and DR #4 handoff (docs) | In PR | docs review |
+| D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | Shipped (#1834) | review; lab only |
+| D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Shipped (#1836) | lab only |
+| D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | In PR (lab: `dr4.rs`, 12 tests, 7 disable runs; [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md)) | lab uses a test-minted method key; the real key and the DT resolver stay with D-CMH (MethodKey mint, D-CMH-1) |
+
+## D-DT64-6 — DR64 routing, DT64 bind store, per-cell WHEN×ON×DO, OGIT reference predicates (2026-10-28)
+
+**Status:** PROPOSED / DOCS ONLY. [Plan](../plans/d-dt64-6-routing-bindstore-behavior-v1.md); [board entry](entries/2026-10-28-d-dt64-6-routing-bindstore-behavior.md). No code, ABI, test or runtime.
+
+| D-id | Deliverable | Status | Gate |
+|---|---|---|---|
+| D-DT64-6-0 | plan + board (docs) | In PR | docs review |
+| D-DT64-6-1a | classify every OGIT verb file in both readers (today `ttl_parse` accepts the 12 `rdfs:Class` verbs, OGAR `parse_verb` the 511 `owl:ObjectProperty` verbs) | Queued | owner approval |
+| D-DT64-6-1 | OGIT reader reconciliation: `ttl_parse` vs OGAR `OgitTables`, same checkout, one run, identical partition | Queued | D-DT64-6-1a green; owner approval; read-only |
+| D-DT64-6-2 | classid-free (src, verb, dst) table from entity `ogit:allowed` blocks plus the 12 `ogit:from-to` verbs; default source OGAR `OgitTables::Allowed`, no second parser | Queued | D-DT64-6-1 green |
+| D-DT64-6-3 | register OGIT verbs as DT64 predicates in 64-wide blocks | Queued | D-DT64-6-2 green |
+| D-DT64-6-4 | consumer read-only access via HotPlug activation | Queued | D-DT64-6-3 green |
+| D-DT64-6-5 | OGIT becomes cross-check oracle once a domain has attested predicates | Queued | one attested domain |
+| D-DT64-6-BS | `crates/lance-graph-dt64`: the bind store (workspace member, contract-only dep). Closes D-DRDT §4 gaps 1–4 (MethodId + SigRev, K3 guard as `SetExpr` + `Logic`, ordered effects, one `resolve`); D5 immutable classid, derived classid + versioned route log; D-DRDT §5 falsifier | **Shipped** #1869, #1871; `dr` module + thin-provisioned extent in PR | 27 tests green (21 binding, 6 `dr`), clippy/fmt clean; disable runs (Amendment A.5 addenda 9–12) |
+
 ## D-DT64 — DTO Tensor 64: versioned semantic predicate adapter and DR projections (2026-10-26)
 
 **Status:** PLAN / DOCS ONLY, six documentation PRs **MERGED** ([#1794](https://github.com/AdaWorldAPI/lance-graph/pull/1794)–[#1799](https://github.com/AdaWorldAPI/lance-graph/pull/1799)), no production source ingestion, no new 64-slot ABI, no runtime adapter or DT64-Q0 executable proof run. [Charter](../plans/d-dt64-holographic-predicate-capstone-v1.md); [board entry](entries/2026-10-26-dt64-holographic-interface.md). [EXO-50](https://linear.app/exo-red/issue/EXO-50) is the append-only handoff, not a production approval.
@@ -26,11 +150,13 @@
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-ONNX-INTAKE-0** | S0 capstone: candidates, ownership crosswalk, staged bake-off, falsifiers | Shipped, docs only (#1802) | no importer, test or model parity claimed |
-| **D-ONNX-INTAKE-1** | S1 cold import of one pinned real model plus a synthetic graph, unoptimized; source preservation | Queued (NOT RUN; not authorized) | metadata counted preserved/lost/renamed against raw protobuf/ORT; adversarial fixtures refuse |
+| **D-ONNX-INTAKE-1** | S1 cold import of one pinned real model plus a synthetic graph, unoptimized; source preservation | Tract arm RUN as lab (D-TRACT-HARVEST-0); Burn arm NOT RUN | metadata counted preserved/lost/renamed against raw protobuf/ORT; adversarial fixtures refuse |
 | **D-ONNX-INTAKE-2** | S2 node coverage on the same raw model | Queued (NOT RUN; not authorized) | separate denominators; coverage under declared semantic admission, not op-name similarity |
-| **D-ONNX-INTAKE-3** | S3 one complete static subgraph on existing native methods | Queued (NOT RUN; not authorized) | scalar oracle + ORT; no Burn/Tract in the native call path; unsupported nodes refuse |
+| **D-ONNX-INTAKE-3** | S3 one complete static subgraph on existing native methods | Tract arm RUN as lab (D-TRACT-HARVEST-0): tiny graph exact, Jina RMSNorm slice bounded | scalar oracle + ORT; no Burn/Tract in the native call path; unsupported nodes refuse |
 | **D-ONNX-INTAKE-4** | S4 numeric/quantization parity for real model blockers | Queued (conditional; not authorized) | IntegerExact / bounded FP / SourceParity / CertifiedMath kept distinct |
 | **D-ONNX-INTAKE-5** | S5 whole-model forward pass and cost closure | Goal, not authorized | outputs vs ORT under declared tolerance; every cost stage reported |
+| **D-TRACT-HARVEST-0** | ONNX graph as a DR#3 graph (nodes Identity, values Property, dep = do_ ∘ read_by) resolved through a DT64 ON×WHEN×DO registry (one ONNX lens classid; each op signature a field under it labelling a classid-free algebra address → native DO, #1870); Tract cold facts; ORT (optimizer off) oracle; `crates/tract-harvest-probe` | Lab probe implemented (this PR, redesigned to the graph); plan [d-tract-harvest-0-native-algebra-bridge-v1.md](../plans/d-tract-harvest-0-native-algebra-bridge-v1.md) §0 | 26 tests, 13 disable runs red; full model 4,146/7,620 nodes WHEN-true with inference-stage facts (§0.1), 0 refused for missing facts, >64 positions untiled, first unregistered groups Unsqueeze/Shape/Gather/Concat/MatMul |
+| **D-TRACT-SHAPE-1** | Cold shape-subgraph folding (Const/Shape/Symbolic/Data classes; fold through the node's own WHEN/DO; stale-input refusal), shape-op registrations (Shape, Gather i64, Unsqueeze, Concat, Reshape, Cast i64, Erf via `vserf`, scalar-Y Where via `blend_i32_scalar`), producer-checked Tract fact admission | **Shipped** #1853 + follow-up In PR (lab probe); plan [d-tract-harvest-0-native-algebra-bridge-v1.md](../plans/d-tract-harvest-0-native-algebra-bridge-v1.md) §0.2–§0.4 | #1853 merged (40 tests, 9 disable runs red; coverage 4,146/0/3,474 → 6,404/56/1,160). Follow-up **In PR**: registry v3 (int64 compares/Where, ConstantOfShape, Expand), optional-output producer test; coverage 6,581/114/925. Checked int64 follow-up **In PR** (plan §0.4): registry v4, int64 Add/Sub/Mul/Div/Range on ndarray #401; `i64_arith` folds and matches ORT; Jina 6,871/1/748, all shape-dependent Reshapes fold; remaining shape-only blockers are the rotary-embedding chain, And, one broadcast LessOrEqual. Rotary follow-up **In PR** (plan §0.5): registry v5 (Cast i64→f32/bool, MatMul f32, Transpose, Cos/Sin, And, any-broadcast compares), pinned external inv_freq; Jina rotary fold matches ORT ≤ 1 ULP; Jina 7,274/0/346, 0 shape-only nodes blocked (#1858 merged). Bind-store consumer follow-up **In PR** (plan §0.6): `bind::route` / `bind::resolve` split the registry into DR64 route and DT64 bind store; equal to `lookup` on all tiny fixtures; Jina 7,274 routed+resolved / 346 unrouted (#1865 merged). **Correction In PR** (plan §0.7): one classid is the ONNX codebook lens; op signatures are items `MethodKey { lens, ordinal }` (registry v6). **Field view** #1867 merged (plan §0.8); ONNX is one classid (`ONNX_LENS`), per-op ids purged from the plan text and from D-DT64-6 A.2 (#1870 merged); **DR64 global to local In PR** (plan §0.9, #1872): graphs and codebook beyond 64/256 positions, full Jina builds and schedules over 391 tiles (#1872 merged); **triage + codegen In PR** (plan §0.10): Jina 7,620 / 0 / 0, `jina_ops` against ORT: registry v7 splits lens-agnostic algebra addresses (`methods`) from the lens's labelled fields (`regs`) and its `WideFieldMask` (`exposed`) |
 
 ## D-TFLP — TFLite models on the native polyfill: int8 codes as Palette256 (2026-10-25)
 
@@ -112,8 +238,8 @@
 | D-id | scope | status | gate / falsifier |
 |---|---|---|---|
 | **D-SAG-6-0** | authority/ownership map, Rust Codegraph math/logic traceroute contract, Claude Code prompt | DOCS / PROPOSAL (this PR) | no Rust/Cargo/ABI edits; source/proof/execution authority separated |
-| **D-SAG-6-1** | pinned rust-analyzer HIR, rustc MIR/Charon, AdaWorldAPI/ruff fork capability audit | PROPOSED (read-only) | code-backed availability and unsupported inventory; F01–F15 preregistered |
-| **D-SAG-6-2** | source-revision-bound typed Rust Codegraph projection to existing DR/SoA/Quack | PROPOSED; separate approval | identity, capture, trait dispatch, sealed-coordinate and stale-source refusals |
+| **D-SAG-6-1** | pinned rust-analyzer HIR, rustc MIR/Charon, AdaWorldAPI/ruff fork capability audit | MEASURED (Phase 0 complete): ra_ap 0.0.358 on stable 1.99 — 146,050 symbols / 1.13 M refs in 23 s, MIR 98.3% of 32,570 bodies; Charon out-of-process — mask-risc 459/459 bodies, fixture calls classified static / trait-clause / dynamic with deref-write and Assert effects; `charon-lib` stable in the AdaWorldAPI fork (charon#1); Kythe has no Rust indexer; ruff has no Rust frontend. Status matrix, fixture, oracles, edit path, F01–F15 in [entry](entries/2026-10-31-d-sag-6-1-checklist.md); audit [entry](entries/2026-10-30-d-sag-6-1-capability-audit.md) | math PARK (law is an alias of the mask-risc popcount fold); D-SAG-6-2 projection in `crates/sag-ra-probe` awaits approval; missing: stable source identity, source digest, independent checker, MLIR |
+| **D-SAG-6-2** | source-revision-bound typed Rust Codegraph projection to existing DR/SoA/Quack | LAB (approved as a bounded lab projection, not production): `crates/sag-ra-probe` merges rust-analyzer and Charon into witness-tagged rows; four identity layers; DT64 binding explored, not built ([entry](entries/2026-10-31-d-sag-6-2-lab-projection.md)). Span join by file + line: fixture 29/29 bodies joined (path join: 12/29); mask-risc 449/459; contract 6951/7189, every unjoined row has a named cause. Identity survives a move only with a witness: `MOVED` when the old path resolves to an item with the same body, `DECLARED` from an attributed file; `REBOUND` / `POSSIBLE_MOVE` / `AMBIGUOUS` / `CONFLICT` end it ([entry](entries/2026-10-31-d-sag-6-2-span-join-identity.md)) | gates before leaving the lab: identity beyond free items (methods, closures, cross-crate re-exports), F05/F07 run, owner approval for DT64/DR integration or a 4+12 mint; impls paired one by one: 0 unexplained on mask-risc and contract (every Charon-only impl is a closure, derive marker or drop glue; 39 impls in other crates listed as out of scope) |
 | **D-SAG-6-3** | Datalog/Ascent candidates versus Datafrog/independent Rust oracle | PROPOSED; separate approval | pure filter/count vs impure-closure/panic/Bag/K3 controls |
 | **D-SAG-6-4** | egglog guarded law + effect-aware extraction + proof/replay traceroute | PROPOSED; separate approval | independent checker gap explicit; no effect reorder or forged proof promotion |
 | **D-SAG-6-5** | optional approved Rust source edit and comparative MLIR lowering | PROPOSED; separate approval | rustc/tests/differential target parity; FMA/NaN/signed-zero and effect gates |

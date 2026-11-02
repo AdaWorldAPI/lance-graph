@@ -1,3 +1,99 @@
+## 2026-11-01 — lance-graph PR #1907 (merged `39511c92e`, branch `ccr-85acaff0-oszq40-xlogcrate`, head `1087758d1`) — lance-graph-xlog: XLOG's admitted chain over Quack → mask-risc (D-XLOG-NATIVE-4)
+
+- **Added:** `crates/lance-graph-xlog` (workspace member): `Bounds`, `Intake`, `support`, `bag_count`, `bag_count_admitted`, `Word`, `Support`, `NativeRefusal`, `BoundRefusal`, `ids`, `nonzero`, and `and` (= `ndarray::simd::mask_and`). `xlog-relcomp-probe` now calls it and keeps `admit`, `admit_count`, `ChainQuery::bounds()`.
+- **Locked:** plan `d-xlog-native-v1.md` Amendment D; deps Quack + mask-risc + DT64 + contract + ndarray (alias and TRACKED call only).
+- **Deferred:** `p(X, Z)` and longer chains (NATIVE, refused at admission); MISSING-1/2/3/4 in owner crates.
+- **Confidence:** 4 crate tests (scalar oracle under four bounds; `fn_addr_eq` against ndarray and `lance-graph-onnx`); N4 via `cargo tree -e normal`; probe suites green; disable run (bound ignored) red. Merged before Codex finished.
+
+## 2026-11-01 — lance-graph PR #1906 (merged `cbc909993`, branch `ccr-85acaff0-oszq40-dynbag0`, head `dc2099bb4`) — D-DYNBAG-0: XLOG probe through Quack → mask-risc, gated by the bind store
+
+- **Added:** probe `native.rs` runs support (`ScatterOrU32` ×2 + `mask_and`) and bag count (`GroupReduce Count` ×2 + checked product) through Quack `lower` and mask-risc `execute_into`; `Intake` (Y looked up once under a `MapTable` frame); `bag_count_admitted` (runs only from an admitted Bag `MethodBinding`, caller-read words). Probe deps gain Quack, mask-risc, contract.
+- **Locked:** plan §17.7 gate table (gates 1–7 met).
+- **Deferred:** the cost columns; MISSING-1/2/3/4.
+- **Confidence:** probe suites green; 7 disable runs red; clippy clean. The probe has no CI line.
+
+## 2026-11-01 — lance-graph PR #1905 (merged `bc45e97db`, branch `ccr-85acaff0-oszq40-o5`, head `907426515`) — dr: MapTable, the versioned global → local table (D-DT64-7 O5)
+
+- **Added:** `dr::MapTable` (`new`, `advance`, `seal`, `revisions`, `map`), `MapRead { Stale, NoSuchTile }`, `TileId`; plan D-DT64-7 §1e.
+- **Deferred:** stored selections (D7'), waiting on O4.
+- **Confidence:** 4 tests in `tests/dr.rs`; 2 disable runs red (the tile-id case was added after the first version stayed green); Codex: no findings.
+
+## 2026-11-01 — lance-graph PR #1904 (merged `e9c7de5ac`, branch `ccr-85acaff0-oszq40-o2mirror`, head `e5304db78`) — contract: mirror OGAR's 0xFFXX hardcoded-behaviour reservation (D-DT64-7 O2)
+
+- **Added:** `ogar_codebook::HARDCODED_BEHAVIOUR`, `HARDCODED_BEHAVIOUR_DOMAIN`, guard test; `r2il::polyfill::HARDCODED` reads the contract constant. Board: D-XLOG-DR64-3 marked shipped (#1864).
+- **Confidence:** contract lib 1563 passed; disable run (planted `0xFF01` row) red.
+
+## 2026-10-31 — lance-graph PR #1884 (merged `d3c2a29`, branch `ccr-85acaff0-oszq40`, head `1e85104`) — xlog-relcomp-probe: ndarray::simd execution, binding through lance-graph-dt64, Epi5 reading; plans D-SOC-FENCE and D-DYNBAG
+
+- **Added:**
+  - `xlog-relcomp-probe/src/native.rs`: the admitted two-atom chain's support and bag count on `ndarray::simd` (`eq_u32_to_mask`, `mask_scatter_or_u32`, `mask_and`, `masked_group_count_u32` ×2, `checked_binary_i64(Mul)`), Y axis on `dt64::dr::LocalMap` (up to 256); `admit_count` for XLOG's `count` rule.
+  - `tests/dto_binding.rs` rewritten onto `BindStore`, `dt64::dr::FrameStore` and `MethodRef`; `tests/epi5_reading.rs` (an XLOG base fact reads `Direct × Open`, a composed edge `IndirectKnown × Open`).
+  - `facts()` drops repeated base tuples (XLOG's loader treats a base relation as a set; Codex P2).
+  - Plans: `d-xlog-native-v1.md` Amendments A and B, `d-soc-fence-v1.md` (one place per concern, CI fence), `d-dynbag-holographic-bags-v1.md` (DR{dynamic bag}, semiring readings, PostgreSQL endgame).
+- **Locked:** none in production; lab probe only.
+- **Known defect, carried to main:** `native.rs` calls `ndarray::simd` fold words directly, bypassing Quack and mask-risc. It is the first named D-SOC-FENCE violation, to be fixed by D-DYNBAG-0.
+- **Confidence:** probe suites green locally (gate_b 18, litho 12 + 1 ignored, dto_binding 4, epi5_reading 4, gate_g 3); 8 disable runs red. The probe has no CI line. Workspace CI green on the head.
+
+## 2026-10-31 — lance-graph PR #1880 (merged `4d677ba`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `7b8d4b6`) — D-MIST-NATIVE-1b: makor citations addressed via deepnsm-v2 hydrate, no classid
+
+- **Added:** `mistaber-kripke-probe/fixtures/makor.tsv`, 141 real `makor` citations from the compiled Mistaber ontology. `src/makor.rs` lays them over a Yoreh De'ah outline (siman = chapter, seif = verse) with `deepnsm-v2` `hydrate`: each citation is a `Spo` at its seif's `NiblePath`, with no classid, `promote`, key or `NodeRow`. `tests/makor.rs` adds 8 tests. CI paths now include `deepnsm-v2` and its dependencies. Plan §10; entry `2026-10-31-d-mist-native-1b-makor-hydrate.md`.
+- **Reverted inside the PR:** the #1879 commits. That PR, which put the address in the row key, answered a question selected by mistake and was closed unmerged.
+- **Confidence:** LAB, measured: 25 tests + 2 doctests; disable runs M1, M3 and M4 red; M2 (seif dedup) recorded as representation, not addressing. Merged before Codex and CI finished.
+
+## 2026-10-30 — lance-graph PR #1871 (merged `e1df34da1`, branch `ccr-45a41fb4-0j3i0l`, head `6a0124a06`) — lance-graph-dt64: the polyfill as one lens classid; DR extent; fmt fix
+
+- **Added:**
+  - The polyfill vocabulary is one lens classid. Its words are fields: `AlgebraRef { lens, word }`, labels come from the lens's ClassView, `declare_algebra`, `resolve_algebra`, `words_used`.
+  - `AlgebraId`, the string catalogue and the per-entry `SigRev` are removed.
+  - `Extent` per class, with fixed per-axis widths (W64/W256).
+  - `morton8x8.rs` formatted. Main's Style Check format step had been red since #1862.
+  - STATUS_BOARD catch-up after #1869/#1870. Plan D-DT64-6 A.5 addenda 7–10.
+- **Not in it:** the thin-provisioned extent (`9014fa07b`) and addendum 11. They were pushed after the merge and land in the follow-up PR.
+- **Confidence:** 20 tests; 7 disable runs red.
+
+## 2026-10-30 — lance-graph PR #1869 (merged `9d119bb5f`, branch `ccr-45a41fb4-0j3i0l`, head `1761d4ce8`) — lance-graph-dt64: the bind store for meaning and behaviour
+
+- **Added:**
+  - `crates/lance-graph-dt64`, a workspace member that depends only on `lance-graph-contract`.
+  - `MethodId` + `SigRev`, K3 `Guard` (`SetExpr` + `Logic`) with `witness`, ordered `Effect`s with operands.
+  - One `resolve`, D5 immutable classid with derived classid + versioned route log, `admit(MethodRef)`.
+  - `field_view` / `field_meaning` / `mask_where`, the dataflow check, `footprint`.
+  - Plan D-DT64-6 A.5 + addenda 1–6.
+- **Confidence:** 19 tests; every guard disable-verified red.
+
+## 2026-10-31 — lance-graph PR #1875 (merged `b7adb0c`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `ed71916`) — D-MIST-NATIVE-1a: HHTL16 Register128 rows replace the name interner
+
+- **Added:**
+  - `mistaber-kripke-probe/src/{rows,membrane}.rs` and `tests/rows.rs`. World, proposition and rule nodes are 512-byte rows: Register0/1, 16 `Morton8x8` columns, identity plus up to 15 addresses.
+  - The classid is per population on `RegisterLanes`, and accessibility is derived from world rows.
+  - Every compose goes through `bind_dr64` + `relcomp::Chain`.
+  - A compile-time `AddressOnly` guard keeps Strings out of the solved state.
+  - Plan `d-mistaber-native-v1.md` §9; entry `2026-10-30-d-mist-native-1a-hhtl16-rows.md`.
+- **Confidence:** LAB, measured. 11 goldens exact; 18 tests + 2 `compile_fail` doctests; 7 disable runs red. The binding is a typing guard: swapping `Chain` for raw `compose` turns nothing red.
+
+## 2026-10-30 — lance-graph PR #1874 (merged `3809611`, branch `claude/mistaber-ruff-harvest-9gtxd4`, head `aaf95e7`) — co-research map: Mistaber holdings as hydrated nodes; DR64³ contraction test
+
+- **Added:**
+  - Entry `2026-10-30-coresearch-mistaber-hydration.md`. It maps makor (literary node), world (value + edges) and holding (derived), the HHTL16 opt-in format on the two Register128 rails, classid per population, and probes P1–P13.
+  - Test `the_third_axis_contracts_back_to_holds`: the lineage cubes V[parent], O[origin] and L[rule] contract back to `holds`, and every cell reads the same through its HHTL16 address.
+  - Plan §8.
+- **Confidence:** the map is an exploration (nothing adopted); the contraction test is MEASURED with 2 disable runs red.
+
+## 2026-10-30 — lance-graph PR #1873 (merged `a6be979`, branch `claude/mistaber-ruff-harvest-9gtxd4`) — D-MIST-NATIVE-0: Kripke fixpoint over DR64 compose; pearl::hydrate predicate guard
+
+- **Added:**
+  - `crates/mistaber-kripke-probe` (own workspace, CI workflow): `holds` + rule/origin lineage as a least fixpoint over `relcomp::compose`, a holdings lens with Set/Bag projection, typed refusals.
+  - 11 goldens exported from the `mistaber-rs` Clingo oracle.
+  - Plan `d-mistaber-native-v1.md`; entry `2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md`.
+  - The predicate guard in `pearl::hydrate` landed separately in #1868.
+- **Confidence:** LAB, measured: 11/11 goldens exact; 6 disable runs red; Bag/Set falsifier on the diamond.
+
+## 2026-10-30 — lance-graph PR #1862 (merged `abe0b7afc`, branch `ccr-45a41fb4-0j3i0l`, head `4707683dc`) — D-DT64-6 Amendment A; D-LITHO folded
+
+- **Added:** D-DT64-6 Amendment A (the DR facts a DT binding applies, the `tract-harvest-probe` reference path, measured gates); `morton8x8::tests::every_aligned_code_run_is_an_aligned_square`; `lance-graph-mask-risc/tests/dose.rs`; D-LITHO retired and folded into D-DT64-6.
+- **Not in it:** the `lance-graph-dt64` crate. Its commits were pushed after the merge and land in the follow-up PR.
+- **Confidence:** two lab tests PASS (disable runs red); the rest is docs.
+
 ## 2026-10-26 — lance-graph PR #1806 (merged `99a08622`, branch `docs/d-tflp-v2-synergy-20261026`, head `19a75ae3`) — docs(D-TFLP v2): synergy revision after #1786–#1803
 
 - **Added:** docs only: plan `d-tflp-tflite-palette-polyfill-capstone-v2.md`, entry `2026-10-26-d-tflp-v2-synergy-revision.md`, v1 plan note, STATUS_BOARD/INTEGRATION_PLANS rows. D-TFLP-4 now defaults to the source reciprocal, with #1800's fixtures as its test oracle.

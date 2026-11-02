@@ -1,8 +1,10 @@
 //! `lance-graph-r2il` — the fold reading of R2IL, executed over mask-risc.
 //!
-//! [`FoldDialect`] is an [`ogar_loco::Dialect`] that interprets R2IL calls
-//! (`ogar_r2il`'s opcode table, R2IL band `0x90..=0xE1` plus the fold band
-//! `0xE2..=0xED`) over borrowed column planes. Predicate calls build
+//! [`FoldDialect`] interprets R2IL calls through its inherent
+//! [`FoldDialect::call`]; with the default `loco-dialect` feature it is also an
+//! `ogar_loco::Dialect`, so `ogar_loco::Interpreter` can drive it. Each call is
+//! an opcode of `ogar_r2il`'s table (R2IL band `0x90..=0xE1` plus the fold
+//! band `0xE2..=0xED`), executed over borrowed column planes. Predicate calls build
 //! [`MaskOp`]s; at every scalar-producing fold (`SUM`, `POP_COUNT`,
 //! `GROUP_SUM`, `KEEP`) the accumulated ops are finalized into one
 //! mask-risc [`Program`] and run with [`execute_into`]. mask-risc is the only
@@ -101,6 +103,9 @@
 //! are pinned against `ogar_r2il::R2ILFn::MNEMONICS` by this crate's tests,
 //! so the arity table stays in `ogar_r2il` alone.
 
+pub mod binding;
+pub mod binding_native;
+pub mod polyfill;
 pub mod procs;
 
 use std::cell::Cell;
@@ -110,7 +115,9 @@ use lance_graph_mask_risc::{
     FuseError, GroupKey, LaneKind, MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal,
     Value,
 };
-use ogar_loco::{Dialect, FnIndex};
+#[cfg(feature = "loco-dialect")]
+use ogar_loco::Dialect;
+use ogar_loco::FnIndex;
 use ogar_r2il::{ALL, ANY, GROUP_SUM, KEEP, KEY_RUNS, MAX, MIN, R2IL_BASE, RANGE, SUM, VIA};
 
 // ── R2IL-band opcodes this dialect wires, by their VERIFIED ordinals ───────
@@ -345,6 +352,10 @@ pub struct FoldDialect<'p> {
     /// Fused mode only: where each pending expression was lowered to, once a
     /// consumer needed it, so a second consumer reuses the same ops.
     lowered: Vec<Option<Operand>>,
+    /// Set only for the duration of [`Self::call_shared`]: the operands of
+    /// the call stay readable afterwards, so `IntAnd` must not gate the last
+    /// predicate in place.
+    keep_operands: bool,
 }
 
 impl<'p> FoldDialect<'p> {
@@ -375,6 +386,7 @@ impl<'p> FoldDialect<'p> {
             mode: BoolMode::InPlace,
             exprs: Vec::new(),
             lowered: Vec::new(),
+            keep_operands: false,
         }
     }
 
@@ -494,6 +506,40 @@ impl<'p> FoldDialect<'p> {
     /// The Boolean mode this dialect was built with.
     pub fn mode(&self) -> BoolMode {
         self.mode
+    }
+
+    /// [`Dialect::call`] for a caller that reads the operands again after
+    /// the call. `IntAnd` normally gates the last emitted predicate in place
+    /// under the other operand (survivor gating), which changes what that
+    /// predicate's slot holds; here it emits a separate `And` instead. A
+    /// stack program that consumes its operands keeps using `call`.
+    pub fn call_shared(
+        &mut self,
+        f: FnIndex,
+        v: [u8; 3],
+        stack: &mut Vec<Val>,
+    ) -> Result<(), FoldError> {
+        self.keep_operands = true;
+        let r = self.call(f, v, stack);
+        self.keep_operands = false;
+        r
+    }
+
+    /// Drop the predicates and expressions accumulated since the last fold
+    /// and advance the epoch, so a slot minted before this call is refused
+    /// ([`FoldError::StaleSlot`]). A caller that runs independent programs on
+    /// one dialect calls this at each boundary, so one program's unconsumed
+    /// predicates neither grow the next program nor take its scratch slots.
+    pub fn discard_pending(&mut self) {
+        if self.ops.is_empty() && self.exprs.is_empty() && self.next_slot == 0 {
+            return;
+        }
+        self.ops.clear();
+        self.next_slot = 0;
+        self.free.clear();
+        self.epoch += 1;
+        self.exprs.clear();
+        self.lowered.clear();
     }
 
     /// The expression a mask operand stands for, for the fused mode.
@@ -647,6 +693,11 @@ impl<'p> FoldDialect<'p> {
     /// was produced by the op emitted LAST and that op is an ungated `Pred`,
     /// gate it under `a` instead of spending a facade pass on `And`.
     fn and_peephole(&mut self, a: Operand, b: Operand) -> u16 {
+        if self.keep_operands {
+            let dst = self.fresh();
+            self.ops.push(MaskOp::And { a, b, dst });
+            return dst;
+        }
         if let (
             Operand::Scratch(bs),
             Some(MaskOp::Pred {
@@ -739,6 +790,10 @@ fn is_mask(v: Val) -> bool {
     matches!(v, Val::Slot { .. } | Val::Address(Addr::Plane(_)))
 }
 
+/// Lets `ogar_loco::Interpreter` drive this dialect. Execution itself is the
+/// inherent [`FoldDialect::call`]; this impl only forwards to it and adds the
+/// interpreter's branching hooks.
+#[cfg(feature = "loco-dialect")]
 impl Dialect for FoldDialect<'_> {
     type Value = Val;
     type Error = FoldError;
@@ -768,6 +823,17 @@ impl Dialect for FoldDialect<'_> {
     /// for the exhaustive list of which of the twelve fold-band opcodes and
     /// which R2IL-band opcodes each arm below covers.
     fn call(&mut self, f: FnIndex, v: [u8; 3], stack: &mut Vec<Val>) -> Result<(), FoldError> {
+        FoldDialect::call(self, f, v, stack)
+    }
+}
+
+impl FoldDialect<'_> {
+    /// Execute one R2IL call: pop its operands off the stack,
+    /// push its result. The whole dispatch table this crate wires — see the
+    /// crate doc's § "Implemented, and refused by name"
+    /// for the exhaustive list of which of the twelve fold-band opcodes and
+    /// which R2IL-band opcodes each arm below covers.
+    pub fn call(&mut self, f: FnIndex, v: [u8; 3], stack: &mut Vec<Val>) -> Result<(), FoldError> {
         match f {
             FnIndex::NUMBER => {
                 stack.push(Val::Scalar(i64::from(v[0])));
