@@ -1,3 +1,9 @@
+## 2026-11-02 — main after #1920 and #1921 (merged `4ab93bf3e`), ruff #130–#132
+
+- New workspace-excluded crate `lance-graph-codegraph` (#1921, D-CODEGRAPH-0 slice C): reads the `ruff_charon` rows v2 artifacts by column name and answers callers, callees, references and impact as confirmed / possible / unknown masks over one xlog cube; diagnostics dead function, unresolved call, dangling call, unused import (NOT_RUN). Limits surfaced as typed refusals: closure > 64 positions, tile > 256 symbols.
+- ruff `ruff_charon`: offline per-crate store with incremental refresh (#130, #131) and rows v2 (#132: `PUBLIC`, `IMPLEMENTS`, `SYNTHETIC`, `REFERENCES`, `CRATE` status; `MAY_DISPATCH` names the method).
+- `sag-ra-probe/fixtures/codegraph/rev2` also deletes `area_dyn` (#1920).
+
 ## 2026-11-02 — main after #1918 (merged `c11e4262e`) and ruff #129
 
 - D-CODEGRAPH-0 (resident Codegraph, Charon → ruff → lance-graph + crai-rs): plan, gap map G1–G9, oracle fixture `sag-ra-probe/fixtures/codegraph`, hand-read Kythe pins, `tools/kythe_calls_check.py`, and `sag-ra-probe GRAPH=1` as the independent rust-analyzer check.

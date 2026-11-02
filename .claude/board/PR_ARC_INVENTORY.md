@@ -1,3 +1,11 @@
+## 2026-11-02 — lance-graph PR #1921 (merged `4ab93bf3e`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice C: `lance-graph-codegraph`
+
+- **Added:** `crates/lance-graph-codegraph` (workspace-excluded): rows v2 reader keyed by schema names; one xlog cube (CALLS, NODE, MAY, IMPL, RCONF, RPOSS) and position masks; `callers` / `callees` / `references` / `impact` graded confirmed / possible / unknown; diagnostics dead function, unresolved call, dangling call, unused import NOT_RUN; store fixtures rev1, rev2, mixed, fnref; `examples/timing.rs`.
+- **Locked:** `MAY_DISPATCH` is never confirmed; a dyn or pointer call is UNKNOWN; a diagnostic that cannot run is NOT_RUN, never clean.
+- **Deferred:** closure over more than 64 positions and cubes over more than 256 symbols (refused, typed UNKNOWN); import facts; body → R2IL (G4, G7).
+- **Confidence:** 27 tests; 12 disable runs red; rustc agrees on `dead_code` and on E0425 for the dangling call; release ns per call 184–5103; `rows_materialized == 0`.
+- **Companion:** ruff PR #132 (merged `ed8fd4194f`, rows v2).
+
 ## 2026-11-02 — lance-graph PR #1920 (merged `5b967b130`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice B record; rev2 fixture deletes `area_dyn`
 
 - **Added:** `fixtures/codegraph/rev2` also deletes `cg_lib::area_dyn` and drops its call from `cg_app`, so a refresh that skips the dependent leaves one dangling edge; the slice B section of the gap-map entry; STATUS_BOARD D-CODEGRAPH-0-B LANDED for the offline store.
