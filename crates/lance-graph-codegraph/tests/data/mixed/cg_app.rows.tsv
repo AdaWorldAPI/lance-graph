@@ -1,0 +1,9 @@
+#version 2
+#schema predicate	subject	object	grade	file	start	end
+DEFINES	cg_app::run	cg_app::run	COMPILER	cg_app/src/lib.rs	52	202
+PUBLIC	cg_app::run	cg_app::run	COMPILER	cg_app/src/lib.rs	52	202
+CALLS_RESOLVED	cg_app::run	cg_lib::area_of	COMPILER	cg_app/src/lib.rs	121	140
+CALLS_RESOLVED	cg_app::run	cg_lib::area_dyn	COMPILER	cg_app/src/lib.rs	143	163
+CALLS_RESOLVED	cg_app::run	cg_lib::shapes::impl_Shape_for_Square::area	COMPILER	cg_app/src/lib.rs	166	174
+CALLS_RESOLVED	cg_app::run	cg_lib::util::double	COMPILER	cg_app/src/lib.rs	177	200
+CRATE	cg_app	COMPLETE	COMPILER	-	-	-

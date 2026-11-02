@@ -1,0 +1,11 @@
+#version 2
+#schema predicate	subject	object	grade	file	start	end
+DEFINES	fnref::helper	fnref::helper	COMPILER	fnref.rs	133	171
+DEFINES	fnref::unused_private	fnref::unused_private	COMPILER	fnref.rs	172	208
+DEFINES	fnref::take	fnref::take	COMPILER	fnref.rs	209	255
+PUBLIC	fnref::take	fnref::take	COMPILER	fnref.rs	209	255
+REFERENCES	fnref::take	fnref::helper	COMPILER	fnref.rs	247	253
+DEFINES	fnref::apply	fnref::apply	COMPILER	fnref.rs	256	307
+PUBLIC	fnref::apply	fnref::apply	COMPILER	fnref.rs	256	307
+UNRESOLVED_CALL	fnref::apply	dynamic	COMPILER	fnref.rs	301	305
+CRATE	fnref	COMPLETE	COMPILER	-	-	-

@@ -1,0 +1,6 @@
+#version 1
+#schema path	fnv64
+cg_lib/src/lib.rs	ad16bfdf300e3739
+cg_lib/src/macro_use.rs	a26281fdc227b28d
+cg_lib/src/shapes.rs	95d410730d1c194b
+cg_lib/src/util.rs	b48c0582b6c4f7ed
