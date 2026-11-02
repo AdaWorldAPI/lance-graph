@@ -1,3 +1,14 @@
+## 2026-11-02 — lance-graph PR #1931 (merged `ef6f34999`, branch `claude/clone-repositories-71a5sw`) — /coresearch Semantic Grammar Recovery map; #1930 post-merge record
+
+- **Added (board only):** `entries/2026-11-02-coresearch-semantic-grammar-recovery.md`. It contains:
+  - a crosswalk of 48 rows (Kythe, Ruff/Charon, MLIR/DialEgg, XLOG/Soufflé) with a knowledge-kind column (code fact / justified transformation / relational derivation / reading);
+  - a 4-bucket recovery matrix;
+  - N1–N8 graded against current code;
+  - pre-registered falsifiers.
+- **Locked:** nothing by the map itself. The operator then ruled S1–S6, executed in #1932 and ruff #135/#136.
+- **Stranded:** the S5 erratum and the S1–S6 results entry were pushed after the merge point. They are carried by the next PR.
+- **Confidence:** exploration. The scouts' load-bearing citations were re-read in code.
+
 ## 2026-11-02 — lance-graph PR #1930 (merged `5f6bf1c8a`, branch `claude/clone-repositories-71a5sw`) — /coresearch XLOG / Soufflé / Crepe / DR³ map + Persistent Relational Grammar extension; #1929 plateau record
 
 - **Added (board only):**

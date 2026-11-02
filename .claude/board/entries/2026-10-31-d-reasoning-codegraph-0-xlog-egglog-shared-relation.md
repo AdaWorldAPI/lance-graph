@@ -21,3 +21,10 @@ OPEN:
 ## Correction (2026-10-31): the traceroute
 
 The traceroute is a chain of stage identities (derivation, proof, binding, execution, replay), each referenced by an immutable identity, storing no intermediate population (`dr256-where-capstone-v1.md` §C.5). `recursive::trace` rebuilds one node path; it is not that traceroute, and a per-round delta-mask store would violate §C.5. `support` and `affected` stand as mask selections. Graph work is mask selection, not traversal. See D-DT64-7 F8 and O6.
+
+## Erratum (2026-11-02, appended; the text above is unchanged)
+**Scope:** the bullet "egglog's equality equals the closure of `E ∪ Eᵀ`" under **Shared relation** (line 8).
+
+**Correction:** that equality follows from the probe's explicitly authored egglog rule `(rule ((edge a b)) ((union a b)))` (`crates/xlog-relcomp-probe/tests/shared_relation.rs:93-96`), which unions along every edge. It is a property of that rule set, not of egglog equality in general. A directed codegraph CALLS edge (or any directed code fact) does not imply equivalence. The test file states the same (`shared_relation.rs:18-19`: XLOG's closure is not an equality).
+
+**Source:** Semantic Grammar Recovery map (`entries/2026-11-02-coresearch-semantic-grammar-recovery.md` §4, §8), operator decision S5.
