@@ -195,6 +195,7 @@ Counting (ruling 1: Quack's concern, executed by mask-risc on ndarray):
   (6.8-10.3 ms / 1.5-1.7 ms) are the baseline quoted beside, not re-derived.
 
 ## 6. Steps and PR order
+**Status 2026-11-02:** PR A is ruff #133 (branch `claude/codegraph-bin-writer`). DECIDED in that PR: the TSV export stays on by default until PR B reads `rows.bin` (the current reader would otherwise see no rows); `Store::rows` falls back to `rows.tsv` for crates stored before the format. Tags and the codec9 id mapping are fixed in `ruff_charon/src/store_bin.rs` (`tag` module); PR B reads them from there. The digest golden vectors (`""` → `0xd0dd3f66b4263ceb`, `"a"` → `0x9fc75a5c9bce51be`, `"CHRNROWS digest golden v1"` → `0xfe0ab233a40027ce`) come from an independent port and must be asserted against `artifact::digest` in PR B. Note: `artifact::digest` folds the length through `Hasher::write_u64`'s default, i.e. native-endian bytes; the writer folds little-endian bytes, so the two agree only on little-endian hosts until PR B makes the reader explicit.
 PR A (ruff, writer first):
 - SONNET (ruff worker): `crates/ruff_charon/src/store.rs` + new `store_bin.rs`
   only: format writer, codebooks, SYM_HASH/SYM_OWNER, TSV export flag, `rows()`
