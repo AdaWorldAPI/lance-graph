@@ -161,6 +161,16 @@ fn partial_crate_gives_partial_run() {
     };
     let dp = write("partial", &build("PARTIAL"));
     let dc = write("complete", &build("COMPLETE"));
+    // Re-pinned: a crate read without a residuals file is not fully covered
+    // (tests/coverage.rs), so both fixtures carry the empty file the
+    // harvester writes; this test isolates the CRATE-row status.
+    for d in [&dp, &dc] {
+        std::fs::write(
+            d.join("store.residuals.tsv"),
+            "#version 1\n#schema reason\tsubject\n",
+        )
+        .unwrap();
+    }
     let p = Codegraph::open(&dp).unwrap();
     let c = Codegraph::open(&dc).unwrap();
     assert_eq!(p.diagnostics(CrateKind::Lib)[0].run, Run::Partial);

@@ -325,6 +325,9 @@ pub struct Lanes {
     other_pred: Vec<(u32, u32)>,
     /// `(crate text id, FNV-1a 64 of the file it was read from)`.
     digests: Vec<(u32, u64)>,
+    /// `(crate text id, residual counts)`. `None`: no `<krate>.residuals.tsv`
+    /// was found, so nothing is known about what the harvest missed.
+    residuals: Vec<(u32, Option<ResidualCounts>)>,
 }
 
 impl Lanes {
@@ -360,6 +363,25 @@ impl Lanes {
             Some(e) => e.1 = d,
             None => self.digests.push((krate, d)),
         }
+    }
+
+    /// The residual record of `krate`: `None` when the crate was never read,
+    /// `Some(None)` when it was read without a residuals file.
+    pub fn residuals_of(&self, krate: u32) -> Option<Option<ResidualCounts>> {
+        self.residuals.iter().find(|r| r.0 == krate).map(|r| r.1)
+    }
+
+    /// Record the residuals read beside `krate`'s rows.
+    pub fn set_residuals(&mut self, krate: u32, counts: Option<ResidualCounts>) {
+        match self.residuals.iter_mut().find(|e| e.0 == krate) {
+            Some(e) => e.1 = counts,
+            None => self.residuals.push((krate, counts)),
+        }
+    }
+
+    /// The crates read (each has a recorded file digest), in read order.
+    pub fn crates(&self) -> impl Iterator<Item = u32> + '_ {
+        self.digests.iter().map(|d| d.0)
     }
 
     /// Drop every row read from `krate`, in place and keeping the order of
@@ -425,7 +447,190 @@ impl Lanes {
         for (k, d) in other.digests {
             self.set_digest(k, d);
         }
+        for (k, r) in other.residuals {
+            self.set_residuals(k, r);
+        }
     }
+}
+
+/// Why the harvester could not see part of a crate: the `reason` column of
+/// `<krate>.residuals.tsv` (version 1). The set is closed; an unknown reason
+/// is refused at intake rather than guessed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResidualKind {
+    /// A function body that is not structured: its calls and references are
+    /// unknown.
+    BodyNotStructured,
+    /// A call whose callee has no name.
+    CalleeNotNamed,
+    /// A taken reference with no name.
+    ReferenceNotNamed,
+    /// A trait method the harvest could not find.
+    TraitMethodNotFound,
+    /// A trait-impl method the harvest could not find: IMPLEMENTS is
+    /// incomplete.
+    TraitImplMethodNotFound,
+}
+
+impl ResidualKind {
+    /// Every kind, in [`ResidualCounts`] index order.
+    pub const ALL: [ResidualKind; 5] = [
+        ResidualKind::BodyNotStructured,
+        ResidualKind::CalleeNotNamed,
+        ResidualKind::ReferenceNotNamed,
+        ResidualKind::TraitMethodNotFound,
+        ResidualKind::TraitImplMethodNotFound,
+    ];
+
+    /// The `reason` text the harvester writes.
+    pub fn name(self) -> &'static str {
+        match self {
+            ResidualKind::BodyNotStructured => "BODY_NOT_STRUCTURED",
+            ResidualKind::CalleeNotNamed => "CALLEE_NOT_NAMED",
+            ResidualKind::ReferenceNotNamed => "REFERENCE_NOT_NAMED",
+            ResidualKind::TraitMethodNotFound => "TRAIT_METHOD_NOT_FOUND",
+            ResidualKind::TraitImplMethodNotFound => "TRAIT_IMPL_METHOD_NOT_FOUND",
+        }
+    }
+
+    fn parse(s: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|k| k.name() == s)
+    }
+
+    fn index(self) -> usize {
+        self as usize
+    }
+}
+
+/// Residual counts of one crate (or a sum of crates), one per
+/// [`ResidualKind`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ResidualCounts([u32; 5]);
+
+impl ResidualCounts {
+    /// The count of `kind`.
+    pub fn of(&self, kind: ResidualKind) -> u32 {
+        self.0[kind.index()]
+    }
+
+    /// The count over every kind.
+    pub fn total(&self) -> u32 {
+        self.0.iter().sum()
+    }
+
+    /// Add `other` kind by kind.
+    pub fn add(&mut self, other: &ResidualCounts) {
+        for (a, b) in self.0.iter_mut().zip(other.0) {
+            *a += b;
+        }
+    }
+}
+
+/// Why `<krate>.residuals.tsv` was refused.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ResidualRefusal {
+    /// The `#version` line is not 1 (0 when absent or unparsable).
+    Version {
+        /// The version found.
+        found: u32,
+    },
+    /// The `#schema` line is not `reason\tsubject`.
+    Schema,
+    /// A data line without exactly two fields; 1-based line.
+    Arity {
+        /// The offending line.
+        line: usize,
+    },
+    /// A reason outside [`ResidualKind`]; 1-based line.
+    UnknownReason {
+        /// The offending line.
+        line: usize,
+    },
+}
+
+/// Whether `name` has a `?` path segment: the harvest's placeholder for a
+/// name it could not resolve. `?` inside a segment (`r#try?x`) is not one.
+fn has_placeholder(name: &str) -> bool {
+    name.split("::").any(|seg| seg == "?")
+}
+
+/// Refuse the first row of `lanes[rows]` that names a placeholder symbol.
+///
+/// A placeholder is not an identity: every unresolved target would share it,
+/// and the IMPLEMENTS join would then read distinct calls as calls of one
+/// method. The fact is refused rather than admitted under a guessed name;
+/// what the harvest could not resolve belongs in its residuals.
+pub fn refuse_placeholders(
+    lanes: &Lanes,
+    rows: std::ops::Range<usize>,
+    symbols: &impl Interner,
+) -> Result<(), IntakeRefusal> {
+    for i in rows {
+        let ids: [u32; 2] = match lanes.pred[i] {
+            P_DEFINES | P_CALLS | P_PUBLIC | P_IMPLEMENTS | P_SYNTHETIC | P_REFERENCES => {
+                [lanes.subject[i], lanes.object[i]]
+            }
+            P_MAY => [lanes.subject[i], lanes.may_target[i]],
+            P_UNRESOLVED => [lanes.subject[i], lanes.subject[i]],
+            _ => continue,
+        };
+        for id in ids {
+            let name = symbols.name(id);
+            if has_placeholder(name) {
+                return Err(IntakeRefusal::Placeholder {
+                    row: i,
+                    name: name.to_owned(),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The residuals file of `krate` in `dir`.
+pub const RESIDUAL_SUFFIX: &str = ".residuals.tsv";
+
+/// Read `<krate>.residuals.tsv` of `dir`: `Ok(None)` when the file does not
+/// exist (nothing is known about what was missed), counts by kind otherwise.
+pub fn read_residuals(dir: &Path, krate: &str) -> Result<Option<ResidualCounts>, IntakeRefusal> {
+    let path = dir.join(format!("{krate}{RESIDUAL_SUFFIX}"));
+    let text = match fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(IntakeRefusal::Io(e)),
+    };
+    parse_residuals(&text)
+        .map(Some)
+        .map_err(IntakeRefusal::Residual)
+}
+
+fn parse_residuals(text: &str) -> Result<ResidualCounts, ResidualRefusal> {
+    let mut lines = text.lines();
+    let version = lines
+        .next()
+        .and_then(|l| l.strip_prefix("#version "))
+        .and_then(|v| v.trim().parse::<u32>().ok())
+        .unwrap_or(0);
+    if version != 1 {
+        return Err(ResidualRefusal::Version { found: version });
+    }
+    if lines.next() != Some("#schema reason\tsubject") {
+        return Err(ResidualRefusal::Schema);
+    }
+    let mut counts = ResidualCounts::default();
+    for (i, l) in lines.enumerate() {
+        let line = i + 3;
+        if l.is_empty() {
+            continue;
+        }
+        let mut f = l.split('\t');
+        let (Some(reason), Some(_subject), None) = (f.next(), f.next(), f.next()) else {
+            return Err(ResidualRefusal::Arity { line });
+        };
+        let kind = ResidualKind::parse(reason).ok_or(ResidualRefusal::UnknownReason { line })?;
+        counts.0[kind.index()] += 1;
+    }
+    Ok(counts)
 }
 
 const SUFFIX: &str = ".rows.tsv";
@@ -495,6 +700,9 @@ pub fn read_dir(dir: &Path, symbols: &mut Symbols) -> Result<Lanes, IntakeRefusa
             let text = fs::read_to_string(dir.join(format!("{stem}{SUFFIX}")))
                 .map_err(IntakeRefusal::Io)?;
             read_text_as(&text, stem, symbols, &mut lanes)?;
+        }
+        if let Some(id) = symbols.get(stem) {
+            lanes.set_residuals(id, read_residuals(dir, stem)?);
         }
     }
     Ok(lanes)

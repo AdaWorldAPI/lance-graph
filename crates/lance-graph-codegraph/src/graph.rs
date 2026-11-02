@@ -46,6 +46,16 @@ pub enum IntakeRefusal {
     Cube(CubeRefusal),
     /// A `<crate>.rows.bin` file was refused.
     Bin(crate::artifact_bin::BinRefusal),
+    /// A `<crate>.residuals.tsv` file was refused.
+    Residual(crate::artifact::ResidualRefusal),
+    /// A row names a placeholder symbol (a `?` path segment): not an
+    /// identity, so the fact is refused. 0-based row of the read lane set.
+    Placeholder {
+        /// The offending row.
+        row: usize,
+        /// The placeholder symbol.
+        name: String,
+    },
 }
 
 /// Whether the extractor finished a crate.
@@ -532,6 +542,7 @@ impl Codegraph {
     pub fn open(dir: &Path) -> Result<Self, IntakeRefusal> {
         let mut symbols = Symbols::default();
         let lanes = artifact::read_dir(dir, &mut symbols)?;
+        artifact::refuse_placeholders(&lanes, 0..lanes.len(), &symbols)?;
         let mut pos = Positions::new();
         let staged = {
             let mut stage = PosStage::new(&pos);
@@ -679,6 +690,17 @@ impl Codegraph {
         // digest and takes the full path.
         let mut syms = SymbolStage::new(&self.symbols);
         let mut fresh = Lanes::default();
+        // The residuals belong to the same import as the rows but live in
+        // their own file, so they can change while the rows do not. Read them
+        // first: the unchanged-rows shortcut may only skip a refresh whose
+        // residuals are unchanged too. A refusal here leaves the graph as is.
+        let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
+        let unchanged = |digest| {
+            self.symbols.get(krate).is_some_and(|k| {
+                self.lanes.digest_of(k) == Some(digest)
+                    && self.lanes.residuals_of(k) == Some(residuals)
+            })
+        };
         match artifact::crate_source(dir, krate) {
             Some(CrateSource::Bin(path)) => {
                 let mut f = std::fs::File::open(&path)
@@ -686,10 +708,8 @@ impl Codegraph {
                 let header = Header::read(&mut f)
                     .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?
                     .map_err(|r| RefreshRefusal::Intake(IntakeRefusal::Bin(r)))?;
-                if let Some(k) = self.symbols.get(krate) {
-                    if self.lanes.digest_of(k) == Some(header.digest) {
-                        return Ok(None);
-                    }
+                if unchanged(header.digest) {
+                    return Ok(None);
                 }
                 drop(f);
                 let buf = std::fs::read(&path)
@@ -703,10 +723,8 @@ impl Codegraph {
                 let text = std::fs::read_to_string(&path)
                     .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?;
                 let file_digest = artifact::digest(text.as_bytes());
-                if let Some(k) = self.symbols.get(krate) {
-                    if self.lanes.digest_of(k) == Some(file_digest) {
-                        return Ok(None);
-                    }
+                if unchanged(file_digest) {
+                    return Ok(None);
                 }
                 artifact::read_text_as(&text, krate, &mut syms, &mut fresh)
                     .map_err(RefreshRefusal::Intake)?;
@@ -720,8 +738,11 @@ impl Codegraph {
                 )));
             }
         }
+        artifact::refuse_placeholders(&fresh, 0..fresh.len(), &syms)
+            .map_err(RefreshRefusal::Intake)?;
         // ---- prepare: everything below borrows the graph immutably ----
         let kid = syms.intern(krate);
+        fresh.set_residuals(kid, residuals);
 
         // Edges of the crate's old rows, before any new position exists. Every
         // other crate's rows are in both the old and the new lane set, so the
@@ -974,6 +995,14 @@ impl Codegraph {
     /// The artifact lanes, for the crate's own folds.
     pub(crate) fn lanes(&self) -> &Lanes {
         &self.lanes
+    }
+
+    /// Stored crates whose CRATE row is not `COMPLETE`.
+    pub(crate) fn partial_crates(&self) -> u32 {
+        self.crates
+            .values()
+            .filter(|&&s| s == RunStatus::Partial)
+            .count() as u32
     }
 
     /// Whether any stored crate's CRATE row is not `COMPLETE`.
