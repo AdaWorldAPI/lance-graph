@@ -14,7 +14,6 @@
 use lance_graph_contract::set_rules::Arith;
 use lance_graph_mask_risc::{Foreign, Planes};
 use lance_graph_r2il::{FoldDialect, FoldError, INT_MULT, Val};
-use ogar_loco::Dialect;
 
 use crate::term::Tm;
 use crate::{Compiled, LowerRefusal};

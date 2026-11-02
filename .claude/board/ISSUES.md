@@ -1,3 +1,32 @@
+## ISS-SOURCE-ROOT-AGENT-OR-REPORT — is a source root the observer or one report? (2026-10-31)
+
+**Status:** OPEN (operator decision). **Basis:** VERIFIED-IN-CODE (`crates/xlog-relcomp-probe/tests/provenance.rs` `root()` hashes the observer and the report's facts; `unrelated_sources_never_collapse_to_one_root` pins that one observer with two different reports gives two roots).
+**Fruit:** High-signal
+
+- Today one observer filing two different reports counts as two independent
+  sources. In PROV and evidence-combination terms independence attaches to
+  the agent, not to each report (co-research map row 7,
+  `entries/2026-10-31-coresearch-d-staunen-arc.md`).
+- Every root-disjoint count (X6a, M2, D-HL-3) depends on the answer.
+- **What closes it:** the ruling, then P-AGENT-VS-REPORT pinning both readings
+  (`roots by report == 2`, `roots by agent == 1`, two observers give 2 under
+  both).
+
+## ISS-RA-STATICINDEX-MISSES-MACRO-ARGUMENT-REFS — references inside `assert_eq!` are not recorded (2026-10-31)
+
+**Status:** OPEN. **Basis:** MEASURED (`crates/sag-ra-probe/KYTHE.md` § Result, #1894: 3 of 11 pins fail; moving the calls out of the macro records them).
+**Fruit:** Low-hanging
+
+- `ra_ap_ide` 0.0.358 `StaticIndex` records no reference to `count_below`,
+  `popcount_mask` or `mask_below` inside `assert_eq!(...)` in
+  `fixtures/sag_fixture/tests/law.rs` lines 21 and 31. Calls outside a macro
+  are recorded. `add_file` calls `descend_into_macros_exact` on each token, so
+  the cause is not yet known.
+- Until it is found, any Kythe reading from these facts under-counts
+  references inside macro arguments.
+- **What closes it:** the cause, from rust-analyzer's source, then either a
+  fix upstream or a documented limit on the exporter.
+
 ## ISS-FISHERZ-ENCODE-SATURATES-SILENTLY — out-of-family cosines encode to the edge code with no flag (2026-10-23)
 
 **Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`crates/bgz-tensor/src/fisher_z.rs:67`, `i8_val.clamp(-128.0, 127.0) as i8`, read at `main` `8f610a85`) + MEASURED.
@@ -160,6 +189,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
   - the JC-SBI note (`jc-sbi-counterfactual-integration-v1.md:191`).
 - `chain::ask` (#1624) is one candidate shape, in the lab: fold, read escapes, admit in preparation, fold again. Translation happens only in preparation. It is Boolean, one variable, and has no cycle refusal, so it is evidence for a design, not the driver.
 - **What closes it:** a reviewed driver design under D-HOLO H14c/H14d: least fixpoint equal to Datafrog on set workloads, terminated cycles, refusal past the bound. Gated by `ISS-ADMISSION-PREP-BINDING`.
+- **Candidate evidence, not the driver (2026-10-31, #1896):** `xlog-relcomp-probe` `src/recursive.rs` admits XLOG's compiled linear transitive closure (one recursive SCC; mutual recursion and non-linear steps refused) and evaluates it semi-naively on the DR64 register with `relcomp::compose`, against a BFS oracle and a 200-case differential. It is one shape, set semantics, in a lab crate, with no bound-and-refuse. Whether `compose` counts as co-addressed under ADMISSION B is not decided here.
 
 ## ISS-RETRACTION-PROVENANCE — per-derived-cell provenance for selective retraction is undecided (2026-10-20)
 
@@ -173,6 +203,7 @@ operator decision (raised on EXO-50 by session 01G22 /036).
   - D-RST-5 (DRed retraction).
 - Until it is decided a changed premise can only be refused, never selectively retracted.
 - **What closes it:** the D-TGA-3 decision, then X9 run against it.
+- **Candidate evidence, not the decision (2026-10-31, #1896):** `recursive::support` and `affected` compute, from the closure and on demand, the base facts an answer can rest on and the answers a base fact feeds. Nothing is stored per derived cell. A changed fact is handled by refusing the old frame and recomputing, not by retraction. The D-STAUNEN co-research (row 5) notes that counting is exact only for non-recursive rules; DRed^c needs split counters (arXiv 1711.03987).
 
 ## ISS-DURABLEREF-THOUGHTCOMMITID — the two identity types four plans depend on do not exist (2026-10-20)
 

@@ -265,9 +265,7 @@ use lance_graph_r2il::{
     LOAD, MAX_SLOTS, POP_COUNT,
 };
 use ogar_loco::vocabulary::conformance::validate;
-use ogar_loco::{
-    Call, Dialect, FnIndex, FunctionBody, Interpreter, LaneShape, Program as LocoProgram,
-};
+use ogar_loco::{Call, FnIndex, FunctionBody, Interpreter, LaneShape, Program as LocoProgram};
 use ogar_r2il::{R2ILVocabulary, GROUP_SUM, KEEP, RANGE, SUM, VIA};
 
 // ── allocation counter — THREAD-LOCAL, not global ──────────────────────────

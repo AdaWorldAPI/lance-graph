@@ -16,6 +16,12 @@ members = [
     # ONNX mathematical compatibility facade over existing ndarray functions
     # (D-ONNX-NATIVE-0). Depends on ndarray only; nothing native depends on it.
     "crates/lance-graph-onnx",
+    # XLOG's admitted chain query (support, bag count) over Quack → mask-risc,
+    # addressed by DT64/DR (D-XLOG-NATIVE-4). No xlog-* or arrow dependency.
+    "crates/lance-graph-xlog",
+    # DT64: the ClassId-addressed binding store (D-DRDT §1/§4, D-DT64-6 §1/§3).
+    # Depends on the zero-dep contract only.
+    "crates/lance-graph-dt64",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",
@@ -55,6 +61,8 @@ exclude = [
     "crates/bgz17",
     "crates/deepnsm",
     "crates/deepnsm-v2",
+    # NSL neighbor selection vs a frozen NSL oracle: zero deps, own [workspace].
+    "crates/lance-graph-nsl",
     "crates/lance-graph-osint",
     "crates/reader-lm",
     "crates/bge-m3",
@@ -140,6 +148,16 @@ exclude = [
     "crates/lance-graph-ogar",
     # D-DRF-P1 lab probe (immutable DR64 focus lease). Own [workspace]; ndarray only.
     "crates/drf-focus-probe",
+    # D-TRACT-HARVEST-0 lab probe: Tract as a cold ONNX frontend. Own [workspace];
+    # no native crate depends on it. `cargo test --manifest-path crates/tract-harvest-probe/Cargo.toml`.
+    "crates/tract-harvest-probe",
+    # Mandatory-codegraph probes P2/P3/P9: what OGAR's existing structures can
+    # express about behaviour. Own [workspace]; pulls OGAR and a ruff frontend.
+    # `cargo test --manifest-path crates/ogar-behavior-probe/Cargo.toml`.
+    "crates/ogar-behavior-probe",
+    # D-SAG-6-1 lab probe: rust-analyzer (`ra_ap_*`) as a cold Rust indexer.
+    # Own [workspace]; nothing depends on it. `cargo run --release` from its dir.
+    "crates/sag-ra-probe",
     # A lance-graph ReportResult as an addressed OGAR ObjectSlot source
     # (implements ogar-doc-ir's DocObjectSource::grid_of). EXCLUDED for the same
     # reason as lance-graph-ogar: path-deps the OGAR sibling. Verify via
@@ -203,6 +221,10 @@ exclude = [
     # Plan: .claude/plans/weather-soa-bake-v1.md.
     "crates/weather-poc",
     "crates/d-diamond-1-probe",
+    # X2 DT64 execution-admission policy (LAB). Own workspace root; path-deps
+    # lance-graph-dt64 and the contract only. Verify via
+    # `cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml`.
+    "crates/dt64-admission-probe",
 ]
 resolver = "2"
 

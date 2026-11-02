@@ -283,6 +283,36 @@ mod tests {
         assert_eq!(by_climb, [0, 344_064, 132_096, 35_904, 9_156]);
     }
 
+    /// FAILS IF: some aligned run of `4^j` consecutive codes (j = 0..=8) is not
+    /// exactly one aligned `2^j x 2^j` square of distinct `(x, y)` pairs. At
+    /// j = 3 a run is one 64-row mask word (8 x 8); at j = 4 a 256-row block
+    /// (16 x 16). D-LITHO G3.
+    #[test]
+    fn every_aligned_code_run_is_an_aligned_square() {
+        for j in 0..=8u32 {
+            let run = 1u32 << (2 * j);
+            let side = 1u32 << j;
+            for start in (0..=u16::MAX as u32).step_by(run as usize) {
+                let first = Morton8x8::from_code(start as u16);
+                let (x0, y0) = (u32::from(first.x()), u32::from(first.y()));
+                assert_eq!(
+                    (x0 % side, y0 % side),
+                    (0, 0),
+                    "j={j} run {start}: corner not aligned"
+                );
+                let mut seen = vec![false; run as usize];
+                for c in start..start + run {
+                    let m = Morton8x8::from_code(c as u16);
+                    let (dx, dy) = (u32::from(m.x()) - x0, u32::from(m.y()) - y0);
+                    assert!(dx < side && dy < side, "j={j} code {c} leaves its square");
+                    let cell = (dy * side + dx) as usize;
+                    assert!(!seen[cell], "j={j} code {c} repeats a cell");
+                    seen[cell] = true;
+                }
+            }
+        }
+    }
+
     /// FAILS IF: on a 4 x 4 grid (2-bit axes) the in-grid test `code < 16`
     /// disagrees with the geometry, or the visit count is not 84.
     #[test]

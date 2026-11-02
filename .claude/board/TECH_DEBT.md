@@ -1,3 +1,37 @@
+## TD-FROZEN-POLYFILL-NAMED-BY-R2IL — the compile-time polyfill is declared at runtime and named through `ogar-r2il` (2026-10-31) — OPEN
+
+`BindStore::declare_algebra` (in `crates/lance-graph-dt64/src/lib.rs`) declares the polyfill lens at runtime, and `lance-graph-r2il::binding` resolves every word through `ogar_r2il::R2ILVocabulary` and refuses any lens whose concept is not `ogar_r2il::CONCEPT_R2IL_FOLD` (`binding.rs:278`, `:496-525`; `0xC401` is provisional, not minted). By D-DT64-7 D2/D3 the polyfill is Frozen (compile time) and R2IL is harvest-side.
+
+**Fruit:** High-signal
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (lines above, `main` `b38d88e`).
+
+- **What closes it:** D-DT64-7-3: a compile-time lance-graph table at `0xFFFF :: 0xF000`, registered by DT64 (D-DT64-7 §1a), with a parity test against `R2ILVocabulary`, and `ogar-loco` / `ogar-r2il` optional in `lance-graph-r2il`.
+
+## TD-CLASSID-CANON-COMPAT-MISREADS-LEFT-EMPTY — `classid_canon_compat(0x0000_F123)` returns `0xF123` (2026-10-31) — OPEN
+
+`classid_canon_compat` (in `crates/lance-graph-contract/src/ogar_codebook.rs`) takes the high half only when it is `>= 0x0100`; with a non-zero low half it re-reads the id in the legacy order. A left-empty (hardcoded) classid therefore reports its right side as its concept. The strict `classid_concept` is correct; RBAC grant matching and other mixed-form readers use the compat reader.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`classid_canon_compat`, read on `main` `b38d88e`).
+
+- **What closes it:** the falsifier D-DT64-7-1, then the decision O3 (exclude left-empty ids, or retire the heuristic).
+- **Scope (2026-10-31, D-DT64-7 §1a):** hardcoded behaviour moved to `0xFFFF :: 0xF###`, which this reader handles (`0xFFFF >= 0x0100`). What remains is legacy `0x0000_XXXX` ids only; this no longer blocks D-DT64-7.
+
+## TD-XLOG-NATIVE-COUNT-OVERFLOW-UNTESTED — the native bag count refuses on overflow, and no test reaches it (2026-10-31) — OPEN
+
+`bag_count` (in `crates/xlog-relcomp-probe/src/native.rs`) multiplies per-Y counts with
+`checked_binary_i64(I64Op::Mul, ..)` and maps an overflow to
+`NativeRefusal::Count`. No test in `src/` or `tests/` produces
+`NativeRefusal::Count`. On a real fixture it is unreachable: overflowing `i64`
+needs per-side counts near 3·10⁹ rows.
+
+**Fruit:** Low-hanging
+**Status:** OPEN. **Basis:** VERIFIED-IN-CODE (`native.rs:45`, `:148-157`; no hit for `NativeRefusal::Count` outside `native.rs`, read on main `b38d88e`).
+
+- **What closes it:** split the multiply so a test can hand it counts, then
+  pin the refusal with a can-fire and a stay-silent case, or document the
+  path as unreachable and say why.
+
 ## TD-MPF-2-FOLD-NUMBERS-PREDATE-NDARRAY-376 — the measurement that proposed the fix still reports the old fold (2026-10-26)
 
 **Status:** OPEN. **Basis:** MEASURED elsewhere (D-DRF-P2), not re-run here.

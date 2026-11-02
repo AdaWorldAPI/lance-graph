@@ -106,6 +106,8 @@ jobs:
       #   gate it explicitly (same posture as the contract crate) so it can't regress.
       - name: Clippy deepnsm (mandatory)
         run: cargo clippy --manifest-path crates/deepnsm/Cargo.toml --all-targets -- -D warnings
+      - name: Clippy lance-graph-nsl (mandatory)
+        run: cargo clippy --manifest-path crates/lance-graph-nsl/Cargo.toml --all-targets -- -D warnings
       # Tier A (mandatory, gating): deepnsm-v2 (PR #798) shipped clippy-clean and
       #   is workspace-excluded like deepnsm, so the lance-graph clippy steps don't
       #   cover it; gate it explicitly (same posture) so it can't regress.

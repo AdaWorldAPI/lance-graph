@@ -25,10 +25,64 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-489 entries, 2026-08-06 .. 2026-10-27.
+543 entries, 2026-08-06 .. 2026-11-01.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-01 | `D-XLOG-NATIVE-7` |  | [2026-11-01-xlog-resident-hypercube-context.md](2026-11-01-xlog-resident-hypercube-context.md) |
+| 2026-11-01 | `D-XLOG-NATIVE-8` |  | [2026-11-01-xlog-behaviour-lens-f100.md](2026-11-01-xlog-behaviour-lens-f100.md) |
+| 2026-11-01 | `D-DT64-7-5` |  | [2026-11-01-maptable-versioned-local-map.md](2026-11-01-maptable-versioned-local-map.md) |
+| 2026-11-01 | `D-XLOG-NATIVE-4` |  | [2026-11-01-lance-graph-xlog-crate.md](2026-11-01-lance-graph-xlog-crate.md) |
+| 2026-11-01 | `D-DYNBAG-1` |  | [2026-11-01-dynbag-1-n-compose.md](2026-11-01-dynbag-1-n-compose.md) |
+| 2026-11-01 | `D-DYNBAG-0` |  | [2026-11-01-dynbag-0-xlog-through-quack-mask-risc.md](2026-11-01-dynbag-0-xlog-through-quack-mask-risc.md) |
+| 2026-10-31 | `x2-dt64-admission-policy` |  | [2026-10-31-x2-dt64-admission-policy.md](2026-10-31-x2-dt64-admission-policy.md) |
+| 2026-10-31 | `r1-r2il-binding-reading` |  | [2026-10-31-r1-r2il-binding-reading.md](2026-10-31-r1-r2il-binding-reading.md) |
+| 2026-10-31 | `r1-native-prepared-successor` |  | [2026-10-31-r1-native-prepared-successor.md](2026-10-31-r1-native-prepared-successor.md) |
+| 2026-10-31 | `polyfill-positional-lens` |  | [2026-10-31-polyfill-positional-lens.md](2026-10-31-polyfill-positional-lens.md) |
+| 2026-10-31 | `D-DT64-7` |  | [2026-10-31-polyfill-alias-views-l4.md](2026-10-31-polyfill-alias-views-l4.md) |
+| 2026-10-31 | `ogar-behavior-probe-p2-p3-p9` |  | [2026-10-31-ogar-behavior-probe-p2-p3-p9.md](2026-10-31-ogar-behavior-probe-p2-p3-p9.md) |
+| 2026-10-31 | `D-SAG-6` |  | [2026-10-31-kythe-bridge-ra-facts.md](2026-10-31-kythe-bridge-ra-facts.md) |
+| 2026-10-31 | `D-XLOG-NATIVE-6` |  | [2026-10-31-d-xlog-native-6-ndarray-simd-execution.md](2026-10-31-d-xlog-native-6-ndarray-simd-execution.md) |
+| 2026-10-31 | `D-XLOG-NATIVE-5` |  | [2026-10-31-d-xlog-native-5-bindstore-epi5.md](2026-10-31-d-xlog-native-5-bindstore-epi5.md) |
+| 2026-10-31 | `D-TUPLE-POLYFILL-0` |  | [2026-10-31-d-tuple-polyfill-0-architecture.md](2026-10-31-d-tuple-polyfill-0-architecture.md) |
+| 2026-10-31 | `D-SAG-6-2-JOIN-IDENT` |  | [2026-10-31-d-sag-6-2-span-join-identity.md](2026-10-31-d-sag-6-2-span-join-identity.md) |
+| 2026-10-31 | `D-SAG-6-2-LAB` |  | [2026-10-31-d-sag-6-2-lab-projection.md](2026-10-31-d-sag-6-2-lab-projection.md) |
+| 2026-10-31 | `D-SAG-6-1-CHECKLIST` |  | [2026-10-31-d-sag-6-1-checklist.md](2026-10-31-d-sag-6-1-checklist.md) |
+| 2026-10-31 | `D-REASONING-CODEGRAPH-0` |  | [2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md](2026-10-31-d-reasoning-codegraph-0-xlog-egglog-shared-relation.md) |
+| 2026-10-31 | `D-MIST-NATIVE-1b` |  | [2026-10-31-d-mist-native-1b-makor-hydrate.md](2026-10-31-d-mist-native-1b-makor-hydrate.md) |
+| 2026-10-31 | `D-DT64-6-DR` |  | [2026-10-31-d-dt64-6-dr-addressing-module.md](2026-10-31-d-dt64-6-dr-addressing-module.md) |
+| 2026-10-31 | `D-DYNBAG-X` |  | [2026-10-31-cross-frontend-projection-crosswalk.md](2026-10-31-cross-frontend-projection-crosswalk.md) |
+| 2026-10-31 | `coresearch-mandatory-codegraph` |  | [2026-10-31-coresearch-mandatory-codegraph.md](2026-10-31-coresearch-mandatory-codegraph.md) |
+| 2026-10-31 | `D-STAUNEN` |  | [2026-10-31-coresearch-d-staunen-arc.md](2026-10-31-coresearch-d-staunen-arc.md) |
+| 2026-10-31 | `D-DT64-7-L1` |  | [2026-10-31-behaviour-lens-full-classid-l1.md](2026-10-31-behaviour-lens-full-classid-l1.md) |
+| 2026-10-30 | `D-XLOG-NATIVE-0` |  | [2026-10-30-d-xlog-native-crosswalk.md](2026-10-30-d-xlog-native-crosswalk.md) |
+| 2026-10-30 | `D-XLOG-DR64-0` | XLOG's CPU frontend lowers onto DR64 relcomp (answer {2}, 2 oracles); its optimizer emits ChainJoin and swapped orders; arrow 60 vs 58 blocks in-tree use; masks lose to scalar on selective data | [2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md](2026-10-30-d-xlog-dr64-0-xlog-rir-over-dr64-relcomp.md) |
+| 2026-10-30 | `D-TRACT-SHAPE-1` |  | [2026-10-30-d-tract-shape-1-cold-shape-folding.md](2026-10-30-d-tract-shape-1-cold-shape-folding.md) |
+| 2026-10-30 | `D-TRACT-HARVEST` |  | [2026-10-30-d-tract-onnx-coverage-map.md](2026-10-30-d-tract-onnx-coverage-map.md) |
+| 2026-10-30 | `D-TRACT-HARVEST-0` |  | [2026-10-30-d-tract-harvest-0-native-algebra-bridge.md](2026-10-30-d-tract-harvest-0-native-algebra-bridge.md) |
+| 2026-10-30 | `D-TRACT-CODEGRAPH-ADDRESS` |  | [2026-10-30-d-tract-codegraph-address-map.md](2026-10-30-d-tract-codegraph-address-map.md) |
+| 2026-10-30 | `D-SAG-6-1-AUDIT` |  | [2026-10-30-d-sag-6-1-capability-audit.md](2026-10-30-d-sag-6-1-capability-audit.md) |
+| 2026-10-30 | `D-MIST-NATIVE-1a` |  | [2026-10-30-d-mist-native-1a-hhtl16-rows.md](2026-10-30-d-mist-native-1a-hhtl16-rows.md) |
+| 2026-10-30 | `D-MIST-NATIVE-0` |  | [2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md](2026-10-30-d-mist-native-0-kripke-fixpoint-over-dr64.md) |
+| 2026-10-30 | `D-LITHO` |  | [2026-10-30-d-litho-photolithography-contract.md](2026-10-30-d-litho-photolithography-contract.md) |
+| 2026-10-30 | `D-LITHO-1` |  | [2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md](2026-10-30-d-litho-1-xlog-register-steps-and-bag-fixture.md) |
+| 2026-10-30 | `D-DT64-6-BS` |  | [2026-10-30-d-dt64-6-bs-bind-store-crate.md](2026-10-30-d-dt64-6-bs-bind-store-crate.md) |
+| 2026-10-30 | `D-DRCA-3` |  | [2026-10-30-d-drca-3-dr4-method-routing.md](2026-10-30-d-drca-3-dr4-method-routing.md) |
+| 2026-10-30 | `coresearch-mistaber-hydration` |  | [2026-10-30-coresearch-mistaber-hydration.md](2026-10-30-coresearch-mistaber-hydration.md) |
+| 2026-10-29 | `palette512-turbovec9-nsl-worksteal` |  | [2026-10-29-palette512-turbovec9-nsl-worksteal.md](2026-10-29-palette512-turbovec9-nsl-worksteal.md) |
+| 2026-10-28 | `thought-layers-nan-skip` |  | [2026-10-28-thought-layers-nan-skip.md](2026-10-28-thought-layers-nan-skip.md) |
+| 2026-10-28 | `lane-layout-from-classview` |  | [2026-10-28-lane-layout-from-classview.md](2026-10-28-lane-layout-from-classview.md) |
+| 2026-10-28 | `D-SAG-6-1` |  | [2026-10-28-d-sag-6-1-audit-reference-ledger.md](2026-10-28-d-sag-6-1-audit-reference-ledger.md) |
+| 2026-10-28 | `D-NSL-W0W1` |  | [2026-10-28-d-nsl-w0-w1.md](2026-10-28-d-nsl-w0-w1.md) |
+| 2026-10-28 | `D-EPI-COT-C3C` |  | [2026-10-28-d-epi-cot-c3c-learn.md](2026-10-28-d-epi-cot-c3c-learn.md) |
+| 2026-10-28 | `D-EPI-COT-C3B` |  | [2026-10-28-d-epi-cot-c3b-scent.md](2026-10-28-d-epi-cot-c3b-scent.md) |
+| 2026-10-28 | `D-EPI-COT-C3` |  | [2026-10-28-d-epi-cot-c3-warrant.md](2026-10-28-d-epi-cot-c3-warrant.md) |
+| 2026-10-28 | `D-EPI-COT` |  | [2026-10-28-d-epi-cot-c0-c2.md](2026-10-28-d-epi-cot-c0-c2.md) |
+| 2026-10-28 | `D-DT64-6` |  | [2026-10-28-d-dt64-6-routing-bindstore-behavior.md](2026-10-28-d-dt64-6-routing-bindstore-behavior.md) |
+| 2026-10-28 | `D-DT64-6-1a` |  | [2026-10-28-d-dt64-6-ogit-predicates-impl.md](2026-10-28-d-dt64-6-ogit-predicates-impl.md) |
+| 2026-10-28 | `D-DRDT` |  | [2026-10-28-d-drdt-dr-dt-ownership-amendment.md](2026-10-28-d-drdt-dr-dt-ownership-amendment.md) |
+| 2026-10-28 | `D-DRCA-2` |  | [2026-10-28-d-drca-2-dr256-where-dr3.md](2026-10-28-d-drca-2-dr256-where-dr3.md) |
+| 2026-10-28 | `D-DRCA-1` |  | [2026-10-28-d-drca-1-hhtl16-dr-projection.md](2026-10-28-d-drca-1-hhtl16-dr-projection.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |

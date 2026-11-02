@@ -15,7 +15,6 @@ use lance_graph_r2il::{
     BoolMode, FoldDialect, FoldError, Val, INT_ADD, INT_AND, INT_MULT, INT_NOT, INT_OR, INT_S_DIV,
     INT_XOR, POP_COUNT,
 };
-use ogar_loco::Dialect;
 use ogar_r2il::KEEP;
 
 const N: usize = 1_000;

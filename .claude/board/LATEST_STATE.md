@@ -1,3 +1,38 @@
+## 2026-11-01 — main after #1904–#1907 (merged `39511c92e`)
+
+- New workspace crate `lance-graph-xlog` (#1907): XLOG's admitted two-atom chain (support, bag count) described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No `xlog-*` or arrow dependency. `xlog-relcomp-probe` keeps XLOG admission and calls it.
+- `lance_graph_dt64::dr::MapTable`, `MapRead`, `TileId` (#1905): the versioned global → local table. A tile's `LocalMap` is read only under the frame it was sealed under; `coordinates` is derived from the held maps.
+- `lance_graph_contract::ogar_codebook::{HARDCODED_BEHAVIOUR, HARDCODED_BEHAVIOUR_DOMAIN}` (#1904), mirroring OGAR #365: no codebook row in `0xFFXX`. `lance_graph_r2il::polyfill::HARDCODED` reads it.
+- D-DYNBAG-0 (#1906): the probe no longer calls `ndarray::simd` folds; only `mask_and` (elementwise alias) and `checked_binary_i64` (TRACKED, MISSING-3) remain direct.
+
+## 2026-10-31 — main after #1884 (merged `d3c2a29`)
+
+- `xlog-relcomp-probe` executes its admitted chain on `ndarray::simd`, binds the bag count through `lance-graph-dt64`, and pins the Epi5 reading of XLOG results. Lab only.
+- Plans D-SOC-FENCE and D-DYNBAG are on main, plan only.
+- No contract type changed.
+
+## 2026-10-31 — main after #1880 (merged `4d677ba`)
+
+- Mistaber makor citations are addressed through `deepnsm-v2` `hydrate` (`NiblePath`, no classid). `deepnsm-v2` is the grammar and language intake arm.
+- No contract type changed.
+
+## 2026-10-31 — main after #1875 (merged `b7adb0c`)
+
+- D-MIST-NATIVE-0 (#1873) and D-MIST-NATIVE-1a (#1875) are on main as the lab crate `mistaber-kripke-probe`.
+- Mistaber's Kripke holdings are a least fixpoint over DR64 `compose`, and its nodes are HHTL16 Register128 rows, with no String in the solved state.
+- #1874 landed the co-research hydration map and the DR64³ contraction test.
+- No contract type changed.
+
+## 2026-10-31 — main after #1869 and #1871 (`lance-graph-dt64`)
+
+- New production crate `crates/lance-graph-dt64` (contract-only): the bind store (D-DT64-6 A.5). It holds classes, methods, K3 guards, ordered effects and one resolve, plus the polyfill as one lens classid.
+- The thin-provisioned extent and the `dr` addressing module are not on main yet; they are in the follow-up PR.
+
+## 2026-10-30 — main after #1862 (merged `abe0b7afc`)
+
+- #1862 landed docs and two tests: D-DT64-6 Amendment A, the Morton aligned-square test, and the mask-risc dose test; D-LITHO folded into D-DT64-6.
+- No bind store on main yet: `crates/lance-graph-dt64` is in the follow-up PR (stranded on the branch after the merge, rebased onto main).
+
 ## 2026-10-26 — main after #1803 (merged `13e37026`)
 
 - Code on main since #1759: `crates/drf-focus-probe` (D-DRF P1/P2, writeback W1–W4/W6–W8, budget, churn, TLB, DRAV-AV1; workspace-excluded, no CI job) and, from #1792, D-NFR-1 falsifier tests only (`cognitive-shader-driver/tests/escaped_reuse.rs`, `lance-graph-planner/tests/horizon_is_not_a_snapshot.rs`, `soa-view-probe/tests/falsifiers.rs`). No production source changed. DR256 global-mask labs (#1790, #1791, #1792 P2) and D-TFLP 6.5 probes (#1800, #1801, #1803) are lab evidence, production impact none.

@@ -1,0 +1,18 @@
+# fixture	F6-undeclared-child
+# upstream_commit	b50bf3323056793830c35795eace57e43caa23b5
+# kripke_lp_sha256	6c55720475add0f81915c46a84da8146235cee38dffa0db73e72a7bf0e58a9e9
+# fixture_sha256	403d77f552a6a3bf76f9329f303c9e393138c1dc103ea22aa835ec0829f50f9a
+fact	world	base
+fact	asserts	base	p
+fact	asserts_rule	base	p	r_base_p
+fact	accessible	x	base
+atom	holding_strength(moderate,p,x)
+atom	holding_strength(strong,p,base)
+atom	holds(p,base)
+atom	holds(p,x)
+atom	holds_via(asserted,p,base)
+atom	holds_via(inherited(base),p,x)
+atom	holds_via_rule(asserted,p,base,r_base_p,r_base_p)
+atom	holds_via_rule(inherited(base),p,x,r_kripke_inherit,r_base_p)
+atom	inheritance_source(p,base,base)
+atom	inheritance_source(p,x,base)
