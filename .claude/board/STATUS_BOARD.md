@@ -231,6 +231,18 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 
 **Evidence boundaries:** D-SAG-6 #1760 merged docs; Math Foundry #1693/#1694 E1 lab merged; D-NFC #1753 native-first; #1775 D-DRAV draft / AV1–AV12 NOT RUN; MORK oracle with unresolved production licence/allocator; EXO-148 stable durable types unresolved. No complete distributed reasoning implementation or measured AI/data-center scaling claim.
 
+## D-CODEGRAPH-0 — resident Codegraph: Charon → ruff → lance-graph + crai-rs (2026-11-02)
+
+Plan: [d-codegraph-0-resident-codegraph-v1.md](../plans/d-codegraph-0-resident-codegraph-v1.md). Entry: [gap map](entries/2026-11-02-d-codegraph-0-gap-map.md).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CODEGRAPH-0-A** | ruff `ruff_charon`: LLBC → Kythe facts with a witness status per call, for one real crate | IN PROGRESS | rust-analyzer oracle (`sag-ra-probe GRAPH=1`) and rustc on `fixtures/codegraph`; `POSSIBLE` never counted as a confirmed caller |
+| **D-CODEGRAPH-0-B** | resident rows via the ruff sink; per-file digests; incremental invalidation | QUEUED | clean import == incremental import |
+| **D-CODEGRAPH-0-C** | callers / callees / impact / diagnostics; tiled closure; body → R2IL design check | QUEUED | each guard disable-verified; unused import proven only without macros, traits, globs, re-exports |
+| **D-CODEGRAPH-0-D** | local stdio MCP over C | QUEUED | only after B and C gates |
+| **D-CODEGRAPH-0-E** | token measurement with and without the Codegraph | QUEUED | same revision, questions, model; nothing claimed before measured |
+
 ## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
 
 **Status: S0 PROPOSAL / DOCS ONLY.** Plan: [d-sag-6-rust-codegraph-math-logic-tracert-v1.md](../plans/d-sag-6-rust-codegraph-math-logic-tracert-v1.md). Agent prompt: [d-sag-6-rust-codegraph-logic-tracert-claude-code.md](../prompts/d-sag-6-rust-codegraph-logic-tracert-claude-code.md). Coordination: [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). Continuation of D-SAG / D-DRMC / Ascent-BYODS, **not** a revived SoftwareGraph, separate registry, runtime or new proof authority. Parallel #1759 only reconciles existing board status.
