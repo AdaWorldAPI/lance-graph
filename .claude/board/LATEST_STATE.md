@@ -1,3 +1,8 @@
+## 2026-11-02 — main after #1925 (merged `e89e61790`)
+
+- dt64: `BindStore::check_route` (read-only route check).
+- Codegraph: the lab `WalSink` for the G10 × G11 publication lab; closure caches filled between prepare and commit are dropped at commit.
+
 ## 2026-11-02 — main after #1924 (merged `78f9996af`)
 
 - Codegraph refresh splits into a fenced prepare / commit (crate-private); the F-LAND / F-DISCARD lab tests pin it, in debug and release.

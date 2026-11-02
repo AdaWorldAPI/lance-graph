@@ -1,3 +1,14 @@
+## 2026-11-02 — lance-graph PR #1925 (merged `e89e61790`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB steps 1–2: `check_route`, lab `WalSink`; stale-closure fix
+
+- **Added:**
+  - dt64 `BindStore::check_route`, the read-only form of `route`; `route` runs the same `RouteLog::check`.
+  - Codegraph lab `WalSink` (`LabWal`, test-only): fence, reconcile, `HashConflict`, payload-free scan, image read, injected faults.
+  - Fix: commit drops a closure cache filled between prepare and commit (Codex P2 on #1924).
+  - Post-merge record for #1924.
+- **Locked:** a checked route intent stays valid; `scan_sealed` carries no payload, so land records are read from the image.
+- **Deferred:** the L1–L6 lab test (two commits after the merge point, carried by the next PR).
+- **Confidence:** dt64 25 + 29, codegraph 12 lib tests; 3 + 4 + 1 disables red; planner is a dev-dependency only, with one ndarray via `[patch]`.
+
 ## 2026-11-02 — lance-graph PR #1924 (merged `78f9996af`, branch `claude/clone-repositories-71a5sw`) — F-LAND / F-DISCARD lab, D-TGL lifecycle contract, G10 × G11 lab spec
 
 - **Added:**
