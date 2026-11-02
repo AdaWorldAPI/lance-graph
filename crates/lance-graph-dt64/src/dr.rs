@@ -258,6 +258,14 @@ impl RouteLog {
         class: u32,
         identity: Axis,
     ) -> Result<RouteVersion, RouteRefusal> {
+        self.check(position, class, identity)?;
+        Ok(self.push(position, Some(class)))
+    }
+
+    /// Whether [`RouteLog::route`] would accept routing `position` to
+    /// `class`, without routing it: the same refusal, no event, no version.
+    /// `route` runs this exact check, so the two cannot disagree.
+    pub fn check(&self, position: u16, class: u32, identity: Axis) -> Result<(), RouteRefusal> {
         let reserved = identity.reserved();
         if usize::from(position) >= reserved {
             return Err(RouteRefusal::OutsideReservation {
@@ -266,7 +274,7 @@ impl RouteLog {
                 reserved,
             });
         }
-        Ok(self.push(position, Some(class)))
+        Ok(())
     }
 
     /// Remove `position`'s route; returns the new version.

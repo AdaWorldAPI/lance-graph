@@ -737,13 +737,34 @@ impl BindStore {
     /// Route `position` to the bound `class`; returns the new version. A
     /// position past the class's identity reservation is refused.
     pub fn route(&mut self, position: u16, class: u32) -> Result<RouteVersion, Refusal> {
+        let identity = self.route_identity(position, class)?;
+        Ok(self.routes.route(position, class, identity)?)
+    }
+
+    /// Whether [`BindStore::route`] would accept routing `position` to
+    /// `class`, without routing it: the same two refusals
+    /// ([`Refusal::UnknownClass`], [`Refusal::OutsideReservation`]), no route
+    /// event, no new [`RouteVersion`]. `route` runs this exact check before
+    /// it writes, so the two cannot disagree.
+    ///
+    /// A route intent that passes stays valid: classes are only ever added
+    /// (a bound class is never removed or changed, D5) and the answer does
+    /// not depend on the route log. A prepared land (G10/G11) can therefore
+    /// check its route intents up front and apply them later without an
+    /// error path.
+    pub fn check_route(&self, position: u16, class: u32) -> Result<(), Refusal> {
+        self.route_identity(position, class).map(|_| ())
+    }
+
+    /// The class's identity reservation, after the route check.
+    fn route_identity(&self, position: u16, class: u32) -> Result<Axis, Refusal> {
         let entry = self
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        Ok(self
-            .routes
-            .route(position, class, entry.schema.extent.identity)?)
+        let identity = entry.schema.extent.identity;
+        self.routes.check(position, class, identity)?;
+        Ok(identity)
     }
 
     /// What `class` has claimed of its reservation at `version`: the identity
