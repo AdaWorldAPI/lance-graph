@@ -83,10 +83,11 @@ fn main() {
         .collect();
     for k in &crates {
         let t = Instant::now();
-        let lanes = lance_graph_codegraph::artifact::read_crate(&dir, k).expect("read");
+        let mut syms = lance_graph_codegraph::artifact::Symbols::default();
+        let lanes = lance_graph_codegraph::artifact::read_crate(&dir, k, &mut syms).expect("read");
         println!(
             "  of which reading {k}.rows.tsv ({} rows): {} us",
-            lanes.predicate.len(),
+            lanes.len(),
             t.elapsed().as_micros()
         );
         let t = Instant::now();

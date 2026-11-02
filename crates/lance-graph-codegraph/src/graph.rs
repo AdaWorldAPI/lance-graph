@@ -10,7 +10,10 @@ use lance_graph_dt64::dr::{Axis, LocalMap, MapRefusal, MapTable, TileId, Width};
 use lance_graph_xlog::cube::{Cube, CubeRefusal, RelId};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
-use crate::artifact::{self, Lanes, NO_SPAN};
+use crate::artifact::{
+    self, Lanes, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES, P_IMPLEMENTS, P_MAY, P_PUBLIC,
+    P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
+};
 
 /// A symbol's position: its interning index, which is also its cube coordinate.
 pub type Pos = u32;
@@ -83,13 +86,88 @@ struct Masks {
     stored_owner: Vec<u64>,
 }
 
-/// The queryable codegraph. Owns the artifact lanes, the symbol table, the
-/// tile map and the cube; relations were dropped after the cube took them.
+/// Symbol positions over the shared interner. A position is the symbol's
+/// first-seen index among the row symbols (the cube coordinate); the interner
+/// also holds texts that are not symbols (grades, files, full MAY objects),
+/// so the two numberings are kept apart: `of_id` maps an interner id to its
+/// position (`NONE` when the text is not a symbol), `id_of` is the inverse.
+/// Query time does one interner lookup and one array read, never a name map.
+#[derive(Default)]
+struct Positions {
+    of_id: Vec<u32>,
+    id_of: Vec<u32>,
+    /// Interner id of the first `::` segment of each position's name (the
+    /// owning crate), computed once when the position is assigned so the
+    /// `stored_owner` mask never splits strings.
+    owner: Vec<u32>,
+    last_owner: u32,
+}
+
+impl Positions {
+    fn len(&self) -> usize {
+        self.id_of.len()
+    }
+
+    /// The position of interner id `id`, `None` when it is not a symbol.
+    fn at(&self, id: u32) -> Option<Pos> {
+        self.of_id.get(id as usize).copied().filter(|&p| p != NONE)
+    }
+
+    /// Assign `id` the next position unless it already has one.
+    fn assign(&mut self, id: u32, symbols: &mut Symbols) -> Pos {
+        if self.of_id.len() <= id as usize {
+            self.of_id.resize(symbols.len().max(id as usize + 1), NONE);
+        }
+        let cur = self.of_id[id as usize];
+        if cur != NONE {
+            return cur;
+        }
+        let p = self.id_of.len() as Pos;
+        self.of_id[id as usize] = p;
+        self.id_of.push(id);
+        let owner = {
+            let name = symbols.name(id);
+            match name.find("::") {
+                None => id,
+                Some(cut) => {
+                    let pre = &name[..cut];
+                    if self.last_owner != NONE && symbols.name(self.last_owner) == pre {
+                        self.last_owner
+                    } else if let Some(o) = symbols.get(pre) {
+                        o
+                    } else {
+                        let owned = pre.to_string();
+                        symbols.intern(&owned)
+                    }
+                }
+            }
+        };
+        self.last_owner = owner;
+        self.owner.push(owner);
+        p
+    }
+
+    /// Undo every assignment from position `n` on (a refused refresh).
+    fn truncate(&mut self, n: usize) {
+        for &id in &self.id_of[n..] {
+            if let Some(slot) = self.of_id.get_mut(id as usize) {
+                *slot = NONE;
+            }
+        }
+        self.id_of.truncate(n);
+        self.owner.truncate(n);
+    }
+}
+
+/// The queryable codegraph. Owns the artifact lanes, the symbol interner and
+/// position table, the tile map and the cube; relations were dropped after
+/// the cube took them.
 pub struct Codegraph {
     lanes: Lanes,
-    names: Vec<String>,
-    index: HashMap<String, Pos>,
-    crates: HashMap<String, RunStatus>,
+    symbols: Symbols,
+    pos: Positions,
+    /// Status by crate-name interner id.
+    crates: HashMap<u32, RunStatus>,
     /// The reservation made at open; refresh grows only inside it.
     axis: Axis,
     table: MapTable,
@@ -99,101 +177,103 @@ pub struct Codegraph {
     rposs: OnceCell<(WideRows, WideStats)>,
 }
 
-fn intern(names: &mut Vec<String>, index: &mut HashMap<String, Pos>, s: &str) -> Pos {
-    if let Some(&p) = index.get(s) {
-        return p;
-    }
-    let p = names.len() as Pos;
-    names.push(s.to_string());
-    index.insert(s.to_string(), p);
-    p
-}
-
-/// The `Trait::method` part of a MAY_DISPATCH object.
-fn dispatch_target(object: &str) -> &str {
-    object.split(" via ").next().unwrap_or(object)
-}
-
 fn set(words: &mut [u64], p: Pos) {
-    words[p as usize / 64] |= 1 << (p % 64);
+    if let Some(w) = words.get_mut(p as usize / 64) {
+        *w |= 1 << (p % 64);
+    }
 }
 
-/// Row subject/object ids after interning; `NONE` when a row has no symbol.
-struct Resolved {
-    sid: Vec<u32>,
-    oid: Vec<u32>,
-    dyn_id: Option<u32>,
-}
-
-/// Intern every row's symbols into `names`/`idx` in row order. Symbols already
-/// interned keep their position, so running this over a lane set that gained
-/// or lost rows only ever appends.
-fn resolve(lanes: &Lanes, names: &mut Vec<String>, idx: &mut HashMap<String, Pos>) -> Resolved {
-    let rows = lanes.predicate.len();
-    let mut sid = vec![NONE; rows];
-    let mut oid = vec![NONE; rows];
+/// Assign positions to the symbols of `rows` in row order. Symbols already
+/// positioned keep theirs, so running this over a lane set that gained rows
+/// only ever appends. Returns whether a row had an `UNRESOLVED_CALL` (the
+/// caller then adds the `?dynamic` position last).
+fn resolve(
+    lanes: &Lanes,
+    rows: std::ops::Range<usize>,
+    symbols: &mut Symbols,
+    pos: &mut Positions,
+) -> bool {
     let mut any_dynamic = false;
-    for i in 0..rows {
-        let (s, o) = (lanes.subject[i].as_str(), lanes.object[i].as_str());
-        match lanes.predicate[i].as_str() {
-            "DEFINES" | "CALLS_RESOLVED" | "PUBLIC" | "IMPLEMENTS" | "SYNTHETIC" | "REFERENCES" => {
-                sid[i] = intern(names, idx, s);
-                oid[i] = intern(names, idx, o);
+    for i in rows {
+        let s = lanes.subject[i];
+        match lanes.pred[i] {
+            P_DEFINES | P_CALLS | P_PUBLIC | P_IMPLEMENTS | P_SYNTHETIC | P_REFERENCES => {
+                pos.assign(s, symbols);
+                pos.assign(lanes.object[i], symbols);
             }
-            "MAY_DISPATCH" => {
-                sid[i] = intern(names, idx, s);
-                oid[i] = intern(names, idx, dispatch_target(o));
+            P_MAY => {
+                pos.assign(s, symbols);
+                pos.assign(lanes.may_target[i], symbols);
             }
             // The caller is a symbol; the object ("dynamic") is not.
-            "UNRESOLVED_CALL" => {
-                sid[i] = intern(names, idx, s);
+            P_UNRESOLVED => {
+                pos.assign(s, symbols);
                 any_dynamic = true;
             }
             _ => {}
         }
     }
-    let dyn_id = any_dynamic.then(|| intern(names, idx, DYNAMIC));
-    Resolved { sid, oid, dyn_id }
+    any_dynamic
 }
 
-fn crate_statuses(lanes: &Lanes) -> HashMap<String, RunStatus> {
+/// Add the `?dynamic` position (idempotent).
+fn add_dynamic(symbols: &mut Symbols, pos: &mut Positions) {
+    let d = symbols.intern(DYNAMIC);
+    pos.assign(d, symbols);
+}
+
+fn dynamic_pos(symbols: &Symbols, pos: &Positions) -> Option<Pos> {
+    symbols.get(DYNAMIC).and_then(|id| pos.at(id))
+}
+
+fn crate_statuses(lanes: &Lanes, symbols: &Symbols) -> HashMap<u32, RunStatus> {
+    let complete = symbols.get("COMPLETE");
     let mut crates = HashMap::new();
-    for i in 0..lanes.predicate.len() {
-        if lanes.predicate[i] == "CRATE" {
-            let st = if lanes.object[i] == "COMPLETE" {
+    for i in 0..lanes.len() {
+        if lanes.pred[i] == P_CRATE {
+            let st = if Some(lanes.object[i]) == complete {
                 RunStatus::Complete
             } else {
                 RunStatus::Partial
             };
-            crates.insert(lanes.subject[i].clone(), st);
+            crates.insert(lanes.subject[i], st);
         }
     }
     crates
 }
 
-/// The five edge relations (everything but `NODE`, which is left empty) of a
-/// lane set. Intake and refresh both build edges here, so they agree.
-fn edges_of(lanes: &Lanes, r: &Resolved) -> [Vec<(u32, u32)>; 6] {
+/// The five edge relations (everything but `NODE`, which is left empty) of
+/// the given rows, in row order. Intake and refresh both build edges here, so
+/// they agree. Every symbol of these rows must already be positioned.
+fn edges_of(
+    lanes: &Lanes,
+    rows: impl Iterator<Item = usize>,
+    pos: &Positions,
+    dyn_pos: Option<Pos>,
+) -> [Vec<(u32, u32)>; 6] {
     let mut rel: [Vec<(u32, u32)>; 6] = Default::default();
-    for i in 0..lanes.predicate.len() {
-        let (s, o) = (r.sid[i], r.oid[i]);
-        match lanes.predicate[i].as_str() {
-            "CALLS_RESOLVED" => {
+    let p = |id: u32| pos.at(id).unwrap_or(NONE);
+    for i in rows {
+        match lanes.pred[i] {
+            P_CALLS => {
+                let (s, o) = (p(lanes.subject[i]), p(lanes.object[i]));
                 rel[CALLS as usize].push((s, o));
                 rel[RCONF as usize].push((o, s));
                 rel[RPOSS as usize].push((o, s));
             }
-            "IMPLEMENTS" => {
+            P_IMPLEMENTS => {
+                let (s, o) = (p(lanes.subject[i]), p(lanes.object[i]));
                 rel[IMPL as usize].push((s, o));
                 rel[RPOSS as usize].push((s, o));
             }
-            "MAY_DISPATCH" => {
+            P_MAY => {
+                let (s, o) = (p(lanes.subject[i]), p(lanes.may_target[i]));
                 rel[MAY as usize].push((s, o));
                 rel[RPOSS as usize].push((o, s));
             }
-            "UNRESOLVED_CALL" => {
-                if let Some(d) = r.dyn_id {
-                    rel[RPOSS as usize].push((d, s));
+            P_UNRESOLVED => {
+                if let Some(d) = dyn_pos {
+                    rel[RPOSS as usize].push((d, p(lanes.subject[i])));
                 }
             }
             _ => {}
@@ -202,14 +282,14 @@ fn edges_of(lanes: &Lanes, r: &Resolved) -> [Vec<(u32, u32)>; 6] {
     rel
 }
 
-/// Position masks of a lane set over `names`.
+/// Position masks of a lane set.
 fn masks_of(
     lanes: &Lanes,
-    r: &Resolved,
-    names: &[String],
-    crates: &HashMap<String, RunStatus>,
+    pos: &Positions,
+    n_ids: usize,
+    crates: &HashMap<u32, RunStatus>,
 ) -> Masks {
-    let words = names.len().div_ceil(64);
+    let words = pos.len().div_ceil(64);
     let mut m = Masks {
         fns: vec![0; words],
         public: vec![0; words],
@@ -221,27 +301,86 @@ fn masks_of(
         dynamic_callers: vec![0; words],
         stored_owner: vec![0; words],
     };
-    for i in 0..lanes.predicate.len() {
-        let (s, o) = (r.sid[i], r.oid[i]);
-        match lanes.predicate[i].as_str() {
-            "DEFINES" => set(&mut m.fns, s),
-            "PUBLIC" => set(&mut m.public, s),
-            "SYNTHETIC" => set(&mut m.synthetic, s),
-            "REFERENCES" => set(&mut m.referenced, o),
-            "CALLS_RESOLVED" => set(&mut m.called, o),
-            "IMPLEMENTS" => set(&mut m.impl_subjects, s),
-            "MAY_DISPATCH" => set(&mut m.may_targets, o),
-            "UNRESOLVED_CALL" => set(&mut m.dynamic_callers, s),
+    let p = |id: u32| pos.at(id).unwrap_or(NONE);
+    for i in 0..lanes.len() {
+        let (s, o) = (lanes.subject[i], lanes.object[i]);
+        match lanes.pred[i] {
+            P_DEFINES => set(&mut m.fns, p(s)),
+            P_PUBLIC => set(&mut m.public, p(s)),
+            P_SYNTHETIC => set(&mut m.synthetic, p(s)),
+            P_REFERENCES => set(&mut m.referenced, p(o)),
+            P_CALLS => set(&mut m.called, p(o)),
+            P_IMPLEMENTS => set(&mut m.impl_subjects, p(s)),
+            P_MAY => set(&mut m.may_targets, p(lanes.may_target[i])),
+            P_UNRESOLVED => set(&mut m.dynamic_callers, p(s)),
             _ => {}
         }
     }
-    for (p, name) in names.iter().enumerate() {
-        let owner = name.split("::").next().unwrap_or(name);
-        if crates.contains_key(owner) {
-            set(&mut m.stored_owner, p as Pos);
+    let mut is_crate = vec![false; n_ids];
+    for &c in crates.keys() {
+        if let Some(f) = is_crate.get_mut(c as usize) {
+            *f = true;
+        }
+    }
+    for (q, &owner) in pos.owner.iter().enumerate() {
+        if is_crate.get(owner as usize).copied().unwrap_or(false) {
+            set(&mut m.stored_owner, q as Pos);
         }
     }
     m
+}
+
+/// Sorted edge keys `(src << 32) | dst` of one relation.
+fn keys(edges: &[(u32, u32)]) -> Vec<u64> {
+    let mut k: Vec<u64> = edges
+        .iter()
+        .map(|&(s, d)| (u64::from(s) << 32) | u64::from(d))
+        .collect();
+    k.sort_unstable();
+    k
+}
+
+fn run_len(v: &[u64], i: usize) -> usize {
+    let x = v[i];
+    v[i..].iter().take_while(|&&y| y == x).count()
+}
+
+/// Multiset difference of two sorted key lists in one merge pass: each key
+/// is logged `old - new` times into `gone` or `new - old` times into `came`,
+/// ascending. A call graph is a bag: two rows for one `(src, dst)` are two
+/// call sites.
+fn diff_sorted(old: &[u64], new: &[u64], gone: &mut Vec<u64>, came: &mut Vec<u64>) {
+    let (mut i, mut j) = (0usize, 0usize);
+    while i < old.len() || j < new.len() {
+        let order = match (old.get(i), new.get(j)) {
+            (Some(a), Some(b)) => a.cmp(b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            _ => std::cmp::Ordering::Greater,
+        };
+        match order {
+            std::cmp::Ordering::Equal => {
+                let (ro, rn) = (run_len(old, i), run_len(new, j));
+                let key = old[i];
+                if ro > rn {
+                    gone.extend(std::iter::repeat_n(key, ro - rn));
+                } else {
+                    came.extend(std::iter::repeat_n(key, rn - ro));
+                }
+                i += ro;
+                j += rn;
+            }
+            std::cmp::Ordering::Less => {
+                let r = run_len(old, i);
+                gone.extend(std::iter::repeat_n(old[i], r));
+                i += r;
+            }
+            std::cmp::Ordering::Greater => {
+                let r = run_len(new, j);
+                came.extend(std::iter::repeat_n(new[j], r));
+                j += r;
+            }
+        }
+    }
 }
 
 /// What one [`Codegraph::refresh_crate`] did.
@@ -275,15 +414,20 @@ pub enum RefreshRefusal {
 impl Codegraph {
     /// Read every `*.rows.tsv` in `dir` and build the graph.
     pub fn open(dir: &Path) -> Result<Self, IntakeRefusal> {
-        let lanes = artifact::read_dir(dir)?;
-        let mut names: Vec<String> = Vec::new();
-        let mut idx: HashMap<String, Pos> = HashMap::new();
-        let res = resolve(&lanes, &mut names, &mut idx);
-        let crates = crate_statuses(&lanes);
-        let n = names.len();
-        let mut rel = edges_of(&lanes, &res);
+        let mut symbols = Symbols::default();
+        let lanes = artifact::read_dir(dir, &mut symbols)?;
+        let mut pos = Positions {
+            last_owner: NONE,
+            ..Positions::default()
+        };
+        if resolve(&lanes, 0..lanes.len(), &mut symbols, &mut pos) {
+            add_dynamic(&mut symbols, &mut pos);
+        }
+        let crates = crate_statuses(&lanes, &symbols);
+        let n = pos.len();
+        let mut rel = edges_of(&lanes, 0..lanes.len(), &pos, dynamic_pos(&symbols, &pos));
         rel[NODE as usize] = (0..n as u32).map(|p| (p, p)).collect();
-        let m = masks_of(&lanes, &res, &names, &crates);
+        let m = masks_of(&lanes, &pos, symbols.len(), &crates);
 
         // Tile t holds the global ids [t*256, min(n, (t+1)*256)). Every tile
         // but the last is full, so tile t's local j sits at cube coordinate
@@ -318,8 +462,8 @@ impl Codegraph {
 
         Ok(Self {
             lanes,
-            names,
-            index: idx,
+            symbols,
+            pos,
             crates,
             axis,
             table,
@@ -333,9 +477,16 @@ impl Codegraph {
     /// Re-read `<krate>.rows.tsv` from `dir` and bring the resident graph up
     /// to date without rebuilding it ("sparse write, merge on read").
     ///
+    /// * **Digest skip.** The FNV-1a digest of every crate file is recorded
+    ///   when it is read (at open, at each successful refresh). A file whose
+    ///   digest equals the recorded one is unchanged, which is no delta:
+    ///   the call returns `RefreshStats::default()` at once, without parsing
+    ///   and without moving the crate's rows. (Before this, an unchanged
+    ///   crate cost 25-36 ms to find nothing.)
     /// * Rows are attributed to their crate file by the `krate` lane
     ///   ([`Lanes::krate`]); the crate's old rows are dropped from the lanes
-    ///   and the new file's rows appended.
+    ///   and the new file's rows appended. Only that one file is parsed, into
+    ///   the graph's shared interner (allocating for new names only).
     /// * Positions never renumber. A vanished symbol keeps its position (and
     ///   its `NODE` edge) with no rows; new symbols are appended. Growth must
     ///   fit the positions reserved at open (`Axis::for_survivors(n).reserved()`):
@@ -343,10 +494,13 @@ impl Codegraph {
     ///   [`RefreshRefusal::NeedsReopen`] and changes nothing. Growth inside
     ///   the reservation extends the last tile's map under a new frame
     ///   (`MapTable::advance` + `seal`) and `Cube::rebase`s onto it.
-    /// * Edges: the whole graph's edges before and after are compared per
-    ///   relation as multisets (a call graph is a bag: two call sites of one
-    ///   pair are two edges), so an edge a *different* crate still produces
-    ///   is never retired and a second call site is never lost. The difference is
+    /// * Edges: the crate's old edges and its new edges are compared per
+    ///   relation as multisets of sorted `(src << 32) | dst` keys in one merge
+    ///   pass (a call graph is a bag: two call sites of one pair are two
+    ///   edges). Every other crate's rows are in both the old and the new
+    ///   graph, so this equals the whole-graph difference: an edge a
+    ///   *different* crate still produces is never retired and a second call
+    ///   site is never lost. No string is hashed or compared. The difference is
     ///   logged with `retire_edge` / `add_edge`; the resident lanes are
     ///   untouched. **Apply order** (so the next tile/row is predictable):
     ///   relation by relation in id order; within a relation, retirements
@@ -369,57 +523,63 @@ impl Codegraph {
         dir: &Path,
         krate: &str,
     ) -> Result<RefreshStats, RefreshRefusal> {
-        let fresh = artifact::read_crate(dir, krate).map_err(RefreshRefusal::Intake)?;
-        let mut new_lanes = self.lanes.without_crate(krate);
-        new_lanes.append(fresh);
+        let text = artifact::read_crate_text(dir, krate).map_err(RefreshRefusal::Intake)?;
+        // An unchanged file is no delta. The digest recorded when the crate
+        // was last read (at open or at a successful refresh) decides, before
+        // any parsing, so the common "nothing happened" refresh costs one
+        // read and one pass over the bytes.
+        let file_digest = artifact::digest(text.as_bytes());
+        if let Some(k) = self.symbols.get(krate) {
+            if self.lanes.digest_of(k) == Some(file_digest) {
+                return Ok(RefreshStats::default());
+            }
+        }
+        let mut fresh = Lanes::default();
+        artifact::read_text_as(&text, krate, &mut self.symbols, &mut fresh)
+            .map_err(RefreshRefusal::Intake)?;
+        let kid = self.symbols.intern(krate);
 
-        let mut names = self.names.clone();
-        let mut idx = self.index.clone();
-        let old_res = resolve(&self.lanes, &mut names, &mut idx);
-        let new_res = resolve(&new_lanes, &mut names, &mut idx);
-        let (n_old, n_new) = (self.names.len(), names.len());
+        // Edges of the crate's old rows, before any new position exists. Every
+        // other crate's rows are in both the old and the new lane set, so the
+        // whole-graph multiset difference equals this crate's old rows against
+        // its new rows.
+        let old_dyn = dynamic_pos(&self.symbols, &self.pos);
+        let old_e = edges_of(
+            &self.lanes,
+            (0..self.lanes.len()).filter(|&i| self.lanes.krate[i] == kid),
+            &self.pos,
+            old_dyn,
+        );
+
+        // New symbols come only from the fresh rows (all other rows are
+        // already positioned), appended in fresh-row order, `?dynamic` last:
+        // the same order a rebuilt lane set would intern in.
+        let n_old = self.pos.len();
+        if resolve(&fresh, 0..fresh.len(), &mut self.symbols, &mut self.pos) {
+            add_dynamic(&mut self.symbols, &mut self.pos);
+        }
+        let n_new = self.pos.len();
         if n_new > self.axis.reserved() {
+            self.pos.truncate(n_old);
             return Err(RefreshRefusal::NeedsReopen {
                 reason: "new symbols exceed the positions reserved at open (a new tile, or a W64 tile becoming W256)",
             });
         }
 
-        let old_e = edges_of(&self.lanes, &old_res);
-        let new_e = edges_of(&new_lanes, &new_res);
-        let mut retires: Vec<Vec<(u32, u32)>> = Vec::new();
-        let mut adds: Vec<Vec<(u32, u32)>> = Vec::new();
+        let new_e = edges_of(
+            &fresh,
+            0..fresh.len(),
+            &self.pos,
+            dynamic_pos(&self.symbols, &self.pos),
+        );
+        let mut retires: Vec<Vec<u64>> = Vec::new();
+        let mut adds: Vec<Vec<u64>> = Vec::new();
         for r in 0..6 {
-            // Multiset diff: a call graph is a bag, two rows for one
-            // (src, dst) are two call sites. BTreeMap iterates ascending.
-            let mut o: std::collections::BTreeMap<(u32, u32), usize> =
-                std::collections::BTreeMap::new();
-            let mut n: std::collections::BTreeMap<(u32, u32), usize> =
-                std::collections::BTreeMap::new();
-            for &e in &old_e[r] {
-                *o.entry(e).or_insert(0) += 1;
-            }
-            for &e in &new_e[r] {
-                *n.entry(e).or_insert(0) += 1;
-            }
-            let mut gone: Vec<(u32, u32)> = Vec::new();
-            let mut came: Vec<(u32, u32)> = Vec::new();
-            for (&e, &oc) in &o {
-                let nc = n.get(&e).copied().unwrap_or(0);
-                for _ in nc..oc {
-                    gone.push(e);
-                }
-            }
-            for (&e, &nc) in &n {
-                let oc = o.get(&e).copied().unwrap_or(0);
-                for _ in oc..nc {
-                    came.push(e);
-                }
-            }
+            let (mut gone, mut came) = (Vec::new(), Vec::new());
+            diff_sorted(&keys(&old_e[r]), &keys(&new_e[r]), &mut gone, &mut came);
             retires.push(gone);
             adds.push(came);
         }
-        let crates = crate_statuses(&new_lanes);
-        let masks = masks_of(&new_lanes, &new_res, &names, &crates);
 
         let pending = [
             self.cube.delta_len(RCONF) > 0,
@@ -435,8 +595,13 @@ impl Codegraph {
             let last = self.axis.tiles.saturating_sub(1);
             let lo = last as u64 * TILE_POSITIONS as u64;
             let ids: Vec<u64> = (lo..n_new as u64).collect();
-            let map = LocalMap::prepare(self.axis.tile, &ids)
-                .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Map(e)))?;
+            let map = match LocalMap::prepare(self.axis.tile, &ids) {
+                Ok(m) => m,
+                Err(e) => {
+                    self.pos.truncate(n_old);
+                    return Err(RefreshRefusal::Intake(IntakeRefusal::Map(e)));
+                }
+            };
             let rev = self.table.revisions();
             self.table
                 .advance(rev.source + 1, rev.relation_map, vec![(last, Some(map))]);
@@ -456,13 +621,15 @@ impl Codegraph {
                 }
                 continue;
             }
-            for &(s, d) in &retires[r] {
+            for &key in &retires[r] {
+                let (s, d) = ((key >> 32) as u32, key as u32);
                 self.cube
                     .retire_edge(&self.table, rel, s, d)
                     .map_err(RefreshRefusal::Cube)?;
                 stats.edges_retired += 1;
             }
-            for &(s, d) in &adds[r] {
+            for &key in &adds[r] {
+                let (s, d) = ((key >> 32) as u32, key as u32);
                 self.cube
                     .add_edge(&self.table, rel, s, d)
                     .map_err(RefreshRefusal::Cube)?;
@@ -492,11 +659,12 @@ impl Codegraph {
             }
         }
 
-        self.lanes = new_lanes;
-        self.names = names;
-        self.index = idx;
-        self.crates = crates;
-        self.masks = masks;
+        // Drop the crate's old rows, then append the fresh ones (the crate
+        // moves to the end of the lanes) and adopt the new file digest.
+        self.lanes.drop_crate(kid);
+        self.lanes.append(fresh);
+        self.crates = crate_statuses(&self.lanes, &self.symbols);
+        self.masks = masks_of(&self.lanes, &self.pos, self.symbols.len(), &self.crates);
         Ok(stats)
     }
 
@@ -510,19 +678,40 @@ impl Codegraph {
         Ok(())
     }
 
-    /// The position of `symbol`, if interned.
+    /// The position of `symbol`, if it is a symbol of the graph: one interner
+    /// lookup, then one array read.
     pub fn pos(&self, symbol: &str) -> Option<Pos> {
-        self.index.get(symbol).copied()
+        self.symbols.get(symbol).and_then(|id| self.pos.at(id))
     }
 
     /// The symbol at position `p`.
     pub fn symbol(&self, p: Pos) -> Option<&str> {
-        self.names.get(p as usize).map(String::as_str)
+        self.id_of(p).map(|id| self.symbols.name(id))
+    }
+
+    /// Interner id of the symbol at position `p`.
+    pub(crate) fn id_of(&self, p: Pos) -> Option<u32> {
+        self.pos.id_of.get(p as usize).copied()
+    }
+
+    /// Position of interner id `id`, when that text is a symbol.
+    pub(crate) fn pos_of_id(&self, id: u32) -> Option<Pos> {
+        self.pos.at(id)
+    }
+
+    /// The artifact lanes, for the crate's own folds.
+    pub(crate) fn lanes(&self) -> &Lanes {
+        &self.lanes
+    }
+
+    /// Whether any stored crate's CRATE row is not `COMPLETE`.
+    pub(crate) fn any_partial(&self) -> bool {
+        self.crates.values().any(|&s| s == RunStatus::Partial)
     }
 
     /// Mask words per position mask: `n.div_ceil(64)`.
     pub fn words(&self) -> usize {
-        self.names.len().div_ceil(64)
+        self.pos.len().div_ceil(64)
     }
 
     /// A mask with the bits of `symbols` set; unknown symbols are ignored.
@@ -538,40 +727,41 @@ impl Codegraph {
 
     /// The extractor status of `krate`, from its CRATE row.
     pub fn crate_status(&self, krate: &str) -> Option<RunStatus> {
-        self.crates.get(krate).copied()
+        let id = self.symbols.get(krate)?;
+        self.crates.get(&id).copied()
     }
 
     /// Data rows read.
     pub fn rows(&self) -> usize {
-        self.lanes.predicate.len()
+        self.lanes.len()
     }
 
     /// Predicate of `row`; panics only on an out-of-range row, like indexing.
     pub fn row_predicate(&self, row: usize) -> &str {
-        &self.lanes.predicate[row]
+        self.lanes.predicate_name(row, &self.symbols)
     }
 
     /// Subject of `row`.
     pub fn row_subject(&self, row: usize) -> &str {
-        &self.lanes.subject[row]
+        self.symbols.name(self.lanes.subject[row])
     }
 
     /// Object of `row`, verbatim from the artifact.
     pub fn row_object(&self, row: usize) -> &str {
-        &self.lanes.object[row]
+        self.symbols.name(self.lanes.object[row])
     }
 
     /// `(file, start, end)` of `row`, `None` when the row has no site (`-`).
     pub fn site(&self, row: usize) -> Option<(&str, u32, u32)> {
         let (f, s, e) = (
-            self.lanes.file.get(row)?,
+            self.symbols.name(*self.lanes.file.get(row)?),
             self.lanes.start[row],
             self.lanes.end[row],
         );
         if f == "-" || s == NO_SPAN || e == NO_SPAN {
             None
         } else {
-            Some((f.as_str(), s, e))
+            Some((f, s, e))
         }
     }
 

@@ -9,7 +9,8 @@
 use ndarray::simd::mask_andnot;
 use ndarray::simd::mask_andnot_assign;
 
-use crate::graph::{Codegraph, RunStatus};
+use crate::artifact::{P_CALLS, P_UNRESOLVED};
+use crate::graph::Codegraph;
 
 /// Which diagnostic a [`Finding`] belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,24 +119,21 @@ impl Codegraph {
         let words = self.words();
         let row_words = self.rows().div_ceil(64);
 
-        // One lane scan per diagnostic, into masks (not a tuple decode):
-        // CRATE rows for the run status, UNRESOLVED_CALL rows, and the
-        // CALLS_RESOLVED rows that dangle.
-        let mut partial = false;
+        // One scan over the integer lanes, into masks (not a tuple decode):
+        // UNRESOLVED_CALL rows and the CALLS_RESOLVED rows that dangle. The
+        // run status is the CRATE map (any non-COMPLETE crate), which is what
+        // a per-CRATE-row lookup of the same map computed.
+        let l = self.lanes();
+        let partial = self.any_partial();
         let mut unresolved_rows = vec![0u64; row_words];
         let mut dangling_rows = vec![0u64; row_words];
         let mut dangling_callers = vec![0u64; words];
         for r in 0..self.rows() {
-            match self.row_predicate(r) {
-                "CRATE" => {
-                    if self.crate_status(self.row_subject(r)) == Some(RunStatus::Partial) {
-                        partial = true;
-                    }
-                }
-                "UNRESOLVED_CALL" => set_bit(&mut unresolved_rows, r),
-                "CALLS_RESOLVED" => {
+            match l.pred[r] {
+                P_UNRESOLVED => set_bit(&mut unresolved_rows, r),
+                P_CALLS => {
                     let (Some(caller), Some(callee)) =
-                        (self.pos(self.row_subject(r)), self.pos(self.row_object(r)))
+                        (self.pos_of_id(l.subject[r]), self.pos_of_id(l.object[r]))
                     else {
                         continue;
                     };

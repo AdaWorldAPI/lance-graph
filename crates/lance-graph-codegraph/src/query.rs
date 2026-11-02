@@ -7,12 +7,11 @@
 //! (`UNRESOLVED_CALL`, the `?dynamic` position) or a function-pointer
 //! reference could reach it; it is never reported as "unaffected".
 
-use std::collections::HashSet;
-
 use lance_graph_xlog::cube::{CubeRefusal, RelId};
 use lance_graph_xlog::wide::WideRows;
 use ndarray::simd::{mask_and, mask_andnot_assign, mask_or_assign};
 
+use crate::artifact::{P_CALLS, P_IMPLEMENTS, P_MAY, P_REFERENCES};
 use crate::graph::{Codegraph, Pos, CALLS, IMPL, MAY, NODE, RCONF, RPOSS};
 
 /// An answer in three grades, each a position mask of `words()` words.
@@ -190,28 +189,30 @@ impl Codegraph {
         let rows = self.rows();
         let mut mask = vec![0u64; rows.div_ceil(64)];
         let (mut confirmed, mut possible) = (0u64, 0u64);
-        let Some(name) = self.symbol(g) else {
+        let Some(gid) = self.id_of(g) else {
             return Sites {
                 rows: mask,
                 confirmed,
                 possible,
             };
         };
-        // The Trait::method nodes `g` implements, read from the same lanes.
-        let impls: HashSet<&str> = (0..rows)
-            .filter(|&i| self.row_predicate(i) == "IMPLEMENTS" && self.row_subject(i) == name)
-            .map(|i| self.row_object(i))
+        // One fold over the integer lanes, no string compare: the
+        // `Trait::method` node ids `g` implements come from IMPLEMENTS rows by
+        // id, and each MAY_DISPATCH row carries its precomputed target id.
+        let l = self.lanes();
+        let mut impls: Vec<u32> = (0..rows)
+            .filter(|&i| l.pred[i] == P_IMPLEMENTS && l.subject[i] == gid)
+            .map(|i| l.object[i])
             .collect();
+        impls.sort_unstable();
+        impls.dedup();
         for i in 0..rows {
-            let object = self.row_object(i);
-            let hit = match self.row_predicate(i) {
-                "CALLS_RESOLVED" | "REFERENCES" if object == name => {
+            let hit = match l.pred[i] {
+                P_CALLS | P_REFERENCES if l.object[i] == gid => {
                     confirmed += 1;
                     true
                 }
-                "MAY_DISPATCH"
-                    if impls.contains(object.split(" via ").next().unwrap_or(object)) =>
-                {
+                P_MAY if impls.binary_search(&l.may_target[i]).is_ok() => {
                     possible += 1;
                     true
                 }
