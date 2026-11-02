@@ -190,3 +190,41 @@ fn an_uncalled_private_impl_method_is_not_dead() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Fails if a query on a store spanning several tiles mixes mask widths: the
+/// cube answers over every reserved position (256 per tile), the graph over
+/// its symbols only. Found by running callers on mask-risc's 694-symbol store,
+/// which panicked; no fixture had more than one tile and a call.
+#[test]
+fn queries_work_across_tiles() {
+    let mut text = String::from(HEADER);
+    for i in 0..300 {
+        text += &row("DEFINES", &format!("big::s{i}"), &format!("big::s{i}"));
+    }
+    // A chain s0 -> s1 -> ... -> s299 crosses the tile boundary at 256.
+    for i in 0..299 {
+        text += &row(
+            "CALLS_RESOLVED",
+            &format!("big::s{i}"),
+            &format!("big::s{}", i + 1),
+        );
+    }
+    let dir = write("cross_tile_calls", &text);
+    let mut g = Codegraph::open(&dir).expect("opens");
+    let last = g.pos("big::s299").expect("s299");
+    let callers = g.callers(last).expect("callers");
+    assert_eq!(callers.graded.confirmed, g.mask_of(&["big::s298"]));
+    assert_eq!(callers.sites, 1);
+    let callees = g
+        .callees(g.pos("big::s255").expect("s255"))
+        .expect("callees");
+    assert_eq!(callees.graded.confirmed, g.mask_of(&["big::s256"]));
+    let impact = g.impact(last).expect("impact");
+    assert_eq!(
+        pop(&impact.confirmed),
+        299,
+        "every earlier link reaches s299"
+    );
+    assert_eq!(g.references(last).confirmed, 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}

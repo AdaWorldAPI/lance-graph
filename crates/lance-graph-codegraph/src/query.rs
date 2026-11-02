@@ -84,12 +84,18 @@ impl Codegraph {
             return Ok((vec![0; self.words()], 0));
         }
         let (bound_col, join_col) = if into { (1, 0) } else { (0, 1) };
+        let words = self.words();
         let (cube, table) = self.cube_and_table_mut();
         let scan = cube.scan(rel)?;
         let bound = cube.bind(table, scan, bound_col, v)?;
         let node = cube.scan(NODE)?;
         let join = cube.join(bound, join_col, node, 0)?;
-        let mask = cube.support(table, join)?;
+        let mut mask = cube.support(table, join)?;
+        // A multi-tile cube answers over every reserved position (256 per
+        // tile); the graph's masks cover only the interned symbols. Positions
+        // past the last symbol are never set (coordinate == position), so the
+        // tail words carry nothing and are dropped.
+        mask.resize(words, 0);
         let counts = cube.bag_count(table, join)?;
         let sites = counts.iter().fold(0u64, |a, &c| {
             a.saturating_add(u64::try_from(c).unwrap_or(0))
