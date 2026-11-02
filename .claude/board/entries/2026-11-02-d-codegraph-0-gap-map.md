@@ -18,3 +18,21 @@ Added in this commit:
 - rust-analyzer's call hierarchy misses `t3(1)` inside `assert_eq!`; its index records the reference. Any unused-import finding in a file with a macro call is therefore `POSSIBLE`, never proven.
 
 OPEN: the method body anchor (G7), whether R2IL can carry Rust places, drops and panics (G4), merge order of ruff's `claude/r2il-pr2-*` sink branches (G8).
+
+## Python pipeline on the fixture (2026-11-02, same day)
+
+The existing `sag-ra-probe` tools, run unchanged on `fixtures/codegraph/rev1` before any new Rust:
+- Unit tests: `tools/test_tools.py` 15/15, `tools/test_kythe_entries.py` 9/9.
+- **Kythe bridge:** `XREFS=1` → `kythe_entries.py` (457 entries, 0 skipped) → Kythe v0.0.76 `/xrefs`: 22/22 symbols equal rust-analyzer's occurrence sets; 19/19 hand-read pins pass (`fixtures/codegraph/rev1_xrefs.pin.tsv`, positions read with `cat -n`). Disable run: one pin moved by one column fails, and only that pin.
+- **Charon** (AdaWorldAPI fork `c69e231`, `nightly-2026-09-17`, built with `--no-default-features --features rustc` because the default `minirust` feature needs a git submodule): `cg_lib` 27 s, 218 KB LLBC, `has_errors False`.
+- `llbc_calls.py` → `span_join.py` → `project_rows.py` on `cg_lib`:
+  - **join:** 11/11 bodies (10 EXACT, 1 ENCLOSED), 0 unjoined; the two `Shape::area` impls are told apart by position;
+  - **impls:** 5/5 paired, 0 one-sided;
+  - **rows:** 22 DEFINES, 4 HAS_IMPLS (rust-analyzer); 3 CALLS WITNESSED, 2 MAY_DISPATCH POSSIBLE (`trait:Clause` for the bound, `dynamic` for `dyn`), 4 MAY_PANIC (Charon).
+- `cg_app`: `run` → `area_of`, `area_dyn`, `double` and the `Square` impl's `area` as static calls, all cross-crate.
+
+What the two frontends disagree on, and who is right:
+1. **The call inside `assert_eq!`.** Charon witnesses `checked → triple` (through the alias `t3`). rust-analyzer's call hierarchy misses it; its index records only the reference. Charon is right: the call is compiled.
+2. **Compiled-out code.** rust-analyzer records a reference to `double` at `cg_lib/src/lib.rs` 261..267, inside `#[cfg(any())]`, and Kythe serves it as a live reference. Charon has no such item. rustc is the authority: the reference does not exist in the build. Any reader of rust-analyzer references must drop those inside its own `inactive_code` diagnostic ranges (here 210..272).
+
+OPEN from this run: a cross-crate callee is named by Charon as `cg_lib::shapes::Impl::area`, ambiguous by name; the join only covers the local crate, so cross-crate callees still need a span join against the defining crate.

@@ -1,0 +1,20 @@
+# moniker	role	path (relative to rev1/)	line (1-based)	column (0-based byte) -- read off the fixture source by hand (cat -n), not from rust-analyzer
+cg_lib::util/::double().	def	cg_lib/src/util.rs	3	7
+cg_lib::util/::double().	ref	cg_lib/src/shapes.rs	1	17
+cg_lib::util/::double().	ref	cg_lib/src/shapes.rs	14	8
+cg_lib::util/::double().	ref	cg_app/src/lib.rs	7	74
+cg_lib::util/::triple().	def	cg_lib/src/util.rs	7	7
+cg_lib::util/::triple().	ref	cg_lib/src/shapes.rs	2	17
+cg_lib::util/::triple().	ref	cg_lib/src/macro_use.rs	1	17
+cg_lib::util/::triple().	ref	cg_lib/src/macro_use.rs	4	15
+cg_lib::shapes/::Square#	def	cg_lib/src/shapes.rs	8	11
+cg_lib::shapes/::Square#	ref	cg_lib/src/lib.rs	5	16
+cg_lib::shapes/::Square#	ref	cg_app/src/lib.rs	2	12
+cg_lib::shapes/::Square#	ref	cg_app/src/lib.rs	5	12
+cg_lib::shapes/::Shape#::area().	def	cg_lib/src/shapes.rs	5	7
+cg_lib::shapes/::Shape#::area().	ref	cg_lib/src/lib.rs	8	6
+cg_lib::shapes/::Shape#::area().	ref	cg_lib/src/lib.rs	12	6
+cg_lib::shapes/::impl#::Square[]::Shape[]::area().	ref	cg_app/src/lib.rs	7	51
+cg_lib::area_of().	ref	cg_app/src/lib.rs	7	12
+cg_lib::area_dyn().	ref	cg_app/src/lib.rs	7	34
+cg_lib::util/::private_unused().	def	cg_lib/src/util.rs	15	3
