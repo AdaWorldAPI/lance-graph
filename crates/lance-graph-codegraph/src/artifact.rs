@@ -97,7 +97,9 @@ pub fn pred_code(s: &str) -> u8 {
 pub fn digest(bytes: &[u8]) -> u64 {
     let mut h = FastHasher(0xcbf2_9ce4_8422_2325);
     h.write(bytes);
-    h.write_u64(bytes.len() as u64);
+    // Little-endian, never `write_u64`: its default folds native-endian
+    // bytes, and the ruff writer (`ruff_charon::store_bin::digest`) folds LE.
+    h.write(&(bytes.len() as u64).to_le_bytes());
     h.finish()
 }
 

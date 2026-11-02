@@ -43,6 +43,8 @@ pub enum IntakeRefusal {
     Map(MapRefusal),
     /// The cube was refused.
     Cube(CubeRefusal),
+    /// A `<crate>.rows.bin` file was refused.
+    Bin(crate::artifact_bin::BinRefusal),
 }
 
 /// Whether the extractor finished a crate.

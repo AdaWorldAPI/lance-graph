@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 pub mod artifact;
+pub mod artifact_bin;
 pub mod diag;
 pub mod graph;
 #[cfg(test)]
