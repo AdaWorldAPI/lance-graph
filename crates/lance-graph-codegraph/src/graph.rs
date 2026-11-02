@@ -246,7 +246,7 @@ impl Codegraph {
         }
         .map_err(IntakeRefusal::Cube)?;
 
-        let index = idx.into_iter().map(|(k, v)| (k, v)).collect();
+        let index = idx.into_iter().collect();
         Ok(Self {
             lanes,
             names,
