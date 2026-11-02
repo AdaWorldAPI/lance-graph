@@ -4,6 +4,7 @@
 #![forbid(unsafe_code)]
 
 pub mod artifact;
+pub mod diag;
 pub mod graph;
 
 pub use graph::{Codegraph, IntakeRefusal, Pos, RunStatus};
