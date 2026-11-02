@@ -11,11 +11,12 @@
 //! Columns are located by name from the `#schema` line, so a file with
 //! permuted columns reads identically.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::hash::{BuildHasherDefault, Hasher};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use crate::artifact_bin::{self, BinRefusal, CrateFile};
 use crate::graph::IntakeRefusal;
 
 /// The only artifact version this reader accepts.
@@ -97,7 +98,9 @@ pub fn pred_code(s: &str) -> u8 {
 pub fn digest(bytes: &[u8]) -> u64 {
     let mut h = FastHasher(0xcbf2_9ce4_8422_2325);
     h.write(bytes);
-    h.write_u64(bytes.len() as u64);
+    // Little-endian, never `write_u64`: its default folds native-endian
+    // bytes, and the ruff writer (`ruff_charon::store_bin::digest`) folds LE.
+    h.write(&(bytes.len() as u64).to_le_bytes());
     h.finish()
 }
 
@@ -427,6 +430,30 @@ impl Lanes {
 
 const SUFFIX: &str = ".rows.tsv";
 
+/// File-name suffix of the binary artifact, preferred over [`SUFFIX`] when both
+/// exist for a crate.
+pub const BIN_SUFFIX: &str = ".rows.bin";
+
+/// Which file a crate is read from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CrateSource {
+    /// `<krate>.rows.bin`.
+    Bin(PathBuf),
+    /// `<krate>.rows.tsv`.
+    Tsv(PathBuf),
+}
+
+/// The file `<krate>` is read from in `dir`: `<krate>.rows.bin` when it
+/// exists, otherwise `<krate>.rows.tsv` when that exists, otherwise `None`.
+pub fn crate_source(dir: &Path, krate: &str) -> Option<CrateSource> {
+    let bin = dir.join(format!("{krate}{BIN_SUFFIX}"));
+    if bin.is_file() {
+        return Some(CrateSource::Bin(bin));
+    }
+    let tsv = dir.join(format!("{krate}{SUFFIX}"));
+    tsv.is_file().then_some(CrateSource::Tsv(tsv))
+}
+
 /// The text of the single file `<krate>.rows.tsv` of `dir`.
 pub fn read_crate_text(dir: &Path, krate: &str) -> Result<String, IntakeRefusal> {
     fs::read_to_string(dir.join(format!("{krate}{SUFFIX}"))).map_err(IntakeRefusal::Io)
@@ -440,32 +467,136 @@ pub fn read_crate(dir: &Path, krate: &str, symbols: &mut Symbols) -> Result<Lane
     Ok(lanes)
 }
 
-/// Read every `*.rows.tsv` in `dir`, sorted by file name so the row order is
-/// deterministic.
+/// Read every crate of `dir`, sorted by crate stem so the row order is
+/// deterministic. A crate with a `*.rows.bin` is read from it; otherwise from
+/// its `*.rows.tsv`.
 pub fn read_dir(dir: &Path, symbols: &mut Symbols) -> Result<Lanes, IntakeRefusal> {
-    let mut paths = Vec::new();
+    // stem -> whether a binary file exists for it
+    let mut stems: BTreeMap<String, bool> = BTreeMap::new();
     for entry in fs::read_dir(dir).map_err(IntakeRefusal::Io)? {
-        let path = entry.map_err(IntakeRefusal::Io)?.path();
-        let is_rows = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .is_some_and(|n| n.ends_with(SUFFIX));
-        if is_rows {
-            paths.push(path);
+        let name = entry.map_err(IntakeRefusal::Io)?.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if let Some(stem) = name.strip_suffix(BIN_SUFFIX) {
+            stems.insert(stem.to_owned(), true);
+        } else if let Some(stem) = name.strip_suffix(SUFFIX) {
+            stems.entry(stem.to_owned()).or_insert(false);
         }
     }
-    paths.sort();
     let mut lanes = Lanes::default();
-    for p in &paths {
-        let text = fs::read_to_string(p).map_err(IntakeRefusal::Io)?;
-        let stem = p
-            .file_name()
-            .and_then(|n| n.to_str())
-            .and_then(|n| n.strip_suffix(SUFFIX))
-            .unwrap_or("");
-        read_text_as(&text, stem, symbols, &mut lanes)?;
+    for (stem, has_bin) in &stems {
+        if *has_bin {
+            let buf =
+                fs::read(dir.join(format!("{stem}{BIN_SUFFIX}"))).map_err(IntakeRefusal::Io)?;
+            let file = CrateFile::parse(buf).map_err(IntakeRefusal::Bin)?;
+            read_bin_as(&file, stem, symbols, &mut lanes)?;
+        } else {
+            let text = fs::read_to_string(dir.join(format!("{stem}{SUFFIX}")))
+                .map_err(IntakeRefusal::Io)?;
+            read_text_as(&text, stem, symbols, &mut lanes)?;
+        }
     }
     Ok(lanes)
+}
+
+/// A symbol id of a verified file, translated into the interner's id space.
+fn translate(table: &[u32], id: u32, tag: u32, row: usize) -> Result<u32, IntakeRefusal> {
+    usize::try_from(id)
+        .ok()
+        .and_then(|i| table.get(i))
+        .copied()
+        .ok_or(IntakeRefusal::Bin(BinRefusal::IdRange { tag, row }))
+}
+
+/// Append one verified binary file's rows to `lanes`, attributing each to
+/// `krate`, and record the file's header digest under `krate`.
+///
+/// The file's symbol table is interned once, in table order; rows then carry
+/// translated ids, so no text is parsed and each distinct symbol, grade, file
+/// and predicate label is interned once per file. Every lane [`read_text_as`]
+/// fills is filled here in the same row order.
+pub fn read_bin_as(
+    file: &CrateFile,
+    krate: &str,
+    sym: &mut impl Interner,
+    lanes: &mut Lanes,
+) -> Result<(), IntakeRefusal> {
+    let kid = sym.intern(krate);
+    let mut table: Vec<u32> = Vec::with_capacity(file.n_symbols());
+    for i in 0..file.header().n_symbols {
+        table.push(sym.intern(file.symbol(i)));
+    }
+    // predicate codeword -> (P_* code, interned label id for P_OTHER)
+    let mut preds: HashMap<u16, (u8, u32)> = HashMap::new();
+    let mut grades: HashMap<&str, u32> = HashMap::new();
+    let mut files: HashMap<&str, u32> = HashMap::new();
+    let mut dash: Option<u32> = None;
+    for row in 0..file.n_rows() {
+        let (code, label_id) = match preds.get(&file.predicate_id(row)) {
+            Some(&hit) => hit,
+            None => {
+                let label = file.predicate(row);
+                let code = pred_code(label);
+                let id = if code == P_OTHER {
+                    sym.intern(label)
+                } else {
+                    NO_ID
+                };
+                preds.insert(file.predicate_id(row), (code, id));
+                (code, id)
+            }
+        };
+        let subject = translate(&table, file.subject(row), artifact_bin::tag::SUBJ, row)?;
+        let object = translate(&table, file.object(row), artifact_bin::tag::OBJ, row)?;
+        let may = match file.may_target(row) {
+            Some(t) => translate(&table, t, artifact_bin::tag::MAYT, row)?,
+            None => NO_ID,
+        };
+        let grade = file.grade(row);
+        let grade_id = match grades.get(grade) {
+            Some(&id) => id,
+            None => {
+                let id = sym.intern(grade);
+                grades.insert(grade, id);
+                id
+            }
+        };
+        let file_id = match file.file(row) {
+            None => match dash {
+                Some(id) => id,
+                None => {
+                    let id = sym.intern("-");
+                    dash = Some(id);
+                    id
+                }
+            },
+            Some(label) => match files.get(label) {
+                Some(&id) => id,
+                None => {
+                    let id = sym.intern(label);
+                    files.insert(label, id);
+                    id
+                }
+            },
+        };
+        let (start, end) = file.span(row).unwrap_or((NO_SPAN, NO_SPAN));
+        // Every fallible step is done: from here the row is pushed whole.
+        if code == P_OTHER {
+            lanes.other_pred.push((lanes.pred.len() as u32, label_id));
+        }
+        lanes.pred.push(code);
+        lanes.subject.push(subject);
+        lanes.object.push(object);
+        lanes.grade.push(grade_id);
+        lanes.file.push(file_id);
+        lanes.start.push(start);
+        lanes.end.push(end);
+        lanes.krate.push(kid);
+        lanes.may_target.push(may);
+    }
+    lanes.set_digest(kid, file.header().digest);
+    Ok(())
 }
 
 fn number(field: &str) -> Option<u32> {
