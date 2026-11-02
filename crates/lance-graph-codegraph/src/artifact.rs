@@ -44,6 +44,49 @@ pub struct Lanes {
     pub start: Vec<u32>,
     /// Span end, [`NO_SPAN`] when `-`.
     pub end: Vec<u32>,
+    /// The crate file (`<krate>.rows.tsv` stem) each row was read from.
+    pub krate: Vec<String>,
+}
+
+impl Lanes {
+    /// A copy holding only the rows not read from `krate`, in order.
+    pub fn without_crate(&self, krate: &str) -> Lanes {
+        let mut out = Lanes::default();
+        for i in (0..self.predicate.len()).filter(|&i| self.krate[i] != krate) {
+            out.predicate.push(self.predicate[i].clone());
+            out.subject.push(self.subject[i].clone());
+            out.object.push(self.object[i].clone());
+            out.grade.push(self.grade[i].clone());
+            out.file.push(self.file[i].clone());
+            out.start.push(self.start[i]);
+            out.end.push(self.end[i]);
+            out.krate.push(self.krate[i].clone());
+        }
+        out
+    }
+
+    /// Append every row of `other` after this lane set's rows.
+    pub fn append(&mut self, mut other: Lanes) {
+        self.predicate.append(&mut other.predicate);
+        self.subject.append(&mut other.subject);
+        self.object.append(&mut other.object);
+        self.grade.append(&mut other.grade);
+        self.file.append(&mut other.file);
+        self.start.append(&mut other.start);
+        self.end.append(&mut other.end);
+        self.krate.append(&mut other.krate);
+    }
+}
+
+const SUFFIX: &str = ".rows.tsv";
+
+/// Read the single file `<krate>.rows.tsv` of `dir`; its rows carry `krate`.
+pub fn read_crate(dir: &Path, krate: &str) -> Result<Lanes, IntakeRefusal> {
+    let text =
+        fs::read_to_string(dir.join(format!("{krate}{SUFFIX}"))).map_err(IntakeRefusal::Io)?;
+    let mut lanes = Lanes::default();
+    read_text_as(&text, krate, &mut lanes)?;
+    Ok(lanes)
 }
 
 /// Read every `*.rows.tsv` in `dir`, sorted by file name so the row order is
@@ -64,7 +107,12 @@ pub fn read_dir(dir: &Path) -> Result<Lanes, IntakeRefusal> {
     let mut lanes = Lanes::default();
     for p in &paths {
         let text = fs::read_to_string(p).map_err(IntakeRefusal::Io)?;
-        read_text(&text, &mut lanes)?;
+        let stem = p
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|n| n.strip_suffix(SUFFIX))
+            .unwrap_or("");
+        read_text_as(&text, stem, &mut lanes)?;
     }
     Ok(lanes)
 }
@@ -77,8 +125,13 @@ fn number(field: &str) -> Option<u32> {
     }
 }
 
-/// Append one file's rows to `lanes`.
+/// Append one file's rows to `lanes`, with an empty crate name.
 pub fn read_text(text: &str, lanes: &mut Lanes) -> Result<(), IntakeRefusal> {
+    read_text_as(text, "", lanes)
+}
+
+/// Append one file's rows to `lanes`, attributing each to `krate`.
+pub fn read_text_as(text: &str, krate: &str, lanes: &mut Lanes) -> Result<(), IntakeRefusal> {
     let mut lines = text.lines();
     let found = lines
         .next()
@@ -123,6 +176,7 @@ pub fn read_text(text: &str, lanes: &mut Lanes) -> Result<(), IntakeRefusal> {
         lanes.file.push(f[at[4]].to_string());
         lanes.start.push(start);
         lanes.end.push(end);
+        lanes.krate.push(krate.to_string());
     }
     Ok(())
 }

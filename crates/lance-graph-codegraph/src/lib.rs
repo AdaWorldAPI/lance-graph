@@ -8,4 +8,4 @@ pub mod diag;
 pub mod graph;
 pub mod query;
 
-pub use graph::{Codegraph, IntakeRefusal, Pos, RunStatus};
+pub use graph::{Codegraph, IntakeRefusal, Pos, RefreshRefusal, RefreshStats, RunStatus};

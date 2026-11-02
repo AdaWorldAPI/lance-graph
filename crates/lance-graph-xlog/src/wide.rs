@@ -23,7 +23,7 @@
 //!   retired source is recomputed, and every other row is kept bit for bit.
 //!   Insertions are monotone, so they are merged exactly by seeding.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ndarray::simd::{mask_andnot, mask_any, mask_or_assign};
 
@@ -471,32 +471,49 @@ fn lanes(keys: impl Iterator<Item = u64>) -> (Vec<u32>, Vec<u32>) {
         .unzip()
 }
 
-/// The edge set after applying the log in append (= version) order; the
-/// newest op per `(src, dst)` wins.
-fn fold_keys(base: &BTreeSet<u64>, log: &DeltaLog) -> BTreeSet<u64> {
-    let mut eff = base.clone();
+/// The edge multiset after applying the log in append (= version) order:
+/// occurrences per `(src, dst)` in the base (duplicates kept), ADD = +1,
+/// RETIRE = -1 floored at 0 (retiring an absent edge is a no-op). Entries
+/// with count 0 are removed.
+fn fold_counts(base_src: &[u32], base_dst: &[u32], log: &DeltaLog) -> BTreeMap<u64, u32> {
+    let mut counts: BTreeMap<u64, u32> = BTreeMap::new();
+    for (&s, &d) in base_src.iter().zip(base_dst) {
+        *counts.entry(key(s, d)).or_insert(0) += 1;
+    }
     for ((&s, &d), &op) in log.src.iter().zip(&log.dst).zip(&log.op) {
+        let k = key(s, d);
         if op == 1 {
-            eff.insert(key(s, d));
-        } else {
-            eff.remove(&key(s, d));
+            *counts.entry(k).or_insert(0) += 1;
+        } else if let Some(c) = counts.get_mut(&k) {
+            *c -= 1;
+            if *c == 0 {
+                counts.remove(&k);
+            }
         }
     }
-    eff
+    counts
 }
 
-/// Folds `base` and the log into the effective edge set, as sorted `src` /
-/// `dst` lanes. This is the explicit re-fold: the caller decides when the
-/// resident base is replaced by its result and the log emptied; nothing
-/// triggers it automatically. Lanes of unequal length are zipped to the
-/// shorter.
+/// The set of edges present (count > 0) in the folded multiset.
+fn fold_keys(base_src: &[u32], base_dst: &[u32], log: &DeltaLog) -> BTreeSet<u64> {
+    fold_counts(base_src, base_dst, log).into_keys().collect()
+}
+
+/// Folds `base` and the log into the effective edge multiset, as `src` /
+/// `dst` lanes: ascending `(src, dst)`, each edge repeated once per
+/// occurrence. A call graph is a bag, so duplicates are preserved (two call
+/// sites stay two). The log is applied in append order: ADD is +1, RETIRE is
+/// -1 floored at 0 (retiring an absent edge is a no-op). This is the explicit
+/// re-fold: the caller decides when the resident base is replaced by its
+/// result and the log emptied; nothing triggers it automatically. Lanes of
+/// unequal length are zipped to the shorter.
 pub fn refold(base_src: &[u32], base_dst: &[u32], log: &DeltaLog) -> (Vec<u32>, Vec<u32>) {
-    let base: BTreeSet<u64> = base_src
-        .iter()
-        .zip(base_dst)
-        .map(|(&s, &d)| key(s, d))
-        .collect();
-    lanes(fold_keys(&base, log).into_iter())
+    let counts = fold_counts(base_src, base_dst, log);
+    lanes(
+        counts
+            .into_iter()
+            .flat_map(|(k, c)| std::iter::repeat_n(k, c as usize)),
+    )
 }
 
 /// Copies `rows` into a builder of `n` rows (`n >= rows.n()`), padding with
@@ -563,7 +580,10 @@ pub fn refresh(
         .zip(base_dst)
         .map(|(&s, &d)| key(s, d))
         .collect();
-    let eff = fold_keys(&base, log);
+    // Set-level view of the multiset fold: an edge is present iff its count
+    // is > 0. A count dropping 2 -> 1 retires nothing; only a drop to 0
+    // retires, only a rise from 0 adds.
+    let eff = fold_keys(base_src, base_dst, log);
     let retired: Vec<u64> = base.difference(&eff).copied().collect();
     let added: Vec<u64> = eff.difference(&base).copied().collect();
 
@@ -669,6 +689,26 @@ pub fn refresh(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The edge log is a multiset: duplicates in the base survive, retire
+    /// removes one occurrence, over-retire floors at zero, add-then-retire
+    /// cancels.
+    #[test]
+    fn refold_is_a_multiset() {
+        let (bs, bd) = (vec![1, 1], vec![2, 2]);
+        let mut log = DeltaLog::new();
+        assert_eq!(refold(&bs, &bd, &log), (vec![1, 1], vec![2, 2]));
+        log.retire(1, 2);
+        assert_eq!(refold(&bs, &bd, &log), (vec![1], vec![2]));
+        log.retire(1, 2);
+        assert_eq!(refold(&bs, &bd, &log), (Vec::new(), Vec::new()));
+        log.retire(1, 2); // absent: no-op, floored at 0
+        assert_eq!(refold(&bs, &bd, &log), (Vec::new(), Vec::new()));
+        let mut log = DeltaLog::new();
+        log.add(5, 6);
+        log.retire(5, 6);
+        assert_eq!(refold(&bs, &bd, &log), (vec![1, 1], vec![2, 2]));
+    }
 
     /// Naive reachability by DFS from every node, written independently of
     /// the kernel.
