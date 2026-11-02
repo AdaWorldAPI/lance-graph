@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-542 entries, 2026-08-06 .. 2026-11-01.
+545 entries, 2026-08-06 .. 2026-11-02.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-02 | `D-CODEGRAPH-0` |  | [2026-11-02-d-codegraph-0-gap-map.md](2026-11-02-d-codegraph-0-gap-map.md) |
 | 2026-11-01 | `D-XLOG-NATIVE-7` |  | [2026-11-01-xlog-resident-hypercube-context.md](2026-11-01-xlog-resident-hypercube-context.md) |
 | 2026-11-01 | `D-XLOG-NATIVE-8` |  | [2026-11-01-xlog-behaviour-lens-f100.md](2026-11-01-xlog-behaviour-lens-f100.md) |
 | 2026-11-01 | `D-DT64-7-5` |  | [2026-11-01-maptable-versioned-local-map.md](2026-11-01-maptable-versioned-local-map.md) |
@@ -85,12 +86,14 @@ exactly one of them, never both.
 | 2026-10-28 | `D-DRCA-1` |  | [2026-10-28-d-drca-1-hhtl16-dr-projection.md](2026-10-28-d-drca-1-hhtl16-dr-projection.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
+| 2026-10-26 | `ledger-revision-1727-1784` |  | [2026-10-26-ledger-revision-1727-1784.md](2026-10-26-ledger-revision-1727-1784.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |
 | 2026-10-26 | `D-DR256-WHERE` |  | [2026-10-26-dr256-where-capstone.md](2026-10-26-dr256-where-capstone.md) |
 | 2026-10-26 | `D-DR256-OD` |  | [2026-10-26-dr256-on-demand-l1.md](2026-10-26-dr256-on-demand-l1.md) |
 | 2026-10-26 | `D-DR256` |  | [2026-10-26-dr256-global-union-lab.md](2026-10-26-dr256-global-union-lab.md) |
 | 2026-10-26 | `D-DQM` | FAIL | [2026-10-26-dqm-p1-chunk-touched.md](2026-10-26-dqm-p1-chunk-touched.md) |
+| 2026-10-26 | `D-DQM-M1` |  | [2026-10-26-dqm-m1-timed-arm.md](2026-10-26-dqm-m1-timed-arm.md) |
 | 2026-10-26 | `D-TFLP-V2` |  | [2026-10-26-d-tflp-v2-synergy-revision.md](2026-10-26-d-tflp-v2-synergy-revision.md) |
 | 2026-10-26 | `D-TFLP-EVIDENCE-1` |  | [2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md](2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md) |
 | 2026-10-26 | `D-TFLP` |  | [2026-10-26-d-tflp-65-landing.md](2026-10-26-d-tflp-65-landing.md) |

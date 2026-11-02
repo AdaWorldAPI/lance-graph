@@ -142,6 +142,14 @@ jobs:
       # un-checked LOWERING, not merely an un-run test.
       - name: Run quack tests
         run: cargo test --manifest-path crates/lance-graph-quack/Cargo.toml
+      # lance-graph-dt64 and lance-graph-xlog are workspace members whose tests
+      # no workflow ran: same reason as the mask-risc and quack lines above.
+      # dt64: bind_store + dr integration tests; xlog: conformance, cube, lens
+      # and staunen5. Added after the crates joined, not the day they did.
+      - name: Run dt64 tests
+        run: cargo test --manifest-path crates/lance-graph-dt64/Cargo.toml
+      - name: Run xlog tests
+        run: cargo test --manifest-path crates/lance-graph-xlog/Cargo.toml
       # weather-poc is workspace-EXCLUDED. A new workflow introduced by the
       # same pull request cannot gate that pull request because `pull_request`
       # workflow selection comes from the base branch. Run both surfaces here
