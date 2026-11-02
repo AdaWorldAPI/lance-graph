@@ -1,0 +1,16 @@
+[package]
+name = "lance-graph-codegraph"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Codegraph queries and structural diagnostics (D-CODEGRAPH-0 slice C) over the ruff_charon store artifacts, folded through the xlog cube; no dependency on ruff_charon."
+
+# Own workspace root, excluded from the lance-graph workspace (as sag-ra-probe).
+[workspace]
+
+[dependencies]
+lance-graph-xlog = { path = "../lance-graph-xlog" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }

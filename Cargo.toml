@@ -49,6 +49,7 @@ members = [
     "crates/lance-graph-hydrate",
 ]
 exclude = [
+    "crates/lance-graph-codegraph",
     "crates/lance-graph-sap",
     # D-HOLO-H14c Lance 13 masked-I/O probe: own narrow dependency set.
     "crates/holo-lance-masked-io-probe",
