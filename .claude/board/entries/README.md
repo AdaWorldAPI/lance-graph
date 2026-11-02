@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-553 entries, 2026-08-06 .. 2026-11-02.
+554 entries, 2026-08-06 .. 2026-11-02.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-11-02 | `D-DT64-AUTH` |  | [2026-11-02-d-dt64-auth-census-shipped.md](2026-11-02-d-dt64-auth-census-shipped.md) |
 | 2026-11-02 | `D-CODEGRAPH-0` |  | [2026-11-02-d-codegraph-0-gap-map.md](2026-11-02-d-codegraph-0-gap-map.md) |
 | 2026-11-02 | `coresearch-xlog-souffle-crepe-dr3-archaeology` |  | [2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md](2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md) |
+| 2026-11-02 | `coresearch-semantic-grammar-recovery` |  | [2026-11-02-coresearch-semantic-grammar-recovery.md](2026-11-02-coresearch-semantic-grammar-recovery.md) |
 | 2026-11-02 | `codegraph-review-operator-decisions` |  | [2026-11-02-codegraph-review-operator-decisions.md](2026-11-02-codegraph-review-operator-decisions.md) |
 | 2026-11-02 | `codegraph-dr3-dt64-ruff-architecture-review` |  | [2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md](2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md) |
 | 2026-11-02 | `D-CODEGRAPH-0-BIN` |  | [2026-11-02-codegraph-bin-reader-timing-gate.md](2026-11-02-codegraph-bin-reader-timing-gate.md) |
