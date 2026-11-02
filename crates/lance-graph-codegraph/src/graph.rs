@@ -11,7 +11,7 @@ use lance_graph_xlog::cube::{Cube, CubeRefusal, EdgeOp, RelId, StagedEdges};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
 use crate::artifact::{
-    self, Interner, Lanes, SymbolStage, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES,
+    self, Interner, Lanes, StagedNames, SymbolStage, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES,
     P_IMPLEMENTS, P_MAY, P_PUBLIC, P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
 };
 
@@ -245,6 +245,10 @@ pub struct Codegraph {
     masks: Masks,
     rconf: OnceCell<(WideRows, WideStats)>,
     rposs: OnceCell<(WideRows, WideStats)>,
+    /// Bumped by every committed refresh and every refold: the fence a
+    /// [`PreparedRefresh`] is checked against. Local and in memory only; not
+    /// an identity, a version or a persisted counter.
+    generation: u64,
     /// Test-only: make the next refresh's validation refuse at a chosen
     /// point, so the falsifiers can show a refusal changes nothing.
     #[cfg(test)]
@@ -493,6 +497,30 @@ pub enum RefreshRefusal {
         /// Why growth in place is impossible.
         reason: &'static str,
     },
+    /// A prepared refresh was offered to a graph that changed since it was
+    /// prepared. Nothing was changed; prepare again against the graph as it
+    /// is now.
+    Stale {
+        /// The graph generation the change was prepared against.
+        prepared_at: u64,
+        /// The graph's generation now.
+        current: u64,
+    },
+}
+
+/// A refresh prepared and validated against one graph generation, not yet
+/// applied ([`Codegraph::refresh_crate`] is prepare + commit). Owns
+/// everything it needs, so the graph is not borrowed while it is held.
+pub(crate) struct PreparedRefresh {
+    generation: u64,
+    names: StagedNames,
+    positions: StagedPositions,
+    grown: Option<(TileId, LocalMap)>,
+    staged: StagedEdges,
+    closures: [Option<Option<(WideRows, WideStats)>>; 2],
+    kid: u32,
+    fresh: Lanes,
+    stats: RefreshStats,
 }
 
 impl Codegraph {
@@ -557,6 +585,7 @@ impl Codegraph {
             masks: m,
             rconf: OnceCell::new(),
             rposs: OnceCell::new(),
+            generation: 0,
             #[cfg(test)]
             inject: None,
         })
@@ -621,6 +650,21 @@ impl Codegraph {
         dir: &Path,
         krate: &str,
     ) -> Result<RefreshStats, RefreshRefusal> {
+        match self.prepare_refresh(dir, krate)? {
+            None => Ok(RefreshStats::default()),
+            Some(prepared) => self.commit_refresh(prepared),
+        }
+    }
+
+    /// Prepare and validate a refresh of `krate` without changing the graph:
+    /// `None` when the file is unchanged (digest skip), otherwise the
+    /// complete, checked change as an owned [`PreparedRefresh`]. Dropping it
+    /// discards the change; nothing was written.
+    pub(crate) fn prepare_refresh(
+        &self,
+        dir: &Path,
+        krate: &str,
+    ) -> Result<Option<PreparedRefresh>, RefreshRefusal> {
         let text = artifact::read_crate_text(dir, krate).map_err(RefreshRefusal::Intake)?;
         // An unchanged file is no delta. The digest recorded when the crate
         // was last read (at open or at a successful refresh) decides, before
@@ -629,7 +673,7 @@ impl Codegraph {
         let file_digest = artifact::digest(text.as_bytes());
         if let Some(k) = self.symbols.get(krate) {
             if self.lanes.digest_of(k) == Some(file_digest) {
-                return Ok(RefreshStats::default());
+                return Ok(None);
             }
         }
 
@@ -741,14 +785,52 @@ impl Codegraph {
                 }
             }
         }
-        let names = syms.into_names();
-        let positions = pos.finish();
+        Ok(Some(PreparedRefresh {
+            generation: self.generation,
+            names: syms.into_names(),
+            positions: pos.finish(),
+            grown: grown.map(|m| (last, m)),
+            staged,
+            closures,
+            kid,
+            fresh,
+            stats,
+        }))
+    }
+
+    /// Apply a [`PreparedRefresh`]. The one check comes first and changes
+    /// nothing: the graph must still be at the generation the change was
+    /// prepared against ([`RefreshRefusal::Stale`]); a change prepared
+    /// against an older graph would hand out positions the graph has since
+    /// given to other symbols. After the check there is no error path.
+    pub(crate) fn commit_refresh(
+        &mut self,
+        prepared: PreparedRefresh,
+    ) -> Result<RefreshStats, RefreshRefusal> {
+        if prepared.generation != self.generation {
+            return Err(RefreshRefusal::Stale {
+                prepared_at: prepared.generation,
+                current: self.generation,
+            });
+        }
+        let PreparedRefresh {
+            names,
+            positions,
+            grown,
+            staged,
+            mut closures,
+            kid,
+            fresh,
+            mut stats,
+            ..
+        } = prepared;
 
         // ---- commit: no error path below ----
+        self.generation += 1;
         self.symbols.absorb(names);
         self.pos.absorb(positions);
         let frame = match grown {
-            Some(map) => {
+            Some((last, map)) => {
                 let rev = self.table.revisions();
                 self.table
                     .advance(rev.source + 1, rev.relation_map, vec![(last, Some(map))]);
@@ -807,6 +889,9 @@ impl Codegraph {
     /// nothing calls this on a threshold). Cached closures stay valid: the
     /// base now equals the effective edges they were computed from.
     pub fn refold(&mut self) -> Result<(), CubeRefusal> {
+        // A prepared refresh staged its closures against the logs; folding
+        // them into the base makes it stale.
+        self.generation += 1;
         for rel in 0..6 {
             self.cube.refold(rel)?;
         }
@@ -989,7 +1074,7 @@ mod atomic {
     /// positions (incl. `last_owner`), lanes and digests, crate statuses,
     /// table version, revisions and per-tile history, the cube's frame and
     /// every delta log, masks, and the cached closures.
-    fn snapshot(g: &Codegraph) -> String {
+    pub(super) fn snapshot(g: &Codegraph) -> String {
         let names: Vec<&str> = (0..g.symbols.len() as u32)
             .map(|i| g.symbols.name(i))
             .collect();
@@ -1000,7 +1085,8 @@ mod atomic {
             .collect();
         let logs: Vec<_> = (0..6).map(|r| g.cube.delta_log(r).cloned()).collect();
         format!(
-            "{names:?}\n{:?}\n{:?}\n{crates:?}\n{:?} {:?} {tiles:?}\n{:?}\n{logs:?}\n{:?}\n{:?}\n{:?}",
+            "gen {}\n{names:?}\n{:?}\n{:?}\n{crates:?}\n{:?} {:?} {tiles:?}\n{:?}\n{logs:?}\n{:?}\n{:?}\n{:?}",
+            g.generation,
             g.pos,
             g.lanes,
             g.table.current_version(),
@@ -1165,5 +1251,231 @@ mod atomic {
         let (got, want) = (g.callers(pb).expect("q"), clean.callers(cb).expect("q"));
         assert_eq!(want.sites, 4, "fixture: four call sites of m::b");
         assert_eq!(got.sites, want.sites, "bag multiplicity");
+    }
+}
+
+/// P4 lab falsifiers F-LAND and F-DISCARD (operator decision 2026-11-02):
+/// two branches over one W0 base, each a revision of one source; landing
+/// recomputes against the current W0; discarding leaves W0 untouched. Lab
+/// only: no Thought-Git wiring, no persistence, no routing.
+#[cfg(test)]
+mod lifecycle {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    const HEAD: &str = "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n";
+
+    fn dir(tag: &str) -> PathBuf {
+        static NEXT: AtomicU32 = AtomicU32::new(0);
+        let n = NEXT.fetch_add(1, Ordering::Relaxed);
+        let d = std::env::temp_dir().join(format!("cg_lifecycle_{}_{tag}_{n}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).expect("temp dir");
+        d
+    }
+
+    /// Rows of one source: `defs` defined, `calls` as (caller, callee) sites.
+    fn rows(file: &str, defs: &[&str], calls: &[(&str, &str)]) -> String {
+        let mut s = String::from(HEAD);
+        for (i, f) in defs.iter().enumerate() {
+            s.push_str(&format!(
+                "DEFINES\t{f}\t{f}\tCOMPILER\t{file}\t{i}\t{}\n",
+                i + 1
+            ));
+        }
+        for (i, (a, b)) in calls.iter().enumerate() {
+            let at = 100 + i;
+            s.push_str(&format!(
+                "CALLS_RESOLVED\t{a}\t{b}\tCOMPILER\t{file}\t{at}\t{}\n",
+                at + 1
+            ));
+        }
+        s
+    }
+
+    // W0: m::a calls m::b at two sites; n::c calls m::b once.
+    fn m_v1() -> String {
+        rows(
+            "m.rs",
+            &["m::a", "m::b"],
+            &[("m::a", "m::b"), ("m::a", "m::b")],
+        )
+    }
+    fn n_v1() -> String {
+        rows("n.rs", &["n::c"], &[("n::c", "m::b")])
+    }
+    // Branch A revises source m: a new symbol m::x calling m::b.
+    fn m_v2() -> String {
+        rows(
+            "m.rs",
+            &["m::a", "m::b", "m::x"],
+            &[("m::a", "m::b"), ("m::a", "m::b"), ("m::x", "m::b")],
+        )
+    }
+    // Branch B revises source n: a new symbol n::y; n::c now calls it too.
+    fn n_v2() -> String {
+        rows(
+            "n.rs",
+            &["n::c", "n::y"],
+            &[("n::c", "m::b"), ("n::c", "n::y"), ("n::y", "m::b")],
+        )
+    }
+
+    fn store(tag: &str, m: &str, n: &str) -> PathBuf {
+        let d = dir(tag);
+        fs::write(d.join("m.rows.tsv"), m).expect("write");
+        fs::write(d.join("n.rows.tsv"), n).expect("write");
+        d
+    }
+
+    fn names(g: &Codegraph, mask: &[u64]) -> Vec<String> {
+        let mut v: Vec<String> = (0..mask.len() * 64)
+            .filter(|&p| mask[p / 64] >> (p % 64) & 1 == 1)
+            .filter_map(|p| g.symbol(p as Pos).map(str::to_string))
+            .collect();
+        v.sort();
+        v
+    }
+
+    /// Every symbol's callers (names + call-site count), callees and
+    /// impact, by name, so two graphs with different positions compare.
+    fn answers(g: &mut Codegraph) -> BTreeMap<String, String> {
+        let all: Vec<String> = (0..g.words() * 64)
+            .filter_map(|p| g.symbol(p as Pos).map(str::to_string))
+            .collect();
+        let mut out = BTreeMap::new();
+        for name in all {
+            let p = g.pos(&name).expect("pos");
+            let c = g.callers(p).expect("callers");
+            let e = g.callees(p).expect("callees");
+            let i = g.impact(p).expect("impact");
+            out.insert(
+                name,
+                format!(
+                    "callers {:?}/{:?}/{:?} sites {} callees {:?}/{:?}/{:?} impact {:?}/{:?}/{:?}",
+                    names(g, &c.graded.confirmed),
+                    names(g, &c.graded.possible),
+                    names(g, &c.graded.unknown),
+                    c.sites,
+                    names(g, &e.graded.confirmed),
+                    names(g, &e.graded.possible),
+                    names(g, &e.graded.unknown),
+                    names(g, &i.confirmed),
+                    names(g, &i.possible),
+                    names(g, &i.unknown),
+                ),
+            );
+        }
+        out
+    }
+
+    /// F-LAND. Branch A (source m) and branch B (source n) are prepared
+    /// against the same W0; both mint a new symbol, so both claim the next
+    /// free position. After A lands, B's old preparation is refused (it would
+    /// hand A's position to another symbol) and B is recomputed against the
+    /// current W0. The result equals a clean open of both revised sources,
+    /// call-site counts included. Red if a stale preparation is applied
+    /// (disable: drop the generation check in `commit_refresh`).
+    #[test]
+    fn f_land_recomputes_a_second_branch_against_the_current_w0() {
+        let w0 = store("w0", &m_v1(), &n_v1());
+        let branch_a = store("a", &m_v2(), &n_v1());
+        let branch_b = store("b", &m_v1(), &n_v2());
+        let mut g = Codegraph::open(&w0).expect("open W0");
+        let base_positions = g.pos.len();
+
+        let a = g
+            .prepare_refresh(&branch_a, "m")
+            .expect("A")
+            .expect("A changes");
+        let b_old = g
+            .prepare_refresh(&branch_b, "n")
+            .expect("B")
+            .expect("B changes");
+        // The collision the fence exists for: both preparations start their
+        // new symbols at the same free position.
+        assert_eq!(a.positions.base_len, base_positions);
+        assert_eq!(b_old.positions.base_len, base_positions);
+        assert!(!a.positions.ids.is_empty() && !b_old.positions.ids.is_empty());
+
+        g.commit_refresh(a).expect("land A");
+        let x = g.pos("m::x").expect("m::x landed");
+        assert_eq!(
+            x as usize, base_positions,
+            "A's new symbol took the free position"
+        );
+
+        let before = super::atomic::snapshot(&g);
+        match g.commit_refresh(b_old) {
+            Err(RefreshRefusal::Stale { .. }) => {}
+            other => panic!("a stale preparation must be refused, got {other:?}"),
+        }
+        assert_eq!(
+            super::atomic::snapshot(&g),
+            before,
+            "the refusal changed nothing"
+        );
+
+        let b = g
+            .prepare_refresh(&branch_b, "n")
+            .expect("B again")
+            .expect("B changes");
+        g.commit_refresh(b).expect("land B");
+        let y = g.pos("n::y").expect("n::y landed");
+        assert_ne!(x, y, "distinct symbols, distinct positions");
+
+        let both = store("oracle", &m_v2(), &n_v2());
+        let mut clean = Codegraph::open(&both).expect("clean open");
+        assert_eq!(answers(&mut g), answers(&mut clean));
+        // Anti-vacuity: the oracle sees the real multiplicities.
+        let pb = clean.pos("m::b").expect("m::b");
+        assert_eq!(
+            clean.callers(pb).expect("q").sites,
+            5,
+            "2 + 1 + 1 + 1 call sites"
+        );
+    }
+
+    /// F-DISCARD. A prepared branch that is dropped leaves W0 exactly as it
+    /// was: interner, positions, `last_owner`, lanes, digests, the map
+    /// table's version and history, the cube's frame and logs, masks,
+    /// cached closures and the graph generation. The codegraph holds no
+    /// `BindStore`, so DT64 routing is untouched by construction.
+    #[test]
+    fn f_discard_leaves_w0_unchanged() {
+        let w0 = store("w0", &m_v1(), &n_v1());
+        let branch_a = store("a", &m_v2(), &n_v1());
+        let g = Codegraph::open(&w0).expect("open W0");
+        g.closure(RCONF).expect("rconf");
+        g.closure(RPOSS).expect("rposs");
+        let before = super::atomic::snapshot(&g);
+        let version = g.table.current_version();
+
+        let a = g
+            .prepare_refresh(&branch_a, "m")
+            .expect("A")
+            .expect("A changes");
+        // Anti-vacuity: the discarded change was real (a new symbol, edges).
+        assert!(!a.positions.ids.is_empty() && !a.staged.is_empty());
+        drop(a);
+
+        assert_eq!(g.table.current_version(), version, "no version issued");
+        assert_eq!(super::atomic::snapshot(&g), before);
+
+        // Twin: committing the same change does move W0, so the snapshot
+        // comparison above can fail.
+        let mut twin = Codegraph::open(&w0).expect("open twin");
+        let a = twin
+            .prepare_refresh(&branch_a, "m")
+            .expect("A")
+            .expect("A changes");
+        twin.commit_refresh(a).expect("commit");
+        assert_ne!(
+            super::atomic::snapshot(&twin),
+            super::atomic::snapshot(&Codegraph::open(&w0).expect("w0"))
+        );
     }
 }
