@@ -11,9 +11,10 @@ use lance_graph_xlog::cube::{Cube, CubeRefusal, EdgeOp, RelId, StagedEdges};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
 use crate::artifact::{
-    self, Interner, Lanes, StagedNames, SymbolStage, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES,
-    P_IMPLEMENTS, P_MAY, P_PUBLIC, P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
+    self, CrateSource, Interner, Lanes, StagedNames, SymbolStage, Symbols, NO_SPAN, P_CALLS,
+    P_CRATE, P_DEFINES, P_IMPLEMENTS, P_MAY, P_PUBLIC, P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
 };
+use crate::artifact_bin::{CrateFile, Header};
 
 /// A symbol's position: its interning index, which is also its cube coordinate.
 pub type Pos = u32;
@@ -526,7 +527,8 @@ pub(crate) struct PreparedRefresh {
 }
 
 impl Codegraph {
-    /// Read every `*.rows.tsv` in `dir` and build the graph.
+    /// Read every crate of `dir` (`*.rows.bin`, or `*.rows.tsv` when no
+    /// binary file exists for that crate) and build the graph.
     pub fn open(dir: &Path) -> Result<Self, IntakeRefusal> {
         let mut symbols = Symbols::default();
         let lanes = artifact::read_dir(dir, &mut symbols)?;
@@ -593,7 +595,8 @@ impl Codegraph {
         })
     }
 
-    /// Re-read `<krate>.rows.tsv` from `dir` and bring the resident graph up
+    /// Re-read `<krate>.rows.bin` (or `<krate>.rows.tsv` when no binary file
+    /// exists) from `dir` and bring the resident graph up
     /// to date without rebuilding it ("sparse write, merge on read").
     ///
     /// * **Digest skip.** The FNV-1a digest of every crate file is recorded
@@ -667,23 +670,57 @@ impl Codegraph {
         dir: &Path,
         krate: &str,
     ) -> Result<Option<PreparedRefresh>, RefreshRefusal> {
-        let text = artifact::read_crate_text(dir, krate).map_err(RefreshRefusal::Intake)?;
         // An unchanged file is no delta. The digest recorded when the crate
         // was last read (at open or at a successful refresh) decides, before
-        // any parsing, so the common "nothing happened" refresh costs one
-        // read and one pass over the bytes.
-        let file_digest = artifact::digest(text.as_bytes());
-        if let Some(k) = self.symbols.get(krate) {
-            if self.lanes.digest_of(k) == Some(file_digest) {
-                return Ok(None);
-            }
-        }
-
-        // ---- prepare: everything below borrows the graph immutably ----
+        // any parsing. A binary file carries that digest in its 64-byte
+        // header, so the common "nothing happened" refresh reads 64 bytes; a
+        // text file costs one read and one pass over the bytes. A crate first
+        // read from text and later refreshed from binary has a different
+        // digest and takes the full path.
         let mut syms = SymbolStage::new(&self.symbols);
         let mut fresh = Lanes::default();
-        artifact::read_text_as(&text, krate, &mut syms, &mut fresh)
-            .map_err(RefreshRefusal::Intake)?;
+        match artifact::crate_source(dir, krate) {
+            Some(CrateSource::Bin(path)) => {
+                let mut f = std::fs::File::open(&path)
+                    .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?;
+                let header = Header::read(&mut f)
+                    .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?
+                    .map_err(|r| RefreshRefusal::Intake(IntakeRefusal::Bin(r)))?;
+                if let Some(k) = self.symbols.get(krate) {
+                    if self.lanes.digest_of(k) == Some(header.digest) {
+                        return Ok(None);
+                    }
+                }
+                drop(f);
+                let buf = std::fs::read(&path)
+                    .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?;
+                let file = CrateFile::parse(buf)
+                    .map_err(|r| RefreshRefusal::Intake(IntakeRefusal::Bin(r)))?;
+                artifact::read_bin_as(&file, krate, &mut syms, &mut fresh)
+                    .map_err(RefreshRefusal::Intake)?;
+            }
+            Some(CrateSource::Tsv(path)) => {
+                let text = std::fs::read_to_string(&path)
+                    .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?;
+                let file_digest = artifact::digest(text.as_bytes());
+                if let Some(k) = self.symbols.get(krate) {
+                    if self.lanes.digest_of(k) == Some(file_digest) {
+                        return Ok(None);
+                    }
+                }
+                artifact::read_text_as(&text, krate, &mut syms, &mut fresh)
+                    .map_err(RefreshRefusal::Intake)?;
+            }
+            None => {
+                return Err(RefreshRefusal::Intake(IntakeRefusal::Io(
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("no {krate}.rows.bin or {krate}.rows.tsv in the directory"),
+                    ),
+                )));
+            }
+        }
+        // ---- prepare: everything below borrows the graph immutably ----
         let kid = syms.intern(krate);
 
         // Edges of the crate's old rows, before any new position exists. Every
