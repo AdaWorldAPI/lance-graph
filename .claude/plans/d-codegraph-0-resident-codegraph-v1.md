@@ -53,6 +53,7 @@ Route: **Charon → ruff → lance-graph + crai-rs.**
 | G6 | Closure in the xlog cube refuses more than 64 positions per tile; frontier masks may not feed another program (`graph_hop` quarantined, ISS-GATHER-HOP-1616) | `cube.rs` `closure`, `graph_hop.rs` header | C |
 | G7 | Method body anchor is open: `ogar-loco::Program` is not the body (operator correction 2026-10-31) | `2026-10-31-coresearch-mandatory-codegraph.md` | C |
 | G8 | The ruff → lance-graph sink is unmerged (`RefinedTruthSink`, ruff branches `claude/r2il-pr2-*`) | `git ls-remote` ruff | B |
+| ~~G8~~ | **Withdrawn 2026-11-02:** the sink is merged. Ruff #101 (`RefinedTruthSink`), #102 (v2 artifacts and `read_facts` / `read_residuals`) and #103 (round-trip oracle) merged 2026-08-18 and survive the #121 replay on `main` (`ruff_r2il/src/sink.rs:72`). The branch names had been read as unmerged work because they share no history with the rebuilt `main` | ruff PRs #101–#103, `git grep` on ruff `origin/main` | — |
 | G9 | `sag-ra-probe` did not build from a fresh resolution (`unicode-ident` 1.0.24 vs `unicode-properties` 0.1.5) | build log 2026-11-02; fixed by pinning `unicode-properties = "=0.1.4"` | done |
 
 ## 2. Slices
@@ -121,4 +122,4 @@ record the reference.
 - Where the method body revision is anchored (G7).
 - Whether R2IL can carry Rust places, drops and panics, or needs a separate
   reading (G4).
-- Merge order of the ruff sink branches (G8).
+- ~~Merge order of the ruff sink branches (G8).~~ Withdrawn: merged as ruff #101–#103.
