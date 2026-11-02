@@ -1,3 +1,10 @@
+## 2026-11-02 — lance-graph PR #1920 (merged `5b967b130`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice B record; rev2 fixture deletes `area_dyn`
+
+- **Added:** `fixtures/codegraph/rev2` also deletes `cg_lib::area_dyn` and drops its call from `cg_app`, so a refresh that skips the dependent leaves one dangling edge; the slice B section of the gap-map entry; STATUS_BOARD D-CODEGRAPH-0-B LANDED for the offline store.
+- **Companion:** ruff PR #130 (merged `95be2e480b`, offline store in `ruff_charon`) and #131 (merged `2033be48fe`, four Codex findings on #129/#130).
+- **Deferred:** residency in lance-graph's SoA.
+- **Confidence:** incremental refresh byte-identical to a clean import; five disable runs red.
+
 ## 2026-11-02 — lance-graph PR #1918 (merged `c11e4262e`, branch `claude/clone-repositories-71a5sw`, head `c0f81a2a8`) — D-CODEGRAPH-0 gap map and slice A evidence; D-DQM M1 timing arms; dt64/xlog CI lines
 
 - **Added:**
