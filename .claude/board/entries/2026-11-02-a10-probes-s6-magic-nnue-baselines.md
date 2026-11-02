@@ -63,10 +63,10 @@ AdaWorldAPI/xlog `claude/magic-query-relative-demand` @ `ea924b3`.
 
 Second application (Ruff × ARM × SoC):
 - **Verdict: NEEDS-GROUND-TRUTH-FIRST.**
-- **Candidate target:** ranking the next residue on the MedCare furnace exam. The deterministic baseline already exists: `rekey_exam` sorts by method count.
+- **Candidate target:** ranking the next unresolved residue in a consumer transcode. The deterministic baseline already exists in ruff: `rekey_exam` sorts by method count.
 - **Not applicable yet:**
   - Ranking Concern and Scope splits: nothing generates candidate splits.
   - ARM: it has no `FeatureSpec` over ruff facts.
   - CB2Vec and NORU: absent from the workspace.
-- **Gate before any trial:** a private outcome TSV in MedCare-rs and a measured precision@15 baseline.
-- **Kill condition:** the ranker ranks the gate-refused `user_right` above a confirmed mint.
+- **Gate before any trial:** an outcome table kept on the consumer side, and a measured precision@15 baseline. Outcome labels are not recorded here.
+- **Kill condition:** the ranker ranks a residue the mint gate refused above a confirmed mint.
