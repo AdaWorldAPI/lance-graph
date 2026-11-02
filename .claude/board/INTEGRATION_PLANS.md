@@ -1,3 +1,8 @@
+## 2026-11-02 — D-TGL: the GitHub-analogue Thought-Git lifecycle as a shared contract → `.claude/plans/thought-git-lifecycle-contract-v1.md`
+
+**Status:** CONTRACT, docs only; Codegraph lab F-LAND / F-DISCARD shipped (crate-private). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-0 … D-TGL-G12, D-TGL-EXO148; [decisions + lab](entries/2026-11-02-p4-operator-decisions-lifecycle-lab.md); [P4 review](entries/2026-11-02-p4-thought-git-codegraph-dt64-review.md).
+**Confidence:** lab measured (tests + 2 disables); production gates G9–G12 and EXO-148 open.
+
 ## 2026-11-02 — D-DT64-AUTH: DT64 as the one method authority, census + ratchet → `.claude/plans/d-dt64-method-authority-census-v1.md`
 
 **Status:** PROPOSED, plan only (operator decision P3 of the architecture review). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DT64-AUTH; [review](entries/2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md); [decisions](entries/2026-11-02-codegraph-review-operator-decisions.md). Same day: `d-codegraph-0-binary-lanes-v1.md` gained Amendment A (P2: provenance header, `(artifact, FunDeclId)`, `INVOKES_WORD`).
