@@ -51,5 +51,8 @@ Charon-read attribute; never a name match).
 `d-dt64-method-authority-census-v1.md`: adapters may stay as listed `LAB`
 exceptions with a removal path; production words must be declared; the
 census fails on an undeclared word and on a stale exception. egglog pinned
-to `5deaa5637a306c48c998f88d5d08792d2dbfd037` in `egglog-r2il-probe`
-(was `branch = "main"`); its 7 suites pass at the pin.
+to `5deaa5637a306c48c998f88d5d08792d2dbfd037` in every crate that links it
+(`egglog-r2il-probe`, `dr-math-binding-probe`, `xlog-relcomp-probe`; all three
+floated on the fork's main branch, and `xlog-relcomp-probe` links the other
+two, so one `rev` everywhere or cargo resolves two copies). All three suites
+pass at the pin.
