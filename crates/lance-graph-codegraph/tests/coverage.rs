@@ -165,6 +165,33 @@ fn a_refresh_reads_the_new_residuals() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Fails if the unchanged-rows shortcut skips a residuals-only change: the
+/// rows file is byte-identical, only the residuals file gains an entry.
+#[test]
+fn a_refresh_reads_changed_residuals_when_the_rows_are_unchanged() {
+    let d = store("res_only", &rows(&[]), Some(&[]));
+    let mut g = Codegraph::open(&d).unwrap();
+    assert_eq!(g.diagnostics(CrateKind::Lib)[0].run, Run::Complete);
+    write_residuals(&d, &[("BODY_NOT_STRUCTURED", "lib::entry")]);
+    g.refresh_crate(&d, "store").unwrap();
+    assert_eq!(g.diagnostics(CrateKind::Lib)[0].run, Run::Partial);
+    // Reopening the same directory gives the same answer.
+    assert_eq!(dead_run(&d), Run::Partial);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// The silence twin: with neither file changed the refresh is a no-op and the
+/// run stays `Complete`.
+#[test]
+fn a_refresh_with_nothing_changed_stays_complete() {
+    let d = store("res_same", &rows(&[]), Some(&[]));
+    let mut g = Codegraph::open(&d).unwrap();
+    let stats = g.refresh_crate(&d, "store").unwrap();
+    assert_eq!(stats, Default::default());
+    assert_eq!(g.diagnostics(CrateKind::Lib)[0].run, Run::Complete);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// Fails if the cause of a partial run is not recoverable as typed data: two
 /// different gaps must report two different counts, each under its own kind.
 #[test]

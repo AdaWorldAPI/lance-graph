@@ -690,6 +690,17 @@ impl Codegraph {
         // digest and takes the full path.
         let mut syms = SymbolStage::new(&self.symbols);
         let mut fresh = Lanes::default();
+        // The residuals belong to the same import as the rows but live in
+        // their own file, so they can change while the rows do not. Read them
+        // first: the unchanged-rows shortcut may only skip a refresh whose
+        // residuals are unchanged too. A refusal here leaves the graph as is.
+        let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
+        let unchanged = |digest| {
+            self.symbols.get(krate).is_some_and(|k| {
+                self.lanes.digest_of(k) == Some(digest)
+                    && self.lanes.residuals_of(k) == Some(residuals)
+            })
+        };
         match artifact::crate_source(dir, krate) {
             Some(CrateSource::Bin(path)) => {
                 let mut f = std::fs::File::open(&path)
@@ -697,10 +708,8 @@ impl Codegraph {
                 let header = Header::read(&mut f)
                     .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?
                     .map_err(|r| RefreshRefusal::Intake(IntakeRefusal::Bin(r)))?;
-                if let Some(k) = self.symbols.get(krate) {
-                    if self.lanes.digest_of(k) == Some(header.digest) {
-                        return Ok(None);
-                    }
+                if unchanged(header.digest) {
+                    return Ok(None);
                 }
                 drop(f);
                 let buf = std::fs::read(&path)
@@ -714,10 +723,8 @@ impl Codegraph {
                 let text = std::fs::read_to_string(&path)
                     .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Io(e)))?;
                 let file_digest = artifact::digest(text.as_bytes());
-                if let Some(k) = self.symbols.get(krate) {
-                    if self.lanes.digest_of(k) == Some(file_digest) {
-                        return Ok(None);
-                    }
+                if unchanged(file_digest) {
+                    return Ok(None);
                 }
                 artifact::read_text_as(&text, krate, &mut syms, &mut fresh)
                     .map_err(RefreshRefusal::Intake)?;
@@ -731,9 +738,6 @@ impl Codegraph {
                 )));
             }
         }
-        // The residuals belong to the same import as the rows; read them now
-        // so a refusal leaves the graph unchanged.
-        let residuals = artifact::read_residuals(dir, krate).map_err(RefreshRefusal::Intake)?;
         artifact::refuse_placeholders(&fresh, 0..fresh.len(), &syms)
             .map_err(RefreshRefusal::Intake)?;
         // ---- prepare: everything below borrows the graph immutably ----
