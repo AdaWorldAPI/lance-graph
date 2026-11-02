@@ -578,6 +578,17 @@ impl LocalMap {
         })
     }
 
+    /// This map, whole, as a [`TileMap`]: what a table would read for it
+    /// once it is appended. Lets a caller validate a map it has not yet
+    /// handed to [`MapTable::advance`] (an extension check, a lookup)
+    /// without advancing the table or issuing a version.
+    pub fn view(&self) -> TileMap<'_> {
+        TileMap {
+            map: self,
+            len: self.globals.len(),
+        }
+    }
+
     pub fn width(&self) -> Width {
         self.width
     }

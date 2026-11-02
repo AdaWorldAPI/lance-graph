@@ -7,12 +7,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use lance_graph_dt64::dr::{Axis, LocalMap, MapRefusal, MapTable, TileId, Width};
-use lance_graph_xlog::cube::{Cube, CubeRefusal, RelId};
+use lance_graph_xlog::cube::{Cube, CubeRefusal, EdgeOp, RelId, StagedEdges};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
 use crate::artifact::{
-    self, Lanes, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES, P_IMPLEMENTS, P_MAY, P_PUBLIC,
-    P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
+    self, Interner, Lanes, SymbolStage, Symbols, NO_SPAN, P_CALLS, P_CRATE, P_DEFINES,
+    P_IMPLEMENTS, P_MAY, P_PUBLIC, P_REFERENCES, P_SYNTHETIC, P_UNRESOLVED,
 };
 
 /// A symbol's position: its interning index, which is also its cube coordinate.
@@ -73,7 +73,7 @@ const NONE: u32 = u32::MAX;
 const DYNAMIC: &str = "?dynamic";
 
 /// Position masks, one bit per position, `words()` words each.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct Masks {
     fns: Vec<u64>,
     public: Vec<u64>,
@@ -92,7 +92,10 @@ struct Masks {
 /// so the two numberings are kept apart: `of_id` maps an interner id to its
 /// position (`NONE` when the text is not a symbol), `id_of` is the inverse.
 /// Query time does one interner lookup and one array read, never a name map.
-#[derive(Default)]
+///
+/// Positions are only ever assigned through a [`PosStage`] and adopted with
+/// [`Positions::absorb`], so a refused refresh leaves this table untouched.
+#[derive(Debug, Default)]
 struct Positions {
     of_id: Vec<u32>,
     id_of: Vec<u32>,
@@ -103,28 +106,70 @@ struct Positions {
     last_owner: u32,
 }
 
-impl Positions {
-    fn len(&self) -> usize {
-        self.id_of.len()
-    }
-
+/// Reading a position: the committed table, or a stage over it.
+trait PosAt {
     /// The position of interner id `id`, `None` when it is not a symbol.
+    fn at(&self, id: u32) -> Option<Pos>;
+    /// Positions assigned.
+    fn len(&self) -> usize;
+}
+
+impl PosAt for Positions {
     fn at(&self, id: u32) -> Option<Pos> {
         self.of_id.get(id as usize).copied().filter(|&p| p != NONE)
     }
+    fn len(&self) -> usize {
+        self.id_of.len()
+    }
+}
+
+/// New positions over a borrowed [`Positions`], which is never written: the
+/// stage holds the appended `(id, owner)` pairs and its own `last_owner`
+/// until [`Positions::absorb`].
+struct PosStage<'a> {
+    base: &'a Positions,
+    ids: Vec<u32>,
+    owners: Vec<u32>,
+    of_new: HashMap<u32, Pos>,
+    last_owner: u32,
+}
+
+/// What a [`PosStage`] assigned, without the borrow.
+struct StagedPositions {
+    base_len: usize,
+    ids: Vec<u32>,
+    owners: Vec<u32>,
+    last_owner: u32,
+}
+
+impl PosAt for PosStage<'_> {
+    fn at(&self, id: u32) -> Option<Pos> {
+        self.base.at(id).or_else(|| self.of_new.get(&id).copied())
+    }
+    fn len(&self) -> usize {
+        self.base.len() + self.ids.len()
+    }
+}
+
+impl<'a> PosStage<'a> {
+    fn new(base: &'a Positions) -> Self {
+        Self {
+            base,
+            ids: Vec::new(),
+            owners: Vec::new(),
+            of_new: HashMap::new(),
+            last_owner: base.last_owner,
+        }
+    }
 
     /// Assign `id` the next position unless it already has one.
-    fn assign(&mut self, id: u32, symbols: &mut Symbols) -> Pos {
-        if self.of_id.len() <= id as usize {
-            self.of_id.resize(symbols.len().max(id as usize + 1), NONE);
+    fn assign(&mut self, id: u32, symbols: &mut impl Interner) -> Pos {
+        if let Some(p) = self.at(id) {
+            return p;
         }
-        let cur = self.of_id[id as usize];
-        if cur != NONE {
-            return cur;
-        }
-        let p = self.id_of.len() as Pos;
-        self.of_id[id as usize] = p;
-        self.id_of.push(id);
+        let p = self.len() as Pos;
+        self.of_new.insert(id, p);
+        self.ids.push(id);
         let owner = {
             let name = symbols.name(id);
             match name.find("::") {
@@ -143,19 +188,44 @@ impl Positions {
             }
         };
         self.last_owner = owner;
-        self.owner.push(owner);
+        self.owners.push(owner);
         p
     }
 
-    /// Undo every assignment from position `n` on (a refused refresh).
-    fn truncate(&mut self, n: usize) {
-        for &id in &self.id_of[n..] {
-            if let Some(slot) = self.of_id.get_mut(id as usize) {
-                *slot = NONE;
-            }
+    fn finish(self) -> StagedPositions {
+        StagedPositions {
+            base_len: self.base.len(),
+            ids: self.ids,
+            owners: self.owners,
+            last_owner: self.last_owner,
         }
-        self.id_of.truncate(n);
-        self.owner.truncate(n);
+    }
+}
+
+impl Positions {
+    fn new() -> Self {
+        Self {
+            last_owner: NONE,
+            ..Self::default()
+        }
+    }
+
+    /// Adopt what a stage over this table assigned. Cannot fail.
+    fn absorb(&mut self, staged: StagedPositions) {
+        debug_assert_eq!(
+            staged.base_len,
+            self.id_of.len(),
+            "positions changed under the stage"
+        );
+        for id in staged.ids {
+            if self.of_id.len() <= id as usize {
+                self.of_id.resize(id as usize + 1, NONE);
+            }
+            self.of_id[id as usize] = self.id_of.len() as Pos;
+            self.id_of.push(id);
+        }
+        self.owner.extend(staged.owners);
+        self.last_owner = staged.last_owner;
     }
 }
 
@@ -175,6 +245,20 @@ pub struct Codegraph {
     masks: Masks,
     rconf: OnceCell<(WideRows, WideStats)>,
     rposs: OnceCell<(WideRows, WideStats)>,
+    /// Test-only: make the next refresh's validation refuse at a chosen
+    /// point, so the falsifiers can show a refusal changes nothing.
+    #[cfg(test)]
+    inject: Option<Inject>,
+}
+
+/// Where a test makes a refresh's validation refuse.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Inject {
+    /// As if `Cube::stage` refused the batch.
+    Stage,
+    /// As if `Cube::stage_closure` refused.
+    Closure,
 }
 
 fn set(words: &mut [u64], p: Pos) {
@@ -190,8 +274,8 @@ fn set(words: &mut [u64], p: Pos) {
 fn resolve(
     lanes: &Lanes,
     rows: std::ops::Range<usize>,
-    symbols: &mut Symbols,
-    pos: &mut Positions,
+    symbols: &mut impl Interner,
+    pos: &mut PosStage<'_>,
 ) -> bool {
     let mut any_dynamic = false;
     for i in rows {
@@ -217,12 +301,12 @@ fn resolve(
 }
 
 /// Add the `?dynamic` position (idempotent).
-fn add_dynamic(symbols: &mut Symbols, pos: &mut Positions) {
+fn add_dynamic(symbols: &mut impl Interner, pos: &mut PosStage<'_>) {
     let d = symbols.intern(DYNAMIC);
     pos.assign(d, symbols);
 }
 
-fn dynamic_pos(symbols: &Symbols, pos: &Positions) -> Option<Pos> {
+fn dynamic_pos(symbols: &impl Interner, pos: &impl PosAt) -> Option<Pos> {
     symbols.get(DYNAMIC).and_then(|id| pos.at(id))
 }
 
@@ -248,7 +332,7 @@ fn crate_statuses(lanes: &Lanes, symbols: &Symbols) -> HashMap<u32, RunStatus> {
 fn edges_of(
     lanes: &Lanes,
     rows: impl Iterator<Item = usize>,
-    pos: &Positions,
+    pos: &impl PosAt,
     dyn_pos: Option<Pos>,
 ) -> [Vec<(u32, u32)>; 6] {
     let mut rel: [Vec<(u32, u32)>; 6] = Default::default();
@@ -416,13 +500,15 @@ impl Codegraph {
     pub fn open(dir: &Path) -> Result<Self, IntakeRefusal> {
         let mut symbols = Symbols::default();
         let lanes = artifact::read_dir(dir, &mut symbols)?;
-        let mut pos = Positions {
-            last_owner: NONE,
-            ..Positions::default()
+        let mut pos = Positions::new();
+        let staged = {
+            let mut stage = PosStage::new(&pos);
+            if resolve(&lanes, 0..lanes.len(), &mut symbols, &mut stage) {
+                add_dynamic(&mut symbols, &mut stage);
+            }
+            stage.finish()
         };
-        if resolve(&lanes, 0..lanes.len(), &mut symbols, &mut pos) {
-            add_dynamic(&mut symbols, &mut pos);
-        }
+        pos.absorb(staged);
         let crates = crate_statuses(&lanes, &symbols);
         let n = pos.len();
         let mut rel = edges_of(&lanes, 0..lanes.len(), &pos, dynamic_pos(&symbols, &pos));
@@ -471,6 +557,8 @@ impl Codegraph {
             masks: m,
             rconf: OnceCell::new(),
             rposs: OnceCell::new(),
+            #[cfg(test)]
+            inject: None,
         })
     }
 
@@ -516,8 +604,18 @@ impl Codegraph {
     ///   folds base + log. No cache means nothing to refresh.
     /// * Masks and crate statuses are recomputed from the lanes.
     ///
-    /// Refusals before the first cube mutation leave the graph unchanged; a
-    /// `Cube` refusal afterwards (not expected) may leave it partly updated.
+    /// **Atomic: prepare → validate → commit.** Every step that can refuse
+    /// (reading the file, interning, assigning positions, the reservation,
+    /// the grown tile map, placing every logged edge, the closure refresh)
+    /// runs against staged state: a [`SymbolStage`] and a [`PosStage`] over
+    /// the graph's interner and positions, a grown [`LocalMap`] the table has
+    /// not yet been given, and a batch [`Cube::stage`] checked without
+    /// changing the cube. A refusal therefore changes nothing: not the
+    /// interner, the positions, `last_owner`, the table (no version is
+    /// issued and no frame sealed), the cube, its logs, the lanes, the masks
+    /// or the digests. Only then does the commit run, and it has no error
+    /// path: the table advances and seals, the cube adopts the frame and the
+    /// batch, the stages are absorbed, the closures and lanes replaced.
     pub fn refresh_crate(
         &mut self,
         dir: &Path,
@@ -534,16 +632,19 @@ impl Codegraph {
                 return Ok(RefreshStats::default());
             }
         }
+
+        // ---- prepare: everything below borrows the graph immutably ----
+        let mut syms = SymbolStage::new(&self.symbols);
         let mut fresh = Lanes::default();
-        artifact::read_text_as(&text, krate, &mut self.symbols, &mut fresh)
+        artifact::read_text_as(&text, krate, &mut syms, &mut fresh)
             .map_err(RefreshRefusal::Intake)?;
-        let kid = self.symbols.intern(krate);
+        let kid = syms.intern(krate);
 
         // Edges of the crate's old rows, before any new position exists. Every
         // other crate's rows are in both the old and the new lane set, so the
         // whole-graph multiset difference equals this crate's old rows against
         // its new rows.
-        let old_dyn = dynamic_pos(&self.symbols, &self.pos);
+        let old_dyn = dynamic_pos(&syms, &self.pos);
         let old_e = edges_of(
             &self.lanes,
             (0..self.lanes.len()).filter(|&i| self.lanes.krate[i] == kid),
@@ -555,104 +656,111 @@ impl Codegraph {
         // already positioned), appended in fresh-row order, `?dynamic` last:
         // the same order a rebuilt lane set would intern in.
         let n_old = self.pos.len();
-        if resolve(&fresh, 0..fresh.len(), &mut self.symbols, &mut self.pos) {
-            add_dynamic(&mut self.symbols, &mut self.pos);
+        let mut pos = PosStage::new(&self.pos);
+        if resolve(&fresh, 0..fresh.len(), &mut syms, &mut pos) {
+            add_dynamic(&mut syms, &mut pos);
         }
-        let n_new = self.pos.len();
+        let n_new = pos.len();
         if n_new > self.axis.reserved() {
-            self.pos.truncate(n_old);
             return Err(RefreshRefusal::NeedsReopen {
                 reason: "new symbols exceed the positions reserved at open (a new tile, or a W64 tile becoming W256)",
             });
         }
 
-        let new_e = edges_of(
-            &fresh,
-            0..fresh.len(),
-            &self.pos,
-            dynamic_pos(&self.symbols, &self.pos),
-        );
-        let mut retires: Vec<Vec<u64>> = Vec::new();
-        let mut adds: Vec<Vec<u64>> = Vec::new();
-        for r in 0..6 {
-            let (mut gone, mut came) = (Vec::new(), Vec::new());
-            diff_sorted(&keys(&old_e[r]), &keys(&new_e[r]), &mut gone, &mut came);
-            retires.push(gone);
-            adds.push(came);
-        }
-
-        let pending = [
-            self.cube.delta_len(RCONF) > 0,
-            self.cube.delta_len(RPOSS) > 0,
-        ];
+        let new_e = edges_of(&fresh, 0..fresh.len(), &pos, dynamic_pos(&syms, &pos));
+        // The batch in apply order: relation by relation in id order; NODE
+        // adds for the appended positions; otherwise retirements then
+        // additions, each ascending by (src, dst).
+        let mut ops: Vec<(RelId, EdgeOp, u32, u32)> = Vec::new();
         let mut stats = RefreshStats {
             symbols_appended: (n_new - n_old) as u64,
             ..RefreshStats::default()
         };
-
-        // Extend the last tile's map (ids ascending) and adopt the new frame.
-        if n_new > n_old {
-            let last = self.axis.tiles.saturating_sub(1);
-            let lo = last as u64 * TILE_POSITIONS as u64;
-            let ids: Vec<u64> = (lo..n_new as u64).collect();
-            let map = match LocalMap::prepare(self.axis.tile, &ids) {
-                Ok(m) => m,
-                Err(e) => {
-                    self.pos.truncate(n_old);
-                    return Err(RefreshRefusal::Intake(IntakeRefusal::Map(e)));
-                }
-            };
-            let rev = self.table.revisions();
-            self.table
-                .advance(rev.source + 1, rev.relation_map, vec![(last, Some(map))]);
-            let frame = self.table.seal();
-            self.cube
-                .rebase(&self.table, &frame)
-                .map_err(RefreshRefusal::Cube)?;
-        }
-
         for r in 0..6usize {
             let rel = r as RelId;
             if rel == NODE {
-                for p in n_old as u32..n_new as u32 {
-                    self.cube
-                        .add_edge(&self.table, NODE, p, p)
-                        .map_err(RefreshRefusal::Cube)?;
-                }
+                ops.extend((n_old as u32..n_new as u32).map(|p| (NODE, EdgeOp::Add, p, p)));
                 continue;
             }
-            for &key in &retires[r] {
-                let (s, d) = ((key >> 32) as u32, key as u32);
-                self.cube
-                    .retire_edge(&self.table, rel, s, d)
-                    .map_err(RefreshRefusal::Cube)?;
-                stats.edges_retired += 1;
-            }
-            for &key in &adds[r] {
-                let (s, d) = ((key >> 32) as u32, key as u32);
-                self.cube
-                    .add_edge(&self.table, rel, s, d)
-                    .map_err(RefreshRefusal::Cube)?;
-                stats.edges_added += 1;
-            }
+            let (mut gone, mut came) = (Vec::new(), Vec::new());
+            diff_sorted(&keys(&old_e[r]), &keys(&new_e[r]), &mut gone, &mut came);
+            stats.edges_retired += gone.len() as u64;
+            stats.edges_added += came.len() as u64;
+            let split = |k: u64| ((k >> 32) as u32, k as u32);
+            ops.extend(
+                gone.into_iter()
+                    .map(split)
+                    .map(|(s, d)| (rel, EdgeOp::Retire, s, d)),
+            );
+            ops.extend(
+                came.into_iter()
+                    .map(split)
+                    .map(|(s, d)| (rel, EdgeOp::Add, s, d)),
+            );
         }
 
-        let changed = stats.edges_added + stats.edges_retired > 0 || n_new > n_old;
-        for (rel, pend) in [(RCONF, pending[0]), (RPOSS, pending[1])] {
-            let cell = if rel == RCONF {
-                &mut self.rconf
-            } else {
-                &mut self.rposs
-            };
-            if !changed {
-                continue;
+        // The last tile's grown map (ids ascending), not yet in the table.
+        let last = self.axis.tiles.saturating_sub(1);
+        let grown = if n_new > n_old {
+            let lo = last as u64 * TILE_POSITIONS as u64;
+            let ids: Vec<u64> = (lo..n_new as u64).collect();
+            Some(
+                LocalMap::prepare(self.axis.tile, &ids)
+                    .map_err(|e| RefreshRefusal::Intake(IntakeRefusal::Map(e)))?,
+            )
+        } else {
+            None
+        };
+
+        // ---- validate: the cube checks the batch without changing ----
+        let staged = self
+            .stage_batch(grown.as_ref().map(|m| (last, m)), &ops)
+            .map_err(RefreshRefusal::Cube)?;
+        let changed = !staged.is_empty();
+        // A cached closure is refreshed only when its relation's log was
+        // empty (its precondition is a closure of the base); otherwise it is
+        // dropped and rebuilt on next read. Computed now, so a refusal here
+        // also changes nothing.
+        let mut closures: [Option<Option<(WideRows, WideStats)>>; 2] = [None, None];
+        if changed {
+            for (slot, rel) in [(0usize, RCONF), (1, RPOSS)] {
+                let cell = if rel == RCONF {
+                    &self.rconf
+                } else {
+                    &self.rposs
+                };
+                if let Some(old) = cell.get() {
+                    closures[slot] = Some(if self.cube.delta_len(rel) == 0 {
+                        Some(
+                            self.stage_closure(rel, &old.0, &staged)
+                                .map_err(RefreshRefusal::Cube)?,
+                        )
+                    } else {
+                        None
+                    });
+                }
             }
-            if let Some(old) = cell.take() {
-                if !pend {
-                    let (rows, st) = self
-                        .cube
-                        .refresh_closure(&self.table, rel, &old.0)
-                        .map_err(RefreshRefusal::Cube)?;
+        }
+        let names = syms.into_names();
+        let positions = pos.finish();
+
+        // ---- commit: no error path below ----
+        self.symbols.absorb(names);
+        self.pos.absorb(positions);
+        let frame = match grown {
+            Some(map) => {
+                let rev = self.table.revisions();
+                self.table
+                    .advance(rev.source + 1, rev.relation_map, vec![(last, Some(map))]);
+                self.table.seal()
+            }
+            None => self.cube.frame().clone(),
+        };
+        self.cube.commit(&self.table, &frame, staged);
+        for (slot, cell) in [(0usize, &mut self.rconf), (1, &mut self.rposs)] {
+            if let Some(next) = closures[slot].take() {
+                cell.take();
+                if let Some((rows, st)) = next {
                     stats.rows_recomputed += st.rows_recomputed;
                     let _ = cell.set((rows, st));
                 }
@@ -666,6 +774,33 @@ impl Codegraph {
         self.crates = crate_statuses(&self.lanes, &self.symbols);
         self.masks = masks_of(&self.lanes, &self.pos, self.symbols.len(), &self.crates);
         Ok(stats)
+    }
+
+    /// [`Cube::stage`], or the refusal a test injected in its place.
+    fn stage_batch(
+        &self,
+        grown: Option<(TileId, &LocalMap)>,
+        ops: &[(RelId, EdgeOp, u32, u32)],
+    ) -> Result<StagedEdges, CubeRefusal> {
+        #[cfg(test)]
+        if self.inject == Some(Inject::Stage) {
+            return Err(CubeRefusal::Renumbered(0));
+        }
+        self.cube.stage(&self.table, grown, ops)
+    }
+
+    /// [`Cube::stage_closure`], or the refusal a test injected in its place.
+    fn stage_closure(
+        &self,
+        rel: RelId,
+        old: &WideRows,
+        staged: &StagedEdges,
+    ) -> Result<(WideRows, WideStats), CubeRefusal> {
+        #[cfg(test)]
+        if self.inject == Some(Inject::Closure) {
+            return Err(CubeRefusal::FixpointBound);
+        }
+        self.cube.stage_closure(rel, old, staged)
     }
 
     /// Absorb every relation's delta log into its base lanes (explicit only;

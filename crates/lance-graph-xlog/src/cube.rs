@@ -37,7 +37,9 @@
 use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use lance_graph_dt64::dr::{Frame, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap};
+use lance_graph_dt64::dr::{
+    Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap,
+};
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 use ndarray::simd::{checked_binary_i64, mask_and, mask_andnot, mask_any, mask_or_assign, I64Op};
@@ -55,15 +57,53 @@ pub struct View {
     node: u32,
 }
 
+/// One logged edge operation of a [`Cube::stage`] batch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EdgeOp {
+    /// [`Cube::add_edge`].
+    Add,
+    /// [`Cube::retire_edge`].
+    Retire,
+}
+
+/// A batch of edge operations [`Cube::stage`] has checked, placed at their
+/// coordinates and not yet applied. Holds no borrow, so the caller may
+/// advance the table between staging and [`Cube::commit`].
+#[derive(Debug)]
+pub struct StagedEdges {
+    cube: u64,
+    /// The grown tile and its staged map length.
+    grown: Option<(TileId, usize)>,
+    n: usize,
+    ops: Vec<(RelId, EdgeOp, u32, u32)>,
+    rebind: Vec<(usize, u32)>,
+}
+
+impl StagedEdges {
+    /// Operations in the batch.
+    pub fn len(&self) -> usize {
+        self.ops.len()
+    }
+
+    /// Whether the batch holds no operation.
+    pub fn is_empty(&self) -> bool {
+        self.ops.is_empty()
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Node {
     Scan(RelId),
-    /// `col == value`. `None`: the value is not in the map, so no row
-    /// matches.
+    /// `col == global`. `value` is `global`'s coordinate under the cube's
+    /// frame, `None` while no tile holds it (no row matches). The global id
+    /// is kept so an extending rebase can place a value that was unmapped
+    /// when the view was built: the view means "column equals this id", and
+    /// keeps meaning it under every later frame.
     Bind {
         rel: RelId,
         col: u8,
         value: Option<u32>,
+        global: u32,
     },
     /// `left.lcol == right.rcol`.
     Join {
@@ -345,12 +385,18 @@ impl Cube {
         };
         check_col(col)?;
         // A value no tile holds binds to nothing; any other refusal is real.
+        let global = value;
         let value = match self.coord(table, value) {
             Ok(c) => Some(c),
             Err(CubeRefusal::Domain(_) | CubeRefusal::Locate(LocateRefusal::Unmapped)) => None,
             Err(e) => return Err(e),
         };
-        Ok(self.push(Node::Bind { rel, col, value }))
+        Ok(self.push(Node::Bind {
+            rel,
+            col,
+            value,
+            global,
+        }))
     }
 
     /// `left.lcol == right.rcol`, where each side is a scan or a bind.
@@ -376,7 +422,9 @@ impl Cube {
     fn side(&self, v: View, join_col: u8) -> Result<Side, CubeRefusal> {
         match self.node(v)? {
             Node::Scan(rel) => Ok(Side { rel, bound: None }),
-            Node::Bind { rel, col, value } if col != join_col => Ok(Side {
+            Node::Bind {
+                rel, col, value, ..
+            } if col != join_col => Ok(Side {
                 rel,
                 bound: Some((col, value)),
             }),
@@ -432,6 +480,74 @@ impl Cube {
             .local(u64::from(id))
             .map_err(CubeRefusal::Domain)?;
         Ok(u32::from(l))
+    }
+
+    /// Every tile the cube spans, read under `frame`, in coordinate order.
+    fn views_under<'t>(
+        &self,
+        table: &'t MapTable,
+        frame: &Frame,
+    ) -> Result<Vec<TileMap<'t>>, CubeRefusal> {
+        self.tiles
+            .iter()
+            .map(|&t| table.map(frame, t).map_err(CubeRefusal::Map))
+            .collect()
+    }
+
+    /// [`Cube::coord`] over explicit tile views (in `self.tiles` order)
+    /// instead of the table under the cube's frame: the same placement and
+    /// the same refusals, so a staged layout places ids exactly as the
+    /// committed one will.
+    fn coord_in(&self, views: &[TileMap<'_>], id: u32) -> Result<u32, CubeRefusal> {
+        let g = u64::from(id);
+        if self.tiled {
+            let mut found = None;
+            for (ordinal, v) in views.iter().enumerate() {
+                if let Ok(local) = v.local(g) {
+                    if found.is_some() {
+                        return Err(CubeRefusal::Locate(LocateRefusal::Ambiguous));
+                    }
+                    let ordinal = u32::try_from(ordinal)
+                        .map_err(|_| CubeRefusal::Locate(LocateRefusal::Ambiguous))?;
+                    found = Some(ordinal * BLOCK_POSITIONS as u32 + u32::from(local));
+                }
+            }
+            return found.ok_or(CubeRefusal::Locate(LocateRefusal::Unmapped));
+        }
+        let view = views
+            .first()
+            .ok_or(CubeRefusal::Map(MapRead::NoSuchTile(self.tile)))?;
+        view.local(g).map(u32::from).map_err(CubeRefusal::Domain)
+    }
+
+    /// The binds that were unmapped and are placed under `views`: `(node,
+    /// coordinate)`. A bind that was mapped keeps its coordinate, because a
+    /// layout is only adopted when it extends the old one (no renumbering).
+    fn rebind(&self, views: &[TileMap<'_>]) -> Result<Vec<(usize, u32)>, CubeRefusal> {
+        let mut out = Vec::new();
+        for (i, node) in self.nodes.iter().enumerate() {
+            if let Node::Bind {
+                value: None,
+                global,
+                ..
+            } = *node
+            {
+                match self.coord_in(views, global) {
+                    Ok(c) => out.push((i, c)),
+                    Err(CubeRefusal::Domain(_) | CubeRefusal::Locate(LocateRefusal::Unmapped)) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+        Ok(out)
+    }
+
+    fn apply_rebind(&mut self, rebind: &[(usize, u32)]) {
+        for &(i, c) in rebind {
+            if let Some(Node::Bind { value, .. }) = self.nodes.get_mut(i) {
+                *value = Some(c);
+            }
+        }
     }
 
     /// The lanes every read goes through: relation `rel`'s base folded with
@@ -670,6 +786,16 @@ impl Cube {
         Ok((self.coord(table, src)?, self.coord(table, dst)?))
     }
 
+    /// Relation `rel`'s delta log (read-only), `None` for an unknown relation.
+    pub fn delta_log(&self, rel: RelId) -> Option<&DeltaLog> {
+        self.logs.get(rel as usize)
+    }
+
+    /// The frame the cube reads its tile maps under.
+    pub fn frame(&self) -> &Frame {
+        &self.frame
+    }
+
     /// Logged operations on relation `rel` not yet folded into its base.
     /// An unknown relation has none.
     pub fn delta_len(&self, rel: RelId) -> usize {
@@ -720,6 +846,127 @@ impl Cube {
         Ok(())
     }
 
+    /// Checks a batch of edge operations, optionally under one grown tile map,
+    /// against the cube **without changing it or the table**: the grown map
+    /// must extend the tile's current map (as [`Cube::rebase`] requires), and
+    /// every id must be placed under the resulting layout (as
+    /// [`Cube::add_edge`] requires). The map is not handed to the table, so
+    /// no version is issued and no frame is sealed. The returned batch is
+    /// applied by [`Cube::commit`], which cannot refuse.
+    pub fn stage(
+        &self,
+        table: &MapTable,
+        grown: Option<(TileId, &LocalMap)>,
+        ops: &[(RelId, EdgeOp, u32, u32)],
+    ) -> Result<StagedEdges, CubeRefusal> {
+        let mut views = self.views_under(table, &self.frame)?;
+        if let Some((t, map)) = grown {
+            let i = self
+                .tiles
+                .iter()
+                .position(|&x| x == t)
+                .ok_or(CubeRefusal::Map(MapRead::NoSuchTile(t)))?;
+            let candidate = map.view();
+            if !candidate.extends(views[i]) {
+                return Err(CubeRefusal::Renumbered(t));
+            }
+            views[i] = candidate;
+        }
+        let n = if self.tiled {
+            self.n
+        } else {
+            views.first().map_or(self.n, TileMap::len)
+        };
+        let mut placed = Vec::with_capacity(ops.len());
+        for &(rel, op, src, dst) in ops {
+            self.log(rel)?;
+            placed.push((
+                rel,
+                op,
+                self.coord_in(&views, src)?,
+                self.coord_in(&views, dst)?,
+            ));
+        }
+        let rebind = if grown.is_some() {
+            self.rebind(&views)?
+        } else {
+            Vec::new()
+        };
+        Ok(StagedEdges {
+            cube: self.id,
+            grown: grown.map(|(t, m)| (t, m.len())),
+            n,
+            ops: placed,
+            rebind,
+        })
+    }
+
+    /// The closure of relation `rel` as it will be once `staged` is
+    /// committed: [`Cube::refresh_closure`] over the relation's log followed
+    /// by the staged operations, at the staged size. Changes nothing, so a
+    /// caller can compute it before committing. Same precondition: `old` is
+    /// the closure of the relation's base lanes.
+    pub fn stage_closure(
+        &self,
+        rel: RelId,
+        old: &WideRows,
+        staged: &StagedEdges,
+    ) -> Result<(WideRows, WideStats), CubeRefusal> {
+        let r = self
+            .rels
+            .get(rel as usize)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        let mut log = self.log(rel)?.clone();
+        for &(r2, op, s, d) in &staged.ops {
+            if r2 == rel {
+                match op {
+                    EdgeOp::Add => log.add(s, d),
+                    EdgeOp::Retire => log.retire(s, d),
+                }
+            }
+        }
+        let n = u32::try_from(staged.n).unwrap_or(u32::MAX);
+        wide::refresh(old, &r.cols[0], &r.cols[1], &log, n).map_err(CubeRefusal::Wide)
+    }
+
+    /// Applies a batch [`Cube::stage`] accepted. Cannot refuse: every check
+    /// ran in `stage`. `frame` must be the frame sealed after the table
+    /// advanced with exactly the staged tile map (the cube's own frame when
+    /// nothing grew); the operations are then logged in the order given, the
+    /// size and any newly placeable binds adopted, and the affected cached
+    /// folds dropped. A batch staged by another cube is a caller bug and is
+    /// not applied.
+    pub fn commit(&mut self, table: &MapTable, frame: &Frame, staged: StagedEdges) {
+        debug_assert_eq!(staged.cube, self.id, "a batch staged by another cube");
+        if staged.cube != self.id {
+            return;
+        }
+        debug_assert!(
+            staged
+                .grown
+                .is_none_or(|(t, len)| table.map(frame, t).is_ok_and(|m| m.len() == len)),
+            "the frame does not read the staged map"
+        );
+        let _ = table;
+        if staged.grown.is_some() {
+            self.n = staged.n;
+            self.apply_rebind(&staged.rebind);
+            self.frame = frame.clone();
+            for c in &mut self.effective {
+                c.take();
+            }
+        }
+        for &(rel, op, s, d) in &staged.ops {
+            if let Some(l) = self.logs.get_mut(rel as usize) {
+                match op {
+                    EdgeOp::Add => l.add(s, d),
+                    EdgeOp::Retire => l.retire(s, d),
+                }
+            }
+            self.invalidate(rel);
+        }
+    }
+
     /// Adopts `frame`, sealed after the table advanced to add symbols. Allowed
     /// only if, for every tile the cube holds, the new map is a pure
     /// extension of the one the cube was built (or last rebased) on
@@ -733,20 +980,21 @@ impl Cube {
         // The table is append-only: the cube's own frame still reads the
         // layout it was built on, so the old side of the comparison is read
         // through the index and the cube keeps no copy of it.
-        let mut first_len = None;
-        for &t in &self.tiles {
-            let old = table.map(&self.frame, t).map_err(CubeRefusal::Map)?;
-            let map = table.map(frame, t).map_err(CubeRefusal::Map)?;
-            if !map.extends(old) {
+        // Everything that can refuse is checked before anything changes.
+        let old = self.views_under(table, &self.frame)?;
+        let new = self.views_under(table, frame)?;
+        for ((&t, o), m) in self.tiles.iter().zip(&old).zip(&new) {
+            if !m.extends(*o) {
                 return Err(CubeRefusal::Renumbered(t));
             }
-            first_len.get_or_insert(map.len());
         }
+        let rebind = self.rebind(&new)?;
         if !self.tiled {
-            if let Some(len) = first_len {
-                self.n = len;
+            if let Some(m) = new.first() {
+                self.n = m.len();
             }
         }
+        self.apply_rebind(&rebind);
         self.frame = frame.clone();
         // `n` may have grown; cached folds were built under the old one.
         for c in &mut self.effective {

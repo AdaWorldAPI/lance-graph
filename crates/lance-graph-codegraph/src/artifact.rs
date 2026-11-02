@@ -178,6 +178,115 @@ impl Symbols {
     pub fn is_empty(&self) -> bool {
         self.names.is_empty()
     }
+
+    /// Append the names a [`SymbolStage`] over this interner allocated, in
+    /// order: they receive exactly the ids the stage handed out, because the
+    /// interner did not change while the stage borrowed it. Cannot fail.
+    pub fn absorb(&mut self, staged: StagedNames) {
+        debug_assert_eq!(
+            staged.base_len,
+            self.names.len(),
+            "interner changed under the stage"
+        );
+        for name in staged.names {
+            let id = self.names.len() as u32;
+            self.index.insert(name.clone(), id);
+            self.names.push(name);
+        }
+    }
+}
+
+/// What reading rows needs of an interner. [`Symbols`] writes into itself;
+/// a [`SymbolStage`] leaves its base untouched and collects new names.
+pub trait Interner {
+    /// The id of `s`, interning it on first sight.
+    fn intern(&mut self, s: &str) -> u32;
+    /// The id of `s` if it was interned.
+    fn get(&self, s: &str) -> Option<u32>;
+    /// The text of `id`; empty for an id never issued.
+    fn name(&self, id: u32) -> &str;
+    /// Distinct names interned.
+    fn len(&self) -> usize;
+}
+
+impl Interner for Symbols {
+    fn intern(&mut self, s: &str) -> u32 {
+        Symbols::intern(self, s)
+    }
+    fn get(&self, s: &str) -> Option<u32> {
+        Symbols::get(self, s)
+    }
+    fn name(&self, id: u32) -> &str {
+        Symbols::name(self, id)
+    }
+    fn len(&self) -> usize {
+        Symbols::len(self)
+    }
+}
+
+/// An interner over a borrowed [`Symbols`] that never writes to it: a name
+/// the base knows keeps its id, a new name gets the next id past the base
+/// and is held here until [`Symbols::absorb`] (a refresh that commits) or
+/// dropped (a refresh that refuses, leaving the base exactly as it was).
+pub struct SymbolStage<'a> {
+    base: &'a Symbols,
+    names: Vec<Box<str>>,
+    index: HashMap<Box<str>, u32, FastBuild>,
+}
+
+/// The names a dropped-borrow [`SymbolStage`] allocated, for [`Symbols::absorb`].
+pub struct StagedNames {
+    base_len: usize,
+    names: Vec<Box<str>>,
+}
+
+impl<'a> SymbolStage<'a> {
+    /// A stage over `base`.
+    pub fn new(base: &'a Symbols) -> Self {
+        Self {
+            base,
+            names: Vec::new(),
+            index: HashMap::default(),
+        }
+    }
+
+    /// Names allocated so far.
+    pub fn added(&self) -> usize {
+        self.names.len()
+    }
+
+    /// The allocated names, releasing the borrow of the base.
+    pub fn into_names(self) -> StagedNames {
+        StagedNames {
+            base_len: self.base.len(),
+            names: self.names,
+        }
+    }
+}
+
+impl Interner for SymbolStage<'_> {
+    fn intern(&mut self, s: &str) -> u32 {
+        if let Some(id) = self.get(s) {
+            return id;
+        }
+        let id = (self.base.len() + self.names.len()) as u32;
+        self.names.push(s.into());
+        self.index.insert(s.into(), id);
+        id
+    }
+    fn get(&self, s: &str) -> Option<u32> {
+        self.base.get(s).or_else(|| self.index.get(s).copied())
+    }
+    fn name(&self, id: u32) -> &str {
+        let id = id as usize;
+        match id.checked_sub(self.base.len()) {
+            None => self.base.name(id as u32),
+            Some(k) => self.names.get(k).map_or("", |b| &**b),
+        }
+    }
+    fn len(&self) -> usize {
+        self.base.len() + self.names.len()
+    }
 }
 
 /// All rows of a directory as parallel integer lanes; index `i` of every lane
@@ -387,7 +496,7 @@ impl<'a, const N: usize> Memo<'a, N> {
         }
     }
 
-    fn id(&mut self, s: &'a str, sym: &mut Symbols) -> u32 {
+    fn id(&mut self, s: &'a str, sym: &mut impl Interner) -> u32 {
         for &(t, id) in &self.slots[..self.filled] {
             if t == s {
                 return id;
@@ -415,7 +524,7 @@ pub fn read_text(
 pub fn read_text_as(
     text: &str,
     krate: &str,
-    symbols: &mut Symbols,
+    symbols: &mut impl Interner,
     lanes: &mut Lanes,
 ) -> Result<(), IntakeRefusal> {
     let mut lines = text.lines();
