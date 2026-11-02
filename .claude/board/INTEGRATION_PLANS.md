@@ -1,3 +1,8 @@
+## 2026-11-02 — D-DT64-AUTH: DT64 as the one method authority, census + ratchet → `.claude/plans/d-dt64-method-authority-census-v1.md`
+
+**Status:** PROPOSED, plan only (operator decision P3 of the architecture review). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DT64-AUTH; [review](entries/2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md); [decisions](entries/2026-11-02-codegraph-review-operator-decisions.md). Same day: `d-codegraph-0-binary-lanes-v1.md` gained Amendment A (P2: provenance header, `(artifact, FunDeclId)`, `INVOKES_WORD`).
+**Confidence:** plan; inputs located in code, census not yet written.
+
 ## 2026-11-02 — D-CODEGRAPH-0 wide closure, DR versioned index, binary lanes → `.claude/plans/d-codegraph-0-wide-closure-v1.md`, `.claude/plans/d-dynbag-4-dr-versioned-mapping-v1.md`, `.claude/plans/d-codegraph-0-binary-lanes-v1.md`
 
 **Status:** wide closure and the DR versioned index IN PR; binary lanes PLANNED. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-CODEGRAPH-0-C2, D-CODEGRAPH-0-BIN, D-DYNBAG-4; [entry](entries/2026-11-02-d-codegraph-0-gap-map.md). Operator rulings: wider call chain with presence bits for thin provisioning and sparse write merged on read; multi-word presence, explicit refold only; versioned, replayable immutability is the DR index itself (one RouteVersion counter, old versions readable by number); counting is Quack's (mask-risc, ndarray); codebooks up to 512 entries use codec9; strings only at intake, labels through codebooks or a KV table; predictive prefetch through `ndarray::simd::prefetch_read_*`, measured before claimed.

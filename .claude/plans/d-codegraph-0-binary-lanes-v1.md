@@ -220,3 +220,83 @@ PR B (lance-graph, after A merges; fixtures copied from A):
    borrowed in place with no gather (bigger change to positions/cube)?
 2. TSV in codegraph: remove the TSV reader from `open` entirely (bin only, TSV
    read only in tests), or keep a debug `open_tsv`?
+
+## 8. Amendment A (2026-11-02): provenance header + per-row function identity
+
+DECISION (operator, 2026-11-02, binding; supersedes nothing above, extends §2):
+the format carries the artifact context in a header section and a function
+identity per row, so one migration covers both. SCOPE: `<crate>.rows.bin`
+and the codegraph reader. REVISIT WHEN: a second frontend (Rust MIR, MLIR)
+writes rows.
+
+**Canonical identity is never `FunDeclId` alone.** A Charon `FunDeclId` is an
+index into ONE LLBC file's `fun_decls`; two LLBC artifacts reuse the same
+numbers. The identity of a function fact is `(artifact, FunDeclId)`, where
+`artifact` names the LLBC file and its provenance below.
+
+### 8.1 Header: a `PROV` section (covered by the digest)
+Not in the fixed 64 bytes: the unchanged check stays a header read (F2), and
+the digest over [32 .. file_len) covers this section, so any provenance
+change is a changed crate. One record per LLBC artifact the file was built
+from (normally one):
+
+| field | source (read, never assumed) |
+|---|---|
+| charon version | `CrateData::charon_version` (charon `export.rs:21`; charon-ml compares it for equality, so it is the de-facto LLBC schema key) |
+| charon commit | the git HEAD of the charon checkout the ruff_charon build links (`ruff_charon/Cargo.toml` path dependency); captured at build, not at run |
+| LLBC schema version | today the same value as `charon_version` (no separate schema field exists in `CrateData`); a separate field is written so a future split does not change the layout |
+| LLBC content digest | `artifact::digest` over the LLBC file bytes the writer read |
+| Rust toolchain | the `rustc -vV` commit-hash line of the toolchain Charon ran under |
+| target + build config | `TranslatedCrate::target_information` keys (target triples) and the relevant `TranslatedCrate::options` (`CliOpts`: features, cfg, flags), serialised in a fixed field order |
+| source revision | git HEAD of the analysed source tree plus a dirty flag; `UNKNOWN` when not a git tree, never a guess |
+
+A writer that cannot fill a field writes `UNKNOWN` for it; the reader keeps
+UNKNOWN distinct from every value (two UNKNOWN records are not "equal
+provenance").
+
+### 8.2 Per-row lanes
+- `FUNDECL` u32 lane: the Charon `FunDeclId` of the function the fact belongs
+  to, `NO_ID` when no function owns it (a CRATE row, a file-level fact).
+- `ARTREF` lane (codec9, elided when the PROV section has one record =
+  implicit 0): which PROV record the row's `FunDeclId` indexes.
+- Source reference: the existing `FILE` + `START`/`END` lanes.
+- Predicate: the existing predicate codebook id. Typed arguments: an
+  `OBJ_KIND` codec9 lane says what `OBJ` holds (symbol id, or a word
+  reference, below); no object is ever a string to be parsed.
+- Evidence class: the existing `GRADE` codebook (COMPILER / … ), renamed in
+  docs to "evidence class"; same lane.
+
+### 8.3 `INVOKES_WORD`
+A call whose callee is a behaviour-lens word gets its own predicate,
+`INVOKES_WORD`, with `OBJ_KIND = WORD` and the object a registered DT64
+reference: lens classid (u32 lane `WORD_LENS`) and word (u8, `WORD_IDX`),
+i.e. an `AlgebraRef`; a `MethodRef` form is reserved (`OBJ_KIND = METHOD`).
+- Registered, not named: the codegraph reader checks each reference against
+  the DT64 `BindStore` (`declare_algebra` / the lens basis) and refuses an
+  undeclared one as a named intake refusal. No second method catalogue, no
+  name convention.
+- OPEN, decided in its own reviewable step: where the association "this Rust
+  function realises word W" comes from. Candidates: (a) the lens crate
+  declares it next to the word (the POLYFILL table, read at build); (b) an
+  attribute on the realising function, read by Charon. A name match is not a
+  candidate.
+- Repeated call sites stay distinct: each row keeps its own span, and the
+  edge fold is a multiset (the P1 retry falsifier pins multiplicity).
+
+### 8.4 Falsifiers added to §5
+- F9 provenance: changing only the charon commit (or the toolchain, or the
+  target) makes an unchanged-source crate a changed crate; an `UNKNOWN`
+  field never compares equal to a known one.
+- F10 identity: two LLBC artifacts with overlapping `FunDeclId` numbers in
+  one crate file resolve to different functions; dropping `ARTREF` merges
+  them (disable run).
+- F11 `INVOKES_WORD` registration: an undeclared `(lens, word)` is refused at
+  intake (disable: skip the check → accepted, red).
+- F12 one fact set, two answers: `users_of(W)` (DT64: the method bindings
+  whose effects reference W) and `callers(W)` (codegraph: the functions with
+  an `INVOKES_WORD` row to W) answer different questions, so they are
+  compared through the facts that join them: each binding's realising
+  function. On one committed fixture, the realising functions of
+  `users_of(W)` equal `callers(W)`. A second fixture adds a Rust caller of W
+  with no binding; it must appear in exactly the difference (anti-vacuity:
+  the difference is non-empty there and empty in the first).
