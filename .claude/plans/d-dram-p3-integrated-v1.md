@@ -8,6 +8,10 @@
 > - it prepares production changes as draft PRs, for owner review;
 > - it drives each gated item to the named decision with measured inputs.
 >
+> Provenance: #1949 was authored by a GPT session. Its gates, stop conditions
+> and its paraphrase of the operator's intent are a proposal; this plan adopts
+> them after review and verifies each against source before relying on it.
+>
 > Ownership does not lift any gate: EXO-46, EXO-89, EXO-151, D4 and S-INGRESS
 > stay with their owners. Nothing here is authorized to merge automatically.
 
@@ -61,7 +65,7 @@ changes.
 4. **P3-7** lab measurement; **P3-6** proposal.
 5. **P3-8** decision memo to the D4 / S-INGRESS owner.
 
-## 4. Stop conditions (from #1949 §7, kept verbatim in force)
+## 4. Stop conditions (proposed in #1949 §7; adopted by this session after review)
 
 Stop on any of:
 - a new global → row-id store;

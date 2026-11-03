@@ -2,6 +2,8 @@
 
 **Status:** MEASURED (P2, P3-1), VERIFIED-IN-CODE (P3-3 census), WORKING-MODEL (Abakus register contract). Lab only; no production change. Owner: this session (plan `.claude/plans/d-dram-p3-integrated-v1.md`).
 
+**Provenance:** #1949 (D-DRAM-0) was authored by a GPT session. Its gates, stop conditions and its statement of the operator's intent are that session's proposal, not verified fact or operator text. This record uses them only where this session checked them against source (the P3-3 census) or measured them (P2, P3-1). The Abakus register model in §2 comes from the operator directly, not from #1949.
+
 ## 1. Findings (measured or verified)
 
 | # | Finding | Evidence | Grade |
@@ -42,7 +44,7 @@ Using findings 8–10 only:
 - No semantic meaning in register bits.
 - Presence is not carried by the counters. A lane never touched and a lane that summed to zero both read 0, so a consumer keeps its own presence plane.
 
-The A-family gates (A1, A2, A5–A7) of #1949 are the falsifiers of this model; P3-5 runs them on the two shipped words only.
+The A-family gates (A1, A2, A5–A7) proposed in #1949 are adopted here as the falsifiers of this model; P3-5 runs them on the two shipped words only.
 
 ## 3. High-signal items
 
@@ -70,4 +72,4 @@ The high-signal fruit has its own section in `.claude/board/IDEAS.md` ("k-of-n o
 
 ## 6. Stop conditions in force
 
-#1949 §7 stop conditions stay in force (listed in the plan §4); in particular no public Abacus type, no new opcode, and no 5×24 API claimed as shipped.
+The stop conditions proposed in #1949 §7 are adopted by this session after review (listed in the plan §4); in particular no public Abacus type, no new opcode, and no 5×24 API claimed as shipped.
