@@ -25,6 +25,7 @@ ndarray: the sibling checkout at `../ndarray` relative to the repo root
 | `REPORT-V3.md` | v3 results and the GO / NO-GO / NEEDS OWNER DECISION matrix | new |
 | `probe-v4/` | A: construction-time presence and pointer witnesses on production types; B: candidate-gated execution in one mask-risc program | new |
 | `REPORT-V4.md` | v4 results and the decision memo | new |
+| `DECISION-PACKET.md` | operator decision packet for EXO-140 / EXO-46; DRAFT / PROPOSED / NOT IN FORCE | new |
 
 The originals are copies of artifacts that existed in this session's scratchpad.
 Nothing in `original/` was reconstructed.
