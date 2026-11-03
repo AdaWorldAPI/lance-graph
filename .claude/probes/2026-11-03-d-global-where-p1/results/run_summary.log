@@ -1,0 +1,13 @@
+# Run summaries kept from the raw console logs (the per-case lines are in the JSON files).
+## where_k (wk1m.log)
+N=1000000: 353 FAILED-GATE values (warm >= 1000 us, reported), 0 mismatches
+WHERE-K ALL ANSWERS MATCH THE ORACLE
+## where_k (wk10m.log)
+N=10000000: 648 FAILED-GATE values (warm >= 1000 us, reported), 0 mismatches
+WHERE-K ALL ANSWERS MATCH THE ORACLE
+## project (proj1m.log)
+N=1000000: 23 FAILED-GATE values (warm >= 1000 us, reported), 0 failures
+PROJECT ALL ANSWERS MATCH THE ORACLE, ALL REFUSALS FIRED
+## project (proj10m.log)
+N=10000000: 41 FAILED-GATE values (warm >= 1000 us, reported), 0 failures
+PROJECT ALL ANSWERS MATCH THE ORACLE, ALL REFUSALS FIRED
