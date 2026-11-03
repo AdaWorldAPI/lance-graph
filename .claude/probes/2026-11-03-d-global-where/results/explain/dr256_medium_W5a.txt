@@ -1,0 +1,45 @@
+-- SELECT count(DISTINCT e.dst) FROM edges e JOIN nodes n ON n.id = e.src WHERE n.a < 50
+╭─ Summary ───────────╮
+│ Total Time: 0.0033s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ───────────────╮
+│ Aggregates: count_star()            │
+│ 1 row                           0µs │
+╰──────────────────┬──────────────────╯
+╭─ Projection ─────┴──────────────────╮
+│ Projections: 42                     │
+│ 109 rows                        0µs │
+╰──────────────────┬──────────────────╯
+╭─ Hash Group By ──┴──────────────────╮
+│ Groups: #0                          │
+│ 109 rows                        0µs │
+╰──────────────────┬──────────────────╯
+╭─ Projection ─────┴──────────────────╮
+│ Projections: dst                    │
+│ 136 rows                        0µs │
+╰──────────────────┬──────────────────╯
+╭─ Projection ─────┴──────────────────╮
+│ Projections: CAST(#1 AS USMALLINT)  │
+│ 136 rows                        0µs │
+╰──────────────────┬──────────────────╯
+╭─ Hash Join ──────┴──────────────────╮
+│ Join Type: INNER                    │
+│ Conditions: id = src                │
+│ 136 rows                        0µs │
+╰──────────────────┬──────────────────╯
+                   ├───────────────────────────────────┰┒
+╭─ Filter ─────────┴──────────────────╮  ╭─ Table Scan ┚┖────────────╮
+│ Expression: id BETWEEN 89 AND 65181 │  │ Table: memory.main.edges  │
+│ 17 rows                         0µs │  │ Type: Sequential Scan     │
+╰──────────────────┬──────────────────╯  │ Projections: src, dst     │
+╭─ Table Scan ─────┴──────────────────╮  │ Row Groups Scanned: 1 / 1 │
+│ Table: memory.main.nodes            │  │ 2,048 rows            0µs │
+│ Type: Sequential Scan               │  ╰───────────────────────────╯
+│ Projections: id                     │
+│ Filters: a < 50                     │
+│ Dynamic Filters:                    │
+│ optional: id IN PRF(src)            │
+│ Row Groups Scanned: 1 / 1           │
+│ 17 rows                         0µs │
+╰─────────────────────────────────────╯
+

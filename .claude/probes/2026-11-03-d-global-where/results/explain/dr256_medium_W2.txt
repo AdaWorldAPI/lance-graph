@@ -1,0 +1,39 @@
+-- SELECT count(*) FROM nodes n WHERE n.a < 50 AND EXISTS (SELECT 1 FROM edges e JOIN nodes m ON m.id = e.dst WHERE e.src = n.id AND m.b < 300)
+╭─ Summary ───────────╮
+│ Total Time: 0.0026s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ────────────────────╮
+│ Aggregates: count_star()                 │
+│ 1 row                                0µs │
+╰─────────────────────┬────────────────────╯
+╭─ Hash Join ─────────┴────────────────────╮
+│ Join Type: SEMI                          │
+│ Conditions: id = id                      │
+│ 17 rows                              0µs │
+╰─────────────────────┬────────────────────╯
+                      ├──────────────────────────────────────────╮
+╭─ Filter ────────────┴────────────────────╮  ╭─ Projection ─────┴──────────────────╮
+│ Expression: id BETWEEN 89 AND 65181      │  │ Projections: id                     │
+│ 17 rows                              0µs │  │ 610 rows                        0µs │
+╰─────────────────────┬────────────────────╯  ╰──────────────────┬──────────────────╯
+╭─ Table Scan ────────┴────────────────────╮  ╭─ Hash Join ──────┴──────────────────╮
+│ Table: memory.main.nodes                 │  │ Join Type: INNER                    │
+│ Type: Sequential Scan                    │  │ Conditions: id = dst                │
+│ Projections: id                          │  │ 610 rows                        0µs │
+│ Filters: a < 50                          │  ╰──────────────────┬──────────────────╯
+│ Dynamic Filters: optional: id IN PRF(id) │                     ├───────────────────────────────────┰┒
+│ Row Groups Scanned: 1 / 1                │  ╭─ Filter ─────────┴──────────────────╮  ╭─ Table Scan ┚┖────────────╮
+│ 17 rows                              0µs │  │ Expression: id BETWEEN 89 AND 65181 │  │ Table: memory.main.edges  │
+╰──────────────────────────────────────────╯  │ 77 rows                         0µs │  │ Type: Sequential Scan     │
+                                              ╰──────────────────┬──────────────────╯  │ Projections: dst, src     │
+                                              ╭─ Table Scan ─────┴──────────────────╮  │ Row Groups Scanned: 1 / 1 │
+                                              │ Table: memory.main.nodes            │  │ 2,048 rows            0µs │
+                                              │ Type: Sequential Scan               │  ╰───────────────────────────╯
+                                              │ Projections: id                     │
+                                              │ Filters: b < 300                    │
+                                              │ Dynamic Filters:                    │
+                                              │ optional: id IN PRF(dst)            │
+                                              │ Row Groups Scanned: 1 / 1           │
+                                              │ 77 rows                         0µs │
+                                              ╰─────────────────────────────────────╯
+

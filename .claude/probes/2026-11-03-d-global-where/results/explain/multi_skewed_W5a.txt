@@ -1,0 +1,43 @@
+-- SELECT count(DISTINCT e.dst) FROM edges e JOIN nodes n ON n.id = e.src WHERE n.a < 50
+╭─ Summary ───────────╮
+│ Total Time: 0.0048s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ──────────────╮
+│ Aggregates: count_star()           │
+│ 1 row                          0µs │
+╰──────────────────┬─────────────────╯
+╭─ Projection ─────┴─────────────────╮
+│ Projections: 42                    │
+│ 636 rows                       0µs │
+╰──────────────────┬─────────────────╯
+╭─ Hash Group By ──┴─────────────────╮
+│ Groups: #0                         │
+│ 636 rows                       0µs │
+╰──────────────────┰─────────────────╯
+╭─ Projection ─────┸─────────────────╮
+│ Projections: dst                   │
+│ 1,250 rows                     0µs │
+╰──────────────────┰─────────────────╯
+╭─ Projection ─────┸─────────────────╮
+│ Projections: CAST(#0 AS USMALLINT) │
+│ 1,250 rows                     0µs │
+╰──────────────────┰─────────────────╯
+╭─ Hash Join ──────┸─────────────────╮
+│ Join Type: INNER                   │
+│ Conditions: src = id               │
+│ 1,250 rows                     0µs │
+╰──────────────────┬─────────────────╯
+                   ┟───────────────────────────────────────┰┒
+╭─ Table Scan ─────┸─────────────────╮  ╭─ Filter ─────────┚┖─────────────────╮
+│ Table: memory.main.edges           │  │ Expression: id BETWEEN 20 AND 65510 │
+│ Type: Sequential Scan              │  │ 3,295 rows                      0µs │
+│ Projections: src, dst              │  ╰──────────────────┒┎─────────────────╯
+│ Dynamic Filters:                   │  ╭─ Table Scan ─────┚┖─────────────────╮
+│ optional: src IN PRF(id)           │  │ Table: memory.main.nodes            │
+│ Row Groups Scanned: 1 / 1          │  │ Type: Sequential Scan               │
+│ 1,250 rows                     0µs │  │ Projections: id                     │
+╰────────────────────────────────────╯  │ Filters: a < 50                     │
+                                        │ Row Groups Scanned: 1 / 1           │
+                                        │ 3,296 rows                      0µs │
+                                        ╰─────────────────────────────────────╯
+

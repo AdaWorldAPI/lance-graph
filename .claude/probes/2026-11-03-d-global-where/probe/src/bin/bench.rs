@@ -735,7 +735,7 @@ fn run_dataset(recs: &mut Vec<Rec>, d: &Data<'_>) -> bool {
             let cy = coord_of(&table, &frame, &r_tiles, tw, u64::from(dd)).expect("dst");
             plane.clear(cx, cy);
         }
-        let r = run_arm(meta, base, "W8", "after_delete", true, o.w8, cols_ab, &mut |w| {
+        let r = run_arm(meta, base, "W8_after", "after_delete", true, o.w8, cols_ab, &mut |w| {
             if w {
                 virtual_where(&tiles, tw, &lanes.a, A_LT, &mut sel_a);
                 virtual_where(&tiles, tw, &lanes.b, B_LT, &mut sel_b);

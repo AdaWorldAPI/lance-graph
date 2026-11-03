@@ -1,0 +1,16 @@
+-- SELECT count(*) FROM nodes WHERE a < 50
+╭─ Summary ───────────╮
+│ Total Time: 0.0008s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ─────╮
+│ Aggregates: count_star()  │
+│ 1 row                 0µs │
+╰─────────────┒┎────────────╯
+╭─ Table Scan ┚┖────────────╮
+│ Table: memory.main.nodes  │
+│ Type: Sequential Scan     │
+│ Filters: a < 50           │
+│ Row Groups Scanned: 1 / 1 │
+│ 3,296 rows            0µs │
+╰───────────────────────────╯
+
