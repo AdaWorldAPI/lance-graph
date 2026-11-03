@@ -1,0 +1,24 @@
+# D-DR-FOLD lab comparison: A (gated Arm L), B (amortized binding), C (vector×tile).
+# Lab only. Own [workspace]: the root workspace never builds it. mask-risc is
+# consumed unchanged; arm C calls ndarray::simd directly, outside mask-risc.
+[package]
+name = "d-dr-fold-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-dt64 = { path = "../../../../crates/lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../../../../crates/lance-graph-mask-risc" }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../../../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+
+[profile.release]
+debug = 0
+
+[workspace]
