@@ -1,6 +1,6 @@
 -- SELECT count(DISTINCT e3.dst) FROM nodes n JOIN edges e1 ON e1.src = n.id JOIN edges e2 ON e2.src = e1.dst JOIN edges e3 ON e3.src = e2.dst JOIN nodes m ON m.id = e3.dst WHERE n.a < 50 AND m.b < 300
 ╭─ Summary ───────────╮
-│ Total Time: 0.0845s │
+│ Total Time: 0.0601s │
 ╰─────────────────────╯
 ╭─ Ungrouped Aggregate ──────────────╮
 │ Aggregates: count_star()           │
@@ -12,7 +12,7 @@
 ╰──────────────────┬─────────────────╯
 ╭─ Hash Group By ──┴─────────────────╮
 │ Groups: #0                         │
-│ 1,164 rows                  30.0ms │
+│ 1,164 rows                  20.0ms │
 ╰──────────────────┒┎────────────────╯
 ╭─ Projection ─────┚┖────────────────╮
 │ Projections: dst                   │
@@ -25,13 +25,13 @@
 ╭─ Hash Join ──────┚┖────────────────╮
 │ Join Type: INNER                   │
 │ Conditions: src = dst              │
-│ 3,726,779 rows              30.0ms │
+│ 3,726,779 rows              20.0ms │
 ╰──────────────────┬─────────────────╯
                    ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 ╭─ Hash Join ──────┴─────────────────╮                                                                               ╭─ Hash Join ────┴───────────────╮
 │ Join Type: INNER                   │                                                                               │ Join Type: INNER               │
 │ Conditions: dst = src              │                                                                               │ Conditions: src = id           │
-│ 983,021 rows                10.0ms │                                                                               │ 1,250 rows                 0µs │
+│ 983,021 rows                   0µs │                                                                               │ 1,250 rows                 0µs │
 ╰──────────────────┬─────────────────╯                                                                               ╰────────────────┬───────────────╯
                    ├─────────────────────────────────────╮                                                                            ├─────────────────────────────────────╮
 ╭─ Table Scan ─────┴─────────────────╮  ╭─ Hash Join ────┴───────────────╮                                           ╭─ Table Scan ───┴───────────────╮  ╭─ Filter ─────────┴──────────────────╮

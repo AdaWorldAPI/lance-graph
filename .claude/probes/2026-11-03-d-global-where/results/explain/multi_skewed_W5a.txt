@@ -1,6 +1,6 @@
 -- SELECT count(DISTINCT e.dst) FROM edges e JOIN nodes n ON n.id = e.src WHERE n.a < 50
 ╭─ Summary ───────────╮
-│ Total Time: 0.0048s │
+│ Total Time: 0.0033s │
 ╰─────────────────────╯
 ╭─ Ungrouped Aggregate ──────────────╮
 │ Aggregates: count_star()           │

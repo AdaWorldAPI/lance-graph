@@ -2,7 +2,7 @@
 
 **Status:** MEASURED, lab only.
 - Falsifier `falsify`: 21/21 checks. Two guards were disabled to prove they carry weight: F4 and F6 both go red.
-- Benchmark against DuckDB 2.0.0: all 336 answer comparisons agree (168 of ours × threads 1 and 4).
+- Benchmark against DuckDB 2.0.0: all 360 answer comparisons agree: 168 of ours × threads 1 and 4, plus DuckDB's 12 W8 before-delete answers × 2 threads checked against ours W2. `compare.py` fails on any missing comparison.
 - No production change. dt64, Quack, mask-risc and ndarray are used unchanged. No Gather, no new identity table, no witness store, no per-object allocation.
 
 Machine: 4 vCPU Intel Xeon @ 2.10 GHz, rustc 1.99.0 release, DuckDB 2.0.0 (Python).
@@ -73,7 +73,7 @@ Fixture:
 ## 3. DuckDB parity gate
 
 **Gate:** parity or better on clearly identified workloads with exact semantic equivalence; every losing workload is recorded with its cause.
-- Answers: 336/336 agree.
+- Answers: 360/360 agree (336 + 24 W8 before-delete checks against ours W2; coverage enforced in both directions).
 - DuckDB runs with its normal optimizer at threads 1 and 4, PREPARE/EXECUTE, 201 warm runs. The Python call floor (median 179 µs, `PREPARE f AS SELECT 1`) is subtracted.
 - Ours is single-threaded; "warm" includes the WHERE evaluation and the fold.
 
@@ -96,10 +96,12 @@ Rows where DuckDB's own engine time is far above its fixed cost. Warm, µs, Duck
 | dataset | workload | ours (best arm) | DuckDB t=1 | DuckDB t=4 | DuckDB intermediate |
 |---|---|---|---|---|---|
 | multi_dense (503,921 edges) | W4 3-hop distinct | 130.7 (`front`) | 1,500,724 | 418,289 | — |
-| multi_skewed (32,648 edges) | W4 3-hop distinct | 89.2 (`front`) | 57,066 | 56,569 | 3,726,779 join rows for a 1,164 answer (`explain/multi_skewed_W4.txt`) |
+| multi_skewed (32,648 edges) | W4 3-hop distinct | 89.2 (`front`) | 53,681 | 56,569 | 3,726,779 join rows for a 1,164 answer (`explain/multi_skewed_W4.txt`) |
 | multi_dense | W3 2-hop EXISTS | 7.7 (`csr`) | 29,097 | 17,989 | — |
 | multi_dense | W6 bag 2-paths (3,382,676) | 119.3 | 22,726 | 11,379 | — |
-| multi_skewed | W3 | 7.6 (`csr`) | 6,767 | 6,391 | — |
+| multi_skewed | W3 | 7.6 (`csr`) | 5,515 | 6,391 | — |
+
+> **Correction (review, 2026-11-03).** In the first run, `EXPLAIN ANALYZE` executed each query on the measuring connection *before* the cold measurement for `dr256_medium` and `multi_skewed` at t=1, so those 20 cold figures were taken on a warmed query. `bench_duckdb.py` now collects plans after measurement on a separate connection; those 20 records were re-measured and spliced into `duckdb.json` (answers identical). No cold verdict changed; one warm wall verdict moved (multi_skewed W7i `route_each`, WIN → PARITY). The two t=1 figures above are from the re-run. `compare.py` now also fails on any missing comparison in either direction, and checks DuckDB's W8 (W2 before the DELETE) against ours W2.
 
 Here the frontier masks never materialize the join, while DuckDB builds and aggregates the intermediate. This is the intended win: work the query never needed.
 
