@@ -1,0 +1,27 @@
+# D-XLOG-META-WIRE P0 falsifier: where does M1's result stop on its way to M2?
+# Lab only. Own [workspace]; the root workspace never builds it. Consumes
+# dt64, r2il and mask-risc unchanged.
+[package]
+name = "d-xlog-meta-wire-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+lance-graph-dt64 = { path = "../../../../crates/lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../../../../crates/lance-graph-mask-risc" }
+lance-graph-r2il = { path = "../../../../crates/lance-graph-r2il" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../../../ndarray" }
+
+[profile.release]
+debug = 0
+
+[workspace]
