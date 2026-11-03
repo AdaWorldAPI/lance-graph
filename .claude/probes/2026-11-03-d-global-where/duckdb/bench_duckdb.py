@@ -26,7 +26,8 @@ workloads):
   5. floor_us = median of RUNS `EXECUTE f` for `PREPARE f AS SELECT 1`
      (python call + fetch overhead, measured on the same connection).
   6. mem_bytes = sum(memory_usage_bytes) FROM duckdb_memory() after the workload.
-  7. T=1 only, datasets dr256_medium and multi_skewed: `EXPLAIN ANALYZE <sql>`
+  7. T=1 only, datasets dr256_medium and multi_skewed, after the measurement:
+     `EXPLAIN ANALYZE <sql>`
      text goes to $OUT/explain/<dataset>_<workload>.txt.
   8. W8: warm W2, time `DELETE FROM edges WHERE (src, dst) IN (SELECT src, dst
      FROM del)` (update_us), warm W2 again. Record "W8" (before delete, with
@@ -187,13 +188,21 @@ def run_one(out, ds, T, wl, runs, tmpdir):
     records = []
     if wl != "W8":
         sql = SQL[wl]
+        vals = measure(con, sql, runs, tmpdir)
+        fl = floor_us(con, runs)
+        # Plan collection runs AFTER the cold and warm measurement, on its own
+        # fresh connection: EXPLAIN ANALYZE's execution cannot pre-warm the
+        # cold figure, and the engine-time profiling mode set on `con` cannot
+        # turn the plan text into JSON.
         if T == 1 and ds in EXPLAIN_DATASETS:
-            txt = con.execute(f"EXPLAIN ANALYZE {sql}").fetchall()[0][1]
+            econ = duckdb.connect(":memory:")
+            econ.execute(f"SET threads={T}")
+            load(econ, out, ds)
+            txt = econ.execute(f"EXPLAIN ANALYZE {sql}").fetchall()[0][1]
+            econ.close()
             os.makedirs(os.path.join(out, "explain"), exist_ok=True)
             with open(os.path.join(out, "explain", f"{ds}_{wl}.txt"), "w") as f:
                 f.write(f"-- {sql}\n{txt}\n")
-        vals = measure(con, sql, runs, tmpdir)
-        fl = floor_us(con, runs)
         records.append(rec(ds, T, wl, vals, fl, None, mem_bytes(con), load_us))
     else:
         sql = SQL["W2"]
