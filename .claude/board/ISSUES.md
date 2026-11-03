@@ -1,3 +1,14 @@
+## ISS-MULTIHOP-PRESENCE-ARM-UNRULED — projection or lens for multi-hop existence? (2026-11-03)
+
+**Status:** OPEN (operator decision). **Basis:** MEASURED (`.claude/probes/2026-11-03-d-bag-fold/`, `entries/2026-11-03-d-bag-fold-witnessed-existential.md`).
+**Fruit:** High-signal
+
+- `∃d R∧S∧T` evaluates in one Program from resident presence in two arms; both match an oracle on 8 cases.
+- Arm P (ADMISSION B prepared projection) is gather-free but copies presence bits; the later zero-copy law admits only `$i`.
+- Arm L (`$i` + `Filter::Semijoin` over the table's own planes) is zero-copy but executes `MaskOp::Gather`, which waits on call-site classification (EXO-140).
+- Both depend on two unenforced invariants: plane order (`ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`) and presence version (no contract witness).
+- **What closes it:** the ruling on P vs L, then a witness naming the aligned planes; the probe's unchecked arms (cases 5, 8) must become refusals.
+
 ## ISS-SOURCE-ROOT-AGENT-OR-REPORT — is a source root the observer or one report? (2026-10-31)
 
 **Status:** OPEN (operator decision). **Basis:** VERIFIED-IN-CODE (`crates/xlog-relcomp-probe/tests/provenance.rs` `root()` hashes the observer and the report's facts; `unrelated_sources_never_collapse_to_one_root` pins that one observer with two different reports gives two roots).

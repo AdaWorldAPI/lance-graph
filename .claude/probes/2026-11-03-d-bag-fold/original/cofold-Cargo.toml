@@ -1,0 +1,17 @@
+[package]
+name = "cofold-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-quack = { path = "/home/user/lance-graph/crates/lance-graph-quack" }
+lance-graph-mask-risc = { path = "/home/user/lance-graph/crates/lance-graph-mask-risc" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "/home/user/adaworldapi/ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "/home/user/lance-graph/crates/lance-graph-contract" }
+
+[workspace]
