@@ -22,6 +22,9 @@
 //!   them goes through an admission check like this one; this probe does not
 //!   change that.
 //!
+//! Retraction (F4) is closed by `pearl::retract`, the lowering counterpart of
+//! `pearl::revise`.
+//!
 //! The "Derived never above Related" line is the pre-registered F5 bar
 //! (`a10-finding.md`): Supports is earned by an observational fold, and a
 //! formally valid derivation is neither observation nor causal evidence.
@@ -457,7 +460,7 @@ fn f2_two_givens_from_different_sources_stay_independent() {
 // ── F4: retraction ───────────────────────────────────────────────────
 
 #[test]
-fn f4_withdrawn_sources_block_new_certification_but_nothing_lowers_the_old() {
+fn f4_withdrawn_sources_block_new_certification_and_retract_lowers_the_old() {
     let d = declarations();
     let mut model = observational().build();
     let so = edge(
@@ -494,21 +497,19 @@ fn f4_withdrawn_sources_block_new_certification_but_nothing_lowers_the_old() {
         ),
         Err(Refusal::Ungrounded)
     );
-    // The gap: the code written before the withdrawal stands. No production
-    // writer lowers a certification when its support is withdrawn.
-    assert_eq!(
-        admit(
-            before,
-            &Admission::Measured {
-                edge: before,
-                evidence: &evidence(&model)
-            },
-            0,
-            &d
-        ),
-        Err(Refusal::Ungrounded)
-    );
-    assert_ne!(state(before).certification(), Certification3::Open);
+    // The code written before the withdrawal no longer stands: re-measuring
+    // with the edge's own operator and `pearl::retract` lowers it to Open.
+    let ev = evidence(&model);
+    let m = pearl::reason(before, &ev, Edit::None);
+    let reading = Reading {
+        declarations: &d,
+        class: CLASS,
+        rail: RAIL,
+        provenance: EdgeProvenance::V2Stamped,
+    };
+    let after = pearl::retract(&m, reading).expect("declared");
+    assert_eq!(state(after).certification(), Certification3::Open);
+    assert_eq!(state(after).topology(), state(before).topology());
 }
 
 /// F4 silent twin: withdrawing a source the ledger never held changes

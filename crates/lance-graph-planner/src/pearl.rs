@@ -425,6 +425,40 @@ pub fn revise(m: &Measured, reading: Reading<'_>) -> Result<CausalEdge64, Epi5Re
     Ok(stamp(edge, state.with_certification(next)))
 }
 
+/// Re-check a written certification against the evidence that is left,
+/// for example after a source was withdrawn from the ledger. The counterpart
+/// of [`revise`]: certification falls to what the operator still earns, and
+/// to `Open` when the remaining evidence no longer grounds the fold or the
+/// fold is refuted. Nothing is ever raised, and nothing else moves.
+///
+/// Only the measuring operators re-justify. `SPO` and `SP` earn nothing, and a
+/// projection with no operator measures nothing, so for them the edge is
+/// returned unchanged. The measurement must come from the edge's own
+/// operator; `reason` guarantees that, since it reads the edge's projection.
+///
+/// # Errors
+///
+/// The edge's bits 59..63 do not project under `reading`.
+pub fn retract(m: &Measured, reading: Reading<'_>) -> Result<CausalEdge64, Epi5ReadError> {
+    let edge = m.edge;
+    let state = reading.project(edge)?;
+    let current = state.certification();
+    let still = match m.operation {
+        Operation::Association | Operation::Intervention => {
+            m.earned.unwrap_or(Certification3::Open)
+        }
+        Operation::Counterfactual | Operation::ConfounderCheck | Operation::NoOperator(_) => {
+            return Ok(edge);
+        }
+    };
+    let next = if still != current && current.entails(still) {
+        still
+    } else {
+        current
+    };
+    Ok(stamp(edge, state.with_certification(next)))
+}
+
 /// What a candidate intermediate B turned out to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hydration {
@@ -686,6 +720,93 @@ mod tests {
                 b: a_and_b | b_only,
             },
         )
+    }
+
+    /// Fails if a withdrawn source leaves its certification standing: after
+    /// one of the two observational sources is withdrawn the fold no longer
+    /// grounds, and `retract` lowers the edge to `Open`.
+    #[test]
+    fn retract_lowers_a_certification_whose_support_was_withdrawn() {
+        let d = declarations();
+        let mut model = related_population().build();
+        let e = query(
+            CausalMask::SO,
+            Certification3::Open,
+            Topology2::IndirectKnown,
+        );
+        let ev = Evidence {
+            model: &model,
+            chain: None,
+        };
+        let written = revise(&reason(e, &ev, Edit::None), reading(&d)).unwrap();
+        assert_eq!(state(written).1, Certification3::Related);
+
+        model
+            .ledger
+            .withdraw_source(lance_graph_contract::causal_audit::EvidenceSourceId(1));
+        let ev = Evidence {
+            model: &model,
+            chain: None,
+        };
+        let m = reason(written, &ev, Edit::None);
+        assert!(m.ungrounded().is_some());
+        let after = retract(&m, reading(&d)).unwrap();
+        assert_eq!(
+            state(after),
+            (Topology2::IndirectKnown, Certification3::Open)
+        );
+        assert_eq!(after.0 & !EPISTEMIC_MASK, written.0 & !EPISTEMIC_MASK);
+    }
+
+    /// The silence twin: with the evidence intact, or with only an unrelated
+    /// source withdrawn, `retract` changes nothing; and it never raises.
+    #[test]
+    fn retract_never_raises_and_ignores_unrelated_withdrawals() {
+        let d = declarations();
+        let mut model = related_population().build();
+        let e = query(
+            CausalMask::SO,
+            Certification3::Related,
+            Topology2::IndirectKnown,
+        );
+        model
+            .ledger
+            .withdraw_source(lance_graph_contract::causal_audit::EvidenceSourceId(99));
+        let ev = Evidence {
+            model: &model,
+            chain: None,
+        };
+        assert_eq!(
+            retract(&reason(e, &ev, Edit::None), reading(&d)).unwrap(),
+            e
+        );
+
+        // Earned is stronger than the written code: no raise.
+        let low = query(
+            CausalMask::SO,
+            Certification3::Associated,
+            Topology2::IndirectKnown,
+        );
+        assert_eq!(
+            retract(&reason(low, &ev, Edit::None), reading(&d)).unwrap(),
+            low
+        );
+
+        // An operator that earns nothing leaves the edge alone.
+        let spo = query(
+            CausalMask::SPO,
+            Certification3::Causes,
+            Topology2::IndirectKnown,
+        );
+        let empty = ModelBuilder::new().build();
+        let ev = Evidence {
+            model: &empty,
+            chain: None,
+        };
+        assert_eq!(
+            retract(&reason(spo, &ev, Edit::CutStep(0)), reading(&d)).unwrap(),
+            spo
+        );
     }
 
     /// The CUI BONO script: the edge leaves with a different state only where
