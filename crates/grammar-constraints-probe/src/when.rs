@@ -43,7 +43,9 @@ use lance_graph_mask_risc::{
 };
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, ForeignLane, LowerError, Mask, Query};
 
-use crate::{Population, Refusal as PopRefusal, Tok, Vocab, CASE, DEPREL, HEAD, LEMMA, TILE, WIDTH};
+use crate::{
+    Population, Refusal as PopRefusal, Tok, Vocab, CASE, DEPREL, HEAD, LEMMA, TILE, WIDTH,
+};
 
 /// Field position (and lane) of the head's frame code, co-addressed.
 pub const HEAD_FRAME: u16 = 4;
@@ -338,7 +340,10 @@ pub enum ComposeRefusal {
 pub enum RunRefusal {
     Frame(PopRefusal),
     /// The population was produced under another lexicon revision.
-    LexiconRevision { bound: u64, population: u64 },
+    LexiconRevision {
+        bound: u64,
+        population: u64,
+    },
     /// The WHERE plane is not over this population.
     WhereShape,
 }

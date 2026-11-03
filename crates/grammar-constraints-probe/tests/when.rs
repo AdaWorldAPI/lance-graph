@@ -6,7 +6,9 @@ use std::cell::Cell;
 
 use grammar_constraints_probe::fixtures::{self, Gold, A, B, C, GOLD};
 use grammar_constraints_probe::when::*;
-use grammar_constraints_probe::{has, tile, Ids, Operands, Refusal as PopRefusal, Rules, Tok, Vocab, TILE};
+use grammar_constraints_probe::{
+    has, tile, Ids, Operands, Refusal as PopRefusal, Rules, Tok, Vocab, TILE,
+};
 use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_dt64::dr::{Frame, MapRead, MapRefusal, MapTable};
 use lance_graph_dt64::{
@@ -46,7 +48,15 @@ fn world_with(toks: &[Tok], lex: Lexicon) -> W {
     let mut store = BindStore::new();
     let rules = [RuleDesc::recipient(), RuleDesc::experiencer()];
     register(&mut store, CLASS_VIA, Physical::Via, &rules, &v, &lex).unwrap();
-    register(&mut store, CLASS_COADDR, Physical::CoAddressed, &rules, &v, &lex).unwrap();
+    register(
+        &mut store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        &rules,
+        &v,
+        &lex,
+    )
+    .unwrap();
     W {
         v,
         table,
@@ -183,7 +193,8 @@ fn unknown_stays_unknown_and_ambiguity_is_kept() {
     assert_eq!(w.pop.head_frame[usize::from(local(&w, 505))], FRAME_NONE);
     let mut v = Vocab::new();
     let ids = Ids::bind(&mut v);
-    let pop = grammar_constraints_probe::Population::bind(&corpus, &mut v, &w.table, &w.frame).unwrap();
+    let pop =
+        grammar_constraints_probe::Population::bind(&corpus, &mut v, &w.table, &w.frame).unwrap();
     let mut rules = Rules::prepare(&ids, Operands::ALL);
     let r = rules.run(&pop, &w.table, &w.frame).unwrap();
     assert!(has(&r.abstain_frame, local(&w, 505)));
@@ -201,7 +212,10 @@ fn candidates_are_read_only() {
     for p in BOTH {
         for d in [RuleDesc::recipient(), RuleDesc::experiencer()] {
             let b = w.store.admit(&mref(&w, class_of(p), &d, p)).unwrap();
-            assert!(b.effects.is_empty() && b.writes() == lance_graph_contract::class_view::WideFieldMask::EMPTY);
+            assert!(
+                b.effects.is_empty()
+                    && b.writes() == lance_graph_contract::class_view::WideFieldMask::EMPTY
+            );
         }
     }
     // A method with an effect is refused by the composer.
@@ -212,13 +226,26 @@ fn candidates_are_read_only() {
     let mut b = RuleDesc::recipient().binding(Physical::CoAddressed, &w.v, &w.lex);
     b.effects = vec![Effect {
         target: 4,
-        algebra: AlgebraRef { lens: 0x7F30_0000, word: 0 },
+        algebra: AlgebraRef {
+            lens: 0x7F30_0000,
+            word: 0,
+        },
         args: vec![Arg::Field(1)],
     }];
-    store.register(CLASS_COADDR, schema(), vec![b.clone()]).unwrap();
+    store
+        .register(CLASS_COADDR, schema(), vec![b.clone()])
+        .unwrap();
     let r = MethodRef::of(CLASS_COADDR, &b);
     assert_eq!(
-        compose(&store, &r, &RuleDesc::recipient(), Physical::CoAddressed, &w.v, &w.lex).err(),
+        compose(
+            &store,
+            &r,
+            &RuleDesc::recipient(),
+            Physical::CoAddressed,
+            &w.v,
+            &w.lex
+        )
+        .err(),
         Some(ComposeRefusal::NotReadOnly)
     );
 }
@@ -246,13 +273,29 @@ fn n01_remove_head_frame() {
     let mut d = RuleDesc::recipient();
     d.frame = None;
     let mut store = BindStore::new();
-    register(&mut store, CLASS_COADDR, Physical::CoAddressed, std::slice::from_ref(&d), &w.v, &w.lex).unwrap();
-    let r = MethodRef::of(CLASS_COADDR, &d.binding(Physical::CoAddressed, &w.v, &w.lex));
+    register(
+        &mut store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        std::slice::from_ref(&d),
+        &w.v,
+        &w.lex,
+    )
+    .unwrap();
+    let r = MethodRef::of(
+        CLASS_COADDR,
+        &d.binding(Physical::CoAddressed, &w.v, &w.lex),
+    );
     let mut c = compose(&store, &r, &d, Physical::CoAddressed, &w.v, &w.lex).unwrap();
     let m = c.run(&w.pop, &w.table, &w.frame, &all_plane(&w)).unwrap();
     assert_eq!(gids_of(&w, &m), vec![105, 302, 405, 505]);
     // and the stripped description no longer matches the bound guard
-    let bound = mref(&w, CLASS_COADDR, &RuleDesc::recipient(), Physical::CoAddressed);
+    let bound = mref(
+        &w,
+        CLASS_COADDR,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
     assert_eq!(
         compose(&w.store, &bound, &d, Physical::CoAddressed, &w.v, &w.lex).err(),
         Some(ComposeRefusal::DescriptionMismatch)
@@ -271,18 +314,58 @@ fn n02_swap_frames() {
     let swapped = Lexicon::swapped();
     let bound = mref(&w, CLASS_VIA, &RuleDesc::recipient(), Physical::Via);
     assert_eq!(
-        compose(&w.store, &bound, &RuleDesc::recipient(), Physical::Via, &w.v, &swapped).err(),
+        compose(
+            &w.store,
+            &bound,
+            &RuleDesc::recipient(),
+            Physical::Via,
+            &w.v,
+            &swapped
+        )
+        .err(),
         Some(ComposeRefusal::DescriptionMismatch)
     );
     let ws = world_with(&corpus, swapped);
-    let r = mref(&w, CLASS_COADDR, &RuleDesc::recipient(), Physical::CoAddressed);
-    let mut c = compose(&w.store, &r, &RuleDesc::recipient(), Physical::CoAddressed, &w.v, &w.lex).unwrap();
+    let r = mref(
+        &w,
+        CLASS_COADDR,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
+    let mut c = compose(
+        &w.store,
+        &r,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+        &w.v,
+        &w.lex,
+    )
+    .unwrap();
     assert_eq!(
         c.run(&ws.pop, &ws.table, &ws.frame, &all_plane(&ws)).err(),
-        Some(RunRefusal::LexiconRevision { bound: 1, population: 2 })
+        Some(RunRefusal::LexiconRevision {
+            bound: 1,
+            population: 2
+        })
     );
-    assert_eq!(answer(&ws, &RuleDesc::experiencer(), Physical::CoAddressed, &all_plane(&ws)), vec![105, 405]);
-    assert_eq!(answer(&ws, &RuleDesc::recipient(), Physical::CoAddressed, &all_plane(&ws)), vec![302]);
+    assert_eq!(
+        answer(
+            &ws,
+            &RuleDesc::experiencer(),
+            Physical::CoAddressed,
+            &all_plane(&ws)
+        ),
+        vec![105, 405]
+    );
+    assert_eq!(
+        answer(
+            &ws,
+            &RuleDesc::recipient(),
+            Physical::CoAddressed,
+            &all_plane(&ws)
+        ),
+        vec![302]
+    );
 }
 
 /// 3. Dative → accusative on Kind (A). PREDICTED: no candidate for 105.
@@ -307,7 +390,10 @@ fn n04_reversed_dependency() {
     a[4].deprel = "root";
     let w = world(&a);
     for p in BOTH {
-        assert!(answer(&w, &RuleDesc::recipient(), p, &all_plane(&w)).is_empty(), "{p:?}");
+        assert!(
+            answer(&w, &RuleDesc::recipient(), p, &all_plane(&w)).is_empty(),
+            "{p:?}"
+        );
     }
 }
 
@@ -327,8 +413,21 @@ fn n05_missing_head() {
 fn n06_foreign_frame() {
     let w = world(&A);
     let (_t, foreign) = tile(9, &fixtures::gids(&A));
-    let r = mref(&w, CLASS_COADDR, &RuleDesc::recipient(), Physical::CoAddressed);
-    let mut c = compose(&w.store, &r, &RuleDesc::recipient(), Physical::CoAddressed, &w.v, &w.lex).unwrap();
+    let r = mref(
+        &w,
+        CLASS_COADDR,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
+    let mut c = compose(
+        &w.store,
+        &r,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+        &w.v,
+        &w.lex,
+    )
+    .unwrap();
     assert!(matches!(
         c.run(&w.pop, &w.table, &foreign, &all_plane(&w)),
         Err(RunRefusal::Frame(PopRefusal::Read(MapRead::Stale(_))))
@@ -339,10 +438,25 @@ fn n06_foreign_frame() {
 #[test]
 fn n07_foreign_class() {
     let w = world(&A);
-    let r = mref(&w, CLASS_FOREIGN, &RuleDesc::recipient(), Physical::CoAddressed);
+    let r = mref(
+        &w,
+        CLASS_FOREIGN,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
     assert_eq!(
-        compose(&w.store, &r, &RuleDesc::recipient(), Physical::CoAddressed, &w.v, &w.lex).err(),
-        Some(ComposeRefusal::Binding(Refusal::UnknownClass(CLASS_FOREIGN)))
+        compose(
+            &w.store,
+            &r,
+            &RuleDesc::recipient(),
+            Physical::CoAddressed,
+            &w.v,
+            &w.lex
+        )
+        .err(),
+        Some(ComposeRefusal::Binding(Refusal::UnknownClass(
+            CLASS_FOREIGN
+        )))
     );
 }
 
@@ -355,16 +469,35 @@ fn n08_remove_operand() {
     let w = world(&corpus);
     let mut d = RuleDesc::recipient();
     d.deprel = None;
-    let bound = mref(&w, CLASS_COADDR, &RuleDesc::recipient(), Physical::CoAddressed);
+    let bound = mref(
+        &w,
+        CLASS_COADDR,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
     assert_eq!(
         compose(&w.store, &bound, &d, Physical::CoAddressed, &w.v, &w.lex).err(),
         Some(ComposeRefusal::DescriptionMismatch)
     );
     let mut store = BindStore::new();
-    register(&mut store, CLASS_COADDR, Physical::CoAddressed, std::slice::from_ref(&d), &w.v, &w.lex).unwrap();
-    let r = MethodRef::of(CLASS_COADDR, &d.binding(Physical::CoAddressed, &w.v, &w.lex));
+    register(
+        &mut store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        std::slice::from_ref(&d),
+        &w.v,
+        &w.lex,
+    )
+    .unwrap();
+    let r = MethodRef::of(
+        CLASS_COADDR,
+        &d.binding(Physical::CoAddressed, &w.v, &w.lex),
+    );
     let mut c = compose(&store, &r, &d, Physical::CoAddressed, &w.v, &w.lex).unwrap();
-    let got = gids_of(&w, &c.run(&w.pop, &w.table, &w.frame, &all_plane(&w)).unwrap());
+    let got = gids_of(
+        &w,
+        &c.run(&w.pop, &w.table, &w.frame, &all_plane(&w)).unwrap(),
+    );
     assert!(got.contains(&408), "{got:?}");
 }
 
