@@ -187,9 +187,50 @@ What this shows:
    500k. It is FAILED-GATE on every cell ≥ 10k ids. It is linear in the
    number of ids because each id is sought separately.
 
-### 10M
+### 10M results (median of 3 warm runs, µs)
 
-Rows are appended when the 10M run finishes.
+Every oracle and refusal check passes. Attest is COLD: 809,110 µs, once per
+version. Full table: `results/lance_arm/n10000000/lance_arm.log`.
+
+| layout | sel | k | arm | rows scanned | bytes (% of A) | mask bytes | route | ingress | Lance read |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|
+| clustered | 0.1% | 1 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 134,060 |
+| clustered | 0.1% | 1 | C-exact | 10,000 | 0.04% | 27 | 684 | 1.5 | 1,176 |
+| clustered | 10% | 4 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 280,049 |
+| clustered | 10% | 4 | C-exact | 1,000,000 | 6.4% | 242 | 72,326 | 13.8 | 16,447 |
+| clustered | 10% | 4 | C-default | 10,000,000 | 64.3% | 0 | 71,816 | 0.1 | 338,248 |
+| scattered | 0.1% | 1 | C-exact | 9,858 | 33.3% | 20,960 | 4,951 | 1,171 | 9,961 |
+| scattered | 0.1% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 916,108 |
+| scattered | 0.1% | 16 | C-exact | 9,858 | 100% | 20,960 | 4,913 | 1,187 | 131,632 |
+| scattered | 10% | 4 | C-exact | 1,001,669 | 80.0% | 1,317,366 | 103,407 | 119,960 | 833,890 |
+| scattered | 10% | 16 | C-exact | 1,001,669 | 100% | 1,317,366 | 98,604 | 115,464 | 2,789,112 |
+| scattered | 50% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 964,874 |
+| scattered | 50% | 16 | C-exact | 5,006,105 | 100% | 4,776,680 | 433,248 | 267,905 | 10,648,075 |
+
+The 1M pattern holds at 10M, and grows:
+
+- A clustered 0.1% read is 114× faster than the full scan.
+- The worst scattered read (50%, k=16) is 11× slower than the full scan.
+- Even a 0.1% scattered selection at k=16 reads 100% of the bytes, yet it
+  still beats the full scan 7× on time, because it decodes 9,858 rows
+  instead of 10M.
+- Ingress for 3.26M ranges is a 4.8 MB tree and 267,905 µs.
+
+**New: `ReadPolicy::DEFAULT` misroutes clustered demand.** `plan_read`
+(`addressed.rs:212-232`) decides on covered rows alone (`covered*1000 >=
+n*full_permille`, 10%). It never looks at how many ranges there are, and its
+own doc says "Clustered demand … is not measured". A single contiguous 10%
+range is therefore sent to a full scan:
+
+| N | C-default | C-exact | penalty |
+|---|---:|---:|---:|
+| 1M | 37,322 µs | 9,705 µs | 3.8× |
+| 10M | 446,557 µs | 91,116 µs | 4.9× |
+
+The scattered cells, where the fallback is right, have tens of thousands to
+millions of ranges. Range count, not coverage, separates the two. This is
+recorded as a probe item and the policy is not changed. It belongs to the
+#1633 owner.
 
 A defect found on the way. Lance 13 compares the file row limit as
 `params.max_rows_per_file as u32` (`lance-13.0.0/src/dataset/write.rs:1077`).
@@ -342,7 +383,8 @@ owner → PR.
 2. `ReadPolicy` cost choice.
    - Path: `plan_read` → `Read::Full` on scattered 10–50%.
    - Test: C-default cells.
-   - Cost: avoids the 2.7–10× scattered-read loss.
+   - Cost: avoids the 2.7–11× scattered-read loss. On clustered demand it
+     picks wrongly; see item 7.
    - Owner: lab #1633.
 
 **WIRE NOW** (lab only, done here)
@@ -371,9 +413,15 @@ owner → PR.
    - Cost: 158,198 → 1,012 µs per query at Q=256.
    - Owner: DRF / D-GLOBAL-WHERE.
 
+7. `ReadPolicy` decides on coverage only.
+   - Path: `plan_read` → also weigh the range count → C-default.
+   - Test: the clustered 10% cells.
+   - Cost: today 3.8× (1M) and 4.9× (10M) slower than the exact read.
+   - Owner: lab #1633. Not changed here.
+
 **OWNER DECISION**
 
-7. One version-checked DR → `_rowid` authority, plus bulk ingress.
+8. One version-checked DR → `_rowid` authority, plus bulk ingress.
    - Path: dt64 `Frame` → ONE witness (DR route version + Lance `ds.version()` + uri) → `RowAddrTreeMap`.
    - Test: the C arm, with ids from DR instead of given.
    - Cost: ingress 2–19,380 µs, measured.
@@ -381,19 +429,18 @@ owner → PR.
 
 **PARK**
 
-8. Scattered selective reads on a row-major page layout.
+9. Scattered selective reads on a row-major page layout.
    - Physical limit: bytes follow page locality, not selectivity.
    - Not a code change.
    - Revisit with a clustered layout or a different page size.
 
 **SKIP**
 
-9. A new mask store, trie, hash table or paging engine. Nothing measured here
+10. A new mask store, trie, hash table or paging engine. Nothing measured here
    needs one.
 
 ## Not verified
 
-- 10M Lance rows: pending at the time of writing; see §3.
 - The cause of the 50% slowdown on the borrowed path (C3).
 - Disk reads: every Lance byte count came from the page cache.
 - DuckDB internals: the source is not on disk (see `ENGINEERING-PARITY.md`).
