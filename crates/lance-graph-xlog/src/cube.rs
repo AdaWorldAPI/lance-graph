@@ -1,5 +1,5 @@
 //! The resident hypercube: one execution context for every relation, and
-//! views into it (plan `d-xlog-native-v1.md` Amendment F).
+//! views into it (D-XLOG-NATIVE-7, PR #1911; board entry `2026-11-01-xlog-resident-hypercube-context.md`).
 //!
 //! [`support`](crate::support) and [`bag_count`](crate::bag_count) build their
 //! lanes per call, oriented for one join. A [`Cube`] builds them once, for

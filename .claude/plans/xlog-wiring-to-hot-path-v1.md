@@ -41,7 +41,7 @@ Each row gives the gap, where it is lost, the smallest wiring step, its falsifie
 **W6. Semi-naive recursion has several owners.**
 - Where:
   - XLOG runtime: `Executor::execute_recursive_scc` (`xlog-runtime/src/executor/recursive.rs:445`), CUDA (`diff_gpu`, `union_gpu`, `union_many_gpu`).
-  - `lance-graph-xlog`, mask-native and CPU: `Cube::closure` (`cube.rs:669`, ≤ 64 positions, `FixpointBound` cap) and `wide::closure_wide` / `wide::refresh` (`wide.rs:395`, `:560`, block presence, retire-aware). Both cover `edge⁺` of one binary relation only.
+  - `lance-graph-xlog`, mask-native and CPU: `Cube::closure` (`cube.rs:669`, ≤ 64 positions, `FixpointBound` cap) and `wide::closure_wide` / `wide::refresh` (`wide.rs:395`, `:560`, block presence, retire-aware). Both cover `edge⁺` of one binary relation only. They are not equivalent to `xlog-cube`'s recursive SCC evaluation, which runs on host-owned rows (next item).
   - `xlog-cube` (fork): general recursive SCCs with its own host loop over owned rows, `BTreeSet<Vec<u32>>` with a `contains` filter and no cap (`xlog-cube/src/lib.rs:474–500`). D-STAUNEN-5 already names this shortcut.
   - The relcomp gate and others (archaeology §1).
 - Wiring step: `lance-graph-xlog` owns the delta. The general SCC round becomes `delta' = new andnot full` on cube masks, generalizing `closure` beyond `edge⁺`. The other copies are compared by folds, then removed.
@@ -82,9 +82,9 @@ Then B3. Fork changes follow the fork's own rules: an atomic commit, a push, and
 
 The route is already decided: `d-xlog-native-v1.md` Amendment E (#1910, operator 2026-11-01). XLOG's RIR kinds are assimilated into our algebra in `lance-graph-xlog`; XLOG's caller API (`pyxlog`, `xlog-cli`, `xlog-integration`) is polyfilled back onto it; the fork depends on `lance-graph-xlog`, never the reverse; XLOG's runtime and its `CudaBuffer` plumbing are not ported. Tiers, in order: (1) assimilate into `lance-graph-xlog`; (2) polyfill or migrate the callers; (3) only for a kernel with no algebra counterpart, port it from CUDA to CubeCL over ndarray. "Replace CUDA" (operator, 2026-11-03) is executed through these tiers, not by a DR³ backing under `CudaKernelProvider`.
 
-The reactor swap is `d-xlog-native-v1.md` Amendment F: the interface callers see (`Executor`, `CudaKernelProvider`, `CudaBuffer`) stays, and the resident cube is the machine underneath. The reactor is built; the device-less provider / `CudaBuffer::View` that connects the callers to it is the open channel.
+Implementation evidence for the resident cube is D-XLOG-NATIVE-7 (PR #1911, board entry `2026-11-01-xlog-resident-hypercube-context.md`). A device-less `CudaKernelProvider` and a `CudaBuffer::View` variant are listed there as OPEN and not promoted: a research possibility, not an authorized route. There is no Amendment F.
 
-`xlog-cube::CubeExecutor` is the tier-1/2 executor today: it takes the same `ExecutionPlan` as `xlog_runtime::Executor` and runs it on `lance_graph_xlog::cube::Cube`. Its refusal census is the gap list.
+`xlog-cube::CubeExecutor` is the cube executor today: it takes the same `ExecutionPlan` as `xlog_runtime::Executor` and runs it on `lance_graph_xlog::cube::Cube`. Its refusal census is the gap list.
 
 Measured 2026-11-03 (`cargo run --example coverage` over `xlog-integration/tests/*.rs`, fork `main` `84da1a8`): 188 programs, 230 rules, 140 admitted, 90 refused. First refusal reason per rule:
 
@@ -100,7 +100,7 @@ Measured 2026-11-03 (`cargo run --example coverage` over `xlog-integration/tests
 
 Admitted is not correct: `coverage` gives every base relation as empty, and a rule counts under its first refusal only (D-STAUNEN-5 plan, "Relation to the xlog-cube coverage work"). That plan also carries the agreed order: projection composition, filter algebra, resident execution, computed columns, F100, N-ary relations.
 
-Amendment E's open item, the caller-API census, is partly answered by a count of `provider.<method>(` calls per crate, multi-line chains included (2026-11-03): pyxlog 50 methods / 234 calls, xlog-integration 24 / 105, xlog-cli 8 / 14. pyxlog calls the provider directly for ILP, DLPack and the semantic engine, so its caller surface is wider than the executor. xlog-prob (426 kernel launch sites) and xlog-solve (27) launch SAT, CNF, circuit, PIR, cache, weights and Monte-Carlo kernels through `provider.device()`; these have no algebra counterpart and are tier-3 candidates.
+Toward Amendment E's open caller-API census, a count of `provider.<method>(` calls per crate, multi-line chains included (2026-11-03): pyxlog 50 methods / 234 calls, xlog-integration 24 / 105, xlog-cli 8 / 14. pyxlog calls the provider directly for ILP, DLPack and the semantic engine, so its caller surface is wider than the executor. xlog-prob (426 kernel launch sites) and xlog-solve (27) launch SAT, CNF, circuit, PIR, cache, weights and Monte-Carlo kernels through `provider.device()`; these have no algebra counterpart and are tier-3 candidates. The count is an inventory, not a migration mandate: it does not make any provider method a seam.
 
 Limits of the cube that bound this work: `xlog-cube` builds a single-tile cube (`Width::W256`, at most 256 ids; `xlog-cube/src/lib.rs:272`), while `Cube::new_tiled` and `closure_wide` (used by `lance-graph-codegraph`) span many tiles; relations are binary; the cube has no union or difference view.
 

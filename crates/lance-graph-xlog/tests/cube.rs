@@ -1,4 +1,4 @@
-//! The resident hypercube (plan `d-xlog-native-v1.md` Amendment F) against a
+//! The resident hypercube (D-XLOG-NATIVE-7, PR #1911; board entry `2026-11-01-xlog-resident-hypercube-context.md`) against a
 //! scalar oracle and against the per-call free functions, plus the gates that
 //! make it a context rather than a faster operator: composing views runs
 //! nothing, any pair of relations joins on any columns without a new lookup,
