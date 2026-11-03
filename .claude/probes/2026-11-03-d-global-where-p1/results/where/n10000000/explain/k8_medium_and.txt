@@ -1,0 +1,136 @@
+-- k8_medium_and (K group 5-16)
+-- WHERE ((c3 < 632) AND (c6 >= 368) AND (c8 < 632) AND (c11 >= 368) AND (c9 < 632) AND (c0 >= 368) AND (c7 < 632) AND (c2 >= 368))
+{
+    "io": {
+        "total_bytes_read": 0,
+        "total_bytes_written": 0
+    },
+    "operator": [
+        {
+            "extra_info": {},
+            "intermediate_rows": 0,
+            "intermediate_size_bytes": 0,
+            "timing": 0.0,
+            "type": "RESULT_COLLECTOR",
+            "children": [
+                {
+                    "extra_info": {},
+                    "intermediate_rows": 0,
+                    "intermediate_size_bytes": 0,
+                    "timing": 7.78e-7,
+                    "type": "EXPLAIN_ANALYZE",
+                    "children": [
+                        {
+                            "extra_info": {
+                                "Aggregates": "count_star()",
+                                "Estimated Cardinality": "1"
+                            },
+                            "intermediate_rows": 1,
+                            "intermediate_size_bytes": 8,
+                            "timing": 0.000550955999999999,
+                            "type": "UNGROUPED_AGGREGATE",
+                            "children": [
+                                {
+                                    "extra_info": {
+                                        "Table": "memory.main.nodes",
+                                        "Type": "Sequential Scan",
+                                        "Projections": "",
+                                        "Filters": [
+                                            "(c3 < 632)",
+                                            "(c6 >= 368)",
+                                            "(c8 < 632)",
+                                            "(c11 >= 368)",
+                                            "(c9 < 632)",
+                                            "(c0 >= 368)",
+                                            "(c7 < 632)",
+                                            "(c2 >= 368)"
+                                        ],
+                                        "Estimated Cardinality": "2000000"
+                                    },
+                                    "intermediate_rows": 100924,
+                                    "intermediate_size_bytes": 3229568,
+                                    "row_groups_scanned": 82,
+                                    "rows_scanned": 10000000,
+                                    "timing": 0.07691875,
+                                    "total_row_groups_to_scan": 82,
+                                    "type": "TABLE_SCAN"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "optimizer": {
+        "aggregate_function_rewriter": 0.000005096,
+        "aggregate_reuse": 0.000002043,
+        "build_side_probe_side": 0.000001147,
+        "column_lifetime": 0.000002107,
+        "common_aggregate": 0.000001025,
+        "common_subexpressions": 9.76e-7,
+        "common_subplan": 0.000012436,
+        "cte_filter_pusher": 5.45e-7,
+        "cte_inlining": 5.09e-7,
+        "deliminator": 8.05e-7,
+        "duplicate_groups": 0.000001122,
+        "empty_result_pullup": 3.68e-7,
+        "expression_rewriter": 0.000069692,
+        "filter_pullup": 9.77e-7,
+        "filter_pushdown": 0.000052628,
+        "grouping_sets": 3.22e-7,
+        "in_clause": 5.33e-7,
+        "join_elimination": 0.000001145,
+        "join_filter_pushdown": 3.81e-7,
+        "join_order": 0.000037383,
+        "late_materialization": 9.32e-7,
+        "limit_pushdown": 4.19e-7,
+        "outer_join_simplification": 0.000002133,
+        "partial_aggregate_pushdown": 0.000001228,
+        "partitioned_execution": 4.51e-7,
+        "projection_placement": 0.000001171,
+        "projection_pullup": 0.000001031,
+        "redundant_order_keys": 0.000001859,
+        "regex_range": 4.23e-7,
+        "reorder_filter": 5.15e-7,
+        "row_group_pruner": 3.34e-7,
+        "row_number_rewriter": 4.48e-7,
+        "sampling_pushdown": 3.29e-7,
+        "scalar_fn_pushdown": 2.1e-7,
+        "statistics_propagation": 0.000177119,
+        "top_n": 3.95e-7,
+        "top_n_window_elimination": 0.000002339,
+        "total_time": 0.000462814,
+        "type_pushdown": 3.45e-7,
+        "unnest_rewriter": 7.65e-7,
+        "unused_columns": 0.000023018,
+        "window_self_join": 5.94e-7
+    },
+    "physical_planner": {
+        "column_binding": 0.000001996,
+        "create_plan": 0.000014419,
+        "resolve_types": 2.47e-7,
+        "total_time": 0.000020795
+    },
+    "planner": {
+        "binding_time": 0.000140391,
+        "total_time": 0.000240742
+    },
+    "query": {
+        "cpu_time": 0.07747048399999999,
+        "sql": "EXPLAIN ANALYZE SELECT count(*) FROM nodes WHERE ((c3 < 632) AND (c6 >= 368) AND (c8 < 632) AND (c11 >= 368) AND (c9 < 632) AND (c0 >= 368) AND (c7 < 632) AND (c2 >= 368))",
+        "total_intermediate_rows": 100925,
+        "total_intermediate_size_bytes": 3229576,
+        "total_row_groups_scanned": 82,
+        "total_row_groups_to_scan": 82,
+        "total_rows_scanned": 10000000,
+        "total_time": 0.084546192
+    },
+    "system": {
+        "blocked_thread_time": 0.0,
+        "peak_buffer_memory": 814532280,
+        "peak_streaming_buffer_size": 0,
+        "peak_temp_dir_size": 0,
+        "total_memory_allocated": 0
+    }
+}

@@ -1,0 +1,143 @@
+-- k17_medium_and (K group 17+)
+-- WHERE ((c8 < 829) AND (c4 >= 172) AND (c5 < 829) AND (c1 >= 171) AND (c12 < 829) AND (c7 >= 171) AND (c14 < 829) AND (c13 >= 171) AND (c2 < 829) AND (c9 >= 171) AND (c3 < 829) AND (c0 >= 171) AND (c11 < 829) AND (c6 >= 171) AND (c10 < 829) AND (c8 >= 171) AND (c4 < 829))
+{
+    "io": {
+        "total_bytes_read": 0,
+        "total_bytes_written": 0
+    },
+    "operator": [
+        {
+            "extra_info": {},
+            "intermediate_rows": 0,
+            "intermediate_size_bytes": 0,
+            "timing": 0.0,
+            "type": "RESULT_COLLECTOR",
+            "children": [
+                {
+                    "extra_info": {},
+                    "intermediate_rows": 0,
+                    "intermediate_size_bytes": 0,
+                    "timing": 2.8e-7,
+                    "type": "EXPLAIN_ANALYZE",
+                    "children": [
+                        {
+                            "extra_info": {
+                                "Aggregates": "count_star()",
+                                "Estimated Cardinality": "1"
+                            },
+                            "intermediate_rows": 1,
+                            "intermediate_size_bytes": 8,
+                            "timing": 0.000058247999999999995,
+                            "type": "UNGROUPED_AGGREGATE",
+                            "children": [
+                                {
+                                    "extra_info": {
+                                        "Table": "memory.main.nodes",
+                                        "Type": "Sequential Scan",
+                                        "Projections": "",
+                                        "Filters": [
+                                            "((c8 >= 171) AND (c8 < 829))",
+                                            "((c4 >= 172) AND (c4 < 829))",
+                                            "(c5 < 829)",
+                                            "(c1 >= 171)",
+                                            "(c12 < 829)",
+                                            "(c7 >= 171)",
+                                            "(c14 < 829)",
+                                            "(c13 >= 171)",
+                                            "(c2 < 829)",
+                                            "(c9 >= 171)",
+                                            "(c3 < 829)",
+                                            "(c0 >= 171)",
+                                            "(c11 < 829)",
+                                            "(c6 >= 171)",
+                                            "(c10 < 829)"
+                                        ],
+                                        "Estimated Cardinality": "200000"
+                                    },
+                                    "intermediate_rows": 9754,
+                                    "intermediate_size_bytes": 585240,
+                                    "row_groups_scanned": 9,
+                                    "rows_scanned": 1000000,
+                                    "timing": 0.014411654000000005,
+                                    "total_row_groups_to_scan": 9,
+                                    "type": "TABLE_SCAN"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "optimizer": {
+        "aggregate_function_rewriter": 0.000005033,
+        "aggregate_reuse": 0.000002151,
+        "build_side_probe_side": 0.000001325,
+        "column_lifetime": 0.000001957,
+        "common_aggregate": 9.67e-7,
+        "common_subexpressions": 0.000001002,
+        "common_subplan": 0.000012661,
+        "cte_filter_pusher": 5.67e-7,
+        "cte_inlining": 5.31e-7,
+        "deliminator": 7.71e-7,
+        "duplicate_groups": 0.000001121,
+        "empty_result_pullup": 3.77e-7,
+        "expression_rewriter": 0.000119512,
+        "filter_pullup": 0.000001034,
+        "filter_pushdown": 0.000093589,
+        "grouping_sets": 4.17e-7,
+        "in_clause": 5.74e-7,
+        "join_elimination": 0.000001349,
+        "join_filter_pushdown": 3.74e-7,
+        "join_order": 0.000051331,
+        "late_materialization": 7.28e-7,
+        "limit_pushdown": 4.63e-7,
+        "outer_join_simplification": 0.000002255,
+        "partial_aggregate_pushdown": 0.00000132,
+        "partitioned_execution": 4.7e-7,
+        "projection_placement": 0.000001254,
+        "projection_pullup": 0.000001041,
+        "redundant_order_keys": 0.000002542,
+        "regex_range": 5.12e-7,
+        "reorder_filter": 4.8e-7,
+        "row_group_pruner": 3.45e-7,
+        "row_number_rewriter": 4.82e-7,
+        "sampling_pushdown": 3.87e-7,
+        "scalar_fn_pushdown": 2.81e-7,
+        "statistics_propagation": 0.000072785,
+        "top_n": 4.25e-7,
+        "top_n_window_elimination": 0.000002373,
+        "total_time": 0.00047628,
+        "type_pushdown": 3.55e-7,
+        "unnest_rewriter": 8.18e-7,
+        "unused_columns": 0.000036548,
+        "window_self_join": 5.54e-7
+    },
+    "physical_planner": {
+        "column_binding": 0.000001977,
+        "create_plan": 0.000020864,
+        "resolve_types": 2.71e-7,
+        "total_time": 0.000028071
+    },
+    "planner": {
+        "binding_time": 0.000201244,
+        "total_time": 0.000274912
+    },
+    "query": {
+        "cpu_time": 0.014470182000000005,
+        "sql": "EXPLAIN ANALYZE SELECT count(*) FROM nodes WHERE ((c8 < 829) AND (c4 >= 172) AND (c5 < 829) AND (c1 >= 171) AND (c12 < 829) AND (c7 >= 171) AND (c14 < 829) AND (c13 >= 171) AND (c2 < 829) AND (c9 >= 171) AND (c3 < 829) AND (c0 >= 171) AND (c11 < 829) AND (c6 >= 171) AND (c10 < 829) AND (c8 >= 171) AND (c4 < 829))",
+        "total_intermediate_rows": 9755,
+        "total_intermediate_size_bytes": 585248,
+        "total_row_groups_scanned": 9,
+        "total_row_groups_to_scan": 9,
+        "total_rows_scanned": 1000000,
+        "total_time": 0.016655088
+    },
+    "system": {
+        "blocked_thread_time": 0.0,
+        "peak_buffer_memory": 82549032,
+        "peak_streaming_buffer_size": 0,
+        "peak_temp_dir_size": 0,
+        "total_memory_allocated": 0
+    }
+}
