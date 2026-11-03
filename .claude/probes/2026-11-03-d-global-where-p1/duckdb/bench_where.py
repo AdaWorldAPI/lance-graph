@@ -95,6 +95,12 @@ def engine_us(con, name, tmpdir):
     con.execute(f"PRAGMA profiling_output='{qs(path)}'")
     con.execute(f"EXECUTE {name}").fetchone()
     con.execute("PRAGMA disable_profiling")
+    # DuckDB answers some predicates (e.g. a tautology over min/max statistics)
+    # from table statistics alone: the plan is a constant Column Data Scan, no
+    # operator executes and no profile is written. That is a real answer path,
+    # recorded as engine time None + stats_folded, never as an error.
+    if not os.path.exists(path):
+        return None
     with open(path) as f:
         return round(json.load(f)["query"]["total_time"] * 1e6, 3)
 
@@ -112,13 +118,16 @@ def measure(con, name, sql, runs, tmpdir):
         assert a == ans, "answer drift"
     s = sorted(ns)
     engs = [engine_us(con, name, tmpdir) for _ in range(5)]
+    folded = any(e is None for e in engs)
+    engs = [e for e in engs if e is not None]
     return {
         "answer": ans if isinstance(ans, bool) else int(ans),
         "cold_us": cold,
         "warm_med_us": us(statistics.median(s)),
         "warm_p10_us": us(pct(s, 0.10)),
         "warm_p90_us": us(pct(s, 0.90)),
-        "engine_med_us": round(statistics.median(engs), 3),
+        "engine_med_us": round(statistics.median(engs), 3) if engs else None,
+        "stats_folded": folded,
     }
 
 
@@ -176,6 +185,7 @@ def run_dir(d, threads, runs, tmpdir):
                 "exists_cold_us": ex["cold_us"], "exists_warm_med_us": ex["warm_med_us"],
                 "exists_warm_p10_us": ex["warm_p10_us"], "exists_warm_p90_us": ex["warm_p90_us"],
                 "exists_engine_med_us": ex["engine_med_us"],
+                "count_stats_folded": cnt["stats_folded"], "exists_stats_folded": ex["stats_folded"],
                 "trivial_query_wall_us": triv,
             })
             print(f"{d} threads={T} {c['id']} count={cnt['answer']} warm {cnt['warm_med_us']:.1f} us", flush=True)
