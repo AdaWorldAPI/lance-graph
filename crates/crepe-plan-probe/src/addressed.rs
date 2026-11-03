@@ -279,11 +279,7 @@ pub fn range_mask(ranges: &[(u32, u32)]) -> RowAddrMask {
 
 /// Refuses a lane read against another dataset or a dataset that moved on
 /// since the lane was attested.
-pub fn check_fresh(
-    a: &AddressedRelation,
-    uri: &str,
-    current: u64,
-) -> Result<(), AddressedRefusal> {
+pub fn check_fresh(a: &AddressedRelation, uri: &str, current: u64) -> Result<(), AddressedRefusal> {
     if uri != a.uri {
         return Err(AddressedRefusal::OtherDataset {
             rel: a.rel,

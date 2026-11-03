@@ -207,11 +207,25 @@ impl ClassView for LabClass {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Refusal {
-    AbsentField { pos: u8 },
-    Unauthorized { pos: u8 },
-    UnknownProperty { pos: u8, iri: String },
-    AmbiguousProperty { pos: u8, iri: String, columns: Vec<String> },
-    StaleSchema { resolved: u64, current: u64 },
+    AbsentField {
+        pos: u8,
+    },
+    Unauthorized {
+        pos: u8,
+    },
+    UnknownProperty {
+        pos: u8,
+        iri: String,
+    },
+    AmbiguousProperty {
+        pos: u8,
+        iri: String,
+        columns: Vec<String>,
+    },
+    StaleSchema {
+        resolved: u64,
+        current: u64,
+    },
 }
 
 /// The only path from demanded positions to a column list. On any refusal there
@@ -468,7 +482,12 @@ fn oracle(n: u32, w: &Where, dem: &[u8]) -> Oracle {
     }
     let mut ids = Vec::with_capacity(count as usize);
     for_each_set(&bits, n as usize, |i| ids.push(i as u32));
-    Oracle { bits, count, sums, ids }
+    Oracle {
+        bits,
+        count,
+        sums,
+        ids,
+    }
 }
 
 /// Smallest-error `T` (with `U = T`) per target fraction, from the exact 2-D
@@ -527,7 +546,10 @@ async fn attest(ds: &Dataset) -> Result<(SealedFacetLane, OrderedLaneWitness), S
         .and_then(|c| c.as_any().downcast_ref::<UInt64Array>())
         .ok_or("no _rowaddr column")?;
     if rid.values() != rad.values() {
-        return Err("RowIdSpace: _rowid != _rowaddr (stable row ids?); the lane cannot key the prefilter".into());
+        return Err(
+            "RowIdSpace: _rowid != _rowaddr (stable row ids?); the lane cannot key the prefilter"
+                .into(),
+        );
     }
     let keys = id.iter().map(|&v| key(v, 0)).collect();
     let lane = SealedFacetLane::attest_sorted(keys, ds.version().version)
@@ -597,7 +619,6 @@ struct Out {
 }
 
 struct Env {
-    n: u32,
     ds: Dataset,
     /// The #1633 addressed relation: dataset uri + attested lane + witness.
     rel: AddressedRelation,
@@ -650,7 +671,11 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
 
     // The attested version must still be the current one (an I/O call).
     let s = Instant::now();
-    let latest = env.ds.latest_version_id().await.map_err(|e| e.to_string())?;
+    let latest = env
+        .ds
+        .latest_version_id()
+        .await
+        .map_err(|e| e.to_string())?;
     res_w.check_current(latest).map_err(|e| format!("{e:?}"))?;
     res_d.check_current(latest).map_err(|e| format!("{e:?}"))?;
     t[T_LANCE] += us(s);
@@ -661,7 +686,7 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
         io.bytes_read += x.bytes_read;
     };
     let mut mask_bytes = 0usize;
-    let mut read = String::from("-");
+    let read: String;
     let (count, sums);
 
     match arm {
@@ -782,7 +807,14 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
         }
     }
     t[T_TOTAL] = us(t_all);
-    Ok(Out { t, io, count, sums, mask_bytes, read })
+    Ok(Out {
+        t,
+        io,
+        count,
+        sums,
+        mask_bytes,
+        read,
+    })
 }
 
 fn median(mut v: Vec<f64>) -> f64 {
@@ -869,52 +901,129 @@ async fn refusal_tests(
     let no5 = (0..NPROPS as u8)
         .filter(|&p| p != 5)
         .fold(FieldMask::EMPTY, |m, p| m.with(p));
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[5]), no5, &all, small);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[5]),
+        no5,
+        &all,
+        small,
+    );
     check(
         "AbsentField refused, no column list",
         matches!(r, Err(Refusal::AbsentField { pos: 5 })),
         fails,
     );
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[5]), presence, &all, small);
-    check("AbsentField control: present position resolves", r.is_ok(), fails);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[5]),
+        presence,
+        &all,
+        small,
+    );
+    check(
+        "AbsentField control: present position resolves",
+        r.is_ok(),
+        fails,
+    );
 
     // Unauthorized: position not in the caller's permit mask.
     let permit_no7 = WideFieldMask::from_positions(&[0, 1, 2, 3, 4, 5, 6, 8, 9]);
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[7]), presence, &permit_no7, small);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[7]),
+        presence,
+        &permit_no7,
+        small,
+    );
     check(
         "Unauthorized refused, no column list",
         matches!(r, Err(Refusal::Unauthorized { pos: 7 })),
         fails,
     );
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[6]), presence, &permit_no7, small);
-    check("Unauthorized control: permitted position resolves", r.is_ok(), fails);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[6]),
+        presence,
+        &permit_no7,
+        small,
+    );
+    check(
+        "Unauthorized control: permitted position resolves",
+        r.is_ok(),
+        fails,
+    );
 
     // UnknownProperty: the class names p16, no column carries its iri.
     let view17 = LabClass::with_fields(NPROPS + 1);
     let presence17 = (0..=NPROPS as u8).fold(FieldMask::EMPTY, |m, p| m.with(p));
     let all17 = WideFieldMask::full_for(NPROPS + 1);
-    let r = resolve(&view17, CLASS, &WideFieldMask::from_positions(&[16]), presence17, &all17, small);
+    let r = resolve(
+        &view17,
+        CLASS,
+        &WideFieldMask::from_positions(&[16]),
+        presence17,
+        &all17,
+        small,
+    );
     check(
         "UnknownProperty refused, no column list",
         matches!(&r, Err(Refusal::UnknownProperty { pos: 16, .. })),
         fails,
     );
-    let r = resolve(&view17, CLASS, &WideFieldMask::from_positions(&[15]), presence17, &all17, small);
-    check("UnknownProperty control: known position resolves", r.is_ok(), fails);
+    let r = resolve(
+        &view17,
+        CLASS,
+        &WideFieldMask::from_positions(&[15]),
+        presence17,
+        &all17,
+        small,
+    );
+    check(
+        "UnknownProperty control: known position resolves",
+        r.is_ok(),
+        fails,
+    );
 
     // AmbiguousProperty: the second dataset carries p_dup with p15's iri.
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[15]), presence, &all, amb);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[15]),
+        presence,
+        &all,
+        amb,
+    );
     check(
         "AmbiguousProperty refused (2 columns), no column list",
         matches!(&r, Err(Refusal::AmbiguousProperty { columns, .. }) if columns.len() == 2),
         fails,
     );
-    let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[14]), presence, &all, amb);
-    check("AmbiguousProperty control: unambiguous position resolves", r.is_ok(), fails);
+    let r = resolve(
+        &view,
+        CLASS,
+        &WideFieldMask::from_positions(&[14]),
+        presence,
+        &all,
+        amb,
+    );
+    check(
+        "AmbiguousProperty control: unambiguous position resolves",
+        r.is_ok(),
+        fails,
+    );
 
     // The trap check: ordinal / label mapping gives a DIFFERENT answer.
     println!("\n== Mapping traps (the test would catch a positional or label mapping) ==");
-    let names: Vec<String> = small.schema().fields.iter().map(|f| f.name.clone()).collect();
+    let names: Vec<String> = small
+        .schema()
+        .fields
+        .iter()
+        .map(|f| f.name.clone())
+        .collect();
     let (b, _) = scan(small, &names, false, None).await?;
     let n_small = b.num_rows() as u32;
     let mut ordinal_wrong = 0usize;
@@ -922,7 +1031,10 @@ async fn refusal_tests(
     for j in 0..NPROPS {
         let truth: i64 = (0..n_small).map(|id| i64::from(gen_val(id, j))).sum();
         // position == physical column ordinal (after id): the forbidden shortcut.
-        let by_ordinal: i64 = i32col(&b, &names[1 + j]).iter().map(|&x| i64::from(x)).sum();
+        let by_ordinal: i64 = i32col(&b, &names[1 + j])
+            .iter()
+            .map(|&x| i64::from(x))
+            .sum();
         if by_ordinal != truth {
             ordinal_wrong += 1;
         }
@@ -932,26 +1044,61 @@ async fn refusal_tests(
             label_misses += 1;
         }
         // the resolver's answer
-        let r = resolve(&view, CLASS, &WideFieldMask::from_positions(&[j as u8]), presence, &all, small)
-            .map_err(|e| format!("{e:?}"))?;
-        let via: i64 = i32col(&b, &r.columns[0]).iter().map(|&x| i64::from(x)).sum();
+        let r = resolve(
+            &view,
+            CLASS,
+            &WideFieldMask::from_positions(&[j as u8]),
+            presence,
+            &all,
+            small,
+        )
+        .map_err(|e| format!("{e:?}"))?;
+        let via: i64 = i32col(&b, &r.columns[0])
+            .iter()
+            .map(|&x| i64::from(x))
+            .sum();
         if via != truth {
-            return Err(format!("resolver answer differs from the generator at p{j}"));
+            return Err(format!(
+                "resolver answer differs from the generator at p{j}"
+            ));
         }
     }
-    println!("  ordinal mapping wrong on {ordinal_wrong}/{NPROPS} positions; label mapping finds no column on {label_misses}/{NPROPS}");
-    check("ordinal mapping gives a different answer (trap is live)", ordinal_wrong > 0, fails);
-    check("label mapping finds no physical column", label_misses == NPROPS, fails);
+    println!(
+        "  ordinal mapping wrong on {ordinal_wrong}/{NPROPS} positions; label mapping finds no column on {label_misses}/{NPROPS}"
+    );
+    check(
+        "ordinal mapping gives a different answer (trap is live)",
+        ordinal_wrong > 0,
+        fails,
+    );
+    check(
+        "label mapping finds no physical column",
+        label_misses == NPROPS,
+        fails,
+    );
 
     // StaleSchema and the stale lane, on the small dataset (mutated last).
     println!("\n== Staleness (dataset appended after resolution / attest) ==");
     let res = resolve(&view, CLASS, &dem, presence, &all, small).map_err(|e| format!("{e:?}"))?;
     let (lane, w) = attest(small).await?;
-    let rel = AddressedRelation { rel: RelId(0), uri: small.uri().to_string(), lane, witness: w };
+    let rel = AddressedRelation {
+        rel: RelId(0),
+        uri: small.uri().to_string(),
+        lane,
+        witness: w,
+    };
     let (lane, w) = (&rel.lane, &rel.witness);
     let latest = small.latest_version_id().await.map_err(|e| e.to_string())?;
-    check("control: schema resolution current before append", res.check_current(latest).is_ok(), fails);
-    check("control: lane fresh before append", check_fresh(&rel, small.uri(), latest).is_ok(), fails);
+    check(
+        "control: schema resolution current before append",
+        res.check_current(latest).is_ok(),
+        fails,
+    );
+    check(
+        "control: lane fresh before append",
+        check_fresh(&rel, small.uri(), latest).is_ok(),
+        fails,
+    );
     check(
         "control: seek under the real witness runs",
         lane.seek_from(w, 0, &leading(3).lo_key()).is_ok(),
@@ -969,8 +1116,16 @@ async fn refusal_tests(
         matches!(r, Err(Refusal::StaleSchema { resolved, current }) if current == resolved + 1),
         fails,
     );
-    check("stale lane refused after append", check_fresh(&rel, grown.uri(), latest2).is_err(), fails);
-    check("other dataset refused", check_fresh(&rel, "memory://elsewhere", latest).is_err(), fails);
+    check(
+        "stale lane refused after append",
+        check_fresh(&rel, grown.uri(), latest2).is_err(),
+        fails,
+    );
+    check(
+        "other dataset refused",
+        check_fresh(&rel, "memory://elsewhere", latest).is_err(),
+        fails,
+    );
     let forged = OrderedLaneWitness::forged(latest2, lane.n_rows(), w.digest());
     check(
         "forged (newer-version) witness refused by seek_from",
@@ -1068,9 +1223,13 @@ async fn real_main(out_dir: &str, n: u32, reps: usize) -> Result<(), String> {
     let presence = (0..NPROPS as u8).fold(FieldMask::EMPTY, |m, p| m.with(p));
     let uri_main = ds.uri().to_string();
     let env = Env {
-        n,
         ds,
-        rel: AddressedRelation { rel: RelId(0), uri: uri_main, lane, witness },
+        rel: AddressedRelation {
+            rel: RelId(0),
+            uri: uri_main,
+            lane,
+            witness,
+        },
         attest_cold_us,
         view: LabClass::with_fields(NPROPS),
         presence,
@@ -1085,7 +1244,10 @@ async fn real_main(out_dir: &str, n: u32, reps: usize) -> Result<(), String> {
     let ks: [(usize, &[u8]); 3] = [
         (1, &[7u8][..]),
         (4, &[0u8, 5, 10, 15][..]),
-        (16, &[0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15][..]),
+        (
+            16,
+            &[0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15][..],
+        ),
     ];
     let mut rows: Vec<Row> = Vec::new();
     println!("\n== Measurements (us, median of {reps} warm runs; cold = first run) ==");
