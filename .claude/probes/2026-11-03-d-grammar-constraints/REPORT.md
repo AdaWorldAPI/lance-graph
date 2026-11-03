@@ -1,5 +1,15 @@
 # D-GRAMMAR-CONSTRAINTS-0 — grammatical constraints × RelAlg × CE64/DT64
 
+> **⊘ CORRECTION (D-GRAMMAR-WHEN-1, 2026-11-03).** This report says the head hop
+> `Pred::EqU32Via` "executes; call sites EXO-140-unclassified". That is true but
+> understated. ADMISSION B (`entries/2026-10-20-six-decisions.md:26-34`) says "a
+> position derived from another relational column or table is not admissible as
+> a read address", and the 2026-10-16 banner calls a read "at a position taken
+> from another lane's values" a violation. `EqU32Via` reads `foreign[fk[i]]`, so
+> it is gather-shaped, and no ruling admits it. The results below stand as LAB.
+> The co-addressed alternative, and the owner decisions it raises, are in
+> `.claude/probes/2026-11-03-d-grammar-when-1/REPORT.md`.
+
 **Date:** 2026-11-03. **Status:** RESEARCH + LAB PROBE.
 - Probe: `crates/grammar-constraints-probe`. It has its own workspace and is
   excluded from the root workspace.

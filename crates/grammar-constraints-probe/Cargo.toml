@@ -16,6 +16,8 @@ lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # WHEN expressibility check (SetExpr / Guard normal form).
 lance-graph-contract = { path = "../lance-graph-contract" }
+# D-GRAMMAR-WHEN-1: the relational description (Filter) and its lowering.
+lance-graph-quack = { path = "../lance-graph-quack" }
 
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
