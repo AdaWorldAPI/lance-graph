@@ -2,7 +2,7 @@
 
 **Status:** MEASURED, lab only.
 - Falsifier `falsify`: 21/21 checks. Two guards were disabled to prove they carry weight: F4 and F6 both go red.
-- Benchmark against DuckDB 2.0.0: all 336 answer comparisons agree (168 of ours × threads 1 and 4).
+- Benchmark against DuckDB 2.0.0: all 360 answer comparisons agree: 168 of ours × threads 1 and 4, plus DuckDB's 12 W8 before-delete answers × 2 threads checked against ours W2. `compare.py` fails on any missing comparison.
 - No production change. dt64, Quack, mask-risc and ndarray are used unchanged. No Gather, no new identity table, no witness store, no per-object allocation.
 
 Machine: 4 vCPU Intel Xeon @ 2.10 GHz, rustc 1.99.0 release, DuckDB 2.0.0 (Python).
@@ -73,7 +73,7 @@ Fixture:
 ## 3. DuckDB parity gate
 
 **Gate:** parity or better on clearly identified workloads with exact semantic equivalence; every losing workload is recorded with its cause.
-- Answers: 336/336 agree.
+- Answers: 360/360 agree (336 + 24 W8 before-delete checks against ours W2; coverage enforced in both directions).
 - DuckDB runs with its normal optimizer at threads 1 and 4, PREPARE/EXECUTE, 201 warm runs. The Python call floor (median 179 µs, `PREPARE f AS SELECT 1`) is subtracted.
 - Ours is single-threaded; "warm" includes the WHERE evaluation and the fold.
 

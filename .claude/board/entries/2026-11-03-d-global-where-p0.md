@@ -11,7 +11,7 @@
 - Folds allocate 0 bytes.
 - `where_dr3::LocalSelection` projects bit-identically for two methods. Its `SchemaChanged` on a second method is a coupling, not a correctness need; Scope refuses on its own.
 
-**DuckDB 2.0.0 gate:** 336/336 answers agree; 8 workloads × DR64 / DR256 / multi-tile (16×DR256) × sparse / medium / dense / skewed, at threads 1 and 4.
+**DuckDB 2.0.0 gate:** 360/360 answers agree (336 + 24 W8 before-delete checks, added by the follow-up fix); 8 workloads × DR64 / DR256 / multi-tile (16×DR256) × sparse / medium / dense / skewed, at threads 1 and 4.
 - Warm best arm: 12/0/0 W/P/L for every workload.
 - But DuckDB's fixed per-query cost (~600 µs; 703 µs at 65,536 rows against 12,106 µs at 10M) dominates most warm rows. Those are not claimed as algorithmic wins.
 - Work-avoided rows: W4 3-hop on `multi_dense` is 131 µs against 1,500,724 µs; on `multi_skewed` 89 µs against 57,066 µs, where DuckDB builds 3,726,779 join rows for a 1,164 answer.
