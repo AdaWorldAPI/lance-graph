@@ -42,6 +42,7 @@
 #![forbid(unsafe_code)]
 
 pub mod fixtures;
+pub mod when;
 
 use std::collections::HashMap;
 
