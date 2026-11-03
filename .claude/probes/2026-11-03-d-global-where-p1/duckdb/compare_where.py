@@ -26,6 +26,8 @@ regular cases. Group means are of microseconds, then the ratio of those means;
 the geometric mean of per-case ratios is shown beside it.
 """
 import json
+
+EXPECTED_THREADS = [1, 4]
 import math
 import os
 import sys
@@ -111,10 +113,26 @@ def check(d, cases, duck):
             bad.append(f"{d} {r['id']} threads={r['threads']}: duckdb exists {r['exists']} != oracle {c['achieved'] > 0}")
     seen = {(r["id"], r["threads"]) for r in duck["records"]}
     threads = sorted({r["threads"] for r in duck["records"]})
+    # Coverage is enforced in both directions (the corrected P0 parity rule):
+    # an incomplete run must fail, never print an all-agree verdict.
+    if threads != EXPECTED_THREADS:
+        bad.append(f"{d}: duckdb thread counts {threads}, expected {EXPECTED_THREADS}")
     for c in cases["cases"]:
-        for t in threads:
+        for t in EXPECTED_THREADS:
             if (c["id"], t) not in seen:
                 bad.append(f"{d}: missing duckdb record {c['id']} threads={t}")
+    return bad
+
+
+def check_ours(d, cases, ours):
+    bad = []
+    oid = {r["id"]: r for r in ours["records"]}
+    for c in cases["cases"]:
+        if c["id"] not in oid:
+            bad.append(f"{d}: missing ours record {c['id']}")
+    for i in oid:
+        if i not in {c["id"] for c in cases["cases"]}:
+            bad.append(f"{d}: ours record for unknown case {i}")
     return bad
 
 
@@ -216,6 +234,7 @@ def main(argv):
         cases, ours, duck = load(d)
         loaded[d] = (cases, ours, duck)
         problems += check(d, cases, duck)
+        problems += check_ours(d, cases, ours)
     if problems:
         print("ANSWER MISMATCH between DuckDB and the oracle:")
         for p in problems:

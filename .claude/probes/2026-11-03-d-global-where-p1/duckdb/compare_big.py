@@ -28,6 +28,8 @@ unreadable input. Microseconds everywhere; ours warm >= 1000 us prints
 FAILED-GATE, cold/prep >= 1000 us prints COLD (reported, not gate).
 """
 import json
+
+EXPECTED_THREADS = [1, 4]
 import os
 import re
 import sys
@@ -103,13 +105,18 @@ def ssum(o, keys):
     return sum(v for v in vals if v is not None)
 
 
-def compare_dir(d, mism, notes):
+def compare_dir(d, mism, notes, missing):
     ours = load(os.path.join(d, "ours_big.json"))
     dd = load(os.path.join(d, "duckdb_big.json"))
     lab = label(d)
     dd_by = {(r["query"], r.get("arm", "plain"), r["threads"]): r for r in dd}
     arms = sorted({r.get("arm", "plain") for r in dd}, reverse=True)
     threads = sorted({r["threads"] for r in dd})
+    if threads != EXPECTED_THREADS:
+        missing.append(f"{lab}: duckdb thread counts {threads}, expected {EXPECTED_THREADS}")
+    ours_q = {o["query"] for o in ours}
+    for q in sorted({r["query"] for r in dd} - ours_q):
+        missing.append(f"{lab}: no ours record for {q}")
     rows = sorted(ours, key=lambda r: (qorder(r["query"]), r["mode"]))
     lines = [f"# D-GLOBAL-WHERE P1: corpus {lab}, ours vs DuckDB", "",
              "Microseconds throughout. Ratio = DuckDB / ours (> 1: ours faster). "
@@ -127,15 +134,15 @@ def compare_dir(d, mism, notes):
             for arm in arms:
                 dr = dd_by.get((o["query"], arm, T))
                 if dr is None:
-                    notes.append(f"{lab}: no duckdb record for {o['query']} arm={arm} threads={T}")
+                    missing.append(f"{lab}: no duckdb record for {o['query']} arm={arm} threads={T}")
                     continue
                 if o.get("answer_per_t") != dr["answer_per_t"]:
                     mism.append((lab, o["query"], o["mode"], arm, T, "answer_per_t", o.get("answer_per_t"), dr["answer_per_t"]))
                 if "after_delete_per_t" in o:
                     if o["after_delete_per_t"] != dr["after_delete_per_t"]:
                         mism.append((lab, o["query"], o["mode"], arm, T, "after_delete_per_t", o["after_delete_per_t"], dr["after_delete_per_t"]))
-                else:
-                    notes.append(f"{lab}: ours lacks after_delete_per_t for {o['query']} {o['mode']}: not compared")
+                elif any(r.get("after_delete_per_t") is not None for r in dd if r["query"] == o["query"]):
+                    missing.append(f"{lab}: ours lacks after_delete_per_t for {o['query']} {o['mode']}")
                 ow = o.get("warm_med_us")
                 rw = ratio(dr["warm_med_us"], ow)
                 re_ = ratio(dr.get("engine_med_us"), ow)
@@ -161,9 +168,9 @@ def main(argv):
         print(__doc__)
         return 2
     dirs = sorted(argv[1:], key=size_key)
-    mism, notes, data, out_all = [], [], {}, []
+    mism, notes, missing, data, out_all = [], [], [], {}, []
     for d in dirs:
-        ours, dd, lines = compare_dir(d, mism, notes)
+        ours, dd, lines = compare_dir(d, mism, notes, missing)
         data[d] = (ours, dd)
         with open(os.path.join(d, "compare_big.md"), "w") as f:
             f.write("\n".join(lines))
@@ -210,11 +217,13 @@ def main(argv):
     tail = []
     if notes:
         tail += ["## Notes", ""] + [f"- {n}" for n in sorted(set(notes))] + [""]
+    if missing:
+        tail += ["## MISSING COMPARISONS", ""] + [f"- {m}" for m in sorted(set(missing))] + [""]
     if mism:
         tail += ["## ANSWER MISMATCHES", "", "| corpus | query | mode | duckdb arm | threads | field | ours | duckdb |", "|---|---|---|---|---|---|---|---|"]
         tail += ["| " + " | ".join(str(x) for x in m) + " |" for m in mism] + [""]
-    else:
-        tail += ["All compared answers agree.", ""]
+    elif not missing:
+        tail += ["All compared answers agree; coverage complete in both directions.", ""]
     text = "\n".join(out_all + sc + tail)
     with open(os.path.join(os.path.dirname(os.path.normpath(dirs[0])) or ".", "compare_big_scaling.md"), "w") as f:
         f.write("\n".join(sc + tail))
@@ -223,6 +232,11 @@ def main(argv):
         print(f"\nFAIL: {len(mism)} answer mismatch(es)", file=sys.stderr)
         for m in mism:
             print("MISMATCH corpus=%s query=%s mode=%s arm=%s threads=%s field=%s ours=%s duckdb=%s" % m, file=sys.stderr)
+        return 1
+    if missing:
+        print(f"\nFAIL: {len(missing)} missing comparison(s)", file=sys.stderr)
+        for m in sorted(set(missing)):
+            print("MISSING " + m, file=sys.stderr)
         return 1
     return 0
 
