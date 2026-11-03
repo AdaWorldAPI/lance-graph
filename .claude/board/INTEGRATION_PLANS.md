@@ -1,3 +1,8 @@
+## 2026-11-03 — D-XLOG-WIRE: XLOG wiring gaps to the hot path → `.claude/plans/xlog-wiring-to-hot-path-v1.md`
+
+**Status:** PLAN. Gating input for D-CODEGRAPH-0-BIN B3 (operator 2026-11-03). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-WIRE; [entry](entries/2026-11-03-a10-writers-retract-xlog-pr.md).
+**Confidence:** eight gaps W1–W8, each re-verified at the fork `main` `84da1a8` or found in code on 2026-11-03; no wiring done yet. The egglog-r2il text-on-hot-path site is fixed.
+
 ## 2026-11-02 — D-TGL-PUB: G10 × G11 atomic publication lab spec → `.claude/plans/g10-g11-atomic-publication-lab-v1.md`
 
 **Status:** SPEC, lab only; nothing implemented. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-PUB; [entry](entries/2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md).
