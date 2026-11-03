@@ -144,18 +144,18 @@ Selected cells (full table: `results/lance_arm/n1000000/lance_arm.log`):
 
 | layout | sel | k | arm | rows scanned | bytes (% of A) | mask bytes | route | ingress | Lance read |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|
-| clustered | 0.1% | 1 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 18,367 |
-| clustered | 0.1% | 1 | C-exact | 1,000 | 0.1% | 27 | 92 | 1.9 | 1,176 |
-| clustered | 10% | 4 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 27,222 |
-| clustered | 10% | 4 | C-exact | 100,000 | 6.8% | 47 | 6,908 | 2.7 | 2,558 |
-| scattered | 0.1% | 1 | C-exact | 988 | 33.3% | 2,124 | 440 | 109 | 2,440 |
-| scattered | 0.1% | 16 | C-exact | 988 | 99.8% | 2,124 | 644 | 157 | 19,219 |
-| scattered | 10% | 4 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 28,052 |
-| scattered | 10% | 4 | B-allow | 1,100,164 | 120.0% | 126,420 | 0 | 3,510 | 76,684 |
-| scattered | 10% | 4 | C-exact | 100,164 | 80.0% | 126,420 | 9,125 | 9,499 | 55,457 |
-| scattered | 10% | 16 | C-exact | 100,164 | 100% | 126,420 | 9,094 | 9,341 | 232,319 |
-| scattered | 50% | 16 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 93,010 |
-| scattered | 50% | 16 | C-exact | 500,613 | 100% | 377,194 | 44,429 | 19,380 | 925,837 |
+| clustered | 0.1% | 1 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 10,944 |
+| clustered | 0.1% | 1 | C-exact | 1,000 | 0.1% | 27 | 65.5 | 0.5 | 620 |
+| clustered | 10% | 4 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 25,139 |
+| clustered | 10% | 4 | C-exact | 100,000 | 6.8% | 47 | 6,951 | 1.6 | 2,180 |
+| scattered | 0.1% | 1 | C-exact | 988 | 33.3% | 2,124 | 331 | 49.1 | 1,631 |
+| scattered | 0.1% | 16 | C-exact | 988 | 99.8% | 2,124 | 487 | 50.3 | 12,930 |
+| scattered | 10% | 4 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 25,411 |
+| scattered | 10% | 4 | B-allow | 1,100,164 | 120% | 126,420 | 0 | 3,201 | 67,939 |
+| scattered | 10% | 4 | C-exact | 100,164 | 80% | 126,420 | 9,533 | 4,593 | 54,872 |
+| scattered | 10% | 16 | C-exact | 100,164 | 100% | 126,420 | 9,136 | 4,572 | 222,968 |
+| scattered | 50% | 16 | A-full | 1,000,000 | 100% | 0 | 0 | 0 | 83,343 |
+| scattered | 50% | 16 | C-exact | 500,613 | 100% | 377,194 | 43,569 | 10,888 | 945,373 |
 
 What this shows:
 
@@ -168,23 +168,30 @@ What this shows:
    least one survivor is read whole. This repeats H14c/H14d (#1573/#1575) on
    the #1633 path. It is a physical I/O limit, not a wiring defect.
 3. **On scattered selections a masked read is slower than a full scan.**
-   - At 10% and k=16, C-exact takes 232,319 µs against A's 86,593 µs; B takes
-     261,354 µs.
-   - At 50% and k=16, C-exact takes 925,837 µs against A's 93,010 µs.
+   - At 10% and k=16, C-exact takes 222,968 µs against A's 88,913 µs; B takes
+     255,226 µs.
+   - At 50% and k=16, C-exact takes 945,373 µs against A's 83,343 µs.
+   - Across scattered 10–50%, C-exact is 1.4–11× slower than A, and B is
+     2.4–11× slower.
    - `ReadPolicy::DEFAULT` sees this coming and falls back to a full read on
      every scattered 10–50% cell. That is the #1489 "cost choice", already
      implemented. It still pays for the route stage before deciding.
 4. **Mask ingress is a copy, and its cost scales with the number of ranges,
    not rows.**
-   - One clustered range: 27–144 B of tree, 1.9–9.1 µs.
-   - 91,527 scattered ranges: 126,420 B, ~9.5 ms.
-   - 326,222 ranges: 377,194 B, ~19 ms.
+   - One clustered range: 27–144 B of tree, 0.4–5.4 µs.
+   - 91,527 scattered ranges: 126,420 B, ~4,600 µs.
+   - 326,222 ranges: 377,194 B, ~9,400–10,900 µs.
+
+   Timing covers building the one tree Lance receives. The serialized size is
+   measured outside the timer. The first run of this report timed two tree
+   builds per C read and doubled the C ingress figures (Codex finding on
+   #1950); every number here is from the corrected code.
 
    It is never zero-copy: `insert_range` builds a `RowAddrTreeMap` that Lance
    owns (S-INGRESS).
 5. **Route (ids → lane ranges by galloping seek) is the dominant non-I/O
-   cost.** It is about 70–90 ns per id: 6.9 ms per 100k ids and 35–44 ms per
-   500k. It is FAILED-GATE on every cell ≥ 10k ids. It is linear in the
+   cost.** It is about 70–95 ns per id: 6,900–9,500 µs per 100k ids and
+   34,000–44,000 µs per 500k. It is FAILED-GATE on every cell ≥ 10k ids. It is linear in the
    number of ids because each id is sought separately.
 
 ### 10M results (median of 3 warm runs, µs)
@@ -194,27 +201,27 @@ version. Full table: `results/lance_arm/n10000000/lance_arm.log`.
 
 | layout | sel | k | arm | rows scanned | bytes (% of A) | mask bytes | route | ingress | Lance read |
 |---|---|---|---|---:|---:|---:|---:|---:|---:|
-| clustered | 0.1% | 1 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 134,060 |
-| clustered | 0.1% | 1 | C-exact | 10,000 | 0.04% | 27 | 684 | 1.5 | 1,176 |
-| clustered | 10% | 4 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 280,049 |
-| clustered | 10% | 4 | C-exact | 1,000,000 | 6.4% | 242 | 72,326 | 13.8 | 16,447 |
-| clustered | 10% | 4 | C-default | 10,000,000 | 64.3% | 0 | 71,816 | 0.1 | 338,248 |
-| scattered | 0.1% | 1 | C-exact | 9,858 | 33.3% | 20,960 | 4,951 | 1,171 | 9,961 |
-| scattered | 0.1% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 916,108 |
-| scattered | 0.1% | 16 | C-exact | 9,858 | 100% | 20,960 | 4,913 | 1,187 | 131,632 |
-| scattered | 10% | 4 | C-exact | 1,001,669 | 80.0% | 1,317,366 | 103,407 | 119,960 | 833,890 |
-| scattered | 10% | 16 | C-exact | 1,001,669 | 100% | 1,317,366 | 98,604 | 115,464 | 2,789,112 |
-| scattered | 50% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 964,874 |
-| scattered | 50% | 16 | C-exact | 5,006,105 | 100% | 4,776,680 | 433,248 | 267,905 | 10,648,075 |
+| clustered | 0.1% | 1 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 133,908 |
+| clustered | 0.1% | 1 | C-exact | 10,000 | 0.04% | 27 | 758 | 1.3 | 1,196 |
+| clustered | 10% | 4 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 284,073 |
+| clustered | 10% | 4 | C-exact | 1,000,000 | 6.4% | 242 | 73,993 | 11.6 | 16,348 |
+| clustered | 10% | 4 | C-default | 10,000,000 | 64.3% | 0 | 71,509 | 0.1 | 319,741 |
+| scattered | 0.1% | 1 | C-exact | 9,858 | 33.3% | 20,960 | 4,702 | 583 | 10,024 |
+| scattered | 0.1% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 1,001,637 |
+| scattered | 0.1% | 16 | C-exact | 9,858 | 100% | 20,960 | 4,721 | 560 | 126,264 |
+| scattered | 10% | 4 | C-exact | 1,001,669 | 80% | 1,317,366 | 96,773 | 57,455 | 773,128 |
+| scattered | 10% | 16 | C-exact | 1,001,669 | 100% | 1,317,366 | 98,639 | 55,939 | 2,814,172 |
+| scattered | 50% | 16 | A-full | 10,000,000 | 100% | 0 | 0 | 0 | 1,029,055 |
+| scattered | 50% | 16 | C-exact | 5,006,105 | 100% | 4,776,680 | 416,595 | 123,162 | 11,019,172 |
 
 The 1M pattern holds at 10M, and grows:
 
-- A clustered 0.1% read is 114× faster than the full scan.
+- A clustered 0.1% read is 112× faster than the full scan.
 - The worst scattered read (50%, k=16) is 11× slower than the full scan.
 - Even a 0.1% scattered selection at k=16 reads 100% of the bytes, yet it
-  still beats the full scan 7× on time, because it decodes 9,858 rows
+  still beats the full scan 7.9× on time, because it decodes 9,858 rows
   instead of 10M.
-- Ingress for 3.26M ranges is a 4.8 MB tree and 267,905 µs.
+- Ingress for 3.26M ranges is a 4.8 MB tree and 123,162 µs.
 
 **New: `ReadPolicy::DEFAULT` misroutes clustered demand.** `plan_read`
 (`addressed.rs:212-232`) decides on covered rows alone (`covered*1000 >=
@@ -224,8 +231,8 @@ range is therefore sent to a full scan:
 
 | N | C-default | C-exact | penalty |
 |---|---:|---:|---:|
-| 1M | 37,322 µs | 9,705 µs | 3.8× |
-| 10M | 446,557 µs | 91,116 µs | 4.9× |
+| 1M | 35,606 µs | 9,310 µs | 3.8× |
+| 10M | 428,883 µs | 93,994 µs | 4.6× |
 
 The scattered cells, where the fallback is right, have tens of thousands to
 millions of ranges. Range count, not coverage, separates the two. This is
@@ -304,9 +311,9 @@ stage: **IM** in-memory, **LB** Lance-backed, **PI** partial integration.
 
 | cell | WHERE evaluation | ClassView resolution | DR routing | mask ingress | Lance read | projection | FOLD | total |
 |---|---|---|---|---|---|---|---|---|
-| clustered 10%, C-exact | 0 (ids given, PI) | 10.0 LB | 6,908 IM (lane seek; DR→Lance BLOCKED_D4) | 2.7 LB | 2,558 LB | inside Lance read; 6.8% of A's bytes LB | 57.7 LB | 9,705 PI |
-| scattered 10%, C-exact | 0 (PI) | 16.7 LB | 9,125 IM | 9,499 LB | 55,457 LB | inside Lance read; 80% of A's bytes LB | 100.4 LB | 73,703 PI |
-| scattered 10%, A-full | 866 LB (over loaded columns) | 14.3 LB | 0 | 0 | 28,052 LB | inside Lance read; 100% LB | 2,067 LB | 31,932 LB |
+| clustered 10%, C-exact | 0 (ids given, PI) | 10.3 LB | 6,951 IM (lane seek; DR→Lance BLOCKED_D4) | 1.6 LB | 2,180 LB | inside Lance read; 6.8% of A's bytes LB | 64.6 LB | 9,310 PI |
+| scattered 10%, C-exact | 0 (PI) | 15.7 LB | 9,533 IM | 4,593 LB | 54,872 LB | inside Lance read; 80% of A's bytes LB | 65.9 LB | 72,587 PI |
+| scattered 10%, A-full | 790 LB (over loaded columns) | 14.4 LB | 0 | 0 | 25,411 LB | inside Lance read; 100% LB | 2,066 LB | 29,432 LB |
 
 Not measured in the same cell, because the DR→Lance edge is BLOCKED_D4:
 
@@ -324,7 +331,8 @@ unmeasured.
 **Semantic parity: REACHED.**
 
 - Every count and EXISTS answer equals the oracle and DuckDB at 1M and 10M.
-- Every Lance arm equals the oracle and the full-projection oracle at 1M.
+- Every Lance arm equals the oracle and the full-projection oracle at 1M and
+  10M.
 - Three-valued NULL semantics match.
 - Refusals fire and are paired with controls.
 
@@ -335,8 +343,9 @@ unmeasured.
 | count | 14.2× (1M, 1 thread) down to 1.96× (10M, 4 threads) | WIN |
 | EXISTS | 0.43× / 0.16× at 10M | LOSS: no early exit |
 
-On storage, a clustered selective read beats the full scan by 7–16×. A
-scattered one loses to the full scan by 2.7–10×, and the existing
+On storage, a clustered selective read beats the full scan by 11.5–17.6× at
+1M and 17–112× at 10M. A scattered one at 10–50% loses to the full scan by
+1.4–11×, and the existing
 `ReadPolicy` already knows to fall back.
 
 **Engineering parity: NOT REACHED on strategy, reached on representation**
@@ -383,7 +392,7 @@ owner → PR.
 2. `ReadPolicy` cost choice.
    - Path: `plan_read` → `Read::Full` on scattered 10–50%.
    - Test: C-default cells.
-   - Cost: avoids the 2.7–11× scattered-read loss. On clustered demand it
+   - Cost: avoids the 1.4–11× scattered-read loss. On clustered demand it
      picks wrongly; see item 7.
    - Owner: lab #1633.
 
@@ -416,7 +425,7 @@ owner → PR.
 7. `ReadPolicy` decides on coverage only.
    - Path: `plan_read` → also weigh the range count → C-default.
    - Test: the clustered 10% cells.
-   - Cost: today 3.8× (1M) and 4.9× (10M) slower than the exact read.
+   - Cost: today 3.8× (1M) and 4.6× (10M) slower than the exact read.
    - Owner: lab #1633. Not changed here.
 
 **OWNER DECISION**
@@ -424,7 +433,7 @@ owner → PR.
 8. One version-checked DR → `_rowid` authority, plus bulk ingress.
    - Path: dt64 `Frame` → ONE witness (DR route version + Lance `ds.version()` + uri) → `RowAddrTreeMap`.
    - Test: the C arm, with ids from DR instead of given.
-   - Cost: ingress 2–19,380 µs, measured.
+   - Cost: ingress 0.4–123,162 µs, measured.
    - Owner: S-INGRESS / D4. BLOCKED_D4.
 
 **PARK**
