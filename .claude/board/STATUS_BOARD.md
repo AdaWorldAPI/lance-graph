@@ -1,3 +1,18 @@
+## D-DRAM — DR address memoization + adaptive Abakus masking lens (2026-11-03)
+
+**Status:** PROPOSED / DOCS ONLY; [plan](../plans/d-dram-abacus-address-memoization-v1.md), [board entry](entries/2026-11-03-d-dram-abacus-address-memoization.md), [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). No code, tests, new runtime, new row-id map or production authorization.
+
+| D-id | Deliverable | Status | Owner / gate |
+| --- | --- | --- | --- |
+| D-DRAM-0 | design and falsifier map: borrowed SoA locator receipts, dynamically scoped Abakus mask algebra | Proposed, documentation only | review; EXO-50 message is not approval |
+| D-DRAM-1 | read-only census of existing DR focus locator lease and exact ndarray 5×24 symbols | Queued, not authorized | EXO-46, ndarray owner |
+| D-DRAM-2 | lab memoized address receipts; no values copied, exact version/scope and lifetime refusal | GATED | EXO-46, EXO-89, EXO-151; no second coordinate authority |
+| D-DRAM-3 | Quack k-of-n/threshold Abakus comparison with shipped facade words | Proposed lab | Quack/ndarray owners; no automatic new opcode/API |
+| D-DRAM-4 | combined ClassView selective borrowing + Lance read probe | GATED for end-to-end DR→Lance | D4 and S-INGRESS from #1788 |
+| D-DRAM-5 | engineering-parity and cost verdict, handoff | Queued | independent falsifiers and owner decision |
+
+Verified: ndarray #402 half/full adder words and #390 byte sum shipped, `Abacus<BITS>` lab-only; DR `LocalMap` is identity-only; H14c/H14d and #1633 selective Lance reads are lab. Unverified: exact operator-mentioned `ndarray::simd::5x24::*` signature. **Borrow/prefetch default; materialized foreign facet only under D-DRF-1 §5 admission.**
+
 ## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
 
 Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TF family incl. TFLite `F3__`, SQL-specific `F4__`, Gremlin-specific `F5__`; DECIDED O7); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection. O7–O10 DECIDED (plan §1d): host composition, full-classid basis for behaviour lenses, consumer-supplied `ClassView` with a basis witness.

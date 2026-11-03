@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-11-03 | `D-GRAMMAR-WHEN-1` |  | [2026-11-03-d-grammar-when-1.md](2026-11-03-d-grammar-when-1.md) |
 | 2026-11-03 | `D-GRAMMAR-CONSTRAINTS-0` |  | [2026-11-03-d-grammar-constraints-0.md](2026-11-03-d-grammar-constraints-0.md) |
 | 2026-11-03 | `D-GLOBAL-WHERE` |  | [2026-11-03-d-global-where-p0.md](2026-11-03-d-global-where-p0.md) |
+| 2026-11-03 | `D-DRAM-0` |  | [2026-11-03-d-dram-abacus-address-memoization.md](2026-11-03-d-dram-abacus-address-memoization.md) |
 | 2026-11-03 | `D-DR-FOLD-MAP` |  | [2026-11-03-d-dr-fold-map.md](2026-11-03-d-dr-fold-map.md) |
 | 2026-11-03 | `D-COGNITIVE-POLYFILL` |  | [2026-11-03-d-cognitive-polyfill-p0.md](2026-11-03-d-cognitive-polyfill-p0.md) |
 | 2026-11-03 | `D-BAG-FOLD` |  | [2026-11-03-d-bag-fold-witnessed-existential.md](2026-11-03-d-bag-fold-witnessed-existential.md) |

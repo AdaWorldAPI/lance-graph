@@ -1,3 +1,8 @@
+## 2026-11-03 — D-DRAM-0: DR address memoization + adaptive Abakus mask lens → `.claude/plans/d-dram-abacus-address-memoization-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM; [entry](entries/2026-11-03-d-dram-abacus-address-memoization.md); [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) coordination. Separate focus-scoped, witnessed receipt for already resolved canonical SoA locations, *no copy of values and no mutation of `LocalMap::globals`*. Quack dynamic ClassView/WideFieldMask scope can test shipped ndarray half/full-adder words for k-of-n masks; operator's exact 5×24 symbols require source verification. Existing Lance masked reads stay in their owner, D4/S-INGRESS gate the DR↔Lance binding, and generic payload gather remains prohibited outside the narrow D-DRF-1 §5 exception. Gates D-DRAM-1..5 are proposals, not authorized production tasks.
+**Confidence:** source-grounded owner/ABI map; no executable implementation, measured benefit or public Abakus type.
+
 ## 2026-11-03 — D-XLOG-WIRE: XLOG wiring gaps to the hot path → `.claude/plans/xlog-wiring-to-hot-path-v1.md`
 
 **Status:** PLAN. Gating input for D-CODEGRAPH-0-BIN B3 (operator 2026-11-03). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-WIRE; [entry](entries/2026-11-03-a10-writers-retract-xlog-pr.md).
