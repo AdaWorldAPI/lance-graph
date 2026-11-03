@@ -82,7 +82,7 @@ Then B3. Fork changes follow the fork's own rules: an atomic commit, a push, and
 
 The route is already decided: `d-xlog-native-v1.md` Amendment E (#1910, operator 2026-11-01). XLOG's RIR kinds are assimilated into our algebra in `lance-graph-xlog`; XLOG's caller API (`pyxlog`, `xlog-cli`, `xlog-integration`) is polyfilled back onto it; the fork depends on `lance-graph-xlog`, never the reverse; XLOG's runtime and its `CudaBuffer` plumbing are not ported. Tiers, in order: (1) assimilate into `lance-graph-xlog`; (2) polyfill or migrate the callers; (3) only for a kernel with no algebra counterpart, port it from CUDA to CubeCL over ndarray. "Replace CUDA" (operator, 2026-11-03) is executed through these tiers, not by a DR³ backing under `CudaKernelProvider`.
 
-Not decided: a device-less `CudaKernelProvider` with a `CudaBuffer::View` variant. The D-XLOG-NATIVE-7 entry (#1911) lists it as OPEN and says "neither is promoted". It cites an "Amendment F" (also cited at `lance-graph-xlog/src/cube.rs:2`) that was never written into `d-xlog-native-v1.md`; the plan ends at E.
+The reactor swap is `d-xlog-native-v1.md` Amendment F: the interface callers see (`Executor`, `CudaKernelProvider`, `CudaBuffer`) stays, and the resident cube is the machine underneath. The reactor is built; the device-less provider / `CudaBuffer::View` that connects the callers to it is the open channel.
 
 `xlog-cube::CubeExecutor` is the tier-1/2 executor today: it takes the same `ExecutionPlan` as `xlog_runtime::Executor` and runs it on `lance_graph_xlog::cube::Cube`. Its refusal census is the gap list.
 

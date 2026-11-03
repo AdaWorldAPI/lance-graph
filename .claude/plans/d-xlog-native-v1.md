@@ -216,3 +216,26 @@ Effect on §2:
 - **OPEN:**
   - The exact caller API. Next step is a census of what `pyxlog` / `xlog-cli` / `xlog-integration` call on the executor, and how each call maps onto a `lance-graph-xlog` call.
   - Which translation the XLOG fork carries: a translator per RIR kind, or a thin adapter crate inside the fork.
+
+## Amendment F (2026-11-01, written 2026-11-03): the reactor swap — same interface, the resident cube underneath
+
+Cited since #1911 by `crates/lance-graph-xlog/src/cube.rs:2` and the D-XLOG-NATIVE-7 entry, but never written here until now.
+
+**DECISION (operator; #1911 "replace the machine under XLOG's CUDA-facing API"; restated 2026-11-03 as the Semantic Reactor Swap: "same interface above, different physics below").** What XLOG's callers see stays: `Executor`, `CudaKernelProvider`, `CudaBuffer` as `pyxlog`, `xlog-cli` and `xlog-integration` use them. The machine underneath is the resident hypercube: DR/DT64 coordinates, mask-risc / Quack evaluation, materialization only at the boundary. Observable answers must match; the internal model is free.
+
+Relation to Amendment E: E's "the `CudaBuffer` plumbing is not ported" holds. XLOG's internals are not translated operator by operator; the caller-visible handles keep their names and get the cube as their backing. E's three tiers decide what backs each operation.
+
+**Done (the reactor runs):**
+- Coordinates: DR `LocalMap` / `MapTable` frames, DT64 `MethodBinding` admission (#1884, #1907).
+- Evaluation: `support` / `bag_count` as Quack → mask-risc programs (#1907).
+- The resident hypercube: `Cube`, `Copy` views, terminals that run programs, `materialize_rows` as the one row builder (#1911).
+- Recursion on masks: `Cube::closure` (#1914) and `wide::closure_wide` / `refresh` / `DeltaLog`, many tiles via `Cube::new_tiled`, `stage` / `commit` (#1923; running in `lance-graph-codegraph`).
+- Behaviour lens `0xFFFF :: 0xF100` (#1913).
+- XLOG plans on the cube: `xlog-cube::CubeExecutor` (fork, xlog#2–#6) runs XLOG's compiled `ExecutionPlan` with no `xlog-cuda` or `xlog-runtime` dependency; three-way closure parity (`tests/closure_parity.rs`); 140 of 230 integration rules admitted (measured 2026-11-03; admitted is not checked).
+- A device-less build of the fork's runtime is reachable (`XLOG_RUSTDOC_NO_CUDA=1`, measured 2026-11-01).
+
+**Not done (the translation channels):**
+- No caller reaches the cube: `pyxlog`, `xlog-cli` and `xlog-integration` still construct `Executor::new(Arc<CudaKernelProvider>)` (138 sites). The device-less provider and the `CudaBuffer::View` variant that would let them are not built.
+- 90 refused rule shapes (D-XLOG-WIRE plan, "Executor: the cube, not CUDA").
+- General recursive SCCs: `xlog-cube` keeps a host `BTreeSet` loop; only `edge⁺` runs on masks.
+- The residue with no algebra counterpart (SAT, knowledge compilation, the semantic engine): E tier 3.
