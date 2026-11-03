@@ -14,7 +14,7 @@ _none open_
 
 | tier | row | status | ledger |
 |---|---|---|---|
-| High-signal | 2026-11-03 — k-of-n on the shipped carry words: does the Abakus register model hold on a WHERE threshold? | Open. | `IDEAS.md` |
+| High-signal | 2026-11-03 — k-of-n on the shipped carry words: does the Abakus register model hold on a WHERE threshold? | Measured 2026-11-03: kill fired. The carry words are 1.7–4.0× slower than facade `U8x64` byte counters in every cell; the oracle and twins hold. See `entries/2026-11-03-d-dram-p3-5-kofn.md`. | `IDEAS.md` |
 | High-signal | 2026-10-31 — The probe's support masks against `DerivationLedger::pooled` | Open. | `IDEAS.md` |
 | High-signal | 2026-10-23 — A certificate replaces the deltas: lane 0 keeps the delta, a receipt or seal, and in time a proof reference — never the operations | Open. | `IDEAS.md` |
 | High-signal | 2026-10-23 — Lumpability as the closure check: a palette composes under an operation only if its cells are lumpable for it, and purity measures that | Open | `IDEAS.md` |
