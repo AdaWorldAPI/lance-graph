@@ -71,14 +71,14 @@ Notes on P3 and P4:
 ### 4. Short-circuit for EXISTS (P2 filter pushdown and LIMIT; the P2-probe evidence)
 
 - **(a) Problem.** Stop as soon as the answer is known.
-- **(b) DuckDB mechanism and lifetime.** EXISTS ran in about 0.9–2.7 ms, flat in K (`results/cw.log:25-51`). This suggests a scan that stops at the first qualifying chunk. **Lifetime: per query.** The mechanism is CLAIMED-from-timing; I did not read the operator.
+- **(b) DuckDB mechanism and lifetime.** EXISTS ran in about 900–2,700 µs, flat in K (`results/where/n1000000/compare_where.md:25-51`). This suggests a scan that stops at the first qualifying chunk. **Lifetime: per query.** The mechanism is CLAIMED-from-timing; I did not read the operator.
 - **(c) Our equivalent.**
   - `Terminal::Any` (`mask-risc/src/ir.rs:292`).
   - The executor loops over every tile (`exec.rs:1632`) and does `any |= mask_any(..)` with **no break** (`exec.rs:1793-1794`). VERIFIED-IN-CODE: the loop and the OR; I did not trace every Any path.
   - ndarray `mask_any` has no early exit (local `ndarray/src/simd_masking_ops.rs:4864-4870`; this is gap G8, CROSSWALK).
 - **(d) Status.** **MISSING WIRING.** It is one break per tile, after the first tile with a set bit. No new capability is needed.
-- **(e) Falsifier.** P2 probe, `cw.log`:
-  - At K ≥ 8 our `any` costs about the same as our `count` (1.4–3.9 ms), while DuckDB EXISTS costs 0.88–2.7 ms.
+- **(e) Falsifier.** P2 probe, `results/where/n1000000/compare_where.md`:
+  - At K ≥ 8 our `any` costs about the same as our `count` (1,400–3,900 µs), while DuckDB EXISTS costs 880–2,700 µs.
   - 17 LOSS rows, e.g. `k24_large_and` at a ratio of 0.36.
   - After the break, `any` should fall with the position of the first hit, not with N.
 
@@ -96,7 +96,7 @@ Notes on P3 and P4:
   - Resident data needs no pruning: it is already in memory.
 - **(d) Status.** ALREADY WORKS (storage), with **MISSING WIRING**:
   - one coordinate→`_rowid` authority, plus bulk word→`RowAddrTreeMap` (CROSSWALK A.5; S-INGRESS OPEN);
-  - statistics folding for tautologies or contradictions: the case `adv_contradictory_17` lands at PARITY rather than a win (`cw.log:61`).
+  - statistics folding for tautologies or contradictions: the case `adv_contradictory_17` lands at PARITY rather than a win (`results/where/n1000000/compare_where.md:61`).
 - **(e) Falsifier.**
   - H14d: an empty R reads 0 B; clustered 1 % reads 0.19×; uniform 1 % reads 1.00× (CROSSWALK A.3).
   - The integrated DR64→Lance→Quack path is **unmeasured**.
@@ -109,7 +109,7 @@ Notes on P3 and P4:
   - A mask fold costs per word, not per surviving row, so a sparse mask does not run underfull. It costs N/64 words regardless of density.
   - `materialize_rows` is egress only (CROSSWALK #16).
 - **(d) Status.** INTENTIONALLY DIFFERENT: the representation removes the problem. The open question is the sparse end. With very few survivors, whole-word passes are wasted: D-DR-FOLD found "A's per-row lane term" and that C wins when "the chain dies early". That remedy is item 3, not compaction.
-- **(e) Falsifier.** At very low survivor density, a fold of K predicates costs K·N/64 words while survivors≪N/64. The `tiny` rows in `cw.log` show our count flat in population (e.g. k24 tiny 3.8 ms vs large 4.2 ms). Prediction: compaction would not help that; switching direction (item 3) would.
+- **(e) Falsifier.** At very low survivor density, a fold of K predicates costs K·N/64 words while survivors≪N/64. The `tiny` rows in `results/where/n1000000/compare_where.md` show our count flat in population (e.g. k24 tiny 3,800 µs vs large 4,200 µs). Prediction: compaction would not help that; switching direction (item 3) would.
 
 ### Routing (P2-probe composition)
 
@@ -142,7 +142,7 @@ We **cannot** skip it:
 
 ## Ranked assimilation candidates (producer → missing edge → consumer → test → owner gate)
 
-1. `Terminal::Any` → per-tile early break (`exec.rs:1793`) → Quack EXISTS → `cw.log` K≥8 EXISTS cases, plus a can-stay-silent test on an empty mask → mask-risc owner.
+1. `Terminal::Any` → per-tile early break (`exec.rs:1793`) → Quack EXISTS → the K≥8 EXISTS cases in `results/where/*/compare_where.md`, plus a can-stay-silent test on an empty mask → mask-risc owner.
 2. Presence density (popcount of resident planes) → choice of evaluation direction in the lowering → Quack multi-hop / W4 → P0 `multi_skewed`/`multi_dense` W4 + the D-DR-FOLD sweep → Quack owner (D-DR-FOLD D1 ruling).
 3. P1 Arm C derived index → a frame-scoped binding reused across queries → composition / route stage → `comp_both.log` route column at sel 50k → DRF/D-GLOBAL-WHERE owner.
 4. DR mask → one coordinate→`_rowid` authority plus bulk `RowAddrTreeMap` → Lance masked fetch → H14d cells + the integrated path (unmeasured) → Lance-seam owner, gated on the S-INGRESS ruling.

@@ -79,10 +79,10 @@ No production (workspace `src/`) caller of `with_row_addr_prefilter` exists in `
 - #1789: chunk-count predictor fails; lance-io merges at 4 KiB on local temp dirs vs 64 KiB cloud default.
 
 **f) Where time goes**
-- Storage: not timed by rule (A.3 `:262-264`); bytes from page cache only (dr-fold-map `:5`). #1633: full read 9.81–30.71 ms, Arm B warm 0.37–38.98 ms, attest 6.7–9.8 ms (ms figures, quoted from PR body, not gated).
+- Storage: not timed by rule (A.3 `:262-264`); bytes from page cache only (dr-fold-map `:5`). #1633: full read 9,810–30,710 µs, Arm B warm 370–38,980 µs, attest 6,700–9,800 µs (quoted from the PR body, not gated).
 - DR routing: P0 REPORT `:112` — cold losses on every `multi_*` dataset come from "**addressing**: … `MapTable::locate` per edge endpoint … O(tiles) per id"; P0 entry `:18`: "Routing once and reusing costs 5 µs against 650–970 µs." P1 `comp_both.log:18-28` (N=1M): `route` 480.6 µs → 282,447.8 µs, `fetch` (in-memory generator) 68–14,086 µs, `fold/set` 60–4,358 µs, `discover` 209–641 µs; FAILED-GATE on 6 of 10 rows. Route dominates every case and grows with scatter (route +7,397.6 µs/set scatter vs +215.2 contig, `:42-43`).
 - Mask ingress: never timed on the Lance side except `lance_source_probe` `mask_ms` (`:376-378`); A.4 lists `C_mask` as an OPEN seam.
-- Fold: ns/word scale in H14d (2–10 ns/word stage 2, ~6 ns/lane load); in P1 compose, fold/set reaches ms only because sets are 50k–200k ids (`comp_both.log:20-28`).
+- Fold: ns/word scale in H14d (2–10 ns/word stage 2, ~6 ns/lane load); in P1 compose, fold/set exceeds 1,000 µs only because sets are 50k–200k ids (`comp_both.log:20-28`).
 
 ## Step 4 — classification
 
