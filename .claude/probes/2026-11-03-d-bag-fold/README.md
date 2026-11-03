@@ -19,6 +19,8 @@ ndarray: the sibling checkout at `../ndarray` relative to the repo root
 | `probe/src/bin/v1_prefix_vs_presence.rs` | the first probe, byte-identical to `original/cofold-main.rs`, built here with relative paths | — |
 | `probe/src/bin/v2_witnessed_existential.rs` | this pass: the existential, eight cases, two arms, oracle | new |
 | `REPORT.md` | conclusions | new |
+| `ARM-L-DECISION-MEMO.md` | decision preparation for Arm L; the ruling in it is DRAFT / NOT IN FORCE | new |
+| `original/ARM-L-DECISION-MEMO.first-draft.md` | the memo as first written, before the operator's revision requests | session scratchpad, byte copy, sha256 `5743b1ee…` |
 
 The originals are copies of artifacts that existed in this session's scratchpad.
 Nothing in `original/` was reconstructed.
