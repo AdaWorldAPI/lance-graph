@@ -1,0 +1,39 @@
+# fixture: P=1000 ids Q=400 ids edges=5688 P-source edges=4056 P->Q edges=339
+F1 PASS 1400 ids x 3 arms G->L->G and L->G->L, mismatches=0
+F2 PASS 8112 endpoints: A==B true A==C true; 339 endpoints are Q ids (Unmapped in P, same refusal in all arms)
+F3 PASS A calls=8112 (2*edges=8112, map lookups 32448) B calls=1236 (distinct=1236, map lookups 4944) C query calls=0 (map lookups 0, build lookups 0)
+F4 PASS A=Err(Ambiguous) B=4294967294 C=Err(Ambiguous) (an unrelated id still agrees: true)
+F5 PASS A=Err(Unmapped) B=4294967295 C=Err(Unmapped)
+F6 PASS A=Err(Read(Stale(ForeignFrame))) C=Err(StaleIndex)
+F7 PASS under f1: A old true C old true; C(f1) asked with f2 -> Err(StaleIndex); C rebuilt==A under f2 true; 256 ids moved
+F8 PASS tiles changed=2 extends=true digest changed=true (a digest guard would refuse) generations same=true old coords kept=true W2 old=336 new-restricted=336 old binding is stale to the frame guard=true
+F9 PASS oracle W2=336 fresh f2 binding=336 reused f1 binding without the check=327 (WRONG: true) guarded -> Err(Stale(0)) C(f1) with f2 -> Err(StaleIndex)
+F10 PASS old frame Ok(512); new frame with the reduced tile list Err(Unmapped) (C Err(Unmapped)); new frame with the old list Err(Read(NoSuchTile(2))); old frame again Ok(512)
+F11 PASS W2 336 -> 335 (oracle 335) after the effective deletion; unrelated deletion leaves W2 335 (all workloads == oracle: true); map lookups during folds+updates: 0; frame still current true
+F12 PASS 339 P->Q edges, B held in Q coordinates: W2=336 oracle=336; over cross edges only: DR-decoded 59 oracle 59, coordinate coincidence 46 (WRONG)
+F13 PASS id 0x55bdef6 is coordinate 10 in one set and 3 in the other (both resolve back); A selection: 1000 ids, DR-aligned equality true; bitwise coincidence equality false (WRONG)
+F14 PASS 64 reuses (B parameter changed each time, only the WHERE re-run) vs 64 fresh bindings: 0 differ
+F15a PASS M1 and M2, each with its own permit, admit the SAME selection (same mask address, same fold answer)
+F15b PASS M2 with only M1's permit -> Err(NotPermitted)
+F15c PASS unbound class -> Err(Bind(UnknownClass(2131427583))); other bound class -> Err(ClassMismatch { selection: 2131427329, asked: 2131427330 })
+F15d PASS stale sig rev -> Err(Bind(SignatureRevisionMismatch { class: 2131427329, method: MethodId(1), bound: SigRev(1), asked: SigRev(2) }))
+F15e PASS another scope -> Err(Scope)
+F15f PASS stale frame after advance -> Err(StaleFrame)
+F15g PASS mask bit-identical before/after the presence update; fold 240 -> 239
+F15h PASS admit returns a borrow of the selection's own mask (&[u64] tied to &self): no mask is passed or copied between programs
+F15i PASS admit + fold allocated 0 bytes in 0 calls
+F16 PASS 9 (arm x params) runs, W2 direct/AND/XOR, W3 csr/front, W4 csr/front/tile, W5, W6 (plain and B) == oracle; sample W2=336 W3=360 W4=691 W5=517 W6=7167 W6b=3574
+F17 PASS W2/W3/W4(csr,front,tile)/W5/W6 folds: allocations []; no tuple vector (folds read masks, offsets and targets only; signatures carry no Vec of tuples)
+F18 PASS duplicate check on -> Err(Ambiguous); compiled out -> Ok(0) (a silent wrong coordinate, so F4 fails under --disable dupcheck)
+F19 PASS frame check on -> Err(StaleIndex); compiled out -> Ok(0) but the truth under f2 is Some(255) (so F6/F7/F9 fail under --disable framecheck)
+F20 PASS guard on -> Err(Stale(0)); compiled out -> Ok(()) and the reused binding answers 327 where the truth is 336 (silent wrong answer, so F9 fails under --disable bindguard)
+F21 PASS extend by 200 ids touched 1 tile(s) via MapTable::advance; TileMap::extends=true; old coordinates kept=true; every coordinate == full rebuild true; binding structure equal true; all workloads equal rebuild and oracle true; extend 17.179us vs full rebuild 29.612us (preparation: reported, not gate)
+F22 PASS EXISTS/COUNT/DISTINCT/Bag == one domain == oracle for 1, 2, 3 domains (D=1 arm A W2=336 W5=517 W6=7167; D=2 arm B W2=336 W5=517 W6=7167; D=3 arm C W2=336 W5=517 W6=7167); []
+F23 PASS 339 cross-domain edges only: all workloads == oracle true; edge 0x747ea2ea->0xb3619b13 stored as CROSS | (domain 1, coord 497)
+F24 PASS x(domain 0)->y(domain 1)->z(domain 2)->w(domain 0): W4 over 3 hops=1 (oracle 1), W3 over 2 hops=1 and 0 with only the first hop; csr, front and tile routes agree
+F25 PASS id 0x724c81ec is in selection A and selection B: coordinate Some((0, 2)) under 2 domains, Some((0, 2)) under 3; |A AND B| = 200 = 200 = oracle 200
+F26 PASS disjoint 3 domains: union check Ok(1400); domains overlapping on 300 ids: Err(5620832); duplicate listed in one table -> Err(Ambiguous)
+F27 PASS deleted 0x6dd3aee7->0xd24aa499 (domain 0 -> domain 1): W2 336 -> 335 (oracle 335); domain 0 lost one edge, domain 1 untouched; frames unchanged
+F28 PASS 1799 cross-domain targets of the old binding all decode to the right ids under the old frames of BOTH domains; 256 coordinates of tile 0 mean other ids under the new frames; the old binding is stale to the guard (Err(Stale(0))) and still answers its own frames (== oracle true)
+F29 PASS disjoint domains: EXISTS=OR true; COUNT sum Some(336) = 336; DISTINCT sum of per-domain counts Some(672) is WRONG, exact union 517 = 517; Bag sums Some(7167)/Some(3574) = oracle 7167/3574 (i64 checked, overflow detected true). OVERLAPPING domains evaluated alone: sums COUNT 385 DISTINCT 541 BAG 4600 are WRONG vs oracle 309/450/4834; exact union by global id 309/450 is right
+falsify_p1: 0 of 37 checks failed
