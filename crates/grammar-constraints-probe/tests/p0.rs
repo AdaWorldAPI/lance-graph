@@ -174,7 +174,7 @@ fn surface_case_alone_does_not_determine_the_role() {
 
 // --- negative controls (brief §5) --------------------------------------------
 
-/// 1. GIVE → LIKE with the dative marking unchanged.
+/// Control 1: GIVE → LIKE with the dative marking unchanged.
 #[test]
 fn c1_give_replaced_by_like() {
     let mut a = A;
@@ -184,7 +184,7 @@ fn c1_give_replaced_by_like() {
     assert!(!k.recipient && k.experiencer, "{k:?}");
 }
 
-/// 2. The verb-frame constraint removed: predicted false positives in C and E.
+/// Control 2: The verb-frame constraint removed: predicted false positives in C and E.
 #[test]
 fn c2_without_the_frame_constraint() {
     let corpus = fixtures::corpus();
@@ -201,7 +201,7 @@ fn c2_without_the_frame_constraint() {
     assert_eq!(s.false_pos, 4, "{s:?}"); // 105, 302, 405, 505
 }
 
-/// 3. Dependency direction swapped (Kind heads the verb).
+/// Control 3: Dependency direction swapped (Kind heads the verb).
 #[test]
 fn c3_swapped_dependency_direction() {
     let mut a = A;
@@ -214,7 +214,7 @@ fn c3_swapped_dependency_direction() {
     assert!(roled(&mut w, &a).is_empty());
 }
 
-/// 4. Only surface word order changes: "Das Buch gibt die Mutter dem Kind."
+/// Control 4: Only surface word order changes: "Das Buch gibt die Mutter dem Kind."
 #[test]
 fn c4_word_order_changes_nothing() {
     let reordered = [A[5], A[6], A[2], A[0], A[1], A[3], A[4], A[7]];
@@ -229,7 +229,7 @@ fn c4_word_order_changes_nothing() {
     assert_ne!(l1, l2);
 }
 
-/// 5. Ambiguous attachment: "zur Schule" under the verb (obl) or under
+/// Control 5: ambiguous attachment: "zur Schule" under the verb (obl) or under
 /// "Buch" (nmod). Two readings, two populations; neither is merged away.
 #[test]
 fn c5_ambiguous_attachment_keeps_both_readings() {
@@ -243,7 +243,7 @@ fn c5_ambiguous_attachment_keeps_both_readings() {
     assert!(!said(&mut w2, 208).dir_or_purp);
 }
 
-/// 6. A supporting observation deleted: Kind's Case feature removed.
+/// Control 6: A supporting observation deleted: Kind's Case feature removed.
 #[test]
 fn c6_missing_case_is_unknown_not_false() {
     let mut a = A;
@@ -255,9 +255,14 @@ fn c6_missing_case_is_unknown_not_false() {
     let b: Vec<Tok> = B.iter().copied().filter(|t| t.gid != 206).collect();
     let mut wb = world(&b);
     assert!(!said(&mut wb, 208).dir_or_purp);
+    // and Schule without its Case feature is not asserted a goal either
+    let mut b2 = B;
+    b2[7].case = "";
+    let mut wb2 = world(&b2);
+    assert!(!said(&mut wb2, 208).dir_or_purp);
 }
 
-/// 7. A stale (foreign) coordinate frame is refused.
+/// Control 7: A stale (foreign) coordinate frame is refused.
 #[test]
 fn c7_foreign_frame_refuses() {
     let mut w = world(&A);
@@ -268,7 +273,7 @@ fn c7_foreign_frame_refuses() {
     ));
 }
 
-/// 8. One required relational operand disabled: deprel. The dative
+/// Control 8: one required relational operand disabled: deprel. The dative
 /// instrument `mit dem Löffel` (obl, Dat, under geben) becomes a recipient.
 #[test]
 fn c8_disabled_deprel_operand() {
@@ -291,10 +296,7 @@ fn c8_disabled_deprel_operand() {
 #[test]
 fn when_guard_cannot_state_the_head_frame() {
     // The dependent's own conditions are a SetExpr over two lanes.
-    let own = SetExpr::And(vec![
-        SetExpr::eq_u32(DEPREL, 1),
-        SetExpr::eq_u32(CASE, 2),
-    ]);
+    let own = SetExpr::And(vec![SetExpr::eq_u32(DEPREL, 1), SetExpr::eq_u32(CASE, 2)]);
     let recipient = Guard::new(own.clone(), Logic::TwoValued);
     let experiencer = Guard::new(own, Logic::TwoValued);
     // With only single-population leaves, the two rules have the SAME guard

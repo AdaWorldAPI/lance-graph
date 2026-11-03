@@ -260,12 +260,24 @@ fn pred(p: Pred, dst: u16) -> MaskOp {
 fn dative_arg(ids: &Ids, verbs: &[u32], ops: Operands) -> Program {
     let mut v = Vec::new();
     v.push(if ops.deprel {
-        pred(Pred::EqU32 { lane: DEPREL, v: ids.obl_arg }, 0)
+        pred(
+            Pred::EqU32 {
+                lane: DEPREL,
+                v: ids.obl_arg,
+            },
+            0,
+        )
     } else {
         pred(Pred::NeU32 { lane: DEPREL, v: 0 }, 0)
     });
     v.push(if ops.case {
-        pred(Pred::EqU32 { lane: CASE, v: ids.dat }, 1)
+        pred(
+            Pred::EqU32 {
+                lane: CASE,
+                v: ids.dat,
+            },
+            1,
+        )
     } else {
         pred(Pred::NeU32 { lane: DEPREL, v: 0 }, 1)
     });
@@ -313,8 +325,20 @@ fn dative_arg(ids: &Ids, verbs: &[u32], ops: Operands) -> Program {
 /// {Direction, Purpose}.
 fn zu_goal(ids: &Ids) -> Program {
     let v = vec![
-        pred(Pred::EqU32 { lane: DEPREL, v: ids.case_rel }, 0),
-        pred(Pred::EqU32 { lane: LEMMA, v: ids.zu }, 1),
+        pred(
+            Pred::EqU32 {
+                lane: DEPREL,
+                v: ids.case_rel,
+            },
+            0,
+        ),
+        pred(
+            Pred::EqU32 {
+                lane: LEMMA,
+                v: ids.zu,
+            },
+            1,
+        ),
         MaskOp::And {
             a: Operand::Scratch(0),
             b: Operand::Scratch(1),
@@ -362,8 +386,20 @@ fn zu_goal(ids: &Ids) -> Program {
 /// unknown case. Two programs.
 fn abstain_frame(ids: &Ids) -> Program {
     let mut v = vec![
-        pred(Pred::EqU32 { lane: DEPREL, v: ids.obl_arg }, 0),
-        pred(Pred::EqU32 { lane: CASE, v: ids.dat }, 1),
+        pred(
+            Pred::EqU32 {
+                lane: DEPREL,
+                v: ids.obl_arg,
+            },
+            0,
+        ),
+        pred(
+            Pred::EqU32 {
+                lane: CASE,
+                v: ids.dat,
+            },
+            1,
+        ),
         MaskOp::And {
             a: Operand::Scratch(0),
             b: Operand::Scratch(1),
@@ -386,7 +422,13 @@ fn abstain_frame(ids: &Ids) -> Program {
 
 fn unknown_case(ids: &Ids) -> Program {
     let mut v = vec![
-        pred(Pred::EqU32 { lane: DEPREL, v: ids.obl_arg }, 0),
+        pred(
+            Pred::EqU32 {
+                lane: DEPREL,
+                v: ids.obl_arg,
+            },
+            0,
+        ),
         pred(Pred::EqU32 { lane: CASE, v: 0 }, 1),
         MaskOp::And {
             a: Operand::Scratch(0),
@@ -410,7 +452,12 @@ fn unknown_case(ids: &Ids) -> Program {
 
 /// `dst = head.lemma ∈ give ∪ experience`, using `dst` and `dst + 1`.
 fn push_any_frame(v: &mut Vec<MaskOp>, ids: &Ids, dst: u16) {
-    let verbs: Vec<u32> = ids.give.iter().chain(ids.experience.iter()).copied().collect();
+    let verbs: Vec<u32> = ids
+        .give
+        .iter()
+        .chain(ids.experience.iter())
+        .copied()
+        .collect();
     for (i, &verb) in verbs.iter().enumerate() {
         let d = if i == 0 { dst } else { dst + 1 };
         v.push(pred(
@@ -512,7 +559,11 @@ impl Rules {
             (&self.unknown, &mut r.unknown_case),
         ] {
             let full = matches!(prog.terminal, Terminal::ScatterOrU32 { .. });
-            let dst: &mut [u64] = if full { &mut out[..] } else { &mut out[..words] };
+            let dst: &mut [u64] = if full {
+                &mut out[..]
+            } else {
+                &mut out[..words]
+            };
             execute_into(prog, &planes, &foreign, &mut self.scratch, Out::Mask(dst))
                 .expect("probe program is valid");
         }

@@ -141,6 +141,9 @@ exclude = [
     # D-COGNITIVE-POLYFILL P0 lab probe; own workspace root.
     # `cargo test --manifest-path crates/cognitive-polyfill-probe/Cargo.toml`.
     "crates/cognitive-polyfill-probe",
+    # D-GRAMMAR-CONSTRAINTS-0 lab probe; own workspace root.
+    # `cargo test --manifest-path crates/grammar-constraints-probe/Cargo.toml`.
+    "crates/grammar-constraints-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
