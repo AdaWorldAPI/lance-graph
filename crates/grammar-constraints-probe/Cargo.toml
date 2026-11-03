@@ -1,0 +1,21 @@
+[package]
+name = "grammar-constraints-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "D-GRAMMAR-CONSTRAINTS-0 lab falsifier: German dative role candidates (recipient / experiencer / direction-purpose) as typed constraints over UD-annotated tokens, evaluated by one mask-risc program per rule over a DR-addressed token population. Lab only; no parser, no production path."
+
+# Its OWN workspace root, like cognitive-polyfill-probe. Verify via
+#   cargo test --manifest-path crates/grammar-constraints-probe/Cargo.toml
+[workspace]
+
+[dependencies]
+# DR identity: LocalMap / MapTable frames for the token population.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The only bulk engine.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# WHEN expressibility check (SetExpr / Guard normal form).
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
