@@ -58,8 +58,7 @@ use std::time::Instant;
 use arrow_array::{Int32Array, RecordBatch, RecordBatchIterator, UInt32Array, UInt64Array};
 use arrow_schema::{DataType, Field, Schema};
 use crepe_plan_probe::addressed::{
-    AddressedRelation, Read, ReadPolicy, check_fresh, key, leading, plan_read, range_mask,
-    range_tree, ranges,
+    AddressedRelation, Read, ReadPolicy, check_fresh, key, leading, plan_read, range_tree, ranges,
 };
 use crepe_plan_probe::logic::RelId;
 use lance::dataset::scanner::{ExecutionStatsCallback, RowAddrMask, RowAddrTreeMap};
@@ -722,15 +721,14 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
             t[T_WHERE] = us(s);
 
             // Phase 2a: MASK INGRESS (copies addresses into RowAddrTreeMap).
+            // Timed: building the one tree Lance receives. Not timed: its
+            // serialized size, which is reporting, not ingress.
             let s = Instant::now();
             let addr = addrcol(&b1);
-            let mask = if arm == Arm::BAllow {
+            let (tree, allow) = if arm == Arm::BAllow {
                 let mut list = Vec::new();
                 for_each_set(&where_bits, b1.num_rows(), |i| list.push(addr[i]));
-                let tree = RowAddrTreeMap::from_iter(list);
-                mask_bytes = tree.serialized_size();
-                read = "allow".into();
-                RowAddrMask::from_allowed(tree)
+                (RowAddrTreeMap::from_iter(list), true)
             } else {
                 let mut inv: Vec<u64> = where_bits.iter().map(|w| !w).collect();
                 if let Some(last) = inv.last_mut() {
@@ -741,12 +739,17 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
                 }
                 let mut list = Vec::new();
                 for_each_set(&inv, b1.num_rows(), |i| list.push(addr[i]));
-                let tree = RowAddrTreeMap::from_iter(list);
-                mask_bytes = tree.serialized_size();
+                (RowAddrTreeMap::from_iter(list), false)
+            };
+            t[T_INGRESS] = us(s);
+            mask_bytes = tree.serialized_size();
+            let mask = if allow {
+                read = "allow".into();
+                RowAddrMask::from_allowed(tree)
+            } else {
                 read = "block".into();
                 RowAddrMask::from_block(tree)
             };
-            t[T_INGRESS] = us(s);
 
             // Phase 2b: prefilter scan, resolved demanded columns only.
             let s = Instant::now();
@@ -774,16 +777,19 @@ async fn run_once(env: &Env, c: &Case, arm: Arm) -> Result<Out, String> {
             let (how, planned) = plan_read(&exact, env.rel.lane.n_rows(), policy);
             t[T_ROUTE] = us(s);
 
+            // Timed: building the ONE tree Lance receives (`range_tree`, which
+            // `addressed::range_mask` also uses). Not timed: its serialized
+            // size, which is reporting, not ingress. Same split as the B arms.
             let s = Instant::now();
-            let mask = match how {
+            let tree = match how {
                 Read::Full => None,
-                Read::Ranges | Read::Coalesced => {
-                    // Bytes measured on the same tree `range_mask` builds.
-                    mask_bytes = range_tree(&planned).serialized_size();
-                    Some(range_mask(&planned))
-                }
+                Read::Ranges | Read::Coalesced => Some(range_tree(&planned)),
             };
             t[T_INGRESS] = us(s);
+            let mask = tree.map(|tree| {
+                mask_bytes = tree.serialized_size();
+                RowAddrMask::from_allowed(tree)
+            });
             read = format!("{how:?}/{}r", planned.len());
 
             let need_addr = how != Read::Ranges;
