@@ -62,7 +62,7 @@ use crepe_plan_probe::addressed::{
     range_tree, ranges,
 };
 use crepe_plan_probe::logic::RelId;
-use lance::dataset::scanner::{ExecutionStatsCallback, RowAddrMask};
+use lance::dataset::scanner::{ExecutionStatsCallback, RowAddrMask, RowAddrTreeMap};
 use lance::dataset::{Dataset, WriteParams};
 use lance_graph_contract::class_view::{ClassId, ClassView, FieldMask, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
@@ -163,9 +163,15 @@ fn reader(
 }
 
 /// Written in ascending id order as ONE fragment (`max_rows_per_file` lifted).
+///
+/// The limit must fit in `u32`: Lance 13 compares it as
+/// `params.max_rows_per_file as u32` (`dataset/write.rs:1077`), so `1 << 40`
+/// truncates to 0 and closes a file after EVERY batch. At 1M rows the reader
+/// emitted one batch and hid that; at 10M it produced many fragments and the
+/// attest guard refused the table as `NotContiguous`.
 async fn write_fixture(uri: &str, layout: Layout, n: u32) -> Result<Dataset, String> {
     let params = WriteParams {
-        max_rows_per_file: 1 << 40,
+        max_rows_per_file: u32::MAX as usize,
         ..Default::default()
     };
     Dataset::write(reader(layout, 0..n), uri, Some(params))
