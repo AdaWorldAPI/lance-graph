@@ -80,7 +80,7 @@ Stop on any of:
 - [ ] P3-2 non-vacuous `project` cases
 - [x] P3-3 D-DRAM-1 census written (`entries/2026-11-03-d-dram-1-census.md`)
 - [ ] P3-4 EXISTS early exit, draft PR
-- [ ] P3-5 D-DRAM-3 k-of-n bench (A1, A2, A5–A7)
+- [x] P3-5 D-DRAM-3 k-of-n bench: kill fired, carry words 1.7–4.0× slower than facade byte counters (`entries/2026-11-03-d-dram-p3-5-kofn.md`); A5/A7 not covered
 - [ ] P3-6 ordered compare proposal
 - [ ] P3-7 route-once lab measurement
 - [ ] P3-8 D4 / S-INGRESS decision memo

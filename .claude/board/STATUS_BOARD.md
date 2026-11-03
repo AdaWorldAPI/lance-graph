@@ -19,7 +19,7 @@
 | D-DRAM-P3-2 | non-vacuous `project` k4/k16 sparse/mixed cases | Queued | this session; research branch |
 | D-DRAM-P3-3 | = D-DRAM-1 read-only census | Done: [entry](entries/2026-11-03-d-dram-1-census.md); only `half_add_mask`/`full_add_mask` shipped, `U24x5`/`Abacus` lab-only, no production lease | this session; report to EXO-46 / ndarray owner |
 | D-DRAM-P3-4 | EXISTS early exit per tile (0.16× DuckDB at 10M) | Queued | this session drafts; mask-risc owner reviews |
-| D-DRAM-P3-5 | = D-DRAM-3 k-of-n Abakus bench, A1/A2/A5–A7 | Queued, after P3-3 | this session; no new opcode/type |
+| D-DRAM-P3-5 | = D-DRAM-3 k-of-n Abakus bench, A1/A2/A5–A7 | Measured: kill fired, carry words 1.7–4.0× slower than facade byte counters; A1/A2/A6 partial, A5/A7 open | `entries/2026-11-03-d-dram-p3-5-kofn.md`, `crepe-plan-probe/examples/kofn_carry_words.rs` |
 | D-DRAM-P3-6 | ordered u8-in-u32 compare proposal | Queued | this session proposes; ndarray owner |
 | D-DRAM-P3-7 | route once per frame, lab measurement | Queued | this session; production GATED EXO-46 |
 | D-DRAM-P3-8 | = D-DRAM-4 end-to-end, decision memo | GATED | D4 + S-INGRESS (#1788) |
