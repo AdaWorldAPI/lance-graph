@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use crate::lower::{Step, lower_steps, run_steps};
+use crate::lower::{lower_steps, run_steps};
 use crate::{Arith, LowerRefusal, Problem, Saturation, compile, oracle};
 
 /// The hop labels, in order.
@@ -125,12 +125,19 @@ pub fn traceroute(p: &Problem, arith: Arith, fuel: usize, c: i64) -> Trace {
     push(
         "R2IL",
         match &steps {
-            Ok(s) => s.iter().map(Step::mnemonic).collect::<Vec<_>>().join(", "),
+            Ok(s) => s
+                .iter()
+                .map(|step| step.mnemonic_with(compiled.target_var))
+                .collect::<Vec<_>>()
+                .join(", "),
             Err(e) => format!("refused: {e:?}"),
         },
     );
     let value: Result<i64, LowerRefusal> = match &steps {
-        Ok(s) => run_steps(s, compiled.target_var, &[(p.target_var, c)]),
+        // The traceroute's input is supplied under the problem's target name;
+        // it is the compiled program's input only when the two names agree.
+        Ok(s) if p.target_var == compiled.target_var => run_steps(s, c),
+        Ok(_) => Err(LowerRefusal::UnboundVar(compiled.target_var.to_string())),
         Err(e) => Err(e.clone()),
     };
     push(

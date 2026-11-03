@@ -130,12 +130,7 @@ impl ReplayCapsule {
     /// Hot-compatible execution: no egglog and no oracle. This requires
     /// *prior* certification and must not be confused with proof checking.
     pub fn execute(&self, target_value: i64) -> Result<i64, ReplayRefusal> {
-        run_steps(
-            &self.program,
-            self.problem.target_var,
-            &[(self.problem.target_var, target_value)],
-        )
-        .map_err(ReplayRefusal::Execution)
+        run_steps(&self.program, target_value).map_err(ReplayRefusal::Execution)
     }
 
     /// Cold replay with re-certification and independent i128 value oracle.

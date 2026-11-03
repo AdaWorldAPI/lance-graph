@@ -11,16 +11,26 @@
 //! | Derived | a rule identity, premises, inherited roots only | `GadamerRevision` (inherited roots never count as new) | min of the premises, never above Related |
 //! | Measured | an executed operator result | `pearl::reason` + `pearl::revise` | what the operator earned (SO ≤ CausalCandidate; only PO reaches Causes) |
 //!
-//! Two gaps are explicit, not papered over:
+//! Rule identity reuses its existing owner where one exists:
 //!
-//! - **Rule identity.** No contract type carries the identity of a
-//!   derivation rule. [`RuleIdentityGap`] stands in for it here, and a
-//!   derivation without one is refused.
-//! - **The production admission boundary.** Production code writes bits
-//!   59..63 through `pearl::revise` / `pearl::hydrate`, `edge_v3::rehydrate`
-//!   (a restore) and `deepnsm_v2::wire` (its own observational rule). None of
-//!   them goes through an admission check like this one; this probe does not
+//! - **NAL derivations** name their rule with
+//!   `lance_graph_contract::nars::InferenceType` (Deduction, Induction,
+//!   Abduction, Revision, Synthesis).
+//! - **Derivations outside NAL** (elimination, constraint propagation) have
+//!   no owner. [`DerivationRule::Unowned`] stands in for them here; that
+//!   variant is the remaining gap.
+//!
+//! A derivation with no rule at all is refused.
+//!
+//! The production boundary is enforced separately: every production call of
+//! `with_epistemic_raw5` must be listed in `causal-edge`'s
+//! `tests/epistemic_writer_census.rs` (pearl's `stamp`, `edge_v3::rehydrate`,
+//! `deepnsm_v2::wire`). None of them goes through an admission check like
+//! this one; this probe does not
 //!   change that.
+//!
+//! Retraction (F4) is closed by `pearl::retract`, the lowering counterpart of
+//! `pearl::revise`.
 //!
 //! The "Derived never above Related" line is the pre-registered F5 bar
 //! (`a10-finding.md`): Supports is earned by an observational fold, and a
@@ -35,6 +45,7 @@ use lance_graph_contract::class_view::ClassId;
 use lance_graph_contract::epistemic_state5::{
     Certification3, Epi5Declarations, Epi5Gen, Epi5Reading, EpistemicState5, Topology2,
 };
+use lance_graph_contract::nars::InferenceType as NalRule;
 use lance_graph_contract::rail_geometry::RailAxis;
 use lance_graph_contract::revision::{
     BasisView, CodebookId, EncounterEvidence, EvidentialEffect, GadamerRevision, GrammarId,
@@ -45,10 +56,15 @@ use lance_graph_planner::pearl::{self, Edit, Evidence, Reading};
 const CLASS: ClassId = 0x0902;
 const RAIL: RailAxis = RailAxis::Taxonomy;
 
-/// Stand-in for the missing rule-identity carrier. Its existence here is the
-/// gap: no contract type names which rule produced a derivation.
+/// Which rule produced a derivation.
 #[derive(Clone, Copy)]
-struct RuleIdentityGap(#[allow(dead_code)] u32);
+enum DerivationRule {
+    /// A NAL figure, named by its existing owner.
+    Nal(#[allow(dead_code)] NalRule),
+    /// A rule with no owner (elimination, constraint propagation). Test-local
+    /// stand-in: no contract type names these yet.
+    Unowned(#[allow(dead_code)] u32),
+}
 
 #[derive(Clone, Copy)]
 enum GivenProof {
@@ -67,7 +83,7 @@ enum Admission<'a> {
         roots: u64,
     },
     Derived {
-        rule: Option<RuleIdentityGap>,
+        rule: Option<DerivationRule>,
         premises: &'a [EpistemicState5],
         inherited: u64,
         independent: u64,
@@ -83,7 +99,7 @@ enum Refusal {
     Unidentified,
     NoNewRoot,
     MintsRoot,
-    RuleIdentityGap,
+    NoRule,
     NoPremises,
     Ungrounded,
 }
@@ -184,7 +200,7 @@ fn admit(
             independent,
         } => {
             if rule.is_none() {
-                return Err(Refusal::RuleIdentityGap);
+                return Err(Refusal::NoRule);
             }
             if *independent != 0 {
                 return Err(Refusal::MintsRoot);
@@ -314,11 +330,14 @@ fn a_derivation_without_rule_identity_is_refused() {
         inherited: 0b110,
         independent: 0,
     };
-    assert_eq!(
-        admit(e, &derived(None), 0, &d),
-        Err(Refusal::RuleIdentityGap)
-    );
-    assert!(admit(e, &derived(Some(RuleIdentityGap(7))), 0, &d).is_ok());
+    assert_eq!(admit(e, &derived(None), 0, &d), Err(Refusal::NoRule));
+    assert!(admit(
+        e,
+        &derived(Some(DerivationRule::Nal(NalRule::Deduction))),
+        0,
+        &d
+    )
+    .is_ok());
 }
 
 #[test]
@@ -327,7 +346,7 @@ fn a_derivation_cannot_mint_an_independent_root() {
     let e = edge(CausalMask::SO, at(Topology2::Direct, Certification3::Open));
     let premises = [at(Topology2::Direct, Certification3::Related)];
     let a = Admission::Derived {
-        rule: Some(RuleIdentityGap(7)),
+        rule: Some(DerivationRule::Nal(NalRule::Deduction)),
         premises: &premises,
         inherited: 0b110,
         independent: 0b1000,
@@ -351,7 +370,7 @@ fn f5_a_derivation_from_causal_premises_stays_below_causal() {
     let out = admit(
         e,
         &Admission::Derived {
-            rule: Some(RuleIdentityGap(1)),
+            rule: Some(DerivationRule::Nal(NalRule::Deduction)),
             premises: &causes,
             inherited: 0b11,
             independent: 0,
@@ -424,7 +443,7 @@ fn f2_ruling_out_rivals_does_not_raise_the_survivors_certification() {
         at(Topology2::Direct, Certification3::Associated),
     );
     let elim = Admission::Derived {
-        rule: Some(RuleIdentityGap(9)),
+        rule: Some(DerivationRule::Unowned(9)),
         premises: &constraints,
         inherited: 0xFF,
         independent: 0,
@@ -433,7 +452,7 @@ fn f2_ruling_out_rivals_does_not_raise_the_survivors_certification() {
     assert_eq!(state(once).certification(), Certification3::Related);
     // The derived cell may not carry a root of its own.
     let minted = Admission::Derived {
-        rule: Some(RuleIdentityGap(9)),
+        rule: Some(DerivationRule::Unowned(9)),
         premises: &constraints,
         inherited: 0xFF,
         independent: 0x100,
@@ -457,7 +476,7 @@ fn f2_two_givens_from_different_sources_stay_independent() {
 // ── F4: retraction ───────────────────────────────────────────────────
 
 #[test]
-fn f4_withdrawn_sources_block_new_certification_but_nothing_lowers_the_old() {
+fn f4_withdrawn_sources_block_new_certification_and_retract_lowers_the_old() {
     let d = declarations();
     let mut model = observational().build();
     let so = edge(
@@ -494,21 +513,19 @@ fn f4_withdrawn_sources_block_new_certification_but_nothing_lowers_the_old() {
         ),
         Err(Refusal::Ungrounded)
     );
-    // The gap: the code written before the withdrawal stands. No production
-    // writer lowers a certification when its support is withdrawn.
-    assert_eq!(
-        admit(
-            before,
-            &Admission::Measured {
-                edge: before,
-                evidence: &evidence(&model)
-            },
-            0,
-            &d
-        ),
-        Err(Refusal::Ungrounded)
-    );
-    assert_ne!(state(before).certification(), Certification3::Open);
+    // The code written before the withdrawal no longer stands: re-measuring
+    // with the edge's own operator and `pearl::retract` lowers it to Open.
+    let ev = evidence(&model);
+    let m = pearl::reason(before, &ev, Edit::None);
+    let reading = Reading {
+        declarations: &d,
+        class: CLASS,
+        rail: RAIL,
+        provenance: EdgeProvenance::V2Stamped,
+    };
+    let after = pearl::retract(&m, reading).expect("declared");
+    assert_eq!(state(after).certification(), Certification3::Open);
+    assert_eq!(state(after).topology(), state(before).topology());
 }
 
 /// F4 silent twin: withdrawing a source the ledger never held changes
