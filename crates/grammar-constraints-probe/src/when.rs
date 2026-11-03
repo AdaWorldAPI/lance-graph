@@ -415,6 +415,9 @@ impl Composed {
                 lance_graph_dt64::dr::MapRefusal::OutOfTile,
             )));
         }
+        if !frame.same_issue(&pop.base.frame) {
+            return Err(RunRefusal::Frame(PopRefusal::PopulationFrame));
+        }
         if pop.lexicon_rev != self.lexicon_rev {
             return Err(RunRefusal::LexiconRevision {
                 bound: self.lexicon_rev,

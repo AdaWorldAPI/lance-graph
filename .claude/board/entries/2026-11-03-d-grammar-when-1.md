@@ -21,7 +21,7 @@
   - The cross-row read moves into the producer, which does it once and counted (35 lookups).
 - **Lab composer (approach C): admit → check description vs witness → lower description ∧ shared WHERE into ONE program.**
   - Both forms match an independent oracle and the gold.
-  - 10 negative controls behave as predicted; 9 source disables go red.
+  - 11 negative controls behave as predicted (incl. a re-sealed same-size layout, from Codex review); 9 source disables go red.
 
 ## Open (owner)
 

@@ -434,6 +434,43 @@ fn n06_foreign_frame() {
     ));
 }
 
+/// 6b. Same table, re-sealed under a permuted layout of the same size
+///     (Codex #1948). PREDICTED: refused as `PopulationFrame`, never answered
+///     with bits that name other gids.
+#[test]
+fn n06b_resealed_same_size_layout() {
+    let mut w = world(&A);
+    let mut gids = fixtures::gids(&A);
+    gids.reverse();
+    let map =
+        lance_graph_dt64::dr::LocalMap::prepare(grammar_constraints_probe::WIDTH, &gids).unwrap();
+    w.table.advance(9, 0, vec![(TILE, Some(map))]);
+    let resealed = w.table.seal();
+    assert_eq!(w.table.map(&resealed, TILE).unwrap().len(), w.pop.base.n);
+    let r = mref(
+        &w,
+        CLASS_COADDR,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+    );
+    let mut c = compose(
+        &w.store,
+        &r,
+        &RuleDesc::recipient(),
+        Physical::CoAddressed,
+        &w.v,
+        &w.lex,
+    )
+    .unwrap();
+    let plane = all_plane(&w);
+    assert_eq!(
+        c.run(&w.pop, &w.table, &resealed, &plane).err(),
+        Some(RunRefusal::Frame(PopRefusal::PopulationFrame))
+    );
+    // control: the producing frame still runs
+    assert!(c.run(&w.pop, &w.table, &w.frame, &plane).is_ok());
+}
+
 /// 7. Foreign classid. PREDICTED: UnknownClass from admit.
 #[test]
 fn n07_foreign_class() {

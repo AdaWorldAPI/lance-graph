@@ -86,7 +86,7 @@ The first typed refusal on each path:
 - C′ is the only form whose query side matches the rulings as written. It moves the open question to the producer.
 - C does not win on its own. **C′ = C with a co-addressed description** is the smallest lawful candidate.
 
-## 4. Falsifier (`tests/when.rs`, 16/16; `tests/p0.rs` from #1947 still 12/12)
+## 4. Falsifier (`tests/when.rs`, 17/17; `tests/p0.rs` 13/13 incl. #1947's 12)
 
 **Setup.**
 - **Fixtures and gold:** #1947's.
@@ -113,6 +113,7 @@ The first typed refusal on each path:
 | 4 | dependency reversed | no candidate |
 | 5 | referenced head removed | typed refusal `Map(Unmapped)` at production, never a FALSE role |
 | 6 | foreign frame | `Stale` |
+| 6b | same table re-sealed under a permuted same-size layout (Codex review on #1948) | `PopulationFrame`; the population now keeps the frame it was bound under and both run paths check `Frame::same_issue`. Before the fix this was answered, with bits naming other gids |
 | 7 | foreign ClassId | `UnknownClass` from `admit` |
 | 8 | deprel operand removed | `DescriptionMismatch`; under its own binding the instrument 408 becomes a recipient |
 | 9 | Direction/Purpose | both kept (#1947 rule, same population) |

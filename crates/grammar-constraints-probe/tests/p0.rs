@@ -273,6 +273,23 @@ fn c7_foreign_frame_refuses() {
     ));
 }
 
+/// Control 7b: same table, re-sealed under a permuted same-size layout
+/// (Codex #1948): refused, not answered.
+#[test]
+fn c7b_resealed_same_size_layout_refuses() {
+    let mut w = world(&A);
+    let mut gids = fixtures::gids(&A);
+    gids.reverse();
+    let map = lance_graph_dt64::dr::LocalMap::prepare(WIDTH, &gids).unwrap();
+    w.table.advance(7, 0, vec![(TILE, Some(map))]);
+    let resealed = w.table.seal();
+    assert!(matches!(
+        w.rules.run(&w.pop, &w.table, &resealed),
+        Err(Refusal::PopulationFrame)
+    ));
+    assert!(w.rules.run(&w.pop, &w.table, &w.frame).is_ok());
+}
+
 /// Control 8: one required relational operand disabled: deprel. The dative
 /// instrument `mit dem Löffel` (obl, Dat, under geben) becomes a recipient.
 #[test]

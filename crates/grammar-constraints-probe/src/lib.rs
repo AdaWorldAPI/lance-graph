@@ -133,12 +133,17 @@ pub struct Population {
     deprel: Vec<u32>,
     case: Vec<u32>,
     head: Vec<u32>,
+    /// The frame the lanes were bound under; every run must present it.
+    frame: Frame,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Refusal {
     Map(MapRefusal),
     Read(MapRead),
+    /// The frame is not the one the population was bound under (the table
+    /// may have advanced to another layout of the same size).
+    PopulationFrame,
 }
 
 impl Population {
@@ -158,6 +163,7 @@ impl Population {
             deprel: vec![0; n],
             case: vec![0; n],
             head: vec![ROOT; n],
+            frame: frame.clone(),
         };
         for t in toks {
             let l = usize::from(map.local(t.gid).map_err(Refusal::Map)?);
@@ -538,6 +544,9 @@ impl Rules {
         let map = table.map(frame, TILE).map_err(Refusal::Read)?;
         if map.len() != pop.n {
             return Err(Refusal::Map(MapRefusal::OutOfTile));
+        }
+        if !frame.same_issue(&pop.frame) {
+            return Err(Refusal::PopulationFrame);
         }
         let lanes = pop.lanes();
         let flanes = pop.foreign_lanes();
