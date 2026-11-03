@@ -23,6 +23,8 @@ ndarray: the sibling checkout at `../ndarray` relative to the repo root
 | `original/ARM-L-DECISION-MEMO.first-draft.md` | the memo as first written, before the operator's revision requests | session scratchpad, byte copy, sha256 `5743b1ee…` |
 | `probe-v3/` | Arm L against production witness contracts (`SealedFacetLane`, `OrderedLaneWitness`, `FrameStore`), negative controls, benchmark | new |
 | `REPORT-V3.md` | v3 results and the GO / NO-GO / NEEDS OWNER DECISION matrix | new |
+| `probe-v4/` | A: construction-time presence and pointer witnesses on production types; B: candidate-gated execution in one mask-risc program | new |
+| `REPORT-V4.md` | v4 results and the decision memo | new |
 
 The originals are copies of artifacts that existed in this session's scratchpad.
 Nothing in `original/` was reconstructed.
