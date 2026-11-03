@@ -1,4 +1,4 @@
-# 2026-11-03 — D-BAG-FOLD v3: Arm L against production witness contracts
+# 2026-11-03 — D-BAG-FOLD-V3: Arm L against production witness contracts
 
 **Status:** MEASURED, lab only (`.claude/probes/2026-11-03-d-bag-fold/probe-v3/`, `REPORT-V3.md`, source `d651b70d4`, rustc 1.99.0). Not promoted; EXO-140 unchanged; no DT64 behaviour; `MaskOp::Gather` only in the lab crate.
 
