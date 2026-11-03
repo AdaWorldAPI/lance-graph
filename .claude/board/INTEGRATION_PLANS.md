@@ -1,3 +1,8 @@
+## 2026-11-03 — D-DRAM-P3: P2 open ends integrated with the D-DRAM-0 falsifier map → `.claude/plans/d-dram-p3-integrated-v1.md`
+
+**Status:** PLAN, owned by this session (operator). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM-P3-1..8. Credits P2 (#1950) against the pre-registered #1949 gates (L9, L10, C2, C4 measured in the lab; L1/L2/L6/A3/A4 partial). Orders eleven owned items by signal per effort: three need no outside decision (ReadPolicy range count, non-vacuous projection cases, the D-DRAM-1 census). Production and gated items keep their owners; nothing merges automatically.
+**Confidence:** plan; every motive is a measured P2 number, no new measurement yet.
+
 ## 2026-11-03 — D-DRAM-0: DR address memoization + adaptive Abakus mask lens → `.claude/plans/d-dram-abacus-address-memoization-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM; [entry](entries/2026-11-03-d-dram-abacus-address-memoization.md); [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) coordination. Separate focus-scoped, witnessed receipt for already resolved canonical SoA locations, *no copy of values and no mutation of `LocalMap::globals`*. Quack dynamic ClassView/WideFieldMask scope can test shipped ndarray half/full-adder words for k-of-n masks; operator's exact 5×24 symbols require source verification. Existing Lance masked reads stay in their owner, D4/S-INGRESS gate the DR↔Lance binding, and generic payload gather remains prohibited outside the narrow D-DRF-1 §5 exception. Gates D-DRAM-1..5 are proposals, not authorized production tasks.
