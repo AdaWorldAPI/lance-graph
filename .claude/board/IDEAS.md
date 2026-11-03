@@ -85,6 +85,15 @@ Agents filter by `@`-mention or domain to see what's theirs.
 
 ## Open Ideas
 
+## 2026-11-03 — k-of-n on the shipped carry words: does the Abakus register model hold on a WHERE threshold?
+
+`[P1 @falsifier-designer domain:mask-algebra D-DRAM-3 D-DRAM-P3-5]`
+
+Working model: repeated bit-plane folding with `half_add_mask` and `full_add_mask` is a register-contract ALU fold at CPU speed. Each `u64` word is one significance column across 64 lanes, and the carry moves one column up in the same lane. ndarray's cost gate shows this beats per-lane adds on dense masks and ties on random masks, but nothing measures a k-of-n WHERE threshold. **Next probe (P3-5):** a k-of-n threshold over n masks (n = 3, 8, 32; k = 1, n/2, n) built from the two shipped words only, against native AND/OR/popcount, on dense, sparse-one-lane and random masks, with an exact scalar oracle; report ns per 64-lane word. **Kill:** the carry-word threshold is slower than native on dense masks, or disagrees with the oracle anywhere. Twin (silence): k = 1 and k = n must equal OR and AND exactly. No public type, no new opcode (#1949 §7). See `entries/2026-11-03-d-dram-p3-consolidated.md` and ndarray #402.
+
+**Fruit:** High-signal
+**Status:** Open.
+
 ## 2026-10-31 — Independent support is a mask question: does one source root's edges still cover the answer?
 
 `[P1 @falsifier-designer domain:provenance D-STAUNEN X6a D-DT64-7]`
