@@ -28,7 +28,15 @@ fn main() {
     let mut store = BindStore::new();
     let (_, t_reg) = ns(|| {
         register(&mut store, CLASS_VIA, Physical::Via, &rules, &v, &lex).unwrap();
-        register(&mut store, CLASS_COADDR, Physical::CoAddressed, &rules, &v, &lex).unwrap();
+        register(
+            &mut store,
+            CLASS_COADDR,
+            Physical::CoAddressed,
+            &rules,
+            &v,
+            &lex,
+        )
+        .unwrap();
     });
     let n = pop.base.n;
     let mut all = vec![0u64; n.div_ceil(64)];
@@ -39,7 +47,10 @@ fn main() {
     println!(
         "cold (reported, not gates): vocab_bind={t_vocab} ns  dr_map={t_dr} ns  produce_head_frame={t_prod} ns  register_4_methods={t_reg} ns"
     );
-    for (phys, class) in [(Physical::Via, CLASS_VIA), (Physical::CoAddressed, CLASS_COADDR)] {
+    for (phys, class) in [
+        (Physical::Via, CLASS_VIA),
+        (Physical::CoAddressed, CLASS_COADDR),
+    ] {
         let mut composed = Vec::new();
         let mut t_comp = 0;
         for d in &rules {
