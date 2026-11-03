@@ -20,3 +20,13 @@
 - `VIA` / `EqU32Via` executability (EXO-140);
 - a write path for change events (v3);
 - composite identity via `register_derived`.
+
+**P0b (same day, `COMPOSE-RULING.md`, `probe/src/bin/v2_compose.rs` 25/25):**
+- No method-body composition exists in D-DT64-6 or OGAR. Composition today goes through a written field or stays inside one method, and `ogar-loco::Program` was rejected.
+- The missing edge is a guard leaf that names another method's predicate `(MethodRef, field)`. `GuardWitness` cannot tell `Sym(1)`=M1 from `Sym(1)`=M1B.
+- A lab composer emulating the proposed ruling builds one program from M1 and M2:
+  - oracle 177; disabling M1's predicate gives 435;
+  - wrong permit, class, sig rev, schema rev, scope, route and frame are refused;
+  - cycle refused; `register_derived` + reroute succeeds.
+- Corrected chain (Global WHERE → DR view → MethodRef): `where_dr3::LocalSelection` binds one selection to ONE method (`SchemaChanged`, pinned by a test). It is lab only and not lifted into dt64.
+- Proposed D-DT64-6 ruling: PROPOSED / NOT IN FORCE.
