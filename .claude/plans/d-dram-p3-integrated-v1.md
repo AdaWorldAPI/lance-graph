@@ -85,3 +85,4 @@ Stop on any of:
 - [ ] P3-7 route-once lab measurement
 - [ ] P3-8 D4 / S-INGRESS decision memo
 - [ ] `S_INGRESS_COPY` label in the Lance arm output (C4)
+- [x] Consolidated findings / high-signal / fruits / open ends, with the Abakus register model as WORKING-MODEL (`entries/2026-11-03-d-dram-p3-consolidated.md`)
