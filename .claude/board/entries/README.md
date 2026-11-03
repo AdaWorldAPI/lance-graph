@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-569 entries, 2026-08-06 .. 2026-11-03.
+570 entries, 2026-08-06 .. 2026-11-03.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -35,6 +35,7 @@ exactly one of them, never both.
 | 2026-11-03 | `D-GLOBAL-WHERE-P2` |  | [2026-11-03-d-global-where-p2.md](2026-11-03-d-global-where-p2.md) |
 | 2026-11-03 | `D-GLOBAL-WHERE` |  | [2026-11-03-d-global-where-p0.md](2026-11-03-d-global-where-p0.md) |
 | 2026-11-03 | `D-DRAM-0` |  | [2026-11-03-d-dram-abacus-address-memoization.md](2026-11-03-d-dram-abacus-address-memoization.md) |
+| 2026-11-03 | `D-DRAM-1` |  | [2026-11-03-d-dram-1-census.md](2026-11-03-d-dram-1-census.md) |
 | 2026-11-03 | `D-DR-FOLD-MAP` |  | [2026-11-03-d-dr-fold-map.md](2026-11-03-d-dr-fold-map.md) |
 | 2026-11-03 | `D-COGNITIVE-POLYFILL` |  | [2026-11-03-d-cognitive-polyfill-p0.md](2026-11-03-d-cognitive-polyfill-p0.md) |
 | 2026-11-03 | `D-BAG-FOLD` |  | [2026-11-03-d-bag-fold-witnessed-existential.md](2026-11-03-d-bag-fold-witnessed-existential.md) |
