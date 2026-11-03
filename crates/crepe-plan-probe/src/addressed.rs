@@ -178,6 +178,12 @@ pub struct ReadPolicy {
     /// The table is read in full when the (merged) ranges cover at least this
     /// many rows per 1,000 of the table. Above 1,000, never.
     pub full_permille: u32,
+    /// Rows per storage page for the full-read rule. When non-zero, a full
+    /// read also needs `ranges × page_rows ≥ n_rows`: the ranges must be
+    /// spread widely enough to touch about every page. One long run touches
+    /// few pages, so a range read wins even at high coverage. 0 disables the
+    /// condition, so coverage alone decides.
+    pub page_rows: u32,
 }
 
 impl ReadPolicy {
@@ -185,6 +191,7 @@ impl ReadPolicy {
     pub const EXACT: Self = Self {
         coalesce_gap: 0,
         full_permille: u32::MAX,
+        page_rows: 0,
     };
     /// The measured switch (`examples/addressed_read.rs`, release, uniform
     /// demand, policy pins rather than derived values):
@@ -194,16 +201,24 @@ impl ReadPolicy {
     ///   the two, either choice is within run-to-run noise; above 10% the
     ///   full read is up to 1.9× faster (50% of centers).
     /// - A coalescing gap of 16 rows measured neutral on uniform demand. A
-    ///   gap of 64 lost (11.7 vs 6.9 ms at 1% of 200,000 rows). Clustered
+    ///   gap of 64 lost (11,700 vs 6,900 µs at 1% of 200,000 rows). Clustered
     ///   demand, where coalescing should help, is not measured.
+    /// - `page_rows` = 4,096, the chunk size from the #1788 A.3 analysis
+    ///   (POLICY PIN, not a measured crossover). D-GLOBAL-WHERE P2 measured
+    ///   the bracket it separates. Clustered 10%, one range: the coverage-only
+    ///   rule sent it to a full read 3.8× (1M) and 4.6× (10M) slower than the
+    ///   range read. Scattered 10%, 91,527 ranges in 1M rows: the full read
+    ///   is right. Run lengths between those two are not measured.
     pub const DEFAULT: Self = Self {
         coalesce_gap: 16,
         full_permille: 100,
+        page_rows: 4_096,
     };
     /// Always the whole table.
     pub const FULL: Self = Self {
         coalesce_gap: 0,
         full_permille: 0,
+        page_rows: 0,
     };
 }
 
@@ -220,7 +235,10 @@ pub fn plan_read(ranges: &[(u32, u32)], n_rows: u32, p: ReadPolicy) -> (Read, Ve
     }
     let span = |r: &[(u32, u32)]| -> u64 { r.iter().map(|&(lo, hi)| u64::from(hi - lo)).sum() };
     let covered = span(&merged);
-    if n_rows > 0 && covered * 1000 >= u64::from(n_rows) * u64::from(p.full_permille) {
+    let dense = covered * 1000 >= u64::from(n_rows) * u64::from(p.full_permille);
+    let spread =
+        p.page_rows == 0 || merged.len() as u64 * u64::from(p.page_rows) >= u64::from(n_rows);
+    if n_rows > 0 && dense && spread {
         return (Read::Full, Vec::new());
     }
     // Merging ranges that touch reads no extra row: still exact.
@@ -474,7 +492,50 @@ mod tests {
         ReadPolicy {
             coalesce_gap,
             full_permille,
+            page_rows: 0,
         }
+    }
+
+    fn paged(full_permille: u32, page_rows: u32) -> ReadPolicy {
+        ReadPolicy {
+            coalesce_gap: 0,
+            full_permille,
+            page_rows,
+        }
+    }
+
+    /// The clustered case measured in D-GLOBAL-WHERE P2: one contiguous run
+    /// covering 30% of the table. Coverage alone sends it to a full read; it
+    /// touches 1 of 250 pages, so the page condition keeps the range read.
+    #[test]
+    fn one_long_run_keeps_the_range_read_despite_high_coverage() {
+        let r = [(100, 400)]; // 300 of 1,000 rows, one range
+        assert_eq!(plan_read(&r, 1_000, paged(100, 4)).0, Read::Ranges);
+    }
+
+    /// The scattered case: as many one-row ranges as rows covered. Every page
+    /// is touched, so the full read still fires.
+    #[test]
+    fn many_scattered_ranges_still_read_in_full() {
+        let r: Vec<(u32, u32)> = (0..300).map(|i| (3 * i, 3 * i + 1)).collect();
+        assert_eq!(r.len() * 4, 1_200, "ranges x page_rows must reach n_rows");
+        assert_eq!(plan_read(&r, 1_000, paged(100, 4)).0, Read::Full);
+    }
+
+    /// The page condition fires exactly at `ranges × page_rows = n_rows`.
+    #[test]
+    fn the_page_condition_fires_at_the_boundary_and_not_one_range_below() {
+        let r250: Vec<(u32, u32)> = (0..250).map(|i| (4 * i, 4 * i + 1)).collect();
+        let r249 = &r250[..249];
+        assert_eq!(plan_read(&r250, 1_000, paged(100, 4)).0, Read::Full);
+        assert_eq!(plan_read(r249, 1_000, paged(100, 4)).0, Read::Ranges);
+    }
+
+    /// `page_rows = 0` disables the condition: the long run reads in full on
+    /// coverage alone, as before.
+    #[test]
+    fn page_rows_zero_restores_the_coverage_only_rule() {
+        assert_eq!(plan_read(&[(100, 400)], 1_000, paged(100, 0)).0, Read::Full);
     }
 
     #[test]
