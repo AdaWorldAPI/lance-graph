@@ -76,9 +76,9 @@ Stop on any of:
 
 ## 5. Checklist
 
-- [ ] P3-1 `ReadPolicy` range count, with a can-fire and a can-stay-silent test
+- [x] P3-1 `ReadPolicy` range count, with a can-fire and a can-stay-silent test (disable runs: 2 and 6 tests red)
 - [ ] P3-2 non-vacuous `project` cases
-- [ ] P3-3 D-DRAM-1 census written
+- [x] P3-3 D-DRAM-1 census written (`entries/2026-11-03-d-dram-1-census.md`)
 - [ ] P3-4 EXISTS early exit, draft PR
 - [ ] P3-5 D-DRAM-3 k-of-n bench (A1, A2, A5–A7)
 - [ ] P3-6 ordered compare proposal

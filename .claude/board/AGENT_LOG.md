@@ -1,3 +1,10 @@
+## 2026-11-03 — D-DRAM-1 census (Haiku harvest, Opus verify)
+
+- Two `harvest-scout` runs: ndarray `src/benches/examples/tests` for the "5×24" spellings, `half_add_mask` / `full_add_mask` / `sum8_u8_add_masked` and `Abacus`; lance-graph `crates/` and `.claude/plans/` for focus/lease/seal/map/locator symbols.
+- Checks on the main thread, all held: `half_add_mask` at `simd_masking_ops.rs:6523`, `full_add_mask` at `:6545`, the re-export at `simd.rs:1062`, `sum8_u8_add_masked` at `simd_scalar.rs:550`, `U24x5` at `examples/microtile/tile.rs:60` (plus its "lab fixture only" line); `FocusKey`/`SourceId`/`check_seal` in `drf-focus-probe`, `FocusLease` in `lance-graph-nsl`, `Focus`/`Guards` in `dt64/dr.rs`; workspace membership read in `Cargo.toml`.
+- Misses: the ndarray run ran `carry` over all of `src/` instead of the matched files only and hit its cap (self-reported). The lance-graph run hit its cap on three patterns and listed substring false positives (`allocator`, `release(`, `RelationshipMapping`), all self-reported. Neither card concluded or edited. Retired: none.
+- Result: `entries/2026-11-03-d-dram-1-census.md`. Written by the orchestrating main thread only.
+
 ## 2026-10-22 — Stage B E1 probe (Opus spec, Sonnet draft)
 
 - One Sonnet drafter from a written spec (no cargo). The main thread replaced its hand-written variable expansion (a second rewriter outside egglog) with an egglog constructor cost, fixed a test that pinned egglog's cost tie-break, withheld the out-of-fold egglog timing pending an operator ruling, compiled, and ran 6 disable runs (all red).

@@ -15,9 +15,9 @@
 
 | D-id | Deliverable | Status | Owner / gate |
 | --- | --- | --- | --- |
-| D-DRAM-P3-1 | `ReadPolicy` weighs range count (clustered 10% misrouted 3.8–4.6×) | In progress | this session; lab crate |
+| D-DRAM-P3-1 | `ReadPolicy` weighs range count (clustered 10% misrouted 3.8–4.6×) | Done in lab: `page_rows` rule; clustered 10–50% now 1.2–7.8× faster, scattered unchanged | this session; lab crate |
 | D-DRAM-P3-2 | non-vacuous `project` k4/k16 sparse/mixed cases | Queued | this session; research branch |
-| D-DRAM-P3-3 | = D-DRAM-1 read-only census | In progress | this session; report to EXO-46 / ndarray owner |
+| D-DRAM-P3-3 | = D-DRAM-1 read-only census | Done: [entry](entries/2026-11-03-d-dram-1-census.md); only `half_add_mask`/`full_add_mask` shipped, `U24x5`/`Abacus` lab-only, no production lease | this session; report to EXO-46 / ndarray owner |
 | D-DRAM-P3-4 | EXISTS early exit per tile (0.16× DuckDB at 10M) | Queued | this session drafts; mask-risc owner reviews |
 | D-DRAM-P3-5 | = D-DRAM-3 k-of-n Abakus bench, A1/A2/A5–A7 | Queued, after P3-3 | this session; no new opcode/type |
 | D-DRAM-P3-6 | ordered u8-in-u32 compare proposal | Queued | this session proposes; ndarray owner |
