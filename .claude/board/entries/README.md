@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-557 entries, 2026-08-06 .. 2026-11-02.
+558 entries, 2026-08-06 .. 2026-11-03.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-03 | `a10-writers-retract-xlog-pr` |  | [2026-11-03-a10-writers-retract-xlog-pr.md](2026-11-03-a10-writers-retract-xlog-pr.md) |
 | 2026-11-02 | `sgr-recovery-gates` |  | [2026-11-02-sgr-recovery-gates.md](2026-11-02-sgr-recovery-gates.md) |
 | 2026-11-02 | `p4-thought-git-codegraph-dt64-review` |  | [2026-11-02-p4-thought-git-codegraph-dt64-review.md](2026-11-02-p4-thought-git-codegraph-dt64-review.md) |
 | 2026-11-02 | `p4-operator-decisions-lifecycle-lab` |  | [2026-11-02-p4-operator-decisions-lifecycle-lab.md](2026-11-02-p4-operator-decisions-lifecycle-lab.md) |
