@@ -1,6 +1,6 @@
 -- SELECT count(*) FROM selA s WHERE EXISTS (SELECT 1 FROM edges e JOIN selB t ON t.id = e.dst WHERE e.src = s.id)
 ╭─ Summary ───────────╮
-│ Total Time: 0.0025s │
+│ Total Time: 0.0020s │
 ╰─────────────────────╯
 ╭─ Ungrouped Aggregate ────────────────────╮
 │ Aggregates: count_star()                 │

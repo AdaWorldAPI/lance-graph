@@ -7,7 +7,9 @@ Run:  python3 -I compare.py <OUT_DIR>      (reads ours.json + duckdb.json,
                                             writes compare.md, prints it)
 
 Exit status 1 if any answer disagrees (every ours arm vs DuckDB at both thread
-counts), with the mismatching rows printed. Exit 2 on unreadable input.
+counts) or any comparison is missing in either direction (including a thread
+count other than 1 and 4). DuckDB's W8 (W2 before the DELETE) is checked
+against ours W2. Exit 2 on unreadable input.
 
 All times are microseconds. Ratios are DuckDB / ours, so > 1 means ours is
 faster. Verdict thresholds on the ratio: WIN > 1.10, PARITY 0.90..1.10,
@@ -24,6 +26,8 @@ import json
 import os
 import sys
 from collections import defaultdict
+
+EXPECTED_THREADS = [1, 4]
 
 
 def load(path):
@@ -89,21 +93,50 @@ def main(argv):
     summary = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     # summary[(threads, kind)][workload][verdict]
 
-    keys = sorted({(r["dataset"], r["workload"]) for r in dd},
-                  key=lambda k: (k[0], wl_order(k[1])))
-    for ds, wl in keys:
-        arms = ours_by.get((ds, wl))
-        if not arms:
-            notes.append(f"no ours record for {ds} {wl}")
+    # Coverage is checked in both directions and any gap fails the gate:
+    # an incomplete run must never print "All compared answers agree".
+    missing = []
+    if threads != EXPECTED_THREADS:
+        missing.append(f"duckdb thread counts {threads}, expected {EXPECTED_THREADS}")
+    ours_keys = set(ours_by)
+    dd_keys = {(r["dataset"], r["workload"]) for r in dd}
+    # DuckDB's W8 is W2 measured on the same connection before the DELETE; ours
+    # has no separate record for it, so its answer is checked against ours W2.
+    for ds, wl in sorted(ours_keys - dd_keys):
+        missing.append(f"no duckdb record for {ds} {wl}")
+    for ds, wl in sorted(dd_keys):
+        src = (ds, "W2") if wl == "W8" else (ds, wl)
+        if src not in ours_by:
+            missing.append(f"no ours record for {ds} {wl}")
+        for T in EXPECTED_THREADS:
+            if (ds, T, wl) not in dd_by:
+                missing.append(f"no duckdb record for {ds} threads={T} {wl}")
+    for ds, wl in sorted(dd_keys):
+        if wl != "W8" or (ds, "W2") not in ours_by:
             continue
         for T in threads:
             d = dd_by.get((ds, T, wl))
             if d is None:
-                notes.append(f"no duckdb record for {ds} threads={T} {wl}")
+                continue
+            for a in ours_by[(ds, "W2")]:
+                if a.get("answer") is None:
+                    missing.append(f"ours answer missing: {ds} W2 arm={a.get('arm')}")
+                elif a["answer"] != d["answer"]:
+                    mismatches.append((ds, "W8(before delete) vs ours W2", a.get("arm"), T, a["answer"], d["answer"]))
+
+    keys = sorted((k for k in dd_keys if k[1] != "W8"),
+                  key=lambda k: (k[0], wl_order(k[1])))
+    for ds, wl in keys:
+        arms = ours_by.get((ds, wl))
+        if not arms:
+            continue
+        for T in threads:
+            d = dd_by.get((ds, T, wl))
+            if d is None:
                 continue
             for a in arms:
                 if a.get("answer") is None:
-                    notes.append(f"ours answer missing: {ds} {wl} arm={a.get('arm')}")
+                    missing.append(f"ours answer missing: {ds} {wl} arm={a.get('arm')}")
                 elif a["answer"] != d["answer"]:
                     mismatches.append((ds, wl, a.get("arm"), T, a["answer"], d["answer"]))
             floor = d.get("floor_us") or 0.0
@@ -157,24 +190,30 @@ def main(argv):
 
     if notes:
         lines += ["## Notes", ""] + [f"- {n}" for n in notes] + [""]
+    if missing:
+        lines += ["## MISSING COMPARISONS", ""] + [f"- {m}" for m in missing] + [""]
     if mismatches:
         lines += ["## ANSWER MISMATCHES", "", "| dataset | workload | ours arm | duckdb threads | ours answer | duckdb answer |", "|---|---|---|---|---|---|"]
         for m in mismatches:
             lines.append("| " + " | ".join(str(x) for x in m) + " |")
         lines.append("")
-    else:
-        lines += ["All compared answers agree.", ""]
+    elif not missing:
+        lines += ["All compared answers agree; coverage complete in both directions.", ""]
 
     text = "\n".join(lines)
     with open(os.path.join(out, "compare.md"), "w") as f:
         f.write(text)
     print(text)
+    if missing:
+        print(f"\nFAIL: {len(missing)} missing comparison(s)", file=sys.stderr)
+        for m in missing:
+            print("MISSING " + m, file=sys.stderr)
     if mismatches:
         print(f"\nFAIL: {len(mismatches)} answer mismatch(es)", file=sys.stderr)
         for m in mismatches:
             print("MISMATCH dataset=%s workload=%s arm=%s duckdb_threads=%s ours=%s duckdb=%s" % m, file=sys.stderr)
         return 1
-    return 0
+    return 1 if missing else 0
 
 
 if __name__ == "__main__":
