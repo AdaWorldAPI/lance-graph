@@ -234,7 +234,7 @@ pub fn plan_read(ranges: &[(u32, u32)], n_rows: u32, p: ReadPolicy) -> (Read, Ve
 
 /// The rows of every leading value in `wanted` (sorted, deduplicated) as lane
 /// ranges, found with galloping seeks from the previous range's end.
-fn ranges(
+pub fn ranges(
     a: &AddressedRelation,
     wanted: &[u32],
 ) -> Result<(Vec<(u32, u32)>, usize), AddressedRefusal> {
@@ -262,12 +262,43 @@ fn ranges(
     Ok((out, rows))
 }
 
-fn range_mask(ranges: &[(u32, u32)]) -> RowAddrMask {
+/// The lane ranges as Lance's row-address tree, one `insert_range` per range.
+/// Lance owns the result: building it copies the ranges (seam S-INGRESS).
+pub fn range_tree(ranges: &[(u32, u32)]) -> RowAddrTreeMap {
     let mut m = RowAddrTreeMap::new();
     for &(lo, hi) in ranges {
         m.insert_range(u64::from(lo)..u64::from(hi));
     }
-    RowAddrMask::from_allowed(m)
+    m
+}
+
+/// [`range_tree`] as an ALLOW mask for `with_row_addr_prefilter`.
+pub fn range_mask(ranges: &[(u32, u32)]) -> RowAddrMask {
+    RowAddrMask::from_allowed(range_tree(ranges))
+}
+
+/// Refuses a lane read against another dataset or a dataset that moved on
+/// since the lane was attested.
+pub fn check_fresh(
+    a: &AddressedRelation,
+    uri: &str,
+    current: u64,
+) -> Result<(), AddressedRefusal> {
+    if uri != a.uri {
+        return Err(AddressedRefusal::OtherDataset {
+            rel: a.rel,
+            attested: a.uri.clone(),
+            current: uri.to_string(),
+        });
+    }
+    if current != a.lane.version() {
+        return Err(AddressedRefusal::Stale {
+            rel: a.rel,
+            attested: a.lane.version(),
+            current,
+        });
+    }
+    Ok(())
 }
 
 fn lane_for(
@@ -290,21 +321,7 @@ async fn current_lane<'a>(
     let rel = plan.sides[i].key.rel;
     let a = lane_for(lanes, rel)?;
     let ds = store.dataset(rel).await?;
-    if ds.uri() != a.uri {
-        return Err(AddressedRefusal::OtherDataset {
-            rel,
-            attested: a.uri.clone(),
-            current: ds.uri().to_string(),
-        });
-    }
-    let current = ds.version().version;
-    if current != a.lane.version() {
-        return Err(AddressedRefusal::Stale {
-            rel,
-            attested: a.lane.version(),
-            current,
-        });
-    }
+    check_fresh(a, ds.uri(), ds.version().version)?;
     Ok((a, ds))
 }
 
