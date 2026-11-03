@@ -3,6 +3,14 @@
 Date: 2026-11-03. LAB ONLY. No production crate changed. Nothing here is
 authorized as a design; S-INGRESS and D4 stay open.
 
+**Code and raw data live on the research branch**, not on `main`:
+[`research/d-global-where-p2`](https://github.com/AdaWorldAPI/lance-graph/tree/research/d-global-where-p2/.claude/probes/2026-11-03-d-global-where-p1)
+(commit `1422b2b92`). It holds the in-memory probe (`probe/`), the DuckDB
+scripts (`duckdb/`) and every measurement (`results/`). Any `probe/…`,
+`duckdb/…` or `results/…` path cited below refers to that branch. On `main`
+are this report, `ENGINEERING-PARITY.md`, `LANCE-TRACE.md`, `SPEC.md` and the
+Lance arm (`crates/crepe-plan-probe/examples/where_lance_arm.rs`).
+
 Labels used on every number:
 
 - **in-memory**: the P2 probe (`probe/`), data generated in memory, no storage.

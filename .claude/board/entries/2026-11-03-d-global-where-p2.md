@@ -1,7 +1,7 @@
 # D-GLOBAL-WHERE-P2: criteria-aware WHERE, DR composition, Lance selective read, three parity verdicts
 
 **Status:** MEASURED, lab only. No production change.
-**Probe:** `.claude/probes/2026-11-03-d-global-where-p1/`. Read `REPORT.md` for numbers and verdicts, `ENGINEERING-PARITY.md` for the literature matrix, and `LANCE-TRACE.md` for the source-backed caller path. The Lance arm lives in `crates/crepe-plan-probe/examples/where_lance_arm.rs`.
+**Probe:** `.claude/probes/2026-11-03-d-global-where-p1/` on `main` holds the docs. The probe code, DuckDB scripts and raw results are on the research branch `research/d-global-where-p2` (commit `1422b2b92`). Read `REPORT.md` for numbers and verdicts, `ENGINEERING-PARITY.md` for the literature matrix, and `LANCE-TRACE.md` for the source-backed caller path. The Lance arm lives in `crates/crepe-plan-probe/examples/where_lance_arm.rs`.
 
 **Semantic parity: reached.**
 - Every count and EXISTS answer equals both the oracle and DuckDB 2.0.0, at 1M and 10M, threads 1 and 4.

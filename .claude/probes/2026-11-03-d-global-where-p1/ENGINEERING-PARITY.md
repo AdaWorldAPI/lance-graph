@@ -1,5 +1,7 @@
 # Engineering parity: DuckDB literature against DR / Quack / mask-risc / Lance 13
 
+> Paths under `probe/`, `duckdb/` and `results/` refer to the research branch [`research/d-global-where-p2`](https://github.com/AdaWorldAPI/lance-graph/tree/research/d-global-where-p2/.claude/probes/2026-11-03-d-global-where-p1) (commit `1422b2b92`); they are not on `main`.
+
 Date: 2026-11-03. Lab research, READ-ONLY. This replaces the earlier draft (scope change: literature first).
 
 Grades:

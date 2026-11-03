@@ -1,5 +1,7 @@
 # Lance 13 selective-read trace — D-GLOBAL-WHERE vs established contracts
 
+> Paths under `probe/`, `duckdb/` and `results/` refer to the research branch [`research/d-global-where-p2`](https://github.com/AdaWorldAPI/lance-graph/tree/research/d-global-where-p2/.claude/probes/2026-11-03-d-global-where-p1) (commit `1422b2b92`); they are not on `main`.
+
 Repo `/home/user/lg-p1`, branch `ccr-85acaff0-oszq40-global-where-p1` (HEAD `3fb41149d`). Read-only. No cargo run. Labels: **VERIFIED-IN-CODE** (read first-hand, file:line), **VERIFIED-IN-DOC** (read in a committed plan/entry/PR body), **HYPOTHESIS**, **OPEN**.
 
 ## Step 1 — established contracts

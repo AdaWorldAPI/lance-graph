@@ -1,5 +1,7 @@
 # D-GLOBAL-WHERE P1 probe spec: 64K page amortization, routing arms, cost model (lab only)
 
+> Paths under `probe/`, `duckdb/` and `results/` refer to the research branch [`research/d-global-where-p2`](https://github.com/AdaWorldAPI/lance-graph/tree/research/d-global-where-p2/.claude/probes/2026-11-03-d-global-where-p1) (commit `1422b2b92`); they are not on `main`.
+
 Written by the orchestrator; implemented by workers. Root: `/home/user/lg-p1`, branch
 `ccr-85acaff0-oszq40-global-where-p1`, cut from `origin/main` `ebbdb27d9`. Edit only
 inside `.claude/probes/2026-11-03-d-global-where-p1/`.
