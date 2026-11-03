@@ -1,0 +1,21 @@
+# Evidence probe for D-BAG-FOLD. NOT a workspace member, NOT production code.
+# Own [workspace] table so the lance-graph root workspace never builds it.
+[package]
+name = "d-bag-fold-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-quack = { path = "../../../../crates/lance-graph-quack" }
+lance-graph-mask-risc = { path = "../../../../crates/lance-graph-mask-risc" }
+
+# Same convention as the repo root: ndarray is the sibling checkout `../ndarray`
+# of the lance-graph repo root.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../../../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+
+[workspace]
