@@ -138,6 +138,9 @@ exclude = [
     # D-MTP-1: its own workspace root (datafrog oracle is a git dev-dependency).
     # `cargo test --manifest-path crates/lance-graph-metta/Cargo.toml`.
     "crates/lance-graph-metta",
+    # D-COGNITIVE-POLYFILL P0 lab probe; own workspace root.
+    # `cargo test --manifest-path crates/cognitive-polyfill-probe/Cargo.toml`.
+    "crates/cognitive-polyfill-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
