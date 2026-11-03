@@ -229,3 +229,50 @@ Consequences for this spec (they override the text above where they conflict):
 7. **DuckDB (Part 4)** also runs N ∈ {1M, 10M}; report preprocessing on both sides (our global
    relation index + optional attribute index; DuckDB load + ANALYZE, and an optional
    `CREATE INDEX` arm on edges(src), nodes(id) with its build time).
+
+---
+
+## P2 (operator, 2026-11-03): criteria-aware WHERE and multi-domain DR composition
+
+This PR carries P1 and P2 together (title P2). Three independent variables, never merged into one
+"dataset size": **K** (criteria per WHERE), **population** (survivors), **D** (DR domains composed).
+
+### Source inventory (orchestrator, read in `crates/lance-graph-quack/src/lib.rs`)
+- `Filter::{Cmp, Plane, EqU32Via, Semijoin, And(Vec), Or(Vec), Not}` (`:336`), `Filter::and_by_skip`
+  (selectivity-ordered AND, `:752`), `Filter::sql_where` three-valued rewrite over validity planes
+  (`:549`), `lower` (`:1383`) and `lower_fused` (ternlog fusion, `:1397`), executed by mask-risc
+  `execute_into`. So K-criteria WHERE over resident lanes is PRODUCTION; `EqU32Via`/`Semijoin` are
+  EXO-140-gated and not used here.
+
+### Part 5: `src/bin/where_k.rs` + `duckdb/bench_where.py`
+Corpus N ∈ {1M, 10M}; columns c0..c15 i32 and nullable c15 (null when `f(id,15) % 10 == 0`).
+Values are a closed formula both sides compute identically (no CSV for nodes):
+`f(id, j) = (((id * 2654435761 + j * 40503) % 2147483648) * 1103515245 % 2147483648) % 1000`
+(all BIGINT, no overflow: operands < 2^31 before each multiply). Correlated column: c1 =
+`(c0 + f(id,1) % 20) % 1000`.
+Cases: K groups {1, 2–4, 5–16, ≥17 (17 and 24, criteria may reuse columns with different
+constants)} × population {tiny ≤ 100, medium ≈ 1 %, large ≈ 50 %} × shape {AND-heavy, OR-heavy,
+mixed} plus the adversarial pairs: one criterion ≈ everything; one ≈ nothing; 16 nonselective; 16
+collapsing to one survivor; correlated criteria that do not reduce; contradictory → empty; a
+nullable-column case through `sql_where`. Thresholds are SEARCHED by the generator to hit each
+population target and the achieved count is reported (never assumed from K).
+The generator writes `$OUT/where/cases.json`: each case = predicate tree {op: and|or|not|cmp,
+col, cmpop, value} + target + achieved count (oracle). Python builds SQL from the same tree.
+Ours per case, single thread, median of 31: `lower_us` (plain and fused), `eval_us` for
+`Agg::Count`, `Agg::Any`, `Agg::Rows` (Keep → transient mask), plain vs fused vs `and_by_skip`
+order, temporary bytes, and the representation used: `virtual` (Count/Any: no mask survives),
+`transient` (Keep mask), `persistent` (never here). Report weighted (34/46/14/6 over K groups) and
+unweighted tables. DuckDB: same predicate as `SELECT count(*) FROM nodes WHERE <pred>` and an
+`EXISTS` variant (`SELECT EXISTS(SELECT 1 FROM nodes WHERE <pred>)`), prepared, threads 1 and 4,
+answers must match exactly; EXPLAIN ANALYZE for one case per K group. Output `where_ours.json`,
+`where_duckdb.json`, `compare_where.md`.
+
+### Multi-domain composition (Part 1 additions, F22–F29)
+F22 one / two / three DR domains give the same answers as one domain over the union (EXISTS,
+COUNT, DISTINCT, Bag). F23 an edge crossing a domain boundary; F24 a path crossing three domains;
+F25 the same global id in two selections; F26 a duplicate id across incorrectly configured domains
+→ refused (`Ambiguous` when listed together; a global-id union check otherwise); F27 a deleted
+cross-domain edge; F28 historical replay across domains; F29 aggregate composition laws: EXISTS =
+OR of parts, COUNT = checked sum over DISJOINT contributions, DISTINCT = exact union (and a
+falsifier: summing per-domain distinct counts over overlapping domains gives the WRONG answer),
+Bag = multiplicities preserved.
