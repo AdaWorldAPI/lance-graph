@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-560 entries, 2026-08-06 .. 2026-11-03.
+561 entries, 2026-08-06 .. 2026-11-03.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-03 | `D-BAG-FOLD` |  | [2026-11-03-d-bag-fold-witnessed-existential.md](2026-11-03-d-bag-fold-witnessed-existential.md) |
+| 2026-11-03 | `D-BAG-FOLD-V4` |  | [2026-11-03-d-bag-fold-v4-attested-lens-gated-exec.md](2026-11-03-d-bag-fold-v4-attested-lens-gated-exec.md) |
 | 2026-11-03 | `D-BAG-FOLD-V3` |  | [2026-11-03-d-bag-fold-v3-production-witnesses.md](2026-11-03-d-bag-fold-v3-production-witnesses.md) |
 | 2026-11-03 | `a10-writers-retract-xlog-pr` |  | [2026-11-03-a10-writers-retract-xlog-pr.md](2026-11-03-a10-writers-retract-xlog-pr.md) |
 | 2026-11-02 | `sgr-recovery-gates` |  | [2026-11-02-sgr-recovery-gates.md](2026-11-02-sgr-recovery-gates.md) |
