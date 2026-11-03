@@ -433,6 +433,8 @@ impl ArmC {
             st.chunk_ors += 1;
         }
         Self::hop(ch, &self.acc_d, &mut self.acc_c, st); // b → c
+        // Count the b frontier's tiles before the register is reused for d.
+        st.tiles_touched += self.acc_d.touched.len() as u64;
         self.acc_d.clear();
         Self::hop(ch, &self.acc_c, &mut self.acc_d, st); // c → d
         st.tiles_touched += (self.acc_c.touched.len() + self.acc_d.touched.len()) as u64;

@@ -66,12 +66,12 @@ The raw CSV is in the run output.
   - A starts at the d level. It loads one pointer per present T candidate and a second per survivor, whether or not the R/S chain is alive above it.
   - A also pays whole-lane word passes (predicate, gate, `Count`) proportional to all rows, not to the query.
   - C starts at `a` and expands only the live frontier.
-  - Example, ordered, 64 roots, f=16, 90 %: A did 6,697 loads; C did 235 chunk ORs over 36 tiles.
-  - The same cell shuffled: 6,697 loads vs 2,980 ORs over 1,183 tiles.
+  - Example, ordered, 64 roots, f=16, 90 %: A did 6,697 loads; C did 235 chunk ORs over 49 tiles.
+  - The same cell shuffled: 6,697 loads vs 2,980 ORs over 1,196 tiles.
 - **Candidate density:** at fixed f=16 / 10 %, A grows with table size (shuffled: 3.2 → 15 → 59 µs for 1 / 16 / 64 roots). That is the `EqU32` pass over every row. C stays at about 0.1–0.2 µs.
 - **Locality and cross-tile:**
   - Ordered children share a chunk, so one OR covers up to f edges.
-  - Shuffled children spread across tiles, so one OR covers about one edge. C's ORs grow about 10× and its tiles touched about 30×.
+  - Shuffled children spread across tiles, so one OR covers about one edge. C's ORs grow about 10× and its tiles touched about 24× in that cell. Tiles touched counts all three frontiers (b, c, d); a first run omitted the b frontier.
   - C's chunk store also grows: 10.1 MB shuffled vs 1.8 MB ordered at 279,616 rows, against A's 3.4 MB of pointer lanes.
   - **Cross-tile data costs C memory, not latency, in this range.**
 
