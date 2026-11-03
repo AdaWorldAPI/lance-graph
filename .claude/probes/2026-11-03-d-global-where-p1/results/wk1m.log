@@ -1,0 +1,470 @@
+== N = 1000000 ==
+columns built in 0.12 s (16 x i32 lanes + validity plane)
+case k1_tiny_single           K=1  target       50 achieved     1000 met=false
+case k1_medium_single         K=1  target    10000 achieved    10000 met=true
+case k1_large_single          K=1  target   500000 achieved   500005 met=true
+case k3_tiny_and              K=3  target       50 achieved      765 met=false
+case k3_medium_and            K=3  target    10000 achieved    10139 met=true
+case k3_large_and             K=3  target   500000 achieved   499628 met=true
+case k3_tiny_or               K=3  target       50 achieved      999 met=false
+case k3_medium_or             K=3  target    10000 achieved    10000 met=true
+case k3_large_or              K=3  target   500000 achieved   500615 met=true
+case k3_tiny_mixed            K=3  target       50 achieved      428 met=false
+case k3_medium_mixed          K=3  target    10000 achieved     9819 met=true
+case k3_large_mixed           K=3  target   500000 achieved   499424 met=true
+case k8_tiny_and              K=8  target       50 achieved       46 met=true
+case k8_medium_and            K=8  target    10000 achieved    10097 met=true
+case k8_large_and             K=8  target   500000 achieved   498124 met=true
+case k8_tiny_or               K=8  target       50 achieved      999 met=false
+case k8_medium_or             K=8  target    10000 achieved     9997 met=true
+case k8_large_or              K=8  target   500000 achieved   498831 met=true
+case k8_tiny_mixed            K=8  target       50 achieved       91 met=true
+case k8_medium_mixed          K=8  target    10000 achieved     9901 met=true
+case k8_large_mixed           K=8  target   500000 achieved   500157 met=true
+case k17_tiny_and             K=17 target       50 achieved       45 met=true
+case k17_medium_and           K=17 target    10000 achieved     9754 met=true
+case k17_large_and            K=17 target   500000 achieved   499819 met=true
+case k17_tiny_or              K=17 target       50 achieved     1000 met=false
+case k17_medium_or            K=17 target    10000 achieved    10000 met=true
+case k17_large_or             K=17 target   500000 achieved   505114 met=true
+case k17_tiny_mixed           K=17 target       50 achieved       46 met=true
+case k17_medium_mixed         K=17 target    10000 achieved    10098 met=true
+case k17_large_mixed          K=17 target   500000 achieved   498269 met=true
+case k24_tiny_and             K=24 target       50 achieved       50 met=true
+case k24_medium_and           K=24 target    10000 achieved     9900 met=true
+case k24_large_and            K=24 target   500000 achieved   502071 met=true
+case k24_tiny_or              K=24 target       50 achieved     1001 met=false
+case k24_medium_or            K=24 target    10000 achieved     9995 met=true
+case k24_large_or             K=24 target   500000 achieved   495651 met=true
+case k24_tiny_mixed           K=24 target       50 achieved       48 met=true
+case k24_medium_mixed         K=24 target    10000 achieved     9953 met=true
+case k24_large_mixed          K=24 target   500000 achieved   500471 met=true
+case adv_one_everything       K=2  target        0 achieved    10000 met=-
+case adv_one_nothing          K=3  target        0 achieved     1002 met=-
+case adv_or_one_everything    K=2  target        0 achieved  1000000 met=-
+case adv_or_one_nothing       K=2  target        0 achieved     1000 met=-
+case adv_16_nonselective      K=16 target        0 achieved   827152 met=-
+case adv_16_collapse_one      K=16 target        0 achieved       46 met=-
+case adv_correlated_2         K=2  target        0 achieved   500001 met=-
+case adv_correlated_5         K=5  target        0 achieved   490001 met=-
+case adv_contradictory_2      K=2  target        0 achieved        0 met=-
+case adv_contradictory_17     K=17 target        0 achieved        0 met=-
+case null_and                 K=2  target        0 achieved    99875 met=-
+case null_not                 K=1  target        0 achieved   450007 met=-
+case null_or                  K=2  target        0 achieved   190006 met=-
+case null_not_and             K=2  target        0 achieved   850017 met=-
+case null_and_5               K=5  target        0 achieved   267454 met=-
+generated 54 cases in 5.97 s
+measured k1_tiny_single           K=1  achieved     1000 lower plain 0.096 fused 0.109 us, best count skip_fused = 140.59 us
+measured k1_medium_single         K=1  achieved    10000 lower plain 0.103 fused 0.108 us, best count skip = 138.57 us
+measured k1_large_single          K=1  achieved   500005 lower plain 0.095 fused 0.108 us, best count plain = 140.49 us
+measured k3_tiny_and              K=3  achieved      765 lower plain 0.284 fused 0.509 us, best count skip_fused = 567.79 us
+measured k3_medium_and            K=3  achieved    10139 lower plain 0.339 fused 0.694 us, best count skip_fused = 528.71 us
+measured k3_large_and             K=3  achieved   499628 lower plain 0.399 fused 0.853 us, best count fused = 531.40 us
+measured k3_tiny_or               K=3  achieved      999 lower plain 0.278 fused 0.568 us, best count plain = 582.33 us
+measured k3_medium_or             K=3  achieved    10000 lower plain 0.279 fused 0.563 us, best count skip_fused = 557.82 us
+measured k3_large_or              K=3  achieved   500615 lower plain 0.281 fused 0.566 us, best count skip = 529.72 us
+measured k3_tiny_mixed            K=3  achieved      428 lower plain 0.368 fused 0.652 us, best count skip_fused = 547.41 us
+measured k3_medium_mixed          K=3  achieved     9819 lower plain 0.367 fused 0.651 us, best count skip_fused = 536.75 us
+measured k3_large_mixed           K=3  achieved   499424 lower plain 0.362 fused 0.645 us, best count skip_fused = 516.12 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=plain any warm 1384.3 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=plain rows warm 1372.4 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=fused count warm 1390.4 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=fused any warm 1382.6 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=fused rows warm 1412.0 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=skip_fused count warm 1368.4 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=skip_fused any warm 1374.5 us
+FAILED-GATE n=1000000 case=k8_tiny_and variant=skip_fused rows warm 1372.1 us
+measured k8_tiny_and              K=8  achieved       46 lower plain 0.526 fused 2.341 us, best count plain = 959.38 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=plain count warm 1584.0 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=plain any warm 1607.7 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=plain rows warm 1617.7 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=fused count warm 1362.3 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=fused any warm 1365.2 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=fused rows warm 1378.7 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip count warm 1636.3 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip any warm 1651.5 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip rows warm 1872.0 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip_fused count warm 1544.7 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip_fused any warm 1517.2 us
+FAILED-GATE n=1000000 case=k8_medium_and variant=skip_fused rows warm 1530.0 us
+measured k8_medium_and            K=8  achieved    10097 lower plain 0.517 fused 2.376 us, best count fused = 1362.29 us
+FAILED-GATE n=1000000 case=k8_large_and variant=plain count warm 1822.4 us
+FAILED-GATE n=1000000 case=k8_large_and variant=plain any warm 1794.2 us
+FAILED-GATE n=1000000 case=k8_large_and variant=plain rows warm 1776.4 us
+FAILED-GATE n=1000000 case=k8_large_and variant=fused count warm 1433.0 us
+FAILED-GATE n=1000000 case=k8_large_and variant=fused any warm 1425.0 us
+FAILED-GATE n=1000000 case=k8_large_and variant=fused rows warm 1725.7 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip count warm 2446.8 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip any warm 2478.2 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip rows warm 2441.7 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip_fused count warm 1830.9 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip_fused any warm 1790.0 us
+FAILED-GATE n=1000000 case=k8_large_and variant=skip_fused rows warm 1498.7 us
+measured k8_large_and             K=8  achieved   498124 lower plain 0.629 fused 2.427 us, best count fused = 1433.03 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=plain count warm 1510.9 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=plain any warm 1573.7 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=plain rows warm 1628.2 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=fused count warm 1559.5 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=fused any warm 1604.9 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=fused rows warm 1501.9 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip count warm 1459.0 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip any warm 1422.4 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip rows warm 1433.4 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip_fused count warm 1430.3 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip_fused any warm 1473.2 us
+FAILED-GATE n=1000000 case=k8_tiny_or variant=skip_fused rows warm 1473.0 us
+measured k8_tiny_or               K=8  achieved      999 lower plain 0.506 fused 2.628 us, best count skip_fused = 1430.31 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=plain count warm 1540.9 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=plain any warm 1506.0 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=plain rows warm 1519.6 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=fused count warm 1530.3 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=fused any warm 1484.5 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=fused rows warm 1521.2 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip count warm 1567.3 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip any warm 1595.7 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip rows warm 1633.1 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip_fused count warm 1600.5 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip_fused any warm 1613.6 us
+FAILED-GATE n=1000000 case=k8_medium_or variant=skip_fused rows warm 1574.8 us
+measured k8_medium_or             K=8  achieved     9997 lower plain 0.760 fused 4.193 us, best count fused = 1530.31 us
+FAILED-GATE n=1000000 case=k8_large_or variant=plain count warm 1487.1 us
+FAILED-GATE n=1000000 case=k8_large_or variant=plain any warm 1822.2 us
+FAILED-GATE n=1000000 case=k8_large_or variant=plain rows warm 1798.7 us
+FAILED-GATE n=1000000 case=k8_large_or variant=fused count warm 1417.1 us
+FAILED-GATE n=1000000 case=k8_large_or variant=fused any warm 1408.1 us
+FAILED-GATE n=1000000 case=k8_large_or variant=fused rows warm 1701.4 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip count warm 1698.6 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip any warm 1748.9 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip rows warm 1622.3 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip_fused count warm 1599.1 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip_fused any warm 1815.9 us
+FAILED-GATE n=1000000 case=k8_large_or variant=skip_fused rows warm 1458.2 us
+measured k8_large_or              K=8  achieved   498831 lower plain 0.505 fused 2.610 us, best count fused = 1417.11 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=plain count warm 1570.7 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=plain any warm 1511.1 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=plain rows warm 1778.1 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=fused count warm 1763.7 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=fused any warm 1773.5 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=fused rows warm 1816.8 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip count warm 1429.4 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip any warm 1385.6 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip rows warm 1394.0 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip_fused count warm 1459.3 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip_fused any warm 1468.7 us
+FAILED-GATE n=1000000 case=k8_tiny_mixed variant=skip_fused rows warm 1705.6 us
+measured k8_tiny_mixed            K=8  achieved       91 lower plain 0.872 fused 2.649 us, best count skip = 1429.38 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=plain count warm 1664.2 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=plain any warm 1707.3 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=plain rows warm 1701.4 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=fused count warm 1433.0 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=fused any warm 1418.6 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=fused rows warm 1440.9 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip count warm 1709.1 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip any warm 1779.5 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip rows warm 1694.7 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip_fused count warm 1399.0 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip_fused any warm 1390.1 us
+FAILED-GATE n=1000000 case=k8_medium_mixed variant=skip_fused rows warm 1463.3 us
+measured k8_medium_mixed          K=8  achieved     9901 lower plain 0.858 fused 2.608 us, best count skip_fused = 1399.04 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=plain count warm 1755.9 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=plain any warm 1854.6 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=plain rows warm 2424.5 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=fused count warm 1635.5 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=fused any warm 1631.3 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=fused rows warm 1633.4 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip count warm 2546.6 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip any warm 1836.7 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip rows warm 1796.2 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip_fused count warm 1492.9 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip_fused any warm 1528.4 us
+FAILED-GATE n=1000000 case=k8_large_mixed variant=skip_fused rows warm 1475.3 us
+measured k8_large_mixed           K=8  achieved   500157 lower plain 0.850 fused 2.615 us, best count skip_fused = 1492.95 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=plain count warm 4127.7 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=plain any warm 3837.8 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=plain rows warm 3745.5 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=fused count warm 3236.4 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=fused any warm 3232.4 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=fused rows warm 3230.9 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip count warm 3813.2 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip any warm 3831.1 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip rows warm 3728.6 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip_fused count warm 2839.3 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip_fused any warm 2888.1 us
+FAILED-GATE n=1000000 case=k17_tiny_and variant=skip_fused rows warm 2961.9 us
+measured k17_tiny_and             K=17 achieved       45 lower plain 1.074 fused 7.439 us, best count skip_fused = 2839.27 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=plain count warm 3794.4 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=plain any warm 3840.5 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=plain rows warm 3888.3 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=fused count warm 2956.7 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=fused any warm 2891.1 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=fused rows warm 2873.7 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip count warm 3523.0 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip any warm 3610.3 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip rows warm 3576.3 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip_fused count warm 2909.6 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip_fused any warm 2879.3 us
+FAILED-GATE n=1000000 case=k17_medium_and variant=skip_fused rows warm 2909.7 us
+measured k17_medium_and           K=17 achieved     9754 lower plain 1.063 fused 7.979 us, best count skip_fused = 2909.58 us
+FAILED-GATE n=1000000 case=k17_large_and variant=plain count warm 3764.5 us
+FAILED-GATE n=1000000 case=k17_large_and variant=plain any warm 3778.4 us
+FAILED-GATE n=1000000 case=k17_large_and variant=plain rows warm 3738.4 us
+FAILED-GATE n=1000000 case=k17_large_and variant=fused count warm 3039.2 us
+FAILED-GATE n=1000000 case=k17_large_and variant=fused any warm 3308.7 us
+FAILED-GATE n=1000000 case=k17_large_and variant=fused rows warm 3171.6 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip count warm 3679.5 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip any warm 3597.5 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip rows warm 3545.0 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip_fused count warm 2776.0 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip_fused any warm 2764.1 us
+FAILED-GATE n=1000000 case=k17_large_and variant=skip_fused rows warm 2786.9 us
+measured k17_large_and            K=17 achieved   499819 lower plain 1.059 fused 7.438 us, best count skip_fused = 2776.04 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=plain count warm 3323.0 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=plain any warm 3222.7 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=plain rows warm 3258.6 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=fused count warm 3196.0 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=fused any warm 3233.4 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=fused rows warm 3222.5 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip count warm 3199.3 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip any warm 3167.7 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip rows warm 3170.0 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip_fused count warm 2835.1 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip_fused any warm 2854.0 us
+FAILED-GATE n=1000000 case=k17_tiny_or variant=skip_fused rows warm 2956.5 us
+measured k17_tiny_or              K=17 achieved     1000 lower plain 1.071 fused 7.978 us, best count skip_fused = 2835.07 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=plain count warm 2853.3 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=plain any warm 2892.7 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=plain rows warm 3218.8 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=fused count warm 3091.5 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=fused any warm 2844.7 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=fused rows warm 3123.4 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip count warm 2947.0 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip any warm 2769.2 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip rows warm 2996.4 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip_fused count warm 2987.7 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip_fused any warm 3267.0 us
+FAILED-GATE n=1000000 case=k17_medium_or variant=skip_fused rows warm 3200.8 us
+measured k17_medium_or            K=17 achieved    10000 lower plain 1.038 fused 8.229 us, best count plain = 2853.33 us
+FAILED-GATE n=1000000 case=k17_large_or variant=plain count warm 3234.5 us
+FAILED-GATE n=1000000 case=k17_large_or variant=plain any warm 3188.7 us
+FAILED-GATE n=1000000 case=k17_large_or variant=plain rows warm 3158.6 us
+FAILED-GATE n=1000000 case=k17_large_or variant=fused count warm 3025.3 us
+FAILED-GATE n=1000000 case=k17_large_or variant=fused any warm 2772.4 us
+FAILED-GATE n=1000000 case=k17_large_or variant=fused rows warm 2785.1 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip count warm 2798.5 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip any warm 2780.8 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip rows warm 2816.9 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip_fused count warm 2833.3 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip_fused any warm 2827.5 us
+FAILED-GATE n=1000000 case=k17_large_or variant=skip_fused rows warm 2877.3 us
+measured k17_large_or             K=17 achieved   505114 lower plain 1.061 fused 8.185 us, best count skip = 2798.45 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=plain count warm 3332.5 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=plain any warm 3331.9 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=plain rows warm 3537.4 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=fused count warm 3081.2 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=fused any warm 3415.1 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=fused rows warm 3565.8 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip count warm 2378.1 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip any warm 2308.0 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip rows warm 1620.0 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip_fused count warm 3068.9 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip_fused any warm 3350.7 us
+FAILED-GATE n=1000000 case=k17_tiny_mixed variant=skip_fused rows warm 4055.6 us
+measured k17_tiny_mixed           K=17 achieved       46 lower plain 1.914 fused 6.994 us, best count skip = 2378.08 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=plain count warm 4986.8 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=plain any warm 3701.8 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=plain rows warm 4047.4 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=fused count warm 3252.1 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=fused any warm 3559.2 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=fused rows warm 3580.7 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip count warm 3864.9 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip any warm 4146.2 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip rows warm 5311.9 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip_fused count warm 3878.5 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip_fused any warm 3867.5 us
+FAILED-GATE n=1000000 case=k17_medium_mixed variant=skip_fused rows warm 3708.4 us
+measured k17_medium_mixed         K=17 achieved    10098 lower plain 2.921 fused 10.529 us, best count fused = 3252.11 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=plain count warm 3938.4 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=plain any warm 3896.9 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=plain rows warm 3879.8 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=fused count warm 2838.3 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=fused any warm 3284.2 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=fused rows warm 3294.0 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip count warm 3865.8 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip any warm 3823.7 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip rows warm 5792.0 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip_fused count warm 3032.2 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip_fused any warm 2916.9 us
+FAILED-GATE n=1000000 case=k17_large_mixed variant=skip_fused rows warm 2881.7 us
+measured k17_large_mixed          K=17 achieved   498269 lower plain 1.907 fused 6.987 us, best count fused = 2838.34 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=plain count warm 3972.3 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=plain any warm 4062.2 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=plain rows warm 4053.8 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=fused count warm 3951.5 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=fused any warm 3962.9 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=fused rows warm 3960.5 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip count warm 4081.3 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip any warm 4207.2 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip rows warm 4061.2 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip_fused count warm 3822.1 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip_fused any warm 3885.5 us
+FAILED-GATE n=1000000 case=k24_tiny_and variant=skip_fused rows warm 3864.8 us
+measured k24_tiny_and             K=24 achieved       50 lower plain 1.475 fused 15.644 us, best count skip_fused = 3822.07 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=plain count warm 5267.8 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=plain any warm 5445.2 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=plain rows warm 5098.5 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=fused count warm 4083.0 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=fused any warm 4096.0 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=fused rows warm 4106.0 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip count warm 5393.8 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip any warm 8121.5 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip rows warm 5029.2 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip_fused count warm 3980.4 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip_fused any warm 3775.8 us
+FAILED-GATE n=1000000 case=k24_medium_and variant=skip_fused rows warm 3769.6 us
+measured k24_medium_and           K=24 achieved     9900 lower plain 1.442 fused 15.568 us, best count skip_fused = 3980.37 us
+FAILED-GATE n=1000000 case=k24_large_and variant=plain count warm 5248.2 us
+FAILED-GATE n=1000000 case=k24_large_and variant=plain any warm 5420.1 us
+FAILED-GATE n=1000000 case=k24_large_and variant=plain rows warm 7114.1 us
+FAILED-GATE n=1000000 case=k24_large_and variant=fused count warm 5288.6 us
+FAILED-GATE n=1000000 case=k24_large_and variant=fused any warm 4908.2 us
+FAILED-GATE n=1000000 case=k24_large_and variant=fused rows warm 4145.8 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip count warm 4814.3 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip any warm 7140.3 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip rows warm 5021.3 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip_fused count warm 4162.7 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip_fused any warm 3867.2 us
+FAILED-GATE n=1000000 case=k24_large_and variant=skip_fused rows warm 3806.4 us
+measured k24_large_and            K=24 achieved   502071 lower plain 1.419 fused 15.699 us, best count skip_fused = 4162.74 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=plain count warm 3800.6 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=plain any warm 3815.8 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=plain rows warm 4074.0 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=fused count warm 3822.0 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=fused any warm 3834.9 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=fused rows warm 3741.7 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip count warm 3725.8 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip any warm 3887.2 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip rows warm 3984.3 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip_fused count warm 3865.0 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip_fused any warm 4067.1 us
+FAILED-GATE n=1000000 case=k24_tiny_or variant=skip_fused rows warm 4364.6 us
+measured k24_tiny_or              K=24 achieved     1001 lower plain 1.459 fused 16.353 us, best count skip = 3725.78 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=plain count warm 4178.5 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=plain any warm 3952.4 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=plain rows warm 3907.4 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=fused count warm 3754.6 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=fused any warm 3878.1 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=fused rows warm 4369.6 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip count warm 5078.9 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip any warm 5107.8 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip rows warm 3736.2 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip_fused count warm 3713.5 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip_fused any warm 3723.3 us
+FAILED-GATE n=1000000 case=k24_medium_or variant=skip_fused rows warm 3757.5 us
+measured k24_medium_or            K=24 achieved     9995 lower plain 2.180 fused 24.738 us, best count skip_fused = 3713.45 us
+FAILED-GATE n=1000000 case=k24_large_or variant=plain count warm 3749.3 us
+FAILED-GATE n=1000000 case=k24_large_or variant=plain any warm 3784.1 us
+FAILED-GATE n=1000000 case=k24_large_or variant=plain rows warm 3719.0 us
+FAILED-GATE n=1000000 case=k24_large_or variant=fused count warm 4348.8 us
+FAILED-GATE n=1000000 case=k24_large_or variant=fused any warm 4014.5 us
+FAILED-GATE n=1000000 case=k24_large_or variant=fused rows warm 4310.1 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip count warm 4078.1 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip any warm 3964.9 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip rows warm 4041.4 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip_fused count warm 3864.8 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip_fused any warm 3997.6 us
+FAILED-GATE n=1000000 case=k24_large_or variant=skip_fused rows warm 4185.6 us
+measured k24_large_or             K=24 achieved   495651 lower plain 1.437 fused 16.395 us, best count plain = 3749.30 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=plain count warm 5111.5 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=plain any warm 5521.6 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=plain rows warm 7437.4 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=fused count warm 3932.4 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=fused any warm 3859.8 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=fused rows warm 3999.1 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip count warm 7088.2 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip any warm 6828.0 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip rows warm 5817.3 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip_fused count warm 3872.5 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip_fused any warm 4014.0 us
+FAILED-GATE n=1000000 case=k24_tiny_mixed variant=skip_fused rows warm 4749.7 us
+measured k24_tiny_mixed           K=24 achieved       48 lower plain 2.623 fused 11.035 us, best count skip_fused = 3872.48 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=plain count warm 5119.7 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=plain any warm 5373.6 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=plain rows warm 6574.3 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=fused count warm 3859.2 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=fused any warm 4081.9 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=fused rows warm 4333.1 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip count warm 4947.8 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip any warm 5032.3 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip rows warm 5298.9 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip_fused count warm 3732.2 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip_fused any warm 3833.5 us
+FAILED-GATE n=1000000 case=k24_medium_mixed variant=skip_fused rows warm 4130.1 us
+measured k24_medium_mixed         K=24 achieved     9953 lower plain 2.563 fused 10.944 us, best count skip_fused = 3732.17 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=plain count warm 5032.5 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=plain any warm 4900.7 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=plain rows warm 5513.0 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=fused count warm 3885.2 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=fused any warm 3820.9 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=fused rows warm 3818.3 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip count warm 5226.4 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip any warm 4865.4 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip rows warm 5037.2 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip_fused count warm 4379.8 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip_fused any warm 4235.6 us
+FAILED-GATE n=1000000 case=k24_large_mixed variant=skip_fused rows warm 3867.3 us
+measured k24_large_mixed          K=24 achieved   500471 lower plain 2.565 fused 10.787 us, best count fused = 3885.19 us
+measured adv_one_everything       K=2  achieved    10000 lower plain 0.215 fused 0.374 us, best count skip = 284.84 us
+measured adv_one_nothing          K=3  achieved     1002 lower plain 0.292 fused 0.504 us, best count plain = 290.04 us
+measured adv_or_one_everything    K=2  achieved  1000000 lower plain 0.212 fused 0.405 us, best count skip_fused = 333.90 us
+measured adv_or_one_nothing       K=2  achieved     1000 lower plain 0.211 fused 0.404 us, best count skip_fused = 316.06 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=plain count warm 4511.8 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=plain any warm 3776.1 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=plain rows warm 4160.1 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=fused count warm 2742.0 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=fused any warm 2762.9 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=fused rows warm 2774.1 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip count warm 3620.1 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip any warm 3492.9 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip rows warm 3567.2 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip_fused count warm 3048.0 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip_fused any warm 3003.4 us
+FAILED-GATE n=1000000 case=adv_16_nonselective variant=skip_fused rows warm 2993.0 us
+measured adv_16_nonselective      K=16 achieved   827152 lower plain 0.963 fused 6.746 us, best count fused = 2741.99 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=plain any warm 1030.5 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=plain rows warm 1003.0 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=fused count warm 3024.0 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=fused any warm 3055.9 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=fused rows warm 2881.2 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=skip_fused count warm 2886.6 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=skip_fused any warm 2867.3 us
+FAILED-GATE n=1000000 case=adv_16_collapse_one variant=skip_fused rows warm 2849.9 us
+measured adv_16_collapse_one      K=16 achieved       46 lower plain 0.987 fused 6.589 us, best count skip = 958.51 us
+measured adv_correlated_2         K=2  achieved   500001 lower plain 0.216 fused 0.375 us, best count fused = 316.29 us
+measured adv_correlated_5         K=5  achieved   490001 lower plain 0.389 fused 1.164 us, best count skip_fused = 612.30 us
+measured adv_contradictory_2      K=2  achieved        0 lower plain 0.308 fused 0.607 us, best count fused = 271.82 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=fused count warm 3689.5 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=fused any warm 3483.8 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=fused rows warm 2992.8 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=skip_fused count warm 2964.9 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=skip_fused any warm 2934.1 us
+FAILED-GATE n=1000000 case=adv_contradictory_17 variant=skip_fused rows warm 2857.1 us
+measured adv_contradictory_17     K=17 achieved        0 lower plain 1.041 fused 7.625 us, best count skip = 657.51 us
+measured null_and                 K=2  achieved    99875 lower plain 0.322 fused 0.503 us, best count skip_fused = 346.41 us
+measured null_not                 K=1  achieved   450007 lower plain 0.240 fused 0.452 us, best count fused = 186.52 us
+measured null_or                  K=2  achieved   190006 lower plain 0.357 fused 0.532 us, best count plain = 345.29 us
+measured null_not_and             K=2  achieved   850017 lower plain 0.447 fused 0.846 us, best count skip_fused = 366.14 us
+FAILED-GATE n=1000000 case=null_and_5 variant=plain count warm 1082.4 us
+FAILED-GATE n=1000000 case=null_and_5 variant=plain any warm 1078.4 us
+FAILED-GATE n=1000000 case=null_and_5 variant=plain rows warm 1123.8 us
+FAILED-GATE n=1000000 case=null_and_5 variant=fused any warm 1015.9 us
+FAILED-GATE n=1000000 case=null_and_5 variant=skip count warm 1048.7 us
+FAILED-GATE n=1000000 case=null_and_5 variant=skip any warm 1094.2 us
+FAILED-GATE n=1000000 case=null_and_5 variant=skip rows warm 1060.3 us
+measured null_and_5               K=5  achieved   267454 lower plain 0.612 fused 1.500 us, best count skip_fused = 931.39 us
+N=1000000: 353 FAILED-GATE values (warm >= 1000 us, reported), 0 mismatches
+WHERE-K ALL ANSWERS MATCH THE ORACLE
+
+real	0m49.576s
+user	0m48.802s
+sys	0m0.049s

@@ -1,0 +1,99 @@
+== N = 1000000 ==
+COLD (reported, not gate) build us: U 708712 P 218233 S 30069 (P aliases U's 16 full lanes, S aliases U's 48 lanes; those are not charged again)
+storage bytes: U 258000000 (64 lanes, over budget) P 128000000 (32 lanes) S 195280008 (48 lanes + 16 presence + 320002 compact values)
+R1 p20 < 300    U=1000000 P=REFUSED(p20: constant 300 outside packed u8 range 0..=255) S=1000000 oracle=1000000
+R1 p20 = -1     U=0 P=REFUSED(p20: constant -1 outside packed u8 range 0..=255) S=0 oracle=0
+R1 p20 >= 256   U=0 P=REFUSED(p20: constant 256 outside packed u8 range 0..=255) S=0 oracle=0
+R1 p50 < 70000  U=19997 P=REFUSED(p50: constant 70000 outside packed u16 sparse range 0..=65534) S=19997 oracle=19997
+R1-silent p20 < 200    P=781347 oracle=781347
+R1-silent p20 = 255    P=3791 oracle=3791
+R1-silent p50 >= 100   P=17998 oracle=17998
+R2 U count(p50 >= 0)=19997 presence=19997 N=1000000
+R2 P count(p50 >= 0)=19997 presence=19997 N=1000000
+R2 S count(p50 >= 0)=19997 presence=19997 N=1000000
+R3 70000 -> Err(SparseValueUnencodable { v: 70000 }), -3 -> Err(SparseValueUnencodable { v: -3 }), (999,absent) -> Ok(1000)
+case k1_full_and      K=1  mix=full   oracle count 749742
+  U lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 201.00 us alloc 0 B
+  P lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 204.02 us alloc 0 B
+  S lanes  1 planes  0 ext_loops  0 prep 2 us (COLD) warm 189.64 us alloc 0 B
+case k1_packed_and    K=1  mix=packed oracle count 780635
+  U lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 184.62 us alloc 0 B
+  P lanes  1 planes  1 ext_loops  1 prep 11 us (COLD) warm 481.61 us alloc 0 B
+  S lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 184.11 us alloc 0 B
+case k1_sparse_and    K=1  mix=sparse oracle count 20000
+  U lanes  1 planes  1 ext_loops  0 prep 5 us (COLD) warm 229.98 us alloc 0 B
+  P lanes  1 planes  1 ext_loops  1 prep 8 us (COLD) warm 492.57 us alloc 0 B
+  S lanes  1 planes  1 ext_loops  1 prep 5 us (COLD) warm 70.00 us alloc 0 B
+case k1_mixed_and     K=1  mix=mixed  oracle count 749742
+  U lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 186.30 us alloc 0 B
+  P lanes  1 planes  0 ext_loops  0 prep 3 us (COLD) warm 192.98 us alloc 0 B
+  S lanes  1 planes  0 ext_loops  0 prep 2 us (COLD) warm 204.19 us alloc 0 B
+case k4_full_and      K=4  mix=full   oracle count 140953
+FAILED-GATE n=1000000 k4_full_and U warm 1275.1 us
+  U lanes  4 planes  0 ext_loops  0 prep 12 us (COLD) warm 1275.13 us alloc 0 B
+FAILED-GATE n=1000000 k4_full_and P warm 1241.2 us
+  P lanes  4 planes  0 ext_loops  0 prep 9 us (COLD) warm 1241.24 us alloc 0 B
+FAILED-GATE n=1000000 k4_full_and S warm 1195.8 us
+  S lanes  4 planes  0 ext_loops  0 prep 8 us (COLD) warm 1195.84 us alloc 0 B
+case k4_packed_and    K=4  mix=packed oracle count 505593
+FAILED-GATE n=1000000 k4_packed_and U warm 1294.0 us
+  U lanes  4 planes  0 ext_loops  0 prep 13 us (COLD) warm 1294.00 us alloc 0 B
+FAILED-GATE n=1000000 k4_packed_and P warm 1213.2 us
+  P lanes  1 planes  4 ext_loops  4 prep 170 us (COLD) warm 1213.21 us alloc 0 B
+  S lanes  4 planes  0 ext_loops  0 prep 8 us (COLD) warm 792.08 us alloc 0 B
+case k4_sparse_and    K=4  mix=sparse oracle count 0
+  U lanes  4 planes  4 ext_loops  0 prep 11 us (COLD) warm 654.41 us alloc 0 B
+FAILED-GATE n=1000000 k4_sparse_and P warm 1240.2 us
+  P lanes  2 planes  4 ext_loops  4 prep 117 us (COLD) warm 1240.22 us alloc 0 B
+  S lanes  4 planes  4 ext_loops  4 prep 65 us (COLD) warm 267.08 us alloc 0 B
+case k4_mixed_and     K=4  mix=mixed  oracle count 5826
+  U lanes  4 planes  1 ext_loops  0 prep 10 us (COLD) warm 722.14 us alloc 0 B
+FAILED-GATE n=1000000 k4_mixed_and P warm 1033.5 us
+  P lanes  4 planes  2 ext_loops  2 prep 25 us (COLD) warm 1033.52 us alloc 0 B
+  S lanes  4 planes  1 ext_loops  1 prep 13 us (COLD) warm 552.34 us alloc 0 B
+case k16_full_and     K=16 mix=full   oracle count 169
+FAILED-GATE n=1000000 k16_full_and U warm 2507.9 us
+  U lanes 16 planes  0 ext_loops  0 prep 11 us (COLD) warm 2507.91 us alloc 0 B
+FAILED-GATE n=1000000 k16_full_and P warm 2517.7 us
+  P lanes 16 planes  0 ext_loops  0 prep 10 us (COLD) warm 2517.67 us alloc 0 B
+FAILED-GATE n=1000000 k16_full_and S warm 2562.0 us
+  S lanes 16 planes  0 ext_loops  0 prep 9 us (COLD) warm 2561.99 us alloc 0 B
+case k16_packed_and   K=16 mix=packed oracle count 89163
+FAILED-GATE n=1000000 k16_packed_and U warm 10100.5 us
+  U lanes 16 planes  0 ext_loops  0 prep 12 us (COLD) warm 10100.52 us alloc 0 B
+FAILED-GATE n=1000000 k16_packed_and P warm 4984.7 us
+  P lanes  4 planes 16 ext_loops 16 prep 731 us (COLD) warm 4984.67 us alloc 0 B
+FAILED-GATE n=1000000 k16_packed_and S warm 5594.2 us
+  S lanes 16 planes  0 ext_loops  0 prep 9 us (COLD) warm 5594.17 us alloc 0 B
+case k16_sparse_and   K=16 mix=sparse oracle count 0
+FAILED-GATE n=1000000 k16_sparse_and U warm 4284.8 us
+  U lanes 16 planes 16 ext_loops  0 prep 25 us (COLD) warm 4284.82 us alloc 0 B
+FAILED-GATE n=1000000 k16_sparse_and P warm 7255.7 us
+  P lanes  8 planes 16 ext_loops 16 prep 667 us (COLD) warm 7255.74 us alloc 0 B
+FAILED-GATE n=1000000 k16_sparse_and S warm 1686.7 us
+  S lanes 16 planes 16 ext_loops 16 prep 489 us (COLD) warm 1686.68 us alloc 0 B
+case k16_mixed_and    K=16 mix=mixed  oracle count 0
+FAILED-GATE n=1000000 k16_mixed_and U warm 2476.9 us
+  U lanes 16 planes  5 ext_loops  0 prep 19 us (COLD) warm 2476.90 us alloc 0 B
+FAILED-GATE n=1000000 k16_mixed_and P warm 6819.2 us
+  P lanes 11 planes 10 ext_loops 10 prep 398 us (COLD) warm 6819.18 us alloc 0 B
+FAILED-GATE n=1000000 k16_mixed_and S warm 2488.9 us
+  S lanes 16 planes  5 ext_loops  5 prep 147 us (COLD) warm 2488.94 us alloc 0 B
+case k4_mixed_or      K=4  mix=mixed  oracle count 973024
+  U lanes  4 planes  1 ext_loops  0 prep 9 us (COLD) warm 774.00 us alloc 0 B
+FAILED-GATE n=1000000 k4_mixed_or P warm 1007.9 us
+  P lanes  4 planes  2 ext_loops  2 prep 31 us (COLD) warm 1007.87 us alloc 0 B
+  S lanes  4 planes  1 ext_loops  1 prep 13 us (COLD) warm 606.90 us alloc 0 B
+case k16_mixed_or     K=16 mix=mixed  oracle count 1000000
+FAILED-GATE n=1000000 k16_mixed_or U warm 2939.0 us
+  U lanes 16 planes  5 ext_loops  0 prep 17 us (COLD) warm 2939.02 us alloc 0 B
+FAILED-GATE n=1000000 k16_mixed_or P warm 4174.4 us
+  P lanes 11 planes 10 ext_loops 10 prep 324 us (COLD) warm 4174.44 us alloc 0 B
+FAILED-GATE n=1000000 k16_mixed_or S warm 2322.6 us
+  S lanes 16 planes  5 ext_loops  5 prep 80 us (COLD) warm 2322.57 us alloc 0 B
+N=1000000: 23 FAILED-GATE values (warm >= 1000 us, reported), 0 failures
+PROJECT ALL ANSWERS MATCH THE ORACLE, ALL REFUSALS FIRED
+
+real	0m4.203s
+user	0m4.005s
+sys	0m0.175s

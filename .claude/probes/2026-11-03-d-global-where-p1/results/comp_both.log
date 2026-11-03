@@ -1,0 +1,124 @@
+
+######## N=1000000  routing arm C ########
+discover |sel|=1000 achieved 1000: scan 185.5us + extract 23.4us (N-bound by design)
+discover |sel|=50000 achieved 50000: scan 198.2us + extract 85.4us (N-bound by design)
+discover |sel|=200000 achieved 200000: scan 182.1us + extract 458.5us (N-bound by design)
+case sel=1000 D=1 contig ...
+case sel=50000 D=1 contig ...
+case sel=200000 D=4 contig ...
+case sel=200000 D=4 scatter ...
+case sel=50000 D=2 contig ...
+case sel=50000 D=2 scatter ...
+case sel=50000 D=4 contig ...
+case sel=50000 D=4 scatter ...
+case sel=50000 D=8 contig ...
+case sel=50000 D=8 scatter ...
+
+== N=1000000 (all times us; discover = WHERE scan + mask->ids, N-BOUND by design; rest = everything else given the ids) ==
+     sel  D part     discover   partit     fetch     bind     route      prep  fold/set  fold_tot  compose   continue    rebuild       rest  gate
+    1000  1 contig      208.9      0.7      68.2     18.4     480.6      60.2      60.2      60.2      0.1          -          -      688.5 
+   50000  1 contig      283.6     56.7    7167.1    947.3   35913.9    2478.3    3614.4    3614.4      0.3          -          -    50178.1  FAILED-GATE
+  200000  4 contig      640.6    237.7   14085.6   3805.8  165011.9   13889.9    3814.5   15257.8      3.4    54696.0   178169.9   212292.1  FAILED-GATE
+  200000  4 scatter     640.6    518.0   13516.0   3682.3  282447.8   10023.7    4358.3   17433.0      4.3          -          -   327625.2  FAILED-GATE
+   50000  2 contig      283.6     56.7    2765.6    933.0   29809.1    2456.1    1897.4    3794.7      0.4    19912.8    35965.7    39815.5  FAILED-GATE
+   50000  2 scatter     283.6    184.8    3945.5   1025.8   51220.8    2844.8    1815.3    3630.7      0.4          -          -    62852.9  FAILED-GATE
+   50000  4 contig      283.6     58.6    3111.9    897.0   32129.9    2540.0     921.0    3683.9      0.9    13690.3    45314.7    42422.2 
+   50000  4 scatter     283.6    142.5    2956.7    892.7   58127.8    2470.2     908.4    3633.7      0.9          -          -    68224.5 
+   50000  8 contig      283.6     58.4    2787.9    883.6   35078.3    2404.8     452.4    3618.9      2.3     7764.8    46454.5    44834.2 
+   50000  8 scatter     283.6    170.7    2941.4    889.9   90952.8    2473.4     466.4    3731.5      2.2          -          -   101161.8 
+  (route/prep/bind/fetch/partition/continuation/rebuild are COLD, reported not gated; fold gate is per set, warm)
+  sel=    1000 D= 1 contig  edges      6924 cross         0 (  0.0%) dropped     1155 locate          0 warm allocs 0 calls/0 B retained     176004 B (176004 B/set) peak 648572 B disjoint-check 5.2us answers exists=true W2=Some(295) W5=443 W6=Some(14193) sum(per-set DISTINCT) wrong=false
+  sel=   50000 D= 1 contig  edges    351834 cross         0 (  0.0%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8113924 B (8113924 B/set) peak 31071728 B disjoint-check 144.1us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=false
+  sel=  200000 D= 4 contig  edges   1437868 cross     39089 (  2.7%) dropped   161605 locate          0 warm allocs 0 calls/0 B retained   32717864 B (8179466 B/set) peak 68292672 B disjoint-check 816.4us answers exists=true W2=Some(59065) W5=88417 W6=Some(3124985) sum(per-set DISTINCT) wrong=true
+  sel=  200000 D= 4 scatter edges   1437868 cross   1077204 ( 74.9%) dropped   161605 locate          0 warm allocs 0 calls/0 B retained   32717864 B (8179466 B/set) peak 86873564 B disjoint-check 4693.8us answers exists=true W2=Some(59065) W5=88417 W6=Some(3124985) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 2 contig  edges    351834 cross      4847 (  1.4%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8127784 B (4063892 B/set) peak 21734240 B disjoint-check 147.2us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 2 scatter edges    351834 cross    175564 ( 49.9%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8127776 B (4063888 B/set) peak 21879200 B disjoint-check 983.4us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 4 contig  edges    351834 cross     11192 (  3.2%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8153056 B (2038264 B/set) peak 20271008 B disjoint-check 177.3us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 4 scatter edges    351834 cross    263611 ( 74.9%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8153064 B (2038266 B/set) peak 21721320 B disjoint-check 965.7us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 8 contig  edges    351834 cross     20915 (  5.9%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8225600 B (1028200 B/set) peak 17937928 B disjoint-check 137.5us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 8 scatter edges    351834 cross    307477 ( 87.4%) dropped    48424 locate          0 warm allocs 0 calls/0 B retained    8225592 B (1028199 B/set) peak 18333352 B disjoint-check 942.7us answers exists=true W2=Some(14654) W5=21823 W6=Some(742573) sum(per-set DISTINCT) wrong=true
+
+-- N=1000000: slope in D at fixed |sel|=50,000 (us per added set; D8/D1 ratio) --
+   contig  D=[1, 2, 4, 8]: partition +0.3/set x1.0; fetch -414.7/set x0.4; bind -9.0/set x0.9; route +215.2/set x1.0; prep -9.0/set x1.0; fold_total -9.7/set x1.0; compose +0.3/set x9.0; rest_given_ids -226.6/set x0.9;
+   scatter D=[1, 2, 4, 8]: partition +9.8/set x3.0; fetch -465.2/set x0.4; bind -13.7/set x0.9; route +7397.6/set x2.5; prep -23.1/set x1.0; fold_total +16.5/set x1.0; compose +0.3/set x8.5; rest_given_ids +6922.1/set x2.0;
+
+-- refusals and WorkingSet::extend (N=1000000) --
+  refusal too_many: FIRES (build(65537)->TooMany true; extend(full set)->TooMany true; build(65536) ok true)
+  refusal id_in_two_sets: FIRES (union_check overlapping=Err(5072); naive composed COUNT Some(1729)/DISTINCT 2620/BAG Some(84635) vs oracle 1434/2208/69688; disjoint control union_check=Ok(5000) and composed==oracle)
+  refusal checked_sum_overflow: FIRES (checked_sum([MAX,1])=None; checked_sum([1,2,3])=Some(6))
+  refusal stale_binding: FIRES (guard after replace_tile=Err(Stale(0)); arm-C index refuses new frame true; guard before replace ok true; guard disabled lets it through true)
+  WorkingSet::extend(+10000 onto 50000) 717.2us vs WorkingSet::build(60000) 950.3us; old coordinates kept and old frame stale: true
+
+######## N=10000000  routing arm C ########
+discover |sel|=1000 achieved 1000: scan 2815.9us + extract 95.6us (N-bound by design)
+discover |sel|=50000 achieved 50000: scan 2234.4us + extract 156.2us (N-bound by design)
+discover |sel|=200000 achieved 200000: scan 1933.7us + extract 313.2us (N-bound by design)
+discover |sel|=1000000 achieved 1000000: scan 1823.2us + extract 1417.0us (N-bound by design)
+case sel=1000 D=1 contig ...
+case sel=50000 D=1 contig ...
+case sel=200000 D=4 contig ...
+case sel=200000 D=4 scatter ...
+case sel=1000000 D=16 contig ...
+case sel=1000000 D=16 scatter ...
+case sel=50000 D=2 contig ...
+case sel=50000 D=2 scatter ...
+case sel=50000 D=4 contig ...
+case sel=50000 D=4 scatter ...
+case sel=50000 D=8 contig ...
+case sel=50000 D=8 scatter ...
+
+== N=10000000 (all times us; discover = WHERE scan + mask->ids, N-BOUND by design; rest = everything else given the ids) ==
+     sel  D part     discover   partit     fetch     bind     route      prep  fold/set  fold_tot  compose   continue    rebuild       rest  gate
+    1000  1 contig     2911.5      1.0      43.7     15.5     338.4      38.5      54.9      54.9      0.1          -          -      492.2 
+   50000  1 contig     2390.5     56.1    2541.9    884.5   29655.6    2325.9    3604.8    3604.8      0.5          -          -    39069.3  FAILED-GATE
+  200000  4 contig     2246.9    248.9   24507.8   3702.6  150077.3   10226.4    3665.4   14661.5      3.6    53768.5   180443.1   203428.1  FAILED-GATE
+  200000  4 scatter    2246.9    629.7   20106.3   3683.4  333023.1   10583.2    3868.5   15474.0      3.4          -          -   383503.1  FAILED-GATE
+ 1000000 16 contig     3240.3   1297.9  118963.4  18568.0 1271009.9   62251.9    7099.8  113597.0    103.2   185331.4  1725769.3  1585791.2  FAILED-GATE
+ 1000000 16 scatter    3240.3   4415.6   83652.2  22078.2 5273045.1   54532.2    5544.3   88709.6    113.5          -          -  5526546.4  FAILED-GATE
+   50000  2 contig     2390.5     60.9    2870.8    912.6   29956.6    2448.1    1856.5    3712.9      0.5    19486.8    35561.7    39962.3  FAILED-GATE
+   50000  2 scatter    2390.5    144.7    2713.6    919.9   42124.0    2459.8    1815.9    3631.9      0.5          -          -    51994.4  FAILED-GATE
+   50000  4 contig     2390.5     57.0    3043.5    904.2   32310.5    3198.7    1156.4    4625.7      1.5    16093.7    51256.7    44141.1  FAILED-GATE
+   50000  4 scatter    2390.5    146.3    3066.6    898.5   59080.6    2521.2     926.0    3704.1      1.0          -          -    69418.2 
+   50000  8 contig     2390.5     62.8    2779.7    884.2   35880.7    2449.4     457.8    3662.0      2.4     7963.9    50665.6    45721.4 
+   50000  8 scatter    2390.5    145.7    2835.6    898.7   85488.3    2380.8     468.0    3744.4      2.3          -          -    95495.8 
+  (route/prep/bind/fetch/partition/continuation/rebuild are COLD, reported not gated; fold gate is per set, warm)
+  sel=    1000 D= 1 contig  edges      6802 cross         0 (  0.0%) dropped     1207 locate          0 warm allocs 0 calls/0 B retained     174940 B (174940 B/set) peak 646052 B disjoint-check 5.2us answers exists=true W2=Some(313) W5=465 W6=Some(14811) sum(per-set DISTINCT) wrong=false
+  sel=   50000 D= 1 contig  edges    349173 cross         0 (  0.0%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8100752 B (8100752 B/set) peak 24661736 B disjoint-check 208.5us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=false
+  sel=  200000 D= 4 contig  edges   1403707 cross     12133 (  0.9%) dropped   197471 locate          0 warm allocs 0 calls/0 B retained   32590588 B (8147647 B/set) peak 87519744 B disjoint-check 827.1us answers exists=true W2=Some(59030) W5=87951 W6=Some(2983642) sum(per-set DISTINCT) wrong=true
+  sel=  200000 D= 4 scatter edges   1403707 cross   1053140 ( 75.0%) dropped   197471 locate          0 warm allocs 0 calls/0 B retained   32590596 B (8147649 B/set) peak 80509456 B disjoint-check 4658.5us answers exists=true W2=Some(59030) W5=87951 W6=Some(2983642) sum(per-set DISTINCT) wrong=true
+  sel= 1000000 D=16 contig  edges   7102129 cross    135606 (  1.9%) dropped   900176 locate          0 warm allocs 0 calls/0 B retained  162088340 B (10130521 B/set) peak 331133700 B disjoint-check 5693.4us answers exists=true W2=Some(294165) W5=440420 W6=Some(15207122) sum(per-set DISTINCT) wrong=true
+  sel= 1000000 D=16 scatter edges   7102129 cross   6657999 ( 93.7%) dropped   900176 locate          0 warm allocs 0 calls/0 B retained  162088340 B (10130521 B/set) peak 341225180 B disjoint-check 26636.4us answers exists=true W2=Some(294165) W5=440420 W6=Some(15207122) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 2 contig  edges    349173 cross      3596 (  1.0%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8114612 B (4057306 B/set) peak 21741428 B disjoint-check 117.9us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 2 scatter edges    349173 cross    175000 ( 50.1%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8114612 B (4057306 B/set) peak 21886440 B disjoint-check 994.3us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 4 contig  edges    349173 cross      9377 (  2.7%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8139892 B (2034973 B/set) peak 20277412 B disjoint-check 187.5us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 4 scatter edges    349173 cross    262087 ( 75.1%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8139884 B (2034971 B/set) peak 21728572 B disjoint-check 953.1us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 8 contig  edges    349173 cross     20175 (  5.8%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8212412 B (1026551 B/set) peak 17141040 B disjoint-check 144.1us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+  sel=   50000 D= 8 scatter edges    349173 cross    305719 ( 87.6%) dropped    50811 locate          0 warm allocs 0 calls/0 B retained    8212420 B (1026552 B/set) peak 17541644 B disjoint-check 1236.0us answers exists=true W2=Some(14773) W5=22073 W6=Some(737052) sum(per-set DISTINCT) wrong=true
+
+-- N=10000000: slope in D at fixed |sel|=50,000 (us per added set; D8/D1 ratio) --
+   contig  D=[1, 2, 4, 8]: partition +0.7/set x1.1; fetch +19.5/set x1.1; bind -1.6/set x1.0; route +925.0/set x1.2; prep +18.4/set x1.1; fold_total +10.8/set x1.0; compose +0.3/set x5.3; rest_given_ids +973.1/set x1.2;
+   scatter D=[1, 2, 4, 8]: partition +8.6/set x2.6; fetch +37.5/set x1.1; bind +0.1/set x1.0; route +7750.5/set x2.9; prep +1.7/set x1.0; fold_total +19.8/set x1.0; compose +0.3/set x5.2; rest_given_ids +7818.5/set x2.4;
+
+-- refusals and WorkingSet::extend (N=10000000) --
+  refusal too_many: FIRES (build(65537)->TooMany true; extend(full set)->TooMany true; build(65536) ok true)
+  refusal id_in_two_sets: FIRES (union_check overlapping=Err(58320); naive composed COUNT Some(1791)/DISTINCT 2611/BAG Some(89960) vs oracle 1495/2195/74382; disjoint control union_check=Ok(5000) and composed==oracle)
+  refusal checked_sum_overflow: FIRES (checked_sum([MAX,1])=None; checked_sum([1,2,3])=Some(6))
+  refusal stale_binding: FIRES (guard after replace_tile=Err(Stale(0)); arm-C index refuses new frame true; guard before replace ok true; guard disabled lets it through true)
+  WorkingSet::extend(+10000 onto 50000) 723.1us vs WorkingSet::build(60000) 984.8us; old coordinates kept and old frame stale: true
+
+== SCALING CHECK: ratio of stage cost, N=10000000 over N=1000000 (flat = ~1; a stage > 1.5x and > 100us is CORPUS-BOUND) ==
+sel=    1000 D= 1 contig : discover x13.9(scan, N-bound expected); partition x1.38; fetch x0.64; bind x0.84; route x0.70; prep x0.64; fold_total x0.91; fold_per_set x0.91; compose x0.71; rest_given_ids x0.71;
+sel=   50000 D= 1 contig : discover x8.4(scan, N-bound expected); partition x0.99; fetch x0.35; bind x0.93; route x0.83; prep x0.94; fold_total x1.00; fold_per_set x1.00; compose x1.74; rest_given_ids x0.78;
+sel=  200000 D= 4 contig : discover x3.5(scan, N-bound expected); partition x1.05; fetch x1.7 CORPUS-BOUND; bind x0.97; route x0.91; prep x0.74; fold_total x0.96; fold_per_set x0.96; compose x1.06; continuation x0.98; rebuild x1.01; rest_given_ids x0.96;
+sel=  200000 D= 4 scatter: discover x3.5(scan, N-bound expected); partition x1.22; fetch x1.49; bind x1.00; route x1.18; prep x1.06; fold_total x0.89; fold_per_set x0.89; compose x0.79; rest_given_ids x1.17;
+sel=   50000 D= 2 contig : discover x8.4(scan, N-bound expected); partition x1.07; fetch x1.04; bind x0.98; route x1.00; prep x1.00; fold_total x0.98; fold_per_set x0.98; compose x1.34; continuation x0.98; rebuild x0.99; rest_given_ids x1.00;
+sel=   50000 D= 2 scatter: discover x8.4(scan, N-bound expected); partition x0.78; fetch x0.69; bind x0.90; route x0.82; prep x0.86; fold_total x1.00; fold_per_set x1.00; compose x1.05; rest_given_ids x0.83;
+sel=   50000 D= 4 contig : discover x8.4(scan, N-bound expected); partition x0.97; fetch x0.98; bind x1.01; route x1.01; prep x1.26; fold_total x1.26; fold_per_set x1.26; compose x1.65; continuation x1.18; rebuild x1.13; rest_given_ids x1.04;
+sel=   50000 D= 4 scatter: discover x8.4(scan, N-bound expected); partition x1.03; fetch x1.04; bind x1.01; route x1.02; prep x1.02; fold_total x1.02; fold_per_set x1.02; compose x1.02; rest_given_ids x1.02;
+sel=   50000 D= 8 contig : discover x8.4(scan, N-bound expected); partition x1.08; fetch x1.00; bind x1.00; route x1.02; prep x1.02; fold_total x1.01; fold_per_set x1.01; compose x1.03; continuation x1.03; rebuild x1.09; rest_given_ids x1.02;
+sel=   50000 D= 8 scatter: discover x8.4(scan, N-bound expected); partition x0.85; fetch x0.96; bind x1.01; route x0.94; prep x0.96; fold_total x1.00; fold_per_set x1.00; compose x1.06; rest_given_ids x0.94;
+   CORPUS-BOUND findings (reported, not failures): fetch@sel=200000,D=4,contig
+
+compose: 13 case(s) printed FAILED-GATE on the warm per-set fold (reported, not an exit code)
+compose: all composed answers equal the oracle; every refusal fired
+rc=0
