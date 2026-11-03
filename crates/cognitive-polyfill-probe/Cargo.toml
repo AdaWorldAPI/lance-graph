@@ -1,0 +1,20 @@
+[package]
+name = "cognitive-polyfill-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "D-COGNITIVE-POLYFILL P0 lab falsifier: the relational subset common to MORK, MeTTa, Narsese and Atomese (a scoped two-hop existential over ground facts) run through existing DR addressing (lance-graph-dt64) and one mask-risc program. Lab only; nothing here is wired into Quack, R2IL or production."
+
+# Its OWN workspace root, like lance-graph-nal / lance-graph-metta. Verify via
+#   cargo test --manifest-path crates/cognitive-polyfill-probe/Cargo.toml
+[workspace]
+
+[dependencies]
+# DR identity: LocalMap (global <-> local), MapTable frames, Guards/Scope.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The only bulk engine.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+
+# One ndarray package identity: point mask-risc's git coordinate at the sibling.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
