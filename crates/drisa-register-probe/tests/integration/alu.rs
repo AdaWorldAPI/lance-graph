@@ -212,3 +212,23 @@ fn three_of_five_matches_its_boolean_expansion() {
     let arr: [&[u64]; 5] = [refs[0], refs[1], refs[2], refs[3], refs[4]];
     assert_eq!(kofn(&refs, 3, &presence, rows), three_of_five_sop(&arr, &presence, rows));
 }
+
+/// A presence plane whose tail word carries stray bits past `n_rows` (a
+/// caller that did not clear it) must not leak them into any result.
+#[test]
+fn a_dirty_presence_tail_never_reaches_the_result() {
+    let rows = 4096 + 37;
+    let c = case(5, rows, Shape::Full, 3);
+    let mut presence = plane(rows, |r| c.present[r]);
+    *presence.last_mut().unwrap() |= !((1u64 << (rows % 64)) - 1);
+    let ins: Vec<Vec<u64>> = c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
+    let refs: Vec<&[u64]> = ins.iter().map(|v| v.as_slice()).collect();
+    for k in [0, 1, 3, 5] {
+        assert!(tail_clear(&kofn(&refs, k, &presence, rows), rows), "kofn k={k}");
+        assert!(tail_clear(&kofn_bytes(&refs, k, &presence, rows), rows), "bytes k={k}");
+    }
+    let none = vec![0u64; presence.len()];
+    let unknown: Vec<&[u64]> = vec![none.as_slice(); refs.len()];
+    let (yes, unk) = kofn_kleene(&refs, &unknown, 0, &presence, rows);
+    assert!(tail_clear(&yes, rows) && tail_clear(&unk, rows));
+}
