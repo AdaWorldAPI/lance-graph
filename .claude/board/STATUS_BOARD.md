@@ -42,6 +42,20 @@
 | D-DRAM-P3-7 | route once per frame, lab measurement | Queued | this session; production GATED EXO-46 |
 | D-DRAM-P3-8 | = D-DRAM-4 end-to-end, decision memo | GATED | D4 + S-INGRESS (#1788) |
 
+**D-DRISA lab (2026-11-04): this session executes EXO-153 stages 1 and 3** ([memos](../plans/d-drisa-decision-memos-v1.md); architecture #1953, a GPT-session plan adopted after review).
+
+| D-id | Deliverable | Status | Owner / gate |
+| --- | --- | --- | --- |
+| D-DRISA-1-LAB | sealed DR frame as a local register file over borrowed SoA | Measured: 13/13 tests, 6 disables red, 0 allocations/query, +0.04–0.6 µs revalidation; [entry](entries/2026-11-04-d-drisa-1-register-proof.md) | this session; lab crate `drisa-register-probe` |
+| D-DRISA-3-LAB | k-of-n / Kleene / Bag on the shipped carry words | In stacked PR | this session; ndarray / Quack owners |
+| D-DRISA-M1 | layout witness on the canonical SoA | Proposed | SoA / DR owner |
+| D-DRISA-M2 | global id → tile index, or co-addressed selections | Proposed | EXO-46 |
+| D-DRISA-M3 | result-register lifetime across calls | Proposed | result owner |
+| D-DRISA-M4 | source-location receipt | Deferred | EXO-46/89/151 |
+| D-DRISA-M5 | DR → Lance row authority | Unchanged, GATED | D4 / S-INGRESS |
+| D-DRISA-M6 | carry words as the default ALU | Proposed: refuse on current evidence | ndarray / Quack owners |
+| D-DRISA-M7 | async loopback (stage 2) as a lab | Proposed: after review of stage 1 | runtime / security review |
+
 Verified: ndarray #402 half/full adder words and #390 byte sum shipped, `Abacus<BITS>` lab-only; DR `LocalMap` is identity-only; H14c/H14d and #1633 selective Lance reads are lab. Unverified: exact operator-mentioned `ndarray::simd::5x24::*` signature. **Borrow/prefetch default; materialized foreign facet only under D-DRF-1 §5 admission.**
 
 ## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)

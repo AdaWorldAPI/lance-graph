@@ -1,0 +1,21 @@
+# D-DRISA-1 (EXO-153) LAB: a witnessed DR frame read as a logical register
+# file over borrowed canonical SoA planes. NOT a workspace member, nothing
+# depends on it, no public contract. Verify with
+#   cargo test --manifest-path crates/drisa-register-probe/Cargo.toml
+#   cargo run --release --manifest-path crates/drisa-register-probe/Cargo.toml --example drisa_bench
+[package]
+name = "drisa-register-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "D-DRISA-1 lab: does a sealed DR frame bind typed register operands to borrowed SoA planes, reused across operations without rerouting, copying payload, or answering stale?"
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# Consumed read-only through their public APIs; none is changed.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-contract = { path = "../lance-graph-contract" }
