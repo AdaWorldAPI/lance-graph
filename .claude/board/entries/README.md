@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-571 entries, 2026-08-06 .. 2026-11-04.
+572 entries, 2026-08-06 .. 2026-11-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-04 | `D-DRISA-3` |  | [2026-11-04-d-drisa-3-alu-semantics.md](2026-11-04-d-drisa-3-alu-semantics.md) |
 | 2026-11-04 | `D-DRISA-1` |  | [2026-11-04-d-drisa-1-register-proof.md](2026-11-04-d-drisa-1-register-proof.md) |
 | 2026-11-03 | `D-XLOG-META-WIRE-P0` |  | [2026-11-03-d-xlog-meta-wire-p0.md](2026-11-03-d-xlog-meta-wire-p0.md) |
 | 2026-11-03 | `D-GRAMMAR-WHEN-1` |  | [2026-11-03-d-grammar-when-1.md](2026-11-03-d-grammar-when-1.md) |

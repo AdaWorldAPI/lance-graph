@@ -29,7 +29,7 @@
 | D-id | Deliverable | Status | Owner / gate |
 | --- | --- | --- | --- |
 | D-DRISA-1-LAB | sealed DR frame as a local register file over borrowed SoA | Measured: 13/13 tests, 6 disables red, 0 allocations/query, +0.04–0.6 µs revalidation; [entry](entries/2026-11-04-d-drisa-1-register-proof.md) | this session; lab crate `drisa-register-probe` |
-| D-DRISA-3-LAB | k-of-n / Kleene / Bag on the shipped carry words | In stacked PR | this session; ndarray / Quack owners |
+| D-DRISA-3-LAB | k-of-n / Kleene / Bag on the shipped carry words | Measured: semantics exact (19/19, 7 disables red); 1.5–4.8× slower than native words in all 8 shapes; [entry](entries/2026-11-04-d-drisa-3-alu-semantics.md) | this session; ndarray / Quack owners |
 | D-DRISA-M1 | layout witness on the canonical SoA | Proposed | SoA / DR owner |
 | D-DRISA-M2 | global id → tile index, or co-addressed selections | Proposed | EXO-46 |
 | D-DRISA-M3 | result-register lifetime across calls | Proposed | result owner |
