@@ -48,7 +48,11 @@ fn case(n: usize, n_rows: usize, shape: Shape, seed: u64) -> Case {
                 .collect()
         })
         .collect();
-    Case { n_rows, present, state }
+    Case {
+        n_rows,
+        present,
+        state,
+    }
 }
 
 fn plane(n_rows: usize, f: impl Fn(usize) -> bool) -> Vec<u64> {
@@ -81,12 +85,19 @@ fn ks(n: usize) -> [usize; 5] {
 #[test]
 fn kofn_matches_the_per_row_oracle_everywhere() {
     let mut cells = 0;
-    for shape in [Shape::Zero, Shape::Full, Shape::Alternating, Shape::OneHot, Shape::Random] {
+    for shape in [
+        Shape::Zero,
+        Shape::Full,
+        Shape::Alternating,
+        Shape::OneHot,
+        Shape::Random,
+    ] {
         for &n in &NS {
             for &rows in &ROWS {
                 let c = case(n, rows, shape, (n * 7 + rows) as u64);
                 let presence = plane(rows, |r| c.present[r]);
-                let ins: Vec<Vec<u64>> = c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
+                let ins: Vec<Vec<u64>> =
+                    c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
                 let refs: Vec<&[u64]> = ins.iter().map(|v| v.as_slice()).collect();
                 for k in ks(n) {
                     let got = kofn(&refs, k, &presence, rows);
@@ -94,8 +105,16 @@ fn kofn_matches_the_per_row_oracle_everywhere() {
                     for row in 0..rows {
                         let cnt = c.state.iter().filter(|s| s[row] == 1).count();
                         let want = c.present[row] && cnt >= k;
-                        assert_eq!(bit(&got, row), want, "{shape:?} n={n} rows={rows} k={k} row={row}");
-                        assert_eq!(bit(&bytes, row), want, "bytes {shape:?} n={n} k={k} row={row}");
+                        assert_eq!(
+                            bit(&got, row),
+                            want,
+                            "{shape:?} n={n} rows={rows} k={k} row={row}"
+                        );
+                        assert_eq!(
+                            bit(&bytes, row),
+                            want,
+                            "bytes {shape:?} n={n} k={k} row={row}"
+                        );
                     }
                     assert!(tail_clear(&got, rows) && tail_clear(&bytes, rows));
                     cells += 1;
@@ -116,8 +135,12 @@ fn boundary_ks_are_or_and_presence_and_empty() {
         let presence = plane(rows, |r| c.present[r]);
         let ins: Vec<Vec<u64>> = c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
         let refs: Vec<&[u64]> = ins.iter().map(|v| v.as_slice()).collect();
-        let or: Vec<u64> = (0..presence.len()).map(|w| refs.iter().fold(0, |a, m| a | m[w]) & presence[w]).collect();
-        let and: Vec<u64> = (0..presence.len()).map(|w| refs.iter().fold(!0, |a, m| a & m[w]) & presence[w]).collect();
+        let or: Vec<u64> = (0..presence.len())
+            .map(|w| refs.iter().fold(0, |a, m| a | m[w]) & presence[w])
+            .collect();
+        let and: Vec<u64> = (0..presence.len())
+            .map(|w| refs.iter().fold(!0, |a, m| a & m[w]) & presence[w])
+            .collect();
         assert_eq!(kofn(&refs, 1, &presence, rows), or);
         assert_eq!(kofn(&refs, n, &presence, rows), and);
         assert_eq!(kofn(&refs, 0, &presence, rows), presence);
@@ -158,14 +181,21 @@ fn kleene_kofn_keeps_unknown_and_matches_the_oracle() {
                     } else {
                         (false, false)
                     };
-                    assert_eq!((bit(&yes, row), bit(&unk, row)), (want_t, want_u), "n={n} k={k} row={row}");
+                    assert_eq!(
+                        (bit(&yes, row), bit(&unk, row)),
+                        (want_t, want_u),
+                        "n={n} k={k} row={row}"
+                    );
                     unknowns += usize::from(want_u);
                 }
                 assert!(tail_clear(&yes, rows) && tail_clear(&unk, rows));
             }
         }
     }
-    assert!(unknowns > 1000, "the fixture must produce UNKNOWN results: {unknowns}");
+    assert!(
+        unknowns > 1000,
+        "the fixture must produce UNKNOWN results: {unknowns}"
+    );
 }
 
 /// A6: Bag multiplicity is not support. Same support (every input present at
@@ -177,11 +207,19 @@ fn bag_sums_differ_from_support_counts() {
     let mut r = rng(5);
     let n = 5;
     // multiplicity m[i][row] in 0..=3
-    let m: Vec<Vec<u8>> = (0..n).map(|_| (0..rows).map(|_| (r() % 4) as u8).collect()).collect();
+    let m: Vec<Vec<u8>> = (0..n)
+        .map(|_| (0..rows).map(|_| (r() % 4) as u8).collect())
+        .collect();
     let present: Vec<bool> = (0..rows).map(|row| row % 11 != 3).collect();
     let presence = plane(rows, |row| present[row]);
-    let lo: Vec<Vec<u64>> = m.iter().map(|v| plane(rows, |row| v[row] & 1 == 1)).collect();
-    let hi: Vec<Vec<u64>> = m.iter().map(|v| plane(rows, |row| v[row] & 2 == 2)).collect();
+    let lo: Vec<Vec<u64>> = m
+        .iter()
+        .map(|v| plane(rows, |row| v[row] & 1 == 1))
+        .collect();
+    let hi: Vec<Vec<u64>> = m
+        .iter()
+        .map(|v| plane(rows, |row| v[row] & 2 == 2))
+        .collect();
     let support: Vec<Vec<u64>> = m.iter().map(|v| plane(rows, |row| v[row] > 0)).collect();
     let lr: Vec<&[u64]> = lo.iter().map(|v| v.as_slice()).collect();
     let hr: Vec<&[u64]> = hi.iter().map(|v| v.as_slice()).collect();
@@ -197,7 +235,10 @@ fn bag_sums_differ_from_support_counts() {
         differ += usize::from(bag != sup);
         assert!(tail_clear(&bag, rows));
     }
-    assert!(differ >= 4, "Bag and support must disagree on several k: {differ}");
+    assert!(
+        differ >= 4,
+        "Bag and support must disagree on several k: {differ}"
+    );
 }
 
 /// A7 negative control: 3-of-5 by carry words equals the 10-term native
@@ -210,7 +251,10 @@ fn three_of_five_matches_its_boolean_expansion() {
     let ins: Vec<Vec<u64>> = c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
     let refs: Vec<&[u64]> = ins.iter().map(|v| v.as_slice()).collect();
     let arr: [&[u64]; 5] = [refs[0], refs[1], refs[2], refs[3], refs[4]];
-    assert_eq!(kofn(&refs, 3, &presence, rows), three_of_five_sop(&arr, &presence, rows));
+    assert_eq!(
+        kofn(&refs, 3, &presence, rows),
+        three_of_five_sop(&arr, &presence, rows)
+    );
 }
 
 /// A presence plane whose tail word carries stray bits past `n_rows` (a
@@ -224,8 +268,14 @@ fn a_dirty_presence_tail_never_reaches_the_result() {
     let ins: Vec<Vec<u64>> = c.state.iter().map(|s| plane(rows, |r| s[r] == 1)).collect();
     let refs: Vec<&[u64]> = ins.iter().map(|v| v.as_slice()).collect();
     for k in [0, 1, 3, 5] {
-        assert!(tail_clear(&kofn(&refs, k, &presence, rows), rows), "kofn k={k}");
-        assert!(tail_clear(&kofn_bytes(&refs, k, &presence, rows), rows), "bytes k={k}");
+        assert!(
+            tail_clear(&kofn(&refs, k, &presence, rows), rows),
+            "kofn k={k}"
+        );
+        assert!(
+            tail_clear(&kofn_bytes(&refs, k, &presence, rows), rows),
+            "bytes k={k}"
+        );
     }
     let none = vec![0u64; presence.len()];
     let unknown: Vec<&[u64]> = vec![none.as_slice(); refs.len()];
