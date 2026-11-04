@@ -44,6 +44,8 @@ All methods equal an independent oracle (global id → value, no map or position
 
 **Disable runs** (commit first, patch with an asserted anchor, `git checkout`): frame check off → 1 red; layout digest compare off → 2 red; value witness off (lanes) → 1 red; value witness off (derived register) → 1 red; scope check off → 1 red; duplicate-identity check off → 1 red. Restored: 13/13.
 
+**Review fixes (Codex, #1955).** The value witness is now `(incarnation, revision)`: a rebuilt SoA restarted its revision at zero and was accepted against a witness from the old one. `Compiled` now records the lane schema it was resolved against, and `run` refuses `SchemaMismatch` on a file whose lanes name other fields. Two falsifiers with controls; disables: incarnation pinned → 1 red, schema check off → 1 red. 15/15.
+
 ## Cost (µs per query, round robin over 4 methods, 3 processes)
 
 | fixture | A direct planes | C one binding, revalidated per query | allocations per query (C) |
