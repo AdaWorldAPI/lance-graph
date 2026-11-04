@@ -1,5 +1,8 @@
 ## D-CGMM — Lazy Codegraph fact/demand + MeTTa class-method scratch (2026-11-04)
 
+**Implementation detail update (2026-11-04):** [Source→native blueprint](../plans/d-cgmm-implementation-blueprint-v1.md), [EXO gate ledger](../plans/d-cgmm-exo-gates-v1.md) and [fixed independent fixtures](../plans/d-cgmm-executable-fixtures-v1.md) refine the eight future stages. All executable fixtures are **NOT_RUN**, with expected pure COUNT=2 and tenant-A Set=3/Bag=4. The only authorized artifact is docs in draft PR #1958; owners of EXO-121/152/46/140/95/108/73 remain open gates.
+
+
 **Status:** D-CGMM-0 PROPOSED / DOCS ONLY. [Master](../plans/d-cgmm-codegraph-metta-method-builder-v1.md) · [lazy Codegraph](../plans/d-cgmm-lazy-codegraph-fact-demand-v1.md) · [OGIT/OGAR edge-action addendum](../plans/d-cgmm-action-relation-schema-v1.md) · [PR charter](../plans/d-cgmm-staged-pr-charter-v1.md) · [46 falsifiers](../plans/d-cgmm-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-cgmm-0-metta-class-method-builder.md) · [EXO-155](https://linear.app/exo-red/issue/EXO-155) · [EXO-50](https://linear.app/exo-red/issue/EXO-50) append-only handoff. **No production source harvester, executable MeTTa/Datalog, new ClassId, schema, ISA, driver or automatic authorization.**
 
 | D-id | Proposed PR stage | State / named gate |
