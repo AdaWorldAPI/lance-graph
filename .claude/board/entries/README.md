@@ -33,6 +33,7 @@ exactly one of them, never both.
 | 2026-11-04 | `D-DRISA-3` |  | [2026-11-04-d-drisa-3-alu-semantics.md](2026-11-04-d-drisa-3-alu-semantics.md) |
 | 2026-11-04 | `D-DRISA-1` |  | [2026-11-04-d-drisa-1-register-proof.md](2026-11-04-d-drisa-1-register-proof.md) |
 | 2026-11-04 | `D-DRISA-0` |  | [2026-11-04-d-drisa-0-remote-register-contract.md](2026-11-04-d-drisa-0-remote-register-contract.md) |
+| 2026-11-04 | `D-CGMM-0` |  | [2026-11-04-d-cgmm-0-metta-class-method-builder.md](2026-11-04-d-cgmm-0-metta-class-method-builder.md) |
 | 2026-11-03 | `D-XLOG-META-WIRE-P0` |  | [2026-11-03-d-xlog-meta-wire-p0.md](2026-11-03-d-xlog-meta-wire-p0.md) |
 | 2026-11-03 | `D-GRAMMAR-WHEN-1` |  | [2026-11-03-d-grammar-when-1.md](2026-11-03-d-grammar-when-1.md) |
 | 2026-11-03 | `D-GRAMMAR-CONSTRAINTS-0` |  | [2026-11-03-d-grammar-constraints-0.md](2026-11-03-d-grammar-constraints-0.md) |
