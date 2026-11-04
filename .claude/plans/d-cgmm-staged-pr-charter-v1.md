@@ -91,3 +91,7 @@ CGMM-0 docs, exact source ownership and refusal matrix
 **One stage per PR**, exact commit SHAs, source-backed grades, a deliberate disable that turns a nonvacuous assertion red, cold/hot/representation metrics, separate board entry and EXO-50 append-only handoff. No auto-merge and no reclassifying a research adapter as a production API. All future work gated on independent owner decisions; CGMM-0 does not authorize CGMM-1–8.
 
 **Explicitly out of scope:** migrated Ladybug/cognitive-shader-driver and P64/StreamDTO/BusDTO/PerturbationDTO consolidation; the operator deferred that study.
+
+## Implementation-ready release packet and exact EXO gates
+
+The [detailed blueprint](d-cgmm-implementation-blueprint-v1.md), [EXO gate ledger](d-cgmm-exo-gates-v1.md) and [executable fixture specification](d-cgmm-executable-fixtures-v1.md) **refine** CGMM-1…8 without authorizing them. They require **source fact fidelity before lazy demand optimization**, correct grades and ClassView basis before FieldViewDef offers, and verified pure RelAlg lowering before any DT64 native execution. Cold/hot costs, Bag/Set counts, cross-tenant authorization and deliberately wrong source effects have fixed independent expected answers. If an owner gate is open, the stage may only produce a scoped lab or decision memo, not a shipped method.
