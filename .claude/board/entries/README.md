@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-575 entries, 2026-08-06 .. 2026-11-04.
+576 entries, 2026-08-06 .. 2026-11-04.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-04 | `D-DRIVER-ZC-0` |  | [2026-11-04-d-driver-zc-0-virtual-bus-contract.md](2026-11-04-d-driver-zc-0-virtual-bus-contract.md) |
 | 2026-11-04 | `D-DRISA-3` |  | [2026-11-04-d-drisa-3-alu-semantics.md](2026-11-04-d-drisa-3-alu-semantics.md) |
 | 2026-11-04 | `D-DRISA-1` |  | [2026-11-04-d-drisa-1-register-proof.md](2026-11-04-d-drisa-1-register-proof.md) |
 | 2026-11-04 | `D-DRISA-0` |  | [2026-11-04-d-drisa-0-remote-register-contract.md](2026-11-04-d-drisa-0-remote-register-contract.md) |

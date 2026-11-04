@@ -1,3 +1,22 @@
+## D-DRIVER-ZC — one zero-copy access membrane and virtual bus (2026-11-04)
+
+**Status:** D-DRIVER-ZC-0 PROPOSED / DOCS ONLY. [Master](../plans/d-driver-zc-virtual-bus-contract-v1.md) · [staged PR charter](../plans/d-driver-zc-staged-pr-charter-v1.md) · [47 independent falsifiers](../plans/d-driver-zc-falsifier-matrix-v1.md) · [entry](entries/2026-11-04-d-driver-zc-0-virtual-bus-contract.md) · [EXO-154](https://linear.app/exo-red/issue/EXO-154) · [EXO-153](https://linear.app/exo-red/issue/EXO-153) · [EXO-50](https://linear.app/exo-red/issue/EXO-50). **No driver implementation or production access rule shipped.**
+
+**Updated predecessor status:** [D-DRISA #1953](https://github.com/AdaWorldAPI/lance-graph/pull/1953) merged docs; [#1955](https://github.com/AdaWorldAPI/lance-graph/pull/1955) merged local borrowed register lab; [#1956](https://github.com/AdaWorldAPI/lance-graph/pull/1956) merged ALU semantics lab, carry 1.5–4.8× slower than native in eight measured shapes. Earlier D-DRISA entries are historical plans, not the current PR state.
+
+| D-id | Stage | Status / owner |
+| --- | --- | --- |
+| D-DRIVER-ZC-0 | One witnessed bind/project/stream/execute/release access contract, bus roles, proof matrix | THIS DOCS PR, proposed |
+| D-DRIVER-ZC-1 | Local sealed borrowed-lens membrane, compile-fail misuse probes | FUTURE LAB, DT64/source/mask-risc review |
+| D-DRIVER-ZC-2 | Typed XX/XY/XZ/YY/ZZ views and in-program composition, no owned bus arrays | FUTURE LAB, Quack/DT64 |
+| D-DRIVER-ZC-3 | Bind-once across local tiles; admitted foreign global→local reuse | LOCAL LAB; FOREIGN **BLOCKED EXO-46/89/151/140** |
+| D-DRIVER-ZC-4 | D-DRISA-2/4 async compatibility only, no parallel driver | GATED source-owner/security/transport |
+| D-DRIVER-ZC-5 | Lance disk-backed source + truthful I/O/copy accounting | **BLOCKED D4/S-INGRESS**, EXO-114 |
+| D-DRIVER-ZC-6 | Sealed migrated caller firewall with explicit reachability coverage | FUTURE policy lab, EXO-104/105/109 |
+| D-DRIVER-ZC-7 | Thinking Hard Drive semantic, representation and whole-query verdict | FUTURE independent review; no theorem proof claimed |
+
+**Law:** existing [zero-copy lens doctrine](../knowledge/zero-copy-lens-law.md) prohibits implicit source payload materialization; local borrow only with live source/layout/scope witness. Existing ndarray SIMD facade is the model: one admitted access vocabulary, multiple implementations without bypassing semantics. Virtual buses are typed same-address views, not stored arrays. O(1) is limited to a fixed number of already-resolved resident row reads, never arbitrary K-row output, all-pairs joins, storage I/O or RPC. Legacy ~17,000-call premise is operator context, not audited coverage. Do **not** inspect/consolidate migrated ladybug/P64/StreamDTO/BusDTO/PerturbationDTO/cognitive-shader-driver yet.
+
 ## D-DRISA — DR remote register + Abakus cognitive shader (2026-11-04)
 
 **Status: D-DRISA-0 PROPOSED / DOCS ONLY.** [Master architecture](../plans/d-drisa-remote-register-shader-v1.md) · [staged PR charter](../plans/d-drisa-staged-pr-charter-v1.md) · [57 falsifiers](../plans/d-drisa-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-drisa-0-remote-register-contract.md) · [EXO-153 owner tracking](https://linear.app/exo-red/issue/EXO-153) · [EXO-50 append-only handoff](https://linear.app/exo-red/issue/EXO-50). **No remote driver, API, copied payload cache, new map or performance measurement is implemented by this plan.**
