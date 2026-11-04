@@ -1,3 +1,8 @@
+## 2026-11-04 — D-DRISA decision memos after the local register proof → `.claude/plans/d-drisa-decision-memos-v1.md`
+
+**Status:** PROPOSED, owned by this session (EXO-153 stages 1 and 3). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRISA-1-LAB, D-DRISA-3-LAB, D-DRISA-M1..M7; [entry](entries/2026-11-04-d-drisa-1-register-proof.md). Architecture: #1953 (D-DRISA-0, a GPT-session plan adopted after review). Seven owner questions the local proof leaves open: a layout witness on the SoA (the first missing connection), a global id → tile index or co-addressed selections, result-register lifetime, source-location receipt, DR → Lance authority, the carry words as ALU, async loopback.
+**Confidence:** each memo cites a lab measurement or a source line; no ruling made.
+
 ## 2026-11-03 — D-DRAM-P3: P2 open ends integrated with the D-DRAM-0 falsifier map → `.claude/plans/d-dram-p3-integrated-v1.md`
 
 **Status:** PLAN, owned by this session (operator). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM-P3-1..8. Credits P2 (#1950) against the pre-registered #1949 gates (L9, L10, C2, C4 measured in the lab; L1/L2/L6/A3/A4 partial). Orders eleven owned items by signal per effort: three need no outside decision (ReadPolicy range count, non-vacuous projection cases, the D-DRAM-1 census). Production and gated items keep their owners; nothing merges automatically.
