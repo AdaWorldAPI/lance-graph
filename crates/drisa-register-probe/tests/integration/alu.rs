@@ -5,7 +5,6 @@ use drisa_register_probe::alu::{bag_at_least, kofn, kofn_bytes, kofn_kleene, thr
 
 /// Per-row input state: 0 false, 1 true, 2 unknown (Kleene only).
 struct Case {
-    n_rows: usize,
     present: Vec<bool>,
     /// `state[i][row]`.
     state: Vec<Vec<u8>>,
@@ -48,11 +47,7 @@ fn case(n: usize, n_rows: usize, shape: Shape, seed: u64) -> Case {
                 .collect()
         })
         .collect();
-    Case {
-        n_rows,
-        present,
-        state,
-    }
+    Case { present, state }
 }
 
 fn plane(n_rows: usize, f: impl Fn(usize) -> bool) -> Vec<u64> {
