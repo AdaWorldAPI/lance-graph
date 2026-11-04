@@ -1,3 +1,21 @@
+## D-DRISA — DR remote register + Abakus cognitive shader (2026-11-04)
+
+**Status: D-DRISA-0 PROPOSED / DOCS ONLY.** [Master architecture](../plans/d-drisa-remote-register-shader-v1.md) · [staged PR charter](../plans/d-drisa-staged-pr-charter-v1.md) · [57 falsifiers](../plans/d-drisa-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-drisa-0-remote-register-contract.md) · [EXO-153 owner tracking](https://linear.app/exo-red/issue/EXO-153) · [EXO-50 append-only handoff](https://linear.app/exo-red/issue/EXO-50). **No remote driver, API, copied payload cache, new map or performance measurement is implemented by this plan.**
+
+| D-id | Staged PR / deliverable | Status | Owner / gates |
+| --- | --- | --- | --- |
+| D-DRISA-0 | documented virtual-register contract, ALU semantic map, async state model, staged PR charter and independent oracles | PROPOSED, THIS DOCS PR | EXO-153 and EXO-50 coordinate only, neither admits runtime |
+| D-DRISA-1 | local borrowed-register equivalence, exact frame/scope refusals | FUTURE LAB | DT64 / mask-risc / R2IL, no new ISA |
+| D-DRISA-2 | async loopback lifecycle, bounded queue, cancellation and lease invalidation | FUTURE LAB, security review | runtime/transport owner; no live TCP |
+| D-DRISA-3 | Abakus k-of-n using shipped half/full adders, independent scalar/Boolean oracle | FUTURE LAB | ndarray/Quack owner; U24x5 examples-only |
+| D-DRISA-4 | two-process read-only data-local command vs payload-fetch baseline | FUTURE LAB, transport/security gate | explicit authorization before networking |
+| D-DRISA-5 | optional leased source-location receipt, zero copied payload, prefetch | **BLOCKED** | EXO-46 / EXO-89 / EXO-151 (no production lease host) |
+| D-DRISA-6 | witnessed DR→Lance _rowid authority and mask ingress | **BLOCKED_D4 / S_INGRESS_COPY** | D4 / S-INGRESS / EXO-114, #1633 |
+| D-DRISA-7 | grammar/XLOG/NAL read-only cognitive consumers, limited continuation | GATED | EXO-140 / EXO-73 / EXO-78 / semantic owners |
+| D-DRISA-8 | whole-query/async-fault audit and explicit production ruling | NOT AUTHORIZED | operator and named code/security owners |
+
+**Invariants:** DR retains unique coordinate authority; borrowed canonical SoA is default; local borrow ≠ network zero-copy; receipts store locations, never values; remote method and result mask require scope/source/frame lease; no implicit cross-call scratch-slot survival, F###, second executor or automatic THOUGHT→WORLD promotion. #1950 Q≥2 timing included gathered copied lanes, so is not standalone address-only evidence. #1951 4,096-page rule is a fragmentation proxy, not physical page count. [Integration map](INTEGRATION_PLANS.md) has the full crosswalk.
+
 ## D-DRAM — DR address memoization + adaptive Abakus masking lens (2026-11-03)
 
 **Status:** PROPOSED / DOCS ONLY; [plan](../plans/d-dram-abacus-address-memoization-v1.md), [board entry](entries/2026-11-03-d-dram-abacus-address-memoization.md), [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). No code, tests, new runtime, new row-id map or production authorization.
