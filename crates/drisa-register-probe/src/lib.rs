@@ -28,6 +28,8 @@
 //! on field values, so a value write leaves it valid while a value-dependent
 //! method must refuse until its value witness is re-taken.
 
+pub mod alu;
+
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_contract::class_view::WideFieldMask;

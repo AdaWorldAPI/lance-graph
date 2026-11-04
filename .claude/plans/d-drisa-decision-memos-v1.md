@@ -79,5 +79,5 @@
 ## Checklist
 
 - [x] D-DRISA-1 local register proof (`entries/2026-11-04-d-drisa-1-register-proof.md`)
-- [ ] D-DRISA-3 ALU semantics (stacked PR)
+- [x] D-DRISA-3 ALU semantics (`entries/2026-11-04-d-drisa-3-alu-semantics.md`)
 - [ ] Owner rulings M1–M7
