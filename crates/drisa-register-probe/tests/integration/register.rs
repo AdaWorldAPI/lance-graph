@@ -483,3 +483,99 @@ fn selection_refusals_are_typed() {
         matches!(bind(&w, &soa, Checks::ALL), Err(Refusal::DuplicateIdentity(g)) if g == first)
     );
 }
+
+/// A rebuilt SoA restarts its revision at zero. Without an incarnation in the
+/// witness, a register bound to the old SoA would accept the rebuilt one and
+/// answer with a derived mask computed from the old values. (Codex, #1955.)
+#[test]
+fn a_rebuilt_soa_is_another_value_state_even_at_revision_zero() {
+    let mut w = world(65_536, Width::W256, 17);
+    let soa = build_soa(&w.fixture, &w.table, &w.tiles, w.width);
+    let mut file = bind(&w, &soa, Checks::ALL).unwrap();
+    file.derive_gt(&w.table, &soa, SCOPE, 17, -5).unwrap();
+
+    let g = *w
+        .selection
+        .iter()
+        .find(|&&g| w.fixture.present(g) && w.fixture.where_gt(&[g], 17, -5, 17).0 == 1)
+        .unwrap();
+    w.fixture.set(g, 17, -50);
+    let rebuilt = build_soa(&w.fixture, &w.table, &w.tiles, w.width);
+    assert_eq!(
+        rebuilt.revision(),
+        soa.revision(),
+        "fixture: equal revisions"
+    );
+    assert_ne!(rebuilt.witness(), soa.witness());
+
+    for op in [
+        MethodOp::CountWhereGt { field: 17, t: -5 },
+        MethodOp::CountDerived,
+    ] {
+        assert!(
+            matches!(
+                run(&file, &w, &rebuilt, op),
+                Err(Refusal::StaleValues { .. })
+            ),
+            "{op:?}"
+        );
+    }
+    // Control: map-only methods still answer; after rebinding, values answer.
+    assert_eq!(
+        run(&file, &w, &rebuilt, MethodOp::Count).unwrap(),
+        expect(&w, MethodOp::Count)
+    );
+    file.rebind_values(&w.table, &rebuilt).unwrap();
+    let op = MethodOp::CountWhereGt { field: 17, t: -5 };
+    assert_eq!(run(&file, &w, &rebuilt, op).unwrap(), expect(&w, op));
+    file.derive_gt(&w.table, &rebuilt, SCOPE, 17, -5).unwrap();
+    assert_eq!(
+        run(&file, &w, &rebuilt, MethodOp::CountDerived).unwrap(),
+        Value::Count(w.fixture.where_gt(&w.selection, 17, -5, 17).0)
+    );
+}
+
+/// A method compiled against one lane schema must not run on a register file
+/// whose lanes name other fields. (Codex, #1955.)
+#[test]
+fn a_method_compiled_for_another_lane_schema_is_refused() {
+    let w = world(65_536, Width::W256, 18);
+    let soa = build_soa(&w.fixture, &w.table, &w.tiles, w.width);
+    let bind_with = |demanded: &[u8]| {
+        RegisterFile::bind(
+            &w.table,
+            &w.table.seal(),
+            &w.tiles,
+            w.width,
+            SCOPE,
+            FIELDS,
+            &authorized(),
+            demanded,
+            ValueDemand::Values,
+            &w.selection,
+            &soa,
+            Checks::ALL,
+        )
+        .unwrap()
+    };
+    let a = bind_with(&[17, 42]);
+    let b = bind_with(&[42, 17]);
+    let op = MethodOp::CountWhereGt { field: 17, t: -5 };
+    let c = a.compile(op).unwrap();
+    // Anti-vacuity: on these values field 17 and field 42 disagree, so running
+    // `c` over `b`'s lanes would give a different, wrong count.
+    let wrong = MethodOp::CountWhereGt { field: 42, t: -5 };
+    assert_ne!(expect(&w, op), expect(&w, wrong));
+    let mut s = b.scratch(&c).unwrap();
+    assert_eq!(
+        b.run(&w.table, &soa, SCOPE, &c, &mut s),
+        Err(Refusal::SchemaMismatch)
+    );
+    // Control: the same method on its own file, and recompiled on `b`.
+    let mut s = a.scratch(&c).unwrap();
+    assert_eq!(
+        a.run(&w.table, &soa, SCOPE, &c, &mut s).unwrap(),
+        expect(&w, op)
+    );
+    assert_eq!(run(&b, &w, &soa, op).unwrap(), expect(&w, op));
+}

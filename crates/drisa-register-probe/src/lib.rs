@@ -30,6 +30,8 @@
 
 pub mod alu;
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use lance_graph_contract::class_view::WideFieldMask;
 use lance_graph_dt64::dr::{
     Frame, FrameRevisions, LocalMap, MapRead, MapTable, Scope, TileId, Width,
@@ -71,19 +73,39 @@ pub enum Refusal {
     DuplicateIdentity(u64),
     /// A value-dependent method, but values were not demanded at bind.
     ValuesNotBound,
-    /// The SoA's values changed since the register took its value witness.
-    StaleValues { bound: u64, now: u64 },
+    /// The SoA's values changed since the register took its value witness,
+    /// or the SoA is another incarnation (rebuilt) with a restarted revision.
+    StaleValues {
+        bound: ValueWitness,
+        now: ValueWitness,
+    },
+    /// A compiled method was resolved against another register file's lane
+    /// schema: its lane indices would name different fields here.
+    SchemaMismatch,
     /// A method reads the derived register, but none was derived.
     NoDerivedRegister,
     /// `mask-risc` refused the program.
     Exec(ExecError),
 }
 
+/// The identity of one value state: which SoA incarnation and which revision
+/// of it. The revision alone restarts at zero when a SoA is rebuilt, so it
+/// cannot tell a rebuilt SoA from the one a witness was taken from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ValueWitness {
+    pub incarnation: u64,
+    pub revision: u64,
+}
+
+/// Every built SoA gets a fresh incarnation, never reused in a process.
+static NEXT_INCARNATION: AtomicU64 = AtomicU64::new(1);
+
 /// The canonical owner's values: one row per DR position, tile-major
 /// (`row = tile_ordinal * width + local`). Not part of the register file.
 #[derive(Debug)]
 pub struct Soa {
     source: u64,
+    incarnation: u64,
     revision: u64,
     width: Width,
     layout: Vec<(TileId, u64)>,
@@ -99,6 +121,14 @@ impl Soa {
 
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// The value witness a register takes and later compares.
+    pub fn witness(&self) -> ValueWitness {
+        ValueWitness {
+            incarnation: self.incarnation,
+            revision: self.revision,
+        }
     }
 
     pub fn field_count(&self) -> usize {
@@ -289,6 +319,7 @@ pub fn build_soa(fixture: &Fixture, table: &MapTable, tiles: &[TileId], width: W
     }
     Soa {
         source: table.revisions().source,
+        incarnation: NEXT_INCARNATION.fetch_add(1, Ordering::Relaxed),
         revision: 0,
         width,
         layout,
@@ -341,12 +372,12 @@ pub struct RegisterFile {
     /// Demanded field positions; lane `i` of the executed planes is
     /// `demanded[i]`.
     demanded: Vec<u8>,
-    value_rev: Option<u64>,
+    value_rev: Option<ValueWitness>,
     /// The map-only identity selection register, one bit per row.
     selection: Vec<u64>,
-    /// A derived, value-dependent predicate register: `(value revision it was
-    /// computed at, mask)`. Valid only while the SoA is at that revision.
-    derived: Option<(u64, Vec<u64>)>,
+    /// A derived, value-dependent predicate register: `(value witness it was
+    /// computed at, mask)`. Valid only while the SoA has that witness.
+    derived: Option<(ValueWitness, Vec<u64>)>,
     n_rows: usize,
     checks: Checks,
 }
@@ -388,6 +419,9 @@ pub struct Compiled {
     demand: ValueDemand,
     /// Reads the derived predicate register (plane 2).
     derived: bool,
+    /// The lane schema (demanded fields, in lane order) the program's lane
+    /// indices were resolved against. Checked before execution.
+    schema: Vec<u8>,
 }
 
 impl RegisterFile {
@@ -462,7 +496,7 @@ impl RegisterFile {
         };
         file.check_soa(soa)?;
         Ok(RegisterFile {
-            value_rev: matches!(demand, ValueDemand::Values).then_some(soa.revision),
+            value_rev: matches!(demand, ValueDemand::Values).then_some(soa.witness()),
             ..file
         })
     }
@@ -474,7 +508,7 @@ impl RegisterFile {
             current(table, &self.frame)?;
         }
         self.check_soa(soa)?;
-        self.value_rev = Some(soa.revision);
+        self.value_rev = Some(soa.witness());
         Ok(())
     }
 
@@ -581,6 +615,7 @@ impl RegisterFile {
             program,
             demand: op.demand(),
             derived: matches!(op, MethodOp::CountDerived),
+            schema: self.demanded.clone(),
         })
     }
 
@@ -608,10 +643,10 @@ impl RegisterFile {
         self.check_soa(soa)?;
         if matches!(demand, ValueDemand::Values) {
             let bound = self.value_rev.ok_or(Refusal::ValuesNotBound)?;
-            if self.checks.values && bound != soa.revision {
+            if self.checks.values && bound != soa.witness() {
                 return Err(Refusal::StaleValues {
                     bound,
-                    now: soa.revision,
+                    now: soa.witness(),
                 });
             }
         }
@@ -643,12 +678,15 @@ impl RegisterFile {
         compiled: &Compiled,
         scratch: &mut Scratch<'_>,
     ) -> Result<Value, Refusal> {
+        if compiled.schema != self.demanded {
+            return Err(Refusal::SchemaMismatch);
+        }
         if compiled.derived {
             let (at, _) = self.derived.as_ref().ok_or(Refusal::NoDerivedRegister)?;
-            if self.checks.values && *at != soa.revision {
+            if self.checks.values && *at != soa.witness() {
                 return Err(Refusal::StaleValues {
                     bound: *at,
-                    now: soa.revision,
+                    now: soa.witness(),
                 });
             }
         }
@@ -689,7 +727,7 @@ impl RegisterFile {
             )
         })?
         .map_err(Refusal::Exec)?;
-        self.derived = Some((soa.revision, words));
+        self.derived = Some((soa.witness(), words));
         Ok(())
     }
 
