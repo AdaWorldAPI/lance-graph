@@ -1,3 +1,21 @@
+## D-CGMM — Lazy Codegraph fact/demand + MeTTa class-method scratch (2026-11-04)
+
+**Status:** D-CGMM-0 PROPOSED / DOCS ONLY. [Master](../plans/d-cgmm-codegraph-metta-method-builder-v1.md) · [lazy Codegraph](../plans/d-cgmm-lazy-codegraph-fact-demand-v1.md) · [OGIT/OGAR edge-action addendum](../plans/d-cgmm-action-relation-schema-v1.md) · [PR charter](../plans/d-cgmm-staged-pr-charter-v1.md) · [46 falsifiers](../plans/d-cgmm-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-cgmm-0-metta-class-method-builder.md) · [EXO-155](https://linear.app/exo-red/issue/EXO-155) · [EXO-50](https://linear.app/exo-red/issue/EXO-50) append-only handoff. **No production source harvester, executable MeTTa/Datalog, new ClassId, schema, ISA, driver or automatic authorization.**
+
+| D-id | Proposed PR stage | State / named gate |
+| --- | --- | --- |
+| D-CGMM-0 | source-grounded architecture, owner crosswalk, 46 independent falsifiers | THIS DOCS PR, review only |
+| D-CGMM-1 | Ruff/Charon→Kythe-shaped source identity, binary-lane effect/coverage census | FUTURE LAB, producer + Codegraph owner |
+| D-CGMM-2 | Crepe/Soufflé/XLOG compile evidence and *lazy* Codegraph demand plans | FUTURE LAB, EXO-73/79/143 gates |
+| D-CGMM-3 | ClassView-based FieldViewDef + disposable MeTTa-shaped constraint scratch | FUTURE LAB, EXO-121/152 |
+| D-CGMM-4 | OGIT M:N edge roles, tenant permission and OGAR ActionDef offers | FUTURE LAB, EXO-95/108, OGAR/ontology |
+| D-CGMM-5 | eligible same-row FieldViewDef → RelAlg pure polyfill | FUTURE LAB, Quack/R2IL owner |
+| D-CGMM-6 | separately admitted immutable DT64 MethodBinding → R2IL native | GATED EXO-121/152, execution permission |
+| D-CGMM-7 | prepared method/route memoization with source/version/scope fence | FUTURE LAB, D-DRISA/D-DRIVER-ZC gates |
+| D-CGMM-8 | independent Datalog/MORK and provenance/caller coverage, NNUE ranking-only | FUTURE LAB, EXO-79/143/154/73 |
+
+**Architectural laws:** durable source identity ≠ Codegraph interned Pos ≠ DR local ordinal ≠ ClassId/MethodId. Source grades confirmed/possible/unknown retained. Crepe binding and Soufflé magic/stratification are **cold plan evidence**, not new runtimes. Codegraph partially lazy already, while six XLOG Cube relations are built at intake; the new proposal must measure whether demand-scoping actually wins. ClassView FieldMask means presence, not rule truth. MeTTa-shaped scratch is ephemeral; OGIT/OGAR/DT64 owners separately admit typed ontology and method declarations. RelAlg IR has no general M:N join/effect/WHEN executable path. No legacy cognitive-shader-driver/DTO consolidation is in scope.
+
 ## D-DRIVER-ZC — one zero-copy access membrane and virtual bus (2026-11-04)
 
 **Status:** D-DRIVER-ZC-0 PROPOSED / DOCS ONLY. [Master](../plans/d-driver-zc-virtual-bus-contract-v1.md) · [staged PR charter](../plans/d-driver-zc-staged-pr-charter-v1.md) · [47 independent falsifiers](../plans/d-driver-zc-falsifier-matrix-v1.md) · [entry](entries/2026-11-04-d-driver-zc-0-virtual-bus-contract.md) · [EXO-154](https://linear.app/exo-red/issue/EXO-154) · [EXO-153](https://linear.app/exo-red/issue/EXO-153) · [EXO-50](https://linear.app/exo-red/issue/EXO-50). **No driver implementation or production access rule shipped.**
