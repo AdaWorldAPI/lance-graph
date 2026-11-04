@@ -232,6 +232,11 @@ exclude = [
     # lance-graph-dt64 and the contract only. Verify via
     # `cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml`.
     "crates/dt64-admission-probe",
+    # D-DRISA-1 (EXO-153) LAB: a sealed DR frame read as a register file over
+    # borrowed SoA planes. Own workspace root; path-deps dt64, mask-risc and
+    # the contract only. Verify via
+    # `cargo test --manifest-path crates/drisa-register-probe/Cargo.toml`.
+    "crates/drisa-register-probe",
 ]
 resolver = "2"
 
