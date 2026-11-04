@@ -28,6 +28,8 @@
 //! on field values, so a value write leaves it valid while a value-dependent
 //! method must refuse until its value witness is re-taken.
 
+pub mod alu;
+
 use lance_graph_contract::class_view::WideFieldMask;
 use lance_graph_dt64::dr::{
     Frame, FrameRevisions, LocalMap, MapRead, MapTable, Scope, TileId, Width,

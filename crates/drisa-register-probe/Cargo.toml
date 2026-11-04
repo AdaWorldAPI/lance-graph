@@ -19,3 +19,6 @@ description = "D-DRISA-1 lab: does a sealed DR frame bind typed register operand
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+# D-DRISA-3: the two shipped carry words and `U8x64`, from the same ndarray
+# coordinate mask-risc uses, so the graph keeps one ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
