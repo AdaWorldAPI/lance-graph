@@ -1,5 +1,9 @@
 # D-BAGOP-XVERWEIS-1: Ordered XVERWEIS as a holographic Bag fold
 
+## POC scope correction: business tile fold first (2026-11-05)
+
+The core demo is **SAP/CATS-shaped typed tiles joined by scoped Guid128 correspondence using the dir-sim/OGAR precedent**, not Excel XVERWEIS. This plan's XVERWEIS semantics remain useful as a **later consumer contract**. First establish one lawful SAP-like property fold over a witnessed joined population, with ambiguous and scope-mismatched GUID links refused. The current correspondence implementation prepares sorted index entries and does not claim ndarray::simd_stride is a finished GUID join. The PSCustomObject-like view is a thin semantic façade, not a new object interpreter. No GridCraft, DataFusion, F### numbering or Codegraph dependency on the first POC.
+
 **Status:** PROPOSED / admission unresolved. **Date:** 2026-11-05. **Owner:** Bagop, Quack, DT64 and mask-risc in lance-graph. **Dependency:** P0 + ndarray P1.
 
 **Operator invariant:** Every XVERWEIS is a FACET STRIDE-shaped ndarray-backed Bagop folding polyfill on the DR64 holographic Bag. PSCustomObject is a logical property projection, not a per-row heap object graph. This is a requested law, not proof of existing admission.
