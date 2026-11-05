@@ -47,6 +47,10 @@ unicode-normalization = "0.1"
 # Full Unicode case folding (RFC 3454 B.2) for the same.
 unicase = "2"
 
+[dev-dependencies]
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
 [features]
 rbac = ["dep:lance-graph-contract", "dep:ogar-rbac"]
 
