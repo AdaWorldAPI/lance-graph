@@ -61,3 +61,9 @@ A named path like Customer.Services.ExchangeOnline binds DT64 property reference
 | P6 GridCraft | Independent XLSX / scalar / Bagop parity and disable runs |
 
 **Decision log 2026-11-05:** operator intent recorded; ordering, exact match, approximate/wildcard/binary and cross-table admissions remain OPEN/BLOCKED until evidence. **Next implementation PR:** only a lawfully admitted exact-match ordered fold with tests; no implementation in this document PR.
+
+## P7 formula F### method-binding amendment (2026-11-05)
+
+[GridCraft P7 #3](https://github.com/AdaWorldAPI/gridcraft/pull/3) requires formula functions to resolve to canonically owned **F###-identified typed polyfill methods** where admitted. This document's XVERWEIS must be one such method contract, not an independent GridCraft evaluator, a number assigned by a local lookup table, or a second Bagop engine. **The current source audit has not verified the existing F### registry or numeric namespace**; locate the actual authority and MethodRef/fingerprint rules before minting identifiers. A name-only function table cannot confer canonical method identity.
+
+Formula parsing and source spans belong to GridCraft; accepted operators and Bag semantics belong here; Kythe/Codegraph may describe derived source/provenance graphs but cannot create a second F### registry; R2IL machine opcodes retain their distinct execution semantics and must not be aliased to Excel function names. Unsupported methods refuse explicitly, without materializing `Vec<Value>` as a stealth fallback. This amendment adds an admission question, not an owner-approved F### numbering scheme.
