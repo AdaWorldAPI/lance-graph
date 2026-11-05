@@ -1,105 +1,111 @@
-# D-BAG-HOLOGRAPHIC-FOUNDATION-1: Exclusive DR64 holographic Bag
+# D-DRDT-TILE-POC-1: Holographic ordinal tile routing, structural parity and lawful folds
 
-## Scope correction: SAP-shaped GUID tile supraconductor POC (2026-11-05)
+**Status:** PROPOSED, plan only. **Date:** 2026-11-05. **Owner:** DR/DT64 and Bagop contracts in lance-graph; OGAR owns source identity correspondence; ndarray owns positional execution. No runtime admission or code change is implied.
 
-**This section supersedes earlier language implying the POC must build GridCraft, an Excel-compatible runtime, Databricks/DataFusion integration, or full F### formula semantics.** The actual POC is an **SAP-shaped, PSCustomObject-style projection of typed tiles whose relationships are established by tenant-qualified 128-bit source GUID correspondence and executed as witnessed numeric/mask folds in the existing lance-graph/ndarray substrate.**
+## 1. The canonical picture
 
-### Source-backed precedents, not new frameworks
+**SAP / PSCustomObject is a logical, normalized, one-key ordinal-addressed hashtable over typed SoA lanes.** It is not a physical hash table or one allocated object per row.
 
-- [lance-graph-sap::query](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-sap/src/query.rs): SAP CATS is already cold-bound into typed lanes, lowered by Quack, and executed as a mask-risc grouped fold without constructing DTO source rows. This is the **SAP tile / fold precedent**.
-- [dir-sim snapshot](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dir-sim/src/snapshot.rs): users and groups are distinct SoA populations keyed by **Guid128 = 16-byte identity**; only snapshot-local user/group ordinals are u16. Strings are cold. Sparse memberships are independent relation lanes.
-- [OGAR hybrid correspondence](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/correspond.rs): AD/Entra/EXO retain separate populations. The join is on scoped 128-bit IDs, with forward/baksync/cloud evidence, ambiguity and time skew checked. It prepares sorted `(scope, u128 key, row)` indexes and runs a numeric fold with no string decoding or hot allocation. **It is not currently a proven pure ndarray::simd_stride GUID-join kernel.**
-- [OGAR Dn128](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/dn128.rs): the 16-byte hierarchy coordinate is *not* the 16-byte Guid128 identity. Dn128's subtree filter is a separate direct positional/facet-stride use case.
-- [ndarray simd_stride.rs](https://github.com/AdaWorldAPI/ndarray/blob/master/src/simd_stride.rs): positional `lut_u8`/`lut9` forms, no native cross-source GUID join; an optimized join requires a separate owner-admitted falsifier, and Gather/ADMISSION B remain binding.
+- **Key:** source-qualified \`Guid128\` (16 bytes) or another explicitly bound source identity. Never mistake an ephemeral row ordinal, classid or display label for that key.
+- **Row coordinate:** a snapshot/frame-local ordinal that selects one row in an addressed SoA population.
+- **Property coordinate:** a stable ordinal in the class's ordered field basis, resolved through \`ClassView\` and codebooks. \`WideFieldMask\` expresses structural presence and method footprints, not numeric business values.
+- **Behavior coordinate:** the method/word identity of a DT64 binding; this is a pointer to an operation, not a materialized operation result.
+- **Object:** a projected view of these coordinates and selected fields, materialized only for an explicitly demanded external result.
 
-### Minimal POC and boundary
+**DR is the Google-Maps teleportation metaphor:** route the point of computation through identity × property × predicate coordinates without moving source objects. **DT is the law preserving structural and behavioral parity:** bind the right \`ClassView\` basis, immutable behavior, signature, guards and effect order at the route version. **Quack lowers admissible calculations to mask-RISC; ndarray executes on borrowed numeric/positional lanes.** The DR route log is not an evaluator. The DT binding store is not a business-value database.
 
-`AD tile + Entra tile + Exchange tile + one SAP/CATS-shaped typed business tile → scoped Guid128 correspondence → prebound witness/selection → one admitted Quack/mask-risc fold over borrowed lanes → one PSCustomObject-shaped *logical* view of selected fields.`
+\`\`\`text
+SAP / PSCustomObject logical tile
+    scoped Guid128 → source population + local row coordinate
+    classid → ClassView → field ordinal + WideFieldMask
+    MethodRef / AlgebraRef → operation identity
+                  │
+            DR coordinate route
+                  │
+       DT basis/behavior parity check
+                  │
+        Quack → mask-RISC → ndarray
+                  │
+    scalar / mask / joined property projection at demand
+\`\`\`
 
-The **PSCustomObject shape** is an ergonomic property façade, not a PowerShell execution engine or heap object population. Tile descriptors carry class/field identity and source qualification, not copied rows. Preserve 128-bit GUID bytes and endian conversion; never truncate a GUID to a DR ordinal, codebook ID, or 16-byte canonical classid key. The DR local ordinal is an ephemeral address, not a source ID. Missing, ambiguous, conflicting and scope-mismatched matches must refuse or remain visibly unknown, not choose first.
+This is a **holographic representation/interpretation of a Bag**, not the definition of DR itself. DR also serves non-Bag address spaces. DR reservations of Cartesian **coordinates** are not allocations of dense Cartesian products, nor guarantees that every join/fold is legal or implemented.
 
-**Minimum falsifier:** two scoped populations with colliding visible labels, one 128-bit GUID match and one ambiguous two-way match, a changed snapshot, one typed SAP-like field fold, a 16-byte Dn128 prefix test (separate from ID join), an independent scalar oracle, allocation counters showing no per-row PSCustomObject/DTO hydration, and cost split into cold index preparation vs hot fold. Must prove only what current admission supports; a FACET STRIDE-specialized GUID join is a *future candidate*, not an implied done fact.
+## 2. Verified substrates and exact boundaries
 
-### POC-critical path
-
-**P0 canonical Bag/scope → P1 positional/typed fold discipline + P2 only if a specifically required Bagop semantic gate exists → dir-sim + SAP-based tiny proof in lance-graph.** P3 GridCraft, P5 report-rs workbook convergence, P6 Excel integration corpus and P7 F### formula/Codegraph are **deferred consumer studies, not POC prerequisites**. P4 lance-graph-java remains strictly non-blocking evidence of folds without row-object materialization. **No DataFusion/Polars/Delta dependency is planned.**
-
-**Status:** PROPOSED, owner ruling required. **Date:** 2026-11-05. **Mode:** plan only; no production admission.
-
-**Operator invariant:** DR64 is exclusively the holographic representation of a Bag; Bagop is its polyfill interface. DR64 shall not be repurposed as an independent database, generic register VM, lookup service, IAM authority or spreadsheet row engine. This is the new requested architectural rule, not a claim that existing production contracts already implement it.
-
-## Scope and semantic ownership
-
-| Concept | Meaning / owner | Non-equivalence |
+| Existing contract | Source | Consequence |
 |---|---|---|
-| Bag | Witnessed population, global identity, occurrence multiplicity, properties and values; lance-graph Bagop contract | Not a Vec of spreadsheet rows |
-| DR64 | Holographic representation of that Bag | Not an independent service |
-| DR256 × 256 | 65,536 local position geometry in existing DRISA lab | Not the entire global identity universe |
-| DT64 | Typed field/method basis | Not authorization |
-| SPOG G | Semantic graph concept | Not automatically a security tenant |
-| OGAR | Tenant-qualified permission/actor scope | Not supplied by a customer label |
-| Derived index / scratch | Disposable, rebuildable and versioned performance mechanism | Not independent identity authority |
-| Cold text | Content-addressed bytes resolved at an explicit membrane | Not a per-row hot-path object |
+| Canonical \`NodeRow\` ABI | [canonical_node.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-contract/src/canonical_node.rs) | \`key[16] + edges[16] + value[480] = 512\` bytes, aligned to 64. An external \`Guid128\` is not the canonical minted \`NodeGuid\` key; preserve it without truncation through typed source/identity lanes. |
+| ClassView / WideFieldMask | [class_view.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-contract/src/class_view.rs) | Late semantic projection over ordered field positions. \`FieldMask\` is presence-only; \`WideFieldMask\` widens the basis without moving existing bits. |
+| DR routing | [dt64/dr.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/dr.rs) | Identity × Property × Predicate extents, DR64/DR256 reservation, position/class routes and \`RouteVersion\`. It stores no value or method meaning. |
+| DT binding | [dt64/lib.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/lib.rs) | \`ClassSchema\`, \`MethodRef\`, \`MethodId\`, \`SigRev\`, \`SchemaRev\`, guard and ordered effects; behavior immutable per classid; derive + reroute for changes; routing replay is versioned. |
+| Query execution | [quack/lib.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-quack/src/lib.rs) | Quack *lowers* into mask-RISC; the consumer executes; ndarray provides SIMD/positional mechanics. No second expression evaluator. |
+| SAP tile precedent | [lance-graph-sap/query.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-sap/src/query.rs) | CATS typed columns, cold bindings, Quack grouped fold without constructing per-row DTOs. |
+| SoA directory precedent | [dir-sim/snapshot.rs](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dir-sim/src/snapshot.rs) | Distinct \`Guid128\`-sorted user/group SoA populations with snapshot-local \`u16\` ordinals, masks and cold dictionaries. |
+| Hybrid correspondence | [OGAR correspond.rs](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/correspond.rs) | Separate AD / Entra / EXO families; scope-qualified \`Guid128\` identity witnesses; cold sorted \`(scope, u128 key, row)\` index; no hot string work. |
+| Identity decoding | [OGAR identity.rs](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/identity.rs) / [OGAR ogar-ad](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-ad/src/lib.rs) | \`User_{GUID}\` / \`Group_{GUID}\` backsync labels are decoded **once** into canonical GUID bytes, with source-kind and encoding validation. |
 
-**Authority invariant:** canonical identity, population membership, property interpretation, values and their versions have one owner. A frame/layout/value/scope witness binds every derived projection. An application cannot mint codebook ordinals and then ask DR to treat them as canonical truth. MapTable-owned routing structures are permitted only as *derived implementation machinery*, not competing authority. Report-rs CamLabels/MemKv must not become another canonical address space.
+\`Dn128\` is a 16-byte **hierarchy coordinate** under a directory scope, not the 16-byte **source identity** \`Guid128\`. Byte-width equality is not semantic equality. An AD \`objectGUID\` and Entra object \`id\` need not match: sourceAnchor → immutableId is an independent witness; AD \`msDS-ExternalDirectoryObjectId\` backsync → Entra \`id\` → EXO \`ExternalDirectoryObjectId\` is the common cloud identity when those observations are available and consistent.
 
-**Allowed:** borrowed SoA lanes; canonical content references; prepared DR selections; internal, version-checked global-to-local indexes; temporary Dirty masks and plan scratch; explicit XLSX/CSV/HTML/PowerShell egress.
+## 3. Smallest useful proof: chained late materialization
 
-**Refused:** per-row Cell or PSCustomObject execution stores; independent workbook codebooks; cross-tenant label equivalence; unversioned masks; row-derived hot-path Gather; DR64 as an IAM/SQL engine; speculative production promises.
+\`\`\`text
+AD tile:   objectGUID, sourceAnchor, msDS-ExternalDirectoryObjectId = User_{cloudGUID}
+                             │  decode at ingress; qualified GUID identity
+Entra tile: id = cloudGUID, onPremisesImmutableId, onPremises* fields
+                             │
+EXO tile:   ExternalDirectoryObjectId = cloudGUID, ExchangeGuid, mailbox fields
+                             │
+        cold correspondence, conflict/multiplicity/scope checks
+                             │
+     DR-addressed coordinate descriptor: (AD row, Entra row, EXO row)
+                             │
+          DT method/basis and layout/version witnesses
+                             │
+        late field selection → admitted Quack fold / ndarray reads
+                             │
+          virtual SAP / PSCustomObject projection
+\`\`\`
 
-## Grounding and contradictions to resolve
+The **operation pointer** (for example an XVERWEIS-like lookup method) is a \`MethodRef\` / polyfill reference: it names *what to execute*. A resolved ordinal coordinate, if produced, is an **execution result** and may be retained as a version-witnessed descriptor. The eventual property value is a later read, not a mandatory result of the lookup. Ordinary Excel XVERWEIS semantics are a consumer adapter, **not** the definition of the operation pointer or the DR map.
 
-- [DR MapTable](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/dr.rs) has frame/TileMap mapping, including host structures. A ban on **all** auxiliary memory would contradict the current implementation.
-- [DRISA #1955](https://github.com/AdaWorldAPI/lance-graph/pull/1955) demonstrates borrowed SoA planes and zero rerouting after bind in a **lab**, not a production ABI.
-- [DRISA M1–M7](https://github.com/AdaWorldAPI/lance-graph/blob/main/.claude/plans/d-drisa-decision-memos-v1.md): M1 canonical SoA layout witness, M2 DR-owned index or co-addressed selections, M3 result lifetime, M5 D4/S-INGRESS remain owner decisions.
-- [D-DYNBAG-0 #1906](https://github.com/AdaWorldAPI/lance-graph/pull/1906) uses Quack → mask-risc for Bag count and support. Bag multiplicity is not DISTINCT.
-- [Canonical node](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-contract/src/canonical_node.rs) and [ContentStore](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-contract/src/content_store.rs) permit cold bytes by content identity; one substrate does not mean a one-word physical encoding for all data.
-- [#1943](https://github.com/AdaWorldAPI/lance-graph/pull/1943) and [#1948](https://github.com/AdaWorldAPI/lance-graph/pull/1948) are routing/co-addressed lab evidence. NotASide, XLOG computed-mask reuse, OP-14 composition, Gather ban and ADMISSION B remain unresolved where applicable.
+A resolved coordinate chain can avoid repeated GUID matching and per-row object hydration. This does **not** automatically admit arbitrary cross-table lane-derived Gather. The existing OGAR correspondence builds cold sorted indexes; \`ndarray/src/simd_stride.rs\` provides positional access forms (\`lut_u8\`, \`lut9\`), not a shipped general-purpose GUID join. The implementation must either use already lawful co-addressed views/borrowed lanes or obtain the missing owner admission with an independent oracle. Keep OP-14 / NotASide / witness-derived-mask and ADMISSION B restrictions explicit.
 
-**Owner question:** reconcile exclusive-DR64 purpose with existing DR/DT64, DRISA, Quack and XLOG scopes. Cite each conflicting symbol and its admission status; do not silently rewrite the laws.
+## 4. Immutability and replay obligations
 
-## Falsifiers and controls
+1. **DT behavior parity:** same \`classid\`, field basis, \`MethodId\`, \`SigRev\`, guard and ordered effects means the same method meaning; changed behavior requires a derived classid and reroute. Unknown/foreign/mismatched binding **refuses**, never maps to an empty success.
+2. **DR historical routing:** \`RouteVersion\` makes past class/position routing queryable. A route cannot alone reproduce data from an old time.
+3. **Data replay requires data:** preserve source observation/snapshot identity, value revision, layout digest/frame, source scope, codebook/schema version and any external-effect evidence. No claim of full deterministic historical output without those inputs.
+4. **Coordinate lifetime:** global GUID identity survives reordered rows; local ordinals do not. A permuted tile demands rebinding or a matching layout witness; NEVER silently reuse stale ordinal paths.
+5. **One authority:** codebook vocabulary and canonical source identities are not to be reminted by Excel, reporting or SAP adapters. Derived lookup indexes are disposable performance structures, not alternate identity stores.
 
-Fixture: two differently authorized tenant populations sharing external labels, Bag duplicates, 256 permuted tiles, map and value revisions, missing/blank/empty distinctions. Independent scalar oracle knows global identities and typed values, not local slot numbers.
+## 5. Independent falsifier (lab before promotion)
 
-| Claim | Test | Disable check |
+Use one synthetic AD/Entra/EXO trio plus a CATS-style property tile. Include: valid backsync \`User_{GUID}\`, a separately observed source-anchor witness, mismatched anchor, ambiguous duplicate cloud id, absent backsync, foreign tenant with colliding visible labels, malformed GUID, conflicting \`ExchangeGuid\` and changed snapshot/layout. Verify cold strict decoding and compare 128-bit bytes, not strings. The independent oracle resolves identity by scope and exact GUID, not by candidate local ordinals.
+
+- **F1:** same source GUIDs under reordered ordinals yield equal semantic values after witness-checked rebind; stale references refuse.
+- **F2:** distinct foreign scopes never collapse, even if cloud GUID bytes or display values collide.
+- **F3:** conflicting/ambiguous AD↔Entra↔EXO correspondence remains explicit, never an implicit first-match.
+- **F4:** one typed SAP property fold executes over borrowed SoA lanes, preserving null/presence/multiplicity laws; no per-row PSCustomObject, joined DTO or string lookup in the hot path.
+- **F5:** immutable DT method behavior and ordered effects survive an unrelated route; derived class + reroute changes the interpretation only at the new route version.
+- **F6:** a projected value can be read through a bound coordinate only with accepted scope, data snapshot and layout witnesses; disable each witness to demonstrate a wrong answer/refusal.
+- **F7:** count separately: ingress decode, cold index, DR binding, witness checks, warmed reads, folded result and egress bytes. Do not claim speedup from an isolated warm read.
+
+**STOP conditions:** if a proposed hop needs an unadmitted Gather, computed-mask reuse, alternate join authority, missing DRISA M1/M2 layout witness or D4/S-INGRESS write authority, keep it LAB/NOT ADMITTED and say which gate is missing. Read-only demonstrators may use existing lawful paths without claiming production admission.
+
+## 6. Program boundaries and status
+
+| Plan | PR | Meaning for this POC |
 |---|---|---|
-| Single authority | Delete all derived indexes; rebuild and get the same semantics | Substitute side-codebook ordinal and require failure |
-| Frame agreement | Permute local slots; witness mismatch must refuse | Remove layout check to show wrong result |
-| Tenant isolation | Equal labels in different scopes remain distinct | Disable scope check, observe wrong answer |
-| Bag multiplicity | Duplicates count as occurrences | Collapse to DISTINCT, oracle red |
-| Value lifetime | Map COUNT stays valid after value edit; predicates refuse stale value | Remove value witness, oracle red |
-| Amortization | Repeated admitted folds perform zero global→local resolutions after bind | Force rerouting, counter test red |
+| P0 this plan | [lance-graph #1960](https://github.com/AdaWorldAPI/lance-graph/pull/1960) | Architectural law, source-backed minimal proof |
+| P1 positional mechanics | [ndarray #408](https://github.com/AdaWorldAPI/ndarray/pull/408) | Lawful 16-byte/position reads; no implied GUID join |
+| P2 method-pointer polyfill | [lance-graph #1961](https://github.com/AdaWorldAPI/lance-graph/pull/1961) | Optional operation-dispatch slice only if needed |
+| P3 GridCraft | [gridcraft #1](https://github.com/AdaWorldAPI/gridcraft/pull/1) | Deferred spreadsheet-shaped consumer |
+| P4 Java folding evidence | [lance-graph-java #93](https://github.com/AdaWorldAPI/lance-graph-java/pull/93) | Non-blocking evidence only |
+| P5 report-rs | [report-rs #34](https://github.com/AdaWorldAPI/report-rs/pull/34) | Deferred reporting adapter |
+| P6 Excel integration falsifiers | [gridcraft #2](https://github.com/AdaWorldAPI/gridcraft/pull/2) | Deferred Excel parity tests; does not gate core POC |
+| P7 F### formula consumer | [gridcraft #3](https://github.com/AdaWorldAPI/gridcraft/pull/3) | Deferred formula binding; DT64 behavior-lens law reused |
 
-Separate cold bind, warm execution, memory, source hydration and terminal output costs. No general speed claim from a warm isolated cell read.
+**Critical path:** existing OGAR correspondence + lance-graph-dir-sim + lance-graph-sap + DR/DT binding + one admitted Quack/ndarray fold. **Not critical:** Excel/XLSX, GridCraft rewrite, DataFusion/Databricks, Java, Codegraph, all-formula support, persistence or SharePoint synchronization.
 
-## Cross-PR plan index and dependencies
-
-| ID | Owner / plan path | Requires |
-|---|---|---|
-| P0 | lance-graph: this plan | Nothing |
-| P1 | ndarray: docs/plans/n-facet-stride-bag-fold-v1.md | P0 proposed semantics |
-| P2 | lance-graph: docs/plans/d-bagop-xverweis-polyfill-v1.md | P0 |
-| P3 | gridcraft: docs/plans/gridcraft-bag-virtual-sheet-v1.md | P1, P2 |
-| P4 | lance-graph-java: docs/plans/lgj-holographic-object-facade-v1.md | Non-blocking precedent: folding without materialization only |
-| P5 | report-rs: docs/plans/rpt-bagop-workbook-convergence-v1.md | P2, P3; P4 optional evidence only |
-| P6 | gridcraft: docs/plans/gridcraft-bagop-falsifier-program-v1.md | P0–P3, P5, P7; P4 optional evidence only |\n| P7 | gridcraft: docs/plans/gridcraft-f-method-codegraph-v1.md | P0–P3; F### method owner audit and Codegraph boundaries |
-
-**Decision log 2026-11-05:** operator foundation captured, not yet adopted by code owners. **Next implementation PR (blocked):** narrowly scoped admitted Bagop projection after M1/M2, D4 boundary, and semantic owner decisions. Plan-only PR cannot authorize code, an alternate map, or production promotion.
-
-
-## Program PR index (real draft PRs; 2026-11-05)
-
-| Plan | Draft PR | Plan path |
-|---|---|---|
-| P0 | [lance-graph #1960](https://github.com/AdaWorldAPI/lance-graph/pull/1960) | This document |
-| P1 | [ndarray #408](https://github.com/AdaWorldAPI/ndarray/pull/408) | docs/plans/n-facet-stride-bag-fold-v1.md |
-| P2 | [lance-graph #1961](https://github.com/AdaWorldAPI/lance-graph/pull/1961) | docs/plans/d-bagop-xverweis-polyfill-v1.md |
-| P3 | [gridcraft #1](https://github.com/AdaWorldAPI/gridcraft/pull/1) | docs/plans/gridcraft-bag-virtual-sheet-v1.md |
-| P4 | [lance-graph-java #93](https://github.com/AdaWorldAPI/lance-graph-java/pull/93) | docs/plans/lgj-holographic-object-facade-v1.md |
-| P5 | [report-rs #34](https://github.com/AdaWorldAPI/report-rs/pull/34) | docs/plans/rpt-bagop-workbook-convergence-v1.md |
-| P6 | [gridcraft #2](https://github.com/AdaWorldAPI/gridcraft/pull/2) | docs/plans/gridcraft-bagop-falsifier-program-v1.md |\n| P7 | [gridcraft #3](https://github.com/AdaWorldAPI/gridcraft/pull/3) | docs/plans/gridcraft-f-method-codegraph-v1.md |
-
-**P7 adds the F### formula-method lowering plan and a non-dilution boundary for Kythe/R2IL/Codegraph. Its method ID registry and any graph adapter remain OPEN pending owner/source verification.**\n\n**P4 is exclusively a non-blocking precedent for folding without materialization, not an architectural/runtime dependency, XVERWEIS/PSCustomObject owner or required gate.**
-
-All seven are **draft plan-only PRs**. Links and creation are facts; no implementation/admission or owner approval is claimed. Changes across these PRs should be reviewed in dependency order, not auto-merged.
+This is a documentation proposal only. No production code, merge, new semantic authority, or automatic owner approval.
