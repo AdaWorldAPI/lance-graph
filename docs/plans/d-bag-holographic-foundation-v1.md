@@ -59,7 +59,7 @@ Separate cold bind, warm execution, memory, source hydration and terminal output
 | P3 | gridcraft: docs/plans/gridcraft-bag-virtual-sheet-v1.md | P1, P2 |
 | P4 | lance-graph-java: docs/plans/lgj-holographic-object-facade-v1.md | Non-blocking precedent: folding without materialization only |
 | P5 | report-rs: docs/plans/rpt-bagop-workbook-convergence-v1.md | P2, P3; P4 optional evidence only |
-| P6 | gridcraft: docs/plans/gridcraft-bagop-falsifier-program-v1.md | P0–P3, P5; P4 optional evidence only |
+| P6 | gridcraft: docs/plans/gridcraft-bagop-falsifier-program-v1.md | P0–P3, P5, P7; P4 optional evidence only |\n| P7 | gridcraft: docs/plans/gridcraft-f-method-codegraph-v1.md | P0–P3; F### method owner audit and Codegraph boundaries |
 
 **Decision log 2026-11-05:** operator foundation captured, not yet adopted by code owners. **Next implementation PR (blocked):** narrowly scoped admitted Bagop projection after M1/M2, D4 boundary, and semantic owner decisions. Plan-only PR cannot authorize code, an alternate map, or production promotion.
 
@@ -74,8 +74,8 @@ Separate cold bind, warm execution, memory, source hydration and terminal output
 | P3 | [gridcraft #1](https://github.com/AdaWorldAPI/gridcraft/pull/1) | docs/plans/gridcraft-bag-virtual-sheet-v1.md |
 | P4 | [lance-graph-java #93](https://github.com/AdaWorldAPI/lance-graph-java/pull/93) | docs/plans/lgj-holographic-object-facade-v1.md |
 | P5 | [report-rs #34](https://github.com/AdaWorldAPI/report-rs/pull/34) | docs/plans/rpt-bagop-workbook-convergence-v1.md |
-| P6 | [gridcraft #2](https://github.com/AdaWorldAPI/gridcraft/pull/2) | docs/plans/gridcraft-bagop-falsifier-program-v1.md |
+| P6 | [gridcraft #2](https://github.com/AdaWorldAPI/gridcraft/pull/2) | docs/plans/gridcraft-bagop-falsifier-program-v1.md |\n| P7 | [gridcraft #3](https://github.com/AdaWorldAPI/gridcraft/pull/3) | docs/plans/gridcraft-f-method-codegraph-v1.md |
 
-**P4 is exclusively a non-blocking precedent for folding without materialization, not an architectural/runtime dependency, XVERWEIS/PSCustomObject owner or required gate.**
+**P7 adds the F### formula-method lowering plan and a non-dilution boundary for Kythe/R2IL/Codegraph. Its method ID registry and any graph adapter remain OPEN pending owner/source verification.**\n\n**P4 is exclusively a non-blocking precedent for folding without materialization, not an architectural/runtime dependency, XVERWEIS/PSCustomObject owner or required gate.**
 
 All seven are **draft plan-only PRs**. Links and creation are facts; no implementation/admission or owner approval is claimed. Changes across these PRs should be reviewed in dependency order, not auto-merged.
