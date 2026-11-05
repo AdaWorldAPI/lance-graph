@@ -265,3 +265,79 @@ The gate passed X2, X4–X7, X9, X11–X13, X15 and X17. It split or rejected th
 
 **Operator gates, revised:** G1a, G1b, G2 (bit budget), G3 (carrier width), G4 (markers: status
 or value), G5 (A and C tenants), plus the BC scatter question.
+
+## 9. Correction (operator, 2026-11-05) — one shared index, not a cube
+
+**The cube reading in §§0–8 is withdrawn.** What it withdrew:
+- A, B and C as three axes, with the cell as a function over A × B.
+- CA as a converse, and "⊗ as contraction".
+
+The model the operator ruled:
+
+> table A{index} table B{index} table C{index} — tuples are built by holding 2–3 rules against
+> each other; the stack of tuples already exists before it is constructed (the hare and the
+> hedgehog). It is an orthogonal `simd_stride`: not 16 positions inside one 16-byte stride, but
+> rotated 90°, over the whole column.
+
+- **One index, many tables.** Every workbook column is a table indexed by the same position `i`.
+  The tuple at `i` is `(A[i], B[i], C[i])` and is never built. This is the zero-copy fold template
+  in lance-graph CLAUDE.md: `"{0}{1}{2}" -f A[$i],B[$i],C[$i]`, read at `$i`.
+- **Rules are masks.** Each rule (a predicate on one column) is a mask over `i`. Holding 2–3 rules
+  against each other is one ternlog over the aligned mask words of those columns: 64 tuples per
+  word, and the whole column per pass. The surviving bits are the tuples.
+- **Orthogonal `simd_stride`.**
+  - `simd_stride.rs:1-23` reads the 16 positions sitting in one value (horizontal).
+  - The rotation loads the same 64 row positions of each column into a register, so the fold
+    runs down the column instead of across one value. The load is still the read.
+- **This is a PostgreSQL-tuple polyfill over Quack.** Picture P9 calls the tuple a description,
+  not a persistent row.
+
+  | PostgreSQL | Quack |
+  |---|---|
+  | `WHERE` | rule masks |
+  | projection | a masked keep/blend of the wanted column at the surviving `i` |
+  | join | shared index |
+
+### What the correction changes
+
+| map item | before | after |
+|---|---|---|
+| X4 AB | cell function A × B → word | each property is its own u64 table over the shared index; the shape is unchanged, the reading is corrected |
+| X5 CA_b | converse fold, inverse mask | not needed. A rule on column b is a mask over `i`; there is nothing to invert |
+| X6 ⊗ | contraction with a pinned index | ternlog over aligned rule masks (≤ 3 rules per pass, measured ≈ 0.4 µs / 64K for ≤ 6 resident masks, 0 alloc) |
+| X7 | pinned vs unpinned composition | moot: rules on one shared index cannot produce spurious tuples. PR-X7 retired |
+| X8 XVERWEIS | pin → first-position terminal → aligned read | `SELECT b2 WHERE b1 = key`: key mask on b1, then keep/blend over b2 (mask-risc terminals, existing). #NV = empty mask, duplicate = popcount > 1, unique = popcount 1. **No new position terminal needed.** |
+| X8 sheet order | separate sheet-order lane | "first" = lowest index under the mask. It equals Excel's sheet order only if the index itself follows sheet order. **Remaining decision.** |
+| BC scatter (gate after) | open | dissolved: no "codes admitted per column" structure is built |
+| G5 A vs C tenants | open | answered: the codebook is its own table with its own index; a cell column holds codes; a rule compares codes; text stays at the boundary |
+| X10 diff | `ne_u64_to_mask` per lane | unchanged, read the same way: column@g1 against column@g2 word by word → dirty mask per column |
+| X1, X3, X11, X17, X18 | — | stand (intake mint, one u64 word per cell, scaled decimals, witness, the stable code space is ours) |
+| X12, X13 | PARK / SKIP | unchanged |
+
+### Probes re-pinned (order)
+
+1. **PR-X1/X17 mint stability**: unchanged.
+2. **PR-X3/X11 tagged word**: unchanged.
+3. **PR-XV XVERWEIS as a masked read** (replaces PR-X7 and PR-X8).
+   - Input: p15 fixtures and a 64K synthetic K-code sheet. Oracle: Excel XLOOKUP semantics
+     (unique, absent → #NV, duplicate → refused or first by index, per DT policy).
+   - Measure: ns per lookup and per batched 64K key column; words written; allocations.
+   - Kill: any wrong answer; any per-row allocation; a single lookup above 1 µs; a batched column
+     in ms.
+   - Disable: read b2 by a scalar loop over positions (no mask). The 0-allocation assertion must
+     go red.
+4. **PR-X6 rule-triple ternlog**: 3 rules on 3 columns at 64K against a scalar oracle; kill above
+   1 µs.
+5. **PR-X10 diff**: unchanged; `Dirty::between` on #33 is used only as an oracle.
+6. **PR-X14 / PR-X15**: unchanged.
+
+### Operator gates, revised
+
+- **G1a** Is the mint sanctioned at intake?
+- **G1b** May a text key be resolved per query, or must it arrive as a code?
+- **G2** The tag/payload bit budget and the decimal ceiling.
+- **G3** Dedicated u64 lanes.
+- **G4** Are the markers status or value?
+- **NEW** Does the shared index follow sheet order?
+
+G5 and the BC scatter question are closed by this correction.
