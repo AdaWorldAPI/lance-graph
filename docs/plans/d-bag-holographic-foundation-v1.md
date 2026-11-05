@@ -1,5 +1,29 @@
 # D-BAG-HOLOGRAPHIC-FOUNDATION-1: Exclusive DR64 holographic Bag
 
+## Scope correction: SAP-shaped GUID tile supraconductor POC (2026-11-05)
+
+**This section supersedes earlier language implying the POC must build GridCraft, an Excel-compatible runtime, Databricks/DataFusion integration, or full F### formula semantics.** The actual POC is an **SAP-shaped, PSCustomObject-style projection of typed tiles whose relationships are established by tenant-qualified 128-bit source GUID correspondence and executed as witnessed numeric/mask folds in the existing lance-graph/ndarray substrate.**
+
+### Source-backed precedents, not new frameworks
+
+- [lance-graph-sap::query](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-sap/src/query.rs): SAP CATS is already cold-bound into typed lanes, lowered by Quack, and executed as a mask-risc grouped fold without constructing DTO source rows. This is the **SAP tile / fold precedent**.
+- [dir-sim snapshot](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dir-sim/src/snapshot.rs): users and groups are distinct SoA populations keyed by **Guid128 = 16-byte identity**; only snapshot-local user/group ordinals are u16. Strings are cold. Sparse memberships are independent relation lanes.
+- [OGAR hybrid correspondence](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/correspond.rs): AD/Entra/EXO retain separate populations. The join is on scoped 128-bit IDs, with forward/baksync/cloud evidence, ambiguity and time skew checked. It prepares sorted `(scope, u128 key, row)` indexes and runs a numeric fold with no string decoding or hot allocation. **It is not currently a proven pure ndarray::simd_stride GUID-join kernel.**
+- [OGAR Dn128](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/dn128.rs): the 16-byte hierarchy coordinate is *not* the 16-byte Guid128 identity. Dn128's subtree filter is a separate direct positional/facet-stride use case.
+- [ndarray simd_stride.rs](https://github.com/AdaWorldAPI/ndarray/blob/master/src/simd_stride.rs): positional `lut_u8`/`lut9` forms, no native cross-source GUID join; an optimized join requires a separate owner-admitted falsifier, and Gather/ADMISSION B remain binding.
+
+### Minimal POC and boundary
+
+`AD tile + Entra tile + Exchange tile + one SAP/CATS-shaped typed business tile → scoped Guid128 correspondence → prebound witness/selection → one admitted Quack/mask-risc fold over borrowed lanes → one PSCustomObject-shaped *logical* view of selected fields.`
+
+The **PSCustomObject shape** is an ergonomic property façade, not a PowerShell execution engine or heap object population. Tile descriptors carry class/field identity and source qualification, not copied rows. Preserve 128-bit GUID bytes and endian conversion; never truncate a GUID to a DR ordinal, codebook ID, or 16-byte canonical classid key. The DR local ordinal is an ephemeral address, not a source ID. Missing, ambiguous, conflicting and scope-mismatched matches must refuse or remain visibly unknown, not choose first.
+
+**Minimum falsifier:** two scoped populations with colliding visible labels, one 128-bit GUID match and one ambiguous two-way match, a changed snapshot, one typed SAP-like field fold, a 16-byte Dn128 prefix test (separate from ID join), an independent scalar oracle, allocation counters showing no per-row PSCustomObject/DTO hydration, and cost split into cold index preparation vs hot fold. Must prove only what current admission supports; a FACET STRIDE-specialized GUID join is a *future candidate*, not an implied done fact.
+
+### POC-critical path
+
+**P0 canonical Bag/scope → P1 positional/typed fold discipline + P2 only if a specifically required Bagop semantic gate exists → dir-sim + SAP-based tiny proof in lance-graph.** P3 GridCraft, P5 report-rs workbook convergence, P6 Excel integration corpus and P7 F### formula/Codegraph are **deferred consumer studies, not POC prerequisites**. P4 lance-graph-java remains strictly non-blocking evidence of folds without row-object materialization. **No DataFusion/Polars/Delta dependency is planned.**
+
 **Status:** PROPOSED, owner ruling required. **Date:** 2026-11-05. **Mode:** plan only; no production admission.
 
 **Operator invariant:** DR64 is exclusively the holographic representation of a Bag; Bagop is its polyfill interface. DR64 shall not be repurposed as an independent database, generic register VM, lookup service, IAM authority or spreadsheet row engine. This is the new requested architectural rule, not a claim that existing production contracts already implement it.
