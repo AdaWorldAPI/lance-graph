@@ -62,3 +62,18 @@ Separate cold bind, warm execution, memory, source hydration and terminal output
 | P6 | gridcraft: docs/plans/gridcraft-bagop-falsifier-program-v1.md | P1–P5 |
 
 **Decision log 2026-11-05:** operator foundation captured, not yet adopted by code owners. **Next implementation PR (blocked):** narrowly scoped admitted Bagop projection after M1/M2, D4 boundary, and semantic owner decisions. Plan-only PR cannot authorize code, an alternate map, or production promotion.
+
+
+## Program PR index (real draft PRs; 2026-11-05)
+
+| Plan | Draft PR | Plan path |
+|---|---|---|
+| P0 | [lance-graph #1960](https://github.com/AdaWorldAPI/lance-graph/pull/1960) | This document |
+| P1 | [ndarray #408](https://github.com/AdaWorldAPI/ndarray/pull/408) | docs/plans/n-facet-stride-bag-fold-v1.md |
+| P2 | [lance-graph #1961](https://github.com/AdaWorldAPI/lance-graph/pull/1961) | docs/plans/d-bagop-xverweis-polyfill-v1.md |
+| P3 | [gridcraft #1](https://github.com/AdaWorldAPI/gridcraft/pull/1) | docs/plans/gridcraft-bag-virtual-sheet-v1.md |
+| P4 | [lance-graph-java #93](https://github.com/AdaWorldAPI/lance-graph-java/pull/93) | docs/plans/lgj-holographic-object-facade-v1.md |
+| P5 | [report-rs #34](https://github.com/AdaWorldAPI/report-rs/pull/34) | docs/plans/rpt-bagop-workbook-convergence-v1.md |
+| P6 | [gridcraft #2](https://github.com/AdaWorldAPI/gridcraft/pull/2) | docs/plans/gridcraft-bagop-falsifier-program-v1.md |
+
+All seven are **draft plan-only PRs**. Links and creation are facts; no implementation/admission or owner approval is claimed. Changes across these PRs should be reviewed in dependency order, not auto-merged.
