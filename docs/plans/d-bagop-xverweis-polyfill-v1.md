@@ -1,73 +1,72 @@
-# D-BAGOP-XVERWEIS-1: Ordered XVERWEIS as a holographic Bag fold
+# D-METHOD-COORDINATE-1: XVERWEIS as a method pointer over routed coordinates
 
-## POC scope correction: business tile fold first (2026-11-05)
+**Status:** PROPOSED, architecture/admission plan only. **Date:** 2026-11-05. **Owners:** DT64 binds the behavior; DR routes coordinates; Quack/relalg/mask-RISC execute admitted parts; ndarray provides positional mechanics; OGAR supplies source-qualified identity laws.
 
-The core demo is **SAP/CATS-shaped typed tiles joined by scoped Guid128 correspondence using the dir-sim/OGAR precedent**, not Excel XVERWEIS. This plan's XVERWEIS semantics remain useful as a **later consumer contract**. First establish one lawful SAP-like property fold over a witnessed joined population, with ambiguous and scope-mismatched GUID links refused. The current correspondence implementation prepares sorted index entries and does not claim ndarray::simd_stride is a finished GUID join. The PSCustomObject-like view is a thin semantic façade, not a new object interpreter. No GridCraft, DataFusion, F### numbering or Codegraph dependency on the first POC.
+## 1. Name the three different things correctly
 
-**Status:** PROPOSED / admission unresolved. **Date:** 2026-11-05. **Owner:** Bagop, Quack, DT64 and mask-risc in lance-graph. **Dependency:** P0 + ndarray P1.
+1. **Operation pointer:** a DT64 `MethodRef { class, method, sig_rev, guard }` and, where used, an `AlgebraRef { lens, word }`. It names an immutable, typed behavioral contract. **XVERWEIS is one possible presentation/name for a lookup operation; the name is not its identifier.**
+2. **Execution result:** a particular method may produce a **witnessed coordinate reference**, selection/mask or scalar. The returned coordinate is not the operation pointer, not a copied value and not a permanent source identity.
+3. **Presentation result:** a caller may dereference a coordinate and request a property, a PSCustomObject-like projected object, or an Excel-compatible XVERWEIS return value. **Excel's return-value, first/last and spill rules belong to that consumer, not the definition of the pointer.**
 
-**Operator invariant:** Every XVERWEIS is a FACET STRIDE-shaped ndarray-backed Bagop folding polyfill on the DR64 holographic Bag. PSCustomObject is a logical property projection, not a per-row heap object graph. This is a requested law, not proof of existing admission.
+A method can resolve a cross-tile coordinate or perform a fold. **It is not a law that every method, or every XVERWEIS-shaped operation, is an ordered Bag fold.**
 
-## Semantic contract
+```text
+a call site / function spelling / class behavior
+    → DT64 MethodRef (what to do, signature/guard/basis)
+    → DR route + scoped source-population binding (where)
+    → admitted Quack / mask-RISC operation (how)
+    → coordinate descriptor or terminal result (execution result)
+    → ClassView field ordinal → lazy property read (if demanded)
+    → external object / Excel cell / report (only if demanded)
+```
 
-Input is a source-qualified, authorized Bag population with identities, occurrences, typed properties, values, frame/value/layout witnesses and an explicitly witnessed **search order**. XVERWEIS adds a search key, lookup-property lens, return-property lens, search/match mode and not-found behavior.
+This is the **DR teleportation** and **DT parity law** model. The behavior pointer is stable in meaning under class/schema/signature revision; its execution may require new coordinate binding when data, scope or frame changes.
 
-For exact equality, the abstract (oracle-only) meaning is:
+## 2. Canonical existing owners
 
-    matches = occurrences whose lookup property equals search key
-    selected = first_or_last(matches, witnessed_search_order)
-    output = property(selected, return_lens) or not_found
+- [DT64 `MethodId`, `MethodRef`, `SigRev`, `AlgebraRef`, `WideFieldMask`](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/lib.rs): method names are non-identifying labels; class behavior is immutable once registered, overrides require derived class and reroute. F### behavior **lens** convention exists; do not mint a duplicate GridCraft F-number or pretend the implementation registry has every Excel function.
+- [DR route and frame](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/dr.rs): source position + classid route, Identity × Property × Predicate address space, `RouteVersion`, mapping/layout witnesses. DR stores neither business values nor method semantics.
+- [Quack](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-quack/src/lib.rs): lowers lawful predicates/folds to one mask-RISC program; no second evaluator.
+- [OGAR `BACKSYNC_TO_ENTRA_ID`](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/identity.rs) plus [hybrid correspondence](https://github.com/AdaWorldAPI/OGAR/blob/main/crates/ogar-dir-core/src/correspond.rs): the AD `msDS-ExternalDirectoryObjectId = User_{cloudGUID}` backsync, Entra `id = cloudGUID`, and EXO `ExternalDirectoryObjectId = cloudGUID` are a practical **one-key coordinate chain** after decoding at ingress. AD's `objectGUID` and `sourceAnchor` are distinct identity/evidence fields, not automatically equal to Entra `id`.
 
-Do not implement this oracle list as a production Vec<Row>. Selecting one occurrence does not erase the Bag's multiplicities. Raw DR local order is not automatically Excel row order. The scalar oracle must define string case/collation, number precision, error propagation and blank/absent distinctions explicitly rather than guess.
+## 3. Abstract method contract for coordinate lookup
 
-## Mode admission matrix
+```text
+Input:
+  MethodRef, source population + scope + snapshot, query key,
+  field basis and typed equality, match/multiplicity policy,
+  target population and layout/version witnesses
 
-| Operation | Obligation | Status pending source census |
-|---|---|---|
-| Exact match | Typed equality and state masking | OPEN: locate admitted predicate path |
-| First/last | Stable witnessed order and occurrence selection | OPEN: find lawful ordered fold |
-| Duplicate keys | Preserve Bag count; select specified occurrence | OPEN: prove no implicit DISTINCT |
-| Not found | #N/A versus caller-supplied default | OPEN: explicit result-state law |
-| Wildcard | Excel wildcard and escaping rules | NOT ADMITTED until text predicate proof |
-| Approximate | Comparator, monotonic bound, tie behavior | NOT ADMITTED until independent oracle |
-| Binary search | Sortedness/direction precondition and stale-order refusal | NOT ADMITTED until witness |
-| Return array/spill | Shape + ordered children by address | OPEN: P3 consumer contract |
-| Cross-table lookup | Requires lawful alignment/co-addressed producer | BLOCKED for banned Gather or ADMISSION B |
-| Reused prepared selection | Zero additional global→local lookups | DRISA lab #1955; M1/M2 production gates open |
+Bound:
+  normalized key/reference → source row ordinal → target row ordinal
+  (where a lawful, source-qualified correspondence exists)
 
-A missing operation must produce an explicit refusal; no hidden HashMap, CAM, or row scan fallback disguised as Bagop.
+Output:
+  CoordinateRef { population, row_ordinal, scope, data_version,
+                  frame/layout witness, class/basis binding }
+  OR typed not-found / ambiguous / stale / unauthorized / unsupported refusal
+```
 
-## Source to audit before implementation
+This is **conceptual**, not a new deployed Rust ABI. A method that chooses a single coordinate must declare duplicate-match policy; do not quietly take the first. A method that counts occurrences preserves Bag multiplicity. An Excel XVERWEIS adapter may separately specify first/last match, lookup array order, blank/error propagation, approximate/wildcard and result shape. None of those Excel rules should be imposed on unrelated SAP/PowerShell methods.
 
-- [ndarray simd_stride.rs](https://github.com/AdaWorldAPI/ndarray/blob/master/src/simd_stride.rs): position discipline only, no complete XVERWEIS.
-- [D-DYNBAG-0 #1906](https://github.com/AdaWorldAPI/lance-graph/pull/1906): Quack→mask-risc Bag count/support lab.
-- [DRISA #1955](https://github.com/AdaWorldAPI/lance-graph/pull/1955), [M1–M7](https://github.com/AdaWorldAPI/lance-graph/blob/main/.claude/plans/d-drisa-decision-memos-v1.md): borrowed SoA and layout/routing lifetime limits.
-- [DR source](https://github.com/AdaWorldAPI/lance-graph/blob/main/crates/lance-graph-dt64/src/dr.rs): frame-local positions, duplicate/ambiguity refusal.
-- XLOG NotASide, unadmitted derived-mask reuse, OP-14 composition and ADMISSION B: never enable by analogy.
+**No cross-source materialization:** once correspondence is verified, a cached coordinate descriptor can serve multiple fields using ClassView field ordinals and borrowed SoA lanes. Its lifetime is bounded by scope, data and layout revisions, not by a naked `u16`.
 
-Perform exact symbol census: Bagop API, Quack lowering, mask-risc predicates/folds, order-bearing selection, DT64 field basis, identity source, cold text comparison, scope attestation and result states. Label each IMPLEMENTED, LAB, PROPOSED, BLOCKED or NOT EXPRESSIBLE with a source URL.
+## 4. Admission boundary
 
-## Falsifiers
+The existing hybrid identity fold prepares sorted GUID indexes and resolves correspondence by scope. `ndarray/src/simd_stride.rs` is a **positional access pattern**, not a shipped full GUID join. Do not conflate "chained strides" with an unrestricted value-derived Gather: a foreign-lane address is still subject to ADMISSION B and the Gather ban. XLOG NotASide, computed-mask reuse and OP-14 composition remain blocked where applicable.
 
-Two tenants with colliding labels, duplicate lookup keys, 256 permuted DR tiles, count/first/last, absent vs empty text vs blank, large exact decimals, value revision and frame change. Oracle is independent scalar logic over canonical IDs, values, multiplicities and **source order**, not a shared query plan.
+A **prebound co-addressed view** can be used where already lawful; otherwise the method refuses pending owner admission. DR ISA/layout decisions M1/M2 and D4/S-INGRESS remain open. No invented `HashMap`, local F### opcode map or sheet-row cache may become an alternate semantic authority.
 
-Disable checks: remove order witness (first/last differs), collapse duplicates (counts differ), ignore scope (cross-tenant leak), ignore layout/value version (wrong or stale value), enable forbidden gather (admission violation). Compare repeated 256 evaluations after prepared bind to lookup counter = 0. Measure cold bind, warm fold and terminal serialization separately.
+## 5. Minimal independent proof
 
-## PSCustomObject polyfill and ownership
+- Synthetic AD / Entra / EXO `Guid128` correspondence: one unique backsync, one missing, two duplicate targets, one mismatched source-anchor witness, and cross-tenant ID collision. Decode `User_{GUID}` at boundary, not per lookup.
+- One DT64-bound method pointer, method/guard/signature/basis witness, one coordinate lookup, then **two distinct property dereferences through the same coordinate** without reconstructing joined rows.
+- One SAP-like numeric fold on the selected, lawful population; compare with an independently authored scalar oracle.
+- Change the input row permutation and route version. The stale descriptor refuses or rebinds. A changed `MethodBinding` under the same classid is refused; derived class + reroute works as allowed.
+- Negative controls: dropped scope, order/multiplicity policy, layout witness, value revision, guard and source family; count cold lookup, warm reuse, per-row objects and terminal egress separately.
 
-A named path like Customer.Services.ExchangeOnline binds DT64 property references and yields a Bag projection with the same scope, frame and value witnesses. No nested object allocation until an external PowerShell consumer explicitly needs serialized values. It may not invent its own identity dictionary.
+**STOP** if a test relies on an unadmitted cross-table hop; show explicit `NOT EXPRESSIBLE` rather than secretly implementing another kernel.
 
-| Downstream | Contract |
-|---|---|
-| P3 GridCraft | Formula grammar, viewport and spill presentation only |
-| P4 lance-graph-java | Cheap typed membrane descriptors, never alternate engine |
-| P5 report-rs | Graph workbook source and scoped rendering without second codebook |
-| P6 GridCraft | Independent XLSX / scalar / Bagop parity and disable runs |
+## 6. Program role
 
-**Decision log 2026-11-05:** operator intent recorded; ordering, exact match, approximate/wildcard/binary and cross-table admissions remain OPEN/BLOCKED until evidence. **Next implementation PR:** only a lawfully admitted exact-match ordered fold with tests; no implementation in this document PR.
-
-## P7 formula F### method-binding amendment (2026-11-05)
-
-[GridCraft P7 #3](https://github.com/AdaWorldAPI/gridcraft/pull/3) requires formula functions to resolve to canonically owned **F###-identified typed polyfill methods** where admitted. This document's XVERWEIS must be one such method contract, not an independent GridCraft evaluator, a number assigned by a local lookup table, or a second Bagop engine. **The current source audit has not verified the existing F### registry or numeric namespace**; locate the actual authority and MethodRef/fingerprint rules before minting identifiers. A name-only function table cannot confer canonical method identity.
-
-Formula parsing and source spans belong to GridCraft; accepted operators and Bag semantics belong here; Kythe/Codegraph may describe derived source/provenance graphs but cannot create a second F### registry; R2IL machine opcodes retain their distinct execution semantics and must not be aliased to Excel function names. Unsupported methods refuse explicitly, without materializing `Vec<Value>` as a stealth fallback. This amendment adds an admission question, not an owner-approved F### numbering scheme.
+This PR is an **optional operation-pointer/BAGOP probe** for the SAP/PSCustomObject tile POC. It does **not** require GridCraft. P3/P5/P6/P7 cover optional consumers, and [lance-graph-java P4](https://github.com/AdaWorldAPI/lance-graph-java/pull/93) is non-blocking evidence of no-materialization only. No runtime changes, merge or method admission are authorized here.
