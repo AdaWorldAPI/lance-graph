@@ -585,3 +585,34 @@ fn a_column_past_the_u16_lane_space_is_refused() {
         Some(BatchError::TooManyColumns(FieldId(MAX_COLUMNS as u32)))
     );
 }
+
+/// DT64 validates ClassView A; the source was built over ClassView B, which
+/// has the same class, revision and field count but the first two fields in
+/// the other order. Both candidate lanes are nonzero and different. A bind
+/// that returns a lane must return the one A names.
+#[test]
+fn a_disagreeing_field_basis_never_returns_the_wrong_lane() {
+    let (store, route) = store();
+    let a = view();
+    let mut b = view();
+    b.0.swap(usize::from(REVENUE), usize::from(REGION));
+    let catalog = catalog();
+    let lanes = AbiLanes::unwitnessed(&b, &catalog, batch(1), READER);
+    let fields = WideFieldMask::from_positions(&[REVENUE]);
+    let frame = lanes.seal();
+    let bound = store.bind_lanes(
+        &a,
+        lanes.frames(),
+        &lanes,
+        request(route, &fields, &frame, lanes.space()),
+    );
+    if let Ok(binding) = bound {
+        let lane = binding
+            .lane(&store, &a, lanes.frames(), &lanes, REVENUE)
+            .expect("a bound lane");
+        match lane {
+            LaneRef::I32(v) => assert_eq!(v, revenue(1).as_slice()),
+            other => panic!("A's revenue field resolved to another lane: {other:?}"),
+        }
+    }
+}
