@@ -52,6 +52,7 @@ pub mod boundary;
 pub mod exec;
 pub mod explain;
 pub mod ids;
+pub mod lane_source;
 pub mod plan;
 pub mod render;
 pub mod result;
@@ -60,6 +61,7 @@ pub mod selection;
 pub use batch::{AbiBatch, BatchError, Column, LaneData};
 pub use exec::{Accumulator, ExecStats, PhysicalPlan, PlannerPolicy, Provider, SelectionCarrier};
 pub use ids::{FieldId, MaskId, SourceId};
+pub use lane_source::{AbiLanes, PublishRefusal};
 pub use plan::{
     AxisRole, AxisSpec, CellValue, CoordSpec, FoldState, Measure, MeasureKind, PhysicalKey,
     ReportPlan, SourceRef, TopK,
