@@ -84,5 +84,7 @@ jobs:
         run: cargo clippy --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml --all-targets -- -D warnings
       - name: test
         run: cargo test --manifest-path crates/lance-graph-dir-sim-lance/Cargo.toml
+      - name: hybrid ordinal-chain lab clippy (excluded dir-sim crate)
+        run: cargo clippy --manifest-path crates/lance-graph-dir-sim/Cargo.toml --test ordinal_chain_lab -- -D warnings
       - name: hybrid ordinal-chain lab (excluded dir-sim crate)
         run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml --test ordinal_chain_lab
