@@ -35,5 +35,7 @@ Execution checklist (each step gates the next — never overlap phases):
    charters; PASS / FIX / BLOCK per section).
 6. **Phase 4 — fix.** BLOCK → resolve or re-spec; stricter verdict wins.
 7. **Phase 5 — ratify v3, implement, run the pre-registered gates,
-   commit with board hygiene same-commit** (AGENT_LOG names the run:
-   which 5, which 3, verdict counts, v1→v2→v3 deltas).
+   commit with board hygiene same-commit** (the orchestrator posts the run record to Linear
+   Agent2Agent Board `P-EXO-10`, `A2A: <slice> — <what>`, instead of
+   `AGENT_LOG.md` (⊘ 2026-11-06): which 5, which 3, verdict counts,
+   v1→v2→v3 deltas).

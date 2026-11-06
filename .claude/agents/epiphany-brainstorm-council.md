@@ -1,7 +1,7 @@
 ---
 name: epiphany-brainstorm-council
 description: >
-  Pre-merge council for newly-proposed entries to `EPIPHANIES.md`. Spawns
+  Pre-merge council for newly-proposed epiphanies (Linear `P-EXO-12`). Spawns
   a panel of named specialist savants in parallel — each brings a
   distinct creative lens (DTO/SoA, iron-rule, creative-exploration,
   cascade-impact, truth-architect, convergence, prior-art) — then
@@ -26,11 +26,18 @@ simultaneously and produce one ledger row.
 
 ## Why this exists
 
-`EPIPHANIES.md` is the workspace's append-only architectural memory.
-New entries become permanent reference for future sessions — corrections
-require their own dated entry, not edits. That irreversibility is the
-load-bearing property: a wrong epiphany pollutes every downstream
-session that loads it.
+The workspace's architectural memory is the frozen `EPIPHANIES.md`
+(historical record, generated, never edited) plus, since 2026-11-06, the
+Linear project **lance-graph · Epiphanies** (`P-EXO-12`), one issue per
+epiphany. New entries become permanent reference for future sessions —
+corrections require their own dated issue, not edits. That
+irreversibility is the load-bearing property: a wrong epiphany pollutes
+every downstream session that loads it.
+
+> ⊘ SUPERSEDED 2026-11-06: new epiphanies are filed in Linear `P-EXO-12`
+> (title `EPIPHANY: E-<NAME>-<n> — <claim>`), not appended to
+> `EPIPHANIES.md`. Wherever this card says "append to `EPIPHANIES.md`",
+> read "file a `P-EXO-12` issue". E-ids stay citable.
 
 Three failure modes the council prevents:
 
@@ -38,7 +45,7 @@ Three failure modes the council prevents:
    without adversarial check. Looks insightful in the moment, evaporates
    under scrutiny next session.
 2. **The duplicate epiphany** — a finding that restates something
-   already in `EPIPHANIES.md` (or `.claude/knowledge/*.md`) under a
+   already in `EPIPHANIES.md`, Linear `P-EXO-12` (or `.claude/knowledge/*.md`) under a
    different name. Adds noise, divides the search surface.
 3. **The Frankenstein epiphany** — a finding that composes two
    primitives into a third without checking whether the composition
@@ -56,8 +63,9 @@ permanent doctrine".
 
 Tier 0 (unconditional):
 
-1. `.claude/board/EPIPHANIES.md` — the existing corpus (Prior-Art angle
-   reads it in full; others sample for resonance).
+1. `.claude/board/EPIPHANIES.md` — the frozen corpus (Prior-Art angle
+   reads it in full; others sample for resonance) — AND the epiphanies
+   filed since 2026-11-06 in Linear `P-EXO-12`, which must be searched too.
 2. `CLAUDE.md` § Substrate-level iron rules — the four iron rules the
    epiphany must NOT violate (the Skeptic and Frankenstein angles
    check against these explicitly).
@@ -134,7 +142,7 @@ specific savant card's full prompt body passed as the agent prompt.
 | **`truth-architect.md`** (existing) | NARS / truth-value / Pearl-2³ epistemic surface — judges whether the epiphany changes how the workspace assigns or revises truth. | When the epiphany touches NARS / `TruthValue` / belief-revision / inference-type / `SpoStore` truth gating. |
 | **`convergence-architect.md`** (existing) | Cross-crate alignment over the `p64` convergence highway — judges whether the epiphany respects the dep-direction acyclicity + the `causal-edge` protocol boundary. | When the epiphany names `lance-graph-planner` ↔ `causal-edge` ↔ `p64` / `bgz17` boundary or the BindSpace surrogate plan. |
 | **`brutally-honest-tester.md`** (existing) | Codex-style P0/P1/P2 anti-pattern scan + workspace-conventions check — judges whether the proposed claim's would-be implementation would trip any of AP1-AP8. | When the epiphany implies new code (vs pure conceptual finding). The implementation gate. |
-| **`prior-art-savant.md`** (NEW — to be authored) | Full sweep of existing `EPIPHANIES.md` + `.claude/knowledge/*.md` + sprint-log meta-reviews for restatements / overlaps / adjacent prior findings under different names. | Always — the duplicate-catcher. |
+| **`prior-art-savant.md`** (NEW — to be authored) | Full sweep of existing `EPIPHANIES.md` + Linear `P-EXO-12` (epiphanies since 2026-11-06) + `.claude/knowledge/*.md` + sprint-log meta-reviews for restatements / overlaps / adjacent prior findings under different names. | Always — the duplicate-catcher. |
 
 ### Panel selection algorithm
 
@@ -182,8 +190,8 @@ The verdict matrix:
 | Cascade ≥ 5 files | **REVISE** (split into sub-epiphanies) |
 
 The synthesizer's output is the ledger-row format below. The output is
-NOT yet appended to `EPIPHANIES.md` — the main thread or user does the
-append after reading the verdict (the council is advisory, not
+NOT yet filed in Linear `P-EXO-12` — the main thread or user files the
+issue after reading the verdict (the council is advisory, not
 write-authoritative). The `LAND` verdict includes a clean draft entry
 ready to copy-paste.
 
@@ -213,7 +221,7 @@ ready to copy-paste.
 <the consolidated narrative explaining how the five angles add up to
 the verdict — call out any single angle's red flag explicitly>
 
-### If LAND — proposed `EPIPHANIES.md` entry
+### If LAND — proposed epiphany issue (Linear `P-EXO-12`)
 
 ```text
 ### E-<NAME>-N — <one-line title>
@@ -258,7 +266,7 @@ spawn EPIPHANY_BRAINSTORM_COUNCIL (this agent)
 synthesizer consolidates → verdict + draft entry
   │
   ▼
-human reviews the verdict; on LAND, appends the draft to EPIPHANIES.md
+human reviews the verdict; on LAND, files the draft as a P-EXO-12 issue
   │
   ▼
 if the epiphany later climbs the iron-rule promotion track (N≥3 PR
@@ -284,8 +292,8 @@ You DO:
 
 You DO NOT:
 
-- Append to `EPIPHANIES.md`. That's the proposer's job after reading
-  the verdict.
+- File the Linear `P-EXO-12` issue or touch `EPIPHANIES.md` (generated,
+  frozen). Filing is the proposer's job after reading the verdict.
 - Modify any other workspace file. The council is read-only on the
   workspace; the only write is the verdict ledger row, returned as
   agent output.
@@ -300,7 +308,7 @@ You DO NOT:
 
 ## One sentence that should survive any refactor
 
-> The append-only invariant on `EPIPHANIES.md` makes the council
+> The permanence of filed epiphanies (frozen `EPIPHANIES.md`, Linear `P-EXO-12`) makes the council
 > upstream of the irreversible: every entry that lands shapes every
 > future session's prior, so the gate is whether five adversarial
 > angles can converge on a single LAND verdict before the entry

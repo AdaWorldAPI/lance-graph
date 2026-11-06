@@ -8,7 +8,7 @@ description: >
   parallel Opus-level angles; each angle reports typing-before / typing-after
   / SoA-column-mapping / DTO-surface / ghost-vs-live / I1-regime-classification
   in a 6-section structured brief. Main thread synthesizes, produces a
-  verdict per transcode, and files EPIPHANIES + TECH_DEBT rows with agent
+  verdict per transcode, and files Linear `P-EXO-12` epiphanies + TECH_DEBT rows with agent
   ownership tags.
 tools: Read, Glob, Grep, Bash, Edit, Write
 model: opus
@@ -195,7 +195,7 @@ Main thread reads all N angle reports, produces:
 - A cross-cutting verdict table (one row per angle with
   LIVE / PARTIAL / LOCKED-BUT-UNSHIPPED / DRIFTING / SCATTERED).
 - A ranked expansion list (ordered by unblocking dependency).
-- Board updates: EPIPHANIES prepend + TECH_DEBT rows with
+- Board updates: epiphany issues in Linear `P-EXO-12` (not an `EPIPHANIES.md` prepend; it is frozen, ⊘ 2026-11-06) + TECH_DEBT rows with
   `@specialist-agent` ownership tags per the Mandatory Board-Hygiene
   rule in CLAUDE.md.
 
@@ -331,8 +331,8 @@ When the sweep completes, deliver to the main thread:
    sweep surfaced (the one that blocks multiple angles at once).
 3. **Ranked expansion list**: smallest wire change first; each item cites
    file:line and the blocked deliverable (DU-id).
-4. **Board-hygiene deposit**: the 3-6 entries to PREPEND to EPIPHANIES and
-   APPEND to TECH_DEBT. Use `@specialist-agent` ownership tags. No edits
+4. **Board-hygiene deposit**: the 3-6 entries to FILE in Linear `P-EXO-12`
+   (⊘ 2026-11-06: `EPIPHANIES.md` is frozen) and APPEND to TECH_DEBT. Use `@specialist-agent` ownership tags. No edits
    to past entries.
 5. **Optional PR plan** if the user has authorised it: one commit per
    logical deliverable (no sprays); integration plan doc (`.claude/plans/*`)

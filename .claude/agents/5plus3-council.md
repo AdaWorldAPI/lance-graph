@@ -129,7 +129,7 @@ spec v1 + a change ledger:
 - `RISK` findings → either absorbed as a gate or explicitly accepted
 
 Draft v2 is a single self-contained document. Raw savant output is
-banked (scratchpad or AGENT_LOG line) but never forwarded.
+banked (scratchpad, or a comment on the council's Linear `P-EXO-10` issue) but never forwarded.
 
 ## Phase 3 — the 3 (brutal reviewers, parallel, on draft v2 ONLY)
 
@@ -159,9 +159,11 @@ Casting rules:
 
 Ratified **v3** = the executable spec. Then: implement (or hand to
 workers with guardrails §1), run the pre-registered gates, and land with
-board hygiene in the SAME commit (EPIPHANIES if a finding emerged,
-STATUS_BOARD row flip, AGENT_LOG entry naming the council run: which 5,
-which 3, verdict counts, what changed between v1→v2→v3).
+board hygiene in the SAME commit (a Linear `P-EXO-12` epiphany issue if a
+finding emerged, STATUS_BOARD row flip, and one `A2A: …` issue in Linear
+`P-EXO-10` naming the council run: which 5, which 3, verdict counts, what
+changed between v1→v2→v3). ⊘ SUPERSEDED 2026-11-06: no `EPIPHANIES.md` or
+`AGENT_LOG.md` writes; both are frozen. The orchestrator posts to Linear.
 
 ## Sequencing invariant + base case (operator-ruled 2026-08-04)
 

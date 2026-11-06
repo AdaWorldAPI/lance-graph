@@ -34,6 +34,12 @@ _History / dashboards:_
 _Kanban / audit (priority + scope tags on every entry):_
 - `.claude/board/EPIPHANIES.md` — date-prefixed insight log.
   Status: FINDING / CONJECTURE / SUPERSEDED.
+  > ⊘ SUPERSEDED 2026-11-06: now GENERATED (`.claude/tools/compact_epiphanies.py`)
+  > and frozen; do not append. New epiphanies are Linear issues in
+  > **lance-graph · Epiphanies** (`P-EXO-12`), `EPIPHANY: E-<NAME>-<n> — <claim>`.
+  > Agent-run records (formerly `AGENT_LOG.md`) go to **lance-graph · Agent2Agent
+  > Board** (`P-EXO-10`), decisions to **lance-graph · Decisions** (`P-EXO-11`).
+  > The orchestrator is the sole poster.
 - `.claude/board/ISSUES.md` — Open + Resolved bugs / regressions.
   Double-entry: issue captured on discovery; Resolution appends on
   close. Priority P0-P3, Scope @agent D<N> domain:<tag>.

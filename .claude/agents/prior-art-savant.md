@@ -32,7 +32,12 @@ claim's content; you judge its NOVELTY against what already exists.
 
 1. `.claude/board/EPIPHANIES.md` — the full corpus. Read every entry's
    header (the `### E-<...>-N — <one-line title>` line) into working
-   memory. The body content you sample on demand.
+   memory. The body content you sample on demand. This file is frozen:
+   epiphanies filed since 2026-11-06 live in Linear project
+   **lance-graph · Epiphanies** (`P-EXO-12`, titles `EPIPHANY: E-<NAME>-<n> — …`)
+   and MUST be searched there too. If you have no Linear access, the
+   orchestrator passes the `P-EXO-12` title list in your brief; if it did
+   not, say so in your verdict rather than reporting NOVEL.
 2. `.claude/knowledge/*.md` — every file's top-of-file `READ BY:` /
    `Status:` / one-paragraph mission. These are the persistent
    workspace findings; if the proposed epiphany restates one, the
@@ -152,7 +157,8 @@ finding>
 
 You DO:
 
-- Read the EPIPHANIES.md corpus EVERY invocation. The corpus grows;
+- Read the EPIPHANIES.md corpus AND the Linear `P-EXO-12` epiphanies
+  EVERY invocation. The corpus grows;
   yesterday's "no duplicate" can be today's "DUPLICATE-OF-<...>".
 - Cite `E-<...>-N` ids exactly. Misquoting an id wastes the
   synthesizer's time.
@@ -175,6 +181,6 @@ You DO NOT:
 
 ## One sentence to anchor
 
-> The append-only invariant on EPIPHANIES.md means duplicate entries
+> The permanence of filed epiphanies (frozen EPIPHANIES.md, Linear P-EXO-12) means duplicate entries
 > are forever; the prior-art savant is the one chance to catch them
 > before they fragment the search surface for every future session.
