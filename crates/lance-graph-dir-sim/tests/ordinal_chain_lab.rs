@@ -606,3 +606,395 @@ fn hot_reads_and_fold_allocate_nothing() {
         hot_allocations
     );
 }
+
+// ---- batch selection over the existing Ruler planes -------------------------
+//
+// The Ruler (`ogar_dir_core::correspond::Ruler::from_fold`) is OGAR's aligned
+// identity-witness view: one slot per AD row, Entra/EXO witnesses placed only
+// for an uncontested counterpart. `fold_aligned` turns it into six 64-slot
+// mask planes. The tests below select over those planes with one lowered
+// Quack program, 64 slots per word, and never bind or visit a row on the hot
+// path. Only identity witnesses are aligned; no Entra/EXO property value is
+// copied into slot order, and none is read here.
+
+/// Plane order handed to Quack as `Mask(0..6)`.
+const P_FORWARD: u16 = 0;
+const P_BACKSYNC: u16 = 1;
+const P_CLOUD: u16 = 2;
+const P_ALIGNED: u16 = 3;
+const P_FWD_CONFLICT: u16 = 4;
+const P_BACK_CONFLICT: u16 = 5;
+
+fn plane_refs(p: &Planes) -> [&[u64]; 6] {
+    [
+        &p.forward,
+        &p.backsync,
+        &p.cloud,
+        &p.aligned,
+        &p.forward_conflict,
+        &p.backsync_conflict,
+    ]
+}
+
+/// A confirmed hybrid identity with exactly one mailbox: forward ∧ backsync ∧
+/// aligned (OGAR's `Planes::confirmed`) ∧ cloud.
+fn confirmed_hybrid() -> Filter {
+    Filter::and([
+        Filter::plane(Mask(P_FORWARD)),
+        Filter::plane(Mask(P_BACKSYNC)),
+        Filter::plane(Mask(P_ALIGNED)),
+        Filter::plane(Mask(P_CLOUD)),
+    ])
+}
+
+/// dir-sim's existing `CloudMailboxes::from_fold` predicate, as a program:
+/// cloud ∧ ¬forward_conflict ∧ ¬backsync_conflict.
+fn cloud_mailbox() -> Filter {
+    Filter::and([
+        Filter::plane(Mask(P_CLOUD)),
+        Filter::negate(Filter::plane(Mask(P_FWD_CONFLICT))),
+        Filter::negate(Filter::plane(Mask(P_BACK_CONFLICT))),
+    ])
+}
+
+/// Cold: OGAR's index, fold, ruler and planes over one snapshot.
+struct Fold {
+    index: Index,
+    out: Output,
+    planes: Planes,
+    n: usize,
+}
+
+impl Fold {
+    fn new(l: &Lanes) -> Self {
+        let index = Index::build(l);
+        let mut out = Output::for_index(l, &index);
+        fold(l, &index, &mut out);
+        let ruler = Ruler::from_fold(l, &index, &out);
+        let mut planes = Planes::for_ruler(&ruler);
+        fold_aligned(&ruler, &mut planes);
+        Self {
+            index,
+            out,
+            planes,
+            n: l.ad.len(),
+        }
+    }
+}
+
+/// Hot: one frame check for the whole pass, then the lowered program over the
+/// planes. Writes the surviving-slot mask into `kept` and returns the count.
+fn select(
+    f: &Fold,
+    frames: &FrameStore,
+    frame: &Frame,
+    program: &lance_graph_mask_risc::Program,
+    scratch: &mut Scratch,
+    kept: &mut [u64],
+) -> Result<usize, FrameRefusal> {
+    frames.check(frame)?;
+    let masks = plane_refs(&f.planes);
+    let inputs = QueryPlanes {
+        n_rows: f.n,
+        masks: &masks,
+        lanes: &[],
+    };
+    execute_into(program, &inputs, &Foreign::NONE, scratch, Out::Mask(kept)).unwrap();
+    Ok(kept.iter().map(|w| w.count_ones() as usize).sum())
+}
+
+fn bit(words: &[u64], i: usize) -> bool {
+    words[i / 64] >> (i % 64) & 1 == 1
+}
+
+/// Scalar reference, without OGAR's Index, Output, Ruler or Planes: the
+/// lab's `oracle` plus the scope rule OGAR's index applies (an unbound scope
+/// never matches, even another unbound one).
+fn oracle_bound(l: &Lanes, ad: usize) -> Option<(usize, usize)> {
+    use ogar_dir_core::correspond::UNBOUND;
+    let (entra, exo) = oracle(l, ad)?;
+    (l.ad.scope[ad] != UNBOUND).then_some((entra, exo))
+}
+
+/// A seeded population with every fault class the falsifier needs, and Entra/EXO rows shuffled so their
+/// positions never coincide with AD slots.
+fn faulted(n: usize, seed: u64) -> Lanes {
+    use ogar_dir_core::correspond::UNBOUND;
+    let mut s = seed | 1;
+    let mut rnd = move |m: u64| {
+        s ^= s << 13;
+        s ^= s >> 7;
+        s ^= s << 17;
+        s % m
+    };
+    let mut l = Lanes {
+        ad: Rows::default(),
+        ad_anchor: IdColumn::default(),
+        ad_backsync: IdColumn::default(),
+        entra: Rows::default(),
+        entra_anchor: IdColumn::default(),
+        exo: Rows::default(),
+        exo_external: IdColumn::default(),
+        anchor_is_object_guid: false,
+        max_skew_ms: 60_000,
+    };
+    let push = |r: &mut Rows, owner: u128, scope: u32, at: i64| {
+        r.owner.push(id(owner));
+        r.scope.push(scope);
+        r.at.push(at);
+    };
+    let col = |c: &mut IdColumn, v: u128, st: u8| {
+        c.id.push(id(v));
+        c.state.push(st);
+    };
+    let mut entra_rows = Vec::new();
+    let mut exo_rows = Vec::new();
+    for k in 0..n as u128 {
+        let (guid, anchor, cloud) = (1_000_000 + k, 2_000_000 + k, 3_000_000 + k);
+        let mut ad_scope = 0;
+        let mut ad_anchor = anchor;
+        let mut backsync = (cloud, state::PRESENT);
+        let mut entra = Some((cloud, 0u32, 1_100i64, anchor, state::PRESENT));
+        let mut exo: Vec<(u128, u32)> = vec![(cloud, 0)];
+        // Ten fault classes in 24: roughly half the slots stay valid once the
+        // shared-anchor and contradicting-backsync faults hit a neighbour too.
+        match rnd(24) {
+            0 => backsync.1 = state::ABSENT,                  // missing backsync
+            1 => ad_anchor = 2_000_000 + (k + 1) % n as u128, // shared / foreign anchor
+            2 => entra = None,                                // absent correspondence
+            3 => exo.clear(),                                 // no mailbox
+            4 => exo.push((cloud, 0)),                        // duplicate mailbox
+            5 => entra.as_mut().unwrap().1 = 1,               // Entra in another tenant
+            6 => exo[0].1 = 1,                                // mailbox in another tenant
+            7 => entra.as_mut().unwrap().2 = 900_000,         // stale observation
+            8 => backsync.0 = 3_000_000 + (k + 7) % n as u128, // backsync contradicts
+            9 => ad_scope = UNBOUND,                          // unbound AD domain
+            _ => {}
+        }
+        push(&mut l.ad, guid, ad_scope, 1_000);
+        col(&mut l.ad_anchor, ad_anchor, state::PRESENT);
+        col(&mut l.ad_backsync, backsync.0, backsync.1);
+        if let Some(e) = entra {
+            entra_rows.push(e);
+        }
+        for (x, (ext, sc)) in exo.into_iter().enumerate() {
+            exo_rows.push((4_000_000 + 10 * k + x as u128, sc, ext));
+        }
+    }
+    // Reorder both cloud populations (Fisher-Yates with the same generator).
+    for i in (1..entra_rows.len()).rev() {
+        entra_rows.swap(i, rnd(i as u64 + 1) as usize);
+    }
+    for i in (1..exo_rows.len()).rev() {
+        exo_rows.swap(i, rnd(i as u64 + 1) as usize);
+    }
+    for (owner, sc, at, anchor, st) in entra_rows {
+        push(&mut l.entra, owner, sc, at);
+        col(&mut l.entra_anchor, anchor, st);
+    }
+    for (owner, sc, ext) in exo_rows {
+        push(&mut l.exo, owner, sc, 1_100);
+        col(&mut l.exo_external, ext, state::PRESENT);
+    }
+    l
+}
+
+fn lowered(filter: Filter, agg: Agg) -> lance_graph_mask_risc::Program {
+    lower(&Query { filter, agg }).unwrap()
+}
+
+/// The core falsifier: over several words and every fault class, the slots
+/// the program keeps are exactly the AD rows the scalar oracle confirms, and
+/// each kept slot's coordinate references (OGAR `Output`) name the oracle's
+/// Entra and EXO rows.
+#[test]
+fn batch_selection_over_ruler_planes_equals_the_scalar_oracle() {
+    for seed in [1_u64, 7, 42, 0x9E37_79B9] {
+        let l = faulted(300, seed);
+        let f = Fold::new(&l);
+        let frames = FrameStore::new(revisions(1, 1, 1));
+        let frame = frames.seal();
+        let p = lowered(confirmed_hybrid(), Agg::Rows);
+        let mut scratch = Scratch::for_program(&p, f.n).unwrap();
+        let mut kept = vec![0_u64; f.n.div_ceil(64)];
+        let count = select(&f, &frames, &frame, &p, &mut scratch, &mut kept).unwrap();
+
+        assert!(kept.len() >= 4, "multi-word population");
+        let mut expected = 0;
+        for i in 0..f.n {
+            let want = oracle_bound(&l, i);
+            assert_eq!(bit(&kept, i), want.is_some(), "seed {seed} slot {i}");
+            if let Some((entra, exo)) = want {
+                expected += 1;
+                // The tuple is described by references, never stored.
+                let j = f.out.ad_target[i] as usize;
+                assert_eq!(j, entra, "seed {seed} slot {i} Entra row");
+                assert_eq!(
+                    f.out.entra_mailbox[j] as usize, exo,
+                    "seed {seed} slot {i} EXO row"
+                );
+            }
+        }
+        assert_eq!(count, expected);
+        // Anti-vacuity: both outcomes occur in volume.
+        assert!(
+            count * 4 > f.n && count * 4 < 3 * f.n,
+            "seed {seed}: kept {count} of {}",
+            f.n
+        );
+        // The tail of the last word stays clear.
+        assert_eq!(kept.last().unwrap() >> (f.n % 64), 0);
+    }
+}
+
+/// The same program family reproduces dir-sim's existing per-row selection
+/// (`CloudMailboxes::from_fold`) as one batch pass.
+#[test]
+fn batch_selection_reproduces_cloud_mailboxes_from_fold() {
+    for seed in [3_u64, 11, 99] {
+        let l = faulted(300, seed);
+        let f = Fold::new(&l);
+        let frames = FrameStore::new(revisions(1, 1, 1));
+        let p = lowered(cloud_mailbox(), Agg::Rows);
+        let mut scratch = Scratch::for_program(&p, f.n).unwrap();
+        let mut kept = vec![0_u64; f.n.div_ceil(64)];
+        select(&f, &frames, &frames.seal(), &p, &mut scratch, &mut kept).unwrap();
+        let mut ours: Vec<Guid128> = (0..f.n)
+            .filter(|&i| bit(&kept, i))
+            .map(|i| l.ad.owner[i])
+            .collect();
+        ours.sort_unstable();
+        let existing = lance_graph_dir_sim::CloudMailboxes::from_fold(&l, &f.index, &f.out);
+        assert_eq!(ours.as_slice(), existing.owners(), "seed {seed}");
+        assert!(!ours.is_empty());
+    }
+}
+
+/// Reordering every population changes slot positions and row ordinals, never
+/// the selected identities.
+#[test]
+fn reordered_populations_select_the_same_identities() {
+    let identities = |l: &Lanes| {
+        let f = Fold::new(l);
+        let frames = FrameStore::new(revisions(1, 1, 1));
+        let p = lowered(confirmed_hybrid(), Agg::Rows);
+        let mut scratch = Scratch::for_program(&p, f.n).unwrap();
+        let mut kept = vec![0_u64; f.n.div_ceil(64)];
+        select(&f, &frames, &frames.seal(), &p, &mut scratch, &mut kept).unwrap();
+        let mut ids: Vec<(Guid128, Guid128, Guid128)> = (0..f.n)
+            .filter(|&i| bit(&kept, i))
+            .map(|i| {
+                let j = f.out.ad_target[i] as usize;
+                let x = f.out.entra_mailbox[j] as usize;
+                (l.ad.owner[i], l.entra.owner[j], l.exo.owner[x])
+            })
+            .collect();
+        ids.sort_unstable();
+        ids
+    };
+    let l = faulted(300, 5);
+    let mut r = l.clone();
+    // Reverse AD; the generator already shuffled Entra and EXO.
+    r.ad.owner.reverse();
+    r.ad.scope.reverse();
+    r.ad.at.reverse();
+    r.ad_anchor.id.reverse();
+    r.ad_anchor.state.reverse();
+    r.ad_backsync.id.reverse();
+    r.ad_backsync.state.reverse();
+    let before = identities(&l);
+    assert!(before.len() > 50);
+    assert_eq!(before, identities(&r));
+}
+
+/// The witness applies per pass: a foreign frame, a re-seal, and source or
+/// coordinate revision changes all refuse before the program runs.
+#[test]
+fn a_batch_pass_refuses_stale_and_foreign_frames() {
+    let l = faulted(130, 9);
+    let f = Fold::new(&l);
+    let mut frames = FrameStore::new(revisions(1, 1, 1));
+    let p = lowered(confirmed_hybrid(), Agg::Rows);
+    let mut scratch = Scratch::for_program(&p, f.n).unwrap();
+    let mut kept = vec![0_u64; f.n.div_ceil(64)];
+    let frame = frames.seal();
+    assert!(select(&f, &frames, &frame, &p, &mut scratch, &mut kept).is_ok());
+
+    let twin = FrameStore::new(revisions(1, 1, 1));
+    assert_eq!(
+        select(&f, &twin, &frame, &p, &mut scratch, &mut kept),
+        Err(FrameRefusal::ForeignFrame)
+    );
+    frames.advance(revisions(1, 1, 2));
+    assert_eq!(
+        select(&f, &frames, &frame, &p, &mut scratch, &mut kept),
+        Err(FrameRefusal::CoordinatesChanged)
+    );
+    let frame = frames.seal();
+    frames.advance(revisions(2, 2, 2));
+    assert_eq!(
+        select(&f, &frames, &frame, &p, &mut scratch, &mut kept),
+        Err(FrameRefusal::SourceChanged)
+    );
+    let frame = frames.seal();
+    frames.advance(revisions(2, 2, 2));
+    assert_eq!(
+        select(&f, &frames, &frame, &p, &mut scratch, &mut kept),
+        Err(FrameRefusal::FrameResealed)
+    );
+}
+
+/// Cold and hot costs at 64K slots, and zero allocations per hot pass.
+/// Reported, not gated.
+#[test]
+fn batch_selection_at_64k_allocates_nothing() {
+    use std::time::Instant;
+    let n = 1 << 16;
+    let t = Instant::now();
+    let l = faulted(n, 0xDEAD_BEEF);
+    let build = t.elapsed();
+    let t = Instant::now();
+    let f = Fold::new(&l);
+    let cold = t.elapsed();
+
+    let frames = FrameStore::new(revisions(1, 1, 1));
+    let frame = frames.seal();
+    let keep = lowered(confirmed_hybrid(), Agg::Rows);
+    let count = lowered(confirmed_hybrid(), Agg::Count);
+    let mut scratch_k = Scratch::for_program(&keep, n).unwrap();
+    let mut scratch_c = Scratch::for_program(&count, n).unwrap();
+    let mut kept = vec![0_u64; n.div_ceil(64)];
+    let masks = plane_refs(&f.planes);
+    let inputs = QueryPlanes {
+        n_rows: n,
+        masks: &masks,
+        lanes: &[],
+    };
+
+    const PASSES: u32 = 200;
+    let before = allocations();
+    let t = Instant::now();
+    let mut k = 0;
+    for _ in 0..PASSES {
+        k = select(&f, &frames, &frame, &keep, &mut scratch_k, &mut kept).unwrap();
+    }
+    let keep_time = t.elapsed();
+    let t = Instant::now();
+    let mut c = Value::Count(0);
+    for _ in 0..PASSES {
+        frames.check(&frame).unwrap();
+        c = execute_into(&count, &inputs, &Foreign::NONE, &mut scratch_c, Out::None).unwrap();
+    }
+    let count_time = t.elapsed();
+    let hot_allocations = allocations() - before;
+
+    assert_eq!(c, Value::Count(k));
+    assert_eq!(hot_allocations, 0, "the hot batch path allocated");
+    eprintln!(
+        "64K slots: fixture {} µs | cold index+fold+ruler+planes {} µs (reported, not a gate) | keep {} ns/pass | count {} ns/pass | kept {k} | hot allocations {hot_allocations}",
+        build.as_micros(),
+        cold.as_micros(),
+        keep_time.as_nanos() / u128::from(PASSES),
+        count_time.as_nanos() / u128::from(PASSES),
+    );
+}

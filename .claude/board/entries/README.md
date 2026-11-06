@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-579 entries, 2026-08-06 .. 2026-11-05.
+580 entries, 2026-08-06 .. 2026-11-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-06 | `ruler-plane-batch-selection-lab` |  | [2026-11-06-ruler-plane-batch-selection-lab.md](2026-11-06-ruler-plane-batch-selection-lab.md) |
 | 2026-11-05 | `hybrid-ordinal-chain-lab-v2` |  | [2026-11-05-hybrid-ordinal-chain-lab-v2.md](2026-11-05-hybrid-ordinal-chain-lab-v2.md) |
 | 2026-11-05 | `coresearch-workbook-hypercube-soa-projection` |  | [2026-11-05-coresearch-workbook-hypercube-soa-projection.md](2026-11-05-coresearch-workbook-hypercube-soa-projection.md) |
 | 2026-11-04 | `D-DRIVER-ZC-0` |  | [2026-11-04-d-driver-zc-0-virtual-bus-contract.md](2026-11-04-d-driver-zc-0-virtual-bus-contract.md) |
