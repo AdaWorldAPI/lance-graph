@@ -1,3 +1,10 @@
+## 2026-11-06 — main after #1964–#1967 (merged `9ca5daa`), OGAR #371
+
+- OGAR `ogar_dir_core::correspond::Output::entra_mailbox`: the fold's sole Entra→EXO row ordinal (`NO_ROW` for none or several). `Ruler::from_fold` reads it instead of re-merging.
+- dir-sim `tests/ordinal_chain_lab.rs` (test-only): hybrid AD/Entra/EXO coordinates bound from OGAR's fold under a dt64 `dr::Frame`; one Quack program selecting over the six Ruler planes (oracle parity, 0 hot allocations, ~0.4–0.8 µs per 64K-slot pass over prepared planes; cold correspondence ~43–52 ms reported separately).
+- dt64 `lane` module (D-LANESOCK-1): `LaneSource`, `CoordSpace`, `LaneAddr`, `RouteAt`, `LaneRequest`, `LaneBinding`, `LaneRefusal`, `BindStore::bind_lanes`. Route and frame checked as a pair; a lane in another row order than the selection refuses (`CoordinateSpace`). Spec: `.claude/plans/d-lanesock-dr-dt64-lane-socket-v1.md` (#1966).
+- No admission changed: Gather ban, ADMISSION B, NotASide, OP-14, DRISA M1/M2, D4/S-INGRESS.
+
 ## 2026-11-02 — main after #1932 and #1933 (merged `d1b3ea59f`), ruff #135/#136
 
 - Codegraph coverage gate:

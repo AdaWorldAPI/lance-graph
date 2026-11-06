@@ -1,3 +1,14 @@
+## 2026-11-06 — lance-graph PRs #1964–#1967 (merged `9ca5daa`), with OGAR #371 — hybrid ordinal chain, Ruler-plane selection, DR × DT64 lane socket
+
+- **Added:**
+  - #1964: the ordinal-chain lab reads the EXO ordinal from OGAR's fold (OGAR #371) and witnesses coordinates with `dr::FrameStore`; lab clippy step in `dir-sim-persist.yml`.
+  - #1965: batch selection over the six `fold_aligned` planes with one Quack program per pass.
+  - #1966: D-LANESOCK spec.
+  - #1967: dt64 `lane` module (`LaneSource`, `BindStore::bind_lanes`, `LaneBinding::check/lane`) plus 8 dt64 tests and 4 lab tests.
+- **Locked (measured):** oracle parity over multi-word seeded populations with ten fault classes; zero hot allocations at 64K slots; socket check + borrow 34–140 ns; each refusal guard disable-verified red-then-green.
+- **Not done:** no cross-coordinate-space mapping is admitted (`CoordinateSpace` refuses); frame revisions are caller-supplied, not derived from a source receipt; dir-sim `CloudMailboxes::from_fold` still selects per row and `with_exchange_guids` is a second GUID search.
+- **Confidence:** CI green on every merged head; disable runs recorded in each PR body.
+
 ## 2026-11-02 — lance-graph PR #1933 (merged `d1b3ea59f`, branch `claude/clone-repositories-71a5sw`) — A10 probes + admission probe, NNUE triangle baseline, S5 erratum, #1931 record
 
 - **Added:**
