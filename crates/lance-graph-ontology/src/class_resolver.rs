@@ -205,6 +205,66 @@ mod tests {
         assert_eq!(cv.dolce_category_id(7), dolce_id::ENDURANT);
     }
 
+    /// DT64 reads a basis with `view.fields(view_class(classid))`, and
+    /// `view_class` is `classid_concept`: the canon half under the codebook's
+    /// active split. Keyed by that half, the field basis resolves.
+    ///
+    /// DEFECT, pinned as it stands (not fixed here): `dolce_category_id` and
+    /// `is_known` look the same key up as the registry's `entity_type_id`,
+    /// which is minted in append order and is not the OGAR concept. The
+    /// category of a registered class is therefore unreachable through the
+    /// concept key. When the registry learns a concept → entity_type link,
+    /// this test fails and must be re-pinned.
+    #[test]
+    fn concept_half_keys_the_basis_but_not_the_registry_category() {
+        use crate::namespace::OgitUri;
+        use crate::{MappingProposal, MappingProposalKind};
+        use lance_graph_contract::ogar_codebook::{classid_concept, compose_classid};
+        use lance_graph_contract::property::{Marking, Schema};
+
+        let uri = "ogit.Odoo:account.move";
+        assert_eq!(classify_odoo(uri), DolceCategory::Perdurant, "precondition");
+        let parsed = OgitUri::parse(uri).unwrap();
+        let reg = OntologyRegistry::new_in_memory();
+        let handle = reg
+            .append_mapping(MappingProposal {
+                public_name: "AccountMove".into(),
+                bridge_id: "odoo".into(),
+                namespace: parsed.namespace().unwrap().to_string(),
+                ogit_uri: parsed,
+                kind: MappingProposalKind::Entity {
+                    schema: Schema::builder("account.move").build(),
+                },
+                marking: Marking::Internal,
+                confidence: 1.0,
+                source_uri: "test://account.move".into(),
+                checksum: "ck-account.move".into(),
+                created_by: "test".into(),
+            })
+            .unwrap();
+        let entity_type = handle.schema_ptr.entity_type_id();
+
+        let concept: ClassId = 0x0C1C;
+        let classid = compose_classid(concept, 1);
+        assert_eq!(classid_concept(classid), concept);
+        assert_ne!(classid as u16, concept, "the low half is not the key");
+
+        let mut views = HashMap::new();
+        views.insert(classid_concept(classid), invoice_view());
+        let cv = RegistryClassView::new(&reg, views);
+
+        // Compatible: the basis DT64 reads.
+        assert_eq!(cv.fields(classid_concept(classid)).len(), 3);
+        assert!(cv.fields(classid as u16).is_empty());
+
+        // The defect: the concept key misses the registered row.
+        assert_ne!(entity_type, concept);
+        assert!(!cv.is_known(concept));
+        assert_eq!(cv.dolce_category_id(concept), dolce_id::ENDURANT);
+        assert!(cv.is_known(entity_type));
+        assert_eq!(cv.dolce_category_id(entity_type), dolce_id::PERDURANT);
+    }
+
     #[test]
     fn dolce_id_mapping_is_total_and_stable() {
         assert_eq!(dolce_to_id(DolceCategory::Endurant), dolce_id::ENDURANT);

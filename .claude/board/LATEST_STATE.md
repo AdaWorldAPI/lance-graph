@@ -1,3 +1,9 @@
+## 2026-11-06 — branch `ccr-fd2682ed-sai06j-abi-lanes` (D-LANESOCK-2, in PR)
+
+- `lance-graph-report::AbiLanes` (`lane_source` module): `LaneSource` over a resident `AbiBatch`; `PublishRefusal`. Field positions via ClassView basis → `Catalog` → `FieldId`; I32/U32 lanes only; one `FrameStore` per source over `(SourceId, generation)`. No production constructor (no DR reader-scope witness); test-only feature `unwitnessed-scope`.
+- `rust-test.yml` now runs the `lance-graph-report` tests (plain and the lane-socket suite).
+- Open: value ingress, durable writer, codebook, exact decimal, D4/S-INGRESS; `RegistryClassView` `entity_type_id` vs concept-key DOLCE defect.
+
 ## 2026-11-06 — main after #1964–#1967 (merged `9ca5daa`), OGAR #371
 
 - OGAR `ogar_dir_core::correspond::Output::entra_mailbox`: the fold's sole Entra→EXO row ordinal (`NO_ROW` for none or several). `Ruler::from_fold` reads it instead of re-merging.
