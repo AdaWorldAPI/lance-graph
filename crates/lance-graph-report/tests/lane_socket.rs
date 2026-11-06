@@ -501,3 +501,60 @@ fn a_foreign_scope_is_refused() {
         })
     );
 }
+
+/// After a publish, a selection still in the old generation's row order is
+/// refused against a fresh bind.
+#[test]
+fn the_old_row_order_is_refused_after_a_publish() {
+    let (store, route) = store();
+    let view = view();
+    let catalog = catalog();
+    let mut lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let old_space = lanes.space();
+    lanes.publish(batch(2)).unwrap();
+    let fields = WideFieldMask::from_positions(&[REVENUE]);
+    let frame = lanes.seal();
+    assert_eq!(
+        store
+            .bind_lanes(
+                &view,
+                lanes.frames(),
+                &lanes,
+                request(route, &fields, &frame, old_space)
+            )
+            .err(),
+        Some(LaneRefusal::CoordinateSpace {
+            field: REVENUE,
+            selection: old_space,
+            lane: lanes.space(),
+        })
+    );
+}
+
+/// The adapter answers only for frames its own store sealed: another
+/// source's store and frame, presented together, pass DT64's frame check
+/// but leave every field unbound here.
+#[test]
+fn a_frame_and_store_of_another_source_bind_nothing() {
+    let (store, route) = store();
+    let view = view();
+    let catalog = catalog();
+    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let other = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let fields = WideFieldMask::from_positions(&[REVENUE]);
+    let frame = other.seal();
+    assert_eq!(
+        store
+            .bind_lanes(
+                &view,
+                other.frames(),
+                &lanes,
+                request(route, &fields, &frame, lanes.space())
+            )
+            .err(),
+        Some(LaneRefusal::Unbound {
+            class: class(),
+            field: REVENUE
+        })
+    );
+}
