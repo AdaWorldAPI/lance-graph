@@ -45,7 +45,10 @@
 //! * [`render`] — terminal adapters (JSON / CSV data export): the materialization boundary. Paged / screen output goes through OGAR (`lance-graph-report-ogar`).
 //! * [`explain`] — the human-readable physical plan.
 
-#![forbid(unsafe_code)]
+// The library forbids unsafe code. Unit tests only `deny` it, so the one
+// counting allocator in `lane_source::tests` can opt in with an `allow`.
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![cfg_attr(test, deny(unsafe_code))]
 
 pub mod batch;
 pub mod boundary;

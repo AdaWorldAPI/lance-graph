@@ -1083,6 +1083,7 @@ mod lanesock {
             class: u32,
             rev: SchemaRev,
             field: u8,
+            _basis: &FieldRef,
             _frame: &Frame,
         ) -> Option<LaneAddr> {
             if class != HYBRID_USER || rev != SchemaRev(1) {

@@ -1,8 +1,9 @@
-//! D-LANESOCK-2: resident `AbiBatch` lanes through DT64's lane socket, folded by
-//! Quack / mask-RISC. Every refusal fires on a realistic input.
+//! D-LANESOCK-2/3: resident `AbiBatch` lanes through DT64's lane socket,
+//! folded by Quack / mask-RISC. Every refusal fires on a realistic input.
 //!
-//! Runs only with `--features unwitnessed-scope` (the reader scope here is the
-//! test's assertion, not a DR witness; see `lane_source`'s module docs).
+//! These are unit tests because the only `AbiLanes` constructor,
+//! `AbiLanes::unwitnessed`, takes the reader scope from the caller and exists
+//! only under `#[cfg(test)]` (see the module docs: no DR scope witness).
 
 use std::sync::Arc;
 
@@ -17,8 +18,11 @@ use lance_graph_dt64::{
 };
 use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch, Value};
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, Query};
-use lance_graph_report::boundary::Catalog;
-use lance_graph_report::{AbiBatch, AbiLanes, Column, FieldId, LaneData, PublishRefusal, SourceId};
+
+use super::{AbiLanes, PublishRefusal};
+use crate::batch::{AbiBatch, BatchError, Column, LaneData, MAX_COLUMNS};
+use crate::boundary::Catalog;
+use crate::ids::{FieldId, SourceId};
 
 // ── allocation counter (hot-path falsifier) ──────────────────────────────────
 
@@ -26,6 +30,7 @@ struct CountingAlloc;
 thread_local! {
     static ALLOCATIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
+#[allow(unsafe_code)] // test-only counting allocator; the library forbids unsafe
 unsafe impl std::alloc::GlobalAlloc for CountingAlloc {
     unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
         let _ = ALLOCATIONS.try_with(|c| c.set(c.get() + 1));
@@ -193,7 +198,7 @@ fn request<'a>(
 fn bind<V: ClassView>(
     store: &BindStore,
     view: &V,
-    lanes: &AbiLanes<'_, V>,
+    lanes: &AbiLanes<'_>,
     route: RouteAt,
     positions: &[u8],
 ) -> Result<LaneBinding, LaneRefusal> {
@@ -228,7 +233,7 @@ fn bound_lanes_are_the_batch_lanes_and_fold_with_scalar_parity() {
     let view = view();
     let catalog = catalog();
     let batch = batch(1);
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, Arc::clone(&batch), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, Arc::clone(&batch), READER);
     let binding = bind(&store, &view, &lanes, route, &[REVENUE, REGION]).unwrap();
 
     // Borrowing: the binding hands out the batch's own Arc-backed lanes.
@@ -327,7 +332,7 @@ fn a_published_replacement_refuses_the_old_binding() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let mut lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let mut lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let old = bind(&store, &view, &lanes, route, &[REVENUE]).unwrap();
     lanes.publish(batch(2)).unwrap();
     assert_eq!(
@@ -368,8 +373,8 @@ fn a_frame_from_another_store_is_refused() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
-    let twin = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
+    let twin = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let fields = WideFieldMask::from_positions(&[REVENUE]);
     let foreign = twin.seal();
     assert_eq!(
@@ -391,7 +396,7 @@ fn a_wrong_route_is_refused() {
     let (mut store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let binding = bind(&store, &view, &lanes, route, &[REVENUE]).unwrap();
     store
         .register_derived(
@@ -423,7 +428,7 @@ fn an_incompatible_coordinate_space_is_refused() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let fields = WideFieldMask::from_positions(&[REVENUE]);
     let frame = lanes.seal();
     for selection in [
@@ -461,7 +466,7 @@ fn unknown_or_unadmitted_fields_are_refused() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     for field in [NOT_CATALOGUED, NO_COLUMN, REFERENCE] {
         assert_eq!(
             bind(&store, &view, &lanes, route, &[REVENUE, field]).err(),
@@ -487,7 +492,7 @@ fn a_foreign_scope_is_refused() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let fields = WideFieldMask::from_positions(&[REVENUE]);
     let frame = lanes.seal();
     let mut req = request(route, &fields, &frame, lanes.space());
@@ -509,7 +514,7 @@ fn the_old_row_order_is_refused_after_a_publish() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let mut lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let mut lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let old_space = lanes.space();
     lanes.publish(batch(2)).unwrap();
     let fields = WideFieldMask::from_positions(&[REVENUE]);
@@ -539,8 +544,8 @@ fn a_frame_and_store_of_another_source_bind_nothing() {
     let (store, route) = store();
     let view = view();
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
-    let other = AbiLanes::unwitnessed(&view, &catalog, batch(1), READER);
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
+    let other = AbiLanes::unwitnessed(&catalog, batch(1), READER);
     let fields = WideFieldMask::from_positions(&[REVENUE]);
     let frame = other.seal();
     assert_eq!(
@@ -563,7 +568,6 @@ fn a_frame_and_store_of_another_source_bind_nothing() {
 /// adapter publishes is the column it names (no `u16` wrap onto column 0).
 #[test]
 fn a_column_past_the_u16_lane_space_is_refused() {
-    use lance_graph_report::{BatchError, MAX_COLUMNS};
     let mut b = AbiBatch::new(SOURCE, 1, 1);
     for i in 0..MAX_COLUMNS as u32 {
         b = b
@@ -586,10 +590,12 @@ fn a_column_past_the_u16_lane_space_is_refused() {
     );
 }
 
-/// DT64 validates ClassView A; the source was built over ClassView B, which
-/// has the same class, revision and field count but the first two fields in
-/// the other order. Both candidate lanes are nonzero and different. A bind
-/// that returns a lane must return the one A names.
+/// DT64 validates ClassView A at bind. Checked later through ClassView B
+/// (same class, revision and field count, first two fields swapped), the
+/// binding refuses: the source maps the field B now names, which is another
+/// lane. Both candidate lanes are nonzero and different. Before D-LANESOCK-3
+/// the source read a ClassView of its own and A's revenue field borrowed B's
+/// region lane.
 #[test]
 fn a_disagreeing_field_basis_never_returns_the_wrong_lane() {
     let (store, route) = store();
@@ -597,22 +603,35 @@ fn a_disagreeing_field_basis_never_returns_the_wrong_lane() {
     let mut b = view();
     b.0.swap(usize::from(REVENUE), usize::from(REGION));
     let catalog = catalog();
-    let lanes = AbiLanes::unwitnessed(&b, &catalog, batch(1), READER);
-    let fields = WideFieldMask::from_positions(&[REVENUE]);
-    let frame = lanes.seal();
-    let bound = store.bind_lanes(
-        &a,
-        lanes.frames(),
-        &lanes,
-        request(route, &fields, &frame, lanes.space()),
+    let lanes = AbiLanes::unwitnessed(&catalog, batch(1), READER);
+    // The two candidate lanes hold different, nonzero values.
+    let (rev, reg) = (revenue(1), region());
+    assert!(rev.iter().any(|&v| v != 0) && reg.iter().any(|&v| v != 0));
+    assert!((0..N).any(|i| i64::from(rev[i]) != i64::from(reg[i])));
+
+    // Bound under A, A's revenue field is the revenue lane.
+    let binding = bind(&store, &a, &lanes, route, &[REVENUE]).unwrap();
+    let lane = binding
+        .lane(&store, &a, lanes.frames(), &lanes, REVENUE)
+        .unwrap();
+    assert_eq!(slice_i32(lane), revenue(1).as_slice());
+
+    // Through B the same position names region: refused, no lane returned.
+    assert_eq!(
+        binding.check(&store, &b, lanes.frames(), &lanes),
+        Err(LaneRefusal::MappingChanged { field: REVENUE })
     );
-    if let Ok(binding) = bound {
-        let lane = binding
-            .lane(&store, &a, lanes.frames(), &lanes, REVENUE)
-            .expect("a bound lane");
-        match lane {
-            LaneRef::I32(v) => assert_eq!(v, revenue(1).as_slice()),
-            other => panic!("A's revenue field resolved to another lane: {other:?}"),
-        }
-    }
+    assert_eq!(
+        binding
+            .lane(&store, &b, lanes.frames(), &lanes, REVENUE)
+            .err(),
+        Some(LaneRefusal::MappingChanged { field: REVENUE })
+    );
+
+    // Bound under B, position 0 is region, and that is what it borrows.
+    let under_b = bind(&store, &b, &lanes, route, &[REVENUE]).unwrap();
+    let lane = under_b
+        .lane(&store, &b, lanes.frames(), &lanes, REVENUE)
+        .unwrap();
+    assert_eq!(slice_u32(lane), region().as_slice());
 }
