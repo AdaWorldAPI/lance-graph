@@ -110,7 +110,13 @@ pub enum BatchError {
     DuplicateField(FieldId),
     /// Two masks share an id, or a mask claimed [`MaskId::ALPHA`].
     DuplicateMask(MaskId),
+    /// The batch already holds [`MAX_COLUMNS`] columns: another one would
+    /// have no `u16` lane index.
+    TooManyColumns(FieldId),
 }
+
+/// The most columns a batch holds: every lane index fits a `u16`.
+pub const MAX_COLUMNS: usize = u16::MAX as usize + 1;
 
 /// The resident population a report is evaluated over.
 ///
@@ -155,6 +161,9 @@ impl AbiBatch {
         }
         if column.domain.is_some() && !matches!(column.lane, LaneData::U32(_)) {
             return Err(BatchError::DomainOnNonOrdinalLane(column.field));
+        }
+        if self.columns.len() >= MAX_COLUMNS {
+            return Err(BatchError::TooManyColumns(column.field));
         }
         if self.columns.iter().any(|c| c.field == column.field) {
             return Err(BatchError::DuplicateField(column.field));
@@ -208,7 +217,7 @@ impl AbiBatch {
             .iter()
             .enumerate()
             .find(|(_, c)| c.field == field)
-            .map(|(i, c)| (i as u16, c))
+            .and_then(|(i, c)| u16::try_from(i).ok().map(|i| (i, c)))
     }
 
     /// Plane index of a resident mask, or `None` when no resident mask has

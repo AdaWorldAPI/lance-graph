@@ -558,3 +558,30 @@ fn a_frame_and_store_of_another_source_bind_nothing() {
         })
     );
 }
+
+/// A batch holds at most `MAX_COLUMNS` columns, so every lane index the
+/// adapter publishes is the column it names (no `u16` wrap onto column 0).
+#[test]
+fn a_column_past_the_u16_lane_space_is_refused() {
+    use lance_graph_report::{BatchError, MAX_COLUMNS};
+    let mut b = AbiBatch::new(SOURCE, 1, 1);
+    for i in 0..MAX_COLUMNS as u32 {
+        b = b
+            .with_column(Column::value(
+                FieldId(i),
+                LaneData::I32(vec![i as i32].into()),
+            ))
+            .unwrap();
+    }
+    let last = FieldId(MAX_COLUMNS as u32 - 1);
+    let (lane, _) = b.column(last).unwrap();
+    assert_eq!(usize::from(lane), MAX_COLUMNS - 1);
+    assert_eq!(
+        b.with_column(Column::value(
+            FieldId(MAX_COLUMNS as u32),
+            LaneData::I32(vec![0].into())
+        ))
+        .err(),
+        Some(BatchError::TooManyColumns(FieldId(MAX_COLUMNS as u32)))
+    );
+}
