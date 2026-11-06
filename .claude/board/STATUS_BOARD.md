@@ -1,3 +1,10 @@
+## D-LANESOCK — DR × DT64 property-to-lane socket (2026-11-06)
+
+| D-id | Deliverable | State |
+| --- | --- | --- |
+| D-LANESOCK-0 | normative spec: socket, joint version witness, refusals | In PR |
+| D-LANESOCK-1 | `LaneSource` + `BindStore::bind_lanes` + falsifiers in lance-graph-dt64 and the dir-sim lab | Queued |
+
 ## D-CGMM — Lazy Codegraph fact/demand + MeTTa class-method scratch (2026-11-04)
 
 **Implementation detail update (2026-11-04):** [Source→native blueprint](../plans/d-cgmm-implementation-blueprint-v1.md), [EXO gate ledger](../plans/d-cgmm-exo-gates-v1.md) and [fixed independent fixtures](../plans/d-cgmm-executable-fixtures-v1.md) refine the eight future stages. All executable fixtures are **NOT_RUN**, with expected pure COUNT=2 and tenant-A Set=3/Bag=4. The only authorized artifact is docs in draft PR #1958; owners of EXO-121/152/46/140/95/108/73 remain open gates.
