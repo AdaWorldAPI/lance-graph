@@ -1336,16 +1336,30 @@ fn bound_lane_fold_at_64k_allocates_nothing() {
         got = execute_into(&sum, &inputs, &Foreign::NONE, &mut scratch, Out::None).unwrap();
     }
     let hot = t.elapsed();
+    let t = Instant::now();
+    for _ in 0..PASSES {
+        let _ = binding
+            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .unwrap();
+    }
+    let socket = t.elapsed();
     let hot_allocations = allocations() - before;
 
+    // Scalar re-derivation over the plane bits (independent of Quack; the
+    // scan oracle is quadratic, and its parity is pinned at 300 slots in
+    // `bound_property_lanes_fold_under_the_ruler_selection`).
+    let p = &f.planes;
     let want: i64 = (0..n)
-        .filter(|&i| oracle_bound(&l, i).is_some())
+        .filter(|&i| {
+            bit(&p.forward, i) && bit(&p.backsync, i) && bit(&p.aligned, i) && bit(&p.cloud, i)
+        })
         .map(|i| i64::from(dir.department[i]))
         .sum();
     assert_eq!(got, Value::SumI64(want));
     assert_eq!(hot_allocations, 0, "the bound-lane hot path allocated");
     eprintln!(
-        "64K slots: check+borrow+SumI32 {} ns/pass | hot allocations {hot_allocations}",
-        hot.as_nanos() / u128::from(PASSES)
+        "64K slots: check+borrow+SumI32 {} ns/pass | check+borrow alone {} ns | hot allocations {hot_allocations}",
+        hot.as_nanos() / u128::from(PASSES),
+        socket.as_nanos() / u128::from(PASSES)
     );
 }
