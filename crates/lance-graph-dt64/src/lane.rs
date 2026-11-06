@@ -17,6 +17,7 @@
 //! is admitted here, so reading one through the other would be a gather.
 
 use lance_graph_contract::class_view::{ClassView, WideFieldMask};
+use lance_graph_contract::ontology::FieldRef;
 
 use crate::dr::{Frame, FrameRefusal, FrameStore, RouteVersion, Scope};
 use crate::{BindStore, Refusal, SchemaRev};
@@ -42,13 +43,25 @@ pub struct LaneAddr {
 /// the field is unbound, which is refused, never read as empty. `borrow`
 /// hands out the source's own lane; it must not copy, reorder or allocate a
 /// lane.
+///
+/// `basis` is the field DT64 resolved at `field` through the [`ClassView`] it
+/// validated. A source maps that field, never a position it read from a
+/// ClassView of its own: two views can agree on class, revision and field
+/// count and still order or name their fields differently.
 pub trait LaneSource {
     /// The borrowed lane (for example a mask-RISC `LaneRef`).
     type Lane<'a>
     where
         Self: 'a;
 
-    fn lane_of(&self, class: u32, rev: SchemaRev, field: u8, frame: &Frame) -> Option<LaneAddr>;
+    fn lane_of(
+        &self,
+        class: u32,
+        rev: SchemaRev,
+        field: u8,
+        basis: &FieldRef,
+        frame: &Frame,
+    ) -> Option<LaneAddr>;
 
     fn borrow(&self, addr: &LaneAddr) -> Option<Self::Lane<'_>>;
 }
@@ -150,17 +163,16 @@ impl BindStore {
             })?;
         current_route(self, req.route.position, class)?;
         let resolved = self.resolve(view, class, req.rev)?;
-        let basis = resolved.fields.len();
         let mut lanes = Vec::with_capacity(req.fields.count() as usize);
         for field in 0..=u8::MAX {
             if !req.fields.has(field) {
                 continue;
             }
-            if usize::from(field) >= basis {
+            let Some(field_ref) = resolved.fields.get(usize::from(field)) else {
                 return Err(LaneRefusal::FieldNotInBasis { class, field });
-            }
+            };
             let addr = source
-                .lane_of(class, req.rev, field, req.frame)
+                .lane_of(class, req.rev, field, field_ref, req.frame)
                 .ok_or(LaneRefusal::Unbound { class, field })?;
             admit_lane(field, &addr, req.scope, req.selection)?;
             lanes.push((field, addr));
@@ -259,10 +271,18 @@ impl LaneBinding {
     ) -> Result<(), LaneRefusal> {
         frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
         current_route(store, self.route.position, self.class)?;
-        store.resolve(view, self.class, self.rev)?;
+        let resolved = store.resolve(view, self.class, self.rev)?;
         for (field, addr) in &self.lanes {
             let field = *field;
-            match source.lane_of(self.class, self.rev, field, &self.frame) {
+            let field_ref =
+                resolved
+                    .fields
+                    .get(usize::from(field))
+                    .ok_or(LaneRefusal::FieldNotInBasis {
+                        class: self.class,
+                        field,
+                    })?;
+            match source.lane_of(self.class, self.rev, field, field_ref, &self.frame) {
                 Some(current) if current == *addr => {}
                 Some(_) => return Err(LaneRefusal::MappingChanged { field }),
                 None => {

@@ -75,7 +75,14 @@ impl Source {
 
 impl LaneSource for Source {
     type Lane<'a> = &'a [i32];
-    fn lane_of(&self, class: u32, rev: SchemaRev, field: u8, _frame: &Frame) -> Option<LaneAddr> {
+    fn lane_of(
+        &self,
+        class: u32,
+        rev: SchemaRev,
+        field: u8,
+        _basis: &FieldRef,
+        _frame: &Frame,
+    ) -> Option<LaneAddr> {
         if class != HYBRID || rev != SchemaRev(1) {
             return None;
         }

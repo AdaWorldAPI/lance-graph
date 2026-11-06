@@ -13,10 +13,11 @@
 //!   lane as a `LaneRef`. Nothing is copied.
 //! - **HOW** is Quack / mask-RISC, over the borrowed lanes.
 //!
-//! A field position resolves through the same [`ClassView`] basis DT64 checked
-//! (`view.fields(view_class(class))[field].predicate_iri`), then the
-//! [`Catalog`] (name → [`FieldId`]), then [`AbiBatch::column`] (FieldId → lane
-//! index). Name lookup happens per bind and per check, never per row.
+//! A field resolves from the basis entry DT64 validated and hands to
+//! `lane_of` (its `predicate_iri`), then the [`Catalog`] (name → [`FieldId`]),
+//! then [`AbiBatch::column`] (FieldId → lane index). The adapter holds no
+//! ClassView of its own, so it cannot disagree with DT64 about which field a
+//! position names. Name lookup happens per bind and per check, never per row.
 //!
 //! ## Admission scope
 //!
@@ -25,17 +26,17 @@
 //! - **Reader scope: NOT production-admitted.** DR has no authoritative issuer
 //!   of a reader [`Scope`] (it is a plain `{ id }` value), so this adapter
 //!   cannot certify which scope a batch serves. Its only constructor,
-//!   [`AbiLanes::unwitnessed`], exists under the test-only feature
-//!   `unwitnessed-scope` and takes the scope from the caller. A default build
-//!   has no way to construct an `AbiLanes`.
+//!   `AbiLanes::unwitnessed`, is `#[cfg(test)]`: it exists only inside this
+//!   crate's own unit tests, and no build of the library (any feature set)
+//!   can construct an `AbiLanes`.
 //! - **Writer:** none. This is a read adapter over resident lanes; durable
 //!   value ingress is out of scope.
 
 use std::sync::Arc;
 
-use lance_graph_contract::class_view::ClassView;
+use lance_graph_contract::ontology::FieldRef;
 use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
-use lance_graph_dt64::{view_class, CoordSpace, LaneAddr, LaneSource, SchemaRev};
+use lance_graph_dt64::{CoordSpace, LaneAddr, LaneSource, SchemaRev};
 use lance_graph_mask_risc::LaneRef;
 
 use crate::batch::{AbiBatch, LaneData};
@@ -58,28 +59,21 @@ pub enum PublishRefusal {
 
 /// A resident batch presented to DT64's lane socket.
 #[derive(Debug)]
-pub struct AbiLanes<'v, V: ClassView + ?Sized> {
-    view: &'v V,
-    catalog: &'v Catalog,
+pub struct AbiLanes<'c> {
+    catalog: &'c Catalog,
     batch: Arc<AbiBatch>,
     frames: FrameStore,
     scope: Scope,
 }
 
-impl<'v, V: ClassView + ?Sized> AbiLanes<'v, V> {
+impl<'c> AbiLanes<'c> {
     /// TEST ONLY. The caller asserts which reader scope the batch serves; no
-    /// DR authority stands behind it, which is why this constructor is not
-    /// available in a default build.
-    #[cfg(feature = "unwitnessed-scope")]
-    pub fn unwitnessed(
-        view: &'v V,
-        catalog: &'v Catalog,
-        batch: Arc<AbiBatch>,
-        scope: Scope,
-    ) -> Self {
+    /// DR authority stands behind it, which is why this exists only in this
+    /// crate's unit tests.
+    #[cfg(test)]
+    pub(crate) fn unwitnessed(catalog: &'c Catalog, batch: Arc<AbiBatch>, scope: Scope) -> Self {
         let frames = FrameStore::new(revisions_of(&batch));
         Self {
-            view,
             catalog,
             batch,
             frames,
@@ -144,21 +138,23 @@ fn space_of(batch: &AbiBatch) -> CoordSpace {
     }
 }
 
-impl<V: ClassView + ?Sized> LaneSource for AbiLanes<'_, V> {
+impl LaneSource for AbiLanes<'_> {
     type Lane<'a>
         = LaneRef<'a>
     where
         Self: 'a;
 
-    fn lane_of(&self, class: u32, _rev: SchemaRev, field: u8, frame: &Frame) -> Option<LaneAddr> {
+    fn lane_of(
+        &self,
+        _class: u32,
+        _rev: SchemaRev,
+        _field: u8,
+        basis: &FieldRef,
+        frame: &Frame,
+    ) -> Option<LaneAddr> {
         // Only this source's current frame addresses its lanes.
         self.frames.check(frame).ok()?;
-        let name = &self
-            .view
-            .fields(view_class(class))
-            .get(usize::from(field))?
-            .predicate_iri;
-        let id = self.catalog.field(name)?;
+        let id = self.catalog.field(&basis.predicate_iri)?;
         let (lane, column) = self.batch.column(id)?;
         match column.lane {
             LaneData::I32(_) | LaneData::U32(_) => Some(LaneAddr {
@@ -181,3 +177,6 @@ impl<V: ClassView + ?Sized> LaneSource for AbiLanes<'_, V> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -19,14 +19,4 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # report -> dt64 adds no cycle.
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 
-[features]
-# TEST ONLY: exposes `AbiLanes::unwitnessed`, which takes a reader scope from
-# the caller. DR has no authoritative scope issuer, so no production build
-# may enable this.
-unwitnessed-scope = []
-
-[[test]]
-name = "lane_socket"
-required-features = ["unwitnessed-scope"]
-
 [dev-dependencies]

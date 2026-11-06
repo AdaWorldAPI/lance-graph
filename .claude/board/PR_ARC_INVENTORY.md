@@ -1,3 +1,10 @@
+## 2026-11-06 — lance-graph PR #1969 (merged `53e849a`) — D-LANESOCK-2: AbiBatch lanes through the DT64 lane socket
+
+- **Added:** `lance-graph-report::AbiLanes` (`LaneSource` over a resident `AbiBatch`, `publish`, `PublishRefusal`); `AbiBatch` column cap `MAX_COLUMNS` with a checked `u16` lane index (Codex P2: `i as u16` wrapped column 65,536 onto column 0 for every caller); `RegistryClassView` concept-half key test; `rust-test.yml` runs the report tests.
+- **Locked (measured):** pointer-equal borrowing; two Quack folds over one binding match an independent scalar oracle; zero hot allocations on reuse; refusals for a published replacement, old row order, foreign frame, foreign source store, re-route, other coordinate space, unknown / absent / `U64` field, out-of-basis position and foreign scope; seven guards disable-verified red-then-green.
+- **Not done:** no production constructor (no DR reader-scope witness); no writer or value ingress; exact decimal, codebook and D4/S-INGRESS open; `RegistryClassView` DOLCE `entity_type_id` defect pinned, not fixed. Found afterwards (D-LANESOCK-3): `AbiLanes` read a ClassView of its own and could disagree with DT64's basis; the `unwitnessed-scope` feature exposed the constructor to any build that enabled it.
+- **Confidence:** CI green on the merged head.
+
 ## 2026-11-06 — lance-graph PRs #1964–#1967 (merged `9ca5daa`), with OGAR #371 — hybrid ordinal chain, Ruler-plane selection, DR × DT64 lane socket
 
 - **Added:**
