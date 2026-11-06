@@ -32,9 +32,11 @@ synthesizer has more material to work with.
 
 ## Mandatory reads (BEFORE producing output)
 
-1. `.claude/board/EPIPHANIES.md` — the full corpus. Skim every entry's
+1. `.claude/board/EPIPHANIES.md` — the full (frozen) corpus. Skim every entry's
    one-line header so you can recognize when a "new" claim is the
    second-order consequence of an existing one (or the inverse of one).
+   Epiphanies since 2026-11-06 are in Linear `P-EXO-12`
+   (**lance-graph · Epiphanies**); search them there too.
 2. `.claude/plans/` — the active integration plans + their `-v<N>.md`
    versions. Plans are where finding-clusters live; an epiphany that
    matches a plan's stated goal might be a re-derivation of that

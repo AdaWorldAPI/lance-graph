@@ -75,9 +75,11 @@ to the working tree.
    shipped, what's queued, what's explicitly deferred. **What exists.**
 2. `.claude/board/PR_ARC_INVENTORY.md` — per-PR Added / Locked / Deferred /
    Docs / Confidence (reverse-chronological, APPEND-ONLY). **Why it exists.**
-3. `.claude/board/AGENT_LOG.md` — recent entries (top ~10). Peer awareness:
-   who is in flight on the same branch, what was just shipped that affects
-   your scope, what gotchas the previous wave logged.
+3. Linear project **lance-graph · Agent2Agent Board** (`P-EXO-10`) — recent
+   issues and comments; `.claude/board/AGENT_LOG.md` (frozen, top ~10) for
+   history. Peer awareness: who is in flight on the same branch, what was
+   just shipped that affects your scope, what gotchas the previous wave
+   logged. Read only; do not post (⊘ 2026-11-06: the orchestrator posts).
 
 ### Tier 1 (domain-triggered; orchestrator selects per the trigger table)
 
@@ -326,6 +328,9 @@ The worker MUST NOT, under any circumstance:
    `STATUS_BOARD.md`, `EPIPHANIES.md`, `LATEST_STATE.md`,
    `PR_ARC_INVENTORY.md`, `TECH_DEBT.md`, `ISSUES.md`,
    `INTEGRATION_PLANS.md`. Main thread prepends entries post-fleet.
+   Agent-run records and epiphanies no longer go in `AGENT_LOG.md` /
+   `EPIPHANIES.md` (frozen, ⊘ 2026-11-06): the orchestrator posts them to
+   Linear `P-EXO-10` / `P-EXO-12`.
    **Exception (per §10):** SOME governance workers are explicitly
    scoped to update these — the orchestrator marks such prompts with
    `**Worker class:** governance`. Default impl workers stay out.
@@ -387,7 +392,7 @@ classes have different `forbidden actions` overrides:
 | Class | Examples | May edit board files? | May commit? |
 |---|---|---|---|
 | **impl** | new types, new modules, new tests | No | No |
-| **governance** | `TYPE_DUPLICATION_MAP.md` refresh, `TECH_DEBT.md` sweep, `ISSUES.md` triage, `EPIPHANIES.md` prepend | Yes (the specific files listed in scope) | No (orchestrator commits) |
+| **governance** | `TYPE_DUPLICATION_MAP.md` refresh, `TECH_DEBT.md` sweep, `ISSUES.md` triage (epiphanies: orchestrator files Linear `P-EXO-12`; `EPIPHANIES.md` is frozen) | Yes (the specific files listed in scope) | No (orchestrator commits) |
 | **spec** | `.claude/specs/<name>.md`, `.claude/plans/<name>-v<N>.md` | No (specs/plans live under `.claude/`, not `.claude/board/`) | No |
 | **knowledge** | `.claude/knowledge/<topic>.md` with `READ BY:` header | No | No |
 | **meta-review** | `sprint-log-NN/meta-review.md`, `meta-review-opus.md` | Yes (the meta-review file itself) | No |
@@ -427,7 +432,7 @@ considered them.
 Tier 0:
 1. `.claude/board/LATEST_STATE.md`
 2. `.claude/board/PR_ARC_INVENTORY.md`
-3. `.claude/board/AGENT_LOG.md` (top ~10 entries for peer awareness)
+3. Linear `P-EXO-10` Agent2Agent Board (recent issues) and `.claude/board/AGENT_LOG.md` (frozen, top ~10) for peer awareness; read only
 
 Tier 1 (domain-triggered for THIS deliverable):
 - <`.claude/knowledge/<doc1>.md`>

@@ -78,7 +78,7 @@ before it goes to the operator; when tests 1 or 2 fire, the map must offer
 | # | scout | ring | reads | returns |
 |---|---|---|---|---|
 | 1 | **code cartographer** | inside | the internal surface, first-hand (`FIRST-HAND-SOURCE-LAW.md`) | what exists, graded `VERIFIED-IN-CODE` / `CLAIMED` (doc says so, code not read) / `ABSENT` (named, closed search space only) |
-| 2 | **internal prior art** (`prior-art-savant` lens) | inside | board entries, `EPIPHANIES.md`, plans, knowledge docs | earlier explorations, rulings and rejected ideas, with ids. A previously rejected idea is returned with its rejection |
+| 2 | **internal prior art** (`prior-art-savant` lens) | inside | board entries, `EPIPHANIES.md` (frozen) and Linear `P-EXO-12` (epiphanies since 2026-11-06), plans, knowledge docs | earlier explorations, rulings and rejected ideas, with ids. A previously rejected idea is returned with its rejection |
 | 3 | **literature scout** | outside | arXiv and papers (alphaXiv tools, web) | mechanisms, each with the paper id and a read grade |
 | 4 | **systems scout** | outside | known systems: DuckDB, Odoo, PostgreSQL, Datalog engines, bitmap indexes, Lance / Arrow, and the like | how they solve the question: design, invariants, known failure modes, licence |
 | 5 | **concepts and ontology scout** | outside | standards and concept frameworks: OWL, DOLCE, OGIT, schema.org, relational and lattice theory, formal concept analysis | the established vocabulary and how it maps onto ours |
@@ -163,8 +163,9 @@ found" is never read as "nothing exists".
   a delicate one goes through `/5plus3`.
 - A knowledge doc is written only when the operator asks for one, or when
   the outside ring will clearly be reused (as the 2026-06 doc was).
-- `EPIPHANIES.md` only through the § Closeout admission gate, never directly
-  from a council run.
+- An epiphany (Linear `P-EXO-12`; `EPIPHANIES.md` is frozen, ⊘ 2026-11-06)
+  only through the § Closeout admission gate, never directly from a council
+  run.
 - Close with the one-line closeout record, and a `MIRROR` only if it
   carries something.
 

@@ -327,7 +327,7 @@ the count line at the top must match the number of rows.
 | `creative-explorer-savant` | opus | The "different views" lens in the epiphany-brainstorm-council. |
 | `cypher-lowering-warden` | opus | Guards the Cypher → Quack seam. |
 | `dto-soa-savant` | opus | Judges a proposed epiphany against the BindSpace four-column SoA discipline + the lab-vs-canonical-surface invariant. |
-| `epiphany-brainstorm-council` | opus | Pre-merge council for newly-proposed entries to `EPIPHANIES.md`. |
+| `epiphany-brainstorm-council` | opus | Pre-merge council for newly-proposed epiphanies (Linear `P-EXO-12`). |
 | `family-codec-smith` | opus | Shapes HEEL/HIP/BRANCH/TWIG/LEAF representation choices, role-aware codebooks, palettes, residuals, and family purity benchmarks. |
 | `fold-carrier-scientist` | opus | Owns the separation between what a population MEANS and how it is physically carried and scheduled: dense/sparse/run carriers, survivor gating, push/pull, la… |
 | `guarded-executor` | haiku | Haiku executor for a pre-written, numbered command card (cargo -p ..., probes, test gates). |
