@@ -1,4 +1,8 @@
-## 2026-11-06 — branch `ccr-fd2682ed-sai06j-lanesock-harden` (D-LANESOCK-3, in PR)
+## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
+
+- Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.
+
+## 2026-11-06 — main after #1970 (merged `fb27c46`, D-LANESOCK-3)
 
 - `LaneSource::lane_of` takes the `FieldRef` DT64 validated (`basis`); `AbiLanes` holds no ClassView. A check through a reordered ClassView of equal class, revision and count refuses `MappingChanged`.
 - `AbiLanes::unwitnessed` is `#[cfg(test)]`; the `unwitnessed-scope` feature is gone, so no build (any features) constructs an `AbiLanes`.

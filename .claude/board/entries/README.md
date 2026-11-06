@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-582 entries, 2026-08-06 .. 2026-11-06.
+583 entries, 2026-08-06 .. 2026-11-06.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-06 | `ruler-plane-batch-selection-lab` |  | [2026-11-06-ruler-plane-batch-selection-lab.md](2026-11-06-ruler-plane-batch-selection-lab.md) |
+| 2026-11-06 | `D-LANESOCK-4` |  | [2026-11-06-reader-scope-seam-inventory.md](2026-11-06-reader-scope-seam-inventory.md) |
 | 2026-11-06 | `D-LANESOCK-3` |  | [2026-11-06-lanesock-one-field-basis.md](2026-11-06-lanesock-one-field-basis.md) |
 | 2026-11-06 | `D-LANESOCK-2` |  | [2026-11-06-abibatch-lane-socket.md](2026-11-06-abibatch-lane-socket.md) |
 | 2026-11-05 | `hybrid-ordinal-chain-lab-v2` |  | [2026-11-05-hybrid-ordinal-chain-lab-v2.md](2026-11-05-hybrid-ordinal-chain-lab-v2.md) |
