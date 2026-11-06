@@ -2,8 +2,8 @@
 
 | D-id | Deliverable | State |
 | --- | --- | --- |
-| D-LANESOCK-0 | normative spec: socket, joint version witness, refusals | In PR |
-| D-LANESOCK-1 | `LaneSource` + `BindStore::bind_lanes` + falsifiers in lance-graph-dt64 and the dir-sim lab | Queued |
+| D-LANESOCK-0 | normative spec: socket, joint version witness, refusals | Shipped (#1966) |
+| D-LANESOCK-1 | `LaneSource` + `BindStore::bind_lanes` + falsifiers in lance-graph-dt64 and the dir-sim lab | In PR |
 
 ## D-CGMM — Lazy Codegraph fact/demand + MeTTa class-method scratch (2026-11-04)
 

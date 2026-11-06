@@ -88,7 +88,9 @@ use lance_graph_contract::set_rules::{Population, Truth};
 pub mod dr;
 
 pub use dr::{Axis, Claim, Extent, RouteVersion, Width, MAX_RESERVED};
+pub mod lane;
 use dr::{RouteLog, RouteRefusal};
+pub use lane::{CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource, RouteAt};
 
 /// A method's identity within its class, independent of its source name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
