@@ -26,7 +26,7 @@ use lance_graph_dt64::{
 use lance_graph_mask_risc::{
     execute_into, Foreign, LaneRef, Out, Planes as QueryPlanes, Scratch, Value,
 };
-use lance_graph_quack::{lower, Agg, Col, Filter, Mask, Query};
+use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, Mask, Query};
 use ogar_dir_core::correspond::{
     fold, fold_aligned, state, AdStatus, IdColumn, Index, Lanes, Output, Planes, Rows, Ruler,
     NO_ROW,
@@ -996,5 +996,356 @@ fn batch_selection_at_64k_allocates_nothing() {
         cold.as_micros(),
         keep_time.as_nanos() / u128::from(PASSES),
         count_time.as_nanos() / u128::from(PASSES),
+    );
+}
+
+// ---- D-LANESOCK-1: property lanes through the DR × DT64 socket --------------
+//
+// The selection is the Ruler-plane batch above, in AD slot space (slot i is
+// AD row i). The properties are AD-owned lanes, already in that row order,
+// borrowed through `lance_graph_dt64::LaneSource`. An Entra-owned lane is in
+// Entra row order and is refused, never re-indexed.
+
+mod lanesock {
+    use super::*;
+    use lance_graph_contract::class_view::{ClassId, ClassView};
+    use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
+    use lance_graph_dt64::dr::Scope;
+    use lance_graph_dt64::{
+        CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource, RouteAt,
+    };
+
+    pub const HYBRID_USER: u32 = 0x0C1B_0001;
+    const VIEW_CLASS: ClassId = 0x0C1B;
+    pub const POSITION: u16 = 3;
+    pub const READER: Scope = Scope { id: 1 };
+    pub const DEPARTMENT: u8 = 0;
+    pub const COST_CENTER: u8 = 1;
+    pub const LICENSES: u8 = 2;
+
+    pub struct View(pub Vec<FieldRef>);
+    impl ClassView for View {
+        fn fields(&self, class: ClassId) -> &[FieldRef] {
+            if class == VIEW_CLASS {
+                &self.0
+            } else {
+                &[]
+            }
+        }
+        fn template(&self, _class: ClassId) -> DisplayTemplate {
+            DisplayTemplate::Detail
+        }
+        fn dolce_category_id(&self, _class: ClassId) -> u8 {
+            0
+        }
+    }
+
+    pub fn view() -> View {
+        View(vec![
+            FieldRef::new("ad:department", "Department"),
+            FieldRef::new("ad:costCenter", "Cost centre"),
+            FieldRef::new("entra:licenseCount", "Licenses"),
+        ])
+    }
+
+    /// The source owner: AD lanes in AD row order, an Entra lane in Entra row
+    /// order. It hands out its own slices.
+    pub struct Directory {
+        pub ad_space: CoordSpace,
+        pub entra_space: CoordSpace,
+        pub department: Vec<i32>,
+        pub cost_center: Vec<i32>,
+        pub licenses: Vec<i32>,
+    }
+
+    impl Directory {
+        pub fn over(l: &Lanes, coordinates: u64) -> Directory {
+            Directory {
+                ad_space: CoordSpace {
+                    population: 1,
+                    coordinates,
+                },
+                entra_space: CoordSpace {
+                    population: 2,
+                    coordinates,
+                },
+                department: (0..l.ad.len()).map(|i| (i % 7) as i32).collect(),
+                cost_center: (0..l.ad.len()).map(|i| ((i * 37) % 300) as i32).collect(),
+                licenses: (0..l.entra.len()).map(|j| (j % 50) as i32).collect(),
+            }
+        }
+    }
+
+    impl LaneSource for Directory {
+        type Lane<'a> = LaneRef<'a>;
+        fn lane_of(
+            &self,
+            class: u32,
+            rev: SchemaRev,
+            field: u8,
+            _frame: &Frame,
+        ) -> Option<LaneAddr> {
+            if class != HYBRID_USER || rev != SchemaRev(1) {
+                return None;
+            }
+            let (space, lane) = match field {
+                DEPARTMENT => (self.ad_space, 0),
+                COST_CENTER => (self.ad_space, 1),
+                LICENSES => (self.entra_space, 2),
+                _ => return None,
+            };
+            Some(LaneAddr {
+                space,
+                lane,
+                scope: READER,
+            })
+        }
+        fn borrow(&self, addr: &LaneAddr) -> Option<LaneRef<'_>> {
+            Some(LaneRef::I32(match addr.lane {
+                0 => &self.department,
+                1 => &self.cost_center,
+                2 => &self.licenses,
+                _ => return None,
+            }))
+        }
+    }
+
+    pub fn method(id: u32, reads: u8) -> MethodBinding {
+        MethodBinding {
+            id: MethodId(id),
+            sig_rev: SigRev(1),
+            name: format!("op{id}"),
+            on: WideFieldMask::EMPTY,
+            when: None,
+            reads: WideFieldMask::from_positions(&[reads]),
+            effects: Vec::new(),
+            population: Population::Distinct,
+            truth: Truth::TwoValued,
+            demand: ValueDemand::Values,
+        }
+    }
+
+    pub struct Bound {
+        pub store: BindStore,
+        pub view: View,
+        pub frames: FrameStore,
+        pub frame: Frame,
+        pub route: RouteAt,
+    }
+
+    pub fn bound() -> Bound {
+        let mut store = BindStore::new();
+        store
+            .register(
+                HYBRID_USER,
+                ClassSchema {
+                    schema_rev: SchemaRev(1),
+                    field_count: 3,
+                    extent: Extent::DR64_CUBE,
+                },
+                vec![method(1, DEPARTMENT), method(2, COST_CENTER)],
+            )
+            .unwrap();
+        let version = store.route(POSITION, HYBRID_USER).unwrap();
+        let frames = FrameStore::new(revisions(1, 1, 1));
+        let frame = frames.seal();
+        Bound {
+            store,
+            view: view(),
+            frames,
+            frame,
+            route: RouteAt {
+                position: POSITION,
+                version,
+            },
+        }
+    }
+
+    pub fn bind(
+        b: &Bound,
+        dir: &Directory,
+        fields: &[u8],
+        selection: CoordSpace,
+    ) -> Result<LaneBinding, LaneRefusal> {
+        let mask = WideFieldMask::from_positions(fields);
+        b.store.bind_lanes(
+            &b.view,
+            &b.frames,
+            dir,
+            LaneRequest {
+                route: b.route,
+                rev: SchemaRev(1),
+                fields: &mask,
+                frame: &b.frame,
+                scope: READER,
+                selection,
+            },
+        )
+    }
+}
+
+/// Two properties of one ClassView basis, selected by one WideFieldMask,
+/// bound under a witnessed frame; a DT64-admitted method drives a Quack fold
+/// over a borrowed lane, and the same binding drives a second operation.
+/// Scalar oracle parity on every seed.
+#[test]
+fn bound_property_lanes_fold_under_the_ruler_selection() {
+    use lanesock::*;
+    for seed in [2_u64, 13, 77] {
+        let l = faulted(300, seed);
+        let f = Fold::new(&l);
+        let b = bound();
+        let dir = Directory::over(&l, 1);
+        let binding = bind(&b, &dir, &[DEPARTMENT, COST_CENTER], dir.ad_space).unwrap();
+        assert!(binding.fields().has(DEPARTMENT) && binding.fields().has(COST_CENTER));
+
+        // Operation 1: the admitted method's `reads` names the lane it folds.
+        let m1 = MethodRef::of(HYBRID_USER, &method(1, DEPARTMENT));
+        let admitted = b.store.admit(&m1).unwrap();
+        assert!(admitted.reads.has(DEPARTMENT) && binding.fields().has(DEPARTMENT));
+        let sum = lowered(confirmed_hybrid(), Agg::SumI32(Col(0)));
+        let dept = binding
+            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .unwrap();
+        let masks = plane_refs(&f.planes);
+        let lanes = [dept];
+        let inputs = QueryPlanes {
+            n_rows: f.n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut scratch = Scratch::for_program(&sum, f.n).unwrap();
+        let got = execute_into(&sum, &inputs, &Foreign::NONE, &mut scratch, Out::None).unwrap();
+
+        // Operation 2, same binding: confirmed ∧ cost_center > 150, counted.
+        let m2 = MethodRef::of(HYBRID_USER, &method(2, COST_CENTER));
+        assert!(b.store.admit(&m2).unwrap().reads.has(COST_CENTER));
+        let count = lowered(
+            Filter::and([confirmed_hybrid(), Filter::cmp(Col(0), Cmp::GtI32(150))]),
+            Agg::Count,
+        );
+        let cost = binding
+            .lane(&b.store, &b.view, &b.frames, &dir, COST_CENTER)
+            .unwrap();
+        let lanes = [cost];
+        let inputs = QueryPlanes {
+            n_rows: f.n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let mut scratch = Scratch::for_program(&count, f.n).unwrap();
+        let counted =
+            execute_into(&count, &inputs, &Foreign::NONE, &mut scratch, Out::None).unwrap();
+
+        // Independent scalar oracle over the raw lanes.
+        let confirmed: Vec<usize> = (0..f.n)
+            .filter(|&i| oracle_bound(&l, i).is_some())
+            .collect();
+        let want_sum: i64 = confirmed
+            .iter()
+            .map(|&i| i64::from(dir.department[i]))
+            .sum();
+        let want_count = confirmed
+            .iter()
+            .filter(|&&i| dir.cost_center[i] > 150)
+            .count();
+        assert_eq!(got, Value::SumI64(want_sum), "seed {seed}");
+        assert_eq!(counted, Value::Count(want_count), "seed {seed}");
+        assert!(
+            want_count > 0 && want_count < confirmed.len(),
+            "seed {seed}: non-trivial filter"
+        );
+    }
+}
+
+/// The Ruler selection is in AD slot space; an Entra-owned lane is in Entra
+/// row order. Binding it under the AD selection refuses instead of reading
+/// Entra values at AD positions.
+#[test]
+fn an_entra_lane_is_refused_under_an_ad_selection() {
+    use lanesock::*;
+    let l = faulted(130, 4);
+    let b = bound();
+    let dir = Directory::over(&l, 1);
+    assert_eq!(
+        bind(&b, &dir, &[DEPARTMENT, LICENSES], dir.ad_space).err(),
+        Some(lance_graph_dt64::LaneRefusal::CoordinateSpace {
+            field: LICENSES,
+            selection: dir.ad_space,
+            lane: dir.entra_space,
+        })
+    );
+}
+
+/// After the source reorders its AD rows and advances the frame, the old
+/// binding refuses; a rebind under the new frame folds the reordered lanes.
+#[test]
+fn a_reordered_source_refuses_the_old_binding() {
+    use lanesock::*;
+    let l = faulted(130, 6);
+    let mut b = bound();
+    let dir = Directory::over(&l, 1);
+    let binding = bind(&b, &dir, &[DEPARTMENT], dir.ad_space).unwrap();
+    b.frames.advance(revisions(1, 1, 2));
+    assert_eq!(
+        binding.check(&b.store, &b.view, &b.frames, &dir),
+        Err(lance_graph_dt64::LaneRefusal::Frame(
+            FrameRefusal::CoordinatesChanged
+        ))
+    );
+    b.frame = b.frames.seal();
+    let dir2 = Directory::over(&l, 2);
+    assert!(bind(&b, &dir2, &[DEPARTMENT], dir2.ad_space).is_ok());
+    // The old directory's row-order revision no longer matches the selection.
+    assert!(matches!(
+        bind(&b, &dir, &[DEPARTMENT], dir2.ad_space),
+        Err(lance_graph_dt64::LaneRefusal::CoordinateSpace { .. })
+    ));
+}
+
+/// The hot path — revalidate the binding, borrow the lane, run the fold —
+/// allocates nothing, at 64K slots.
+#[test]
+fn bound_lane_fold_at_64k_allocates_nothing() {
+    use lanesock::*;
+    use std::time::Instant;
+    let n = 1 << 16;
+    let l = faulted(n, 0xFEED);
+    let f = Fold::new(&l);
+    let b = bound();
+    let dir = Directory::over(&l, 1);
+    let binding = bind(&b, &dir, &[DEPARTMENT, COST_CENTER], dir.ad_space).unwrap();
+    let sum = lowered(confirmed_hybrid(), Agg::SumI32(Col(0)));
+    let mut scratch = Scratch::for_program(&sum, n).unwrap();
+    let masks = plane_refs(&f.planes);
+
+    const PASSES: u32 = 200;
+    let before = allocations();
+    let t = Instant::now();
+    let mut got = Value::SumI64(0);
+    for _ in 0..PASSES {
+        let dept = binding
+            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .unwrap();
+        let lanes = [dept];
+        let inputs = QueryPlanes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        got = execute_into(&sum, &inputs, &Foreign::NONE, &mut scratch, Out::None).unwrap();
+    }
+    let hot = t.elapsed();
+    let hot_allocations = allocations() - before;
+
+    let want: i64 = (0..n)
+        .filter(|&i| oracle_bound(&l, i).is_some())
+        .map(|i| i64::from(dir.department[i]))
+        .sum();
+    assert_eq!(got, Value::SumI64(want));
+    assert_eq!(hot_allocations, 0, "the bound-lane hot path allocated");
+    eprintln!(
+        "64K slots: check+borrow+SumI32 {} ns/pass | hot allocations {hot_allocations}",
+        hot.as_nanos() / u128::from(PASSES)
     );
 }
