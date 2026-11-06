@@ -130,6 +130,29 @@ The missing seam is a witness that seals an authorized decision (decision + row 
 - report-rs's ZITADEL login and its `RoleScopeAuthority` are a downstream integration point that would supply the actor to this chain, not a second upstream identity authority.
 - Source status (available, stale, unknown) is reported only from observed evidence.
 
+### Reader-scope seam: where it can live (2026-11-06, D-LANESOCK-4)
+
+Read in code at lance-graph `fb27c46`, OGAR main and report-rs `83093de`. Nothing here is built.
+
+**Authentication.** OGAR `ogar_auth::federation::VerifiedLogin` is the proof of a login: private fields, no public constructor, `From` or `Default`; `establish` is its only producer (`ogar-auth/src/federation.rs:199-213`). `AuthenticatedUser` is not a proof: its fields are public and its own docs call it "descriptive, not a proof" (`ogar-auth/src/user.rs:296-308`).
+
+**Authorization.** `ogar_rbac::authorize_identity(&RbacBinding, &AuthenticatedUser, class, op) -> MembershipDecision` (`ogar-rbac/src/lib.rs:327`) and `OgarRbac::authorize_user -> ScopedDecision` (`:155`) run the `lance-graph-rbac` kernels. A decision carries allow/deny, a row scope and a field mask, but no actor, class, frame or issuer identity: it is a value, not a witness. `scope: None` means at least one granting membership is unscoped.
+
+**DR.** `dr::Scope { pub id: u64 }` is compared by equality only (`dr.rs:503`, `lane.rs:209`). Every literal construction in lance-graph and OGAR is in a test, example or probe crate (about 50 sites). The sealing precedent is `FrameStore` / `Frame`: issuer identity, no public constructor, two stores never equal. `GuardWitness` is the other precedent and is value-derived (equal guards, equal witnesses), so it cannot carry authority.
+
+**Dependency direction.** `lance-graph-dt64` and `lance-graph-rbac` each depend only on the contract; OGAR depends on lance-graph (`ogar-rbac` → `lance-graph-rbac`), never the reverse. An issuer that starts from `VerifiedLogin` therefore lives in OGAR or a downstream consumer, not in lance-graph.
+
+**Shape the code admits.**
+
+1. dt64 gains a sealed reader scope next to `Scope`, issued by its own store like `FrameStore` issues `Frame`. A new type, so the test literals of `Scope` stay valid; the lane socket would compare the sealed scope instead of the bare id.
+2. The issuer holds that store, lives in OGAR or downstream, and issues only from a `VerifiedLogin` through `authorize_identity`, binding actor, class, row scope, field mask and policy version, checked against the frame it was issued for.
+3. It keeps the rules above, plus: nothing keys on a hand-built `AuthenticatedUser`.
+
+**Downstream observations (report-rs `83093de`, reported to its owner, not changed here).**
+
+- `LanceGraphScope::decide_in` maps `scope: None` to all customers (`src/iam.rs:231`). Safe today only because report-rs's actor source emits `None` solely for an explicit all-customers grant.
+- `RoleScopeAuthority::scope_for(&AuthenticatedUser)` (`src/flow_scratch.rs`, around 288-306) binds the user id from a `VerifiedLogin` at construction but accepts any `AuthenticatedUser` with that id. The trait is OGAR's (`ReportAuthority`, `ogar-flow-m365/src/host.rs:88`).
+
 ### Still closed
 
 Value ingress and the durable workbook writer; D4/S-INGRESS and layout admission; text/codebook authority; exact decimal; production CRM_COMPANY XVERWEIS; cross-coordinate Gather, ADMISSION B, NotASide, OP-14; the `RegistryClassView` DOLCE `entity_type_id` defect (tracked separately).

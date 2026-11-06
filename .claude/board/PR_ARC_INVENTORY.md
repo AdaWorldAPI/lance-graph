@@ -1,3 +1,10 @@
+## 2026-11-06 — lance-graph PR #1970 (merged `fb27c46`) — D-LANESOCK-3: one field basis, test-only scope admission
+
+- **Added:** `LaneSource::lane_of(.., basis: &FieldRef, ..)` carries the field DT64 validated; `AbiLanes` holds no ClassView; three implementers updated; `AbiLanes::unwitnessed` and its suite moved to `#[cfg(test)]`, the `unwitnessed-scope` feature removed; spec §8 consumer contract and reader-scope inventory; board for #1969.
+- **Locked (measured):** RED reproducer at `49d11c2` (a reordered ClassView of equal class, revision and count returned another lane); after the fix a check through it refuses `MappingChanged`; disable run turns the test red; report crate 55 tests.
+- **Not done:** no reader-scope issuer; no production admission; value ingress, writer, codebook, exact decimal, D4/S-INGRESS open.
+- **Confidence:** CI green on the merged head.
+
 ## 2026-11-06 — lance-graph PR #1969 (merged `53e849a`) — D-LANESOCK-2: AbiBatch lanes through the DT64 lane socket
 
 - **Added:** `lance-graph-report::AbiLanes` (`LaneSource` over a resident `AbiBatch`, `publish`, `PublishRefusal`); `AbiBatch` column cap `MAX_COLUMNS` with a checked `u16` lane index (Codex P2: `i as u16` wrapped column 65,536 onto column 0 for every caller); `RegistryClassView` concept-half key test; `rust-test.yml` runs the report tests.
