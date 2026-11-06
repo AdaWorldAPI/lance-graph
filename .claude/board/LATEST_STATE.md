@@ -1,7 +1,14 @@
-## 2026-11-06 — branch `ccr-fd2682ed-sai06j-abi-lanes` (D-LANESOCK-2, in PR)
+## 2026-11-06 — branch `ccr-fd2682ed-sai06j-lanesock-harden` (D-LANESOCK-3, in PR)
 
-- `lance-graph-report::AbiLanes` (`lane_source` module): `LaneSource` over a resident `AbiBatch`; `PublishRefusal`. Field positions via ClassView basis → `Catalog` → `FieldId`; I32/U32 lanes only; one `FrameStore` per source over `(SourceId, generation)`. No production constructor (no DR reader-scope witness); test-only feature `unwitnessed-scope`.
-- `rust-test.yml` now runs the `lance-graph-report` tests (plain and the lane-socket suite).
+- `LaneSource::lane_of` takes the `FieldRef` DT64 validated (`basis`); `AbiLanes` holds no ClassView. A check through a reordered ClassView of equal class, revision and count refuses `MappingChanged`.
+- `AbiLanes::unwitnessed` is `#[cfg(test)]`; the `unwitnessed-scope` feature is gone, so no build (any features) constructs an `AbiLanes`.
+- Spec §8: downstream consumer contract (Cockpit / Hub / Matrix over one scoped projection) and the reader-scope witness inventory.
+
+## 2026-11-06 — main after #1969 (merged `53e849a`)
+
+- `lance-graph-report::AbiLanes` (`lane_source` module): `LaneSource` over a resident `AbiBatch`; `PublishRefusal`. Field positions via ClassView basis → `Catalog` → `FieldId`; I32/U32 lanes only; one `FrameStore` per source over `(SourceId, generation)`. No production constructor (no DR reader-scope witness).
+- `AbiBatch` holds at most `MAX_COLUMNS` (65,536) columns; `column()` returns a checked `u16` lane index.
+- `rust-test.yml` now runs the `lance-graph-report` tests.
 - Open: value ingress, durable writer, codebook, exact decimal, D4/S-INGRESS; `RegistryClassView` `entity_type_id` vs concept-key DOLCE defect.
 
 ## 2026-11-06 — main after #1964–#1967 (merged `9ca5daa`), OGAR #371

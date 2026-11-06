@@ -35,12 +35,13 @@ pub struct LaneAddr { pub space: CoordSpace, pub lane: u16, pub scope: Scope }
 
 pub trait LaneSource {
     type Lane<'a> where Self: 'a;            // the borrowed lane (e.g. mask-RISC LaneRef)
-    fn lane_of(&self, class: u32, rev: SchemaRev, field: u8, frame: &Frame) -> Option<LaneAddr>;
+    fn lane_of(&self, class: u32, rev: SchemaRev, field: u8, basis: &FieldRef, frame: &Frame)
+        -> Option<LaneAddr>;
     fn borrow(&self, addr: &LaneAddr) -> Option<Self::Lane<'_>>;
 }
 ```
 
-`None` from `lane_of` is UNBOUND and is refused, never read as empty. `borrow` hands out the source's own lane; it never copies, reorders or allocates a lane.
+`basis` is the field DT64 resolved at `field` through the `ClassView` it validated (amended by D-LANESOCK-3: a source that read a ClassView of its own could disagree with DT64 on field order or identity at equal class, revision and count, and returned another lane). A source maps `basis`, never a position. `None` from `lane_of` is UNBOUND and is refused, never read as empty. `borrow` hands out the source's own lane; it never copies, reorders or allocates a lane.
 
 ## 3. The joint witness (DT64)
 
@@ -93,3 +94,42 @@ Gather ban, ADMISSION B, NotASide, OP-14, DRISA M1/M2, D4/S-INGRESS. The socket 
 3. A DT64-admitted method drives one Quack fold over a borrowed lane; the same binding drives a second operation on the other lane.
 4. Independent scalar oracle parity; zero hot allocations.
 5. Each refusal in §4 fires on a realistic input, and a disabled guard turns its test red.
+
+## 8. Downstream consumer contract (handoff, not wiring)
+
+The report-rs Cockpit (`/view/mobile`), Hub (`/view`) and Matrix (`/`) are three lenses over one scoped projection (report-rs #43). When they move onto source-backed lanes, they consume one answer through this chain and add nothing upstream:
+
+```text
+authoritative role/customer scope
+  → admitted source population and frame          (source owner, DR FrameStore)
+  → DT64 property binding                         (BindStore::bind_lanes, one field basis)
+  → borrowed source-owned lanes                   (LaneSource::borrow, e.g. AbiLanes)
+  → Quack                                          (admitted MethodRef, one evaluator)
+  → authorized projection                          (field mask ∩ row scope)
+  → Cockpit / Hub / Matrix                         (presentation only)
+```
+
+No lens gets its own lane binding, KPI evaluator, SoA or storage in lance-graph. A KPI is a Quack fold over the same binding; the three surfaces differ only in what they render.
+
+### Reader-scope witness: inventory (2026-11-06)
+
+`dr::Scope` is a bare `{ id: u64 }`; nothing issues it with authority, so no production `LaneSource` may be constructed yet (`AbiLanes` has only a `#[cfg(test)]` constructor). Existing authority pieces, read in code:
+
+| Piece | Where | What it yields |
+|---|---|---|
+| `RbacAuthority::bind(&RbacPlug) -> RbacBinding` | `lance-graph-contract/src/rbac_plug.rs` | grants for exactly the plugged classids and roles; private fields, no `Default` (fails closed) |
+| `authorize_scoped` → `ScopedDecision { decision, scope: Option<ScopeSpec>, field_mask }` | `lance-graph-rbac/src/authorize.rs` | stage-1 verdict, restrictive-AND row scope, union field mask |
+| `authorize_memberships` → `MembershipDecision { decision, scope: Option<ScopeSet>, field_mask }` | `lance-graph-rbac/src/authorize.rs` | the same over per-membership scopes |
+| `ogar_rbac::authorize_identity(&RbacBinding, &AuthenticatedUser, ..)` | OGAR `crates/ogar-rbac/src/lib.rs` | the membership decision for an `ogar-auth` user |
+| `ActorContext { actor_id, tenant_id, roles }` | `lance-graph-contract/src/auth.rs` | JWT-derived actor; not a decision |
+
+The missing seam is a witness that seals an authorized decision (decision + row scope + field mask, for one actor, one class, one frame) into what `LaneRequest.scope` / `LaneAddr.scope` compare. Rules it must keep:
+
+- A numeric `Scope` alone authorizes nothing; equality of two ids is not a grant.
+- `scope: None` ("unrestricted") from a decision is never widened automatically into customer-wide access; it must be an explicit grant.
+- report-rs's ZITADEL login and its `RoleScopeAuthority` are a downstream integration point that would supply the actor to this chain, not a second upstream identity authority.
+- Source status (available, stale, unknown) is reported only from observed evidence.
+
+### Still closed
+
+Value ingress and the durable workbook writer; D4/S-INGRESS and layout admission; text/codebook authority; exact decimal; production CRM_COMPANY XVERWEIS; cross-coordinate Gather, ADMISSION B, NotASide, OP-14; the `RegistryClassView` DOLCE `entity_type_id` defect (tracked separately).
