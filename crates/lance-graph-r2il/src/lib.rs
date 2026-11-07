@@ -39,7 +39,10 @@
 //! Fold band: `VIA`, `SUM`, `MIN`, `MAX`, `GROUP_SUM`, `KEY_RUNS`, `RANGE`,
 //! `ANY`, `ALL` and `KEEP` are wired. `SCATTER_OR` and `BLEND` are refused as
 //! [`FoldError::Unimplemented`]. `ANY`/`ALL` push 1 or 0; `KEY_RUNS` pushes
-//! `COUNT(DISTINCT key)` over a key-ordered lane.
+//! `COUNT(DISTINCT key)` over a key-ordered lane, provided the mask already
+//! excludes NULL keys: the lane carries no validity, so a selected NULL row
+//! counts its payload ([`procs::count_distinct_sorted`] ANDs the presence
+//! plane in).
 //!
 //! `MIN`/`MAX` of an empty selection push the fold's identity, `i64::MAX` /
 //! `i64::MIN`: the same seed mask-risc's grouped `MIN`/`MAX` leave in an
@@ -47,7 +50,9 @@
 //!
 //! R2IL band: `Load` (spaces 0 = U32, 1 = I32, 2 = U64, 3 = resident mask
 //! plane), `IntAdd`, `IntSub`, `IntMult`, `IntSDiv` (scalar/scalar, checked), `IntAnd` (with survivor gating),
-//! `IntOr`, `IntXor`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. `IntLess` and
+//! `IntOr`, `IntXor`, `IntNot`, `IntEqual`, `IntSLess` and `PopCount` are wired. A lane
+//! compare's constant that does not fit the lane's type is refused as
+//! [`FoldError::ConstOutOfRange`], never narrowed. `IntLess` and
 //! `IntLessEqual` are refused as [`FoldError::NoUnsignedLaneCompare`]
 //! (mask-risc has no unsigned lane compare); `IntSub` of two addresses as
 //! [`FoldError::LaneVersusLane`]; an unknown `Load` space as
@@ -252,6 +257,23 @@ pub enum FoldError {
     /// `numeric_value_out_of_range` for `bigint`; the dialect refuses rather
     /// than wrap.
     Overflow(FnIndex),
+    /// A lane compare's constant does not fit the lane's type: `IntEqual`
+    /// against a `U32` lane (or a `VIA` join's `U32` key) with a value outside
+    /// `0..=u32::MAX`, or `IntEqual`/`IntSLess` against an `I32` lane with a
+    /// value outside `i32::MIN..=i32::MAX`. Narrowing it would compare against
+    /// a different number (a negative constant would match `u32::MAX`), so
+    /// the call is refused. Carries the opcode and the constant.
+    ConstOutOfRange(FnIndex, i64),
+}
+
+/// The constant of a `U32` lane compare, or [`FoldError::ConstOutOfRange`].
+fn const_u32(f: FnIndex, x: i64) -> Result<u32, FoldError> {
+    u32::try_from(x).map_err(|_| FoldError::ConstOutOfRange(f, x))
+}
+
+/// The constant of an `I32` lane compare, or [`FoldError::ConstOutOfRange`].
+fn const_i32(f: FnIndex, x: i64) -> Result<i32, FoldError> {
+    i32::try_from(x).map_err(|_| FoldError::ConstOutOfRange(f, x))
 }
 
 /// How a body's Boolean calls (`IntAnd`, `IntOr`, `IntNot` on masks) are
@@ -902,7 +924,7 @@ impl FoldDialect<'_> {
                         self.emit_pred(
                             Pred::EqU32 {
                                 lane: idx,
-                                v: u32::try_from(x).unwrap_or(u32::MAX),
+                                v: const_u32(f, x)?,
                             },
                             stack,
                         );
@@ -925,7 +947,7 @@ impl FoldDialect<'_> {
                         self.emit_pred(
                             Pred::EqI32 {
                                 lane: idx,
-                                v: i32::try_from(x).unwrap_or(i32::MAX),
+                                v: const_i32(f, x)?,
                             },
                             stack,
                         );
@@ -937,7 +959,7 @@ impl FoldDialect<'_> {
                             Pred::EqU32Via {
                                 fk,
                                 key,
-                                v: u32::try_from(x).unwrap_or(u32::MAX),
+                                v: const_u32(f, x)?,
                             },
                             stack,
                         );
@@ -969,7 +991,7 @@ impl FoldDialect<'_> {
                         self.emit_pred(
                             Pred::LtI32 {
                                 lane: idx,
-                                t: i32::try_from(t).unwrap_or(i32::MAX),
+                                t: const_i32(f, t)?,
                             },
                             stack,
                         );
@@ -985,7 +1007,7 @@ impl FoldDialect<'_> {
                         self.emit_pred(
                             Pred::GtI32 {
                                 lane: idx,
-                                t: i32::try_from(t).unwrap_or(i32::MAX),
+                                t: const_i32(f, t)?,
                             },
                             stack,
                         );
@@ -1164,6 +1186,12 @@ impl FoldDialect<'_> {
             // (`Terminal::CountKeyRunsU32`, O(1) state, no seen-set). An
             // unordered lane is refused by mask-risc (`LaneNotOrdered`),
             // never answered. Operands: mask, then the key lane.
+            //
+            // Precondition: the mask excludes every row whose key is NULL.
+            // The lane has no validity of its own, so a NULL row's payload
+            // (a sentinel, or a value equal to a real key) counts as a key
+            // if its row is selected. AND the key's presence plane into the
+            // mask first, as `procs::count_distinct_sorted` does.
             KEY_RUNS => {
                 let key = stack.pop().ok_or(FoldError::Underflow(f))?;
                 let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
