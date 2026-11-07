@@ -1,0 +1,24 @@
+# SOA64-U64 R1 lab (research PR #1973): demand-amortized 64 x u64 logical words vs AoS /
+# narrow / bitpacked SoA, with the DT64 lane socket as the coordinate-space witness.
+# Own workspace root; nothing depends on it.
+#   cargo test  --release --manifest-path crates/soa64-u64-lab/Cargo.toml
+#   cargo run   --release --manifest-path crates/soa64-u64-lab/Cargo.toml --bin bench
+[package]
+name = "soa64-u64-lab"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[profile.release]
+debug = false
