@@ -8,7 +8,7 @@ use std::time::Instant;
 use grammar_constraints_probe::fixtures;
 use grammar_constraints_probe::when::*;
 use grammar_constraints_probe::{tile, Ids, Vocab};
-use lance_graph_dt64::{BindStore, MethodRef};
+use lance_graph_dt64::BindStore;
 
 fn ns<T>(f: impl FnOnce() -> T) -> (T, u128) {
     let t = Instant::now();
@@ -54,7 +54,9 @@ fn main() {
         let mut composed = Vec::new();
         let mut t_comp = 0;
         for d in &rules {
-            let r = MethodRef::of(class, &d.binding(phys, &v, &lex));
+            let r = store
+                .method_ref(class, d.binding(phys, &v, &lex).id)
+                .unwrap();
             let (c, t) = ns(|| compose(&store, &r, d, phys, &v, &lex).unwrap());
             t_comp += t;
             composed.push(c);

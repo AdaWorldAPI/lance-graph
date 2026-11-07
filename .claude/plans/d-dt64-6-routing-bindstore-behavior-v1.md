@@ -391,3 +391,19 @@ Disable runs on the `dr` commit, each turning a test red:
 | `LocalMap` width read as 64 | 1 |
 | address width read as 64 | 1 |
 | a `use crate::` in `dr.rs` (the boundary test) | 1 |
+
+## A.6 (2026-11-07) L5c: method references are issued, stamped and tied to their store
+
+Ruling: Linear EXO-199. D1: the classid stays the class; no class versioning. D2: a cloned `BindStore` is another store.
+
+Contract (`lance-graph-dt64`):
+- `BindStore` has a private identity (`Arc<()>`). `Clone` is written by hand and mints a fresh identity, so a clone refuses the original's references and the original refuses the clone's. `Default` is still derived (`Arc::default` is fresh).
+- At registration the store keeps one binding digest per method: FNV-1a 128 with the basis-witness constants under the tag `dt64.binding.v1`, over the classid, the basis witness, the method id, the signature revision, ON and reads positions, the ordered effects (target, lens, word, the lens's schema revision, the word's arity, tagged arguments), and population, truth and value demand. The source `name` and the guard are not in it; `admit` compares the guard witness structurally.
+- `MethodRef` gains one public field, `stamp: Stamp`. `Stamp` has private fields (`issuer: Weak<()>`, `binding: u128`), no public constructor, a read-only `binding()`, and `PartialEq`/`Eq`/`Hash` by issuer pointer and digest. Struct-update forgeries still compile; they can only copy a stamp the store issued, and keep their refusals.
+- `MethodRef::of` is removed. `BindStore::method_ref(class, id)` is the only issuer. `BindStore::check_issuer(r)` compares the issuer alone.
+- `admit` runs its existing checks first and unchanged, then compares the stamp's digest with the STORED one (`Refusal::BindingMismatch`), then the issuer (`Refusal::ForeignStore`). Only this order lets both fire: the store never rebinds (D5), so with the issuer first a digest mismatch would never be reported.
+
+Contract (`lance-graph-r2il`):
+- `run`, `prepare_native` and `run_native` check that `store` issued the plan's method reference before anything else, refusing with `ExecRefusal::Binding(Refusal::ForeignStore)`. `prepare` gets the same check through `admit`.
+- `Prepared`'s fields are `pub(crate)`; outside the crate it is read through `method()`, `lens()`, `route()`, `guards()`, `steps()` and `plan_id()`. A `compile_fail` doctest pins that `steps` cannot be edited outside the crate.
+- `plan_id` also hashes the stamp's binding digest. It does not hash the lane kind: lanes are bound per run (`FieldLanes`), never on `Prepared` or a Program (C5), so one plan may still read an I32 lane on one run and a U32 lane on another. That gap stays open.

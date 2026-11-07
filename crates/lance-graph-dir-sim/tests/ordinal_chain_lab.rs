@@ -503,7 +503,7 @@ fn dt64_method_pointer_is_not_a_coordinate_or_an_excel_value() {
     let mut dt = BindStore::new();
     dt.register(&view, class, schema, vec![method.clone()])
         .unwrap();
-    let pointer = MethodRef::of(class, &method);
+    let pointer = dt.method_ref(class, method.id).unwrap();
     assert_eq!(dt.admit(&pointer).unwrap(), &method);
     let before = dt.route(0, class).unwrap();
     assert_eq!(dt.routed_at(before, 0).unwrap(), Some(class));
@@ -1231,7 +1231,10 @@ fn bound_property_lanes_fold_under_the_ruler_selection() {
         assert!(binding.fields().has(DEPARTMENT) && binding.fields().has(COST_CENTER));
 
         // Operation 1: the admitted method's `reads` names the lane it folds.
-        let m1 = MethodRef::of(HYBRID_USER, &method(1, DEPARTMENT));
+        let m1 = b
+            .store
+            .method_ref(HYBRID_USER, method(1, DEPARTMENT).id)
+            .unwrap();
         let admitted = b.store.admit(&m1).unwrap();
         assert!(admitted.reads.has(DEPARTMENT) && binding.fields().has(DEPARTMENT));
         let sum = lowered(confirmed_hybrid(), Agg::SumI32(Col(0)));
@@ -1249,7 +1252,10 @@ fn bound_property_lanes_fold_under_the_ruler_selection() {
         let got = execute_into(&sum, &inputs, &Foreign::NONE, &mut scratch, Out::None).unwrap();
 
         // Operation 2, same binding: confirmed ∧ cost_center > 150, counted.
-        let m2 = MethodRef::of(HYBRID_USER, &method(2, COST_CENTER));
+        let m2 = b
+            .store
+            .method_ref(HYBRID_USER, method(2, COST_CENTER).id)
+            .unwrap();
         assert!(b.store.admit(&m2).unwrap().reads.has(COST_CENTER));
         let count = lowered(
             Filter::and([confirmed_hybrid(), Filter::cmp(Col(0), Cmp::GtI32(150))]),

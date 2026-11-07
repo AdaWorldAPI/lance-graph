@@ -86,6 +86,8 @@
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Weak};
 
 use lance_graph_contract::class_view::{is_behaviour_lens, ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ogar_codebook::classid_concept;
@@ -270,6 +272,11 @@ struct ClassEntry {
     /// The witness of the ordered field basis the methods were bound against
     /// (Decision J): read from the source at registration, never a copy.
     basis: BasisDigest,
+    /// Each method's binding digest ([`binding_digest`]), in the order of
+    /// `methods`. Computed once at registration; [`BindStore::admit`] compares
+    /// a reference's stamp against this stored value, never against one the
+    /// reference carries in.
+    bindings: Vec<u128>,
 }
 
 /// The witness of one ordered field basis (D-DT64-7 Decision J, O10's
@@ -330,26 +337,129 @@ pub enum BasisSource {
 }
 
 /// A reference a router (DR #4) carries to a method: the class, the method
-/// identity, the signature revision it was made against, and the witness of
-/// the guard it kept.
+/// identity, the signature revision it was made against, the witness of the
+/// guard it kept, and the [`Stamp`] of the store that issued it.
+///
+/// Only [`BindStore::method_ref`] issues one. The stamp's fields are private,
+/// so a reference built elsewhere can only copy the stamp of a reference that
+/// store issued; [`BindStore::admit`] still checks every other field against
+/// the binding.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MethodRef {
     pub class: u32,
     pub method: MethodId,
     pub sig_rev: SigRev,
     pub guard: Option<GuardWitness>,
+    pub stamp: Stamp,
 }
 
-impl MethodRef {
-    /// The faithful reference to `binding` in `class`.
-    pub fn of(class: u32, binding: &MethodBinding) -> MethodRef {
-        MethodRef {
-            class,
-            method: binding.id,
-            sig_rev: binding.sig_rev,
-            guard: binding.when.as_ref().map(Guard::witness),
+/// Which store issued a [`MethodRef`] and which binding it was issued for.
+///
+/// `issuer` points at the issuing [`BindStore`]'s identity; `binding` is the
+/// binding digest the store held for the method when it issued the reference.
+/// Neither can be set outside this crate:
+///
+/// ```compile_fail
+/// let _ = lance_graph_dt64::Stamp { issuer: std::sync::Weak::new(), binding: 0 };
+/// ```
+#[derive(Debug, Clone)]
+pub struct Stamp {
+    issuer: Weak<()>,
+    binding: u128,
+}
+
+impl Stamp {
+    /// The binding digest the issuing store held for the method. Read-only:
+    /// a consumer may hash it into its own identities (R2IL's `plan_id`), but
+    /// [`BindStore::admit`] never trusts it over the stored one.
+    pub fn binding(&self) -> u128 {
+        self.binding
+    }
+}
+
+impl PartialEq for Stamp {
+    fn eq(&self, other: &Stamp) -> bool {
+        Weak::ptr_eq(&self.issuer, &other.issuer) && self.binding == other.binding
+    }
+}
+
+impl Eq for Stamp {}
+
+impl Hash for Stamp {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Weak::as_ptr(&self.issuer).hash(state);
+        self.binding.hash(state);
+    }
+}
+
+/// The digest of one method's binding in its class: the classid, the class's
+/// basis witness, the method identity and signature revision, ON and reads,
+/// the ordered effects with their tagged arguments, each effect's lens
+/// revision and word arity, and the population, truth and value demand.
+///
+/// FNV-1a 128 with [`BasisDigest`]'s constants under the domain tag
+/// `dt64.binding.v1`; every variable-length part is length-prefixed. The
+/// source `name` is not part of it (it is never identity), and neither is the
+/// guard: [`BindStore::admit`] compares the guard witness structurally. Like
+/// the basis witness, it detects a different binding; it does not
+/// authenticate one.
+fn binding_digest(
+    class: u32,
+    basis: BasisDigest,
+    m: &MethodBinding,
+    algebra: &BTreeMap<u32, AlgebraLens>,
+) -> u128 {
+    let eat = BasisDigest::eat;
+    let mut h = BasisDigest::OFFSET;
+    h = eat(h, b"dt64.binding.v1");
+    h = eat(h, &class.to_le_bytes());
+    h = eat(h, &basis.0.to_le_bytes());
+    h = eat(h, &m.id.0.to_le_bytes());
+    h = eat(h, &m.sig_rev.0.to_le_bytes());
+    for mask in [&m.on, &m.reads] {
+        let positions: Vec<u8> = mask_positions(mask).collect();
+        h = eat(h, &(positions.len() as u64).to_le_bytes());
+        h = eat(h, &positions);
+    }
+    h = eat(h, &(m.effects.len() as u64).to_le_bytes());
+    for e in &m.effects {
+        h = eat(h, &[e.target]);
+        h = eat(h, &e.algebra.lens.to_le_bytes());
+        h = eat(h, &[e.algebra.word]);
+        // Registration has already refused an effect whose lens or word is
+        // unbound, so both are present here.
+        let lens = algebra.get(&e.algebra.lens);
+        let rev = lens.map_or(u32::MAX, |l| l.schema.schema_rev.0);
+        let arity = lens
+            .and_then(|l| l.arity.get(usize::from(e.algebra.word)))
+            .copied()
+            .unwrap_or(u8::MAX);
+        h = eat(h, &rev.to_le_bytes());
+        h = eat(h, &[arity]);
+        h = eat(h, &(e.args.len() as u64).to_le_bytes());
+        for a in &e.args {
+            match a {
+                Arg::Field(p) => h = eat(h, &[0, *p]),
+                Arg::Const(c) => {
+                    h = eat(h, &[1]);
+                    h = eat(h, &c.to_le_bytes());
+                }
+            }
         }
     }
+    let population = match m.population {
+        Population::Distinct => 0u8,
+        Population::Bag => 1,
+    };
+    let truth = match m.truth {
+        Truth::TwoValued => 0u8,
+        Truth::ThreeValued => 1,
+    };
+    let demand = match m.demand {
+        ValueDemand::MapOnly => 0u8,
+        ValueDemand::Values => 1,
+    };
+    eat(h, &[population, truth, demand])
 }
 
 /// Why the store refused. Every arm is a named UNKNOWN or conflict; none is an
@@ -449,6 +559,14 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
+    /// The reference's stamp carries another binding digest than the one this
+    /// store holds for the method: it was issued for other behaviour (for
+    /// example, by another store that bound other effects under the same
+    /// classid and method identity).
+    BindingMismatch { class: u32, method: MethodId },
+    /// The reference (or a plan prepared from it) was issued by another
+    /// store. A clone of a store is another store.
+    ForeignStore { class: u32 },
     /// An effect names a lens that is not bound, or a position outside it.
     UnknownAlgebra {
         class: u32,
@@ -640,13 +758,31 @@ impl<'s, 'v> Resolved<'s, 'v> {
 }
 
 /// The binding store. Building it takes `&mut self`; every read is `&self`.
-#[derive(Debug, Clone, Default)]
+///
+/// Each store has its own identity, which the [`Stamp`] of every
+/// [`MethodRef`] it issues points at. A clone gets a fresh identity: it
+/// refuses the original's references ([`Refusal::ForeignStore`]) and the
+/// original refuses the clone's.
+#[derive(Debug, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
     /// The bound polyfill lenses, by lens classid (D6).
     algebra: BTreeMap<u32, AlgebraLens>,
     /// DR's route log. The store binds; DR routes.
     routes: RouteLog,
+    /// The store's identity. Never shared: `Clone` mints a new one.
+    identity: Arc<()>,
+}
+
+impl Clone for BindStore {
+    fn clone(&self) -> BindStore {
+        BindStore {
+            classes: self.classes.clone(),
+            algebra: self.algebra.clone(),
+            routes: self.routes.clone(),
+            identity: Arc::new(()),
+        }
+    }
 }
 
 impl BindStore {
@@ -749,11 +885,16 @@ impl BindStore {
                 schema_rev: schema.schema_rev,
             });
         }
+        let bindings = methods
+            .iter()
+            .map(|m| binding_digest(class, basis, m, &self.algebra))
+            .collect();
         let entry = ClassEntry {
             schema,
             methods,
             derived_from,
             basis,
+            bindings,
         };
         match self.classes.get(&class) {
             Some(bound) if *bound == entry => Ok(()),
@@ -983,20 +1124,66 @@ impl BindStore {
         self.resolve(view, class, schema_rev)
     }
 
+    /// Issue the reference to method `method` of `class`: its signature
+    /// revision, its guard witness, and a [`Stamp`] naming this store and the
+    /// binding digest it holds for the method. The only way to obtain a
+    /// stamped reference.
+    pub fn method_ref(&self, class: u32, method: MethodId) -> Result<MethodRef, Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let i = entry
+            .methods
+            .iter()
+            .position(|m| m.id == method)
+            .ok_or(Refusal::UnknownMethod { class, method })?;
+        let binding = &entry.methods[i];
+        Ok(MethodRef {
+            class,
+            method,
+            sig_rev: binding.sig_rev,
+            guard: binding.when.as_ref().map(Guard::witness),
+            stamp: Stamp {
+                issuer: Arc::downgrade(&self.identity),
+                binding: entry.bindings[i],
+            },
+        })
+    }
+
+    /// Whether this store issued `r`: [`Refusal::ForeignStore`] otherwise.
+    /// Only the issuer is compared; [`BindStore::admit`] checks the rest.
+    pub fn check_issuer(&self, r: &MethodRef) -> Result<(), Refusal> {
+        if Weak::as_ptr(&r.stamp.issuer) == Arc::as_ptr(&self.identity) {
+            Ok(())
+        } else {
+            Err(Refusal::ForeignStore { class: r.class })
+        }
+    }
+
     /// Check a router's method reference against the binding and return the
     /// binding (D-DRDT §5): the method must exist, at the referenced signature
-    /// revision, with exactly the guard the reference witnesses.
+    /// revision, with exactly the guard the reference witnesses, and the
+    /// reference must have been issued by this store for this binding.
+    ///
+    /// The order is fixed: the identity, revision and guard checks first,
+    /// then the stamp's binding digest against the STORED one
+    /// ([`Refusal::BindingMismatch`]), then the stamp's issuer
+    /// ([`Refusal::ForeignStore`]). A store never rebinds a method (D5), so a
+    /// digest mismatch can only come from a reference issued elsewhere; with
+    /// the issuer checked first it would never be reported.
     pub fn admit(&self, r: &MethodRef) -> Result<&MethodBinding, Refusal> {
         let entry = self
             .classes
             .get(&r.class)
             .ok_or(Refusal::UnknownClass(r.class))?;
         let (class, method) = (r.class, r.method);
-        let binding = entry
+        let i = entry
             .methods
             .iter()
-            .find(|m| m.id == method)
+            .position(|m| m.id == method)
             .ok_or(Refusal::UnknownMethod { class, method })?;
+        let binding = &entry.methods[i];
         if binding.sig_rev != r.sig_rev {
             return Err(Refusal::SignatureRevisionMismatch {
                 class,
@@ -1006,12 +1193,17 @@ impl BindStore {
             });
         }
         match (&binding.when, &r.guard) {
-            (None, None) => Ok(binding),
-            (Some(_), None) => Err(Refusal::GuardDropped { class, method }),
-            (None, Some(_)) => Err(Refusal::GuardAdded { class, method }),
-            (Some(g), Some(w)) if g.witness() == *w => Ok(binding),
-            (Some(_), Some(_)) => Err(Refusal::GuardMismatch { class, method }),
+            (None, None) => {}
+            (Some(_), None) => return Err(Refusal::GuardDropped { class, method }),
+            (None, Some(_)) => return Err(Refusal::GuardAdded { class, method }),
+            (Some(g), Some(w)) if g.witness() == *w => {}
+            (Some(_), Some(_)) => return Err(Refusal::GuardMismatch { class, method }),
         }
+        if entry.bindings[i] != r.stamp.binding {
+            return Err(Refusal::BindingMismatch { class, method });
+        }
+        self.check_issuer(r)?;
+        Ok(binding)
     }
 }
 

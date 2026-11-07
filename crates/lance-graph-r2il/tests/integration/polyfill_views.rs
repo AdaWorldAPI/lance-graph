@@ -7,8 +7,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, SchemaRev,
+    SigRev, ValueDemand,
 };
 use lance_graph_r2il::binding::{prepare, ExecRefusal, Prepared, R2ilLens, Resolution};
 use lance_graph_r2il::polyfill::{
@@ -205,12 +205,7 @@ fn prep<V: ClassView + ?Sized>(view: &V) -> Result<Prepared, ExecRefusal> {
         coordinates: 1,
     });
     let now = (Focus { revision: 1 }, Scope { id: 1 });
-    let r = MethodRef {
-        class: CLASS,
-        method: MethodId(1),
-        sig_rev: SigRev(1),
-        guard: None,
-    };
+    let r = s.method_ref(CLASS, MethodId(1)).unwrap();
     let g = Guards {
         frame: frames.seal(),
         focus: now.0,
@@ -245,8 +240,8 @@ fn the_adapter_binds_the_same_plan_in_every_language() {
         })
         .collect();
     for p in &plans[1..] {
-        assert_eq!(p.steps, plans[0].steps);
-        assert_eq!(p.plan_id, plans[0].plan_id);
+        assert_eq!(p.steps(), plans[0].steps());
+        assert_eq!(p.plan_id(), plans[0].plan_id());
     }
 }
 

@@ -215,16 +215,18 @@ impl ClassView for FixtureView {
 }
 
 /// The faithful reference to a bound method.
+/// The store issues it; the fixture checks that it is the reference it
+/// expects (signature revision 1, guarded only for `COUNT_BELOW`) and that
+/// the store admits it.
 pub fn method_ref(store: &BindStore, id: MethodId) -> MethodRef {
-    let b = store
-        .admit(&MethodRef {
-            class: CLASS,
-            method: id,
-            sig_rev: SigRev(1),
-            guard: (id == COUNT_BELOW).then(|| binding(id, "").when.unwrap().witness()),
-        })
-        .expect("bound");
-    MethodRef::of(CLASS, b)
+    let r = store.method_ref(CLASS, id).expect("bound");
+    assert_eq!(r.sig_rev, SigRev(1));
+    assert_eq!(
+        r.guard,
+        (id == COUNT_BELOW).then(|| binding(id, "").when.unwrap().witness())
+    );
+    store.admit(&r).expect("admitted");
+    r
 }
 
 fn attachments() -> Vec<Attachment> {
