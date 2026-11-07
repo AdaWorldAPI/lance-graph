@@ -29,3 +29,24 @@
 - **Not evidenced:** collision resistance against a source built to collide. FNV is not cryptographic, so the digest detects drift but does not authenticate a source (O10 owner binding).
 - **Polyfill lenses** (`declare_algebra`) are still checked by field count only.
 - **Hot path:** a reorder after bind is caught on the hot path only by a source that maps lanes by predicate. L5d decides whether R2IL re-binds.
+
+## /5plus3 review (5 lenses, no BLOCK)
+
+The five lenses were semantic identity, temporal correctness, API and compatibility, authority and security, and efficiency.
+
+Fixed:
+- `BasisConflict`: one revision has exactly one basis across classids.
+- The `LaneBinding` witness is now compared on the hot path.
+- O9 tests now cover the `register` path.
+- The revision is checked before the view is consulted.
+- Docs no longer overclaim: `Resolved` is documented as not a witness, the hot `check` lists what it does not check, and the label scope of item 4 is stated.
+
+Disable runs: removing the conflict check, the lane witness comparison, or history-first registration each turns its tests red.
+
+Measured cost of `resolve`: 186 ns at 4 fields, 2.93 µs at 64, 11.7 µs at 256. This is paid only on cold paths.
+
+Pinned FINDINGs, still OPEN:
+- A current-only source that has moved on registers its current basis as the declared revision (contract gap).
+- The hot check misses a reorder of the view itself under a positional source (L5d).
+- A swap of two equal-arity words in a polyfill lens is accepted (L5c, or a lens witness).
+- Prefix extension across revisions is not wired (no API claims append compatibility).
