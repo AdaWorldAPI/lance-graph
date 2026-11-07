@@ -244,6 +244,16 @@ pub enum BindError {
         /// The descriptor's table.
         field: String,
     },
+    /// [`Draft::bind_typed`]: a coded field the binder cannot witness. Fails
+    /// closed: a query over a code space nobody vouches for is not admitted.
+    Unwitnessed {
+        /// Field.
+        field: String,
+    },
+    /// [`TypedQuery::admit`]: a code space this query was bound under has
+    /// since been renumbered, so its literal codes no longer mean what they
+    /// meant at bind time.
+    StaleCodeSpace,
 }
 
 impl Draft {
@@ -286,6 +296,17 @@ impl Draft {
     ///
     /// The first [`BindError`]; nothing is minted or registered on failure.
     pub fn bind(&self, b: &dyn Binder) -> Result<Query, BindError> {
+        self.bind_with(b, &mut |_, _, _| {})
+    }
+
+    /// [`Draft::bind`], reporting `(table, lane, field name)` of every coded
+    /// field it binds a literal against. Calls the binder exactly as `bind`
+    /// does.
+    fn bind_with(
+        &self,
+        b: &dyn Binder,
+        on_code: &mut dyn FnMut(TableId, Col, &str),
+    ) -> Result<Query, BindError> {
         let t = b
             .table(&self.table)
             .ok_or_else(|| BindError::UnknownTable(self.table.clone()))?;
@@ -301,6 +322,9 @@ impl Draft {
                 }
             }
             let (leaf, f) = self.bind_pred(b, t, p)?;
+            if f.kind == FieldKind::Code {
+                on_code(t, f.col, &p.field);
+            }
             if let Some(valid) = f.validity {
                 nullable.push((f.col, valid));
             }
@@ -354,6 +378,85 @@ impl Draft {
             _ => return Err(mismatch()),
         };
         Ok((Filter::cmp(f.col, cmp), f))
+    }
+}
+
+// ---- code-space admission --------------------------------------------------
+
+/// A binder that owns code spaces and can vouch that they have not been
+/// renumbered. Quack never interprets the witness: it only holds it from
+/// [`Draft::bind_typed`] to [`TypedQuery::admit`] and hands it back. A
+/// binder backed by a versioned store hands out that store's frame; one
+/// without a store hands out whatever owner-local generation it keeps.
+pub trait CodeWitness {
+    /// What the owner holds to recognise the code space it bound under.
+    type Witness: Clone;
+    /// The witness of the code space of the coded field `col` of `table`
+    /// now, or `None` if the owner cannot vouch for it.
+    fn code_witness(&self, table: TableId, col: Col) -> Option<Self::Witness>;
+    /// `Ok` iff the code space of `col` is still the one `held` witnessed.
+    ///
+    /// # Errors
+    ///
+    /// [`BindError::StaleCodeSpace`] if it has been renumbered since.
+    fn admit_code(&self, table: TableId, col: Col, held: &Self::Witness) -> Result<(), BindError>;
+}
+
+/// A bound [`Query`] together with the witness of every code space its
+/// literals were resolved in. The query is reachable only through
+/// [`TypedQuery::admit`], which re-checks each witness against the owner.
+#[derive(Debug, Clone)]
+pub struct TypedQuery<W> {
+    query: Query,
+    held: Vec<(TableId, Col, W)>,
+}
+
+impl Draft {
+    /// [`Draft::bind`], plus a witness for every coded field the draft
+    /// compares. The bound query is identical to `bind`'s.
+    ///
+    /// # Errors
+    ///
+    /// Any error of `bind`, and [`BindError::Unwitnessed`] for a coded field
+    /// whose owner returns no witness.
+    ///
+    /// Witnesses are read after the literals are resolved. A binder that can
+    /// renumber a dictionary while this call runs must make `code` and
+    /// `code_witness` agree on one generation.
+    pub fn bind_typed<B: Binder + CodeWitness>(
+        &self,
+        b: &B,
+    ) -> Result<TypedQuery<B::Witness>, BindError> {
+        let mut fields: Vec<(TableId, Col, String)> = Vec::new();
+        let query = self.bind_with(b, &mut |t, c, name| {
+            if !fields.iter().any(|(t2, c2, _)| *t2 == t && *c2 == c) {
+                fields.push((t, c, name.to_string()));
+            }
+        })?;
+        let mut held = Vec::with_capacity(fields.len());
+        for (t, c, field) in fields {
+            let w = b
+                .code_witness(t, c)
+                .ok_or(BindError::Unwitnessed { field })?;
+            held.push((t, c, w));
+        }
+        Ok(TypedQuery { query, held })
+    }
+}
+
+impl<W> TypedQuery<W> {
+    /// The query, iff every code space it was bound under is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// [`BindError::StaleCodeSpace`] if the owner no longer vouches for any
+    /// one of them.
+    pub fn admit<B: Binder + CodeWitness<Witness = W>>(&self, b: &B) -> Result<&Query, BindError> {
+        for (t, c, w) in &self.held {
+            b.admit_code(*t, *c, w)
+                .map_err(|_| BindError::StaleCodeSpace)?;
+        }
+        Ok(&self.query)
     }
 }
 
@@ -700,5 +803,172 @@ mod tests {
             create_table("groups").width(100).register(&mut mem),
             Err(RegisterError::Refused { .. })
         ));
+    }
+
+    // ---- bind_typed / admit ------------------------------------------------
+
+    /// An orders table whose `state` dictionary is renumbered by generation:
+    /// generation 1 has 3 = shipped, 7 = cancelled; generation 2 swaps them.
+    /// `n` is a plain `I32` lane and `tag` a coded lane the owner does not
+    /// vouch for.
+    struct Orders {
+        generation: Cell<u32>,
+    }
+    const LOGICAL: [&str; 4] = ["shipped", "cancelled", "cancelled", "cancelled"];
+    impl Orders {
+        fn dict(&self) -> [(u32, &'static str); 2] {
+            if self.generation.get() == 1 {
+                [(3, "shipped"), (7, "cancelled")]
+            } else {
+                [(7, "shipped"), (3, "cancelled")]
+            }
+        }
+        /// The lane the owner publishes in the current generation.
+        fn lane(&self) -> Vec<u32> {
+            LOGICAL
+                .iter()
+                .map(|l| self.dict().iter().find(|(_, k)| k == l).unwrap().0)
+                .collect()
+        }
+    }
+    impl Binder for Orders {
+        fn table(&self, name: &str) -> Option<TableId> {
+            (name == "orders").then_some(TableId(1))
+        }
+        fn live(&self, _: TableId) -> Mask {
+            Mask(0)
+        }
+        fn field(&self, _: TableId, name: &str) -> Option<BoundField> {
+            let (col, kind) = match name {
+                "state" => (Col(0), FieldKind::Code),
+                "n" => (Col(1), FieldKind::I32),
+                "tag" => (Col(2), FieldKind::Code),
+                _ => return None,
+            };
+            Some(BoundField {
+                col,
+                kind,
+                validity: None,
+            })
+        }
+        fn code(&self, _: TableId, col: Col, literal: &str) -> Option<u32> {
+            match col {
+                Col(0) => self
+                    .dict()
+                    .iter()
+                    .find(|(_, k)| *k == literal)
+                    .map(|(c, _)| *c),
+                _ => Some(0),
+            }
+        }
+    }
+    impl CodeWitness for Orders {
+        type Witness = u32;
+        fn code_witness(&self, _: TableId, col: Col) -> Option<u32> {
+            (col == Col(0)).then(|| self.generation.get())
+        }
+        fn admit_code(&self, _: TableId, _: Col, held: &u32) -> Result<(), BindError> {
+            if *held == self.generation.get() {
+                Ok(())
+            } else {
+                Err(BindError::StaleCodeSpace)
+            }
+        }
+    }
+
+    /// Rows matching `q` over a `state` lane (plane 0 = all four rows live).
+    fn count_state(q: &Query, lane: &[u32]) -> usize {
+        let n = lane.len();
+        let live = vec![(1u64 << n) - 1];
+        let lanes = [LaneRef::U32(lane)];
+        let masks: [&[u64]; 1] = [&live];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let p = lower(q).unwrap();
+        let mut scratch = Scratch::for_program(&p, n).unwrap();
+        match execute_into(&p, &planes, &Foreign::NONE, &mut scratch, Out::None).unwrap() {
+            Value::Count(c) => c,
+            other => panic!("count expected, got {other:?}"),
+        }
+    }
+
+    /// q1 (the red oracle, ported): a query bound under generation 1 would
+    /// execute on generation-2 lanes and answer 3 where the logical answer
+    /// is 1. `admit` refuses it; a fresh bind answers the oracle.
+    #[test]
+    fn a_query_bound_before_a_renumbering_is_not_admitted_after_it() {
+        let o = Orders {
+            generation: Cell::new(1),
+        };
+        let draft = table("orders").where_eq("state", "shipped").count();
+        let oracle = LOGICAL.iter().filter(|l| **l == "shipped").count();
+        assert_eq!(oracle, 1);
+
+        let typed = draft.bind_typed(&o).unwrap();
+        let q1 = typed.admit(&o).expect("fresh under its own generation");
+        assert_eq!(count_state(q1, &o.lane()), oracle);
+
+        o.generation.set(2);
+        assert_eq!(typed.admit(&o).err(), Some(BindError::StaleCodeSpace));
+        // What admission prevents: the stale literal (code 3) on the
+        // renumbered lane counts the three cancelled rows.
+        let stale = draft.bind(&Orders {
+            generation: Cell::new(1),
+        });
+        assert_eq!(count_state(&stale.unwrap(), &o.lane()), 3);
+
+        let fresh = draft.bind_typed(&o).unwrap();
+        let q2 = fresh.admit(&o).expect("bound under generation 2");
+        assert_eq!(count_state(q2, &o.lane()), oracle);
+    }
+
+    /// q2: a coded field the owner cannot witness refuses to bind typed. The
+    /// same draft still binds with `bind`.
+    #[test]
+    fn a_code_field_without_a_witness_is_refused() {
+        let o = Orders {
+            generation: Cell::new(1),
+        };
+        let draft = table("orders").where_eq("tag", "x");
+        assert!(draft.bind(&o).is_ok());
+        assert_eq!(
+            draft.bind_typed(&o).err(),
+            Some(BindError::Unwitnessed {
+                field: "tag".into()
+            })
+        );
+    }
+
+    /// q3: with the generation unchanged, `admit` returns exactly the query
+    /// `bind` produces, and holds one witness per coded lane however many
+    /// predicates read it.
+    #[test]
+    fn an_unchanged_generation_admits_the_query_bind_produces() {
+        let o = Orders {
+            generation: Cell::new(1),
+        };
+        let draft = table("orders")
+            .where_eq("state", "shipped")
+            .where_(FieldRef::new("orders", "state").ne("cancelled"))
+            .where_eq("n", 5);
+        let typed = draft.bind_typed(&o).unwrap();
+        assert_eq!(typed.held.len(), 1);
+        assert_eq!(typed.admit(&o).unwrap(), &draft.bind(&o).unwrap());
+    }
+
+    /// q4: a draft over no coded field holds no witness, so a renumbering of
+    /// the code space does not touch it.
+    #[test]
+    fn a_draft_without_coded_fields_is_unaffected_by_a_renumbering() {
+        let o = Orders {
+            generation: Cell::new(1),
+        };
+        let typed = table("orders").where_eq("n", 5).bind_typed(&o).unwrap();
+        assert!(typed.held.is_empty());
+        o.generation.set(2);
+        assert!(typed.admit(&o).is_ok());
     }
 }
