@@ -81,8 +81,10 @@ impl<'c> AbiLanes<'c> {
         }
     }
 
-    /// The frame owner for this source. Pass it to `BindStore::bind_lanes`
-    /// and `LaneBinding::check`.
+    /// The frame owner for this source, built from the batch in the
+    /// constructor (never taken from a caller). Pass it to
+    /// `BindStore::bind_lanes` and `LaneBinding::check`, which refuse any other
+    /// store. Same store as [`LaneSource::frames`].
     pub fn frames(&self) -> &FrameStore {
         &self.frames
     }
@@ -164,6 +166,10 @@ impl LaneSource for AbiLanes<'_> {
             }),
             LaneData::U64(_) => None,
         }
+    }
+
+    fn frames(&self) -> &FrameStore {
+        &self.frames
     }
 
     fn borrow(&self, addr: &LaneAddr) -> Option<LaneRef<'_>> {

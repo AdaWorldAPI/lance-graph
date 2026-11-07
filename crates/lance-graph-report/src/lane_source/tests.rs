@@ -539,9 +539,11 @@ fn the_old_row_order_is_refused_after_a_publish() {
     );
 }
 
-/// The adapter answers only for frames its own store sealed: another
-/// source's store and frame, presented together, pass DT64's frame check
-/// but leave every field unbound here.
+/// Another source's store and frame, presented together, bind nothing. Before
+/// DT64 bound the store to the source (`LaneSource::frames`) the pair passed
+/// DT64's frame check and only this adapter's own `lane_of` check left the
+/// field unbound; DT64 now refuses the caller-chosen store first, before any
+/// lane is looked up.
 #[test]
 fn a_frame_and_store_of_another_source_bind_nothing() {
     let (store, route) = store();
@@ -560,10 +562,7 @@ fn a_frame_and_store_of_another_source_bind_nothing() {
                 request(route, &fields, &frame, lanes.space())
             )
             .err(),
-        Some(LaneRefusal::Unbound {
-            class: class(),
-            field: REVENUE
-        })
+        Some(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
     );
 }
 

@@ -1076,13 +1076,15 @@ mod lanesock {
     }
 
     /// The source owner: AD lanes in AD row order, an Entra lane in Entra row
-    /// order. It hands out its own slices.
+    /// order. It hands out its own slices, and owns the frame store its data
+    /// lives with (`LaneSource::frames`): a reorder advances that store.
     pub struct Directory {
         pub ad_space: CoordSpace,
         pub entra_space: CoordSpace,
         pub department: Vec<i32>,
         pub cost_center: Vec<i32>,
         pub licenses: Vec<i32>,
+        pub frames: FrameStore,
     }
 
     impl Directory {
@@ -1099,6 +1101,7 @@ mod lanesock {
                 department: (0..l.ad.len()).map(|i| (i % 7) as i32).collect(),
                 cost_center: (0..l.ad.len()).map(|i| ((i * 37) % 300) as i32).collect(),
                 licenses: (0..l.entra.len()).map(|j| (j % 50) as i32).collect(),
+                frames: FrameStore::new(revisions(1, 1, 1)),
             }
         }
     }
@@ -1136,6 +1139,9 @@ mod lanesock {
                 _ => return None,
             }))
         }
+        fn frames(&self) -> &FrameStore {
+            &self.frames
+        }
     }
 
     pub fn method(id: u32, reads: u8) -> MethodBinding {
@@ -1156,8 +1162,6 @@ mod lanesock {
     pub struct Bound {
         pub store: BindStore,
         pub view: View,
-        pub frames: FrameStore,
-        pub frame: Frame,
         pub route: RouteAt,
     }
 
@@ -1177,13 +1181,9 @@ mod lanesock {
             )
             .unwrap();
         let version = store.route(POSITION, HYBRID_USER).unwrap();
-        let frames = FrameStore::new(revisions(1, 1, 1));
-        let frame = frames.seal();
         Bound {
             store,
             view,
-            frames,
-            frame,
             route: RouteAt {
                 position: POSITION,
                 version,
@@ -1198,15 +1198,16 @@ mod lanesock {
         selection: CoordSpace,
     ) -> Result<LaneBinding, LaneRefusal> {
         let mask = WideFieldMask::from_positions(fields);
+        let frame = dir.frames.seal();
         b.store.bind_lanes(
             &b.view,
-            &b.frames,
+            &dir.frames,
             dir,
             LaneRequest {
                 route: b.route,
                 rev: SchemaRev(1),
                 fields: &mask,
-                frame: &b.frame,
+                frame: &frame,
                 scope: READER,
                 selection,
             },
@@ -1235,7 +1236,7 @@ fn bound_property_lanes_fold_under_the_ruler_selection() {
         assert!(admitted.reads.has(DEPARTMENT) && binding.fields().has(DEPARTMENT));
         let sum = lowered(confirmed_hybrid(), Agg::SumI32(Col(0)));
         let dept = binding
-            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .lane(&b.store, &b.view, &dir.frames, &dir, DEPARTMENT)
             .unwrap();
         let masks = plane_refs(&f.planes);
         let lanes = [dept];
@@ -1255,7 +1256,7 @@ fn bound_property_lanes_fold_under_the_ruler_selection() {
             Agg::Count,
         );
         let cost = binding
-            .lane(&b.store, &b.view, &b.frames, &dir, COST_CENTER)
+            .lane(&b.store, &b.view, &dir.frames, &dir, COST_CENTER)
             .unwrap();
         let lanes = [cost];
         let inputs = QueryPlanes {
@@ -1313,17 +1314,16 @@ fn an_entra_lane_is_refused_under_an_ad_selection() {
 fn a_reordered_source_refuses_the_old_binding() {
     use lanesock::*;
     let l = faulted(130, 6);
-    let mut b = bound();
-    let dir = Directory::over(&l, 1);
+    let b = bound();
+    let mut dir = Directory::over(&l, 1);
     let binding = bind(&b, &dir, &[DEPARTMENT], dir.ad_space).unwrap();
-    b.frames.advance(revisions(1, 1, 2));
+    dir.frames.advance(revisions(1, 1, 2));
     assert_eq!(
-        binding.check(&b.store, &b.view, &b.frames, &dir),
+        binding.check(&b.store, &b.view, &dir.frames, &dir),
         Err(lance_graph_dt64::LaneRefusal::Frame(
             FrameRefusal::CoordinatesChanged
         ))
     );
-    b.frame = b.frames.seal();
     let dir2 = Directory::over(&l, 2);
     assert!(bind(&b, &dir2, &[DEPARTMENT], dir2.ad_space).is_ok());
     // The old directory's row-order revision no longer matches the selection.
@@ -1355,7 +1355,7 @@ fn bound_lane_fold_at_64k_allocates_nothing() {
     let mut got = Value::SumI64(0);
     for _ in 0..PASSES {
         let dept = binding
-            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .lane(&b.store, &b.view, &dir.frames, &dir, DEPARTMENT)
             .unwrap();
         let lanes = [dept];
         let inputs = QueryPlanes {
@@ -1369,7 +1369,7 @@ fn bound_lane_fold_at_64k_allocates_nothing() {
     let t = Instant::now();
     for _ in 0..PASSES {
         let _ = binding
-            .lane(&b.store, &b.view, &b.frames, &dir, DEPARTMENT)
+            .lane(&b.store, &b.view, &dir.frames, &dir, DEPARTMENT)
             .unwrap();
     }
     let socket = t.elapsed();

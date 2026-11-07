@@ -9,7 +9,7 @@ use std::cell::Cell;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
-use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
+use lance_graph_dt64::dr::{Frame, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
     LaneSource, RouteAt, SchemaRev,
@@ -66,12 +66,11 @@ impl ClassView for View {
     }
 }
 
-/// Store, view, sealed frame and route of the class.
+/// Store, view and route of the class. The frame comes from the source's
+/// data owner ([`SoaU64::frames`]), never from here.
 pub struct World {
     pub store: BindStore,
     pub view: View,
-    pub frames: FrameStore,
-    pub frame: Frame,
     pub route: RouteAt,
 }
 
@@ -92,17 +91,9 @@ impl World {
             )
             .unwrap();
         let version = store.route(POSITION, CLASS).unwrap();
-        let frames = FrameStore::new(FrameRevisions {
-            source: 1,
-            relation_map: 1,
-            coordinates: 1,
-        });
-        let frame = frames.seal();
         World {
             store,
             view,
-            frames,
-            frame,
             route: RouteAt {
                 position: POSITION,
                 version,
@@ -175,6 +166,10 @@ impl<'s> LaneSource for U64Source<'s> {
         self.borrowed.set(self.borrowed.get() | (1u64 << f));
         Some(self.soa.lane(f))
     }
+
+    fn frames(&self) -> &FrameStore {
+        self.soa.frames()
+    }
 }
 
 /// Cold: bind exactly the demanded `fields` under `selection`'s row order.
@@ -185,15 +180,16 @@ pub fn bind_demanded(
     selection: CoordSpace,
 ) -> Result<LaneBinding, LaneRefusal> {
     let mask = WideFieldMask::from_positions(fields);
+    let frame = source.frames().seal();
     world.store.bind_lanes(
         &world.view,
-        &world.frames,
+        source.frames(),
         source,
         LaneRequest {
             route: world.route,
             rev: SchemaRev(1),
             fields: &mask,
-            frame: &world.frame,
+            frame: &frame,
             scope: READER,
             selection,
         },
@@ -207,8 +203,8 @@ pub fn sum_where_via_socket(
     binding: &LaneBinding,
     source: &U64Source<'_>,
 ) -> Result<u128, LaneRefusal> {
-    let a = binding.lane(&world.store, &world.view, &world.frames, source, 0)?;
-    let b = binding.lane(&world.store, &world.view, &world.frames, source, 1)?;
+    let a = binding.lane(&world.store, &world.view, source.frames(), source, 0)?;
+    let b = binding.lane(&world.store, &world.view, source.frames(), source, 1)?;
     let mut s = 0u128;
     for (&x, &y) in a.iter().zip(b) {
         if x == K {
@@ -228,7 +224,7 @@ pub fn fold_via_socket(
 ) -> Result<u128, LaneRefusal> {
     let mut acc = 0u64;
     for &f in fields {
-        let lane = binding.lane(&world.store, &world.view, &world.frames, source, f)?;
+        let lane = binding.lane(&world.store, &world.view, source.frames(), source, f)?;
         let fx = u64::from(f);
         for &v in lane {
             acc = acc.wrapping_add(v ^ fx);

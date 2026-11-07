@@ -439,6 +439,13 @@ impl FrameStore {
         *self.current
     }
 
+    /// Whether `other` is this same store (identity, never value): the
+    /// lane-socket gate (D-LANESOCK) uses it to refuse a caller-chosen store
+    /// that is not the one a source's data lives with.
+    pub(crate) fn same_store(&self, other: &FrameStore) -> bool {
+        Arc::ptr_eq(&self.identity, &other.identity)
+    }
+
     /// `Ok` iff `frame` is this store's current seal. A frame of another store
     /// is `ForeignFrame` even at equal numbers; a stale frame of this store
     /// names the first revision that moved, or `FrameResealed` if none did.
