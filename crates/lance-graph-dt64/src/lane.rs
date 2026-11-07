@@ -64,6 +64,19 @@ pub trait LaneSource {
     ) -> Option<LaneAddr>;
 
     fn borrow(&self, addr: &LaneAddr) -> Option<Self::Lane<'_>>;
+
+    /// The [`FrameStore`] that lives with the data this source borrows from.
+    ///
+    /// The source owns this pairing, not the caller: an implementation derives
+    /// the store from the same owner its lanes come from and never takes one
+    /// from outside. [`BindStore::bind_lanes`] and [`LaneBinding::check`]
+    /// refuse `Frame(ForeignFrame)` when the caller's `frames` is any other
+    /// store, so a binding made over one source cannot be checked or read
+    /// against another source whose lane numbers happen to match.
+    ///
+    /// The trait cannot prove that the returned store issued this source's
+    /// bytes; that remains the implementer's obligation.
+    fn frames(&self) -> &FrameStore;
 }
 
 /// A DR position and the route version it was resolved at.
@@ -162,6 +175,7 @@ impl BindStore {
         source: &S,
         req: LaneRequest<'_>,
     ) -> Result<LaneBinding, LaneRefusal> {
+        source_owns(frames, source)?;
         frames.check(req.frame).map_err(LaneRefusal::Frame)?;
         let class = self
             .routed_at(req.route.version, req.route.position)?
@@ -199,6 +213,15 @@ impl BindStore {
             lanes,
             basis,
         })
+    }
+}
+
+/// The caller's `frames` must be the store the source's data lives with.
+fn source_owns<S: LaneSource + ?Sized>(frames: &FrameStore, source: &S) -> Result<(), LaneRefusal> {
+    if frames.same_store(source.frames()) {
+        Ok(())
+    } else {
+        Err(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
     }
 }
 
@@ -288,6 +311,7 @@ impl LaneBinding {
         frames: &FrameStore,
         source: &S,
     ) -> Result<(), LaneRefusal> {
+        source_owns(frames, source)?;
         frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
         current_route(store, self.route.position, self.class)?;
         // Revision and count only: the ordered predicate witness was checked

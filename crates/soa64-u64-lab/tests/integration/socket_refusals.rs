@@ -1,7 +1,7 @@
 //! The lane socket refuses what it must, and a passing bind borrows the
 //! source's own lanes.
 
-use lance_graph_dt64::dr::Scope;
+use lance_graph_dt64::dr::{FrameRefusal, Scope};
 use lance_graph_dt64::LaneRefusal;
 use soa64_u64_lab::arms::{Query, SoaU64, K};
 use soa64_u64_lab::fixture::Fixture;
@@ -32,10 +32,10 @@ fn one_coordinate_space_binds_sums_exactly_and_borrows_in_place() {
     assert_eq!(got, oracle(&fx, &Query::SumWhere));
 
     let a = binding
-        .lane(&world.store, &world.view, &world.frames, &source, 0)
+        .lane(&world.store, &world.view, soa.frames(), &source, 0)
         .unwrap();
     let b = binding
-        .lane(&world.store, &world.view, &world.frames, &source, 1)
+        .lane(&world.store, &world.view, soa.frames(), &source, 1)
         .unwrap();
     assert!(std::ptr::eq(a, soa.lane(0)));
     assert!(std::ptr::eq(b, soa.lane(1)));
@@ -87,5 +87,32 @@ fn a_lane_for_another_scope_is_refused() {
             reader: READER,
             lane: Scope { id: 8 },
         })
+    );
+}
+
+/// Swapping the SoA under a bound source swaps the issuer with it: the same
+/// fixture rebuilt is equal data but another store, and the binding made over
+/// the first is refused, never read, against the second.
+#[test]
+fn a_source_over_swapped_data_is_refused() {
+    let (fx, soa) = setup();
+    let world = World::new();
+    let source = U64Source::new(&soa);
+    let binding = bind_demanded(&world, &source, &[0, 1], SPACE_A).unwrap();
+
+    let twin = SoaU64::build(&fx);
+    let swapped = U64Source {
+        soa: &twin,
+        ..U64Source::new(&soa)
+    };
+    assert_eq!(
+        sum_where_via_socket(&world, &binding, &swapped).err(),
+        Some(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
+    );
+    assert_eq!(swapped.borrows.get(), 0, "refused before any borrow");
+    // The original pairing still reads.
+    assert_eq!(
+        sum_where_via_socket(&world, &binding, &source).unwrap(),
+        oracle(&fx, &Query::SumWhere)
     );
 }

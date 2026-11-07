@@ -156,3 +156,18 @@ Read in code at lance-graph `fb27c46`, OGAR main and report-rs `83093de`. Nothin
 ### Still closed
 
 Value ingress and the durable workbook writer; D4/S-INGRESS and layout admission; text/codebook authority; exact decimal; production CRM_COMPANY XVERWEIS; cross-coordinate Gather, ADMISSION B, NotASide, OP-14; the `RegistryClassView` DOLCE `entity_type_id` defect (tracked separately).
+
+## Source issuer: the store is bound to the source (2026-11-07)
+
+`LaneSource` now has a required method, `frames()`. It returns the `FrameStore` that lives with the data the source borrows from. `BindStore::bind_lanes` and `LaneBinding::check`/`lane` refuse `Frame(ForeignFrame)` unless the caller's `frames` argument is that same store, compared by identity. The refusal happens before any `lane_of` or `borrow`.
+
+Until now the caller chose the pairing. A binding made over one source could be checked and read against a different source whose lane numbers matched, and the substitute's values were returned. That measurement is in the prior audit; `a_substituted_source_is_refused_not_read` in `crates/lance-graph-dt64/tests/lane_socket.rs` now pins the refusal.
+
+**Owner rule.** An implementation takes `frames()` from the same owner its lanes come from. A constructor never accepts an outside store. In-repo impls:
+- dt64 test `Source` and dir-sim `Directory` own their store.
+- soa64 `U64Source` returns `SoaU64::frames()`, so swapping the SoA swaps the issuer with it.
+- report `AbiLanes` builds its store from the batch.
+
+**Residual (OPEN).** The trait cannot prove that an implementer's store issued that implementer's bytes, so implementer trust remains. Closing it needs byte authentication or a sealed trait. No external implementer is known.
+
+Validation stays per call. There is no check-once or lease; see the optional safe-lease PR.
