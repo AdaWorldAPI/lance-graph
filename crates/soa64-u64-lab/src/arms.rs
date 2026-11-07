@@ -12,6 +12,8 @@
 use std::cell::Cell;
 use std::collections::HashMap;
 
+use lance_graph_dt64::dr::{FrameRevisions, FrameStore};
+
 use crate::fixture::{field_bits, mask_to, present, value, Fixture, FIELDS};
 
 /// The predicate constant: `A == K` selects about 1/16 of rows.
@@ -163,6 +165,10 @@ pub struct SoaU64 {
     data: Box<[u64]>,
     n: usize,
     pres: Vec<u64>,
+    /// The frame owner that lives with this data. A socket source over this
+    /// SoA returns it (`LaneSource::frames`), so swapping the data swaps the
+    /// issuer with it.
+    frames: FrameStore,
 }
 
 impl SoaU64 {
@@ -179,7 +185,17 @@ impl SoaU64 {
             data: data.into_boxed_slice(),
             n,
             pres: build_presence(fx),
+            frames: FrameStore::new(FrameRevisions {
+                source: 1,
+                relation_map: 1,
+                coordinates: 1,
+            }),
         }
+    }
+
+    /// The frame owner of this data (see the field).
+    pub fn frames(&self) -> &FrameStore {
+        &self.frames
     }
 
     /// Row count.

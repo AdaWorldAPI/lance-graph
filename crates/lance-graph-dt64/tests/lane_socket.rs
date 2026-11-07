@@ -57,6 +57,9 @@ const READER: Scope = Scope { id: 7 };
 struct Source {
     lanes: Vec<Vec<i32>>,
     map: Vec<(u8, LaneAddr)>,
+    /// The store this source's data lives with (it never takes one from a
+    /// caller; see `LaneSource::frames`).
+    frames: FrameStore,
 }
 
 impl Source {
@@ -69,6 +72,11 @@ impl Source {
         Source {
             lanes: vec![vec![6, 7, 6], vec![100, 200, 300], vec![25, 40]],
             map: vec![(0, at(AD, 0)), (1, at(AD, 1)), (2, at(ENTRA, 2))],
+            frames: FrameStore::new(FrameRevisions {
+                source: 1,
+                relation_map: 1,
+                coordinates: 1,
+            }),
         }
     }
 }
@@ -91,6 +99,9 @@ impl LaneSource for Source {
     fn borrow(&self, addr: &LaneAddr) -> Option<&[i32]> {
         self.lanes.get(usize::from(addr.lane)).map(Vec::as_slice)
     }
+    fn frames(&self) -> &FrameStore {
+        &self.frames
+    }
 }
 
 fn schema(fields: usize) -> ClassSchema {
@@ -104,7 +115,6 @@ fn schema(fields: usize) -> ClassSchema {
 struct World {
     store: BindStore,
     view: View,
-    frames: FrameStore,
     frame: Frame,
     source: Source,
     route: RouteAt,
@@ -116,18 +126,13 @@ fn world() -> World {
         .register(&View::three(), HYBRID, schema(3), Vec::new())
         .unwrap();
     let version = store.route(POSITION, HYBRID).unwrap();
-    let frames = FrameStore::new(FrameRevisions {
-        source: 1,
-        relation_map: 1,
-        coordinates: 1,
-    });
-    let frame = frames.seal();
+    let source = Source::hybrid();
+    let frame = source.frames.seal();
     World {
         store,
         view: View::three(),
-        frames,
         frame,
-        source: Source::hybrid(),
+        source,
         route: RouteAt {
             position: POSITION,
             version,
@@ -148,7 +153,7 @@ fn request<'a>(w: &'a World, fields: &'a WideFieldMask) -> LaneRequest<'a> {
 
 fn bind(w: &World, fields: &WideFieldMask) -> Result<lance_graph_dt64::LaneBinding, LaneRefusal> {
     w.store
-        .bind_lanes(&w.view, &w.frames, &w.source, request(w, fields))
+        .bind_lanes(&w.view, &w.source.frames, &w.source, request(w, fields))
 }
 
 #[test]
@@ -158,13 +163,17 @@ fn two_fields_of_one_basis_bind_and_borrow_the_source_lanes() {
     let b = bind(&w, &both).unwrap();
     assert_eq!(b.class(), HYBRID);
     assert!(b.fields().has(0) && b.fields().has(1));
-    let dept = b.lane(&w.store, &w.view, &w.frames, &w.source, 0).unwrap();
-    let cost = b.lane(&w.store, &w.view, &w.frames, &w.source, 1).unwrap();
+    let dept = b
+        .lane(&w.store, &w.view, &w.source.frames, &w.source, 0)
+        .unwrap();
+    let cost = b
+        .lane(&w.store, &w.view, &w.source.frames, &w.source, 1)
+        .unwrap();
     // Borrowed, not copied: the very slices the source holds.
     assert!(std::ptr::eq(dept, w.source.lanes[0].as_slice()));
     assert!(std::ptr::eq(cost, w.source.lanes[1].as_slice()));
     assert_eq!(
-        b.lane(&w.store, &w.view, &w.frames, &w.source, 2),
+        b.lane(&w.store, &w.view, &w.source.frames, &w.source, 2),
         Err(LaneRefusal::NotBound { field: 2 })
     );
 }
@@ -187,7 +196,7 @@ fn a_lane_in_another_row_order_is_refused() {
     req.selection = ENTRA;
     assert!(w
         .store
-        .bind_lanes(&w.view, &w.frames, &w.source, req)
+        .bind_lanes(&w.view, &w.source.frames, &w.source, req)
         .is_ok());
 }
 
@@ -198,14 +207,15 @@ fn wrong_schema_revision_and_changed_basis_are_refused() {
     let mut req = request(&w, &mask);
     req.rev = SchemaRev(2);
     assert!(matches!(
-        w.store.bind_lanes(&w.view, &w.frames, &w.source, req),
+        w.store
+            .bind_lanes(&w.view, &w.source.frames, &w.source, req),
         Err(LaneRefusal::Bind(Refusal::SchemaRevisionMismatch { .. }))
     ));
 
     let b = bind(&w, &mask).unwrap();
     let narrower = View(View::three().0[..2].to_vec());
     assert!(matches!(
-        b.check(&w.store, &narrower, &w.frames, &w.source),
+        b.check(&w.store, &narrower, &w.source.frames, &w.source),
         Err(LaneRefusal::Bind(Refusal::FieldBasisChanged { .. }))
     ));
 }
@@ -255,7 +265,7 @@ fn a_changed_mapping_or_a_vanished_lane_is_refused_on_use() {
     let b = bind(&w, &both).unwrap();
     w.source.map[0].1.lane = 1;
     assert_eq!(
-        b.check(&w.store, &w.view, &w.frames, &w.source),
+        b.check(&w.store, &w.view, &w.source.frames, &w.source),
         Err(LaneRefusal::MappingChanged { field: 0 })
     );
 
@@ -263,7 +273,7 @@ fn a_changed_mapping_or_a_vanished_lane_is_refused_on_use() {
     let b = bind(&w, &both).unwrap();
     w.source.lanes.truncate(1);
     assert_eq!(
-        b.lane(&w.store, &w.view, &w.frames, &w.source, 1),
+        b.lane(&w.store, &w.view, &w.source.frames, &w.source, 1),
         Err(LaneRefusal::Vanished { field: 1 })
     );
 }
@@ -286,14 +296,52 @@ fn stale_and_foreign_frames_are_refused() {
 
     let mut w = w;
     let b = bind(&w, &mask).unwrap();
-    w.frames.advance(FrameRevisions {
+    w.source.frames.advance(FrameRevisions {
         source: 1,
         relation_map: 2,
         coordinates: 1,
     });
     assert_eq!(
-        b.check(&w.store, &w.view, &w.frames, &w.source),
+        b.check(&w.store, &w.view, &w.source.frames, &w.source),
         Err(LaneRefusal::Frame(FrameRefusal::MapChanged))
+    );
+}
+
+/// A binding made over one source cannot be checked or read against another
+/// source whose lane numbers match (D-LANESOCK, PR B). Before the gate the
+/// substitute's values came back; now the pairing is refused before any lane
+/// is looked up or borrowed.
+#[test]
+fn a_substituted_source_is_refused_not_read() {
+    let w = world();
+    let mask = WideFieldMask::from_positions(&[1]);
+    let b = bind(&w, &mask).unwrap();
+    assert_eq!(
+        b.lane(&w.store, &w.view, &w.source.frames, &w.source, 1),
+        Ok(&[100, 200, 300][..]),
+        "the bound source reads its own lane"
+    );
+
+    // Same map, same lane numbers, different data and its own store.
+    let mut other = Source::hybrid();
+    other.lanes[1] = vec![30000, 31000, 32000];
+
+    // Caller pairs the substitute with the bound source's store.
+    assert_eq!(
+        b.lane(&w.store, &w.view, &w.source.frames, &other, 1),
+        Err(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
+    );
+    // Caller pairs the substitute with its own store: the frame is foreign.
+    assert_eq!(
+        b.lane(&w.store, &w.view, &other.frames, &other, 1),
+        Err(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
+    );
+    // And a fresh bind cannot pair the bound source with another store.
+    assert_eq!(
+        w.store
+            .bind_lanes(&w.view, &other.frames, &w.source, request(&w, &mask))
+            .err(),
+        Some(LaneRefusal::Frame(FrameRefusal::ForeignFrame))
     );
 }
 
@@ -308,9 +356,12 @@ fn a_re_route_refuses_even_under_a_current_frame() {
         .register_derived(&w.view, HYBRID, HYBRID_V2, schema(3), Vec::new())
         .unwrap();
     w.store.route(POSITION, HYBRID_V2).unwrap();
-    assert!(w.frames.check(b.frame()).is_ok(), "the frame did not move");
+    assert!(
+        w.source.frames.check(b.frame()).is_ok(),
+        "the frame did not move"
+    );
     assert_eq!(
-        b.check(&w.store, &w.view, &w.frames, &w.source),
+        b.check(&w.store, &w.view, &w.source.frames, &w.source),
         Err(LaneRefusal::RouteChanged {
             position: POSITION,
             bound: HYBRID,
@@ -340,10 +391,12 @@ fn a_binding_checked_against_another_store_with_another_basis_refuses() {
         .unwrap();
     other.route(POSITION, HYBRID).unwrap();
     assert_eq!(
-        b.check(&other, &w.view, &w.frames, &w.source),
+        b.check(&other, &w.view, &w.source.frames, &w.source),
         Err(LaneRefusal::StoreBasisMismatch { class: HYBRID })
     );
-    assert!(b.check(&w.store, &w.view, &w.frames, &w.source).is_ok());
+    assert!(b
+        .check(&w.store, &w.view, &w.source.frames, &w.source)
+        .is_ok());
 }
 
 /// FINDING (L5d): the hot check does not re-hash the view, so a same-count
@@ -358,5 +411,7 @@ fn finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source()
     let mut swapped = View::three();
     swapped.0.swap(0, 1);
     assert!(w.store.resolve(&swapped, HYBRID, SchemaRev(1)).is_err());
-    assert!(b.check(&w.store, &swapped, &w.frames, &w.source).is_ok());
+    assert!(b
+        .check(&w.store, &swapped, &w.source.frames, &w.source)
+        .is_ok());
 }
