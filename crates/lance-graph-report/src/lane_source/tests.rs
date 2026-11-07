@@ -155,8 +155,10 @@ fn test_method(id: u32, reads: &[u8]) -> MethodBinding {
 
 fn store() -> (BindStore, RouteAt) {
     let mut store = BindStore::new();
+    let view = view();
     store
         .register(
+            &view,
             class(),
             ClassSchema {
                 schema_rev: SchemaRev(1),
@@ -400,6 +402,7 @@ fn a_wrong_route_is_refused() {
     let binding = bind(&store, &view, &lanes, route, &[REVENUE]).unwrap();
     store
         .register_derived(
+            &view,
             class(),
             other_class(),
             ClassSchema {
@@ -595,7 +598,7 @@ fn a_column_past_the_u16_lane_space_is_refused() {
 /// binding refuses: the source maps the field B now names, which is another
 /// lane. Both candidate lanes are nonzero and different. Before D-LANESOCK-3
 /// the source read a ClassView of its own and A's revenue field borrowed B's
-/// region lane.
+/// region lane. Since L5a a fresh bind under B is refused as well.
 #[test]
 fn a_disagreeing_field_basis_never_returns_the_wrong_lane() {
     let (store, route) = store();
@@ -628,10 +631,14 @@ fn a_disagreeing_field_basis_never_returns_the_wrong_lane() {
         Some(LaneRefusal::MappingChanged { field: REVENUE })
     );
 
-    // Bound under B, position 0 is region, and that is what it borrows.
-    let under_b = bind(&store, &b, &lanes, route, &[REVENUE]).unwrap();
-    let lane = under_b
-        .lane(&store, &b, lanes.frames(), &lanes, REVENUE)
-        .unwrap();
-    assert_eq!(slice_u32(lane), region().as_slice());
+    // A fresh bind under B is refused too (D-DT64-7 Decision J, L5a): B has
+    // the bound revision and count but another ordered predicate basis, so
+    // the class no longer resolves through it. Before L5a this bind succeeded
+    // and position 0 borrowed the region lane.
+    assert!(matches!(
+        bind(&store, &b, &lanes, route, &[REVENUE]),
+        Err(LaneRefusal::Bind(
+            lance_graph_dt64::Refusal::PredicateBasisChanged { .. }
+        ))
+    ));
 }

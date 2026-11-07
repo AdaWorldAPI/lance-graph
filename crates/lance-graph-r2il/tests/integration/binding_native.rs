@@ -64,6 +64,7 @@ fn allocs() -> usize {
 const CLASS: u32 = 0x7F0B_0001;
 const CLASS_VIEW: ClassId = 0x7F0B;
 const OTHER_CLASS: u32 = 0x7F0C_0001;
+const OTHER_VIEW: ClassId = 0x7F0C;
 const LENS: u32 = (CONCEPT_R2IL_FOLD as u32) << 16;
 const REV: SchemaRev = SchemaRev(1);
 const R2IL: R2ilLens = R2ilLens {
@@ -133,7 +134,7 @@ fn refs(labels: &[&str], ns: &str) -> Vec<FieldRef> {
 impl ClassView for Views {
     fn fields(&self, class: ClassId) -> &[FieldRef] {
         match class {
-            CLASS_VIEW => &self.class,
+            CLASS_VIEW | OTHER_VIEW => &self.class,
             c if c == CONCEPT_R2IL_FOLD => &self.lens,
             _ => &[],
         }
@@ -382,14 +383,15 @@ impl Fixture {
             field_count: FIELDS.len(),
             extent: Extent::DR64_CUBE,
         };
-        store.register(CLASS, schema, methods()).unwrap();
-        store.register(OTHER_CLASS, schema, vec![]).unwrap();
+        let views = Views {
+            class: refs(&FIELDS, "class"),
+            lens: refs(&words(), "r2il"),
+        };
+        store.register(&views, CLASS, schema, methods()).unwrap();
+        store.register(&views, OTHER_CLASS, schema, vec![]).unwrap();
         let version = store.route(POSITION, CLASS).unwrap();
         Self {
-            views: Views {
-                class: refs(&FIELDS, "class"),
-                lens: refs(&words(), "r2il"),
-            },
+            views,
             store,
             version,
             frames: FrameStore::new(REVS),

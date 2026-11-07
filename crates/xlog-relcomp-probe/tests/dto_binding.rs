@@ -151,7 +151,9 @@ fn bind_store() -> BindStore {
         field_count: XLOG_FIELDS.len(),
         extent: Extent::DR64_CUBE,
     };
-    s.register(XLOG, schema, vec![xlog_count()]).unwrap();
+    let views = Views::new();
+    s.register(&views, XLOG, schema, vec![xlog_count()])
+        .unwrap();
     s
 }
 

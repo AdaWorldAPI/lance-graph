@@ -157,7 +157,11 @@ fn store() -> (BindStore, lance_graph_dt64::RouteVersion) {
         lens: POLYFILL_LENS,
         word: position_of(name).unwrap(),
     };
+    // `prep` resolves through the consumer's class basis (the adapter forwards
+    // it unchanged), so the consumer view registers the class.
+    let consumer = Consumer::new();
     s.register(
+        &consumer,
         CLASS,
         ClassSchema {
             schema_rev: REV,

@@ -896,8 +896,8 @@ impl BindStore {
     /// binding that [`BindStore::bind_lanes`] made through the witnessed
     /// `resolve`; it does not hash the basis on every call. Not a way to
     /// resolve a class for the first time.
-    pub(crate) fn resolve_counted<'s, 'v, V: ClassView + ?Sized>(
-        &'s self,
+    pub(crate) fn resolve_counted<'v, V: ClassView + ?Sized>(
+        &self,
         view: &'v V,
         class: u32,
         schema_rev: SchemaRev,

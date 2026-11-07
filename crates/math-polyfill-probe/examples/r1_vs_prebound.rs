@@ -307,6 +307,7 @@ fn main() {
         .unwrap();
     bstore
         .register(
+            &views,
             CLASS,
             ClassSchema {
                 schema_rev: REV,
