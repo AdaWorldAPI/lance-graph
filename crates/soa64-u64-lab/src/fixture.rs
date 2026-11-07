@@ -41,7 +41,9 @@ pub fn field_bits(f: usize) -> u32 {
 
 /// The spec of field `f`.
 pub fn field_spec(f: usize) -> FieldSpec {
-    FieldSpec { bits: field_bits(f) }
+    FieldSpec {
+        bits: field_bits(f),
+    }
 }
 
 /// Keep the low `bits` bits of `v`.
@@ -68,7 +70,7 @@ pub fn value(seed: u64, i: usize, f: usize) -> u64 {
 /// absent is not zero.
 pub fn present(seed: u64, i: usize, f: usize) -> bool {
     if f == 2 {
-        splitmix64(node_guid(seed, i) ^ 0x00C0_FFEE) % 5 != 0
+        !splitmix64(node_guid(seed, i) ^ 0x00C0_FFEE).is_multiple_of(5)
     } else {
         true
     }
@@ -77,7 +79,9 @@ pub fn present(seed: u64, i: usize, f: usize) -> bool {
 /// `count` pseudo-random ordinals in `0..n`, for point-access probes.
 pub fn probes(seed: u64, n: usize, count: usize) -> Vec<usize> {
     (0..count)
-        .map(|j| (splitmix64(seed ^ (j as u64).wrapping_mul(0xA24B_AED4_963E_E407)) % n as u64) as usize)
+        .map(|j| {
+            (splitmix64(seed ^ (j as u64).wrapping_mul(0xA24B_AED4_963E_E407)) % n as u64) as usize
+        })
         .collect()
 }
 

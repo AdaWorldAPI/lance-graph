@@ -220,6 +220,11 @@ exclude = [
     # false-accepts against the REAL live implementations. Verify via
     # `cargo test --manifest-path crates/rp-seal-t0-probe/Cargo.toml`.
     "crates/rp-seal-t0-probe",
+    # SOA64-U64 R1 lab (research PR #1973): 64 logical u64 words per identity vs
+    # AoS / narrow / bitpacked SoA / per-element hash lookup, with the DT64 lane
+    # socket as coordinate witness. Own workspace root. Verify via
+    # `cargo test --release --manifest-path crates/soa64-u64-lab/Cargo.toml`.
+    "crates/soa64-u64-lab",
     # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
     # one cell = one node, one timestep = one Lance version. Standalone and
     # genuinely zero-dep (see the crate manifest for why helix is NOT an

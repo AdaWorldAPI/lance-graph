@@ -1,8 +1,6 @@
 //! Every arm equals the independent oracle, exactly, on every query.
 
-use soa64_u64_lab::arms::{
-    Aos, Arm, HashRow, NarrowLane, Query, SoaBitpack, SoaNarrow, SoaU64, K,
-};
+use soa64_u64_lab::arms::{Aos, Arm, HashRow, NarrowLane, Query, SoaBitpack, SoaNarrow, SoaU64, K};
 use soa64_u64_lab::fixture::{present, probes, value, Fixture};
 use soa64_u64_lab::oracle::oracle;
 

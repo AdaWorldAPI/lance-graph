@@ -153,7 +153,10 @@ fn run_size(n: usize, scratch: &[u64]) {
     for d in [1usize, 3, 8, 32, 64] {
         queries.push((format!("DemandFold d={d}"), Query::DemandFold { d }));
     }
-    queries.push((format!("Point {POINT_PROBES}"), Query::Point { probes: &pr }));
+    queries.push((
+        format!("Point {POINT_PROBES}"),
+        Query::Point { probes: &pr },
+    ));
     let expected: Vec<u128> = queries.iter().map(|(_, q)| oracle(&fx, q)).collect();
 
     println!("| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |");

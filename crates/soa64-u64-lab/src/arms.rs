@@ -216,7 +216,7 @@ impl Arm for SoaU64 {
                 }
                 c as u128
             }
-            Query::Exists => self.lane(0).iter().any(|&a| a == K) as u128,
+            Query::Exists => self.lane(0).contains(&K) as u128,
             Query::SumWhere => {
                 let mut s = 0u128;
                 for (&a, &b) in self.lane(0).iter().zip(self.lane(1)) {
@@ -431,12 +431,9 @@ impl Arm for SoaNarrow {
             Query::CountWhere => dispatch1!(&self.lanes[0], count_eq) as u128,
             Query::Exists => dispatch1!(&self.lanes[0], any_eq) as u128,
             Query::SumWhere => dispatch2!(&self.lanes[0], &self.lanes[1], sum_pair),
-            Query::SumPresentC => dispatch2!(
-                &self.lanes[0],
-                &self.lanes[2],
-                sum_pair_present,
-                &self.pres
-            ),
+            Query::SumPresentC => {
+                dispatch2!(&self.lanes[0], &self.lanes[2], sum_pair_present, &self.pres)
+            }
             Query::DemandFold { d } => {
                 let mut acc = 0u64;
                 for f in 0..d.min(FIELDS) {
