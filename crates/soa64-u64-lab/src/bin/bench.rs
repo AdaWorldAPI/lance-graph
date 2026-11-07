@@ -1,11 +1,30 @@
 //! Timing harness: ns and µs only. Every timed result is checked against the
 //! oracle first; speed is reported only for answers that are right.
 //!
-//! The allocation column is "n/a": counting allocations needs an
-//! `unsafe impl GlobalAlloc`, which this crate does not contain. The arms'
-//! `run` paths allocate nothing by construction (no Vec, no row tuple).
+//! The allocation column counts every heap allocation made during the warm
+//! samples (a counting wrapper over the system allocator, the only `unsafe` in
+//! the crate). The sample buffers are allocated before the counter is read.
 
+use std::alloc::{GlobalAlloc, Layout, System};
 use std::hint::black_box;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+struct Counting;
+static ALLOCS: AtomicU64 = AtomicU64::new(0);
+
+// SAFETY: forwards every call unchanged to `System`; only counts.
+unsafe impl GlobalAlloc for Counting {
+    unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+        ALLOCS.fetch_add(1, Ordering::Relaxed);
+        unsafe { System.alloc(l) }
+    }
+    unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+        unsafe { System.dealloc(p, l) }
+    }
+}
+
+#[global_allocator]
+static GLOBAL: Counting = Counting;
 use std::time::Instant;
 
 use soa64_u64_lab::arms::{
@@ -146,11 +165,13 @@ fn run_size(n: usize, scratch: &[u64]) {
 
             black_box(arm.run(black_box(q)));
             let mut warm: Vec<u64> = Vec::with_capacity(WARM_SAMPLES);
+            let allocs_before = ALLOCS.load(Ordering::Relaxed);
             for _ in 0..WARM_SAMPLES {
                 let t = Instant::now();
                 black_box(arm.run(black_box(q)));
                 warm.push(t.elapsed().as_nanos() as u64);
             }
+            let allocs = ALLOCS.load(Ordering::Relaxed) - allocs_before;
             let mut cold: Vec<u64> = Vec::with_capacity(COLD_SAMPLES);
             for _ in 0..COLD_SAMPLES {
                 evict(scratch);
@@ -166,12 +187,13 @@ fn run_size(n: usize, scratch: &[u64]) {
                 n
             }) as f64;
             println!(
-                "| {} | {} | {:.3} | {:.3} | {:.2} | n/a | {} |",
+                "| {} | {} | {:.3} | {:.3} | {:.2} | {} | {} |",
                 arm.name(),
                 label,
                 warm_med as f64 / ids,
                 cold_med as f64 / ids,
                 warm_med as f64 / 1000.0,
+                allocs,
                 lines_touched(*arm, q, n),
             );
         }
