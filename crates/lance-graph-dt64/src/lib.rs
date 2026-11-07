@@ -52,7 +52,12 @@
 //! field basis is the [`ClassView`] of its concept half ([`view_class`], the
 //! codebook's own `classid_concept` split), labels are resolved late through
 //! that view, and its entries are the [`MethodId`]s inside it. A codebook item
-//! never gets a classid of its own.
+//! never gets a classid of its own. A behaviour lens (right half `0xF###`,
+//! [`is_behaviour_lens`]) is the exception: its basis is read by its FULL
+//! classid ([`ClassView::lens_fields`], O9), never from its concept half.
+//! Either basis is read at the bound revision: the source's own record of
+//! that revision ([`ClassView::fields_at`], [`ClassView::lens_fields_at`])
+//! when it keeps one, else its current basis.
 //!
 //! # Agnostic algebra, switched by the classid
 //!
@@ -243,7 +248,9 @@ pub struct ClassSchema {
 
 /// The [`ClassView`] class a classid is read through: its concept half, by
 /// the codebook's own split ([`classid_concept`]). The classid is the lens;
-/// this crate does no bit arithmetic of its own.
+/// this crate does no bit arithmetic of its own. A behaviour lens
+/// ([`is_behaviour_lens`]) is not read through it: its basis is keyed by the
+/// full classid (O9).
 pub fn view_class(class: u32) -> ClassId {
     classid_concept(class)
 }
@@ -420,7 +427,10 @@ impl From<RouteRefusal> for Refusal {
 }
 
 /// The result of one lookup: the class schema as bound, its fields as the
-/// [`ClassView`] holds them now (borrowed), and its methods.
+/// [`ClassView`] answered them for the bound revision (borrowed), and its
+/// methods. A value of this type is the answer of a lookup, not a witness:
+/// its fields are public, so one assembled by hand proves nothing. Only a
+/// `Resolved` returned by [`BindStore::resolve`] has passed its checks.
 #[derive(Debug, Clone, Copy)]
 pub struct Resolved<'s, 'v> {
     pub class: u32,
@@ -849,7 +859,8 @@ impl BindStore {
 }
 
 /// The class's fields from the [`ClassView`], refused when the schema revision
-/// or the field basis is not the bound one.
+/// or the field basis is not the bound one. The revision is checked first, so
+/// the view is only ever asked about the bound revision.
 fn check_basis<'v, V: ClassView + ?Sized>(
     view: &'v V,
     class: u32,
@@ -864,7 +875,7 @@ fn check_basis<'v, V: ClassView + ?Sized>(
         });
     }
     let fields = basis_at(view, class, schema_rev)?;
-    check_count(class, schema, schema_rev, fields)
+    check_count(class, schema, fields)
 }
 
 /// The basis `class` is read through at `schema_rev` (D-DT64-7 Decision J,
@@ -894,21 +905,13 @@ fn basis_at<V: ClassView + ?Sized>(
         .unwrap_or_else(|| view.fields(concept)))
 }
 
-/// The revision and field-count checks of [`check_basis`], over a basis
-/// already looked up.
+/// The field-count check of [`check_basis`], over a basis already looked up
+/// at the bound revision.
 fn check_count<'v>(
     class: u32,
     schema: &ClassSchema,
-    schema_rev: SchemaRev,
     fields: &'v [FieldRef],
 ) -> Result<&'v [FieldRef], Refusal> {
-    if schema.schema_rev != schema_rev {
-        return Err(Refusal::SchemaRevisionMismatch {
-            class,
-            bound: schema.schema_rev,
-            asked: schema_rev,
-        });
-    }
     if fields.len() != schema.field_count {
         return Err(Refusal::FieldBasisChanged {
             class,

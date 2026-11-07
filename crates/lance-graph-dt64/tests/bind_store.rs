@@ -1404,3 +1404,62 @@ fn a_checked_route_intent_stays_valid_as_the_store_grows() {
     let v = s.route(42, ONNX).expect("a checked intent applies");
     assert_eq!(s.routed_at(v, 42), Ok(Some(ONNX)));
 }
+
+/// O9 on the `register` / `resolve` path, not only on `resolve_algebra`: a
+/// classid with a `0xF###` right half registered as a class is read by its
+/// FULL classid, so it gets its lens basis, and the data class under the same
+/// left half keeps the concept basis.
+#[test]
+fn a_lens_classid_registered_as_a_class_reads_its_own_basis() {
+    const DATA: u32 = 0x7F0B_0001;
+    const LENS: u32 = 0x7F0B_F001;
+    let view = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 2))],
+        lenses: vec![(LENS, labels("word", 3))],
+    };
+    let mut s = BindStore::new();
+    s.register(DATA, schema(1, 2), vec![]).unwrap();
+    s.register(LENS, schema(1, 3), vec![]).unwrap();
+    let lens = s.resolve(&view, LENS, SchemaRev(1)).unwrap();
+    let data = s.resolve(&view, DATA, SchemaRev(1)).unwrap();
+    assert_eq!(lens.fields[2].predicate_iri, "urn:word/2");
+    assert_eq!(data.fields[1].predicate_iri, "urn:data/1");
+    // A view that knows the concept but not the lens fails closed for the
+    // lens classid instead of handing it the concept's basis.
+    let concept_only = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 3))],
+        lenses: vec![],
+    };
+    assert_eq!(
+        s.resolve(&concept_only, LENS, SchemaRev(1)).unwrap_err(),
+        Refusal::UnknownLensBasis(LENS)
+    );
+}
+
+/// The revision is checked before the view is consulted, so a view is never
+/// asked about a revision the class was not bound at: an unknown lens asked at
+/// the wrong revision is a revision mismatch, not an unknown basis.
+#[test]
+fn the_revision_is_checked_before_the_basis_is_looked_up() {
+    let mut s = BindStore::new();
+    s.declare_algebra(UNKNOWN_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 2])
+        .unwrap();
+    let view = Lenses {
+        concepts: vec![],
+        lenses: vec![],
+    };
+    assert_eq!(
+        s.resolve_algebra(&view, UNKNOWN_LENS, SchemaRev(2))
+            .unwrap_err(),
+        Refusal::SchemaRevisionMismatch {
+            class: UNKNOWN_LENS,
+            bound: SchemaRev(1),
+            asked: SchemaRev(2)
+        }
+    );
+    assert_eq!(
+        s.resolve_algebra(&view, UNKNOWN_LENS, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::UnknownLensBasis(UNKNOWN_LENS)
+    );
+}
