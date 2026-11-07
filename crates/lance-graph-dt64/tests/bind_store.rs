@@ -387,6 +387,10 @@ fn a_kleene_guard_never_treats_unknown_as_true() {
 /// A method reference resolved at another schema revision is refused
 /// (D-DRDT §5), and so is a ClassView whose field basis moved under the
 /// binding.
+///
+/// Decision J (2026-11-07): the ordered `predicate_iri` basis is EXACT within
+/// one class `SchemaRev`. An append is an evolution and takes a new revision,
+/// so refusing a grown basis under the same revision is intended and stays.
 #[test]
 fn schema_revision_and_field_basis_are_checked() {
     let s = store_with_order();
@@ -402,6 +406,96 @@ fn schema_revision_and_field_basis_are_checked() {
     let grown = View::with_fields(VIEW_CLASS, 5);
     assert_eq!(
         s.resolve(&grown, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::FieldBasisChanged {
+            class: ORDER,
+            bound: 4,
+            view: 5
+        }
+    );
+}
+
+/// A view over the ORDER class with the given `(predicate_iri, label)` pairs.
+fn view_of(fields: &[(&str, &str)]) -> View {
+    View {
+        class: VIEW_CLASS,
+        fields: fields
+            .iter()
+            .map(|(iri, label)| FieldRef::new(*iri, *label))
+            .collect(),
+    }
+}
+
+/// The basis ORDER is bound against: `View::with_fields(VIEW_CLASS, 4)`.
+const BOUND: [(&str, &str); 4] = [
+    ("urn:f0", "f0"),
+    ("urn:f1", "f1"),
+    ("urn:f2", "f2"),
+    ("urn:f3", "f3"),
+];
+
+/// FINDING (D-DT64-7-L5 / O10, not yet enforced): an equal-length REORDER is
+/// accepted. The basis check compares the schema revision and the field count
+/// only, and `admit` never reads the view, so ORDER's method keeps reading
+/// position 1, which now names `urn:f2`. Under Decision J this must be
+/// refused. When L5's exact basis witness lands, this test flips: re-pin it to
+/// the refusal, do not delete it.
+#[test]
+fn finding_an_equal_length_reorder_resolves_and_admits() {
+    let s = store_with_order();
+    let swapped = view_of(&[BOUND[0], BOUND[2], BOUND[1], BOUND[3]]);
+    let r = s.resolve(&swapped, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(r.fields[1].predicate_iri, "urn:f2", "position 1 moved");
+    assert!(
+        r.methods[0].reads.has(1),
+        "the method still reads position 1"
+    );
+    assert!(s.admit(&MethodRef::of(ORDER, &r.methods[0])).is_ok());
+}
+
+/// FINDING (L5, not yet enforced): an equal-length change of a field's
+/// `predicate_iri` (a replaced field) is accepted. Decision J: refused once
+/// the exact basis witness lands; flip this test then.
+#[test]
+fn finding_an_equal_length_predicate_change_resolves() {
+    let s = store_with_order();
+    let replaced = view_of(&[BOUND[0], ("urn:g1", "f1"), BOUND[2], BOUND[3]]);
+    assert!(s.resolve(&replaced, ORDER, SchemaRev(1)).is_ok());
+}
+
+/// Decision J, item 4: a label-only rename keeps every `predicate_iri`, so it
+/// is not a meaning change and must keep resolving. This stays green when the
+/// exact basis witness lands; it is the twin that proves the witness keys on
+/// predicates, not on labels.
+#[test]
+fn a_label_only_rename_resolves_and_must_keep_resolving() {
+    let s = store_with_order();
+    let relabelled = view_of(&[
+        ("urn:f0", "Quantity"),
+        ("urn:f1", "Price"),
+        ("urn:f2", "Total"),
+        ("urn:f3", "State"),
+    ]);
+    let r = s.resolve(&relabelled, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(r.fields[1].label, "Price");
+    assert_eq!(r.fields[1].predicate_iri, "urn:f1");
+}
+
+/// FINDING (historical replay, Decision J item 5): `ClassView::fields(class)`
+/// takes no revision, so once the source's basis evolves (here: appends a
+/// field and the evolution is bound as a derived classid at a new revision),
+/// the OLD classid can no longer be resolved at the revision it was bound at.
+/// Its behaviour is immutable (D5), but its basis is unreachable. A derived
+/// classid does not resolve historical basis lookup; the source must record
+/// its historical basis (planned under L5). Flip this when that lands.
+#[test]
+fn finding_a_historical_basis_is_unreachable_through_an_unversioned_view() {
+    let mut s = store_with_order();
+    s.register_derived(ORDER, ORDER_V2, schema(2, 5), Vec::new())
+        .unwrap();
+    let evolved = View::with_fields(VIEW_CLASS, 5);
+    assert!(s.resolve(&evolved, ORDER_V2, SchemaRev(2)).is_ok());
+    assert_eq!(
+        s.resolve(&evolved, ORDER, SchemaRev(1)).unwrap_err(),
         Refusal::FieldBasisChanged {
             class: ORDER,
             bound: 4,
