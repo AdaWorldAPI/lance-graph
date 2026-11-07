@@ -341,7 +341,7 @@ fn a_binding_checked_against_another_store_with_another_basis_refuses() {
     other.route(POSITION, HYBRID).unwrap();
     assert_eq!(
         b.check(&other, &w.view, &w.frames, &w.source),
-        Err(LaneRefusal::BasisChanged { class: HYBRID })
+        Err(LaneRefusal::StoreBasisMismatch { class: HYBRID })
     );
     assert!(b.check(&w.store, &w.view, &w.frames, &w.source).is_ok());
 }

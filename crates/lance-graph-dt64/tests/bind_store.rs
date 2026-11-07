@@ -1851,3 +1851,18 @@ fn finding_an_equal_arity_word_swap_in_a_polyfill_lens_resolves() {
     let b = s.resolve_algebra(&after, LENS, SchemaRev(1)).unwrap();
     assert_ne!(a.fields[0].predicate_iri, b.fields[0].predicate_iri);
 }
+
+/// FINDING (contract gap, with the one above): `BasisConflict` lets the FIRST
+/// registration anchor a revision. A stale registration through a moved-on,
+/// history-less view therefore locks out a later registration through the
+/// correct basis of that revision. Fail closed, but the wrong one wins.
+#[test]
+fn finding_a_stale_first_registration_locks_out_the_correct_basis() {
+    let moved_on = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    let mut s = BindStore::new();
+    s.register(&moved_on, ORDER, schema(1, 4), vec![]).unwrap();
+    assert!(matches!(
+        s.register_derived(&view_of(&BOUND), ORDER, ORDER_V2, schema(1, 4), vec![]),
+        Err(Refusal::BasisConflict { .. })
+    ));
+}

@@ -8,7 +8,7 @@
 
 **`resolve` compares the digest.** A mismatch is refused as `PredicateBasisChanged { source: Historical | Current }`. A changed field count is still `FieldBasisChanged`.
 
-**The hot path does not hash.** `LaneBinding::check` re-checks revision and field count only, through a crate-private `resolve_counted`.
+**The hot path does not hash.** `LaneBinding::check` re-checks the view's basis by revision and field count (crate-private `resolve_counted`) and compares the store's recorded witness, one `u128` (review fix, `StoreBasisMismatch`). It does not re-hash the view.
 
 **All callers migrated.** 13 files in 9 crates now register through the view they later resolve through.
 
@@ -35,18 +35,18 @@
 The five lenses were semantic identity, temporal correctness, API and compatibility, authority and security, and efficiency.
 
 Fixed:
-- `BasisConflict`: one revision has exactly one basis across classids.
-- The `LaneBinding` witness is now compared on the hot path.
+- `BasisConflict`: one revision has one basis per basis key (a concept half, or a full lens classid). A data class and a behaviour lens under one concept half are separate keys by O9. The refusal is fail-closed, not an adjudication: the first registration anchors the revision. Polyfill lenses are outside the check.
+- `LaneBinding` records the store's witness and the hot check compares it (`StoreBasisMismatch`). A store never changes a bound class (D5), so this only catches a binding checked against another store. It is not protection against view drift.
 - O9 tests now cover the `register` path.
 - The revision is checked before the view is consulted.
 - Docs no longer overclaim: `Resolved` is documented as not a witness, the hot `check` lists what it does not check, and the label scope of item 4 is stated.
 
 Disable runs: removing the conflict check, the lane witness comparison, or history-first registration each turns its tests red.
 
-Measured cost of `resolve`: 186 ns at 4 fields, 2.93 µs at 64, 11.7 µs at 256. This is paid only on cold paths.
+Cost of `resolve`, as reported by the efficiency reviewer: 186 ns at 4 fields, 2.93 µs at 64, 11.7 µs at 256. The harness was an uncommitted scratch crate (release build, IRIs of ~34 bytes, best of 5), so this is reported, not a gate. It is paid only at register, resolve, bind and prepare.
 
 Pinned FINDINGs, still OPEN:
-- A current-only source that has moved on registers its current basis as the declared revision (contract gap).
+- At registration, a view's current basis is taken unproved as the declared revision's. A current-only source that has moved on therefore registers its current basis under the old revision, and a stale first registration then locks out the correct basis (contract gap; both pinned).
 - The hot check misses a reorder of the view itself under a positional source (L5d).
 - A swap of two equal-arity words in a polyfill lens is accepted (L5c, or a lens witness).
 - Prefix extension across revisions is not wired (no API claims append compatibility).

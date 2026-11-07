@@ -116,9 +116,10 @@ pub enum LaneRefusal {
         lane: Scope,
     },
     /// The store binds the class over another basis than the one this binding
-    /// was made against: the binding is checked against another store than the
-    /// one that made it (Decision J).
-    BasisChanged { class: u32 },
+    /// was made against. A store never changes a bound class (D5), so this
+    /// fires only when the binding is checked against ANOTHER store; it says
+    /// nothing about the view, which the hot check does not re-hash.
+    StoreBasisMismatch { class: u32 },
     /// The source maps the field to another lane than it did at bind.
     MappingChanged { field: u8 },
     /// The source no longer holds the lane.
@@ -298,7 +299,7 @@ impl LaneBinding {
         // basis change. (D-DT64-7 L5d decides whether the R2IL arm re-binds.)
         let (fields, bound) = store.resolve_counted(view, self.class, self.rev)?;
         if bound != self.basis {
-            return Err(LaneRefusal::BasisChanged { class: self.class });
+            return Err(LaneRefusal::StoreBasisMismatch { class: self.class });
         }
         for (field, addr) in &self.lanes {
             let field = *field;

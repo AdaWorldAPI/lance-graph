@@ -57,7 +57,11 @@
 //! classid ([`ClassView::lens_fields`], O9), never from its concept half.
 //! Either basis is read at the bound revision: the source's own record of
 //! that revision ([`ClassView::fields_at`], [`ClassView::lens_fields_at`])
-//! when it keeps one, else its current basis.
+//! when it keeps one, else its current basis. At registration that current
+//! basis is the caller's claim for the declared revision and becomes the
+//! anchor (it cannot be proved: a view does not say which revision it is
+//! now); at resolution the current basis is accepted only when it equals the
+//! anchor.
 //!
 //! # Agnostic algebra, switched by the classid
 //!
@@ -318,8 +322,10 @@ pub enum BasisSource {
     /// [`ClassView::fields_at`] or [`ClassView::lens_fields_at`]: the
     /// source's own record of the basis at the bound revision.
     Historical,
-    /// [`ClassView::fields`] or [`ClassView::lens_fields`]: the basis now,
-    /// used only when it is proved equal to the bound one.
+    /// [`ClassView::fields`] or [`ClassView::lens_fields`]: the basis now. At
+    /// resolution it is accepted only when it is proved equal to the bound
+    /// one; at registration it is taken, unproved, as the declared
+    /// revision's.
     Current,
 }
 
@@ -410,8 +416,10 @@ pub enum Refusal {
     },
     /// Two classids read through one basis (the same concept half, or the
     /// same full lens classid) at the same schema revision bind two different
-    /// bases. A revision has one basis (Decision J); the source can answer
-    /// only one of them, so the later registration is refused.
+    /// bases. A revision has one basis (Decision J), so the later registration
+    /// is refused. This is a fail-closed refusal, not an adjudication: the
+    /// first registration anchors the revision, whether or not it was right.
+    /// Polyfill lenses (`declare_algebra`) are not part of this check.
     BasisConflict {
         class: u32,
         other: u32,
@@ -507,8 +515,10 @@ impl From<RouteRefusal> for Refusal {
 /// The result of one lookup: the class schema as bound, its fields as the
 /// [`ClassView`] answered them for the bound revision (borrowed), and its
 /// methods. A value of this type is the answer of a lookup, not a witness:
-/// its fields are public, so one assembled by hand proves nothing. Only a
-/// `Resolved` returned by [`BindStore::resolve`] has passed its checks.
+/// its fields are public, so one assembled by hand proves nothing. A
+/// `Resolved` returned by [`BindStore::resolve`] has passed the revision,
+/// count and predicate-witness checks; one returned by
+/// [`BindStore::resolve_algebra`] has passed revision and count only.
 #[derive(Debug, Clone, Copy)]
 pub struct Resolved<'s, 'v> {
     pub class: u32,
@@ -1051,7 +1061,8 @@ fn basis_key(class: u32) -> (bool, u32) {
 
 /// The basis `class` is read through at `schema_rev` (D-DT64-7 Decision J,
 /// item 5): the source's historical answer for that revision when it holds
-/// one, else its current basis.
+/// one, else its current basis (which only [`check_basis`]'s witness, at
+/// resolution, can prove; at registration it is the caller's claim).
 ///
 /// A behaviour lens (right half `0xF###`) is looked up by its FULL classid in
 /// both cases (O9), so two lenses sharing a left half never share a basis or

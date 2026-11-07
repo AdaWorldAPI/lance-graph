@@ -1096,8 +1096,10 @@ pub trait ClassView {
     ///
     /// `None` means this view does not hold that revision's basis. A reader
     /// must not take [`fields`](Self::fields) in its place as if it were
-    /// historical: it may use the current basis only when it has proved it
-    /// equal to the basis it bound against. The default answers `None` for
+    /// historical: once it has bound a basis, it may use the current basis
+    /// only when it has proved it equal to the one it bound. (When it binds
+    /// through a view that answers `None`, the current basis is only the
+    /// caller's claim for that revision.) The default answers `None` for
     /// every revision, so a view that keeps no history keeps its current
     /// behaviour.
     fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
