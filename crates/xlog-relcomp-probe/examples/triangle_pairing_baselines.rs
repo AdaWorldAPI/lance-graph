@@ -106,11 +106,7 @@ struct Ctx {
 }
 impl Ctx {
     fn new(v: usize) -> Self {
-        Ctx {
-            v,
-            zipf: Zipf::new(v, 1.1),
-            zipf_k: Zipf::new(16, 1.0),
-        }
+        Ctx { v, zipf: Zipf::new(v, 1.1), zipf_k: Zipf::new(16, 1.0) }
     }
 }
 
@@ -167,10 +163,7 @@ fn sample_pair(f: Family, role: usize, rng: &mut Rng, c: &Ctx) -> (u32, u32) {
         }
     } else {
         let (a, b) = [(0, 1), (1, 2), (0, 2)][role];
-        (
-            sample_var(f, a, role, rng, c),
-            sample_var(f, b, role, rng, c),
-        )
+        (sample_var(f, a, role, rng, c), sample_var(f, b, role, rng, c))
     }
 }
 
@@ -196,9 +189,7 @@ struct Deg {
 }
 impl Deg {
     fn zero(v: usize) -> Self {
-        Deg {
-            d: std::array::from_fn(|_| std::array::from_fn(|_| vec![0u32; v])),
-        }
+        Deg { d: std::array::from_fn(|_| std::array::from_fn(|_| vec![0u32; v])) }
     }
     fn build(rels: &[Vec<(u32, u32)>; 3], v: usize) -> Self {
         let mut g = Deg::zero(v);
@@ -260,24 +251,9 @@ fn oracle_check() -> usize {
                     }
                 }
             }
-            assert_eq!(
-                ex[0],
-                jx.len() as u64,
-                "fold != brute force (x) {}",
-                f.name()
-            );
-            assert_eq!(
-                ex[1],
-                jy.len() as u64,
-                "fold != brute force (y) {}",
-                f.name()
-            );
-            assert_eq!(
-                ex[2],
-                jz.len() as u64,
-                "fold != brute force (z) {}",
-                f.name()
-            );
+            assert_eq!(ex[0], jx.len() as u64, "fold != brute force (x) {}", f.name());
+            assert_eq!(ex[1], jy.len() as u64, "fold != brute force (y) {}", f.name());
+            assert_eq!(ex[2], jz.len() as u64, "fold != brute force (z) {}", f.name());
             checked += 3;
         }
     }
@@ -346,19 +322,11 @@ fn stats_estimates(
     let est_y = sm.estimate_join_cardinality(xy, yz, &[1], &[0]);
     let est_x = sm.estimate_join_cardinality(xy, xz, &[0], &[0]);
     let est_z = sm.estimate_join_cardinality(yz, xz, &[1], &[1]);
-    Est {
-        est: [est_x, est_y, est_z],
-    }
+    Est { est: [est_x, est_y, est_z] }
 }
 
-const PERMS: [[usize; 3]; 6] = [
-    [0, 1, 2],
-    [0, 2, 1],
-    [1, 0, 2],
-    [1, 2, 0],
-    [2, 0, 1],
-    [2, 1, 0],
-];
+const PERMS: [[usize; 3]; 6] =
+    [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
 
 fn inv(pi: [usize; 3]) -> [usize; 3] {
     let mut r = [0; 3];
@@ -442,22 +410,18 @@ struct Agg {
     abs: [Vec<f64>; 5],
     hit: [usize; 5],
     tie_min_exact: usize,
-    collapsed: [usize; 2],    // a0, a1: min estimate attained by >1 candidate
-    all_equal: [usize; 2],    // all three estimates equal
-    fell_to_y: [usize; 2],    // collapsed and chosen == Y
-    perm_changed: [usize; 3], // a0 a1 c: canonical pairing changed in any trial
-    perm_costly: [usize; 3],  // ...and the exact cost of the choice changed
+    collapsed: [usize; 2],      // a0, a1: min estimate attained by >1 candidate
+    all_equal: [usize; 2],      // all three estimates equal
+    fell_to_y: [usize; 2],      // collapsed and chosen == Y
+    perm_changed: [usize; 3],   // a0 a1 c: canonical pairing changed in any trial
+    perm_costly: [usize; 3],    // ...and the exact cost of the choice changed
 }
 
 fn main() {
     assert!(!cfg!(debug_assertions), "release build only");
     let cpu = std::fs::read_to_string("/proc/cpuinfo")
         .ok()
-        .and_then(|s| {
-            s.lines()
-                .find(|l| l.starts_with("model name"))
-                .map(|l| l.to_string())
-        })
+        .and_then(|s| s.lines().find(|l| l.starts_with("model name")).map(|l| l.to_string()))
         .unwrap_or_default();
     println!("# triangle pairing baselines (no model trained or integrated)");
     println!(
@@ -468,23 +432,15 @@ fn main() {
         std::arch::is_x86_feature_detected!("avx512f"),
         option_env!("RUSTFLAGS").unwrap_or("(default)")
     );
-    println!(
-        "# xlog rev bff6da66, xlog-stats::StatsManager::estimate_join_cardinality, optimizer.rs:3395-3404 reproduced"
-    );
+    println!("# xlog rev bff6da66, xlog-stats::StatsManager::estimate_join_cardinality, optimizer.rs:3395-3404 reproduced");
 
     let oc = oracle_check();
-    println!(
-        "# oracle: {oc} fold-vs-materialized-join equalities hold (V=48,n=150, 6 families x 5 seeds x 3 pairings)"
-    );
+    println!("# oracle: {oc} fold-vs-materialized-join equalities hold (V=48,n=150, 6 families x 5 seeds x 3 pairings)");
 
     const V: usize = 4096;
     let c = Ctx::new(V);
-    println!(
-        "# V={V} values per variable; n per relation 6000..24000; seeds 0..11 per family; seed%3==0 => equal sizes"
-    );
-    println!(
-        "family\tsplit\tseed\tn_facts\tn_xy\tn_yz\tn_xz\tN_est_x\tN_est_y\tN_est_z\tC_est_x\tC_est_y\tC_est_z\texact_x\texact_y\texact_z\tchoice_a0\tchoice_a1\tchoice_c\tregret_a0\tregret_a1\tregret_c\tcollapsed_a0\tcollapsed_a1\tperm_changed_a0\tperm_changed_a1\tperm_changed_c"
-    );
+    println!("# V={V} values per variable; n per relation 6000..24000; seeds 0..11 per family; seed%3==0 => equal sizes");
+    println!("family\tsplit\tseed\tn_facts\tn_xy\tn_yz\tn_xz\tN_est_x\tN_est_y\tN_est_z\tC_est_x\tC_est_y\tC_est_z\texact_x\texact_y\texact_z\tchoice_a0\tchoice_a1\tchoice_c\tregret_a0\tregret_a1\tregret_c\tcollapsed_a0\tcollapsed_a1\tperm_changed_a0\tperm_changed_a1\tperm_changed_c");
 
     let mut aggs: Vec<(Family, Agg)> = FAMILIES.iter().map(|&f| (f, Agg::default())).collect();
     for (fi, &f) in FAMILIES.iter().enumerate() {
@@ -494,12 +450,8 @@ fn main() {
             let ns: [usize; 3] = if seed % 3 == 0 {
                 [base; 3]
             } else {
-                let fac = [
-                    [0.5, 1.0, 2.0],
-                    [2.0, 0.5, 1.0],
-                    [1.0, 2.0, 0.5],
-                    [0.5, 2.0, 1.0],
-                ][(seed % 4) as usize];
+                let fac = [[0.5, 1.0, 2.0], [2.0, 0.5, 1.0], [1.0, 2.0, 0.5], [0.5, 2.0, 1.0]]
+                    [(seed % 4) as usize];
                 [
                     (base as f64 * fac[0]) as usize,
                     (base as f64 * fac[1]) as usize,
@@ -516,19 +468,11 @@ fn main() {
             let id = [0usize, 1, 2];
             let e0 = stats_estimates(
                 [cards[0] as u64, cards[1] as u64, cards[2] as u64],
-                &dists,
-                id,
-                [0, 1, 2],
-                false,
-                [0, 1, 2],
+                &dists, id, [0, 1, 2], false, [0, 1, 2],
             );
             let e1 = stats_estimates(
                 [cards[0] as u64, cards[1] as u64, cards[2] as u64],
-                &dists,
-                id,
-                [0, 1, 2],
-                true,
-                [0, 1, 2],
+                &dists, id, [0, 1, 2], true, [0, 1, 2],
             );
             let (a0, a1, cc) = (argmin_opt(e0.est), argmin_opt(e1.est), argmin_opt(exact));
             let best = *exact.iter().min().unwrap();
@@ -556,33 +500,11 @@ fn main() {
             }
             println!(
                 "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{:.3}\t{:.3}\t{}\t{}\t{}\t{}\t{}",
-                f.name(),
-                f.split(),
-                seed,
-                cards.iter().sum::<usize>(),
-                cards[0],
-                cards[1],
-                cards[2],
-                e0.est[0],
-                e0.est[1],
-                e0.est[2],
-                e1.est[0],
-                e1.est[1],
-                e1.est[2],
-                exact[0],
-                exact[1],
-                exact[2],
-                LBL[a0],
-                LBL[a1],
-                LBL[cc],
-                ratio(exact[a0], best),
-                ratio(exact[a1], best),
-                ratio(exact[cc], best),
-                tie_min(e0.est),
-                tie_min(e1.est),
-                changed[0],
-                changed[1],
-                changed[2]
+                f.name(), f.split(), seed, cards.iter().sum::<usize>(), cards[0], cards[1], cards[2],
+                e0.est[0], e0.est[1], e0.est[2], e1.est[0], e1.est[1], e1.est[2],
+                exact[0], exact[1], exact[2], LBL[a0], LBL[a1], LBL[cc],
+                ratio(exact[a0], best), ratio(exact[a1], best), ratio(exact[cc], best),
+                tie_min(e0.est), tie_min(e1.est), changed[0], changed[1], changed[2]
             );
             let a = &mut aggs[fi].1;
             a.n += 1;
@@ -614,39 +536,18 @@ fn main() {
         }
     }
 
-    println!(
-        "\n## per-family summary (regret = exact inner size of chosen / best; 1.000 = optimal)"
-    );
-    println!(
-        "arms: a0 = optimizer argmin, cardinalities only; a1 = optimizer argmin, exact per-column distinct counts supplied; c = exact-degree fold argmin; r = seeded random; Y = always SharedY"
-    );
-    println!(
-        "family\tsplit\tn\tmean_regret[a0,a1,c,r,Y]\tmedian_a0\tp90_a0\tmax_a0\tmax_a1\tmean_abs_regret_a0\toptimal_hits[a0,a1,c,r,Y]\texact_ties\tcollapsed[a0,a1]\tall_equal[a0,a1]\tfell_to_Y[a0,a1]\tperm_changed[a0,a1,c]\tperm_costly[a0,a1,c]"
-    );
+    println!("\n## per-family summary (regret = exact inner size of chosen / best; 1.000 = optimal)");
+    println!("arms: a0 = optimizer argmin, cardinalities only; a1 = optimizer argmin, exact per-column distinct counts supplied; c = exact-degree fold argmin; r = seeded random; Y = always SharedY");
+    println!("family\tsplit\tn\tmean_regret[a0,a1,c,r,Y]\tmedian_a0\tp90_a0\tmax_a0\tmax_a1\tmean_abs_regret_a0\toptimal_hits[a0,a1,c,r,Y]\texact_ties\tcollapsed[a0,a1]\tall_equal[a0,a1]\tfell_to_Y[a0,a1]\tperm_changed[a0,a1,c]\tperm_costly[a0,a1,c]");
     let mut tot = Agg::default();
     for (f, a) in &aggs {
         println!(
             "{}\t{}\t{}\t[{:.3},{:.3},{:.3},{:.3},{:.3}]\t{:.3}\t{:.3}\t{:.3}\t{:.3}\t{:.0}\t{:?}\t{}\t{:?}\t{:?}\t{:?}\t{:?}\t{:?}",
-            f.name(),
-            f.split(),
-            a.n,
-            mean(&a.reg[0]),
-            mean(&a.reg[1]),
-            mean(&a.reg[2]),
-            mean(&a.reg[3]),
-            mean(&a.reg[4]),
-            pct(&a.reg[0], 0.5),
-            pct(&a.reg[0], 0.9),
-            pct(&a.reg[0], 1.0),
-            pct(&a.reg[1], 1.0),
-            mean(&a.abs[0]),
-            a.hit,
-            a.tie_min_exact,
-            a.collapsed,
-            a.all_equal,
-            a.fell_to_y,
-            a.perm_changed,
-            a.perm_costly
+            f.name(), f.split(), a.n,
+            mean(&a.reg[0]), mean(&a.reg[1]), mean(&a.reg[2]), mean(&a.reg[3]), mean(&a.reg[4]),
+            pct(&a.reg[0], 0.5), pct(&a.reg[0], 0.9), pct(&a.reg[0], 1.0), pct(&a.reg[1], 1.0),
+            mean(&a.abs[0]), a.hit, a.tie_min_exact, a.collapsed, a.all_equal, a.fell_to_y,
+            a.perm_changed, a.perm_costly
         );
         tot.n += a.n;
         for k in 0..5 {
@@ -674,28 +575,14 @@ fn main() {
         }
         println!(
             "split {split}: mean regret [a0,a1,c,r,Y] = [{:.3},{:.3},{:.3},{:.3},{:.3}]  max a0 = {:.3}",
-            mean(&regs[0]),
-            mean(&regs[1]),
-            mean(&regs[2]),
-            mean(&regs[3]),
-            mean(&regs[4]),
+            mean(&regs[0]), mean(&regs[1]), mean(&regs[2]), mean(&regs[3]), mean(&regs[4]),
             pct(&regs[0], 1.0)
         );
     }
     println!(
         "ALL n={} mean regret [a0,a1,c,r,Y]=[{:.3},{:.3},{:.3},{:.3},{:.3}] optimal hits {:?} collapsed(min-tie) a0/a1 = {:?} all_equal = {:?} fell_to_Y = {:?} perm_changed[a0,a1,c] = {:?} perm_costly = {:?}",
-        tot.n,
-        mean(&tot.reg[0]),
-        mean(&tot.reg[1]),
-        mean(&tot.reg[2]),
-        mean(&tot.reg[3]),
-        mean(&tot.reg[4]),
-        tot.hit,
-        tot.collapsed,
-        tot.all_equal,
-        tot.fell_to_y,
-        tot.perm_changed,
-        tot.perm_costly
+        tot.n, mean(&tot.reg[0]), mean(&tot.reg[1]), mean(&tot.reg[2]), mean(&tot.reg[3]), mean(&tot.reg[4]),
+        tot.hit, tot.collapsed, tot.all_equal, tot.fell_to_y, tot.perm_changed, tot.perm_costly
     );
 
     // ---------------------------------------------------------------- twin for F4
@@ -711,27 +598,19 @@ fn main() {
             let rels = [r0.clone(), r1, r2.clone()];
             let g = Deg::build(&rels, V);
             let ex = exact_phys(&g);
-            let cards = [
-                rels[0].len() as u64,
-                rels[1].len() as u64,
-                rels[2].len() as u64,
-            ];
+            let cards = [rels[0].len() as u64, rels[1].len() as u64, rels[2].len() as u64];
             let dists: [[u64; 2]; 3] =
                 std::array::from_fn(|i| [distinct(&g.d[i][0]), distinct(&g.d[i][1])]);
             let e0 = stats_estimates(cards, &dists, [0, 1, 2], [0, 1, 2], false, [0, 1, 2]);
             println!(
                 "{name}: cards={cards:?} exact(x,y,z)={ex:?} choice_c={} est_nocol={:?} choice_a0={}",
-                LBL[argmin_opt(ex)],
-                e0.est,
-                LBL[argmin_opt(e0.est)]
+                LBL[argmin_opt(ex)], e0.est, LBL[argmin_opt(e0.est)]
             );
         }
     }
 
     // ---------------------------------------------------------------- costs
-    println!(
-        "\n## COST (release; one-time costs in us, per-decision in ns/us; any ms-scale per-decision result is a FAILED GATE)"
-    );
+    println!("\n## COST (release; one-time costs in us, per-decision in ns/us; any ms-scale per-decision result is a FAILED GATE)");
     for (name, f) in [("uniform", Family::Uniform), ("zipf_all", Family::ZipfAll)] {
         let mut rng = Rng(0xC057);
         let rels: [Vec<(u32, u32)>; 3] =
@@ -752,11 +631,7 @@ fn main() {
         }
         let fold_ns = t.elapsed().as_nanos() as f64 / fi as f64;
         // argmin over StatsManager estimates (existing optimizer decision cost)
-        let cards = [
-            rels[0].len() as u64,
-            rels[1].len() as u64,
-            rels[2].len() as u64,
-        ];
+        let cards = [rels[0].len() as u64, rels[1].len() as u64, rels[2].len() as u64];
         let mut sm = StatsManager::new();
         for i in 0..3u32 {
             sm.register_relation(RelId(i));
@@ -766,11 +641,7 @@ fn main() {
         let t = Instant::now();
         let mut acc = 0usize;
         for i in 0..ai {
-            let (a, b, cz) = (
-                RelId(black_box(0)),
-                RelId(black_box(1)),
-                RelId(black_box(2)),
-            );
+            let (a, b, cz) = (RelId(black_box(0)), RelId(black_box(1)), RelId(black_box(2)));
             let _ = i;
             let est = [
                 sm.estimate_join_cardinality(a, cz, &[0], &[0]),
@@ -812,14 +683,8 @@ fn main() {
         assert_eq!(final_ex, exact_phys(&g), "incremental maintenance != fold");
         println!(
             "{name}: facts={nf} | from-scratch degree build {:.1} us ({:.2} ns/fact) | fold (3 pairings) {:.0} ns | build+fold per decision {:.1} us | optimizer argmin (3 estimate calls) {:.0} ns | incremental exact maintenance {:.2} ns/insert ({:.1} us for all {} inserts, final == fold: ok) | degree memory {} KiB",
-            build_ns / 1000.0,
-            build_ns / nf as f64,
-            fold_ns,
-            (build_ns + fold_ns) / 1000.0,
-            argmin_ns,
-            incr_ns / nf as f64,
-            incr_ns / 1000.0,
-            nf,
+            build_ns / 1000.0, build_ns / nf as f64, fold_ns, (build_ns + fold_ns) / 1000.0,
+            argmin_ns, incr_ns / nf as f64, incr_ns / 1000.0, nf,
             6 * V * 4 / 1024
         );
     }
