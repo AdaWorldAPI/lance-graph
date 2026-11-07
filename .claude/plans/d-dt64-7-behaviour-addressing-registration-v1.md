@@ -153,6 +153,49 @@ So "versions = frame revisions" already works as a mechanism. **The gap:** nothi
 
 Each falsifier gets a disable run: drop the frame check in `map`, and drop the `TileId` from the digest.
 
+### 1f. Decision J: the basis is EXACT within a class SchemaRev (operator, 2026-11-07)
+
+**DECISION** (operator, 2026-11-07, after the DT64 convergence audit, ratified /5plus3 v3). It refines O10 and fixes the comparison rule of L5's basis witness. It adds no registry and no new type of authority.
+
+1. **Exact within a revision.** A class's ordered `predicate_iri` basis is immutable within one class `SchemaRev`. Reordering, replacing, removing or appending a field takes a new revision.
+2. **Append-only means across revisions.** ClassView's "stable … append-only" contract (`class_view.rs:1058-1059`) describes compatible evolution *between* revisions, never mutation *within* one. An evolution that breaks prefix stability must not present itself as an append.
+3. **Same-revision append stays refused.** `BindStore` already refuses it (`FieldBasisChanged`, pinned by `tests/bind_store.rs::schema_revision_and_field_basis_are_checked`). The exact-basis witness does not wait on any further decision.
+4. **Labels are not identity.** A label-only rename that keeps every `predicate_iri` is not a meaning change and keeps resolving.
+5. **Historical basis is source-owned.** An old, immutable method binding (D5) must replay against the basis it was registered with. `ClassView::fields(class)` takes no revision, so a derived classid alone cannot resolve historical basis lookup. The source records its historical basis; DT64 reads it, never stores a copy.
+6. **`MethodRef` and `plan_id` carry class revision and basis identity.** The lens revision is already in `plan_id` (`lance-graph-r2il/src/binding.rs:471`) and is not duplicated. Value typing stays with the source (PropertySpec, `LaneKind`); none moves into DT64.
+7. **No `LaneBinding` → R2IL execution before the meaning-side witness is enforced.** The first integration is test-only, with explicit coordinate-space, scope, mapping and permit refusals.
+8. **Firewall unchanged.** D5, O9, EXO-140 and EXO-46 stand. A digest, a mask or an admission is never permission to execute (`ExecPermit` stays separate, `binding.rs:122-127`).
+
+**How L5 meets it, with existing mechanisms only (WORKING-MODEL):**
+
+| item | mechanism reused | where |
+|---|---|---|
+| exact witness (1, 3, 4) | O10's "versioned schema/basis witness": `register` records an ordered digest of the concept basis `predicate_iri`s beside `ClassSchema`; `check_basis` compares it for equality after the existing revision and count checks. Labels are not hashed. Computed at register and resolve time only; `run` never re-hashes. | `lance-graph-dt64/src/lib.rs:238, 865-897` |
+| append across revisions (2) | DR's prefix rule, the same shape as `LocalMap::extends` / `TileMap::extends`: a derived classid at a newer revision that claims compatibility must prefix-extend its base's basis; otherwise it is an incompatible evolution, not an append. | `lance-graph-dt64/src/dr.rs:786, 997` |
+| historical basis (5) | the O9 pattern: a defaulted, revision-keyed `ClassView` accessor (`fields_at(class, rev)`, default `None`) answered by the source owner; a `None` refuses replay and never falls back to the current basis. Contract change, its own PR. | `lance-graph-contract/src/class_view.rs:1084` (the `lens_fields` precedent) |
+| reference identity (6) | `MethodRef` gains the class `SchemaRev` and the basis digest; `admit` compares them; `plan_id` hashes them. Fields go on the reference, not on `MethodBinding` (D5). | `lib.rs:265, 834-860`; `binding.rs:459-480` |
+| execution (7, 8) | `FieldLanes` built from a `LaneBinding` in a test, after the witness lands: a foreign coordinate space, a foreign scope, a changed mapping and a missing permit each refuse. | `lance-graph-dt64/src/lane.rs:91-125`; `binding.rs:111, 340-342` |
+
+**Tests landed with this decision** (`crates/lance-graph-dt64/tests/bind_store.rs`, test-first, no source change):
+
+- `finding_an_equal_length_reorder_resolves_and_admits` (N1): FINDING, flips when the exact witness lands.
+- `finding_an_equal_length_predicate_change_resolves` (N4): FINDING, flips with it.
+- `a_label_only_rename_resolves_and_must_keep_resolving`: the silent twin; stays green after the flip (item 4).
+- `finding_a_historical_basis_is_unreachable_through_an_unversioned_view`: FINDING for item 5; flips when the source can answer a historical basis.
+- `schema_revision_and_field_basis_are_checked`: re-annotated; the same-revision append refusal is now the ruled behaviour (item 3).
+
+**H4 census (ClassView implementors that can change their basis under one revision):** MEASURED 2026-11-07 (closed scope: every `ClassView for` impl in `crates/**/*.rs`, 27 impls; count re-run by the orchestrator). None can grow or reorder its basis in place: every `fields()` returns a fixed slice, and none takes or holds a revision (0 of 27 revision-aware). 6 are in non-test `src/` (`lance-graph-ontology` `wikidata_hhtl.rs:239` and `class_resolver.rs:104`, `lance-graph-sap` `schema.rs:301`, `lance-graph-r2il` `polyfill.rs:226` and `:263`, `soa64-u64-lab` `socket.rs:53`). Two expose a `pub` field: `CatsSchema.class` (`lance-graph-sap/src/schema.rs:259`), which can re-point the whole view to another class id rather than mutate a basis, and a test fixture. So no shipped implementor depends on same-revision growth, and Decision J breaks no consumer; equally, none can yet answer a historical basis (item 5).
+
+**Historical-replay consequence (reported separately, not decided here):** once the exact witness lands and before `fields_at` exists, every class whose source evolves becomes unresolvable at its bound revision, which the FINDING test above shows already holds for a count change. Replay of old classids therefore depends on item 5 landing first or together with the witness. See the 2026-11-07 board entry.
+
+- [x] Decision J recorded (this section)
+- [x] L1: FINDING tests N1, N4, the label twin and the replay finding
+- [x] H4 census (result above)
+- [ ] L5a: exact basis witness in `register` / `check_basis` (flips N1, N4)
+- [ ] L5b: revision-keyed historical basis accessor (flips the replay finding)
+- [ ] L5c: `MethodRef` + `plan_id` carry class revision and basis digest
+- [ ] L5d: test-only `LaneBinding` → `FieldLanes` with the four refusals, after L5a
+
 ## 2. The classid, both sides
 
 ```text
