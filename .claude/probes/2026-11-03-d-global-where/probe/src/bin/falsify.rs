@@ -690,7 +690,7 @@ fn main() {
         let f_other = t2.seal();
         let foreign = table.map(&f_other, 0);
         let foreign_ok = matches!(foreign, Err(MapRead::Stale(FrameRefusal::ForeignFrame)));
-        let future = table.map_at(RouteVersion(table.current_version().0 + 7), 0);
+        let future = table.diagnose_at(RouteVersion(table.current_version().0 + 7), 0);
         let future_ok = matches!(future, Err(MapRead::FutureVersion { .. }));
         let now = table.seal();
         let ambiguous = y_sh.map(|g| table.locate(&now, &[10, 11], g));
