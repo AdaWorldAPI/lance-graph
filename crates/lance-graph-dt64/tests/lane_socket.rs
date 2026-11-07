@@ -323,3 +323,40 @@ fn a_re_route_refuses_even_under_a_current_frame() {
         Err(LaneRefusal::RouteChanged { .. })
     ));
 }
+
+/// Decision J on the hot path: a binding checked against ANOTHER store, which
+/// binds the class over another basis, is refused by the recorded witness
+/// (one `u128` compare, no hashing).
+#[test]
+fn a_binding_checked_against_another_store_with_another_basis_refuses() {
+    let w = world();
+    let mask = WideFieldMask::from_positions(&[0]);
+    let b = bind(&w, &mask).unwrap();
+    let mut swapped = View::three();
+    swapped.0.swap(0, 1);
+    let mut other = BindStore::new();
+    other
+        .register(&swapped, HYBRID, schema(3), Vec::new())
+        .unwrap();
+    other.route(POSITION, HYBRID).unwrap();
+    assert_eq!(
+        b.check(&other, &w.view, &w.frames, &w.source),
+        Err(LaneRefusal::BasisChanged { class: HYBRID })
+    );
+    assert!(b.check(&w.store, &w.view, &w.frames, &w.source).is_ok());
+}
+
+/// FINDING (L5d): the hot check does not re-hash the view, so a same-count
+/// reorder of the VIEW after the bind passes it when the source maps lanes by
+/// position (this fixture's `Source` does). `resolve` through the same view
+/// refuses. Re-bind after a basis change; L5d decides whether R2IL must.
+#[test]
+fn finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source() {
+    let w = world();
+    let mask = WideFieldMask::from_positions(&[0]);
+    let b = bind(&w, &mask).unwrap();
+    let mut swapped = View::three();
+    swapped.0.swap(0, 1);
+    assert!(w.store.resolve(&swapped, HYBRID, SchemaRev(1)).is_err());
+    assert!(b.check(&w.store, &swapped, &w.frames, &w.source).is_ok());
+}

@@ -544,11 +544,12 @@ fn predicates_that_concatenate_alike_are_still_different_bases() {
     ));
 }
 
-/// The witness against an independent oracle: for every variant of ORDER's
-/// basis, `resolve` accepts exactly when the ordered `predicate_iri`s equal
-/// the bound ones, whatever the labels say.
+/// The witness against an independent oracle: for each listed variant of
+/// ORDER's basis, `resolve` accepts when, and only when, the ordered
+/// `predicate_iri`s equal the bound ones, whatever the labels say. (Up to a
+/// digest collision: the store compares a witness, not the sequence.)
 #[test]
-fn resolve_accepts_exactly_the_bound_predicate_sequence() {
+fn resolve_accepts_the_bound_sequence_and_refuses_each_listed_variant() {
     let s = store_with_order();
     let bound: Vec<&str> = BOUND.iter().map(|(iri, _)| *iri).collect();
     let variants: Vec<Vec<(&str, &str)>> = vec![
@@ -1646,4 +1647,207 @@ fn a_checked_route_intent_stays_valid_as_the_store_grows() {
     assert_eq!(s.check_route(42, ONNX), Ok(()));
     let v = s.route(42, ONNX).expect("a checked intent applies");
     assert_eq!(s.routed_at(v, 42), Ok(Some(ONNX)));
+}
+
+/// O9 on the `register` / `resolve` path, not only on `resolve_algebra`: a
+/// classid with a `0xF###` right half registered as a class is read by its
+/// FULL classid, so it gets its lens basis, and the data class under the same
+/// left half keeps the concept basis.
+#[test]
+fn a_lens_classid_registered_as_a_class_reads_its_own_basis() {
+    const DATA: u32 = 0x7F0B_0001;
+    const LENS: u32 = 0x7F0B_F001;
+    let view = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 2))],
+        lenses: vec![(LENS, labels("word", 3))],
+    };
+    let mut s = BindStore::new();
+    s.register(&view, DATA, schema(1, 2), vec![]).unwrap();
+    s.register(&view, LENS, schema(1, 3), vec![]).unwrap();
+    let lens = s.resolve(&view, LENS, SchemaRev(1)).unwrap();
+    let data = s.resolve(&view, DATA, SchemaRev(1)).unwrap();
+    assert_eq!(lens.fields[2].predicate_iri, "urn:word/2");
+    assert_eq!(data.fields[1].predicate_iri, "urn:data/1");
+    // A view that knows the concept but not the lens fails closed for the
+    // lens classid instead of handing it the concept's basis.
+    let concept_only = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 3))],
+        lenses: vec![],
+    };
+    assert_eq!(
+        s.resolve(&concept_only, LENS, SchemaRev(1)).unwrap_err(),
+        Refusal::UnknownLensBasis(LENS)
+    );
+}
+
+/// The revision is checked before the view is consulted, so a view is never
+/// asked about a revision the class was not bound at: an unknown lens asked at
+/// the wrong revision is a revision mismatch, not an unknown basis.
+#[test]
+fn the_revision_is_checked_before_the_basis_is_looked_up() {
+    let mut s = BindStore::new();
+    s.declare_algebra(UNKNOWN_LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 2])
+        .unwrap();
+    let view = Lenses {
+        concepts: vec![],
+        lenses: vec![],
+    };
+    assert_eq!(
+        s.resolve_algebra(&view, UNKNOWN_LENS, SchemaRev(2))
+            .unwrap_err(),
+        Refusal::SchemaRevisionMismatch {
+            class: UNKNOWN_LENS,
+            bound: SchemaRev(1),
+            asked: SchemaRev(2)
+        }
+    );
+    assert_eq!(
+        s.resolve_algebra(&view, UNKNOWN_LENS, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::UnknownLensBasis(UNKNOWN_LENS)
+    );
+}
+
+/// Registration reads the source's HISTORY for the declared revision, not its
+/// current basis: a source that has moved on (current = reordered) still
+/// registers ORDER at revision 1 against its revision-1 record.
+#[test]
+fn registration_reads_the_sources_history_for_the_declared_revision() {
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let mut moved = rev1.clone();
+    moved.swap(0, 1);
+    let source = History {
+        class: VIEW_CLASS,
+        current: moved,
+        history: vec![(1, rev1)],
+        lens_history: Vec::new(),
+    };
+    let mut s = BindStore::new();
+    s.register(&source, ORDER, schema(1, 4), vec![]).unwrap();
+    let r = s.resolve(&source, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(iris(r.fields), ["urn:f0", "urn:f1", "urn:f2", "urn:f3"]);
+    // The revision-1 basis, offered as a plain current view, is the same one.
+    assert!(s
+        .resolve(&View::with_fields(VIEW_CLASS, 4), ORDER, SchemaRev(1))
+        .is_ok());
+}
+
+/// A same-count evolution: revision 2 reorders revision 1. With history, each
+/// classid replays against its own revision; through the current basis alone,
+/// the revision-1 class is refused by the witness, not by the count.
+#[test]
+fn a_same_count_reorder_across_revisions_replays_only_through_history() {
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let mut rev2 = rev1.clone();
+    rev2.swap(0, 1);
+    let source = History {
+        class: VIEW_CLASS,
+        current: rev2.clone(),
+        history: vec![(1, rev1.clone()), (2, rev2.clone())],
+        lens_history: Vec::new(),
+    };
+    let mut s = BindStore::new();
+    s.register(&source, ORDER, schema(1, 4), vec![]).unwrap();
+    s.register_derived(&source, ORDER, ORDER_V2, schema(2, 4), vec![])
+        .unwrap();
+    assert_eq!(
+        iris(s.resolve(&source, ORDER, SchemaRev(1)).unwrap().fields)[0],
+        "urn:f0"
+    );
+    assert_eq!(
+        iris(s.resolve(&source, ORDER_V2, SchemaRev(2)).unwrap().fields)[0],
+        "urn:f1"
+    );
+    let current_only = View {
+        class: VIEW_CLASS,
+        fields: rev2,
+    };
+    assert_eq!(
+        s.resolve(&current_only, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Current,
+        }
+    );
+}
+
+/// One revision has one basis: two classids read through one concept half
+/// cannot bind two different bases at the same revision. The same basis, or
+/// another revision, is accepted.
+#[test]
+fn two_classids_of_one_concept_cannot_bind_two_bases_at_one_revision() {
+    let mut s = BindStore::new();
+    s.register(&view_of(&BOUND), ORDER, schema(1, 4), vec![])
+        .unwrap();
+    let swapped = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    assert_eq!(
+        s.register_derived(&swapped, ORDER, ORDER_V2, schema(1, 4), vec![]),
+        Err(Refusal::BasisConflict {
+            class: ORDER_V2,
+            other: ORDER,
+            schema_rev: SchemaRev(1),
+        })
+    );
+    assert_eq!(
+        s.register_derived(&swapped, ORDER, ORDER_V2, schema(2, 4), vec![]),
+        Ok(())
+    );
+    const ORDER_V3: u32 = 0x0A1E_0003;
+    assert_eq!(
+        s.register_derived(&view_of(&BOUND), ORDER, ORDER_V3, schema(1, 4), vec![]),
+        Ok(())
+    );
+}
+
+/// A lens classid registered as a class through a view that knows only its
+/// concept is refused at registration: the concept's basis is never taken.
+#[test]
+fn a_lens_classid_cannot_register_through_its_concepts_basis() {
+    const LENS: u32 = 0x7F0B_F001;
+    let concept_only = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 3))],
+        lenses: vec![],
+    };
+    let mut s = BindStore::new();
+    assert_eq!(
+        s.register(&concept_only, LENS, schema(1, 3), vec![]),
+        Err(Refusal::UnknownLensBasis(LENS))
+    );
+}
+
+/// FINDING (contract gap, Decision J item 5): a `ClassView` does not say which
+/// revision its CURRENT basis is. Registering at revision 1 through a view
+/// that keeps no history and has moved on to another basis is accepted, and
+/// that basis becomes revision 1's. The store cannot refuse what it cannot
+/// see; closing this needs the source to answer for the revision it is
+/// asked about (`fields_at`) or to report its current revision.
+#[test]
+fn finding_registration_through_a_current_only_view_trusts_the_declared_revision() {
+    let moved_on = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    let mut s = BindStore::new();
+    assert_eq!(s.register(&moved_on, ORDER, schema(1, 4), vec![]), Ok(()));
+    let r = s.resolve(&moved_on, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(r.fields[0].predicate_iri, "urn:f1");
+}
+
+/// FINDING (L5c / L5d): a polyfill lens binds arities, not a basis, so two
+/// words of the same arity can trade places in the view and `resolve_algebra`
+/// still accepts it. A consumer that picks behaviour by a word's label is not
+/// covered by the class witness.
+#[test]
+fn finding_an_equal_arity_word_swap_in_a_polyfill_lens_resolves() {
+    const LENS: u32 = 0x7F0A_0001;
+    let mut s = BindStore::new();
+    s.declare_algebra(LENS, SchemaRev(1), Extent::DR64_CUBE, vec![2, 2])
+        .unwrap();
+    let words = |a: &str, b: &str| Lenses {
+        concepts: vec![(0x7F0A, vec![FieldRef::new(a, a), FieldRef::new(b, b)])],
+        lenses: vec![],
+    };
+    let before = words("urn:groupcount", "urn:mul");
+    let after = words("urn:mul", "urn:groupcount");
+    let a = s.resolve_algebra(&before, LENS, SchemaRev(1)).unwrap();
+    let b = s.resolve_algebra(&after, LENS, SchemaRev(1)).unwrap();
+    assert_ne!(a.fields[0].predicate_iri, b.fields[0].predicate_iri);
 }
