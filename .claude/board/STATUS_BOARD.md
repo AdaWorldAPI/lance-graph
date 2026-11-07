@@ -1,3 +1,15 @@
+## D-SC — OGAR × DR × DT64 semantic continuity (2026-11-07)
+
+Execution admitted = meaning valid (OGAR/DT64) ∧ representation compatible (DR/source) ∧ access permitted now (IAM, owned by the OGAR auth session, EXO-206). Linear: EXO-202 (D, BLOCKED), EXO-204, EXO-205.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-SC-E1 | `MapTable::map_at` fenced as `diagnose_at` → `MapDiagnostic`; executable maps only via `map(frame)` | Shipped (#1981) |
+| D-SC-E2a | dt64 `CodeTable` (versioned code space, advances the lanes' FrameStore) + quack `bind_typed` / `TypedQuery::admit` (`StaleCodeSpace`, `Unwitnessed`) | In PR |
+| D-SC-E2b | per-owner adoption (`CamLabels`, dir-sim, sap): each real mutation path invalidates stale execution | Queued |
+| D-SC-D | witness-only Activation + `SealedBasis` + historical typed equivalence; blocked on OGAR-P2 and evidence, not on rulings | Blocked |
+| D-SC-H1 | coded and scaled facade queries (`ScaleMismatch`, `DomainMismatch`) | Queued |
+
 ## D-LANESOCK — DR × DT64 property-to-lane socket (2026-11-06)
 
 | D-id | Deliverable | State |
