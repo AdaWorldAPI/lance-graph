@@ -83,11 +83,20 @@ fn lines_touched(arm: &dyn Arm, q: &Query<'_>, n: usize) -> u64 {
             lines += (n as u64).div_ceil(8).div_ceil(64);
         }
         lines
-    } else if is_point {
-        probes
     } else {
-        // 512-byte rows: 8 lines each.
-        n as u64 * 512 / 64
+        // Row arms: a 512-byte row is 8 lines of 8 fields each; a query reads
+        // only the lines holding its demanded fields. The hash arm also probes
+        // one bucket per row (a lower bound: collisions add more).
+        let mut groups: Vec<usize> = fields.iter().map(|&f| f / 8).collect();
+        groups.sort_unstable();
+        groups.dedup();
+        let per_row = groups.len() as u64 + u64::from(arm.name() == "hash-row");
+        let rows = if is_point { probes } else { n as u64 };
+        let mut lines = rows * per_row;
+        if matches!(q, Query::SumPresentC) && arm.name() != "hash-row" {
+            lines += (n as u64).div_ceil(8).div_ceil(64);
+        }
+        lines
     }
 }
 
@@ -159,7 +168,9 @@ fn run_size(n: usize, scratch: &[u64]) {
     ));
     let expected: Vec<u128> = queries.iter().map(|(_, q)| oracle(&fx, q)).collect();
 
-    println!("| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |");
+    println!(
+        "| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched (est.) |"
+    );
     println!("|---|---|---|---|---|---|---|");
     for (arm, _) in &arms {
         for ((label, q), exp) in queries.iter().zip(&expected) {

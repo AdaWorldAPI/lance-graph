@@ -14,6 +14,8 @@ cargo run  --release --manifest-path crates/soa64-u64-lab/Cargo.toml --bin bench
 
 **Which numbers are quoted.** All tables below come from `crates/soa64-u64-lab/results/bench-2026-11-07-run1.txt`. A second run of the same build (`crates/soa64-u64-lab/results/bench-2026-11-07-run2.txt`) exists. The repo config already sets `target-cpu=native`, so the second run is a reproducibility run. It is **not** an ISA comparison; no AVX2-only or scalar-only build was measured. The two runs agree on the structure of every verdict. They differ in some cells by up to about 2x on single cells (for example soa-narrow DemandFold d=64 at n=262144: 13.4 vs 22.3 ns/id; aos d=8: 22.6 vs 28.9). Single-cell values therefore carry noise of that size. See section 5 for which verdicts depend on a single cell.
 
+**Correction to the "lines touched" column (run 3).** In runs 1 and 2 the column counted all 8 cache lines of every AoS and hash-row row, whatever the query read. That overstated AoS traffic by 8x for single-field queries. Run 3 (`crates/soa64-u64-lab/results/bench-2026-11-07-run3.txt`) counts only the lines that hold demanded fields, plus one bucket line per hash lookup. It is an estimate and a lower bound: hardware prefetch may pull adjacent lines, and AoS `CountWhere` at about 13 ns per row costs more than one line per row would explain. No verdict below uses this column. Run 3 timings agree with run 1 within the noise stated above.
+
 ## 1. What was built
 
 Five physical representations of the same 64-field logical rows:
