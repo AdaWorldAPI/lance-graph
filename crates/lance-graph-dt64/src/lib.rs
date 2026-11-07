@@ -674,18 +674,6 @@ impl BindStore {
         schema_rev: SchemaRev,
     ) -> Result<Resolved<'s, 'v>, Refusal> {
         let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
-        if is_behaviour_lens(lens) {
-            let fields = view
-                .lens_fields(lens)
-                .ok_or(Refusal::UnknownLensBasis(lens))?;
-            return check_count(lens, &bound.schema, schema_rev, fields).map(|fields| Resolved {
-                class: lens,
-                schema: &bound.schema,
-                fields,
-                methods: &[],
-                derived_from: None,
-            });
-        }
         check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
             class: lens,
             schema: &bound.schema,
@@ -860,7 +848,7 @@ impl BindStore {
     }
 }
 
-/// The lens's fields from the [`ClassView`], refused when the schema revision
+/// The class's fields from the [`ClassView`], refused when the schema revision
 /// or the field basis is not the bound one.
 fn check_basis<'v, V: ClassView + ?Sized>(
     view: &'v V,
@@ -868,7 +856,42 @@ fn check_basis<'v, V: ClassView + ?Sized>(
     schema: &ClassSchema,
     schema_rev: SchemaRev,
 ) -> Result<&'v [FieldRef], Refusal> {
-    check_count(class, schema, schema_rev, view.fields(view_class(class)))
+    if schema.schema_rev != schema_rev {
+        return Err(Refusal::SchemaRevisionMismatch {
+            class,
+            bound: schema.schema_rev,
+            asked: schema_rev,
+        });
+    }
+    let fields = basis_at(view, class, schema_rev)?;
+    check_count(class, schema, schema_rev, fields)
+}
+
+/// The basis `class` is read through at `schema_rev` (D-DT64-7 Decision J,
+/// item 5): the source's historical answer for that revision when it holds
+/// one, else its current basis.
+///
+/// A behaviour lens (right half `0xF###`) is looked up by its FULL classid in
+/// both cases (O9), so two lenses sharing a left half never share a basis or
+/// a history. Every other class is looked up by its concept half
+/// ([`view_class`]).
+fn basis_at<V: ClassView + ?Sized>(
+    view: &V,
+    class: u32,
+    schema_rev: SchemaRev,
+) -> Result<&[FieldRef], Refusal> {
+    if is_behaviour_lens(class) {
+        if let Some(fields) = view.lens_fields_at(class, schema_rev.0) {
+            return Ok(fields);
+        }
+        return view
+            .lens_fields(class)
+            .ok_or(Refusal::UnknownLensBasis(class));
+    }
+    let concept = view_class(class);
+    Ok(view
+        .fields_at(concept, schema_rev.0)
+        .unwrap_or_else(|| view.fields(concept)))
 }
 
 /// The revision and field-count checks of [`check_basis`], over a basis

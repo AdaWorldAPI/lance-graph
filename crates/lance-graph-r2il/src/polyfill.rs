@@ -275,6 +275,23 @@ impl<V: ClassView + ?Sized> ClassView for WithPolyfill<'_, V> {
             self.inner.lens_fields(lens)
         }
     }
+    // The historical accessors are routed exactly like the current ones, so
+    // wrapping a history-keeping view never hides its history (D-DT64-7
+    // Decision J, item 5).
+    fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
+        if class == HARDCODED {
+            self.polyfill.fields_at(class, schema_rev)
+        } else {
+            self.inner.fields_at(class, schema_rev)
+        }
+    }
+    fn lens_fields_at(&self, lens: u32, schema_rev: u32) -> Option<&[FieldRef]> {
+        if classid_concept(lens) == HARDCODED {
+            self.polyfill.lens_fields_at(lens, schema_rev)
+        } else {
+            self.inner.lens_fields_at(lens, schema_rev)
+        }
+    }
     fn template(&self, class: ClassId) -> DisplayTemplate {
         if class == HARDCODED {
             self.polyfill.template(class)

@@ -480,15 +480,15 @@ fn a_label_only_rename_resolves_and_must_keep_resolving() {
     assert_eq!(r.fields[1].predicate_iri, "urn:f1");
 }
 
-/// FINDING (historical replay, Decision J item 5): `ClassView::fields(class)`
-/// takes no revision, so once the source's basis evolves (here: appends a
-/// field and the evolution is bound as a derived classid at a new revision),
-/// the OLD classid can no longer be resolved at the revision it was bound at.
-/// Its behaviour is immutable (D5), but its basis is unreachable. A derived
-/// classid does not resolve historical basis lookup; the source must record
-/// its historical basis (planned under L5). Flip this when that lands.
+/// Decision J item 5, the refusal half: `ClassView::fields(class)` takes no
+/// revision, so once a source WITHOUT history evolves (here: appends a field,
+/// bound as a derived classid at a new revision), the OLD classid cannot be
+/// resolved at the revision it was bound at. Its behaviour is immutable (D5);
+/// what is missing is the source's record of its old basis, and the store
+/// refuses rather than read the new basis as the old one. The acceptance half
+/// is `a_history_keeping_source_replays_each_revision_against_its_own_basis`.
 #[test]
-fn finding_a_historical_basis_is_unreachable_through_an_unversioned_view() {
+fn a_source_without_history_refuses_replay_after_evolution() {
     let mut s = store_with_order();
     s.register_derived(ORDER, ORDER_V2, schema(2, 5), Vec::new())
         .unwrap();
@@ -501,6 +501,135 @@ fn finding_a_historical_basis_is_unreachable_through_an_unversioned_view() {
             bound: 4,
             view: 5
         }
+    );
+}
+
+/// A source that keeps its own basis history (D-DT64-7 Decision J, item 5):
+/// `current` is the basis now, `history` the basis it had at each recorded
+/// revision, `lens_history` the same per FULL lens classid.
+struct History {
+    class: ClassId,
+    current: Vec<FieldRef>,
+    history: Vec<(u32, Vec<FieldRef>)>,
+    lens_history: Vec<((u32, u32), Vec<FieldRef>)>,
+}
+
+impl ClassView for History {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        if class == self.class {
+            &self.current
+        } else {
+            &[]
+        }
+    }
+    fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
+        if class != self.class {
+            return None;
+        }
+        self.history
+            .iter()
+            .find(|(r, _)| *r == schema_rev)
+            .map(|(_, f)| f.as_slice())
+    }
+    fn lens_fields_at(&self, lens: u32, schema_rev: u32) -> Option<&[FieldRef]> {
+        self.lens_history
+            .iter()
+            .find(|(k, _)| *k == (lens, schema_rev))
+            .map(|(_, f)| f.as_slice())
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
+}
+
+/// The independent oracle for basis identity: the ordered `predicate_iri`s,
+/// labels dropped.
+fn iris(fields: &[FieldRef]) -> Vec<&str> {
+    fields.iter().map(|f| f.predicate_iri.as_str()).collect()
+}
+
+/// ORDER's source at revision 2: rev 1 had four fields, rev 2 appended
+/// `urn:f4`, and the current basis is rev 2's.
+fn evolved_source() -> History {
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let rev2 = View::with_fields(VIEW_CLASS, 5).fields;
+    History {
+        class: VIEW_CLASS,
+        current: rev2.clone(),
+        history: vec![(1, rev1), (2, rev2)],
+        lens_history: Vec::new(),
+    }
+}
+
+/// Decision J item 5, the acceptance half: a source that records its history
+/// answers both revisions, and each classid resolves against the basis of the
+/// revision it was bound at, not the current one.
+#[test]
+fn a_history_keeping_source_replays_each_revision_against_its_own_basis() {
+    let mut s = store_with_order();
+    s.register_derived(ORDER, ORDER_V2, schema(2, 5), Vec::new())
+        .unwrap();
+    let source = evolved_source();
+    let old = s.resolve(&source, ORDER, SchemaRev(1)).unwrap();
+    let new = s.resolve(&source, ORDER_V2, SchemaRev(2)).unwrap();
+    assert_eq!(iris(old.fields), ["urn:f0", "urn:f1", "urn:f2", "urn:f3"]);
+    assert_eq!(
+        iris(new.fields),
+        ["urn:f0", "urn:f1", "urn:f2", "urn:f3", "urn:f4"]
+    );
+    // The current basis is rev 2's; rev 1 came from the history, not from it.
+    assert_eq!(source.fields(VIEW_CLASS).len(), 5);
+}
+
+/// The history is read at the BOUND revision. Asking ORDER at revision 2,
+/// which the source does hold, is still refused: the classid was bound at 1.
+#[test]
+fn a_class_is_never_resolved_at_another_revision_even_when_history_has_it() {
+    let s = store_with_order();
+    assert_eq!(
+        s.resolve(&evolved_source(), ORDER, SchemaRev(2))
+            .unwrap_err(),
+        Refusal::SchemaRevisionMismatch {
+            class: ORDER,
+            bound: SchemaRev(1),
+            asked: SchemaRev(2)
+        }
+    );
+}
+
+/// Behaviour lenses keep separate histories by their FULL classid (O9): two
+/// lenses under one left half each read their own revision, and a lens the
+/// source holds no record of fails closed instead of reading a sibling's.
+#[test]
+fn two_lenses_sharing_a_concept_half_keep_separate_histories() {
+    let mut s = BindStore::new();
+    for (lens, n) in [(RELALG_LENS, 17), (ONNX_LENS, 5), (UNKNOWN_LENS, 17)] {
+        s.declare_algebra(lens, SchemaRev(1), Extent::DR64_CUBE, vec![1; n])
+            .unwrap();
+    }
+    let source = History {
+        class: 0xFFFF,
+        // The left half's own basis, of neither lens's size.
+        current: labels("concept", 3),
+        history: vec![(1, labels("concept", 3))],
+        lens_history: vec![
+            ((RELALG_LENS, 1), labels("relalg", 17)),
+            ((ONNX_LENS, 1), labels("onnx", 5)),
+        ],
+    };
+    let relalg = s
+        .resolve_algebra(&source, RELALG_LENS, SchemaRev(1))
+        .unwrap();
+    let onnx = s.resolve_algebra(&source, ONNX_LENS, SchemaRev(1)).unwrap();
+    assert_eq!(relalg.fields[16].predicate_iri, "urn:relalg/16");
+    assert_eq!(onnx.fields[4].predicate_iri, "urn:onnx/4");
+    assert_eq!(
+        s.resolve_algebra(&source, UNKNOWN_LENS, SchemaRev(1))
+            .unwrap_err(),
+        Refusal::UnknownLensBasis(UNKNOWN_LENS)
     );
 }
 

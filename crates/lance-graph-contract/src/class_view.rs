@@ -1086,6 +1086,35 @@ pub trait ClassView {
         None
     }
 
+    /// The ordered field basis `class` had at schema revision `schema_rev`,
+    /// answered by the source that owns the class's history (D-DT64-7
+    /// Decision J, item 5).
+    ///
+    /// [`fields`](Self::fields) is the basis now and carries no revision, so
+    /// once a source's basis evolves, a binding made at an older revision
+    /// can only be replayed through this accessor.
+    ///
+    /// `None` means this view does not hold that revision's basis. A reader
+    /// must not take [`fields`](Self::fields) in its place as if it were
+    /// historical: it may use the current basis only when it has proved it
+    /// equal to the basis it bound against. The default answers `None` for
+    /// every revision, so a view that keeps no history keeps its current
+    /// behaviour.
+    fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
+        let _ = (class, schema_rev);
+        None
+    }
+
+    /// [`fields_at`](Self::fields_at) for a behaviour lens, keyed by its FULL
+    /// classid like [`lens_fields`](Self::lens_fields): two lenses sharing a
+    /// left half keep separate histories. `None` means this view does not
+    /// hold that lens at that revision; a reader must refuse rather than
+    /// read the left half's history.
+    fn lens_fields_at(&self, lens: u32, schema_rev: u32) -> Option<&[FieldRef]> {
+        let _ = (lens, schema_rev);
+        None
+    }
+
     /// The label of field position `n` in `class`, resolved late from the cache
     /// (locale resolution is the consumer's job). `None` if `n` is out of range.
     fn field_label(&self, class: ClassId, n: u8) -> Option<&str> {
@@ -1581,6 +1610,22 @@ mod tests {
         }
         fn is_a_parent(&self, class: ClassId) -> Option<ClassId> {
             self.parents.get(&class).copied()
+        }
+    }
+
+    /// A view that keeps no history answers no revision, even the one its
+    /// current basis was built at: the current basis is never offered as
+    /// historical (D-DT64-7 Decision J, item 5).
+    #[test]
+    fn historical_basis_defaults_to_none_even_when_the_current_basis_exists() {
+        let c = FakeClasses {
+            invoice: vec![FieldRef::new("urn:total", "Total")],
+            ..Default::default()
+        };
+        assert_eq!(c.fields(7).len(), 1);
+        for rev in [0, 1, 2, u32::MAX] {
+            assert_eq!(c.fields_at(7, rev), None);
+            assert_eq!(c.lens_fields_at(0x0007_F000, rev), None);
         }
     }
 
