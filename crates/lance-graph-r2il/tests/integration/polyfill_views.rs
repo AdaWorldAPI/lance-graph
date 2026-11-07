@@ -267,3 +267,52 @@ fn the_adapter_hides_the_consumers_own_hardcoded_labels() {
     assert_eq!(both.template(CLASS_VIEW), DisplayTemplate::Detail);
     assert_eq!(both.dolce_category_id(CLASS_VIEW), 7);
 }
+
+// ------------------------------------------ the adapter keeps the history
+
+/// A consumer that keeps its own basis history (D-DT64-7 Decision J, item 5):
+/// revision 1 of `CLASS_VIEW` and of the lens `HISTORY_LENS`.
+struct Historian {
+    rev1: Vec<FieldRef>,
+}
+
+const HISTORY_LENS: u32 = 0x0A1E_F001;
+
+impl ClassView for Historian {
+    fn fields(&self, _class: ClassId) -> &[FieldRef] {
+        &[]
+    }
+    fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
+        (class == CLASS_VIEW && schema_rev == 1).then_some(self.rev1.as_slice())
+    }
+    fn lens_fields_at(&self, lens: u32, schema_rev: u32) -> Option<&[FieldRef]> {
+        (lens == HISTORY_LENS && schema_rev == 1).then_some(self.rev1.as_slice())
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
+}
+
+/// Wrapping a consumer in `WithPolyfill` must not hide its history: the
+/// historical accessors are routed like the current ones, and the polyfill
+/// concept keeps answering from the polyfill view (which holds no history).
+#[test]
+fn the_adapter_forwards_the_consumers_history() {
+    let consumer = Historian {
+        rev1: vec![FieldRef::new("lab:class/a", "a")],
+    };
+    let polyfill = PolyfillView::new(AliasLanguage::R2il);
+    let view = WithPolyfill::new(&consumer, &polyfill);
+    assert_eq!(
+        view.fields_at(CLASS_VIEW, 1),
+        consumer.fields_at(CLASS_VIEW, 1)
+    );
+    assert!(view.fields_at(CLASS_VIEW, 1).is_some());
+    assert_eq!(view.fields_at(CLASS_VIEW, 2), None);
+    assert!(view.lens_fields_at(HISTORY_LENS, 1).is_some());
+    assert_eq!(view.lens_fields_at(POLYFILL_LENS, 1), None);
+    assert_eq!(view.fields_at(HARDCODED, 1), None);
+}
