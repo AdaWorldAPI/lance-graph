@@ -474,8 +474,35 @@ fn dt64_method_pointer_is_not_a_coordinate_or_an_excel_value() {
         truth: Truth::TwoValued,
         demand: ValueDemand::MapOnly,
     };
+    struct TwoFieldView(Vec<lance_graph_contract::ontology::FieldRef>);
+    impl lance_graph_contract::class_view::ClassView for TwoFieldView {
+        fn fields(
+            &self,
+            class: lance_graph_contract::class_view::ClassId,
+        ) -> &[lance_graph_contract::ontology::FieldRef] {
+            if class == 0x1100 {
+                &self.0
+            } else {
+                &[]
+            }
+        }
+        fn template(
+            &self,
+            _class: lance_graph_contract::class_view::ClassId,
+        ) -> lance_graph_contract::ontology::DisplayTemplate {
+            lance_graph_contract::ontology::DisplayTemplate::Detail
+        }
+        fn dolce_category_id(&self, _class: lance_graph_contract::class_view::ClassId) -> u8 {
+            0
+        }
+    }
+    let view = TwoFieldView(vec![
+        lance_graph_contract::ontology::FieldRef::new("urn:lab:ordinal/a", "A"),
+        lance_graph_contract::ontology::FieldRef::new("urn:lab:ordinal/b", "B"),
+    ]);
     let mut dt = BindStore::new();
-    dt.register(class, schema, vec![method.clone()]).unwrap();
+    dt.register(&view, class, schema, vec![method.clone()])
+        .unwrap();
     let pointer = MethodRef::of(class, &method);
     assert_eq!(dt.admit(&pointer).unwrap(), &method);
     let before = dt.route(0, class).unwrap();
@@ -484,7 +511,7 @@ fn dt64_method_pointer_is_not_a_coordinate_or_an_excel_value() {
     let mut changed = method.clone();
     changed.sig_rev = SigRev(2);
     assert_eq!(
-        dt.register(class, schema, vec![changed.clone()]),
+        dt.register(&view, class, schema, vec![changed.clone()]),
         Err(Refusal::BehaviourImmutable(class))
     );
     let incompatible_pointer = MethodRef {
@@ -497,7 +524,7 @@ fn dt64_method_pointer_is_not_a_coordinate_or_an_excel_value() {
     ));
 
     let derived = class + 1;
-    dt.register_derived(class, derived, schema, vec![changed])
+    dt.register_derived(&view, class, derived, schema, vec![changed])
         .unwrap();
     let after = dt.route(0, derived).unwrap();
     assert_eq!(dt.routed_at(before, 0).unwrap(), Some(class));
@@ -1136,8 +1163,10 @@ mod lanesock {
 
     pub fn bound() -> Bound {
         let mut store = BindStore::new();
+        let view = view();
         store
             .register(
+                &view,
                 HYBRID_USER,
                 ClassSchema {
                     schema_rev: SchemaRev(1),
@@ -1152,7 +1181,7 @@ mod lanesock {
         let frame = frames.seal();
         Bound {
             store,
-            view: view(),
+            view,
             frames,
             frame,
             route: RouteAt {

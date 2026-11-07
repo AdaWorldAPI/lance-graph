@@ -286,8 +286,9 @@ fn store(arities: Vec<u8>) -> (BindStore, RouteVersion) {
         .unwrap();
     s.declare_algebra(OTHER_LENS, REV, Extent::DR64_CUBE, arities)
         .unwrap();
-    s.register(CLASS, schema(), methods()).unwrap();
-    s.register(OTHER_CLASS, schema(), vec![]).unwrap();
+    let views = Views::new();
+    s.register(&views, CLASS, schema(), methods()).unwrap();
+    s.register(&views, OTHER_CLASS, schema(), vec![]).unwrap();
     let v = s.route(POSITION, CLASS).unwrap();
     (s, v)
 }
@@ -672,7 +673,7 @@ fn a_word_under_another_lens_or_reading_refuses() {
     );
     let class = THIRD_CLASS;
     store
-        .register(class, schema(), vec![other.clone()])
+        .register(&views, class, schema(), vec![other.clone()])
         .unwrap();
     let v = store.route(9, class).unwrap();
     let frames = FrameStore::new(REVS);
@@ -712,7 +713,9 @@ fn an_arity_the_lens_declares_against_ogar_refuses() {
         .declare_algebra(LENS, REV, Extent::DR64_CUBE, arities)
         .unwrap();
     let m = method(1, &[1], vec![step(4, W_SUM, vec![Arg::Field(1)])]);
-    store.register(CLASS, schema(), vec![m.clone()]).unwrap();
+    store
+        .register(&views, CLASS, schema(), vec![m.clone()])
+        .unwrap();
     let v = store.route(POSITION, CLASS).unwrap();
     let frames = FrameStore::new(REVS);
     let g = guards(&frames);

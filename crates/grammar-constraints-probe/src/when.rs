@@ -30,7 +30,8 @@
 
 use std::cell::Cell;
 
-use lance_graph_contract::class_view::WideFieldMask;
+use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population as Multiplicity, Truth};
 use lance_graph_dt64::dr::{Frame, MapTable};
@@ -317,10 +318,58 @@ pub fn register(
     lex: &Lexicon,
 ) -> Result<(), Refusal> {
     store.register(
+        &LabView::new(),
         class,
         schema(),
         rules.iter().map(|r| r.binding(phys, v, lex)).collect(),
     )
+}
+
+/// The lab token class's field basis: [`FIELDS`] placeholder fields, answered
+/// for the concept of every lab classid. Registration reads the basis from a
+/// view; nothing here resolves through it.
+pub struct LabView {
+    basis: Vec<FieldRef>,
+}
+
+impl LabView {
+    pub fn new() -> Self {
+        LabView {
+            basis: (0..FIELDS)
+                .map(|i| {
+                    FieldRef::new(
+                        format!("urn:grammar-constraints-probe/f{i}"),
+                        format!("f{i}"),
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
+impl Default for LabView {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ClassView for LabView {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        if [CLASS_VIA, CLASS_COADDR, CLASS_FOREIGN]
+            .iter()
+            .any(|&c| lance_graph_dt64::view_class(c) == class)
+        {
+            &self.basis
+        } else {
+            &[]
+        }
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
 }
 
 /// Why the composer refused.

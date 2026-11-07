@@ -233,7 +233,7 @@ fn candidates_are_read_only() {
         args: vec![Arg::Field(1)],
     }];
     store
-        .register(CLASS_COADDR, schema(), vec![b.clone()])
+        .register(&LabView::new(), CLASS_COADDR, schema(), vec![b.clone()])
         .unwrap();
     let r = MethodRef::of(CLASS_COADDR, &b);
     assert_eq!(
@@ -259,7 +259,9 @@ fn dt64_does_not_validate_guard_lanes() {
     let mut b = RuleDesc::recipient().binding(Physical::CoAddressed, &w.v, &w.lex);
     b.when = Some(Guard::new(SetExpr::eq_u32(99, 1), Logic::TwoValued));
     let mut store = BindStore::new();
-    assert!(store.register(CLASS_COADDR, schema(), vec![b]).is_ok());
+    assert!(store
+        .register(&LabView::new(), CLASS_COADDR, schema(), vec![b])
+        .is_ok());
 }
 
 // --- negative controls ---------------------------------------------------------

@@ -115,6 +115,11 @@ pub enum LaneRefusal {
         reader: Scope,
         lane: Scope,
     },
+    /// The store binds the class over another basis than the one this binding
+    /// was made against. A store never changes a bound class (D5), so this
+    /// fires only when the binding is checked against ANOTHER store; it says
+    /// nothing about the view, which the hot check does not re-hash.
+    StoreBasisMismatch { class: u32 },
     /// The source maps the field to another lane than it did at bind.
     MappingChanged { field: u8 },
     /// The source no longer holds the lane.
@@ -141,6 +146,9 @@ pub struct LaneBinding {
     selection: CoordSpace,
     fields: WideFieldMask,
     lanes: Vec<(u8, LaneAddr)>,
+    /// The witness of the basis the class was bound with when this binding
+    /// was made: one `u128`, compared on the hot path without hashing.
+    basis: crate::BasisDigest,
 }
 
 impl BindStore {
@@ -163,6 +171,9 @@ impl BindStore {
             })?;
         current_route(self, req.route.position, class)?;
         let resolved = self.resolve(view, class, req.rev)?;
+        let basis = self
+            .bound_basis(class)
+            .ok_or(Refusal::UnknownClass(class))?;
         let mut lanes = Vec::with_capacity(req.fields.count() as usize);
         for field in 0..=u8::MAX {
             if !req.fields.has(field) {
@@ -186,6 +197,7 @@ impl BindStore {
             selection: req.selection,
             fields: req.fields.clone(),
             lanes,
+            basis,
         })
     }
 }
@@ -258,10 +270,17 @@ impl LaneBinding {
         self.lanes.iter().find(|(f, _)| *f == field).map(|(_, a)| a)
     }
 
-    /// Hot: everything the bind checked, again, without allocating. The frame
-    /// against its store; the route against the store's CURRENT version (a
-    /// re-route since the bind is refused); the basis at the bound revision;
+    /// Hot: the bind's checks again, without allocating and without hashing
+    /// the basis. The frame against its store; the route against the store's
+    /// CURRENT version (a re-route since the bind is refused); the store's
+    /// basis witness against the one recorded at bind (a `u128` compare); the
+    /// view's basis at the bound revision by revision and field count only;
     /// and every lane against what the source maps now.
+    ///
+    /// NOT checked here: that `view` still has the ordered predicates it had
+    /// at bind. A same-count reorder in the view after the bind is caught only
+    /// when the source maps lanes by predicate (`MappingChanged`); a
+    /// positional source passes it. Re-bind after any basis change.
     pub fn check<V: ClassView + ?Sized, S: LaneSource>(
         &self,
         store: &BindStore,
@@ -271,17 +290,25 @@ impl LaneBinding {
     ) -> Result<(), LaneRefusal> {
         frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
         current_route(store, self.route.position, self.class)?;
-        let resolved = store.resolve(view, self.class, self.rev)?;
+        // Revision and count only: the ordered predicate witness was checked
+        // when the binding was made (bind_lanes resolves through the
+        // witnessed `resolve`), and re-hashing the basis here would put
+        // schema hashing on the hot path. A basis that changes order after
+        // the bind is caught below only when the source maps lanes by
+        // predicate (D-LANESOCK-3, `MappingChanged`); re-bind after any
+        // basis change. (D-DT64-7 L5d decides whether the R2IL arm re-binds.)
+        let (fields, bound) = store.resolve_counted(view, self.class, self.rev)?;
+        if bound != self.basis {
+            return Err(LaneRefusal::StoreBasisMismatch { class: self.class });
+        }
         for (field, addr) in &self.lanes {
             let field = *field;
-            let field_ref =
-                resolved
-                    .fields
-                    .get(usize::from(field))
-                    .ok_or(LaneRefusal::FieldNotInBasis {
-                        class: self.class,
-                        field,
-                    })?;
+            let field_ref = fields
+                .get(usize::from(field))
+                .ok_or(LaneRefusal::FieldNotInBasis {
+                    class: self.class,
+                    field,
+                })?;
             match source.lane_of(self.class, self.rev, field, field_ref, &self.frame) {
                 Some(current) if current == *addr => {}
                 Some(_) => return Err(LaneRefusal::MappingChanged { field }),

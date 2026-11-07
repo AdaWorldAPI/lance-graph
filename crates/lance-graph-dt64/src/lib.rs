@@ -57,7 +57,11 @@
 //! classid ([`ClassView::lens_fields`], O9), never from its concept half.
 //! Either basis is read at the bound revision: the source's own record of
 //! that revision ([`ClassView::fields_at`], [`ClassView::lens_fields_at`])
-//! when it keeps one, else its current basis.
+//! when it keeps one, else its current basis. At registration that current
+//! basis is the caller's claim for the declared revision and becomes the
+//! anchor (it cannot be proved: a view does not say which revision it is
+//! now); at resolution the current basis is accepted only when it equals the
+//! anchor.
 //!
 //! # Agnostic algebra, switched by the classid
 //!
@@ -263,6 +267,66 @@ struct ClassEntry {
     schema: ClassSchema,
     methods: Vec<MethodBinding>,
     derived_from: Option<u32>,
+    /// The witness of the ordered field basis the methods were bound against
+    /// (Decision J): read from the source at registration, never a copy.
+    basis: BasisDigest,
+}
+
+/// The witness of one ordered field basis (D-DT64-7 Decision J, O10's
+/// "versioned schema/basis witness"): a 128-bit FNV-1a digest of a canonical,
+/// length-prefixed encoding of the basis's `predicate_iri`s in position order.
+/// Labels, templates and anything locale-bound are not part of it, so a
+/// label-only rename keeps the digest and a reorder, a replaced predicate, an
+/// added or a removed field each change it.
+///
+/// What it does and does not prove. The store keeps the digest, not the
+/// predicates (DT64 copies no meaning). Equal digests mean equal ordered
+/// predicate sequences UNLESS two encodings collide; the encoding is
+/// injective (every length is prefixed), so a collision needs two distinct
+/// byte strings with one FNV-1a 128 value. That is negligible for a source
+/// that drifts by accident and NOT excluded for one that is built to collide:
+/// FNV is not a cryptographic hash. The digest detects change of a source; it
+/// does not authenticate one (that is O10's owner/activation binding, still
+/// open) and it never grants execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct BasisDigest(u128);
+
+impl BasisDigest {
+    const OFFSET: u128 = 0x6c62_272e_07bb_0142_62b8_2175_6295_c58d;
+    const PRIME: u128 = 0x0000_0000_0100_0000_0000_0000_0000_013b;
+
+    fn of(fields: &[FieldRef]) -> BasisDigest {
+        let mut h = Self::OFFSET;
+        h = Self::eat(h, b"dt64.basis.v1");
+        h = Self::eat(h, &(fields.len() as u64).to_le_bytes());
+        for f in fields {
+            let iri = f.predicate_iri.as_bytes();
+            h = Self::eat(h, &(iri.len() as u64).to_le_bytes());
+            h = Self::eat(h, iri);
+        }
+        BasisDigest(h)
+    }
+
+    fn eat(mut h: u128, bytes: &[u8]) -> u128 {
+        for &b in bytes {
+            h ^= u128::from(b);
+            h = h.wrapping_mul(Self::PRIME);
+        }
+        h
+    }
+}
+
+/// Which answer of the [`ClassView`] a basis was read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BasisSource {
+    /// [`ClassView::fields_at`] or [`ClassView::lens_fields_at`]: the
+    /// source's own record of the basis at the bound revision.
+    Historical,
+    /// [`ClassView::fields`] or [`ClassView::lens_fields`]: the basis now. At
+    /// resolution it is accepted only when it is proved equal to the bound
+    /// one; at registration it is taken, unproved, as the declared
+    /// revision's.
+    Current,
 }
 
 /// A reference a router (DR #4) carries to a method: the class, the method
@@ -343,11 +407,33 @@ pub enum Refusal {
         asked: SchemaRev,
     },
     /// The [`ClassView`] no longer has the field count the methods were bound
-    /// against.
+    /// against. At registration, the view's basis does not have the declared
+    /// field count.
     FieldBasisChanged {
         class: u32,
         bound: usize,
         view: usize,
+    },
+    /// Two classids read through one basis (the same concept half, or the
+    /// same full lens classid) at the same schema revision bind two different
+    /// bases. A revision has one basis (Decision J), so the later registration
+    /// is refused. This is a fail-closed refusal, not an adjudication: the
+    /// first registration anchors the revision, whether or not it was right.
+    /// Polyfill lenses (`declare_algebra`) are not part of this check.
+    BasisConflict {
+        class: u32,
+        other: u32,
+        schema_rev: SchemaRev,
+    },
+    /// Same revision and field count, other ordered `predicate_iri`s than the
+    /// basis the methods were bound against: a reorder or a replaced field
+    /// (Decision J). `source` says which answer of the view disagreed: its
+    /// own history for that revision, or (when it keeps none) its current
+    /// basis.
+    PredicateBasisChanged {
+        class: u32,
+        schema_rev: SchemaRev,
+        source: BasisSource,
     },
     /// The class has no method with this identity.
     UnknownMethod { class: u32, method: MethodId },
@@ -429,8 +515,10 @@ impl From<RouteRefusal> for Refusal {
 /// The result of one lookup: the class schema as bound, its fields as the
 /// [`ClassView`] answered them for the bound revision (borrowed), and its
 /// methods. A value of this type is the answer of a lookup, not a witness:
-/// its fields are public, so one assembled by hand proves nothing. Only a
-/// `Resolved` returned by [`BindStore::resolve`] has passed its checks.
+/// its fields are public, so one assembled by hand proves nothing. A
+/// `Resolved` returned by [`BindStore::resolve`] has passed the revision,
+/// count and predicate-witness checks; one returned by
+/// [`BindStore::resolve_algebra`] has passed revision and count only.
 #[derive(Debug, Clone, Copy)]
 pub struct Resolved<'s, 'v> {
     pub class: u32,
@@ -566,21 +654,37 @@ impl BindStore {
         BindStore::default()
     }
 
-    /// Bind `class`. Idempotent for an identical binding; any other binding of
-    /// an already bound class is refused (D5).
-    pub fn register(
+    /// Bind `class` against the ordered field basis `view` gives it at
+    /// `schema.schema_rev` (Decision J): the source's history for that
+    /// revision when it keeps one, else its current basis. The basis must
+    /// have `schema.field_count` fields; the store keeps its witness, never the
+    /// fields. Another classid read through the same basis at the same
+    /// revision must have bound the same one ([`Refusal::BasisConflict`]).
+    ///
+    /// Not proved: when the view keeps no history for that revision, its
+    /// CURRENT basis is taken as that revision's. A [`ClassView`] does not say
+    /// which revision its current basis is, so the store cannot tell a source
+    /// that has since moved on; the caller vouches for it. Nor does the store
+    /// know who supplied the view (O10's owner binding is open).
+    ///
+    /// Idempotent for an identical binding over an identical basis; any other
+    /// binding of an already bound class, including the same methods over
+    /// another basis, is refused (D5).
+    pub fn register<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         class: u32,
         schema: ClassSchema,
         methods: Vec<MethodBinding>,
     ) -> Result<(), Refusal> {
-        self.insert(class, schema, methods, None)
+        self.insert(view, class, schema, methods, None)
     }
 
     /// Bind `class` as an override of the bound class `base` (D-DT64-6 §3).
     /// `base` keeps its behaviour; route positions to `class` to use it.
-    pub fn register_derived(
+    pub fn register_derived<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         base: u32,
         class: u32,
         schema: ClassSchema,
@@ -592,11 +696,12 @@ impl BindStore {
         if base == class {
             return Err(Refusal::BehaviourImmutable(class));
         }
-        self.insert(class, schema, methods, Some(base))
+        self.insert(view, class, schema, methods, Some(base))
     }
 
-    fn insert(
+    fn insert<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         class: u32,
         schema: ClassSchema,
         methods: Vec<MethodBinding>,
@@ -622,10 +727,33 @@ impl BindStore {
                 }
             }
         }
+        let (fields, _) = basis_at(view, class, schema.schema_rev)?;
+        if fields.len() != schema.field_count {
+            return Err(Refusal::FieldBasisChanged {
+                class,
+                bound: schema.field_count,
+                view: fields.len(),
+            });
+        }
+        let basis = BasisDigest::of(fields);
+        let key = basis_key(class);
+        if let Some((&other, _)) = self.classes.iter().find(|(&c, e)| {
+            c != class
+                && basis_key(c) == key
+                && e.schema.schema_rev == schema.schema_rev
+                && e.basis != basis
+        }) {
+            return Err(Refusal::BasisConflict {
+                class,
+                other,
+                schema_rev: schema.schema_rev,
+            });
+        }
         let entry = ClassEntry {
             schema,
             methods,
             derived_from,
+            basis,
         };
         match self.classes.get(&class) {
             Some(bound) if *bound == entry => Ok(()),
@@ -684,7 +812,12 @@ impl BindStore {
         schema_rev: SchemaRev,
     ) -> Result<Resolved<'s, 'v>, Refusal> {
         let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
-        check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
+        // A polyfill lens is bound by its arities, not against a basis, so it
+        // is checked by revision and count only: a reorder of two words with
+        // the same arity is NOT detected here, and a consumer that selects
+        // behaviour by a word's label (R2IL's opcode) is not protected by the
+        // class witness. Pinned as a finding; open under L5c/L5d.
+        check_basis(view, lens, &bound.schema, schema_rev, None).map(|fields| Resolved {
             class: lens,
             schema: &bound.schema,
             fields,
@@ -801,7 +934,7 @@ impl BindStore {
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        let fields = check_basis(view, class, &entry.schema, schema_rev)?;
+        let fields = check_basis(view, class, &entry.schema, schema_rev, Some(entry.basis))?;
         Ok(Resolved {
             class,
             schema: &entry.schema,
@@ -809,6 +942,30 @@ impl BindStore {
             methods: &entry.methods,
             derived_from: entry.derived_from,
         })
+    }
+
+    /// [`BindStore::resolve`] without the predicate witness: revision and
+    /// field count only. For [`LaneBinding::check`]'s hot re-check of a
+    /// binding that [`BindStore::bind_lanes`] made through the witnessed
+    /// `resolve`; it does not hash the basis on every call. Not a way to
+    /// resolve a class for the first time.
+    pub(crate) fn resolve_counted<'v, V: ClassView + ?Sized>(
+        &self,
+        view: &'v V,
+        class: u32,
+        schema_rev: SchemaRev,
+    ) -> Result<(&'v [FieldRef], BasisDigest), Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let fields = check_basis(view, class, &entry.schema, schema_rev, None)?;
+        Ok((fields, entry.basis))
+    }
+
+    /// The basis witness `class` is bound with, if it is bound.
+    pub(crate) fn bound_basis(&self, class: u32) -> Option<BasisDigest> {
+        self.classes.get(&class).map(|e| e.basis)
     }
 
     /// The lookup by DR position: the classid routed there at `version`, then
@@ -860,12 +1017,15 @@ impl BindStore {
 
 /// The class's fields from the [`ClassView`], refused when the schema revision
 /// or the field basis is not the bound one. The revision is checked first, so
-/// the view is only ever asked about the bound revision.
+/// the view is only ever asked about the bound revision. With a `witness`, the
+/// ordered `predicate_iri`s must also be the bound ones (Decision J); without
+/// one, revision and count only.
 fn check_basis<'v, V: ClassView + ?Sized>(
     view: &'v V,
     class: u32,
     schema: &ClassSchema,
     schema_rev: SchemaRev,
+    witness: Option<BasisDigest>,
 ) -> Result<&'v [FieldRef], Refusal> {
     if schema.schema_rev != schema_rev {
         return Err(Refusal::SchemaRevisionMismatch {
@@ -874,13 +1034,35 @@ fn check_basis<'v, V: ClassView + ?Sized>(
             asked: schema_rev,
         });
     }
-    let fields = basis_at(view, class, schema_rev)?;
-    check_count(class, schema, fields)
+    let (fields, source) = basis_at(view, class, schema_rev)?;
+    let fields = check_count(class, schema, fields)?;
+    if let Some(bound) = witness {
+        if BasisDigest::of(fields) != bound {
+            return Err(Refusal::PredicateBasisChanged {
+                class,
+                schema_rev,
+                source,
+            });
+        }
+    }
+    Ok(fields)
+}
+
+/// Which basis of the [`ClassView`] `class` is read through: a behaviour lens
+/// by its full classid, any other class by its concept half. Two classids with
+/// the same key share one basis per revision.
+fn basis_key(class: u32) -> (bool, u32) {
+    if is_behaviour_lens(class) {
+        (true, class)
+    } else {
+        (false, u32::from(view_class(class)))
+    }
 }
 
 /// The basis `class` is read through at `schema_rev` (D-DT64-7 Decision J,
 /// item 5): the source's historical answer for that revision when it holds
-/// one, else its current basis.
+/// one, else its current basis (which only [`check_basis`]'s witness, at
+/// resolution, can prove; at registration it is the caller's claim).
 ///
 /// A behaviour lens (right half `0xF###`) is looked up by its FULL classid in
 /// both cases (O9), so two lenses sharing a left half never share a basis or
@@ -890,19 +1072,21 @@ fn basis_at<V: ClassView + ?Sized>(
     view: &V,
     class: u32,
     schema_rev: SchemaRev,
-) -> Result<&[FieldRef], Refusal> {
+) -> Result<(&[FieldRef], BasisSource), Refusal> {
     if is_behaviour_lens(class) {
         if let Some(fields) = view.lens_fields_at(class, schema_rev.0) {
-            return Ok(fields);
+            return Ok((fields, BasisSource::Historical));
         }
-        return view
+        let fields = view
             .lens_fields(class)
-            .ok_or(Refusal::UnknownLensBasis(class));
+            .ok_or(Refusal::UnknownLensBasis(class))?;
+        return Ok((fields, BasisSource::Current));
     }
     let concept = view_class(class);
-    Ok(view
-        .fields_at(concept, schema_rev.0)
-        .unwrap_or_else(|| view.fields(concept)))
+    Ok(match view.fields_at(concept, schema_rev.0) {
+        Some(fields) => (fields, BasisSource::Historical),
+        None => (view.fields(concept), BasisSource::Current),
+    })
 }
 
 /// The field-count check of [`check_basis`], over a basis already looked up

@@ -124,7 +124,7 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-L4 | production alias views (R2IL, SQL, Quack) from `POLYFILL` | In progress | — |
 | D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
 | D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
-| D-DT64-7-L5a | exact `predicate_iri` basis witness in `register` / `check_basis` (Decision J, plan §1f); flips N1/N4 FINDING tests | Queued | none (Decision J taken) |
+| D-DT64-7-L5a | exact `predicate_iri` basis witness in `register` / `check_basis` (Decision J, plan §1f); flips N1/N4 FINDING tests | In PR | branch `ccr-8062bcc7-l7lkz9-l5a`, stacked on L5b (#1976) |
 | D-DT64-7-L5b | revision-keyed historical basis accessor on `ClassView` (default `None`, O9 pattern); flips the replay FINDING | In PR | branch `ccr-8062bcc7-l7lkz9-l5b`, stacked on #1975; land with or before L5a |
 | D-DT64-7-L5c | `MethodRef` + `plan_id` carry class `SchemaRev` and basis digest | Queued | after L5a |
 | D-DT64-7-L5d | test-only `LaneBinding` → R2IL `FieldLanes`, with coordinate, scope, mapping and permit refusals | Queued | after L5a; EXO-46 for any production use |

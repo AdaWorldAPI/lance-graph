@@ -10,6 +10,8 @@
 use std::fs;
 use std::path::Path;
 
+use lance_graph_contract::class_view::{ClassId, ClassView};
+use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::scheduler::DatasetVersion;
 use lance_graph_dt64::{BindStore, ClassSchema, Extent, RouteVersion, SchemaRev};
 use lance_graph_planner::persist_sink::{
@@ -40,11 +42,43 @@ fn binds() -> BindStore {
         field_count: 4,
         extent: Extent::DR256_SQ_X64,
     };
+    let view = PubView {
+        basis: (0..4)
+            .map(|i| FieldRef::new(format!("urn:codegraph/f{i}"), format!("f{i}")))
+            .collect(),
+    };
     let mut b = BindStore::new();
-    b.register(BASE, schema(), vec![]).expect("base");
-    b.register_derived(BASE, C1, schema(), vec![]).expect("C1");
-    b.register_derived(BASE, C2, schema(), vec![]).expect("C2");
+    b.register(&view, BASE, schema(), vec![]).expect("base");
+    b.register_derived(&view, BASE, C1, schema(), vec![])
+        .expect("C1");
+    b.register_derived(&view, BASE, C2, schema(), vec![])
+        .expect("C2");
     b
+}
+
+/// A four-field basis for the concept of each lab class; registration reads it
+/// and nothing here resolves through it.
+struct PubView {
+    basis: Vec<FieldRef>,
+}
+
+impl ClassView for PubView {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        if [BASE, C1, C2]
+            .iter()
+            .any(|&c| lance_graph_dt64::view_class(c) == class)
+        {
+            &self.basis
+        } else {
+            &[]
+        }
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
 }
 
 /// One land record: a source revision and route intents. No positions and

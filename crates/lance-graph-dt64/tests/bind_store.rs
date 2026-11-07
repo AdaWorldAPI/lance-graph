@@ -6,7 +6,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, Arg, Axis, BindStore, ClassSchema, Effect, Extent, Guard,
+    view_class, AlgebraRef, Arg, Axis, BasisSource, BindStore, ClassSchema, Effect, Extent, Guard,
     MethodBinding, MethodId, MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
     Width,
 };
@@ -53,6 +53,31 @@ impl ClassView for View {
     fn dolce_category_id(&self, _class: ClassId) -> u8 {
         0
     }
+}
+
+/// Register `class` against the `urn:f{i}` basis [`View::with_fields`] gives
+/// its concept at the declared field count: the basis most tests here resolve
+/// through. Tests about the basis witness itself call `register` directly.
+fn reg(
+    s: &mut BindStore,
+    class: u32,
+    schema: ClassSchema,
+    methods: Vec<MethodBinding>,
+) -> Result<(), Refusal> {
+    let view = View::with_fields(view_class(class), schema.field_count);
+    s.register(&view, class, schema, methods)
+}
+
+/// [`reg`] for a derived classid.
+fn reg_derived(
+    s: &mut BindStore,
+    base: u32,
+    class: u32,
+    schema: ClassSchema,
+    methods: Vec<MethodBinding>,
+) -> Result<(), Refusal> {
+    let view = View::with_fields(view_class(class), schema.field_count);
+    s.register_derived(&view, base, class, schema, methods)
 }
 
 const ORDER: u32 = 0x0A1E_0001;
@@ -135,7 +160,8 @@ fn method(id: u32, effects: Vec<Effect>) -> MethodBinding {
 
 fn store_with_order() -> BindStore {
     let mut s = catalogue();
-    s.register(
+    reg(
+        &mut s,
         ORDER,
         schema(1, 4),
         vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])],
@@ -177,11 +203,11 @@ fn an_unregistered_class_is_unknown_not_empty() {
 fn class_behaviour_is_immutable() {
     let mut s = store_with_order();
     let same = vec![method(10, vec![effect(2, ASSIGN), effect(3, ACCUMULATE)])];
-    assert_eq!(s.register(ORDER, schema(1, 4), same), Ok(()));
+    assert_eq!(reg(&mut s, ORDER, schema(1, 4), same), Ok(()));
 
     let reordered = vec![method(10, vec![effect(3, ACCUMULATE), effect(2, ASSIGN)])];
     assert_eq!(
-        s.register(ORDER, schema(1, 4), reordered),
+        reg(&mut s, ORDER, schema(1, 4), reordered),
         Err(Refusal::BehaviourImmutable(ORDER))
     );
     let view = View::with_fields(VIEW_CLASS, 4);
@@ -199,7 +225,8 @@ fn class_behaviour_is_immutable() {
 fn override_is_a_derived_class_and_a_reroute_and_replay_reads_the_old_route() {
     let mut s = store_with_order();
     let v1 = s.route(7, ORDER).unwrap();
-    s.register_derived(
+    reg_derived(
+        &mut s,
         ORDER,
         ORDER_V2,
         schema(1, 4),
@@ -252,11 +279,11 @@ fn routes_and_derivations_need_bound_classes() {
         Err(Refusal::UnknownClass(0xBEEF_0001))
     );
     assert_eq!(
-        s.register_derived(0xBEEF_0001, ORDER_V2, schema(1, 4), vec![]),
+        reg_derived(&mut s, 0xBEEF_0001, ORDER_V2, schema(1, 4), vec![]),
         Err(Refusal::UnknownClass(0xBEEF_0001))
     );
     assert_eq!(
-        s.register_derived(ORDER, ORDER, schema(1, 4), vec![]),
+        reg_derived(&mut s, ORDER, ORDER, schema(1, 4), vec![]),
         Err(Refusal::BehaviourImmutable(ORDER))
     );
     assert_eq!(
@@ -278,8 +305,7 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
     assert_eq!(a.reads, b.reads);
     assert_eq!(a.writes(), b.writes());
     assert_ne!(a, b, "effect order is part of the binding");
-    s.register(ORDER, schema(1, 4), vec![a.clone(), b.clone()])
-        .unwrap();
+    reg(&mut s, ORDER, schema(1, 4), vec![a.clone(), b.clone()]).unwrap();
 
     let view = View::with_fields(VIEW_CLASS, 4);
     let r = s.resolve(&view, ORDER, SchemaRev(1)).unwrap();
@@ -345,7 +371,7 @@ fn a_guard_added_to_an_unguarded_method_refuses() {
         when: None,
         ..method(30, vec![effect(2, ASSIGN)])
     };
-    s.register(ORDER, schema(1, 4), vec![free.clone()]).unwrap();
+    reg(&mut s, ORDER, schema(1, 4), vec![free.clone()]).unwrap();
     assert!(s.admit(&MethodRef::of(ORDER, &free)).is_ok());
     let added = MethodRef {
         guard: Some(Guard::new(SetExpr::All, Logic::TwoValued).witness()),
@@ -433,33 +459,165 @@ const BOUND: [(&str, &str); 4] = [
     ("urn:f3", "f3"),
 ];
 
-/// FINDING (D-DT64-7-L5 / O10, not yet enforced): an equal-length REORDER is
-/// accepted. The basis check compares the schema revision and the field count
-/// only, and `admit` never reads the view, so ORDER's method keeps reading
-/// position 1, which now names `urn:f2`. Under Decision J this must be
-/// refused. When L5's exact basis witness lands, this test flips: re-pin it to
-/// the refusal, do not delete it.
+/// Decision J, item 1 (was the N1 FINDING, flipped by L5a): an equal-length
+/// REORDER under the same revision is refused. Before L5a the basis check
+/// compared revision and count only, so ORDER's method kept reading position
+/// 1 after it came to name `urn:f2`. Correct count, wrong order.
 #[test]
-fn finding_an_equal_length_reorder_resolves_and_admits() {
+fn an_equal_length_reorder_is_refused() {
     let s = store_with_order();
     let swapped = view_of(&[BOUND[0], BOUND[2], BOUND[1], BOUND[3]]);
-    let r = s.resolve(&swapped, ORDER, SchemaRev(1)).unwrap();
-    assert_eq!(r.fields[1].predicate_iri, "urn:f2", "position 1 moved");
-    assert!(
-        r.methods[0].reads.has(1),
-        "the method still reads position 1"
+    assert_eq!(swapped.fields.len(), BOUND.len(), "same count");
+    assert_eq!(
+        s.resolve(&swapped, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Current,
+        }
     );
-    assert!(s.admit(&MethodRef::of(ORDER, &r.methods[0])).is_ok());
 }
 
-/// FINDING (L5, not yet enforced): an equal-length change of a field's
-/// `predicate_iri` (a replaced field) is accepted. Decision J: refused once
-/// the exact basis witness lands; flip this test then.
+/// FINDING (L5c, not yet enforced): `admit` still takes a reference that
+/// carries no class revision and no basis identity, so a router holding a
+/// `MethodRef` is admitted whatever the view now says. `resolve` refuses the
+/// reorder above; `admit` cannot, because it never sees a basis. L5c puts
+/// the class revision and the basis witness on `MethodRef`; flip this then.
 #[test]
-fn finding_an_equal_length_predicate_change_resolves() {
+fn finding_admit_does_not_carry_the_basis_identity() {
+    let s = store_with_order();
+    let at_bind = View::with_fields(VIEW_CLASS, 4);
+    let bound = s.resolve(&at_bind, ORDER, SchemaRev(1)).unwrap();
+    let r = MethodRef::of(ORDER, &bound.methods[0]);
+    let swapped = view_of(&[BOUND[0], BOUND[2], BOUND[1], BOUND[3]]);
+    assert!(s.resolve(&swapped, ORDER, SchemaRev(1)).is_err());
+    assert!(s.admit(&r).is_ok(), "admit never reads a basis");
+}
+
+/// Decision J, item 1 (was the N4 FINDING, flipped by L5a): an equal-length
+/// change of one field's `predicate_iri` (a replaced field) is refused.
+#[test]
+fn an_equal_length_predicate_change_is_refused() {
     let s = store_with_order();
     let replaced = view_of(&[BOUND[0], ("urn:g1", "f1"), BOUND[2], BOUND[3]]);
-    assert!(s.resolve(&replaced, ORDER, SchemaRev(1)).is_ok());
+    assert_eq!(
+        s.resolve(&replaced, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Current,
+        }
+    );
+}
+
+/// Decision J, item 1: removing a field under the same revision is refused.
+#[test]
+fn a_same_revision_removal_is_refused() {
+    let s = store_with_order();
+    let shrunk = view_of(&BOUND[..3]);
+    assert_eq!(
+        s.resolve(&shrunk, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::FieldBasisChanged {
+            class: ORDER,
+            bound: 4,
+            view: 3
+        }
+    );
+}
+
+/// The witness hashes each predicate with its length, so two bases whose
+/// predicates concatenate to the same bytes stay distinct.
+#[test]
+fn predicates_that_concatenate_alike_are_still_different_bases() {
+    let s = store_with_order();
+    let shifted = view_of(&[("urn:f0u", "f0"), ("rn:f1", "f1"), BOUND[2], BOUND[3]]);
+    let joined = |v: &View| {
+        v.fields
+            .iter()
+            .map(|f| f.predicate_iri.as_str())
+            .collect::<String>()
+    };
+    assert_eq!(joined(&shifted), joined(&view_of(&BOUND)));
+    assert!(matches!(
+        s.resolve(&shifted, ORDER, SchemaRev(1)),
+        Err(Refusal::PredicateBasisChanged { .. })
+    ));
+}
+
+/// The witness against an independent oracle: for each listed variant of
+/// ORDER's basis, `resolve` accepts when, and only when, the ordered
+/// `predicate_iri`s equal the bound ones, whatever the labels say. (Up to a
+/// digest collision: the store compares a witness, not the sequence.)
+#[test]
+fn resolve_accepts_the_bound_sequence_and_refuses_each_listed_variant() {
+    let s = store_with_order();
+    let bound: Vec<&str> = BOUND.iter().map(|(iri, _)| *iri).collect();
+    let variants: Vec<Vec<(&str, &str)>> = vec![
+        BOUND.to_vec(),
+        BOUND.iter().map(|(iri, _)| (*iri, "relabelled")).collect(),
+        vec![BOUND[1], BOUND[0], BOUND[2], BOUND[3]],
+        vec![BOUND[0], BOUND[1], BOUND[3], BOUND[2]],
+        vec![BOUND[3], BOUND[2], BOUND[1], BOUND[0]],
+        vec![("urn:F0", "f0"), BOUND[1], BOUND[2], BOUND[3]],
+        vec![BOUND[0], BOUND[1], BOUND[2], ("urn:f3 ", "f3")],
+        vec![BOUND[0], BOUND[0], BOUND[2], BOUND[3]],
+        BOUND[..3].to_vec(),
+        [&BOUND[..], &[("urn:f4", "f4")]].concat(),
+    ];
+    let mut accepted = 0;
+    for v in &variants {
+        let view = view_of(v);
+        let oracle = iris(&view.fields) == bound;
+        let ok = s.resolve(&view, ORDER, SchemaRev(1)).is_ok();
+        assert_eq!(ok, oracle, "variant {v:?}");
+        accepted += usize::from(ok);
+    }
+    // Anti-vacuity: the sweep holds both outcomes.
+    assert_eq!(accepted, 2, "exactly the bound basis and its relabelling");
+}
+
+/// Registration reads the basis from the source and refuses a declared field
+/// count the source's basis does not have.
+#[test]
+fn registration_refuses_a_basis_of_another_count() {
+    let mut s = BindStore::new();
+    assert_eq!(
+        s.register(
+            &View::with_fields(VIEW_CLASS, 3),
+            ORDER,
+            schema(1, 4),
+            vec![]
+        ),
+        Err(Refusal::FieldBasisChanged {
+            class: ORDER,
+            bound: 4,
+            view: 3
+        })
+    );
+    assert_eq!(s.class_count(), 0);
+}
+
+/// D5 with the witness: registering again over the same basis is idempotent;
+/// the same schema and methods over another basis are a different binding and
+/// are refused.
+#[test]
+fn re_registration_is_idempotent_only_over_the_same_basis() {
+    let mut s = BindStore::new();
+    let basis = view_of(&BOUND);
+    assert_eq!(s.register(&basis, ORDER, schema(1, 4), vec![]), Ok(()));
+    assert_eq!(s.register(&basis, ORDER, schema(1, 4), vec![]), Ok(()));
+    let relabelled = view_of(&[
+        ("urn:f0", "a"),
+        ("urn:f1", "b"),
+        ("urn:f2", "c"),
+        ("urn:f3", "d"),
+    ]);
+    assert_eq!(s.register(&relabelled, ORDER, schema(1, 4), vec![]), Ok(()));
+    let swapped = view_of(&[BOUND[0], BOUND[2], BOUND[1], BOUND[3]]);
+    assert_eq!(
+        s.register(&swapped, ORDER, schema(1, 4), vec![]),
+        Err(Refusal::BehaviourImmutable(ORDER))
+    );
 }
 
 /// Decision J, item 4: a label-only rename keeps every `predicate_iri`, so it
@@ -490,8 +648,7 @@ fn a_label_only_rename_resolves_and_must_keep_resolving() {
 #[test]
 fn a_source_without_history_refuses_replay_after_evolution() {
     let mut s = store_with_order();
-    s.register_derived(ORDER, ORDER_V2, schema(2, 5), Vec::new())
-        .unwrap();
+    reg_derived(&mut s, ORDER, ORDER_V2, schema(2, 5), Vec::new()).unwrap();
     let evolved = View::with_fields(VIEW_CLASS, 5);
     assert!(s.resolve(&evolved, ORDER_V2, SchemaRev(2)).is_ok());
     assert_eq!(
@@ -570,8 +727,7 @@ fn evolved_source() -> History {
 #[test]
 fn a_history_keeping_source_replays_each_revision_against_its_own_basis() {
     let mut s = store_with_order();
-    s.register_derived(ORDER, ORDER_V2, schema(2, 5), Vec::new())
-        .unwrap();
+    reg_derived(&mut s, ORDER, ORDER_V2, schema(2, 5), Vec::new()).unwrap();
     let source = evolved_source();
     let old = s.resolve(&source, ORDER, SchemaRev(1)).unwrap();
     let new = s.resolve(&source, ORDER_V2, SchemaRev(2)).unwrap();
@@ -582,6 +738,64 @@ fn a_history_keeping_source_replays_each_revision_against_its_own_basis() {
     );
     // The current basis is rev 2's; rev 1 came from the history, not from it.
     assert_eq!(source.fields(VIEW_CLASS).len(), 5);
+}
+
+/// A source that keeps history but not for the bound revision: it is
+/// accepted only if its current basis is proved equal to the bound one, and
+/// refused otherwise. A missing history is never read as the current basis.
+#[test]
+fn a_missing_revision_in_history_is_proved_from_the_current_basis_or_refused() {
+    let s = store_with_order();
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let still_rev1 = History {
+        class: VIEW_CLASS,
+        current: rev1.clone(),
+        history: vec![(7, rev1.clone())],
+        lens_history: Vec::new(),
+    };
+    assert!(s.resolve(&still_rev1, ORDER, SchemaRev(1)).is_ok());
+    let mut moved = rev1.clone();
+    moved.swap(1, 2);
+    let moved_on = History {
+        class: VIEW_CLASS,
+        current: moved,
+        history: vec![(7, rev1)],
+        lens_history: Vec::new(),
+    };
+    assert_eq!(
+        s.resolve(&moved_on, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Current,
+        }
+    );
+}
+
+/// A source whose OWN record of revision 1 disagrees with the basis ORDER was
+/// bound against (its history was rewritten in place) is refused, and the
+/// refusal says the history disagreed, even though its current basis is the
+/// bound one.
+#[test]
+fn a_rewritten_history_is_refused_even_when_the_current_basis_matches() {
+    let s = store_with_order();
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let mut rewritten = rev1.clone();
+    rewritten.swap(0, 3);
+    let source = History {
+        class: VIEW_CLASS,
+        current: rev1,
+        history: vec![(1, rewritten)],
+        lens_history: Vec::new(),
+    };
+    assert_eq!(
+        s.resolve(&source, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Historical,
+        }
+    );
 }
 
 /// The history is read at the BOUND revision. Asking ORDER at revision 2,
@@ -640,7 +854,8 @@ fn two_lenses_sharing_a_concept_half_keep_separate_histories() {
 fn registration_refuses_ambiguity_and_out_of_basis_positions() {
     let mut s = catalogue();
     assert_eq!(
-        s.register(
+        reg(
+            &mut s,
             ORDER,
             schema(1, 4),
             vec![method(1, vec![]), method(1, vec![effect(2, ASSIGN)])]
@@ -651,7 +866,8 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         })
     );
     assert_eq!(
-        s.register(
+        reg(
+            &mut s,
             ORDER,
             schema(1, 4),
             vec![method(1, vec![effect(4, ASSIGN)])]
@@ -667,7 +883,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         ..method(1, vec![])
     };
     assert_eq!(
-        s.register(ORDER, schema(1, 4), vec![reads_past]),
+        reg(&mut s, ORDER, schema(1, 4), vec![reads_past]),
         Err(Refusal::FieldOutOfBasis {
             class: ORDER,
             method: MethodId(1),
@@ -675,7 +891,7 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
         })
     );
     assert_eq!(
-        s.register(ORDER, schema(1, 257), vec![]),
+        reg(&mut s, ORDER, schema(1, 257), vec![]),
         Err(Refusal::BasisTooWide {
             class: ORDER,
             field_count: 257
@@ -685,7 +901,8 @@ fn registration_refuses_ambiguity_and_out_of_basis_positions() {
     assert_eq!(s.class_count(), 0);
     // The largest legal basis is accepted, with a write on its last position.
     assert_eq!(
-        s.register(
+        reg(
+            &mut s,
             ORDER,
             schema_in(1, 256, Extent::DR256_SQ_X64),
             vec![method(1, vec![effect(255, ASSIGN)])]
@@ -707,8 +924,7 @@ fn population_truth_and_demand_ride_the_binding() {
         when: None,
         ..method(40, vec![])
     };
-    s.register(ORDER, schema(1, 4), vec![count.clone()])
-        .unwrap();
+    reg(&mut s, ORDER, schema(1, 4), vec![count.clone()]).unwrap();
     let got = s.admit(&MethodRef::of(ORDER, &count)).unwrap();
     assert_eq!(got.population, Population::Bag);
     assert_eq!(got.truth, Truth::TwoValued);
@@ -798,8 +1014,8 @@ fn onnx_mul() -> MethodBinding {
 #[test]
 fn consumers_switch_over_shared_classid_free_algebra() {
     let mut s = catalogue();
-    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
-    s.register(ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
+    reg(&mut s, XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    reg(&mut s, ONNX, schema(1, 3), vec![onnx_mul()]).unwrap();
 
     // One word, reused by both classids by position; nothing minted for it.
     assert_eq!(
@@ -898,7 +1114,7 @@ fn effect_operands_and_entries_are_checked() {
     let refused = |s: &mut BindStore, f: &dyn Fn(&mut Effect)| {
         let mut m = xlog_count();
         f(&mut m.effects[2]);
-        s.register(XLOG, schema(1, 5), vec![m]).unwrap_err()
+        reg(s, XLOG, schema(1, 5), vec![m]).unwrap_err()
     };
     assert_eq!(
         refused(&mut s, &|e| e.args = vec![Arg::Field(2)]),
@@ -927,7 +1143,7 @@ fn effect_operands_and_entries_are_checked() {
         }
     );
     assert_eq!(s.class_count(), 0, "no refused class was bound");
-    assert_eq!(s.register(XLOG, schema(1, 5), vec![count]), Ok(()));
+    assert_eq!(reg(&mut s, XLOG, schema(1, 5), vec![count]), Ok(()));
 }
 
 /// The classid × WideFieldMask ergonomics are the fieldview (the Redmine ERB
@@ -937,7 +1153,7 @@ fn effect_operands_and_entries_are_checked() {
 #[test]
 fn the_fieldview_projects_mask_positions_with_late_labels() {
     let mut s = catalogue();
-    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    reg(&mut s, XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
     let view = View::with_fields(view_class(XLOG), 5);
     let r = s.resolve(&view, XLOG, SchemaRev(1)).unwrap();
 
@@ -1004,7 +1220,7 @@ fn a_step_cannot_read_what_no_earlier_step_wrote() {
     let mut mul_first = xlog_count();
     mul_first.effects.rotate_right(1);
     assert_eq!(
-        s.register(XLOG, schema(1, 5), vec![mul_first]),
+        reg(&mut s, XLOG, schema(1, 5), vec![mul_first]),
         Err(Refusal::UndeclaredRead {
             class: XLOG,
             method: MethodId(1),
@@ -1016,7 +1232,7 @@ fn a_step_cannot_read_what_no_earlier_step_wrote() {
     let mut stray = xlog_count();
     stray.effects[0].args = vec![Arg::Field(4), Arg::Const(1)];
     assert_eq!(
-        s.register(XLOG, schema(1, 5), vec![stray]),
+        reg(&mut s, XLOG, schema(1, 5), vec![stray]),
         Err(Refusal::UndeclaredRead {
             class: XLOG,
             method: MethodId(1),
@@ -1025,7 +1241,7 @@ fn a_step_cannot_read_what_no_earlier_step_wrote() {
         })
     );
     // The faithful order binds.
-    assert_eq!(s.register(XLOG, schema(1, 5), vec![xlog_count()]), Ok(()));
+    assert_eq!(reg(&mut s, XLOG, schema(1, 5), vec![xlog_count()]), Ok(()));
 }
 
 /// Meaning reaches behaviour: a method's footprint (ON, reads, writes)
@@ -1033,7 +1249,7 @@ fn a_step_cannot_read_what_no_earlier_step_wrote() {
 #[test]
 fn a_risk_mask_reaches_the_methods_that_touch_it() {
     let mut s = catalogue();
-    s.register(XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
+    reg(&mut s, XLOG, schema(1, 5), vec![xlog_count()]).unwrap();
     let view = View::with_fields(view_class(XLOG), 5);
     let r = s.resolve(&view, XLOG, SchemaRev(1)).unwrap();
 
@@ -1078,7 +1294,7 @@ const JINA: u32 = 0x7F03_0003;
 fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
     let mut s = catalogue();
     assert_eq!(
-        s.register(ONNX, schema(1, 200), vec![node(1)]),
+        reg(&mut s, ONNX, schema(1, 200), vec![node(1)]),
         Err(Refusal::FieldsExceedExtent {
             class: ONNX,
             field_count: 200,
@@ -1086,13 +1302,19 @@ fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
         })
     );
     assert_eq!(
-        s.register(ONNX, schema_in(1, 200, Extent::DR256_SQ_X64), vec![node(1)]),
+        reg(
+            &mut s,
+            ONNX,
+            schema_in(1, 200, Extent::DR256_SQ_X64),
+            vec![node(1)]
+        ),
         Ok(())
     );
 
     let nodes: Vec<MethodBinding> = (1..=70).map(node).collect();
     assert_eq!(
-        s.register(
+        reg(
+            &mut s,
             ONNX_BIG,
             schema_in(1, 200, Extent::DR256_SQ_X64),
             nodes.clone()
@@ -1108,11 +1330,21 @@ fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
         ..Extent::DR256_SQ_X64
     };
     assert_eq!(
-        s.register(ONNX_BIG, schema_in(1, 200, two_predicate_tiles), nodes),
+        reg(
+            &mut s,
+            ONNX_BIG,
+            schema_in(1, 200, two_predicate_tiles),
+            nodes
+        ),
         Ok(())
     );
     assert_eq!(
-        s.register(ONNX, schema_in(1, 200, two_predicate_tiles), vec![node(1)]),
+        reg(
+            &mut s,
+            ONNX,
+            schema_in(1, 200, two_predicate_tiles),
+            vec![node(1)]
+        ),
         Err(Refusal::BehaviourImmutable(ONNX)),
         "the reservation cannot be changed after binding"
     );
@@ -1122,7 +1354,7 @@ fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
         ..Extent::DR256_SQ_X64
     };
     assert_eq!(
-        s.register(JINA, schema_in(1, 4, too_wide), vec![]),
+        reg(&mut s, JINA, schema_in(1, 4, too_wide), vec![]),
         Err(Refusal::ReservationTooWide {
             class: JINA,
             axis: "property",
@@ -1140,7 +1372,8 @@ fn a_consumer_reserves_its_extent_and_is_not_capped_at_64() {
 fn jina_reserves_the_dr256_identity_space_and_claims_only_routed_tiles() {
     const NODES: u16 = 7_620;
     let mut s = catalogue();
-    s.register(
+    reg(
+        &mut s,
         JINA,
         schema_in(1, 4, Extent::DR256_GLOBAL_X64),
         vec![node(1)],
@@ -1170,8 +1403,13 @@ fn jina_reserves_the_dr256_identity_space_and_claims_only_routed_tiles() {
     );
 
     // A one-tile reservation refuses a node past it, naming the reservation.
-    s.register(ONNX, schema_in(1, 4, Extent::DR256_SQ_X64), vec![node(1)])
-        .unwrap();
+    reg(
+        &mut s,
+        ONNX,
+        schema_in(1, 4, Extent::DR256_SQ_X64),
+        vec![node(1)],
+    )
+    .unwrap();
     let before = s.current_version();
     assert_eq!(
         s.route(NODES - 1, ONNX),
@@ -1257,14 +1495,14 @@ fn two_behaviour_lenses_under_one_left_half_resolve_independently() {
 fn a_data_class_and_a_behaviour_lens_sharing_a_left_half_do_not_cross_read() {
     const DATA: u32 = 0x7F0B_0001;
     const LENS: u32 = 0x7F0B_F001;
-    let mut s = BindStore::new();
-    s.register(DATA, schema(1, 2), vec![]).unwrap();
-    s.declare_algebra(LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 3])
-        .unwrap();
     let view = Lenses {
         concepts: vec![(0x7F0B, labels("data", 2))],
         lenses: vec![(LENS, labels("word", 3))],
     };
+    let mut s = BindStore::new();
+    s.register(&view, DATA, schema(1, 2), vec![]).unwrap();
+    s.declare_algebra(LENS, SchemaRev(1), Extent::DR64_CUBE, vec![1; 3])
+        .unwrap();
     let data = s.resolve(&view, DATA, SchemaRev(1)).unwrap();
     let lens = s.resolve_algebra(&view, LENS, SchemaRev(1)).unwrap();
     assert_eq!(data.fields.len(), 2);
@@ -1327,8 +1565,13 @@ fn a_view_that_does_not_implement_lens_fields_still_compiles_and_refuses_behavio
 /// one-tile reservation (256 identity positions).
 fn routing_store() -> BindStore {
     let mut s = catalogue();
-    s.register(ONNX, schema_in(1, 4, Extent::DR256_SQ_X64), vec![node(1)])
-        .unwrap();
+    reg(
+        &mut s,
+        ONNX,
+        schema_in(1, 4, Extent::DR256_SQ_X64),
+        vec![node(1)],
+    )
+    .unwrap();
     s
 }
 
@@ -1391,7 +1634,8 @@ fn check_route_writes_nothing() {
 fn a_checked_route_intent_stays_valid_as_the_store_grows() {
     let mut s = routing_store();
     assert_eq!(s.check_route(42, ONNX), Ok(()));
-    s.register(
+    reg(
+        &mut s,
         JINA,
         schema_in(1, 4, Extent::DR256_GLOBAL_X64),
         vec![node(1)],
@@ -1418,8 +1662,8 @@ fn a_lens_classid_registered_as_a_class_reads_its_own_basis() {
         lenses: vec![(LENS, labels("word", 3))],
     };
     let mut s = BindStore::new();
-    s.register(DATA, schema(1, 2), vec![]).unwrap();
-    s.register(LENS, schema(1, 3), vec![]).unwrap();
+    s.register(&view, DATA, schema(1, 2), vec![]).unwrap();
+    s.register(&view, LENS, schema(1, 3), vec![]).unwrap();
     let lens = s.resolve(&view, LENS, SchemaRev(1)).unwrap();
     let data = s.resolve(&view, DATA, SchemaRev(1)).unwrap();
     assert_eq!(lens.fields[2].predicate_iri, "urn:word/2");
@@ -1462,4 +1706,163 @@ fn the_revision_is_checked_before_the_basis_is_looked_up() {
             .unwrap_err(),
         Refusal::UnknownLensBasis(UNKNOWN_LENS)
     );
+}
+
+/// Registration reads the source's HISTORY for the declared revision, not its
+/// current basis: a source that has moved on (current = reordered) still
+/// registers ORDER at revision 1 against its revision-1 record.
+#[test]
+fn registration_reads_the_sources_history_for_the_declared_revision() {
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let mut moved = rev1.clone();
+    moved.swap(0, 1);
+    let source = History {
+        class: VIEW_CLASS,
+        current: moved,
+        history: vec![(1, rev1)],
+        lens_history: Vec::new(),
+    };
+    let mut s = BindStore::new();
+    s.register(&source, ORDER, schema(1, 4), vec![]).unwrap();
+    let r = s.resolve(&source, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(iris(r.fields), ["urn:f0", "urn:f1", "urn:f2", "urn:f3"]);
+    // The revision-1 basis, offered as a plain current view, is the same one.
+    assert!(s
+        .resolve(&View::with_fields(VIEW_CLASS, 4), ORDER, SchemaRev(1))
+        .is_ok());
+}
+
+/// A same-count evolution: revision 2 reorders revision 1. With history, each
+/// classid replays against its own revision; through the current basis alone,
+/// the revision-1 class is refused by the witness, not by the count.
+#[test]
+fn a_same_count_reorder_across_revisions_replays_only_through_history() {
+    let rev1 = View::with_fields(VIEW_CLASS, 4).fields;
+    let mut rev2 = rev1.clone();
+    rev2.swap(0, 1);
+    let source = History {
+        class: VIEW_CLASS,
+        current: rev2.clone(),
+        history: vec![(1, rev1.clone()), (2, rev2.clone())],
+        lens_history: Vec::new(),
+    };
+    let mut s = BindStore::new();
+    s.register(&source, ORDER, schema(1, 4), vec![]).unwrap();
+    s.register_derived(&source, ORDER, ORDER_V2, schema(2, 4), vec![])
+        .unwrap();
+    assert_eq!(
+        iris(s.resolve(&source, ORDER, SchemaRev(1)).unwrap().fields)[0],
+        "urn:f0"
+    );
+    assert_eq!(
+        iris(s.resolve(&source, ORDER_V2, SchemaRev(2)).unwrap().fields)[0],
+        "urn:f1"
+    );
+    let current_only = View {
+        class: VIEW_CLASS,
+        fields: rev2,
+    };
+    assert_eq!(
+        s.resolve(&current_only, ORDER, SchemaRev(1)).unwrap_err(),
+        Refusal::PredicateBasisChanged {
+            class: ORDER,
+            schema_rev: SchemaRev(1),
+            source: BasisSource::Current,
+        }
+    );
+}
+
+/// One revision has one basis: two classids read through one concept half
+/// cannot bind two different bases at the same revision. The same basis, or
+/// another revision, is accepted.
+#[test]
+fn two_classids_of_one_concept_cannot_bind_two_bases_at_one_revision() {
+    let mut s = BindStore::new();
+    s.register(&view_of(&BOUND), ORDER, schema(1, 4), vec![])
+        .unwrap();
+    let swapped = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    assert_eq!(
+        s.register_derived(&swapped, ORDER, ORDER_V2, schema(1, 4), vec![]),
+        Err(Refusal::BasisConflict {
+            class: ORDER_V2,
+            other: ORDER,
+            schema_rev: SchemaRev(1),
+        })
+    );
+    assert_eq!(
+        s.register_derived(&swapped, ORDER, ORDER_V2, schema(2, 4), vec![]),
+        Ok(())
+    );
+    const ORDER_V3: u32 = 0x0A1E_0003;
+    assert_eq!(
+        s.register_derived(&view_of(&BOUND), ORDER, ORDER_V3, schema(1, 4), vec![]),
+        Ok(())
+    );
+}
+
+/// A lens classid registered as a class through a view that knows only its
+/// concept is refused at registration: the concept's basis is never taken.
+#[test]
+fn a_lens_classid_cannot_register_through_its_concepts_basis() {
+    const LENS: u32 = 0x7F0B_F001;
+    let concept_only = Lenses {
+        concepts: vec![(0x7F0B, labels("data", 3))],
+        lenses: vec![],
+    };
+    let mut s = BindStore::new();
+    assert_eq!(
+        s.register(&concept_only, LENS, schema(1, 3), vec![]),
+        Err(Refusal::UnknownLensBasis(LENS))
+    );
+}
+
+/// FINDING (contract gap, Decision J item 5): a `ClassView` does not say which
+/// revision its CURRENT basis is. Registering at revision 1 through a view
+/// that keeps no history and has moved on to another basis is accepted, and
+/// that basis becomes revision 1's. The store cannot refuse what it cannot
+/// see; closing this needs the source to answer for the revision it is
+/// asked about (`fields_at`) or to report its current revision.
+#[test]
+fn finding_registration_through_a_current_only_view_trusts_the_declared_revision() {
+    let moved_on = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    let mut s = BindStore::new();
+    assert_eq!(s.register(&moved_on, ORDER, schema(1, 4), vec![]), Ok(()));
+    let r = s.resolve(&moved_on, ORDER, SchemaRev(1)).unwrap();
+    assert_eq!(r.fields[0].predicate_iri, "urn:f1");
+}
+
+/// FINDING (L5c / L5d): a polyfill lens binds arities, not a basis, so two
+/// words of the same arity can trade places in the view and `resolve_algebra`
+/// still accepts it. A consumer that picks behaviour by a word's label is not
+/// covered by the class witness.
+#[test]
+fn finding_an_equal_arity_word_swap_in_a_polyfill_lens_resolves() {
+    const LENS: u32 = 0x7F0A_0001;
+    let mut s = BindStore::new();
+    s.declare_algebra(LENS, SchemaRev(1), Extent::DR64_CUBE, vec![2, 2])
+        .unwrap();
+    let words = |a: &str, b: &str| Lenses {
+        concepts: vec![(0x7F0A, vec![FieldRef::new(a, a), FieldRef::new(b, b)])],
+        lenses: vec![],
+    };
+    let before = words("urn:groupcount", "urn:mul");
+    let after = words("urn:mul", "urn:groupcount");
+    let a = s.resolve_algebra(&before, LENS, SchemaRev(1)).unwrap();
+    let b = s.resolve_algebra(&after, LENS, SchemaRev(1)).unwrap();
+    assert_ne!(a.fields[0].predicate_iri, b.fields[0].predicate_iri);
+}
+
+/// FINDING (contract gap, with the one above): `BasisConflict` lets the FIRST
+/// registration anchor a revision. A stale registration through a moved-on,
+/// history-less view therefore locks out a later registration through the
+/// correct basis of that revision. Fail closed, but the wrong one wins.
+#[test]
+fn finding_a_stale_first_registration_locks_out_the_correct_basis() {
+    let moved_on = view_of(&[BOUND[1], BOUND[0], BOUND[2], BOUND[3]]);
+    let mut s = BindStore::new();
+    s.register(&moved_on, ORDER, schema(1, 4), vec![]).unwrap();
+    assert!(matches!(
+        s.register_derived(&view_of(&BOUND), ORDER, ORDER_V2, schema(1, 4), vec![]),
+        Err(Refusal::BasisConflict { .. })
+    ));
 }

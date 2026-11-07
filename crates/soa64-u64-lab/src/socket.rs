@@ -78,8 +78,10 @@ pub struct World {
 impl World {
     pub fn new() -> World {
         let mut store = BindStore::new();
+        let view = View::sixty_four();
         store
             .register(
+                &view,
                 CLASS,
                 ClassSchema {
                     schema_rev: SchemaRev(1),
@@ -98,7 +100,7 @@ impl World {
         let frame = frames.seal();
         World {
             store,
-            view: View::sixty_four(),
+            view,
             frames,
             frame,
             route: RouteAt {

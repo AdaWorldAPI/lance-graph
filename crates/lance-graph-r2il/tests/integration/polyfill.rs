@@ -190,7 +190,10 @@ fn store(methods: Vec<MethodBinding>) -> (BindStore, RouteVersion) {
     let mut s = BindStore::new();
     s.declare_algebra(POLYFILL_LENS, REV, Extent::DR64_CUBE, polyfill_arities())
         .unwrap();
+    // The class basis is identical in every language; only the lens labels differ.
+    let views = Views::language("r2il");
     s.register(
+        &views,
         CLASS,
         ClassSchema {
             schema_rev: REV,
@@ -507,7 +510,9 @@ fn a_wrong_runtime_arity_for_the_lens_is_refused_by_the_table() {
         vec![1; POLYFILL.len()],
     )
     .unwrap();
+    let views = Views::language("sql");
     s.register(
+        &views,
         CLASS,
         ClassSchema {
             schema_rev: REV,
