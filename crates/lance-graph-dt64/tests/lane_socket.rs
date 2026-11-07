@@ -112,7 +112,9 @@ struct World {
 
 fn world() -> World {
     let mut store = BindStore::new();
-    store.register(HYBRID, schema(3), Vec::new()).unwrap();
+    store
+        .register(&View::three(), HYBRID, schema(3), Vec::new())
+        .unwrap();
     let version = store.route(POSITION, HYBRID).unwrap();
     let frames = FrameStore::new(FrameRevisions {
         source: 1,
@@ -303,7 +305,7 @@ fn a_re_route_refuses_even_under_a_current_frame() {
     let mask = WideFieldMask::from_positions(&[0]);
     let b = bind(&w, &mask).unwrap();
     w.store
-        .register_derived(HYBRID, HYBRID_V2, schema(3), Vec::new())
+        .register_derived(&w.view, HYBRID, HYBRID_V2, schema(3), Vec::new())
         .unwrap();
     w.store.route(POSITION, HYBRID_V2).unwrap();
     assert!(w.frames.check(b.frame()).is_ok(), "the frame did not move");

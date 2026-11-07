@@ -260,8 +260,9 @@ impl LaneBinding {
 
     /// Hot: everything the bind checked, again, without allocating. The frame
     /// against its store; the route against the store's CURRENT version (a
-    /// re-route since the bind is refused); the basis at the bound revision;
-    /// and every lane against what the source maps now.
+    /// re-route since the bind is refused); the basis at the bound revision,
+    /// by revision and field count (the predicate witness was checked at
+    /// bind); and every lane against what the source maps now.
     pub fn check<V: ClassView + ?Sized, S: LaneSource>(
         &self,
         store: &BindStore,
@@ -271,17 +272,22 @@ impl LaneBinding {
     ) -> Result<(), LaneRefusal> {
         frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
         current_route(store, self.route.position, self.class)?;
-        let resolved = store.resolve(view, self.class, self.rev)?;
+        // Revision and count only: the ordered predicate witness was checked
+        // when the binding was made (bind_lanes resolves through the
+        // witnessed `resolve`), and re-hashing the basis here would put
+        // schema hashing on the hot path. A basis that changes order after
+        // the bind is caught below only when the source maps lanes by
+        // predicate (D-LANESOCK-3, `MappingChanged`); re-bind after any
+        // basis change. (D-DT64-7 L5d decides whether the R2IL arm re-binds.)
+        let fields = store.resolve_counted(view, self.class, self.rev)?;
         for (field, addr) in &self.lanes {
             let field = *field;
-            let field_ref =
-                resolved
-                    .fields
-                    .get(usize::from(field))
-                    .ok_or(LaneRefusal::FieldNotInBasis {
-                        class: self.class,
-                        field,
-                    })?;
+            let field_ref = fields
+                .get(usize::from(field))
+                .ok_or(LaneRefusal::FieldNotInBasis {
+                    class: self.class,
+                    field,
+                })?;
             match source.lane_of(self.class, self.rev, field, field_ref, &self.frame) {
                 Some(current) if current == *addr => {}
                 Some(_) => return Err(LaneRefusal::MappingChanged { field }),
