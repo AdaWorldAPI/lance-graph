@@ -17,6 +17,11 @@
 //! identity (`0`, `i64::MAX`, `i64::MIN`); a three-valued binding is refused
 //! by [`crate::binding::prepare`], so `NULL` never reaches it.
 //!
+//! `KEY_RUNS` is `COUNT DISTINCT` only over a key-ordered lane under a mask
+//! that already excludes NULL keys. The lane has no validity of its own, so a
+//! selected NULL row counts its payload as a key;
+//! [`crate::procs::count_distinct_sorted`] ANDs the key's presence plane in.
+//!
 //! The positions are the [`crate::binding::EXECUTABLE`] opcodes in that
 //! order. The opcode, arity and R2IL name of each entry are checked against
 //! OGAR's `R2ILVocabulary` by test, not at run time.
