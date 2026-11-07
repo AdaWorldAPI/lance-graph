@@ -63,8 +63,9 @@
 //! Arguments: `Arg::Field(p)` is the value an earlier effect wrote to `p`,
 //! else the resident lane the caller bound `p` to ([`FieldLanes`]), whose
 //! kind is read from the lane itself. `Arg::Const(c)` is pushed as is. A
-//! constant compared against a lane must fit that lane's type; the dialect
-//! would otherwise saturate it, so the seam refuses it first.
+//! constant compared against a lane must fit that lane's type. The seam
+//! refuses an out-of-range constant here, at bind time; the dialect also
+//! refuses it (`FoldError::ConstOutOfRange`) rather than narrowing it.
 //!
 //! The answer is the value each written field holds after the last effect.
 //! A field that still holds a mask slot or an address is an intermediate
@@ -654,8 +655,9 @@ pub(crate) fn lane(
     Ok(Val::Address(Addr::Lane { idx, kind }))
 }
 
-/// A lane compare's constant must fit the lane's type: the dialect narrows
-/// it with a saturating conversion, which would change the predicate.
+/// A lane compare's constant must fit the lane's type: refused here so the
+/// binding reports it as an `ExecRefusal` before the dialect runs (the dialect
+/// itself refuses it too, with `FoldError::ConstOutOfRange`).
 pub(crate) fn check_compare(stack: &[Val], effect: usize) -> Result<(), ExecRefusal> {
     let [.., a, b] = stack else {
         return Ok(());
