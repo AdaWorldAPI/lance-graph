@@ -307,13 +307,9 @@ fn guards(frames: &FrameStore) -> Guards {
     }
 }
 
-fn mref(id: u32) -> MethodRef {
-    MethodRef {
-        class: CLASS,
-        method: MethodId(id),
-        sig_rev: SigRev(1),
-        guard: None,
-    }
+/// The store's own reference to method `id` of [`CLASS`].
+fn mref(s: &BindStore, id: u32) -> MethodRef {
+    s.method_ref(CLASS, MethodId(id)).unwrap()
 }
 
 /// Lanes of `n` rows: `a = i % 37 - 10`, `b = (7i) % 23`, `k = i % 5`.
@@ -363,7 +359,7 @@ impl Fixture {
         }
     }
     fn prepare(&self, id: u32) -> Result<Prepared, ExecRefusal> {
-        let r = mref(id);
+        let r = mref(&self.store, id);
         let g = guards(&self.frames);
         prepare(
             &self.store,
@@ -381,9 +377,9 @@ impl Fixture {
     }
 }
 
-fn permit(ids: &[u32]) -> ExecPermit {
+fn permit(s: &BindStore, ids: &[u32]) -> ExecPermit {
     ExecPermit {
-        methods: ids.iter().map(|&i| mref(i)).collect(),
+        methods: ids.iter().map(|&i| mref(s, i)).collect(),
     }
 }
 
@@ -428,13 +424,13 @@ fn the_binding_determines_what_executes() {
     let f = Fixture::new();
     let data = Data::new(N);
     let plan = f.prepare(ORDER_A).unwrap();
-    let r = exec(&f, &plan, &data, &permit(&[ORDER_A]), NOW).unwrap();
+    let r = exec(&f, &plan, &data, &permit(&f.store, &[ORDER_A]), NOW).unwrap();
     let s = data.masked_sum(&data.b, 5);
     assert!(s > 0, "the fixture must select rows");
     assert_eq!(values(&r), vec![(4, 2 * s), (5, s + 1)]);
     assert_eq!(r.output.intermediates, vec![3], "the mask is not an answer");
-    assert_eq!(r.plan_id, plan.plan_id);
-    assert_eq!(r.method, mref(ORDER_A));
+    assert_eq!(r.plan_id, plan.plan_id());
+    assert_eq!(r.method, mref(&f.store, ORDER_A));
     assert_eq!(r.frame, REVS);
 }
 
@@ -449,7 +445,7 @@ fn changing_the_recipe_changes_the_answer() {
         &f,
         &f.prepare(SUM_A).unwrap(),
         &data,
-        &permit(&[SUM_A]),
+        &permit(&f.store, &[SUM_A]),
         NOW,
     )
     .unwrap();
@@ -458,14 +454,14 @@ fn changing_the_recipe_changes_the_answer() {
         &f,
         &f.prepare(COUNT).unwrap(),
         &data,
-        &permit(&[COUNT]),
+        &permit(&f.store, &[COUNT]),
         NOW,
     )
     .unwrap();
     assert_eq!(values(&count), vec![(4, data.count_below(5))]);
     assert_ne!(
-        f.prepare(SUM_A).unwrap().plan_id,
-        f.prepare(ORDER_A).unwrap().plan_id
+        f.prepare(SUM_A).unwrap().plan_id(),
+        f.prepare(ORDER_A).unwrap().plan_id()
     );
 }
 
@@ -478,7 +474,7 @@ fn reordering_effects_changes_the_answer_as_the_oracle_predicts() {
         &f,
         &f.prepare(ORDER_A).unwrap(),
         &data,
-        &permit(&[ORDER_A]),
+        &permit(&f.store, &[ORDER_A]),
         NOW,
     )
     .unwrap();
@@ -486,7 +482,7 @@ fn reordering_effects_changes_the_answer_as_the_oracle_predicts() {
         &f,
         &f.prepare(ORDER_B).unwrap(),
         &data,
-        &permit(&[ORDER_B]),
+        &permit(&f.store, &[ORDER_B]),
         NOW,
     )
     .unwrap();
@@ -496,7 +492,7 @@ fn reordering_effects_changes_the_answer_as_the_oracle_predicts() {
         &f,
         &f.prepare(SUB_RIGHT).unwrap(),
         &data,
-        &permit(&[SUB_RIGHT]),
+        &permit(&f.store, &[SUB_RIGHT]),
         NOW,
     )
     .unwrap();
@@ -504,7 +500,7 @@ fn reordering_effects_changes_the_answer_as_the_oracle_predicts() {
         &f,
         &f.prepare(SUB_LEFT).unwrap(),
         &data,
-        &permit(&[SUB_LEFT]),
+        &permit(&f.store, &[SUB_LEFT]),
         NOW,
     )
     .unwrap();
@@ -518,9 +514,9 @@ fn a_word_binds_by_its_label_not_its_number() {
     // still binds the opcode OGAR names `SUM`.
     let f = Fixture::new();
     let plan = f.prepare(ORDER_A).unwrap();
-    assert_eq!(plan.steps[0].opcode, INT_S_LESS);
-    assert_eq!(R2ILVocabulary.name(plan.steps[1].opcode), Some("SUM"));
-    assert_ne!(plan.steps[1].opcode.0, W_SUM);
+    assert_eq!(plan.steps()[0].opcode, INT_S_LESS);
+    assert_eq!(R2ILVocabulary.name(plan.steps()[1].opcode), Some("SUM"));
+    assert_ne!(plan.steps()[1].opcode.0, W_SUM);
 }
 
 #[test]
@@ -529,7 +525,7 @@ fn a_prepared_plan_runs_without_the_class_view() {
     let plan = f.prepare(ORDER_A).unwrap();
     // `run` takes no ClassView: the views could be dropped here.
     let data = Data::new(N);
-    assert!(exec(&f, &plan, &data, &permit(&[ORDER_A]), NOW).is_ok());
+    assert!(exec(&f, &plan, &data, &permit(&f.store, &[ORDER_A]), NOW).is_ok());
 }
 
 #[test]
@@ -537,13 +533,13 @@ fn execution_needs_a_permit_beyond_admission() {
     let f = Fixture::new();
     let data = Data::new(N);
     let plan = f.prepare(ORDER_A).unwrap();
-    assert!(f.store.admit(&mref(ORDER_A)).is_ok());
+    assert!(f.store.admit(&mref(&f.store, ORDER_A)).is_ok());
     assert_eq!(
         exec(&f, &plan, &data, &ExecPermit::default(), NOW),
         Err(ExecRefusal::NotPermitted)
     );
     assert_eq!(
-        exec(&f, &plan, &data, &permit(&[ORDER_B]), NOW),
+        exec(&f, &plan, &data, &permit(&f.store, &[ORDER_B]), NOW),
         Err(ExecRefusal::NotPermitted)
     );
 }
@@ -553,7 +549,7 @@ fn a_moved_frame_focus_or_scope_is_never_reused() {
     let mut f = Fixture::new();
     let data = Data::new(N);
     let plan = f.prepare(ORDER_A).unwrap();
-    let p = permit(&[ORDER_A]);
+    let p = permit(&f.store, &[ORDER_A]);
     assert_eq!(
         exec(&f, &plan, &data, &p, (Focus { revision: 2 }, SCOPE)),
         Err(ExecRefusal::Guards(GuardRefusal::FocusChanged))
@@ -581,7 +577,7 @@ fn a_changed_route_is_never_reused() {
     let plan = f.prepare(ORDER_A).unwrap();
     f.store.route(POSITION, OTHER_CLASS).unwrap();
     assert_eq!(
-        exec(&f, &plan, &data, &permit(&[ORDER_A]), NOW),
+        exec(&f, &plan, &data, &permit(&f.store, &[ORDER_A]), NOW),
         Err(ExecRefusal::RouteChanged {
             position: POSITION,
             captured: Some(CLASS),
@@ -611,7 +607,7 @@ fn a_wrong_signature_or_dropped_guard_refuses() {
         )
         .map(|_| ())
     };
-    let mut wrong_sig = mref(ORDER_A);
+    let mut wrong_sig = mref(&f.store, ORDER_A);
     wrong_sig.sig_rev = SigRev(9);
     assert!(matches!(
         res(&wrong_sig),
@@ -620,7 +616,10 @@ fn a_wrong_signature_or_dropped_guard_refuses() {
         ))
     ));
     assert!(matches!(
-        res(&mref(GUARDED)),
+        res(&MethodRef {
+            guard: None,
+            ..mref(&f.store, GUARDED)
+        }),
         Err(ExecRefusal::Binding(Refusal::GuardDropped { .. }))
     ));
 }
@@ -630,7 +629,7 @@ fn what_the_reading_cannot_honour_is_refused_at_prepare() {
     let f = Fixture::new();
     // The guard is kept (the reference witnesses it), so admit passes, and
     // the reading still refuses: it does not evaluate WHEN.
-    let guarded = MethodRef::of(CLASS, &methods()[10]);
+    let guarded = mref(&f.store, methods()[10].id.0);
     assert_eq!(guarded.method, MethodId(GUARDED));
     let g = guards(&f.frames);
     let res = Resolution {
@@ -678,7 +677,7 @@ fn a_word_under_another_lens_or_reading_refuses() {
     let v = store.route(9, class).unwrap();
     let frames = FrameStore::new(REVS);
     let g = guards(&frames);
-    let r = MethodRef::of(class, &other);
+    let r = store.method_ref(class, other.id).unwrap();
     let res = Resolution {
         method: &r,
         schema_rev: REV,
@@ -719,7 +718,7 @@ fn an_arity_the_lens_declares_against_ogar_refuses() {
     let v = store.route(POSITION, CLASS).unwrap();
     let frames = FrameStore::new(REVS);
     let g = guards(&frames);
-    let r = MethodRef::of(CLASS, &m);
+    let r = store.method_ref(CLASS, m.id).unwrap();
     let res = Resolution {
         method: &r,
         schema_rev: REV,
@@ -741,7 +740,15 @@ fn an_arity_the_lens_declares_against_ogar_refuses() {
 fn operands_that_do_not_translate_faithfully_refuse_at_run() {
     let f = Fixture::new();
     let data = Data::new(N);
-    let go = |id| exec(&f, &f.prepare(id).unwrap(), &data, &permit(&[id]), NOW);
+    let go = |id| {
+        exec(
+            &f,
+            &f.prepare(id).unwrap(),
+            &data,
+            &permit(&f.store, &[id]),
+            NOW,
+        )
+    };
     assert!(matches!(
         go(WRONG_KIND),
         Err(ExecRefusal::Fold {
@@ -769,7 +776,7 @@ fn operands_that_do_not_translate_faithfully_refuse_at_run() {
 fn work_per_run_does_not_grow_with_rows() {
     let f = Fixture::new();
     let plan = f.prepare(ORDER_A).unwrap();
-    let p = permit(&[ORDER_A]);
+    let p = permit(&f.store, &[ORDER_A]);
     let small = exec(&f, &plan, &Data::new(200), &p, NOW).unwrap();
     let large = exec(&f, &plan, &Data::new(200_000), &p, NOW).unwrap();
     // One mask-risc program per fold step (SUM), whatever the row count.
@@ -799,7 +806,7 @@ fn an_and_operand_read_again_keeps_its_own_mask() {
         "the fixture separates the two"
     );
     let plan = f.prepare(SHARED_AND).unwrap();
-    let r = exec(&f, &plan, &data, &permit(&[SHARED_AND]), NOW).unwrap();
+    let r = exec(&f, &plan, &data, &permit(&f.store, &[SHARED_AND]), NOW).unwrap();
     assert_eq!(values(&r), vec![(4, data.count_below(10))]);
 }
 
@@ -812,7 +819,7 @@ fn a_run_leaves_no_pending_predicates_in_the_dialect() {
     let data = Data::new(64);
     let pred_only = f.prepare(PRED_ONLY).unwrap();
     let count = f.prepare(COUNT).unwrap();
-    let ok = permit(&[PRED_ONLY, COUNT]);
+    let ok = permit(&f.store, &[PRED_ONLY, COUNT]);
     let lanes = [
         LaneRef::I32(&data.a),
         LaneRef::I32(&data.b),
@@ -836,5 +843,34 @@ fn a_run_leaves_no_pending_predicates_in_the_dialect() {
         d.last_program().unwrap().ops.len(),
         1,
         "only COUNT's own predicate"
+    );
+}
+
+// ── L5c: a plan belongs to the store that issued its method reference ──────
+
+#[test]
+fn a_plan_prepared_or_run_against_another_store_is_refused() {
+    let mut f = Fixture::new();
+    let data = Data::new(N);
+    let plan = f.prepare(ORDER_A).unwrap();
+    let p = permit(&f.store, &[ORDER_A]);
+    assert!(exec(&f, &plan, &data, &p, NOW).is_ok(), "own store runs");
+    // A clone has the same bindings and routes, and another identity (D2).
+    let clone = f.store.clone();
+    let original = std::mem::replace(&mut f.store, clone);
+    let foreign = ExecRefusal::Binding(Refusal::ForeignStore { class: CLASS });
+    assert_eq!(exec(&f, &plan, &data, &p, NOW), Err(foreign.clone()));
+    // Preparing the original's reference against the clone is refused too.
+    let r = original.method_ref(CLASS, MethodId(ORDER_A)).unwrap();
+    let g = guards(&f.frames);
+    let res = Resolution {
+        method: &r,
+        schema_rev: REV,
+        route: (f.version, POSITION),
+        guards: &g,
+    };
+    assert_eq!(
+        prepare(&f.store, &f.views, R2IL, &res, &f.frames, NOW).map(|_| ()),
+        Err(foreign)
     );
 }

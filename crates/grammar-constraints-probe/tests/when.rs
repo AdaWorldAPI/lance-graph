@@ -12,7 +12,7 @@ use grammar_constraints_probe::{
 use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_dt64::dr::{Frame, MapRead, MapRefusal, MapTable};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, Effect, Extent, Guard, MethodRef, Refusal, SchemaRev,
+    AlgebraRef, Arg, BindStore, Effect, Extent, Guard, MethodBinding, MethodRef, Refusal, SchemaRev,
 };
 
 thread_local! { static BYTES: Cell<usize> = const { Cell::new(0) }; }
@@ -79,7 +79,19 @@ fn class_of(p: Physical) -> u32 {
 }
 
 fn mref(w: &W, class: u32, desc: &RuleDesc, p: Physical) -> MethodRef {
-    MethodRef::of(class, &desc.binding(p, &w.v, &w.lex))
+    stamped(&w.store, class, &desc.binding(p, &w.v, &w.lex))
+}
+
+/// The reference `binding` describes (its id, signature revision and guard
+/// witness), carrying the stamp `store` issues for that method id. The
+/// description may differ from what the store bound; `admit` and `compose`
+/// then refuse exactly as they did before references were stamped.
+fn stamped(store: &BindStore, class: u32, binding: &MethodBinding) -> MethodRef {
+    MethodRef {
+        sig_rev: binding.sig_rev,
+        guard: binding.when.as_ref().map(Guard::witness),
+        ..store.method_ref(class, binding.id).unwrap()
+    }
 }
 
 fn all_plane(w: &W) -> Vec<u64> {
@@ -235,7 +247,7 @@ fn candidates_are_read_only() {
     store
         .register(&LabView::new(), CLASS_COADDR, schema(), vec![b.clone()])
         .unwrap();
-    let r = MethodRef::of(CLASS_COADDR, &b);
+    let r = stamped(&store, CLASS_COADDR, &b);
     assert_eq!(
         compose(
             &store,
@@ -284,7 +296,8 @@ fn n01_remove_head_frame() {
         &w.lex,
     )
     .unwrap();
-    let r = MethodRef::of(
+    let r = stamped(
+        &store,
         CLASS_COADDR,
         &d.binding(Physical::CoAddressed, &w.v, &w.lex),
     );
@@ -477,12 +490,17 @@ fn n06b_resealed_same_size_layout() {
 #[test]
 fn n07_foreign_class() {
     let w = world(&A);
-    let r = mref(
-        &w,
-        CLASS_FOREIGN,
-        &RuleDesc::recipient(),
-        Physical::CoAddressed,
-    );
+    // The store issues no reference for a class it does not bind, so the
+    // foreign classid is put on a reference it issued for another class.
+    let r = MethodRef {
+        class: CLASS_FOREIGN,
+        ..mref(
+            &w,
+            CLASS_COADDR,
+            &RuleDesc::recipient(),
+            Physical::CoAddressed,
+        )
+    };
     assert_eq!(
         compose(
             &w.store,
@@ -528,7 +546,8 @@ fn n08_remove_operand() {
         &w.lex,
     )
     .unwrap();
-    let r = MethodRef::of(
+    let r = stamped(
+        &store,
         CLASS_COADDR,
         &d.binding(Physical::CoAddressed, &w.v, &w.lex),
     );

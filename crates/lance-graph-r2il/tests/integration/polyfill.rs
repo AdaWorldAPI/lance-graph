@@ -177,13 +177,9 @@ fn method(id: u32, reads: &[u8], effects: Vec<Effect>) -> MethodBinding {
     }
 }
 
-fn mref(id: u32) -> MethodRef {
-    MethodRef {
-        class: CLASS,
-        method: MethodId(id),
-        sig_rev: SigRev(1),
-        guard: None,
-    }
+/// The store's own reference to method `id` of [`CLASS`].
+fn mref(s: &BindStore, id: u32) -> MethodRef {
+    s.method_ref(CLASS, MethodId(id)).unwrap()
 }
 
 fn store(methods: Vec<MethodBinding>) -> (BindStore, RouteVersion) {
@@ -247,7 +243,7 @@ impl Run {
         }
     }
     fn prepare(&self, views: &Views, id: u32) -> Result<Prepared, ExecRefusal> {
-        let r = mref(id);
+        let r = mref(&self.store, id);
         let g = Guards {
             frame: self.frames.seal(),
             focus: FOCUS,
@@ -283,7 +279,7 @@ impl Run {
             &self.frames,
             NOW,
             &ExecPermit {
-                methods: vec![plan.method.clone()],
+                methods: vec![plan.method().clone()],
             },
             FieldLanes { lanes: &LANES },
             &mut d,
@@ -339,8 +335,8 @@ fn three_languages_bind_the_same_plan_and_answer() {
         "<"
     );
     for p in &plans[1..] {
-        assert_eq!(p.steps, plans[0].steps);
-        assert_eq!(p.plan_id, plans[0].plan_id);
+        assert_eq!(p.steps(), plans[0].steps());
+        assert_eq!(p.plan_id(), plans[0].plan_id());
     }
 }
 
@@ -376,8 +372,8 @@ fn the_position_binds_where_the_label_binding_would_take_another_opcode() {
     let run = Run::new(vec![sum_below()]);
     let views = Views::language("r2il");
     let plan = run.prepare(&views, SUM_BELOW).unwrap();
-    assert_eq!(plan.steps[1].opcode, POLYFILL[pos("SUM") as usize].opcode);
-    assert_ne!(plan.steps[1].opcode, POLYFILL[pos("MIN") as usize].opcode);
+    assert_eq!(plan.steps()[1].opcode, POLYFILL[pos("SUM") as usize].opcode);
+    assert_ne!(plan.steps()[1].opcode, POLYFILL[pos("MIN") as usize].opcode);
 }
 
 // ---------------------------------------------- Quack names, Quack answers

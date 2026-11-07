@@ -29,8 +29,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, SchemaRev,
+    SigRev, ValueDemand,
 };
 use lance_graph_mask_risc::exec::{execute_compiled, tile_words_for, Scratch};
 use lance_graph_mask_risc::ir::{
@@ -318,7 +318,7 @@ fn main() {
         )
         .unwrap();
     let route_version = bstore.route(POSITION, CLASS).unwrap();
-    let mref = MethodRef::of(CLASS, &method);
+    let mref = bstore.method_ref(CLASS, method.id).unwrap();
     let r1_guards = Guards {
         frame: frames.seal(),
         focus,

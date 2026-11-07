@@ -318,8 +318,8 @@ fn same_read_write_sets_different_effect_order_stay_distinct_and_a_dropped_guard
     assert_eq!(r.methods_on(1).count(), 0, "field 1 triggers nothing");
 
     // Each faithful reference admits its own binding with its own order.
-    let ra = MethodRef::of(ORDER, &a);
-    let rb = MethodRef::of(ORDER, &b);
+    let ra = s.method_ref(ORDER, a.id).unwrap();
+    let rb = s.method_ref(ORDER, b.id).unwrap();
     assert_eq!(s.admit(&ra).unwrap().effects[0].algebra, ASSIGN);
     assert_eq!(s.admit(&rb).unwrap().effects[0].algebra, ACCUMULATE);
 
@@ -372,10 +372,10 @@ fn a_guard_added_to_an_unguarded_method_refuses() {
         ..method(30, vec![effect(2, ASSIGN)])
     };
     reg(&mut s, ORDER, schema(1, 4), vec![free.clone()]).unwrap();
-    assert!(s.admit(&MethodRef::of(ORDER, &free)).is_ok());
+    assert!(s.admit(&s.method_ref(ORDER, free.id).unwrap()).is_ok());
     let added = MethodRef {
         guard: Some(Guard::new(SetExpr::All, Logic::TwoValued).witness()),
-        ..MethodRef::of(ORDER, &free)
+        ..s.method_ref(ORDER, free.id).unwrap()
     };
     assert_eq!(
         s.admit(&added).unwrap_err(),
@@ -478,17 +478,18 @@ fn an_equal_length_reorder_is_refused() {
     );
 }
 
-/// FINDING (L5c, not yet enforced): `admit` still takes a reference that
-/// carries no class revision and no basis identity, so a router holding a
+/// FINDING (still true after L5c): `admit` never reads the view. Since L5c a
+/// reference's stamp carries the binding digest, which covers the basis
+/// witness at registration, and `admit` compares it with the digest the store
+/// holds; neither is recomputed from the view now. So a router holding a
 /// `MethodRef` is admitted whatever the view now says. `resolve` refuses the
-/// reorder above; `admit` cannot, because it never sees a basis. L5c puts
-/// the class revision and the basis witness on `MethodRef`; flip this then.
+/// reorder above; callers that execute resolve first (R2IL `prepare` does).
 #[test]
 fn finding_admit_does_not_carry_the_basis_identity() {
     let s = store_with_order();
     let at_bind = View::with_fields(VIEW_CLASS, 4);
     let bound = s.resolve(&at_bind, ORDER, SchemaRev(1)).unwrap();
-    let r = MethodRef::of(ORDER, &bound.methods[0]);
+    let r = s.method_ref(ORDER, bound.methods[0].id).unwrap();
     let swapped = view_of(&[BOUND[0], BOUND[2], BOUND[1], BOUND[3]]);
     assert!(s.resolve(&swapped, ORDER, SchemaRev(1)).is_err());
     assert!(s.admit(&r).is_ok(), "admit never reads a basis");
@@ -925,7 +926,7 @@ fn population_truth_and_demand_ride_the_binding() {
         ..method(40, vec![])
     };
     reg(&mut s, ORDER, schema(1, 4), vec![count.clone()]).unwrap();
-    let got = s.admit(&MethodRef::of(ORDER, &count)).unwrap();
+    let got = s.admit(&s.method_ref(ORDER, count.id).unwrap()).unwrap();
     assert_eq!(got.population, Population::Bag);
     assert_eq!(got.truth, Truth::TwoValued);
     assert_eq!(got.demand, ValueDemand::MapOnly);
@@ -1865,4 +1866,141 @@ fn finding_a_stale_first_registration_locks_out_the_correct_basis() {
         s.register_derived(&view_of(&BOUND), ORDER, ORDER_V2, schema(1, 4), vec![]),
         Err(Refusal::BasisConflict { .. })
     ));
+}
+
+// ── L5c: the issuer stamp and the binding digest ─────────────────────────────
+
+/// Store A binds method 10 as ASSIGN(2) then ACCUMULATE(3); every helper
+/// below builds stores the same way, so two stores differ only where a test
+/// says they do.
+fn store_with(effects: Vec<Effect>, name: &str) -> BindStore {
+    let mut s = catalogue();
+    let m = MethodBinding {
+        name: name.to_string(),
+        ..method(10, effects)
+    };
+    reg(&mut s, ORDER, schema(1, 4), vec![m]).unwrap();
+    s
+}
+
+fn forward() -> Vec<Effect> {
+    vec![effect(2, ASSIGN), effect(3, ACCUMULATE)]
+}
+
+/// Positive: the store admits its own references, and two references it
+/// issues for one method are equal (one stamp).
+#[test]
+fn a_same_store_twin_admits() {
+    let s = store_with(forward(), "m10");
+    let r1 = s.method_ref(ORDER, MethodId(10)).unwrap();
+    let r2 = s.method_ref(ORDER, MethodId(10)).unwrap();
+    assert_eq!(r1, r2, "one store, one method, one stamp");
+    assert_eq!(s.admit(&r1).unwrap().effects, forward());
+    assert_eq!(s.admit(&r2).unwrap().effects, forward());
+}
+
+/// n12 (P1-5): store B binds the same class, method, signature revision and
+/// guard with the effects reversed. A's reference is refused by B for the
+/// binding, which is checked before the issuer.
+#[test]
+fn a_reference_to_reversed_effects_is_refused_as_another_binding() {
+    let a = store_with(forward(), "m10");
+    let b = store_with(vec![effect(3, ACCUMULATE), effect(2, ASSIGN)], "m10");
+    let ra = a.method_ref(ORDER, MethodId(10)).unwrap();
+    let rb = b.method_ref(ORDER, MethodId(10)).unwrap();
+    // Everything the pre-L5c reference carried is equal.
+    assert_eq!(
+        (ra.class, ra.method, ra.sig_rev, &ra.guard),
+        (rb.class, rb.method, rb.sig_rev, &rb.guard)
+    );
+    assert_eq!(
+        b.admit(&ra).unwrap_err(),
+        Refusal::BindingMismatch {
+            class: ORDER,
+            method: MethodId(10)
+        }
+    );
+    assert!(b.admit(&rb).is_ok(), "B admits its own reference");
+}
+
+/// A store with the same binding is still another store. Renaming the method
+/// keeps the digest, so the refusal is the issuer, not the binding.
+#[test]
+fn a_same_binding_from_another_store_is_refused_as_foreign() {
+    let a = store_with(forward(), "m10");
+    let b = store_with(forward(), "renamed");
+    let ra = a.method_ref(ORDER, MethodId(10)).unwrap();
+    assert_eq!(
+        b.admit(&ra).unwrap_err(),
+        Refusal::ForeignStore { class: ORDER },
+        "equal digest (name is not part of it), other issuer"
+    );
+    assert_eq!(
+        b.check_issuer(&ra),
+        Err(Refusal::ForeignStore { class: ORDER })
+    );
+    assert_eq!(a.check_issuer(&ra), Ok(()));
+    // Fresh stores have distinct identities.
+    assert_ne!(ra, b.method_ref(ORDER, MethodId(10)).unwrap());
+}
+
+/// D2: a clone is another store. It refuses the original's references, the
+/// original refuses its references, and each admits its own.
+#[test]
+fn a_cloned_store_refuses_the_originals_reference() {
+    let a = store_with(forward(), "m10");
+    let c = a.clone();
+    let ra = a.method_ref(ORDER, MethodId(10)).unwrap();
+    let rc = c.method_ref(ORDER, MethodId(10)).unwrap();
+    assert_eq!(
+        c.admit(&ra).unwrap_err(),
+        Refusal::ForeignStore { class: ORDER }
+    );
+    assert_eq!(
+        a.admit(&rc).unwrap_err(),
+        Refusal::ForeignStore { class: ORDER }
+    );
+    assert!(a.admit(&ra).is_ok());
+    assert!(c.admit(&rc).is_ok());
+}
+
+/// A stamp copied onto a reference to another method of the same store is
+/// refused: the digest is per method, not per store.
+#[test]
+fn a_stamp_moved_to_another_method_is_refused() {
+    let mut s = catalogue();
+    let a = method(20, vec![effect(2, ASSIGN)]);
+    let b = method(21, vec![effect(2, ASSIGN)]);
+    reg(&mut s, ORDER, schema(1, 4), vec![a, b]).unwrap();
+    let ra = s.method_ref(ORDER, MethodId(20)).unwrap();
+    let rb = s.method_ref(ORDER, MethodId(21)).unwrap();
+    let moved = MethodRef {
+        method: MethodId(21),
+        ..ra
+    };
+    assert_eq!(
+        s.admit(&moved).unwrap_err(),
+        Refusal::BindingMismatch {
+            class: ORDER,
+            method: MethodId(21)
+        }
+    );
+    assert!(s.admit(&rb).is_ok());
+}
+
+/// `method_ref` issues only for bound methods.
+#[test]
+fn method_ref_refuses_what_is_not_bound() {
+    let s = store_with(forward(), "m10");
+    assert_eq!(
+        s.method_ref(ORDER_V2, MethodId(10)).unwrap_err(),
+        Refusal::UnknownClass(ORDER_V2)
+    );
+    assert_eq!(
+        s.method_ref(ORDER, MethodId(11)).unwrap_err(),
+        Refusal::UnknownMethod {
+            class: ORDER,
+            method: MethodId(11)
+        }
+    );
 }
