@@ -26,8 +26,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRefusal, FrameRevisions, FrameStore, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand, view_class,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, Refusal,
+    RouteVersion, SchemaRev, SigRev, ValueDemand, view_class,
 };
 use xlog_logic::parse_program;
 use xlog_relcomp_probe::{AddressMap, SLOTS, facts, register};
@@ -238,9 +238,10 @@ fn bind<'s>(
             .map_err(BindRefusal::Store)?;
         assert_eq!(r.class, XLOG);
     }
-    let method = store
-        .admit(&MethodRef::of(XLOG, &xlog_count()))
+    let r = store
+        .method_ref(XLOG, xlog_count().id)
         .map_err(BindRefusal::Store)?;
+    let method = store.admit(&r).map_err(BindRefusal::Store)?;
     Ok(Binding {
         answer_identities: routed
             .positions

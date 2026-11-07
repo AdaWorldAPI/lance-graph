@@ -14,7 +14,7 @@ use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{FrameRefusal, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneBinding, LaneRefusal, LaneRequest,
-    MethodBinding, MethodId, MethodRef, RouteAt, SchemaRev, SigRev, ValueDemand,
+    MethodBinding, MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch, Value};
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, Query};
@@ -255,8 +255,8 @@ fn bound_lanes_are_the_batch_lanes_and_fold_with_scalar_parity() {
     );
 
     // Behaviour: DT64 admits each method; its reads lie inside the binding.
-    let m1 = MethodRef::of(class(), &test_method(1, &[REVENUE, REGION]));
-    let m2 = MethodRef::of(class(), &test_method(2, &[REGION]));
+    let m1 = store.method_ref(class(), MethodId(1)).unwrap();
+    let m2 = store.method_ref(class(), MethodId(2)).unwrap();
     for m in [&m1, &m2] {
         let admitted = store.admit(m).unwrap();
         assert!(admitted.reads.is_subset_of(binding.fields()));
