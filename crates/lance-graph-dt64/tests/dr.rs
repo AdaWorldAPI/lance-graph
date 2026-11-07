@@ -402,8 +402,8 @@ mod vmap {
         assert_ne!(v1[0].1, v2[0].1);
         assert_ne!(v1[2].1, v2[2].1);
         // The numeric read agrees with the frame read.
-        assert_eq!(t.map_at(f1.version(), 1).unwrap().local(10), Ok(0));
-        assert_eq!(t.map_at(f2.version(), 1).unwrap().local(10), Ok(2));
+        assert_eq!(t.diagnose_at(f1.version(), 1).unwrap().local(10), Ok(0));
+        assert_eq!(t.diagnose_at(f2.version(), 1).unwrap().local(10), Ok(2));
     }
 
     /// F2 extension is a length at a version. Fails (disable: drop the
@@ -555,23 +555,48 @@ mod vmap {
 
     /// Q2: a version past the end is a typed refusal, not a clamp.
     #[test]
-    fn map_at_refuses_a_version_past_the_end() {
+    fn diagnose_at_refuses_a_version_past_the_end() {
         let mut t = MapTable::new(1, 1);
         t.advance(1, 1, vec![(1, Some(map(&[10])))]);
         let cur = t.current_version();
-        assert!(t.map_at(cur, 1).is_ok());
+        assert!(t.diagnose_at(cur, 1).is_ok());
         let future = RouteVersion(cur.0 + 1);
         assert_eq!(
-            t.map_at(future, 1).unwrap_err(),
+            t.diagnose_at(future, 1).unwrap_err(),
             MapRead::FutureVersion {
                 asked: future,
                 current: cur
             }
         );
         assert_eq!(
-            t.map_at(RouteVersion(0), 1).unwrap_err(),
+            t.diagnose_at(RouteVersion(0), 1).unwrap_err(),
             MapRead::NoSuchTile(1),
             "before the tile existed"
         );
+    }
+
+    /// P9 (E1): a foreign frame's version, read numerically, must not yield an
+    /// executable map. `map(frame)` refuses the frame; `diagnose_at` can still
+    /// show the number's layout in THIS table, but only as a `MapDiagnostic`,
+    /// which is not a `TileMap` and so cannot reach `MidMap` executors.
+    #[test]
+    fn p9_equal_version_foreign_frame_is_not_executable() {
+        let mut a = MapTable::new(1, 1);
+        let mut b = MapTable::new(1, 1);
+        a.advance(1, 1, vec![(1, Some(map(&[10, 20])))]);
+        b.advance(1, 1, vec![(1, Some(map(&[20, 10])))]);
+        let fb = b.seal();
+        assert_eq!(fb.version(), a.seal().version(), "equal versions");
+        // The executable read refuses the foreign frame.
+        assert_eq!(
+            a.map(&fb, 1).unwrap_err(),
+            MapRead::Stale(FrameRefusal::ForeignFrame)
+        );
+        // The issuer answers differently from A's layout at that number:
+        // the numeric read in A is a different layout than B's frame means.
+        assert_eq!(b.map(&fb, 1).unwrap().local(10), Ok(1));
+        let d = a.diagnose_at(fb.version(), 1).unwrap();
+        assert_eq!(d.local(10), Ok(0), "A's layout, not the frame's");
+        assert_ne!(d.digest(), b.map(&fb, 1).unwrap().digest());
     }
 }

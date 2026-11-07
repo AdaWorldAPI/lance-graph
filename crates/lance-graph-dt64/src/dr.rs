@@ -158,7 +158,7 @@ pub struct RouteVersion(pub u64);
 /// The one counter behind [`RouteVersion`]. A [`RouteLog`], a [`FrameStore`]
 /// and a [`MapTable`] built from clones of the same clock advance ONE
 /// sequence: a version then names a single point of the DR log, and a frame's
-/// version answers `RouteLog::routed_at` as well as `MapTable::map_at`.
+/// version answers `RouteLog::routed_at` as well as `MapTable::diagnose_at`.
 ///
 /// `clone` SHARES the counter (that is how two structures are joined);
 /// [`VersionClock::fork`] copies its present value into an independent one.
@@ -797,6 +797,40 @@ impl<'t> TileMap<'t> {
     }
 }
 
+/// A read-only view of a tile's map at a bare version number. It exposes the
+/// same reads as [`TileMap`] but is a distinct type with no conversion into
+/// one, so it cannot be passed to an executor (`MidMap`). Only
+/// [`MapTable::map`], which checks the frame's issuer, returns an executable
+/// map.
+#[derive(Clone, Copy, Debug)]
+pub struct MapDiagnostic<'t>(TileMap<'t>);
+
+impl MapDiagnostic<'_> {
+    pub fn width(&self) -> Width {
+        self.0.width()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn local(&self, global: u64) -> Result<u8, MapRefusal> {
+        self.0.local(global)
+    }
+
+    pub fn global(&self, local: u8) -> Option<u64> {
+        self.0.global(local)
+    }
+
+    pub fn digest(&self) -> u64 {
+        self.0.digest()
+    }
+}
+
 /// The versioned global → local table (D-DT64-7 O5): every tile's history of
 /// [`LocalMap`]s under one [`FrameStore`]. Maps change only through
 /// [`MapTable::advance`], which appends: an extension is a length at a
@@ -922,10 +956,24 @@ impl MapTable {
         self.view(version, tile)
     }
 
-    /// The map of `tile` as of a numeric `version` (for replay where only the
-    /// number survives). A version past the end of the sequence is
-    /// `FutureVersion`.
-    pub fn map_at(&self, version: RouteVersion, tile: TileId) -> Result<TileMap<'_>, MapRead> {
+    /// A read-only diagnostic of `tile` as of a numeric `version`. A bare
+    /// number carries no issuer, so a frame of another table at an equal
+    /// version would be answered with THIS table's layout; the result is
+    /// therefore a [`MapDiagnostic`], not an executable [`TileMap`]. Execute
+    /// only through [`MapTable::map`]. A version past the end of the sequence
+    /// is `FutureVersion`.
+    ///
+    /// ```compile_fail
+    /// use lance_graph_dt64::dr::{MapTable, RouteVersion, TileMap};
+    /// fn executes(_: TileMap<'_>) {}
+    /// let t = MapTable::new(1, 1);
+    /// executes(t.diagnose_at(RouteVersion(0), 1).unwrap());
+    /// ```
+    pub fn diagnose_at(
+        &self,
+        version: RouteVersion,
+        tile: TileId,
+    ) -> Result<MapDiagnostic<'_>, MapRead> {
         let current = self.frames.clock.current();
         if version > current {
             return Err(MapRead::FutureVersion {
@@ -933,7 +981,7 @@ impl MapTable {
                 current,
             });
         }
-        self.view(version, tile)
+        self.view(version, tile).map(MapDiagnostic)
     }
 
     fn view(&self, version: RouteVersion, tile: TileId) -> Result<TileMap<'_>, MapRead> {
