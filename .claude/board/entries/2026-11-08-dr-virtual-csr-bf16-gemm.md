@@ -1,10 +1,9 @@
-# 2026-11-08 — Virtual CSR over the DR cube; aggregation as BF16 GEMM (tile, MKL)
+# 2026-11-08 — Virtual CSR over the DR cube; aggregation as BF16 GEMM (tile, ndarray CBLAS)
 
 **Status:** MEASURED (lab). This **fails the ms gate**: every aggregation row
 is in milliseconds. Crate: `crates/dr-isa-stream-lab` (`vcsr.rs`, `spmm.rs`,
 `bin/bench_vcsr.rs`). Stacked on the DR × ISA stream lab entry of the same
-day. Depends on AdaWorldAPI/ndarray#414: the strided GEMM entry, plus the
-`BF16::slice_from_bits` view that lets MKL read the `u16` slab in place.
+day. Depends on AdaWorldAPI/ndarray#414: the strided GEMM entry.
 
 ## What it is
 
@@ -24,14 +23,16 @@ for 16 bound lanes, computed per block as BF16 GEMMs:
 - **ndarray tile GEMM** (AMX TDPBF16PS on this host). A is read in place from
   the slab with stride = pitch. B is staged per 16-row group in VNNI layout,
   and empty groups are skipped.
-- **MKL** `cblas_gemm_bf16bf16f32`. One call per block, M=16, N=256, K=256.
-  A is a strided `BF16` view of the same slab with `lda` = pitch, so nothing
-  is copied. MKL comes from the PyPI wheel, run single-threaded.
+- **ndarray's own** `backend::cblas_gemm_bf16bf16f32`: the CBLAS-compatible
+  entry (AMX, then AVX-512 BF16, then scalar), with no external library. It
+  takes dense `&[u16]` and no `lda`, so A is staged; one call per block. (An
+  earlier revision of this lab used upstream `mkl_rt` instead. That arm was
+  removed; the comparator is ndarray's own GEMM.)
 - **Staged A**, for comparison.
 
 All three are exact against the CSR oracle at n = 256, 513 (a partial last
 tile) and 4096 for the tile paths. The tile paths are also exact at 65,536,
-and MKL is exact at 513 and 65,536.
+and ndarray's CBLAS entry is exact at 513 and 65,536.
 
 **Not claimed:** blasgraph's `CsrStorage` holds `BitVec` values under HDR
 semirings (XorBundle, HammingMin, …). A floating-point GEMM does not realise
@@ -40,15 +41,10 @@ and Lance unconditionally.
 
 ## Measured
 
-AMX host, n = 65,536, 16 lanes. Every timed run was oracle-checked.
-
-| Graph | nnz | Blocks | Tile, A in place | Tile, A staged | MKL, A in place | Scalar CSR |
-|---|---|---|---|---|---|---|
-| Local, degree 8, 1/16 long-range | 522K | 5,172 (7.9%) | 30.4 ms | 31.3 ms | 73.0 ms | 15.7 ms |
-| Local, degree 8, all long-range | 523K | 41,916 (64%) | 105 ms | 116 ms | 503 ms | 12.3 ms |
-| Community, degree 64 in own tile | 4.19M | 256 (0.4%) | **12.1 ms** | 11.8 ms | 24.9 ms | 77.1 ms |
-
-Cold build of the virtual CSR: 20 ms, 158 ms and 71 ms respectively.
+See `crates/dr-isa-stream-lab/BENCH.md`, which has every arm of both labs
+in one table, from one run. For the graph rows, ndarray's CBLAS entry costs
+581 ms, 4.7 s and 51 ms on the three graphs, because it repacks both
+operands on every call (see BENCH.md, Reading).
 
 ## What the numbers say
 
@@ -70,8 +66,38 @@ Cold build of the virtual CSR: 20 ms, 158 ms and 71 ms respectively.
    for a bare K = 256 GEMM. The likely cause is restaging B for every call
    (1,024 VNNI writes plus clears), though the adjacency is constant per graph
    and could be packed once. **Not measured separately.**
-5. **MKL, single-threaded, is 2–5× slower than the tile path** on these
-   16-row problems.
+5. **ndarray's CBLAS entry is 3–45× slower than the strided tile path.** It
+   repacks A and B on every call: a prepacked or strided entry is the gap.
+
+## Production crate: not now (DECISION)
+
+**DECISION:** no production crate for the virtual CSR or the graph
+aggregation.
+
+**BASIS (measured, BENCH.md):**
+
+- Every graph-aggregation arm misses the gate, and the best one loses to a
+  scalar CSR loop on the sparse graph.
+- Even the dense community case is bounded below by its own work:
+  16 × 65,536 × 256 MACs ≈ 268M. At the measured AMX rate (~43 ns per
+  8,192-MAC block) that is ≈ 1.4 ms before any staging. So the batch cannot
+  reach µs at this size, whichever arm runs it.
+- The one arm that meets the gate is `SUM(lane) WHERE mask` over the whole
+  universe: 172 µs per 16 lanes × 16 masks with A in place. That is an
+  aggregation terminal over masks. If it is promoted, its home is the
+  Quack / mask-risc terminal set, behind DT64 binding, not a new crate.
+
+**SCOPE:** `crates/dr-isa-stream-lab` stays a lab.
+
+**REVISIT WHEN** one of these is measured:
+
+- each block's B packed once per graph version;
+- a per-block dense/sparse choice;
+- a locality-preserving G2L order;
+- a prepacked or strided entry in ndarray's CBLAS GEMM;
+
+and a graph arm then beats the scalar CSR loop on a sparse graph, or the
+WHERE terminal is proposed for Quack.
 
 ## Open
 

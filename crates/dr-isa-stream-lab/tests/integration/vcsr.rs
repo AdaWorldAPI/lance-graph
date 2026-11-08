@@ -117,10 +117,9 @@ fn aggregation_is_exact_direct_and_staged() {
     }
 }
 
-#[cfg(feature = "mkl")]
 #[test]
-fn mkl_aggregation_reads_the_slab_in_place_and_matches() {
-    use dr_isa_stream_lab::spmm::aggregate_mkl;
+fn the_cblas_aggregation_matches() {
+    use dr_isa_stream_lab::spmm::aggregate_cblas;
     for n in [513, 65_536] {
         let fx = Fixture {
             n,
@@ -134,9 +133,9 @@ fn mkl_aggregation_reads_the_slab_in_place_and_matches() {
         let world = World::new();
         let fields: Vec<u8> = (0..16).collect();
         let binding = world.bind(&socket, &fields, SPACE_A).unwrap();
-        let (got, r) = aggregate_mkl(&world, &binding, &socket, &v, &fields).unwrap();
-        assert_eq!(got, want, "MKL, n={n}");
-        assert_eq!(r.gemms, v.blocks(), "one MKL call per block");
+        let (got, r) = aggregate_cblas(&world, &binding, &socket, &v, &fields).unwrap();
+        assert_eq!(got, want, "cblas, n={n}");
+        assert_eq!(r.gemms, v.blocks(), "one call per block");
     }
 }
 

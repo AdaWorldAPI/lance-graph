@@ -7,8 +7,9 @@
 //!   it is read in place from the slab at the slab pitch, exactly as in
 //!   [`crate::gemm`]; in [`Mode::Staged`] it is copied into a dense tile.
 //! * B is the block's adjacency, `B[c][r] = edge(row r, col c)`, staged from
-//!   the bitmask: in VNNI layout 16 rows at a time for the tile GEMM, or as a
-//!   row-major 256-column tile for MKL. Row groups with no edges are skipped.
+//!   the bitmask: in VNNI layout 16 rows at a time for the tile GEMM (row
+//!   groups with no edges are skipped), or as a row-major 256-column tile for
+//!   ndarray's CBLAS-compatible GEMM ([`aggregate_cblas`]).
 //!
 //! This is the plus-times semiring. blasgraph's `CsrStorage` carries `BitVec`
 //! values under HDR semirings (XorBundle, HammingMin, ...); those are not
@@ -173,75 +174,83 @@ pub fn aggregate(
     Ok((y, report))
 }
 
-/// The same aggregation through MKL `cblas_gemm_bf16bf16f32`: one call per
-/// nonempty block (M = 16 lanes, N = 256 rows, K = the block's columns), A a
-/// strided `BF16` view of the slab (in place, `lda` = pitch), B the block
-/// expanded to row-major bf16. Needs the in-place geometry.
-#[cfg(feature = "mkl")]
-pub fn aggregate_mkl(
+/// The same aggregation through ndarray's own CBLAS-compatible
+/// `backend::cblas_gemm_bf16bf16f32` (AMX TDPBF16PS, then AVX-512
+/// VDPBF16PS, then scalar; no external library). One call per nonempty
+/// block: M = 16 lanes, N = 256 block rows, K = the block's columns.
+///
+/// That entry takes dense row-major `&[u16]` and no leading dimension, so A
+/// cannot be passed in place: each block's 16 x K slice of the lanes is
+/// copied into a dense buffer, and [`SpmmReport::a_staged_bytes`] counts it.
+/// B is the block expanded to row-major `B[c][r]`. C is overwritten by the
+/// call and added into the row tile's accumulator.
+pub fn aggregate_cblas(
     world: &World,
     binding: &LaneBinding,
     socket: &Socket<'_>,
     g: &VirtualCsr,
     fields: &[u8],
 ) -> Result<(Vec<Vec<f32>>, SpmmReport), GemmRefusal> {
-    use ndarray::hpc::quantized::BF16;
-    use ndarray::{Array2, ArrayView2, ShapeBuilder};
-
     check_graph(binding, g)?;
     let lanes = borrow(world, binding, socket, fields)?;
-    let geo = geometry(fields, &lanes).map_err(GemmRefusal::Direct)?;
+    let rows = fields.len();
     let mut report = SpmmReport {
-        tier: "MKL cblas_gemm_bf16bf16f32",
+        tier: "ndarray backend::cblas_gemm_bf16bf16f32",
         ..SpmmReport::default()
     };
-    let slab = BF16::slice_from_bits(geo.slab);
-    let mut y = vec![vec![0f32; g.n]; fields.len()];
-    let mut b = Array2::from_elem((TILE, TILE), BF16::ZERO);
-    let mut c = Array2::<f32>::zeros((ROWS, TILE));
+    let mut y = vec![vec![0f32; g.n]; rows];
+    let mut a = vec![0u16; rows * TILE];
+    let mut b = vec![0u16; TILE * TILE];
+    let mut c = vec![0f32; rows * TILE];
+    let mut acc = vec![0f32; rows * TILE];
     for tr in 0..g.row_tiles() {
-        c.fill(0.0);
+        acc.fill(0.0);
         for block in g.row_tile(tr) {
             report.blocks += 1;
             let k = k_of(g.n, block.tc);
-            let start = geo.first_row * geo.pitch + block.tc * TILE;
-            let a = ArrayView2::from_shape((ROWS, k).strides((geo.pitch, 1)), &slab[start..])
-                .expect("the geometry check covers 15 * pitch + k");
-            for r in 0..TILE {
-                for (w, &word) in block.row_words(r).iter().enumerate() {
-                    let mut bits = word;
-                    while bits != 0 {
-                        let col = w * 64 + bits.trailing_zeros() as usize;
-                        bits &= bits - 1;
-                        b[(col, r)] = BF16::ONE;
-                        report.b_entries += 1;
-                    }
-                }
+            a[..rows * k].fill(0);
+            for (r, lane) in lanes.iter().enumerate() {
+                let v = lane.values();
+                let lo = block.tc * TILE;
+                let hi = (lo + k).min(v.len());
+                a[r * k..r * k + (hi - lo)].copy_from_slice(&v[lo..hi]);
+                report.a_staged_bytes += (hi - lo) * 2;
             }
-            ndarray::backend::mkl::sgemm_bf16(
-                a,
-                b.slice(ndarray::s![..k, ..]),
-                c.view_mut(),
-                1.0,
-                1.0,
-            )
-            .expect("shapes agree by construction");
-            report.gemms += 1;
-            for r in 0..TILE {
-                for (w, &word) in block.row_words(r).iter().enumerate() {
-                    let mut bits = word;
-                    while bits != 0 {
-                        b[(w * 64 + bits.trailing_zeros() as usize, r)] = BF16::ZERO;
-                        bits &= bits - 1;
+            let set = |b: &mut [u16], value: u16| {
+                let mut written = 0;
+                for r in 0..TILE {
+                    for (w, &word) in block.row_words(r).iter().enumerate() {
+                        let mut bits = word;
+                        while bits != 0 {
+                            let col = w * 64 + bits.trailing_zeros() as usize;
+                            bits &= bits - 1;
+                            b[col * TILE + r] = value;
+                            written += 1;
+                        }
                     }
                 }
+                written
+            };
+            report.b_entries += set(&mut b, ONE);
+            ndarray::backend::cblas_gemm_bf16bf16f32(
+                &a[..rows * k],
+                &b[..k * TILE],
+                &mut c,
+                rows,
+                TILE,
+                k,
+            );
+            report.gemms += 1;
+            set(&mut b, 0);
+            for (x, &d) in acc.iter_mut().zip(&c) {
+                *x += d;
             }
         }
         for r in 0..TILE {
             let i = tr * TILE + r;
             if i < g.n {
                 for (p, yp) in y.iter_mut().enumerate() {
-                    yp[i] = c[(p, r)];
+                    yp[i] = acc[p * TILE + r];
                 }
             }
         }

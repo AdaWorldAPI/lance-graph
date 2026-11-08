@@ -17,8 +17,8 @@
 //!   as a tile directory of 256 x 256 bitmask blocks, with no row-pointer or
 //!   column-index arrays.
 //! * [`spmm`] aggregates property lanes over that adjacency (plus-times) as
-//!   BF16 GEMMs: the ndarray tile GEMM (AMX where present) and, behind the
-//!   `mkl` feature, MKL `cblas_gemm_bf16bf16f32`, both reading A in place.
+//!   BF16 GEMMs: the ndarray strided tile GEMM (AMX where present), reading A
+//!   in place, and ndarray's CBLAS-compatible `cblas_gemm_bf16bf16f32`.
 //!
 //! [`LaneSource`]: lance_graph_dt64::LaneSource
 
