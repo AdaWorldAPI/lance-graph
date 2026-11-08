@@ -83,11 +83,11 @@ ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch =
 
 # ── OLD stack, external AdaWorldAPI forks: git deps (mirrors crates/symbiont;
 # pre-existing, unchanged by this fix) ──
-# ractor: jirak branch (carries the MessagingErr::Saturated fix; on github).
+# ractor: `main` (the jirak branch's MessagingErr::Saturated fix is an ancestor of main).
 # surrealdb: `main` — each fork's jirak HEAD is an ANCESTOR of its main
 # (main is the canonical superset), and kv-lance lives on surrealdb main; pinning
 # surrealdb to main matches OGAR's own surrealdb pin so they resolve to ONE source.
-ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "main" }
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
 
 # The OGAR activation crate (in-repo, path) — links the full Active-Record surface

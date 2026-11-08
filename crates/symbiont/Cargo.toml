@@ -44,11 +44,11 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 ndarray = { path = "../../../ndarray" }
 
 # ── external AdaWorldAPI forks: git deps ──
-# ractor: jirak branch (carries this session's MessagingErr::Saturated fix; on github).
+# ractor: `main` (the jirak branch's MessagingErr::Saturated fix is an ancestor of main).
 # surrealdb + OGAR: `main` — each fork's jirak HEAD is an ANCESTOR of its main
 # (main is the canonical superset), and kv-lance lives on surrealdb main. Pinning
 # surrealdb to main matches OGAR's own surrealdb pin, so they resolve to ONE source.
-ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "claude/jirak-math-theorems-harvest-rfii13" }
+ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "main" }
 surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
 # OGAR tracks `main` (its jirak commit 3016c78 is an ancestor of main — main is a
 # strict superset; there is no separate OGAR jirak branch on github).
