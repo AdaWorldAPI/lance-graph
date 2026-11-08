@@ -13,6 +13,12 @@
 //!   `C[p][m] = sum_i lane_p[i] * mask_m(i)`, with A read in place from the
 //!   slab when its geometry allows and staged otherwise.
 //! * [`oracle`] computes the answer from the fixture alone.
+//! * [`vcsr`] is a virtual CSR: graph adjacency in the same 256 x 256 cube,
+//!   as a tile directory of 256 x 256 bitmask blocks, with no row-pointer or
+//!   column-index arrays.
+//! * [`spmm`] aggregates property lanes over that adjacency (plus-times) as
+//!   BF16 GEMMs: the ndarray tile GEMM (AMX where present) and, behind the
+//!   `mkl` feature, MKL `cblas_gemm_bf16bf16f32`, both reading A in place.
 //!
 //! [`LaneSource`]: lance_graph_dt64::LaneSource
 
@@ -22,3 +28,5 @@ pub mod fixture;
 pub mod gemm;
 pub mod oracle;
 pub mod source;
+pub mod spmm;
+pub mod vcsr;

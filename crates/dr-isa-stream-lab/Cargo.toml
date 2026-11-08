@@ -19,6 +19,12 @@ lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
 
+[features]
+# MKL comparator: links mkl_rt. Off by default (CI has no MKL). To run it,
+# point the linker and loader at an MKL runtime, e.g. the PyPI `mkl` wheel:
+#   RUSTFLAGS="-L <mkl>/lib" LD_LIBRARY_PATH=<mkl>/lib cargo ... --features mkl
+mkl = ["ndarray/intel-mkl"]
+
 [[test]]
 name = "integration"
 path = "tests/integration/main.rs"

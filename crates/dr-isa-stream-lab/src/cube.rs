@@ -78,6 +78,12 @@ pub enum ArmRefusal {
         masks: CoordSpace,
         selection: CoordSpace,
     },
+    /// The graph's rows and columns are in another row order than the
+    /// binding's selection.
+    GraphSpace {
+        graph: CoordSpace,
+        selection: CoordSpace,
+    },
 }
 
 impl From<LaneRefusal> for ArmRefusal {
