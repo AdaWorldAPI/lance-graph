@@ -1,0 +1,62 @@
+//! Deterministic values and WHERE masks. Nothing else defines them.
+
+/// Number of WHERE masks, and the GEMM's N.
+pub const MASKS: usize = 16;
+/// Property lanes per GEMM row tile (the GEMM's M).
+pub const ROWS: usize = 16;
+/// Identities per GEMM K block.
+pub const BLOCK: usize = 32;
+
+/// The value set: an identity count, a property count and a seed.
+#[derive(Debug, Clone, Copy)]
+pub struct Fixture {
+    pub n: usize,
+    pub props: usize,
+    pub seed: u64,
+}
+
+fn mix(mut x: u64) -> u64 {
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+    x ^= x >> 33;
+    x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+    x ^ (x >> 33)
+}
+
+impl Fixture {
+    /// Property `p` of identity `i`: an integer in [-8, 8], exact in bf16.
+    pub fn value(&self, i: usize, p: usize) -> i32 {
+        let h = mix(self.seed ^ ((p as u64) << 40) ^ i as u64);
+        (h % 17) as i32 - 8
+    }
+
+    /// Whether identity `i` is selected by WHERE mask `m`.
+    pub fn selected(&self, i: usize, m: usize) -> bool {
+        // Mask m keeps roughly (m + 1) / 17 of the population, so the 16
+        // masks differ in density as well as membership.
+        mix(self.seed.rotate_left(17) ^ ((m as u64) << 48) ^ i as u64) % 17 <= m as u64
+    }
+}
+
+/// bf16 encoding of `v`, or `None` when bf16 cannot hold it exactly.
+pub fn bf16_exact(v: i32) -> Option<u16> {
+    let f = v as f32;
+    let bits = f.to_bits();
+    if bits & 0xFFFF != 0 || f as i32 != v {
+        None
+    } else {
+        Some((bits >> 16) as u16)
+    }
+}
+
+/// bf16 encoding of `v` by round-to-nearest-even; approximate by design.
+pub fn bf16_round(v: f32) -> u16 {
+    let bits = v.to_bits();
+    let lsb = (bits >> 16) & 1;
+    ((bits + 0x7FFF + lsb) >> 16) as u16
+}
+
+/// The f32 value of a bf16 encoding.
+pub fn bf16_value(h: u16) -> f32 {
+    f32::from_bits(u32::from(h) << 16)
+}

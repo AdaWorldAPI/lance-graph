@@ -1,0 +1,27 @@
+# DR G2L x ISA stream lab: one DT64 lane binding consumed by two computation
+# geometries -- a positional 16-mask fold over a 256x256 identity cube, and a
+# BF16 tile GEMM (AMX TDPBF16PS where the host has it). Own workspace root;
+# nothing depends on it. Needs ndarray with
+# `bf16_tile_gemm_16x16_packed_strided` (AdaWorldAPI/ndarray#414).
+#   cargo test --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml
+#   cargo run  --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml --bin bench
+[package]
+name = "dr-isa-stream-lab"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace]
+
+[dependencies]
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+ndarray = { path = "../../../ndarray", default-features = false, features = ["std"] }
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[profile.release]
+debug = false
