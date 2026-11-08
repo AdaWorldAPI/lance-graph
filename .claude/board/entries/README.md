@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-586 entries, 2026-08-06 .. 2026-11-07.
+587 entries, 2026-08-06 .. 2026-11-08.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-08 | `dr-isa-stream-lab` |  | [2026-11-08-dr-isa-stream-lab.md](2026-11-08-dr-isa-stream-lab.md) |
 | 2026-11-07 | `D-DT64-7-L5b` |  | [2026-11-07-dt64-l5b-historical-basis.md](2026-11-07-dt64-l5b-historical-basis.md) |
 | 2026-11-07 | `D-DT64-7-L5a` |  | [2026-11-07-dt64-l5a-exact-basis-witness.md](2026-11-07-dt64-l5a-exact-basis-witness.md) |
 | 2026-11-07 | `D-DT64-7-L5` |  | [2026-11-07-dt64-decision-j-exact-basis.md](2026-11-07-dt64-decision-j-exact-basis.md) |
