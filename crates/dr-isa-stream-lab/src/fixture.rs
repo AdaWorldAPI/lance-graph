@@ -42,7 +42,9 @@ impl Fixture {
 pub fn bf16_exact(v: i32) -> Option<u16> {
     let f = v as f32;
     let bits = f.to_bits();
-    if bits & 0xFFFF != 0 || f as i32 != v {
+    // Compare in f64, which holds every i32 and every f32 exactly: casting
+    // `f` back to i32 would saturate 2^31 to i32::MAX and pass it as exact.
+    if bits & 0xFFFF != 0 || f64::from(f) != f64::from(v) {
         None
     } else {
         Some((bits >> 16) as u16)

@@ -13,6 +13,20 @@ fn small_integers_are_exact_and_257_is_not() {
     assert_eq!(bf16_exact(1 << 20).map(bf16_value), Some((1 << 20) as f32));
 }
 
+/// At the edge of `i32`, `v as f32` rounds up to 2^31, which a cast back to
+/// `i32` saturates to `i32::MAX`. The check must not be fooled by that
+/// saturation. Decoded values are compared in f64, which holds both exactly.
+#[test]
+fn exactness_is_not_fooled_by_saturating_casts() {
+    for v in [i32::MAX, i32::MAX - 1, i32::MIN + 1] {
+        assert!(bf16_exact(v).is_none(), "{v} is not a bf16 value");
+    }
+    for v in [i32::MIN, 1 << 30, -(1 << 30), 3 << 28] {
+        let b = bf16_exact(v).unwrap_or_else(|| panic!("{v} is a bf16 value"));
+        assert_eq!(f64::from(bf16_value(b)), f64::from(v), "{v}");
+    }
+}
+
 /// A decimal-scaled value (cents as a float) is approximate in bf16; the
 /// error is measured, not hidden.
 #[test]
