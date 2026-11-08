@@ -28,9 +28,9 @@ ogar-dir-sim = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # keeps one ndarray package.
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std", "runtime-dispatch"] }
 # Arm D, the independent oracle: crepe's generated Datalog evaluator over the
-# fixture's own integer ids (never dir-sim ordinals). AdaWorldAPI fork, by
-# branch (no pins), as in crepe-plan-probe.
-crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-ied9yh" }
+# fixture's own integer ids (never dir-sim ordinals). AdaWorldAPI fork, floating
+# on `main`, as in crepe-plan-probe.
+crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "main" }
 # D-RFT-1 (src/compose.rs): every count, existence and mask equality of the
 # composition is an r2il procedure (`count_and`, `count`, `differ`) folded by
 # mask-risc. The probe holds no counting loop of its own.
