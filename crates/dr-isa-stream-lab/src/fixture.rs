@@ -62,3 +62,31 @@ pub fn bf16_round(v: f32) -> u16 {
 pub fn bf16_value(h: u16) -> f32 {
     f32::from_bits(u32::from(h) << 16)
 }
+
+/// Out-degree drawn per identity by [`Fixture::neighbors`].
+pub const DEGREE: usize = 8;
+/// One identity in this many gets a long-range edge in [`Fixture::neighbors`].
+pub const FAR_EVERY: usize = 16;
+
+impl Fixture {
+    /// Identity `i`'s neighbors with the default long-range rate.
+    pub fn neighbors(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
+        self.neighbors_with(i, FAR_EVERY)
+    }
+
+    /// Identity `i`'s `DEGREE` neighbors, within +-512 of `i` (its own and
+    /// nearby cube tiles), except that one identity in `far_every` has its
+    /// last edge go anywhere. Long-range edges are what make a block layout
+    /// fill up, so the rate is a parameter. May repeat a neighbor.
+    pub fn neighbors_with(&self, i: usize, far_every: usize) -> impl Iterator<Item = usize> + '_ {
+        (0..DEGREE).map(move |k| {
+            let h = mix(self.seed.rotate_left(29) ^ ((k as u64) << 56) ^ i as u64);
+            if k + 1 == DEGREE && i.is_multiple_of(far_every) {
+                (h % self.n as u64) as usize
+            } else {
+                let off = (h % 1025) as i64 - 512;
+                (i as i64 + off).rem_euclid(self.n as i64) as usize
+            }
+        })
+    }
+}
