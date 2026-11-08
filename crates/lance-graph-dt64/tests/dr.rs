@@ -4,8 +4,8 @@
 
 use lance_graph_contract::morton8x8::Morton8x8;
 use lance_graph_dt64::dr::{
-    address, coordinates, rotate_yz, Focus, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal,
-    Guards, LocalMap, MapRefusal, Scope, Width,
+    address, coordinates, rotate_yz, CodeRead, CodeSpaceId, CodeTable, Focus, FrameRefusal,
+    FrameRevisions, FrameStore, GuardRefusal, Guards, LocalMap, MapRefusal, Scope, ValueKey, Width,
 };
 
 fn revisions() -> FrameRevisions {
@@ -599,4 +599,188 @@ mod vmap {
         assert_eq!(d.local(10), Ok(0), "A's layout, not the frame's");
         assert_ne!(d.digest(), b.map(&fb, 1).unwrap().digest());
     }
+}
+
+// ---- CodeTable: the code-space G2L ----------------------------------------
+
+fn status() -> CodeSpaceId {
+    CodeSpaceId {
+        class: 0x0202_0002,
+        property: "status".into(),
+    }
+}
+fn priority() -> CodeSpaceId {
+    CodeSpaceId {
+        class: 0x0202_0002,
+        property: "priority".into(),
+    }
+}
+fn vk(s: &str) -> ValueKey {
+    ValueKey(s.into())
+}
+fn entries(e: &[(&str, u32)]) -> Vec<(ValueKey, u32)> {
+    e.iter().map(|(k, c)| (vk(k), *c)).collect()
+}
+
+/// t1: a frame reads the generation in force at its own version.
+#[test]
+fn code_reads_are_frame_keyed_and_historical() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(
+        &mut fs,
+        vec![(status(), entries(&[("shipped", 3), ("cancelled", 7)]))],
+    )
+    .unwrap();
+    let f1 = fs.seal();
+    t.advance(
+        &mut fs,
+        vec![(status(), entries(&[("cancelled", 3), ("shipped", 7)]))],
+    )
+    .unwrap();
+    let f2 = fs.seal();
+    assert_eq!(t.key(&f1, &status(), 3), Ok(&vk("shipped")));
+    assert_eq!(t.key(&f2, &status(), 3), Ok(&vk("cancelled")));
+    assert_eq!(t.code(&f2, &status(), &vk("shipped")), Ok(7));
+    assert_eq!(t.code(&f1, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&f1, &status(), &vk("lost")),
+        Err(CodeRead::UnknownKey)
+    );
+    assert_eq!(t.key(&f1, &status(), 9), Err(CodeRead::UnknownCode));
+}
+
+/// t1b: a frame sealed before any generation of the space reads nothing, and
+/// an unknown space reads nothing.
+#[test]
+fn a_frame_before_the_first_generation_has_no_space() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let before = fs.seal();
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let after = fs.seal();
+    assert_eq!(
+        t.code(&before, &status(), &vk("shipped")),
+        Err(CodeRead::NoSpace)
+    );
+    assert_eq!(
+        t.code(&after, &priority(), &vk("shipped")),
+        Err(CodeRead::NoSpace)
+    );
+    assert_eq!(t.code(&after, &status(), &vk("shipped")), Ok(3));
+}
+
+/// t2: a frame of another store is refused although its version equals.
+#[test]
+fn a_frame_of_another_store_is_refused_at_equal_version() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let mut other = FrameStore::new(revisions());
+    other.advance(revisions());
+    let foreign = other.seal();
+    let own = fs.seal();
+    assert_eq!(foreign.version(), own.version());
+    assert_eq!(t.code(&own, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&foreign, &status(), &vk("shipped")),
+        Err(CodeRead::ForeignFrame)
+    );
+    assert_eq!(t.key(&foreign, &status(), 3), Err(CodeRead::ForeignFrame));
+}
+
+/// t3: advancing with a store the table is not bound to changes nothing,
+/// neither the table nor either store.
+#[test]
+fn a_foreign_store_is_refused_before_anything_changes() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let bound_frame = fs.seal();
+    let mut other = FrameStore::new(revisions());
+    let other_frame = other.seal();
+    let other_rev = other.revisions();
+    let r = t.advance(
+        &mut other,
+        vec![(status(), entries(&[("shipped", 9), ("cancelled", 3)]))],
+    );
+    assert_eq!(r, Err(CodeRead::ForeignStore));
+    assert_eq!(other.revisions(), other_rev);
+    assert_eq!(other.check(&other_frame), Ok(()));
+    assert_eq!(fs.check(&bound_frame), Ok(()));
+    assert_eq!(t.code(&bound_frame, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&bound_frame, &status(), &vk("cancelled")),
+        Err(CodeRead::UnknownKey)
+    );
+}
+
+/// t4: a change set that is not a bijection, or names a space twice, is
+/// refused and the store is not advanced.
+#[test]
+fn a_duplicate_change_set_is_refused_and_the_store_is_not_advanced() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let f = fs.seal();
+    let two_keys_one_code = entries(&[("shipped", 3), ("cancelled", 3)]);
+    let one_key_two_codes = entries(&[("shipped", 3), ("shipped", 7)]);
+    for bad in [
+        vec![(status(), two_keys_one_code)],
+        vec![(status(), one_key_two_codes)],
+        vec![
+            (status(), entries(&[("shipped", 3)])),
+            (status(), entries(&[("cancelled", 7)])),
+        ],
+        // the valid space listed first must not leak when a later one fails
+        vec![
+            (priority(), entries(&[("high", 1)])),
+            (status(), entries(&[("a", 1), ("b", 1)])),
+        ],
+    ] {
+        assert_eq!(t.advance(&mut fs, bad), Err(CodeRead::Duplicate));
+        assert_eq!(fs.check(&f), Ok(()), "store must not have advanced");
+    }
+    assert_eq!(t.code(&f, &priority(), &vk("high")), Err(CodeRead::NoSpace));
+    // the silence twin: a valid set advances
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert!(fs.check(&f).is_err());
+}
+
+/// t5: a code change advances the store, so a lane frame sealed before it is
+/// no longer current.
+#[test]
+fn advancing_the_code_table_retires_lane_frames() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let lane_frame = fs.seal();
+    assert_eq!(fs.check(&lane_frame), Ok(()));
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert!(fs.check(&lane_frame).is_err());
+    assert_eq!(fs.check(&fs.seal()), Ok(()));
+}
+
+/// t6: a space absent from a change set keeps its generation.
+#[test]
+fn an_unchanged_space_survives_an_advance_of_another() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(
+        &mut fs,
+        vec![
+            (status(), entries(&[("shipped", 3)])),
+            (priority(), entries(&[("high", 1)])),
+        ],
+    )
+    .unwrap();
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 9)]))])
+        .unwrap();
+    let f = fs.seal();
+    assert_eq!(t.code(&f, &status(), &vk("shipped")), Ok(9));
+    assert_eq!(t.code(&f, &priority(), &vk("high")), Ok(1));
+    assert_eq!(t.key(&f, &priority(), 1), Ok(&vk("high")));
 }

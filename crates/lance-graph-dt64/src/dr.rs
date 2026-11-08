@@ -1083,3 +1083,167 @@ pub fn coordinates(width: Width, code: Morton8x8) -> Result<(u8, u8), MapRefusal
 pub fn rotate_yz(code: Morton8x8) -> Morton8x8 {
     Morton8x8::from_xy(code.y(), code.x())
 }
+
+// ---- code space: value key <-> source-local code ---------------------------
+
+/// A canonical value key: the meaning of one value of a property (for
+/// example the OGAR key of the order status `shipped`). OGAR owns the key; a
+/// source owns the numbers it assigns to keys ([`CodeTable`]). The key is
+/// never an executable number.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ValueKey(pub String);
+
+/// One namespace of codes: a full classid and the canonical identity of one
+/// of its properties. Two properties never share a code space, and one
+/// property of two classes does not either.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeSpaceId {
+    pub class: u32,
+    pub property: String,
+}
+
+/// Why a [`CodeTable`] read or advance was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeRead {
+    /// The [`FrameStore`] passed to [`CodeTable::advance`] is not the one the
+    /// table is bound to. Nothing changed.
+    ForeignStore,
+    /// The frame was not issued by the store the table is bound to, even at
+    /// equal revisions and versions. A frame of the bound store is never
+    /// stale here: it reads the generation in force at its own version.
+    ForeignFrame,
+    /// The table holds no generation of this space at the frame's version.
+    NoSpace,
+    /// The generation maps no key to this code.
+    UnknownCode,
+    /// The generation maps no code to this key.
+    UnknownKey,
+    /// A change set maps one key to two codes, two keys to one code, or names
+    /// a space twice. Nothing changed.
+    Duplicate,
+}
+
+#[derive(Debug)]
+struct CodeGeneration<C> {
+    at: RouteVersion,
+    by_key: BTreeMap<ValueKey, C>,
+    by_code: BTreeMap<C, ValueKey>,
+}
+
+/// The code-space sibling of [`MapTable`]: per [`CodeSpaceId`], an
+/// append-only history of generations, each a bijection between canonical
+/// [`ValueKey`]s and the source's local codes `C`.
+///
+/// Unlike [`MapTable`] it owns no [`FrameStore`]. It is bound to the store
+/// that the lanes are sealed under, and [`CodeTable::advance`] advances THAT
+/// store, so a code change cannot leave a lane [`Frame`] current
+/// ([`FrameStore::check`]). Reads are keyed by a [`Frame`], never by a bare
+/// version number: a historical frame reads the mapping in force at its
+/// version, which says what a code meant then, not what a row held.
+#[derive(Debug)]
+pub struct CodeTable<C: Copy + Ord> {
+    store: Weak<()>,
+    spaces: BTreeMap<CodeSpaceId, Vec<CodeGeneration<C>>>,
+}
+
+impl<C: Copy + Ord> CodeTable<C> {
+    /// An empty table bound to the identity of `frames`.
+    pub fn new(frames: &FrameStore) -> Self {
+        Self {
+            store: Arc::downgrade(&frames.identity),
+            spaces: BTreeMap::new(),
+        }
+    }
+
+    /// Replace the generation of each listed space and advance `frames`
+    /// exactly once. A space absent from `changes` keeps its generation.
+    /// The new generation of a listed space is exactly its entries.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignStore`] if `frames` is not the bound store, and
+    /// [`CodeRead::Duplicate`] if a change set is not a bijection or names a
+    /// space twice. Both are checked before anything changes: on `Err` the
+    /// table and `frames` are untouched.
+    pub fn advance(
+        &mut self,
+        frames: &mut FrameStore,
+        changes: Vec<(CodeSpaceId, Vec<(ValueKey, C)>)>,
+    ) -> Result<(), CodeRead> {
+        if !Weak::ptr_eq(&self.store, &Arc::downgrade(&frames.identity)) {
+            return Err(CodeRead::ForeignStore);
+        }
+        let mut seen = BTreeSet::new();
+        let mut staged = Vec::with_capacity(changes.len());
+        for (space, entries) in changes {
+            if !seen.insert(space.clone()) {
+                return Err(CodeRead::Duplicate);
+            }
+            let mut by_key = BTreeMap::new();
+            let mut by_code = BTreeMap::new();
+            for (key, code) in entries {
+                if by_key.insert(key.clone(), code).is_some() || by_code.insert(code, key).is_some()
+                {
+                    return Err(CodeRead::Duplicate);
+                }
+            }
+            staged.push((space, by_key, by_code));
+        }
+        let r = frames.revisions();
+        let at = frames.advance(FrameRevisions {
+            source: r.source.wrapping_add(1),
+            ..r
+        });
+        for (space, by_key, by_code) in staged {
+            self.spaces.entry(space).or_default().push(CodeGeneration {
+                at,
+                by_key,
+                by_code,
+            });
+        }
+        Ok(())
+    }
+
+    /// The key `code` meant in `space` as of `frame`.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignFrame`], [`CodeRead::NoSpace`] or
+    /// [`CodeRead::UnknownCode`].
+    pub fn key(&self, frame: &Frame, space: &CodeSpaceId, code: C) -> Result<&ValueKey, CodeRead> {
+        self.generation(frame, space)?
+            .by_code
+            .get(&code)
+            .ok_or(CodeRead::UnknownCode)
+    }
+
+    /// The code `key` had in `space` as of `frame`.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignFrame`], [`CodeRead::NoSpace`] or
+    /// [`CodeRead::UnknownKey`].
+    pub fn code(&self, frame: &Frame, space: &CodeSpaceId, key: &ValueKey) -> Result<C, CodeRead> {
+        self.generation(frame, space)?
+            .by_key
+            .get(key)
+            .copied()
+            .ok_or(CodeRead::UnknownKey)
+    }
+
+    fn generation(
+        &self,
+        frame: &Frame,
+        space: &CodeSpaceId,
+    ) -> Result<&CodeGeneration<C>, CodeRead> {
+        if !Weak::ptr_eq(&frame.store, &self.store) {
+            return Err(CodeRead::ForeignFrame);
+        }
+        let gens = self.spaces.get(space).ok_or(CodeRead::NoSpace)?;
+        let in_force = gens.partition_point(|g| g.at <= frame.version);
+        in_force
+            .checked_sub(1)
+            .map(|i| &gens[i])
+            .ok_or(CodeRead::NoSpace)
+    }
+}
