@@ -14,8 +14,9 @@ description = "Lab spike: Crepe's rule analysis as a cold optimizer in front of 
 
 [dependencies]
 # Proc macros only: `crepe_plan!` (the plan) and, in the oracle module only,
-# the unmodified `crepe!` evaluator. AdaWorldAPI fork, by branch (no pins).
-crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "ccr-d3ce1263-ied9yh" }
+# the unmodified `crepe!` evaluator. AdaWorldAPI fork, floating on `main`
+# (internal pins are prohibited); `crepe_plan!` merged into `main` in crepe#1.
+crepe = { git = "https://github.com/AdaWorldAPI/crepe", branch = "main" }
 lance-graph-relalg = { path = "../lance-graph-relalg" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # The D-MPS-8 versioned relationship table (shared y domain, presence planes,
