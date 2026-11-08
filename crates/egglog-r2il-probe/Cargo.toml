@@ -22,11 +22,12 @@ description = "Stage B probe: egglog as a cold, bounded, proof-producing compile
 
 [dependencies]
 # Public API only (EGraph::new_with_proofs, parse_and_run_program, prove-variants).
-# Pinned to a commit (DECISION 2026-11-02): with a floating branch a
-# `ReplayRefusal::ProofChanged` could be an egglog change rather than a change
-# in the program, and the replay capsule records no egglog version. Moving
-# the pin is a deliberate edit, re-run with the capsule recheck.
-egglog = { git = "https://github.com/AdaWorldAPI/egglog", rev = "5deaa5637a306c48c998f88d5d08792d2dbfd037" }
+# Floats on `main` (2026-11-08: internal pins are prohibited; this replaces the
+# 2026-11-02 one-commit pin), as in every crate that links egglog. Cost: the
+# replay capsule records no egglog version, so a `ReplayRefusal::ProofChanged`
+# can now come from an egglog change rather than from the program. Read one
+# against egglog `main`'s log before treating it as a program change.
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
 # `set_rules::Arith`, the law-domain vocabulary. The catalogue is NOT copied.
 lance-graph-contract = { path = "../lance-graph-contract" }
 # FoldDialect, Val, INT_MULT, FoldError.

@@ -25,12 +25,13 @@ leapfrog = ["mork/leapfrog"]
 # upstream `trueagi-io/MORK` `ed57c67` + one commit that makes `nightly` a
 # feature instead of a default, so it builds on stable Rust. Upstream `main`
 # needs nightly (`#![feature]` in fast-slice-utils).
-# PathMap: AdaWorldAPI fork `ef02591`, byte-identical to upstream
-# `Adam-Vandervorst/PathMap` `master` at the time of writing.
+# PathMap: AdaWorldAPI fork, floating on `master` (internal pins are
+# prohibited); `ef02591` was byte-identical to upstream
+# `Adam-Vandervorst/PathMap` `master` when this probe was written.
 [dependencies]
 mork = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
 mork-expr = { git = "https://github.com/AdaWorldAPI/MORK", rev = "de9312e3" }
-pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", branch = "master" }
 # The native executor for the D-RMAP focus probe (`src/rmap.rs`): the prepared
 # relationship operands are run as its programs, never re-implemented here.
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
@@ -44,7 +45,7 @@ arrow-buffer = "58"
 
 # MORK's workspace names PathMap as `path = "../PathMap/"`, outside its own
 # repository, so a git dependency on MORK cannot resolve it. This patch points
-# that one requirement at the same PathMap revision as above: one `pathmap`
+# that one requirement at the same PathMap branch as above: one `pathmap`
 # package identity in the graph, no edit to MORK.
 [patch."https://github.com/AdaWorldAPI/MORK"]
-pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", branch = "master" }

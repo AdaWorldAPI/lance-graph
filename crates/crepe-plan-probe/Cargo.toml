@@ -51,4 +51,4 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # Same reason as in mork-pathmap-probe: MORK's workspace names PathMap by a
 # path outside its repository, so the git dependency needs this to resolve.
 [patch."https://github.com/AdaWorldAPI/MORK"]
-pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", rev = "ef02591" }
+pathmap = { git = "https://github.com/AdaWorldAPI/PathMap", branch = "master" }
