@@ -1,6 +1,6 @@
 # D-XLOG-NATIVE-7: one resident hypercube as XLOG's execution context (probe)
 
-**Date 2026-11-01 · ID D-XLOG-NATIVE-7 · Status PROBE · Plan `.claude/plans/d-xlog-native-v1.md` (Amendment F, pending beside E in #1910) · Crate `crates/lance-graph-xlog` (`cube`)**
+**Date 2026-11-01 · ID D-XLOG-NATIVE-7 · Status PROBE · Plan `.claude/plans/d-xlog-native-v1.md` (Amendment E is the decision of record; no Amendment F exists — corrected 2026-11-03) · Crate `crates/lance-graph-xlog` (`cube`)**
 
 DECISION (direction, from the session): the experiment replaces the machine
 under XLOG's CUDA-facing API with one resident context, rather than speeding up

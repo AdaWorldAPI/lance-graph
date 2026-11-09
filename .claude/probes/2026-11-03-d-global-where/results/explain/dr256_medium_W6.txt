@@ -1,0 +1,35 @@
+-- SELECT count(*) FROM edges e1 JOIN edges e2 ON e2.src = e1.dst JOIN nodes n ON n.id = e1.src WHERE n.a < 50
+╭─ Summary ───────────╮
+│ Total Time: 0.0022s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ──────────╮
+│ Aggregates: count_star()       │
+│ 1 row                      0µs │
+╰────────────────┰───────────────╯
+╭─ Hash Join ────┸───────────────╮
+│ Join Type: INNER               │
+│ Conditions: src = dst          │
+│ 1,088 rows                 0µs │
+╰────────────────┬───────────────╯
+                 ┟─────────────────────────────────────╮
+╭─ Table Scan ───┸───────────────╮  ╭─ Hash Join ──────┴──────────────────╮
+│ Table: memory.main.edges       │  │ Join Type: INNER                    │
+│ Type: Sequential Scan          │  │ Conditions: id = src                │
+│ Projections: src               │  │ 136 rows                        0µs │
+│ Dynamic Filters:               │  ╰──────────────────┬──────────────────╯
+│ optional: src IN PRF(dst)      │                     ├───────────────────────────────────┰┒
+│ Row Groups Scanned: 1 / 1      │  ╭─ Filter ─────────┴──────────────────╮  ╭─ Table Scan ┚┖────────────╮
+│ 872 rows                   0µs │  │ Expression: id BETWEEN 89 AND 65181 │  │ Table: memory.main.edges  │
+╰────────────────────────────────╯  │ 17 rows                         0µs │  │ Type: Sequential Scan     │
+                                    ╰──────────────────┬──────────────────╯  │ Projections: dst, src     │
+                                    ╭─ Table Scan ─────┴──────────────────╮  │ Row Groups Scanned: 1 / 1 │
+                                    │ Table: memory.main.nodes            │  │ 2,048 rows            0µs │
+                                    │ Type: Sequential Scan               │  ╰───────────────────────────╯
+                                    │ Projections: id                     │
+                                    │ Filters: a < 50                     │
+                                    │ Dynamic Filters:                    │
+                                    │ optional: id IN PRF(src)            │
+                                    │ Row Groups Scanned: 1 / 1           │
+                                    │ 17 rows                         0µs │
+                                    ╰─────────────────────────────────────╯
+

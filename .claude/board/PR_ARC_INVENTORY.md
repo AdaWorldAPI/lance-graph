@@ -1,3 +1,214 @@
+## 2026-11-06 — lance-graph PR #1970 (merged `fb27c46`) — D-LANESOCK-3: one field basis, test-only scope admission
+
+- **Added:** `LaneSource::lane_of(.., basis: &FieldRef, ..)` carries the field DT64 validated; `AbiLanes` holds no ClassView; three implementers updated; `AbiLanes::unwitnessed` and its suite moved to `#[cfg(test)]`, the `unwitnessed-scope` feature removed; spec §8 consumer contract and reader-scope inventory; board for #1969.
+- **Locked (measured):** RED reproducer at `49d11c2` (a reordered ClassView of equal class, revision and count returned another lane); after the fix a check through it refuses `MappingChanged`; disable run turns the test red; report crate 55 tests.
+- **Not done:** no reader-scope issuer; no production admission; value ingress, writer, codebook, exact decimal, D4/S-INGRESS open.
+- **Confidence:** CI green on the merged head.
+
+## 2026-11-06 — lance-graph PR #1969 (merged `53e849a`) — D-LANESOCK-2: AbiBatch lanes through the DT64 lane socket
+
+- **Added:** `lance-graph-report::AbiLanes` (`LaneSource` over a resident `AbiBatch`, `publish`, `PublishRefusal`); `AbiBatch` column cap `MAX_COLUMNS` with a checked `u16` lane index (Codex P2: `i as u16` wrapped column 65,536 onto column 0 for every caller); `RegistryClassView` concept-half key test; `rust-test.yml` runs the report tests.
+- **Locked (measured):** pointer-equal borrowing; two Quack folds over one binding match an independent scalar oracle; zero hot allocations on reuse; refusals for a published replacement, old row order, foreign frame, foreign source store, re-route, other coordinate space, unknown / absent / `U64` field, out-of-basis position and foreign scope; seven guards disable-verified red-then-green.
+- **Not done:** no production constructor (no DR reader-scope witness); no writer or value ingress; exact decimal, codebook and D4/S-INGRESS open; `RegistryClassView` DOLCE `entity_type_id` defect pinned, not fixed. Found afterwards (D-LANESOCK-3): `AbiLanes` read a ClassView of its own and could disagree with DT64's basis; the `unwitnessed-scope` feature exposed the constructor to any build that enabled it.
+- **Confidence:** CI green on the merged head.
+
+## 2026-11-06 — lance-graph PRs #1964–#1967 (merged `9ca5daa`), with OGAR #371 — hybrid ordinal chain, Ruler-plane selection, DR × DT64 lane socket
+
+- **Added:**
+  - #1964: the ordinal-chain lab reads the EXO ordinal from OGAR's fold (OGAR #371) and witnesses coordinates with `dr::FrameStore`; lab clippy step in `dir-sim-persist.yml`.
+  - #1965: batch selection over the six `fold_aligned` planes with one Quack program per pass.
+  - #1966: D-LANESOCK spec.
+  - #1967: dt64 `lane` module (`LaneSource`, `BindStore::bind_lanes`, `LaneBinding::check/lane`) plus 8 dt64 tests and 4 lab tests.
+- **Locked (measured):** oracle parity over multi-word seeded populations with ten fault classes; zero hot allocations at 64K slots; socket check + borrow 34–140 ns; each refusal guard disable-verified red-then-green.
+- **Not done:** no cross-coordinate-space mapping is admitted (`CoordinateSpace` refuses); frame revisions are caller-supplied, not derived from a source receipt; dir-sim `CloudMailboxes::from_fold` still selects per row and `with_exchange_guids` is a second GUID search.
+- **Confidence:** CI green on every merged head; disable runs recorded in each PR body.
+
+## 2026-11-02 — lance-graph PR #1933 (merged `d1b3ea59f`, branch `claude/clone-repositories-71a5sw`) — A10 probes + admission probe, NNUE triangle baseline, S5 erratum, #1931 record
+
+- **Added:**
+  - `cognitive-shader-driver/tests/a10_epistemic_admission_probes.rs` (F1/F3/F6);
+  - `lance-graph-planner/tests/a10_admission_probe.rs` (test-local Given/Observed/Derived/Measured admission, plus F2/F4/F5);
+  - `xlog-relcomp-probe/examples/triangle_pairing_baselines.rs`;
+  - board entries for the SGR recovery gates, A10 admission + NNUE feasibility, and A10 outcomes + S6 + NNUE baselines.
+- **Locked (measured):**
+  - F1: `raw5 = 0` is indistinguishable from an unwritten edge inside CE64.
+  - F3: `truth_code` and `learn` count a duplicated root.
+  - F4: a written certification survives the withdrawal of its support.
+  - NNUE is PARKED for the triangle optimizer: the exact-degree fold has regret 1.000 on 72/72.
+- **Not done:**
+  - The admission probe is not production.
+  - The rule-identity carrier and the production admission boundary are named gaps.
+  - The second writer, `deepnsm_v2::wire`, needs an owner decision.
+  - The S6 fork change (xlog `ea924b3`) is compiled but not run.
+- **Confidence:** each guard was disable-verified red-then-green; the triangle numbers were re-run independently.
+
+## 2026-11-02 — lance-graph PR #1932 (merged `3355be0b8`, branch `claude/sgr-coverage-gates`) — SGR recovery: residuals + coverage gate, `?::?` refusal; with ruff #135/#136
+
+- **Added:**
+  - codegraph reads `<crate>.residuals.tsv` and gives a typed `Coverage`;
+  - `DeadFunction` runs `Partial` unless there is no known gap;
+  - a placeholder (`?`) symbol segment is refused at open and at refresh;
+  - refresh skips only when the rows and the residuals are both unchanged (codex P2, `ccb7cba44`).
+- **ruff #135** (merged `9eb6e11e76`): Charon `?::?` identity residual; typed `<crate>.effects.tsv`, with assert kinds and DEREF_WRITE Arg/Local covered by the `derefw.rs` fixture.
+- **ruff #136** (merged `667936eebb`): C++ resolution status (Resolved / Lookup / Dynamic) with namespaces kept; constructors resolve; a call through a returned function pointer is dynamic.
+- **Locked:** the absence of a CALLS/REFERENCES row proves nothing unless coverage is complete.
+- **Confidence:** each gate has a can-fire and a can-stay-silent test, all disable-verified.
+
+## 2026-11-02 — lance-graph PR #1931 (merged `ef6f34999`, branch `claude/clone-repositories-71a5sw`) — /coresearch Semantic Grammar Recovery map; #1930 post-merge record
+
+- **Added (board only):** `entries/2026-11-02-coresearch-semantic-grammar-recovery.md`. It contains:
+  - a crosswalk of 48 rows (Kythe, Ruff/Charon, MLIR/DialEgg, XLOG/Soufflé) with a knowledge-kind column (code fact / justified transformation / relational derivation / reading);
+  - a 4-bucket recovery matrix;
+  - N1–N8 graded against current code;
+  - pre-registered falsifiers.
+- **Locked:** nothing by the map itself. The operator then ruled S1–S6, executed in #1932 and ruff #135/#136.
+- **Stranded:** the S5 erratum and the S1–S6 results entry were pushed after the merge point. They are carried by the next PR.
+- **Confidence:** exploration. The scouts' load-bearing citations were re-read in code.
+
+## 2026-11-02 — lance-graph PR #1930 (merged `5f6bf1c8a`, branch `claude/clone-repositories-71a5sw`) — /coresearch XLOG / Soufflé / Crepe / DR³ map + Persistent Relational Grammar extension; #1929 plateau record
+
+- **Added (board only):**
+  - `entries/2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md`: base exploration map. 7 operator decisions (D1–D7) and 17 pre-registered probes.
+  - Its "Persistent Relational Grammar" extension:
+    - XLOG × Egglog × DialEgg × Tamagoyaki;
+    - the persistence question re-asked by the premise gate as D8a/D8b/D9/D10/D11a/D11b;
+    - the congruence probe;
+    - the deferred /5plus3 addendum, recorded as NOT RELEASED.
+  - The #1929 plateau record.
+- **Locked:** nothing. The map ratifies nothing.
+- **Open:** every decision. No probe run.
+- **Confidence:** exploration only. 19 + 10 load-bearing citations re-read.
+
+## 2026-11-02 — lance-graph PR #1929 (merged `4fadef69d`, branch `claude/codegraph-bin-reader`) — PLATEAU: codegraph reads rows.bin; header-only unchanged refresh; changed-crate gate NOT met
+
+- **Merged as a plateau (operator, 2026-11-02), not as the completion of D-CODEGRAPH-0-BIN.**
+- **Added:**
+  - `artifact_bin.rs`: a zero-copy parse and verify of `rows.bin`, with one `BinRefusal` per malformed shape.
+  - `read_dir` prefers `rows.bin`; `read_bin_as` fills the existing `Lanes`; `prepare_refresh` reads only the 64-byte header when the digest is unchanged.
+  - `artifact::digest` folds the length little-endian.
+  - The ruff golden fixture.
+  - `examples/bin_timing.rs`.
+- **Measured** (release, mask-risc store of 17,155 rows, N = 41): unchanged refresh 2.58 µs (gate ≤ 20 µs: met); changed-crate intake 2.5–2.8 ms (gate ≤ 1 ms: **NOT met**), of which `read_bin_as` (`Symbols::intern`) takes 2.04 ms.
+- **Open:**
+  - chunk B3: interner replacement (`SYM_HASH` → global id, no intern at open or refresh, F4/F5), then a re-run of the gate;
+  - Quack counting (F7);
+  - the `INVOKES_WORD` association source.
+- **Confidence:** 20 new tests; 5 disables red.
+
+## 2026-11-02 — lance-graph PR #1927 (merged `6768811df`, branch `claude/clone-repositories-71a5sw`) — D-DT64-AUTH method-authority census; post-merge record for #1926
+
+- **Added:**
+  - `crates/lance-graph-r2il/dt64-authority-census.tsv`: 2 LENS rows (F000 polyfill, F100 XLOG) and 6 LAB rows (`MethodSignature`, tract `Registry`, XLOG `Word`, `FnIndex`, `FoldDialect`, `procs`).
+  - r2il census test: two-way lens-mint sweep, polyfill declaration replay, stale-exception check, can-fire and silence tests. An XLOG test checks its own row.
+  - Post-merge record for #1926.
+- **Locked:** DT64 is the one method authority; every production behaviour lens is pinned by its declaration; every deviation is listed with a removal path.
+- **Deferred:** migrating any adapter; executing through DT64; lens mints spelled as raw literals are not seen by the sweep.
+- **Confidence:** r2il 6 + xlog 1 tests; 4 disables red.
+- **Stranded:** two board commits made after the merge point (D-CODEGRAPH-0-BIN writer in review, then merged as ruff #133); carried by the next PR.
+
+## 2026-11-02 — lance-graph PR #1926 (merged `ade765d6f`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB step 3: G10 × G11 publication lab, falsifiers L1–L6
+
+- **Added:**
+  - Codegraph `graph/publication.rs` (test-only): prepare (`prepare_refresh` + `check_route`), durable commit through `LabWal`, infallible publication (`commit_refresh`, `route`, watermark); recovery from the durable image in canonical cycle order; strict land-record codec.
+  - Post-merge record for #1925.
+- **Locked:** the land record carries no positions and no `RouteVersion`; route re-application is not idempotent, so the watermark is load-bearing for DT64; physical-order replay combined with a watermark silently loses records.
+- **Deferred:** production gates G9–G12 + EXO-148 (all open); D-TGB-7; the 512-byte writer ABI.
+- **Confidence:** codegraph 17 lib tests; 5 disables red at the intended assertion. Lab results satisfy no production gate.
+
+## 2026-11-02 — lance-graph PR #1925 (merged `e89e61790`, branch `claude/clone-repositories-71a5sw`) — D-TGL-PUB steps 1–2: `check_route`, lab `WalSink`; stale-closure fix
+
+- **Added:**
+  - dt64 `BindStore::check_route`, the read-only form of `route`; `route` runs the same `RouteLog::check`.
+  - Codegraph lab `WalSink` (`LabWal`, test-only): fence, reconcile, `HashConflict`, payload-free scan, image read, injected faults.
+  - Fix: commit drops a closure cache filled between prepare and commit (Codex P2 on #1924).
+  - Post-merge record for #1924.
+- **Locked:** a checked route intent stays valid; `scan_sealed` carries no payload, so land records are read from the image.
+- **Deferred:** the L1–L6 lab test (two commits after the merge point, carried by the next PR).
+- **Confidence:** dt64 25 + 29, codegraph 12 lib tests; 3 + 4 + 1 disables red; planner is a dev-dependency only, with one ndarray via `[patch]`.
+
+## 2026-11-02 — lance-graph PR #1924 (merged `78f9996af`, branch `claude/clone-repositories-71a5sw`) — F-LAND / F-DISCARD lab, D-TGL lifecycle contract, G10 × G11 lab spec
+
+- **Added:**
+  - Codegraph `prepare_refresh` / `commit_refresh` with a generation fence (`RefreshRefusal::Stale`), crate-private.
+  - Lab tests F-LAND (second branch recomputed against the current W0 == clean open, call sites included) and F-DISCARD.
+  - The post-merge record for #1923.
+- **Locked:** a preparation made against an older graph generation is refused before any change. Verified in release, where the stale change would otherwise be accepted silently.
+- **Docs:**
+  - `thought-git-lifecycle-contract-v1.md` (D-TGL: GitHub-analogue lifecycle, G8 bag contract, gates G9–G12 + EXO-148);
+  - `g10-g11-atomic-publication-lab-v1.md` (D-TGL-PUB: boundaries B1–B5, falsifiers L1–L6).
+- **Deferred:** the lab `WalSink`, the L1–L6 test, all production gates.
+- **Confidence:** 7 lib tests in debug and release; 2 disables red in debug, 1 in release.
+- **Stranded:** `check_route` (two commits after the merge point), carried by the next PR.
+
+## 2026-11-02 — lance-graph PR #1923 (merged `2e19a5adc`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 wide closure, atomic refresh, versioned DR index (D-DYNBAG-4)
+
+- **Added:**
+  - dt64 `dr`: `MapTable::locate`, `LocalMap::extends` / `view`, `Axis::for_survivors`, versioned append-only tile index (`map(frame)`, `map_at(RouteVersion)`, shared `VersionClock`).
+  - xlog:
+    - `closure_wide` (multi-word rows, block presence);
+    - `Cube::new_tiled`;
+    - multiset delta log with merge on read;
+    - `refresh_closure`, `refold`, `rebase`;
+    - `Cube::stage` / `stage_closure` / `commit`;
+    - `Node::Bind` keeps its global id.
+  - codegraph: multi-tile stores, interned lanes, digest skip, atomic `refresh_crate` (staged interner, positions, tile map, batch, closures).
+  - CI line for the codegraph suites; egglog pinned to one commit in three crates.
+- **Locked:**
+  - positions never renumber;
+  - a refused refresh changes nothing;
+  - an old frame replays its own layout;
+  - a bind to an unmapped id is placed by an extending rebase or commit.
+- **Deferred:**
+  - binary lanes (D-CODEGRAPH-0-BIN, amended with PROV / `(artifact, FunDeclId)` / `INVOKES_WORD`);
+  - Quack counting;
+  - prefetch;
+  - cross-tile ℕ-compose;
+  - the DT64 authority census (D-DT64-AUTH, plan only).
+- **Docs:**
+  - architecture review (Codegraph × DR³ × DT64 × Ruff) and operator decisions;
+  - P4 review (Thought-Git × Codegraph × DT64);
+  - plans `d-codegraph-0-wide-closure-v1`, `d-dynbag-4-dr-versioned-mapping-v1`, `d-codegraph-0-binary-lanes-v1`, `d-dt64-method-authority-census-v1`.
+- **Confidence:**
+  - suites and clippy green; atomic-refresh and bind falsifiers with 7 disable runs red; full CI green on the merged head.
+  - mask-risc: impact 286 ns, callers 29 µs, references 45 µs.
+  - An unchanged refresh takes 1.5–1.7 ms (failed gate, TSV read).
+- **Stranded:** two commits made after the merge point (prepare/commit split with F-LAND / F-DISCARD; the D-TGL lifecycle contract). They are re-offered in a follow-up PR from the same branch, with `main` merged in (no history rewrite).
+
+## 2026-11-02 — lance-graph PR #1921 (merged `4ab93bf3e`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice C: `lance-graph-codegraph`
+
+- **Added:** `crates/lance-graph-codegraph` (workspace-excluded): rows v2 reader keyed by schema names; one xlog cube (CALLS, NODE, MAY, IMPL, RCONF, RPOSS) and position masks; `callers` / `callees` / `references` / `impact` graded confirmed / possible / unknown; diagnostics dead function, unresolved call, dangling call, unused import NOT_RUN; store fixtures rev1, rev2, mixed, fnref; `examples/timing.rs`.
+- **Locked:** `MAY_DISPATCH` is never confirmed; a dyn or pointer call is UNKNOWN; a diagnostic that cannot run is NOT_RUN, never clean.
+- **Deferred:** closure over more than 64 positions and cubes over more than 256 symbols (refused, typed UNKNOWN); import facts; body → R2IL (G4, G7).
+- **Confidence:** 27 tests; 12 disable runs red; rustc agrees on `dead_code` and on E0425 for the dangling call; release ns per call 184–5103; `rows_materialized == 0`.
+- **Companion:** ruff PR #132 (merged `ed8fd4194f`, rows v2).
+
+## 2026-11-02 — lance-graph PR #1920 (merged `5b967b130`, branch `claude/clone-repositories-71a5sw`) — D-CODEGRAPH-0 slice B record; rev2 fixture deletes `area_dyn`
+
+- **Added:** `fixtures/codegraph/rev2` also deletes `cg_lib::area_dyn` and drops its call from `cg_app`, so a refresh that skips the dependent leaves one dangling edge; the slice B section of the gap-map entry; STATUS_BOARD D-CODEGRAPH-0-B LANDED for the offline store.
+- **Companion:** ruff PR #130 (merged `95be2e480b`, offline store in `ruff_charon`) and #131 (merged `2033be48fe`, four Codex findings on #129/#130).
+- **Deferred:** residency in lance-graph's SoA.
+- **Confidence:** incremental refresh byte-identical to a clean import; five disable runs red.
+
+## 2026-11-02 — lance-graph PR #1918 (merged `c11e4262e`, branch `claude/clone-repositories-71a5sw`, head `c0f81a2a8`) — D-CODEGRAPH-0 gap map and slice A evidence; D-DQM M1 timing arms; dt64/xlog CI lines
+
+- **Added:**
+  - D-CODEGRAPH-0 plan, board entry and STATUS_BOARD rows (gap map G1–G9);
+  - `sag-ra-probe`: `GRAPH=1` rust-analyzer oracle rows, `unicode-properties = "=0.1.4"` build fix, `fixtures/codegraph/{rev1,rev2}`, hand-read pins (19 xrefs, 3 calls), `tools/kythe_calls_check.py`;
+  - D-DQM M1 timing arms (DuckDB reference, Quack timed differential) and the M2 input note (Lance 13 `with_row_addr_prefilter`);
+  - ledger revision (f); `ISS-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE`;
+  - CI lines running `lance-graph-dt64` and `lance-graph-xlog` tests.
+- **Locked:** representation Kythe facts + R2IL + DT64/DR; route Charon → ruff → lance-graph + crai-rs; rust-analyzer is the independent check, never the ingestion path.
+- **Deferred:** slice B (resident rows, incremental update, through ruff's unmerged `claude/r2il-pr2-*` sink); body → R2IL (G4, G7); MCP.
+- **Confidence:**
+  - Kythe `/xrefs` 22/22 symbols and 19/19 pins on the fixture;
+  - the D-SAG-6 runs reproduced: identity chain and `sag_fixture` Kythe exact; `mask-risc` join exact but one body (a derived `PartialEq::eq` joins EXACT instead of DERIVED);
+  - Python tool tests 15/15 + 9/9.
+- **Companion:** ruff PR #129 (merged `9913e90946`), `crates/ruff_charon`:
+  - calls byte-identical to `llbc_calls.py` on the fixture and on `mask-risc` (459 functions);
+  - receipt conserved, 16,149 = 16,149 + 0;
+  - Kythe call pins 3/3;
+  - 4 disable runs, each red in its own test.
+
 ## 2026-11-01 — lance-graph PR #1907 (merged `39511c92e`, branch `ccr-85acaff0-oszq40-xlogcrate`, head `1087758d1`) — lance-graph-xlog: XLOG's admitted chain over Quack → mask-risc (D-XLOG-NATIVE-4)
 
 - **Added:** `crates/lance-graph-xlog` (workspace member): `Bounds`, `Intake`, `support`, `bag_count`, `bag_count_admitted`, `Word`, `Support`, `NativeRefusal`, `BoundRefusal`, `ids`, `nonzero`, and `and` (= `ndarray::simd::mask_and`). `xlog-relcomp-probe` now calls it and keeps `admit`, `admit_count`, `ChainQuery::bounds()`.

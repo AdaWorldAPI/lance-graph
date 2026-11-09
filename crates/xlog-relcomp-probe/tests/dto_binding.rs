@@ -26,8 +26,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRefusal, FrameRevisions, FrameStore, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand, view_class,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, Refusal,
+    RouteVersion, SchemaRev, SigRev, ValueDemand, view_class,
 };
 use xlog_logic::parse_program;
 use xlog_relcomp_probe::{AddressMap, SLOTS, facts, register};
@@ -151,7 +151,9 @@ fn bind_store() -> BindStore {
         field_count: XLOG_FIELDS.len(),
         extent: Extent::DR64_CUBE,
     };
-    s.register(XLOG, schema, vec![xlog_count()]).unwrap();
+    let views = Views::new();
+    s.register(&views, XLOG, schema, vec![xlog_count()])
+        .unwrap();
     s
 }
 
@@ -236,9 +238,10 @@ fn bind<'s>(
             .map_err(BindRefusal::Store)?;
         assert_eq!(r.class, XLOG);
     }
-    let method = store
-        .admit(&MethodRef::of(XLOG, &xlog_count()))
+    let r = store
+        .method_ref(XLOG, xlog_count().id)
         .map_err(BindRefusal::Store)?;
+    let method = store.admit(&r).map_err(BindRefusal::Store)?;
     Ok(Binding {
         answer_identities: routed
             .positions
@@ -421,7 +424,7 @@ fn executing_the_admitted_bag_method_is_refused_in_the_lab_register() {
 
 // ---------------- D-DYNBAG-0 step 2: the admitted method drives execution
 
-use lance_graph_dt64::dr::{LocalMap, MapRead, MapTable, Width};
+use lance_graph_dt64::dr::{LocalMap, MapTable, Width};
 use xlog_relcomp_probe::ChainQuery;
 use xlog_relcomp_probe::native::{BoundRefusal, Intake, Word, bag_count_admitted, nonzero};
 
@@ -479,7 +482,7 @@ fn the_admitted_method_drives_the_count() {
     let table = y_table(&r, &s);
     let intake = Intake::new(&table, &table.seal(), Y_TILE, &r, &s).unwrap();
     let counts = bag_count_admitted(b.method, word_of, &intake, &table, chain().bounds()).unwrap();
-    let got: Vec<(u64, i64)> = nonzero(intake.map(&table).unwrap(), &counts);
+    let got: Vec<(u64, i64)> = nonzero(&intake.map(&table).unwrap(), &counts);
     let want: Vec<(u64, i64)> = b
         .expected
         .iter()
@@ -500,29 +503,33 @@ fn a_retracted_route_leaves_nothing_to_run() {
     assert!(bind(&store, &frames, &views, &routed).is_err());
 }
 
+/// Re-pinned for the versioned DR index (2026-11-02, operator: "versioned
+/// replayable immutability ... the index"). This test used to assert that a
+/// frame sealed before an `advance` is refused (`MapRead::Stale(
+/// FrameResealed)`) by `bag_count_admitted`, `Intake::support` and
+/// `Intake::new`. Now an old frame is a replay key: it reads the tile layout
+/// it was sealed at, so the answers under it are the same before and after
+/// the table advances. Method admission is unaffected: it is gated by the
+/// bind store's route versions, not by the tile map. Red if dt64 goes back to
+/// refusing every frame but the current one.
 #[test]
-fn a_stale_map_frame_is_refused_before_anything_runs() {
+fn an_old_map_frame_replays_its_own_layout() {
     let (r, s) = fixture();
     let mut store = bind_store();
     let method = admitted(&mut store, &r, &s).clone();
     let mut table = y_table(&r, &s);
     let old = table.seal();
     let intake = Intake::new(&table, &old, Y_TILE, &r, &s).unwrap();
+    let bag_before = bag_count_admitted(&method, word_of, &intake, &table, chain().bounds());
+    let support_before = intake.support(&table, chain().bounds());
+    assert!(bag_before.is_ok() && support_before.is_ok());
     table.advance(1, 1, vec![]);
-    let stale = Err(BoundRefusal::Map(MapRead::Stale(
-        FrameRefusal::FrameResealed,
-    )));
     assert_eq!(
         bag_count_admitted(&method, word_of, &intake, &table, chain().bounds()),
-        stale
+        bag_before
     );
-    assert_eq!(intake.support(&table, chain().bounds()).err(), stale.err());
-    assert_eq!(
-        Intake::new(&table, &old, Y_TILE, &r, &s).err(),
-        Some(BoundRefusal::Map(MapRead::Stale(
-            FrameRefusal::FrameResealed
-        )))
-    );
+    assert_eq!(intake.support(&table, chain().bounds()), support_before);
+    assert!(Intake::new(&table, &old, Y_TILE, &r, &s).is_ok());
 }
 
 /// Gate 3 (MISSING-5): Y is looked up once per tuple at intake; queries read

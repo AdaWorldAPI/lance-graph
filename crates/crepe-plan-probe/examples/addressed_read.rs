@@ -163,6 +163,7 @@ async fn main() {
             let p = ReadPolicy {
                 coalesce_gap: g,
                 full_permille: u32::MAX,
+                page_rows: 0,
             };
             let (t, ..) = run(&rules, &d, &st, &lanes, p, k64).await;
             print!(" {:>8.3}", ms(t));

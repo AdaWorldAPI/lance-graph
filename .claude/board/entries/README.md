@@ -25,10 +25,53 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-543 entries, 2026-08-06 .. 2026-11-01.
+588 entries, 2026-08-06 .. 2026-11-08.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-08 | `dr-isa-stream-lab` |  | [2026-11-08-dr-isa-stream-lab.md](2026-11-08-dr-isa-stream-lab.md) |
+| 2026-11-07 | `D-DT64-7-L5b` |  | [2026-11-07-dt64-l5b-historical-basis.md](2026-11-07-dt64-l5b-historical-basis.md) |
+| 2026-11-07 | `D-DT64-7-L5a` |  | [2026-11-07-dt64-l5a-exact-basis-witness.md](2026-11-07-dt64-l5a-exact-basis-witness.md) |
+| 2026-11-07 | `D-DT64-7-L5` |  | [2026-11-07-dt64-decision-j-exact-basis.md](2026-11-07-dt64-decision-j-exact-basis.md) |
+| 2026-11-06 | `ruler-plane-batch-selection-lab` |  | [2026-11-06-ruler-plane-batch-selection-lab.md](2026-11-06-ruler-plane-batch-selection-lab.md) |
+| 2026-11-06 | `D-LANESOCK-4` |  | [2026-11-06-reader-scope-seam-inventory.md](2026-11-06-reader-scope-seam-inventory.md) |
+| 2026-11-06 | `D-LANESOCK-3` |  | [2026-11-06-lanesock-one-field-basis.md](2026-11-06-lanesock-one-field-basis.md) |
+| 2026-11-06 | `D-LANESOCK-2` |  | [2026-11-06-abibatch-lane-socket.md](2026-11-06-abibatch-lane-socket.md) |
+| 2026-11-05 | `hybrid-ordinal-chain-lab-v2` |  | [2026-11-05-hybrid-ordinal-chain-lab-v2.md](2026-11-05-hybrid-ordinal-chain-lab-v2.md) |
+| 2026-11-05 | `coresearch-workbook-hypercube-soa-projection` |  | [2026-11-05-coresearch-workbook-hypercube-soa-projection.md](2026-11-05-coresearch-workbook-hypercube-soa-projection.md) |
+| 2026-11-04 | `D-DRIVER-ZC-0` |  | [2026-11-04-d-driver-zc-0-virtual-bus-contract.md](2026-11-04-d-driver-zc-0-virtual-bus-contract.md) |
+| 2026-11-04 | `D-DRISA-3` |  | [2026-11-04-d-drisa-3-alu-semantics.md](2026-11-04-d-drisa-3-alu-semantics.md) |
+| 2026-11-04 | `D-DRISA-1` |  | [2026-11-04-d-drisa-1-register-proof.md](2026-11-04-d-drisa-1-register-proof.md) |
+| 2026-11-04 | `D-DRISA-0` |  | [2026-11-04-d-drisa-0-remote-register-contract.md](2026-11-04-d-drisa-0-remote-register-contract.md) |
+| 2026-11-04 | `D-CGMM-0` |  | [2026-11-04-d-cgmm-0-metta-class-method-builder.md](2026-11-04-d-cgmm-0-metta-class-method-builder.md) |
+| 2026-11-03 | `D-XLOG-META-WIRE-P0` |  | [2026-11-03-d-xlog-meta-wire-p0.md](2026-11-03-d-xlog-meta-wire-p0.md) |
+| 2026-11-03 | `D-GRAMMAR-WHEN-1` |  | [2026-11-03-d-grammar-when-1.md](2026-11-03-d-grammar-when-1.md) |
+| 2026-11-03 | `D-GRAMMAR-CONSTRAINTS-0` |  | [2026-11-03-d-grammar-constraints-0.md](2026-11-03-d-grammar-constraints-0.md) |
+| 2026-11-03 | `D-GLOBAL-WHERE-P2` |  | [2026-11-03-d-global-where-p2.md](2026-11-03-d-global-where-p2.md) |
+| 2026-11-03 | `D-GLOBAL-WHERE` |  | [2026-11-03-d-global-where-p0.md](2026-11-03-d-global-where-p0.md) |
+| 2026-11-03 | `D-DRAM-P3` |  | [2026-11-03-d-dram-p3-consolidated.md](2026-11-03-d-dram-p3-consolidated.md) |
+| 2026-11-03 | `D-DRAM-P3-5` |  | [2026-11-03-d-dram-p3-5-kofn.md](2026-11-03-d-dram-p3-5-kofn.md) |
+| 2026-11-03 | `D-DRAM-0` |  | [2026-11-03-d-dram-abacus-address-memoization.md](2026-11-03-d-dram-abacus-address-memoization.md) |
+| 2026-11-03 | `D-DRAM-1` |  | [2026-11-03-d-dram-1-census.md](2026-11-03-d-dram-1-census.md) |
+| 2026-11-03 | `D-DR-FOLD-MAP` |  | [2026-11-03-d-dr-fold-map.md](2026-11-03-d-dr-fold-map.md) |
+| 2026-11-03 | `D-COGNITIVE-POLYFILL` |  | [2026-11-03-d-cognitive-polyfill-p0.md](2026-11-03-d-cognitive-polyfill-p0.md) |
+| 2026-11-03 | `D-BAG-FOLD` |  | [2026-11-03-d-bag-fold-witnessed-existential.md](2026-11-03-d-bag-fold-witnessed-existential.md) |
+| 2026-11-03 | `D-BAG-FOLD-V4` |  | [2026-11-03-d-bag-fold-v4-attested-lens-gated-exec.md](2026-11-03-d-bag-fold-v4-attested-lens-gated-exec.md) |
+| 2026-11-03 | `D-BAG-FOLD-V3` |  | [2026-11-03-d-bag-fold-v3-production-witnesses.md](2026-11-03-d-bag-fold-v3-production-witnesses.md) |
+| 2026-11-03 | `a10-writers-retract-xlog-pr` |  | [2026-11-03-a10-writers-retract-xlog-pr.md](2026-11-03-a10-writers-retract-xlog-pr.md) |
+| 2026-11-02 | `sgr-recovery-gates` |  | [2026-11-02-sgr-recovery-gates.md](2026-11-02-sgr-recovery-gates.md) |
+| 2026-11-02 | `p4-thought-git-codegraph-dt64-review` |  | [2026-11-02-p4-thought-git-codegraph-dt64-review.md](2026-11-02-p4-thought-git-codegraph-dt64-review.md) |
+| 2026-11-02 | `p4-operator-decisions-lifecycle-lab` |  | [2026-11-02-p4-operator-decisions-lifecycle-lab.md](2026-11-02-p4-operator-decisions-lifecycle-lab.md) |
+| 2026-11-02 | `D-TGL` |  | [2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md](2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md) |
+| 2026-11-02 | `D-DT64-AUTH` |  | [2026-11-02-d-dt64-auth-census-shipped.md](2026-11-02-d-dt64-auth-census-shipped.md) |
+| 2026-11-02 | `D-CODEGRAPH-0` |  | [2026-11-02-d-codegraph-0-gap-map.md](2026-11-02-d-codegraph-0-gap-map.md) |
+| 2026-11-02 | `coresearch-xlog-souffle-crepe-dr3-archaeology` |  | [2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md](2026-11-02-coresearch-xlog-souffle-crepe-dr3-archaeology.md) |
+| 2026-11-02 | `coresearch-semantic-grammar-recovery` |  | [2026-11-02-coresearch-semantic-grammar-recovery.md](2026-11-02-coresearch-semantic-grammar-recovery.md) |
+| 2026-11-02 | `codegraph-review-operator-decisions` |  | [2026-11-02-codegraph-review-operator-decisions.md](2026-11-02-codegraph-review-operator-decisions.md) |
+| 2026-11-02 | `codegraph-dr3-dt64-ruff-architecture-review` |  | [2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md](2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md) |
+| 2026-11-02 | `D-CODEGRAPH-0-BIN` |  | [2026-11-02-codegraph-bin-reader-timing-gate.md](2026-11-02-codegraph-bin-reader-timing-gate.md) |
+| 2026-11-02 | `a10-probes-s6-magic-nnue-baselines` |  | [2026-11-02-a10-probes-s6-magic-nnue-baselines.md](2026-11-02-a10-probes-s6-magic-nnue-baselines.md) |
+| 2026-11-02 | `a10-epistemic-admission-and-nnue-compiler` |  | [2026-11-02-a10-epistemic-admission-and-nnue-compiler.md](2026-11-02-a10-epistemic-admission-and-nnue-compiler.md) |
 | 2026-11-01 | `D-XLOG-NATIVE-7` |  | [2026-11-01-xlog-resident-hypercube-context.md](2026-11-01-xlog-resident-hypercube-context.md) |
 | 2026-11-01 | `D-XLOG-NATIVE-8` |  | [2026-11-01-xlog-behaviour-lens-f100.md](2026-11-01-xlog-behaviour-lens-f100.md) |
 | 2026-11-01 | `D-DT64-7-5` |  | [2026-11-01-maptable-versioned-local-map.md](2026-11-01-maptable-versioned-local-map.md) |
@@ -85,12 +128,14 @@ exactly one of them, never both.
 | 2026-10-28 | `D-DRCA-1` |  | [2026-10-28-d-drca-1-hhtl16-dr-projection.md](2026-10-28-d-drca-1-hhtl16-dr-projection.md) |
 | 2026-10-27 | `harvest-integration-composite-key-and-simd-scope` |  | [2026-10-27-harvest-integration-composite-key-and-simd-scope.md](2026-10-27-harvest-integration-composite-key-and-simd-scope.md) |
 | 2026-10-26 | `D-ONNX-INTAKE-0` |  | [2026-10-26-onnx-frontend-intake-bakeoff.md](2026-10-26-onnx-frontend-intake-bakeoff.md) |
+| 2026-10-26 | `ledger-revision-1727-1784` |  | [2026-10-26-ledger-revision-1727-1784.md](2026-10-26-ledger-revision-1727-1784.md) |
 | 2026-10-26 | `D-DT64-0` |  | [2026-10-26-dt64-holographic-interface.md](2026-10-26-dt64-holographic-interface.md) |
 | 2026-10-26 | `D-DR64C-A` |  | [2026-10-26-dr64-cubed-amendment.md](2026-10-26-dr64-cubed-amendment.md) |
 | 2026-10-26 | `D-DR256-WHERE` |  | [2026-10-26-dr256-where-capstone.md](2026-10-26-dr256-where-capstone.md) |
 | 2026-10-26 | `D-DR256-OD` |  | [2026-10-26-dr256-on-demand-l1.md](2026-10-26-dr256-on-demand-l1.md) |
 | 2026-10-26 | `D-DR256` |  | [2026-10-26-dr256-global-union-lab.md](2026-10-26-dr256-global-union-lab.md) |
 | 2026-10-26 | `D-DQM` | FAIL | [2026-10-26-dqm-p1-chunk-touched.md](2026-10-26-dqm-p1-chunk-touched.md) |
+| 2026-10-26 | `D-DQM-M1` |  | [2026-10-26-dqm-m1-timed-arm.md](2026-10-26-dqm-m1-timed-arm.md) |
 | 2026-10-26 | `D-TFLP-V2` |  | [2026-10-26-d-tflp-v2-synergy-revision.md](2026-10-26-d-tflp-v2-synergy-revision.md) |
 | 2026-10-26 | `D-TFLP-EVIDENCE-1` |  | [2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md](2026-10-26-d-tflp-tanh-proof-learning-tract-harvest.md) |
 | 2026-10-26 | `D-TFLP-AUDIT` |  | [2026-10-26-d-tflp-parity-audit.md](2026-10-26-d-tflp-parity-audit.md) |

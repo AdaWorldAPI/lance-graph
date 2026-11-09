@@ -482,3 +482,198 @@ fn call_owned_reuses_consumed_slots_and_call_does_not() {
         "plain call must keep one slot per result, got {r:?}"
     );
 }
+
+/// One lane compare followed by `PopCount`: the operands are pushed in the
+/// given order (`lhs` then `rhs`), so `(addr, c)` is `lane OP c` and
+/// `(c, addr)` is `c OP lane`.
+fn compare_count(
+    planes: &Planes<'_>,
+    foreign: &Foreign<'_>,
+    f: FnIndex,
+    lhs: Val,
+    rhs: Val,
+) -> Result<i64, FoldError> {
+    let mut d = FoldDialect::new(planes, foreign);
+    let mut stack = vec![lhs, rhs];
+    call(&mut d, f, [0; 3], &mut stack)?;
+    call(&mut d, POP_COUNT, [0; 3], &mut stack)?;
+    match stack.as_slice() {
+        [Val::Scalar(n)] => Ok(*n),
+        other => panic!("PopCount left {other:?}"),
+    }
+}
+
+fn u32_lane(idx: u16) -> Val {
+    Val::Address(Addr::Lane {
+        idx,
+        kind: lance_graph_mask_risc::LaneKind::U32,
+    })
+}
+
+/// FAILS IF: a lane compare's constant that fits the lane's type stops
+/// behaving as before, including at both ends of each type's range.
+#[test]
+fn in_range_compare_constants_behave_as_before() {
+    let codes: Vec<u32> = vec![u32::MAX, 5, 5, 0];
+    let ints: Vec<i32> = vec![i32::MIN, -5, 0, 7, i32::MAX];
+    let lanes = [LaneRef::U32(&codes), LaneRef::I32(&ints)];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &[],
+        lanes: &lanes[..1],
+    };
+    let iplanes = Planes {
+        n_rows: 5,
+        masks: &[],
+        lanes: &lanes[1..],
+    };
+    let f = Foreign::NONE;
+    let s = |x: i64| Val::Scalar(x);
+    let eq_u32 = |x| compare_count(&planes, &f, INT_EQUAL, u32_lane(0), s(x));
+    assert_eq!(eq_u32(5), Ok(2));
+    assert_eq!(eq_u32(0), Ok(1));
+    assert_eq!(eq_u32(i64::from(u32::MAX)), Ok(1));
+    // Symmetric: the constant pushed first.
+    assert_eq!(
+        compare_count(&planes, &f, INT_EQUAL, s(5), u32_lane(0)),
+        Ok(2)
+    );
+    let eq_i32 = |x| compare_count(&iplanes, &f, INT_EQUAL, i32_lane(0), s(x));
+    assert_eq!(eq_i32(i64::from(i32::MIN)), Ok(1));
+    assert_eq!(eq_i32(i64::from(i32::MAX)), Ok(1));
+    assert_eq!(eq_i32(-5), Ok(1));
+    // `lane < t` and `t < lane`.
+    let lt = |t| compare_count(&iplanes, &f, INT_S_LESS, i32_lane(0), s(t));
+    let gt = |t| compare_count(&iplanes, &f, INT_S_LESS, s(t), i32_lane(0));
+    assert_eq!(lt(i64::from(i32::MIN)), Ok(0));
+    assert_eq!(lt(i64::from(i32::MAX)), Ok(4));
+    assert_eq!(lt(0), Ok(2));
+    assert_eq!(gt(i64::from(i32::MIN)), Ok(4));
+    assert_eq!(gt(i64::from(i32::MAX)), Ok(0));
+    assert_eq!(gt(0), Ok(2));
+}
+
+/// FAILS IF: a lane compare's out-of-range constant is narrowed instead of
+/// refused. Before the refusal the dialect saturated: `-1` against a `U32`
+/// lane matched the row holding `u32::MAX` (1 instead of 0), and
+/// `lane < i32::MIN - 1` selected every row (3 instead of 0). A large
+/// NEGATIVE constant against an `I32` lane saturated to `i32::MAX`, not
+/// `i32::MIN`. Disable: put the `try_from(..).unwrap_or(MAX)` narrowing back.
+#[test]
+fn out_of_range_compare_constants_are_refused() {
+    let codes: Vec<u32> = vec![u32::MAX, 5, 5];
+    let ints: Vec<i32> = vec![-5, 0, 7, i32::MAX];
+    let u = [LaneRef::U32(&codes)];
+    let i = [LaneRef::I32(&ints)];
+    let planes = Planes {
+        n_rows: 3,
+        masks: &[],
+        lanes: &u,
+    };
+    let iplanes = Planes {
+        n_rows: 4,
+        masks: &[],
+        lanes: &i,
+    };
+    let f = Foreign::NONE;
+    let s = |x: i64| Val::Scalar(x);
+    let refused = |op, x| Err(FoldError::ConstOutOfRange(op, x));
+
+    // U32 lane, IntEqual, both sides of the range and both operand orders.
+    let above_u32 = i64::from(u32::MAX) + 1;
+    for x in [-1, i64::MIN, above_u32, i64::MAX] {
+        assert_eq!(
+            compare_count(&planes, &f, INT_EQUAL, u32_lane(0), s(x)),
+            refused(INT_EQUAL, x),
+            "lane = {x}"
+        );
+        assert_eq!(
+            compare_count(&planes, &f, INT_EQUAL, s(x), u32_lane(0)),
+            refused(INT_EQUAL, x),
+            "{x} = lane"
+        );
+    }
+
+    // I32 lane, IntEqual and IntSLess. `above` would have saturated onto the
+    // row holding `i32::MAX`; `below` too, because the old narrowing mapped
+    // every failure to `i32::MAX`.
+    let above = i64::from(i32::MAX) + 1;
+    let below = i64::from(i32::MIN) - 1;
+    for x in [above, below, i64::MIN, i64::MAX] {
+        for (op, lhs, rhs) in [
+            (INT_EQUAL, i32_lane(0), s(x)),
+            (INT_EQUAL, s(x), i32_lane(0)),
+            (INT_S_LESS, i32_lane(0), s(x)),
+            (INT_S_LESS, s(x), i32_lane(0)),
+        ] {
+            assert_eq!(
+                compare_count(&iplanes, &f, op, lhs, rhs),
+                refused(op, x),
+                "{op:?} with {x}"
+            );
+        }
+    }
+}
+
+/// FAILS IF: an `IntEqual` against a `VIA` join's `U32` key narrows an
+/// out-of-range constant instead of refusing it, or stops matching an
+/// in-range one at the top of the range.
+#[test]
+fn via_compare_constants_are_range_checked() {
+    // This table's fk lane names a row of the foreign key lane.
+    let fk: Vec<u32> = vec![0, 1, 1, 2];
+    let keys: Vec<u32> = vec![u32::MAX, 5, 9];
+    let lanes = [LaneRef::U32(&fk)];
+    let flanes = [LaneRef::U32(&keys)];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &[],
+        lanes: &lanes,
+    };
+    let foreign = Foreign {
+        planes: &[],
+        lanes: &flanes,
+    };
+    let via = Val::Address(Addr::Via { fk: 0, key: 0 });
+    let count = |x: i64| compare_count(&planes, &foreign, INT_EQUAL, via, Val::Scalar(x));
+    assert_eq!(count(5), Ok(2));
+    assert_eq!(count(i64::from(u32::MAX)), Ok(1));
+    for x in [-1, i64::from(u32::MAX) + 1] {
+        assert_eq!(count(x), Err(FoldError::ConstOutOfRange(INT_EQUAL, x)));
+    }
+}
+
+/// FAILS IF: `KEY_RUNS`'s documented precondition stops holding as stated.
+/// The key lane carries no validity: a selected row whose key is NULL counts
+/// its payload, so the sorted lane `(NULL as 0, 1, 1, 2)` under an
+/// all-rows mask gives 3, where SQL `count(DISTINCT key)` gives 2. With the
+/// key's presence plane ANDed into the mask it gives 2.
+#[test]
+fn key_runs_counts_a_selected_null_key_unless_the_mask_excludes_it() {
+    let key: Vec<u32> = vec![0, 1, 1, 2];
+    let lanes = [LaneRef::U32(&key)];
+    let all = [0b1111u64];
+    let valid = [0b1110u64]; // row 0 is NULL
+    let masks: [&[u64]; 2] = [&all, &valid];
+    let planes = Planes {
+        n_rows: 4,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+    let runs = |gate: bool| {
+        let mut d = FoldDialect::new(&planes, &foreign);
+        let mut stack = vec![Val::Scalar(0)];
+        call(&mut d, LOAD, [3, 0, 0], &mut stack).expect("LOAD plane 0");
+        if gate {
+            stack.push(Val::Scalar(1));
+            call(&mut d, LOAD, [3, 0, 0], &mut stack).expect("LOAD plane 1");
+            call(&mut d, INT_AND, [0; 3], &mut stack).expect("IntAnd");
+        }
+        stack.push(u32_lane(0));
+        call(&mut d, KEY_RUNS, [0; 3], &mut stack).expect("KEY_RUNS");
+        stack
+    };
+    assert_eq!(runs(false), vec![Val::Scalar(3)], "NULL row counted");
+    assert_eq!(runs(true), vec![Val::Scalar(2)], "NULL row masked out");
+}

@@ -34,7 +34,8 @@
 //! rows with measured ones; that is not done here (no `/tmp` input, no
 //! Charon run at test time).
 
-use lance_graph_contract::class_view::WideFieldMask;
+use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
@@ -168,6 +169,7 @@ pub fn store() -> BindStore {
         .collect();
     methods.push(binding(UNATTACHED, "count_below"));
     s.register(
+        &FixtureView::new(),
         CLASS,
         ClassSchema {
             schema_rev: SchemaRev(1),
@@ -180,17 +182,51 @@ pub fn store() -> BindStore {
     s
 }
 
+/// The fixture class's two-field basis (`x`, `count`); registration reads it
+/// and nothing here resolves through it.
+struct FixtureView {
+    basis: Vec<FieldRef>,
+}
+
+impl FixtureView {
+    fn new() -> Self {
+        FixtureView {
+            basis: (0..2)
+                .map(|i| FieldRef::new(format!("urn:dt64-admission-probe/f{i}"), format!("f{i}")))
+                .collect(),
+        }
+    }
+}
+
+impl ClassView for FixtureView {
+    fn fields(&self, class: ClassId) -> &[FieldRef] {
+        if lance_graph_dt64::view_class(CLASS) == class {
+            &self.basis
+        } else {
+            &[]
+        }
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
+}
+
 /// The faithful reference to a bound method.
+/// The store issues it; the fixture checks that it is the reference it
+/// expects (signature revision 1, guarded only for `COUNT_BELOW`) and that
+/// the store admits it.
 pub fn method_ref(store: &BindStore, id: MethodId) -> MethodRef {
-    let b = store
-        .admit(&MethodRef {
-            class: CLASS,
-            method: id,
-            sig_rev: SigRev(1),
-            guard: (id == COUNT_BELOW).then(|| binding(id, "").when.unwrap().witness()),
-        })
-        .expect("bound");
-    MethodRef::of(CLASS, b)
+    let r = store.method_ref(CLASS, id).expect("bound");
+    assert_eq!(r.sig_rev, SigRev(1));
+    assert_eq!(
+        r.guard,
+        (id == COUNT_BELOW).then(|| binding(id, "").when.unwrap().witness())
+    );
+    store.admit(&r).expect("admitted");
+    r
 }
 
 fn attachments() -> Vec<Attachment> {

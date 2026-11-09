@@ -125,6 +125,12 @@ fn missing_premise_refuses() {
         }
         other => panic!("expected UnboundVar, got {other:?} for {}", c.extracted),
     }
+    // The refusal happens at lowering, before any execution: no step list
+    // that reads a name is ever produced.
+    assert!(
+        matches!(lower_steps(&c), Err(LowerRefusal::UnboundVar(_))),
+        "a non-target variable must be refused at lowering"
+    );
     assert_eq!(oracle::solve(&p, 7), None);
     assert_eq!(
         traceroute(&p, Arith::Exact, 8, 7).verdict,
@@ -247,4 +253,15 @@ fn traceroute_names_every_hop() {
         );
     }
     assert_eq!(t.verdict, Verdict::Agree);
+}
+
+/// FAILS IF: a lowered step can carry text. `Step` being `Copy` rules out a
+/// `String` (or any heap name) inside it, so execution reads no name.
+#[test]
+fn lowered_steps_carry_no_text() {
+    fn copy<T: Copy>() {}
+    copy::<Step>();
+    let c = compile(&e1_problem(), Arith::Exact, 8);
+    let steps = lower_steps(&c).expect("lowerable");
+    assert!(steps.contains(&Step::PushInput), "{steps:?}");
 }

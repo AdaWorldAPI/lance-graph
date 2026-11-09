@@ -52,7 +52,16 @@
 //! field basis is the [`ClassView`] of its concept half ([`view_class`], the
 //! codebook's own `classid_concept` split), labels are resolved late through
 //! that view, and its entries are the [`MethodId`]s inside it. A codebook item
-//! never gets a classid of its own.
+//! never gets a classid of its own. A behaviour lens (right half `0xF###`,
+//! [`is_behaviour_lens`]) is the exception: its basis is read by its FULL
+//! classid ([`ClassView::lens_fields`], O9), never from its concept half.
+//! Either basis is read at the bound revision: the source's own record of
+//! that revision ([`ClassView::fields_at`], [`ClassView::lens_fields_at`])
+//! when it keeps one, else its current basis. At registration that current
+//! basis is the caller's claim for the declared revision and becomes the
+//! anchor (it cannot be proved: a view does not say which revision it is
+//! now); at resolution the current basis is accepted only when it equals the
+//! anchor.
 //!
 //! # Agnostic algebra, switched by the classid
 //!
@@ -77,6 +86,8 @@
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Weak};
 
 use lance_graph_contract::class_view::{is_behaviour_lens, ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ogar_codebook::classid_concept;
@@ -87,8 +98,13 @@ use lance_graph_contract::set_rules::{Population, Truth};
 
 pub mod dr;
 
-pub use dr::{Axis, Claim, Extent, RouteVersion, Width, MAX_RESERVED};
+pub use dr::{
+    Axis, Claim, CodeRead, CodeSpaceId, CodeTable, Extent, RouteVersion, ValueKey, Width,
+    MAX_RESERVED,
+};
+pub mod lane;
 use dr::{RouteLog, RouteRefusal};
+pub use lane::{CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource, RouteAt};
 
 /// A method's identity within its class, independent of its source name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -241,7 +257,9 @@ pub struct ClassSchema {
 
 /// The [`ClassView`] class a classid is read through: its concept half, by
 /// the codebook's own split ([`classid_concept`]). The classid is the lens;
-/// this crate does no bit arithmetic of its own.
+/// this crate does no bit arithmetic of its own. A behaviour lens
+/// ([`is_behaviour_lens`]) is not read through it: its basis is keyed by the
+/// full classid (O9).
 pub fn view_class(class: u32) -> ClassId {
     classid_concept(class)
 }
@@ -254,29 +272,197 @@ struct ClassEntry {
     schema: ClassSchema,
     methods: Vec<MethodBinding>,
     derived_from: Option<u32>,
+    /// The witness of the ordered field basis the methods were bound against
+    /// (Decision J): read from the source at registration, never a copy.
+    basis: BasisDigest,
+    /// Each method's binding digest ([`binding_digest`]), in the order of
+    /// `methods`. Computed once at registration; [`BindStore::admit`] compares
+    /// a reference's stamp against this stored value, never against one the
+    /// reference carries in.
+    bindings: Vec<u128>,
+}
+
+/// The witness of one ordered field basis (D-DT64-7 Decision J, O10's
+/// "versioned schema/basis witness"): a 128-bit FNV-1a digest of a canonical,
+/// length-prefixed encoding of the basis's `predicate_iri`s in position order.
+/// Labels, templates and anything locale-bound are not part of it, so a
+/// label-only rename keeps the digest and a reorder, a replaced predicate, an
+/// added or a removed field each change it.
+///
+/// What it does and does not prove. The store keeps the digest, not the
+/// predicates (DT64 copies no meaning). Equal digests mean equal ordered
+/// predicate sequences UNLESS two encodings collide; the encoding is
+/// injective (every length is prefixed), so a collision needs two distinct
+/// byte strings with one FNV-1a 128 value. That is negligible for a source
+/// that drifts by accident and NOT excluded for one that is built to collide:
+/// FNV is not a cryptographic hash. The digest detects change of a source; it
+/// does not authenticate one (that is O10's owner/activation binding, still
+/// open) and it never grants execution.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct BasisDigest(u128);
+
+impl BasisDigest {
+    const OFFSET: u128 = 0x6c62_272e_07bb_0142_62b8_2175_6295_c58d;
+    const PRIME: u128 = 0x0000_0000_0100_0000_0000_0000_0000_013b;
+
+    fn of(fields: &[FieldRef]) -> BasisDigest {
+        let mut h = Self::OFFSET;
+        h = Self::eat(h, b"dt64.basis.v1");
+        h = Self::eat(h, &(fields.len() as u64).to_le_bytes());
+        for f in fields {
+            let iri = f.predicate_iri.as_bytes();
+            h = Self::eat(h, &(iri.len() as u64).to_le_bytes());
+            h = Self::eat(h, iri);
+        }
+        BasisDigest(h)
+    }
+
+    fn eat(mut h: u128, bytes: &[u8]) -> u128 {
+        for &b in bytes {
+            h ^= u128::from(b);
+            h = h.wrapping_mul(Self::PRIME);
+        }
+        h
+    }
+}
+
+/// Which answer of the [`ClassView`] a basis was read from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BasisSource {
+    /// [`ClassView::fields_at`] or [`ClassView::lens_fields_at`]: the
+    /// source's own record of the basis at the bound revision.
+    Historical,
+    /// [`ClassView::fields`] or [`ClassView::lens_fields`]: the basis now. At
+    /// resolution it is accepted only when it is proved equal to the bound
+    /// one; at registration it is taken, unproved, as the declared
+    /// revision's.
+    Current,
 }
 
 /// A reference a router (DR #4) carries to a method: the class, the method
-/// identity, the signature revision it was made against, and the witness of
-/// the guard it kept.
+/// identity, the signature revision it was made against, the witness of the
+/// guard it kept, and the [`Stamp`] of the store that issued it.
+///
+/// Only [`BindStore::method_ref`] issues one. The stamp's fields are private,
+/// so a reference built elsewhere can only copy the stamp of a reference that
+/// store issued; [`BindStore::admit`] still checks every other field against
+/// the binding.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MethodRef {
     pub class: u32,
     pub method: MethodId,
     pub sig_rev: SigRev,
     pub guard: Option<GuardWitness>,
+    pub stamp: Stamp,
 }
 
-impl MethodRef {
-    /// The faithful reference to `binding` in `class`.
-    pub fn of(class: u32, binding: &MethodBinding) -> MethodRef {
-        MethodRef {
-            class,
-            method: binding.id,
-            sig_rev: binding.sig_rev,
-            guard: binding.when.as_ref().map(Guard::witness),
+/// Which store issued a [`MethodRef`] and which binding it was issued for.
+///
+/// `issuer` points at the issuing [`BindStore`]'s identity; `binding` is the
+/// binding digest the store held for the method when it issued the reference.
+/// Neither can be set outside this crate:
+///
+/// ```compile_fail
+/// let _ = lance_graph_dt64::Stamp { issuer: std::sync::Weak::new(), binding: 0 };
+/// ```
+#[derive(Debug, Clone)]
+pub struct Stamp {
+    issuer: Weak<()>,
+    binding: u128,
+}
+
+impl Stamp {
+    /// The binding digest the issuing store held for the method. Read-only:
+    /// a consumer may hash it into its own identities (R2IL's `plan_id`), but
+    /// [`BindStore::admit`] never trusts it over the stored one.
+    pub fn binding(&self) -> u128 {
+        self.binding
+    }
+}
+
+impl PartialEq for Stamp {
+    fn eq(&self, other: &Stamp) -> bool {
+        Weak::ptr_eq(&self.issuer, &other.issuer) && self.binding == other.binding
+    }
+}
+
+impl Eq for Stamp {}
+
+impl Hash for Stamp {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Weak::as_ptr(&self.issuer).hash(state);
+        self.binding.hash(state);
+    }
+}
+
+/// The digest of one method's binding in its class: the classid, the class's
+/// basis witness, the method identity and signature revision, ON and reads,
+/// the ordered effects with their tagged arguments, each effect's lens
+/// revision and word arity, and the population, truth and value demand.
+///
+/// FNV-1a 128 with [`BasisDigest`]'s constants under the domain tag
+/// `dt64.binding.v1`; every variable-length part is length-prefixed. The
+/// source `name` is not part of it (it is never identity), and neither is the
+/// guard: [`BindStore::admit`] compares the guard witness structurally. Like
+/// the basis witness, it detects a different binding; it does not
+/// authenticate one.
+fn binding_digest(
+    class: u32,
+    basis: BasisDigest,
+    m: &MethodBinding,
+    algebra: &BTreeMap<u32, AlgebraLens>,
+) -> u128 {
+    let eat = BasisDigest::eat;
+    let mut h = BasisDigest::OFFSET;
+    h = eat(h, b"dt64.binding.v1");
+    h = eat(h, &class.to_le_bytes());
+    h = eat(h, &basis.0.to_le_bytes());
+    h = eat(h, &m.id.0.to_le_bytes());
+    h = eat(h, &m.sig_rev.0.to_le_bytes());
+    for mask in [&m.on, &m.reads] {
+        let positions: Vec<u8> = mask_positions(mask).collect();
+        h = eat(h, &(positions.len() as u64).to_le_bytes());
+        h = eat(h, &positions);
+    }
+    h = eat(h, &(m.effects.len() as u64).to_le_bytes());
+    for e in &m.effects {
+        h = eat(h, &[e.target]);
+        h = eat(h, &e.algebra.lens.to_le_bytes());
+        h = eat(h, &[e.algebra.word]);
+        // Registration has already refused an effect whose lens or word is
+        // unbound, so both are present here.
+        let lens = algebra.get(&e.algebra.lens);
+        let rev = lens.map_or(u32::MAX, |l| l.schema.schema_rev.0);
+        let arity = lens
+            .and_then(|l| l.arity.get(usize::from(e.algebra.word)))
+            .copied()
+            .unwrap_or(u8::MAX);
+        h = eat(h, &rev.to_le_bytes());
+        h = eat(h, &[arity]);
+        h = eat(h, &(e.args.len() as u64).to_le_bytes());
+        for a in &e.args {
+            match a {
+                Arg::Field(p) => h = eat(h, &[0, *p]),
+                Arg::Const(c) => {
+                    h = eat(h, &[1]);
+                    h = eat(h, &c.to_le_bytes());
+                }
+            }
         }
     }
+    let population = match m.population {
+        Population::Distinct => 0u8,
+        Population::Bag => 1,
+    };
+    let truth = match m.truth {
+        Truth::TwoValued => 0u8,
+        Truth::ThreeValued => 1,
+    };
+    let demand = match m.demand {
+        ValueDemand::MapOnly => 0u8,
+        ValueDemand::Values => 1,
+    };
+    eat(h, &[population, truth, demand])
 }
 
 /// Why the store refused. Every arm is a named UNKNOWN or conflict; none is an
@@ -334,11 +520,33 @@ pub enum Refusal {
         asked: SchemaRev,
     },
     /// The [`ClassView`] no longer has the field count the methods were bound
-    /// against.
+    /// against. At registration, the view's basis does not have the declared
+    /// field count.
     FieldBasisChanged {
         class: u32,
         bound: usize,
         view: usize,
+    },
+    /// Two classids read through one basis (the same concept half, or the
+    /// same full lens classid) at the same schema revision bind two different
+    /// bases. A revision has one basis (Decision J), so the later registration
+    /// is refused. This is a fail-closed refusal, not an adjudication: the
+    /// first registration anchors the revision, whether or not it was right.
+    /// Polyfill lenses (`declare_algebra`) are not part of this check.
+    BasisConflict {
+        class: u32,
+        other: u32,
+        schema_rev: SchemaRev,
+    },
+    /// Same revision and field count, other ordered `predicate_iri`s than the
+    /// basis the methods were bound against: a reorder or a replaced field
+    /// (Decision J). `source` says which answer of the view disagreed: its
+    /// own history for that revision, or (when it keeps none) its current
+    /// basis.
+    PredicateBasisChanged {
+        class: u32,
+        schema_rev: SchemaRev,
+        source: BasisSource,
     },
     /// The class has no method with this identity.
     UnknownMethod { class: u32, method: MethodId },
@@ -354,6 +562,14 @@ pub enum Refusal {
     GuardAdded { class: u32, method: MethodId },
     /// The reference carries another guard than the bound one.
     GuardMismatch { class: u32, method: MethodId },
+    /// The reference's stamp carries another binding digest than the one this
+    /// store holds for the method: it was issued for other behaviour (for
+    /// example, by another store that bound other effects under the same
+    /// classid and method identity).
+    BindingMismatch { class: u32, method: MethodId },
+    /// The reference (or a plan prepared from it) was issued by another
+    /// store. A clone of a store is another store.
+    ForeignStore { class: u32 },
     /// An effect names a lens that is not bound, or a position outside it.
     UnknownAlgebra {
         class: u32,
@@ -418,7 +634,12 @@ impl From<RouteRefusal> for Refusal {
 }
 
 /// The result of one lookup: the class schema as bound, its fields as the
-/// [`ClassView`] holds them now (borrowed), and its methods.
+/// [`ClassView`] answered them for the bound revision (borrowed), and its
+/// methods. A value of this type is the answer of a lookup, not a witness:
+/// its fields are public, so one assembled by hand proves nothing. A
+/// `Resolved` returned by [`BindStore::resolve`] has passed the revision,
+/// count and predicate-witness checks; one returned by
+/// [`BindStore::resolve_algebra`] has passed revision and count only.
 #[derive(Debug, Clone, Copy)]
 pub struct Resolved<'s, 'v> {
     pub class: u32,
@@ -540,13 +761,31 @@ impl<'s, 'v> Resolved<'s, 'v> {
 }
 
 /// The binding store. Building it takes `&mut self`; every read is `&self`.
-#[derive(Debug, Clone, Default)]
+///
+/// Each store has its own identity, which the [`Stamp`] of every
+/// [`MethodRef`] it issues points at. A clone gets a fresh identity: it
+/// refuses the original's references ([`Refusal::ForeignStore`]) and the
+/// original refuses the clone's.
+#[derive(Debug, Default)]
 pub struct BindStore {
     classes: BTreeMap<u32, ClassEntry>,
     /// The bound polyfill lenses, by lens classid (D6).
     algebra: BTreeMap<u32, AlgebraLens>,
     /// DR's route log. The store binds; DR routes.
     routes: RouteLog,
+    /// The store's identity. Never shared: `Clone` mints a new one.
+    identity: Arc<()>,
+}
+
+impl Clone for BindStore {
+    fn clone(&self) -> BindStore {
+        BindStore {
+            classes: self.classes.clone(),
+            algebra: self.algebra.clone(),
+            routes: self.routes.clone(),
+            identity: Arc::new(()),
+        }
+    }
 }
 
 impl BindStore {
@@ -554,21 +793,37 @@ impl BindStore {
         BindStore::default()
     }
 
-    /// Bind `class`. Idempotent for an identical binding; any other binding of
-    /// an already bound class is refused (D5).
-    pub fn register(
+    /// Bind `class` against the ordered field basis `view` gives it at
+    /// `schema.schema_rev` (Decision J): the source's history for that
+    /// revision when it keeps one, else its current basis. The basis must
+    /// have `schema.field_count` fields; the store keeps its witness, never the
+    /// fields. Another classid read through the same basis at the same
+    /// revision must have bound the same one ([`Refusal::BasisConflict`]).
+    ///
+    /// Not proved: when the view keeps no history for that revision, its
+    /// CURRENT basis is taken as that revision's. A [`ClassView`] does not say
+    /// which revision its current basis is, so the store cannot tell a source
+    /// that has since moved on; the caller vouches for it. Nor does the store
+    /// know who supplied the view (O10's owner binding is open).
+    ///
+    /// Idempotent for an identical binding over an identical basis; any other
+    /// binding of an already bound class, including the same methods over
+    /// another basis, is refused (D5).
+    pub fn register<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         class: u32,
         schema: ClassSchema,
         methods: Vec<MethodBinding>,
     ) -> Result<(), Refusal> {
-        self.insert(class, schema, methods, None)
+        self.insert(view, class, schema, methods, None)
     }
 
     /// Bind `class` as an override of the bound class `base` (D-DT64-6 §3).
     /// `base` keeps its behaviour; route positions to `class` to use it.
-    pub fn register_derived(
+    pub fn register_derived<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         base: u32,
         class: u32,
         schema: ClassSchema,
@@ -580,11 +835,12 @@ impl BindStore {
         if base == class {
             return Err(Refusal::BehaviourImmutable(class));
         }
-        self.insert(class, schema, methods, Some(base))
+        self.insert(view, class, schema, methods, Some(base))
     }
 
-    fn insert(
+    fn insert<V: ClassView + ?Sized>(
         &mut self,
+        view: &V,
         class: u32,
         schema: ClassSchema,
         methods: Vec<MethodBinding>,
@@ -610,10 +866,38 @@ impl BindStore {
                 }
             }
         }
+        let (fields, _) = basis_at(view, class, schema.schema_rev)?;
+        if fields.len() != schema.field_count {
+            return Err(Refusal::FieldBasisChanged {
+                class,
+                bound: schema.field_count,
+                view: fields.len(),
+            });
+        }
+        let basis = BasisDigest::of(fields);
+        let key = basis_key(class);
+        if let Some((&other, _)) = self.classes.iter().find(|(&c, e)| {
+            c != class
+                && basis_key(c) == key
+                && e.schema.schema_rev == schema.schema_rev
+                && e.basis != basis
+        }) {
+            return Err(Refusal::BasisConflict {
+                class,
+                other,
+                schema_rev: schema.schema_rev,
+            });
+        }
+        let bindings = methods
+            .iter()
+            .map(|m| binding_digest(class, basis, m, &self.algebra))
+            .collect();
         let entry = ClassEntry {
             schema,
             methods,
             derived_from,
+            basis,
+            bindings,
         };
         match self.classes.get(&class) {
             Some(bound) if *bound == entry => Ok(()),
@@ -672,19 +956,12 @@ impl BindStore {
         schema_rev: SchemaRev,
     ) -> Result<Resolved<'s, 'v>, Refusal> {
         let bound = self.algebra.get(&lens).ok_or(Refusal::UnknownClass(lens))?;
-        if is_behaviour_lens(lens) {
-            let fields = view
-                .lens_fields(lens)
-                .ok_or(Refusal::UnknownLensBasis(lens))?;
-            return check_count(lens, &bound.schema, schema_rev, fields).map(|fields| Resolved {
-                class: lens,
-                schema: &bound.schema,
-                fields,
-                methods: &[],
-                derived_from: None,
-            });
-        }
-        check_basis(view, lens, &bound.schema, schema_rev).map(|fields| Resolved {
+        // A polyfill lens is bound by its arities, not against a basis, so it
+        // is checked by revision and count only: a reorder of two words with
+        // the same arity is NOT detected here, and a consumer that selects
+        // behaviour by a word's label (R2IL's opcode) is not protected by the
+        // class witness. Pinned as a finding; open under L5c/L5d.
+        check_basis(view, lens, &bound.schema, schema_rev, None).map(|fields| Resolved {
             class: lens,
             schema: &bound.schema,
             fields,
@@ -737,13 +1014,34 @@ impl BindStore {
     /// Route `position` to the bound `class`; returns the new version. A
     /// position past the class's identity reservation is refused.
     pub fn route(&mut self, position: u16, class: u32) -> Result<RouteVersion, Refusal> {
+        let identity = self.route_identity(position, class)?;
+        Ok(self.routes.route(position, class, identity)?)
+    }
+
+    /// Whether [`BindStore::route`] would accept routing `position` to
+    /// `class`, without routing it: the same two refusals
+    /// ([`Refusal::UnknownClass`], [`Refusal::OutsideReservation`]), no route
+    /// event, no new [`RouteVersion`]. `route` runs this exact check before
+    /// it writes, so the two cannot disagree.
+    ///
+    /// A route intent that passes stays valid: classes are only ever added
+    /// (a bound class is never removed or changed, D5) and the answer does
+    /// not depend on the route log. A prepared land (G10/G11) can therefore
+    /// check its route intents up front and apply them later without an
+    /// error path.
+    pub fn check_route(&self, position: u16, class: u32) -> Result<(), Refusal> {
+        self.route_identity(position, class).map(|_| ())
+    }
+
+    /// The class's identity reservation, after the route check.
+    fn route_identity(&self, position: u16, class: u32) -> Result<Axis, Refusal> {
         let entry = self
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        Ok(self
-            .routes
-            .route(position, class, entry.schema.extent.identity)?)
+        let identity = entry.schema.extent.identity;
+        self.routes.check(position, class, identity)?;
+        Ok(identity)
     }
 
     /// What `class` has claimed of its reservation at `version`: the identity
@@ -780,7 +1078,7 @@ impl BindStore {
             .classes
             .get(&class)
             .ok_or(Refusal::UnknownClass(class))?;
-        let fields = check_basis(view, class, &entry.schema, schema_rev)?;
+        let fields = check_basis(view, class, &entry.schema, schema_rev, Some(entry.basis))?;
         Ok(Resolved {
             class,
             schema: &entry.schema,
@@ -788,6 +1086,30 @@ impl BindStore {
             methods: &entry.methods,
             derived_from: entry.derived_from,
         })
+    }
+
+    /// [`BindStore::resolve`] without the predicate witness: revision and
+    /// field count only. For [`LaneBinding::check`]'s hot re-check of a
+    /// binding that [`BindStore::bind_lanes`] made through the witnessed
+    /// `resolve`; it does not hash the basis on every call. Not a way to
+    /// resolve a class for the first time.
+    pub(crate) fn resolve_counted<'v, V: ClassView + ?Sized>(
+        &self,
+        view: &'v V,
+        class: u32,
+        schema_rev: SchemaRev,
+    ) -> Result<(&'v [FieldRef], BasisDigest), Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let fields = check_basis(view, class, &entry.schema, schema_rev, None)?;
+        Ok((fields, entry.basis))
+    }
+
+    /// The basis witness `class` is bound with, if it is bound.
+    pub(crate) fn bound_basis(&self, class: u32) -> Option<BasisDigest> {
+        self.classes.get(&class).map(|e| e.basis)
     }
 
     /// The lookup by DR position: the classid routed there at `version`, then
@@ -805,20 +1127,66 @@ impl BindStore {
         self.resolve(view, class, schema_rev)
     }
 
+    /// Issue the reference to method `method` of `class`: its signature
+    /// revision, its guard witness, and a [`Stamp`] naming this store and the
+    /// binding digest it holds for the method. The only way to obtain a
+    /// stamped reference.
+    pub fn method_ref(&self, class: u32, method: MethodId) -> Result<MethodRef, Refusal> {
+        let entry = self
+            .classes
+            .get(&class)
+            .ok_or(Refusal::UnknownClass(class))?;
+        let i = entry
+            .methods
+            .iter()
+            .position(|m| m.id == method)
+            .ok_or(Refusal::UnknownMethod { class, method })?;
+        let binding = &entry.methods[i];
+        Ok(MethodRef {
+            class,
+            method,
+            sig_rev: binding.sig_rev,
+            guard: binding.when.as_ref().map(Guard::witness),
+            stamp: Stamp {
+                issuer: Arc::downgrade(&self.identity),
+                binding: entry.bindings[i],
+            },
+        })
+    }
+
+    /// Whether this store issued `r`: [`Refusal::ForeignStore`] otherwise.
+    /// Only the issuer is compared; [`BindStore::admit`] checks the rest.
+    pub fn check_issuer(&self, r: &MethodRef) -> Result<(), Refusal> {
+        if Weak::as_ptr(&r.stamp.issuer) == Arc::as_ptr(&self.identity) {
+            Ok(())
+        } else {
+            Err(Refusal::ForeignStore { class: r.class })
+        }
+    }
+
     /// Check a router's method reference against the binding and return the
     /// binding (D-DRDT §5): the method must exist, at the referenced signature
-    /// revision, with exactly the guard the reference witnesses.
+    /// revision, with exactly the guard the reference witnesses, and the
+    /// reference must have been issued by this store for this binding.
+    ///
+    /// The order is fixed: the identity, revision and guard checks first,
+    /// then the stamp's binding digest against the STORED one
+    /// ([`Refusal::BindingMismatch`]), then the stamp's issuer
+    /// ([`Refusal::ForeignStore`]). A store never rebinds a method (D5), so a
+    /// digest mismatch can only come from a reference issued elsewhere; with
+    /// the issuer checked first it would never be reported.
     pub fn admit(&self, r: &MethodRef) -> Result<&MethodBinding, Refusal> {
         let entry = self
             .classes
             .get(&r.class)
             .ok_or(Refusal::UnknownClass(r.class))?;
         let (class, method) = (r.class, r.method);
-        let binding = entry
+        let i = entry
             .methods
             .iter()
-            .find(|m| m.id == method)
+            .position(|m| m.id == method)
             .ok_or(Refusal::UnknownMethod { class, method })?;
+        let binding = &entry.methods[i];
         if binding.sig_rev != r.sig_rev {
             return Err(Refusal::SignatureRevisionMismatch {
                 class,
@@ -828,33 +1196,31 @@ impl BindStore {
             });
         }
         match (&binding.when, &r.guard) {
-            (None, None) => Ok(binding),
-            (Some(_), None) => Err(Refusal::GuardDropped { class, method }),
-            (None, Some(_)) => Err(Refusal::GuardAdded { class, method }),
-            (Some(g), Some(w)) if g.witness() == *w => Ok(binding),
-            (Some(_), Some(_)) => Err(Refusal::GuardMismatch { class, method }),
+            (None, None) => {}
+            (Some(_), None) => return Err(Refusal::GuardDropped { class, method }),
+            (None, Some(_)) => return Err(Refusal::GuardAdded { class, method }),
+            (Some(g), Some(w)) if g.witness() == *w => {}
+            (Some(_), Some(_)) => return Err(Refusal::GuardMismatch { class, method }),
         }
+        if entry.bindings[i] != r.stamp.binding {
+            return Err(Refusal::BindingMismatch { class, method });
+        }
+        self.check_issuer(r)?;
+        Ok(binding)
     }
 }
 
-/// The lens's fields from the [`ClassView`], refused when the schema revision
-/// or the field basis is not the bound one.
+/// The class's fields from the [`ClassView`], refused when the schema revision
+/// or the field basis is not the bound one. The revision is checked first, so
+/// the view is only ever asked about the bound revision. With a `witness`, the
+/// ordered `predicate_iri`s must also be the bound ones (Decision J); without
+/// one, revision and count only.
 fn check_basis<'v, V: ClassView + ?Sized>(
     view: &'v V,
     class: u32,
     schema: &ClassSchema,
     schema_rev: SchemaRev,
-) -> Result<&'v [FieldRef], Refusal> {
-    check_count(class, schema, schema_rev, view.fields(view_class(class)))
-}
-
-/// The revision and field-count checks of [`check_basis`], over a basis
-/// already looked up.
-fn check_count<'v>(
-    class: u32,
-    schema: &ClassSchema,
-    schema_rev: SchemaRev,
-    fields: &'v [FieldRef],
+    witness: Option<BasisDigest>,
 ) -> Result<&'v [FieldRef], Refusal> {
     if schema.schema_rev != schema_rev {
         return Err(Refusal::SchemaRevisionMismatch {
@@ -863,6 +1229,68 @@ fn check_count<'v>(
             asked: schema_rev,
         });
     }
+    let (fields, source) = basis_at(view, class, schema_rev)?;
+    let fields = check_count(class, schema, fields)?;
+    if let Some(bound) = witness {
+        if BasisDigest::of(fields) != bound {
+            return Err(Refusal::PredicateBasisChanged {
+                class,
+                schema_rev,
+                source,
+            });
+        }
+    }
+    Ok(fields)
+}
+
+/// Which basis of the [`ClassView`] `class` is read through: a behaviour lens
+/// by its full classid, any other class by its concept half. Two classids with
+/// the same key share one basis per revision.
+fn basis_key(class: u32) -> (bool, u32) {
+    if is_behaviour_lens(class) {
+        (true, class)
+    } else {
+        (false, u32::from(view_class(class)))
+    }
+}
+
+/// The basis `class` is read through at `schema_rev` (D-DT64-7 Decision J,
+/// item 5): the source's historical answer for that revision when it holds
+/// one, else its current basis (which only [`check_basis`]'s witness, at
+/// resolution, can prove; at registration it is the caller's claim).
+///
+/// A behaviour lens (right half `0xF###`) is looked up by its FULL classid in
+/// both cases (O9), so two lenses sharing a left half never share a basis or
+/// a history. Every other class is looked up by its concept half
+/// ([`view_class`]).
+fn basis_at<V: ClassView + ?Sized>(
+    view: &V,
+    class: u32,
+    schema_rev: SchemaRev,
+) -> Result<(&[FieldRef], BasisSource), Refusal> {
+    if is_behaviour_lens(class) {
+        if let Some(fields) = view.lens_fields_at(class, schema_rev.0) {
+            return Ok((fields, BasisSource::Historical));
+        }
+        let fields = view
+            .lens_fields(class)
+            .ok_or(Refusal::UnknownLensBasis(class))?;
+        return Ok((fields, BasisSource::Current));
+    }
+    let concept = view_class(class);
+    Ok(match view.fields_at(concept, schema_rev.0) {
+        Some(fields) => (fields, BasisSource::Historical),
+        None => (view.fields(concept), BasisSource::Current),
+    })
+}
+
+/// The field-count check of [`check_basis`], over a basis already looked up
+/// at the bound revision.
+fn check_count<'v>(
+    class: u32,
+    schema: &ClassSchema,
+    fields: &'v [FieldRef],
+) -> Result<&'v [FieldRef], Refusal> {
     if fields.len() != schema.field_count {
         return Err(Refusal::FieldBasisChanged {
             class,

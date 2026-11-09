@@ -1,0 +1,33 @@
+-- SELECT count(*) FROM edges e1 JOIN edges e2 ON e2.src = e1.dst JOIN nodes n ON n.id = e1.src WHERE n.a < 50
+╭─ Summary ───────────╮
+│ Total Time: 0.0050s │
+╰─────────────────────╯
+╭─ Ungrouped Aggregate ──────────╮
+│ Aggregates: count_star()       │
+│ 1 row                      0µs │
+╰────────────────┒┎──────────────╯
+╭─ Hash Join ────┚┖──────────────╮
+│ Join Type: INNER               │
+│ Conditions: src = dst          │
+│ 428,569 rows               0µs │
+╰────────────────┬───────────────╯
+                 ├───────────────────────────────────╮
+╭─ Table Scan ───┴───────────────╮  ╭─ Hash Join ────┴───────────────╮
+│ Table: memory.main.edges       │  │ Join Type: INNER               │
+│ Type: Sequential Scan          │  │ Conditions: src = id           │
+│ Projections: src               │  │ 1,250 rows                 0µs │
+│ Dynamic Filters:               │  ╰────────────────┬───────────────╯
+│ optional: src IN PRF(dst)      │                   ├─────────────────────────────────────╮
+│ Row Groups Scanned: 1 / 1      │  ╭─ Table Scan ───┴───────────────╮  ╭─ Filter ─────────┴──────────────────╮
+│ 23,640 rows                0µs │  │ Table: memory.main.edges       │  │ Expression: id BETWEEN 20 AND 65510 │
+╰────────────────────────────────╯  │ Type: Sequential Scan          │  │ 3,295 rows                      0µs │
+                                    │ Projections: dst, src          │  ╰──────────────────┬──────────────────╯
+                                    │ Dynamic Filters:               │  ╭─ Table Scan ─────┴──────────────────╮
+                                    │ optional: src IN PRF(id)       │  │ Table: memory.main.nodes            │
+                                    │ Row Groups Scanned: 1 / 1      │  │ Type: Sequential Scan               │
+                                    │ 1,250 rows                 0µs │  │ Projections: id                     │
+                                    ╰────────────────────────────────╯  │ Filters: a < 50                     │
+                                                                        │ Row Groups Scanned: 1 / 1           │
+                                                                        │ 3,296 rows                      0µs │
+                                                                        ╰─────────────────────────────────────╯
+

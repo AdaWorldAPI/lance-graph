@@ -64,4 +64,4 @@ UNRESOLVED for that path — an honest gap beats a smooth story.
   `~/.cargo/registry/src/index.crates.io-*/lance*-9.0.0/`.
 - Do not run cargo. Do not write any file. Return your findings as output;
   the orchestrating main thread is the sole writer of board files.
-- Read `.claude/board/AGENT_LOG.md` before starting. Do NOT write it.
+- Read the Linear Agent2Agent Board (`P-EXO-10`) and, for history, `.claude/board/AGENT_LOG.md` before starting. Do NOT post to either; the orchestrator posts.

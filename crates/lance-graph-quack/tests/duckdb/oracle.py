@@ -81,8 +81,7 @@ def encode(case_id: str, rows: list[tuple]) -> str:
     return str(val)
 
 
-def main() -> None:
-    con = duckdb.connect(database=":memory:")
+def load(con) -> None:
     con.execute(
         f"CREATE TABLE partner AS SELECT * FROM read_csv_auto('{DATA / 'partner.csv'}')"
     )
@@ -92,6 +91,11 @@ def main() -> None:
     con.execute(
         f"CREATE TABLE line AS SELECT * FROM read_csv_auto('{DATA / 'line.csv'}')"
     )
+
+
+def main() -> None:
+    con = duckdb.connect(database=":memory:")
+    load(con)
 
     with open(CASES, newline="") as f:
         reader = csv.reader(f, delimiter="\t")

@@ -45,21 +45,26 @@
 //! * [`render`] — terminal adapters (JSON / CSV data export): the materialization boundary. Paged / screen output goes through OGAR (`lance-graph-report-ogar`).
 //! * [`explain`] — the human-readable physical plan.
 
-#![forbid(unsafe_code)]
+// The library forbids unsafe code. Unit tests only `deny` it, so the one
+// counting allocator in `lane_source::tests` can opt in with an `allow`.
+#![cfg_attr(not(test), forbid(unsafe_code))]
+#![cfg_attr(test, deny(unsafe_code))]
 
 pub mod batch;
 pub mod boundary;
 pub mod exec;
 pub mod explain;
 pub mod ids;
+pub mod lane_source;
 pub mod plan;
 pub mod render;
 pub mod result;
 pub mod selection;
 
-pub use batch::{AbiBatch, BatchError, Column, LaneData};
+pub use batch::{AbiBatch, BatchError, Column, LaneData, MAX_COLUMNS};
 pub use exec::{Accumulator, ExecStats, PhysicalPlan, PlannerPolicy, Provider, SelectionCarrier};
 pub use ids::{FieldId, MaskId, SourceId};
+pub use lane_source::{AbiLanes, PublishRefusal};
 pub use plan::{
     AxisRole, AxisSpec, CellValue, CoordSpec, FoldState, Measure, MeasureKind, PhysicalKey,
     ReportPlan, SourceRef, TopK,

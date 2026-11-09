@@ -1634,10 +1634,12 @@ mod arm_b {
             ReadPolicy {
                 coalesce_gap: 1,
                 full_permille: u32::MAX,
+                page_rows: 0,
             },
             ReadPolicy {
                 coalesce_gap: u32::MAX,
                 full_permille: u32::MAX,
+                page_rows: 0,
             },
         ];
         for x in [17, 5, 999] {
@@ -1689,12 +1691,14 @@ mod arm_b {
         let (sparse, _, sparse_io, sparse_l) = run(ReadPolicy {
             coalesce_gap: 0,
             full_permille: 100,
+            page_rows: 0,
         })
         .await
         .unwrap();
         let (dense, _, dense_io, dense_l) = run(ReadPolicy {
             coalesce_gap: 0,
             full_permille: 1,
+            page_rows: 0,
         })
         .await
         .unwrap();
@@ -1751,6 +1755,7 @@ mod arm_b {
             let (merged, _, _, ml) = run(ReadPolicy {
                 coalesce_gap: u32::MAX,
                 full_permille: u32::MAX,
+                page_rows: 0,
             })
             .await
             .unwrap();

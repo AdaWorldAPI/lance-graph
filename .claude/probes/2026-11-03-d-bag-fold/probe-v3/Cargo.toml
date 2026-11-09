@@ -1,0 +1,24 @@
+# D-BAG-FOLD v3: Arm L against production witness contracts. Lab only.
+# Own [workspace]: the root workspace never builds it. MaskOp::Gather stays here.
+[package]
+name = "d-bag-fold-probe-v3"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+lance-graph-dt64 = { path = "../../../../crates/lance-graph-dt64" }
+lance-graph-quack = { path = "../../../../crates/lance-graph-quack" }
+lance-graph-mask-risc = { path = "../../../../crates/lance-graph-mask-risc" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../../../ndarray" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+
+[profile.release]
+debug = 0
+
+[workspace]

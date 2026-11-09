@@ -1,0 +1,13 @@
+# D-DT64-AUTH census (plan: .claude/plans/d-dt64-method-authority-census-v1.md).
+# DT64 `0xFFFF::0xF###` is the one method authority. LENS rows pin each production behaviour lens's DT64 declaration;
+# LAB rows list each method identity or dispatch path DT64 does not see, with why and a removal path.
+# The census test fails both ways: an unlisted lens mint, or a listed exception whose token is gone.
+# columns: kind	name	file	token	lens	rev	arities	status	why	removal
+LENS	POLYFILL_LENS	crates/lance-graph-r2il/src/polyfill.rs	pub const POLYFILL_LENS: u32 = compose_classid(HARDCODED, 0xF000);	0xFFFFF000	1	2,2,2,2,2,2,2,2,2,1,1,2,2,2,1,1,2	CANONICAL	-	-
+LENS	XLOG_LENS	crates/lance-graph-xlog/src/lens.rs	pub const XLOG_LENS: u32 = compose_classid(HARDCODED_BEHAVIOUR, 0xF100);	0xFFFFF100	1	3,3,2	CANONICAL	-	-
+LAB	MethodSignature	crates/dr-math-binding-probe/src/lib.rs	pub struct MethodSignature {	-	-	-	LAB	Probe-local method identity (per-method semantic law) beside the DT64 MethodRef.	Bind through DT64 MethodRef or delete with the probe.
+LAB	tract-harvest Registry	crates/tract-harvest-probe/src/registry.rs	pub struct Registry {	-	-	-	LAB	Versioned ONNX operator registration table that keeps its own MethodKey identity.	Re-express each registration as a DT64 admitted method or delete with the probe.
+LAB	xlog Word	crates/lance-graph-xlog/src/lib.rs	pub enum Word {	-	-	-	LAB	Caller-supplied reading of admitted words; the Quack lowering a word stands for is not carried by DT64 (MISSING-1).	Remove when DT64 carries the lowering of the word.
+LAB	FnIndex opcode	crates/lance-graph-r2il/src/polyfill.rs	pub opcode: FnIndex,	-	-	-	LAB	OGAR fold opcode identity held beside the DT64 position.	Internal opcode only; stays unless it becomes a method identity.
+LAB	FoldDialect dispatch	crates/lance-graph-r2il/src/lib.rs	pub struct FoldDialect<'p> {	-	-	-	LAB	Opcode dispatch DT64 never sees; a fold arm is not a method (plan section 1 rule 3).	None while it stays internal.
+LAB	r2il procs	crates/lance-graph-r2il/src/procs.rs	pub fn count(d: &mut FoldDialect<'_>, stack: &mut Vec<Val>) -> Result<(), FoldError> {	-	-	-	LAB	Named call sequences emitted straight into FoldDialect without admission.	Route through an admitted method once PROC_DEF/PROC_CALL exists in OGAR.

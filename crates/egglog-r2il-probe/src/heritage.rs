@@ -199,7 +199,7 @@ pub fn analyse(corpus: &[HeritageEntry]) -> MetaStudy {
                     Step::PushConst(_) => {
                         atoms.insert(Atom27::Const);
                     }
-                    Step::PushVar(_) => {
+                    Step::PushInput => {
                         atoms.insert(Atom27::Var);
                     }
                     Step::IntMult => {

@@ -333,7 +333,9 @@ Tier-2 (load when the scan touches the relevant domain):
 6. `.claude/board/sprint-log-N/` meta-reviews — for sprint provenance and
    existing CSI observations. The gap between a CSI and a positive framing
    of the same invariant is often where an EP lives.
-7. `.claude/board/EPIPHANIES.md` — the FINDING accumulation register.
+7. `.claude/board/EPIPHANIES.md` — the FINDING accumulation register
+   (frozen); findings since 2026-11-06 are in Linear `P-EXO-12`
+   (**lance-graph · Epiphanies**) and must be searched there too.
    The gap between the last FINDING and the current iron-rule frontier is
    exactly where EP-class opportunities live.
 
@@ -430,7 +432,8 @@ brutally-honest-tester (converge code).
 - **`.claude/knowledge/codex-p1-anti-patterns.md`** (PP-13 companion) —
   the defect-pattern catalogue. When an EP reversal track fires, the target
   is always a new or existing AP entry here.
-- **`.claude/board/EPIPHANIES.md`** — the FINDING accumulation register.
+- **`.claude/board/EPIPHANIES.md`** — the FINDING accumulation register
+  (frozen; newer findings: Linear `P-EXO-12`).
   The gap between the last FINDING and the current iron-rule frontier is
   exactly where EP-class opportunities live. E-SUBSTRATE-1 preceded
   I-SUBSTRATE-MARKOV; E-ORIG-7 preceded I-NOISE-FLOOR-JIRAK; a future

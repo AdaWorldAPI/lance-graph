@@ -1,3 +1,125 @@
+## D-SC — OGAR × DR × DT64 semantic continuity (2026-11-07)
+
+Execution admitted = meaning valid (OGAR/DT64) ∧ representation compatible (DR/source) ∧ access permitted now (IAM, owned by the OGAR auth session, EXO-206). Linear: EXO-202 (D, BLOCKED), EXO-204, EXO-205.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-SC-E1 | `MapTable::map_at` fenced as `diagnose_at` → `MapDiagnostic`; executable maps only via `map(frame)` | Shipped (#1981) |
+| D-SC-E2a | dt64 `CodeTable` (versioned code space, advances the lanes' FrameStore) + quack `bind_typed` / `TypedQuery::admit` (`StaleCodeSpace`, `Unwitnessed`) | In PR |
+| D-SC-E2b | per-owner adoption (`CamLabels`, dir-sim, sap): each real mutation path invalidates stale execution | Queued |
+| D-SC-D | witness-only Activation + `SealedBasis` + historical typed equivalence; blocked on OGAR-P2 and evidence, not on rulings | Blocked |
+| D-SC-H1 | coded and scaled facade queries (`ScaleMismatch`, `DomainMismatch`) | Queued |
+
+## D-LANESOCK — DR × DT64 property-to-lane socket (2026-11-06)
+
+| D-id | Deliverable | State |
+| --- | --- | --- |
+| D-LANESOCK-0 | normative spec: socket, joint version witness, refusals | Shipped (#1966) |
+| D-LANESOCK-1 | `LaneSource` + `BindStore::bind_lanes` + falsifiers in lance-graph-dt64 and the dir-sim lab | Shipped (#1967) |
+| D-LANESOCK-2 | `AbiLanes`: resident `AbiBatch` I32/U32 lanes through `LaneSource` (read adapter; no production constructor until a DR reader-scope witness exists) | Shipped (#1969) |
+| D-LANESOCK-3 | one field basis (`lane_of` receives DT64's validated `FieldRef`); `AbiLanes` constructor `#[cfg(test)]`-only; downstream consumer contract + reader-scope inventory (spec §8) | Shipped (#1970) |
+| D-LANESOCK-4 | reader-scope seam inventory: where a sealed scope and its issuer can live (spec §8); no code | In PR |
+
+## D-CGMM — Lazy Codegraph fact/demand + MeTTa class-method scratch (2026-11-04)
+
+**Implementation detail update (2026-11-04):** [Source→native blueprint](../plans/d-cgmm-implementation-blueprint-v1.md), [EXO gate ledger](../plans/d-cgmm-exo-gates-v1.md) and [fixed independent fixtures](../plans/d-cgmm-executable-fixtures-v1.md) refine the eight future stages. All executable fixtures are **NOT_RUN**, with expected pure COUNT=2 and tenant-A Set=3/Bag=4. The only authorized artifact is docs in draft PR #1958; owners of EXO-121/152/46/140/95/108/73 remain open gates.
+
+
+**Status:** D-CGMM-0 PROPOSED / DOCS ONLY. [Master](../plans/d-cgmm-codegraph-metta-method-builder-v1.md) · [lazy Codegraph](../plans/d-cgmm-lazy-codegraph-fact-demand-v1.md) · [OGIT/OGAR edge-action addendum](../plans/d-cgmm-action-relation-schema-v1.md) · [PR charter](../plans/d-cgmm-staged-pr-charter-v1.md) · [46 falsifiers](../plans/d-cgmm-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-cgmm-0-metta-class-method-builder.md) · [EXO-155](https://linear.app/exo-red/issue/EXO-155) · [EXO-50](https://linear.app/exo-red/issue/EXO-50) append-only handoff. **No production source harvester, executable MeTTa/Datalog, new ClassId, schema, ISA, driver or automatic authorization.**
+
+| D-id | Proposed PR stage | State / named gate |
+| --- | --- | --- |
+| D-CGMM-0 | source-grounded architecture, owner crosswalk, 46 independent falsifiers | THIS DOCS PR, review only |
+| D-CGMM-1 | Ruff/Charon→Kythe-shaped source identity, binary-lane effect/coverage census | FUTURE LAB, producer + Codegraph owner |
+| D-CGMM-2 | Crepe/Soufflé/XLOG compile evidence and *lazy* Codegraph demand plans | FUTURE LAB, EXO-73/79/143 gates |
+| D-CGMM-3 | ClassView-based FieldViewDef + disposable MeTTa-shaped constraint scratch | FUTURE LAB, EXO-121/152 |
+| D-CGMM-4 | OGIT M:N edge roles, tenant permission and OGAR ActionDef offers | FUTURE LAB, EXO-95/108, OGAR/ontology |
+| D-CGMM-5 | eligible same-row FieldViewDef → RelAlg pure polyfill | FUTURE LAB, Quack/R2IL owner |
+| D-CGMM-6 | separately admitted immutable DT64 MethodBinding → R2IL native | GATED EXO-121/152, execution permission |
+| D-CGMM-7 | prepared method/route memoization with source/version/scope fence | FUTURE LAB, D-DRISA/D-DRIVER-ZC gates |
+| D-CGMM-8 | independent Datalog/MORK and provenance/caller coverage, NNUE ranking-only | FUTURE LAB, EXO-79/143/154/73 |
+
+**Architectural laws:** durable source identity ≠ Codegraph interned Pos ≠ DR local ordinal ≠ ClassId/MethodId. Source grades confirmed/possible/unknown retained. Crepe binding and Soufflé magic/stratification are **cold plan evidence**, not new runtimes. Codegraph partially lazy already, while six XLOG Cube relations are built at intake; the new proposal must measure whether demand-scoping actually wins. ClassView FieldMask means presence, not rule truth. MeTTa-shaped scratch is ephemeral; OGIT/OGAR/DT64 owners separately admit typed ontology and method declarations. RelAlg IR has no general M:N join/effect/WHEN executable path. No legacy cognitive-shader-driver/DTO consolidation is in scope.
+
+## D-DRIVER-ZC — one zero-copy access membrane and virtual bus (2026-11-04)
+
+**Status:** D-DRIVER-ZC-0 PROPOSED / DOCS ONLY. [Master](../plans/d-driver-zc-virtual-bus-contract-v1.md) · [staged PR charter](../plans/d-driver-zc-staged-pr-charter-v1.md) · [47 independent falsifiers](../plans/d-driver-zc-falsifier-matrix-v1.md) · [entry](entries/2026-11-04-d-driver-zc-0-virtual-bus-contract.md) · [EXO-154](https://linear.app/exo-red/issue/EXO-154) · [EXO-153](https://linear.app/exo-red/issue/EXO-153) · [EXO-50](https://linear.app/exo-red/issue/EXO-50). **No driver implementation or production access rule shipped.**
+
+**Updated predecessor status:** [D-DRISA #1953](https://github.com/AdaWorldAPI/lance-graph/pull/1953) merged docs; [#1955](https://github.com/AdaWorldAPI/lance-graph/pull/1955) merged local borrowed register lab; [#1956](https://github.com/AdaWorldAPI/lance-graph/pull/1956) merged ALU semantics lab, carry 1.5–4.8× slower than native in eight measured shapes. Earlier D-DRISA entries are historical plans, not the current PR state.
+
+| D-id | Stage | Status / owner |
+| --- | --- | --- |
+| D-DRIVER-ZC-0 | One witnessed bind/project/stream/execute/release access contract, bus roles, proof matrix | THIS DOCS PR, proposed |
+| D-DRIVER-ZC-1 | Local sealed borrowed-lens membrane, compile-fail misuse probes | FUTURE LAB, DT64/source/mask-risc review |
+| D-DRIVER-ZC-2 | Typed XX/XY/XZ/YY/ZZ views and in-program composition, no owned bus arrays | FUTURE LAB, Quack/DT64 |
+| D-DRIVER-ZC-3 | Bind-once across local tiles; admitted foreign global→local reuse | LOCAL LAB; FOREIGN **BLOCKED EXO-46/89/151/140** |
+| D-DRIVER-ZC-4 | D-DRISA-2/4 async compatibility only, no parallel driver | GATED source-owner/security/transport |
+| D-DRIVER-ZC-5 | Lance disk-backed source + truthful I/O/copy accounting | **BLOCKED D4/S-INGRESS**, EXO-114 |
+| D-DRIVER-ZC-6 | Sealed migrated caller firewall with explicit reachability coverage | FUTURE policy lab, EXO-104/105/109 |
+| D-DRIVER-ZC-7 | Thinking Hard Drive semantic, representation and whole-query verdict | FUTURE independent review; no theorem proof claimed |
+
+**Law:** existing [zero-copy lens doctrine](../knowledge/zero-copy-lens-law.md) prohibits implicit source payload materialization; local borrow only with live source/layout/scope witness. Existing ndarray SIMD facade is the model: one admitted access vocabulary, multiple implementations without bypassing semantics. Virtual buses are typed same-address views, not stored arrays. O(1) is limited to a fixed number of already-resolved resident row reads, never arbitrary K-row output, all-pairs joins, storage I/O or RPC. Legacy ~17,000-call premise is operator context, not audited coverage. Do **not** inspect/consolidate migrated ladybug/P64/StreamDTO/BusDTO/PerturbationDTO/cognitive-shader-driver yet.
+
+## D-DRISA — DR remote register + Abakus cognitive shader (2026-11-04)
+
+**Status: D-DRISA-0 PROPOSED / DOCS ONLY.** [Master architecture](../plans/d-drisa-remote-register-shader-v1.md) · [staged PR charter](../plans/d-drisa-staged-pr-charter-v1.md) · [57 falsifiers](../plans/d-drisa-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-drisa-0-remote-register-contract.md) · [EXO-153 owner tracking](https://linear.app/exo-red/issue/EXO-153) · [EXO-50 append-only handoff](https://linear.app/exo-red/issue/EXO-50). **No remote driver, API, copied payload cache, new map or performance measurement is implemented by this plan.**
+
+| D-id | Staged PR / deliverable | Status | Owner / gates |
+| --- | --- | --- | --- |
+| D-DRISA-0 | documented virtual-register contract, ALU semantic map, async state model, staged PR charter and independent oracles | PROPOSED, THIS DOCS PR | EXO-153 and EXO-50 coordinate only, neither admits runtime |
+| D-DRISA-1 | local borrowed-register equivalence, exact frame/scope refusals | FUTURE LAB | DT64 / mask-risc / R2IL, no new ISA |
+| D-DRISA-2 | async loopback lifecycle, bounded queue, cancellation and lease invalidation | FUTURE LAB, security review | runtime/transport owner; no live TCP |
+| D-DRISA-3 | Abakus k-of-n using shipped half/full adders, independent scalar/Boolean oracle | FUTURE LAB | ndarray/Quack owner; U24x5 examples-only |
+| D-DRISA-4 | two-process read-only data-local command vs payload-fetch baseline | FUTURE LAB, transport/security gate | explicit authorization before networking |
+| D-DRISA-5 | optional leased source-location receipt, zero copied payload, prefetch | **BLOCKED** | EXO-46 / EXO-89 / EXO-151 (no production lease host) |
+| D-DRISA-6 | witnessed DR→Lance _rowid authority and mask ingress | **BLOCKED_D4 / S_INGRESS_COPY** | D4 / S-INGRESS / EXO-114, #1633 |
+| D-DRISA-7 | grammar/XLOG/NAL read-only cognitive consumers, limited continuation | GATED | EXO-140 / EXO-73 / EXO-78 / semantic owners |
+| D-DRISA-8 | whole-query/async-fault audit and explicit production ruling | NOT AUTHORIZED | operator and named code/security owners |
+
+**Invariants:** DR retains unique coordinate authority; borrowed canonical SoA is default; local borrow ≠ network zero-copy; receipts store locations, never values; remote method and result mask require scope/source/frame lease; no implicit cross-call scratch-slot survival, F###, second executor or automatic THOUGHT→WORLD promotion. #1950 Q≥2 timing included gathered copied lanes, so is not standalone address-only evidence. #1951 4,096-page rule is a fragmentation proxy, not physical page count. [Integration map](INTEGRATION_PLANS.md) has the full crosswalk.
+
+## D-DRAM — DR address memoization + adaptive Abakus masking lens (2026-11-03)
+
+**Status:** PROPOSED / DOCS ONLY; [plan](../plans/d-dram-abacus-address-memoization-v1.md), [board entry](entries/2026-11-03-d-dram-abacus-address-memoization.md), [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id). No code, tests, new runtime, new row-id map or production authorization.
+
+| D-id | Deliverable | Status | Owner / gate |
+| --- | --- | --- | --- |
+| D-DRAM-0 | design and falsifier map: borrowed SoA locator receipts, dynamically scoped Abakus mask algebra | Proposed, documentation only | review; EXO-50 message is not approval |
+| D-DRAM-1 | read-only census of existing DR focus locator lease and exact ndarray 5×24 symbols | Queued, not authorized | EXO-46, ndarray owner |
+| D-DRAM-2 | lab memoized address receipts; no values copied, exact version/scope and lifetime refusal | GATED | EXO-46, EXO-89, EXO-151; no second coordinate authority |
+| D-DRAM-3 | Quack k-of-n/threshold Abakus comparison with shipped facade words | Proposed lab | Quack/ndarray owners; no automatic new opcode/API |
+| D-DRAM-4 | combined ClassView selective borrowing + Lance read probe | GATED for end-to-end DR→Lance | D4 and S-INGRESS from #1788 |
+| D-DRAM-5 | engineering-parity and cost verdict, handoff | Queued | independent falsifiers and owner decision |
+
+**D-DRAM-P3 (2026-11-03): this session owns the integrated list** ([plan](../plans/d-dram-p3-integrated-v1.md)). P2 (#1950) already measured, in the lab, L9, L10, C2 and C4 (with ids given under D4), and partly measured L1/L2/L6/A3/A4.
+
+| D-id | Deliverable | Status | Owner / gate |
+| --- | --- | --- | --- |
+| D-DRAM-P3-1 | `ReadPolicy` weighs range count (clustered 10% misrouted 3.8–4.6×) | Done in lab: `page_rows` rule; clustered 10–50% now 1.2–7.8× faster, scattered unchanged | this session; lab crate |
+| D-DRAM-P3-2 | non-vacuous `project` k4/k16 sparse/mixed cases | Queued | this session; research branch |
+| D-DRAM-P3-3 | = D-DRAM-1 read-only census | Done: [entry](entries/2026-11-03-d-dram-1-census.md); only `half_add_mask`/`full_add_mask` shipped, `U24x5`/`Abacus` lab-only, no production lease | this session; report to EXO-46 / ndarray owner |
+| D-DRAM-P3-4 | EXISTS early exit per tile (0.16× DuckDB at 10M) | Queued | this session drafts; mask-risc owner reviews |
+| D-DRAM-P3-5 | = D-DRAM-3 k-of-n Abakus bench, A1/A2/A5–A7 | Measured: kill fired, carry words 1.7–4.0× slower than facade byte counters; A1/A2/A6 partial, A5/A7 open | `entries/2026-11-03-d-dram-p3-5-kofn.md`, `crepe-plan-probe/examples/kofn_carry_words.rs` |
+| D-DRAM-P3-6 | ordered u8-in-u32 compare proposal | Queued | this session proposes; ndarray owner |
+| D-DRAM-P3-7 | route once per frame, lab measurement | Queued | this session; production GATED EXO-46 |
+| D-DRAM-P3-8 | = D-DRAM-4 end-to-end, decision memo | GATED | D4 + S-INGRESS (#1788) |
+
+**D-DRISA lab (2026-11-04): this session executes EXO-153 stages 1 and 3** ([memos](../plans/d-drisa-decision-memos-v1.md); architecture #1953, a GPT-session plan adopted after review).
+
+| D-id | Deliverable | Status | Owner / gate |
+| --- | --- | --- | --- |
+| D-DRISA-1-LAB | sealed DR frame as a local register file over borrowed SoA | Measured: 13/13 tests, 6 disables red, 0 allocations/query, +0.04–0.6 µs revalidation; [entry](entries/2026-11-04-d-drisa-1-register-proof.md) | this session; lab crate `drisa-register-probe` |
+| D-DRISA-3-LAB | k-of-n / Kleene / Bag on the shipped carry words | Measured: semantics exact (19/19, 7 disables red); 1.5–4.8× slower than native words in all 8 shapes; [entry](entries/2026-11-04-d-drisa-3-alu-semantics.md) | this session; ndarray / Quack owners |
+| D-DRISA-M1 | layout witness on the canonical SoA | Proposed | SoA / DR owner |
+| D-DRISA-M2 | global id → tile index, or co-addressed selections | Proposed | EXO-46 |
+| D-DRISA-M3 | result-register lifetime across calls | Proposed | result owner |
+| D-DRISA-M4 | source-location receipt | Deferred | EXO-46/89/151 |
+| D-DRISA-M5 | DR → Lance row authority | Unchanged, GATED | D4 / S-INGRESS |
+| D-DRISA-M6 | carry words as the default ALU | Proposed: refuse on current evidence | ndarray / Quack owners |
+| D-DRISA-M7 | async loopback (stage 2) as a lab | Proposed: after review of stage 1 | runtime / security review |
+
+Verified: ndarray #402 half/full adder words and #390 byte sum shipped, `Abacus<BITS>` lab-only; DR `LocalMap` is identity-only; H14c/H14d and #1633 selective Lance reads are lab. Unverified: exact operator-mentioned `ndarray::simd::5x24::*` signature. **Borrow/prefetch default; materialized foreign facet only under D-DRF-1 §5 admission.**
+
 ## D-DT64-7 — behaviour addressing and registration: Frozen, Learned, Explore over one classid (2026-10-31)
 
 Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs only. Frozen = compile time, at `0xFFFF :: 0xF###`, registered by DT64 as delegate for `lance-graph-ogar` without `ogar-vocab` (concern by range: relalg `F0__`, XLOG `F1__`, ONNX `F2__`, TF family incl. TFLite `F3__`, SQL-specific `F4__`, Gremlin-specific `F5__`; DECIDED O7); Learned = registered in the `BindStore` at `Domain::AppId :: 0xF###`; Explore = not registered. Right side = ClassView / `WideFieldMask` selection. O7–O10 DECIDED (plan §1d): host composition, full-classid basis for behaviour lenses, consumer-supplied `ClassView` with a basis witness.
@@ -14,6 +136,10 @@ Plan: `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`. Docs onl
 | D-DT64-7-L4 | production alias views (R2IL, SQL, Quack) from `POLYFILL` | In progress | — |
 | D-DT64-7-L1 | full-classid basis for behaviour lenses (contract `ClassView` accessor) | Queued | after L4 |
 | D-DT64-7-L5 | consumer `ClassView` + immutable basis witness at registration | Queued | after L1 |
+| D-DT64-7-L5a | exact `predicate_iri` basis witness in `register` / `check_basis` (Decision J, plan §1f); flips N1/N4 FINDING tests | In PR | branch `ccr-8062bcc7-l7lkz9-l5a`, stacked on L5b (#1976) |
+| D-DT64-7-L5b | revision-keyed historical basis accessor on `ClassView` (default `None`, O9 pattern); flips the replay FINDING | In PR | branch `ccr-8062bcc7-l7lkz9-l5b`, stacked on #1975; land with or before L5a |
+| D-DT64-7-L5c | `MethodRef` + `plan_id` carry class `SchemaRev` and basis digest | Queued | after L5a |
+| D-DT64-7-L5d | test-only `LaneBinding` → R2IL `FieldLanes`, with coordinate, scope, mapping and permit refusals | Queued | after L5a; EXO-46 for any production use |
 | D-DT64-7-L2 | host composition of DT64 and OGAR authorities + views, with activation checks (L3) | Queued | after L5 |
 | D-DT64-7-5 | the versioned global → local table, a BindStore plan item (plan §1e; Litho is a mental model, folded into the bind store plan as D-DT64-6 Amendment A) | Core shipped (#1905): `dr::MapTable`; stored selections (D7') wait on O4 | O4 for the selection half |
 
@@ -41,7 +167,7 @@ Plan: `.claude/plans/d-dynbag-holographic-bags-v1.md`. Plan only.
 | D-DYNBAG-1 | ℕ-compose probe: `matmul_i8_to_i32` over two DR64² tiles for `p(X, Z)`; B projection = `relcomp::compose` | In PR: exact vs both oracles (300 cases), projection = compose; MEASURED ~21 µs/tile on the AVX-512 VNNI tier (no AMX) vs 50 ns–2.4 µs for B (plan §7.6) | D-DYNBAG-0 |
 | D-DYNBAG-2 | semiring parameter K (B, ℕ) in relalg `Rel` + Quack surface; typed refusal per (op, K) | Queued | D-DYNBAG-1 |
 | D-DYNBAG-3 | missing ℕ words backend-first (i64 masked select, min, truncated minus, compare-to-mask, masked sum; maybe bit-packed product) | Queued | D-DYNBAG-2 |
-| D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Queued | DT64 `dr` owner |
+| D-DYNBAG-4 | DR{dynamic}: width from survivor count, multi-tile map, cross-tile fold/compose | Shipped (partial, #1923 merged `2e19a5adc`): `Axis::for_survivors` (width rule), `MapTable::locate` (global → (tile, local)), versioned append-only index (`map(frame)` replays the frame's layout, `map_at(RouteVersion)`, shared `VersionClock`), xlog `Cube::new_tiled` + `closure_wide` (cross-tile closure). Plans `d-codegraph-0-wide-closure-v1.md`, `d-dynbag-4-dr-versioned-mapping-v1.md`. Open: cross-tile ℕ-compose (§7.4) | DT64 `dr` owner |
 | D-DYNBAG-5 | `sql-quack-probe` modelled on `lance-graph-cypher-quack` | Queued | parser decision |
 | D-DYNBAG-6 | scoreboard vs DuckDB / PostgreSQL, ns units, losses reported | Queued | D-DYNBAG-5 |
 | D-DYNBAG-7 | second Datalog frontend (Scallop) through the same path | Queued | D-DYNBAG-2 |
@@ -230,6 +356,31 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | **D-DTM-P8** | two-node end-to-end cost and verified reasoning reuse test | PROPOSED / NOT RUN | full cost vs independent baseline; warm/cold, 1/8/64/256 repeats, stale/failure cases |
 
 **Evidence boundaries:** D-SAG-6 #1760 merged docs; Math Foundry #1693/#1694 E1 lab merged; D-NFC #1753 native-first; #1775 D-DRAV draft / AV1–AV12 NOT RUN; MORK oracle with unresolved production licence/allocator; EXO-148 stable durable types unresolved. No complete distributed reasoning implementation or measured AI/data-center scaling claim.
+
+## D-CODEGRAPH-0 — resident Codegraph: Charon → ruff → lance-graph + crai-rs (2026-11-02)
+
+Plan: [d-codegraph-0-resident-codegraph-v1.md](../plans/d-codegraph-0-resident-codegraph-v1.md). Entry: [gap map](entries/2026-11-02-d-codegraph-0-gap-map.md).
+
+| D-id | scope | status | gate / falsifier |
+|---|---|---|---|
+| **D-CODEGRAPH-0-A** | ruff `ruff_charon`: LLBC → Kythe facts with a witness status per call, for one real crate | SHIPPED: ruff #129 (merged `9913e90946`), lance-graph #1918 (merged `c11e4262e`): calls byte-identical to `llbc_calls.py` on the fixture and `mask-risc`; receipt conserved (16,149); Kythe `/xrefs` 3/3 call pins | rust-analyzer oracle (`sag-ra-probe GRAPH=1`) and rustc on `fixtures/codegraph`; `POSSIBLE` never counted as a confirmed caller |
+| **D-CODEGRAPH-0-B** | resident rows via the ruff sink; per-file digests; incremental invalidation | LANDED (offline form): ruff #130 (merged `95be2e480b`; offline store in `ruff_charon`; `RefinedTruthSink` not reused, typed to R2IL). Incremental == clean on the fixture, byte-identical; skipped dependent leaves exactly one dangling edge. Follow-up fixes in ruff #131 (open). Lance-graph SoA residency still open | clean import == incremental import |
+| **D-CODEGRAPH-0-C** | callers / callees / impact / diagnostics; tiled closure; body → R2IL design check | SHIPPED (fixture scale): ruff #132 (merged `ed8fd4194f`, rows v2) + lance-graph #1921 (merged `4ab93bf3e`), `crates/lance-graph-codegraph` (queries as confirmed / possible / unknown masks over the xlog cube; dead function, unresolved call, dangling call; unused import NOT_RUN). 27 tests, 12 disable runs red. Tiled closure deferred: refusals `ClosureWidth` (> 64) and `TooMany` (> 256) are surfaced as typed UNKNOWN | each guard disable-verified; unused import proven only without macros, traits, globs, re-exports |
+| **D-CODEGRAPH-0-C2** | wide closure (multi-word rows, block presence), multi-tile cube, merge-on-read refresh, interned lanes | SHIPPED: #1923 (merged `2e19a5adc`). Impact over any size; mask-risc store (695 symbols, 3 tiles): impact 286 ns, callers 29 µs, references 45 µs; refresh of an unchanged crate 1.5–1.7 ms = FAILED gate (reading the 2.5 MB text file), fixed by D-CODEGRAPH-0-BIN. `refresh_crate` atomic (prepare → validate → commit: staged interner, positions, tile map, `Cube::stage`, closure; commit has no error path); codegraph suites now in `rust-test.yml` | narrow vs wide bit-identical ≤ 64; BFS reference on 694 positions; refresh == clean open; a refused refresh changes nothing (NeedsReopen, injected stage and closure refusals; no version issued); retry == the refresh that never failed, call-site multiplicity included; 7 disable runs red |
+| **D-XLOG-WIRE** | XLOG wiring gaps W1–W8 to the hot path (magic report, polarity, estimates, degree producer, dormant Fixpoint, semi-naive owner, F100 execution, plan identity) | Queued: plan `xlog-wiring-to-hot-path-v1.md`; gates D-CODEGRAPH-0-BIN B3; W7 and W5 need operator decisions | each gap's named falsifier (reach/far, P-A3, triangle probe, degree regret, P-A4a/b, P-I1) |
+| **D-CODEGRAPH-0-BIN** | ruff_charon binary row lanes + header digest; codec9 small codebooks; Quack counting; no strings in the hot path; provenance header + per-row `(artifact, FunDeclId)`; `INVOKES_WORD` to a registered DT64 word | DEFERRED (operator 2026-11-03): B3 waits until strings are outside the hot path and the XLOG wiring-gap list (6+ gaps, the polyfill among them) has reached the hot path; any remaining string is taken off at the codebook label ("wardrobe"). PLATEAU (operator 2026-11-02): reader merged as lance-graph #1929 `4fadef69d` — rows.bin intake + header-only unchanged refresh 2.58 µs (met); changed-crate 2.5 ms vs ≤1 ms gate NOT met (`Symbols::intern` 2.04 ms) → B3 interner open, then re-run gate; F7 Quack counting open. WRITER SHIPPED: ruff #133 merged `6c3d1bf8da` (follow-up ruff #134: stale `rows.tsv` removed when export is off; section offsets past 4 GiB refused, both from Codex review); reader PR B unblocked. ruff #133 `ruff_charon` `store_bin.rs` + `Store` wiring — format §2 + PROV/FUNDECL/OBJ_KIND (ARTREF elided, one artifact), verifying reader with one refusal per shape, golden `cg_lib.rows.bin`; 32 new tests, 6 disables red; TSV export stays ON by default until PR B (lance-graph reader) lands, then flips; `INVOKES_WORD` still OPEN (association source). Plan `d-codegraph-0-binary-lanes-v1.md` (operator: graph-wide u32 ids, TSV kept as debug `open_tsv`; Amendment A §8: PROV section, FUNDECL/ARTREF lanes, `INVOKES_WORD`, F9–F12). Ruff writer PR first, then the codegraph reader. OPEN: source of the "function realises word" association | unchanged refresh ≤ 20 µs; changed-crate open ≤ 1 ms; binary == TSV row for row |
+| **D-TGL-0** | GitHub-analogue Thought-Git lifecycle as a shared contract (branch → change → diff → PR → checks → review → rebase/squash → land → receipt/replay; rework / discard) for Codegraph, DT64, XLOG | CONTRACT (docs): plan `thought-git-lifecycle-contract-v1.md`; PR states are readings of existing records, no workflow engine | each step expressible with listed primitives |
+| **D-TGL-LAB** | Codegraph lab: F-LAND / F-DISCARD | SHIPPED (lab, crate-private): `prepare_refresh` / `commit_refresh` with a generation fence (`RefreshRefusal::Stale`); second branch recomputed against current W0 == clean open incl. call-site counts; discard leaves W0 unchanged; 2 disables red (without the fence only a `debug_assert` catches the collision) | not a production land |
+| **D-TGL-G8** | bag semantics: merge source revisions, never raw edge ADDs | DECIDED (contract §4) | 5 call sites from two sources after both land (F-LAND) |
+| **D-TGL-G9** | lifecycle gate | OPEN (production) | D-TGA-1/3/4/6, D-TGB-2/3/5 delivered against the contract table |
+| **D-TGL-G10** | atomic publication: prepare all, durable commit first, then infallible in-memory apply from the land record, replay after crash | OPEN (production); named gap: no prepare/validate route API on `BindStore` | a `Fenced` leaves no published partial state |
+| **D-TGL-G11** | branch-local routing; no branch-minted DR position as durable routing key | OPEN (production) | a branch route leaves `BindStore::current_version()` unchanged until land |
+| **D-TGL-G12** | identities apart: W-slot, generation, ThoughtCommitId, DurableRef, RouteVersion, Lance version, source SHA (provenance only) | OPEN (production) | joins only through receipt / CommitWitness / MetaKey / land record |
+| **D-TGL-PUB** | G10 × G11 lab: prepared land (Codegraph + DT64 route intent), fenced durable commit through a test `WalSink`, crash recovery from the durable record, branch-local routing | SPEC: plan `g10-g11-atomic-publication-lab-v1.md`; boundaries B1–B5 located. Step 1 SHIPPED (lab-ready): `BindStore::check_route` (read-only; `route` runs the same `RouteLog::check`), 3 tests, 3 disables red. Step 2 SHIPPED (lab): `LabWal` in `lance-graph-codegraph/src/lab_wal.rs` (test-only `WalSink`: fence, one version per commit, reconcile, `HashConflict`, payload-free scan, image read, injected I/O / Ambiguous faults), 4 tests, 4 disables red; planner is a dev-dependency, one ndarray via `[patch]`. Step 3 SHIPPED (lab): `graph/publication.rs`, L1–L6 green, 5 disables red at the intended assertion (L4: Codegraph unchanged, `RouteVersion` 1 → 2; L6 without the canonical sort silently loses cycle 1). EXO-148 locked; no production land | L1–L6, each with a disable; L4 shows route re-application ticks `RouteVersion` without a watermark |
+| **D-TGL-EXO148** | `DurableRef` + never-reused `ThoughtCommitId` before any durable land, replay or PR record | OPEN (production, EXO-148) | reuse test (D-RST-1) |
+| **D-DT64-AUTH** | DT64 / F### as the one method authority: census of production words with a two-way exception ratchet; parallel identities (`MethodSignature`, tract `Registry`, XLOG `Word`, ogar-loco `FnIndex`) stay as listed `LAB` adapters | SHIPPED (census): `crates/lance-graph-r2il/dt64-authority-census.tsv` (2 LENS rows, 6 LAB rows), r2il census 6 tests + xlog census 1 test, 4 disables red (entry `2026-11-02-d-dt64-auth-census-shipped`); plan `d-dt64-method-authority-census-v1.md` (operator decision 2026-11-02); egglog pinned to one commit in `egglog-r2il-probe`, `dr-math-binding-probe`, `xlog-relcomp-probe` | undeclared production word → red; stale exception → red; current tree green |
+| **D-CODEGRAPH-0-D** | local stdio MCP over C | QUEUED | only after B and C gates |
+| **D-CODEGRAPH-0-E** | token measurement with and without the Codegraph | QUEUED | same revision, questions, model; nothing claimed before measured |
 
 ## D-SAG-6 — Rust Codegraph → Mathematics → Logic → Tracert (2026-10-24)
 

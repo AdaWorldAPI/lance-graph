@@ -310,6 +310,11 @@ def render(doc, raw, entries):
             terminal, ", ".join("%s %d" % (s, counts.get(s, 0))
                                 for s in TERMINAL_STATES if counts.get(s))),
         "",
+        "**No new entries here.** New epiphanies are Linear issues in project",
+        "`lance-graph · Epiphanies` (`P-EXO-12`), one issue per epiphany, titled",
+        "`EPIPHANY: E-<NAME>-<n> — <claim>`, behind the same admission gate. This",
+        "table and its decisions file only change to consolidate archive rows.",
+        "",
         "The ARCHIVE is the record: lossless, immutable, never appended to, and never",
         "read by routine work. This table is the PROJECTION and is lossy by design —",
         "successive iterations of one mechanism (hypothesis, correction, measured",

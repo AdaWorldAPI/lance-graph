@@ -71,6 +71,18 @@ Why it is load-bearing, not hygiene:
 > operator's words: *"agents are never supposed to append to the same file, but
 > instead it's an agent tag file … appending to the same log is illogical."*
 
+> ⊘ SUPERSEDED 2026-11-06 (operator): the orchestrator's consolidated record no
+> longer goes into `AGENT_LOG.md`, which is now the frozen historical record
+> (read it, never append). Wherever this document says the supervisor or
+> orchestrator "prepends" or "writes" the `AGENT_LOG.md` entry, read: the
+> orchestrator posts one issue per brief/wave in Linear project
+> **lance-graph · Agent2Agent Board** (`P-EXO-10`), titled
+> `A2A: <slice> — <what>`, with hand-backs as comments and blockers as
+> `BLOCKED: …` issues. The one-writer rule is unchanged: workers and executors
+> write only their own tag-file or `exec-runs/<task-slug>.txt`; the
+> orchestrator is the sole poster. Decisions go to **lance-graph · Decisions**
+> (`P-EXO-11`).
+
 ## Why Haiku for execution
 
 Compilation/test loops drain token budget mostly through TOOL OUTPUT tokens,
@@ -299,8 +311,9 @@ brief, never by asking for shallower reading.
    re-runs at least one reported command and compares.
 3. **Absence is never taken from Haiku.** A `hits: 0` sends the orchestrator
    to Read the place the thing would live, as for any search.
-4. **Record every run.** The orchestrator's `AGENT_LOG.md` entry for a wave
-   that used Haiku lists, per card: runs, items spot-checked, items wrong,
+4. **Record every run.** The orchestrator's record for a wave (Linear
+   Agent2Agent Board issue `P-EXO-10`; formerly the `AGENT_LOG.md` entry,
+   ⊘ 2026-11-06) that used Haiku lists, per card: runs, items spot-checked, items wrong,
    items missed (found later by a stronger agent or a Read).
 5. **Drop back on repeat failure.** A card that misses a hit, miscounts or
    states a conclusion twice on one kind of task is not used for that kind

@@ -1,0 +1,301 @@
+env: cpu=Intel(R) Xeon(R) Processor @ 2.10GHz avx2=true avx512f=true rustc=unknown
+
+## n = 256
+
+| arm | ingress µs | bytes resident |
+|---|---|---|
+| aos | 88.2 | 131104 |
+| soa-u64 | 90.4 | 131104 |
+| soa-narrow | 93.4 | 68384 |
+| soa-bitpack | 85.9 | 54752 |
+| hash-row | 130.1 | 239936 |
+
+| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |
+|---|---|---|---|---|---|---|
+| aos | CountWhere | 1.168 | 16.254 | 0.30 | 0 | 2048 |
+| aos | SumWhere | 1.195 | 17.324 | 0.31 | 0 | 2048 |
+| aos | SumPresentC | 1.152 | 17.512 | 0.29 | 0 | 2048 |
+| aos | DemandFold d=1 | 1.016 | 17.156 | 0.26 | 0 | 2048 |
+| aos | DemandFold d=3 | 1.609 | 17.434 | 0.41 | 0 | 2048 |
+| aos | DemandFold d=8 | 3.812 | 16.887 | 0.98 | 0 | 2048 |
+| aos | DemandFold d=32 | 4.656 | 23.859 | 1.19 | 0 | 2048 |
+| aos | DemandFold d=64 | 7.258 | 25.070 | 1.86 | 0 | 2048 |
+| aos | Point 1024 | 0.932 | 4.437 | 0.95 | 0 | 1024 |
+| soa-u64 | CountWhere | 0.195 | 3.680 | 0.05 | 0 | 32 |
+| soa-u64 | SumWhere | 0.402 | 4.250 | 0.10 | 0 | 64 |
+| soa-u64 | SumPresentC | 0.562 | 5.047 | 0.14 | 0 | 65 |
+| soa-u64 | DemandFold d=1 | 0.191 | 3.801 | 0.05 | 0 | 32 |
+| soa-u64 | DemandFold d=3 | 0.348 | 4.590 | 0.09 | 0 | 96 |
+| soa-u64 | DemandFold d=8 | 0.730 | 6.059 | 0.19 | 0 | 256 |
+| soa-u64 | DemandFold d=32 | 4.660 | 20.562 | 1.19 | 0 | 1024 |
+| soa-u64 | DemandFold d=64 | 8.664 | 29.715 | 2.22 | 0 | 2048 |
+| soa-u64 | Point 1024 | 0.780 | 2.734 | 0.80 | 0 | 5120 |
+| soa-narrow | CountWhere | 0.227 | 4.332 | 0.06 | 0 | 4 |
+| soa-narrow | SumWhere | 0.816 | 7.191 | 0.21 | 0 | 36 |
+| soa-narrow | SumPresentC | 0.500 | 6.848 | 0.13 | 0 | 13 |
+| soa-narrow | DemandFold d=1 | 0.223 | 3.766 | 0.06 | 0 | 4 |
+| soa-narrow | DemandFold d=3 | 0.387 | 5.793 | 0.10 | 0 | 44 |
+| soa-narrow | DemandFold d=8 | 0.836 | 7.473 | 0.21 | 0 | 72 |
+| soa-narrow | DemandFold d=32 | 2.895 | 16.047 | 0.74 | 0 | 480 |
+| soa-narrow | DemandFold d=64 | 6.473 | 28.641 | 1.66 | 0 | 1068 |
+| soa-narrow | Point 1024 | 2.313 | 4.195 | 2.37 | 0 | 5120 |
+| soa-bitpack | CountWhere | 1.055 | 5.199 | 0.27 | 0 | 2 |
+| soa-bitpack | SumWhere | 1.812 | 6.320 | 0.46 | 0 | 34 |
+| soa-bitpack | SumPresentC | 1.988 | 6.180 | 0.51 | 0 | 11 |
+| soa-bitpack | DemandFold d=1 | 1.023 | 4.934 | 0.26 | 0 | 2 |
+| soa-bitpack | DemandFold d=3 | 2.852 | 7.582 | 0.73 | 0 | 42 |
+| soa-bitpack | DemandFold d=8 | 7.438 | 11.812 | 1.90 | 0 | 63 |
+| soa-bitpack | DemandFold d=32 | 30.391 | 43.270 | 7.78 | 0 | 389 |
+| soa-bitpack | DemandFold d=64 | 61.078 | 103.582 | 15.64 | 0 | 858 |
+| soa-bitpack | Point 1024 | 3.979 | 5.847 | 4.08 | 0 | 5120 |
+| hash-row | CountWhere | 9.125 | 43.812 | 2.34 | 0 | 2048 |
+| hash-row | SumWhere | 9.676 | 37.438 | 2.48 | 0 | 2048 |
+| hash-row | SumPresentC | 9.949 | 40.074 | 2.55 | 0 | 2048 |
+| hash-row | DemandFold d=1 | 9.332 | 36.453 | 2.39 | 0 | 2048 |
+| hash-row | DemandFold d=3 | 10.090 | 37.859 | 2.58 | 0 | 2048 |
+| hash-row | DemandFold d=8 | 11.801 | 50.824 | 3.02 | 0 | 2048 |
+| hash-row | DemandFold d=32 | 13.832 | 64.672 | 3.54 | 0 | 2048 |
+| hash-row | DemandFold d=64 | 17.941 | 62.664 | 4.59 | 0 | 2048 |
+| hash-row | Point 1024 | 10.976 | 20.599 | 11.24 | 0 | 1024 |
+
+identity lookups: ingress via G2L = 256; SumWhere sweep: soa-u64 = 0, hash-row = 256
+
+## n = 513
+
+| arm | ingress µs | bytes resident |
+|---|---|---|
+| aos | 193.4 | 262728 |
+| soa-u64 | 154.5 | 262728 |
+| soa-narrow | 146.1 | 137043 |
+| soa-bitpack | 230.7 | 110024 |
+| hash-row | 278.2 | 479880 |
+
+| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |
+|---|---|---|---|---|---|---|
+| aos | CountWhere | 1.097 | 16.125 | 0.56 | 0 | 4104 |
+| aos | SumWhere | 1.150 | 13.918 | 0.59 | 0 | 4104 |
+| aos | SumPresentC | 1.072 | 13.353 | 0.55 | 0 | 4104 |
+| aos | DemandFold d=1 | 0.940 | 13.230 | 0.48 | 0 | 4104 |
+| aos | DemandFold d=3 | 1.530 | 13.694 | 0.79 | 0 | 4104 |
+| aos | DemandFold d=8 | 3.733 | 12.649 | 1.92 | 0 | 4104 |
+| aos | DemandFold d=32 | 4.519 | 20.986 | 2.32 | 0 | 4104 |
+| aos | DemandFold d=64 | 5.524 | 26.394 | 2.83 | 0 | 4104 |
+| aos | Point 1024 | 0.965 | 5.634 | 0.99 | 0 | 1024 |
+| soa-u64 | CountWhere | 0.135 | 2.230 | 0.07 | 0 | 65 |
+| soa-u64 | SumWhere | 0.378 | 2.741 | 0.19 | 0 | 130 |
+| soa-u64 | SumPresentC | 0.715 | 3.045 | 0.37 | 0 | 132 |
+| soa-u64 | DemandFold d=1 | 0.135 | 2.248 | 0.07 | 0 | 65 |
+| soa-u64 | DemandFold d=3 | 0.267 | 3.076 | 0.14 | 0 | 195 |
+| soa-u64 | DemandFold d=8 | 0.702 | 4.799 | 0.36 | 0 | 520 |
+| soa-u64 | DemandFold d=32 | 3.951 | 16.799 | 2.03 | 0 | 2080 |
+| soa-u64 | DemandFold d=64 | 7.776 | 25.606 | 3.99 | 0 | 4160 |
+| soa-u64 | Point 1024 | 0.760 | 2.906 | 0.78 | 0 | 5120 |
+| soa-narrow | CountWhere | 0.160 | 2.407 | 0.08 | 0 | 9 |
+| soa-narrow | SumWhere | 0.752 | 3.452 | 0.39 | 0 | 74 |
+| soa-narrow | SumPresentC | 0.505 | 3.133 | 0.26 | 0 | 28 |
+| soa-narrow | DemandFold d=1 | 0.158 | 2.160 | 0.08 | 0 | 9 |
+| soa-narrow | DemandFold d=3 | 0.329 | 3.489 | 0.17 | 0 | 91 |
+| soa-narrow | DemandFold d=8 | 0.795 | 4.778 | 0.41 | 0 | 152 |
+| soa-narrow | DemandFold d=32 | 3.390 | 12.692 | 1.74 | 0 | 992 |
+| soa-narrow | DemandFold d=64 | 6.793 | 24.472 | 3.48 | 0 | 2200 |
+| soa-narrow | Point 1024 | 2.314 | 4.345 | 2.37 | 0 | 5120 |
+| soa-bitpack | CountWhere | 0.984 | 3.335 | 0.51 | 0 | 5 |
+| soa-bitpack | SumWhere | 1.692 | 4.413 | 0.87 | 0 | 70 |
+| soa-bitpack | SumPresentC | 1.975 | 4.665 | 1.01 | 0 | 24 |
+| soa-bitpack | DemandFold d=1 | 0.922 | 3.363 | 0.47 | 0 | 5 |
+| soa-bitpack | DemandFold d=3 | 2.657 | 5.749 | 1.36 | 0 | 87 |
+| soa-bitpack | DemandFold d=8 | 7.012 | 10.226 | 3.60 | 0 | 133 |
+| soa-bitpack | DemandFold d=32 | 28.827 | 39.191 | 14.79 | 0 | 807 |
+| soa-bitpack | DemandFold d=64 | 57.961 | 78.043 | 29.73 | 0 | 1774 |
+| soa-bitpack | Point 1024 | 3.862 | 6.181 | 3.96 | 0 | 5120 |
+| hash-row | CountWhere | 9.096 | 39.988 | 4.67 | 0 | 4104 |
+| hash-row | SumWhere | 9.665 | 34.127 | 4.96 | 0 | 4104 |
+| hash-row | SumPresentC | 8.554 | 37.355 | 4.39 | 0 | 4104 |
+| hash-row | DemandFold d=1 | 9.359 | 34.665 | 4.80 | 0 | 4104 |
+| hash-row | DemandFold d=3 | 10.404 | 37.977 | 5.34 | 0 | 4104 |
+| hash-row | DemandFold d=8 | 11.959 | 43.684 | 6.13 | 0 | 4104 |
+| hash-row | DemandFold d=32 | 13.741 | 65.867 | 7.05 | 0 | 4104 |
+| hash-row | DemandFold d=64 | 17.809 | 52.610 | 9.14 | 0 | 4104 |
+| hash-row | Point 1024 | 11.157 | 26.410 | 11.43 | 0 | 1024 |
+
+identity lookups: ingress via G2L = 513; SumWhere sweep: soa-u64 = 0, hash-row = 513
+
+## n = 4096
+
+| arm | ingress µs | bytes resident |
+|---|---|---|
+| aos | 1310.3 | 2097664 |
+| soa-u64 | 1664.6 | 2097664 |
+| soa-narrow | 1125.6 | 1094144 |
+| soa-bitpack | 1345.8 | 876032 |
+| hash-row | 2462.6 | 3838976 |
+
+| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |
+|---|---|---|---|---|---|---|
+| aos | CountWhere | 3.346 | 11.855 | 13.71 | 0 | 32768 |
+| aos | SumWhere | 3.554 | 11.678 | 14.56 | 0 | 32768 |
+| aos | SumPresentC | 3.380 | 11.664 | 13.85 | 0 | 32768 |
+| aos | DemandFold d=1 | 3.427 | 11.240 | 14.04 | 0 | 32768 |
+| aos | DemandFold d=3 | 3.858 | 13.563 | 15.80 | 0 | 32768 |
+| aos | DemandFold d=8 | 6.545 | 15.143 | 26.81 | 0 | 32768 |
+| aos | DemandFold d=32 | 9.224 | 24.861 | 37.78 | 0 | 32768 |
+| aos | DemandFold d=64 | 11.538 | 21.260 | 47.26 | 0 | 32768 |
+| aos | Point 1024 | 1.218 | 9.438 | 1.25 | 0 | 1024 |
+| soa-u64 | CountWhere | 0.069 | 0.871 | 0.28 | 0 | 512 |
+| soa-u64 | SumWhere | 0.381 | 1.188 | 1.56 | 0 | 1024 |
+| soa-u64 | SumPresentC | 0.663 | 1.555 | 2.71 | 0 | 1032 |
+| soa-u64 | DemandFold d=1 | 0.069 | 0.630 | 0.28 | 0 | 512 |
+| soa-u64 | DemandFold d=3 | 0.349 | 1.730 | 1.43 | 0 | 1536 |
+| soa-u64 | DemandFold d=8 | 0.921 | 3.867 | 3.77 | 0 | 4096 |
+| soa-u64 | DemandFold d=32 | 3.709 | 17.932 | 15.19 | 0 | 16384 |
+| soa-u64 | DemandFold d=64 | 12.142 | 25.525 | 49.73 | 0 | 32768 |
+| soa-u64 | Point 1024 | 1.606 | 9.430 | 1.65 | 0 | 5120 |
+| soa-narrow | CountWhere | 0.096 | 0.418 | 0.39 | 0 | 64 |
+| soa-narrow | SumWhere | 0.670 | 1.595 | 2.74 | 0 | 576 |
+| soa-narrow | SumPresentC | 0.476 | 0.884 | 1.95 | 0 | 200 |
+| soa-narrow | DemandFold d=1 | 0.094 | 0.433 | 0.39 | 0 | 64 |
+| soa-narrow | DemandFold d=3 | 0.252 | 1.119 | 1.03 | 0 | 704 |
+| soa-narrow | DemandFold d=8 | 0.732 | 1.883 | 3.00 | 0 | 1152 |
+| soa-narrow | DemandFold d=32 | 2.883 | 9.302 | 11.81 | 0 | 7680 |
+| soa-narrow | DemandFold d=64 | 5.742 | 22.561 | 23.52 | 0 | 17088 |
+| soa-narrow | Point 1024 | 2.253 | 8.652 | 2.31 | 0 | 5120 |
+| soa-bitpack | CountWhere | 0.892 | 1.162 | 3.65 | 0 | 32 |
+| soa-bitpack | SumWhere | 1.537 | 2.380 | 6.30 | 0 | 544 |
+| soa-bitpack | SumPresentC | 2.012 | 2.264 | 8.24 | 0 | 168 |
+| soa-bitpack | DemandFold d=1 | 0.859 | 1.126 | 3.52 | 0 | 32 |
+| soa-bitpack | DemandFold d=3 | 2.563 | 4.011 | 10.50 | 0 | 672 |
+| soa-bitpack | DemandFold d=8 | 6.854 | 7.763 | 28.07 | 0 | 1000 |
+| soa-bitpack | DemandFold d=32 | 28.190 | 34.840 | 115.47 | 0 | 6200 |
+| soa-bitpack | DemandFold d=64 | 52.241 | 77.091 | 213.98 | 0 | 13680 |
+| soa-bitpack | Point 1024 | 3.884 | 11.182 | 3.98 | 0 | 5120 |
+| hash-row | CountWhere | 9.625 | 57.255 | 39.42 | 0 | 32768 |
+| hash-row | SumWhere | 10.584 | 31.262 | 43.35 | 0 | 32768 |
+| hash-row | SumPresentC | 11.238 | 40.340 | 46.03 | 0 | 32768 |
+| hash-row | DemandFold d=1 | 10.107 | 28.505 | 41.40 | 0 | 32768 |
+| hash-row | DemandFold d=3 | 11.636 | 33.633 | 47.66 | 0 | 32768 |
+| hash-row | DemandFold d=8 | 12.630 | 33.289 | 51.73 | 0 | 32768 |
+| hash-row | DemandFold d=32 | 17.718 | 46.632 | 72.57 | 0 | 32768 |
+| hash-row | DemandFold d=64 | 32.551 | 48.375 | 133.33 | 0 | 32768 |
+| hash-row | Point 1024 | 12.884 | 41.599 | 13.19 | 0 | 1024 |
+
+identity lookups: ingress via G2L = 4096; SumWhere sweep: soa-u64 = 0, hash-row = 4096
+
+## n = 65536
+
+| arm | ingress µs | bytes resident |
+|---|---|---|
+| aos | 23168.5 | 33562624 |
+| soa-u64 | 23299.1 | 33562624 |
+| soa-narrow | 25055.1 | 17506304 |
+| soa-bitpack | 22747.1 | 14016512 |
+| hash-row | 50865.5 | 61423616 |
+
+| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |
+|---|---|---|---|---|---|---|
+| aos | CountWhere | 12.658 | 14.976 | 829.57 | 0 | 524288 |
+| aos | SumWhere | 10.780 | 14.662 | 706.49 | 0 | 524288 |
+| aos | SumPresentC | 10.969 | 16.223 | 718.89 | 0 | 524288 |
+| aos | DemandFold d=1 | 10.892 | 16.648 | 713.84 | 0 | 524288 |
+| aos | DemandFold d=3 | 14.127 | 16.695 | 925.83 | 0 | 524288 |
+| aos | DemandFold d=8 | 14.513 | 18.873 | 951.12 | 0 | 524288 |
+| aos | DemandFold d=32 | 19.217 | 26.939 | 1259.39 | 0 | 524288 |
+| aos | DemandFold d=64 | 20.994 | 33.943 | 1375.84 | 0 | 524288 |
+| aos | Point 1024 | 1.310 | 18.350 | 1.34 | 0 | 1024 |
+| soa-u64 | CountWhere | 0.107 | 0.366 | 7.03 | 0 | 8192 |
+| soa-u64 | SumWhere | 0.672 | 0.881 | 44.06 | 0 | 16384 |
+| soa-u64 | SumPresentC | 1.038 | 1.518 | 68.04 | 0 | 16512 |
+| soa-u64 | DemandFold d=1 | 0.112 | 0.359 | 7.32 | 0 | 8192 |
+| soa-u64 | DemandFold d=3 | 0.395 | 1.500 | 25.86 | 0 | 24576 |
+| soa-u64 | DemandFold d=8 | 2.501 | 3.067 | 163.90 | 0 | 65536 |
+| soa-u64 | DemandFold d=32 | 11.034 | 16.255 | 723.12 | 0 | 262144 |
+| soa-u64 | DemandFold d=64 | 21.705 | 35.408 | 1422.46 | 0 | 524288 |
+| soa-u64 | Point 1024 | 2.391 | 24.494 | 2.45 | 0 | 5120 |
+| soa-narrow | CountWhere | 0.088 | 0.188 | 5.77 | 0 | 1024 |
+| soa-narrow | SumWhere | 0.663 | 1.555 | 43.44 | 0 | 9216 |
+| soa-narrow | SumPresentC | 1.039 | 1.110 | 68.12 | 0 | 3200 |
+| soa-narrow | DemandFold d=1 | 0.087 | 0.141 | 5.71 | 0 | 1024 |
+| soa-narrow | DemandFold d=3 | 0.244 | 0.946 | 16.01 | 0 | 11264 |
+| soa-narrow | DemandFold d=8 | 0.677 | 1.668 | 44.39 | 0 | 18432 |
+| soa-narrow | DemandFold d=32 | 6.381 | 7.045 | 418.17 | 0 | 122880 |
+| soa-narrow | DemandFold d=64 | 13.478 | 17.397 | 883.31 | 0 | 273408 |
+| soa-narrow | Point 1024 | 3.111 | 18.094 | 3.19 | 0 | 5120 |
+| soa-bitpack | CountWhere | 0.884 | 0.902 | 57.94 | 0 | 512 |
+| soa-bitpack | SumWhere | 1.623 | 2.010 | 106.38 | 0 | 8704 |
+| soa-bitpack | SumPresentC | 2.029 | 2.202 | 132.95 | 0 | 2688 |
+| soa-bitpack | DemandFold d=1 | 0.850 | 0.870 | 55.71 | 0 | 512 |
+| soa-bitpack | DemandFold d=3 | 2.364 | 3.764 | 154.96 | 0 | 10752 |
+| soa-bitpack | DemandFold d=8 | 6.455 | 8.188 | 423.03 | 0 | 16000 |
+| soa-bitpack | DemandFold d=32 | 33.237 | 42.935 | 2178.23 | 0 | 99200 |
+| soa-bitpack | DemandFold d=64 | 71.801 | 96.909 | 4705.53 | 0 | 218880 |
+| soa-bitpack | Point 1024 | 4.450 | 25.470 | 4.56 | 0 | 5120 |
+| hash-row | CountWhere | 35.163 | 48.249 | 2304.41 | 0 | 524288 |
+| hash-row | SumWhere | 33.448 | 45.851 | 2192.06 | 0 | 524288 |
+| hash-row | SumPresentC | 38.857 | 63.916 | 2546.56 | 0 | 524288 |
+| hash-row | DemandFold d=1 | 33.933 | 49.240 | 2223.81 | 0 | 524288 |
+| hash-row | DemandFold d=3 | 35.267 | 56.438 | 2311.26 | 0 | 524288 |
+| hash-row | DemandFold d=8 | 37.428 | 60.597 | 2452.90 | 0 | 524288 |
+| hash-row | DemandFold d=32 | 52.916 | 93.855 | 3467.91 | 0 | 524288 |
+| hash-row | DemandFold d=64 | 66.797 | 100.509 | 4377.58 | 0 | 524288 |
+| hash-row | Point 1024 | 15.479 | 90.812 | 15.85 | 0 | 1024 |
+
+identity lookups: ingress via G2L = 65536; SumWhere sweep: soa-u64 = 0, hash-row = 65536
+
+## n = 262144
+
+| arm | ingress µs | bytes resident |
+|---|---|---|
+| aos | 83570.0 | 134250496 |
+| soa-u64 | 85380.4 | 134250496 |
+| soa-narrow | 94612.0 | 70025216 |
+| soa-bitpack | 96384.0 | 56066048 |
+| hash-row | 270577.3 | 245694464 |
+
+| arm | query | warm ns/id | cold ns/id | warm µs total | allocs | lines touched |
+|---|---|---|---|---|---|---|
+| aos | CountWhere | 13.717 | 18.672 | 3595.88 | 0 | 2097152 |
+| aos | SumWhere | 11.454 | 17.521 | 3002.51 | 0 | 2097152 |
+| aos | SumPresentC | 11.845 | 15.880 | 3105.00 | 0 | 2097152 |
+| aos | DemandFold d=1 | 11.819 | 17.176 | 3098.23 | 0 | 2097152 |
+| aos | DemandFold d=3 | 12.940 | 20.895 | 3392.22 | 0 | 2097152 |
+| aos | DemandFold d=8 | 22.616 | 30.642 | 5928.76 | 0 | 2097152 |
+| aos | DemandFold d=32 | 42.926 | 43.271 | 11252.80 | 0 | 2097152 |
+| aos | DemandFold d=64 | 43.231 | 43.934 | 11332.69 | 0 | 2097152 |
+| aos | Point 1024 | 1.345 | 22.210 | 1.38 | 0 | 1024 |
+| soa-u64 | CountWhere | 0.169 | 0.377 | 44.25 | 0 | 32768 |
+| soa-u64 | SumWhere | 0.934 | 1.024 | 244.74 | 0 | 65536 |
+| soa-u64 | SumPresentC | 1.197 | 1.331 | 313.74 | 0 | 66048 |
+| soa-u64 | DemandFold d=1 | 0.173 | 0.338 | 45.27 | 0 | 32768 |
+| soa-u64 | DemandFold d=3 | 0.899 | 1.121 | 235.75 | 0 | 98304 |
+| soa-u64 | DemandFold d=8 | 2.532 | 4.195 | 663.62 | 0 | 262144 |
+| soa-u64 | DemandFold d=32 | 11.433 | 22.731 | 2997.05 | 0 | 1048576 |
+| soa-u64 | DemandFold d=64 | 54.609 | 54.588 | 14315.52 | 0 | 2097152 |
+| soa-u64 | Point 1024 | 6.702 | 29.867 | 6.86 | 0 | 5120 |
+| soa-narrow | CountWhere | 0.087 | 0.167 | 22.91 | 0 | 4096 |
+| soa-narrow | SumWhere | 1.008 | 1.054 | 264.30 | 0 | 36864 |
+| soa-narrow | SumPresentC | 1.102 | 1.155 | 289.01 | 0 | 12800 |
+| soa-narrow | DemandFold d=1 | 0.080 | 0.123 | 20.85 | 0 | 4096 |
+| soa-narrow | DemandFold d=3 | 0.487 | 0.545 | 127.63 | 0 | 45056 |
+| soa-narrow | DemandFold d=8 | 1.118 | 1.203 | 293.19 | 0 | 73728 |
+| soa-narrow | DemandFold d=32 | 6.252 | 9.847 | 1638.95 | 0 | 491520 |
+| soa-narrow | DemandFold d=64 | 13.366 | 22.343 | 3503.95 | 0 | 1093632 |
+| soa-narrow | Point 1024 | 3.606 | 19.503 | 3.69 | 0 | 5120 |
+| soa-bitpack | CountWhere | 0.896 | 0.893 | 234.80 | 0 | 2048 |
+| soa-bitpack | SumWhere | 1.815 | 1.767 | 475.83 | 0 | 34816 |
+| soa-bitpack | SumPresentC | 2.268 | 2.125 | 594.46 | 0 | 10752 |
+| soa-bitpack | DemandFold d=1 | 0.795 | 0.775 | 208.50 | 0 | 2048 |
+| soa-bitpack | DemandFold d=3 | 3.017 | 3.207 | 790.84 | 0 | 43008 |
+| soa-bitpack | DemandFold d=8 | 7.235 | 7.420 | 1896.61 | 0 | 64000 |
+| soa-bitpack | DemandFold d=32 | 57.457 | 57.792 | 15062.09 | 0 | 396800 |
+| soa-bitpack | DemandFold d=64 | 125.898 | 124.999 | 33003.40 | 0 | 875520 |
+| soa-bitpack | Point 1024 | 5.083 | 65.829 | 5.21 | 0 | 5120 |
+| hash-row | CountWhere | 100.170 | 98.183 | 26259.09 | 0 | 2097152 |
+| hash-row | SumWhere | 91.559 | 99.768 | 24001.77 | 0 | 2097152 |
+| hash-row | SumPresentC | 113.712 | 112.962 | 29808.97 | 0 | 2097152 |
+| hash-row | DemandFold d=1 | 92.881 | 96.346 | 24348.21 | 0 | 2097152 |
+| hash-row | DemandFold d=3 | 107.034 | 98.811 | 28058.19 | 0 | 2097152 |
+| hash-row | DemandFold d=8 | 110.703 | 112.066 | 29020.07 | 0 | 2097152 |
+| hash-row | DemandFold d=32 | 134.349 | 136.744 | 35218.84 | 0 | 2097152 |
+| hash-row | DemandFold d=64 | 162.042 | 162.770 | 42478.27 | 0 | 2097152 |
+| hash-row | Point 1024 | 17.890 | 158.186 | 18.32 | 0 | 1024 |
+
+identity lookups: ingress via G2L = 262144; SumWhere sweep: soa-u64 = 0, hash-row = 262144

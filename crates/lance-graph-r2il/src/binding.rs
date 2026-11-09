@@ -56,14 +56,16 @@
 //! WHEN and truth, which this reading cannot honour and so refuses; then
 //! every effect as above.
 //!
-//! [`run`]: the guards and the route again, and an explicit execution permit
-//! for the exact method reference. `admit` succeeding is not authorization.
+//! [`run`]: that `store` issued the plan's method reference, the guards and
+//! the route again, and an explicit execution permit for the exact method
+//! reference. `admit` succeeding is not authorization.
 //!
 //! Arguments: `Arg::Field(p)` is the value an earlier effect wrote to `p`,
 //! else the resident lane the caller bound `p` to ([`FieldLanes`]), whose
 //! kind is read from the lane itself. `Arg::Const(c)` is pushed as is. A
-//! constant compared against a lane must fit that lane's type; the dialect
-//! would otherwise saturate it, so the seam refuses it first.
+//! constant compared against a lane must fit that lane's type. The seam
+//! refuses an out-of-range constant here, at bind time; the dialect also
+//! refuses it (`FoldError::ConstOutOfRange`) rather than narrowing it.
 //!
 //! The answer is the value each written field holds after the last effect.
 //! A field that still holds a mask slot or an address is an intermediate
@@ -149,16 +151,59 @@ pub struct Step {
 /// A method resolved once, cold: every check that needs the `ClassView`,
 /// OGAR's vocabulary or the store's lens is done, and the opcodes are bound.
 /// [`run`] executes it without consulting any of them again.
+///
+/// Only [`prepare`] builds one, and its fields are read-only outside this
+/// crate: `run` executes `steps` as prepared, so they cannot be edited after
+/// the checks ran.
+///
+/// ```compile_fail
+/// fn edit(p: &mut lance_graph_r2il::binding::Prepared) {
+///     p.steps.clear();
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct Prepared {
-    pub method: MethodRef,
-    pub lens: R2ilLens,
-    pub route: (RouteVersion, u16),
-    pub guards: Guards,
-    pub steps: Vec<Step>,
-    /// FNV-1a over the method reference, the lens and every step: the plan's
-    /// identity, carried into each [`Receipt`].
-    pub plan_id: u64,
+    pub(crate) method: MethodRef,
+    pub(crate) lens: R2ilLens,
+    pub(crate) route: (RouteVersion, u16),
+    pub(crate) guards: Guards,
+    pub(crate) steps: Vec<Step>,
+    /// FNV-1a over the method reference (including its binding digest), the
+    /// lens and every step: the plan's identity, carried into each
+    /// [`Receipt`].
+    pub(crate) plan_id: u64,
+}
+
+impl Prepared {
+    /// The method reference the plan was prepared for.
+    pub fn method(&self) -> &MethodRef {
+        &self.method
+    }
+
+    /// The R2IL lens the plan's words were bound under.
+    pub fn lens(&self) -> R2ilLens {
+        self.lens
+    }
+
+    /// The route the plan was prepared under.
+    pub fn route(&self) -> (RouteVersion, u16) {
+        self.route
+    }
+
+    /// The guards the plan was resolved under.
+    pub fn guards(&self) -> &Guards {
+        &self.guards
+    }
+
+    /// The bound steps, in order.
+    pub fn steps(&self) -> &[Step] {
+        &self.steps
+    }
+
+    /// The plan's identity.
+    pub fn plan_id(&self) -> u64 {
+        self.plan_id
+    }
 }
 
 /// A run's answer: the final scalar of every field the plan writes,
@@ -319,9 +364,11 @@ pub fn prepare<V: ClassView + ?Sized>(
     })
 }
 
-/// Run a prepared plan, hot: the guards and the route are checked again
-/// (each a comparison or one route lookup), the permit is checked, and the
-/// bound opcodes run through `dialect`. Nothing is re-resolved.
+/// Run a prepared plan, hot: the store must be the one that issued the
+/// plan's method reference ([`Refusal::ForeignStore`]), the guards and the
+/// route are checked again (each a comparison or one route lookup), the
+/// permit is checked, and the bound opcodes run through `dialect`. Nothing
+/// is re-resolved.
 ///
 /// # Errors
 ///
@@ -336,6 +383,9 @@ pub fn run(
     fields: FieldLanes<'_>,
     dialect: &mut FoldDialect<'_>,
 ) -> Result<Receipt, ExecRefusal> {
+    store
+        .check_issuer(&plan.method)
+        .map_err(ExecRefusal::Binding)?;
     plan.guards
         .check(frames, now)
         .map_err(ExecRefusal::Guards)?;
@@ -454,8 +504,10 @@ pub(crate) fn check_route(
     }
 }
 
-/// FNV-1a over the method reference's identity fields, the lens and the
-/// steps. Prepared plans refuse guarded bindings, so the guard is absent.
+/// FNV-1a over the method reference's identity fields and binding digest,
+/// the lens and the steps. Prepared plans refuse guarded bindings, so the
+/// guard is absent. The lanes a run reads are not part of it: they are bound
+/// per run ([`FieldLanes`]), so one plan may read lanes of different kinds.
 fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step]) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     let mut eat = |bytes: &[u8]| {
@@ -467,6 +519,7 @@ fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step]) -> u64 {
     eat(&method.class.to_le_bytes());
     eat(&method.method.0.to_le_bytes());
     eat(&method.sig_rev.0.to_le_bytes());
+    eat(&method.stamp.binding().to_le_bytes());
     eat(&lens.lens.to_le_bytes());
     eat(&lens.schema_rev.0.to_le_bytes());
     for s in steps {
@@ -602,8 +655,9 @@ pub(crate) fn lane(
     Ok(Val::Address(Addr::Lane { idx, kind }))
 }
 
-/// A lane compare's constant must fit the lane's type: the dialect narrows
-/// it with a saturating conversion, which would change the predicate.
+/// A lane compare's constant must fit the lane's type: refused here so the
+/// binding reports it as an `ExecRefusal` before the dialect runs (the dialect
+/// itself refuses it too, with `FoldError::ConstOutOfRange`).
 pub(crate) fn check_compare(stack: &[Val], effect: usize) -> Result<(), ExecRefusal> {
     let [.., a, b] = stack else {
         return Ok(());

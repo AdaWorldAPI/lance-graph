@@ -10,6 +10,12 @@
 - Checks on the main thread: 5 of 34 census counts re-run, all equal. Its two substring-only hits read at the source and found to be collisions (D-DRMC-5 inside EXP-DRMC-L1; P-S2 inside D-ONNX-CAP-S2). 2 of 15 fruit rows spot-checked, 0 wrong. The AV1 scalar-membership numbers read in their entry, and held.
 - Misses: one mapper bounced BRIEF-INCOMPLETE because the brief named no caller space (resumed). The quote-harvester has no Write tool, so it reported inline. The ndarray mapper reported "0 hits" for `masked_sum_i32` callers after skipping the file that defines it; the main thread grep found it in 13 lance-graph files. Two main-thread errors were caught by reading dates: D-DRF-P2 already measured the #376 fold, and lance-graph-onnx #1758 post-dates ndarray #368/#369. Neither is stale.
 - Result: ledger amendments (ISSUES ×4, TECH_DEBT ×2) and two new fruits (TD-MPF-2-FOLD-NUMBERS-PREDATE-NDARRAY-376; IDEAS 2026-10-26 D-NAM-2 TFLite leaf). FRUITS.md regenerated. Written by the orchestrating main thread only.
+## 2026-11-03 — D-DRAM-1 census (Haiku harvest, Opus verify)
+
+- Two `harvest-scout` runs: ndarray `src/benches/examples/tests` for the "5×24" spellings, `half_add_mask` / `full_add_mask` / `sum8_u8_add_masked` and `Abacus`; lance-graph `crates/` and `.claude/plans/` for focus/lease/seal/map/locator symbols.
+- Checks on the main thread, all held: `half_add_mask` at `simd_masking_ops.rs:6523`, `full_add_mask` at `:6545`, the re-export at `simd.rs:1062`, `sum8_u8_add_masked` at `simd_scalar.rs:550`, `U24x5` at `examples/microtile/tile.rs:60` (plus its "lab fixture only" line); `FocusKey`/`SourceId`/`check_seal` in `drf-focus-probe`, `FocusLease` in `lance-graph-nsl`, `Focus`/`Guards` in `dt64/dr.rs`; workspace membership read in `Cargo.toml`.
+- Misses: the ndarray run ran `carry` over all of `src/` instead of the matched files only and hit its cap (self-reported). The lance-graph run hit its cap on three patterns and listed substring false positives (`allocator`, `release(`, `RelationshipMapping`), all self-reported. Neither card concluded or edited. Retired: none.
+- Result: `entries/2026-11-03-d-dram-1-census.md`. Written by the orchestrating main thread only.
 
 ## 2026-10-22 — Stage B E1 probe (Opus spec, Sonnet draft)
 

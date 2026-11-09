@@ -20,6 +20,13 @@ ra_ap_hir = "0.0.358"
 ra_ap_ide = "0.0.358"
 ra_ap_load-cargo = "0.0.358"
 ra_ap_project_model = "0.0.358"
+ra_ap_syntax = "0.0.358"
+# Not used directly: a pin. ra-ap-rustc_lexer asserts at compile time that
+# unicode-ident and unicode-properties report the same Unicode version.
+# ra_ap_hir_def pins unicode-ident =1.0.24 (Unicode 17), while a fresh
+# resolution (this crate tracks no lockfile) picks unicode-properties 0.1.5
+# (Unicode 18) and the lexer fails to build (2026-11-02).
+unicode-properties = "=0.1.4"
 
 [profile.dev]
 debug = 0

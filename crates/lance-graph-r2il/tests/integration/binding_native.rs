@@ -18,7 +18,7 @@ use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope};
 use lance_graph_dt64::{
     AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    RouteVersion, SchemaRev, SigRev, ValueDemand,
+    Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mask_risc::{ExecError, Foreign, LaneRef, Planes};
 use lance_graph_r2il::binding::{
@@ -64,6 +64,7 @@ fn allocs() -> usize {
 const CLASS: u32 = 0x7F0B_0001;
 const CLASS_VIEW: ClassId = 0x7F0B;
 const OTHER_CLASS: u32 = 0x7F0C_0001;
+const OTHER_VIEW: ClassId = 0x7F0C;
 const LENS: u32 = (CONCEPT_R2IL_FOLD as u32) << 16;
 const REV: SchemaRev = SchemaRev(1);
 const R2IL: R2ilLens = R2ilLens {
@@ -133,7 +134,7 @@ fn refs(labels: &[&str], ns: &str) -> Vec<FieldRef> {
 impl ClassView for Views {
     fn fields(&self, class: ClassId) -> &[FieldRef] {
         match class {
-            CLASS_VIEW => &self.class,
+            CLASS_VIEW | OTHER_VIEW => &self.class,
             c if c == CONCEPT_R2IL_FOLD => &self.lens,
             _ => &[],
         }
@@ -307,18 +308,14 @@ fn methods() -> Vec<MethodBinding> {
     ]
 }
 
-fn mref(id: u32) -> MethodRef {
-    MethodRef {
-        class: CLASS,
-        method: MethodId(id),
-        sig_rev: SigRev(1),
-        guard: None,
-    }
+/// The store's own reference to method `id` of [`CLASS`].
+fn mref(s: &BindStore, id: u32) -> MethodRef {
+    s.method_ref(CLASS, MethodId(id)).unwrap()
 }
 
-fn permit(ids: &[u32]) -> ExecPermit {
+fn permit(s: &BindStore, ids: &[u32]) -> ExecPermit {
     ExecPermit {
-        methods: ids.iter().map(|&i| mref(i)).collect(),
+        methods: ids.iter().map(|&i| mref(s, i)).collect(),
     }
 }
 
@@ -382,14 +379,15 @@ impl Fixture {
             field_count: FIELDS.len(),
             extent: Extent::DR64_CUBE,
         };
-        store.register(CLASS, schema, methods()).unwrap();
-        store.register(OTHER_CLASS, schema, vec![]).unwrap();
+        let views = Views {
+            class: refs(&FIELDS, "class"),
+            lens: refs(&words(), "r2il"),
+        };
+        store.register(&views, CLASS, schema, methods()).unwrap();
+        store.register(&views, OTHER_CLASS, schema, vec![]).unwrap();
         let version = store.route(POSITION, CLASS).unwrap();
         Self {
-            views: Views {
-                class: refs(&FIELDS, "class"),
-                lens: refs(&words(), "r2il"),
-            },
+            views,
             store,
             version,
             frames: FrameStore::new(REVS),
@@ -397,7 +395,7 @@ impl Fixture {
     }
 
     fn prepare(&self, id: u32) -> Prepared {
-        let r = mref(id);
+        let r = mref(&self.store, id);
         let g = Guards {
             frame: self.frames.seal(),
             focus: FOCUS,
@@ -487,7 +485,7 @@ fn native_answer(f: &Fixture, id: u32, data: &Data) -> NativeReceipt {
     let plan = f.prepare(id);
     let np = f.native(&plan, data).expect("prepare_native");
     let mut scratch = NativeScratch::for_plan(&np);
-    f.run_native(&np, data, &permit(&[id]), NOW, &mut scratch)
+    f.run_native(&np, data, &permit(&f.store, &[id]), NOW, &mut scratch)
         .expect("run_native")
 }
 
@@ -517,11 +515,13 @@ fn native_agrees_with_run_on_every_runnable_fixture() {
     ];
     for id in ids {
         let plan = f.prepare(id);
-        let want = f.r1(&plan, &data, &permit(&[id]), NOW).expect("run");
+        let want = f
+            .r1(&plan, &data, &permit(&f.store, &[id]), NOW)
+            .expect("run");
         let np = f.native(&plan, &data).expect("prepare_native");
         let mut scratch = NativeScratch::for_plan(&np);
         let got = f
-            .run_native(&np, &data, &permit(&[id]), NOW, &mut scratch)
+            .run_native(&np, &data, &permit(&f.store, &[id]), NOW, &mut scratch)
             .expect("run_native");
         assert_eq!(got.values(), want.output.values.as_slice(), "method {id}");
         assert_eq!(got.programs_run, want.programs_run, "method {id}");
@@ -605,7 +605,7 @@ fn a_run_reads_the_lanes_it_is_given() {
     let plan = f.prepare(MASKED_SUM);
     let np = f.native(&plan, &first).unwrap();
     let mut scratch = NativeScratch::for_plan(&np);
-    let p = permit(&[MASKED_SUM]);
+    let p = permit(&f.store, &[MASKED_SUM]);
     let r = f.run_native(&np, &second, &p, NOW, &mut scratch).unwrap();
     assert_eq!(r.values(), &[(4, second.sum_b(5))]);
 }
@@ -648,7 +648,7 @@ fn a_fold_fed_by_a_fold_result_is_refused() {
     assert!(f.native(&plan, &data).is_ok());
     // `run` accepts the refused plan: only the native reading cannot.
     assert!(f
-        .r1(&f.prepare(FEEDS), &data, &permit(&[FEEDS]), NOW)
+        .r1(&f.prepare(FEEDS), &data, &permit(&f.store, &[FEEDS]), NOW)
         .is_ok());
 }
 
@@ -679,7 +679,7 @@ fn run_native_refuses_what_run_refuses_first() {
     let plan = f.prepare(id);
     let np = f.native(&plan, &data).unwrap();
     let mut s = NativeScratch::for_plan(&np);
-    let p = permit(&[id]);
+    let p = permit(&f.store, &[id]);
     let none = ExecPermit::default();
     let moved_focus = (Focus { revision: 2 }, SCOPE);
     let moved_scope = (FOCUS, Scope { id: 2 });
@@ -723,7 +723,7 @@ fn run_native_refuses_a_changed_route() {
     let np = f.native(&plan, &data).unwrap();
     let mut s = NativeScratch::for_plan(&np);
     f.store.route(POSITION, OTHER_CLASS).unwrap();
-    let p = permit(&[MASKED_SUM]);
+    let p = permit(&f.store, &[MASKED_SUM]);
     let want = f.r1(&plan, &data, &p, NOW).unwrap_err();
     assert_eq!(
         want,
@@ -746,7 +746,7 @@ fn run_native_refuses_changed_planes() {
     let data = Data::new(N);
     let np = f.native(&f.prepare(MASKED_SUM), &data).unwrap();
     let mut s = NativeScratch::for_plan(&np);
-    let p = permit(&[MASKED_SUM]);
+    let p = permit(&f.store, &[MASKED_SUM]);
     let shorter = Data::new(N / 2);
     assert_eq!(
         f.run_native(&np, &shorter, &p, NOW, &mut s),
@@ -780,7 +780,13 @@ fn a_scratch_from_another_plan_is_refused() {
     let no_programs = f.native(&f.prepare(EIGHT_OUT), &data).unwrap();
     let mut small = NativeScratch::for_plan(&no_programs);
     assert!(np.scratch_words() > no_programs.scratch_words());
-    let r = f.run_native(&np, &data, &permit(&[MASKED_SUM]), NOW, &mut small);
+    let r = f.run_native(
+        &np,
+        &data,
+        &permit(&f.store, &[MASKED_SUM]),
+        NOW,
+        &mut small,
+    );
     assert!(matches!(
         r,
         Err(ExecRefusal::Fold {
@@ -808,7 +814,7 @@ fn run_native_allocates_nothing() {
         let plan = f.prepare(id);
         let np = f.native(&plan, &data).unwrap();
         let mut scratch = NativeScratch::for_plan(&np);
-        let p = permit(&[id]);
+        let p = permit(&f.store, &[id]);
         let want = native_answer(&f, id, &data);
         for _ in 0..16 {
             black_box(
@@ -852,5 +858,30 @@ fn native_keeps_an_and_operand_that_is_read_again() {
     assert_eq!(
         native_answer(&f, SHARED_AND, &data).values(),
         &[(4, data.count(10))]
+    );
+}
+
+// ── L5c: a native plan belongs to the store that issued its reference ──────
+
+#[test]
+fn a_native_plan_prepared_or_run_against_another_store_is_refused() {
+    let mut f = Fixture::new();
+    let data = Data::new(N);
+    let plan = f.prepare(MASKED_SUM);
+    let p = permit(&f.store, &[MASKED_SUM]);
+    let np = f.native(&plan, &data).expect("own store prepares");
+    let mut scratch = NativeScratch::for_plan(&np);
+    assert!(
+        f.run_native(&np, &data, &p, NOW, &mut scratch).is_ok(),
+        "own store runs"
+    );
+    // A clone has the same bindings and routes, and another identity (D2).
+    let clone = f.store.clone();
+    let _original = std::mem::replace(&mut f.store, clone);
+    let foreign = Err(ExecRefusal::Binding(Refusal::ForeignStore { class: CLASS }));
+    assert_eq!(f.native(&plan, &data).map(|_| ()), foreign);
+    assert_eq!(
+        f.run_native(&np, &data, &p, NOW, &mut scratch).map(|_| ()),
+        foreign
     );
 }

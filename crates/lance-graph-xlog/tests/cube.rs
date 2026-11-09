@@ -1,4 +1,4 @@
-//! The resident hypercube (plan `d-xlog-native-v1.md` Amendment F) against a
+//! The resident hypercube (D-XLOG-NATIVE-7, PR #1911; board entry `2026-11-01-xlog-resident-hypercube-context.md`) against a
 //! scalar oracle and against the per-call free functions, plus the gates that
 //! make it a context rather than a faster operator: composing views runs
 //! nothing, any pair of relations joins on any columns without a new lookup,
@@ -103,13 +103,13 @@ fn the_cube_answers_what_the_free_functions_answer() {
 
         let free = support(q, &R, &S, &y_map).unwrap();
         assert_eq!(
-            ids(map, &cube.support(&table, j).unwrap()),
+            ids(&map, &cube.support(&table, j).unwrap()),
             ids(&y_map, &free.answer),
             "{q:?}"
         );
         let free = bag_count(q, &R, &S, &y_map).unwrap();
         assert_eq!(
-            nonzero(map, &cube.bag_count(&table, j).unwrap()),
+            nonzero(&map, &cube.bag_count(&table, j).unwrap()),
             nonzero(&y_map, &free),
             "{q:?}"
         );
@@ -135,7 +135,7 @@ fn any_pair_joins_on_any_columns_without_a_new_lookup() {
                     let j = cube.join(l, lc, r, rc).unwrap();
                     let want = oracle(rels[a as usize], lc, None, rels[b as usize], rc, None);
                     let got = cube.bag_count(&table, j).unwrap();
-                    let got: BTreeMap<u64, i64> = nonzero(map, &got).into_iter().collect();
+                    let got: BTreeMap<u64, i64> = nonzero(&map, &got).into_iter().collect();
                     assert_eq!(got, counts(&want), "rel {a}.{lc} = rel {b}.{rc}");
                     let mut rows = cube.materialize_rows(&table, j).unwrap();
                     rows.sort_unstable();
@@ -214,13 +214,13 @@ fn differential_against_enumeration() {
         let j = cube.join(l, lc, r, rc).unwrap();
         let want = oracle(&a, lc, lb, &b, rc, rb);
         nonempty += usize::from(!want.is_empty());
-        let got: BTreeMap<u64, i64> = nonzero(map, &cube.bag_count(&table, j).unwrap())
+        let got: BTreeMap<u64, i64> = nonzero(&map, &cube.bag_count(&table, j).unwrap())
             .into_iter()
             .collect();
         assert_eq!(got, counts(&want));
         let sup: Vec<u64> = counts(&want).into_keys().collect();
         assert_eq!(
-            ids(map, &cube.support(&table, j).unwrap())
+            ids(&map, &cube.support(&table, j).unwrap())
                 .into_iter()
                 .collect::<std::collections::BTreeSet<_>>(),
             sup.into_iter().collect()
@@ -251,13 +251,26 @@ fn a_stale_frame_a_foreign_view_and_a_bound_join_column_are_refused() {
     );
     assert_eq!(cube.support(&table, l), Err(CubeRefusal::NotAJoin));
 
+    // Previously: after `table.advance(1, 1, vec![])` both reads were refused
+    // as `MapRead::Stale(_)`. The table is now a versioned append-only index:
+    // a frame of this table reads the layout it was sealed under, so the
+    // cube keeps answering, identically, after the table moves on. `Stale`
+    // is left for a frame this table never issued (see below).
+    let (sup_before, bag_before) = (
+        cube.support(&table, j).unwrap(),
+        cube.bag_count(&table, j).unwrap(),
+    );
     table.advance(1, 1, vec![]);
+    assert_eq!(cube.support(&table, j), Ok(sup_before));
+    assert_eq!(cube.bag_count(&table, j), Ok(bag_before));
+
+    let alien = table_over(&rels);
     assert!(matches!(
-        cube.support(&table, j),
+        cube.support(&alien, j),
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
     assert!(matches!(
-        cube.bag_count(&table, j),
+        cube.bag_count(&alien, j),
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
 }
@@ -297,7 +310,7 @@ fn an_added_relation_joins_like_a_base_one() {
     let r = cube.scan(0).unwrap();
     let j = cube.join(l, 0, r, 1).unwrap();
     let map = table.map(&table.seal(), TILE).unwrap();
-    let got: BTreeMap<u64, i64> = nonzero(map, &cube.bag_count(&table, j).unwrap())
+    let got: BTreeMap<u64, i64> = nonzero(&map, &cube.bag_count(&table, j).unwrap())
         .into_iter()
         .collect();
     assert_eq!(got, counts(&oracle(&derived, 0, None, &R, 1, None)));
@@ -306,9 +319,15 @@ fn an_added_relation_joins_like_a_base_one() {
         cube.add_relation(&table, &[(1, 1000)]),
         Err(CubeRefusal::Domain(_))
     ));
+    // Previously: after `table.advance(1, 1, vec![])` a derived relation was
+    // refused as `MapRead::Stale(_)`. The cube's frame now reads its own
+    // layout after the table advances, so the same relation is accepted; a
+    // foreign table is what is refused.
     table.advance(1, 1, vec![]);
+    assert!(cube.add_relation(&table, &derived).is_ok());
+    let alien = table_over(&rels);
     assert!(matches!(
-        cube.add_relation(&table, &derived),
+        cube.add_relation(&alien, &derived),
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
 }

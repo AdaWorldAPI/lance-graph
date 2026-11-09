@@ -1,3 +1,14 @@
+## ISS-MULTIHOP-PRESENCE-ARM-UNRULED — projection or lens for multi-hop existence? (2026-11-03)
+
+**Status:** OPEN (operator decision). **Basis:** MEASURED (`.claude/probes/2026-11-03-d-bag-fold/`, `entries/2026-11-03-d-bag-fold-witnessed-existential.md`).
+**Fruit:** High-signal
+
+- `∃d R∧S∧T` evaluates in one Program from resident presence in two arms; both match an oracle on 8 cases.
+- Arm P (ADMISSION B prepared projection) is gather-free but copies presence bits; the later zero-copy law admits only `$i`.
+- Arm L (`$i` + `Filter::Semijoin` over the table's own planes) is zero-copy but executes `MaskOp::Gather`, which waits on call-site classification (EXO-140).
+- Both depend on two unenforced invariants: plane order (`ISS-WITNESSED-RANGE-DOES-NOT-ATTEST-PLANE-ORDER`) and presence version (no contract witness).
+- **What closes it:** the ruling on P vs L, then a witness naming the aligned planes; the probe's unchecked arms (cases 5, 8) must become refusals.
+
 ## ISS-SOURCE-ROOT-AGENT-OR-REPORT — is a source root the observer or one report? (2026-10-31)
 
 **Status:** OPEN (operator decision). **Basis:** VERIFIED-IN-CODE (`crates/xlog-relcomp-probe/tests/provenance.rs` `root()` hashes the observer and the report's facts; `unrelated_sources_never_collapse_to_one_root` pins that one observer with two different reports gives two roots).
@@ -26,6 +37,25 @@
   references inside macro arguments.
 - **What closes it:** the cause, from rust-analyzer's source, then either a
   fix upstream or a documented limit on the exporter.
+
+## ISS-RECIPE-LOCO-VOCABULARY-EXISTS-TWICE — two `impl Vocabulary` claim the same 34 op bytes and disagree (2026-10-26)
+
+**Status:** OPEN (latent). **Basis:** VERIFIED-IN-CODE (OGAR `crates/ogar-loco/src/nars.rs:133-175`, read at OGAR `68cb29b`; lance-graph `crates/lance-graph-ogar/src/recipe_vocab.rs:134-185`, read at `main` `87b2899b`).
+**Fruit:** High-signal
+
+- Both map recipe `id` to `FnIndex(DOMAIN_FLOOR + id - 1)` and both
+  `impl Vocabulary` over that range. They disagree on two columns:
+  `nars.rs:142-147` gives `Datapath` recipes arity 2 and `Gate` / `Control`
+  arity 1, with no value codebook; `recipe_vocab.rs:142-144` gives every recipe
+  arity 1 (its doc: a second operand "would be a value with no source"), and
+  `:171-176` declares `CB_ATTENTION_FOCUS`.
+- Latent today: `NarsVocabulary` has no consumer outside its own file, and
+  `lance-graph-ogar` is excluded from the workspace. It pulls `ogar-loco` at
+  `branch = "main"` (`lance-graph-ogar/Cargo.toml:140`), so both meet the next
+  time that crate resolves against a newer OGAR.
+- **What closes it:** an operator ruling on the arity (revision (f) Q7), then
+  one implementation delegating to the other. The change spans OGAR and
+  lance-graph. Ledger: `.claude/research/2026-10-recovery/LEDGER-REVISION-2026-10-26f.md` S1.
 
 ## ISS-FISHERZ-ENCODE-SATURATES-SILENTLY — out-of-family cosines encode to the edge code with no flag (2026-10-23)
 

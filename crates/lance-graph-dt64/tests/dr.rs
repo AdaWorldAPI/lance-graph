@@ -4,8 +4,8 @@
 
 use lance_graph_contract::morton8x8::Morton8x8;
 use lance_graph_dt64::dr::{
-    address, coordinates, rotate_yz, Focus, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal,
-    Guards, LocalMap, MapRefusal, Scope, Width,
+    address, coordinates, rotate_yz, CodeRead, CodeSpaceId, CodeTable, Focus, FrameRefusal,
+    FrameRevisions, FrameStore, GuardRefusal, Guards, LocalMap, MapRefusal, Scope, ValueKey, Width,
 };
 
 fn revisions() -> FrameRevisions {
@@ -168,22 +168,29 @@ fn map(ids: &[u64]) -> LocalMap {
     LocalMap::prepare(Width::W64, ids).unwrap()
 }
 
+/// RE-PINNED (D-DR-VMAP). Was: an old frame was refused with
+/// `Stale(CoordinatesChanged)` after the table advanced. Now the table is an
+/// append-only log and a frame carries its version, so the old frame still
+/// reads the layout it was sealed under, and the new frame reads the new one.
 #[test]
-fn a_map_is_read_only_under_the_frame_it_was_sealed_under() {
+fn a_map_is_read_under_the_version_its_frame_was_sealed_at() {
     let mut t = MapTable::new(7, 11);
     t.advance(7, 11, vec![(1, Some(map(&[10, 20, 30])))]);
     let old = t.seal();
     assert_eq!(t.map(&old, 1).unwrap().local(20), Ok(1));
     t.advance(7, 11, vec![(1, Some(map(&[30, 20, 10])))]);
-    assert_eq!(
-        t.map(&old, 1).unwrap_err(),
-        MapRead::Stale(FrameRefusal::CoordinatesChanged)
-    );
+    // Old assertion, now false: Stale(CoordinatesChanged).
+    assert_eq!(t.map(&old, 1).unwrap().local(20), Ok(1));
+    assert_eq!(t.map(&old, 1).unwrap().local(30), Ok(2), "old layout");
     let now = t.seal();
-    assert_eq!(t.map(&now, 1).unwrap().local(30), Ok(0));
+    assert_eq!(t.map(&now, 1).unwrap().local(30), Ok(0), "new layout");
     assert_eq!(t.map(&now, 2).unwrap_err(), MapRead::NoSuchTile(2));
 }
 
+/// RE-PINNED (D-DR-VMAP). Was: the old frame was refused with
+/// `Stale(FrameResealed)`. A reseal is still a distinct frame (identity), but
+/// it is no longer a refusal: the old frame reads, `FrameStore::check` still
+/// calls it non-current.
 #[test]
 fn an_advance_that_changes_nothing_still_reseals() {
     let mut t = MapTable::new(7, 11);
@@ -192,10 +199,12 @@ fn an_advance_that_changes_nothing_still_reseals() {
     let before = t.revisions();
     t.advance(7, 11, vec![]);
     assert_eq!(t.revisions(), before, "nothing moved");
-    assert_eq!(
-        t.map(&old, 1).unwrap_err(),
-        MapRead::Stale(FrameRefusal::FrameResealed)
-    );
+    let new = t.seal();
+    assert!(!old.same_issue(&new), "a reseal is a new frame");
+    assert!(new.version() > old.version());
+    // Old assertion, now false: Stale(FrameResealed).
+    assert_eq!(t.map(&old, 1).unwrap().local(20), Ok(1));
+    assert_eq!(t.map(&new, 1).unwrap().local(20), Ok(1));
 }
 
 #[test]
@@ -220,7 +229,11 @@ fn the_coordinates_revision_is_a_function_of_the_held_maps() {
     assert_ne!(base, at(vec![(1, &[10, 20])]), "tile removed");
     // Same maps in the same order under another tile name: only the tile id
     // in the digest tells these apart.
-    assert_ne!(base, at(vec![(1, &[10, 20]), (3, &[30, 40])]), "tile renamed");
+    assert_ne!(
+        base,
+        at(vec![(1, &[10, 20]), (3, &[30, 40])]),
+        "tile renamed"
+    );
 }
 
 #[test]
@@ -239,4 +252,535 @@ fn a_removed_tile_is_gone_and_another_tables_frame_is_foreign() {
         a.map(&b.seal(), 1).unwrap_err(),
         MapRead::Stale(FrameRefusal::ForeignFrame)
     );
+}
+
+// ------------------------------------------- locate / extends (D-CODEGRAPH-0 wide closure)
+
+mod locate {
+    use lance_graph_dt64::dr::{LocalMap, LocateRefusal, MapRead, MapTable, TileId, Width};
+
+    fn table(tiles: Vec<(TileId, Vec<u64>)>) -> MapTable {
+        let mut t = MapTable::new(1, 1);
+        let changes = tiles
+            .into_iter()
+            .map(|(id, g)| (id, LocalMap::prepare(Width::W64, &g).ok()))
+            .collect();
+        t.advance(1, 1, changes);
+        t
+    }
+
+    /// Fails if the ordinal is the tile id instead of the index in the list,
+    /// or the local is not the position within the holding tile.
+    #[test]
+    fn locate_finds_ordinal_and_local_across_two_tiles() {
+        let t = table(vec![(7, vec![10, 20, 30]), (3, vec![40, 50])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[7, 3], 20), Ok((0, 1)));
+        assert_eq!(t.locate(&f, &[7, 3], 50), Ok((1, 1)));
+        // List order defines the ordinal.
+        assert_eq!(t.locate(&f, &[3, 7], 50), Ok((0, 1)));
+    }
+
+    /// Fails if the first hit wins instead of the overlap being refused.
+    #[test]
+    fn locate_refuses_an_id_in_two_tiles() {
+        let t = table(vec![(1, vec![5, 6]), (2, vec![6, 7])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[1, 2], 6), Err(LocateRefusal::Ambiguous));
+        // Non-vacuous: a listing that excludes the second tile resolves.
+        assert_eq!(t.locate(&f, &[1], 6), Ok((0, 1)));
+    }
+
+    /// Fails if an absent id resolves to anything, or a stale frame is read.
+    #[test]
+    fn locate_refuses_an_absent_id() {
+        let t = table(vec![(1, vec![5, 6]), (2, vec![8])]);
+        let f = t.seal();
+        assert_eq!(t.locate(&f, &[1, 2], 99), Err(LocateRefusal::Unmapped));
+        assert_eq!(
+            t.locate(&f, &[1, 9], 5),
+            Err(LocateRefusal::Read(MapRead::NoSuchTile(9)))
+        );
+    }
+
+    fn map(width: Width, g: &[u64]) -> LocalMap {
+        LocalMap::prepare(width, g).expect("fixture")
+    }
+
+    /// Fails if appending (even an id smaller than the existing ones) is not
+    /// accepted, or if equality is not accepted as a trivial extension.
+    #[test]
+    fn extends_true_for_pure_prefix_extension() {
+        let old = map(Width::W64, &[30, 20]);
+        assert!(map(Width::W64, &[30, 20, 10]).extends(&old));
+        assert!(old.extends(&old));
+    }
+
+    /// Fails if a reorder of the same ids counts as an extension.
+    #[test]
+    fn extends_false_for_reorder() {
+        let old = map(Width::W64, &[1, 2]);
+        assert!(!map(Width::W64, &[2, 1, 3]).extends(&old));
+    }
+
+    /// Fails if dropping an id counts as an extension.
+    #[test]
+    fn extends_false_for_removal() {
+        let old = map(Width::W64, &[1, 2, 3]);
+        assert!(!map(Width::W64, &[1, 2]).extends(&old));
+        assert!(!map(Width::W64, &[1, 3]).extends(&old));
+    }
+
+    /// Fails if the width is ignored.
+    #[test]
+    fn extends_false_for_width_change() {
+        let old = map(Width::W64, &[1, 2]);
+        assert!(!map(Width::W256, &[1, 2, 3]).extends(&old));
+    }
+}
+
+// ------------------------------------------- D-DR-VMAP falsifiers F1-F6
+
+mod vmap {
+    use super::map;
+    use lance_graph_dt64::dr::{
+        Axis, FrameRefusal, MapRead, MapRefusal, MapTable, RouteLog, RouteVersion, VersionClock,
+        Width,
+    };
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::cell::Cell;
+
+    struct Counting;
+
+    thread_local! {
+        // Const-initialised and drop-free, so touching it inside the
+        // allocator never allocates. Per thread: parallel tests cannot
+        // pollute the count.
+        static ALLOCS: Cell<u64> = const { Cell::new(0) };
+    }
+
+    fn bump() {
+        let _ = ALLOCS.try_with(|c| c.set(c.get() + 1));
+    }
+
+    // SAFETY: forwards every call unchanged to the system allocator.
+    unsafe impl GlobalAlloc for Counting {
+        unsafe fn alloc(&self, l: Layout) -> *mut u8 {
+            bump();
+            System.alloc(l)
+        }
+        unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
+            System.dealloc(p, l)
+        }
+        unsafe fn realloc(&self, p: *mut u8, l: Layout, n: usize) -> *mut u8 {
+            bump();
+            System.realloc(p, l, n)
+        }
+    }
+
+    #[global_allocator]
+    static A: Counting = Counting;
+
+    /// F1 replay. Fails (disable: `map` ignores `frame.version` and reads the
+    /// last event) because f1 would then see the v2 layout.
+    #[test]
+    fn f1_every_id_replays_under_its_own_version() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30])))]);
+        let f1 = t.seal();
+        t.advance(1, 1, vec![(1, Some(map(&[30, 20, 10])))]);
+        let f2 = t.seal();
+        let v1 = [(10, 0), (20, 1), (30, 2)];
+        let v2 = [(10, 2), (20, 1), (30, 0)];
+        for (id, l) in v1 {
+            assert_eq!(t.map(&f1, 1).unwrap().local(id), Ok(l));
+        }
+        for (id, l) in v2 {
+            assert_eq!(t.map(&f2, 1).unwrap().local(id), Ok(l));
+        }
+        // Anti-vacuity: the two versions disagree on 10 and 30.
+        assert_ne!(v1[0].1, v2[0].1);
+        assert_ne!(v1[2].1, v2[2].1);
+        // The numeric read agrees with the frame read.
+        assert_eq!(t.diagnose_at(f1.version(), 1).unwrap().local(10), Ok(0));
+        assert_eq!(t.diagnose_at(f2.version(), 1).unwrap().local(10), Ok(2));
+    }
+
+    /// F2 extension is a length at a version. Fails (disable: drop the
+    /// `>= len` guard in `TileMap::local`) because 30 would resolve at v1;
+    /// fails if an extension mints a generation.
+    #[test]
+    fn f2_an_extension_is_a_length_not_a_copy() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20])))]);
+        let f1 = t.seal();
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30])))]);
+        let f2 = t.seal();
+        let at1 = t.map(&f1, 1).unwrap();
+        assert_eq!(at1.len(), 2);
+        assert_eq!(at1.local(30), Err(MapRefusal::Unmapped));
+        assert_eq!(at1.global(2), None);
+        assert_eq!(at1.local(20), Ok(1));
+        let at2 = t.map(&f2, 1).unwrap();
+        assert_eq!(at2.len(), 3);
+        assert_eq!(at2.local(30), Ok(2));
+        assert_eq!(at2.global(2), Some(30));
+        assert_eq!(t.generation_count(1), 1, "no generation for an extension");
+        assert_eq!(t.event_count(1), 2, "one event per version");
+        assert!(at2.extends(at1) && !at1.extends(at2));
+    }
+
+    /// F3 history survives a replacement and a removal. Fails (disable:
+    /// `remove` deletes the tile instead of logging `None`) because f1 and f2
+    /// would stop resolving.
+    #[test]
+    fn f3_a_removal_is_an_event_not_an_erasure() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30])))]);
+        let f1 = t.seal();
+        t.advance(1, 1, vec![(1, Some(map(&[30, 20, 10])))]);
+        let f2 = t.seal();
+        t.advance(1, 1, vec![(1, None)]);
+        let f3 = t.seal();
+        assert_eq!(t.map(&f1, 1).unwrap().local(10), Ok(0));
+        assert_eq!(t.map(&f2, 1).unwrap().local(10), Ok(2));
+        assert_eq!(t.map(&f3, 1).unwrap_err(), MapRead::NoSuchTile(1));
+        assert_eq!(t.generation_count(1), 2, "replacement kept both layouts");
+        // Re-adding after a removal is a new generation, and f3 stays gone.
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30])))]);
+        assert_eq!(t.generation_count(1), 3);
+        assert_eq!(t.map(&f3, 1).unwrap_err(), MapRead::NoSuchTile(1));
+    }
+
+    /// F4 a foreign frame is refused even at equal revisions and equal
+    /// version. Fails (disable: `issued` skips the store identity check)
+    /// because the foreign frame would read.
+    #[test]
+    fn f4_a_foreign_frame_is_refused_at_equal_version() {
+        let mut a = MapTable::new(1, 1);
+        let mut b = MapTable::new(1, 1);
+        a.advance(1, 1, vec![(1, Some(map(&[10])))]);
+        b.advance(1, 1, vec![(1, Some(map(&[10])))]);
+        assert_eq!(a.revisions(), b.revisions());
+        let fb = b.seal();
+        assert_eq!(fb.version(), a.seal().version(), "equal versions");
+        assert_eq!(
+            a.map(&fb, 1).unwrap_err(),
+            MapRead::Stale(FrameRefusal::ForeignFrame)
+        );
+        assert!(b.map(&fb, 1).is_ok(), "its own table reads it");
+    }
+
+    /// F5 a lookup allocates nothing. Fails (disable: `map` returns an owned
+    /// prefix copy) because the counter would move.
+    #[test]
+    fn f5_map_and_local_allocate_nothing() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30])))]);
+        let f1 = t.seal();
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20, 30, 40])))]);
+        let f2 = t.seal();
+        let before = ALLOCS.with(Cell::get);
+        let mut hits = 0u32;
+        for i in 0..10_000u64 {
+            let frame = if i % 2 == 0 { &f1 } else { &f2 };
+            if let Ok(view) = t.map(frame, 1) {
+                if view.local(20 + (i % 2) * 20).is_ok() {
+                    hits += 1;
+                }
+            }
+        }
+        let after = ALLOCS.with(Cell::get);
+        assert_eq!(after - before, 0, "lookups allocated");
+        // Anti-vacuity: the loop really resolved ids (20 under both, 40 only
+        // under f2), so a skipped body cannot pass.
+        assert_eq!(hits, 10_000 / 2 + 10_000 / 2);
+        // And the counter can move: building a map allocates.
+        let b2 = ALLOCS.with(Cell::get);
+        let _ = map(&[1, 2, 3]);
+        assert!(ALLOCS.with(Cell::get) > b2);
+    }
+
+    /// F6 silence twin: an advance with no changes adds no event and no
+    /// generation, yet takes a version. Fails (disable: push an event per
+    /// tile on every advance) because the counts would move.
+    #[test]
+    fn f6_an_empty_advance_adds_a_version_and_no_history() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10, 20]))), (2, Some(map(&[5])))]);
+        let f_old = t.seal();
+        let (g, e) = (t.generation_count(1), t.event_count(1));
+        let (g2, e2) = (t.generation_count(2), t.event_count(2));
+        let v = t.advance(1, 1, vec![]);
+        let f_new = t.seal();
+        assert_eq!((t.generation_count(1), t.event_count(1)), (g, e));
+        assert_eq!((t.generation_count(2), t.event_count(2)), (g2, e2));
+        assert_eq!(f_new.version(), v);
+        assert!(v > f_old.version());
+        assert!(!f_old.same_issue(&f_new));
+        for tile in [1, 2] {
+            assert_eq!(
+                t.map(&f_old, tile).unwrap().digest(),
+                t.map(&f_new, tile).unwrap().digest()
+            );
+        }
+    }
+
+    /// Q1: a RouteLog and a MapTable on one clock advance ONE sequence, so a
+    /// frame's version also answers `routed_at`. Fails if the two keep
+    /// separate counters (versions would collide / not interleave).
+    #[test]
+    fn a_shared_clock_makes_one_version_sequence() {
+        let clock = VersionClock::new();
+        let mut log = RouteLog::with_clock(clock.clone());
+        let mut t = MapTable::with_clock(1, 1, clock.clone());
+        let id = Axis::new(Width::W64, 1);
+        let r1 = log.route(3, 9, id).unwrap();
+        let v1 = t.advance(1, 1, vec![(1, Some(map(&[10])))]);
+        let r2 = log.route(3, 8, id).unwrap();
+        assert_eq!([r1.0, v1.0, r2.0], [1, 2, 3], "one interleaved sequence");
+        let f = t.seal();
+        assert_eq!(log.routed_at(f.version(), 3), Ok(Some(9)));
+        assert_eq!(log.routed_at(r2, 3), Ok(Some(8)));
+        assert_eq!(log.current_version(), t.current_version());
+        // Separate clocks do not interleave (silence twin).
+        let mut solo = RouteLog::new();
+        assert_eq!(solo.route(3, 9, id).unwrap(), RouteVersion(1));
+        // A clone of a log forks the clock.
+        let mut copy = log.clone();
+        copy.route(4, 1, id).unwrap();
+        assert_eq!(log.current_version(), clock.current());
+        assert!(copy.current_version() > log.current_version());
+    }
+
+    /// Q2: a version past the end is a typed refusal, not a clamp.
+    #[test]
+    fn diagnose_at_refuses_a_version_past_the_end() {
+        let mut t = MapTable::new(1, 1);
+        t.advance(1, 1, vec![(1, Some(map(&[10])))]);
+        let cur = t.current_version();
+        assert!(t.diagnose_at(cur, 1).is_ok());
+        let future = RouteVersion(cur.0 + 1);
+        assert_eq!(
+            t.diagnose_at(future, 1).unwrap_err(),
+            MapRead::FutureVersion {
+                asked: future,
+                current: cur
+            }
+        );
+        assert_eq!(
+            t.diagnose_at(RouteVersion(0), 1).unwrap_err(),
+            MapRead::NoSuchTile(1),
+            "before the tile existed"
+        );
+    }
+
+    /// P9 (E1): a foreign frame's version, read numerically, must not yield an
+    /// executable map. `map(frame)` refuses the frame; `diagnose_at` can still
+    /// show the number's layout in THIS table, but only as a `MapDiagnostic`,
+    /// which is not a `TileMap` and so cannot reach `MidMap` executors.
+    #[test]
+    fn p9_equal_version_foreign_frame_is_not_executable() {
+        let mut a = MapTable::new(1, 1);
+        let mut b = MapTable::new(1, 1);
+        a.advance(1, 1, vec![(1, Some(map(&[10, 20])))]);
+        b.advance(1, 1, vec![(1, Some(map(&[20, 10])))]);
+        let fb = b.seal();
+        assert_eq!(fb.version(), a.seal().version(), "equal versions");
+        // The executable read refuses the foreign frame.
+        assert_eq!(
+            a.map(&fb, 1).unwrap_err(),
+            MapRead::Stale(FrameRefusal::ForeignFrame)
+        );
+        // The issuer answers differently from A's layout at that number:
+        // the numeric read in A is a different layout than B's frame means.
+        assert_eq!(b.map(&fb, 1).unwrap().local(10), Ok(1));
+        let d = a.diagnose_at(fb.version(), 1).unwrap();
+        assert_eq!(d.local(10), Ok(0), "A's layout, not the frame's");
+        assert_ne!(d.digest(), b.map(&fb, 1).unwrap().digest());
+    }
+}
+
+// ---- CodeTable: the code-space G2L ----------------------------------------
+
+fn status() -> CodeSpaceId {
+    CodeSpaceId {
+        class: 0x0202_0002,
+        property: "status".into(),
+    }
+}
+fn priority() -> CodeSpaceId {
+    CodeSpaceId {
+        class: 0x0202_0002,
+        property: "priority".into(),
+    }
+}
+fn vk(s: &str) -> ValueKey {
+    ValueKey(s.into())
+}
+fn entries(e: &[(&str, u32)]) -> Vec<(ValueKey, u32)> {
+    e.iter().map(|(k, c)| (vk(k), *c)).collect()
+}
+
+/// t1: a frame reads the generation in force at its own version.
+#[test]
+fn code_reads_are_frame_keyed_and_historical() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(
+        &mut fs,
+        vec![(status(), entries(&[("shipped", 3), ("cancelled", 7)]))],
+    )
+    .unwrap();
+    let f1 = fs.seal();
+    t.advance(
+        &mut fs,
+        vec![(status(), entries(&[("cancelled", 3), ("shipped", 7)]))],
+    )
+    .unwrap();
+    let f2 = fs.seal();
+    assert_eq!(t.key(&f1, &status(), 3), Ok(&vk("shipped")));
+    assert_eq!(t.key(&f2, &status(), 3), Ok(&vk("cancelled")));
+    assert_eq!(t.code(&f2, &status(), &vk("shipped")), Ok(7));
+    assert_eq!(t.code(&f1, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&f1, &status(), &vk("lost")),
+        Err(CodeRead::UnknownKey)
+    );
+    assert_eq!(t.key(&f1, &status(), 9), Err(CodeRead::UnknownCode));
+}
+
+/// t1b: a frame sealed before any generation of the space reads nothing, and
+/// an unknown space reads nothing.
+#[test]
+fn a_frame_before_the_first_generation_has_no_space() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let before = fs.seal();
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let after = fs.seal();
+    assert_eq!(
+        t.code(&before, &status(), &vk("shipped")),
+        Err(CodeRead::NoSpace)
+    );
+    assert_eq!(
+        t.code(&after, &priority(), &vk("shipped")),
+        Err(CodeRead::NoSpace)
+    );
+    assert_eq!(t.code(&after, &status(), &vk("shipped")), Ok(3));
+}
+
+/// t2: a frame of another store is refused although its version equals.
+#[test]
+fn a_frame_of_another_store_is_refused_at_equal_version() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let mut other = FrameStore::new(revisions());
+    other.advance(revisions());
+    let foreign = other.seal();
+    let own = fs.seal();
+    assert_eq!(foreign.version(), own.version());
+    assert_eq!(t.code(&own, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&foreign, &status(), &vk("shipped")),
+        Err(CodeRead::ForeignFrame)
+    );
+    assert_eq!(t.key(&foreign, &status(), 3), Err(CodeRead::ForeignFrame));
+}
+
+/// t3: advancing with a store the table is not bound to changes nothing,
+/// neither the table nor either store.
+#[test]
+fn a_foreign_store_is_refused_before_anything_changes() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let bound_frame = fs.seal();
+    let mut other = FrameStore::new(revisions());
+    let other_frame = other.seal();
+    let other_rev = other.revisions();
+    let r = t.advance(
+        &mut other,
+        vec![(status(), entries(&[("shipped", 9), ("cancelled", 3)]))],
+    );
+    assert_eq!(r, Err(CodeRead::ForeignStore));
+    assert_eq!(other.revisions(), other_rev);
+    assert_eq!(other.check(&other_frame), Ok(()));
+    assert_eq!(fs.check(&bound_frame), Ok(()));
+    assert_eq!(t.code(&bound_frame, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        t.code(&bound_frame, &status(), &vk("cancelled")),
+        Err(CodeRead::UnknownKey)
+    );
+}
+
+/// t4: a change set that is not a bijection, or names a space twice, is
+/// refused and the store is not advanced.
+#[test]
+fn a_duplicate_change_set_is_refused_and_the_store_is_not_advanced() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let f = fs.seal();
+    let two_keys_one_code = entries(&[("shipped", 3), ("cancelled", 3)]);
+    let one_key_two_codes = entries(&[("shipped", 3), ("shipped", 7)]);
+    for bad in [
+        vec![(status(), two_keys_one_code)],
+        vec![(status(), one_key_two_codes)],
+        vec![
+            (status(), entries(&[("shipped", 3)])),
+            (status(), entries(&[("cancelled", 7)])),
+        ],
+        // the valid space listed first must not leak when a later one fails
+        vec![
+            (priority(), entries(&[("high", 1)])),
+            (status(), entries(&[("a", 1), ("b", 1)])),
+        ],
+    ] {
+        assert_eq!(t.advance(&mut fs, bad), Err(CodeRead::Duplicate));
+        assert_eq!(fs.check(&f), Ok(()), "store must not have advanced");
+    }
+    assert_eq!(t.code(&f, &priority(), &vk("high")), Err(CodeRead::NoSpace));
+    // the silence twin: a valid set advances
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert!(fs.check(&f).is_err());
+}
+
+/// t5: a code change advances the store, so a lane frame sealed before it is
+/// no longer current.
+#[test]
+fn advancing_the_code_table_retires_lane_frames() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    let lane_frame = fs.seal();
+    assert_eq!(fs.check(&lane_frame), Ok(()));
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert!(fs.check(&lane_frame).is_err());
+    assert_eq!(fs.check(&fs.seal()), Ok(()));
+}
+
+/// t6: a space absent from a change set keeps its generation.
+#[test]
+fn an_unchanged_space_survives_an_advance_of_another() {
+    let mut fs = FrameStore::new(revisions());
+    let mut t: CodeTable<u32> = CodeTable::new(&fs);
+    t.advance(
+        &mut fs,
+        vec![
+            (status(), entries(&[("shipped", 3)])),
+            (priority(), entries(&[("high", 1)])),
+        ],
+    )
+    .unwrap();
+    t.advance(&mut fs, vec![(status(), entries(&[("shipped", 9)]))])
+        .unwrap();
+    let f = fs.seal();
+    assert_eq!(t.code(&f, &status(), &vk("shipped")), Ok(9));
+    assert_eq!(t.code(&f, &priority(), &vk("high")), Ok(1));
+    assert_eq!(t.key(&f, &priority(), 1), Ok(&vk("high")));
 }

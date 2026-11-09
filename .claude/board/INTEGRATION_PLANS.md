@@ -1,3 +1,71 @@
+## 2026-11-06 — D-LANESOCK: DR × DT64 property-to-lane socket and joint version witness → `.claude/plans/d-lanesock-dr-dt64-lane-socket-v1.md`
+
+**Status:** NORMATIVE SPEC (D-LANESOCK-0); implementation D-LANESOCK-1 is a separate draft PR. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-LANESOCK. Follows #1964/#1965 and OGAR#371.
+**Confidence:** every type and refusal is mapped onto existing `BindStore`, `FrameStore`, `RouteLog`, `ClassView` and `WideFieldMask` APIs; nothing measured yet.
+
+## 2026-11-04 — D-DRIVER-ZC-0: virtual access driver instead of 17,000 per-call copy audits
+
+**Status:** PROPOSED / DOCS ONLY. [Master](../plans/d-driver-zc-virtual-bus-contract-v1.md) · [staged PR charter](../plans/d-driver-zc-staged-pr-charter-v1.md) · [47 falsifiers](../plans/d-driver-zc-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-driver-zc-0-virtual-bus-contract.md) · [STATUS_BOARD](STATUS_BOARD.md) D-DRIVER-ZC · [EXO-154](https://linear.app/exo-red/issue/EXO-154) / [EXO-153](https://linear.app/exo-red/issue/EXO-153) / [EXO-50](https://linear.app/exo-red/issue/EXO-50). **Architecture move:** apply ndarray SIMD polyfill's facade-and-parity law to a single local/foreign/data-owner *address-access membrane*. Five virtual XX/XY/XZ/YY/ZZ lenses share one witnessed canonical SoA address; typed ClassView and Quack/mask-risc/ndarray execute without default copied values/row reconstruction. BIND→PROJECT→STREAM→EXECUTE→RELEASE; strict local borrow vs disk ingress vs remote message distinction; no new ISA/ALU/hash index or driver runtime. Co-addressed selections and once-per-frame routing first; foreign hops remain EXO-46/89/151/140-gated; D4/S-INGRESS and oracle-lifetime owners open. A 47-case matrix separates semantic results, representation bytes, reachability enforcement and end-to-end economics. #1953/#1955/#1956 already merged; the 8 ZC stages are independent, only ZC-0 documented now. "Thinking Hard Drive" is a proposed restricted theorem schema, not an assertion that disks perform computation or every query takes O(1). **Explicit defer:** no cognitive-shader-driver/Ladybug/P64/StreamDTO/BusDTO/PerturbationDTO stack investigation or consolidation during this PR.
+## 2026-11-04 — D-CGMM-0: Codegraph Kythe/Datalog demand → ClassView FieldViewDef scratch → DT64
+
+**Execution-ready docs addendum (2026-11-04):** [Detailed source→demand→native blueprint](../plans/d-cgmm-implementation-blueprint-v1.md), [EXO owner decision ledger](../plans/d-cgmm-exo-gates-v1.md), [independent fixture oracles](../plans/d-cgmm-executable-fixtures-v1.md); all new source/semantic/bench results still **NOT_RUN**. First lab should verify Ruff/Charon source evidence loss and identity, then demand-bound lazy Codegraph parity; do not skip straight to DT64 execution by treating candidate schema offers as permits.
+
+
+**Status:** PROPOSED / DOCS ONLY. [Master architecture](../plans/d-cgmm-codegraph-metta-method-builder-v1.md) · [lazy-Codegraph evidence/demand separation](../plans/d-cgmm-lazy-codegraph-fact-demand-v1.md) · [ActionDef/OGIT many-to-many relation](../plans/d-cgmm-action-relation-schema-v1.md) · [staged PR charter](../plans/d-cgmm-staged-pr-charter-v1.md) · [46 falsifiers](../plans/d-cgmm-falsifier-matrix-v1.md) · [board entry](entries/2026-11-04-d-cgmm-0-metta-class-method-builder.md) · [EXO-155](https://linear.app/exo-red/issue/EXO-155) / [EXO-50](https://linear.app/exo-red/issue/EXO-50).
+
+**Operator's direction:** MeTTa becomes logical class/method schema glue rather than runtime. **Source AST/harvest→Kythe-shaped immutable evidence (not Codegraph Pos)→Crepe/Soufflé/XLOG compiler demand metadata→lazy Codegraph masks→witnessed ClassView/FieldViewDef with ephemeral MeTTa constraint scratch→separate OGIT LinkSpec M:N / OGAR ActionDef / DT64 MethodBinding admission→existing RelAlg/Quack/R2IL/mask-risc/ndarray execution.** Codegraph already binds joins lazily and uses graded masks, but eagerly builds six XLOG relations; lazy planner is a measurable hypothesis, not a shipped complete rewrite. No alternate hash index or owned AST/tree. Copy-free SoA hot path remains D-DRIVER-ZC's guarantee; field presence, tenant auth, Bag multiplicity, source grading and action effects are independent. Unsupported WHEN/K3, recursion, foreign tenant edge and effectful action are typed refusals, not a fallback interpreter.
+
+**Separate gates:** EXO-84/85 MeTTa, EXO-79/143 MORK, EXO-73 datafrog/recursion, EXO-108 Bag, EXO-95 enterprise source parity, EXO-121 ClassView, EXO-152 normalized method DTO, EXO-153/154 DR virtual driver/zero-copy. All future PRs require independent review; only docs stage opened now. No runtime implementation or D4 admission inferred.
+
+## 2026-11-04 — D-DRISA decision memos after the local register proof → `.claude/plans/d-drisa-decision-memos-v1.md`
+
+**Status:** PROPOSED, owned by this session (EXO-153 stages 1 and 3). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRISA-1-LAB, D-DRISA-3-LAB, D-DRISA-M1..M7; [entry](entries/2026-11-04-d-drisa-1-register-proof.md). Architecture: #1953 (D-DRISA-0, a GPT-session plan adopted after review). Seven owner questions the local proof leaves open: a layout witness on the SoA (the first missing connection), a global id → tile index or co-addressed selections, result-register lifetime, source-location receipt, DR → Lance authority, the carry words as ALU, async loopback.
+**Confidence:** each memo cites a lab measurement or a source line; no ruling made.
+## 2026-11-04 — D-DRISA-0: virtual DR registers × Abakus ALU × async data-local cognitive shader
+
+**Status: PROPOSED / DOCS ONLY.** [Architecture](../plans/d-drisa-remote-register-shader-v1.md) · [staged PR charter](../plans/d-drisa-staged-pr-charter-v1.md) · [57 independent falsifiers](../plans/d-drisa-falsifier-matrix-v1.md) · [entry](entries/2026-11-04-d-drisa-0-remote-register-contract.md) · [STATUS_BOARD](STATUS_BOARD.md) D-DRISA · [EXO-153](https://linear.app/exo-red/issue/EXO-153) · [EXO-50](https://linear.app/exo-red/issue/EXO-50) bus. **New hypothesis:** use existing DR frame as data-local virtual register namespace and preexisting Quack/R2IL/mask-risc/ndarray words as the typed ALU, including shipped Abakus half/full adders where arithmetic helps, with a bounded asynchronous remote descriptor and compact result. Do not send raw pointers, transport payloads by default, copy canonical values into DR, or create new global row mappings. Network zero-copy is *not* claimed; Arrow C same-process ABI and optional Flight RPC are distinguished. Nine separately gated PR stages, no production implementation. This does not replace D-DRAM-0/P3 or claim #1950's copied-lane prepared binding as address-only memoization. **D4/S-INGRESS, EXO-46/89/151, security and THOUGHT/WORLD admission remain open.**
+**Confidence:** existing local borrowed-operand instruction surface source-verified; remote/asynchronous contract, economics, result continuation and source leases unimplemented and unmeasured.
+
+## 2026-11-03 — D-DRAM-P3: P2 open ends integrated with the D-DRAM-0 falsifier map → `.claude/plans/d-dram-p3-integrated-v1.md`
+
+**Status:** PLAN, owned by this session (operator). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM-P3-1..8. Credits P2 (#1950) against the pre-registered #1949 gates (L9, L10, C2, C4 measured in the lab; L1/L2/L6/A3/A4 partial). Orders eleven owned items by signal per effort: three need no outside decision (ReadPolicy range count, non-vacuous projection cases, the D-DRAM-1 census). Production and gated items keep their owners; nothing merges automatically.
+**Confidence:** plan; every motive is a measured P2 number, no new measurement yet.
+
+## 2026-11-03 — D-DRAM-0: DR address memoization + adaptive Abakus mask lens → `.claude/plans/d-dram-abacus-address-memoization-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DRAM; [entry](entries/2026-11-03-d-dram-abacus-address-memoization.md); [EXO-50](https://linear.app/exo-red/issue/EXO-50/agent-message-bus-gpt-xgrok-ccsession-id) coordination. Separate focus-scoped, witnessed receipt for already resolved canonical SoA locations, *no copy of values and no mutation of `LocalMap::globals`*. Quack dynamic ClassView/WideFieldMask scope can test shipped ndarray half/full-adder words for k-of-n masks; operator's exact 5×24 symbols require source verification. Existing Lance masked reads stay in their owner, D4/S-INGRESS gate the DR↔Lance binding, and generic payload gather remains prohibited outside the narrow D-DRF-1 §5 exception. Gates D-DRAM-1..5 are proposals, not authorized production tasks.
+**Confidence:** source-grounded owner/ABI map; no executable implementation, measured benefit or public Abakus type.
+
+## 2026-11-03 — D-XLOG-WIRE: XLOG wiring gaps to the hot path → `.claude/plans/xlog-wiring-to-hot-path-v1.md`
+
+**Status:** PLAN. Gating input for D-CODEGRAPH-0-BIN B3 (operator 2026-11-03). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-XLOG-WIRE; [entry](entries/2026-11-03-a10-writers-retract-xlog-pr.md).
+**Confidence:** eight gaps W1–W8, each re-verified at the fork `main` `84da1a8` or found in code on 2026-11-03; no wiring done yet. The egglog-r2il text-on-hot-path site is fixed.
+
+## 2026-11-02 — D-TGL-PUB: G10 × G11 atomic publication lab spec → `.claude/plans/g10-g11-atomic-publication-lab-v1.md`
+
+**Status:** SPEC, lab only; nothing implemented. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-PUB; [entry](entries/2026-11-02-d-tgl-release-fence-and-g10-g11-boundaries.md).
+**Confidence:** boundaries read in code (dt64 `route`/`RouteLog`, `persist_sink.rs`); the release-profile fence result was measured.
+
+## 2026-11-02 — D-TGL: the GitHub-analogue Thought-Git lifecycle as a shared contract → `.claude/plans/thought-git-lifecycle-contract-v1.md`
+
+**Status:** CONTRACT, docs only; Codegraph lab F-LAND / F-DISCARD shipped (crate-private). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-TGL-0 … D-TGL-G12, D-TGL-EXO148; [decisions + lab](entries/2026-11-02-p4-operator-decisions-lifecycle-lab.md); [P4 review](entries/2026-11-02-p4-thought-git-codegraph-dt64-review.md).
+**Confidence:** lab measured (tests + 2 disables); production gates G9–G12 and EXO-148 open.
+
+## 2026-11-02 — D-DT64-AUTH: DT64 as the one method authority, census + ratchet → `.claude/plans/d-dt64-method-authority-census-v1.md`
+
+**Status:** PROPOSED, plan only (operator decision P3 of the architecture review). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-DT64-AUTH; [review](entries/2026-11-02-codegraph-dr3-dt64-ruff-architecture-review.md); [decisions](entries/2026-11-02-codegraph-review-operator-decisions.md). Same day: `d-codegraph-0-binary-lanes-v1.md` gained Amendment A (P2: provenance header, `(artifact, FunDeclId)`, `INVOKES_WORD`).
+**Confidence:** plan; inputs located in code, census not yet written.
+
+## 2026-11-02 — D-CODEGRAPH-0 wide closure, DR versioned index, binary lanes → `.claude/plans/d-codegraph-0-wide-closure-v1.md`, `.claude/plans/d-dynbag-4-dr-versioned-mapping-v1.md`, `.claude/plans/d-codegraph-0-binary-lanes-v1.md`
+
+**Status:** wide closure and the DR versioned index IN PR; binary lanes PLANNED. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-CODEGRAPH-0-C2, D-CODEGRAPH-0-BIN, D-DYNBAG-4; [entry](entries/2026-11-02-d-codegraph-0-gap-map.md). Operator rulings: wider call chain with presence bits for thin provisioning and sparse write merged on read; multi-word presence, explicit refold only; versioned, replayable immutability is the DR index itself (one RouteVersion counter, old versions readable by number); counting is Quack's (mask-risc, ndarray); codebooks up to 512 entries use codec9; strings only at intake, labels through codebooks or a KV table; predictive prefetch through `ndarray::simd::prefetch_read_*`, measured before claimed.
+**Confidence:** wide closure and the DR index measured (tests, disable runs, mask-risc store); binary lanes plan only.
+
+## 2026-11-02 — D-CODEGRAPH-0: a resident Codegraph, Charon → ruff → lance-graph + crai-rs → `.claude/plans/d-codegraph-0-resident-codegraph-v1.md`
+
+**Status:** PROPOSED; slice A (ruff Charon intake) started. **Board:** [entry](entries/2026-11-02-d-codegraph-0-gap-map.md), [STATUS_BOARD](STATUS_BOARD.md) D-CODEGRAPH-0. Kythe semantic facts + R2IL executable semantics + DT64/DR binding. Gap map G1–G9: no Charon intake in ruff, no Kythe producer in Rust, no `ref/call` edges, no Rust-body → R2IL lowering, no resident or incremental store, closure capped at 64 per tile, body anchor open, ruff sink unmerged. Slices A (intake) → B (resident, incremental) → C (queries, diagnostics, bodies) → D (MCP) → E (token measurement).
+**Confidence:** gap map read from `main` of four repos; rust-analyzer oracle measured on the fixture; no intake run yet.
+
 ## 2026-11-01 — D-STAUNEN-5: resident recursive plasticity → `.claude/plans/d-staunen-5-resident-recursive-plasticity-v1.md`
 
 **Status:** PROPOSED, plan only. **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-STAUNEN-5. First closed learning loop on the XLOG-on-cube foundation: one binary relation, its transitive closure as the prediction, a declared set of dormant candidate edges. A novel stimulus (an observed pair the closure misses) licenses one activation, under the contract of Atlas's `update_mask` (fixed mask shape, 0/1, atomic between sequences, regrowth clears history, needs committed state) plus a generation guard; Atlas is the contract source, not the executor. The delta stays in the cube as `ndarray::simd` mask words. Two competing policies (H1 parsimony, H2 novelty × eligibility) are scored on held-out pairs from a hidden graph; later evidence consolidates or reverts each update, and a selector learns which policy to use. Also records the xlog-cube coverage order (projection composition, mask filters, resident execution, computed columns, F100, N-ary gated) and that 140/230 measures admission, not checked answers.

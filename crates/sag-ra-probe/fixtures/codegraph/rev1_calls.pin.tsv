@@ -1,0 +1,4 @@
+# callee-signature	path (relative to rev1/)	line (1-based)	call expression -- read off the source by hand (cat -n), not from Charon
+cg_lib::util::triple	cg_lib/src/macro_use.rs	4	t3(1)
+cg_lib::util::double	cg_lib/src/shapes.rs	14	double(self.0)
+cg_lib::shapes::Shape	cg_lib/src/lib.rs	8	s.area()

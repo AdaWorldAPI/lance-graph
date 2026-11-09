@@ -31,12 +31,13 @@
 //!
 //! # What is checked when
 //!
-//! [`prepare_native`]: the guards and the route, then every step through
+//! [`prepare_native`]: that `store` issued the plan's method reference, the
+//! guards and the route, then every step through
 //! [`FoldDialect`] with the argument resolution, compare-range check and
 //! result-arity check of [`crate::binding::run`].
 //!
-//! [`run_native`]: the guards, the route and the execution permit, in the
-//! order [`crate::binding::run`] checks them, then the planes' shape. The
+//! [`run_native`]: the issuer, the guards, the route and the execution permit,
+//! in the order [`crate::binding::run`] checks them, then the planes' shape. The
 //! permit is a lab permission, not a production authorization. `run_native`
 //! allocates nothing.
 
@@ -112,7 +113,7 @@ pub struct NativePlan {
 }
 
 impl NativePlan {
-    /// The plan's identity, the one [`Prepared::plan_id`] carries.
+    /// The plan's identity, the one [`Prepared::plan_id`] returns.
     pub fn plan_id(&self) -> u64 {
         self.prepared.plan_id
     }
@@ -207,6 +208,9 @@ pub fn prepare_native(
     fields: FieldLanes<'_>,
     planes: &Planes<'_>,
 ) -> Result<NativePlan, ExecRefusal> {
+    store
+        .check_issuer(&plan.method)
+        .map_err(ExecRefusal::Binding)?;
     plan.guards
         .check(frames, now)
         .map_err(ExecRefusal::Guards)?;
@@ -354,6 +358,9 @@ pub fn run_native(
     scratch: &mut NativeScratch,
 ) -> Result<NativeReceipt, ExecRefusal> {
     let plan = &np.prepared;
+    store
+        .check_issuer(&plan.method)
+        .map_err(ExecRefusal::Binding)?;
     plan.guards
         .check(frames, now)
         .map_err(ExecRefusal::Guards)?;

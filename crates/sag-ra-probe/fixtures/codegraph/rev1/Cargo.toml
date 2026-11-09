@@ -1,0 +1,5 @@
+# D-CODEGRAPH-0 oracle fixture, revision 1. Its own workspace; nothing builds it
+# except the probe and the rustc oracle (`cargo check`), from this directory.
+[workspace]
+members = ["cg_lib", "cg_app", "cg_broken"]
+resolver = "2"

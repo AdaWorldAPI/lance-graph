@@ -33,9 +33,12 @@
 //!   whose clause the Kausal marker (`weil`) opens; every matrix event of the
 //!   same verse is an effect. `Impl` does not auto-transit.
 //!
-//! A cause event is certified `CausalCandidate` only when its `cause ⇒
-//! effect` belief rests on two or more disjoint verse stamps (and the triple
-//! itself is Related). Text never certifies `Causes`. The arena's stamps are
+//! A cause event whose `cause ⇒ effect` belief rests on two or more disjoint
+//! verse stamps is COUNTED (`WireReport::two_source_causes`), never certified
+//! above what the text evidence earns: `CausalCandidate` is owned by
+//! `lance_graph_contract::certification` and requires `Supports` plus
+//! temporal ordering over a population, which text cannot witness. Text never
+//! certifies `CausalCandidate` or `Causes`. The arena's stamps are
 //! a 64-source bitset that folds by modulo: past 64 verses two sources can
 //! collide, which turns a revision into a CHOICE (an undercount, never a
 //! double count).
@@ -305,8 +308,10 @@ pub struct WireReport {
     /// Observations not admitted because a group had more than 256 distinct
     /// verses or objects.
     pub gate_overflow: usize,
-    /// Rows certified `CausalCandidate`.
-    pub causal_candidates: usize,
+    /// Cause rows whose `cause ⇒ effect` belief rests on two or more disjoint
+    /// verse stamps (and whose triple is Related). A reading, not a
+    /// certification: the row's code is not raised.
+    pub two_source_causes: usize,
     /// `cause ⇒ effect` observations offered to the causes arena.
     pub implications: usize,
     /// Of those, observations the arena pooled (disjoint stamps).
@@ -955,7 +960,6 @@ pub fn wire(
             };
             st.last = Some((cohort, slot));
             row.cohort = cohort;
-            // CausalCandidate is decided after the Kausal claims are counted.
             let certification = if pos >= 2 && balance_pos {
                 Certification3::Related
             } else {
@@ -1022,18 +1026,13 @@ pub fn wire(
                 cause_sources =
                     cause_sources.max(causes.get(stmt).map_or(0, |b| b.stamp.0.count_ones()));
             }
-            // Two independent implication sources promote a Related cause.
-            let row = &mut rows[first + j];
+            // Two independent implication sources are counted, never written:
+            // the certification stays what the text earned.
+            let row = &rows[first + j];
             let state = EpistemicState5::decode(Epi5Gen::V1, row.edge.epistemic_raw5())
                 .expect("written above as V1");
             if cause_sources >= 2 && state.certification() == Certification3::Related {
-                rep.causal_candidates += 1;
-                let up = EpistemicState5::new(
-                    Epi5Gen::V1,
-                    state.topology(),
-                    Certification3::CausalCandidate,
-                );
-                row.edge = row.edge.with_epistemic_raw5(up.raw());
+                rep.two_source_causes += 1;
             }
         }
 
@@ -1639,7 +1638,8 @@ mod tests {
 
     /// Can fire: two independent `weil` verses pool `cause ⇒ effect` in the
     /// causes arena (two disjoint stamps), the cause event sits at the
-    /// intervention rung and is certified CausalCandidate; the effect is not.
+    /// intervention rung and is counted as a two-source cause, but its
+    /// certification stays Related: text never earns CausalCandidate.
     #[test]
     fn weil_feeds_the_causes_arena() {
         let w = run_in(&[weil_verse(), weil_verse()]);
@@ -1653,14 +1653,14 @@ mod tests {
         assert_eq!(row(1, cause).edge.causal_mask(), CausalMask::PO);
         assert_eq!(
             epi(row(1, cause).edge).certification(),
-            Certification3::CausalCandidate
+            Certification3::Related
         );
         assert_eq!(row(1, effect).edge.causal_mask(), CausalMask::SO);
         assert_eq!(
             epi(row(1, effect).edge).certification(),
             Certification3::Related
         );
-        assert_eq!(w.report.causal_candidates, 1);
+        assert_eq!(w.report.two_source_causes, 1);
     }
 
     /// Stay silent: the cause clause seen twice, but the causal claim only
@@ -1672,7 +1672,7 @@ mod tests {
         plain.extend(svo(DOG, BIT, MAN));
         // The plain verse first, so the weil verse's cause row already has two
         // supports and a positive balance: only the single implication
-        // source keeps it from CausalCandidate.
+        // source keeps it from being counted.
         let w = run_in(&[
             VerseIn {
                 readings: plain,
@@ -1682,7 +1682,7 @@ mod tests {
         ]);
         assert_eq!(w.report.implications, 1);
         assert_eq!(w.report.implications_revised, 0);
-        assert_eq!(w.report.causal_candidates, 0);
+        assert_eq!(w.report.two_source_causes, 0);
         let cause = w
             .rows
             .iter()
@@ -1853,7 +1853,7 @@ mod tests {
         assert_eq!(cause.revision, Some(RevisionKind::ContradictionPreserved));
         assert_eq!(w.report.implications, 0);
         assert!(w.causes.entries().is_empty());
-        assert_eq!(w.report.causal_candidates, 0);
+        assert_eq!(w.report.two_source_causes, 0);
     }
 
     /// An adjective on the object lands on the object pair; an adverb before

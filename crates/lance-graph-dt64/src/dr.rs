@@ -21,6 +21,7 @@
 
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Weak};
 
 use lance_graph_contract::class_view::ClassId;
@@ -57,6 +58,28 @@ impl Axis {
     /// Positions reserved on this axis.
     pub const fn reserved(self) -> usize {
         self.tile.positions() * self.tiles as usize
+    }
+
+    /// The axis a selection of `survivors` positions needs (D-DYNBAG §4.1):
+    /// up to 64 fit one DR64 tile; 65 to 256 one DR256 tile; more take
+    /// `ceil(n / 256)` DR256 tiles; none takes one DR64 tile. The width is a
+    /// cost decision: a DR64 register is 512 B and a DR256 one 8 KiB, so the
+    /// narrow tile is used whenever the selection fits it. `tiles` saturates
+    /// at `u32::MAX` rather than overflow.
+    pub const fn for_survivors(survivors: usize) -> Axis {
+        if survivors <= 64 {
+            Axis::new(Width::W64, 1)
+        } else if survivors <= 256 {
+            Axis::new(Width::W256, 1)
+        } else {
+            let tiles = survivors.div_ceil(256);
+            let tiles = if tiles > u32::MAX as usize {
+                u32::MAX
+            } else {
+                tiles as u32
+            };
+            Axis::new(Width::W256, tiles)
+        }
     }
 
     /// The tile a position falls in.
@@ -132,6 +155,38 @@ pub const MAX_RESERVED: usize = 1 << 16;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RouteVersion(pub u64);
 
+/// The one counter behind [`RouteVersion`]. A [`RouteLog`], a [`FrameStore`]
+/// and a [`MapTable`] built from clones of the same clock advance ONE
+/// sequence: a version then names a single point of the DR log, and a frame's
+/// version answers `RouteLog::routed_at` as well as `MapTable::diagnose_at`.
+///
+/// `clone` SHARES the counter (that is how two structures are joined);
+/// [`VersionClock::fork`] copies its present value into an independent one.
+/// The counter only ever increases; nothing rewinds it.
+#[derive(Debug, Default, Clone)]
+pub struct VersionClock(Arc<AtomicU64>);
+
+impl VersionClock {
+    pub fn new() -> VersionClock {
+        VersionClock::default()
+    }
+
+    /// The last version issued (`RouteVersion(0)` before any).
+    pub fn current(&self) -> RouteVersion {
+        RouteVersion(self.0.load(Ordering::SeqCst))
+    }
+
+    /// Issue the next version.
+    pub fn tick(&self) -> RouteVersion {
+        RouteVersion(self.0.fetch_add(1, Ordering::SeqCst) + 1)
+    }
+
+    /// An independent clock starting at this one's present value.
+    pub fn fork(&self) -> VersionClock {
+        VersionClock(Arc::new(AtomicU64::new(self.0.load(Ordering::SeqCst))))
+    }
+}
+
 /// Why the route log refused.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RouteRefusal {
@@ -151,12 +206,23 @@ pub enum RouteRefusal {
 /// DR64 direct routing: the append-only log from a DR position to the
 /// classid bound there. Only routing is versioned (D-DT64-6 §3); what a
 /// classid means is the binding side's, and does not change.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct RouteLog {
     /// Per position, the route events in version order: `(version, class)`,
     /// `None` for a retract.
     routes: BTreeMap<u16, Vec<(RouteVersion, Option<u32>)>>,
-    version: RouteVersion,
+    clock: VersionClock,
+}
+
+/// A cloned log gets a forked clock: copying a log must not make the copy's
+/// routes advance the original's version sequence.
+impl Clone for RouteLog {
+    fn clone(&self) -> RouteLog {
+        RouteLog {
+            routes: self.routes.clone(),
+            clock: self.clock.fork(),
+        }
+    }
 }
 
 impl RouteLog {
@@ -164,9 +230,23 @@ impl RouteLog {
         RouteLog::default()
     }
 
-    /// The current end of the log.
+    /// A log that advances `clock`, shared with whoever else holds a clone of
+    /// it (typically a [`MapTable`]).
+    pub fn with_clock(clock: VersionClock) -> RouteLog {
+        RouteLog {
+            routes: BTreeMap::new(),
+            clock,
+        }
+    }
+
+    /// The clock this log advances (a clone that shares the counter).
+    pub fn clock(&self) -> VersionClock {
+        self.clock.clone()
+    }
+
+    /// The current end of the (possibly shared) version sequence.
     pub fn current_version(&self) -> RouteVersion {
-        self.version
+        self.clock.current()
     }
 
     /// Route `position` to `class`, whose identity reservation is `identity`;
@@ -178,6 +258,14 @@ impl RouteLog {
         class: u32,
         identity: Axis,
     ) -> Result<RouteVersion, RouteRefusal> {
+        self.check(position, class, identity)?;
+        Ok(self.push(position, Some(class)))
+    }
+
+    /// Whether [`RouteLog::route`] would accept routing `position` to
+    /// `class`, without routing it: the same refusal, no event, no version.
+    /// `route` runs this exact check, so the two cannot disagree.
+    pub fn check(&self, position: u16, class: u32, identity: Axis) -> Result<(), RouteRefusal> {
         let reserved = identity.reserved();
         if usize::from(position) >= reserved {
             return Err(RouteRefusal::OutsideReservation {
@@ -186,7 +274,7 @@ impl RouteLog {
                 reserved,
             });
         }
-        Ok(self.push(position, Some(class)))
+        Ok(())
     }
 
     /// Remove `position`'s route; returns the new version.
@@ -195,12 +283,12 @@ impl RouteLog {
     }
 
     fn push(&mut self, position: u16, class: Option<u32>) -> RouteVersion {
-        self.version = RouteVersion(self.version.0 + 1);
+        let version = self.clock.tick();
         self.routes
             .entry(position)
             .or_default()
-            .push((self.version, class));
-        self.version
+            .push((version, class));
+        version
     }
 
     /// The classid `position` routed to at `version`, `None` if it was
@@ -210,10 +298,11 @@ impl RouteLog {
         version: RouteVersion,
         position: u16,
     ) -> Result<Option<u32>, RouteRefusal> {
-        if version > self.version {
+        let current = self.clock.current();
+        if version > current {
             return Err(RouteRefusal::FutureVersion {
                 asked: version,
-                current: self.version,
+                current,
             });
         }
         let Some(events) = self.routes.get(&position) else {
@@ -290,32 +379,71 @@ pub enum FrameRefusal {
 pub struct FrameStore {
     identity: Arc<()>,
     current: Arc<FrameRevisions>,
+    clock: VersionClock,
+    /// The version the current seal was issued at.
+    version: RouteVersion,
 }
 
 impl FrameStore {
     pub fn new(revisions: FrameRevisions) -> Self {
+        Self::with_clock(revisions, VersionClock::new())
+    }
+
+    /// A store whose advances tick `clock`.
+    pub fn with_clock(revisions: FrameRevisions, clock: VersionClock) -> Self {
+        let version = clock.current();
         Self {
             identity: Arc::new(()),
             current: Arc::new(revisions),
+            clock,
+            version,
         }
     }
 
-    /// Seal the current frame.
+    /// Seal the current frame, stamped with the version it was issued at.
     pub fn seal(&self) -> Frame {
         Frame {
             store: Arc::downgrade(&self.identity),
             seal: Arc::downgrade(&self.current),
             at: *self.current,
+            version: self.version,
         }
     }
 
-    /// Move to new revisions; every frame sealed before is stale from now on.
-    pub fn advance(&mut self, revisions: FrameRevisions) {
+    /// Move to new revisions and a new version; `check` refuses every frame
+    /// sealed before (a version-keyed reader such as [`MapTable::map`] still
+    /// answers them, at their own version). Returns the new version.
+    pub fn advance(&mut self, revisions: FrameRevisions) -> RouteVersion {
+        let version = self.clock.tick();
+        self.advance_at(revisions, version);
+        version
+    }
+
+    fn advance_at(&mut self, revisions: FrameRevisions, version: RouteVersion) {
         self.current = Arc::new(revisions);
+        self.version = version;
+    }
+
+    /// The version `frame` was issued at, if this store issued it. A frame of
+    /// another store is `ForeignFrame` even at equal revisions and versions.
+    /// Unlike [`FrameStore::check`] this does not require the frame to be
+    /// current: it is the key for reading history.
+    pub fn issued(&self, frame: &Frame) -> Result<RouteVersion, FrameRefusal> {
+        if !Weak::ptr_eq(&frame.store, &Arc::downgrade(&self.identity)) {
+            return Err(FrameRefusal::ForeignFrame);
+        }
+        Ok(frame.version)
     }
 
     pub fn revisions(&self) -> FrameRevisions {
         *self.current
+    }
+
+    /// Whether `other` is this same store (identity, never value): the
+    /// lane-socket gate (D-LANESOCK) uses it to refuse a caller-chosen store
+    /// that is not the one a source's data lives with.
+    pub(crate) fn same_store(&self, other: &FrameStore) -> bool {
+        Arc::ptr_eq(&self.identity, &other.identity)
     }
 
     /// `Ok` iff `frame` is this store's current seal. A frame of another store
@@ -349,9 +477,15 @@ pub struct Frame {
     store: Weak<()>,
     seal: Weak<FrameRevisions>,
     at: FrameRevisions,
+    version: RouteVersion,
 }
 
 impl Frame {
+    /// The version this frame was issued at: the key it reads history under.
+    pub fn version(&self) -> RouteVersion {
+        self.version
+    }
+
     /// The revisions this frame was sealed at (for reporting, never identity).
     pub fn revisions(&self) -> FrameRevisions {
         self.at
@@ -459,6 +593,17 @@ impl LocalMap {
         })
     }
 
+    /// This map, whole, as a [`TileMap`]: what a table would read for it
+    /// once it is appended. Lets a caller validate a map it has not yet
+    /// handed to [`MapTable::advance`] (an extension check, a lookup)
+    /// without advancing the table or issuing a version.
+    pub fn view(&self) -> TileMap<'_> {
+        TileMap {
+            map: self,
+            len: self.globals.len(),
+        }
+    }
+
     pub fn width(&self) -> Width {
         self.width
     }
@@ -495,15 +640,20 @@ impl LocalMap {
     /// as its `coordinates` revision. A digest, not an identity: two maps
     /// over the same ids in the same order are the same assignment.
     pub fn digest(&self) -> u64 {
-        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for &g in &self.globals {
-            for b in g.to_le_bytes() {
-                h ^= u64::from(b);
-                h = h.wrapping_mul(0x0000_0100_0000_01b3);
-            }
-        }
-        h
+        fnv_ids(&self.globals)
     }
+}
+
+/// FNV-1a over a local → global table, in local order.
+fn fnv_ids(globals: &[u64]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for &g in globals {
+        for b in g.to_le_bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+    }
+    h
 }
 
 /// A tile's name in a [`MapTable`], chosen by the caller.
@@ -512,45 +662,239 @@ pub type TileId = u32;
 /// Why a [`MapTable`] read was refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MapRead {
-    /// The frame is not the table's current seal.
+    /// The frame was not issued by this table's store (`ForeignFrame`). A
+    /// frame of THIS table is never stale: it reads the layout it was sealed
+    /// under.
     Stale(FrameRefusal),
-    /// The current frame holds no map for this tile.
+    /// The table holds no map for this tile at the frame's (or asked) version.
     NoSuchTile(TileId),
+    /// A numeric version past the end of the shared version sequence.
+    FutureVersion {
+        asked: RouteVersion,
+        current: RouteVersion,
+    },
 }
 
-/// The versioned global → local table (D-DT64-7 O5): every tile's
-/// [`LocalMap`] under one [`FrameStore`]. Maps change only through
-/// [`MapTable::advance`], which sets the `coordinates` revision from the maps
-/// it holds, and a map is read only under the frame it was sealed under.
+/// A tile's history: append-only. Nothing here is updated in place or
+/// compacted, so any past version stays answerable.
+///
+/// - an EXTENSION (the new map keeps every old position and only appends) is a
+///   longer length at a new version over the SAME generation: the generation
+///   is replaced by its superset (the old prefix is bit-identical inside it,
+///   so no information is lost) and no copy is kept;
+/// - a REPLACEMENT (reorder, removal of an id, width change, or a re-add after
+///   a removal) is a new generation;
+/// - a REMOVAL is an event to `None`.
+#[derive(Debug, Default)]
+struct TileLog {
+    gens: Vec<LocalMap>,
+    /// `(version, Some((generation, len)))`, `None` = removed; version order.
+    events: Vec<(RouteVersion, Option<(usize, usize)>)>,
+}
+
+impl TileLog {
+    fn append(&mut self, version: RouteVersion, m: LocalMap) {
+        let len = m.len();
+        let live = match self.events.last() {
+            Some((_, Some((g, _)))) => Some(*g),
+            _ => None,
+        };
+        if let Some(g) = live {
+            if let Some(slot) = self.gens.get_mut(g) {
+                if m.extends(slot) {
+                    m.lookups.set(slot.lookups.get());
+                    *slot = m;
+                    self.events.push((version, Some((g, len))));
+                    return;
+                }
+            }
+        }
+        let g = self.gens.len();
+        self.gens.push(m);
+        self.events.push((version, Some((g, len))));
+    }
+
+    fn remove(&mut self, version: RouteVersion) {
+        if matches!(self.events.last(), Some((_, Some(_)))) {
+            self.events.push((version, None));
+        }
+    }
+
+    /// The layout in force at `version`: the last event at or before it.
+    fn at(&self, version: RouteVersion) -> Option<TileMap<'_>> {
+        let seen = self.events.partition_point(|(v, _)| *v <= version);
+        let (g, len) = self.events.get(seen.checked_sub(1)?)?.1?;
+        Some(TileMap {
+            map: self.gens.get(g)?,
+            len,
+        })
+    }
+}
+
+/// A borrowed view of one tile's map at one version: a generation plus a
+/// length. It owns no ids and allocates nothing. `local` and `global` respect
+/// `len`, so an id appended after the version is absent at it.
+#[derive(Clone, Copy, Debug)]
+pub struct TileMap<'t> {
+    map: &'t LocalMap,
+    len: usize,
+}
+
+impl<'t> TileMap<'t> {
+    pub fn width(&self) -> Width {
+        self.map.width
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// global → local. Counted (on the underlying generation). A position at
+    /// or past `len` was appended later, so it is `Unmapped` here.
+    pub fn local(&self, global: u64) -> Result<u8, MapRefusal> {
+        let local = self.map.local(global)?;
+        if usize::from(local) < self.len {
+            Ok(local)
+        } else {
+            Err(MapRefusal::Unmapped)
+        }
+    }
+
+    /// local → global, `None` at or past `len`.
+    pub fn global(&self, local: u8) -> Option<u64> {
+        if usize::from(local) < self.len {
+            self.map.global(local)
+        } else {
+            None
+        }
+    }
+
+    /// The local → global table at this version, in local order.
+    pub fn globals(&self) -> &'t [u64] {
+        self.map.globals.get(..self.len).unwrap_or(&[])
+    }
+
+    /// How many lookups the underlying generation has served.
+    pub fn lookups(&self) -> u64 {
+        self.map.lookups()
+    }
+
+    /// FNV-1a over the local → global table at this version.
+    pub fn digest(&self) -> u64 {
+        fnv_ids(self.globals())
+    }
+
+    /// True iff `older` is a pure prefix of `self`: same width, and every
+    /// position of `older` keeps its id here, with `self` only appending.
+    pub fn extends(&self, older: TileMap<'_>) -> bool {
+        self.map.width == older.map.width
+            && self.len >= older.len
+            && self.globals().get(..older.len) == Some(older.globals())
+    }
+}
+
+/// A read-only view of a tile's map at a bare version number. It exposes the
+/// same reads as [`TileMap`] but is a distinct type with no conversion into
+/// one, so it cannot be passed to an executor (`MidMap`). Only
+/// [`MapTable::map`], which checks the frame's issuer, returns an executable
+/// map.
+#[derive(Clone, Copy, Debug)]
+pub struct MapDiagnostic<'t>(TileMap<'t>);
+
+impl MapDiagnostic<'_> {
+    pub fn width(&self) -> Width {
+        self.0.width()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn local(&self, global: u64) -> Result<u8, MapRefusal> {
+        self.0.local(global)
+    }
+
+    pub fn global(&self, local: u8) -> Option<u64> {
+        self.0.global(local)
+    }
+
+    pub fn digest(&self) -> u64 {
+        self.0.digest()
+    }
+}
+
+/// The versioned global → local table (D-DT64-7 O5): every tile's history of
+/// [`LocalMap`]s under one [`FrameStore`]. Maps change only through
+/// [`MapTable::advance`], which appends: an extension is a length at a
+/// version, a replacement a new generation, a removal an event; nothing is
+/// updated in place or compacted. A frame carries the version it was sealed
+/// at ([`RouteVersion`], one per `advance`, shared with a [`RouteLog`] when
+/// they share a [`VersionClock`]) and reads the layout in force then, so an
+/// old frame replays the old layout instead of being refused. The
+/// `coordinates` revision is still set from the CURRENT state, for reporting
+/// and for [`FrameStore::check`]'s currency test; it cannot key history (a
+/// digest collides and is not monotone), the version does.
 #[derive(Debug)]
 pub struct MapTable {
     frames: FrameStore,
-    tiles: BTreeMap<TileId, LocalMap>,
+    tiles: BTreeMap<TileId, TileLog>,
 }
 
 impl MapTable {
-    /// An empty table at the given source and relation-map revisions.
+    /// An empty table at the given source and relation-map revisions, with
+    /// its own version clock.
     pub fn new(source: u64, relation_map: u64) -> Self {
+        Self::with_clock(source, relation_map, VersionClock::new())
+    }
+
+    /// An empty table whose advances tick `clock` (shared with a
+    /// [`RouteLog`] to make both one DR log).
+    pub fn with_clock(source: u64, relation_map: u64, clock: VersionClock) -> Self {
         let tiles = BTreeMap::new();
         let coordinates = Self::coordinates(&tiles);
         Self {
-            frames: FrameStore::new(FrameRevisions {
-                source,
-                relation_map,
-                coordinates,
-            }),
+            frames: FrameStore::with_clock(
+                FrameRevisions {
+                    source,
+                    relation_map,
+                    coordinates,
+                },
+                clock,
+            ),
             tiles,
         }
     }
 
-    /// FNV-1a over `(tile, map digest)` in tile order.
-    fn coordinates(tiles: &BTreeMap<TileId, LocalMap>) -> u64 {
+    /// The clock this table advances (a clone that shares the counter).
+    pub fn clock(&self) -> VersionClock {
+        self.frames.clock.clone()
+    }
+
+    /// The end of the (possibly shared) version sequence.
+    pub fn current_version(&self) -> RouteVersion {
+        self.frames.clock.current()
+    }
+
+    /// FNV-1a over `(tile, map digest)` in tile order, over the CURRENT state
+    /// (removed tiles are absent).
+    fn coordinates(tiles: &BTreeMap<TileId, TileLog>) -> u64 {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for (tile, map) in tiles {
+        for (tile, log) in tiles {
+            let Some(view) = log.at(RouteVersion(u64::MAX)) else {
+                continue;
+            };
             let bytes = tile
                 .to_le_bytes()
                 .into_iter()
-                .chain(map.digest().to_le_bytes());
+                .chain(view.digest().to_le_bytes());
             for b in bytes {
                 h ^= u64::from(b);
                 h = h.wrapping_mul(0x0000_0100_0000_01b3);
@@ -559,30 +903,39 @@ impl MapTable {
         h
     }
 
-    /// Insert (`Some`), replace (`Some`) or remove (`None`) tile maps, then
-    /// re-seal. Every frame sealed before is stale afterwards, even when
-    /// nothing changed.
+    /// Insert or replace (`Some`) or remove (`None`) tile maps, then re-seal
+    /// at a new version. Past versions are untouched: `check` still calls
+    /// every earlier frame non-current, but `map` reads it at its own
+    /// version. An advance that changes nothing adds no event and no
+    /// generation, yet still takes a new version (a new, distinct frame).
+    /// Returns that version.
     pub fn advance(
         &mut self,
         source: u64,
         relation_map: u64,
         changes: Vec<(TileId, Option<LocalMap>)>,
-    ) {
+    ) -> RouteVersion {
+        let version = self.frames.clock.tick();
         for (tile, map) in changes {
             match map {
-                Some(m) => {
-                    self.tiles.insert(tile, m);
-                }
+                Some(m) => self.tiles.entry(tile).or_default().append(version, m),
                 None => {
-                    self.tiles.remove(&tile);
+                    if let Some(log) = self.tiles.get_mut(&tile) {
+                        log.remove(version);
+                    }
                 }
             }
         }
-        self.frames.advance(FrameRevisions {
-            source,
-            relation_map,
-            coordinates: Self::coordinates(&self.tiles),
-        });
+        let coordinates = Self::coordinates(&self.tiles);
+        self.frames.advance_at(
+            FrameRevisions {
+                source,
+                relation_map,
+                coordinates,
+            },
+            version,
+        );
+        version
     }
 
     /// Seal the current frame.
@@ -594,10 +947,112 @@ impl MapTable {
         self.frames.revisions()
     }
 
-    /// The map of `tile`, if `frame` is the current seal.
-    pub fn map(&self, frame: &Frame, tile: TileId) -> Result<&LocalMap, MapRead> {
-        self.frames.check(frame).map_err(MapRead::Stale)?;
-        self.tiles.get(&tile).ok_or(MapRead::NoSuchTile(tile))
+    /// The map of `tile` as of `frame`'s version. A frame of this table
+    /// always resolves (old frames replay their layout); a frame of another
+    /// table is `Stale(ForeignFrame)`; a tile absent then is `NoSuchTile`.
+    /// Borrows; allocates nothing.
+    pub fn map(&self, frame: &Frame, tile: TileId) -> Result<TileMap<'_>, MapRead> {
+        let version = self.frames.issued(frame).map_err(MapRead::Stale)?;
+        self.view(version, tile)
+    }
+
+    /// A read-only diagnostic of `tile` as of a numeric `version`. A bare
+    /// number carries no issuer, so a frame of another table at an equal
+    /// version would be answered with THIS table's layout; the result is
+    /// therefore a [`MapDiagnostic`], not an executable [`TileMap`]. Execute
+    /// only through [`MapTable::map`]. A version past the end of the sequence
+    /// is `FutureVersion`.
+    ///
+    /// ```compile_fail
+    /// use lance_graph_dt64::dr::{MapTable, RouteVersion, TileMap};
+    /// fn executes(_: TileMap<'_>) {}
+    /// let t = MapTable::new(1, 1);
+    /// executes(t.diagnose_at(RouteVersion(0), 1).unwrap());
+    /// ```
+    pub fn diagnose_at(
+        &self,
+        version: RouteVersion,
+        tile: TileId,
+    ) -> Result<MapDiagnostic<'_>, MapRead> {
+        let current = self.frames.clock.current();
+        if version > current {
+            return Err(MapRead::FutureVersion {
+                asked: version,
+                current,
+            });
+        }
+        self.view(version, tile).map(MapDiagnostic)
+    }
+
+    fn view(&self, version: RouteVersion, tile: TileId) -> Result<TileMap<'_>, MapRead> {
+        self.tiles
+            .get(&tile)
+            .and_then(|log| log.at(version))
+            .ok_or(MapRead::NoSuchTile(tile))
+    }
+
+    /// How many generations `tile` has stored (diagnostic: an extension does
+    /// not add one).
+    pub fn generation_count(&self, tile: TileId) -> usize {
+        self.tiles.get(&tile).map_or(0, |l| l.gens.len())
+    }
+
+    /// How many events `tile` has logged (diagnostic).
+    pub fn event_count(&self, tile: TileId) -> usize {
+        self.tiles.get(&tile).map_or(0, |l| l.events.len())
+    }
+
+    /// Find which of the listed `tiles` holds `global` under `frame`.
+    /// Returns `(ordinal, local)`: the index of the holding tile in `tiles`
+    /// and the id's local position in that tile's map. Every listed tile is
+    /// read, so an id held by two of them is refused rather than resolved to
+    /// the first.
+    pub fn locate(
+        &self,
+        frame: &Frame,
+        tiles: &[TileId],
+        global: u64,
+    ) -> Result<(u32, u8), LocateRefusal> {
+        let mut found: Option<(u32, u8)> = None;
+        for (ordinal, &tile) in tiles.iter().enumerate() {
+            let map = self.map(frame, tile).map_err(LocateRefusal::Read)?;
+            // A lookup that finds nothing is not an error here; only the
+            // overall absence is.
+            if let Ok(local) = map.local(global) {
+                if found.is_some() {
+                    return Err(LocateRefusal::Ambiguous);
+                }
+                let ordinal = u32::try_from(ordinal).map_err(|_| LocateRefusal::Ambiguous)?;
+                found = Some((ordinal, local));
+            }
+        }
+        found.ok_or(LocateRefusal::Unmapped)
+    }
+}
+
+/// Why [`MapTable::locate`] refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LocateRefusal {
+    /// A listed tile could not be read under the frame (stale frame, or no
+    /// map for that tile).
+    Read(MapRead),
+    /// The id is held by more than one listed tile.
+    Ambiguous,
+    /// No listed tile holds the id.
+    Unmapped,
+}
+
+impl LocalMap {
+    /// True iff `older` is a pure prefix of `self`: same width, and every
+    /// position of `older` keeps its global id in `self`, with `self` only
+    /// appending. [`LocalMap::prepare`] does not sort the local order (only
+    /// its lookup index is sorted), so an appended id never renumbers an
+    /// existing position, whatever its value. A reorder, a removal or a
+    /// width change makes this false.
+    pub fn extends(&self, older: &LocalMap) -> bool {
+        self.width == older.width
+            && self.globals.len() >= older.globals.len()
+            && self.globals[..older.globals.len()] == older.globals[..]
     }
 }
 
@@ -627,4 +1082,168 @@ pub fn coordinates(width: Width, code: Morton8x8) -> Result<(u8, u8), MapRefusal
 #[inline]
 pub fn rotate_yz(code: Morton8x8) -> Morton8x8 {
     Morton8x8::from_xy(code.y(), code.x())
+}
+
+// ---- code space: value key <-> source-local code ---------------------------
+
+/// A canonical value key: the meaning of one value of a property (for
+/// example the OGAR key of the order status `shipped`). OGAR owns the key; a
+/// source owns the numbers it assigns to keys ([`CodeTable`]). The key is
+/// never an executable number.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ValueKey(pub String);
+
+/// One namespace of codes: a full classid and the canonical identity of one
+/// of its properties. Two properties never share a code space, and one
+/// property of two classes does not either.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CodeSpaceId {
+    pub class: u32,
+    pub property: String,
+}
+
+/// Why a [`CodeTable`] read or advance was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CodeRead {
+    /// The [`FrameStore`] passed to [`CodeTable::advance`] is not the one the
+    /// table is bound to. Nothing changed.
+    ForeignStore,
+    /// The frame was not issued by the store the table is bound to, even at
+    /// equal revisions and versions. A frame of the bound store is never
+    /// stale here: it reads the generation in force at its own version.
+    ForeignFrame,
+    /// The table holds no generation of this space at the frame's version.
+    NoSpace,
+    /// The generation maps no key to this code.
+    UnknownCode,
+    /// The generation maps no code to this key.
+    UnknownKey,
+    /// A change set maps one key to two codes, two keys to one code, or names
+    /// a space twice. Nothing changed.
+    Duplicate,
+}
+
+#[derive(Debug)]
+struct CodeGeneration<C> {
+    at: RouteVersion,
+    by_key: BTreeMap<ValueKey, C>,
+    by_code: BTreeMap<C, ValueKey>,
+}
+
+/// The code-space sibling of [`MapTable`]: per [`CodeSpaceId`], an
+/// append-only history of generations, each a bijection between canonical
+/// [`ValueKey`]s and the source's local codes `C`.
+///
+/// Unlike [`MapTable`] it owns no [`FrameStore`]. It is bound to the store
+/// that the lanes are sealed under, and [`CodeTable::advance`] advances THAT
+/// store, so a code change cannot leave a lane [`Frame`] current
+/// ([`FrameStore::check`]). Reads are keyed by a [`Frame`], never by a bare
+/// version number: a historical frame reads the mapping in force at its
+/// version, which says what a code meant then, not what a row held.
+#[derive(Debug)]
+pub struct CodeTable<C: Copy + Ord> {
+    store: Weak<()>,
+    spaces: BTreeMap<CodeSpaceId, Vec<CodeGeneration<C>>>,
+}
+
+impl<C: Copy + Ord> CodeTable<C> {
+    /// An empty table bound to the identity of `frames`.
+    pub fn new(frames: &FrameStore) -> Self {
+        Self {
+            store: Arc::downgrade(&frames.identity),
+            spaces: BTreeMap::new(),
+        }
+    }
+
+    /// Replace the generation of each listed space and advance `frames`
+    /// exactly once. A space absent from `changes` keeps its generation.
+    /// The new generation of a listed space is exactly its entries.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignStore`] if `frames` is not the bound store, and
+    /// [`CodeRead::Duplicate`] if a change set is not a bijection or names a
+    /// space twice. Both are checked before anything changes: on `Err` the
+    /// table and `frames` are untouched.
+    pub fn advance(
+        &mut self,
+        frames: &mut FrameStore,
+        changes: Vec<(CodeSpaceId, Vec<(ValueKey, C)>)>,
+    ) -> Result<(), CodeRead> {
+        if !Weak::ptr_eq(&self.store, &Arc::downgrade(&frames.identity)) {
+            return Err(CodeRead::ForeignStore);
+        }
+        let mut seen = BTreeSet::new();
+        let mut staged = Vec::with_capacity(changes.len());
+        for (space, entries) in changes {
+            if !seen.insert(space.clone()) {
+                return Err(CodeRead::Duplicate);
+            }
+            let mut by_key = BTreeMap::new();
+            let mut by_code = BTreeMap::new();
+            for (key, code) in entries {
+                if by_key.insert(key.clone(), code).is_some() || by_code.insert(code, key).is_some()
+                {
+                    return Err(CodeRead::Duplicate);
+                }
+            }
+            staged.push((space, by_key, by_code));
+        }
+        let r = frames.revisions();
+        let at = frames.advance(FrameRevisions {
+            source: r.source.wrapping_add(1),
+            ..r
+        });
+        for (space, by_key, by_code) in staged {
+            self.spaces.entry(space).or_default().push(CodeGeneration {
+                at,
+                by_key,
+                by_code,
+            });
+        }
+        Ok(())
+    }
+
+    /// The key `code` meant in `space` as of `frame`.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignFrame`], [`CodeRead::NoSpace`] or
+    /// [`CodeRead::UnknownCode`].
+    pub fn key(&self, frame: &Frame, space: &CodeSpaceId, code: C) -> Result<&ValueKey, CodeRead> {
+        self.generation(frame, space)?
+            .by_code
+            .get(&code)
+            .ok_or(CodeRead::UnknownCode)
+    }
+
+    /// The code `key` had in `space` as of `frame`.
+    ///
+    /// # Errors
+    ///
+    /// [`CodeRead::ForeignFrame`], [`CodeRead::NoSpace`] or
+    /// [`CodeRead::UnknownKey`].
+    pub fn code(&self, frame: &Frame, space: &CodeSpaceId, key: &ValueKey) -> Result<C, CodeRead> {
+        self.generation(frame, space)?
+            .by_key
+            .get(key)
+            .copied()
+            .ok_or(CodeRead::UnknownKey)
+    }
+
+    fn generation(
+        &self,
+        frame: &Frame,
+        space: &CodeSpaceId,
+    ) -> Result<&CodeGeneration<C>, CodeRead> {
+        if !Weak::ptr_eq(&frame.store, &self.store) {
+            return Err(CodeRead::ForeignFrame);
+        }
+        let gens = self.spaces.get(space).ok_or(CodeRead::NoSpace)?;
+        let in_force = gens.partition_point(|g| g.at <= frame.version);
+        in_force
+            .checked_sub(1)
+            .map(|i| &gens[i])
+            .ok_or(CodeRead::NoSpace)
+    }
 }

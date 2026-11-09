@@ -7,8 +7,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, MethodRef,
-    SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, MethodBinding, MethodId, SchemaRev,
+    SigRev, ValueDemand,
 };
 use lance_graph_r2il::binding::{prepare, ExecRefusal, Prepared, R2ilLens, Resolution};
 use lance_graph_r2il::polyfill::{
@@ -157,7 +157,11 @@ fn store() -> (BindStore, lance_graph_dt64::RouteVersion) {
         lens: POLYFILL_LENS,
         word: position_of(name).unwrap(),
     };
+    // `prep` resolves through the consumer's class basis (the adapter forwards
+    // it unchanged), so the consumer view registers the class.
+    let consumer = Consumer::new();
     s.register(
+        &consumer,
         CLASS,
         ClassSchema {
             schema_rev: REV,
@@ -201,12 +205,7 @@ fn prep<V: ClassView + ?Sized>(view: &V) -> Result<Prepared, ExecRefusal> {
         coordinates: 1,
     });
     let now = (Focus { revision: 1 }, Scope { id: 1 });
-    let r = MethodRef {
-        class: CLASS,
-        method: MethodId(1),
-        sig_rev: SigRev(1),
-        guard: None,
-    };
+    let r = s.method_ref(CLASS, MethodId(1)).unwrap();
     let g = Guards {
         frame: frames.seal(),
         focus: now.0,
@@ -241,8 +240,8 @@ fn the_adapter_binds_the_same_plan_in_every_language() {
         })
         .collect();
     for p in &plans[1..] {
-        assert_eq!(p.steps, plans[0].steps);
-        assert_eq!(p.plan_id, plans[0].plan_id);
+        assert_eq!(p.steps(), plans[0].steps());
+        assert_eq!(p.plan_id(), plans[0].plan_id());
     }
 }
 
@@ -266,4 +265,53 @@ fn the_adapter_hides_the_consumers_own_hardcoded_labels() {
     assert_eq!(both.fields(CLASS_VIEW), consumer.fields(CLASS_VIEW));
     assert_eq!(both.template(CLASS_VIEW), DisplayTemplate::Detail);
     assert_eq!(both.dolce_category_id(CLASS_VIEW), 7);
+}
+
+// ------------------------------------------ the adapter keeps the history
+
+/// A consumer that keeps its own basis history (D-DT64-7 Decision J, item 5):
+/// revision 1 of `CLASS_VIEW` and of the lens `HISTORY_LENS`.
+struct Historian {
+    rev1: Vec<FieldRef>,
+}
+
+const HISTORY_LENS: u32 = 0x0A1E_F001;
+
+impl ClassView for Historian {
+    fn fields(&self, _class: ClassId) -> &[FieldRef] {
+        &[]
+    }
+    fn fields_at(&self, class: ClassId, schema_rev: u32) -> Option<&[FieldRef]> {
+        (class == CLASS_VIEW && schema_rev == 1).then_some(self.rev1.as_slice())
+    }
+    fn lens_fields_at(&self, lens: u32, schema_rev: u32) -> Option<&[FieldRef]> {
+        (lens == HISTORY_LENS && schema_rev == 1).then_some(self.rev1.as_slice())
+    }
+    fn template(&self, _class: ClassId) -> DisplayTemplate {
+        DisplayTemplate::Detail
+    }
+    fn dolce_category_id(&self, _class: ClassId) -> u8 {
+        0
+    }
+}
+
+/// Wrapping a consumer in `WithPolyfill` must not hide its history: the
+/// historical accessors are routed like the current ones, and the polyfill
+/// concept keeps answering from the polyfill view (which holds no history).
+#[test]
+fn the_adapter_forwards_the_consumers_history() {
+    let consumer = Historian {
+        rev1: vec![FieldRef::new("lab:class/a", "a")],
+    };
+    let polyfill = PolyfillView::new(AliasLanguage::R2il);
+    let view = WithPolyfill::new(&consumer, &polyfill);
+    assert_eq!(
+        view.fields_at(CLASS_VIEW, 1),
+        consumer.fields_at(CLASS_VIEW, 1)
+    );
+    assert!(view.fields_at(CLASS_VIEW, 1).is_some());
+    assert_eq!(view.fields_at(CLASS_VIEW, 2), None);
+    assert!(view.lens_fields_at(HISTORY_LENS, 1).is_some());
+    assert_eq!(view.lens_fields_at(POLYFILL_LENS, 1), None);
+    assert_eq!(view.fields_at(HARDCODED, 1), None);
 }

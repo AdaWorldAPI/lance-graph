@@ -49,6 +49,7 @@ members = [
     "crates/lance-graph-hydrate",
 ]
 exclude = [
+    "crates/lance-graph-codegraph",
     "crates/lance-graph-sap",
     # D-HOLO-H14c Lance 13 masked-I/O probe: own narrow dependency set.
     "crates/holo-lance-masked-io-probe",
@@ -137,6 +138,12 @@ exclude = [
     # D-MTP-1: its own workspace root (datafrog oracle is a git dev-dependency).
     # `cargo test --manifest-path crates/lance-graph-metta/Cargo.toml`.
     "crates/lance-graph-metta",
+    # D-COGNITIVE-POLYFILL P0 lab probe; own workspace root.
+    # `cargo test --manifest-path crates/cognitive-polyfill-probe/Cargo.toml`.
+    "crates/cognitive-polyfill-probe",
+    # D-GRAMMAR-CONSTRAINTS-0 lab probe; own workspace root.
+    # `cargo test --manifest-path crates/grammar-constraints-probe/Cargo.toml`.
+    "crates/grammar-constraints-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
@@ -213,6 +220,16 @@ exclude = [
     # false-accepts against the REAL live implementations. Verify via
     # `cargo test --manifest-path crates/rp-seal-t0-probe/Cargo.toml`.
     "crates/rp-seal-t0-probe",
+    # SOA64-U64 R1 lab (research PR #1973): 64 logical u64 words per identity vs
+    # AoS / narrow / bitpacked SoA / per-element hash lookup, with the DT64 lane
+    # socket as coordinate witness. Own workspace root. Verify via
+    # `cargo test --release --manifest-path crates/soa64-u64-lab/Cargo.toml`.
+    "crates/soa64-u64-lab",
+    # DR G2L x ISA stream lab: one DT64 lane binding feeding a 16-mask cube
+    # fold and a BF16 tile GEMM (AMX where present). Own workspace root; needs
+    # ndarray's strided BF16 GEMM entry. Verify via
+    # `cargo test --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml`.
+    "crates/dr-isa-stream-lab",
     # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
     # one cell = one node, one timestep = one Lance version. Standalone and
     # genuinely zero-dep (see the crate manifest for why helix is NOT an
@@ -225,6 +242,11 @@ exclude = [
     # lance-graph-dt64 and the contract only. Verify via
     # `cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml`.
     "crates/dt64-admission-probe",
+    # D-DRISA-1 (EXO-153) LAB: a sealed DR frame read as a register file over
+    # borrowed SoA planes. Own workspace root; path-deps dt64, mask-risc and
+    # the contract only. Verify via
+    # `cargo test --manifest-path crates/drisa-register-probe/Cargo.toml`.
+    "crates/drisa-register-probe",
 ]
 resolver = "2"
 

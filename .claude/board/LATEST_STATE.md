@@ -1,3 +1,82 @@
+## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
+
+- Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.
+
+## 2026-11-06 — main after #1970 (merged `fb27c46`, D-LANESOCK-3)
+
+- `LaneSource::lane_of` takes the `FieldRef` DT64 validated (`basis`); `AbiLanes` holds no ClassView. A check through a reordered ClassView of equal class, revision and count refuses `MappingChanged`.
+- `AbiLanes::unwitnessed` is `#[cfg(test)]`; the `unwitnessed-scope` feature is gone, so no build (any features) constructs an `AbiLanes`.
+- Spec §8: downstream consumer contract (Cockpit / Hub / Matrix over one scoped projection) and the reader-scope witness inventory.
+
+## 2026-11-06 — main after #1969 (merged `53e849a`)
+
+- `lance-graph-report::AbiLanes` (`lane_source` module): `LaneSource` over a resident `AbiBatch`; `PublishRefusal`. Field positions via ClassView basis → `Catalog` → `FieldId`; I32/U32 lanes only; one `FrameStore` per source over `(SourceId, generation)`. No production constructor (no DR reader-scope witness).
+- `AbiBatch` holds at most `MAX_COLUMNS` (65,536) columns; `column()` returns a checked `u16` lane index.
+- `rust-test.yml` now runs the `lance-graph-report` tests.
+- Open: value ingress, durable writer, codebook, exact decimal, D4/S-INGRESS; `RegistryClassView` `entity_type_id` vs concept-key DOLCE defect.
+
+## 2026-11-06 — main after #1964–#1967 (merged `9ca5daa`), OGAR #371
+
+- OGAR `ogar_dir_core::correspond::Output::entra_mailbox`: the fold's sole Entra→EXO row ordinal (`NO_ROW` for none or several). `Ruler::from_fold` reads it instead of re-merging.
+- dir-sim `tests/ordinal_chain_lab.rs` (test-only): hybrid AD/Entra/EXO coordinates bound from OGAR's fold under a dt64 `dr::Frame`; one Quack program selecting over the six Ruler planes (oracle parity, 0 hot allocations, ~0.4–0.8 µs per 64K-slot pass over prepared planes; cold correspondence ~43–52 ms reported separately).
+- dt64 `lane` module (D-LANESOCK-1): `LaneSource`, `CoordSpace`, `LaneAddr`, `RouteAt`, `LaneRequest`, `LaneBinding`, `LaneRefusal`, `BindStore::bind_lanes`. Route and frame checked as a pair; a lane in another row order than the selection refuses (`CoordinateSpace`). Spec: `.claude/plans/d-lanesock-dr-dt64-lane-socket-v1.md` (#1966).
+- No admission changed: Gather ban, ADMISSION B, NotASide, OP-14, DRISA M1/M2, D4/S-INGRESS.
+
+## 2026-11-02 — main after #1932 and #1933 (merged `d1b3ea59f`), ruff #135/#136
+
+- Codegraph coverage gate:
+  - `DeadFunction` is `Partial` unless the residuals, dynamic calls and partial crates all show no gap.
+  - `?` placeholder symbols are refused.
+  - A residuals-only change is picked up by refresh.
+- A10 probes (test-local): the F1/F3/F4/F6 outcomes are recorded, with the admission kinds Given/Observed/Derived/Measured. No production admission writer and no CE64 change.
+- NNUE is parked for the XLOG triangle optimizer: the exact-degree fold beats the estimate argmin, with regret 1.000 against 13.1.
+
+## 2026-11-02 — main after #1929 (merged `4fadef69d`) — plateau
+
+- Codegraph reads `<crate>.rows.bin` (written by ruff `ruff_charon`, ruff #133/#134). An unchanged refresh reads 64 bytes (2.58 µs). A changed crate still interns every symbol (2.5 ms against a 1 ms gate). This is a plateau; the interner step (B3) is open.
+
+## 2026-11-02 — main after #1927 (merged `6768811df`)
+
+- DT64 method-authority census (D-DT64-AUTH): a committed table and a two-way ratchet in `lance-graph-r2il` and `lance-graph-xlog` tests.
+
+## 2026-11-02 — main after #1926 (merged `ade765d6f`)
+
+- Codegraph: the G10 × G11 publication lab (L1–L6) — prepared land, fenced durable commit, crash recovery from the durable record, branch-local routing. D-TGL-PUB lab steps 1–3 are complete; EXO-148 stays locked.
+
+## 2026-11-02 — main after #1925 (merged `e89e61790`)
+
+- dt64: `BindStore::check_route` (read-only route check).
+- Codegraph: the lab `WalSink` for the G10 × G11 publication lab; closure caches filled between prepare and commit are dropped at commit.
+
+## 2026-11-02 — main after #1924 (merged `78f9996af`)
+
+- Codegraph refresh splits into a fenced prepare / commit (crate-private); the F-LAND / F-DISCARD lab tests pin it, in debug and release.
+- Board: the D-TGL lifecycle contract, the G8 bag contract, production gates G9–G12 + EXO-148 (open), and the G10 × G11 lab spec D-TGL-PUB.
+
+## 2026-11-02 — main after #1922 and #1923 (merged `2e19a5adc`)
+
+- `lance-graph-codegraph` opens stores of any size on a multi-tile xlog cube.
+  - `refresh_crate` is atomic: a refused refresh changes nothing.
+  - The codegraph suites run in `rust-test.yml`.
+- xlog: wide closure, multiset delta log with merge on read, `Cube::stage` / `commit`; binds survive an extending rebase.
+- dt64 `dr`: a versioned append-only tile index; a frame reads its own layout; `map_at(RouteVersion)`.
+- egglog pinned to one commit in `egglog-r2il-probe`, `dr-math-binding-probe`, `xlog-relcomp-probe`.
+- Board: architecture review and decisions, P4 review, plans for binary lanes (amended) and the DT64 authority census.
+
+## 2026-11-02 — main after #1920 and #1921 (merged `4ab93bf3e`), ruff #130–#132
+
+- New workspace-excluded crate `lance-graph-codegraph` (#1921, D-CODEGRAPH-0 slice C): reads the `ruff_charon` rows v2 artifacts by column name and answers callers, callees, references and impact as confirmed / possible / unknown masks over one xlog cube; diagnostics dead function, unresolved call, dangling call, unused import (NOT_RUN). Limits surfaced as typed refusals: closure > 64 positions, tile > 256 symbols.
+- ruff `ruff_charon`: offline per-crate store with incremental refresh (#130, #131) and rows v2 (#132: `PUBLIC`, `IMPLEMENTS`, `SYNTHETIC`, `REFERENCES`, `CRATE` status; `MAY_DISPATCH` names the method).
+- `sag-ra-probe/fixtures/codegraph/rev2` also deletes `area_dyn` (#1920).
+
+## 2026-11-02 — main after #1918 (merged `c11e4262e`) and ruff #129
+
+- D-CODEGRAPH-0 (resident Codegraph, Charon → ruff → lance-graph + crai-rs): plan, gap map G1–G9, oracle fixture `sag-ra-probe/fixtures/codegraph`, hand-read Kythe pins, `tools/kythe_calls_check.py`, and `sag-ra-probe GRAPH=1` as the independent rust-analyzer check.
+- Slice A landed in ruff (#129): `crates/ruff_charon` reads Charon LLBC through `charon-lib` (AdaWorldAPI fork, stable) and emits calls, graded relation rows (`DEFINES`, `CALLS_RESOLVED`, `MAY_DISPATCH`, `UNRESOLVED_CALL`) with a conservation receipt, and Kythe entries.
+- `sag-ra-probe` builds again from a fresh resolution (`unicode-properties = "=0.1.4"`).
+- `rust-test.yml` runs the `lance-graph-dt64` and `lance-graph-xlog` tests.
+- D-DQM M1: timing arms on both sides of the Quack/DuckDB differential; exit gate open, no performance claim.
+
 ## 2026-11-01 — main after #1904–#1907 (merged `39511c92e`)
 
 - New workspace crate `lance-graph-xlog` (#1907): XLOG's admitted two-atom chain (support, bag count) described in Quack, evaluated by mask-risc, addressed by DT64/DR, run from an admitted bind-store method. No `xlog-*` or arrow dependency. `xlog-relcomp-probe` keeps XLOG admission and calls it.

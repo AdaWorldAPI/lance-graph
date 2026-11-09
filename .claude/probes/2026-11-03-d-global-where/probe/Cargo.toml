@@ -1,0 +1,27 @@
+# D-GLOBAL-WHERE P0 probe: global WHERE selections, DR-routed folds.
+# Lab only. Own [workspace]; the root workspace never builds it. Consumes
+# dt64, quack, mask-risc and dr-math-binding-probe unchanged.
+[package]
+name = "d-global-where-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+lance-graph-dt64 = { path = "../../../../crates/lance-graph-dt64" }
+lance-graph-quack = { path = "../../../../crates/lance-graph-quack" }
+lance-graph-mask-risc = { path = "../../../../crates/lance-graph-mask-risc" }
+dr-math-binding-probe = { path = "../../../../crates/dr-math-binding-probe" }
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../../../../crates/lance-graph-contract" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../../../ndarray" }
+
+[profile.release]
+debug = 0
+
+[workspace]

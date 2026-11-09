@@ -39,7 +39,7 @@
 //! back to ids. None is a computation over the population.
 
 use lance_graph_contract::set_rules::Population;
-use lance_graph_dt64::dr::{Frame, LocalMap, MapRead, MapRefusal, MapTable, TileId};
+use lance_graph_dt64::dr::{Frame, LocalMap, MapRead, MapRefusal, MapTable, TileId, TileMap};
 use lance_graph_dt64::{AlgebraRef, MethodBinding};
 use lance_graph_mask_risc::{execute_into, ExecError, Foreign, LaneRef, Out, Planes, Scratch};
 use lance_graph_quack::{
@@ -50,6 +50,47 @@ use ndarray::simd::{checked_binary_i64, mask_and, I64ArithError, I64Op};
 
 pub mod cube;
 pub mod lens;
+pub mod wide;
+
+/// The local ↔ global id lookups the Y-domain functions need. Implemented by
+/// a standalone [`LocalMap`] and by the versioned [`TileMap`] a `MapTable`
+/// hands out, so one set of queries serves both.
+pub trait MidMap {
+    /// Local position of a global id.
+    fn local(&self, global: u64) -> Result<u8, MapRefusal>;
+    /// Global id at a local position, if held.
+    fn global(&self, local: u8) -> Option<u64>;
+    /// Number of positions.
+    fn len(&self) -> usize;
+    /// True iff no positions.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl MidMap for LocalMap {
+    fn local(&self, global: u64) -> Result<u8, MapRefusal> {
+        LocalMap::local(self, global)
+    }
+    fn global(&self, local: u8) -> Option<u64> {
+        LocalMap::global(self, local)
+    }
+    fn len(&self) -> usize {
+        LocalMap::len(self)
+    }
+}
+
+impl MidMap for TileMap<'_> {
+    fn local(&self, global: u64) -> Result<u8, MapRefusal> {
+        TileMap::local(self, global)
+    }
+    fn global(&self, local: u8) -> Option<u64> {
+        TileMap::global(self, local)
+    }
+    fn len(&self) -> usize {
+        TileMap::len(self)
+    }
+}
 
 /// The bounds of the admitted chain: `X == left`, `Z == right` when set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -117,7 +158,7 @@ fn side(
     tuples: &[(u32, u32)],
     y_of: fn(&(u32, u32)) -> u32,
     free_of: fn(&(u32, u32)) -> u32,
-    mid: &LocalMap,
+    mid: &impl MidMap,
 ) -> Result<Side, NativeRefusal> {
     let y_local = tuples
         .iter()
@@ -135,7 +176,7 @@ fn side(
 fn sides(
     left: &[(u32, u32)],
     right: &[(u32, u32)],
-    mid: &LocalMap,
+    mid: &impl MidMap,
 ) -> Result<(Side, Side), NativeRefusal> {
     // r(X, Y): Y is column 1, X free. s(Y, Z): Y is column 0, Z free.
     Ok((
@@ -215,7 +256,7 @@ pub fn support(
     q: Bounds,
     left: &[(u32, u32)],
     right: &[(u32, u32)],
-    mid: &LocalMap,
+    mid: &impl MidMap,
 ) -> Result<Support, NativeRefusal> {
     let (l, r) = sides(left, right, mid)?;
     support_of(&l, &r, q, mid.len())
@@ -240,7 +281,7 @@ pub fn bag_count(
     q: Bounds,
     left: &[(u32, u32)],
     right: &[(u32, u32)],
-    mid: &LocalMap,
+    mid: &impl MidMap,
 ) -> Result<Vec<i64>, NativeRefusal> {
     let (l, r) = sides(left, right, mid)?;
     bag_count_of(&l, &r, q, mid.len())
@@ -277,7 +318,7 @@ impl Intake {
         right: &[(u32, u32)],
     ) -> Result<Self, BoundRefusal> {
         let mid = table.map(frame, tile).map_err(BoundRefusal::Map)?;
-        let (l, r) = sides(left, right, mid).map_err(BoundRefusal::Native)?;
+        let (l, r) = sides(left, right, &mid).map_err(BoundRefusal::Native)?;
         Ok(Self {
             frame: frame.clone(),
             tile,
@@ -287,8 +328,10 @@ impl Intake {
         })
     }
 
-    /// The Y map the lanes were built against, if its frame is still current.
-    pub fn map<'t>(&self, table: &'t MapTable) -> Result<&'t LocalMap, BoundRefusal> {
+    /// The Y map the lanes were built against, read at the intake's frame
+    /// (an old frame reads its own layout, so this only fails for a foreign
+    /// frame or a tile the table never held).
+    pub fn map<'t>(&self, table: &'t MapTable) -> Result<TileMap<'t>, BoundRefusal> {
         table.map(&self.frame, self.tile).map_err(BoundRefusal::Map)
     }
 
@@ -360,7 +403,7 @@ pub fn bag_count_admitted(
 }
 
 /// Global ids of the set bits of `mask`, in local order.
-pub fn ids(mid: &LocalMap, mask: &[u64]) -> Vec<u64> {
+pub fn ids(mid: &impl MidMap, mask: &[u64]) -> Vec<u64> {
     (0..mid.len())
         .filter(|&i| mask[i / 64] >> (i % 64) & 1 == 1)
         .filter_map(|i| mid.global(i as u8))
@@ -369,7 +412,7 @@ pub fn ids(mid: &LocalMap, mask: &[u64]) -> Vec<u64> {
 
 /// `(global id, count)` for every Y with at least one derivation, in local
 /// order.
-pub fn nonzero(mid: &LocalMap, counts: &[i64]) -> Vec<(u64, i64)> {
+pub fn nonzero(mid: &impl MidMap, counts: &[i64]) -> Vec<(u64, i64)> {
     counts
         .iter()
         .enumerate()
