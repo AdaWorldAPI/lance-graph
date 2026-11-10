@@ -120,7 +120,7 @@ Preserved throughout: the `0xC401` name-bound reading, the `FnIndex` opcode cont
 
 **Status:** core shipped (`dr::MapTable`, T1–T4 green, both disable runs red). Stored selections wait on O4.
 
-**Storage (2026-11-10):** the versioned table is stored as a separate Lance dataset by `crates/lance-graph-dt64-lance` (`LanceMapLog`). One `MapTable::advance` is one Lance commit; one row per local position; route versions in the rows, the Lance version only the commit counter; `restore` replays every advance exactly and `restore_at(k)` reads the table as of a past commit. OPEN: frames are not restored (a frame is one table instance's witness), so executing at a past version after a restore needs a DR decision; a table sharing its clock with a `RouteLog` needs the route log stored too.
+**Storage (2026-11-10):** the versioned table is made durable by `crates/lance-graph-dt64-lance` (`MapLog`) through the fire-and-forget cycle writer over `LanceCycleWriter` (D-DR64-WAL-1). An advance claims its route version, is submitted as casts on behalf of the owning mailbox, and is applied with `advance_at` only after its seal ticket is `Ok`; a failed seal is a gap. `restore` replays every sealed cycle at its own route version. (⊘ An earlier same-day version wrote its own dataset synchronously with stale-writer/race checks; replaced.) OPEN: frames are not restored (a frame is one table instance's witness), so executing at a past version after a restore needs a DR decision; a table sharing its clock with a `RouteLog` needs the route log stored too.
 
 O5 is a BindStore plan item (D-DT64-6 Amendment A). Litho is the mental model it came from, not a component.
 
