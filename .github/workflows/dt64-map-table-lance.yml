@@ -19,6 +19,7 @@ on:
       # The map log is written through the cycle writer over LanceCycleWriter.
       - crates/lance-graph-supervisor/**
       - crates/lance-graph-planner/**
+      - crates/lance-graph/Cargo.toml
       - crates/lance-graph/src/graph/cycle_sink.rs
       - .github/workflows/dt64-map-table-lance.yml
   workflow_dispatch:
@@ -49,6 +50,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: lance-graph
+          persist-credentials: false
+      # lance-graph's ndarray-hpc feature and the planner path-depend on
+      # ../../../ndarray.
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
           persist-credentials: false
       - name: Install protoc and the protobuf includes (for lance)
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
