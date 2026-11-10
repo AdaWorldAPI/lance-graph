@@ -135,7 +135,7 @@ pub fn known(s: usize, k: usize) -> bool {
     if named(s) {
         return !(s == case::UNKNOWN_CHEESE && k == CHEESE);
     }
-    h(2, s, k) % 23 != 0
+    !h(2, s, k).is_multiple_of(23)
 }
 
 /// Unit cost of `k` at `s`, in cents.
@@ -148,7 +148,7 @@ pub fn equipment(s: usize, e: usize) -> bool {
     if named(s) {
         return !(s == case::NO_OVEN && e == 0);
     }
-    h(4, s, e) % 9 != 0
+    !h(4, s, e).is_multiple_of(9)
 }
 
 /// Qualified staff with skill `j` at `s`.
@@ -164,7 +164,7 @@ pub fn offered(s: usize, m: usize) -> bool {
     if named(s) {
         return true;
     }
-    h(6, s, m) % 7 != 0
+    !h(6, s, m).is_multiple_of(7)
 }
 
 /// Free delivery slots at `s` in the window.
