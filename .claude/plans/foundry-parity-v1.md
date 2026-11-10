@@ -1,12 +1,47 @@
 # D-FOUNDRY-PARITY-1 — DR × DT64 as an operational ontology: evidence matrix and first lab
 
-> **Status:** ACTIVE (lab slice landed in this PR; everything past Level R is OPEN).
+> **Status:** ACTIVE. Level R lab merged (#1991, #1995); G6 in #1996. Governance
+> (G2–G4) is composition work over existing pieces (§0, corrected 2026-11-10).
 > **Lab:** `crates/foundry-parity-lab` (own workspace root, not a member).
 > **Contract read first:** `.claude/knowledge/dr-dt64-locality-execution-contract.md`
 > (its own evidence table grades Foundry parity HYPOTHESIS; this plan does not
 > change that grade).
 > **Verify:** `cargo test --release --manifest-path crates/foundry-parity-lab/Cargo.toml`
 > and `cargo run --release --manifest-path crates/foundry-parity-lab/Cargo.toml --bin bench`.
+
+## 0. Report (current, 2026-11-10)
+
+**Verdict.** No Foundry parity is claimed; nothing was compared against a
+running Foundry. On the read side, DR + DT64 + mask-RISC answer operational
+questions over source-owned planes with exact oracle parity, correct
+refusals and zero copies. On the governance side, the parts exist in other
+crates but are not composed on this path.
+
+**What the lab shows (32 tests, every guard disable-verified):**
+
+| Question | Path | Measured (64 rows) |
+|---|---|---|
+| `CanCook` | arm B, hand-written mask-RISC | 470 ns, 0 B copied |
+| `CanCook` as a registered method | G6: `admit` → bind → relalg lowered once → execute | 359–400 ns |
+| per-store cost, 64 × 8 | arm C, INT8 packed GEMM (AMX) | 0.65–1.17 µs |
+| per-store maximum | arm B layer-cake sweep | ~15–19 µs (8× slower than objects: no min/argmin) |
+| same over objects | arm A | ~1.8 µs + 21 µs and 51 968 B to build |
+
+**What exists elsewhere and what is missing (audited 2026-11-10):**
+
+| Area | Exists | Missing on this path |
+|---|---|---|
+| Authorization (G2) | `ogar-auth` → `ogar-rbac` → `lance-graph-rbac::ScopedDecision`: row `ScopeSpec` + `WideFieldMask`, delegation; DT64 `mask_where` over markings | Apply it to a DT64 binding: per-row scope lane → resident plane; `visible_fields()` limits bound fields |
+| Scenarios (G3) | thought-git branches, `next_version`, squash gate; xlog `stage_closure` preview | An overlay frame a DT64 binding can read |
+| Actions / writeback (G4) | thought-git Rubicon outcomes, `commit_cycle` + `CommitWitness`, `stage`/`seal`; xlog `stage`/`commit`; rbac Write/Act; #1993 durable map writes | One authorized, preconditioned, committed, witnessed action end to end |
+| Provenance | binding witnesses, thought-git receipts + replay, commit witnesses, rbac audit identity | One record per answer joining them |
+| Algebra (G1) | counts, sums, GEMM | element-wise min/argmin (decision P1b) |
+| Relations (G5) | — | ADMISSION B decision (EXO-140) |
+
+**Next step with the most value:** G2 in the lab, using the existing
+`authorize_scoped` decision instead of the stand-in.
+
+Architecture maps: `.mermaid/` (D-FOUNDRY-MAP-1).
 
 ## 1. Overview
 
