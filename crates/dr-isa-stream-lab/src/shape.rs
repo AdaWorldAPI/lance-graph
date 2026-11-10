@@ -46,7 +46,7 @@
 //!   bindings or tiles.
 
 use lance_graph_dt64::dr::Frame;
-use lance_graph_dt64::{CoordSpace, LaneBinding, LaneRefusal, LaneSource};
+use lance_graph_dt64::{CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneSource};
 use ndarray::simd::{
     bf16_tile_gemm_16x16_packed, bf16_tile_gemm_16x16_packed_strided, PackedBf16B,
 };
@@ -190,6 +190,9 @@ pub enum ShapeRefusal {
     },
     /// The prepared B does not belong to this object.
     Reuse(ReuseRefusal),
+    /// The lanes were resolved by another object: another source or frame,
+    /// another field count, or another lane mapping.
+    ForeignLanes,
 }
 
 impl From<LaneRefusal> for ShapeRefusal {
@@ -297,10 +300,43 @@ impl VirtualObject {
         for (slot, &f) in lanes.iter_mut().zip(&self.fields).skip(1) {
             *slot = borrow(f)?;
         }
-        Ok(Lanes {
+        Ok(self.stamp(lanes))
+    }
+
+    /// Lanes with their provenance: the frame issue and the address of every
+    /// row, as this object's binding holds them.
+    fn stamp<'s>(&self, lanes: [SlabLane<'s>; MAX_ROWS]) -> Lanes<'s> {
+        let first = (
+            self.fields[0],
+            *self.binding.addr(self.fields[0]).expect("bound"),
+        );
+        let mut addrs = [first; MAX_ROWS];
+        for (slot, &f) in addrs.iter_mut().zip(&self.fields).skip(1) {
+            *slot = (f, *self.binding.addr(f).expect("bound"));
+        }
+        Lanes {
             lanes,
+            addrs,
+            frame: self.binding.frame().clone(),
             count: self.fields.len(),
-        })
+        }
+    }
+
+    /// Refuse lanes this object did not resolve: another frame issue (another
+    /// source, or the source has moved), another field count, or another
+    /// lane address in any row.
+    pub fn admit_lanes(&self, lanes: &Lanes<'_>) -> Result<(), ShapeRefusal> {
+        let same = lanes.count == self.fields.len()
+            && lanes.frame.same_issue(self.binding.frame())
+            && lanes.addrs[..lanes.count]
+                .iter()
+                .zip(&self.fields)
+                .all(|((f, addr), &want)| *f == want && self.binding.addr(want) == Some(addr));
+        if same {
+            Ok(())
+        } else {
+            Err(ShapeRefusal::ForeignLanes)
+        }
     }
 
     /// The same as [`Self::resolve`] the long way: `LaneBinding::lane` per
@@ -320,17 +356,18 @@ impl VirtualObject {
         for (slot, &f) in lanes.iter_mut().zip(&self.fields).skip(1) {
             *slot = lane(f)?;
         }
-        Ok(Lanes {
-            lanes,
-            count: self.fields.len(),
-        })
+        Ok(self.stamp(lanes))
     }
 }
 
-/// The borrowed lanes of a resolved object, in view row order.
-#[derive(Debug, Clone, Copy)]
+/// The borrowed lanes of a resolved object, in view row order, with the
+/// frame issue and lane addresses they were resolved under, so an arm can
+/// refuse lanes that belong to another object.
+#[derive(Debug, Clone)]
 pub struct Lanes<'s> {
     lanes: [SlabLane<'s>; MAX_ROWS],
+    addrs: [(u8, LaneAddr); MAX_ROWS],
+    frame: Frame,
     count: usize,
 }
 
@@ -488,6 +525,7 @@ pub fn direct(
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
     b.admit(obj, rev).map_err(ShapeRefusal::Reuse)?;
+    obj.admit_lanes(lanes)?;
     let Where::Region { start, len } = obj.selection.kind else {
         return Err(ShapeRefusal::NotARegion);
     };
@@ -538,6 +576,7 @@ pub fn staged(
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
     b.admit(obj, rev).map_err(ShapeRefusal::Reuse)?;
+    obj.admit_lanes(lanes)?;
     assert_eq!(c.len(), obj.c_len());
     let k_pad = obj.selection.k_pad();
     let len = obj.selection.len();
@@ -577,7 +616,8 @@ pub fn cblas(
     a: &mut Vec<u16>,
     bm: &mut Vec<u16>,
     c: &mut [f32],
-) -> ArmReport {
+) -> Result<ArmReport, ShapeRefusal> {
+    obj.admit_lanes(lanes)?;
     let m = obj.fields.len();
     let n = obj.cols;
     let k = obj.selection.len();
@@ -597,13 +637,13 @@ pub fn cblas(
         }
     });
     ndarray::backend::cblas_gemm_bf16bf16f32(a, bm, c, m, n, k);
-    ArmReport {
+    Ok(ArmReport {
         tiles: obj.tiles(),
         calls: 1,
         dp_steps: obj.tiles() * obj.selection.k_pad() / BLOCK,
         a_copied: m * k * 2,
         b_materialized: k * n * 2,
-    }
+    })
 }
 
 /// ARM D: `C[p][j] = sum over selected i of a(i, field_p) * b(i, j)` in f64,

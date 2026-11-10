@@ -73,7 +73,7 @@ fn run(world: &World, socket: &Socket<'_>, dim: usize, sel: Selection) -> Run {
     let r = staged(&obj, &lanes, &prep, B.rev, &mut Vec::new(), &mut c).unwrap();
     let staged = (c, r);
     let mut c = vec![0f32; obj.c_len()];
-    let r = cblas(&obj, &lanes, &B, &mut Vec::new(), &mut Vec::new(), &mut c);
+    let r = cblas(&obj, &lanes, &B, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap();
     Run {
         direct,
         staged,
@@ -551,5 +551,61 @@ fn resolution_borrows_one_lane_per_field_independent_of_universe() {
                 "n {n}, dim {dim}"
             );
         }
+    }
+}
+
+/// Lanes resolved by one object cannot feed another: another source (and
+/// so another frame issue), another field count, or another lane mapping is
+/// refused by every arm before any arithmetic.
+#[test]
+fn lanes_from_another_object_are_refused_by_every_arm() {
+    let fx = fx(4096, 256);
+    let world256 = world(256);
+    let world64 = world(64);
+    let a = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let b = Bf16Lanes::slab_in_order(&fx).unwrap();
+    // `sb` is over the SAME source as `sa`, so "narrow" differs only in count.
+    let (sa, sb) = (Socket::in_order(&a, 256), Socket::in_order(&a, 64));
+    let sel = Selection::region(SPACE_A, 0, 64);
+    let obj = VirtualObject::bind(&world256, &sa, &fields(256), 256, sel.clone()).unwrap();
+    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let own = obj.resolve(&world256, &sa).unwrap();
+    assert!(obj.admit_lanes(&own).is_ok());
+
+    // Another source: identical bytes, another owner.
+    let sb256 = Socket::in_order(&b, 256);
+    let other = VirtualObject::bind(&world256, &sb256, &fields(256), 256, sel.clone()).unwrap();
+    let foreign = other.resolve(&world256, &sb256).unwrap();
+    // Too few rows: 64 lanes offered to the 256-field object.
+    let narrow_obj = VirtualObject::bind(&world64, &sb, &fields(64), 256, sel.clone()).unwrap();
+    let narrow = narrow_obj.resolve(&world64, &sb).unwrap();
+    // Same source and frame, another mapping (rows reversed).
+    let rev_rows: Vec<usize> = (0..256).rev().collect();
+    let sr = Socket::new(&a, rev_rows);
+    let remapped_obj = VirtualObject::bind(&world256, &sr, &fields(256), 256, sel).unwrap();
+    let remapped = remapped_obj.resolve(&world256, &sr).unwrap();
+
+    for (name, lanes) in [
+        ("foreign", &foreign),
+        ("narrow", &narrow),
+        ("remapped", &remapped),
+    ] {
+        let mut c = vec![0f32; obj.c_len()];
+        assert_eq!(
+            direct(&obj, lanes, &prep, B.rev, &mut c).unwrap_err(),
+            ShapeRefusal::ForeignLanes,
+            "direct, {name}"
+        );
+        assert_eq!(
+            staged(&obj, lanes, &prep, B.rev, &mut Vec::new(), &mut c).unwrap_err(),
+            ShapeRefusal::ForeignLanes,
+            "staged, {name}"
+        );
+        assert_eq!(
+            cblas(&obj, lanes, &B, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap_err(),
+            ShapeRefusal::ForeignLanes,
+            "cblas, {name}"
+        );
+        assert!(c.iter().all(|&v| v == 0.0), "nothing computed, {name}");
     }
 }

@@ -174,7 +174,7 @@ fn main() {
         assert_eq!(c, want, "direct {dim}");
         let sr = staged(&obj, &lanes_r, &prep, b.rev, &mut scratch, &mut c).unwrap();
         assert_eq!(c, want, "staged {dim}");
-        let cr = cblas(&obj, &lanes_r, &b, &mut am, &mut bm, &mut c);
+        let cr = cblas(&obj, &lanes_r, &b, &mut am, &mut bm, &mut c).unwrap();
         assert_eq!(c, want, "cblas {dim}");
 
         let t_bind = median_ns(|| {
@@ -212,7 +212,7 @@ fn main() {
         });
         assert_eq!(c, want);
         let t_cblas = median_ns(|| {
-            cblas(&obj, &lanes_r, &b, &mut am, &mut bm, &mut c);
+            cblas(&obj, &lanes_r, &b, &mut am, &mut bm, &mut c).unwrap();
         });
         assert_eq!(c, want);
         let t_warm = median_ns(|| {
@@ -245,7 +245,7 @@ fn main() {
         let (a_stg, m_stg, _) =
             mem(|| staged(&obj, &lanes_r, &prep, b.rev, &mut Vec::new(), &mut c).unwrap());
         let (a_cbl, m_cbl, _) =
-            mem(|| cblas(&obj, &lanes_r, &b, &mut Vec::new(), &mut Vec::new(), &mut c));
+            mem(|| cblas(&obj, &lanes_r, &b, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap());
 
         let macs = (dim * dim * dim) as f64;
         push(
