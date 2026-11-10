@@ -46,7 +46,7 @@
 //!   bindings or tiles.
 
 use lance_graph_dt64::dr::Frame;
-use lance_graph_dt64::{CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneSource};
+use lance_graph_dt64::{CoordSpace, LaneBinding, LaneRefusal};
 use ndarray::simd::{
     bf16_tile_gemm_16x16_packed, bf16_tile_gemm_16x16_packed_strided, PackedBf16B,
 };
@@ -224,7 +224,14 @@ pub struct VirtualObject {
     fields: Vec<u8>,
     cols: usize,
     selection: Selection,
+    /// Which bind made this object. Lanes carry it, so an arm can refuse
+    /// lanes another object resolved with one compare. A clone keeps it: it
+    /// has the same binding and the same lane addresses.
+    id: u64,
 }
+
+/// Bind identities; only uniqueness matters.
+static NEXT_OBJECT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 impl VirtualObject {
     /// Cold: bind `fields` (a multiple of 16, at most 256) through DT64 under
@@ -253,6 +260,7 @@ impl VirtualObject {
             fields: fields.to_vec(),
             cols,
             selection,
+            id: NEXT_OBJECT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         })
     }
 
@@ -286,8 +294,11 @@ impl VirtualObject {
         self.fields.len() * self.cols
     }
 
-    /// Warm: check the binding once against the store, view and source, then
-    /// borrow every demanded lane. No allocation.
+    /// Warm: [`LaneBinding::borrow_all`] checks the binding once against the
+    /// store, view and source, then hands out every bound lane in ascending
+    /// field order; this places them in the view's row order. Any refusal,
+    /// `Vanished` included, is returned before a lane is placed, so no arm
+    /// ever runs on a partially resolved object. No allocation.
     pub fn resolve<'s>(
         &self,
         world: &World,
@@ -299,39 +310,28 @@ impl VirtualObject {
                 binding: self.binding.selection(),
             });
         }
-        self.binding
-            .check(&world.store, &world.view, socket.lanes.frames(), socket)?;
-        let borrow = |f: u8| -> Result<SlabLane<'s>, ShapeRefusal> {
-            let addr = self
-                .binding
-                .addr(f)
-                .ok_or(LaneRefusal::NotBound { field: f })?;
-            Ok(socket
-                .borrow(addr)
-                .ok_or(LaneRefusal::Vanished { field: f })?)
-        };
-        let first = borrow(self.fields[0])?;
+        let mut by_field: [Option<SlabLane<'s>>; MAX_ROWS] = [None; MAX_ROWS];
+        for item in
+            self.binding
+                .borrow_all(&world.store, &world.view, socket.lanes.frames(), socket)?
+        {
+            let (field, lane) = item?;
+            by_field[usize::from(field)] = Some(lane);
+        }
+        let lane = |f: u8| by_field[usize::from(f)].ok_or(LaneRefusal::NotBound { field: f });
+        let first = lane(self.fields[0])?;
         let mut lanes = [first; MAX_ROWS];
         for (slot, &f) in lanes.iter_mut().zip(&self.fields).skip(1) {
-            *slot = borrow(f)?;
+            *slot = lane(f)?;
         }
         Ok(self.stamp(lanes))
     }
 
-    /// Lanes with their provenance: the frame issue and the address of every
-    /// row, as this object's binding holds them.
+    /// Lanes with their provenance: this object's identity and frame issue.
     fn stamp<'s>(&self, lanes: [SlabLane<'s>; MAX_ROWS]) -> Lanes<'s> {
-        let first = (
-            self.fields[0],
-            *self.binding.addr(self.fields[0]).expect("bound"),
-        );
-        let mut addrs = [first; MAX_ROWS];
-        for (slot, &f) in addrs.iter_mut().zip(&self.fields).skip(1) {
-            *slot = (f, *self.binding.addr(f).expect("bound"));
-        }
         Lanes {
             lanes,
-            addrs,
+            object: self.id,
             frame: self.binding.frame().clone(),
             count: self.fields.len(),
         }
@@ -341,12 +341,11 @@ impl VirtualObject {
     /// source, or the source has moved), another field count, or another
     /// lane address in any row.
     pub fn admit_lanes(&self, lanes: &Lanes<'_>) -> Result<(), ShapeRefusal> {
-        let same = lanes.count == self.fields.len()
-            && lanes.frame.same_issue(self.binding.frame())
-            && lanes.addrs[..lanes.count]
-                .iter()
-                .zip(&self.fields)
-                .all(|((f, addr), &want)| *f == want && self.binding.addr(want) == Some(addr));
+        // The object identity implies the lane addresses (same binding) and
+        // the field count; the frame is checked as well, at O(1).
+        let same = lanes.object == self.id
+            && lanes.count == self.fields.len()
+            && lanes.frame.same_issue(self.binding.frame());
         if !same {
             return Err(ShapeRefusal::ForeignLanes);
         }
@@ -384,12 +383,12 @@ impl VirtualObject {
 }
 
 /// The borrowed lanes of a resolved object, in view row order, with the
-/// frame issue and lane addresses they were resolved under, so an arm can
-/// refuse lanes that belong to another object.
+/// identity of the object that resolved them and its frame issue, so an arm
+/// can refuse lanes that belong to another object.
 #[derive(Debug, Clone)]
 pub struct Lanes<'s> {
     lanes: [SlabLane<'s>; MAX_ROWS],
-    addrs: [(u8, LaneAddr); MAX_ROWS],
+    object: u64,
     frame: Frame,
     count: usize,
 }

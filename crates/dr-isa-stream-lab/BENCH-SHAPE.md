@@ -165,3 +165,57 @@ a different workload, so no speed-up is claimed across the two:
 | Degree-64 local graph | staged AMX 12.5 ms, CSR 75 ms |
 
 Its graph conclusions stay separate from these matrix-shaping conclusions.
+
+## Resolve on `LaneBinding::borrow_all` (2026-11-10, after #1988)
+
+`VirtualObject::resolve` now calls DT64's `LaneBinding::borrow_all`: one
+binding check, then every bound lane in ascending field order, placed into the
+view's row order. Any refusal, `Vanished` included, is returned before a lane
+is placed, so no arm runs on a partially resolved object.
+
+Lane provenance is now the identity of the object that resolved the lanes,
+plus its frame issue. Both are compared in O(1).
+
+The per-field `LaneBinding::lane` route is kept only as a benchmark
+baseline.
+
+Resolve, warm, medians of three runs each (raw output in `results/`):
+
+| Implementation | 64 fields | 256 fields |
+|---|---|---|
+| #1987 as first measured: check, then `LaneBinding::addr` per field | 1.5–1.8 µs | 13.8–13.9 µs |
+| `main` after #1987's lane-provenance fix (addresses stamped per row) | 3.9–4.2 µs | 26.3–28.0 µs |
+| **`borrow_all` + object identity (this change)** | **0.97–1.2 µs** | **1.6–2.0 µs** |
+| `LaneBinding::lane` per field (baseline) | 9.2–14.2 µs | 119–170 µs |
+
+Why both earlier versions were slower:
+
+- **#1987 as first measured was already quadratic.** `LaneBinding::addr`
+  scans the bound lanes linearly, and the hand-written loop called it once per
+  field.
+- **The provenance fix made it worse.** It added a second `addr` per row in
+  resolve, and a third in every arm's admission check.
+- **`borrow_all` removes the scan.** It walks the bound lanes once, and the
+  admission check compares one identity, so both are linear.
+
+At 256 fields the check-once resolve is therefore about 7× faster than the
+expected 14 µs, not merely preserved.
+
+Warm end-to-end at 256 fields (resolve + direct AMX, B reused) fell from
+190–199 µs on `main` to 104–108 µs. That figure includes the direct GEMM,
+which varies run to run on this VM.
+
+Correctness is unchanged:
+- exact oracle parity for all four arms at both sizes;
+- every refusal test passes;
+- two new tests:
+  - a lane mapped at bind but missing at resolve is refused as `Vanished`;
+  - fields bound in reverse order give C's rows in reverse order.
+
+Disable runs, each with the code restored afterwards:
+
+| Disabled | Test that fails |
+|---|---|
+| Swallowing item refusals | the `Vanished` test |
+| The object-identity check | `lanes_from_another_object_are_refused_by_every_arm` |
+| Placing lanes in binding order instead of view order | the row-order test |
