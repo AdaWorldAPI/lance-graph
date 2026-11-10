@@ -1,0 +1,35 @@
+# lance-graph-dt64-lance — DR's versioned global -> local table (dt64
+# `dr::MapTable`) stored as a separate Lance-versioned dataset
+# (D-DT64-7 O5 / D10', D-LITHO Q5). EXCLUDED from the lance-graph workspace
+# (own [workspace] root), like lance-graph-dir-sim-lance: dt64 stays free of
+# lance and arrow.
+#
+# One MapTable::advance is one Lance commit. The DR route version travels in
+# the rows; the Lance dataset version is the physical commit counter, used to
+# refuse a stale writer, to detect a race, and to read the table as of a past
+# commit (`checkout_version`).
+#
+# Build/verify:
+#   cargo test --manifest-path crates/lance-graph-dt64-lance/Cargo.toml
+
+[package]
+name = "lance-graph-dt64-lance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+description = "DR's versioned global -> local map table stored in Lance: one advance per commit, replayed exactly at restore."
+
+[workspace]
+
+[dependencies]
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The lance family moves in lockstep with the lance-graph root (13 / arrow
+# 58); a local or file URI is enough here.
+lance = { version = "13.*", default-features = false }
+arrow-array = "58"
+arrow-schema = "58"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tempfile = "3"

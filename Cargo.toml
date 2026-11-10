@@ -176,6 +176,10 @@ exclude = [
     # (ogar-dir-core / ogar-ad / ogar-dir-sim). Verify via
     # `cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml`.
     "crates/lance-graph-dir-sim",
+    # DR's versioned global -> local map table stored in Lance (D-DT64-7
+    # O5). Own [workspace], lance + arrow; dt64 stays lance-free. Verify via
+    # `cargo test --manifest-path crates/lance-graph-dt64-lance/Cargo.toml`.
+    "crates/lance-graph-dt64-lance",
     # Cognitive Compilation loop (claude/cognitive-compilation-lance-graph-h8sgym).
     # The NEW piece is the Elixir-shaped template — thinking styles, JITson, and
     # i4-32D thinking-style vectors already exist; the template was the gap. Four
