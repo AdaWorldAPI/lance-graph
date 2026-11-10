@@ -99,6 +99,21 @@ impl Oracle {
             .sum()
     }
 
+    /// Ingredient cost of making `q` of `m` at store row `s`, whether or not
+    /// it can make them; `None` when the reader may not see the store.
+    pub fn store_cost(&self, s: usize, m: usize, q: i32) -> Option<i64> {
+        if fx::store_id(s) == DENIED_STORE {
+            return None;
+        }
+        Some(
+            fx::recipe(m)
+                .demand
+                .iter()
+                .map(|&(k, d)| i64::from(d * q) * i64::from(fx::unit_cost(s, k)))
+                .sum(),
+        )
+    }
+
     /// Ingredient cost of making `q` of `m` at every store that can.
     pub fn network_cost(&self, m: usize, q: i32) -> i64 {
         let r = fx::recipe(m);
