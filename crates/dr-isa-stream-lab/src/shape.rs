@@ -184,6 +184,14 @@ pub enum ShapeRefusal {
     ForeignLanes,
     /// The selection names identity `last`, but the lanes hold only `n`.
     OutOfRange { last: usize, n: usize },
+    /// B is a table smaller than the object needs: `cols` output columns or
+    /// row `last`, against a table of `rows x table_cols`.
+    OperandShape {
+        cols: usize,
+        last: usize,
+        rows: usize,
+        table_cols: usize,
+    },
 }
 
 impl From<LaneRefusal> for ShapeRefusal {
@@ -424,6 +432,31 @@ pub trait BValues {
     fn i8_rows(&self, _start: usize, _len: usize, _cols: usize) -> Option<&[i8]> {
         None
     }
+    /// `(rows, cols)` if B is a finite table, `None` if it is defined
+    /// everywhere.
+    fn extent(&self) -> Option<(usize, usize)> {
+        None
+    }
+}
+
+/// Refuses an operand that cannot supply every `B[i][j]` the object reads:
+/// fewer columns than the output width, or fewer rows than the selection
+/// reaches. Checked before any arm reads B, so a mismatch is a refusal and
+/// never a silent read of the next row.
+pub fn admit_operand(obj: &VirtualObject, b: &impl BValues) -> Result<(), ShapeRefusal> {
+    let Some((rows, table_cols)) = b.extent() else {
+        return Ok(());
+    };
+    let last = obj.selection.last().unwrap_or(0);
+    if obj.cols > table_cols || last >= rows {
+        return Err(ShapeRefusal::OperandShape {
+            cols: obj.cols,
+            last,
+            rows,
+            table_cols,
+        });
+    }
+    Ok(())
 }
 
 /// Authoritative operand identity: the source that defines the values and
@@ -504,10 +537,23 @@ impl BValues for BTable {
         }
     }
     fn bf16_at(&self, i: usize, j: usize) -> u16 {
+        assert!(
+            j < self.cols,
+            "column {j} past a {}-column table",
+            self.cols
+        );
         self.bf16[i * self.cols + j]
     }
     fn i8_at(&self, i: usize, j: usize) -> i8 {
+        assert!(
+            j < self.cols,
+            "column {j} past a {}-column table",
+            self.cols
+        );
         self.i8[i * self.cols + j]
+    }
+    fn extent(&self) -> Option<(usize, usize)> {
+        Some((self.i8.len() / self.cols.max(1), self.cols))
     }
     fn i8_rows(&self, start: usize, len: usize, cols: usize) -> Option<&[i8]> {
         (cols == self.cols)
@@ -557,7 +603,11 @@ pub struct PrepReport {
 
 impl PreparedB {
     /// Pack B for `obj`: `panel t row k = B[i_k][16t..16t+16]` in VNNI order.
-    pub fn prepare(obj: &VirtualObject, b: &impl BValues) -> (PreparedB, PrepReport) {
+    pub fn prepare(
+        obj: &VirtualObject,
+        b: &impl BValues,
+    ) -> Result<(PreparedB, PrepReport), ShapeRefusal> {
+        admit_operand(obj, b)?;
         let k = obj.selection.k_pad();
         let mut panels: Vec<PackedBf16B> = (0..obj.cols / TILE)
             .map(|_| PackedBf16B::zeroed(k))
@@ -573,7 +623,7 @@ impl PreparedB {
             }
         });
         let allocated = panels.iter().map(|p| p.data().len() * 2).sum();
-        (
+        Ok((
             PreparedB {
                 object: obj.id,
                 selection: obj.selection.clone(),
@@ -586,7 +636,7 @@ impl PreparedB {
                 bytes_written: written,
                 bytes_allocated: allocated,
             },
-        )
+        ))
     }
 
     /// Panel `t` (output columns `16t..16t+16`), for inspection.
@@ -747,6 +797,7 @@ pub fn cblas(
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
     obj.admit_lanes(lanes)?;
+    admit_operand(obj, b)?;
     let m = obj.fields.len();
     let n = obj.cols;
     let k = obj.selection.len();

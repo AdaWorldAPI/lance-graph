@@ -66,7 +66,7 @@ struct Run {
 fn run(world: &World, socket: &Socket<'_>, dim: usize, sel: Selection) -> Run {
     let obj = VirtualObject::bind(world, socket, &fields(dim), dim, sel).unwrap();
     let lanes = obj.resolve(world, socket).unwrap();
-    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let (prep, _) = PreparedB::prepare(&obj, &B).unwrap();
     let mut c = vec![0f32; obj.c_len()];
     let direct = direct(&obj, &lanes, &prep, &B, &mut c).map(|r| (c.clone(), r));
     let mut c = vec![0f32; obj.c_len()];
@@ -216,7 +216,7 @@ fn without_the_over_read_refusal_a_neighbouring_nan_poisons_the_tile() {
 
     // The read the refusal prevents, done by hand.
     let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
-    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let (prep, _) = PreparedB::prepare(&obj, &B).unwrap();
     let row0 = socket.lanes.row(0).unwrap();
     let mut tile = [0f32; TILE * TILE];
     bf16_tile_gemm_16x16_packed_strided(&row0.slab[start..], row0.pitch, prep.panel(0), &mut tile);
@@ -422,7 +422,7 @@ fn prepared_b_is_reused_and_invalidated() {
         let (prep, rep, obj) = {
             let socket = Socket::in_order(&lanes, dim);
             let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel.clone()).unwrap();
-            let (prep, rep) = PreparedB::prepare(&obj, &B);
+            let (prep, rep) = PreparedB::prepare(&obj, &B).unwrap();
             let l = obj.resolve(&world, &socket).unwrap();
             for _ in 0..3 {
                 let mut c = vec![0f32; obj.c_len()];
@@ -577,7 +577,7 @@ fn lanes_from_another_object_are_refused_by_every_arm() {
     let (sa, sb) = (Socket::in_order(&a, 256), Socket::in_order(&a, 64));
     let sel = Selection::region(SPACE_A, 0, 64);
     let obj = VirtualObject::bind(&world256, &sa, &fields(256), 256, sel.clone()).unwrap();
-    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let (prep, _) = PreparedB::prepare(&obj, &B).unwrap();
     let own = obj.resolve(&world256, &sa).unwrap();
     assert!(obj.admit_lanes(&own).is_ok());
 
@@ -636,7 +636,7 @@ fn a_selection_past_the_source_is_refused_by_every_arm() {
     for (sel, last) in cases {
         let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
         let l = obj.resolve(&world, &socket).unwrap();
-        let (prep, _) = PreparedB::prepare(&obj, &B);
+        let (prep, _) = PreparedB::prepare(&obj, &B).unwrap();
         let want = ShapeRefusal::OutOfRange { last, n: 65 };
         let mut c = vec![0f32; obj.c_len()];
         assert_eq!(direct(&obj, &l, &prep, &B, &mut c).unwrap_err(), want);
@@ -695,7 +695,7 @@ fn resolve_keeps_the_view_row_order() {
     for (k, lane) in l.lanes().iter().enumerate() {
         assert_eq!(lane.row, usize::from(rev[k]), "row {k}");
     }
-    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let (prep, _) = PreparedB::prepare(&obj, &B).unwrap();
     let mut c = vec![0f32; obj.c_len()];
     staged(&obj, &l, &prep, &B, &mut Vec::new(), &mut c).unwrap();
     let want: Vec<f32> = oracle(
@@ -728,7 +728,7 @@ fn prepared_b_reuse_is_keyed_by_identity_not_a_digest() {
     let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel.clone()).unwrap();
     let t1 = BTable::new(&B, 4096, dim);
     let t2 = BTable::new(&B, 4096, dim); // same values, same revision
-    let (prep, _) = PreparedB::prepare(&obj, &t1);
+    let (prep, _) = PreparedB::prepare(&obj, &t1).unwrap();
     assert_eq!(prep.admit(&obj, &t1), Ok(()));
     assert_eq!(prep.admit(&obj, &t2), Err(ReuseRefusal::Operand));
     assert_eq!(prep.admit(&obj, &B), Err(ReuseRefusal::Operand));
@@ -753,4 +753,42 @@ fn prepared_b_reuse_is_keyed_by_identity_not_a_digest() {
     )
     .unwrap();
     assert_eq!(prep.admit(&other, &t1), Err(ReuseRefusal::Selection));
+}
+
+/// A B table smaller than the object is refused by every arm that reads it,
+/// never read past its width into the next row. A table of the right shape
+/// passes, so the check discriminates.
+#[test]
+fn a_b_table_narrower_or_shorter_than_the_object_is_refused() {
+    use dr_isa_stream_lab::shape::BTable;
+    let dim = 64;
+    let fx = fx(4096, dim);
+    let lanes = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let socket = Socket::in_order(&lanes, dim);
+    let world = world(dim);
+    let sel = Selection::mask(SPACE_A, 4096, (0..64).map(|k| k * 61 % 4096));
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+    let l = obj.resolve(&world, &socket).unwrap();
+    let last = obj.selection().last().unwrap();
+    assert!(last > 100, "fixture must reach past the short table");
+
+    let narrow = BTable::new(&B, 4096, 16);
+    let short = BTable::new(&B, 100, dim);
+    for t in [&narrow, &short] {
+        assert!(matches!(
+            PreparedB::prepare(&obj, t),
+            Err(ShapeRefusal::OperandShape { .. })
+        ));
+        let mut c = vec![0f32; obj.c_len()];
+        assert!(matches!(
+            cblas(&obj, &l, t, &mut Vec::new(), &mut Vec::new(), &mut c),
+            Err(ShapeRefusal::OperandShape { .. })
+        ));
+    }
+
+    let fits = BTable::new(&B, 4096, dim);
+    let (prep, _) = PreparedB::prepare(&obj, &fits).unwrap();
+    let mut c = vec![0f32; obj.c_len()];
+    staged(&obj, &l, &prep, &fits, &mut Vec::new(), &mut c).unwrap();
+    assert_eq!(c, want(&fx, obj.selection(), dim));
 }

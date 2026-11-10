@@ -338,6 +338,7 @@ pub fn staged(
     bm: &mut Vec<i8>,
     c: &mut [i32],
 ) -> Result<Int8Report, ShapeRefusal> {
+    crate::shape::admit_operand(obj, b)?;
     let a_copied = stage_a(obj, lanes, a)?;
     let (b_slice, b_written) = b_operand(obj, b, bm);
     gemm(obj, a, b_slice, c);

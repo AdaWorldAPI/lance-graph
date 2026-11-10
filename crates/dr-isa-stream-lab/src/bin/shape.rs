@@ -167,7 +167,7 @@ fn main() {
 
         let bind = || VirtualObject::bind(&world, &socket, &fields, dim, sel.clone()).unwrap();
         let obj = bind();
-        let (prep, prep_rep) = PreparedB::prepare(&obj, &bt);
+        let (prep, prep_rep) = PreparedB::prepare(&obj, &bt).unwrap();
         let lanes_r = obj.resolve(&world, &socket).unwrap();
         let mut c = vec![0f32; obj.c_len()];
         let mut scratch = Vec::new();
@@ -191,7 +191,7 @@ fn main() {
             black_box(obj.resolve_per_field(&world, &socket).unwrap());
         });
         let t_prep = median_ns(|| {
-            black_box(PreparedB::prepare(&obj, &bt));
+            black_box(PreparedB::prepare(&obj, &bt).unwrap());
         });
         let t_direct = median_ns(|| {
             direct(&obj, &lanes_r, &prep, &bt, &mut c).unwrap();
@@ -203,7 +203,7 @@ fn main() {
         let lanes2 = Bf16Lanes::slab_in_order(&fx2).unwrap();
         let socket2 = Socket::in_order(&lanes2, dim);
         let obj2 = VirtualObject::bind(&world, &socket2, &fields, dim, sel.clone()).unwrap();
-        let (prep2, _) = PreparedB::prepare(&obj2, &bt);
+        let (prep2, _) = PreparedB::prepare(&obj2, &bt).unwrap();
         let l2 = obj2.resolve(&world, &socket2).unwrap();
         direct(&obj2, &l2, &prep2, &bt, &mut c).unwrap();
         assert_eq!(c, want, "direct, odd pitch {dim}");
@@ -226,7 +226,7 @@ fn main() {
         assert_eq!(c, want);
         let t_cold = median_ns(|| {
             let o = bind();
-            let (p, _) = PreparedB::prepare(&o, &bt);
+            let (p, _) = PreparedB::prepare(&o, &bt).unwrap();
             let l = o.resolve(&world, &socket).unwrap();
             let mut cc = vec![0f32; o.c_len()];
             direct(&o, &l, &p, &bt, &mut cc).unwrap();
@@ -234,7 +234,7 @@ fn main() {
         });
         // 100 repetitions with unchanged selection: one prepare, 100 x (resolve + direct).
         let s = Instant::now();
-        let (p, _) = PreparedB::prepare(&obj, &bt);
+        let (p, _) = PreparedB::prepare(&obj, &bt).unwrap();
         for _ in 0..100 {
             let l = obj.resolve(&world, &socket).unwrap();
             direct(&obj, &l, &p, &bt, &mut c).unwrap();
@@ -244,7 +244,7 @@ fn main() {
 
         let (a_bind, m_bind, _) = mem(bind);
         let (a_res, m_res, _) = mem(|| obj.resolve(&world, &socket).unwrap());
-        let (a_prep, m_prep, _) = mem(|| PreparedB::prepare(&obj, &bt));
+        let (a_prep, m_prep, _) = mem(|| PreparedB::prepare(&obj, &bt).unwrap());
         let (a_dir, m_dir, _) = mem(|| direct(&obj, &lanes_r, &prep, &bt, &mut c).unwrap());
         let (a_stg, m_stg, _) =
             mem(|| staged(&obj, &lanes_r, &prep, &bt, &mut Vec::new(), &mut c).unwrap());
@@ -468,7 +468,7 @@ fn main() {
         .map(|&v| v as f32)
         .collect();
         let obj = VirtualObject::bind(&world, &socket, &fields, dim, sel.clone()).unwrap();
-        let (prep, _) = PreparedB::prepare(&obj, &bt);
+        let (prep, _) = PreparedB::prepare(&obj, &bt).unwrap();
         let l = obj.resolve(&world, &socket).unwrap();
         let mut c = vec![0f32; obj.c_len()];
         let mut scratch = Vec::new();

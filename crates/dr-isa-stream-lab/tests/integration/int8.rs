@@ -239,3 +239,29 @@ fn b_in_place_and_region_copy_are_exact_and_counted() {
         assert_eq!(a1, a2);
     }
 }
+
+/// The INT8 arm refuses a B table narrower than the object instead of
+/// reading the next row, and accepts one of the right width.
+#[test]
+fn int8_refuses_a_b_table_narrower_than_the_object() {
+    use dr_isa_stream_lab::shape::BTable;
+    let dim = 64;
+    let fx = fx(4096, dim);
+    let lanes = U8Lanes::slab_in_order(&fx);
+    let socket = U8Socket::in_order(&lanes, dim);
+    let world = world(dim);
+    let sel = Selection::region(SPACE_A, 0, 128);
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+    let l = int8::resolve(&obj, &world, &socket).unwrap();
+    let mut c = vec![0i32; obj.c_len()];
+    let narrow = BTable::new(&B, 4096, 16);
+    assert!(matches!(
+        int8::staged(&obj, &l, &narrow, &mut Vec::new(), &mut Vec::new(), &mut c),
+        Err(ShapeRefusal::OperandShape { .. })
+    ));
+    let fits = BTable::new(&B, 4096, dim);
+    int8::staged(&obj, &l, &fits, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap();
+    let mut want = vec![0i32; obj.c_len()];
+    int8::staged(&obj, &l, &B, &mut Vec::new(), &mut Vec::new(), &mut want).unwrap();
+    assert_eq!(c, want);
+}
