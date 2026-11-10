@@ -30,7 +30,8 @@ instance; Foundry columns cite its public documentation only, as evidence of
 - [x] Named cases 01–09, refusals, negative controls (§5).
 - [x] Disable runs: five guards broken one at a time, suite red each time, tree restored.
 - [x] Bench in ns/µs (§6).
-- [ ] P1: element-wise cross-lane arithmetic in an admitted operator (per-store max, limiting resource, per-store cost) — see §7 G1.
+- [x] P1a (2026-11-10): per-store cost through the INT8 packed GEMM (ndarray#418), arm C — oracle-exact, staged A counted (§5a, §6).
+- [ ] P1b: element-wise cross-lane arithmetic in an admitted operator (per-store max without the sweep, limiting resource) — see §7 G1.
 - [ ] P3: scenario overlay frame (§7 G3); governed action / writeback gate (§7 G4).
 - [ ] Production IAM in the read path instead of the lab stand-in (§7 G2).
 
@@ -93,7 +94,7 @@ compared against Foundry.
 | 11 | History / replay | `FrameStore` revisions; Lance versions | lab stale-frame refusal + rebind | LAB (invalidation) / UNKNOWN (replay at a past version through DT64) | Bind at a historical frame | Answer at frame N after the source moved to N+1 | PARTIAL |
 | 12 | Derived state + invalidation | `LaneBinding::check` on every open | lab `a_stale_frame_is_refused_and_a_rebind_sees_the_restock` | LAB | Incremental recompute of only the changed subset (lab recomputes the whole question; it is 64 rows) | — | FUNCTIONALLY-RELATED |
 | 13 | What-if scenarios (beta in Foundry docs) | `contract::scenario::ScenarioBranch` (facade) | `lance-graph-contract/src/scenario.rs` | PARTIAL; DR path BLOCKED | Overlay frame witness for DT64 bindings (§7 G3) | lab `the_scenario_is_oracle_only_and_lowers_capacity` (oracle only) | BLOCKED |
-| 14 | Aggregations / analytics | mask-RISC `Count`, `MaskedSumI32`, group terminals | lab `network_capacity`, `network_cost` | LAB | Per-row cross-lane arithmetic (§7 G1) | Per-store cost through an admitted terminal | PARTIAL |
+| 14 | Aggregations / analytics | mask-RISC `Count`, `MaskedSumI32`, group terminals; ndarray INT8 packed GEMM | lab `network_capacity`, `network_cost`; arm C `per_store` (per-store cost) | LAB | Per-row min / argmin across lanes (§7 G1) | Limiting resource through an admitted operator | PARTIAL |
 | 15 | Operational applications | a2ui-rs / consumer CustomObject | not exercised here | UNKNOWN | — | — | NOT-COMPARABLE here |
 | 16 | Audit / decision provenance | Witnesses (route, frame, basis) per answer | `LaneBinding` fields | PARTIAL | Decision record: who asked, which witnesses, which answer | — | MISSING |
 | 17 | Data connections / egress | Source adapters (OGAR, Lance) | outside this lab | UNKNOWN | — | — | NOT-COMPARABLE here |
@@ -126,6 +127,31 @@ lanes); quantity outside `1..=128`. Disable runs (each red, then restored):
 staff predicate threshold → 0; denied mask → empty; ingredient threshold off
 by one q; unknown mask → empty; fulfil deadline → `i32::MAX`.
 
+### 5a. Arm C — per-store cost as one INT8 GEMM (P1a)
+
+`C[store][item] = Σ_k cost[store][k] · demand[k][item]` through
+`ndarray::simd::int8_gemm_packed_strided` (ndarray#418, AMX `TDPBUSD` on the
+lab host). Only the cost lanes of categories some item demands are bound (plus
+`storeId`). **A is staged**: the source owns one `i32` lane per category (A's
+transpose) and the kernel reads `u8` rows, so the bound lanes are copied once
+per binding into a 64 × 64 `u8` buffer (4 096 B, counted). A cost that does not
+fit `u8` is refused, never truncated. B (the menu's demand matrix) is packed
+once and reused only under the same menu revision — the identity-and-revision
+rule #1992's `ReuseKey` applies to its operands, never a digest.
+
+Tests (7): oracle parity for 64 stores × 8 items × q ∈ {1, 3, 128} and against
+the materialized null model; the sum over arm B's `CanCook` mask equals arm B's
+`network_cost` (two independent arms); demanded lanes only, one borrow each, A
+staged once; `u8` overflow refused and 255 admitted exactly; a stale binding
+refused after a price change; another menu revision and out-of-range q
+refused; reversed row order answers by identity. Disable runs (each red, then
+restored): truncate instead of refuse; ignore the denied mask; demand in the
+wrong column; admit any menu; stage only the first cost lane.
+
+Not exercised: the scalar tier of the kernel (the host has AMX); ndarray#418
+tests both tiers against each other. The limiting resource (argmin) remains
+BLOCKED — it is not a matrix product.
+
 Not exercised: the `NotMonotone` and `Ceiling` guards of the layer-cake sweep
 are defensive; no admitted fixture can reach them (feasibility predicates are
 all `≥ threshold(q)` with thresholds non-decreasing in q). They are labelled,
@@ -150,6 +176,11 @@ three runs, ranges across runs:
 | arm A: build 64 objects (51 968 B second copy) | 20 818–23 216 |
 | arm A: `CanCook(q=1)` over 64 objects | 1 792–1 844 |
 | arm A: `NetworkCapacity` | 1 811–1 922 |
+| arm C cold: bind 23 cost lanes + `storeId` | 5 567–5 953 |
+| arm C cold: open (`borrow_all` + stage A, 4 096 B) | 1 139–1 562 |
+| arm C cold: prepare demand band (once per menu revision) | 452–629 |
+| arm C warm: per-store cost, 64 stores × 8 items, AMX `TDPBUSD` | 654–1 170 |
+| arm A: per-store cost, 64 × 8 (recipes read once) | 1 188–1 661 |
 
 Reading, not spin: a single WHERE-shaped question is ~4× cheaper in arm B and
 copies nothing; but the per-store maximum and the network capacity are ~8×
@@ -159,11 +190,18 @@ A's build cost (21 µs) amortises after roughly two capacity questions. At 64
 rows every mask is one word, so mask-RISC's fixed per-program cost (program
 construction + validation, not separated here) dominates; scaling is OPEN.
 
+Arm C (separate run of the same bench, three runs): per-store cost for all 8
+items is ~1.5–1.8× cheaper than arm A's walk once arm A reads its recipes
+once. A first comparator called `fx::recipe` per (store, item) and measured
+7.7–15 µs; that was 512 allocations, not the objects, and is not the
+comparison. At 64 × 64 × 16 the GEMM is tiny; the per-call fixed cost
+(tile configuration, output mapping) likely dominates, and scaling is OPEN.
+
 ## 7. Missing-contract register
 
 | Id | Missing operation | Why the current contract cannot express it | Lawful alternative today | Smallest test | Needs |
 |---|---|---|---|---|---|
-| G1 | Element-wise cross-lane arithmetic: `min_k ⌊stock_k / d_k⌋` per row, argmin (limiting resource), per-row weighted sum (per-store cost) | mask-RISC terminals reduce over rows; predicates compare a lane to a constant | Layer-cake over monotone masks (max only, ~30× programs); no alternative for argmin or per-row cost | Per-store max and cost in one program, equal to oracle | Decision + mask-RISC/Quack PR (H2) |
+| G1 | Element-wise cross-lane arithmetic: `min_k ⌊stock_k / d_k⌋` per row, argmin (limiting resource). (Per-row weighted sum — per-store cost — is now LAB via arm C, §5a.) | mask-RISC terminals reduce over rows; predicates compare a lane to a constant; min/argmin is not a matrix product | Layer-cake over monotone masks (max only, ~30× programs); none for argmin | Per-store max and limiting resource in one program, equal to oracle | Decision + mask-RISC/Quack PR (H2) |
 | G2 | Row-level authorization from IAM in the read path | DR `Scope` is per lane and consistency-only; RBAC grants are class/op, not wired to DT64 | Lab stand-in predicate on the identity lane | Same lab tests with the predicate supplied by `lance-graph-rbac` | Decision on where IAM evaluates (H3) |
 | G3 | Scenario overlay over a binding | No frame witness for a proposed, non-canonical plane | Oracle only | Store 12 closed: overlay answer = oracle, canonical frame unchanged | Overlay frame contract (H3) |
 | G4 | Governed action / writeback | No command identity, preconditions, idempotency, atomic commit or audit on this path; `MethodBinding::effects` is descriptive | none | Preview vs commit of "reassign order 12→17" with a stale-precondition refusal | Separate gate; not in a read-only lab |
@@ -176,8 +214,9 @@ construction + validation, not separated here) dominates; scaling is OPEN.
   WHERE-shaped feasibility, fulfilment, capacity and network cost are exact
   through existing contracts with no copy. Falsified for anything needing a
   per-row value combining several lanes.
-- **H2 (missing algebra):** *supported by G1, G5.* The limiting resource and
-  per-store cost cannot be expressed; the maximum only by a costly sweep.
+- **H2 (missing algebra):** *supported by G1, G5, narrowed by arm C.* The
+  per-store cost IS expressible, as an INT8 GEMM over staged A (§5a). The
+  limiting resource still cannot be expressed; the maximum only by a sweep.
 - **H3 (infrastructure):** *supported by G2, G3, G4, G6* but untested in
   depth here: authorization, scenarios, actions and method execution all lack
   a contract on this path.
@@ -187,8 +226,10 @@ None is chosen over the others; all three hold in part.
 ## 9. Roadmap
 
 - **P0 (this PR):** the lab and this matrix.
-- **P1:** G1 — decide whether element-wise cross-lane arithmetic enters
-  mask-RISC/Quack, then re-run the per-store questions against the oracle.
+- **P1a (done, 2026-11-10):** per-store cost via the INT8 packed GEMM (arm C).
+- **P1b:** G1 remainder — decide whether element-wise cross-lane min/argmin
+  enters mask-RISC/Quack, then re-run per-store max and limiting resource
+  against the oracle.
 - **P2:** G6 + G5 — `CanCook` as a registered method lowered from its
   `MethodRef`; recipe demand as bound relation lanes.
 - **P3:** G3 scenario overlay frame; G4 action gate (preview vs commit) as a

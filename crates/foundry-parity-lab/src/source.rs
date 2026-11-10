@@ -148,6 +148,23 @@ impl Network {
         });
     }
 
+    /// A source-side price change at store row `s`, category `k`. The plane
+    /// changes in place and the frame advances.
+    pub fn set_unit_cost(&mut self, s: usize, k: usize, value: i32) {
+        let r = (0..STORES)
+            .find(|&r| self.order.row(r) == s)
+            .expect("the store is in the population");
+        if let Owned::I32(lane) = &mut self.planes[crate::bind::COST0 + k] {
+            lane[r] = value;
+        }
+        let next = self.frames.revisions().source + 1;
+        self.frames.advance(FrameRevisions {
+            source: next,
+            relation_map: 1,
+            coordinates: 1,
+        });
+    }
+
     pub fn order(&self) -> Order {
         self.order
     }
