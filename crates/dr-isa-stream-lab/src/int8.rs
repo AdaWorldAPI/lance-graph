@@ -102,9 +102,25 @@ impl U8Lanes {
         }
     }
 
+    /// The frame owner.
+    pub fn frames(&self) -> &FrameStore {
+        &self.frames
+    }
+
     /// Mutable frame owner, for advancing the source after a change.
     pub fn frames_mut(&mut self) -> &mut FrameStore {
         &mut self.frames
+    }
+
+    /// Rewrite every value in place (`value(i, p)` for identity row `i` of
+    /// lane `p`). The caller advances the frames afterwards.
+    pub fn rewrite(&mut self, value: impl Fn(usize, usize) -> u8) {
+        let (pitch, props) = (self.pitch, self.data.len() / self.pitch.max(1));
+        for p in 0..props {
+            for i in 0..self.n {
+                self.data[p * pitch + i] = value(i, p);
+            }
+        }
     }
 
     /// Physical row `r`, borrowed in place.
@@ -527,4 +543,31 @@ fn run_rows(
     report.tiles += fs.len() / TILE * b.bands.len();
     report.dp_steps += fs.len() / TILE * b.bands.len() * (k_pad / K_STEP);
     Ok(())
+}
+
+/// The staged arm with a prepared B: A copied (one region copy per lane, or a
+/// per-value walk for a mask) into `a`, B taken from the prepared bands. For
+/// selections the direct arm cannot read in place, such as a scattered mask.
+/// `c` is overwritten.
+pub fn staged_prepared(
+    obj: &VirtualObject,
+    lanes: &U8Lanes64<'_>,
+    b: &PreparedI8B,
+    operand: &impl BValues,
+    a: &mut Vec<u8>,
+    c: &mut [i32],
+) -> Result<Int8Report, ShapeRefusal> {
+    b.key.admit(obj, operand).map_err(ShapeRefusal::Reuse)?;
+    let a_copied = stage_a(obj, lanes, a)?;
+    let k_pad = obj.selection().len().div_ceil(K_STEP) * K_STEP;
+    let rows = obj.fields().len();
+    assert_eq!(c.len(), rows * obj.cols());
+    int8_gemm_packed_strided(a, k_pad, &b.bands, c, rows);
+    Ok(Int8Report {
+        k_pad,
+        a_copied,
+        b_materialized: 0,
+        tiles: rows / TILE * b.bands.len(),
+        dp_steps: rows / TILE * b.bands.len() * (k_pad / K_STEP),
+    })
 }

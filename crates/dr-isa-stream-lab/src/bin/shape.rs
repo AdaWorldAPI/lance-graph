@@ -526,6 +526,64 @@ fn main() {
         );
     }
 
+    // G2L: a selection named in global ids, read on a source holding the
+    // population in its own row order. The translation is prepared once and
+    // reused; the anti-pattern re-translates on every operation.
+    {
+        use dr_isa_stream_lab::g2l::{global_of, translate, OrderedSource, TranslatedB};
+        let dim = 64;
+        let fx = Fixture {
+            n: 4096,
+            props: dim,
+            seed: 0x6211,
+        };
+        let world = World::with_extent(dim, "isa:f", Extent::DR64_CUBE);
+        let fields: Vec<u8> = (0..dim as u8).collect();
+        let order: Vec<usize> = (0..4096).map(|l| (l * 1237 + 11) % 4096).collect();
+        let source = OrderedSource::new(&fx, dim, order);
+        let socket = source.socket(dim);
+        let globals: Vec<u64> = (0..200).map(|k| global_of((k * 977 + 5) % 4096)).collect();
+        let bt = BTable::new(&b, 4096, dim);
+        let tr = translate(&source, &globals).unwrap();
+        let obj = VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
+        let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
+        let prep = int8::PreparedI8B::prepare(&obj, &tb).unwrap();
+        let (mut a, mut c) = (Vec::new(), vec![0i32; obj.c_len()]);
+        let run = |a: &mut Vec<u8>, c: &mut [i32]| {
+            let l = int8::resolve(&obj, &world, &socket).unwrap();
+            int8::staged_prepared(&obj, &l, &prep, &tb, a, c).unwrap();
+        };
+        run(&mut a, &mut c);
+        let want = c.clone();
+        let lookups = source.lookups();
+        let t_translate = median_ns(|| {
+            black_box(translate(&source, &globals).unwrap());
+        });
+        let t_prepare = median_ns(|| {
+            black_box(int8::PreparedI8B::prepare(&obj, &tb).unwrap());
+        });
+        let t_warm = median_ns(|| run(&mut a, &mut c));
+        assert_eq!(c, want);
+        let t_per_op = median_ns(|| {
+            let tr = translate(&source, &globals).unwrap();
+            let o = VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
+            let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
+            let p = int8::PreparedI8B::prepare(&o, &tb).unwrap();
+            let l = int8::resolve(&o, &world, &socket).unwrap();
+            int8::staged_prepared(&o, &l, &p, &tb, &mut a, &mut c).unwrap();
+        });
+        assert_eq!(c, want);
+        println!(
+            "G2L (64 fields x 64 cols, 200 global ids, source in its own order, 16 tiles): translate once {} ({} lookups) · prepare B once {} · warm run {} (0 lookups) · re-translate per operation {}\n",
+            fmt(t_translate),
+            tr.lookups(),
+            fmt(t_prepare),
+            fmt(t_warm),
+            fmt(t_per_op)
+        );
+        let _ = lookups;
+    }
+
     println!("| Metric | 64×64 | 256×256 |\n|---|---|---|");
     for r in rows {
         println!("| {} | {} | {} |", r.metric, r.v[0], r.v[1]);

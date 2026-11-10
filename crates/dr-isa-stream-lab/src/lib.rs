@@ -22,6 +22,7 @@
 pub mod bind;
 pub mod cube;
 pub mod fixture;
+pub mod g2l;
 pub mod gemm;
 pub mod int8;
 pub mod oracle;

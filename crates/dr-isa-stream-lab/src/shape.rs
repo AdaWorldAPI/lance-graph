@@ -476,6 +476,20 @@ pub enum OperandSource {
     Function { seed: u64 },
     /// An immutable table, by the construction that filled it.
     Table { instance: u64 },
+    /// Another operand read through a witnessed global -> local translation
+    /// (`crate::g2l`): the translation's instance and the inner operand's
+    /// source. Two translations of one operand are two operands.
+    Translated {
+        translation: u64,
+        inner: InnerSource,
+    },
+}
+
+/// The source of an operand read through a translation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InnerSource {
+    Function { seed: u64 },
+    Table { instance: u64 },
 }
 
 impl BValues for BOperand {
