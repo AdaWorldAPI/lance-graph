@@ -47,6 +47,9 @@ fn per_store_cost_matches_the_oracle_for_every_store_item_and_quantity() {
         (0..STORES).filter(|&s| c[s][0].is_some()).count(),
         STORES - 1
     );
+    // The materialized null model agrees too.
+    let objects = foundry_parity_lab::arm_a::Objects::build(false);
+    assert_eq!(objects.store_costs(1), c);
 }
 
 #[test]
@@ -78,10 +81,8 @@ fn only_demanded_cost_lanes_are_bound_and_a_is_staged_once() {
     let fields = cost_fields();
     let query = cost_query(&world, &net).unwrap();
     assert_eq!(fields.len(), demanded_categories().len() + 1);
-    assert!(
-        fields.len() < 64 / 2,
-        "the menu demands a minority of the 64 categories"
-    );
+    // 23 of the 64 categories are demanded by some item, plus `storeId`.
+    assert_eq!(fields.len(), 24);
     assert_eq!(
         net.borrows.get(),
         fields.len() as u64,

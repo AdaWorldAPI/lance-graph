@@ -100,6 +100,41 @@ impl Objects {
         }
     }
 
+    /// Ingredient cost of `q` of `m` at one object; `None` if denied.
+    pub fn store_cost(&self, s: usize, m: usize, q: i32) -> Option<i64> {
+        let o = &self.stores[s];
+        if o.id == DENIED_STORE {
+            return None;
+        }
+        Some(
+            fx::recipe(m)
+                .demand
+                .iter()
+                .map(|&(k, d)| i64::from(d * q) * i64::from(o.cost[k]))
+                .sum(),
+        )
+    }
+
+    /// Every store's cost for every item at `q`, recipes read once.
+    pub fn store_costs(&self, q: i32) -> [[Option<i64>; ITEMS]; STORES] {
+        let recipes: Vec<_> = (0..ITEMS).map(fx::recipe).collect();
+        let mut out = [[None; ITEMS]; STORES];
+        for (s, o) in self.stores.iter().enumerate() {
+            if o.id == DENIED_STORE {
+                continue;
+            }
+            for (m, r) in recipes.iter().enumerate() {
+                out[s][m] = Some(
+                    r.demand
+                        .iter()
+                        .map(|&(k, d)| i64::from(d * q) * i64::from(o.cost[k]))
+                        .sum(),
+                );
+            }
+        }
+        out
+    }
+
     /// `NetworkCapacity` on the objects.
     pub fn network_capacity(&self, m: usize) -> i64 {
         (0..STORES)
