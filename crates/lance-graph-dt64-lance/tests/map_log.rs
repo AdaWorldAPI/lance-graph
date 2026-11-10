@@ -181,7 +181,7 @@ async fn a_restored_table_answers_every_past_version_exactly() {
         for k in 1..=6 {
             assert_eq!(applied(log.settle_next().await), RouteVersion(k));
         }
-        log.into_table()
+        log.into_table().unwrap()
     });
     let live = &live;
 
@@ -396,7 +396,7 @@ async fn a_restored_log_continues_and_restores_again() {
         let v = log.advance(1, 1, vec![(1, None)]).unwrap();
         assert_eq!(v, RouteVersion(2));
         assert_eq!(applied(log.settle_next().await), v);
-        log.into_table()
+        log.into_table().unwrap()
     });
     let again = restore(&exit.sink, OWNER, VersionClock::new())
         .await
@@ -412,7 +412,7 @@ async fn a_frame_from_before_a_restore_is_foreign() {
         let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
         log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
         while log.settle_next().await.is_some() {}
-        log.into_table()
+        log.into_table().unwrap()
     });
     let frame = log.seal();
     let restored = restore(&exit.sink, OWNER, VersionClock::new())
@@ -435,7 +435,7 @@ async fn a_restore_onto_a_clock_that_has_moved_on_replays_exactly() {
         log.advance(1, 1, vec![(1, map(Width::W64, &[4, 5]))])
             .unwrap();
         while log.settle_next().await.is_some() {}
-        log.into_table()
+        log.into_table().unwrap()
     });
 
     // Another component sharing the clock was restored first and moved it on.
@@ -486,4 +486,37 @@ async fn a_cancelled_settle_keeps_the_advance_pending() {
         assert_eq!(applied(log.settle_next().await), v);
         assert_eq!(answer(log.table(), v.0, 1), Ok((64, vec![8])));
     });
+}
+
+/// The drained-state contract: `into_table` never hands out a table while a
+/// submitted cycle is unsettled, even one the store already sealed. The log
+/// comes back, settles, and the second ask returns the applied table.
+#[tokio::test]
+async fn into_table_refuses_while_a_submitted_cycle_is_unsettled() {
+    let gate = Arc::new(Semaphore::new(0));
+    let sink = GateWal {
+        gate: Some(gate.clone()),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
+
+    let (exit, table) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let v = log.advance(1, 1, vec![(1, map(Width::W64, &[5]))]).unwrap();
+        gate.add_permits(2);
+        // Let the writer seal both cycles without the log settling them.
+        for _ in 0..1000 {
+            tokio::task::yield_now().await;
+        }
+
+        let undrained = log.into_table().expect_err("sealed but unsettled");
+        assert_eq!(undrained.pending(), 2);
+        assert_eq!(undrained.diverged(), None);
+        let mut log = undrained.into_log();
+        assert_eq!(applied(log.settle_next().await), v);
+        assert_eq!(log.pending(), 0);
+        log.into_table().expect("drained")
+    });
+    assert_eq!(exit.sink.cycles.len(), 2, "both cycles were sealed");
+    assert_eq!(answer(&table, 1, 1), Ok((64, vec![5])));
 }

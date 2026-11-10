@@ -50,7 +50,6 @@ use lance_graph_dt64::dr::{
     AdvanceRefusal, LocalMap, MapRefusal, MapTable, RouteVersion, TileId, VersionClock, Width,
 };
 use lance_graph_planner::persist_sink::{CycleId, SweepSlot, WalSink, WriteFailed};
-use lance_graph_supervisor::cycle_driver::SealedCycle;
 use lance_graph_supervisor::cycle_writer::{CycleWriterHandle, SealError, SealTicket, SubmitError};
 
 /// Bytes in one cast payload (the cycle writer's artifact width).
@@ -114,7 +113,9 @@ pub enum Settled {
     /// The cycle is durable but the table refused to apply it. `MapLog`
     /// applies its own advances in claimed order and owns its table, so its
     /// API cannot produce this; it is reported rather than dropped so a
-    /// disagreement between store and table can never pass silently. A
+    /// disagreement between store and table can never pass silently. The
+    /// store now holds a cycle the table lacks: the log refuses every later
+    /// advance ([`AdvanceError::Poisoned`]) and [`MapLog::into_table`]. A
     /// restore replays the store.
     Refused {
         version: RouteVersion,
@@ -140,6 +141,43 @@ pub struct MapLog {
     next_position: u64,
     pending: VecDeque<Pending>,
     failed: Option<RouteVersion>,
+    /// The first durable cycle the table refused (see [`Settled::Refused`]).
+    diverged: Option<RouteVersion>,
+}
+
+/// [`MapLog::into_table`] refused: the table is not the store's last sealed
+/// state. Carries the log back so the caller can settle it, or restore.
+pub struct Undrained {
+    log: Box<MapLog>,
+}
+
+impl Undrained {
+    /// Submitted cycles not yet settled when the table was asked for.
+    #[must_use]
+    pub fn pending(&self) -> usize {
+        self.log.pending()
+    }
+
+    /// The durable cycle the table refused, if that is why.
+    #[must_use]
+    pub fn diverged(&self) -> Option<RouteVersion> {
+        self.log.diverged
+    }
+
+    /// The log, to settle what is pending and ask again.
+    #[must_use]
+    pub fn into_log(self) -> MapLog {
+        *self.log
+    }
+}
+
+impl std::fmt::Debug for Undrained {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Undrained")
+            .field("pending", &self.pending())
+            .field("diverged", &self.diverged())
+            .finish()
+    }
 }
 
 impl MapLog {
@@ -162,6 +200,7 @@ impl MapLog {
             next_position: 0,
             pending: VecDeque::new(),
             failed: None,
+            diverged: None,
         };
         let casts = vec![log.marker(GENESIS, version, source, relation_map)];
         log.submit(version, None, casts)?;
@@ -178,6 +217,7 @@ impl MapLog {
             next_position: restored.next_position,
             pending: VecDeque::new(),
             failed: None,
+            diverged: None,
         }
     }
 
@@ -186,11 +226,24 @@ impl MapLog {
         &self.table
     }
 
-    /// Give up the log and keep its table. Drops this log's writer handle, so
-    /// the writer stops once every other handle is gone too; anything still
-    /// pending is not applied.
-    pub fn into_table(self) -> MapTable {
-        self.table
+    /// Give up the log and keep its table, which must be drained: nothing
+    /// pending and no durable cycle refused. Otherwise the log comes back in
+    /// [`Undrained`], so a sealed cycle can never be dropped unapplied
+    /// (settle it, then ask again). Drops this log's writer handle on
+    /// success, so the writer stops once every other handle is gone too.
+    ///
+    /// # Errors
+    ///
+    /// [`Undrained`] while [`MapLog::pending`] is non-zero or a durable
+    /// cycle was refused ([`Settled::Refused`]).
+    pub fn into_table(self) -> Result<MapTable, Undrained> {
+        if self.pending.is_empty() && self.diverged.is_none() {
+            Ok(self.table)
+        } else {
+            Err(Undrained {
+                log: Box::new(self),
+            })
+        }
     }
 
     /// Submitted advances whose seal has not been settled yet.
@@ -240,7 +293,7 @@ impl MapLog {
             let Pending {
                 version, advance, ..
             } = self.pending.pop_front().expect("front exists");
-            if let Some(s) = self.resolve(version, advance, result) {
+            if let Some(s) = self.resolve(version, advance, result.map(|_| ())) {
                 out.push(s);
             }
         }
@@ -259,7 +312,7 @@ impl MapLog {
             let Pending {
                 version, advance, ..
             } = self.pending.pop_front().expect("front exists");
-            if let Some(s) = self.resolve(version, advance, result) {
+            if let Some(s) = self.resolve(version, advance, result.map(|_| ())) {
                 return Some(s);
             }
         }
@@ -269,7 +322,7 @@ impl MapLog {
         &mut self,
         version: RouteVersion,
         advance: Option<Advance>,
-        result: Result<SealedCycle, SealError>,
+        result: Result<(), SealError>,
     ) -> Option<Settled> {
         match result {
             Err(error) => {
@@ -284,7 +337,11 @@ impl MapLog {
                         .advance_at(version, source, relation_map, changes)
                     {
                         Ok(v) => Settled::Applied(v),
-                        Err(refusal) => Settled::Refused { version, refusal },
+                        Err(refusal) => {
+                            self.failed.get_or_insert(version);
+                            self.diverged.get_or_insert(version);
+                            Settled::Refused { version, refusal }
+                        }
                     },
                 )
             }
@@ -599,6 +656,80 @@ fn changes_of(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Accepts every cycle; enough to run a `MapLog` against a real writer.
+    struct AcceptAll {
+        head: u64,
+    }
+
+    impl WalSink for AcceptAll {
+        async fn commit_cycle(
+            &mut self,
+            batch: lance_graph_planner::persist_sink::DetachedCycleBatch,
+        ) -> Result<
+            lance_graph_planner::persist_sink::CommitOutcome,
+            lance_graph_planner::persist_sink::CommitError,
+        > {
+            self.head += 1;
+            Ok(
+                lance_graph_planner::persist_sink::CommitOutcome::Committed {
+                    version: lance_graph_contract::scheduler::DatasetVersion(self.head),
+                    cycle: batch.frame.cycle,
+                    batch_hash: batch.batch_hash,
+                },
+            )
+        }
+
+        async fn scan_sealed(
+            &self,
+            _after: Option<CycleId>,
+        ) -> Result<Vec<lance_graph_planner::persist_sink::LandedSlot>, WriteFailed> {
+            Ok(Vec::new())
+        }
+
+        async fn timeline(
+            &self,
+        ) -> Result<Vec<lance_graph_planner::persist_sink::FrameMeta>, WriteFailed> {
+            Ok(Vec::new())
+        }
+    }
+
+    /// A durable cycle the table refuses poisons the log: no later advance,
+    /// no table handed out as if it were the store's state. `MapLog`'s API
+    /// cannot produce the refusal, so the test resolves an already-applied
+    /// version a second time, which the table refuses as `NotAfterLast`.
+    #[tokio::test]
+    async fn a_durable_cycle_the_table_refuses_poisons_the_log() {
+        let (writer, handle) = lance_graph_supervisor::cycle_writer::cycle_writer(
+            AcceptAll { head: 0 },
+            lance_graph_contract::scheduler::DatasetVersion(0),
+            8,
+        );
+        let (_exit, ()) = tokio::join!(writer.run(), async move {
+            let mut log = MapLog::create(handle, 7, 1, 1, VersionClock::new()).unwrap();
+            let v = log.advance(1, 1, vec![(1, None)]).unwrap();
+            assert!(matches!(log.settle_next().await, Some(Settled::Applied(a)) if a == v));
+            // Silence twin: a drained, agreeing log hands out its table.
+            assert_eq!(log.pending(), 0);
+            assert!(log.diverged.is_none());
+
+            let refused = log.resolve(v, Some((1, 1, vec![(1, None)])), Ok(()));
+            assert!(
+                matches!(refused, Some(Settled::Refused { version, .. }) if version == v),
+                "{refused:?}"
+            );
+            assert!(matches!(
+                log.advance(1, 1, vec![]),
+                Err(AdvanceError::Poisoned { failed }) if failed == v
+            ));
+            let undrained = log
+                .into_table()
+                .err()
+                .expect("a diverged log keeps its table");
+            assert_eq!(undrained.pending(), 0);
+            assert_eq!(undrained.diverged(), Some(v));
+        });
+    }
 
     fn image(entries: &[(u64, Vec<u8>)]) -> BTreeMap<u64, Vec<u8>> {
         entries.iter().cloned().collect()
