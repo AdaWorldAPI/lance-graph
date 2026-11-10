@@ -124,7 +124,10 @@ impl OrderedSource {
                 let lo = t as usize * TILE_POSITIONS;
                 let hi = (lo + TILE_POSITIONS).min(self.order.len());
                 let globals: Vec<u64> = self.order[lo..hi].iter().map(|&i| global_of(i)).collect();
-                (t, Some(LocalMap::prepare(Width::W256, &globals).expect("a tile holds 256 ids")))
+                (
+                    t,
+                    Some(LocalMap::prepare(Width::W256, &globals).expect("a tile holds 256 ids")),
+                )
             })
             .collect();
         self.map.advance(1, 1, changes);
@@ -267,6 +270,9 @@ pub struct TranslatedB<'a, T> {
     source: &'a OrderedSource,
     translation: &'a Translation,
     reads: Cell<u64>,
+    /// The last position resolved and its identity. Packing reads every
+    /// column of one row before the next, so one map read per row suffices.
+    last: Cell<Option<(usize, usize)>>,
 }
 
 impl<'a, T: BValues> TranslatedB<'a, T> {
@@ -288,10 +294,11 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
             source,
             translation,
             reads: Cell::new(0),
+            last: Cell::new(None),
         })
     }
 
-    /// Values read through the translation so far.
+    /// Map reads made through the translation so far (one per row packed).
     pub fn reads(&self) -> u64 {
         self.reads.get()
     }
@@ -299,6 +306,11 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
     /// Source position → canonical identity, through the map's pointer table
     /// at the translation's frame (uncounted: the inverse read).
     fn identity_at(&self, position: usize) -> usize {
+        if let Some((p, identity)) = self.last.get() {
+            if p == position {
+                return identity;
+            }
+        }
         self.reads.set(self.reads.get() + 1);
         let tile = self.translation.tiles[position / TILE_POSITIONS];
         let local = u8::try_from(position % TILE_POSITIONS).expect("a tile holds 256 positions");
@@ -307,7 +319,9 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
             .map
             .map(&self.translation.frame, tile)
             .expect("the translation's own frame reads its own table");
-        identity_of(map.global(local).expect("a translated position is mapped"))
+        let identity = identity_of(map.global(local).expect("a translated position is mapped"));
+        self.last.set(Some((position, identity)));
+        identity
     }
 }
 

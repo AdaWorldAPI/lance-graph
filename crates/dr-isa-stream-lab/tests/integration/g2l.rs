@@ -4,9 +4,13 @@
 
 use dr_isa_stream_lab::bind::{World, SPACE_A};
 use dr_isa_stream_lab::fixture::Fixture;
-use dr_isa_stream_lab::g2l::{global_of, identity_of, translate, G2lRefusal, OrderedSource, TranslatedB};
+use dr_isa_stream_lab::g2l::{
+    global_of, identity_of, translate, G2lRefusal, OrderedSource, TranslatedB,
+};
 use dr_isa_stream_lab::int8::{self, a_u8, b_i8};
-use dr_isa_stream_lab::shape::{BOperand, BTable, ReuseRefusal, Selection, ShapeRefusal, VirtualObject};
+use dr_isa_stream_lab::shape::{
+    BOperand, BTable, ReuseRefusal, Selection, ShapeRefusal, VirtualObject,
+};
 use lance_graph_dt64::dr::{FrameRefusal, LocateRefusal};
 use lance_graph_dt64::{Extent, LaneRefusal};
 
@@ -76,7 +80,8 @@ fn a_translation_is_exact_and_reused_with_zero_further_lookups() {
     let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
     let prep = int8::PreparedI8B::prepare(&obj, &tb).unwrap();
     let (lookups, reads) = (source.lookups(), tb.reads());
-    assert!(reads > 0);
+    // Packing resolves each selected row once, not once per column.
+    assert_eq!(reads, globals.len() as u64);
 
     let (mut a, mut c) = (Vec::new(), vec![0i32; obj.c_len()]);
     for run in 0..5 {
@@ -113,7 +118,8 @@ fn a_reorder_refuses_everything_prepared_under_the_old_order() {
     let (tr, obj, prep) = {
         let socket = source.socket(DIM);
         let tr = translate(&source, &globals).unwrap();
-        let obj = VirtualObject::bind(&world, &socket, &fields(), DIM, tr.selection().clone()).unwrap();
+        let obj =
+            VirtualObject::bind(&world, &socket, &fields(), DIM, tr.selection().clone()).unwrap();
         let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
         let prep = int8::PreparedI8B::prepare(&obj, &tb).unwrap();
         (tr, obj, prep)
@@ -123,7 +129,9 @@ fn a_reorder_refuses_everything_prepared_under_the_old_order() {
     let socket = source.socket(DIM);
     assert!(matches!(
         int8::resolve(&obj, &world, &socket),
-        Err(ShapeRefusal::Lane(LaneRefusal::Frame(FrameRefusal::CoordinatesChanged)))
+        Err(ShapeRefusal::Lane(LaneRefusal::Frame(
+            FrameRefusal::CoordinatesChanged
+        )))
     ));
     assert!(matches!(tr.check(&source), Err(G2lRefusal::Stale { .. })));
     assert!(matches!(
@@ -134,7 +142,8 @@ fn a_reorder_refuses_everything_prepared_under_the_old_order() {
 
     // A fresh translation under the new order is exact again.
     let tr2 = translate(&source, &globals).unwrap();
-    let obj2 = VirtualObject::bind(&world, &socket, &fields(), DIM, tr2.selection().clone()).unwrap();
+    let obj2 =
+        VirtualObject::bind(&world, &socket, &fields(), DIM, tr2.selection().clone()).unwrap();
     let tb2 = TranslatedB::new(&bt, &source, &tr2).unwrap();
     let prep2 = int8::PreparedI8B::prepare(&obj2, &tb2).unwrap();
     let lanes = int8::resolve(&obj2, &world, &socket).unwrap();
@@ -184,7 +193,8 @@ fn a_prepared_b_belongs_to_its_translation() {
     let bt = BTable::new(&B, N, DIM);
     let tr1 = translate(&source, &wanted()).unwrap();
     let tr2 = translate(&source, &wanted()).unwrap();
-    let obj = VirtualObject::bind(&world, &socket, &fields(), DIM, tr1.selection().clone()).unwrap();
+    let obj =
+        VirtualObject::bind(&world, &socket, &fields(), DIM, tr1.selection().clone()).unwrap();
     let tb1 = TranslatedB::new(&bt, &source, &tr1).unwrap();
     let tb2 = TranslatedB::new(&bt, &source, &tr2).unwrap();
     let prep = int8::PreparedI8B::prepare(&obj, &tb1).unwrap();

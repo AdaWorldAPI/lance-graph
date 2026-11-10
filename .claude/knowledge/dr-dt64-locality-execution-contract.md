@@ -122,7 +122,7 @@ field mapping, operand identity and version.
 | Lab resolve on `borrow_all` (follow-up) | MEASURED, not merged | Resolve at 256 fields 1.6–2.0 µs vs 13.8–13.9 µs (#1987 as first measured) and 26–28 µs (`main` after the provenance fix); the old cost was `LaneBinding::addr`, a linear scan called per field |
 | INT8 vs BF16 over the same object (follow-up) | MEASURED, not merged | `u8 × i8 → i32` end to end 66–101 µs vs BF16 103–160 µs at 256 fields on one VM; INT8 still copies A (5–7 µs) and re-packs B per call (23–29 µs, 36–38% of its GEMM), because ndarray has no strided-A / prepacked-B INT8 entry |
 | #1987's "B preparation ≈ GEMM" | REJECTED-BY-MEASUREMENT | That timer included the synthetic operand's hash; from a table built once, prepared B costs about a third of the GEMM |
-| G2L across different source orders | OPEN | Not demonstrated: every fixture shared one coordinate space, and differing spaces were refused, not translated |
+| G2L across different source orders (D-DT64-G2L-1) | MEASURED, lab | One translation under one `MapTable` frame (counted lookups), reused across runs with 0 lookups; warm run 16–22 µs vs 128–166 µs re-translating per operation; reorder, stale mapping and foreign translation refused. Still OPEN for production: who owns the translation, and frames across a restore (#1993) |
 | Foundry operational-ontology parity | HYPOTHESIS | Research goal; nothing here establishes it |
 
 All timings: one VM (Xeon with AMX-BF16, 4 vCPU), single-threaded, medians of

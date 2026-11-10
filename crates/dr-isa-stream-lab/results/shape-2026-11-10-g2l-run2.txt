@@ -1,0 +1,35 @@
+Host: Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; cache (cpu0): L1 Data 48K, L1 Instruction 32K, L2 Unified 2048K, L3 Unified 266240K
+Tile tier: AMX TDPBF16PS. Single-threaded. 41 warm runs per row (median).
+
+Sparse demand (256 fields x 256 cols, 40 scattered identities): logical selection 40 · K padded 64 · lanes borrowed 256 · A bytes copied 20480 · dense dot-product steps 512 · staged AMX 509.7 µs
+
+G2L (64 fields x 64 cols, 200 global ids, source in its own order, 16 tiles): translate once 68.2 µs (3200 lookups) · prepare B once 36.9 µs · warm run 16.1 µs (0 lookups) · re-translate per operation 127.5 µs
+
+| Metric | 64×64 | 256×256 |
+|---|---|---|
+| Output tiles / K=32 dot-product steps | 16 / 32 | 256 / 2048 |
+| DT64 bind (cold) | 3179 ns · 2 allocs | 8522 ns · 6 allocs |
+| Resolve: one check + borrows (warm) | 1246 ns · 0 allocs · 0 B | 2000 ns · 0 allocs · 0 B |
+| Resolve: `lane()` per field (warm) | 11.8 µs | 143.1 µs |
+| B preparation (VNNI panels) | 5247 ns · 8192 B written · 8320 B alloc | 77.5 µs · 131072 B written · 131584 B alloc |
+| Direct AMX (A in place) | 4163 ns · 63.0 GMAC/s · 0 allocs · 0 B tmp | 134.9 µs · 124.4 GMAC/s · 0 allocs · 0 B tmp |
+| Direct AMX, pitch 65,568 (not 2^k) | 3727 ns · 70.3 GMAC/s | 117.6 µs · 142.7 GMAC/s |
+| Staged AMX (dense A tiles) | 4232 ns · 1 allocs · 2048 B tmp | 127.4 µs · 1 allocs · 8192 B tmp |
+| ndarray CBLAS BF16 | 35.7 µs · 23 allocs · 54272 B tmp | 1031.9 µs · 263 allocs · 803840 B tmp |
+| Source bytes copied (direct / staged / CBLAS) | 0 / 8192 / 8192 | 0 / 131072 / 131072 |
+| CBLAS B materialized | 8192 B | 131072 B |
+| FP32 accumulator (C) | 16384 B | 262144 B |
+| End-to-end warm (resolve + direct, B reused) | 6387 ns | 144.6 µs |
+| End-to-end cold (bind + prepare + resolve + direct) | 20.9 µs | 265.5 µs |
+| Warm repetitions (100, per run, one prepare) | 7247 ns | 155.3 µs |
+| INT8 resolve (u8 lanes, one check) | 1222 ns | 1968 ns |
+| INT8 stage A (region: one copy per lane) | 309 ns · 4096 B | 3504 ns · 65536 B |
+| INT8 stage A, per-value walk (baseline) | 3460 ns | 24.6 µs |
+| INT8 B for a region, in place from the table | 30 ns · 0 B written | 30 ns · 0 B written |
+| INT8 materialize B (row-major i8) | 6477 ns · 4096 B | 102.7 µs · 65536 B |
+| INT8 GEMM `backend::gemm_i8` (packs B per call) | 3590 ns · 73.0 GMAC/s · 3 allocs · 3072 B tmp | 80.1 µs · 209.4 GMAC/s · 3 allocs · 12288 B tmp |
+| INT8 B band gather + VNNI pack (done inside each gemm_i8 call) | 1922 ns · 54% of the GEMM row | 29.4 µs · 37% of the GEMM row |
+| INT8 end-to-end warm (resolve + stage + GEMM) | 5900 ns | 85.9 µs |
+| INT8 prepare B once (PackedI8B bands, `ndarray::simd`) | 4979 ns · 4096 B | 106.3 µs · 65536 B |
+| INT8 direct GEMM (A in place, prepared B) | 1009 ns · 259.8 GMAC/s · 0 allocs · 0 B of A copied | 40.9 µs · 410.4 GMAC/s · 0 allocs · 0 B of A copied |
+| INT8 direct end-to-end warm (resolve + GEMM) | 2996 ns | 36.1 µs |

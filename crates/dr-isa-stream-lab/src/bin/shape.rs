@@ -376,18 +376,19 @@ fn main() {
         assert_eq!(c8, want8);
         // The B packing gemm_i8 does inside every call, timed on its own:
         // per 16-column band, gather the band (K x 16) and VNNI-pack it with
-        // ndarray's own `vnni_pack_i8` (int8_gemm_amx_tiled_rb's steps, minus
-        // its three buffer allocations, which the GEMM row reports).
+        // `ndarray::simd::PackedI8B::pack_from` (the same layout and loop
+        // int8_gemm_amx_tiled_rb packs with, minus its three buffer
+        // allocations, which the GEMM row reports).
         let k8 = r8.k_pad;
         assert_eq!(b8.len(), k8 * dim, "B materialized row-major");
-        let (mut band, mut packed) = (vec![0i8; k8 * 16], vec![0i8; k8 * 16]);
+        let (mut band, mut packed) = (vec![0i8; k8 * 16], ndarray::simd::PackedI8B::zeroed(k8));
         let t8_pack = median_ns(|| {
             for j in (0..dim).step_by(16) {
                 for kk in 0..k8 {
                     band[kk * 16..kk * 16 + 16]
                         .copy_from_slice(&b8[kk * dim + j..kk * dim + j + 16]);
                 }
-                ndarray::hpc::amx_matmul::vnni_pack_i8(&band, &mut packed, k8, 16);
+                packed.pack_from(&band);
                 black_box(&packed);
             }
         });
@@ -545,7 +546,8 @@ fn main() {
         let globals: Vec<u64> = (0..200).map(|k| global_of((k * 977 + 5) % 4096)).collect();
         let bt = BTable::new(&b, 4096, dim);
         let tr = translate(&source, &globals).unwrap();
-        let obj = VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
+        let obj =
+            VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
         let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
         let prep = int8::PreparedI8B::prepare(&obj, &tb).unwrap();
         let (mut a, mut c) = (Vec::new(), vec![0i32; obj.c_len()]);
@@ -566,7 +568,8 @@ fn main() {
         assert_eq!(c, want);
         let t_per_op = median_ns(|| {
             let tr = translate(&source, &globals).unwrap();
-            let o = VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
+            let o =
+                VirtualObject::bind(&world, &socket, &fields, dim, tr.selection().clone()).unwrap();
             let tb = TranslatedB::new(&bt, &source, &tr).unwrap();
             let p = int8::PreparedI8B::prepare(&o, &tb).unwrap();
             let l = int8::resolve(&o, &world, &socket).unwrap();
