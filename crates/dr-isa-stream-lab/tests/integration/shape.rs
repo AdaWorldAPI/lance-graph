@@ -645,3 +645,59 @@ fn a_selection_past_the_source_is_refused_by_every_arm() {
     let r = run(&world, &socket, dim, ok.clone());
     assert_eq!(r.staged.0, want(&fx, &ok, dim));
 }
+
+/// A lane the source no longer holds is refused by `resolve` as
+/// `Vanished`, so no arm ever runs on a partially resolved object.
+#[test]
+fn a_vanished_lane_refuses_resolve_before_any_arm_runs() {
+    let dim = 64;
+    let fx = fx(1024, dim);
+    let lanes = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let mut socket = Socket::in_order(&lanes, dim);
+    socket.rows[3] = 9_999; // mapped at bind, but no such row in the slab
+    let world = world(dim);
+    let obj = VirtualObject::bind(
+        &world,
+        &socket,
+        &fields(dim),
+        dim,
+        Selection::region(SPACE_A, 0, 64),
+    )
+    .unwrap();
+    assert_eq!(
+        obj.resolve(&world, &socket).unwrap_err(),
+        ShapeRefusal::Lane(LaneRefusal::Vanished { field: 3 })
+    );
+}
+
+/// Rows keep the view's field order, not the binding's ascending order:
+/// fields bound in reverse give C's rows in reverse.
+#[test]
+fn resolve_keeps_the_view_row_order() {
+    let dim = 64;
+    let fx = fx(4096, dim);
+    let lanes = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let socket = Socket::in_order(&lanes, dim);
+    let world = world(dim);
+    let rev: Vec<u8> = (0..dim as u8).rev().collect();
+    let sel = Selection::region(SPACE_A, 0, 64);
+    let obj = VirtualObject::bind(&world, &socket, &rev, dim, sel.clone()).unwrap();
+    let l = obj.resolve(&world, &socket).unwrap();
+    for (k, lane) in l.lanes().iter().enumerate() {
+        assert_eq!(lane.row, usize::from(rev[k]), "row {k}");
+    }
+    let (prep, _) = PreparedB::prepare(&obj, &B);
+    let mut c = vec![0f32; obj.c_len()];
+    staged(&obj, &l, &prep, B.rev, &mut Vec::new(), &mut c).unwrap();
+    let want: Vec<f32> = oracle(
+        &sel,
+        &rev,
+        dim,
+        |i, p| f64::from(fx.value(i, p)),
+        |i, j| f64::from(B.value(i, j)),
+    )
+    .iter()
+    .map(|&v| v as f32)
+    .collect();
+    assert_eq!(c, want);
+}
