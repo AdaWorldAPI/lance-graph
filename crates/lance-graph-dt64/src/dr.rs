@@ -392,6 +392,16 @@ impl FrameStore {
     /// A store whose advances tick `clock`.
     pub fn with_clock(revisions: FrameRevisions, clock: VersionClock) -> Self {
         let version = clock.current();
+        Self::with_clock_at(revisions, clock, version)
+    }
+
+    /// A store whose current seal is at `version`, which the caller has
+    /// checked is not past `clock`'s current version.
+    fn with_clock_at(
+        revisions: FrameRevisions,
+        clock: VersionClock,
+        version: RouteVersion,
+    ) -> Self {
         Self {
             identity: Arc::new(()),
             current: Arc::new(revisions),
@@ -886,6 +896,39 @@ impl MapTable {
             ),
             tiles,
         }
+    }
+
+    /// An empty table whose genesis is at `genesis`, an earlier version of
+    /// `clock` (a table rebuilt from storage while the clock it shares has
+    /// moved on). Its first advance must come after `genesis`. Refuses a
+    /// genesis the clock has not issued.
+    pub fn with_clock_at(
+        source: u64,
+        relation_map: u64,
+        clock: VersionClock,
+        genesis: RouteVersion,
+    ) -> Result<Self, AdvanceRefusal> {
+        let current = clock.current();
+        if genesis > current {
+            return Err(AdvanceRefusal::NotIssued {
+                version: genesis,
+                current,
+            });
+        }
+        let tiles = BTreeMap::new();
+        let coordinates = Self::coordinates(&tiles);
+        Ok(Self {
+            frames: FrameStore::with_clock_at(
+                FrameRevisions {
+                    source,
+                    relation_map,
+                    coordinates,
+                },
+                clock,
+                genesis,
+            ),
+            tiles,
+        })
     }
 
     /// The clock this table advances (a clone that shares the counter).

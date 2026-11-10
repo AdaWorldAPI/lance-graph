@@ -252,12 +252,13 @@ impl MapLog {
     /// calls [`MapLog::settle`].
     pub async fn settle_next(&mut self) -> Option<Settled> {
         loop {
+            // The entry stays queued while waiting: if this future is
+            // cancelled, the advance is still pending and a later settle
+            // applies it.
+            let result = self.pending.front_mut()?.ticket.wait().await;
             let Pending {
-                version,
-                advance,
-                ticket,
-            } = self.pending.pop_front()?;
-            let result = ticket.sealed().await;
+                version, advance, ..
+            } = self.pending.pop_front().expect("front exists");
             if let Some(s) = self.resolve(version, advance, result) {
                 return Some(s);
             }
@@ -499,7 +500,14 @@ fn replay(
     while clock.current().0 < version {
         clock.tick();
     }
-    let mut table = MapTable::with_clock(source, relation_map, clock.clone());
+    // Start at the stored genesis, not at the clock: a shared clock may
+    // already be past it.
+    let mut table =
+        MapTable::with_clock_at(source, relation_map, clock.clone(), RouteVersion(version))
+            .map_err(|refusal| ReplayError::Apply {
+                cycle: *first,
+                refusal,
+            })?;
     let mut last = RouteVersion(version);
     for (cycle, image) in rest {
         let (kind, version, source, relation_map) = decode_marker(*cycle, image)?;

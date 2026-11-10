@@ -32,5 +32,5 @@ lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycl
 lance-graph = { path = "../lance-graph", default-features = false, features = ["planner", "ndarray-hpc"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 tempfile = "3"

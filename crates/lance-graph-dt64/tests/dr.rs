@@ -848,3 +848,35 @@ fn an_unchanged_space_survives_an_advance_of_another() {
     assert_eq!(t.code(&f, &priority(), &vk("high")), Ok(1));
     assert_eq!(t.key(&f, &priority(), 1), Ok(&vk("high")));
 }
+
+mod genesis_at {
+    use lance_graph_dt64::dr::{AdvanceRefusal, MapTable, RouteVersion, VersionClock};
+
+    #[test]
+    fn a_table_can_start_at_a_past_version_of_its_clock() {
+        let clock = VersionClock::new();
+        for _ in 0..4 {
+            clock.tick();
+        }
+        let mut t = MapTable::with_clock_at(1, 1, clock.clone(), RouteVersion(1)).unwrap();
+        // The first advance after genesis applies, though the clock is at 4.
+        assert_eq!(
+            t.advance_at(RouteVersion(2), 1, 1, vec![]),
+            Ok(RouteVersion(2))
+        );
+        // Not at or before genesis.
+        let mut t = MapTable::with_clock_at(1, 1, clock.clone(), RouteVersion(3)).unwrap();
+        assert_eq!(
+            t.advance_at(RouteVersion(3), 1, 1, vec![]),
+            Err(AdvanceRefusal::NotAfterLast {
+                last: RouteVersion(3),
+                version: RouteVersion(3)
+            })
+        );
+        // A genesis the clock has not issued is refused.
+        assert!(matches!(
+            MapTable::with_clock_at(1, 1, clock, RouteVersion(9)),
+            Err(AdvanceRefusal::NotIssued { .. })
+        ));
+    }
+}

@@ -425,3 +425,65 @@ async fn a_frame_from_before_a_restore_is_foreign() {
     // The same version still answers through diagnose_at.
     assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![1])));
 }
+
+#[tokio::test]
+async fn a_restore_onto_a_clock_that_has_moved_on_replays_exactly() {
+    let (writer, handle) = cycle_writer(GateWal::default(), DatasetVersion(0), 8);
+    let (exit, live) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        log.advance(1, 1, vec![(1, map(Width::W64, &[4]))]).unwrap();
+        log.advance(1, 1, vec![(1, map(Width::W64, &[4, 5]))])
+            .unwrap();
+        while log.settle_next().await.is_some() {}
+        log.into_table()
+    });
+
+    // Another component sharing the clock was restored first and moved it on.
+    let shared = VersionClock::new();
+    for _ in 0..5 {
+        shared.tick();
+    }
+    let restored = restore(&exit.sink, OWNER, shared.clone()).await.unwrap();
+    assert_eq!(restored.last, RouteVersion(2));
+    assert_same(&live, &restored.table, 2);
+    assert_eq!(restored.table.current_version(), RouteVersion(5));
+
+    // Advances continue on the shared clock.
+    let head = DatasetVersion(exit.sink.head);
+    let (writer, handle) = cycle_writer(exit.sink, head, 8);
+    let ((), ()) = tokio::join!(
+        async {
+            let _ = writer.run().await;
+        },
+        async move {
+            let mut log = MapLog::resume(restored, handle, OWNER);
+            let v = log.advance(1, 1, vec![(1, None)]).unwrap();
+            assert_eq!(v, RouteVersion(6));
+            assert_eq!(applied(log.settle_next().await), v);
+        }
+    );
+}
+
+#[tokio::test]
+async fn a_cancelled_settle_keeps_the_advance_pending() {
+    let gate = Arc::new(Semaphore::new(0));
+    let sink = GateWal {
+        gate: Some(gate.clone()),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
+    let (_exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let v = log.advance(1, 1, vec![(1, map(Width::W64, &[8]))]).unwrap();
+
+        // Waiting is cancelled before the seal lands (a shutdown timeout).
+        let waited =
+            tokio::time::timeout(std::time::Duration::from_millis(20), log.settle_next()).await;
+        assert!(waited.is_err(), "the seal is held, so the wait times out");
+        assert_eq!(log.pending(), 2, "genesis and the advance are still queued");
+
+        gate.add_permits(2);
+        assert_eq!(applied(log.settle_next().await), v);
+        assert_eq!(answer(log.table(), v.0, 1), Ok((64, vec![8])));
+    });
+}
