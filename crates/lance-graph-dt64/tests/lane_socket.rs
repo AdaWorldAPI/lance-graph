@@ -1,6 +1,8 @@
 //! D-LANESOCK-1: the property-to-lane socket. Every refusal fires on a
 //! realistic input, and a binding that passes borrows the source's own lane.
 
+use std::cell::Cell;
+
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRefusal, FrameRevisions, FrameStore, Scope};
@@ -60,6 +62,9 @@ struct Source {
     /// The store this source's data lives with (it never takes one from a
     /// caller; see `LaneSource::frames`).
     frames: FrameStore,
+    /// `lane_of` calls, and `borrow` calls, so far.
+    lookups: Cell<usize>,
+    borrows: Cell<usize>,
 }
 
 impl Source {
@@ -77,6 +82,8 @@ impl Source {
                 relation_map: 1,
                 coordinates: 1,
             }),
+            lookups: Cell::new(0),
+            borrows: Cell::new(0),
         }
     }
 }
@@ -91,12 +98,14 @@ impl LaneSource for Source {
         _basis: &FieldRef,
         _frame: &Frame,
     ) -> Option<LaneAddr> {
+        self.lookups.set(self.lookups.get() + 1);
         if class != HYBRID || rev != SchemaRev(1) {
             return None;
         }
         self.map.iter().find(|(f, _)| *f == field).map(|(_, a)| *a)
     }
     fn borrow(&self, addr: &LaneAddr) -> Option<&[i32]> {
+        self.borrows.set(self.borrows.get() + 1);
         self.lanes.get(usize::from(addr.lane)).map(Vec::as_slice)
     }
     fn frames(&self) -> &FrameStore {
@@ -414,4 +423,92 @@ fn finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source()
     assert!(b
         .check(&w.store, &swapped, &w.source.frames, &w.source)
         .is_ok());
+}
+
+/// `borrow_all` hands out the source's own lanes, in field order, the same
+/// ones `lane` hands out one at a time.
+#[test]
+fn borrow_all_yields_every_bound_lane_in_place_in_field_order() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[1, 0])).unwrap();
+    let all = b
+        .borrow_all(&w.store, &w.view, &w.source.frames, &w.source)
+        .unwrap();
+    assert_eq!(all.len(), 2);
+    let got: Vec<(u8, &[i32])> = all.map(Result::unwrap).collect();
+    assert_eq!(got.iter().map(|(f, _)| *f).collect::<Vec<_>>(), [0, 1]);
+    for (field, lane) in got {
+        assert!(std::ptr::eq(
+            lane,
+            w.source.lanes[usize::from(field)].as_slice()
+        ));
+        assert_eq!(
+            b.lane(&w.store, &w.view, &w.source.frames, &w.source, field),
+            Ok(lane)
+        );
+    }
+}
+
+/// One check for all lanes: N source lookups where `lane` per field does N².
+#[test]
+fn borrow_all_checks_once_where_lane_per_field_checks_each_time() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+
+    w.source.lookups.set(0);
+    let n = b
+        .borrow_all(&w.store, &w.view, &w.source.frames, &w.source)
+        .unwrap()
+        .count();
+    assert_eq!((n, w.source.lookups.get()), (2, 2));
+
+    w.source.lookups.set(0);
+    for f in [0, 1] {
+        b.lane(&w.store, &w.view, &w.source.frames, &w.source, f)
+            .unwrap();
+    }
+    assert_eq!(
+        w.source.lookups.get(),
+        4,
+        "lane per field re-checks every lane"
+    );
+}
+
+/// A refused check returns before any lane is borrowed.
+#[test]
+fn a_refused_borrow_all_borrows_nothing() {
+    let mut w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    w.source.frames.advance(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    w.source.borrows.set(0);
+    assert_eq!(
+        b.borrow_all(&w.store, &w.view, &w.source.frames, &w.source)
+            .err(),
+        Some(LaneRefusal::Frame(FrameRefusal::SourceChanged))
+    );
+    assert_eq!(w.source.borrows.get(), 0);
+}
+
+/// A lane the source no longer holds is reported at its position; the
+/// other lanes are still handed out.
+#[test]
+fn a_vanished_lane_is_reported_in_place() {
+    let mut w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    w.source.lanes.truncate(1);
+    let got: Vec<_> = b
+        .borrow_all(&w.store, &w.view, &w.source.frames, &w.source)
+        .unwrap()
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            Ok((0, w.source.lanes[0].as_slice())),
+            Err(LaneRefusal::Vanished { field: 1 })
+        ]
+    );
 }
