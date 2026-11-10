@@ -270,6 +270,7 @@ pub struct TranslatedB<'a, T> {
     source: &'a OrderedSource,
     translation: &'a Translation,
     reads: Cell<u64>,
+    admission_reads: Cell<u64>,
     /// The last position resolved and its identity. Packing reads every
     /// column of one row before the next, so one map read per row suffices.
     last: Cell<Option<(usize, usize)>>,
@@ -294,6 +295,7 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
             source,
             translation,
             reads: Cell::new(0),
+            admission_reads: Cell::new(0),
             last: Cell::new(None),
         })
     }
@@ -303,8 +305,25 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
         self.reads.get()
     }
 
+    /// Map reads made while admitting the operand (one per selected row,
+    /// to find the highest inner row it reads), counted apart from
+    /// [`Self::reads`].
+    pub fn admission_reads(&self) -> u64 {
+        self.admission_reads.get()
+    }
+
     /// Source position → canonical identity, through the map's pointer table
-    /// at the translation's frame (uncounted: the inverse read).
+    /// at the translation's frame (the inverse read). A position outside the
+    /// translation's tiles, or unmapped, is `None`.
+    fn resolve(&self, position: usize) -> Option<usize> {
+        let tile = *self.translation.tiles.get(position / TILE_POSITIONS)?;
+        let local = u8::try_from(position % TILE_POSITIONS).ok()?;
+        let map = self.source.map.map(&self.translation.frame, tile).ok()?;
+        Some(identity_of(map.global(local)?))
+    }
+
+    /// [`Self::resolve`] for packing, cached per row. Packing runs only after
+    /// [`crate::shape::admit_operand`] resolved every selected position.
     fn identity_at(&self, position: usize) -> usize {
         if let Some((p, identity)) = self.last.get() {
             if p == position {
@@ -312,14 +331,9 @@ impl<'a, T: BValues> TranslatedB<'a, T> {
             }
         }
         self.reads.set(self.reads.get() + 1);
-        let tile = self.translation.tiles[position / TILE_POSITIONS];
-        let local = u8::try_from(position % TILE_POSITIONS).expect("a tile holds 256 positions");
-        let map = self
-            .source
-            .map
-            .map(&self.translation.frame, tile)
-            .expect("the translation's own frame reads its own table");
-        let identity = identity_of(map.global(local).expect("a translated position is mapped"));
+        let identity = self
+            .resolve(position)
+            .expect("admission resolved every selected position");
         self.last.set(Some((position, identity)));
         identity
     }
@@ -341,9 +355,21 @@ impl<T: BValues> BValues for TranslatedB<'_, T> {
     fn i8_at(&self, i: usize, j: usize) -> i8 {
         self.inner.i8_at(self.identity_at(i), j)
     }
+    /// The inner operand's own extent: its rows are identities, not source
+    /// positions, so a translated identity past the inner table is refused
+    /// through [`Self::highest_row`] (#1990's OperandShape contract).
     fn extent(&self) -> Option<(usize, usize)> {
-        self.inner
-            .extent()
-            .map(|(_, cols)| (self.source.len(), cols))
+        self.inner.extent()
+    }
+    /// The highest identity any selected position reads. An unmapped
+    /// position reads as `usize::MAX`, so admission refuses it too.
+    fn highest_row(&self, selection: &Selection) -> Option<usize> {
+        let mut highest = None;
+        selection.for_each(|_, position| {
+            self.admission_reads.set(self.admission_reads.get() + 1);
+            let identity = self.resolve(position).unwrap_or(usize::MAX);
+            highest = highest.max(Some(identity));
+        });
+        highest
     }
 }

@@ -437,6 +437,14 @@ pub trait BValues {
     fn extent(&self) -> Option<(usize, usize)> {
         None
     }
+    /// The highest row of the table behind [`Self::extent`] that reading
+    /// `B[i][..]` for every selected `i` touches. For an operand read
+    /// directly that is the selection's last identity; an operand read
+    /// through a translation (`crate::g2l::TranslatedB`) maps each selected
+    /// position to the identity it reads.
+    fn highest_row(&self, selection: &Selection) -> Option<usize> {
+        selection.last()
+    }
 }
 
 /// Refuses an operand that cannot supply every `B[i][j]` the object reads:
@@ -447,7 +455,7 @@ pub fn admit_operand(obj: &VirtualObject, b: &impl BValues) -> Result<(), ShapeR
     let Some((rows, table_cols)) = b.extent() else {
         return Ok(());
     };
-    let last = obj.selection.last().unwrap_or(0);
+    let last = b.highest_row(&obj.selection).unwrap_or(0);
     if obj.cols > table_cols || last >= rows {
         return Err(ShapeRefusal::OperandShape {
             cols: obj.cols,

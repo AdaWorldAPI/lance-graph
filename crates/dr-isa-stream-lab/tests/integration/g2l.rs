@@ -207,3 +207,37 @@ fn a_prepared_b_belongs_to_its_translation() {
     int8::staged_prepared(&obj, &lanes, &prep, &tb1, &mut Vec::new(), &mut c).unwrap();
     assert_eq!(c, oracle(&fx, &wanted()));
 }
+
+/// #1990's OperandShape contract survives translation. The inner B table
+/// covers identities `0..100` only; the source holds all `N`. One selected
+/// global maps to identity 3000, past the table. The source position it
+/// lands on is inside `0..N`, so checking positions against the source's
+/// length would admit it and packing would read past the table. Preparation
+/// must refuse it, with the inner row and the table's extent, before any
+/// packing.
+#[test]
+fn a_translated_identity_past_the_inner_table_is_refused_before_packing() {
+    let fx = fx();
+    let source = OrderedSource::new(&fx, DIM, order(1237, 11));
+    let socket = source.socket(DIM);
+    let short = BTable::new(&B, 100, DIM);
+    let globals = vec![global_of(3), global_of(3000), global_of(42)];
+    let tr = translate(&source, &globals).unwrap();
+    let w = world();
+    let obj = VirtualObject::bind(&w, &socket, &fields(), DIM, tr.selection().clone()).unwrap();
+    let tb = TranslatedB::new(&short, &source, &tr).unwrap();
+    // Anti-vacuity: the positions really are inside the source.
+    assert!(tr.selection().last().unwrap() < N);
+    match int8::PreparedI8B::prepare(&obj, &tb) {
+        Err(ShapeRefusal::OperandShape { last, rows, .. }) => assert_eq!((last, rows), (3000, 100)),
+        Err(other) => panic!("expected OperandShape, got {other:?}"),
+        Ok(_) => panic!("expected OperandShape, got a prepared B"),
+    }
+    assert_eq!(tb.reads(), 0, "refused before packing read anything");
+    // Silence twin: identities that all fit the table are admitted.
+    let ok = vec![global_of(3), global_of(99), global_of(42)];
+    let tr = translate(&source, &ok).unwrap();
+    let obj = VirtualObject::bind(&w, &socket, &fields(), DIM, tr.selection().clone()).unwrap();
+    let tb = TranslatedB::new(&short, &source, &tr).unwrap();
+    int8::PreparedI8B::prepare(&obj, &tb).expect("every identity is inside the table");
+}
