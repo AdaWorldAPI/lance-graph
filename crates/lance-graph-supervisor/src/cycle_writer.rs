@@ -144,6 +144,14 @@ impl SealTicket {
         self.rx.await.unwrap_or(Err(SealError::WriterGone))
     }
 
+    /// Wait for this cycle's seal without consuming the ticket, so a caller
+    /// that is cancelled while waiting still holds it and can wait again.
+    /// After this returns, the ticket is spent: call neither `wait` nor
+    /// `try_sealed` on it again.
+    pub async fn wait(&mut self) -> Result<SealedCycle, SealError> {
+        (&mut self.rx).await.unwrap_or(Err(SealError::WriterGone))
+    }
+
     /// The seal if it has already resolved, without waiting. `None` while the
     /// writer is still on it. After this returns `Some`, the ticket is spent.
     pub fn try_sealed(&mut self) -> Option<Result<SealedCycle, SealError>> {

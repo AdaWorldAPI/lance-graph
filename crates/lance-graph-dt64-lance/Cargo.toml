@@ -1,0 +1,36 @@
+# lance-graph-dt64-lance — DR's versioned global -> local table (dt64
+# `dr::MapTable`) stored as a separate Lance-versioned dataset
+# (D-DT64-7 O5 / D10', D-LITHO Q5). EXCLUDED from the lance-graph workspace
+# (own [workspace] root), like lance-graph-dir-sim-lance: dt64 stays free of
+# lance and arrow.
+#
+# Advances are fire and forget: each one is a cycle submitted to the
+# supervisor's CycleWriter, whose single background task owns a
+# LanceCycleWriter (D-DR64-WAL-1). The advance is applied to the table only
+# after its seal ticket resolves Ok; a failed seal is a gap.
+#
+# Build/verify:
+#   cargo test --manifest-path crates/lance-graph-dt64-lance/Cargo.toml
+
+[package]
+name = "lance-graph-dt64-lance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+description = "DR's versioned global -> local map table made durable through the fire-and-forget cycle writer, replayed exactly at restore."
+
+[workspace]
+
+[dependencies]
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-planner = { path = "../lance-graph-planner" }
+lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycle-driver"] }
+# LanceCycleWriter, the WAL (graph::cycle_sink, behind `planner`). `ndarray-hpc`
+# is required: lance-graph does not build without it (its fallback is stale).
+lance-graph = { path = "../lance-graph", default-features = false, features = ["planner", "ndarray-hpc"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tempfile = "3"
