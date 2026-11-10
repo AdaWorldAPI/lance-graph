@@ -23,6 +23,7 @@ pub mod bind;
 pub mod cube;
 pub mod fixture;
 pub mod gemm;
+pub mod int8;
 pub mod oracle;
 pub mod shape;
 pub mod source;

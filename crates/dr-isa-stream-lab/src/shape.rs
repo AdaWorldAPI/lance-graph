@@ -46,7 +46,7 @@
 //!   bindings or tiles.
 
 use lance_graph_dt64::dr::Frame;
-use lance_graph_dt64::{CoordSpace, LaneBinding, LaneRefusal};
+use lance_graph_dt64::{CoordSpace, LaneBinding, LaneRefusal, LaneSource};
 use ndarray::simd::{
     bf16_tile_gemm_16x16_packed, bf16_tile_gemm_16x16_packed_strided, PackedBf16B,
 };
@@ -146,30 +146,6 @@ impl Selection {
             }
         }
     }
-
-    /// A 64-bit witness of which identities are selected (FNV-1a over the
-    /// region bounds or the mask words). Equal selections give equal keys.
-    pub fn key(&self) -> u64 {
-        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        let mut eat = |x: u64| {
-            for b in x.to_le_bytes() {
-                h = (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
-            }
-        };
-        match &self.kind {
-            Where::Region { start, len } => {
-                eat(1);
-                eat(*start as u64);
-                eat(*len as u64);
-            }
-            Where::Mask { n, words } => {
-                eat(2);
-                eat(*n as u64);
-                words.iter().for_each(|&w| eat(w));
-            }
-        }
-        h
-    }
 }
 
 /// Why the shape cannot be built or consumed.
@@ -208,6 +184,14 @@ pub enum ShapeRefusal {
     ForeignLanes,
     /// The selection names identity `last`, but the lanes hold only `n`.
     OutOfRange { last: usize, n: usize },
+    /// B is a table smaller than the object needs: `cols` output columns or
+    /// row `last`, against a table of `rows x table_cols`.
+    OperandShape {
+        cols: usize,
+        last: usize,
+        rows: usize,
+        table_cols: usize,
+    },
 }
 
 impl From<LaneRefusal> for ShapeRefusal {
@@ -236,9 +220,9 @@ static NEXT_OBJECT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64:
 impl VirtualObject {
     /// Cold: bind `fields` (a multiple of 16, at most 256) through DT64 under
     /// the selection's row order; the view has `cols` output columns.
-    pub fn bind(
+    pub fn bind<S: LaneSource>(
         world: &World,
-        socket: &Socket<'_>,
+        socket: &S,
         fields: &[u8],
         cols: usize,
         selection: Selection,
@@ -262,6 +246,16 @@ impl VirtualObject {
             selection,
             id: NEXT_OBJECT.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         })
+    }
+
+    /// Which bind made this object (provenance for resolved lanes).
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
+    /// The lane binding (addresses only), for arms over other lane types.
+    pub fn binding(&self) -> &LaneBinding {
+        &self.binding
     }
 
     /// The demanded fields: the view's rows.
@@ -421,6 +415,153 @@ impl BOperand {
     }
 }
 
+/// Where B's values come from: computed per call ([`BOperand`], a hash) or
+/// read from a table built once ([`BTable`]). Timing B preparation over a
+/// `BOperand` measures the hash, not the data movement; benchmarks use a
+/// `BTable`.
+pub trait BValues {
+    /// Which operand this is and at which revision: what prepared-B reuse is
+    /// keyed on.
+    fn identity(&self) -> OperandId;
+    /// `B[i][j]` in bf16.
+    fn bf16_at(&self, i: usize, j: usize) -> u16;
+    /// `B[i][j]` in i8.
+    fn i8_at(&self, i: usize, j: usize) -> i8;
+    /// Rows `start..start + len` of B in i8, row-major with `cols` columns,
+    /// borrowed in place if the source holds them that way.
+    fn i8_rows(&self, _start: usize, _len: usize, _cols: usize) -> Option<&[i8]> {
+        None
+    }
+    /// `(rows, cols)` if B is a finite table, `None` if it is defined
+    /// everywhere.
+    fn extent(&self) -> Option<(usize, usize)> {
+        None
+    }
+}
+
+/// Refuses an operand that cannot supply every `B[i][j]` the object reads:
+/// fewer columns than the output width, or fewer rows than the selection
+/// reaches. Checked before any arm reads B, so a mismatch is a refusal and
+/// never a silent read of the next row.
+pub fn admit_operand(obj: &VirtualObject, b: &impl BValues) -> Result<(), ShapeRefusal> {
+    let Some((rows, table_cols)) = b.extent() else {
+        return Ok(());
+    };
+    let last = obj.selection.last().unwrap_or(0);
+    if obj.cols > table_cols || last >= rows {
+        return Err(ShapeRefusal::OperandShape {
+            cols: obj.cols,
+            last,
+            rows,
+            table_cols,
+        });
+    }
+    Ok(())
+}
+
+/// Authoritative operand identity: the source that defines the values and
+/// its revision. Not a digest of the values.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OperandId {
+    /// For a [`BOperand`], its seed (the seed defines the function); for a
+    /// [`BTable`], the table's construction instance.
+    pub source: OperandSource,
+    pub rev: u64,
+}
+
+/// Where an operand's values are defined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OperandSource {
+    /// A deterministic function of `(seed, i, j)`.
+    Function { seed: u64 },
+    /// An immutable table, by the construction that filled it.
+    Table { instance: u64 },
+}
+
+impl BValues for BOperand {
+    fn identity(&self) -> OperandId {
+        OperandId {
+            source: OperandSource::Function { seed: self.seed },
+            rev: self.rev,
+        }
+    }
+    fn bf16_at(&self, i: usize, j: usize) -> u16 {
+        self.bf16(i, j)
+    }
+    fn i8_at(&self, i: usize, j: usize) -> i8 {
+        i8::try_from(self.value(i, j)).expect("[-8, 8] is in i8")
+    }
+}
+
+/// B materialized once over the universe, row-major `n x cols`, in both
+/// encodings. Reading it is a load, so preparing B from it times movement.
+pub struct BTable {
+    instance: u64,
+    rev: u64,
+    cols: usize,
+    bf16: Vec<u16>,
+    i8: Vec<i8>,
+}
+
+impl BTable {
+    /// Every `B[i][j]` for `i < n`, `j < cols`.
+    pub fn new(b: &BOperand, n: usize, cols: usize) -> BTable {
+        let (mut bf16, mut i8s) = (Vec::with_capacity(n * cols), Vec::with_capacity(n * cols));
+        for i in 0..n {
+            for j in 0..cols {
+                bf16.push(b.bf16_at(i, j));
+                i8s.push(b.i8_at(i, j));
+            }
+        }
+        BTable {
+            instance: NEXT_TABLE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            rev: b.rev,
+            cols,
+            bf16,
+            i8: i8s,
+        }
+    }
+}
+
+/// Table instances; only uniqueness matters. A table never changes after
+/// construction, so instance + revision identifies its values.
+static NEXT_TABLE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+impl BValues for BTable {
+    fn identity(&self) -> OperandId {
+        OperandId {
+            source: OperandSource::Table {
+                instance: self.instance,
+            },
+            rev: self.rev,
+        }
+    }
+    fn bf16_at(&self, i: usize, j: usize) -> u16 {
+        assert!(
+            j < self.cols,
+            "column {j} past a {}-column table",
+            self.cols
+        );
+        self.bf16[i * self.cols + j]
+    }
+    fn i8_at(&self, i: usize, j: usize) -> i8 {
+        assert!(
+            j < self.cols,
+            "column {j} past a {}-column table",
+            self.cols
+        );
+        self.i8[i * self.cols + j]
+    }
+    fn extent(&self) -> Option<(usize, usize)> {
+        Some((self.i8.len() / self.cols.max(1), self.cols))
+    }
+    fn i8_rows(&self, start: usize, len: usize, cols: usize) -> Option<&[i8]> {
+        (cols == self.cols)
+            .then(|| self.i8.get(start * cols..(start + len) * cols))
+            .flatten()
+    }
+}
+
 /// Why a prepared B cannot serve an object.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReuseRefusal {
@@ -435,14 +576,17 @@ pub enum ReuseRefusal {
 }
 
 /// B as `cols / 16` VNNI-packed K x 16 column panels, prepared once for one
-/// object (selection, frame, width) and one B revision and reused by every
+/// object (selection, frame, width) and one operand identity and reused by every
 /// output tile and every repeated run. Rows are the selected identities in
 /// order; rows past the selection are zero.
 pub struct PreparedB {
-    space: CoordSpace,
-    selection: u64,
+    /// The object it was packed for (fast path: one compare).
+    object: u64,
+    /// That object's selection, compared in full when the object differs:
+    /// equality, never a digest.
+    selection: Selection,
     frame: Frame,
-    rev: u64,
+    operand: OperandId,
     panels: Vec<PackedBf16B>,
 }
 
@@ -459,7 +603,11 @@ pub struct PrepReport {
 
 impl PreparedB {
     /// Pack B for `obj`: `panel t row k = B[i_k][16t..16t+16]` in VNNI order.
-    pub fn prepare(obj: &VirtualObject, b: &BOperand) -> (PreparedB, PrepReport) {
+    pub fn prepare(
+        obj: &VirtualObject,
+        b: &impl BValues,
+    ) -> Result<(PreparedB, PrepReport), ShapeRefusal> {
+        admit_operand(obj, b)?;
         let k = obj.selection.k_pad();
         let mut panels: Vec<PackedBf16B> = (0..obj.cols / TILE)
             .map(|_| PackedBf16B::zeroed(k))
@@ -469,18 +617,18 @@ impl PreparedB {
             for (t, panel) in panels.iter_mut().enumerate() {
                 let data = panel.data_mut();
                 for c in 0..TILE {
-                    data[PackedBf16B::vnni_index(row, c)] = b.bf16(i, t * TILE + c);
+                    data[PackedBf16B::vnni_index(row, c)] = b.bf16_at(i, t * TILE + c);
                 }
                 written += TILE * 2;
             }
         });
         let allocated = panels.iter().map(|p| p.data().len() * 2).sum();
-        (
+        Ok((
             PreparedB {
-                space: obj.selection.space,
-                selection: obj.selection.key(),
+                object: obj.id,
+                selection: obj.selection.clone(),
                 frame: obj.frame().clone(),
-                rev: b.rev,
+                operand: b.identity(),
                 panels,
             },
             PrepReport {
@@ -488,7 +636,7 @@ impl PreparedB {
                 bytes_written: written,
                 bytes_allocated: allocated,
             },
-        )
+        ))
     }
 
     /// Panel `t` (output columns `16t..16t+16`), for inspection.
@@ -496,16 +644,25 @@ impl PreparedB {
         &self.panels[t]
     }
 
-    /// Whether this prepared B may serve `obj` with B revision `rev`.
-    pub fn admit(&self, obj: &VirtualObject, rev: u64) -> Result<(), ReuseRefusal> {
-        if self.space != obj.selection.space || self.selection != obj.selection.key() {
+    /// Whether this prepared B may serve `obj` with operand `b`.
+    ///
+    /// The operand is compared by identity (source and revision), always.
+    /// For the object it was packed for, one identity compare covers the
+    /// selection, frame and width. For any other object the selection is
+    /// compared in full, then the frame issue and the width: a prepared B is
+    /// shared across objects only when all three are equal.
+    pub fn admit(&self, obj: &VirtualObject, b: &impl BValues) -> Result<(), ReuseRefusal> {
+        if self.operand != b.identity() {
+            return Err(ReuseRefusal::Operand);
+        }
+        if self.object == obj.id {
+            return Ok(());
+        }
+        if self.selection != obj.selection {
             return Err(ReuseRefusal::Selection);
         }
         if !self.frame.same_issue(obj.frame()) {
             return Err(ReuseRefusal::Frame);
-        }
-        if self.rev != rev {
-            return Err(ReuseRefusal::Operand);
         }
         if self.panels.len() * TILE != obj.cols {
             return Err(ReuseRefusal::Columns);
@@ -543,10 +700,10 @@ pub fn direct(
     obj: &VirtualObject,
     lanes: &Lanes<'_>,
     b: &PreparedB,
-    rev: u64,
+    operand: &impl BValues,
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
-    b.admit(obj, rev).map_err(ShapeRefusal::Reuse)?;
+    b.admit(obj, operand).map_err(ShapeRefusal::Reuse)?;
     obj.admit_lanes(lanes)?;
     let Where::Region { start, len } = obj.selection.kind else {
         return Err(ShapeRefusal::NotARegion);
@@ -593,11 +750,11 @@ pub fn staged(
     obj: &VirtualObject,
     lanes: &Lanes<'_>,
     b: &PreparedB,
-    rev: u64,
+    operand: &impl BValues,
     scratch: &mut Vec<u16>,
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
-    b.admit(obj, rev).map_err(ShapeRefusal::Reuse)?;
+    b.admit(obj, operand).map_err(ShapeRefusal::Reuse)?;
     obj.admit_lanes(lanes)?;
     assert_eq!(c.len(), obj.c_len());
     let k_pad = obj.selection.k_pad();
@@ -634,12 +791,13 @@ pub fn staged(
 pub fn cblas(
     obj: &VirtualObject,
     lanes: &Lanes<'_>,
-    b: &BOperand,
+    b: &impl BValues,
     a: &mut Vec<u16>,
     bm: &mut Vec<u16>,
     c: &mut [f32],
 ) -> Result<ArmReport, ShapeRefusal> {
     obj.admit_lanes(lanes)?;
+    admit_operand(obj, b)?;
     let m = obj.fields.len();
     let n = obj.cols;
     let k = obj.selection.len();
@@ -655,7 +813,7 @@ pub fn cblas(
     }
     obj.selection.for_each(|kk, i| {
         for j in 0..n {
-            bm[kk * n + j] = b.bf16(i, j);
+            bm[kk * n + j] = b.bf16_at(i, j);
         }
     });
     ndarray::backend::cblas_gemm_bf16bf16f32(a, bm, c, m, n, k);

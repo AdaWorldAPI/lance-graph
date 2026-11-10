@@ -8,8 +8,6 @@ use lance_graph_dt64::{
     RouteAt, SchemaRev,
 };
 
-use crate::source::Socket;
-
 /// The lab's class.
 pub const CLASS: u32 = 0x5115_0001;
 /// The ClassView key of the class.
@@ -102,9 +100,9 @@ impl World {
 
     /// Cold: bind exactly `fields` under `selection`'s row order, at the
     /// source's current frame.
-    pub fn bind(
+    pub fn bind<S: LaneSource>(
         &self,
-        socket: &Socket<'_>,
+        socket: &S,
         fields: &[u8],
         selection: CoordSpace,
     ) -> Result<LaneBinding, LaneRefusal> {
