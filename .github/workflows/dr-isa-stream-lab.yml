@@ -71,3 +71,5 @@ jobs:
         run: cargo test --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml -- --nocapture
       - name: stage costs (every timed result is checked against the oracle)
         run: cargo run --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml --bin bench
+      - name: virtual-shape costs, 64x64 and 256x256 (every arm checked against the oracle)
+        run: cargo run --release --manifest-path crates/dr-isa-stream-lab/Cargo.toml --bin shape
