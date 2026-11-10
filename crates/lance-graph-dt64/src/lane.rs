@@ -361,4 +361,60 @@ impl LaneBinding {
         let addr = self.addr(field).ok_or(LaneRefusal::NotBound { field })?;
         source.borrow(addr).ok_or(LaneRefusal::Vanished { field })
     }
+
+    /// [`LaneBinding::check`] once, then every bound lane, in ascending field
+    /// order.
+    ///
+    /// Calling [`LaneBinding::lane`] per field re-runs the whole check on
+    /// each call, and the check walks every bound lane, so reading all N
+    /// lanes that way does N² source lookups. This does N. Because the one
+    /// check covers every bound lane, any refusal (frame, route, basis,
+    /// mapping, scope, row order) is returned before a single lane is
+    /// borrowed. A lane the source no longer holds yields
+    /// `Err(Vanished { field })` at its position; the iterator does not stop
+    /// there. Nothing is allocated.
+    ///
+    /// The returned lanes are as current as the check: like `lane`, this
+    /// holds no lock on the source.
+    pub fn borrow_all<'b, 's, V: ClassView + ?Sized, S: LaneSource>(
+        &'b self,
+        store: &BindStore,
+        view: &V,
+        frames: &FrameStore,
+        source: &'s S,
+    ) -> Result<BoundLanes<'b, 's, S>, LaneRefusal> {
+        self.check(store, view, frames, source)?;
+        Ok(BoundLanes {
+            lanes: self.lanes.iter(),
+            source,
+        })
+    }
 }
+
+/// Every lane of a checked [`LaneBinding`], borrowed one at a time from the
+/// source, in ascending field order. Made by [`LaneBinding::borrow_all`].
+pub struct BoundLanes<'b, 's, S: LaneSource> {
+    lanes: core::slice::Iter<'b, (u8, LaneAddr)>,
+    source: &'s S,
+}
+
+impl<'s, S: LaneSource> Iterator for BoundLanes<'_, 's, S> {
+    type Item = Result<(u8, S::Lane<'s>), LaneRefusal>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (field, addr) = self.lanes.next()?;
+        let field = *field;
+        Some(
+            self.source
+                .borrow(addr)
+                .map(|lane| (field, lane))
+                .ok_or(LaneRefusal::Vanished { field }),
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.lanes.size_hint()
+    }
+}
+
+impl<S: LaneSource> ExactSizeIterator for BoundLanes<'_, '_, S> {}
