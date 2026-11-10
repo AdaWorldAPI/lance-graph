@@ -344,3 +344,83 @@ each pay the tile configuration (~105 ns), and the per-tile calls lose the
 2×2 register blocking. Hoisting the pack was not enough; the whole-matrix
 kernel had to take the prepacked bands. That is why ndarray#418 adds
 `int8_gemm_packed_strided`.
+
+## D-DT64-G2L-1: one witnessed translation, reused (`src/g2l.rs`)
+
+The consumer names its selection in **global ids**. The source holds its u8
+lanes in **its own row order** (`SPACE_B`), described by a DR `MapTable` (16
+DR256 tiles over 4096 identities). Reading the source's lanes in the
+consumer's order is a gather and stays refused (`CoordinateSpace`).
+
+ADMISSION B (#1640): preparation may establish coordinates; execution operates
+on co-addressed sets. So:
+
+1. `translate` locates every selected global id once, under one frame of the
+   map table (counted lookups), and returns the selection **in the source's
+   row order**. It refuses a map whose coordinate revision is not the source's
+   (a stale mapping).
+2. The object is bound on the source, in the source's space, as usual.
+3. B is prepared once through `TranslatedB` (position → global via the map's
+   pointer table, one read per row); its operand identity names the
+   translation.
+4. Every run reads the source's lanes in place, in the source's order, against
+   the prepared B, with **zero** lookups. A sum over K does not depend on K's
+   order, so the result is the consumer's answer.
+
+One AMX VM (`int8_tile_gemm_tier()` = AMX TDPBUSD), three runs
+(`results/shape-2026-11-10-g2l-run*.txt`), 64 fields × 64 columns, 200 global
+ids. Each quantity is reported on its own; ranges are over the three runs:
+
+| Step | Time | Movement |
+|---|---|---|
+| translate once | 83–85 µs | 3200 G2L lookups (200 ids × 16 tiles) |
+| prepare B once (admit + pack) | 46–48 µs | 200 admission map reads + 200 packing map reads; 16,384 B bytes packed |
+| stage A, per warm run | 11–14 µs | 12,800 useful bytes copied into a 16,384-byte padded buffer |
+| GEMM only | 0.71–0.86 µs | — |
+| **warm run** (resolve + stage A + GEMM) | **20–24 µs** | 0 G2L lookups, 0 map reads, 12,800 A bytes staged |
+| re-translate per operation | 157–186 µs | 3200 lookups + 400 map reads + B pack + A stage |
+
+**Zero lookups is not zero data movement.** The selection is sparse in the
+source's order, so a warm run still gathers 200 values per field into a dense,
+K-padded A: 12,800 useful bytes into a 16,384-byte buffer, every run. That
+copy costs about 15× the GEMM it feeds. What the translation removed is the
+global → local resolution; what it did not remove is the gather of a scattered
+selection. Reading A in place needs the selection to be a region in the
+source's order (as in the INT8 direct arm), which this fixture is not.
+
+**Order of K.** Translation reorders K: B is packed in the source's row order,
+not the consumer's. That is validated here only for exact integer GEMM, where
+`Σ_k a·b` does not depend on the order of summation as long as nothing
+overflows (i32 accumulation of 200 products of |a| ≤ 255, |b| ≤ 8, far inside
+range). It does not carry over to order-sensitive operators: floating-point
+reduction, saturating arithmetic, prefix scans, argmax with tie-breaking, or
+anything that reads K positionally.
+
+**Operand extent.** `TranslatedB` reports the inner operand's own extent (its
+rows are identities) and maps every selected source position to the identity
+it reads (`BValues::highest_row`). An identity past the inner table is
+refused with `ShapeRefusal::OperandShape` before packing reads anything.
+Before this fix it reported the source's position range and packing indexed
+past the table (`tests/integration/g2l.rs`,
+`a_translated_identity_past_the_inner_table_is_refused_before_packing`).
+
+The first version of `TranslatedB` resolved position → identity once per
+(row, column) and took 241–255 µs to prepare B: 64× the map reads needed. One
+read per row fixed it (test-pinned: exactly 200 packing reads).
+
+Falsifiers (`tests/integration/g2l.rs`), each disable-verified red:
+
+| Test | Disable that turns it red |
+|---|---|
+| exact vs an oracle computed in global ids alone; 5 runs, 0 further lookups, 0 further map reads | per-row cache removed |
+| a source reorder refuses the old binding (`CoordinatesChanged`), the translation and the operand; a fresh translation is exact | staleness check in `TranslatedB::new` removed |
+| a stale mapping (lanes reordered, map not) is refused | map-vs-source coordinate check removed |
+| a prepared B from one translation is refused under another | translated identity ignoring the translation |
+| the untranslated cross-space read stays refused | (DT64's existing check) |
+| an identity past the inner B table is refused before packing (OperandShape) | `TranslatedB::highest_row` removed: packing reads past the table |
+| unknown and repeated ids are refused | — |
+
+A measurement trap worth keeping: after the disable runs, the benchmark binary
+was the one built by the last disable run (cache off), and reported 254 µs
+for preparing B. Rebuilding from the committed source gave 37–47 µs. A disable
+run leaves its build behind; re-measure only after a rebuild.
