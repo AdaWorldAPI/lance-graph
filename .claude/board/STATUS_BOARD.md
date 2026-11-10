@@ -4,6 +4,9 @@ Execution admitted = meaning valid (OGAR/DT64) ∧ representation compatible (DR
 
 | D-id | Deliverable | Status |
 |---|---|---|
+| D-FOUNDRY-PARITY-1 | Foundry parity evidence matrix + 64-store read-only lab (`crates/foundry-parity-lab`): CanCook / CanFulfill / NetworkCapacity / network cost via DT64 `borrow_all` + mask-RISC, oracle + materialized null model, refusals, negative controls | In PR |
+| D-FOUNDRY-G1 | Element-wise cross-lane arithmetic (per-store max / limiting resource / per-store cost) in an admitted operator | Queued (decision needed) |
+| D-FOUNDRY-G2..G6 | IAM in the read path; scenario overlay frame; governed action gate; bound relations; method lowering from `MethodRef` | Queued |
 | D-SC-E1 | `MapTable::map_at` fenced as `diagnose_at` → `MapDiagnostic`; executable maps only via `map(frame)` | Shipped (#1981) |
 | D-SC-E2a | dt64 `CodeTable` (versioned code space, advances the lanes' FrameStore) + quack `bind_typed` / `TypedQuery::admit` (`StaleCodeSpace`, `Unwitnessed`) | In PR |
 | D-SC-E2b | per-owner adoption (`CamLabels`, dir-sim, sap): each real mutation path invalidates stale execution | Queued |

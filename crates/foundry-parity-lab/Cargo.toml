@@ -1,0 +1,31 @@
+# D-FOUNDRY-PARITY-1 LAB: a 64-store operating network bound through DT64 and
+# answered by mask-RISC programs, against an independent scalar oracle and a
+# materialized-object null model. Read-only operational evaluation only (Level
+# R); no scenario overlay and no writeback. NOT a workspace member, nothing
+# depends on it, no public contract. Verify with
+#   cargo test --release --manifest-path crates/foundry-parity-lab/Cargo.toml
+#   cargo run  --release --manifest-path crates/foundry-parity-lab/Cargo.toml --bin bench
+# Evidence matrix: .claude/plans/foundry-parity-v1.md
+[package]
+name = "foundry-parity-lab"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "D-FOUNDRY-PARITY-1 lab: can source-owned planes, a DT64 lane binding and mask-RISC programs answer CanCook / CanFulfill / NetworkCapacity over 64 stores with exact oracle parity and correct refusals?"
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# Consumed read-only through their public APIs; none is changed.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[profile.release]
+debug = false
