@@ -120,7 +120,7 @@ field mapping, operand identity and version.
 | #1987 — BF16 virtual 64×64 and 256×256 objects over source-owned lanes | MEASURED, merged | One binding feeds direct strided AMX (0 bytes of A copied), staged, CBLAS and oracle arms with exact parity; refusals for frame, scope, mapping, basis, coordinate space, foreign lanes and out-of-range selections |
 | #1988 — `LaneBinding::borrow_all` | VERIFIED-IN-CODE, merged | One check, then every bound lane; N source lookups instead of N² |
 | Lab resolve on `borrow_all` (follow-up) | MEASURED, not merged | Resolve at 256 fields 1.6–2.0 µs vs 13.8–13.9 µs (#1987 as first measured) and 26–28 µs (`main` after the provenance fix); the old cost was `LaneBinding::addr`, a linear scan called per field |
-| INT8 vs BF16 over the same object (follow-up) | MEASURED, not merged | `u8 × i8 → i32` end to end 85–101 µs vs BF16 144–160 µs at 256 fields on one VM; INT8 still copies A and re-packs B per call (no strided-A / prepacked-B INT8 entry in ndarray) |
+| INT8 vs BF16 over the same object (follow-up) | MEASURED, not merged | `u8 × i8 → i32` end to end 66–101 µs vs BF16 103–160 µs at 256 fields on one VM; INT8 still copies A (5–7 µs) and re-packs B per call (23–29 µs, 36–38% of its GEMM), because ndarray has no strided-A / prepacked-B INT8 entry |
 | #1987's "B preparation ≈ GEMM" | REJECTED-BY-MEASUREMENT | That timer included the synthetic operand's hash; from a table built once, prepared B costs about a third of the GEMM |
 | G2L across different source orders | OPEN | Not demonstrated: every fixture shared one coordinate space, and differing spaces were refused, not translated |
 | Foundry operational-ontology parity | HYPOTHESIS | Research goal; nothing here establishes it |

@@ -1,0 +1,30 @@
+Host: Intel(R) Xeon(R) Processor @ 2.10GHz; 4 logical CPUs; cache (cpu0): L1 Data 48K, L1 Instruction 32K, L2 Unified 2048K, L3 Unified 266240K
+Tile tier: AMX TDPBF16PS. Single-threaded. 41 warm runs per row (median).
+
+Sparse demand (256 fields x 256 cols, 40 scattered identities): logical selection 40 · K padded 64 · lanes borrowed 256 · A bytes copied 20480 · dense dot-product steps 512 · staged AMX 285.5 µs
+
+| Metric | 64×64 | 256×256 |
+|---|---|---|
+| Output tiles / K=32 dot-product steps | 16 / 32 | 256 / 2048 |
+| DT64 bind (cold) | 3178 ns · 2 allocs | 8808 ns · 6 allocs |
+| Resolve: one check + borrows (warm) | 1236 ns · 0 allocs · 0 B | 2042 ns · 0 allocs · 0 B |
+| Resolve: `lane()` per field (warm) | 11.8 µs | 151.4 µs |
+| B preparation (VNNI panels) | 3186 ns · 8192 B written · 8320 B alloc | 45.1 µs · 131072 B written · 131584 B alloc |
+| Direct AMX (A in place) | 4316 ns · 60.7 GMAC/s · 0 allocs · 0 B tmp | 138.1 µs · 121.5 GMAC/s · 0 allocs · 0 B tmp |
+| Direct AMX, pitch 65,568 (not 2^k) | 3812 ns · 68.8 GMAC/s | 124.6 µs · 134.6 GMAC/s |
+| Staged AMX (dense A tiles) | 4079 ns · 1 allocs · 2048 B tmp | 83.7 µs · 1 allocs · 8192 B tmp |
+| ndarray CBLAS BF16 | 32.8 µs · 23 allocs · 54272 B tmp | 954.6 µs · 263 allocs · 803840 B tmp |
+| Source bytes copied (direct / staged / CBLAS) | 0 / 8192 / 8192 | 0 / 131072 / 131072 |
+| CBLAS B materialized | 8192 B | 131072 B |
+| FP32 accumulator (C) | 16384 B | 262144 B |
+| End-to-end warm (resolve + direct, B reused) | 6516 ns | 103.2 µs |
+| End-to-end cold (bind + prepare + resolve + direct) | 13.8 µs | 158.9 µs |
+| Warm repetitions (100, per run, one prepare) | 6467 ns | 118.3 µs |
+| INT8 resolve (u8 lanes, one check) | 1237 ns | 1553 ns |
+| INT8 stage A (region: one copy per lane) | 310 ns · 4096 B | 5364 ns · 65536 B |
+| INT8 stage A, per-value walk (baseline) | 3553 ns | 34.5 µs |
+| INT8 B for a region, in place from the table | 30 ns · 0 B written | 23 ns · 0 B written |
+| INT8 materialize B (row-major i8) | 4242 ns · 4096 B | 45.6 µs · 65536 B |
+| INT8 GEMM `backend::gemm_i8` (packs B per call) | 3552 ns · 73.8 GMAC/s · 3 allocs · 3072 B tmp | 61.0 µs · 274.9 GMAC/s · 3 allocs · 12288 B tmp |
+| INT8 B band gather + VNNI pack (done inside each gemm_i8 call) | 1927 ns · 54% of the GEMM row | 23.1 µs · 38% of the GEMM row |
+| INT8 end-to-end warm (resolve + stage + GEMM) | 5909 ns | 66.3 µs |

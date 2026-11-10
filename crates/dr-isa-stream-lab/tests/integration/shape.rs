@@ -68,9 +68,9 @@ fn run(world: &World, socket: &Socket<'_>, dim: usize, sel: Selection) -> Run {
     let lanes = obj.resolve(world, socket).unwrap();
     let (prep, _) = PreparedB::prepare(&obj, &B);
     let mut c = vec![0f32; obj.c_len()];
-    let direct = direct(&obj, &lanes, &prep, B.rev, &mut c).map(|r| (c.clone(), r));
+    let direct = direct(&obj, &lanes, &prep, &B, &mut c).map(|r| (c.clone(), r));
     let mut c = vec![0f32; obj.c_len()];
-    let r = staged(&obj, &lanes, &prep, B.rev, &mut Vec::new(), &mut c).unwrap();
+    let r = staged(&obj, &lanes, &prep, &B, &mut Vec::new(), &mut c).unwrap();
     let staged = (c, r);
     let mut c = vec![0f32; obj.c_len()];
     let r = cblas(&obj, &lanes, &B, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap();
@@ -426,7 +426,7 @@ fn prepared_b_is_reused_and_invalidated() {
             let l = obj.resolve(&world, &socket).unwrap();
             for _ in 0..3 {
                 let mut c = vec![0f32; obj.c_len()];
-                let r = direct(&obj, &l, &prep, B.rev, &mut c).unwrap();
+                let r = direct(&obj, &l, &prep, &B, &mut c).unwrap();
                 assert_eq!(c, want1);
                 assert_eq!(r.tiles, (dim / 16) * (dim / 16));
             }
@@ -439,13 +439,22 @@ fn prepared_b_is_reused_and_invalidated() {
         );
         assert_eq!(rep.bytes_written, dim * dim * 2);
 
-        assert_eq!(prep.admit(&obj, B.rev + 1), Err(ReuseRefusal::Operand));
+        assert_eq!(
+            prep.admit(
+                &obj,
+                &BOperand {
+                    rev: B.rev + 1,
+                    ..B
+                }
+            ),
+            Err(ReuseRefusal::Operand)
+        );
         let socket = Socket::in_order(&lanes, dim);
         let moved = Selection::region(SPACE_A, 2048, dim);
         let obj2 = VirtualObject::bind(&world, &socket, &fields(dim), dim, moved.clone()).unwrap();
-        assert_eq!(prep.admit(&obj2, B.rev), Err(ReuseRefusal::Selection));
+        assert_eq!(prep.admit(&obj2, &B), Err(ReuseRefusal::Selection));
         let narrow = VirtualObject::bind(&world, &socket, &fields(dim), 32, sel.clone()).unwrap();
-        assert_eq!(prep.admit(&narrow, B.rev), Err(ReuseRefusal::Columns));
+        assert_eq!(prep.admit(&narrow, &B), Err(ReuseRefusal::Columns));
 
         // Load-bearing: obj2's A against obj1's B gives the wrong answer.
         let l2 = obj2.resolve(&world, &socket).unwrap();
@@ -468,7 +477,7 @@ fn prepared_b_is_reused_and_invalidated() {
         });
         let socket = Socket::in_order(&lanes, dim);
         let rebound = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
-        assert_eq!(prep.admit(&rebound, B.rev), Err(ReuseRefusal::Frame));
+        assert_eq!(prep.admit(&rebound, &B), Err(ReuseRefusal::Frame));
     }
 }
 
@@ -592,12 +601,12 @@ fn lanes_from_another_object_are_refused_by_every_arm() {
     ] {
         let mut c = vec![0f32; obj.c_len()];
         assert_eq!(
-            direct(&obj, lanes, &prep, B.rev, &mut c).unwrap_err(),
+            direct(&obj, lanes, &prep, &B, &mut c).unwrap_err(),
             ShapeRefusal::ForeignLanes,
             "direct, {name}"
         );
         assert_eq!(
-            staged(&obj, lanes, &prep, B.rev, &mut Vec::new(), &mut c).unwrap_err(),
+            staged(&obj, lanes, &prep, &B, &mut Vec::new(), &mut c).unwrap_err(),
             ShapeRefusal::ForeignLanes,
             "staged, {name}"
         );
@@ -630,9 +639,9 @@ fn a_selection_past_the_source_is_refused_by_every_arm() {
         let (prep, _) = PreparedB::prepare(&obj, &B);
         let want = ShapeRefusal::OutOfRange { last, n: 65 };
         let mut c = vec![0f32; obj.c_len()];
-        assert_eq!(direct(&obj, &l, &prep, B.rev, &mut c).unwrap_err(), want);
+        assert_eq!(direct(&obj, &l, &prep, &B, &mut c).unwrap_err(), want);
         assert_eq!(
-            staged(&obj, &l, &prep, B.rev, &mut Vec::new(), &mut c).unwrap_err(),
+            staged(&obj, &l, &prep, &B, &mut Vec::new(), &mut c).unwrap_err(),
             want
         );
         assert_eq!(
@@ -688,7 +697,7 @@ fn resolve_keeps_the_view_row_order() {
     }
     let (prep, _) = PreparedB::prepare(&obj, &B);
     let mut c = vec![0f32; obj.c_len()];
-    staged(&obj, &l, &prep, B.rev, &mut Vec::new(), &mut c).unwrap();
+    staged(&obj, &l, &prep, &B, &mut Vec::new(), &mut c).unwrap();
     let want: Vec<f32> = oracle(
         &sel,
         &rev,
@@ -700,4 +709,48 @@ fn resolve_keeps_the_view_row_order() {
     .map(|&v| v as f32)
     .collect();
     assert_eq!(c, want);
+}
+
+/// Prepared-B reuse rests on identity and equality, never on a digest:
+/// another table with the same revision is another operand; a second object
+/// over the same selection, frame and width may share it; one differing
+/// mask bit is another selection.
+#[test]
+fn prepared_b_reuse_is_keyed_by_identity_not_a_digest() {
+    use dr_isa_stream_lab::shape::BTable;
+    let dim = 64;
+    let fx = fx(4096, dim);
+    let lanes = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let socket = Socket::in_order(&lanes, dim);
+    let world = world(dim);
+    let ids: Vec<usize> = (0..64).map(|k| k * 61 % 4096).collect();
+    let sel = Selection::mask(SPACE_A, 4096, ids.iter().copied());
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel.clone()).unwrap();
+    let t1 = BTable::new(&B, 4096, dim);
+    let t2 = BTable::new(&B, 4096, dim); // same values, same revision
+    let (prep, _) = PreparedB::prepare(&obj, &t1);
+    assert_eq!(prep.admit(&obj, &t1), Ok(()));
+    assert_eq!(prep.admit(&obj, &t2), Err(ReuseRefusal::Operand));
+    assert_eq!(prep.admit(&obj, &B), Err(ReuseRefusal::Operand));
+
+    // A second object with an equal selection, frame and width may share it.
+    let twin = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+    assert_eq!(prep.admit(&twin, &t1), Ok(()));
+    let l = twin.resolve(&world, &socket).unwrap();
+    let mut c = vec![0f32; twin.c_len()];
+    staged(&twin, &l, &prep, &t1, &mut Vec::new(), &mut c).unwrap();
+    assert_eq!(c, want(&fx, twin.selection(), dim));
+
+    // One bit different: refused, by full comparison.
+    let mut ids2 = ids.clone();
+    ids2[10] += 1;
+    let other = VirtualObject::bind(
+        &world,
+        &socket,
+        &fields(dim),
+        dim,
+        Selection::mask(SPACE_A, 4096, ids2),
+    )
+    .unwrap();
+    assert_eq!(prep.admit(&other, &t1), Err(ReuseRefusal::Selection));
 }

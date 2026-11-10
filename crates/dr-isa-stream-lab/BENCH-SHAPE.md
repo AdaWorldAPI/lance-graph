@@ -219,3 +219,97 @@ Disable runs, each with the code restored afterwards:
 | Swallowing item refusals | the `Vanished` test |
 | The object-identity check | `lanes_from_another_object_are_refused_by_every_arm` |
 | Placing lanes in binding order instead of view order | the row-order test |
+
+## D-DT64-GEMM-SHAPE-3: INT8 (u8 × i8 → i32) and the FACET STRIDE audit
+
+`src/int8.rs` puts the same `VirtualObject` over u8 lanes and runs it as
+`u8 × i8 → i32` through ndarray's INT8 facade: `backend::gemm_i8` →
+`simd_int_ops::gemm_u8_i8` → AMX `TDPBUSD`. A stays unsigned and B signed,
+which is TDPBUSD's native contract; there is no reinterpreting cast, and
+`a_is_never_reinterpreted_as_signed` pins it (200 × −1 must give −200·K, not
++56·K). The INT8 and BF16 arms share one fixture. With `A_u8 = A + 8`, the
+results satisfy `C_int8 = C_bf16 + 8·colsum(B)` exactly, and a test checks
+this.
+
+### A measurement correction to the results above
+
+The earlier "B preparation" rows (149–181 µs at 256 fields) timed
+`BOperand::value`, a hash computed per element, not data movement. The
+benchmark now reads B from a `BTable` built once. Prepared VNNI B then costs
+**46–62 µs** at 256 fields, about a third of the GEMM, not about equal to it.
+Finding 4 above overstated preparation by about 3×.
+
+### Results (256 fields, six runs on one host, `results/shape-2026-11-10-int8-run*.txt` holds the last three)
+
+Same host, same fixture and same B table for every row. Ranges are across
+runs. The VM's run-to-run variation is up to about 35%, so differences inside
+that band are not findings.
+
+| Step | BF16 | INT8 |
+|---|---|---|
+| Resolve (borrow_all) | 2.0–2.5 µs | 2.0–2.8 µs |
+| Stage A | 0 B (direct) | 6–10 µs · 64 KiB (one copy per lane) |
+| Stage A, per-value walk (baseline) | — | 36–56 µs |
+| B | prepared once: 46–62 µs, then reused | in place for a region: 30 ns, 0 B; materialized: 58 µs |
+| GEMM | 138–152 µs direct (110–122 GMAC/s) | 61–82 µs (204–275 GMAC/s), B VNNI-packed inside every call, 3 allocs · 12 KiB |
+| of which: B band gather + VNNI pack, timed apart with ndarray's own `vnni_pack_i8` | — | 23–29 µs (36–38% of the GEMM; 54% at 64 fields) |
+| Warm end-to-end | 103–160 µs | 66–101 µs |
+
+At 64 fields, warm end-to-end is 6.5–6.7 µs (BF16) and 6.0–10.8 µs (INT8).
+
+### FACET STRIDE audit
+
+The six operations are separate, and each gets its own verdict.
+
+| Operation | Where | Verdict |
+|---|---|---|
+| 1. Positional source-lane reading | BF16 `direct` reads 16 slab rows in place at the slab pitch; INT8 must copy A because ndarray's INT8 facade takes dense A only | **REUSED** for BF16 (the pattern, not `simd_stride` code). INT8 stays a copy until ndarray gains a strided-A INT8 entry |
+| 2. LUT transformation (`lut_u8`, `lut9`) | no byte transform anywhere in these pipelines; `simd_stride` has no GEMM callers in ndarray | **NOT APPLICABLE** |
+| 3. Masked folding / reduction | GEMM arms do none; a scattered WHERE mask is compacted by a per-bit walk when A is staged | **NOT APPLICABLE** to the GEMM. The compaction is a candidate for a masking-ops compress; not measured here |
+| 4. DT64 coordinate / shape routing | `borrow_all`, one check, O(N) | **REUSED.** The O(N²) `addr` walk is gone (see the borrow_all section) |
+| 5. VNNI operand packing | `vnni_pack_bf16` / `vnni_pack_i8` are plain index moves, no shuffles | **NOT APPLICABLE:** required by the hardware. But INT8 re-packs B inside every call because there is no `PackedI8B`; that is repeated work, not a layout problem |
+| 6. AMX dot-product accumulation | TDPBF16PS / TDPBUSD through the facade | **REUSED** |
+
+**Prepared-B reuse key.** Reuse is keyed on authoritative identity, never on a
+digest:
+- the object that was packed for (one compare);
+- for any other object, the selection compared in full, the frame issue and
+  the width;
+- the operand's identity: the defining function's seed, or the immutable
+  table's construction instance, plus the revision.
+
+The earlier FNV selection key is gone. Two tables with equal values and an
+equal revision are different operands. Tests: `prepared_b_reuse_is_keyed_by_identity_not_a_digest`,
+`prepared_b_is_reused_and_invalidated`.
+
+**OPTIMIZATION FOUND** (measured, lab-local, no semantic change):
+- **Copy A per lane.** A region of A is now one copy per lane instead of a
+  per-value walk: 3.5–6× faster at 256 fields.
+- **Borrow B in place.** For a full-width region, B comes straight from the
+  table: 30 ns instead of 58 µs, and 0 bytes written.
+- **Resolve with `borrow_all`.** Single-check resolution is 7× faster than
+  #1987's original.
+
+**Not proposed: an ndarray change.** A strided-A INT8 entry plus a prepacked
+INT8 B, the INT8 twins of #414 and `PackedBf16B`, would save at most:
+- the A copy, 6–10 µs, about 10% of INT8 end-to-end;
+- the per-call B pack inside `gemm_i8`, which the facade does not expose and
+  so was not measured on its own.
+
+Measured: the per-call B band gather plus pack inside `gemm_i8` is 23–29 µs
+at 256 fields, 36–38% of the INT8 GEMM, and the A copy is 5–7 µs. Together
+that is about 30–45% of INT8 warm end-to-end time. This is an independently
+measured case for a separate ndarray PR. It is proposed, not part of this
+change.
+
+**Central question.** DT64 is routing SoA positions, not moving them. Four
+places paid for the same work twice, all found by measurement, and the first
+three are now fixed:
+1. per-field `addr` scans in resolve;
+2. a per-value walk where a region copy would do;
+3. hashing inside a "preparation" timer;
+4. INT8 B re-packed on every call: measured at 36–38% of the INT8 GEMM, and
+   open at the ndarray layer.
+
+The FACET STRIDE guard (`facet-stride-guard.sh --diff`) reports 0 hits on
+this change. ndarray is unchanged.
