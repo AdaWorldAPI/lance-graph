@@ -1,3 +1,9 @@
+## 2026-11-10 — main after #1991 (merged `637d638`) and #1995 (merged `15d4b4c`) — D-FOUNDRY-PARITY-1
+
+- `crates/foundry-parity-lab` (excluded, own workspace): a 64-store × 64-category operating network over DT64 `LaneBinding` + mask-RISC. Arms A (materialized objects), B (`CanCook` / `CanFulfill` / `NetworkCapacity` / network cost, 0 bytes copied) and C (per-store cost as one INT8 GEMM via `ndarray::simd::int8_gemm_packed_strided`), against an independent scalar oracle; 24 tests.
+- Refusals: stale frame, foreign scope, other row order, unmapped / unbound field, missing demanded cost lane, `u8` overflow, foreign menu revision, out-of-range quantity. Unknown stock is never zero; the denied store is `NotAuthorized`.
+- Open: G1 remainder (limiting resource, P1b), G2–G6. Linear EXO-223. [entry](entries/2026-11-10-foundry-parity-1-arm-c.md)
+
 ## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
 
 - Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.

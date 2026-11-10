@@ -1,6 +1,6 @@
 ## 2026-11-10 — D-FOUNDRY-PARITY-1: DR × DT64 as an operational ontology → `.claude/plans/foundry-parity-v1.md`
 
-**Status:** ACTIVE; Level R lab landed (`crates/foundry-parity-lab`). Evidence matrix over 18 Foundry capability rows, missing-contract register G1–G6, roadmap P0–P5. [entry](entries/2026-11-10-foundry-parity-1-lab.md) · STATUS_BOARD D-FOUNDRY-*.
+**Status:** ACTIVE; Level R lab landed (#1991) and P1a arm C per-store cost (#1995); P1b (min/argmin) open. Evidence matrix over 18 Foundry capability rows, missing-contract register G1–G6, roadmap P0–P5. [entry](entries/2026-11-10-foundry-parity-1-lab.md) · [P1a](entries/2026-11-10-foundry-parity-1-arm-c.md) · STATUS_BOARD D-FOUNDRY-* · Linear EXO-223.
 **Confidence:** lab MEASURED; every Foundry-side cell is documented capability only (no comparator). No row claims parity.
 
 ## 2026-11-06 — D-LANESOCK: DR × DT64 property-to-lane socket and joint version witness → `.claude/plans/d-lanesock-dr-dt64-lane-socket-v1.md`
