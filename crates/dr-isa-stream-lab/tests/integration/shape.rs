@@ -609,3 +609,39 @@ fn lanes_from_another_object_are_refused_by_every_arm() {
         assert!(c.iter().all(|&v| v == 0.0), "nothing computed, {name}");
     }
 }
+
+/// A selection that names identities past the lanes' length is refused by
+/// every arm, even when the slab padding would make the direct read fit:
+/// padding may pad K, never stand in for a selected value.
+#[test]
+fn a_selection_past_the_source_is_refused_by_every_arm() {
+    let dim = 64;
+    let fx = fx(65, dim); // pitch 96: identities 65..96 are padding
+    let lanes = Bf16Lanes::slab_in_order(&fx).unwrap();
+    let socket = Socket::in_order(&lanes, dim);
+    let world = world(dim);
+    let cases = [
+        (Selection::region(SPACE_A, 64, 32), 95), // fits the pitch exactly
+        (Selection::mask(SPACE_A, 128, [3, 70]), 70),
+    ];
+    for (sel, last) in cases {
+        let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+        let l = obj.resolve(&world, &socket).unwrap();
+        let (prep, _) = PreparedB::prepare(&obj, &B);
+        let want = ShapeRefusal::OutOfRange { last, n: 65 };
+        let mut c = vec![0f32; obj.c_len()];
+        assert_eq!(direct(&obj, &l, &prep, B.rev, &mut c).unwrap_err(), want);
+        assert_eq!(
+            staged(&obj, &l, &prep, B.rev, &mut Vec::new(), &mut c).unwrap_err(),
+            want
+        );
+        assert_eq!(
+            cblas(&obj, &l, &B, &mut Vec::new(), &mut Vec::new(), &mut c).unwrap_err(),
+            want
+        );
+    }
+    // The last valid identity is accepted.
+    let ok = Selection::region(SPACE_A, 33, 32);
+    let r = run(&world, &socket, dim, ok.clone());
+    assert_eq!(r.staged.0, want(&fx, &ok, dim));
+}

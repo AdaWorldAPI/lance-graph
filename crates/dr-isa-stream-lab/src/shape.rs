@@ -111,6 +111,19 @@ impl Selection {
         self.len() == 0
     }
 
+    /// The highest selected identity, if any.
+    pub fn last(&self) -> Option<usize> {
+        match &self.kind {
+            Where::Region { start, len } => len.checked_sub(1).map(|l| start + l),
+            Where::Mask { words, .. } => words
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_, &w)| w != 0)
+                .map(|(i, &w)| i * 64 + 63 - w.leading_zeros() as usize),
+        }
+    }
+
     /// K padded to the 32-identity step the tile GEMM consumes.
     pub fn k_pad(&self) -> usize {
         self.len().div_ceil(BLOCK) * BLOCK
@@ -193,6 +206,8 @@ pub enum ShapeRefusal {
     /// The lanes were resolved by another object: another source or frame,
     /// another field count, or another lane mapping.
     ForeignLanes,
+    /// The selection names identity `last`, but the lanes hold only `n`.
+    OutOfRange { last: usize, n: usize },
 }
 
 impl From<LaneRefusal> for ShapeRefusal {
@@ -332,11 +347,19 @@ impl VirtualObject {
                 .iter()
                 .zip(&self.fields)
                 .all(|((f, addr), &want)| *f == want && self.binding.addr(want) == Some(addr));
-        if same {
-            Ok(())
-        } else {
-            Err(ShapeRefusal::ForeignLanes)
+        if !same {
+            return Err(ShapeRefusal::ForeignLanes);
         }
+        // Every selected identity must exist in every lane: slab padding past
+        // the lane's logical length is allowed as GEMM K padding (`direct`
+        // checks that separately), never as a selected value.
+        let n = lanes.lanes().iter().map(|l| l.n).min().unwrap_or(0);
+        if let Some(last) = self.selection.last() {
+            if last >= n {
+                return Err(ShapeRefusal::OutOfRange { last, n });
+            }
+        }
+        Ok(())
     }
 
     /// The same as [`Self::resolve`] the long way: `LaneBinding::lane` per
