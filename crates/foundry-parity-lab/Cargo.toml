@@ -22,6 +22,9 @@ description = "D-FOUNDRY-PARITY-1 lab: can source-owned planes, a DT64 lane bind
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-contract = { path = "../lance-graph-contract" }
+# Arm C: the INT8 packed GEMM (ndarray#418), from the same coordinate
+# mask-risc uses, so the graph keeps one ndarray package.
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 [[test]]
 name = "integration"

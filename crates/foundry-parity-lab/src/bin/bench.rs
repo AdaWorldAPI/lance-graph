@@ -7,8 +7,9 @@ use std::time::Instant;
 
 use foundry_parity_lab::arm_a::Objects;
 use foundry_parity_lab::arm_b::{demanded_fields, Guards, ItemQuery};
+use foundry_parity_lab::arm_c::{cost_fields, CostQuery, PreparedDemand};
 use foundry_parity_lab::bind::{World, READER, SPACE_A};
-use foundry_parity_lab::fixture::STORES;
+use foundry_parity_lab::fixture::{MENU_REV, STORES};
 use foundry_parity_lab::source::{Network, Order};
 use lance_graph_dt64::LaneSource;
 
@@ -105,6 +106,37 @@ fn main() {
         }),
     );
     println!();
+    println!("arm C tier: {}", CostQuery::tier());
+    let cf = cost_fields();
+    report(
+        "arm C cold: bind cost lanes",
+        median(|| {
+            black_box(world.bind(&net, &cf, SPACE_A, READER).unwrap());
+        }),
+    );
+    let cb = world.bind(&net, &cf, SPACE_A, READER).unwrap();
+    report(
+        "arm C cold: open (borrow_all + stage A)",
+        median(|| {
+            black_box(CostQuery::open(&cb, &world.store, &world.view, net.frames(), &net).unwrap());
+        }),
+    );
+    report(
+        "arm C cold: prepare demand band",
+        median(|| {
+            black_box(PreparedDemand::prepare(MENU_REV));
+        }),
+    );
+    let cq = CostQuery::open(&cb, &world.store, &world.view, net.frames(), &net).unwrap();
+    let demand = PreparedDemand::prepare(MENU_REV);
+    println!("arm C staged bytes               {}", cq.staged_bytes());
+    report(
+        "arm C warm: per-store cost, 64 x 8 items",
+        median(|| {
+            black_box(cq.per_store(&demand, black_box(3)).unwrap());
+        }),
+    );
+    println!();
     report(
         "arm A: build 64 objects",
         median(|| {
@@ -124,6 +156,12 @@ fn main() {
         "arm A: NetworkCapacity",
         median(|| {
             black_box(objects.network_capacity(0));
+        }),
+    );
+    report(
+        "arm A: per-store cost, 64 x 8 items",
+        median(|| {
+            black_box(objects.store_costs(black_box(3)));
         }),
     );
 }

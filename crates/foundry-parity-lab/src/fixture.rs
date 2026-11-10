@@ -18,6 +18,9 @@ pub const EQUIPMENT: usize = 4;
 pub const SKILLS: usize = 4;
 /// Menu items.
 pub const ITEMS: usize = 8;
+/// Revision of the menu (recipes). A prepared demand operand is valid for
+/// exactly one revision.
+pub const MENU_REV: u32 = 1;
 /// Global identity of row 0.
 pub const STORE_ID_BASE: u32 = 1000;
 

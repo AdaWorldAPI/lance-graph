@@ -3,5 +3,6 @@
 #![allow(clippy::needless_range_loop)]
 pub mod common;
 pub mod controls;
+pub mod cost;
 pub mod parity;
 pub mod refusals;
