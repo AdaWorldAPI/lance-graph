@@ -186,6 +186,13 @@ impl MapLog {
         &self.table
     }
 
+    /// Give up the log and keep its table. Drops this log's writer handle, so
+    /// the writer stops once every other handle is gone too; anything still
+    /// pending is not applied.
+    pub fn into_table(self) -> MapTable {
+        self.table
+    }
+
     /// Submitted advances whose seal has not been settled yet.
     pub fn pending(&self) -> usize {
         self.pending.len()
@@ -452,7 +459,10 @@ pub async fn restore<S: SealedImages>(
 }
 
 /// A decoded marker: `(kind, version, source, relation_map)`.
-fn decode_marker(cycle: u64, image: &BTreeMap<u64, Vec<u8>>) -> Result<(u8, u64, u64, u64), ReplayError> {
+fn decode_marker(
+    cycle: u64,
+    image: &BTreeMap<u64, Vec<u8>>,
+) -> Result<(u8, u64, u64, u64), ReplayError> {
     let p = image
         .get(&MARKER_ROW)
         .ok_or(ReplayError::MissingMarker { cycle })?;
@@ -557,8 +567,8 @@ fn changes_of(
         let mut globals = Vec::new();
         let mut ended = false;
         for (_, p) in &rows {
-            for slot in p.chunks_exact(8) {
-                let id = u64::from_le_bytes(slot.try_into().expect("8 bytes"));
+            for slot in p.as_chunks::<8>().0 {
+                let id = u64::from_le_bytes(*slot);
                 if id == RESERVED_ID {
                     ended = true;
                 } else if ended {
@@ -644,7 +654,9 @@ mod tests {
             p
         };
         let replay_of = |cycles: Vec<(u64, BTreeMap<u64, Vec<u8>>)>| {
-            replay(&cycles, VersionClock::new()).map(|_| ()).unwrap_err()
+            replay(&cycles, VersionClock::new())
+                .map(|_| ())
+                .unwrap_err()
         };
         assert_eq!(replay_of(vec![]), ReplayError::Empty);
         assert_eq!(

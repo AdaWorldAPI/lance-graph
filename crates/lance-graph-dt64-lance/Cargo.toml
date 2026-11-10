@@ -27,8 +27,9 @@ lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-planner = { path = "../lance-graph-planner" }
 lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycle-driver"] }
-# LanceCycleWriter, the WAL (graph::cycle_sink, behind `planner`).
-lance-graph = { path = "../lance-graph", default-features = false, features = ["planner"] }
+# LanceCycleWriter, the WAL (graph::cycle_sink, behind `planner`). `ndarray-hpc`
+# is required: lance-graph does not build without it (its fallback is stale).
+lance-graph = { path = "../lance-graph", default-features = false, features = ["planner", "ndarray-hpc"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }

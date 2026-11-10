@@ -77,6 +77,9 @@ fn history() -> Vec<Vec<(u32, Option<LocalMap>)>> {
     ]
 }
 
+/// One sealed cycle as the fake keeps it: id, landings, coalesced image.
+type SealedCycleRecord = (CycleId, Vec<LandedSlot>, BTreeMap<u64, Vec<u8>>);
+
 /// One-writer in-memory sink. Fences on `base_version`, publishes head + 1,
 /// keeps each cycle's landings and image, can hold commits behind a gate and
 /// can fail a chosen cycle. Like the real writer, scanned landings carry no
@@ -84,7 +87,7 @@ fn history() -> Vec<Vec<(u32, Option<LocalMap>)>> {
 #[derive(Default)]
 struct GateWal {
     head: u64,
-    cycles: Vec<(CycleId, Vec<LandedSlot>, BTreeMap<u64, Vec<u8>>)>,
+    cycles: Vec<SealedCycleRecord>,
     gate: Option<Arc<Semaphore>>,
     fail_on: Option<CycleId>,
 }
@@ -163,7 +166,9 @@ fn applied(s: Option<Settled>) -> RouteVersion {
 async fn a_restored_table_answers_every_past_version_exactly() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("map.lance");
-    let sink = LanceCycleWriter::open(path.to_str().unwrap()).await.unwrap();
+    let sink = LanceCycleWriter::open(path.to_str().unwrap())
+        .await
+        .unwrap();
     let head = sink.head();
     let (writer, handle) = cycle_writer(sink, head, 8);
 
@@ -173,18 +178,19 @@ async fn a_restored_table_answers_every_past_version_exactly() {
             let v = log.advance(1, 2 + k as u64, changes).unwrap();
             assert_eq!(v, RouteVersion(k as u64 + 1));
         }
-        assert!(log.settle_next().await.is_none(), "genesis applies nothing");
         for k in 1..=6 {
             assert_eq!(applied(log.settle_next().await), RouteVersion(k));
         }
-        log
+        log.into_table()
     });
-    let live = live.table();
+    let live = &live;
 
     // One Lance version per cycle: genesis plus six advances.
     assert_eq!(exit.sink.head(), DatasetVersion(head.0 + 7));
 
-    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    let restored = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
     assert_eq!(restored.last, RouteVersion(6));
     assert_same(live, &restored.table, 6);
     for tile in TILES {
@@ -208,7 +214,9 @@ async fn the_owner_returns_before_the_seal_and_applies_only_after_it() {
     let (_exit, ()) = tokio::join!(writer.run(), async move {
         let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
         let v1 = log.advance(1, 1, vec![(1, map(Width::W64, &[5]))]).unwrap();
-        let v2 = log.advance(1, 1, vec![(1, map(Width::W64, &[5, 6]))]).unwrap();
+        let v2 = log
+            .advance(1, 1, vec![(1, map(Width::W64, &[5, 6]))])
+            .unwrap();
         assert_eq!((v1, v2), (RouteVersion(1), RouteVersion(2)));
 
         // Nothing sealed yet: the table has not moved.
@@ -224,7 +232,6 @@ async fn the_owner_returns_before_the_seal_and_applies_only_after_it() {
         );
 
         gate.add_permits(3);
-        assert!(log.settle_next().await.is_none());
         assert_eq!(applied(log.settle_next().await), v1);
         assert_eq!(applied(log.settle_next().await), v2);
         assert_eq!(answer(log.table(), 2, 1), Ok((64, vec![5, 6])));
@@ -249,14 +256,15 @@ async fn a_clock_tick_between_claim_and_seal_lands_at_the_claimed_version() {
         clock.tick();
         clock.tick();
         gate.add_permits(2);
-        assert!(log.settle_next().await.is_none());
         assert_eq!(applied(log.settle_next().await), v);
         assert_eq!(log.table().current_version(), RouteVersion(v.0 + 2));
         assert_eq!(answer(log.table(), v.0, 1), Ok((64, vec![9])));
         assert_eq!(answer(log.table(), v.0 - 1, 1), Err(MapRead::NoSuchTile(1)));
     });
 
-    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    let restored = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
     assert_eq!(restored.last, RouteVersion(1));
     assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![9])));
 }
@@ -274,11 +282,12 @@ async fn a_failed_seal_applies_nothing_and_poisons_what_follows() {
     let (exit, ()) = tokio::join!(writer.run(), async move {
         let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
         let v1 = log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
-        let v2 = log.advance(1, 1, vec![(1, map(Width::W64, &[1, 2]))]).unwrap();
+        let v2 = log
+            .advance(1, 1, vec![(1, map(Width::W64, &[1, 2]))])
+            .unwrap();
         let v3 = log.advance(1, 1, vec![(2, map(Width::W64, &[3]))]).unwrap();
         gate.add_permits(4);
 
-        assert!(log.settle_next().await.is_none());
         assert_eq!(applied(log.settle_next().await), v1);
         match log.settle_next().await {
             Some(Settled::NotDurable {
@@ -314,7 +323,9 @@ async fn a_failed_seal_applies_nothing_and_poisons_what_follows() {
     });
 
     // The store holds genesis and v1 only, and replays to the same table.
-    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    let restored = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
     assert_eq!(restored.last, RouteVersion(1));
     assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![1])));
     assert_eq!(answer(&restored.table, 1, 2), Err(MapRead::NoSuchTile(2)));
@@ -385,11 +396,13 @@ async fn a_restored_log_continues_and_restores_again() {
         let v = log.advance(1, 1, vec![(1, None)]).unwrap();
         assert_eq!(v, RouteVersion(2));
         assert_eq!(applied(log.settle_next().await), v);
-        log
+        log.into_table()
     });
-    let again = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    let again = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
     assert_eq!(again.last, RouteVersion(2));
-    assert_same(first.table(), &again.table, 2);
+    assert_same(&first, &again.table, 2);
 }
 
 #[tokio::test]
@@ -399,10 +412,12 @@ async fn a_frame_from_before_a_restore_is_foreign() {
         let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
         log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
         while log.settle_next().await.is_some() {}
-        log
+        log.into_table()
     });
-    let frame = log.table().seal();
-    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    let frame = log.seal();
+    let restored = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
     assert!(matches!(
         restored.table.map(&frame, 1),
         Err(MapRead::Stale(FrameRefusal::ForeignFrame))
