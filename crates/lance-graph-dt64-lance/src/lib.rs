@@ -724,8 +724,7 @@ mod tests {
             ));
             let undrained = log
                 .into_table()
-                .err()
-                .expect("a diverged log keeps its table");
+                .expect_err("a diverged log keeps its table");
             assert_eq!(undrained.pending(), 0);
             assert_eq!(undrained.diverged(), Some(v));
         });
