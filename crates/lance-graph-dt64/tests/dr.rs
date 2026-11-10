@@ -344,8 +344,8 @@ mod locate {
 mod vmap {
     use super::map;
     use lance_graph_dt64::dr::{
-        Axis, FrameRefusal, MapRead, MapRefusal, MapTable, RouteLog, RouteVersion, VersionClock,
-        Width,
+        AdvanceRefusal, Axis, FrameRefusal, MapRead, MapRefusal, MapTable, RouteLog, RouteVersion,
+        VersionClock, Width,
     };
     use std::alloc::{GlobalAlloc, Layout, System};
     use std::cell::Cell;
@@ -551,6 +551,70 @@ mod vmap {
         copy.route(4, 1, id).unwrap();
         assert_eq!(log.current_version(), clock.current());
         assert!(copy.current_version() > log.current_version());
+    }
+
+    /// A version claimed before a write is applied exactly, even when another
+    /// holder of the shared clock ticks between the claim and the apply (a
+    /// cast is sealed by the WAL while a RouteLog keeps routing). Fails if the
+    /// apply takes a fresh tick instead of the claimed version.
+    #[test]
+    fn a_claimed_version_is_applied_exactly_after_the_clock_moves() {
+        let clock = VersionClock::new();
+        let mut log = RouteLog::with_clock(clock.clone());
+        let mut t = MapTable::with_clock(1, 1, clock.clone());
+        let id = Axis::new(Width::W64, 1);
+        let v = t.claim();
+        let moved = log.route(3, 9, id).unwrap();
+        assert!(
+            moved > v,
+            "anti-vacuity: the clock really moved past the claim"
+        );
+        assert_eq!(
+            t.advance_at(v, 1, 1, vec![(1, Some(map(&[10, 11])))]),
+            Ok(v)
+        );
+        assert_eq!(t.seal().version(), v);
+        let d = t.diagnose_at(v, 1).unwrap();
+        assert_eq!((d.len(), d.global(0), d.global(1)), (2, Some(10), Some(11)));
+        assert_eq!(
+            t.diagnose_at(RouteVersion(v.0 - 1), 1).unwrap_err(),
+            MapRead::NoSuchTile(1)
+        );
+        // Silence twin: plain advance still takes the next tick.
+        let w = t.advance(1, 1, vec![(1, Some(map(&[10, 11, 12])))]);
+        assert!(w > moved);
+    }
+
+    /// advance_at refuses, and changes nothing, for a version at or before
+    /// the last one applied (events would leave version order) and for a
+    /// version the clock never issued (a fabricated version).
+    #[test]
+    fn advance_at_refuses_an_old_or_unissued_version() {
+        let mut t = MapTable::new(1, 1);
+        let early = t.claim();
+        let late = t.claim();
+        assert_eq!(
+            t.advance_at(late, 1, 1, vec![(1, Some(map(&[5])))]),
+            Ok(late)
+        );
+        assert_eq!(
+            t.advance_at(early, 1, 1, vec![(1, Some(map(&[6])))]),
+            Err(AdvanceRefusal::NotAfterLast {
+                last: late,
+                version: early
+            })
+        );
+        let forged = RouteVersion(t.current_version().0 + 5);
+        assert_eq!(
+            t.advance_at(forged, 1, 1, vec![(1, Some(map(&[7])))]),
+            Err(AdvanceRefusal::NotIssued {
+                version: forged,
+                current: t.current_version()
+            })
+        );
+        let d = t.diagnose_at(late, 1).unwrap();
+        assert_eq!((d.len(), d.global(0)), (1, Some(5)));
+        assert_eq!(t.seal().version(), late);
     }
 
     /// Q2: a version past the end is a typed refusal, not a clamp.
