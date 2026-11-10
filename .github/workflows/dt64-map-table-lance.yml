@@ -1,5 +1,6 @@
 name: dt64 map table in Lance
-# lance-graph-dt64-lance stores dt64's DR map table (dr::MapTable) in Lance.
+# lance-graph-dt64-lance makes dt64's DR map table (dr::MapTable) durable
+# through the supervisor's cycle writer over LanceCycleWriter.
 # It is workspace-excluded (own [workspace] root), so no other job builds it.
 # Without this one a change to dt64's dr module or a lance bump could break it
 # unnoticed.
@@ -15,6 +16,10 @@ on:
       - crates/lance-graph-contract/**
       - crates/lance-graph-dt64/**
       - crates/lance-graph-dt64-lance/**
+      # The map log is written through the cycle writer over LanceCycleWriter.
+      - crates/lance-graph-supervisor/**
+      - crates/lance-graph-planner/**
+      - crates/lance-graph/src/graph/cycle_sink.rs
       - .github/workflows/dt64-map-table-lance.yml
   workflow_dispatch:
 
