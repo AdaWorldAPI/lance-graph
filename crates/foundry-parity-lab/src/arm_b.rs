@@ -354,6 +354,11 @@ impl<'s> ItemQuery<'s> {
 
     /// Every store's answer at quantity `q`, indexed by store row.
     pub fn answers(&self, q: i32, g: Guards) -> Result<[Answer; STORES], ArmRefusal> {
+        // The sweep below runs its own valid quantities; the caller's `q` is
+        // only compared against the result, so it is checked here.
+        if !(1..=Q_MAX).contains(&q) {
+            return Err(ArmRefusal::Quantity { q });
+        }
         let denied = self.denied_mask()?;
         let unknown = self.unknown_mask()?;
         let max = self.max_quantities(g)?;

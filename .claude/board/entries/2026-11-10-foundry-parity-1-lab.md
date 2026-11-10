@@ -9,7 +9,7 @@ programs answer `CanCook` / `CanFulfill` / `NetworkCapacity` / network cost
 over 64 stores × 64 categories with exact oracle parity and correct refusals?
 
 **Answer.** Yes for WHERE-shaped feasibility, fulfilment, network capacity and
-network cost: 15 tests agree with an independent scalar oracle and a
+network cost: 16 tests agree with an independent scalar oracle and a
 materialized-object null model; 0 source bytes copied; stale frame, foreign
 scope, other row order, unmapped field, unbound field and out-of-range
 quantity are refused; unknown stock is never read as zero; the denied store

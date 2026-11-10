@@ -1,6 +1,6 @@
 //! Refusals: what the binding must not answer.
 
-use foundry_parity_lab::arm_b::{demanded_fields, Answer, ArmRefusal, Guards, ItemQuery};
+use foundry_parity_lab::arm_b::{demanded_fields, Answer, ArmRefusal, Guards, ItemQuery, Q_MAX};
 use foundry_parity_lab::bind::{World, COST0, READER, SPACE_A, STOCK0};
 use foundry_parity_lab::fixture::{case, store_id, CHEESE, ITEMS, STORES};
 use foundry_parity_lab::oracle::Oracle;
@@ -116,4 +116,34 @@ fn a_question_needing_an_unbound_field_is_refused() {
         query.cook_mask(0, Guards::ALL),
         Err(ArmRefusal::Quantity { q: 0 })
     ));
+}
+
+#[test]
+fn every_quantity_entry_point_refuses_out_of_range() {
+    // `answers` sweeps its own valid quantities, so it must check the
+    // caller's `q` itself; before this check `answers(0)` reported a store
+    // with no cheese as feasible (max 0 >= 0).
+    let world = World::new();
+    let net = Network::ingest(Order::Identity);
+    let query = open(&world, &net, 0, true, true).expect("binds");
+    for q in [0, -1, Q_MAX + 1] {
+        let r = query.answers(q, Guards::ALL);
+        assert!(
+            matches!(r, Err(ArmRefusal::Quantity { q: got }) if got == q),
+            "answers({q}): {r:?}"
+        );
+        let r = query.fulfill_mask(q, 45);
+        assert!(
+            matches!(r, Err(ArmRefusal::Quantity { .. })),
+            "fulfill({q}): {r:?}"
+        );
+        let r = query.network_cost(q);
+        assert!(
+            matches!(r, Err(ArmRefusal::Quantity { .. })),
+            "cost({q}): {r:?}"
+        );
+    }
+    // Silent half: the bounds themselves are admitted.
+    assert!(query.answers(1, Guards::ALL).is_ok());
+    assert!(query.answers(Q_MAX, Guards::ALL).is_ok());
 }
