@@ -423,6 +423,11 @@ impl PreparedI8B {
         })
     }
 
+    /// The packed bands, for timing the GEMM alone.
+    pub fn bands(&self) -> &[PackedI8B] {
+        &self.bands
+    }
+
     /// Bytes the bands occupy, K padding included.
     pub fn bytes(&self) -> usize {
         self.bands.iter().map(|b| b.data().len()).sum()

@@ -557,13 +557,28 @@ fn main() {
         };
         run(&mut a, &mut c);
         let want = c.clone();
-        let lookups = source.lookups();
         let t_translate = median_ns(|| {
             black_box(translate(&source, &globals).unwrap());
         });
+        // Inverse map reads of ONE preparation, on a fresh TranslatedB.
+        let fresh = TranslatedB::new(&bt, &source, &tr).unwrap();
+        black_box(int8::PreparedI8B::prepare(&obj, &fresh).unwrap());
+        let (pack_reads, admit_reads) = (fresh.reads(), fresh.admission_reads());
         let t_prepare = median_ns(|| {
             black_box(int8::PreparedI8B::prepare(&obj, &tb).unwrap());
         });
+        // A staging alone, and the GEMM alone on the staged A.
+        let l = int8::resolve(&obj, &world, &socket).unwrap();
+        let useful = int8::stage_a(&obj, &l, &mut a).unwrap();
+        let staged = a.len();
+        let t_stage = median_ns(|| {
+            black_box(int8::stage_a(&obj, &l, &mut a).unwrap());
+        });
+        let k_pad = obj.selection().len().div_ceil(int8::K_STEP) * int8::K_STEP;
+        let t_gemm = median_ns(|| {
+            ndarray::simd::int8_gemm_packed_strided(&a, k_pad, prep.bands(), &mut c, dim);
+        });
+        assert_eq!(c, want);
         let t_warm = median_ns(|| run(&mut a, &mut c));
         assert_eq!(c, want);
         let t_per_op = median_ns(|| {
@@ -577,14 +592,30 @@ fn main() {
         });
         assert_eq!(c, want);
         println!(
-            "G2L (64 fields x 64 cols, 200 global ids, source in its own order, 16 tiles): translate once {} ({} lookups) · prepare B once {} · warm run {} (0 lookups) · re-translate per operation {}\n",
-            fmt(t_translate),
-            tr.lookups(),
-            fmt(t_prepare),
-            fmt(t_warm),
-            fmt(t_per_op)
+            "G2L (64 fields x 64 cols, 200 global ids, source in its own order, 16 tiles, {}):",
+            ndarray::simd::int8_tile_gemm_tier()
         );
-        let _ = lookups;
+        println!("| Step | Time | Movement |\n|---|---|---|");
+        println!(
+            "| translate once | {} | {} G2L lookups |",
+            fmt(t_translate),
+            tr.lookups()
+        );
+        println!("| prepare B once (admit + pack) | {} | {} admission map reads, {} packing map reads, {} B bytes packed |", fmt(t_prepare), admit_reads, pack_reads, prep.bytes());
+        println!(
+            "| stage A (per warm run) | {} | {} useful bytes copied into a {}-byte padded buffer |",
+            fmt(t_stage),
+            useful,
+            staged
+        );
+        println!("| GEMM only | {} | — |", fmt(t_gemm));
+        println!("| warm run (resolve + stage A + GEMM) | {} | 0 G2L lookups, 0 map reads, {} A bytes staged |", fmt(t_warm), useful);
+        println!(
+            "| re-translate per operation | {} | {} lookups + {} map reads + B pack + A stage |\n",
+            fmt(t_per_op),
+            tr.lookups(),
+            admit_reads + pack_reads
+        );
     }
 
     println!("| Metric | 64×64 | 256×256 |\n|---|---|---|");

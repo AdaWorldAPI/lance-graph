@@ -367,20 +367,46 @@ on co-addressed sets. So:
    the prepared B, with **zero** lookups. A sum over K does not depend on K's
    order, so the result is the consumer's answer.
 
-One AMX VM, three runs (`results/shape-2026-11-10-g2l-run*.txt`), 64 fields ×
-64 columns, 200 global ids:
+One AMX VM (`int8_tile_gemm_tier()` = AMX TDPBUSD), three runs
+(`results/shape-2026-11-10-g2l-run*.txt`), 64 fields × 64 columns, 200 global
+ids. Each quantity is reported on its own; ranges are over the three runs:
 
-| Step | Time | Lookups |
+| Step | Time | Movement |
 |---|---|---|
-| translate once | 68–85 µs | 3200 (200 ids × 16 tiles) |
-| prepare B once | 37–47 µs | 200 map reads |
-| **warm run** (resolve + stage A + GEMM) | **16–22 µs** | **0** |
-| re-translate on every operation (the anti-pattern) | 128–166 µs | 3200 + 200 |
+| translate once | 83–85 µs | 3200 G2L lookups (200 ids × 16 tiles) |
+| prepare B once (admit + pack) | 46–48 µs | 200 admission map reads + 200 packing map reads; 16,384 B bytes packed |
+| stage A, per warm run | 11–14 µs | 12,800 useful bytes copied into a 16,384-byte padded buffer |
+| GEMM only | 0.71–0.86 µs | — |
+| **warm run** (resolve + stage A + GEMM) | **20–24 µs** | 0 G2L lookups, 0 map reads, 12,800 A bytes staged |
+| re-translate per operation | 157–186 µs | 3200 lookups + 400 map reads + B pack + A stage |
 
-Re-translating per operation costs about 8× the warm run. The first version of
-`TranslatedB` resolved position → identity once per (row, column) and took
-241–255 µs to prepare B: 64× the map reads needed. One read per row fixed it
-(test-pinned: exactly 200 reads).
+**Zero lookups is not zero data movement.** The selection is sparse in the
+source's order, so a warm run still gathers 200 values per field into a dense,
+K-padded A: 12,800 useful bytes into a 16,384-byte buffer, every run. That
+copy costs about 15× the GEMM it feeds. What the translation removed is the
+global → local resolution; what it did not remove is the gather of a scattered
+selection. Reading A in place needs the selection to be a region in the
+source's order (as in the INT8 direct arm), which this fixture is not.
+
+**Order of K.** Translation reorders K: B is packed in the source's row order,
+not the consumer's. That is validated here only for exact integer GEMM, where
+`Σ_k a·b` does not depend on the order of summation as long as nothing
+overflows (i32 accumulation of 200 products of |a| ≤ 255, |b| ≤ 8, far inside
+range). It does not carry over to order-sensitive operators: floating-point
+reduction, saturating arithmetic, prefix scans, argmax with tie-breaking, or
+anything that reads K positionally.
+
+**Operand extent.** `TranslatedB` reports the inner operand's own extent (its
+rows are identities) and maps every selected source position to the identity
+it reads (`BValues::highest_row`). An identity past the inner table is
+refused with `ShapeRefusal::OperandShape` before packing reads anything.
+Before this fix it reported the source's position range and packing indexed
+past the table (`tests/integration/g2l.rs`,
+`a_translated_identity_past_the_inner_table_is_refused_before_packing`).
+
+The first version of `TranslatedB` resolved position → identity once per
+(row, column) and took 241–255 µs to prepare B: 64× the map reads needed. One
+read per row fixed it (test-pinned: exactly 200 packing reads).
 
 Falsifiers (`tests/integration/g2l.rs`), each disable-verified red:
 
@@ -391,6 +417,7 @@ Falsifiers (`tests/integration/g2l.rs`), each disable-verified red:
 | a stale mapping (lanes reordered, map not) is refused | map-vs-source coordinate check removed |
 | a prepared B from one translation is refused under another | translated identity ignoring the translation |
 | the untranslated cross-space read stays refused | (DT64's existing check) |
+| an identity past the inner B table is refused before packing (OperandShape) | `TranslatedB::highest_row` removed: packing reads past the table |
 | unknown and repeated ids are refused | — |
 
 A measurement trap worth keeping: after the disable runs, the benchmark binary
