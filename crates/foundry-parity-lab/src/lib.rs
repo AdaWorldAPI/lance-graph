@@ -12,6 +12,8 @@
 //! * [`bind`] is the class: its 211-field basis, route and demanded binding.
 //! * [`arm_b`] answers through `borrow_all` + mask-RISC programs.
 //! * [`arm_c`] answers per-store cost as one INT8 GEMM over staged A.
+//! * [`method`] registers `CanCook` as a DT64 method and executes it from its
+//!   `MethodRef`, lowering the guard through relalg (G6).
 //! * [`arm_a`] is the materialized-object null model.
 //! * [`oracle`] answers from the fixture alone, and also evaluates the one
 //!   scenario (Level S) the DR path cannot: no overlay contract exists.
@@ -24,5 +26,6 @@ pub mod arm_b;
 pub mod arm_c;
 pub mod bind;
 pub mod fixture;
+pub mod method;
 pub mod oracle;
 pub mod source;

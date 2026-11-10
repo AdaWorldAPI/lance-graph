@@ -121,9 +121,30 @@ pub(crate) fn from_set(e: &SetExpr) -> Rel {
     }
 }
 
+/// The relalg form of a contract [`SetExpr`]: the conversion [`crate::run_program`]
+/// applies to every let and query. Public so a caller can lower one
+/// description ONCE with [`crate::run_with_program`], keep the returned
+/// mask-risc program, and execute it per question instead of re-lowering.
+pub fn rel_from_set(e: &SetExpr) -> Rel {
+    from_set(e)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// FAILS IF: the public conversion is not the inverse of `to_set`.
+    #[test]
+    fn rel_from_set_is_the_inverse_of_to_set() {
+        let rels = [
+            Rel::And(vec![Rel::Plane(0), Rel::i32(1, Cmp::Ge, 5)]),
+            Rel::Or(vec![Rel::Plane(3), Rel::eq_u32(2, 7), Rel::ne_u32(1, 9)]),
+            Rel::Not(Box::new(Rel::eq_u32(2, 7))),
+        ];
+        for r in rels {
+            assert_eq!(rel_from_set(&to_set(&r)), r);
+        }
+    }
 
     /// FAILS IF: the conversion is lossy. Order of variants and fields is
     /// shared with the contract, so sorting agrees on both sides.

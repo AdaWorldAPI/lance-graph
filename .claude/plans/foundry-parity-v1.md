@@ -32,6 +32,8 @@ instance; Foundry columns cite its public documentation only, as evidence of
 - [x] Bench in ns/µs (§6).
 - [x] P1a (2026-11-10): per-store cost through the INT8 packed GEMM (ndarray#418), arm C — oracle-exact, staged A counted (§5a, §6).
 - [ ] P1b: element-wise cross-lane arithmetic in an admitted operator (per-store max without the sweep, limiting resource) — see §7 G1.
+- [x] P2 / G6 (2026-11-10): `CanCook` registered as a DT64 `MethodBinding` and executed from its `MethodRef`; the WHEN guard is lowered by relalg once per binding and executed per question, no lab lowering (§5b, §6).
+- [ ] P2 / G5: recipe demand as bound relation lanes (§7 G5; waits on ADMISSION B, EXO-140).
 - [ ] P3: scenario overlay frame (§7 G3); governed action / writeback gate (§7 G4).
 - [ ] Production IAM in the read path instead of the lab stand-in (§7 G2).
 
@@ -157,6 +159,46 @@ are defensive; no admitted fixture can reach them (feasibility predicates are
 all `≥ threshold(q)` with thresholds non-decreasing in q). They are labelled,
 not claimed as tested.
 
+### 5b. G6 — `CanCook` as a registered method (P2, part)
+
+`crates/foundry-parity-lab/src/method.rs`. `World::new` registers one
+`MethodBinding` per (item, quantity), quantity ∈ {1, 3}: the quantity is a
+constant of the guard, and DT64 guards take no parameters, so it is part of
+the method id. The WHEN guard says "this store can make `q` of item `m`" as a
+`SetExpr` over field positions: mask fields as `Sym(field)`, value fields as
+residuals on lane `field` (`stock_k ≥ d_k·q`, `staff ≥ ⌈q / per_staff⌉`,
+offered, equipment, every demanded category known). `reads` is exactly the
+fields the guard names; `effects` is empty (read-only).
+
+`PreparedMethod::prepare` admits the `MethodRef` (`BindStore::admit`), binds
+`reads` + `storeId`, borrows them once, and renames field positions to the
+bound planes. The reader scope (IAM stand-in) is conjoined there, never stored
+in the method. `prepare` then lowers the guard ONCE through relalg
+(`rel_from_set` + `run_with_program`) and keeps the returned mask-RISC
+program; `run` only executes it (`execute_into`, `Out::Mask`). The lab writes
+no lowering. `rel_from_set` is the one relalg addition: a public wrapper over
+the conversion `run_program` already applied (`from_set`, crate-private).
+`prepare` refuses a lowering of more than one fold (`Folds`), since relalg
+keeps only the last fold's program; that tripwire cannot fire today, and a
+test pins that every guard shape lowers to one fold.
+
+Tests (8, in `tests/integration/method.rs`): every registered method equals
+the oracle's feasible set and count; another row order answers identically by
+identity; the reader scope is load-bearing and outside the method; a reference
+with another guard (`GuardMismatch`) or signature revision is refused, as is
+one issued by another store (`ForeignStore`); a method whose `reads` misses a
+field its guard names is refused (`NotBound`), never answered with the field
+read as absent; repeated runs of one prepared method equal the first (the
+scratch is reused); every guard shape lowers to one fold. Disable runs, each
+red and restored: drop the staff conjunct; drop the known conjuncts; stock
+threshold off by one; drop the reader scope; skip the identity mapping; lower
+`All` instead of the guard; treat an unbound field as `All`.
+
+**Measured:** the first version called `run_program` per question, which
+re-lowers every time: ~21 µs per question. Lowering once per binding brings a
+question to 359–400 ns, level with arm B's hand-written program (474 ns),
+and moves the one lowering into `prepare` (~15 µs, was ~9 µs).
+
 ## 6. Measurement (MEASURED)
 
 `cargo run --release --manifest-path crates/foundry-parity-lab/Cargo.toml --bin bench`;
@@ -181,6 +223,9 @@ three runs, ranges across runs:
 | arm C cold: prepare demand band (once per menu revision) | 452–629 |
 | arm C warm: per-store cost, 64 stores × 8 items, AMX `TDPBUSD` | 654–1 170 |
 | arm A: per-store cost, 64 × 8 (recipes read once) | 1 188–1 661 |
+| G6: `method_ref` + `admit` | 5 054–5 254 |
+| G6 cold: `PreparedMethod::prepare` (admit + bind + borrow + one lowering) | 14 874–15 193 |
+| G6 warm: `CanCook(item 0, q 3)` run, cached mask-RISC program | 359–400 |
 
 Reading, not spin: a single WHERE-shaped question is ~4× cheaper in arm B and
 copies nothing; but the per-store maximum and the network capacity are ~8×
@@ -197,6 +242,12 @@ once. A first comparator called `fx::recipe` per (store, item) and measured
 comparison. At 64 × 64 × 16 the GEMM is tiny; the per-call fixed cost
 (tile configuration, output mapping) likely dominates, and scaling is OPEN.
 
+G6 (four runs; one more under load measured 600 ns and is excluded): a
+registered method's question costs the same as arm B's hand-written program
+once relalg's program is cached per binding (§5b). `admit` is ~5 µs (the
+guard witness is normalized on issue and on admit). `World::new` now registers 16
+methods and costs ~48 µs (was ~25 µs with none); not separated further.
+
 ## 7. Missing-contract register
 
 | Id | Missing operation | Why the current contract cannot express it | Lawful alternative today | Smallest test | Needs |
@@ -206,7 +257,7 @@ comparison. At 64 × 64 × 16 the GEMM is tiny; the per-call fixed cost
 | G3 | Scenario overlay over a binding | No frame witness for a proposed, non-canonical plane | Oracle only | Store 12 closed: overlay answer = oracle, canonical frame unchanged | Overlay frame contract (H3) |
 | G4 | Governed action / writeback | No command identity, preconditions, idempotency, atomic commit or audit on this path; `MethodBinding::effects` is descriptive | none | Preview vs commit of "reassign order 12→17" with a stale-precondition refusal | Separate gate; not in a read-only lab |
 | G5 | Bound relations (recipe → ingredient, menu → recipe) | Value-directed traversal is Gather, banned outside ADMISSION B | Relations as fixture functions (lab) | Bind recipe demand as lanes and answer without Gather | ADMISSION B decision |
-| G6 | Methods executed from `MethodRef` | DT64 binds behaviour, executes nothing; programs are hand-written | Hand-written programs | `CanCook` registered as a `MethodBinding`, lowered and executed | Lowering PR |
+| G6 | Methods executed from `MethodRef` | DT64 binds behaviour, executes nothing. LAB since §5b: admitted, bound, lowered once by relalg, executed per question at arm B's cost | — | Done in the lab: oracle parity, refusals, 359–400 ns per question | Production: who holds the prepared program across questions (no owner named) |
 
 ## 8. The three hypotheses
 
@@ -231,7 +282,8 @@ None is chosen over the others; all three hold in part.
   enters mask-RISC/Quack, then re-run per-store max and limiting resource
   against the oracle.
 - **P2:** G6 + G5 — `CanCook` as a registered method lowered from its
-  `MethodRef`; recipe demand as bound relation lanes.
+  `MethodRef` (LAB, §5b, lowered once per binding); recipe demand as bound
+  relation lanes (waits on ADMISSION B).
 - **P3:** G3 scenario overlay frame; G4 action gate (preview vs commit) as a
   separate workstream; G2 IAM in the read path.
 - **P4:** real source connectors, a2ui screens, deployment.
