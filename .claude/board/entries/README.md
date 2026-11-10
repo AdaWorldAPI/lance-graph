@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-591 entries, 2026-08-06 .. 2026-11-10.
+592 entries, 2026-08-06 .. 2026-11-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-10 | `lab-resolve-borrow-all` |  | [2026-11-10-lab-resolve-borrow-all.md](2026-11-10-lab-resolve-borrow-all.md) |
+| 2026-11-10 | `D-FOUNDRY-PARITY-1` |  | [2026-11-10-foundry-parity-1-lab.md](2026-11-10-foundry-parity-1-lab.md) |
 | 2026-11-10 | `dt64-lane-borrow-all` |  | [2026-11-10-dt64-lane-borrow-all.md](2026-11-10-dt64-lane-borrow-all.md) |
 | 2026-11-10 | `dt64-int8-facet-stride` |  | [2026-11-10-dt64-int8-facet-stride.md](2026-11-10-dt64-int8-facet-stride.md) |
 | 2026-11-10 | `D-DT64-GEMM-SHAPE-1` |  | [2026-11-10-dt64-gemm-shape.md](2026-11-10-dt64-gemm-shape.md) |
