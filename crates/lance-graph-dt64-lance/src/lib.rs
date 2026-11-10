@@ -50,6 +50,7 @@ use lance_graph_dt64::dr::{
     AdvanceRefusal, LocalMap, MapRefusal, MapTable, RouteVersion, TileId, VersionClock, Width,
 };
 use lance_graph_planner::persist_sink::{CycleId, SweepSlot, WalSink, WriteFailed};
+use lance_graph_supervisor::cycle_driver::SealRecovery;
 use lance_graph_supervisor::cycle_writer::{CycleWriterHandle, SealError, SealTicket, SubmitError};
 
 /// Bytes in one cast payload (the cycle writer's artifact width).
@@ -110,6 +111,15 @@ pub enum Settled {
         version: RouteVersion,
         error: SealError,
     },
+    /// The seal failed without proving whether the cycle was published: an
+    /// ambiguous commit (`SealRecovery::ResubmitFrozen`), a hash conflict
+    /// (`Escalate`), or a writer that stopped before answering. The store may
+    /// hold a cycle the table lacks, so the log refuses every later advance
+    /// and [`MapLog::into_table`]; a restore replays what the store holds.
+    OutcomeUnknown {
+        version: RouteVersion,
+        error: SealError,
+    },
     /// The cycle is durable but the table refused to apply it. `MapLog`
     /// applies its own advances in claimed order and owns its table, so its
     /// API cannot produce this; it is reported rather than dropped so a
@@ -121,6 +131,18 @@ pub enum Settled {
         version: RouteVersion,
         refusal: AdvanceRefusal,
     },
+}
+
+/// Whether a failed seal leaves open that the cycle was published.
+fn outcome_unknown(error: &SealError) -> bool {
+    match error {
+        SealError::Failed(f) => !matches!(
+            f.recovery(),
+            SealRecovery::Regenerate | SealRecovery::Permanent
+        ),
+        SealError::WriterGone => true,
+        SealError::Poisoned { .. } | SealError::OutOfOrder { .. } => false,
+    }
 }
 
 /// An advance's `(source, relation_map, changes)`.
@@ -141,7 +163,9 @@ pub struct MapLog {
     next_position: u64,
     pending: VecDeque<Pending>,
     failed: Option<RouteVersion>,
-    /// The first durable cycle the table refused (see [`Settled::Refused`]).
+    /// The first cycle the store may hold and the table lacks: refused while
+    /// durable ([`Settled::Refused`]) or of unknown outcome
+    /// ([`Settled::OutcomeUnknown`]).
     diverged: Option<RouteVersion>,
 }
 
@@ -158,7 +182,7 @@ impl Undrained {
         self.log.pending()
     }
 
-    /// The durable cycle the table refused, if that is why.
+    /// The cycle the store may hold and the table lacks, if that is why.
     #[must_use]
     pub fn diverged(&self) -> Option<RouteVersion> {
         self.log.diverged
@@ -227,15 +251,16 @@ impl MapLog {
     }
 
     /// Give up the log and keep its table, which must be drained: nothing
-    /// pending and no durable cycle refused. Otherwise the log comes back in
+    /// pending and no cycle the store may hold missing from the table. Otherwise the log comes back in
     /// [`Undrained`], so a sealed cycle can never be dropped unapplied
     /// (settle it, then ask again). Drops this log's writer handle on
     /// success, so the writer stops once every other handle is gone too.
     ///
     /// # Errors
     ///
-    /// [`Undrained`] while [`MapLog::pending`] is non-zero or a durable
-    /// cycle was refused ([`Settled::Refused`]).
+    /// [`Undrained`] while [`MapLog::pending`] is non-zero, or a cycle the
+    /// store may hold is missing from the table ([`Settled::Refused`],
+    /// [`Settled::OutcomeUnknown`]).
     pub fn into_table(self) -> Result<MapTable, Undrained> {
         if self.pending.is_empty() && self.diverged.is_none() {
             Ok(self.table)
@@ -327,7 +352,12 @@ impl MapLog {
         match result {
             Err(error) => {
                 self.failed.get_or_insert(version);
-                Some(Settled::NotDurable { version, error })
+                if outcome_unknown(&error) {
+                    self.diverged.get_or_insert(version);
+                    Some(Settled::OutcomeUnknown { version, error })
+                } else {
+                    Some(Settled::NotDurable { version, error })
+                }
             }
             Ok(_) => {
                 let (source, relation_map, changes) = advance?;

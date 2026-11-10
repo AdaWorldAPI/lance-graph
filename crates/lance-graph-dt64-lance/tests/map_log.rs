@@ -90,6 +90,8 @@ struct GateWal {
     cycles: Vec<SealedCycleRecord>,
     gate: Option<Arc<Semaphore>>,
     fail_on: Option<CycleId>,
+    /// Commit this cycle, then answer as if the acknowledgement was lost.
+    ambiguous_on: Option<CycleId>,
 }
 
 impl WalSink for GateWal {
@@ -123,6 +125,13 @@ impl WalSink for GateWal {
             .collect();
         self.cycles
             .push((batch.frame.cycle, landings, batch.image.clone()));
+        if Some(batch.frame.cycle) == self.ambiguous_on {
+            return Err(CommitError::Ambiguous {
+                cycle: batch.frame.cycle,
+                batch_hash: batch.batch_hash,
+                cause: "acknowledgement lost".into(),
+            });
+        }
         Ok(CommitOutcome::Committed {
             version: DatasetVersion(self.head),
             cycle: batch.frame.cycle,
@@ -320,6 +329,9 @@ async fn a_failed_seal_applies_nothing_and_poisons_what_follows() {
             other => panic!("expected Poisoned, got {other:?}"),
         }
         assert_eq!(log.table().current_version(), before, "nothing was claimed");
+        // A proven gap leaves store and table in agreement: the log drains.
+        log.into_table()
+            .expect("a proven-unpublished failure still drains");
     });
 
     // The store holds genesis and v1 only, and replays to the same table.
@@ -519,4 +531,40 @@ async fn into_table_refuses_while_a_submitted_cycle_is_unsettled() {
     });
     assert_eq!(exit.sink.cycles.len(), 2, "both cycles were sealed");
     assert_eq!(answer(&table, 1, 1), Ok((64, vec![5])));
+}
+
+/// A seal whose outcome is unknown may have published the cycle. The log
+/// must not hand out a table that may lack it; a restore shows the store did
+/// hold it.
+#[tokio::test]
+async fn an_ambiguous_seal_blocks_the_table_until_a_restore() {
+    let sink = GateWal {
+        ambiguous_on: Some(CycleId(1)),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
+
+    let (exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let v1 = log.advance(1, 1, vec![(1, map(Width::W64, &[4]))]).unwrap();
+        match log.settle_next().await {
+            Some(Settled::OutcomeUnknown { version, .. }) => assert_eq!(version, v1),
+            other => panic!("expected an unknown outcome, got {other:?}"),
+        }
+        assert_eq!(answer(log.table(), 1, 1), Err(MapRead::NoSuchTile(1)));
+        assert!(matches!(
+            log.advance(1, 1, vec![]),
+            Err(AdvanceError::Poisoned { failed }) if failed == v1
+        ));
+        let undrained = log.into_table().expect_err("the table may lack v1");
+        assert_eq!(undrained.pending(), 0);
+        assert_eq!(undrained.diverged(), Some(v1));
+    });
+
+    // The store did hold v1: the restored table has it.
+    let restored = restore(&exit.sink, OWNER, VersionClock::new())
+        .await
+        .unwrap();
+    assert_eq!(restored.last, RouteVersion(1));
+    assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![4])));
 }
