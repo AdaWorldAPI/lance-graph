@@ -265,3 +265,97 @@ fn int8_refuses_a_b_table_narrower_than_the_object() {
     int8::staged(&obj, &l, &B, &mut Vec::new(), &mut Vec::new(), &mut want).unwrap();
     assert_eq!(c, want);
 }
+
+/// The direct arm (A in place, B prepared once) is exact against the i64
+/// oracle and equal to the staged arm, at both sizes and with K tails; its
+/// prepared B serves repeated runs unchanged.
+#[test]
+fn int8_direct_is_exact_and_reuses_its_prepared_b() {
+    use dr_isa_stream_lab::shape::BTable;
+    for dim in [64, 256] {
+        let fx = fx(4096, dim);
+        let lanes = U8Lanes::slab_in_order(&fx);
+        let socket = U8Socket::in_order(&lanes, dim);
+        let world = world(dim);
+        let bt = BTable::new(&B, 4096, dim);
+        for (start, len) in [(0, 63), (100, 65), (64, 128), (4096 - 512, 512)] {
+            let sel = Selection::region(SPACE_A, start, len);
+            let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel.clone()).unwrap();
+            let l = int8::resolve(&obj, &world, &socket).unwrap();
+            let prep = int8::PreparedI8B::prepare(&obj, &bt).unwrap();
+            let want: Vec<i32> = int8::oracle(&fx, &sel, &fields(dim), dim, &B)
+                .iter()
+                .map(|&v| i32::try_from(v).unwrap())
+                .collect();
+            let mut staged = vec![0i32; obj.c_len()];
+            int8::staged(&obj, &l, &bt, &mut Vec::new(), &mut Vec::new(), &mut staged).unwrap();
+            for run in 0..2 {
+                let mut c = vec![7i32; obj.c_len()];
+                let r = int8::direct(&obj, &l, &prep, &bt, &mut c).unwrap();
+                assert_eq!(c, want, "dim {dim} region ({start}, {len}) run {run}");
+                assert_eq!(r.a_copied, 0);
+                assert_eq!(r.b_materialized, 0);
+            }
+            assert_eq!(staged, want);
+        }
+    }
+}
+
+/// Lanes that are not one strided operand are refused, never copied: rows
+/// out of order, a scattered mask, and a region whose padded read would
+/// leave the lane's row. A prepared B for another operand is refused too.
+#[test]
+fn int8_direct_refuses_what_it_cannot_read_in_place() {
+    use dr_isa_stream_lab::gemm::DirectRefusal;
+    use dr_isa_stream_lab::shape::{BTable, ReuseRefusal};
+    let dim = 64;
+    let fx = fx(4096, dim);
+    let lanes = U8Lanes::slab_in_order(&fx);
+    let world = world(dim);
+    let bt = BTable::new(&B, 4096, dim);
+
+    let mut permuted = U8Socket::in_order(&lanes, dim);
+    permuted.rows.swap(3, 4);
+    let sel = Selection::region(SPACE_A, 0, 128);
+    let obj = VirtualObject::bind(&world, &permuted, &fields(dim), dim, sel).unwrap();
+    let l = int8::resolve(&obj, &world, &permuted).unwrap();
+    let prep = int8::PreparedI8B::prepare(&obj, &bt).unwrap();
+    let mut c = vec![0i32; obj.c_len()];
+    assert!(matches!(
+        int8::direct(&obj, &l, &prep, &bt, &mut c),
+        Err(ShapeRefusal::Direct(
+            DirectRefusal::RowsNotConsecutive { .. }
+        ))
+    ));
+
+    let socket = U8Socket::in_order(&lanes, dim);
+    let mask = Selection::mask(SPACE_A, 4096, (0..64).map(|k| k * 61 % 4096));
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, mask).unwrap();
+    let l = int8::resolve(&obj, &world, &socket).unwrap();
+    let prep = int8::PreparedI8B::prepare(&obj, &bt).unwrap();
+    assert!(matches!(
+        int8::direct(&obj, &l, &prep, &bt, &mut vec![0i32; obj.c_len()]),
+        Err(ShapeRefusal::NotARegion)
+    ));
+
+    // The pitch is 4096 (already a multiple of 64). A 56-long region at
+    // 4040 pads to 64 and would read up to 4104, past its own row.
+    let sel = Selection::region(SPACE_A, 4040, 56);
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+    let l = int8::resolve(&obj, &world, &socket).unwrap();
+    let prep = int8::PreparedI8B::prepare(&obj, &bt).unwrap();
+    assert!(matches!(
+        int8::direct(&obj, &l, &prep, &bt, &mut vec![0i32; obj.c_len()]),
+        Err(ShapeRefusal::OverRead { .. })
+    ));
+
+    let sel = Selection::region(SPACE_A, 0, 128);
+    let obj = VirtualObject::bind(&world, &socket, &fields(dim), dim, sel).unwrap();
+    let l = int8::resolve(&obj, &world, &socket).unwrap();
+    let prep = int8::PreparedI8B::prepare(&obj, &bt).unwrap();
+    let other = BTable::new(&B, 4096, dim);
+    assert!(matches!(
+        int8::direct(&obj, &l, &prep, &other, &mut vec![0i32; obj.c_len()]),
+        Err(ShapeRefusal::Reuse(ReuseRefusal::Operand))
+    ));
+}

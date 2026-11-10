@@ -580,6 +580,15 @@ pub enum ReuseRefusal {
 /// output tile and every repeated run. Rows are the selected identities in
 /// order; rows past the selection are zero.
 pub struct PreparedB {
+    key: ReuseKey,
+    panels: Vec<PackedBf16B>,
+}
+
+/// What a prepared operand was prepared for, and the one rule for reusing it.
+/// Shared by the BF16 [`PreparedB`] and the INT8 `PreparedI8B`, so the two
+/// cannot drift apart.
+#[derive(Debug, Clone)]
+pub struct ReuseKey {
     /// The object it was packed for (fast path: one compare).
     object: u64,
     /// That object's selection, compared in full when the object differs:
@@ -587,7 +596,46 @@ pub struct PreparedB {
     selection: Selection,
     frame: Frame,
     operand: OperandId,
-    panels: Vec<PackedBf16B>,
+    cols: usize,
+}
+
+impl ReuseKey {
+    /// The key of an operand prepared for `obj` from `b`.
+    pub fn of(obj: &VirtualObject, b: &impl BValues) -> ReuseKey {
+        ReuseKey {
+            object: obj.id,
+            selection: obj.selection.clone(),
+            frame: obj.frame().clone(),
+            operand: b.identity(),
+            cols: obj.cols,
+        }
+    }
+
+    /// Whether the prepared operand may serve `obj` with operand `b`.
+    ///
+    /// The operand is compared by identity (source and revision), always.
+    /// For the object it was packed for, one identity compare covers the
+    /// selection, frame and width. For any other object the selection is
+    /// compared in full, then the frame issue and the width: a prepared B is
+    /// shared across objects only when all three are equal.
+    pub fn admit(&self, obj: &VirtualObject, b: &impl BValues) -> Result<(), ReuseRefusal> {
+        if self.operand != b.identity() {
+            return Err(ReuseRefusal::Operand);
+        }
+        if self.object == obj.id {
+            return Ok(());
+        }
+        if self.selection != obj.selection {
+            return Err(ReuseRefusal::Selection);
+        }
+        if !self.frame.same_issue(obj.frame()) {
+            return Err(ReuseRefusal::Frame);
+        }
+        if self.cols != obj.cols {
+            return Err(ReuseRefusal::Columns);
+        }
+        Ok(())
+    }
 }
 
 /// What preparing B did.
@@ -625,10 +673,7 @@ impl PreparedB {
         let allocated = panels.iter().map(|p| p.data().len() * 2).sum();
         Ok((
             PreparedB {
-                object: obj.id,
-                selection: obj.selection.clone(),
-                frame: obj.frame().clone(),
-                operand: b.identity(),
+                key: ReuseKey::of(obj, b),
                 panels,
             },
             PrepReport {
@@ -644,30 +689,10 @@ impl PreparedB {
         &self.panels[t]
     }
 
-    /// Whether this prepared B may serve `obj` with operand `b`.
-    ///
-    /// The operand is compared by identity (source and revision), always.
-    /// For the object it was packed for, one identity compare covers the
-    /// selection, frame and width. For any other object the selection is
-    /// compared in full, then the frame issue and the width: a prepared B is
-    /// shared across objects only when all three are equal.
+    /// Whether this prepared B may serve `obj` with operand `b`
+    /// ([`ReuseKey::admit`]).
     pub fn admit(&self, obj: &VirtualObject, b: &impl BValues) -> Result<(), ReuseRefusal> {
-        if self.operand != b.identity() {
-            return Err(ReuseRefusal::Operand);
-        }
-        if self.object == obj.id {
-            return Ok(());
-        }
-        if self.selection != obj.selection {
-            return Err(ReuseRefusal::Selection);
-        }
-        if !self.frame.same_issue(obj.frame()) {
-            return Err(ReuseRefusal::Frame);
-        }
-        if self.panels.len() * TILE != obj.cols {
-            return Err(ReuseRefusal::Columns);
-        }
-        Ok(())
+        self.key.admit(obj, b)
     }
 }
 

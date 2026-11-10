@@ -313,3 +313,34 @@ three are now fixed:
 
 The FACET STRIDE guard (`facet-stride-guard.sh --diff`) reports 0 hits on
 this change. ndarray is unchanged.
+
+## INT8 direct arm on prepacked INT8 B (ndarray#418)
+
+The OPTIMIZATION FOUND above, now built. `int8::direct` reads A in place at
+the u8 lanes' pitch and takes B from `PreparedI8B` (one `PackedI8B` band per
+16 output columns, packed once) through
+`ndarray::simd::int8_gemm_packed_strided`. Reuse follows `ReuseKey`, the one
+rule now shared with the BF16 `PreparedB`.
+
+One AMX VM, median of 41 warm runs, three runs
+(`results/shape-2026-11-10-int8-direct-run*.txt`):
+
+| Row | 64 fields | 256 fields |
+|---|---|---|
+| `backend::gemm_i8` (packs B per call) | 3.4–3.6 µs | 78.3–78.8 µs |
+| … of which band gather + VNNI pack | 1.9–2.1 µs | 28.6–29.4 µs |
+| **direct GEMM (A in place, B prepared once)** | **0.98–1.01 µs** | **45.5–48.1 µs** (348–368 GMAC/s) |
+| prepare B once | 6.4–6.7 µs | 105 µs |
+| warm end to end, staged arm | 5.7–5.9 µs | 88.9–92.2 µs |
+| **warm end to end, direct arm** | **2.9–3.0 µs** | **47.5–57.9 µs** |
+
+The direct arm allocates nothing and copies no A. Preparing B costs about
+three `gemm_i8` packs, so it pays once B is reused three times.
+
+**A negative result kept on record.** The first version of this arm called
+`int8_tile_gemm_16x16_packed_strided` once per 16×16 tile. It measured 99–108
+µs at 256 fields, slower than `gemm_i8` *with* its per-call pack: 256 calls
+each pay the tile configuration (~105 ns), and the per-tile calls lose the
+2×2 register blocking. Hoisting the pack was not enough; the whole-matrix
+kernel had to take the prepacked bands. That is why ndarray#418 adds
+`int8_gemm_packed_strided`.
