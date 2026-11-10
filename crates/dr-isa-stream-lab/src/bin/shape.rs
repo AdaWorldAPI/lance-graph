@@ -397,6 +397,24 @@ fn main() {
         });
         assert_eq!(c8, want8);
         let (a8_allocs, m8_gemm, _) = mem(|| int8::gemm(&o8, &a8, &b8, &mut c8));
+        // The direct arm: A read in place at the lane pitch, B prepared once
+        // into PackedI8B bands (ndarray's INT8 twins of #414).
+        let prep8 = int8::PreparedI8B::prepare(&o8, &bt).unwrap();
+        let mut d8 = vec![0i32; o8.c_len()];
+        int8::direct(&o8, &l8, &prep8, &bt, &mut d8).unwrap();
+        assert_eq!(d8, want8, "int8 direct {dim}");
+        let t8_prep = median_ns(|| {
+            black_box(int8::PreparedI8B::prepare(&o8, &bt).unwrap());
+        });
+        let t8_direct = median_ns(|| {
+            int8::direct(&o8, &l8, &prep8, &bt, &mut d8).unwrap();
+        });
+        let t8_direct_all = median_ns(|| {
+            let l = int8::resolve(&o8, &world, &u8s).unwrap();
+            int8::direct(&o8, &l, &prep8, &bt, &mut d8).unwrap();
+        });
+        assert_eq!(d8, want8);
+        let (d8_allocs, _, _) = mem(|| int8::direct(&o8, &l8, &prep8, &bt, &mut d8).unwrap());
         push("INT8 resolve (u8 lanes, one check)", col, fmt(t8_resolve));
         push(
             "INT8 stage A (region: one copy per lane)",
@@ -440,6 +458,25 @@ fn main() {
             "INT8 end-to-end warm (resolve + stage + GEMM)",
             col,
             fmt(t8_all),
+        );
+        push(
+            "INT8 prepare B once (PackedI8B bands, `ndarray::simd`)",
+            col,
+            format!("{} · {} B", fmt(t8_prep), prep8.bytes()),
+        );
+        push(
+            "INT8 direct GEMM (A in place, prepared B)",
+            col,
+            format!(
+                "{} · {:.1} GMAC/s · {d8_allocs} allocs · 0 B of A copied",
+                fmt(t8_direct),
+                macs / t8_direct
+            ),
+        );
+        push(
+            "INT8 direct end-to-end warm (resolve + GEMM)",
+            col,
+            fmt(t8_direct_all),
         );
     }
 
