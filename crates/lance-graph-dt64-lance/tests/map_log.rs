@@ -1,11 +1,34 @@
-//! A DR map table survives a round trip through its Lance dataset exactly:
-//! every past route version answers as before, one advance is one commit,
-//! a past commit reads the table as of then, a stale writer is refused, and
-//! route versions are never confused with dataset versions.
+//! A DR map table made durable through the fire-and-forget cycle writer.
+//!
+//! - The owner submits and returns at once; an advance is applied only after
+//!   its cycle seals, at the route version claimed when it was built.
+//! - A failed seal applies nothing and leaves a gap.
+//! - Every landing is on behalf of the owning mailbox.
+//! - A restore answers every past version exactly.
+//!
+//! The interleavings are driven deterministically by a gated in-memory sink
+//! (`GateWal`): commits wait on a semaphore the test opens, and a chosen cycle
+//! fails. The round trip runs on the real `LanceCycleWriter`.
 
-use lance_graph_dt64::dr::{FrameRefusal, LocalMap, MapRead, MapTable, RouteVersion, Width};
-use lance_graph_dt64_lance::{LanceMapLog, StoreError};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
+use lance_graph::graph::cycle_sink::LanceCycleWriter;
+use lance_graph_contract::scheduler::DatasetVersion;
+use lance_graph_dt64::dr::{
+    FrameRefusal, LocalMap, MapRead, MapTable, RouteVersion, VersionClock, Width,
+};
+use lance_graph_dt64_lance::{
+    restore, AdvanceError, MapLog, ReplayError, RestoreError, SealedImages, Settled, RESERVED_ID,
+};
+use lance_graph_planner::persist_sink::{
+    CommitError, CommitOutcome, CycleId, DetachedCycleBatch, FrameMeta, LandedSlot, WalSink,
+    WriteFailed,
+};
+use lance_graph_supervisor::cycle_writer::{cycle_writer, SealError};
+use tokio::sync::Semaphore;
+
+const OWNER: u32 = 42;
 const TILES: [u32; 3] = [1, 2, 3];
 
 fn map(w: Width, ids: &[u64]) -> Option<LocalMap> {
@@ -40,8 +63,8 @@ fn assert_same(a: &MapTable, b: &MapTable, upto: u64) {
 }
 
 /// Six advances covering every kind of history event.
-async fn history(log: &mut LanceMapLog, t: &mut MapTable) {
-    let steps: Vec<Vec<(u32, Option<LocalMap>)>> = vec![
+fn history() -> Vec<Vec<(u32, Option<LocalMap>)>> {
+    vec![
         vec![
             (1, map(Width::W64, &[10, 11, 12])),
             (2, map(Width::W256, &[7, 3, 9, 1])),
@@ -51,146 +74,339 @@ async fn history(log: &mut LanceMapLog, t: &mut MapTable) {
         vec![(2, None)],                               // removal
         vec![],                                        // advance with no change
         vec![(2, map(Width::W64, &[7])), (3, map(Width::W256, &[]))], // re-add, empty map
-    ];
-    for (k, changes) in steps.into_iter().enumerate() {
-        let v = log.advance(t, 1, 1 + k as u64, changes).await.unwrap();
-        assert_eq!(v, RouteVersion(k as u64 + 1));
+    ]
+}
+
+/// One-writer in-memory sink. Fences on `base_version`, publishes head + 1,
+/// keeps each cycle's landings and image, can hold commits behind a gate and
+/// can fail a chosen cycle. Like the real writer, scanned landings carry no
+/// payload.
+#[derive(Default)]
+struct GateWal {
+    head: u64,
+    cycles: Vec<(CycleId, Vec<LandedSlot>, BTreeMap<u64, Vec<u8>>)>,
+    gate: Option<Arc<Semaphore>>,
+    fail_on: Option<CycleId>,
+}
+
+impl WalSink for GateWal {
+    async fn commit_cycle(
+        &mut self,
+        batch: DetachedCycleBatch,
+    ) -> Result<CommitOutcome, CommitError> {
+        if let Some(gate) = &self.gate {
+            gate.acquire().await.expect("gate open").forget();
+        }
+        if Some(batch.frame.cycle) == self.fail_on {
+            return Err(CommitError::Io(WriteFailed("injected".into())));
+        }
+        if batch.frame.base_version.0 != self.head {
+            return Err(CommitError::Fenced {
+                current_head: DatasetVersion(self.head),
+            });
+        }
+        self.head += 1;
+        let landings = batch
+            .landings
+            .iter()
+            .map(|s| {
+                let mut slot = s.clone();
+                slot.payload = Vec::new();
+                LandedSlot {
+                    cycle: batch.frame.cycle,
+                    slot,
+                }
+            })
+            .collect();
+        self.cycles
+            .push((batch.frame.cycle, landings, batch.image.clone()));
+        Ok(CommitOutcome::Committed {
+            version: DatasetVersion(self.head),
+            cycle: batch.frame.cycle,
+            batch_hash: batch.batch_hash,
+        })
+    }
+
+    async fn scan_sealed(&self, after: Option<CycleId>) -> Result<Vec<LandedSlot>, WriteFailed> {
+        Ok(self
+            .cycles
+            .iter()
+            .filter(|(c, _, _)| after.is_none_or(|a| *c > a))
+            .flat_map(|(_, l, _)| l.iter().cloned())
+            .collect())
+    }
+
+    async fn timeline(&self) -> Result<Vec<FrameMeta>, WriteFailed> {
+        Ok(Vec::new())
+    }
+}
+
+impl SealedImages for GateWal {
+    async fn sealed_image(&self, cycle: CycleId) -> Result<BTreeMap<u64, Vec<u8>>, WriteFailed> {
+        Ok(self
+            .cycles
+            .iter()
+            .find(|(c, _, _)| *c == cycle)
+            .map(|(_, _, i)| i.clone())
+            .unwrap_or_default())
+    }
+}
+
+fn applied(s: Option<Settled>) -> RouteVersion {
+    match s {
+        Some(Settled::Applied(v)) => v,
+        other => panic!("expected Applied, got {other:?}"),
     }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_restored_table_answers_every_past_version_exactly() {
     let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    let (mut t, mut log) = LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    history(&mut log, &mut t).await;
+    let path = dir.path().join("map.lance");
+    let sink = LanceCycleWriter::open(path.to_str().unwrap()).await.unwrap();
+    let head = sink.head();
+    let (writer, handle) = cycle_writer(sink, head, 8);
 
-    let (r, rlog) = LanceMapLog::restore(&uri).await.unwrap();
-    assert_eq!(r.current_version(), t.current_version());
-    assert_eq!(r.revisions(), t.revisions());
-    assert_same(&t, &r, t.current_version().0);
+    let (exit, live) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        for (k, changes) in history().into_iter().enumerate() {
+            let v = log.advance(1, 2 + k as u64, changes).unwrap();
+            assert_eq!(v, RouteVersion(k as u64 + 1));
+        }
+        assert!(log.settle_next().await.is_none(), "genesis applies nothing");
+        for k in 1..=6 {
+            assert_eq!(applied(log.settle_next().await), RouteVersion(k));
+        }
+        log
+    });
+    let live = live.table();
+
+    // One Lance version per cycle: genesis plus six advances.
+    assert_eq!(exit.sink.head(), DatasetVersion(head.0 + 7));
+
+    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    assert_eq!(restored.last, RouteVersion(6));
+    assert_same(live, &restored.table, 6);
     for tile in TILES {
         assert_eq!(
-            r.generation_count(tile),
-            t.generation_count(tile),
-            "tile {tile}"
+            live.generation_count(tile),
+            restored.table.generation_count(tile)
         );
-        assert_eq!(r.event_count(tile), t.event_count(tile), "tile {tile}");
-    }
-    // The extension is stored as an extension: tile 1 has two generations
-    // (the original, extended in place, and the reorder), not three.
-    assert_eq!(r.generation_count(1), 2);
-    // Genesis plus six advances: seven commits.
-    assert_eq!(log.dataset_version(), Some(7));
-    assert_eq!(rlog.dataset_version(), Some(7));
-}
-
-/// Lance's own version history is the DR history: dataset version `k` holds
-/// genesis and the first `k - 1` advances, and answers each of them as the
-/// live table does.
-#[tokio::test(flavor = "multi_thread")]
-async fn each_past_commit_reads_the_table_as_of_then() {
-    let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    let (mut t, mut log) = LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    history(&mut log, &mut t).await;
-    for k in 1..=7u64 {
-        let past = LanceMapLog::restore_at(&uri, k).await.unwrap();
-        assert_eq!(
-            past.current_version(),
-            RouteVersion(k - 1),
-            "dataset version {k}"
-        );
-        assert_same(&t, &past, k - 1);
+        assert_eq!(live.event_count(tile), restored.table.event_count(tile));
     }
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn a_stale_writer_writes_nothing() {
-    let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    let (mut t, mut log) = LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    let (mut t2, mut log2) = LanceMapLog::restore(&uri).await.unwrap();
-    log.advance(&mut t, 1, 1, vec![(1, map(Width::W64, &[1, 2]))])
-        .await
-        .unwrap();
+#[tokio::test]
+async fn the_owner_returns_before_the_seal_and_applies_only_after_it() {
+    let gate = Arc::new(Semaphore::new(0));
+    let sink = GateWal {
+        gate: Some(gate.clone()),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
 
-    let before = t2.current_version();
-    let err = log2
-        .advance(&mut t2, 1, 1, vec![(1, map(Width::W64, &[5]))])
-        .await
-        .unwrap_err();
-    assert!(matches!(
-        err,
-        StoreError::StaleWriter {
-            expected: Some(1),
-            found: Some(2)
+    let (_exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let v1 = log.advance(1, 1, vec![(1, map(Width::W64, &[5]))]).unwrap();
+        let v2 = log.advance(1, 1, vec![(1, map(Width::W64, &[5, 6]))]).unwrap();
+        assert_eq!((v1, v2), (RouteVersion(1), RouteVersion(2)));
+
+        // Nothing sealed yet: the table has not moved.
+        for _ in 0..100 {
+            tokio::task::yield_now().await;
         }
-    ));
-    assert_eq!(t2.current_version(), before, "the table was not advanced");
-    let (r, _) = LanceMapLog::restore(&uri).await.unwrap();
-    assert_eq!(
-        answer(&r, 1, 1),
-        Ok((64, vec![1, 2])),
-        "only the first writer's advance is stored"
-    );
+        assert!(log.settle().is_empty());
+        assert_eq!(log.pending(), 3);
+        assert_eq!(
+            answer(log.table(), 2, 1),
+            Err(MapRead::NoSuchTile(1)),
+            "unsealed advances must not be applied"
+        );
+
+        gate.add_permits(3);
+        assert!(log.settle_next().await.is_none());
+        assert_eq!(applied(log.settle_next().await), v1);
+        assert_eq!(applied(log.settle_next().await), v2);
+        assert_eq!(answer(log.table(), 2, 1), Ok((64, vec![5, 6])));
+        assert_eq!(answer(log.table(), 1, 1), Ok((64, vec![5])));
+    });
 }
 
-/// A table whose clock is shared (here: ticked from a clone, as a RouteLog
-/// sharing it would) issues route versions with gaps. They are stored and
-/// replayed as route versions, independent of the dataset version.
-#[tokio::test(flavor = "multi_thread")]
-async fn route_versions_with_gaps_replay_as_route_versions() {
-    let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    let (mut t, mut log) = LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    let shared = t.clock();
-    for _ in 0..5 {
-        shared.tick();
+#[tokio::test]
+async fn a_clock_tick_between_claim_and_seal_lands_at_the_claimed_version() {
+    let gate = Arc::new(Semaphore::new(0));
+    let sink = GateWal {
+        gate: Some(gate.clone()),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
+
+    let (exit, ()) = tokio::join!(writer.run(), async move {
+        let clock = VersionClock::new();
+        let mut log = MapLog::create(handle, OWNER, 1, 1, clock.clone()).unwrap();
+        let v = log.advance(1, 1, vec![(1, map(Width::W64, &[9]))]).unwrap();
+        // Another holder of the clock (a RouteLog) ticks while the cycle seals.
+        clock.tick();
+        clock.tick();
+        gate.add_permits(2);
+        assert!(log.settle_next().await.is_none());
+        assert_eq!(applied(log.settle_next().await), v);
+        assert_eq!(log.table().current_version(), RouteVersion(v.0 + 2));
+        assert_eq!(answer(log.table(), v.0, 1), Ok((64, vec![9])));
+        assert_eq!(answer(log.table(), v.0 - 1, 1), Err(MapRead::NoSuchTile(1)));
+    });
+
+    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    assert_eq!(restored.last, RouteVersion(1));
+    assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![9])));
+}
+
+#[tokio::test]
+async fn a_failed_seal_applies_nothing_and_poisons_what_follows() {
+    let gate = Arc::new(Semaphore::new(0));
+    let sink = GateWal {
+        gate: Some(gate.clone()),
+        fail_on: Some(CycleId(2)),
+        ..GateWal::default()
+    };
+    let (writer, handle) = cycle_writer(sink, DatasetVersion(0), 8);
+
+    let (exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let v1 = log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
+        let v2 = log.advance(1, 1, vec![(1, map(Width::W64, &[1, 2]))]).unwrap();
+        let v3 = log.advance(1, 1, vec![(2, map(Width::W64, &[3]))]).unwrap();
+        gate.add_permits(4);
+
+        assert!(log.settle_next().await.is_none());
+        assert_eq!(applied(log.settle_next().await), v1);
+        match log.settle_next().await {
+            Some(Settled::NotDurable {
+                version,
+                error: SealError::Failed(f),
+            }) => {
+                assert_eq!(version, v2);
+                assert_eq!(f.casts.len(), 2, "marker + one tile cast come back");
+            }
+            other => panic!("expected the failed seal, got {other:?}"),
+        }
+        match log.settle_next().await {
+            Some(Settled::NotDurable {
+                version,
+                error: SealError::Poisoned { casts, .. },
+            }) => {
+                assert_eq!(version, v3);
+                assert_eq!(casts.len(), 2);
+            }
+            other => panic!("expected the poisoned seal, got {other:?}"),
+        }
+
+        // Neither v2 nor v3 was applied.
+        assert_eq!(answer(log.table(), v2.0, 1), Ok((64, vec![1])));
+        assert_eq!(answer(log.table(), v3.0, 2), Err(MapRead::NoSuchTile(2)));
+        // And nothing more is submitted.
+        let before = log.table().current_version();
+        match log.advance(1, 1, vec![]) {
+            Err(AdvanceError::Poisoned { failed }) => assert_eq!(failed, v2),
+            other => panic!("expected Poisoned, got {other:?}"),
+        }
+        assert_eq!(log.table().current_version(), before, "nothing was claimed");
+    });
+
+    // The store holds genesis and v1 only, and replays to the same table.
+    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    assert_eq!(restored.last, RouteVersion(1));
+    assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![1])));
+    assert_eq!(answer(&restored.table, 1, 2), Err(MapRead::NoSuchTile(2)));
+}
+
+#[tokio::test]
+async fn every_landing_is_on_behalf_of_the_owner() {
+    let (writer, handle) = cycle_writer(GateWal::default(), DatasetVersion(0), 8);
+    let (exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        log.advance(1, 1, vec![(1, map(Width::W256, &[1, 2]))])
+            .unwrap();
+        while log.settle_next().await.is_some() {}
+    });
+    let landings = exit.sink.scan_sealed(None).await.unwrap();
+    // genesis marker + advance marker + four W256 parts
+    assert_eq!(landings.len(), 6);
+    assert!(landings.iter().all(|l| l.slot.owner == OWNER));
+    assert!(landings.iter().all(|l| l.slot.paired_move.is_none()));
+
+    match restore(&exit.sink, OWNER + 1, VersionClock::new()).await {
+        Err(RestoreError::Replay(ReplayError::ForeignOwner { owner, .. })) => {
+            assert_eq!(owner, OWNER)
+        }
+        Ok(_) => panic!("a restore on behalf of another mailbox must be refused"),
+        Err(e) => panic!("expected ForeignOwner, got {e:?}"),
     }
-    let v = log
-        .advance(&mut t, 1, 1, vec![(1, map(Width::W64, &[42]))])
-        .await
-        .unwrap();
-    assert_eq!(v, RouteVersion(6));
-    assert_eq!(log.dataset_version(), Some(2), "two commits, not six");
-
-    let (r, _) = LanceMapLog::restore(&uri).await.unwrap();
-    assert_eq!(r.current_version(), RouteVersion(6));
-    assert_eq!(answer(&r, 5, 1), Err(MapRead::NoSuchTile(1)));
-    assert_eq!(answer(&r, 6, 1), Ok((64, vec![42])));
 }
 
-/// Frames are witnesses of one table instance, so a frame sealed before a
-/// restore is foreign to the restored table.
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
+async fn a_reserved_id_or_a_repeated_tile_is_refused_before_a_version_is_claimed() {
+    let (writer, handle) = cycle_writer(GateWal::default(), DatasetVersion(0), 8);
+    let (_exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        let before = log.table().current_version();
+        let reserved = LocalMap::prepare(Width::W64, &[1, RESERVED_ID]).unwrap();
+        assert!(matches!(
+            log.advance(1, 1, vec![(4, Some(reserved))]),
+            Err(AdvanceError::ReservedId(4))
+        ));
+        assert!(matches!(
+            log.advance(1, 1, vec![(4, None), (4, map(Width::W64, &[1]))]),
+            Err(AdvanceError::DuplicateTile(4))
+        ));
+        assert_eq!(log.table().current_version(), before);
+        // The silence twin: a valid advance is claimed and applied.
+        let v = log.advance(1, 1, vec![(4, map(Width::W64, &[1]))]).unwrap();
+        assert_eq!(v.0, before.0 + 1);
+        while log.settle_next().await.is_some() {}
+        assert_eq!(answer(log.table(), v.0, 4), Ok((64, vec![1])));
+    });
+}
+
+#[tokio::test]
+async fn a_restored_log_continues_and_restores_again() {
+    let (writer, handle) = cycle_writer(GateWal::default(), DatasetVersion(0), 8);
+    let (exit, ()) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
+        while log.settle_next().await.is_some() {}
+    });
+    let sink = exit.sink;
+    let restored = restore(&sink, OWNER, VersionClock::new()).await.unwrap();
+    let head = DatasetVersion(sink.head);
+    let (writer, handle) = cycle_writer(sink, head, 8);
+    let (exit, first) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::resume(restored, handle, OWNER);
+        let v = log.advance(1, 1, vec![(1, None)]).unwrap();
+        assert_eq!(v, RouteVersion(2));
+        assert_eq!(applied(log.settle_next().await), v);
+        log
+    });
+    let again = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
+    assert_eq!(again.last, RouteVersion(2));
+    assert_same(first.table(), &again.table, 2);
+}
+
+#[tokio::test]
 async fn a_frame_from_before_a_restore_is_foreign() {
-    let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    let (mut t, mut log) = LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    log.advance(&mut t, 1, 1, vec![(1, map(Width::W64, &[1]))])
-        .await
-        .unwrap();
-    let frame = t.seal();
-    assert!(t.map(&frame, 1).is_ok());
-    let (r, _) = LanceMapLog::restore(&uri).await.unwrap();
+    let (writer, handle) = cycle_writer(GateWal::default(), DatasetVersion(0), 8);
+    let (exit, log) = tokio::join!(writer.run(), async move {
+        let mut log = MapLog::create(handle, OWNER, 1, 1, VersionClock::new()).unwrap();
+        log.advance(1, 1, vec![(1, map(Width::W64, &[1]))]).unwrap();
+        while log.settle_next().await.is_some() {}
+        log
+    });
+    let frame = log.table().seal();
+    let restored = restore(&exit.sink, OWNER, VersionClock::new()).await.unwrap();
     assert!(matches!(
-        r.map(&frame, 1),
+        restored.table.map(&frame, 1),
         Err(MapRead::Stale(FrameRefusal::ForeignFrame))
     ));
-    assert!(r.map(&r.seal(), 1).is_ok());
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn create_refuses_an_existing_dataset() {
-    let dir = tempfile::tempdir().unwrap();
-    let uri = dir.path().join("map.lance").to_string_lossy().into_owned();
-    LanceMapLog::create(&uri, 1, 1).await.unwrap();
-    assert!(matches!(
-        LanceMapLog::create(&uri, 1, 1).await.unwrap_err(),
-        StoreError::StaleWriter {
-            expected: None,
-            found: Some(1)
-        }
-    ));
+    // The same version still answers through diagnose_at.
+    assert_eq!(answer(&restored.table, 1, 1), Ok((64, vec![1])));
 }

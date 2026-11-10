@@ -4,10 +4,10 @@
 # (own [workspace] root), like lance-graph-dir-sim-lance: dt64 stays free of
 # lance and arrow.
 #
-# One MapTable::advance is one Lance commit. The DR route version travels in
-# the rows; the Lance dataset version is the physical commit counter, used to
-# refuse a stale writer, to detect a race, and to read the table as of a past
-# commit (`checkout_version`).
+# Advances are fire and forget: each one is a cycle submitted to the
+# supervisor's CycleWriter, whose single background task owns a
+# LanceCycleWriter (D-DR64-WAL-1). The advance is applied to the table only
+# after its seal ticket resolves Ok; a failed seal is a gap.
 #
 # Build/verify:
 #   cargo test --manifest-path crates/lance-graph-dt64-lance/Cargo.toml
@@ -18,18 +18,18 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 license = "Apache-2.0"
-description = "DR's versioned global -> local map table stored in Lance: one advance per commit, replayed exactly at restore."
+description = "DR's versioned global -> local map table made durable through the fire-and-forget cycle writer, replayed exactly at restore."
 
 [workspace]
 
 [dependencies]
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
-# The lance family moves in lockstep with the lance-graph root (13 / arrow
-# 58); a local or file URI is enough here.
-lance = { version = "13.*", default-features = false }
-arrow-array = "58"
-arrow-schema = "58"
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-planner = { path = "../lance-graph-planner" }
+lance-graph-supervisor = { path = "../lance-graph-supervisor", features = ["cycle-driver"] }
+# LanceCycleWriter, the WAL (graph::cycle_sink, behind `planner`).
+lance-graph = { path = "../lance-graph", default-features = false, features = ["planner"] }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 tempfile = "3"
