@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-591 entries, 2026-08-06 .. 2026-11-10.
+592 entries, 2026-08-06 .. 2026-11-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
