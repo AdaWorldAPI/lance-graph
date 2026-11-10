@@ -78,6 +78,10 @@ pub enum CostRefusal {
     },
     /// `storeId` was not bound.
     NoIdentity,
+    /// A demanded cost lane was not in the binding; its column would read as zero.
+    NotBound {
+        field: u8,
+    },
     /// The prepared demand band was made for another menu revision.
     MenuRevision {
         prepared: u32,
@@ -155,12 +159,14 @@ impl<'s> CostQuery<'s> {
     ) -> Result<CostQuery<'s>, CostRefusal> {
         let mut a = vec![0u8; STORES * CATEGORIES].into_boxed_slice();
         let mut ids = None;
+        let mut bound = [false; CATEGORIES];
         for lane in binding.borrow_all(store, view, frames, source)? {
             let (field, plane) = lane?;
             match (usize::from(field), plane) {
                 (STORE_ID, Plane::U32(v)) => ids = Some(v),
                 (f, Plane::I32(v)) if (COST0..COST0 + CATEGORIES).contains(&f) => {
                     let k = f - COST0;
+                    bound[k] = true;
                     for (row, &value) in v.iter().enumerate() {
                         a[row * CATEGORIES + k] = u8::try_from(value)
                             .map_err(|_| CostRefusal::NotU8 { field, row, value })?;
@@ -170,6 +176,13 @@ impl<'s> CostQuery<'s> {
             }
         }
         let ids = ids.ok_or(CostRefusal::NoIdentity)?;
+        // `borrow_all` checks only the fields the binding carries; an omitted
+        // demanded lane would leave its column of A zero and understate cost.
+        if let Some(k) = demanded_categories().into_iter().find(|&k| !bound[k]) {
+            return Err(CostRefusal::NotBound {
+                field: (COST0 + k) as u8,
+            });
+        }
         let lanes = [LaneRef::U32(ids)];
         let planes = Planes {
             n_rows: STORES,

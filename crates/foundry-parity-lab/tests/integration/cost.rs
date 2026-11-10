@@ -137,6 +137,33 @@ fn a_cost_that_does_not_fit_u8_is_refused_not_truncated() {
 }
 
 #[test]
+fn a_binding_missing_a_demanded_cost_lane_is_refused() {
+    let world = World::new();
+    let net = Network::ingest(Order::Identity);
+    let all = cost_fields();
+    let dropped = all[0];
+    let partial: Vec<u8> = all.iter().copied().filter(|&f| f != dropped).collect();
+    let binding = world
+        .bind(&net, &partial, net.order().space(), READER)
+        .expect("a partial binding is itself valid");
+    match CostQuery::open(&binding, &world.store, &world.view, net.frames(), &net) {
+        Err(CostRefusal::NotBound { field }) => assert_eq!(field, dropped),
+        other => panic!("expected NotBound, got {:?}", other.err()),
+    }
+    // Identity-only binding: refused, never answered as all-zero costs.
+    let ids_only = [*all.last().unwrap()];
+    let binding = world
+        .bind(&net, &ids_only, net.order().space(), READER)
+        .unwrap();
+    assert!(matches!(
+        CostQuery::open(&binding, &world.store, &world.view, net.frames(), &net),
+        Err(CostRefusal::NotBound { .. })
+    ));
+    // Silent half: the full binding still opens.
+    assert!(cost_query(&world, &net).is_ok());
+}
+
+#[test]
 fn a_stale_binding_is_refused_after_a_price_change() {
     let world = World::new();
     let mut net = Network::ingest(Order::Identity);
