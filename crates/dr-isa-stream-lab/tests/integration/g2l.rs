@@ -241,3 +241,26 @@ fn a_translated_identity_past_the_inner_table_is_refused_before_packing() {
     let tb = TranslatedB::new(&short, &source, &tr).unwrap();
     int8::PreparedI8B::prepare(&obj, &tb).expect("every identity is inside the table");
 }
+
+/// A translation belongs to the source whose map table issued its frame.
+/// Two sources built in the same order have equal coordinate digests, so a
+/// coordinate check alone admits a translation from the other one; packing
+/// would then read the second table with a frame it never issued. It must be
+/// refused before any packing.
+#[test]
+fn a_translation_from_another_source_in_the_same_order_is_refused() {
+    let fx = fx();
+    let first = OrderedSource::new(&fx, DIM, order(1237, 11));
+    let second = OrderedSource::new(&fx, DIM, order(1237, 11));
+    let bt = BTable::new(&B, N, DIM);
+    let tr = translate(&first, &wanted()).unwrap();
+    // Anti-vacuity: the two sources really agree on coordinates.
+    assert_eq!(first.coordinates(), second.coordinates());
+    assert!(matches!(
+        TranslatedB::new(&bt, &second, &tr),
+        Err(G2lRefusal::Foreign)
+    ));
+    assert!(matches!(tr.check(&second), Err(G2lRefusal::Foreign)));
+    // Silence twin: the issuing source still admits it.
+    assert!(TranslatedB::new(&bt, &first, &tr).is_ok());
+}

@@ -38,7 +38,7 @@ use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_dt64::dr::{
-    Frame, FrameRevisions, LocalMap, LocateRefusal, MapTable, TileId, Width,
+    Frame, FrameRevisions, LocalMap, LocateRefusal, MapRead, MapTable, TileId, Width,
 };
 use lance_graph_dt64::CoordSpace;
 
@@ -159,6 +159,11 @@ impl OrderedSource {
             .sum()
     }
 
+    /// The source's coordinate revision: the digest of its current order.
+    pub fn coordinates(&self) -> u64 {
+        self.lanes.frames().revisions().coordinates
+    }
+
     /// Identities held by the source.
     pub fn len(&self) -> usize {
         self.order.len()
@@ -182,6 +187,9 @@ pub enum G2lRefusal {
     Duplicate { global: u64 },
     /// The translation was made under another order of the source.
     Stale { made: u64, now: u64 },
+    /// The translation was made on another source: its frame was issued by
+    /// another map table, even if that table holds the same order.
+    Foreign,
 }
 
 static NEXT_TRANSLATION: AtomicU64 = AtomicU64::new(1);
@@ -210,9 +218,14 @@ impl Translation {
         self.lookups
     }
 
-    /// Refuses once the source's order has moved since the translation was
-    /// made. One compare.
+    /// Refuses a translation made on another source (its frame was issued by
+    /// another map table), and one made under another order of this source.
     pub fn check(&self, source: &OrderedSource) -> Result<(), G2lRefusal> {
+        if let Some(&tile) = self.tiles.first() {
+            if let Err(MapRead::Stale(_)) = source.map.map(&self.frame, tile) {
+                return Err(G2lRefusal::Foreign);
+            }
+        }
         let now = source.lanes.frames().revisions().coordinates;
         if now != self.coordinates {
             return Err(G2lRefusal::Stale {
