@@ -4,6 +4,8 @@
 //! ```text
 //! # cost table (D-WAL-2)
 //! cargo run --release -p lance-graph --features lancedb-sdk --example wal_shootout -- latency <scratch-dir>
+//! # DR/DT64 64x64: N = 1, 4, 16, 64 changed tiles per advance
+//! cargo run --release -p lance-graph --features lancedb-sdk --example wal_shootout -- dr64 <scratch-dir>
 //! # soak, one process per arm (D-WAL-3)
 //! cargo run --release -p lance-graph --features lancedb-sdk --example wal_shootout -- \
 //!     soak <L|M> <dir> <minutes> <rows-per-cycle> <interval-ms> <csv>
@@ -101,13 +103,21 @@ impl Arm {
     }
 }
 
-async fn latency(root: &str) {
+/// The SoA-512 sizes the shoot-out was run at (D-WAL-2).
+const SOA512: [(usize, u64); 3] = [(64, 200), (1024, 200), (8192, 40)];
+
+/// DR/DT64 64x64: one cast per changed DR64 tile (64 global ids x 8 bytes =
+/// one 512-byte payload). N is the number of tiles one advance changes: a
+/// single tile up to the whole 64-tile cube.
+const DR64: [(usize, u64); 4] = [(1, 200), (4, 200), (16, 200), (64, 200)];
+
+async fn latency(root: &str, sizes: &[(usize, u64)]) {
     println!(
         "tier: avx512f={} | host I/O bound: numbers are per cycle (µs) and per stored row (ns)",
         cfg!(target_feature = "avx512f")
     );
     println!("arm  N      cycles  p50_us    p99_us    ns/row   rows      MiB     files  versions  scan_ms");
-    for (n, cycles) in [(64usize, 200u64), (1024, 200), (8192, 40)] {
+    for &(n, cycles) in sizes {
         for kind in ["L", "M10", "M100"] {
             let dir = format!("{root}/lat-{kind}-{n}");
             let _ = std::fs::remove_dir_all(&dir);
@@ -197,7 +207,8 @@ async fn soak(kind: &str, dir: &str, minutes: u64, n: usize, interval_ms: u64, c
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
-        Some("latency") => latency(args.get(2).expect("scratch dir")).await,
+        Some("latency") => latency(args.get(2).expect("scratch dir"), &SOA512).await,
+        Some("dr64") => latency(args.get(2).expect("scratch dir"), &DR64).await,
         Some("soak") => {
             soak(
                 &args[2],

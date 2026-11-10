@@ -392,6 +392,16 @@ impl FrameStore {
     /// A store whose advances tick `clock`.
     pub fn with_clock(revisions: FrameRevisions, clock: VersionClock) -> Self {
         let version = clock.current();
+        Self::with_clock_at(revisions, clock, version)
+    }
+
+    /// A store whose current seal is at `version`, which the caller has
+    /// checked is not past `clock`'s current version.
+    fn with_clock_at(
+        revisions: FrameRevisions,
+        clock: VersionClock,
+        version: RouteVersion,
+    ) -> Self {
         Self {
             identity: Arc::new(()),
             current: Arc::new(revisions),
@@ -659,6 +669,21 @@ fn fnv_ids(globals: &[u64]) -> u64 {
 /// A tile's name in a [`MapTable`], chosen by the caller.
 pub type TileId = u32;
 
+/// Why [`MapTable::advance_at`] refused a claimed version.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdvanceRefusal {
+    /// `version` is at or before `last`, the last version this table applied.
+    NotAfterLast {
+        last: RouteVersion,
+        version: RouteVersion,
+    },
+    /// The clock has not issued `version` (its last issued is `current`).
+    NotIssued {
+        version: RouteVersion,
+        current: RouteVersion,
+    },
+}
+
 /// Why a [`MapTable`] read was refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MapRead {
@@ -873,6 +898,39 @@ impl MapTable {
         }
     }
 
+    /// An empty table whose genesis is at `genesis`, an earlier version of
+    /// `clock` (a table rebuilt from storage while the clock it shares has
+    /// moved on). Its first advance must come after `genesis`. Refuses a
+    /// genesis the clock has not issued.
+    pub fn with_clock_at(
+        source: u64,
+        relation_map: u64,
+        clock: VersionClock,
+        genesis: RouteVersion,
+    ) -> Result<Self, AdvanceRefusal> {
+        let current = clock.current();
+        if genesis > current {
+            return Err(AdvanceRefusal::NotIssued {
+                version: genesis,
+                current,
+            });
+        }
+        let tiles = BTreeMap::new();
+        let coordinates = Self::coordinates(&tiles);
+        Ok(Self {
+            frames: FrameStore::with_clock_at(
+                FrameRevisions {
+                    source,
+                    relation_map,
+                    coordinates,
+                },
+                clock,
+                genesis,
+            ),
+            tiles,
+        })
+    }
+
     /// The clock this table advances (a clone that shares the counter).
     pub fn clock(&self) -> VersionClock {
         self.frames.clock.clone()
@@ -916,6 +974,52 @@ impl MapTable {
         changes: Vec<(TileId, Option<LocalMap>)>,
     ) -> RouteVersion {
         let version = self.frames.clock.tick();
+        self.apply(version, source, relation_map, changes);
+        version
+    }
+
+    /// Take the next version from the (possibly shared) clock for an advance
+    /// that will be applied later with [`MapTable::advance_at`], once its
+    /// rows are durable. A claimed version that is never applied is a gap:
+    /// no advance, no frame, nothing to replay.
+    pub fn claim(&self) -> RouteVersion {
+        self.frames.clock.tick()
+    }
+
+    /// Apply an advance at a version claimed earlier with [`MapTable::claim`],
+    /// exactly as [`MapTable::advance`] would have at that version. Other
+    /// holders of the clock may have ticked since the claim; the advance still
+    /// lands at `version`.
+    ///
+    /// Refuses, changing nothing, a version at or before the last one this
+    /// table applied (its event logs would leave version order) and a version
+    /// the clock has not issued.
+    pub fn advance_at(
+        &mut self,
+        version: RouteVersion,
+        source: u64,
+        relation_map: u64,
+        changes: Vec<(TileId, Option<LocalMap>)>,
+    ) -> Result<RouteVersion, AdvanceRefusal> {
+        let current = self.frames.clock.current();
+        if version > current {
+            return Err(AdvanceRefusal::NotIssued { version, current });
+        }
+        let last = self.frames.version;
+        if version <= last {
+            return Err(AdvanceRefusal::NotAfterLast { last, version });
+        }
+        self.apply(version, source, relation_map, changes);
+        Ok(version)
+    }
+
+    fn apply(
+        &mut self,
+        version: RouteVersion,
+        source: u64,
+        relation_map: u64,
+        changes: Vec<(TileId, Option<LocalMap>)>,
+    ) {
         for (tile, map) in changes {
             match map {
                 Some(m) => self.tiles.entry(tile).or_default().append(version, m),
@@ -935,7 +1039,6 @@ impl MapTable {
             },
             version,
         );
-        version
     }
 
     /// Seal the current frame.

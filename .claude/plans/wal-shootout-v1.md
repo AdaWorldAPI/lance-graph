@@ -252,3 +252,37 @@ compactor) does to both curves.
 - **D-LNC-7, decided:** `LanceCycleWriter` stays the default with the capped session;
   MemWAL stays an option. The 60-minute soak is deferred.
 
+
+## 8. DR64 sizes (2026-11-10) — the WAL for DR/DT64 map advances
+
+A DR64 tile is 64 global ids × 8 B = one 512-byte cast, so a DR advance that
+changes N tiles is one cycle of N casts. `examples/wal_shootout.rs dr64` runs
+N = 1, 4, 16, 64 at 200 cycles each, on one AVX-512 VM, three separate
+processes. The arms are the same as §1: L = `LanceCycleWriter`, M10 / M100 =
+lancedb MemWAL flushed every 10 / 100 ms. Ranges below cover the three runs.
+
+| N tiles | L p50 | L p99 | M10 p50 | M10 p99 | M100 p50 |
+|---|---|---|---|---|---|
+| 1 | 2.2–4.4 ms | 4.0–7.1 ms | 8.1–8.3 ms | 10.7–11.2 ms | 97.7–98.2 ms |
+| 4 | 2.8–5.7 ms | 5.6–9.2 ms | 7.5–8.3 ms | 10.8–11.8 ms | 97.2–98.3 ms |
+| 16 | 3.4–5.4 ms | 5.2–9.0 ms | 7.8–8.3 ms | 10.9–11.1 ms | 97.4–97.5 ms |
+| 64 | 4.3–5.4 ms | 6.2–9.3 ms | 7.4–7.9 ms | 11.0–11.2 ms | 97.0–97.4 ms |
+
+| N tiles | L MiB / files / versions / scan | M10 MiB / files / versions / scan |
+|---|---|---|
+| 1 | 2.7 / 601 / 200 / 23–28 ms | 1.0 / 209 / 3 / 6–7 ms |
+| 64 | 15.6 / 601 / 200 / 23–25 ms | 14.9 / 209 / 3 / 8–9 ms |
+
+- **L is faster per advance at every N measured**, at p50 and at p99, in all
+  three runs. M's commit time is its flush interval, not its write.
+- **L keeps one Lance version per advance** (200 versions for 200 cycles). M
+  folds 200 advances into 3 versions. DR reads the map table as of a route
+  version, so a version per advance is the shape DR needs, not overhead.
+- **L's cost is files and scan time:** 601 files and a 23–32 ms scan after 200
+  advances, against 209 files and 5–9 ms for M. Both grow with the number of
+  advances, and L's needs compaction (an owner-scheduled step; not part of the
+  advance path).
+
+**D-DR64-WAL-1, decided:** DR/DT64 map advances go through `LanceCycleWriter`
+(L) behind `CycleWriter`, fire and forget. MemWAL is not used for DR. Open:
+the compaction schedule for the map table.
