@@ -8,13 +8,16 @@
 //! The binding is the same [`VirtualObject`]: DT64 does not care what a lane
 //! holds. Only the borrow and the arithmetic change.
 //!
-//! What ndarray's facade offers for INT8 today (audited 2026-11-10):
-//! `backend::gemm_i8` -> `simd_int_ops::gemm_u8_i8` -> `int8_gemm_amx_tiled`
-//! on 16/16/64-aligned shapes. A must be dense with row stride K, and B is
-//! VNNI-packed inside every call. There is no strided-A entry and no prepacked
-//! B for INT8 (the BF16 equivalents are `bf16_tile_gemm_16x16_packed_strided`
-//! and `PackedBf16B`). So the only INT8 arm here is [`staged`]: a direct
-//! (in-place) arm and prepared-B reuse are refused, not emulated.
+//! Two INT8 arms:
+//! - [`staged`]: `backend::gemm_i8` (-> `int8_gemm_amx_tiled`). A is copied
+//!   dense with row stride K, and B is gathered and VNNI-packed inside every
+//!   call.
+//! - [`direct`]: A read in place at the lanes' pitch through
+//!   `ndarray::simd::int8_gemm_packed_strided`, and B prepared
+//!   once ([`PreparedI8B`], one `PackedI8B` band per 16 output columns) and
+//!   reused under the same identity rule as the BF16 [`crate::shape::PreparedB`]
+//!   ([`ReuseKey`]). These are the INT8 twins of the BF16 entries ndarray
+//!   added in #414.
 
 use std::cell::Cell;
 
@@ -22,9 +25,15 @@ use lance_graph_contract::ontology::FieldRef;
 use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{CoordSpace, LaneAddr, LaneRefusal, LaneSource, SchemaRev};
 
+use ndarray::simd::{int8_gemm_packed_strided, PackedI8B};
+
 use crate::bind::{World, CLASS, READER, SPACE_A};
 use crate::fixture::Fixture;
-use crate::shape::{BOperand, BValues, Selection, ShapeRefusal, VirtualObject, Where, MAX_ROWS};
+use crate::gemm::DirectRefusal;
+use crate::shape::{
+    admit_operand, BOperand, BValues, ReuseKey, Selection, ShapeRefusal, VirtualObject, Where,
+    MAX_ROWS, TILE,
+};
 
 /// INT8 tiles consume K in steps of 64.
 pub const K_STEP: usize = 64;
@@ -93,9 +102,25 @@ impl U8Lanes {
         }
     }
 
+    /// The frame owner.
+    pub fn frames(&self) -> &FrameStore {
+        &self.frames
+    }
+
     /// Mutable frame owner, for advancing the source after a change.
     pub fn frames_mut(&mut self) -> &mut FrameStore {
         &mut self.frames
+    }
+
+    /// Rewrite every value in place (`value(i, p)` for identity row `i` of
+    /// lane `p`). The caller advances the frames afterwards.
+    pub fn rewrite(&mut self, value: impl Fn(usize, usize) -> u8) {
+        let (pitch, props) = (self.pitch, self.data.len() / self.pitch.max(1));
+        for p in 0..props {
+            for i in 0..self.n {
+                self.data[p * pitch + i] = value(i, p);
+            }
+        }
     }
 
     /// Physical row `r`, borrowed in place.
@@ -364,4 +389,190 @@ pub fn oracle(fx: &Fixture, sel: &Selection, fields: &[u8], cols: usize, b: &BOp
         }
     });
     c
+}
+
+/// B as `cols / 16` VNNI-packed `K x 16` i8 bands, prepared once for one
+/// object and one operand identity, reused by every output tile and every
+/// repeated run. Rows are the selected identities in order; rows past the
+/// selection are zero.
+pub struct PreparedI8B {
+    key: ReuseKey,
+    bands: Vec<PackedI8B>,
+}
+
+impl PreparedI8B {
+    /// Pack B for `obj`: `band t row k = B[i_k][16t..16t+16]` in VNNI order.
+    /// Refuses an operand smaller than the object ([`admit_operand`]).
+    pub fn prepare(obj: &VirtualObject, b: &impl BValues) -> Result<PreparedI8B, ShapeRefusal> {
+        admit_operand(obj, b)?;
+        let k_pad = obj.selection().len().div_ceil(K_STEP) * K_STEP;
+        let mut bands: Vec<PackedI8B> = (0..obj.cols() / TILE)
+            .map(|_| PackedI8B::zeroed(k_pad))
+            .collect();
+        obj.selection().for_each(|row, i| {
+            for (t, band) in bands.iter_mut().enumerate() {
+                let data = band.data_mut();
+                for c in 0..TILE {
+                    data[PackedI8B::vnni_index(row, c)] = b.i8_at(i, t * TILE + c);
+                }
+            }
+        });
+        Ok(PreparedI8B {
+            key: ReuseKey::of(obj, b),
+            bands,
+        })
+    }
+
+    /// The packed bands, for timing the GEMM alone.
+    pub fn bands(&self) -> &[PackedI8B] {
+        &self.bands
+    }
+
+    /// Bytes the bands occupy, K padding included.
+    pub fn bytes(&self) -> usize {
+        self.bands.iter().map(|b| b.data().len()).sum()
+    }
+}
+
+/// Where 16 lanes sit when they can be read as one strided A operand.
+struct Geometry<'s> {
+    slab: &'s [u8],
+    pitch: usize,
+    first_row: usize,
+}
+
+/// The 16 lanes of a row tile as one strided operand: one allocation, one
+/// pitch, consecutive rows. Anything else is refused, never copied.
+fn geometry<'s>(fields: &[u8], lanes: &[U8Lane<'s>]) -> Result<Geometry<'s>, DirectRefusal> {
+    if lanes.len() < TILE {
+        return Err(DirectRefusal::PartialRowTile { lanes: lanes.len() });
+    }
+    let first = lanes[0];
+    for (k, (lane, &field)) in lanes.iter().zip(fields).enumerate().skip(1) {
+        if !std::ptr::eq(lane.slab, first.slab) {
+            return Err(DirectRefusal::NotOneSlab { field });
+        }
+        if lane.pitch != first.pitch {
+            return Err(DirectRefusal::PitchMismatch { field });
+        }
+        if lane.row != first.row + k {
+            return Err(DirectRefusal::RowsNotConsecutive { field });
+        }
+    }
+    Ok(Geometry {
+        slab: first.slab,
+        pitch: first.pitch,
+        first_row: first.row,
+    })
+}
+
+/// The INT8 direct arm: A read in place at the lanes' pitch, B from the
+/// prepared bands. Needs a region selection; `c` is `rows x cols`, row-major,
+/// overwritten. Rows of B past the selection are zero, so the read up to the
+/// 64-step padding adds nothing; the read must still stay inside the lane's
+/// own row of the slab.
+pub fn direct(
+    obj: &VirtualObject,
+    lanes: &U8Lanes64<'_>,
+    b: &PreparedI8B,
+    operand: &impl BValues,
+    c: &mut [i32],
+) -> Result<Int8Report, ShapeRefusal> {
+    b.key.admit(obj, operand).map_err(ShapeRefusal::Reuse)?;
+    admit(obj, lanes)?;
+    let Where::Region { start, len } = obj.selection().kind else {
+        return Err(ShapeRefusal::NotARegion);
+    };
+    let (rows, cols) = (obj.fields().len(), obj.cols());
+    assert_eq!(c.len(), rows * cols);
+    let k_pad = len.div_ceil(K_STEP) * K_STEP;
+    let mut report = Int8Report {
+        k_pad,
+        ..Int8Report::default()
+    };
+    // One call when every lane is one strided operand (the source's own
+    // order); otherwise one call per 16-field group, each writing its rows.
+    if geometry(obj.fields(), lanes.lanes()).is_ok() {
+        run_rows(
+            start,
+            len,
+            k_pad,
+            0,
+            obj.fields(),
+            lanes.lanes(),
+            b,
+            c,
+            cols,
+            &mut report,
+        )?;
+    } else {
+        for (g, (fs, ls)) in obj
+            .fields()
+            .chunks(TILE)
+            .zip(lanes.lanes().chunks(TILE))
+            .enumerate()
+        {
+            run_rows(start, len, k_pad, g * TILE, fs, ls, b, c, cols, &mut report)?;
+        }
+    }
+    Ok(report)
+}
+
+/// One strided GEMM over the lanes `ls` (fields `fs`), writing C's rows from
+/// `row0`.
+#[allow(clippy::too_many_arguments)]
+fn run_rows(
+    start: usize,
+    len: usize,
+    k_pad: usize,
+    row0: usize,
+    fs: &[u8],
+    ls: &[U8Lane<'_>],
+    b: &PreparedI8B,
+    c: &mut [i32],
+    cols: usize,
+    report: &mut Int8Report,
+) -> Result<(), ShapeRefusal> {
+    let geo = geometry(fs, ls).map_err(ShapeRefusal::Direct)?;
+    if start + k_pad > geo.pitch {
+        return Err(ShapeRefusal::OverRead {
+            start,
+            len,
+            k_pad,
+            n: ls[0].n,
+            pitch: geo.pitch,
+        });
+    }
+    let a = &geo.slab[geo.first_row * geo.pitch + start..];
+    int8_gemm_packed_strided(a, geo.pitch, &b.bands, &mut c[row0 * cols..], fs.len());
+    report.tiles += fs.len() / TILE * b.bands.len();
+    report.dp_steps += fs.len() / TILE * b.bands.len() * (k_pad / K_STEP);
+    Ok(())
+}
+
+/// The staged arm with a prepared B: A copied (one region copy per lane, or a
+/// per-value walk for a mask) into `a`, B taken from the prepared bands. For
+/// selections the direct arm cannot read in place, such as a scattered mask.
+/// `c` is overwritten.
+pub fn staged_prepared(
+    obj: &VirtualObject,
+    lanes: &U8Lanes64<'_>,
+    b: &PreparedI8B,
+    operand: &impl BValues,
+    a: &mut Vec<u8>,
+    c: &mut [i32],
+) -> Result<Int8Report, ShapeRefusal> {
+    b.key.admit(obj, operand).map_err(ShapeRefusal::Reuse)?;
+    let a_copied = stage_a(obj, lanes, a)?;
+    let k_pad = obj.selection().len().div_ceil(K_STEP) * K_STEP;
+    let rows = obj.fields().len();
+    assert_eq!(c.len(), rows * obj.cols());
+    int8_gemm_packed_strided(a, k_pad, &b.bands, c, rows);
+    Ok(Int8Report {
+        k_pad,
+        a_copied,
+        b_materialized: 0,
+        tiles: rows / TILE * b.bands.len(),
+        dp_steps: rows / TILE * b.bands.len() * (k_pad / K_STEP),
+    })
 }
