@@ -94,6 +94,24 @@ impl Bf16Lanes {
         })
     }
 
+    /// `props` lanes over `n` identities in one slab at the padded pitch, in
+    /// field order, from already-encoded bf16 values (for inputs that were
+    /// rounded on purpose; the fixture path refuses inexact values).
+    pub fn slab_encoded(n: usize, props: usize, value: impl Fn(usize, usize) -> u16) -> Bf16Lanes {
+        let pitch = n.div_ceil(BLOCK) * BLOCK;
+        let mut data = vec![0u16; props * pitch].into_boxed_slice();
+        for p in 0..props {
+            for i in 0..n {
+                data[p * pitch + i] = value(i, p);
+            }
+        }
+        Bf16Lanes {
+            layout: Layout::Slab { data, pitch },
+            n,
+            frames: frames(),
+        }
+    }
+
     /// Lanes in one slab, field `f` at row `f`.
     pub fn slab_in_order(fx: &Fixture) -> Result<Bf16Lanes, IngestRefusal> {
         let rows: Vec<usize> = (0..fx.props).collect();

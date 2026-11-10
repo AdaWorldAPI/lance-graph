@@ -59,10 +59,22 @@ pub struct World {
 
 impl World {
     pub fn new() -> World {
+        World::with_fields(FIELDS, "isa:f")
+    }
+
+    /// The class with `count` fields named `{prefix}{f}`. Two worlds with
+    /// different prefixes bind the class over different bases.
+    pub fn with_fields(count: usize, prefix: &str) -> World {
+        World::with_extent(count, prefix, Extent::DR64_CUBE)
+    }
+
+    /// The class with `count` fields under `extent` (DR256 property axes are
+    /// needed past 64 fields).
+    pub fn with_extent(count: usize, prefix: &str, extent: Extent) -> World {
         let mut store = BindStore::new();
         let view = View(
-            (0..FIELDS)
-                .map(|f| FieldRef::new(format!("isa:f{f}"), format!("F{f}")))
+            (0..count)
+                .map(|f| FieldRef::new(format!("{prefix}{f}"), format!("F{f}")))
                 .collect(),
         );
         store
@@ -71,8 +83,8 @@ impl World {
                 CLASS,
                 ClassSchema {
                     schema_rev: SchemaRev(1),
-                    field_count: FIELDS,
-                    extent: Extent::DR64_CUBE,
+                    field_count: count,
+                    extent,
                 },
                 Vec::new(),
             )
