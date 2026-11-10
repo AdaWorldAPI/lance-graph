@@ -13,6 +13,9 @@
 //!   `C[p][m] = sum_i lane_p[i] * mask_m(i)`, with A read in place from the
 //!   slab when its geometry allows and staged otherwise.
 //! * [`oracle`] computes the answer from the fixture alone.
+//! * [`shape`] is the D-DT64-GEMM-SHAPE-1/2 probe: a WHERE-selected
+//!   population routed through the binding into a virtual 64 x 64 or 256 x 256 BF16
+//!   object, consumed as 16 output tiles by four arms.
 //!
 //! [`LaneSource`]: lance_graph_dt64::LaneSource
 
@@ -21,4 +24,5 @@ pub mod cube;
 pub mod fixture;
 pub mod gemm;
 pub mod oracle;
+pub mod shape;
 pub mod source;

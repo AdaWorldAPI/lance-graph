@@ -23,7 +23,7 @@ use crate::fixture::{BLOCK, MASKS, ROWS};
 use crate::source::{SlabLane, Socket};
 
 /// bf16 1.0.
-const ONE: u16 = 0x3F80;
+pub(crate) const ONE: u16 = 0x3F80;
 
 /// How A reaches the tile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,13 +88,16 @@ pub struct Report {
 
 /// In-place geometry of one row tile: A's row `r` is
 /// `slab[(first_row + r) * pitch..]`.
-struct Geometry<'a> {
-    slab: &'a [u16],
-    first_row: usize,
-    pitch: usize,
+pub(crate) struct Geometry<'a> {
+    pub(crate) slab: &'a [u16],
+    pub(crate) first_row: usize,
+    pub(crate) pitch: usize,
 }
 
-fn geometry<'a>(fields: &[u8], lanes: &[SlabLane<'a>]) -> Result<Geometry<'a>, DirectRefusal> {
+pub(crate) fn geometry<'a>(
+    fields: &[u8],
+    lanes: &[SlabLane<'a>],
+) -> Result<Geometry<'a>, DirectRefusal> {
     if lanes.len() != ROWS {
         return Err(DirectRefusal::PartialRowTile { lanes: lanes.len() });
     }
