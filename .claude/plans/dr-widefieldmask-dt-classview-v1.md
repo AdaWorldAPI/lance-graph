@@ -245,6 +245,7 @@ Read in this session, with locations:
 | G4 | Four production paths execute without a class binding (governance v2, F4). | BYPASS-MATRIX | enforcement |
 | G5 | Method bindings are held in `BindStore` and are not persisted; a `MethodRef` stamp is process-local (governance v2, F7). "Behaviour stored as classes" does not survive a restart. | `lance-graph-dt64/src/lib.rs` | replay |
 | G7 | A same-count field reorder passes the hot binding check under a positional source (pinned red-first, `lance-graph-dt64/tests/lane_socket.rs:416`). | `lane.rs:296-349` | correctness |
+| G8 | Virtual relations: a relation X × Y is called, never built as an intermediate table (§1c). How it is bound by DT64 and executed by Quack / mask-RISC without materializing has no work item. | plan v3 W4 (relation index) | design |
 | G6 | ANSWERED (exploration map). `on` / `reads` stay in `MethodBinding`, covered by its digest (agnostic algebra held by an immutable method). A reverse index (`methods_touching`) may be derived, never a second store. | `lance-graph-dt64/src/lib.rs` (`MethodBinding`) | none |
 
 ## 4. Enforcement, and why it is affordable
