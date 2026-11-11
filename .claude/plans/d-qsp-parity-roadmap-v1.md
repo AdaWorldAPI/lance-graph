@@ -95,7 +95,7 @@ pairs must be reported as "materialized" by the same instrument.
 | Real PostgreSQL | semantic oracle and reference execution |
 | PgLance (`lance-format/pglance`) | **unverified comparison candidate.** Before any run: pin the commit used and check its Lance version, pushdown and execution path at that commit. The duckdb plan §A.9 records an earlier reading (Lance 1.0, row-at-a-time FDW, no pushdown); that is a lead, not a verified property of the commit in use. A runtime difference is never labelled tuple-conversion overhead as a whole; that share is measured separately (for example per-cell conversion time against scan time) |
 | lance-graph native | the virtual-projection and algebra implementation |
-| DuckDB 2.0 API (polyfill) | an explicit compatibility surface, like the SQL row polyfill: DuckDB-dialect SQL and its relational API answered by the same inverted tuples and registered algebra. Real DuckDB 2.0.0 (LTS, 2026-10-21) is the oracle for that surface; PostgreSQL stays the oracle for standard SQL semantics. Scope only what DuckDB calls stable: its own release post says C API v2 is not yet marked stable and Rust bindings are only "in the works", so no ABI-level polyfill until they are. Name collision to keep apart: DuckDB 2.0's **Quack** is its DuckDB-to-DuckDB client-server protocol (`quack_serve`, `ATTACH 'quack:…'`), unrelated to `lance-graph-quack`; speaking that protocol would be a wire membrane (zone 3), never the execution engine |
+| DuckDB 2.0 API (polyfill) | an explicit compatibility surface, like the SQL row polyfill: DuckDB-dialect SQL and its relational API answered by the same inverted tuples and registered algebra. Real DuckDB 2.0.0 (LTS, 2026-10-21) is the oracle for that surface; PostgreSQL stays the oracle for standard SQL semantics. Scope only what DuckDB calls stable: its own release post says C API v2 is not yet marked stable and Rust bindings are only "in the works", so no ABI-level polyfill until they are. DuckDB's Quack remote protocol is a separate target, §5a |
 | lance-graph-java (Valhalla / Panama) | later experiment separating representation cost, JVM execution and native-call overhead |
 
 For Java, a JVM implementation and a Panama-to-native path are measured
@@ -103,6 +103,66 @@ separately, so a faster native kernel is never read as a benefit of the Java
 object representation. DuckDB stays the analytical performance comparator
 (D-QSP). The evidence roles are never combined into one speed-up (duckdb
 plan §A.9).
+
+## 5a. DuckDB's Quack remote protocol as a compatibility target
+
+**Two different things share the name.** *DuckDB-Quack* is an external
+client-server protocol owned by DuckDB. *Our Quack* (`lance-graph-quack`) is
+the execution substrate: binding and lowering into relalg / mask-RISC /
+`ndarray`. An adapter may speak the first so that its clients reach the
+second; the protocol never becomes the engine, and the engine never takes
+the protocol's types. PostgreSQL stays the SQL parity oracle; real DuckDB
+2.0 is the oracle only for the DuckDB dialect and for the protocol.
+
+**What the protocol is (read 2026-11-11 from DuckDB's own pages; no official
+wire specification exists):**
+
+- Transport: HTTP(S) `POST /quack`, body MIME type `application/duckdb`,
+  default port 9494; version negotiated in the connection messages
+  (`min_supported_quack_version` / `max_supported_quack_version`,
+  `quack_version`). Source: `duckdb/duckdb-quack`
+  `src/include/quack_message.json`; DuckDB 2.0 docs, Quack reference.
+- Messages: connection request / response (with `auth_string`), prepare
+  request (SQL text, `sql_query`) / response (results as data chunks), fetch,
+  send-data, cancel, heartbeat, acknowledgement, success, error, disconnect.
+  No plan, catalog-lookup, scan or transaction message type is named.
+- Execution side: the server. "The query executes remotely and the server
+  streams the result back"; `ATTACH` "binds the remote's table definitions on
+  the client", and filters on attached tables run remotely.
+- Result encoding: DuckDB's own binary serialization of data chunks, not
+  Arrow ("This is why we use our own serialization in Quack").
+- Status: the extension repo says "pre-release … currently experimental";
+  DuckDB's blog planned the first production release with 2.0. License MIT.
+
+**Can its clients reach our Quack through an adapter? Yes in principle,
+because the client ships SQL text and the server executes.** An adapter has
+four parts, each with its own gate:
+
+1. **Wire layer (zone 3):** HTTP endpoint, message (de)serialization in
+   DuckDB's binary format, pinned to one DuckDB version, since the format is
+   coupled to DuckDB internals and unspecified. Gate: a real DuckDB 2.0 client
+   completes connect / prepare / fetch / disconnect against the adapter.
+2. **SQL intake:** DuckDB-dialect SQL text, both what users type and what the
+   client itself generates (for `ATTACH`'s table definitions and for pushed
+   filters), lowered to our Quack. Unsupported statements return the
+   protocol's error response with a typed reason, never a silent fallback.
+3. **Catalog view:** whatever the client queries to bind table definitions
+   is answered from `ClassView` schemas and the versioned mapping.
+4. **Result encoding:** our results encoded as DuckDB data chunks at the
+   boundary only (boundary materialization, §1). Gate: results equal the same
+   query on a real DuckDB 2.0 server over the same data, and equal PostgreSQL
+   where the query is standard SQL.
+
+Scope as everywhere: read-only first; writes and forwarded transactions are
+refused with a typed error until a separate workstream admits them.
+
+**What is unknown, and the probe that settles it (D-QSP-Q0):** which SQL the
+client sends during `ATTACH` and when it pushes filters, and the exact byte
+layout of the messages and data chunks. Probe: run a DuckDB 2.0 client
+against a DuckDB 2.0 `quack_serve` server, record every request and response
+(the extension's log types, or a reverse proxy in between), and list the
+statements and chunk layouts. Until Q0 runs, the adapter's size is not known
+and no part of it is scheduled.
 
 ## 6. Not verified
 
