@@ -101,6 +101,7 @@ deepnsm-v2	lance-graph-quack	dev	false	-	-	crates/lance-graph-quack/Cargo.toml:3
 dr-math-binding-probe	tract-harvest-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:24	CONFIRMED	no
 elixir-template	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:38	CONFIRMED	yes
 flate2	lance-graph-callcenter	normal	true	-	jsonl	crates/lance-graph-callcenter/Cargo.toml:46	CONFIRMED	no
+foundry-parity-lab	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:29	CONFIRMED	yes
 frostem	deepnsm-v2	dev	false	-	-	crates/deepnsm-v2/Cargo.toml:50	CONFIRMED	no
 futures	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:36	CONFIRMED	no
 futures	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:22	CONFIRMED	no
@@ -152,6 +153,7 @@ lance-graph-catalog	lance-graph	normal	false	-	unity-catalog	crates/lance-graph/
 lance-graph-cognitive	deepnsm	normal	true	-	grammar-triangle	crates/deepnsm/Cargo.toml:40	CONFIRMED	yes
 lance-graph-cognitive	lance-graph	normal	true	-	planner	crates/lance-graph/Cargo.toml:98	CONFIRMED	yes
 lance-graph-contract	bgz-tensor	normal	true	-	calibrate	crates/bgz-tensor/Cargo.toml:27	CONFIRMED	yes
+lance-graph-contract	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:22	CONFIRMED	yes
 lance-graph-contract	cognitive-shader-driver	normal	false	-	-	crates/cognitive-shader-driver/Cargo.toml:230	CONFIRMED	yes
 lance-graph-contract	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:48	CONFIRMED	yes
 lance-graph-contract	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:27	CONFIRMED	yes
@@ -206,6 +208,7 @@ lance-graph-contract	thinking-engine	normal	false	-	-	crates/thinking-engine/Car
 lance-graph-contract	thought-git-probe	normal	false	-	-	crates/thought-git-probe/Cargo.toml:13	CONFIRMED	yes
 lance-graph-contract	tract-harvest-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:25	CONFIRMED	yes
 lance-graph-contract	weather-poc	normal	true	-	canonical-row	crates/weather-poc/Cargo.toml:28	CONFIRMED	yes
+lance-graph-dt64	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:21	CONFIRMED	yes
 lance-graph-dt64	cognitive-polyfill-probe	normal	false	-	-	crates/cognitive-polyfill-probe/Cargo.toml:14	CONFIRMED	yes
 lance-graph-dt64	dr-isa-stream-lab	normal	false	-	-	crates/dr-isa-stream-lab/Cargo.toml:18	CONFIRMED	yes
 lance-graph-dt64	drisa-register-probe	normal	false	-	-	crates/drisa-register-probe/Cargo.toml:19	CONFIRMED	yes
@@ -284,6 +287,7 @@ lance-graph-quack	lance-graph-report	normal	false	-	-	crates/lance-graph-report/
 lance-graph-quack	lance-graph-sap	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:13	CONFIRMED	yes
 lance-graph-quack	lance-graph-xlog	normal	false	-	-	crates/lance-graph-xlog/Cargo.toml:10	CONFIRMED	yes
 lance-graph-quack	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:21	CONFIRMED	yes
+lance-graph-r2il	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:24	CONFIRMED	yes
 lance-graph-r2il	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:18	CONFIRMED	yes
 lance-graph-r2il	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:58	CONFIRMED	yes
 lance-graph-r2il	lance-graph-nal	normal	false	-	-	crates/lance-graph-nal/Cargo.toml:19	CONFIRMED	yes
@@ -369,6 +373,7 @@ ogar-dir-sim	lance-graph-dir-sim	normal	false	-	-	crates/lance-graph-dir-sim/Car
 ogar-dismech	lance-graph-ogar	normal	false	-	-	crates/lance-graph-ogar/Cargo.toml:148	CONFIRMED	no
 ogar-doc-ir	lance-graph-report-ogar	normal	false	-	-	crates/lance-graph-report-ogar/Cargo.toml:32	CONFIRMED	no
 ogar-from-ruff	ogar-behavior-probe	normal	false	-	-	crates/ogar-behavior-probe/Cargo.toml:20	CONFIRMED	no
+ogar-loco	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:27	CONFIRMED	no
 ogar-loco	lance-graph-nal	normal	false	-	-	crates/lance-graph-nal/Cargo.toml:21	CONFIRMED	no
 ogar-loco	lance-graph-ogar	normal	false	-	-	crates/lance-graph-ogar/Cargo.toml:140	CONFIRMED	no
 ogar-loco	lance-graph-onnx	dev	false	-	-	crates/lance-graph-onnx/Cargo.toml:21	CONFIRMED	no
@@ -379,6 +384,7 @@ ogar-loco	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.tom
 ogar-ontology	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:81	CONFIRMED	no
 ogar-ontology	lance-graph-ogar	normal	false	-	-	crates/lance-graph-ogar/Cargo.toml:136	CONFIRMED	no
 ogar-ontology	symbiont	normal	false	-	-	crates/symbiont/Cargo.toml:56	CONFIRMED	no
+ogar-r2il	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:26	CONFIRMED	no
 ogar-r2il	lance-graph-r2il	normal	false	-	-	crates/lance-graph-r2il/Cargo.toml:26	CONFIRMED	no
 ogar-r2il	lance-graph-relalg	normal	false	-	-	crates/lance-graph-relalg/Cargo.toml:20	CONFIRMED	no
 ogar-r2il	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:28	CONFIRMED	no

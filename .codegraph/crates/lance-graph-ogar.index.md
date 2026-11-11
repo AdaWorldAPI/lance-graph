@@ -171,17 +171,17 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n7["cognitive-stack"]
-  n38["lance-graph-consumer-conformance"]
-  n39["lance-graph-contract"]
-  n44["lance-graph-glove-parity"]
-  n51["lance-graph-ogar"]
-  n53["lance-graph-ontology"]
-  n83["symbiont"]
-  n7 --> n51
-  n38 --> n51
-  n44 --> n51
-  n51 --> n39
-  n51 --> n53
-  n83 --> n51
+  n8["cognitive-stack"]
+  n39["lance-graph-consumer-conformance"]
+  n40["lance-graph-contract"]
+  n45["lance-graph-glove-parity"]
+  n52["lance-graph-ogar"]
+  n54["lance-graph-ontology"]
+  n84["symbiont"]
+  n8 --> n52
+  n39 --> n52
+  n45 --> n52
+  n52 --> n40
+  n52 --> n54
+  n84 --> n52
 ```

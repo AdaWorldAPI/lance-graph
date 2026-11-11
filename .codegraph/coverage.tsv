@@ -4,6 +4,7 @@ bge-m3	4	0	0	macro-generated items invisible;fn-local use not scanned
 bgz-tensor	39	29	0	macro-generated items invisible;fn-local use not scanned
 bgz17	21	5	0	macro-generated items invisible;fn-local use not scanned
 causal-edge	12	18	0	macro-generated items invisible;fn-local use not scanned
+cg-beh-probe	6	5	1	macro-generated items invisible;fn-local use not scanned
 cognitive-compiler	1	0	0	macro-generated items invisible;fn-local use not scanned
 cognitive-polyfill-probe	1	1	0	macro-generated items invisible;fn-local use not scanned
 cognitive-shader-driver	29	61	0	macro-generated items invisible;fn-local use not scanned

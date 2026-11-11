@@ -394,35 +394,35 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n1["bgz-tensor"]
   n2["bgz17"]
-  n7["cognitive-stack"]
-  n28["lance-graph"]
-  n32["lance-graph-benches"]
-  n34["lance-graph-catalog"]
-  n37["lance-graph-cognitive"]
-  n39["lance-graph-contract"]
-  n40["lance-graph-cypher-quack"]
-  n43["lance-graph-dt64-lance"]
-  n45["lance-graph-hydrate"]
-  n47["lance-graph-mask-risc"]
-  n55["lance-graph-planner"]
-  n56["lance-graph-python"]
-  n57["lance-graph-quack"]
-  n58["lance-graph-r2il"]
-  n83["symbiont"]
-  n7 --> n28
-  n28 --> n1
-  n28 --> n2
-  n28 --> n34
-  n28 --> n37
-  n28 --> n39
-  n28 --> n45
-  n28 --> n47
-  n28 --> n55
-  n28 --> n57
-  n28 --> n58
-  n32 --> n28
-  n40 --> n28
-  n43 --> n28
-  n56 --> n28
-  n83 --> n28
+  n8["cognitive-stack"]
+  n29["lance-graph"]
+  n33["lance-graph-benches"]
+  n35["lance-graph-catalog"]
+  n38["lance-graph-cognitive"]
+  n40["lance-graph-contract"]
+  n41["lance-graph-cypher-quack"]
+  n44["lance-graph-dt64-lance"]
+  n46["lance-graph-hydrate"]
+  n48["lance-graph-mask-risc"]
+  n56["lance-graph-planner"]
+  n57["lance-graph-python"]
+  n58["lance-graph-quack"]
+  n59["lance-graph-r2il"]
+  n84["symbiont"]
+  n8 --> n29
+  n29 --> n1
+  n29 --> n2
+  n29 --> n35
+  n29 --> n38
+  n29 --> n40
+  n29 --> n46
+  n29 --> n48
+  n29 --> n56
+  n29 --> n58
+  n29 --> n59
+  n33 --> n29
+  n41 --> n29
+  n44 --> n29
+  n57 --> n29
+  n84 --> n29
 ```

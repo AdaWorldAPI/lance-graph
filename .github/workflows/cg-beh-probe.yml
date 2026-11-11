@@ -1,0 +1,80 @@
+name: CG Behaviour Probe
+# Own [workspace] excluded from root tests; a lab gate, not production
+# admission. Reads registered ON x WHEN x DO facts; executes no method.
+on:
+  pull_request:
+    paths:
+      - "crates/cg-beh-probe/**"
+      - "crates/lance-graph-dt64/**"
+      - "crates/lance-graph-contract/**"
+      - "crates/lance-graph-r2il/**"
+      - "crates/foundry-parity-lab/**"
+      - ".github/workflows/cg-beh-probe.yml"
+      - "rust-toolchain.toml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/cg-beh-probe/**"
+      - "crates/lance-graph-dt64/**"
+      - "crates/lance-graph-contract/**"
+      - "crates/lance-graph-r2il/**"
+      - "crates/foundry-parity-lab/**"
+      - ".github/workflows/cg-beh-probe.yml"
+      - "rust-toolchain.toml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+jobs:
+  isolated-probe:
+    name: excluded-crate fmt, clippy and tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: lance-graph
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+          persist-credentials: false
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
+      - name: Rust toolchain
+        run: rustup show
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
+          workspaces: lance-graph/crates/cg-beh-probe
+      - name: fmt
+        run: cargo fmt --manifest-path crates/cg-beh-probe/Cargo.toml --check
+      - name: clippy
+        run: cargo clippy --manifest-path crates/cg-beh-probe/Cargo.toml --all-targets -- -D warnings
+      - name: gates A, B and C
+        run: cargo test --release --manifest-path crates/cg-beh-probe/Cargo.toml
+      - name: the committed fact files match this revision's registrations
+        run: |
+          out=$(mktemp -d)
+          CG_BEH_SOURCE_REV=check cargo run --release --manifest-path crates/cg-beh-probe/Cargo.toml --bin facts -- "$out"
+          for f in lab.facts.tsv foundry.facts.tsv dispatch.tsv; do
+            diff <(tail -n +2 "$out/$f") <(tail -n +2 ".claude/probes/2026-11-11-cg-beh-2/$f")
+          done

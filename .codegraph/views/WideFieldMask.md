@@ -20,6 +20,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Imports (not resolved to a definition)
 
+- use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
@@ -41,8 +43,14 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
 
-## Textual occurrences (361 total)
+## Textual occurrences (367 total)
 
+- crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:140 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:134 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:136 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:261 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
@@ -337,12 +345,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-ogar/src/recipe_vocab.rs:44 POSSIBLE
 - crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
 - crates/lance-graph-rbac/src/authorize.rs:177 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:181 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:186 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:193 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:197 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:222 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:227 POSSIBLE
 - truncated at 300
 
 ## Architecture

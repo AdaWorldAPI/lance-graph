@@ -79,9 +79,9 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n5["cognitive-polyfill-probe"]
-  n42["lance-graph-dt64"]
-  n47["lance-graph-mask-risc"]
-  n5 --> n42
-  n5 --> n47
+  n6["cognitive-polyfill-probe"]
+  n43["lance-graph-dt64"]
+  n48["lance-graph-mask-risc"]
+  n6 --> n43
+  n6 --> n48
 ```

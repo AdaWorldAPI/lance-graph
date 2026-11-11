@@ -19,6 +19,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:24 CONFIRMED
 - rdep holo-h14d-probe normal — crates/holo-h14d-probe/Cargo.toml:18 CONFIRMED
 - rdep lance-graph normal — crates/lance-graph/Cargo.toml:58 CONFIRMED
 - rdep lance-graph-nal normal — crates/lance-graph-nal/Cargo.toml:19 CONFIRMED
@@ -237,19 +238,21 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n23["holo-h14d-probe"]
-  n28["lance-graph"]
-  n39["lance-graph-contract"]
-  n42["lance-graph-dt64"]
-  n47["lance-graph-mask-risc"]
-  n49["lance-graph-nal"]
-  n58["lance-graph-r2il"]
-  n60["lance-graph-relalg"]
-  n23 --> n58
-  n28 --> n58
-  n49 --> n58
-  n58 --> n39
-  n58 --> n42
-  n58 --> n47
-  n60 --> n58
+  n4["cg-beh-probe"]
+  n24["holo-h14d-probe"]
+  n29["lance-graph"]
+  n40["lance-graph-contract"]
+  n43["lance-graph-dt64"]
+  n48["lance-graph-mask-risc"]
+  n50["lance-graph-nal"]
+  n59["lance-graph-r2il"]
+  n61["lance-graph-relalg"]
+  n4 --> n59
+  n24 --> n59
+  n29 --> n59
+  n50 --> n59
+  n59 --> n40
+  n59 --> n43
+  n59 --> n48
+  n61 --> n59
 ```

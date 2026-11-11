@@ -266,9 +266,9 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n8["crepe-plan-probe"]
-  n47["lance-graph-mask-risc"]
-  n68["mork-pathmap-probe"]
-  n8 --> n68
-  n68 --> n47
+  n9["crepe-plan-probe"]
+  n48["lance-graph-mask-risc"]
+  n69["mork-pathmap-probe"]
+  n9 --> n69
+  n69 --> n48
 ```

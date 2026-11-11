@@ -57,8 +57,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n3["causal-edge"]
-  n39["lance-graph-contract"]
-  n80["sigma-tier-router"]
-  n80 --> n3
-  n80 --> n39
+  n40["lance-graph-contract"]
+  n81["sigma-tier-router"]
+  n81 --> n3
+  n81 --> n40
 ```

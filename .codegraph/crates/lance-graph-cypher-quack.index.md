@@ -97,11 +97,11 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n28["lance-graph"]
-  n40["lance-graph-cypher-quack"]
-  n47["lance-graph-mask-risc"]
-  n57["lance-graph-quack"]
-  n40 --> n28
-  n40 --> n47
-  n40 --> n57
+  n29["lance-graph"]
+  n41["lance-graph-cypher-quack"]
+  n48["lance-graph-mask-risc"]
+  n58["lance-graph-quack"]
+  n41 --> n29
+  n41 --> n48
+  n41 --> n58
 ```

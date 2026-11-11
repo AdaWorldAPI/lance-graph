@@ -8,6 +8,7 @@ calls-missing	bge-m3	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	bgz-tensor	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	bgz17	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	causal-edge	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	cg-beh-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	cognitive-compiler	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	cognitive-polyfill-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	cognitive-shader-driver	calls	-	UNKNOWN	ARTIFACT_MISSING

@@ -242,14 +242,14 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n2["bgz17"]
-  n6["cognitive-shader-driver"]
-  n28["lance-graph"]
-  n54["lance-graph-osint"]
-  n55["lance-graph-planner"]
-  n72["p64-bridge"]
-  n6 --> n2
-  n28 --> n2
-  n54 --> n2
+  n7["cognitive-shader-driver"]
+  n29["lance-graph"]
+  n55["lance-graph-osint"]
+  n56["lance-graph-planner"]
+  n73["p64-bridge"]
+  n7 --> n2
+  n29 --> n2
   n55 --> n2
-  n72 --> n2
+  n56 --> n2
+  n73 --> n2
 ```

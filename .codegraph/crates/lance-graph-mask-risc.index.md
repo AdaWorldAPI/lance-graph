@@ -174,49 +174,49 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n5["cognitive-polyfill-probe"]
-  n8["crepe-plan-probe"]
-  n9["d-diamond-1-probe"]
-  n14["drisa-register-probe"]
-  n18["foundry-parity-lab"]
-  n20["grammar-constraints-probe"]
-  n23["holo-h14d-probe"]
-  n27["jc-batch-probe"]
-  n28["lance-graph"]
-  n32["lance-graph-benches"]
-  n36["lance-graph-codegraph"]
-  n40["lance-graph-cypher-quack"]
-  n41["lance-graph-dir-sim"]
-  n47["lance-graph-mask-risc"]
-  n48["lance-graph-metta"]
-  n49["lance-graph-nal"]
-  n57["lance-graph-quack"]
-  n58["lance-graph-r2il"]
-  n60["lance-graph-relalg"]
-  n61["lance-graph-report"]
-  n63["lance-graph-sap"]
-  n66["lance-graph-xlog"]
-  n68["mork-pathmap-probe"]
-  n5 --> n47
-  n8 --> n47
-  n9 --> n47
-  n14 --> n47
-  n18 --> n47
-  n20 --> n47
-  n23 --> n47
-  n27 --> n47
-  n28 --> n47
-  n32 --> n47
-  n36 --> n47
-  n40 --> n47
-  n41 --> n47
-  n48 --> n47
-  n49 --> n47
-  n57 --> n47
-  n58 --> n47
-  n60 --> n47
-  n61 --> n47
-  n63 --> n47
-  n66 --> n47
-  n68 --> n47
+  n6["cognitive-polyfill-probe"]
+  n9["crepe-plan-probe"]
+  n10["d-diamond-1-probe"]
+  n15["drisa-register-probe"]
+  n19["foundry-parity-lab"]
+  n21["grammar-constraints-probe"]
+  n24["holo-h14d-probe"]
+  n28["jc-batch-probe"]
+  n29["lance-graph"]
+  n33["lance-graph-benches"]
+  n37["lance-graph-codegraph"]
+  n41["lance-graph-cypher-quack"]
+  n42["lance-graph-dir-sim"]
+  n48["lance-graph-mask-risc"]
+  n49["lance-graph-metta"]
+  n50["lance-graph-nal"]
+  n58["lance-graph-quack"]
+  n59["lance-graph-r2il"]
+  n61["lance-graph-relalg"]
+  n62["lance-graph-report"]
+  n64["lance-graph-sap"]
+  n67["lance-graph-xlog"]
+  n69["mork-pathmap-probe"]
+  n6 --> n48
+  n9 --> n48
+  n10 --> n48
+  n15 --> n48
+  n19 --> n48
+  n21 --> n48
+  n24 --> n48
+  n28 --> n48
+  n29 --> n48
+  n33 --> n48
+  n37 --> n48
+  n41 --> n48
+  n42 --> n48
+  n49 --> n48
+  n50 --> n48
+  n58 --> n48
+  n59 --> n48
+  n61 --> n48
+  n62 --> n48
+  n64 --> n48
+  n67 --> n48
+  n69 --> n48
 ```

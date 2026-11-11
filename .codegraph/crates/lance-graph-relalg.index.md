@@ -102,19 +102,19 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n8["crepe-plan-probe"]
-  n18["foundry-parity-lab"]
-  n23["holo-h14d-probe"]
-  n27["jc-batch-probe"]
-  n39["lance-graph-contract"]
-  n47["lance-graph-mask-risc"]
-  n58["lance-graph-r2il"]
-  n60["lance-graph-relalg"]
-  n8 --> n60
-  n18 --> n60
-  n23 --> n60
-  n27 --> n60
-  n60 --> n39
-  n60 --> n47
-  n60 --> n58
+  n9["crepe-plan-probe"]
+  n19["foundry-parity-lab"]
+  n24["holo-h14d-probe"]
+  n28["jc-batch-probe"]
+  n40["lance-graph-contract"]
+  n48["lance-graph-mask-risc"]
+  n59["lance-graph-r2il"]
+  n61["lance-graph-relalg"]
+  n9 --> n61
+  n19 --> n61
+  n24 --> n61
+  n28 --> n61
+  n61 --> n40
+  n61 --> n48
+  n61 --> n59
 ```

@@ -147,5 +147,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n74["quasicryth-research"]
+  n75["quasicryth-research"]
 ```

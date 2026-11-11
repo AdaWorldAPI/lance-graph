@@ -251,17 +251,17 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n0["bge-m3"]
   n1["bgz-tensor"]
-  n22["highheelbgz"]
-  n25["holograph"]
-  n28["lance-graph"]
-  n39["lance-graph-contract"]
-  n76["reader-lm"]
-  n86["thinking-engine"]
+  n23["highheelbgz"]
+  n26["holograph"]
+  n29["lance-graph"]
+  n40["lance-graph-contract"]
+  n77["reader-lm"]
+  n87["thinking-engine"]
   n0 --> n1
-  n1 --> n25
-  n1 --> n39
-  n22 --> n1
-  n28 --> n1
-  n76 --> n1
-  n86 --> n1
+  n1 --> n26
+  n1 --> n40
+  n23 --> n1
+  n29 --> n1
+  n77 --> n1
+  n87 --> n1
 ```

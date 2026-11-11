@@ -255,8 +255,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n1["bgz-tensor"]
-  n25["holograph"]
-  n37["lance-graph-cognitive"]
-  n1 --> n25
-  n37 --> n25
+  n26["holograph"]
+  n38["lance-graph-cognitive"]
+  n1 --> n26
+  n38 --> n26
 ```

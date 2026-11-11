@@ -20,6 +20,7 @@ Generated; the code is the truth. See ../index.md.
 ## Depended on by
 
 - rdep bgz-tensor normal optional — crates/bgz-tensor/Cargo.toml:27 CONFIRMED
+- rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:22 CONFIRMED
 - rdep cognitive-shader-driver normal — crates/cognitive-shader-driver/Cargo.toml:230 CONFIRMED
 - rdep cognitive-stack normal — crates/cognitive-stack/Cargo.toml:48 CONFIRMED
 - rdep crepe-plan-probe normal — crates/crepe-plan-probe/Cargo.toml:27 CONFIRMED
@@ -300,100 +301,102 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n1["bgz-tensor"]
-  n6["cognitive-shader-driver"]
-  n7["cognitive-stack"]
-  n8["crepe-plan-probe"]
-  n9["d-diamond-1-probe"]
-  n10["deepnsm"]
-  n11["deepnsm-v2"]
-  n12["dr-isa-stream-lab"]
-  n14["drisa-register-probe"]
-  n15["dt64-admission-probe"]
-  n18["foundry-parity-lab"]
-  n20["grammar-constraints-probe"]
-  n28["lance-graph"]
-  n30["lance-graph-archetype"]
-  n31["lance-graph-arm-discovery"]
-  n33["lance-graph-callcenter"]
-  n37["lance-graph-cognitive"]
-  n38["lance-graph-consumer-conformance"]
-  n39["lance-graph-contract"]
-  n41["lance-graph-dir-sim"]
-  n42["lance-graph-dt64"]
-  n43["lance-graph-dt64-lance"]
-  n44["lance-graph-glove-parity"]
-  n46["lance-graph-lane-fold"]
-  n49["lance-graph-nal"]
-  n51["lance-graph-ogar"]
-  n53["lance-graph-ontology"]
-  n55["lance-graph-planner"]
-  n57["lance-graph-quack"]
-  n58["lance-graph-r2il"]
-  n59["lance-graph-rbac"]
-  n60["lance-graph-relalg"]
-  n61["lance-graph-report"]
-  n62["lance-graph-report-ogar"]
-  n63["lance-graph-sap"]
-  n64["lance-graph-supervisor"]
-  n66["lance-graph-xlog"]
-  n67["learning"]
-  n70["ogar-behavior-probe"]
-  n71["onebrc-probe"]
-  n73["perturbation-sim"]
-  n80["sigma-tier-router"]
-  n81["soa64-u64-lab"]
-  n82["surreal_container"]
-  n83["symbiont"]
-  n86["thinking-engine"]
-  n87["thought-git-probe"]
-  n88["tract-harvest-probe"]
-  n89["weather-poc"]
-  n1 --> n39
-  n6 --> n39
-  n7 --> n39
-  n8 --> n39
-  n9 --> n39
-  n10 --> n39
-  n11 --> n39
-  n12 --> n39
-  n14 --> n39
-  n15 --> n39
-  n18 --> n39
-  n20 --> n39
-  n28 --> n39
-  n30 --> n39
-  n31 --> n39
-  n33 --> n39
-  n37 --> n39
-  n38 --> n39
-  n41 --> n39
-  n42 --> n39
-  n43 --> n39
-  n44 --> n39
-  n46 --> n39
-  n49 --> n39
-  n51 --> n39
-  n53 --> n39
-  n55 --> n39
-  n57 --> n39
-  n58 --> n39
-  n59 --> n39
-  n60 --> n39
-  n61 --> n39
-  n62 --> n39
-  n63 --> n39
-  n64 --> n39
-  n66 --> n39
-  n67 --> n39
-  n70 --> n39
-  n71 --> n39
-  n73 --> n39
-  n80 --> n39
-  n81 --> n39
-  n82 --> n39
-  n83 --> n39
-  n86 --> n39
-  n87 --> n39
-  n88 --> n39
-  n89 --> n39
+  n4["cg-beh-probe"]
+  n7["cognitive-shader-driver"]
+  n8["cognitive-stack"]
+  n9["crepe-plan-probe"]
+  n10["d-diamond-1-probe"]
+  n11["deepnsm"]
+  n12["deepnsm-v2"]
+  n13["dr-isa-stream-lab"]
+  n15["drisa-register-probe"]
+  n16["dt64-admission-probe"]
+  n19["foundry-parity-lab"]
+  n21["grammar-constraints-probe"]
+  n29["lance-graph"]
+  n31["lance-graph-archetype"]
+  n32["lance-graph-arm-discovery"]
+  n34["lance-graph-callcenter"]
+  n38["lance-graph-cognitive"]
+  n39["lance-graph-consumer-conformance"]
+  n40["lance-graph-contract"]
+  n42["lance-graph-dir-sim"]
+  n43["lance-graph-dt64"]
+  n44["lance-graph-dt64-lance"]
+  n45["lance-graph-glove-parity"]
+  n47["lance-graph-lane-fold"]
+  n50["lance-graph-nal"]
+  n52["lance-graph-ogar"]
+  n54["lance-graph-ontology"]
+  n56["lance-graph-planner"]
+  n58["lance-graph-quack"]
+  n59["lance-graph-r2il"]
+  n60["lance-graph-rbac"]
+  n61["lance-graph-relalg"]
+  n62["lance-graph-report"]
+  n63["lance-graph-report-ogar"]
+  n64["lance-graph-sap"]
+  n65["lance-graph-supervisor"]
+  n67["lance-graph-xlog"]
+  n68["learning"]
+  n71["ogar-behavior-probe"]
+  n72["onebrc-probe"]
+  n74["perturbation-sim"]
+  n81["sigma-tier-router"]
+  n82["soa64-u64-lab"]
+  n83["surreal_container"]
+  n84["symbiont"]
+  n87["thinking-engine"]
+  n88["thought-git-probe"]
+  n89["tract-harvest-probe"]
+  n90["weather-poc"]
+  n1 --> n40
+  n4 --> n40
+  n7 --> n40
+  n8 --> n40
+  n9 --> n40
+  n10 --> n40
+  n11 --> n40
+  n12 --> n40
+  n13 --> n40
+  n15 --> n40
+  n16 --> n40
+  n19 --> n40
+  n21 --> n40
+  n29 --> n40
+  n31 --> n40
+  n32 --> n40
+  n34 --> n40
+  n38 --> n40
+  n39 --> n40
+  n42 --> n40
+  n43 --> n40
+  n44 --> n40
+  n45 --> n40
+  n47 --> n40
+  n50 --> n40
+  n52 --> n40
+  n54 --> n40
+  n56 --> n40
+  n58 --> n40
+  n59 --> n40
+  n60 --> n40
+  n61 --> n40
+  n62 --> n40
+  n63 --> n40
+  n64 --> n40
+  n65 --> n40
+  n67 --> n40
+  n68 --> n40
+  n71 --> n40
+  n72 --> n40
+  n74 --> n40
+  n81 --> n40
+  n82 --> n40
+  n83 --> n40
+  n84 --> n40
+  n87 --> n40
+  n88 --> n40
+  n89 --> n40
+  n90 --> n40
 ```

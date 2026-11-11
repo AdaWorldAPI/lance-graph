@@ -100,5 +100,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n50["lance-graph-nsl"]
+  n51["lance-graph-nsl"]
 ```

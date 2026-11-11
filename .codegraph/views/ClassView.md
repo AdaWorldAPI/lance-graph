@@ -9,6 +9,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Impls mentioning it
 
+- impl ClassView for TestView — crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
+- impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:288 POSSIBLE
 - impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
@@ -26,6 +28,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Imports (not resolved to a definition)
 
+- use lance_graph_contract::class_view::ClassView — crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
@@ -46,9 +50,16 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 
-## Textual occurrences (295 total)
+## Textual occurrences (302 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:157 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:190 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:332 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:288 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:161 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:167 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:828 POSSIBLE
@@ -341,8 +352,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/weather-poc/src/lib.rs:24 POSSIBLE
 - crates/weather-poc/src/manifest.rs:1 POSSIBLE
 - crates/weather-poc/src/manifest.rs:6 POSSIBLE
-- crates/weather-poc/src/manifest.rs:11 POSSIBLE
-- crates/weather-poc/src/manifest.rs:88 POSSIBLE
+- truncated at 300
 
 ## Architecture
 

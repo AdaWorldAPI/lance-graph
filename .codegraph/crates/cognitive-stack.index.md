@@ -58,19 +58,19 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n4["cognitive-compiler"]
-  n7["cognitive-stack"]
-  n17["elixir-template"]
-  n28["lance-graph"]
-  n39["lance-graph-contract"]
-  n51["lance-graph-ogar"]
-  n84["template-equivalence"]
-  n85["template-runtime"]
-  n7 --> n4
-  n7 --> n17
-  n7 --> n28
-  n7 --> n39
-  n7 --> n51
-  n7 --> n84
-  n7 --> n85
+  n5["cognitive-compiler"]
+  n8["cognitive-stack"]
+  n18["elixir-template"]
+  n29["lance-graph"]
+  n40["lance-graph-contract"]
+  n52["lance-graph-ogar"]
+  n85["template-equivalence"]
+  n86["template-runtime"]
+  n8 --> n5
+  n8 --> n18
+  n8 --> n29
+  n8 --> n40
+  n8 --> n52
+  n8 --> n85
+  n8 --> n86
 ```
