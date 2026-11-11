@@ -6,6 +6,10 @@ and the master brief §4. Coordination: EXO-253; decisions: EXO-254.
 
 ## 1. The rule
 
+**`WideFieldMask` is agnostic algebra. A class is a computational concept:
+it holds schema and methods.** DR uses the first to address; DT uses the
+second to map. Everything below is consequence.
+
 | | concern | what it stores | stored as |
 |---|---|---|---|
 | **DR** | addressing: *where*, and at which version | field positions, row positions, slabs, frame and version witnesses | `WideFieldMask` |
