@@ -3,7 +3,7 @@
 crate: cg-beh-probe
 path: crates/cg-beh-probe
 workspace: excluded
-digest: 9d4fce995c36c4e4
+digest: 419a2e4c6456dda0
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -69,16 +69,17 @@ Generated; the code is the truth. See ../index.md.
 - struct TestWorld [pub] — crates/cg-beh-probe/src/fixture.rs:107 CONFIRMED
 - fn methods [pub] — crates/cg-beh-probe/src/fixture.rs:145 CONFIRMED
 - fn world_with [pub] — crates/cg-beh-probe/src/fixture.rs:184 CONFIRMED
-- fn world [pub] — crates/cg-beh-probe/src/fixture.rs:205 CONFIRMED
-- const CAN_COOK [pub] — crates/cg-beh-probe/src/fixture.rs:212 CONFIRMED
-- const FOUNDRY_READ [pub] — crates/cg-beh-probe/src/fixture.rs:216 CONFIRMED
-- enum FoundryVariant [pub] — crates/cg-beh-probe/src/fixture.rs:223 CONFIRMED
-- fn foundry_methods [pub] — crates/cg-beh-probe/src/fixture.rs:246 CONFIRMED
-- fn foundry [pub] — crates/cg-beh-probe/src/fixture.rs:267 CONFIRMED
-- fn foundry_ids [pub] — crates/cg-beh-probe/src/fixture.rs:272 CONFIRMED
-- struct SwappedBasis [pub] — crates/cg-beh-probe/src/fixture.rs:278 CONFIRMED
-- fn SwappedBasis::of [pub] — crates/cg-beh-probe/src/fixture.rs:281 CONFIRMED
-- const FOUNDRY_CLASS [pub] — crates/cg-beh-probe/src/fixture.rs:304 CONFIRMED
+- fn world_at [pub] — crates/cg-beh-probe/src/fixture.rs:190 CONFIRMED
+- fn world [pub] — crates/cg-beh-probe/src/fixture.rs:211 CONFIRMED
+- const CAN_COOK [pub] — crates/cg-beh-probe/src/fixture.rs:218 CONFIRMED
+- const FOUNDRY_READ [pub] — crates/cg-beh-probe/src/fixture.rs:222 CONFIRMED
+- enum FoundryVariant [pub] — crates/cg-beh-probe/src/fixture.rs:229 CONFIRMED
+- fn foundry_methods [pub] — crates/cg-beh-probe/src/fixture.rs:252 CONFIRMED
+- fn foundry [pub] — crates/cg-beh-probe/src/fixture.rs:273 CONFIRMED
+- fn foundry_ids [pub] — crates/cg-beh-probe/src/fixture.rs:278 CONFIRMED
+- struct SwappedBasis [pub] — crates/cg-beh-probe/src/fixture.rs:284 CONFIRMED
+- fn SwappedBasis::of [pub] — crates/cg-beh-probe/src/fixture.rs:287 CONFIRMED
+- const FOUNDRY_CLASS [pub] — crates/cg-beh-probe/src/fixture.rs:310 CONFIRMED
 - mod dispatch [pub] — crates/cg-beh-probe/src/lib.rs:32 CONFIRMED
 - mod facts [pub] — crates/cg-beh-probe/src/lib.rs:33 CONFIRMED
 - mod fixture [pub] — crates/cg-beh-probe/src/lib.rs:34 CONFIRMED
@@ -91,19 +92,19 @@ Generated; the code is the truth. See ../index.md.
 - fn fnv64 [pub(crate)] — crates/cg-beh-probe/src/lib.rs:79 CONFIRMED
 - const FNV64_OFFSET [pub(crate)] — crates/cg-beh-probe/src/lib.rs:87 CONFIRMED
 - enum Component [pub] — crates/cg-beh-probe/src/query.rs:20 CONFIRMED
-- enum Obligation [pub] — crates/cg-beh-probe/src/query.rs:40 CONFIRMED
-- enum Status [pub] — crates/cg-beh-probe/src/query.rs:61 CONFIRMED
-- enum OldRef [pub] — crates/cg-beh-probe/src/query.rs:72 CONFIRMED
-- struct MethodDelta [pub] — crates/cg-beh-probe/src/query.rs:80 CONFIRMED
-- fn MethodDelta::has [pub] — crates/cg-beh-probe/src/query.rs:90 CONFIRMED
-- fn MethodDelta::old_ref [pub] — crates/cg-beh-probe/src/query.rs:95 CONFIRMED
-- enum DiffRefusal [pub] — crates/cg-beh-probe/src/query.rs:113 CONFIRMED
-- fn diff [pub] — crates/cg-beh-probe/src/query.rs:285 CONFIRMED
-- struct WordUse [pub] — crates/cg-beh-probe/src/query.rs:319 CONFIRMED
-- struct ImplImpact [pub] — crates/cg-beh-probe/src/query.rs:331 CONFIRMED
-- enum ImplRefusal [pub] — crates/cg-beh-probe/src/query.rs:338 CONFIRMED
-- fn impl_change [pub] — crates/cg-beh-probe/src/query.rs:391 CONFIRMED
-- fn word_impact [pub] — crates/cg-beh-probe/src/query.rs:437 CONFIRMED
+- enum Obligation [pub] — crates/cg-beh-probe/src/query.rs:42 CONFIRMED
+- enum Status [pub] — crates/cg-beh-probe/src/query.rs:66 CONFIRMED
+- enum OldRef [pub] — crates/cg-beh-probe/src/query.rs:77 CONFIRMED
+- struct MethodDelta [pub] — crates/cg-beh-probe/src/query.rs:85 CONFIRMED
+- fn MethodDelta::has [pub] — crates/cg-beh-probe/src/query.rs:95 CONFIRMED
+- fn MethodDelta::old_ref [pub] — crates/cg-beh-probe/src/query.rs:100 CONFIRMED
+- enum DiffRefusal [pub] — crates/cg-beh-probe/src/query.rs:118 CONFIRMED
+- fn diff [pub] — crates/cg-beh-probe/src/query.rs:300 CONFIRMED
+- struct WordUse [pub] — crates/cg-beh-probe/src/query.rs:334 CONFIRMED
+- struct ImplImpact [pub] — crates/cg-beh-probe/src/query.rs:346 CONFIRMED
+- enum ImplRefusal [pub] — crates/cg-beh-probe/src/query.rs:353 CONFIRMED
+- fn impl_change [pub] — crates/cg-beh-probe/src/query.rs:406 CONFIRMED
+- fn word_impact [pub] — crates/cg-beh-probe/src/query.rs:452 CONFIRMED
 
 ## Imports from in-scope crates
 

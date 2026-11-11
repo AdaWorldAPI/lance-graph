@@ -50,7 +50,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:134 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:136 POSSIBLE
-- crates/cg-beh-probe/src/fixture.rs:261 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:267 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:35 POSSIBLE

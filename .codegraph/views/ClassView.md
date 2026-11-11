@@ -10,7 +10,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Impls mentioning it
 
 - impl ClassView for TestView — crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
-- impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:288 POSSIBLE
+- impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:294 POSSIBLE
 - impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
@@ -59,7 +59,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/facts.rs:332 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
-- crates/cg-beh-probe/src/fixture.rs:288 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:294 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:161 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:167 POSSIBLE
 - crates/cognitive-shader-driver/src/mailbox_soa.rs:828 POSSIBLE

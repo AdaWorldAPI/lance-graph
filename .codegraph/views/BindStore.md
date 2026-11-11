@@ -41,7 +41,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/facts.rs:334 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:108 POSSIBLE
-- crates/cg-beh-probe/src/fixture.rs:186 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:192 POSSIBLE
 - crates/cg-beh-probe/src/lib.rs:13 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE

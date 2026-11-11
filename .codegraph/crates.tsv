@@ -4,7 +4,7 @@ bge-m3	crates/bge-m3	excluded	aefb02c857c31568
 bgz-tensor	crates/bgz-tensor	member	5d1e33d8228a9cf4
 bgz17	crates/bgz17	excluded	8bec2499622cf1d7
 causal-edge	crates/causal-edge	excluded	c0fc81913c25420a
-cg-beh-probe	crates/cg-beh-probe	excluded	9d4fce995c36c4e4
+cg-beh-probe	crates/cg-beh-probe	excluded	419a2e4c6456dda0
 cognitive-compiler	crates/cognitive-compiler	excluded	d1353bc629a93ad2
 cognitive-polyfill-probe	crates/cognitive-polyfill-probe	excluded	142eccf61ff99e10
 cognitive-shader-driver	crates/cognitive-shader-driver	member	a88da842b115f96b
