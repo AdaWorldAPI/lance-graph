@@ -36,6 +36,32 @@ returned and are marked where the anchor overrides them.
 Whether these are superseded is the operator's call; this entry changes none
 of them.
 
+### 1a. The wider frame (operator, same run)
+
+"Everything masking positions, routing and population selection is similar to
+what DuckDB does via a reusable selection vector."
+
+Read that way, `WideFieldMask` plays the ROLE DuckDB's selection vector
+plays: one reusable selection object, built once and shared by every
+consumer of the same data — the storage read, the fold, the display, the
+route, the population — instead of each consumer deriving its own. (DuckDB:
+one selection is applied to all columns of a chunk by slicing, without
+copying the columns, and is reused across operators; SECONDHAND here, the
+systems scout read only the vector page.) The difference is the form: a bit
+mask instead of an index list.
+
+The council missed this. It filed "selection vectors" as one idea among
+fourteen (I14) and skipped it on fold law 5, which rejected the INDEX-LIST
+form on one workload. The role was never the thing rejected: the mask is
+this workspace's selection vector, and the amortization measured in PR 2010
+(1.76 µs per range at 1,000,000 rows) is what reuse of one prepared
+selection buys.
+
+So the questions in §3 are sub-questions of one statement: **one reusable
+selection, bound once per version, addressed by DR, given meaning by DT,
+shared by every consumer.** Enforcement then reads: a consumer takes its
+selection from that carrier or it does not run.
+
 ## 2. What the code holds (VERIFIED-IN-CODE unless marked)
 
 - A DR tile's axes are identity × property × predicate
@@ -78,7 +104,7 @@ of them.
 | I7 | Rank/select directory; wavelet tree | Kurpicz 2022, Gagie et al. 2009 (READ-IN-FULL) | rank/select WORTH-EXPLORING, PASS; wavelet DROP | **PARK** (select); **SKIP** (wavelet) | Add select when a consumer needs the k-th survivor (P7). |
 | I9 | Per-block value summary | Column imprints (SECTION-READ) | DROP (conditional); CONFLICT | **PARK** | Admissible only if measured (P8); never written into Lance. |
 | I5 | Range-encoded bitmaps | Chan & Ioannidis 1998 (SECTION-READ) | DROP; TRAP | **SKIP** | About 2 MiB per 65,536 rows for an 8-bit key. |
-| I14 | Selection vectors | DuckDB (SECTION-READ) | DROP; TRAP | **SKIP** | Rejected by measurement (fold law 5). |
+| I14 | Selection vectors | DuckDB (SECTION-READ) | DROP; TRAP | **ALREADY-HAVE as a role (§1a)**; index-list form **SKIP** | The council judged the form and missed the role. `WideFieldMask` is the reusable selection; only the index-list form is rejected by fold law 5. |
 | I1 | Row population and property selection as two separate TYPES | FCA, C-Store, DuckDB, PostgreSQL, Lance (SECTION-READ); no source reports a failure from one type | OPPORTUNITY; PASS | **SKIP as returned (conflicts with §1)** | What survives: one carrier, and the axis it addresses is named by the coordinate space / `ClassView`, never guessed from the bits. FCA's own form agrees: extents and intents are both bit vectors, told apart by their index set. |
 | I2 | Compile-time domain tag on the mask | Rust `PhantomData` (READ-IN-FULL) | WORTH-EXPLORING; CONFLICT (A9) | **SKIP** | A tag boxes the type; the runtime `CoordSpace` already names the axis. |
 
