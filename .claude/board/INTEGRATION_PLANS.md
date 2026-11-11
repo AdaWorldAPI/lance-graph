@@ -1,3 +1,8 @@
+## 2026-11-11 — D-DRDT-CLASS-GOVERNANCE-1: class-governed DR / DT64 execution → `.claude/plans/dr-dt64-class-governance-v2.md`
+
+**Status:** PROPOSED / DOCS ONLY. Census and nine evidence files in `.claude/probes/dr-dt64-class-governance/`; nine PR cuts, cuts 4-9 blocked on the council questions in COUNCIL-DECISIONS. Coordination: Linear EXO-253.
+**Confidence:** findings cite file:line read at `main` `238b6d1e4`; nothing built or run; the cost numbers are from PR 2010 (not merged).
+
 ## 2026-11-11 — D-CODEGRAPH-EXPAND-1: what the Codegraph still needs, and who supplies it → `.claude/plans/codegraph-expansion-v1.md`
 
 **Status:** PLAN. Eight slices CG-1..CG-8 on Linear `P-EXO-18` (EXO-233..EXO-239, EXO-241; channel EXO-232; handover EXO-240). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-CODEGRAPH-EXPAND. Follows #1999, #2000, #2001; supplies inputs to D-CODEGRAPH-0, D-CODEGRAPH-0-BIN and D-CGMM-0.
