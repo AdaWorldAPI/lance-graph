@@ -815,10 +815,12 @@ fn role_a_reads_exactly_its_fields_and_rows() {
 }
 
 #[test]
-fn finding_a_source_revision_move_refuses_the_address_binding_too() {
-    // One `FrameRevisions.source` number is the only change signal a source
-    // has, so advancing it for a content change also refuses address
-    // bindings. Safe direction; re-pin if content gets its own witness.
+fn a_binding_addresses_one_version_and_a_source_advance_is_read_by_binding_again() {
+    // A lane binding addresses one version of the frame. Versions are not
+    // compacted, so the bound version stays what the binding names. A source
+    // advance is a new version: the check refuses the old binding instead of
+    // silently following, and binding again (replaying the unchanged mapping)
+    // reads the new version.
     let mut w = world();
     let b = bind_decided(&w, &decide("alice"), SCOPE_A, SCOPE_A).expect("alice");
     let _version = w.data.frames.advance(FrameRevisions {
@@ -832,4 +834,8 @@ fn finding_a_source_revision_move_refuses_the_address_binding_too() {
             lance_graph_dt64::dr::FrameRefusal::SourceChanged
         ))
     );
+    // The new version is named by its own seal; bind against that one.
+    w.frame = w.data.frames.seal();
+    let again = bind_decided(&w, &decide("alice"), SCOPE_A, SCOPE_A).expect("rebind");
+    assert_eq!(check(&w, &again, SCOPE_A), Ok(()));
 }
