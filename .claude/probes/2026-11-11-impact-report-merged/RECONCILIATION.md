@@ -91,7 +91,7 @@ Decided in the merge, in neither PR as such:
 
 ## Tests
 
-`tests/impact_coverage.rs` holds 36 tests on the merged types:
+`tests/impact_coverage.rs` holds 37 tests on the merged types:
 
 - 12 from PR 2001 and 14 from PR 2002, each with its original intent.
 - 3 narrowing tests: adding a declared consumer, declaring test targets, and removing an
@@ -104,6 +104,9 @@ Decided in the merge, in neither PR as such:
   without a dynamic call in the store; a referrer that also calls is in the answer and no gap;
   only references into the answer are counted; undeclared consumers inspect every stored crate
   and `graded` stays equal to `impact`.
+- 1 from the Codex review of PR 2004: a dynamic call that may dispatch to a caller of the
+  symbol (an impl) is a gap even when the symbol itself is neither an impl nor referenced.
+  `dynamic_may_reach` checked the symbol only; `impact` checks the symbol and what reaches it.
 
 One PR 2001 test changed what it queries. `a_changed_source_file_reports_stale_coverage` edited
 a `cg_lib` file and asked about `cg_app::run` with "nothing depends on `cg_app`" declared. Under
@@ -112,9 +115,9 @@ asserts the declared-scope case reports nothing for `cg_app::run`, and asserts t
 when the consumers are undeclared.
 
 Disable runs are reproducible: `python3 .claude/probes/2026-11-11-impact-report-merged/disable_runs.py`
-from the repository root, on a clean tree. It patches each of 27 guards out through an anchor
+from the repository root, on a clean tree. It patches each of 28 guards out through an anchor
 that must occur exactly once, runs the test file, restores the source, and exits 0 only when
-every guard is red. The last run is `disable_runs.receipt.tsv` (27 guards, 0 not red), which
+every guard is red. The last run is `disable_runs.receipt.tsv` (28 guards, 0 not red), which
 names the tests each guard breaks.
 
 ## Acceptance state (D-CODEGRAPH-WAVE0-ACCEPTANCE)

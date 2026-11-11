@@ -529,7 +529,7 @@ impl Codegraph {
         }
         let unknown = popcount(&graded.unknown);
         let store_dynamic_calls = self.coverage().dynamic_calls;
-        if unknown > 0 || (store_dynamic_calls > 0 && self.dynamic_may_reach(g)) {
+        if unknown > 0 || (store_dynamic_calls > 0 && self.dynamic_may_reach(g, &graded)) {
             gaps.push(Gap::DynamicCalls {
                 unknown,
                 store_dynamic_calls,
@@ -598,8 +598,14 @@ impl Codegraph {
         outside.len() as u32
     }
 
-    /// Whether a dynamic call may reach `g`: `g` is an impl or referenced.
-    fn dynamic_may_reach(&self, g: Pos) -> bool {
-        has(self.impl_subjects(), g) || has(self.referenced(), g)
+    /// Whether a dynamic call may reach `g`: `g`, or a function in the answer
+    /// (each of which reaches `g`), is an impl or referenced. Same condition
+    /// as `Codegraph::impact` uses before it fills `unknown`.
+    fn dynamic_may_reach(&self, g: Pos, graded: &Graded) -> bool {
+        let target = |p: Pos| has(self.impl_subjects(), p) || has(self.referenced(), p);
+        target(g)
+            || (0..self.words() as u32 * 64)
+                .filter(|p| has(&graded.confirmed, *p) || has(&graded.possible, *p))
+                .any(target)
     }
 }
