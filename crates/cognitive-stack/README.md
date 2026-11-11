@@ -26,9 +26,11 @@ So this binary contains the runtime/reflex half only:
     query / codec / SoA contract / OGAR Active-Record bridge.
   - `ndarray` — the foundation: SIMD / HPC / Fingerprint / CAM-PQ.
   - `ractor` — control-plane ownership fence.
-  - `surrealdb` (kv-lance only) — provenance / timeline view.
-  - `OGAR` (`ogar-vocab` / `ogar-ontology` / `ogar-adapter-surrealql`) — the
-    semantic type system.
+  - `surrealdb` (kv-lance only) — provenance / timeline view. **Optional**: linked
+    only with `--features surrealdb`; off by default and in no CI job.
+  - `OGAR` (`ogar-vocab` / `ogar-ontology`) — the semantic type system. The
+    SurrealQL parser arm (`ogar-adapter-surrealql`) comes with the `surrealdb`
+    feature.
 
 **rig (the LLM teacher/critic) is deliberately NOT linked here.** It is used only
 at learning/escalation time (a separate crate, `rig` repo, wired to the same
@@ -41,6 +43,9 @@ verifiable expression of "no LLM in the hot path".
 # Local build (needs the ndarray fork checked out as a sibling of lance-graph,
 # and protobuf-compiler installed for lance-encoding's build script):
 cargo build --manifest-path crates/cognitive-stack/Cargo.toml
+
+# With the SurrealDB kv-lance fork linked in (cold build of several hundred crates):
+cargo build --manifest-path crates/cognitive-stack/Cargo.toml --features surrealdb
 
 # Run — prints the linked stack + the first-slice reflex template:
 cargo run --manifest-path crates/cognitive-stack/Cargo.toml
@@ -56,7 +61,7 @@ Expected output (shape):
 ```text
 cognitive-stack — linked golden image
   NEW: elixir-template · template-runtime · template-equivalence · cognitive-compiler
-  OLD: lance-graph + ndarray + ractor + surrealdb(kv-lance) + OGAR  [AdaWorldAPI forks]
+  OLD: lance-graph + ndarray + ractor + OGAR  [AdaWorldAPI forks; surrealdb off]
 
 reflex template `source_ranking` v1 → 7 OGAR actions (runs deterministically, no LLM in hot path):
     · ogar.action.ExtractSources

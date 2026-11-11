@@ -79,7 +79,8 @@ ndarray = { path = "../../../ndarray" }
 # of scope here; flagged, not silently worked around.
 ogar-vocab = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 ogar-ontology = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
-ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"] }
+# Optional: only with the `surrealdb` feature (see [features]).
+ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main", features = ["surrealdb-parser"], optional = true }
 
 # ── OLD stack, external AdaWorldAPI forks: git deps (mirrors crates/symbiont;
 # pre-existing, unchanged by this fix) ──
@@ -88,11 +89,25 @@ ogar-adapter-surrealql = { git = "https://github.com/AdaWorldAPI/OGAR", branch =
 # (main is the canonical superset), and kv-lance lives on surrealdb main; pinning
 # surrealdb to main matches OGAR's own surrealdb pin so they resolve to ONE source.
 ractor = { git = "https://github.com/AdaWorldAPI/ractor", branch = "main" }
-surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"] }
+# Optional: only with the `surrealdb` feature. Nothing in the binary calls it; the
+# feature exists to prove the kv-lance fork still links with the rest of the stack.
+surrealdb-core = { git = "https://github.com/AdaWorldAPI/surrealdb", branch = "main", default-features = false, features = ["kv-lance"], optional = true }
 
 # The OGAR activation crate (in-repo, path) — links the full Active-Record surface
 # (ogar-class-view's `impl lance_graph_contract::ClassView` + codebook parity-guard).
-lance-graph-ogar = { path = "../lance-graph-ogar", features = ["surrealql-parser"] }
+lance-graph-ogar = { path = "../lance-graph-ogar" }
+
+[features]
+default = []
+# Links the SurrealDB kv-lance fork and the (deprecated) SurrealQL parser arm into
+# the golden image. Off by default: the cold SurrealDB build is several hundred
+# crates and no code path here calls it. No CI job enables it.
+#   cargo build --manifest-path crates/cognitive-stack/Cargo.toml --features surrealdb
+surrealdb = [
+    "dep:surrealdb-core",
+    "dep:ogar-adapter-surrealql",
+    "lance-graph-ogar/surrealql-parser",
+]
 
 # ── [patch] — unify lance-graph-contract to the ONE in-repo path copy ──
 # ogar-class-view (via lance-graph-ogar) git-deps lance-graph-contract @

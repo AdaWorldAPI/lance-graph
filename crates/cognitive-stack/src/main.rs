@@ -2,7 +2,7 @@
 //!
 //! Links the **new stack** (the Elixir-shaped template crates) on top of the
 //! **old stack** (every AdaWorldAPI fork: lance-graph + ndarray + ractor +
-//! surrealdb-kv-lance + OGAR). It is the golden-image proof that the compiled-
+//! OGAR, and surrealdb-kv-lance with the `surrealdb` feature). It is the golden-image proof that the compiled-
 //! cognition reflex path links and runs with no LLM present — the LLM (rig) is
 //! the teacher/compiler/critic at learning time only and is deliberately absent
 //! from this runtime binary.
@@ -15,7 +15,8 @@ use lance_graph_ogar as _; // OGAR Active-Record bridge (impl ClassView)
 use ndarray as _; // the foundation: SIMD / HPC / Fingerprint / CAM-PQ
 use ogar_vocab as _; // OGAR semantic type system (class codebook)
 use ractor as _; // control-plane ownership fence
-use surrealdb_core as _; // kv-lance provenance / timeline view
+#[cfg(feature = "surrealdb")]
+use surrealdb_core as _; // kv-lance provenance / timeline view (optional)
 
 // ── NEW stack: the Cognitive Compilation Elixir-template crates ──
 use cognitive_compiler as _; // trace → template synthesis (learning-time)
@@ -29,8 +30,15 @@ fn main() {
     let template = source_ranking_v1();
 
     println!("cognitive-stack — linked golden image");
-    println!("  NEW: elixir-template · template-runtime · template-equivalence · cognitive-compiler");
-    println!("  OLD: lance-graph + ndarray + ractor + surrealdb(kv-lance) + OGAR  [AdaWorldAPI forks]");
+    println!(
+        "  NEW: elixir-template · template-runtime · template-equivalence · cognitive-compiler"
+    );
+    #[cfg(feature = "surrealdb")]
+    println!(
+        "  OLD: lance-graph + ndarray + ractor + surrealdb(kv-lance) + OGAR  [AdaWorldAPI forks]"
+    );
+    #[cfg(not(feature = "surrealdb"))]
+    println!("  OLD: lance-graph + ndarray + ractor + OGAR  [AdaWorldAPI forks; surrealdb off]");
     println!();
     println!(
         "reflex template `{}` v{} → {} OGAR actions (runs deterministically, no LLM in hot path):",
