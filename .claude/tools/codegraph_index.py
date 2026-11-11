@@ -1370,6 +1370,13 @@ class T(unittest.TestCase):
         self.assertEqual(inh.get("k/src/child.rs"), 'feature="y"')
         self.assertEqual(inh.get("k/src/child/deep.rs"), 'feature="y"')
         self.assertEqual(inh.get("k/src/plain.rs", "-"), "-")
+        # end to end: the generator must apply the inherited gate to the child file's rows
+        root = mk_ws(self.td, {"gamma": ('#[cfg(feature = "y")]\npub mod child;\npub fn top() {}\n', "")})
+        (root / "crates" / "gamma" / "src" / "child.rs").write_text("pub fn c() {}\n")
+        f, _ = generate(root)
+        cfg = {r[4]: r[6] for r in rows_of(f, "symbols.tsv")}
+        self.assertEqual(cfg["c"], 'feature="y"')
+        self.assertEqual(cfg["top"], "-")
 
 
 def self_test():
