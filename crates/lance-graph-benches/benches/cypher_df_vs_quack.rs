@@ -49,15 +49,15 @@ use arrow_array::{
 };
 use arrow_schema::{DataType, Field, Schema as ArrowSchema};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use lance_graph::{CypherQuery, GraphConfig};
 use futures::TryStreamExt;
 use lance::dataset::{Dataset, WriteMode, WriteParams};
-use tempfile::TempDir;
+use lance_graph::{CypherQuery, GraphConfig};
 use lance_graph_cypher_quack::{
     compile, Answer, Binding, Compiled, EdgeTable, Kind, NodeTable, On, Refusal, TableLanes,
 };
 use lance_graph_mask_risc::LaneRef;
 use lance_graph_quack::Col;
+use tempfile::TempDir;
 
 const FILTER: &str = "MATCH (n:Person) WHERE n.age > 50 RETURN count(*)";
 const ONE_HOP: &str = "MATCH (a:Person)-[:FRIEND_OF]->(b:Person) RETURN count(*)";
@@ -340,11 +340,31 @@ fn bench(c: &mut Criterion) {
     }
     for i in &inputs {
         let n = i.n;
-        assert_eq!(datafusion(&rt, &df_filter, i, false), i.oracle_filter(), "df filter n={n}");
-        assert_eq!(quack_execute(&q_filter, i), i.oracle_filter(), "quack filter n={n}");
-        assert_eq!(datafusion(&rt, &df_one, i, true), i.oracle_one_hop(), "df one-hop n={n}");
-        assert_eq!(quack_execute(&q_one, i), i.oracle_one_hop(), "quack one-hop n={n}");
-        assert_eq!(datafusion(&rt, &df_two, i, true), i.oracle_two_hop(), "df two-hop n={n}");
+        assert_eq!(
+            datafusion(&rt, &df_filter, i, false),
+            i.oracle_filter(),
+            "df filter n={n}"
+        );
+        assert_eq!(
+            quack_execute(&q_filter, i),
+            i.oracle_filter(),
+            "quack filter n={n}"
+        );
+        assert_eq!(
+            datafusion(&rt, &df_one, i, true),
+            i.oracle_one_hop(),
+            "df one-hop n={n}"
+        );
+        assert_eq!(
+            quack_execute(&q_one, i),
+            i.oracle_one_hop(),
+            "quack one-hop n={n}"
+        );
+        assert_eq!(
+            datafusion(&rt, &df_two, i, true),
+            i.oracle_two_hop(),
+            "df two-hop n={n}"
+        );
     }
 
     let mut g = c.benchmark_group("cypher_df_vs_quack");
@@ -355,26 +375,38 @@ fn bench(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("filter_count/datafusion", n), i, |b, i| {
             b.iter(|| black_box(datafusion(&rt, &df_filter, i, false)))
         });
-        g.bench_with_input(BenchmarkId::new("filter_count/quack_compiled", n), i, |b, i| {
-            b.iter(|| black_box(quack_execute(&quack_compile(FILTER, &bind), i)))
-        });
-        g.bench_with_input(BenchmarkId::new("filter_count/quack_execute", n), i, |b, i| {
-            b.iter(|| black_box(quack_execute(&q_filter, i)))
-        });
+        g.bench_with_input(
+            BenchmarkId::new("filter_count/quack_compiled", n),
+            i,
+            |b, i| b.iter(|| black_box(quack_execute(&quack_compile(FILTER, &bind), i))),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("filter_count/quack_execute", n),
+            i,
+            |b, i| b.iter(|| black_box(quack_execute(&q_filter, i))),
+        );
 
-        g.bench_with_input(BenchmarkId::new("one_hop_count/datafusion", n), i, |b, i| {
-            b.iter(|| black_box(datafusion(&rt, &df_one, i, true)))
-        });
-        g.bench_with_input(BenchmarkId::new("one_hop_count/quack_compiled", n), i, |b, i| {
-            b.iter(|| black_box(quack_execute(&quack_compile(ONE_HOP, &bind), i)))
-        });
-        g.bench_with_input(BenchmarkId::new("one_hop_count/quack_execute", n), i, |b, i| {
-            b.iter(|| black_box(quack_execute(&q_one, i)))
-        });
+        g.bench_with_input(
+            BenchmarkId::new("one_hop_count/datafusion", n),
+            i,
+            |b, i| b.iter(|| black_box(datafusion(&rt, &df_one, i, true))),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("one_hop_count/quack_compiled", n),
+            i,
+            |b, i| b.iter(|| black_box(quack_execute(&quack_compile(ONE_HOP, &bind), i))),
+        );
+        g.bench_with_input(
+            BenchmarkId::new("one_hop_count/quack_execute", n),
+            i,
+            |b, i| b.iter(|| black_box(quack_execute(&q_one, i))),
+        );
 
-        g.bench_with_input(BenchmarkId::new("two_hop_count/datafusion", n), i, |b, i| {
-            b.iter(|| black_box(datafusion(&rt, &df_two, i, true)))
-        });
+        g.bench_with_input(
+            BenchmarkId::new("two_hop_count/datafusion", n),
+            i,
+            |b, i| b.iter(|| black_box(datafusion(&rt, &df_two, i, true))),
+        );
     }
     g.finish();
 
@@ -387,9 +419,11 @@ fn bench(c: &mut Criterion) {
         g.bench_with_input(BenchmarkId::new("person/all_columns", n), &path, |b, p| {
             b.iter(|| black_box(scan(&rt, p, None, n).num_rows()))
         });
-        g.bench_with_input(BenchmarkId::new("person/bound_columns", n), &path, |b, p| {
-            b.iter(|| black_box(scan(&rt, p, Some(&PERSON_LANES), n).num_rows()))
-        });
+        g.bench_with_input(
+            BenchmarkId::new("person/bound_columns", n),
+            &path,
+            |b, p| b.iter(|| black_box(scan(&rt, p, Some(&PERSON_LANES), n).num_rows())),
+        );
     }
     g.finish();
 }

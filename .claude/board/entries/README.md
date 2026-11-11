@@ -29,6 +29,7 @@ exactly one of them, never both.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-11 | `cypher-df-vs-quack-bench` |  | [2026-11-11-cypher-df-vs-quack-bench.md](2026-11-11-cypher-df-vs-quack-bench.md) |
 | 2026-11-11 | `codegraph-recon-2` |  | [2026-11-11-codegraph-recon-2.md](2026-11-11-codegraph-recon-2.md) |
 | 2026-11-11 | `codegraph-recon-1` |  | [2026-11-11-codegraph-recon-1.md](2026-11-11-codegraph-recon-1.md) |
 | 2026-11-11 | `cg5-defuse-probe` |  | [2026-11-11-cg5-defuse-probe.md](2026-11-11-cg5-defuse-probe.md) |
