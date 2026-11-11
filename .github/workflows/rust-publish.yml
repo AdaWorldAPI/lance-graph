@@ -20,7 +20,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
   RUST_BACKTRACE: "1"
   CARGO_INCREMENTAL: "0"
   CARGO_BUILD_JOBS: "1"
@@ -46,6 +45,16 @@ jobs:
           # `stable` is that week. Same shape style.yml already uses for rustfmt.
           components: rustfmt, clippy
           cache: false
+
+      # Never a named CPU level on a hosted runner: the fleet is mixed (one
+      # worker has AVX-512, the next stops at AVX2), so each job detects its own
+      # CPU and builds for exactly that. The flags are spelled out as a feature
+      # list so cargo and the cache see a different CPU as different flags.
+      - name: Resolve target-cpu=native for this runner
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh -C debuginfo=0)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          echo "native is `$(.github/scripts/resolve-native-rustflags.sh --cpu)`, job `$GITHUB_JOB`" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: rui314/setup-mold@v1
 

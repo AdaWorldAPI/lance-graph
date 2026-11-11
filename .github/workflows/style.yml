@@ -16,7 +16,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
 
 # Least-privilege: these jobs only read the repo (checkout + build + lint).
 permissions:
@@ -69,8 +68,21 @@ jobs:
           # is idempotent and because removing it would be a second change in a
           # step that just broke.
           rustup component add clippy
+      # Never a named CPU level on a hosted runner: the fleet is mixed (one
+      # worker has AVX-512, the next stops at AVX2), so each job detects its own
+      # CPU and builds for exactly that. The flags are spelled out as a feature
+      # list so cargo and the cache see a different CPU as different flags.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh -C debuginfo=0)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native is `$(.github/scripts/resolve-native-rustflags.sh --cpu)`, features $hash, job `$GITHUB_JOB`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           shared-key: "lance-graph-deps"
           workspaces: lance-graph/crates/lance-graph
       - name: Install dependencies

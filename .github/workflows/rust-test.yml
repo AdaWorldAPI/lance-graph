@@ -16,7 +16,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
   RUST_BACKTRACE: "1"
   CARGO_INCREMENTAL: "0"
 
@@ -44,7 +43,10 @@ jobs:
       # is already installed below. Note: a job-level RUSTFLAGS gives this job
       # its own Swatinem cache key — the first run after this change
       # repopulates the test cache.
-      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
+      # debuginfo=0 and the CPU features are set by the "Resolve
+      # target-cpu=native" step below; this keeps debug info off for build
+      # scripts and proc-macros as well.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     defaults:
       run:
         working-directory: lance-graph
@@ -79,8 +81,21 @@ jobs:
         # at the `cargo test --no-run` link step (intermittent). mold links them
         # fast + low-memory (already used by release.yml / rust-publish.yml).
         uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
+      # Never a named CPU level on a hosted runner: the fleet is mixed (one
+      # worker has AVX-512, the next stops at AVX2), so each job detects its own
+      # CPU and builds for exactly that. The flags are spelled out as a feature
+      # list so cargo and the cache see a different CPU as different flags.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh -C debuginfo=0)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native is `$(.github/scripts/resolve-native-rustflags.sh --cpu)`, features $hash, job `$GITHUB_JOB`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           shared-key: "lance-graph-deps"
           workspaces: |
             lance-graph/crates/lance-graph
@@ -385,7 +400,10 @@ jobs:
     env:
       # Same reason as `test`: CI never opens a debugger, and debug info is
       # what pushes the link over the partition. See that job's env block.
-      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
+      # debuginfo=0 and the CPU features are set by the "Resolve
+      # target-cpu=native" step below; this keeps debug info off for build
+      # scripts and proc-macros as well.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     defaults:
       run:
         working-directory: lance-graph
@@ -409,8 +427,21 @@ jobs:
         uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
       # Its OWN cache key. Sharing `lance-graph-deps` with `test` would have two
       # jobs writing different contents under one key and thrashing it.
+      # Never a named CPU level on a hosted runner: the fleet is mixed (one
+      # worker has AVX-512, the next stops at AVX2), so each job detects its own
+      # CPU and builds for exactly that. The flags are spelled out as a feature
+      # list so cargo and the cache see a different CPU as different flags.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh -C debuginfo=0)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native is `$(.github/scripts/resolve-native-rustflags.sh --cpu)`, features $hash, job `$GITHUB_JOB`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           shared-key: "lance-graph-members"
           workspaces: |
             lance-graph
@@ -560,7 +591,10 @@ jobs:
       # ceilings (GNU-ld/mold RSS at link, and disk). Note: a job-level
       # RUSTFLAGS gives this job its own Swatinem cache key — the first run
       # after this change repopulates the coverage cache.
-      RUSTFLAGS: "-C debuginfo=0 -C target-cpu=x86-64-v3"
+      # debuginfo=0 and the CPU features are set by the "Resolve
+      # target-cpu=native" step below; this keeps debug info off for build
+      # scripts and proc-macros as well.
+      CARGO_PROFILE_DEV_DEBUG: "0"
     defaults:
       run:
         working-directory: lance-graph
@@ -598,8 +632,21 @@ jobs:
         # has mold. Without this step the coverage job flaked while `test`
         # stayed green (2/50 runs). mold links them fast + low-memory.
         uses: rui314/setup-mold@9c9c13bf4c3f1adef0cc596abc155580bcb04444 # v1
+      # Never a named CPU level on a hosted runner: the fleet is mixed (one
+      # worker has AVX-512, the next stops at AVX2), so each job detects its own
+      # CPU and builds for exactly that. The flags are spelled out as a feature
+      # list so cargo and the cache see a different CPU as different flags.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh -C debuginfo=0)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+          echo "native is `$(.github/scripts/resolve-native-rustflags.sh --cpu)`, features $hash, job `$GITHUB_JOB`" >> "$GITHUB_STEP_SUMMARY"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           shared-key: "lance-graph-deps"
           workspaces: |
             lance-graph/crates/lance-graph
