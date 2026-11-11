@@ -60,6 +60,61 @@ Size: a mask holds 256 positions and that cap stays. A 256 × 256 slab is 256
 masks, which is the 1,024-word plane already in the lab; ×256 slabs under an
 outer byte when needed.
 
+## 1b. The binding store is already planned: the Quack Binding Store
+
+"DR is the binding store of versioned immutable masks" is the store the
+existing plans call the **Quack Binding Store**. It is planned and not built.
+Read on main:
+
+- **DR256 WHERE capstone** (`dr256-where-capstone-v1.md`):
+  - §B.1: "the generalized Quack Binding Store: PLANNED / UNBUILT", defined by
+    D-QSP and D-NFR S5, smallest seam D-NFR-1. Its role is "a DTO /
+    ClassView-to-native-algebra binding authority over folding algebra. It
+    owns reusable binding descriptors, their witnesses and lifetimes."
+  - §B.7 finding 5: "A witness on a kept R is the blocking correctness gap.
+    Every reuse control ran silently stale through Quack." The binding store
+    is named as the owner.
+  - §B.8: the store must keep "reusable, version-witnessed semantic
+    bindings" as compiler input, reusable without materializing
+    intermediates.
+  - §C.3: four lifetimes with separate owners: bound expression (binding
+    store); prepared computation (mask-RISC); computed intermediate ("the
+    caller's buffer, under the descriptor's witness"); materialized result
+    (consumer).
+  - §D.3: the smallest steps, in order: a frame on a bound Quack `Query`
+    (D-NFR-1); a dependency witness for a kept plane (owner D-QSP); the
+    codebook generation inside the frame (D-NFR-2).
+- **D-NFR** (`d-native-repr-contract-v1.md`) S5: "binding store … MISSING
+  in Quack"; D-NFR-1 is the lab probe: bind a Quack `Draft`, seal a frame,
+  execute, advance one revision, the second execution is refused.
+- **D-QSP** (`d-qsp-classview-quack-postgresql-parity-v1.md`): ClassView
+  resolves class, method ordinal and operation law; Quack Binding resolves
+  snapshot, typed domains, codebook, focus, validity and lanes; "do not put a
+  behavior choice into the binding store".
+- **D-DYNBAG** (`d-dynbag-holographic-bags-v1.md`): X4 / MISSING-2 "no
+  Quack `Binder` backed by `BindStore` / `ClassView` (8 impls, none)";
+  MISSING-5 "a reuse cache for prepared `LocalMap`s keyed by frame".
+- **D-DRDT amendment**: Quack's `Binder` "stays the operational
+  query-binding membrane; its prepared numeric bindings are not DT's
+  semantic bindings".
+- Linear: EXO-121 (ClassView / WideFieldMask "adjacent to Quack Binder and
+  DTO/store"), EXO-207 (CodeTable + Quack admit, PR 1982), EXO-251 (medcare
+  WP4, DT64 bind store for view classes).
+
+**One difference from the operator's statement, for the operator.** The
+capstone (§B.1, §C.3) says the store holds binding *descriptors* and is "not
+a population bitmap store"; the computed mask stays in the caller's buffer
+under the descriptor's witness. The operator's statement has DR store the
+masks themselves, versioned, immutable and prefetched. If the masks are
+stored, §B.1's "not a population bitmap store" and §C.3's lifetime 3 owner
+are superseded; if not, the store holds the witness and the reusable mask
+lives beside it under that witness.
+
+**What this plan's work maps onto.** S4 (`requested ∩ visible` at bind
+time) and the PR 2010 lab's prepared planes are lifetime 1 and 3 of §C.3.
+The first build step is D-NFR-1 (a frame on a bound Quack `Query`), not a
+new store.
+
 ## 2. Why it fits what is on main
 
 Read in this session, with locations:
