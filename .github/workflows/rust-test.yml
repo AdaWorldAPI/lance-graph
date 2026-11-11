@@ -521,8 +521,12 @@ jobs:
       # The claim "every member is gated" was therefore false when it was made.
       # A membership check that cannot see two of its inputs is the same shape
       # as a gate that cannot fire.
-      - name: Run surreal_container tests (missed by the first sweep)   # 5 + 5 green
-        run: cargo test --manifest-path crates/surreal_container/Cargo.toml
+      # surreal_container's tests are NOT run here (2026-11-11). Nothing in the
+      # workspace depends on the crate, and its test step recompiled the lance
+      # stack for more than five minutes on every PR, which pushed this job over
+      # its 30-minute limit. The tests run in `surreal-container.yml`, only when
+      # the crate, the contract crate or the workspace manifest changes. The crate still compiles
+      # in the `cargo build --workspace` step above.
       - name: Run dto-class-check tests (missed by the first sweep)     # 1 green
         run: cargo test --manifest-path tools/dto-class-check/Cargo.toml
       # perturbation-sim is a member that no step tested: `build --workspace`
