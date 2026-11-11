@@ -1,0 +1,81 @@
+file	q	verdict	coverage_honest	reason
+X30	Q1	PARTIAL	yes	Definition and all 35 crates/ impl sites listed with lib/test split; minor slip: states "36 + 1 doc" impls while its own list has 37 (35 crates + 2 .claude); no compiler-index scope note (text-only method).
+X30	Q2	PARTIAL	yes	All 16 dependents correct; minor slip: says all are normal except dir-sim, but math-polyfill-probe/Cargo.toml:30 is also [dev-dependencies].
+X30	Q3	CORRECT	yes	lane.rs:360/386, lane_socket 7 sites, report tests 320/341/418/623, dir-sim 1328; false friends excluded; transitive lab callers true.
+X30	Q4	CORRECT	yes	Callees check_issuer/Guard::witness/eq; r2il prepare plus lab/probe/test callers of admit and method_ref receiver-checked; collisions excluded; sibling repos stated unsearched.
+X30	Q5	CORRECT	yes	Full prepare sequence guards->route->resolve->admit(334)->when/three-valued refusals->lens->effects->Prepared; prepare_native consumes Prepared.
+X30	Q6	CORRECT	yes	r2il prepare refuses any when (335-336); lab lowering in foundry PreparedMethod and grammar compose (true; see key error 2).
+X30	Q7	CORRECT	yes	No path; ScopedDecision authorize.rs:170; dt64/rbac deps; dir-sim only via patch/ogar-rbac; WideFieldMask manual bridge only (walk_rails covered in Q10).
+X30	Q8	PARTIAL	yes	True text counts (505 lines/49 files/23 crates; 101/22/11) with scope caveats; no compiler-resolved counts and no code/test/doc split.
+X30	Q9	CORRECT	yes	Known callees incl admit_lane/LaneAddr compare, callers 360/386; possible ClassView/LaneSource dispatch with 7 impls; unknowns stated.
+X30	Q10	CORRECT	yes	Gap nodes PERMIT/ONE/G2A/G2B/ISS/JOIN, SD-->RAIL not a call (closure), status/PR and design-intent claims all classified as not recoverable.
+X44	Q1	CORRECT	yes	Definition and all 35 impl sites with lib/test split; AiwarClassView flagged UNKNOWN (it has no trait impl); OGAR impl noted external.
+X44	Q2	CORRECT	yes	All 16 with Cargo.toml lines; dev/normal split explicitly not examined.
+X44	Q3	CORRECT	yes	All direct callers incl tests; collisions excluded; indirect lane/borrow_all callers listed.
+X44	Q4	PARTIAL	yes	Callees correct; method_ref callers omit r2il tests, grammar, report, dir-sim, xlog-relcomp, dt64-admission fixture; admit callers omit dt64-admission-probe/src/lib.rs:182 and r2il/report/dir-sim tests; grammar line given as 424 (actual 421).
+X44	Q5	CORRECT	yes	Steps register->route->method_ref->Resolution->prepare checks a-h->prepare_native->run, all true.
+X44	Q6	CORRECT	yes	Foundry and grammar lab lowering, r2il refusal at 335-337 and test 644; unopened candidates listed.
+X44	Q7	CORRECT	yes	No path; no common direct dep; walk_rails closure; dir-sim patch-only/ogar-rbac external (visible_fields line 184 vs 193 is a citation slip).
+X44	Q8	PARTIAL	yes	True text counts per crate; no compiler-resolved counts or code/test/doc split.
+X44	Q9	PARTIAL	yes	Callees/callers/LaneSource impls correct; minor false count "40+ impls" of ClassView (35 in crates/).
+X44	Q10	CORRECT	yes	Gap/absence nodes, SD-->RAIL closure-only, data-flow-through-caller, cross-repo, status labels classified.
+X50	Q1	CORRECT	yes	Definition + RA 13 impls in 9 files with scope (workspace members, cfg(test) off), notes excluded crates/cfg(test) missed.
+X50	Q2	CORRECT	yes	All 16 with correct normal/dev split (dir-sim, math-polyfill dev); line refs are root Cargo.toml member lines.
+X50	Q3	PARTIAL	yes	Confirmed 2 in-crate callers; test callers left UNKNOWN (honestly explained as cfg(test)/macro gaps); key test sites missing.
+X50	Q4	CORRECT	yes	Callees incl check_issuer/Guard::witness/GuardWitness::eq; admit<-prepare; method_ref <- 4 r2il test helpers; beyond-scope callers stated unobserved.
+X50	Q5	CORRECT	yes	Prepare chain correct; adds true fact register_derived->insert (lib.rs:826/840).
+X50	Q6	CORRECT	yes	None lower via dt64/r2il; refusal at 335-336; foundry lab named as unobserved excluded crate.
+X50	Q7	CORRECT	yes	No path in facts; shared WideFieldMask only; rbac dependents incl dir-sim (consistent with key); scope stated.
+X50	Q8	PARTIAL	yes	RA counts match key (WideFieldMask 179/52/17/11; MethodBinding 27/17/2) with src/test split; no doc-only/excluded-mention split.
+X50	Q9	CORRECT	yes	Callees, callers, MAY_DISPATCH lane_of and ClassView dispatch, unknowns (tests, excluded crates, external).
+X50	Q10	CORRECT	yes	Gaps, SD-->RAIL not a call, xlog bag_count not calling admit, "only way" exclusivity contradicted, status labels.
+X54	Q1	PARTIAL	yes	Full 35 list + .claude copies; minor misclassification: lance-graph-codegraph publication.rs:65 PubView put under cfg(test)/test, it is lib code.
+X54	Q2	CORRECT	yes	14 from index + 2 missing found in source = 16; .claude probes separate; dir-sim dev noted.
+X54	Q3	CORRECT	yes	All direct and indirect callers; collisions excluded (RouteLog::check location cited wrong but excluded correctly).
+X54	Q4	PARTIAL	yes	Callees and callers broadly complete; minor slip: lance-graph-report/src/lane_source/tests.rs:258 listed among "non-test source" method_ref callers.
+X54	Q5	CORRECT	yes	Steps correct incl register_derived mention, admit at 334, refusals, opcode, Prepared, native/run.
+X54	Q6	CORRECT	yes	r2il refusal; foundry and grammar lab lowering with refusal variants; unread parts stated.
+X54	Q7	CORRECT	yes	No code path; deps; walk_rails closure; type-level WideFieldMask seam; citation slips only (visible_fields :184, dir-sim Cargo.toml:39).
+X54	Q8	PARTIAL	yes	True text counts incl .claude (51 files/513 lines; 24/116); no compiler-resolved counts or code/test/doc split.
+X54	Q9	CORRECT	yes	Callees in order, callers, dyn/LaneSource possibilities with 7 impls, unknowns.
+X54	Q10	PARTIAL	yes	Gap edges, status, cross-repo, data-flow classified; omits the drawn solid SD --> walk_rails_authorized edge.
+X66	Q1	CORRECT	yes	Definition + exactly 35 impl sites under crates/ with lib/lab/test split; OGAR impl external.
+X66	Q2	CORRECT	yes	14 normal + 2 dev = 16, correct split; ogar-behavior-probe declares but never imports dt64 (true).
+X66	Q3	CORRECT	yes	All direct callers incl tests and dir-sim; indirect lab callers; name collision noted.
+X66	Q4	CORRECT	yes	Complete callees and receiver-checked callers of both, free fn method_ref distinguished, collisions excluded, bag_count_admitted noted.
+X66	Q5	CORRECT	yes	Full chain incl insert validation, route, Resolution, prepare checks, prepare_native, run.
+X66	Q6	CORRECT	yes	Foundry and grammar lab lowering; r2il refusal; relalg/Kleene unknowns stated.
+X66	Q7	PARTIAL	yes	Conclusion and evidence correct (incl walk_rails only called by its own test, true); minor slip: calls dir-sim's Cargo.toml:78 a dev-dep, it is a [patch] entry.
+X66	Q8	PARTIAL	yes	True text counts plus true non-comment split (430/42, 79/17); no compiler-resolved counts or test-only split.
+X66	Q9	CORRECT	yes	Callees, callers, dispatch possibilities (~35 ClassView, 7 LaneSource), unknowns.
+X66	Q10	CORRECT	yes	Gaps incl one executor/row scope/visible_fields/one record, SD-->RAIL solid-but-not-code, status, cross-repo, data flow.
+X68	Q1	CORRECT	yes	Definition + RA 13 impls with scope; excluded crates/cfg-gated impls stated unobserved.
+X68	Q2	CORRECT	yes	All 16 with correct normal/dev split and workspace membership.
+X68	Q3	PARTIAL	yes	2 confirmed callers; test callers not observed and explicitly not claimed absent (macro regions, excluded crates).
+X68	Q4	CORRECT	yes	method_ref <- 4 r2il test helpers, admit <- prepare, callees incl check_issuer/Guard::witness/GuardWitness::eq; excluded callers stated unobserved.
+X68	Q5	CORRECT	yes	Prepare chain with lines; prepare_native separate; register callers not traced (stated).
+X68	Q6	CORRECT	yes	None observed lowering via dt64/r2il; refusal 335-337; foundry bridge UNKNOWN (excluded).
+X68	Q7	PARTIAL	yes	No observed path, correct; minor slip: "rbac [dependencies] :78" for dir-sim, line 78 is under [patch."...lance-graph"].
+X68	Q8	PARTIAL	yes	RA counts match key exactly (259/179,52,11,17; 46/27,17,2) with src/tests/examples split; no doc-only mentions.
+X68	Q9	CORRECT	yes	Confirmed callees/callers, MAY_DISPATCH lane_of and ClassView targets, unknowns.
+X68	Q10	CORRECT	yes	DYN/TYPE/NEG/XREPO classification; gap nodes; SD-->RAIL not an observed call; status labels.
+X84	Q1	CORRECT	yes	RA 13 with scope plus 22 source-only sites (=35) explicitly attributed to excluded crates/examples/cfg(test).
+X84	Q2	CORRECT	yes	16 dependents with correct dev split (dir-sim, math-polyfill); index gaps noted.
+X84	Q3	CORRECT	yes	Confirmed 2 + all test sites with reason RA misses them; indirect callers.
+X84	Q4	CORRECT	yes	Callees and callers (RA + receiver-checked source) for both, incl r2il test 536/641 for admit; external unknown.
+X84	Q5	CORRECT	yes	Steps correct; only compiler edge prepare->admit identified.
+X84	Q6	CORRECT	yes	Foundry/grammar/set_lower lowering, r2il refusal, admit witness checks.
+X84	Q7	CORRECT	yes	No path; no crate with both deps directly; dir-sim patch-only; walk_rails closure.
+X84	Q8	CORRECT	yes	RA counts match key with src/test file split, plus text counts (51/24 files) flagged as including docs/comments.
+X84	Q9	PARTIAL	yes	Callees/callers/7 LaneSource impls correct; minor slip: claims the Charon store dropped LaneSource::lane_of, key records it as MAY_DISPATCH.
+X84	Q10	CORRECT	yes	Gaps (G), SD-->RAIL no call edge (F), protocol/ordering, status, cross-repo.
+X93	Q1	CORRECT	yes	Definition, 35 source impl sites with split, RA 13 with scope and the 22 it misses.
+X93	Q2	PARTIAL	yes	16 with correct dev split; minor false aside: "only lance-graph-dt64-lance is excluded", but most lab/probe dependents and codegraph are in root exclude.
+X93	Q3	CORRECT	yes	Confirmed 2 + all test sites, with RA macro-region explanation.
+X93	Q4	PARTIAL	yes	Callees right; method_ref grep counts dt64-admission tests' free fixture fn method_ref (14+1) as call sites without distinguishing; admit list omits dt64-admission-probe lib.rs:182, bench.rs:181, xlog-relcomp test.
+X93	Q5	CORRECT	yes	Prepare chain correct with compiler confirmation.
+X93	Q6	CORRECT	yes	r2il refusal; foundry/grammar/set_lower lowering; unknowns stated.
+X93	Q7	CORRECT	yes	Not observed; deps; dir-sim patch; WideFieldMask seam (visible_fields :184 citation slip).
+X93	Q8	PARTIAL	yes	RA counts (40+6/7 files; 244+14+1/16 files) and true text counts incl .claude; no per-crate RA numbers or src/test/doc split.
+X93	Q9	CORRECT	yes	Callees with refusals, LaneSource/ClassView possibilities, unknowns.
+X93	Q10	CORRECT	yes	Gaps, SD-->RAIL caller-supplied mask, ordering, "only way" claims, status, cross-repo.
