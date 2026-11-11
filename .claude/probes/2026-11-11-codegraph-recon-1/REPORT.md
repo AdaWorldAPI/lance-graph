@@ -137,9 +137,83 @@ the CR-H1 identity fields and the five CR-H0-REVIEW-SEMANTICS axes. It carries e
 - **Gap:** `cargo_lock_sha` is `NOT_TRACKED`, because the repository tracks no Cargo.lock. CR-H1's
   identity assumes one.
 
-## 6. Retrieval measurement
+## 6. Retrieval measurement (4 paths × 2 runs × 10 questions, same revision)
 
-See §7 (filled from the graded runs).
+Arms:
+- **A:** source only.
+- **B:** `.codegraph/` first, freshness-checked, then source.
+- **C:** compiler facts only: `cg_query` over the 4-crate store plus the RA graph. It could read source
+  only at a line a tool had cited.
+- **D:** hybrid.
+
+Each arm had its own inputs and an explicit list of what it must not read. One grader graded all 80
+answers against a held-out, source-checked key, with run labels randomised.
+
+| run | correct | partial | wrong | tokens | tool calls | seconds |
+|---|---|---|---|---|---|---|
+| A1 | 8 | 2 | 0 | 545,985 | 45 | 272 |
+| A2 | 7 | 3 | 0 | 519,347 | 31 | 198 |
+| B1 | 6 | 4 | 0 | 515,749 | 33 | 215 |
+| B2 | 7 | 3 | 0 | 536,113 | 35 | 230 |
+| C1 | 7 | 3 | 0 | 541,365 | 54 | 385 |
+| C2 | 8 | 2 | 0 | 537,291 | 43 | 340 |
+| D1 | 7 | 3 | 0 | 534,740 | 48 | 320 |
+| D2 | 9 | 1 | 0 | 546,203 | 49 | 344 |
+
+Every run carries ~425k of shared base context, so compare differences, not totals.
+
+All 80 answers were coverage-honest: none presented an unobserved region as empty, and none stated a
+false item as fact. That is the main change from MEM-1, where the index arm under-reported Q3.
+
+| question | what separated the arms |
+|---|---|
+| Q3 test callers | C is PARTIAL in both runs. It sees the 2 in-crate callers and correctly marks the test sites UNKNOWN (macro regions, cfg(test), test targets), but cannot name them. A, B and D grep them. |
+| Q8 blast radius | Only C and D give compiler-resolved counts (WideFieldMask 259 refs in 4 crates; MethodBinding 46 in 3). A and B give text counts (49 files / 23 crates) that mix code, tests and doc comments. Only D2 gives both, with the doc-only split. |
+| Q4 reachability | Text arms list fixture functions named `method_ref` as call sites (D1), or misfile a test file as non-test (B1). C has no such errors but sees no test callers. |
+| Q1 impls | B is PARTIAL in both runs: miscounting or misfiling impls while working from text. |
+
+Reading:
+- Compiler facts bought precision on reference and call questions and cost coverage of tests.
+- The hybrid arm got the best single run (9/10).
+- No arm was more accurate overall with n = 2; the spread inside an arm is as large as between arms.
+- Facts-backed arms were 25–90% slower in wall time, with more tool calls. Their token use was no
+  higher.
+
+### Confounds, stated
+
+- `.codegraph/coverage.tsv` was stale while B and D ran. This branch's new `cg_query` example had changed
+  the codegraph crate's row. Every B and D run reported the failed `--check` and verified against source.
+  The guard fired on real drift, and it is regenerated on this branch.
+- C2 says a recursive Cargo.toml grep printed four lines under `.claude/probes/`. It says it did not use
+  them. The run is kept and marked.
+- The grader found two errors in the key. Both were verified in source and corrected:
+  - Q4: the four r2il test callers call `method_ref`, not `admit`.
+  - Q6: `foundry-parity-lab/src/method.rs:218-266` lowers WHEN to mask-RISC as a LAB path outside R2IL.
+
+  No cell was graded around them. Ten further true facts the key lacked are listed in the grader notes.
+
+## 7. What R2IL contributes here
+
+- R2IL reads registered DT64 `MethodBinding` effects. `prepare` (`r2il/src/binding.rs:321`) admits the
+  binding, refuses WHEN (`:336`) and three-valued truth (`:339`), and binds each effect to an opcode.
+- For an ordinary Rust function, such as `LaneBinding::check`, the packet records `r2il.method =
+  NOT_A_METHOD, body_semantics = UNKNOWN`. Negative test 08b covers this; its disable run is red.
+- **Not done:** readable per-method step reports (`Prepared::steps()`). They need a store with registered
+  bindings, and the only such fixtures live in r2il's integration tests, which cannot be imported. It
+  would be a new r2il example, which is new surface beyond this probe.
+
+## 8. Open
+
+- **crai-rs seam:** the packet is a prototype. Field-level reads (`field_readers`) and test sites are
+  name matches (POSSIBLE). A resolved receiver needs RA occurrence rows joined to spans, which is the
+  next step.
+- **The mission brief is cut off** at §8 "Each finding should include: Source revision and diff". Each
+  packet finding carries the identity block and `changed_source.diff`. Anything specified after that
+  sentence is not implemented.
+- **Whether `Codegraph::impact` should return UNKNOWN for public symbols** (today it is example-side
+  only) is an EXO-230 decision.
+- **Charon test targets:** artifacts for test targets and consumer crates would close Q3 for the
+  compiler arm (EXO-229).
 
 ## Reproduce
 
