@@ -1,3 +1,17 @@
+## 2026-11-10 — lance-graph PR #1995 (merged `15d4b4c`) — D-FOUNDRY-PARITY-1 P1a: per-store cost via INT8 packed GEMM
+
+- **Added:** `foundry-parity-lab::arm_c` (`PreparedDemand` packed once per menu revision, `CostQuery::open` stages A once per binding, `per_store` runs one GEMM); `Network::set_unit_cost`; fair arm A comparator `store_costs`; bench rows; 8 integration tests; plan §5a.
+- **Locked (measured):** oracle and null-model parity over 64 × 8 × q ∈ {1, 3, 128}; arm C summed over arm B's mask equals `network_cost`; refusals for missing demanded lane (Codex P2, red before the fix), `u8` overflow, stale frame, foreign menu revision, bad q; five disable runs red. Per-store cost 0.65–1.17 µs vs fair arm A 1.19–1.66 µs; 4 096 B staged.
+- **Not done:** limiting resource / per-store max (P1b); scalar tier not run; scaling not measured.
+- **Confidence:** CI green on merged head `288f130`.
+
+## 2026-11-10 — lance-graph PR #1991 (merged `637d638`) — D-FOUNDRY-PARITY-1: evidence matrix and 64-store lab
+
+- **Added:** `crates/foundry-parity-lab` (fixture, source owner implementing `LaneSource`, `World::bind`, arms A and B, scalar oracle, bench); `.claude/plans/foundry-parity-v1.md` (18-row matrix, G1–G6 register, roadmap); board entry, STATUS_BOARD and INTEGRATION_PLANS rows.
+- **Locked (measured):** 16 tests at merge (oracle + null-model parity; refusals; negative controls; `answers()` validates q, Codex P2); `CanCook` 470 ns with 0 bytes copied; layer-cake per-store max ~15 µs vs 1.8 µs over built objects.
+- **Not done:** element-wise arithmetic (G1); IAM, overlay frame, action gate, bound relations, method lowering (G2–G6).
+- **Confidence:** CI green on the merged head.
+
 ## 2026-11-06 — lance-graph PR #1970 (merged `fb27c46`) — D-LANESOCK-3: one field basis, test-only scope admission
 
 - **Added:** `LaneSource::lane_of(.., basis: &FieldRef, ..)` carries the field DT64 validated; `AbiLanes` holds no ClassView; three implementers updated; `AbiLanes::unwitnessed` and its suite moved to `#[cfg(test)]`, the `unwitnessed-scope` feature removed; spec §8 consumer contract and reader-scope inventory; board for #1969.

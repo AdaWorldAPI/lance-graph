@@ -4,5 +4,6 @@
 pub mod common;
 pub mod controls;
 pub mod cost;
+pub mod method;
 pub mod parity;
 pub mod refusals;

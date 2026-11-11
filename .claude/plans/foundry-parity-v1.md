@@ -1,12 +1,47 @@
 # D-FOUNDRY-PARITY-1 — DR × DT64 as an operational ontology: evidence matrix and first lab
 
-> **Status:** ACTIVE (lab slice landed in this PR; everything past Level R is OPEN).
+> **Status:** ACTIVE. Level R lab merged (#1991, #1995); G6 in #1996. Governance
+> (G2–G4) is composition work over existing pieces (§0, corrected 2026-11-10).
 > **Lab:** `crates/foundry-parity-lab` (own workspace root, not a member).
 > **Contract read first:** `.claude/knowledge/dr-dt64-locality-execution-contract.md`
 > (its own evidence table grades Foundry parity HYPOTHESIS; this plan does not
 > change that grade).
 > **Verify:** `cargo test --release --manifest-path crates/foundry-parity-lab/Cargo.toml`
 > and `cargo run --release --manifest-path crates/foundry-parity-lab/Cargo.toml --bin bench`.
+
+## 0. Report (current, 2026-11-10)
+
+**Verdict.** No Foundry parity is claimed; nothing was compared against a
+running Foundry. On the read side, DR + DT64 + mask-RISC answer operational
+questions over source-owned planes with exact oracle parity, correct
+refusals and zero copies. On the governance side, the parts exist in other
+crates but are not composed on this path.
+
+**What the lab shows (32 tests, every guard disable-verified):**
+
+| Question | Path | Measured (64 rows) |
+|---|---|---|
+| `CanCook` | arm B, hand-written mask-RISC | 470 ns, 0 B copied |
+| `CanCook` as a registered method | G6: `admit` → bind → relalg lowered once → execute | 359–400 ns |
+| per-store cost, 64 × 8 | arm C, INT8 packed GEMM (AMX) | 0.65–1.17 µs |
+| per-store maximum | arm B layer-cake sweep | ~15–19 µs (8× slower than objects: no min/argmin) |
+| same over objects | arm A | ~1.8 µs + 21 µs and 51 968 B to build |
+
+**What exists elsewhere and what is missing (audited 2026-11-10):**
+
+| Area | Exists | Missing on this path |
+|---|---|---|
+| Authorization (G2) | `ogar-auth` → `ogar-rbac` → `lance-graph-rbac::ScopedDecision`: row `ScopeSpec` + `WideFieldMask`, delegation; DT64 `mask_where` over markings | Apply it to a DT64 binding: per-row scope lane → resident plane; `visible_fields()` limits bound fields |
+| Scenarios (G3) | thought-git branches, `next_version`, squash gate; xlog `stage_closure` preview | An overlay frame a DT64 binding can read |
+| Actions / writeback (G4) | thought-git Rubicon outcomes, `commit_cycle` + `CommitWitness`, `stage`/`seal`; xlog `stage`/`commit`; rbac Write/Act; #1993 durable map writes | One authorized, preconditioned, committed, witnessed action end to end |
+| Provenance | binding witnesses, thought-git receipts + replay, commit witnesses, rbac audit identity | One record per answer joining them |
+| Algebra (G1) | counts, sums, GEMM | element-wise min/argmin (decision P1b) |
+| Relations (G5) | — | ADMISSION B decision (EXO-140) |
+
+**Next step with the most value:** G2 in the lab, using the existing
+`authorize_scoped` decision instead of the stand-in.
+
+Architecture maps: `.mermaid/` (D-FOUNDRY-MAP-1).
 
 ## 1. Overview
 
@@ -32,6 +67,8 @@ instance; Foundry columns cite its public documentation only, as evidence of
 - [x] Bench in ns/µs (§6).
 - [x] P1a (2026-11-10): per-store cost through the INT8 packed GEMM (ndarray#418), arm C — oracle-exact, staged A counted (§5a, §6).
 - [ ] P1b: element-wise cross-lane arithmetic in an admitted operator (per-store max without the sweep, limiting resource) — see §7 G1.
+- [x] P2 / G6 (2026-11-10): `CanCook` registered as a DT64 `MethodBinding` and executed from its `MethodRef`; the WHEN guard is lowered by relalg once per binding and executed per question, no lab lowering (§5b, §6).
+- [ ] P2 / G5: recipe demand as bound relation lanes (§7 G5; waits on ADMISSION B, EXO-140).
 - [ ] P3: scenario overlay frame (§7 G3); governed action / writeback gate (§7 G4).
 - [ ] Production IAM in the read path instead of the lab stand-in (§7 G2).
 
@@ -85,20 +122,20 @@ compared against Foundry.
 | 2 | Stable identity + provenance | DR route + witnessed coordinate; global id lane | `RouteAt`, `CoordSpace`, `Frame`; lab reorder test | LAB | No per-value provenance (who wrote this stock, from which system) | Two sources disagree on a value; no witness says which wins | PARTIAL → MISSING for provenance |
 | 3 | Link types / traversal (search-around) | Relation lanes; `graph_hop::OutgoingHop` | mask-RISC `graph_hop` is feature-gated OFF (value-directed gather banned, ADMISSION B) | BLOCKED | Admitted relation traversal over source-owned planes; recipe→ingredient is a fixture function here, not a bound relation | Bind recipe demand as a relation lane and traverse without Gather | BLOCKED |
 | 4 | Object sets, filtering (WHERE) | Scoped WHERE population = mask program | lab `cook_mask`, `fulfill_mask` | LAB | — | Parity suite (8 items × 3 q × 64 stores) | FUNCTIONALLY-RELATED; LOWER-LEVEL-ADVANTAGE-HYPOTHESIS (0 bytes copied, 470 ns / question at 64 rows) |
-| 5 | Computed properties / functions | `MethodBinding` (ON×WHEN×DO) + `MethodRef`; mask-RISC terminals | `lib.rs:215`, `:353`; DT64 "executes nothing" | PARTIAL | Executable lowering from a `MethodRef` to a mask-RISC program (the lab hand-writes the programs) | Register `CanCook` as a MethodBinding and execute it via `admit` | PARTIAL |
-| 6 | Versioned method behaviour | `SigRev`, `GuardWitness`, `Stamp` | `lib.rs:345-370` | IMPLEMENTED (identity) / ABSENT (execution) | Same as 5 | Stale `SigRev` refused at execution | PARTIAL |
-| 7 | Actions / state changes | none on this path | `MethodBinding::effects` is descriptive | ABSENT | Governed transition contract (§7 G4) | — | MISSING |
+| 5 | Computed properties / functions | `MethodBinding` (ON×WHEN×DO) + `MethodRef`; WHEN guard lowered by relalg to one mask-RISC program | `lib.rs:215`, `:353`; lab `method.rs` (§5b, WHEN guards); `lance-graph-r2il` `binding::prepare`/`run` and `binding_native::prepare_native`/`run_native` (DO effects: admitted, lowered once, compiled programs run hot, explicit `ExecPermit`, bounded `Receipt`; WHEN refused there) | LAB (both halves, separately) | One executor for WHEN and DO; who issues `ExecPermit` ("not decided", `binding.rs`) | `every_registered_can_cook_method_matches_the_oracle`; r2il binding tests | FUNCTIONALLY-RELATED |
+| 6 | Versioned method behaviour | `SigRev`, `GuardWitness`, `Stamp` checked by `admit` before execution | `lib.rs:345-370`; lab `method.rs` | IMPLEMENTED (identity) / LAB (execution) | Same as 5 | `a_reference_with_another_guard_is_refused` (forged guard, other `SigRev`), foreign store refused | FUNCTIONALLY-RELATED (read-only) |
+| 7 | Actions / state changes | thought-git write path; xlog two-phase edge writes; rbac write/act grants | `thought-git-probe` `Outcome::{Commit,Plan,Prune,Veto}`, `VersionStore::commit_cycle` (one sealed version + `CommitWitness` per cycle), `MetadataTable::stage`/`seal`; `lance-graph-xlog` `Cube::stage` (checks, no version) / `commit` (cannot refuse); `lance-graph-rbac` `Operation::{Write,Act}`, `PermissionSpec::can_write`/`can_act`; durable map writes in #1993 (merged, `b34d195`); the production cycle writer `WalSink::commit_cycle` (`lance-graph-planner/src/persist_sink.rs:551`), implemented by `LanceCycleWriter` (`lance-graph/src/graph/cycle_sink.rs:1050`), on main beside the probe's `VersionStore` stand-in | LAB (probe) / PROPOSED (`thought-git-lifecycle-contract-v1`: CONTRACT, docs only) | Not composed for this domain: no store-network action passes authorize(Write/Act) → stage → commit → witness; no precondition on a source value (only frame / sealed-version refusals) | Reassign order 12→17: authorized stage, stale-precondition refusal, commit, witness | PARTIAL (pieces exist, not composed) |
 | 8 | Multiple sources + sync | `LaneSource` per owner, `FrameStore` per source | `lane.rs` `source_owns`; lab uses one source | PARTIAL | Cross-source composition; G2L across differing spaces is refused, not translated | Two sources, different orders, one question | BLOCKED (G2L OPEN in the locality contract) |
 | 9 | Source ownership, logical materialization | One canonical owner; borrowed lanes | lab: arm B copies 0 bytes; arm A copies 51 968 | LAB | — | `only_demanded_fields_are_bound_and_borrowed_once` | LOWER-LEVEL-ADVANTAGE-HYPOTHESIS |
-| 10 | Security / authorization | DR `Scope` (consistency only) + `lance-graph-rbac` (class/op grants) | `rbac/src/lib.rs`; lab stand-in `NeU32` | PARTIAL | Row-level authorization decided by IAM and applied in the read path; RBAC is not wired to DT64 | `bypassing_authorization_reveals_the_denied_store` | MISSING (production) |
-| 11 | History / replay | `FrameStore` revisions; Lance versions | lab stale-frame refusal + rebind | LAB (invalidation) / UNKNOWN (replay at a past version through DT64) | Bind at a historical frame | Answer at frame N after the source moved to N+1 | PARTIAL |
+| 10 | Security / authorization | `ogar-auth` `establish` → `VerifiedLogin` → `ogar-rbac` `authorize_user` → `lance-graph-rbac` `authorize_scoped` → `ScopedDecision`, or `authorize_identity` → `authorize_memberships` → `MembershipDecision` (two routes; only the first carries `ScopeSpec` + `WideFieldMask`): row scope (`ScopeSpec`: tenant + path, restrictive AND) and field projection (`WideFieldMask`, union; `visible_fields()` empty on refusal); delegation (`acting_party`); DT64 `Resolved::mask_where` over `PropertySpec::marking` | `lance-graph-rbac/src/authorize.rs:165-250`; `ogar-rbac/src/lib.rs:155,327`; `contract::selection::walk_rails_authorized` consumes the field mask | IMPLEMENTED (decision) / ABSENT (applied in a DT64 binding) | Apply the decision on this path: `ScopeSpec` needs a per-row scope lane and becomes a resident plane (Quack `Binder::live`); `visible_fields()` ∩ the marking mask restricts which fields `bind_lanes` may bind | Lab: replace the `NeU32` stand-in with an `authorize_scoped` decision; a narrowed role binds fewer fields and sees fewer stores | PARTIAL (decision built; read-path wiring missing) |
+| 11 | History / replay | `FrameStore` revisions; Lance versions; thought-git receipts | lab stale-frame refusal + rebind; `thought-git-probe` `Receipt` + `replay` / `replay_landed` (recompute from a sealed base, refusing `SourceChanged` / `ConfigChanged` / `OutputMismatch`) | LAB (invalidation; replay in the probe) | Bind a DT64 lane at a historical frame | Answer at frame N after the source moved to N+1 | PARTIAL |
 | 12 | Derived state + invalidation | `LaneBinding::check` on every open | lab `a_stale_frame_is_refused_and_a_rebind_sees_the_restock` | LAB | Incremental recompute of only the changed subset (lab recomputes the whole question; it is 64 rows) | — | FUNCTIONALLY-RELATED |
-| 13 | What-if scenarios (beta in Foundry docs) | `contract::scenario::ScenarioBranch` (facade) | `lance-graph-contract/src/scenario.rs` | PARTIAL; DR path BLOCKED | Overlay frame witness for DT64 bindings (§7 G3) | lab `the_scenario_is_oracle_only_and_lowers_capacity` (oracle only) | BLOCKED |
+| 13 | What-if scenarios (beta in Foundry docs) | `contract::scenario::ScenarioBranch`; thought-git branches; xlog staged preview | `thought-git-probe` `SlotPool::branch` (from main or a live thought), `next_version` (from-scratch oracle recording contradictions and divergences), `squash_gate`; `lance-graph-xlog` `Cube::stage_closure` (the derived result as it would be after commit, changing nothing) | LAB (probe) | A branch as an overlay a DT64 binding reads (overlay frame witness, §7 G3) | Store 12 closed on a branch: answer = oracle, main's frame unchanged | PARTIAL |
 | 14 | Aggregations / analytics | mask-RISC `Count`, `MaskedSumI32`, group terminals; ndarray INT8 packed GEMM | lab `network_capacity`, `network_cost`; arm C `per_store` (per-store cost) | LAB | Per-row min / argmin across lanes (§7 G1) | Limiting resource through an admitted operator | PARTIAL |
 | 15 | Operational applications | a2ui-rs / consumer CustomObject | not exercised here | UNKNOWN | — | — | NOT-COMPARABLE here |
-| 16 | Audit / decision provenance | Witnesses (route, frame, basis) per answer | `LaneBinding` fields | PARTIAL | Decision record: who asked, which witnesses, which answer | — | MISSING |
+| 16 | Audit / decision provenance | Binding witnesses; thought-git receipts and commit witnesses; rbac identity | `LaneBinding` (route, frame, basis); `thought-git-probe` `Receipt` (base, program, inputs, seed, config, source fold, roots, output), `CommitWitness` (data version, cycle, cohort); `lance-graph-rbac` `ResolvedIdentity::auth_classid` (doc: "for the audit"), `acting_party` | PARTIAL (pieces in the probe and the rbac crate) | One record per answer joining who asked (identity, delegation), which binding witnesses and which result | — | PARTIAL |
 | 17 | Data connections / egress | Source adapters (OGAR, Lance) | outside this lab | UNKNOWN | — | — | NOT-COMPARABLE here |
-| 18 | AI-assisted, governed decisions | none on this path | — | ABSENT | Depends on 7, 10, 16 | — | MISSING |
+| 18 | AI-assisted, governed decisions | none on this path | — | ABSENT | Depends on 7, 10, 16 being composed | — | MISSING |
 
 Correspondence hypotheses (§4 of the brief), graded: `ClassView` ↔ object
 type: FUNCTIONALLY-RELATED, but ClassView alone carries no security, search,
@@ -157,6 +194,46 @@ are defensive; no admitted fixture can reach them (feasibility predicates are
 all `≥ threshold(q)` with thresholds non-decreasing in q). They are labelled,
 not claimed as tested.
 
+### 5b. G6 — `CanCook` as a registered method (P2, part)
+
+`crates/foundry-parity-lab/src/method.rs`. `World::new` registers one
+`MethodBinding` per (item, quantity), quantity ∈ {1, 3}: the quantity is a
+constant of the guard, and DT64 guards take no parameters, so it is part of
+the method id. The WHEN guard says "this store can make `q` of item `m`" as a
+`SetExpr` over field positions: mask fields as `Sym(field)`, value fields as
+residuals on lane `field` (`stock_k ≥ d_k·q`, `staff ≥ ⌈q / per_staff⌉`,
+offered, equipment, every demanded category known). `reads` is exactly the
+fields the guard names; `effects` is empty (read-only).
+
+`PreparedMethod::prepare` admits the `MethodRef` (`BindStore::admit`), binds
+`reads` + `storeId`, borrows them once, and renames field positions to the
+bound planes. The reader scope (IAM stand-in) is conjoined there, never stored
+in the method. `prepare` then lowers the guard ONCE through relalg
+(`rel_from_set` + `run_with_program`) and keeps the returned mask-RISC
+program; `run` only executes it (`execute_into`, `Out::Mask`). The lab writes
+no lowering. `rel_from_set` is the one relalg addition: a public wrapper over
+the conversion `run_program` already applied (`from_set`, crate-private).
+`prepare` refuses a lowering of more than one fold (`Folds`), since relalg
+keeps only the last fold's program; that tripwire cannot fire today, and a
+test pins that every guard shape lowers to one fold.
+
+Tests (8, in `tests/integration/method.rs`): every registered method equals
+the oracle's feasible set and count; another row order answers identically by
+identity; the reader scope is load-bearing and outside the method; a reference
+with another guard (`GuardMismatch`) or signature revision is refused, as is
+one issued by another store (`ForeignStore`); a method whose `reads` misses a
+field its guard names is refused (`NotBound`), never answered with the field
+read as absent; repeated runs of one prepared method equal the first (the
+scratch is reused); every guard shape lowers to one fold. Disable runs, each
+red and restored: drop the staff conjunct; drop the known conjuncts; stock
+threshold off by one; drop the reader scope; skip the identity mapping; lower
+`All` instead of the guard; treat an unbound field as `All`.
+
+**Measured:** the first version called `run_program` per question, which
+re-lowers every time: ~21 µs per question. Lowering once per binding brings a
+question to 359–400 ns, level with arm B's hand-written program (474 ns),
+and moves the one lowering into `prepare` (~15 µs, was ~9 µs).
+
 ## 6. Measurement (MEASURED)
 
 `cargo run --release --manifest-path crates/foundry-parity-lab/Cargo.toml --bin bench`;
@@ -181,6 +258,9 @@ three runs, ranges across runs:
 | arm C cold: prepare demand band (once per menu revision) | 452–629 |
 | arm C warm: per-store cost, 64 stores × 8 items, AMX `TDPBUSD` | 654–1 170 |
 | arm A: per-store cost, 64 × 8 (recipes read once) | 1 188–1 661 |
+| G6: `method_ref` + `admit` | 5 054–5 254 |
+| G6 cold: `PreparedMethod::prepare` (admit + bind + borrow + one lowering) | 14 874–15 193 |
+| G6 warm: `CanCook(item 0, q 3)` run, cached mask-RISC program | 359–400 |
 
 Reading, not spin: a single WHERE-shaped question is ~4× cheaper in arm B and
 copies nothing; but the per-store maximum and the network capacity are ~8×
@@ -197,16 +277,22 @@ once. A first comparator called `fx::recipe` per (store, item) and measured
 comparison. At 64 × 64 × 16 the GEMM is tiny; the per-call fixed cost
 (tile configuration, output mapping) likely dominates, and scaling is OPEN.
 
+G6 (four runs; one more under load measured 600 ns and is excluded): a
+registered method's question costs the same as arm B's hand-written program
+once relalg's program is cached per binding (§5b). `admit` is ~5 µs (the
+guard witness is normalized on issue and on admit). `World::new` now registers 16
+methods and costs ~48 µs (was ~25 µs with none); not separated further.
+
 ## 7. Missing-contract register
 
 | Id | Missing operation | Why the current contract cannot express it | Lawful alternative today | Smallest test | Needs |
 |---|---|---|---|---|---|
 | G1 | Element-wise cross-lane arithmetic: `min_k ⌊stock_k / d_k⌋` per row, argmin (limiting resource). (Per-row weighted sum — per-store cost — is now LAB via arm C, §5a.) | mask-RISC terminals reduce over rows; predicates compare a lane to a constant; min/argmin is not a matrix product | Layer-cake over monotone masks (max only, ~30× programs); none for argmin | Per-store max and limiting resource in one program, equal to oracle | Decision + mask-RISC/Quack PR (H2) |
-| G2 | Row-level authorization from IAM in the read path | DR `Scope` is per lane and consistency-only; RBAC grants are class/op, not wired to DT64 | Lab stand-in predicate on the identity lane | Same lab tests with the predicate supplied by `lance-graph-rbac` | Decision on where IAM evaluates (H3) |
-| G3 | Scenario overlay over a binding | No frame witness for a proposed, non-canonical plane | Oracle only | Store 12 closed: overlay answer = oracle, canonical frame unchanged | Overlay frame contract (H3) |
-| G4 | Governed action / writeback | No command identity, preconditions, idempotency, atomic commit or audit on this path; `MethodBinding::effects` is descriptive | none | Preview vs commit of "reassign order 12→17" with a stale-precondition refusal | Separate gate; not in a read-only lab |
+| G2 | Row-level authorization from IAM in the read path | The decision exists (`ogar-rbac` → `lance-graph-rbac::ScopedDecision`: row `ScopeSpec` + `WideFieldMask`); nothing applies it to a DT64 binding, and the lab has no per-row scope lane | Lab stand-in predicate on the identity lane | Lab: `authorize_scoped` decision as a resident plane plus `visible_fields()` limiting bound fields | A per-row scope lane on the source; where the decision is applied (Quack `Binder::live` is the existing seam) |
+| G3 | Scenario overlay over a binding | Branches exist in the thought-git probe (`SlotPool::branch`, `next_version`) and as xlog staged previews; no frame witness lets a DT64 binding read a branch | Oracle only | Store 12 closed on a branch: overlay answer = oracle, canonical frame unchanged | Overlay frame contract joining a thought-git branch to `FrameStore` |
+| G4 | Governed action / writeback | Pieces exist: the shipped `LanceCycleWriter` (`WalSink::commit_cycle`, refusals `Fenced` / `HashConflict` / …); thought-git Rubicon outcomes, the probe's `commit_cycle` stand-in (one write path, `CommitWitness`, `AlreadySealed` / `DuplicateThought` refusals), `MetadataTable::stage`/`seal`; xlog `Cube::stage`/`commit`; rbac `Operation::{Write,Act}`. Not composed: no action over this domain is authorized, staged, checked against a source-value precondition, committed and witnessed | none in this lab | Preview vs commit of "reassign order 12→17" with a stale-precondition refusal | Composition over the existing pieces; `thought-git-lifecycle-contract-v1` (CONTRACT) is the contract |
 | G5 | Bound relations (recipe → ingredient, menu → recipe) | Value-directed traversal is Gather, banned outside ADMISSION B | Relations as fixture functions (lab) | Bind recipe demand as lanes and answer without Gather | ADMISSION B decision |
-| G6 | Methods executed from `MethodRef` | DT64 binds behaviour, executes nothing; programs are hand-written | Hand-written programs | `CanCook` registered as a `MethodBinding`, lowered and executed | Lowering PR |
+| G6 | Methods executed from `MethodRef` | DT64 binds behaviour, executes nothing. LAB since §5b: admitted, bound, lowered once by relalg, executed per question at arm B's cost | — | Done in the lab for WHEN guards; `lance-graph-r2il::binding_native` already does the same for DO effects (prior art the first G6 pass missed) | Production: who holds a prepared program, and who issues `ExecPermit` (the natural issuer is an `lance-graph-rbac` `Operation::Act` decision) |
 
 ## 8. The three hypotheses
 
@@ -217,9 +303,15 @@ comparison. At 64 × 64 × 16 the GEMM is tiny; the per-call fixed cost
 - **H2 (missing algebra):** *supported by G1, G5, narrowed by arm C.* The
   per-store cost IS expressible, as an INT8 GEMM over staged A (§5a). The
   limiting resource still cannot be expressed; the maximum only by a sweep.
-- **H3 (infrastructure):** *supported by G2, G3, G4, G6* but untested in
-  depth here: authorization, scenarios, actions and method execution all lack
-  a contract on this path.
+- **H3 (infrastructure):** *narrowed (2026-11-10 audit).* The first matrix
+  said authorization, scenarios and actions had no contract; that was written
+  without reading `ogar-auth`, `ogar-rbac`, `lance-graph-rbac`,
+  `thought-git-probe` or `lance-graph-xlog`. They exist: the authorization
+  decision is implemented (row scope + field mask), and branches, a single
+  write path with commit witnesses, receipts with replay and a two-phase edge
+  write exist as probes. What is missing is COMPOSITION on this path:
+  applying the decision to a DT64 binding (G2), letting a binding read a
+  branch (G3), and one governed action end to end (G4).
 
 None is chosen over the others; all three hold in part.
 
@@ -231,7 +323,8 @@ None is chosen over the others; all three hold in part.
   enters mask-RISC/Quack, then re-run per-store max and limiting resource
   against the oracle.
 - **P2:** G6 + G5 — `CanCook` as a registered method lowered from its
-  `MethodRef`; recipe demand as bound relation lanes.
+  `MethodRef` (LAB, §5b, lowered once per binding); recipe demand as bound
+  relation lanes (waits on ADMISSION B).
 - **P3:** G3 scenario overlay frame; G4 action gate (preview vs commit) as a
   separate workstream; G2 IAM in the read path.
 - **P4:** real source connectors, a2ui screens, deployment.

@@ -10,6 +10,7 @@ use foundry_parity_lab::arm_b::{demanded_fields, Guards, ItemQuery};
 use foundry_parity_lab::arm_c::{cost_fields, CostQuery, PreparedDemand};
 use foundry_parity_lab::bind::{World, READER, SPACE_A};
 use foundry_parity_lab::fixture::{MENU_REV, STORES};
+use foundry_parity_lab::method::{method_id, PreparedMethod};
 use foundry_parity_lab::source::{Network, Order};
 use lance_graph_dt64::LaneSource;
 
@@ -162,6 +163,35 @@ fn main() {
         "arm A: per-store cost, 64 x 8 items",
         median(|| {
             black_box(objects.store_costs(black_box(3)));
+        }),
+    );
+
+    println!();
+    let mref = world
+        .store
+        .method_ref(foundry_parity_lab::bind::CLASS, method_id(0, 3))
+        .unwrap();
+    report(
+        "G6: method_ref + admit",
+        median(|| {
+            let r = world
+                .store
+                .method_ref(foundry_parity_lab::bind::CLASS, method_id(0, 3))
+                .unwrap();
+            black_box(world.store.admit(&r).unwrap());
+        }),
+    );
+    report(
+        "G6 cold: prepare (admit+bind+borrow+lower)",
+        median(|| {
+            black_box(PreparedMethod::prepare(&world, &net, &mref, true).unwrap());
+        }),
+    );
+    let prepared = PreparedMethod::prepare(&world, &net, &mref, true).unwrap();
+    report(
+        "G6: CanCook run (cached mask-RISC program)",
+        median(|| {
+            black_box(prepared.run().unwrap());
         }),
     );
 }

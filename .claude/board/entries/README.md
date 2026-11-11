@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-595 entries, 2026-08-06 .. 2026-11-10.
+596 entries, 2026-08-06 .. 2026-11-10.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-10 | `lab-resolve-borrow-all` |  | [2026-11-10-lab-resolve-borrow-all.md](2026-11-10-lab-resolve-borrow-all.md) |
 | 2026-11-10 | `int8-direct-packed-b` |  | [2026-11-10-int8-direct-packed-b.md](2026-11-10-int8-direct-packed-b.md) |
 | 2026-11-10 | `D-FOUNDRY-PARITY-1` |  | [2026-11-10-foundry-parity-1-lab.md](2026-11-10-foundry-parity-1-lab.md) |
+| 2026-11-10 | `D-FOUNDRY-PARITY-1-P1A` |  | [2026-11-10-foundry-parity-1-arm-c.md](2026-11-10-foundry-parity-1-arm-c.md) |
 | 2026-11-10 | `dt64-map-table-lance` |  | [2026-11-10-dt64-map-table-lance.md](2026-11-10-dt64-map-table-lance.md) |
 | 2026-11-10 | `dt64-lane-borrow-all` |  | [2026-11-10-dt64-lane-borrow-all.md](2026-11-10-dt64-lane-borrow-all.md) |
 | 2026-11-10 | `dt64-int8-facet-stride` |  | [2026-11-10-dt64-int8-facet-stride.md](2026-11-10-dt64-int8-facet-stride.md) |

@@ -121,7 +121,13 @@ impl Default for World {
 }
 
 impl World {
+    /// The class with every `CanCook` method of [`crate::method::methods`].
     pub fn new() -> World {
+        World::with_methods(crate::method::methods())
+    }
+
+    /// The class with exactly `methods` registered.
+    pub fn with_methods(methods: Vec<lance_graph_dt64::MethodBinding>) -> World {
         let view = View(
             (0..FIELD_COUNT)
                 .map(|f| FieldRef::new(predicate(field(f as u8)), format!("F{f}")))
@@ -137,7 +143,7 @@ impl World {
                     field_count: FIELD_COUNT,
                     extent: Extent::DR256_SQ_X64,
                 },
-                Vec::new(),
+                methods,
             )
             .expect("the network class registers");
         let version = store.route(POSITION, CLASS).expect("the class routes");
