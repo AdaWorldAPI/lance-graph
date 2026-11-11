@@ -1,0 +1,350 @@
+# view: WideFieldMask
+
+Generated; the code is the truth. Same-name symbols stay separate per file.
+
+## Definitions
+
+### lance-graph-contract crates/lance-graph-contract/src/class_view.rs
+- struct WideFieldMask [pub] — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED
+
+## Impls mentioning it
+
+- impl Default for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:253 POSSIBLE
+- impl From<u64>for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:259 POSSIBLE
+- impl From<FieldMask>for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:265 POSSIBLE
+- impl WideFieldMask — crates/lance-graph-contract/src/class_view.rs:273 POSSIBLE
+- impl PartialEq for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:611 POSSIBLE
+- impl Eq for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:626 POSSIBLE
+- impl Hash for WideFieldMask — crates/lance-graph-contract/src/class_view.rs:628 POSSIBLE
+- impl WideFieldMask — crates/lance-graph-contract/src/class_view.rs:672 POSSIBLE
+
+## Imports (not resolved to a definition)
+
+- use lance_graph_contract::class_view::WideFieldMask — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
+- pub-use class_view::WideFieldMask — crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
+- use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/rbac.rs:31 POSSIBLE
+- use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/rbac_plug.rs:28 POSSIBLE
+- use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
+- use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/standing_mask.rs:41 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report-ogar/src/lib.rs:43 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/ogar-behavior-probe/src/projection.rs:25 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
+
+## Textual occurrences (359 total)
+
+- crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
+- crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
+- crates/drisa-register-probe/src/lib.rs:441 POSSIBLE
+- crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
+- crates/dt64-admission-probe/src/fixture.rs:146 POSSIBLE
+- crates/dt64-admission-probe/src/fixture.rs:148 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:163 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:292 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:294 POSSIBLE
+- crates/lance-graph-contract/src/alpha.rs:260 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:71 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:162 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:351 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:626 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:407 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:408 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:415 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:439 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:444 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:684 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:714 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:740 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:746 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:770 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:224 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:234 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:243 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:253 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:259 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:265 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:273 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:611 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:626 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:628 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:642 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:646 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:651 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:672 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:684 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:690 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:723 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:744 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:829 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:839 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:844 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:847 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:848 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:887 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:893 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:987 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1020 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1024 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2043 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2060 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2077 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2104 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2119 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2126 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2142 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2186 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2211 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2226 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2248 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2262 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2632 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2669 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2680 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2692 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2712 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2713 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2728 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2738 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2753 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2755 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2758 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2761 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2766 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2781 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2786 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2794 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2795 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2797 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2805 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2806 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2810 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2818 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2819 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2820 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2842 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2855 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2857 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2915 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2916 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2926 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2936 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2949 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2950 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2953 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2961 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2972 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2981 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2983 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2984 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2987 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2988 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2991 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2992 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3008 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3010 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3011 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3014 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3015 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3018 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3019 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3027 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3028 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3046 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3047 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3048 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3059 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3068 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3070 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3071 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3074 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3075 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3078 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3079 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3102 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3104 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3108 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3110 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3113 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3130 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3132 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3138 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3143 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3148 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3157 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3162 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3169 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3179 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:3190 POSSIBLE
+- crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:31 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:422 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:432 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:433 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:434 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:689 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:716 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:717 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:728 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:28 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:134 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:135 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:149 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:184 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:252 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:388 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:391 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:394 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:482 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:548 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:554 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:564 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:583 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:614 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:618 POSSIBLE
+- crates/lance-graph-contract/src/rbac_plug.rs:620 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:10 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:19 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:23 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:84 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:90 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:99 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:107 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:121 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:136 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:170 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:172 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:173 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:178 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:180 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:213 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:216 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:333 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:340 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:374 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:393 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:553 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:569 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:583 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:586 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:603 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:611 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:619 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:627 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:685 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:710 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:727 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:728 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:729 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:755 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:756 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:757 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:771 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:783 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:940 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:998 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:1003 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:1007 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:1024 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:1029 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:15 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:20 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:41 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:59 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:70 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:103 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:126 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:143 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:176 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:177 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:178 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:180 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:183 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:185 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:186 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:196 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:197 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:199 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:202 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:210 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:211 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:213 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:217 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:227 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:228 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:232 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:237 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:247 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:250 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:260 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:261 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:265 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:268 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:279 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:284 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:295 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:297 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:303 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:309 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:311 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:313 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:316 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:318 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:321 POSSIBLE
+- crates/lance-graph-contract/src/standing_mask.rs:323 POSSIBLE
+- crates/lance-graph-contract/src/step_mask.rs:72 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:4 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:94 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:160 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:287 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:74 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:147 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:222 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:225 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:237 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:239 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:244 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:269 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:506 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:683 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:702 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:723 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:729 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:733 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:741 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:748 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:977 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:989 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1306 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1397 POSSIBLE
+- crates/lance-graph-ogar/src/recipe_vocab.rs:44 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:177 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:181 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:186 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:193 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:197 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:222 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:227 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:267 POSSIBLE
+- crates/lance-graph-rbac/src/authorize.rs:272 POSSIBLE
+- truncated at 300
+
+## Architecture
+
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:719 CONFIRMED
+- arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED

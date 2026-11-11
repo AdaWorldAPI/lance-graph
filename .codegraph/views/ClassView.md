@@ -1,0 +1,350 @@
+# view: ClassView
+
+Generated; the code is the truth. Same-name symbols stay separate per file.
+
+## Definitions
+
+### lance-graph-contract crates/lance-graph-contract/src/class_view.rs
+- trait ClassView [pub] — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
+
+## Impls mentioning it
+
+- impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
+- impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
+- impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
+- impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
+- impl ClassView for PubView — crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
+- impl ClassView for FakeClasses cfg=test — crates/lance-graph-contract/src/class_view.rs:1600 POSSIBLE
+- impl ClassView for TestClasses cfg=test — crates/lance-graph-contract/src/selection.rs:539 POSSIBLE
+- impl ClassView for RegistryClassView<'_> — crates/lance-graph-ontology/src/class_resolver.rs:104 POSSIBLE
+- impl ClassView for WikidataClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:239 POSSIBLE
+- impl ClassView for PolyfillView — crates/lance-graph-r2il/src/polyfill.rs:231 POSSIBLE
+- impl ClassView for WithPolyfill<'_,V> — crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
+- impl ClassView for View — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
+- impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
+- impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
+
+## Imports (not resolved to a definition)
+
+- use lance_graph_contract::class_view::ClassView — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
+- pub-use class_view::ClassView — crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
+- use crate::class_view::ClassView — crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
+- use lance_graph_contract::ClassView — crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/class_resolver.rs:32 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:34 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/binding.rs:77 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/polyfill.rs:29 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
+
+## Textual occurrences (295 total)
+
+- crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
+- crates/cognitive-shader-driver/src/mailbox_soa.rs:161 POSSIBLE
+- crates/cognitive-shader-driver/src/mailbox_soa.rs:167 POSSIBLE
+- crates/cognitive-shader-driver/src/mailbox_soa.rs:828 POSSIBLE
+- crates/cognitive-stack/src/main.rs:14 POSSIBLE
+- crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- crates/dr-isa-stream-lab/src/bind.rs:13 POSSIBLE
+- crates/dr-isa-stream-lab/src/bind.rs:32 POSSIBLE
+- crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
+- crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
+- crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
+- crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
+- crates/foundry-parity-lab/src/arm_b.rs:140 POSSIBLE
+- crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
+- crates/foundry-parity-lab/src/arm_c.rs:153 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:17 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:91 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
+- crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
+- crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
+- crates/lance-graph-contract/src/action.rs:12 POSSIBLE
+- crates/lance-graph-contract/src/action.rs:15 POSSIBLE
+- crates/lance-graph-contract/src/action.rs:92 POSSIBLE
+- crates/lance-graph-contract/src/action.rs:130 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:26 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:32 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:43 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:57 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:124 POSSIBLE
+- crates/lance-graph-contract/src/attention_facet.rs:700 POSSIBLE
+- crates/lance-graph-contract/src/awareness_facet.rs:12 POSSIBLE
+- crates/lance-graph-contract/src/band_reading.rs:67 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:652 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:663 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:769 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:772 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:861 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:875 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:912 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:972 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1128 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1343 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1348 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1482 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1554 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1558 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:1811 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:2073 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:2872 POSSIBLE
+- crates/lance-graph-contract/src/canonical_node.rs:2873 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:41 POSSIBLE
+- crates/lance-graph-contract/src/causal_witness.rs:60 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:15 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:37 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:40 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:723 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1051 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1057 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1163 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1168 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1206 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1221 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1222 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1228 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1266 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1273 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1310 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1319 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1344 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1345 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1346 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1361 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1382 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1383 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1392 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1406 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1445 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1482 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1514 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1518 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1559 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:1600 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2394 POSSIBLE
+- crates/lance-graph-contract/src/class_view.rs:2425 POSSIBLE
+- crates/lance-graph-contract/src/codebook.rs:3 POSSIBLE
+- crates/lance-graph-contract/src/codebook.rs:99 POSSIBLE
+- crates/lance-graph-contract/src/codegen_manifest.rs:13 POSSIBLE
+- crates/lance-graph-contract/src/cognitive_palette.rs:16 POSSIBLE
+- crates/lance-graph-contract/src/cognitive_palette.rs:24 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:12 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:33 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:80 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:95 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:466 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:483 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:753 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:755 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:763 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:795 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:799 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:822 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:959 POSSIBLE
+- crates/lance-graph-contract/src/facet.rs:973 POSSIBLE
+- crates/lance-graph-contract/src/lane_codec.rs:50 POSSIBLE
+- crates/lance-graph-contract/src/legacy_outliers.rs:3 POSSIBLE
+- crates/lance-graph-contract/src/lib.rs:178 POSSIBLE
+- crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
+- crates/lance-graph-contract/src/network.rs:22 POSSIBLE
+- crates/lance-graph-contract/src/network.rs:346 POSSIBLE
+- crates/lance-graph-contract/src/ogar_codebook.rs:282 POSSIBLE
+- crates/lance-graph-contract/src/ogar_codebook.rs:288 POSSIBLE
+- crates/lance-graph-contract/src/ogar_codebook.rs:302 POSSIBLE
+- crates/lance-graph-contract/src/ogar_codebook.rs:670 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:16 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:18 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:41 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:57 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:62 POSSIBLE
+- crates/lance-graph-contract/src/rail_geometry.rs:77 POSSIBLE
+- crates/lance-graph-contract/src/rbac.rs:6 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:1 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:18 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:105 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:142 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:147 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:181 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:250 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:328 POSSIBLE
+- crates/lance-graph-contract/src/recoder_adapter.rs:341 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:14 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:45 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:47 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:58 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:196 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:226 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:227 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:250 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:290 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:346 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:391 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:489 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:539 POSSIBLE
+- crates/lance-graph-contract/src/selection.rs:634 POSSIBLE
+- crates/lance-graph-contract/src/soa_view.rs:41 POSSIBLE
+- crates/lance-graph-contract/src/soa_view.rs:156 POSSIBLE
+- crates/lance-graph-contract/src/soa_view.rs:225 POSSIBLE
+- crates/lance-graph-contract/src/soa_view.rs:235 POSSIBLE
+- crates/lance-graph-contract/src/step_mask.rs:7 POSSIBLE
+- crates/lance-graph-contract/src/tekamolo_facet.rs:8 POSSIBLE
+- crates/lance-graph-contract/src/tekamolo_facet.rs:24 POSSIBLE
+- crates/lance-graph-contract/src/tekamolo_facet.rs:25 POSSIBLE
+- crates/lance-graph-contract/src/tekamolo_facet.rs:32 POSSIBLE
+- crates/lance-graph-contract/src/tekamolo_facet.rs:102 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:1 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:13 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:23 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:38 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:62 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:88 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:130 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:133 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:159 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:187 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:231 POSSIBLE
+- crates/lance-graph-contract/src/unicharset_adapter.rs:244 POSSIBLE
+- crates/lance-graph-contract/src/witness_fabric.rs:19 POSSIBLE
+- crates/lance-graph-contract/src/witness_fabric.rs:25 POSSIBLE
+- crates/lance-graph-contract/src/witness_fabric.rs:401 POSSIBLE
+- crates/lance-graph-dt64/src/dr.rs:338 POSSIBLE
+- crates/lance-graph-dt64/src/dr.rs:347 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:4 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:47 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:49 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:171 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:307 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:352 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:379 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:21 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:29 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:52 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:57 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:59 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:73 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:78 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:126 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:251 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:260 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:331 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:334 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:337 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:524 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:639 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:657 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:806 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:814 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:826 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:843 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:951 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:954 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1073 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1098 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1119 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1215 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1220 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1248 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1268 POSSIBLE
+- crates/lance-graph-glove-parity/src/basis.rs:6 POSSIBLE
+- crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
+- crates/lance-graph-glove-parity/src/basis.rs:61 POSSIBLE
+- crates/lance-graph-glove-parity/src/basis.rs:174 POSSIBLE
+- crates/lance-graph-mask-risc/src/ir.rs:23 POSSIBLE
+- crates/lance-graph-ogar/src/actions.rs:9 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:8 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:14 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:20 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:33 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:38 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:86 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:116 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:117 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:411 POSSIBLE
+- crates/lance-graph-ogar/src/lib.rs:413 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:1 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:3 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:32 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:39 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:42 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:55 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:65 POSSIBLE
+- crates/lance-graph-ontology/src/class_resolver.rs:104 POSSIBLE
+- crates/lance-graph-ontology/src/odoo_blueprint/mod.rs:103 POSSIBLE
+- crates/lance-graph-ontology/src/odoo_blueprint/mro.rs:4 POSSIBLE
+- crates/lance-graph-ontology/src/odoo_blueprint/mro.rs:11 POSSIBLE
+- crates/lance-graph-ontology/src/odoo_blueprint/mro.rs:16 POSSIBLE
+- crates/lance-graph-ontology/src/registry.rs:425 POSSIBLE
+- crates/lance-graph-ontology/src/soa_bake/mod.rs:2 POSSIBLE
+- crates/lance-graph-ontology/src/soa_bake/mod.rs:20 POSSIBLE
+- crates/lance-graph-ontology/src/soa_bake/mod.rs:33 POSSIBLE
+- crates/lance-graph-ontology/src/soa_bake/mod.rs:42 POSSIBLE
+- crates/lance-graph-ontology/src/soa_bake/mod.rs:78 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:4 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:21 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:34 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:127 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:212 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:239 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:332 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:370 POSSIBLE
+- crates/lance-graph-ontology/src/wikidata_hhtl.rs:393 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:15 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:35 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:77 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:151 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:321 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:542 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:29 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:192 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:193 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:231 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:246 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:260 POSSIBLE
+- crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
+- crates/lance-graph-rbac/src/permission.rs:15 POSSIBLE
+- crates/lance-graph-rbac/src/permission.rs:30 POSSIBLE
+- crates/lance-graph-rbac/src/permission.rs:87 POSSIBLE
+- crates/lance-graph-rbac/src/permission.rs:133 POSSIBLE
+- crates/lance-graph-report/src/lane_source.rs:19 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:53 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:200 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:595 POSSIBLE
+- crates/lance-graph-report/src/lane_source/tests.rs:599 POSSIBLE
+- crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
+- crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
+- crates/lance-graph/src/soa_config.rs:123 POSSIBLE
+- crates/ogar-behavior-probe/src/projection.rs:21 POSSIBLE
+- crates/ogar-behavior-probe/src/projection.rs:22 POSSIBLE
+- crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
+- crates/soa64-u64-lab/src/socket.rs:23 POSSIBLE
+- crates/soa64-u64-lab/src/socket.rs:40 POSSIBLE
+- crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
+- crates/weather-poc/src/lane.rs:7 POSSIBLE
+- crates/weather-poc/src/lane.rs:13 POSSIBLE
+- crates/weather-poc/src/lib.rs:24 POSSIBLE
+- crates/weather-poc/src/manifest.rs:1 POSSIBLE
+- crates/weather-poc/src/manifest.rs:6 POSSIBLE
+- crates/weather-poc/src/manifest.rs:11 POSSIBLE
+- crates/weather-poc/src/manifest.rs:88 POSSIBLE
+
+## Architecture
+
+- arch ClassView defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
+- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:814 CONFIRMED
