@@ -8743,12 +8743,12 @@ lance-graph-codegraph	crates/lance-graph-codegraph/src/graph/publication.rs	165	
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph/publication.rs	65	impl	ClassView for PubView	-	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	108	enum	SymbolState	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	123	enum	Gap	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	223	struct	ImpactReport	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	234	impl	ImpactReport	-	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	238	fn	ImpactReport::closed_in_scope	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	224	struct	ImpactReport	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	235	impl	ImpactReport	-	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	239	fn	ImpactReport::closed_in_scope	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	31	struct	Targets	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	410	impl	Codegraph	-	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	418	fn	Codegraph::impact_report	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	411	impl	Codegraph	-	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	419	fn	Codegraph::impact_report	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	42	impl	Targets	-	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	44	const	Targets::LIB_ONLY	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	52	const	Targets::ALL	pub	-	CONFIRMED

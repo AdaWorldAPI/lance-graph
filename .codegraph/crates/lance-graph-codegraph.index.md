@@ -3,7 +3,7 @@
 crate: lance-graph-codegraph
 path: crates/lance-graph-codegraph
 workspace: excluded
-digest: cb05d27a93a27336
+digest: ffce1c583b3ec344
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -204,9 +204,9 @@ Generated; the code is the truth. See ../index.md.
 - struct Scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:89 CONFIRMED
 - enum SymbolState [pub] — crates/lance-graph-codegraph/src/impact_report.rs:108 CONFIRMED
 - enum Gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:123 CONFIRMED
-- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:223 CONFIRMED
-- fn ImpactReport::closed_in_scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:238 CONFIRMED
-- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:418 CONFIRMED
+- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:224 CONFIRMED
+- fn ImpactReport::closed_in_scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:239 CONFIRMED
+- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:419 CONFIRMED
 - enum Fault [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
 - struct LabWal [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
 - fn LabWal::new [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED

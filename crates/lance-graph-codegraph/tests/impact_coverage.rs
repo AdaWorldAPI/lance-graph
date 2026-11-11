@@ -245,6 +245,67 @@ mod suite_a {
     }
 
     #[test]
+    fn a_deleted_source_file_is_missing_not_stale() {
+        let dir = store("deleted", BOTH);
+        let root = Tmp::new("src_deleted");
+        for c in ["cg_lib", "cg_app"] {
+            copy_dir(&source_root().join(c), &root.join(c));
+        }
+        let scope = full(&dir, &root, BOTH, &["cg_app"]);
+        let any_file_gap = |r: &ImpactReport| {
+            r.gaps
+                .iter()
+                .any(|g| matches!(g, Gap::MissingSource { .. } | Gap::StaleSource { .. }))
+        };
+        assert!(!any_file_gap(&a_report(
+            &dir,
+            "cg_lib::util::double",
+            &scope
+        )));
+        std::fs::remove_file(root.join("cg_lib/src/util.rs")).unwrap();
+        let r = a_report(&dir, "cg_lib::util::double", &scope);
+        assert!(
+            r.gaps.contains(&Gap::MissingSource {
+                krate: "cg_lib".into(),
+                files: vec!["cg_lib/src/util.rs".into()]
+            }),
+            "{:?}",
+            r.gaps
+        );
+        // Deleted is not edited: the two are separate gaps.
+        assert!(!r.gaps.iter().any(|g| matches!(g, Gap::StaleSource { .. })));
+    }
+
+    #[test]
+    fn a_declared_consumer_without_a_caller_still_needs_its_own_coverage() {
+        // cg_lib::util::triple has no caller in cg_app. A declared consumer may still call it
+        // from code it did not extract, so its targets count.
+        let dir = store("consumer_coverage", BOTH);
+        let root = source_root();
+        let lib_only_declared = |deps: &[&str]| Scope {
+            targets: vec![("cg_lib".to_string(), Targets::ALL)],
+            ..full(&dir, &root, BOTH, deps)
+        };
+        let undeclared = Gap::TargetsUndeclared {
+            krate: "cg_app".into(),
+        };
+        let with = a_report(
+            &dir,
+            "cg_lib::util::triple",
+            &lib_only_declared(&["cg_app"]),
+        );
+        assert!(
+            !confirmed(&dir, &with)
+                .iter()
+                .any(|s| s.starts_with("cg_app::")),
+            "fixture changed: cg_app now calls triple"
+        );
+        assert!(with.gaps.contains(&undeclared), "{:?}", with.gaps);
+        let without = a_report(&dir, "cg_lib::util::triple", &lib_only_declared(&[]));
+        assert!(!without.gaps.contains(&undeclared), "{:?}", without.gaps);
+    }
+
+    #[test]
     fn a_symbol_absent_from_the_store_is_not_an_empty_impact() {
         let dir = store("missing", &["cg_lib"]);
         let root = source_root();

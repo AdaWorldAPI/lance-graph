@@ -50,7 +50,21 @@ From PR 2002:
 - The external-consumer gap also fires when a caller of the symbol is public.
 - A missing symbol in a stored crate carries that crate's target, region, harvest and file gaps.
 - Harvest and file gaps are reported for the crates the answer depends on, not for every crate
-  in the store. Under `Consumers::AllInStore` with a public frontier that is every stored crate.
+  in the store.
+
+Decided in the merge, in neither PR as such:
+- The crates the answer depends on are the owner, every stored crate with a function in the
+  answer, and the stored crates that can be consumers. Those are the declared ones
+  (`Declared`), or every stored crate when the consumers are not named (`NotDeclared`,
+  `AllInStore`) and the symbol or one of its callers is public. PR 2002 checked every stored
+  crate only under `consumers_closed`; with undeclared consumers a stale stored crate that could
+  call the symbol was not reported.
+- PR 2002 also raised the dynamic-call gap when the symbol is an impl or referenced and the
+  store has dynamic calls, even with an empty `graded.unknown`. That half is dropped.
+  `impact` computes `unknown` as the functions that reach a dynamic call, minus those already
+  confirmed or possible, under a condition that includes PR 2002's. So an empty `unknown` there
+  means every such function is already in the answer, and no position is unobserved. No fixture
+  store produced the case (searched: rev1, rev2, fnref, mixed, golden).
 
 Removed duplicates: PR 2002's `stored_crates`, `residuals_of_crate` and `artifact::fnv64_hex`
 (PR 2001's `crate_list`, `crate_residuals` and the contract `fnv1a` do the same jobs).
@@ -71,6 +85,22 @@ Removed duplicates: PR 2002's `stored_crates`, `residuals_of_crate` and `artifac
 
 ## Tests
 
-`tests/impact_coverage.rs` holds both suites on the merged types (12 from PR 2001, 14 from
-PR 2002) and three narrowing tests: adding a declared consumer, declaring test targets, and
-removing an excluded region each remove their gap.
+`tests/impact_coverage.rs` holds 31 tests on the merged types:
+
+- 12 from PR 2001 and 14 from PR 2002, each with its original intent.
+- 3 narrowing tests: adding a declared consumer, declaring test targets, and removing an
+  excluded region each remove their gap.
+- 2 added after the disable runs showed a guard without a test: a deleted source file is
+  `MissingSource` and not `StaleSource`; a declared consumer with no caller in the answer still
+  needs its own target declaration.
+
+One PR 2001 test changed what it queries. `a_changed_source_file_reports_stale_coverage` edited
+a `cg_lib` file and asked about `cg_app::run` with "nothing depends on `cg_app`" declared. Under
+the scoped rule that edit cannot move the answer, so the test now asks about a `cg_lib` symbol,
+asserts the declared-scope case reports nothing for `cg_app::run`, and asserts the gap returns
+when the consumers are undeclared.
+
+Disable runs on the merged implementation: 22 guards, each patched with an asserted anchor,
+each red, each restored. The script is not committed; the guards are the `if`/`push` sites of
+every `Gap` variant, `has_rows`, both halves of the public frontier, `AllInStore`, the
+undeclared-consumer widening, and the declared-consumer insertion.
