@@ -17,6 +17,7 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D6 | Quack is SQL. It uses the SQL technology digit, `F4`. No separate Quack digit. |
 | D7 | Gremlin and Cypher are one technology, "Gremlin/Cypher", on Gremlin's digit `F5`. (First stated as "`F7`, or Gremlin's if the scope is adjacent"; then listed as one item.) |
 | D8 | Applications such as Odoo get a domain/classid on the left side. They do not take a technology digit. |
+| D10 | In short: `F###` is one polyglot address space of 4,096 addresses (16 × 256), meant mainly to give algebra its addresses. |
 | D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
 Carried from earlier records and unchanged: the technology digits `F0`
@@ -67,10 +68,10 @@ proposed for any of them, and none is assigned by this plan.
 | Vector and codec search (Hamming, palette distance, CAM-PQ) | fixed distance and lookup commands | ndarray, `bgz17`, planner `CamPqScanOp` |
 | SPARQL / GQL | query languages already parsed beside Cypher | planner strategies; may be aliases over `F0`/`F5` and need no digit |
 | MeTTa | a rewrite language with its own commands | `lance-graph-metta` (excluded crate) |
-| Document and OCR operations | fixed extraction commands | OGAR OCR domain; may be a domain on the left instead |
-| Workflow / template steps | fixed step commands | `elixir-template`, `template-runtime` |
+| Document and OCR operations | fixed extraction commands, but not an algebra; fails test zero | OGAR OCR domain; a domain on the left |
+| Workflow / template steps | fixed step commands, but not an algebra; fails test zero | `elixir-template`, `template-runtime`; left side |
 
-Two tests decide a candidate. First: does it only rename commands of an
+Three tests decide a candidate (the first from D10). Zero: is it an algebra, a fixed set of operations with defined operands and results? If not, it does not belong on the right side at all. First: does it only rename commands of an
 assigned technology? Then it is an alias view and takes no digit (D-DT64-7
 D16''). Second: is it tied to one domain? Then it belongs on the left.
 
