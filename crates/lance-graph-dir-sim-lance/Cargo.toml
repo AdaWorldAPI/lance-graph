@@ -24,7 +24,7 @@ description = "Lance storage for the dir-sim history log: one verified batch per
 lance-graph-dir-sim = { path = "../lance-graph-dir-sim" }
 # The lance family moves in lockstep with the lance-graph root (13 / arrow
 # 58); no cloud object stores, a local or file URI is enough here.
-lance = { version = "13.*", default-features = false }
+lance = { version = "14.*", default-features = false }
 arrow-array = "58"
 arrow-schema = "58"
 

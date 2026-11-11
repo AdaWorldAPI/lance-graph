@@ -9,7 +9,7 @@
 //!
 //! The rows of one leading value `a` are then a contiguous range, located by
 //! `SealedFacetLane::seek_from` under the lane's `OrderedLaneWitness`. A side
-//! is read with `with_row_addr_prefilter` over the union of its ranges, so the
+//! is read with `with_row_id_prefilter` over the union of its ranges, so the
 //! rows Lance visits are the rows of the demanded keys and nothing else. No
 //! value is translated to another coordinate space: the addresses are the
 //! lane's own positions, in NodeGuid order.
@@ -290,7 +290,7 @@ pub fn range_tree(ranges: &[(u32, u32)]) -> RowAddrTreeMap {
     m
 }
 
-/// [`range_tree`] as an ALLOW mask for `with_row_addr_prefilter`.
+/// [`range_tree`] as an ALLOW mask for `with_row_id_prefilter`.
 pub fn range_mask(ranges: &[(u32, u32)]) -> RowAddrMask {
     RowAddrMask::from_allowed(range_tree(ranges))
 }

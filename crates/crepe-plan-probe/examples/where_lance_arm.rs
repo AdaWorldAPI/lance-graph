@@ -4,7 +4,7 @@
 //! ClassView -> WideFieldMask (demanded property positions)
 //!   -> WHERE (logical predicate) / DR selection (identities)
 //!   -> Lance row-address mask (physical row eligibility)
-//!   -> Scanner::with_row_addr_prefilter -> Scanner::project (resolved columns only)
+//!   -> Scanner::with_row_id_prefilter -> Scanner::project (resolved columns only)
 //!   -> fold
 //! ```
 //!
@@ -24,7 +24,7 @@
 //! - A FULL: one scan of where-columns + resolved demanded columns, WHERE in Rust.
 //! - B MASKED PREFILTER: scan the where-columns with `_rowaddr`, WHERE -> row list,
 //!   build `RowAddrMask` (MASK INGRESS: this COPIES the addresses into Lance's
-//!   `RowAddrTreeMap`, it is not zero-copy), re-scan with `with_row_addr_prefilter`
+//!   `RowAddrTreeMap`, it is not zero-copy), re-scan with `with_row_id_prefilter`
 //!   projecting the resolved demanded columns only. ALLOW always; BLOCK as well at 50%.
 //! - C ATTESTED ADDRESSED: `SealedFacetLane::attest_sorted` once per version (cold),
 //!   ids -> lane ranges with `seek_from`, `addressed::plan_read` under `EXACT` and
@@ -338,7 +338,7 @@ async fn scan(
         s.with_row_address();
     }
     if let Some(m) = mask {
-        s.with_row_addr_prefilter(m);
+        s.with_row_id_prefilter(m);
     }
     s.scan_stats_callback(cb);
     let b = s.try_into_batch().await.map_err(|e| e.to_string())?;
