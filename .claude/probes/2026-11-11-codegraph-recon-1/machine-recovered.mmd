@@ -1,0 +1,156 @@
+flowchart LR
+%% machine-recovered from compiler facts only; no curated edge
+classDef stale fill:#fdd,stroke:#c00
+classDef unknown fill:#eee,stroke:#888,stroke-dasharray:3 3
+  n2324220d2d["impl_Clone_for_WideFieldMask::clone"]
+  nf0dd7eb4d4["WideFieldMask::count"]
+  n0fe9c0c703["WideFieldMask::has"]
+  n6effced490["ogar_codebook::classid_concept"]
+  n5880d6a6d2["impl_PartialEq_Truth_for_Truth::eq"]
+  n85f692868e["lance_graph_dt64::basis_at"]
+  n5c9d9be11c["lance_graph_dt64::basis_key"]
+  n30c0933001["lance_graph_dt64::check_basis"]
+  n9a358a34e7["impl_Clone_for_Frame::clone"]
+  ncea87a6cc8["impl_Clone_for_Guards::clone"]
+  n23b6de894b["FrameStore::check"]
+  nb3e6a1cf11["FrameStore::revisions"]
+  n139286eb5c["Guards::check"]
+  nc7b837b3cb["impl_Clone_for_MethodRef::clone"]
+  n7fb6db5dce["impl_PartialEq_ClassEntry_for_ClassEntry::eq"]
+  n41d921fb1f["impl_PartialEq_GuardWitness_for_GuardWitness::eq"]
+  nfb81872bac["LaneSource::borrow"]
+  nc321749ee8["LaneSource::lane_of"]
+  neffab0ab1b["lane::admit_lane"]
+  n8e44b69cf6["lane::current_route"]
+  nf82f64d778["impl_Iterator_for_BoundLanes::next"]
+  nf14d98b062["impl_PartialEq_LaneAddr_for_LaneAddr::eq"]
+  n834e7f0057["lane::source_owns"]
+  n2d47678468["BindStore::bind_lanes"]
+  n7c402f07e0["LaneBinding::addr"]
+  nd3c67ef2b2["LaneBinding::borrow_all"]
+  n6ee36d71b5["LaneBinding::check"]
+  n11cbb761a0["LaneBinding::lane"]
+  na638ff5529["lance_graph_dt64::validate"]
+  nc9fd69b271["BasisDigest::of"]
+  nca939019e2["BindStore::admit"]
+  n77e7ca84bd["BindStore::arity"]
+  ne8f5ae53b5["BindStore::bound_basis"]
+  n3b3358f47f["BindStore::check_issuer"]
+  nd976eba76b["BindStore::insert"]
+  n0bf65fd17d["BindStore::method_ref"]
+  n56217912b2["BindStore::register"]
+  n628dec15fb["BindStore::resolve"]
+  n728b4e948f["BindStore::resolve_counted"]
+  nff6be43a65["BindStore::routed_at"]
+  necac4f0cca["Guard::witness"]
+  nb80f13b646["exec::execute_compiled"]
+  nb1030f7f31["exec::scratch_words_for"]
+  nae37e07664["exec::tile_words_for"]
+  n6cce1c48bd["Scratch<'a>::over"]
+  nb940628aab["impl_Clone_for_Program::clone"]
+  n603aa31300["CompiledProgram::compiled"]
+  nf52b6be669["CompiledProgram::new"]
+  n448472ea7d["binding::call_step"]
+  nbb79e9a73c["binding::check_compare"]
+  nb950916031["binding::check_route"]
+  nab16acdce2["impl_Clone_for_Prepared::clone"]
+  na70926968a["binding::lane"]
+  n6f2b33fcea["binding::plan_id"]
+  n9f0aa095b5["binding::prepare"]
+  n394d8cf7a9["binding::run"]
+  n5e4579653e["binding::run_steps"]
+  nd18e8d838f["binding_native::prepare_native"]
+  n3a26fe8187["binding_native::run_native"]
+  nb0f12d5420["binding_native::shape_of"]
+  n07a94d728c["FoldDialect<'p>::discard_pending"]
+  n7422030821["FoldDialect<'p>::last_program"]
+  n3e900d22cd["FoldDialect<'p>::new"]
+  n8fa0cd24a9["FoldDialect<'p>::programs_run"]
+  nf82f64d778 -.->|possible| nfb81872bac  %% crates/lance-graph-dt64/src/lane.rs:408
+  n2d47678468 --> n2324220d2d  %% crates/lance-graph-dt64/src/lane.rs:212
+  n2d47678468 --> nf0dd7eb4d4  %% crates/lance-graph-dt64/src/lane.rs:191
+  n2d47678468 --> n0fe9c0c703  %% crates/lance-graph-dt64/src/lane.rs:193
+  n2d47678468 --> n9a358a34e7  %% crates/lance-graph-dt64/src/lane.rs:209
+  n2d47678468 --> n23b6de894b  %% crates/lance-graph-dt64/src/lane.rs:179
+  n2d47678468 -.->|possible| nc321749ee8  %% crates/lance-graph-dt64/src/lane.rs:199
+  n2d47678468 --> neffab0ab1b  %% crates/lance-graph-dt64/src/lane.rs:202
+  n2d47678468 --> n8e44b69cf6  %% crates/lance-graph-dt64/src/lane.rs:186
+  n2d47678468 --> n834e7f0057  %% crates/lance-graph-dt64/src/lane.rs:178
+  n2d47678468 --> ne8f5ae53b5  %% crates/lance-graph-dt64/src/lane.rs:188
+  n2d47678468 --> n628dec15fb  %% crates/lance-graph-dt64/src/lane.rs:187
+  n2d47678468 --> nff6be43a65  %% crates/lance-graph-dt64/src/lane.rs:180
+  nd3c67ef2b2 --> n6ee36d71b5  %% crates/lance-graph-dt64/src/lane.rs:386
+  n6ee36d71b5 --> n23b6de894b  %% crates/lance-graph-dt64/src/lane.rs:315
+  n6ee36d71b5 -.->|possible| nc321749ee8  %% crates/lance-graph-dt64/src/lane.rs:336
+  n6ee36d71b5 --> neffab0ab1b  %% crates/lance-graph-dt64/src/lane.rs:346
+  n6ee36d71b5 --> n8e44b69cf6  %% crates/lance-graph-dt64/src/lane.rs:316
+  n6ee36d71b5 --> nf14d98b062  %% crates/lance-graph-dt64/src/lane.rs:337
+  n6ee36d71b5 --> n834e7f0057  %% crates/lance-graph-dt64/src/lane.rs:314
+  n6ee36d71b5 --> n728b4e948f  %% crates/lance-graph-dt64/src/lane.rs:324
+  n11cbb761a0 -.->|possible| nfb81872bac  %% crates/lance-graph-dt64/src/lane.rs:362
+  n11cbb761a0 --> n7c402f07e0  %% crates/lance-graph-dt64/src/lane.rs:361
+  n11cbb761a0 --> n6ee36d71b5  %% crates/lance-graph-dt64/src/lane.rs:360
+  nca939019e2 --> n41d921fb1f  %% crates/lance-graph-dt64/src/lib.rs:1204
+  nca939019e2 --> n3b3358f47f  %% crates/lance-graph-dt64/src/lib.rs:1210
+  nca939019e2 --> necac4f0cca  %% crates/lance-graph-dt64/src/lib.rs:1204
+  nd976eba76b --> n85f692868e  %% crates/lance-graph-dt64/src/lib.rs:871
+  nd976eba76b --> n5c9d9be11c  %% crates/lance-graph-dt64/src/lib.rs:880
+  nd976eba76b --> n7fb6db5dce  %% crates/lance-graph-dt64/src/lib.rs:905
+  nd976eba76b --> na638ff5529  %% crates/lance-graph-dt64/src/lib.rs:851
+  nd976eba76b --> nc9fd69b271  %% crates/lance-graph-dt64/src/lib.rs:879
+  nd976eba76b --> n77e7ca84bd  %% crates/lance-graph-dt64/src/lib.rs:855
+  n56217912b2 --> nd976eba76b  %% crates/lance-graph-dt64/src/lib.rs:821
+  n628dec15fb --> n30c0933001  %% crates/lance-graph-dt64/src/lib.rs:1083
+  n9f0aa095b5 --> n6effced490  %% crates/lance-graph-r2il/src/binding.rs:341
+  n9f0aa095b5 --> n5880d6a6d2  %% crates/lance-graph-r2il/src/binding.rs:338
+  n9f0aa095b5 --> ncea87a6cc8  %% crates/lance-graph-r2il/src/binding.rs:361
+  n9f0aa095b5 --> n139286eb5c  %% crates/lance-graph-r2il/src/binding.rs:329
+  n9f0aa095b5 --> nc7b837b3cb  %% crates/lance-graph-r2il/src/binding.rs:358
+  n9f0aa095b5 --> nca939019e2  %% crates/lance-graph-r2il/src/binding.rs:334
+  n9f0aa095b5 --> n628dec15fb  %% crates/lance-graph-r2il/src/binding.rs:331
+  n9f0aa095b5 --> nb950916031  %% crates/lance-graph-r2il/src/binding.rs:330
+  n9f0aa095b5 --> n6f2b33fcea  %% crates/lance-graph-r2il/src/binding.rs:356
+  n394d8cf7a9 --> n139286eb5c  %% crates/lance-graph-r2il/src/binding.rs:389
+  n394d8cf7a9 --> n3b3358f47f  %% crates/lance-graph-r2il/src/binding.rs:386
+  n394d8cf7a9 --> nb950916031  %% crates/lance-graph-r2il/src/binding.rs:392
+  n394d8cf7a9 --> n5e4579653e  %% crates/lance-graph-r2il/src/binding.rs:397
+  n394d8cf7a9 --> n07a94d728c  %% crates/lance-graph-r2il/src/binding.rs:396
+  n394d8cf7a9 --> n07a94d728c  %% crates/lance-graph-r2il/src/binding.rs:398
+  nd18e8d838f --> n139286eb5c  %% crates/lance-graph-r2il/src/binding_native.rs:214
+  nd18e8d838f --> n3b3358f47f  %% crates/lance-graph-r2il/src/binding_native.rs:211
+  nd18e8d838f --> nb1030f7f31  %% crates/lance-graph-r2il/src/binding_native.rs:323
+  nd18e8d838f --> nae37e07664  %% crates/lance-graph-r2il/src/binding_native.rs:320
+  nd18e8d838f --> nb940628aab  %% crates/lance-graph-r2il/src/binding_native.rs:263
+  nd18e8d838f --> nf52b6be669  %% crates/lance-graph-r2il/src/binding_native.rs:277
+  nd18e8d838f --> n448472ea7d  %% crates/lance-graph-r2il/src/binding_native.rs:250
+  nd18e8d838f --> nbb79e9a73c  %% crates/lance-graph-r2il/src/binding_native.rs:247
+  nd18e8d838f --> nb950916031  %% crates/lance-graph-r2il/src/binding_native.rs:217
+  nd18e8d838f --> nab16acdce2  %% crates/lance-graph-r2il/src/binding_native.rs:331
+  nd18e8d838f --> na70926968a  %% crates/lance-graph-r2il/src/binding_native.rs:229
+  nd18e8d838f --> nb0f12d5420  %% crates/lance-graph-r2il/src/binding_native.rs:333
+  nd18e8d838f --> n7422030821  %% crates/lance-graph-r2il/src/binding_native.rs:263
+  nd18e8d838f --> n3e900d22cd  %% crates/lance-graph-r2il/src/binding_native.rs:218
+  nd18e8d838f --> n8fa0cd24a9  %% crates/lance-graph-r2il/src/binding_native.rs:249
+  nd18e8d838f --> n8fa0cd24a9  %% crates/lance-graph-r2il/src/binding_native.rs:259
+  n3a26fe8187 --> nb3e6a1cf11  %% crates/lance-graph-r2il/src/binding_native.rs:412
+  n3a26fe8187 --> n139286eb5c  %% crates/lance-graph-r2il/src/binding_native.rs:364
+  n3a26fe8187 --> n3b3358f47f  %% crates/lance-graph-r2il/src/binding_native.rs:361
+  n3a26fe8187 --> nb80f13b646  %% crates/lance-graph-r2il/src/binding_native.rs:385
+  n3a26fe8187 --> n6cce1c48bd  %% crates/lance-graph-r2il/src/binding_native.rs:384
+  n3a26fe8187 --> n603aa31300  %% crates/lance-graph-r2il/src/binding_native.rs:386
+  n3a26fe8187 --> nb950916031  %% crates/lance-graph-r2il/src/binding_native.rs:367
+  n3a26fe8187 --> nb0f12d5420  %% crates/lance-graph-r2il/src/binding_native.rs:371
+  nf82f64d778_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> nf82f64d778
+  n2d47678468_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n2d47678468
+  nd3c67ef2b2_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> nd3c67ef2b2
+  n6ee36d71b5_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n6ee36d71b5
+  n11cbb761a0_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n11cbb761a0
+  nca939019e2_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> nca939019e2
+  n3b3358f47f_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n3b3358f47f
+  n0bf65fd17d_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n0bf65fd17d
+  n56217912b2_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n56217912b2
+  n628dec15fb_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n628dec15fb
+  n9f0aa095b5_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n9f0aa095b5
+  n394d8cf7a9_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n394d8cf7a9
+  nd18e8d838f_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> nd18e8d838f
+  n3a26fe8187_ext["callers outside lance_graph_contract, lance_graph_dt64, lance_graph_quack, lance_graph_r2il: UNKNOWN"]:::unknown -.-> n3a26fe8187

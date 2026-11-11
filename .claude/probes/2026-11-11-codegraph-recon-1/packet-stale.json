@@ -1,0 +1,544 @@
+{
+ "packet": "ReviewEvidencePacket (prototype, read-only; not a vendor API)",
+ "identity": {
+  "repo_id": "AdaWorldAPI/lance-graph",
+  "commit_sha": "be3cb111149b7f0282ad5b6c8a3d1a3e91a65685",
+  "cargo_lock_sha": "NOT_TRACKED (repository tracks no Cargo.lock)",
+  "crate_instance": "lance_graph_dt64 (lib target)",
+  "features": "default",
+  "target_triple": "x86_64-unknown-linux-gnu",
+  "rustc_version": "nightly-2026-09-17 (charon)",
+  "file_blob_sha": "d21a5b602cc9febb8872d0c0eec4a667a1468d00",
+  "source_span": {
+   "file": "crates/lance-graph-dt64/src/lane.rs",
+   "bytes": [
+    10592,
+    12497
+   ],
+   "lines": [
+    307,
+    348
+   ]
+  }
+ },
+ "changed_source": {
+  "subject": "lance_graph_dt64::lane::{LaneBinding}::check",
+  "base": "be3cb111149b7f0282ad5b6c8a3d1a3e91a65685",
+  "diff": "diff --git a/crates/lance-graph-dt64/src/lane.rs b/crates/lance-graph-dt64/src/lane.rs\nindex a0aa6e665..d21a5b602 100644\n--- a/crates/lance-graph-dt64/src/lane.rs\n+++ b/crates/lance-graph-dt64/src/lane.rs\n@@ -312,7 +312,7 @@ impl LaneBinding {\n         source: &S,\n     ) -> Result<(), LaneRefusal> {\n         source_owns(frames, source)?;\n-        frames.check(&self.frame).map_err(LaneRefusal::Frame)?;\n+        frames.check(&self.frame).map_err(LaneRefusal::Frame)?; // probe edit\n         current_route(store, self.route.position, self.class)?;\n         // Revision and count only: the ordered predicate witness was checked\n         // when the binding was made (bind_lanes resolves through the\n",
+  "stale": true,
+  "freshness": "STALE"
+ },
+ "affected_symbols": {
+  "confirmed": [
+   "lance_graph_dt64::lane::{LaneBinding}::borrow_all",
+   "lance_graph_dt64::lane::{LaneBinding}::lane"
+  ],
+  "possible": [],
+  "unknown": [
+   {
+    "what": "callers in crates outside the store",
+    "observed_crates": [
+     "lance_graph_contract",
+     "lance_graph_dt64",
+     "lance_graph_quack",
+     "lance_graph_r2il"
+    ],
+    "why": "symbol is PUBLIC; only these crates' library targets were compiled"
+   },
+   {
+    "what": "test targets, examples, cfg(test) modules",
+    "why": "store holds library targets only"
+   }
+  ]
+ },
+ "witnessed_edges": [
+  {
+   "caller": "lance_graph_dt64::lane::{LaneBinding}::borrow_all",
+   "callee": "lance_graph_dt64::lane::{LaneBinding}::check",
+   "sites": [
+    "crates/lance-graph-dt64/src/lane.rs:385"
+   ]
+  },
+  {
+   "caller": "lance_graph_dt64::lane::{LaneBinding}::lane",
+   "callee": "lance_graph_dt64::lane::{LaneBinding}::check",
+   "sites": [
+    "crates/lance-graph-dt64/src/lane.rs:359"
+   ]
+  }
+ ],
+ "possible_edges": [
+  {
+   "dispatch_target": "lance_graph_dt64::lane::LaneSource::lane_of"
+  }
+ ],
+ "co_changed_only": "NOT_RUN (no history projection in this prototype)",
+ "unsupported_regions": [
+  "crates/cognitive-polyfill-probe/tests/p0.rs",
+  "crates/dir-rmap-probe/tests/equivalence.rs",
+  "crates/dr-isa-stream-lab/tests/integration/g2l.rs",
+  "crates/dr-math-binding-probe/tests/binding.rs",
+  "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs",
+  "crates/lance-graph-dt64/tests/dr.rs",
+  "crates/lance-graph-dt64/tests/lane_socket.rs",
+  "crates/lance-graph-report/src/lane_source/tests.rs",
+  "crates/thought-git-probe/tests/receipt.rs",
+  "crates/xlog-relcomp-probe/tests/dto_binding.rs"
+ ],
+ "findings": [
+  {
+   "id": "dependents",
+   "summary": "2 confirmed transitive in-store callers; external callers UNKNOWN",
+   "severity": null,
+   "evidence_class": "COMPILER_DERIVED",
+   "confidence": "as graded per item",
+   "provenance": {
+    "tool": "charon c69e231 -> ruff_charon import (rows.tsv v2)",
+    "toolchain": "nightly-2026-09-17",
+    "sysroot": "default (cargo-miri absent; std bodies opaque)"
+   },
+   "lifecycle": "open",
+   "run_status": "PARTIAL"
+  },
+  {
+   "id": "tests",
+   "summary": "48 candidate test call sites by name; none run",
+   "severity": null,
+   "evidence_class": "SOURCE_STRUCTURE",
+   "qualifier": "POSSIBLE",
+   "items": [
+    {
+     "site": "crates/cognitive-polyfill-probe/tests/p0.rs:271",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/cognitive-polyfill-probe/tests/p0.rs:275",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:234",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:238",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:249",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:481",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:522",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:663",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:677",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:678",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dir-rmap-probe/tests/equivalence.rs:680",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:136",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:263",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/dr-math-binding-probe/tests/binding.rs:234",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:162",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:722",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1012",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1328",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:58",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:60",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:72",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:82",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:86",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:89",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:90",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:93",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:776",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:777",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:808",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:814",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:824",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:827",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/dr.rs:828",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:227",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:277",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:314",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:369",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:373",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:403",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:407",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-dt64/tests/lane_socket.rs:424",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: inside a macro region",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/thought-git-probe/tests/receipt.rs:715",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/thought-git-probe/tests/receipt.rs:715",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/xlog-relcomp-probe/tests/dto_binding.rs:233",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-report/src/lane_source/tests.rs:320",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-report/src/lane_source/tests.rs:341",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-report/src/lane_source/tests.rs:418",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    },
+    {
+     "site": "crates/lance-graph-report/src/lane_source/tests.rs:623",
+     "evidence_class": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "why": "method-name match, receiver unresolved",
+     "ra": "UNKNOWN: file not indexed",
+     "run_status": "NOT_RUN"
+    }
+   ],
+   "provenance": {
+    "tool": "source search + rust-analyzer GRAPH=1 (ra_ap 0.0.358)"
+   },
+   "lifecycle": "open",
+   "run_status": "NOT_RUN"
+  },
+  {
+   "id": "contracts",
+   "summary": "trait methods the symbol dispatches through (a change may interact with any impl)",
+   "severity": null,
+   "evidence_class": "COMPILER_DERIVED",
+   "qualifier": "POSSIBLE",
+   "items": [
+    "lance_graph_dt64::lane::LaneSource::lane_of"
+   ],
+   "provenance": {
+    "tool": "charon c69e231 -> ruff_charon import (rows.tsv v2)",
+    "toolchain": "nightly-2026-09-17",
+    "sysroot": "default (cargo-miri absent; std bodies opaque)"
+   },
+   "lifecycle": "open",
+   "run_status": "COMPLETE"
+  },
+  {
+   "id": "execution_paths",
+   "summary": "entry points (in-store callers with no in-store caller)",
+   "severity": null,
+   "evidence_class": "COMPILER_DERIVED",
+   "items": [
+    "lance_graph_dt64::lane::{LaneBinding}::borrow_all",
+    "lance_graph_dt64::lane::{LaneBinding}::lane"
+   ],
+   "provenance": {
+    "tool": "charon c69e231 -> ruff_charon import (rows.tsv v2)",
+    "toolchain": "nightly-2026-09-17",
+    "sysroot": "default (cargo-miri absent; std bodies opaque)"
+   },
+   "lifecycle": "open",
+   "run_status": "PARTIAL"
+  }
+ ],
+ "expected_behavior": "NOT_SUPPLIED (must come from intent/tests, independently of this packet)",
+ "candidate_behavior": "NOT_INFERRED",
+ "missing_necessary_evidence": [
+  "test runs (TEST_OBSERVED needs a run that can fail, CR-H0 \u00a75)",
+  "compiler artifacts of consumer crates and test targets",
+  "a resolved receiver for each name-matched test site"
+ ],
+ "permission_state": "NOT_DERIVED (never from confidence)"
+}
