@@ -270,6 +270,39 @@ fn rust_files(root: &Path, rel: &str, out: &mut Vec<String>) {
     }
 }
 
+/// Freshness and unread-file gaps of `krates` under the declared store and
+/// source root; `FreshnessUnchecked` when either is missing.
+fn freshness_gaps<'a>(
+    krates: impl IntoIterator<Item = &'a String>,
+    scope: &Scope,
+    gaps: &mut Vec<Gap>,
+) {
+    match (&scope.store, &scope.source_root) {
+        (Some(store), Some(root)) => {
+            for k in krates {
+                match file_gaps(store, root, k) {
+                    None => gaps.push(Gap::FilesUnrecorded { krate: k.clone() }),
+                    Some((stale, unread)) => {
+                        if !stale.is_empty() {
+                            gaps.push(Gap::StaleSource {
+                                krate: k.clone(),
+                                files: stale,
+                            });
+                        }
+                        if !unread.is_empty() {
+                            gaps.push(Gap::SourceFilesUnread {
+                                krate: k.clone(),
+                                files: unread,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        _ => gaps.push(Gap::FreshnessUnchecked),
+    }
+}
+
 /// The declared-scope gaps of one stored crate: its targets and its
 /// excluded regions.
 fn scope_gaps(k: &str, scope: &Scope, gaps: &mut Vec<Gap>) {
@@ -306,12 +339,13 @@ impl Codegraph {
         let Some(g) = self.pos(symbol) else {
             let z = vec![0u64; self.words()];
             // A missing symbol in a stored crate is absent only from what was
-            // extracted: undeclared or missing targets and excluded regions
-            // are each a place it may still be defined.
+            // extracted: undeclared or missing targets, excluded regions and
+            // unread files are each a place it may still be defined.
             let mut gaps = Vec::new();
             let owner = owner_of(symbol);
             if stored.contains(owner) {
                 scope_gaps(owner, scope, &mut gaps);
+                freshness_gaps([&owner.to_owned()], scope, &mut gaps);
             }
             return Ok(ImpactReport {
                 graded: Graded {
@@ -385,30 +419,7 @@ impl Codegraph {
             }
         }
 
-        match (&scope.store, &scope.source_root) {
-            (Some(store), Some(root)) => {
-                for k in &involved {
-                    match file_gaps(store, root, k) {
-                        None => gaps.push(Gap::FilesUnrecorded { krate: k.clone() }),
-                        Some((stale, unread)) => {
-                            if !stale.is_empty() {
-                                gaps.push(Gap::StaleSource {
-                                    krate: k.clone(),
-                                    files: stale,
-                                });
-                            }
-                            if !unread.is_empty() {
-                                gaps.push(Gap::SourceFilesUnread {
-                                    krate: k.clone(),
-                                    files: unread,
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            _ => gaps.push(Gap::FreshnessUnchecked),
-        }
+        freshness_gaps(&involved, scope, &mut gaps);
 
         Ok(ImpactReport {
             graded,

@@ -557,4 +557,12 @@ fn unread_source_files_under_a_read_directory_are_a_gap() {
             files: vec!["crate/gated/deep.rs".into(), "crate/iam.rs".into()],
         }]
     );
+    // A symbol missing from the store may be defined in an unread file.
+    let r = g.impact_report("lib::authorize", &scope).unwrap();
+    assert_eq!(r.symbol, SymbolState::Missing { owner_stored: true });
+    assert!(
+        matches!(r.gaps.as_slice(), [Gap::SourceFilesUnread { files, .. }] if files.len() == 2),
+        "{:?}",
+        r.gaps
+    );
 }
