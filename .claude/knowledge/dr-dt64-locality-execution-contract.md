@@ -60,6 +60,10 @@ holds addresses only and is checked against route, frame, schema basis,
 mapping, scope and coordinate space.
 
 - Reordering or reshaping the menu changes the view, never the kitchen.
+- **Note (2026-11-11, D-DRDT-SPLIT-1).** The mask itself is DR's: the
+  reusable selection that addresses positions. DT64 says what a selection
+  selects (class, basis, method); DR carries and versions it. Plan:
+  `.claude/plans/dr-widefieldmask-dt-classview-v1.md` §1a.
 - A valid binding is reused; it is re-made only when one of its witnesses
   changes.
 - DT64 is not a value store and not a matrix store.

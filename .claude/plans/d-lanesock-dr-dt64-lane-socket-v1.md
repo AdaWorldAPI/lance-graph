@@ -18,6 +18,12 @@
 
 The socket adds no store, no clock, no index and no writer.
 
+> **Note (2026-11-11, D-DRDT-SPLIT-1).** The `WideFieldMask` row above
+> describes the property request of one lane binding. It is not a limit on
+> the carrier: `WideFieldMask` is DR's reusable selection, and what a given
+> selection addresses is named by its class and coordinate-space witness.
+> See `dr-widefieldmask-dt-classview-v1.md` §1a.
+
 ## 1. Gap this closes
 
 1. Nothing maps `(classid, SchemaRev, field position)` to a source-owned lane and the coordinate space that lane is in.

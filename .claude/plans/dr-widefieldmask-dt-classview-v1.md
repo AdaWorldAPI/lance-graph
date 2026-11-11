@@ -16,6 +16,33 @@ interprets; DT never addresses. Crate ownership of the mask type does not
 move (brief §4: the logical concern and the Rust module boundary are
 separate questions).
 
+## 1a. One reusable selection, never untyped (2026-11-11)
+
+`WideFieldMask` is DR's reusable selection: the role DuckDB gives its
+selection vector, in bit form. It is built once per version and shared by
+every consumer (storage read, fold, display, route, population). It is not
+confined to one axis.
+
+It is also never untyped. A selection always travels with what binds it:
+the class and basis (DT), and the coordinate space and frame (DR
+witnesses). That is how this reads together with the texts already on main:
+
+- **Master brief §7** names three concepts — column projection, row
+  selection, relation index — and forbids mixing them "into an untyped
+  carrier". They stay three: they differ in what they are bound to (a class
+  basis; a population under a snapshot; a directed relation with its own
+  revision), not in needing three mask types. Passing one where another is
+  expected is refused by the witness (`LaneRefusal::CoordinateSpace` today).
+- **D-LANESOCK-0** ("`WideFieldMask` … never a row-survivor bit") describes
+  the property request of one lane binding. It stands for that binding; it
+  is not a limit on the carrier.
+- **Locality contract, boundary 2** lists `WideFieldMask` with DT64. Read:
+  DT64 says what a selection selects; DR carries it.
+
+Size: a mask holds 256 positions and that cap stays. A 256 × 256 slab is 256
+masks, which is the 1,024-word plane already in the lab; ×256 slabs under an
+outer byte when needed.
+
 ## 2. Why it fits what is on main
 
 Read in this session, with locations:
@@ -67,7 +94,7 @@ the question.
 | item | content | plan v3 | Linear (existing) | gate | kind |
 |---|---|---|---|---|---|
 | S1 | Dated supersession notes: locality contract boundary 2 moves `WideFieldMask` to DR; old text stays visible | D15 | EXO-220 (the contract's decision), EXO-254 | docs review | docs |
-| S2 | Lab: type slab planes as rows of `WideFieldMask` (G1), no behaviour change | W4 (row selection) | EXO-253, EXO-121 | the 15 lab tests unchanged and green; the angles bench within noise, in ns/µs | lab code |
+| S2 | Lab: carry slab planes as the reusable selection (256 masks of 256 with their `CoordSpace` witness), no behaviour change | W4 (row selection) | EXO-253, EXO-121 | the 15 lab tests unchanged and green; the angles bench within noise, in ns/µs | lab code |
 | S3 | Decide G2 (order index) and G6 (`on` / `reads`) | W3, W4 | EXO-254, EXO-121 | council | decision |
 | S4 | Field half of reader scope: `requested ∩ visible` as one `WideFieldMask` intersection at bind time; row half as a prepared DR plane; frame ownership for an external lane source | W12 | EXO-243, EXO-244, EXO-228, EXO-206 | the EXO-243 test: two roles, 12 fields, 10^3 rows; refused across roles; non-Allow binds nothing | test-only first |
 | S5 | Bind-time admission for the four direct paths, with the executor census test | v2 cut 4; W2, W13 | EXO-253, EXO-245, EXO-246 | red on a planted call site | needs council |

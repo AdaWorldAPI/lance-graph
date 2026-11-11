@@ -137,16 +137,17 @@ All timings in ns or µs; a per-query millisecond is a failed gate.
   coordinate space is refused in another (`LaneRefusal::CoordinateSpace`
   already does this; keep it as the test).
 
-## 5. Open points for the operator
+## 5. Settled by the frame; what stays open is technical
 
-1. Do D-LANESOCK-0's "never a row-survivor bit" and plan v3's "three
-   distinct typed concepts" stand as written, or are they superseded by §1?
-   The split plan's S2 depends on the answer.
-2. `WideFieldMask` holds at most 256 positions (`u8`). A slab of 65,536 is
-   256 of them. Is the slab carried as 256 masks, or does the mask itself
-   grow past 256? (The cap is stated as intended at `class_view.rs:642-646`.)
-3. The lab's index-ordered visibility plane: second copy, or the one copy
-   in that order?
+1. The older texts are not in conflict once the selection is read as
+   "never untyped": the brief's three concepts differ by what binds the
+   selection, D-LANESOCK-0 describes one binding, the locality contract says
+   who names the meaning. Notes added to both texts and to the plan (§1a).
+2. A mask holds 256 positions; a slab is 256 masks (the 1,024-word plane);
+   ×256 slabs under an outer byte. The cap stays.
+3. Open, and a measurement rather than a decision: whether the lab's
+   index-ordered visibility plane is the one copy in that order or a second
+   copy (probe P1, arm C).
 
 ## 6. Not searched
 
@@ -158,7 +159,7 @@ paper). Nothing was built or measured in this run.
 
 ## Closeout
 
-`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: §5 points 1–3`
+`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: probes P1, P4, P5, P9`
 
 MIRROR
 - BLIND SPOT: every role, the premise gate included, took the mask type's
