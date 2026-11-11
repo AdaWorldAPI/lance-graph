@@ -22,6 +22,7 @@ members = [
     # DT64: the ClassId-addressed binding store (D-DRDT §1/§4, D-DT64-6 §1/§3).
     # Depends on the zero-dep contract only.
     "crates/lance-graph-dt64",
+    "crates/dr256-ternlog-lab",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",

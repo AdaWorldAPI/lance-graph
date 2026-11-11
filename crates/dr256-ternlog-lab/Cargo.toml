@@ -1,0 +1,11 @@
+[package]
+name = "dr256-ternlog-lab"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB. A DR256 slab read as three aligned mask planes folded by one ternlog and a popcount, stacked over an outer byte. One ClassView x WideFieldMask selects the fields for storage, compute and display; planes are prepared once per source frame and reused. No contract type is added or changed."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
