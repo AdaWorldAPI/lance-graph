@@ -4,7 +4,7 @@
 - **Scope:** same, packet from an older head
 - **Reviewer:** {"input": "ReviewEvidencePacket", "tool": "crai_report.py"}
 - **Run:** `PARTIAL` (library targets only; consumer crates not in store; no test executed)
-- **Verdict:** INCOMPLETE REVIEW: run PARTIAL; not a defect verdict (0 open finding(s))
+- **Verdict:** INCOMPLETE REVIEW: run PARTIAL; not a defect verdict (0 open finding(s), 2 stale, not revalidated at the head)
 - **Semantics:** crai-rs CR-H0-REVIEW-SEMANTICS (c43ab35). Severity, evidence and confidence are separate axes.
 
 ## F1 · impact · stale

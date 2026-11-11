@@ -84,6 +84,19 @@ pub enum CoverageGap {
         /// The crate name.
         krate: String,
     },
+    /// A store crate carries extraction residuals (e.g. `BODY_NOT_STRUCTURED`): facts ruff_charon
+    /// could not represent, any of which may hide a call to the symbol.
+    Residuals {
+        /// The crate name.
+        krate: String,
+        /// Residuals over every kind.
+        count: u32,
+    },
+    /// A store crate was read without a `<crate>.residuals.tsv`: what its harvest missed is unknown.
+    ResidualsNotRead {
+        /// The crate name.
+        krate: String,
+    },
     /// Source files whose content no longer matches the store.
     StaleSource {
         /// Paths relative to the source root, sorted.
@@ -209,6 +222,16 @@ impl Codegraph {
                 gaps.push(CoverageGap::PartialCrate {
                     krate: krate.clone(),
                 });
+            }
+            match self.crate_residuals(krate) {
+                Some(Some(r)) if r.total() > 0 => gaps.push(CoverageGap::Residuals {
+                    krate: krate.clone(),
+                    count: r.total(),
+                }),
+                Some(None) => gaps.push(CoverageGap::ResidualsNotRead {
+                    krate: krate.clone(),
+                }),
+                _ => {}
             }
         }
         match scope.sources {

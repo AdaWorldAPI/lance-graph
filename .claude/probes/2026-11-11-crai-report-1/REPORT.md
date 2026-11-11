@@ -36,6 +36,8 @@ Anything not declared becomes a gap, never an assumption.
 | changed source / freshness unchecked | `a_changed_source_file_reports_stale_coverage` | red (both) |
 | symbol absent from the store | `a_symbol_absent_from_the_store_is_not_an_empty_impact` | red |
 | consumer crate added: gap → CONFIRMED | `adding_the_consumer_crate_upgrades_missing_coverage_to_confirmed` | red |
+| extraction residuals in a `COMPLETE` crate | `extraction_residuals_are_a_coverage_gap` | red |
+| crate read without a residuals file | `a_missing_residuals_file_is_a_coverage_gap` | red |
 
 `ImpactReport::no_known_gap()` is documented as "no known gap within the declared scope", never as
 completeness. That matches `diag::Coverage::no_known_gap`.
@@ -68,6 +70,8 @@ Records keep CodeRabbit's public `--agent` fields (`fileName`, `comment`, `sever
 | repeated input → byte-identical reports | `test_repeated_input_regenerates_byte_identical_reports` | red |
 | POSSIBLE never a confirmed caller (RS-F07) | `test_possible_dispatch_is_never_a_confirmed_caller` | red |
 | repetition is not a second witness (RS-F08) | `test_repetition_is_not_a_second_witness` | red |
+| a stale finding blocks a clean verdict (RS-F04) | `test_a_stale_finding_blocks_a_clean_verdict` | red |
+| a resolved record never absorbs an open one (RS-F08) | `test_a_resolved_record_does_not_absorb_an_open_one` | red |
 | agent text is quoted, never structure (RS-F09) | `test_agent_text_is_quoted_never_structure` | red |
 | withdrawn keeps its record (RS-F10) | `test_withdrawn_keeps_its_record` | red |
 

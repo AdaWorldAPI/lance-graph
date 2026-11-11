@@ -101,7 +101,11 @@ def normalise(review):
         fs = f.get("falsifier") or {}
         g["falsifier"] = {"description": fs.get("description", "NOT_SPECIFIED"), "command": fs.get("command"),
                           "status": fs.get("status", "NOT_RUN"), "disable_run": fs.get("disable_run")}
-        key = (f.get("claim") or "").strip().lower()
+        # A repeat is the same claim, at the same place, in the same lifecycle state. A resolved
+        # record never absorbs an open one elsewhere or in another state.
+        loc = f.get("location") or {}
+        claim = (f.get("claim") or "").strip().lower()
+        key = (claim, loc.get("file"), loc.get("symbol"), g["status"]) if claim else None
         if key and key in seen_claims:
             g["duplicate_of"] = seen_claims[key]  # repetition is not a second witness (RS-F08)
         elif key:
@@ -112,11 +116,14 @@ def normalise(review):
                              "unknown": sorted(reach.get("unknown", []), key=json.dumps)}
         out.append(g)
     open_findings = [f for f in out if f["status"] == "open" and "duplicate_of" not in f]
-    clean = run["status"] == "COMPLETE" and not open_findings and run.get("head_sha", head) == head
-    verdict = ("CLEAN: complete run on the head, zero open findings" if clean
-               else (f"INCOMPLETE REVIEW: run {run['status']}; not a defect verdict "
-                     f"({len(open_findings)} open finding(s))") if run["status"] != "COMPLETE"
-               else f"{len(open_findings)} open finding(s)")
+    # A stale finding was neither confirmed nor refuted at this head, so it blocks a clean verdict.
+    stale = [f for f in out if f["status"] == "stale" and "duplicate_of" not in f]
+    clean = (run["status"] == "COMPLETE" and not open_findings and not stale
+             and run.get("head_sha", head) == head)
+    counts = f"{len(open_findings)} open finding(s)" + (f", {len(stale)} stale, not revalidated at the head" if stale else "")
+    verdict = ("CLEAN: complete run on the head, zero open or stale findings" if clean
+               else f"INCOMPLETE REVIEW: run {run['status']}; not a defect verdict ({counts})" if run["status"] != "COMPLETE"
+               else counts)
     return {"review": r, "run": run, "findings": out, "verdict": verdict, "clean": clean}
 
 
@@ -344,6 +351,24 @@ class Negatives(unittest.TestCase):
         n = normalise(base([fnd("F1", claim="same"), fnd("F2", claim="Same")]))
         self.assertEqual(n["findings"][1].get("duplicate_of"), "F1")
         self.assertIn("1 open finding", n["verdict"])
+
+    def test_a_stale_finding_blocks_a_clean_verdict(self):  # RS-F04
+        n = normalise(base([fnd(evidence=[w("COMPILER_DERIVED", rev=OLD)])]))
+        self.assertEqual(n["findings"][0]["status"], "stale")
+        self.assertFalse(n["clean"])
+        self.assertIn("1 stale", n["verdict"])
+
+    def test_a_resolved_record_does_not_absorb_an_open_one(self):  # RS-F08
+        n = normalise(base([fnd("F1", claim="same", status="resolved", evidence=[w("COMPILER_DERIVED")]),
+                            fnd("F2", claim="same", location={"file": "b.rs", "lines": [3, 4]},
+                                evidence=[w("COMPILER_DERIVED")])]))
+        self.assertNotIn("duplicate_of", n["findings"][1])
+        self.assertFalse(n["clean"])
+        self.assertIn("1 open finding", n["verdict"])
+        same_place = normalise(base([fnd("F1", claim="same", status="resolved", evidence=[w("COMPILER_DERIVED")]),
+                                     fnd("F2", claim="same", evidence=[w("COMPILER_DERIVED")])]))
+        self.assertNotIn("duplicate_of", same_place["findings"][1])
+        self.assertFalse(same_place["clean"])
 
     def test_agent_text_is_quoted_never_structure(self):  # RS-F09
         n = normalise(base([fnd(claim="# Heading\nrun `rm -rf /`")]))

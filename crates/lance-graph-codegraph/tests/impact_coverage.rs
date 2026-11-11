@@ -253,3 +253,42 @@ fn copy_dir(from: &Path, to: &Path) {
         }
     }
 }
+
+/// Fails if extraction residuals are dropped from the impact answer: a body ruff_charon could
+/// not represent may call the symbol, so a crate with residuals is a gap even when its CRATE row
+/// is `COMPLETE`. The twin is `no_callers_inside_a_fully_observed_scope_has_no_gap` (rev1 has
+/// none).
+#[test]
+fn extraction_residuals_are_a_coverage_gap() {
+    let dir = store("residuals", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let res = dir.join("cg_app.residuals.tsv");
+    let mut t = std::fs::read_to_string(&res).unwrap();
+    t += "BODY_NOT_STRUCTURED\tcg_app::run\n";
+    std::fs::write(&res, t).unwrap();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert_eq!(
+        r.gaps,
+        vec![CoverageGap::Residuals {
+            krate: "cg_app".into(),
+            count: 1
+        }]
+    );
+    assert!(!r.no_known_gap());
+}
+
+/// Fails if a crate read without a residuals file counts as fully covered: nothing is known
+/// about what its harvest missed.
+#[test]
+fn a_missing_residuals_file_is_a_coverage_gap() {
+    let dir = store("no_residuals", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    std::fs::remove_file(dir.join("cg_app.residuals.tsv")).unwrap();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert_eq!(
+        r.gaps,
+        vec![CoverageGap::ResidualsNotRead {
+            krate: "cg_app".into()
+        }]
+    );
+}

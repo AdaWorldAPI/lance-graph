@@ -1038,6 +1038,13 @@ impl Codegraph {
         out
     }
 
+    /// The residuals read beside `krate`'s rows: `None` when the crate is not in the store,
+    /// `Some(None)` when it was read without a residuals file.
+    pub fn crate_residuals(&self, krate: &str) -> Option<Option<crate::artifact::ResidualCounts>> {
+        let id = self.symbols.get(krate)?;
+        self.lanes.residuals_of(id)
+    }
+
     pub fn crate_status(&self, krate: &str) -> Option<RunStatus> {
         let id = self.symbols.get(krate)?;
         self.crates.get(&id).copied()
