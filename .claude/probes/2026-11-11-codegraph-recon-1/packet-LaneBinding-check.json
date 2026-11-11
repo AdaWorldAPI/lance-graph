@@ -2,7 +2,7 @@
  "packet": "ReviewEvidencePacket (prototype, read-only; not a vendor API)",
  "identity": {
   "repo_id": "AdaWorldAPI/lance-graph",
-  "commit_sha": "a35195e9b1a69f043fb78e5f49c5abdb1c238d90",
+  "commit_sha": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
   "cargo_lock_sha": "NOT_TRACKED (repository tracks no Cargo.lock)",
   "crate_instance": "lance_graph_dt64 (lib target)",
   "features": "default",
@@ -23,10 +23,11 @@
  },
  "changed_source": {
   "subject": "lance_graph_dt64::lane::{LaneBinding}::check",
-  "base": "a35195e9b1a69f043fb78e5f49c5abdb1c238d90",
+  "base": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
   "diff": "diff --git a/crates/lance-graph-dt64/src/lane.rs b/crates/lance-graph-dt64/src/lane.rs\nindex a0aa6e665..d21a5b602 100644\n--- a/crates/lance-graph-dt64/src/lane.rs\n+++ b/crates/lance-graph-dt64/src/lane.rs\n@@ -312,7 +312,7 @@ impl LaneBinding {\n         source: &S,\n     ) -> Result<(), LaneRefusal> {\n         source_owns(frames, source)?;\n-        frames.check(&self.frame).map_err(LaneRefusal::Frame)?;\n+        frames.check(&self.frame).map_err(LaneRefusal::Frame)?; // probe edit\n         current_route(store, self.route.position, self.class)?;\n         // Revision and count only: the ordered predicate witness was checked\n         // when the binding was made (bind_lanes resolves through the\n",
   "stale": false,
-  "freshness": "FRESH"
+  "freshness": "FRESH",
+  "dependency_evidence_stale": false
  },
  "affected_symbols": {
   "confirmed": [
@@ -34,6 +35,7 @@
    "lance_graph_dt64::lane::{LaneBinding}::lane"
   ],
   "possible": [],
+  "stale": [],
   "unknown": [
    {
     "what": "callers in crates outside the store",
@@ -57,14 +59,16 @@
    "callee": "lance_graph_dt64::lane::{LaneBinding}::check",
    "sites": [
     "crates/lance-graph-dt64/src/lane.rs:386"
-   ]
+   ],
+   "fresh": true
   },
   {
    "caller": "lance_graph_dt64::lane::{LaneBinding}::lane",
    "callee": "lance_graph_dt64::lane::{LaneBinding}::check",
    "sites": [
     "crates/lance-graph-dt64/src/lane.rs:360"
-   ]
+   ],
+   "fresh": true
   }
  ],
  "possible_edges": [

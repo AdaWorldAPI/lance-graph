@@ -101,7 +101,7 @@ The headline gap is mostly about what each tool calls a call:
 - On true call sites Charon misses 3: two chained `.routed_at(..)?` calls (the span starts on the
   receiver line) and one `borrow` inside a closure.
 
-## 4. Negative tests (`recon.py --self-test`, 11 tests)
+## 4. Negative tests (`recon.py --self-test`, 15 tests)
 
 | negative | test | disable run |
 |---|---|---|
@@ -116,6 +116,16 @@ The headline gap is mostly about what each tool calls a call:
 | a source reference is not a call | 08 | red after a fix: the first version only checked `confirmed`, and stayed green under the disable |
 | lab / proposed / merged stay distinct | 09 | red |
 | reconstruction cannot pass by copying | 10 | red |
+| a Rust function is not an R2IL method | 08b | red |
+| a caller reached only through a stale edge is not confirmed | 11 | red |
+| dispatch reaches the implementation (`IMPLEMENTS` → `MAY_DISPATCH`) | 12 | red |
+| an edge from a missing source file is never drawn as verified | 13 | red |
+
+Tests 11–13 came from review on #2000. Each was written first and failed for the reason the review
+gave, then the fix made it pass, and disabling the fix turns it red again. The dispatch join is coarse
+for std traits: `BoundLanes::next` implements `Iterator::next`, so every generic `Iterator::next`
+dispatch in the store becomes a POSSIBLE caller of it (8 in contract). That is correct as POSSIBLE, and
+it is what `Codegraph::callers` reports too.
 
 Each disable asserts that its patch applied. The same check also ran on real data: a one-line edit inside
 `LaneBinding::check` turned the packet `stale: true` (`packet-stale.json`), and the restored tree gives
