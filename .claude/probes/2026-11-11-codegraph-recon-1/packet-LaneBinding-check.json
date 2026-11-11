@@ -2,7 +2,7 @@
  "packet": "ReviewEvidencePacket (prototype, read-only; not a vendor API)",
  "identity": {
   "repo_id": "AdaWorldAPI/lance-graph",
-  "commit_sha": "be3cb111149b7f0282ad5b6c8a3d1a3e91a65685",
+  "commit_sha": "a35195e9b1a69f043fb78e5f49c5abdb1c238d90",
   "cargo_lock_sha": "NOT_TRACKED (repository tracks no Cargo.lock)",
   "crate_instance": "lance_graph_dt64 (lib target)",
   "features": "default",
@@ -23,7 +23,7 @@
  },
  "changed_source": {
   "subject": "lance_graph_dt64::lane::{LaneBinding}::check",
-  "base": "be3cb111149b7f0282ad5b6c8a3d1a3e91a65685",
+  "base": "a35195e9b1a69f043fb78e5f49c5abdb1c238d90",
   "diff": "diff --git a/crates/lance-graph-dt64/src/lane.rs b/crates/lance-graph-dt64/src/lane.rs\nindex a0aa6e665..d21a5b602 100644\n--- a/crates/lance-graph-dt64/src/lane.rs\n+++ b/crates/lance-graph-dt64/src/lane.rs\n@@ -312,7 +312,7 @@ impl LaneBinding {\n         source: &S,\n     ) -> Result<(), LaneRefusal> {\n         source_owns(frames, source)?;\n-        frames.check(&self.frame).map_err(LaneRefusal::Frame)?;\n+        frames.check(&self.frame).map_err(LaneRefusal::Frame)?; // probe edit\n         current_route(store, self.route.position, self.class)?;\n         // Revision and count only: the ordered predicate witness was checked\n         // when the binding was made (bind_lanes resolves through the\n",
   "stale": false,
   "freshness": "FRESH"
@@ -533,6 +533,11 @@
    "run_status": "PARTIAL"
   }
  ],
+ "r2il": {
+  "method": "NOT_A_METHOD",
+  "body_semantics": "UNKNOWN",
+  "why": "R2IL describes the effects of a registered DT64 MethodBinding (prepare binds them to opcodes); a Rust function found by the compiler is not one, so its body has no R2IL reading"
+ },
  "expected_behavior": "NOT_SUPPLIED (must come from intent/tests, independently of this packet)",
  "candidate_behavior": "NOT_INFERRED",
  "missing_necessary_evidence": [
