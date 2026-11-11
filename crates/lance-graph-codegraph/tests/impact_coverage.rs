@@ -566,3 +566,94 @@ fn unread_source_files_under_a_read_directory_are_a_gap() {
         r.gaps
     );
 }
+
+/// Case 12: A private symbol reached by a public caller is affected by that
+/// caller's external consumers, so the external-consumer gap fires for it
+/// too. A private symbol no public function reaches stays closed.
+#[test]
+fn a_private_symbol_behind_a_public_caller_has_unobserved_consumers() {
+    let fx = Fixture::new("frontier", &[lib_crate()]);
+    let g = fx.open();
+    let r = g.impact_report("lib::used", &fx.scope(&["lib"])).unwrap();
+    assert!(has(&g, &r.graded.confirmed, "lib::entry"));
+    assert!(
+        matches!(r.gaps.as_slice(), [Gap::ExternalConsumersUnobserved { owner, .. }] if owner == "lib"),
+        "{:?}",
+        r.gaps
+    );
+    assert!(!r.closed_in_scope());
+    // Silence twins: nothing public reaches `lib::helper`; and a closed
+    // consumer set closes `lib::used`.
+    assert!(g
+        .impact_report("lib::helper", &fx.scope(&["lib"]))
+        .unwrap()
+        .closed_in_scope());
+    let closed = Scope {
+        consumers_closed: true,
+        ..fx.scope(&["lib"])
+    };
+    assert!(g
+        .impact_report("lib::used", &closed)
+        .unwrap()
+        .closed_in_scope());
+}
+
+/// Case 13: With the consumer set declared closed, every stored crate is a
+/// possible consumer. One whose call into the symbol sits in an excluded
+/// region contributes no position, and its exclusion must still be reported.
+#[test]
+fn a_closed_consumer_set_checks_consumers_without_observed_edges() {
+    let app = Krate {
+        name: "app",
+        rows: &[("DEFINES", "app::main", "app::main")],
+        files: &[("app.rs", "fn main() {}\n")],
+    };
+    let fx = Fixture::new("closed-consumers", &[lib_crate(), app]);
+    let g = fx.open();
+    let base = Scope {
+        consumers_closed: true,
+        ..fx.scope(&["lib", "app"])
+    };
+    // Silence twin: every stored crate fully covered.
+    assert!(g
+        .impact_report("lib::entry", &base)
+        .unwrap()
+        .closed_in_scope());
+    let excluded = Scope {
+        excluded: vec![("app".into(), vec!["feature plugins".into()])],
+        ..base
+    };
+    let r = g.impact_report("lib::entry", &excluded).unwrap();
+    assert_eq!(
+        r.gaps,
+        vec![Gap::RegionsExcluded {
+            krate: "app".into(),
+            regions: vec!["feature plugins".into()],
+        }]
+    );
+}
+
+/// Case 14: A missing symbol in a crate whose harvest is incomplete carries
+/// `HarvestIncomplete`: the failed harvest may have dropped its definition.
+#[test]
+fn a_missing_symbol_carries_its_crate_harvest_gap() {
+    let fx = Fixture::new("missing-harvest", &[lib_crate()]);
+    let scope = fx.scope(&["lib"]);
+    assert!(fx
+        .open()
+        .impact_report("lib::nope", &scope)
+        .unwrap()
+        .gaps
+        .is_empty());
+    std::fs::write(
+        fx.store.join("lib.residuals.tsv"),
+        format!("{RES_HEADER}BODY_NOT_STRUCTURED\tlib::nope\n"),
+    )
+    .unwrap();
+    let r = fx.open().impact_report("lib::nope", &scope).unwrap();
+    assert!(
+        matches!(r.gaps.as_slice(), [Gap::HarvestIncomplete { krate, .. }] if krate == "lib"),
+        "{:?}",
+        r.gaps
+    );
+}

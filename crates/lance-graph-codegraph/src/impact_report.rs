@@ -345,6 +345,7 @@ impl Codegraph {
             let owner = owner_of(symbol);
             if stored.contains(owner) {
                 scope_gaps(owner, scope, &mut gaps);
+                self.harvest_gaps(owner, &mut gaps);
                 freshness_gaps([&owner.to_owned()], scope, &mut gaps);
             }
             return Ok(ImpactReport {
@@ -389,11 +390,24 @@ impl Codegraph {
             }
         }
 
-        if has(self.public(), g) && !scope.consumers_closed {
-            gaps.push(Gap::ExternalConsumersUnobserved {
-                owner: owner.clone(),
-                observed_consumers: consumers.into_iter().collect(),
-            });
+        // The consumer frontier: the symbol, or anything that reaches it, is
+        // public. External callers of a public caller are affected too.
+        let frontier_public = has(self.public(), g)
+            || [&graded.confirmed, &graded.possible, &graded.unknown]
+                .iter()
+                .any(|m| m.iter().zip(self.public()).any(|(a, b)| a & b != 0));
+        if frontier_public {
+            if scope.consumers_closed {
+                // Every stored crate may be a consumer, including one whose
+                // calls sit in code it did not extract and so have no
+                // position here; each one's coverage decides the answer.
+                involved.extend(stored.iter().map(|k| (*k).to_owned()));
+            } else {
+                gaps.push(Gap::ExternalConsumersUnobserved {
+                    owner: owner.clone(),
+                    observed_consumers: consumers.into_iter().collect(),
+                });
+            }
         }
 
         for k in &involved {
@@ -407,16 +421,7 @@ impl Codegraph {
         }
 
         for k in &involved {
-            let (residuals, no_file) = self.residuals_of_crate(k);
-            let partial = self.crate_status(k) == Some(crate::graph::RunStatus::Partial);
-            if residuals.total() > 0 || no_file || partial {
-                gaps.push(Gap::HarvestIncomplete {
-                    krate: k.clone(),
-                    residuals,
-                    partial,
-                    no_residuals_file: no_file,
-                });
-            }
+            self.harvest_gaps(k, &mut gaps);
         }
 
         freshness_gaps(&involved, scope, &mut gaps);
@@ -426,6 +431,21 @@ impl Codegraph {
             symbol: SymbolState::Found(g),
             gaps,
         })
+    }
+
+    /// `HarvestIncomplete` for `k` when its harvest recorded residuals, did
+    /// not finish, or has no residuals file.
+    fn harvest_gaps(&self, k: &str, gaps: &mut Vec<Gap>) {
+        let (residuals, no_file) = self.residuals_of_crate(k);
+        let partial = self.crate_status(k) == Some(crate::graph::RunStatus::Partial);
+        if residuals.total() > 0 || no_file || partial {
+            gaps.push(Gap::HarvestIncomplete {
+                krate: k.to_owned(),
+                residuals,
+                partial,
+                no_residuals_file: no_file,
+            });
+        }
     }
 
     /// Whether a dynamic call may reach `g`: `g` is an impl or referenced.
