@@ -404,3 +404,43 @@ fn adding_a_consumer_crate_confirms_its_callers() {
         }]
     );
 }
+
+/// 8. An incomplete harvest of the owning crate (a residual, a missing
+/// residuals file, or a PARTIAL crate row) is a gap: absent rows prove
+/// nothing. Twin: the same store with empty residuals has no such gap (test 1).
+#[test]
+fn an_incomplete_harvest_of_the_owner_is_a_gap() {
+    let fx = Fixture::new("harvest", &[lib_crate()]);
+    std::fs::write(
+        fx.store.join("lib.residuals.tsv"),
+        format!("{RES_HEADER}BODY_NOT_STRUCTURED\tlib::entry\n"),
+    )
+    .unwrap();
+    let r = fx
+        .open()
+        .impact_report("lib::helper", &fx.scope(&["lib"]))
+        .unwrap();
+    assert!(
+        matches!(r.gaps.as_slice(), [Gap::HarvestIncomplete { krate, residuals, partial: false, no_residuals_file: false }]
+            if krate == "lib" && residuals.total() == 1),
+        "{:?}",
+        r.gaps
+    );
+
+    std::fs::remove_file(fx.store.join("lib.residuals.tsv")).unwrap();
+    let r = fx
+        .open()
+        .impact_report("lib::helper", &fx.scope(&["lib"]))
+        .unwrap();
+    assert!(
+        matches!(
+            r.gaps.as_slice(),
+            [Gap::HarvestIncomplete {
+                no_residuals_file: true,
+                ..
+            }]
+        ),
+        "{:?}",
+        r.gaps
+    );
+}
