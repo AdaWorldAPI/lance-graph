@@ -67,6 +67,13 @@ Decided in the merge, in neither PR as such:
   the case (`a_dynamic_call_from_an_already_confirmed_caller_is_still_a_gap`): the gap is
   `DynamicCalls { unknown: 0, store_dynamic_calls: 1 }`. The earlier note "no fixture store
   produced the case" covered only the five committed stores; a four-row synthetic store does.
+- `ReferrersOutsideAnswer { referrers }` is new, from the PR 2002 session's acceptance review
+  (PR 2004, D-CODEGRAPH-RECON-ACCEPT, finding 2b). A function that takes the address of the
+  symbol, or of a function in the answer, without calling it is in no mask, because a
+  `REFERENCES` row is not a call edge. Both PRs then reported "closed"; PR 2002's dynamic-call
+  half hid the hole only when the store happened to hold a dynamic call. The gap counts the
+  distinct referrers outside the answer and needs no dynamic call. On the report-rs store it
+  fires for `prefs::Layout::label` (`frame::tools_html` references it and never calls it).
 - `TraitDispatch` (`graded.possible`) and `DynamicCalls` (`graded.unknown` or a reachable
   dynamic call) stay two gaps. Neither PR had both.
 
@@ -84,7 +91,7 @@ Decided in the merge, in neither PR as such:
 
 ## Tests
 
-`tests/impact_coverage.rs` holds 32 tests on the merged types:
+`tests/impact_coverage.rs` holds 36 tests on the merged types:
 
 - 12 from PR 2001 and 14 from PR 2002, each with its original intent.
 - 3 narrowing tests: adding a declared consumer, declaring test targets, and removing an
@@ -93,6 +100,10 @@ Decided in the merge, in neither PR as such:
   `MissingSource` and not `StaleSource`; a declared consumer with no caller in the answer still
   needs its own target declaration; a dynamic call from an already confirmed caller is still a
   gap.
+- 4 from the acceptance review: a function that only takes the address is a gap, with and
+  without a dynamic call in the store; a referrer that also calls is in the answer and no gap;
+  only references into the answer are counted; undeclared consumers inspect every stored crate
+  and `graded` stays equal to `impact`.
 
 One PR 2001 test changed what it queries. `a_changed_source_file_reports_stale_coverage` edited
 a `cg_lib` file and asked about `cg_app::run` with "nothing depends on `cg_app`" declared. Under
@@ -101,9 +112,9 @@ asserts the declared-scope case reports nothing for `cg_app::run`, and asserts t
 when the consumers are undeclared.
 
 Disable runs are reproducible: `python3 .claude/probes/2026-11-11-impact-report-merged/disable_runs.py`
-from the repository root, on a clean tree. It patches each of 23 guards out through an anchor
+from the repository root, on a clean tree. It patches each of 27 guards out through an anchor
 that must occur exactly once, runs the test file, restores the source, and exits 0 only when
-every guard is red. The last run is `disable_runs.receipt.tsv` (23 guards, 0 not red), which
+every guard is red. The last run is `disable_runs.receipt.tsv` (27 guards, 0 not red), which
 names the tests each guard breaks.
 
 ## Acceptance state (D-CODEGRAPH-WAVE0-ACCEPTANCE)

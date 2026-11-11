@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use lance_graph_contract::hash::fnv1a;
 
-use crate::artifact::ResidualCounts;
+use crate::artifact::{ResidualCounts, P_REFERENCES};
 use crate::graph::{Codegraph, Pos, RunStatus};
 use crate::query::{Graded, QueryRefusal};
 
@@ -171,6 +171,14 @@ pub enum Gap {
         unknown: u32,
         /// `UNRESOLVED_CALL` rows in the whole store.
         store_dynamic_calls: u32,
+    },
+    /// Functions that take the address of the symbol, or of a function in the answer, without
+    /// calling it (`REFERENCES` rows) and are in none of the three masks. A reference is not a
+    /// call edge, so they are not graded; whether they pass the address on to a caller is not
+    /// known. A store fact: it needs no dynamic call anywhere in the store.
+    ReferrersOutsideAnswer {
+        /// Distinct referrers outside the answer.
+        referrers: u32,
     },
     /// A crate's harvest recorded residuals, did not finish, or has no residuals file.
     HarvestIncomplete {
@@ -528,6 +536,11 @@ impl Codegraph {
             });
         }
 
+        let referrers = self.referrers_outside(g, &graded);
+        if referrers > 0 {
+            gaps.push(Gap::ReferrersOutsideAnswer { referrers });
+        }
+
         for k in &involved {
             self.harvest_gaps(k, &observed, &mut gaps);
         }
@@ -559,6 +572,30 @@ impl Codegraph {
                 no_residuals_file,
             });
         }
+    }
+
+    /// Distinct subjects of `REFERENCES` rows whose object is `g` or a graded position, and that
+    /// are themselves neither `g` nor graded.
+    fn referrers_outside(&self, g: Pos, graded: &Graded) -> u32 {
+        let in_answer = |p: Pos| {
+            p == g
+                || has(&graded.confirmed, p)
+                || has(&graded.possible, p)
+                || has(&graded.unknown, p)
+        };
+        let l = self.lanes();
+        let mut outside = BTreeSet::new();
+        for i in 0..l.len() {
+            if l.pred[i] != P_REFERENCES {
+                continue;
+            }
+            let object_in = self.pos_of_id(l.object[i]).is_some_and(in_answer);
+            let subject_in = self.pos_of_id(l.subject[i]).is_some_and(in_answer);
+            if object_in && !subject_in {
+                outside.insert(l.subject[i]);
+            }
+        }
+        outside.len() as u32
     }
 
     /// Whether a dynamic call may reach `g`: `g` is an impl or referenced.

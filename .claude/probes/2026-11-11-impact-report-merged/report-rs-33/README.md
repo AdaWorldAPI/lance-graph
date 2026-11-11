@@ -30,6 +30,10 @@ Line by line, after removing the new `observed` line:
 | `missing.maplog.report` | none |
 | `missing.report_rs_iam_authorize.report` | one line added: `HarvestIncomplete` for `report_rs` (1 residual). PR 2002's own later test `a_missing_symbol_carries_its_crate_harvest_gap` requires it; its recorded file predates that. |
 
+None of the six symbols has a referrer outside its answer, so the `ReferrersOutsideAnswer` gap
+added after the acceptance review does not appear in them. It does fire on this store for
+`report_rs::prefs::{report_rs::prefs::Layout}::label` (`referrers: 1`).
+
 Every file gains one `observed report_rs Complete` line (the stored-crate list from PR 2001). A
 missing symbol now exits 4.
 
