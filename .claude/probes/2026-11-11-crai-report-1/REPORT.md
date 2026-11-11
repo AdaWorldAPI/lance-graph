@@ -84,15 +84,23 @@ changes that phase, so it is the owner's decision.
 
 ## 2. ndarray #422 (Gate 2): does the quotient optimisation reach the Foundry consumer?
 
-**Generated finding, from tools only:** no.
+**Generated finding, from tools only:** not in shipped code.
 - **The change:** #422's Rust changes are confined to the `u64x64` example target
   (`[[example]] name = "u64x64"`). No library Rust file changed, and no crate can depend on an example.
 - **G1 (`max_quantities`, `network_capacity`):** reaches a single division, the scalar ceiling
   `(q + per_staff - 1) / per_staff` in `cook_ops`. It is the threshold operand of a mask predicate and
   names no lane.
-- **G6 (`execute_can_cook`, `PreparedMethod::{prepare, run}`):** reaches no division at all.
+- **G6 (`execute_can_cook`, `PreparedMethod::{prepare, run}`):** reaches no division. Its guard is built at
+  registration (`method::methods` → `can_cook_guard`), which compares stock against `d * q` (`method.rs:55`) and
+  has the same scalar ceiling division for staff (`method.rs:58`).
+- **How the threshold is evaluated:** mask-risc `Pred::GeI32 { lane, t: i32 }` (`ir.rs:133`) is passed to
+  `ndarray::simd::ge_i32_to_mask` unchanged (`exec.rs:588`), which is a compare against the splatted
+  threshold. Read as source; mask-risc is not in the Charon store, and its other predicate kinds were not read.
+- **Not covered:** G1's per-store min/argmin step is not shipped (EXO-227 P1b), so the finding is about
+  shipped code only.
 - **The stock quotient `stock / d`:** appears only in the oracle (`oracle.rs:62`) and the materialised
-  null model (`arm_a.rs:75`), reached as POSSIBLE through closure bodies.
+  null model (`arm_a.rs:75`). Both reference arms reach it through a closure
+  body that Charon links to its parent by name only, so the edge is graded POSSIBLE.
 - **A narrower point the PR's own spec gets wrong:** "No quotient is evaluated on the executable path"
   is too strong, because a scalar ceiling division builds the staff threshold. It should say "no
   per-row stock quotient".
@@ -127,7 +135,7 @@ Grading against the held-out manual review: §5.
 |---|---|---|---|
 | crates not in the store | external callers have no position | dt64: 261/370 public symbols; `admit`: 13 consumers missing | one Charon artifact per consumer (EXO-229) |
 | test targets, `#[cfg(test)]` modules, examples | test callers unobserved | `LaneBinding::check`: 48 name-matched test sites, none resolved | Charon/RA on test targets |
-| calls inside closures passed to std adapters | parent→closure edge missing | foundry-parity-lab: 56 closure bodies linked only by name | link by Charon's naming as POSSIBLE (done in the #422 builder, not in Codegraph) |
+| calls inside closures passed to std adapters | parent→closure edge missing | foundry-parity-lab: 96 closure bodies in the crate, linked only by name | link by Charon's naming as POSSIBLE (done in the #422 builder, not in Codegraph) |
 | macro arguments (RA) | call rows missing; region marked | `lane_socket.rs`: 7/7 sites | Charon (LLBC sees through macros) |
 | wrong Cargo target extracted | an apparently empty crate | foundry-parity-lab picked `bench` | name the target; treat `BODY_NOT_STRUCTURED` as refusal |
 | Charon errors inside a crate | `PARTIAL` CRATE, zero residuals | r2il (`dyn Fn` type alias) | read CRATE status, not only residuals |
@@ -139,7 +147,55 @@ Grading against the held-out manual review: §5.
 
 ## 5. Grading (Gate 4)
 
-Filled from the independent grader below.
+**There was no held-out manual review to grade against.** No manual #422 review was found on the Linear
+board, and the GitHub PR conversation was not reachable from this session. So recall against a human
+review is **not measured**. What was measured instead: an independent grader, given only the rendered
+`review.md`, the sources and the PR, checked every claim and every witness. Its claims were then checked
+against source before any correction was made, since a grader's statements are claims too.
+
+**First version, as graded:**
+
+| measure | result |
+|---|---|
+| claims | 45: 41 correct, 3 unsupported, 1 wrong |
+| witnesses | 14: 8 resolve, 5 partially, 1 not |
+| unsupported | "no per-row quotient on G1/G6" stated without qualification while mask-risc was unknown; "G6 compares stock against `d*q`" with no witness for it |
+| wrong | Q3's falsifier: `cargo run --release --example u64x64` only prints usage; the benchmark is built per tier and run as `u64x64 bench <scenario>`, and F7/F8 are parity disable arms for `check`, not speed |
+| witness defects | the store revision was given as `317c4ff` but the store was extracted at `c7151a1`; Q3 pointed at the example directory, not plan §17 |
+| misses | the G6 ceiling division at registration (`method.rs:58`); G1's open min/argmin step (EXO-227); "56 closure bodies" was crate-wide, not per path |
+| readability | "NOT CLEAN" read as "defects found"; Q1's hedge appeared only in the unknowns; Q2's suggestion named a lance-graph location for an ndarray plan |
+
+**Corrections, each verified in source first:**
+- mask-risc `GeI32` evaluation added as SOURCE_STRUCTURE (`ir.rs:133`, `exec.rs:588`, ndarray
+  `simd_masking_ops.rs:3449`), and the unknown narrowed to the predicates that were not read;
+- G6 registration reached from `method::methods`, with its `d * q` (`method.rs:55`) and ceiling division
+  (`method.rs:58`);
+- witnesses pinned to the extraction revision `c7151a1`; the builder now refuses if
+  `foundry-parity-lab` or `lance-graph-mask-risc` differ between that revision and `--lg-head`;
+- Q3's witness is plan §17 and its falsifier the plan's own per-tier `bench` invocation;
+- Q1's claim is scoped to shipped code and names what it does not cover;
+- the verdict reads `INCOMPLETE REVIEW: run PARTIAL; not a defect verdict`;
+- Q2's suggestion names the ndarray plan file and line.
+
+**Found while correcting:** nested closures (a closure inside a closure, as in `methods`'s
+`flat_map(|m| … map(move |q| …))`) were never linked to their owner, because Charon names the inner one
+under `…::{closure}`, which is not itself a definition. That is why G6 registration was missed. Resolved
+to the nearest named owner: 96 closure bodies linked, up from 56.
+
+**Accuracy after correction** has not been re-graded independently; the numbers above are for the first
+version. Readability and actionability are judged by the grader, one reader; they are indications.
+
+**Smallest next verification** (from the corrected report): run Charon on `lance-graph-mask-risc` and
+re-run the reach into it, for the predicate kinds other than `GeI32` that the consumer builds.
+
+**Tool cost:**
+
+| step | cost |
+|---|---|
+| Charon, foundry-parity-lab lib (deps built) | 2 s |
+| ruff_charon import | ≤ 7 s |
+| `build_q8_evidence.py` + `crai_report.py render` | < 1 s |
+| independent grader | 51 tool calls, 533 s |
 
 ## 6. Recommendation: advisory GitHub CI
 

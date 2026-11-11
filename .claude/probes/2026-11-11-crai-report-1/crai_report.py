@@ -114,7 +114,8 @@ def normalise(review):
     open_findings = [f for f in out if f["status"] == "open" and "duplicate_of" not in f]
     clean = run["status"] == "COMPLETE" and not open_findings and run.get("head_sha", head) == head
     verdict = ("CLEAN: complete run on the head, zero open findings" if clean
-               else f"NOT CLEAN: run {run['status']}" if run["status"] != "COMPLETE"
+               else (f"INCOMPLETE REVIEW: run {run['status']}; not a defect verdict "
+                     f"({len(open_findings)} open finding(s))") if run["status"] != "COMPLETE"
                else f"{len(open_findings)} open finding(s)")
     return {"review": r, "run": run, "findings": out, "verdict": verdict, "clean": clean}
 
@@ -298,7 +299,8 @@ class Negatives(unittest.TestCase):
         for st in ("PARTIAL", "SKIPPED", "NOT_RUN", "FAILED"):
             n = normalise(base([], status=st))
             self.assertFalse(n["clean"], st)
-            self.assertIn("NOT CLEAN", n["verdict"])
+            self.assertIn("INCOMPLETE REVIEW", n["verdict"])
+            self.assertNotIn("CLEAN:", n["verdict"])
         self.assertTrue(normalise(base([]))["clean"])  # twin: COMPLETE with zero findings is clean
 
     def test_a_named_test_without_an_executed_falsifier_stays_not_run(self):  # RS-F05

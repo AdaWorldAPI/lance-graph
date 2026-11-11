@@ -2,7 +2,7 @@
 """Build the ndarray #422 admission-review input from tools, never from the PR's conclusions.
 
   python3 build_q8_evidence.py --ndarray DIR --base SHA --head SHA \
-      --store FOUNDRY_STORE --lg-src LANCE_GRAPH_ROOT --lg-rev SHA > review-ndarray-422.json
+      --store FOUNDRY_STORE --lg-src LANCE_GRAPH_ROOT --lg-rev EXTRACTION_SHA [--lg-head SHA] > review-input.json
 
 Question: does the per-row quotient specialisation proposed in ndarray #422 reach the executable
 Foundry consumer it names (lance-graph `foundry-parity-lab`, G1 capacity and G6 `CanCook`)?
@@ -27,8 +27,11 @@ ENTRY_POINTS = {
     "G6 CanCook (method)": ["method::execute_can_cook", "method::{PreparedMethod<'s>}::prepare",
                             "method::{PreparedMethod<'s>}::run"],
 }
+# Where G6's methods are built: registration, not the execution entry points above.
+REGISTRATION = ["method::methods"]
 REFERENCE_ARMS = ["oracle::{Oracle}::network_capacity", "arm_a::{Objects}::network_capacity"]
 CRATE = "foundry_parity_lab"
+PLAN = ".claude/plans/u64x64-llvm-probe-v1.md"
 DIV = ("DivisionByZero", "Overflow:Div")
 
 
@@ -46,6 +49,14 @@ def rows(path):
     return out
 
 
+def locate(text, needle):
+    """1-based line of the single occurrence of `needle` in `text`; refuses 0 or 2+ hits."""
+    hits = [i + 1 for i, ln in enumerate(text.splitlines()) if needle in ln]
+    if len(hits) != 1:
+        sys.exit(f"expected exactly one line containing {needle!r}, found {hits}")
+    return hits[0]
+
+
 def line_of(root, f, off):
     return Path(root, f).read_bytes()[: int(off)].count(b"\n") + 1
 
@@ -54,8 +65,19 @@ def main(argv):
     ap = argparse.ArgumentParser()
     for a in ("--ndarray", "--base", "--head", "--store", "--lg-src", "--lg-rev"):
         ap.add_argument(a, required=True)
+    # --lg-rev is the revision the store was extracted at; --lg-head, when given, is a later
+    # lance-graph head the review is about. The two consumer crates must be unchanged between them.
+    ap.add_argument("--lg-head")
     a = ap.parse_args(argv)
-    nd, lg_src = a.ndarray, Path(a.lg_src) / "crates/foundry-parity-lab"
+    nd, lg_root = a.ndarray, Path(a.lg_src)
+    lg_src = lg_root / "crates/foundry-parity-lab"
+    risc = lg_root / "crates/lance-graph-mask-risc/src"
+    same_at_head = None
+    if a.lg_head:
+        same_at_head = subprocess.run(["git", "-C", str(lg_root), "diff", "--quiet", a.lg_rev, a.lg_head, "--",
+                                       "crates/foundry-parity-lab", "crates/lance-graph-mask-risc"]).returncode == 0
+        if not same_at_head:
+            sys.exit("consumer crates changed between the extraction revision and --lg-head; re-extract")
 
     # 1. What #422 changed, and in which Cargo target.
     changed = sorted(git(nd, "diff", "--name-only", a.base, a.head).split())
@@ -66,6 +88,8 @@ def main(argv):
     in_example = {p: next((n for d, n in example_dirs.items() if p.startswith(d)), None) for p in rust}
     lib_rust = [p for p, n in in_example.items() if n is None and p.startswith("src/")]
     other_rust = [p for p, n in in_example.items() if n is None and not p.startswith("src/")]
+
+    plan = git(nd, "show", f"{a.head}:{PLAN}")
 
     # 2. The consumer's compiler facts.
     R = rows(f"{a.store}/{CRATE}.rows.tsv")
@@ -83,8 +107,13 @@ def main(argv):
     owned = collections.defaultdict(set)  # closure bodies Charon names under their parent
     for d in defs:
         m = re.match(r"^(.*?)::\{impl Fn(?:Mut|Once)?<.*\{closure", d)
-        if m and m.group(1) in defs:
-            owned[m.group(1)].add(d)
+        if not m:
+            continue
+        parent = m.group(1)
+        while parent not in defs and parent.endswith("::{closure}"):  # a nested closure: its named owner
+            parent = parent[: -len("::{closure}")]
+        if parent in defs:
+            owned[parent].add(d)
     divs = collections.defaultdict(list)
     for e in E:
         if e["kind"] in DIV:
@@ -101,11 +130,14 @@ def main(argv):
         d = src_defs[sym]
         body = Path(lg_src, d["file"]).read_bytes()
         out = []
-        for m in re.finditer(rb"\bt:\s*([^,\n]+),", body[int(d["start"]):int(d["end"])]):
-            off = int(d["start"]) + m.start()
-            out.append((f"crates/foundry-parity-lab/{d['file']}:{body[:off].count(b'\n') + 1}",
-                        m.group(1).decode().strip(), b"lane" in m.group(1)))
-        return out
+        span = body[int(d["start"]):int(d["end"])]
+        pats = (rb"\bt:\s*([^,\n]+),", rb"SetExpr::i32\([^,]+,\s*Cmp::\w+,\s*([^)\n]+)\)")
+        for pat in pats:
+            for m in re.finditer(pat, span):
+                off = int(d["start"]) + m.start()
+                out.append((f"crates/foundry-parity-lab/{d['file']}:{body[:off].count(b'\n') + 1}",
+                            m.group(1).decode().strip(), b"lane" in m.group(1)))
+        return sorted(out, key=lambda x: int(x[0].rsplit(":", 1)[1]))
 
     def reach(root):
         seen, stack, poss = set(), [(root, False)], set()
@@ -157,38 +189,80 @@ def main(argv):
     for s, ts in threshold_rows.items():
         for wit, t, names_lane in ts:
             ev.append(lg_src_w(f"mask-predicate threshold in `{short(s)}`: `t: {t}` ({'names a lane' if names_lane else 'names no lane'})", wit))
+    reg_divs = set()
+    for root in REGISTRATION:
+        full = f"{CRATE}::{root}"
+        if full not in defs:
+            sys.exit(f"registration root {root} is not in the store")
+        seen, _ = reach(full)
+        reg_divs.update(x for x in seen if x in divs and x not in exec_divs)
+    for s in sorted(reg_divs):
+        for wit, text in divs[s]:
+            ev.append(w_comp(f"integer division at G6 method registration (`{short(s)}`, reached from "
+                             f"{[r for r in REGISTRATION]}, not from the G6 execution entry points): `{text}`", wit))
+        for wit, t, names_lane in thresholds(s):
+            ev.append(lg_src_w(f"mask-predicate threshold in `{short(s)}`: `{t}` ({'names a lane' if names_lane else 'names no lane'})", wit))
     for root in REFERENCE_ARMS:
         full = f"{CRATE}::{root}"
         seen, poss = reach(full)
         for h in sorted(x for x in seen if x in divs):
+            how = ("through a closure body linked to its parent by Charon's name only" if h in poss
+                   else "through resolved calls")
             for wit, text in divs[h]:
-                ev.append(w_comp(f"reference arm `{short(full)}` may reach `{short(h)}`: `{text}`", wit,
+                ev.append(w_comp(f"reference arm `{short(full)}` reaches `{short(h)}` {how}: `{text}`", wit,
                                  "POSSIBLE" if h in poss else None))
                 possible.append(f"{short(full)} → {short(h)}")
-    unknown = [{"what": "lance-graph-mask-risc execution internals", "why": "not in the store; the G1/G6 paths call into it"},
+    # How mask-risc evaluates the `GeI32` predicate the G1/G6 thresholds feed. Not in the Charon
+    # store, so read as source at the extraction revision; the kernel is read at #422's head.
+    ir, ex = (risc / "ir.rs").read_text(), (risc / "exec.rs").read_text()
+    kern = git(nd, "show", f"{a.head}:src/simd_masking_ops.rs")
+    risc_w = lambda st, f, needle: lg_src_w(st, f"crates/lance-graph-mask-risc/src/{f}:{locate(ir if f == 'ir.rs' else ex, needle)}")
+    ev.append(risc_w("mask-risc `Pred::GeI32 { lane: u16, t: i32 }` is `lane[i] >= t` with `t` a scalar `i32`",
+                     "ir.rs", "GeI32 { lane: u16, t: i32 }"))
+    ev.append(risc_w("the executor passes `t` unchanged to `ndarray::simd::ge_i32_to_mask`",
+                     "exec.rs", "(Pred::GeI32 { lane, t: v }, None) => ge_i32_to_mask"))
+    ev.append(w_src("`ge_i32_to_mask` is the complement of `lt_i32_to_mask`, a compare of each lane value against "
+                    "the splatted threshold; no division",
+                    f"src/simd_masking_ops.rs:{locate(kern, 'pub fn ge_i32_to_mask(')}"))
+    unknown = [{"what": "lance-graph-mask-risc beyond `GeI32`", "why": "not in the Charon store; only the `GeI32` evaluation path was read, as source"},
+               {"what": "G1 per-store min/argmin (limiting resource)", "why": "not shipped: open in EXO-227 (P1b); this review covers shipped code only"},
                {"what": "production recipe divisor distribution", "why": "no production source; the only population is the synthetic fixture"},
-               {"what": f"{sum(len(v) for v in owned.values())} closure bodies", "why": "linked to their parent by Charon's naming only (POSSIBLE), not by a call row"}]
+               {"what": f"{sum(len(v) for v in owned.values())} closure bodies in the crate", "why": "linked to their parent by Charon's naming only (POSSIBLE), not by a call row"}]
     if residuals:
         unknown.append({"what": f"{len(residuals)} residual facts", "why": "ruff_charon could not represent them"})
 
     stock_quotient_on_exec = any("/ d" in t for s in exec_divs for _, t in divs[s])
     # Every executable division must sit in a threshold operand that names no lane.
-    div_in_scalar_threshold = all(any(text in t and not lane for _, t, lane in threshold_rows[s]) for s in exec_divs for _, text in divs[s])
+    def in_scalar_threshold(s, text):
+        """The division is a lane-free threshold operand, directly or through one `let NAME = <division>`."""
+        d = src_defs[s]
+        span = Path(lg_src, d["file"]).read_bytes()[int(d["start"]):int(d["end"])].decode()
+        m = re.search(r"let\s+(\w+)\s*=\s*" + re.escape(text), span)
+        names = {text} | ({m.group(1)} if m else set())
+        return any(not lane and any(n in t for n in names) for _, t, lane in thresholds(s))
+    div_in_scalar_threshold = all(in_scalar_threshold(s, text) for s in exec_divs for _, text in divs[s])
+    reg_in_scalar_threshold = all(in_scalar_threshold(s, text) for s in reg_divs for _, text in divs[s])
+    g6_compares_dq = any(t.replace(" ", "") == "d*q" and not lane for s in reg_divs for _, t, lane in thresholds(s))
     findings = [{
         "id": "Q1", "kind": "admission",
         "location": {"file": "examples/u64x64/route_c.rs", "symbol": "u64x64 route C / A power-of-two quotient arms"},
-        "claim": ("The per-row power-of-two quotient specialisation in #422 does not reach the named Foundry consumer. "
-                  "#422's Rust changes are confined to the `u64x64` example target, which no crate can depend on. "
-                  "The consumer's executable G1 and G6 paths evaluate no per-row stock quotient: they compare stock "
-                  "against a precomputed `d * q`." if not stock_quotient_on_exec and not lib_rust else
+        "claim": (("In the consumer's shipped code, the per-row power-of-two quotient specialisation in #422 has no "
+                   "call site to reach. #422's Rust changes are confined to the `u64x64` example target, which no crate "
+                   "can depend on. The G1 and G6 paths in the Charon store reach no per-row stock quotient: their "
+                   "mask predicates compare a stock lane against a scalar threshold"
+                   + (" (G6: `d * q`, built at method registration)" if g6_compares_dq else "")
+                   + ", and mask-risc evaluates `GeI32` as a plain compare. Not covered: mask-risc predicates other "
+                   "than `GeI32`, and G1's unshipped per-store min/argmin step (EXO-227 P1b).")
+                  if not stock_quotient_on_exec and not lib_rust else
                   "The per-row quotient may reach the consumer; see evidence."),
         "evidence": ev,
         "reachability": {"confirmed": confirmed, "possible": possible, "unknown": unknown},
         "coverage": {"consumer_store": f"{CRATE} library target", "consumer_residuals": len(residuals),
                      "ndarray_library_rust_changed": len(lib_rust), "ndarray_other_rust_outside_examples": len(other_rust)},
-        "falsifier": {"description": ("Extract lance-graph-mask-risc and re-run the reach: a per-row division reachable from "
-                                      "`execute_into` with a stock-lane operand would refute the claim. Independently, "
-                                      "make `Pred::GeI32` evaluation panic on any division and run foundry-parity-lab's tests."),
+        "falsifier": {"description": ("Run Charon on lance-graph-mask-risc and re-run the reach from the G1/G6 entry points "
+                                      "into it: any `DivisionByZero` assertion on a path that takes a stock lane as an "
+                                      "operand refutes the claim. Smallest next verification: the predicate kinds other "
+                                      "than `GeI32` that the consumer builds."),
                       "status": "NOT_RUN"},
         "suggestion": {"refusal": "an admission finding, not a defect: no code change follows from the evidence"},
     }]
@@ -201,31 +275,45 @@ def main(argv):
             "location": {"file": "crates/foundry-parity-lab/src/arm_b.rs", "symbol": "arm_b::{ItemQuery}::cook_ops"},
             "claim": (("The executable path does evaluate integer division: `(q + per_staff - 1) / per_staff`. It is the "
                        "threshold operand of a mask predicate and names no lane, so it is computed once when the predicate is "
-                       "built, not per row. A per-row quotient specialisation has nothing to apply to.")
+                       "built, not per row. G6 has the same ceiling division at method registration"
+                       + ("" if reg_in_scalar_threshold else " (not confirmed as a threshold operand)")
+                       + ". In shipped code, a per-row quotient specialisation has nothing to apply to.")
                       if div_in_scalar_threshold else
                       "The executable path evaluates integer division outside a scalar threshold; see evidence."),
-            "evidence": [w_comp("division assertion (zero and overflow) at this site", w) for w in sites] + th,
-            "reachability": {"confirmed": [short(s) for s in sorted(exec_divs)]},
+            "evidence": [w_comp("division assertion (zero and overflow) at this site", w) for w in sites]
+                        + [w_comp("division assertion at G6 method registration", w) for s in sorted(reg_divs) for w, _ in divs[s]]
+                        + th,
+            "reachability": {"confirmed": [short(s) for s in sorted(exec_divs | reg_divs)]},
             "falsifier": {"description": "Read the Pred::GeI32 threshold sites: the division's operands are query parameters, not lanes.",
                           "status": "NOT_RUN"},
-            "suggestion": {"text": ("If the spec says 'no quotient is evaluated on the executable path', narrow it to "
-                                    "'no per-row stock quotient': a scalar ceiling division builds the staff threshold."),
+            "suggestion": {"file": f"{PLAN} (ndarray)", "line": locate(plan, "quotient is evaluated on the executable path"),
+                           "text": ("Narrow 'No quotient is evaluated on the executable path' to 'no per-row stock "
+                                    "quotient is evaluated': a scalar ceiling division builds the staff threshold."),
                            "base_sha": a.head},
         })
     findings.append({
         "id": "Q3", "kind": "research",
         "location": {"file": "examples/u64x64/main.rs"},
         "claim": "The PR's benchmark results (power-of-two shift no-regret; best route only on AVX-512 hot) were not re-run here.",
-        "evidence": [{"grade": "ASSERTED", "statement": "benchmark rows in the PR, author-reported", "witness": "examples/u64x64",
+        "evidence": [{"grade": "ASSERTED", "statement": "benchmark results and disable runs, author-reported (plan §17)",
+                      "witness": f"{PLAN}:{locate(plan, '## 17. Results, D-QUOT8-ADMISSION-0')}",
                       "repo": "AdaWorldAPI/ndarray", "revision": a.head}],
-        "falsifier": {"description": "Re-run `cargo run --release --example u64x64` with the disable arms (F7/F8) the PR names.",
+        "falsifier": {"description": ("Per tier T in v2/v3/v4, build with `env -u RUSTFLAGS cargo --config .cargo/config-$T.toml "
+                                      "rustc --release --example u64x64` (plan §4) and run `u64x64 bench <scenario>` for the "
+                                      "§16 scenarios; compare with §17. The F7/F8 disable arms (test `d > 0` instead of "
+                                      "`is_power_of_two`) are parity checks: they must turn `u64x64 check` red, and say "
+                                      "nothing about speed."),
                       "status": "NOT_RUN"},
         "suggestion": {"refusal": "a performance claim outside this review's evidence; no defect follows"},
     })
     review = {"review": {"repo": "AdaWorldAPI/ndarray", "pr": 422, "base_sha": a.base, "head_sha": a.head,
-                         "heads": {lg: a.lg_rev}, "scope": "PR #422 commits; consumer: lance-graph foundry-parity-lab (lib)",
+                         "heads": {lg: a.lg_rev},
+                         "scope": ("PR #422 commits; consumer: lance-graph foundry-parity-lab (lib), extracted at "
+                                   f"{a.lg_rev}" + (f"; foundry-parity-lab and mask-risc unchanged at {a.lg_head}"
+                                                    if same_at_head else "")),
                          "reviewer": {"tool": "crai_report.py + build_q8_evidence.py"}},
-              "run": {"status": "PARTIAL", "reasons": ["mask-risc internals not extracted", "no test or benchmark executed"]},
+              "run": {"status": "PARTIAL", "reasons": ["mask-risc not in the Charon store (GeI32 read as source only)",
+                                                         "no test or benchmark executed"]},
               "findings": findings}
     json.dump(review, sys.stdout, indent=1, sort_keys=True)
     print()
