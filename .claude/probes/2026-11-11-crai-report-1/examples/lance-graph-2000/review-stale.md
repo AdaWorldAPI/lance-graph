@@ -1,6 +1,6 @@
 # Review: AdaWorldAPI/lance-graph #2000
 
-- **Head:** `c7151a1ecb03d4523ece505e42de1e77ed23111e` (base `0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb`)
+- **Head:** `90fc5a76c12714d3bd00bcc5be96125aef74d89f` (base `0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb`)
 - **Scope:** same, packet from an older head
 - **Reviewer:** {"input": "ReviewEvidencePacket", "tool": "crai_report.py"}
 - **Run:** `PARTIAL` (library targets only; consumer crates not in store; no test executed)

@@ -10,7 +10,7 @@
     {
      "fresh": true,
      "grade": "COMPILER_DERIVED",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "`lance_graph_dt64::lane::{LaneBinding}::borrow_all` calls `lance_graph_dt64::lane::{LaneBinding}::check`",
      "tool": "charon",
      "witness": "crates/lance-graph-dt64/src/lane.rs:386"
@@ -18,7 +18,7 @@
     {
      "fresh": true,
      "grade": "COMPILER_DERIVED",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "`lance_graph_dt64::lane::{LaneBinding}::lane` calls `lance_graph_dt64::lane::{LaneBinding}::check`",
      "tool": "charon",
      "witness": "crates/lance-graph-dt64/src/lane.rs:360"
@@ -41,7 +41,7 @@
    "provenance": {
     "crate_instance": "lance_graph_dt64 (lib target)",
     "features": "default",
-    "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+    "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
     "rustc": "nightly-2026-09-17 (charon)",
     "target": "x86_64-unknown-linux-gnu",
     "tool": "lance-graph recon.py packet over a Charon/ruff_charon store"
@@ -80,7 +80,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/cognitive-polyfill-probe/tests/p0.rs:271"
@@ -89,7 +89,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/cognitive-polyfill-probe/tests/p0.rs:275"
@@ -98,7 +98,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:234"
@@ -107,7 +107,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:238"
@@ -116,7 +116,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:249"
@@ -125,7 +125,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:481"
@@ -134,7 +134,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:522"
@@ -143,7 +143,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:663"
@@ -152,7 +152,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:677"
@@ -161,7 +161,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:678"
@@ -170,7 +170,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dir-rmap-probe/tests/equivalence.rs:680"
@@ -179,7 +179,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:136"
@@ -188,7 +188,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:263"
@@ -197,7 +197,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/dr-math-binding-probe/tests/binding.rs:234"
@@ -206,7 +206,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:162"
@@ -215,7 +215,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:722"
@@ -224,7 +224,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1012"
@@ -233,7 +233,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1328"
@@ -242,7 +242,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:58"
@@ -251,7 +251,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:60"
@@ -260,7 +260,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:72"
@@ -269,7 +269,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:82"
@@ -278,7 +278,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:86"
@@ -287,7 +287,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:89"
@@ -296,7 +296,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:90"
@@ -305,7 +305,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:93"
@@ -314,7 +314,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:776"
@@ -323,7 +323,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:777"
@@ -332,7 +332,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:808"
@@ -341,7 +341,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:814"
@@ -350,7 +350,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:824"
@@ -359,7 +359,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:827"
@@ -368,7 +368,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/dr.rs:828"
@@ -377,7 +377,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:227"
@@ -386,7 +386,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:277"
@@ -395,7 +395,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:314"
@@ -404,7 +404,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:369"
@@ -413,7 +413,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:373"
@@ -422,7 +422,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:403"
@@ -431,7 +431,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:407"
@@ -440,7 +440,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
      "tool": "source search",
      "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:424"
@@ -449,7 +449,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/thought-git-probe/tests/receipt.rs:715"
@@ -458,7 +458,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/thought-git-probe/tests/receipt.rs:715"
@@ -467,7 +467,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/xlog-relcomp-probe/tests/dto_binding.rs:233"
@@ -476,7 +476,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-report/src/lane_source/tests.rs:320"
@@ -485,7 +485,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-report/src/lane_source/tests.rs:341"
@@ -494,7 +494,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-report/src/lane_source/tests.rs:418"
@@ -503,7 +503,7 @@
      "fresh": true,
      "grade": "SOURCE_STRUCTURE",
      "qualifier": "POSSIBLE",
-     "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+     "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
      "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
      "tool": "source search",
      "witness": "crates/lance-graph-report/src/lane_source/tests.rs:623"
@@ -526,7 +526,7 @@
    "provenance": {
     "crate_instance": "lance_graph_dt64 (lib target)",
     "features": "default",
-    "revision": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+    "revision": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
     "rustc": "nightly-2026-09-17 (charon)",
     "target": "x86_64-unknown-linux-gnu",
     "tool": "lance-graph recon.py packet over a Charon/ruff_charon store"
@@ -545,8 +545,8 @@
   }
  ],
  "review": {
-  "base_sha": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
-  "head_sha": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+  "base_sha": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
+  "head_sha": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
   "pr": 2000,
   "repo": "AdaWorldAPI/lance-graph",
   "reviewer": {

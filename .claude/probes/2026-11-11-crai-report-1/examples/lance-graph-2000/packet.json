@@ -2,7 +2,7 @@
  "packet": "ReviewEvidencePacket (prototype, read-only; not a vendor API)",
  "identity": {
   "repo_id": "AdaWorldAPI/lance-graph",
-  "commit_sha": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+  "commit_sha": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
   "cargo_lock_sha": "NOT_TRACKED (repository tracks no Cargo.lock)",
   "crate_instance": "lance_graph_dt64 (lib target)",
   "features": "default",
@@ -23,7 +23,7 @@
  },
  "changed_source": {
   "subject": "lance_graph_dt64::lane::{LaneBinding}::check",
-  "base": "c7151a1ecb03d4523ece505e42de1e77ed23111e",
+  "base": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
   "diff": "NOT_SUPPLIED (prototype: change of the whole span)",
   "stale": false,
   "freshness": "FRESH",
