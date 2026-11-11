@@ -117,6 +117,33 @@ from (its witness); the sorted keys it carries are a derived cache of
 source content, not a versioned copy of it. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
+## 1c. Reference picture: DR / DT64 virtual address contract (operator, 2026-11-11)
+
+The operator's architecture picture, read against this plan:
+
+| picture | this plan |
+|---|---|
+| NodeGuid → DR (ordered address contract) → DT64 (behaviour and method binding) → Quack (algebraic lowering) → mask-RISC / `ndarray` SIMD → typed result; "DT64 binds, then Quack executes" | §1, §1b (D-QSP: ClassView resolves class and method, the Quack binding resolves snapshot and lanes) |
+| DR = where / coordinate / version; DT64 = what / method / behaviour | §1 table |
+| 256 × 256 ordered identity plane, 65,536 canonical positions; WHO → WHAT → WHERE → WHY, "resolve what is needed before loading values" | §1a shape readings |
+| one canonical index over several source-owned SoA property lanes (A[i]…E[i]); "virtual transpose / stride / block transpose possible; logical order stays fixed" | see below |
+| versioned SoA projection: immutable per sealed version, source-owned values | §1 mapping vs content |
+| virtual relations X × Y as a callable relation, no mandatory intermediate table | not yet a work item (G8) |
+| two execution modes: direct ISA / ALU, and Abakus (lab: algebraic diffusion × atomization) | not in this plan |
+| key idea: a computation need not become data before it may become another computation | the zero-copy law and §4 (prepared once, no tuple materialization) |
+
+Two consequences for this plan:
+
+- **The identity order is the one canonical index.** Every property lane is
+  read through it (`ndarray::simd` stride words, `src/simd_stride.rs`). A
+  per-key order index (S3) is a physical relayout made as a preparation
+  step; it must never change the logical identity order, and its answers are
+  stated in canonical positions.
+- **G8, virtual relations.** A relation X × Y is called, not built as an
+  intermediate table. Plan v3 W4 names the relation index as the third
+  typed concept; how a callable relation is bound (DT64) and executed
+  (Quack, mask-RISC) without materializing is open and has no work item.
+
 ## 1b. The binding store is already planned: the Quack Binding Store
 
 "DR is the binding store of versioned immutable masks" is the store the
