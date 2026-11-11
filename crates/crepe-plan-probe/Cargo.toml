@@ -26,10 +26,10 @@ mork-pathmap-probe = { path = "../mork-pathmap-probe" }
 # and the FacetCascade keys.
 lance-graph-contract = { path = "../lance-graph-contract" }
 # Stage 3 (D-HOLO-H14d): the relations live in a Lance table and are read
-# under the address mask (`with_row_addr_prefilter`). lance 13 / lancedb 0.40
+# under the address mask (`with_row_addr_prefilter`). lance 14 / lancedb 0.41
 # move in lockstep, patch floated, as in the workspace manifest.
-lance = { version = "13.*", default-features = false }
-lancedb = { version = "0.40.*", default-features = false, features = ["remote"] }
+lance = { version = "14.*", default-features = false }
+lancedb = { version = "0.41.*", default-features = false, features = ["remote"] }
 arrow-array = "58"
 arrow-buffer = "58"
 arrow-schema = "58"
