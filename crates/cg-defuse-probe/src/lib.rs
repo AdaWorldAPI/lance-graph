@@ -182,6 +182,10 @@ pub enum Class {
 }
 
 /// The plain-Rust arm: both closures as loops to a fixpoint.
+///
+/// Dependence on an element is tested first, so this arm needs no rule that
+/// keeps element sources out of the scalar set; the egglog arm does, because
+/// there a site in both classes merges them ([`DeriveRefusal::Conflict`]).
 pub fn fixpoint(facts: &Facts) -> Vec<Class> {
     let mut elem: BTreeSet<(String, u32)> = facts.elems.clone();
     let mut scalar: BTreeSet<(String, u32)> = facts.args.clone();
@@ -198,7 +202,6 @@ pub fn fixpoint(facts: &Facts) -> Vec<Class> {
                 changed = true;
             }
             if !scalar.contains(key)
-                && !facts.elems.contains(key)
                 && defs.len() == 1
                 && defs
                     .iter()

@@ -29,7 +29,6 @@ G = [
  ("derive-fuel", "        if iterations == fuel {", "        if false {"),
  ("fixpoint-flow", ".any(|d| d.2.iter().any(|s| elem.contains(&(func.clone(), *s))))", ".any(|d| d.2.iter().any(|s| false && elem.contains(&(func.clone(), *s))))"),
  ("fixpoint-sole-def", "                && defs.len() == 1\n                && defs\n                    .iter()\n                    .all(", "                && defs\n                    .iter()\n                    .all("),
- ("fixpoint-elem-not-scalar", "                && !facts.elems.contains(key)\n", ""),
  ("fixpoint-global", "        Operand::Global => false,", "        Operand::Global => true,"),
  ("parse-version", "        Some((_, \"#version 1\")) => {}\n        _ => return Err(FactsRefusal::Version),", "        Some(_) => {}\n        _ => return Err(FactsRefusal::Version),"),
  ("parse-unknown-kind", "            _ => return Err(FactsRefusal::Row(n)),", "            _ => {}"),

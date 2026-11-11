@@ -296,3 +296,33 @@ fn the_source_scan_treats_an_indexed_read_as_per_element() {
     let plain = "fn f(q: i32, x: i32) -> i32 {\n    x / q // not xs[i]\n}\n";
     assert_eq!(source_class(plain, 2), Some(Class::ScalarThreshold));
 }
+
+/// Local 3 has two definitions, so it is not scalar; a definition that reads
+/// it is not scalar either, wherever it stands among the sources.
+#[test]
+fn one_non_scalar_source_anywhere_in_a_definition_blocks_scalar() {
+    let base = "ARG\tf\t1\ta\nDEF\tf\t3\t1\tassign\t2\t0\t1\nDEF\tf\t3\t2\tcall\t3\t0\t1\n";
+    for srcs in ["1,3", "3,1"] {
+        let body = format!(
+            "{base}DEF\tf\t4\t5\tassign\t4\t0\t{srcs}\nSITE\tf\t9\tDiv\tx.rs\t6\t0\t4\tconst\n"
+        );
+        let facts = synthetic(&body);
+        // The row order of the sources is kept, so both orders are distinct inputs.
+        let def = facts.defs[&("f".to_string(), 4)]
+            .iter()
+            .next()
+            .unwrap()
+            .2
+            .clone();
+        assert_eq!(
+            def.iter().map(u32::to_string).collect::<Vec<_>>().join(","),
+            srcs
+        );
+        assert_eq!(
+            derive(&facts, FUEL).unwrap().verdicts[0].class,
+            Class::Unknown,
+            "{srcs}"
+        );
+        assert_eq!(fixpoint(&facts), vec![Class::Unknown], "{srcs}");
+    }
+}
