@@ -61,9 +61,19 @@ witnesses). That is how this reads together with the texts already on main:
 - **Locality contract, boundary 2** lists `WideFieldMask` with DT64. Read:
   DT64 says what a selection selects; DR carries it.
 
-Size: a mask holds 256 positions and that cap stays. A 256 × 256 slab is 256
-masks, which is the 1,024-word plane already in the lab; ×256 slabs under an
-outer byte when needed.
+**256 × 256 × 256 is a shape, not a meaning.** The same shape is read in
+whatever way the binding names:
+
+- a flat row space: 256 × 256 rows per slab, × 256 slabs, up to 16.7 M rows
+  (1,000,000 rows is 16 slabs; the PR 2010 lab);
+- a three-axis cube: identity × property × predicate (`Extent`,
+  `lance-graph-dt64/src/dr.rs:91-125`);
+- 64 K × WHERE: one 256 × 256 plane of 65,536 positions under up to 256
+  selections (criteria, methods, perspectives).
+
+A mask holds 256 positions and that cap stays; every reading is built from
+256-position masks. Which reading applies is never in the bits: the binding
+names it (class and basis from DT, coordinate space and frame from DR).
 
 ## 1b. The binding store is already planned: the Quack Binding Store
 
@@ -141,12 +151,12 @@ Read in this session, with locations:
 - `WideFieldMask` holds up to 256 positions, `u8`-indexed, as `u64` words
   (`lance-graph-contract/src/class_view.rs:243`, `with` `:281`, `words`
   `:511`, `intersect` `:385`; cap 256 at `from_universe_present` `:693`).
-- A DR256 tile in `dr.rs` is identity × property × predicate
-  (`lance-graph-dt64/src/dr.rs:91-125`): one identity's row is a 256-bit
-  selection over the class's fields. The lab's slab (`dr256-ternlog-lab`) is
-  the same 256 × 256 = 1,024 words read as rows × rows, typed as its own
-  `Plane` with a runtime `CoordSpace`. Same carrier, two axes; the witness
-  says which.
+- The 256 × 256 × 256 shape is read three ways on main today: `Extent` in
+  `dr.rs` reads it as identity × property × predicate; the PR 2010 lab reads
+  it as a flat row space (slabs of 65,536 rows, `Plane` with a runtime
+  `CoordSpace`); the D-DRCA-2 lab reads one 65,536-position plane as a WHERE
+  over a global address space (`where_dr3.rs`). One shape; the binding says
+  which reading.
 - Schema and behaviour are already keyed by classid: `BindStore::register`,
   `declare_algebra`, `resolve`, `admit` (`lance-graph-dt64/src/lib.rs`);
   a behaviour lens is a classid (`class_view.rs:1053`); EXO-199 keeps the
