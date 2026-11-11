@@ -793,3 +793,231 @@ pub fn display_row(
         })
         .collect()
 }
+
+// ------------------------------------------------------------ order index
+
+/// A selection that is never written as a mask: the rows of a table in the
+/// order of one key, kept beside the table. The table's lanes are not
+/// moved; only this index is in key order, the way a storage version lists
+/// rows without rewriting them.
+///
+/// A predicate on the key is then a position range `[lo, hi)` of the index.
+/// What a reader may see is one resident plane in index order, prepared once
+/// per frame. `count` is that plane's popcount over the range: no selection
+/// mask is produced, and only the words the range touches are read.
+///
+/// The index is its own row order, so its planes have their own
+/// [`CoordSpace`] and cannot be folded with planes in table order.
+pub struct OrderIndex {
+    /// Index position -> table row.
+    order: Vec<u32>,
+    /// The key at each index position, ascending.
+    keys: Vec<i32>,
+    population: u64,
+}
+
+impl OrderIndex {
+    /// Sort `table`'s rows by the `i32` field `key`. `population` names the
+    /// index's row order and must differ from the table's.
+    pub fn by_i32(table: &Table<'_>, key: u8, population: u64) -> Option<OrderIndex> {
+        let Some(LaneRef::I32(lane)) = *table.lanes.get(usize::from(key))? else {
+            return None;
+        };
+        if population == table.population || lane.len() > u32::MAX as usize {
+            return None;
+        }
+        let mut order: Vec<u32> = (0..lane.len() as u32).collect();
+        order.sort_by_key(|&r| (lane[r as usize], r));
+        let keys = order.iter().map(|&r| lane[r as usize]).collect();
+        Some(OrderIndex {
+            order,
+            keys,
+            population,
+        })
+    }
+
+    /// Sort the table's rows by a computed key.
+    ///
+    /// Keyed by each edge's source position in a node index
+    /// ([`OrderIndex::positions`]), the edges of any node range `[lo, hi)`
+    /// of that index are one contiguous range of this one
+    /// ([`OrderIndex::between`]`(lo, hi - 1)`). That is what a CSR layout
+    /// gives, and CSR is only the mental model here: nothing but this
+    /// ordinary index is built, no offsets array and no adjacency type.
+    pub fn by_key(
+        table: &Table<'_>,
+        population: u64,
+        mut key: impl FnMut(usize) -> i32,
+    ) -> Option<OrderIndex> {
+        let rows = table.n_rows;
+        if population == table.population || rows > u32::MAX as usize {
+            return None;
+        }
+        let row_keys: Vec<i32> = (0..rows).map(&mut key).collect();
+        let mut order: Vec<u32> = (0..rows as u32).collect();
+        order.sort_by_key(|&r| (row_keys[r as usize], r));
+        let keys = order.iter().map(|&r| row_keys[r as usize]).collect();
+        Some(OrderIndex {
+            order,
+            keys,
+            population,
+        })
+    }
+
+    /// Table row -> index position: the inverse of the order.
+    pub fn positions(&self) -> Vec<u32> {
+        let mut at = vec![0u32; self.order.len()];
+        for (i, &r) in self.order.iter().enumerate() {
+            at[r as usize] = i as u32;
+        }
+        at
+    }
+
+    pub fn len(&self) -> usize {
+        self.order.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.order.is_empty()
+    }
+
+    /// The table row at index position `at`.
+    pub fn row(&self, at: usize) -> Option<u32> {
+        self.order.get(at).copied()
+    }
+
+    /// The index positions whose key is greater than `t`.
+    pub fn gt(&self, t: i32) -> core::ops::Range<usize> {
+        self.keys.partition_point(|&k| k <= t)..self.keys.len()
+    }
+
+    /// The index positions whose key lies in `[lo, hi]`.
+    pub fn between(&self, lo: i32, hi: i32) -> core::ops::Range<usize> {
+        self.keys.partition_point(|&k| k < lo)..self.keys.partition_point(|&k| k <= hi)
+    }
+
+    fn space(&self, s: usize, coordinates: u64) -> CoordSpace {
+        CoordSpace {
+            population: (self.population << 8) | s as u64,
+            coordinates,
+        }
+    }
+}
+
+/// One resident visibility plane per slab of an [`OrderIndex`], and the
+/// bindings that witness the table's frame.
+pub struct PreparedOrder {
+    bindings: Vec<LaneBinding>,
+    planes: Vec<Plane>,
+    rows: usize,
+    scratch: Scratch<'static>,
+}
+
+/// Prepare `index`: bind the table's slabs (the frame witness) and write
+/// `visible(table row)` once, in index order.
+pub fn prepare_order(
+    world: &World,
+    table: &Table<'_>,
+    fields: &WideFieldMask,
+    index: &OrderIndex,
+    mut visible: impl FnMut(usize) -> bool,
+) -> Result<PreparedOrder, Refused> {
+    let slabs = index.len().div_ceil(SLAB_ROWS).max(1);
+    if slabs > MAX_SLABS {
+        return Err(Refused::TooManySlabs { slabs });
+    }
+    let bindings = bind_slabs(world, table, fields)?
+        .into_iter()
+        .map(|(b, _)| b)
+        .collect();
+    let coordinates = table.frames.revisions().coordinates;
+    let planes = (0..slabs)
+        .map(|s| {
+            let base = s * SLAB_ROWS;
+            let rows = index.len().saturating_sub(base).min(SLAB_ROWS);
+            Plane::from_fn(index.space(s, coordinates), rows, |i| {
+                visible(index.order[base + i] as usize)
+            })
+        })
+        .collect();
+    let probe = range_program(0, 0);
+    Ok(PreparedOrder {
+        bindings,
+        planes,
+        rows: index.len(),
+        scratch: Scratch::for_program(&probe, SLAB_ROWS)?,
+    })
+}
+
+fn range_program(lo: u32, hi: u32) -> Program {
+    Program::new(
+        vec![MaskOp::Pred {
+            pred: Pred::Range { lo, hi },
+            under: Some(Operand::Plane(0)),
+            dst: 0,
+        }],
+        Terminal::Count {
+            mask: Operand::Scratch(0),
+        },
+    )
+}
+
+impl PreparedOrder {
+    pub fn plane(&self, slab: usize) -> &Plane {
+        &self.planes[slab]
+    }
+
+    pub fn set_plane(&mut self, slab: usize, with: Plane) {
+        self.planes[slab] = with;
+    }
+
+    /// Visible rows in index positions `range`. Checks the table's frame,
+    /// then folds one range per slab the range touches.
+    pub fn count(
+        &mut self,
+        world: &World,
+        table: &Table<'_>,
+        index: &OrderIndex,
+        range: core::ops::Range<usize>,
+    ) -> Result<u64, Refused> {
+        for (s, binding) in self.bindings.iter().enumerate() {
+            binding.check(&world.store, &world.view, &table.frames, &table.slab(s))?;
+        }
+        let coordinates = table.frames.revisions().coordinates;
+        let (lo, hi) = (range.start.min(self.rows), range.end.min(self.rows));
+        let mut total = 0u64;
+        if lo >= hi {
+            return Ok(0);
+        }
+        for s in lo / SLAB_ROWS..=(hi - 1) / SLAB_ROWS {
+            let plane = &self.planes[s];
+            if plane.space != index.space(s, coordinates) {
+                return Err(Refused::Misaligned { slab: s, plane: 0 });
+            }
+            let base = s * SLAB_ROWS;
+            let rows = self.rows.saturating_sub(base).min(SLAB_ROWS);
+            let a = lo.max(base) - base;
+            let b = hi.min(base + rows) - base;
+            let masks: [&[u64]; 1] = [&plane.words];
+            let planes = Planes {
+                n_rows: rows,
+                masks: &masks,
+                lanes: &[],
+            };
+            match execute_into(
+                &range_program(a as u32, b as u32),
+                &planes,
+                &Foreign {
+                    planes: &[],
+                    lanes: &[],
+                },
+                &mut self.scratch,
+                Out::None,
+            )? {
+                Value::Count(c) => total += c as u64,
+                other => unreachable!("a Count terminal returned {other:?}"),
+            }
+        }
+        Ok(total)
+    }
+}

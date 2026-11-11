@@ -18,11 +18,11 @@ fn mix(mut x: u64) -> u64 {
 }
 /// 3 of 4 rows are present.
 fn present(i: usize) -> bool {
-    mix(i as u64) % 4 != 0
+    !mix(i as u64).is_multiple_of(4)
 }
 /// 7 of 8 rows are in the reader's scope.
 fn in_scope(i: usize) -> bool {
-    mix(i as u64 ^ 0xA5A5) % 8 != 0
+    !mix(i as u64 ^ 0xA5A5).is_multiple_of(8)
 }
 
 struct People {
@@ -125,7 +125,7 @@ fn one_hop_count_reads_the_fk_once_and_equals_the_row_count() {
     let edges = Edges::hashed(m, n as u64);
     let table = edges.table();
     let visible = |id: u32| Some(present(id as usize) && in_scope(id as usize));
-    let edge_live = |e: usize| mix(e as u64 ^ 0x77) % 16 != 0;
+    let edge_live = |e: usize| !mix(e as u64 ^ 0x77).is_multiple_of(16);
     let prepared = prepare_edges(&world, &table, edge_live, visible).unwrap();
     assert_eq!(prepared.slabs(), 3);
     assert_eq!(
@@ -345,4 +345,164 @@ fn a_million_rows_stack_as_sixteen_slabs() {
         .filter(|&i| present(i) && in_scope(i) && people.age[i] > 50)
         .count() as u64;
     assert_eq!(fold.count(&world, &table, &prepared).unwrap(), want);
+}
+
+#[test]
+fn a_key_range_over_an_order_index_counts_without_a_selection_mask() {
+    let world = World::new();
+    for n in [100usize, 70_000, 200_000] {
+        let people = People::new(n);
+        let table = people.table();
+        let mask = People::mask(&world);
+        let index = OrderIndex::by_i32(&table, person::AGE, 99).unwrap();
+        // The index is a permutation of the rows, ascending in the key.
+        let mut seen = vec![false; n];
+        for at in 0..n {
+            let r = index.row(at).unwrap() as usize;
+            assert!(!seen[r]);
+            seen[r] = true;
+            if at > 0 {
+                let prev = index.row(at - 1).unwrap() as usize;
+                assert!(people.age[prev] <= people.age[r]);
+            }
+        }
+        let visible = |r: usize| present(r) && in_scope(r);
+        let mut prepared = prepare_order(&world, &table, &mask, &index, visible).unwrap();
+
+        let want = (0..n).filter(|&i| visible(i) && people.age[i] > 50).count() as u64;
+        let got = prepared
+            .count(&world, &table, &index, index.gt(50))
+            .unwrap();
+        assert_eq!(got, want, "n={n}");
+        assert!(
+            want > 0 && want < index.gt(50).len() as u64,
+            "the plane removes rows"
+        );
+
+        let band = (0..n)
+            .filter(|&i| visible(i) && (30..=40).contains(&people.age[i]))
+            .count() as u64;
+        assert_eq!(
+            prepared
+                .count(&world, &table, &index, index.between(30, 40))
+                .unwrap(),
+            band
+        );
+        assert!(band > 0 && band < want);
+        assert_eq!(
+            prepared
+                .count(&world, &table, &index, index.gt(1_000))
+                .unwrap(),
+            0
+        );
+        let everything = (0..n).filter(|&i| visible(i)).count() as u64;
+        assert_eq!(
+            prepared.count(&world, &table, &index, 0..n).unwrap(),
+            everything
+        );
+    }
+}
+
+#[test]
+fn an_order_index_refuses_a_stale_frame_and_a_plane_in_table_order() {
+    let world = World::new();
+    let people = People::new(70_000);
+    let mut table = people.table();
+    let mask = People::mask(&world);
+    let index = OrderIndex::by_i32(&table, person::AGE, 99).unwrap();
+    // An index may not claim the table's own row order.
+    assert!(OrderIndex::by_i32(&table, person::AGE, 1).is_none());
+    assert!(
+        OrderIndex::by_i32(&table, person::ID, 99).is_none(),
+        "not an i32 key"
+    );
+
+    let mut prepared = prepare_order(&world, &table, &mask, &index, present).unwrap();
+    assert!(
+        prepared
+            .count(&world, &table, &index, index.gt(50))
+            .unwrap()
+            > 0
+    );
+
+    // A plane in table order has the same length and another row order.
+    let in_table_order = prepare_nodes(&world, &table, &mask, present, in_scope).unwrap();
+    let foreign = in_table_order.plane(0, 0).clone();
+    assert_eq!(foreign.words.len(), prepared.plane(0).words.len());
+    let own = prepared.plane(0).clone();
+    prepared.set_plane(0, foreign);
+    assert_eq!(
+        prepared.count(&world, &table, &index, index.gt(20)),
+        Err(Refused::Misaligned { slab: 0, plane: 0 })
+    );
+    prepared.set_plane(0, own);
+
+    table.advance_source();
+    assert!(matches!(
+        prepared.count(&world, &table, &index, index.gt(50)),
+        Err(Refused::Lane(LaneRefusal::Frame(_)))
+    ));
+}
+
+#[test]
+fn a_hop_with_a_filter_on_the_source_is_one_edge_range_of_an_order_index() {
+    let world = World::new();
+    let n = 70_000usize;
+    let m = 180_000usize;
+    let people = People::new(n);
+    let nodes = people.table();
+    let edges = Edges::hashed(m, n as u64);
+    let edge_table = edges.table();
+
+    // Nodes in age order; edges in the order of their source's position.
+    // No adjacency structure is built: `csr` is an ordinary OrderIndex, and
+    // "CSR" is only the mental model for what its key makes contiguous.
+    let by_age = OrderIndex::by_i32(&nodes, person::AGE, 99).unwrap();
+    let at = by_age.positions();
+    let csr = OrderIndex::by_key(&edge_table, 98, |e| at[edges.src[e] as usize] as i32).unwrap();
+
+    let node_visible = |r: usize| present(r) && in_scope(r);
+    let edge_live = |e: usize| !mix(e as u64 ^ 0x77).is_multiple_of(16);
+    let edge_mask = WideFieldMask::from_positions(&[friend::SRC, friend::DST]);
+    let mut prepared = prepare_order(&world, &edge_table, &edge_mask, &csr, |e| {
+        edge_live(e) && node_visible(edges.src[e] as usize) && node_visible(edges.dst[e] as usize)
+    })
+    .unwrap();
+
+    // `MATCH (a)-[]->(b) WHERE a.age > t RETURN count(*)`: the node range
+    // of the age index maps to one range of the edge index.
+    for t in [20, 50, 70, 1_000] {
+        let node_range = by_age.gt(t);
+        let edge_range = if node_range.is_empty() {
+            0..0
+        } else {
+            csr.between(node_range.start as i32, node_range.end as i32 - 1)
+        };
+        let want = (0..m)
+            .filter(|&e| {
+                edge_live(e)
+                    && people.age[edges.src[e] as usize] > t
+                    && node_visible(edges.src[e] as usize)
+                    && node_visible(edges.dst[e] as usize)
+            })
+            .count() as u64;
+        assert_eq!(
+            prepared
+                .count(&world, &edge_table, &csr, edge_range)
+                .unwrap(),
+            want,
+            "t={t}"
+        );
+    }
+    // The filter removes edges, and the unfiltered hop is the whole index.
+    let all = prepared.count(&world, &edge_table, &csr, 0..m).unwrap();
+    let some = prepared
+        .count(
+            &world,
+            &edge_table,
+            &csr,
+            csr.between(by_age.gt(50).start as i32, n as i32 - 1),
+        )
+        .unwrap();
+    assert!(some > 0 && some < all);
 }
