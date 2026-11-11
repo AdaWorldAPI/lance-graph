@@ -251,13 +251,13 @@ lance-graph-catalog	tokio	dev	false	-	-	crates/lance-graph-catalog/Cargo.toml:28
 lance-graph-catalog	wiremock	dev	false	-	-	crates/lance-graph-catalog/Cargo.toml:29	CONFIRMED	no
 lance-graph-codec-research	rustfft	normal	false	-	-	crates/lance-graph-codec-research/Cargo.toml:10	CONFIRMED	no
 lance-graph-codec-research	tempfile	dev	false	-	-	crates/lance-graph-codec-research/Cargo.toml:13	CONFIRMED	no
-lance-graph-codegraph	lance-graph-contract	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:23	CONFIRMED	yes
+lance-graph-codegraph	lance-graph-contract	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:16	CONFIRMED	yes
 lance-graph-codegraph	lance-graph-dt64	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:13	CONFIRMED	yes
 lance-graph-codegraph	lance-graph-mask-risc	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:15	CONFIRMED	yes
-lance-graph-codegraph	lance-graph-planner	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:22	CONFIRMED	yes
+lance-graph-codegraph	lance-graph-planner	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:23	CONFIRMED	yes
 lance-graph-codegraph	lance-graph-quack	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:14	CONFIRMED	yes
 lance-graph-codegraph	lance-graph-xlog	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:12	CONFIRMED	yes
-lance-graph-codegraph	ndarray	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:16	CONFIRMED	no
+lance-graph-codegraph	ndarray	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:17	CONFIRMED	no
 lance-graph-codegraph	tokio	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:24	CONFIRMED	no
 lance-graph-cognitive	holograph	normal	false	-	-	crates/lance-graph-cognitive/Cargo.toml:18	CONFIRMED	yes
 lance-graph-cognitive	lance-graph-contract	normal	false	-	-	crates/lance-graph-cognitive/Cargo.toml:19	CONFIRMED	yes

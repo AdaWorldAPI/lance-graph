@@ -34,7 +34,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep drf-focus-probe normal optional — crates/drf-focus-probe/Cargo.toml:19 CONFIRMED
 - rdep lance-graph dev — crates/lance-graph/Cargo.toml:175 CONFIRMED
 - rdep lance-graph normal optional — crates/lance-graph/Cargo.toml:92 CONFIRMED
-- rdep lance-graph-codegraph dev — crates/lance-graph-codegraph/Cargo.toml:22 CONFIRMED
+- rdep lance-graph-codegraph dev — crates/lance-graph-codegraph/Cargo.toml:23 CONFIRMED
 - rdep lance-graph-dt64-lance normal — crates/lance-graph-dt64-lance/Cargo.toml:28 CONFIRMED
 - rdep lance-graph-osint normal — crates/lance-graph-osint/Cargo.toml:11 CONFIRMED
 - rdep lance-graph-supervisor normal optional — crates/lance-graph-supervisor/Cargo.toml:17 CONFIRMED

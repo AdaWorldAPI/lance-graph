@@ -1005,29 +1005,6 @@ impl Codegraph {
             .count() as u32
     }
 
-    /// Names of the crates with a CRATE row: the first path segment of the
-    /// symbols each crate defines.
-    pub(crate) fn stored_crates(&self) -> std::collections::BTreeSet<&str> {
-        self.crates
-            .keys()
-            .map(|&id| self.symbols.name(id))
-            .collect()
-    }
-
-    /// Residual counts of the crate named `krate`, and whether no residuals
-    /// file was read for it. A name the store did not read under is reported
-    /// as having no file: unknown, never clean.
-    pub(crate) fn residuals_of_crate(&self, krate: &str) -> (artifact::ResidualCounts, bool) {
-        match self
-            .symbols
-            .get(krate)
-            .and_then(|id| self.lanes.residuals_of(id))
-        {
-            Some(Some(r)) => (r, false),
-            _ => (artifact::ResidualCounts::default(), true),
-        }
-    }
-
     /// Whether any stored crate's CRATE row is not `COMPLETE`.
     pub(crate) fn any_partial(&self) -> bool {
         self.crates.values().any(|&s| s == RunStatus::Partial)
@@ -1050,6 +1027,43 @@ impl Codegraph {
     }
 
     /// The extractor status of `krate`, from its CRATE row.
+    /// Every stored crate with its extractor status, sorted by name.
+    pub fn crate_list(&self) -> Vec<(String, RunStatus)> {
+        // Every crate that was read, not only those with a CRATE row: a rows file without one
+        // says nothing about its own completeness, so it is `Partial`.
+        let mut ids: Vec<u32> = self.crates.keys().copied().collect();
+        ids.extend(self.lanes.crates());
+        ids.sort_unstable();
+        ids.dedup();
+        let mut out: Vec<(String, RunStatus)> = ids
+            .into_iter()
+            .map(|k| {
+                let status = self.crates.get(&k).copied().unwrap_or(RunStatus::Partial);
+                (self.symbols.name(k).to_string(), status)
+            })
+            .collect();
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
+    /// Whether any row currently names `symbol` as subject, object or dispatch target. A
+    /// position outlives the rows that created it (a refresh never renumbers), so a position
+    /// alone does not show the symbol is still in the artifacts.
+    pub(crate) fn has_rows(&self, symbol: &str) -> bool {
+        let Some(id) = self.symbols.get(symbol) else {
+            return false;
+        };
+        let l = &self.lanes;
+        l.subject.contains(&id) || l.object.contains(&id) || l.may_target.contains(&id)
+    }
+
+    /// The residuals read beside `krate`'s rows: `None` when the crate is not in the store,
+    /// `Some(None)` when it was read without a residuals file.
+    pub fn crate_residuals(&self, krate: &str) -> Option<Option<crate::artifact::ResidualCounts>> {
+        let id = self.symbols.get(krate)?;
+        self.lanes.residuals_of(id)
+    }
+
     pub fn crate_status(&self, krate: &str) -> Option<RunStatus> {
         let id = self.symbols.get(krate)?;
         self.crates.get(&id).copied()

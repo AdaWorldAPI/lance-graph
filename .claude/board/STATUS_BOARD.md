@@ -360,6 +360,23 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 
 **Evidence boundaries:** D-SAG-6 #1760 merged docs; Math Foundry #1693/#1694 E1 lab merged; D-NFC #1753 native-first; #1775 D-DRAV draft / AV1–AV12 NOT RUN; MORK oracle with unresolved production licence/allocator; EXO-148 stable durable types unresolved. No complete distributed reasoning implementation or measured AI/data-center scaling claim.
 
+## D-CODEGRAPH-EXPAND — measured gaps after #2001, and their suppliers (2026-11-11)
+
+Plan: `.claude/plans/codegraph-expansion-v1.md`. Coordination: Linear `P-EXO-18`.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| **D-CODEGRAPH-RECON-2-A** | coverage-aware `impact_report`, `cg_query impact-report` | In PR: #2001 |
+| **D-CRAI-REPORT-1** | read-only review report generator, ndarray #422 admission case | In PR: #2001 |
+| **CG-1** | closure-ownership edge, graded POSSIBLE | Queued (decision needed): EXO-233 |
+| **CG-2** | extraction driver from `cargo metadata` (targets, dependents, tests) | Queued: EXO-234 |
+| **CG-3** | store provenance: extraction revision, relative generated paths | Queued (format decision needed): EXO-235 |
+| **CG-4** | edge vocabulary mapped to Kythe names (document) | Queued: EXO-236 |
+| **CG-5** | co-research: body semantics through R2IL and egglog | Queued (needs go-ahead): EXO-237 |
+| **CG-6** | review report follow-ups (mask-risc extraction, re-grade, placement, advisory CI) | Queued: EXO-238 |
+| **CG-7** | report-rs #33 transfer case | Other session: EXO-239 / EXO-185 |
+| **CG-8** | effects, target kind and cfg as Codegraph rows | Queued: EXO-241 |
+
 ## D-CODEGRAPH-0 — resident Codegraph: Charon → ruff → lance-graph + crai-rs (2026-11-02)
 
 Plan: [d-codegraph-0-resident-codegraph-v1.md](../plans/d-codegraph-0-resident-codegraph-v1.md). Entry: [gap map](entries/2026-11-02-d-codegraph-0-gap-map.md).

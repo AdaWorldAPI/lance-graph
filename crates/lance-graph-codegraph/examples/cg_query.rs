@@ -4,15 +4,17 @@
 //! ```text
 //! cargo run --release --example cg_query -- <store_dir> <src_root> symbols [SUBSTRING]
 //! cargo run --release --example cg_query -- <store_dir> <src_root> callers|callees|impact|refs SYMBOL
-//! cargo run --release --example cg_query -- <store_dir> <src_root> report SYMBOL \
-//!     [--targets CRATE=lib,tests,examples,benches]... [--exclude CRATE=REGION]... [--consumers-closed]
+//! cargo run --release --example cg_query -- <store_dir> <src_root> impact-report SYMBOL \
+//!     [--deps a,b | --consumers-closed] [--targets CRATE=lib,tests,examples,benches]... \
+//!     [--exclude CRATE=REGION]... [--no-freshness]
 //! ```
 //!
-//! `report` prints [`Codegraph::impact_report`]: the impact masks, whether the
-//! symbol has a position, and every coverage gap of the declared scope, one
-//! `GAP` line each. A crate without `--targets` is reported as undeclared;
-//! `--exclude` names code the extraction did not translate (an opaque module,
-//! a feature left off).
+//! `impact-report` (alias `report`) prints [`Codegraph::impact_report`]: whether the symbol has a
+//! position, the impact masks, the stored crates, and every coverage gap of the declared scope,
+//! one `GAP` line each. Nothing is assumed: a crate without `--targets` is reported as undeclared
+//! (`--targets '*=lib,tests'` declares every stored crate), consumers are undeclared without
+//! `--deps` (`--deps ""` declares none) or `--consumers-closed`, and `--exclude` names code the
+//! extraction did not translate (an opaque module, a feature left off).
 //!
 //! Output is tab-separated, one fact per line. Every result line carries its
 //! grade (`CONFIRMED`, `POSSIBLE`, `UNKNOWN`); a refusal is printed verbatim
@@ -25,7 +27,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use lance_graph_codegraph::impact_report::{Scope, SymbolState, Targets};
+use lance_graph_codegraph::impact_report::{Consumers, Scope, SymbolState, Targets};
 use lance_graph_codegraph::Codegraph;
 
 fn line_of(src_root: &Path, file: &str, offset: u32) -> String {
@@ -70,10 +72,136 @@ fn observed_files(g: &Codegraph) -> Vec<String> {
     files
 }
 
+fn parse_targets(list: &str) -> Option<Targets> {
+    let mut t = Targets::default();
+    for k in list.split(',') {
+        match k {
+            "lib" => t.lib = true,
+            "tests" => t.tests = true,
+            "examples" => t.examples = true,
+            "benches" => t.benches = true,
+            _ => return None,
+        }
+    }
+    Some(t)
+}
+
+/// `impact-report SYMBOL [flags]`. The flags declare what the rows cannot say.
+fn impact_report(g: &Codegraph, store: &Path, src: &Path, sym: &str, flags: &[String]) -> ExitCode {
+    let mut scope = Scope {
+        store: Some(store.to_path_buf()),
+        source_root: Some(src.to_path_buf()),
+        ..Scope::default()
+    };
+    let pair = |v: Option<&String>| {
+        v.and_then(|v| v.split_once('='))
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+    };
+    let mut it = flags.iter();
+    while let Some(f) = it.next() {
+        match f.as_str() {
+            "--no-freshness" => {
+                scope.store = None;
+                scope.source_root = None;
+            }
+            "--consumers-closed" | "--deps" if scope.consumers != Consumers::NotDeclared => {
+                eprintln!("--deps and --consumers-closed are given once and exclude each other");
+                return ExitCode::from(2);
+            }
+            "--consumers-closed" => scope.consumers = Consumers::AllInStore,
+            "--deps" => match it.next() {
+                Some(v) if !v.starts_with("--") => {
+                    scope.consumers = Consumers::Declared(
+                        v.split(',')
+                            .filter(|s| !s.is_empty())
+                            .map(str::to_string)
+                            .collect(),
+                    );
+                }
+                _ => {
+                    eprintln!("--deps needs a value: a comma-separated list, or \"\" for none");
+                    return ExitCode::from(2);
+                }
+            },
+            "--targets" => match pair(it.next()) {
+                Some((k, list)) => match parse_targets(&list) {
+                    Some(t) if k == "*" => {
+                        scope
+                            .targets
+                            .extend(g.crate_list().into_iter().map(|(c, _)| (c, t)));
+                    }
+                    Some(t) => scope.targets.push((k, t)),
+                    None => {
+                        eprintln!("bad --targets list {list}");
+                        return ExitCode::from(2);
+                    }
+                },
+                None => {
+                    eprintln!("--targets needs CRATE=LIST");
+                    return ExitCode::from(2);
+                }
+            },
+            "--exclude" => match pair(it.next()) {
+                Some((k, region)) => match scope.excluded.iter_mut().find(|(n, _)| *n == k) {
+                    Some((_, r)) => r.push(region),
+                    None => scope.excluded.push((k, vec![region])),
+                },
+                None => {
+                    eprintln!("--exclude needs CRATE=REGION");
+                    return ExitCode::from(2);
+                }
+            },
+            other => {
+                eprintln!("unknown flag {other}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    let r = match g.impact_report(sym, &scope) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("REFUSED\timpact-report\t{e:?}");
+            return ExitCode::from(3);
+        }
+    };
+    let found = match r.symbol {
+        SymbolState::Found(p) => {
+            println!("symbol\tFOUND\t{p}\t{sym}");
+            true
+        }
+        SymbolState::Missing { owner_stored } => {
+            println!("symbol\tMISSING\towner_stored={owner_stored}\t{sym}");
+            false
+        }
+    };
+    for (grade, mask) in [
+        ("CONFIRMED", &r.graded.confirmed),
+        ("POSSIBLE", &r.graded.possible),
+        ("UNKNOWN", &r.graded.unknown),
+    ] {
+        for n in names(g, mask) {
+            println!("impact\t{grade}\t{n}");
+        }
+    }
+    for (c, st) in &r.observed {
+        println!("observed\t{c}\t{st:?}");
+    }
+    for gap in &r.gaps {
+        println!("GAP\t{gap:?}");
+    }
+    println!("closed_in_scope\t{}", r.closed_in_scope());
+    // A missing symbol is not an empty impact: exit 4, as the other queries do.
+    if found {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(4)
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() < 3 {
-        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | callers|callees|impact|refs SYMBOL");
+        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | impact-report SYMBOL [--deps a,b | --consumers-closed] [--targets CRATE=LIST]... [--exclude CRATE=REGION]... [--no-freshness]");
         return ExitCode::from(2);
     }
     let (store, src, cmd) = (
@@ -144,13 +272,17 @@ fn main() -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+    if cmd == "impact-report" || cmd == "report" {
+        let Some(sym) = args.get(3) else {
+            eprintln!("{cmd} needs a SYMBOL");
+            return ExitCode::from(2);
+        };
+        return impact_report(&g, &store, &src, sym, &args[4..]);
+    }
     let Some(sym) = args.get(3) else {
         eprintln!("{cmd} needs a SYMBOL");
         return ExitCode::from(2);
     };
-    if cmd == "report" {
-        return report(&g, &store, &src, sym, &args[4..]);
-    }
     let Some(pos) = g.pos(sym) else {
         println!("UNKNOWN\tsymbol-not-in-store\t{sym}");
         return ExitCode::from(4);
@@ -216,90 +348,4 @@ fn main() -> ExitCode {
             ExitCode::from(3)
         }
     }
-}
-
-fn parse_targets(list: &str) -> Option<Targets> {
-    let mut t = Targets::default();
-    for k in list.split(',') {
-        match k {
-            "lib" => t.lib = true,
-            "tests" => t.tests = true,
-            "examples" => t.examples = true,
-            "benches" => t.benches = true,
-            _ => return None,
-        }
-    }
-    Some(t)
-}
-
-fn report(g: &Codegraph, store: &Path, src: &Path, sym: &str, flags: &[String]) -> ExitCode {
-    let mut scope = Scope {
-        store: Some(store.to_path_buf()),
-        source_root: Some(src.to_path_buf()),
-        ..Scope::default()
-    };
-    let mut it = flags.iter();
-    while let Some(f) = it.next() {
-        let value = |v: Option<&String>| {
-            v.and_then(|v| v.split_once('='))
-                .map(|(a, b)| (a.to_string(), b.to_string()))
-        };
-        match f.as_str() {
-            "--consumers-closed" => scope.consumers_closed = true,
-            "--targets" => match value(it.next()) {
-                Some((k, list)) => match parse_targets(&list) {
-                    Some(t) => scope.targets.push((k, t)),
-                    None => {
-                        eprintln!("bad --targets list {list}");
-                        return ExitCode::from(2);
-                    }
-                },
-                None => {
-                    eprintln!("--targets needs CRATE=LIST");
-                    return ExitCode::from(2);
-                }
-            },
-            "--exclude" => match value(it.next()) {
-                Some((k, region)) => match scope.excluded.iter_mut().find(|(n, _)| *n == k) {
-                    Some((_, r)) => r.push(region),
-                    None => scope.excluded.push((k, vec![region])),
-                },
-                None => {
-                    eprintln!("--exclude needs CRATE=REGION");
-                    return ExitCode::from(2);
-                }
-            },
-            other => {
-                eprintln!("unknown flag {other}");
-                return ExitCode::from(2);
-            }
-        }
-    }
-    let r = match g.impact_report(sym, &scope) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("REFUSED\treport\t{e:?}");
-            return ExitCode::from(3);
-        }
-    };
-    match r.symbol {
-        SymbolState::Found(p) => println!("symbol\tFOUND\t{p}\t{sym}"),
-        SymbolState::Missing { owner_stored } => {
-            println!("symbol\tMISSING\towner_stored={owner_stored}\t{sym}")
-        }
-    }
-    for (grade, mask) in [
-        ("CONFIRMED", &r.graded.confirmed),
-        ("POSSIBLE", &r.graded.possible),
-        ("UNKNOWN", &r.graded.unknown),
-    ] {
-        for n in names(g, mask) {
-            println!("impact\t{grade}\t{n}");
-        }
-    }
-    for gap in &r.gaps {
-        println!("GAP\t{gap:?}");
-    }
-    println!("closed_in_scope\t{}", r.closed_in_scope());
-    ExitCode::SUCCESS
 }

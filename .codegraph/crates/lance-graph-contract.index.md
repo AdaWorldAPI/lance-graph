@@ -39,7 +39,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-archetype normal — crates/lance-graph-archetype/Cargo.toml:10 CONFIRMED
 - rdep lance-graph-arm-discovery normal optional — crates/lance-graph-arm-discovery/Cargo.toml:52 CONFIRMED
 - rdep lance-graph-callcenter normal — crates/lance-graph-callcenter/Cargo.toml:12 CONFIRMED
-- rdep lance-graph-codegraph dev — crates/lance-graph-codegraph/Cargo.toml:23 CONFIRMED
+- rdep lance-graph-codegraph normal — crates/lance-graph-codegraph/Cargo.toml:16 CONFIRMED
 - rdep lance-graph-cognitive normal — crates/lance-graph-cognitive/Cargo.toml:19 CONFIRMED
 - rdep lance-graph-consumer-conformance normal — crates/lance-graph-consumer-conformance/Cargo.toml:21 CONFIRMED
 - rdep lance-graph-dir-sim dev — crates/lance-graph-dir-sim/Cargo.toml:52 CONFIRMED
@@ -317,6 +317,7 @@ flowchart LR
   n31["lance-graph-archetype"]
   n32["lance-graph-arm-discovery"]
   n34["lance-graph-callcenter"]
+  n37["lance-graph-codegraph"]
   n38["lance-graph-cognitive"]
   n39["lance-graph-consumer-conformance"]
   n40["lance-graph-contract"]
@@ -367,6 +368,7 @@ flowchart LR
   n31 --> n40
   n32 --> n40
   n34 --> n40
+  n37 --> n40
   n38 --> n40
   n39 --> n40
   n42 --> n40

@@ -172,7 +172,7 @@ lance-graph-contract	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:
 lance-graph-contract	lance-graph-archetype	normal	false	-	-	crates/lance-graph-archetype/Cargo.toml:10	CONFIRMED	yes
 lance-graph-contract	lance-graph-arm-discovery	normal	true	-	landing	crates/lance-graph-arm-discovery/Cargo.toml:52	CONFIRMED	yes
 lance-graph-contract	lance-graph-callcenter	normal	false	-	-	crates/lance-graph-callcenter/Cargo.toml:12	CONFIRMED	yes
-lance-graph-contract	lance-graph-codegraph	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:23	CONFIRMED	yes
+lance-graph-contract	lance-graph-codegraph	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:16	CONFIRMED	yes
 lance-graph-contract	lance-graph-cognitive	normal	false	-	-	crates/lance-graph-cognitive/Cargo.toml:19	CONFIRMED	yes
 lance-graph-contract	lance-graph-consumer-conformance	normal	false	-	-	crates/lance-graph-consumer-conformance/Cargo.toml:21	CONFIRMED	yes
 lance-graph-contract	lance-graph-dir-sim	dev	false	-	rbac	crates/lance-graph-dir-sim/Cargo.toml:52	CONFIRMED	yes
@@ -267,7 +267,7 @@ lance-graph-planner	drf-focus-probe	dev	false	-	handoff	crates/drf-focus-probe/C
 lance-graph-planner	drf-focus-probe	normal	true	-	handoff	crates/drf-focus-probe/Cargo.toml:19	CONFIRMED	yes
 lance-graph-planner	lance-graph	dev	false	-	planner	crates/lance-graph/Cargo.toml:175	CONFIRMED	yes
 lance-graph-planner	lance-graph	normal	true	-	planner	crates/lance-graph/Cargo.toml:92	CONFIRMED	yes
-lance-graph-planner	lance-graph-codegraph	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:22	CONFIRMED	yes
+lance-graph-planner	lance-graph-codegraph	dev	false	-	-	crates/lance-graph-codegraph/Cargo.toml:23	CONFIRMED	yes
 lance-graph-planner	lance-graph-dt64-lance	normal	false	-	-	crates/lance-graph-dt64-lance/Cargo.toml:28	CONFIRMED	yes
 lance-graph-planner	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:11	CONFIRMED	yes
 lance-graph-planner	lance-graph-supervisor	normal	true	-	cycle-driver	crates/lance-graph-supervisor/Cargo.toml:17	CONFIRMED	yes
@@ -339,7 +339,7 @@ ndarray	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:21	CONF
 ndarray	lance-graph	normal	true	-	ndarray-hpc	crates/lance-graph/Cargo.toml:89	CONFIRMED	no
 ndarray	lance-graph-arm-discovery	normal	true	-	ndarray-simd	crates/lance-graph-arm-discovery/Cargo.toml:45	CONFIRMED	no
 ndarray	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:30	CONFIRMED	no
-ndarray	lance-graph-codegraph	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:16	CONFIRMED	no
+ndarray	lance-graph-codegraph	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:17	CONFIRMED	no
 ndarray	lance-graph-cognitive	normal	false	-	-	crates/lance-graph-cognitive/Cargo.toml:17	CONFIRMED	no
 ndarray	lance-graph-mask-risc	normal	false	-	-	crates/lance-graph-mask-risc/Cargo.toml:20	CONFIRMED	no
 ndarray	lance-graph-onnx	normal	false	-	-	crates/lance-graph-onnx/Cargo.toml:12	CONFIRMED	no

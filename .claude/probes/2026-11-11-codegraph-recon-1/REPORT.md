@@ -241,3 +241,31 @@ GRAPH=1 crates/sag-ra-probe/target/release/sag-ra-probe "$PWD" > ra_graph.tsv
 cargo run --release --manifest-path crates/lance-graph-codegraph/Cargo.toml --example cg_query -- $STORE . sweep
 python3 .claude/probes/2026-11-11-codegraph-recon-1/recon.py score --store $STORE --src . --corpus corpus.tsv --ra ra_graph.tsv
 ```
+
+## Reproduction check (before merge)
+
+The documented commands were re-run from scratch into a fresh directory at `90fc5a7`: Charon and
+`ruff_charon import` on the four crates, then rust-analyzer `GRAPH=1`. The results were compared with
+the artifacts this report was built from.
+
+- `machine-recovered.mmd`, `reconciled.mmd` and `score.tsv` regenerate **byte-identical**, and
+  `cg_query sweep` gives the same 9,138 positions / 9,569 answered / 8,707 empty.
+- **Text rows:** byte-identical for dt64, quack and r2il. Contract's rows and `files.tsv` differ only
+  in the absolute path of two build-script outputs (`manifest_metadata.rs`, `ogit_namespace.rs` under
+  `CARGO_TARGET_DIR/…/build/lance-graph-contract/<hash>/out/`). Their content hashes are identical,
+  and after normalising that path the rows are identical.
+- **LLBC:** byte-identical except for one embedded `--dest-file` path.
+- **`rows.bin`:** differs only in its provenance block (the LLBC digest and the Charon config string,
+  which both carry that path) and in the header digest that covers it.
+- **rust-analyzer graph:** identical apart from its `*_ms` timing rows (0 of about 820k rows differ).
+
+**Finding:** the store is reproducible in content but not location-independent. Paths of generated
+files and the LLBC location are recorded verbatim, so the same input at a different `CARGO_TARGET_DIR`
+gives a different digest. Two consumers are affected differently:
+- **Refresh** compares store digests, so it treats the two stores as different.
+- **The freshness check** (`impact_report`) does not compare digests. It hashes each file listed in
+  `files.tsv`. A recorded path that no longer exists is reported as `MissingSource`; a path that still
+  exists with the same content gives no gap, whatever the store digest.
+
+Owner: EXO-229 (ruff_charon could record generated files relative to
+`OUT_DIR`).
