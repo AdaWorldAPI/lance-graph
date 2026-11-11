@@ -81,6 +81,7 @@ impl Fixture {
                 .map(|c| (c.to_string(), Targets::ALL))
                 .collect(),
             consumers_closed: false,
+            excluded: Vec::new(),
         }
     }
 }
@@ -443,4 +444,78 @@ fn an_incomplete_harvest_of_the_owner_is_a_gap() {
         "{:?}",
         r.gaps
     );
+}
+
+/// Case 9: Regions the extraction did not translate (an opaque module, a
+/// cargo feature left off) are a gap for a found symbol and for a missing
+/// one. A symbol defined only in an uncompiled feature module is missing from
+/// the store without being absent from the crate.
+#[test]
+fn excluded_regions_are_a_gap_for_found_and_missing_symbols() {
+    let fx = Fixture::new("excluded", &[lib_crate()]);
+    let g = fx.open();
+    let excluded = Scope {
+        excluded: vec![("lib".into(), vec!["feature iam".into()])],
+        ..fx.scope(&["lib"])
+    };
+    let gap = Gap::RegionsExcluded {
+        krate: "lib".into(),
+        regions: vec!["feature iam".into()],
+    };
+    let r = g.impact_report("lib::helper", &excluded).unwrap();
+    assert_eq!(r.gaps, vec![gap.clone()]);
+    assert!(!r.closed_in_scope());
+    let r = g.impact_report("lib::authorize", &excluded).unwrap();
+    assert_eq!(r.symbol, SymbolState::Missing { owner_stored: true });
+    assert_eq!(r.gaps, vec![gap]);
+    // Silence twins: no exclusion for this crate, or an empty list, leaves the
+    // found symbol closed and the missing one without gaps.
+    for silent in [
+        fx.scope(&["lib"]),
+        Scope {
+            excluded: vec![
+                ("lib".into(), Vec::new()),
+                ("other".into(), vec!["x".into()]),
+            ],
+            ..fx.scope(&["lib"])
+        },
+    ] {
+        assert!(g
+            .impact_report("lib::helper", &silent)
+            .unwrap()
+            .closed_in_scope());
+        assert!(g
+            .impact_report("lib::authorize", &silent)
+            .unwrap()
+            .gaps
+            .is_empty());
+    }
+}
+
+/// Case 10: A missing symbol carries its crate's target gaps. Extracting
+/// only the library cannot show that a symbol is absent from the tests.
+#[test]
+fn a_missing_symbol_carries_its_crate_target_gaps() {
+    let fx = Fixture::new("missing-targets", &[lib_crate()]);
+    let g = fx.open();
+    let lib_only = Scope {
+        targets: vec![("lib".into(), Targets::LIB_ONLY)],
+        ..fx.scope(&["lib"])
+    };
+    let r = g.impact_report("lib::only_in_tests", &lib_only).unwrap();
+    assert!(
+        matches!(
+            r.gaps.as_slice(),
+            [Gap::TargetsNotExtracted { krate, missing }] if krate == "lib" && missing.tests
+        ),
+        "{:?}",
+        r.gaps
+    );
+    // A symbol outside every stored crate reports no crate gap: nothing of
+    // its crate was read, which `owner_stored: false` already says.
+    assert!(g
+        .impact_report("other::x", &lib_only)
+        .unwrap()
+        .gaps
+        .is_empty());
 }

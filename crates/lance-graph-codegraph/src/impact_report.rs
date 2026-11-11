@@ -81,6 +81,11 @@ pub struct Scope {
     /// dependent set was extracted). Without this, a public symbol's external
     /// callers are unobserved.
     pub consumers_closed: bool,
+    /// Code of a stored crate the extraction did not translate, per crate
+    /// name: modules passed to Charon as opaque, cargo features left off, cfg
+    /// branches not taken. The store cannot see what is inside, so a caller,
+    /// callee or definition there has no position.
+    pub excluded: Vec<(String, Vec<String>)>,
 }
 
 /// Whether the queried symbol has a position.
@@ -155,6 +160,15 @@ pub enum Gap {
     },
     /// No source root was given; freshness was not checked.
     FreshnessUnchecked,
+    /// The declared scope excludes regions of the crate from extraction
+    /// (opaque modules, disabled features). Calls inside them have no rows,
+    /// and a symbol defined only there is missing without being absent.
+    RegionsExcluded {
+        /// The crate.
+        krate: String,
+        /// The excluded regions, as declared.
+        regions: Vec<String>,
+    },
 }
 
 /// [`Codegraph::impact`] with its coverage.
@@ -214,6 +228,31 @@ fn stale_files(store: &Path, root: &Path, krate: &str) -> Option<Vec<String>> {
     Some(stale)
 }
 
+/// The declared-scope gaps of one stored crate: its targets and its
+/// excluded regions.
+fn scope_gaps(k: &str, scope: &Scope, gaps: &mut Vec<Gap>) {
+    match scope.targets.iter().find(|(n, _)| n == k) {
+        None => gaps.push(Gap::TargetsUndeclared {
+            krate: k.to_owned(),
+        }),
+        Some((_, t)) => {
+            let missing = t.missing();
+            if missing.any() {
+                gaps.push(Gap::TargetsNotExtracted {
+                    krate: k.to_owned(),
+                    missing,
+                });
+            }
+        }
+    }
+    if let Some((_, regions)) = scope.excluded.iter().find(|(n, r)| n == k && !r.is_empty()) {
+        gaps.push(Gap::RegionsExcluded {
+            krate: k.to_owned(),
+            regions: regions.clone(),
+        });
+    }
+}
+
 impl Codegraph {
     /// [`Codegraph::impact`] of `symbol`, with the gaps of `scope`.
     ///
@@ -224,6 +263,14 @@ impl Codegraph {
         let stored = self.stored_crates();
         let Some(g) = self.pos(symbol) else {
             let z = vec![0u64; self.words()];
+            // A missing symbol in a stored crate is absent only from what was
+            // extracted: undeclared or missing targets and excluded regions
+            // are each a place it may still be defined.
+            let mut gaps = Vec::new();
+            let owner = owner_of(symbol);
+            if stored.contains(owner) {
+                scope_gaps(owner, scope, &mut gaps);
+            }
             return Ok(ImpactReport {
                 graded: Graded {
                     confirmed: z.clone(),
@@ -231,9 +278,9 @@ impl Codegraph {
                     unknown: z,
                 },
                 symbol: SymbolState::Missing {
-                    owner_stored: stored.contains(owner_of(symbol)),
+                    owner_stored: stored.contains(owner),
                 },
-                gaps: Vec::new(),
+                gaps,
             });
         };
         let graded = self.impact(g)?;
@@ -274,18 +321,7 @@ impl Codegraph {
         }
 
         for k in &involved {
-            match scope.targets.iter().find(|(n, _)| n == k) {
-                None => gaps.push(Gap::TargetsUndeclared { krate: k.clone() }),
-                Some((_, t)) => {
-                    let missing = t.missing();
-                    if missing.any() {
-                        gaps.push(Gap::TargetsNotExtracted {
-                            krate: k.clone(),
-                            missing,
-                        });
-                    }
-                }
-            }
+            scope_gaps(k, scope, &mut gaps);
         }
 
         let dynamic_calls = self.coverage().dynamic_calls;
