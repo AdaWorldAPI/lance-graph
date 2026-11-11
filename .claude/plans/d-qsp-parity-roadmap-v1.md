@@ -67,17 +67,33 @@ lanes. What is missing is one harness that every stage reuses:
 Two classes, a contextual property projection, `WHERE`, one
 duplicate-preserving join and an ordered result, checked against PostgreSQL
 through the harness, **with evidence that no intermediate X × Y tuples were
-materialized**. The evidence uses a counting `#[global_allocator]` in a
-dedicated test binary, as D-DR-VMAP's F5 does: allocations stay bounded by
-the result and the prepared artifacts, not by the cross product. This tests
-the proposition directly.
+materialized**.
+
+A counting allocator alone does not prove this: a pre-allocated buffer can
+hold X × Y tuples without any new allocation. The evidence therefore has
+three parts, and must tell three cases apart — **virtual binding**,
+**bounded scratch**, **materialized X × Y population**:
+
+1. **Execution path:** the lowered program is inspected; no operator on the
+   path writes one record per (x, y) pair.
+2. **Written intermediate rows / bytes:** every operator reports how many
+   intermediate rows and bytes it wrote. Virtual binding writes none; bounded
+   scratch writes at most a stated bound that does not grow with |X| × |Y|;
+   a materialized population writes at least the number of pairs.
+3. **Allocations:** a counting `#[global_allocator]` in a dedicated test
+   binary (as D-DR-VMAP's F5 does), bounded by the result and the prepared
+   artifacts.
+
+The gate scales the fixture (|X| and |Y| each ×4) and checks that (2) and
+(3) do not grow with the product. A negative control that does build the
+pairs must be reported as "materialized" by the same instrument.
 
 ## 5. Comparison targets and their roles
 
 | Target | Role |
 |---|---|
 | Real PostgreSQL | semantic oracle and reference execution |
-| PgLance (`lance-format/pglance`) | further comparison arm, after inspecting its SQL coverage and execution path. Recorded so far (duckdb plan §A.9): Lance 1.0, row-at-a-time FDW, no pushdown, so it measures tuple-conversion overhead, not resident folds |
+| PgLance (`lance-format/pglance`) | **unverified comparison candidate.** Before any run: pin the commit used and check its Lance version, pushdown and execution path at that commit. The duckdb plan §A.9 records an earlier reading (Lance 1.0, row-at-a-time FDW, no pushdown); that is a lead, not a verified property of the commit in use. A runtime difference is never labelled tuple-conversion overhead as a whole; that share is measured separately (for example per-cell conversion time against scan time) |
 | lance-graph native | the virtual-projection and algebra implementation |
 | lance-graph-java (Valhalla / Panama) | later experiment separating representation cost, JVM execution and native-call overhead |
 
@@ -90,5 +106,5 @@ plan §A.9).
 ## 6. Not verified
 
 Nothing was built or run for this roadmap. The stage-to-owner mapping cites
-plans and board rows read on main; PgLance's coverage is as recorded in the
-duckdb plan, not re-inspected.
+plans and board rows read on main. PgLance is listed as an unverified
+candidate; nothing about it has been checked at a pinned commit.
