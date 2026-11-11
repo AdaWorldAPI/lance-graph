@@ -122,6 +122,53 @@ Rendering is one possible use of the right side below `F###`, not its owner
 whether they need a reserved range of their own, is not decided and not
 proposed here.
 
+## 2c. D15 at work: prepare once per frame, answer in µs (crucial)
+
+DR addresses with `WideFieldMask`; DT maps with `ClassView`. Applied to the
+lab (`crates/dr256-ternlog-lab`), that split is what makes the per-query
+cost independent of the work done once:
+
+- **DT (mapping).** `ClassView` names the class's fields and their order;
+  one `WideFieldMask` selects the fields storage reads, compute binds and
+  display shows. No second spelling of the selection.
+- **DR (addressing).** A slab is 256 × 256 = 65,536 positions (three
+  aligned mask planes of 1,024 words). Slabs stack under an outer byte, so
+  up to 256 slabs (256³ positions) per class context. 1,000,000 rows is 16
+  slabs; DR256 never addresses more than one slab.
+- **Versioning store.** Each slab binding is sealed against the table's
+  `FrameStore` (`FrameRevisions { source, relation_map, coordinates }`); an
+  `OrderIndex` carries its origin (class, population, rows, revisions). A
+  source advance makes every binding and index refuse, by name, before any
+  word is read. The DR map table writes one Lance version per advance
+  through `LanceCycleWriter` (EXO-225), which is the version a snapshot root
+  names (W5).
+
+**Measured** in PR 2010 (criterion medians, one 4-core machine, every
+answer checked against a row-at-a-time count; `crates/lance-graph-benches/
+benches/cypher_df_vs_quack.rs`, group `angles`; results in
+`.claude/board/entries/2026-11-11-cypher-df-vs-quack-bench.md`):
+
+| 1,000,000 rows | DataFusion | Quack, gather per query | DR256 slabs, prepared once | order index, no mask |
+|---|---|---|---|---|
+| filter `count(*)` | 2,170 µs | 268 µs | 188 µs | **1.76 µs** |
+| one-hop `count(*)` | 26,800 µs | 3,450 µs | **4.86 µs** | — |
+| hop with `WHERE a.age > 50` | 28,600 µs | refused | — | **2.17 µs** |
+
+Once per frame (reported, not gated): nodes 3,600 µs, edges with the
+foreign key read once 4,550 µs, order index (a sort) 41,300 µs. The
+per-query figures include the frame check of every slab binding. The
+refusal after a source advance is tested (`an_order_index_refuses_a_stale_
+frame_and_a_plane_in_table_order`), not timed.
+
+So the 1–5 µs band holds where the query reads prepared state: a key range
+over an order index, or a hop over prepared planes. A whole-table fold
+stays bandwidth-bound (188 µs). Against the per-query paths, preparing once
+pays back after about 155 filter queries per frame (41,300 µs / 266 µs) and
+after 2 hop queries (4,550 µs / 3,450 µs).
+
+What this does not show: G2L across different source orders, a real Lance
+read path, or a slab count above 16.
+
 ## 3. Corrections to v2
 
 - **Bypass reading.** v2 counted four production paths as bypasses because
