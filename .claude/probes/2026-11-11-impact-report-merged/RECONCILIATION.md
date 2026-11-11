@@ -59,15 +59,16 @@ Decided in the merge, in neither PR as such:
   `AllInStore`) and the symbol or one of its callers is public. PR 2002 checked every stored
   crate only under `consumers_closed`; with undeclared consumers a stale stored crate that could
   call the symbol was not reported.
-- PR 2002 also raised the dynamic-call gap when the symbol is an impl or referenced and the
-  store has dynamic calls, even with an empty `graded.unknown`. That half is dropped.
-  `impact` computes `unknown` as the functions that reach a dynamic call, minus those already
-  confirmed or possible, under a condition that includes PR 2002's. So an empty `unknown` there
-  means every such function is already in the answer, and no position is unobserved. No fixture
-  store produced the case (searched: rev1, rev2, fnref, mixed, golden).
-
-Removed duplicates: PR 2002's `stored_crates`, `residuals_of_crate` and `artifact::fnv64_hex`
-(PR 2001's `crate_list`, `crate_residuals` and the contract `fnv1a` do the same jobs).
+- PR 2002's dynamic-call gap for an empty `graded.unknown` is KEPT (symbol is an impl or is
+  referenced, and the store holds a dynamic call). The first merged commit dropped it on the
+  argument that `impact` then already lists every function holding a dynamic call. That argument
+  is about positions only: a caller that is confirmed through a direct call says nothing about
+  where its dynamic call goes. Restored after the operator's review, with a fixture that isolates
+  the case (`a_dynamic_call_from_an_already_confirmed_caller_is_still_a_gap`): the gap is
+  `DynamicCalls { unknown: 0, store_dynamic_calls: 1 }`. The earlier note "no fixture store
+  produced the case" covered only the five committed stores; a four-row synthetic store does.
+- `TraitDispatch` (`graded.possible`) and `DynamicCalls` (`graded.unknown` or a reachable
+  dynamic call) stay two gaps. Neither PR had both.
 
 ## CLI
 
@@ -85,14 +86,15 @@ Removed duplicates: PR 2002's `stored_crates`, `residuals_of_crate` and `artifac
 
 ## Tests
 
-`tests/impact_coverage.rs` holds 31 tests on the merged types:
+`tests/impact_coverage.rs` holds 32 tests on the merged types:
 
 - 12 from PR 2001 and 14 from PR 2002, each with its original intent.
 - 3 narrowing tests: adding a declared consumer, declaring test targets, and removing an
   excluded region each remove their gap.
-- 2 added after the disable runs showed a guard without a test: a deleted source file is
+- 3 added after the disable runs showed a guard without a test: a deleted source file is
   `MissingSource` and not `StaleSource`; a declared consumer with no caller in the answer still
-  needs its own target declaration.
+  needs its own target declaration; a dynamic call from an already confirmed caller is still a
+  gap.
 
 One PR 2001 test changed what it queries. `a_changed_source_file_reports_stale_coverage` edited
 a `cg_lib` file and asked about `cg_app::run` with "nothing depends on `cg_app`" declared. Under
@@ -100,7 +102,20 @@ the scoped rule that edit cannot move the answer, so the test now asks about a `
 asserts the declared-scope case reports nothing for `cg_app::run`, and asserts the gap returns
 when the consumers are undeclared.
 
-Disable runs on the merged implementation: 22 guards, each patched with an asserted anchor,
-each red, each restored. The script is not committed; the guards are the `if`/`push` sites of
-every `Gap` variant, `has_rows`, both halves of the public frontier, `AllInStore`, the
-undeclared-consumer widening, and the declared-consumer insertion.
+Disable runs are reproducible: `python3 .claude/probes/2026-11-11-impact-report-merged/disable_runs.py`
+from the repository root, on a clean tree. It patches each of 23 guards out through an anchor
+that must occur exactly once, runs the test file, restores the source, and exits 0 only when
+every guard is red. The last run is `disable_runs.receipt.tsv` (23 guards, 0 not red), which
+names the tests each guard breaks.
+
+## Acceptance state (D-CODEGRAPH-WAVE0-ACCEPTANCE)
+
+- PR 2002's report-rs outputs against the merged API: see `report-rs-33/` beside this file when
+  present; otherwise an open blocker, stated in the PR body.
+- `member-tests` timeout: not caused by this change. On `main` the job took 19.7, 20.5, 21.1,
+  26.4 and 29.8 minutes over five runs against `timeout-minutes: 30`. PR 2001's head hit the
+  limit twice (30.3 and 30.2 minutes) with every step slower than on `main`, not one outlier; an
+  earlier head of the same PR passed in 24.7 and PR 2002 passed in 25.6. The job runs about
+  twenty `cargo test --manifest-path` steps, and the hydrate and surreal_container steps each
+  compile the arrow / datafusion / lance stack again. Raising the limit or splitting those steps
+  is a CI change for its own PR.

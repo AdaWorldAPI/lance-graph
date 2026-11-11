@@ -803,6 +803,45 @@ mod suite_b {
     /// unchanged tree has no gap; a missing files table and a missing source
     /// root are their own gaps, never "fresh".
     #[test]
+    fn a_dynamic_call_from_an_already_confirmed_caller_is_still_a_gap() {
+        // runner calls cb directly AND holds a dynamic call; cb is referenced, so that dynamic
+        // call may also target it. runner is confirmed through the direct call, which empties
+        // `graded.unknown` without resolving where the dynamic call goes.
+        let mut rows = LIB.to_vec();
+        rows.extend([
+            ("DEFINES", "lib::cb", "lib::cb"),
+            ("DEFINES", "lib::runner", "lib::runner"),
+            ("REFERENCES", "lib::entry", "lib::cb"),
+            ("CALLS_RESOLVED", "lib::runner", "lib::cb"),
+            ("UNRESOLVED_CALL", "lib::runner", "dynamic"),
+        ]);
+        let fx = Fixture::new(
+            "dyn_confirmed",
+            &[Krate {
+                name: "lib",
+                rows: &rows,
+                files: lib_crate().files,
+            }],
+        );
+        let g = fx.open();
+        let r = g.impact_report("lib::cb", &fx.scope(&["lib"])).unwrap();
+        assert!(has(&g, &r.graded.confirmed, "lib::runner"));
+        assert!(
+            empty(&r.graded.unknown),
+            "fixture no longer isolates the case"
+        );
+        assert!(
+            r.gaps.contains(&Gap::DynamicCalls {
+                unknown: 0,
+                store_dynamic_calls: 1
+            }),
+            "{:?}",
+            r.gaps
+        );
+        assert!(!r.closed_in_scope());
+    }
+
+    #[test]
     fn a_stale_source_revision_is_a_gap() {
         let fx = Fixture::new("stale", &[lib_crate()]);
         let g = fx.open();

@@ -162,8 +162,10 @@ pub enum Gap {
         possible: u32,
     },
     /// A dynamic call or function pointer may reach the symbol or something it reaches; its
-    /// target was not named by the compiler. Reported when `graded.unknown` is not empty: when
-    /// it is empty, every function holding a dynamic call is already confirmed or possible.
+    /// target was not named by the compiler. Also reported with an empty `graded.unknown` when
+    /// the symbol is an impl or is referenced and the store holds a dynamic call: the caller of
+    /// that call may already be in the answer for another reason, which does not resolve where
+    /// the dynamic call goes.
     DynamicCalls {
         /// Positions in `graded.unknown`.
         unknown: u32,
@@ -519,7 +521,7 @@ impl Codegraph {
         }
         let unknown = popcount(&graded.unknown);
         let store_dynamic_calls = self.coverage().dynamic_calls;
-        if unknown > 0 {
+        if unknown > 0 || (store_dynamic_calls > 0 && self.dynamic_may_reach(g)) {
             gaps.push(Gap::DynamicCalls {
                 unknown,
                 store_dynamic_calls,
@@ -557,5 +559,10 @@ impl Codegraph {
                 no_residuals_file,
             });
         }
+    }
+
+    /// Whether a dynamic call may reach `g`: `g` is an impl or referenced.
+    fn dynamic_may_reach(&self, g: Pos) -> bool {
+        has(self.impl_subjects(), g) || has(self.referenced(), g)
     }
 }
