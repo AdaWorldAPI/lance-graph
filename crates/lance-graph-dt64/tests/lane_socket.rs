@@ -408,21 +408,131 @@ fn a_binding_checked_against_another_store_with_another_basis_refuses() {
         .is_ok());
 }
 
-/// FINDING (L5d): the hot check does not re-hash the view, so a same-count
-/// reorder of the VIEW after the bind passes it when the source maps lanes by
-/// position (this fixture's `Source` does). `resolve` through the same view
-/// refuses. Re-bind after a basis change; L5d decides whether R2IL must.
+/// Closes the L5a FINDING
+/// `finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source`
+/// (plan gap G7): a same-count reorder of the view after the bind, at a bound
+/// position, is refused by the hot check even when the source maps by
+/// position.
 #[test]
-fn finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source() {
+fn a_view_reorder_at_a_bound_position_is_refused_under_a_positional_source() {
     let w = world();
     let mask = WideFieldMask::from_positions(&[0]);
     let b = bind(&w, &mask).unwrap();
     let mut swapped = View::three();
     swapped.0.swap(0, 1);
     assert!(w.store.resolve(&swapped, HYBRID, SchemaRev(1)).is_err());
-    assert!(b
-        .check(&w.store, &swapped, &w.source.frames, &w.source)
-        .is_ok());
+    let refusal = LaneRefusal::PredicateChanged {
+        class: HYBRID,
+        field: 0,
+    };
+    assert_eq!(
+        b.check(&w.store, &swapped, &w.source.frames, &w.source),
+        Err(refusal.clone())
+    );
+    w.source.borrows.set(0);
+    assert_eq!(
+        b.lane(&w.store, &swapped, &w.source.frames, &w.source, 0),
+        Err(refusal)
+    );
+    assert_eq!(w.source.borrows.get(), 0, "nothing is borrowed");
+}
+
+/// An unchanged view admits every bound lane, and the compare is by content,
+/// not by address: a separately built view with equal content passes too.
+#[test]
+fn an_unchanged_view_admits_every_bound_lane() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    assert_eq!(
+        b.check(&w.store, &w.view, &w.source.frames, &w.source),
+        Ok(())
+    );
+    let rebuilt = View::three();
+    assert_eq!(
+        b.check(&w.store, &rebuilt, &w.source.frames, &w.source),
+        Ok(())
+    );
+    let n = b
+        .borrow_all(&w.store, &rebuilt, &w.source.frames, &w.source)
+        .unwrap()
+        .count();
+    assert_eq!(n, 2);
+}
+
+/// A label is not identity (Decision J item 4): renaming a bound field's label
+/// leaves the binding admitted.
+#[test]
+fn a_label_only_rename_at_a_bound_position_admits() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0])).unwrap();
+    let mut renamed = View::three();
+    renamed.0[0].label = "Abteilung".to_string();
+    assert!(w.store.resolve(&renamed, HYBRID, SchemaRev(1)).is_ok());
+    assert_eq!(
+        b.check(&w.store, &renamed, &w.source.frames, &w.source),
+        Ok(())
+    );
+}
+
+/// The accepted residual: a reorder that leaves every bound position naming
+/// the same predicate is admitted hot. The bound position's meaning is
+/// unchanged, so the binding's mapping and interpretation hold; the
+/// whole-basis witness is checked at bind and at `resolve` (which refuses
+/// this view), never on the hot path.
+#[test]
+fn a_reorder_outside_the_bound_positions_admits_hot_and_is_refused_cold() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0])).unwrap();
+    let mut swapped = View::three();
+    swapped.0.swap(1, 2);
+    assert!(w.store.resolve(&swapped, HYBRID, SchemaRev(1)).is_err());
+    assert_eq!(
+        b.check(&w.store, &swapped, &w.source.frames, &w.source),
+        Ok(())
+    );
+}
+
+/// The refusal names the first bound position whose predicate changed.
+#[test]
+fn the_refusal_names_the_first_changed_bound_position() {
+    let w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+
+    let mut replaced = View::three();
+    replaced.0[1] = FieldRef::new("ad:manager", "Manager");
+    assert_eq!(
+        b.check(&w.store, &replaced, &w.source.frames, &w.source),
+        Err(LaneRefusal::PredicateChanged {
+            class: HYBRID,
+            field: 1,
+        })
+    );
+
+    let mut swapped = View::three();
+    swapped.0.swap(0, 1);
+    assert_eq!(
+        b.check(&w.store, &swapped, &w.source.frames, &w.source),
+        Err(LaneRefusal::PredicateChanged {
+            class: HYBRID,
+            field: 0,
+        })
+    );
+}
+
+/// The very view object the binding was made through, mutated in place, is
+/// refused: no address-identity shortcut.
+#[test]
+fn a_view_mutated_in_place_after_the_bind_is_refused() {
+    let mut w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0])).unwrap();
+    w.view.0.swap(0, 1);
+    assert_eq!(
+        b.check(&w.store, &w.view, &w.source.frames, &w.source),
+        Err(LaneRefusal::PredicateChanged {
+            class: HYBRID,
+            field: 0,
+        })
+    );
 }
 
 /// `borrow_all` hands out the source's own lanes, in field order, the same

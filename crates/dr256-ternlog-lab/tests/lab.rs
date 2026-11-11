@@ -5,7 +5,7 @@
 use dr256_ternlog_lab::*;
 use lance_graph_contract::class_view::WideFieldMask;
 use lance_graph_dt64::dr::Scope;
-use lance_graph_dt64::{LaneRefusal, Refusal};
+use lance_graph_dt64::{CoordSpace, LaneRefusal, Refusal};
 use lance_graph_mask_risc::LaneRef;
 
 const READER: Scope = Scope { id: 7 };
@@ -577,4 +577,136 @@ fn an_order_index_refuses_a_table_it_was_not_built_over() {
         right.count(&world, &after, &fresh, fresh.gt(50)).unwrap(),
         1
     );
+}
+
+#[test]
+fn a_plane_reads_as_256_selections_of_256_in_place() {
+    let world = World::new();
+    let people = People::new(70_000);
+    let table = people.table();
+    let prepared = prepare_nodes(&world, &table, &People::mask(&world), present, in_scope).unwrap();
+    let preds: [fn(usize) -> bool; 2] = [present, in_scope];
+    for s in 0..2usize {
+        for (p, pred) in preds.iter().enumerate() {
+            let plane = prepared.plane(s, p);
+            assert_eq!(plane.masks(), table.slab_rows(s).div_ceil(256));
+            assert_eq!(plane.masks(), [256, 18][s]);
+            for y in 0..plane.masks() {
+                let sel = plane.mask(y).unwrap();
+                assert_eq!(sel.row() as usize, y);
+                assert_eq!(sel.space(), table.space(s));
+                assert!(std::ptr::eq(
+                    sel.words().as_ptr(),
+                    plane.words[y * MASK_WORDS..].as_ptr()
+                ));
+                for x in 0..=255u8 {
+                    let i = y * 256 + x as usize;
+                    let want = i < table.slab_rows(s) && pred(s * SLAB_ROWS + i);
+                    assert_eq!(sel.has(x), want, "s={s} p={p} y={y} x={x}");
+                }
+            }
+            let sum: u64 = plane.selections().map(|m| u64::from(m.count())).sum();
+            assert_eq!(sum, plane.count());
+            assert!(sum > 0 && sum < table.slab_rows(s) as u64);
+        }
+    }
+}
+
+#[test]
+fn a_selection_past_the_plane_is_absent_and_the_last_one_is_short() {
+    let space = CoordSpace {
+        population: 7,
+        coordinates: 1,
+    };
+    let two = Plane::from_fn(space, 512, present);
+    assert_eq!(two.masks(), 2);
+    assert_eq!(two.mask(1).unwrap().words().len(), 4);
+    assert!(two.mask(2).is_none());
+    assert_eq!(two.selections().count(), 2);
+
+    let short = Plane::from_fn(space, 4_464, present);
+    assert_eq!(short.words.len(), 70);
+    assert_eq!(short.masks(), 18);
+    let last = short.mask(17).unwrap();
+    assert_eq!(last.words().len(), 2);
+    let want = (4_352..4_464).filter(|&i| present(i)).count() as u32;
+    assert!(want > 0);
+    assert_eq!(last.count(), want);
+    assert!(!last.has(200));
+    assert!(short.mask(18).is_none());
+
+    let full = Plane {
+        space,
+        words: vec![u64::MAX; 1_028],
+    };
+    assert_eq!(full.mask(255).unwrap().count(), 256);
+    assert!(full.mask(256).is_none());
+}
+
+#[test]
+fn a_selection_equals_the_wide_field_mask_of_the_same_positions() {
+    let space = CoordSpace {
+        population: 7,
+        coordinates: 1,
+    };
+    let rule = |y: usize, x: usize| match y {
+        0 => x < 64 && x.is_multiple_of(3),
+        1 => x.is_multiple_of(5),
+        2 => x >= 200,
+        _ => false,
+    };
+    let plane = Plane::from_fn(space, 1_024, |i| rule(i / 256, i % 256));
+    let positions = |y: usize| -> Vec<u8> {
+        (0..256usize)
+            .filter(|&x| rule(y, x))
+            .map(|x| x as u8)
+            .collect()
+    };
+    let masks: Vec<WideFieldMask> = (0..4)
+        .map(|y| WideFieldMask::from_positions(&positions(y)))
+        .collect();
+    for (y, mask) in masks.iter().enumerate() {
+        let sel = plane.mask(y).unwrap();
+        assert!(sel.same_bits(mask), "row {y}");
+        assert_eq!(sel.count(), mask.count(), "row {y}");
+    }
+    let r0 = plane.mask(0).unwrap();
+    assert_eq!(masks[0].words().len(), 1);
+    assert_eq!(r0.words().len(), 4);
+    assert_eq!(plane.mask(1).unwrap().words(), masks[1].words());
+    let r3 = plane.mask(3).unwrap();
+    assert!(r3.is_empty());
+    assert!(r3.same_bits(&WideFieldMask::EMPTY));
+
+    assert!(!r0.same_bits(&masks[0].clone().with(100)));
+    let p1 = positions(1);
+    assert!(!plane
+        .mask(1)
+        .unwrap()
+        .same_bits(&WideFieldMask::from_positions(&p1[1..])));
+    assert!(!plane.mask(2).unwrap().same_bits(&WideFieldMask::EMPTY));
+    assert!(!r3.same_bits(&WideFieldMask::EMPTY.with(0)));
+}
+
+#[test]
+fn selections_carry_the_coordinate_space_of_their_plane() {
+    let world = World::new();
+    let people = People::new(2 * SLAB_ROWS);
+    let table = people.table();
+    let mask = People::mask(&world);
+    let prepared = prepare_nodes(&world, &table, &mask, present, in_scope).unwrap();
+    let index = OrderIndex::by_i32(&table, person::AGE, 99).unwrap();
+    let order = prepare_order(&world, &table, &mask, &index, present).unwrap();
+
+    let a = prepared.plane(0, 0).mask(3).unwrap();
+    let b = prepared.plane(1, 0).mask(3).unwrap();
+    assert_eq!(a.row(), b.row());
+    assert_eq!(a.space(), table.space(0));
+    assert_eq!(b.space(), table.space(1));
+    assert_ne!(a.space(), b.space());
+    assert_eq!(prepared.plane(0, 1).mask(3).unwrap().space(), a.space());
+
+    let o = order.plane(0).mask(3).unwrap();
+    assert_ne!(o.space(), a.space());
+    assert_eq!(o.space().population, 99 << 8);
 }

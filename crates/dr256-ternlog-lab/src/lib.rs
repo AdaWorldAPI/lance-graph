@@ -3,7 +3,7 @@
 //! ```text
 //! DT64   ClassView (the menu)            what a field means, in which order
 //! DR     WideFieldMask (the selection)   which fields: storage, compute, display
-//!        Plane (one per slab)            which rows: presence, selection, scope
+//!        Plane (one per slab)            which rows: 256 selections of 256, borrowed
 //!        RankMap (global -> local)       where a global id sits after compaction
 //! exec   mask-RISC                       ternlog(a, b, c) -> popcount, per slab
 //! ```
@@ -50,6 +50,12 @@ pub const SLAB_WORDS: usize = SLAB_ROWS / 64;
 pub const MAX_SLABS: usize = 256;
 /// `a & b & c` in the VPTERNLOG index convention.
 pub const AND3: u8 = 0x80;
+/// Positions of one selection: one row of a slab.
+pub const MASK_BITS: usize = 256;
+/// Words of one selection, the chunk count of a 256-position `WideFieldMask`.
+pub const MASK_WORDS: usize = MASK_BITS / 64;
+/// Selections a full slab plane holds.
+pub const SLAB_MASKS: usize = SLAB_ROWS / MASK_BITS;
 
 // ------------------------------------------------------------------ DT64
 
@@ -59,6 +65,8 @@ pub const PERSON: u32 = 0xD256_0001;
 pub const FRIEND_OF: u32 = 0xD257_0001;
 const PERSON_VIEW: ClassId = 0xD256;
 const FRIEND_VIEW: ClassId = 0xD257;
+
+pub mod order_store;
 
 /// Field positions of [`PERSON`].
 pub mod person {
@@ -357,6 +365,7 @@ impl LaneSource for SlabSource<'_, '_> {
 // ---------------------------------------------------------------- planes
 
 /// One mask plane over one slab, with the row order it is in.
+/// Read as 256 selections of 256 positions through [`Plane::mask`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plane {
     pub space: CoordSpace,
@@ -377,6 +386,88 @@ impl Plane {
 
     pub fn count(&self) -> u64 {
         self.words.iter().map(|w| u64::from(w.count_ones())).sum()
+    }
+
+    /// Selections this plane holds: one per 256 positions, the last one short
+    /// when the slab is.
+    pub fn masks(&self) -> usize {
+        self.words.len().div_ceil(MASK_WORDS)
+    }
+
+    /// Selection `row` of this plane, borrowed in place. `None` past the plane
+    /// or past row 255.
+    pub fn mask(&self, row: usize) -> Option<Selection<'_>> {
+        let at = u8::try_from(row).ok()?;
+        let lo = row * MASK_WORDS;
+        if lo >= self.words.len() {
+            return None;
+        }
+        let hi = (lo + MASK_WORDS).min(self.words.len());
+        Some(Selection {
+            space: self.space,
+            row: at,
+            words: &self.words[lo..hi],
+        })
+    }
+
+    /// Every selection, in row order.
+    pub fn selections(&self) -> impl Iterator<Item = Selection<'_>> + '_ {
+        (0..self.masks()).filter_map(|row| self.mask(row))
+    }
+}
+
+/// One reusable selection of a slab plane: 256 positions, borrowed from the
+/// plane's own words, with the row order it is in. The words are the chunks
+/// of a `WideFieldMask` over the same positions (chunk `k` = positions
+/// `64k..64k+63`); nothing is copied to read them.
+///
+/// A plane's last selection is short when the slab is: fewer than four
+/// words, and every position past the slab's rows reads absent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Selection<'p> {
+    space: CoordSpace,
+    row: u8,
+    words: &'p [u64],
+}
+
+impl<'p> Selection<'p> {
+    /// The row order the selection is in: its plane's.
+    pub fn space(&self) -> CoordSpace {
+        self.space
+    }
+
+    /// Which of the plane's selections this is.
+    pub fn row(&self) -> u8 {
+        self.row
+    }
+
+    /// The chunks, borrowed from the plane. At most [`MASK_WORDS`].
+    pub fn words(&self) -> &'p [u64] {
+        self.words
+    }
+
+    /// Is position `n` selected?
+    pub fn has(&self, n: u8) -> bool {
+        self.words
+            .get(usize::from(n) / 64)
+            .is_some_and(|w| w >> (n % 64) & 1 == 1)
+    }
+
+    /// Selected positions.
+    pub fn count(&self) -> u32 {
+        self.words.iter().map(|w| w.count_ones()).sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.words.iter().all(|&w| w == 0)
+    }
+
+    /// Whether `mask` selects exactly these positions, whatever width either
+    /// side stores. Reads both in place.
+    pub fn same_bits(&self, mask: &WideFieldMask) -> bool {
+        let other = mask.words();
+        (0..self.words.len().max(other.len()))
+            .all(|i| self.words.get(i).copied().unwrap_or(0) == other.get(i).copied().unwrap_or(0))
     }
 }
 

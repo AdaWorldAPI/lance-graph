@@ -6,7 +6,7 @@
 //! owner says, through [`LaneSource`], which of its own lanes holds a field
 //! and in whose row order. [`BindStore::bind_lanes`] joins that answer with
 //! the class route and the source frame into a [`LaneBinding`], which holds
-//! addresses only, never a value.
+//! addresses and the bound predicate identities, never a value.
 //!
 //! The class route and the frame are checked as a pair: the route against
 //! this store's own route log, the frame against the [`FrameStore`] that
@@ -131,8 +131,14 @@ pub enum LaneRefusal {
     /// The store binds the class over another basis than the one this binding
     /// was made against. A store never changes a bound class (D5), so this
     /// fires only when the binding is checked against ANOTHER store; it says
-    /// nothing about the view, which the hot check does not re-hash.
+    /// nothing about the view; a view that changed at a bound position is
+    /// `PredicateChanged`.
     StoreBasisMismatch { class: u32 },
+    /// The view names another predicate at a bound position than the one the
+    /// binding was made over. Compared per bound field by `predicate_iri`,
+    /// without hashing; a label-only rename does not fire it, and a change
+    /// at a position the binding did not bind does not either.
+    PredicateChanged { class: u32, field: u8 },
     /// The source maps the field to another lane than it did at bind.
     MappingChanged { field: u8 },
     /// The source no longer holds the lane.
@@ -148,7 +154,8 @@ impl From<Refusal> for LaneRefusal {
 }
 
 /// A validated set of lane addresses for one class under one route and one
-/// frame. Holds addresses only.
+/// frame. Holds addresses and, per bound field, the predicate identity it was
+/// bound over. Never a value.
 #[derive(Debug, Clone)]
 pub struct LaneBinding {
     class: u32,
@@ -159,6 +166,10 @@ pub struct LaneBinding {
     selection: CoordSpace,
     fields: WideFieldMask,
     lanes: Vec<(u8, LaneAddr)>,
+    /// Parallel to `lanes`: the `predicate_iri` each bound field had in the
+    /// witnessed basis at bind. An identity, never a value. The hot check
+    /// compares the view's field at each bound position against it.
+    predicates: Vec<Box<str>>,
     /// The witness of the basis the class was bound with when this binding
     /// was made: one `u128`, compared on the hot path without hashing.
     basis: crate::BasisDigest,
@@ -189,6 +200,7 @@ impl BindStore {
             .bound_basis(class)
             .ok_or(Refusal::UnknownClass(class))?;
         let mut lanes = Vec::with_capacity(req.fields.count() as usize);
+        let mut predicates = Vec::with_capacity(req.fields.count() as usize);
         for field in 0..=u8::MAX {
             if !req.fields.has(field) {
                 continue;
@@ -201,6 +213,7 @@ impl BindStore {
                 .ok_or(LaneRefusal::Unbound { class, field })?;
             admit_lane(field, &addr, req.scope, req.selection)?;
             lanes.push((field, addr));
+            predicates.push(Box::<str>::from(field_ref.predicate_iri.as_str()));
         }
         Ok(LaneBinding {
             class,
@@ -211,6 +224,7 @@ impl BindStore {
             selection: req.selection,
             fields: req.fields.clone(),
             lanes,
+            predicates,
             basis,
         })
     }
@@ -296,14 +310,15 @@ impl LaneBinding {
     /// Hot: the bind's checks again, without allocating and without hashing
     /// the basis. The frame against its store; the route against the store's
     /// CURRENT version (a re-route since the bind is refused); the store's
-    /// basis witness against the one recorded at bind (a `u128` compare); the
-    /// view's basis at the bound revision by revision and field count only;
-    /// and every lane against what the source maps now.
+    /// basis witness against the one recorded at bind (one `u128`); the
+    /// view's basis at the bound revision by revision and field count; each
+    /// bound position's `predicate_iri` against the one recorded at bind (a
+    /// string compare, no hashing); and every lane against what the source
+    /// maps now.
     ///
-    /// NOT checked here: that `view` still has the ordered predicates it had
-    /// at bind. A same-count reorder in the view after the bind is caught only
-    /// when the source maps lanes by predicate (`MappingChanged`); a
-    /// positional source passes it. Re-bind after any basis change.
+    /// NOT checked here: positions the binding did not bind. A same-count
+    /// change confined to unbound positions passes this check and is refused
+    /// by `BindStore::resolve`.
     pub fn check<V: ClassView + ?Sized, S: LaneSource>(
         &self,
         store: &BindStore,
@@ -314,18 +329,17 @@ impl LaneBinding {
         source_owns(frames, source)?;
         frames.check(&self.frame).map_err(LaneRefusal::Frame)?;
         current_route(store, self.route.position, self.class)?;
-        // Revision and count only: the ordered predicate witness was checked
-        // when the binding was made (bind_lanes resolves through the
-        // witnessed `resolve`), and re-hashing the basis here would put
-        // schema hashing on the hot path. A basis that changes order after
-        // the bind is caught below only when the source maps lanes by
-        // predicate (D-LANESOCK-3, `MappingChanged`); re-bind after any
-        // basis change. (D-DT64-7 L5d decides whether the R2IL arm re-binds.)
+        // Revision and count here: the whole-basis witness was checked when
+        // the binding was made (bind_lanes resolves through the witnessed
+        // `resolve`), and re-hashing the basis would put schema hashing on
+        // the hot path. The bound positions are compared below, each against
+        // the predicate recorded at bind, so a reorder that moves a bound
+        // field is refused even when the source maps lanes by position.
         let (fields, bound) = store.resolve_counted(view, self.class, self.rev)?;
         if bound != self.basis {
             return Err(LaneRefusal::StoreBasisMismatch { class: self.class });
         }
-        for (field, addr) in &self.lanes {
+        for ((field, addr), bound_iri) in self.lanes.iter().zip(&self.predicates) {
             let field = *field;
             let field_ref = fields
                 .get(usize::from(field))
@@ -342,6 +356,12 @@ impl LaneBinding {
                         field,
                     })
                 }
+            }
+            if field_ref.predicate_iri.as_str() != &**bound_iri {
+                return Err(LaneRefusal::PredicateChanged {
+                    class: self.class,
+                    field,
+                });
             }
             admit_lane(field, addr, self.scope, self.selection)?;
         }
