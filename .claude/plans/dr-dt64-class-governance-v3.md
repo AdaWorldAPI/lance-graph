@@ -19,6 +19,8 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D8 | Applications such as Odoo get a domain/classid on the left side. They do not take a technology digit. |
 | D10 | In short: `F###` is one polyglot address space of 4,096 addresses (16 × 256), meant mainly to give algebra its addresses. |
 | D11 | Rendering is always application-related. The domain::appid on the left carries it, so the render prefix and `FTMM` do not conflict. |
+| D12 | The rest of the right side is rendering, per application: `0x0000`–`0xEFFF`, 15 × 4,096 = 61,440 values, everything except `F###`. That is ample and needs no change. |
+| D13 | If the 4,096 behaviour addresses are ever used up, `E###` may be taken for behaviour as well. Not decided now; to be decided when it happens. |
 | D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
 Carried from earlier records and unchanged: the technology digits `F0`
