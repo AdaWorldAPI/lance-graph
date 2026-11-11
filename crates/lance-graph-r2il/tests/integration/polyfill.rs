@@ -535,3 +535,135 @@ fn a_wrong_runtime_arity_for_the_lens_is_refused_by_the_table() {
         }
     );
 }
+
+// ------------------------------------------- CG-BEH-1: method uses, read from the store
+
+/// The ordered algebra-word uses of method `id` of `class`, read through the
+/// store's public API only: `(ordinal, word, target, args)` per effect.
+fn method_uses(s: &BindStore, class: u32, id: u32) -> Vec<(usize, AlgebraRef, u8, Vec<Arg>)> {
+    let r = s.method_ref(class, MethodId(id)).unwrap();
+    let binding = s.admit(&r).unwrap();
+    binding
+        .effects
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (i, e.algebra, e.target, e.args.clone()))
+        .collect()
+}
+
+/// One TAB-separated row per effect: class, method, sig_rev, ordinal, lens,
+/// word, opcode, r2il_name, arity, target, args.
+fn uses_rows(s: &BindStore, class: u32, ids: &[u32]) -> Vec<String> {
+    let mut rows = Vec::new();
+    for &id in ids {
+        let r = s.method_ref(class, MethodId(id)).unwrap();
+        let sig_rev = s.admit(&r).unwrap().sig_rev.0;
+        for (ordinal, algebra, target, args) in method_uses(s, class, id) {
+            assert_eq!(
+                algebra.lens, POLYFILL_LENS,
+                "the test store declares only the polyfill lens"
+            );
+            let w = &POLYFILL[usize::from(algebra.word)];
+            let args = args
+                .iter()
+                .map(|a| match a {
+                    Arg::Field(n) => format!("F{n}"),
+                    Arg::Const(n) => format!("C{n}"),
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            rows.push(format!(
+                "0x{class:08X}\t{id}\t{sig_rev}\t{ordinal}\t0x{:08X}\t{}\t{}\t{}\t{}\t{target}\t{args}",
+                algebra.lens, algebra.word, w.opcode.0, w.aliases[0], w.arity
+            ));
+        }
+    }
+    rows
+}
+
+/// The uses of a registered method are readable from the store, in order,
+/// without preparing or running anything. A failure means the store's
+/// bindings, its word index, or the table positions disagree.
+#[test]
+fn cg_beh_method_uses_are_read_from_the_store_in_order() {
+    let (s, _v) = store(vec![sum_below(), by_quack_names(2, 5, Agg::Count)]);
+
+    let u1 = method_uses(&s, CLASS, SUM_BELOW);
+    assert_eq!(u1.len(), 2);
+    assert_eq!(u1[0].0, 0);
+    assert_eq!(u1[0].1.lens, POLYFILL_LENS);
+    assert_eq!(u1[0].1.word, pos("IntSLess"));
+    assert_eq!(u1[0].2, 3);
+    assert_eq!(u1[0].3, vec![Arg::Field(0), Arg::Const(5)]);
+    assert_eq!(u1[1].0, 1);
+    assert_eq!(u1[1].1.lens, POLYFILL_LENS);
+    assert_eq!(u1[1].1.word, pos("SUM"));
+    assert_eq!(u1[1].2, 4);
+    assert_eq!(u1[1].3, vec![Arg::Field(3), Arg::Field(1)]);
+    // Order is part of the answer.
+    assert_ne!(u1[0].1.word, u1[1].1.word);
+
+    let u2 = method_uses(&s, CLASS, 2);
+    assert_eq!(u2.len(), 2);
+    assert_eq!(u2[0].1.word, pos("Cmp::LtI32"));
+    assert_eq!(u2[1].1.word, pos("Agg::Count"));
+    // The Quack names are aliases of the same positions.
+    assert_eq!(pos("Cmp::LtI32"), pos("IntSLess"));
+    assert_eq!(pos("Agg::Count"), pos("PopCount"));
+
+    // The store's own indexes agree with the per-method reading.
+    let used = s.words_used(CLASS, POLYFILL_LENS).unwrap();
+    assert_eq!(
+        used,
+        WideFieldMask::from_positions(&[pos("IntSLess"), pos("SUM"), pos("PopCount")])
+    );
+    let word = |n: &str| AlgebraRef {
+        lens: POLYFILL_LENS,
+        word: pos(n),
+    };
+    assert_eq!(s.users_of(word("SUM")), vec![(CLASS, MethodId(SUM_BELOW))]);
+    // One class, methods in registration order.
+    assert_eq!(
+        s.users_of(word("IntSLess")),
+        vec![(CLASS, MethodId(1)), (CLASS, MethodId(2))]
+    );
+
+    // Silence twin: a word no method uses.
+    assert!(s.users_of(word("IntXor")).is_empty());
+    assert!(!used.has(pos("IntXor")));
+    assert!(used.has(pos("SUM")));
+
+    // A position outside the table has no arity.
+    assert_eq!(
+        s.arity(AlgebraRef {
+            lens: POLYFILL_LENS,
+            word: POLYFILL.len() as u8,
+        }),
+        None
+    );
+
+    let rows = uses_rows(&s, CLASS, &[SUM_BELOW, 2]);
+    assert_eq!(rows.len(), 4);
+    let cols: Vec<&str> = rows[0].split('\t').collect();
+    assert_eq!(cols.len(), 11);
+    assert_eq!(cols[7], "IntSLess");
+    assert_eq!(cols[10], "F0,C5");
+}
+
+/// Export for the CG-BEH-1 probe: with `CG_BEH_USES_OUT` set, writes the uses
+/// of the two registered methods as TSV. It asserts nothing by itself.
+#[test]
+fn cg_beh_writes_uses_tsv_when_asked() {
+    let Ok(path) = std::env::var("CG_BEH_USES_OUT") else {
+        return;
+    };
+    let (s, _v) = store(vec![sum_below(), by_quack_names(2, 5, Agg::Count)]);
+    let mut out = String::from(
+        "#cg-beh v1\n#schema class\tmethod\tsig_rev\tordinal\tlens\tword\topcode\tr2il_name\tarity\ttarget\targs\n",
+    );
+    for row in uses_rows(&s, CLASS, &[SUM_BELOW, 2]) {
+        out.push_str(&row);
+        out.push('\n');
+    }
+    std::fs::write(path, out).unwrap();
+}

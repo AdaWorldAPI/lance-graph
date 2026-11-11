@@ -1,0 +1,76 @@
+#cg-beh v1
+query	lance_graph_r2il::FoldDialect::call	-
+realizes	lance_graph_r2il::FoldDialect::call	860-863	NUMBER	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	NUMBER	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	864-886	LOAD	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	LOAD	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	887-903	VIA	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	VIA	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	904-974	INT_EQUAL	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	4	IntEqual	SOURCE_STRUCTURE	position in the POLYFILL table
+word	4	IntEqual	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	975-975	INT_LESS	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	INT_LESS	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	975-975	INT_LESS_EQUAL	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	INT_LESS_EQUAL	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	976-1018	INT_S_LESS	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	5	IntSLess	SOURCE_STRUCTURE	position in the POLYFILL table
+uses	0x7F0B0001	1	1	0	5	REGISTRATION	read from a BindStore through admit() in a test run
+uses	0x7F0B0001	2	1	0	5	REGISTRATION	read from a BindStore through admit() in a test run
+realizes	lance_graph_r2il::FoldDialect::call	1019-1082	INT_AND	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	6	IntAnd	SOURCE_STRUCTURE	position in the POLYFILL table
+word	6	IntAnd	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1086-1112	INT_OR	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	7	IntOr	SOURCE_STRUCTURE	position in the POLYFILL table
+word	7	IntOr	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1114-1140	INT_XOR	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	8	IntXor	SOURCE_STRUCTURE	position in the POLYFILL table
+word	8	IntXor	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1145-1162	INT_ADD	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	0	IntAdd	SOURCE_STRUCTURE	position in the POLYFILL table
+word	0	IntAdd	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1145-1162	INT_MULT	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	2	IntMult	SOURCE_STRUCTURE	position in the POLYFILL table
+word	2	IntMult	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1145-1162	INT_S_DIV	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	3	IntSDiv	SOURCE_STRUCTURE	position in the POLYFILL table
+word	3	IntSDiv	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1163-1175	INT_SUB	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	1	IntSub	SOURCE_STRUCTURE	position in the POLYFILL table
+word	1	IntSub	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1176-1183	POP_COUNT	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	10	PopCount	SOURCE_STRUCTURE	position in the POLYFILL table
+uses	0x7F0B0001	2	1	1	10	REGISTRATION	read from a BindStore through admit() in a test run
+realizes	lance_graph_r2il::FoldDialect::call	1195-1210	KEY_RUNS	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	16	KEY_RUNS	SOURCE_STRUCTURE	position in the POLYFILL table
+word	16	KEY_RUNS	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1214-1226	ANY	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	14	ANY	SOURCE_STRUCTURE	position in the POLYFILL table
+word	14	ANY	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1214-1226	ALL	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	15	ALL	SOURCE_STRUCTURE	position in the POLYFILL table
+word	15	ALL	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1227-1246	SUM	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	11	SUM	SOURCE_STRUCTURE	position in the POLYFILL table
+uses	0x7F0B0001	1	1	1	11	REGISTRATION	read from a BindStore through admit() in a test run
+realizes	lance_graph_r2il::FoldDialect::call	1247-1274	MIN	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	12	MIN	SOURCE_STRUCTURE	position in the POLYFILL table
+word	12	MIN	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1247-1274	MAX	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	13	MAX	SOURCE_STRUCTURE	position in the POLYFILL table
+word	13	MAX	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1275-1314	GROUP_SUM	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	GROUP_SUM	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	1315-1343	INT_NOT	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	9	IntNot	SOURCE_STRUCTURE	position in the POLYFILL table
+word	9	IntNot	no registered user in this uses file (store-scoped, not: unaffected)
+realizes	lance_graph_r2il::FoldDialect::call	1348-1357	RANGE	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	RANGE	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	1360-1368	KEEP	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	KEEP	not a word of lens 0xFFFFF000
+realizes	lance_graph_r2il::FoldDialect::call	1369-1369	*	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+opcode	*	not a word of lens 0xFFFFF000
+boundary	source evidence ends at the POLYFILL table; everything in 'uses' rows is DT64 registration evidence
+affected_methods	2
+affected_classes	0x7F0B0001
+coverage	PARTIAL	native lowering path (binding_native::prepare_native) not mapped; uses file covers one test store only; realizes is arm-level source structure, not a behavioural witness
