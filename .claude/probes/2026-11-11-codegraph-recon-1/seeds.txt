@@ -1,0 +1,16 @@
+# Seed NODES for the machine-recovered diagram (human-chosen; no edges). Symbols as the store names them.
+lance_graph_dt64::{BindStore}::register
+lance_graph_dt64::{BindStore}::insert
+lance_graph_dt64::{BindStore}::resolve
+lance_graph_dt64::{BindStore}::method_ref
+lance_graph_dt64::{BindStore}::admit
+lance_graph_dt64::{BindStore}::check_issuer
+lance_graph_dt64::lane::{BindStore}::bind_lanes
+lance_graph_dt64::lane::{LaneBinding}::check
+lance_graph_dt64::lane::{LaneBinding}::lane
+lance_graph_dt64::lane::{LaneBinding}::borrow_all
+lance_graph_dt64::lane::impl_Iterator_for_BoundLanes::next
+lance_graph_r2il::binding::prepare
+lance_graph_r2il::binding::run
+lance_graph_r2il::binding_native::prepare_native
+lance_graph_r2il::binding_native::run_native
