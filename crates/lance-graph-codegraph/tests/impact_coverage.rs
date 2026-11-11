@@ -123,7 +123,7 @@ fn empty(mask: &[u64]) -> bool {
     mask.iter().all(|&w| w == 0)
 }
 
-/// 1. A private symbol with no caller, in a crate whose every target was
+/// Case 1: A private symbol with no caller, in a crate whose every target was
 /// extracted, whose harvest left no residual and whose sources are unchanged:
 /// the empty answer is closed in scope. Anti-vacuity: `lib::used` does have a
 /// caller, so the impact query is live, not merely empty.
@@ -140,7 +140,7 @@ fn no_callers_in_a_fully_observed_scope_is_closed() {
     assert!(has(&g, &used.graded.confirmed, "lib::entry"));
 }
 
-/// 2. A public symbol with no observed caller: the masks stay exactly what
+/// Case 2: A public symbol with no observed caller: the masks stay exactly what
 /// `impact` returns (no fabricated unknown), and the missing external
 /// callers are a typed gap. `Coverage::no_known_gap()` is true for this
 /// store, and the report is still not closed: no-known-gap is not global
@@ -177,7 +177,7 @@ fn a_public_symbol_reports_its_unobserved_external_consumers() {
         .closed_in_scope());
 }
 
-/// 3. Test-target callers: with only the lib target extracted, the
+/// Case 3: Test-target callers: with only the lib target extracted, the
 /// test-only caller has no position, so the report names the missing
 /// targets. With the test target extracted (its rows present, declared ALL),
 /// the caller is confirmed and the gap disappears.
@@ -240,7 +240,7 @@ fn test_callers_absent_from_a_lib_extraction_are_a_gap() {
     assert_eq!(r.gaps, Vec::<Gap>::new());
 }
 
-/// 4. Unresolved dispatch: `lib::cb` is referenced (its address is taken) and
+/// Case 4: Unresolved dispatch: `lib::cb` is referenced (its address is taken) and
 /// `lib::runner` makes a call the compiler could not name, so a dynamic call
 /// may reach `cb`. Silence twin: `lib::used` is neither an impl nor
 /// referenced, so the same dynamic call is not a gap for it.
@@ -277,7 +277,7 @@ fn an_unresolved_dispatch_that_may_reach_the_symbol_is_a_gap() {
         .any(|x| matches!(x, Gap::UnresolvedDispatch { .. })));
 }
 
-/// 5. Stale source: a recorded file changed after extraction. Twins: the
+/// Case 5: Stale source: a recorded file changed after extraction. Twins: the
 /// unchanged tree has no gap; a missing files table and a missing source
 /// root are their own gaps, never "fresh".
 #[test]
@@ -324,7 +324,7 @@ fn a_stale_source_revision_is_a_gap() {
     );
 }
 
-/// 6. A truly missing symbol is not "no callers": it is `Missing`, never
+/// Case 6: A truly missing symbol is not "no callers": it is `Missing`, never
 /// closed, and says whether its crate was read at all.
 #[test]
 fn a_missing_symbol_is_missing_not_unaffected() {
@@ -349,7 +349,7 @@ fn a_missing_symbol_is_missing_not_unaffected() {
     ));
 }
 
-/// 7. Adding a consumer crate upgrades the answer: before, `lib::entry` has no
+/// Case 7: Adding a consumer crate upgrades the answer: before, `lib::entry` has no
 /// confirmed caller and the external callers are unobserved; after the `app`
 /// crate's compiler facts are stored, `app::main` is a confirmed position and
 /// the gap names `app` as an observed consumer. The gap stays until the
@@ -405,7 +405,7 @@ fn adding_a_consumer_crate_confirms_its_callers() {
     );
 }
 
-/// 8. An incomplete harvest of the owning crate (a residual, a missing
+/// Case 8: An incomplete harvest of the owning crate (a residual, a missing
 /// residuals file, or a PARTIAL crate row) is a gap: absent rows prove
 /// nothing. Twin: the same store with empty residuals has no such gap (test 1).
 #[test]
