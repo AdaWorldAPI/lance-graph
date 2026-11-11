@@ -72,7 +72,15 @@ whatever way the binding names:
   selections (criteria, methods, perspectives).
 
 A mask holds 256 positions and that cap stays; every reading is built from
-256-position masks. Which reading applies is never in the bits: the binding
+256-position masks. Because every reading is masks, every reading can use the same
+three-operand fold: one ternlog (any Boolean function of three masks, one
+instruction per word) plus a popcount, through `ndarray::simd`
+(`mask_ternlog`, `mask_ternlog_popcount`, `mask_ternlog_any`;
+`ndarray/src/simd_masking_ops.rs:577,673,734`). The PR 2010 lab already does
+it for the flat reading (presence × scope × selection, 188 µs at 1,000,000
+rows). The cube and 64 K × WHERE readings are untested. The one condition:
+the three operands share a coordinate space, which the binding checks before
+the fold, never the fold itself. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
 ## 1b. The binding store is already planned: the Quack Binding Store
