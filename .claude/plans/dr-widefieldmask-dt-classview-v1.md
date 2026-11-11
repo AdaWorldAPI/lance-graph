@@ -192,6 +192,13 @@ SQL, Cypher, SPARQL, XLOG, GraphBLAS and Arrow are compatibility surfaces
 over the shared coordinate substrate, not engines rebuilt beneath it; rows
 appear only at the boundary.
 
+Picture seven ("Holocube — 4D Semantic Machine") places behaviour as the
+fourth axis W over the plane What (x) × How (y), with Why (x, y) a function
+of the two, not an axis of its own. Behaviour reads `ON[WHERE](x, y) · WHEN ·
+DO`: the ON of a method is a WHERE over coordinates, a selection in DR terms,
+which is why `MethodBinding::on` / `reads` are `WideFieldMask`s held by the
+immutable method (G6).
+
 The third picture's `F###` list (F001 `ClassView::select`, F011
 `WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
 follow EXO-254 (F + technology digit + command byte) and are not minted here.
