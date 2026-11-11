@@ -24,23 +24,23 @@
 
 | grade | qualifier | statement | witness | revision |
 |---|---|---|---|---|
-| SOURCE_STRUCTURE |  | #422 changes 6 files: 3 Rust, all in example target(s) ['u64x64']; library Rust files changed: 0 | `ndarray:97654984da60..f279fe75f4a5` | `f279fe75f4a5` |
-| COMPILER_DERIVED |  | G1 capacity (arm_b): `arm_b::{ItemQuery<'s>}::max_quantities` reaches 35 functions (3 only via dispatch or a closure body); divisions reached: ["arm_b::{ItemQuery<'s>}::cook_ops"]; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | G1 capacity (arm_b): `arm_b::{ItemQuery<'s>}::network_capacity` reaches 27 functions (2 only via dispatch or a closure body); divisions reached: ["arm_b::{ItemQuery<'s>}::cook_ops"]; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | G6 CanCook (method): `method::execute_can_cook` reaches 57 functions (7 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_contract', 'lance_graph_dt64', 'lance_graph_mask_risc', 'lance_graph_relalg'] | `lance-graph:store` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | G6 CanCook (method): `method::{PreparedMethod<'s>}::prepare` reaches 49 functions (7 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_contract', 'lance_graph_dt64', 'lance_graph_mask_risc', 'lance_graph_relalg'] | `lance-graph:store` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | G6 CanCook (method): `method::{PreparedMethod<'s>}::run` reaches 12 functions (0 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | integer division on an executable path, in `arm_b::{ItemQuery<'s>}::cook_ops`: `(q + r.per_staff - 1) / r.per_staff` | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | mask-predicate threshold in `arm_b::{ItemQuery<'s>}::cook_ops`: `t: d * q` (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:235` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | mask-predicate threshold in `arm_b::{ItemQuery<'s>}::cook_ops`: `t: (q + r.per_staff - 1) / r.per_staff` (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
-| COMPILER_DERIVED |  | integer division at G6 method registration (`method::can_cook_guard`, reached from ['method::methods'], not from the G6 execution entry points): `(q + r.per_staff - 1) / r.per_staff` | `lance-graph:crates/foundry-parity-lab/src/method.rs:58` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | mask-predicate threshold in `method::can_cook_guard`: `d * q` (names no lane) | `lance-graph:crates/foundry-parity-lab/src/method.rs:55` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | mask-predicate threshold in `method::can_cook_guard`: `staff` (names no lane) | `lance-graph:crates/foundry-parity-lab/src/method.rs:59` | `c7151a1ecb03` |
-| COMPILER_DERIVED | POSSIBLE | reference arm `oracle::{Oracle}::network_capacity` reaches `oracle::{Oracle}::can_cook` through a closure body linked to its parent by Charon's name only: `fx::stock(s, k, self.restocked) / d` | `lance-graph:crates/foundry-parity-lab/src/oracle.rs:62` | `c7151a1ecb03` |
-| COMPILER_DERIVED | POSSIBLE | reference arm `arm_a::{Objects}::network_capacity` reaches `arm_a::{Objects}::can_cook` through a closure body linked to its parent by Charon's name only: `v / d` | `lance-graph:crates/foundry-parity-lab/src/arm_a.rs:75` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | mask-risc `Pred::GeI32 { lane: u16, t: i32 }` is `lane[i] >= t` with `t` a scalar `i32` | `lance-graph:crates/lance-graph-mask-risc/src/ir.rs:133` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | the executor passes `t` unchanged to `ndarray::simd::ge_i32_to_mask` | `lance-graph:crates/lance-graph-mask-risc/src/exec.rs:588` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | `ge_i32_to_mask` is the complement of `lt_i32_to_mask`, a compare of each lane value against the splatted threshold; no division | `ndarray:src/simd_masking_ops.rs:3449` | `f279fe75f4a5` |
+| SOURCE_STRUCTURE |  | #422 changes 6 files: 3 Rust, 3 in example target(s) ['u64x64']; library Rust files changed: 0; other Rust files changed: 0 | `ndarray:97654984da60..f279fe75f4a5` | `f279fe75f4a5` |
+| COMPILER_DERIVED |  | G1 capacity (arm_b): 'arm_b::{ItemQuery<'s>}::max_quantities' reaches 35 functions (3 only via dispatch or a closure body); divisions reached: ["arm_b::{ItemQuery<'s>}::cook_ops"]; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | G1 capacity (arm_b): 'arm_b::{ItemQuery<'s>}::network_capacity' reaches 27 functions (2 only via dispatch or a closure body); divisions reached: ["arm_b::{ItemQuery<'s>}::cook_ops"]; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | G6 CanCook (method): 'method::execute_can_cook' reaches 57 functions (7 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_contract', 'lance_graph_dt64', 'lance_graph_mask_risc', 'lance_graph_relalg'] | `lance-graph:store` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | G6 CanCook (method): 'method::{PreparedMethod<'s>}::prepare' reaches 49 functions (7 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_contract', 'lance_graph_dt64', 'lance_graph_mask_risc', 'lance_graph_relalg'] | `lance-graph:store` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | G6 CanCook (method): 'method::{PreparedMethod<'s>}::run' reaches 12 functions (0 only via dispatch or a closure body); divisions reached: none; other crates reached: ['lance_graph_mask_risc'] | `lance-graph:store` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | integer division on an executable path, in 'arm_b::{ItemQuery<'s>}::cook_ops': '(q + r.per_staff - 1) / r.per_staff' | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | mask-predicate threshold in 'arm_b::{ItemQuery<'s>}::cook_ops': 't: d * q' (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:235` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | mask-predicate threshold in 'arm_b::{ItemQuery<'s>}::cook_ops': 't: (q + r.per_staff - 1) / r.per_staff' (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
+| COMPILER_DERIVED |  | integer division at G6 method registration ('method::can_cook_guard', reached from ['method::methods'], not from the G6 execution entry points): '(q + r.per_staff - 1) / r.per_staff' | `lance-graph:crates/foundry-parity-lab/src/method.rs:58` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | mask-predicate threshold in 'method::can_cook_guard': 'd * q' (names no lane) | `lance-graph:crates/foundry-parity-lab/src/method.rs:55` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | mask-predicate threshold in 'method::can_cook_guard': 'staff' (names no lane) | `lance-graph:crates/foundry-parity-lab/src/method.rs:59` | `c7151a1ecb03` |
+| COMPILER_DERIVED | POSSIBLE | reference arm 'oracle::{Oracle}::network_capacity' reaches 'oracle::{Oracle}::can_cook' through a closure body linked to its parent by Charon's name only: 'fx::stock(s, k, self.restocked) / d' | `lance-graph:crates/foundry-parity-lab/src/oracle.rs:62` | `c7151a1ecb03` |
+| COMPILER_DERIVED | POSSIBLE | reference arm 'arm_a::{Objects}::network_capacity' reaches 'arm_a::{Objects}::can_cook' through a closure body linked to its parent by Charon's name only: 'v / d' | `lance-graph:crates/foundry-parity-lab/src/arm_a.rs:75` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | mask-risc 'Pred::GeI32 { lane: u16, t: i32 }' is 'lane[i] >= t' with 't' a scalar 'i32' | `lance-graph:crates/lance-graph-mask-risc/src/ir.rs:133` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | the executor passes 't' unchanged to 'ndarray::simd::ge_i32_to_mask' | `lance-graph:crates/lance-graph-mask-risc/src/exec.rs:588` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | 'ge_i32_to_mask' is the complement of 'lt_i32_to_mask', a compare of each lane value against the splatted threshold; no division | `ndarray:src/simd_masking_ops.rs:3449` | `f279fe75f4a5` |
 
 **Reachability**
 
@@ -80,7 +80,7 @@
 |---|---|---|---|---|
 | COMPILER_DERIVED |  | division assertion (zero and overflow) at this site | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
 | COMPILER_DERIVED |  | division assertion at G6 method registration | `lance-graph:crates/foundry-parity-lab/src/method.rs:58` | `c7151a1ecb03` |
-| SOURCE_STRUCTURE |  | `t: (q + r.per_staff - 1) / r.per_staff` (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
+| SOURCE_STRUCTURE |  | 't: (q + r.per_staff - 1) / r.per_staff' (names no lane) | `lance-graph:crates/foundry-parity-lab/src/arm_b.rs:245` | `c7151a1ecb03` |
 
 **Reachability**
 

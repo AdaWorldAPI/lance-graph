@@ -4,7 +4,7 @@
 //! ```text
 //! cargo run --release --example cg_query -- <store_dir> <src_root> symbols [SUBSTRING]
 //! cargo run --release --example cg_query -- <store_dir> <src_root> callers|callees|impact|refs SYMBOL
-//! cargo run --release --example cg_query -- <store_dir> <src_root> impact-report SYMBOL [--deps a,b] [--lib-only] [--no-freshness]
+//! cargo run --release --example cg_query -- <store_dir> <src_root> impact-report SYMBOL [--deps a,b] [--with-tests] [--no-freshness]
 //! ```
 //!
 //! Output is tab-separated, one fact per line. Every result line carries its
@@ -66,7 +66,7 @@ fn observed_files(g: &Codegraph) -> Vec<String> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() < 3 {
-        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | impact-report SYMBOL [--deps a,b] [--lib-only] [--no-freshness]");
+        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | impact-report SYMBOL [--deps a,b] [--with-tests] [--no-freshness]");
         return ExitCode::from(2);
     }
     let (store, src, cmd) = (
@@ -138,18 +138,27 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     if cmd == "impact-report" {
-        // impact-report SYMBOL [--deps a,b | --deps-unknown] [--lib-only] [--no-freshness]
-        // The scope flags declare what the rows cannot say; anything not declared is a gap.
+        // impact-report SYMBOL [--deps a,b] [--with-tests] [--no-freshness]
+        // The scope flags declare what the rows cannot say. Nothing is assumed: without
+        // `--with-tests` the store is taken to hold library targets only, and without `--deps`
+        // the dependents are undeclared. `--deps ""` declares that there are none.
         let Some(sym) = args.get(3) else {
             eprintln!("impact-report needs a SYMBOL");
             return ExitCode::from(2);
         };
         let rest = &args[4..];
         let flag = |f: &str| rest.iter().any(|a| a == f);
-        let deps_list: Vec<String> = rest
-            .iter()
-            .position(|a| a == "--deps")
-            .and_then(|i| rest.get(i + 1))
+        let deps_value = match rest.iter().position(|a| a == "--deps") {
+            None => None,
+            Some(i) => match rest.get(i + 1) {
+                Some(v) if !v.starts_with("--") => Some(v.as_str()),
+                _ => {
+                    eprintln!("--deps needs a value: a comma-separated list, or \"\" for none");
+                    return ExitCode::from(2);
+                }
+            },
+        };
+        let deps_list: Vec<String> = deps_value
             .map(|v| {
                 v.split(',')
                     .filter(|s| !s.is_empty())
@@ -159,12 +168,12 @@ fn main() -> ExitCode {
             .unwrap_or_default();
         let deps_ref: Vec<&str> = deps_list.iter().map(String::as_str).collect();
         let scope = ExtractionScope {
-            targets: if flag("--lib-only") {
-                Targets::LibraryOnly
-            } else {
+            targets: if flag("--with-tests") {
                 Targets::LibraryAndTests
+            } else {
+                Targets::LibraryOnly
             },
-            dependents: if rest.iter().any(|a| a == "--deps") {
+            dependents: if deps_value.is_some() {
                 Dependents::Declared(&deps_ref)
             } else {
                 Dependents::NotDeclared

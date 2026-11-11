@@ -33,6 +33,14 @@ REFERENCE_ARMS = ["oracle::{Oracle}::network_capacity", "arm_a::{Objects}::netwo
 CRATE = "foundry_parity_lab"
 PLAN = ".claude/plans/u64x64-llvm-probe-v1.md"
 DIV = ("DivisionByZero", "Overflow:Div")
+NL = b"\n"
+
+
+def fnv1a64(data):
+    h = 0xCBF29CE484222325
+    for b in data:
+        h = ((h ^ b) * 0x100000001B3) & 0xFFFFFFFFFFFFFFFF
+    return f"{h:016x}"
 
 
 def git(d, *a):
@@ -72,6 +80,19 @@ def main(argv):
     nd, lg_root = a.ndarray, Path(a.lg_src)
     lg_src = lg_root / "crates/foundry-parity-lab"
     risc = lg_root / "crates/lance-graph-mask-risc/src"
+    # The witnesses carry --lg-rev, so both inputs must be at it: the checkout (committed and
+    # uncommitted state of the two consumer crates), and the store, whose file list records the
+    # hash of every source file it was extracted from.
+    consumer = ["crates/foundry-parity-lab", "crates/lance-graph-mask-risc"]
+    if subprocess.run(["git", "-C", str(lg_root), "diff", "--quiet", a.lg_rev, "--", *consumer]).returncode != 0:
+        sys.exit(f"--lg-src differs from {a.lg_rev} in the consumer crates (other revision or local changes)")
+    listed = rows(f"{a.store}/{CRATE}.files.tsv")
+    if not listed:
+        sys.exit("the store has no file list; its extraction revision cannot be checked")
+    for f in listed:
+        src = lg_src / f["path"]
+        if not src.is_file() or fnv1a64(src.read_bytes()) != f["fnv64"]:
+            sys.exit(f"the store was not extracted from this source: {f['path']} differs")
     same_at_head = None
     if a.lg_head:
         same_at_head = subprocess.run(["git", "-C", str(lg_root), "diff", "--quiet", a.lg_rev, a.lg_head, "--",
@@ -134,25 +155,27 @@ def main(argv):
         pats = (rb"\bt:\s*([^,\n]+),", rb"SetExpr::i32\([^,]+,\s*Cmp::\w+,\s*([^)\n]+)\)")
         for pat in pats:
             for m in re.finditer(pat, span):
-                off = int(d["start"]) + m.start()
-                out.append((f"crates/foundry-parity-lab/{d['file']}:{body[:off].count(b'\n') + 1}",
+                line = body[: int(d["start"]) + m.start()].count(NL) + 1
+                out.append((f"crates/foundry-parity-lab/{d['file']}:{line}",
                             m.group(1).decode().strip(), b"lane" in m.group(1)))
         return sorted(out, key=lambda x: int(x[0].rsplit(":", 1)[1]))
 
     def reach(root):
-        seen, stack, poss = set(), [(root, False)], set()
+        # Visited per (symbol, possible?) so a dispatch or closure visit cannot hide a later
+        # resolved-call path. A symbol is possible-only when no definite path reaches it.
+        visited, stack = {(root, False)}, [(root, False)]
         while stack:
             x, p = stack.pop()
             nxt = [(c, p) for c in callees.get(x, ())]
             nxt += [(i, True) for t in may.get(x, ()) for i in impls.get(t, ())]
             nxt += [(c, True) for c in owned.get(x, ())]
-            for c, pp in nxt:
-                if c not in seen:
-                    seen.add(c)
-                    if pp:
-                        poss.add(c)
-                    stack.append((c, pp))
-        return seen | {root}, poss
+            for state in nxt:
+                if state not in visited:
+                    visited.add(state)
+                    stack.append(state)
+        definite = {x for x, p in visited if not p}
+        seen = {x for x, _ in visited}
+        return seen, seen - definite
 
     def short(s):
         return s.split("::", 1)[1].split("::{impl")[0]
@@ -163,15 +186,17 @@ def main(argv):
     w_src = lambda st, wit: {"grade": "SOURCE_STRUCTURE", "statement": st, "witness": wit, "repo": "AdaWorldAPI/ndarray",
                              "revision": a.head, "tool": "git"}
 
-    ev, exec_divs, confirmed, possible = [], set(), [], []
-    ev.append(w_src(f"#422 changes {len(changed)} files: {len(rust)} Rust, all in example target(s) "
-                    f"{sorted({n for n in in_example.values() if n})}; library Rust files changed: {len(lib_rust)}",
+    ev, exec_divs, confirmed, possible, missing_entry = [], set(), [], [], []
+    ev.append(w_src(f"#422 changes {len(changed)} files: {len(rust)} Rust, {sum(1 for n in in_example.values() if n)} in example target(s) "
+                    f"{sorted({n for n in in_example.values() if n})}; library Rust files changed: {len(lib_rust)}; "
+                    f"other Rust files changed: {len(other_rust)}",
                     f"{a.base[:12]}..{a.head[:12]}"))
     for label, roots in ENTRY_POINTS.items():
         for root in roots:
             full = f"{CRATE}::{root}"
             if full not in defs:
                 ev.append(w_comp(f"{label}: `{root}` is not in the store", "-"))
+                missing_entry.append(f"{label}: {root}")
                 continue
             seen, poss = reach(full)
             hits = sorted(x for x in seen if x in divs)
@@ -224,7 +249,8 @@ def main(argv):
     ev.append(w_src("`ge_i32_to_mask` is the complement of `lt_i32_to_mask`, a compare of each lane value against "
                     "the splatted threshold; no division",
                     f"src/simd_masking_ops.rs:{locate(kern, 'pub fn ge_i32_to_mask(')}"))
-    unknown = [{"what": "lance-graph-mask-risc beyond `GeI32`", "why": "not in the Charon store; only the `GeI32` evaluation path was read, as source"},
+    unknown = [{"what": f"entry point {m}", "why": "not in the store; its path was not examined"} for m in missing_entry]
+    unknown += [{"what": "lance-graph-mask-risc beyond `GeI32`", "why": "not in the Charon store; only the `GeI32` evaluation path was read, as source"},
                {"what": "G1 per-store min/argmin (limiting resource)", "why": "not shipped: open in EXO-227 (P1b); this review covers shipped code only"},
                {"what": "production recipe divisor distribution", "why": "no production source; the only population is the synthetic fixture"},
                {"what": f"{sum(len(v) for v in owned.values())} closure bodies in the crate", "why": "linked to their parent by Charon's naming only (POSSIBLE), not by a call row"}]
@@ -253,8 +279,14 @@ def main(argv):
                    + (" (G6: `d * q`, built at method registration)" if g6_compares_dq else "")
                    + ", and mask-risc evaluates `GeI32` as a plain compare. Not covered: mask-risc predicates other "
                    "than `GeI32`, and G1's unshipped per-store min/argmin step (EXO-227 P1b).")
-                  if not stock_quotient_on_exec and not lib_rust else
-                  "The per-row quotient may reach the consumer; see evidence."),
+                  if not stock_quotient_on_exec and not lib_rust and not other_rust and not missing_entry else
+                  "Not established: "
+                  + "; ".join(x for x in (
+                      "a stock quotient is on an executable path" if stock_quotient_on_exec else "",
+                      f"library Rust changed ({len(lib_rust)} files)" if lib_rust else "",
+                      f"Rust changed outside the library and the example targets: {other_rust}" if other_rust else "",
+                      f"entry points missing from the store, so their paths were not examined: {missing_entry}" if missing_entry else "",
+                  ) if x) + ". See evidence."),
         "evidence": ev,
         "reachability": {"confirmed": confirmed, "possible": possible, "unknown": unknown},
         "coverage": {"consumer_store": f"{CRATE} library target", "consumer_residuals": len(residuals),

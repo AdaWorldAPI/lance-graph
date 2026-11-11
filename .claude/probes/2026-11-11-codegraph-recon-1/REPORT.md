@@ -261,6 +261,11 @@ the artifacts this report was built from.
 
 **Finding:** the store is reproducible in content but not location-independent. Paths of generated
 files and the LLBC location are recorded verbatim, so the same input at a different `CARGO_TARGET_DIR`
-gives a different digest. A consumer that compares stores by digest (refresh, or the freshness check)
-would treat them as different. Owner: EXO-229 (ruff_charon could record generated files relative to
+gives a different digest. Two consumers are affected differently:
+- **Refresh** compares store digests, so it treats the two stores as different.
+- **The freshness check** (`impact_report`) does not compare digests. It hashes each file listed in
+  `files.tsv`. A recorded path that no longer exists is reported as `MissingSource`; a path that still
+  exists with the same content gives no gap, whatever the store digest.
+
+Owner: EXO-229 (ruff_charon could record generated files relative to
 `OUT_DIR`).

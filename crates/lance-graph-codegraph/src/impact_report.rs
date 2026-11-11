@@ -112,6 +112,12 @@ pub enum CoverageGap {
         /// The crate name.
         krate: String,
     },
+    /// A store crate's `<crate>.files.tsv` has a row without `path` or `fnv64`, so its sources
+    /// could not be compared.
+    InvalidFileList {
+        /// The crate name.
+        krate: String,
+    },
     /// No source root was given, so freshness was not checked.
     FreshnessNotChecked,
 }
@@ -160,7 +166,9 @@ impl Codegraph {
         scope: &ExtractionScope<'_>,
     ) -> Result<ImpactAnswer, QueryRefusal> {
         let observed = self.crate_list();
-        let Some(pos) = self.pos(symbol) else {
+        // A position alone is not enough: it survives a refresh that removed every row.
+        let pos = self.pos(symbol).filter(|_| self.has_rows(symbol));
+        let Some(pos) = pos else {
             return Ok(ImpactAnswer::SymbolNotInStore {
                 symbol: symbol.to_string(),
                 observed: observed.into_iter().map(|(c, _)| c).collect(),
@@ -274,8 +282,10 @@ fn freshness(store: &Path, root: &Path, observed: &[(String, RunStatus)]) -> Vec
             });
             continue;
         };
+        let mut invalid = false;
         for row in rows {
             let (Some(path), Some(want)) = (row.get("path"), row.get("fnv64")) else {
+                invalid = true;
                 continue;
             };
             match std::fs::read(root.join(path)) {
@@ -287,6 +297,11 @@ fn freshness(store: &Path, root: &Path, observed: &[(String, RunStatus)]) -> Vec
                 }
                 Ok(_) => {}
             }
+        }
+        if invalid {
+            gaps.push(CoverageGap::InvalidFileList {
+                krate: krate.clone(),
+            });
         }
     }
     if !stale.is_empty() {

@@ -553,7 +553,7 @@
    "input": "ReviewEvidencePacket",
    "tool": "crai_report.py"
   },
-  "scope": "same, packet from an older head"
+  "scope": "the same scope review, from a packet built at an older head"
  },
  "run": {
   "reasons": [

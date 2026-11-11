@@ -11,7 +11,7 @@ Nothing here posts PR comments, applies fixes, uploads anything or blocks CI.
 | piece | where | what it does |
 |---|---|---|
 | coverage-aware impact | `crates/lance-graph-codegraph/src/impact_report.rs` | `Codegraph::impact_report(symbol, &ExtractionScope)` → `ImpactAnswer`: the unchanged `Codegraph::impact` mask plus typed `CoverageGap`s |
-| CLI | `cg_query … impact-report SYMBOL [--deps a,b] [--lib-only] [--no-freshness]` | the same, for agents |
+| CLI | `cg_query … impact-report SYMBOL [--deps a,b] [--with-tests] [--no-freshness]` | the same, for agents |
 | report generator | `crai_report.py` | review input → `review.md` + `review.ndjson` |
 | #422 evidence builder | `build_q8_evidence.py` | git + Cargo + Charon store → review input |
 | examples | `examples/lance-graph-2000/`, `examples/ndarray-422/` | inputs and rendered reports |
@@ -25,7 +25,8 @@ rows cannot carry are declared by the caller in `ExtractionScope`:
 - which crates depend on the symbol's crate;
 - where the source is, for freshness.
 
-Anything not declared becomes a gap, never an assumption.
+Anything the caller leaves undeclared becomes a gap. What the caller does declare is trusted: if a
+real consumer is left out of the dependents list, the report cannot notice.
 
 | case | test (`tests/impact_coverage.rs`, on real `rev1` Charon facts) | disable run |
 |---|---|---|
@@ -38,6 +39,9 @@ Anything not declared becomes a gap, never an assumption.
 | consumer crate added: gap → CONFIRMED | `adding_the_consumer_crate_upgrades_missing_coverage_to_confirmed` | red |
 | extraction residuals in a `COMPLETE` crate | `extraction_residuals_are_a_coverage_gap` | red |
 | crate read without a residuals file | `a_missing_residuals_file_is_a_coverage_gap` | red |
+| crate read without a CRATE row | `a_crate_without_a_crate_row_is_partial_not_absent` | red |
+| symbol whose rows a refresh removed | `a_symbol_removed_by_a_refresh_is_not_found` | red |
+| file-list row without a hash | `a_malformed_file_list_row_is_a_freshness_gap` | red |
 
 `ImpactReport::no_known_gap()` is documented as "no known gap within the declared scope", never as
 completeness. That matches `diag::Coverage::no_known_gap`.
@@ -72,6 +76,9 @@ Records keep CodeRabbit's public `--agent` fields (`fileName`, `comment`, `sever
 | repetition is not a second witness (RS-F08) | `test_repetition_is_not_a_second_witness` | red |
 | a stale finding blocks a clean verdict (RS-F04) | `test_a_stale_finding_blocks_a_clean_verdict` | red |
 | a resolved record never absorbs an open one (RS-F08) | `test_a_resolved_record_does_not_absorb_an_open_one` | red |
+| a different line span is a separate site (RS-F08) | `test_a_different_line_span_is_a_separate_site` | red |
+| a run on another head is named in the verdict (RS-F04) | `test_a_run_on_another_head_is_named_in_the_verdict` | red |
+| header fields are data, never structure (RS-F09) | `test_header_fields_are_data_never_structure` | red |
 | agent text is quoted, never structure (RS-F09) | `test_agent_text_is_quoted_never_structure` | red |
 | withdrawn keeps its record (RS-F10) | `test_withdrawn_keeps_its_record` | red |
 

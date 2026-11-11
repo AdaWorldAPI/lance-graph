@@ -1,7 +1,7 @@
 # Review: AdaWorldAPI/lance-graph #2000
 
 - **Head:** `90fc5a76c12714d3bd00bcc5be96125aef74d89f` (base `0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb`)
-- **Scope:** same, packet from an older head
+- **Scope:** the same scope review, from a packet built at an older head
 - **Reviewer:** {"input": "ReviewEvidencePacket", "tool": "crai_report.py"}
 - **Run:** `PARTIAL` (library targets only; consumer crates not in store; no test executed)
 - **Verdict:** INCOMPLETE REVIEW: run PARTIAL; not a defect verdict (0 open finding(s), 2 stale, not revalidated at the head)
@@ -23,8 +23,8 @@
 
 | grade | qualifier | statement | witness | revision |
 |---|---|---|---|---|
-| COMPILER_DERIVED |  | `lance_graph_dt64::lane::{LaneBinding}::borrow_all` calls `lance_graph_dt64::lane::{LaneBinding}::check` | `lance-graph:crates/lance-graph-dt64/src/lane.rs:386` | `0c9ae23ac6a2` (not current) |
-| COMPILER_DERIVED |  | `lance_graph_dt64::lane::{LaneBinding}::lane` calls `lance_graph_dt64::lane::{LaneBinding}::check` | `lance-graph:crates/lance-graph-dt64/src/lane.rs:360` | `0c9ae23ac6a2` (not current) |
+| COMPILER_DERIVED |  | 'lance_graph_dt64::lane::{LaneBinding}::borrow_all' calls 'lance_graph_dt64::lane::{LaneBinding}::check' | `lance-graph:crates/lance-graph-dt64/src/lane.rs:386` | `0c9ae23ac6a2` (not current) |
+| COMPILER_DERIVED |  | 'lance_graph_dt64::lane::{LaneBinding}::lane' calls 'lance_graph_dt64::lane::{LaneBinding}::check' | `lance-graph:crates/lance-graph-dt64/src/lane.rs:360` | `0c9ae23ac6a2` (not current) |
 
 **Reachability**
 

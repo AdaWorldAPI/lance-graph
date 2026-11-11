@@ -1029,13 +1029,32 @@ impl Codegraph {
     /// The extractor status of `krate`, from its CRATE row.
     /// Every stored crate with its extractor status, sorted by name.
     pub fn crate_list(&self) -> Vec<(String, RunStatus)> {
-        let mut out: Vec<(String, RunStatus)> = self
-            .crates
-            .iter()
-            .map(|(&k, &v)| (self.symbols.name(k).to_string(), v))
+        // Every crate that was read, not only those with a CRATE row: a rows file without one
+        // says nothing about its own completeness, so it is `Partial`.
+        let mut ids: Vec<u32> = self.crates.keys().copied().collect();
+        ids.extend(self.lanes.crates());
+        ids.sort_unstable();
+        ids.dedup();
+        let mut out: Vec<(String, RunStatus)> = ids
+            .into_iter()
+            .map(|k| {
+                let status = self.crates.get(&k).copied().unwrap_or(RunStatus::Partial);
+                (self.symbols.name(k).to_string(), status)
+            })
             .collect();
         out.sort_by(|a, b| a.0.cmp(&b.0));
         out
+    }
+
+    /// Whether any row currently names `symbol` as subject, object or dispatch target. A
+    /// position outlives the rows that created it (a refresh never renumbers), so a position
+    /// alone does not show the symbol is still in the artifacts.
+    pub(crate) fn has_rows(&self, symbol: &str) -> bool {
+        let Some(id) = self.symbols.get(symbol) else {
+            return false;
+        };
+        let l = &self.lanes;
+        l.subject.contains(&id) || l.object.contains(&id) || l.may_target.contains(&id)
     }
 
     /// The residuals read beside `krate`'s rows: `None` when the crate is not in the store,

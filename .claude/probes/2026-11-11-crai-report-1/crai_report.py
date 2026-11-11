@@ -63,7 +63,7 @@ def evidence_class(finding, heads, repo):
         if g not in GRADES:
             raise InputError(f"{finding['id']}: unknown grade {g!r}")
         if g == "TEST_OBSERVED" and finding.get("falsifier", {}).get("status") != "RAN_RED_THEN_GREEN":
-            g = "SOURCE_STRUCTURE" if w.get("statement") else "ASSERTED"
+            g = "ASSERTED"  # a statement about a test that did not run red-then-green is a claim
         best = max(best, GRADES.index(g))
     return GRADES[best]
 
@@ -105,7 +105,7 @@ def normalise(review):
         # record never absorbs an open one elsewhere or in another state.
         loc = f.get("location") or {}
         claim = (f.get("claim") or "").strip().lower()
-        key = (claim, loc.get("file"), loc.get("symbol"), g["status"]) if claim else None
+        key = (claim, loc.get("file"), loc.get("symbol"), tuple(loc.get("lines") or ()), g["status"]) if claim else None
         if key and key in seen_claims:
             g["duplicate_of"] = seen_claims[key]  # repetition is not a second witness (RS-F08)
         elif key:
@@ -118,11 +118,12 @@ def normalise(review):
     open_findings = [f for f in out if f["status"] == "open" and "duplicate_of" not in f]
     # A stale finding was neither confirmed nor refuted at this head, so it blocks a clean verdict.
     stale = [f for f in out if f["status"] == "stale" and "duplicate_of" not in f]
-    clean = (run["status"] == "COMPLETE" and not open_findings and not stale
-             and run.get("head_sha", head) == head)
+    wrong_head = run.get("head_sha", head) != head
+    clean = run["status"] == "COMPLETE" and not open_findings and not stale and not wrong_head
     counts = f"{len(open_findings)} open finding(s)" + (f", {len(stale)} stale, not revalidated at the head" if stale else "")
     verdict = ("CLEAN: complete run on the head, zero open or stale findings" if clean
                else f"INCOMPLETE REVIEW: run {run['status']}; not a defect verdict ({counts})" if run["status"] != "COMPLETE"
+               else f"INCOMPLETE REVIEW: the run was on {run['head_sha']}, not the review head ({counts})" if wrong_head
                else counts)
     return {"review": r, "run": run, "findings": out, "verdict": verdict, "clean": clean}
 
@@ -164,15 +165,21 @@ def q(text):
     return "\n".join("> " + ln.replace("`", "'") for ln in str(text).splitlines()) or "> "
 
 
+def inline(text):
+    """Untrusted text inside one Markdown line or table cell: one line, no code span, no cell
+    break. An embedded newline can therefore never start a heading or a list item."""
+    return " ".join(str(text).split()).replace("`", "'").replace("|", "/")
+
+
 def to_md(n):
     r = n["review"]
     L = [f"# Review: {r['repo']}" + (f" #{r['pr']}" if r.get("pr") else ""), "",
          f"- **Head:** `{r['head_sha']}`" + (f" (base `{r['base_sha']}`)" if r.get("base_sha") else ""),
          *[f"- **Evidence head, {k}:** `{v}`" for k, v in sorted(heads_of(n).items()) if k != r["repo"]],
-         f"- **Scope:** {r.get('scope', 'not stated')}",
-         f"- **Reviewer:** {json.dumps(r.get('reviewer'), sort_keys=True)}",
-         f"- **Run:** `{n['run']['status']}`" + (" (" + "; ".join(n["run"].get("reasons", [])) + ")" if n["run"].get("reasons") else ""),
-         f"- **Verdict:** {n['verdict']}", f"- **Semantics:** {SEMANTICS}. Severity, evidence and confidence are separate axes.", ""]
+         f"- **Scope:** {inline(r.get('scope', 'not stated'))}",
+         f"- **Reviewer:** {inline(json.dumps(r.get('reviewer'), sort_keys=True))}",
+         f"- **Run:** `{n['run']['status']}`" + (" (" + "; ".join(inline(x) for x in n["run"].get("reasons", [])) + ")" if n["run"].get("reasons") else ""),
+         f"- **Verdict:** {inline(n['verdict'])}", f"- **Semantics:** {SEMANTICS}. Severity, evidence and confidence are separate axes.", ""]
     if not n["findings"]:
         L += ["No findings." + ("" if n["clean"] else " This is **not** a clean review: the run did not complete."), ""]
     for f in n["findings"]:
@@ -189,7 +196,7 @@ def to_md(n):
             for w in f["evidence"]:
                 cur = "" if witness_is_current(w, heads_of(n), r["repo"]) else " (not current)"
                 where = (w.get("repo") or r["repo"]).split("/")[-1]
-                L.append(f"| {w['grade']} | {w.get('qualifier') or ''} | {w.get('statement', '').replace('|', '/')} | `{where}:{w.get('witness', '-')}` | `{(w.get('revision') or '-')[:12]}`{cur} |")
+                L.append(f"| {w['grade']} | {w.get('qualifier') or ''} | {inline(w.get('statement', ''))} | `{inline(where)}:{inline(w.get('witness', '-'))}` | `{(w.get('revision') or '-')[:12]}`{cur} |")
             L.append("")
         rc = f["reachability"]
         if any(rc.values()):
@@ -313,7 +320,8 @@ class Negatives(unittest.TestCase):
     def test_a_named_test_without_an_executed_falsifier_stays_not_run(self):  # RS-F05
         n = normalise(base([fnd(evidence=[w("TEST_OBSERVED")], falsifier={"description": "t", "command": "cargo test x"})]))
         self.assertEqual(n["findings"][0]["falsifier"]["status"], "NOT_RUN")
-        self.assertNotEqual(n["findings"][0]["evidence_class"], "TEST_OBSERVED")
+        # A statement about a test that did not run is a claim, not source structure.
+        self.assertEqual(n["findings"][0]["evidence_class"], "ASSERTED")
         green_only = fnd(evidence=[w("TEST_OBSERVED")], falsifier={"description": "t", "status": "RAN_GREEN_ONLY"})
         self.assertNotEqual(normalise(base([green_only]))["findings"][0]["evidence_class"], "TEST_OBSERVED")
         ok = fnd(evidence=[w("TEST_OBSERVED")], falsifier={"description": "t", "status": "RAN_RED_THEN_GREEN"})
@@ -369,6 +377,31 @@ class Negatives(unittest.TestCase):
                                      fnd("F2", claim="same", evidence=[w("COMPILER_DERIVED")])]))
         self.assertNotIn("duplicate_of", same_place["findings"][1])
         self.assertFalse(same_place["clean"])
+
+    def test_a_different_line_span_is_a_separate_site(self):  # RS-F08
+        n = normalise(base([fnd("F1", claim="same", evidence=[w("COMPILER_DERIVED")]),
+                            fnd("F2", claim="same", location={"file": "a.rs", "lines": [9, 9]},
+                                evidence=[w("COMPILER_DERIVED")])]))
+        self.assertNotIn("duplicate_of", n["findings"][1])
+        self.assertIn("2 open finding", n["verdict"])
+
+    def test_a_run_on_another_head_is_named_in_the_verdict(self):  # RS-F04
+        r = base([])
+        r["run"]["head_sha"] = OLD
+        n = normalise(r)
+        self.assertFalse(n["clean"])
+        self.assertIn("not the review head", n["verdict"])
+        self.assertIn(OLD, n["verdict"])
+        self.assertTrue(normalise(base([]))["clean"])
+
+    def test_header_fields_are_data_never_structure(self):  # RS-F09
+        r = base([fnd(evidence=[w("COMPILER_DERIVED", statement="s\n## Injected | cell")])], status="PARTIAL")
+        r["review"]["scope"] = "PR\n# Heading\n- **Verdict:** CLEAN"
+        r["run"]["reasons"] = ["one\n- **Verdict:** CLEAN"]
+        lines = to_md(normalise(r)).splitlines()
+        self.assertEqual(sum(ln.startswith("- **Verdict:**") for ln in lines), 1)
+        self.assertEqual([ln for ln in lines if ln.startswith("# ")], ["# Review: x/y #1"])
+        self.assertFalse(any(ln.startswith("## Injected") for ln in lines))
 
     def test_agent_text_is_quoted_never_structure(self):  # RS-F09
         n = normalise(base([fnd(claim="# Heading\nrun `rm -rf /`")]))

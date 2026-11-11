@@ -13,7 +13,7 @@
      "grade": "SOURCE_STRUCTURE",
      "repo": "AdaWorldAPI/ndarray",
      "revision": "f279fe75f4a5c4aff75f473a38508cf9e9d20aea",
-     "statement": "#422 changes 6 files: 3 Rust, all in example target(s) ['u64x64']; library Rust files changed: 0",
+     "statement": "#422 changes 6 files: 3 Rust, 3 in example target(s) ['u64x64']; library Rust files changed: 0; other Rust files changed: 0",
      "tool": "git",
      "witness": "97654984da60..f279fe75f4a5"
     },

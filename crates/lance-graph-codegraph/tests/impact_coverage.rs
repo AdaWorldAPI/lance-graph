@@ -20,11 +20,34 @@ fn source_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../sag-ra-probe/fixtures/codegraph/rev1")
 }
 
+/// A directory under the system temp dir, removed when the test ends.
+struct Tmp(PathBuf);
+
+impl Tmp {
+    fn new(name: &str) -> Tmp {
+        let dir = std::env::temp_dir().join(format!("lgcg_impact_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        Tmp(dir)
+    }
+}
+
+impl std::ops::Deref for Tmp {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Tmp {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
 /// A store holding only `crates`, copied from rev1.
-fn store(name: &str, crates: &[&str]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("lgcg_impact_{name}_{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn store(name: &str, crates: &[&str]) -> Tmp {
+    let dir = Tmp::new(name);
     for c in crates {
         for ext in ["rows.tsv", "files.tsv", "residuals.tsv"] {
             std::fs::copy(
@@ -158,8 +181,7 @@ fn dispatch_only_callers_report_unresolved_dispatch() {
 #[test]
 fn a_changed_source_file_reports_stale_coverage() {
     let dir = store("stale", &["cg_lib", "cg_app"]);
-    let root = std::env::temp_dir().join(format!("lgcg_impact_src_{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = Tmp::new("src");
     for c in ["cg_lib", "cg_app"] {
         copy_dir(&source_root().join(c), &root.join(c));
     }
@@ -288,6 +310,81 @@ fn a_missing_residuals_file_is_a_coverage_gap() {
     assert_eq!(
         r.gaps,
         vec![CoverageGap::ResidualsNotRead {
+            krate: "cg_app".into()
+        }]
+    );
+}
+
+/// Fails if a crate read without a CRATE row is left out of the report: nothing states that its
+/// extraction completed, so it is a partial crate, and its residual and freshness checks still run.
+#[test]
+fn a_crate_without_a_crate_row_is_partial_not_absent() {
+    let dir = store("no_crate_row", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let rows = dir.join("cg_app.rows.tsv");
+    let text = std::fs::read_to_string(&rows).unwrap();
+    let kept: Vec<&str> = text.lines().filter(|l| !l.starts_with("CRATE\t")).collect();
+    assert_eq!(
+        kept.len() + 1,
+        text.lines().count(),
+        "exactly one CRATE row"
+    );
+    std::fs::write(&rows, kept.join("\n") + "\n").unwrap();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert!(
+        r.observed.iter().any(|(c, _)| c == "cg_app"),
+        "{:?}",
+        r.observed
+    );
+    assert_eq!(
+        r.gaps,
+        vec![CoverageGap::PartialCrate {
+            krate: "cg_app".into()
+        }]
+    );
+}
+
+/// Fails if a symbol whose rows a refresh removed still answers `Found` with an empty impact: its
+/// position survives the refresh, but it is no longer in the artifacts.
+#[test]
+fn a_symbol_removed_by_a_refresh_is_not_found() {
+    let dir = store("removed", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let mut g = Codegraph::open(&dir).unwrap();
+    let scope = full(&dir, &root, &[]);
+    assert!(matches!(
+        g.impact_report("cg_app::run", &scope).unwrap(),
+        ImpactAnswer::Found(_)
+    ));
+    let rows = dir.join("cg_app.rows.tsv");
+    let text = std::fs::read_to_string(&rows).unwrap();
+    let kept: Vec<&str> = text
+        .lines()
+        .filter(|l| l.starts_with('#') || l.starts_with("CRATE\t"))
+        .collect();
+    std::fs::write(&rows, kept.join("\n") + "\n").unwrap();
+    g.refresh_crate(&dir, "cg_app").unwrap();
+    assert!(g.pos("cg_app::run").is_some(), "the position is retained");
+    assert!(matches!(
+        g.impact_report("cg_app::run", &scope).unwrap(),
+        ImpactAnswer::SymbolNotInStore { .. }
+    ));
+}
+
+/// Fails if a file-list row without a hash passes as a successful freshness check: that source
+/// file was never compared.
+#[test]
+fn a_malformed_file_list_row_is_a_freshness_gap() {
+    let dir = store("bad_files", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let files = dir.join("cg_app.files.tsv");
+    let mut t = std::fs::read_to_string(&files).unwrap();
+    t += "cg_app/src/extra.rs\n";
+    std::fs::write(&files, t).unwrap();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert_eq!(
+        r.gaps,
+        vec![CoverageGap::InvalidFileList {
             krate: "cg_app".into()
         }]
     );

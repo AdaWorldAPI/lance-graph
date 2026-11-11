@@ -553,7 +553,7 @@
    "input": "ReviewEvidencePacket",
    "tool": "crai_report.py"
   },
-  "scope": "change of LaneBinding::check (lance-graph-dt64 lib)"
+  "scope": "scope review of a hypothetical change to LaneBinding::check (lance-graph-dt64 lib); base equals head, no diff"
  },
  "run": {
   "reasons": [

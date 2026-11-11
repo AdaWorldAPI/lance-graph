@@ -3,7 +3,7 @@
 crate: lance-graph-codegraph
 path: crates/lance-graph-codegraph
 workspace: excluded
-digest: 57e4ee958fdb2d1d
+digest: e2541778f093a41e
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -175,35 +175,36 @@ Generated; the code is the truth. See ../index.md.
 - fn Codegraph::words [pub] — crates/lance-graph-codegraph/src/graph.rs:1014 CONFIRMED
 - fn Codegraph::mask_of [pub] — crates/lance-graph-codegraph/src/graph.rs:1019 CONFIRMED
 - fn Codegraph::crate_list [pub] — crates/lance-graph-codegraph/src/graph.rs:1031 CONFIRMED
-- fn Codegraph::crate_residuals [pub] — crates/lance-graph-codegraph/src/graph.rs:1043 CONFIRMED
-- fn Codegraph::crate_status [pub] — crates/lance-graph-codegraph/src/graph.rs:1048 CONFIRMED
-- fn Codegraph::rows [pub] — crates/lance-graph-codegraph/src/graph.rs:1054 CONFIRMED
-- fn Codegraph::row_predicate [pub] — crates/lance-graph-codegraph/src/graph.rs:1059 CONFIRMED
-- fn Codegraph::row_subject [pub] — crates/lance-graph-codegraph/src/graph.rs:1064 CONFIRMED
-- fn Codegraph::row_object [pub] — crates/lance-graph-codegraph/src/graph.rs:1069 CONFIRMED
-- fn Codegraph::site [pub] — crates/lance-graph-codegraph/src/graph.rs:1074 CONFIRMED
-- fn Codegraph::cube [pub] — crates/lance-graph-codegraph/src/graph.rs:1088 CONFIRMED
-- fn Codegraph::cube_mut [pub] — crates/lance-graph-codegraph/src/graph.rs:1093 CONFIRMED
-- fn Codegraph::cube_and_table_mut [pub(crate)] — crates/lance-graph-codegraph/src/graph.rs:1099 CONFIRMED
-- fn Codegraph::table [pub] — crates/lance-graph-codegraph/src/graph.rs:1104 CONFIRMED
-- fn Codegraph::fns [pub] — crates/lance-graph-codegraph/src/graph.rs:1109 CONFIRMED
-- fn Codegraph::public [pub] — crates/lance-graph-codegraph/src/graph.rs:1113 CONFIRMED
-- fn Codegraph::impl_subjects [pub] — crates/lance-graph-codegraph/src/graph.rs:1117 CONFIRMED
-- fn Codegraph::synthetic [pub] — crates/lance-graph-codegraph/src/graph.rs:1121 CONFIRMED
-- fn Codegraph::referenced [pub] — crates/lance-graph-codegraph/src/graph.rs:1125 CONFIRMED
-- fn Codegraph::called [pub] — crates/lance-graph-codegraph/src/graph.rs:1129 CONFIRMED
-- fn Codegraph::may_targets [pub] — crates/lance-graph-codegraph/src/graph.rs:1133 CONFIRMED
-- fn Codegraph::dynamic_callers [pub] — crates/lance-graph-codegraph/src/graph.rs:1137 CONFIRMED
-- fn Codegraph::stored_owner [pub] — crates/lance-graph-codegraph/src/graph.rs:1141 CONFIRMED
-- fn Codegraph::closure [pub] — crates/lance-graph-codegraph/src/graph.rs:1147 CONFIRMED
+- fn Codegraph::has_rows [pub(crate)] — crates/lance-graph-codegraph/src/graph.rs:1052 CONFIRMED
+- fn Codegraph::crate_residuals [pub] — crates/lance-graph-codegraph/src/graph.rs:1062 CONFIRMED
+- fn Codegraph::crate_status [pub] — crates/lance-graph-codegraph/src/graph.rs:1067 CONFIRMED
+- fn Codegraph::rows [pub] — crates/lance-graph-codegraph/src/graph.rs:1073 CONFIRMED
+- fn Codegraph::row_predicate [pub] — crates/lance-graph-codegraph/src/graph.rs:1078 CONFIRMED
+- fn Codegraph::row_subject [pub] — crates/lance-graph-codegraph/src/graph.rs:1083 CONFIRMED
+- fn Codegraph::row_object [pub] — crates/lance-graph-codegraph/src/graph.rs:1088 CONFIRMED
+- fn Codegraph::site [pub] — crates/lance-graph-codegraph/src/graph.rs:1093 CONFIRMED
+- fn Codegraph::cube [pub] — crates/lance-graph-codegraph/src/graph.rs:1107 CONFIRMED
+- fn Codegraph::cube_mut [pub] — crates/lance-graph-codegraph/src/graph.rs:1112 CONFIRMED
+- fn Codegraph::cube_and_table_mut [pub(crate)] — crates/lance-graph-codegraph/src/graph.rs:1118 CONFIRMED
+- fn Codegraph::table [pub] — crates/lance-graph-codegraph/src/graph.rs:1123 CONFIRMED
+- fn Codegraph::fns [pub] — crates/lance-graph-codegraph/src/graph.rs:1128 CONFIRMED
+- fn Codegraph::public [pub] — crates/lance-graph-codegraph/src/graph.rs:1132 CONFIRMED
+- fn Codegraph::impl_subjects [pub] — crates/lance-graph-codegraph/src/graph.rs:1136 CONFIRMED
+- fn Codegraph::synthetic [pub] — crates/lance-graph-codegraph/src/graph.rs:1140 CONFIRMED
+- fn Codegraph::referenced [pub] — crates/lance-graph-codegraph/src/graph.rs:1144 CONFIRMED
+- fn Codegraph::called [pub] — crates/lance-graph-codegraph/src/graph.rs:1148 CONFIRMED
+- fn Codegraph::may_targets [pub] — crates/lance-graph-codegraph/src/graph.rs:1152 CONFIRMED
+- fn Codegraph::dynamic_callers [pub] — crates/lance-graph-codegraph/src/graph.rs:1156 CONFIRMED
+- fn Codegraph::stored_owner [pub] — crates/lance-graph-codegraph/src/graph.rs:1160 CONFIRMED
+- fn Codegraph::closure [pub] — crates/lance-graph-codegraph/src/graph.rs:1166 CONFIRMED
 - enum Targets [pub] — crates/lance-graph-codegraph/src/impact_report.rs:29 CONFIRMED
 - enum Dependents [pub] — crates/lance-graph-codegraph/src/impact_report.rs:39 CONFIRMED
 - struct ExtractionScope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:48 CONFIRMED
 - enum CoverageGap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:60 CONFIRMED
-- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:121 CONFIRMED
-- fn ImpactReport::no_known_gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:132 CONFIRMED
-- enum ImpactAnswer [pub] — crates/lance-graph-codegraph/src/impact_report.rs:139 CONFIRMED
-- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:157 CONFIRMED
+- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:127 CONFIRMED
+- fn ImpactReport::no_known_gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:138 CONFIRMED
+- enum ImpactAnswer [pub] — crates/lance-graph-codegraph/src/impact_report.rs:145 CONFIRMED
+- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:163 CONFIRMED
 - enum Fault [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
 - struct LabWal [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
 - fn LabWal::new [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED
@@ -223,8 +224,7 @@ Generated; the code is the truth. See ../index.md.
 - enum QueryRefusal [pub] — crates/lance-graph-codegraph/src/query.rs:52 CONFIRMED
 - fn Codegraph::callers [pub] — crates/lance-graph-codegraph/src/query.rs:125 CONFIRMED
 - fn Codegraph::callees [pub] — crates/lance-graph-codegraph/src/query.rs:157 CONFIRMED
-- fn Codegraph::references [pub] — crates/lance-graph-codegraph/src/query.rs:188 CONFIRMED
-- truncated (201 total), see symbols.tsv
+- truncated (202 total), see symbols.tsv
 
 ## Imports from in-scope crates
 
