@@ -27,7 +27,7 @@ The expected answer was posted on EXO-237 before any derivation existed:
    `ARG`, `DEF` (one per defining statement, with the locals it reads), `ELEM` (result of an iterator
    `next` call inside a loop), `INDEX` (value read through an index projection), `SITE` (the operator,
    its file, line, loop depth and two operands). The rows are flow-insensitive. 783 rows, 16 sites
-   (4 `Div`, 12 `Rem`).
+   (5 `Div` statements at 4 source lines, 11 `Rem`).
 3. `crates/cg-defuse-probe` answers each site three ways:
    - **egglog** (`derive`): the rows as terms, eight rules, proofs mode, stepped to a fixpoint.
      A class is reported only with the proof egglog checked.
@@ -55,7 +55,7 @@ All three arms give the expected table. From `cargo run --release --example repo
 - Loop nesting is wrong on one of four real sites. `arm_b.rs:245` stands after the source loop, and
   Charon copies the tail of `cook_ops` into the loop's exit paths, so the statement appears twice
   inside a `Loop` node.
-- Of the 12 `Rem` sites in `fixture.rs`, 9 are scalar and 3 are unknown: their divisor is a global
+- Of the 11 `Rem` sites in `fixture.rs`, 8 are scalar and 3 are unknown: their divisor is a global
   place, which the rules do not classify. Unknown carries no proof.
 - egglog and the plain fixpoint agree on all 63 sites of the four fixtures.
 - The proof for `method.rs:58` is 62,654 bytes; for `arm_a.rs:75`, 2,838 bytes.
@@ -83,7 +83,7 @@ The derivation runs once per program and never per query.
 
 - It shows that operand provenance from LLBC decides this case where loop nesting does not, and that
   egglog can carry the closure with a checked proof per site.
-- The plain fixpoint gets the same classes about 1,700 times faster. What egglog adds is the proof,
+- The plain fixpoint gets the same classes about 1,800 times faster. What egglog adds is the proof,
   not the answer. Whether a proof per site is worth two seconds per crate is open.
 - The source scan also gets all seven cases right. It is a line scan with `for` headers; it would
   miss a divisor that reaches the line through a helper or a renamed binding. No such case is in the
