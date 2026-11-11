@@ -26,7 +26,7 @@ As stated by the operator (2026-11-11):
   identical. Mapping replay and historical content replay are separate
   requirements; this plan asks only for the first.
 - **Validity follows each artifact's real dependencies (operator,
-  2026-11-11).** Content versioning is not a general prerequisite.
+  2026-11-11; DECISION EXO-255).** Content versioning is not a general prerequisite.
   - A pure address / property binding stays valid across a content change
     while its mapping and its interpretation stay valid.
   - A content-dependent preparation (order index, precomputed WHERE mask,
