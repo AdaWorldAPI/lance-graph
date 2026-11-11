@@ -1,0 +1,7 @@
+callees	CONFIRMED	core::result::{Result<T, E>[TraitClause0, TraitClause1]}::map
+callees	CONFIRMED	report_rs::source::{report_rs::source::Ledger}::ingest
+callees	CONFIRMED	report_rs::source::{report_rs::source::Ledger}::last_watermark
+callees	CONFIRMED	report_rs::source::{report_rs::source::Ledger}::record_failure
+callees	CONFIRMED	report_rs::source::{report_rs::source::Ledger}::register_scoped
+callees	UNKNOWN	?dynamic
+sites	5
