@@ -140,9 +140,33 @@ Two consequences for this plan:
   step; it must never change the logical identity order, and its answers are
   stated in canonical positions.
 - **G8, virtual relations.** A relation X × Y is called, not built as an
-  intermediate table. Plan v3 W4 names the relation index as the third
-  typed concept; how a callable relation is bound (DT64) and executed
-  (Quack, mask-RISC) without materializing is open and has no work item.
+  intermediate table. The operator's second and third pictures ("Virtual
+  Tuples over DRⁿ"; "Tupel in PostgreSQL vs. Quack über unser Substrat")
+  give its shape, and D-DYNBAG (`d-dynbag-holographic-bags-v1.md`) already
+  plans it:
+  - a tuple is a coordinate binding in a versioned relational space, not a
+    stored row; an addressed relation H(a₁…aₙ) → ℕ holds multiplicities on
+    coordinates, sparse and factored (D-DYNBAG §5, K-relations);
+  - WHERE is a selection mask only; JOIN (bag) multiplies multiplicities and
+    sums over the shared variable (ℕ-compose, D-DYNBAG §7); PROJECT sums over
+    the hidden axis; GROUP BY accumulates; DISTINCT keeps the support;
+  - planning (WCOJ, variable elimination) is optional; execution runs on
+    addressed relations;
+  - rows and objects (SQL row polyfill, `PSCustomObject`) appear only at the
+    consumer boundary.
+  Open on main: cross-tile ℕ-compose (D-DYNBAG-4 row, §7.4).
+
+**The versioned mapping is already shipped.** D-DR-VMAP
+(`d-dynbag-4-dr-versioned-mapping-v1.md`), merged in #1923: `MapTable` is an
+append-only versioned index keyed by `RouteVersion`; `map(frame, tile)`
+replays the frame's own layout and `locate` resolves global → (tile, local)
+(`lance-graph-dt64/src/dr.rs:871`, `:1057`, `:1113`). This is the
+"existing contract" the operator ruling points to. S7 therefore builds no
+store: it keys kept selections and class bindings onto that log.
+
+The third picture's `F###` list (F001 `ClassView::select`, F011
+`WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
+follow EXO-254 (F + technology digit + command byte) and are not minted here.
 
 ## 1b. The binding store is already planned: the Quack Binding Store
 
@@ -245,7 +269,7 @@ Read in this session, with locations:
 | G4 | Four production paths execute without a class binding (governance v2, F4). | BYPASS-MATRIX | enforcement |
 | G5 | Method bindings are held in `BindStore` and are not persisted; a `MethodRef` stamp is process-local (governance v2, F7). "Behaviour stored as classes" does not survive a restart. | `lance-graph-dt64/src/lib.rs` | replay |
 | G7 | A same-count field reorder passes the hot binding check under a positional source (pinned red-first, `lance-graph-dt64/tests/lane_socket.rs:416`). | `lane.rs:296-349` | correctness |
-| G8 | Virtual relations: a relation X × Y is called, never built as an intermediate table (§1c). How it is bound by DT64 and executed by Quack / mask-RISC without materializing has no work item. | plan v3 W4 (relation index) | design |
+| G8 | Virtual relations: a relation X × Y is called, never built as an intermediate table (§1c). Shape planned in D-DYNBAG (bag multiplicities, ℕ-compose); open on main: cross-tile ℕ-compose. | plan v3 W4; D-DYNBAG §7.4 | lab code |
 | G6 | ANSWERED (exploration map). `on` / `reads` stay in `MethodBinding`, covered by its digest (agnostic algebra held by an immutable method). A reverse index (`methods_touching`) may be derived, never a second store. | `lance-graph-dt64/src/lib.rs` (`MethodBinding`) | none |
 
 ## 4. Enforcement, and why it is affordable
@@ -288,7 +312,7 @@ the question.
 | S4 | Field half of reader scope: `requested ∩ visible` as one `WideFieldMask` intersection at bind time; row half as a prepared DR plane; frame ownership for an external lane source | W12 | EXO-243, EXO-244, EXO-228, EXO-206 | the EXO-243 test: two roles, 12 fields, 10^3 rows; refused across roles; non-Allow binds nothing | test-only first |
 | S5 | Bind-time admission for the four direct paths, with the executor census test | v2 cut 4; W2, W13 | EXO-253, EXO-245, EXO-246 | red on a planted call site | needs council |
 | S6 | Behaviour as classes that outlives the process: binding digest recorded with the execution and the DR version; typed lane interpretation from the class | v2 cut 7; W5; G5 | EXO-199, EXO-225, EXO-221, EXO-202, EXO-247 | replay falsifier (row 17) red first | needs council |
-| S7 | The versioned DR × DT mappings over D-NFR-1 (identities, properties, source positions, class binding, criteria), DR-adjacent, held where the existing contract puts them (no new store instance), handed out by reference; contents stay with the source owner; per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, gates: mapping N replayed reproduces the same assignment (identities, properties, source positions) bit for bit; over unchanged contents the result is bit-equal too; over changed contents with unchanged positions the assignment is unchanged and the values follow the source; a mapping whose positions or identities do not match the source refuses; then the same for a mapping kept in the store; authorization checked independently | lab code |
+| S7 | The versioned DR × DT mappings over D-NFR-1 (identities, properties, source positions, class binding, criteria), keyed onto the shipped `MapTable` log (D-DR-VMAP, #1923, `RouteVersion`), no new store instance, handed out by reference; contents stay with the source owner; per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, gates: mapping N replayed reproduces the same assignment (identities, properties, source positions) bit for bit; over unchanged contents the result is bit-equal too; over changed contents with unchanged positions the assignment is unchanged and the values follow the source; a mapping whose positions or identities do not match the source refuses; then the same for a mapping kept in the store; authorization checked independently | lab code |
 | S8 | Close the reorder gap on the hot check (D-DT64-7 L5d), keyed on revision, not a digest | W2 | EXO-199 | the pinned test turns red-to-green; an unchanged view still admits; at most a few ns per check | dt64 |
 
 Order: S1 (finish) and S2 now. S4 next (a consumer is waiting on EXO-243
