@@ -84,7 +84,12 @@ the fold, never the fold itself. Whether the ternlog fold is the best path depen
 context: over a whole selection it is bandwidth-bound (188 µs at 1,000,000
 rows), while a key range over a prepared order index answers in 1.76 µs. The
 choice is made once per binding, from the context the binding names, and
-measured; it is never a fixed rule. Which reading applies is never in the bits: the binding
+measured; it is never a fixed rule. For a one-dimensional context (one key over
+1,000,000 rows) the index reorder is the cheapest thing to store: one `u32`
+per row, 4 MB, built once per frame (41,300 µs) and answering any range on
+that key in µs, where a mask per range would cost 125 KB each and grow with
+every new range. It is a DR artifact, versioned with the binding like the
+selections. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
 ## 1b. The binding store is already planned: the Quack Binding Store
