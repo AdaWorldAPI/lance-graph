@@ -8,7 +8,7 @@
 //!    mask-risc program (`relalg::run`, `Measure::Keep`); the COUNT terminal is
 //!    `Measure::Count`.
 //! 3. masked read: `R` prunes a Lance 13 read at the source
-//!    (`with_row_addr_prefilter`).
+//!    (`with_row_id_prefilter`).
 //! 4. terminal: per survivor `i` of `R`, the presence bit of each requested
 //!    lane gates a positional load of `T_l[i]`, then the operation runs.
 //!
@@ -487,7 +487,7 @@ async fn read(ds: &Dataset, mask: Option<RowAddrMask>, k: usize) -> (BTreeMap<u3
     let mut s = ds.scan();
     s.project(&names).unwrap();
     if let Some(m) = mask {
-        s.with_row_addr_prefilter(m);
+        s.with_row_id_prefilter(m);
     }
     s.scan_stats_callback(Arc::new(move |c| {
         let mut io = sink.lock().unwrap();

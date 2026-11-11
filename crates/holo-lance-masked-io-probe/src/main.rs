@@ -231,7 +231,7 @@ async fn read_with(
     s.project(&names)
         .map_err(|e| ReadError::Lance(e.to_string()))?;
     if let Some(m) = mask {
-        s.with_row_addr_prefilter(m);
+        s.with_row_id_prefilter(m);
     }
     s.materialization_style(style);
     s.scan_stats_callback(Arc::new(move |c| {

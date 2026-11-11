@@ -9,14 +9,14 @@
 //!
 //! and is checked against a row-by-row oracle computed from the generator.
 //! The probe adds no op, no lowering and no Lance-side code: it uses the
-//! public scanner (`filter`, `project`, `with_row_addr_prefilter`,
+//! public scanner (`filter`, `project`, `with_row_id_prefilter`,
 //! `scan_stats_callback`) and folds the returned Arrow columns in place
 //! through mask-risc.
 //!
 //! | arm | what Lance does | what mask-risc does |
 //! |---|---|---|
 //! | A  | full scan of `x`, `v` | `x < t` per batch, then COUNT and SUM(v) |
-//! | C  | `with_row_addr_prefilter` of the row range the sorted fixture puts `x < t` in | SUM(v) only; the predicate is already the range |
+//! | C  | `with_row_id_prefilter` of the row range the sorted fixture puts `x < t` in | SUM(v) only; the predicate is already the range |
 //! | Dz | `filter("xz < t")` through a zone-map index (approximate; Lance rechecks) | SUM(v) only |
 //! | Db | `filter("xb < t")` through a B-tree index (exact) | SUM(v) only |
 //! | N  | `Db` with an empty projection: COUNT only | nothing |
@@ -376,7 +376,7 @@ async fn run(ds: &Dataset, arm: Arm, t: i32, k_sorted: Option<usize>, f: &mut Fo
             let tm = Instant::now();
             let mask = sorted_prefix_mask(k_sorted.expect("sorted only"));
             mask_ms = tm.elapsed().as_secs_f64() * 1e3;
-            sc.with_row_addr_prefilter(mask);
+            sc.with_row_id_prefilter(mask);
             sc.project(&["v"]).expect("project");
         }
         Arm::Dz => {

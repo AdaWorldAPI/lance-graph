@@ -9,7 +9,7 @@
 //! 2. the address mask `R` is built by relalg over that column as a `U32`
 //!    lane (`eq_u32` for a restriction, `Or` of `eq_u32` for the semijoin
 //!    centers), lowered by mask-risc onto `ndarray::simd`;
-//! 3. the side is read with `with_row_addr_prefilter(R)`;
+//! 3. the side is read with `with_row_id_prefilter(R)`;
 //! 4. the rows go to `JoinTable::prepare_star`, as on the in-memory path.
 //!
 //! A side's generation is its table's Lance version.
@@ -214,7 +214,7 @@ pub(crate) async fn read_rows(
     let mut s = ds.scan();
     s.project(&["c0", "c1"]).map_err(lance_err)?;
     if let Some(m) = mask {
-        s.with_row_addr_prefilter(m);
+        s.with_row_id_prefilter(m);
     }
     s.scan_stats_callback(cb);
     let b = s.try_into_batch().await.map_err(lance_err)?;

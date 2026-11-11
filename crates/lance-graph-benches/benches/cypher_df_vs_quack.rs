@@ -454,7 +454,7 @@ fn scan_allowed(
         let ds = Dataset::open(path).await.unwrap();
         let mut sc = ds.scan();
         sc.project(columns).unwrap();
-        sc.with_row_addr_prefilter(allow.clone());
+        sc.with_row_id_prefilter(allow.clone());
         let batches: Vec<RecordBatch> = sc
             .try_into_stream()
             .await
