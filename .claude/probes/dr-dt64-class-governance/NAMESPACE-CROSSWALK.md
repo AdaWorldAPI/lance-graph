@@ -20,7 +20,7 @@ decided.
 | A lens's field basis is read by the full `u32`; unknown lens answers `None` and the reader must refuse | `class_view.rs:1084` `ClassView::lens_fields` | SHIPPED |
 | The left half of hardcoded behaviour is `0xFFFF` | `ogar_codebook.rs:583` `HARDCODED_BEHAVIOUR`; OGAR `ogar-vocab/src/lib.rs:1879` (mirror) | SHIPPED |
 | The relational polyfill lens is `0xFFFF_F000` | `lance-graph-r2il/src/polyfill.rs:44` `POLYFILL_LENS` | SHIPPED |
-| XLOG's lens is `0xFFFF_F100` | `lance-graph-xlog/src/lens.rs:33` `XLOG_LENS` | SHIPPED (declared; `lance-graph-r2il/src/binding.rs` executes only the polyfill lens, per `xlog-wiring-to-hot-path-v1.md:52`) |
+| XLOG's lens is `0xFFFF_F100` | `lance-graph-xlog/src/lens.rs:33` `XLOG_LENS` | SHIPPED (declared; `lance-graph-r2il/src/binding.rs:341-343` executes `POLYFILL_LENS` and lenses whose concept half is the R2IL fold concept, so not this one) |
 | A consumer lens under its own left half exists in tests only: `0x7F0B_F001`, `0x0A1E_F001` | `lance-graph-dt64/tests/bind_store.rs:1498`, `lance-graph-r2il/tests/integration/polyfill_views.rs:278` | SHIPPED as test fixtures |
 | A word is `AlgebraRef { lens: u32, word: u8 }`; "no word gets a classid of its own" | `lance-graph-dt64/src/lib.rs:129` | SHIPPED |
 | A method is `MethodId(pub u32)`, an identity within its class | `lance-graph-dt64/src/lib.rs:113` | SHIPPED |
