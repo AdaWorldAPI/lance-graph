@@ -1027,6 +1027,17 @@ impl Codegraph {
     }
 
     /// The extractor status of `krate`, from its CRATE row.
+    /// Every stored crate with its extractor status, sorted by name.
+    pub fn crate_list(&self) -> Vec<(String, RunStatus)> {
+        let mut out: Vec<(String, RunStatus)> = self
+            .crates
+            .iter()
+            .map(|(&k, &v)| (self.symbols.name(k).to_string(), v))
+            .collect();
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    }
+
     pub fn crate_status(&self, krate: &str) -> Option<RunStatus> {
         let id = self.symbols.get(krate)?;
         self.crates.get(&id).copied()

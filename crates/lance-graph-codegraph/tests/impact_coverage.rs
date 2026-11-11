@@ -1,0 +1,255 @@
+//! Coverage-aware impact (D-CODEGRAPH-RECON-2 Gate A), over real Charon artifacts.
+//!
+//! `tests/data/rev1` holds `cg_lib` and its consumer `cg_app`, extracted by ruff_charon from
+//! `crates/sag-ra-probe/fixtures/codegraph/rev1`. Each case distinguishes a different reason an
+//! impact answer can be incomplete, and each has a twin where the reason is absent and the gap
+//! must not appear.
+
+use std::path::{Path, PathBuf};
+
+use lance_graph_codegraph::impact_report::{
+    CoverageGap, Dependents, ExtractionScope, ImpactAnswer, ImpactReport, Targets,
+};
+use lance_graph_codegraph::Codegraph;
+
+fn data() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/rev1")
+}
+
+fn source_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../sag-ra-probe/fixtures/codegraph/rev1")
+}
+
+/// A store holding only `crates`, copied from rev1.
+fn store(name: &str, crates: &[&str]) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("lgcg_impact_{name}_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for c in crates {
+        for ext in ["rows.tsv", "files.tsv", "residuals.tsv"] {
+            std::fs::copy(
+                data().join(format!("{c}.{ext}")),
+                dir.join(format!("{c}.{ext}")),
+            )
+            .unwrap();
+        }
+    }
+    dir
+}
+
+/// The fullest scope: tests extracted, dependents declared, freshness checked.
+fn full<'a>(store: &'a Path, root: &'a Path, deps: &'a [&'a str]) -> ExtractionScope<'a> {
+    ExtractionScope {
+        targets: Targets::LibraryAndTests,
+        dependents: Dependents::Declared(deps),
+        sources: Some((store, root)),
+    }
+}
+
+fn report(dir: &Path, symbol: &str, scope: &ExtractionScope<'_>) -> ImpactReport {
+    match Codegraph::open(dir)
+        .unwrap()
+        .impact_report(symbol, scope)
+        .unwrap()
+    {
+        ImpactAnswer::Found(r) => r,
+        other => panic!("{symbol} not found: {other:?}"),
+    }
+}
+
+fn confirmed(dir: &Path, r: &ImpactReport) -> Vec<String> {
+    let g = Codegraph::open(dir).unwrap();
+    let mut out = Vec::new();
+    for (w, &word) in r.graded.confirmed.iter().enumerate() {
+        for b in 0..64 {
+            if word >> b & 1 == 1 {
+                out.push(g.symbol((w * 64 + b) as u32).unwrap().to_string());
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+#[test]
+fn no_callers_inside_a_fully_observed_scope_has_no_gap() {
+    // cg_app::run is public, but nothing depends on cg_app, so the declared scope is complete.
+    let dir = store("complete", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert!(confirmed(&dir, &r).is_empty());
+    assert_eq!(r.gaps, vec![]);
+    assert!(r.no_known_gap());
+}
+
+#[test]
+fn a_public_symbol_with_unobserved_consumers_reports_missing_coverage() {
+    let dir = store("lib_only", &["cg_lib"]);
+    let root = source_root();
+    let r = report(
+        &dir,
+        "cg_lib::util::double",
+        &full(&dir, &root, &["cg_app"]),
+    );
+    // The consumer has no position, so it is not in the answer: it is a gap, never an entry.
+    assert!(r.gaps.contains(&CoverageGap::ConsumersNotInStore {
+        crates: vec!["cg_app".into()]
+    }));
+    assert!(!r.no_known_gap());
+    // Undeclared dependents of a public symbol are a gap too.
+    let undeclared = ExtractionScope {
+        dependents: Dependents::NotDeclared,
+        ..full(&dir, &root, &[])
+    };
+    assert!(report(&dir, "cg_lib::util::double", &undeclared)
+        .gaps
+        .contains(&CoverageGap::ConsumersNotDeclared));
+}
+
+#[test]
+fn library_only_extraction_reports_unobserved_test_callers() {
+    let dir = store("targets", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let lib_only = ExtractionScope {
+        targets: Targets::LibraryOnly,
+        ..full(&dir, &root, &[])
+    };
+    assert!(report(&dir, "cg_app::run", &lib_only)
+        .gaps
+        .contains(&CoverageGap::TestTargetsNotExtracted));
+    assert!(!report(&dir, "cg_app::run", &full(&dir, &root, &[]))
+        .gaps
+        .contains(&CoverageGap::TestTargetsNotExtracted));
+}
+
+#[test]
+fn dispatch_only_callers_report_unresolved_dispatch() {
+    // cg_lib::area_of dispatches Shape::area, which Rect implements; nothing calls Rect::area
+    // directly, so every caller is possible only.
+    let dir = store("dispatch", &["cg_lib", "cg_app"]);
+    let root = source_root();
+    let r = report(
+        &dir,
+        "cg_lib::shapes::impl_Shape_for_Rect::area",
+        &full(&dir, &root, &[]),
+    );
+    assert!(confirmed(&dir, &r).is_empty());
+    assert!(
+        r.gaps
+            .iter()
+            .any(|g| matches!(g, CoverageGap::UnresolvedDispatch { possible } if *possible > 0)),
+        "{:?}",
+        r.gaps
+    );
+    // Twin: util::triple's only caller (macro_use::checked) is reached by resolved calls only.
+    // (util::double would not do: Square::area calls it, and area_of reaches Square::area
+    // through dispatch, so area_of is a legitimate possible impact of double.)
+    let d = report(&dir, "cg_lib::util::triple", &full(&dir, &root, &[]));
+    assert!(
+        !d.gaps
+            .iter()
+            .any(|g| matches!(g, CoverageGap::UnresolvedDispatch { .. })),
+        "{:?}",
+        d.gaps
+    );
+    assert!(!confirmed(&dir, &d).is_empty());
+}
+
+#[test]
+fn a_changed_source_file_reports_stale_coverage() {
+    let dir = store("stale", &["cg_lib", "cg_app"]);
+    let root = std::env::temp_dir().join(format!("lgcg_impact_src_{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    for c in ["cg_lib", "cg_app"] {
+        copy_dir(&source_root().join(c), &root.join(c));
+    }
+    assert!(!report(&dir, "cg_app::run", &full(&dir, &root, &[]))
+        .gaps
+        .iter()
+        .any(|g| matches!(g, CoverageGap::StaleSource { .. })));
+    let f = root.join("cg_lib/src/util.rs");
+    let mut text = std::fs::read(&f).unwrap();
+    text.extend_from_slice(b"\n// edited after extraction\n");
+    std::fs::write(&f, text).unwrap();
+    let r = report(&dir, "cg_app::run", &full(&dir, &root, &[]));
+    assert!(
+        r.gaps.contains(&CoverageGap::StaleSource {
+            files: vec!["cg_lib/src/util.rs".into()]
+        }),
+        "{:?}",
+        r.gaps
+    );
+    // No source root: freshness is not checked, and that is a gap, not a pass.
+    let unchecked = ExtractionScope {
+        sources: None,
+        ..full(&dir, &root, &[])
+    };
+    assert!(report(&dir, "cg_app::run", &unchecked)
+        .gaps
+        .contains(&CoverageGap::FreshnessNotChecked));
+}
+
+#[test]
+fn a_symbol_absent_from_the_store_is_not_an_empty_impact() {
+    let dir = store("missing", &["cg_lib"]);
+    let root = source_root();
+    let a = Codegraph::open(&dir)
+        .unwrap()
+        .impact_report("cg_app::run", &full(&dir, &root, &[]))
+        .unwrap();
+    assert_eq!(
+        a,
+        ImpactAnswer::SymbolNotInStore {
+            symbol: "cg_app::run".into(),
+            observed: vec!["cg_lib".into()]
+        }
+    );
+}
+
+#[test]
+fn adding_the_consumer_crate_upgrades_missing_coverage_to_confirmed() {
+    let root = source_root();
+    let lib = store("before", &["cg_lib"]);
+    let before = report(
+        &lib,
+        "cg_lib::util::double",
+        &full(&lib, &root, &["cg_app"]),
+    );
+    assert!(!confirmed(&lib, &before).contains(&"cg_app::run".to_string()));
+    assert!(before.gaps.contains(&CoverageGap::ConsumersNotInStore {
+        crates: vec!["cg_app".into()]
+    }));
+
+    let both = store("after", &["cg_lib", "cg_app"]);
+    let after = report(
+        &both,
+        "cg_lib::util::double",
+        &full(&both, &root, &["cg_app"]),
+    );
+    assert!(
+        confirmed(&both, &after).contains(&"cg_app::run".to_string()),
+        "{:?}",
+        confirmed(&both, &after)
+    );
+    assert!(!after
+        .gaps
+        .iter()
+        .any(|g| matches!(g, CoverageGap::ConsumersNotInStore { .. })));
+    // The unchanged position-mask answer is a superset of what it was.
+    assert!(confirmed(&lib, &before)
+        .iter()
+        .all(|s| confirmed(&both, &after).contains(s)));
+}
+
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for e in std::fs::read_dir(from).unwrap() {
+        let e = e.unwrap();
+        let p = e.path();
+        if p.is_dir() {
+            copy_dir(&p, &to.join(e.file_name()));
+        } else {
+            std::fs::copy(&p, to.join(e.file_name())).unwrap();
+        }
+    }
+}
