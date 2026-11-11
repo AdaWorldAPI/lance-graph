@@ -101,14 +101,14 @@ Read on main:
   DTO/store"), EXO-207 (CodeTable + Quack admit, PR 1982), EXO-251 (medcare
   WP4, DT64 bind store for view classes).
 
-**One difference from the operator's statement, for the operator.** The
-capstone (§B.1, §C.3) says the store holds binding *descriptors* and is "not
-a population bitmap store"; the computed mask stays in the caller's buffer
-under the descriptor's witness. The operator's statement has DR store the
-masks themselves, versioned, immutable and prefetched. If the masks are
-stored, §B.1's "not a population bitmap store" and §C.3's lifetime 3 owner
-are superseded; if not, the store holds the witness and the reusable mask
-lives beside it under that witness.
+**What is versioned and what is not (operator, 2026-11-11).** A selection
+that binds DR to DT (which fields of a class, which method, over which
+lanes and frame) is versioned: it is the binding the store keeps. A mask
+computed for one request (a user clicks a menu) is not versioned: it is
+computed under the binding's witness and lives in the caller's buffer.
+This is the capstone's split (§C.3: lifetime 1 kept by the binding store,
+lifetime 3 in the caller's buffer under the witness), so there is no
+conflict with "not a population bitmap store".
 
 **The kept, witnessed selection already exists in the lab.**
 `dr-math-binding-probe/src/where_dr3.rs` (D-DRCA-2) takes Quack's WHERE
@@ -118,8 +118,8 @@ source revision, codebook, address space), the local frame, the focus, the
 scope, the identity axis, the DR method and the criteria
 (`LocalSelection::admit`); "nothing is silently reused". Its own header says
 what is missing: "It stores nothing … There is no cache, map of selections
-or persistent mask store." That missing piece is exactly the DR store of
-versioned, immutable, reusable masks. Quack's `Binder` (`bind.rs:92`, ten
+or persistent mask store." That missing piece is the DR store of the
+versioned DR × DT selections; per-request masks stay out of it. Quack's `Binder` (`bind.rs:92`, ten
 implementations, none backed by `BindStore` / `ClassView`) and `Query`
 (`lib.rs:1301`, no frame recorded) are the other end of the seam.
 
