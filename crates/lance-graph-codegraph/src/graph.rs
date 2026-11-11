@@ -1005,6 +1005,29 @@ impl Codegraph {
             .count() as u32
     }
 
+    /// Names of the crates with a CRATE row: the first path segment of the
+    /// symbols each crate defines.
+    pub(crate) fn stored_crates(&self) -> std::collections::BTreeSet<&str> {
+        self.crates
+            .keys()
+            .map(|&id| self.symbols.name(id))
+            .collect()
+    }
+
+    /// Residual counts of the crate named `krate`, and whether no residuals
+    /// file was read for it. A name the store did not read under is reported
+    /// as having no file: unknown, never clean.
+    pub(crate) fn residuals_of_crate(&self, krate: &str) -> (artifact::ResidualCounts, bool) {
+        match self
+            .symbols
+            .get(krate)
+            .and_then(|id| self.lanes.residuals_of(id))
+        {
+            Some(Some(r)) => (r, false),
+            _ => (artifact::ResidualCounts::default(), true),
+        }
+    }
+
     /// Whether any stored crate's CRATE row is not `COMPLETE`.
     pub(crate) fn any_partial(&self) -> bool {
         self.crates.values().any(|&s| s == RunStatus::Partial)

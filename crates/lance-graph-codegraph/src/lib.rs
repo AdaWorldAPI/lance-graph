@@ -7,6 +7,7 @@ pub mod artifact;
 pub mod artifact_bin;
 pub mod diag;
 pub mod graph;
+pub mod impact_report;
 #[cfg(test)]
 mod lab_wal;
 pub mod query;

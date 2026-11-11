@@ -1,0 +1,10 @@
+callers	CONFIRMED	report_rs::source_fake::impl_Source_for_WorkbookSource::pull::{vtable_method}
+callers	UNKNOWN	report_rs::mapping_hydrate::hydrate_artifact
+callers	UNKNOWN	report_rs::mapping_hydrate::publish_artifact
+callers	UNKNOWN	report_rs::mapping_hydrate::publish_artifact::{impl Fn<(&'_2 str, &'_3 [u8], &'_4 str)> for report_rs::mapping_hydrate::publish_artifact::{closure}<'_0, '_1>}::call
+callers	UNKNOWN	report_rs::mapping_hydrate::repoint
+callers	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::fetch_manifest
+callers	UNKNOWN	report_rs::rules::plan::{impl FnMut<(&'_2 Box<(dyn Rule + '_3), Global>[{built_in impl MetaSized for (dyn Rule + '_3)}, {built_in impl Sized for Global}, impl_Allocator_for_Global],)> for report_rs::rules::plan::{closure}<'_0, '_1>}::call_mut
+callers	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::pull
+sites	1
+callers	UNKNOWN	external-callers-unobserved	report_rs::source_fake::impl_Source_for_WorkbookSource::pull is PUBLIC
