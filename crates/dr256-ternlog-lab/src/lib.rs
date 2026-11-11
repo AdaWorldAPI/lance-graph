@@ -66,6 +66,8 @@ pub const FRIEND_OF: u32 = 0xD257_0001;
 const PERSON_VIEW: ClassId = 0xD256;
 const FRIEND_VIEW: ClassId = 0xD257;
 
+pub mod order_store;
+
 /// Field positions of [`PERSON`].
 pub mod person {
     pub const ID: u8 = 0;
