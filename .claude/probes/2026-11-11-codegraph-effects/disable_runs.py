@@ -40,6 +40,7 @@ G = [
  ("reach-no-position", "        let Some(me) = self.pos(symbol) else {\n            return Ok(None);\n        };", "        let me = self.pos(symbol).unwrap_or(0);"),
  ("limit-effects-not-read", "            if effects.identity(&krate).is_none() {", "            if false {"),
  ("limit-harvest", "            if status == RunStatus::Partial || !clean_harvest {", "            if status == RunStatus::Partial {"),
+ ("limit-queried-symbol-outside", "        if !me_stored {\n", "        if false {\n"),
  ("limit-outside", "        if !outside.is_empty() {", "        if false {"),
  ("limit-dynamic", "        if reaches_dynamic {", "        if false {"),
  ("limit-dynamic-per-symbol", "                    reaches_dynamic = true;", "                    reaches_dynamic = true;\n                }\n                if true {\n                    reaches_dynamic = true;"),

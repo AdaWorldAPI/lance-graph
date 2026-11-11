@@ -69,8 +69,8 @@ reached  0  UNKNOWN (partial: see LIMIT lines)
 - `tests/effects.rs`: 20 tests. Real fixture: `tests/data/effects/` (213 effect rows and the
   matching call rows of `foundry_parity_lab`). The four reach grades use the `rev1` call rows
   with one synthetic effect row.
-- `python3 .claude/probes/2026-11-11-codegraph-effects/disable_runs.py`: 29 guards, each patched
-  out through an asserted anchor. Receipt beside it: 29 red, 0 not red.
+- `python3 .claude/probes/2026-11-11-codegraph-effects/disable_runs.py`: 30 guards, each patched
+  out through an asserted anchor. Receipt beside it: 30 red, 0 not red.
 
 ## Not done
 

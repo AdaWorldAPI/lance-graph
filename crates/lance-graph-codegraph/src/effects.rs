@@ -410,6 +410,18 @@ impl crate::Codegraph {
         let stored_owner = self.stored_owner();
         let mut outside = BTreeSet::new();
         let mut reaches_dynamic = false;
+        let me_stored = stored_owner
+            .get(me as usize / 64)
+            .is_some_and(|w| w >> (me % 64) & 1 == 1);
+        // The queried symbol itself may be a callee from a crate that was never extracted: its
+        // body, and so its effects, were not read.
+        if !me_stored {
+            if symbol.starts_with('?') {
+                reaches_dynamic = true;
+            } else {
+                outside.insert(symbol.split("::").next().unwrap_or(symbol).to_owned());
+            }
+        }
         for p in 0..(self.words() as u32 * 64) {
             let stored = stored_owner
                 .get(p as usize / 64)

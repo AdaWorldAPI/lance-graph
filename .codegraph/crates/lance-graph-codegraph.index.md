@@ -3,7 +3,7 @@
 crate: lance-graph-codegraph
 path: crates/lance-graph-codegraph
 workspace: excluded
-digest: c32567bf367aa7bc
+digest: 8314ca9d65242c9c
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.

@@ -543,3 +543,32 @@ fn callees_outside_the_store_are_a_limit() {
         "{l:?}"
     );
 }
+
+/// PR 2006 review: the queried symbol is itself a callee from a crate that was not extracted.
+/// Its body was never read, so an empty answer must carry the limit.
+#[test]
+fn a_queried_symbol_outside_the_store_is_a_limit() {
+    let g = Codegraph::open(&real()).unwrap();
+    let fx = Effects::open(&real()).unwrap();
+    let external: Vec<String> = (0..g.words() as u32 * 64)
+        .filter_map(|p| g.symbol(p))
+        .filter(|n| n.starts_with("core::") || n.starts_with("alloc::"))
+        .map(str::to_owned)
+        .collect();
+    assert!(external.len() > 10, "fixture has no external callees");
+    for name in &external {
+        let r = g.effects_reached(name, &fx, |_| true).unwrap().unwrap();
+        let krate = name.split("::").next().unwrap().to_string();
+        assert!(
+            r.limits.iter().any(|l| matches!(
+                l,
+                ReachLimit::CalleesOutsideStore { crates } if crates.contains(&krate)
+            )),
+            "{name}: {:?}",
+            r.limits
+        );
+        assert!(r.partial());
+    }
+    // The silence twin is `cg_lib::util::triple` in the limits test above: a stored function
+    // that reaches nothing outside keeps an empty limit list.
+}
