@@ -366,16 +366,16 @@ Plan: `.claude/plans/codegraph-expansion-v1.md`. Coordination: Linear `P-EXO-18`
 
 | D-id | Deliverable | Status |
 |---|---|---|
-| **D-CODEGRAPH-RECON-2-A** | coverage-aware `impact_report`, `cg_query impact-report` | In PR: #2001 |
+| **D-CODEGRAPH-RECON-2-A** | coverage-aware `impact_report`, `cg_query impact-report` | Shipped: #2001, #2002 and #2004 (one reconciled API, Wave 0) |
 | **D-CRAI-REPORT-1** | read-only review report generator, ndarray #422 admission case | In PR: #2001 |
 | **CG-1** | closure-ownership edge, graded POSSIBLE | Queued (decision needed): EXO-233 |
 | **CG-2** | extraction driver from `cargo metadata` (targets, dependents, tests) | Queued: EXO-234 |
 | **CG-3** | store provenance: extraction revision, relative generated paths | Queued (format decision needed): EXO-235 |
 | **CG-4** | edge vocabulary mapped to Kythe names (document) | Queued: EXO-236 |
-| **CG-5** | co-research: body semantics through R2IL and egglog | Queued (needs go-ahead): EXO-237 |
+| **CG-5** | co-research: body semantics through R2IL and egglog | In PR (#2007): bounded def-use probe measured, `crates/cg-defuse-probe`; def-use rows as a store row kind wait on CG-3: EXO-237 |
 | **CG-6** | review report follow-ups (mask-risc extraction, re-grade, placement, advisory CI) | Queued: EXO-238 |
 | **CG-7** | report-rs #33 transfer case | Other session: EXO-239 / EXO-185 |
-| **CG-8** | effects, target kind and cfg as Codegraph rows | In PR (effects reader and reach; target kind and cfg still queued): EXO-241 |
+| **CG-8** | effects, target kind and cfg as Codegraph rows | Partly shipped (#2006: effects reader and reach); target kind and cfg rows Queued: EXO-241 |
 
 ## D-CODEGRAPH-0 — resident Codegraph: Charon → ruff → lance-graph + crai-rs (2026-11-02)
 
