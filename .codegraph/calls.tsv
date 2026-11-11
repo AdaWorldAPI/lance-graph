@@ -4,6 +4,7 @@ bge-m3	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 bgz-tensor	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 bgz17	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 causal-edge	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+cg-beh-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 cognitive-compiler	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 cognitive-polyfill-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 cognitive-shader-driver	-	-	ARTIFACT_MISSING	-	-	UNKNOWN

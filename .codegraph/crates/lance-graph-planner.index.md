@@ -365,23 +365,23 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
-  n6["cognitive-shader-driver"]
-  n13["drf-focus-probe"]
-  n28["lance-graph"]
-  n39["lance-graph-contract"]
-  n43["lance-graph-dt64-lance"]
-  n54["lance-graph-osint"]
-  n55["lance-graph-planner"]
-  n64["lance-graph-supervisor"]
-  n72["p64-bridge"]
-  n6 --> n55
-  n13 --> n55
-  n28 --> n55
-  n43 --> n55
-  n54 --> n55
-  n55 --> n2
-  n55 --> n3
-  n55 --> n39
-  n55 --> n72
-  n64 --> n55
+  n7["cognitive-shader-driver"]
+  n14["drf-focus-probe"]
+  n29["lance-graph"]
+  n40["lance-graph-contract"]
+  n44["lance-graph-dt64-lance"]
+  n55["lance-graph-osint"]
+  n56["lance-graph-planner"]
+  n65["lance-graph-supervisor"]
+  n73["p64-bridge"]
+  n7 --> n56
+  n14 --> n56
+  n29 --> n56
+  n44 --> n56
+  n55 --> n56
+  n56 --> n2
+  n56 --> n3
+  n56 --> n40
+  n56 --> n73
+  n65 --> n56
 ```

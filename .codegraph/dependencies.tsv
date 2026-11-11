@@ -9,6 +9,12 @@ bgz-tensor	ndarray	normal	false	-	-	crates/bgz-tensor/Cargo.toml:25	CONFIRMED	no
 bgz-tensor	serde	normal	true	-	calibrate,hydrate	crates/bgz-tensor/Cargo.toml:28	CONFIRMED	no
 bgz-tensor	serde_json	normal	true	-	calibrate,hydrate	crates/bgz-tensor/Cargo.toml:29	CONFIRMED	no
 bgz-tensor	sha2	normal	true	-	calibrate,hydrate	crates/bgz-tensor/Cargo.toml:30	CONFIRMED	no
+cg-beh-probe	foundry-parity-lab	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:29	CONFIRMED	yes
+cg-beh-probe	lance-graph-contract	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:22	CONFIRMED	yes
+cg-beh-probe	lance-graph-dt64	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:21	CONFIRMED	yes
+cg-beh-probe	lance-graph-r2il	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:24	CONFIRMED	yes
+cg-beh-probe	ogar-loco	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:27	CONFIRMED	no
+cg-beh-probe	ogar-r2il	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:26	CONFIRMED	no
 cognitive-polyfill-probe	lance-graph-dt64	normal	false	-	-	crates/cognitive-polyfill-probe/Cargo.toml:14	CONFIRMED	yes
 cognitive-polyfill-probe	lance-graph-mask-risc	normal	false	-	-	crates/cognitive-polyfill-probe/Cargo.toml:16	CONFIRMED	yes
 cognitive-shader-driver	axum	normal	true	-	serve	crates/cognitive-shader-driver/Cargo.toml:253	CONFIRMED	no

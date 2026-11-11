@@ -13,6 +13,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Imports (not resolved to a definition)
 
+- use lance_graph_dt64::MethodBinding — crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
@@ -20,8 +21,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 
-## Textual occurrences (49 total)
+## Textual occurrences (56 total)
 
+- crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:130 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:145 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:184 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:190 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:252 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:135 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:142 POSSIBLE

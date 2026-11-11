@@ -14,6 +14,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:21 CONFIRMED
 - rdep cognitive-polyfill-probe normal — crates/cognitive-polyfill-probe/Cargo.toml:14 CONFIRMED
 - rdep dr-isa-stream-lab normal — crates/dr-isa-stream-lab/Cargo.toml:18 CONFIRMED
 - rdep drisa-register-probe normal — crates/drisa-register-probe/Cargo.toml:19 CONFIRMED
@@ -264,33 +265,35 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n5["cognitive-polyfill-probe"]
-  n12["dr-isa-stream-lab"]
-  n14["drisa-register-probe"]
-  n15["dt64-admission-probe"]
-  n18["foundry-parity-lab"]
-  n20["grammar-constraints-probe"]
-  n36["lance-graph-codegraph"]
-  n39["lance-graph-contract"]
-  n42["lance-graph-dt64"]
-  n43["lance-graph-dt64-lance"]
-  n58["lance-graph-r2il"]
-  n61["lance-graph-report"]
-  n66["lance-graph-xlog"]
-  n70["ogar-behavior-probe"]
-  n81["soa64-u64-lab"]
-  n5 --> n42
-  n12 --> n42
-  n14 --> n42
-  n15 --> n42
-  n18 --> n42
-  n20 --> n42
-  n36 --> n42
-  n42 --> n39
-  n43 --> n42
-  n58 --> n42
-  n61 --> n42
-  n66 --> n42
-  n70 --> n42
-  n81 --> n42
+  n4["cg-beh-probe"]
+  n6["cognitive-polyfill-probe"]
+  n13["dr-isa-stream-lab"]
+  n15["drisa-register-probe"]
+  n16["dt64-admission-probe"]
+  n19["foundry-parity-lab"]
+  n21["grammar-constraints-probe"]
+  n37["lance-graph-codegraph"]
+  n40["lance-graph-contract"]
+  n43["lance-graph-dt64"]
+  n44["lance-graph-dt64-lance"]
+  n59["lance-graph-r2il"]
+  n62["lance-graph-report"]
+  n67["lance-graph-xlog"]
+  n71["ogar-behavior-probe"]
+  n82["soa64-u64-lab"]
+  n4 --> n43
+  n6 --> n43
+  n13 --> n43
+  n15 --> n43
+  n16 --> n43
+  n19 --> n43
+  n21 --> n43
+  n37 --> n43
+  n43 --> n40
+  n44 --> n43
+  n59 --> n43
+  n62 --> n43
+  n67 --> n43
+  n71 --> n43
+  n82 --> n43
 ```

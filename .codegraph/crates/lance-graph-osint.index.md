@@ -86,13 +86,13 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
-  n10["deepnsm"]
-  n54["lance-graph-osint"]
-  n55["lance-graph-planner"]
-  n72["p64-bridge"]
-  n54 --> n2
-  n54 --> n3
-  n54 --> n10
-  n54 --> n55
-  n54 --> n72
+  n11["deepnsm"]
+  n55["lance-graph-osint"]
+  n56["lance-graph-planner"]
+  n73["p64-bridge"]
+  n55 --> n2
+  n55 --> n3
+  n55 --> n11
+  n55 --> n56
+  n55 --> n73
 ```

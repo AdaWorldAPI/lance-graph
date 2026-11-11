@@ -238,6 +238,11 @@ exclude = [
     # read-only. Own workspace root. Verify via
     # `cargo test --release --manifest-path crates/foundry-parity-lab/Cargo.toml`.
     "crates/foundry-parity-lab",
+    # D-CG-BEH-2 LAB (EXO-155): ON x WHEN x DO facts of registered DT64 methods
+    # and a change query over them. Read-only; registers nothing in a production
+    # store. Own workspace root. Verify via
+    # `cargo test --release --manifest-path crates/cg-beh-probe/Cargo.toml`.
+    "crates/cg-beh-probe",
     # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
     # one cell = one node, one timestep = one Lance version. Standalone and
     # genuinely zero-dep (see the crate manifest for why helix is NOT an

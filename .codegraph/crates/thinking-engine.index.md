@@ -292,15 +292,15 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n1["bgz-tensor"]
   n3["causal-edge"]
-  n6["cognitive-shader-driver"]
-  n22["highheelbgz"]
-  n26["jc"]
-  n39["lance-graph-contract"]
-  n86["thinking-engine"]
-  n6 --> n86
-  n86 --> n1
-  n86 --> n3
-  n86 --> n22
-  n86 --> n26
-  n86 --> n39
+  n7["cognitive-shader-driver"]
+  n23["highheelbgz"]
+  n27["jc"]
+  n40["lance-graph-contract"]
+  n87["thinking-engine"]
+  n7 --> n87
+  n87 --> n1
+  n87 --> n3
+  n87 --> n23
+  n87 --> n27
+  n87 --> n40
 ```

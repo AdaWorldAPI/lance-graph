@@ -246,18 +246,18 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n3["causal-edge"]
-  n6["cognitive-shader-driver"]
-  n11["deepnsm-v2"]
-  n54["lance-graph-osint"]
-  n55["lance-graph-planner"]
-  n72["p64-bridge"]
-  n80["sigma-tier-router"]
-  n86["thinking-engine"]
-  n6 --> n3
-  n11 --> n3
-  n54 --> n3
+  n7["cognitive-shader-driver"]
+  n12["deepnsm-v2"]
+  n55["lance-graph-osint"]
+  n56["lance-graph-planner"]
+  n73["p64-bridge"]
+  n81["sigma-tier-router"]
+  n87["thinking-engine"]
+  n7 --> n3
+  n12 --> n3
   n55 --> n3
-  n72 --> n3
-  n80 --> n3
-  n86 --> n3
+  n56 --> n3
+  n73 --> n3
+  n81 --> n3
+  n87 --> n3
 ```

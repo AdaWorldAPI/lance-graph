@@ -18,6 +18,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:29 CONFIRMED
 
 ## Public items
 
@@ -262,13 +263,15 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n18["foundry-parity-lab"]
-  n39["lance-graph-contract"]
-  n42["lance-graph-dt64"]
-  n47["lance-graph-mask-risc"]
-  n60["lance-graph-relalg"]
-  n18 --> n39
-  n18 --> n42
-  n18 --> n47
-  n18 --> n60
+  n4["cg-beh-probe"]
+  n19["foundry-parity-lab"]
+  n40["lance-graph-contract"]
+  n43["lance-graph-dt64"]
+  n48["lance-graph-mask-risc"]
+  n61["lance-graph-relalg"]
+  n4 --> n19
+  n19 --> n40
+  n19 --> n43
+  n19 --> n48
+  n19 --> n61
 ```

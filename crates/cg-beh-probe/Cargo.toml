@@ -1,0 +1,41 @@
+# D-CG-BEH-2 LAB (EXO-155): reads the ON x WHEN x DO contract of registered
+# DT64 methods as separate facts, and says which obligations a change makes
+# stale. Read-only: it registers nothing in a production store, adds no word
+# and executes no method. NOT a workspace member, nothing depends on it.
+# Verify with
+#   cargo test --release --manifest-path crates/cg-beh-probe/Cargo.toml
+# Evidence schema: crates/cg-beh-probe/README.md
+[package]
+name = "cg-beh-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "D-CG-BEH-2 lab: ON / WHEN / DO facts of registered DT64 methods, a change query over them, and its falsifiers."
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# Consumed read-only through their public APIs; none is changed.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The polyfill lens table (word position -> opcode) and its view.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+# The opcode constants the dispatch arms are named by.
+ogar-r2il = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+ogar-loco = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
+# The real CanCook registration.
+foundry-parity-lab = { path = "../foundry-parity-lab" }
+
+# OGAR depends on lance-graph-contract by git; patch it to the path crate so
+# the graph holds ONE contract (foundry-parity-lab does the same).
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
+
+[[test]]
+name = "integration"
+path = "tests/integration/main.rs"
+
+[profile.release]
+debug = false

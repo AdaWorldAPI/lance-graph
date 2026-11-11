@@ -85,5 +85,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n69["neural-debug"]
+  n70["neural-debug"]
 ```

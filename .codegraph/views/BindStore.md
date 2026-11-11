@@ -15,6 +15,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Imports (not resolved to a definition)
 
+- use lance_graph_dt64::BindStore — crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
@@ -30,8 +32,17 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (90 total)
+## Textual occurrences (99 total)
 
+- crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:158 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:191 POSSIBLE
+- crates/cg-beh-probe/src/facts.rs:334 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:108 POSSIBLE
+- crates/cg-beh-probe/src/fixture.rs:192 POSSIBLE
+- crates/cg-beh-probe/src/lib.rs:13 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:72 POSSIBLE

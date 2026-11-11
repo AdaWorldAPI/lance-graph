@@ -366,19 +366,19 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
-  n6["cognitive-shader-driver"]
-  n10["deepnsm"]
-  n39["lance-graph-contract"]
-  n53["lance-graph-ontology"]
-  n55["lance-graph-planner"]
-  n72["p64-bridge"]
-  n86["thinking-engine"]
-  n6 --> n2
-  n6 --> n3
-  n6 --> n10
-  n6 --> n39
-  n6 --> n53
-  n6 --> n55
-  n6 --> n72
-  n6 --> n86
+  n7["cognitive-shader-driver"]
+  n11["deepnsm"]
+  n40["lance-graph-contract"]
+  n54["lance-graph-ontology"]
+  n56["lance-graph-planner"]
+  n73["p64-bridge"]
+  n87["thinking-engine"]
+  n7 --> n2
+  n7 --> n3
+  n7 --> n11
+  n7 --> n40
+  n7 --> n54
+  n7 --> n56
+  n7 --> n73
+  n7 --> n87
 ```
