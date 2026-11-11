@@ -13,6 +13,7 @@ lance-graph-xlog = { path = "../lance-graph-xlog" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-quack = { path = "../lance-graph-quack" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }
 
 [dev-dependencies]
@@ -20,7 +21,6 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", d
 # `CommitError`, `DetachedCycleBatch`) for the G10 x G11 publication lab. Never
 # a production edge from the codegraph to the planner.
 lance-graph-planner = { path = "../lance-graph-planner" }
-lance-graph-contract = { path = "../lance-graph-contract" }
 tokio = { version = "1", features = ["rt"] }
 
 # One ndarray (CARGO-COMPUTE-SUBSTRATE rule 9): the planner names the sibling

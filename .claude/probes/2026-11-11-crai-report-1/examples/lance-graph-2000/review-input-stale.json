@@ -1,0 +1,566 @@
+{
+ "findings": [
+  {
+   "claim": "Changing `lance_graph_dt64::lane::{LaneBinding}::check` affects its in-store callers. Callers outside the analysed crates are not observed.",
+   "coverage": {
+    "observed_crate": "lance_graph_dt64 (lib target)",
+    "unsupported_regions": 10
+   },
+   "evidence": [
+    {
+     "fresh": true,
+     "grade": "COMPILER_DERIVED",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "`lance_graph_dt64::lane::{LaneBinding}::borrow_all` calls `lance_graph_dt64::lane::{LaneBinding}::check`",
+     "tool": "charon",
+     "witness": "crates/lance-graph-dt64/src/lane.rs:386"
+    },
+    {
+     "fresh": true,
+     "grade": "COMPILER_DERIVED",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "`lance_graph_dt64::lane::{LaneBinding}::lane` calls `lance_graph_dt64::lane::{LaneBinding}::check`",
+     "tool": "charon",
+     "witness": "crates/lance-graph-dt64/src/lane.rs:360"
+    }
+   ],
+   "falsifier": {
+    "description": "Remove one witnessed call site and rebuild the store: the caller must leave `confirmed`.",
+    "status": "NOT_RUN"
+   },
+   "id": "F1",
+   "kind": "impact",
+   "location": {
+    "file": "crates/lance-graph-dt64/src/lane.rs",
+    "lines": [
+     307,
+     349
+    ],
+    "symbol": "lance_graph_dt64::lane::{LaneBinding}::check"
+   },
+   "provenance": {
+    "crate_instance": "lance_graph_dt64 (lib target)",
+    "features": "default",
+    "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+    "rustc": "nightly-2026-09-17 (charon)",
+    "target": "x86_64-unknown-linux-gnu",
+    "tool": "lance-graph recon.py packet over a Charon/ruff_charon store"
+   },
+   "reachability": {
+    "confirmed": [
+     "lance_graph_dt64::lane::{LaneBinding}::borrow_all",
+     "lance_graph_dt64::lane::{LaneBinding}::lane"
+    ],
+    "possible": [],
+    "unknown": [
+     {
+      "observed_crates": [
+       "lance_graph_contract",
+       "lance_graph_dt64",
+       "lance_graph_quack",
+       "lance_graph_r2il"
+      ],
+      "what": "callers in crates outside the store",
+      "why": "symbol is PUBLIC; only these crates' library targets were compiled"
+     },
+     {
+      "what": "test targets, examples, cfg(test) modules",
+      "why": "store holds library targets only"
+     }
+    ]
+   },
+   "suggestion": {
+    "refusal": "impact is a fact, not a defect; nothing to change"
+   }
+  },
+  {
+   "claim": "48 test call sites match `check` by name. None is resolved to this symbol, and none ran.",
+   "evidence": [
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/cognitive-polyfill-probe/tests/p0.rs:271"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/cognitive-polyfill-probe/tests/p0.rs:275"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:234"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:238"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:249"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:481"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:522"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:663"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:677"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:678"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dir-rmap-probe/tests/equivalence.rs:680"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:136"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dr-isa-stream-lab/tests/integration/g2l.rs:263"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/dr-math-binding-probe/tests/binding.rs:234"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:162"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:722"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1012"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dir-sim/tests/ordinal_chain_lab.rs:1328"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:58"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:60"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:72"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:82"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:86"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:89"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:90"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:93"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:776"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:777"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:808"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:814"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:824"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:827"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/dr.rs:828"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:227"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:277"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:314"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:369"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:373"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:403"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:407"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: inside a macro region)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-dt64/tests/lane_socket.rs:424"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/thought-git-probe/tests/receipt.rs:715"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/thought-git-probe/tests/receipt.rs:715"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/xlog-relcomp-probe/tests/dto_binding.rs:233"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-report/src/lane_source/tests.rs:320"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-report/src/lane_source/tests.rs:341"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-report/src/lane_source/tests.rs:418"
+    },
+    {
+     "fresh": true,
+     "grade": "SOURCE_STRUCTURE",
+     "qualifier": "POSSIBLE",
+     "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+     "statement": "name match, receiver unresolved (UNKNOWN: file not indexed)",
+     "tool": "source search",
+     "witness": "crates/lance-graph-report/src/lane_source/tests.rs:623"
+    }
+   ],
+   "falsifier": {
+    "description": "Extract the test targets and re-run impact: name-matched sites either become confirmed callers or drop out.",
+    "status": "NOT_RUN"
+   },
+   "id": "F2",
+   "kind": "coverage",
+   "location": {
+    "file": "crates/lance-graph-dt64/src/lane.rs",
+    "lines": [
+     307,
+     349
+    ],
+    "symbol": "lance_graph_dt64::lane::{LaneBinding}::check"
+   },
+   "provenance": {
+    "crate_instance": "lance_graph_dt64 (lib target)",
+    "features": "default",
+    "revision": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+    "rustc": "nightly-2026-09-17 (charon)",
+    "target": "x86_64-unknown-linux-gnu",
+    "tool": "lance-graph recon.py packet over a Charon/ruff_charon store"
+   },
+   "reachability": {
+    "unknown": [
+     {
+      "what": "test callers",
+      "why": "library targets only; macro regions and cfg(test) modules not indexed"
+     }
+    ]
+   },
+   "suggestion": {
+    "refusal": "coverage gap; the next step is extraction, not a code change"
+   }
+  }
+ ],
+ "review": {
+  "base_sha": "0c9ae23ac6a20ca6cd0c50da7e7a69e0f5df34eb",
+  "head_sha": "90fc5a76c12714d3bd00bcc5be96125aef74d89f",
+  "pr": 2000,
+  "repo": "AdaWorldAPI/lance-graph",
+  "reviewer": {
+   "input": "ReviewEvidencePacket",
+   "tool": "crai_report.py"
+  },
+  "scope": "the same scope review, from a packet built at an older head"
+ },
+ "run": {
+  "reasons": [
+   "library targets only",
+   "consumer crates not in store",
+   "no test executed"
+  ],
+  "status": "PARTIAL"
+ }
+}

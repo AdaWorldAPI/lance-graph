@@ -1,0 +1,7 @@
+symbol	MISSING	owner_stored=true	report_rs::iam::authorize
+observed	report_rs	Complete
+GAP	TargetsNotExtracted { krate: "report_rs", missing: Targets { lib: false, tests: true, examples: true, benches: true } }
+GAP	RegionsExcluded { krate: "report_rs", regions: ["opaque:crate::app", "features-off:lance,iam,flow,oidc,projects,projects-pg"] }
+GAP	HarvestIncomplete { krate: "report_rs", residuals: ResidualCounts([0, 0, 1, 0, 0]), partial: false, no_residuals_file: false }
+GAP	SourceFilesUnread { krate: "report_rs", files: ["src/app.rs", "src/app/plan_routes.rs", "src/flow_scratch.rs", "src/iam.rs", "src/login.rs", "src/main.rs", "src/project_plan/calendar.rs", "src/project_plan/engine.rs", "src/project_plan/mod.rs", "src/project_plan/pg.rs", "src/project_plan/projection.rs", "src/project_plan/store.rs", "src/project_plan/view.rs", "src/workbook_delta/dt64/p21_lane_socket_lab.rs"] }
+closed_in_scope	false

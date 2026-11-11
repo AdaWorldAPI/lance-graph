@@ -1,0 +1,3 @@
+symbol	MISSING	owner_stored=false	lance_graph_rbac::authorize::authorize_memberships
+observed	report_rs	Complete
+closed_in_scope	false
