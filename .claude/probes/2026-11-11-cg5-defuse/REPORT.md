@@ -105,8 +105,9 @@ The derivation runs once per program and never per query.
 ## Reproduce
 
 ```
-cd crates/cg-defuse-probe && cargo test --release                # 18 tests
-cargo run --release --example report -- tests/data/m0.defuse.tsv src/method.rs:58
+# from the repository root
+(cd crates/cg-defuse-probe && cargo test --release)              # 18 tests
+(cd crates/cg-defuse-probe && cargo run --release --example report -- tests/data/m0.defuse.tsv src/method.rs:58)
 CHARON=<charon binary> .claude/probes/2026-11-11-cg5-defuse/regenerate.sh   # rewrites tests/data
 python3 .claude/probes/2026-11-11-cg5-defuse/disable_runs.py     # 24 guards, receipt: 24 red
 ```
