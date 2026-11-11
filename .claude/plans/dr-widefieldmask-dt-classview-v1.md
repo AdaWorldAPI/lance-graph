@@ -208,6 +208,13 @@ when the binding is made: a count needs the ℕ reading, an existence test the
 Boolean one; answering a count from the Boolean support is wrong (the
 Cypher-lowering rule).
 
+Picture nine ("The Bag as a Thinking Object") makes the bag the unit a
+method is called on: select, join and aggregate are the bag algebra above;
+reason, plan, simulate, revise and insight are further methods of the same
+immutable register, addressed through `ClassView`. Those reasoning methods
+are outside this plan; it only requires that they take a bag by address,
+never as copied rows or token lists.
+
 The third picture's `F###` list (F001 `ClassView::select`, F011
 `WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
 follow EXO-254 (F + technology digit + command byte) and are not minted here.
