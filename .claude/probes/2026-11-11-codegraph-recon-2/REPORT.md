@@ -19,7 +19,7 @@ store sees one build configuration and one target.
 
 | gap | source of the fact |
 |---|---|
-| `ExternalConsumersUnobserved` | `PUBLIC` row, and the consumer set is not declared closed |
+| `ExternalConsumersUnobserved` | the symbol or anything that reaches it is `PUBLIC`, and the consumer set is not declared closed; when it is declared closed, every stored crate's coverage is checked |
 | `TargetsNotExtracted` / `TargetsUndeclared` | declared per crate (the store does not record targets) |
 | `RegionsExcluded` | declared: opaque modules, features left off |
 | `UnresolvedDispatch` | `UNRESOLVED_CALL` rows that may reach the symbol |
@@ -32,12 +32,14 @@ is a place it may still be defined. `closed_in_scope()` is true only for a found
 gap, and it claims nothing about code outside the scope. `Coverage::no_known_gap()` alone is not
 treated as closure: test 2 asserts it is true while the report is not closed.
 
-`tests/impact_coverage.rs`, 11 tests, one per case in the brief plus three found while running
-Gate B (excluded regions, target gaps of a missing symbol, unread files). Every guard was disabled
+`tests/impact_coverage.rs`, 14 tests: one per case in the brief, three found while running
+Gate B (excluded regions, target gaps of a missing symbol, unread files), and three from review
+(a private symbol behind a public caller, a closed consumer set checks every stored crate, a
+missing symbol's harvest gap). Every guard was disabled
 and its test went red: external consumers, missing targets, undeclared targets, dispatch fire,
 dispatch silence, stale source, owner stored, observed consumers, closed symbol, harvest,
 missing-symbol scope gaps, excluded regions, unread files (fire and silence), missing-symbol file
-gaps.
+gaps, public frontier, closed consumer set, missing-symbol harvest.
 
 ## 2. The report-rs store (Gate B)
 

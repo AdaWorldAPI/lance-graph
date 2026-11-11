@@ -7,7 +7,7 @@
 external consumers unobserved, targets not extracted or undeclared, excluded regions, unresolved
 dispatch, incomplete harvest, stale or unrecorded files, and `.rs` files under a read directory that
 `files.tsv` does not list. Missing coverage never enters `Graded.unknown`. A missing symbol carries
-its crate's gaps. 11 tests; every guard disable-verified red.
+its crate's gaps. 14 tests; every guard disable-verified red.
 
 report-rs `81705d9` through Charon (lib, default features, `crate::app` opaque): CRATE `COMPLETE`,
 yet 14 of 59 `src/` files unread (`iam.rs`, `main.rs`, `project_plan/*`, …). The store recovers the
