@@ -506,3 +506,75 @@ fn a_hop_with_a_filter_on_the_source_is_one_edge_range_of_an_order_index() {
         .unwrap();
     assert!(some > 0 && some < all);
 }
+
+/// A fold keeps lane indices resolved in one field selection. Run against a
+/// preparation that selects other fields, lane 0 would be another column.
+#[test]
+fn a_fold_refuses_a_preparation_with_another_field_selection() {
+    let world = World::new();
+    let people = People::new(1_000);
+    let table = people.table();
+    let age_only = select(&world.view, PERSON, &["age"]).unwrap();
+    let both = People::mask(&world);
+    assert!(age_only != both);
+    let narrow = prepare_nodes(&world, &table, &age_only, present, in_scope).unwrap();
+    let wide = prepare_nodes(&world, &table, &both, present, in_scope).unwrap();
+    let mut fold = Fold::count_gt(&narrow, person::AGE, 50).unwrap();
+    let want = (0..1_000)
+        .filter(|&i| present(i) && in_scope(i) && people.age[i] > 50)
+        .count() as u64;
+    assert!(want > 0);
+    assert_eq!(fold.count(&world, &table, &narrow).unwrap(), want);
+    assert!(matches!(
+        fold.count(&world, &table, &wide),
+        Err(Refused::SelectionChanged)
+    ));
+    // A fold that reads no lane has no selection to disagree with.
+    let mut and3 = Fold::count_and3().unwrap();
+    assert!(and3.count(&world, &table, &wide).is_ok());
+}
+
+/// An index holds one table's keys. Prepared against a replacement table it
+/// would answer from the old keys.
+#[test]
+fn an_order_index_refuses_a_table_it_was_not_built_over() {
+    let world = World::new();
+    let mask = People::mask(&world);
+    let id = [0u32, 1];
+    let old_age = [0i32, 100];
+    let new_age = [100i32, 0];
+    let table = |age: &'static [i32; 2], rev: u64| -> Table<'static> {
+        // Leaked so both tables can outlive this closure; two tiny arrays.
+        let id: &'static [u32; 2] = Box::leak(Box::new(id));
+        Table::new(
+            PERSON,
+            1,
+            2,
+            rev,
+            READER,
+            &[
+                (person::ID, LaneRef::U32(id)),
+                (person::AGE, LaneRef::I32(age)),
+            ],
+        )
+    };
+    let old: &'static [i32; 2] = Box::leak(Box::new(old_age));
+    let new: &'static [i32; 2] = Box::leak(Box::new(new_age));
+    let before = table(old, 1);
+    let after = table(new, 2);
+    let index = OrderIndex::by_i32(&before, person::AGE, 99).unwrap();
+    // On its own table: only row 0 visible, its age is 0, nothing is > 50.
+    let mut own = prepare_order(&world, &before, &mask, &index, |r| r == 0).unwrap();
+    assert_eq!(own.count(&world, &before, &index, index.gt(50)).unwrap(), 0);
+    // The replacement's row 0 has age 100. The old keys would still say 0.
+    assert!(matches!(
+        prepare_order(&world, &after, &mask, &index, |r| r == 0),
+        Err(Refused::IndexOfAnotherTable)
+    ));
+    let fresh = OrderIndex::by_i32(&after, person::AGE, 99).unwrap();
+    let mut right = prepare_order(&world, &after, &mask, &fresh, |r| r == 0).unwrap();
+    assert_eq!(
+        right.count(&world, &after, &fresh, fresh.gt(50)).unwrap(),
+        1
+    );
+}

@@ -469,6 +469,12 @@ pub enum Refused {
     Exec(ExecError),
     /// An fk names no row of the node domain.
     ForeignKeyOutOfRange { edge: usize },
+    /// The fold was compiled against another field selection, so its lane
+    /// indices would name other columns of this preparation.
+    SelectionChanged,
+    /// The order index was built over another table, or over this table at
+    /// another revision; its keys and row order are not this table's.
+    IndexOfAnotherTable,
 }
 
 impl From<LaneRefusal> for Refused {
@@ -655,8 +661,9 @@ pub fn prepare_edges(
 pub struct Fold {
     program: Program,
     scratch: Scratch<'static>,
-    /// Whether the program reads value lanes.
-    reads_lanes: bool,
+    /// The field selection the program's lane indices were resolved in.
+    /// `None` when the program reads no lane.
+    compiled: Option<WideFieldMask>,
 }
 
 impl Fold {
@@ -684,7 +691,7 @@ impl Fold {
                 mask: Operand::Scratch(1),
             },
         );
-        Fold::new(program, true)
+        Fold::new(program, Some(prepared.fields.clone()))
     }
 
     /// `count(a & b & c)` over the three prepared planes. Reads no lane.
@@ -701,15 +708,15 @@ impl Fold {
                 mask: Operand::Scratch(0),
             },
         );
-        Fold::new(program, false)
+        Fold::new(program, None)
     }
 
-    fn new(program: Program, reads_lanes: bool) -> Result<Fold, Refused> {
+    fn new(program: Program, compiled: Option<WideFieldMask>) -> Result<Fold, Refused> {
         let scratch = Scratch::for_program(&program, SLAB_ROWS)?;
         Ok(Fold {
             program,
             scratch,
-            reads_lanes,
+            compiled,
         })
     }
 
@@ -722,6 +729,13 @@ impl Fold {
         prepared: &Prepared,
     ) -> Result<u64, Refused> {
         debug_assert_eq!(prepared.class, table.class);
+        if self
+            .compiled
+            .as_ref()
+            .is_some_and(|c| *c != prepared.fields)
+        {
+            return Err(Refused::SelectionChanged);
+        }
         let mut total = 0u64;
         for (s, slab) in prepared.slabs.iter().enumerate() {
             let source = table.slab(s);
@@ -730,7 +744,7 @@ impl Fold {
             let bound =
                 slab.binding
                     .borrow_all(&world.store, &world.view, &table.frames, &source)?;
-            if self.reads_lanes {
+            if self.compiled.is_some() {
                 for lane in bound {
                     let (_, lane) = lane?;
                     lanes[n] = lane;
@@ -814,6 +828,28 @@ pub struct OrderIndex {
     /// The key at each index position, ascending.
     keys: Vec<i32>,
     population: u64,
+    /// The table the keys and the order were read from.
+    origin: Origin,
+}
+
+/// What identifies the table an [`OrderIndex`] was built over.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Origin {
+    class: u32,
+    population: u64,
+    n_rows: usize,
+    revisions: FrameRevisions,
+}
+
+impl Origin {
+    fn of(table: &Table<'_>) -> Origin {
+        Origin {
+            class: table.class,
+            population: table.population,
+            n_rows: table.n_rows,
+            revisions: table.frames.revisions(),
+        }
+    }
 }
 
 impl OrderIndex {
@@ -833,6 +869,7 @@ impl OrderIndex {
             order,
             keys,
             population,
+            origin: Origin::of(table),
         })
     }
 
@@ -861,6 +898,7 @@ impl OrderIndex {
             order,
             keys,
             population,
+            origin: Origin::of(table),
         })
     }
 
@@ -896,6 +934,15 @@ impl OrderIndex {
         self.keys.partition_point(|&k| k < lo)..self.keys.partition_point(|&k| k <= hi)
     }
 
+    /// Refuse a table other than the one this index was built over.
+    fn check(&self, table: &Table<'_>) -> Result<(), Refused> {
+        if self.origin == Origin::of(table) {
+            Ok(())
+        } else {
+            Err(Refused::IndexOfAnotherTable)
+        }
+    }
+
     fn space(&self, s: usize, coordinates: u64) -> CoordSpace {
         CoordSpace {
             population: (self.population << 8) | s as u64,
@@ -922,6 +969,7 @@ pub fn prepare_order(
     index: &OrderIndex,
     mut visible: impl FnMut(usize) -> bool,
 ) -> Result<PreparedOrder, Refused> {
+    index.check(table)?;
     let slabs = index.len().div_ceil(SLAB_ROWS).max(1);
     if slabs > MAX_SLABS {
         return Err(Refused::TooManySlabs { slabs });
@@ -983,6 +1031,7 @@ impl PreparedOrder {
         for (s, binding) in self.bindings.iter().enumerate() {
             binding.check(&world.store, &world.view, &table.frames, &table.slab(s))?;
         }
+        index.check(table)?;
         let coordinates = table.frames.revisions().coordinates;
         let (lo, hi) = (range.start.min(self.rows), range.end.min(self.rows));
         let mut total = 0u64;
