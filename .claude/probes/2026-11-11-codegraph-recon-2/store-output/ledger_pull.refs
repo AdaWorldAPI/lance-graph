@@ -1,0 +1,5 @@
+ref	CALLS_RESOLVED	report_rs::source_graph::pull_into	src/source_graph.rs:357
+ref	CALLS_RESOLVED	report_rs::projection::{Projection}::load_v1	src/projection.rs:408
+ref	CALLS_RESOLVED	report_rs::projection::{Projection}::load_v1	src/projection.rs:413
+ref	CALLS_RESOLVED	report_rs::projection::{Projection}::load_v1	src/projection.rs:416
+sites	confirmed=4	possible=0

@@ -64,7 +64,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:313 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:414 POSSIBLE
-- crates/lance-graph-codegraph/src/graph.rs:1564 POSSIBLE
+- crates/lance-graph-codegraph/src/graph.rs:1587 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:6 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:39 POSSIBLE

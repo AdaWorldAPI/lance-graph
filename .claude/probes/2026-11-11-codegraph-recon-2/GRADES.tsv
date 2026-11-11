@@ -1,0 +1,26 @@
+#version 1
+#schema key	arm	grade	note
+K1.1	M	CORRECT	both identities, source_fake.rs:19 and workbook_delta/source.rs:210
+K1.1	C	PARTIAL	both identities CONFIRMED; defining lines UNKNOWN (the store records spans, not struct lines)
+K1.2	M	CORRECT	source_fake.rs:29 impl Source
+K1.2	C	CORRECT	IMPLEMENTS rows; witness source_fake.rs:39 (the pull fn, not the impl line)
+K1.3	M	CORRECT	inherent poll, returns Poll, no Source impl
+K1.3	C	CORRECT	no Source impl for the delta type, ABSENT-IN-SCOPE
+K1.4	M	CORRECT	Ledger::pull calls src.pull (333) then ingest (334); projection.rs:409 passes source_fake
+K1.4	C	CORRECT	ingest edge CONFIRMED at source.rs:334; dyn Source call reported UNKNOWN, not CONFIRMED
+K1.5	M	CORRECT	no src caller of poll; callers in tests/p20 and examples/workbook_sync.rs; lands in Workbook::ingest
+K1.5	C	PARTIAL	poll has 0 callers in the lib scope and no edge to Ledger::ingest; test/example callers not named (targets not extracted, reported as a gap)
+K1.6	M	CORRECT	does not claim poll has no callers at all
+K1.6	C	CORRECT	ABSENT-IN-SCOPE with tests/examples UNOBSERVED; never "no callers"
+K2.1	M	CORRECT	iam.rs:250, behind feature iam (lib.rs:22-23)
+K2.1	C	UNSUPPORTED	iam.rs reported unread, feature off, call UNOBSERVED
+K2.2	M	CORRECT	no authorize_scoped anywhere
+K2.2	C	CORRECT	ABSENT-IN-SCOPE, with the iam build UNOBSERVED
+K2.3	M	CORRECT	gating stated; default build does not compile iam
+K2.3	C	CORRECT	does not claim report-rs never authorizes
+K3.1	M	CORRECT	no dt64-lance dependency (Cargo.toml), no MapLog in any file
+K3.1	C	PARTIAL	no MapLog symbol in scope; the dependency fact is outside the store and not stated; lance-feature build left UNOBSERVED
+K3.2	M	CORRECT	IdentityFrame holds MapTable (frame.rs:55-57), advanced in commit (189-203)
+K3.2	C	CORRECT	MapTable::new frame.rs:69, advance frame.rs:195 in IdentityFrame::commit, called from ingest.rs:264
+K3.3	M	CORRECT	absence stated over every file and Cargo.toml, independent of features
+K3.3	C	UNSUPPORTED	did not frame it as a dependency-scope fact

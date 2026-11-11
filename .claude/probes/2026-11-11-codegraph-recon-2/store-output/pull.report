@@ -1,0 +1,110 @@
+symbol	FOUND	1717	report_rs::source_fake::impl_Source_for_WorkbookSource::pull
+impact	CONFIRMED	report_rs::source_fake::impl_Source_for_WorkbookSource::pull::{vtable_method}
+impact	UNKNOWN	report_rs::cli::run
+impact	UNKNOWN	report_rs::cli::run::{impl FnOnce<(S3Client,)> for report_rs::cli::run::{closure#3}<'_0>}::call_once
+impact	UNKNOWN	report_rs::cli::store
+impact	UNKNOWN	report_rs::fixture::{ReportType}::within::{impl FnMut<(&'_1 &'_2 str,)> for report_rs::fixture::{ReportType}::within::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::fixture::{ReportType}::within::{impl FnOnce<(&'_1 &'_2 str,)> for report_rs::fixture::{ReportType}::within::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::lance_adapter::parity
+impact	UNKNOWN	report_rs::mapping_hydrate::hydrate
+impact	UNKNOWN	report_rs::mapping_hydrate::hydrate_artifact
+impact	UNKNOWN	report_rs::mapping_hydrate::hydrate_artifact::{impl FnOnce<(Pointer,)> for report_rs::mapping_hydrate::hydrate_artifact::{closure}<'_0, '_1, T>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::mapping_hydrate::hydrate_from_env
+impact	UNKNOWN	report_rs::mapping_hydrate::hydrate_kind_from_env
+impact	UNKNOWN	report_rs::mapping_hydrate::publish
+impact	UNKNOWN	report_rs::mapping_hydrate::publish_artifact
+impact	UNKNOWN	report_rs::mapping_hydrate::publish_artifact::{impl Fn<(&'_2 str, &'_3 [u8], &'_4 str)> for report_rs::mapping_hydrate::publish_artifact::{closure}<'_0, '_1>}::call
+impact	UNKNOWN	report_rs::mapping_hydrate::publish_artifact::{impl FnMut<(&'_2 str, &'_3 [u8], &'_4 str)> for report_rs::mapping_hydrate::publish_artifact::{closure}<'_0, '_1>}::call_mut
+impact	UNKNOWN	report_rs::mapping_hydrate::publish_artifact::{impl FnOnce<(&'_2 str, &'_3 [u8], &'_4 str)> for report_rs::mapping_hydrate::publish_artifact::{closure}<'_0, '_1>}::call_once
+impact	UNKNOWN	report_rs::mapping_hydrate::repoint
+impact	UNKNOWN	report_rs::mapping_hydrate::store_from_env
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::fetch_manifest
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::load_local
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{impl Fn<()> for report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{closure}<'_0, '_1, '_2, '_3, '_4, '_5, '_6, T>[TraitClause0]}::call
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{impl FnMut<()> for report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{closure}<'_0, '_1, '_2, '_3, '_4, '_5, '_6, T>[TraitClause0]}::call_mut
+impact	UNKNOWN	report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{impl FnOnce<()> for report_rs::mapping_hydrate::{Ctx<'_0, T>[TraitClause0]}::publish_local::{closure}<'_0, '_1, '_2, '_3, '_4, '_5, '_6, T>[TraitClause0]}::call_once
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{impl Fn<(&'_2 str,)> for report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{closure}<'_0, '_1, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{impl FnMut<(&'_2 str,)> for report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{closure}<'_0, '_1, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{impl FnOnce<(&'_2 str,)> for report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{closure}<'_0, '_1, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{impl FnOnce<()> for report_rs::mapping_hydrate::{HydrateConfig}::from_vars_for::{closure#1}<'_0, '_1, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::mobile::render
+impact	UNKNOWN	report_rs::objstore::{S3Config}::from_suffixed_env
+impact	UNKNOWN	report_rs::objstore::{S3Config}::from_vars
+impact	UNKNOWN	report_rs::objstore::{S3Config}::from_vars::{impl Fn<(&'_3 str,)> for report_rs::objstore::{S3Config}::from_vars::{closure}<'_0, '_1, '_2, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call
+impact	UNKNOWN	report_rs::objstore::{S3Config}::from_vars::{impl FnMut<(&'_3 str,)> for report_rs::objstore::{S3Config}::from_vars::{closure}<'_0, '_1, '_2, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::objstore::{S3Config}::from_vars::{impl FnOnce<(&'_3 str,)> for report_rs::objstore::{S3Config}::from_vars::{closure}<'_0, '_1, '_2, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::oracle::summary
+impact	UNKNOWN	report_rs::oracle::summary_where
+impact	UNKNOWN	report_rs::oracle::summary_where::{closure}::{impl FnMut<(&'_1 &'_2 report_rs::fixture::Customer,)> for report_rs::oracle::summary_where::{closure}::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::oracle::summary_where::{closure}::{impl FnOnce<(&'_1 &'_2 report_rs::fixture::Customer,)> for report_rs::oracle::summary_where::{closure}::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::projection::labels_for
+impact	UNKNOWN	report_rs::projection::{Projection}::load_v1
+impact	UNKNOWN	report_rs::projection::{Projection}::parity
+impact	UNKNOWN	report_rs::projection::{Projection}::summary
+impact	UNKNOWN	report_rs::rules::each_owed
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_ConfiguredButNoRun::propose
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_ConfiguredButNoRun::propose::{vtable_method}
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_DeliveredWithoutEvidence::propose
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_DeliveredWithoutEvidence::propose::{vtable_method}
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_EvidenceStale::propose
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_EvidenceStale::propose::{vtable_method}
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_OwedButNotConfigured::propose
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_OwedButNotConfigured::propose::{vtable_method}
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_RunFailed::propose
+impact	UNKNOWN	report_rs::rules::impl_Rule_for_RunFailed::propose::{vtable_method}
+impact	UNKNOWN	report_rs::rules::plan::{impl FnMut<(&'_2 Box<(dyn Rule + '_3), Global>[{built_in impl MetaSized for (dyn Rule + '_3)}, {built_in impl Sized for Global}, impl_Allocator_for_Global],)> for report_rs::rules::plan::{closure}<'_0, '_1>}::call_mut
+impact	UNKNOWN	report_rs::rules::plan::{impl FnOnce<(&'_2 Box<(dyn Rule + '_3), Global>[{built_in impl MetaSized for (dyn Rule + '_3)}, {built_in impl Sized for Global}, impl_Allocator_for_Global],)> for report_rs::rules::plan::{closure}<'_0, '_1>}::call_once
+impact	UNKNOWN	report_rs::rules::validate::{impl FnMut<(&'_6 Change,)> for report_rs::rules::validate::{closure#1}<'_0, '_1, '_2, '_3, '_4, '_5, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::rules::validate::{impl FnOnce<(&'_6 Change,)> for report_rs::rules::validate::{closure#1}<'_0, '_1, '_2, '_3, '_4, '_5, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::scope::decide_with_fallback::{impl FnMut<(&'_1 String,)> for report_rs::scope::decide_with_fallback::{closure#2}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::scope::decide_with_fallback::{impl FnMut<(&'_1 String,)> for report_rs::scope::decide_with_fallback::{closure#3}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::scope::decide_with_fallback::{impl FnOnce<(&'_1 String,)> for report_rs::scope::decide_with_fallback::{closure#2}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::scope::decide_with_fallback::{impl FnOnce<(&'_1 String,)> for report_rs::scope::decide_with_fallback::{closure#3}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::scope::{ActorSource}::from_env
+impact	UNKNOWN	report_rs::scope::{ActorSource}::from_vars
+impact	UNKNOWN	report_rs::scope::{StaticScope}::from_env
+impact	UNKNOWN	report_rs::scope::{StaticScope}::from_vars
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::pull
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnMut<(&'_1 (report_rs::source::SourceId, IngestBatchId), &'_2 mut IngestBatch)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure}<'_0, T0>[TraitClause0, TraitClause1]}::call_mut
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnMut<(&'_1 SourceFailure,)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#1}<'_0, T0>[TraitClause0, TraitClause1]}::call_mut
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnMut<(&'_1 report_rs::source::SourceId, &'_2 mut BTreeSet<ObservationLane, Global>[{built_in impl Sized for ObservationLane}, {built_in impl Sized for Global}, impl_AllocatorClone_for_Global])> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#2}<'_0, T0>[TraitClause0, TraitClause1]}::call_mut
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnMut<(&'_1 report_rs::source::SourceId, &'_2 mut SourceScope)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#3}<'_0, T0>[TraitClause0, TraitClause1]}::call_mut
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnMut<(&'_1 report_rs::source::SourceId, &'_2 mut String)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#4}<'_0, T0>[TraitClause0, TraitClause1]}::call_mut
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnOnce<(&'_1 (report_rs::source::SourceId, IngestBatchId), &'_2 mut IngestBatch)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure}<'_0, T0>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnOnce<(&'_1 SourceFailure,)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#1}<'_0, T0>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnOnce<(&'_1 report_rs::source::SourceId, &'_2 mut BTreeSet<ObservationLane, Global>[{built_in impl Sized for ObservationLane}, {built_in impl Sized for Global}, impl_AllocatorClone_for_Global])> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#2}<'_0, T0>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnOnce<(&'_1 report_rs::source::SourceId, &'_2 mut SourceScope)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#3}<'_0, T0>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::source::{report_rs::source::Ledger}::retain_sources::{impl FnOnce<(&'_1 report_rs::source::SourceId, &'_2 mut String)> for report_rs::source::{report_rs::source::Ledger}::retain_sources::{closure#4}<'_0, T0>[TraitClause0, TraitClause1]}::call_once
+impact	UNKNOWN	report_rs::source_graph::pull_into
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::from_env
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::from_vars
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::from_vars::{impl Fn<(&'_1 str,)> for report_rs::source_graph::{GraphConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::from_vars::{impl FnMut<(&'_1 str,)> for report_rs::source_graph::{GraphConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::from_vars::{impl FnOnce<(&'_1 str,)> for report_rs::source_graph::{GraphConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::source_graph::{GraphConfig}::lab_from_vars
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{impl Fn<(&'_4 Tool, &'_5 str)> for report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{closure}<'_0, '_1, '_2, '_3, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{impl FnMut<(&'_4 Tool, &'_5 str)> for report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{closure}<'_0, '_1, '_2, '_3, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{impl FnOnce<(&'_4 Tool, &'_5 str)> for report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_addressed::{closure}<'_0, '_1, '_2, '_3, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::rail_html_with
+impact	UNKNOWN	report_rs::surface_fixture::{report_rs::surface_fixture::Surface}::tools_html
+impact	UNKNOWN	report_rs::view::project::{impl FnMut<(&'_1 report_rs::view::Column,)> for report_rs::view::project::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::view::project::{impl FnOnce<(&'_1 report_rs::view::Column,)> for report_rs::view::project::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::view::{Actor}::from_vars
+impact	UNKNOWN	report_rs::workbook_delta::source::{DriveConfig}::from_vars
+impact	UNKNOWN	report_rs::workbook_delta::source::{DriveConfig}::from_vars::{impl Fn<(&'_1 str,)> for report_rs::workbook_delta::source::{DriveConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call
+impact	UNKNOWN	report_rs::workbook_delta::source::{DriveConfig}::from_vars::{impl FnMut<(&'_1 str,)> for report_rs::workbook_delta::source::{DriveConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_mut
+impact	UNKNOWN	report_rs::workbook_delta::source::{DriveConfig}::from_vars::{impl FnOnce<(&'_1 str,)> for report_rs::workbook_delta::source::{DriveConfig}::from_vars::{closure}<'_0, T0>[TraitClause0, for<'_0_1> TraitClause1<'_>]}::call_once
+impact	UNKNOWN	report_rs::xlsx::export
+impact	UNKNOWN	report_rs::xlsx::workbook
+GAP	ExternalConsumersUnobserved { owner: "report_rs", observed_consumers: [] }
+GAP	TargetsNotExtracted { krate: "report_rs", missing: Targets { lib: false, tests: true, examples: true, benches: true } }
+GAP	RegionsExcluded { krate: "report_rs", regions: ["opaque:crate::app", "features-off:lance,iam,flow,oidc,projects,projects-pg"] }
+GAP	UnresolvedDispatch { dynamic_calls: 17 }
+GAP	HarvestIncomplete { krate: "report_rs", residuals: ResidualCounts([0, 0, 1, 0, 0]), partial: false, no_residuals_file: false }
+GAP	SourceFilesUnread { krate: "report_rs", files: ["src/app.rs", "src/app/plan_routes.rs", "src/flow_scratch.rs", "src/iam.rs", "src/login.rs", "src/main.rs", "src/project_plan/calendar.rs", "src/project_plan/engine.rs", "src/project_plan/mod.rs", "src/project_plan/pg.rs", "src/project_plan/projection.rs", "src/project_plan/store.rs", "src/project_plan/view.rs", "src/workbook_delta/dt64/p21_lane_socket_lab.rs"] }
+closed_in_scope	false

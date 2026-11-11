@@ -1,0 +1,6 @@
+#cg-beh v1
+#schema class	method	sig_rev	ordinal	lens	word	opcode	r2il_name	arity	target	args
+0x7F0B0001	1	1	0	0xFFFFF000	5	174	IntSLess	2	3	F0,C5
+0x7F0B0001	1	1	1	0xFFFFF000	11	228	SUM	2	4	F3,F1
+0x7F0B0001	2	1	0	0xFFFFF000	5	174	IntSLess	2	3	F0,C5
+0x7F0B0001	2	1	1	0xFFFFF000	10	185	PopCount	1	4	F3

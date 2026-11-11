@@ -104,6 +104,16 @@ pub fn digest(bytes: &[u8]) -> u64 {
     h.finish()
 }
 
+/// FNV-1a 64 of `bytes` as 16 lowercase hex digits: the digest ruff_charon
+/// writes to `<crate>.files.tsv` (`ruff_charon::store::fnv64`, `{:016x}`).
+/// Not [`digest`], which is the rows-file change detector.
+pub fn fnv64_hex(bytes: &[u8]) -> String {
+    let h = bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    });
+    format!("{h:016x}")
+}
+
 /// A multiply-rotate hasher folding eight bytes per step. The interner is
 /// keyed by short symbol paths and is hit about once per row; SipHash made
 /// those lookups the dominant cost. Not DoS-resistant, which is fine for a

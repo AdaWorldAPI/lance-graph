@@ -1,0 +1,28 @@
+#cg-beh v1
+#schema opcode	symbol	file	arm_line	arm_end	callees	file_fnv64	grade	note
+NUMBER	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	860	863		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+LOAD	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	864	886		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+VIA	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	887	903		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_EQUAL	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	904	974	const_i32|const_u32|emit_pred	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_LESS	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	975	975		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_LESS_EQUAL	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	975	975		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_S_LESS	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	976	1018	const_i32|emit_pred	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_AND	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1019	1082	and_peephole|fresh|fuse_binary|is_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_OR	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1086	1112	fresh|fuse_binary|is_mask|operand	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_XOR	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1114	1140	fresh|fuse_binary|is_mask|operand	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_ADD	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1145	1162		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_MULT	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1145	1162		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_S_DIV	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1145	1162		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_SUB	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1163	1175		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+POP_COUNT	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1176	1183	finalize_and_run_scalar|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+KEY_RUNS	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1195	1210	finalize_and_run_scalar|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+ANY	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1214	1226	finalize_and_run_scalar|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+ALL	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1214	1226	finalize_and_run_scalar|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+SUM	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1227	1246	finalize_and_run_scalar|fold_mask|i32_lane|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+MIN	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1247	1274	finalize_and_run|fold_mask|i32_lane|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+MAX	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1247	1274	finalize_and_run|fold_mask|i32_lane|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+GROUP_SUM	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1275	1314	finalize_and_run|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+INT_NOT	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1315	1343	expr_of|fresh|is_mask|push_expr	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+RANGE	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1348	1357	emit_pred	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+KEEP	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1360	1368	finalize_and_run|fold_mask|resolve_mask	b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
+*	lance_graph_r2il::FoldDialect::call	crates/lance-graph-r2il/src/lib.rs	1369	1369		b60ac87550156f8b	SOURCE_STRUCTURE	match arm; one symbol dispatches every opcode
