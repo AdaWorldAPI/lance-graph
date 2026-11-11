@@ -90,6 +90,51 @@ fn main() -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+    if cmd == "sweep" {
+        // Runs `impact` and `callers` for every position in one process and counts
+        // answers, refusals (by kind) and empty sets. Measures where the cube's
+        // limits bind on this store; prints nothing per symbol.
+        let started = std::time::Instant::now();
+        let (mut ok, mut empty) = (0u32, 0u32);
+        let mut refused: std::collections::BTreeMap<String, u32> = Default::default();
+        let mut p = 0u32;
+        while g.symbol(p).is_some() {
+            for which in ["impact", "callers"] {
+                let r = match which {
+                    "impact" => g.impact(p).map(|i| {
+                        i.confirmed
+                            .iter()
+                            .chain(&i.possible)
+                            .chain(&i.unknown)
+                            .any(|w| *w != 0)
+                    }),
+                    _ => g.callers(p).map(|c| c.sites > 0),
+                };
+                match r {
+                    Ok(true) => ok += 1,
+                    Ok(false) => empty += 1,
+                    Err(e) => {
+                        let kind = format!("{e:?}");
+                        let kind = kind
+                            .split(['(', '{', ' '])
+                            .take(2)
+                            .collect::<Vec<_>>()
+                            .join(" ");
+                        *refused.entry(format!("{which} {kind}")).or_default() += 1;
+                    }
+                }
+            }
+            p += 1;
+        }
+        println!(
+            "sweep\tpositions={p}\tanswered={ok}\tempty={empty}\tms={}",
+            started.elapsed().as_millis()
+        );
+        for (k, n) in refused {
+            println!("sweep\tREFUSED\t{k}\t{n}");
+        }
+        return ExitCode::SUCCESS;
+    }
     let Some(sym) = args.get(3) else {
         eprintln!("{cmd} needs a SYMBOL");
         return ExitCode::from(2);
