@@ -134,6 +134,76 @@ wire specification exists):**
 - Status: the extension repo says "pre-release … currently experimental";
   DuckDB's blog planned the first production release with 2.0. License MIT.
 
+**The typed boundary, read from source (2026-11-11).** Read from
+`duckdb/duckdb-quack` at `726531a` and from 24 DuckDB core files at the
+commit its submodule pins (`d54cbbe3`). Nothing was built or run. The
+question was whether DuckDB's typed result path can carry our class-bound
+lanes with little conversion, instead of a new object-conversion layer.
+
+- **Typed and columnar end to end.** A result is a `LogicalType` list plus,
+  per chunk, a validity bitmap and one buffer per column. No JSON on either
+  side, and no row reconstruction.
+- **The wire form is a re-encoding, not a memory image.**
+  - The tagged serializer writes `uint16` field ids, ends each object with
+    `0xFFFF` (`binary_serializer.cpp:65-71`), and writes varints as LEB128.
+  - Blobs are length-prefixed, in native byte order, with no alignment.
+  - Only three blobs are byte images of memory: fixed-width column data,
+    validity words (`u64`, set bit = valid) and dictionary selection
+    indices.
+  - Strings travel as `u32` lengths plus concatenated bytes, not as the
+    in-memory 16-byte `string_t`.
+- **Copies on the streamed path, fixed-width column:** two on the server
+  (element loop into a temporary array, then into the stream) and two on
+  the client. The client side is a `memcpy` out of the message
+  (`MemoryStream::ReadData`, `memory_stream.cpp:85-91`), then an element
+  loop into the vector. Validity is rebuilt bit by bit on each side. Inline
+  rows in a PREPARE response cost more: the server deserializes its own
+  sealed blob and serializes it again.
+- **Ownership.** DuckDB's reader always copies into a destination, and the
+  response body dies with the fetch task. A reader of our own could borrow
+  the fixed-width and validity blobs in place, but they are unaligned.
+- **Vector kinds.**
+  - Constant, dictionary and sequence keep their logical form on the wire;
+    every other kind is flattened first.
+  - Sequence (start, increment) matches our implicit identity axis, and
+    constant matches a class-constant field. Both cost zero data bytes.
+  - A dictionary is per vector, with no shared or named dictionary, and
+    there is no bitmap selection-vector kind.
+- **Mapping our lanes.**
+  - A fixed-width class-bound lane maps with one copy on our side and no
+    conversion.
+  - The ordered field basis maps one-to-one onto the positional type list.
+  - Column names travel once, in the PREPARE response.
+  - Not checked: whether our presence polarity and word order match
+    DuckDB's validity mask.
+- **In-process route.** The C API hands out writable pointers into a
+  vector's own buffers (`duckdb.h:9986` `duckdb_vector_get_data`; `:10012`
+  `duckdb_vector_get_validity`). An in-process producer therefore fills a
+  chunk with one `memcpy` per lane and no serialization. No C API call that
+  points a vector at caller-owned memory was found by name search, and the
+  Arrow import was not traced.
+- **What the rest of the source shows.**
+  - "Prepare" plans and executes, with no bind parameters and no statement
+    handle.
+  - `quack_scan_from_client` is the client pushing INSERT batches, not scan
+    pushdown.
+  - The catalog has no server-side version witness.
+  - What is reusable is the transport design: a dense batch index, a claim
+    buffer, release on acknowledgement, and a total in the terminal batch.
+    The extension uses DuckDB C++ internals only, not `duckdb.h`, so none of
+    its code is reusable as is.
+
+So "ABI-shaped" holds for three blob kinds and fails for the message as a
+whole. The decisive probe, **D-QSP-Q1 (designed, not built):** bound lanes →
+typed chunk → consumer, in a lab crate on `lance-graph-dt64` and
+`lance-graph-quack`. The stages are bind, fold, describe and emit, and
+conversion time and copied bytes are reported separately. X × Y must copy and
+allocate nothing until a consumer asks for an output representation, and then
+grow with the selected pairs, not with the cross product. One arm emits the
+wire bytes; another fills a DuckDB chunk through the C API. Only an oracle
+check against real DuckDB (libduckdb or a golden file) establishes
+compatibility. Linking libduckdb needs a dependency decision first.
+
 **Can its clients reach our Quack through an adapter? Yes in principle,
 because the client ships SQL text and the server executes.** An adapter has
 four parts, each with its own gate:
@@ -157,8 +227,8 @@ Scope as everywhere: read-only first; writes and forwarded transactions are
 refused with a typed error until a separate workstream admits them.
 
 **What is unknown, and the probe that settles it (D-QSP-Q0):** which SQL the
-client sends during `ATTACH` and when it pushes filters, and the exact byte
-layout of the messages and data chunks. Probe: run a DuckDB 2.0 client
+client sends during `ATTACH` and when it pushes filters. The chunk layout is
+now read from source (above); Q0 confirms it on real traffic. Probe: run a DuckDB 2.0 client
 against a DuckDB 2.0 `quack_serve` server, record every request and response
 (the extension's log types, or a reverse proxy in between), and list the
 statements and chunk layouts. Until Q0 runs, the adapter's size is not known
