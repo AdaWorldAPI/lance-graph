@@ -80,7 +80,11 @@ instruction per word) plus a popcount, through `ndarray::simd`
 it for the flat reading (presence × scope × selection, 188 µs at 1,000,000
 rows). The cube and 64 K × WHERE readings are untested. The one condition:
 the three operands share a coordinate space, which the binding checks before
-the fold, never the fold itself. Which reading applies is never in the bits: the binding
+the fold, never the fold itself. Whether the ternlog fold is the best path depends on
+context: over a whole selection it is bandwidth-bound (188 µs at 1,000,000
+rows), while a key range over a prepared order index answers in 1.76 µs. The
+choice is made once per binding, from the context the binding names, and
+measured; it is never a fixed rule. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
 ## 1b. The binding store is already planned: the Quack Binding Store
