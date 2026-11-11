@@ -30,9 +30,10 @@
 //! `Throughput::Elements(n)` counts input rows (people for the filter, edges
 //! for the hops).
 //!
-//! Inputs are built in memory; `graph_execution` already measures the same
-//! DataFusion path after a Lance round trip, and storage is not timed there
-//! either.
+//! Inputs go through Lance once, during setup and outside the timer (as in
+//! `graph_execution`); see [`Input`] for which columns each arm reads. The
+//! `intake` group times those two reads separately, as a report: a full scan
+//! of `person` against a scan of only the columns Quack's binding names.
 //!
 //! ```text
 //! cargo bench -p lance-graph-benches --bench cypher_df_vs_quack
@@ -41,10 +42,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use arrow_array::{Array, Int32Array, Int64Array, RecordBatch, StringArray};
+use arrow::compute::{cast, concat_batches};
+use arrow_array::{
+    Array, ArrayRef, Int32Array, Int64Array, RecordBatch, RecordBatchIterator, StringArray,
+    UInt32Array,
+};
 use arrow_schema::{DataType, Field, Schema as ArrowSchema};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use lance_graph::{CypherQuery, GraphConfig};
+use futures::TryStreamExt;
+use lance::dataset::{Dataset, WriteMode, WriteParams};
+use tempfile::TempDir;
 use lance_graph_cypher_quack::{
     compile, Answer, Binding, Compiled, EdgeTable, Kind, NodeTable, On, Refusal, TableLanes,
 };
@@ -56,57 +64,150 @@ const ONE_HOP: &str = "MATCH (a:Person)-[:FRIEND_OF]->(b:Person) RETURN count(*)
 const TWO_HOP: &str =
     "MATCH (a:Person)-[:FRIEND_OF]->(b:Person)-[:FRIEND_OF]->(c:Person) RETURN count(*)";
 
-/// One size of the `graph_execution` input, as lanes and as Arrow batches.
+/// One size of the `graph_execution` input, written to Lance once and read
+/// back twice:
+/// - DataFusion gets every column (`person_id`, `name`, `age`;
+///   `person1_id`, `person2_id`), as `graph_execution` gives it;
+/// - Quack gets only the columns its [`Binding`] names (`age`, `person_id`;
+///   `person1_id`, `person2_id`), through a Lance projection, so `name` is
+///   never decoded on its side.
+///
+/// The Quack lanes borrow the scanned Arrow buffers (`values()`), no copy.
+/// The id columns are cast to `UInt32` once at intake, because Quack's fk
+/// lanes are `u32`; that cast is the one intake copy.
 struct Input {
     n: usize,
-    age: Vec<i32>,
-    pid: Vec<u32>,
-    src: Vec<u32>,
-    dst: Vec<u32>,
+    _dir: TempDir,
     person: RecordBatch,
     friends: RecordBatch,
+    age: Int32Array,
+    pid: UInt32Array,
+    src: UInt32Array,
+    dst: UInt32Array,
+}
+
+fn people_batch(n: usize) -> RecordBatch {
+    RecordBatch::try_new(
+        Arc::new(ArrowSchema::new(vec![
+            Field::new("person_id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, false),
+            Field::new("age", DataType::Int32, false),
+        ])),
+        vec![
+            Arc::new(Int32Array::from_iter_values(0..n as i32)),
+            Arc::new(StringArray::from_iter_values(
+                (0..n).map(|i| format!("name_{i}")),
+            )),
+            Arc::new(Int32Array::from_iter_values(
+                (0..n as i32).map(|i| 20 + (i % 60)),
+            )),
+        ],
+    )
+    .unwrap()
+}
+
+fn friends_batch(n: usize) -> RecordBatch {
+    RecordBatch::try_new(
+        Arc::new(ArrowSchema::new(vec![
+            Field::new("person1_id", DataType::Int32, false),
+            Field::new("person2_id", DataType::Int32, false),
+        ])),
+        vec![
+            Arc::new(Int32Array::from_iter_values(0..n as i32)),
+            Arc::new(Int32Array::from_iter_values(
+                (0..n as i32).map(|i| (i + 1) % n as i32),
+            )),
+        ],
+    )
+    .unwrap()
+}
+
+fn write(rt: &tokio::runtime::Runtime, path: &str, batch: RecordBatch) {
+    rt.block_on(async {
+        let schema = batch.schema();
+        Dataset::write(
+            RecordBatchIterator::new(vec![Ok(batch)].into_iter(), schema),
+            path,
+            Some(WriteParams {
+                mode: WriteMode::Create,
+                ..Default::default()
+            }),
+        )
+        .await
+        .unwrap();
+    })
+}
+
+/// Scan `path` in full, or only `columns`, and return ONE batch holding
+/// every row (asserted).
+fn scan(
+    rt: &tokio::runtime::Runtime,
+    path: &str,
+    columns: Option<&[&str]>,
+    rows: usize,
+) -> RecordBatch {
+    rt.block_on(async {
+        let ds = Dataset::open(path).await.unwrap();
+        let mut sc = ds.scan();
+        if let Some(c) = columns {
+            sc.project(c).unwrap();
+        }
+        let batches: Vec<RecordBatch> = sc
+            .try_into_stream()
+            .await
+            .unwrap()
+            .try_collect()
+            .await
+            .unwrap();
+        let one = concat_batches(&batches[0].schema(), &batches).unwrap();
+        assert_eq!(one.num_rows(), rows, "{path}");
+        if let Some(c) = columns {
+            assert_eq!(one.num_columns(), c.len(), "{path}: projection");
+        }
+        one
+    })
+}
+
+fn col<'a>(b: &'a RecordBatch, name: &str) -> &'a ArrayRef {
+    b.column_by_name(name).unwrap()
+}
+
+fn as_u32(a: &ArrayRef) -> UInt32Array {
+    cast(a, &DataType::UInt32)
+        .unwrap()
+        .as_any()
+        .downcast_ref::<UInt32Array>()
+        .unwrap()
+        .clone()
 }
 
 impl Input {
-    fn new(n: usize) -> Self {
-        let age: Vec<i32> = (0..n as i32).map(|i| 20 + (i % 60)).collect();
-        let pid: Vec<u32> = (0..n as u32).collect();
-        let src: Vec<u32> = (0..n as u32).collect();
-        let dst: Vec<u32> = (0..n as u32).map(|i| (i + 1) % n as u32).collect();
-        let person = RecordBatch::try_new(
-            Arc::new(ArrowSchema::new(vec![
-                Field::new("person_id", DataType::Int32, false),
-                Field::new("name", DataType::Utf8, false),
-                Field::new("age", DataType::Int32, false),
-            ])),
-            vec![
-                Arc::new(Int32Array::from_iter_values(pid.iter().map(|&v| v as i32))),
-                Arc::new(StringArray::from_iter_values(
-                    (0..n).map(|i| format!("name_{i}")),
-                )),
-                Arc::new(Int32Array::from(age.clone())),
-            ],
-        )
-        .unwrap();
-        let friends = RecordBatch::try_new(
-            Arc::new(ArrowSchema::new(vec![
-                Field::new("person1_id", DataType::Int32, false),
-                Field::new("person2_id", DataType::Int32, false),
-            ])),
-            vec![
-                Arc::new(Int32Array::from_iter_values(src.iter().map(|&v| v as i32))),
-                Arc::new(Int32Array::from_iter_values(dst.iter().map(|&v| v as i32))),
-            ],
-        )
-        .unwrap();
+    fn new(rt: &tokio::runtime::Runtime, n: usize) -> Self {
+        let dir = tempfile::tempdir().unwrap();
+        let pp = dir.path().join("person.lance");
+        let fp = dir.path().join("friend_of.lance");
+        let (pp, fp) = (pp.to_str().unwrap(), fp.to_str().unwrap());
+        write(rt, pp, people_batch(n));
+        write(rt, fp, friends_batch(n));
+
+        let person = scan(rt, pp, None, n);
+        let friends = scan(rt, fp, None, n);
+        let qp = scan(rt, pp, Some(&PERSON_LANES), n);
+        let qf = scan(rt, fp, Some(&EDGE_LANES), n);
+        let age = col(&qp, "age")
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap()
+            .clone();
         Input {
             n,
-            age,
-            pid,
-            src,
-            dst,
             person,
             friends,
+            age,
+            pid: as_u32(col(&qp, "person_id")),
+            src: as_u32(col(&qf, "person1_id")),
+            dst: as_u32(col(&qf, "person2_id")),
+            _dir: dir,
         }
     }
 
@@ -120,7 +221,7 @@ impl Input {
 
     /// Row-at-a-time answers, touching neither engine.
     fn oracle_filter(&self) -> i64 {
-        self.age.iter().filter(|&&a| a > 50).count() as i64
+        self.age.values().iter().filter(|&&a| a > 50).count() as i64
     }
     fn oracle_one_hop(&self) -> i64 {
         self.src.len() as i64
@@ -128,13 +229,17 @@ impl Input {
     fn oracle_two_hop(&self) -> i64 {
         let mut out_deg = vec![0i64; self.n];
         let mut in_deg = vec![0i64; self.n];
-        for (&s, &t) in self.src.iter().zip(&self.dst) {
+        for (&s, &t) in self.src.values().iter().zip(self.dst.values().iter()) {
             out_deg[s as usize] += 1;
             in_deg[t as usize] += 1;
         }
         (0..self.n).map(|b| in_deg[b] * out_deg[b]).sum()
     }
 }
+
+/// The columns Quack's binding reads; nothing else is decoded for it.
+const PERSON_LANES: [&str; 2] = ["age", "person_id"];
+const EDGE_LANES: [&str; 2] = ["person1_id", "person2_id"];
 
 fn binding() -> Binding {
     Binding {
@@ -181,8 +286,14 @@ fn datafusion(rt: &tokio::runtime::Runtime, q: &CypherQuery, input: &Input, edge
 }
 
 fn quack_execute(c: &Compiled, input: &Input) -> i64 {
-    let person = [LaneRef::I32(&input.age), LaneRef::U32(&input.pid)];
-    let edges = [LaneRef::U32(&input.src), LaneRef::U32(&input.dst)];
+    let person = [
+        LaneRef::I32(input.age.values()),
+        LaneRef::U32(input.pid.values()),
+    ];
+    let edges = [
+        LaneRef::U32(input.src.values()),
+        LaneRef::U32(input.dst.values()),
+    ];
     let p = TableLanes {
         n_rows: input.n,
         lanes: &person,
@@ -211,7 +322,7 @@ fn bench(c: &mut Criterion) {
     let bind = binding();
     let inputs: Vec<Input> = [100usize, 10_000, 1_000_000]
         .into_iter()
-        .map(Input::new)
+        .map(|n| Input::new(&rt, n))
         .collect();
 
     let df = |t: &str| CypherQuery::new(t).unwrap().with_config(df_config());
@@ -263,6 +374,21 @@ fn bench(c: &mut Criterion) {
 
         g.bench_with_input(BenchmarkId::new("two_hop_count/datafusion", n), i, |b, i| {
             b.iter(|| black_box(datafusion(&rt, &df_two, i, true)))
+        });
+    }
+    g.finish();
+
+    let mut g = c.benchmark_group("intake");
+    for i in &inputs {
+        let n = i.n;
+        let path = i._dir.path().join("person.lance");
+        let path = path.to_str().unwrap().to_string();
+        g.throughput(Throughput::Elements(n as u64));
+        g.bench_with_input(BenchmarkId::new("person/all_columns", n), &path, |b, p| {
+            b.iter(|| black_box(scan(&rt, p, None, n).num_rows()))
+        });
+        g.bench_with_input(BenchmarkId::new("person/bound_columns", n), &path, |b, p| {
+            b.iter(|| black_box(scan(&rt, p, Some(&PERSON_LANES), n).num_rows()))
         });
     }
     g.finish();
