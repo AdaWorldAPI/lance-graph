@@ -125,8 +125,9 @@ def recover(store, seeds):
         lines.append(f'  {node_id(s)}["{short(s)}"]')
     for caller, callee, kind, f, ln, fr in sorted(edges, key=lambda e: (e[0], e[1], e[2], e[3], e[4] or 0)):
         a, b = node_id(caller), node_id(callee)
-        if fr == "STALE":
-            lines.append(f"  {a} -. STALE .-> {b}  %% {f}:{ln}")
+        if fr != "FRESH":
+            # STALE, MISSING_SOURCE or UNOBSERVED: never drawn as a verified edge.
+            lines.append(f"  {a} -. {fr} .-> {b}  %% {f}:{ln if ln is not None else '?'}")
         elif kind == MAY:
             lines.append(f"  {a} -.->|possible| {b}  %% {f}:{ln}")
         else:
@@ -255,17 +256,39 @@ def packet(store, ra, symbol, diff_text=None, rev=None):
                                   for f, site in readers]}
     src = store.src
     callers, possible = defaultdict(set), defaultdict(set)
-    sites = defaultdict(list)
+    sites, fresh_of = defaultdict(list), {}
     for caller, callee, kind, f, ln, fr in store.edges():
         (callers if kind == CALL else possible)[callee].add(caller)
-        sites[(caller, callee)].append(f"{f}:{ln}")
-    confirmed, frontier = set(), [symbol]
-    while frontier:
-        x = frontier.pop()
-        for c in callers.get(x, ()):
-            if c not in confirmed and c != symbol:
-                confirmed.add(c)
-                frontier.append(c)
+        sites[(caller, callee)].append(f"{f}:{ln if ln is not None else '?'}")
+        # An edge is current only if every row behind it sits in a FRESH file.
+        fresh_of[(caller, callee)] = fresh_of.get((caller, callee), True) and fr == "FRESH"
+
+    def closure(seeds):
+        """Callers reachable from `seeds` through resolved calls: (all-fresh path, reached only
+        through stale evidence)."""
+        ok, stale_only, frontier = set(), {}, [(x, True) for x in seeds]
+        while frontier:
+            x, fresh = frontier.pop()
+            for c in callers.get(x, ()):
+                if c == symbol:
+                    continue
+                f = fresh and fresh_of.get((c, x), True)
+                if f and c not in ok:
+                    ok.add(c)
+                    stale_only.pop(c, None)
+                    frontier.append((c, True))
+                elif not f and c not in ok and c not in stale_only:
+                    stale_only[c] = sites[(c, x)]
+                    frontier.append((c, False))
+        return ok, stale_only
+
+    confirmed, stale = closure([symbol])
+    # Dispatch: callers of a trait method this symbol implements may reach it (the
+    # IMPLEMENTS -> MAY_DISPATCH join Codegraph::callers makes), and so may their callers.
+    traits = {r["object"] for r in store.rows if r["predicate"] == "IMPLEMENTS" and r["subject"] == symbol}
+    may_direct = set().union(*(possible.get(t, set()) for t in traits | {symbol})) - {symbol}
+    may_up, may_stale = closure(sorted(may_direct))
+    possible_all = (may_direct | may_up) - confirmed
     roots = sorted(c for c in confirmed if not callers.get(c))
     contracts = sorted({callee for caller, callee, kind, *_ in store.edges() if caller == symbol and kind == MAY})
     leaf = symbol.split("::")[-1]
@@ -305,11 +328,14 @@ def packet(store, ra, symbol, diff_text=None, rev=None):
                                                             "lines": list(span_lines)}},
         "changed_source": {"subject": symbol, "base": rev or git(src, "rev-parse", "HEAD"),
                            "diff": diff_text if diff_text is not None else "NOT_SUPPLIED (prototype: change of the whole span)",
-                           "stale": freshness != "FRESH", "freshness": freshness},
+                           "stale": freshness != "FRESH", "freshness": freshness,
+                           "dependency_evidence_stale": bool(stale or may_stale)},
         "affected_symbols": {"confirmed": sorted(confirmed),
-                             "possible": sorted(possible.get(symbol, ())),
+                             "possible": sorted(possible_all),
+                             "stale": [{"caller": c, "sites": st} for c, st in sorted({**may_stale, **stale}.items())],
                              "unknown": unknown},
-        "witnessed_edges": [{"caller": c, "callee": symbol, "sites": sites[(c, symbol)]} for c in sorted(callers.get(symbol, ()))],
+        "witnessed_edges": [{"caller": c, "callee": symbol, "sites": sites[(c, symbol)],
+                             "fresh": fresh_of.get((c, symbol), True)} for c in sorted(callers.get(symbol, ()))],
         "possible_edges": [{"dispatch_target": t} for t in contracts],
         "co_changed_only": "NOT_RUN (no history projection in this prototype)",
         "unsupported_regions": sorted({t["site"].split(":")[0] for t in tests if not t["ra"].startswith("CONFIRMED")}),
@@ -451,6 +477,38 @@ class Negatives(unittest.TestCase):
     def test_08b_a_rust_function_is_not_an_r2il_method(self):
         p = packet(Store(self.st, self.src), (set(), set(), {}), "lance_graph_x::b")
         self.assertEqual((p["r2il"]["method"], p["r2il"]["body_semantics"]), ("NOT_A_METHOD", "UNKNOWN"))
+
+    def test_11_stale_caller_evidence_is_not_confirmed(self):
+        # The caller's file changed after the store was built; the queried function's file did not.
+        files = {"a.rs": b"fn a() { b(); }\n", "b.rs": b"fn b() {}\n"}
+        rows = [("DEFINES", "lance_graph_x::a", "lance_graph_x::a", "COMPILER", "a.rs", 0, 15),
+                ("DEFINES", "lance_graph_x::b", "lance_graph_x::b", "COMPILER", "b.rs", 0, 9),
+                ("CALLS_RESOLVED", "lance_graph_x::a", "lance_graph_x::b", "COMPILER", "a.rs", 9, 12)]
+        st, src = mk_store(self.td.name + "/s", files, rows)
+        (src / "a.rs").write_bytes(b"fn a() {}\n")  # b() removed
+        p = packet(Store(st, src), (set(), set(), {}), "lance_graph_x::b")
+        self.assertEqual(p["affected_symbols"]["confirmed"], [])
+        self.assertEqual([s["caller"] for s in p["affected_symbols"]["stale"]], ["lance_graph_x::a"])
+        self.assertTrue(p["changed_source"]["dependency_evidence_stale"])
+
+    def test_12_dispatch_reaches_the_implementation(self):
+        rows = [("DEFINES", "lance_graph_x::b", "lance_graph_x::b", "COMPILER", "lib.rs", 16, 26),
+                ("DEFINES", "lance_graph_x::c", "lance_graph_x::c", "COMPILER", "lib.rs", 27, 55),
+                ("DEFINES", "lance_graph_x::a", "lance_graph_x::a", "COMPILER", "lib.rs", 0, 15),
+                ("IMPLEMENTS", "lance_graph_x::b", "lance_graph_x::T::m", "COMPILER", "lib.rs", 16, 26),
+                ("MAY_DISPATCH", "lance_graph_x::c", "lance_graph_x::T::m via Clause", "COMPILER", "lib.rs", 46, 49),
+                ("CALLS_RESOLVED", "lance_graph_x::a", "lance_graph_x::c", "COMPILER", "lib.rs", 9, 12)]
+        st, src = mk_store(self.td.name + "/d", {"lib.rs": LIB}, rows)
+        p = packet(Store(st, src), (set(), set(), {}), "lance_graph_x::b")
+        self.assertEqual(p["affected_symbols"]["possible"], ["lance_graph_x::a", "lance_graph_x::c"])
+        self.assertEqual(p["affected_symbols"]["confirmed"], [])
+
+    def test_13_missing_source_is_never_drawn_as_verified(self):
+        (self.src / "lib.rs").unlink()
+        out = recover(Store(self.st, self.src), ["lance_graph_x::a"])
+        self.assertIn("-. MISSING_SOURCE .->", out)
+        self.assertNotIn(" --> ", out)
+        self.assertNotIn(":None", out)
 
     def test_09_lab_proposed_merged_stay_distinct(self):
         corpus = [{"id": f"R{i}", "subject": "s", "object": "o", "status": s, "recoverable": "INTERPRETATION",
