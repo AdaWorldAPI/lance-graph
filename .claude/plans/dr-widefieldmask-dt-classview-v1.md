@@ -16,6 +16,22 @@ As stated by the operator (2026-11-11):
 - **DR is the binding store of masks.** It stores the versioned, immutable
   DR × DT selections (bindings), prefetched and reusable. A mask computed
   for one request is not versioned and is not stored (§1b).
+- **What is versioned is the mapping, not the content (operator,
+  2026-11-11; supersedes the content-replay reading added in PR 2015).** A
+  contextual view (`PSCustomObject64` / XVERWEIS) is built from context. Its
+  mapping joins identities, properties and source positions; that mapping is
+  versioned. The addressed contents stay with their source owner and are not
+  versioned by this plan. The same mapping reproduces the same assignment;
+  identical result values follow only when the contents read are also
+  identical. Mapping replay and historical content replay are separate
+  requirements; this plan asks only for the first.
+- **The mapping is DR-adjacent.** It binds the context to DR addresses
+  without being stored as a DR mask, and it lives where the existing
+  contract puts it: no new store instance for this distinction alone, and
+  no extra mask representation derived from it. Identity order may be
+  implicit (codebook, trie, Cartesian coordinates); the contextual property
+  selection uses that assignment. Methods stay addressable entries of an
+  immutable register.
 - **DT is immutable methods.** The algebra they name is handed over bit-exact
   from `ndarray`, mask-RISC, relalg, XLOG and the other registered
   technologies.
@@ -95,8 +111,10 @@ contract for where the keys come from, and does not inherit the 1.76 µs
 until measured. Lance stores no usable order: its BTree keeps sorted values
 with row addresses but every search returns a row set
 (`SearchResult::{Exact, AtMost, AtLeast}(NullableRowAddrSet)`, checked in
-Lance 13.0.0 and 14.0.2), so the permutation is our own sidecar (EXO-114). It is a DR artifact, versioned with the binding like the
-selections. Which reading applies is never in the bits: the binding
+Lance 13.0.0 and 14.0.2), so the permutation is our own sidecar (EXO-114). The permutation is a DR-adjacent
+mapping of positions, valid for the source revision its keys were read
+from (its witness); the sorted keys it carries are a derived cache of
+source content, not a versioned copy of it. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
 ## 1b. The binding store is already planned: the Quack Binding Store
@@ -140,9 +158,11 @@ Read on main:
   DTO/store"), EXO-207 (CodeTable + Quack admit, PR 1982), EXO-251 (medcare
   WP4, DT64 bind store for view classes).
 
-**What is versioned and what is not (operator, 2026-11-11).** A selection
-that binds DR to DT (which fields of a class, which method, over which
-lanes and frame) is versioned: it is the binding the store keeps. A mask
+**What is versioned and what is not (operator, 2026-11-11).** The mapping
+that binds DR to DT (which identities, which fields of a class, which
+method, which source positions) is versioned: it is the binding the store
+keeps. The contents it addresses are not; they stay with the source
+owner. A mask
 computed for one request (a user clicks a menu) is not versioned: it is
 computed under the binding's witness and lives in the caller's buffer.
 This is the capstone's split (§C.3: lifetime 1 kept by the binding store,
@@ -209,13 +229,14 @@ PR 2010 at 1,000,000 rows (16 slabs), including that check: key range over
 an order index 1.76 µs, hop over prepared planes 4.86 µs, filtered hop
 2.17 µs; preparation once per frame 3,600–41,300 µs
 (`.claude/board/entries/2026-11-11-cypher-df-vs-quack-bench.md`). A source
-advance does not invalidate a binding: selections and identities are
-versioned and immutable, and version cleanup is disabled, so a binding made
-under version N can replay against the retained dependencies of N. The
-version is part of the address; "as of N" or "latest" is chosen when the
-binding is built. A mismatch still refuses: a binding at N applied to
-N+1, to a foreign source or under the wrong codebook generation fails at
-the frame check, never per row. Kept Lance versions do not by themselves
+advance does not invalidate a mapping: the mapping is versioned and
+immutable, so mapping N reproduces the same assignment of identities,
+properties and source positions whenever it is replayed. The result values
+equal the earlier ones only if the contents read are equal; replaying
+historical contents is a separate requirement owned by the source, not by
+this plan. A mismatch still refuses: a mapping whose source positions or
+identities do not match the source it is applied to, a foreign source, or
+the wrong codebook generation fails at the frame check, never per row. Kept Lance versions do not by themselves
 restore historical frames, methods or typed interpretation (map-table
 persistence EXO-225; historical typed attestation still blocked, EXO-202),
 and authorization stays independent at the read and execution boundary
@@ -235,11 +256,11 @@ the question.
 |---|---|---|---|---|---|
 | S1 | Dated notes on the locality contract and D-LANESOCK-0 (DONE in PR 2015); the EXO-220 description still to note | D15 | EXO-220, EXO-254 | docs review | docs |
 | S2 | Lab: carry slab planes as the reusable selection (256 masks of 256 with their `CoordSpace` witness), no behaviour change | W4 (row selection) | EXO-253, EXO-121 | the 15 lab tests unchanged and green; the angles bench within noise, in ns/µs | lab code |
-| S3 | Seal the order index per frame: ordered-lane identity and presence version (G2's remaining gaps) | W4 | EXO-121, EXO-114 | a small fixture with duplicate keys, an explicit tie-break and frame-relative positions: persist, reopen, apply the permutation without sorting, compare the full ordered row sequence (not counts) against an independent oracle; repeat against retained N after compaction; the index for N applied to N+1 refuses | lab code |
+| S3 | Seal the order index per frame: ordered-lane identity and presence version (G2's remaining gaps) | W4 | EXO-121, EXO-114 | a small fixture with duplicate keys, an explicit tie-break and frame-relative positions: persist, reopen, apply the permutation without sorting, compare the full ordered row sequence (not counts) against an independent oracle; the same index over the same source reproduces the same sequence; an index whose witnessed source revision differs from the source it is applied to refuses | lab code |
 | S4 | Field half of reader scope: `requested ∩ visible` as one `WideFieldMask` intersection at bind time; row half as a prepared DR plane; frame ownership for an external lane source | W12 | EXO-243, EXO-244, EXO-228, EXO-206 | the EXO-243 test: two roles, 12 fields, 10^3 rows; refused across roles; non-Allow binds nothing | test-only first |
 | S5 | Bind-time admission for the four direct paths, with the executor census test | v2 cut 4; W2, W13 | EXO-253, EXO-245, EXO-246 | red on a planted call site | needs council |
 | S6 | Behaviour as classes that outlives the process: binding digest recorded with the execution and the DR version; typed lane interpretation from the class | v2 cut 7; W5; G5 | EXO-199, EXO-225, EXO-221, EXO-202, EXO-247 | replay falsifier (row 17) red first | needs council |
-| S7 | The store of versioned DR × DT selections over D-NFR-1: keyed by version (source version, frame, criteria, class binding), handed out by reference, every version replayable (cleanup is disabled); per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, three gates: the binding at N re-executed against N equals the first execution bit for bit (the substrate is deterministic); the binding at N applied to N+1 refuses; a newly bound N+1 equals its own oracle, and where N and N+1 differ the two answers differ; then the same for a selection kept in the store; authorization checked independently | lab code |
+| S7 | The versioned DR × DT mappings over D-NFR-1 (identities, properties, source positions, class binding, criteria), DR-adjacent, held where the existing contract puts them (no new store instance), handed out by reference; contents stay with the source owner; per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, gates: mapping N replayed reproduces the same assignment (identities, properties, source positions) bit for bit; over unchanged contents the result is bit-equal too; over changed contents with unchanged positions the assignment is unchanged and the values follow the source; a mapping whose positions or identities do not match the source refuses; then the same for a mapping kept in the store; authorization checked independently | lab code |
 | S8 | Close the reorder gap on the hot check (D-DT64-7 L5d), keyed on revision, not a digest | W2 | EXO-199 | the pinned test turns red-to-green; an unchanged view still admits; at most a few ns per check | dt64 |
 
 Order: S1 (finish) and S2 now. S4 next (a consumer is waiting on EXO-243
@@ -250,12 +271,13 @@ the council.
 
 Nothing was built or run for this plan. D-NFR-1's own gate reads "the
 second execution is refused" (§1b quote, `d-native-repr-contract-v1.md`);
-with versioned replay that gate is kept and gains a second half: re-executed
-against N it replays bit for bit; applied to N+1 it refuses. The same holds
-for D-NFR-2 (a value bound under codebook generation g replays under g and
-refuses under g+1) and for step 8 of the D-NFR §6 fixture (refusal of a
-stale frame, moved focus, changed scope or mismatched codebook stays; replay
-against the bound version is added). Not yet written into that plan. G2 and G6 were answered by the
+with versioned mappings it is read as: the mapping replays and reproduces
+the same assignment; it is refused only where its positions or identities
+no longer match the source. Historical content replay is the source's
+requirement, not this plan's. D-NFR-2 (codebook generation) and step 8 of
+the D-NFR §6 fixture read the same way. The board's own D-NFR-1 line ("no
+invented FrameStore") agrees with "no new store instance for this
+distinction". Not yet written into that plan. G2 and G6 were answered by the
 exploration run, from code and literature, not by a measurement. Whether `WideFieldMask`'s `Small`/`Wide` representation is the
 right in-memory form for 256 rows of a slab (allocation per row) is
 unmeasured; S2's gate measures it.
