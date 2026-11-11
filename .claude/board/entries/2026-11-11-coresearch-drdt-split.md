@@ -130,6 +130,13 @@ All timings in ns or µs; a per-query millisecond is a failed gate.
   popcount. Kill the sparse form unless 2× faster somewhere.
 - **P9** the two refusal axes stay independent: a frame advance reports only
   a frame refusal; a class change reports only a class refusal.
+- **Already on main (read after the run):** P4's red-first pin is
+  `finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source`
+  (`lance-graph-dt64/tests/lane_socket.rs:416`); its fix is D-DT64-7 L5d.
+  P9's two halves are `stale_and_foreign_frames_are_refused` (a frame
+  advance reports `Frame(MapChanged)`) and
+  `a_re_route_refuses_even_under_a_current_frame` (a class re-route reports
+  `RouteChanged` while the frame still checks). Neither needs a new test.
 - P7 (select), P8 (per-block summary), P10 (footprint reverse index): only
   if the parked idea is taken up.
 - P2 (a compile-fail wall between a row population and a property mask) is
@@ -159,7 +166,7 @@ paper). Nothing was built or measured in this run.
 
 ## Closeout
 
-`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: probes P1, P4, P5, P9`
+`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: probes P1 and P5; L5d for the reorder gap`
 
 MIRROR
 - BLIND SPOT: every role, the premise gate included, took the mask type's
