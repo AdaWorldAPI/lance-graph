@@ -1,3 +1,8 @@
+## 2026-11-11 — D-DRDT-CLASS-GOVERNANCE-1 v3: namespace decisions and remaining scope → `.claude/plans/dr-dt64-class-governance-v3.md`
+
+**Status:** PROPOSED / DOCS ONLY. Records the decisions of EXO-254 (16 technologies × 256 commands on the right; a left side only to delegate or to exceed the budget; Quack is SQL at `F4`), corrects v2's bypass reading, and lists work items W1-W11 for the brief sections v2 did not cover.
+**Confidence:** decisions are the operator's; the mapping onto main cites files read; the sources of W1-W11 are unread.
+
 ## 2026-11-11 — D-DRDT-CLASS-GOVERNANCE-1: class-governed DR / DT64 execution → `.claude/plans/dr-dt64-class-governance-v2.md`
 
 **Status:** PROPOSED / DOCS ONLY. Census and nine evidence files in `.claude/probes/dr-dt64-class-governance/`; nine PR cuts, cuts 4-9 blocked on the council questions in COUNCIL-DECISIONS. Coordination: Linear EXO-253.
