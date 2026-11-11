@@ -226,7 +226,7 @@ the question.
 | S4 | Field half of reader scope: `requested ∩ visible` as one `WideFieldMask` intersection at bind time; row half as a prepared DR plane; frame ownership for an external lane source | W12 | EXO-243, EXO-244, EXO-228, EXO-206 | the EXO-243 test: two roles, 12 fields, 10^3 rows; refused across roles; non-Allow binds nothing | test-only first |
 | S5 | Bind-time admission for the four direct paths, with the executor census test | v2 cut 4; W2, W13 | EXO-253, EXO-245, EXO-246 | red on a planted call site | needs council |
 | S6 | Behaviour as classes that outlives the process: binding digest recorded with the execution and the DR version; typed lane interpretation from the class | v2 cut 7; W5; G5 | EXO-199, EXO-225, EXO-221, EXO-202, EXO-247 | replay falsifier (row 17) red first | needs council |
-| S7 | The store of versioned DR × DT selections over D-NFR-1: keyed by version (source version, frame, criteria, class binding), handed out by reference, every version replayable (cleanup is disabled); per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, the second execution reads the version it was bound to; then a selection kept under version N still returns the version-N answer after an advance, and the binding for N+1 returns the N+1 answer | lab code |
+| S7 | The store of versioned DR × DT selections over D-NFR-1: keyed by version (source version, frame, criteria, class binding), handed out by reference, every version replayable (cleanup is disabled); per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, execute again: the second execution equals the first bit for bit (the substrate is deterministic), a binding at N+1 equals the oracle at N+1, and where N and N+1 differ the two answers differ; then the same for a selection kept in the store | lab code |
 | S8 | Close the reorder gap on the hot check (D-DT64-7 L5d), keyed on revision, not a digest | W2 | EXO-199 | the pinned test turns red-to-green; an unchanged view still admits; at most a few ns per check | dt64 |
 
 Order: S1 (finish) and S2 now. S4 next (a consumer is waiting on EXO-243
@@ -238,7 +238,10 @@ the council.
 Nothing was built or run for this plan. D-NFR-1's own gate reads "the
 second execution is refused" (§1b quote, `d-native-repr-contract-v1.md`);
 under versioned replay it should read "the second execution reads the
-version it was bound to". Not yet reconciled with that plan. G2 and G6 were answered by the
+version it was bound to". The same holds for D-NFR-2 (a value bound under codebook
+generation g replays under g) and for step 8 of the D-NFR §6 fixture (a
+stale frame or codebook replays; a moved focus or changed scope is a
+different binding). Not yet reconciled with that plan. G2 and G6 were answered by the
 exploration run, from code and literature, not by a measurement. Whether `WideFieldMask`'s `Small`/`Wide` representation is the
 right in-memory form for 256 rows of a slab (allocation per row) is
 unmeasured; S2's gate measures it.
