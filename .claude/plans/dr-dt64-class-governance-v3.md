@@ -15,7 +15,9 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D4 | A behaviour address with no left side is the globally available pattern, assumed locally ("localhost"). A `WHERE` used inside Quack is localhost. |
 | D5 | Anything that needs a delegate or a remote ON × WHEN × DO must define its target through the left side (domain:appid). |
 | D6 | Quack is SQL. It uses the SQL technology digit, `F4`. No separate Quack digit. |
-| D7 | Cypher gets a reserved range: `F7`, or Gremlin's `F5` if the scopes are adjacent. OPEN between the two. |
+| D7 | Gremlin and Cypher are one technology, "Gremlin/Cypher", on Gremlin's digit `F5`. (First stated as "`F7`, or Gremlin's if the scope is adjacent"; then listed as one item.) |
+| D8 | Applications such as Odoo get a domain/classid on the left side. They do not take a technology digit. |
+| D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
 Carried from earlier records and unchanged: the technology digits `F0`
 shared relational algebra, `F1` XLOG, `F2` ONNX, `F3` TensorFlow family,
@@ -36,6 +38,58 @@ should have.
 | Quack words | 12 of the 17 words of `F000` have a Quack name (`polyfill.rs` `POLYFILL`). Quack's own `Cmp` has more: `NeI32`, `LeI32`, `GtI32`, `GeI32`, and there are range, gather and hop forms | Shared words stay in `F0`. What the shared table lacks goes to `F4` (D6) | A census of Quack's public vocabulary against `F0`, then the `F4` table (§4, W1) |
 | More than 256 commands | D-DT64-7 cites about 1,500 operators for TensorFlow | Needs a left side (D2) | Record in D-DT64-7 as an append-only note |
 
+## 2a. The right-side slate (D9)
+
+Sixteen digits. What a technology is: a general vocabulary of commands that
+many classes and applications reuse unchanged. What it is not: an
+application, a product or a domain; those go on the left (D8).
+
+**Assigned** (D-DT64-7 O7, with D6 and D7):
+
+| digit | technology | state on main |
+|---|---|---|
+| `F0` | shared relational algebra (relalg / mask-RISC polyfill; R2IL, SQL and Quack names are aliases over it) | table of 17 commands, declared in DT64, executed |
+| `F1` | XLOG (Datalog) | 3 commands declared, not executed by the binding path |
+| `F2` | ONNX | one test lens; a lab registry in `tract-harvest-probe` |
+| `F3` | TensorFlow family | nothing |
+| `F4` | SQL, including Quack | nothing; Quack's commands beyond `F0` are unregistered (W1) |
+| `F5` | Gremlin/Cypher | nothing |
+
+**Free:** `F6`–`FF`, ten digits.
+
+**Candidates for the free digits.** A list to choose from. No digit is
+proposed for any of them, and none is assigned by this plan.
+
+| candidate | why it is a technology and not an application | where it lives today |
+|---|---|---|
+| NARS inference (deduction, induction, abduction, revision) | one fixed rule set used by every reasoning consumer | `lance-graph-planner` thinking, `lance-graph-nal` |
+| Semiring / GraphBLAS algebra | fixed operator families over sparse matrices | `lance-graph` `graph/blasgraph` |
+| Vector and codec search (Hamming, palette distance, CAM-PQ) | fixed distance and lookup commands | ndarray, `bgz17`, planner `CamPqScanOp` |
+| SPARQL / GQL | query languages already parsed beside Cypher | planner strategies; may be aliases over `F0`/`F5` and need no digit |
+| MeTTa | a rewrite language with its own commands | `lance-graph-metta` (excluded crate) |
+| Document and OCR operations | fixed extraction commands | OGAR OCR domain; may be a domain on the left instead |
+| Workflow / template steps | fixed step commands | `elixir-template`, `template-runtime` |
+
+Two tests decide a candidate. First: does it only rename commands of an
+assigned technology? Then it is an alias view and takes no digit (D-DT64-7
+D16''). Second: is it tied to one domain? Then it belongs on the left.
+
+**Applications on the left (D8).** Main already puts the domain in the high
+half: `0x01XX` project management (OpenProject, Redmine), `0x02XX` commerce
+and ERP (Odoo), `0x05XX` CRM, `0x09XX` health (MedCare), and so on
+(`lance-graph-contract/src/ogar_codebook.rs`, `ConceptDomain`). An
+Odoo-specific behaviour is therefore `0x02CC_FTMM`: an Odoo class on the
+left, technology and command on the right. Two points follow and need
+checking, not deciding here:
+
+- Today the low half of a data classid is the application's render prefix
+  (`0x0002` for Odoo). A behaviour address uses the low half for `FTMM`, so
+  it cannot also carry the render prefix. D-DT64-7 already calls the render
+  prefix the older reading; W2 must state how the two coexist.
+- A technology that outgrows 256 commands, or a seventeenth technology,
+  takes a left side as well (D2). Which left side a technology uses when it
+  is not an application is open.
+
 ## 3. Corrections to v2
 
 - **Bypass reading.** v2 counted four production paths as bypasses because
@@ -55,7 +109,7 @@ should have.
   distinct typed concepts and forbids merging them: column projection, row
   selection, relation index. v3 follows the brief (§4, W4).
 - **Crosswalk X1, X2.** Decided by D1–D5. Council questions Q1–Q4 of v2 are
-  closed except the Cypher digit (D7) and who guards left `0xF000..=0xFFFE`.
+  closed except who guards left `0xF000..=0xFFFE`.
 
 ## 4. Remaining work, in order
 
@@ -81,8 +135,7 @@ No public contract or codebook change lands before W11.
 
 ## 5. Open with the operator
 
-1. Cypher: `F7`, or share `F5` with Gremlin (D7). The 16-digit budget of D1
-   argues for sharing; the two languages have not been compared in code.
+1. The slate of §2a: which candidates get a digit, and which digits.
 2. Go-ahead for the PR 1984 recovery (W6).
 3. Who owns the `F4` table for Quack: `lance-graph-r2il` beside the `F0`
    table, or `lance-graph-quack` itself.
