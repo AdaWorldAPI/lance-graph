@@ -103,7 +103,13 @@ pub fn mutation_outcomes(
     order: Order<'_>,
 ) -> (Outcome, Outcome) {
     let before = compare(pg_before, ours_before, order);
-    let after = if pg_before == pg_after {
+    // "Unchanged" uses the same semantics as the parity comparison: a row
+    // reorder that the query leaves unspecified is not a change.
+    let unchanged = match (pg_before, pg_after) {
+        (Ok(b), Ok(a)) => compare(&Ok(b.clone()), &Answer::Rows(a.clone()), order) == Outcome::Pass,
+        (b, a) => b == a,
+    };
+    let after = if unchanged {
         Outcome::Fail(Diff::VacuousMutation)
     } else {
         compare(pg_after, ours_after, order)
@@ -169,6 +175,17 @@ mod tests {
         let pg = Ok(rows(data));
         let ours = Answer::Rows(pg.clone().unwrap());
         let (before, after) = mutation_outcomes(&pg, &ours, &pg, &ours, Order::Unordered);
+        assert_eq!(before, Outcome::Pass);
+        assert_eq!(after, Outcome::Fail(Diff::VacuousMutation));
+    }
+
+    #[test]
+    fn mutation_guard_fires_when_postgresql_only_reorders_rows() {
+        let pg_before = Ok(rows(vec![row2("1", "a"), row2("2", "b")]));
+        let pg_after = Ok(rows(vec![row2("2", "b"), row2("1", "a")]));
+        let ours = Answer::Rows(pg_before.clone().unwrap());
+        let (before, after) =
+            mutation_outcomes(&pg_before, &ours, &pg_after, &ours, Order::Unordered);
         assert_eq!(before, Outcome::Pass);
         assert_eq!(after, Outcome::Fail(Diff::VacuousMutation));
     }
