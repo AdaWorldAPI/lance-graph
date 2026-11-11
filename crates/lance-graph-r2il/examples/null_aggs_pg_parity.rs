@@ -12,8 +12,11 @@
 //! validity plane replaced by every row (the defect #1681 shipped) and must
 //! differ from PostgreSQL somewhere.
 //!
-//! Needs `psql` and a server, connection from the usual `PG*` variables.
-//! Without one it prints `SKIP` and exits 0: a lab instrument, not CI parity.
+//! Needs `psql` and a server; the connection goes through `pg-parity-harness`
+//! and reads the usual `PG*` variables. Without a server it prints `SKIP` and
+//! exits 0: a lab instrument, not CI parity. A failure after a successful
+//! connect (the server rejecting the script, an unparsable answer) is a panic,
+//! not a skip. NULL reaches this example as NULL, never as an empty field.
 //!
 //! ```text
 //! PGHOST=<socket dir> PGPORT=<port> PGUSER=<user> PGDATABASE=postgres \
@@ -23,8 +26,7 @@
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes};
 use lance_graph_r2il::procs::{bool_and, bool_or, count_distinct_sorted, select_lt, Select};
 use lance_graph_r2il::{FoldDialect, Val};
-use std::io::Write;
-use std::process::{Command, Stdio};
+use pg_parity_harness::{Cell, Pg, Skip};
 
 const ROWS: usize = 120;
 const TABLES: usize = 60;
@@ -130,43 +132,23 @@ fn aggs(t: &Table, sel: i32, vb: u16, vk: u16) -> [Option<i64>; 3] {
     ]
 }
 
-fn pg_value(s: &str) -> Option<i64> {
-    match s {
-        "" => None,
-        "t" => Some(1),
-        "f" => Some(0),
-        n => Some(n.parse().expect("number")),
-    }
-}
-
-fn psql(script: String) -> Result<Vec<u8>, String> {
-    let out = Command::new("psql")
-        .args(["-X", "-q", "-tA", "-F,", "-v", "ON_ERROR_STOP=1", "-f", "-"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .and_then(|mut child| {
-            let mut stdin = child.stdin.take().expect("piped stdin");
-            let writer = std::thread::spawn(move || {
-                let _ = stdin.write_all(script.as_bytes());
-            });
-            let out = child.wait_with_output();
-            let _ = writer.join();
-            out
-        })
-        .map_err(|e| format!("could not run psql ({e})"))?;
-    if out.status.success() {
-        Ok(out.stdout)
-    } else {
-        Err(format!(
-            "psql failed: {}",
-            String::from_utf8_lossy(&out.stderr).trim()
-        ))
+fn pg_value(c: &Cell) -> Option<i64> {
+    match c.as_deref() {
+        None => None,
+        Some("t") => Some(1),
+        Some("f") => Some(0),
+        Some(n) => Some(n.parse().expect("number")),
     }
 }
 
 fn main() {
+    let pg = match Pg::connect() {
+        Ok(pg) => pg,
+        Err(Skip(why)) => {
+            println!("SKIP: {why}");
+            return;
+        }
+    };
     let mut rng = Rng(0x00D1_5EED_0011_0001);
     let tables: Vec<Table> = (0..TABLES).map(|_| table(&mut rng)).collect();
 
@@ -198,40 +180,31 @@ fn main() {
             ));
         }
     }
-    let stdout = match psql(script) {
-        Ok(o) => o,
-        Err(why) => {
-            println!("SKIP: {why}");
-            return;
-        }
-    };
-    let lines: Vec<&str> = std::str::from_utf8(&stdout)
-        .expect("utf-8")
-        .lines()
-        .filter(|l| !l.is_empty())
-        .collect();
-    assert_eq!(lines.len(), TABLES * SELECTIONS.len(), "one row per query");
+    let rows = pg
+        .script(&script)
+        .unwrap_or_else(|e| panic!("PostgreSQL rejected the script: {e}"));
+    assert_eq!(rows.len(), TABLES * SELECTIONS.len(), "one row per query");
 
     let (mut nulls, mut trues_with_null, mut naive_wrong) = (0usize, 0usize, 0usize);
-    let mut line = lines.iter();
+    let mut row_iter = rows.iter();
     for t in &tables {
         for sel in SELECTIONS {
-            let cols: Vec<&str> = line.next().expect("row").split(',').collect();
-            let pg = [pg_value(cols[0]), pg_value(cols[1]), pg_value(cols[2])];
+            let cols = row_iter.next().expect("row");
+            assert_eq!(cols.len(), 3);
+            let pg_row = [pg_value(&cols[0]), pg_value(&cols[1]), pg_value(&cols[2])];
             let ours = aggs(t, sel, VB, VK);
-            assert_eq!(ours, pg, "x < {sel}: r2il {ours:?} vs PostgreSQL {pg:?}");
-            nulls += usize::from(pg[0].is_none());
+            assert_eq!(
+                ours, pg_row,
+                "x < {sel}: r2il {ours:?} vs PostgreSQL {pg_row:?}"
+            );
+            nulls += usize::from(pg_row[0].is_none());
             let has_null_selected =
                 (0..ROWS).any(|r| t.x[r] < sel && !bit(&t.planes[VB as usize], r));
-            trues_with_null += usize::from(pg[1] == Some(1) && has_null_selected);
-            naive_wrong += usize::from(aggs(t, sel, ALL, ALL) != pg);
+            trues_with_null += usize::from(pg_row[1] == Some(1) && has_null_selected);
+            naive_wrong += usize::from(aggs(t, sel, ALL, ALL) != pg_row);
         }
     }
-    let version = Command::new("psql")
-        .args(["-X", "-tA", "-c", "SHOW server_version"])
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .unwrap_or_default();
+    let version = pg.version();
     let total = TABLES * SELECTIONS.len();
     println!(
         "PostgreSQL {version}: {total} queries ({nulls} with NULL bool aggregates, \

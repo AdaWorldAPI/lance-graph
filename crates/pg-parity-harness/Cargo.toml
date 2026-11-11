@@ -1,0 +1,10 @@
+[package]
+name = "pg-parity-harness"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB. Shared PostgreSQL parity harness (D-QSP-H): drives psql against a real server, returns rows with NULL kept distinct, result column types and SQLSTATE, and compares them with an implementation's answer (multiset, ordered-with-ties, types, errors). Prints SKIP without a server. No dependencies."
+
+# A workspace member with no dependencies. Other crates take it as a
+# dev-dependency only; nothing native depends on it.
+[dependencies]

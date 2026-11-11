@@ -168,6 +168,12 @@ jobs:
       # the persisted OrderIndex (S3) and its refusals.
       - name: Run dr256-ternlog-lab tests
         run: cargo test --manifest-path crates/dr256-ternlog-lab/Cargo.toml
+      # pg-parity-harness (D-QSP-H): its 13 unit tests are the comparison
+      # rules every parity example relies on (multiset, ties, NULL vs empty,
+      # SQLSTATE, vacuous mutation). The live test prints SKIP here: CI has no
+      # PostgreSQL server.
+      - name: Run pg-parity-harness tests
+        run: cargo test --manifest-path crates/pg-parity-harness/Cargo.toml
       # lance-graph-report: no workflow ran its tests before D-LANESOCK-2. The
       # lane-socket suite is a `#[cfg(test)]` unit module (its constructor
       # takes an unwitnessed reader scope), so the plain run covers it.
