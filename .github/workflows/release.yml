@@ -62,9 +62,11 @@ jobs:
         pip install packaging bump-my-version toml
 
     - name: Install dependencies
+      # No apt on hosted runners (see install-protoc.sh). libssl-dev is part of
+      # the runner image; fail here, by name, if that ever stops being true.
       run: |
-        sudo apt update
-        sudo apt install -y protobuf-compiler libssl-dev
+        .github/scripts/install-protoc.sh
+        pkg-config --exists openssl || { echo "openssl headers missing from the runner image" >&2; exit 1; }
 
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:

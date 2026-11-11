@@ -47,7 +47,7 @@ jobs:
       # lance's build compiles .proto files: `protoc` alone is not enough, the
       # well-known includes (libprotobuf-dev) are needed too.
       - name: Install protoc and the protobuf includes (for lance)
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+        run: "$GITHUB_WORKSPACE/.github/scripts/install-protoc.sh"
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test

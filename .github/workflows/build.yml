@@ -87,9 +87,7 @@ jobs:
           workspaces: |
             lance-graph/crates/lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       - name: Build lance-graph
         run: cargo build --manifest-path crates/lance-graph/Cargo.toml
       - name: Build tests

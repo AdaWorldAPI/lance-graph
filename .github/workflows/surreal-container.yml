@@ -81,8 +81,6 @@ jobs:
           workspaces: |
             lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       - name: Run surreal_container tests   # 5 + 5 green
         run: cargo test --manifest-path crates/surreal_container/Cargo.toml
