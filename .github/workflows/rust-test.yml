@@ -525,7 +525,7 @@ jobs:
       # workspace depends on the crate, and its test step recompiled the lance
       # stack for more than five minutes on every PR, which pushed this job over
       # its 30-minute limit. The tests run in `surreal-container.yml`, only when
-      # the crate or the contract it implements changes. The crate still compiles
+      # the crate, the contract crate or the workspace manifest changes. The crate still compiles
       # in the `cargo build --workspace` step above.
       - name: Run dto-class-check tests (missed by the first sweep)     # 1 green
         run: cargo test --manifest-path tools/dto-class-check/Cargo.toml

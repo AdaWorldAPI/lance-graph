@@ -3,7 +3,8 @@
 # The crate has no dependent in the workspace. Its tests used to run in
 # `rust-test.yml`'s `member-tests` job on every PR, where they recompiled the
 # lance stack for more than five minutes and pushed that job over its limit.
-# They run here instead, only when the crate, the contract view it implements,
+# They run here instead, only when the crate, the contract crate it uses
+# (`kanban`, `scheduler`, `soa_view`, `collapse_gate`), the workspace manifest,
 # or this workflow changes. `member-tests` still compiles the crate through
 # `cargo build --workspace`.
 name: surreal_container
@@ -13,12 +14,14 @@ on:
       - main
     paths:
       - crates/surreal_container/**
-      - crates/lance-graph-contract/src/soa_view.rs
+      - crates/lance-graph-contract/**
+      - Cargo.toml
       - .github/workflows/surreal-container.yml
   pull_request:
     paths:
       - crates/surreal_container/**
-      - crates/lance-graph-contract/src/soa_view.rs
+      - crates/lance-graph-contract/**
+      - Cargo.toml
       - .github/workflows/surreal-container.yml
   workflow_dispatch:
 
