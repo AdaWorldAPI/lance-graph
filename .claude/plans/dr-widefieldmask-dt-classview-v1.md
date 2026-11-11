@@ -199,6 +199,15 @@ DO`: the ON of a method is a WHERE over coordinates, a selection in DR terms,
 which is why `MethodBinding::on` / `reads` are `WideFieldMask`s held by the
 immutable method (G6).
 
+Picture eight ("Relationships Without Materialization") states the fold in
+both semirings: `T(x,z) = Σ_y R(x,y)·S(y,z)` (counting, ℕ) and
+`T(x,z) = ∨_y (R(x,y) ∧ S(y,z))` (Boolean). R and S are resident; T is a
+virtual relation a method uses directly; a bag is an addressable context
+object, not a pile of rows. Which semiring applies is chosen by the demand
+when the binding is made: a count needs the ℕ reading, an existence test the
+Boolean one; answering a count from the Boolean support is wrong (the
+Cypher-lowering rule).
+
 The third picture's `F###` list (F001 `ClassView::select`, F011
 `WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
 follow EXO-254 (F + technology digit + command byte) and are not minted here.
