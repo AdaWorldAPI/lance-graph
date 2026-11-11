@@ -208,6 +208,13 @@ when the binding is made: a count needs the ℕ reading, an existence test the
 Boolean one; answering a count from the Boolean support is wrong (the
 Cypher-lowering rule).
 
+Picture ten (the German "Beziehungen ohne Materialisierung") adds recursion
+as a repeated fold: `Δₙ₊₁ = F(Rₙ) \ Rₙ`, `Rₙ₊₁ = Rₙ ∪ Δₙ₊₁`, a fixpoint
+without storing every intermediate result. This is semi-naive evaluation and
+already exists over row masks: xlog `Cube::closure` and `closure_wide`
+(`lance-graph-xlog/src/cube.rs:665-719`, `delta' = (delta ∘ edge) andnot
+…`). Storage is kept only where needed: world, evidence, versions.
+
 Picture nine ("The Bag as a Thinking Object") makes the bag the unit a
 method is called on: select, join and aggregate are the bag algebra above;
 reason, plan, simulate, revise and insight are further methods of the same
