@@ -61,7 +61,7 @@ witnesses). That is how this reads together with the texts already on main:
 - **Locality contract, boundary 2** lists `WideFieldMask` with DT64. Read:
   DT64 says what a selection selects; DR carries it.
 
-**256 × 256 × 256 is a shape, not a meaning.** The same shape is read in
+**256 × 256 × 256 is a shape, not a meaning: universal algebra.** The same shape is read in
 whatever way the binding names:
 
 - a flat row space: 256 × 256 rows per slab, × 256 slabs, up to 16.7 M rows
