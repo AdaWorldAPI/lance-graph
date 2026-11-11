@@ -328,6 +328,9 @@ def packet(store, ra, symbol, diff_text=None, rev=None):
              "severity": None, "evidence_class": "COMPILER_DERIVED", "items": roots,
              "provenance": prov, "lifecycle": "open", "run_status": "PARTIAL"},
         ],
+        "r2il": {"method": "NOT_A_METHOD", "body_semantics": "UNKNOWN",
+                 "why": "R2IL describes the effects of a registered DT64 MethodBinding (prepare binds them to "
+                        "opcodes); a Rust function found by the compiler is not one, so its body has no R2IL reading"},
         "expected_behavior": "NOT_SUPPLIED (must come from intent/tests, independently of this packet)",
         "candidate_behavior": "NOT_INFERRED",
         "missing_necessary_evidence": ["test runs (TEST_OBSERVED needs a run that can fail, CR-H0 §5)",
@@ -444,6 +447,10 @@ class Negatives(unittest.TestCase):
         self.assertEqual(p["affected_symbols"]["possible"], [])  # a reference is not a dispatch either
         out = recover(Store(st, src), ["lance_graph_x::c"])
         self.assertNotIn(node_id("lance_graph_x::b"), out)  # c only references b: no edge, no node
+
+    def test_08b_a_rust_function_is_not_an_r2il_method(self):
+        p = packet(Store(self.st, self.src), (set(), set(), {}), "lance_graph_x::b")
+        self.assertEqual((p["r2il"]["method"], p["r2il"]["body_semantics"]), ("NOT_A_METHOD", "UNKNOWN"))
 
     def test_09_lab_proposed_merged_stay_distinct(self):
         corpus = [{"id": f"R{i}", "subject": "s", "object": "o", "status": s, "recoverable": "INTERPRETATION",
