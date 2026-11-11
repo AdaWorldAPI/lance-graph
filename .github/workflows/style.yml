@@ -86,9 +86,7 @@ jobs:
           shared-key: "lance-graph-deps"
           workspaces: lance-graph/crates/lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       # Clippy is gated tier-by-tier as the codebase incrementally adopts it.
       # PRs that touch a new crate own that crate's clippy debt before merging.
       #

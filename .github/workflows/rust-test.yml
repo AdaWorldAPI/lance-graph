@@ -100,9 +100,7 @@ jobs:
           workspaces: |
             lance-graph/crates/lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       - name: Build tests
         run: cargo test --manifest-path crates/lance-graph/Cargo.toml --no-run
       - name: Run unit tests
@@ -446,9 +444,7 @@ jobs:
           workspaces: |
             lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       # ── The structural net: every member, present and future ─────────────
       #
       # The per-crate steps below are a hand-maintained allowlist, and that is
@@ -651,9 +647,7 @@ jobs:
           workspaces: |
             lance-graph/crates/lance-graph
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
+        run: .github/scripts/install-protoc.sh
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Run tests with coverage

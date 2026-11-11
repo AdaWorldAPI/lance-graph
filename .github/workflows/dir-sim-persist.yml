@@ -59,7 +59,7 @@ jobs:
           path: OGAR
           persist-credentials: false
       - name: Install protoc and the protobuf includes (for lance)
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libprotobuf-dev
+        run: .github/scripts/install-protoc.sh
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
       # `.cargo/config.toml` builds with target-cpu=native, and cargo's
