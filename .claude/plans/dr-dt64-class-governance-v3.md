@@ -18,6 +18,7 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D7 | Gremlin and Cypher are one technology, "Gremlin/Cypher", on Gremlin's digit `F5`. (First stated as "`F7`, or Gremlin's if the scope is adjacent"; then listed as one item.) |
 | D8 | Applications such as Odoo get a domain/classid on the left side. They do not take a technology digit. |
 | D10 | In short: `F###` is one polyglot address space of 4,096 addresses (16 × 256), meant mainly to give algebra its addresses. |
+| D11 | Rendering is always application-related. The domain::appid on the left carries it, so the render prefix and `FTMM` do not conflict. |
 | D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
 Carried from earlier records and unchanged: the technology digits `F0`
@@ -83,10 +84,15 @@ Odoo-specific behaviour is therefore `0x02CC_FTMM`: an Odoo class on the
 left, technology and command on the right. Two points follow and need
 checking, not deciding here:
 
-- Today the low half of a data classid is the application's render prefix
-  (`0x0002` for Odoo). A behaviour address uses the low half for `FTMM`, so
-  it cannot also carry the render prefix. D-DT64-7 already calls the render
-  prefix the older reading; W2 must state how the two coexist.
+- Rendering is always application-related, so it is carried by the
+  domain::appid on the left (D11). The render prefix in the low half of a
+  data classid and `FTMM` in the low half of a behaviour address therefore
+  do not compete: a behaviour address never needs a render prefix.
+- To state in W2, not to decide: on main the left half of a data classid is
+  domain + concept number (`0x0202` is commerce, concept 02) and the
+  application id sits on the right (`0x0002` for Odoo). D11 and the
+  D-DT64-7 diagram both write the left of a behaviour address as
+  domain::appid. Data classids keep their bits (D3).
 - A technology that outgrows 256 commands, or a seventeenth technology,
   takes a left side as well (D2). Which left side a technology uses when it
   is not an application is open.
