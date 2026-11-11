@@ -1,0 +1,32 @@
+H	cg-beh.facts.v1	317c4ffc04cb557d1142fd1331a0ccaedcd286de	cg-beh-probe lab class
+CLASS	0x7F0C0001	1	8	4b7b962010df7d77
+BASIS	0x7F0C0001	0	lab:beh/a
+BASIS	0x7F0C0001	1	lab:beh/b
+BASIS	0x7F0C0001	2	lab:beh/k
+BASIS	0x7F0C0001	3	lab:beh/m
+BASIS	0x7F0C0001	4	lab:beh/s
+BASIS	0x7F0C0001	5	lab:beh/t
+BASIS	0x7F0C0001	6	lab:beh/u
+BASIS	0x7F0C0001	7	lab:beh/v
+METHOD	0x7F0C0001	1	1	b5dcf9c8951e6b8e5fb447bebe32b1ab	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	lab1
+ON	0x7F0C0001	1	0	lab:beh/a
+READ	0x7F0C0001	1	0	lab:beh/a
+READ	0x7F0C0001	1	1	lab:beh/b
+WHEN	0x7F0C0001	1	TwoValued	And([Res(I32 { lane: 0, op: Lt, t: 5 }), Res(I32 { lane: 1, op: Ge, t: 0 })])	GuardWitness { normal: And([Res(I32 { lane: 0, op: Lt, t: 5 }), Res(I32 { lane: 1, op: Gt, t: -1 })]), logic: TwoValued }
+DEP	0x7F0C0001	1	0	ResI32	0	UNKNOWN	0	lab:beh/a
+DEP	0x7F0C0001	1	1	ResI32	1	UNKNOWN	1	lab:beh/b
+DO	0x7F0C0001	1	0	0xFFFFF000	5	lg:polyfill:f000/IntSLess	2	3	lab:beh/m	F0,C5
+DO	0x7F0C0001	1	1	0xFFFFF000	11	lg:polyfill:f000/SUM	2	4	lab:beh/s	F3,F1
+METHOD	0x7F0C0001	2	1	2b9c97a5253a3361e021a8dd858cc56b	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	lab2
+ON	0x7F0C0001	2	0	lab:beh/a
+ON	0x7F0C0001	2	1	lab:beh/b
+READ	0x7F0C0001	2	0	lab:beh/a
+READ	0x7F0C0001	2	1	lab:beh/b
+WHEN_NONE	0x7F0C0001	2
+DO	0x7F0C0001	2	0	0xFFFFF000	0	lg:polyfill:f000/IntAdd	2	5	lab:beh/t	F0,F1
+DO	0x7F0C0001	2	1	0xFFFFF000	1	lg:polyfill:f000/IntSub	2	6	lab:beh/u	F0,F1
+METHOD	0x7F0C0001	3	1	f864ca4586aeb44195c562be31af19e3	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	lab3
+ON	0x7F0C0001	3	2	lab:beh/k
+READ	0x7F0C0001	3	2	lab:beh/k
+WHEN_NONE	0x7F0C0001	3
+DO	0x7F0C0001	3	0	0xFFFFF000	10	lg:polyfill:f000/PopCount	1	7	lab:beh/v	F2

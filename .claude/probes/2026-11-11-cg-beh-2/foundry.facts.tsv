@@ -1,0 +1,693 @@
+H	cg-beh.facts.v1	317c4ffc04cb557d1142fd1331a0ccaedcd286de	foundry-parity-lab CanCook
+CLASS	0x51160001	1	211	06c0587ab340e179
+BASIS	0x51160001	0	ops:stock/0
+BASIS	0x51160001	1	ops:stock/1
+BASIS	0x51160001	2	ops:stock/2
+BASIS	0x51160001	3	ops:stock/3
+BASIS	0x51160001	4	ops:stock/4
+BASIS	0x51160001	5	ops:stock/5
+BASIS	0x51160001	6	ops:stock/6
+BASIS	0x51160001	7	ops:stock/7
+BASIS	0x51160001	8	ops:stock/8
+BASIS	0x51160001	9	ops:stock/9
+BASIS	0x51160001	10	ops:stock/10
+BASIS	0x51160001	11	ops:stock/11
+BASIS	0x51160001	12	ops:stock/12
+BASIS	0x51160001	13	ops:stock/13
+BASIS	0x51160001	14	ops:stock/14
+BASIS	0x51160001	15	ops:stock/15
+BASIS	0x51160001	16	ops:stock/16
+BASIS	0x51160001	17	ops:stock/17
+BASIS	0x51160001	18	ops:stock/18
+BASIS	0x51160001	19	ops:stock/19
+BASIS	0x51160001	20	ops:stock/20
+BASIS	0x51160001	21	ops:stock/21
+BASIS	0x51160001	22	ops:stock/22
+BASIS	0x51160001	23	ops:stock/23
+BASIS	0x51160001	24	ops:stock/24
+BASIS	0x51160001	25	ops:stock/25
+BASIS	0x51160001	26	ops:stock/26
+BASIS	0x51160001	27	ops:stock/27
+BASIS	0x51160001	28	ops:stock/28
+BASIS	0x51160001	29	ops:stock/29
+BASIS	0x51160001	30	ops:stock/30
+BASIS	0x51160001	31	ops:stock/31
+BASIS	0x51160001	32	ops:stock/32
+BASIS	0x51160001	33	ops:stock/33
+BASIS	0x51160001	34	ops:stock/34
+BASIS	0x51160001	35	ops:stock/35
+BASIS	0x51160001	36	ops:stock/36
+BASIS	0x51160001	37	ops:stock/37
+BASIS	0x51160001	38	ops:stock/38
+BASIS	0x51160001	39	ops:stock/39
+BASIS	0x51160001	40	ops:stock/40
+BASIS	0x51160001	41	ops:stock/41
+BASIS	0x51160001	42	ops:stock/42
+BASIS	0x51160001	43	ops:stock/43
+BASIS	0x51160001	44	ops:stock/44
+BASIS	0x51160001	45	ops:stock/45
+BASIS	0x51160001	46	ops:stock/46
+BASIS	0x51160001	47	ops:stock/47
+BASIS	0x51160001	48	ops:stock/48
+BASIS	0x51160001	49	ops:stock/49
+BASIS	0x51160001	50	ops:stock/50
+BASIS	0x51160001	51	ops:stock/51
+BASIS	0x51160001	52	ops:stock/52
+BASIS	0x51160001	53	ops:stock/53
+BASIS	0x51160001	54	ops:stock/54
+BASIS	0x51160001	55	ops:stock/55
+BASIS	0x51160001	56	ops:stock/56
+BASIS	0x51160001	57	ops:stock/57
+BASIS	0x51160001	58	ops:stock/58
+BASIS	0x51160001	59	ops:stock/59
+BASIS	0x51160001	60	ops:stock/60
+BASIS	0x51160001	61	ops:stock/61
+BASIS	0x51160001	62	ops:stock/62
+BASIS	0x51160001	63	ops:stock/63
+BASIS	0x51160001	64	ops:stockKnown/0
+BASIS	0x51160001	65	ops:stockKnown/1
+BASIS	0x51160001	66	ops:stockKnown/2
+BASIS	0x51160001	67	ops:stockKnown/3
+BASIS	0x51160001	68	ops:stockKnown/4
+BASIS	0x51160001	69	ops:stockKnown/5
+BASIS	0x51160001	70	ops:stockKnown/6
+BASIS	0x51160001	71	ops:stockKnown/7
+BASIS	0x51160001	72	ops:stockKnown/8
+BASIS	0x51160001	73	ops:stockKnown/9
+BASIS	0x51160001	74	ops:stockKnown/10
+BASIS	0x51160001	75	ops:stockKnown/11
+BASIS	0x51160001	76	ops:stockKnown/12
+BASIS	0x51160001	77	ops:stockKnown/13
+BASIS	0x51160001	78	ops:stockKnown/14
+BASIS	0x51160001	79	ops:stockKnown/15
+BASIS	0x51160001	80	ops:stockKnown/16
+BASIS	0x51160001	81	ops:stockKnown/17
+BASIS	0x51160001	82	ops:stockKnown/18
+BASIS	0x51160001	83	ops:stockKnown/19
+BASIS	0x51160001	84	ops:stockKnown/20
+BASIS	0x51160001	85	ops:stockKnown/21
+BASIS	0x51160001	86	ops:stockKnown/22
+BASIS	0x51160001	87	ops:stockKnown/23
+BASIS	0x51160001	88	ops:stockKnown/24
+BASIS	0x51160001	89	ops:stockKnown/25
+BASIS	0x51160001	90	ops:stockKnown/26
+BASIS	0x51160001	91	ops:stockKnown/27
+BASIS	0x51160001	92	ops:stockKnown/28
+BASIS	0x51160001	93	ops:stockKnown/29
+BASIS	0x51160001	94	ops:stockKnown/30
+BASIS	0x51160001	95	ops:stockKnown/31
+BASIS	0x51160001	96	ops:stockKnown/32
+BASIS	0x51160001	97	ops:stockKnown/33
+BASIS	0x51160001	98	ops:stockKnown/34
+BASIS	0x51160001	99	ops:stockKnown/35
+BASIS	0x51160001	100	ops:stockKnown/36
+BASIS	0x51160001	101	ops:stockKnown/37
+BASIS	0x51160001	102	ops:stockKnown/38
+BASIS	0x51160001	103	ops:stockKnown/39
+BASIS	0x51160001	104	ops:stockKnown/40
+BASIS	0x51160001	105	ops:stockKnown/41
+BASIS	0x51160001	106	ops:stockKnown/42
+BASIS	0x51160001	107	ops:stockKnown/43
+BASIS	0x51160001	108	ops:stockKnown/44
+BASIS	0x51160001	109	ops:stockKnown/45
+BASIS	0x51160001	110	ops:stockKnown/46
+BASIS	0x51160001	111	ops:stockKnown/47
+BASIS	0x51160001	112	ops:stockKnown/48
+BASIS	0x51160001	113	ops:stockKnown/49
+BASIS	0x51160001	114	ops:stockKnown/50
+BASIS	0x51160001	115	ops:stockKnown/51
+BASIS	0x51160001	116	ops:stockKnown/52
+BASIS	0x51160001	117	ops:stockKnown/53
+BASIS	0x51160001	118	ops:stockKnown/54
+BASIS	0x51160001	119	ops:stockKnown/55
+BASIS	0x51160001	120	ops:stockKnown/56
+BASIS	0x51160001	121	ops:stockKnown/57
+BASIS	0x51160001	122	ops:stockKnown/58
+BASIS	0x51160001	123	ops:stockKnown/59
+BASIS	0x51160001	124	ops:stockKnown/60
+BASIS	0x51160001	125	ops:stockKnown/61
+BASIS	0x51160001	126	ops:stockKnown/62
+BASIS	0x51160001	127	ops:stockKnown/63
+BASIS	0x51160001	128	ops:unitCost/0
+BASIS	0x51160001	129	ops:unitCost/1
+BASIS	0x51160001	130	ops:unitCost/2
+BASIS	0x51160001	131	ops:unitCost/3
+BASIS	0x51160001	132	ops:unitCost/4
+BASIS	0x51160001	133	ops:unitCost/5
+BASIS	0x51160001	134	ops:unitCost/6
+BASIS	0x51160001	135	ops:unitCost/7
+BASIS	0x51160001	136	ops:unitCost/8
+BASIS	0x51160001	137	ops:unitCost/9
+BASIS	0x51160001	138	ops:unitCost/10
+BASIS	0x51160001	139	ops:unitCost/11
+BASIS	0x51160001	140	ops:unitCost/12
+BASIS	0x51160001	141	ops:unitCost/13
+BASIS	0x51160001	142	ops:unitCost/14
+BASIS	0x51160001	143	ops:unitCost/15
+BASIS	0x51160001	144	ops:unitCost/16
+BASIS	0x51160001	145	ops:unitCost/17
+BASIS	0x51160001	146	ops:unitCost/18
+BASIS	0x51160001	147	ops:unitCost/19
+BASIS	0x51160001	148	ops:unitCost/20
+BASIS	0x51160001	149	ops:unitCost/21
+BASIS	0x51160001	150	ops:unitCost/22
+BASIS	0x51160001	151	ops:unitCost/23
+BASIS	0x51160001	152	ops:unitCost/24
+BASIS	0x51160001	153	ops:unitCost/25
+BASIS	0x51160001	154	ops:unitCost/26
+BASIS	0x51160001	155	ops:unitCost/27
+BASIS	0x51160001	156	ops:unitCost/28
+BASIS	0x51160001	157	ops:unitCost/29
+BASIS	0x51160001	158	ops:unitCost/30
+BASIS	0x51160001	159	ops:unitCost/31
+BASIS	0x51160001	160	ops:unitCost/32
+BASIS	0x51160001	161	ops:unitCost/33
+BASIS	0x51160001	162	ops:unitCost/34
+BASIS	0x51160001	163	ops:unitCost/35
+BASIS	0x51160001	164	ops:unitCost/36
+BASIS	0x51160001	165	ops:unitCost/37
+BASIS	0x51160001	166	ops:unitCost/38
+BASIS	0x51160001	167	ops:unitCost/39
+BASIS	0x51160001	168	ops:unitCost/40
+BASIS	0x51160001	169	ops:unitCost/41
+BASIS	0x51160001	170	ops:unitCost/42
+BASIS	0x51160001	171	ops:unitCost/43
+BASIS	0x51160001	172	ops:unitCost/44
+BASIS	0x51160001	173	ops:unitCost/45
+BASIS	0x51160001	174	ops:unitCost/46
+BASIS	0x51160001	175	ops:unitCost/47
+BASIS	0x51160001	176	ops:unitCost/48
+BASIS	0x51160001	177	ops:unitCost/49
+BASIS	0x51160001	178	ops:unitCost/50
+BASIS	0x51160001	179	ops:unitCost/51
+BASIS	0x51160001	180	ops:unitCost/52
+BASIS	0x51160001	181	ops:unitCost/53
+BASIS	0x51160001	182	ops:unitCost/54
+BASIS	0x51160001	183	ops:unitCost/55
+BASIS	0x51160001	184	ops:unitCost/56
+BASIS	0x51160001	185	ops:unitCost/57
+BASIS	0x51160001	186	ops:unitCost/58
+BASIS	0x51160001	187	ops:unitCost/59
+BASIS	0x51160001	188	ops:unitCost/60
+BASIS	0x51160001	189	ops:unitCost/61
+BASIS	0x51160001	190	ops:unitCost/62
+BASIS	0x51160001	191	ops:unitCost/63
+BASIS	0x51160001	192	ops:staff/0
+BASIS	0x51160001	193	ops:staff/1
+BASIS	0x51160001	194	ops:staff/2
+BASIS	0x51160001	195	ops:staff/3
+BASIS	0x51160001	196	ops:equipment/0
+BASIS	0x51160001	197	ops:equipment/1
+BASIS	0x51160001	198	ops:equipment/2
+BASIS	0x51160001	199	ops:equipment/3
+BASIS	0x51160001	200	ops:offers/0
+BASIS	0x51160001	201	ops:offers/1
+BASIS	0x51160001	202	ops:offers/2
+BASIS	0x51160001	203	ops:offers/3
+BASIS	0x51160001	204	ops:offers/4
+BASIS	0x51160001	205	ops:offers/5
+BASIS	0x51160001	206	ops:offers/6
+BASIS	0x51160001	207	ops:offers/7
+BASIS	0x51160001	208	ops:deliverySlots
+BASIS	0x51160001	209	ops:deliveryMinutes
+BASIS	0x51160001	210	ops:storeId
+METHOD	0x51160001	1	1	2fb0b32d08e66e2cd2ad070eaf572c82	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 0, q 1)
+ON	0x51160001	1	0	ops:stock/0
+ON	0x51160001	1	1	ops:stock/1
+ON	0x51160001	1	2	ops:stock/2
+ON	0x51160001	1	64	ops:stockKnown/0
+ON	0x51160001	1	65	ops:stockKnown/1
+ON	0x51160001	1	66	ops:stockKnown/2
+ON	0x51160001	1	192	ops:staff/0
+ON	0x51160001	1	196	ops:equipment/0
+ON	0x51160001	1	200	ops:offers/0
+READ	0x51160001	1	0	ops:stock/0
+READ	0x51160001	1	1	ops:stock/1
+READ	0x51160001	1	2	ops:stock/2
+READ	0x51160001	1	64	ops:stockKnown/0
+READ	0x51160001	1	65	ops:stockKnown/1
+READ	0x51160001	1	66	ops:stockKnown/2
+READ	0x51160001	1	192	ops:staff/0
+READ	0x51160001	1	196	ops:equipment/0
+READ	0x51160001	1	200	ops:offers/0
+WHEN	0x51160001	1	TwoValued	And([Sym(200), Sym(196), Sym(64), Res(I32 { lane: 0, op: Ge, t: 2 }), Sym(65), Res(I32 { lane: 1, op: Ge, t: 1 }), Sym(66), Res(I32 { lane: 2, op: Ge, t: 1 }), Res(I32 { lane: 192, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(64), Sym(65), Sym(66), Sym(196), Sym(200), Res(I32 { lane: 0, op: Gt, t: 1 }), Res(I32 { lane: 1, op: Gt, t: 0 }), Res(I32 { lane: 2, op: Gt, t: 0 }), Res(I32 { lane: 192, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1	0	Sym	200	UNKNOWN	200	ops:offers/0
+DEP	0x51160001	1	1	Sym	196	UNKNOWN	196	ops:equipment/0
+DEP	0x51160001	1	2	Sym	64	UNKNOWN	64	ops:stockKnown/0
+DEP	0x51160001	1	3	ResI32	0	UNKNOWN	0	ops:stock/0
+DEP	0x51160001	1	4	Sym	65	UNKNOWN	65	ops:stockKnown/1
+DEP	0x51160001	1	5	ResI32	1	UNKNOWN	1	ops:stock/1
+DEP	0x51160001	1	6	Sym	66	UNKNOWN	66	ops:stockKnown/2
+DEP	0x51160001	1	7	ResI32	2	UNKNOWN	2	ops:stock/2
+DEP	0x51160001	1	8	ResI32	192	UNKNOWN	192	ops:staff/0
+DO_NONE	0x51160001	1
+METHOD	0x51160001	3	1	a37b3aa062082f55899ff2b3611fcf08	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 0, q 3)
+ON	0x51160001	3	0	ops:stock/0
+ON	0x51160001	3	1	ops:stock/1
+ON	0x51160001	3	2	ops:stock/2
+ON	0x51160001	3	64	ops:stockKnown/0
+ON	0x51160001	3	65	ops:stockKnown/1
+ON	0x51160001	3	66	ops:stockKnown/2
+ON	0x51160001	3	192	ops:staff/0
+ON	0x51160001	3	196	ops:equipment/0
+ON	0x51160001	3	200	ops:offers/0
+READ	0x51160001	3	0	ops:stock/0
+READ	0x51160001	3	1	ops:stock/1
+READ	0x51160001	3	2	ops:stock/2
+READ	0x51160001	3	64	ops:stockKnown/0
+READ	0x51160001	3	65	ops:stockKnown/1
+READ	0x51160001	3	66	ops:stockKnown/2
+READ	0x51160001	3	192	ops:staff/0
+READ	0x51160001	3	196	ops:equipment/0
+READ	0x51160001	3	200	ops:offers/0
+WHEN	0x51160001	3	TwoValued	And([Sym(200), Sym(196), Sym(64), Res(I32 { lane: 0, op: Ge, t: 6 }), Sym(65), Res(I32 { lane: 1, op: Ge, t: 3 }), Sym(66), Res(I32 { lane: 2, op: Ge, t: 3 }), Res(I32 { lane: 192, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(64), Sym(65), Sym(66), Sym(196), Sym(200), Res(I32 { lane: 0, op: Gt, t: 5 }), Res(I32 { lane: 1, op: Gt, t: 2 }), Res(I32 { lane: 2, op: Gt, t: 2 }), Res(I32 { lane: 192, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	3	0	Sym	200	UNKNOWN	200	ops:offers/0
+DEP	0x51160001	3	1	Sym	196	UNKNOWN	196	ops:equipment/0
+DEP	0x51160001	3	2	Sym	64	UNKNOWN	64	ops:stockKnown/0
+DEP	0x51160001	3	3	ResI32	0	UNKNOWN	0	ops:stock/0
+DEP	0x51160001	3	4	Sym	65	UNKNOWN	65	ops:stockKnown/1
+DEP	0x51160001	3	5	ResI32	1	UNKNOWN	1	ops:stock/1
+DEP	0x51160001	3	6	Sym	66	UNKNOWN	66	ops:stockKnown/2
+DEP	0x51160001	3	7	ResI32	2	UNKNOWN	2	ops:stock/2
+DEP	0x51160001	3	8	ResI32	192	UNKNOWN	192	ops:staff/0
+DO_NONE	0x51160001	3
+METHOD	0x51160001	257	1	54e20e07f3007f78f38a5e1317ecfc5d	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 1, q 1)
+ON	0x51160001	257	10	ops:stock/10
+ON	0x51160001	257	21	ops:stock/21
+ON	0x51160001	257	32	ops:stock/32
+ON	0x51160001	257	74	ops:stockKnown/10
+ON	0x51160001	257	85	ops:stockKnown/21
+ON	0x51160001	257	96	ops:stockKnown/32
+ON	0x51160001	257	193	ops:staff/1
+ON	0x51160001	257	197	ops:equipment/1
+ON	0x51160001	257	201	ops:offers/1
+READ	0x51160001	257	10	ops:stock/10
+READ	0x51160001	257	21	ops:stock/21
+READ	0x51160001	257	32	ops:stock/32
+READ	0x51160001	257	74	ops:stockKnown/10
+READ	0x51160001	257	85	ops:stockKnown/21
+READ	0x51160001	257	96	ops:stockKnown/32
+READ	0x51160001	257	193	ops:staff/1
+READ	0x51160001	257	197	ops:equipment/1
+READ	0x51160001	257	201	ops:offers/1
+WHEN	0x51160001	257	TwoValued	And([Sym(201), Sym(197), Sym(74), Res(I32 { lane: 10, op: Ge, t: 2 }), Sym(85), Res(I32 { lane: 21, op: Ge, t: 3 }), Sym(96), Res(I32 { lane: 32, op: Ge, t: 1 }), Res(I32 { lane: 193, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(74), Sym(85), Sym(96), Sym(197), Sym(201), Res(I32 { lane: 10, op: Gt, t: 1 }), Res(I32 { lane: 21, op: Gt, t: 2 }), Res(I32 { lane: 32, op: Gt, t: 0 }), Res(I32 { lane: 193, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	257	0	Sym	201	UNKNOWN	201	ops:offers/1
+DEP	0x51160001	257	1	Sym	197	UNKNOWN	197	ops:equipment/1
+DEP	0x51160001	257	2	Sym	74	UNKNOWN	74	ops:stockKnown/10
+DEP	0x51160001	257	3	ResI32	10	UNKNOWN	10	ops:stock/10
+DEP	0x51160001	257	4	Sym	85	UNKNOWN	85	ops:stockKnown/21
+DEP	0x51160001	257	5	ResI32	21	UNKNOWN	21	ops:stock/21
+DEP	0x51160001	257	6	Sym	96	UNKNOWN	96	ops:stockKnown/32
+DEP	0x51160001	257	7	ResI32	32	UNKNOWN	32	ops:stock/32
+DEP	0x51160001	257	8	ResI32	193	UNKNOWN	193	ops:staff/1
+DO_NONE	0x51160001	257
+METHOD	0x51160001	259	1	e07db047aeb9d18bd1035f2b72e177eb	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 1, q 3)
+ON	0x51160001	259	10	ops:stock/10
+ON	0x51160001	259	21	ops:stock/21
+ON	0x51160001	259	32	ops:stock/32
+ON	0x51160001	259	74	ops:stockKnown/10
+ON	0x51160001	259	85	ops:stockKnown/21
+ON	0x51160001	259	96	ops:stockKnown/32
+ON	0x51160001	259	193	ops:staff/1
+ON	0x51160001	259	197	ops:equipment/1
+ON	0x51160001	259	201	ops:offers/1
+READ	0x51160001	259	10	ops:stock/10
+READ	0x51160001	259	21	ops:stock/21
+READ	0x51160001	259	32	ops:stock/32
+READ	0x51160001	259	74	ops:stockKnown/10
+READ	0x51160001	259	85	ops:stockKnown/21
+READ	0x51160001	259	96	ops:stockKnown/32
+READ	0x51160001	259	193	ops:staff/1
+READ	0x51160001	259	197	ops:equipment/1
+READ	0x51160001	259	201	ops:offers/1
+WHEN	0x51160001	259	TwoValued	And([Sym(201), Sym(197), Sym(74), Res(I32 { lane: 10, op: Ge, t: 6 }), Sym(85), Res(I32 { lane: 21, op: Ge, t: 9 }), Sym(96), Res(I32 { lane: 32, op: Ge, t: 3 }), Res(I32 { lane: 193, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(74), Sym(85), Sym(96), Sym(197), Sym(201), Res(I32 { lane: 10, op: Gt, t: 5 }), Res(I32 { lane: 21, op: Gt, t: 8 }), Res(I32 { lane: 32, op: Gt, t: 2 }), Res(I32 { lane: 193, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	259	0	Sym	201	UNKNOWN	201	ops:offers/1
+DEP	0x51160001	259	1	Sym	197	UNKNOWN	197	ops:equipment/1
+DEP	0x51160001	259	2	Sym	74	UNKNOWN	74	ops:stockKnown/10
+DEP	0x51160001	259	3	ResI32	10	UNKNOWN	10	ops:stock/10
+DEP	0x51160001	259	4	Sym	85	UNKNOWN	85	ops:stockKnown/21
+DEP	0x51160001	259	5	ResI32	21	UNKNOWN	21	ops:stock/21
+DEP	0x51160001	259	6	Sym	96	UNKNOWN	96	ops:stockKnown/32
+DEP	0x51160001	259	7	ResI32	32	UNKNOWN	32	ops:stock/32
+DEP	0x51160001	259	8	ResI32	193	UNKNOWN	193	ops:staff/1
+DO_NONE	0x51160001	259
+METHOD	0x51160001	513	1	e904a8e7bbe8d78de33a9b55f05b79d8	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 2, q 1)
+ON	0x51160001	513	17	ops:stock/17
+ON	0x51160001	513	28	ops:stock/28
+ON	0x51160001	513	39	ops:stock/39
+ON	0x51160001	513	81	ops:stockKnown/17
+ON	0x51160001	513	92	ops:stockKnown/28
+ON	0x51160001	513	103	ops:stockKnown/39
+ON	0x51160001	513	194	ops:staff/2
+ON	0x51160001	513	198	ops:equipment/2
+ON	0x51160001	513	202	ops:offers/2
+READ	0x51160001	513	17	ops:stock/17
+READ	0x51160001	513	28	ops:stock/28
+READ	0x51160001	513	39	ops:stock/39
+READ	0x51160001	513	81	ops:stockKnown/17
+READ	0x51160001	513	92	ops:stockKnown/28
+READ	0x51160001	513	103	ops:stockKnown/39
+READ	0x51160001	513	194	ops:staff/2
+READ	0x51160001	513	198	ops:equipment/2
+READ	0x51160001	513	202	ops:offers/2
+WHEN	0x51160001	513	TwoValued	And([Sym(202), Sym(198), Sym(81), Res(I32 { lane: 17, op: Ge, t: 3 }), Sym(92), Res(I32 { lane: 28, op: Ge, t: 1 }), Sym(103), Res(I32 { lane: 39, op: Ge, t: 2 }), Res(I32 { lane: 194, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(81), Sym(92), Sym(103), Sym(198), Sym(202), Res(I32 { lane: 17, op: Gt, t: 2 }), Res(I32 { lane: 28, op: Gt, t: 0 }), Res(I32 { lane: 39, op: Gt, t: 1 }), Res(I32 { lane: 194, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	513	0	Sym	202	UNKNOWN	202	ops:offers/2
+DEP	0x51160001	513	1	Sym	198	UNKNOWN	198	ops:equipment/2
+DEP	0x51160001	513	2	Sym	81	UNKNOWN	81	ops:stockKnown/17
+DEP	0x51160001	513	3	ResI32	17	UNKNOWN	17	ops:stock/17
+DEP	0x51160001	513	4	Sym	92	UNKNOWN	92	ops:stockKnown/28
+DEP	0x51160001	513	5	ResI32	28	UNKNOWN	28	ops:stock/28
+DEP	0x51160001	513	6	Sym	103	UNKNOWN	103	ops:stockKnown/39
+DEP	0x51160001	513	7	ResI32	39	UNKNOWN	39	ops:stock/39
+DEP	0x51160001	513	8	ResI32	194	UNKNOWN	194	ops:staff/2
+DO_NONE	0x51160001	513
+METHOD	0x51160001	515	1	71f0a9004b598206f18fcee411226542	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 2, q 3)
+ON	0x51160001	515	17	ops:stock/17
+ON	0x51160001	515	28	ops:stock/28
+ON	0x51160001	515	39	ops:stock/39
+ON	0x51160001	515	81	ops:stockKnown/17
+ON	0x51160001	515	92	ops:stockKnown/28
+ON	0x51160001	515	103	ops:stockKnown/39
+ON	0x51160001	515	194	ops:staff/2
+ON	0x51160001	515	198	ops:equipment/2
+ON	0x51160001	515	202	ops:offers/2
+READ	0x51160001	515	17	ops:stock/17
+READ	0x51160001	515	28	ops:stock/28
+READ	0x51160001	515	39	ops:stock/39
+READ	0x51160001	515	81	ops:stockKnown/17
+READ	0x51160001	515	92	ops:stockKnown/28
+READ	0x51160001	515	103	ops:stockKnown/39
+READ	0x51160001	515	194	ops:staff/2
+READ	0x51160001	515	198	ops:equipment/2
+READ	0x51160001	515	202	ops:offers/2
+WHEN	0x51160001	515	TwoValued	And([Sym(202), Sym(198), Sym(81), Res(I32 { lane: 17, op: Ge, t: 9 }), Sym(92), Res(I32 { lane: 28, op: Ge, t: 3 }), Sym(103), Res(I32 { lane: 39, op: Ge, t: 6 }), Res(I32 { lane: 194, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(81), Sym(92), Sym(103), Sym(198), Sym(202), Res(I32 { lane: 17, op: Gt, t: 8 }), Res(I32 { lane: 28, op: Gt, t: 2 }), Res(I32 { lane: 39, op: Gt, t: 5 }), Res(I32 { lane: 194, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	515	0	Sym	202	UNKNOWN	202	ops:offers/2
+DEP	0x51160001	515	1	Sym	198	UNKNOWN	198	ops:equipment/2
+DEP	0x51160001	515	2	Sym	81	UNKNOWN	81	ops:stockKnown/17
+DEP	0x51160001	515	3	ResI32	17	UNKNOWN	17	ops:stock/17
+DEP	0x51160001	515	4	Sym	92	UNKNOWN	92	ops:stockKnown/28
+DEP	0x51160001	515	5	ResI32	28	UNKNOWN	28	ops:stock/28
+DEP	0x51160001	515	6	Sym	103	UNKNOWN	103	ops:stockKnown/39
+DEP	0x51160001	515	7	ResI32	39	UNKNOWN	39	ops:stock/39
+DEP	0x51160001	515	8	ResI32	194	UNKNOWN	194	ops:staff/2
+DO_NONE	0x51160001	515
+METHOD	0x51160001	769	1	c11c04ccae176241b764f045b6221ec3	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 3, q 1)
+ON	0x51160001	769	24	ops:stock/24
+ON	0x51160001	769	35	ops:stock/35
+ON	0x51160001	769	46	ops:stock/46
+ON	0x51160001	769	88	ops:stockKnown/24
+ON	0x51160001	769	99	ops:stockKnown/35
+ON	0x51160001	769	110	ops:stockKnown/46
+ON	0x51160001	769	195	ops:staff/3
+ON	0x51160001	769	199	ops:equipment/3
+ON	0x51160001	769	203	ops:offers/3
+READ	0x51160001	769	24	ops:stock/24
+READ	0x51160001	769	35	ops:stock/35
+READ	0x51160001	769	46	ops:stock/46
+READ	0x51160001	769	88	ops:stockKnown/24
+READ	0x51160001	769	99	ops:stockKnown/35
+READ	0x51160001	769	110	ops:stockKnown/46
+READ	0x51160001	769	195	ops:staff/3
+READ	0x51160001	769	199	ops:equipment/3
+READ	0x51160001	769	203	ops:offers/3
+WHEN	0x51160001	769	TwoValued	And([Sym(203), Sym(199), Sym(88), Res(I32 { lane: 24, op: Ge, t: 1 }), Sym(99), Res(I32 { lane: 35, op: Ge, t: 2 }), Sym(110), Res(I32 { lane: 46, op: Ge, t: 3 }), Res(I32 { lane: 195, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(88), Sym(99), Sym(110), Sym(199), Sym(203), Res(I32 { lane: 24, op: Gt, t: 0 }), Res(I32 { lane: 35, op: Gt, t: 1 }), Res(I32 { lane: 46, op: Gt, t: 2 }), Res(I32 { lane: 195, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	769	0	Sym	203	UNKNOWN	203	ops:offers/3
+DEP	0x51160001	769	1	Sym	199	UNKNOWN	199	ops:equipment/3
+DEP	0x51160001	769	2	Sym	88	UNKNOWN	88	ops:stockKnown/24
+DEP	0x51160001	769	3	ResI32	24	UNKNOWN	24	ops:stock/24
+DEP	0x51160001	769	4	Sym	99	UNKNOWN	99	ops:stockKnown/35
+DEP	0x51160001	769	5	ResI32	35	UNKNOWN	35	ops:stock/35
+DEP	0x51160001	769	6	Sym	110	UNKNOWN	110	ops:stockKnown/46
+DEP	0x51160001	769	7	ResI32	46	UNKNOWN	46	ops:stock/46
+DEP	0x51160001	769	8	ResI32	195	UNKNOWN	195	ops:staff/3
+DO_NONE	0x51160001	769
+METHOD	0x51160001	771	1	03f88e37adbb70e43e2a1ea522098875	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 3, q 3)
+ON	0x51160001	771	24	ops:stock/24
+ON	0x51160001	771	35	ops:stock/35
+ON	0x51160001	771	46	ops:stock/46
+ON	0x51160001	771	88	ops:stockKnown/24
+ON	0x51160001	771	99	ops:stockKnown/35
+ON	0x51160001	771	110	ops:stockKnown/46
+ON	0x51160001	771	195	ops:staff/3
+ON	0x51160001	771	199	ops:equipment/3
+ON	0x51160001	771	203	ops:offers/3
+READ	0x51160001	771	24	ops:stock/24
+READ	0x51160001	771	35	ops:stock/35
+READ	0x51160001	771	46	ops:stock/46
+READ	0x51160001	771	88	ops:stockKnown/24
+READ	0x51160001	771	99	ops:stockKnown/35
+READ	0x51160001	771	110	ops:stockKnown/46
+READ	0x51160001	771	195	ops:staff/3
+READ	0x51160001	771	199	ops:equipment/3
+READ	0x51160001	771	203	ops:offers/3
+WHEN	0x51160001	771	TwoValued	And([Sym(203), Sym(199), Sym(88), Res(I32 { lane: 24, op: Ge, t: 3 }), Sym(99), Res(I32 { lane: 35, op: Ge, t: 6 }), Sym(110), Res(I32 { lane: 46, op: Ge, t: 9 }), Res(I32 { lane: 195, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(88), Sym(99), Sym(110), Sym(199), Sym(203), Res(I32 { lane: 24, op: Gt, t: 2 }), Res(I32 { lane: 35, op: Gt, t: 5 }), Res(I32 { lane: 46, op: Gt, t: 8 }), Res(I32 { lane: 195, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	771	0	Sym	203	UNKNOWN	203	ops:offers/3
+DEP	0x51160001	771	1	Sym	199	UNKNOWN	199	ops:equipment/3
+DEP	0x51160001	771	2	Sym	88	UNKNOWN	88	ops:stockKnown/24
+DEP	0x51160001	771	3	ResI32	24	UNKNOWN	24	ops:stock/24
+DEP	0x51160001	771	4	Sym	99	UNKNOWN	99	ops:stockKnown/35
+DEP	0x51160001	771	5	ResI32	35	UNKNOWN	35	ops:stock/35
+DEP	0x51160001	771	6	Sym	110	UNKNOWN	110	ops:stockKnown/46
+DEP	0x51160001	771	7	ResI32	46	UNKNOWN	46	ops:stock/46
+DEP	0x51160001	771	8	ResI32	195	UNKNOWN	195	ops:staff/3
+DO_NONE	0x51160001	771
+METHOD	0x51160001	1025	1	dee24f9bd10247ee4dd02b9246e69c06	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 4, q 1)
+ON	0x51160001	1025	31	ops:stock/31
+ON	0x51160001	1025	42	ops:stock/42
+ON	0x51160001	1025	53	ops:stock/53
+ON	0x51160001	1025	95	ops:stockKnown/31
+ON	0x51160001	1025	106	ops:stockKnown/42
+ON	0x51160001	1025	117	ops:stockKnown/53
+ON	0x51160001	1025	192	ops:staff/0
+ON	0x51160001	1025	196	ops:equipment/0
+ON	0x51160001	1025	204	ops:offers/4
+READ	0x51160001	1025	31	ops:stock/31
+READ	0x51160001	1025	42	ops:stock/42
+READ	0x51160001	1025	53	ops:stock/53
+READ	0x51160001	1025	95	ops:stockKnown/31
+READ	0x51160001	1025	106	ops:stockKnown/42
+READ	0x51160001	1025	117	ops:stockKnown/53
+READ	0x51160001	1025	192	ops:staff/0
+READ	0x51160001	1025	196	ops:equipment/0
+READ	0x51160001	1025	204	ops:offers/4
+WHEN	0x51160001	1025	TwoValued	And([Sym(204), Sym(196), Sym(95), Res(I32 { lane: 31, op: Ge, t: 2 }), Sym(106), Res(I32 { lane: 42, op: Ge, t: 3 }), Sym(117), Res(I32 { lane: 53, op: Ge, t: 1 }), Res(I32 { lane: 192, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(95), Sym(106), Sym(117), Sym(196), Sym(204), Res(I32 { lane: 31, op: Gt, t: 1 }), Res(I32 { lane: 42, op: Gt, t: 2 }), Res(I32 { lane: 53, op: Gt, t: 0 }), Res(I32 { lane: 192, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1025	0	Sym	204	UNKNOWN	204	ops:offers/4
+DEP	0x51160001	1025	1	Sym	196	UNKNOWN	196	ops:equipment/0
+DEP	0x51160001	1025	2	Sym	95	UNKNOWN	95	ops:stockKnown/31
+DEP	0x51160001	1025	3	ResI32	31	UNKNOWN	31	ops:stock/31
+DEP	0x51160001	1025	4	Sym	106	UNKNOWN	106	ops:stockKnown/42
+DEP	0x51160001	1025	5	ResI32	42	UNKNOWN	42	ops:stock/42
+DEP	0x51160001	1025	6	Sym	117	UNKNOWN	117	ops:stockKnown/53
+DEP	0x51160001	1025	7	ResI32	53	UNKNOWN	53	ops:stock/53
+DEP	0x51160001	1025	8	ResI32	192	UNKNOWN	192	ops:staff/0
+DO_NONE	0x51160001	1025
+METHOD	0x51160001	1027	1	cbf71eb2b4ffcf5ccf9bdef77a587c7c	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 4, q 3)
+ON	0x51160001	1027	31	ops:stock/31
+ON	0x51160001	1027	42	ops:stock/42
+ON	0x51160001	1027	53	ops:stock/53
+ON	0x51160001	1027	95	ops:stockKnown/31
+ON	0x51160001	1027	106	ops:stockKnown/42
+ON	0x51160001	1027	117	ops:stockKnown/53
+ON	0x51160001	1027	192	ops:staff/0
+ON	0x51160001	1027	196	ops:equipment/0
+ON	0x51160001	1027	204	ops:offers/4
+READ	0x51160001	1027	31	ops:stock/31
+READ	0x51160001	1027	42	ops:stock/42
+READ	0x51160001	1027	53	ops:stock/53
+READ	0x51160001	1027	95	ops:stockKnown/31
+READ	0x51160001	1027	106	ops:stockKnown/42
+READ	0x51160001	1027	117	ops:stockKnown/53
+READ	0x51160001	1027	192	ops:staff/0
+READ	0x51160001	1027	196	ops:equipment/0
+READ	0x51160001	1027	204	ops:offers/4
+WHEN	0x51160001	1027	TwoValued	And([Sym(204), Sym(196), Sym(95), Res(I32 { lane: 31, op: Ge, t: 6 }), Sym(106), Res(I32 { lane: 42, op: Ge, t: 9 }), Sym(117), Res(I32 { lane: 53, op: Ge, t: 3 }), Res(I32 { lane: 192, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(95), Sym(106), Sym(117), Sym(196), Sym(204), Res(I32 { lane: 31, op: Gt, t: 5 }), Res(I32 { lane: 42, op: Gt, t: 8 }), Res(I32 { lane: 53, op: Gt, t: 2 }), Res(I32 { lane: 192, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1027	0	Sym	204	UNKNOWN	204	ops:offers/4
+DEP	0x51160001	1027	1	Sym	196	UNKNOWN	196	ops:equipment/0
+DEP	0x51160001	1027	2	Sym	95	UNKNOWN	95	ops:stockKnown/31
+DEP	0x51160001	1027	3	ResI32	31	UNKNOWN	31	ops:stock/31
+DEP	0x51160001	1027	4	Sym	106	UNKNOWN	106	ops:stockKnown/42
+DEP	0x51160001	1027	5	ResI32	42	UNKNOWN	42	ops:stock/42
+DEP	0x51160001	1027	6	Sym	117	UNKNOWN	117	ops:stockKnown/53
+DEP	0x51160001	1027	7	ResI32	53	UNKNOWN	53	ops:stock/53
+DEP	0x51160001	1027	8	ResI32	192	UNKNOWN	192	ops:staff/0
+DO_NONE	0x51160001	1027
+METHOD	0x51160001	1281	1	df985eec82827c00571231db21d71369	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 5, q 1)
+ON	0x51160001	1281	38	ops:stock/38
+ON	0x51160001	1281	49	ops:stock/49
+ON	0x51160001	1281	60	ops:stock/60
+ON	0x51160001	1281	102	ops:stockKnown/38
+ON	0x51160001	1281	113	ops:stockKnown/49
+ON	0x51160001	1281	124	ops:stockKnown/60
+ON	0x51160001	1281	193	ops:staff/1
+ON	0x51160001	1281	197	ops:equipment/1
+ON	0x51160001	1281	205	ops:offers/5
+READ	0x51160001	1281	38	ops:stock/38
+READ	0x51160001	1281	49	ops:stock/49
+READ	0x51160001	1281	60	ops:stock/60
+READ	0x51160001	1281	102	ops:stockKnown/38
+READ	0x51160001	1281	113	ops:stockKnown/49
+READ	0x51160001	1281	124	ops:stockKnown/60
+READ	0x51160001	1281	193	ops:staff/1
+READ	0x51160001	1281	197	ops:equipment/1
+READ	0x51160001	1281	205	ops:offers/5
+WHEN	0x51160001	1281	TwoValued	And([Sym(205), Sym(197), Sym(102), Res(I32 { lane: 38, op: Ge, t: 3 }), Sym(113), Res(I32 { lane: 49, op: Ge, t: 1 }), Sym(124), Res(I32 { lane: 60, op: Ge, t: 2 }), Res(I32 { lane: 193, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(102), Sym(113), Sym(124), Sym(197), Sym(205), Res(I32 { lane: 38, op: Gt, t: 2 }), Res(I32 { lane: 49, op: Gt, t: 0 }), Res(I32 { lane: 60, op: Gt, t: 1 }), Res(I32 { lane: 193, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1281	0	Sym	205	UNKNOWN	205	ops:offers/5
+DEP	0x51160001	1281	1	Sym	197	UNKNOWN	197	ops:equipment/1
+DEP	0x51160001	1281	2	Sym	102	UNKNOWN	102	ops:stockKnown/38
+DEP	0x51160001	1281	3	ResI32	38	UNKNOWN	38	ops:stock/38
+DEP	0x51160001	1281	4	Sym	113	UNKNOWN	113	ops:stockKnown/49
+DEP	0x51160001	1281	5	ResI32	49	UNKNOWN	49	ops:stock/49
+DEP	0x51160001	1281	6	Sym	124	UNKNOWN	124	ops:stockKnown/60
+DEP	0x51160001	1281	7	ResI32	60	UNKNOWN	60	ops:stock/60
+DEP	0x51160001	1281	8	ResI32	193	UNKNOWN	193	ops:staff/1
+DO_NONE	0x51160001	1281
+METHOD	0x51160001	1283	1	5540b0ecd5708e5c851cf487de84cb07	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 5, q 3)
+ON	0x51160001	1283	38	ops:stock/38
+ON	0x51160001	1283	49	ops:stock/49
+ON	0x51160001	1283	60	ops:stock/60
+ON	0x51160001	1283	102	ops:stockKnown/38
+ON	0x51160001	1283	113	ops:stockKnown/49
+ON	0x51160001	1283	124	ops:stockKnown/60
+ON	0x51160001	1283	193	ops:staff/1
+ON	0x51160001	1283	197	ops:equipment/1
+ON	0x51160001	1283	205	ops:offers/5
+READ	0x51160001	1283	38	ops:stock/38
+READ	0x51160001	1283	49	ops:stock/49
+READ	0x51160001	1283	60	ops:stock/60
+READ	0x51160001	1283	102	ops:stockKnown/38
+READ	0x51160001	1283	113	ops:stockKnown/49
+READ	0x51160001	1283	124	ops:stockKnown/60
+READ	0x51160001	1283	193	ops:staff/1
+READ	0x51160001	1283	197	ops:equipment/1
+READ	0x51160001	1283	205	ops:offers/5
+WHEN	0x51160001	1283	TwoValued	And([Sym(205), Sym(197), Sym(102), Res(I32 { lane: 38, op: Ge, t: 9 }), Sym(113), Res(I32 { lane: 49, op: Ge, t: 3 }), Sym(124), Res(I32 { lane: 60, op: Ge, t: 6 }), Res(I32 { lane: 193, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(102), Sym(113), Sym(124), Sym(197), Sym(205), Res(I32 { lane: 38, op: Gt, t: 8 }), Res(I32 { lane: 49, op: Gt, t: 2 }), Res(I32 { lane: 60, op: Gt, t: 5 }), Res(I32 { lane: 193, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1283	0	Sym	205	UNKNOWN	205	ops:offers/5
+DEP	0x51160001	1283	1	Sym	197	UNKNOWN	197	ops:equipment/1
+DEP	0x51160001	1283	2	Sym	102	UNKNOWN	102	ops:stockKnown/38
+DEP	0x51160001	1283	3	ResI32	38	UNKNOWN	38	ops:stock/38
+DEP	0x51160001	1283	4	Sym	113	UNKNOWN	113	ops:stockKnown/49
+DEP	0x51160001	1283	5	ResI32	49	UNKNOWN	49	ops:stock/49
+DEP	0x51160001	1283	6	Sym	124	UNKNOWN	124	ops:stockKnown/60
+DEP	0x51160001	1283	7	ResI32	60	UNKNOWN	60	ops:stock/60
+DEP	0x51160001	1283	8	ResI32	193	UNKNOWN	193	ops:staff/1
+DO_NONE	0x51160001	1283
+METHOD	0x51160001	1537	1	acbfb529b830b1290847c3d053dd9b6c	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 6, q 1)
+ON	0x51160001	1537	3	ops:stock/3
+ON	0x51160001	1537	45	ops:stock/45
+ON	0x51160001	1537	56	ops:stock/56
+ON	0x51160001	1537	67	ops:stockKnown/3
+ON	0x51160001	1537	109	ops:stockKnown/45
+ON	0x51160001	1537	120	ops:stockKnown/56
+ON	0x51160001	1537	194	ops:staff/2
+ON	0x51160001	1537	198	ops:equipment/2
+ON	0x51160001	1537	206	ops:offers/6
+READ	0x51160001	1537	3	ops:stock/3
+READ	0x51160001	1537	45	ops:stock/45
+READ	0x51160001	1537	56	ops:stock/56
+READ	0x51160001	1537	67	ops:stockKnown/3
+READ	0x51160001	1537	109	ops:stockKnown/45
+READ	0x51160001	1537	120	ops:stockKnown/56
+READ	0x51160001	1537	194	ops:staff/2
+READ	0x51160001	1537	198	ops:equipment/2
+READ	0x51160001	1537	206	ops:offers/6
+WHEN	0x51160001	1537	TwoValued	And([Sym(206), Sym(198), Sym(67), Res(I32 { lane: 3, op: Ge, t: 3 }), Sym(109), Res(I32 { lane: 45, op: Ge, t: 1 }), Sym(120), Res(I32 { lane: 56, op: Ge, t: 2 }), Res(I32 { lane: 194, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(67), Sym(109), Sym(120), Sym(198), Sym(206), Res(I32 { lane: 3, op: Gt, t: 2 }), Res(I32 { lane: 45, op: Gt, t: 0 }), Res(I32 { lane: 56, op: Gt, t: 1 }), Res(I32 { lane: 194, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1537	0	Sym	206	UNKNOWN	206	ops:offers/6
+DEP	0x51160001	1537	1	Sym	198	UNKNOWN	198	ops:equipment/2
+DEP	0x51160001	1537	2	Sym	67	UNKNOWN	67	ops:stockKnown/3
+DEP	0x51160001	1537	3	ResI32	3	UNKNOWN	3	ops:stock/3
+DEP	0x51160001	1537	4	Sym	109	UNKNOWN	109	ops:stockKnown/45
+DEP	0x51160001	1537	5	ResI32	45	UNKNOWN	45	ops:stock/45
+DEP	0x51160001	1537	6	Sym	120	UNKNOWN	120	ops:stockKnown/56
+DEP	0x51160001	1537	7	ResI32	56	UNKNOWN	56	ops:stock/56
+DEP	0x51160001	1537	8	ResI32	194	UNKNOWN	194	ops:staff/2
+DO_NONE	0x51160001	1537
+METHOD	0x51160001	1539	1	21d33d82687c835778c4630cf050db5e	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 6, q 3)
+ON	0x51160001	1539	3	ops:stock/3
+ON	0x51160001	1539	45	ops:stock/45
+ON	0x51160001	1539	56	ops:stock/56
+ON	0x51160001	1539	67	ops:stockKnown/3
+ON	0x51160001	1539	109	ops:stockKnown/45
+ON	0x51160001	1539	120	ops:stockKnown/56
+ON	0x51160001	1539	194	ops:staff/2
+ON	0x51160001	1539	198	ops:equipment/2
+ON	0x51160001	1539	206	ops:offers/6
+READ	0x51160001	1539	3	ops:stock/3
+READ	0x51160001	1539	45	ops:stock/45
+READ	0x51160001	1539	56	ops:stock/56
+READ	0x51160001	1539	67	ops:stockKnown/3
+READ	0x51160001	1539	109	ops:stockKnown/45
+READ	0x51160001	1539	120	ops:stockKnown/56
+READ	0x51160001	1539	194	ops:staff/2
+READ	0x51160001	1539	198	ops:equipment/2
+READ	0x51160001	1539	206	ops:offers/6
+WHEN	0x51160001	1539	TwoValued	And([Sym(206), Sym(198), Sym(67), Res(I32 { lane: 3, op: Ge, t: 9 }), Sym(109), Res(I32 { lane: 45, op: Ge, t: 3 }), Sym(120), Res(I32 { lane: 56, op: Ge, t: 6 }), Res(I32 { lane: 194, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(67), Sym(109), Sym(120), Sym(198), Sym(206), Res(I32 { lane: 3, op: Gt, t: 8 }), Res(I32 { lane: 45, op: Gt, t: 2 }), Res(I32 { lane: 56, op: Gt, t: 5 }), Res(I32 { lane: 194, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1539	0	Sym	206	UNKNOWN	206	ops:offers/6
+DEP	0x51160001	1539	1	Sym	198	UNKNOWN	198	ops:equipment/2
+DEP	0x51160001	1539	2	Sym	67	UNKNOWN	67	ops:stockKnown/3
+DEP	0x51160001	1539	3	ResI32	3	UNKNOWN	3	ops:stock/3
+DEP	0x51160001	1539	4	Sym	109	UNKNOWN	109	ops:stockKnown/45
+DEP	0x51160001	1539	5	ResI32	45	UNKNOWN	45	ops:stock/45
+DEP	0x51160001	1539	6	Sym	120	UNKNOWN	120	ops:stockKnown/56
+DEP	0x51160001	1539	7	ResI32	56	UNKNOWN	56	ops:stock/56
+DEP	0x51160001	1539	8	ResI32	194	UNKNOWN	194	ops:staff/2
+DO_NONE	0x51160001	1539
+METHOD	0x51160001	1793	1	a3d9b95cc888ed31a40bb6a3f5ecb3cf	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 7, q 1)
+ON	0x51160001	1793	10	ops:stock/10
+ON	0x51160001	1793	52	ops:stock/52
+ON	0x51160001	1793	63	ops:stock/63
+ON	0x51160001	1793	74	ops:stockKnown/10
+ON	0x51160001	1793	116	ops:stockKnown/52
+ON	0x51160001	1793	127	ops:stockKnown/63
+ON	0x51160001	1793	195	ops:staff/3
+ON	0x51160001	1793	199	ops:equipment/3
+ON	0x51160001	1793	207	ops:offers/7
+READ	0x51160001	1793	10	ops:stock/10
+READ	0x51160001	1793	52	ops:stock/52
+READ	0x51160001	1793	63	ops:stock/63
+READ	0x51160001	1793	74	ops:stockKnown/10
+READ	0x51160001	1793	116	ops:stockKnown/52
+READ	0x51160001	1793	127	ops:stockKnown/63
+READ	0x51160001	1793	195	ops:staff/3
+READ	0x51160001	1793	199	ops:equipment/3
+READ	0x51160001	1793	207	ops:offers/7
+WHEN	0x51160001	1793	TwoValued	And([Sym(207), Sym(199), Sym(74), Res(I32 { lane: 10, op: Ge, t: 1 }), Sym(116), Res(I32 { lane: 52, op: Ge, t: 2 }), Sym(127), Res(I32 { lane: 63, op: Ge, t: 3 }), Res(I32 { lane: 195, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(74), Sym(116), Sym(127), Sym(199), Sym(207), Res(I32 { lane: 10, op: Gt, t: 0 }), Res(I32 { lane: 52, op: Gt, t: 1 }), Res(I32 { lane: 63, op: Gt, t: 2 }), Res(I32 { lane: 195, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1793	0	Sym	207	UNKNOWN	207	ops:offers/7
+DEP	0x51160001	1793	1	Sym	199	UNKNOWN	199	ops:equipment/3
+DEP	0x51160001	1793	2	Sym	74	UNKNOWN	74	ops:stockKnown/10
+DEP	0x51160001	1793	3	ResI32	10	UNKNOWN	10	ops:stock/10
+DEP	0x51160001	1793	4	Sym	116	UNKNOWN	116	ops:stockKnown/52
+DEP	0x51160001	1793	5	ResI32	52	UNKNOWN	52	ops:stock/52
+DEP	0x51160001	1793	6	Sym	127	UNKNOWN	127	ops:stockKnown/63
+DEP	0x51160001	1793	7	ResI32	63	UNKNOWN	63	ops:stock/63
+DEP	0x51160001	1793	8	ResI32	195	UNKNOWN	195	ops:staff/3
+DO_NONE	0x51160001	1793
+METHOD	0x51160001	1795	1	ae92cbdd392de5aa5a7b4c5721d9b641	ADMITTED_BY_ISSUER	Distinct	TwoValued	Values	CanCook(item 7, q 3)
+ON	0x51160001	1795	10	ops:stock/10
+ON	0x51160001	1795	52	ops:stock/52
+ON	0x51160001	1795	63	ops:stock/63
+ON	0x51160001	1795	74	ops:stockKnown/10
+ON	0x51160001	1795	116	ops:stockKnown/52
+ON	0x51160001	1795	127	ops:stockKnown/63
+ON	0x51160001	1795	195	ops:staff/3
+ON	0x51160001	1795	199	ops:equipment/3
+ON	0x51160001	1795	207	ops:offers/7
+READ	0x51160001	1795	10	ops:stock/10
+READ	0x51160001	1795	52	ops:stock/52
+READ	0x51160001	1795	63	ops:stock/63
+READ	0x51160001	1795	74	ops:stockKnown/10
+READ	0x51160001	1795	116	ops:stockKnown/52
+READ	0x51160001	1795	127	ops:stockKnown/63
+READ	0x51160001	1795	195	ops:staff/3
+READ	0x51160001	1795	199	ops:equipment/3
+READ	0x51160001	1795	207	ops:offers/7
+WHEN	0x51160001	1795	TwoValued	And([Sym(207), Sym(199), Sym(74), Res(I32 { lane: 10, op: Ge, t: 3 }), Sym(116), Res(I32 { lane: 52, op: Ge, t: 6 }), Sym(127), Res(I32 { lane: 63, op: Ge, t: 9 }), Res(I32 { lane: 195, op: Ge, t: 1 })])	GuardWitness { normal: And([Sym(74), Sym(116), Sym(127), Sym(199), Sym(207), Res(I32 { lane: 10, op: Gt, t: 2 }), Res(I32 { lane: 52, op: Gt, t: 5 }), Res(I32 { lane: 63, op: Gt, t: 8 }), Res(I32 { lane: 195, op: Gt, t: 0 })]), logic: TwoValued }
+DEP	0x51160001	1795	0	Sym	207	UNKNOWN	207	ops:offers/7
+DEP	0x51160001	1795	1	Sym	199	UNKNOWN	199	ops:equipment/3
+DEP	0x51160001	1795	2	Sym	74	UNKNOWN	74	ops:stockKnown/10
+DEP	0x51160001	1795	3	ResI32	10	UNKNOWN	10	ops:stock/10
+DEP	0x51160001	1795	4	Sym	116	UNKNOWN	116	ops:stockKnown/52
+DEP	0x51160001	1795	5	ResI32	52	UNKNOWN	52	ops:stock/52
+DEP	0x51160001	1795	6	Sym	127	UNKNOWN	127	ops:stockKnown/63
+DEP	0x51160001	1795	7	ResI32	63	UNKNOWN	63	ops:stock/63
+DEP	0x51160001	1795	8	ResI32	195	UNKNOWN	195	ops:staff/3
+DO_NONE	0x51160001	1795
