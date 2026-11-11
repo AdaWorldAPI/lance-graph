@@ -31,6 +31,7 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-11-11 | `codegraph-recon-2` |  | [2026-11-11-codegraph-recon-2.md](2026-11-11-codegraph-recon-2.md) |
 | 2026-11-11 | `codegraph-recon-1` |  | [2026-11-11-codegraph-recon-1.md](2026-11-11-codegraph-recon-1.md) |
+| 2026-11-11 | `cg-beh-1` |  | [2026-11-11-cg-beh-1.md](2026-11-11-cg-beh-1.md) |
 | 2026-11-10 | `lab-resolve-borrow-all` |  | [2026-11-10-lab-resolve-borrow-all.md](2026-11-10-lab-resolve-borrow-all.md) |
 | 2026-11-10 | `int8-direct-packed-b` |  | [2026-11-10-int8-direct-packed-b.md](2026-11-10-int8-direct-packed-b.md) |
 | 2026-11-10 | `D-FOUNDRY-PARITY-1` |  | [2026-11-10-foundry-parity-1-lab.md](2026-11-10-foundry-parity-1-lab.md) |
