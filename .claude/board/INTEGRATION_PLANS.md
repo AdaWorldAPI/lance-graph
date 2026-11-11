@@ -1,3 +1,7 @@
+## 2026-11-11 — D-DRDT-SPLIT-1: DR stores addressing as WideFieldMask, DT stores schema and behaviour as classes → `.claude/plans/dr-widefieldmask-dt-classview-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Child of D-DRDT-CLASS-GOVERNANCE-1 v3 (D14, D15). Six gaps (G1-G6) and six work items (S1-S6) mapped onto plan v3's W-items and the existing Linear issues (EXO-220, EXO-243, EXO-244, EXO-199, EXO-225, EXO-253, EXO-254). No new D-ids on the status board.
+
 ## 2026-11-11 — D-DRDT-CLASS-GOVERNANCE-1 v3: namespace decisions and remaining scope → `.claude/plans/dr-dt64-class-governance-v3.md`
 
 **Status:** PROPOSED / DOCS ONLY. Records the decisions of EXO-254 (16 technologies × 256 commands on the right; a left side only to delegate or to exceed the budget; Quack is SQL at `F4`), corrects v2's bypass reading, and lists work items W1-W11 for the brief sections v2 did not cover.
