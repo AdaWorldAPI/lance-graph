@@ -1,3 +1,8 @@
+## 2026-11-11 — D-CODEGRAPH-EXPAND-1: what the Codegraph still needs, and who supplies it → `.claude/plans/codegraph-expansion-v1.md`
+
+**Status:** PLAN. Eight slices CG-1..CG-8 on Linear `P-EXO-18` (EXO-233..EXO-239, EXO-241; channel EXO-232; handover EXO-240). **Board:** [STATUS_BOARD](STATUS_BOARD.md) D-CODEGRAPH-EXPAND. Follows #1999, #2000, #2001; supplies inputs to D-CODEGRAPH-0, D-CODEGRAPH-0-BIN and D-CGMM-0.
+**Confidence:** every gap is measured in #2000 / #2001; the egglog, DialEgg and Kythe parts are hypotheses, unread.
+
 ## 2026-11-10 — D-FOUNDRY-PARITY-1: DR × DT64 as an operational ontology → `.claude/plans/foundry-parity-v1.md`
 
 **Status:** ACTIVE; Level R lab landed (#1991) and P1a arm C per-store cost (#1995); P1b (min/argmin) open. Evidence matrix over 18 Foundry capability rows, missing-contract register G1–G6, roadmap P0–P5. [entry](entries/2026-11-10-foundry-parity-1-lab.md) · [P1a](entries/2026-11-10-foundry-parity-1-arm-c.md) · STATUS_BOARD D-FOUNDRY-* · Linear EXO-223.
