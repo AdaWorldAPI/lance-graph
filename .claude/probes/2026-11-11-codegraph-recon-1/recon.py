@@ -441,6 +441,9 @@ class Negatives(unittest.TestCase):
         st, src = mk_store(self.td.name + "/q", {"lib.rs": LIB}, rows)
         p = packet(Store(st, src), (set(), set(), {}), "lance_graph_x::b")
         self.assertEqual(p["affected_symbols"]["confirmed"], ["lance_graph_x::a"])
+        self.assertEqual(p["affected_symbols"]["possible"], [])  # a reference is not a dispatch either
+        out = recover(Store(st, src), ["lance_graph_x::c"])
+        self.assertNotIn(node_id("lance_graph_x::b"), out)  # c only references b: no edge, no node
 
     def test_09_lab_proposed_merged_stay_distinct(self):
         corpus = [{"id": f"R{i}", "subject": "s", "object": "o", "status": s, "recoverable": "INTERPRETATION",
