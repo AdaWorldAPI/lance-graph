@@ -31,3 +31,32 @@ That would bring 10k into the 1–25 µs band. At 1M, two random bit reads per e
 
 **Open:** the SIMD gather in ndarray (`simd_avx512` arm plus a parity test against the scalar
 form); two-hop needs a foreign-value sum before Quack can answer it.
+
+## Angles (same inputs, oracle-checked; `angles` group, `--measurement-time 3`)
+
+| query | n | DataFusion | Quack, gather per query | DR256 ternlog, prepared | order index, no mask |
+|---|---|---|---|---|---|
+| filter `count(*)` | 100 | 1.34 ms | 175 ns | 187 ns | 96 ns |
+| | 10k | 1.46 ms | 1.56 µs | 1.10 µs | 111 ns |
+| | 1M | 2.17 ms | 268 µs | 188 µs | 1.76 µs |
+| one-hop `count(*)` | 100 | 1.96 ms | 604 ns | 128 ns | — |
+| | 10k | 2.19 ms | 33.9 µs | 124 ns | — |
+| | 1M | 26.8 ms | 3.45 ms | 4.86 µs | — |
+| hop, `WHERE a.age > 50` | 100 | 2.25 ms | refused (`Gap`) | — | 125 ns |
+| | 10k | 2.76 ms | refused | — | 135 ns |
+| | 1M | 28.6 ms | refused | — | 2.17 µs |
+
+Prepared once per frame (reported, not gates), 1M: nodes 3.60 ms, edges with
+the fk read once 4.55 ms, order index (a sort) 41.3 ms.
+
+Intake, `person`, 1M: all columns 29.0 ms; the columns the `WideFieldMask`
+selects 9.01 ms; those columns under a Lance `RowAddrMask` allow-list of 3/4
+of the rows 68.8 ms. The allow-list is slower than reading every row here:
+the rows are dense and the mask is evaluated per row, so a row allow-list
+pays off only when it skips whole pages.
+
+- The one-hop gap between 3.45 ms and 4.86 µs is the per-query fk gather
+  moved into preparation; the query is then a ternlog over prepared planes.
+- The order index is the only arm whose filter cost does not grow with n
+  (one plane popcount over a range).
+- Filter and hop answers at every size equal the oracle and DataFusion.
