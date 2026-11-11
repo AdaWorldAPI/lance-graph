@@ -4816,6 +4816,7 @@ lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	19	std::
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	20	std::path::Path	-	use	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	20	std::path::PathBuf	-	use	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	22	lance_graph_contract::hash::fnv1a	-	use	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	24	crate::artifact::P_REFERENCES	-	use	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	24	crate::artifact::ResidualCounts	-	use	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	25	crate::graph::Codegraph	-	use	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	25	crate::graph::Pos	-	use	-	CONFIRMED

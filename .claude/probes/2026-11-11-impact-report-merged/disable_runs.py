@@ -37,6 +37,10 @@ G=[
  ("unread", "if !f.unread.is_empty() {", "if false {"),
  ("invalid-row", "        let (Some(path), Some(want)) = (fields.get(path_col), fields.get(hash_col)) else {\n            out.invalid = true;", "        let (Some(path), Some(want)) = (fields.get(path_col), fields.get(hash_col)) else {\n            out.invalid = false;"),
  ("files-unrecorded", "gaps.push(Gap::FilesUnrecorded { krate: k.clone() });", "let _ = k;"),
+ ("referrers-gap", "        if referrers > 0 {", "        if false {"),
+ ("referrers-only-outside", "            if object_in && !subject_in {", "            if object_in {"),
+ ("referrers-only-into-answer", "            if object_in && !subject_in {", "            if !subject_in {"),
+ ("referrers-only-references", "            if l.pred[i] != P_REFERENCES {\n                continue;\n            }\n", ""),
  ("freshness-unchecked", "        gaps.push(Gap::FreshnessUnchecked);\n        return;", "        return;"),
 ]
 

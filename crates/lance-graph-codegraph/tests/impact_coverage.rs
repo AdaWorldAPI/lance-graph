@@ -841,6 +841,152 @@ mod suite_b {
         assert!(!r.closed_in_scope());
     }
 
+    /// `lib::r` takes the address of `lib::g` and never calls it. `with_dynamic` adds a caller
+    /// `lib::d` that also holds a dynamic call; `r_calls` makes `lib::r` a real caller.
+    fn referrer_store(tag: &str, with_dynamic: bool, r_calls: bool) -> Fixture {
+        let mut rows = vec![
+            ("DEFINES", "lib::g", "lib::g"),
+            ("DEFINES", "lib::r", "lib::r"),
+            ("REFERENCES", "lib::r", "lib::g"),
+        ];
+        if with_dynamic {
+            rows.extend([
+                ("DEFINES", "lib::d", "lib::d"),
+                ("CALLS_RESOLVED", "lib::d", "lib::g"),
+                ("UNRESOLVED_CALL", "lib::d", "dynamic"),
+            ]);
+        }
+        if r_calls {
+            rows.push(("CALLS_RESOLVED", "lib::r", "lib::g"));
+        }
+        Fixture::new(
+            tag,
+            &[Krate {
+                name: "lib",
+                rows: &rows,
+                files: lib_crate().files,
+            }],
+        )
+    }
+
+    fn closed_scope(fx: &Fixture) -> Scope {
+        Scope {
+            consumers: Consumers::AllInStore,
+            ..fx.scope(&["lib"])
+        }
+    }
+
+    #[test]
+    fn a_function_that_only_takes_the_address_is_a_gap() {
+        // The referrer is in no mask. The report must not be closed, with or without a dynamic
+        // call elsewhere in the store.
+        for (tag, with_dynamic) in [("ref_dyn", true), ("ref_plain", false)] {
+            let fx = referrer_store(tag, with_dynamic, false);
+            let g = fx.open();
+            let r = g.impact_report("lib::g", &closed_scope(&fx)).unwrap();
+            let pos = g.pos("lib::g").unwrap();
+            assert_eq!(r.graded, g.impact(pos).unwrap(), "{tag}");
+            for m in [&r.graded.confirmed, &r.graded.possible, &r.graded.unknown] {
+                assert!(
+                    !has(&g, m, "lib::r"),
+                    "{tag}: the referrer must not be graded"
+                );
+            }
+            assert!(
+                r.gaps
+                    .contains(&Gap::ReferrersOutsideAnswer { referrers: 1 }),
+                "{tag}: {:?}",
+                r.gaps
+            );
+            assert!(!r.closed_in_scope(), "{tag}");
+        }
+    }
+
+    #[test]
+    fn a_referrer_that_also_calls_is_in_the_answer_and_no_gap() {
+        let fx = referrer_store("ref_calls", false, true);
+        let g = fx.open();
+        let r = g.impact_report("lib::g", &closed_scope(&fx)).unwrap();
+        assert!(has(&g, &r.graded.confirmed, "lib::r"));
+        assert!(
+            !r.gaps
+                .iter()
+                .any(|x| matches!(x, Gap::ReferrersOutsideAnswer { .. })),
+            "{:?}",
+            r.gaps
+        );
+        assert!(r.closed_in_scope(), "{:?}", r.gaps);
+    }
+
+    #[test]
+    fn only_references_into_the_answer_are_counted() {
+        // lib::r references lib::other, which is not in lib::g's answer; lib::x has a row of
+        // another predicate pointing at lib::g. Neither is a referrer of the answer.
+        let rows = [
+            ("DEFINES", "lib::g", "lib::g"),
+            ("DEFINES", "lib::r", "lib::r"),
+            ("DEFINES", "lib::other", "lib::other"),
+            ("DEFINES", "lib::x", "lib::x"),
+            ("REFERENCES", "lib::r", "lib::other"),
+            ("ANNOTATES", "lib::x", "lib::g"),
+        ];
+        let fx = Fixture::new(
+            "ref_silence",
+            &[Krate {
+                name: "lib",
+                rows: &rows,
+                files: lib_crate().files,
+            }],
+        );
+        let g = fx.open();
+        let r = g.impact_report("lib::g", &closed_scope(&fx)).unwrap();
+        assert!(
+            !r.gaps
+                .iter()
+                .any(|x| matches!(x, Gap::ReferrersOutsideAnswer { .. })),
+            "{:?}",
+            r.gaps
+        );
+        // The same rows do count for the symbol they point at.
+        let other = g.impact_report("lib::other", &closed_scope(&fx)).unwrap();
+        assert!(other
+            .gaps
+            .contains(&Gap::ReferrersOutsideAnswer { referrers: 1 }));
+    }
+
+    #[test]
+    fn undeclared_consumers_inspect_every_stored_crate_without_fabricating_impact() {
+        // `app` has no edge to `lib::entry`, is stale, lib-only and has an excluded region.
+        let fx = Fixture::new("every_crate", &[lib_crate()]);
+        fx.add(&Krate {
+            name: "app",
+            rows: &[("DEFINES", "app::main", "app::main")],
+            files: &[("app_main.rs", "fn main() {}\n")],
+        });
+        std::fs::write(fx.src.join("app_main.rs"), "fn main() { changed() }\n").unwrap();
+        let scope = Scope {
+            targets: vec![
+                ("lib".to_string(), Targets::ALL),
+                ("app".to_string(), Targets::LIB_ONLY),
+            ],
+            excluded: vec![("app".to_string(), vec!["feature:x".to_string()])],
+            ..fx.scope(&[])
+        };
+        let g = fx.open();
+        let r = g.impact_report("lib::entry", &scope).unwrap();
+        assert_eq!(r.graded, g.impact(g.pos("lib::entry").unwrap()).unwrap());
+        let names_app = |want: &dyn Fn(&Gap) -> bool| r.gaps.iter().any(want);
+        assert!(names_app(
+            &|x| matches!(x, Gap::StaleSource { krate, .. } if krate == "app")
+        ));
+        assert!(names_app(
+            &|x| matches!(x, Gap::TargetsNotExtracted { krate, .. } if krate == "app")
+        ));
+        assert!(names_app(
+            &|x| matches!(x, Gap::RegionsExcluded { krate, .. } if krate == "app")
+        ));
+    }
+
     #[test]
     fn a_stale_source_revision_is_a_gap() {
         let fx = Fixture::new("stale", &[lib_crate()]);
