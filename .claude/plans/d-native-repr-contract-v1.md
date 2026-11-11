@@ -78,6 +78,9 @@ This is one adapter between two types that already exist, not a new store, AST o
 |---|---|---|
 | D-NFR-0 | this contract | shipped / lab / missing per seam, cited to source |
 | D-NFR-1 | the S5 × S6 adapter as a lab probe: bind a Quack `Draft`, seal a frame, execute, advance one revision, execute again | the second execution is refused with the matching `Refusal`; the first equals an independent oracle |
+
+> **Note (2026-11-11, operator ruling, `dr-widefieldmask-dt-classview-v1.md` §1).** The mapping is versioned, the content stays with the source owner. Read D-NFR-1 as: the same mapping replays and reproduces the same assignment; the second execution is refused only where the advance moved the mapping (relation map, coordinates) or the codebook generation; a content-only advance under an unchanged mapping reads the new content. D-NFR-2 and step 8 of §6 read the same way. The board line "no invented FrameStore" stands: the versioned mapping already exists as `MapTable` (D-DR-VMAP, #1923).
+
 | D-NFR-2 | S15: carry a codebook generation in the frame seal | a palette value bound under generation g is refused under g+1 |
 | D-NFR-3 | S16: bind one DR axis to one palette plane (S/P/O) under a frame | an independent Cartesian oracle for coordinates and an independent numerical oracle for values both agree; a mismatched codebook is refused |
 | D-NFR-4 | the end-to-end acceptance fixture (§6) | all nine steps, each measured alone |

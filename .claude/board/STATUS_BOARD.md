@@ -234,6 +234,14 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-DRDT-0 | amendment: DR/DT ownership, reuse/gap analysis, DT and DR #4 handoff (docs) | In PR | docs review |
 | D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | Shipped (#1834) | review; lab only |
 | D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Shipped (#1836) | lab only |
+| D-DRDT-SPLIT-1 | DR = addressing / `WideFieldMask`, DT = classes / `ClassView`; mapping versioned, content source-owned (plan `dr-widefieldmask-dt-classview-v1.md`) | Shipped docs (#2015), follow-up in PR (#2016) | docs review |
+| D-DRDT-SPLIT-S2 | lab planes as the reusable selection, no behaviour change | Queued | 15 lab tests green; angles bench within noise |
+| D-DRDT-SPLIT-S3 | order index sealed per source revision; full ordered-sequence fixture after persist and reopen (EXO-114) | Queued | full row sequence equals oracle; foreign revision refuses |
+| D-DRDT-SPLIT-S4 | `requested ∩ visible` at bind time; row half as a plane (EXO-243) | Queued | two roles, 12 fields, 10³ rows |
+| D-DRDT-SPLIT-S5 | bind-time admission for the four direct paths | Queued (needs council) | red on a planted call site |
+| D-DRDT-SPLIT-S6 | behaviour as classes across a restart | Queued (needs council) | replay falsifier red first |
+| D-DRDT-SPLIT-S7 | kept selections and class bindings keyed onto the `MapTable` log (D-DR-VMAP) | Queued (after D-NFR-1) | mapping replay; mismatch refuses |
+| D-DRDT-SPLIT-S8 | close the reorder gap on the hot check (L5d) | Queued | pinned test red to green |
 | D-DRCA-3 | DR #4 falsifier: two methods, same read/write sets, different effect order, stay distinct; dropped guard refuses | In PR (lab: `dr4.rs`, 12 tests, 7 disable runs; [entry](entries/2026-10-30-d-drca-3-dr4-method-routing.md)) | lab uses a test-minted method key; the real key and the DT resolver stay with D-CMH (MethodKey mint, D-CMH-1) |
 
 ## D-DT64-6 — DR64 routing, DT64 bind store, per-cell WHEN×ON×DO, OGIT reference predicates (2026-10-28)

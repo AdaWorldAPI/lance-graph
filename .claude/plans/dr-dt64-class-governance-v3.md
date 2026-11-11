@@ -141,6 +141,14 @@ Two concerns, kept apart (D15):
   makes both refuse by name before any word is read. The map table writes
   one Lance version per advance through `LanceCycleWriter` (EXO-225).
 
+  > **Note (2026-11-11, operator ruling, `dr-widefieldmask-dt-classview-v1.md`
+  > §1).** What is versioned is the mapping (identities, properties, source
+  > positions), not the content. Under that ruling a slab binding needs to
+  > refuse only when `relation_map` or `coordinates` moved; refusing because
+  > `source` alone advanced is stricter than required and is today's code,
+  > not the contract. An order index is different: its keys are derived from
+  > content, so it refuses on a content change.
+
 **DT — mapping / `ClassView`.** Everything that says *what*:
 
 - which fields a class has, their names, their order, and their types;

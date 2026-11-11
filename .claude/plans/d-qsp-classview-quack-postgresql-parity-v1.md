@@ -23,6 +23,8 @@ The declaration fixes semantic laws **per method/operation**, not one 'Semantics
 
 Choice among routes is allowed only if an equivalence fixture and law witness admit it; e.g. direct SAP ordinals, ordered runs, sparse positions, DR64/DR256, dense masked populations. Neither 32×128 nor 64×64 is universal or a persisted ABI decision. A 32×128 Boolean tile is 512 bytes (32 subject rows, 128 target slots); a 64×64 tile is also 512 bytes (64-bit rows). A tile does NOT represent bag multiplicities, NULL validity, Wikidata qualifiers, or evidence without additional lawful carriers. Tiles are shared per focus; count cold binding, per-tile witness, auxiliary metadata and scratch.
 
+> **Note (2026-11-11, operator rulings, `dr-widefieldmask-dt-classview-v1.md` §1, §1c).** "Quack Binding resolves snapshot/version" reads: it resolves the version of the *mapping* (identities, properties, source positions, `MapTable` / D-DR-VMAP, #1923); contents stay with their source owner and are not versioned by the binding. A PostgreSQL tuple is a reading over one shared index (`Tuple(i) = (A[i], B[i], C[i])`), never a stored row; PostgreSQL is the compatibility surface and correctness oracle above the shared coordinate substrate, not an engine rebuilt beneath it (EXO-174 states the same for the workbook). D-QSP-2 joins follow D-DYNBAG's bag algebra (ℕ-compose for multiplicity, Boolean only for existence, chosen by demand). D-QSP-4 "snapshot invalidation" refuses only where the mapping moved; recursion is the semi-naive fold already in xlog (`Cube::closure`).
+
 ## D-QSP work items: staged PostgreSQL parity, always with counterexamples
 
 | Gate | Fixture | Oracle and refusal |

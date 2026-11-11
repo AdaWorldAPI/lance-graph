@@ -292,8 +292,8 @@ Consistent with D-SOC-FENCE §2. Nothing in this plan adds a layer.
 | `UNION ALL` / `UNION` | ℕ / B | + / ∨ | words exist (i64 add, `mask_or`) |
 | `INTERSECT ALL` / `EXCEPT ALL` | ℕ | min / truncated minus | gaps (§6) |
 | `LEFT` / `FULL JOIN` | — | — | refused (needs NULL-extension in the description) |
-| `ORDER BY`, `LIMIT` | — | — | **OPEN:** lance-graph's rule is that order belongs to coordinates, not decoded rows. Either a key-ordered projection serves it, or it is a named materialization at the edge |
-| `WITH RECURSIVE` | — | semi-naive deltas | OPEN (D-XLOG-DR64-2 shape) |
+| `ORDER BY`, `LIMIT` | — | — | **OPEN:** lance-graph's rule is that order belongs to coordinates, not decoded rows. Either a key-ordered projection serves it, or it is a named materialization at the edge. 2026-11-11: the key-ordered projection is the per-key order index (permutation sidecar over canonical positions, EXO-114; `dr-widefieldmask-dt-classview-v1.md` S3); Lance's scalar indexes return row sets only |
+| `WITH RECURSIVE` | — | semi-naive deltas | OPEN (D-XLOG-DR64-2 shape); the fold exists over row masks: xlog `Cube::closure` / `closure_wide` |
 | `SUM/MIN/MAX` on i32 | ℕ / group folds | `GroupReduce` | exists |
 | `SUM` on i64 / numeric, floats | — | — | gaps / refused |
 
