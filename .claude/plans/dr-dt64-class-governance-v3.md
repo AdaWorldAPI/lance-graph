@@ -124,24 +124,32 @@ proposed here.
 
 ## 2c. D15 at work: prepare once per frame, answer in µs (crucial)
 
-DR addresses with `WideFieldMask`; DT maps with `ClassView`. Applied to the
-lab (`crates/dr256-ternlog-lab`), that split is what makes the per-query
-cost independent of the work done once:
+Two concerns, kept apart (D15):
 
-- **DT (mapping).** `ClassView` names the class's fields and their order;
-  one `WideFieldMask` selects the fields storage reads, compute binds and
-  display shows. No second spelling of the selection.
-- **DR (addressing).** A slab is 256 × 256 = 65,536 positions (three
-  aligned mask planes of 1,024 words). Slabs stack under an outer byte, so
-  up to 256 slabs (256³ positions) per class context. 1,000,000 rows is 16
-  slabs; DR256 never addresses more than one slab.
-- **Versioning store.** Each slab binding is sealed against the table's
-  `FrameStore` (`FrameRevisions { source, relation_map, coordinates }`); an
-  `OrderIndex` carries its origin (class, population, rows, revisions). A
-  source advance makes every binding and index refuse, by name, before any
-  word is read. The DR map table writes one Lance version per advance
-  through `LanceCycleWriter` (EXO-225), which is the version a snapshot root
-  names (W5).
+**DR — addressing / `WideFieldMask`.** Everything that says *where*:
+
+- the `WideFieldMask`: which field positions a binding, a storage read, a
+  fold and a display touch;
+- the slab: 256 × 256 = 65,536 row positions as three aligned mask planes
+  of 1,024 words, stacked under an outer byte when needed (up to 256 slabs,
+  256³ positions); 1,000,000 rows is 16 slabs;
+- the order index: a permutation of row positions, built once per frame, so
+  a key range is one contiguous range of positions;
+- the versioning store: every slab binding is sealed against the
+  `FrameStore` (`FrameRevisions { source, relation_map, coordinates }`), an
+  order index carries the revisions it was built at, and a source advance
+  makes both refuse by name before any word is read. The map table writes
+  one Lance version per advance through `LanceCycleWriter` (EXO-225).
+
+**DT — mapping / `ClassView`.** Everything that says *what*:
+
+- which fields a class has, their names, their order, and their types;
+- turning a name into a field position. That position is the only thing DT
+  hands to DR; `WideFieldMask` is built from positions, never from names.
+
+The amortization is a DR property: the mask, the planes, the index and the
+frame seal are resolved once per frame; a query reads them. DT is consulted
+when the selection is built, not per query.
 
 **Measured** in PR 2010 (criterion medians, one 4-core machine, every
 answer checked against a row-at-a-time count; `crates/lance-graph-benches/
