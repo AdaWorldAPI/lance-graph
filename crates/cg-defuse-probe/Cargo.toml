@@ -1,0 +1,24 @@
+# cg-defuse-probe: CG-5 (Linear EXO-237). Lab only.
+#
+# One bounded, read-only question on the ndarray PR 422 case: do def-use rows
+# from Charon LLBC, closed COLD by egglog (proofs mode, public API only),
+# separate a scalar threshold division from a per-element quotient? Compared
+# with a source-only scan and with loop nesting. No rewrite, no lowering, no
+# per-query path, no opcode. See
+# `.claude/probes/2026-11-11-cg5-defuse/REPORT.md`.
+#
+# Own [workspace] root, like egglog-r2il-probe. Run from THIS directory:
+#   cargo test --release
+[package]
+name = "cg-defuse-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "CG-5 probe: def-use rows from Charon LLBC, closed cold by egglog with proofs, classify division sites as scalar threshold or per-element quotient. Results only; no production path."
+
+[workspace]
+
+[dependencies]
+# Public API only (EGraph::new_with_proofs, parse_and_run_program, prove).
+# Floats on `main`, as in every crate that links egglog.
+egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
