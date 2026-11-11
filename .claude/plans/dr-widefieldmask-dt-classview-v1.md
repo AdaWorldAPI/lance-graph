@@ -10,6 +10,19 @@ and the master brief §4. Coordination: EXO-253; decisions: EXO-254.
 it holds schema and methods.** DR uses the first to address; DT uses the
 second to map. Everything below is consequence.
 
+As stated by the operator (2026-11-11):
+
+- **DR is the binding store of masks.** It stores the versioned, immutable
+  masks, prefetched and reusable.
+- **DT is immutable methods.** The algebra they name is handed over bit-exact
+  from `ndarray`, mask-RISC, relalg, XLOG and the other registered
+  technologies.
+- **DT64 controls behaviour through `ClassView`.**
+- **`F###` is the methods of that behaviour**, expressed as ON × WHEN × DO.
+- **The Codegraph of PR 2000 is built on this**: it reads the registered
+  methods' ON × WHEN × DO and the algebra words they use (CG-BEH-1 and
+  CG-BEH-2, PRs 2003 and 2005).
+
 | | concern | what it stores | stored as |
 |---|---|---|---|
 | **DR** | addressing: *where*, and at which version | field positions, row positions, slabs, frame and version witnesses | `WideFieldMask` |
