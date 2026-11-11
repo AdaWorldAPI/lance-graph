@@ -8687,26 +8687,27 @@ lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1001	fn	Codegrap
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1009	fn	Codegraph::any_partial	pub(crate)	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1014	fn	Codegraph::words	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1019	fn	Codegraph::mask_of	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1030	fn	Codegraph::crate_status	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1036	fn	Codegraph::rows	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1041	fn	Codegraph::row_predicate	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1046	fn	Codegraph::row_subject	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1051	fn	Codegraph::row_object	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1056	fn	Codegraph::site	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1070	fn	Codegraph::cube	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1075	fn	Codegraph::cube_mut	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1081	fn	Codegraph::cube_and_table_mut	pub(crate)	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1086	fn	Codegraph::table	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1091	fn	Codegraph::fns	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1095	fn	Codegraph::public	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1099	fn	Codegraph::impl_subjects	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1103	fn	Codegraph::synthetic	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1107	fn	Codegraph::referenced	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1111	fn	Codegraph::called	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1115	fn	Codegraph::may_targets	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1119	fn	Codegraph::dynamic_callers	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1123	fn	Codegraph::stored_owner	pub	-	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1129	fn	Codegraph::closure	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1031	fn	Codegraph::crate_list	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1041	fn	Codegraph::crate_status	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1047	fn	Codegraph::rows	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1052	fn	Codegraph::row_predicate	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1057	fn	Codegraph::row_subject	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1062	fn	Codegraph::row_object	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1067	fn	Codegraph::site	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1081	fn	Codegraph::cube	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1086	fn	Codegraph::cube_mut	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1092	fn	Codegraph::cube_and_table_mut	pub(crate)	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1097	fn	Codegraph::table	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1102	fn	Codegraph::fns	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1106	fn	Codegraph::public	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1110	fn	Codegraph::impl_subjects	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1114	fn	Codegraph::synthetic	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1118	fn	Codegraph::referenced	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1122	fn	Codegraph::called	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1126	fn	Codegraph::may_targets	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1130	fn	Codegraph::dynamic_callers	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1134	fn	Codegraph::stored_owner	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	1140	fn	Codegraph::closure	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	130	impl	PosAt for Positions	-	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	158	impl	PosAt for PosStage<'_>	-	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	167	impl	PosStage<'a>	-	-	CONFIRMED
@@ -8738,6 +8739,16 @@ lance-graph-codegraph	crates/lance-graph-codegraph/src/graph.rs	996	fn	Codegraph
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph/publication.rs	108	impl	Record	-	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph/publication.rs	165	impl	W0	-	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/graph/publication.rs	65	impl	ClassView for PubView	-	test	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	108	struct	ImpactReport	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	117	impl	ImpactReport	-	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	119	fn	ImpactReport::no_known_gap	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	126	enum	ImpactAnswer	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	142	impl	Codegraph	-	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	144	fn	Codegraph::impact_report	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	29	enum	Targets	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	39	enum	Dependents	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	48	struct	ExtractionScope	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/impact_report.rs	60	enum	CoverageGap	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	19	enum	Fault	pub(crate)	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	35	struct	LabWal	pub(crate)	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	43	impl	LabWal	-	test	CONFIRMED
@@ -8747,7 +8758,8 @@ lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	58	fn	LabWal::
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	64	fn	LabWal::reverse_physical_order	pub(crate)	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	70	fn	LabWal::image	pub(crate)	test	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lab_wal.rs	78	impl	WalSink for LabWal	-	test	CONFIRMED
-lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	12	mod	query	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	10	mod	impact_report	pub	-	CONFIRMED
+lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	13	mod	query	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	6	mod	artifact	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	7	mod	artifact_bin	pub	-	CONFIRMED
 lance-graph-codegraph	crates/lance-graph-codegraph/src/lib.rs	8	mod	diag	pub	-	CONFIRMED

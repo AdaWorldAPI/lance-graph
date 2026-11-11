@@ -4,6 +4,7 @@
 //! ```text
 //! cargo run --release --example cg_query -- <store_dir> <src_root> symbols [SUBSTRING]
 //! cargo run --release --example cg_query -- <store_dir> <src_root> callers|callees|impact|refs SYMBOL
+//! cargo run --release --example cg_query -- <store_dir> <src_root> impact-report SYMBOL [--deps a,b] [--lib-only] [--no-freshness]
 //! ```
 //!
 //! Output is tab-separated, one fact per line. Every result line carries its
@@ -17,6 +18,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use lance_graph_codegraph::impact_report::{Dependents, ExtractionScope, ImpactAnswer, Targets};
 use lance_graph_codegraph::Codegraph;
 
 fn line_of(src_root: &Path, file: &str, offset: u32) -> String {
@@ -64,7 +66,7 @@ fn observed_files(g: &Codegraph) -> Vec<String> {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() < 3 {
-        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | callers|callees|impact|refs SYMBOL");
+        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | impact-report SYMBOL [--deps a,b] [--lib-only] [--no-freshness]");
         return ExitCode::from(2);
     }
     let (store, src, cmd) = (
@@ -134,6 +136,80 @@ fn main() -> ExitCode {
             println!("sweep\tREFUSED\t{k}\t{n}");
         }
         return ExitCode::SUCCESS;
+    }
+    if cmd == "impact-report" {
+        // impact-report SYMBOL [--deps a,b | --deps-unknown] [--lib-only] [--no-freshness]
+        // The scope flags declare what the rows cannot say; anything not declared is a gap.
+        let Some(sym) = args.get(3) else {
+            eprintln!("impact-report needs a SYMBOL");
+            return ExitCode::from(2);
+        };
+        let rest = &args[4..];
+        let flag = |f: &str| rest.iter().any(|a| a == f);
+        let deps_list: Vec<String> = rest
+            .iter()
+            .position(|a| a == "--deps")
+            .and_then(|i| rest.get(i + 1))
+            .map(|v| {
+                v.split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        let deps_ref: Vec<&str> = deps_list.iter().map(String::as_str).collect();
+        let scope = ExtractionScope {
+            targets: if flag("--lib-only") {
+                Targets::LibraryOnly
+            } else {
+                Targets::LibraryAndTests
+            },
+            dependents: if rest.iter().any(|a| a == "--deps") {
+                Dependents::Declared(&deps_ref)
+            } else {
+                Dependents::NotDeclared
+            },
+            sources: (!flag("--no-freshness")).then_some((store.as_path(), src.as_path())),
+        };
+        return match g.impact_report(sym, &scope) {
+            Ok(ImpactAnswer::SymbolNotInStore { symbol, observed }) => {
+                println!(
+                    "UNKNOWN\tsymbol-not-in-store\t{symbol}\tobserved={}",
+                    observed.join(",")
+                );
+                ExitCode::from(4)
+            }
+            Ok(ImpactAnswer::Found(r)) => {
+                for (grade, mask) in [
+                    ("CONFIRMED", &r.graded.confirmed),
+                    ("POSSIBLE", &r.graded.possible),
+                    ("UNKNOWN", &r.graded.unknown),
+                ] {
+                    for n in names(&g, mask) {
+                        println!("impact\t{grade}\t{n}");
+                    }
+                }
+                for (c, st) in &r.observed {
+                    println!("observed\t{c}\t{st:?}");
+                }
+                for gap in &r.gaps {
+                    println!("gap\t{gap:?}");
+                }
+                println!(
+                    "coverage\t{}",
+                    if r.no_known_gap() {
+                        "no known gap within the declared scope (not a proof of completeness)"
+                    } else {
+                        "incomplete: see gaps"
+                    }
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                println!("REFUSED\timpact-report\t{e:?}");
+                ExitCode::from(3)
+            }
+        };
     }
     let Some(sym) = args.get(3) else {
         eprintln!("{cmd} needs a SYMBOL");
