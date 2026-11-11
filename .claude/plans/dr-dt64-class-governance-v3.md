@@ -141,6 +141,18 @@ Two concerns, kept apart (D15):
   makes both refuse by name before any word is read. The map table writes
   one Lance version per advance through `LanceCycleWriter` (EXO-225).
 
+  > **Note (2026-11-11, operator ruling, `dr-widefieldmask-dt-classview-v1.md`
+  > §1).** What is versioned is the mapping (identities, properties, source
+  > positions), not the content. Under that ruling a slab binding needs to
+  > refuse only when `relation_map` or `coordinates` moved; refusing because
+  > `source` alone advanced is stricter than required and is today's code,
+  > not the contract, as long as the binding's interpretation also holds.
+  > Everything prepared from content is different: the order index, the
+  > prepared presence / scope / selection planes, a join assignment from
+  > mutable keys and a stored recursion result need a matching change
+  > witness or a recomputation, never reuse because coordinates are
+  > unchanged. Validity follows each artifact's dependencies.
+
 **DT — mapping / `ClassView`.** Everything that says *what*:
 
 - which fields a class has, their names, their order, and their types;
