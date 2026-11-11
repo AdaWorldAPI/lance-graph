@@ -68,8 +68,9 @@ consumes.
 | elixir-template, template-runtime, template-equivalence, cognitive-compiler | path (in-repo) | the new stack |
 | ndarray | path `../../../ndarray` (sibling) | Dockerfile clones it |
 | ractor | git, `claude/jirak-…` branch | MessagingErr fix |
-| surrealdb-core | git `main`, `default-features=false, features=["kv-lance"]` | no rocksdb/tikv |
-| ogar-vocab / ogar-ontology / ogar-adapter-surrealql | git `main` | OGAR semantic types |
+| surrealdb-core | git `main`, `default-features=false, features=["kv-lance"]`, **optional** (feature `surrealdb`) | no rocksdb/tikv; off by default |
+| ogar-vocab / ogar-ontology | git `main` | OGAR semantic types |
+| ogar-adapter-surrealql | git `main`, **optional** (feature `surrealdb`) | deprecated SurrealQL parser arm |
 
 A single `[patch]` folds the git `lance-graph-contract` (pulled transitively by
 `ogar-class-view`) onto the in-repo path copy, so exactly one `ClassView` exists.

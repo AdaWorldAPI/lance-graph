@@ -3,7 +3,8 @@
 # Cognitive Compilation golden-image build.
 # Compiles `cognitive-stack` — the Elixir-template crates (NEW stack) linked on
 # top of every AdaWorldAPI fork (OLD stack): lance-graph + lance =7.0.0 +
-# lancedb =0.30.0 + ndarray + ractor + surrealdb (kv-lance, no rocksdb/tikv) +
+# lancedb =0.30.0 + ndarray + ractor + (optional: surrealdb kv-lance, build with
+# `--build-arg FEATURES=surrealdb`) +
 # OGAR — into ONE binary. Purpose: PROVE the unified runtime compiles+links in a
 # clean container (Railway/CI build validation); the binary prints the linked
 # stack + the first-slice reflex template and exits. NO LLM is linked (the LLM is
@@ -55,8 +56,9 @@ WORKDIR /build/lance-graph/crates/cognitive-stack
 # With an explicit target they stay at the host baseline. The binaries then
 # land under target/<triple>/ and are copied to the path the runtime stage
 # reads.
+ARG FEATURES=""
 RUN T="$(rustc -vV | sed -n 's/^host: //p')" \
-    && cargo build --release --target "$T" \
+    && cargo build --release --target "$T" --features "$FEATURES" \
     && mkdir -p target/release \
     && cp "target/$T/release/cognitive-stack" target/release/
 
