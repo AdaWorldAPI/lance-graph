@@ -841,6 +841,47 @@ mod suite_b {
         assert!(!r.closed_in_scope());
     }
 
+    /// PR 2004 review: the queried function is neither an impl nor referenced, but its caller
+    /// `lib::m` is an impl. `lib::runner` calls `lib::m` directly and holds a dynamic call that
+    /// may also dispatch to `lib::m`.
+    #[test]
+    fn a_dynamic_call_that_may_reach_a_caller_of_the_symbol_is_a_gap() {
+        let mut rows = LIB.to_vec();
+        rows.extend([
+            ("DEFINES", "lib::g", "lib::g"),
+            ("DEFINES", "lib::m", "lib::m"),
+            ("DEFINES", "lib::runner", "lib::runner"),
+            ("IMPLEMENTS", "lib::m", "lib::Tr::m"),
+            ("CALLS_RESOLVED", "lib::m", "lib::g"),
+            ("CALLS_RESOLVED", "lib::runner", "lib::m"),
+            ("UNRESOLVED_CALL", "lib::runner", "dynamic"),
+        ]);
+        let fx = Fixture::new(
+            "dyn_caller_impl",
+            &[Krate {
+                name: "lib",
+                rows: &rows,
+                files: lib_crate().files,
+            }],
+        );
+        let g = fx.open();
+        let r = g.impact_report("lib::g", &fx.scope(&["lib"])).unwrap();
+        assert!(has(&g, &r.graded.confirmed, "lib::runner"));
+        assert!(
+            empty(&r.graded.unknown),
+            "fixture no longer isolates the case"
+        );
+        assert!(
+            r.gaps.contains(&Gap::DynamicCalls {
+                unknown: 0,
+                store_dynamic_calls: 1
+            }),
+            "{:?}",
+            r.gaps
+        );
+        assert!(!r.closed_in_scope());
+    }
+
     /// `lib::r` takes the address of `lib::g` and never calls it. `with_dynamic` adds a caller
     /// `lib::d` that also holds a dynamic call; `r_calls` makes `lib::r` a real caller.
     fn referrer_store(tag: &str, with_dynamic: bool, r_calls: bool) -> Fixture {
