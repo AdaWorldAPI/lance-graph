@@ -19,7 +19,8 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D8 | Applications such as Odoo get a domain/classid on the left side. They do not take a technology digit. |
 | D10 | In short: `F###` is one polyglot address space of 4,096 addresses (16 × 256), meant mainly to give algebra its addresses. |
 | D11 | Rendering is always application-related. The domain::appid on the left carries it, so the render prefix and `FTMM` do not conflict. |
-| D12 | The rest of the right side is rendering, per application: `0x0000`–`0xEFFF`, 15 × 4,096 = 61,440 values, everything except `F###`. That is ample and needs no change. |
+| D12 | The right side below `F###` (`0x0000`–`0xEFFF`, 15 × 4,096 = 61,440 values per application) is not rendering's. It **can** be assigned to rendering. (Corrects an earlier wording in this plan that said it belongs to rendering.) |
+| D14 | Everything is now classes: storage; methods, which are behaviour; compute / RAM (recall). |
 | D13 | If the 4,096 behaviour addresses are ever used up, `E###` may be taken for behaviour as well. Not decided now; to be decided when it happens. |
 | D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
@@ -98,6 +99,21 @@ checking, not deciding here:
 - A technology that outgrows 256 commands, or a seventeenth technology,
   takes a left side as well (D2). Which left side a technology uses when it
   is not an application is open.
+
+## 2b. Everything is a class (D14)
+
+Three kinds of thing are addressed as classes:
+
+| kind | what it covers | addressed today by |
+|---|---|---|
+| storage | what is kept: the class's fields and rows | the data classid and its `ClassView` basis |
+| methods (behaviour) | what is done: ON × WHEN × DO | `F###` on the right; a domain::appid on the left to delegate |
+| compute / RAM (recall) | what is held in memory and recalled | not addressed as a class on main as far as this plan has read; OPEN |
+
+Rendering is one possible use of the right side below `F###`, not its owner
+(D12). Which part of that space storage and compute/RAM classes use, and
+whether they need a reserved range of their own, is not decided and not
+proposed here.
 
 ## 3. Corrections to v2
 
