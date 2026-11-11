@@ -61,7 +61,9 @@ impl Fixture {
         .unwrap();
         let mut f = String::from(FILES_HEADER);
         for (path, body) in k.files {
-            std::fs::write(self.src.join(path), body).unwrap();
+            let at = self.src.join(path);
+            std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+            std::fs::write(at, body).unwrap();
             f += &format!("{path}\t{}\n", fnv64_hex(body.as_bytes()));
         }
         std::fs::write(self.store.join(format!("{}.files.tsv", k.name)), f).unwrap();
@@ -518,4 +520,41 @@ fn a_missing_symbol_carries_its_crate_target_gaps() {
         .unwrap()
         .gaps
         .is_empty());
+}
+
+/// Case 11: A `.rs` file under a directory the extraction read from, but not
+/// itself recorded, is a gap: its code (a feature-gated module, a binary
+/// root) has no rows. Files in the root and non-Rust files are not scanned.
+#[test]
+fn unread_source_files_under_a_read_directory_are_a_gap() {
+    let k = Krate {
+        name: "lib",
+        rows: &[
+            ("DEFINES", "lib::entry", "lib::entry"),
+            ("DEFINES", "lib::helper", "lib::helper"),
+        ],
+        files: &[("crate/lib.rs", "fn entry() {}\nfn helper() {}\n")],
+    };
+    let fx = Fixture::new("unread", &[k]);
+    let g = fx.open();
+    let scope = fx.scope(&["lib"]);
+    // Silence twin: everything under crate/ is recorded; a non-Rust file and a
+    // root-level file are not scanned.
+    std::fs::write(fx.src.join("crate/data.json"), "{}").unwrap();
+    std::fs::write(fx.src.join("top.rs"), "fn x() {}").unwrap();
+    assert!(g
+        .impact_report("lib::helper", &scope)
+        .unwrap()
+        .closed_in_scope());
+    std::fs::create_dir_all(fx.src.join("crate/gated")).unwrap();
+    std::fs::write(fx.src.join("crate/iam.rs"), "pub fn authorize() {}").unwrap();
+    std::fs::write(fx.src.join("crate/gated/deep.rs"), "fn d() {}").unwrap();
+    let r = g.impact_report("lib::helper", &scope).unwrap();
+    assert_eq!(
+        r.gaps,
+        vec![Gap::SourceFilesUnread {
+            krate: "lib".into(),
+            files: vec!["crate/gated/deep.rs".into(), "crate/iam.rs".into()],
+        }]
+    );
 }

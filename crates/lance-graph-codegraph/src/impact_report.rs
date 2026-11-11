@@ -160,6 +160,15 @@ pub enum Gap {
     },
     /// No source root was given; freshness was not checked.
     FreshnessUnchecked,
+    /// Rust files under a directory the extraction read from that it did not
+    /// read itself: modules behind a disabled feature or cfg, other targets'
+    /// roots, files never declared as modules. Their code has no rows.
+    SourceFilesUnread {
+        /// The crate.
+        krate: String,
+        /// The unread `.rs` files, relative to the source root.
+        files: Vec<String>,
+    },
     /// The declared scope excludes regions of the crate from extraction
     /// (opaque modules, disabled features). Calls inside them have no rows,
     /// and a symbol defined only there is missing without being absent.
@@ -206,11 +215,16 @@ fn bits(mask: &[u64]) -> impl Iterator<Item = Pos> + '_ {
         .filter_map(|p| Pos::try_from(p).ok())
 }
 
-/// Recorded files of `krate` whose digest differs under `root`, or `None`
-/// when the crate has no files table.
-fn stale_files(store: &Path, root: &Path, krate: &str) -> Option<Vec<String>> {
+/// The stale and the unread files of `krate`, or `None` when the crate has
+/// no files table. Stale: a recorded file whose digest differs under `root`.
+/// Unread: a `.rs` file below the top directory of a recorded path that the
+/// table does not list. A recorded file at the root names no directory, so
+/// nothing is scanned for it.
+fn file_gaps(store: &Path, root: &Path, krate: &str) -> Option<(Vec<String>, Vec<String>)> {
     let table = std::fs::read_to_string(store.join(format!("{krate}.files.tsv"))).ok()?;
     let mut stale = Vec::new();
+    let mut recorded = BTreeSet::new();
+    let mut tops = BTreeSet::new();
     for line in table
         .lines()
         .filter(|l| !l.starts_with('#') && !l.is_empty())
@@ -220,12 +234,40 @@ fn stale_files(store: &Path, root: &Path, krate: &str) -> Option<Vec<String>> {
             stale.push(line.to_owned());
             continue;
         };
+        recorded.insert(path.to_owned());
+        if let Some((top, _)) = path.split_once('/') {
+            if top != "." && top != ".." {
+                tops.insert(top.to_owned());
+            }
+        }
         match std::fs::read(root.join(path)) {
             Ok(bytes) if fnv64_hex(&bytes) == digest => {}
             _ => stale.push(path.to_owned()),
         }
     }
-    Some(stale)
+    let mut unread = Vec::new();
+    for top in &tops {
+        rust_files(root, top, &mut unread);
+    }
+    unread.retain(|f| !recorded.contains(f));
+    unread.sort();
+    Some((stale, unread))
+}
+
+/// Every `.rs` file below `root/rel`, as paths relative to `root`.
+fn rust_files(root: &Path, rel: &str, out: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(root.join(rel)) else {
+        return;
+    };
+    for e in entries.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let path = format!("{rel}/{name}");
+        match e.file_type() {
+            Ok(t) if t.is_dir() => rust_files(root, &path, out),
+            Ok(t) if t.is_file() && name.ends_with(".rs") => out.push(path),
+            _ => {}
+        }
+    }
 }
 
 /// The declared-scope gaps of one stored crate: its targets and its
@@ -346,13 +388,22 @@ impl Codegraph {
         match (&scope.store, &scope.source_root) {
             (Some(store), Some(root)) => {
                 for k in &involved {
-                    match stale_files(store, root, k) {
+                    match file_gaps(store, root, k) {
                         None => gaps.push(Gap::FilesUnrecorded { krate: k.clone() }),
-                        Some(files) if !files.is_empty() => gaps.push(Gap::StaleSource {
-                            krate: k.clone(),
-                            files,
-                        }),
-                        Some(_) => {}
+                        Some((stale, unread)) => {
+                            if !stale.is_empty() {
+                                gaps.push(Gap::StaleSource {
+                                    krate: k.clone(),
+                                    files: stale,
+                                });
+                            }
+                            if !unread.is_empty() {
+                                gaps.push(Gap::SourceFilesUnread {
+                                    krate: k.clone(),
+                                    files: unread,
+                                });
+                            }
+                        }
                     }
                 }
             }
