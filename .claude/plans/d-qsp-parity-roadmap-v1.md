@@ -67,18 +67,35 @@ lanes. What is missing is one harness that every stage reuses:
 Two classes, a contextual property projection, `WHERE`, one
 duplicate-preserving join and an ordered result, checked against PostgreSQL
 through the harness, **with evidence that no intermediate X × Y tuples were
-materialized**. The evidence uses a counting `#[global_allocator]` in a
-dedicated test binary, as D-DR-VMAP's F5 does: allocations stay bounded by
-the result and the prepared artifacts, not by the cross product. This tests
-the proposition directly.
+materialized**.
+
+A counting allocator alone does not prove this: a pre-allocated buffer can
+hold X × Y tuples without any new allocation. The evidence therefore has
+three parts, and must tell three cases apart — **virtual binding**,
+**bounded scratch**, **materialized X × Y population**:
+
+1. **Execution path:** the lowered program is inspected; no operator on the
+   path writes one record per (x, y) pair.
+2. **Written intermediate rows / bytes:** every operator reports how many
+   intermediate rows and bytes it wrote. Virtual binding writes none; bounded
+   scratch writes at most a stated bound that does not grow with |X| × |Y|;
+   a materialized population writes at least the number of pairs.
+3. **Allocations:** a counting `#[global_allocator]` in a dedicated test
+   binary (as D-DR-VMAP's F5 does), bounded by the result and the prepared
+   artifacts.
+
+The gate scales the fixture (|X| and |Y| each ×4) and checks that (2) and
+(3) do not grow with the product. A negative control that does build the
+pairs must be reported as "materialized" by the same instrument.
 
 ## 5. Comparison targets and their roles
 
 | Target | Role |
 |---|---|
 | Real PostgreSQL | semantic oracle and reference execution |
-| PgLance (`lance-format/pglance`) | further comparison arm, after inspecting its SQL coverage and execution path. Recorded so far (duckdb plan §A.9): Lance 1.0, row-at-a-time FDW, no pushdown, so it measures tuple-conversion overhead, not resident folds |
+| PgLance (`lance-format/pglance`) | **unverified comparison candidate.** Before any run: pin the commit used and check its Lance version, pushdown and execution path at that commit. The duckdb plan §A.9 records an earlier reading (Lance 1.0, row-at-a-time FDW, no pushdown); that is a lead, not a verified property of the commit in use. A runtime difference is never labelled tuple-conversion overhead as a whole; that share is measured separately (for example per-cell conversion time against scan time) |
 | lance-graph native | the virtual-projection and algebra implementation |
+| DuckDB 2.0 API (polyfill) | an explicit compatibility surface, like the SQL row polyfill: DuckDB-dialect SQL and its relational API answered by the same inverted tuples and registered algebra. Real DuckDB 2.0.0 (LTS, 2026-10-21) is the oracle for that surface; PostgreSQL stays the oracle for standard SQL semantics. Scope only what DuckDB calls stable: its own release post says C API v2 is not yet marked stable and Rust bindings are only "in the works", so no ABI-level polyfill until they are. DuckDB's Quack remote protocol is a separate target, §5a |
 | lance-graph-java (Valhalla / Panama) | later experiment separating representation cost, JVM execution and native-call overhead |
 
 For Java, a JVM implementation and a Panama-to-native path are measured
@@ -87,8 +104,138 @@ object representation. DuckDB stays the analytical performance comparator
 (D-QSP). The evidence roles are never combined into one speed-up (duckdb
 plan §A.9).
 
+## 5a. DuckDB's Quack remote protocol as a compatibility target
+
+**Two different things share the name.** *DuckDB-Quack* is an external
+client-server protocol owned by DuckDB. *Our Quack* (`lance-graph-quack`) is
+the execution substrate: binding and lowering into relalg / mask-RISC /
+`ndarray`. An adapter may speak the first so that its clients reach the
+second; the protocol never becomes the engine, and the engine never takes
+the protocol's types. PostgreSQL stays the SQL parity oracle; real DuckDB
+2.0 is the oracle only for the DuckDB dialect and for the protocol.
+
+**What the protocol is (read 2026-11-11 from DuckDB's own pages; no official
+wire specification exists):**
+
+- Transport: HTTP(S) `POST /quack`, body MIME type `application/duckdb`,
+  default port 9494; version negotiated in the connection messages
+  (`min_supported_quack_version` / `max_supported_quack_version`,
+  `quack_version`). Source: `duckdb/duckdb-quack`
+  `src/include/quack_message.json`; DuckDB 2.0 docs, Quack reference.
+- Messages: connection request / response (with `auth_string`), prepare
+  request (SQL text, `sql_query`) / response (results as data chunks), fetch,
+  send-data, cancel, heartbeat, acknowledgement, success, error, disconnect.
+  No plan, catalog-lookup, scan or transaction message type is named.
+- Execution side: the server. "The query executes remotely and the server
+  streams the result back"; `ATTACH` "binds the remote's table definitions on
+  the client", and filters on attached tables run remotely.
+- Result encoding: DuckDB's own binary serialization of data chunks, not
+  Arrow ("This is why we use our own serialization in Quack").
+- Status: the extension repo says "pre-release … currently experimental";
+  DuckDB's blog planned the first production release with 2.0. License MIT.
+
+**The typed boundary, read from source (2026-11-11).** Read from
+`duckdb/duckdb-quack` at `726531a` and from 24 DuckDB core files at the
+commit its submodule pins (`d54cbbe3`). Nothing was built or run. The
+question was whether DuckDB's typed result path can carry our class-bound
+lanes with little conversion, instead of a new object-conversion layer.
+
+- **Typed and columnar end to end.** A result is a `LogicalType` list plus,
+  per chunk, a validity bitmap and one buffer per column. No JSON on either
+  side, and no row reconstruction.
+- **The wire form is a re-encoding, not a memory image.**
+  - The tagged serializer writes `uint16` field ids, ends each object with
+    `0xFFFF` (`binary_serializer.cpp:65-71`), and writes varints as LEB128.
+  - Blobs are length-prefixed, in native byte order, with no alignment.
+  - Only three blobs are byte images of memory: fixed-width column data,
+    validity words (`u64`, set bit = valid) and dictionary selection
+    indices.
+  - Strings travel as `u32` lengths plus concatenated bytes, not as the
+    in-memory 16-byte `string_t`.
+- **Copies on the streamed path, fixed-width column:** two on the server
+  (element loop into a temporary array, then into the stream) and two on
+  the client. The client side is a `memcpy` out of the message
+  (`MemoryStream::ReadData`, `memory_stream.cpp:85-91`), then an element
+  loop into the vector. Validity is rebuilt bit by bit on each side. Inline
+  rows in a PREPARE response cost more: the server deserializes its own
+  sealed blob and serializes it again.
+- **Ownership.** DuckDB's reader always copies into a destination, and the
+  response body dies with the fetch task. A reader of our own could borrow
+  the fixed-width and validity blobs in place, but they are unaligned.
+- **Vector kinds.**
+  - Constant, dictionary and sequence keep their logical form on the wire;
+    every other kind is flattened first.
+  - Sequence (start, increment) matches our implicit identity axis, and
+    constant matches a class-constant field. Both cost zero data bytes.
+  - A dictionary is per vector, with no shared or named dictionary, and
+    there is no bitmap selection-vector kind.
+- **Mapping our lanes.**
+  - A fixed-width class-bound lane maps with one copy on our side and no
+    conversion.
+  - The ordered field basis maps one-to-one onto the positional type list.
+  - Column names travel once, in the PREPARE response.
+  - Not checked: whether our presence polarity and word order match
+    DuckDB's validity mask.
+- **In-process route.** The C API hands out writable pointers into a
+  vector's own buffers (`duckdb.h:9986` `duckdb_vector_get_data`; `:10012`
+  `duckdb_vector_get_validity`). An in-process producer therefore fills a
+  chunk with one `memcpy` per lane and no serialization. No C API call that
+  points a vector at caller-owned memory was found by name search, and the
+  Arrow import was not traced.
+- **What the rest of the source shows.**
+  - "Prepare" plans and executes, with no bind parameters and no statement
+    handle.
+  - `quack_scan_from_client` is the client pushing INSERT batches, not scan
+    pushdown.
+  - The catalog has no server-side version witness.
+  - What is reusable is the transport design: a dense batch index, a claim
+    buffer, release on acknowledgement, and a total in the terminal batch.
+    The extension uses DuckDB C++ internals only, not `duckdb.h`, so none of
+    its code is reusable as is.
+
+So "ABI-shaped" holds for three blob kinds and fails for the message as a
+whole. The decisive probe, **D-QSP-Q1 (designed, not built):** bound lanes →
+typed chunk → consumer, in a lab crate on `lance-graph-dt64` and
+`lance-graph-quack`. The stages are bind, fold, describe and emit, and
+conversion time and copied bytes are reported separately. X × Y must copy and
+allocate nothing until a consumer asks for an output representation, and then
+grow with the selected pairs, not with the cross product. One arm emits the
+wire bytes; another fills a DuckDB chunk through the C API. Only an oracle
+check against real DuckDB (libduckdb or a golden file) establishes
+compatibility. Linking libduckdb needs a dependency decision first.
+
+**Can its clients reach our Quack through an adapter? Yes in principle,
+because the client ships SQL text and the server executes.** An adapter has
+four parts, each with its own gate:
+
+1. **Wire layer (zone 3):** HTTP endpoint, message (de)serialization in
+   DuckDB's binary format, pinned to one DuckDB version, since the format is
+   coupled to DuckDB internals and unspecified. Gate: a real DuckDB 2.0 client
+   completes connect / prepare / fetch / disconnect against the adapter.
+2. **SQL intake:** DuckDB-dialect SQL text, both what users type and what the
+   client itself generates (for `ATTACH`'s table definitions and for pushed
+   filters), lowered to our Quack. Unsupported statements return the
+   protocol's error response with a typed reason, never a silent fallback.
+3. **Catalog view:** whatever the client queries to bind table definitions
+   is answered from `ClassView` schemas and the versioned mapping.
+4. **Result encoding:** our results encoded as DuckDB data chunks at the
+   boundary only (boundary materialization, §1). Gate: results equal the same
+   query on a real DuckDB 2.0 server over the same data, and equal PostgreSQL
+   where the query is standard SQL.
+
+Scope as everywhere: read-only first; writes and forwarded transactions are
+refused with a typed error until a separate workstream admits them.
+
+**What is unknown, and the probe that settles it (D-QSP-Q0):** which SQL the
+client sends during `ATTACH` and when it pushes filters. The chunk layout is
+now read from source (above); Q0 confirms it on real traffic. Probe: run a DuckDB 2.0 client
+against a DuckDB 2.0 `quack_serve` server, record every request and response
+(the extension's log types, or a reverse proxy in between), and list the
+statements and chunk layouts. Until Q0 runs, the adapter's size is not known
+and no part of it is scheduled.
+
 ## 6. Not verified
 
 Nothing was built or run for this roadmap. The stage-to-owner mapping cites
-plans and board rows read on main; PgLance's coverage is as recorded in the
-duckdb plan, not re-inspected.
+plans and board rows read on main. PgLance is listed as an unverified
+candidate; nothing about it has been checked at a pinned commit.
