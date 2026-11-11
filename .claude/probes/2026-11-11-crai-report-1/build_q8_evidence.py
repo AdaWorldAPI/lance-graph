@@ -86,6 +86,10 @@ def main(argv):
     consumer = ["crates/foundry-parity-lab", "crates/lance-graph-mask-risc"]
     if subprocess.run(["git", "-C", str(lg_root), "diff", "--quiet", a.lg_rev, "--", *consumer]).returncode != 0:
         sys.exit(f"--lg-src differs from {a.lg_rev} in the consumer crates (other revision or local changes)")
+    # `git diff` does not see untracked files; a new source file would be invisible to it.
+    untracked = git(str(lg_root), "status", "--porcelain", "--untracked-files=all", "--", *consumer).strip()
+    if untracked:
+        sys.exit(f"--lg-src has uncommitted or untracked files in the consumer crates:\n{untracked}")
     listed = rows(f"{a.store}/{CRATE}.files.tsv")
     if not listed:
         sys.exit("the store has no file list; its extraction revision cannot be checked")
@@ -93,6 +97,33 @@ def main(argv):
         src = lg_src / f["path"]
         if not src.is_file() or fnv1a64(src.read_bytes()) != f["fnv64"]:
             sys.exit(f"the store was not extracted from this source: {f['path']} differs")
+    # The file list is hashed, but rows and effects are separate files and could come from another
+    # extraction. Bind them to the hashed sources by content: every row or effect with a span must
+    # name a listed file and fit inside it, a definition's span must contain its own name (compiler-generated items excepted), and a
+    # division effect's span must contain a division.
+    hashed = {f["path"]: (lg_src / f["path"]).read_bytes() for f in listed}
+    for kind, name in (("rows", f"{CRATE}.rows.tsv"), ("effects", f"{CRATE}.effects.tsv")):
+        for r in rows(f"{a.store}/{name}"):
+            if r.get("file") in (None, "-") or r.get("start") in (None, "-"):
+                continue
+            src = hashed.get(r["file"])
+            if src is None:
+                # Build-script outputs are recorded by absolute path and are not hashed sources.
+                if Path(r["file"]).is_absolute():
+                    continue
+                sys.exit(f"the store's {kind} name a file its file list does not: {r['file']}")
+            lo, hi = int(r["start"]), int(r["end"])
+            if not 0 <= lo <= hi <= len(src):
+                sys.exit(f"the store's {kind} do not fit {r['file']}: span {lo}..{hi} of {len(src)} bytes")
+            text = src[lo:hi]
+            # Compiler-generated items (derives, drop glue, closures) have no name in their span.
+            generated = "{" in r["subject"] or any(seg.startswith("impl_") for seg in r["subject"].split("::"))
+            if kind == "rows" and r["predicate"] == "DEFINES" and not generated:
+                leaf = r["subject"].rsplit("::", 1)[-1].encode()
+                if leaf not in text:
+                    sys.exit(f"the store's rows do not match the source: {r['subject']} is not defined at {r['file']}:{lo}")
+            if kind == "effects" and r["kind"] == "DivisionByZero" and b"/" not in text:
+                sys.exit(f"the store's effects do not match the source: no division at {r['file']}:{lo}")
     same_at_head = None
     if a.lg_head:
         same_at_head = subprocess.run(["git", "-C", str(lg_root), "diff", "--quiet", a.lg_rev, a.lg_head, "--",
