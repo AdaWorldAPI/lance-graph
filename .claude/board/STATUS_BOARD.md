@@ -375,7 +375,7 @@ Plan: `.claude/plans/codegraph-expansion-v1.md`. Coordination: Linear `P-EXO-18`
 | **CG-5** | co-research: body semantics through R2IL and egglog | Queued (needs go-ahead): EXO-237 |
 | **CG-6** | review report follow-ups (mask-risc extraction, re-grade, placement, advisory CI) | Queued: EXO-238 |
 | **CG-7** | report-rs #33 transfer case | Other session: EXO-239 / EXO-185 |
-| **CG-8** | effects, target kind and cfg as Codegraph rows | Queued: EXO-241 |
+| **CG-8** | effects, target kind and cfg as Codegraph rows | In PR (effects reader and reach; target kind and cfg still queued): EXO-241 |
 
 ## D-CODEGRAPH-0 — resident Codegraph: Charon → ruff → lance-graph + crai-rs (2026-11-02)
 

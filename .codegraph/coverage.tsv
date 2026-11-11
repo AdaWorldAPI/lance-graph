@@ -37,7 +37,7 @@ lance-graph-benches	0	10	0	macro-generated items invisible;fn-local use not scan
 lance-graph-callcenter	35	6	3	macro-generated items invisible;fn-local use not scanned
 lance-graph-catalog	9	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-codec-research	10	0	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-codegraph	9	12	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-codegraph	10	13	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-cognitive	60	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-consumer-conformance	2	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-contract	175	35	2	macro-generated items invisible;fn-local use not scanned
