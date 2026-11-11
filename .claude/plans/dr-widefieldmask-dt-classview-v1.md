@@ -50,11 +50,11 @@ witnesses). That is how this reads together with the texts already on main:
   selection, relation index — and forbids mixing them "into an untyped
   carrier". They stay three: they differ in what they are bound to (a class
   basis; a population under a snapshot; a directed relation with its own
-  revision), not in needing three mask types. Passing one where another is
-  expected must be refused by its witness. Today only a lane in another row
-  order is refused (`LaneRefusal::CoordinateSpace`); a relation index passed
-  where a row selection is expected has no refusal yet (plan v3 W4's
-  falsifier).
+  revision), not in needing three mask types. Which one an operand
+  is gets fixed when the binding is built, so a binding cannot hold the
+  wrong kind in a slot: a type check at bind time, never a refusal at query
+  time (plan v3 W4's falsifier is that bind-time check). Missing values are
+  presence bits, already in the fold.
 - **D-LANESOCK-0** ("`WideFieldMask` … never a row-survivor bit") describes
   the property request of one lane binding. It stands for that binding; it
   is not a limit on the carrier.
@@ -202,7 +202,11 @@ PR 2010 at 1,000,000 rows (16 slabs), including that check: key range over
 an order index 1.76 µs, hop over prepared planes 4.86 µs, filtered hop
 2.17 µs; preparation once per frame 3,600–41,300 µs
 (`.claude/board/entries/2026-11-11-cypher-df-vs-quack-bench.md`). A source
-advance makes every stale binding refuse by name.
+advance does not invalidate a binding: selections and identities are
+versioned and immutable, and version cleanup is disabled, so a binding made
+under version N replays against version N indefinitely. The version is part
+of the address; "as of N" or "latest" is chosen when the binding is built.
+Nothing is refused at query time.
 
 So the executor tier stays free of DT64 (governance v2, F5) and the
 per-query cost of enforcement is the frame check, already inside the
@@ -218,12 +222,11 @@ the question.
 |---|---|---|---|---|---|
 | S1 | Dated notes on the locality contract and D-LANESOCK-0 (DONE in PR 2015); the EXO-220 description still to note | D15 | EXO-220, EXO-254 | docs review | docs |
 | S2 | Lab: carry slab planes as the reusable selection (256 masks of 256 with their `CoordSpace` witness), no behaviour change | W4 (row selection) | EXO-253, EXO-121 | the 15 lab tests unchanged and green; the angles bench within noise, in ns/µs | lab code |
-| S3 | Seal the order index per frame: ordered-lane identity and presence version (G2's remaining gaps) | W4 | EXO-121 | a stale index refuses after a presence change; a fresh one admits | lab code |
+| S3 | Seal the order index per frame: ordered-lane identity and presence version (G2's remaining gaps) | W4 | EXO-121 | the index sealed for version N answers ranges at N; after a presence change the index for N+1 is a new artifact, N's still replays | lab code |
 | S4 | Field half of reader scope: `requested ∩ visible` as one `WideFieldMask` intersection at bind time; row half as a prepared DR plane; frame ownership for an external lane source | W12 | EXO-243, EXO-244, EXO-228, EXO-206 | the EXO-243 test: two roles, 12 fields, 10^3 rows; refused across roles; non-Allow binds nothing | test-only first |
 | S5 | Bind-time admission for the four direct paths, with the executor census test | v2 cut 4; W2, W13 | EXO-253, EXO-245, EXO-246 | red on a planted call site | needs council |
 | S6 | Behaviour as classes that outlives the process: binding digest recorded with the execution and the DR version; typed lane interpretation from the class | v2 cut 7; W5; G5 | EXO-199, EXO-225, EXO-221, EXO-202, EXO-247 | replay falsifier (row 17) red first | needs council |
-
-| S7 | The store of versioned DR × DT selections over D-NFR-1: keyed by witness (source seal, frame, criteria, class binding), handed out by reference, refused when the witness moves; per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, second execution refused; then a selection reused across queries is refused after an advance | lab code |
+| S7 | The store of versioned DR × DT selections over D-NFR-1: keyed by version (source version, frame, criteria, class binding), handed out by reference, every version replayable (cleanup is disabled); per-request masks stay outside | §1b; W5 | EXO-253, EXO-220 | D-NFR-1 first: bind, seal, execute, advance one revision, the second execution reads the version it was bound to; then a selection kept under version N still returns the version-N answer after an advance, and the binding for N+1 returns the N+1 answer | lab code |
 | S8 | Close the reorder gap on the hot check (D-DT64-7 L5d), keyed on revision, not a digest | W2 | EXO-199 | the pinned test turns red-to-green; an unchanged view still admits; at most a few ns per check | dt64 |
 
 Order: S1 (finish) and S2 now. S4 next (a consumer is waiting on EXO-243
@@ -232,7 +235,10 @@ the council.
 
 ## 6. Not verified
 
-Nothing was built or run for this plan. G2 and G6 were answered by the
+Nothing was built or run for this plan. D-NFR-1's own gate reads "the
+second execution is refused" (§1b quote, `d-native-repr-contract-v1.md`);
+under versioned replay it should read "the second execution reads the
+version it was bound to". Not yet reconciled with that plan. G2 and G6 were answered by the
 exploration run, from code and literature, not by a measurement. Whether `WideFieldMask`'s `Small`/`Wide` representation is the
 right in-memory form for 256 rows of a slab (allocation per row) is
 unmeasured; S2's gate measures it.
