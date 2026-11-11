@@ -25,6 +25,19 @@ As stated by the operator (2026-11-11):
   identical result values follow only when the contents read are also
   identical. Mapping replay and historical content replay are separate
   requirements; this plan asks only for the first.
+- **Validity follows each artifact's real dependencies (operator,
+  2026-11-11).** Content versioning is not a general prerequisite.
+  - A pure address / property binding stays valid across a content change
+    while its mapping and its interpretation stay valid.
+  - A content-dependent preparation (order index, precomputed WHERE mask,
+    join assignment from mutable keys, stored recursion result) additionally
+    needs a matching change witness or a recomputation. It is never reused
+    only because the coordinates are unchanged. This needs no historical
+    storage of contents.
+  - A virtual X × Y need not be stored as a tuple population or as a full
+    mask; the implicit identity order and the versioned mapping can suffice.
+  - Mapping replay reproduces the assignment; identical values or results
+    are not promised by it.
 - **The mapping is DR-adjacent.** It binds the context to DR addresses
   without being stored as a DR mask, and it lives where the existing
   contract puts it: no new store instance for this distinction alone, and
