@@ -1,3 +1,7 @@
+## 2026-11-11 — D-QSP-R: PostgreSQL parity roadmap over inverted tuples → `.claude/plans/d-qsp-parity-roadmap-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Umbrella roadmap, not a new architecture: eight stages mapped onto D-QSP-0..5, D-DYNBAG, EXO-114, EXO-255 and the DR / DT binding items S2–S8. First deliverables: the parity harness (D-QSP-H) and the milestone D-QSP-M1 (two classes, contextual projection, WHERE, one duplicate-preserving join, ordered result, no intermediate X × Y tuples). Read-only; no transaction or snapshot parity claimed.
+
 ## 2026-11-11 — D-DRDT-SPLIT-1: DR stores addressing as WideFieldMask, DT stores schema and behaviour as classes → `.claude/plans/dr-widefieldmask-dt-classview-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Child of D-DRDT-CLASS-GOVERNANCE-1 v3 (D14, D15). Six gaps (G1-G6) and six work items (S1-S6) mapped onto plan v3's W-items and the existing Linear issues (EXO-220, EXO-243, EXO-244, EXO-199, EXO-225, EXO-253, EXO-254). No new D-ids on the status board.
