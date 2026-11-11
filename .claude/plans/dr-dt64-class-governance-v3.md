@@ -275,6 +275,27 @@ No Linear decision contradicts D1–D15.
 | W12 | Reader authorization beside addressing | EXO-206, EXO-243, D-LANESOCK-4 inventory | One statement placing IAM at the read boundary for local and delegated execution; the EXO-243 test (two roles, 12 fields, 10^3 rows) as a falsifier |
 | W13 | App actions as bindings | EXO-245; `MethodBinding`; D-DT64-AUTH census | Which binding a signature-only action gets under D8, or a refusal with the reason |
 
+## 5b. Open board items, by concern (Linear, read 2026-11-11)
+
+**DR — addressing / `WideFieldMask` / versioning store**
+
+| issue | ask | what the lab and the board already answer |
+|---|---|---|
+| EXO-244 (High, medcare A4) | first external `LaneSource` over Arrow; who owns `frames()`, when to advance the frame | The source owns its `FrameStore` and advances it when its resident dataset version changes; every slab binding and order index sealed at the old revisions then refuses (`SourceChanged`) and is re-prepared once (PR 2010, `an_order_index_refuses_a_stale_frame_and_a_plane_in_table_order`). Typed interpretation is DT (EXO-202), not DR. |
+| EXO-243 (High, medcare A1) | fields = requested ∩ visible; what `Scope.id` derives from; the row half | The field half is a `WideFieldMask` intersection taken once per binding. The row half is a prepared visibility plane (the lab's scope plane). `Scope.id` is a partition witness, never authorization (EXO-206); IAM stays at execution. |
+| EXO-228 (D-LANESOCK-4) | reader-scope seam inventory | same seam as EXO-243 |
+| EXO-221 / EXO-225 | map-table WAL; decided: `LanceCycleWriter`, one Lance version per advance | EXO-221 still "In Progress": step 3 (rebuild PR 1993 on the chosen WAL) is not confirmed done. |
+| EXO-222 / EXO-224 | whole 64×64 tile kernel (ndarray) | execution under prepared addresses; no addressing change |
+
+**DT — mapping / `ClassView`**
+
+| issue | ask | status |
+|---|---|---|
+| EXO-202 (BLOCKED) | lane interpretation: scale and codebook; metadata from OGAR to the binding | wiring proof open |
+| EXO-247 (Low, medcare A5/A6) | `SchemaRev` for a manifest-defined view; `CodeTable` at 10^5 keys | unanswered |
+| EXO-245 (medcare A2) | signature-only actions as method bindings | unanswered (W13) |
+| EXO-246 (medcare A3) | guard lowering from an out-of-repo git consumer with one contract crate | unanswered; EXO-226 (no CI for the lab) |
+
 ## 6. Not verified
 
 Nothing was built or run. §2 rests on the files it cites, read in this
