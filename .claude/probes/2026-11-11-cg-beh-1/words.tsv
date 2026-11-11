@@ -1,0 +1,19 @@
+#cg-beh v1
+#schema lens	word	opcode	arity	r2il_name	aliases	file	line	file_fnv64	grade
+0xFFFFF000	0	INT_ADD	2	IntAdd	IntAdd|+	crates/lance-graph-r2il/src/polyfill.rs	117	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	1	INT_SUB	2	IntSub	IntSub|-	crates/lance-graph-r2il/src/polyfill.rs	118	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	2	INT_MULT	2	IntMult	IntMult|*	crates/lance-graph-r2il/src/polyfill.rs	119	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	3	INT_S_DIV	2	IntSDiv	IntSDiv|/	crates/lance-graph-r2il/src/polyfill.rs	120	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	4	INT_EQUAL	2	IntEqual	IntEqual|=|Cmp::EqI32|Cmp::EqU32	crates/lance-graph-r2il/src/polyfill.rs	121	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	5	INT_S_LESS	2	IntSLess	IntSLess|<|Cmp::LtI32	crates/lance-graph-r2il/src/polyfill.rs	128	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	6	INT_AND	2	IntAnd	IntAnd|AND|Filter::and	crates/lance-graph-r2il/src/polyfill.rs	135	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	7	INT_OR	2	IntOr	IntOr|OR|Filter::or	crates/lance-graph-r2il/src/polyfill.rs	142	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	8	INT_XOR	2	IntXor	IntXor|XOR	crates/lance-graph-r2il/src/polyfill.rs	143	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	9	INT_NOT	1	IntNot	IntNot|NOT|Filter::negate	crates/lance-graph-r2il/src/polyfill.rs	144	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	10	POP_COUNT	1	PopCount	PopCount|COUNT|Agg::Count	crates/lance-graph-r2il/src/polyfill.rs	151	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	11	SUM	2	SUM	SUM|Agg::SumI32	crates/lance-graph-r2il/src/polyfill.rs	158	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	12	MIN	2	MIN	MIN|Agg::MinI32	crates/lance-graph-r2il/src/polyfill.rs	159	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	13	MAX	2	MAX	MAX|Agg::MaxI32	crates/lance-graph-r2il/src/polyfill.rs	160	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	14	ANY	1	ANY	ANY|EXISTS|Agg::Any	crates/lance-graph-r2il/src/polyfill.rs	161	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	15	ALL	1	ALL	ALL|Agg::All	crates/lance-graph-r2il/src/polyfill.rs	162	5c7f516673c654e3	SOURCE_STRUCTURE
+0xFFFFF000	16	KEY_RUNS	2	KEY_RUNS	KEY_RUNS|COUNT DISTINCT|Agg::CountDistinctOrderedU32	crates/lance-graph-r2il/src/polyfill.rs	163	5c7f516673c654e3	SOURCE_STRUCTURE

@@ -1,0 +1,10 @@
+#cg-beh v1
+query	lance_graph_r2il::FoldDialect::call	980
+realizes	lance_graph_r2il::FoldDialect::call	976-1018	INT_S_LESS	SOURCE_STRUCTURE	dispatch match arm (read from source; not a compiler call fact, not a behavioural test)
+word	0xFFFFF000	5	IntSLess	SOURCE_STRUCTURE	position in the POLYFILL table
+uses	0x7F0B0001	1	1	0	5	REGISTRATION	read from a BindStore through admit() in a test run
+uses	0x7F0B0001	2	1	0	5	REGISTRATION	read from a BindStore through admit() in a test run
+boundary	source evidence ends at the POLYFILL table; everything in 'uses' rows is DT64 registration evidence
+affected_methods	2
+affected_classes	0x7F0B0001
+coverage	PARTIAL	native lowering path (binding_native::prepare_native) not mapped; uses file covers one test store only; realizes is arm-level source structure, not a behavioural witness
