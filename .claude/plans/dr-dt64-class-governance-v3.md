@@ -172,6 +172,54 @@ No public contract or codebook change lands before W11.
 3. Who owns the `F4` table for Quack: `lance-graph-r2il` beside the `F0`
    table, or `lance-graph-quack` itself.
 
+## 5a. Cross-check against Linear (2026-11-11)
+
+Read in full: EXO-199, EXO-220, EXO-225 (Decisions); EXO-121, EXO-126,
+EXO-153, EXO-214, EXO-227, EXO-228 (plans); EXO-206, EXO-243, EXO-245 (A2A).
+No Linear decision contradicts D1–D15.
+
+**Agree, cite from here:**
+
+- EXO-199 (classid stays the class; a binding digest and the issuing store
+  attest the binding). Same as D3 and D14: nothing is re-numbered, behaviour
+  is attested per binding.
+- EXO-220 (five boundaries: DR coordinate fabric, DT64 shape, source-owned
+  SoA, lawful execution, IAM). D15 is boundaries 1 and 2 of it.
+- EXO-121 (ClassView / WideFieldMask as field presence, append-only field
+  positions; permission, relation and cross-table identity witnessed
+  separately). Matches D15 and the three concepts of W4.
+- EXO-153 and EXO-214 both forbid an `F###` identity "by assumption". D1, D6
+  and D7 are the operator assigning them, so the rule is kept, not broken.
+
+**Feed into work items:**
+
+- EXO-126 (D-QSP Quack SQL parity). With D6 the D-QSP gaps (column-to-column
+  comparison, COALESCE/NULLIF, nullable arithmetic, NOT IN subquery) are
+  rows of the `F4` table. Add them to W1.
+- EXO-227 G1 (element-wise min/argmin across lanes, decision pending). A
+  word that needs an `F0` or `F4` position. Add to W1.
+- EXO-225 (one Lance version per map advance via `LanceCycleWriter`). This
+  is what a snapshot root can name as the map version. Add to W5.
+- EXO-153 (remote async execution against the owner's planes). This is the
+  execution side of D5 delegation. W2 cites it.
+
+**Gaps v3 does not cover:**
+
+- EXO-206 / EXO-243 / EXO-228 (D-LANESOCK-4): IAM is independent of the
+  binding and checked at execution. D5 makes the left side name a delegation
+  TARGET; it does not authorize the caller. v3 must say so: an address,
+  local or delegated, never grants a read. EXO-243 (medcare A1, fields =
+  requested ∩ visible fields, the row half) is a waiting consumer and is
+  not answered by v3. Added as W12.
+- EXO-245 (medcare A2, signature-only actions as method bindings). D8 puts
+  such an app on the left side; the binding fields it asks about are not
+  answered. Added as W13.
+
+| # | item | source | output |
+|---|---|---|---|
+| W12 | Reader authorization beside addressing | EXO-206, EXO-243, D-LANESOCK-4 inventory | One statement placing IAM at the read boundary for local and delegated execution; the EXO-243 test (two roles, 12 fields, 10^3 rows) as a falsifier |
+| W13 | App actions as bindings | EXO-245; `MethodBinding`; D-DT64-AUTH census | Which binding a signature-only action gets under D8, or a refusal with the reason |
+
 ## 6. Not verified
 
 Nothing was built or run. §2 rests on the files it cites, read in this
