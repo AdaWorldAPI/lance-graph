@@ -110,6 +110,19 @@ stored, §B.1's "not a population bitmap store" and §C.3's lifetime 3 owner
 are superseded; if not, the store holds the witness and the reusable mask
 lives beside it under that witness.
 
+**The kept, witnessed selection already exists in the lab.**
+`dr-math-binding-probe/src/where_dr3.rs` (D-DRCA-2) takes Quack's WHERE
+output as one borrowed 8 KiB mask, projects it into a frame
+(`LocalSelection`), and re-checks on every read the source seal (owner,
+source revision, codebook, address space), the local frame, the focus, the
+scope, the identity axis, the DR method and the criteria
+(`LocalSelection::admit`); "nothing is silently reused". Its own header says
+what is missing: "It stores nothing … There is no cache, map of selections
+or persistent mask store." That missing piece is exactly the DR store of
+versioned, immutable, reusable masks. Quack's `Binder` (`bind.rs:92`, ten
+implementations, none backed by `BindStore` / `ClassView`) and `Query`
+(`lib.rs:1301`, no frame recorded) are the other end of the seam.
+
 **What this plan's work maps onto.** S4 (`requested ∩ visible` at bind
 time) and the PR 2010 lab's prepared planes are lifetime 1 and 3 of §C.3.
 The first build step is D-NFR-1 (a frame on a bound Quack `Query`), not a
