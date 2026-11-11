@@ -38,6 +38,17 @@ As stated by the operator (2026-11-11):
     mask; the implicit identity order and the versioned mapping can suffice.
   - Mapping replay reproduces the assignment; identical values or results
     are not promised by it.
+- **A refusal means "not witnessed for this version", never "wrong"
+  (DECISION EXO-256, 2026-11-11).** A conclusion carries a witness (the
+  version and frame it was derived under). Losing or outgrowing the witness
+  removes the replay guarantee; it does not refute the conclusion. Only a
+  counter-witness refutes. Because versions are not compacted, a witness
+  for version v is never removed: after an advance a binding or a kept
+  result is simply not certified for v+1, and `SourceChanged` /
+  `MapChanged` / `CoordinatesChanged` state that reach. A recomputation at
+  v+1 is a new conclusion with its own witness and does not falsify the one
+  for v. Describe such refusals as "not witnessed for this version", never
+  as "invalid", "wrong" or "a gap". Revisit if compaction is ever enabled.
 - **The mapping is DR-adjacent.** It binds the context to DR addresses
   without being stored as a DR mask, and it lives where the existing
   contract puts it: no new store instance for this distinction alone, and
