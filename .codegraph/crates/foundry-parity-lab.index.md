@@ -3,7 +3,7 @@
 crate: foundry-parity-lab
 path: crates/foundry-parity-lab
 workspace: excluded
-digest: 10042555d0e690c6
+digest: ab250d1e8e47f4fa
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -13,7 +13,8 @@ Generated; the code is the truth. See ../index.md.
 - dep lance-graph-contract normal — crates/foundry-parity-lab/Cargo.toml:24 CONFIRMED
 - dep lance-graph-dt64 normal — crates/foundry-parity-lab/Cargo.toml:22 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/foundry-parity-lab/Cargo.toml:23 CONFIRMED
-- dep ndarray normal — crates/foundry-parity-lab/Cargo.toml:27 CONFIRMED
+- dep lance-graph-relalg normal — crates/foundry-parity-lab/Cargo.toml:26 CONFIRMED
+- dep ndarray normal — crates/foundry-parity-lab/Cargo.toml:29 CONFIRMED
 
 ## Depended on by
 
@@ -76,8 +77,9 @@ Generated; the code is the truth. See ../index.md.
 - fn field [pub] — crates/foundry-parity-lab/src/bind.rs:62 CONFIRMED
 - struct View [pub] — crates/foundry-parity-lab/src/bind.rs:92 CONFIRMED
 - struct World [pub] — crates/foundry-parity-lab/src/bind.rs:111 CONFIRMED
-- fn World::new [pub] — crates/foundry-parity-lab/src/bind.rs:124 CONFIRMED
-- fn World::bind [pub] — crates/foundry-parity-lab/src/bind.rs:156 CONFIRMED
+- fn World::new [pub] — crates/foundry-parity-lab/src/bind.rs:125 CONFIRMED
+- fn World::with_methods [pub] — crates/foundry-parity-lab/src/bind.rs:130 CONFIRMED
+- fn World::bind [pub] — crates/foundry-parity-lab/src/bind.rs:162 CONFIRMED
 - const STORES [pub] — crates/foundry-parity-lab/src/fixture.rs:10 CONFIRMED
 - const CATEGORIES [pub] — crates/foundry-parity-lab/src/fixture.rs:14 CONFIRMED
 - const EQUIPMENT [pub] — crates/foundry-parity-lab/src/fixture.rs:16 CONFIRMED
@@ -112,13 +114,25 @@ Generated; the code is the truth. See ../index.md.
 - fn delivery_minutes [pub] — crates/foundry-parity-lab/src/fixture.rs:182 CONFIRMED
 - fn store_id [pub] — crates/foundry-parity-lab/src/fixture.rs:190 CONFIRMED
 - const DENIED_STORE [pub] — crates/foundry-parity-lab/src/fixture.rs:195 CONFIRMED
-- mod arm_a [pub] — crates/foundry-parity-lab/src/lib.rs:22 CONFIRMED
-- mod arm_b [pub] — crates/foundry-parity-lab/src/lib.rs:23 CONFIRMED
-- mod arm_c [pub] — crates/foundry-parity-lab/src/lib.rs:24 CONFIRMED
-- mod bind [pub] — crates/foundry-parity-lab/src/lib.rs:25 CONFIRMED
-- mod fixture [pub] — crates/foundry-parity-lab/src/lib.rs:26 CONFIRMED
-- mod oracle [pub] — crates/foundry-parity-lab/src/lib.rs:27 CONFIRMED
-- mod source [pub] — crates/foundry-parity-lab/src/lib.rs:28 CONFIRMED
+- mod arm_a [pub] — crates/foundry-parity-lab/src/lib.rs:24 CONFIRMED
+- mod arm_b [pub] — crates/foundry-parity-lab/src/lib.rs:25 CONFIRMED
+- mod arm_c [pub] — crates/foundry-parity-lab/src/lib.rs:26 CONFIRMED
+- mod bind [pub] — crates/foundry-parity-lab/src/lib.rs:27 CONFIRMED
+- mod fixture [pub] — crates/foundry-parity-lab/src/lib.rs:28 CONFIRMED
+- mod method [pub] — crates/foundry-parity-lab/src/lib.rs:29 CONFIRMED
+- mod oracle [pub] — crates/foundry-parity-lab/src/lib.rs:30 CONFIRMED
+- mod source [pub] — crates/foundry-parity-lab/src/lib.rs:31 CONFIRMED
+- const QS [pub] — crates/foundry-parity-lab/src/method.rs:39 CONFIRMED
+- fn method_id [pub] — crates/foundry-parity-lab/src/method.rs:42 CONFIRMED
+- fn can_cook_guard [pub] — crates/foundry-parity-lab/src/method.rs:47 CONFIRMED
+- fn can_cook_method [pub] — crates/foundry-parity-lab/src/method.rs:77 CONFIRMED
+- fn methods [pub] — crates/foundry-parity-lab/src/method.rs:97 CONFIRMED
+- enum MethodRefusal [pub] — crates/foundry-parity-lab/src/method.rs:105 CONFIRMED
+- struct Executed [pub] — crates/foundry-parity-lab/src/method.rs:146 CONFIRMED
+- struct PreparedMethod [pub] — crates/foundry-parity-lab/src/method.rs:200 CONFIRMED
+- fn PreparedMethod<'s>::prepare [pub] — crates/foundry-parity-lab/src/method.rs:211 CONFIRMED
+- fn PreparedMethod<'s>::run [pub] — crates/foundry-parity-lab/src/method.rs:295 CONFIRMED
+- fn execute_can_cook [pub] — crates/foundry-parity-lab/src/method.rs:324 CONFIRMED
 - enum Limit [pub] — crates/foundry-parity-lab/src/oracle.rs:8 CONFIRMED
 - enum Cook [pub] — crates/foundry-parity-lab/src/oracle.rs:17 CONFIRMED
 - struct Oracle [pub] — crates/foundry-parity-lab/src/oracle.rs:32 CONFIRMED
@@ -148,6 +162,13 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/bind.rs:4 CONFIRMED
 - use lance_graph_contract::ontology::DisplayTemplate — crates/foundry-parity-lab/src/bind.rs:5 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/foundry-parity-lab/src/bind.rs:5 CONFIRMED
+- use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/method.rs:22 CONFIRMED
+- use lance_graph_contract::set_algebra::Cmp — crates/foundry-parity-lab/src/method.rs:23 CONFIRMED
+- use lance_graph_contract::set_algebra::Logic — crates/foundry-parity-lab/src/method.rs:23 CONFIRMED
+- use lance_graph_contract::set_algebra::Res — crates/foundry-parity-lab/src/method.rs:23 CONFIRMED
+- use lance_graph_contract::set_algebra::SetExpr — crates/foundry-parity-lab/src/method.rs:23 CONFIRMED
+- use lance_graph_contract::set_rules::Population — crates/foundry-parity-lab/src/method.rs:24 CONFIRMED
+- use lance_graph_contract::set_rules::Truth — crates/foundry-parity-lab/src/method.rs:24 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/foundry-parity-lab/src/source.rs:7 CONFIRMED
 ### lance-graph-dt64
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/arm_b.rs:20 CONFIRMED
@@ -158,7 +179,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_c.rs:28 CONFIRMED
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 CONFIRMED
 - use lance_graph_dt64::LaneRefusal — crates/foundry-parity-lab/src/arm_c.rs:28 CONFIRMED
-- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bin/bench.rs:14 CONFIRMED
+- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bin/bench.rs:15 CONFIRMED
 - use lance_graph_dt64::dr::Extent — crates/foundry-parity-lab/src/bind.rs:6 CONFIRMED
 - use lance_graph_dt64::dr::Scope — crates/foundry-parity-lab/src/bind.rs:6 CONFIRMED
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/bind.rs:8 CONFIRMED
@@ -170,6 +191,15 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bind.rs:8 CONFIRMED
 - use lance_graph_dt64::RouteAt — crates/foundry-parity-lab/src/bind.rs:8 CONFIRMED
 - use lance_graph_dt64::SchemaRev — crates/foundry-parity-lab/src/bind.rs:9 CONFIRMED
+- use lance_graph_dt64::Guard — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::LaneRefusal — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::MethodId — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::MethodRef — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::Refusal — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::SigRev — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::ValueDemand — crates/foundry-parity-lab/src/method.rs:26 CONFIRMED
+- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/method.rs:36 CONFIRMED
 - use lance_graph_dt64::dr::Frame — crates/foundry-parity-lab/src/source.rs:8 CONFIRMED
 - use lance_graph_dt64::dr::FrameRevisions — crates/foundry-parity-lab/src/source.rs:8 CONFIRMED
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/source.rs:8 CONFIRMED
@@ -203,6 +233,21 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::tile_words_for — crates/foundry-parity-lab/src/arm_c.rs:30 CONFIRMED
 - use lance_graph_mask_risc::Terminal — crates/foundry-parity-lab/src/arm_c.rs:31 CONFIRMED
 - use lance_graph_mask_risc::Value — crates/foundry-parity-lab/src/arm_c.rs:31 CONFIRMED
+- use lance_graph_mask_risc::ExecError — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::Foreign — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::Out — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::Program — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::Scratch — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::execute_into — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+- use lance_graph_mask_risc::tile_words_for — crates/foundry-parity-lab/src/method.rs:29 CONFIRMED
+### lance-graph-relalg
+- use lance_graph_relalg::Measure — crates/foundry-parity-lab/src/method.rs:31 CONFIRMED
+- use lance_graph_relalg::Query — crates/foundry-parity-lab/src/method.rs:31 CONFIRMED
+- use lance_graph_relalg::RelError — crates/foundry-parity-lab/src/method.rs:31 CONFIRMED
+- use lance_graph_relalg::rel_from_set — crates/foundry-parity-lab/src/method.rs:31 CONFIRMED
+- use lance_graph_relalg::run_with_program — crates/foundry-parity-lab/src/method.rs:31 CONFIRMED
 
 ## Calls
 
@@ -221,7 +266,9 @@ flowchart LR
   n39["lance-graph-contract"]
   n42["lance-graph-dt64"]
   n47["lance-graph-mask-risc"]
+  n60["lance-graph-relalg"]
   n18 --> n39
   n18 --> n42
   n18 --> n47
+  n18 --> n60
 ```

@@ -24,6 +24,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/method.rs:22 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
 - pub-use class_view::WideFieldMask — crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
 - use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/rbac.rs:31 POSSIBLE
@@ -40,7 +41,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
 
-## Textual occurrences (359 total)
+## Textual occurrences (361 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
@@ -50,7 +51,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dt64-admission-probe/src/fixture.rs:146 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:148 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
-- crates/foundry-parity-lab/src/bind.rs:163 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:169 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:22 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:81 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:292 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:294 POSSIBLE
@@ -340,8 +343,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-rbac/src/authorize.rs:197 POSSIBLE
 - crates/lance-graph-rbac/src/authorize.rs:222 POSSIBLE
 - crates/lance-graph-rbac/src/authorize.rs:227 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:267 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:272 POSSIBLE
 - truncated at 300
 
 ## Architecture

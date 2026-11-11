@@ -15,11 +15,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 
-## Textual occurrences (43 total)
+## Textual occurrences (49 total)
 
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:135 POSSIBLE
@@ -30,6 +31,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:100 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:106 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:130 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:5 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:77 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:82 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:97 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:287 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:288 POSSIBLE

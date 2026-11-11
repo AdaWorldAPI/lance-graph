@@ -3,7 +3,7 @@
 crate: lance-graph-relalg
 path: crates/lance-graph-relalg
 workspace: excluded
-digest: 3b189a34b584af66
+digest: 7534be0bf7b60fda
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -20,6 +20,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep crepe-plan-probe normal — crates/crepe-plan-probe/Cargo.toml:20 CONFIRMED
 - rdep drf-focus-probe dev — crates/drf-focus-probe/Cargo.toml:33 CONFIRMED
+- rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:26 CONFIRMED
 - rdep holo-h14d-probe normal — crates/holo-h14d-probe/Cargo.toml:16 CONFIRMED
 - rdep jc-batch-probe normal — crates/jc-batch-probe/Cargo.toml:14 CONFIRMED
 - rdep lance-graph-onnx dev — crates/lance-graph-onnx/Cargo.toml:19 CONFIRMED
@@ -53,6 +54,7 @@ Generated; the code is the truth. See ../index.md.
 - fn symbolic [pub] — crates/lance-graph-relalg/src/normalize.rs:40 CONFIRMED
 - fn to_set [pub(crate)] — crates/lance-graph-relalg/src/normalize.rs:82 CONFIRMED
 - fn from_set [pub(crate)] — crates/lance-graph-relalg/src/normalize.rs:105 CONFIRMED
+- fn rel_from_set [pub] — crates/lance-graph-relalg/src/normalize.rs:128 CONFIRMED
 - struct ProgramCost [pub] — crates/lance-graph-relalg/src/program.rs:23 CONFIRMED
 - struct ProgramRun [pub] — crates/lance-graph-relalg/src/program.rs:42 CONFIRMED
 - enum ProgramError [pub] — crates/lance-graph-relalg/src/program.rs:49 CONFIRMED
@@ -101,6 +103,7 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n8["crepe-plan-probe"]
+  n18["foundry-parity-lab"]
   n23["holo-h14d-probe"]
   n27["jc-batch-probe"]
   n39["lance-graph-contract"]
@@ -108,6 +111,7 @@ flowchart LR
   n58["lance-graph-r2il"]
   n60["lance-graph-relalg"]
   n8 --> n60
+  n18 --> n60
   n23 --> n60
   n27 --> n60
   n60 --> n39

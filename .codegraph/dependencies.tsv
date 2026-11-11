@@ -95,7 +95,8 @@ dto-class-check	walkdir	normal	false	-	-	tools/dto-class-check/Cargo.toml:14	CON
 foundry-parity-lab	lance-graph-contract	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:24	CONFIRMED	yes
 foundry-parity-lab	lance-graph-dt64	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:22	CONFIRMED	yes
 foundry-parity-lab	lance-graph-mask-risc	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:23	CONFIRMED	yes
-foundry-parity-lab	ndarray	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:27	CONFIRMED	no
+foundry-parity-lab	lance-graph-relalg	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:26	CONFIRMED	yes
+foundry-parity-lab	ndarray	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:29	CONFIRMED	no
 grammar-constraints-probe	lance-graph-contract	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:18	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-dt64	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:14	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-mask-risc	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:16	CONFIRMED	yes

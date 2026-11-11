@@ -18,7 +18,7 @@ drisa-register-probe	crates/drisa-register-probe	excluded	768c284303f15cf2
 dt64-admission-probe	crates/dt64-admission-probe	excluded	87cddaa68532925e
 dto-class-check	tools/dto-class-check	member	2767f7b327d59326
 elixir-template	crates/elixir-template	excluded	0258102e8c8830eb
-foundry-parity-lab	crates/foundry-parity-lab	excluded	10042555d0e690c6
+foundry-parity-lab	crates/foundry-parity-lab	excluded	ab250d1e8e47f4fa
 gkat-probe	crates/gkat-probe	excluded	7d4a094d66265f2b
 grammar-constraints-probe	crates/grammar-constraints-probe	excluded	7a824d6be6586f60
 helix	crates/helix	excluded	7730532a31173773
@@ -60,7 +60,7 @@ lance-graph-python	crates/lance-graph-python	excluded	09be59d43fefa7f5
 lance-graph-quack	crates/lance-graph-quack	member	41623a0a383077e0
 lance-graph-r2il	crates/lance-graph-r2il	member	69be64b232e5033d
 lance-graph-rbac	crates/lance-graph-rbac	member	ecb6d43d5dbdee1a
-lance-graph-relalg	crates/lance-graph-relalg	excluded	3b189a34b584af66
+lance-graph-relalg	crates/lance-graph-relalg	excluded	7534be0bf7b60fda
 lance-graph-report	crates/lance-graph-report	member	d973e29294bb625d
 lance-graph-report-ogar	crates/lance-graph-report-ogar	excluded	0cdd9b813d8e04f6
 lance-graph-sap	crates/lance-graph-sap	excluded	0c4512de6747d3d7

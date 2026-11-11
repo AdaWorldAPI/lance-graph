@@ -18,7 +18,7 @@ drisa-register-probe	2	5	0	macro-generated items invisible;fn-local use not scan
 dt64-admission-probe	3	4	0	macro-generated items invisible;fn-local use not scanned
 dto-class-check	1	1	0	macro-generated items invisible;fn-local use not scanned
 elixir-template	1	0	0	macro-generated items invisible;fn-local use not scanned
-foundry-parity-lab	9	6	0	macro-generated items invisible;fn-local use not scanned
+foundry-parity-lab	10	7	0	macro-generated items invisible;fn-local use not scanned
 gkat-probe	6	6	0	macro-generated items invisible;fn-local use not scanned
 grammar-constraints-probe	3	4	1	macro-generated items invisible;fn-local use not scanned
 helix	13	13	0	macro-generated items invisible;fn-local use not scanned

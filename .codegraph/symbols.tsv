@@ -3434,9 +3434,10 @@ foundry-parity-lab	crates/foundry-parity-lab/src/arm_c.rs	96	impl	From<LaneRefus
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	111	struct	World	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	117	impl	Default for World	-	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	123	impl	World	-	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	124	fn	World::new	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	156	fn	World::bind	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	125	fn	World::new	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	130	fn	World::with_methods	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	16	const	CLASS	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	162	fn	World::bind	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	18	const	VIEW_CLASS	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	20	const	POSITION	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/bind.rs	23	const	READER	pub	-	CONFIRMED
@@ -3490,13 +3491,27 @@ foundry-parity-lab	crates/foundry-parity-lab/src/fixture.rs	54	const	STALE	pub	-
 foundry-parity-lab	crates/foundry-parity-lab/src/fixture.rs	58	struct	Recipe	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/fixture.rs	68	fn	mix	pub(crate)	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/fixture.rs	81	fn	recipe	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	22	mod	arm_a	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	23	mod	arm_b	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	24	mod	arm_c	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	25	mod	bind	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	26	mod	fixture	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	27	mod	oracle	pub	-	CONFIRMED
-foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	28	mod	source	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	24	mod	arm_a	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	25	mod	arm_b	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	26	mod	arm_c	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	27	mod	bind	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	28	mod	fixture	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	29	mod	method	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	30	mod	oracle	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/lib.rs	31	mod	source	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	105	enum	MethodRefusal	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	137	impl	From<LaneRefusal>for MethodRefusal	-	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	146	struct	Executed	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	200	struct	PreparedMethod	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	208	impl	PreparedMethod<'s>	-	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	211	fn	PreparedMethod<'s>::prepare	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	295	fn	PreparedMethod<'s>::run	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	324	fn	execute_can_cook	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	39	const	QS	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	42	fn	method_id	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	47	fn	can_cook_guard	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	77	fn	can_cook_method	pub	-	CONFIRMED
+foundry-parity-lab	crates/foundry-parity-lab/src/method.rs	97	fn	methods	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/oracle.rs	104	fn	Oracle::store_cost	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/oracle.rs	118	fn	Oracle::network_cost	pub	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/oracle.rs	17	enum	Cook	pub	-	CONFIRMED
@@ -19707,6 +19722,7 @@ lance-graph-relalg	crates/lance-graph-relalg/src/lower.rs	63	fn	run	pub	-	CONFIR
 lance-graph-relalg	crates/lance-graph-relalg/src/lower.rs	70	fn	run_with_program	pub	-	CONFIRMED
 lance-graph-relalg	crates/lance-graph-relalg/src/lower.rs	96	fn	run_as_written	pub	-	CONFIRMED
 lance-graph-relalg	crates/lance-graph-relalg/src/normalize.rs	105	fn	from_set	pub(crate)	-	CONFIRMED
+lance-graph-relalg	crates/lance-graph-relalg/src/normalize.rs	128	fn	rel_from_set	pub	-	CONFIRMED
 lance-graph-relalg	crates/lance-graph-relalg/src/normalize.rs	23	fn	normalize	pub	-	CONFIRMED
 lance-graph-relalg	crates/lance-graph-relalg/src/normalize.rs	40	fn	symbolic	pub	-	CONFIRMED
 lance-graph-relalg	crates/lance-graph-relalg/src/normalize.rs	82	fn	to_set	pub(crate)	-	CONFIRMED

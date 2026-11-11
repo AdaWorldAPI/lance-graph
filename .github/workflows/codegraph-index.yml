@@ -1,0 +1,24 @@
+name: Codegraph index is current
+on:
+  pull_request:
+    paths:
+      # The generator and its committed output. A PR that edits either must
+      # leave them consistent. Source changes in crates/ do not trigger this
+      # gate: the index records a per-crate digest, so a stale crate is
+      # reported by `--check` instead of blocking unrelated PRs (whether to
+      # gate every crates/ change is an open decision, EXO-230).
+      - .claude/tools/codegraph_index.py
+      - .codegraph/**
+      - .github/workflows/codegraph-index.yml
+jobs:
+  codegraph-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Self-test (falsifiers)
+        run: python3 .claude/tools/codegraph_index.py --self-test
+      - name: Index matches the tree
+        run: python3 .claude/tools/codegraph_index.py --check

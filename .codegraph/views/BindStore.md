@@ -49,7 +49,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/arm_c.rs:155 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:112 POSSIBLE
-- crates/foundry-parity-lab/src/bind.rs:130 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:136 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:313 POSSIBLE
 - crates/grammar-constraints-probe/src/when.rs:414 POSSIBLE

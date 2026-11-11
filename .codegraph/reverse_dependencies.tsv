@@ -294,6 +294,7 @@ lance-graph-rbac	lance-graph-callcenter	normal	false	-	-	crates/lance-graph-call
 lance-graph-rbac	lance-graph-consumer-conformance	normal	false	-	-	crates/lance-graph-consumer-conformance/Cargo.toml:23	CONFIRMED	yes
 lance-graph-relalg	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:20	CONFIRMED	yes
 lance-graph-relalg	drf-focus-probe	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:33	CONFIRMED	yes
+lance-graph-relalg	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:26	CONFIRMED	yes
 lance-graph-relalg	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:16	CONFIRMED	yes
 lance-graph-relalg	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:14	CONFIRMED	yes
 lance-graph-relalg	lance-graph-onnx	dev	false	-	-	crates/lance-graph-onnx/Cargo.toml:19	CONFIRMED	yes
@@ -327,7 +328,7 @@ ndarray	deepnsm	normal	false	-	-	crates/deepnsm/Cargo.toml:33	CONFIRMED	no
 ndarray	dr-isa-stream-lab	normal	false	-	-	crates/dr-isa-stream-lab/Cargo.toml:20	CONFIRMED	no
 ndarray	drf-focus-probe	normal	false	-	-	crates/drf-focus-probe/Cargo.toml:17	CONFIRMED	no
 ndarray	drisa-register-probe	normal	false	-	-	crates/drisa-register-probe/Cargo.toml:24	CONFIRMED	no
-ndarray	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:27	CONFIRMED	no
+ndarray	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:29	CONFIRMED	no
 ndarray	helix	normal	false	-	-	crates/helix/Cargo.toml:22	CONFIRMED	no
 ndarray	jc	normal	false	-	-	crates/jc/Cargo.toml:21	CONFIRMED	no
 ndarray	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:21	CONFIRMED	no

@@ -21,14 +21,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneSource — crates/dr-isa-stream-lab/src/int8.rs:26 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/dr-isa-stream-lab/src/shape.rs:49 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/dr-isa-stream-lab/src/source.rs:12 POSSIBLE
-- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bin/bench.rs:14 POSSIBLE
+- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bin/bench.rs:15 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
+- use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/method.rs:36 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/source.rs:9 POSSIBLE
 - pub-use lane::LaneSource — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/lance-graph-report/src/lane_source.rs:39 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 
-## Textual occurrences (36 total)
+## Textual occurrences (37 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:103 POSSIBLE
@@ -41,9 +42,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/source.rs:12 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:225 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:149 POSSIBLE
-- crates/foundry-parity-lab/src/bin/bench.rs:14 POSSIBLE
+- crates/foundry-parity-lab/src/bin/bench.rs:15 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - crates/foundry-parity-lab/src/lib.rs:11 POSSIBLE
+- crates/foundry-parity-lab/src/method.rs:36 POSSIBLE
 - crates/foundry-parity-lab/src/source.rs:3 POSSIBLE
 - crates/foundry-parity-lab/src/source.rs:9 POSSIBLE
 - crates/foundry-parity-lab/src/source.rs:178 POSSIBLE

@@ -47,7 +47,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:154 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
-- crates/foundry-parity-lab/src/bind.rs:162 POSSIBLE
+- crates/foundry-parity-lab/src/bind.rs:168 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:8 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:72 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:153 POSSIBLE
