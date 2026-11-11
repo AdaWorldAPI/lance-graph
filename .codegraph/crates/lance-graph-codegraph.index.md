@@ -3,7 +3,7 @@
 crate: lance-graph-codegraph
 path: crates/lance-graph-codegraph
 workspace: excluded
-digest: e2541778f093a41e
+digest: cb05d27a93a27336
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -197,14 +197,16 @@ Generated; the code is the truth. See ../index.md.
 - fn Codegraph::dynamic_callers [pub] — crates/lance-graph-codegraph/src/graph.rs:1156 CONFIRMED
 - fn Codegraph::stored_owner [pub] — crates/lance-graph-codegraph/src/graph.rs:1160 CONFIRMED
 - fn Codegraph::closure [pub] — crates/lance-graph-codegraph/src/graph.rs:1166 CONFIRMED
-- enum Targets [pub] — crates/lance-graph-codegraph/src/impact_report.rs:29 CONFIRMED
-- enum Dependents [pub] — crates/lance-graph-codegraph/src/impact_report.rs:39 CONFIRMED
-- struct ExtractionScope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:48 CONFIRMED
-- enum CoverageGap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:60 CONFIRMED
-- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:127 CONFIRMED
-- fn ImpactReport::no_known_gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:138 CONFIRMED
-- enum ImpactAnswer [pub] — crates/lance-graph-codegraph/src/impact_report.rs:145 CONFIRMED
-- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:163 CONFIRMED
+- struct Targets [pub] — crates/lance-graph-codegraph/src/impact_report.rs:31 CONFIRMED
+- const Targets::LIB_ONLY [pub] — crates/lance-graph-codegraph/src/impact_report.rs:44 CONFIRMED
+- const Targets::ALL [pub] — crates/lance-graph-codegraph/src/impact_report.rs:52 CONFIRMED
+- enum Consumers [pub] — crates/lance-graph-codegraph/src/impact_report.rs:75 CONFIRMED
+- struct Scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:89 CONFIRMED
+- enum SymbolState [pub] — crates/lance-graph-codegraph/src/impact_report.rs:108 CONFIRMED
+- enum Gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:123 CONFIRMED
+- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:223 CONFIRMED
+- fn ImpactReport::closed_in_scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:238 CONFIRMED
+- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:418 CONFIRMED
 - enum Fault [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
 - struct LabWal [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
 - fn LabWal::new [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED
@@ -222,9 +224,7 @@ Generated; the code is the truth. See ../index.md.
 - struct Calls [pub] — crates/lance-graph-codegraph/src/query.rs:32 CONFIRMED
 - struct Sites [pub] — crates/lance-graph-codegraph/src/query.rs:41 CONFIRMED
 - enum QueryRefusal [pub] — crates/lance-graph-codegraph/src/query.rs:52 CONFIRMED
-- fn Codegraph::callers [pub] — crates/lance-graph-codegraph/src/query.rs:125 CONFIRMED
-- fn Codegraph::callees [pub] — crates/lance-graph-codegraph/src/query.rs:157 CONFIRMED
-- truncated (202 total), see symbols.tsv
+- truncated (204 total), see symbols.tsv
 
 ## Imports from in-scope crates
 

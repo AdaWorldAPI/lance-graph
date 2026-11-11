@@ -1,0 +1,4 @@
+callers	CONFIRMED	report_rs::projection::{Projection}::load_v1
+callers	CONFIRMED	report_rs::source_graph::pull_into
+sites	4
+callers	UNKNOWN	external-callers-unobserved	report_rs::source::{report_rs::source::Ledger}::pull is PUBLIC

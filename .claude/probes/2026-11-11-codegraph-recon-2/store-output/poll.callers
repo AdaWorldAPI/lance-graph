@@ -1,0 +1,2 @@
+sites	0
+callers	UNKNOWN	external-callers-unobserved	report_rs::workbook_delta::source::{report_rs::workbook_delta::source::WorkbookSource<T>[TraitClause0, TraitClause1]}::poll is PUBLIC

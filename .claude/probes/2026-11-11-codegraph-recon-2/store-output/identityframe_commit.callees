@@ -1,0 +1,10 @@
+callees	CONFIRMED	alloc::vec::impl_Deref_for_Vec::deref
+callees	CONFIRMED	alloc::vec::impl_IntoIterator_for_Vec::into_iter
+callees	CONFIRMED	alloc::vec::{Vec<T, A>[TraitClause0, TraitClause1, TraitClause2]}::push
+callees	CONFIRMED	alloc::vec::{impl IntoIterator for &'a Vec<T, A>[TraitClause0, TraitClause1, TraitClause2]}::into_iter
+callees	CONFIRMED	core::iter::traits::iterator::Iterator::collect
+callees	CONFIRMED	core::iter::traits::iterator::Iterator::map
+callees	CONFIRMED	core::slice::iter::{impl Iterator for core::slice::iter::Iter<'a, T>[TraitClause0]}::next
+callees	CONFIRMED	core::slice::{[T]}::contains
+callees	CONFIRMED	lance_graph_dt64::dr::{MapTable}::advance
+sites	9
