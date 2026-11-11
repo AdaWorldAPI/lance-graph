@@ -22,6 +22,7 @@ Coordination: EXO-253. Read at `main` `9f2137c4d`.
 | D12 | The right side below `F###` (`0x0000`–`0xEFFF`, 15 × 4,096 = 61,440 values per application) is not rendering's. It **can** be assigned to rendering. (Corrects an earlier wording in this plan that said it belongs to rendering.) |
 | D14 | Everything is now classes: storage; methods, which are behaviour; compute / RAM (recall). |
 | D13 | If the 4,096 behaviour addresses are ever used up, `E###` may be taken for behaviour as well. Not decided now; to be decided when it happens. |
+| D15 | In return: DR's concern is addressing, with `WideFieldMask`. DT's concern is mapping, with `ClassView`. (Restates the D-DRDT amendment already logged; unchanged.) |
 | D9 | The right side is planned by what is desirable as a general, reusable technology (ONNX, SQL, Gremlin/Cypher and others), see §2a. |
 
 Carried from earlier records and unchanged: the technology digits `F0`
@@ -109,6 +110,12 @@ Three kinds of thing are addressed as classes:
 | storage | what is kept: the class's fields and rows | the data classid and its `ClassView` basis |
 | methods (behaviour) | what is done: ON × WHEN × DO | `F###` on the right; a domain::appid on the left to delegate |
 | compute / RAM (recall) | what is held in memory and recalled | not addressed as a class on main as far as this plan has read; OPEN |
+
+The split of work over those classes is D15: DR addresses them (identities,
+positions, routes, the `WideFieldMask` that selects fields and populations);
+DT maps them (the `ClassView` that says what a class's positions mean, its
+methods and their bindings). DR does not interpret a class; DT does not
+route.
 
 Rendering is one possible use of the right side below `F###`, not its owner
 (D12). Which part of that space storage and compute/RAM classes use, and
