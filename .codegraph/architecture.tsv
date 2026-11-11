@@ -1,0 +1,24 @@
+#codegraph v1
+#schema subject	relation	object	status	evidence	anchor	note
+ADMISSION B	call-site-classification	Semijoin, EqU32Via, Gather	GAP	EXO-140	-	no owner named; NOT IN, anti-joins and DR-math gathers wait on it
+ADMISSION B	ruled-in	entries/2026-10-20-six-decisions.md	CONFIRMED	.claude/board/entries/2026-10-20-six-decisions.md:24	ADMISSION	same-table version-witnessed seeks only; cross-table read addresses refused
+ClassView	defined-in	lance-graph-contract	CONFIRMED	crates/lance-graph-contract/src/class_view.rs:1057	ClassView	the class-interpretation trait; DT64 and lane checks take V: ClassView
+DR	coordinate-handoff-to	Lance _rowid	GAP	.claude/probes/2026-11-03-d-global-where-p1/REPORT.md:144	BLOCKED_D4	D4 open: no DR ordinal composed with _rowid
+DR	durable-map-table-via	lance-graph-dt64-lance::MapLog	CONFIRMED	crates/lance-graph-dt64-lance/src/lib.rs:159	MapLog	#1993 merged: DR map table through the cycle writer
+DR	owns-addressing	MapTable	CONFIRMED	crates/lance-graph-dt64/src/dr.rs:871	MapTable	versioned global-to-local map
+DR	owns-addressing	RouteLog	CONFIRMED	crates/lance-graph-dt64/src/dr.rs:210	RouteLog	DR64 append-only position-to-class routing
+DT64	admits	MethodRef	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:1180	admit	BindStore::admit; refusals GuardMismatch, SignatureRevisionMismatch, ForeignStore, BindingMismatch
+DT64	interprets-via	ClassView	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:814	ClassView	BindStore::register binds a class over a ClassView basis
+DT64	selects-fields-with	WideFieldMask	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:719	mask_where	Resolved::mask_where returns a WideFieldMask from PropertySpec meaning
+Lance	owns-durable-storage	LanceCycleWriter	CONFIRMED	crates/lance-graph/src/graph/cycle_sink.rs:170	LanceCycleWriter	production cycle writer behind WalSink::commit_cycle
+LaneBinding	borrowed-by	LaneBinding::borrow_all	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:379	borrow_all	calls check, then hands out source-owned lanes
+LaneBinding	checked-by	LaneBinding::check	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:307	pub fn check	re-checks route, frame, basis, coordinate space, scope before any borrow
+LaneSource	implemented-by	lance-graph-report::AbiLanes	CONFIRMED	crates/lance-graph-report/src/lane_source.rs:143	impl LaneSource	#1969 D-LANESOCK-2; production constructor absent, scope not admitted
+Quack	filter-needs-admission	Filter::Semijoin	CONFIRMED	crates/lance-graph-quack/src/lib.rs:387	Semijoin	ADMISSION B: call site unclassified, EXO-140
+Quack	lance-selective-read	allow/block prefilter + attested range read	LAB	crates/crepe-plan-probe/examples/where_lance_arm.rs:45	BLOCKED_D4	#1950 lab; ids taken as given
+Quack	reads-population-via	Binder::live	CONFIRMED	crates/lance-graph-quack/src/bind.rs:96	fn live	the existing seam for a resident scope plane (G2 candidate)
+RBAC	applied-to	DT64 binding	GAP	#1997	-	G2: decision exists, nothing applies it to a binding
+RBAC	decision-for-read	authorize_scoped	CONFIRMED	crates/lance-graph-rbac/src/authorize.rs:210	authorize_scoped	ScopedDecision with ScopeSpec + WideFieldMask
+WideFieldMask	defined-in	lance-graph-contract	CONFIRMED	crates/lance-graph-contract/src/class_view.rs:243	WideFieldMask	selects field positions of a class
+mask-risc	quarantines	graph_hop gather	CONFIRMED	crates/lance-graph-mask-risc/Cargo.toml:30	quarantined-gather-hop	OutgoingHop behind an opt-in feature
+r2il	exec-permit-issuer	undecided	GAP	crates/lance-graph-r2il/src/binding.rs:125	who issues it is not	ExecPermit is a lab permission
