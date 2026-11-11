@@ -146,8 +146,12 @@ Two concerns, kept apart (D15):
   > positions), not the content. Under that ruling a slab binding needs to
   > refuse only when `relation_map` or `coordinates` moved; refusing because
   > `source` alone advanced is stricter than required and is today's code,
-  > not the contract. An order index is different: its keys are derived from
-  > content, so it refuses on a content change.
+  > not the contract, as long as the binding's interpretation also holds.
+  > Everything prepared from content is different: the order index, the
+  > prepared presence / scope / selection planes, a join assignment from
+  > mutable keys and a stored recursion result need a matching change
+  > witness or a recomputation, never reuse because coordinates are
+  > unchanged. Validity follows each artifact's dependencies.
 
 **DT — mapping / `ClassView`.** Everything that says *what*:
 
