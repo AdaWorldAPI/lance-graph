@@ -23,8 +23,9 @@ reach-keep	RED	a_caller_reaches_its_callees_division,classes_select_division_rem
 reach-no-position	RED	a_caller_reaches_its_callees_division
 limit-effects-not-read	RED	a_missing_effects_file_makes_the_answer_partial_never_clean
 limit-harvest	RED	dynamic_calls_and_an_incomplete_harvest_are_limits
-limit-outside	RED	callees_outside_the_store_are_a_limit
+limit-queried-symbol-outside	RED	a_queried_symbol_outside_the_store_is_a_limit
+limit-outside	RED	a_queried_symbol_outside_the_store_is_a_limit,callees_outside_the_store_are_a_limit
 limit-dynamic	RED	dynamic_calls_and_an_incomplete_harvest_are_limits
 limit-dynamic-per-symbol	RED	callees_outside_the_store_are_a_limit
 limit-unplaced	RED	an_effect_subject_without_a_position_is_a_limit
-guards	29	not-red	0
+guards	30	not-red	0
