@@ -428,5 +428,242 @@ fn bench(c: &mut Criterion) {
     g.finish();
 }
 
-criterion_group!(benches, bench);
+// ----------------------------------------------------------------- angles
+
+const HOP_SRC_FILTER: &str =
+    "MATCH (a:Person)-[:FRIEND_OF]->(b:Person) WHERE a.age > 50 RETURN count(*)";
+const READER: lance_graph_dt64::dr::Scope = lance_graph_dt64::dr::Scope { id: 7 };
+
+/// 3 of 4 rows present: the sparse case a row allow-list reads.
+fn sparse_present(i: usize) -> bool {
+    let mut x = (i as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    (x ^ (x >> 31)) % 4 != 0
+}
+
+/// Scan only `columns`, and only the rows of `allow` (fragment 0, so a row
+/// address is the row id). Returns the row count read.
+fn scan_allowed(
+    rt: &tokio::runtime::Runtime,
+    path: &str,
+    columns: &[&str],
+    allow: &lance::dataset::scanner::RowAddrMask,
+) -> usize {
+    rt.block_on(async {
+        let ds = Dataset::open(path).await.unwrap();
+        let mut sc = ds.scan();
+        sc.project(columns).unwrap();
+        sc.with_row_addr_prefilter(allow.clone());
+        let batches: Vec<RecordBatch> = sc
+            .try_into_stream()
+            .await
+            .unwrap()
+            .try_collect()
+            .await
+            .unwrap();
+        batches.iter().map(|b| b.num_rows()).sum()
+    })
+}
+
+/// The other angles over the same inputs. Every arm's answer is checked
+/// against the row-at-a-time oracle before timing.
+///
+/// - `dr256_ternlog`: lab bindings and planes prepared once per frame, one
+///   per 65,536-row slab; a query is the binding check plus one mask-RISC
+///   ternlog and popcount per slab. For the hop, the fk was read once at
+///   preparation (`lookups` asserted) and the query reads no fk.
+/// - `order_index`: rows in age order beside the table; `age > 50` is a
+///   position range, counted as the visibility plane's popcount over it. No
+///   selection mask is written.
+/// - `hop_src_filter`: `WHERE a.age > 50` on a hop. The Cypher -> Quack
+///   lowering refuses it (asserted). The order-index arm answers it as one
+///   edge range, the edges ordered by their source's position in the age
+///   index (the virtual-CSR mental model; no adjacency structure is built).
+/// - `prepare/*`: the once-per-frame costs, reported, not gates.
+/// - `intake/*`: the storage side of the same selection: the column
+///   whitelist from the one `WideFieldMask`, then that plus a row allow-list.
+fn angles(c: &mut Criterion) {
+    use dr256_ternlog_lab as lab;
+    use lab::{friend, person};
+
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let bind = binding();
+    let world = lab::World::new();
+    let mask = lab::select(&world.view, lab::PERSON, &["person_id", "age"]).unwrap();
+    let edge_mask = lance_graph_contract::class_view::WideFieldMask::from_positions(&[
+        friend::SRC,
+        friend::DST,
+    ]);
+    // Storage reads the columns the mask selects, in basis order.
+    let person_columns: Vec<&str> = lab::columns(&world.view, lab::PERSON, &mask)
+        .into_iter()
+        .map(|(_, name)| name)
+        .collect();
+    assert_eq!(person_columns, ["person_id", "age"]);
+
+    let df_hop_filter = CypherQuery::new(HOP_SRC_FILTER)
+        .unwrap()
+        .with_config(df_config());
+    match compile(HOP_SRC_FILTER, &HashMap::new(), &bind) {
+        Err(Refusal::Gap(_)) => {}
+        other => panic!("hop with a WHERE: expected a Gap refusal, got {other:?}"),
+    }
+    let df_filter = CypherQuery::new(FILTER).unwrap().with_config(df_config());
+
+    for n in [100usize, 10_000, 1_000_000] {
+        let input = Input::new(&rt, n);
+        let nodes = lab::Table::new(
+            lab::PERSON,
+            1,
+            n,
+            1,
+            READER,
+            &[
+                (person::ID, LaneRef::U32(input.pid.values())),
+                (person::AGE, LaneRef::I32(input.age.values())),
+            ],
+        );
+        let edges = lab::Table::new(
+            lab::FRIEND_OF,
+            2,
+            n,
+            1,
+            READER,
+            &[
+                (friend::SRC, LaneRef::U32(input.src.values())),
+                (friend::DST, LaneRef::U32(input.dst.values())),
+            ],
+        );
+        let all = |_: usize| true;
+
+        // Prepared once.
+        let p_nodes = lab::prepare_nodes(&world, &nodes, &mask, all, all).unwrap();
+        let p_edges =
+            lab::prepare_edges(&world, &edges, all, |id| Some((id as usize) < n)).unwrap();
+        assert_eq!(p_edges.lookups, 2 * n as u64);
+        let by_age = lab::OrderIndex::by_i32(&nodes, person::AGE, 99).unwrap();
+        let mut p_order = lab::prepare_order(&world, &nodes, &mask, &by_age, all).unwrap();
+        let at = by_age.positions();
+        let src = input.src.values();
+        let csr = lab::OrderIndex::by_key(&edges, 98, |e| at[src[e] as usize] as i32).unwrap();
+        let mut p_csr = lab::prepare_order(&world, &edges, &edge_mask, &csr, all).unwrap();
+        let hop_range = |r: std::ops::Range<usize>| {
+            if r.is_empty() {
+                0..0
+            } else {
+                csr.between(r.start as i32, r.end as i32 - 1)
+            }
+        };
+
+        let mut f_filter = lab::Fold::count_gt(&p_nodes, person::AGE, 50).unwrap();
+        let mut f_hop = lab::Fold::count_and3().unwrap();
+
+        // Pre-flight: every arm against the oracle.
+        let filter_want = input.oracle_filter() as u64;
+        let hop_want = input.oracle_one_hop() as u64;
+        let age = input.age.values();
+        let hop_filter_want = (0..n).filter(|&e| age[src[e] as usize] > 50).count() as u64;
+        assert_eq!(
+            f_filter.count(&world, &nodes, &p_nodes).unwrap(),
+            filter_want
+        );
+        assert_eq!(
+            p_order
+                .count(&world, &nodes, &by_age, by_age.gt(50))
+                .unwrap(),
+            filter_want
+        );
+        assert_eq!(f_hop.count(&world, &edges, &p_edges).unwrap(), hop_want);
+        assert_eq!(p_edges.lookups, 2 * n as u64, "a query reads no fk");
+        assert_eq!(
+            datafusion(&rt, &df_hop_filter, &input, true) as u64,
+            hop_filter_want
+        );
+        assert_eq!(
+            p_csr
+                .count(&world, &edges, &csr, hop_range(by_age.gt(50)))
+                .unwrap(),
+            hop_filter_want
+        );
+        assert_eq!(
+            datafusion(&rt, &df_filter, &input, false) as u64,
+            filter_want
+        );
+
+        let mut g = c.benchmark_group("angles");
+        g.throughput(Throughput::Elements(n as u64));
+        g.bench_function(BenchmarkId::new("filter_count/dr256_ternlog", n), |b| {
+            b.iter(|| black_box(f_filter.count(&world, &nodes, &p_nodes).unwrap()))
+        });
+        g.bench_function(BenchmarkId::new("filter_count/order_index", n), |b| {
+            b.iter(|| {
+                black_box(
+                    p_order
+                        .count(&world, &nodes, &by_age, by_age.gt(50))
+                        .unwrap(),
+                )
+            })
+        });
+        g.bench_function(BenchmarkId::new("one_hop_count/dr256_ternlog", n), |b| {
+            b.iter(|| black_box(f_hop.count(&world, &edges, &p_edges).unwrap()))
+        });
+        g.bench_function(BenchmarkId::new("hop_src_filter/datafusion", n), |b| {
+            b.iter(|| black_box(datafusion(&rt, &df_hop_filter, &input, true)))
+        });
+        g.bench_function(BenchmarkId::new("hop_src_filter/order_index", n), |b| {
+            b.iter(|| {
+                black_box(
+                    p_csr
+                        .count(&world, &edges, &csr, hop_range(by_age.gt(50)))
+                        .unwrap(),
+                )
+            })
+        });
+
+        g.bench_function(BenchmarkId::new("prepare/nodes", n), |b| {
+            b.iter(|| black_box(lab::prepare_nodes(&world, &nodes, &mask, all, all).unwrap()))
+        });
+        g.bench_function(BenchmarkId::new("prepare/edges_fk_once", n), |b| {
+            b.iter(|| {
+                black_box(
+                    lab::prepare_edges(&world, &edges, all, |id| Some((id as usize) < n)).unwrap(),
+                )
+            })
+        });
+        g.bench_function(BenchmarkId::new("prepare/order_index", n), |b| {
+            b.iter(|| {
+                let ix = lab::OrderIndex::by_i32(&nodes, person::AGE, 99).unwrap();
+                black_box(lab::prepare_order(&world, &nodes, &mask, &ix, all).unwrap())
+            })
+        });
+
+        // Storage: whitelist of columns from the mask, then plus rows.
+        let path = input._dir.path().join("person.lance");
+        let path = path.to_str().unwrap().to_string();
+        let rank = lab::RankMap::new(n, sparse_present).unwrap();
+        let allow = lance::dataset::scanner::RowAddrMask::from_allowed(
+            lance::dataset::scanner::RowAddrTreeMap::from_iter(
+                (0..n as u64).filter(|&g| rank.contains(g)),
+            ),
+        );
+        assert_eq!(
+            scan_allowed(&rt, &path, &person_columns, &allow) as u64,
+            rank.len(),
+            "the allow-list reads exactly the present rows"
+        );
+        g.bench_function(BenchmarkId::new("intake/all_columns", n), |b| {
+            b.iter(|| black_box(scan(&rt, &path, None, n).num_rows()))
+        });
+        g.bench_function(BenchmarkId::new("intake/mask_columns", n), |b| {
+            b.iter(|| black_box(scan(&rt, &path, Some(&person_columns), n).num_rows()))
+        });
+        g.bench_function(BenchmarkId::new("intake/mask_columns_allow_rows", n), |b| {
+            b.iter(|| black_box(scan_allowed(&rt, &path, &person_columns, &allow)))
+        });
+        g.finish();
+    }
+}
+
+criterion_group!(benches, bench, angles);
 criterion_main!(benches);

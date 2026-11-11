@@ -25,6 +25,10 @@ serde_json = "1"
 lance-graph-quack = { path = "../lance-graph-quack" }
 # `benches/cypher_df_vs_quack.rs` answers the same Cypher through the Quack lowering.
 lance-graph-cypher-quack = { path = "../lance-graph-cypher-quack" }
+# `benches/cypher_df_vs_quack.rs` `angles` group: the DR256 lab arms.
+dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # `examples/pred_scratch_probe.rs` (D-CMR-2b) calls the `ndarray::simd`
 # compare and fold primitives directly for its scratch-free arm. Same package
