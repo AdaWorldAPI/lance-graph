@@ -235,6 +235,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-DRCA-1 | HHTL16 Cartesian projection proof in `dr-math-binding-probe` (12 tests, 6 disable runs, stage costs) | Shipped (#1834) | review; lab only |
 | D-DRCA-2 | DR256::WHERE × DR#3 and the stay / rebind / masked-read choice | Shipped (#1836) | lab only |
 | D-DRDT-SPLIT-1 | DR = addressing / `WideFieldMask`, DT = classes / `ClassView`; mapping versioned, content source-owned (plan `dr-widefieldmask-dt-classview-v1.md`) | Shipped docs (#2015), follow-up in PR (#2016) | docs review |
+| D-DRDT-CLASS-W12 | Consumer class activated through OGAR `HotPlug` reaches a DT64 binding; a non-activated classid is refused; no global register edit (plan `dr-dt64-class-governance-v3.md` §2d, W12) | Queued | lab test, refusal disable-verified |
 | D-DRDT-SPLIT-S2 | lab planes as the reusable selection, no behaviour change | Queued | 15 lab tests green; angles bench within noise |
 | D-DRDT-SPLIT-S3 | order index sealed per source revision; full ordered-sequence fixture after persist and reopen (EXO-114) | Queued | full row sequence equals oracle; foreign revision refuses |
 | D-DRDT-SPLIT-S4 | `requested ∩ visible` at bind time; row half as a plane (EXO-243) | Queued | two roles, 12 fields, 10³ rows |

@@ -189,6 +189,44 @@ after 2 hop queries (4,550 µs / 3,450 µs).
 What this does not show: G2L across different source orders, a real Lance
 read path, or a slab count above 16.
 
+## 2d. Two sources of class authority (existing contract, kept as an invariant)
+
+"Everything is a class" (D14) does not mean "every class is registered
+centrally in lance-graph". Main already separates two sources of class
+authority, both joined by the same classid:
+
+| | global | consumer |
+|---|---|---|
+| defined in | lance-graph contract (canon builtins, global algebra, `F###` words) | OGAR vocabulary (`ogar-vocab`) |
+| activated by | being compiled in | the consumer's own `HotPlug` const and its call to `activate` |
+| authority | the builtin tables (`BUILTIN_READ_MODES` "holds only the canon builtins") | `CapabilityAuthority`, implemented by `OgarAuthority` in `lance-graph-ogar` |
+| storage reading | `classid_read_mode` for canon domains | `Activation::read_mode_for`, derived from the plug (`plug_readings`, `lance-graph-ogar/src/lib.rs:452`); fails closed, no silent V1 fallback |
+| a new consumer needs | nothing in this crate | its own declaration; no edit to the contract, no substrate recompile (D-BLOCKS-HOTPLUG-1) |
+
+Source: `crates/lance-graph-contract/src/hotplug.rs` (module doc: socket in
+the contract, authority in OGAR, declaration in the consumer; OCR plugs
+`0x0805`, `0x0808`, `0x0809`). The classid is `CanonHigh`
+(`ogar_codebook::CLASSID_ORDER`): the high `u16` is the OGAR concept, the
+low `u16` the consumer's app prefix.
+
+Consequences for this plan:
+
+- `F###` addresses global technology and method words. It is not a
+  registration route for consumer classes, and consumer classes never need
+  an entry in a global table to become valid.
+- OGAR semantics does not enter DR or the agnostic executor. DR addresses
+  any classid; it does not know whether the class is canon or plugged.
+- Reading-only seats exist: `0x17XX` palette plugs activate without an OGAR
+  capability table. A rule requiring capability registration for every
+  class would break them.
+- DT64 stays the authority for executable ON × WHEN × DO bindings. A
+  consumer activation is not by itself an admission of a method binding.
+
+What is not shown on main: that a class activated through OGAR reaches a
+DT64 binding. `lance-graph-ogar` does not name `lance-graph-dt64` or
+`BindStore`, and `lance-graph-dt64` does not name `HotPlug` (search over
+those two crates only). That seam is W12 below.
+
 ## 3. Corrections to v2
 
 - **Bypass reading.** v2 counted four production paths as bypasses because
@@ -228,6 +266,7 @@ read first; none of it has been read for this plan unless §2 cites it.
 | W9 | Codegraph as proof (§11) | the artifacts of PRs 1999, 2003, 2004, 2006, 2007 | The chain entry point → context → registry → binding → admitted reference → word → executing symbol, per production surface, labelled UNKNOWN / POSSIBLE / ARTIFACT_MISSING / STALE where the graph does not show it | a planted bypass is found; an admitted path is not reported |
 | W10 | Standalone probe (§12) | W1–W5 | A minimal lab crate running the falsifiers that are now decidable (1–8, 10, 21, 22, 24) | each with an independent oracle and a negative control. **Code, lab only** |
 | W11 | Council | this plan and the outputs above | 5+3 review of the working model before any contract change | — |
+| W12 | Consumer class → DT64 binding (§2d) | `hotplug.rs`, `lance-graph-ogar` `activate` / `plug_readings`, `BindStore::register` / `bind_lanes` | A lab test: activate a consumer through the existing OGAR vocabulary, resolve its class through `ClassView`, bind and run one method through DT64; a classid that was not activated is refused; no edit to the global builtins or registers | the refusal disable-verified; no change to the contract |
 
 W1–W5, W8 and W9 can run in parallel. W7 needs W6. W10 needs W1 and W2.
 No public contract or codebook change lands before W11.
