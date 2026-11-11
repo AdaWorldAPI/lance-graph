@@ -70,7 +70,7 @@ against other text is refused.
 ## Queries
 
 - `query::diff(before, after)`: per method `Unchanged`, `Added`, `Removed`, or `Changed` with the
-  components that moved (`Basis`, `Signature`, `On`, `Reads`, `When`, `WhenSpelling`, `Do`, `Demand`),
+  components that moved (`Basis`, `SchemaRevision`, `Signature`, `On`, `Reads`, `When`, `WhenSpelling`, `Do`, `Demand`),
   the evidence, and the stale obligations. Facts that contradict the binding digest are refused.
 - `query::impl_change(snapshot, dispatch, source, lens, line)`: the arm, its words, the registered
   DO steps on them. No registered fact changes; the open obligation is executed parity.

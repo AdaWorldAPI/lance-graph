@@ -75,6 +75,12 @@ jobs:
         run: |
           out=$(mktemp -d)
           CG_BEH_SOURCE_REV=check cargo run --release --manifest-path crates/cg-beh-probe/Cargo.toml --bin facts -- "$out"
-          for f in lab.facts.tsv foundry.facts.tsv dispatch.tsv; do
-            diff <(tail -n +2 "$out/$f") <(tail -n +2 ".claude/probes/2026-11-11-cg-beh-2/$f")
+          committed=.claude/probes/2026-11-11-cg-beh-2
+          # The facts header holds the source revision, which differs here by
+          # construction; every other row must match.
+          for f in lab.facts.tsv foundry.facts.tsv; do
+            diff <(tail -n +2 "$out/$f") <(tail -n +2 "$committed/$f")
           done
+          # The dispatch header holds the digest of the source text read. It is
+          # the witness the query checks, so the file is compared in full.
+          diff "$out/dispatch.tsv" "$committed/dispatch.tsv"

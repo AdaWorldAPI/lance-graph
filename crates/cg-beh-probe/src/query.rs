@@ -20,6 +20,8 @@ use crate::Evidence;
 pub enum Component {
     /// The ordered predicates of the class basis.
     Basis,
+    /// The schema revision the class is bound at. Not in the binding digest.
+    SchemaRevision,
     Signature,
     /// ON: the trigger field positions.
     On,
@@ -41,6 +43,9 @@ pub enum Obligation {
     /// `resolve` and `bind_lanes` over the changed basis at the bound
     /// revision: `PredicateBasisChanged`.
     WitnessedResolve,
+    /// `resolve` and `bind_lanes` asked at the old schema revision:
+    /// `SchemaRevisionMismatch`.
+    RevisionedResolve,
     /// A reference made at the old signature revision:
     /// `SignatureRevisionMismatch`.
     SignatureRevision,
@@ -162,6 +167,8 @@ fn one(
             .ok_or(DiffRefusal::ClassMissing { class })
     };
     let (basis_b, basis_a) = (basis(before)?, basis(after)?);
+    let schema_rev = |s: &Snapshot| s.class(class).map(|c| c.schema_rev);
+    let (rev_b, rev_a) = (schema_rev(before), schema_rev(after));
     let mut cs = Vec::new();
     let mut evidence = Vec::new();
     let mut stale = Vec::new();
@@ -172,6 +179,13 @@ fn one(
             "class {class:#010X} basis: predicates in position order {basis_b:016x} -> {basis_a:016x} (resolve accepted each against its own store)"
         )));
         stale.push(Obligation::WitnessedResolve);
+    }
+    if rev_b != rev_a {
+        cs.push(Component::SchemaRevision);
+        evidence.push(Evidence::registration(format!(
+            "class {class:#010X} schema revision {rev_b:?} -> {rev_a:?} (resolve accepted each at its own revision)"
+        )));
+        stale.push(Obligation::RevisionedResolve);
     }
     if b.sig_rev != a.sig_rev {
         cs.push(Component::Signature);
@@ -230,7 +244,8 @@ fn one(
     }
 
     // The binding digest covers the basis, the signature revision, ON, reads,
-    // the ordered DO steps and the demand. It does not cover the guard.
+    // the ordered DO steps and the demand. It does not cover the guard or
+    // the class's schema revision.
     let covered = cs.iter().any(|c| {
         matches!(
             c,

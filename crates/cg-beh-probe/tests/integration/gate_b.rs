@@ -238,3 +238,46 @@ fn no_can_cook_registration_is_reached_through_do() {
         assert!(w.stale.is_empty());
     }
 }
+
+#[test]
+fn a_changed_schema_revision_is_reported_though_the_binding_does_not_move() {
+    use cg_beh_probe::facts::{Read, Snapshot};
+    use lance_graph_dt64::SchemaRev;
+
+    let (old, before) = lab(Variant::Base);
+    let next = SchemaRev(2);
+    let new = fixture::world_at(fixture::methods(Variant::Base), false, next);
+    let mut after = Snapshot::new(crate::common::REV, "lab at revision 2").unwrap();
+    let read = Read {
+        schema_rev: next,
+        ..fixture::READ
+    };
+    after
+        .add_class(&new.store, &new.view, CLASS, &fixture::METHODS, &read)
+        .unwrap();
+
+    let ds = diff(&before, &after).unwrap();
+    assert_eq!(ds.len(), 3);
+    for d in &ds {
+        assert_eq!(d.status, Status::Changed(vec![Component::SchemaRevision]));
+        assert!(!d.binding_changed);
+        assert_eq!(d.stale, [Obligation::RevisionedResolve]);
+        // The old reference carries nothing the revision is part of.
+        assert_eq!(d.old_ref(), Some(OldRef::IssuerOnly));
+        assert_eq!(
+            observed(&old.store, &new.store, CLASS, d.method),
+            OldRef::IssuerOnly
+        );
+    }
+    // What the obligation names: the new store refuses the old revision.
+    assert_eq!(
+        new.store
+            .resolve(&new.view, CLASS, fixture::REV)
+            .unwrap_err(),
+        Refusal::SchemaRevisionMismatch {
+            class: CLASS,
+            bound: next,
+            asked: fixture::REV
+        }
+    );
+}

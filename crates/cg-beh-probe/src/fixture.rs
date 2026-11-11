@@ -182,6 +182,12 @@ pub fn methods(v: Variant) -> Vec<MethodBinding> {
 /// A store holding `methods` for the lab class, over the plain or the
 /// swapped basis.
 pub fn world_with(methods: Vec<MethodBinding>, swapped: bool) -> TestWorld {
+    world_at(methods, swapped, REV)
+}
+
+/// [`world_with`] with the lab class bound at `schema_rev`. The polyfill lens
+/// stays declared at [`REV`].
+pub fn world_at(methods: Vec<MethodBinding>, swapped: bool, schema_rev: SchemaRev) -> TestWorld {
     let view = TestView::new(swapped);
     let mut store = BindStore::new();
     store
@@ -192,7 +198,7 @@ pub fn world_with(methods: Vec<MethodBinding>, swapped: bool) -> TestWorld {
             &view,
             CLASS,
             ClassSchema {
-                schema_rev: REV,
+                schema_rev,
                 field_count: FIELDS.len(),
                 extent: Extent::DR64_CUBE,
             },

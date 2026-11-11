@@ -34,6 +34,7 @@ Each prediction was compared with what the stores answer.
 | DO registration (step order) | ordered steps | moves | `BindingMismatch` | reference stamp |
 | DO implementation (a dispatch arm) | none | does not move | admitted | executed parity of each word that has a user |
 | field basis, same count | ordered predicates | moves for every method of the class | `BindingMismatch` | witnessed `resolve` / lane binding; reference stamp |
+| class schema revision, same basis | schema revision | does not move | admitted but for the issuer | `resolve` at the old revision (`SchemaRevisionMismatch`) |
 
 Evidence paths: the first four and the last are `DT64_REGISTRATION` only. The DO implementation row
 is `SOURCE_STRUCTURE` (line in arm, arm names opcode, opcode at table position) joined to
@@ -45,7 +46,7 @@ words; one has a user in the lab snapshot.
 
 ## Gate C: falsifiers
 
-23 tests. `disable_runs.py` removes 15 guards one at a time; each named test fails (15 of 15).
+24 tests. `disable_runs.py` removes 16 guards one at a time; each named test fails (16 of 16).
 
 | falsifier | result |
 |---|---|
