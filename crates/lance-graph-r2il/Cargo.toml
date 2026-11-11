@@ -34,3 +34,6 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # by Quack's names and checks each answer against Quack's own lowering, run
 # through mask-risc. Quack is zero-OGAR and does not depend on this crate.
 lance-graph-quack = { path = "../lance-graph-quack" }
+# The shared PostgreSQL parity harness (D-QSP-H), for
+# examples/null_aggs_pg_parity.rs. Lab, no dependencies of its own.
+pg-parity-harness = { path = "../pg-parity-harness" }
