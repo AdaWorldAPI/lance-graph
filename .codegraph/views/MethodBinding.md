@@ -17,7 +17,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
-- use lance_graph_dt64::MethodBinding — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
+- use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 
 ## Textual occurrences (49 total)

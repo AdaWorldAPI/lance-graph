@@ -194,13 +194,13 @@ Generated; the code is the truth. See ../index.md.
 - fn Codegraph::dynamic_callers [pub] — crates/lance-graph-codegraph/src/graph.rs:1119 CONFIRMED
 - fn Codegraph::stored_owner [pub] — crates/lance-graph-codegraph/src/graph.rs:1123 CONFIRMED
 - fn Codegraph::closure [pub] — crates/lance-graph-codegraph/src/graph.rs:1129 CONFIRMED
-- enum Fault [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
-- struct LabWal [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
-- fn LabWal::new [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED
-- fn LabWal::head [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:53 CONFIRMED
-- fn LabWal::inject [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:58 CONFIRMED
-- fn LabWal::reverse_physical_order [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:64 CONFIRMED
-- fn LabWal::image [pub(crate)] — crates/lance-graph-codegraph/src/lab_wal.rs:70 CONFIRMED
+- enum Fault [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
+- struct LabWal [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
+- fn LabWal::new [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED
+- fn LabWal::head [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:53 CONFIRMED
+- fn LabWal::inject [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:58 CONFIRMED
+- fn LabWal::reverse_physical_order [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:64 CONFIRMED
+- fn LabWal::image [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:70 CONFIRMED
 - mod artifact [pub] — crates/lance-graph-codegraph/src/lib.rs:6 CONFIRMED
 - mod artifact_bin [pub] — crates/lance-graph-codegraph/src/lib.rs:7 CONFIRMED
 - mod diag [pub] — crates/lance-graph-codegraph/src/lib.rs:8 CONFIRMED
@@ -218,12 +218,12 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::class_view::ClassId — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
-- use lance_graph_contract::class_view::ClassView — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
-- use lance_graph_contract::ontology::DisplayTemplate — crates/lance-graph-codegraph/src/graph/publication.rs:14 CONFIRMED
-- use lance_graph_contract::ontology::FieldRef — crates/lance-graph-codegraph/src/graph/publication.rs:14 CONFIRMED
-- use lance_graph_contract::scheduler::DatasetVersion — crates/lance-graph-codegraph/src/graph/publication.rs:15 CONFIRMED
-- use lance_graph_contract::scheduler::DatasetVersion — crates/lance-graph-codegraph/src/lab_wal.rs:11 CONFIRMED
+- use lance_graph_contract::class_view::ClassId cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
+- use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
+- use lance_graph_contract::ontology::DisplayTemplate cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:14 CONFIRMED
+- use lance_graph_contract::ontology::FieldRef cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:14 CONFIRMED
+- use lance_graph_contract::scheduler::DatasetVersion cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:15 CONFIRMED
+- use lance_graph_contract::scheduler::DatasetVersion cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:11 CONFIRMED
 ### lance-graph-dt64
 - use lance_graph_dt64::dr::Axis — crates/lance-graph-codegraph/src/graph.rs:9 CONFIRMED
 - use lance_graph_dt64::dr::LocalMap — crates/lance-graph-codegraph/src/graph.rs:9 CONFIRMED
@@ -231,28 +231,28 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::dr::MapTable — crates/lance-graph-codegraph/src/graph.rs:9 CONFIRMED
 - use lance_graph_dt64::dr::TileId — crates/lance-graph-codegraph/src/graph.rs:9 CONFIRMED
 - use lance_graph_dt64::dr::Width — crates/lance-graph-codegraph/src/graph.rs:9 CONFIRMED
-- use lance_graph_dt64::BindStore — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
-- use lance_graph_dt64::ClassSchema — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
-- use lance_graph_dt64::Extent — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
-- use lance_graph_dt64::RouteVersion — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
-- use lance_graph_dt64::SchemaRev — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
+- use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
+- use lance_graph_dt64::ClassSchema cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
+- use lance_graph_dt64::Extent cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
+- use lance_graph_dt64::RouteVersion cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
+- use lance_graph_dt64::SchemaRev cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 CONFIRMED
 ### lance-graph-planner
-- use lance_graph_planner::persist_sink::CommitError — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::CommitOutcome — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::CycleFrame — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::CycleId — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::DetachedCycleBatch — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::SweepSlot — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::WalSink — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
-- use lance_graph_planner::persist_sink::CommitError — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::CommitOutcome — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::CycleId — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::DetachedCycleBatch — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::FrameMeta — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::LandedSlot — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::SweepSlot — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
-- use lance_graph_planner::persist_sink::WalSink — crates/lance-graph-codegraph/src/lab_wal.rs:14 CONFIRMED
-- use lance_graph_planner::persist_sink::WriteFailed — crates/lance-graph-codegraph/src/lab_wal.rs:14 CONFIRMED
+- use lance_graph_planner::persist_sink::CommitError cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::CommitOutcome cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::CycleFrame cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::CycleId cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::DetachedCycleBatch cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::SweepSlot cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::WalSink cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:18 CONFIRMED
+- use lance_graph_planner::persist_sink::CommitError cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::CommitOutcome cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::CycleId cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::DetachedCycleBatch cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::FrameMeta cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::LandedSlot cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::SweepSlot cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:13 CONFIRMED
+- use lance_graph_planner::persist_sink::WalSink cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:14 CONFIRMED
+- use lance_graph_planner::persist_sink::WriteFailed cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:14 CONFIRMED
 - use lance_graph_planner::persist_sink::CycleFrame cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:171 CONFIRMED
 ### lance-graph-xlog
 - use lance_graph_xlog::cube::Cube — crates/lance-graph-codegraph/src/graph.rs:10 CONFIRMED

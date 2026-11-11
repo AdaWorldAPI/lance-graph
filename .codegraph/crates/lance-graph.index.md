@@ -250,11 +250,11 @@ Generated; the code is the truth. See ../index.md.
 - fn DataFusionPlanner::get_expected_varlength_columns [pub(crate)] — crates/lance-graph/src/datafusion_planner/scan_ops.rs:179 CONFIRMED
 - fn DataFusionPlanner::build_qualified_relationship_scan [pub(crate)] — crates/lance-graph/src/datafusion_planner/scan_ops.rs:213 CONFIRMED
 - fn DataFusionPlanner::build_qualified_target_scan [pub(crate)] — crates/lance-graph/src/datafusion_planner/scan_ops.rs:260 CONFIRMED
-- fn person_schema [pub] — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:12 CONFIRMED
-- fn make_catalog [pub] — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:20 CONFIRMED
-- fn person_config [pub] — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:34 CONFIRMED
-- fn person_knows_config [pub] — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:41 CONFIRMED
-- fn person_scan [pub] — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:49 CONFIRMED
+- fn person_schema [pub] cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:12 CONFIRMED
+- fn make_catalog [pub] cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:20 CONFIRMED
+- fn person_config [pub] cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:34 CONFIRMED
+- fn person_knows_config [pub] cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:41 CONFIRMED
+- fn person_scan [pub] cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:49 CONFIRMED
 - fn create_vector_distance_udf [pub(crate)] — crates/lance-graph/src/datafusion_planner/udf.rs:170 CONFIRMED
 - fn create_vector_similarity_udf [pub(crate)] — crates/lance-graph/src/datafusion_planner/udf.rs:337 CONFIRMED
 - fn create_hamming_distance_udf [pub(crate)] — crates/lance-graph/src/datafusion_planner/udf.rs:633 CONFIRMED
@@ -275,8 +275,8 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_catalog::GraphSourceCatalog — crates/lance-graph/src/datafusion_planner/join_ops.rs:20 CONFIRMED
 - use lance_graph_catalog::GraphSourceCatalog — crates/lance-graph/src/datafusion_planner/mod.rs:38 CONFIRMED
 - use lance_graph_catalog::GraphSourceCatalog — crates/lance-graph/src/datafusion_planner/scan_ops.rs:13 CONFIRMED
-- use lance_graph_catalog::InMemoryCatalog — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:9 CONFIRMED
-- use lance_graph_catalog::SimpleTableSource — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:9 CONFIRMED
+- use lance_graph_catalog::InMemoryCatalog cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:9 CONFIRMED
+- use lance_graph_catalog::SimpleTableSource cfg=test — crates/lance-graph/src/datafusion_planner/test_fixtures.rs:9 CONFIRMED
 - pub-use lance_graph_catalog::DirNamespace — crates/lance-graph/src/lib.rs:74 CONFIRMED
 - pub-use lance_graph_catalog::GraphSourceCatalog — crates/lance-graph/src/lib.rs:74 CONFIRMED
 - pub-use lance_graph_catalog::InMemoryCatalog — crates/lance-graph/src/lib.rs:74 CONFIRMED
@@ -302,12 +302,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_catalog::catalog_provider::TableInfo — crates/lance-graph/src/table_readers.rs:18 CONFIRMED
 - use lance_graph_catalog::table_reader::TableReader — crates/lance-graph/src/table_readers.rs:20 CONFIRMED
 ### lance-graph-cognitive
-- pub-use lance_graph_cognitive::world::counterfactual::BindingSubstitution — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
-- pub-use lance_graph_cognitive::world::counterfactual::multi_substitute_binding — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
-- pub-use lance_graph_cognitive::world::counterfactual::substitute_binding — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
-- pub-use lance_graph_cognitive::world::counterfactual::worlds_differ — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
-- pub-use lance_graph_cognitive::world::counterfactual::Counterfactual — crates/lance-graph/src/reasoning.rs:46 CONFIRMED
-- pub-use lance_graph_cognitive::world::counterfactual::SubstitutedWorld — crates/lance-graph/src/reasoning.rs:46 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::BindingSubstitution cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::multi_substitute_binding cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::substitute_binding cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::worlds_differ cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:45 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::Counterfactual cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:46 CONFIRMED
+- pub-use lance_graph_cognitive::world::counterfactual::SubstitutedWorld cfg=feature="planner" — crates/lance-graph/src/reasoning.rs:46 CONFIRMED
 ### lance-graph-contract
 - use lance_graph_contract::set_algebra::Cmp — crates/lance-graph/src/fold/set_lower.rs:37 CONFIRMED
 - use lance_graph_contract::set_algebra::Res — crates/lance-graph/src/fold/set_lower.rs:37 CONFIRMED
@@ -328,12 +328,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::vsa::roles::P_SLICE_START cfg=feature="with-cam-pq" — crates/lance-graph/src/graph/arigraph/witness_corpus.rs:26 CONFIRMED
 - use lance_graph_contract::vsa::roles::S_SLICE_END cfg=feature="with-cam-pq" — crates/lance-graph/src/graph/arigraph/witness_corpus.rs:26 CONFIRMED
 - use lance_graph_contract::vsa::roles::S_SLICE_START cfg=feature="with-cam-pq" — crates/lance-graph/src/graph/arigraph/witness_corpus.rs:26 CONFIRMED
-- use lance_graph_contract::collapse_gate::MailboxId — crates/lance-graph/src/graph/cycle_sink.rs:93 CONFIRMED
-- use lance_graph_contract::kanban::ExecTarget — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
-- use lance_graph_contract::kanban::KanbanColumn — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
-- use lance_graph_contract::kanban::KanbanMove — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
-- use lance_graph_contract::scheduler::DatasetVersion — crates/lance-graph/src/graph/cycle_sink.rs:95 CONFIRMED
-- use lance_graph_contract::temporal_pov::VersionClock — crates/lance-graph/src/graph/cycle_sink.rs:96 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:93 CONFIRMED
+- use lance_graph_contract::kanban::ExecTarget cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
+- use lance_graph_contract::kanban::KanbanColumn cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
+- use lance_graph_contract::kanban::KanbanMove cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:94 CONFIRMED
+- use lance_graph_contract::scheduler::DatasetVersion cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:95 CONFIRMED
+- use lance_graph_contract::temporal_pov::VersionClock cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:96 CONFIRMED
 - use lance_graph_contract::canonical_node::EdgeCodecFlavor — crates/lance-graph/src/graph/mailbox_scan.rs:46 CONFIRMED
 - use lance_graph_contract::hhtl::NiblePath — crates/lance-graph/src/graph/mailbox_scan.rs:47 CONFIRMED
 - use lance_graph_contract::soa_view::IdentityPlane — crates/lance-graph/src/graph/mailbox_scan.rs:48 CONFIRMED
@@ -374,7 +374,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Value — crates/lance-graph/src/fold/set_lower.rs:40 CONFIRMED
 - use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph/src/fold/set_lower.rs:522 CONFIRMED
 ### lance-graph-planner
-- use lance_graph_planner::persist_sink::CommitError — crates/lance-graph/src/graph/cycle_sink.rs:98 CONFIRMED
+- use lance_graph_planner::persist_sink::CommitError cfg=feature="planner" — crates/lance-graph/src/graph/cycle_sink.rs:98 CONFIRMED
 ### lance-graph-quack
 ### lance-graph-r2il
 - truncated at 100, see imports.tsv

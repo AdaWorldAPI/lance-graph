@@ -262,7 +262,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::grammar::PartialParse cfg=feature="contract-ticket" — crates/deepnsm/src/ticket_emit.rs:27 CONFIRMED
 - use lance_graph_contract::grammar::TekamoloSlots cfg=feature="contract-ticket" — crates/deepnsm/src/ticket_emit.rs:27 CONFIRMED
 - use lance_graph_contract::grammar::WechselAmbiguity cfg=feature="contract-ticket" — crates/deepnsm/src/ticket_emit.rs:27 CONFIRMED
-- use lance_graph_contract::grammar::wechsel::WechselRole cfg=test — crates/deepnsm/src/ticket_emit.rs:122 CONFIRMED
+- use lance_graph_contract::grammar::wechsel::WechselRole cfg=all(feature="contract-ticket", all(feature="contract-ticket", test)) — crates/deepnsm/src/ticket_emit.rs:122 CONFIRMED
 
 ## Calls
 

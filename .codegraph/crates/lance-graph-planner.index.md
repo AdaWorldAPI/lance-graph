@@ -253,9 +253,9 @@ Generated; the code is the truth. See ../index.md.
 - pub-use causal_edge::CausalEdge64 — crates/lance-graph-planner/src/cache/nars_engine.rs:20 CONFIRMED
 - pub-use causal_edge::CausalMask — crates/lance-graph-planner/src/cache/nars_engine.rs:21 CONFIRMED
 - pub-use causal_edge::PlasticityState — crates/lance-graph-planner/src/cache/nars_engine.rs:22 CONFIRMED
-- use causal_edge::CausalEdge64 — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
-- use causal_edge::CausalEdgeV3 — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
-- use causal_edge::IsaFault — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
+- use causal_edge::CausalEdge64 cfg=test — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
+- use causal_edge::CausalEdgeV3 cfg=test — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
+- use causal_edge::IsaFault cfg=test — crates/lance-graph-planner/src/cache/stage26_v3_parity.rs:63 CONFIRMED
 - use causal_edge::tables::NarsTables cfg=test — crates/lance-graph-planner/src/chain_admission.rs:170 CONFIRMED
 - use causal_edge::edge::InferenceType — crates/lance-graph-planner/src/chain_counterfactual.rs:46 CONFIRMED
 - use causal_edge::tables::NarsTables — crates/lance-graph-planner/src/chain_counterfactual.rs:47 CONFIRMED

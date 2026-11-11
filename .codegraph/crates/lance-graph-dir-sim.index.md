@@ -28,24 +28,24 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- struct GroupRoles [pub] — crates/lance-graph-dir-sim/src/actors.rs:40 CONFIRMED
-- fn GroupRoles::new [pub] — crates/lance-graph-dir-sim/src/actors.rs:47 CONFIRMED
-- fn GroupRoles::read [pub] — crates/lance-graph-dir-sim/src/actors.rs:53 CONFIRMED
-- fn GroupRoles::from_policy [pub] — crates/lance-graph-dir-sim/src/actors.rs:64 CONFIRMED
-- fn GroupRoles::of [pub] — crates/lance-graph-dir-sim/src/actors.rs:72 CONFIRMED
-- enum RoleEvidence [pub] — crates/lance-graph-dir-sim/src/actors.rs:79 CONFIRMED
-- fn RoleEvidence::is_held [pub] — crates/lance-graph-dir-sim/src/actors.rs:108 CONFIRMED
-- fn GroupRoles::role_evidence [pub] — crates/lance-graph-dir-sim/src/actors.rs:125 CONFIRMED
-- struct RoleImpact [pub] — crates/lance-graph-dir-sim/src/actors.rs:165 CONFIRMED
-- fn RoleImpact::between [pub] — crates/lance-graph-dir-sim/src/actors.rs:176 CONFIRMED
-- fn RoleImpact::is_lost [pub] — crates/lance-graph-dir-sim/src/actors.rs:193 CONFIRMED
-- fn RoleImpact::is_gained [pub] — crates/lance-graph-dir-sim/src/actors.rs:199 CONFIRMED
-- struct ViewActors [pub] — crates/lance-graph-dir-sim/src/actors.rs:206 CONFIRMED
-- fn ViewActors::for_principal [pub] — crates/lance-graph-dir-sim/src/actors.rs:220 CONFIRMED
-- fn ViewActors::subject [pub] — crates/lance-graph-dir-sim/src/actors.rs:251 CONFIRMED
-- fn ViewActors::principal [pub] — crates/lance-graph-dir-sim/src/actors.rs:257 CONFIRMED
-- fn ViewActors::roles [pub] — crates/lance-graph-dir-sim/src/actors.rs:263 CONFIRMED
-- fn ViewActors::unread_groups [pub] — crates/lance-graph-dir-sim/src/actors.rs:271 CONFIRMED
+- struct GroupRoles [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:40 CONFIRMED
+- fn GroupRoles::new [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:47 CONFIRMED
+- fn GroupRoles::read [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:53 CONFIRMED
+- fn GroupRoles::from_policy [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:64 CONFIRMED
+- fn GroupRoles::of [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:72 CONFIRMED
+- enum RoleEvidence [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:79 CONFIRMED
+- fn RoleEvidence::is_held [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:108 CONFIRMED
+- fn GroupRoles::role_evidence [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:125 CONFIRMED
+- struct RoleImpact [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:165 CONFIRMED
+- fn RoleImpact::between [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:176 CONFIRMED
+- fn RoleImpact::is_lost [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:193 CONFIRMED
+- fn RoleImpact::is_gained [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:199 CONFIRMED
+- struct ViewActors [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:206 CONFIRMED
+- fn ViewActors::for_principal [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:220 CONFIRMED
+- fn ViewActors::subject [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:251 CONFIRMED
+- fn ViewActors::principal [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:257 CONFIRMED
+- fn ViewActors::roles [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:263 CONFIRMED
+- fn ViewActors::unread_groups [pub] cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:271 CONFIRMED
 - enum Origin [pub] — crates/lance-graph-dir-sim/src/ad.rs:44 CONFIRMED
 - fn Origin::as_str [pub] — crates/lance-graph-dir-sim/src/ad.rs:58 CONFIRMED
 - enum Source [pub] — crates/lance-graph-dir-sim/src/ad.rs:70 CONFIRMED
@@ -233,11 +233,11 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::rbac::ActorId — crates/lance-graph-dir-sim/src/actors.rs:29 CONFIRMED
-- use lance_graph_contract::rbac::RoleId — crates/lance-graph-dir-sim/src/actors.rs:29 CONFIRMED
-- use lance_graph_contract::rbac_plug::ActorSource — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
-- use lance_graph_contract::rbac_plug::RbacBinding — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
-- use lance_graph_contract::rbac_plug::SubjectRoles — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
+- use lance_graph_contract::rbac::ActorId cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:29 CONFIRMED
+- use lance_graph_contract::rbac::RoleId cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:29 CONFIRMED
+- use lance_graph_contract::rbac_plug::ActorSource cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
+- use lance_graph_contract::rbac_plug::RbacBinding cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
+- use lance_graph_contract::rbac_plug::SubjectRoles cfg=feature="rbac" — crates/lance-graph-dir-sim/src/actors.rs:30 CONFIRMED
 ### lance-graph-mask-risc
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-dir-sim/src/exec.rs:11 CONFIRMED
 - use lance_graph_mask_risc::Out — crates/lance-graph-dir-sim/src/exec.rs:11 CONFIRMED

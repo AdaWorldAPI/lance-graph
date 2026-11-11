@@ -24,12 +24,12 @@ Generated; the code is the truth. See ../index.md.
 - struct GenResult [pub] — crates/onebrc-probe/src/gen.rs:22 CONFIRMED
 - fn station_names [pub] — crates/onebrc-probe/src/gen.rs:61 CONFIRMED
 - fn gen [pub] — crates/onebrc-probe/src/gen.rs:106 CONFIRMED
-- const SIMD_LANES [pub(crate)] cfg=test — crates/onebrc-probe/src/lane_b.rs:73 CONFIRMED
-- fn lane_b_simd [pub] — crates/onebrc-probe/src/lane_b.rs:80 CONFIRMED
-- enum ChunkMsg [pub] — crates/onebrc-probe/src/lane_d.rs:42 CONFIRMED
-- struct ChunkWorker [pub] — crates/onebrc-probe/src/lane_d.rs:56 CONFIRMED
-- fn lane_d_ractor [pub] — crates/onebrc-probe/src/lane_d.rs:100 CONFIRMED
-- fn lane_e_kanban [pub] — crates/onebrc-probe/src/lane_e.rs:136 CONFIRMED
+- const SIMD_LANES [pub(crate)] cfg=all(feature="lane-b", test) — crates/onebrc-probe/src/lane_b.rs:73 CONFIRMED
+- fn lane_b_simd [pub] cfg=feature="lane-b" — crates/onebrc-probe/src/lane_b.rs:80 CONFIRMED
+- enum ChunkMsg [pub] cfg=feature="lane-d" — crates/onebrc-probe/src/lane_d.rs:42 CONFIRMED
+- struct ChunkWorker [pub] cfg=feature="lane-d" — crates/onebrc-probe/src/lane_d.rs:56 CONFIRMED
+- fn lane_d_ractor [pub] cfg=feature="lane-d" — crates/onebrc-probe/src/lane_d.rs:100 CONFIRMED
+- fn lane_e_kanban [pub] cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:136 CONFIRMED
 - const SLOTS [pub(crate)] — crates/onebrc-probe/src/lane_f.rs:65 CONFIRMED
 - fn fnv1a64 [pub(crate)] — crates/onebrc-probe/src/lane_f.rs:69 CONFIRMED
 - fn morton_slot [pub(crate)] — crates/onebrc-probe/src/lane_f.rs:83 CONFIRMED
@@ -39,30 +39,30 @@ Generated; the code is the truth. See ../index.md.
 - fn table_to_map [pub(crate)] — crates/onebrc-probe/src/lane_f.rs:196 CONFIRMED
 - fn lane_f_morton [pub] — crates/onebrc-probe/src/lane_f.rs:244 CONFIRMED
 - fn lane_r_radix [pub] — crates/onebrc-probe/src/lane_f.rs:250 CONFIRMED
-- const DEFAULT_MORSEL_ROWS [pub] — crates/onebrc-probe/src/lane_g.rs:81 CONFIRMED
-- struct MorselEntry [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:84 CONFIRMED
-- enum ShardMsg [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:91 CONFIRMED
-- struct OwnerSoa [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:114 CONFIRMED
-- fn OwnerSoa::for_span [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:125 CONFIRMED
-- struct ShardState [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:191 CONFIRMED
-- struct ShardOwner [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:201 CONFIRMED
-- fn worker_scan_grouped [pub(crate)] — crates/onebrc-probe/src/lane_g.rs:369 CONFIRMED
-- fn lane_g_kanban_soa_with_morsel [pub] — crates/onebrc-probe/src/lane_g.rs:445 CONFIRMED
-- fn lane_g_kanban_soa [pub] — crates/onebrc-probe/src/lane_g.rs:527 CONFIRMED
-- const DEFAULT_BATCH_K [pub] — crates/onebrc-probe/src/lane_h.rs:74 CONFIRMED
-- fn lane_h_orchestrated_with [pub] — crates/onebrc-probe/src/lane_h.rs:223 CONFIRMED
-- fn lane_h_orchestrated [pub] — crates/onebrc-probe/src/lane_h.rs:344 CONFIRMED
-- const BATCH_ROWS [pub] — crates/onebrc-probe/src/lane_i.rs:68 CONFIRMED
-- struct BatchTable [pub(crate)] — crates/onebrc-probe/src/lane_i.rs:160 CONFIRMED
-- struct RowOwner [pub(crate)] — crates/onebrc-probe/src/lane_i.rs:218 CONFIRMED
-- fn lane_i_batch_pipeline_with [pub] — crates/onebrc-probe/src/lane_i.rs:547 CONFIRMED
-- fn lane_i_batch_pipeline [pub] — crates/onebrc-probe/src/lane_i.rs:651 CONFIRMED
-- struct GridBatch [pub] — crates/onebrc-probe/src/lane_j.rs:137 CONFIRMED
-- struct GridlakeColumns [pub] — crates/onebrc-probe/src/lane_j.rs:202 CONFIRMED
-- enum GridlakeCarrierError [pub] — crates/onebrc-probe/src/lane_j.rs:217 CONFIRMED
-- fn GridBatch::as_gridlake_columns [pub] — crates/onebrc-probe/src/lane_j.rs:246 CONFIRMED
-- fn lane_j_grid_pipeline_with [pub] — crates/onebrc-probe/src/lane_j.rs:501 CONFIRMED
-- fn lane_j_grid_pipeline [pub] — crates/onebrc-probe/src/lane_j.rs:683 CONFIRMED
+- const DEFAULT_MORSEL_ROWS [pub] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:81 CONFIRMED
+- struct MorselEntry [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:84 CONFIRMED
+- enum ShardMsg [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:91 CONFIRMED
+- struct OwnerSoa [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:114 CONFIRMED
+- fn OwnerSoa::for_span [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:125 CONFIRMED
+- struct ShardState [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:191 CONFIRMED
+- struct ShardOwner [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:201 CONFIRMED
+- fn worker_scan_grouped [pub(crate)] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:369 CONFIRMED
+- fn lane_g_kanban_soa_with_morsel [pub] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:445 CONFIRMED
+- fn lane_g_kanban_soa [pub] cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:527 CONFIRMED
+- const DEFAULT_BATCH_K [pub] cfg=feature="lane-h" — crates/onebrc-probe/src/lane_h.rs:74 CONFIRMED
+- fn lane_h_orchestrated_with [pub] cfg=feature="lane-h" — crates/onebrc-probe/src/lane_h.rs:223 CONFIRMED
+- fn lane_h_orchestrated [pub] cfg=feature="lane-h" — crates/onebrc-probe/src/lane_h.rs:344 CONFIRMED
+- const BATCH_ROWS [pub] cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:68 CONFIRMED
+- struct BatchTable [pub(crate)] cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:160 CONFIRMED
+- struct RowOwner [pub(crate)] cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:218 CONFIRMED
+- fn lane_i_batch_pipeline_with [pub] cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:547 CONFIRMED
+- fn lane_i_batch_pipeline [pub] cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:651 CONFIRMED
+- struct GridBatch [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:137 CONFIRMED
+- struct GridlakeColumns [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:202 CONFIRMED
+- enum GridlakeCarrierError [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:217 CONFIRMED
+- fn GridBatch::as_gridlake_columns [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:246 CONFIRMED
+- fn lane_j_grid_pipeline_with [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:501 CONFIRMED
+- fn lane_j_grid_pipeline [pub] cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:683 CONFIRMED
 - fn lane_s_swar [pub] — crates/onebrc-probe/src/lane_s.rs:107 CONFIRMED
 - fn lane_t_trie [pub] — crates/onebrc-probe/src/lane_t.rs:196 CONFIRMED
 - fn lane_t_byte [pub] — crates/onebrc-probe/src/lane_t.rs:202 CONFIRMED
@@ -87,9 +87,9 @@ Generated; the code is the truth. See ../index.md.
 - fn lane_a_scalar [pub] — crates/onebrc-probe/src/lib.rs:186 CONFIRMED
 - fn chunk_bounds [pub] — crates/onebrc-probe/src/lib.rs:219 CONFIRMED
 - fn lane_c_threads [pub] — crates/onebrc-probe/src/lib.rs:269 CONFIRMED
-- struct Preset [pub] — crates/onebrc-probe/src/presets.rs:18 CONFIRMED
-- const PRESETS [pub] — crates/onebrc-probe/src/presets.rs:29 CONFIRMED
-- fn run_preset [pub] — crates/onebrc-probe/src/presets.rs:101 CONFIRMED
+- struct Preset [pub] cfg=feature="presets" — crates/onebrc-probe/src/presets.rs:18 CONFIRMED
+- const PRESETS [pub] cfg=feature="presets" — crates/onebrc-probe/src/presets.rs:29 CONFIRMED
+- fn run_preset [pub] cfg=feature="presets" — crates/onebrc-probe/src/presets.rs:101 CONFIRMED
 - struct Sha256 [pub] — crates/onebrc-probe/src/sha256.rs:26 CONFIRMED
 - fn Sha256::new [pub] — crates/onebrc-probe/src/sha256.rs:40 CONFIRMED
 - fn Sha256::update [pub] — crates/onebrc-probe/src/sha256.rs:50 CONFIRMED
@@ -100,24 +100,24 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::collapse_gate::MailboxId — crates/onebrc-probe/src/lane_e.rs:40 CONFIRMED
-- use lance_graph_contract::kanban::ExecTarget — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
-- use lance_graph_contract::kanban::KanbanColumn — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
-- use lance_graph_contract::kanban::KanbanMove — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
-- use lance_graph_contract::soa_view::MailboxSoaOwner — crates/onebrc-probe/src/lane_e.rs:42 CONFIRMED
-- use lance_graph_contract::soa_view::MailboxSoaView — crates/onebrc-probe/src/lane_e.rs:42 CONFIRMED
-- use lance_graph_contract::collapse_gate::MailboxId — crates/onebrc-probe/src/lane_g.rs:72 CONFIRMED
-- use lance_graph_contract::kanban::ExecTarget — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
-- use lance_graph_contract::kanban::KanbanColumn — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
-- use lance_graph_contract::kanban::KanbanMove — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
-- use lance_graph_contract::collapse_gate::MailboxId — crates/onebrc-probe/src/lane_h.rs:66 CONFIRMED
-- use lance_graph_contract::collapse_gate::MailboxId — crates/onebrc-probe/src/lane_i.rs:58 CONFIRMED
-- use lance_graph_contract::kanban::ExecTarget — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
-- use lance_graph_contract::kanban::KanbanColumn — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
-- use lance_graph_contract::kanban::KanbanMove — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
-- use lance_graph_contract::kanban::ExecTarget — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
-- use lance_graph_contract::kanban::KanbanColumn — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
-- use lance_graph_contract::kanban::KanbanMove — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:40 CONFIRMED
+- use lance_graph_contract::kanban::ExecTarget cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
+- use lance_graph_contract::kanban::KanbanColumn cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
+- use lance_graph_contract::kanban::KanbanMove cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:41 CONFIRMED
+- use lance_graph_contract::soa_view::MailboxSoaOwner cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:42 CONFIRMED
+- use lance_graph_contract::soa_view::MailboxSoaView cfg=feature="lane-e" — crates/onebrc-probe/src/lane_e.rs:42 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:72 CONFIRMED
+- use lance_graph_contract::kanban::ExecTarget cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
+- use lance_graph_contract::kanban::KanbanColumn cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
+- use lance_graph_contract::kanban::KanbanMove cfg=feature="lane-g" — crates/onebrc-probe/src/lane_g.rs:73 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId cfg=feature="lane-h" — crates/onebrc-probe/src/lane_h.rs:66 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:58 CONFIRMED
+- use lance_graph_contract::kanban::ExecTarget cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
+- use lance_graph_contract::kanban::KanbanColumn cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
+- use lance_graph_contract::kanban::KanbanMove cfg=feature="lane-i" — crates/onebrc-probe/src/lane_i.rs:59 CONFIRMED
+- use lance_graph_contract::kanban::ExecTarget cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
+- use lance_graph_contract::kanban::KanbanColumn cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
+- use lance_graph_contract::kanban::KanbanMove cfg=feature="lane-j" — crates/onebrc-probe/src/lane_j.rs:45 CONFIRMED
 
 ## Calls
 

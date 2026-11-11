@@ -248,13 +248,43 @@ def join_cfg(toks):
 
 
 def combine_cfg(parts):
-    parts = [p for p in parts if p and p != "-"]
+    parts = list(dict.fromkeys(p for p in parts if p and p != "-"))  # dedupe, keep order
     if not parts:
         return "-"
     return parts[0] if len(parts) == 1 else "all(" + ", ".join(parts) + ")"
 
 
 _QUAL = {"unsafe", "async", "const", "extern"}
+
+
+def module_cfgs(files):
+    """Cfg each file inherits from the `#[cfg] mod name;` that declares it, keyed by
+    repo-relative path. Resolution follows the default module layout
+    (`dir/name.rs` or `dir/name/mod.rs`); `#[path]` and `mod` declarations nested
+    in an inline module are not followed."""
+    def owner_dir(rel):
+        d, base = rel.rsplit("/", 1)
+        return d if base in ("lib.rs", "main.rs", "mod.rs") else d + "/" + base[:-3]
+    # Recompute from scratch each pass until stable: a parent may sort after its
+    # child, and a file declared from two places (lib.rs and main.rs) keeps every gate.
+    inherited = {}
+    for _ in range(len(files) + 1):
+        nxt = {}
+        for rel in sorted(files):
+            mine = inherited.get(rel, "-")
+            for name, cfg in files[rel].mod_decls:
+                gate = combine_cfg([mine, cfg])
+                if gate == "-":
+                    continue
+                for child in (f"{owner_dir(rel)}/{name}.rs", f"{owner_dir(rel)}/{name}/mod.rs"):
+                    if child in files:
+                        nxt.setdefault(child, set()).add(gate)
+        nxt = {k: combine_cfg(sorted(v)) if len(v) == 1 else "any(" + ", ".join(sorted(v)) + ")"
+               for k, v in nxt.items()}
+        if nxt == inherited:
+            break
+        inherited = nxt
+    return inherited
 
 
 class RustFile:
@@ -265,6 +295,7 @@ class RustFile:
         self.T, self.pair = lex(text)
         self.symbols = []   # (line, kind, name, vis, cfg)
         self.imports = []   # (line, path, alias, kind, cfg)
+        self.mod_decls = []  # (name, cfg) for `mod name;` (body in another file)
         self.macro_rules = sum(
             1 for i, t in enumerate(self.T[:-1])
             if t[0] == "i" and t[1] == "macro_rules" and self.T[i + 1][1] == "!")
@@ -301,21 +332,24 @@ class RustFile:
         return e
 
     def attrs(self, i, e):
-        cfgs, export = [], False
+        # Outer `#[cfg]` gates the next item; inner `#![cfg]` gates the whole
+        # enclosing scope (file or inline module), so it is returned apart.
+        cfgs, inner, export = [], [], False
         while i < e and self.tx(i) == "#":
             j = i + 1
-            if self.tx(j) == "!":
+            is_inner = self.tx(j) == "!"
+            if is_inner:
                 j += 1
             if self.tx(j) == "[" and j in self.pair:
                 c = self.pair[j]
                 if self.tx(j + 1) == "cfg" and self.tx(j + 2) == "(" and (j + 2) in self.pair:
-                    cfgs.append(join_cfg(self.T[j + 3:self.pair[j + 2]]))
+                    (inner if is_inner else cfgs).append(join_cfg(self.T[j + 3:self.pair[j + 2]]))
                 elif self.tx(j + 1) == "macro_export":
                     export = True
                 i = c + 1
             else:
                 break
-        return i, cfgs, export
+        return i, cfgs, inner, export
 
     def vis(self, i):
         if self.tx(i) != "pub":
@@ -337,7 +371,9 @@ class RustFile:
         T = self.T
         while i < e:
             start = i
-            i, cfgs, export = self.attrs(i, e)
+            i, cfgs, inner, export = self.attrs(i, e)
+            if inner:
+                cfg_in = combine_cfg([cfg_in] + inner)
             if i >= e:
                 break
             cfg = combine_cfg([cfg_in] + cfgs)
@@ -388,6 +424,7 @@ class RustFile:
                     self.parse_items(j + 3, self.pair[j + 2], cfg)
                     i = self.pair[j + 2] + 1
                 else:
+                    self.mod_decls.append((name, cfg))
                     i = self.skip_to_semi(j + 1, e)
             elif kw == "use":
                 k = self.skip_to_semi(j + 1, e)
@@ -464,7 +501,7 @@ class RustFile:
         i = body_s
         while i < body_e:
             st = i
-            i, cfgs, _ = self.attrs(i, body_e)
+            i, cfgs, _inner, _ = self.attrs(i, body_e)
             if i >= body_e:
                 break
             mcfg = combine_cfg([cfg] + cfgs)
@@ -796,11 +833,15 @@ def generate(root, stores=(), charon_src=None, views=None):
     deps = [r for n in names for r in dep_rows(crates[n], ws_deps, in_scope)]
     rdeps = [(r[1], r[0]) + r[2:] for r in deps]
     symbols, imports = [], []
+    inh = {}
+    for n in names:
+        inh.update(module_cfgs({rel: rf for (m, rel), rf in parsed.items() if m == n}))
     for (n, rel), rf in parsed.items():
+        up = inh.get(rel, "-")
         for ln, kind, name, vis, cfg in rf.symbols:
-            symbols.append((n, rel, str(ln), kind, name, vis, cfg, "CONFIRMED"))
+            symbols.append((n, rel, str(ln), kind, name, vis, combine_cfg([up, cfg]), "CONFIRMED"))
         for ln, path, alias, kind, cfg in rf.imports:
-            imports.append((n, rel, str(ln), path, alias, kind, cfg,
+            imports.append((n, rel, str(ln), path, alias, kind, combine_cfg([up, cfg]),
                             "POSSIBLE" if path.endswith("::*") or path == "*" else "CONFIRMED"))
     calls, have = load_charon(stores, charon_src, in_scope)
     for n in names:
@@ -1306,6 +1347,29 @@ class T(unittest.TestCase):
         self.assertEqual(got, {("struct", "A"), ("enum", "E"), ("trait", "Tr"), ("fn", "Foo::new"),
                                ("const", "Foo::K"), ("macro", "mm"), ("mod", "m"), ("fn", "inm"),
                                ("fn", "cf")})
+
+    def test_12_inner_cfg_scopes_the_whole_file_and_inline_mod(self):
+        # #1999 review: `#![cfg]` must gate every later item, not only the first.
+        rf = RustFile('#![cfg(feature = "x")]\nuse a::b;\npub fn one() {}\npub const C: u8 = 0;\n'
+                      'pub mod m { #![cfg(test)]\n pub fn two() {} }\n')
+        cfg = {n: c for _, k, n, v, c in rf.symbols}
+        self.assertEqual(cfg["one"], 'feature="x"')
+        self.assertEqual(cfg["C"], 'feature="x"')
+        self.assertEqual(cfg["two"], 'all(feature="x", test)')
+        self.assertEqual([c for *_, c in rf.imports], ['feature="x"'])
+        # silence twin: a file without inner attributes stays unconditional
+        rf2 = RustFile("pub fn three() {}\n")
+        self.assertEqual([c for *_, c in rf2.symbols], ["-"])
+
+    def test_13_cfg_mod_decl_gates_the_child_file(self):
+        files = {"k/src/lib.rs": RustFile('#[cfg(feature = "y")]\npub mod child;\npub mod plain;\n'),
+                 "k/src/child.rs": RustFile("pub fn c() {}\npub mod deep;\n"),
+                 "k/src/child/deep.rs": RustFile("pub fn d() {}\n"),
+                 "k/src/plain.rs": RustFile("pub fn p() {}\n")}
+        inh = module_cfgs(files)
+        self.assertEqual(inh.get("k/src/child.rs"), 'feature="y"')
+        self.assertEqual(inh.get("k/src/child/deep.rs"), 'feature="y"')
+        self.assertEqual(inh.get("k/src/plain.rs", "-"), "-")
 
 
 def self_test():

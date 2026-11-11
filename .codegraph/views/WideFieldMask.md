@@ -34,7 +34,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
-- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report-ogar/src/lib.rs:43 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/ogar-behavior-probe/src/projection.rs:25 POSSIBLE

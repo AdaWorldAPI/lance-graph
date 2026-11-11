@@ -21,7 +21,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - pub-use lane::LaneBinding — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
-- use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
+- use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
 ## Textual occurrences (43 total)

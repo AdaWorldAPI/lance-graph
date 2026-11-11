@@ -25,8 +25,8 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- fn RowImage::into_slot [pub] — crates/drf-focus-probe/src/handoff.rs:22 CONFIRMED
-- fn into_slots [pub] — crates/drf-focus-probe/src/handoff.rs:39 CONFIRMED
+- fn RowImage::into_slot [pub] cfg=feature="handoff" — crates/drf-focus-probe/src/handoff.rs:22 CONFIRMED
+- fn into_slots [pub] cfg=feature="handoff" — crates/drf-focus-probe/src/handoff.rs:39 CONFIRMED
 - mod handoff [pub] cfg=feature="handoff" — crates/drf-focus-probe/src/lib.rs:12 CONFIRMED
 - mod membership [pub] — crates/drf-focus-probe/src/lib.rs:13 CONFIRMED
 - const ROW [pub] — crates/drf-focus-probe/src/lib.rs:16 CONFIRMED
@@ -83,9 +83,9 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-planner
-- use lance_graph_planner::persist_sink::CycleId — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
-- use lance_graph_planner::persist_sink::MailboxId — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
-- use lance_graph_planner::persist_sink::SweepSlot — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
+- use lance_graph_planner::persist_sink::CycleId cfg=feature="handoff" — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
+- use lance_graph_planner::persist_sink::MailboxId cfg=feature="handoff" — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
+- use lance_graph_planner::persist_sink::SweepSlot cfg=feature="handoff" — crates/drf-focus-probe/src/handoff.rs:16 CONFIRMED
 
 ## Calls
 

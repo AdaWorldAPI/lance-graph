@@ -190,14 +190,14 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::content_store::ContentSink — crates/lance-graph-report/src/boundary.rs:35 CONFIRMED
 - use lance_graph_contract::content_store::ContentStore — crates/lance-graph-report/src/boundary.rs:35 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/lance-graph-report/src/lane_source.rs:37 CONFIRMED
-- use lance_graph_contract::class_view::ClassId — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
-- use lance_graph_contract::class_view::ClassView — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
-- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
-- use lance_graph_contract::ogar_codebook::compose_classid — crates/lance-graph-report/src/lane_source/tests.rs:11 CONFIRMED
-- use lance_graph_contract::ontology::DisplayTemplate — crates/lance-graph-report/src/lane_source/tests.rs:12 CONFIRMED
-- use lance_graph_contract::ontology::FieldRef — crates/lance-graph-report/src/lane_source/tests.rs:12 CONFIRMED
-- use lance_graph_contract::set_rules::Population — crates/lance-graph-report/src/lane_source/tests.rs:13 CONFIRMED
-- use lance_graph_contract::set_rules::Truth — crates/lance-graph-report/src/lane_source/tests.rs:13 CONFIRMED
+- use lance_graph_contract::class_view::ClassId cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
+- use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
+- use lance_graph_contract::class_view::WideFieldMask cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 CONFIRMED
+- use lance_graph_contract::ogar_codebook::compose_classid cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:11 CONFIRMED
+- use lance_graph_contract::ontology::DisplayTemplate cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:12 CONFIRMED
+- use lance_graph_contract::ontology::FieldRef cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:12 CONFIRMED
+- use lance_graph_contract::set_rules::Population cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:13 CONFIRMED
+- use lance_graph_contract::set_rules::Truth cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:13 CONFIRMED
 - use lance_graph_contract::algebra_law::AlgebraDescriptor — crates/lance-graph-report/src/plan.rs:18 CONFIRMED
 - use lance_graph_contract::algebra_law::AlgebraLaw — crates/lance-graph-report/src/plan.rs:18 CONFIRMED
 - use lance_graph_contract::algebra_law::IdentityKind — crates/lance-graph-report/src/plan.rs:18 CONFIRMED
@@ -211,21 +211,21 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::LaneAddr — crates/lance-graph-report/src/lane_source.rs:39 CONFIRMED
 - use lance_graph_dt64::LaneSource — crates/lance-graph-report/src/lane_source.rs:39 CONFIRMED
 - use lance_graph_dt64::SchemaRev — crates/lance-graph-report/src/lane_source.rs:39 CONFIRMED
-- use lance_graph_dt64::dr::FrameRefusal — crates/lance-graph-report/src/lane_source/tests.rs:14 CONFIRMED
-- use lance_graph_dt64::dr::Scope — crates/lance-graph-report/src/lane_source/tests.rs:14 CONFIRMED
-- use lance_graph_dt64::BindStore — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::ClassSchema — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::CoordSpace — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::Extent — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::LaneRefusal — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::LaneRequest — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
-- use lance_graph_dt64::MethodBinding — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
-- use lance_graph_dt64::MethodId — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
-- use lance_graph_dt64::RouteAt — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
-- use lance_graph_dt64::SchemaRev — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
-- use lance_graph_dt64::SigRev — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
-- use lance_graph_dt64::ValueDemand — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::dr::FrameRefusal cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:14 CONFIRMED
+- use lance_graph_dt64::dr::Scope cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:14 CONFIRMED
+- use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::ClassSchema cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::CoordSpace cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::Extent cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::LaneRefusal cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::LaneRequest cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 CONFIRMED
+- use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::MethodId cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::RouteAt cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::SchemaRev cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::SigRev cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
+- use lance_graph_dt64::ValueDemand cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 CONFIRMED
 ### lance-graph-mask-risc
 - use lance_graph_mask_risc::LaneRef — crates/lance-graph-report/src/batch.rs:19 CONFIRMED
 - use lance_graph_mask_risc::words_for — crates/lance-graph-report/src/batch.rs:19 CONFIRMED
@@ -240,13 +240,13 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Scratch — crates/lance-graph-report/src/exec.rs:76 CONFIRMED
 - use lance_graph_mask_risc::Value — crates/lance-graph-report/src/exec.rs:76 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/lance-graph-report/src/lane_source.rs:40 CONFIRMED
-- use lance_graph_mask_risc::Foreign — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::LaneRef — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::Out — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::Planes — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::Scratch — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::Value — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::execute_into — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
 - use lance_graph_mask_risc::ExecError — crates/lance-graph-report/src/lib.rs:75 CONFIRMED
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-report/src/render.rs:26 CONFIRMED
 - use lance_graph_mask_risc::Out — crates/lance-graph-report/src/render.rs:26 CONFIRMED
@@ -265,12 +265,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_quack::Mask — crates/lance-graph-report/src/exec.rs:78 CONFIRMED
 - use lance_graph_quack::Query — crates/lance-graph-report/src/exec.rs:78 CONFIRMED
 - use lance_graph_quack::lower — crates/lance-graph-report/src/exec.rs:78 CONFIRMED
-- use lance_graph_quack::Agg — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::Cmp — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::Col — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::Filter — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::Query — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::lower — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::Agg cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::Cmp cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::Col cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::Filter cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::Query cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
+- use lance_graph_quack::lower cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
 - use lance_graph_quack::LowerError — crates/lance-graph-report/src/lib.rs:76 CONFIRMED
 - use lance_graph_quack::Agg — crates/lance-graph-report/src/render.rs:28 CONFIRMED
 - use lance_graph_quack::Query — crates/lance-graph-report/src/render.rs:28 CONFIRMED

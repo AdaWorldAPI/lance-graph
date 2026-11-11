@@ -22,11 +22,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
-- use lance_graph_dt64::BindStore — crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
+- use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
 - use crate::BindStore — crates/lance-graph-dt64/src/lane.rs:23 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:82 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding_native.rs:47 POSSIBLE
-- use lance_graph_dt64::BindStore — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
+- use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 

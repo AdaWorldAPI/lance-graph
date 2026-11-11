@@ -41,31 +41,31 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- struct AuditEntry [pub] — crates/lance-graph-callcenter/src/audit.rs:18 CONFIRMED
-- fn AuditEntry::with_plan [pub] — crates/lance-graph-callcenter/src/audit.rs:37 CONFIRMED
-- enum StatementKind [pub] — crates/lance-graph-callcenter/src/audit.rs:60 CONFIRMED
-- trait AuditSink [pub] — crates/lance-graph-callcenter/src/audit.rs:70 CONFIRMED
-- struct InMemoryAuditSink [pub] — crates/lance-graph-callcenter/src/audit.rs:81 CONFIRMED
-- fn InMemoryAuditSink::with_capacity [pub] — crates/lance-graph-callcenter/src/audit.rs:95 CONFIRMED
+- struct AuditEntry [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:18 CONFIRMED
+- fn AuditEntry::with_plan [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:37 CONFIRMED
+- enum StatementKind [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:60 CONFIRMED
+- trait AuditSink [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:70 CONFIRMED
+- struct InMemoryAuditSink [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:81 CONFIRMED
+- fn InMemoryAuditSink::with_capacity [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:95 CONFIRMED
 - struct LanceAuditSink [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:159 CONFIRMED
 - fn LanceAuditSink::new [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:170 CONFIRMED
 - fn LanceAuditSink::flush [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:182 CONFIRMED
 - fn LanceAuditSink::scan_back [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:270 CONFIRMED
-- fn hash_statement [pub] — crates/lance-graph-callcenter/src/audit.rs:424 CONFIRMED
-- fn now_unix_ms [pub] — crates/lance-graph-callcenter/src/audit.rs:430 CONFIRMED
-- fn audit_from_plan [pub] cfg=feature="datafusion-plan" — crates/lance-graph-callcenter/src/audit.rs:440 CONFIRMED
+- fn hash_statement [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:424 CONFIRMED
+- fn now_unix_ms [pub] cfg=feature="audit-log" — crates/lance-graph-callcenter/src/audit.rs:430 CONFIRMED
+- fn audit_from_plan [pub] cfg=all(feature="audit-log", feature="datafusion-plan") — crates/lance-graph-callcenter/src/audit.rs:440 CONFIRMED
 - enum FanoutMode [pub] — crates/lance-graph-callcenter/src/audit_sink/composite.rs:17 CONFIRMED
 - struct CompositeSink [pub] — crates/lance-graph-callcenter/src/audit_sink/composite.rs:27 CONFIRMED
 - fn CompositeSink::new [pub] — crates/lance-graph-callcenter/src/audit_sink/composite.rs:34 CONFIRMED
-- const JSONL_BUFFER_CAPACITY [pub] — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:31 CONFIRMED
-- struct JsonlAuditSink [pub] — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:34 CONFIRMED
-- fn JsonlAuditSink::new [pub] — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:44 CONFIRMED
-- fn serialize_event [pub] — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:160 CONFIRMED
-- const LANCE_BUFFER_CAPACITY [pub] — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:29 CONFIRMED
-- const LANCE_FLUSH_THRESHOLD [pub] — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:32 CONFIRMED
-- fn audit_event_schema [pub] — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:35 CONFIRMED
-- struct LanceAuditSink [pub] — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:54 CONFIRMED
-- fn LanceAuditSink::new [pub] — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:66 CONFIRMED
+- const JSONL_BUFFER_CAPACITY [pub] cfg=feature="jsonl" — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:31 CONFIRMED
+- struct JsonlAuditSink [pub] cfg=feature="jsonl" — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:34 CONFIRMED
+- fn JsonlAuditSink::new [pub] cfg=feature="jsonl" — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:44 CONFIRMED
+- fn serialize_event [pub] cfg=feature="jsonl" — crates/lance-graph-callcenter/src/audit_sink/jsonl_sink.rs:160 CONFIRMED
+- const LANCE_BUFFER_CAPACITY [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:29 CONFIRMED
+- const LANCE_FLUSH_THRESHOLD [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:32 CONFIRMED
+- fn audit_event_schema [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:35 CONFIRMED
+- struct LanceAuditSink [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:54 CONFIRMED
+- fn LanceAuditSink::new [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/lance_sink.rs:66 CONFIRMED
 - type MerkleRoot [pub] — crates/lance-graph-callcenter/src/audit_sink/mod.rs:16 CONFIRMED
 - enum AuditError [pub] — crates/lance-graph-callcenter/src/audit_sink/mod.rs:20 CONFIRMED
 - trait AuditSink [pub] — crates/lance-graph-callcenter/src/audit_sink/mod.rs:46 CONFIRMED
@@ -73,9 +73,9 @@ Generated; the code is the truth. See ../index.md.
 - mod composite [pub] — crates/lance-graph-callcenter/src/audit_sink/mod.rs:78 CONFIRMED
 - mod jsonl_sink [pub] cfg=feature="jsonl" — crates/lance-graph-callcenter/src/audit_sink/mod.rs:81 CONFIRMED
 - mod lance_sink [pub] cfg=feature="lance-sink" — crates/lance-graph-callcenter/src/audit_sink/mod.rs:84 CONFIRMED
-- struct JwtMiddleware [pub] — crates/lance-graph-callcenter/src/auth.rs:43 CONFIRMED
-- fn JwtMiddleware::extract_actor [pub] — crates/lance-graph-callcenter/src/auth.rs:77 CONFIRMED
-- fn JwtMiddleware::extract_from_header [pub] — crates/lance-graph-callcenter/src/auth.rs:105 CONFIRMED
+- struct JwtMiddleware [pub] cfg=any(feature="auth-jwt", feature="auth", feature="full") — crates/lance-graph-callcenter/src/auth.rs:43 CONFIRMED
+- fn JwtMiddleware::extract_actor [pub] cfg=any(feature="auth-jwt", feature="auth", feature="full") — crates/lance-graph-callcenter/src/auth.rs:77 CONFIRMED
+- fn JwtMiddleware::extract_from_header [pub] cfg=any(feature="auth-jwt", feature="auth", feature="full") — crates/lance-graph-callcenter/src/auth.rs:105 CONFIRMED
 - struct UnifiedBridgeGate [pub] — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:82 CONFIRMED
 - fn UnifiedBridgeGate<B>::new [pub] — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:91 CONFIRMED
 - fn UnifiedBridgeGate<B>::chinese_wall_deny_count [pub] — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:99 CONFIRMED
@@ -127,11 +127,11 @@ Generated; the code is the truth. See ../index.md.
 - fn OgitFamilyTable::clear [pub] — crates/lance-graph-callcenter/src/family_table.rs:267 CONFIRMED
 - fn OgitFamilyTable::len [pub] — crates/lance-graph-callcenter/src/family_table.rs:272 CONFIRMED
 - fn OgitFamilyTable::is_empty [pub] — crates/lance-graph-callcenter/src/family_table.rs:277 CONFIRMED
-- mod columns [pub] — crates/lance-graph-callcenter/src/filter_expr.rs:16 CONFIRMED
-- const GATE_F [pub] — crates/lance-graph-callcenter/src/filter_expr.rs:17 CONFIRMED
-- const THINKING [pub] — crates/lance-graph-callcenter/src/filter_expr.rs:18 CONFIRMED
-- const GATE_COMMIT [pub] — crates/lance-graph-callcenter/src/filter_expr.rs:19 CONFIRMED
-- fn commit_filter_to_expr [pub] — crates/lance-graph-callcenter/src/filter_expr.rs:34 CONFIRMED
+- mod columns [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:16 CONFIRMED
+- const GATE_F [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:17 CONFIRMED
+- const THINKING [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:18 CONFIRMED
+- const GATE_COMMIT [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:19 CONFIRMED
+- fn commit_filter_to_expr [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:34 CONFIRMED
 - struct GraphTraversalSource [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:24 CONFIRMED
 - fn g [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:29 CONFIRMED
 - fn GraphTraversalSource<'a>::v [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:36 CONFIRMED
@@ -144,14 +144,14 @@ Generated; the code is the truth. See ../index.md.
 - fn Traversal<'a>::values_kind [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:124 CONFIRMED
 - fn Traversal<'a>::to_vec [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:139 CONFIRMED
 - fn Traversal<'a>::count [pub] — crates/lance-graph-callcenter/src/graph_gremlin.rs:145 CONFIRMED
-- fn nodes_schema [pub] — crates/lance-graph-callcenter/src/graph_table.rs:29 CONFIRMED
-- fn edges_schema [pub] — crates/lance-graph-callcenter/src/graph_table.rs:39 CONFIRMED
-- fn nodes_batch [pub] — crates/lance-graph-callcenter/src/graph_table.rs:50 CONFIRMED
-- fn edges_batch [pub] — crates/lance-graph-callcenter/src/graph_table.rs:67 CONFIRMED
-- fn nodes_table [pub] — crates/lance-graph-callcenter/src/graph_table.rs:86 CONFIRMED
-- fn edges_table [pub] — crates/lance-graph-callcenter/src/graph_table.rs:91 CONFIRMED
-- fn graph_tables [pub] — crates/lance-graph-callcenter/src/graph_table.rs:96 CONFIRMED
-- fn register_graph [pub] cfg=feature="query" — crates/lance-graph-callcenter/src/graph_table.rs:106 CONFIRMED
+- fn nodes_schema [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:29 CONFIRMED
+- fn edges_schema [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:39 CONFIRMED
+- fn nodes_batch [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:50 CONFIRMED
+- fn edges_batch [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:67 CONFIRMED
+- fn nodes_table [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:86 CONFIRMED
+- fn edges_table [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:91 CONFIRMED
+- fn graph_tables [pub] cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:96 CONFIRMED
+- fn register_graph [pub] cfg=all(feature="query-lite", feature="query") — crates/lance-graph-callcenter/src/graph_table.rs:106 CONFIRMED
 - const SEED_TTL [pub] — crates/lance-graph-callcenter/src/hydration.rs:35 CONFIRMED
 - enum HydrationError [pub] — crates/lance-graph-callcenter/src/hydration.rs:43 CONFIRMED
 - enum HydrationPolicy [pub] — crates/lance-graph-callcenter/src/hydration.rs:69 CONFIRMED
@@ -234,20 +234,20 @@ Generated; the code is the truth. See ../index.md.
 - fn OntologyDto::actions_for [pub] — crates/lance-graph-callcenter/src/ontology_dto.rs:182 CONFIRMED
 - fn smb_ontology [pub] — crates/lance-graph-callcenter/src/ontology_dto.rs:305 CONFIRMED
 - fn medcare_ontology [pub] — crates/lance-graph-callcenter/src/ontology_dto.rs:317 CONFIRMED
-- enum PolicyKind [pub] — crates/lance-graph-callcenter/src/policy.rs:40 CONFIRMED
-- trait PolicyRewriter [pub] cfg=feature="auth-rls-lite" — crates/lance-graph-callcenter/src/policy.rs:56 CONFIRMED
-- enum RedactionMode [pub] — crates/lance-graph-callcenter/src/policy.rs:71 CONFIRMED
-- struct ColumnMaskPolicy [pub] — crates/lance-graph-callcenter/src/policy.rs:85 CONFIRMED
-- struct ColumnMaskRegistry [pub] — crates/lance-graph-callcenter/src/policy.rs:93 CONFIRMED
-- fn ColumnMaskRegistry::new [pub] — crates/lance-graph-callcenter/src/policy.rs:98 CONFIRMED
-- fn ColumnMaskRegistry::register [pub] — crates/lance-graph-callcenter/src/policy.rs:101 CONFIRMED
+- enum PolicyKind [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:40 CONFIRMED
+- trait PolicyRewriter [pub] cfg=all(any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full"), feature="auth-rls-lite") — crates/lance-graph-callcenter/src/policy.rs:56 CONFIRMED
+- enum RedactionMode [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:71 CONFIRMED
+- struct ColumnMaskPolicy [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:85 CONFIRMED
+- struct ColumnMaskRegistry [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:93 CONFIRMED
+- fn ColumnMaskRegistry::new [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:98 CONFIRMED
+- fn ColumnMaskRegistry::register [pub] cfg=any(feature="auth-rls-lite", feature="auth-rls", feature="auth", feature="full") — crates/lance-graph-callcenter/src/policy.rs:101 CONFIRMED
 - truncated (400 total), see symbols.tsv
 
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::auth::ActorContext — crates/lance-graph-callcenter/src/auth.rs:33 CONFIRMED
-- use lance_graph_contract::auth::AuthError — crates/lance-graph-callcenter/src/auth.rs:33 CONFIRMED
+- use lance_graph_contract::auth::ActorContext cfg=any(feature="auth-jwt", feature="auth", feature="full") — crates/lance-graph-callcenter/src/auth.rs:33 CONFIRMED
+- use lance_graph_contract::auth::AuthError cfg=any(feature="auth-jwt", feature="auth", feature="full") — crates/lance-graph-callcenter/src/auth.rs:33 CONFIRMED
 - use lance_graph_contract::property::PrefetchDepth — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:42 CONFIRMED
 - use lance_graph_contract::bridge_gate::CognitiveAuthResult — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:47 CONFIRMED
 - use lance_graph_contract::bridge_gate::CognitiveBridgeGate — crates/lance-graph-callcenter/src/cognitive_bridge_gate.rs:47 CONFIRMED
@@ -267,17 +267,17 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::external_membrane::ExternalEventKind — crates/lance-graph-callcenter/src/external_intent.rs:13 CONFIRMED
 - use lance_graph_contract::external_membrane::ExternalRole — crates/lance-graph-callcenter/src/external_intent.rs:13 CONFIRMED
 - use lance_graph_contract::persona::RoutingHint — crates/lance-graph-callcenter/src/external_intent.rs:14 CONFIRMED
-- use lance_graph_contract::external_membrane::CommitFilter — crates/lance-graph-callcenter/src/filter_expr.rs:13 CONFIRMED
+- use lance_graph_contract::external_membrane::CommitFilter cfg=feature="query" — crates/lance-graph-callcenter/src/filter_expr.rs:13 CONFIRMED
 - use lance_graph_contract::graph_render::GraphSnapshot — crates/lance-graph-callcenter/src/graph_gremlin.rs:20 CONFIRMED
 - use lance_graph_contract::graph_render::RenderEdge cfg=test — crates/lance-graph-callcenter/src/graph_gremlin.rs:153 CONFIRMED
 - use lance_graph_contract::graph_render::RenderNode cfg=test — crates/lance-graph-callcenter/src/graph_gremlin.rs:153 CONFIRMED
-- use lance_graph_contract::graph_render::GraphSnapshot — crates/lance-graph-callcenter/src/graph_table.rs:26 CONFIRMED
-- use lance_graph_contract::canonical_node::EdgeBlock cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
-- use lance_graph_contract::canonical_node::NodeRow cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
-- use lance_graph_contract::canonical_node::classid_read_mode cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
-- use lance_graph_contract::soa_graph::OSINT_GOTHAM cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:119 CONFIRMED
-- use lance_graph_contract::soa_graph::project_snapshot cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:119 CONFIRMED
-- use lance_graph_contract::NodeGuid cfg=test — crates/lance-graph-callcenter/src/graph_table.rs:120 CONFIRMED
+- use lance_graph_contract::graph_render::GraphSnapshot cfg=feature="query-lite" — crates/lance-graph-callcenter/src/graph_table.rs:26 CONFIRMED
+- use lance_graph_contract::canonical_node::EdgeBlock cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
+- use lance_graph_contract::canonical_node::NodeRow cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
+- use lance_graph_contract::canonical_node::classid_read_mode cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:118 CONFIRMED
+- use lance_graph_contract::soa_graph::OSINT_GOTHAM cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:119 CONFIRMED
+- use lance_graph_contract::soa_graph::project_snapshot cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:119 CONFIRMED
+- use lance_graph_contract::NodeGuid cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/graph_table.rs:120 CONFIRMED
 - use lance_graph_contract::a2a_blackboard::ExpertId — crates/lance-graph-callcenter/src/lance_membrane.rs:77 CONFIRMED
 - use lance_graph_contract::cognitive_shader::MetaWord — crates/lance-graph-callcenter/src/lance_membrane.rs:78 CONFIRMED
 - use lance_graph_contract::cognitive_shader::ShaderBus — crates/lance-graph-callcenter/src/lance_membrane.rs:78 CONFIRMED
@@ -327,8 +327,8 @@ Generated; the code is the truth. See ../index.md.
 - pub-use lance_graph_contract::ontology::Ontology — crates/lance-graph-callcenter/src/transcode/mod.rs:78 CONFIRMED
 - pub-use lance_graph_contract::ontology::SchemaExpander — crates/lance-graph-callcenter/src/transcode/mod.rs:78 CONFIRMED
 - use lance_graph_contract::property::Schema cfg=test — crates/lance-graph-callcenter/src/transcode/mod.rs:154 CONFIRMED
-- use lance_graph_contract::ontology::Ontology — crates/lance-graph-callcenter/src/transcode/ontology_table.rs:25 CONFIRMED
-- use lance_graph_contract::property::Schema cfg=test — crates/lance-graph-callcenter/src/transcode/ontology_table.rs:236 CONFIRMED
+- use lance_graph_contract::ontology::Ontology cfg=feature="query-lite" — crates/lance-graph-callcenter/src/transcode/ontology_table.rs:25 CONFIRMED
+- use lance_graph_contract::property::Schema cfg=all(feature="query-lite", test) — crates/lance-graph-callcenter/src/transcode/ontology_table.rs:236 CONFIRMED
 - use lance_graph_contract::hash::fnv1a — crates/lance-graph-callcenter/src/transcode/spo_filter.rs:13 CONFIRMED
 - use lance_graph_contract::ontology::EntityTypeId — crates/lance-graph-callcenter/src/transcode/spo_filter.rs:14 CONFIRMED
 - use lance_graph_contract::ontology::Ontology — crates/lance-graph-callcenter/src/transcode/spo_filter.rs:14 CONFIRMED

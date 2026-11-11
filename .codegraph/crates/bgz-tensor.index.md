@@ -120,19 +120,19 @@ Generated; the code is the truth. See ../index.md.
 - fn FisherZTable::byte_size [pub] — crates/bgz-tensor/src/fisher_z.rs:175 CONFIRMED
 - fn FisherZTable::to_bytes [pub] — crates/bgz-tensor/src/fisher_z.rs:180 CONFIRMED
 - fn FisherZTable::from_bytes [pub] — crates/bgz-tensor/src/fisher_z.rs:189 CONFIRMED
-- struct FractalDescriptor [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:31 CONFIRMED
-- const FractalDescriptor::SIZE_BYTES [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:43 CONFIRMED
-- fn FractalDescriptor::pack [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:45 CONFIRMED
-- fn FractalDescriptor::unpack [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:54 CONFIRMED
-- fn FractalDescriptor::d_local_f32 [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:63 CONFIRMED
-- fn FractalDescriptor::w_mfs_f32 [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:66 CONFIRMED
-- fn FractalDescriptor::h_hurst_f32 [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:69 CONFIRMED
-- fn FractalDescriptor::sigma_energy_f32 [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:72 CONFIRMED
-- fn compute_mfdfa_descriptor [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:83 CONFIRMED
-- struct PhaseDescriptor [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:276 CONFIRMED
-- const PhaseDescriptor::SCALES [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:283 CONFIRMED
-- fn PhaseDescriptor::from_row [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:290 CONFIRMED
-- fn PhaseDescriptor::cosine [pub] — crates/bgz-tensor/src/fractal_descriptor.rs:337 CONFIRMED
+- struct FractalDescriptor [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:31 CONFIRMED
+- const FractalDescriptor::SIZE_BYTES [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:43 CONFIRMED
+- fn FractalDescriptor::pack [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:45 CONFIRMED
+- fn FractalDescriptor::unpack [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:54 CONFIRMED
+- fn FractalDescriptor::d_local_f32 [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:63 CONFIRMED
+- fn FractalDescriptor::w_mfs_f32 [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:66 CONFIRMED
+- fn FractalDescriptor::h_hurst_f32 [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:69 CONFIRMED
+- fn FractalDescriptor::sigma_energy_f32 [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:72 CONFIRMED
+- fn compute_mfdfa_descriptor [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:83 CONFIRMED
+- struct PhaseDescriptor [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:276 CONFIRMED
+- const PhaseDescriptor::SCALES [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:283 CONFIRMED
+- fn PhaseDescriptor::from_row [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:290 CONFIRMED
+- fn PhaseDescriptor::cosine [pub] cfg=feature="lab" — crates/bgz-tensor/src/fractal_descriptor.rs:337 CONFIRMED
 - struct RoleGamma [pub] — crates/bgz-tensor/src/gamma_calibration.rs:52 CONFIRMED
 - const RoleGamma::BYTE_SIZE [pub] — crates/bgz-tensor/src/gamma_calibration.rs:60 CONFIRMED
 - const RoleGamma::Q [pub] — crates/bgz-tensor/src/gamma_calibration.rs:64 CONFIRMED

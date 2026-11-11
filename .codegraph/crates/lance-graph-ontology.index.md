@@ -137,15 +137,15 @@ Generated; the code is the truth. See ../index.md.
 - fn hydrate_zugferd_from [pub] — crates/lance-graph-ontology/src/hydrators/zugferd.rs:76 CONFIRMED
 - fn hydrate_zugferd_rules [pub] — crates/lance-graph-ontology/src/hydrators/zugferd.rs:117 CONFIRMED
 - fn hydrate_zugferd_rules_from [pub] — crates/lance-graph-ontology/src/hydrators/zugferd.rs:121 CONFIRMED
-- const SCHEMA_VERSION [pub] — crates/lance-graph-ontology/src/lance_cache.rs:62 CONFIRMED
-- struct LanceWriter [pub] — crates/lance-graph-ontology/src/lance_cache.rs:64 CONFIRMED
-- fn LanceWriter::open_or_create [pub] — crates/lance-graph-ontology/src/lance_cache.rs:69 CONFIRMED
-- fn LanceWriter::dictionary_path [pub] — crates/lance-graph-ontology/src/lance_cache.rs:136 CONFIRMED
-- fn LanceWriter::meta_path [pub] — crates/lance-graph-ontology/src/lance_cache.rs:140 CONFIRMED
-- fn LanceWriter::flush [pub] — crates/lance-graph-ontology/src/lance_cache.rs:144 CONFIRMED
-- fn LanceWriter::replay [pub] — crates/lance-graph-ontology/src/lance_cache.rs:164 CONFIRMED
-- fn LanceWriter::last_root_checksum [pub] — crates/lance-graph-ontology/src/lance_cache.rs:188 CONFIRMED
-- fn LanceWriter::set_last_root_checksum [pub] — crates/lance-graph-ontology/src/lance_cache.rs:219 CONFIRMED
+- const SCHEMA_VERSION [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:62 CONFIRMED
+- struct LanceWriter [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:64 CONFIRMED
+- fn LanceWriter::open_or_create [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:69 CONFIRMED
+- fn LanceWriter::dictionary_path [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:136 CONFIRMED
+- fn LanceWriter::meta_path [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:140 CONFIRMED
+- fn LanceWriter::flush [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:144 CONFIRMED
+- fn LanceWriter::replay [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:164 CONFIRMED
+- fn LanceWriter::last_root_checksum [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:188 CONFIRMED
+- fn LanceWriter::set_last_root_checksum [pub] cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:219 CONFIRMED
 - mod bridge [pub] — crates/lance-graph-ontology/src/lib.rs:39 CONFIRMED
 - mod bridges [pub] — crates/lance-graph-ontology/src/lib.rs:40 CONFIRMED
 - mod class_resolver [pub] — crates/lance-graph-ontology/src/lib.rs:41 CONFIRMED
@@ -263,12 +263,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::manifest::OGIT — crates/lance-graph-ontology/src/hydrators/skos.rs:24 CONFIRMED
 - use lance_graph_contract::manifest::OGIT — crates/lance-graph-ontology/src/hydrators/skr_datev.rs:22 CONFIRMED
 - use lance_graph_contract::manifest::OGIT — crates/lance-graph-ontology/src/hydrators/zugferd.rs:20 CONFIRMED
-- use lance_graph_contract::property::Marking — crates/lance-graph-ontology/src/lance_cache.rs:28 CONFIRMED
-- use lance_graph_contract::property::SemanticType — crates/lance-graph-ontology/src/lance_cache.rs:28 CONFIRMED
-- use lance_graph_contract::thinking::ThinkingStyle — crates/lance-graph-ontology/src/lance_cache.rs:29 CONFIRMED
-- use lance_graph_contract::property::Marking cfg=test — crates/lance-graph-ontology/src/lance_cache.rs:787 CONFIRMED
-- use lance_graph_contract::property::SemanticType cfg=test — crates/lance-graph-ontology/src/lance_cache.rs:787 CONFIRMED
-- use lance_graph_contract::thinking::ThinkingStyle cfg=test — crates/lance-graph-ontology/src/lance_cache.rs:788 CONFIRMED
+- use lance_graph_contract::property::Marking cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:28 CONFIRMED
+- use lance_graph_contract::property::SemanticType cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:28 CONFIRMED
+- use lance_graph_contract::thinking::ThinkingStyle cfg=feature="lance-cache" — crates/lance-graph-ontology/src/lance_cache.rs:29 CONFIRMED
+- use lance_graph_contract::property::Marking cfg=all(feature="lance-cache", test) — crates/lance-graph-ontology/src/lance_cache.rs:787 CONFIRMED
+- use lance_graph_contract::property::SemanticType cfg=all(feature="lance-cache", test) — crates/lance-graph-ontology/src/lance_cache.rs:787 CONFIRMED
+- use lance_graph_contract::thinking::ThinkingStyle cfg=all(feature="lance-cache", test) — crates/lance-graph-ontology/src/lance_cache.rs:788 CONFIRMED
 - use lance_graph_contract::ontology::DisplayTemplate — crates/lance-graph-ontology/src/odoo_blueprint/class_signature.rs:20 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/lance-graph-ontology/src/odoo_blueprint/class_signature.rs:20 CONFIRMED
 - use lance_graph_contract::ontology::ObjectView — crates/lance-graph-ontology/src/odoo_blueprint/class_signature.rs:20 CONFIRMED

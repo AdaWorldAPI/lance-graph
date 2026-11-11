@@ -70,13 +70,13 @@ Generated; the code is the truth. See ../index.md.
 - fn ternlog_imm [pub] — crates/lance-graph-mask-risc/src/fuse.rs:52 CONFIRMED
 - fn fuse [pub] — crates/lance-graph-mask-risc/src/fuse.rs:194 CONFIRMED
 - fn fuse_program [pub] — crates/lance-graph-mask-risc/src/fuse.rs:210 CONFIRMED
-- struct EdgeColumns [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:28 CONFIRMED
-- struct GraphSnapshot [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:35 CONFIRMED
-- enum HopError [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:43 CONFIRMED
-- struct OutgoingHop [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:55 CONFIRMED
-- fn OutgoingHop::new [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:62 CONFIRMED
-- fn OutgoingHop::program [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:95 CONFIRMED
-- fn OutgoingHop::run [pub] — crates/lance-graph-mask-risc/src/graph_hop.rs:101 CONFIRMED
+- struct EdgeColumns [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:28 CONFIRMED
+- struct GraphSnapshot [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:35 CONFIRMED
+- enum HopError [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:43 CONFIRMED
+- struct OutgoingHop [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:55 CONFIRMED
+- fn OutgoingHop::new [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:62 CONFIRMED
+- fn OutgoingHop::program [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:95 CONFIRMED
+- fn OutgoingHop::run [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/graph_hop.rs:101 CONFIRMED
 - enum Operand [pub] — crates/lance-graph-mask-risc/src/ir.rs:7 CONFIRMED
 - enum LaneRef [pub] — crates/lance-graph-mask-risc/src/ir.rs:16 CONFIRMED
 - struct StridedRef [pub] — crates/lance-graph-mask-risc/src/ir.rs:42 CONFIRMED

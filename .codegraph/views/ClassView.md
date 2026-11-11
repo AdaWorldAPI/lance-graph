@@ -13,14 +13,14 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
 - impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
-- impl ClassView for PubView — crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
+- impl ClassView for PubView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
 - impl ClassView for FakeClasses cfg=test — crates/lance-graph-contract/src/class_view.rs:1600 POSSIBLE
 - impl ClassView for TestClasses cfg=test — crates/lance-graph-contract/src/selection.rs:539 POSSIBLE
 - impl ClassView for RegistryClassView<'_> — crates/lance-graph-ontology/src/class_resolver.rs:104 POSSIBLE
 - impl ClassView for WikidataClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:239 POSSIBLE
 - impl ClassView for PolyfillView — crates/lance-graph-r2il/src/polyfill.rs:231 POSSIBLE
 - impl ClassView for WithPolyfill<'_,V> — crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
-- impl ClassView for View — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
+- impl ClassView for View cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
 
@@ -32,7 +32,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
-- use lance_graph_contract::class_view::ClassView — crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
+- use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
 - pub-use class_view::ClassView — crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
 - use crate::class_view::ClassView — crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
@@ -42,7 +42,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:34 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/binding.rs:77 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/polyfill.rs:29 POSSIBLE
-- use lance_graph_contract::class_view::ClassView — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 

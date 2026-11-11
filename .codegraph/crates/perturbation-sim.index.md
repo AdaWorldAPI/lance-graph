@@ -28,8 +28,8 @@ Generated; the code is the truth. See ../index.md.
 - fn AcSystem::ybus [pub] — crates/perturbation-sim/src/acflow.rs:104 CONFIRMED
 - fn AcSystem::solve [pub] — crates/perturbation-sim/src/acflow.rs:140 CONFIRMED
 - fn AcSystem::collapse_margin [pub] — crates/perturbation-sim/src/acflow.rs:248 CONFIRMED
-- const SYMMETRY_TOL [pub] — crates/perturbation-sim/src/angle_cov.rs:49 CONFIRMED
-- fn angle_covariance [pub] — crates/perturbation-sim/src/angle_cov.rs:64 CONFIRMED
+- const SYMMETRY_TOL [pub] cfg=feature="pillar" — crates/perturbation-sim/src/angle_cov.rs:49 CONFIRMED
+- fn angle_covariance [pub] cfg=feature="pillar" — crates/perturbation-sim/src/angle_cov.rs:64 CONFIRMED
 - struct KronReduced [pub] — crates/perturbation-sim/src/basin.rs:38 CONFIRMED
 - fn KronReduced::pos [pub] — crates/perturbation-sim/src/basin.rs:49 CONFIRMED
 - fn kron_reduce [pub] — crates/perturbation-sim/src/basin.rs:58 CONFIRMED

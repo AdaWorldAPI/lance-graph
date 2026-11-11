@@ -72,12 +72,12 @@ Generated; the code is the truth. See ../index.md.
 - trait TableReader [pub] — crates/lance-graph-catalog/src/table_reader.rs:35 CONFIRMED
 - fn uc_type_to_arrow [pub] — crates/lance-graph-catalog/src/type_mapping.rs:15 CONFIRMED
 - fn columns_to_arrow_schema [pub] — crates/lance-graph-catalog/src/type_mapping.rs:65 CONFIRMED
-- struct UnityCatalogConfig [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:19 CONFIRMED
-- fn UnityCatalogConfig::new [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:29 CONFIRMED
-- fn UnityCatalogConfig::with_token [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:37 CONFIRMED
-- fn UnityCatalogConfig::with_timeout [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:42 CONFIRMED
-- struct UnityCatalogProvider [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:49 CONFIRMED
-- fn UnityCatalogProvider::new [pub] — crates/lance-graph-catalog/src/unity_catalog.rs:55 CONFIRMED
+- struct UnityCatalogConfig [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:19 CONFIRMED
+- fn UnityCatalogConfig::new [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:29 CONFIRMED
+- fn UnityCatalogConfig::with_token [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:37 CONFIRMED
+- fn UnityCatalogConfig::with_timeout [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:42 CONFIRMED
+- struct UnityCatalogProvider [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:49 CONFIRMED
+- fn UnityCatalogProvider::new [pub] cfg=feature="unity-catalog" — crates/lance-graph-catalog/src/unity_catalog.rs:55 CONFIRMED
 
 ## Imports from in-scope crates
 

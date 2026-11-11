@@ -54,9 +54,9 @@ Generated; the code is the truth. See ../index.md.
 - fn AttentionMaskActor<B>::new [pub] — crates/cognitive-shader-driver/src/attention_mask_actor.rs:76 CONFIRMED
 - fn AttentionMaskActor<B>::handle [pub] — crates/cognitive-shader-driver/src/attention_mask_actor.rs:83 CONFIRMED
 - fn AttentionMaskActor<B>::drain_pending_evictions [pub] — crates/cognitive-shader-driver/src/attention_mask_actor.rs:111 CONFIRMED
-- struct ModelFingerprint [pub] — crates/cognitive-shader-driver/src/auto_detect.rs:31 CONFIRMED
-- enum DetectError [pub] — crates/cognitive-shader-driver/src/auto_detect.rs:57 CONFIRMED
-- fn detect [pub] — crates/cognitive-shader-driver/src/auto_detect.rs:118 CONFIRMED
+- struct ModelFingerprint [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/auto_detect.rs:31 CONFIRMED
+- enum DetectError [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/auto_detect.rs:57 CONFIRMED
+- fn detect [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/auto_detect.rs:118 CONFIRMED
 - const DELIBERATE [pub] — crates/cognitive-shader-driver/src/auto_style.rs:23 CONFIRMED
 - const ANALYTICAL [pub] — crates/cognitive-shader-driver/src/auto_style.rs:24 CONFIRMED
 - const CONVERGENT [pub] — crates/cognitive-shader-driver/src/auto_style.rs:25 CONFIRMED
@@ -136,31 +136,31 @@ Generated; the code is the truth. See ../index.md.
 - fn BindSpaceBuilder::push [pub] — crates/cognitive-shader-driver/src/bindspace.rs:451 CONFIRMED
 - fn BindSpaceBuilder::push_typed [pub] — crates/cognitive-shader-driver/src/bindspace.rs:481 CONFIRMED
 - fn BindSpaceBuilder::build [pub] — crates/cognitive-shader-driver/src/bindspace.rs:510 CONFIRMED
-- struct CodecResearchBridge [pub] — crates/cognitive-shader-driver/src/codec_bridge.rs:28 CONFIRMED
-- struct CodecKernelCache [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:41 CONFIRMED
-- fn CodecKernelCache<H>::new [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:49 CONFIRMED
-- fn CodecKernelCache<H>::get_or_compile [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:65 CONFIRMED
-- fn CodecKernelCache<H>::try_get_or_compile [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:89 CONFIRMED
-- fn CodecKernelCache<H>::len [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:114 CONFIRMED
-- fn CodecKernelCache<H>::is_empty [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:119 CONFIRMED
-- fn CodecKernelCache<H>::compile_count [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:124 CONFIRMED
-- fn CodecKernelCache<H>::hit_count [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:129 CONFIRMED
-- fn CodecKernelCache<H>::hit_ratio [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:135 CONFIRMED
-- fn CodecKernelCache<H>::has_signature [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:147 CONFIRMED
-- fn CodecKernelCache<H>::clear [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:152 CONFIRMED
-- struct StubKernel [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:172 CONFIRMED
-- fn StubKernel::from_params [pub] — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:187 CONFIRMED
-- fn list_tensors [pub] — crates/cognitive-shader-driver/src/codec_research.rs:31 CONFIRMED
-- fn calibrate_tensor [pub] — crates/cognitive-shader-driver/src/codec_research.rs:68 CONFIRMED
-- fn row_count_probe [pub] — crates/cognitive-shader-driver/src/codec_research.rs:127 CONFIRMED
-- fn disambiguate_parse_candidates [pub] — crates/cognitive-shader-driver/src/cypher_bridge.rs:44 CONFIRMED
-- struct CypherBridge [pub] — crates/cognitive-shader-driver/src/cypher_bridge.rs:59 CONFIRMED
-- enum DecodeError [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:28 CONFIRMED
-- trait DecodeKernel [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:54 CONFIRMED
-- struct StubDecodeKernel [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:79 CONFIRMED
-- fn StubDecodeKernel::new [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:85 CONFIRMED
-- struct ResidualComposer [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:154 CONFIRMED
-- fn ResidualComposer::new [pub] — crates/cognitive-shader-driver/src/decode_kernel.rs:163 CONFIRMED
+- struct CodecResearchBridge [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:28 CONFIRMED
+- struct CodecKernelCache [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:41 CONFIRMED
+- fn CodecKernelCache<H>::new [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:49 CONFIRMED
+- fn CodecKernelCache<H>::get_or_compile [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:65 CONFIRMED
+- fn CodecKernelCache<H>::try_get_or_compile [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:89 CONFIRMED
+- fn CodecKernelCache<H>::len [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:114 CONFIRMED
+- fn CodecKernelCache<H>::is_empty [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:119 CONFIRMED
+- fn CodecKernelCache<H>::compile_count [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:124 CONFIRMED
+- fn CodecKernelCache<H>::hit_count [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:129 CONFIRMED
+- fn CodecKernelCache<H>::hit_ratio [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:135 CONFIRMED
+- fn CodecKernelCache<H>::has_signature [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:147 CONFIRMED
+- fn CodecKernelCache<H>::clear [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:152 CONFIRMED
+- struct StubKernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:172 CONFIRMED
+- fn StubKernel::from_params [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:187 CONFIRMED
+- fn list_tensors [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:31 CONFIRMED
+- fn calibrate_tensor [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:68 CONFIRMED
+- fn row_count_probe [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:127 CONFIRMED
+- fn disambiguate_parse_candidates [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:44 CONFIRMED
+- struct CypherBridge [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:59 CONFIRMED
+- enum DecodeError [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:28 CONFIRMED
+- trait DecodeKernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:54 CONFIRMED
+- struct StubDecodeKernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:79 CONFIRMED
+- fn StubDecodeKernel::new [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:85 CONFIRMED
+- struct ResidualComposer [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:154 CONFIRMED
+- fn ResidualComposer::new [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/decode_kernel.rs:163 CONFIRMED
 - struct ShaderDriver [pub] — crates/cognitive-shader-driver/src/driver.rs:68 CONFIRMED
 - fn ShaderDriver::new [pub] — crates/cognitive-shader-driver/src/driver.rs:119 CONFIRMED
 - fn ShaderDriver::with_nars_tables [pub] — crates/cognitive-shader-driver/src/driver.rs:149 CONFIRMED
@@ -206,10 +206,10 @@ Generated; the code is the truth. See ../index.md.
 - const UNIFIED_STYLES [pub] — crates/cognitive-shader-driver/src/engine_bridge.rs:641 CONFIRMED
 - fn unified_style [pub] — crates/cognitive-shader-driver/src/engine_bridge.rs:824 CONFIRMED
 - fn persist_cycle [pub] — crates/cognitive-shader-driver/src/engine_bridge.rs:838 CONFIRMED
-- mod pb [pub] — crates/cognitive-shader-driver/src/grpc.rs:30 CONFIRMED
-- struct ShaderGrpcService [pub] — crates/cognitive-shader-driver/src/grpc.rs:36 CONFIRMED
-- fn ShaderGrpcService::new [pub] — crates/cognitive-shader-driver/src/grpc.rs:42 CONFIRMED
-- fn ShaderGrpcService::into_server [pub] — crates/cognitive-shader-driver/src/grpc.rs:49 CONFIRMED
+- mod pb [pub] cfg=feature="grpc" — crates/cognitive-shader-driver/src/grpc.rs:30 CONFIRMED
+- struct ShaderGrpcService [pub] cfg=feature="grpc" — crates/cognitive-shader-driver/src/grpc.rs:36 CONFIRMED
+- fn ShaderGrpcService::new [pub] cfg=feature="grpc" — crates/cognitive-shader-driver/src/grpc.rs:42 CONFIRMED
+- fn ShaderGrpcService::into_server [pub] cfg=feature="grpc" — crates/cognitive-shader-driver/src/grpc.rs:49 CONFIRMED
 - struct Palette [pub] — crates/cognitive-shader-driver/src/immaterial_needle.rs:16 CONFIRMED
 - struct Needle [pub] — crates/cognitive-shader-driver/src/immaterial_needle.rs:20 CONFIRMED
 - fn Needle::pair [pub] — crates/cognitive-shader-driver/src/immaterial_needle.rs:27 CONFIRMED
@@ -272,8 +272,8 @@ Generated; the code is the truth. See ../index.md.
 ### lance-graph-contract
 - pub-use lance_graph_contract::collapse_gate::MailboxId — crates/cognitive-shader-driver/src/attention_mask.rs:16 CONFIRMED
 - use lance_graph_contract::collapse_gate::MailboxId — crates/cognitive-shader-driver/src/attention_mask_actor.rs:4 CONFIRMED
-- use lance_graph_contract::cam::Distance — crates/cognitive-shader-driver/src/auto_detect.rs:19 CONFIRMED
-- use lance_graph_contract::cam::LaneWidth — crates/cognitive-shader-driver/src/auto_detect.rs:19 CONFIRMED
+- use lance_graph_contract::cam::Distance cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/auto_detect.rs:19 CONFIRMED
+- use lance_graph_contract::cam::LaneWidth cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/auto_detect.rs:19 CONFIRMED
 - use lance_graph_contract::cognitive_shader::StyleSelector — crates/cognitive-shader-driver/src/auto_style.rs:19 CONFIRMED
 - use lance_graph_contract::cognitive_shader::ColumnWindow — crates/cognitive-shader-driver/src/backing.rs:44 CONFIRMED
 - use lance_graph_contract::cognitive_shader::MetaFilter — crates/cognitive-shader-driver/src/backing.rs:44 CONFIRMED
@@ -284,35 +284,35 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::cognitive_shader::MetaWord — crates/cognitive-shader-driver/src/bindspace.rs:15 CONFIRMED
 - use lance_graph_contract::qualia::QualiaI4_16D — crates/cognitive-shader-driver/src/bindspace.rs:16 CONFIRMED
 - use lance_graph_contract::qualia::QualiaVector cfg=feature="with-engine" — crates/cognitive-shader-driver/src/bindspace.rs:23 CONFIRMED
-- use lance_graph_contract::nars::InferenceType — crates/cognitive-shader-driver/src/codec_bridge.rs:18 CONFIRMED
-- use lance_graph_contract::orchestration::OrchestrationBridge — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
-- use lance_graph_contract::orchestration::OrchestrationError — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
-- use lance_graph_contract::orchestration::StepDomain — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
-- use lance_graph_contract::orchestration::StepStatus — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
-- use lance_graph_contract::orchestration::UnifiedStep — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
-- use lance_graph_contract::plan::ThinkingContext — crates/cognitive-shader-driver/src/codec_bridge.rs:22 CONFIRMED
-- use lance_graph_contract::thinking::ThinkingStyle — crates/cognitive-shader-driver/src/codec_bridge.rs:23 CONFIRMED
-- use lance_graph_contract::cam::CodecParams — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:32 CONFIRMED
-- use lance_graph_contract::cam::CodecParamsError — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:32 CONFIRMED
-- use lance_graph_contract::cam::CodecParamsBuilder cfg=test — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
-- use lance_graph_contract::cam::LaneWidth cfg=test — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
-- use lance_graph_contract::cam::Rotation cfg=test — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
-- use lance_graph_contract::cam::CodecRoute — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
-- use lance_graph_contract::cam::NUM_CENTROIDS — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
-- use lance_graph_contract::cam::NUM_SUBSPACES — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
-- use lance_graph_contract::cam::route_tensor — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
-- use lance_graph_contract::crystal::fingerprint::CrystalFingerprint — crates/cognitive-shader-driver/src/cypher_bridge.rs:26 CONFIRMED
-- use lance_graph_contract::grammar::context_chain::ContextChain — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
-- use lance_graph_contract::grammar::context_chain::DisambiguateOpts — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
-- use lance_graph_contract::grammar::context_chain::DisambiguationResult — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
-- use lance_graph_contract::nars::InferenceType — crates/cognitive-shader-driver/src/cypher_bridge.rs:30 CONFIRMED
-- use lance_graph_contract::orchestration::OrchestrationBridge — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
-- use lance_graph_contract::orchestration::OrchestrationError — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
-- use lance_graph_contract::orchestration::StepDomain — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
-- use lance_graph_contract::orchestration::StepStatus — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
-- use lance_graph_contract::orchestration::UnifiedStep — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
-- use lance_graph_contract::plan::ThinkingContext — crates/cognitive-shader-driver/src/cypher_bridge.rs:34 CONFIRMED
-- use lance_graph_contract::thinking::ThinkingStyle — crates/cognitive-shader-driver/src/cypher_bridge.rs:35 CONFIRMED
+- use lance_graph_contract::nars::InferenceType cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:18 CONFIRMED
+- use lance_graph_contract::orchestration::OrchestrationBridge cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
+- use lance_graph_contract::orchestration::OrchestrationError cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
+- use lance_graph_contract::orchestration::StepDomain cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
+- use lance_graph_contract::orchestration::StepStatus cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
+- use lance_graph_contract::orchestration::UnifiedStep cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:20 CONFIRMED
+- use lance_graph_contract::plan::ThinkingContext cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:22 CONFIRMED
+- use lance_graph_contract::thinking::ThinkingStyle cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_bridge.rs:23 CONFIRMED
+- use lance_graph_contract::cam::CodecParams cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:32 CONFIRMED
+- use lance_graph_contract::cam::CodecParamsError cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:32 CONFIRMED
+- use lance_graph_contract::cam::CodecParamsBuilder cfg=all(any(feature="serve", feature="grpc"), test) — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
+- use lance_graph_contract::cam::LaneWidth cfg=all(any(feature="serve", feature="grpc"), test) — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
+- use lance_graph_contract::cam::Rotation cfg=all(any(feature="serve", feature="grpc"), test) — crates/cognitive-shader-driver/src/codec_kernel_cache.rs:203 CONFIRMED
+- use lance_graph_contract::cam::CodecRoute cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
+- use lance_graph_contract::cam::NUM_CENTROIDS cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
+- use lance_graph_contract::cam::NUM_SUBSPACES cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
+- use lance_graph_contract::cam::route_tensor cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/codec_research.rs:19 CONFIRMED
+- use lance_graph_contract::crystal::fingerprint::CrystalFingerprint cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:26 CONFIRMED
+- use lance_graph_contract::grammar::context_chain::ContextChain cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
+- use lance_graph_contract::grammar::context_chain::DisambiguateOpts cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
+- use lance_graph_contract::grammar::context_chain::DisambiguationResult cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:28 CONFIRMED
+- use lance_graph_contract::nars::InferenceType cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:30 CONFIRMED
+- use lance_graph_contract::orchestration::OrchestrationBridge cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
+- use lance_graph_contract::orchestration::OrchestrationError cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
+- use lance_graph_contract::orchestration::StepDomain cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
+- use lance_graph_contract::orchestration::StepStatus cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
+- use lance_graph_contract::orchestration::UnifiedStep cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:32 CONFIRMED
+- use lance_graph_contract::plan::ThinkingContext cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:34 CONFIRMED
+- use lance_graph_contract::thinking::ThinkingStyle cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/cypher_bridge.rs:35 CONFIRMED
 - use lance_graph_contract::cognitive_shader::AlphaComposite — crates/cognitive-shader-driver/src/driver.rs:36 CONFIRMED
 - use lance_graph_contract::cognitive_shader::CognitiveShaderDriver — crates/cognitive-shader-driver/src/driver.rs:36 CONFIRMED
 - use lance_graph_contract::cognitive_shader::EmitMode — crates/cognitive-shader-driver/src/driver.rs:36 CONFIRMED

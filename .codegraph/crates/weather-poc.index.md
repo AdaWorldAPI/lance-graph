@@ -27,13 +27,13 @@ Generated; the code is the truth. See ../index.md.
 - enum BakeStreamError [pub] — crates/weather-poc/src/bake.rs:119 CONFIRMED
 - fn pack_cell [pub] — crates/weather-poc/src/bake.rs:148 CONFIRMED
 - fn bake_timestep [pub] — crates/weather-poc/src/bake.rs:194 CONFIRMED
-- fn weather_value_offset [pub] — crates/weather-poc/src/canonical.rs:26 CONFIRMED
-- fn weather_tail_capacity [pub] — crates/weather-poc/src/canonical.rs:34 CONFIRMED
-- enum CanonicalRowError [pub] — crates/weather-poc/src/canonical.rs:40 CONFIRMED
-- enum CanonicalBakeError [pub] — crates/weather-poc/src/canonical.rs:87 CONFIRMED
-- fn assemble_row [pub] — crates/weather-poc/src/canonical.rs:127 CONFIRMED
-- fn row_bytes [pub] — crates/weather-poc/src/canonical.rs:166 CONFIRMED
-- fn bake_timestep_to_writer [pub] — crates/weather-poc/src/canonical.rs:181 CONFIRMED
+- fn weather_value_offset [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:26 CONFIRMED
+- fn weather_tail_capacity [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:34 CONFIRMED
+- enum CanonicalRowError [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:40 CONFIRMED
+- enum CanonicalBakeError [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:87 CONFIRMED
+- fn assemble_row [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:127 CONFIRMED
+- fn row_bytes [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:166 CONFIRMED
+- fn bake_timestep_to_writer [pub] cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:181 CONFIRMED
 - const LO_PERCENTILE [pub] — crates/weather-poc/src/floor.rs:43 CONFIRMED
 - const HI_PERCENTILE [pub] — crates/weather-poc/src/floor.rs:47 CONFIRMED
 - struct SaturationScore [pub] — crates/weather-poc/src/floor.rs:57 CONFIRMED
@@ -82,14 +82,14 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::canonical_node::EdgeBlock — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::NODE_ROW_STRIDE — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::NodeGuid — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::NodeRow — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::VALUE_SLAB_LEN — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::ValueSchema — crates/weather-poc/src/canonical.rs:14 CONFIRMED
-- use lance_graph_contract::canonical_node::VALUE_SLAB_ROW_OFFSET — crates/weather-poc/src/canonical.rs:15 CONFIRMED
-- use lance_graph_contract::canonical_node::VALUE_TENANTS — crates/weather-poc/src/canonical.rs:15 CONFIRMED
+- use lance_graph_contract::canonical_node::EdgeBlock cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::NODE_ROW_STRIDE cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::NodeGuid cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::NodeRow cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::VALUE_SLAB_LEN cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::ValueSchema cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:14 CONFIRMED
+- use lance_graph_contract::canonical_node::VALUE_SLAB_ROW_OFFSET cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:15 CONFIRMED
+- use lance_graph_contract::canonical_node::VALUE_TENANTS cfg=feature="canonical-row" — crates/weather-poc/src/canonical.rs:15 CONFIRMED
 
 ## Calls
 
