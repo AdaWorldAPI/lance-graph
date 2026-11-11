@@ -20,6 +20,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 egglog = { git = "https://github.com/AdaWorldAPI/egglog", branch = "main" }
 # Compiled identity of a certified lowering (relcomp::lowering_digest).
 sha2 = "0.10"
+# D-NFR-1 (src/nfr1.rs): mapping replay and admission over the DR
+# versioned mapping (MapTable, Frame). The library names dt64 only.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
 
 [dev-dependencies]
 lance-graph-act-r = { path = "../lance-graph-act-r" }

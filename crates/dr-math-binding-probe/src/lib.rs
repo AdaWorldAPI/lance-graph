@@ -294,3 +294,7 @@ pub mod where_dr3;
 /// D-DRCA-3: DR #4 method routing over one admitted register. DT-owned
 /// method key, guard witness and effect order are carried opaque.
 pub mod dr4;
+
+/// D-NFR-1: a framed binding admitted by mapping replay; content-dependent
+/// results are kept only under a matching change witness (EXO-255).
+pub mod nfr1;

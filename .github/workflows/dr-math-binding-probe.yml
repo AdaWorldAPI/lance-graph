@@ -10,6 +10,7 @@ on:
       - "crates/lance-graph-act-r/**"
       - "crates/lance-graph-quack/**"
       - "crates/lance-graph-mask-risc/**"
+      - "crates/lance-graph-dt64/**"
       - ".github/workflows/dr-math-binding-probe.yml"
       - "rust-toolchain.toml"
   push:
@@ -20,6 +21,7 @@ on:
       - "crates/lance-graph-act-r/**"
       - "crates/lance-graph-quack/**"
       - "crates/lance-graph-mask-risc/**"
+      - "crates/lance-graph-dt64/**"
       - ".github/workflows/dr-math-binding-probe.yml"
       - "rust-toolchain.toml"
   workflow_dispatch:
