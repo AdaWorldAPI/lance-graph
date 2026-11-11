@@ -164,6 +164,25 @@ replays the frame's own layout and `locate` resolves global → (tile, local)
 "existing contract" the operator ruling points to. S7 therefore builds no
 store: it keys kept selections and class bindings onto that log.
 
+Pictures four and five ("3D-Join & wiederverwendbarer Hyperwürfel";
+"DR³ / DT64³ — Turning the Graph Inside Out") add:
+
+- the inside-out transform: an edge forest (s, p, o) becomes coordinates
+  (x, y, z); a triplet is an addressed point, a selection is a geometric
+  slice, compose is movement across axes. Which meaning each axis carries
+  is named by the binding (§1a); the pictures use X = identity,
+  Y = relation / property, Z = context / version / behaviour, while
+  `Extent` in code is identity × property × predicate (`dr.rs:91-125`);
+- A ⋈ B ⋈ C over foreign keys as one bag in 3-D, built once and queried for
+  every combination; Quack carries behaviour, XLOG / Soufflé carries the
+  logic strategies;
+- **open (operator):** the "persistent register" holding the full join bag.
+  Read as the sparse, factored addressed relation (multiplicities on
+  coordinates, picture two), it is a derived relation at a higher rung and
+  fits the zero-copy carve-out. Read as a dense precomputed join, it would
+  contradict "never densely stored" and the content ruling of §1. This plan
+  assumes the first reading until ruled.
+
 The third picture's `F###` list (F001 `ClassView::select`, F011
 `WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
 follow EXO-254 (F + technology digit + command byte) and are not minted here.
