@@ -36,7 +36,7 @@ lance-graph-benches	crates/lance-graph-benches	member	2f2fb296a08260fb
 lance-graph-callcenter	crates/lance-graph-callcenter	member	41a65d38ac70bc87
 lance-graph-catalog	crates/lance-graph-catalog	member	9d0c34f70c28a465
 lance-graph-codec-research	crates/lance-graph-codec-research	excluded	8b8afbd9a6d0f359
-lance-graph-codegraph	crates/lance-graph-codegraph	excluded	d7f19d8d862f76e3
+lance-graph-codegraph	crates/lance-graph-codegraph	excluded	03c06e701aa81d11
 lance-graph-cognitive	crates/lance-graph-cognitive	excluded	93f956ac0d69ca66
 lance-graph-consumer-conformance	crates/lance-graph-consumer-conformance	member	82e980465d770990
 lance-graph-contract	crates/lance-graph-contract	member	6b4e13ff1d0afadb

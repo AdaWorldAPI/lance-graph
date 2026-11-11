@@ -4,10 +4,20 @@
 //! ```text
 //! cargo run --release --example cg_query -- <store_dir> <src_root> symbols [SUBSTRING]
 //! cargo run --release --example cg_query -- <store_dir> <src_root> callers|callees|impact|refs SYMBOL
+//! cargo run --release --example cg_query -- <store_dir> <src_root> effects SYMBOL | --kind EFFECT:KIND | --reach SYMBOL (--kind EFFECT:KIND | --class LIST)
 //! cargo run --release --example cg_query -- <store_dir> <src_root> impact-report SYMBOL \
 //!     [--deps a,b | --consumers-closed] [--targets CRATE=lib,tests,examples,benches]... \
 //!     [--exclude CRATE=REGION]... [--no-freshness]
 //! ```
+//!
+//! `effects SYMBOL` and `effects --kind EFFECT:KIND` (for example `ASSERT:DivisionByZero`,
+//! `DEREF_WRITE:Arg`) print the rows of `<crate>.effects.tsv`: what a function body witnesses.
+//! A function without a row is printed as `NONE-WITNESSED`, which is not a purity verdict, and a
+//! crate without an effects file as `CRATE-NOT-READ`. `--reach SYMBOL` joins the effect rows with
+//! the call rows: the effects in bodies SYMBOL is or reaches, each with its grade. `--class` takes
+//! a list of `division,remainder,shift,write`. Every known reason the answer may be missing
+//! effects is a `LIMIT` line (a crate without an effects file, an incomplete harvest, dynamic
+//! calls), and an answer with a limit and no hit is printed as `UNKNOWN`, never as none.
 //!
 //! `impact-report` (alias `report`) prints [`Codegraph::impact_report`]: whether the symbol has a
 //! position, the impact masks, the stored crates, and every coverage gap of the declared scope,
@@ -27,6 +37,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use lance_graph_codegraph::effects::{Effect, EffectAnswer, EffectClass, EffectKind, Effects};
 use lance_graph_codegraph::impact_report::{Consumers, Scope, SymbolState, Targets};
 use lance_graph_codegraph::Codegraph;
 
@@ -70,6 +81,151 @@ fn observed_files(g: &Codegraph) -> Vec<String> {
     files.sort();
     files.dedup();
     files
+}
+
+fn effect_line(src: &Path, e: &Effect) -> String {
+    let (effect, kind) = e.kind.columns();
+    let site = match &e.site {
+        Some(s) => format!(
+            "{}\t{}\t{}..{}",
+            s.file,
+            line_of(src, &s.file, s.start),
+            s.start,
+            s.end
+        ),
+        None => "-\t-\t-".to_string(),
+    };
+    format!("effect\t{effect}\t{kind}\t{}\t{site}", e.subject)
+}
+
+fn parse_classes(list: &str) -> Option<Vec<EffectClass>> {
+    list.split(',')
+        .map(|c| match c {
+            "division" => Some(EffectClass::Division),
+            "remainder" => Some(EffectClass::Remainder),
+            "shift" => Some(EffectClass::Shift),
+            "write" => Some(EffectClass::Write),
+            _ => None,
+        })
+        .collect()
+}
+
+fn parse_kind(spec: &str) -> Option<EffectKind> {
+    match spec.split_once(':') {
+        Some(("ASSERT", k)) if !k.is_empty() => Some(EffectKind::Assert(k.to_string())),
+        Some(("DEREF_WRITE", "Arg")) => Some(EffectKind::DerefWriteArg),
+        Some(("DEREF_WRITE", "Local")) => Some(EffectKind::DerefWriteLocal),
+        _ => None,
+    }
+}
+
+/// `effects SYMBOL`, `effects --kind EFFECT:KIND` or `effects --reach SYMBOL (--kind EFFECT:KIND | --class LIST)`. Exit 4 when the symbol's crate has no
+/// effects file; 0 otherwise, also for a function without a row.
+fn effects(store: &Path, src: &Path, args: &[String]) -> ExitCode {
+    let fx = match Effects::open(store) {
+        Ok(fx) => fx,
+        Err(e) => {
+            println!("REFUSED\teffects\t{e:?}");
+            return ExitCode::from(3);
+        }
+    };
+    let read: Vec<&str> = fx.crates().collect();
+    match args {
+        [flag, spec] if flag == "--kind" => {
+            let Some(kind) = parse_kind(spec) else {
+                eprintln!("--kind needs ASSERT:<tag>, DEREF_WRITE:Arg or DEREF_WRITE:Local");
+                return ExitCode::from(2);
+            };
+            let mut n = 0u32;
+            for e in fx.with_kind(&kind) {
+                println!("{}", effect_line(src, e));
+                n += 1;
+            }
+            println!("effects\t{n}\tcrates-read={}", read.join(","));
+            ExitCode::SUCCESS
+        }
+        [flag, sym, how, spec] if flag == "--reach" && (how == "--kind" || how == "--class") => {
+            let one_kind = if how == "--kind" {
+                parse_kind(spec)
+            } else {
+                None
+            };
+            let classes = if how == "--class" {
+                parse_classes(spec)
+            } else {
+                None
+            };
+            if one_kind.is_none() && classes.is_none() {
+                eprintln!("--kind needs ASSERT:<tag>, DEREF_WRITE:Arg or DEREF_WRITE:Local; --class needs a list of division,remainder,shift,write");
+                return ExitCode::from(2);
+            }
+            let keep = |k: &EffectKind| match (&one_kind, &classes) {
+                (Some(want), _) => k == want,
+                (_, Some(cs)) => k.class().is_some_and(|c| cs.contains(&c)),
+                _ => false,
+            };
+            let g = match Codegraph::open(store) {
+                Ok(g) => g,
+                Err(e) => {
+                    println!("REFUSED\topen\t{e:?}");
+                    return ExitCode::from(3);
+                }
+            };
+            match g.effects_reached(sym, &fx, keep) {
+                Err(e) => {
+                    println!("REFUSED\teffects\t{e:?}");
+                    ExitCode::from(3)
+                }
+                Ok(None) => {
+                    println!("UNKNOWN\tsymbol-not-in-store\t{sym}");
+                    ExitCode::from(4)
+                }
+                Ok(Some(r)) => {
+                    for h in &r.hits {
+                        println!("reach\t{:?}\t{}", h.grade, effect_line(src, h.effect));
+                    }
+                    for l in &r.limits {
+                        println!("LIMIT\t{l:?}");
+                    }
+                    for k in &read {
+                        if let Some(i) = fx.identity(k) {
+                            println!("effects-file\t{k}\tfnv64={:016x}\trows={}", i.fnv64, i.rows);
+                        }
+                    }
+                    // A partial answer with no hit is "unknown", never "none".
+                    let status = match (r.partial(), r.hits.is_empty()) {
+                        (true, true) => "UNKNOWN (partial: see LIMIT lines)",
+                        (true, false) => "PARTIAL (see LIMIT lines)",
+                        (false, _) => "no known limit (not a proof of absence)",
+                    };
+                    println!("reached\t{}\t{status}", r.hits.len());
+                    ExitCode::SUCCESS
+                }
+            }
+        }
+        [sym] if !sym.starts_with("--") => match fx.of(sym) {
+            EffectAnswer::Witnessed(rows) => {
+                for e in rows {
+                    println!("{}", effect_line(src, e));
+                }
+                ExitCode::SUCCESS
+            }
+            EffectAnswer::NoneWitnessed => {
+                println!("NONE-WITNESSED\t{sym}\tnot a purity verdict");
+                ExitCode::SUCCESS
+            }
+            EffectAnswer::CrateNotRead => {
+                println!("CRATE-NOT-READ\t{sym}\tcrates-read={}", read.join(","));
+                ExitCode::from(4)
+            }
+        },
+        _ => {
+            eprintln!(
+                "effects needs a SYMBOL, --kind EFFECT:KIND, or --reach SYMBOL (--kind EFFECT:KIND | --class LIST)"
+            );
+            ExitCode::from(2)
+        }
+    }
 }
 
 fn parse_targets(list: &str) -> Option<Targets> {
@@ -201,7 +357,7 @@ fn impact_report(g: &Codegraph, store: &Path, src: &Path, sym: &str, flags: &[St
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() < 3 {
-        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | impact-report SYMBOL [--deps a,b | --consumers-closed] [--targets CRATE=LIST]... [--exclude CRATE=REGION]... [--no-freshness]");
+        eprintln!("usage: cg_query <store_dir> <src_root> symbols [SUBSTR] | sweep | callers|callees|impact|refs SYMBOL | effects SYMBOL|--kind EFFECT:KIND | impact-report SYMBOL [--deps a,b | --consumers-closed] [--targets CRATE=LIST]... [--exclude CRATE=REGION]... [--no-freshness]");
         return ExitCode::from(2);
     }
     let (store, src, cmd) = (
@@ -209,6 +365,9 @@ fn main() -> ExitCode {
         PathBuf::from(&args[1]),
         args[2].as_str(),
     );
+    if cmd == "effects" {
+        return effects(&store, &src, &args[3..]);
+    }
     let mut g = match Codegraph::open(&store) {
         Ok(g) => g,
         Err(e) => {

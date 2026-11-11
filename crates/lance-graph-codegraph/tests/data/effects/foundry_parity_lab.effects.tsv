@@ -1,0 +1,215 @@
+#version 1
+#schema subject	effect	kind	file	start	end
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1772	1782
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1800	1810
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1850	1859
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1901	1917
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1927	1947
+foundry_parity_lab::arm_b::demanded_fields	ASSERT	Overflow:Add	src/arm_b.rs	1957	1969
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2394	2406
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2341	2351
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2283	2293
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2232	2241
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2181	2191
+foundry_parity_lab::bind::field	ASSERT	Overflow:Sub	src/bind.rs	2130	2140
+foundry_parity_lab::fixture::mix	ASSERT	Overflow:Shr	src/fixture.rs	2483	2490
+foundry_parity_lab::fixture::mix	ASSERT	Overflow:Shr	src/fixture.rs	2548	2555
+foundry_parity_lab::fixture::mix	ASSERT	Overflow:Shr	src/fixture.rs	2612	2621
+foundry_parity_lab::fixture::h	ASSERT	Overflow:Shl	src/fixture.rs	2677	2688
+foundry_parity_lab::fixture::h	ASSERT	Overflow:Shl	src/fixture.rs	2691	2709
+foundry_parity_lab::fixture::recipe	ASSERT	RemainderByZero	src/fixture.rs	3351	3364
+foundry_parity_lab::fixture::recipe	ASSERT	RemainderByZero	src/fixture.rs	3381	3391
+foundry_parity_lab::fixture::recipe	ASSERT	RemainderByZero	src/fixture.rs	3416	3430
+foundry_parity_lab::fixture::recipe	ASSERT	Overflow:Rem	src/fixture.rs	3416	3430
+foundry_parity_lab::fixture::recipe	ASSERT	Overflow:Add	src/fixture.rs	3412	3430
+foundry_parity_lab::fixture::recipe	ASSERT	RemainderByZero	src/fixture.rs	3463	3477
+foundry_parity_lab::fixture::recipe	ASSERT	Overflow:Rem	src/fixture.rs	3463	3477
+foundry_parity_lab::fixture::recipe	ASSERT	Overflow:Mul	src/fixture.rs	3459	3477
+foundry_parity_lab::fixture::recipe	ASSERT	Overflow:Add	src/fixture.rs	3454	3477
+foundry_parity_lab::fixture::recipe	DEREF_WRITE	Local	src/fixture.rs	2849	2890
+foundry_parity_lab::fixture::stock	ASSERT	RemainderByZero	src/fixture.rs	4197	4214
+foundry_parity_lab::fixture::stock	ASSERT	Overflow:Add	src/fixture.rs	4192	4221
+foundry_parity_lab::fixture::unit_cost	ASSERT	RemainderByZero	src/fixture.rs	4530	4548
+foundry_parity_lab::fixture::unit_cost	ASSERT	Overflow:Add	src/fixture.rs	4525	4555
+foundry_parity_lab::fixture::staff	ASSERT	RemainderByZero	src/fixture.rs	4940	4956
+foundry_parity_lab::fixture::delivery_slots	ASSERT	RemainderByZero	src/fixture.rs	5267	5283
+foundry_parity_lab::fixture::delivery_minutes	ASSERT	RemainderByZero	src/fixture.rs	5447	5464
+foundry_parity_lab::fixture::delivery_minutes	ASSERT	Overflow:Add	src/fixture.rs	5442	5471
+foundry_parity_lab::fixture::store_id	ASSERT	Overflow:Add	src/fixture.rs	5546	5570
+foundry_parity_lab::method::method_id	ASSERT	Overflow:Shl	src/method.rs	2125	2142
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2348	2362
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2393	2415
+foundry_parity_lab::method::can_cook_guard	DEREF_WRITE	Local	src/method.rs	2321	2430
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2493	2505
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2546	2558
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Mul	src/method.rs	2576	2581
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2700	2715
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Sub	src/method.rs	2699	2720
+foundry_parity_lab::method::can_cook_guard	ASSERT	DivisionByZero	src/method.rs	2699	2734
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Div	src/method.rs	2699	2734
+foundry_parity_lab::method::can_cook_guard	ASSERT	Overflow:Add	src/method.rs	2762	2780
+foundry_parity_lab::method::rename	ASSERT	BoundsCheck	src/method.rs	5911	5929
+foundry_parity_lab::method::rename	ASSERT	BoundsCheck	src/method.rs	6209	6230
+foundry_parity_lab::method::rename	ASSERT	BoundsCheck	src/method.rs	6524	6545
+foundry_parity_lab::source::mask_from	ASSERT	Overflow:Shl	src/source.rs	2225	2231
+foundry_parity_lab::source::mask_from	DEREF_WRITE	Local	src/source.rs	2253	2260
+foundry_parity_lab::arm_a::{Objects}::can_cook	ASSERT	DivisionByZero	src/arm_a.rs	2572	2577
+foundry_parity_lab::arm_a::{Objects}::can_cook	ASSERT	Overflow:Div	src/arm_a.rs	2572	2577
+foundry_parity_lab::arm_a::{Objects}::can_cook	ASSERT	Overflow:Mul	src/arm_a.rs	3096	3126
+foundry_parity_lab::arm_a::{Objects}::store_costs	ASSERT	BoundsCheck	src/arm_a.rs	4270	4276
+foundry_parity_lab::arm_a::{Objects}::store_costs	ASSERT	BoundsCheck	src/arm_a.rs	4270	4279
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::open	ASSERT	Overflow:Sub	src/arm_b.rs	5030	5047
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::open	ASSERT	Overflow:Sub	src/arm_b.rs	5306	5323
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::open	ASSERT	Overflow:Sub	src/arm_b.rs	4871	4888
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::open	ASSERT	BoundsCheck	src/arm_b.rs	4722	4747
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::mask	ASSERT	BoundsCheck	src/arm_b.rs	5798	5811
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::lane	ASSERT	BoundsCheck	src/arm_b.rs	6109	6122
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Mul	src/arm_b.rs	6775	6793
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	6771	6793
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	6828	6848
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	6882	6902
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7706	7722
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7746	7761
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Sub	src/arm_b.rs	7745	7766
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	DivisionByZero	src/arm_b.rs	7745	7780
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Div	src/arm_b.rs	7745	7780
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7298	7308
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7436	7446
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Mul	src/arm_b.rs	7473	7478
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7436	7446
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Mul	src/arm_b.rs	7473	7478
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7706	7722
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7746	7761
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Sub	src/arm_b.rs	7745	7766
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	DivisionByZero	src/arm_b.rs	7745	7780
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Div	src/arm_b.rs	7745	7780
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7298	7308
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7436	7446
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Mul	src/arm_b.rs	7473	7478
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Add	src/arm_b.rs	7436	7446
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::cook_ops	ASSERT	Overflow:Mul	src/arm_b.rs	7473	7478
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::denied_mask	DEREF_WRITE	Local	src/arm_b.rs	9472	9494
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::unknown_mask	DEREF_WRITE	Local	src/arm_b.rs	9659	9681
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::unknown_mask	ASSERT	Overflow:Add	src/arm_b.rs	9713	9745
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::unknown_mask	ASSERT	Overflow:Add	src/arm_b.rs	10010	10020
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::store_at	ASSERT	BoundsCheck	src/arm_b.rs	10345	10356
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::max_quantities	ASSERT	BoundsCheck	src/arm_b.rs	11113	11124
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::max_quantities	ASSERT	Overflow:Sub	src/arm_b.rs	11112	11141
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::max_quantities	ASSERT	BoundsCheck	src/arm_b.rs	11108	11151
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::max_quantities	ASSERT	Overflow:Sub	src/arm_b.rs	11181	11189
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	11907	11918
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	Overflow:Sub	src/arm_b.rs	11906	11935
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	Overflow:Shr	src/arm_b.rs	11989	12000
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	Overflow:Shr	src/arm_b.rs	12083	12095
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12222	12228
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12260	12266
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12222	12228
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12260	12266
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	Overflow:Shr	src/arm_b.rs	12083	12095
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12222	12228
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12260	12266
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12222	12228
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	12260	12266
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::answers	ASSERT	BoundsCheck	src/arm_b.rs	11958	11964
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::network_capacity	ASSERT	Overflow:Add	src/arm_b.rs	12893	12910
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::network_cost	ASSERT	Overflow:Add	src/arm_b.rs	13353	13362
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::network_cost	ASSERT	Overflow:Mul	src/arm_b.rs	13647	13652
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::network_cost	ASSERT	Overflow:Mul	src/arm_b.rs	13637	13657
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::network_cost	ASSERT	Overflow:Add	src/arm_b.rs	13628	13657
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::fulfill_mask	ASSERT	Overflow:Sub	src/arm_b.rs	14237	14272
+foundry_parity_lab::arm_c::cost_fields::{impl FnMut<(usize,)> for foundry_parity_lab::arm_c::cost_fields::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_c.rs	2499	2510
+foundry_parity_lab::arm_c::{PreparedDemand}::prepare	ASSERT	Overflow:Mul	src/arm_c.rs	3880	3897
+foundry_parity_lab::arm_c::{PreparedDemand}::prepare	ASSERT	Overflow:Mul	src/arm_c.rs	3995	4003
+foundry_parity_lab::arm_c::{PreparedDemand}::prepare	ASSERT	Overflow:Add	src/arm_c.rs	3995	4007
+foundry_parity_lab::arm_c::{PreparedDemand}::prepare	DEREF_WRITE	Local	src/arm_c.rs	3993	4051
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Mul	src/arm_c.rs	5160	5179
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Add	src/arm_c.rs	6368	6379
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	DEREF_WRITE	Local	src/arm_c.rs	6622	6830
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Mul	src/arm_c.rs	7332	7345
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Add	src/arm_c.rs	5539	5557
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Sub	src/arm_c.rs	5605	5614
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	BoundsCheck	src/arm_c.rs	5636	5644
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Mul	src/arm_c.rs	5743	5759
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	Overflow:Add	src/arm_c.rs	5743	5763
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	ASSERT	BoundsCheck	src/arm_c.rs	5741	5764
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open	DEREF_WRITE	Local	src/arm_c.rs	5741	5870
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	Overflow:Shr	src/arm_c.rs	8366	8382
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	BoundsCheck	src/arm_c.rs	8455	8466
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	Overflow:Sub	src/arm_c.rs	8454	8483
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	Overflow:Mul	src/arm_c.rs	8586	8594
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	Overflow:Add	src/arm_c.rs	8586	8598
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	BoundsCheck	src/arm_c.rs	8584	8599
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	Overflow:Mul	src/arm_c.rs	8559	8600
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	BoundsCheck	src/arm_c.rs	8542	8548
+foundry_parity_lab::arm_c::{CostQuery<'s>}::per_store	ASSERT	BoundsCheck	src/arm_c.rs	8542	8551
+foundry_parity_lab::bind::KNOWN0	ASSERT	Overflow:Add	src/bind.rs	1294	1313
+foundry_parity_lab::bind::COST0	ASSERT	Overflow:Add	src/bind.rs	1340	1359
+foundry_parity_lab::bind::STAFF0	ASSERT	Overflow:Add	src/bind.rs	1387	1405
+foundry_parity_lab::bind::EQUIP0	ASSERT	Overflow:Add	src/bind.rs	1433	1448
+foundry_parity_lab::bind::OFFERED0	ASSERT	Overflow:Add	src/bind.rs	1478	1496
+foundry_parity_lab::bind::SLOTS	ASSERT	Overflow:Add	src/bind.rs	1523	1539
+foundry_parity_lab::bind::MINUTES	ASSERT	Overflow:Add	src/bind.rs	1568	1577
+foundry_parity_lab::bind::STORE_ID	ASSERT	Overflow:Add	src/bind.rs	1607	1618
+foundry_parity_lab::bind::FIELD_COUNT	ASSERT	Overflow:Add	src/bind.rs	1726	1738
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Mul	src/fixture.rs	3111	3116
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Mul	src/fixture.rs	3119	3125
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Add	src/fixture.rs	3111	3125
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Add	src/fixture.rs	3110	3130
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	RemainderByZero	src/fixture.rs	3110	3143
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Add	src/fixture.rs	3165	3186
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	RemainderByZero	src/fixture.rs	3165	3190
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Rem	src/fixture.rs	3165	3190
+foundry_parity_lab::fixture::recipe::{impl FnMut<(usize,)> for foundry_parity_lab::fixture::recipe::{closure}<'_0>}::call_mut	ASSERT	Overflow:Add	src/fixture.rs	3161	3190
+foundry_parity_lab::fixture::DENIED_STORE	ASSERT	Overflow:Add	src/fixture.rs	5677	5712
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	ASSERT	BoundsCheck	src/method.rs	9766	9781
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	DEREF_WRITE	Local	src/method.rs	9892	9943
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	ASSERT	Overflow:Sub	src/method.rs	9256	9273
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	ASSERT	Overflow:Sub	src/method.rs	9515	9532
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	ASSERT	Overflow:Sub	src/method.rs	9098	9115
+foundry_parity_lab::method::{PreparedMethod<'s>}::prepare	ASSERT	BoundsCheck	src/method.rs	8965	8974
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	BoundsCheck	src/method.rs	11594	11601
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	BoundsCheck	src/method.rs	11746	11753
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	BoundsCheck	src/method.rs	11857	11870
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	Overflow:Sub	src/method.rs	11856	11887
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	Overflow:Shl	src/method.rs	11851	11887
+foundry_parity_lab::method::{PreparedMethod<'s>}::run	ASSERT	Overflow:Sub	src/method.rs	11906	11911
+foundry_parity_lab::oracle::{Oracle}::can_cook	ASSERT	DivisionByZero	src/oracle.rs	2063	2098
+foundry_parity_lab::oracle::{Oracle}::can_cook	ASSERT	Overflow:Div	src/oracle.rs	2063	2098
+foundry_parity_lab::oracle::{Oracle}::can_cook	ASSERT	Overflow:Mul	src/oracle.rs	2250	2285
+foundry_parity_lab::oracle::{Oracle}::can_fulfill	ASSERT	Overflow:Add	src/oracle.rs	2876	2928
+foundry_parity_lab::source::{Owned}::bytes	ASSERT	Overflow:Mul	src/source.rs	952	963
+foundry_parity_lab::source::{Owned}::bytes	ASSERT	Overflow:Mul	src/source.rs	995	1006
+foundry_parity_lab::source::{Owned}::bytes	ASSERT	Overflow:Mul	src/source.rs	910	921
+foundry_parity_lab::source::{Order}::row	ASSERT	Overflow:Sub	src/source.rs	1425	1435
+foundry_parity_lab::source::{Order}::row	ASSERT	Overflow:Sub	src/source.rs	1425	1439
+foundry_parity_lab::source::{Network}::rebuild	DEREF_WRITE	Arg	src/source.rs	3012	3023
+foundry_parity_lab::source::{Network}::rebuild	DEREF_WRITE	Arg	src/source.rs	3012	3023
+foundry_parity_lab::source::{Network}::restock	ASSERT	Overflow:Add	src/source.rs	4320	4352
+foundry_parity_lab::source::{Network}::restock	ASSERT	BoundsCheck	src/source.rs	4422	4429
+foundry_parity_lab::source::{Network}::restock	DEREF_WRITE	Local	src/source.rs	4422	4480
+foundry_parity_lab::source::{Network}::restock	DEREF_WRITE	Arg	src/source.rs	4500	4521
+foundry_parity_lab::source::{Network}::restock	ASSERT	Overflow:Add	src/source.rs	4542	4576
+foundry_parity_lab::source::{Network}::set_unit_cost	ASSERT	Overflow:Add	src/source.rs	5102	5124
+foundry_parity_lab::source::{Network}::set_unit_cost	ASSERT	BoundsCheck	src/source.rs	5140	5147
+foundry_parity_lab::source::{Network}::set_unit_cost	DEREF_WRITE	Local	src/source.rs	5140	5155
+foundry_parity_lab::source::{Network}::set_unit_cost	ASSERT	Overflow:Add	src/source.rs	5186	5220
+foundry_parity_lab::source::impl_LaneSource_for_Network::borrow	ASSERT	Overflow:Add	src/source.rs	6300	6322
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	1917	1934
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	1957	1973
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_a.rs	1917	1973
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	1996	2013
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_a.rs	1917	2013
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_a.rs	1917	2053
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_a.rs	1917	2091
+foundry_parity_lab::arm_a::{Objects}::bytes::{impl FnMut<(&'_0 StoreObject,)> for foundry_parity_lab::arm_a::{Objects}::bytes::{closure}}::call_mut	ASSERT	Overflow:Add	src/arm_a.rs	1917	2116
+foundry_parity_lab::arm_a::{Objects}::store_cost::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::arm_a::{Objects}::store_cost::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	3736	3741
+foundry_parity_lab::arm_a::{Objects}::store_cost::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::arm_a::{Objects}::store_cost::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	3726	3765
+foundry_parity_lab::arm_a::{Objects}::store_costs::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::arm_a::{Objects}::store_costs::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	4398	4403
+foundry_parity_lab::arm_a::{Objects}::store_costs::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::arm_a::{Objects}::store_costs::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/arm_a.rs	4388	4427
+foundry_parity_lab::arm_b::{ItemQuery<'s>}::keep::{impl FnOnce<(&'_1 [u64],)> for foundry_parity_lab::arm_b::{ItemQuery<'s>}::keep::{closure}<'s>}::call_once	ASSERT	BoundsCheck	src/arm_b.rs	9002	9006
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open::{impl FnMut<(&'_2 usize,)> for foundry_parity_lab::arm_c::{CostQuery<'s>}::open::{closure#1}<'s, '_1, V>[TraitClause0, TraitClause1]}::call_mut	ASSERT	BoundsCheck	src/arm_c.rs	6286	6294
+foundry_parity_lab::arm_c::{CostQuery<'s>}::open::{impl FnOnce<(&'_1 [u64],)> for foundry_parity_lab::arm_c::{CostQuery<'s>}::open::{closure#2}<'s, V>[TraitClause0, TraitClause1]}::call_once	ASSERT	BoundsCheck	src/arm_c.rs	7135	7139
+foundry_parity_lab::oracle::{Oracle}::store_cost::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::oracle::{Oracle}::store_cost::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/oracle.rs	3760	3765
+foundry_parity_lab::oracle::{Oracle}::store_cost::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::oracle::{Oracle}::store_cost::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/oracle.rs	3750	3799
+foundry_parity_lab::oracle::{Oracle}::network_cost::{closure#1}::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::oracle::{Oracle}::network_cost::{closure#1}::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/oracle.rs	4237	4242
+foundry_parity_lab::oracle::{Oracle}::network_cost::{closure#1}::{impl FnMut<(&'_2 (usize, i32),)> for foundry_parity_lab::oracle::{Oracle}::network_cost::{closure#1}::{closure}<'_0, '_1>}::call_mut	ASSERT	Overflow:Mul	src/oracle.rs	4227	4276

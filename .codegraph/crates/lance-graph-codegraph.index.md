@@ -3,7 +3,7 @@
 crate: lance-graph-codegraph
 path: crates/lance-graph-codegraph
 workspace: excluded
-digest: d7f19d8d862f76e3
+digest: 03c06e701aa81d11
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -147,6 +147,29 @@ Generated; the code is the truth. See ../index.md.
 - struct Finding [pub] — crates/lance-graph-codegraph/src/diag.rs:107 CONFIRMED
 - fn Codegraph::coverage [pub] — crates/lance-graph-codegraph/src/diag.rs:137 CONFIRMED
 - fn Codegraph::diagnostics [pub] — crates/lance-graph-codegraph/src/diag.rs:164 CONFIRMED
+- const EFFECTS_SUFFIX [pub] — crates/lance-graph-codegraph/src/effects.rs:26 CONFIRMED
+- enum EffectKind [pub] — crates/lance-graph-codegraph/src/effects.rs:30 CONFIRMED
+- fn EffectKind::columns [pub] — crates/lance-graph-codegraph/src/effects.rs:42 CONFIRMED
+- enum EffectClass [pub] — crates/lance-graph-codegraph/src/effects.rs:63 CONFIRMED
+- fn EffectKind::class [pub] — crates/lance-graph-codegraph/src/effects.rs:76 CONFIRMED
+- struct EffectsIdentity [pub] — crates/lance-graph-codegraph/src/effects.rs:93 CONFIRMED
+- struct EffectSite [pub] — crates/lance-graph-codegraph/src/effects.rs:102 CONFIRMED
+- struct Effect [pub] — crates/lance-graph-codegraph/src/effects.rs:113 CONFIRMED
+- enum EffectsRefusal [pub] — crates/lance-graph-codegraph/src/effects.rs:125 CONFIRMED
+- enum EffectAnswer [pub] — crates/lance-graph-codegraph/src/effects.rs:165 CONFIRMED
+- struct Effects [pub] — crates/lance-graph-codegraph/src/effects.rs:176 CONFIRMED
+- fn Effects::open [pub] — crates/lance-graph-codegraph/src/effects.rs:230 CONFIRMED
+- fn Effects::crates [pub] — crates/lance-graph-codegraph/src/effects.rs:262 CONFIRMED
+- fn Effects::identity [pub] — crates/lance-graph-codegraph/src/effects.rs:267 CONFIRMED
+- fn Effects::rows [pub] — crates/lance-graph-codegraph/src/effects.rs:275 CONFIRMED
+- fn Effects::of [pub] — crates/lance-graph-codegraph/src/effects.rs:281 CONFIRMED
+- fn Effects::with_kind [pub] — crates/lance-graph-codegraph/src/effects.rs:296 CONFIRMED
+- enum ReachGrade [pub] — crates/lance-graph-codegraph/src/effects.rs:303 CONFIRMED
+- struct ReachedEffect [pub] — crates/lance-graph-codegraph/src/effects.rs:316 CONFIRMED
+- enum ReachLimit [pub] — crates/lance-graph-codegraph/src/effects.rs:325 CONFIRMED
+- struct Reached [pub] — crates/lance-graph-codegraph/src/effects.rs:359 CONFIRMED
+- fn Reached<'_>::partial [pub] — crates/lance-graph-codegraph/src/effects.rs:369 CONFIRMED
+- fn crate::Codegraph::effects_reached [pub] — crates/lance-graph-codegraph/src/effects.rs:382 CONFIRMED
 - type Pos [pub] — crates/lance-graph-codegraph/src/graph.rs:20 CONFIRMED
 - enum IntakeRefusal [pub] — crates/lance-graph-codegraph/src/graph.rs:24 CONFIRMED
 - enum RunStatus [pub] — crates/lance-graph-codegraph/src/graph.rs:63 CONFIRMED
@@ -201,34 +224,12 @@ Generated; the code is the truth. See ../index.md.
 - const Targets::LIB_ONLY [pub] — crates/lance-graph-codegraph/src/impact_report.rs:44 CONFIRMED
 - const Targets::ALL [pub] — crates/lance-graph-codegraph/src/impact_report.rs:52 CONFIRMED
 - enum Consumers [pub] — crates/lance-graph-codegraph/src/impact_report.rs:75 CONFIRMED
-- struct Scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:89 CONFIRMED
-- enum SymbolState [pub] — crates/lance-graph-codegraph/src/impact_report.rs:108 CONFIRMED
-- enum Gap [pub] — crates/lance-graph-codegraph/src/impact_report.rs:123 CONFIRMED
-- struct ImpactReport [pub] — crates/lance-graph-codegraph/src/impact_report.rs:226 CONFIRMED
-- fn ImpactReport::closed_in_scope [pub] — crates/lance-graph-codegraph/src/impact_report.rs:241 CONFIRMED
-- fn Codegraph::impact_report [pub] — crates/lance-graph-codegraph/src/impact_report.rs:421 CONFIRMED
-- enum Fault [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:19 CONFIRMED
-- struct LabWal [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:35 CONFIRMED
-- fn LabWal::new [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:44 CONFIRMED
-- fn LabWal::head [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:53 CONFIRMED
-- fn LabWal::inject [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:58 CONFIRMED
-- fn LabWal::reverse_physical_order [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:64 CONFIRMED
-- fn LabWal::image [pub(crate)] cfg=test — crates/lance-graph-codegraph/src/lab_wal.rs:70 CONFIRMED
-- mod artifact [pub] — crates/lance-graph-codegraph/src/lib.rs:6 CONFIRMED
-- mod artifact_bin [pub] — crates/lance-graph-codegraph/src/lib.rs:7 CONFIRMED
-- mod diag [pub] — crates/lance-graph-codegraph/src/lib.rs:8 CONFIRMED
-- mod graph [pub] — crates/lance-graph-codegraph/src/lib.rs:9 CONFIRMED
-- mod impact_report [pub] — crates/lance-graph-codegraph/src/lib.rs:10 CONFIRMED
-- mod query [pub] — crates/lance-graph-codegraph/src/lib.rs:13 CONFIRMED
-- struct Graded [pub] — crates/lance-graph-codegraph/src/query.rs:21 CONFIRMED
-- struct Calls [pub] — crates/lance-graph-codegraph/src/query.rs:32 CONFIRMED
-- struct Sites [pub] — crates/lance-graph-codegraph/src/query.rs:41 CONFIRMED
-- enum QueryRefusal [pub] — crates/lance-graph-codegraph/src/query.rs:52 CONFIRMED
-- truncated (204 total), see symbols.tsv
+- truncated (228 total), see symbols.tsv
 
 ## Imports from in-scope crates
 
 ### lance-graph-contract
+- use lance_graph_contract::hash::fnv1a — crates/lance-graph-codegraph/src/effects.rs:21 CONFIRMED
 - use lance_graph_contract::class_view::ClassId cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
 - use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 CONFIRMED
 - use lance_graph_contract::ontology::DisplayTemplate cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:14 CONFIRMED
