@@ -180,8 +180,17 @@ Pictures four and five ("3D-Join & wiederverwendbarer Hyperwürfel";
   Read as the sparse, factored addressed relation (multiplicities on
   coordinates, picture two), it is a derived relation at a higher rung and
   fits the zero-copy carve-out. Read as a dense precomputed join, it would
-  contradict "never densely stored" and the content ruling of §1. This plan
-  assumes the first reading until ruled.
+  contradict "never densely stored" and the content ruling of §1. Picture
+  six ("Inverted Tuple Polyglot": "Everything can be read as a tuple.
+  Nothing must be stored as one.") settles it for the first reading: the
+  register is a reading over one shared index, not stored tuples.
+
+Picture six adds: one shared index, many typed readings,
+`Tuple(i) = (A[i], B[i], C[i])` read in place over source-owned lanes; the
+result of a selection is `M_A ∧ M_B ∧ M_C`, the three-operand fold of §1a;
+SQL, Cypher, SPARQL, XLOG, GraphBLAS and Arrow are compatibility surfaces
+over the shared coordinate substrate, not engines rebuilt beneath it; rows
+appear only at the boundary.
 
 The third picture's `F###` list (F001 `ClassView::select`, F011
 `WideFieldMask::apply`, …) is illustrative; registered behaviour addresses
