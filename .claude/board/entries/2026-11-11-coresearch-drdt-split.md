@@ -98,7 +98,7 @@ selection from that carrier or it does not run.
 | I10 | Two refusal axes, two mechanisms (schema/behaviour vs data version) | PostgreSQL plan cache vs snapshots; Lance manifest vs index coverage (SECTION-READ) | OPPORTUNITY; PASS | **ADOPT-NOW (test)** | Probe P9. Already the shape on main. |
 | I11 | Pin the resolution context, not only the touched objects | PostgreSQL PREPARE failure mode (SECTION-READ); capabilities (SECTION-READ) | OPPORTUNITY; PASS | **PROBE** P4 | Red-first: the same-count reorder passes today. Fix keyed on revision, not on a digest. |
 | I6 | Keep the order index as a named DR relation index, sealed per frame | DuckDB sort, ClickHouse sparse index (READ-IN-FULL) | OPPORTUNITY; permutation PASS, index-ordered visibility plane CONFLICT (second copy of a row mask) | **PROBE** P1 arm C + seal test | Open: is the index-ordered visibility plane a second copy (firewall) or the only copy in that order? |
-| I4 | Bit-sliced key planes answer a range as a mask | O'Neil & Quass 1997, BitWeaving (SECTION-READ) | WORTH-EXPLORING; CONFLICT as a sidecar (same information as the key column) | **PROBE** P1 | Admissible only as the key lane's one layout, never beside it. Under the unboxed anchor the slices are ordinary DR masks. |
+| I4 | Bit-sliced key planes answer a range as a mask | O'Neil & Quass 1997, BitWeaving (SECTION-READ) | WORTH-EXPLORING; CONFLICT as a sidecar (same information as the key column) | **SKIP** (see §4, P1) | The in-place compare-to-mask in `ndarray::simd` is already the mask form of a range; a sliced copy reads the same bytes and is a second copy. |
 | I13 | Behaviour that outlives the process | PostgreSQL catalog rows; Erlang code server (READ-IN-FULL); Smalltalk image | WORTH-EXPLORING; CONFLICT | **PROBE** P5 | Key = classid + method + issuing store + durable version; digest only detects change. "Rebuild from compiled tables" passes outright. Image snapshot and digest-keyed rows are traps. |
 | I12 | Method footprint as a derived relation | SQL `routine_column_usage` (READ-IN-FULL, one system) | WORTH-EXPLORING; CONFLICT if a second store | **PARK** | `on` / `reads` stay in the binding (covered by its digest); a reverse index may be derived, never authoritative. D-DT64-7 O4 stays deferred. |
 | I7 | Rank/select directory; wavelet tree | Kurpicz 2022, Gagie et al. 2009 (READ-IN-FULL) | rank/select WORTH-EXPLORING, PASS; wavelet DROP | **PARK** (select); **SKIP** (wavelet) | Add select when a consumer needs the k-th survivor (P7). |
@@ -130,6 +130,19 @@ All timings in ns or µs; a per-query millisecond is a failed gate.
   popcount. Kill the sparse form unless 2× faster somewhere.
 - **P9** the two refusal axes stay independent: a frame advance reports only
   a frame refusal; a class change reports only a class refusal.
+- **P1 is answered without a build (after the run).** `ndarray::simd`
+  already compares a key lane against a constant straight into a mask, and
+  does it under an existing mask: `ge_i32_to_mask`, `le_i32_to_mask`,
+  `*_to_mask_under` (`ndarray/src/simd_masking_ops.rs:3449`, `:3476`,
+  `:5468`; re-exported from `simd.rs:914`). A key range under any selection
+  is two such compares and a popcount over the lane in place: no index, no
+  sidecar. That is the mask form of a key range, and the lab's ternlog fold
+  already measures it (188 µs at 1,000,000 rows, against 1.76 µs through the
+  prepared order index). A bit-sliced copy reads the same number of bytes as
+  the column it encodes (k slices × n/8 bytes), so it cannot beat the in-place
+  compare on bandwidth and it is a second copy. **I4 moves from PROBE to
+  SKIP.** The order index stays what it is: the prepared selection order
+  that turns a range into one contiguous run.
 - **Already on main (read after the run):** P4's red-first pin is
   `finding_the_hot_check_does_not_see_a_view_reorder_under_a_positional_source`
   (`lance-graph-dt64/tests/lane_socket.rs:416`); its fix is D-DT64-7 L5d.
@@ -166,7 +179,7 @@ paper). Nothing was built or measured in this run.
 
 ## Closeout
 
-`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: probes P1 and P5; L5d for the reorder gap`
+`PR pending | STATUS: open | OUTCOME: exploration map for D-DRDT-SPLIT-1; 3 adopt-now (docs/test), 4 probes, 3 parked, 4 skipped | OPEN: probe P5 (binding across a restart); L5d for the reorder gap`
 
 MIRROR
 - BLIND SPOT: every role, the premise gate included, took the mask type's
