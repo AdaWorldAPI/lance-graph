@@ -79,10 +79,8 @@ Decided in the merge, in neither PR as such:
 - `--targets '*=LIST'` declares every stored crate. PR 2001's `--with-tests` is gone; a crate
   without `--targets` is reported as undeclared instead of assumed library-only.
 - Output lines: `symbol`, `impact`, `observed`, `GAP`, `closed_in_scope`. A missing symbol exits 4.
-- PR 2002's recorded `store-output/*.report` files were produced by its own `report`; the one
-  line that changes name is `GAP UnresolvedDispatch { dynamic_calls: N }`, now
-  `GAP DynamicCalls { unknown: M, store_dynamic_calls: N }`. They are not regenerated here: the
-  report-rs store they came from is not in this container.
+- PR 2002's recorded `store-output/*.report` files are regenerated in `report-rs-33/`; see
+  its README for the line-by-line difference.
 
 ## Tests
 
@@ -110,8 +108,9 @@ names the tests each guard breaks.
 
 ## Acceptance state (D-CODEGRAPH-WAVE0-ACCEPTANCE)
 
-- PR 2002's report-rs outputs against the merged API: see `report-rs-33/` beside this file when
-  present; otherwise an open blocker, stated in the PR body.
+- PR 2002's report-rs outputs against the merged API: regenerated from a fresh extraction of
+  report-rs `81705d9`, in `report-rs-33/`. Four of six files are identical to PR 2002's; one has
+  the renamed dynamic-call line; one gains the harvest gap PR 2002's own later test requires.
 - `member-tests` timeout: not caused by this change. On `main` the job took 19.7, 20.5, 21.1,
   26.4 and 29.8 minutes over five runs against `timeout-minutes: 30`. PR 2001's head hit the
   limit twice (30.3 and 30.2 minutes) with every step slower than on `main`, not one outlier; an
