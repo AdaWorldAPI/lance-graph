@@ -12,7 +12,9 @@ merge of PR 2043.
   and, for its tests, `lance-graph-quack`. Five fixes there share one shape: a
   new `ExecError` variant meeting an exhaustive match. Each was found only at
   the next push to lance-graph-java.
-- The check runs `cargo check --all-targets` on `lgj-abi` against the pull
+- The check runs `cargo test --all-targets` on `lgj-abi` (first version:
+  `cargo check`; changed the same day so that a change in an answer, not only
+  in a signature, is caught) against the pull
   request's merge commit, with lance-graph-java, ndarray and OGAR at their
   default branch heads. No Java and no benchmark.
 - It has no `paths:` filter. It always starts, decides relevance from the
