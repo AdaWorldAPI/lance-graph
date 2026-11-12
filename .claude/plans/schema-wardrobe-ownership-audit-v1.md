@@ -110,6 +110,52 @@ Read from the field and method visibilities of `MailboxSoA`:
 enacted only by the sealed-cycle path. For code that goes through
 `cycle_driver.rs` that is true; as a statement about what can happen it is not.
 
+## 1c. Outer and inner: which side each finding is on
+
+Added after reading `lance-graph-java` (`docs/abi.md` in full,
+`docs/architecture.md`, `docs/panama.md`, `docs/execution-boundary.md`,
+`docs/valhalla-lab.md`, `.claude/plans/mask-membrane-valhalla-integration-v1.md`,
+its `CLAUDE.md`; its Java and Rust sources were not read). That repo states
+the boundary this audit had blurred:
+
+> Shape may cross. Meaning may cross. Operations may cross. Ownership does not
+> cross. — lance-graph owns the only canonical copy.
+
+What crosses a membrane is identity, descriptor, layout contract, operation and
+result identity. Its write side is one sentence: stage semantic intent, cross
+as descriptors, the sole native writer lands and publishes; no batch or commit
+verb exists on the outer surface.
+
+Applied here:
+
+| | outer (wardrobe, foreign schema, consumer) | inner (owner, staging, sole writer, Lance) |
+|---|---|---|
+| holds | a class binding: `ClassView`, `WideFieldMask`, schema revision, behaviour declaration; a reference to source-owned input | the rows, `&mut` on them, the cast, the cycle, the sink |
+| may know | the row geometry (512 × 32 × (4 + 12)); it is a contract fact, and knowing it is not owning it | everything |
+| never holds | a row buffer of its own, `&mut MailboxSoA`, a `BatchWriter`, a `SweepSlot`, a sink | |
+
+Consequences for this audit's own findings:
+
+- **The 512-byte artifact rule, the row-keyed image (§3.4), the public fields
+  and the direct `try_advance_phase` (§1b) are inner findings.** A foreign
+  schema cannot reach any of them: no `&mut` owner and no payload crosses. They
+  are hygiene of the inner crate, and earlier versions overstated them by
+  describing what "any holder of `&mut`" can do as if an adapter could be that
+  holder.
+- **The one finding that sits ON the boundary is the owner identity.**
+  `BatchWriter::cast(on_behalf: MailboxId, …)` accepts a plain integer. In the
+  lance-graph-java membrane the equivalent value is never a plain integer: a
+  handle is bound to owner, generation and kind and is checked on every
+  resolve ("pointer value is not provenance"). The Rust-side cast has no such
+  binding. That is the shape of the missing seam in §2, stated as an
+  observation, not as a chosen design.
+- **A wardrobe does not produce rows, in any width.** It resolves fields over
+  input that stays source-owned; the owner writes its own rows from them. So
+  "which lane takes non-512-byte source rows" was never a wardrobe question.
+- A layout is a schema over the same content (`abi.md` §18: a second layout is
+  a constructor, not a resource kind). A foreign schema is admitted the same
+  way: as a reading, with no second population.
+
 ## 2. Delegation census (cast sites outside tests and examples)
 
 | site | owner evidence |
@@ -194,9 +240,14 @@ not write it (their payload column is null).
 
 `LanceCycleWriter` accepts an artifact payload only if it is exactly 512 bytes
 (`EPISODIC_WITNESS_BYTES`); any other length is `CommitError::InvalidArtifact`,
-permanent. A wardrobe that hands arbitrary source rows to this sink cannot
-work; it must produce 512-byte node rows or use a different, not yet existing,
-lane.
+permanent. This is an INNER fact: the canonical node row stride
+(`key 16 | edges 16 | value 480`) as the sole writer's ABI. It constrains the
+owner that casts, and nobody else.
+
+⊘ An earlier version of this paragraph concluded "a wardrobe that hands
+arbitrary source rows to this sink cannot work; it must produce 512-byte node
+rows or use a different lane". That sentence put the wardrobe on the wrong side
+of the boundary and is withdrawn; see §1c.
 
 The documented descriptor route (`BatchWriter<RowSpanDescriptor>`: the batch
 names a span, the sink reads the SoA) exists only in three planner examples
@@ -356,7 +407,8 @@ obtained from a live owner; construct a second `CycleWriter` or sink for the
 same dataset; build `SweepSlot`s outside `collect_casts` for a mailbox-owned
 population; write a mailbox row through anything but `write_row` at the owner's current cycle; treat a cast or a returned ticket as durability; apply a paired
 move before its ticket resolves `Ok`; map two owners to one image row in one
-cycle; hand `LanceCycleWriter` an artifact that is not a 512-byte node row;
+cycle; give the wardrobe or any adapter a row buffer, a writer or a sink of its
+own (§1c);
 write the singleton `BindSpace` for a population that has a mailbox owner; or
 describe the path as zero-copy.
 
@@ -392,3 +444,5 @@ Each was caused by writing from an excerpt, a search hit or a summary.
 | Lance append "at least 1 (not measured)" | exactly one, stated in `cycle_sink.rs`; plus the 512-byte artifact rule, which the audit had missed (§4) |
 | nothing on the image key | the image is keyed by row and written with owner 0 (§3.4) |
 | nothing on the delegation cache | `resolve_owner` is never called by `cast` (§2) |
+| "a wardrobe cannot hand `LanceCycleWriter` arbitrary source rows; it must produce 512-byte rows" | a wardrobe hands the writer nothing. The 512-byte rule is the inner writer's row ABI; the wardrobe is outer and carries a binding, not bytes (§1c) |
+| inner-crate facts (public fields, direct phase step, row-keyed image) presented as bypasses open to a foreign adapter | no `&mut` owner crosses the boundary; these are inner hygiene. The boundary finding is the plain-integer owner id (§1c) |
