@@ -561,18 +561,37 @@ describe the path as zero-copy.
    resident ingestion is sized against it.
 3. Correct the stale documents and comments (§5) in a documentation PR.
 4. Name the owner for a resident codegraph population (§8).
-5. Decide whether the cycle image is keyed by `(owner, row)` or whether
-   `row_of` must be proven injective across owners (§3.4).
-6. Decide whether "no seal, no step" is meant to bind an intent-only cycle and
-   a direct `try_advance_phase` (§1b, §3.5), or only a failed seal as today.
-7. Decide whether `mailbox_id` and `current_cycle` stay public fields (§1b).
-8. Quack non-materialisation boundaries (§1e), each a separate decision:
-   whether `Draft` should default to a count instead of rows; whether the
-   two-phase `GroupPlan` stays reachable once a folded form exists; whether a
-   lowered `Program` carries the identity of the table and row order it was
-   bound against, and who checks it at execution; whether the resident-plane
-   preconditions of `Semijoin` and `ScatterOrU32` become types instead of
-   comments.
+
+The plain-id cast (item 1) is the write-boundary admission issue and stays on
+this list. The three items below are NOT part of the wardrobe admission gate.
+
+### 10a. Internal hygiene track (separated 2026-11-12; evidence kept, all unresolved)
+
+These concern the inner owner's own correctness and API, independent of any
+outer producer. Nothing here is to be changed as a side effect of admission
+work.
+
+| item | kind | evidence | status |
+|---|---|---|---|
+| The cycle image is keyed by row and written with owner 0; decide `(owner, row)` or prove `row_of` injective across owners | internal persistence correctness | §3.4 | unresolved |
+| `NoChange` on an intent-only cycle, a failed seal, and a direct `try_advance_phase` are three different transitions; decide which of them "no seal, no step" binds | internal lifecycle governance | §1b, §3.5 | unresolved; no change before the three are specified separately |
+| `mailbox_id` and `current_cycle` are public fields | internal owner API hygiene | §1b | unresolved |
+
+### 10b. Quack execution boundary (decided 2026-11-12; work moved to PR #2045)
+
+The four questions raised in §1e were decided as follows. None changes a
+production API.
+
+| question | decision |
+|---|---|
+| `Draft` defaults to rows | Retained. A demanded `Keep` mask, a tile-local mask, a population mask handed to another program, materialised row indices and SQL tuples are five different things; only the third and later are the materialisation expense |
+| two-phase `GroupPlan` | Kept, behind the existing semantic-first `lower_group_by_auto`. A forest that carries a population mask between programs is reported as intermediate materialisation |
+| source identity in `Program` | Not added. The consumer-side binding is audited instead |
+| resident-plane preconditions as comments | To be checked at the admission boundary, not in the physical IR; where no ratified authority exists the case stays BLOCKED |
+
+The lab that follows these decisions is `crates/quack-boundary-lab`
+(plan `quack-boundary-lab-v1.md`, PR #2045). It is a separate proof and adds
+nothing to this audit's findings.
 
 R4, R7 and the reader `Scope` issuer are untouched.
 
