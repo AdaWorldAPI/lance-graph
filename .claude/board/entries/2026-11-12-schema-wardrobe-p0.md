@@ -12,6 +12,8 @@ MEASURED for the suite (`cargo test -p lance-graph-supervisor --features cycle-d
 - The wired seal path carries owned payload bytes and copies them twice before the Lance append (retry copy, freeze). The descriptor route exists in examples and tests only.
 - Three knowledge documents under `.claude/v3/knowledge/` describe callers and a sink that do not match the code; listed in the plan §5, not edited here.
 
+- Second read (`mailbox_soa.rs`, `soa_envelope.rs`, `kanban_actor.rs`): the lawful resident write is `MailboxSoA::write_row` (cycle-gated); its mailbox arm in `backing.rs` is behind a default-off feature; no caller casts after writing; `SoaEnvelope::mailbox_owner()` is unwired; `kanban_actor.rs` is read-only.
+
 **Agent runs (grindwork tier):** four read-only runs (two fact maps, one call-site census, one quote harvest) and one drafting run for the test file. Checked by reading: `cast_on_behalf` at its stated lines, the four non-test cast sites, `seal_cycle`, `persist_cycle`, `try_submit`; the drafted test file read in full before compiling. Agent items wrong: 0. One orchestrator error caught before commit: a truncated search made `cognitive_pass` look absent; reading `cycle_driver.rs` showed it exists and calls the adapter with a fleet-resolved owner id, and the audit was corrected. One map run stopped on a missing brief field and was re-dispatched.
 
 **Open:** the `on_behalf` enforcement seam; descriptors in `collect_casts`; the owner of a resident codegraph population (BLOCKED); the stale documents.

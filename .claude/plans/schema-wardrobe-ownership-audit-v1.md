@@ -35,6 +35,34 @@ examples. The one production-shaped user of the background writer is the DR
 map log, and it does not go through `MailboxSoA` or `BatchWriter`: it builds
 `SweepSlot`s itself with `owner: self.on_behalf`, a mailbox id it was handed.
 
+## 1a. The resident write itself (added after a second read of `mailbox_soa.rs`, `soa_envelope.rs`, `kanban_actor.rs`)
+
+The first pass of this audit followed the cast and missed the write. These
+were read afterwards and change what "the lawful owner mutation path" means.
+
+| fact | where | state |
+|---|---|---|
+| the one cycle-aware row mutator: `MailboxSoA::write_row(row, cycle, &WriteCell) -> WriteOutcome`; a write for another cycle is `Stale` or `Future` and mutates nothing | `mailbox_soa.rs` | SHIPPED |
+| `WriteCell` borrows its planes (`Option<&[u64]>`); the bytes are copied once, into the owner's column | `mailbox_soa.rs` | SHIPPED |
+| callers of `write_row` outside tests: `BackingStoreWrite::write_row` (`backing.rs`) and the codebook-index ingest in `engine_bridge.rs` | `cognitive-shader-driver/src` | SHIPPED |
+| the mailbox arm of `backing.rs` is behind feature `mailbox-thoughtspace`, which is **off by default**: the default build writes the singleton `BindSpace`, whose write is cycle-blind by its own doc comment | `backing.rs`, `Cargo.toml` | mailbox arm NOT the default |
+| neither caller casts on behalf after writing: a resident write is not reported to a `BatchWriter` | `backing.rs`, `engine_bridge.rs` | join MISSING |
+| public cycle-blind mutators beside `write_row`: `apply_edges`, `set_edge`, `set_meta`, `set_content`, `set_topic`, `set_angle`, `set_qualia`, `set_entity_type`, `set_temporal`, `set_expert`, `set_sigma`, `reset_row`, the style-lane setters; all need `&mut MailboxSoA` | `mailbox_soa.rs` | SHIPPED; they bypass the cycle gate, not the owner |
+| the documented owner stamp `SoaEnvelope::mailbox_owner()` defaults to `0` and has no caller outside its own tests; its one production implementor `NodeRowPacket` does not override it; `MailboxSoA` does not implement `SoaEnvelope` | `lance-graph-contract/src/soa_envelope.rs`, `canonical_node.rs` | UNWIRED |
+| `kanban_actor.rs` holds a read-only `PhaseCensus`, `mul_target` and a step-string parser; the actor and its RPC drivers are deleted | `lance-graph-supervisor/src/kanban_actor.rs` | read-only, no write path |
+
+Consequences:
+
+- A foreign-schema ingestion into a resident mailbox has exactly one lawful
+  entry: `write_row` under `&mut MailboxSoA` at the owner's current cycle. It
+  exists and is tested. What does not exist is the step after it (the cast
+  that reports the write).
+- "`MailboxSoA` is the canonical resident owner" is true of the type and not
+  yet of the default build, which still routes writes to the singleton.
+- There are two owner stamps: `MailboxSoaView::mailbox_id()` (used by
+  `cast_on_behalf`) and `SoaEnvelope::mailbox_owner()` (documented as the
+  stamp, used by nothing).
+
 ## 2. Delegation census (cast sites outside tests and examples)
 
 | site | owner evidence |
@@ -106,6 +134,12 @@ not descriptors**. "End-to-end zero-copy" is not true of this chain today.
 - `.claude/v3/knowledge/mailbox-kanban-model.md` step 5 says Lance writes "from
   the in-place backing store (zero-copy)". The wired path copies twice before
   the append (§4).
+- `write-on-behalf.md` and `mailbox-kanban-model.md` give the sanctioned
+  shape as `cast(on_behalf = envelope.mailbox_owner(), …)`. No code has that
+  shape; `mailbox_owner()` is unwired (§1a).
+- The module doc of `mailbox_soa.rs` says Lance writes LE bytes "from this
+  in-place store (`SoaEnvelope` describes the geometry)". `MailboxSoA` does not
+  implement `SoaEnvelope`, and the wired seal path copies (§4).
 - `soa_mailbox` / `SoAMailbox`: no such symbol. The module is
   `mailbox_soa.rs`, the type `MailboxSoA`.
 
@@ -190,12 +224,14 @@ Stop any foreign-schema ingestion work that would: add an implementor of
 `MailboxSoaOwner` for an adapter; call `BatchWriter::cast` with an id not
 obtained from a live owner; construct a second `CycleWriter` or sink for the
 same dataset; build `SweepSlot`s outside `collect_casts` for a mailbox-owned
-population; treat a cast or a returned ticket as durability; apply a paired
+population; write a mailbox row through anything but `write_row` at the owner's current cycle; treat a cast or a returned ticket as durability; apply a paired
 move before its ticket resolves `Ok`; or describe the path as zero-copy.
 
 ## 10. Smallest follow-up (proposed, not built)
 
 1. Decide the enforcement seam for `on_behalf` (§2).
+1a. Decide which owner stamp is the contract (`mailbox_id` or `mailbox_owner`) and retire or wire the other (§1a).
+1b. Decide whether a resident `write_row` must be followed by a cast, and who makes it (§1a).
 2. Decide whether `collect_casts` should carry descriptors (§4) before any
    resident ingestion is sized against it.
 3. Correct the four stale documents (§5) in a documentation PR.
