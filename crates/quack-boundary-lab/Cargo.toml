@@ -1,0 +1,12 @@
+[package]
+name = "quack-boundary-lab"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB. One unchanged Quack-lowered Program run against a correctly bound source, a wrong source, a revised row order, a detached kept mask and a nullable lane, each compared with a scalar oracle; plus a materialisation ledger. Admission goes through the existing DT64 LaneBinding. No contract type, owner, store or executor is added or changed."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }

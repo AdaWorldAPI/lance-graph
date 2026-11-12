@@ -26,6 +26,10 @@ members = [
     # Depends on the zero-dep contract only.
     "crates/lance-graph-dt64",
     "crates/dr256-ternlog-lab",
+    # LAB: one Quack-lowered Program against a bound source, a wrong source, a
+    # revised row order and a detached kept mask, admitted through the DT64
+    # LaneBinding; plus a materialisation ledger. Adds no production API.
+    "crates/quack-boundary-lab",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",

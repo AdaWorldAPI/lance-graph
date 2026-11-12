@@ -168,6 +168,11 @@ jobs:
       # the persisted OrderIndex (S3) and its refusals.
       - name: Run dr256-ternlog-lab tests
         run: cargo test --manifest-path crates/dr256-ternlog-lab/Cargo.toml
+      # quack-boundary-lab: one Quack-lowered program run unbound and through
+      # a DT64 LaneBinding, against a scalar oracle; a group-lowering audit;
+      # a materialisation ledger with exact byte counts.
+      - name: Run quack-boundary-lab tests
+        run: cargo test --manifest-path crates/quack-boundary-lab/Cargo.toml
       # pg-parity-harness (D-QSP-H): its 13 unit tests are the comparison
       # rules every parity example relies on (multiset, ties, NULL vs empty,
       # SQLSTATE, vacuous mutation). The live test prints SKIP here: CI has no
