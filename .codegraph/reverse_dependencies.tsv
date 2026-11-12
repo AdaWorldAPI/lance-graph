@@ -342,6 +342,7 @@ ndarray	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:40	
 ndarray	d-diamond-1-probe	normal	false	-	-	crates/d-diamond-1-probe/Cargo.toml:19	CONFIRMED	no
 ndarray	deepnsm	normal	false	-	-	crates/deepnsm/Cargo.toml:33	CONFIRMED	no
 ndarray	dr-isa-stream-lab	normal	false	-	-	crates/dr-isa-stream-lab/Cargo.toml:20	CONFIRMED	no
+ndarray	dr-select-k-lab	dev	false	-	-	crates/dr-select-k-lab/Cargo.toml:21	CONFIRMED	no
 ndarray	drf-focus-probe	normal	false	-	-	crates/drf-focus-probe/Cargo.toml:17	CONFIRMED	no
 ndarray	drisa-register-probe	normal	false	-	-	crates/drisa-register-probe/Cargo.toml:24	CONFIRMED	no
 ndarray	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:29	CONFIRMED	no
