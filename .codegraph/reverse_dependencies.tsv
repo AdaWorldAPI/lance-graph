@@ -240,6 +240,7 @@ lance-graph-mask-risc	dr-select-k-lab	normal	false	-	-	crates/dr-select-k-lab/Ca
 lance-graph-mask-risc	dr256-ternlog-lab	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:11	CONFIRMED	yes
 lance-graph-mask-risc	drf-focus-probe	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:32	CONFIRMED	yes
 lance-graph-mask-risc	drisa-register-probe	normal	false	-	-	crates/drisa-register-probe/Cargo.toml:20	CONFIRMED	yes
+lance-graph-mask-risc	duckdb-selvec-compat	dev	false	-	-	crates/duckdb-selvec-compat/Cargo.toml:19	CONFIRMED	yes
 lance-graph-mask-risc	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:23	CONFIRMED	yes
 lance-graph-mask-risc	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:16	CONFIRMED	yes
 lance-graph-mask-risc	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:17	CONFIRMED	yes

@@ -242,12 +242,12 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n11["deepnsm"]
-  n29["holograph"]
-  n32["lance-graph"]
-  n41["lance-graph-cognitive"]
-  n43["lance-graph-contract"]
-  n11 --> n41
-  n32 --> n41
-  n41 --> n29
-  n41 --> n43
+  n30["holograph"]
+  n33["lance-graph"]
+  n42["lance-graph-cognitive"]
+  n44["lance-graph-contract"]
+  n11 --> n42
+  n33 --> n42
+  n42 --> n30
+  n42 --> n44
 ```

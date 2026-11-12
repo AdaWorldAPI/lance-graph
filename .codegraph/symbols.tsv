@@ -3654,6 +3654,17 @@ dt64-admission-probe	crates/dt64-admission-probe/src/lib.rs	88	enum	Request	pub	
 dt64-admission-probe	crates/dt64-admission-probe/src/lib.rs	97	enum	Admitted	pub	-	CONFIRMED
 dt64-hotplug-probe	crates/dt64-hotplug-probe/src/lib.rs	46	enum	Unbound	pub	-	CONFIRMED
 dt64-hotplug-probe	crates/dt64-hotplug-probe/src/lib.rs	58	fn	register_activated	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	108	fn	destroy_selection_vector	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	128	fn	selection_vector_get_data_ptr	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	138	struct	CopyReceipt	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	151	fn	selection_from_positions	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	171	fn	capacity	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	186	fn	positions	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	55	type	IdxT	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	57	type	SelT	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	62	struct	DuckdbSelectionVectorOpaque	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	67	type	DuckdbSelectionVector	pub	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	85	fn	create_selection_vector	pub	-	CONFIRMED
 elixir-template	crates/elixir-template/src/lib.rs	106	struct	ElixirTemplate	pub	-	CONFIRMED
 elixir-template	crates/elixir-template/src/lib.rs	116	enum	ParseError	pub	-	CONFIRMED
 elixir-template	crates/elixir-template/src/lib.rs	122	impl	core::fmt::Display for ParseError	-	-	CONFIRMED

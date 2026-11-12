@@ -80,8 +80,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n6["cognitive-polyfill-probe"]
-  n46["lance-graph-dt64"]
-  n51["lance-graph-mask-risc"]
-  n6 --> n46
-  n6 --> n51
+  n47["lance-graph-dt64"]
+  n52["lance-graph-mask-risc"]
+  n6 --> n47
+  n6 --> n52
 ```

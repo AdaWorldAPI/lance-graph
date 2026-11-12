@@ -110,10 +110,10 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n17["drisa-register-probe"]
-  n43["lance-graph-contract"]
-  n46["lance-graph-dt64"]
-  n51["lance-graph-mask-risc"]
-  n17 --> n43
-  n17 --> n46
-  n17 --> n51
+  n44["lance-graph-contract"]
+  n47["lance-graph-dt64"]
+  n52["lance-graph-mask-risc"]
+  n17 --> n44
+  n17 --> n47
+  n17 --> n52
 ```

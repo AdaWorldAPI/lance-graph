@@ -243,13 +243,13 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n2["bgz17"]
   n7["cognitive-shader-driver"]
-  n32["lance-graph"]
-  n58["lance-graph-osint"]
-  n59["lance-graph-planner"]
-  n76["p64-bridge"]
+  n33["lance-graph"]
+  n59["lance-graph-osint"]
+  n60["lance-graph-planner"]
+  n77["p64-bridge"]
   n7 --> n2
-  n32 --> n2
-  n58 --> n2
+  n33 --> n2
   n59 --> n2
-  n76 --> n2
+  n60 --> n2
+  n77 --> n2
 ```

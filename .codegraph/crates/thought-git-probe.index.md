@@ -139,7 +139,7 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n43["lance-graph-contract"]
-  n92["thought-git-probe"]
-  n92 --> n43
+  n44["lance-graph-contract"]
+  n93["thought-git-probe"]
+  n93 --> n44
 ```

@@ -54,18 +54,18 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n15["dr256-ternlog-lab"]
-  n32["lance-graph"]
-  n36["lance-graph-benches"]
-  n43["lance-graph-contract"]
-  n44["lance-graph-cypher-quack"]
-  n46["lance-graph-dt64"]
-  n51["lance-graph-mask-risc"]
-  n61["lance-graph-quack"]
-  n36 --> n15
-  n36 --> n32
-  n36 --> n43
-  n36 --> n44
-  n36 --> n46
-  n36 --> n51
-  n36 --> n61
+  n33["lance-graph"]
+  n37["lance-graph-benches"]
+  n44["lance-graph-contract"]
+  n45["lance-graph-cypher-quack"]
+  n47["lance-graph-dt64"]
+  n52["lance-graph-mask-risc"]
+  n62["lance-graph-quack"]
+  n37 --> n15
+  n37 --> n33
+  n37 --> n44
+  n37 --> n45
+  n37 --> n47
+  n37 --> n52
+  n37 --> n62
 ```

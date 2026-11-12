@@ -249,6 +249,7 @@ exclude = [
     "crates/cg-beh-probe",
     # LAB (D-DR-SELECT-K-1): own [workspace]; path-deps lance-graph-mask-risc.
     "crates/dr-select-k-lab",
+    "crates/duckdb-selvec-compat",
     # ERA5 0.25-degree global grid baked onto the canonical 512-byte NodeRow --
     # one cell = one node, one timestep = one Lance version. Standalone and
     # genuinely zero-dep (see the crate manifest for why helix is NOT an

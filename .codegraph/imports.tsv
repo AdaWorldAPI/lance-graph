@@ -1961,6 +1961,11 @@ dto-class-check	tools/dto-class-check/src/main.rs	11	std::path::Path	-	use	-	CON
 dto-class-check	tools/dto-class-check/src/main.rs	11	std::path::PathBuf	-	use	-	CONFIRMED
 dto-class-check	tools/dto-class-check/src/main.rs	12	syn::Item	-	use	-	CONFIRMED
 dto-class-check	tools/dto-class-check/src/main.rs	13	walkdir::WalkDir	-	use	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	51	std::alloc::Layout	-	use	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	51	std::alloc::alloc_zeroed	-	use	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	51	std::alloc::dealloc	-	use	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	51	std::alloc::handle_alloc_error	-	use	-	CONFIRMED
+duckdb-selvec-compat	crates/duckdb-selvec-compat/src/lib.rs	52	std::ffi::c_void	-	use	-	CONFIRMED
 elixir-template	crates/elixir-template/src/lib.rs	333	super::*	-	use	test	POSSIBLE
 foundry-parity-lab	crates/foundry-parity-lab/src/arm_a.rs	8	crate::fixture	fx	use	-	CONFIRMED
 foundry-parity-lab	crates/foundry-parity-lab/src/arm_a.rs	8	crate::fixture::CATEGORIES	-	use	-	CONFIRMED

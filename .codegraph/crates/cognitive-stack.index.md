@@ -60,17 +60,17 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n5["cognitive-compiler"]
   n8["cognitive-stack"]
-  n21["elixir-template"]
-  n32["lance-graph"]
-  n43["lance-graph-contract"]
-  n55["lance-graph-ogar"]
-  n89["template-equivalence"]
-  n90["template-runtime"]
+  n22["elixir-template"]
+  n33["lance-graph"]
+  n44["lance-graph-contract"]
+  n56["lance-graph-ogar"]
+  n90["template-equivalence"]
+  n91["template-runtime"]
   n8 --> n5
-  n8 --> n21
-  n8 --> n32
-  n8 --> n43
-  n8 --> n55
-  n8 --> n89
+  n8 --> n22
+  n8 --> n33
+  n8 --> n44
+  n8 --> n56
   n8 --> n90
+  n8 --> n91
 ```

@@ -113,5 +113,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n25["helix"]
+  n26["helix"]
 ```

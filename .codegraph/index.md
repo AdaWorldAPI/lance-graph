@@ -78,6 +78,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 | [dt64-admission-probe](crates/dt64-admission-probe.index.md) | excluded | crates/dt64-admission-probe |
 | [dt64-hotplug-probe](crates/dt64-hotplug-probe.index.md) | excluded | crates/dt64-hotplug-probe |
 | [dto-class-check](crates/dto-class-check.index.md) | member | tools/dto-class-check |
+| [duckdb-selvec-compat](crates/duckdb-selvec-compat.index.md) | excluded | crates/duckdb-selvec-compat |
 | [elixir-template](crates/elixir-template.index.md) | excluded | crates/elixir-template |
 | [foundry-parity-lab](crates/foundry-parity-lab.index.md) | excluded | crates/foundry-parity-lab |
 | [gkat-probe](crates/gkat-probe.index.md) | excluded | crates/gkat-probe |
@@ -155,7 +156,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 
 ## Crate dependency diagram
 
-Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (81 of 95).
+Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (81 of 96).
 
 ```mermaid
 flowchart LR
@@ -179,259 +180,259 @@ flowchart LR
   n17["drisa-register-probe"]
   n18["dt64-admission-probe"]
   n19["dt64-hotplug-probe"]
-  n21["elixir-template"]
-  n22["foundry-parity-lab"]
-  n24["grammar-constraints-probe"]
-  n26["highheelbgz"]
-  n27["holo-h14d-probe"]
-  n29["holograph"]
-  n30["jc"]
-  n31["jc-batch-probe"]
-  n32["lance-graph"]
-  n34["lance-graph-archetype"]
-  n35["lance-graph-arm-discovery"]
-  n36["lance-graph-benches"]
-  n37["lance-graph-callcenter"]
-  n38["lance-graph-catalog"]
-  n40["lance-graph-codegraph"]
-  n41["lance-graph-cognitive"]
-  n42["lance-graph-consumer-conformance"]
-  n43["lance-graph-contract"]
-  n44["lance-graph-cypher-quack"]
-  n45["lance-graph-dir-sim"]
-  n46["lance-graph-dt64"]
-  n47["lance-graph-dt64-lance"]
-  n48["lance-graph-glove-parity"]
-  n49["lance-graph-hydrate"]
-  n50["lance-graph-lane-fold"]
-  n51["lance-graph-mask-risc"]
-  n52["lance-graph-metta"]
-  n53["lance-graph-nal"]
-  n55["lance-graph-ogar"]
-  n56["lance-graph-onnx"]
-  n57["lance-graph-ontology"]
-  n58["lance-graph-osint"]
-  n59["lance-graph-planner"]
-  n60["lance-graph-python"]
-  n61["lance-graph-quack"]
-  n62["lance-graph-r2il"]
-  n63["lance-graph-rbac"]
-  n64["lance-graph-relalg"]
-  n65["lance-graph-report"]
-  n66["lance-graph-report-ogar"]
-  n67["lance-graph-sap"]
-  n68["lance-graph-supervisor"]
-  n70["lance-graph-xlog"]
-  n71["learning"]
-  n72["mork-pathmap-probe"]
-  n74["ogar-behavior-probe"]
-  n75["onebrc-probe"]
-  n76["p64-bridge"]
-  n77["perturbation-sim"]
-  n81["reader-lm"]
-  n84["sigker"]
-  n85["sigma-tier-router"]
-  n86["soa64-u64-lab"]
-  n87["surreal_container"]
-  n88["symbiont"]
-  n89["template-equivalence"]
-  n90["template-runtime"]
-  n91["thinking-engine"]
-  n92["thought-git-probe"]
-  n93["tract-harvest-probe"]
-  n94["weather-poc"]
+  n22["elixir-template"]
+  n23["foundry-parity-lab"]
+  n25["grammar-constraints-probe"]
+  n27["highheelbgz"]
+  n28["holo-h14d-probe"]
+  n30["holograph"]
+  n31["jc"]
+  n32["jc-batch-probe"]
+  n33["lance-graph"]
+  n35["lance-graph-archetype"]
+  n36["lance-graph-arm-discovery"]
+  n37["lance-graph-benches"]
+  n38["lance-graph-callcenter"]
+  n39["lance-graph-catalog"]
+  n41["lance-graph-codegraph"]
+  n42["lance-graph-cognitive"]
+  n43["lance-graph-consumer-conformance"]
+  n44["lance-graph-contract"]
+  n45["lance-graph-cypher-quack"]
+  n46["lance-graph-dir-sim"]
+  n47["lance-graph-dt64"]
+  n48["lance-graph-dt64-lance"]
+  n49["lance-graph-glove-parity"]
+  n50["lance-graph-hydrate"]
+  n51["lance-graph-lane-fold"]
+  n52["lance-graph-mask-risc"]
+  n53["lance-graph-metta"]
+  n54["lance-graph-nal"]
+  n56["lance-graph-ogar"]
+  n57["lance-graph-onnx"]
+  n58["lance-graph-ontology"]
+  n59["lance-graph-osint"]
+  n60["lance-graph-planner"]
+  n61["lance-graph-python"]
+  n62["lance-graph-quack"]
+  n63["lance-graph-r2il"]
+  n64["lance-graph-rbac"]
+  n65["lance-graph-relalg"]
+  n66["lance-graph-report"]
+  n67["lance-graph-report-ogar"]
+  n68["lance-graph-sap"]
+  n69["lance-graph-supervisor"]
+  n71["lance-graph-xlog"]
+  n72["learning"]
+  n73["mork-pathmap-probe"]
+  n75["ogar-behavior-probe"]
+  n76["onebrc-probe"]
+  n77["p64-bridge"]
+  n78["perturbation-sim"]
+  n82["reader-lm"]
+  n85["sigker"]
+  n86["sigma-tier-router"]
+  n87["soa64-u64-lab"]
+  n88["surreal_container"]
+  n89["symbiont"]
+  n90["template-equivalence"]
+  n91["template-runtime"]
+  n92["thinking-engine"]
+  n93["thought-git-probe"]
+  n94["tract-harvest-probe"]
+  n95["weather-poc"]
   n0 --> n1
-  n1 --> n29
-  n1 --> n43
-  n4 --> n22
-  n4 --> n43
-  n4 --> n46
-  n4 --> n62
-  n6 --> n46
-  n6 --> n51
+  n1 --> n30
+  n1 --> n44
+  n4 --> n23
+  n4 --> n44
+  n4 --> n47
+  n4 --> n63
+  n6 --> n47
+  n6 --> n52
   n7 --> n2
   n7 --> n3
   n7 --> n11
-  n7 --> n43
-  n7 --> n57
-  n7 --> n59
-  n7 --> n76
-  n7 --> n91
+  n7 --> n44
+  n7 --> n58
+  n7 --> n60
+  n7 --> n77
+  n7 --> n92
   n8 --> n5
-  n8 --> n21
-  n8 --> n32
-  n8 --> n43
-  n8 --> n55
-  n8 --> n89
+  n8 --> n22
+  n8 --> n33
+  n8 --> n44
+  n8 --> n56
   n8 --> n90
-  n9 --> n43
-  n9 --> n51
-  n9 --> n64
-  n9 --> n72
-  n10 --> n43
-  n10 --> n51
-  n10 --> n61
-  n11 --> n41
-  n11 --> n43
+  n8 --> n91
+  n9 --> n44
+  n9 --> n52
+  n9 --> n65
+  n9 --> n73
+  n10 --> n44
+  n10 --> n52
+  n10 --> n62
+  n11 --> n42
+  n11 --> n44
   n12 --> n3
-  n12 --> n35
-  n12 --> n43
-  n13 --> n43
-  n13 --> n46
-  n14 --> n51
-  n15 --> n43
-  n15 --> n46
-  n15 --> n51
-  n16 --> n59
-  n17 --> n43
-  n17 --> n46
-  n17 --> n51
-  n18 --> n43
-  n18 --> n46
-  n19 --> n43
-  n19 --> n46
-  n19 --> n55
-  n22 --> n43
-  n22 --> n46
-  n22 --> n51
-  n22 --> n64
-  n24 --> n43
-  n24 --> n46
-  n24 --> n51
-  n24 --> n61
-  n26 --> n1
-  n27 --> n51
-  n27 --> n62
-  n27 --> n64
-  n30 --> n84
-  n31 --> n30
-  n31 --> n51
-  n31 --> n64
-  n32 --> n1
-  n32 --> n2
-  n32 --> n38
-  n32 --> n41
-  n32 --> n43
-  n32 --> n49
-  n32 --> n51
-  n32 --> n59
-  n32 --> n61
-  n32 --> n62
-  n34 --> n43
-  n35 --> n43
-  n36 --> n15
-  n36 --> n32
-  n36 --> n43
+  n12 --> n36
+  n12 --> n44
+  n13 --> n44
+  n13 --> n47
+  n14 --> n52
+  n15 --> n44
+  n15 --> n47
+  n15 --> n52
+  n16 --> n60
+  n17 --> n44
+  n17 --> n47
+  n17 --> n52
+  n18 --> n44
+  n18 --> n47
+  n19 --> n44
+  n19 --> n47
+  n19 --> n56
+  n23 --> n44
+  n23 --> n47
+  n23 --> n52
+  n23 --> n65
+  n25 --> n44
+  n25 --> n47
+  n25 --> n52
+  n25 --> n62
+  n27 --> n1
+  n28 --> n52
+  n28 --> n63
+  n28 --> n65
+  n31 --> n85
+  n32 --> n31
+  n32 --> n52
+  n32 --> n65
+  n33 --> n1
+  n33 --> n2
+  n33 --> n39
+  n33 --> n42
+  n33 --> n44
+  n33 --> n50
+  n33 --> n52
+  n33 --> n60
+  n33 --> n62
+  n33 --> n63
+  n35 --> n44
   n36 --> n44
-  n36 --> n46
-  n36 --> n51
-  n36 --> n61
-  n37 --> n43
-  n37 --> n57
-  n37 --> n63
-  n40 --> n43
-  n40 --> n46
-  n40 --> n51
-  n40 --> n61
-  n40 --> n70
-  n41 --> n29
-  n41 --> n43
-  n42 --> n37
-  n42 --> n43
-  n42 --> n55
-  n42 --> n57
-  n42 --> n63
-  n44 --> n32
-  n44 --> n51
-  n44 --> n61
-  n45 --> n43
-  n45 --> n51
-  n45 --> n61
-  n46 --> n43
-  n47 --> n32
-  n47 --> n43
-  n47 --> n46
-  n47 --> n59
-  n47 --> n68
-  n48 --> n43
-  n48 --> n55
-  n48 --> n57
-  n48 --> n61
-  n50 --> n43
-  n52 --> n51
-  n52 --> n61
-  n53 --> n43
-  n53 --> n51
+  n37 --> n15
+  n37 --> n33
+  n37 --> n44
+  n37 --> n45
+  n37 --> n47
+  n37 --> n52
+  n37 --> n62
+  n38 --> n44
+  n38 --> n58
+  n38 --> n64
+  n41 --> n44
+  n41 --> n47
+  n41 --> n52
+  n41 --> n62
+  n41 --> n71
+  n42 --> n30
+  n42 --> n44
+  n43 --> n38
+  n43 --> n44
+  n43 --> n56
+  n43 --> n58
+  n43 --> n64
+  n45 --> n33
+  n45 --> n52
+  n45 --> n62
+  n46 --> n44
+  n46 --> n52
+  n46 --> n62
+  n47 --> n44
+  n48 --> n33
+  n48 --> n44
+  n48 --> n47
+  n48 --> n60
+  n48 --> n69
+  n49 --> n44
+  n49 --> n56
+  n49 --> n58
+  n49 --> n62
+  n51 --> n44
+  n53 --> n52
   n53 --> n62
-  n55 --> n43
-  n55 --> n57
-  n57 --> n43
-  n58 --> n2
-  n58 --> n3
-  n58 --> n11
-  n58 --> n59
-  n58 --> n76
+  n54 --> n44
+  n54 --> n52
+  n54 --> n63
+  n56 --> n44
+  n56 --> n58
+  n58 --> n44
   n59 --> n2
   n59 --> n3
-  n59 --> n43
-  n59 --> n76
-  n60 --> n32
-  n61 --> n43
-  n61 --> n51
-  n62 --> n43
-  n62 --> n46
-  n62 --> n51
-  n63 --> n43
-  n64 --> n43
-  n64 --> n51
-  n64 --> n62
-  n65 --> n43
-  n65 --> n46
-  n65 --> n51
-  n65 --> n61
-  n66 --> n43
-  n66 --> n65
-  n67 --> n43
-  n67 --> n51
-  n67 --> n61
-  n68 --> n37
-  n68 --> n43
-  n68 --> n59
-  n70 --> n43
-  n70 --> n46
-  n70 --> n51
-  n70 --> n61
-  n71 --> n43
-  n72 --> n51
-  n74 --> n43
-  n74 --> n46
-  n75 --> n43
-  n76 --> n2
-  n76 --> n3
-  n77 --> n43
-  n81 --> n1
-  n85 --> n3
-  n85 --> n43
-  n86 --> n43
-  n86 --> n46
-  n87 --> n43
-  n88 --> n32
-  n88 --> n43
-  n88 --> n55
-  n88 --> n77
-  n91 --> n1
-  n91 --> n3
-  n91 --> n26
-  n91 --> n30
-  n91 --> n43
-  n92 --> n43
-  n93 --> n43
-  n93 --> n56
-  n94 --> n43
+  n59 --> n11
+  n59 --> n60
+  n59 --> n77
+  n60 --> n2
+  n60 --> n3
+  n60 --> n44
+  n60 --> n77
+  n61 --> n33
+  n62 --> n44
+  n62 --> n52
+  n63 --> n44
+  n63 --> n47
+  n63 --> n52
+  n64 --> n44
+  n65 --> n44
+  n65 --> n52
+  n65 --> n63
+  n66 --> n44
+  n66 --> n47
+  n66 --> n52
+  n66 --> n62
+  n67 --> n44
+  n67 --> n66
+  n68 --> n44
+  n68 --> n52
+  n68 --> n62
+  n69 --> n38
+  n69 --> n44
+  n69 --> n60
+  n71 --> n44
+  n71 --> n47
+  n71 --> n52
+  n71 --> n62
+  n72 --> n44
+  n73 --> n52
+  n75 --> n44
+  n75 --> n47
+  n76 --> n44
+  n77 --> n2
+  n77 --> n3
+  n78 --> n44
+  n82 --> n1
+  n86 --> n3
+  n86 --> n44
+  n87 --> n44
+  n87 --> n47
+  n88 --> n44
+  n89 --> n33
+  n89 --> n44
+  n89 --> n56
+  n89 --> n78
+  n92 --> n1
+  n92 --> n3
+  n92 --> n27
+  n92 --> n31
+  n92 --> n44
+  n93 --> n44
+  n94 --> n44
+  n94 --> n57
+  n95 --> n44
   classDef shipped fill:#d8f0d8,stroke:#2e7d32,color:#111
   classDef lab fill:#fff3cd,stroke:#a67c00,color:#111
   classDef open fill:#d6e6fa,stroke:#1565c0,color:#111
   classDef gap fill:#fadadd,stroke:#c62828,stroke-dasharray:5 3,color:#111
-  class n1,n7,n15,n32,n34,n36,n37,n38,n42,n43,n44,n46,n49,n50,n51,n56,n57,n59,n61,n62,n63,n65,n68,n70,n85,n87 shipped
-  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n21,n22,n24,n26,n27,n29,n30,n31,n35,n40,n41,n45,n47,n48,n52,n53,n55,n58,n60,n64,n66,n67,n71,n72,n74,n75,n76,n77,n81,n84,n86,n88,n89,n90,n91,n92,n93,n94 lab
+  class n1,n7,n15,n33,n35,n37,n38,n39,n43,n44,n45,n47,n50,n51,n52,n57,n58,n60,n62,n63,n64,n66,n69,n71,n86,n88 shipped
+  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n30,n31,n32,n36,n41,n42,n46,n48,n49,n53,n54,n56,n59,n61,n65,n67,n68,n72,n73,n75,n76,n77,n78,n82,n85,n87,n89,n90,n91,n92,n93,n94,n95 lab
 ```

@@ -21,6 +21,7 @@ drisa-register-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dt64-admission-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dt64-hotplug-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dto-class-check	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+duckdb-selvec-compat	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 elixir-template	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 foundry-parity-lab	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 gkat-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN

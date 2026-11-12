@@ -107,6 +107,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n14["dr-select-k-lab"]
-  n51["lance-graph-mask-risc"]
-  n14 --> n51
+  n52["lance-graph-mask-risc"]
+  n14 --> n52
 ```

@@ -279,34 +279,34 @@ flowchart LR
   n17["drisa-register-probe"]
   n18["dt64-admission-probe"]
   n19["dt64-hotplug-probe"]
-  n22["foundry-parity-lab"]
-  n24["grammar-constraints-probe"]
-  n36["lance-graph-benches"]
-  n40["lance-graph-codegraph"]
-  n43["lance-graph-contract"]
-  n46["lance-graph-dt64"]
-  n47["lance-graph-dt64-lance"]
-  n62["lance-graph-r2il"]
-  n65["lance-graph-report"]
-  n70["lance-graph-xlog"]
-  n74["ogar-behavior-probe"]
-  n86["soa64-u64-lab"]
-  n4 --> n46
-  n6 --> n46
-  n13 --> n46
-  n15 --> n46
-  n17 --> n46
-  n18 --> n46
-  n19 --> n46
-  n22 --> n46
-  n24 --> n46
-  n36 --> n46
-  n40 --> n46
-  n46 --> n43
-  n47 --> n46
-  n62 --> n46
-  n65 --> n46
-  n70 --> n46
-  n74 --> n46
-  n86 --> n46
+  n23["foundry-parity-lab"]
+  n25["grammar-constraints-probe"]
+  n37["lance-graph-benches"]
+  n41["lance-graph-codegraph"]
+  n44["lance-graph-contract"]
+  n47["lance-graph-dt64"]
+  n48["lance-graph-dt64-lance"]
+  n63["lance-graph-r2il"]
+  n66["lance-graph-report"]
+  n71["lance-graph-xlog"]
+  n75["ogar-behavior-probe"]
+  n87["soa64-u64-lab"]
+  n4 --> n47
+  n6 --> n47
+  n13 --> n47
+  n15 --> n47
+  n17 --> n47
+  n18 --> n47
+  n19 --> n47
+  n23 --> n47
+  n25 --> n47
+  n37 --> n47
+  n41 --> n47
+  n47 --> n44
+  n48 --> n47
+  n63 --> n47
+  n66 --> n47
+  n71 --> n47
+  n75 --> n47
+  n87 --> n47
 ```

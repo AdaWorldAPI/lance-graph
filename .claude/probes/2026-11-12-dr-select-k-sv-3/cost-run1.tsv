@@ -1,0 +1,4 @@
+k	native_borrow_ns	create_destroy_ns	materialize_destroy_ns	read_ns	revalidate_ns	bytes_copied	allocations
+64	28	66	78	39	60	256	2
+256	28	67	82	55	195	1024	2
+65536	29	5674	13193	6652	61835	262144	2
