@@ -403,7 +403,7 @@ to locate the threshold. No optimizer and no selection engine.
 
 ## 14. D-DR-SELECT-K-SV-1: the first admission (2026-11-12)
 
-**Status:** IN PR. Lab and admission level; not a production release.
+**Status:** MERGED (PR 2039). Lab and admission level; not a production release.
 
 **Shape chosen.** No field is added to `Planes` (it is built as a struct
 literal in about 400 places). The admission is a separate, narrow entry
@@ -442,8 +442,9 @@ the density threshold; any use from production code.
 
 ## 15. D-DR-SELECT-K-SV-2: a selection witnessed with its lanes (2026-11-12)
 
-**Status:** IN PR (Draft). Admission level. Two of the brief's properties are
-BLOCKED and listed below; nothing here is a production release.
+**Status:** MERGED (PR 2040, code). Not production-admitted: two of the
+brief's properties are BLOCKED and three more are open, all listed under
+"Not verified / not supported" below.
 
 **Invariant.** A selection may execute only if its positions address the frame
 that holds the borrowed value lanes. Equal row count, equal revision numbers,
@@ -456,9 +457,9 @@ an in-range position or a caller-supplied id do not establish that.
 | frame identity, issuer, source / relation-map / coordinate revisions, reseal | `FrameStore::check`, `FrameRevisions`, `Frame` (no public constructor) in `crates/lance-graph-dt64/src/dr.rs` | SHIPPED |
 | focus and scope equality against the bound values | `Guards::check` in `crates/lance-graph-dt64/src/dr.rs` | SHIPPED |
 | lane issued by a source for its own frame, in one row order | `LaneSource`, `CoordSpace`, `LaneAddr`, `BindStore::bind_lanes`, `LaneBinding::check` in `crates/lance-graph-dt64/src/lane.rs` | SHIPPED |
-| position list issued by the same source, same frame, same row order | `SelectionSource`, `SelAddr`, `LaneBinding::selected` in `crates/lance-graph-dt64/src/lane.rs` | NEW in this PR |
+| position list issued by the same source, same frame, same row order | `SelectionSource`, `SelAddr`, `LaneBinding::selected` in `crates/lance-graph-dt64/src/lane.rs` | SHIPPED (PR 2040) |
 | the fold over borrowed positions | `execute_sel` in `crates/lance-graph-mask-risc/src/sel.rs` | SHIPPED (PR 2039) |
-| the boundary that calls the fold once | `fold_bound_selection` in `crates/lance-graph-report/src/bound_sel.rs` | NEW in this PR |
+| the boundary that calls the fold once | `fold_bound_selection` in `crates/lance-graph-report/src/bound_sel.rs` | SHIPPED (PR 2040) |
 | a reader `Scope` that carries permission | none. `Scope` is a plain `{ id }` value; `AbiLanes::unwitnessed` in `crates/lance-graph-report/src/lane_source.rs` is test-only for that reason; `crates/lance-graph-rbac/tests/scoped_lane_binding.rs` records the gap as findings | BLOCKED |
 | a general row-order witness | `SealedOrder` in `crates/dr256-ternlog-lab/src/order_store.rs` is LAB; `OrderedLaneWitness` in `crates/lance-graph-contract/src/ordered_lane.rs` covers sealed facet key lanes only | BLOCKED for ordered consumers |
 | a pinned historical snapshot | none; `FrameStore::check` accepts the current issue only | REFUSED (current-frame mode) |
