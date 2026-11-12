@@ -80,7 +80,7 @@
 //!
 //! | operator here | matrix row | verdict there |
 //! |---|---|---|
-//! | no `SelectionVector`, anywhere | R1 | ELIMINATE — an index list is the materialisation the mask-native invariant forbids |
+//! | no `SelectionVector` in a [`Program`]; [`lower_sel`] for two folds | R1 | ADAPT since 2026-11-12 (was ELIMINATE) — the row's falsifier fired; a borrowed position list is an admitted operand form for `SUM(i32)` and `COUNT(i32 > t)`, never a carrier a program composes |
 //! | [`Col`] over a borrowed lane | R2 | KEEP — a flat vector IS an SoA lane |
 //! | [`Cmp`] taking a scalar | R3 | ELIMINATE `ConstantVector` — a constant never acquires a representation |
 //! | [`Filter::Plane`] | R6 | KEEP the representation, ELIMINATE the role — same packed `u64`, no NULL plane |
@@ -173,8 +173,8 @@ use std::cmp::Reverse;
 use lance_graph_contract::facet::{SemanticAperture, SemanticPrefix};
 use lance_graph_contract::ordered_lane::{OrderedLaneWitness, SealedFacetLane};
 use lance_graph_mask_risc::{
-    fuse, BoolExpr, FuseError, GroupFold, GroupKey, MaskOp, Operand, Pred, Program, Terminal,
-    MAX_SCRATCH_SLOTS,
+    fuse, BoolExpr, FuseError, GroupFold, GroupKey, MaskOp, Operand, Pred, Program, SelFold,
+    Terminal, MAX_SCRATCH_SLOTS,
 };
 
 /// A column reference — an index into [`Planes::lanes`](lance_graph_mask_risc::Planes).
@@ -1091,6 +1091,9 @@ pub enum LowerError {
     /// the executor refuses a zero-length sink — so the plan would be
     /// unexecutable. Refused here, where the caller can see why.
     EmptyGroupUniverse,
+    /// [`lower_sel`] was given a query that is not one of the two shapes a
+    /// position selection admits.
+    NotASelectionFold,
 }
 
 impl core::fmt::Display for LowerError {
@@ -1110,6 +1113,12 @@ impl core::fmt::Display for LowerError {
             }
             LowerError::EmptyGroupUniverse => {
                 write!(f, "a grouped plan needs at least one group (groups == 0)")
+            }
+            LowerError::NotASelectionFold => {
+                write!(
+                    f,
+                    "a position selection admits only SUM(i32) and COUNT(i32 > t)"
+                )
             }
         }
     }
@@ -1396,6 +1405,46 @@ pub fn lower(q: &Query) -> Result<Program, LowerError> {
 /// As [`lower`].
 pub fn lower_fused(q: &Query) -> Result<Program, LowerError> {
     lower_with(&q.filter, q.agg, emit_fused)
+}
+
+/// Lower a query whose `selection` plane is supplied in POSITION form.
+///
+/// The query is written exactly as for [`lower`], with the selection as a
+/// resident plane. This says: the consumer holds that selection as a borrowed
+/// list of row positions instead of a mask, and asks for the fold to run over
+/// the list (`lance_graph_mask_risc::execute_sel`). It is the same algebra
+/// with one more operand form, never a second query language. Two shapes are
+/// admitted (decision D-DR-SELECT-K-SV):
+///
+/// | query | fold |
+/// |---|---|
+/// | `Plane(selection)` with [`Agg::SumI32`]`(c)` | [`SelFold::SumI32`] |
+/// | `And([Plane(selection), Cmp(c, GtI32(t))])` (either order) with [`Agg::Count`] | [`SelFold::CountGtI32`] |
+///
+/// For a selection that is a set the fold answers exactly what [`lower`]'s
+/// program answers over the mask. A position list may also be a bag (a row
+/// listed twice); the fold then counts that row twice, which no mask can
+/// express, so the caller must not obtain the list by expanding a mask if
+/// multiplicity matters, nor collapse a bag into a mask.
+///
+/// # Errors
+///
+/// [`LowerError::NotASelectionFold`] for every other query: another
+/// aggregate, another comparison, a different plane, more conjuncts.
+pub fn lower_sel(q: &Query, selection: Mask) -> Result<SelFold, LowerError> {
+    let is_selection = |f: &Filter| *f == Filter::Plane(selection);
+    match (&q.filter, q.agg) {
+        (f, Agg::SumI32(c)) if is_selection(f) => Ok(SelFold::SumI32 { lane: c.0 }),
+        (Filter::And(parts), Agg::Count) => match parts.as_slice() {
+            [a, Filter::Cmp(c, Cmp::GtI32(t))] | [Filter::Cmp(c, Cmp::GtI32(t)), a]
+                if is_selection(a) =>
+            {
+                Ok(SelFold::CountGtI32 { lane: c.0, t: *t })
+            }
+            _ => Err(LowerError::NotASelectionFold),
+        },
+        _ => Err(LowerError::NotASelectionFold),
+    }
 }
 
 /// Lower a `GROUP BY` to its two-phase [`GroupPlan`]; `filter_plane` is the
@@ -2514,6 +2563,113 @@ mod tests {
         execute_into, materialize_rows, reference_execute, words_for, Foreign, LaneRef, Out,
         Planes, Scratch, Value,
     };
+
+    /// FAILS IF: `lower_sel` and `lower` disagree. For a selection that is a
+    /// set, the fold over its positions must answer what the lowered program
+    /// answers over its mask, for both admitted shapes and either conjunct
+    /// order; every other query must be refused.
+    #[test]
+    fn lower_sel_answers_like_lower_for_a_set_and_refuses_the_rest() {
+        use lance_graph_mask_risc::execute_sel;
+        let n = 1000usize;
+        let values: Vec<i32> = (0..n as i32).map(|i| (i * 37) % 201 - 100).collect();
+        let positions: Vec<u32> = (0..n as u32).filter(|p| p % 7 == 3).collect();
+        let mut mask = vec![0u64; words_for(n)];
+        for &p in &positions {
+            mask[p as usize / 64] |= 1u64 << (p % 64);
+        }
+        let lanes = [LaneRef::I32(&values)];
+        let masks: [&[u64]; 1] = [&mask];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let sel = Mask(0);
+        let by_mask = |q: &Query| {
+            let p = lower(q).unwrap();
+            let mut scratch = Scratch::for_program(&p, n).unwrap();
+            execute_into(&p, &planes, &Foreign::NONE, &mut scratch, Out::None).unwrap()
+        };
+        let by_positions =
+            |q: &Query| execute_sel(lower_sel(q, sel).unwrap(), &planes, &positions).unwrap();
+
+        let sum = Query {
+            filter: Filter::plane(sel),
+            agg: Agg::SumI32(Col(0)),
+        };
+        assert_eq!(by_positions(&sum), by_mask(&sum));
+        assert_ne!(
+            by_mask(&sum),
+            Value::SumI64(0),
+            "the corpus sums to something"
+        );
+
+        let mut some_counted = false;
+        for t in [-101, -1, 0, 50, 100] {
+            let gt = Filter::cmp(Col(0), Cmp::GtI32(t));
+            for parts in [
+                vec![Filter::plane(sel), gt.clone()],
+                vec![gt.clone(), Filter::plane(sel)],
+            ] {
+                let q = Query {
+                    filter: Filter::And(parts),
+                    agg: Agg::Count,
+                };
+                assert_eq!(by_positions(&q), by_mask(&q), "t={t}");
+                some_counted |= !matches!(by_mask(&q), Value::Count(0));
+            }
+        }
+        assert!(some_counted);
+
+        // Everything else is refused: the admission is two shapes, not a door.
+        let gt = Filter::cmp(Col(0), Cmp::GtI32(0));
+        let refused = [
+            Query {
+                filter: Filter::plane(sel),
+                agg: Agg::Count,
+            },
+            Query {
+                filter: Filter::plane(Mask(1)),
+                agg: Agg::SumI32(Col(0)),
+            },
+            Query {
+                filter: Filter::plane(sel),
+                agg: Agg::MinI32(Col(0)),
+            },
+            Query {
+                filter: gt.clone(),
+                agg: Agg::Count,
+            },
+            Query {
+                filter: Filter::And(vec![Filter::plane(sel), gt.clone()]),
+                agg: Agg::SumI32(Col(0)),
+            },
+            Query {
+                filter: Filter::And(vec![Filter::plane(sel), Filter::cmp(Col(0), Cmp::LtI32(0))]),
+                agg: Agg::Count,
+            },
+            Query {
+                filter: Filter::And(vec![Filter::plane(sel), gt.clone(), gt.clone()]),
+                agg: Agg::Count,
+            },
+            Query {
+                filter: Filter::And(vec![Filter::plane(Mask(1)), gt.clone()]),
+                agg: Agg::Count,
+            },
+            Query {
+                filter: Filter::Or(vec![Filter::plane(sel), gt]),
+                agg: Agg::Count,
+            },
+        ];
+        for q in &refused {
+            assert_eq!(
+                lower_sel(q, sel),
+                Err(LowerError::NotASelectionFold),
+                "{q:?}"
+            );
+        }
+    }
 
     /// FAILS IF: the consumer boundary lets a fold's internal marker through,
     /// or mistakes a real value for an empty group. The `_sym` SUM case is the

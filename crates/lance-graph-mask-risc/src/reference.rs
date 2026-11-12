@@ -20,6 +20,7 @@ use crate::ir::{
     Foreign, GroupFold, GroupKey, LaneRef, MaskOp, Operand, Planes, Pred, Program, Terminal,
     GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
+use crate::sel::{SelFold, SEL_SUM_I32_MAX_POSITIONS};
 use crate::value::{CrossPowerSums, PowerSums};
 use crate::value::{ExecError, LaneKind, Out, Value};
 use crate::words_for;
@@ -138,6 +139,90 @@ fn check_lane(planes: &Planes<'_>, lane: u16, expected: LaneKind) -> Result<(), 
         }),
         Some(_) => Ok(()),
     }
+}
+
+/// Validation of a selection fold, shared by [`crate::execute_sel`] and
+/// [`reference_execute_sel`] so both refuse identically, in this order: the
+/// lane exists, is `i32`, spans the frame; a sum's list is within its bound;
+/// every position is a row of the frame (the first offender is reported).
+///
+/// The position walk is the one O(`positions.len()`) check. The executor does
+/// not call it on the accepting path — the facade folds report an
+/// out-of-range position themselves — and calls it only to name the offender.
+pub(crate) fn validate_sel(
+    fold: SelFold,
+    planes: &Planes<'_>,
+    positions: &[u32],
+) -> Result<(), ExecError> {
+    validate_sel_frame(fold, planes, positions)?;
+    match first_out_of_range(planes.n_rows, positions) {
+        Some((at, position)) => Err(ExecError::SelOutOfRange { at, position }),
+        None => Ok(()),
+    }
+}
+
+/// The O(1) half of [`validate_sel`]: everything except the position walk.
+pub(crate) fn validate_sel_frame(
+    fold: SelFold,
+    planes: &Planes<'_>,
+    positions: &[u32],
+) -> Result<(), ExecError> {
+    let lane = match fold {
+        SelFold::CountGtI32 { lane, .. } | SelFold::SumI32 { lane } => lane,
+    };
+    check_lane(planes, lane, LaneKind::I32)?;
+    let found = planes.lanes[usize::from(lane)].len();
+    if found != planes.n_rows {
+        return Err(ExecError::LenMismatch {
+            what: "lane",
+            expected: planes.n_rows,
+            found,
+        });
+    }
+    if matches!(fold, SelFold::SumI32 { .. }) && positions.len() > SEL_SUM_I32_MAX_POSITIONS {
+        return Err(ExecError::SelSumBound {
+            positions: positions.len(),
+        });
+    }
+    Ok(())
+}
+
+/// The first `(place, position)` in `positions` that is not below `n_rows`.
+pub(crate) fn first_out_of_range(n_rows: usize, positions: &[u32]) -> Option<(usize, u32)> {
+    positions
+        .iter()
+        .copied()
+        .enumerate()
+        .find(|&(_, p)| p as usize >= n_rows)
+}
+
+/// The independent oracle for [`crate::execute_sel`]: one listed position at
+/// a time, in list order, in plain Rust. A position listed twice is visited
+/// twice — the list is a bag.
+pub fn reference_execute_sel(
+    fold: SelFold,
+    planes: &Planes<'_>,
+    positions: &[u32],
+) -> Result<Value, ExecError> {
+    validate_sel(fold, planes, positions)?;
+    Ok(match fold {
+        SelFold::CountGtI32 { lane, t } => {
+            let mut count = 0usize;
+            for &p in positions {
+                if i32_at(planes, lane, p as usize) > t {
+                    count += 1;
+                }
+            }
+            Value::Count(count)
+        }
+        SelFold::SumI32 { lane } => {
+            let mut sum = 0i64;
+            for &p in positions {
+                sum += i64::from(i32_at(planes, lane, p as usize));
+            }
+            Value::SumI64(sum)
+        }
+    })
 }
 
 /// [`check_lane`]'s twin over [`Foreign::lanes`] — a SEPARATE address space

@@ -77,7 +77,12 @@
 //!    `RowStore`); temporaries live in a caller-supplied `Scratch`; the
 //!    executor never allocates. There is no per-row object, no hidden
 //!    rowset, no second row-index universe — a `SelectionVector` cannot be
-//!    expressed in this vocabulary at all.
+//!    expressed in the [`Program`] vocabulary at all. (Since D-DR-SELECT-K-SV,
+//!    2026-11-12, one position operand is admitted OUTSIDE that vocabulary:
+//!    [`execute_sel`] folds a borrowed bag of rows of the same frame. It keeps
+//!    this law — it borrows, never allocates, and a position that is not a
+//!    row of the frame is refused, so there is still one row universe. See
+//!    [`sel`].)
 //! A2. **Masks choose admissibility; magnitude is a separate reduction over
 //!    survivors** (`E-TOPOLOGY-MASKS-MAGNITUDE-COMPOSE-NEVER-COLLAPSE-1`).
 //!    [`Terminal::MaskedSumI32`] and friends reduce a *value plane* under
@@ -137,6 +142,7 @@ pub mod fuse;
 pub mod graph_hop;
 pub mod ir;
 pub mod reference;
+pub mod sel;
 pub mod ternlog_dispatch;
 pub mod value;
 
@@ -154,8 +160,10 @@ pub use ir::{
     FUSED_SLOT_CAP, GROUP_SUM_SYM_MAX_ROWS, MASKED_SUM_I32_MAX_ROWS, MAX_SCRATCH_SLOTS,
 };
 pub use reference::{
-    reference_execute, reference_execute_into, reference_scratch, reference_scratch_with_foreign,
+    reference_execute, reference_execute_into, reference_execute_sel, reference_scratch,
+    reference_scratch_with_foreign,
 };
+pub use sel::{execute_sel, SelFold, SEL_SUM_I32_MAX_POSITIONS};
 pub use ternlog_dispatch::{
     ternlog_any_dispatch, ternlog_dispatch, ternlog_dispatch_assign, ternlog_popcount_dispatch,
 };
