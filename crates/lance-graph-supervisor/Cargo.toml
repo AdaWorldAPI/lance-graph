@@ -57,7 +57,8 @@ static_assertions = "1"
 # MailboxSoaOwner impl instead of the in-file TestBoard fake. dev-dependencies
 # never ship in the compiled crate/runtime dep graph — this proves the
 # structural-owner contract against real code without adding a runtime dep.
-cognitive-shader-driver = { path = "../cognitive-shader-driver" }
+# `with-planner`: the ownership suite calls the real `MailboxSoA::cast_on_behalf`.
+cognitive-shader-driver = { path = "../cognitive-shader-driver", features = ["with-planner"] }
 # D-BLW-5 oracle ONLY (dev-dep; never production; jc is never modified and
 # never fed its own output — doctrine §5.8). Pre-ratified in
 # exec-runs/d-blw-5-design-main-thread.md (a).
