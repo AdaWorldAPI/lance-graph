@@ -3,7 +3,7 @@
 crate: lance-graph-dt64
 path: crates/lance-graph-dt64
 workspace: member
-digest: 74d9722ae1ff4abd
+digest: 9cffbb86670f09e6
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -153,80 +153,83 @@ Generated; the code is the truth. See ../index.md.
 - struct CoordSpace [pub] — crates/lance-graph-dt64/src/lane.rs:28 CONFIRMED
 - struct LaneAddr [pub] — crates/lance-graph-dt64/src/lane.rs:36 CONFIRMED
 - trait LaneSource [pub] — crates/lance-graph-dt64/src/lane.rs:51 CONFIRMED
-- struct RouteAt [pub] — crates/lance-graph-dt64/src/lane.rs:84 CONFIRMED
-- struct LaneRequest [pub] — crates/lance-graph-dt64/src/lane.rs:91 CONFIRMED
-- enum LaneRefusal [pub] — crates/lance-graph-dt64/src/lane.rs:104 CONFIRMED
-- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:160 CONFIRMED
-- fn BindStore::bind_lanes [pub] — crates/lance-graph-dt64/src/lane.rs:182 CONFIRMED
-- fn LaneBinding::class [pub] — crates/lance-graph-dt64/src/lane.rs:280 CONFIRMED
-- fn LaneBinding::rev [pub] — crates/lance-graph-dt64/src/lane.rs:284 CONFIRMED
-- fn LaneBinding::route [pub] — crates/lance-graph-dt64/src/lane.rs:288 CONFIRMED
-- fn LaneBinding::frame [pub] — crates/lance-graph-dt64/src/lane.rs:292 CONFIRMED
-- fn LaneBinding::selection [pub] — crates/lance-graph-dt64/src/lane.rs:296 CONFIRMED
-- fn LaneBinding::fields [pub] — crates/lance-graph-dt64/src/lane.rs:301 CONFIRMED
-- fn LaneBinding::addr [pub] — crates/lance-graph-dt64/src/lane.rs:306 CONFIRMED
-- fn LaneBinding::check [pub] — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
-- fn LaneBinding::lane [pub] — crates/lance-graph-dt64/src/lane.rs:372 CONFIRMED
-- fn LaneBinding::borrow_all [pub] — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
-- struct BoundLanes [pub] — crates/lance-graph-dt64/src/lane.rs:416 CONFIRMED
+- struct SelAddr [pub] — crates/lance-graph-dt64/src/lane.rs:85 CONFIRMED
+- trait SelectionSource [pub] — crates/lance-graph-dt64/src/lane.rs:110 CONFIRMED
+- struct RouteAt [pub] — crates/lance-graph-dt64/src/lane.rs:118 CONFIRMED
+- struct LaneRequest [pub] — crates/lance-graph-dt64/src/lane.rs:125 CONFIRMED
+- enum LaneRefusal [pub] — crates/lance-graph-dt64/src/lane.rs:138 CONFIRMED
+- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:212 CONFIRMED
+- fn BindStore::bind_lanes [pub] — crates/lance-graph-dt64/src/lane.rs:234 CONFIRMED
+- fn LaneBinding::class [pub] — crates/lance-graph-dt64/src/lane.rs:332 CONFIRMED
+- fn LaneBinding::rev [pub] — crates/lance-graph-dt64/src/lane.rs:336 CONFIRMED
+- fn LaneBinding::route [pub] — crates/lance-graph-dt64/src/lane.rs:340 CONFIRMED
+- fn LaneBinding::frame [pub] — crates/lance-graph-dt64/src/lane.rs:344 CONFIRMED
+- fn LaneBinding::selection [pub] — crates/lance-graph-dt64/src/lane.rs:348 CONFIRMED
+- fn LaneBinding::fields [pub] — crates/lance-graph-dt64/src/lane.rs:353 CONFIRMED
+- fn LaneBinding::addr [pub] — crates/lance-graph-dt64/src/lane.rs:358 CONFIRMED
+- fn LaneBinding::check [pub] — crates/lance-graph-dt64/src/lane.rs:374 CONFIRMED
+- fn LaneBinding::lane [pub] — crates/lance-graph-dt64/src/lane.rs:424 CONFIRMED
+- fn LaneBinding::selected [pub] — crates/lance-graph-dt64/src/lane.rs:463 CONFIRMED
+- fn LaneBinding::borrow_all [pub] — crates/lance-graph-dt64/src/lane.rs:512 CONFIRMED
+- struct BoundLanes [pub] — crates/lance-graph-dt64/src/lane.rs:529 CONFIRMED
 - mod dr [pub] — crates/lance-graph-dt64/src/lib.rs:99 CONFIRMED
 - mod lane [pub] — crates/lance-graph-dt64/src/lib.rs:105 CONFIRMED
-- struct MethodId [pub] — crates/lance-graph-dt64/src/lib.rs:113 CONFIRMED
-- struct SigRev [pub] — crates/lance-graph-dt64/src/lib.rs:118 CONFIRMED
-- struct SchemaRev [pub] — crates/lance-graph-dt64/src/lib.rs:122 CONFIRMED
-- struct AlgebraRef [pub] — crates/lance-graph-dt64/src/lib.rs:129 CONFIRMED
-- struct Effect [pub] — crates/lance-graph-dt64/src/lib.rs:146 CONFIRMED
-- enum Arg [pub] — crates/lance-graph-dt64/src/lib.rs:158 CONFIRMED
-- struct Guard [pub] — crates/lance-graph-dt64/src/lib.rs:170 CONFIRMED
-- fn Guard::new [pub] — crates/lance-graph-dt64/src/lib.rs:176 CONFIRMED
-- fn Guard::witness [pub] — crates/lance-graph-dt64/src/lib.rs:185 CONFIRMED
-- struct GuardWitness [pub] — crates/lance-graph-dt64/src/lib.rs:199 CONFIRMED
-- enum ValueDemand [pub] — crates/lance-graph-dt64/src/lib.rs:207 CONFIRMED
-- struct MethodBinding [pub] — crates/lance-graph-dt64/src/lib.rs:215 CONFIRMED
-- fn MethodBinding::writes [pub] — crates/lance-graph-dt64/src/lib.rs:237 CONFIRMED
-- fn MethodBinding::footprint [pub] — crates/lance-graph-dt64/src/lib.rs:244 CONFIRMED
-- struct ClassSchema [pub] — crates/lance-graph-dt64/src/lib.rs:254 CONFIRMED
-- fn view_class [pub] — crates/lance-graph-dt64/src/lib.rs:265 CONFIRMED
-- const MAX_FIELDS [pub] — crates/lance-graph-dt64/src/lib.rs:270 CONFIRMED
-- struct BasisDigest [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:304 CONFIRMED
-- enum BasisSource [pub] — crates/lance-graph-dt64/src/lib.rs:333 CONFIRMED
-- struct MethodRef [pub] — crates/lance-graph-dt64/src/lib.rs:353 CONFIRMED
-- struct Stamp [pub] — crates/lance-graph-dt64/src/lib.rs:371 CONFIRMED
-- fn Stamp::binding [pub] — crates/lance-graph-dt64/src/lib.rs:380 CONFIRMED
-- enum Refusal [pub] — crates/lance-graph-dt64/src/lib.rs:473 CONFIRMED
-- struct Resolved [pub] — crates/lance-graph-dt64/src/lib.rs:646 CONFIRMED
-- struct FieldRow [pub] — crates/lance-graph-dt64/src/lib.rs:660 CONFIRMED
-- struct FieldMeaning [pub] — crates/lance-graph-dt64/src/lib.rs:668 CONFIRMED
-- fn Resolved<'s,'v>::methods_on [pub] — crates/lance-graph-dt64/src/lib.rs:677 CONFIRMED
-- fn Resolved<'s,'v>::field_view [pub] — crates/lance-graph-dt64/src/lib.rs:683 CONFIRMED
-- fn Resolved<'s,'v>::field_meaning [pub] — crates/lance-graph-dt64/src/lib.rs:700 CONFIRMED
-- fn Resolved<'s,'v>::mask_where [pub] — crates/lance-graph-dt64/src/lib.rs:719 CONFIRMED
-- fn Resolved<'s,'v>::unspecified [pub] — crates/lance-graph-dt64/src/lib.rs:729 CONFIRMED
-- fn Resolved<'s,'v>::methods_touching [pub] — crates/lance-graph-dt64/src/lib.rs:746 CONFIRMED
-- fn Resolved<'s,'v>::action_ordinals [pub] — crates/lance-graph-dt64/src/lib.rs:760 CONFIRMED
-- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:772 CONFIRMED
-- fn BindStore::new [pub] — crates/lance-graph-dt64/src/lib.rs:794 CONFIRMED
-- fn BindStore::register [pub] — crates/lance-graph-dt64/src/lib.rs:814 CONFIRMED
-- fn BindStore::register_derived [pub] — crates/lance-graph-dt64/src/lib.rs:826 CONFIRMED
-- fn BindStore::declare_algebra [pub] — crates/lance-graph-dt64/src/lib.rs:917 CONFIRMED
-- fn BindStore::arity [pub] — crates/lance-graph-dt64/src/lib.rs:943 CONFIRMED
-- fn BindStore::resolve_algebra [pub] — crates/lance-graph-dt64/src/lib.rs:954 CONFIRMED
-- fn BindStore::words_used [pub] — crates/lance-graph-dt64/src/lib.rs:977 CONFIRMED
-- fn BindStore::users_of [pub] — crates/lance-graph-dt64/src/lib.rs:994 CONFIRMED
-- fn BindStore::class_count [pub] — crates/lance-graph-dt64/src/lib.rs:1007 CONFIRMED
-- fn BindStore::current_version [pub] — crates/lance-graph-dt64/src/lib.rs:1012 CONFIRMED
-- fn BindStore::route [pub] — crates/lance-graph-dt64/src/lib.rs:1018 CONFIRMED
-- fn BindStore::check_route [pub] — crates/lance-graph-dt64/src/lib.rs:1034 CONFIRMED
-- fn BindStore::claimed [pub] — crates/lance-graph-dt64/src/lib.rs:1052 CONFIRMED
-- fn BindStore::retract [pub] — crates/lance-graph-dt64/src/lib.rs:1062 CONFIRMED
-- fn BindStore::routed_at [pub] — crates/lance-graph-dt64/src/lib.rs:1068 CONFIRMED
-- fn BindStore::resolve [pub] — crates/lance-graph-dt64/src/lib.rs:1073 CONFIRMED
-- fn BindStore::resolve_counted [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:1098 CONFIRMED
-- fn BindStore::bound_basis [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:1113 CONFIRMED
-- fn BindStore::resolve_at [pub] — crates/lance-graph-dt64/src/lib.rs:1119 CONFIRMED
-- fn BindStore::method_ref [pub] — crates/lance-graph-dt64/src/lib.rs:1136 CONFIRMED
-- fn BindStore::check_issuer [pub] — crates/lance-graph-dt64/src/lib.rs:1161 CONFIRMED
-- fn BindStore::admit [pub] — crates/lance-graph-dt64/src/lib.rs:1180 CONFIRMED
+- struct MethodId [pub] — crates/lance-graph-dt64/src/lib.rs:114 CONFIRMED
+- struct SigRev [pub] — crates/lance-graph-dt64/src/lib.rs:119 CONFIRMED
+- struct SchemaRev [pub] — crates/lance-graph-dt64/src/lib.rs:123 CONFIRMED
+- struct AlgebraRef [pub] — crates/lance-graph-dt64/src/lib.rs:130 CONFIRMED
+- struct Effect [pub] — crates/lance-graph-dt64/src/lib.rs:147 CONFIRMED
+- enum Arg [pub] — crates/lance-graph-dt64/src/lib.rs:159 CONFIRMED
+- struct Guard [pub] — crates/lance-graph-dt64/src/lib.rs:171 CONFIRMED
+- fn Guard::new [pub] — crates/lance-graph-dt64/src/lib.rs:177 CONFIRMED
+- fn Guard::witness [pub] — crates/lance-graph-dt64/src/lib.rs:186 CONFIRMED
+- struct GuardWitness [pub] — crates/lance-graph-dt64/src/lib.rs:200 CONFIRMED
+- enum ValueDemand [pub] — crates/lance-graph-dt64/src/lib.rs:208 CONFIRMED
+- struct MethodBinding [pub] — crates/lance-graph-dt64/src/lib.rs:216 CONFIRMED
+- fn MethodBinding::writes [pub] — crates/lance-graph-dt64/src/lib.rs:238 CONFIRMED
+- fn MethodBinding::footprint [pub] — crates/lance-graph-dt64/src/lib.rs:245 CONFIRMED
+- struct ClassSchema [pub] — crates/lance-graph-dt64/src/lib.rs:255 CONFIRMED
+- fn view_class [pub] — crates/lance-graph-dt64/src/lib.rs:266 CONFIRMED
+- const MAX_FIELDS [pub] — crates/lance-graph-dt64/src/lib.rs:271 CONFIRMED
+- struct BasisDigest [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:305 CONFIRMED
+- enum BasisSource [pub] — crates/lance-graph-dt64/src/lib.rs:334 CONFIRMED
+- struct MethodRef [pub] — crates/lance-graph-dt64/src/lib.rs:354 CONFIRMED
+- struct Stamp [pub] — crates/lance-graph-dt64/src/lib.rs:372 CONFIRMED
+- fn Stamp::binding [pub] — crates/lance-graph-dt64/src/lib.rs:381 CONFIRMED
+- enum Refusal [pub] — crates/lance-graph-dt64/src/lib.rs:474 CONFIRMED
+- struct Resolved [pub] — crates/lance-graph-dt64/src/lib.rs:647 CONFIRMED
+- struct FieldRow [pub] — crates/lance-graph-dt64/src/lib.rs:661 CONFIRMED
+- struct FieldMeaning [pub] — crates/lance-graph-dt64/src/lib.rs:669 CONFIRMED
+- fn Resolved<'s,'v>::methods_on [pub] — crates/lance-graph-dt64/src/lib.rs:678 CONFIRMED
+- fn Resolved<'s,'v>::field_view [pub] — crates/lance-graph-dt64/src/lib.rs:684 CONFIRMED
+- fn Resolved<'s,'v>::field_meaning [pub] — crates/lance-graph-dt64/src/lib.rs:701 CONFIRMED
+- fn Resolved<'s,'v>::mask_where [pub] — crates/lance-graph-dt64/src/lib.rs:720 CONFIRMED
+- fn Resolved<'s,'v>::unspecified [pub] — crates/lance-graph-dt64/src/lib.rs:730 CONFIRMED
+- fn Resolved<'s,'v>::methods_touching [pub] — crates/lance-graph-dt64/src/lib.rs:747 CONFIRMED
+- fn Resolved<'s,'v>::action_ordinals [pub] — crates/lance-graph-dt64/src/lib.rs:761 CONFIRMED
+- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:773 CONFIRMED
+- fn BindStore::new [pub] — crates/lance-graph-dt64/src/lib.rs:795 CONFIRMED
+- fn BindStore::register [pub] — crates/lance-graph-dt64/src/lib.rs:815 CONFIRMED
+- fn BindStore::register_derived [pub] — crates/lance-graph-dt64/src/lib.rs:827 CONFIRMED
+- fn BindStore::declare_algebra [pub] — crates/lance-graph-dt64/src/lib.rs:918 CONFIRMED
+- fn BindStore::arity [pub] — crates/lance-graph-dt64/src/lib.rs:944 CONFIRMED
+- fn BindStore::resolve_algebra [pub] — crates/lance-graph-dt64/src/lib.rs:955 CONFIRMED
+- fn BindStore::words_used [pub] — crates/lance-graph-dt64/src/lib.rs:978 CONFIRMED
+- fn BindStore::users_of [pub] — crates/lance-graph-dt64/src/lib.rs:995 CONFIRMED
+- fn BindStore::class_count [pub] — crates/lance-graph-dt64/src/lib.rs:1008 CONFIRMED
+- fn BindStore::current_version [pub] — crates/lance-graph-dt64/src/lib.rs:1013 CONFIRMED
+- fn BindStore::route [pub] — crates/lance-graph-dt64/src/lib.rs:1019 CONFIRMED
+- fn BindStore::check_route [pub] — crates/lance-graph-dt64/src/lib.rs:1035 CONFIRMED
+- fn BindStore::claimed [pub] — crates/lance-graph-dt64/src/lib.rs:1053 CONFIRMED
+- fn BindStore::retract [pub] — crates/lance-graph-dt64/src/lib.rs:1063 CONFIRMED
+- fn BindStore::routed_at [pub] — crates/lance-graph-dt64/src/lib.rs:1069 CONFIRMED
+- fn BindStore::resolve [pub] — crates/lance-graph-dt64/src/lib.rs:1074 CONFIRMED
+- fn BindStore::resolve_counted [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:1099 CONFIRMED
+- fn BindStore::bound_basis [pub(crate)] — crates/lance-graph-dt64/src/lib.rs:1114 CONFIRMED
+- fn BindStore::resolve_at [pub] — crates/lance-graph-dt64/src/lib.rs:1120 CONFIRMED
+- fn BindStore::method_ref [pub] — crates/lance-graph-dt64/src/lib.rs:1137 CONFIRMED
+- fn BindStore::check_issuer [pub] — crates/lance-graph-dt64/src/lib.rs:1162 CONFIRMED
+- fn BindStore::admit [pub] — crates/lance-graph-dt64/src/lib.rs:1181 CONFIRMED
 
 ## Imports from in-scope crates
 
@@ -260,9 +263,9 @@ CALL_GRAPH=ARTIFACT_MISSING
 
 - arch DR owns-addressing MapTable [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/dr.rs:871 CONFIRMED
 - arch DR owns-addressing RouteLog [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/dr.rs:210 CONFIRMED
-- arch DT64 admits MethodRef [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:1180 CONFIRMED
-- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
+- arch DT64 admits MethodRef [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:1181 CONFIRMED
+- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:512 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:374 CONFIRMED
 - arch LaneSource implemented-by lance-graph-report::AbiLanes [CONFIRMED] validation=OK — crates/lance-graph-report/src/lane_source.rs:143 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.

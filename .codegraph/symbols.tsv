@@ -14454,101 +14454,104 @@ lance-graph-dt64	crates/lance-graph-dt64/src/dr.rs	97	struct	Extent	pub	-	CONFIR
 lance-graph-dt64	crates/lance-graph-dt64/src/dr.rs	970	fn	MapTable::advance	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/dr.rs	985	fn	MapTable::claim	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/dr.rs	997	fn	MapTable::advance_at	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	104	enum	LaneRefusal	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	150	impl	From<Refusal>for LaneRefusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	160	struct	LaneBinding	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	178	impl	BindStore	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	182	fn	BindStore::bind_lanes	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	279	impl	LaneBinding	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	110	trait	SelectionSource	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	118	struct	RouteAt	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	125	struct	LaneRequest	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	138	enum	LaneRefusal	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	202	impl	From<Refusal>for LaneRefusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	212	struct	LaneBinding	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	230	impl	BindStore	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	234	fn	BindStore::bind_lanes	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	28	struct	CoordSpace	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	280	fn	LaneBinding::class	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	284	fn	LaneBinding::rev	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	288	fn	LaneBinding::route	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	292	fn	LaneBinding::frame	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	296	fn	LaneBinding::selection	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	301	fn	LaneBinding::fields	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	306	fn	LaneBinding::addr	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	322	fn	LaneBinding::check	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	331	impl	LaneBinding	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	332	fn	LaneBinding::class	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	336	fn	LaneBinding::rev	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	340	fn	LaneBinding::route	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	344	fn	LaneBinding::frame	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	348	fn	LaneBinding::selection	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	353	fn	LaneBinding::fields	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	358	fn	LaneBinding::addr	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	36	struct	LaneAddr	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	372	fn	LaneBinding::lane	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	399	fn	LaneBinding::borrow_all	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	416	struct	BoundLanes	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	421	impl	Iterator for BoundLanes<'_,'s,S>	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	440	impl	ExactSizeIterator for BoundLanes<'_,'_,S>	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	374	fn	LaneBinding::check	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	424	fn	LaneBinding::lane	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	463	fn	LaneBinding::selected	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	51	trait	LaneSource	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	84	struct	RouteAt	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	91	struct	LaneRequest	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1007	fn	BindStore::class_count	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1012	fn	BindStore::current_version	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1018	fn	BindStore::route	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1034	fn	BindStore::check_route	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	512	fn	LaneBinding::borrow_all	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	529	struct	BoundLanes	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	534	impl	Iterator for BoundLanes<'_,'s,S>	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	553	impl	ExactSizeIterator for BoundLanes<'_,'_,S>	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	85	struct	SelAddr	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1008	fn	BindStore::class_count	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1013	fn	BindStore::current_version	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1019	fn	BindStore::route	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1035	fn	BindStore::check_route	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	105	mod	lane	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1052	fn	BindStore::claimed	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1062	fn	BindStore::retract	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1068	fn	BindStore::routed_at	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1073	fn	BindStore::resolve	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1098	fn	BindStore::resolve_counted	pub(crate)	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1113	fn	BindStore::bound_basis	pub(crate)	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1119	fn	BindStore::resolve_at	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	113	struct	MethodId	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1136	fn	BindStore::method_ref	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1161	fn	BindStore::check_issuer	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	118	struct	SigRev	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1180	fn	BindStore::admit	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	122	struct	SchemaRev	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	129	struct	AlgebraRef	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	146	struct	Effect	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	158	enum	Arg	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	170	struct	Guard	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	175	impl	Guard	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	176	fn	Guard::new	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	185	fn	Guard::witness	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	199	struct	GuardWitness	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	207	enum	ValueDemand	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	215	struct	MethodBinding	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	233	impl	MethodBinding	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	237	fn	MethodBinding::writes	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	244	fn	MethodBinding::footprint	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	254	struct	ClassSchema	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	265	fn	view_class	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	270	const	MAX_FIELDS	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	304	struct	BasisDigest	pub(crate)	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	306	impl	BasisDigest	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	333	enum	BasisSource	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	353	struct	MethodRef	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	371	struct	Stamp	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	376	impl	Stamp	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	380	fn	Stamp::binding	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	385	impl	PartialEq for Stamp	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	391	impl	Eq for Stamp	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	393	impl	Hash for Stamp	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	473	enum	Refusal	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	611	impl	std::fmt::Display for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	617	impl	std::error::Error for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	619	impl	From<RouteRefusal>for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	646	struct	Resolved	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	660	struct	FieldRow	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	668	struct	FieldMeaning	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	674	impl	Resolved<'s,'v>	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	677	fn	Resolved<'s,'v>::methods_on	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	683	fn	Resolved<'s,'v>::field_view	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	700	fn	Resolved<'s,'v>::field_meaning	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	719	fn	Resolved<'s,'v>::mask_where	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	729	fn	Resolved<'s,'v>::unspecified	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	746	fn	Resolved<'s,'v>::methods_touching	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	760	fn	Resolved<'s,'v>::action_ordinals	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	772	struct	BindStore	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	782	impl	Clone for BindStore	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	793	impl	BindStore	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	794	fn	BindStore::new	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	814	fn	BindStore::register	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	826	fn	BindStore::register_derived	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	917	fn	BindStore::declare_algebra	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	943	fn	BindStore::arity	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	954	fn	BindStore::resolve_algebra	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	977	fn	BindStore::words_used	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1053	fn	BindStore::claimed	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1063	fn	BindStore::retract	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1069	fn	BindStore::routed_at	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1074	fn	BindStore::resolve	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1099	fn	BindStore::resolve_counted	pub(crate)	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1114	fn	BindStore::bound_basis	pub(crate)	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1120	fn	BindStore::resolve_at	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1137	fn	BindStore::method_ref	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	114	struct	MethodId	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1162	fn	BindStore::check_issuer	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1181	fn	BindStore::admit	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	119	struct	SigRev	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	123	struct	SchemaRev	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	130	struct	AlgebraRef	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	147	struct	Effect	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	159	enum	Arg	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	171	struct	Guard	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	176	impl	Guard	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	177	fn	Guard::new	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	186	fn	Guard::witness	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	200	struct	GuardWitness	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	208	enum	ValueDemand	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	216	struct	MethodBinding	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	234	impl	MethodBinding	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	238	fn	MethodBinding::writes	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	245	fn	MethodBinding::footprint	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	255	struct	ClassSchema	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	266	fn	view_class	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	271	const	MAX_FIELDS	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	305	struct	BasisDigest	pub(crate)	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	307	impl	BasisDigest	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	334	enum	BasisSource	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	354	struct	MethodRef	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	372	struct	Stamp	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	377	impl	Stamp	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	381	fn	Stamp::binding	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	386	impl	PartialEq for Stamp	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	392	impl	Eq for Stamp	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	394	impl	Hash for Stamp	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	474	enum	Refusal	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	612	impl	std::fmt::Display for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	618	impl	std::error::Error for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	620	impl	From<RouteRefusal>for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	647	struct	Resolved	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	661	struct	FieldRow	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	669	struct	FieldMeaning	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	675	impl	Resolved<'s,'v>	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	678	fn	Resolved<'s,'v>::methods_on	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	684	fn	Resolved<'s,'v>::field_view	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	701	fn	Resolved<'s,'v>::field_meaning	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	720	fn	Resolved<'s,'v>::mask_where	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	730	fn	Resolved<'s,'v>::unspecified	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	747	fn	Resolved<'s,'v>::methods_touching	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	761	fn	Resolved<'s,'v>::action_ordinals	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	773	struct	BindStore	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	783	impl	Clone for BindStore	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	794	impl	BindStore	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	795	fn	BindStore::new	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	815	fn	BindStore::register	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	827	fn	BindStore::register_derived	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	918	fn	BindStore::declare_algebra	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	944	fn	BindStore::arity	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	955	fn	BindStore::resolve_algebra	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	978	fn	BindStore::words_used	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	99	mod	dr	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	994	fn	BindStore::users_of	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	995	fn	BindStore::users_of	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	105	enum	Settled	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	159	struct	MapLog	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	174	struct	Undrained	pub	-	CONFIRMED
@@ -20101,6 +20104,9 @@ lance-graph-report	crates/lance-graph-report/src/batch.rs	75	impl	Column	-	-	CON
 lance-graph-report	crates/lance-graph-report/src/batch.rs	77	fn	Column::value	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/batch.rs	86	fn	Column::coordinate	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/batch.rs	97	enum	BatchError	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/bound_sel.rs	34	enum	BoundFold	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/bound_sel.rs	43	enum	BoundSelRefusal	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/bound_sel.rs	57	fn	fold_bound_selection	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/boundary.rs	129	struct	Destination	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/boundary.rs	134	impl	Destination	-	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/boundary.rs	136	fn	Destination::space	pub	-	CONFIRMED
@@ -20162,21 +20168,22 @@ lance-graph-report	crates/lance-graph-report/src/lane_source.rs	93	fn	AbiLanes<'
 lance-graph-report	crates/lance-graph-report/src/lane_source.rs	98	fn	AbiLanes<'c>::space	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/lane_source/tests.rs	34	impl	std::alloc::GlobalAlloc for CountingAlloc	-	test	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/lane_source/tests.rs	81	impl	ClassView for View	-	test	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	142	impl	From<LowerError>for ReportError	-	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	148	impl	From<ExecError>for ReportError	-	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	154	impl	core::fmt::Display for ReportError	-	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	160	impl	std::error::Error for ReportError	-	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	144	impl	From<LowerError>for ReportError	-	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	150	impl	From<ExecError>for ReportError	-	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	156	impl	core::fmt::Display for ReportError	-	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	162	impl	std::error::Error for ReportError	-	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/lib.rs	53	mod	batch	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	54	mod	boundary	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	55	mod	exec	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	56	mod	explain	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	57	mod	ids	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	58	mod	lane_source	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	59	mod	plan	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	60	mod	render	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	61	mod	result	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	62	mod	selection	pub	-	CONFIRMED
-lance-graph-report	crates/lance-graph-report/src/lib.rs	81	enum	ReportError	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	54	mod	bound_sel	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	55	mod	boundary	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	56	mod	exec	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	57	mod	explain	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	58	mod	ids	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	59	mod	lane_source	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	60	mod	plan	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	61	mod	render	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	62	mod	result	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	63	mod	selection	pub	-	CONFIRMED
+lance-graph-report	crates/lance-graph-report/src/lib.rs	83	enum	ReportError	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/plan.rs	101	struct	AxisSpec	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/plan.rs	116	enum	MeasureKind	pub	-	CONFIRMED
 lance-graph-report	crates/lance-graph-report/src/plan.rs	133	enum	FoldState	pub	-	CONFIRMED

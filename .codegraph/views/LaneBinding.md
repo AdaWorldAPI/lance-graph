@@ -5,11 +5,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Definitions
 
 ### lance-graph-dt64 crates/lance-graph-dt64/src/lane.rs
-- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:160 CONFIRMED
+- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:212 CONFIRMED
 
 ## Impls mentioning it
 
-- impl LaneBinding — crates/lance-graph-dt64/src/lane.rs:279 POSSIBLE
+- impl LaneBinding — crates/lance-graph-dt64/src/lane.rs:331 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -22,10 +22,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - pub-use lane::LaneBinding — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
 - use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (48 total)
+## Textual occurrences (56 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -56,17 +57,25 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/bind.rs:168 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:8 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:72 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:160 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:188 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:218 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:279 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:371 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:385 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:388 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:414 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:415 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:97 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:212 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:240 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:270 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:331 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:423 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:437 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:460 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:498 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:501 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:527 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:528 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1094 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1095 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:6 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:9 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:54 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:58 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:86 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:206 POSSIBLE
@@ -78,5 +87,5 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Architecture
 
-- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
+- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:512 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:374 CONFIRMED
