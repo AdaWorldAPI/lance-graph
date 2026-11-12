@@ -247,6 +247,55 @@ What this changes for the wardrobe question:
   repository is a caller that goes from an admitted class to
   `write_row` + `cast` under a checked owner (§1a, §2).
 
+## 1e. The Quack surface against the same boundaries
+
+Operator requirement (2026-11-12): the Quack polyfill needs
+non-materialisation boundaries like lance-graph-java's. This section records
+where `lance-graph-quack` stands against them. Nothing was changed in that
+crate.
+
+**Read in full:** `crates/lance-graph-quack/src/lib.rs` and `src/bind.rs`, all
+non-test code. **Not read:** both files' test modules, the crate's `tests/` and
+`examples/`, `lance-graph-mask-risc` (the executor, where `execute_into`,
+`execute_sel`, `Out`, `Planes` and `materialize_rows` live) and
+`lance-graph-cypher-quack`. Statements about the executor below are what
+Quack's own doc comments say about it, and are marked so.
+
+The structural difference comes first. lance-graph-java has a membrane: the
+rows and the mask words live behind handles, and the outer side gets names.
+Quack has none by design: its module doc says it "may build a `Program` and
+must never evaluate one", and the consumer executes on planes, scratch and
+output buffers the consumer owns. So in Quack every boundary is either a
+property of what can be lowered, or a documented obligation of the caller.
+
+| boundary | lance-graph-java | `lance-graph-quack` as read |
+|---|---|---|
+| nothing proportional to rows leaves except through a named materialiser | `Mask.materializeRows` is the only one; the default terminal is a count | the materialiser is named (`materialize_rows`, per the `Agg::Rows` doc) and is the caller's to call. But `bind::Draft` defaults to `Want::Rows`, so a draft with no terminal lowers to `Terminal::Keep` and a population-sized mask in the caller's buffer |
+| a population never travels between two programs | one fused program per terminal; `lgj_plan_group_sum_i32` exists to remove the selection | `lower_group_by` returns a `GroupPlan` whose phase 1 keeps a filter that the caller binds as a plane for K phase-2 programs. `lower_group_by_semantic` / `lower_group_by_auto` fold it into one program for `SUM`/`COUNT`/`MIN`/`MAX`; other aggregates still take the two-phase forest |
+| the forbidden shapes cannot be expressed | no export takes a row list; import is one named method | `Filter::Semijoin` requires its foreign plane to be resident and never "a mask another `Program` produced"; `Agg::ScatterOrU32` forbids handing its mask to a second program. Both are stated in doc comments. `ForeignPlane(pub u16)` is an index, so neither is checked |
+| a row-id list is never the internal currency | forbidden outside `importRows` / `materializeRows` | `lower_sel` admits a borrowed position list as an operand for two folds (`SUM(i32)`, `COUNT(i32 > t)`), by recorded decision; every other query is refused (`NotASelectionFold`) |
+| identity is checked, not trusted | handles: generation, kind, parent on every call | `Col`, `Mask`, `ForeignPlane`, `ForeignLane` are public `u16` indices. A `Query` carries no table identity: `bind` resolves a `TableId` and drops it. `PrefixLowering::Bound` says in its own doc that "a `Planes` value carries no order identity" and that the order precondition is "a documented obligation with carried evidence, not an enforced invariant" |
+| stale meaning is refused | epoch on descriptors; `PARENT_CLOSED` | `TypedQuery::admit` re-checks a code-space witness and refuses `StaleCodeSpace`; `Draft::bind` returns a bare `Query` with no witness, and `admit` hands out `&Query`, which is `Clone` |
+| no text or physics past the boundary | no FFM type on a public signature (`ApiSurfaceTest`) | no text past `bind` (the module doc names `tests/string_fence.rs`); lane and plane indices are the public vocabulary by design |
+| answers sized by the question | `GroupTotals`, `long[groups]` | `Out::I64` of `groups` slots; `GroupHavingPlan::finish` and `normalize_group_sink` work in O(K) and return K-bit masks |
+
+Three observations, none of them a design:
+
+1. The two repositories agree on the rules. Quack states most of them in its
+   own comments ("No O(N) kept-mask crosses a program boundary" on
+   `lower_group_by_semantic`). The difference is that lance-graph-java
+   enforces them by what its surface can express, and Quack mostly documents
+   them, because it has no execution boundary to enforce them at.
+2. The missing identity is the same one as in §1c. A lowered `Program` is
+   bound to nothing: not to a table, not to a row order, not to a plane set.
+   `BatchWriter::cast` has the same shape on the write side.
+3. `bind::Registrar` (`create_table … WIDTH bytes`) is a declared seam for a
+   table catalog with no production implementation; its doc says so. A
+   wardrobe that declares a foreign schema would meet this seam, and it is not
+   built.
+
+What a like-for-like boundary would need is a decision, listed in §10.
+
 ## 2. Delegation census (cast sites outside tests and examples)
 
 | site | owner evidence |
@@ -517,6 +566,13 @@ describe the path as zero-copy.
 6. Decide whether "no seal, no step" is meant to bind an intent-only cycle and
    a direct `try_advance_phase` (§1b, §3.5), or only a failed seal as today.
 7. Decide whether `mailbox_id` and `current_cycle` stay public fields (§1b).
+8. Quack non-materialisation boundaries (§1e), each a separate decision:
+   whether `Draft` should default to a count instead of rows; whether the
+   two-phase `GroupPlan` stays reachable once a folded form exists; whether a
+   lowered `Program` carries the identity of the table and row order it was
+   bound against, and who checks it at execution; whether the resident-plane
+   preconditions of `Semijoin` and `ScatterOrU32` become types instead of
+   comments.
 
 R4, R7 and the reader `Scope` issuer are untouched.
 
