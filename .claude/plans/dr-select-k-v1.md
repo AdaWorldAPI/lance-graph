@@ -534,8 +534,9 @@ for bags. Position bytes: 4·K, borrowed; staging and conversion: none.
 
 ## 16. D-DR-SELECT-K-SV-3: the DuckDB SelectionVector C API (2026-11-12)
 
-**Status:** IN PR (Draft). LAB crate `crates/duckdb-selvec-compat`, own
-workspace, not linked by anything. R4 and R7 stay UNDER REVIEW.
+**Status:** MERGED (PR 2042). LAB crate `crates/duckdb-selvec-compat`, own
+workspace, not linked by anything; not a production adapter. R4 and R7 stay
+UNDER REVIEW.
 
 **Reference, pinned.** DuckDB tag `v1.5.6`, commit
 `069cc9f9b5be802405797faecc284961b07c70ef`; release asset
