@@ -46,7 +46,7 @@ lance-graph-consumer-conformance	crates/lance-graph-consumer-conformance	member	
 lance-graph-contract	crates/lance-graph-contract	member	6b4e13ff1d0afadb
 lance-graph-cypher-quack	crates/lance-graph-cypher-quack	member	003e14de37585ab8
 lance-graph-dir-sim	crates/lance-graph-dir-sim	excluded	faa6eb31da9ac20a
-lance-graph-dt64	crates/lance-graph-dt64	member	74d9722ae1ff4abd
+lance-graph-dt64	crates/lance-graph-dt64	member	9cffbb86670f09e6
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance	excluded	19f394be7cbe3f5c
 lance-graph-glove-parity	crates/lance-graph-glove-parity	excluded	6c47a0e14dd892f9
 lance-graph-hydrate	crates/lance-graph-hydrate	member	9d14e9cc5ba8b211
@@ -65,7 +65,7 @@ lance-graph-quack	crates/lance-graph-quack	member	9fd7062fb3941182
 lance-graph-r2il	crates/lance-graph-r2il	member	4216b7877a98640c
 lance-graph-rbac	crates/lance-graph-rbac	member	8d5b2b6b3f4ede06
 lance-graph-relalg	crates/lance-graph-relalg	excluded	7534be0bf7b60fda
-lance-graph-report	crates/lance-graph-report	member	d973e29294bb625d
+lance-graph-report	crates/lance-graph-report	member	c6ca9fc0a8f30162
 lance-graph-report-ogar	crates/lance-graph-report-ogar	excluded	0cdd9b813d8e04f6
 lance-graph-sap	crates/lance-graph-sap	excluded	0c4512de6747d3d7
 lance-graph-supervisor	crates/lance-graph-supervisor	member	e8fbf5b36f5eea90

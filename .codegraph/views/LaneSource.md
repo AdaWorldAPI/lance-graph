@@ -31,7 +31,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneSource — crates/lance-graph-report/src/lane_source.rs:39 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 
-## Textual occurrences (39 total)
+## Textual occurrences (41 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:103 POSSIBLE
@@ -55,14 +55,16 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/source.rs:178 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:6 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:51 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:182 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:105 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:110 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:234 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:322 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:372 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:399 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:416 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:421 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:440 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:286 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:374 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:424 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:512 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:529 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:534 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:553 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:3 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:39 POSSIBLE

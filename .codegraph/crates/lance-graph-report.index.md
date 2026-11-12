@@ -3,7 +3,7 @@
 crate: lance-graph-report
 path: crates/lance-graph-report
 workspace: member
-digest: d973e29294bb625d
+digest: c6ca9fc0a8f30162
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -43,6 +43,9 @@ Generated; the code is the truth. See ../index.md.
 - fn AbiBatch::views [pub(crate)] — crates/lance-graph-report/src/batch.rs:254 CONFIRMED
 - fn AbiBatch::lane_addr [pub] — crates/lance-graph-report/src/batch.rs:263 CONFIRMED
 - fn AbiBatch::refs [pub] — crates/lance-graph-report/src/batch.rs:268 CONFIRMED
+- enum BoundFold [pub] — crates/lance-graph-report/src/bound_sel.rs:34 CONFIRMED
+- enum BoundSelRefusal [pub] — crates/lance-graph-report/src/bound_sel.rs:43 CONFIRMED
+- fn fold_bound_selection [pub] — crates/lance-graph-report/src/bound_sel.rs:57 CONFIRMED
 - struct BoundaryCounters [pub] — crates/lance-graph-report/src/boundary.rs:41 CONFIRMED
 - fn BoundaryCounters::get [pub] — crates/lance-graph-report/src/boundary.rs:60 CONFIRMED
 - struct MemKv [pub] — crates/lance-graph-report/src/boundary.rs:67 CONFIRMED
@@ -87,16 +90,17 @@ Generated; the code is the truth. See ../index.md.
 - fn AbiLanes<'c>::batch [pub] — crates/lance-graph-report/src/lane_source.rs:103 CONFIRMED
 - fn AbiLanes<'c>::publish [pub] — crates/lance-graph-report/src/lane_source.rs:109 CONFIRMED
 - mod batch [pub] — crates/lance-graph-report/src/lib.rs:53 CONFIRMED
-- mod boundary [pub] — crates/lance-graph-report/src/lib.rs:54 CONFIRMED
-- mod exec [pub] — crates/lance-graph-report/src/lib.rs:55 CONFIRMED
-- mod explain [pub] — crates/lance-graph-report/src/lib.rs:56 CONFIRMED
-- mod ids [pub] — crates/lance-graph-report/src/lib.rs:57 CONFIRMED
-- mod lane_source [pub] — crates/lance-graph-report/src/lib.rs:58 CONFIRMED
-- mod plan [pub] — crates/lance-graph-report/src/lib.rs:59 CONFIRMED
-- mod render [pub] — crates/lance-graph-report/src/lib.rs:60 CONFIRMED
-- mod result [pub] — crates/lance-graph-report/src/lib.rs:61 CONFIRMED
-- mod selection [pub] — crates/lance-graph-report/src/lib.rs:62 CONFIRMED
-- enum ReportError [pub] — crates/lance-graph-report/src/lib.rs:81 CONFIRMED
+- mod bound_sel [pub] — crates/lance-graph-report/src/lib.rs:54 CONFIRMED
+- mod boundary [pub] — crates/lance-graph-report/src/lib.rs:55 CONFIRMED
+- mod exec [pub] — crates/lance-graph-report/src/lib.rs:56 CONFIRMED
+- mod explain [pub] — crates/lance-graph-report/src/lib.rs:57 CONFIRMED
+- mod ids [pub] — crates/lance-graph-report/src/lib.rs:58 CONFIRMED
+- mod lane_source [pub] — crates/lance-graph-report/src/lib.rs:59 CONFIRMED
+- mod plan [pub] — crates/lance-graph-report/src/lib.rs:60 CONFIRMED
+- mod render [pub] — crates/lance-graph-report/src/lib.rs:61 CONFIRMED
+- mod result [pub] — crates/lance-graph-report/src/lib.rs:62 CONFIRMED
+- mod selection [pub] — crates/lance-graph-report/src/lib.rs:63 CONFIRMED
+- enum ReportError [pub] — crates/lance-graph-report/src/lib.rs:83 CONFIRMED
 - enum AxisRole [pub] — crates/lance-graph-report/src/plan.rs:22 CONFIRMED
 - enum CoordSpec [pub] — crates/lance-graph-report/src/plan.rs:50 CONFIRMED
 - fn CoordSpec::field [pub] — crates/lance-graph-report/src/plan.rs:76 CONFIRMED
@@ -186,6 +190,7 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-report/src/bound_sel.rs:27 CONFIRMED
 - use lance_graph_contract::content_store::ContentId — crates/lance-graph-report/src/boundary.rs:35 CONFIRMED
 - use lance_graph_contract::content_store::ContentSink — crates/lance-graph-report/src/boundary.rs:35 CONFIRMED
 - use lance_graph_contract::content_store::ContentStore — crates/lance-graph-report/src/boundary.rs:35 CONFIRMED
@@ -203,6 +208,11 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::algebra_law::IdentityKind — crates/lance-graph-report/src/plan.rs:18 CONFIRMED
 - use lance_graph_contract::content_store::ContentId — crates/lance-graph-report/src/render.rs:24 CONFIRMED
 ### lance-graph-dt64
+- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/bound_sel.rs:28 CONFIRMED
+- use lance_graph_dt64::BindStore — crates/lance-graph-report/src/bound_sel.rs:29 CONFIRMED
+- use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/bound_sel.rs:29 CONFIRMED
+- use lance_graph_dt64::LaneRefusal — crates/lance-graph-report/src/bound_sel.rs:29 CONFIRMED
+- use lance_graph_dt64::SelectionSource — crates/lance-graph-report/src/bound_sel.rs:29 CONFIRMED
 - use lance_graph_dt64::dr::Frame — crates/lance-graph-report/src/lane_source.rs:38 CONFIRMED
 - use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-report/src/lane_source.rs:38 CONFIRMED
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/lane_source.rs:38 CONFIRMED
@@ -229,6 +239,12 @@ Generated; the code is the truth. See ../index.md.
 ### lance-graph-mask-risc
 - use lance_graph_mask_risc::LaneRef — crates/lance-graph-report/src/batch.rs:19 CONFIRMED
 - use lance_graph_mask_risc::words_for — crates/lance-graph-report/src/batch.rs:19 CONFIRMED
+- use lance_graph_mask_risc::ExecError — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
+- use lance_graph_mask_risc::SelFold — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
+- use lance_graph_mask_risc::Value — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
+- use lance_graph_mask_risc::execute_sel — crates/lance-graph-report/src/bound_sel.rs:30 CONFIRMED
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-report/src/exec.rs:75 CONFIRMED
 - use lance_graph_mask_risc::Out — crates/lance-graph-report/src/exec.rs:75 CONFIRMED
 - use lance_graph_mask_risc::Planes — crates/lance-graph-report/src/exec.rs:75 CONFIRMED
@@ -247,7 +263,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
 - use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
 - use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:19 CONFIRMED
-- use lance_graph_mask_risc::ExecError — crates/lance-graph-report/src/lib.rs:75 CONFIRMED
+- use lance_graph_mask_risc::ExecError — crates/lance-graph-report/src/lib.rs:77 CONFIRMED
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-report/src/render.rs:26 CONFIRMED
 - use lance_graph_mask_risc::Out — crates/lance-graph-report/src/render.rs:26 CONFIRMED
 - use lance_graph_mask_risc::Planes — crates/lance-graph-report/src/render.rs:26 CONFIRMED
@@ -271,14 +287,13 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_quack::Filter cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
 - use lance_graph_quack::Query cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
 - use lance_graph_quack::lower cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:20 CONFIRMED
-- use lance_graph_quack::LowerError — crates/lance-graph-report/src/lib.rs:76 CONFIRMED
+- use lance_graph_quack::LowerError — crates/lance-graph-report/src/lib.rs:78 CONFIRMED
 - use lance_graph_quack::Agg — crates/lance-graph-report/src/render.rs:28 CONFIRMED
 - use lance_graph_quack::Query — crates/lance-graph-report/src/render.rs:28 CONFIRMED
 - use lance_graph_quack::lower — crates/lance-graph-report/src/render.rs:28 CONFIRMED
 - use lance_graph_quack::Cmp — crates/lance-graph-report/src/selection.rs:14 CONFIRMED
 - use lance_graph_quack::Col — crates/lance-graph-report/src/selection.rs:14 CONFIRMED
-- use lance_graph_quack::Filter — crates/lance-graph-report/src/selection.rs:14 CONFIRMED
-- use lance_graph_quack::Mask — crates/lance-graph-report/src/selection.rs:14 CONFIRMED
+- truncated at 100, see imports.tsv
 
 ## Calls
 

@@ -22,12 +22,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use crate::dr::FrameStore — crates/lance-graph-dt64/src/lane.rs:22 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding.rs:80 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding_native.rs:46 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/bound_sel.rs:28 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/lane_source.rs:38 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/socket.rs:12 POSSIBLE
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 
-## Textual occurrences (75 total)
+## Textual occurrences (78 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -77,11 +78,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:22 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:68 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:79 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:185 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:234 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:326 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:376 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:403 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:237 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:286 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:378 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:428 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:467 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:516 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:80 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:326 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:380 POSSIBLE
@@ -89,6 +91,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-r2il/src/binding_native.rs:46 POSSIBLE
 - crates/lance-graph-r2il/src/binding_native.rs:206 POSSIBLE
 - crates/lance-graph-r2il/src/binding_native.rs:354 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:28 POSSIBLE
+- crates/lance-graph-report/src/bound_sel.rs:61 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:9 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:38 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:65 POSSIBLE

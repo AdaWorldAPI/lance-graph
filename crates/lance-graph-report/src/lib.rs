@@ -51,6 +51,7 @@
 #![cfg_attr(test, deny(unsafe_code))]
 
 pub mod batch;
+pub mod bound_sel;
 pub mod boundary;
 pub mod exec;
 pub mod explain;
@@ -62,6 +63,7 @@ pub mod result;
 pub mod selection;
 
 pub use batch::{AbiBatch, BatchError, Column, LaneData, MAX_COLUMNS};
+pub use bound_sel::{fold_bound_selection, BoundFold, BoundSelRefusal};
 pub use exec::{Accumulator, ExecStats, PhysicalPlan, PlannerPolicy, Provider, SelectionCarrier};
 pub use ids::{FieldId, MaskId, SourceId};
 pub use lane_source::{AbiLanes, PublishRefusal};

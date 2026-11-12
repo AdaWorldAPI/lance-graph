@@ -336,19 +336,19 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-contract/src/step_mask.rs:72 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:4 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:94 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:167 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:301 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:128 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:219 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:353 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:74 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:147 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:222 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:225 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:237 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:239 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:148 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:223 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:226 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:238 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:240 POSSIBLE
 - truncated at 300
 
 ## Architecture
 
-- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:719 CONFIRMED
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:720 CONFIRMED
 - arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED

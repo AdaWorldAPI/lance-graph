@@ -65,7 +65,7 @@ CALL_GRAPH=ARTIFACT_MISSING
 
 ## Architecture
 
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:374 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
 

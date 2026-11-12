@@ -1,0 +1,4 @@
+# N=65536 medians of 201 after 20 warm-up, ns; produce and bind are once per frame
+k	produce_ns	bind_ns	witness_ns	fold_sum_ns	fold_count_ns	witnessed_fold_sum_ns	mask_build_ns	mask_fold_sum_ns	total_r1_ns	total_r100_ns	total_r100_recheck_ns	position_bytes
+64	138375	233	139	75	83	170	145	1998	138778	146247	155608	256
+256	141053	233	139	139	221	245	290	2049	141531	155325	165786	1024

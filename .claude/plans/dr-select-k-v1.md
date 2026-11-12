@@ -439,3 +439,94 @@ binding to `execute_sel` in a non-lab crate is the next gate, not done here.
 **Not done.** The DuckDB API adapter; permutation-sensitive operations;
 dictionary slicing (R4); a `sel` member for `Planes` (R7); a SIMD gather;
 the density threshold; any use from production code.
+
+## 15. D-DR-SELECT-K-SV-2: a selection witnessed with its lanes (2026-11-12)
+
+**Status:** IN PR (Draft). Admission level. Two of the brief's properties are
+BLOCKED and listed below; nothing here is a production release.
+
+**Invariant.** A selection may execute only if its positions address the frame
+that holds the borrowed value lanes. Equal row count, equal revision numbers,
+an in-range position or a caller-supplied id do not establish that.
+
+**Ownership and witness map (what exists, and who owns it).**
+
+| property | owner (symbol, file) | state |
+|---|---|---|
+| frame identity, issuer, source / relation-map / coordinate revisions, reseal | `FrameStore::check`, `FrameRevisions`, `Frame` (no public constructor) in `crates/lance-graph-dt64/src/dr.rs` | SHIPPED |
+| focus and scope equality against the bound values | `Guards::check` in `crates/lance-graph-dt64/src/dr.rs` | SHIPPED |
+| lane issued by a source for its own frame, in one row order | `LaneSource`, `CoordSpace`, `LaneAddr`, `BindStore::bind_lanes`, `LaneBinding::check` in `crates/lance-graph-dt64/src/lane.rs` | SHIPPED |
+| position list issued by the same source, same frame, same row order | `SelectionSource`, `SelAddr`, `LaneBinding::selected` in `crates/lance-graph-dt64/src/lane.rs` | NEW in this PR |
+| the fold over borrowed positions | `execute_sel` in `crates/lance-graph-mask-risc/src/sel.rs` | SHIPPED (PR 2039) |
+| the boundary that calls the fold once | `fold_bound_selection` in `crates/lance-graph-report/src/bound_sel.rs` | NEW in this PR |
+| a reader `Scope` that carries permission | none. `Scope` is a plain `{ id }` value; `AbiLanes::unwitnessed` in `crates/lance-graph-report/src/lane_source.rs` is test-only for that reason; `crates/lance-graph-rbac/tests/scoped_lane_binding.rs` records the gap as findings | BLOCKED |
+| a general row-order witness | `SealedOrder` in `crates/dr256-ternlog-lab/src/order_store.rs` is LAB; `OrderedLaneWitness` in `crates/lance-graph-contract/src/ordered_lane.rs` covers sealed facet key lanes only | BLOCKED for ordered consumers |
+| a pinned historical snapshot | none; `FrameStore::check` accepts the current issue only | REFUSED (current-frame mode) |
+| NodeGuid → global id → DR coordinate → Lance row | open (EXO-46, EXO-140) | OPEN, not touched |
+
+**What was added.** One second socket on the owner that already issues lanes:
+a `SelectionSource` names a position list (`selection_of`) for a frame and
+lends it (`borrow_positions`). `LaneBinding::selected` runs the existing
+`check`, then requires the selection's `CoordSpace` and `Scope` to equal the
+binding's, then borrows the lane and the list. `fold_bound_selection` passes
+both to `execute_sel` exactly once. No position store, id namespace, map
+table, `Planes` field, Quack operator or executor was added, and nothing is
+copied.
+
+**Verified** (`crates/lance-graph-report/tests/bound_sel.rs`, 10 tests;
+`tests/bound_sel_alloc.rs`, 1 test; oracle is plain indexing in the test):
+
+- same frame: COUNT and SUM equal the oracle; operands are the source's own
+  slices (pointer equality);
+- Frame A positions against Frame B lanes with equal length and equal
+  revisions: `ForeignFrame`, in all three pairings, before any borrow;
+- source, relation-map or coordinate revision moved, or the frame resealed
+  with unchanged revisions: refused, with the cause named;
+- a selection in another row order with the same numbers: `SelectionSpace`;
+- a selection issued for another reader scope, or not issued: refused;
+- focus or scope changed: refused by the existing `Guards::check`;
+- a position outside the lane: `SelOutOfRange` with the first offender;
+- duplicates are folded twice; a reordered list gives the same COUNT and SUM;
+- a thousand accepted and a thousand refused calls allocate 0 bytes.
+
+**Disable runs.** Eight mutations of the binding path, each asserted to apply
+once: 8 of 8 red. A ninth (asking the source for the selection at a freshly
+sealed frame in place of the binding's) stayed green and is not counted: after
+`check` passes, the store's current issue is the binding's frame, so the two
+are the same value.
+
+**Cost** (`crates/lance-graph-report/examples/bound_sel_cost.rs`, N = 65,536,
+medians of 201, two runs in `.claude/probes/2026-11-12-dr-select-k-sv-2/`;
+cold terms reported, not gates):
+
+| K | produce Top-K (once per frame) | bind (once) | witness | fold SUM | witnessed fold | mask build | mask fold SUM |
+|---|---|---|---|---|---|---|---|
+| 64 | 138–144 µs | 233–250 ns | 139–164 ns | 64–75 ns | 170–171 ns | 145–147 ns | 2.0–2.5 µs |
+| 256 | 141–142 µs | 233–246 ns | 139–140 ns | 138–139 ns | 243–245 ns | 290–292 ns | 2.0–2.1 µs |
+
+Total for R = 1: 139–145 µs. For R = 100 with one witness: 146–156 µs; with a
+witness per fold: 156–167 µs. Selection production is 90% or more of every
+total and runs once per frame. The Top-K order is the source's own claim, no
+order witness is consulted, and COUNT / SUM do not depend on it. The mask
+column is the same rows as a set (a Top-K has no repeats); it is not compared
+for bags. Position bytes: 4·K, borrowed; staging and conversion: none.
+
+**Not verified / not supported.**
+
+1. **Authorization (BLOCKED).** Scope equality is a consistency check. No
+   shipped authority issues a `Scope` from an IAM decision, so a revoked
+   permission with a matching scope id cannot be refused at this boundary.
+   Owner: the `Scope` type in dt64 and the rbac crate
+   (`authorize_scoped`); the governing plan
+   `dr-dt64-class-governance-v3` holds contract changes until its council
+   step W11. Smallest falsifier, once an issuer exists: revoke the grant,
+   keep the scope id, expect a refusal before any borrow. Decision needed:
+   who issues a `Scope` and what a binding holds as proof of it.
+2. **Ordered consumers (BLOCKED).** No non-lab witness says a position list is
+   in a stated order. Only COUNT and SUM are admitted, which need none.
+3. **Historical snapshots (REFUSED).** A binding whose frame is no longer
+   current is refused; nothing substitutes the current frame.
+4. **Global identity.** The list holds local frame positions. Mapping from a
+   NodeGuid or to a physical Lance row is not part of this step.
+5. No production `SelectionSource` exists; the test fixture is the only
+   implementor. R4, R7 and the DuckDB adapter are untouched.

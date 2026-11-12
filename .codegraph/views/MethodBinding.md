@@ -5,11 +5,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Definitions
 
 ### lance-graph-dt64 crates/lance-graph-dt64/src/lib.rs
-- struct MethodBinding [pub] — crates/lance-graph-dt64/src/lib.rs:215 CONFIRMED
+- struct MethodBinding [pub] — crates/lance-graph-dt64/src/lib.rs:216 CONFIRMED
 
 ## Impls mentioning it
 
-- impl MethodBinding — crates/lance-graph-dt64/src/lib.rs:233 POSSIBLE
+- impl MethodBinding — crates/lance-graph-dt64/src/lib.rs:234 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -54,20 +54,20 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:11 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:17 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:27 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:215 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:233 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:236 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:275 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:414 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:650 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:677 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:744 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:749 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:819 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:832 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:848 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1180 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1310 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:216 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:234 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:237 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:276 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:415 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:651 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:678 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:745 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:750 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:820 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:833 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:849 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1181 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1311 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:1 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:140 POSSIBLE

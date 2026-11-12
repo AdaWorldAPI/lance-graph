@@ -106,6 +106,7 @@ pub mod lane;
 use dr::{RouteLog, RouteRefusal};
 pub use lane::{
     BoundLanes, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource, RouteAt,
+    SelAddr, SelectionSource,
 };
 
 /// A method's identity within its class, independent of its source name.
