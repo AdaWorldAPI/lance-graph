@@ -372,7 +372,7 @@ flowchart LR
   n58["lance-graph-ontology"]
   n60["lance-graph-planner"]
   n77["p64-bridge"]
-  n92["thinking-engine"]
+  n93["thinking-engine"]
   n7 --> n2
   n7 --> n3
   n7 --> n11
@@ -380,5 +380,5 @@ flowchart LR
   n7 --> n58
   n7 --> n60
   n7 --> n77
-  n7 --> n92
+  n7 --> n93
 ```

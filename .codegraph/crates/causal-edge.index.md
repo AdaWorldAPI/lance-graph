@@ -251,13 +251,13 @@ flowchart LR
   n59["lance-graph-osint"]
   n60["lance-graph-planner"]
   n77["p64-bridge"]
-  n86["sigma-tier-router"]
-  n92["thinking-engine"]
+  n87["sigma-tier-router"]
+  n93["thinking-engine"]
   n7 --> n3
   n12 --> n3
   n59 --> n3
   n60 --> n3
   n77 --> n3
-  n86 --> n3
-  n92 --> n3
+  n87 --> n3
+  n93 --> n3
 ```

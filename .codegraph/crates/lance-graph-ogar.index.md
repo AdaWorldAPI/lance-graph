@@ -179,12 +179,12 @@ flowchart LR
   n49["lance-graph-glove-parity"]
   n56["lance-graph-ogar"]
   n58["lance-graph-ontology"]
-  n89["symbiont"]
+  n90["symbiont"]
   n8 --> n56
   n19 --> n56
   n43 --> n56
   n49 --> n56
   n56 --> n44
   n56 --> n58
-  n89 --> n56
+  n90 --> n56
 ```

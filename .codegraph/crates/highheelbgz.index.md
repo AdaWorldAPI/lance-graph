@@ -139,7 +139,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n1["bgz-tensor"]
   n27["highheelbgz"]
-  n92["thinking-engine"]
+  n93["thinking-engine"]
   n27 --> n1
-  n92 --> n27
+  n93 --> n27
 ```

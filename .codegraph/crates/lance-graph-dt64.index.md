@@ -32,6 +32,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-report normal — crates/lance-graph-report/Cargo.toml:20 CONFIRMED
 - rdep lance-graph-xlog normal — crates/lance-graph-xlog/Cargo.toml:13 CONFIRMED
 - rdep ogar-behavior-probe normal — crates/ogar-behavior-probe/Cargo.toml:21 CONFIRMED
+- rdep quack-boundary-lab normal — crates/quack-boundary-lab/Cargo.toml:10 CONFIRMED
 - rdep soa64-u64-lab normal — crates/soa64-u64-lab/Cargo.toml:16 CONFIRMED
 
 ## Public items
@@ -290,7 +291,8 @@ flowchart LR
   n66["lance-graph-report"]
   n71["lance-graph-xlog"]
   n75["ogar-behavior-probe"]
-  n87["soa64-u64-lab"]
+  n80["quack-boundary-lab"]
+  n88["soa64-u64-lab"]
   n4 --> n47
   n6 --> n47
   n13 --> n47
@@ -308,5 +310,6 @@ flowchart LR
   n66 --> n47
   n71 --> n47
   n75 --> n47
-  n87 --> n47
+  n80 --> n47
+  n88 --> n47
 ```

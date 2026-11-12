@@ -41,10 +41,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report-ogar/src/lib.rs:43 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/ogar-behavior-probe/src/projection.rs:25 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/quack-boundary-lab/src/lib.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
 
-## Textual occurrences (384 total)
+## Textual occurrences (386 total)
 
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:140 POSSIBLE

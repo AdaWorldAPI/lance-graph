@@ -64,13 +64,13 @@ flowchart LR
   n33["lance-graph"]
   n44["lance-graph-contract"]
   n56["lance-graph-ogar"]
-  n90["template-equivalence"]
-  n91["template-runtime"]
+  n91["template-equivalence"]
+  n92["template-runtime"]
   n8 --> n5
   n8 --> n22
   n8 --> n33
   n8 --> n44
   n8 --> n56
-  n8 --> n90
   n8 --> n91
+  n8 --> n92
 ```

@@ -52,6 +52,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n8["cognitive-stack"]
-  n91["template-runtime"]
-  n8 --> n91
+  n92["template-runtime"]
+  n8 --> n92
 ```

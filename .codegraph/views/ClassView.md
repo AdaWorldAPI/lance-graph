@@ -25,6 +25,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for WithPolyfill<'_,V> — crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
 - impl ClassView for View cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
+- impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:360 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
 
 ## Imports (not resolved to a definition)
@@ -52,9 +53,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-report/src/bound_sel.rs:27 POSSIBLE
 - use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/quack-boundary-lab/src/lib.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 
-## Textual occurrences (312 total)
+## Textual occurrences (317 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE

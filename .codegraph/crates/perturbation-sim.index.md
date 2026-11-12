@@ -240,7 +240,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n44["lance-graph-contract"]
   n78["perturbation-sim"]
-  n89["symbiont"]
+  n90["symbiont"]
   n78 --> n44
-  n89 --> n78
+  n90 --> n78
 ```

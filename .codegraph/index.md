@@ -137,6 +137,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 | [p64-bridge](crates/p64-bridge.index.md) | excluded | crates/p64-bridge |
 | [perturbation-sim](crates/perturbation-sim.index.md) | excluded | crates/perturbation-sim |
 | [pg-parity-harness](crates/pg-parity-harness.index.md) | member | crates/pg-parity-harness |
+| [quack-boundary-lab](crates/quack-boundary-lab.index.md) | member | crates/quack-boundary-lab |
 | [quasicryth-research](crates/quasicryth-research.index.md) | excluded | crates/quasicryth-research |
 | [r2il-mask-abi-probe](crates/r2il-mask-abi-probe.index.md) | excluded | crates/r2il-mask-abi-probe |
 | [reader-lm](crates/reader-lm.index.md) | excluded | crates/reader-lm |
@@ -156,7 +157,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 
 ## Crate dependency diagram
 
-Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (81 of 96).
+Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (82 of 97).
 
 ```mermaid
 flowchart LR
@@ -229,18 +230,19 @@ flowchart LR
   n76["onebrc-probe"]
   n77["p64-bridge"]
   n78["perturbation-sim"]
-  n82["reader-lm"]
-  n85["sigker"]
-  n86["sigma-tier-router"]
-  n87["soa64-u64-lab"]
-  n88["surreal_container"]
-  n89["symbiont"]
-  n90["template-equivalence"]
-  n91["template-runtime"]
-  n92["thinking-engine"]
-  n93["thought-git-probe"]
-  n94["tract-harvest-probe"]
-  n95["weather-poc"]
+  n80["quack-boundary-lab"]
+  n83["reader-lm"]
+  n86["sigker"]
+  n87["sigma-tier-router"]
+  n88["soa64-u64-lab"]
+  n89["surreal_container"]
+  n90["symbiont"]
+  n91["template-equivalence"]
+  n92["template-runtime"]
+  n93["thinking-engine"]
+  n94["thought-git-probe"]
+  n95["tract-harvest-probe"]
+  n96["weather-poc"]
   n0 --> n1
   n1 --> n30
   n1 --> n44
@@ -257,14 +259,14 @@ flowchart LR
   n7 --> n58
   n7 --> n60
   n7 --> n77
-  n7 --> n92
+  n7 --> n93
   n8 --> n5
   n8 --> n22
   n8 --> n33
   n8 --> n44
   n8 --> n56
-  n8 --> n90
   n8 --> n91
+  n8 --> n92
   n9 --> n44
   n9 --> n52
   n9 --> n65
@@ -304,7 +306,7 @@ flowchart LR
   n28 --> n52
   n28 --> n63
   n28 --> n65
-  n31 --> n85
+  n31 --> n86
   n32 --> n31
   n32 --> n52
   n32 --> n65
@@ -410,29 +412,33 @@ flowchart LR
   n77 --> n2
   n77 --> n3
   n78 --> n44
-  n82 --> n1
-  n86 --> n3
-  n86 --> n44
+  n80 --> n44
+  n80 --> n47
+  n80 --> n52
+  n80 --> n62
+  n83 --> n1
+  n87 --> n3
   n87 --> n44
-  n87 --> n47
   n88 --> n44
-  n89 --> n33
+  n88 --> n47
   n89 --> n44
-  n89 --> n56
-  n89 --> n78
-  n92 --> n1
-  n92 --> n3
-  n92 --> n27
-  n92 --> n31
-  n92 --> n44
+  n90 --> n33
+  n90 --> n44
+  n90 --> n56
+  n90 --> n78
+  n93 --> n1
+  n93 --> n3
+  n93 --> n27
+  n93 --> n31
   n93 --> n44
   n94 --> n44
-  n94 --> n57
   n95 --> n44
+  n95 --> n57
+  n96 --> n44
   classDef shipped fill:#d8f0d8,stroke:#2e7d32,color:#111
   classDef lab fill:#fff3cd,stroke:#a67c00,color:#111
   classDef open fill:#d6e6fa,stroke:#1565c0,color:#111
   classDef gap fill:#fadadd,stroke:#c62828,stroke-dasharray:5 3,color:#111
-  class n1,n7,n15,n33,n35,n37,n38,n39,n43,n44,n45,n47,n50,n51,n52,n57,n58,n60,n62,n63,n64,n66,n69,n71,n86,n88 shipped
-  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n30,n31,n32,n36,n41,n42,n46,n48,n49,n53,n54,n56,n59,n61,n65,n67,n68,n72,n73,n75,n76,n77,n78,n82,n85,n87,n89,n90,n91,n92,n93,n94,n95 lab
+  class n1,n7,n15,n33,n35,n37,n38,n39,n43,n44,n45,n47,n50,n51,n52,n57,n58,n60,n62,n63,n64,n66,n69,n71,n80,n87,n89 shipped
+  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n30,n31,n32,n36,n41,n42,n46,n48,n49,n53,n54,n56,n59,n61,n65,n67,n68,n72,n73,n75,n76,n77,n78,n83,n86,n88,n90,n91,n92,n93,n94,n95,n96 lab
 ```

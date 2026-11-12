@@ -84,6 +84,7 @@ calls-missing	onebrc-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	p64-bridge	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	perturbation-sim	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	pg-parity-harness	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	quack-boundary-lab	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	quasicryth-research	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	r2il-mask-abi-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	reader-lm	calls	-	UNKNOWN	ARTIFACT_MISSING

@@ -33,9 +33,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
 - use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (111 total)
+## Textual occurrences (114 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -145,6 +146,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - crates/lance-graph-xlog/src/lens.rs:93 POSSIBLE
 - crates/lance-graph-xlog/src/lens.rs:104 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:379 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:391 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE

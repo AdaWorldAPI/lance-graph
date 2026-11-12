@@ -296,11 +296,11 @@ flowchart LR
   n27["highheelbgz"]
   n31["jc"]
   n44["lance-graph-contract"]
-  n92["thinking-engine"]
-  n7 --> n92
-  n92 --> n1
-  n92 --> n3
-  n92 --> n27
-  n92 --> n31
-  n92 --> n44
+  n93["thinking-engine"]
+  n7 --> n93
+  n93 --> n1
+  n93 --> n3
+  n93 --> n27
+  n93 --> n31
+  n93 --> n44
 ```

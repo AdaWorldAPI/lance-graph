@@ -105,6 +105,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n44["lance-graph-contract"]
-  n95["weather-poc"]
-  n95 --> n44
+  n96["weather-poc"]
+  n96 --> n44
 ```
