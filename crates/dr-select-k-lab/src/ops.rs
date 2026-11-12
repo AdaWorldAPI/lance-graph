@@ -171,7 +171,7 @@ impl PreparedFolds {
         let scratch = Scratch::for_program(&count_masked, k)
             .expect("scratch for a one-slot lab program (lab bug)");
         let mut ones = vec![u64::MAX; words_for(k)];
-        if k % 64 != 0 {
+        if !k.is_multiple_of(64) {
             if let Some(last) = ones.last_mut() {
                 *last = (1u64 << (k % 64)) - 1;
             }
