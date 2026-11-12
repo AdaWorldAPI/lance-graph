@@ -24,7 +24,7 @@ pub fn range_for_k(k: usize) -> KeyRange {
     if k == 0 {
         KeyRange { lo: 6000, hi: 6000 }
     } else {
-        assert!(k % DUP as usize == 0);
+        assert!(k.is_multiple_of(DUP as usize));
         KeyRange {
             lo: 0,
             hi: (k / DUP as usize) as i32 - 1,
@@ -69,7 +69,7 @@ pub fn selected_plane(src: &Source, q: &Query) -> Vec<u64> {
     let (_, key, a, _) = src.lanes();
     let mut plane = vec![0u64; key.len().div_ceil(64)];
     for r in 0..key.len() {
-        if q.range.has(key[r]) && q.t_a.map_or(true, |t| a[r] >= t) {
+        if q.range.has(key[r]) && q.t_a.is_none_or(|t| a[r] >= t) {
             plane[r / 64] |= 1u64 << (r % 64);
         }
     }
