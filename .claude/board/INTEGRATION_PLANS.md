@@ -1,6 +1,6 @@
-## 2026-11-12 — D-DR-SELECT-K: storage selects K once per frame, DR folds over K → `.claude/plans/dr-select-k-v1.md`
+## 2026-11-12 — D-DR-SELECT-K: one versioned DR selection, bound once, reused by every fold → `.claude/plans/dr-select-k-v1.md`
 
-**Status:** PROPOSED / DOCS ONLY. Fixes the scenario (cold path once per frame, hot path many folds over K with no Lance access), the ownership of the K-row staging and of the `NodeGuid` to row chain, a three-line first handoff rule, and the scope of the one candidate lab D-DR-SELECT-K-1 (not authorized). K-2 to K-7 are contingent on four gates. Hypothesis record: PR 2032. Coordination: EXO-253.
+**Status:** PROPOSED / DOCS ONLY. Fixes the order (DR → deterministic version → index order and/or filter → `DR{dynamic}[K]` → reusable selection → Quack / mask-RISC → ndarray), places the representation choice in the versioned DR binding, records the ownership of the K-row staging and the open `NodeGuid` to row chain, and scopes the one candidate lab D-DR-SELECT-K-1 (not authorized): which existing view of one selection is cheaper per operation and reuse count. K-2 to K-7 are contingent on four gates. Hypothesis record: PR 2032. Coordination: EXO-253.
 
 ## 2026-11-11 — D-QSP-R: PostgreSQL parity roadmap over inverted tuples → `.claude/plans/d-qsp-parity-roadmap-v1.md`
 
