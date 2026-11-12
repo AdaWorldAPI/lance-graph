@@ -264,14 +264,14 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n4["cg-beh-probe"]
-  n22["foundry-parity-lab"]
-  n43["lance-graph-contract"]
-  n46["lance-graph-dt64"]
-  n51["lance-graph-mask-risc"]
-  n64["lance-graph-relalg"]
-  n4 --> n22
-  n22 --> n43
-  n22 --> n46
-  n22 --> n51
-  n22 --> n64
+  n23["foundry-parity-lab"]
+  n44["lance-graph-contract"]
+  n47["lance-graph-dt64"]
+  n52["lance-graph-mask-risc"]
+  n65["lance-graph-relalg"]
+  n4 --> n23
+  n23 --> n44
+  n23 --> n47
+  n23 --> n52
+  n23 --> n65
 ```

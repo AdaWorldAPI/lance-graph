@@ -174,17 +174,17 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n8["cognitive-stack"]
   n19["dt64-hotplug-probe"]
-  n42["lance-graph-consumer-conformance"]
-  n43["lance-graph-contract"]
-  n48["lance-graph-glove-parity"]
-  n55["lance-graph-ogar"]
-  n57["lance-graph-ontology"]
-  n88["symbiont"]
-  n8 --> n55
-  n19 --> n55
-  n42 --> n55
-  n48 --> n55
-  n55 --> n43
-  n55 --> n57
-  n88 --> n55
+  n43["lance-graph-consumer-conformance"]
+  n44["lance-graph-contract"]
+  n49["lance-graph-glove-parity"]
+  n56["lance-graph-ogar"]
+  n58["lance-graph-ontology"]
+  n89["symbiont"]
+  n8 --> n56
+  n19 --> n56
+  n43 --> n56
+  n49 --> n56
+  n56 --> n44
+  n56 --> n58
+  n89 --> n56
 ```

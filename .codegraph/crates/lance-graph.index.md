@@ -395,34 +395,34 @@ flowchart LR
   n1["bgz-tensor"]
   n2["bgz17"]
   n8["cognitive-stack"]
-  n32["lance-graph"]
-  n36["lance-graph-benches"]
-  n38["lance-graph-catalog"]
-  n41["lance-graph-cognitive"]
-  n43["lance-graph-contract"]
-  n44["lance-graph-cypher-quack"]
-  n47["lance-graph-dt64-lance"]
-  n49["lance-graph-hydrate"]
-  n51["lance-graph-mask-risc"]
-  n59["lance-graph-planner"]
-  n60["lance-graph-python"]
-  n61["lance-graph-quack"]
-  n62["lance-graph-r2il"]
-  n88["symbiont"]
-  n8 --> n32
-  n32 --> n1
-  n32 --> n2
-  n32 --> n38
-  n32 --> n41
-  n32 --> n43
-  n32 --> n49
-  n32 --> n51
-  n32 --> n59
-  n32 --> n61
-  n32 --> n62
-  n36 --> n32
-  n44 --> n32
-  n47 --> n32
-  n60 --> n32
-  n88 --> n32
+  n33["lance-graph"]
+  n37["lance-graph-benches"]
+  n39["lance-graph-catalog"]
+  n42["lance-graph-cognitive"]
+  n44["lance-graph-contract"]
+  n45["lance-graph-cypher-quack"]
+  n48["lance-graph-dt64-lance"]
+  n50["lance-graph-hydrate"]
+  n52["lance-graph-mask-risc"]
+  n60["lance-graph-planner"]
+  n61["lance-graph-python"]
+  n62["lance-graph-quack"]
+  n63["lance-graph-r2il"]
+  n89["symbiont"]
+  n8 --> n33
+  n33 --> n1
+  n33 --> n2
+  n33 --> n39
+  n33 --> n42
+  n33 --> n44
+  n33 --> n50
+  n33 --> n52
+  n33 --> n60
+  n33 --> n62
+  n33 --> n63
+  n37 --> n33
+  n45 --> n33
+  n48 --> n33
+  n61 --> n33
+  n89 --> n33
 ```

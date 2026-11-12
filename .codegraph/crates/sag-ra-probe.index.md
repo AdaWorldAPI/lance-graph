@@ -41,5 +41,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n83["sag-ra-probe"]
+  n84["sag-ra-probe"]
 ```

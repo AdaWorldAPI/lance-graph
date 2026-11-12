@@ -122,5 +122,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n23["gkat-probe"]
+  n24["gkat-probe"]
 ```

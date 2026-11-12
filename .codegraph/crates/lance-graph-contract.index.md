@@ -316,98 +316,98 @@ flowchart LR
   n17["drisa-register-probe"]
   n18["dt64-admission-probe"]
   n19["dt64-hotplug-probe"]
-  n22["foundry-parity-lab"]
-  n24["grammar-constraints-probe"]
-  n32["lance-graph"]
-  n34["lance-graph-archetype"]
-  n35["lance-graph-arm-discovery"]
-  n36["lance-graph-benches"]
-  n37["lance-graph-callcenter"]
-  n40["lance-graph-codegraph"]
-  n41["lance-graph-cognitive"]
-  n42["lance-graph-consumer-conformance"]
-  n43["lance-graph-contract"]
-  n45["lance-graph-dir-sim"]
-  n46["lance-graph-dt64"]
-  n47["lance-graph-dt64-lance"]
-  n48["lance-graph-glove-parity"]
-  n50["lance-graph-lane-fold"]
-  n53["lance-graph-nal"]
-  n55["lance-graph-ogar"]
-  n57["lance-graph-ontology"]
-  n59["lance-graph-planner"]
-  n61["lance-graph-quack"]
-  n62["lance-graph-r2il"]
-  n63["lance-graph-rbac"]
-  n64["lance-graph-relalg"]
-  n65["lance-graph-report"]
-  n66["lance-graph-report-ogar"]
-  n67["lance-graph-sap"]
-  n68["lance-graph-supervisor"]
-  n70["lance-graph-xlog"]
-  n71["learning"]
-  n74["ogar-behavior-probe"]
-  n75["onebrc-probe"]
-  n77["perturbation-sim"]
-  n85["sigma-tier-router"]
-  n86["soa64-u64-lab"]
-  n87["surreal_container"]
-  n88["symbiont"]
-  n91["thinking-engine"]
-  n92["thought-git-probe"]
-  n93["tract-harvest-probe"]
-  n94["weather-poc"]
-  n1 --> n43
-  n4 --> n43
-  n7 --> n43
-  n8 --> n43
-  n9 --> n43
-  n10 --> n43
-  n11 --> n43
-  n12 --> n43
-  n13 --> n43
-  n15 --> n43
-  n17 --> n43
-  n18 --> n43
-  n19 --> n43
-  n22 --> n43
-  n24 --> n43
-  n32 --> n43
-  n34 --> n43
-  n35 --> n43
-  n36 --> n43
-  n37 --> n43
-  n40 --> n43
-  n41 --> n43
-  n42 --> n43
-  n45 --> n43
-  n46 --> n43
-  n47 --> n43
-  n48 --> n43
-  n50 --> n43
-  n53 --> n43
-  n55 --> n43
-  n57 --> n43
-  n59 --> n43
-  n61 --> n43
-  n62 --> n43
-  n63 --> n43
-  n64 --> n43
-  n65 --> n43
-  n66 --> n43
-  n67 --> n43
-  n68 --> n43
-  n70 --> n43
-  n71 --> n43
-  n74 --> n43
-  n75 --> n43
-  n77 --> n43
-  n85 --> n43
-  n86 --> n43
-  n87 --> n43
-  n88 --> n43
-  n91 --> n43
-  n92 --> n43
-  n93 --> n43
-  n94 --> n43
+  n23["foundry-parity-lab"]
+  n25["grammar-constraints-probe"]
+  n33["lance-graph"]
+  n35["lance-graph-archetype"]
+  n36["lance-graph-arm-discovery"]
+  n37["lance-graph-benches"]
+  n38["lance-graph-callcenter"]
+  n41["lance-graph-codegraph"]
+  n42["lance-graph-cognitive"]
+  n43["lance-graph-consumer-conformance"]
+  n44["lance-graph-contract"]
+  n46["lance-graph-dir-sim"]
+  n47["lance-graph-dt64"]
+  n48["lance-graph-dt64-lance"]
+  n49["lance-graph-glove-parity"]
+  n51["lance-graph-lane-fold"]
+  n54["lance-graph-nal"]
+  n56["lance-graph-ogar"]
+  n58["lance-graph-ontology"]
+  n60["lance-graph-planner"]
+  n62["lance-graph-quack"]
+  n63["lance-graph-r2il"]
+  n64["lance-graph-rbac"]
+  n65["lance-graph-relalg"]
+  n66["lance-graph-report"]
+  n67["lance-graph-report-ogar"]
+  n68["lance-graph-sap"]
+  n69["lance-graph-supervisor"]
+  n71["lance-graph-xlog"]
+  n72["learning"]
+  n75["ogar-behavior-probe"]
+  n76["onebrc-probe"]
+  n78["perturbation-sim"]
+  n86["sigma-tier-router"]
+  n87["soa64-u64-lab"]
+  n88["surreal_container"]
+  n89["symbiont"]
+  n92["thinking-engine"]
+  n93["thought-git-probe"]
+  n94["tract-harvest-probe"]
+  n95["weather-poc"]
+  n1 --> n44
+  n4 --> n44
+  n7 --> n44
+  n8 --> n44
+  n9 --> n44
+  n10 --> n44
+  n11 --> n44
+  n12 --> n44
+  n13 --> n44
+  n15 --> n44
+  n17 --> n44
+  n18 --> n44
+  n19 --> n44
+  n23 --> n44
+  n25 --> n44
+  n33 --> n44
+  n35 --> n44
+  n36 --> n44
+  n37 --> n44
+  n38 --> n44
+  n41 --> n44
+  n42 --> n44
+  n43 --> n44
+  n46 --> n44
+  n47 --> n44
+  n48 --> n44
+  n49 --> n44
+  n51 --> n44
+  n54 --> n44
+  n56 --> n44
+  n58 --> n44
+  n60 --> n44
+  n62 --> n44
+  n63 --> n44
+  n64 --> n44
+  n65 --> n44
+  n66 --> n44
+  n67 --> n44
+  n68 --> n44
+  n69 --> n44
+  n71 --> n44
+  n72 --> n44
+  n75 --> n44
+  n76 --> n44
+  n78 --> n44
+  n86 --> n44
+  n87 --> n44
+  n88 --> n44
+  n89 --> n44
+  n92 --> n44
+  n93 --> n44
+  n94 --> n44
+  n95 --> n44
 ```

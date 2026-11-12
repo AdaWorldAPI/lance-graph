@@ -21,6 +21,7 @@ drisa-register-probe	crates/drisa-register-probe	excluded	768c284303f15cf2
 dt64-admission-probe	crates/dt64-admission-probe	excluded	87cddaa68532925e
 dt64-hotplug-probe	crates/dt64-hotplug-probe	excluded	c43e2257308e1dea
 dto-class-check	tools/dto-class-check	member	2767f7b327d59326
+duckdb-selvec-compat	crates/duckdb-selvec-compat	excluded	1aeaec508586352f
 elixir-template	crates/elixir-template	excluded	0258102e8c8830eb
 foundry-parity-lab	crates/foundry-parity-lab	excluded	ab250d1e8e47f4fa
 gkat-probe	crates/gkat-probe	excluded	7d4a094d66265f2b

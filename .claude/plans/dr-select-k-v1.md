@@ -530,3 +530,110 @@ for bags. Position bytes: 4·K, borrowed; staging and conversion: none.
    NodeGuid or to a physical Lance row is not part of this step.
 5. No production `SelectionSource` exists; the test fixture is the only
    implementor. R4, R7 and the DuckDB adapter are untouched.
+
+## 16. D-DR-SELECT-K-SV-3: the DuckDB SelectionVector C API (2026-11-12)
+
+**Status:** IN PR (Draft). LAB crate `crates/duckdb-selvec-compat`, own
+workspace, not linked by anything. R4 and R7 stay UNDER REVIEW.
+
+**Reference, pinned.** DuckDB tag `v1.5.6`, commit
+`069cc9f9b5be802405797faecc284961b07c70ef`; release asset
+`libduckdb-linux-amd64.zip`, sha256
+`b845005f5132a7d8180057c35e14a7626632258782f871a90861b19c1c03841b`. Read:
+`src/include/duckdb.h`, `src/main/capi/data_chunk-c.cpp`,
+`src/include/duckdb/common/types/selection_vector.hpp`,
+`src/common/types/selection_vector.cpp`. The header in the release asset is
+byte-identical to the tagged source header.
+
+**Verified upstream contract** (`idx_t = uint64_t`, `sel_t = uint32_t`, handle
+= pointer to a one-pointer struct; all three marked stable since v1.5.6):
+
+| function | upstream body | consequence |
+|---|---|---|
+| `duckdb_create_selection_vector(size)` | `new SelectionVector(size)`; storage `max(size, 1) * 4` bytes, uninitialised in release | non-null for size 0; the handle does not record its size |
+| `duckdb_selection_vector_get_data_ptr(sel)` | `sel->data()` | same writable pointer until destroy; no bounds, no change notice |
+| `duckdb_destroy_selection_vector(sel)` | `delete sel` | null is fine; double destroy and use after destroy are undefined |
+
+**What was built.** The three functions as an owned, writable buffer
+(`create_selection_vector`, `destroy_selection_vector`,
+`selection_vector_get_data_ptr` in `crates/duckdb-selvec-compat/src/lib.rs`),
+exported under DuckDB's names only with the opt-in feature `duckdb-symbols`.
+Two Rust-side additions: `selection_from_positions` copies a borrowed native
+list into a new buffer and returns a `CopyReceipt`; `positions` reads the
+buffer back and refuses a length the handle does not own. `Planes`,
+`Program`, `execute_sel`, `lower_sel` and the dt64 binding are unchanged.
+
+**Three levels of claim.**
+
+| level | what | evidence |
+|---|---|---|
+| ABI-tested | the three symbols, linked from C against the pinned `duckdb.h`, behave like DuckDB v1.5.6 on x86-64 Linux for the fixture below | `harness/run.sh`: one C program, two processes, identical output (9 lines); valgrind clean on the adapter |
+| API-compatible by reading | signatures, types, size-0 rule, null destroy | source at the pinned commit |
+| not compatible / not claimed | handles are NOT interchangeable with DuckDB's (theirs is a `SelectionVector *`); `duckdb_slice_vector` and `duckdb_vector_copy_sel` are not provided; allocation failure (abort here, C++ exception there); other platforms; any DuckDB C++ ABI | — |
+
+Fixture: sizes 0, 1, 64, 256, 2048, 65,536; repeated and permuted positions
+kept as written; a write through one pointer seen through a later one; two
+live selections with separate storage; a pointer valid while another
+selection is destroyed; 2000 create/destroy cycles; null destroy.
+Out-of-range indices: the three functions have no index notion upstream and
+check nothing, so there is no upstream behaviour to match. Here the consumer
+refuses them (`execute_sel` → `SelOutOfRange`, tested after an external
+write).
+
+**Disable runs.** Six mutations, each asserted to apply once: 6 of 6 red in
+`tests/contract.rs`; the three that touch the C surface are also red in the
+DuckDB comparison (segfault, output diff, valgrind leak).
+
+**Authority.** A buffer is caller-owned memory without frame, version, scope
+or permission. A native selection reaches a writable pointer only by copy.
+Positions read back are untrusted integers and never become a witnessed DR
+selection; the crate has no dependency on dt64.
+
+**Cost** (`examples/selvec_cost.rs`, medians of 201, two runs in
+`.claude/probes/2026-11-12-dr-select-k-sv-3/`; 28 ns is the timer floor):
+
+| K | native borrow | create + destroy | copy in + destroy | one read pass | range re-check | bytes copied | allocations |
+|---|---|---|---|---|---|---|---|
+| 64 | floor | 65–66 ns | 75–78 ns | 39 ns | 60–67 ns | 256 | 2 |
+| 256 | floor | 66–67 ns | 82–83 ns | 55–56 ns | 195 ns | 1,024 | 2 |
+| 65,536 | floor | 5.5–5.7 µs | 12.5–13.2 µs | 5.7–6.7 µs | 45–62 µs | 262,144 | 2 |
+
+The native path pays none of this unless a C buffer is requested.
+
+**R4 (`DictionaryVector`): measured upstream, not implemented.**
+`harness/r4_upstream_probe.c` against the real library (output in the probe
+folder):
+
+| question | DuckDB v1.5.6 does |
+|---|---|
+| slice: view or copy? | view; `duckdb_vector_get_data` returns the same base pointer and the UNSELECTED values |
+| permutation, repeats | kept (`7 3 3 0 5 7` reads `107 NULL NULL 100 105 107`) |
+| NULL | validity is addressed through the selection |
+| selection written after the slice | the vector follows the write: the slice shares the selection's storage |
+| selection destroyed after the slice | the vector still reads correctly: shared ownership |
+| nested slice | the second selection addresses the result of the first |
+| `duckdb_vector_copy_sel(count, src_offset, dst_offset)` | `count` is an end index; `count - src_offset` entries are copied |
+
+Gaps this opens: (1) an owned, single-owner buffer as built here cannot back
+a slice, because DuckDB keeps the storage alive and aliased after
+`destroy`; (2) a C caller of a sliced vector cannot see the selection
+through `duckdb_vector_get_data`, so parity needs the copy path; (3) nested
+composition and validity-through-selection have no counterpart in `Planes`.
+Smallest falsifier for an R4 adapter: that probe file, run against it,
+must print the same seven lines.
+
+**R7 (`UnifiedVectorFormat`): read, not implemented.** It is internal C++
+(`{ sel, data, validity, owned_sel, physical_type }`), not part of the C API.
+
+| member | here today | gap |
+|---|---|---|
+| `data`, `physical_type` | `LaneRef::{I32, U32}` | other physical types |
+| `sel` | the position slice passed beside `Planes` to `execute_sel` | not a member of `Planes`; COUNT / SUM only |
+| `validity` | none per lane | NULL through a selection is not representable |
+| `owned_sel` | none | no owned selection inside the access triple |
+
+No `Planes` construction site was changed.
+
+**Not done.** `duckdb_slice_vector`, `duckdb_vector_copy_sel`, dictionary or
+unified-format compatibility, any authorization. The `Scope` issuer is not
+touched.

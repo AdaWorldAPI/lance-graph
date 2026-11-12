@@ -240,20 +240,20 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n4["cg-beh-probe"]
-  n27["holo-h14d-probe"]
-  n32["lance-graph"]
-  n43["lance-graph-contract"]
-  n46["lance-graph-dt64"]
-  n51["lance-graph-mask-risc"]
-  n53["lance-graph-nal"]
-  n62["lance-graph-r2il"]
-  n64["lance-graph-relalg"]
-  n4 --> n62
-  n27 --> n62
-  n32 --> n62
-  n53 --> n62
-  n62 --> n43
-  n62 --> n46
-  n62 --> n51
-  n64 --> n62
+  n28["holo-h14d-probe"]
+  n33["lance-graph"]
+  n44["lance-graph-contract"]
+  n47["lance-graph-dt64"]
+  n52["lance-graph-mask-risc"]
+  n54["lance-graph-nal"]
+  n63["lance-graph-r2il"]
+  n65["lance-graph-relalg"]
+  n4 --> n63
+  n28 --> n63
+  n33 --> n63
+  n54 --> n63
+  n63 --> n44
+  n63 --> n47
+  n63 --> n52
+  n65 --> n63
 ```

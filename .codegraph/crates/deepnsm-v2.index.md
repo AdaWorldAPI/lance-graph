@@ -333,9 +333,9 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n3["causal-edge"]
   n12["deepnsm-v2"]
-  n35["lance-graph-arm-discovery"]
-  n43["lance-graph-contract"]
+  n36["lance-graph-arm-discovery"]
+  n44["lance-graph-contract"]
   n12 --> n3
-  n12 --> n35
-  n12 --> n43
+  n12 --> n36
+  n12 --> n44
 ```

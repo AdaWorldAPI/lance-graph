@@ -26,7 +26,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (56 total)
+## Textual occurrences (57 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -48,6 +48,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr256-ternlog-lab/src/lib.rs:583 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:627 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:1048 POSSIBLE
+- crates/duckdb-selvec-compat/src/lib.rs:48 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:3 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:142 POSSIBLE

@@ -1,0 +1,8 @@
+library=v1.5.6 vector_size=2048
+base: 100 101 102 NULL 104 105 106 107
+slice1: 107 NULL NULL 100 105 107
+slice1 data_ptr_same_as_base=1 raw0=100 raw7=107 (raw = duckdb_vector_get_data, unselected)
+slice1_after_sel_write: 101 NULL NULL 100 105 107
+slice1_after_sel_destroy: 101 NULL NULL 100 105 107
+slice2_nested: 107 107 NULL 105
+copy_sel(count=5,src_offset=1,dst_offset=2): -1 -1 206 202 200 204 -1 -1

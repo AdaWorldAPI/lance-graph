@@ -138,8 +138,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n1["bgz-tensor"]
-  n26["highheelbgz"]
-  n91["thinking-engine"]
-  n26 --> n1
-  n91 --> n26
+  n27["highheelbgz"]
+  n92["thinking-engine"]
+  n27 --> n1
+  n92 --> n27
 ```

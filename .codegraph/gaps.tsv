@@ -25,6 +25,7 @@ calls-missing	drisa-register-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	dt64-admission-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	dt64-hotplug-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	dto-class-check	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	duckdb-selvec-compat	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	elixir-template	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	foundry-parity-lab	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	gkat-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
