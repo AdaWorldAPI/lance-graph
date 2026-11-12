@@ -22,20 +22,25 @@
 //! under; production has no such pairing (see the plan's list of unsatisfied
 //! contracts).
 //!
-//! Lab convention: the binding binds every field, and field position `i` is
-//! lane index `i` in the planes. A production consumer needs a real
-//! field-to-lane-index mapping; none is defined here.
+//! Three index spaces meet here and are never the same thing: a field's
+//! position in the `ClassView` basis, the source's own lane id
+//! (`LaneAddr::lane`), and the operand index a program's `Col` names in
+//! `Planes::lanes`. [`admitted`] assembles the planes from the bound lanes in
+//! ascending field order, so the operand index of a bound field is its rank
+//! among the bound fields; [`operand`] is the one place that computes it.
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRefusal, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
-    LaneSource, RouteAt, SchemaRev,
+    LaneSource, MethodBinding, RouteAt, SchemaRev,
 };
 use lance_graph_mask_risc::{
     execute_into, ExecError, Foreign, LaneRef, Out, Planes, Program, Scratch, Value,
 };
+
+use lance_graph_quack::Col;
 
 pub mod oracle;
 
@@ -129,6 +134,8 @@ pub struct Source {
     frames: FrameStore,
     space: CoordSpace,
     scope: Scope,
+    /// `phys[i]` is the source's own lane id of logical lane `i`.
+    phys: [u16; FIELDS],
     id: Vec<i32>,
     amount: Vec<i32>,
     qty: Vec<i32>,
@@ -161,6 +168,7 @@ impl Source {
                 coordinates: 1,
             },
             scope: READER,
+            phys: core::array::from_fn(|i| i as u16),
             id: rows.iter().map(|r| r.id).collect(),
             amount: rows.iter().map(|r| r.amount).collect(),
             qty: rows.iter().map(|r| r.qty).collect(),
@@ -176,6 +184,18 @@ impl Source {
                 .map(|(&i, r)| r.discount.unwrap_or_else(|| stale_discount(i)))
                 .collect(),
         }
+    }
+
+    /// The same source with its lanes under other lane ids: logical lane `i`
+    /// is the source's lane `phys[i]`. Values and row order are unchanged.
+    pub fn with_lane_ids(mut self, phys: [u16; FIELDS]) -> Source {
+        self.phys = phys;
+        self
+    }
+
+    /// Renumber the lanes in place WITHOUT a new frame: a moved mapping.
+    pub fn renumber(&mut self, phys: [u16; FIELDS]) {
+        self.phys = phys;
     }
 
     /// The row order this source's lanes are in now.
@@ -302,7 +322,7 @@ impl LaneSource for Source {
             .position(|iri| *iri == basis.predicate_iri.as_str())?;
         Some(LaneAddr {
             space: self.space,
-            lane: lane as u16,
+            lane: self.phys[lane],
             scope: self.scope,
         })
     }
@@ -311,7 +331,8 @@ impl LaneSource for Source {
         if addr.space != self.space {
             return None;
         }
-        self.raw_lanes().get(usize::from(addr.lane)).copied()
+        let logical = self.phys.iter().position(|&id| id == addr.lane)?;
+        self.raw_lanes().get(logical).copied()
     }
 
     fn frames(&self) -> &FrameStore {
@@ -362,8 +383,12 @@ pub struct World {
 
 impl World {
     pub fn new() -> World {
+        World::with(View::standard(), Vec::new())
+    }
+
+    /// A world whose class is registered over `view` with `methods`.
+    pub fn with(view: View, methods: Vec<MethodBinding>) -> World {
         let mut store = BindStore::new();
-        let view = View::standard();
         store
             .register(
                 &view,
@@ -373,7 +398,7 @@ impl World {
                     field_count: FIELDS,
                     extent: Extent::DR64_CUBE,
                 },
-                Vec::new(),
+                methods,
             )
             .expect("the fixture class registers");
         let version = store.route(POSITION, CLASS).expect("the fixture routes");
@@ -396,7 +421,18 @@ impl World {
         selection: CoordSpace,
     ) -> Result<LaneBinding, LaneRefusal> {
         let all: Vec<u8> = (0..FIELDS as u8).collect();
-        let fields = WideFieldMask::from_positions(&all);
+        self.bind_fields(source, &all, scope, selection)
+    }
+
+    /// Bind only the field positions `positions`.
+    pub fn bind_fields(
+        &self,
+        source: &Source,
+        positions: &[u8],
+        scope: Scope,
+        selection: CoordSpace,
+    ) -> Result<LaneBinding, LaneRefusal> {
+        let fields = WideFieldMask::from_positions(positions);
         let frame = source.frames.seal();
         self.store.bind_lanes(
             &self.view,
@@ -433,14 +469,28 @@ impl Default for World {
 pub struct Prepared {
     pub program: Program,
     pub frame: Frame,
+    /// The bound field positions the program's operands were numbered over.
+    pub fields: Vec<u8>,
 }
 
 impl Prepared {
-    /// Pair `program` with `source`'s current frame.
+    /// Pair `program` with `source`'s current frame; its operands are
+    /// numbered over every field.
     pub fn under(program: Program, source: &Source) -> Prepared {
         Prepared {
             program,
             frame: source.frames.seal(),
+            fields: (0..FIELDS as u8).collect(),
+        }
+    }
+
+    /// Pair `program` with `source`'s current frame; its operands are
+    /// numbered over the fields `binding` binds (see [`operand`]).
+    pub fn over(program: Program, source: &Source, binding: &LaneBinding) -> Prepared {
+        Prepared {
+            program,
+            frame: source.frames.seal(),
+            fields: bound_positions(binding),
         }
     }
 }
@@ -453,6 +503,9 @@ pub enum Refused {
     /// The program was lowered under a frame that is not the source's
     /// current one.
     Program(FrameRefusal),
+    /// The program's operands were numbered over other fields than the
+    /// binding binds.
+    Operands { program: Vec<u8>, binding: Vec<u8> },
     /// The program needs an operand no owner issues through the lane socket.
     /// Not executed; no witness is invented for it.
     Blocked(&'static str),
@@ -474,24 +527,33 @@ pub fn admitted(
     scratch: &mut Scratch<'_>,
     out: Out<'_>,
 ) -> Result<Value, Refused> {
+    // Operand `k` is the `k`-th bound lane, in ascending field order.
     let mut lanes = [LaneRef::U32(&[]); FIELDS];
     let mut bound = 0usize;
     for item in binding
         .borrow_all(&world.store, view, source.frames(), source)
         .map_err(Refused::Binding)?
     {
-        let (field, lane) = item.map_err(Refused::Binding)?;
-        lanes[usize::from(field)] = lane;
+        let (_field, lane) = item.map_err(Refused::Binding)?;
+        lanes[bound] = lane;
         bound += 1;
     }
-    if bound != FIELDS {
-        return Err(Refused::Blocked("the binding does not cover every lane"));
+    let lanes = &lanes[..bound];
+    // Compared in place: the accepting path allocates nothing.
+    let same = (0..=u8::MAX)
+        .filter(|&f| binding.fields().has(f))
+        .eq(p.fields.iter().copied());
+    if !same {
+        return Err(Refused::Operands {
+            program: p.fields.clone(),
+            binding: bound_positions(binding),
+        });
     }
     source.frames().check(&p.frame).map_err(Refused::Program)?;
     let planes = Planes {
-        n_rows: lanes[0].len(),
+        n_rows: lanes.first().map_or(0, LaneRef::len),
         masks: &[],
-        lanes: &lanes,
+        lanes,
     };
     execute_into(&p.program, &planes, &Foreign::NONE, scratch, out).map_err(|e| match e {
         ExecError::PlaneOutOfRange(_) => {
@@ -505,6 +567,22 @@ pub fn admitted(
         }
         other => Refused::Exec(other),
     })
+}
+
+/// The field positions `binding` binds, ascending.
+pub fn bound_positions(binding: &LaneBinding) -> Vec<u8> {
+    (0..=u8::MAX).filter(|&p| binding.fields().has(p)).collect()
+}
+
+/// The operand index of bound field `field`: its rank among the bound
+/// fields, which is where [`admitted`] puts its lane. `None` for a field the
+/// binding does not bind; an unbound field has no operand.
+pub fn operand(binding: &LaneBinding, field: u8) -> Option<Col> {
+    if !binding.fields().has(field) {
+        return None;
+    }
+    let rank = (0..field).filter(|&p| binding.fields().has(p)).count();
+    Some(Col(rank as u16))
 }
 
 /// Run `program` over whatever the caller hands in. The negative control:
