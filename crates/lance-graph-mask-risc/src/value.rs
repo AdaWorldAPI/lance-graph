@@ -149,6 +149,15 @@ pub enum ExecError {
     /// [`crate::Terminal::MaskedSumI32`] over more rows than
     /// [`crate::MASKED_SUM_I32_MAX_ROWS`] — the executor refuses rather than wraps.
     SumRowBound { n_rows: usize },
+    /// A selection fold ([`crate::execute_sel`]) was handed a position that is
+    /// not a row of the frame: `positions[at] >= n_rows`. `at` is the first
+    /// such place in the list.
+    SelOutOfRange { at: usize, position: u32 },
+    /// [`crate::SelFold::SumI32`] over more positions than
+    /// [`crate::SEL_SUM_I32_MAX_POSITIONS`]. A position list is a bag and may
+    /// be longer than the frame, so the bound is on the list, not on
+    /// `n_rows`; the executor refuses rather than wraps.
+    SelSumBound { positions: usize },
     /// Input plane `i` carries set bits past `n_rows`. The executor works on
     /// whole words and would read them; the oracle reads rows and would not —
     /// so a dirty tail is refused rather than let the two diverge.
