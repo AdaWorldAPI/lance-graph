@@ -79,6 +79,40 @@ pub trait LaneSource {
     fn frames(&self) -> &FrameStore;
 }
 
+/// A source-owned selection: which of the source's position lists, in whose
+/// row order, for which reader scope. An address; it carries no position.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SelAddr {
+    pub space: CoordSpace,
+    pub sel: u16,
+    pub scope: Scope,
+}
+
+/// The second socket of a source owner: selections in position form
+/// (D-DR-SELECT-K-SV-2).
+///
+/// A selection is a list of row positions of the SAME source, in the row
+/// order its [`SelAddr::space`] names. The source is its only issuer: a
+/// caller cannot pair positions of its own with a binding, because
+/// [`LaneBinding::selected`] takes them from here and nowhere else. The list
+/// is a bag in list order; the socket never sorts or deduplicates it.
+///
+/// `selection_of` returning `None` means the source holds no such selection
+/// under `frame`, which is refused, never read as empty.
+/// `borrow_positions` hands out the source's own list; it must not copy,
+/// reorder, deduplicate or allocate.
+///
+/// As for [`LaneSource::frames`], the trait cannot prove that the positions
+/// were produced from the bytes the frame seals; that is the implementer's
+/// obligation. What the socket does establish is that lanes and positions
+/// come from one owner, under one frame of that owner's store, in one row
+/// order and for one reader scope.
+pub trait SelectionSource: LaneSource {
+    fn selection_of(&self, sel: u16, frame: &Frame) -> Option<SelAddr>;
+
+    fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]>;
+}
+
 /// A DR position and the route version it was resolved at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RouteAt {
@@ -145,6 +179,24 @@ pub enum LaneRefusal {
     Vanished { field: u8 },
     /// The field was not part of the binding.
     NotBound { field: u8 },
+    /// The source holds no selection `sel` under the binding's frame.
+    SelectionUnbound { sel: u16 },
+    /// The selection's positions are in another row order than the one the
+    /// lanes were bound under. Reading the lanes through them would be a
+    /// read through another coordinate space, so it is refused.
+    SelectionSpace {
+        sel: u16,
+        bound: CoordSpace,
+        selection: CoordSpace,
+    },
+    /// The selection serves another reader scope than the binding's.
+    SelectionScope {
+        sel: u16,
+        reader: Scope,
+        selection: Scope,
+    },
+    /// The source no longer holds the selection's positions.
+    SelectionVanished { sel: u16 },
 }
 
 impl From<Refusal> for LaneRefusal {
@@ -380,6 +432,67 @@ impl LaneBinding {
         self.check(store, view, frames, source)?;
         let addr = self.addr(field).ok_or(LaneRefusal::NotBound { field })?;
         source.borrow(addr).ok_or(LaneRefusal::Vanished { field })
+    }
+
+    /// [`LaneBinding::check`] once, then `field`'s lane AND selection `sel`'s
+    /// positions, both borrowed from the one `source`.
+    ///
+    /// This is the joint witness of D-DR-SELECT-K-SV-2: the positions may be
+    /// read against the lane because one check covers both. The frame is this
+    /// source's store's current seal (a foreign, stale or re-sealed frame is
+    /// refused, as is a caller-chosen store); the route, the basis and every
+    /// bound lane are as they were at the bind; and the selection is one the
+    /// source itself holds under THIS binding's frame, in THIS binding's row
+    /// order ([`LaneRefusal::SelectionSpace`]) and for THIS binding's reader
+    /// scope ([`LaneRefusal::SelectionScope`]). Every refusal is returned
+    /// before a lane or a position is borrowed. Nothing is allocated, copied
+    /// or reordered.
+    ///
+    /// NOT established here, by design:
+    ///
+    /// - That each position is a row of the lane. This crate does not know a
+    ///   lane's length; the consumer that folds (`execute_sel`) refuses a
+    ///   position outside the frame.
+    /// - Authorization. [`Scope`] equality is a consistency check between
+    ///   the reader, the lanes and the selection. It is not a grant: no
+    ///   authority in this crate issues a `Scope`, so a revoked permission is
+    ///   not observed here.
+    /// - History. Like [`LaneBinding::check`], this admits the current frame
+    ///   only; a selection of an earlier frame is refused, never read
+    ///   against today's lanes.
+    pub fn selected<'s, V: ClassView + ?Sized, S: SelectionSource>(
+        &self,
+        store: &BindStore,
+        view: &V,
+        frames: &FrameStore,
+        source: &'s S,
+        field: u8,
+        sel: u16,
+    ) -> Result<(S::Lane<'s>, &'s [u32]), LaneRefusal> {
+        self.check(store, view, frames, source)?;
+        let lane = self.addr(field).ok_or(LaneRefusal::NotBound { field })?;
+        let selection = source
+            .selection_of(sel, &self.frame)
+            .ok_or(LaneRefusal::SelectionUnbound { sel })?;
+        if selection.space != self.selection {
+            return Err(LaneRefusal::SelectionSpace {
+                sel,
+                bound: self.selection,
+                selection: selection.space,
+            });
+        }
+        if selection.scope != self.scope {
+            return Err(LaneRefusal::SelectionScope {
+                sel,
+                reader: self.scope,
+                selection: selection.scope,
+            });
+        }
+        let lane = source.borrow(lane).ok_or(LaneRefusal::Vanished { field })?;
+        let positions = source
+            .borrow_positions(&selection)
+            .ok_or(LaneRefusal::SelectionVanished { sel })?;
+        Ok((lane, positions))
     }
 
     /// [`LaneBinding::check`] once, then every bound lane, in ascending field
