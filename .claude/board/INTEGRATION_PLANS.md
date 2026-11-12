@@ -1,3 +1,7 @@
+## 2026-11-12 — D-DR-SELECT-K: storage selects K once per frame, DR folds over K → `.claude/plans/dr-select-k-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Fixes the scenario (cold path once per frame, hot path many folds over K with no Lance access), the ownership of the K-row staging and of the `NodeGuid` to row chain, a three-line first handoff rule, and the scope of the one candidate lab D-DR-SELECT-K-1 (not authorized). K-2 to K-7 are contingent on four gates. Hypothesis record: PR 2032. Coordination: EXO-253.
+
 ## 2026-11-11 — D-QSP-R: PostgreSQL parity roadmap over inverted tuples → `.claude/plans/d-qsp-parity-roadmap-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Umbrella roadmap, not a new architecture: eight stages mapped onto D-QSP-0..5, D-DYNBAG, EXO-114, EXO-255 and the DR / DT binding items S2–S8. First deliverables: the parity harness (D-QSP-H) and the milestone D-QSP-M1 (two classes, contextual projection, WHERE, one duplicate-preserving join, ordered result, no intermediate X × Y tuples). Read-only; no transaction or snapshot parity claimed.

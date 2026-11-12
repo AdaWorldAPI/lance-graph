@@ -199,6 +199,8 @@ For `Lance WHERE → survivors K`, DR Dynamic's existing address/Focus mechanism
 
 - **W4 addendum:** record roles, ownership and witness type of IndexVector, SelectionVector, FocusMask and `ALL(K)` without merging the three typed semantic concepts. A same-number-of-fields reorder, wrong coordinate, lost order, or reused obsolete content-dependent WHERE remains a negative test.
 - **W7 addendum:** measured four-way *consumption* shootout (not four new execution paths) across K=0/64/256/1024/4096/65536, dense/sparse, order/Bag, one versus repeated folds, warm/cold, ISA and memory/IO budgets. Separate lookup, storage read, bind, optional representation conversion, prefetch, hot fold and retained bytes. Calibrate deterministic policy after evidence, not a priori.
+  > Narrowed 2026-11-12: the lab's dimensions are those of
+  > `dr-select-k-v1.md` §4, not the matrix above.
 
 ## 2d. Two sources of class authority (existing contract, kept as an invariant)
 
