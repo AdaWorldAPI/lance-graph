@@ -1,3 +1,8 @@
+## 2026-11-12 — D-QUACK-BOUNDARY-LAB: where a Quack-lowered program gets its operands → `.claude/plans/quack-boundary-lab-v1.md`
+
+**Status:** LAB, MEASURED. `crates/quack-boundary-lab`: one unchanged program run unbound and through a DT64 `LaneBinding`, cases A to F against a scalar oracle; an audit of `lower_group_by_auto`; a materialisation ledger with exact byte counts. No production API changed. [entry](entries/2026-11-12-quack-boundary-lab.md). Coordination: EXO-253.
+**Confidence:** every result is a test in the crate; four disable runs went red. Nine unsatisfied contracts are listed in the plan and none is closed here.
+
 ## 2026-11-12 — D-DR-SELECT-K: one versioned DR selection, bound once, reused by every fold → `.claude/plans/dr-select-k-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Fixes the order (DR → deterministic version → index order and/or filter → `DR{dynamic}[K]` → reusable selection → Quack / mask-RISC → ndarray), places the representation choice in the versioned DR binding, records the ownership of the K-row staging and the open `NodeGuid` to row chain, and scopes the one candidate lab D-DR-SELECT-K-1 (not authorized): which existing view of one selection is cheaper per operation and reuse count. K-2 to K-7 are contingent on four gates. Hypothesis record: PR 2032. Coordination: EXO-253.

@@ -494,6 +494,10 @@ p64-bridge	bgz17	normal	false	-	-	crates/p64-bridge/Cargo.toml:11	CONFIRMED	yes
 p64-bridge	causal-edge	normal	false	-	-	crates/p64-bridge/Cargo.toml:10	CONFIRMED	yes
 perturbation-sim	lance-graph-contract	normal	true	-	moore-probe	crates/perturbation-sim/Cargo.toml:30	CONFIRMED	yes
 perturbation-sim	ndarray	normal	true	-	ndarray-simd,pillar	crates/perturbation-sim/Cargo.toml:37	CONFIRMED	no
+quack-boundary-lab	lance-graph-contract	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:9	CONFIRMED	yes
+quack-boundary-lab	lance-graph-dt64	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:10	CONFIRMED	yes
+quack-boundary-lab	lance-graph-mask-risc	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:11	CONFIRMED	yes
+quack-boundary-lab	lance-graph-quack	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:12	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-contract	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:33	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-mask-risc	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:18	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-quack	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:21	CONFIRMED	yes

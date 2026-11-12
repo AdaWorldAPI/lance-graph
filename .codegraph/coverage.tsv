@@ -80,6 +80,7 @@ onebrc-probe	15	0	0	macro-generated items invisible;fn-local use not scanned
 p64-bridge	1	0	0	macro-generated items invisible;fn-local use not scanned
 perturbation-sim	26	31	0	macro-generated items invisible;fn-local use not scanned
 pg-parity-harness	4	1	0	macro-generated items invisible;fn-local use not scanned
+quack-boundary-lab	2	3	0	macro-generated items invisible;fn-local use not scanned
 quasicryth-research	11	2	0	macro-generated items invisible;fn-local use not scanned
 r2il-mask-abi-probe	1	4	0	macro-generated items invisible;fn-local use not scanned
 reader-lm	5	0	0	macro-generated items invisible;fn-local use not scanned

@@ -153,9 +153,9 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n31["jc"]
   n32["jc-batch-probe"]
-  n85["sigker"]
-  n92["thinking-engine"]
-  n31 --> n85
+  n86["sigker"]
+  n93["thinking-engine"]
+  n31 --> n86
   n32 --> n31
-  n92 --> n31
+  n93 --> n31
 ```

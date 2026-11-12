@@ -24,11 +24,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding_native.rs:46 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/bound_sel.rs:28 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/lane_source.rs:38 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/quack-boundary-lab/src/lib.rs:31 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/socket.rs:12 POSSIBLE
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 
-## Textual occurrences (78 total)
+## Textual occurrences (84 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -99,6 +100,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source.rs:75 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:88 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:171 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:31 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:129 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:154 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:187 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:317 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:431 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:171 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:188 POSSIBLE

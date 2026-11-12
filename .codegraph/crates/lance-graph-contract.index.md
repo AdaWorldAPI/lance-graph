@@ -69,6 +69,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep ogar-behavior-probe normal — crates/ogar-behavior-probe/Cargo.toml:22 CONFIRMED
 - rdep onebrc-probe normal optional — crates/onebrc-probe/Cargo.toml:71 CONFIRMED
 - rdep perturbation-sim normal optional — crates/perturbation-sim/Cargo.toml:30 CONFIRMED
+- rdep quack-boundary-lab normal — crates/quack-boundary-lab/Cargo.toml:9 CONFIRMED
 - rdep r2il-mask-abi-probe dev — crates/r2il-mask-abi-probe/Cargo.toml:33 CONFIRMED
 - rdep sigma-tier-router normal — crates/sigma-tier-router/Cargo.toml:9 CONFIRMED
 - rdep soa64-u64-lab normal — crates/soa64-u64-lab/Cargo.toml:17 CONFIRMED
@@ -349,14 +350,15 @@ flowchart LR
   n75["ogar-behavior-probe"]
   n76["onebrc-probe"]
   n78["perturbation-sim"]
-  n86["sigma-tier-router"]
-  n87["soa64-u64-lab"]
-  n88["surreal_container"]
-  n89["symbiont"]
-  n92["thinking-engine"]
-  n93["thought-git-probe"]
-  n94["tract-harvest-probe"]
-  n95["weather-poc"]
+  n80["quack-boundary-lab"]
+  n87["sigma-tier-router"]
+  n88["soa64-u64-lab"]
+  n89["surreal_container"]
+  n90["symbiont"]
+  n93["thinking-engine"]
+  n94["thought-git-probe"]
+  n95["tract-harvest-probe"]
+  n96["weather-poc"]
   n1 --> n44
   n4 --> n44
   n7 --> n44
@@ -402,12 +404,13 @@ flowchart LR
   n75 --> n44
   n76 --> n44
   n78 --> n44
-  n86 --> n44
+  n80 --> n44
   n87 --> n44
   n88 --> n44
   n89 --> n44
-  n92 --> n44
+  n90 --> n44
   n93 --> n44
   n94 --> n44
   n95 --> n44
+  n96 --> n44
 ```

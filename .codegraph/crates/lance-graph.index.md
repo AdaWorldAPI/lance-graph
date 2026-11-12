@@ -408,7 +408,7 @@ flowchart LR
   n61["lance-graph-python"]
   n62["lance-graph-quack"]
   n63["lance-graph-r2il"]
-  n89["symbiont"]
+  n90["symbiont"]
   n8 --> n33
   n33 --> n1
   n33 --> n2
@@ -424,5 +424,5 @@ flowchart LR
   n45 --> n33
   n48 --> n33
   n61 --> n33
-  n89 --> n33
+  n90 --> n33
 ```

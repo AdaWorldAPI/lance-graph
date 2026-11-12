@@ -33,6 +33,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-report normal — crates/lance-graph-report/Cargo.toml:14 CONFIRMED
 - rdep lance-graph-sap normal — crates/lance-graph-sap/Cargo.toml:13 CONFIRMED
 - rdep lance-graph-xlog normal — crates/lance-graph-xlog/Cargo.toml:10 CONFIRMED
+- rdep quack-boundary-lab normal — crates/quack-boundary-lab/Cargo.toml:12 CONFIRMED
 - rdep r2il-mask-abi-probe dev — crates/r2il-mask-abi-probe/Cargo.toml:21 CONFIRMED
 
 ## Public items
@@ -235,6 +236,7 @@ flowchart LR
   n66["lance-graph-report"]
   n68["lance-graph-sap"]
   n71["lance-graph-xlog"]
+  n80["quack-boundary-lab"]
   n10 --> n62
   n25 --> n62
   n33 --> n62
@@ -249,4 +251,5 @@ flowchart LR
   n66 --> n62
   n68 --> n62
   n71 --> n62
+  n80 --> n62
 ```

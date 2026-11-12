@@ -99,9 +99,9 @@ flowchart LR
   n44["lance-graph-contract"]
   n56["lance-graph-ogar"]
   n78["perturbation-sim"]
-  n89["symbiont"]
-  n89 --> n33
-  n89 --> n44
-  n89 --> n56
-  n89 --> n78
+  n90["symbiont"]
+  n90 --> n33
+  n90 --> n44
+  n90 --> n56
+  n90 --> n78
 ```

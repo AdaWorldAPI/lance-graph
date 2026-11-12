@@ -203,6 +203,7 @@ lance-graph-contract	learning	normal	false	-	-	crates/learning/Cargo.toml:17	CON
 lance-graph-contract	ogar-behavior-probe	normal	false	-	-	crates/ogar-behavior-probe/Cargo.toml:22	CONFIRMED	yes
 lance-graph-contract	onebrc-probe	normal	true	-	lane-e,lane-g,lane-i	crates/onebrc-probe/Cargo.toml:71	CONFIRMED	yes
 lance-graph-contract	perturbation-sim	normal	true	-	moore-probe	crates/perturbation-sim/Cargo.toml:30	CONFIRMED	yes
+lance-graph-contract	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:9	CONFIRMED	yes
 lance-graph-contract	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:33	CONFIRMED	yes
 lance-graph-contract	sigma-tier-router	normal	false	-	-	crates/sigma-tier-router/Cargo.toml:9	CONFIRMED	yes
 lance-graph-contract	soa64-u64-lab	normal	false	-	-	crates/soa64-u64-lab/Cargo.toml:17	CONFIRMED	yes
@@ -231,6 +232,7 @@ lance-graph-dt64	lance-graph-rbac	dev	false	-	-	crates/lance-graph-rbac/Cargo.to
 lance-graph-dt64	lance-graph-report	normal	false	-	-	crates/lance-graph-report/Cargo.toml:20	CONFIRMED	yes
 lance-graph-dt64	lance-graph-xlog	normal	false	-	-	crates/lance-graph-xlog/Cargo.toml:13	CONFIRMED	yes
 lance-graph-dt64	ogar-behavior-probe	normal	false	-	-	crates/ogar-behavior-probe/Cargo.toml:21	CONFIRMED	yes
+lance-graph-dt64	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:10	CONFIRMED	yes
 lance-graph-dt64	soa64-u64-lab	normal	false	-	-	crates/soa64-u64-lab/Cargo.toml:16	CONFIRMED	yes
 lance-graph-hydrate	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:25	CONFIRMED	yes
 lance-graph-mask-risc	cognitive-polyfill-probe	normal	false	-	-	crates/cognitive-polyfill-probe/Cargo.toml:16	CONFIRMED	yes
@@ -262,6 +264,7 @@ lance-graph-mask-risc	lance-graph-report	normal	false	-	-	crates/lance-graph-rep
 lance-graph-mask-risc	lance-graph-sap	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:12	CONFIRMED	yes
 lance-graph-mask-risc	lance-graph-xlog	normal	false	-	-	crates/lance-graph-xlog/Cargo.toml:11	CONFIRMED	yes
 lance-graph-mask-risc	mork-pathmap-probe	normal	false	-	-	crates/mork-pathmap-probe/Cargo.toml:37	CONFIRMED	yes
+lance-graph-mask-risc	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:11	CONFIRMED	yes
 lance-graph-mask-risc	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:18	CONFIRMED	yes
 lance-graph-ogar	cognitive-stack	normal	false	-	surrealdb	crates/cognitive-stack/Cargo.toml:98	CONFIRMED	yes
 lance-graph-ogar	dt64-hotplug-probe	normal	false	-	-	crates/dt64-hotplug-probe/Cargo.toml:22	CONFIRMED	yes
@@ -299,6 +302,7 @@ lance-graph-quack	lance-graph-r2il	dev	false	-	-	crates/lance-graph-r2il/Cargo.t
 lance-graph-quack	lance-graph-report	normal	false	-	-	crates/lance-graph-report/Cargo.toml:14	CONFIRMED	yes
 lance-graph-quack	lance-graph-sap	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:13	CONFIRMED	yes
 lance-graph-quack	lance-graph-xlog	normal	false	-	-	crates/lance-graph-xlog/Cargo.toml:10	CONFIRMED	yes
+lance-graph-quack	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:12	CONFIRMED	yes
 lance-graph-quack	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:21	CONFIRMED	yes
 lance-graph-r2il	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:24	CONFIRMED	yes
 lance-graph-r2il	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:18	CONFIRMED	yes

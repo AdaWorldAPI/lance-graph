@@ -121,7 +121,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n44["lance-graph-contract"]
   n47["lance-graph-dt64"]
-  n87["soa64-u64-lab"]
-  n87 --> n44
-  n87 --> n47
+  n88["soa64-u64-lab"]
+  n88 --> n44
+  n88 --> n47
 ```

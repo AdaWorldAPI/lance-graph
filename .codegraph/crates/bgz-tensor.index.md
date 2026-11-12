@@ -255,13 +255,13 @@ flowchart LR
   n30["holograph"]
   n33["lance-graph"]
   n44["lance-graph-contract"]
-  n82["reader-lm"]
-  n92["thinking-engine"]
+  n83["reader-lm"]
+  n93["thinking-engine"]
   n0 --> n1
   n1 --> n30
   n1 --> n44
   n27 --> n1
   n33 --> n1
-  n82 --> n1
-  n92 --> n1
+  n83 --> n1
+  n93 --> n1
 ```
