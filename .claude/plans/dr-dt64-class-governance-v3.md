@@ -207,7 +207,7 @@ Source: `crates/lance-graph-contract/src/hotplug.rs` (module doc: socket in
 the contract, authority in OGAR, declaration in the consumer; OCR plugs
 `0x0805`, `0x0808`, `0x0809`). The classid is `CanonHigh`
 (`ogar_codebook::CLASSID_ORDER`): the high `u16` is the OGAR concept, the
-low `u16` the consumer's app prefix.
+low `u16` the consumer's app prefix. (The second half is an assignment of meaning, not a property of the bits; see §2e.)
 
 Consequences for this plan:
 
@@ -226,6 +226,42 @@ What is not shown on main: that a class activated through OGAR reaches a
 DT64 binding. `lance-graph-ogar` does not name `lance-graph-dt64` or
 `BindStore`, and `lance-graph-dt64` does not name `HotPlug` (search over
 those two crates only). That seam is W12 below.
+
+## 2e. DR routes, DT64 gives meaning (operator, 2026-11-12)
+
+Stated in session while reviewing W12, extending D12 and D15:
+
+| | DR | DT64 |
+|---|---|---|
+| concern | routing (addressing) | meaning (schema, method) |
+| reads `0x0901_0005` as | address 5 under class `0x0901` | whatever its binding says, e.g. the patient concept |
+| interprets the bits | no | yes, through its binding |
+
+The right half of a classid splits by range:
+
+| right half | DT64 binds there |
+|---|---|
+| `0x0000`–`0xEFFF` | concepts of the class (`0x0901_0005` = concept 5 of class `0x0901`) |
+| `0xF000`–`0xFFFF` | methods of the class (`0x0901_F005` = method `F005` of class `0x0901`) |
+
+The method range is already the code's reading: `is_behaviour_lens`
+(`crates/lance-graph-contract/src/class_view.rs:1053`, D-DT64-7 O9) and
+`ClassView::lens_fields`.
+
+Consequences:
+
+- The bits carry no meaning of their own. "The consumer's app prefix" (§2d,
+  and the twelve `APP_PREFIX` constants `0x0000`–`0x000C` in OGAR's ports) is
+  one meaning DT64 can assign to an address in the concept range. It is not
+  a property of the address, so it does not collide with a concept number
+  and nothing has to move (D3).
+- DR never needs to know what an address means, which is why it can route
+  canon and plugged classes alike (§2d).
+- Activation names the classes a consumer plugs in. It does not have to
+  check the right half: resolving what a full address means is DT64's job
+  (`route` → `admit` → `bind_lanes`). W12's observation that another right
+  half over the same class passes activation is therefore the intended
+  layering, not a gap (`ISS-ACTIVATION-IGNORES-APP-HALF`, resolved).
 
 ## 3. Corrections to v2
 
@@ -266,7 +302,7 @@ read first; none of it has been read for this plan unless §2 cites it.
 | W9 | Codegraph as proof (§11) | the artifacts of PRs 1999, 2003, 2004, 2006, 2007 | The chain entry point → context → registry → binding → admitted reference → word → executing symbol, per production surface, labelled UNKNOWN / POSSIBLE / ARTIFACT_MISSING / STALE where the graph does not show it | a planted bypass is found; an admitted path is not reported |
 | W10 | Standalone probe (§12) | W1–W5 | A minimal lab crate running the falsifiers that are now decidable (1–8, 10, 21, 22, 24) | each with an independent oracle and a negative control. **Code, lab only** |
 | W11 | Council | this plan and the outputs above | 5+3 review of the working model before any contract change | — |
-| W12 | Consumer class → DT64 binding (§2d) | `hotplug.rs`, `lance-graph-ogar` `activate` / `plug_readings`, `BindStore::register` / `bind_lanes` | A lab test: activate a consumer through the existing OGAR vocabulary, resolve its class through `ClassView`, bind and run one method through DT64; a classid that was not activated is refused; no edit to the global builtins or registers | the refusal disable-verified; no change to the contract. **Done in `crates/dt64-hotplug-probe` (2026-11-12): five tests over `OgarAuthority` + `OgarClassView`, refusal disable-verified; the activation check ignores the app half (`ISS-ACTIVATION-IGNORES-APP-HALF`).** |
+| W12 | Consumer class → DT64 binding (§2d) | `hotplug.rs`, `lance-graph-ogar` `activate` / `plug_readings`, `BindStore::register` / `bind_lanes` | A lab test: activate a consumer through the existing OGAR vocabulary, resolve its class through `ClassView`, bind and run one method through DT64; a classid that was not activated is refused; no edit to the global builtins or registers | the refusal disable-verified; no change to the contract. **Done in `crates/dt64-hotplug-probe` (2026-11-12): five tests over `OgarAuthority` + `OgarClassView`, refusal disable-verified; the activation check does not read the right half, which §2e rules is DT64's concern (`ISS-ACTIVATION-IGNORES-APP-HALF`, resolved).** |
 
 W1–W5, W8 and W9 can run in parallel. W7 needs W6. W10 needs W1 and W2.
 No public contract or codebook change lands before W11.

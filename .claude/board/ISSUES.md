@@ -9,7 +9,7 @@
 
 ## ISS-ACTIVATION-IGNORES-APP-HALF — does activating a concept admit every app prefix over it? (2026-11-12)
 
-**Status:** OPEN (operator decision). **Basis:** TEST-PINNED (`crates/dt64-hotplug-probe/tests/integration/w12.rs` `the_app_half_of_the_classid_is_not_part_of_the_activation_check`).
+**Status:** RESOLVED 2026-11-12 (operator: DR routes, DT64 gives meaning; plan v3 §2e). Not a gap: activation names classes, DT64 resolves what a full address means, so the right half is DT64's to check. The pinned test stays as the record of that layering. **Basis:** TEST-PINNED (`crates/dt64-hotplug-probe/tests/integration/w12.rs` `the_app_half_of_the_classid_is_not_part_of_the_activation_check`).
 **Fruit:** Low-hanging
 
 - `Activation::read_mode_for` is keyed by the 16-bit concept. W12's seam checks it on `classid_concept(class)`, so MedCare's patient plug also passes `render_classid(0x0007, patient)`, another consumer's render prefix over the same concept.

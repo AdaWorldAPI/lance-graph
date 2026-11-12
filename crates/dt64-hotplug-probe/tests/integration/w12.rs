@@ -273,9 +273,10 @@ fn the_global_builtins_do_not_learn_the_consumer_class() {
     );
 }
 
-/// Observed, not ruled: the activation check reads the concept half only, so
-/// a classid that carries another consumer's prefix over an activated concept
-/// passes it.
+/// The activation check reads the class (left) half only, so a classid with
+/// another right half over an activated class passes it. Ruled intended
+/// (plan v3 §2e, 2026-11-12): DR routes, DT64 gives meaning, so what the right
+/// half means is DT64's to resolve, not the activation's.
 #[test]
 fn the_app_half_of_the_classid_is_not_part_of_the_activation_check() {
     let activation = OgarAuthority
