@@ -14,7 +14,7 @@ d-diamond-1-probe	crates/d-diamond-1-probe	excluded	98a7cd6d39e6f983
 deepnsm	crates/deepnsm	excluded	f45100c04ced13be
 deepnsm-v2	crates/deepnsm-v2	excluded	18622ced3a73a5b2
 dr-isa-stream-lab	crates/dr-isa-stream-lab	excluded	d41e659457cb13a5
-dr-select-k-lab	crates/dr-select-k-lab	excluded	6a4b2c60ea89de06
+dr-select-k-lab	crates/dr-select-k-lab	excluded	b2d36da3900705ed
 dr256-ternlog-lab	crates/dr256-ternlog-lab	member	37c7b22835c32811
 drf-focus-probe	crates/drf-focus-probe	excluded	bc1dcb22072bc2dd
 drisa-register-probe	crates/drisa-register-probe	excluded	768c284303f15cf2

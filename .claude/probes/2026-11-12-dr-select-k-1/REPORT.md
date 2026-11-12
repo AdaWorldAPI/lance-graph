@@ -109,3 +109,42 @@ next operation (plan §3: "it becomes finer only if the lab shows different
 views winning"). It does not locate the density threshold, and it says
 nothing about a storage-backed source. Gates 1 and 2 of plan §5 are
 untouched.
+
+## Correction, 2026-11-12 (after #2035 merged)
+
+Three things in the lab changed. The original files `report-run1.tsv` and
+`report-run2.tsv` are kept as measured; the corrected runs are
+`report-v2-run1.tsv` and `report-v2-run2.tsv` (same VM, same build flags).
+
+1. **Byte accounting.** `select_filter` and `select_ordered` each copy a
+   position vector of 4 bytes per selected row, and the first version did not
+   count it. `bytes_copied` is now 32 per selected row: 4 for the position
+   vector, 28 for the staged lanes. Every row of the old files is short by
+   exactly `4 × K` (1,024 / 262,144 / 3,000,000 bytes at K = 256 / 65,536 /
+   750,000; checked on all 150 rows that carry the column). Retained bytes,
+   storage accesses and operand reads were already separate columns and did
+   not change.
+2. **Fold latency did not change.** Over the 186 timed cells present in both
+   versions, the median of new fold time over old fold time is 1.000. Single
+   cells differ by up to about 2x in either direction, which is the same
+   spread as between the two v2 runs (0.40 to 1.91), so no cell is evidence
+   of a change.
+3. **Tie-breaking.** The first version ordered by key, then guid, and called
+   that the order. `SealedOrder` already defines key, then frame-relative row
+   position. The lab now carries both as separately witnessed contracts,
+   `Order::KeyThenRow` (the existing rule) and `Order::KeyThenGuid`. A top-T
+   request names its order and is admitted only on a binding witnessed for
+   exactly that order; a view change does not change the result. The v2
+   files add 30 `ordered_guid` rows at K = 65,536 (246 rows in total).
+
+The v2 files also add a `fold_path` column. The positions arm of count and
+sum is a plain Rust loop over the local row list (`scalar-loop`); the mask
+and `ALL(K)` arms go through mask-RISC (`mask-risc`); top-T is a plain walk
+on every view (`scalar-walk`). The positions-against-mask numbers above
+therefore compare two different executors as well as two representations.
+No admitted consumer in mask-RISC, Quack or ndarray folds over a position
+list (mask-RISC `lib.rs` A1 and Quack `lib.rs` R1 say so in terms), so the
+scalar arm stays a lab measurement and is recorded as a gap in
+`.claude/plans/dr-select-k-v1.md` §11, not as an executor.
+
+Checks at this state: 17 tests; `disable_runs.py` 13 guards, 13 red.
