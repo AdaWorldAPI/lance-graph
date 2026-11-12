@@ -8,9 +8,11 @@ name: lgj-abi compatibility
 # `mask_risc::ExecError` variant meeting the exhaustive match in `lgj-abi`'s
 # `exec_error_to_status` (E0004).
 #
-# This check compiles `lgj-abi`, test targets included, against THIS change,
-# so the break shows on the pull request that causes it. It compiles and does
-# not test, and it runs no Java: the Java suites and benchmarks stay in
+# This check compiles `lgj-abi` and runs its native tests against THIS change,
+# so the break shows on the pull request that causes it. The tests matter: a
+# change can keep every signature and still change an answer, and only the
+# tests (scalar-oracle parity, the Quack lowering comparison) see that. It
+# runs no Java: the Java suites and benchmarks stay in
 # lance-graph-java's own CI.
 #
 # A red result here does not mean the change is wrong. It means lgj-abi needs
@@ -114,16 +116,16 @@ jobs:
               echo "| $repo | \`$(git -C "$repo" rev-parse HEAD)\` |"
             done
           } | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: cargo check --all-targets (lgj-abi against this change)
+      - name: cargo test --all-targets (lgj-abi against this change)
         if: steps.changes.outputs.relevant == 'true'
         working-directory: lance-graph-java/native/lgj-abi
-        run: cargo check --all-targets
+        run: cargo test --all-targets
       - name: What a failure means
         if: failure() && steps.changes.outputs.relevant == 'true'
         run: |
           {
             echo
-            echo "### lgj-abi does not compile against this change"
+            echo "### lgj-abi does not compile, or its tests fail, against this change"
             echo
             echo "lance-graph-java's native crate needs a paired change."
             echo "An \`E0004\` in \`exec_error_to_status\` means a"
@@ -134,6 +136,6 @@ jobs:
             echo
             echo '```'
             echo "cd lance-graph-java/native/lgj-abi"
-            echo "RUSTFLAGS='-D warnings -Ctarget-cpu=x86-64-v3' cargo check --all-targets"
+            echo "RUSTFLAGS='-D warnings -Ctarget-cpu=x86-64-v3' cargo test --all-targets"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
