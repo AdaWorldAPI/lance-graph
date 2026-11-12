@@ -1,0 +1,139 @@
+name: lgj-abi compatibility
+
+# What this is for: AdaWorldAPI/lance-graph-java's native crate `lgj-abi`
+# path-depends on this repository's `lance-graph-contract`,
+# `lance-graph-mask-risc` and (for its tests) `lance-graph-quack`, at their
+# current heads. A change here that breaks it was invisible until someone
+# pushed to lance-graph-java. That has happened five times with a new
+# `mask_risc::ExecError` variant meeting the exhaustive match in `lgj-abi`'s
+# `exec_error_to_status` (E0004).
+#
+# This check compiles `lgj-abi`, test targets included, against THIS change,
+# so the break shows on the pull request that causes it. It compiles and does
+# not test, and it runs no Java: the Java suites and benchmarks stay in
+# lance-graph-java's own CI.
+#
+# A red result here does not mean the change is wrong. It means lgj-abi needs
+# a paired change; the job summary says where.
+
+on:
+  # No `paths:` filter, on purpose. A workflow that a path filter skips never
+  # reports, and a required check that never reports blocks the merge. This
+  # workflow always starts, decides relevance in its first steps, and
+  # concludes SUCCESS when the change cannot affect lgj-abi. It is therefore
+  # safe to mark as a required check.
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Read-only: checkout and compile. No secret is read and nothing is pushed.
+# The three siblings are public reads.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+
+jobs:
+  lgj-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # On `pull_request` this is the PR's merge commit (the PR head merged
+      # into its base), never plain `main`. Depth 2 so the merge commit's
+      # first parent, the base, is available to diff against.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          path: lance-graph
+          fetch-depth: 2
+      - name: Does this change touch what lgj-abi compiles?
+        id: changes
+        working-directory: lance-graph
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            relevant=true
+          else
+            relevant=$(.github/scripts/lgj-abi-relevant.sh HEAD)
+          fi
+          echo "relevant=$relevant" >> "$GITHUB_OUTPUT"
+          if [ "$relevant" = "true" ]; then
+            echo "This change touches a crate lgj-abi compiles; checking it." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "This change does not touch a crate lgj-abi compiles; nothing to check." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Checkout AdaWorldAPI/lance-graph-java (default branch head)
+        if: steps.changes.outputs.relevant == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: AdaWorldAPI/lance-graph-java
+          path: lance-graph-java
+      - name: Checkout AdaWorldAPI/ndarray (default branch head)
+        if: steps.changes.outputs.relevant == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+      - name: Checkout AdaWorldAPI/OGAR (default branch head)
+        if: steps.changes.outputs.relevant == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: AdaWorldAPI/OGAR
+          path: OGAR
+      # The toolchain and CPU baseline are lgj-abi's own, exactly as
+      # lance-graph-java's `lint.yml` sets them: `rust-src-dir` points the
+      # action at the crate that holds `rust-toolchain.toml`, and the baseline
+      # goes in `rustflags` because the action exports RUSTFLAGS and would
+      # discard one set elsewhere. `-D warnings` is kept because that is what
+      # turns lance-graph-java's own CI red.
+      - if: steps.changes.outputs.relevant == 'true'
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rust-src-dir: lance-graph-java/native/lgj-abi
+          rustflags: -D warnings -Ctarget-cpu=x86-64-v3
+          cache: false
+      - name: Record the commits under test
+        if: steps.changes.outputs.relevant == 'true'
+        run: |
+          {
+            echo
+            echo "| repository | commit |"
+            echo "|---|---|"
+            for repo in lance-graph lance-graph-java ndarray OGAR; do
+              echo "| $repo | \`$(git -C "$repo" rev-parse HEAD)\` |"
+            done
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: cargo check --all-targets (lgj-abi against this change)
+        if: steps.changes.outputs.relevant == 'true'
+        working-directory: lance-graph-java/native/lgj-abi
+        run: cargo check --all-targets
+      - name: What a failure means
+        if: failure() && steps.changes.outputs.relevant == 'true'
+        run: |
+          {
+            echo
+            echo "### lgj-abi does not compile against this change"
+            echo
+            echo "lance-graph-java's native crate needs a paired change."
+            echo "An \`E0004\` in \`exec_error_to_status\` means a"
+            echo "\`mask_risc::ExecError\` variant was added: lgj-abi needs an arm"
+            echo "for it in \`native/lgj-abi/src/exports.rs\`."
+            echo
+            echo "Reproduce with the four commits above checked out side by side:"
+            echo
+            echo '```'
+            echo "cd lance-graph-java/native/lgj-abi"
+            echo "RUSTFLAGS='-D warnings -Ctarget-cpu=x86-64-v3' cargo check --all-targets"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
