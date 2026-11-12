@@ -401,6 +401,28 @@ Order: S1 (finish) and S2 now. S4 next (a consumer is waiting on EXO-243
 and EXO-244). Then D-NFR-1 and S7, S3 and S8 in parallel. S5 and S6 need
 the council.
 
+**S4b-2, sealed reader scope (2026-11-12).** `dt64::dr::Scope` is a public
+`u64` and only a consistency witness: `admit_lane` refuses a lane whose scope
+differs from the request's, but the caller supplies both the id and the field
+mask, so a copied id binds another reader's fields
+(`finding_a_copied_scope_id_binds_another_readers_fields`). The sealed shape,
+sketched test-locally in `crates/lance-graph-rbac/tests/scoped_lane_binding.rs`
+`mod sealed`:
+
+- a `SealedScope` with private fields (issuer identity, the dt64 witness,
+  class, the decision's visible fields), obtainable only from
+  `ScopeIssuer::issue`, which returns none unless the decision is `Allow`;
+- `ScopeIssuer::bind` refuses a scope from another issuer or for another
+  class, and binds `requested ∩ visible` with the fields taken from the
+  scope, never from the caller.
+
+Four tests, each guard disable-verified red-then-green. What it does not
+do: dt64's raw `bind_lanes` path still takes a bare `Scope`, so the finding
+stays true on that path. Closing it means making `Scope`'s id private or
+having `bind_lanes` take the sealed scope, a public dt64 change: 30 files in
+13 crates import dt64's `Scope` today (an import count, not each use read). That change waits for the council
+(plan v3 W11); S4b-1 (a binding that knows its reader) is still open as well.
+
 ## 6. Not verified
 
 Nothing was built or run for this plan. D-NFR-1's own gate reads "the

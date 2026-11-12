@@ -239,6 +239,7 @@ Plan: `.claude/plans/d-soc-fence-v1.md`. Plan only; nothing runs yet.
 | D-DRDT-SPLIT-S2 | lab planes as the reusable selection, no behaviour change | Queued | 15 lab tests green; angles bench within noise |
 | D-DRDT-SPLIT-S3 | order index sealed per source revision; full ordered-sequence fixture after persist and reopen (EXO-114) | Queued | full row sequence equals oracle; foreign revision refuses |
 | D-DRDT-SPLIT-S4 | `requested ∩ visible` at bind time; row half as a plane (EXO-243) | Queued | two roles, 12 fields, 10³ rows |
+| D-DRDT-SPLIT-S4B2 | Sealed reader scope: a scope only an issuer mints, binding only its own visible fields (plan `dr-widefieldmask-dt-classview-v1.md` §5 S4b-2) | In PR | test-local sketch, 4 tests, 3 guards disable-verified; dt64 raw path open until W11 (`ISS-DT64-SCOPE-ID-IS-NOT-A-GRANT`) |
 | D-DRDT-SPLIT-S5 | bind-time admission for the four direct paths | Queued (needs council) | red on a planted call site |
 | D-DRDT-SPLIT-S6 | behaviour as classes across a restart | Queued (needs council) | replay falsifier red first |
 | D-DRDT-SPLIT-S7 | kept selections and class bindings keyed onto the `MapTable` log (D-DR-VMAP) | Queued (after D-NFR-1) | mapping replay; mismatch refuses |

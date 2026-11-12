@@ -1,3 +1,12 @@
+## ISS-DT64-SCOPE-ID-IS-NOT-A-GRANT — a copied scope id still binds another reader's fields on dt64's raw path (2026-11-12)
+
+**Status:** OPEN (council, plan v3 W11). **Basis:** TEST-PINNED (`crates/lance-graph-rbac/tests/scoped_lane_binding.rs` `finding_a_copied_scope_id_binds_another_readers_fields`).
+**Fruit:** Heavy
+
+- `dt64::dr::Scope { id: u64 }` is public, and `bind_lanes` takes the field mask from the caller. Equality of two ids is checked; who may hold the id is not.
+- The sealed shape (`mod sealed` in the same file) refuses foreign issuers and other classes and binds only the scope's own visible fields, but only on its own entry point.
+- **What closes it:** the council's ruling on a public dt64 change, either a private `Scope` id or `bind_lanes` taking the sealed scope (30 files in 13 crates import dt64's `Scope` today; an import count, not each use read). Then the finding flips to a refusal.
+
 ## ISS-MULTIHOP-PRESENCE-ARM-UNRULED — projection or lens for multi-hop existence? (2026-11-03)
 
 **Status:** OPEN (operator decision). **Basis:** MEASURED (`.claude/probes/2026-11-03-d-bag-fold/`, `entries/2026-11-03-d-bag-fold-witnessed-existential.md`).
