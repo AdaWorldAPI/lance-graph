@@ -3,7 +3,7 @@
 crate: holograph
 path: crates/holograph
 workspace: excluded
-digest: 2a2439c53428aee3
+digest: 33e6c4d74778729e
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -255,8 +255,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n1["bgz-tensor"]
-  n26["holograph"]
-  n38["lance-graph-cognitive"]
-  n1 --> n26
-  n38 --> n26
+  n29["holograph"]
+  n41["lance-graph-cognitive"]
+  n1 --> n29
+  n41 --> n29
 ```

@@ -22,7 +22,8 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
-- rdep cognitive-stack normal — crates/cognitive-stack/Cargo.toml:95 CONFIRMED
+- rdep cognitive-stack normal — crates/cognitive-stack/Cargo.toml:98 CONFIRMED
+- rdep dt64-hotplug-probe normal — crates/dt64-hotplug-probe/Cargo.toml:22 CONFIRMED
 - rdep lance-graph-consumer-conformance normal — crates/lance-graph-consumer-conformance/Cargo.toml:19 CONFIRMED
 - rdep lance-graph-glove-parity normal — crates/lance-graph-glove-parity/Cargo.toml:19 CONFIRMED
 - rdep symbiont normal — crates/symbiont/Cargo.toml:65 CONFIRMED
@@ -172,16 +173,18 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n8["cognitive-stack"]
-  n39["lance-graph-consumer-conformance"]
-  n40["lance-graph-contract"]
-  n45["lance-graph-glove-parity"]
-  n52["lance-graph-ogar"]
-  n54["lance-graph-ontology"]
-  n84["symbiont"]
-  n8 --> n52
-  n39 --> n52
-  n45 --> n52
-  n52 --> n40
-  n52 --> n54
-  n84 --> n52
+  n19["dt64-hotplug-probe"]
+  n42["lance-graph-consumer-conformance"]
+  n43["lance-graph-contract"]
+  n48["lance-graph-glove-parity"]
+  n55["lance-graph-ogar"]
+  n57["lance-graph-ontology"]
+  n88["symbiont"]
+  n8 --> n55
+  n19 --> n55
+  n42 --> n55
+  n48 --> n55
+  n55 --> n43
+  n55 --> n57
+  n88 --> n55
 ```

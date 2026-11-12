@@ -3,7 +3,7 @@
 crate: holo-h14d-probe
 path: crates/holo-h14d-probe
 workspace: excluded
-digest: be4317012836ee41
+digest: d007b7293a906e04
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -59,11 +59,11 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n24["holo-h14d-probe"]
-  n48["lance-graph-mask-risc"]
-  n59["lance-graph-r2il"]
-  n61["lance-graph-relalg"]
-  n24 --> n48
-  n24 --> n59
-  n24 --> n61
+  n27["holo-h14d-probe"]
+  n51["lance-graph-mask-risc"]
+  n62["lance-graph-r2il"]
+  n64["lance-graph-relalg"]
+  n27 --> n51
+  n27 --> n62
+  n27 --> n64
 ```

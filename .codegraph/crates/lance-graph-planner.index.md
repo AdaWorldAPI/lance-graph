@@ -357,7 +357,7 @@ CALL_GRAPH=ARTIFACT_MISSING
 
 ## Architecture
 
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:307 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
 
@@ -366,22 +366,22 @@ flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
-  n14["drf-focus-probe"]
-  n29["lance-graph"]
-  n40["lance-graph-contract"]
-  n44["lance-graph-dt64-lance"]
-  n55["lance-graph-osint"]
-  n56["lance-graph-planner"]
-  n65["lance-graph-supervisor"]
-  n73["p64-bridge"]
-  n7 --> n56
-  n14 --> n56
-  n29 --> n56
-  n44 --> n56
-  n55 --> n56
-  n56 --> n2
-  n56 --> n3
-  n56 --> n40
-  n56 --> n73
-  n65 --> n56
+  n16["drf-focus-probe"]
+  n32["lance-graph"]
+  n43["lance-graph-contract"]
+  n47["lance-graph-dt64-lance"]
+  n58["lance-graph-osint"]
+  n59["lance-graph-planner"]
+  n68["lance-graph-supervisor"]
+  n76["p64-bridge"]
+  n7 --> n59
+  n16 --> n59
+  n32 --> n59
+  n47 --> n59
+  n58 --> n59
+  n59 --> n2
+  n59 --> n3
+  n59 --> n43
+  n59 --> n76
+  n68 --> n59
 ```

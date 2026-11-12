@@ -40,5 +40,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n76["r2il-mask-abi-probe"]
+  n80["r2il-mask-abi-probe"]
 ```

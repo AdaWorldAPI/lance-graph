@@ -12,6 +12,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for TestView — crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
 - impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:294 POSSIBLE
 - impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
+- impl ClassView for View — crates/dr256-ternlog-lab/src/lib.rs:106 POSSIBLE
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
 - impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
@@ -31,7 +32,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/dt64-hotplug-probe/src/lib.rs:36 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
@@ -50,7 +53,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 
-## Textual occurrences (302 total)
+## Textual occurrences (309 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
@@ -68,8 +71,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:13 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:32 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:4 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:83 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:106 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:17 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:36 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:58 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:140 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
@@ -237,10 +247,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:47 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:49 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:171 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:307 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:352 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:379 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:182 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:322 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:372 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:399 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:21 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:29 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:52 POSSIBLE
@@ -345,13 +355,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/ogar-behavior-probe/src/projection.rs:22 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:23 POSSIBLE
-- crates/soa64-u64-lab/src/socket.rs:40 POSSIBLE
-- crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
-- crates/weather-poc/src/lane.rs:7 POSSIBLE
-- crates/weather-poc/src/lane.rs:13 POSSIBLE
-- crates/weather-poc/src/lib.rs:24 POSSIBLE
-- crates/weather-poc/src/manifest.rs:1 POSSIBLE
-- crates/weather-poc/src/manifest.rs:6 POSSIBLE
 - truncated at 300
 
 ## Architecture

@@ -15,6 +15,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 - use lance_graph_dt64::dr::FrameStore — crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/dr-isa-stream-lab/src/source.rs:11 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/dr256-ternlog-lab/src/lib.rs:35 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/arm_b.rs:20 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/arm_c.rs:27 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/source.rs:8 POSSIBLE
@@ -26,7 +27,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/socket.rs:12 POSSIBLE
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 
-## Textual occurrences (70 total)
+## Textual occurrences (75 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -41,6 +42,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/source.rs:137 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:142 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:255 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:35 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:245 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:271 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:302 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:360 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:20 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:145 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:27 POSSIBLE
@@ -71,11 +77,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:22 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:68 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:79 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:174 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:220 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:311 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:356 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:383 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:185 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:234 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:326 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:376 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:403 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:80 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:326 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:380 POSSIBLE
