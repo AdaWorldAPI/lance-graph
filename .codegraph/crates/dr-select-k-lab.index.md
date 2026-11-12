@@ -3,7 +3,7 @@
 crate: dr-select-k-lab
 path: crates/dr-select-k-lab
 workspace: excluded
-digest: b2d36da3900705ed
+digest: c76b4e75d87f8356
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -11,6 +11,7 @@ Generated; the code is the truth. See ../index.md.
 ## Depends on
 
 - dep lance-graph-mask-risc normal — crates/dr-select-k-lab/Cargo.toml:11 CONFIRMED
+- dep ndarray dev — crates/dr-select-k-lab/Cargo.toml:21 CONFIRMED
 
 ## Depended on by
 

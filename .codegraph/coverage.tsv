@@ -14,7 +14,7 @@ d-diamond-1-probe	2	2	0	macro-generated items invisible;fn-local use not scanned
 deepnsm	31	16	0	macro-generated items invisible;fn-local use not scanned
 deepnsm-v2	25	14	0	macro-generated items invisible;fn-local use not scanned
 dr-isa-stream-lab	12	8	0	macro-generated items invisible;fn-local use not scanned
-dr-select-k-lab	7	6	0	macro-generated items invisible;fn-local use not scanned
+dr-select-k-lab	7	7	0	macro-generated items invisible;fn-local use not scanned
 dr256-ternlog-lab	2	3	0	macro-generated items invisible;fn-local use not scanned
 drf-focus-probe	3	12	0	macro-generated items invisible;fn-local use not scanned
 drisa-register-probe	2	5	0	macro-generated items invisible;fn-local use not scanned

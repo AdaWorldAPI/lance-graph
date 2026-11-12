@@ -289,3 +289,86 @@ D-DR-SELECT-K-2 to K-7 stay behind the four gates of §5. No strategy
 selector, policy registry, cost framework, second focus type, planner or
 cache is proposed anywhere in this plan.
 
+## 13. DuckDB `SelectionVector` compatibility (2026-11-12, decision requested)
+
+**Status:** PROPOSED. Nothing in this section is implemented or authorized.
+It records a requirement raised on 2026-11-12 and what it would change.
+
+**The requirement.** The aim is DuckDB-compatible semantics and, where
+useful, API compatibility. DuckDB's `SelectionVector` is part of that
+contract, so it cannot be excluded outright. Two levels are kept apart:
+
+1. **Compatibility contract (boundary).** An explicit selection of `u32`
+   positions is representable: identity when no buffer is set, explicit
+   indices, order, slicing and composition, a writable buffer where the API
+   hands one out, dictionary-style indirect access.
+2. **Native execution (inside).** DR64 / DR256 focus, `WideFieldMask`,
+   witnessed order index, borrowed sparse positions or implicit `ALL(K)`.
+   No position list is built for native execution unless a consumer needs it.
+
+**Checked against DuckDB `main` (fetched 2026-11-12, not pinned):**
+`selection_vector.hpp` has `get_index` returning the index itself when no
+buffer is set, `set_index`, `data()`, `Capacity()`, `Slice`, `SliceInPlace`
+and `SelectFromBoolean`; the public `duckdb.h` declares
+`duckdb_create_selection_vector`, `duckdb_destroy_selection_vector`,
+`duckdb_selection_vector_get_data_ptr` (returns `sel_t *`),
+`duckdb_slice_vector` and `duckdb_vector_copy_sel`. `vector.hpp` and
+`ToUnifiedFormat` were not read here.
+
+**What a mask cannot carry.** A mask is set membership in row order. It does
+not carry an arbitrary permutation, repeated positions (bag multiplicity) or
+dictionary indirection. These need a position form or an order witness, and
+each needs its own parity test. NULL is separate again: DuckDB's
+`ValidityMask` semantics hold at the boundary and are never equated with
+absence or a zero fallback.
+
+**Rules that do not change.**
+
+- One authority. A compatibility selection refers to the existing versioned
+  DR binding (§1, §2). No second row-id namespace, source owner, engine or
+  persistent cache.
+- Explicit materialization. A writable contiguous `sel_t *` is an owned,
+  bounded copy with a stated lifetime and invalidation rule; every
+  allocation and copy is counted, as in the lab.
+- No second executor. Execution stays with Quack's algebra and
+  mask-RISC / ndarray. The open question is whether their operand set admits
+  a selection operand, not whether a parallel scalar path is added.
+- The public C API is the compatibility target. DuckDB's internal C++ types
+  are a separately version-pinned target, never an assumed stable ABI.
+
+**Existing decisions this touches.**
+
+| decision | where | state after 2026-11-12 |
+|---|---|---|
+| Matrix R1, `SelectionVector` | `duckdb-to-v3-translation-matrix-v1.md` | **ADAPT.** Its pre-registered falsifier was run and fired in all 12 cells (matrix §8b). No sparse threshold located yet. |
+| Matrix R4, `DictionaryVector` | same | Under review. Its falsifier condition is met if this requirement is adopted. |
+| Matrix R7, `UnifiedVectorFormat` | same | Under review. `Planes` has no `sel` member. |
+| Quack R1, mask-RISC A1 | `lance-graph-quack/src/lib.rs`, `lance-graph-mask-risc/src/lib.rs` | Unchanged in code. Their allocation, ownership and single-row-universe rules stay; whether an explicit selection operand is admitted is the decision requested. |
+
+**Smallest adapter (to be designed, not built).** A boundary type that holds
+a reference to one bound selection plus one of: nothing (identity), a
+borrowed position slice, or an owned `u32` buffer created on request. It
+answers `get_index`, slicing and the data pointer; it converts to the native
+views through the conversions the lab already counts. It owns no rows and
+runs no folds.
+
+**Falsifier suite (none run except where stated).**
+
+1. Identity selection without materializing indices.
+2. Native Top-64 / Top-256 from a sealed index (§10, D-DR-SELECT-K-1b).
+3. Sparse selection, repeated execution: consumption measured (matrix §8b);
+   the total including construction is not.
+4. Arbitrary permutation and repeated positions, per DuckDB operation that
+   permits them.
+5. Composed selections and dictionary slicing.
+6. Selection mutation and buffer lifetime.
+7. Validity / NULL parity.
+8. Refusals: wrong frame, stale source, foreign coordinate, unauthorized
+   gather.
+9. Against both the existing mask kernel and a zero-word-skipping bit walk
+   (done for the sum in matrix §8b; both lose to the list at 1/64 and below).
+
+**Order of work if adopted.** First the contract (this section, decided),
+then the adapter against the existing views with parity tests grounded in
+DuckDB's own behaviour, then the sparse-kernel comparison at denser points
+to locate the threshold. No optimizer and no selection engine.

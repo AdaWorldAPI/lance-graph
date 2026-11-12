@@ -97,3 +97,11 @@ before it is timed, and a mismatch stops the run with status 1.
 All times are nanoseconds, the median of 41 runs after 3 warm-up runs.
 Produce, bind, prepare and convert are paid once per version and are reported,
 not gated. The fold is the hot term.
+
+## `examples/r1_falsifier.rs`
+
+A separate, small measurement: the pre-registered falsifier of row R1 in
+`.claude/plans/duckdb-to-v3-translation-matrix-v1.md`. It times the bare
+`ndarray::simd::masked_sum_i32` kernel, a zero-word-skipping bit walk and a
+sum over a sorted `u32` position list on the same lane, at the three
+selectivities the row names. Results and their limits are in the matrix, §8b.
