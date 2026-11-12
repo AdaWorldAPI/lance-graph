@@ -350,3 +350,67 @@ fn two_mailboxes_do_not_share_state() {
     assert_eq!(b.energy().as_ptr(), b_energy);
     assert_eq!(b.edges_raw().as_ptr(), b_edges);
 }
+
+/// FAILS IF: an intent-only cycle (empty payload) starts publishing a version,
+/// or stops advancing its owner.
+///
+/// This pins CURRENT BEHAVIOUR, not a guarantee: the paired step is applied
+/// under `CommitOutcome::NoChange`, with no durable write and no sink call.
+/// "No seal, no step" therefore holds for a FAILED seal
+/// (`a_failed_seal_advances_nothing_and_returns_the_casts`), not for a cycle
+/// that carries no artifact.
+#[test]
+fn finding_an_intent_only_cycle_steps_without_a_version() {
+    let mut fleet: HashMap<MailboxId, Owner> = HashMap::from([(7, owner(7))]);
+    let mut sink = MemWal::new();
+    let mut wm: HashMap<MailboxId, Option<u64>> = HashMap::new();
+
+    let mut w: BatchWriter<Vec<u8>> = BatchWriter::new();
+    fleet[&7].cast_on_behalf(&mut w, vec![legal(7)], Vec::new());
+    let collected = collect_casts(&mut w, CycleId(1), 0, |_| 0);
+    let sealed = run(seal_cycle(
+        &mut sink,
+        CycleFrame::new(CycleId(1), DatasetVersion(0)),
+        collected.slots,
+    ))
+    .expect("an intent-only cycle is not a failure");
+    assert!(matches!(sealed.outcome, CommitOutcome::NoChange { .. }));
+    assert_eq!(sealed.publication_version, None);
+    assert_eq!(sink.commits, 0, "the sink was never called");
+
+    let applied = apply_sealed_transitions(&mut fleet, &sealed, &mut wm).expect("applies");
+    assert_eq!(applied.applied.len(), 1);
+    assert_eq!(fleet[&7].phase(), KanbanColumn::CognitiveWork);
+}
+
+/// FAILS IF: the frozen cycle image starts keeping one row per (owner, row), or
+/// stops being last-stream-position-wins; or if distinct rows are merged.
+///
+/// This pins a GAP: the image is keyed by `row` alone and carries no owner, so
+/// two mailboxes whose `row_of` agrees leave ONE payload (the later cast's)
+/// while both landings stay recorded. Nothing refuses the collision.
+#[test]
+fn finding_two_owners_on_one_row_leave_one_image_row() {
+    let frame = CycleFrame::new(CycleId(1), DatasetVersion(0));
+
+    let mut w: BatchWriter<Vec<u8>> = BatchWriter::new();
+    w.cast(7, vec![], vec![0x07]);
+    w.cast(9, vec![], vec![0x09]);
+    let same_row = collect_casts(&mut w, CycleId(1), 0, |_| 0);
+    let batch = DetachedCycleBatch::freeze(frame, same_row.slots);
+    assert_eq!(batch.landings.len(), 2, "both landings are recorded");
+    assert_eq!(batch.landings[0].owner, 7);
+    assert_eq!(batch.landings[1].owner, 9);
+    assert_eq!(batch.image.len(), 1, "one payload survives");
+    assert_eq!(batch.image[&0], vec![0x09], "the later cast's");
+
+    // Silence twin: owners on distinct rows keep both payloads.
+    let mut w: BatchWriter<Vec<u8>> = BatchWriter::new();
+    w.cast(7, vec![], vec![0x07]);
+    w.cast(9, vec![], vec![0x09]);
+    let own_rows = collect_casts(&mut w, CycleId(1), 0, u64::from);
+    let batch = DetachedCycleBatch::freeze(frame, own_rows.slots);
+    assert_eq!(batch.image.len(), 2);
+    assert_eq!(batch.image[&7], vec![0x07]);
+    assert_eq!(batch.image[&9], vec![0x09]);
+}

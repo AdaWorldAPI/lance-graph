@@ -17,3 +17,12 @@ MEASURED for the suite (`cargo test -p lance-graph-supervisor --features cycle-d
 **Agent runs (grindwork tier):** four read-only runs (two fact maps, one call-site census, one quote harvest) and one drafting run for the test file. Checked by reading: `cast_on_behalf` at its stated lines, the four non-test cast sites, `seal_cycle`, `persist_cycle`, `try_submit`; the drafted test file read in full before compiling. Agent items wrong: 0. One orchestrator error caught before commit: a truncated search made `cognitive_pass` look absent; reading `cycle_driver.rs` showed it exists and calls the adapter with a fleet-resolved owner id, and the audit was corrected. One map run stopped on a missing brief field and was re-dispatched.
 
 **Open:** the `on_behalf` enforcement seam; descriptors in `collect_casts`; the owner of a resident codegraph population (BLOCKED); the stale documents.
+
+- **Third version, after reading the sources in full (operator correction: the audit had been written from excerpts and search hits).** The grade line above overstated the evidence: "every cited site read at its line" was true of the cited sites and false of the files, and statements about whole files were wrong because of it. Read from first to last non-test line this time: `mailbox_soa.rs`, `backing.rs`, `engine_bridge.rs`, `soa_view.rs`, `soa_envelope.rs`, `batch_writer.rs`, `owner_adapter.rs`, `persist_sink.rs`, `cycle_driver.rs`, `cycle_writer.rs`, `kanban_actor.rs`, `cycle_sink.rs`, `lance-graph-dt64-lance/src/lib.rs`, and the three V3 knowledge documents. What changed (plan §11 lists every correction):
+  - `write_row`'s two callers in `src/` have no caller of their own; there is no production write into a `MailboxSoA` row.
+  - A step does not need a seal: an intent-only cycle steps under `CommitOutcome::NoChange`, and `try_advance_phase` is callable by any `&mut` holder. `current_cycle` and `mailbox_id` are public fields.
+  - The durable image is keyed by row and written with owner 0; two owners on one row leave one payload.
+  - `BatchWriter::resolve_owner` (the delegation cache) is never called by `cast`.
+  - `LanceCycleWriter` refuses any artifact that is not 512 bytes.
+  - The forgeable `on_behalf` and the missing production caller were already recorded in `batch_writer.rs`'s own module doc.
+  - Suite: 11 runtime tests (two `finding_` tests added), 7 doctests.
