@@ -1,0 +1,9 @@
+size=0 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=14650fb0739d0383 sum_b=14650fb0739d0383 last=0 repeats=0 descents=0
+size=1 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=44bd2bd473ccf799 sum_b=0ab624fe8c3306b4 last=4294967295 repeats=0 descents=0
+size=64 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=8a64e6138d09238d sum_b=8d279489995c1cc1 last=4294967295 repeats=21 descents=21
+size=256 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=e133c6cb14cbb830 sum_b=f79e032f90dd2602 last=4294967295 repeats=87 descents=89
+size=2048 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=5b77771c3a376a64 sum_b=1f10e9f9296c9a6a last=4294967295 repeats=684 descents=679
+size=65536 handle_nonnull=1 ptr_nonnull=1 same_ptr=1 sum_a=dffbb1ab48b601b1 sum_b=ea95560dcaa778eb last=4294967295 repeats=21845 descents=21871
+distinct=1 a=16d173bdfcdae583 b=7ec50c4b6e7dc283
+a_after_b_destroyed=16d173bdfcdae583
+churn=1999000 null_destroy=ok

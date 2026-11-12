@@ -1,0 +1,19 @@
+[package]
+name = "duckdb-selvec-compat"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB (D-DR-SELECT-K-SV-3). The three DuckDB C-API SelectionVector functions (create, destroy, get_data_ptr) as declared at DuckDB v1.5.6, as an owned writable buffer. Opt-in symbol export; compared against the real libduckdb in separately linked processes. No executor, no DR binding, no authorization."
+
+[workspace]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+# Export the functions under DuckDB's own names. Off by default so that
+# linking this crate never collides with a real libduckdb in one process.
+duckdb-symbols = []
+
+[dev-dependencies]
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
