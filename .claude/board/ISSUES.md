@@ -7,6 +7,15 @@
 - The sealed shape (`mod sealed` in the same file) refuses foreign issuers and other classes and binds only the scope's own visible fields, but only on its own entry point.
 - **What closes it:** the council's ruling on a public dt64 change, either a private `Scope` id or `bind_lanes` taking the sealed scope (30 files in 13 crates import dt64's `Scope` today; an import count, not each use read). Then the finding flips to a refusal.
 
+## ISS-ACTIVATION-IGNORES-APP-HALF — does activating a concept admit every app prefix over it? (2026-11-12)
+
+**Status:** OPEN (operator decision). **Basis:** TEST-PINNED (`crates/dt64-hotplug-probe/tests/integration/w12.rs` `the_app_half_of_the_classid_is_not_part_of_the_activation_check`).
+**Fruit:** Low-hanging
+
+- `Activation::read_mode_for` is keyed by the 16-bit concept. W12's seam checks it on `classid_concept(class)`, so MedCare's patient plug also passes `render_classid(0x0007, patient)`, another consumer's render prefix over the same concept.
+- Whether that is intended (the prefix is render skin only, per the classid canon) or a gap (an activation should bind its consumer's prefix) is not decided.
+- **What closes it:** the ruling; if it is a gap, `Activation` carries the consumer's prefix and the pinned test flips to a refusal.
+
 ## ISS-MULTIHOP-PRESENCE-ARM-UNRULED — projection or lens for multi-hop existence? (2026-11-03)
 
 **Status:** OPEN (operator decision). **Basis:** MEASURED (`.claude/probes/2026-11-03-d-bag-fold/`, `entries/2026-11-03-d-bag-fold-witnessed-existential.md`).
