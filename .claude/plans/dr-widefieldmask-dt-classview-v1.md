@@ -147,11 +147,11 @@ names it (class and basis from DT, coordinate space and frame from DR).
 physical execution strategy; no new selection authority and no change to §1,
 §1a, §1b or any S1-S8 row. Nothing here is measured yet: the comparison is
 PR-B of the D-DR-SELECT-K sequence. Source check at `main` `da05fe038`:
-`OrderIndex`, `PreparedOrder` and `Plane` are lab types
-(`crates/dr256-ternlog-lab/src/lib.rs:916,1047,370`), `SealedOrder` is a lab
-type (`crates/dr256-ternlog-lab/src/order_store.rs:135`), and the positional
-projections are `deinterlace_indices` and `local_trajectories_indices`
-(`crates/lance-graph-planner/src/temporal.rs:387,487`). "Existing" below means
+`OrderIndex`, `PreparedOrder` and `Plane` are lab types in
+`crates/dr256-ternlog-lab/src/lib.rs`, `SealedOrder` is a lab type in
+`crates/dr256-ternlog-lab/src/order_store.rs`, and the positional projections
+are `deinterlace_indices` and `local_trajectories_indices` in
+`crates/lance-graph-planner/src/temporal.rs`. "Existing" below means
 existing in those places, not a production API.
 
 DR carries one witnessed binding for a population/coordinate space. Different physical consumers may benefit from different **views of that same selection**. The three names below identify distinct roles, **not three autonomous selection stores**:
