@@ -3,7 +3,7 @@
 crate: lance-graph-rbac
 path: crates/lance-graph-rbac
 workspace: member
-digest: ecb6d43d5dbdee1a
+digest: 8d5b2b6b3f4ede06
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -11,6 +11,7 @@ Generated; the code is the truth. See ../index.md.
 ## Depends on
 
 - dep lance-graph-contract normal — crates/lance-graph-rbac/Cargo.toml:8 CONFIRMED
+- dep lance-graph-dt64 dev — crates/lance-graph-rbac/Cargo.toml:13 CONFIRMED
 
 ## Depended on by
 
@@ -135,11 +136,11 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n34["lance-graph-callcenter"]
-  n39["lance-graph-consumer-conformance"]
-  n40["lance-graph-contract"]
-  n60["lance-graph-rbac"]
-  n34 --> n60
-  n39 --> n60
-  n60 --> n40
+  n37["lance-graph-callcenter"]
+  n42["lance-graph-consumer-conformance"]
+  n43["lance-graph-contract"]
+  n63["lance-graph-rbac"]
+  n37 --> n63
+  n42 --> n63
+  n63 --> n43
 ```

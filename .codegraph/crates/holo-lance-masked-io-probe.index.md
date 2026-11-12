@@ -3,7 +3,7 @@
 crate: holo-lance-masked-io-probe
 path: crates/holo-lance-masked-io-probe
 workspace: excluded
-digest: c060c0843faab88c
+digest: 6353ce8b1a8d66dd
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -40,5 +40,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n25["holo-lance-masked-io-probe"]
+  n28["holo-lance-masked-io-probe"]
 ```

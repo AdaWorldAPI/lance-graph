@@ -36,5 +36,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n17["dto-class-check"]
+  n20["dto-class-check"]
 ```

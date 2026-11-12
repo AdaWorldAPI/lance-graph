@@ -21,6 +21,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:27 CONFIRMED
 
 ## Public items
 
@@ -97,11 +98,13 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n29["lance-graph"]
-  n41["lance-graph-cypher-quack"]
-  n48["lance-graph-mask-risc"]
-  n58["lance-graph-quack"]
-  n41 --> n29
-  n41 --> n48
-  n41 --> n58
+  n32["lance-graph"]
+  n36["lance-graph-benches"]
+  n44["lance-graph-cypher-quack"]
+  n51["lance-graph-mask-risc"]
+  n61["lance-graph-quack"]
+  n36 --> n44
+  n44 --> n32
+  n44 --> n51
+  n44 --> n61
 ```

@@ -14,9 +14,12 @@ d-diamond-1-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 deepnsm	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 deepnsm-v2	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dr-isa-stream-lab	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+dr-select-k-lab	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+dr256-ternlog-lab	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 drf-focus-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 drisa-register-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dt64-admission-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+dt64-hotplug-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 dto-class-check	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 elixir-template	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 foundry-parity-lab	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
@@ -75,6 +78,7 @@ ogar-behavior-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 onebrc-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 p64-bridge	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 perturbation-sim	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+pg-parity-harness	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 quasicryth-research	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 r2il-mask-abi-probe	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 reader-lm	-	-	ARTIFACT_MISSING	-	-	UNKNOWN

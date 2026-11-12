@@ -11,8 +11,8 @@ DT64	admits	MethodRef	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:1180	admit	Bi
 DT64	interprets-via	ClassView	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:814	ClassView	BindStore::register binds a class over a ClassView basis	OK
 DT64	selects-fields-with	WideFieldMask	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:719	mask_where	Resolved::mask_where returns a WideFieldMask from PropertySpec meaning	OK
 Lance	owns-durable-storage	LanceCycleWriter	CONFIRMED	crates/lance-graph/src/graph/cycle_sink.rs:170	LanceCycleWriter	production cycle writer behind WalSink::commit_cycle	OK
-LaneBinding	borrowed-by	LaneBinding::borrow_all	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:379	borrow_all	calls check, then hands out source-owned lanes	OK
-LaneBinding	checked-by	LaneBinding::check	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:307	pub fn check	re-checks route, frame, basis, coordinate space, scope before any borrow	OK
+LaneBinding	borrowed-by	LaneBinding::borrow_all	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:399	borrow_all	calls check, then hands out source-owned lanes	OK
+LaneBinding	checked-by	LaneBinding::check	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:322	pub fn check	re-checks route, frame, basis, coordinate space, scope before any borrow	OK
 LaneSource	implemented-by	lance-graph-report::AbiLanes	CONFIRMED	crates/lance-graph-report/src/lane_source.rs:143	impl LaneSource	#1969 D-LANESOCK-2; production constructor absent, scope not admitted	OK
 Quack	filter-needs-admission	Filter::Semijoin	CONFIRMED	crates/lance-graph-quack/src/lib.rs:387	Semijoin	ADMISSION B: call site unclassified, EXO-140	OK
 Quack	lance-selective-read	allow/block prefilter + attested range read	LAB	crates/crepe-plan-probe/examples/where_lance_arm.rs:45	BLOCKED_D4	#1950 lab; ids taken as given	OK

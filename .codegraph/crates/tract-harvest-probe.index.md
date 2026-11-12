@@ -187,9 +187,9 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n40["lance-graph-contract"]
-  n53["lance-graph-onnx"]
-  n89["tract-harvest-probe"]
-  n89 --> n40
-  n89 --> n53
+  n43["lance-graph-contract"]
+  n56["lance-graph-onnx"]
+  n93["tract-harvest-probe"]
+  n93 --> n43
+  n93 --> n56
 ```

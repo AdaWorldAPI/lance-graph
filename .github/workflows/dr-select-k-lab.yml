@@ -1,0 +1,39 @@
+name: DR Select K Lab
+# Own [workspace] excluded from root tests; a lab gate, not production.
+on:
+  pull_request:
+    paths:
+      - "crates/dr-select-k-lab/**"
+      - "crates/lance-graph-mask-risc/**"
+      - ".github/workflows/dr-select-k-lab.yml"
+      - "rust-toolchain.toml"
+  push:
+    branches: [main]
+    paths:
+      - "crates/dr-select-k-lab/**"
+      - "crates/lance-graph-mask-risc/**"
+      - ".github/workflows/dr-select-k-lab.yml"
+      - "rust-toolchain.toml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+env:
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_INCREMENTAL: 0
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: rustup show
+      - name: Format
+        run: cargo fmt --manifest-path crates/dr-select-k-lab/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path crates/dr-select-k-lab/Cargo.toml --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test --manifest-path crates/dr-select-k-lab/Cargo.toml

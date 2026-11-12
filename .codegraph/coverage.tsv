@@ -14,9 +14,12 @@ d-diamond-1-probe	2	2	0	macro-generated items invisible;fn-local use not scanned
 deepnsm	31	16	0	macro-generated items invisible;fn-local use not scanned
 deepnsm-v2	25	14	0	macro-generated items invisible;fn-local use not scanned
 dr-isa-stream-lab	12	8	0	macro-generated items invisible;fn-local use not scanned
+dr-select-k-lab	7	6	0	macro-generated items invisible;fn-local use not scanned
+dr256-ternlog-lab	2	3	0	macro-generated items invisible;fn-local use not scanned
 drf-focus-probe	3	12	0	macro-generated items invisible;fn-local use not scanned
 drisa-register-probe	2	5	0	macro-generated items invisible;fn-local use not scanned
 dt64-admission-probe	3	4	0	macro-generated items invisible;fn-local use not scanned
+dt64-hotplug-probe	1	2	0	macro-generated items invisible;fn-local use not scanned
 dto-class-check	1	1	0	macro-generated items invisible;fn-local use not scanned
 elixir-template	1	0	0	macro-generated items invisible;fn-local use not scanned
 foundry-parity-lab	10	7	0	macro-generated items invisible;fn-local use not scanned
@@ -33,7 +36,7 @@ lance-graph	119	43	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-act-r	1	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-archetype	6	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-arm-discovery	11	5	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-benches	0	10	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-benches	0	11	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-callcenter	35	6	3	macro-generated items invisible;fn-local use not scanned
 lance-graph-catalog	9	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-codec-research	10	0	0	macro-generated items invisible;fn-local use not scanned
@@ -43,7 +46,7 @@ lance-graph-consumer-conformance	2	0	0	macro-generated items invisible;fn-local 
 lance-graph-contract	175	35	2	macro-generated items invisible;fn-local use not scanned
 lance-graph-cypher-quack	2	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-dir-sim	17	26	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-dt64	3	3	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-dt64	3	4	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-dt64-lance	1	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-glove-parity	2	2	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-hydrate	11	0	0	macro-generated items invisible;fn-local use not scanned
@@ -60,7 +63,7 @@ lance-graph-planner	116	71	0	macro-generated items invisible;fn-local use not sc
 lance-graph-python	5	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-quack	2	20	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-r2il	5	9	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-rbac	7	0	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-rbac	7	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-relalg	6	4	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-report	12	10	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-report-ogar	1	1	0	macro-generated items invisible;fn-local use not scanned
@@ -75,6 +78,7 @@ ogar-behavior-probe	4	5	0	macro-generated items invisible;fn-local use not scann
 onebrc-probe	15	0	0	macro-generated items invisible;fn-local use not scanned
 p64-bridge	1	0	0	macro-generated items invisible;fn-local use not scanned
 perturbation-sim	26	31	0	macro-generated items invisible;fn-local use not scanned
+pg-parity-harness	4	1	0	macro-generated items invisible;fn-local use not scanned
 quasicryth-research	11	2	0	macro-generated items invisible;fn-local use not scanned
 r2il-mask-abi-probe	1	4	0	macro-generated items invisible;fn-local use not scanned
 reader-lm	5	0	0	macro-generated items invisible;fn-local use not scanned

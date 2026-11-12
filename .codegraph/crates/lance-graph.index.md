@@ -3,7 +3,7 @@
 crate: lance-graph
 path: crates/lance-graph
 workspace: member
-digest: 6059946987f70d8c
+digest: f5e6ea79b997285a
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -395,34 +395,34 @@ flowchart LR
   n1["bgz-tensor"]
   n2["bgz17"]
   n8["cognitive-stack"]
-  n29["lance-graph"]
-  n33["lance-graph-benches"]
-  n35["lance-graph-catalog"]
-  n38["lance-graph-cognitive"]
-  n40["lance-graph-contract"]
-  n41["lance-graph-cypher-quack"]
-  n44["lance-graph-dt64-lance"]
-  n46["lance-graph-hydrate"]
-  n48["lance-graph-mask-risc"]
-  n56["lance-graph-planner"]
-  n57["lance-graph-python"]
-  n58["lance-graph-quack"]
-  n59["lance-graph-r2il"]
-  n84["symbiont"]
-  n8 --> n29
-  n29 --> n1
-  n29 --> n2
-  n29 --> n35
-  n29 --> n38
-  n29 --> n40
-  n29 --> n46
-  n29 --> n48
-  n29 --> n56
-  n29 --> n58
-  n29 --> n59
-  n33 --> n29
-  n41 --> n29
-  n44 --> n29
-  n57 --> n29
-  n84 --> n29
+  n32["lance-graph"]
+  n36["lance-graph-benches"]
+  n38["lance-graph-catalog"]
+  n41["lance-graph-cognitive"]
+  n43["lance-graph-contract"]
+  n44["lance-graph-cypher-quack"]
+  n47["lance-graph-dt64-lance"]
+  n49["lance-graph-hydrate"]
+  n51["lance-graph-mask-risc"]
+  n59["lance-graph-planner"]
+  n60["lance-graph-python"]
+  n61["lance-graph-quack"]
+  n62["lance-graph-r2il"]
+  n88["symbiont"]
+  n8 --> n32
+  n32 --> n1
+  n32 --> n2
+  n32 --> n38
+  n32 --> n41
+  n32 --> n43
+  n32 --> n49
+  n32 --> n51
+  n32 --> n59
+  n32 --> n61
+  n32 --> n62
+  n36 --> n32
+  n44 --> n32
+  n47 --> n32
+  n60 --> n32
+  n88 --> n32
 ```
