@@ -22,7 +22,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep jc-batch-probe normal — crates/jc-batch-probe/Cargo.toml:18 CONFIRMED
 - rdep lance-graph-planner dev — crates/lance-graph-planner/Cargo.toml:96 CONFIRMED
-- rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:64 CONFIRMED
+- rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:65 CONFIRMED
 - rdep thinking-engine normal — crates/thinking-engine/Cargo.toml:23 CONFIRMED
 - rdep weather-poc dev — crates/weather-poc/Cargo.toml:34 CONFIRMED
 

@@ -448,8 +448,8 @@ lance-graph-sap	lance-graph-contract	normal	false	-	-	crates/lance-graph-sap/Car
 lance-graph-sap	lance-graph-mask-risc	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:12	CONFIRMED	yes
 lance-graph-sap	lance-graph-quack	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:13	CONFIRMED	yes
 lance-graph-sap	sha2	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:15	CONFIRMED	no
-lance-graph-supervisor	cognitive-shader-driver	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:60	CONFIRMED	yes
-lance-graph-supervisor	jc	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:64	CONFIRMED	yes
+lance-graph-supervisor	cognitive-shader-driver	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:61	CONFIRMED	yes
+lance-graph-supervisor	jc	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:65	CONFIRMED	yes
 lance-graph-supervisor	lance-graph-callcenter	normal	false	-	-	crates/lance-graph-supervisor/Cargo.toml:13	CONFIRMED	yes
 lance-graph-supervisor	lance-graph-contract	normal	false	-	-	crates/lance-graph-supervisor/Cargo.toml:14	CONFIRMED	yes
 lance-graph-supervisor	lance-graph-planner	normal	true	-	cycle-driver	crates/lance-graph-supervisor/Cargo.toml:17	CONFIRMED	yes

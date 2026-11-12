@@ -76,7 +76,7 @@ chrono	lance-graph-callcenter	normal	true	-	jsonl	crates/lance-graph-callcenter/
 clap	lance-graph-callcenter	normal	true	-	audit-verify-bin	crates/lance-graph-callcenter/Cargo.toml:54	CONFIRMED	no
 cognitive-compiler	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:41	CONFIRMED	yes
 cognitive-shader-driver	lance-graph-planner	dev	false	-	-	crates/lance-graph-planner/Cargo.toml:78	CONFIRMED	yes
-cognitive-shader-driver	lance-graph-supervisor	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:60	CONFIRMED	yes
+cognitive-shader-driver	lance-graph-supervisor	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:61	CONFIRMED	yes
 crepe	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:19	CONFIRMED	no
 criterion	holograph	dev	false	-	-	crates/holograph/Cargo.toml:59	CONFIRMED	no
 criterion	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:16	CONFIRMED	no
@@ -125,7 +125,7 @@ holograph	bgz-tensor	normal	false	-	-	crates/bgz-tensor/Cargo.toml:26	CONFIRMED	
 holograph	lance-graph-cognitive	normal	false	-	-	crates/lance-graph-cognitive/Cargo.toml:18	CONFIRMED	yes
 jc	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:18	CONFIRMED	yes
 jc	lance-graph-planner	dev	false	-	-	crates/lance-graph-planner/Cargo.toml:96	CONFIRMED	yes
-jc	lance-graph-supervisor	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:64	CONFIRMED	yes
+jc	lance-graph-supervisor	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:65	CONFIRMED	yes
 jc	thinking-engine	normal	false	-	-	crates/thinking-engine/Cargo.toml:23	CONFIRMED	yes
 jc	weather-poc	dev	false	-	-	crates/weather-poc/Cargo.toml:34	CONFIRMED	yes
 lance	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:31	CONFIRMED	no

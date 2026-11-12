@@ -1648,23 +1648,23 @@ cognitive-shader-driver	crates/cognitive-shader-driver/src/immaterial_needle.rs	
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	102	mod	edge_v3_compare	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	103	mod	engine_bridge	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	104	mod	mailbox_soa	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	105	mod	sigma_rosetta	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	127	mod	wire	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	132	mod	auto_detect	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	137	mod	codec_kernel_cache	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	142	mod	immaterial_needle	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	143	mod	palette_perturbation	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	144	mod	quad8	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	146	mod	rotation_kernel	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	147	mod	switch16	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	154	mod	decode_kernel	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	161	mod	token_agreement	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	165	mod	serve	pub	feature="serve"	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	169	mod	grpc	pub	feature="grpc"	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	174	mod	codec_research	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	179	mod	codec_bridge	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	186	mod	cypher_bridge	pub	any(feature="serve", feature="grpc")	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	196	mod	planner_bridge	pub	all(feature="with-planner", any(feature="serve", feature="grpc"))	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	107	mod	sigma_rosetta	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	129	mod	wire	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	134	mod	auto_detect	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	139	mod	codec_kernel_cache	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	144	mod	immaterial_needle	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	145	mod	palette_perturbation	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	146	mod	quad8	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	148	mod	rotation_kernel	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	149	mod	switch16	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	156	mod	decode_kernel	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	163	mod	token_agreement	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	167	mod	serve	pub	feature="serve"	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	171	mod	grpc	pub	feature="grpc"	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	176	mod	codec_research	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	181	mod	codec_bridge	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	188	mod	cypher_bridge	pub	any(feature="serve", feature="grpc")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	198	mod	planner_bridge	pub	all(feature="with-planner", any(feature="serve", feature="grpc"))	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	93	mod	attention_mask	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	94	mod	attention_mask_actor	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	95	mod	auto_style	pub	-	CONFIRMED
@@ -1721,6 +1721,9 @@ cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	808	fn
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	836	fn	MailboxSoA<N>::promote_family	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	860	impl	MailboxSoaView for MailboxSoA<N>	-	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	957	impl	MailboxSoaOwner for MailboxSoA<N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	32	struct	OneMutableBorrower	pub	doctest	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	53	struct	AViewIsNotAnOwner	pub	doctest	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	81	struct	NoSecondPopulation	pub	doctest	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/palette_perturbation.rs	102	impl	PalettePerturbation<'a>	-	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/palette_perturbation.rs	104	fn	PalettePerturbation<'a>::new	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/palette_perturbation.rs	112	fn	PalettePerturbation<'a>::compose4	pub	-	CONFIRMED

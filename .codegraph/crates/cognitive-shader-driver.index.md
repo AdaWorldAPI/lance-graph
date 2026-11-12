@@ -3,7 +3,7 @@
 crate: cognitive-shader-driver
 path: crates/cognitive-shader-driver
 workspace: member
-digest: a88da842b115f96b
+digest: 53736d48f679812e
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -34,7 +34,7 @@ Generated; the code is the truth. See ../index.md.
 ## Depended on by
 
 - rdep lance-graph-planner dev — crates/lance-graph-planner/Cargo.toml:78 CONFIRMED
-- rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:60 CONFIRMED
+- rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:61 CONFIRMED
 
 ## Public items
 
@@ -227,18 +227,18 @@ Generated; the code is the truth. See ../index.md.
 - mod edge_v3_compare [pub] — crates/cognitive-shader-driver/src/lib.rs:102 CONFIRMED
 - mod engine_bridge [pub] — crates/cognitive-shader-driver/src/lib.rs:103 CONFIRMED
 - mod mailbox_soa [pub] — crates/cognitive-shader-driver/src/lib.rs:104 CONFIRMED
-- mod sigma_rosetta [pub] — crates/cognitive-shader-driver/src/lib.rs:105 CONFIRMED
-- mod wire [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:127 CONFIRMED
-- mod auto_detect [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:132 CONFIRMED
-- mod codec_kernel_cache [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:137 CONFIRMED
-- mod immaterial_needle [pub] — crates/cognitive-shader-driver/src/lib.rs:142 CONFIRMED
-- mod palette_perturbation [pub] — crates/cognitive-shader-driver/src/lib.rs:143 CONFIRMED
-- mod quad8 [pub] — crates/cognitive-shader-driver/src/lib.rs:144 CONFIRMED
-- mod rotation_kernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:146 CONFIRMED
-- mod switch16 [pub] — crates/cognitive-shader-driver/src/lib.rs:147 CONFIRMED
-- mod decode_kernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:154 CONFIRMED
-- mod token_agreement [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:161 CONFIRMED
-- truncated (411 total), see symbols.tsv
+- mod sigma_rosetta [pub] — crates/cognitive-shader-driver/src/lib.rs:107 CONFIRMED
+- mod wire [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:129 CONFIRMED
+- mod auto_detect [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:134 CONFIRMED
+- mod codec_kernel_cache [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:139 CONFIRMED
+- mod immaterial_needle [pub] — crates/cognitive-shader-driver/src/lib.rs:144 CONFIRMED
+- mod palette_perturbation [pub] — crates/cognitive-shader-driver/src/lib.rs:145 CONFIRMED
+- mod quad8 [pub] — crates/cognitive-shader-driver/src/lib.rs:146 CONFIRMED
+- mod rotation_kernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:148 CONFIRMED
+- mod switch16 [pub] — crates/cognitive-shader-driver/src/lib.rs:149 CONFIRMED
+- mod decode_kernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:156 CONFIRMED
+- mod token_agreement [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:163 CONFIRMED
+- truncated (414 total), see symbols.tsv
 
 ## Imports from in-scope crates
 

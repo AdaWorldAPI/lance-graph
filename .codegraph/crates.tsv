@@ -7,7 +7,7 @@ causal-edge	crates/causal-edge	excluded	c0fc81913c25420a
 cg-beh-probe	crates/cg-beh-probe	excluded	419a2e4c6456dda0
 cognitive-compiler	crates/cognitive-compiler	excluded	d1353bc629a93ad2
 cognitive-polyfill-probe	crates/cognitive-polyfill-probe	excluded	142eccf61ff99e10
-cognitive-shader-driver	crates/cognitive-shader-driver	member	a88da842b115f96b
+cognitive-shader-driver	crates/cognitive-shader-driver	member	53736d48f679812e
 cognitive-stack	crates/cognitive-stack	excluded	9c0b588a5fdc31ba
 crepe-plan-probe	crates/crepe-plan-probe	excluded	1a96c1672d5828ec
 d-diamond-1-probe	crates/d-diamond-1-probe	excluded	98a7cd6d39e6f983
@@ -69,7 +69,7 @@ lance-graph-relalg	crates/lance-graph-relalg	excluded	7534be0bf7b60fda
 lance-graph-report	crates/lance-graph-report	member	c6ca9fc0a8f30162
 lance-graph-report-ogar	crates/lance-graph-report-ogar	excluded	0cdd9b813d8e04f6
 lance-graph-sap	crates/lance-graph-sap	excluded	0c4512de6747d3d7
-lance-graph-supervisor	crates/lance-graph-supervisor	member	e8fbf5b36f5eea90
+lance-graph-supervisor	crates/lance-graph-supervisor	member	80a9ee7418964943
 lance-graph-turbovec	crates/lance-graph-turbovec	excluded	48262b70177f6f83
 lance-graph-xlog	crates/lance-graph-xlog	member	c47438e0a61660db
 learning	crates/learning	excluded	df68f779a8369953

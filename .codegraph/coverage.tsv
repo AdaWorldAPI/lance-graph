@@ -7,7 +7,7 @@ causal-edge	12	18	0	macro-generated items invisible;fn-local use not scanned
 cg-beh-probe	6	5	1	macro-generated items invisible;fn-local use not scanned
 cognitive-compiler	1	0	0	macro-generated items invisible;fn-local use not scanned
 cognitive-polyfill-probe	1	1	0	macro-generated items invisible;fn-local use not scanned
-cognitive-shader-driver	29	61	0	macro-generated items invisible;fn-local use not scanned
+cognitive-shader-driver	30	61	0	macro-generated items invisible;fn-local use not scanned
 cognitive-stack	1	0	0	macro-generated items invisible;fn-local use not scanned
 crepe-plan-probe	13	15	0	macro-generated items invisible;fn-local use not scanned
 d-diamond-1-probe	2	2	0	macro-generated items invisible;fn-local use not scanned
@@ -69,7 +69,7 @@ lance-graph-relalg	6	4	0	macro-generated items invisible;fn-local use not scanne
 lance-graph-report	13	13	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-report-ogar	1	1	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-sap	6	10	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-supervisor	10	12	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-supervisor	10	13	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-turbovec	1	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-xlog	4	7	0	macro-generated items invisible;fn-local use not scanned
 learning	16	0	0	macro-generated items invisible;fn-local use not scanned
