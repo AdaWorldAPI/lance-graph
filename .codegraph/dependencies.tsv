@@ -82,6 +82,7 @@ dr-isa-stream-lab	lance-graph-contract	normal	false	-	-	crates/dr-isa-stream-lab
 dr-isa-stream-lab	lance-graph-dt64	normal	false	-	-	crates/dr-isa-stream-lab/Cargo.toml:18	CONFIRMED	yes
 dr-isa-stream-lab	ndarray	normal	false	-	-	crates/dr-isa-stream-lab/Cargo.toml:20	CONFIRMED	no
 dr-select-k-lab	lance-graph-mask-risc	normal	false	-	-	crates/dr-select-k-lab/Cargo.toml:11	CONFIRMED	yes
+dr-select-k-lab	ndarray	dev	false	-	-	crates/dr-select-k-lab/Cargo.toml:21	CONFIRMED	no
 dr256-ternlog-lab	lance-graph-contract	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:9	CONFIRMED	yes
 dr256-ternlog-lab	lance-graph-dt64	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:10	CONFIRMED	yes
 dr256-ternlog-lab	lance-graph-mask-risc	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:11	CONFIRMED	yes

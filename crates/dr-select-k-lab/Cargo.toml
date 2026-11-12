@@ -13,3 +13,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 [[test]]
 name = "integration"
 path = "tests/integration/main.rs"
+
+# Only `examples/r1_falsifier.rs` uses ndarray directly: the pre-registered
+# falsifier of matrix row R1 names the bare `masked_sum_i32` kernel. Same
+# coordinate as lance-graph-mask-risc, so there is one ndarray in the graph.
+[dev-dependencies]
+ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", default-features = false, features = ["std"] }

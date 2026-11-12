@@ -103,7 +103,7 @@ Verdict vocabulary, used strictly:
 
 | # | DuckDB concept | verdict | DuckDB file:line | V3 / ndarray counterpart | mechanism (one sentence) | FALSIFIER |
 |---|---|---|---|---|---|---|
-| R1 | `SelectionVector` (index list, `sel_t*` + `SelectionData` owned buffer) | **ELIMINATE** | `selection_vector.hpp:31-180`; `set_index` `:124-127`; `get_index` `:136-138` | packed `u64` mask; algebra at `simd_masking_ops.rs:377-680` | A selection vector IS the index-list materialization the mask-native invariant forbids: it stores one 4-byte row id per *surviving* row, so every composition re-derives an ordering the bit-plane never lost. `mask-risc/src/lib.rs:31-33` states the consequence structurally — *"a `SelectionVector` cannot be expressed in this vocabulary at all."* | A workload where the surviving fraction is low enough that an index list is cheaper to *consume* than a sparse mask is to *scan*. Concretely: at selectivity s over N rows, the list costs 4sN bytes read, the mask N/8 bytes read; the list wins for s < 1/32 **only if the consumer cannot skip zero words**. Measure `masked_sum_i32` (`:692`) against an index-list sum at s ∈ {1/64, 1/256, 1/1024}; if the mask loses at any of them, R1 downgrades to ADAPT with a documented sparse threshold. |
+| R1 | `SelectionVector` (index list, `sel_t*` + `SelectionData` owned buffer) | **⊘ FALSIFIER RUN 2026-11-12 → ADAPT (see §8b; no sparse threshold fixed yet). Was: ELIMINATE** | `selection_vector.hpp:31-180`; `set_index` `:124-127`; `get_index` `:136-138` | packed `u64` mask; algebra at `simd_masking_ops.rs:377-680` | A selection vector IS the index-list materialization the mask-native invariant forbids: it stores one 4-byte row id per *surviving* row, so every composition re-derives an ordering the bit-plane never lost. `mask-risc/src/lib.rs:31-33` states the consequence structurally — *"a `SelectionVector` cannot be expressed in this vocabulary at all."* | A workload where the surviving fraction is low enough that an index list is cheaper to *consume* than a sparse mask is to *scan*. Concretely: at selectivity s over N rows, the list costs 4sN bytes read, the mask N/8 bytes read; the list wins for s < 1/32 **only if the consumer cannot skip zero words**. Measure `masked_sum_i32` (`:692`) against an index-list sum at s ∈ {1/64, 1/256, 1/1024}; if the mask loses at any of them, R1 downgrades to ADAPT with a documented sparse threshold. |
 | R2 | `FlatVector` | **KEEP** | `vector_type.hpp:16` | the SoA value lane itself; `LaneRef::{I32,U32,U64}` (`mask-risc/src/ir.rs:16-23`) | A flat vector is just "the column, contiguous" — which is what a V3 SoA lane already is. Nothing to translate; it is the *baseline* both systems share. | None available. This row cannot fail — it asserts an identity. Kept in the matrix only so a reader does not infer it was overlooked; it carries **no evidentiary weight**. |
 | R3 | `ConstantVector` (one value, logical count N) | **ELIMINATE** | `vector_type.hpp:17`; `execute_constant.cpp:14-18` (`result.Reference(value, count)`) | the scalar argument: `gt_i32_to_mask(values, threshold, out)` (`simd_masking_ops.rs:340`) | A constant becomes a *vector* in DuckDB because every kernel signature takes two Vectors; V3's predicate signature takes a lane and a **scalar**, so a constant never acquires a representation at all. | A predicate whose constant side is genuinely per-row (a column-vs-column compare). Today `simd_masking_ops` has **no** lane-vs-lane compare — every `*_to_mask` takes a scalar. If column-vs-column is needed, R3 does not change but a new T1 primitive is required (§3, G7). |
 | R4 | `DictionaryVector` (a `SelectionVector` on top of another vector) | **ELIMINATE** | `vector_type.hpp:18`; `Vector::Slice(sel,count)` `vector.cpp:221-234`; `Vector::Dictionary` `:250-270`; `SelCache` merge `:236-248` | none — the mask is the *second argument* to the consumer, never a rewrap of the data | A dictionary vector exists so a filtered column can be passed onward without copying. V3 never rewraps: the column stays `&[i32]`, the surviving set travels alongside as `&[u64]`. The tell is `SelCache`: DuckDB needs a cache to compose dictionary-on-dictionary, because composed index lists are expensive to re-derive; composed masks are one `mask_and` pass with nothing to cache. | A consumer that must hand a *narrowed column* to an API it does not control (an Arrow export, an FFI boundary that takes only values). There, compaction is real work, not an artifact — see C2, and §3 G5 (`vpcompress`-style masked gather). If such a consumer is on the critical path, R4's "nothing to translate" is false for it. |
@@ -526,8 +526,8 @@ rounding error dressed as a finding.*
 
 | verdict | whole rows | split halves | rows |
 |---|---|---|---|
-| **ADAPT** | **15** | — | R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4, **A1** (moved 2026-09-14 — **conditional**, see §8a: inert in 2 of the 4 regimes, and the pre-registered *representative predicate stream* half was never run) |
-| **ELIMINATE** | **8** | **+2** | R1, R3, R4, E3, E8, E9, C2, C4 · *plus* R6(the NULL **role**), A5(composition) |
+| **ADAPT** | **16** | — | **R1** (moved 2026-11-12, see §8b), R5, R7, R8, E1, E2, E4, E5, E7, E10, E11, C1, C3, C5, A4, **A1** (moved 2026-09-14 — **conditional**, see §8a: inert in 2 of the 4 regimes, and the pre-registered *representative predicate stream* half was never run) |
+| **ELIMINATE** | **7** | **+2** | R3, R4, E3, E8, E9, C2, C4 · *plus* R6(the NULL **role**), A5(composition) |
 | **V3 BETTER** | **3** | **+1** | E6, C6, C7 · *plus* A3(addressed case) |
 | **KEEP** | **2** | **+2** | R2, C8 · *plus* R6(the mask **representation**), A5(egress) |
 | **NEEDS FALSIFIER** | **1** | **+1** | A2 · *plus* A3(unaddressed case) — ⊘ A1 left this column 2026-09-14 |
@@ -718,6 +718,71 @@ children that rotation leaves alone.
 Board: `STATUS_BOARD.md` D-QCK-9; the probe is committed, not a one-off.
 
 ---
+
+## §8b — R1's falsifier, RUN (2026-11-12)
+
+R1's falsifier asks for one measurement: `masked_sum_i32` against an
+index-list sum at s in {1/64, 1/256, 1/1024}, and says that if the mask loses
+at any of them the row moves to ADAPT. It was run as written:
+`crates/dr-select-k-lab/examples/r1_falsifier.rs`, the bare ndarray kernel
+(no program, no scratch) against a sum over a sorted `u32` position list,
+N = 65,536 and 1,000,000, random and clustered selections, every cell checked
+against a row-at-a-time oracle first. A third arm reads the same mask by
+skipping zero words and walking set bits with `trailing_zeros`; it bounds what
+a mask consumer could reach without a position list.
+
+Release build, AVX-512 compiled in, medians of 101, two runs
+(`.claude/probes/2026-11-12-r1-falsifier/run1.tsv`, `run2.tsv`). Ratios are
+time over the index-list time; the range covers both runs.
+
+| N | pattern | s | mask kernel / list | zero-word-skipping bit walk / list |
+|---|---|---|---|---|
+| 65,536 | random | 1/64 | 2.3 to 3.9 | 1.2 to 2.1 |
+| 65,536 | random | 1/256 | 6.5 to 8.5 | 2.6 to 3.1 |
+| 65,536 | random | 1/1024 | 18 to 30 | 6.6 to 7.8 |
+| 65,536 | clustered | 1/64 | 2.2 to 4.5 | 1.1 to 2.7 |
+| 65,536 | clustered | 1/256 | 5.9 to 8.3 | 2.4 to 2.8 |
+| 65,536 | clustered | 1/1024 | 18 to 26 | 6.4 to 7.1 |
+| 1,000,000 | random | 1/64 | 8.1 to 10 | 5.9 to 8.3 |
+| 1,000,000 | random | 1/256 | 14 to 16 | 9.0 to 11 |
+| 1,000,000 | random | 1/1024 | 43 to 44 | 15 |
+| 1,000,000 | clustered | 1/64 | 4.9 | 2.9 |
+| 1,000,000 | clustered | 1/256 | 18 | 5.8 |
+| 1,000,000 | clustered | 1/1024 | 35 to 66 | 8.7 to 16 |
+
+**The mask loses in all 12 cells in both runs, and so does the bit walk.** By
+the row's own rule R1 is ADAPT. The mask kernel's time is nearly flat in s
+(about 1.6 to 3.2 µs at N = 65,536 for every s), because it visits every word;
+the list's time falls with the number of selected rows.
+
+What this does not settle:
+
+- **No threshold.** The row asks for "a documented sparse threshold". The mask
+  already loses at the densest point measured (1/64), so the crossover is
+  above 1/64 and was not located. Denser points are a follow-up measurement.
+- **Consumption only.** The cells time reading a selection that already
+  exists. Building it is separate: in `.claude/probes/2026-11-12-dr-select-k-1/REPORT.md`
+  a K-bit mask was cheaper to build than a position list at K = 65,536.
+- **One kernel, one host.** A sum over an `i32` lane; a 4-vCPU VM.
+- **Nothing else in the matrix moves by this run.** §4.1's argument (a second
+  row universe, per-step allocation, a cache for composed lists) is about
+  composition and ownership and is untouched: ADAPT here means a position
+  list is a legitimate *operand form for a sparse consumer*, never a second
+  selection authority and never the default carrier.
+
+**R4 and R7 are under review, not moved.** A requirement was raised on
+2026-11-12 that a DuckDB-compatible `SelectionVector` be representable at the
+API boundary (plan `.claude/plans/dr-select-k-v1.md` §13). It was adopted the
+same day as D-DR-SELECT-K-SV; nothing is implemented. Consequently:
+
+- R4's falsifier condition is met by definition. It names "a consumer that
+  must hand a narrowed column to an API it does not control"; DuckDB's public
+  `duckdb_slice_vector` is such an API.
+- R7's falsifier is the question whether `Planes` needs a member it lacks.
+  `Planes` carries no `sel`; an admitted selection operand is that member.
+
+Both rows keep their verdicts until their own parity checks run; the decision
+admits the selection operand, it does not release R4 or R7.
 
 ## §9 — Claims in this document that are NOT verified in code
 

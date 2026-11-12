@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-608 entries, 2026-08-06 .. 2026-11-12.
+609 entries, 2026-08-06 .. 2026-11-12.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-12 | `D-SELVEC-COMPAT-0` |  | [2026-11-12-selvec-compat-r1-falsifier.md](2026-11-12-selvec-compat-r1-falsifier.md) |
 | 2026-11-12 | `D-DR-SELECT-K` |  | [2026-11-12-dr-select-k-plan.md](2026-11-12-dr-select-k-plan.md) |
 | 2026-11-12 | `D-DR-SELECT-K-1` |  | [2026-11-12-dr-select-k-1-lab.md](2026-11-12-dr-select-k-1-lab.md) |
 | 2026-11-12 | `D-DR-SELECT-K-1-CORRECTION` |  | [2026-11-12-dr-select-k-1-correction.md](2026-11-12-dr-select-k-1-correction.md) |
