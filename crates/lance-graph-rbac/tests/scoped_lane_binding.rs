@@ -556,6 +556,194 @@ fn scope_ids_issued_per_decision_separate_readers_and_follow_a_changed_decision(
     }
 }
 
+// ----------------------------------------------------- B2. sealed scope (S4b-2)
+
+mod sealed {
+    //! SKETCH, test-local (S4b-2). A scope a reader can only obtain from an
+    //! issuer, carrying the fields its decision makes visible. Not a dt64
+    //! type: dt64's `Scope` keeps its public `u64`, so its raw path stays
+    //! open (`finding_a_copied_scope_id_binds_another_readers_fields`).
+    //! Closing that path is a public change to dt64 and waits for the council
+    //! (plan `dr-dt64-class-governance-v3` W11).
+    //!
+    //! The fields are private, so nothing outside this module can build a
+    //! `SealedScope`: a copied id is not a scope here. `bind` takes the
+    //! visible fields from the scope, never from the caller.
+
+    use std::sync::{Arc, Weak};
+
+    use super::{bind_as, AccessDecision, LaneBinding, LaneRefusal, Scope, ScopedDecision, World};
+    use lance_graph_contract::class_view::WideFieldMask;
+
+    #[derive(Debug)]
+    pub struct SealedScope {
+        issuer: Weak<()>,
+        witness: Scope,
+        class: u32,
+        visible: WideFieldMask,
+    }
+
+    impl SealedScope {
+        /// The consistency witness a lane source compares. Reading it grants
+        /// nothing on this path.
+        pub fn witness(&self) -> Scope {
+            self.witness
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub enum Sealed {
+        /// The scope was issued by another issuer.
+        ForeignIssuer,
+        /// The scope was issued for another class.
+        OtherClass {
+            scope: u32,
+            asked: u32,
+        },
+        Lane(LaneRefusal),
+    }
+
+    pub struct ScopeIssuer {
+        identity: Arc<()>,
+        seen: Vec<(String, u32, ScopedDecision)>,
+    }
+
+    impl ScopeIssuer {
+        pub fn new() -> ScopeIssuer {
+            ScopeIssuer {
+                identity: Arc::new(()),
+                seen: Vec::new(),
+            }
+        }
+
+        /// A sealed scope for an `Allow` decision; none otherwise. The same
+        /// (actor, class, decision) gets the same witness, by value.
+        pub fn issue(
+            &mut self,
+            actor: &str,
+            class: u32,
+            d: &ScopedDecision,
+        ) -> Option<SealedScope> {
+            if d.decision != AccessDecision::Allow {
+                return None;
+            }
+            let at = match self
+                .seen
+                .iter()
+                .position(|(a, c, s)| a == actor && *c == class && s == d)
+            {
+                Some(i) => i,
+                None => {
+                    self.seen.push((actor.to_owned(), class, d.clone()));
+                    self.seen.len() - 1
+                }
+            };
+            Some(SealedScope {
+                issuer: Arc::downgrade(&self.identity),
+                witness: Scope { id: at as u64 + 1 },
+                class,
+                visible: d.visible_fields(),
+            })
+        }
+
+        /// Bind `requested ∩ visible` of `class` under the scope's witness.
+        /// The lane source serves `serves`; a mismatch is dt64's refusal.
+        pub fn bind(
+            &self,
+            w: &World,
+            scope: &SealedScope,
+            class: u32,
+            requested: &WideFieldMask,
+            serves: Scope,
+        ) -> Result<LaneBinding, Sealed> {
+            if Weak::as_ptr(&scope.issuer) != Arc::as_ptr(&self.identity) {
+                return Err(Sealed::ForeignIssuer);
+            }
+            if scope.class != class {
+                return Err(Sealed::OtherClass {
+                    scope: scope.class,
+                    asked: class,
+                });
+            }
+            let fields = requested.intersect(&scope.visible);
+            bind_as(w, serves, scope.witness, &fields).map_err(Sealed::Lane)
+        }
+    }
+}
+
+use sealed::{ScopeIssuer, Sealed};
+
+#[test]
+fn a_sealed_scope_binds_only_its_own_visible_fields_whatever_is_requested() {
+    let w = world();
+    let mut issuer = ScopeIssuer::new();
+    let bob = issuer.issue("bob", CLASS, &decide("bob")).expect("allow");
+    let alices = fields_for(&decide("alice"));
+    assert!(
+        alices.has(0) && !fields_for(&decide("bob")).has(0),
+        "fixture splits the roles"
+    );
+
+    // Bob asks for alice's fields; the scope binds only his.
+    let b = issuer
+        .bind(&w, &bob, CLASS, &alices.union(&requested()), bob.witness())
+        .expect("bob binds");
+    assert_eq!(b.fields(), &fields_for(&decide("bob")));
+    assert!(!b.fields().has(0));
+}
+
+#[test]
+fn a_sealed_scope_from_another_issuer_is_refused() {
+    let w = world();
+    let mut mine = ScopeIssuer::new();
+    let mut theirs = ScopeIssuer::new();
+    let alice = theirs
+        .issue("alice", CLASS, &decide("alice"))
+        .expect("allow");
+    // Anti-vacuity: the issuer that minted it accepts it.
+    assert!(theirs
+        .bind(&w, &alice, CLASS, &requested(), alice.witness())
+        .is_ok());
+    assert_eq!(
+        mine.bind(&w, &alice, CLASS, &requested(), alice.witness())
+            .unwrap_err(),
+        Sealed::ForeignIssuer
+    );
+    // Mine issues its own scope for the same decision; it binds there.
+    let own = mine.issue("alice", CLASS, &decide("alice")).expect("allow");
+    assert!(mine
+        .bind(&w, &own, CLASS, &requested(), own.witness())
+        .is_ok());
+}
+
+#[test]
+fn a_sealed_scope_for_another_class_is_refused() {
+    let w = world();
+    let mut issuer = ScopeIssuer::new();
+    let other = CLASS + 1;
+    let s = issuer
+        .issue("alice", other, &decide("alice"))
+        .expect("allow");
+    assert_eq!(
+        issuer
+            .bind(&w, &s, CLASS, &requested(), s.witness())
+            .unwrap_err(),
+        Sealed::OtherClass {
+            scope: other,
+            asked: CLASS
+        }
+    );
+}
+
+#[test]
+fn no_sealed_scope_is_issued_for_a_decision_that_is_not_allow() {
+    let mut issuer = ScopeIssuer::new();
+    for actor in ["carol", "ghost"] {
+        assert!(issuer.issue(actor, CLASS, &decide(actor)).is_none());
+    }
+    assert!(issuer.issue("alice", CLASS, &decide("alice")).is_some());
+}
+
 // -------------------------------------------------------------- C. row half
 
 mod row_plane {
