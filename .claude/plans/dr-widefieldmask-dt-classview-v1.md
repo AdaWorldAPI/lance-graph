@@ -165,6 +165,10 @@ The three typed **semantic** concepts of governance-v3 W4 (population, field sel
 
 **Single-handoff rule:** Lance/source-owner evaluates an admitted pushed predicate once and returns exact/refine-needed status plus a pinned source, row-coordinate and order witness. DR binds that survivor population **once** into its versioned local coordinates. Quack/RelAlg lower **residual** predicates only. mask-RISC/ndarray consume the already bound, source-owned K-lanes/planes; they do **not** re-read global N, rerun pushed WHERE, or own a duplicate survivor or source array. A K-local residual filter is permitted; unauthorized `Keep`-mask reuse between programs and foreign gathered positions remain forbidden under EXO-46/140.
 
+> **Narrowed 2026-11-12.** The scenario (cold once per frame, hot folds over
+> K) and a three-line first rule are in `dr-select-k-v1.md` §1 and §3. The
+> input list in the next paragraph is the recorded hypothesis, not the plan.
+
 **Cold deterministic physical choice (proposed lab first):** Choose a physical view at the bound handoff using `(N, K, survivors M if known, index exactness, ordering/Bag contract, next operator, expected reuse R, source locality, ISA availability, memory+I/O+CPU+latency budget class, existing frame/order/temporal/scope witnesses, calibrated cost-policy revision)`. Same pinned context + budget/policy revision ⇒ same strategy decision. No per-row auto-tuner, no extra query planner and no new persistence artifact. All strategies must compute the same oracle result and order where required.
 
 **Payload-only crossover is NOT a strategy threshold:** For K divisible by 64, bitplane = K/8 bytes; u16 sparse M list = 2M bytes (smaller at M/K < 6.25%); u32 list = 4M (smaller at M/K < 3.125%). No conversion may be selected solely from this arithmetic. Prep, page accesses, repeated folds, and amortized costs decide. In particular the measured 1M/75%-allowlist storage loss remains a negative control.

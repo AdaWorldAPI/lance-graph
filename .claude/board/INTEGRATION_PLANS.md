@@ -1,3 +1,7 @@
+## 2026-11-12 — D-DR-SELECT-K: one versioned DR selection, bound once, reused by every fold → `.claude/plans/dr-select-k-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Fixes the order (DR → deterministic version → index order and/or filter → `DR{dynamic}[K]` → reusable selection → Quack / mask-RISC → ndarray), places the representation choice in the versioned DR binding, records the ownership of the K-row staging and the open `NodeGuid` to row chain, and scopes the one candidate lab D-DR-SELECT-K-1 (not authorized): which existing view of one selection is cheaper per operation and reuse count. K-2 to K-7 are contingent on four gates. Hypothesis record: PR 2032. Coordination: EXO-253.
+
 ## 2026-11-11 — D-QSP-R: PostgreSQL parity roadmap over inverted tuples → `.claude/plans/d-qsp-parity-roadmap-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Umbrella roadmap, not a new architecture: eight stages mapped onto D-QSP-0..5, D-DYNBAG, EXO-114, EXO-255 and the DR / DT binding items S2–S8. First deliverables: the parity harness (D-QSP-H) and the milestone D-QSP-M1 (two classes, contextual projection, WHERE, one duplicate-preserving join, ordered result, no intermediate X × Y tuples). Read-only; no transaction or snapshot parity claimed.
