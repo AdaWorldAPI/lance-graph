@@ -26,6 +26,7 @@
 
 pub mod bind;
 pub mod counters;
+pub mod fixture;
 pub mod ops;
 pub mod oracle;
 pub mod source;
