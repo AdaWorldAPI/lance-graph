@@ -165,3 +165,127 @@ Arrow consumer (K-7).
 - Whether mask-RISC accepts an implicit `ALL(K)` without a materialized
   plane.
 - The `NodeGuid` to row chain of §2.
+
+## 8. Geometry roles (2026-11-12, amendment)
+
+**Status:** the first table states what exists; the reading of the four
+geometries as roles of one binding is a WORKING-MODEL, not a contract.
+Background: PR 2032 (hypothesis), PR 2033 (this plan), PR 2035 (the lab).
+Nothing in this section changes a namespace, a classid, an `F###` behaviour
+address or `MethodId`.
+
+| geometry | role | what exists | status |
+|---|---|---|---|
+| DR64 | native bounded focus, up to 64 positions | `Width::W64`, `Extent::DR64_CUBE`, `Axis::for_survivors` (≤ 64 → one W64 tile) in `lance-graph-dt64/src/dr.rs`; the 64 × 64 focus lease in `drf-focus-probe` | width rule SHIPPED (workspace member); focus lease LAB (excluded crate, "Not a production API") |
+| DR256 | native bounded focus, up to 256 positions; the 256 × 256 slab | `Width::W256`, `Extent::DR256_SQ_X64`, `Extent::DR256_GLOBAL_X64`; slab planes in `dr256-ternlog-lab` | extent SHIPPED; slab planes LAB (a workspace member that declares itself a lab) |
+| DR{dynamic} | a selection sized by its survivors, past one native tile or irregular | `Axis::for_survivors` (> 256 → `ceil(n / 256)` W256 tiles), `MapTable::locate`; views in `dr-select-k-lab` | width rule and locate SHIPPED (D-DYNBAG-4, partial); views LAB (PR 2035); cross-tile compose OPEN |
+| DR256³ | three-axis relation geometry | the shape `Extent` (identity × property × predicate); no `Extent` constant has a 256-wide predicate axis; "No cube is allocated" (`dr256-ternlog-lab` module doc) | shape SHIPPED as a reservation that allocates nothing; a 256³ fold is PROPOSED and untested |
+
+Read as roles of one deterministic binding:
+
+- **A bounded focus that fits a native tile uses the native tile.** That is
+  already the rule `Axis::for_survivors` encodes: "the narrow tile is used
+  whenever the selection fits it".
+- **DR{dynamic} is the escape hatch** for a population that is larger than
+  a native focus or irregular. It is not a second engine and not a value
+  owner.
+- **DR256³ is used only when the operation needs a three-way relation**,
+  and then §9 decides whether anything has to be expanded.
+
+Order of things (§1) is unchanged; the focus step reads "native DR64 /
+DR256, or DR{dynamic}".
+
+## 9. Three masks are not a cube
+
+`VPTERNLOGQ` combines three aligned bit vectors with one truth table. It
+does not build or walk X × Y × Z.
+
+| representation | positions addressed | one dense Boolean mask | can express |
+|---|---|---|---|
+| one DR256 axis | 256 | 32 B | a set of positions |
+| three independent axes | 3 × 256 | 96 B | exactly the products A × B × C |
+| three pairwise relations | 3 × 65,536 | 24 KiB | relations that are determined by their pairs; not every ternary relation |
+| one full DR256³ relation | 16,777,216 | 2 MiB | any ternary relation |
+| three full DR256³ operands | 3 × 16,777,216 | 6 MiB | a ternlog over three ternary relations |
+
+A factorized selection `S(x,y,z) = A(x) ∧ B(y) ∧ C(z)` has
+`count = popcount(A) × popcount(B) × popcount(C)` with no expansion, as
+long as nothing else constrains the triple and no multiplicity is
+attached. An arbitrary ternary relation needs explicit triples, an
+implicit rule, bounded slices or the dense cube.
+
+Checked with a small oracle
+(`.claude/probes/2026-11-12-dr-geometry/three_axis_oracle.py`, exact
+integers, no timing):
+
+| case | result |
+|---|---|
+| factorized, popcounts 10, 12, 16 | count 1,920 = product; 38 coordinates visited; 96 B of masks against 2 MiB dense |
+| `(x + y + z) mod 256 = 0` | count 65,536; all three axis projections full, so three masks give 16,777,216; all three pairwise projections full as well; 196,608 B as explicit triples against 2 MiB dense |
+| the factorized set plus one cross-axis parity constraint | count 960; the product of popcounts (1,920) is wrong |
+
+So: axis masks are right for a product and only for a product; a
+cross-axis constraint, however small, takes the selection out of that
+form; and a sparse ternary relation is cheaper as triples than as a cube
+(here by a factor of 10).
+
+Open, not answered by this plan:
+
+1. Which existing operations need a 256³ coordinate domain at all.
+2. Which of them are products, or pairwise, under DR's existing address
+   and witness model.
+3. Whether Quack / RelAlg / mask-RISC can do the lawful part without new
+   execution semantics.
+4. Which cases would need a Gather, a relation promoted to an operand, or
+   a derived population that EXO-46 and EXO-140 do not admit.
+
+No cube owner, dense cache or cube executor is proposed.
+
+## 10. Next measurement (proposed, not authorized): D-DR-SELECT-K-1b
+
+The strongest structural case first. N = 65,536 (one slab), an existing
+sealed order on the key, top 64 and top 256:
+
+```
+version V → existing sealed order → first 64 / 256 positions
+          → native DR64 / DR256 focus → existing fold
+```
+
+| quantity | top 64 | top 256 |
+|---|---|---|
+| share of N | 0.09765625% | 0.390625% |
+| source positions as `u32` | 256 B | 1 KiB |
+| local focus mask | 8 B | 32 B |
+| mask over the whole population | 8 KiB | 8 KiB |
+
+Arms, same answer required from each, order witnessed by the binding:
+
+1. order index → positions → native focus → fold over the focus;
+2. an N-wide mask of the same rows → fold over N (the existing path);
+3. the positions as a dynamic view, where admissible.
+
+R = 1 and R = 100; every copy and every staging step counted; no N-wide
+mask is built on arm 1. Falsifier for the preference: arm 1 is not cheaper
+than arm 2 on the total once staging is counted. The tie rule is the
+existing `SealedOrder` contract (key, then frame row position).
+
+## 11. Gap register
+
+Only what is missing; nothing here is a request to build.
+
+| gap | evidence | consequence |
+|---|---|---|
+| No admitted consumer folds over a list of positions. | mask-RISC A1: "a `SelectionVector` cannot be expressed in this vocabulary at all"; Quack: "no `SelectionVector`, anywhere … ELIMINATE — an index list is the materialisation the mask-native invariant forbids" (`lance-graph-quack/src/lib.rs`, matrix row R1). Not found in mask-RISC, Quack, `drf-focus-probe`, `dr256-ternlog-lab`, the planner's `temporal.rs` or ndarray's `simd_masking_ops.rs` (scopes and patterns in the PR). | The lab's positions arm is a scalar loop that measures an access pattern. The SelectionVector role of §3 conflicts with a standing rule of the two executors and needs a decision before any production use. |
+| The gated predicate skips empty mask words only. | `MaskOp::Pred` doc: "the per-word gate test is still ∝ rows/64"; at about 1% random density about half the words are non-empty. `masked_sum_i32` already walks a sparse word bit by bit (at most 16 set bits). | A lawful candidate for the sparse case that stays inside the mask vocabulary: the same per-word sparse walk for a gated predicate. An ndarray question; not measured. |
+| mask-RISC has no masked sum without a mask operand. | `Terminal::MaskedSumI32 { mask, lane }`; found in PR 2035. | `ALL(K)` needs one constant plane of K / 8 bytes for a sum. Count needs none. |
+| Two order contracts. | `SealedOrder`: key, then frame row position (`TIE_KEY_THEN_FRAME_POSITION`); the plan asks for ordered `NodeGuid` results. | The lab declares both and admits a request only for the order the binding witnesses. Which one a consumer may rely on across versions is EXO-114. |
+| `NodeGuid` → canonical global id → DR coordinate → snapshot row. | plan §2, §5 gate 1. | Unchanged. An in-memory lab with `u128` and `u32` does not settle it. |
+| Which Lance call returns an exact survivor set. | plan §5 gate 2, §7. | Unchanged. |
+| No `Extent` with three 256-wide axes; no 256³ fold. | `dr.rs`: the three constants. | §9 stays an analysis until an operation is named that needs it. |
+
+## 12. What stays closed
+
+D-DR-SELECT-K-2 to K-7 stay behind the four gates of §5. No strategy
+selector, policy registry, cost framework, second focus type, planner or
+cache is proposed anywhere in this plan.
+
