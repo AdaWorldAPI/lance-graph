@@ -259,6 +259,11 @@ exclude = [
     # lance-graph-dt64 and the contract only. Verify via
     # `cargo test --manifest-path crates/dt64-admission-probe/Cargo.toml`.
     "crates/dt64-admission-probe",
+    # W12 (plan dr-dt64-class-governance-v3 §2d): a consumer class activated
+    # through OGAR's HotPlug reaching a DT64 binding (LAB). Own workspace root;
+    # path-deps dt64, lance-graph-ogar and the contract only. Verify via
+    # `cargo test --manifest-path crates/dt64-hotplug-probe/Cargo.toml`.
+    "crates/dt64-hotplug-probe",
     # D-DRISA-1 (EXO-153) LAB: a sealed DR frame read as a register file over
     # borrowed SoA planes. Own workspace root; path-deps dt64, mask-risc and
     # the contract only. Verify via
