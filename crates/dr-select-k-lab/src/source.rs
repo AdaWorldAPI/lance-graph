@@ -3,6 +3,7 @@
 //! Every method that produces a selection or stages rows bumps
 //! [`Counters::storage`]. Nothing else in the crate may read these lanes.
 
+use crate::bind::Order;
 use crate::counters::Counters;
 
 /// The storage version the lanes and the order index were read at.
@@ -28,7 +29,7 @@ impl KeyRange {
 pub struct Selection {
     pub version: Version,
     pub rows: Vec<u32>,
-    pub order: crate::bind::Order,
+    pub order: Order,
 }
 
 /// K rows copied out of the source, in the order of the selection.
@@ -40,19 +41,21 @@ pub struct Staged {
     pub b: Vec<i32>,
 }
 
-/// N rows, four lanes, one order index (key ascending, ties by guid).
+/// N rows, four lanes, and one order index per declared tie rule.
 pub struct Source {
     version: Version,
     guid: Vec<u128>,
     key: Vec<i32>,
     a: Vec<i32>,
     b: Vec<i32>,
+    /// Index position -> source row, key ascending, ties by source row.
+    by_key_row: Vec<u32>,
     /// Index position -> source row, key ascending, ties by guid.
-    by_key: Vec<u32>,
+    by_key_guid: Vec<u32>,
 }
 
 impl Source {
-    /// Takes ownership of the lanes and sorts the order index once. Every
+    /// Takes ownership of the lanes and sorts each order index once. Every
     /// lane has the same length; guids are unique.
     pub fn new(
         version: Version,
@@ -63,15 +66,18 @@ impl Source {
     ) -> Source {
         assert!(guid.len() == key.len() && key.len() == a.len() && a.len() == b.len());
         assert!(u32::try_from(guid.len()).is_ok());
-        let mut by_key: Vec<u32> = (0..guid.len() as u32).collect();
-        by_key.sort_unstable_by_key(|&r| (key[r as usize], guid[r as usize]));
+        let mut by_key_row: Vec<u32> = (0..guid.len() as u32).collect();
+        by_key_row.sort_unstable_by_key(|&r| (key[r as usize], r));
+        let mut by_key_guid = by_key_row.clone();
+        by_key_guid.sort_unstable_by_key(|&r| (key[r as usize], guid[r as usize]));
         Source {
             version,
             guid,
             key,
             a,
             b,
-            by_key,
+            by_key_row,
+            by_key_guid,
         }
     }
 
@@ -88,34 +94,43 @@ impl Source {
         self.version = Version(self.version.0 + 1);
     }
 
-    /// The filter: rows whose key is in `range`, in source order.
+    /// The filter: rows whose key is in `range`, in source order. The K
+    /// source-row positions it returns are a copy and are counted.
     pub fn select_filter(&self, range: KeyRange, counters: &Counters) -> Selection {
         Counters::bump(&counters.storage, 1);
-        let rows = (0..self.key.len() as u32)
+        let rows: Vec<u32> = (0..self.key.len() as u32)
             .filter(|&r| range.has(self.key[r as usize]))
             .collect();
+        Counters::bump(&counters.bytes_copied, (rows.len() * 4) as u64);
         Selection {
             version: self.version,
             rows,
-            order: crate::bind::Order::Source,
+            order: Order::Source,
         }
     }
 
     /// The index order composed with the filter: rows whose key is in
-    /// `range`, key ascending, ties by guid. One contiguous range of the
-    /// order index; nothing is sorted here.
-    pub fn select_ordered(&self, range: KeyRange, counters: &Counters) -> Selection {
+    /// `range`, in the declared `order`. One contiguous range of that
+    /// order's index; nothing is sorted here. The K positions are a copy
+    /// and are counted.
+    ///
+    /// # Panics
+    /// If `order` is [`Order::Source`]: that is the filter, not an index.
+    pub fn select_ordered(&self, range: KeyRange, order: Order, counters: &Counters) -> Selection {
+        let index = match order {
+            Order::KeyThenRow => &self.by_key_row,
+            Order::KeyThenGuid => &self.by_key_guid,
+            Order::Source => panic!("select_ordered needs a key order; use select_filter"),
+        };
         Counters::bump(&counters.storage, 1);
-        let lo = self
-            .by_key
-            .partition_point(|&r| self.key[r as usize] < range.lo);
-        let hi = self
-            .by_key
-            .partition_point(|&r| self.key[r as usize] <= range.hi);
+        let lo = index.partition_point(|&r| self.key[r as usize] < range.lo);
+        let hi = index.partition_point(|&r| self.key[r as usize] <= range.hi);
+        let rows = index[lo..hi.max(lo)].to_vec();
+        Counters::bump(&counters.bytes_copied, (rows.len() * 4) as u64);
         Selection {
             version: self.version,
-            rows: self.by_key[lo..hi.max(lo)].to_vec(),
-            order: crate::bind::Order::KeyThenGuid,
+            rows,
+            order,
         }
     }
 

@@ -9,7 +9,12 @@ use crate::source::{Selection, Source, Staged, Version};
 pub enum Order {
     /// Source row order. Says nothing about keys.
     Source,
-    /// Key ascending, ties by guid.
+    /// Key ascending, ties by source row position. The contract of the
+    /// existing `SealedOrder` (`TIE_KEY_THEN_FRAME_POSITION` in
+    /// `dr256-ternlog-lab`). The tie rule holds for one source version only.
+    KeyThenRow,
+    /// Key ascending, ties by guid. A separately declared contract: stable
+    /// across a reordering of the source, at the cost of its own index.
     KeyThenGuid,
 }
 

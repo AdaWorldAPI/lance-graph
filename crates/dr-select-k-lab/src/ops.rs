@@ -78,31 +78,34 @@ pub enum Op {
     CountBGt { t: i32 },
     /// `sum(a)` over the residual, as `i64`.
     SumA,
-    /// The first `limit` guids of the residual in key order, ties by guid.
-    TopByKey { limit: usize },
+    /// The first `limit` guids of the residual in the declared key order.
+    /// `order` names the contract (which tie rule), never `Order::Source`.
+    TopByKey { limit: usize, order: Order },
 }
 
 /// Why a view may not answer an operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Inadmissible {
-    /// The operation needs key order and the binding does not witness it.
-    /// A mask or ascending positions keep the local order only.
-    OrderNotWitnessed { have: Order },
+    /// The operation needs one declared key order and the binding witnesses
+    /// another, or none. A mask or ascending positions keep the local order
+    /// only, so no view can supply an order the binding does not have.
+    OrderNotWitnessed { want: Order, have: Order },
 }
 
 /// Whether `view` over `bound` can lawfully answer `op`. `CountBGt` and
 /// `SumA` are order-free and always admissible. `TopByKey` is admissible
-/// only when `bound.order() == Order::KeyThenGuid`, for every view; nothing
-/// in this crate sorts at query time.
+/// only when the binding witnesses exactly the requested order (same tie
+/// rule), for every view; nothing in this crate sorts at query time.
 pub fn admissible(op: Op, bound: &Bound, view: View<'_>) -> Result<(), Inadmissible> {
     let _ = view;
     match op {
         Op::CountBGt { .. } | Op::SumA => Ok(()),
-        Op::TopByKey { .. } => {
-            if bound.order() == Order::KeyThenGuid {
+        Op::TopByKey { order, .. } => {
+            if order != Order::Source && bound.order() == order {
                 Ok(())
             } else {
                 Err(Inadmissible::OrderNotWitnessed {
+                    want: order,
                     have: bound.order(),
                 })
             }
@@ -273,17 +276,19 @@ impl PreparedFolds {
         }
     }
 
-    /// The first `limit` guids of the residual in key order. Appends to
-    /// `out` (cleared first). Returns `Err` exactly when [`admissible`] does.
+    /// The first `limit` guids of the residual in the declared `order`.
+    /// Appends to `out` (cleared first). Returns `Err` exactly when
+    /// [`admissible`] does.
     pub fn top_by_key(
         &mut self,
         bound: &Bound,
         view: View<'_>,
         limit: usize,
+        order: Order,
         out: &mut Vec<u128>,
         counters: &Counters,
     ) -> Result<(), Inadmissible> {
-        admissible(Op::TopByKey { limit }, bound, view)?;
+        admissible(Op::TopByKey { limit, order }, bound, view)?;
         out.clear();
         let guid = &bound.staged().guid;
         // Local order is key order (witnessed above); never sorted.

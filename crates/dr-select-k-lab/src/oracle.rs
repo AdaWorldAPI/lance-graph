@@ -3,6 +3,7 @@
 //! Row at a time over the source lanes, with no use of `bind`, `ops`, the
 //! order index or mask-RISC. Reads `Source::lanes()`.
 
+use crate::bind::Order;
 use crate::source::{KeyRange, Source};
 
 /// The full query the lab asks: rows with `key in range AND a >= t_a`.
@@ -37,18 +38,27 @@ pub fn sum_a(source: &Source, q: Query) -> i64 {
     sum
 }
 
-/// The first `limit` guids of the query's rows, key ascending, ties by guid.
-/// Sorts its own copy; it shares nothing with the source's order index.
-pub fn top_by_key(source: &Source, q: Query, limit: usize) -> Vec<u128> {
+/// The first `limit` guids of the query's rows in the declared `order`:
+/// key ascending, ties by source row (`Order::KeyThenRow`) or by guid
+/// (`Order::KeyThenGuid`). Sorts its own copy; it shares nothing with the
+/// source's order indexes.
+///
+/// # Panics
+/// If `order` is `Order::Source`, which declares no key order.
+pub fn top_by_key(source: &Source, q: Query, limit: usize, order: Order) -> Vec<u128> {
     let (guid, key, a, _) = source.lanes();
-    let mut rows: Vec<(i32, u128)> = Vec::new();
+    let mut rows: Vec<(i32, u128, usize)> = Vec::new();
     for r in 0..key.len() {
         if in_query(&q, key[r], a[r]) {
-            rows.push((key[r], guid[r]));
+            rows.push((key[r], guid[r], r));
         }
     }
-    rows.sort();
-    rows.into_iter().take(limit).map(|(_, g)| g).collect()
+    match order {
+        Order::KeyThenRow => rows.sort_by_key(|&(k, _, r)| (k, r)),
+        Order::KeyThenGuid => rows.sort_by_key(|&(k, g, _)| (k, g)),
+        Order::Source => panic!("the oracle needs a declared key order"),
+    }
+    rows.into_iter().take(limit).map(|(_, g, _)| g).collect()
 }
 
 /// Whether one source row belongs to the query.
