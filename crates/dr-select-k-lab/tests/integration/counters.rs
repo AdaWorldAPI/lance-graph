@@ -4,24 +4,47 @@ use dr_select_k_lab::counters::Counters;
 use dr_select_k_lab::fixture::Pattern;
 use dr_select_k_lab::ops::{self, PreparedFolds};
 use dr_select_k_lab::oracle;
-use dr_select_k_lab::Residual;
+use dr_select_k_lab::{Bound, Order, Residual};
 
 use crate::common;
 
 const K: usize = 256;
 
-// Fails if produce-and-bind costs other than one select plus one take.
+// Fails if produce-and-bind costs other than one select plus one take, or if
+// the copied bytes are not 4 per row (the position vector) plus 28 per row
+// (the staged lanes), for the filter and for both key orders.
 #[test]
 fn produce_and_bind_is_two_storage_accesses_one_bind() {
-    for ordered in [false, true] {
+    for order in common::BINDINGS {
         let src = common::source(Pattern::Random);
         let c = Counters::new();
-        let bound = common::bind(&src, common::range_for_k(K), ordered, &c);
+        let bound = common::bind(&src, common::range_for_k(K), order, &c);
+        assert_eq!(bound.k(), K);
         let s = c.snapshot();
-        assert_eq!(s[0], 2, "storage ordered={ordered}");
-        assert_eq!(s[1], 1, "binds ordered={ordered}");
-        assert_eq!(s[3], 0, "conversions");
-        assert_eq!(s[4], (bound.k() * 28) as u64, "bytes copied by take");
+        assert_eq!(s[0], 2, "storage {order:?}");
+        assert_eq!(s[1], 1, "binds {order:?}");
+        assert_eq!(s[3], 0, "conversions {order:?}");
+        assert_eq!(s[4], (bound.k() * 32) as u64, "bytes copied {order:?}");
+    }
+}
+
+// Fails if a selection does not count its own K-row position copy (4 bytes
+// per row) before any row is staged, or if the take does not add 28 per row.
+#[test]
+fn a_selection_counts_its_position_copy_and_the_take_counts_the_staging() {
+    for order in common::BINDINGS {
+        let src = common::source(Pattern::Clustered);
+        let c = Counters::new();
+        let sel = common::select(&src, common::range_for_k(K), order, &c);
+        let k = sel.rows.len();
+        assert_eq!(k, K, "{order:?}");
+        let s = c.snapshot();
+        assert_eq!(s[0], 1, "storage after select {order:?}");
+        assert_eq!(s[4], (k * 4) as u64, "bytes after select {order:?}");
+        Bound::bind(&src, sel, &c).unwrap();
+        let s = c.snapshot();
+        assert_eq!(s[0], 2, "storage after bind {order:?}");
+        assert_eq!(s[4], (k * 32) as u64, "bytes after bind {order:?}");
     }
 }
 
@@ -30,7 +53,7 @@ fn produce_and_bind_is_two_storage_accesses_one_bind() {
 fn no_second_read_after_the_bind() {
     let src = common::source(Pattern::Random);
     let c = Counters::new();
-    let bound = common::bind(&src, common::range_for_k(K), true, &c);
+    let bound = common::bind(&src, common::range_for_k(K), Order::KeyThenRow, &c);
     let after_bind = c.snapshot();
     let mut folds = PreparedFolds::new(&bound);
     let pos = ops::residual_a_ge(&bound, 50, &Residual::Positions(Vec::new()), &c);
@@ -58,7 +81,7 @@ fn no_second_read_after_the_bind() {
     assert_eq!(c.snapshot()[2] - before_pos, 2 * m);
     let mut out = Vec::new();
     folds
-        .top_by_key(&bound, all.view(), 10, &mut out, &c)
+        .top_by_key(&bound, all.view(), 10, Order::KeyThenRow, &mut out, &c)
         .unwrap();
     let end = c.snapshot();
     assert_eq!(end[0], after_bind[0], "storage moved after bind");
@@ -73,7 +96,7 @@ fn conversions_and_bytes_per_form() {
     let src = common::source(Pattern::Clustered);
     let range = common::range_for_k(K);
     let c = Counters::new();
-    let bound = common::bind(&src, range, false, &c);
+    let bound = common::bind(&src, range, Order::Source, &c);
     let k = bound.k();
     let t = 50;
     let m = oracle::count_b_gt(&src, common::query(range, Some(t)), -1) as usize;
