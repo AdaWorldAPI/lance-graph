@@ -21,3 +21,10 @@ compatibility requirement is PROPOSED.
 
 **Open:** whether Quack and mask-RISC admit an explicit selection operand;
 where the sparse threshold lies; R4 and R7.
+
+**Decision recorded the same day (D-DR-SELECT-K-SV):** the explicit selection
+is admitted at the DuckDB boundary and as a typed sparse operand inside the
+existing execution; first for independent `COUNT` and `SUM` over locally
+witnessed positions. Text, scope and limits in plan §13. The first
+implementation is a separate PR (D-DR-SELECT-K-SV-1); R4 and R7 are not
+released by it.

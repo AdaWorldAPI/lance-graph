@@ -289,10 +289,37 @@ D-DR-SELECT-K-2 to K-7 stay behind the four gates of §5. No strategy
 selector, policy registry, cost framework, second focus type, planner or
 cache is proposed anywhere in this plan.
 
-## 13. DuckDB `SelectionVector` compatibility (2026-11-12, decision requested)
+## 13. DuckDB `SelectionVector` compatibility (2026-11-12, decided: D-DR-SELECT-K-SV)
 
-**Status:** PROPOSED. Nothing in this section is implemented or authorized.
-It records a requirement raised on 2026-11-12 and what it would change.
+**Status:** DECISION taken 2026-11-12 (D-DR-SELECT-K-SV, below). Nothing is
+implemented. The decision admits the mechanism; production admission still
+has to pass its gates.
+
+> **DECISION (D-DR-SELECT-K-SV, 2026-11-12).** An explicit `SelectionVector`
+> is admitted in two places: at the DuckDB-compatible boundary, and as a
+> typed sparse operand inside the existing DR execution.
+> **BASIS.** Matrix R1 excluded the mechanism and named its own falsifier;
+> the falsifier fired in 12 of 12 cells (matrix §8b).
+> **SCOPE, authorized.** (1) A narrow typed selection operand for the
+> existing execution paths, first for independent `COUNT` and `SUM` folds
+> over locally witnessed positions. (2) Borrowing existing index or position
+> buffers: no new ownership, no allocation in the hot path, no
+> value-dependent cross-table gather. (3) Carried through the existing Quack
+> and mask-RISC semantics with the computation in `ndarray::simd`, with an
+> independent oracle and backend parity tests. (4) An explicit DuckDB API
+> adapter that materializes a position list only on request and counts the
+> copy.
+> **SCOPE, not authorized.** A new scalar executor; global position indexes
+> as a second authority; a runtime optimizer; bypassing EXO-46 or EXO-140.
+> **Limit.** A DuckDB position list may hold a permutation or repeated
+> indexes; a focus mask is a set. The boundary never converts an arbitrary
+> selection into a mask where that loses order or multiplicity.
+> **Not needed for this decision.** The density threshold; it is a later
+> performance calibration.
+> **REVISIT WHEN.** The admission PR's parity or cost gates fail, or a
+> selection operand turns out to need ownership the binding does not have.
+> The first implementation is a separate lab / admission PR
+> (D-DR-SELECT-K-SV-1).
 
 **The requirement.** The aim is DuckDB-compatible semantics and, where
 useful, API compatibility. DuckDB's `SelectionVector` is part of that
@@ -341,9 +368,10 @@ absence or a zero fallback.
 | decision | where | state after 2026-11-12 |
 |---|---|---|
 | Matrix R1, `SelectionVector` | `duckdb-to-v3-translation-matrix-v1.md` | **ADAPT.** Its pre-registered falsifier was run and fired in all 12 cells (matrix §8b). No sparse threshold located yet. |
-| Matrix R4, `DictionaryVector` | same | Under review. Its falsifier condition is met if this requirement is adopted. |
-| Matrix R7, `UnifiedVectorFormat` | same | Under review. `Planes` has no `sel` member. |
-| Quack R1, mask-RISC A1 | `lance-graph-quack/src/lib.rs`, `lance-graph-mask-risc/src/lib.rs` | Unchanged in code. Their allocation, ownership and single-row-universe rules stay; whether an explicit selection operand is admitted is the decision requested. |
+| Matrix R4, `DictionaryVector` | same | Parity check required; no automatic release. Its falsifier condition is met now that the requirement is adopted. |
+| Matrix R7, `UnifiedVectorFormat` | same | Parity check required; no automatic release. `Planes` has no `sel` member. |
+| Quack R1, mask-RISC A1 | `lance-graph-quack/src/lib.rs`, `lance-graph-mask-risc/src/lib.rs` | Unchanged in code until D-DR-SELECT-K-SV-1. Decided: a borrowed, frame-local position operand is admissible after its implementation gates. Their allocation, ownership and single-row-universe rules stay. |
+| DR64 / DR256, DR{dynamic} | §8 | DR64 / DR256 stay the native default; DR{dynamic} carries the sparse and variable position view as the escape hatch. |
 
 **Smallest adapter (to be designed, not built).** A boundary type that holds
 a reference to one bound selection plus one of: nothing (identity), a
@@ -368,7 +396,7 @@ runs no folds.
 9. Against both the existing mask kernel and a zero-word-skipping bit walk
    (done for the sum in matrix §8b; both lose to the list at 1/64 and below).
 
-**Order of work if adopted.** First the contract (this section, decided),
+**Order of work.** First the contract (this section, decided),
 then the adapter against the existing views with parity tests grounded in
 DuckDB's own behaviour, then the sparse-kernel comparison at denser points
 to locate the threshold. No optimizer and no selection engine.

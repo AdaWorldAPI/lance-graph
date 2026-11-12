@@ -772,8 +772,8 @@ What this does not settle:
 
 **R4 and R7 are under review, not moved.** A requirement was raised on
 2026-11-12 that a DuckDB-compatible `SelectionVector` be representable at the
-API boundary (plan `.claude/plans/dr-select-k-v1.md` §13; decision requested,
-nothing implemented). If that requirement is adopted:
+API boundary (plan `.claude/plans/dr-select-k-v1.md` §13). It was adopted the
+same day as D-DR-SELECT-K-SV; nothing is implemented. Consequently:
 
 - R4's falsifier condition is met by definition. It names "a consumer that
   must hand a narrowed column to an API it does not control"; DuckDB's public
@@ -781,7 +781,8 @@ nothing implemented). If that requirement is adopted:
 - R7's falsifier is the question whether `Planes` needs a member it lacks.
   `Planes` carries no `sel`; an admitted selection operand is that member.
 
-Both rows keep their verdicts until the requirement is decided.
+Both rows keep their verdicts until their own parity checks run; the decision
+admits the selection operand, it does not release R4 or R7.
 
 ## §9 — Claims in this document that are NOT verified in code
 
