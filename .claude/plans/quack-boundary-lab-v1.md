@@ -1,6 +1,7 @@
 # Quack execution boundary: admission and materialisation lab (v1)
 
 **Status:** LAB, measured 2026-11-12. No production API changed.
+**D-id:** D-QUACK-BOUNDARY-LAB (`STATUS_BOARD.md`).
 **Crate:** `crates/quack-boundary-lab` (workspace member, one CI line in `rust-test.yml`).
 **Separate from:** `schema-wardrobe-ownership-audit-v1.md` (PR #2044), which audits the write side.
 
