@@ -400,3 +400,42 @@ runs no folds.
 then the adapter against the existing views with parity tests grounded in
 DuckDB's own behaviour, then the sparse-kernel comparison at denser points
 to locate the threshold. No optimizer and no selection engine.
+
+## 14. D-DR-SELECT-K-SV-1: the first admission (2026-11-12)
+
+**Status:** IN PR. Lab and admission level; not a production release.
+
+**Shape chosen.** No field is added to `Planes` (it is built as a struct
+literal in about 400 places). The admission is a separate, narrow entry
+beside `execute_into`:
+
+| layer | what was added | file |
+|---|---|---|
+| ndarray | `sum_i32_at`, `count_gt_i32_at`: folds over a borrowed `&[u32]` bag; out of range is `None`. One plain loop on every backend; no gather word. | `ndarray/src/simd_masking_ops.rs` (ndarray PR 423) |
+| mask-RISC | `SelFold::{CountGtI32, SumI32}`, `execute_sel`, `reference_execute_sel`, refusals `SelOutOfRange` and `SelSumBound`. One delegation per fold, no allocation, validation shared with the oracle. | `crates/lance-graph-mask-risc/src/sel.rs`, `reference.rs` |
+| Quack | `lower_sel(query, selection)`: the same query as for `lower`, with its selection plane supplied in position form. Two shapes admitted, everything else refused (`NotASelectionFold`). | `crates/lance-graph-quack/src/lib.rs` |
+
+**Contracts.**
+
+- Bag semantics, in list order. A row listed twice is folded twice. The list
+  is never converted to a mask.
+- One row universe. A position is a row of the frame (`0..n_rows`) or the
+  fold is refused, naming the first offender. No foreign plane, no key.
+- Overflow. `MaskedSumI32` is exact or refused (`n_rows` at most 2^32). The
+  selection sum keeps that contract with the bound moved to the list, since
+  a bag can be longer than the frame: at most 2^32 positions, else
+  `SelSumBound`. Within the bound ndarray's wrapping accumulation cannot wrap.
+- For a selection that is a set, the position fold and the mask program
+  answer the same (tested in mask-RISC and through Quack).
+
+**What this layer does not check.** mask-RISC knows a frame only as
+`n_rows`, exactly as `Planes` does. Whether a position list was witnessed
+for the version the lanes come from is the binding's check before the call
+(in the lab: `Bound::bind` refusing a stale selection). `SealedOrder`, the
+type that carries such a witness for an order index, lives in the lab crate
+`dr256-ternlog-lab`, not in `lance-graph-dt64`. Connecting a witnessed
+binding to `execute_sel` in a non-lab crate is the next gate, not done here.
+
+**Not done.** The DuckDB API adapter; permutation-sensitive operations;
+dictionary slicing (R4); a `sel` member for `Planes` (R7); a SIMD gather;
+the density threshold; any use from production code.

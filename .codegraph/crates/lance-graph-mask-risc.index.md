@@ -3,7 +3,7 @@
 crate: lance-graph-mask-risc
 path: crates/lance-graph-mask-risc
 workspace: member
-digest: df13877b8cd826e5
+digest: 32478c87a39b812f
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -135,21 +135,29 @@ Generated; the code is the truth. See ../index.md.
 - fn span_words [pub(crate)] — crates/lance-graph-mask-risc/src/ir.rs:1892 CONFIRMED
 - struct OpHistogram [pub] — crates/lance-graph-mask-risc/src/ir.rs:1901 CONFIRMED
 - fn OpHistogram::mask_passes [pub] — crates/lance-graph-mask-risc/src/ir.rs:1931 CONFIRMED
-- mod exec [pub] — crates/lance-graph-mask-risc/src/lib.rs:130 CONFIRMED
-- mod fuse [pub] — crates/lance-graph-mask-risc/src/lib.rs:131 CONFIRMED
-- mod graph_hop [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/lib.rs:137 CONFIRMED
-- mod ir [pub] — crates/lance-graph-mask-risc/src/lib.rs:138 CONFIRMED
-- mod reference [pub] — crates/lance-graph-mask-risc/src/lib.rs:139 CONFIRMED
-- mod ternlog_dispatch [pub] — crates/lance-graph-mask-risc/src/lib.rs:140 CONFIRMED
-- mod value [pub] — crates/lance-graph-mask-risc/src/lib.rs:141 CONFIRMED
-- fn words_for [pub] — crates/lance-graph-mask-risc/src/lib.rs:166 CONFIRMED
-- enum OutShape [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:33 CONFIRMED
-- fn out_shape [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:44 CONFIRMED
-- fn validate [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:306 CONFIRMED
-- fn reference_execute [pub] — crates/lance-graph-mask-risc/src/reference.rs:978 CONFIRMED
-- fn reference_execute_into [pub] — crates/lance-graph-mask-risc/src/reference.rs:991 CONFIRMED
-- fn reference_scratch [pub] — crates/lance-graph-mask-risc/src/reference.rs:1269 CONFIRMED
-- fn reference_scratch_with_foreign [pub] — crates/lance-graph-mask-risc/src/reference.rs:1274 CONFIRMED
+- mod exec [pub] — crates/lance-graph-mask-risc/src/lib.rs:135 CONFIRMED
+- mod fuse [pub] — crates/lance-graph-mask-risc/src/lib.rs:136 CONFIRMED
+- mod graph_hop [pub] cfg=feature="quarantined-gather-hop" — crates/lance-graph-mask-risc/src/lib.rs:142 CONFIRMED
+- mod ir [pub] — crates/lance-graph-mask-risc/src/lib.rs:143 CONFIRMED
+- mod reference [pub] — crates/lance-graph-mask-risc/src/lib.rs:144 CONFIRMED
+- mod sel [pub] — crates/lance-graph-mask-risc/src/lib.rs:145 CONFIRMED
+- mod ternlog_dispatch [pub] — crates/lance-graph-mask-risc/src/lib.rs:146 CONFIRMED
+- mod value [pub] — crates/lance-graph-mask-risc/src/lib.rs:147 CONFIRMED
+- fn words_for [pub] — crates/lance-graph-mask-risc/src/lib.rs:174 CONFIRMED
+- enum OutShape [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:34 CONFIRMED
+- fn out_shape [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:45 CONFIRMED
+- fn validate_sel [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:152 CONFIRMED
+- fn validate_sel_frame [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:165 CONFIRMED
+- fn first_out_of_range [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:191 CONFIRMED
+- fn reference_execute_sel [pub] — crates/lance-graph-mask-risc/src/reference.rs:202 CONFIRMED
+- fn validate [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:391 CONFIRMED
+- fn reference_execute [pub] — crates/lance-graph-mask-risc/src/reference.rs:1063 CONFIRMED
+- fn reference_execute_into [pub] — crates/lance-graph-mask-risc/src/reference.rs:1076 CONFIRMED
+- fn reference_scratch [pub] — crates/lance-graph-mask-risc/src/reference.rs:1354 CONFIRMED
+- fn reference_scratch_with_foreign [pub] — crates/lance-graph-mask-risc/src/reference.rs:1359 CONFIRMED
+- const SEL_SUM_I32_MAX_POSITIONS [pub] — crates/lance-graph-mask-risc/src/sel.rs:47 CONFIRMED
+- enum SelFold [pub] — crates/lance-graph-mask-risc/src/sel.rs:52 CONFIRMED
+- fn execute_sel [pub] — crates/lance-graph-mask-risc/src/sel.rs:72 CONFIRMED
 - fn ternlog_dispatch [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:58 CONFIRMED
 - fn ternlog_dispatch_assign [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:320 CONFIRMED
 - fn ternlog_popcount_dispatch [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:582 CONFIRMED
