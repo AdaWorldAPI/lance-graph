@@ -115,8 +115,8 @@ enacted only by the sealed-cycle path. For code that goes through
 Added after reading `lance-graph-java` (`docs/abi.md` in full,
 `docs/architecture.md`, `docs/panama.md`, `docs/execution-boundary.md`,
 `docs/valhalla-lab.md`, `.claude/plans/mask-membrane-valhalla-integration-v1.md`,
-its `CLAUDE.md`; its Java and Rust sources were not read). That repo states
-the boundary this audit had blurred:
+its `CLAUDE.md`). Its sources were read afterwards; §1d records which, and what
+they change. That repo states the boundary this audit had blurred:
 
 > Shape may cross. Meaning may cross. Operations may cross. Ownership does not
 > cross. — lance-graph owns the only canonical copy.
@@ -143,18 +143,109 @@ Consequences for this audit's own findings:
   describing what "any holder of `&mut`" can do as if an adapter could be that
   holder.
 - **The one finding that sits ON the boundary is the owner identity.**
-  `BatchWriter::cast(on_behalf: MailboxId, …)` accepts a plain integer. In the
-  lance-graph-java membrane the equivalent value is never a plain integer: a
-  handle is bound to owner, generation and kind and is checked on every
-  resolve ("pointer value is not provenance"). The Rust-side cast has no such
-  binding. That is the shape of the missing seam in §2, stated as an
-  observation, not as a chosen design.
+  `BatchWriter::cast(on_behalf: MailboxId, …)` accepts whatever integer it is
+  given. A lance-graph-java handle is an integer on the wire too (`u64`,
+  generation in the high half, slot in the low half); the difference is that
+  it is minted by the registry and resolved on every call against generation,
+  kind and, for a mask, its parent, and a fabricated value is refused with a
+  status (§1d). The Rust-side cast resolves nothing. That is the shape of the
+  missing seam in §2, stated as an observation, not as a chosen design.
 - **A wardrobe does not produce rows, in any width.** It resolves fields over
   input that stays source-owned; the owner writes its own rows from them. So
   "which lane takes non-512-byte source rows" was never a wardrobe question.
 - A layout is a schema over the same content (`abi.md` §18: a second layout is
   a constructor, not a resource kind). A foreign schema is admitted the same
   way: as a reading, with no second population.
+
+## 1d. What the lance-graph-java sources show
+
+**Read in full (first to last line, tests included where the file has them):**
+Rust `native/lgj-abi/src/` — `lib.rs`, `abi.rs`, `registry.rs`,
+`class_view_provider.rs`, `rowstore.rs`, `fixture.rs`, `plan_lower.rs`,
+`kernels.rs`. Java `java/src/main/java/com/adaworldapi/lancegraph/` — all 32
+files, and `internal/ffm/` — all 6 (`Abi`, `Downcalls`, `Engine`, `Layouts`,
+`PlanOp`, `Status`). Consumers, main sources only — `bricks` (`Bricks`,
+`BricksQuery`, `BricksSession`, `Orders`, `Role`), `graph` (`Graph`, `Edge`),
+`trades` (`Trade`, `World`). `valhalla-lab/docs/three-truths.md`.
+
+**Read in part:** `native/lgj-abi/src/exports.rs` — every exported function and
+helper, and the first part of its test module; the rest of that test module was
+not read.
+
+**Not read:** `exports/tests/*.rs`, `native/lgj-abi/tests/*.rs`, the Java test
+suites, the consumers' tests, `bench/`, `interop/tinkerpop/`, the
+`valhalla-lab` sources and reproducers, `README.md`. Nothing below rests on
+them.
+
+What the sources establish, each stated for lance-graph-java only:
+
+1. **The outer side holds a vocabulary, not rows.** `Trade`, `Orders` and
+   `Edge` have private constructors that throw; no instance of any of them can
+   exist. Each is a list of constants binding a domain name to a lane:
+   `Orders.REGION`, `Trade.VENUE` and `Pattern.CLASS` are three names over the
+   same lane of the same resource (`Orders.java`, `Trade.java`,
+   `Pattern.java`). Three schemas, one population. `Pattern.java` says the
+   file "is shaped exactly as a code generator would emit it"; `Field.java`
+   separates a generator surface (constructor, `lane()`) from a consumer
+   surface (`name()`, the typed comparisons). This is the admitted shape of a
+   schema on the outer side, and it carries no bytes.
+2. **Operations cross as descriptors and are validated whole before any
+   write.** A `Predicate` wraps a `PlanOp` with no accessor for opcode, lane or
+   operand (`Predicate.java`); `Engine.marshal` writes the chain as
+   `LgjOpDesc` records; `validate_plan` in `exports.rs` checks every op before
+   the destination is touched.
+3. **The meaning of a row's bytes is resolved natively, once, at the edge of a
+   population.** `lgj_reduce_facet_sum_resolved` resolves
+   `classid → ClassView → cascade_shape` for the selected rows through
+   `kernels::resolve_population_carving` and refuses a population that spans
+   differing readings, contains a classid with no answer, or is empty
+   (`UNRESOLVED_CARVING`). `lgj_hop` narrows the caller's facet mask by
+   `class_view_provider::edge_participation`; the caller cannot widen it. The
+   sibling `lgj_reduce_facet_sum` applies a caller-named reading unchecked, and
+   `RowStore.facetSumAs` says so in its own doc.
+4. **Authorization is composed into the selection before execution.**
+   `BricksQuery.authorize` adds the role's predicate to the same lazy chain;
+   every terminal refuses an unauthorized chain before any native call
+   (`requireAuthorized`). No row leaves that package's public surface.
+5. **Identity is checked, not trusted.** `registry::resolve`,
+   `resolve_kind` and `resolve_mask_with_parent` gate every export. The
+   register sweeps additionally require the mask's parent to be the same
+   resource as the store (`Arc::ptr_eq` in `lgj_reduce_facet_sum` and its
+   resolved sibling). `every_stale_handle_shape_is_a_status_not_a_crash` in
+   `exports.rs` covers closed, double-closed and fabricated handles.
+6. **No export writes a row.** Every pattern and row-store lane is described
+   `READABLE` and never `WRITABLE` (`lgj_lane_describe`); the only writable
+   lane is a mask's word lane (`lgj_mask_describe`), and the only Java code
+   that writes through it is the named import (`RowStore.importRows`). The
+   stores are generated from a seed. So the write side this audit quoted in
+   §1c (stage intent, cross as descriptors, sole native writer lands) is
+   **specified in that repo's documents and absent from its code**. Nothing in
+   lance-graph-java can be cited as a working example of an outer producer
+   handing work to the inner owner.
+
+Limits of that evidence, so it is not over-read:
+
+- lance-graph-java's own membrane is not closed everywhere. `RowStore` reads
+  its cached lane windows against a non-volatile Java flag, and `LaneProbe`
+  ships as a no-op; `Engine.close` is reachable outside the owning object.
+  The repo records both as open.
+- The outer side does hold buffers proportional to rows in two named places:
+  the result segment of `RowStore.facetMatches` (one `u32` per row, written by
+  native code) and the array returned by `Mask.materializeRows`. Neither is a
+  copy of a row. The §1c table's "never holds a row buffer of its own" means
+  canonical rows.
+- The `ClassView` answers there come from a fixture provider unless the
+  `ogar-classview` feature is on (`class_view_provider.rs`).
+
+What this changes for the wardrobe question:
+
+- A foreign schema, admitted, looks like item 1 plus item 3: names over
+  existing lanes, and `ClassView` answers for its classids. Item 6 means the
+  read half of that has a working precedent and the write half has none.
+- §7 already said the cold admission path exists in lance-graph
+  (`BindStore::register`). That stands. What does not exist in either
+  repository is a caller that goes from an admitted class to
+  `write_row` + `cast` under a checked owner (§1a, §2).
 
 ## 2. Delegation census (cast sites outside tests and examples)
 
@@ -446,3 +537,5 @@ Each was caused by writing from an excerpt, a search hit or a summary.
 | nothing on the delegation cache | `resolve_owner` is never called by `cast` (§2) |
 | "a wardrobe cannot hand `LanceCycleWriter` arbitrary source rows; it must produce 512-byte rows" | a wardrobe hands the writer nothing. The 512-byte rule is the inner writer's row ABI; the wardrobe is outer and carries a binding, not bytes (§1c) |
 | inner-crate facts (public fields, direct phase step, row-keyed image) presented as bypasses open to a foreign adapter | no `&mut` owner crosses the boundary; these are inner hygiene. The boundary finding is the plain-integer owner id (§1c) |
+| "in the lance-graph-java membrane the equivalent value is never a plain integer" | a handle is a `u64` on the wire. It is provenance because the registry mints it and resolves it on every call, not because of its type (§1c, §1d) |
+| the outer/inner section written from lance-graph-java's documents only | its Rust and Java sources read afterwards; the write side quoted from the documents has no code behind it there (§1d item 6) |

@@ -26,3 +26,8 @@ MEASURED for the suite (`cargo test -p lance-graph-supervisor --features cycle-d
   - `LanceCycleWriter` refuses any artifact that is not 512 bytes.
   - The forgeable `on_behalf` and the missing production caller were already recorded in `batch_writer.rs`'s own module doc.
   - Suite: 11 runtime tests (two `finding_` tests added), 7 doctests.
+
+- **Outer/inner boundary (plan §1c, §1d).** The sentence "a wardrobe cannot hand `LanceCycleWriter` arbitrary source rows" was a category error and is withdrawn: a wardrobe is outer and carries a class binding, never rows. After reading lance-graph-java's sources (the `lgj-abi` Rust modules, all Java main classes, the three consumers' main sources; `exports.rs` tests in part; test suites, bench, interop and the lab sources not read):
+  - the outer side there holds schema vocabulary with no instances (`Trade`, `Orders`, `Edge`), three schemas name one lane, and no second population exists;
+  - a handle is an integer too; it is provenance because the registry mints and resolves it. `BatchWriter::cast` resolves nothing;
+  - no export in that repo writes a row. Its write side (stage, cross as descriptors, sole writer lands) is documented and not built, so it is no precedent for an outer producer reaching the inner owner.
