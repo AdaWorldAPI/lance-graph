@@ -53,7 +53,7 @@ coverage instead.
 | `StepMask` | BLOCKED | — | 3 | 10 | 4 |
 | `commit_to_l4` | BLOCKED | — | 2 | 2 | 0 |
 | `dispatch_busdto` | BLOCKED | — | 3 | 8 | 5 |
-| `persist_cycle` | BLOCKED | — | 12 | 8 | 5 |
+| `persist_cycle` | BLOCKED | — | 12 | 9 | 5 |
 | `CognitiveMarkers` | REPURPOSE | `Commit` | 1 | 0 | 0 |
 | `DominoCascade` | REPURPOSE | `Commit` | 7 | 1 | 0 |
 | `GateDecision` | REPURPOSE | — | 27 | 30 | 26 |

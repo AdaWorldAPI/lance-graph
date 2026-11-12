@@ -22,7 +22,7 @@ was read at its line.
 | lifecycle mutation | `MailboxSoaOwner::{advance_phase, try_advance_phase}` (`&mut self`); only two production-type implementors besides fakes: `MailboxSoA`, `SymbiontBoard` | SHIPPED |
 | owner-stamped cast | `MailboxSoA::cast_on_behalf` (feature `with-planner`) → `BatchWriter::cast(self.mailbox_id(), …)` | SHIPPED, **no caller outside tests** |
 | intent recorder | `BatchWriter<P>` in `crates/lance-graph-planner/src/batch_writer.rs` | SHIPPED; constructed only in tests, examples and `#[cfg(test)]` modules |
-| bootstrap rebinding | `owner_adapter::emit_bootstrap_intent` | SHIPPED; callers are three planner examples only |
+| bootstrap rebinding | `owner_adapter::emit_bootstrap_intent`, called by `cognitive_pass` in `cycle_driver.rs` with the id of an owner resolved from the fleet | SHIPPED; `cognitive_pass` is reached only through `run_cognitive_work*`, whose callers are supervisor tests; three planner examples call the adapter directly |
 | drain → slots | `collect_casts` in `crates/lance-graph-supervisor/src/cycle_driver.rs` (feature `cycle-driver`) | SHIPPED; callers are tests, examples, probes |
 | one durable write | `seal_cycle` → `persist_cycle` → `WalSink::commit_cycle` | SHIPPED |
 | single background writer | `cycle_writer` / `CycleWriterHandle::try_submit` in `crates/lance-graph-supervisor/src/cycle_writer.rs` | SHIPPED; **one non-test submitter**: `MapLog` in `crates/lance-graph-dt64-lance/src/lib.rs` |
@@ -40,7 +40,7 @@ map log, and it does not go through `MailboxSoA` or `BatchWriter`: it builds
 | site | owner evidence |
 |---|---|
 | `MailboxSoA::cast_on_behalf` (`mailbox_soa.rs`) | the live owner: `&self` on the owned SoA supplies the id |
-| `owner_adapter::emit_bootstrap_intent` | caller-supplied `owner: MailboxId`; rebinding is refused unless the move is the bootstrap sentinel |
+| `owner_adapter::emit_bootstrap_intent` | caller-supplied `owner: MailboxId`; rebinding is refused unless the move is the bootstrap sentinel. Its one library caller, `cognitive_pass`, passes `owner.mailbox_id()` of an owner it resolved from the fleet |
 | `restage_held` (`cycle_driver.rs`) | re-stages an id recorded by an earlier cast; no new evidence |
 | `MapLog` slot construction (`lance-graph-dt64-lance/src/lib.rs`) | caller-supplied `on_behalf: MailboxId`; bypasses `BatchWriter` |
 
@@ -91,11 +91,12 @@ not descriptors**. "End-to-end zero-copy" is not true of this chain today.
 
 ## 5. Stale documentation
 
-- `.claude/v3/knowledge/write-on-behalf.md` status line and its 2026-08-01
-  note name `cycle_driver.rs`'s `cognitive_pass` as the production caller of
-  `emit_bootstrap_intent`. No `cognitive_pass` function exists in
-  `cycle_driver.rs`, and `emit_bootstrap_intent` has no caller outside
-  examples.
+- `.claude/v3/knowledge/write-on-behalf.md` calls `cycle_driver.rs`'s
+  `cognitive_pass` "the existing production caller" of
+  `emit_bootstrap_intent`. The function exists and does call it, but
+  `cognitive_pass` is private and its public drivers (`run_cognitive_work*`)
+  are called only from supervisor tests. "Library code with no production
+  driver" is the accurate wording.
 - The same file's rule text says "the ractor owner mailbox"; its own stale
   note records that the actor was deleted 2026-08-05.
 - `.claude/v3/knowledge/d-mbx-a6-owner-consume-and-persistence.md` describes
@@ -143,6 +144,23 @@ revision change with reused ordinals
 positions in different frames (`two_stores_at_equal_revisions_do_not_alias`,
 `positions_of_one_frame_are_never_read_against_another_sources_lanes`), source
 change without witness (`every_frame_revision_is_a_separate_refusal`).
+
+**Results.** 9 of 9 runtime tests and 7 of 7 doctests pass (3 laws, each a
+compiling control beside its compile-fail twin, so a typo cannot pass as a
+refusal). Disable runs against production code, each patch asserted to apply
+once: the owner stamp replaced by 0 (3 tests red), the cross-owner check in
+`persist_cycle` removed (1 red), a failed seal returning no casts (1 red), a
+full queue dropping its casts (1 red): 4 of 4 red.
+
+**Limits of the suite.** The fence in
+`a_second_writer_on_a_stale_head_is_fenced` and the failure injection are in
+the in-file sink; they check that `seal_cycle` carries a sink's refusal
+through unchanged, not that `LanceCycleWriter` fences (its own tests in
+`cycle_sink.rs` do). `a_cast_is_not_a_commit` cannot fail through the sink,
+because a cast holds no sink; it pins that the owner's phase does not move.
+`MailboxSoA`'s columns and `mailbox_id` are public fields: any holder of
+`&mut MailboxSoA` can write them directly, so the lifecycle trait is not the
+only mutation path for the owner itself.
 
 **Not testable today:** "a consumer writes directly to Lance instead of
 delegating". `LanceCycleWriter::open` is public and Rust cannot forbid a crate
