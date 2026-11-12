@@ -189,6 +189,17 @@ after 2 hop queries (4,550 µs / 3,450 µs).
 What this does not show: G2L across different source orders, a real Lance
 read path, or a slab count above 16.
 
+## 2c.1 DR Dynamic handoff is a strategy, not another executor (2026-11-12, proposal)
+
+**Status:** HYPOTHESIS, docs only (D-DR-SELECT-K-0). Detail:
+`dr-widefieldmask-dt-classview-v1.md` §1a.1. This note changes no namespace
+table and ratifies nothing in §2e.
+
+For `Lance WHERE → survivors K`, DR Dynamic's existing address/Focus mechanism is the **one** local register coordinate space. At binding time, choose **a borrowed ordered index/address view, a borrowed sparse local positions view, a K-sized FocusMask, or implicit ALL(K)** based on the follow-on operation, shape, budget and reuse. These representations are alternatives or aliases under **one bound selection**, not new stores or competing semantic planes. Query interpretation stays DT64's; existing Quack/RelAlg/R2IL own remaining algebra, mask-RISC/ndarray own lawful execution and ISA. Stage or remap once, only when a verified requirement exists. Do not reevaluate pushed storage predicates or scan N again downstream.
+
+- **W4 addendum:** record roles, ownership and witness type of IndexVector, SelectionVector, FocusMask and `ALL(K)` without merging the three typed semantic concepts. A same-number-of-fields reorder, wrong coordinate, lost order, or reused obsolete content-dependent WHERE remains a negative test.
+- **W7 addendum:** measured four-way *consumption* shootout (not four new execution paths) across K=0/64/256/1024/4096/65536, dense/sparse, order/Bag, one versus repeated folds, warm/cold, ISA and memory/IO budgets. Separate lookup, storage read, bind, optional representation conversion, prefetch, hot fold and retained bytes. Calibrate deterministic policy after evidence, not a priori.
+
 ## 2d. Two sources of class authority (existing contract, kept as an invariant)
 
 "Everything is a class" (D14) does not mean "every class is registered
@@ -303,6 +314,8 @@ read first; none of it has been read for this plan unless §2 cites it.
 | W10 | Standalone probe (§12) | W1–W5 | A minimal lab crate running the falsifiers that are now decidable (1–8, 10, 21, 22, 24) | each with an independent oracle and a negative control. **Code, lab only** |
 | W11 | Council | this plan and the outputs above | 5+3 review of the working model before any contract change | — |
 | W12 | Consumer class → DT64 binding (§2d) | `hotplug.rs`, `lance-graph-ogar` `activate` / `plug_readings`, `BindStore::register` / `bind_lanes` | A lab test: activate a consumer through the existing OGAR vocabulary, resolve its class through `ClassView`, bind and run one method through DT64; a classid that was not activated is refused; no edit to the global builtins or registers | the refusal disable-verified; no change to the contract. **Done in `crates/dt64-hotplug-probe` (2026-11-12): five tests over `OgarAuthority` + `OgarClassView`, refusal disable-verified; the activation check does not read the right half, which §2e rules is DT64's concern (`ISS-ACTIVATION-IGNORES-APP-HALF`, resolved).** |
+
+W4 and W7 each carry an addendum in §2c.1 (2026-11-12, proposal).
 
 W1–W5, W8 and W9 can run in parallel. W7 needs W6. W10 needs W1 and W2.
 No public contract or codebook change lands before W11.

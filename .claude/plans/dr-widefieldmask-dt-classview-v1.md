@@ -141,6 +141,38 @@ from (its witness); the sorted keys it carries are a derived cache of
 source content, not a versioned copy of it. Which reading applies is never in the bits: the binding
 names it (class and basis from DT, coordinate space and frame from DR).
 
+## 1a.1 One DR selection, multiple physical access forms, no duplication (2026-11-12, proposal)
+
+**Status:** HYPOTHESIS, docs only (D-DR-SELECT-K-0). An amendment to the
+physical execution strategy; no new selection authority and no change to §1,
+§1a, §1b or any S1-S8 row. Nothing here is measured yet: the comparison is
+PR-B of the D-DR-SELECT-K sequence. Source check at `main` `da05fe038`:
+`OrderIndex`, `PreparedOrder` and `Plane` are lab types in
+`crates/dr256-ternlog-lab/src/lib.rs`, `SealedOrder` is a lab type in
+`crates/dr256-ternlog-lab/src/order_store.rs`, and the positional projections
+are `deinterlace_indices` and `local_trajectories_indices` in
+`crates/lance-graph-planner/src/temporal.rs`. "Existing" below means
+existing in those places, not a production API.
+
+DR carries one witnessed binding for a population/coordinate space. Different physical consumers may benefit from different **views of that same selection**. The three names below identify distinct roles, **not three autonomous selection stores**:
+
+- **IndexVector / ordered address mapping:** existing `OrderIndex`, `SealedOrder` and versioned source-local mapping; preserves `local→source`, order and permitted duplicate references. Borrow when a consumer needs ordered traversal, G2L, prefetch or writeback.
+- **SelectionVector / sparse local positions:** existing positional slices (including `temporal.rs` index projections or an indexed WHERE result), borrowed when sparse direct access is admitted and cheaper than scanning local masks. It may reuse exactly the same underlying slice as the IndexVector; never manufacture a second `Vec` just to rename its function.
+- **FocusMask / local boolean bitplane:** existing DR `WideFieldMask`/`Plane` over the **current K local survivors**, not the initial N global rows. Useful for mask-RISC ternlog, K3 and repeated SIMD folds. Can be generated lazily only when required by a consumer.
+- **Implicit `ALL(K)` is the default** if Storage WHERE was exact and complete and the follow-up consumer does not require a materialized bitmap/positions; this is a zero-materialization view, not a fourth engine.
+
+The three typed **semantic** concepts of governance-v3 W4 (population, field selection, relation index) remain distinct through their `CoordSpace`/binding. The physical-access choice must never erase an order witness, Bag multiplicity, NULL validity, scope/authorization or identity provenance.
+
+**Single-handoff rule:** Lance/source-owner evaluates an admitted pushed predicate once and returns exact/refine-needed status plus a pinned source, row-coordinate and order witness. DR binds that survivor population **once** into its versioned local coordinates. Quack/RelAlg lower **residual** predicates only. mask-RISC/ndarray consume the already bound, source-owned K-lanes/planes; they do **not** re-read global N, rerun pushed WHERE, or own a duplicate survivor or source array. A K-local residual filter is permitted; unauthorized `Keep`-mask reuse between programs and foreign gathered positions remain forbidden under EXO-46/140.
+
+**Cold deterministic physical choice (proposed lab first):** Choose a physical view at the bound handoff using `(N, K, survivors M if known, index exactness, ordering/Bag contract, next operator, expected reuse R, source locality, ISA availability, memory+I/O+CPU+latency budget class, existing frame/order/temporal/scope witnesses, calibrated cost-policy revision)`. Same pinned context + budget/policy revision ⇒ same strategy decision. No per-row auto-tuner, no extra query planner and no new persistence artifact. All strategies must compute the same oracle result and order where required.
+
+**Payload-only crossover is NOT a strategy threshold:** For K divisible by 64, bitplane = K/8 bytes; u16 sparse M list = 2M bytes (smaller at M/K < 6.25%); u32 list = 4M (smaller at M/K < 3.125%). No conversion may be selected solely from this arithmetic. Prep, page accesses, repeated folds, and amortized costs decide. In particular the measured 1M/75%-allowlist storage loss remains a negative control.
+
+**Prohibition:** no second `IndexedFocus`, `MapTable`, `RankMap`, RowID authority, DRF cache, temporal clock, WHERE evaluator, mask-RISC interpreter, ISA dispatcher, Quack frontend, or WAL. Extra representations must be borrowed, implicit, or justified by an independently measured downstream benefit; count every conversion in the benchmark. EXO-220/255/114/46/140/151/225 are mandatory cross-checks.
+
+**Tests:** Same K and NodeGuid sequence for every eligible representation; total-order/Bag differential; mismatched source/coordinate/temporal/scope refuse; `ALL(K)` introduces no extra buffer if backend permits; after exact Lance WHERE, a source-scan/WHERE-invocation counter proves no downstream duplicate read; a nondeterministic or budget-dependent unrecorded representation switch fails; branch/compaction changes require new binding or proven remap.
+
 ## 1c. Reference picture: DR / DT64 virtual address contract (operator, 2026-11-11)
 
 The operator's architecture picture, read against this plan:

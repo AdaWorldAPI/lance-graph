@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-603 entries, 2026-08-06 .. 2026-11-11.
+604 entries, 2026-08-06 .. 2026-11-12.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-12 | `D-DR-SELECT-K-0` |  | [2026-11-12-dr-select-k-0.md](2026-11-12-dr-select-k-0.md) |
 | 2026-11-11 | `cypher-df-vs-quack-bench` |  | [2026-11-11-cypher-df-vs-quack-bench.md](2026-11-11-cypher-df-vs-quack-bench.md) |
 | 2026-11-11 | `D-DRDT-SPLIT-1` |  | [2026-11-11-coresearch-drdt-split.md](2026-11-11-coresearch-drdt-split.md) |
 | 2026-11-11 | `codegraph-recon-2` |  | [2026-11-11-codegraph-recon-2.md](2026-11-11-codegraph-recon-2.md) |

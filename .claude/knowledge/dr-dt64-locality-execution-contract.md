@@ -114,6 +114,10 @@ a valid binding.
   authoritative identity and version (selection equality, frame issue,
   operand identity and revision, shape), not on a digest that can collide.
 
+> **One selected population, one owner, one execution route (2026-11-12, proposal):** Physical IndexVector, sparse SelectionVector and FocusMask are interchangeable *views only where semantics permit*, over the same witnessed DR coordinate binding. Selecting a view never creates a new authority and is not permission to rebuild, reread or re-filter a source. A source-owned, exact, pinned storage selection is consumed once; Quack/mask-RISC may evaluate only residual operators over K. Source-lane buffering and unavoidable staging are explicitly costed and subject to current IAM / ADMISSION. Route selection is a deterministic bind-time choice under stated operator, reuse and resource budgets, with source/order/frame/temporal/seal checks independent of performance.
+> Grade: HYPOTHESIS. Not part of the CURRENT-CONTRACT status above until
+> the D-DR-SELECT-K lab (PR-B) has run. Plan: `dr-widefieldmask-dt-classview-v1.md` §1a.1.
+
 Witnesses to keep: scope, coordinate space, route, source frame, schema basis,
 field mapping, operand identity and version.
 
