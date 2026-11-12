@@ -1,0 +1,248 @@
+# N=1000000 runs=41 (after 3 warm-up) ns, medians; produce/bind/convert/prepare are once per version, reported not gated; fold is the hot term
+pattern	k	control	producer	residual	view	op	admissible	m	produce_ns	bind_ns	prepare_ns	convert_ns	fold_ns	total_r1_ns	total_r100_ns	bytes_copied	retained_bytes	storage_after_bind	fold_path
+clustered	256	-	none	all	resident_n	count_b_gt	yes	256	691878				20961	712839	2787978		125000	0	mask-risc
+clustered	256	-	none	all	resident_n	sum_a	yes	256	691878				27565	719443	3448378		125000	0	mask-risc
+clustered	256	-	filter	all	all	count_b_gt	yes	256	709471	1962	104	0	130	711667	724537	8192	8192	0	mask-risc
+clustered	256	-	filter	all	all	sum_a	yes	256	709471	1962	104	0	122	711659	723737	8192	8192	0	mask-risc
+clustered	256	-	filter	all	all	top_by_key	no	256											
+clustered	256	-	ordered	all	all	count_b_gt	yes	256	147	649	104	0	131	1031	14000	8192	8192	0	mask-risc
+clustered	256	-	ordered	all	all	sum_a	yes	256	147	649	104	0	123	1023	13200	8192	8192	0	mask-risc
+clustered	256	-	ordered	all	all	top_by_key	yes	256	147	649	104	0	35	935	4400	8192	8192	0	scalar-walk
+clustered	256	-	none	t_a=99	resident_n	count_b_gt	yes	2	545926				21402	567328	2686126		125000	0	mask-risc
+clustered	256	-	none	t_a=99	resident_n	sum_a	yes	2	545926				27542	573468	3300126		125000	0	mask-risc
+clustered	256	-	filter	t_a=99	positions	count_b_gt	yes	2	727090	2051	107	172	34	729454	732820	8200	8200	0	scalar-loop
+clustered	256	-	filter	t_a=99	positions	sum_a	yes	2	727090	2051	107	172	32	729452	732620	8200	8200	0	scalar-loop
+clustered	256	-	filter	t_a=99	positions	top_by_key	no	2											
+clustered	256	-	filter	t_a=99	mask	count_b_gt	yes	2	711696	1949	108	105	130	713988	726858	8224	8224	0	mask-risc
+clustered	256	-	filter	t_a=99	mask	sum_a	yes	2	711696	1949	108	105	83	713941	722158	8224	8224	0	mask-risc
+clustered	256	-	filter	t_a=99	mask	top_by_key	no	2											
+clustered	256	-	ordered	t_a=99	positions	count_b_gt	yes	2	156	880	144	245	37	1462	5125	8200	8200	0	scalar-loop
+clustered	256	-	ordered	t_a=99	positions	sum_a	yes	2	156	880	144	245	35	1460	4925	8200	8200	0	scalar-loop
+clustered	256	-	ordered	t_a=99	positions	top_by_key	yes	2	156	880	144	245	38	1463	5225	8200	8200	0	scalar-walk
+clustered	256	-	ordered	t_a=99	mask	count_b_gt	yes	2	180	887	143	124	174	1508	18734	8224	8224	0	mask-risc
+clustered	256	-	ordered	t_a=99	mask	sum_a	yes	2	180	887	143	124	126	1460	13934	8224	8224	0	mask-risc
+clustered	256	-	ordered	t_a=99	mask	top_by_key	yes	2	180	887	143	124	45	1379	5834	8224	8224	0	scalar-walk
+clustered	256	-	none	t_a=50	resident_n	count_b_gt	yes	128	576965				27110	604075	3287965		125000	0	mask-risc
+clustered	256	-	none	t_a=50	resident_n	sum_a	yes	128	576965				33878	610843	3964765		125000	0	mask-risc
+clustered	256	-	filter	t_a=50	positions	count_b_gt	yes	128	774764	1717	135	452	119	777187	788968	8704	8704	0	scalar-loop
+clustered	256	-	filter	t_a=50	positions	sum_a	yes	128	774764	1717	135	452	76	777144	784668	8704	8704	0	scalar-loop
+clustered	256	-	filter	t_a=50	positions	top_by_key	no	128											
+clustered	256	-	filter	t_a=50	mask	count_b_gt	yes	128	1030068	1709	107	105	148	1032137	1046789	8224	8224	0	mask-risc
+clustered	256	-	filter	t_a=50	mask	sum_a	yes	128	1030068	1709	107	105	127	1032116	1044689	8224	8224	0	mask-risc
+clustered	256	-	filter	t_a=50	mask	top_by_key	no	128											
+clustered	256	-	ordered	t_a=50	positions	count_b_gt	yes	128	156	680	107	460	119	1522	13303	8704	8704	0	scalar-loop
+clustered	256	-	ordered	t_a=50	positions	sum_a	yes	128	156	680	107	460	76	1479	9003	8704	8704	0	scalar-loop
+clustered	256	-	ordered	t_a=50	positions	top_by_key	yes	128	156	680	107	460	39	1442	5303	8704	8704	0	scalar-walk
+clustered	256	-	ordered	t_a=50	mask	count_b_gt	yes	128	156	682	108	105	149	1200	15951	8224	8224	0	mask-risc
+clustered	256	-	ordered	t_a=50	mask	sum_a	yes	128	156	682	108	105	127	1178	13751	8224	8224	0	mask-risc
+clustered	256	-	ordered	t_a=50	mask	top_by_key	yes	128	156	682	108	105	47	1098	5751	8224	8224	0	scalar-walk
+clustered	65536	-	none	all	resident_n	count_b_gt	yes	65536	761303				31651	792954	3926403		125000	0	mask-risc
+clustered	65536	-	none	all	resident_n	sum_a	yes	65536	761303				37426	798729	4503903		125000	0	mask-risc
+clustered	65536	-	filter	all	all	count_b_gt	yes	65536	760643	182172	183	0	5647	948645	1507698	2097152	2097152	0	mask-risc
+clustered	65536	-	filter	all	all	sum_a	yes	65536	760643	182172	183	0	13189	956187	2261898	2097152	2097152	0	mask-risc
+clustered	65536	-	filter	all	all	top_by_key	no	65536											
+clustered	65536	-	ordered	all	all	count_b_gt	yes	65536	6740	178088	215	0	5469	190512	731943	2097152	2097152	0	mask-risc
+clustered	65536	-	ordered	all	all	sum_a	yes	65536	6740	178088	215	0	12938	197981	1478843	2097152	2097152	0	mask-risc
+clustered	65536	-	ordered	all	all	top_by_key	yes	65536	6740	178088	215	0	33	185076	188343	2097152	2097152	0	scalar-walk
+clustered	65536	-	ordered_guid	all	all	count_b_gt	yes	65536	6535	180489	186	0	5661	192871	753310	2097152	2097152	0	mask-risc
+clustered	65536	-	ordered_guid	all	all	sum_a	yes	65536	6535	180489	186	0	13031	200241	1490310	2097152	2097152	0	mask-risc
+clustered	65536	-	ordered_guid	all	all	top_by_key	yes	65536	6535	180489	186	0	34	187244	190610	2097152	2097152	0	scalar-walk
+clustered	65536	-	none	t_a=99	resident_n	count_b_gt	yes	678	556818				25173	581991	3074118		125000	0	mask-risc
+clustered	65536	-	none	t_a=99	resident_n	sum_a	yes	678	556818				27761	584579	3332918		125000	0	mask-risc
+clustered	65536	-	filter	t_a=99	positions	count_b_gt	yes	678	752124	182280	190	43122	512	978228	1028916	2099864	2099864	0	scalar-loop
+clustered	65536	-	filter	t_a=99	positions	sum_a	yes	678	752124	182280	190	43122	297	978013	1007416	2099864	2099864	0	scalar-loop
+clustered	65536	-	filter	t_a=99	positions	top_by_key	no	678											
+clustered	65536	-	filter	t_a=99	mask	count_b_gt	yes	678	758334	181329	194	14937	5308	960102	1485594	2105344	2105344	0	mask-risc
+clustered	65536	-	filter	t_a=99	mask	sum_a	yes	678	758334	181329	194	14937	2135	956929	1168294	2105344	2105344	0	mask-risc
+clustered	65536	-	filter	t_a=99	mask	top_by_key	no	678											
+clustered	65536	-	ordered	t_a=99	positions	count_b_gt	yes	678	6762	182647	191	42516	515	232631	283616	2099864	2099864	0	scalar-loop
+clustered	65536	-	ordered	t_a=99	positions	sum_a	yes	678	6762	182647	191	42516	293	232409	261416	2099864	2099864	0	scalar-loop
+clustered	65536	-	ordered	t_a=99	positions	top_by_key	yes	678	6762	182647	191	42516	39	232155	236016	2099864	2099864	0	scalar-walk
+clustered	65536	-	ordered	t_a=99	mask	count_b_gt	yes	678	6767	183971	194	14956	5238	211126	729688	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered	t_a=99	mask	sum_a	yes	678	6767	183971	194	14956	2130	208018	418888	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered	t_a=99	mask	top_by_key	yes	678	6767	183971	194	14956	65	205953	212388	2105344	2105344	0	scalar-walk
+clustered	65536	-	ordered_guid	t_a=99	positions	count_b_gt	yes	678	6775	184461	184	40901	494	232815	281721	2099864	2099864	0	scalar-loop
+clustered	65536	-	ordered_guid	t_a=99	positions	sum_a	yes	678	6775	184461	184	40901	287	232608	261021	2099864	2099864	0	scalar-loop
+clustered	65536	-	ordered_guid	t_a=99	positions	top_by_key	yes	678	6775	184461	184	40901	38	232359	236121	2099864	2099864	0	scalar-walk
+clustered	65536	-	ordered_guid	t_a=99	mask	count_b_gt	yes	678	6540	179521	188	14441	4973	205663	697990	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered_guid	t_a=99	mask	sum_a	yes	678	6540	179521	188	14441	2065	202755	407190	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered_guid	t_a=99	mask	top_by_key	yes	678	6540	179521	188	14441	60	200750	206690	2105344	2105344	0	scalar-walk
+clustered	65536	-	none	t_a=50	resident_n	count_b_gt	yes	32722	871194				30552	901746	3926394		125000	0	mask-risc
+clustered	65536	-	none	t_a=50	resident_n	sum_a	yes	32722	871194				38714	909908	4742594		125000	0	mask-risc
+clustered	65536	-	filter	t_a=50	positions	count_b_gt	yes	32722	758435	188196	185	356399	22632	1325847	3566415	2228040	2228040	0	scalar-loop
+clustered	65536	-	filter	t_a=50	positions	sum_a	yes	32722	758435	188196	185	356399	11978	1315193	2501015	2228040	2228040	0	scalar-loop
+clustered	65536	-	filter	t_a=50	positions	top_by_key	no	32722											
+clustered	65536	-	filter	t_a=50	mask	count_b_gt	yes	32722	768789	187301	195	14383	9821	980489	1952768	2105344	2105344	0	mask-risc
+clustered	65536	-	filter	t_a=50	mask	sum_a	yes	32722	768789	187301	195	14383	11762	982430	2146868	2105344	2105344	0	mask-risc
+clustered	65536	-	filter	t_a=50	mask	top_by_key	no	32722											
+clustered	65536	-	ordered	t_a=50	positions	count_b_gt	yes	32722	6736	179468	192	359557	22633	568586	2809253	2228040	2228040	0	scalar-loop
+clustered	65536	-	ordered	t_a=50	positions	sum_a	yes	32722	6736	179468	192	359557	11622	557575	1708153	2228040	2228040	0	scalar-loop
+clustered	65536	-	ordered	t_a=50	positions	top_by_key	yes	32722	6736	179468	192	359557	38	545991	549753	2228040	2228040	0	scalar-walk
+clustered	65536	-	ordered	t_a=50	mask	count_b_gt	yes	32722	6731	177876	195	14383	9834	209019	1182585	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered	t_a=50	mask	sum_a	yes	32722	6731	177876	195	14383	11766	210951	1375785	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered	t_a=50	mask	top_by_key	yes	32722	6731	177876	195	14383	44	199229	203585	2105344	2105344	0	scalar-walk
+clustered	65536	-	ordered_guid	t_a=50	positions	count_b_gt	yes	32722	6983	179530	192	358842	22634	568181	2808947	2228040	2228040	0	scalar-loop
+clustered	65536	-	ordered_guid	t_a=50	positions	sum_a	yes	32722	6983	179530	192	358842	12177	557724	1763247	2228040	2228040	0	scalar-loop
+clustered	65536	-	ordered_guid	t_a=50	positions	top_by_key	yes	32722	6983	179530	192	358842	39	545586	549447	2228040	2228040	0	scalar-walk
+clustered	65536	-	ordered_guid	t_a=50	mask	count_b_gt	yes	32722	6974	181483	201	14870	10294	213822	1232928	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered_guid	t_a=50	mask	sum_a	yes	32722	6974	181483	201	14870	12186	215714	1422128	2105344	2105344	0	mask-risc
+clustered	65536	-	ordered_guid	t_a=50	mask	top_by_key	yes	32722	6974	181483	201	14870	46	203574	208128	2105344	2105344	0	scalar-walk
+clustered	750000	control75	none	all	resident_n	count_b_gt	yes	750000	1469733				148163	1617896	16286033		125000	0	mask-risc
+clustered	750000	control75	none	all	resident_n	sum_a	yes	750000	1469733				146973	1616706	16167033		125000	0	mask-risc
+clustered	750000	control75	filter	all	all	count_b_gt	yes	750000	1255722	10357352	2350	0	171536	11786960	28769024	24000000	24000000	0	mask-risc
+clustered	750000	control75	filter	all	all	sum_a	yes	750000	1255722	10357352	2350	0	351520	11966944	46767424	24000000	24000000	0	mask-risc
+clustered	750000	control75	filter	all	all	top_by_key	no	750000											
+clustered	750000	control75	ordered	all	all	count_b_gt	yes	750000	204837	13935889	2044	0	89324	14232094	23075170	24000000	24000000	0	mask-risc
+clustered	750000	control75	ordered	all	all	sum_a	yes	750000	204837	13935889	2044	0	135020	14277790	27644770	24000000	24000000	0	mask-risc
+clustered	750000	control75	ordered	all	all	top_by_key	yes	750000	204837	13935889	2044	0	35	14142805	14146270	24000000	24000000	0	scalar-walk
+clustered	750000	control75	none	t_a=99	resident_n	count_b_gt	yes	7581	788019				121527	909546	12940719		125000	0	mask-risc
+clustered	750000	control75	none	t_a=99	resident_n	sum_a	yes	7581	788019				73673	861692	8155319		125000	0	mask-risc
+clustered	750000	control75	filter	t_a=99	positions	count_b_gt	yes	7581	1252187	7826732	2097	502069	5379	9588464	10120985	24030324	24030324	0	scalar-loop
+clustered	750000	control75	filter	t_a=99	positions	sum_a	yes	7581	1252187	7826732	2097	502069	4248	9587333	10007885	24030324	24030324	0	scalar-loop
+clustered	750000	control75	filter	t_a=99	positions	top_by_key	no	7581											
+clustered	750000	control75	filter	t_a=99	mask	count_b_gt	yes	7581	1255770	7848157	2106	178242	113853	9398128	20669575	24093752	24093752	0	mask-risc
+clustered	750000	control75	filter	t_a=99	mask	sum_a	yes	7581	1255770	7848157	2106	178242	55543	9339818	14838575	24093752	24093752	0	mask-risc
+clustered	750000	control75	filter	t_a=99	mask	top_by_key	no	7581											
+clustered	750000	control75	ordered	t_a=99	positions	count_b_gt	yes	7581	219752	7750648	2039	497018	5189	8474646	8988357	24030324	24030324	0	scalar-loop
+clustered	750000	control75	ordered	t_a=99	positions	sum_a	yes	7581	219752	7750648	2039	497018	4108	8473565	8880257	24030324	24030324	0	scalar-loop
+clustered	750000	control75	ordered	t_a=99	positions	top_by_key	yes	7581	219752	7750648	2039	497018	39	8469496	8473357	24030324	24030324	0	scalar-walk
+clustered	750000	control75	ordered	t_a=99	mask	count_b_gt	yes	7581	219997	7542754	2098	185220	114946	8065015	19444669	24093752	24093752	0	mask-risc
+clustered	750000	control75	ordered	t_a=99	mask	sum_a	yes	7581	219997	7542754	2098	185220	54873	8004942	13437369	24093752	24093752	0	mask-risc
+clustered	750000	control75	ordered	t_a=99	mask	top_by_key	yes	7581	219997	7542754	2098	185220	61	7950130	7956169	24093752	24093752	0	scalar-walk
+clustered	750000	control75	none	t_a=50	resident_n	count_b_gt	yes	374393	4298426				155535	4453961	19851926		125000	0	mask-risc
+clustered	750000	control75	none	t_a=50	resident_n	sum_a	yes	374393	4298426				146798	4445224	18978226		125000	0	mask-risc
+clustered	750000	control75	filter	t_a=50	positions	count_b_gt	yes	374393	1258466	8108683	2097	4313072	280849	13963167	41767218	25497572	25497572	0	scalar-loop
+clustered	750000	control75	filter	t_a=50	positions	sum_a	yes	374393	1258466	8108683	2097	4313072	169169	13851487	30599218	25497572	25497572	0	scalar-loop
+clustered	750000	control75	filter	t_a=50	positions	top_by_key	no	374393											
+clustered	750000	control75	filter	t_a=50	mask	count_b_gt	yes	374393	1361944	8746595	2100	186601	131539	10428779	23451140	24093752	24093752	0	mask-risc
+clustered	750000	control75	filter	t_a=50	mask	sum_a	yes	374393	1361944	8746595	2100	186601	138964	10436204	24193640	24093752	24093752	0	mask-risc
+clustered	750000	control75	filter	t_a=50	mask	top_by_key	no	374393											
+clustered	750000	control75	ordered	t_a=50	positions	count_b_gt	yes	374393	250572	8289886	2040	4382950	280852	13206300	41010648	25497572	25497572	0	scalar-loop
+clustered	750000	control75	ordered	t_a=50	positions	sum_a	yes	374393	250572	8289886	2040	4382950	166862	13092310	29611648	25497572	25497572	0	scalar-loop
+clustered	750000	control75	ordered	t_a=50	positions	top_by_key	yes	374393	250572	8289886	2040	4382950	39	12925487	12929348	25497572	25497572	0	scalar-walk
+clustered	750000	control75	ordered	t_a=50	mask	count_b_gt	yes	374393	243027	8602770	2036	180072	137385	9165290	22766405	24093752	24093752	0	mask-risc
+clustered	750000	control75	ordered	t_a=50	mask	sum_a	yes	374393	243027	8602770	2036	180072	135761	9163666	22604005	24093752	24093752	0	mask-risc
+clustered	750000	control75	ordered	t_a=50	mask	top_by_key	yes	374393	243027	8602770	2036	180072	46	9027951	9032505	24093752	24093752	0	scalar-walk
+random	256	-	none	all	resident_n	count_b_gt	yes	256	572566				28846	601412	3457166		125000	0	mask-risc
+random	256	-	none	all	resident_n	sum_a	yes	256	572566				29183	601749	3490866		125000	0	mask-risc
+random	256	-	filter	all	all	count_b_gt	yes	256	825283	4480	158	0	191	830112	849021	8192	8192	0	mask-risc
+random	256	-	filter	all	all	sum_a	yes	256	825283	4480	158	0	194	830115	849321	8192	8192	0	mask-risc
+random	256	-	filter	all	all	top_by_key	no	256											
+random	256	-	ordered	all	all	count_b_gt	yes	256	195	1554	173	0	222	2144	24122	8192	8192	0	mask-risc
+random	256	-	ordered	all	all	sum_a	yes	256	195	1554	173	0	161	2083	18022	8192	8192	0	mask-risc
+random	256	-	ordered	all	all	top_by_key	yes	256	195	1554	173	0	47	1969	6622	8192	8192	0	scalar-walk
+random	256	-	none	t_a=99	resident_n	count_b_gt	yes	4	713395				34125	747520	4125895		125000	0	mask-risc
+random	256	-	none	t_a=99	resident_n	sum_a	yes	4	713395				31847	745242	3898095		125000	0	mask-risc
+random	256	-	filter	t_a=99	positions	count_b_gt	yes	4	900662	4261	104	171	33	905231	908498	8208	8208	0	scalar-loop
+random	256	-	filter	t_a=99	positions	sum_a	yes	4	900662	4261	104	171	32	905230	908398	8208	8208	0	scalar-loop
+random	256	-	filter	t_a=99	positions	top_by_key	no	4											
+random	256	-	filter	t_a=99	mask	count_b_gt	yes	4	705768	4149	104	102	136	710259	723723	8224	8224	0	mask-risc
+random	256	-	filter	t_a=99	mask	sum_a	yes	4	705768	4149	104	102	83	710206	718423	8224	8224	0	mask-risc
+random	256	-	filter	t_a=99	mask	top_by_key	no	4											
+random	256	-	ordered	t_a=99	positions	count_b_gt	yes	4	151	1003	103	166	34	1457	4823	8208	8208	0	scalar-loop
+random	256	-	ordered	t_a=99	positions	sum_a	yes	4	151	1003	103	166	32	1455	4623	8208	8208	0	scalar-loop
+random	256	-	ordered	t_a=99	positions	top_by_key	yes	4	151	1003	103	166	34	1457	4823	8208	8208	0	scalar-walk
+random	256	-	ordered	t_a=99	mask	count_b_gt	yes	4	151	1008	103	102	124	1488	13764	8224	8224	0	mask-risc
+random	256	-	ordered	t_a=99	mask	sum_a	yes	4	151	1008	103	102	82	1446	9564	8224	8224	0	mask-risc
+random	256	-	ordered	t_a=99	mask	top_by_key	yes	4	151	1008	103	102	43	1407	5664	8224	8224	0	scalar-walk
+random	256	-	none	t_a=50	resident_n	count_b_gt	yes	128	539149				24070	563219	2946149		125000	0	mask-risc
+random	256	-	none	t_a=50	resident_n	sum_a	yes	128	539149				28926	568075	3431749		125000	0	mask-risc
+random	256	-	filter	t_a=50	positions	count_b_gt	yes	128	695903	7487	107	515	119	704131	715912	8704	8704	0	scalar-loop
+random	256	-	filter	t_a=50	positions	sum_a	yes	128	695903	7487	107	515	76	704088	711612	8704	8704	0	scalar-loop
+random	256	-	filter	t_a=50	positions	top_by_key	no	128											
+random	256	-	filter	t_a=50	mask	count_b_gt	yes	128	960935	8652	106	106	146	969945	984399	8224	8224	0	mask-risc
+random	256	-	filter	t_a=50	mask	sum_a	yes	128	960935	8652	106	106	127	969926	982499	8224	8224	0	mask-risc
+random	256	-	filter	t_a=50	mask	top_by_key	no	128											
+random	256	-	ordered	t_a=50	positions	count_b_gt	yes	128	156	1059	107	541	119	1982	13763	8704	8704	0	scalar-loop
+random	256	-	ordered	t_a=50	positions	sum_a	yes	128	156	1059	107	541	80	1943	9863	8704	8704	0	scalar-loop
+random	256	-	ordered	t_a=50	positions	top_by_key	yes	128	156	1059	107	541	39	1902	5763	8704	8704	0	scalar-walk
+random	256	-	ordered	t_a=50	mask	count_b_gt	yes	128	155	1059	107	105	149	1575	16326	8224	8224	0	mask-risc
+random	256	-	ordered	t_a=50	mask	sum_a	yes	128	155	1059	107	105	128	1554	14226	8224	8224	0	mask-risc
+random	256	-	ordered	t_a=50	mask	top_by_key	yes	128	155	1059	107	105	45	1471	5926	8224	8224	0	scalar-walk
+random	65536	-	none	all	resident_n	count_b_gt	yes	65536	1409833				190372	1600205	20447033		125000	0	mask-risc
+random	65536	-	none	all	resident_n	sum_a	yes	65536	1409833				220691	1630524	23478933		125000	0	mask-risc
+random	65536	-	filter	all	all	count_b_gt	yes	65536	1569545	698784	188	0	4891	2273408	2757617	2097152	2097152	0	mask-risc
+random	65536	-	filter	all	all	sum_a	yes	65536	1569545	698784	188	0	11784	2280301	3446917	2097152	2097152	0	mask-risc
+random	65536	-	filter	all	all	top_by_key	no	65536											
+random	65536	-	ordered	all	all	count_b_gt	yes	65536	6602	650137	195	0	4905	661839	1147434	2097152	2097152	0	mask-risc
+random	65536	-	ordered	all	all	sum_a	yes	65536	6602	650137	195	0	11769	668703	1833834	2097152	2097152	0	mask-risc
+random	65536	-	ordered	all	all	top_by_key	yes	65536	6602	650137	195	0	34	656968	660334	2097152	2097152	0	scalar-walk
+random	65536	-	ordered_guid	all	all	count_b_gt	yes	65536	7133	897656	329	0	8741	913859	1779218	2097152	2097152	0	mask-risc
+random	65536	-	ordered_guid	all	all	sum_a	yes	65536	7133	897656	329	0	15413	920531	2446418	2097152	2097152	0	mask-risc
+random	65536	-	ordered_guid	all	all	top_by_key	yes	65536	7133	897656	329	0	51	905169	910218	2097152	2097152	0	scalar-walk
+random	65536	-	none	t_a=99	resident_n	count_b_gt	yes	639	1705918				32274	1738192	4933318		125000	0	mask-risc
+random	65536	-	none	t_a=99	resident_n	sum_a	yes	639	1705918				28330	1734248	4538918		125000	0	mask-risc
+random	65536	-	filter	t_a=99	positions	count_b_gt	yes	639	1554182	708156	208	41754	488	2304788	2353100	2099708	2099708	0	scalar-loop
+random	65536	-	filter	t_a=99	positions	sum_a	yes	639	1554182	708156	208	41754	288	2304588	2333100	2099708	2099708	0	scalar-loop
+random	65536	-	filter	t_a=99	positions	top_by_key	no	639											
+random	65536	-	filter	t_a=99	mask	count_b_gt	yes	639	1630915	705055	203	14940	5167	2356280	2867813	2105344	2105344	0	mask-risc
+random	65536	-	filter	t_a=99	mask	sum_a	yes	639	1630915	705055	203	14940	2115	2353228	2562613	2105344	2105344	0	mask-risc
+random	65536	-	filter	t_a=99	mask	top_by_key	no	639											
+random	65536	-	ordered	t_a=99	positions	count_b_gt	yes	639	6913	649681	204	42724	485	700007	748022	2099708	2099708	0	scalar-loop
+random	65536	-	ordered	t_a=99	positions	sum_a	yes	639	6913	649681	204	42724	285	699807	728022	2099708	2099708	0	scalar-loop
+random	65536	-	ordered	t_a=99	positions	top_by_key	yes	639	6913	649681	204	42724	40	699562	703522	2099708	2099708	0	scalar-walk
+random	65536	-	ordered	t_a=99	mask	count_b_gt	yes	639	6916	632655	264	14933	4884	659652	1143168	2105344	2105344	0	mask-risc
+random	65536	-	ordered	t_a=99	mask	sum_a	yes	639	6916	632655	264	14933	2137	656905	868468	2105344	2105344	0	mask-risc
+random	65536	-	ordered	t_a=99	mask	top_by_key	yes	639	6916	632655	264	14933	67	654835	661468	2105344	2105344	0	scalar-walk
+random	65536	-	ordered_guid	t_a=99	positions	count_b_gt	yes	639	6983	640115	206	42658	485	690447	738462	2099708	2099708	0	scalar-loop
+random	65536	-	ordered_guid	t_a=99	positions	sum_a	yes	639	6983	640115	206	42658	278	690240	717762	2099708	2099708	0	scalar-loop
+random	65536	-	ordered_guid	t_a=99	positions	top_by_key	yes	639	6983	640115	206	42658	40	690002	693962	2099708	2099708	0	scalar-walk
+random	65536	-	ordered_guid	t_a=99	mask	count_b_gt	yes	639	6981	632502	202	14953	4985	659623	1153138	2105344	2105344	0	mask-risc
+random	65536	-	ordered_guid	t_a=99	mask	sum_a	yes	639	6981	632502	202	14953	2141	656779	868738	2105344	2105344	0	mask-risc
+random	65536	-	ordered_guid	t_a=99	mask	top_by_key	yes	639	6981	632502	202	14953	66	654704	661238	2105344	2105344	0	scalar-walk
+random	65536	-	none	t_a=50	resident_n	count_b_gt	yes	32741	1738462				189366	1927828	20675062		125000	0	mask-risc
+random	65536	-	none	t_a=50	resident_n	sum_a	yes	32741	1738462				161863	1900325	17924762		125000	0	mask-risc
+random	65536	-	filter	t_a=50	positions	count_b_gt	yes	32741	1644107	714741	199	363423	22646	2745116	4987070	2228116	2228116	0	scalar-loop
+random	65536	-	filter	t_a=50	positions	sum_a	yes	32741	1644107	714741	199	363423	11896	2734366	3912070	2228116	2228116	0	scalar-loop
+random	65536	-	filter	t_a=50	positions	top_by_key	no	32741											
+random	65536	-	filter	t_a=50	mask	count_b_gt	yes	32741	1645350	760317	352	20870	16362	2443251	4063089	2105344	2105344	0	mask-risc
+random	65536	-	filter	t_a=50	mask	sum_a	yes	32741	1645350	760317	352	20870	14705	2441594	3897389	2105344	2105344	0	mask-risc
+random	65536	-	filter	t_a=50	mask	top_by_key	no	32741											
+random	65536	-	ordered	t_a=50	positions	count_b_gt	yes	32741	7378	859775	343	467590	41741	1376827	5509186	2228116	2228116	0	scalar-loop
+random	65536	-	ordered	t_a=50	positions	sum_a	yes	32741	7378	859775	343	467590	20869	1355955	3421986	2228116	2228116	0	scalar-loop
+random	65536	-	ordered	t_a=50	positions	top_by_key	yes	32741	7378	859775	343	467590	50	1335136	1340086	2228116	2228116	0	scalar-walk
+random	65536	-	ordered	t_a=50	mask	count_b_gt	yes	32741	7905	877616	362	21236	18636	925755	2770719	2105344	2105344	0	mask-risc
+random	65536	-	ordered	t_a=50	mask	sum_a	yes	32741	7905	877616	362	21236	15350	922469	2442119	2105344	2105344	0	mask-risc
+random	65536	-	ordered	t_a=50	mask	top_by_key	yes	32741	7905	877616	362	21236	69	907188	914019	2105344	2105344	0	scalar-walk
+random	65536	-	ordered_guid	t_a=50	positions	count_b_gt	yes	32741	7380	865115	201	356876	22658	1252230	3495372	2228116	2228116	0	scalar-loop
+random	65536	-	ordered_guid	t_a=50	positions	sum_a	yes	32741	7380	865115	201	356876	11991	1241563	2428672	2228116	2228116	0	scalar-loop
+random	65536	-	ordered_guid	t_a=50	positions	top_by_key	yes	32741	7380	865115	201	356876	39	1229611	1233472	2228116	2228116	0	scalar-walk
+random	65536	-	ordered_guid	t_a=50	mask	count_b_gt	yes	32741	7409	641184	209	14869	10307	673978	1694371	2105344	2105344	0	mask-risc
+random	65536	-	ordered_guid	t_a=50	mask	sum_a	yes	32741	7409	641184	209	14869	12185	675856	1882171	2105344	2105344	0	mask-risc
+random	65536	-	ordered_guid	t_a=50	mask	top_by_key	yes	32741	7409	641184	209	14869	46	663717	668271	2105344	2105344	0	scalar-walk
+random	750000	control75	none	all	resident_n	count_b_gt	yes	750000	3289258				185355	3474613	21824758		125000	0	mask-risc
+random	750000	control75	none	all	resident_n	sum_a	yes	750000	3289258				191636	3480894	22452858		125000	0	mask-risc
+random	750000	control75	filter	all	all	count_b_gt	yes	750000	4646337	3740392	2104	0	100367	8489200	18425533	24000000	24000000	0	mask-risc
+random	750000	control75	filter	all	all	sum_a	yes	750000	4646337	3740392	2104	0	141023	8529856	22491133	24000000	24000000	0	mask-risc
+random	750000	control75	filter	all	all	top_by_key	no	750000											
+random	750000	control75	ordered	all	all	count_b_gt	yes	750000	219582	7494851	2106	0	105252	7821791	18241739	24000000	24000000	0	mask-risc
+random	750000	control75	ordered	all	all	sum_a	yes	750000	219582	7494851	2106	0	139773	7856312	21693839	24000000	24000000	0	mask-risc
+random	750000	control75	ordered	all	all	top_by_key	yes	750000	219582	7494851	2106	0	35	7716574	7720039	24000000	24000000	0	scalar-walk
+random	750000	control75	none	t_a=99	resident_n	count_b_gt	yes	7631	4277931				148438	4426369	19121731		125000	0	mask-risc
+random	750000	control75	none	t_a=99	resident_n	sum_a	yes	7631	4277931				89424	4367355	13220331		125000	0	mask-risc
+random	750000	control75	filter	t_a=99	positions	count_b_gt	yes	7631	4565901	2879502	2094	520714	5494	7973705	8517611	24030524	24030524	0	scalar-loop
+random	750000	control75	filter	t_a=99	positions	sum_a	yes	7631	4565901	2879502	2094	520714	4383	7972594	8406511	24030524	24030524	0	scalar-loop
+random	750000	control75	filter	t_a=99	positions	top_by_key	no	7631											
+random	750000	control75	filter	t_a=99	mask	count_b_gt	yes	7631	4440609	2673449	2123	188790	123811	7428782	19686071	24093752	24093752	0	mask-risc
+random	750000	control75	filter	t_a=99	mask	sum_a	yes	7631	4440609	2673449	2123	188790	56022	7360993	12907171	24093752	24093752	0	mask-risc
+random	750000	control75	filter	t_a=99	mask	top_by_key	no	7631											
+random	750000	control75	ordered	t_a=99	positions	count_b_gt	yes	7631	229735	9152209	2097	506987	5217	9896245	10412728	24030524	24030524	0	scalar-loop
+random	750000	control75	ordered	t_a=99	positions	sum_a	yes	7631	229735	9152209	2097	506987	4129	9895157	10303928	24030524	24030524	0	scalar-loop
+random	750000	control75	ordered	t_a=99	positions	top_by_key	yes	7631	229735	9152209	2097	506987	38	9891066	9894828	24030524	24030524	0	scalar-walk
+random	750000	control75	ordered	t_a=99	mask	count_b_gt	yes	7631	226597	6951993	2006	179200	113910	7473706	18750796	24093752	24093752	0	mask-risc
+random	750000	control75	ordered	t_a=99	mask	sum_a	yes	7631	226597	6951993	2006	179200	66327	7426123	13992496	24093752	24093752	0	mask-risc
+random	750000	control75	ordered	t_a=99	mask	top_by_key	yes	7631	226597	6951993	2006	179200	65	7359861	7366296	24093752	24093752	0	scalar-walk
+random	750000	control75	none	t_a=50	resident_n	count_b_gt	yes	375053	6858026				181548	7039574	25012826		125000	0	mask-risc
+random	750000	control75	none	t_a=50	resident_n	sum_a	yes	375053	6858026				183941	7041967	25252126		125000	0	mask-risc
+random	750000	control75	filter	t_a=50	positions	count_b_gt	yes	375053	4243144	2578959	2100	4249571	266277	11340051	37701474	25500212	25500212	0	scalar-loop
+random	750000	control75	filter	t_a=50	positions	sum_a	yes	375053	4243144	2578959	2100	4249571	161005	11234779	27174274	25500212	25500212	0	scalar-loop
+random	750000	control75	filter	t_a=50	positions	top_by_key	no	375053											
+random	750000	control75	filter	t_a=50	mask	count_b_gt	yes	375053	4238691	2575370	2100	193791	141818	7151770	21191752	24093752	24093752	0	mask-risc
+random	750000	control75	filter	t_a=50	mask	sum_a	yes	375053	4238691	2575370	2100	193791	140588	7150540	21068752	24093752	24093752	0	mask-risc
+random	750000	control75	filter	t_a=50	mask	top_by_key	no	375053											
+random	750000	control75	ordered	t_a=50	positions	count_b_gt	yes	375053	233497	6961304	2108	4258504	268756	11724169	38331013	25500212	25500212	0	scalar-loop
+random	750000	control75	ordered	t_a=50	positions	sum_a	yes	375053	233497	6961304	2108	4258504	165592	11621005	28014613	25500212	25500212	0	scalar-loop
+random	750000	control75	ordered	t_a=50	positions	top_by_key	yes	375053	233497	6961304	2108	4258504	39	11455452	11459313	25500212	25500212	0	scalar-walk
+random	750000	control75	ordered	t_a=50	mask	count_b_gt	yes	375053	219995	7219677	2076	182958	130088	7754794	20633506	24093752	24093752	0	mask-risc
+random	750000	control75	ordered	t_a=50	mask	sum_a	yes	375053	219995	7219677	2076	182958	138812	7763518	21505906	24093752	24093752	0	mask-risc
+random	750000	control75	ordered	t_a=50	mask	top_by_key	yes	375053	219995	7219677	2076	182958	46	7624752	7629306	24093752	24093752	0	scalar-walk

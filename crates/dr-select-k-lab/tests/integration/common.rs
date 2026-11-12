@@ -4,7 +4,7 @@ use dr_select_k_lab::counters::Counters;
 use dr_select_k_lab::fixture::{self, Pattern};
 use dr_select_k_lab::oracle::Query;
 use dr_select_k_lab::source::{KeyRange, Source};
-use dr_select_k_lab::{Bound, Residual};
+use dr_select_k_lab::{Bound, Order, Residual, Selection};
 
 /// Rows in every test source (small enough for a debug build).
 pub const N: usize = 20_000;
@@ -13,6 +13,13 @@ pub const DUP: u32 = 4;
 pub const SEED: u64 = 0x5EED_1234;
 
 pub const PATTERNS: [Pattern; 2] = [Pattern::Clustered, Pattern::Random];
+
+/// The two declared key orders an index can witness.
+pub const ORDERS: [Order; 2] = [Order::KeyThenRow, Order::KeyThenGuid];
+
+/// Every order a binding can carry: the filter's source order, then the two
+/// declared key orders.
+pub const BINDINGS: [Order; 3] = [Order::Source, Order::KeyThenRow, Order::KeyThenGuid];
 
 pub fn source(pattern: Pattern) -> Source {
     fixture::source(N, pattern, DUP, SEED)
@@ -32,13 +39,18 @@ pub fn range_for_k(k: usize) -> KeyRange {
     }
 }
 
-/// Produce and bind one selection.
-pub fn bind(src: &Source, range: KeyRange, ordered: bool, counters: &Counters) -> Bound {
-    let sel = if ordered {
-        src.select_ordered(range, counters)
-    } else {
-        src.select_filter(range, counters)
-    };
+/// Produce one selection: the filter for `Order::Source`, the matching index
+/// order otherwise.
+pub fn select(src: &Source, range: KeyRange, order: Order, counters: &Counters) -> Selection {
+    match order {
+        Order::Source => src.select_filter(range, counters),
+        Order::KeyThenRow | Order::KeyThenGuid => src.select_ordered(range, order, counters),
+    }
+}
+
+/// Produce and bind one selection. `Order::Source` is the filter binding.
+pub fn bind(src: &Source, range: KeyRange, order: Order, counters: &Counters) -> Bound {
+    let sel = select(src, range, order, counters);
     Bound::bind(src, sel, counters).unwrap()
 }
 

@@ -18,7 +18,8 @@ use std::time::Instant;
 use dr_select_k_lab::fixture::{self, Pattern};
 use dr_select_k_lab::oracle::{self, Query};
 use dr_select_k_lab::{
-    admissible, ops, Bound, Counters, KeyRange, Op, PreparedFolds, Residual, Selection, Source,
+    admissible, ops, Bound, Counters, KeyRange, Op, Order, PreparedFolds, Residual, Selection,
+    Source,
 };
 
 const N: usize = 1_000_000;
@@ -27,17 +28,22 @@ const WARMUP: usize = 3;
 const RUNS: usize = 41;
 const KS: [usize; 3] = [256, 65_536, 750_000];
 const CONTROL_K: usize = 750_000;
+/// The one K at which the `KeyThenGuid` producer is also run.
+const GUID_K: usize = 65_536;
 const COUNT_T: i32 = 500;
 const TOP_LIMIT: usize = 10;
 
 const HEADER: &str = "pattern\tk\tcontrol\tproducer\tresidual\tview\top\tadmissible\tm\t\
 produce_ns\tbind_ns\tprepare_ns\tconvert_ns\tfold_ns\ttotal_r1_ns\ttotal_r100_ns\t\
-bytes_copied\tretained_bytes\tstorage_after_bind";
+bytes_copied\tretained_bytes\tstorage_after_bind\tfold_path";
 
 #[derive(Clone, Copy)]
 enum Producer {
     Filter,
+    /// The index order with ties by source row (`Order::KeyThenRow`).
     Ordered,
+    /// The index order with ties by guid (`Order::KeyThenGuid`).
+    OrderedGuid,
 }
 
 impl Producer {
@@ -45,13 +51,32 @@ impl Producer {
         match self {
             Producer::Filter => "filter",
             Producer::Ordered => "ordered",
+            Producer::OrderedGuid => "ordered_guid",
+        }
+    }
+
+    /// The order the binding made from this producer witnesses.
+    fn order(self) -> Order {
+        match self {
+            Producer::Filter => Order::Source,
+            Producer::Ordered => Order::KeyThenRow,
+            Producer::OrderedGuid => Order::KeyThenGuid,
+        }
+    }
+
+    /// The order the `top_by_key` request names. A filter binding is asked
+    /// for `KeyThenRow` (the existing contract) and is refused.
+    fn want(self) -> Order {
+        match self {
+            Producer::Filter | Producer::Ordered => Order::KeyThenRow,
+            Producer::OrderedGuid => Order::KeyThenGuid,
         }
     }
 
     fn select(self, src: &Source, range: KeyRange, c: &Counters) -> Selection {
         match self {
             Producer::Filter => src.select_filter(range, c),
-            Producer::Ordered => src.select_ordered(range, c),
+            Producer::Ordered | Producer::OrderedGuid => src.select_ordered(range, self.order(), c),
         }
     }
 }
@@ -107,18 +132,32 @@ fn mismatch(ctx: &str, what: &str) -> ! {
     process::exit(1);
 }
 
-/// The oracle's three answers for one query.
+/// The oracle's answers for one query: count, sum, and the top-T under each
+/// declared key order.
 struct Expected {
     count: u64,
     sum: i64,
-    top: Vec<u128>,
+    top_row: Vec<u128>,
+    top_guid: Vec<u128>,
+}
+
+impl Expected {
+    /// The oracle top-T for a requested key order.
+    fn top(&self, order: Order) -> &[u128] {
+        match order {
+            Order::KeyThenGuid => &self.top_guid,
+            Order::KeyThenRow => &self.top_row,
+            Order::Source => unreachable!("no report cell requests the source order"),
+        }
+    }
 }
 
 fn expected(src: &Source, q: Query) -> Expected {
     Expected {
         count: oracle::count_b_gt(src, q, COUNT_T),
         sum: oracle::sum_a(src, q),
-        top: oracle::top_by_key(src, q, TOP_LIMIT),
+        top_row: oracle::top_by_key(src, q, TOP_LIMIT, Order::KeyThenRow),
+        top_guid: oracle::top_by_key(src, q, TOP_LIMIT, Order::KeyThenGuid),
     }
 }
 
@@ -154,11 +193,36 @@ fn residual_label(t_a: Option<i32>) -> String {
     }
 }
 
-fn emit(out: &mut dyn Write, prefix: &[String], op: &str, adm: &str, m: &str, nums: [String; 10]) {
+fn emit(
+    out: &mut dyn Write,
+    prefix: &[String],
+    op: &str,
+    adm: &str,
+    m: &str,
+    nums: [String; 10],
+    fold_path: &str,
+) {
     let mut fields: Vec<&str> = prefix.iter().map(String::as_str).collect();
     fields.extend([op, adm, m]);
     fields.extend(nums.iter().map(String::as_str));
+    fields.push(fold_path);
     writeln!(out, "{}", fields.join("\t")).unwrap();
+}
+
+/// Which execution path a fold takes, read from `ops.rs`: `count_b_gt` and
+/// `sum_a` go through mask-RISC for `All` and `Mask` and through a plain loop
+/// for `Positions`; `top_by_key` is a scalar walk for every view.
+fn fold_path(op: Op, form: Form) -> &'static str {
+    match op {
+        Op::TopByKey { .. } => "scalar-walk",
+        Op::CountBGt { .. } | Op::SumA => {
+            if form == Form::Positions {
+                "scalar-loop"
+            } else {
+                "mask-risc"
+            }
+        }
+    }
 }
 
 fn empty_nums() -> [String; 10] {
@@ -238,7 +302,8 @@ impl Ctx<'_> {
             nums[6] = (produce_ns + 100 * fold_ns).to_string();
             nums[8] = retained.to_string();
             nums[9] = delta.to_string();
-            emit(out, &prefix, op, "yes", &m.to_string(), nums);
+            // The baseline folds through mask-RISC over all N rows.
+            emit(out, &prefix, op, "yes", &m.to_string(), nums, "mask-risc");
         }
     }
 
@@ -284,11 +349,18 @@ impl Ctx<'_> {
         let op_list = [
             ("count_b_gt", Op::CountBGt { t: COUNT_T }),
             ("sum_a", Op::SumA),
-            ("top_by_key", Op::TopByKey { limit: TOP_LIMIT }),
+            (
+                "top_by_key",
+                Op::TopByKey {
+                    limit: TOP_LIMIT,
+                    order: producer.want(),
+                },
+            ),
         ];
         for (name, op) in op_list {
             if admissible(op, &bound, view).is_err() {
-                emit(out, &prefix, name, "no", &m.to_string(), empty_nums());
+                // Untimed: nothing ran, so there is no fold path either.
+                emit(out, &prefix, name, "no", &m.to_string(), empty_nums(), "");
                 continue;
             }
             let ctx = format!("{} {name}", prefix.join(" "));
@@ -311,21 +383,21 @@ impl Ctx<'_> {
                     let ns = median(|| (), |()| prepared.sum_a(&bound, view, &seq));
                     (ns, seq.storage.get() - s0)
                 }
-                Op::TopByKey { limit } => {
+                Op::TopByKey { limit, order } => {
                     let mut top: Vec<u128> = Vec::new();
                     if prepared
-                        .top_by_key(&bound, view, limit, &mut top, &seq)
+                        .top_by_key(&bound, view, limit, order, &mut top, &seq)
                         .is_err()
                     {
                         mismatch(&ctx, "refused although admissible() accepted");
                     }
-                    if top != self.exp.top {
+                    if top.as_slice() != self.exp.top(order) {
                         mismatch(&ctx, "guid sequence differs from the oracle");
                     }
                     let s0 = seq.storage.get();
                     let ns = median(
                         || (),
-                        |()| prepared.top_by_key(&bound, view, limit, &mut top, &seq),
+                        |()| prepared.top_by_key(&bound, view, limit, order, &mut top, &seq),
                     );
                     (ns, seq.storage.get() - s0)
                 }
@@ -342,7 +414,15 @@ impl Ctx<'_> {
                 retained.to_string(),
                 delta.to_string(),
             ];
-            emit(out, &prefix, name, "yes", &m.to_string(), nums);
+            emit(
+                out,
+                &prefix,
+                name,
+                "yes",
+                &m.to_string(),
+                nums,
+                fold_path(op, form),
+            );
         }
     }
 }
@@ -385,7 +465,11 @@ produce/bind/convert/prepare are once per version, reported not gated; fold is t
                 } else {
                     &[Form::Positions, Form::Mask]
                 };
-                for producer in [Producer::Filter, Producer::Ordered] {
+                let mut producers = vec![Producer::Filter, Producer::Ordered];
+                if k == GUID_K {
+                    producers.push(Producer::OrderedGuid);
+                }
+                for producer in producers {
                     for &form in forms {
                         ctx.cell(&mut out, producer, form);
                     }

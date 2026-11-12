@@ -9,7 +9,7 @@ import subprocess, sys, os
 CRATE = "crates/dr-select-k-lab"
 CASES = [
     ("admissible ignores the order witness", "src/ops.rs",
-     "if bound.order() == Order::KeyThenGuid {", "if true {"),
+     "if order != Order::Source && bound.order() == order {", "if true {"),
     ("mask residual uses > instead of >=", "src/ops.rs",
      "bits |= u64::from(v >= t) << j;", "bits |= u64::from(v > t) << j;"),
     ("positions residual uses > instead of >=", "src/ops.rs",
@@ -19,8 +19,11 @@ CASES = [
     ("top-T over positions takes one row too many", "src/ops.rs",
      "View::Positions(p) => out.extend(p.iter().take(limit)", "View::Positions(p) => out.extend(p.iter().take(limit + 1)"),
     ("order index breaks ties by row, not guid", "src/source.rs",
-     "by_key.sort_unstable_by_key(|&r| (key[r as usize], guid[r as usize]));",
-     "by_key.sort_by_key(|&r| key[r as usize]);"),
+     "by_key_guid.sort_unstable_by_key(|&r| (key[r as usize], guid[r as usize]));",
+     "by_key_guid.sort_unstable_by_key(|&r| (key[r as usize], r));"),
+    ("the row-tie index breaks ties by guid", "src/source.rs",
+     "by_key_row.sort_unstable_by_key(|&r| (key[r as usize], r));",
+     "by_key_row.sort_unstable_by_key(|&r| (key[r as usize], guid[r as usize]));"),
     ("bind accepts a stale selection", "src/bind.rs",
      "if selection.version != source.version() {", "if false {"),
     ("staging is not counted as a storage access", "src/source.rs",
@@ -30,7 +33,14 @@ CASES = [
      "Counters::bump(&counters.operand_rows, out.len() as u64);",
      "Counters::bump(&counters.operand_rows, out.len() as u64); Counters::bump(&counters.storage, 1);"),
     ("ordered selection drops the last row of the range", "src/source.rs",
-     "rows: self.by_key[lo..hi.max(lo)].to_vec(),", "rows: self.by_key[lo..hi.max(lo).saturating_sub(1).max(lo)].to_vec(),"),
+     "let rows = index[lo..hi.max(lo)].to_vec();",
+     "let rows = index[lo..hi.max(lo).saturating_sub(1).max(lo)].to_vec();"),
+    ("filter does not count its position copy", "src/source.rs",
+     ".collect();\n        Counters::bump(&counters.bytes_copied, (rows.len() * 4) as u64);",
+     ".collect();"),
+    ("ordered does not count its position copy", "src/source.rs",
+     "let rows = index[lo..hi.max(lo)].to_vec();\n        Counters::bump(&counters.bytes_copied, (rows.len() * 4) as u64);",
+     "let rows = index[lo..hi.max(lo)].to_vec();"),
 ]
 env = dict(os.environ, CARGO_PROFILE_DEV_DEBUG="0", CARGO_PROFILE_TEST_DEBUG="0", CARGO_INCREMENTAL="0")
 env.pop("RUSTFLAGS", None)
