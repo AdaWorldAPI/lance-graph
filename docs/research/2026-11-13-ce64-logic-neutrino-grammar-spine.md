@@ -40,7 +40,7 @@ mindmap
       ClassView declared reading
       Narsese and NAL judgments
       CE64 inference instruction
-      R2IL and Fsharp bindings
+      R2IL and F### bindings
     H5 Learned sparse features
       spaCy dependency arcs
       Datafrog fixpoint
@@ -96,7 +96,7 @@ flowchart TD
 RuleCandidate = (source_site, recipe_family, selector_u8, operand_sorts)
 ON            = (observed_syntax_or_event, trigger_contract, source_revision)
 WHEN          = (typed_guard, scope, population, frame, resource, evidence_policy)
-DO            = (admitted_Fsharp_algebra | CE64_instruction | authorized_action_body)
+DO            = (admitted_F###_algebra | CE64_instruction | authorized_action_body)
 Observation   = (answer_or_new_state, witness, oracle_result, typed_refusal)
 ~~~
 
