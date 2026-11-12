@@ -102,6 +102,8 @@ pub mod driver;
 pub mod edge_v3_compare;
 pub mod engine_bridge;
 pub mod mailbox_soa;
+#[cfg(doctest)]
+mod ownership_laws;
 pub mod sigma_rosetta;
 
 // ──────────────────────────────────────────────────────────────────────

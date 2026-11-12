@@ -3,15 +3,15 @@
 crate: lance-graph-supervisor
 path: crates/lance-graph-supervisor
 workspace: member
-digest: e8fbf5b36f5eea90
+digest: 80a9ee7418964943
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
 
 ## Depends on
 
-- dep cognitive-shader-driver dev — crates/lance-graph-supervisor/Cargo.toml:60 CONFIRMED
-- dep jc dev — crates/lance-graph-supervisor/Cargo.toml:64 CONFIRMED
+- dep cognitive-shader-driver dev — crates/lance-graph-supervisor/Cargo.toml:61 CONFIRMED
+- dep jc dev — crates/lance-graph-supervisor/Cargo.toml:65 CONFIRMED
 - dep lance-graph-callcenter normal — crates/lance-graph-supervisor/Cargo.toml:13 CONFIRMED
 - dep lance-graph-contract normal — crates/lance-graph-supervisor/Cargo.toml:14 CONFIRMED
 - dep lance-graph-planner normal optional — crates/lance-graph-supervisor/Cargo.toml:17 CONFIRMED
