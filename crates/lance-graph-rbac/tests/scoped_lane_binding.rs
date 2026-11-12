@@ -595,10 +595,11 @@ mod sealed {
     pub enum Sealed {
         /// The scope was issued by another issuer.
         ForeignIssuer,
-        /// The scope was issued for another class.
+        /// The scope was issued for another class than the one the bound
+        /// route resolves to.
         OtherClass {
             scope: u32,
-            asked: u32,
+            routed: Option<u32>,
         },
         Lane(LaneRefusal),
     }
@@ -646,23 +647,29 @@ mod sealed {
             })
         }
 
-        /// Bind `requested ∩ visible` of `class` under the scope's witness.
-        /// The lane source serves `serves`; a mismatch is dt64's refusal.
+        /// Bind `requested ∩ visible` under the scope's witness, through the
+        /// world's route. The class is the one that route resolves to, never
+        /// a value the caller supplies, so a scope can only bind its own
+        /// class. The lane source serves `serves`; a mismatch is dt64's
+        /// refusal.
         pub fn bind(
             &self,
             w: &World,
             scope: &SealedScope,
-            class: u32,
             requested: &WideFieldMask,
             serves: Scope,
         ) -> Result<LaneBinding, Sealed> {
             if Weak::as_ptr(&scope.issuer) != Arc::as_ptr(&self.identity) {
                 return Err(Sealed::ForeignIssuer);
             }
-            if scope.class != class {
+            let routed = w
+                .store
+                .routed_at(w.route.version, w.route.position)
+                .map_err(|r| Sealed::Lane(LaneRefusal::Bind(r)))?;
+            if routed != Some(scope.class) {
                 return Err(Sealed::OtherClass {
                     scope: scope.class,
-                    asked: class,
+                    routed,
                 });
             }
             let fields = requested.intersect(&scope.visible);
@@ -686,7 +693,7 @@ fn a_sealed_scope_binds_only_its_own_visible_fields_whatever_is_requested() {
 
     // Bob asks for alice's fields; the scope binds only his.
     let b = issuer
-        .bind(&w, &bob, CLASS, &alices.union(&requested()), bob.witness())
+        .bind(&w, &bob, &alices.union(&requested()), bob.witness())
         .expect("bob binds");
     assert_eq!(b.fields(), &fields_for(&decide("bob")));
     assert!(!b.fields().has(0));
@@ -702,37 +709,46 @@ fn a_sealed_scope_from_another_issuer_is_refused() {
         .expect("allow");
     // Anti-vacuity: the issuer that minted it accepts it.
     assert!(theirs
-        .bind(&w, &alice, CLASS, &requested(), alice.witness())
+        .bind(&w, &alice, &requested(), alice.witness())
         .is_ok());
     assert_eq!(
-        mine.bind(&w, &alice, CLASS, &requested(), alice.witness())
+        mine.bind(&w, &alice, &requested(), alice.witness())
             .unwrap_err(),
         Sealed::ForeignIssuer
     );
     // Mine issues its own scope for the same decision; it binds there.
     let own = mine.issue("alice", CLASS, &decide("alice")).expect("allow");
-    assert!(mine
-        .bind(&w, &own, CLASS, &requested(), own.witness())
-        .is_ok());
+    assert!(mine.bind(&w, &own, &requested(), own.witness()).is_ok());
 }
 
+/// The class comes from the route being bound, not from the caller: a scope
+/// issued for another class cannot bind this route's class, and there is no
+/// argument through which a caller could claim the scope's class instead.
 #[test]
-fn a_sealed_scope_for_another_class_is_refused() {
+fn a_sealed_scope_for_another_class_is_refused_by_the_routed_class() {
     let w = world();
     let mut issuer = ScopeIssuer::new();
     let other = CLASS + 1;
+    assert_eq!(
+        w.store.routed_at(w.route.version, w.route.position),
+        Ok(Some(CLASS)),
+        "the world's route resolves to CLASS"
+    );
     let s = issuer
         .issue("alice", other, &decide("alice"))
         .expect("allow");
     assert_eq!(
-        issuer
-            .bind(&w, &s, CLASS, &requested(), s.witness())
-            .unwrap_err(),
+        issuer.bind(&w, &s, &requested(), s.witness()).unwrap_err(),
         Sealed::OtherClass {
             scope: other,
-            asked: CLASS
+            routed: Some(CLASS)
         }
     );
+    // Anti-vacuity: the same decision issued for CLASS binds the same route.
+    let own = issuer
+        .issue("alice", CLASS, &decide("alice"))
+        .expect("allow");
+    assert!(issuer.bind(&w, &own, &requested(), own.witness()).is_ok());
 }
 
 #[test]
