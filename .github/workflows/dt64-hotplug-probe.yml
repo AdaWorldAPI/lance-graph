@@ -45,8 +45,19 @@ jobs:
           persist-credentials: false
       - name: Setup rust toolchain (pinned by rust-toolchain.toml)
         run: rustup show
+      # .cargo/config.toml builds with target-cpu=native and cargo fingerprints
+      # the literal flag, so spell it out as this runner's feature list and key
+      # the cache on it: a cache built on another CPU is never reused here.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
       - uses: Swatinem/rust-cache@v2
         with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
           workspaces: crates/dt64-hotplug-probe
       - name: fmt
         run: cargo fmt --manifest-path crates/dt64-hotplug-probe/Cargo.toml --check
