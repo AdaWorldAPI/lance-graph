@@ -9,7 +9,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Impls mentioning it
 
-- impl BindStore — crates/lance-graph-dt64/src/lane.rs:167 POSSIBLE
+- impl BindStore — crates/lance-graph-dt64/src/lane.rs:178 POSSIBLE
 - impl Clone for BindStore — crates/lance-graph-dt64/src/lib.rs:782 POSSIBLE
 - impl BindStore — crates/lance-graph-dt64/src/lib.rs:793 POSSIBLE
 
@@ -18,8 +18,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
@@ -32,7 +34,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (99 total)
+## Textual occurrences (108 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -46,6 +48,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:72 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:163 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:178 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:221 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:162 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:163 POSSIBLE
@@ -54,6 +60,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:135 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:177 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:17 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:25 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:60 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:143 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
@@ -74,11 +84,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:23 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:72 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:89 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:167 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:229 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:309 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:354 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:381 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:178 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:243 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:321 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:324 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:374 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:401 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:20 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:35 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:37 POSSIBLE

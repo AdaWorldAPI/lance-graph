@@ -16,12 +16,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding — crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
 - use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 
-## Textual occurrences (56 total)
+## Textual occurrences (58 total)
 
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
@@ -39,6 +40,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:100 POSSIBLE
 - crates/dt64-admission-probe/src/lib.rs:106 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
+- crates/dt64-hotplug-probe/src/lib.rs:64 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:130 POSSIBLE
 - crates/foundry-parity-lab/src/method.rs:5 POSSIBLE
 - crates/foundry-parity-lab/src/method.rs:26 POSSIBLE

@@ -3,7 +3,7 @@
 crate: crepe-plan-probe
 path: crates/crepe-plan-probe
 workspace: excluded
-digest: 02bc3eb50d2a2819
+digest: 1a96c1672d5828ec
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -319,12 +319,12 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n9["crepe-plan-probe"]
-  n40["lance-graph-contract"]
-  n48["lance-graph-mask-risc"]
-  n61["lance-graph-relalg"]
-  n69["mork-pathmap-probe"]
-  n9 --> n40
-  n9 --> n48
-  n9 --> n61
-  n9 --> n69
+  n43["lance-graph-contract"]
+  n51["lance-graph-mask-risc"]
+  n64["lance-graph-relalg"]
+  n72["mork-pathmap-probe"]
+  n9 --> n43
+  n9 --> n51
+  n9 --> n64
+  n9 --> n72
 ```

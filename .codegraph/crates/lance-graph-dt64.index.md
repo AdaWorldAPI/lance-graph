@@ -3,7 +3,7 @@
 crate: lance-graph-dt64
 path: crates/lance-graph-dt64
 workspace: member
-digest: 2fc6166474d12248
+digest: 74d9722ae1ff4abd
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -17,14 +17,18 @@ Generated; the code is the truth. See ../index.md.
 - rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:21 CONFIRMED
 - rdep cognitive-polyfill-probe normal — crates/cognitive-polyfill-probe/Cargo.toml:14 CONFIRMED
 - rdep dr-isa-stream-lab normal — crates/dr-isa-stream-lab/Cargo.toml:18 CONFIRMED
+- rdep dr256-ternlog-lab normal — crates/dr256-ternlog-lab/Cargo.toml:10 CONFIRMED
 - rdep drisa-register-probe normal — crates/drisa-register-probe/Cargo.toml:19 CONFIRMED
 - rdep dt64-admission-probe normal — crates/dt64-admission-probe/Cargo.toml:18 CONFIRMED
+- rdep dt64-hotplug-probe normal — crates/dt64-hotplug-probe/Cargo.toml:19 CONFIRMED
 - rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:22 CONFIRMED
 - rdep grammar-constraints-probe normal — crates/grammar-constraints-probe/Cargo.toml:14 CONFIRMED
+- rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:30 CONFIRMED
 - rdep lance-graph-codegraph normal — crates/lance-graph-codegraph/Cargo.toml:13 CONFIRMED
 - rdep lance-graph-dir-sim dev — crates/lance-graph-dir-sim/Cargo.toml:51 CONFIRMED
 - rdep lance-graph-dt64-lance normal — crates/lance-graph-dt64-lance/Cargo.toml:26 CONFIRMED
 - rdep lance-graph-r2il normal — crates/lance-graph-r2il/Cargo.toml:29 CONFIRMED
+- rdep lance-graph-rbac dev — crates/lance-graph-rbac/Cargo.toml:13 CONFIRMED
 - rdep lance-graph-report normal — crates/lance-graph-report/Cargo.toml:20 CONFIRMED
 - rdep lance-graph-xlog normal — crates/lance-graph-xlog/Cargo.toml:13 CONFIRMED
 - rdep ogar-behavior-probe normal — crates/ogar-behavior-probe/Cargo.toml:21 CONFIRMED
@@ -152,19 +156,19 @@ Generated; the code is the truth. See ../index.md.
 - struct RouteAt [pub] — crates/lance-graph-dt64/src/lane.rs:84 CONFIRMED
 - struct LaneRequest [pub] — crates/lance-graph-dt64/src/lane.rs:91 CONFIRMED
 - enum LaneRefusal [pub] — crates/lance-graph-dt64/src/lane.rs:104 CONFIRMED
-- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:153 CONFIRMED
-- fn BindStore::bind_lanes [pub] — crates/lance-graph-dt64/src/lane.rs:171 CONFIRMED
-- fn LaneBinding::class [pub] — crates/lance-graph-dt64/src/lane.rs:266 CONFIRMED
-- fn LaneBinding::rev [pub] — crates/lance-graph-dt64/src/lane.rs:270 CONFIRMED
-- fn LaneBinding::route [pub] — crates/lance-graph-dt64/src/lane.rs:274 CONFIRMED
-- fn LaneBinding::frame [pub] — crates/lance-graph-dt64/src/lane.rs:278 CONFIRMED
-- fn LaneBinding::selection [pub] — crates/lance-graph-dt64/src/lane.rs:282 CONFIRMED
-- fn LaneBinding::fields [pub] — crates/lance-graph-dt64/src/lane.rs:287 CONFIRMED
-- fn LaneBinding::addr [pub] — crates/lance-graph-dt64/src/lane.rs:292 CONFIRMED
-- fn LaneBinding::check [pub] — crates/lance-graph-dt64/src/lane.rs:307 CONFIRMED
-- fn LaneBinding::lane [pub] — crates/lance-graph-dt64/src/lane.rs:352 CONFIRMED
-- fn LaneBinding::borrow_all [pub] — crates/lance-graph-dt64/src/lane.rs:379 CONFIRMED
-- struct BoundLanes [pub] — crates/lance-graph-dt64/src/lane.rs:396 CONFIRMED
+- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:160 CONFIRMED
+- fn BindStore::bind_lanes [pub] — crates/lance-graph-dt64/src/lane.rs:182 CONFIRMED
+- fn LaneBinding::class [pub] — crates/lance-graph-dt64/src/lane.rs:280 CONFIRMED
+- fn LaneBinding::rev [pub] — crates/lance-graph-dt64/src/lane.rs:284 CONFIRMED
+- fn LaneBinding::route [pub] — crates/lance-graph-dt64/src/lane.rs:288 CONFIRMED
+- fn LaneBinding::frame [pub] — crates/lance-graph-dt64/src/lane.rs:292 CONFIRMED
+- fn LaneBinding::selection [pub] — crates/lance-graph-dt64/src/lane.rs:296 CONFIRMED
+- fn LaneBinding::fields [pub] — crates/lance-graph-dt64/src/lane.rs:301 CONFIRMED
+- fn LaneBinding::addr [pub] — crates/lance-graph-dt64/src/lane.rs:306 CONFIRMED
+- fn LaneBinding::check [pub] — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
+- fn LaneBinding::lane [pub] — crates/lance-graph-dt64/src/lane.rs:372 CONFIRMED
+- fn LaneBinding::borrow_all [pub] — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
+- struct BoundLanes [pub] — crates/lance-graph-dt64/src/lane.rs:416 CONFIRMED
 - mod dr [pub] — crates/lance-graph-dt64/src/lib.rs:99 CONFIRMED
 - mod lane [pub] — crates/lance-graph-dt64/src/lib.rs:105 CONFIRMED
 - struct MethodId [pub] — crates/lance-graph-dt64/src/lib.rs:113 CONFIRMED
@@ -257,8 +261,8 @@ CALL_GRAPH=ARTIFACT_MISSING
 - arch DR owns-addressing MapTable [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/dr.rs:871 CONFIRMED
 - arch DR owns-addressing RouteLog [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/dr.rs:210 CONFIRMED
 - arch DT64 admits MethodRef [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:1180 CONFIRMED
-- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:379 CONFIRMED
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:307 CONFIRMED
+- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED
 - arch LaneSource implemented-by lance-graph-report::AbiLanes [CONFIRMED] validation=OK — crates/lance-graph-report/src/lane_source.rs:143 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
@@ -268,32 +272,38 @@ flowchart LR
   n4["cg-beh-probe"]
   n6["cognitive-polyfill-probe"]
   n13["dr-isa-stream-lab"]
-  n15["drisa-register-probe"]
-  n16["dt64-admission-probe"]
-  n19["foundry-parity-lab"]
-  n21["grammar-constraints-probe"]
-  n37["lance-graph-codegraph"]
-  n40["lance-graph-contract"]
-  n43["lance-graph-dt64"]
-  n44["lance-graph-dt64-lance"]
-  n59["lance-graph-r2il"]
-  n62["lance-graph-report"]
-  n67["lance-graph-xlog"]
-  n71["ogar-behavior-probe"]
-  n82["soa64-u64-lab"]
-  n4 --> n43
-  n6 --> n43
-  n13 --> n43
-  n15 --> n43
-  n16 --> n43
-  n19 --> n43
-  n21 --> n43
-  n37 --> n43
-  n43 --> n40
-  n44 --> n43
-  n59 --> n43
-  n62 --> n43
-  n67 --> n43
-  n71 --> n43
-  n82 --> n43
+  n15["dr256-ternlog-lab"]
+  n17["drisa-register-probe"]
+  n18["dt64-admission-probe"]
+  n19["dt64-hotplug-probe"]
+  n22["foundry-parity-lab"]
+  n24["grammar-constraints-probe"]
+  n36["lance-graph-benches"]
+  n40["lance-graph-codegraph"]
+  n43["lance-graph-contract"]
+  n46["lance-graph-dt64"]
+  n47["lance-graph-dt64-lance"]
+  n62["lance-graph-r2il"]
+  n65["lance-graph-report"]
+  n70["lance-graph-xlog"]
+  n74["ogar-behavior-probe"]
+  n86["soa64-u64-lab"]
+  n4 --> n46
+  n6 --> n46
+  n13 --> n46
+  n15 --> n46
+  n17 --> n46
+  n18 --> n46
+  n19 --> n46
+  n22 --> n46
+  n24 --> n46
+  n36 --> n46
+  n40 --> n46
+  n46 --> n43
+  n47 --> n46
+  n62 --> n46
+  n65 --> n46
+  n70 --> n46
+  n74 --> n46
+  n86 --> n46
 ```

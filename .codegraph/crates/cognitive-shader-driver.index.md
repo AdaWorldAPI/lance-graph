@@ -368,17 +368,17 @@ flowchart LR
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
   n11["deepnsm"]
-  n40["lance-graph-contract"]
-  n54["lance-graph-ontology"]
-  n56["lance-graph-planner"]
-  n73["p64-bridge"]
-  n87["thinking-engine"]
+  n43["lance-graph-contract"]
+  n57["lance-graph-ontology"]
+  n59["lance-graph-planner"]
+  n76["p64-bridge"]
+  n91["thinking-engine"]
   n7 --> n2
   n7 --> n3
   n7 --> n11
-  n7 --> n40
-  n7 --> n54
-  n7 --> n56
-  n7 --> n73
-  n7 --> n87
+  n7 --> n43
+  n7 --> n57
+  n7 --> n59
+  n7 --> n76
+  n7 --> n91
 ```

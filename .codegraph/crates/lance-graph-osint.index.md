@@ -87,12 +87,12 @@ flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
   n11["deepnsm"]
-  n55["lance-graph-osint"]
-  n56["lance-graph-planner"]
-  n73["p64-bridge"]
-  n55 --> n2
-  n55 --> n3
-  n55 --> n11
-  n55 --> n56
-  n55 --> n73
+  n58["lance-graph-osint"]
+  n59["lance-graph-planner"]
+  n76["p64-bridge"]
+  n58 --> n2
+  n58 --> n3
+  n58 --> n11
+  n58 --> n59
+  n58 --> n76
 ```

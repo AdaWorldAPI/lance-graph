@@ -5,11 +5,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Definitions
 
 ### lance-graph-dt64 crates/lance-graph-dt64/src/lane.rs
-- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:153 CONFIRMED
+- struct LaneBinding [pub] — crates/lance-graph-dt64/src/lane.rs:160 CONFIRMED
 
 ## Impls mentioning it
 
-- impl LaneBinding — crates/lance-graph-dt64/src/lane.rs:265 POSSIBLE
+- impl LaneBinding — crates/lance-graph-dt64/src/lane.rs:279 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -17,6 +17,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/cube.rs:8 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/gemm.rs:14 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/shape.rs:49 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
@@ -24,7 +25,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (43 total)
+## Textual occurrences (48 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -41,6 +42,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/shape.rs:257 POSSIBLE
 - crates/dr-isa-stream-lab/src/shape.rs:291 POSSIBLE
 - crates/dr-isa-stream-lab/src/shape.rs:358 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:20 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:583 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:627 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1048 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:3 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:142 POSSIBLE
@@ -50,15 +56,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/bind.rs:168 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:8 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:72 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:153 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:177 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:205 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:265 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:351 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:365 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:368 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:394 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:395 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:160 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:188 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:218 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:279 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:371 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:385 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:388 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:414 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:415 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:1094 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:86 POSSIBLE
@@ -72,5 +78,5 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Architecture
 
-- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:379 CONFIRMED
-- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:307 CONFIRMED
+- arch LaneBinding borrowed-by LaneBinding::borrow_all [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:399 CONFIRMED
+- arch LaneBinding checked-by LaneBinding::check [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lane.rs:322 CONFIRMED

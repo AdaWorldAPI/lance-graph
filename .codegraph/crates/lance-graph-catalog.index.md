@@ -3,7 +3,7 @@
 crate: lance-graph-catalog
 path: crates/lance-graph-catalog
 workspace: member
-digest: 9d0c34f70c28a465
+digest: 80a653910e24539c
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -96,7 +96,7 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n29["lance-graph"]
-  n35["lance-graph-catalog"]
-  n29 --> n35
+  n32["lance-graph"]
+  n38["lance-graph-catalog"]
+  n32 --> n38
 ```

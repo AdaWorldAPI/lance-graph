@@ -23,6 +23,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
@@ -43,7 +44,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
 
-## Textual occurrences (367 total)
+## Textual occurrences (384 total)
 
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:140 POSSIBLE
@@ -53,6 +54,23 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/fixture.rs:267 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:5 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:55 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:129 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:136 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:141 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:154 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:421 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:467 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:593 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:626 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:659 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:701 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:757 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:805 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:886 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1059 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:441 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
@@ -319,8 +337,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:4 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:94 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:160 POSSIBLE
-- crates/lance-graph-dt64/src/lane.rs:287 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:167 POSSIBLE
+- crates/lance-graph-dt64/src/lane.rs:301 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:74 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:147 POSSIBLE
@@ -328,23 +346,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:225 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:237 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:239 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:244 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:269 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:506 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:683 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:702 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:723 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:729 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:733 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:741 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:748 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:977 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:989 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1306 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1397 POSSIBLE
-- crates/lance-graph-ogar/src/recipe_vocab.rs:44 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
-- crates/lance-graph-rbac/src/authorize.rs:177 POSSIBLE
 - truncated at 300
 
 ## Architecture

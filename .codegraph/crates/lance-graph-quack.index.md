@@ -219,32 +219,32 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n10["d-diamond-1-probe"]
-  n21["grammar-constraints-probe"]
-  n29["lance-graph"]
-  n33["lance-graph-benches"]
-  n37["lance-graph-codegraph"]
-  n40["lance-graph-contract"]
-  n41["lance-graph-cypher-quack"]
-  n42["lance-graph-dir-sim"]
-  n45["lance-graph-glove-parity"]
-  n48["lance-graph-mask-risc"]
-  n49["lance-graph-metta"]
-  n58["lance-graph-quack"]
-  n62["lance-graph-report"]
-  n64["lance-graph-sap"]
-  n67["lance-graph-xlog"]
-  n10 --> n58
-  n21 --> n58
-  n29 --> n58
-  n33 --> n58
-  n37 --> n58
-  n41 --> n58
-  n42 --> n58
-  n45 --> n58
-  n49 --> n58
-  n58 --> n40
-  n58 --> n48
-  n62 --> n58
-  n64 --> n58
-  n67 --> n58
+  n24["grammar-constraints-probe"]
+  n32["lance-graph"]
+  n36["lance-graph-benches"]
+  n40["lance-graph-codegraph"]
+  n43["lance-graph-contract"]
+  n44["lance-graph-cypher-quack"]
+  n45["lance-graph-dir-sim"]
+  n48["lance-graph-glove-parity"]
+  n51["lance-graph-mask-risc"]
+  n52["lance-graph-metta"]
+  n61["lance-graph-quack"]
+  n65["lance-graph-report"]
+  n67["lance-graph-sap"]
+  n70["lance-graph-xlog"]
+  n10 --> n61
+  n24 --> n61
+  n32 --> n61
+  n36 --> n61
+  n40 --> n61
+  n44 --> n61
+  n45 --> n61
+  n48 --> n61
+  n52 --> n61
+  n61 --> n43
+  n61 --> n51
+  n65 --> n61
+  n67 --> n61
+  n70 --> n61
 ```

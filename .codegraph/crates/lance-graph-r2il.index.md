@@ -3,7 +3,7 @@
 crate: lance-graph-r2il
 path: crates/lance-graph-r2il
 workspace: member
-digest: 69be64b232e5033d
+digest: 4216b7877a98640c
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -14,6 +14,7 @@ Generated; the code is the truth. See ../index.md.
 - dep lance-graph-dt64 normal — crates/lance-graph-r2il/Cargo.toml:29 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/lance-graph-r2il/Cargo.toml:19 CONFIRMED
 - dep lance-graph-quack dev — crates/lance-graph-r2il/Cargo.toml:36 CONFIRMED
+- dep pg-parity-harness dev — crates/lance-graph-r2il/Cargo.toml:39 CONFIRMED
 - dep ogar-loco normal — crates/lance-graph-r2il/Cargo.toml:25 CONFIRMED
 - dep ogar-r2il normal — crates/lance-graph-r2il/Cargo.toml:26 CONFIRMED
 
@@ -239,20 +240,20 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n4["cg-beh-probe"]
-  n24["holo-h14d-probe"]
-  n29["lance-graph"]
-  n40["lance-graph-contract"]
-  n43["lance-graph-dt64"]
-  n48["lance-graph-mask-risc"]
-  n50["lance-graph-nal"]
-  n59["lance-graph-r2il"]
-  n61["lance-graph-relalg"]
-  n4 --> n59
-  n24 --> n59
-  n29 --> n59
-  n50 --> n59
-  n59 --> n40
-  n59 --> n43
-  n59 --> n48
-  n61 --> n59
+  n27["holo-h14d-probe"]
+  n32["lance-graph"]
+  n43["lance-graph-contract"]
+  n46["lance-graph-dt64"]
+  n51["lance-graph-mask-risc"]
+  n53["lance-graph-nal"]
+  n62["lance-graph-r2il"]
+  n64["lance-graph-relalg"]
+  n4 --> n62
+  n27 --> n62
+  n32 --> n62
+  n53 --> n62
+  n62 --> n43
+  n62 --> n46
+  n62 --> n51
+  n64 --> n62
 ```

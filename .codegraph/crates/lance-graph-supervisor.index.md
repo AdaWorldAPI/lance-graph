@@ -199,13 +199,13 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n34["lance-graph-callcenter"]
-  n40["lance-graph-contract"]
-  n44["lance-graph-dt64-lance"]
-  n56["lance-graph-planner"]
-  n65["lance-graph-supervisor"]
-  n44 --> n65
-  n65 --> n34
-  n65 --> n40
-  n65 --> n56
+  n37["lance-graph-callcenter"]
+  n43["lance-graph-contract"]
+  n47["lance-graph-dt64-lance"]
+  n59["lance-graph-planner"]
+  n68["lance-graph-supervisor"]
+  n47 --> n68
+  n68 --> n37
+  n68 --> n43
+  n68 --> n59
 ```

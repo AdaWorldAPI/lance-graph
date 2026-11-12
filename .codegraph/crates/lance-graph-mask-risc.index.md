@@ -19,6 +19,8 @@ Generated; the code is the truth. See ../index.md.
 - rdep cognitive-polyfill-probe normal — crates/cognitive-polyfill-probe/Cargo.toml:16 CONFIRMED
 - rdep crepe-plan-probe normal — crates/crepe-plan-probe/Cargo.toml:21 CONFIRMED
 - rdep d-diamond-1-probe normal — crates/d-diamond-1-probe/Cargo.toml:18 CONFIRMED
+- rdep dr-select-k-lab normal — crates/dr-select-k-lab/Cargo.toml:11 CONFIRMED
+- rdep dr256-ternlog-lab normal — crates/dr256-ternlog-lab/Cargo.toml:11 CONFIRMED
 - rdep drf-focus-probe dev — crates/drf-focus-probe/Cargo.toml:32 CONFIRMED
 - rdep drisa-register-probe normal — crates/drisa-register-probe/Cargo.toml:20 CONFIRMED
 - rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:23 CONFIRMED
@@ -27,7 +29,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep jc dev — crates/jc/Cargo.toml:44 CONFIRMED
 - rdep jc-batch-probe normal — crates/jc-batch-probe/Cargo.toml:16 CONFIRMED
 - rdep lance-graph normal — crates/lance-graph/Cargo.toml:56 CONFIRMED
-- rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:26 CONFIRMED
+- rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:32 CONFIRMED
 - rdep lance-graph-codegraph normal — crates/lance-graph-codegraph/Cargo.toml:15 CONFIRMED
 - rdep lance-graph-cypher-quack normal — crates/lance-graph-cypher-quack/Cargo.toml:17 CONFIRMED
 - rdep lance-graph-dir-sim normal — crates/lance-graph-dir-sim/Cargo.toml:33 CONFIRMED
@@ -177,46 +179,50 @@ flowchart LR
   n6["cognitive-polyfill-probe"]
   n9["crepe-plan-probe"]
   n10["d-diamond-1-probe"]
-  n15["drisa-register-probe"]
-  n19["foundry-parity-lab"]
-  n21["grammar-constraints-probe"]
-  n24["holo-h14d-probe"]
-  n28["jc-batch-probe"]
-  n29["lance-graph"]
-  n33["lance-graph-benches"]
-  n37["lance-graph-codegraph"]
-  n41["lance-graph-cypher-quack"]
-  n42["lance-graph-dir-sim"]
-  n48["lance-graph-mask-risc"]
-  n49["lance-graph-metta"]
-  n50["lance-graph-nal"]
-  n58["lance-graph-quack"]
-  n59["lance-graph-r2il"]
-  n61["lance-graph-relalg"]
-  n62["lance-graph-report"]
-  n64["lance-graph-sap"]
-  n67["lance-graph-xlog"]
-  n69["mork-pathmap-probe"]
-  n6 --> n48
-  n9 --> n48
-  n10 --> n48
-  n15 --> n48
-  n19 --> n48
-  n21 --> n48
-  n24 --> n48
-  n28 --> n48
-  n29 --> n48
-  n33 --> n48
-  n37 --> n48
-  n41 --> n48
-  n42 --> n48
-  n49 --> n48
-  n50 --> n48
-  n58 --> n48
-  n59 --> n48
-  n61 --> n48
-  n62 --> n48
-  n64 --> n48
-  n67 --> n48
-  n69 --> n48
+  n14["dr-select-k-lab"]
+  n15["dr256-ternlog-lab"]
+  n17["drisa-register-probe"]
+  n22["foundry-parity-lab"]
+  n24["grammar-constraints-probe"]
+  n27["holo-h14d-probe"]
+  n31["jc-batch-probe"]
+  n32["lance-graph"]
+  n36["lance-graph-benches"]
+  n40["lance-graph-codegraph"]
+  n44["lance-graph-cypher-quack"]
+  n45["lance-graph-dir-sim"]
+  n51["lance-graph-mask-risc"]
+  n52["lance-graph-metta"]
+  n53["lance-graph-nal"]
+  n61["lance-graph-quack"]
+  n62["lance-graph-r2il"]
+  n64["lance-graph-relalg"]
+  n65["lance-graph-report"]
+  n67["lance-graph-sap"]
+  n70["lance-graph-xlog"]
+  n72["mork-pathmap-probe"]
+  n6 --> n51
+  n9 --> n51
+  n10 --> n51
+  n14 --> n51
+  n15 --> n51
+  n17 --> n51
+  n22 --> n51
+  n24 --> n51
+  n27 --> n51
+  n31 --> n51
+  n32 --> n51
+  n36 --> n51
+  n40 --> n51
+  n44 --> n51
+  n45 --> n51
+  n52 --> n51
+  n53 --> n51
+  n61 --> n51
+  n62 --> n51
+  n64 --> n51
+  n65 --> n51
+  n67 --> n51
+  n70 --> n51
+  n72 --> n51
 ```

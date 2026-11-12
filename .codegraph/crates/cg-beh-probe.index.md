@@ -185,12 +185,12 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n4["cg-beh-probe"]
-  n19["foundry-parity-lab"]
-  n40["lance-graph-contract"]
-  n43["lance-graph-dt64"]
-  n59["lance-graph-r2il"]
-  n4 --> n19
-  n4 --> n40
+  n22["foundry-parity-lab"]
+  n43["lance-graph-contract"]
+  n46["lance-graph-dt64"]
+  n62["lance-graph-r2il"]
+  n4 --> n22
   n4 --> n43
-  n4 --> n59
+  n4 --> n46
+  n4 --> n62
 ```
