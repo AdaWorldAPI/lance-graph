@@ -11,8 +11,10 @@
 - `lower_group_by_auto` folds SUM, COUNT, MIN and MAX to one program; ANY, ALL, Rows and `groups == 0` stay a forest; a grouped blend is refused. The forest hands 5,008 bytes of mask (40,003 rows) from its first program to the others.
 - Ledger: every workload allocates zero bytes, the forest included. Scratch is 2,056 bytes per program at any row count. Only the forest has an intermediate.
 
-**Read record:** in the plan, section 2. Not read: `lance-graph-dt64/src/lib.rs`, most of `dr.rs`, `lane_source.rs`, the crates' own test modules.
+**Read record:** in the plan, section 2. Not read: most of `dr.rs`, the crates' own test modules.
+
+- After reading `lance-graph-dt64/src/lib.rs` and `lance-graph-report/src/lane_source.rs` in full: the only non-lab `LaneSource` (`AbiLanes`) has a `#[cfg(test)]` constructor, so the seam has no production-constructible source; and the lab never exercises method admission (`BindStore::admit`). Both added to the plan's list (items 10, 11); item 6 corrected (`CoordSpace` is source-reported, only `Scope` lacks an issuer).
 
 **Agent runs:** none; read, written and run on the main thread.
 
-**Open:** the nine contracts in the plan, section 8. None is closed by this lab.
+**Open:** the eleven contracts in the plan, section 8. None is closed by this lab.

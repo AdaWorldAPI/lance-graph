@@ -25,16 +25,17 @@ Decisions this lab works under (taken in session, 2026-11-12):
 ## 2. What was read
 
 In full, first to last non-test line: `lance-graph-mask-risc/src/{lib,ir,exec,reference,value,sel}.rs`;
-`lance-graph-dt64/src/lane.rs`; `lance-graph-report/src/bound_sel.rs`;
+`lance-graph-dt64/src/{lib,lane}.rs`; `lance-graph-report/src/{bound_sel,lane_source}.rs`;
 `lance-graph-report/tests/bound_sel.rs`; `lance-graph-quack/src/{lib,bind}.rs`
-(non-test, earlier the same day).
+(non-test, earlier the same day). `lance-graph-dt64/src/lib.rs` and
+`lane_source.rs` were read after the lab was built; what they changed is in
+section 8, items 6, 10 and 11.
 
 In part: `lance-graph-dt64/src/dr.rs` from `AxisKind` to the end of `Guards`
 (`FrameRevisions`, `FrameStore`, `Frame`, `Scope`).
 
-Not read: `lance-graph-dt64/src/lib.rs` (`BindStore` is used as the report
-test uses it), the rest of `dr.rs` (`MapTable`, `CodeTable`),
-`lance-graph-report/src/lane_source.rs`, `lance-graph-mask-risc/src/{fuse,ternlog_dispatch}.rs`,
+Not read: the rest of `dr.rs` (`MapTable`, `CodeTable`),
+`lance-graph-report/src/{batch,boundary}.rs`, `lance-graph-mask-risc/src/{fuse,ternlog_dispatch}.rs`,
 every test module of the crates above, `lance-graph-cypher-quack`.
 
 ## 3. The seam that exists
@@ -152,13 +153,29 @@ binaries built, and the tree restored afterwards.
    `lane_digest` out of Quack and nothing consumes them.
 5. **Field position to lane index.** `Col` is a lane index; a binding knows
    field positions. The lab binds every field and equates the two.
-6. **`CoordSpace` and `Scope` are hand-assigned values.** No authority issues
-   either. Scope equality is a consistency check and observes no revocation.
+6. **`Scope` has no issuer; `CoordSpace` is whatever the source says.** A
+   `Scope` is a plain `{ id }`. A `CoordSpace` is two numbers the source
+   reports: `AbiLanes` (`lance-graph-report/src/lane_source.rs`) derives them
+   from the batch's source id and generation, the lab assigns them by hand.
+   Scope equality is a consistency check and observes no revocation.
 7. **Only the current frame is admitted.** No history read.
 8. **The lab's frame check is stricter than a value-only program needs.** A
    program with no row-ordinal constant could survive a re-seal. Not
    explored.
 9. **A `groups == 0` forest plan still contains a phase-1 `Keep`.**
+
+10. **The one non-lab `LaneSource` cannot be constructed in a library
+    build.** `AbiLanes`'s only constructor, `unwitnessed`, is `#[cfg(test)]`,
+    because nothing certifies which reader scope a batch serves. So the seam
+    of section 3 has no production-constructible source today; it admits
+    `I32` and `U32` lanes only and has no writer.
+11. **Method admission was not exercised.** `BindStore::method_ref` and
+    `BindStore::admit` (signature revision, guard witness, binding digest,
+    issuing store) are DT64's check for which behaviour runs. The lab binds
+    lanes and never admits a method; case E covers the view, the scope and
+    the row order only. A `LaneBinding` also does not record which
+    `BindStore` made it: `check` accepts any store whose basis witness for
+    the class matches (`StoreBasisMismatch` otherwise).
 
 None of these is closed by this lab, and none is closed by adding a field to
 `Program`.
