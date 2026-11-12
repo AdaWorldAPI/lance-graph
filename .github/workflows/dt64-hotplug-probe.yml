@@ -1,0 +1,67 @@
+name: dt64 hotplug probe
+# W12 (plan dr-dt64-class-governance-v3 §2d): a consumer class activated
+# through OGAR's HotPlug reaching a DT64 binding. dt64-hotplug-probe is
+# workspace-excluded (own [workspace] root), so no other job builds it.
+# Without this one a change to the contract's hotplug socket, to dt64's bind
+# store or lane socket, or to lance-graph-ogar's authority could break the
+# seam unnoticed. OGAR comes in over git through lance-graph-ogar, so no
+# sibling checkout is needed.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - crates/lance-graph-contract/**
+      - crates/lance-graph-dt64/**
+      - crates/lance-graph-ogar/**
+      - crates/lance-graph-ontology/**
+      - crates/dt64-hotplug-probe/**
+      - .github/workflows/dt64-hotplug-probe.yml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  probe:
+    name: consumer class to DT64 binding
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      # .cargo/config.toml builds with target-cpu=native and cargo fingerprints
+      # the literal flag, so spell it out as this runner's feature list and key
+      # the cache on it: a cache built on another CPU is never reused here.
+      - name: Resolve target-cpu=native for this runner
+        id: cpu
+        run: |
+          flags=$(.github/scripts/resolve-native-rustflags.sh)
+          echo "RUSTFLAGS=$flags" >> "$GITHUB_ENV"
+          hash=$(printf %s "$flags" | sha256sum | cut -c1-16)
+          echo "flags=$hash" >> "$GITHUB_OUTPUT"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: cpu-${{ steps.cpu.outputs.flags }}
+          workspaces: crates/dt64-hotplug-probe
+      - name: fmt
+        run: cargo fmt --manifest-path crates/dt64-hotplug-probe/Cargo.toml --check
+      - name: clippy
+        run: cargo clippy --manifest-path crates/dt64-hotplug-probe/Cargo.toml --all-targets -- -D warnings
+      - name: test
+        run: cargo test --manifest-path crates/dt64-hotplug-probe/Cargo.toml

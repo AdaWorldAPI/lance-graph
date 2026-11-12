@@ -1,0 +1,29 @@
+# W12 (plan dr-dt64-class-governance-v3 §2d, §4): a LAB probe for the seam
+# between a consumer class activated through OGAR and a DT64 method binding.
+# NOT a workspace member, nothing depends on it. Verify with
+#   cargo test --manifest-path crates/dt64-hotplug-probe/Cargo.toml
+[package]
+name = "dt64-hotplug-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "A consumer class activated through OGAR's HotPlug reaches a DT64 binding; a classid the plug did not activate is refused before DT64 sees it. No contract, builtin or register change."
+
+# Own workspace root, like the other lab probes.
+[workspace]
+
+[dependencies]
+# All three are consumed read-only through their public APIs; none is changed.
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The OGAR authority (OgarAuthority) and its re-exports (ogar_vocab,
+# ogar_class_view). It pulls OGAR over git, so no sibling checkout is needed.
+lance-graph-ogar = { path = "../lance-graph-ogar" }
+
+# lance-graph-ogar's OGAR git deps carry their own lance-graph-contract git
+# dependency. Fold it onto the path copy so there is ONE contract in the graph,
+# exactly as lance-graph-ogar's own manifest does: two copies would make
+# ClassView, Activation and ReadMode two unrelated sets of types.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-contract = { path = "../lance-graph-contract" }
