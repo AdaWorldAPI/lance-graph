@@ -18,3 +18,5 @@
 **Agent runs:** none; read, written and run on the main thread.
 
 **Open:** the eleven contracts in the plan, section 8. None is closed by this lab.
+
+- **D-QUACK-FIELD-OPERAND-PROBE (same day).** Field position, the source's lane id and the operand index are three numbers. With planes assembled in `borrow_all` order, a bound field's operand is its rank among the bound fields. Seven tests over a sparse binding (fields 1 and 5) and two lane numberings; three disable runs red. Quack's `Binder::field` can carry the translation, but `Draft::bind` always conjoins a liveness plane, so a `Draft`-bound query is BLOCKED through the lane socket. Control: a `MethodRef` of another store with other behaviour is refused (`BindingMismatch`); a `LaneBinding` made through one store passes `check` against another store with the same basis. Recorded, not judged. Suite now 18 tests.

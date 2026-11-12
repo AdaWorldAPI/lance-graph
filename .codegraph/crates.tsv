@@ -80,7 +80,7 @@ onebrc-probe	crates/onebrc-probe	excluded	f1c0ac8eb010404b
 p64-bridge	crates/p64-bridge	excluded	213994c027c71741
 perturbation-sim	crates/perturbation-sim	excluded	b98b8bb21938438d
 pg-parity-harness	crates/pg-parity-harness	member	11e53762034e9f10
-quack-boundary-lab	crates/quack-boundary-lab	member	ebb0065a02cb0183
+quack-boundary-lab	crates/quack-boundary-lab	member	5462ad856f64b280
 quasicryth-research	crates/quasicryth-research	excluded	0b33aba384794485
 r2il-mask-abi-probe	crates/r2il-mask-abi-probe	excluded	30d0ad7f4bbddcc6
 reader-lm	crates/reader-lm	excluded	8d6cc81794eba1b4

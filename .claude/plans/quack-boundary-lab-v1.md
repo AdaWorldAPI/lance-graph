@@ -1,7 +1,7 @@
 # Quack execution boundary: admission and materialisation lab (v1)
 
 **Status:** LAB, measured 2026-11-12. No production API changed.
-**D-id:** D-QUACK-BOUNDARY-LAB (`STATUS_BOARD.md`).
+**D-ids:** D-QUACK-BOUNDARY-LAB, D-QUACK-FIELD-OPERAND-PROBE (`STATUS_BOARD.md`).
 **Crate:** `crates/quack-boundary-lab` (workspace member, one CI line in `rust-test.yml`).
 **Separate from:** `schema-wardrobe-ownership-audit-v1.md` (PR #2044), which audits the write side.
 
@@ -58,9 +58,10 @@ it for a position fold. Nothing uses it for a `Program`.
 
 The lab's `admitted` function does: `borrow_all` → check the frame the
 program was lowered under against the same source's store → `execute_into`
-with `masks: &[]` and `Foreign::NONE`. The second step uses a lab-local pair
-`Prepared { program, frame }`; the frame comes from `FrameStore::seal` and
-has no public constructor.
+with `masks: &[]` and `Foreign::NONE`. The second step uses a lab-local
+`Prepared { program, frame, fields }`; the frame comes from
+`FrameStore::seal` and has no public constructor, and `fields` are the bound
+field positions the program's operands were numbered over (section 7).
 
 ## 4. Cases A to F (`tests/admission.rs`)
 
@@ -124,7 +125,66 @@ caller made.
   The fused keep lowerings write the sink once; this workload does not take
   them because its mask comes from a lane predicate.
 
-## 7. Disable runs
+## 7. Field to operand (D-QUACK-FIELD-OPERAND-PROBE, `tests/field_operand.rs`)
+
+Three index spaces are involved and they are different numbers:
+
+| index | owner | in the probe |
+|---|---|---|
+| field position in the `ClassView` basis | DT64 | `amount` 1, `quantity` 5 |
+| lane id (`LaneAddr::lane`) | the source | 31 and 22 in one source, 5 and 4 in another |
+| operand index (`Col`, into `Planes::lanes`) | whoever assembles the planes | 0 and 1 |
+
+`LaneBinding::borrow_all` yields the bound lanes in ascending field order.
+A consumer that assembles `Planes::lanes` in that order gives a bound field
+the operand index equal to its **rank among the bound fields**. The lab's
+`operand(binding, field)` computes that rank from `LaneBinding::fields`; it
+returns `None` for an unbound field.
+
+Results (fields 1 and 5 bound, `SUM(quantity) WHERE amount > 25`):
+
+| falsifier | result |
+|---|---|
+| equal case (every field bound, identity ids) | still equals the oracle; rank equals position there |
+| sparse, non-contiguous binding | equals the oracle with operands 0 and 1 |
+| operands numbered by field position | positions 1 and 5 over two lanes: `LaneOutOfRange(5)` from the executor. Positions 0 and 1 fit and silently answer another question unbound; admitted, `Operands` refuses because the program's `fields` are not the bound ones |
+| another lane numbering | same program text, same answer; one source's binding does not read the other (`ForeignFrame`) |
+| changed basis, or lanes renumbered without a new frame | `MappingChanged` before execution; a store that never saw the basis refuses it (`PredicateBasisChanged`) |
+| unbound field | no operand; `LaneBinding::lane` says `NotBound`; a position outside the basis does not bind (`FieldNotInBasis`) |
+
+What exists and what is missing:
+
+- **Exists.** The lane order (`borrow_all`), the bound set
+  (`LaneBinding::fields`) and Quack's name-to-`Col` surface
+  (`Binder::field` returning `BoundField::col`, `lance-graph-quack/src/bind.rs`).
+  A `Binder` answered from a binding carries the translation (tested).
+- **Missing, minimal.** One consumer-side function from a bound field to its
+  rank, and the rule that planes are assembled in `borrow_all` order. Neither
+  belongs in mask-RISC or `Planes`. Without a typed operand, a `Col` built
+  any other way cannot be told apart; the lab's `fields` on `Prepared` only
+  catches a program that declares another field set.
+- **Blocked by item 1 of section 8.** `Draft::bind` always conjoins
+  `Binder::live`, a mask plane, so no `Draft`-bound query is admissible
+  through the lane socket today (tested: BLOCKED). The same comparison
+  lowered without the plane is admitted and right.
+
+### 7a. Control: two stores, one basis, other behaviour
+
+Two `BindStore`s register the class over the same view with a method that
+differs in its `reads`.
+
+| question | observed |
+|---|---|
+| is the other store's `MethodRef` admitted | no: `BindingMismatch`. A clone with identical behaviour: `ForeignStore` |
+| is a `LaneBinding` made through one store valid against the other | yes: `check` passes and the fold runs. Both route the position to the class and hold the same basis witness |
+
+The second row is recorded, not judged. `MethodRef` vouches for one
+behaviour binding of one store; `LaneBinding` vouches for a field and source
+interpretation and is silent on behaviour. Whether a lane binding should be
+portable between stores with equal bases is a design decision. Nothing here
+couples method admission to a lane read.
+
+## 7b. Disable runs
 
 Each made after commit `9fb3517a5`, with the patch anchor asserted, the test
 binaries built, and the tree restored afterwards.
@@ -135,6 +195,12 @@ binaries built, and the tree restored afterwards.
 | the program-frame check removed | cases B, C |
 | one 64-byte allocation added inside `admitted` | the ledger |
 | `lower_group_by_auto` never takes the semantic fold | both fold tests, the ledger |
+| `operand` returns the field position instead of the rank | five of the seven field-operand tests |
+| the `Operands` check removed | the position-numbered test |
+| `operand` answers for unbound fields | the unbound-field test |
+
+The ledger also went red on its own during this work: the first version of
+the `Operands` check allocated 8 bytes per run. It now compares in place.
 
 ## 8. Contracts that are not satisfied
 
@@ -151,8 +217,9 @@ binaries built, and the tree restored afterwards.
 4. **No pairing of a program with the frame it was lowered for.** `Prepared`
    is lab-local. `PrefixLowering::Bound` carries `lane_version` and
    `lane_digest` out of Quack and nothing consumes them.
-5. **Field position to lane index.** `Col` is a lane index; a binding knows
-   field positions. The lab binds every field and equates the two.
+5. **Field position to operand index.** Answered in the lab (section 7): the
+   operand is the field's rank among the bound fields. No production code
+   computes it or fixes the plane order, and a `Col` is an untyped `u16`.
 6. **`Scope` has no issuer; `CoordSpace` is whatever the source says.** A
    `Scope` is a plain `{ id }`. A `CoordSpace` is two numbers the source
    reports: `AbiLanes` (`lance-graph-report/src/lane_source.rs`) derives them
@@ -169,13 +236,11 @@ binaries built, and the tree restored afterwards.
     because nothing certifies which reader scope a batch serves. So the seam
     of section 3 has no production-constructible source today; it admits
     `I32` and `U32` lanes only and has no writer.
-11. **Method admission was not exercised.** `BindStore::method_ref` and
-    `BindStore::admit` (signature revision, guard witness, binding digest,
-    issuing store) are DT64's check for which behaviour runs. The lab binds
-    lanes and never admits a method; case E covers the view, the scope and
-    the row order only. A `LaneBinding` also does not record which
-    `BindStore` made it: `check` accepts any store whose basis witness for
-    the class matches (`StoreBasisMismatch` otherwise).
+11. **A `LaneBinding` does not record which `BindStore` made it.** `check`
+    accepts any store that routes the position to the class with the same
+    basis witness (section 7a). `BindStore::admit` does check the issuing
+    store and the binding digest. The two are different promises; whether
+    the first should name its store is undecided.
 
 None of these is closed by this lab, and none is closed by adding a field to
 `Program`.

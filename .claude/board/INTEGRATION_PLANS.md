@@ -1,7 +1,7 @@
 ## 2026-11-12 — D-QUACK-BOUNDARY-LAB: where a Quack-lowered program gets its operands → `.claude/plans/quack-boundary-lab-v1.md`
 
 **Status:** LAB, MEASURED. `crates/quack-boundary-lab`: one unchanged program run unbound and through a DT64 `LaneBinding`, cases A to F against a scalar oracle; an audit of `lower_group_by_auto`; a materialisation ledger with exact byte counts. No production API changed. [entry](entries/2026-11-12-quack-boundary-lab.md). Coordination: EXO-253.
-**Confidence:** every result is a test in the crate; four disable runs went red. Nine unsatisfied contracts are listed in the plan and none is closed here.
+**Confidence:** every result is a test in the crate (18 tests); seven disable runs went red. Eleven unsatisfied contracts are listed in the plan and none is closed here.
 
 ## 2026-11-12 — D-DR-SELECT-K: one versioned DR selection, bound once, reused by every fold → `.claude/plans/dr-select-k-v1.md`
 

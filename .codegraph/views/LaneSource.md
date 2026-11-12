@@ -14,7 +14,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl LaneSource for SlabSource<'_,'_> — crates/dr256-ternlog-lab/src/lib.rs:325 POSSIBLE
 - impl LaneSource for Network — crates/foundry-parity-lab/src/source.rs:178 POSSIBLE
 - impl LaneSource for AbiLanes<'_> — crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
-- impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:283 POSSIBLE
+- impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:303 POSSIBLE
 - impl LaneSource for U64Source<'s> — crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
 
 ## Imports (not resolved to a definition)
@@ -30,7 +30,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneSource — crates/foundry-parity-lab/src/source.rs:9 POSSIBLE
 - pub-use lane::LaneSource — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/lance-graph-report/src/lane_source.rs:39 POSSIBLE
-- use lance_graph_dt64::LaneSource — crates/quack-boundary-lab/src/lib.rs:34 POSSIBLE
+- use lance_graph_dt64::LaneSource — crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 
 ## Textual occurrences (43 total)
@@ -73,8 +73,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source.rs:87 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:543 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:34 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:283 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:303 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:169 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
