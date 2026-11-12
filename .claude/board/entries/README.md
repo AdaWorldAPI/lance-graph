@@ -31,7 +31,7 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-11-12 | `D-DR-SELECT-K` |  | [2026-11-12-dr-select-k-plan.md](2026-11-12-dr-select-k-plan.md) |
 | 2026-11-12 | `D-DR-SELECT-K-0` |  | [2026-11-12-dr-select-k-0.md](2026-11-12-dr-select-k-0.md) |
-| 2026-11-12 | `D-DR-SELECT-K` |  | [2026-11-12-dr-geometry-roles.md](2026-11-12-dr-geometry-roles.md) |
+| 2026-11-12 | `D-DR-SELECT-K-GEOMETRY` |  | [2026-11-12-dr-geometry-roles.md](2026-11-12-dr-geometry-roles.md) |
 | 2026-11-11 | `cypher-df-vs-quack-bench` |  | [2026-11-11-cypher-df-vs-quack-bench.md](2026-11-11-cypher-df-vs-quack-bench.md) |
 | 2026-11-11 | `D-DRDT-SPLIT-1` |  | [2026-11-11-coresearch-drdt-split.md](2026-11-11-coresearch-drdt-split.md) |
 | 2026-11-11 | `codegraph-recon-2` |  | [2026-11-11-codegraph-recon-2.md](2026-11-11-codegraph-recon-2.md) |

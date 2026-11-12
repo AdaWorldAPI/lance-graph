@@ -1,4 +1,4 @@
-# 2026-11-12 — D-DR-SELECT-K: geometry roles, masks against a cube, gap register (docs only)
+# 2026-11-12 — D-DR-SELECT-K-GEOMETRY: geometry roles, masks against a cube, gap register (docs only)
 
 **Kind:** plan amendment and a read-only census. Ships no code.
 **Grade:** the crosswalk is VERIFIED-IN-CODE at `main` `9d81fd929`; the
