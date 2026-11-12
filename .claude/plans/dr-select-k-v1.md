@@ -116,8 +116,20 @@ including the ordered `NodeGuid` sequence where order is requested.
 **Reported per cell:** producing the selection (index, filter, bytes
 copied), bind, conversion if any, fold, retained memory, and the total for
 each R. Production and bind in µs, labelled "reported, not gates"; fold
-terms under the no-millisecond rule. A counter shows that no fold reads the
-source again.
+terms under the no-millisecond rule.
+
+**What "no second read" means.** mask-RISC keeps reading source-owned SoA
+lanes; that is its operand access and it is allowed. What is forbidden is
+running the completed Lance selection again, or scanning N through storage
+a second time. The lab therefore keeps three separate counters: storage
+accesses, binds, and operand reads. After the bind, the storage counter
+does not move.
+
+**Only admissible views compete.** The views are not always
+interchangeable. A FocusMask keeps membership but not an arbitrary index
+order or multiplicity. For each operation the lab compares only the views
+that can lawfully answer it; for ordered Top-K the order stays witnessed,
+so a mask alone is not an arm there.
 
 **Pass or stop.** The lab passes if every view equals the oracle and each
 number is attributable to one term. It does not have to produce a winner
