@@ -1,0 +1,26 @@
+[package]
+name = "thought-git-land-lab"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Lab: a thought whose row space is bound to a DT64 LocalMap, and a cycle of thoughts landed through the planner's WalSink contract and read back. Lab only; no Lance storage."
+
+# Its own workspace root, excluded from the lance-graph workspace (lab).
+# Run from THIS directory: `cd crates/thought-git-land-lab && cargo test`.
+[workspace]
+
+[dependencies]
+thought-git-probe = { path = "../thought-git-probe" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The durable writer contract only (`WalSink`, `persist_cycle`, the batch and
+# outcome types). No store is linked.
+lance-graph-planner = { path = "../lance-graph-planner" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt"] }
+
+# One ndarray: the planner names the sibling checkout by path, other crates in
+# the graph by the git coordinate. Same stanza as lance-graph-codegraph.
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }

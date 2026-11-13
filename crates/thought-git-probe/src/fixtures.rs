@@ -52,11 +52,26 @@ impl Thought {
     /// space, because every fixture below relies on one write per cell.
     #[must_use]
     pub fn new(id: u32, writes: Vec<(Cell, u64)>, outcome: Outcome) -> Self {
+        Self::in_space(id, ROWS, LANES, writes, outcome)
+    }
+
+    /// A thought over `rows` x `lanes` cells instead of the fixture space:
+    /// the same rules as [`Thought::new`] (one write per cell, every cell
+    /// inside the space), with the bounds given by the caller. Who supplies
+    /// the bounds, and under what witness, is the caller's concern.
+    #[must_use]
+    pub fn in_space(
+        id: u32,
+        rows: u32,
+        lanes: u8,
+        writes: Vec<(Cell, u64)>,
+        outcome: Outcome,
+    ) -> Self {
         let mut seen = BTreeSet::new();
         for &(c, _) in &writes {
             assert!(
-                c.row < ROWS && c.lane < LANES,
-                "cell {c:?} outside the fixture space"
+                c.row < rows && c.lane < lanes,
+                "cell {c:?} outside the {rows} x {lanes} space"
             );
             assert!(seen.insert(c), "thought {id} writes {c:?} twice");
         }

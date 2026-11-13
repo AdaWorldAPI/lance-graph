@@ -234,6 +234,9 @@ exclude = [
     # and signal checks over lance-graph-contract only. Lab probe; run from
     # its directory: `cd crates/thought-git-probe && cargo test`.
     "crates/thought-git-probe",
+    # Thought-git lab: a row space bound to a DT64 LocalMap, and a cycle landed
+    # through the WalSink contract. Run from its directory.
+    "crates/thought-git-land-lab",
     # X-C2-1 injection harness (RP-SEAL Tier 0) — fault injection over a
     # synthetic cycle; anti-vacuity gate reproduces the known in-tree
     # false-accepts against the REAL live implementations. Verify via
