@@ -2,6 +2,8 @@
 
 **Date:** 2026-11-13 · **Status:** P0 TEST-ONLY LAB, not a semantic compiler · **Source:** [CE64/ON×WHEN×DO scratchpad (draft PR #2048)](../2026-11-13-ce64-logic-neutrino-grammar-spine.md).
 
+> **File names.** This probe's three files carry the suffix `collision_audit` / `collision-audit`. The unsuffixed names (`logic_neutrino_p0.py`, `README-logic-neutrino-p0.md`, `crates/causal-edge/tests/logic_neutrino_p0.rs`) belong to two other P0 probes already on `main` (#2050 and #2049). The three are separate experiments and are kept side by side.
+
 ## Exact claim and its opposite
 
 **Claim under test (necessity, not sufficiency):** a u8 left-corner address can be a useful **candidate index**, but no single u8 can itself authorize an ON×WHEN×DO behavior if two candidates share syntax and disagree in receiver type, orientation, source revision or resource budget.
@@ -12,8 +14,8 @@
 
 | Surface | What it executes | What it does not claim |
 |---|---|---|
-| [Python scalar fixture](logic_neutrino_p0.py) | Seven stdlib-only tests for same-byte candidate collision, receiver type, CE64 raw orientation, river coal, revision/reading provenance, cross-domain mismatch and a deliberately broken prefix-only admit | **Not Ruff, OGAR, ClassView, DT64 or a production evaluator.** Context and rule mapping are intentionally hand-authored |
-| [Rust CE64 test](../../../crates/causal-edge/tests/logic_neutrino_p0.rs) | Real CausalEdge64::set_orientation/orientation against a separately written scalar bit oracle, all 8 orientations × 32 Epi5 raw patterns, and semantic-role twins | **Not an Epi5 declaration/certification proof.** It checks physical bit interpretation, not full ClassView eligibility |
+| [Python scalar fixture](logic_neutrino_p0_collision_audit.py) | Seven stdlib-only tests for same-byte candidate collision, receiver type, CE64 raw orientation, river coal, revision/reading provenance, cross-domain mismatch and a deliberately broken prefix-only admit | **Not Ruff, OGAR, ClassView, DT64 or a production evaluator.** Context and rule mapping are intentionally hand-authored |
+| [Rust CE64 test](../../../crates/causal-edge/tests/logic_neutrino_p0_collision_audit.rs) | Real CausalEdge64::set_orientation/orientation against a separately written scalar bit oracle, all 8 orientations × 32 Epi5 raw patterns, and semantic-role twins | **Not an Epi5 declaration/certification proof.** It checks physical bit interpretation, not full ClassView eligibility |
 
 Three logic-neutrino twins in the Python reference fixture:
 
@@ -30,13 +32,13 @@ Three logic-neutrino twins in the Python reference fixture:
 Python reference, no repository deps:
 
 ~~~sh
-python3 docs/research/probes/logic_neutrino_p0.py
+python3 docs/research/probes/logic_neutrino_p0_collision_audit.py
 ~~~
 
 Rust source-backed CE64 subset on a Rust-enabled checkout:
 
 ~~~sh
-cargo test --manifest-path crates/causal-edge/Cargo.toml --test logic_neutrino_p0
+cargo test --manifest-path crates/causal-edge/Cargo.toml --test logic_neutrino_p0_collision_audit
 ~~~
 
 ### Current validation receipt (2026-11-13)
@@ -44,6 +46,7 @@ cargo test --manifest-path crates/causal-edge/Cargo.toml --test logic_neutrino_p
 - **Python reference:** 7 tests **PASS** locally, Python 3.13.5.
 - **Disable run:** a temporary *uncommitted* mutant replaced the receiver/scope check with an always-false condition. Result: 7 tests executed, **2 FAIL** (test_rails_receiver_twin_and_missing_scope and test_mutant_prefix_only_admission_is_falsified). This is an active kill arm.
 - **Rust:** **NOT RUN locally**. This execution environment has no cargo/rustc and no network resolution for installing it. Its three tests are committed for CI or an independent Rust-enabled review. **No claim of Rust parity yet.**
+- **Rust, later run (2026-11-13):** on a Rust-enabled checkout the three tests pass under default features and under `--no-default-features` (3 passed, 0 failed each). This is a test result for the bit-level oracle only.
 - No benchmarks, Codegraph harvest, real Rails ActiveRecord reflection, real Mississippi Queen game engine, or live ClassView/DT64 binding were executed.
 
 ### Interpretation

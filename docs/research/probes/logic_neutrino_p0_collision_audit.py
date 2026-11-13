@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """P0 semantic twins: a test-only candidate selector, NOT a compiler.
 
-Run: python3 docs/research/probes/logic_neutrino_p0.py
+Run: python3 docs/research/probes/logic_neutrino_p0_collision_audit.py
 No third-party dependencies. No imports from production Rust code.
 The CE64 reader in this file is an independent scalar bit oracle; the
 separate Rust test exercises the real CausalEdge64 orientation accessor.

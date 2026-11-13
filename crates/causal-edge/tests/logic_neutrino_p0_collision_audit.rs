@@ -46,7 +46,10 @@ fn same_spo_and_evidence_can_have_opposite_role_selection() {
     // these projections can still disagree on the declared semantic role.
     let low40 = (1u64 << 40) - 1;
     assert_eq!(recipient.0 & low40, core.0 & low40);
-    assert!(scalar_role_match(recipient.0, Orientation::Recipient.code()));
+    assert!(scalar_role_match(
+        recipient.0,
+        Orientation::Recipient.code()
+    ));
     assert!(!scalar_role_match(core.0, Orientation::Recipient.code()));
 }
 
