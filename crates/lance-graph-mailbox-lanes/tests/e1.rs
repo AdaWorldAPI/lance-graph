@@ -495,7 +495,7 @@ fn a_write_lands_only_under_the_owners_rules() {
     let mut other: Box<Owner> = Box::new(MailboxSoA::new(8, 3, 1.0));
     other.set_populated(POPULATED);
     assert_eq!(
-        apply(&mut other, intent),
+        apply(&mut other, &w.store, &w.view, &ctx(&w), intent),
         Err(ApplyRefusal::ForeignOwner {
             intent: 7,
             owner: 8
@@ -506,7 +506,7 @@ fn a_write_lands_only_under_the_owners_rules() {
     // The owner moved to the next cycle: the intent is stale, nothing lands.
     let before = Model::of(&m);
     m.tick();
-    let applied: Applied = apply(&mut m, intent).unwrap();
+    let applied: Applied = apply(&mut m, &w.store, &w.view, &ctx(&w), intent).unwrap();
     assert_eq!(applied.changed, 0);
     assert_eq!(applied.refused, Some(WriteOutcome::Stale));
     assert_eq!(Model::of(&m), before);
@@ -517,13 +517,13 @@ fn a_write_lands_only_under_the_owners_rules() {
         let lanes = MailboxLanes::new(m.published(), READER);
         act(&lanes, &w.store, &w.view, &ctx(&w), &own).unwrap()
     };
-    let applied = apply(&mut m, &fresh.intents[0]).unwrap();
+    let applied = apply(&mut m, &w.store, &w.view, &ctx(&w), &fresh.intents[0]).unwrap();
     assert!(applied.changed > 0);
     assert_eq!(applied.refused, None);
     let row = fresh.rows[0] as usize;
     assert_eq!(m.last_write_cycle[row], m.current_cycle);
     // Applying it again changes nothing and writes nothing.
-    let again = apply(&mut m, &fresh.intents[0]).unwrap();
+    let again = apply(&mut m, &w.store, &w.view, &ctx(&w), &fresh.intents[0]).unwrap();
     assert_eq!((again.changed, again.unchanged), (0, applied.changed));
 
     // A method whose effect targets a stamp column is refused whole.
@@ -568,7 +568,12 @@ fn an_intent_does_not_outlive_what_it_read() {
     m.set_meta(joins, MetaWord(2));
     assert_eq!(m.current_cycle, cycle, "the setter moves no cycle");
     let before = state(&m);
-    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(
+        apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]),
+        Err(ApplyRefusal::Stale {
+            column: Column::Temporal
+        })
+    );
     assert_eq!(state(&m), before);
 
     // A row leaves the guard.
@@ -578,7 +583,12 @@ fn an_intent_does_not_outlive_what_it_read() {
     let leaves = acted.rows[0] as usize;
     m.set_meta(leaves, MetaWord(0));
     let before = state(&m);
-    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(
+        apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]),
+        Err(ApplyRefusal::Stale {
+            column: Column::Temporal
+        })
+    );
     assert_eq!(state(&m), before);
 
     // An operand changes: one more guard row has `active == 0`, so the
@@ -594,7 +604,12 @@ fn an_intent_does_not_outlive_what_it_read() {
         .unwrap();
     m.last_active_cycle[operand] = 0;
     let before = state(&m);
-    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(
+        apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]),
+        Err(ApplyRefusal::Stale {
+            column: Column::Temporal
+        })
+    );
     assert_eq!(state(&m), before);
 
     // Silence twin: a change the method does not read leaves the intent
@@ -603,7 +618,7 @@ fn an_intent_does_not_outlive_what_it_read() {
     first_write(&mut m);
     let acted = tally_intent(&m, &w);
     m.set_sigma(acted.rows[0] as usize, 9);
-    let applied = apply(&mut m, &acted.intents[0]).unwrap();
+    let applied = apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]).unwrap();
     assert_eq!(applied.changed, acted.rows.len() as u32);
     assert_eq!(applied.refused, None);
 }

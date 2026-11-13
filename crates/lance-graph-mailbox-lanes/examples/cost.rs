@@ -353,7 +353,9 @@ fn main() {
     let applied = measure("reset + apply one intent", 500_000, || {
         o.meta = meta0;
         o.temporal = temporal0;
-        apply(&mut o, &intent[0]).unwrap().changed
+        apply(&mut o, &store, &view, &ctx, &intent[0])
+            .unwrap()
+            .changed
     });
     let whole = measure("reset + cascade (3 rounds, 2 methods)", 10_000, || {
         o.meta = meta0;

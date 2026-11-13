@@ -17,17 +17,34 @@
 //! 5. **Write-back.** A fold result is one scalar per written field. For
 //!    each one whose field names a column the owner lets a method write, the
 //!    result becomes an [`Intent`]: column, value, the fired rows as one bit
-//!    per row, and the owner's cycle at publication. [`apply`] hands it to
+//!    per row, and the owner's cycle at publication. The write goes through
 //!    the owner's own cycle-aware mutator, `MailboxSoA::write_row`, which
 //!    refuses a write made for another cycle. A cell that already holds the
 //!    value is not written.
-//! 6. **The next ON.** [`cascade`] turns the columns [`apply`] really changed
+//! 6. **The next ON.** [`cascade`] turns the columns a round really changed
 //!    into the next round's ON, until a round changes nothing or the
 //!    caller's bound is reached.
 //!
-//! The publication ends before any write: [`apply`] needs `&mut` on the
-//! owner, so every frame, binding and lent lane of the read is gone by
-//! construction. Only owned, row-bounded values cross (an [`Intent`]).
+//! # The read-to-write boundary
+//!
+//! The publication ends before any write, so every frame, binding and lent
+//! lane of the read is gone by construction; only an owned, row-bounded
+//! [`Intent`] remains. Nothing ties that intent to the bytes it was computed
+//! from: the owner's setters and public columns change data without moving
+//! its cycle, and the mailbox has no revision that every write moves.
+//!
+//! So a write is only made inside one exclusive borrow of the owner that
+//! also covers the read it rests on:
+//!
+//! - [`cascade`] holds `&mut` on the owner from a round's read to its
+//!   writes.
+//! - [`apply`] takes an intent as a statement of what the caller expects.
+//!   Under its own exclusive borrow it runs the intent's method again and
+//!   writes only when the method asks for exactly that write now. An intent
+//!   whose guard rows or value no longer hold is refused
+//!   ([`ApplyRefusal::Stale`]) and nothing is written.
+//!
+//! No revision counter, log or copy of the read columns is kept.
 //!
 //! # What a method means here
 //!
@@ -42,10 +59,13 @@
 //! - Writable columns: `meta` and `temporal`. The two cycle stamps are the
 //!   owner's; a method that targets one is refused whole
 //!   ([`ActRefusal::NotWritable`]). `edges` is lendable and not written here.
+//!   A field naming a mailbox column the socket cannot lend at all (`sigma`,
+//!   `qualia`, ...) refuses the method too
+//!   ([`ActRefusal::UnsupportedColumn`]).
 //! - Folds over the mailbox's lanes: predicates on `u32` columns
 //!   (`IntEqual`), Boolean combinations and counts. `SUM`, `MIN` and `MAX`
 //!   need an `i32` lane, which the mailbox does not have; R2IL refuses them.
-//! - A field that names no mailbox column (a method's scratch mask, an
+//! - A field that names no mailbox column at all (a method's scratch mask, an
 //!   intermediate scalar) is never written; its scalars are returned in
 //!   [`Acted::unwritten`].
 //! - Rounds are evaluated against one publication each: every method of a
@@ -69,7 +89,7 @@ use lance_graph_r2il::binding::{
 use lance_graph_r2il::FoldDialect;
 
 use crate::when::{when, WhenRefusal, WhenRequest};
-use crate::{Column, MailboxLanes};
+use crate::{Column, ColumnRefusal, MailboxLanes};
 
 /// What a method is run under: the routed position, the class's schema
 /// revision, the reader scope and focus the caller asserts, the R2IL lens
@@ -98,6 +118,9 @@ pub enum ActRefusal {
     Exec(ExecRefusal),
     /// An effect targets a mailbox column a method may not write.
     NotWritable { field: u8, column: Column },
+    /// An effect targets a mailbox column of a kind the socket does not
+    /// handle. It is a column of the owner, so it is not a scratch field.
+    UnsupportedColumn { field: u8, kind: &'static str },
     /// A result does not fit the column it would be written to.
     ValueOutOfRange { field: u8, value: i64 },
 }
@@ -107,6 +130,7 @@ pub enum ActRefusal {
 /// and bounded by the row count (one bit per row); it borrows nothing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Intent {
+    method: MethodRef,
     mailbox: MailboxId,
     cycle: u32,
     column: Column,
@@ -124,6 +148,17 @@ impl Intent {
     /// The value written at every fired row.
     pub fn value(&self) -> u64 {
         self.value
+    }
+
+    /// The same write: method, owner, column, value and rows. The cycle is
+    /// left to the owner's own check.
+    fn same_write(&self, other: &Intent) -> bool {
+        self.method == other.method
+            && self.mailbox == other.mailbox
+            && self.column == other.column
+            && self.value == other.value
+            && self.n_rows == other.n_rows
+            && self.rows == other.rows
     }
 }
 
@@ -147,8 +182,11 @@ fn writable(iri: &str, field: u8) -> Result<Option<Column>, ActRefusal> {
     match Column::from_iri(iri) {
         Ok(column @ (Column::Meta | Column::Temporal)) => Ok(Some(column)),
         Ok(column) => Err(ActRefusal::NotWritable { field, column }),
-        // Not a lendable mailbox column: a scratch field of the class.
-        Err(_) => Ok(None),
+        Err(ColumnRefusal::UnsupportedKind(kind)) => {
+            Err(ActRefusal::UnsupportedColumn { field, kind })
+        }
+        // No mailbox column at all: a scratch field of the class.
+        Err(ColumnRefusal::Unknown) => Ok(None),
     }
 }
 
@@ -300,6 +338,7 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
             _ => u64::try_from(value).ok(),
         };
         intents.push(Intent {
+            method: method.clone(),
             mailbox,
             cycle,
             column,
@@ -318,10 +357,17 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
 }
 
 /// Why an intent was not handed to the owner at all.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ApplyRefusal {
     /// The intent was computed from another mailbox.
     ForeignOwner { intent: MailboxId, owner: MailboxId },
+    /// The intent's method no longer asks for this write: its guard keeps
+    /// other rows, or it computes another value, than when the intent was
+    /// made. Nothing was written.
+    Stale { column: Column },
+    /// The intent's method does not run against the owner as it is now.
+    /// Nothing was written.
+    NotReproduced(ActRefusal),
 }
 
 /// What the owner did with an intent.
@@ -340,11 +386,27 @@ pub struct Applied {
     pub refused: Option<WriteOutcome>,
 }
 
-/// Hand `intent` to its owner. Every write goes through
-/// `MailboxSoA::write_row` with the cycle the intent was computed in, so the
-/// owner refuses it once it has moved on.
-pub fn apply<const N: usize>(
+/// Hand `intent` to its owner, if its method still asks for it.
+///
+/// The intent was computed under a publication that has ended, and the owner
+/// may have changed since without moving its cycle. So the method is run
+/// again here, under this call's exclusive borrow of the owner, and the
+/// intent is written only when one of the writes the method asks for now is
+/// the same write (method, column, value, rows). Otherwise it is refused and
+/// nothing is written.
+///
+/// Every write goes through `MailboxSoA::write_row` with the cycle the
+/// intent was computed in, so the owner still refuses it once it has moved
+/// to another cycle.
+///
+/// # Errors
+///
+/// [`ApplyRefusal`]; in every case no cell and no stamp has changed.
+pub fn apply<V: ClassView + ?Sized, const N: usize>(
     owner: &mut MailboxSoA<N>,
+    store: &BindStore,
+    view: &V,
+    ctx: &ActContext<'_>,
     intent: &Intent,
 ) -> Result<Applied, ApplyRefusal> {
     if owner.mailbox_id() != intent.mailbox {
@@ -353,6 +415,21 @@ pub fn apply<const N: usize>(
             owner: owner.mailbox_id(),
         });
     }
+    let now = {
+        let lanes = MailboxLanes::new(owner.published(), ctx.scope);
+        act(&lanes, store, view, ctx, &intent.method).map_err(ApplyRefusal::NotReproduced)?
+    };
+    if !now.intents.iter().any(|i| i.same_write(intent)) {
+        return Err(ApplyRefusal::Stale {
+            column: intent.column,
+        });
+    }
+    Ok(write(owner, intent))
+}
+
+/// Write `intent` to the owner. The caller holds the owner exclusively since
+/// the read the intent was computed from.
+fn write<const N: usize>(owner: &mut MailboxSoA<N>, intent: &Intent) -> Applied {
     let mut applied = Applied::default();
     for row in 0..intent.n_rows.min(owner.populated()) {
         if intent.rows[row / 64] >> (row % 64) & 1 == 0 {
@@ -391,7 +468,7 @@ pub fn apply<const N: usize>(
             }
         }
     }
-    Ok(applied)
+    applied
 }
 
 /// One method of one round.
@@ -485,10 +562,9 @@ pub fn cascade<V: ClassView + ?Sized, const N: usize>(
         for (method, lanes_lent, done) in acted {
             let mut applied = Applied::default();
             for intent in &done.intents {
-                // `act` built the intent from this owner.
-                let Ok(one) = apply(owner, intent) else {
-                    continue;
-                };
+                // `owner` has been borrowed exclusively since the round's
+                // read; only this round's earlier writes lie in between.
+                let one = write(owner, intent);
                 applied.changed += one.changed;
                 applied.unchanged += one.unchanged;
                 applied.stamped += one.stamped;

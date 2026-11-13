@@ -15,7 +15,7 @@ use lance_graph_dt64::{
     view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
     MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mailbox_lanes::act::{act, ActContext};
+use lance_graph_mailbox_lanes::act::{act, ActContext, ActRefusal};
 use lance_graph_mailbox_lanes::{Column, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
@@ -205,7 +205,13 @@ fn a_known_unwritable_column_is_not_a_scratch_field() {
     let lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
     let to_sigma = w.store.method_ref(CLASS, TO_SIGMA).unwrap();
     let got = act(&lanes, &w.store, &w.view, &ctx(&w), &to_sigma);
-    assert!(got.is_err(), "{got:?}");
+    assert_eq!(
+        got,
+        Err(ActRefusal::UnsupportedColumn {
+            field: SIGMA,
+            kind: "u8"
+        })
+    );
     assert_eq!(lanes.lends(), 0);
 
     // Silence twin: a field that names no mailbox column is scratch. The

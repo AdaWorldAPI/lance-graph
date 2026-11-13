@@ -29,7 +29,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
 - use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
 - use crate::BindStore — crates/lance-graph-dt64/src/lane.rs:23 POSSIBLE
-- use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/act.rs:62 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/act.rs:82 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:83 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding_native.rs:47 POSSIBLE
@@ -40,7 +40,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 
-## Textual occurrences (136 total)
+## Textual occurrences (137 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -130,9 +130,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:1177 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:1186 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:6 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:62 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:159 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:445 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:82 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:197 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:407 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:522 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:114 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:137 POSSIBLE
