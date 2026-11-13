@@ -28,6 +28,7 @@ value, never by discovery order; no timestamps, no absolute paths, no HEAD sha
 per-crate freshness is a digest of (relpath, git blob id) pairs.
 """
 import argparse
+import bisect
 import hashlib
 import os
 import re
@@ -707,8 +708,13 @@ _CALLKIND = {"CALLS_RESOLVED": ("resolved", "CONFIRMED"),
              "UNRESOLVED_CALL": ("unresolved", "UNKNOWN")}
 
 
-def load_charon(stores, src, in_scope):
-    """-> (rows, have) rows are calls.tsv tuples, have = {crate: store dir name}."""
+def load_charon(stores, src, in_scope, paths=None):
+    """-> (rows, have) rows are calls.tsv tuples, have = {crate: store dir name}.
+
+    A cited file is looked up under `src`, then under the crate's own directory: an
+    excluded crate is its own cargo workspace, so Charon cites `src/lib.rs` there. The
+    emitted path is the one relative to `src`."""
+    paths = paths or {}
     rows, have, seen = [], {}, {}
     by_lib = {lib_name(n): n for n in in_scope}
     cache = {}
@@ -739,14 +745,20 @@ def load_charon(stores, src, in_scope):
                 f = r["file"]
                 line, ok = "-", False
                 if src is not None and f != "-":
-                    sp = Path(src) / f
-                    if sp.is_file():
-                        if sp not in cache:
-                            cache[sp] = sp.read_bytes()
-                        b = cache[sp]
-                        ok = fh.get(f) == fnv64(b)
+                    key = (crate, f)
+                    if key not in cache:
+                        cache[key] = None
+                        for rel in (f, f"{paths[crate]}/{f}" if crate in paths else f):
+                            sp = Path(src) / rel
+                            if sp.is_file():
+                                b = sp.read_bytes()
+                                nl = [i for i, c in enumerate(b) if c == 10]
+                                cache[key] = (rel, fh.get(f) == fnv64(b), nl)
+                                break
+                    if cache[key] is not None:
+                        f, ok, nl = cache[key]
                         try:
-                            line = str(b[:int(r["start"])].count(b"\n") + 1)
+                            line = str(bisect.bisect_left(nl, int(r["start"])) + 1)
                         except ValueError:
                             line = "-"
                 if not ok:
@@ -848,7 +860,7 @@ def generate(root, stores=(), charon_src=None, views=None):
         for ln, path, alias, kind, cfg in rf.imports:
             imports.append((n, rel, str(ln), path, alias, kind, combine_cfg([up, cfg]),
                             "POSSIBLE" if path.endswith("::*") or path == "*" else "CONFIRMED"))
-    calls, have = load_charon(stores, charon_src, in_scope)
+    calls, have = load_charon(stores, charon_src, in_scope, {n: crates[n]["path"] for n in names})
     for n in names:
         if n not in have:
             calls.append((n, "-", "-", MISSING, "-", "-", "UNKNOWN"))
