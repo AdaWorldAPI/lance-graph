@@ -56,7 +56,9 @@ fn every_product_matches_two_independent_references() {
             );
         }
     }
-    assert_eq!(moved.transposes, 2 * 90, "the oracle did move data");
+    // 12 rearrangements for the eight recipes (0+2+2+2+1+1+1+3), each used
+    // 8 times as `g` and 8 times as `h`.
+    assert_eq!(moved.transposes, 16 * 12, "the oracle did move data");
 }
 
 /// P0. FAILS IF: the eight are not a group of eight distinct maps, or the

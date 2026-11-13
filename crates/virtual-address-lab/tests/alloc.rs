@@ -42,7 +42,7 @@ fn the_warm_virtual_route_allocates_nothing() {
     let want: i64 = (0..4_000i64).map(|p| 50_000 + p).sum();
     assert_eq!(
         fold_property(&world, &binding, &grid, &chain, 5, sel, BoundFold::SumI32),
-        Ok(Value::I64(want))
+        Ok(Value::SumI64(want))
     );
 
     let before = ALLOCS.load(Relaxed);
@@ -57,7 +57,7 @@ fn the_warm_virtual_route_allocates_nothing() {
     let after = ALLOCS.load(Relaxed);
     assert_eq!(normal, Recipe::TRANSPOSE);
     assert_eq!(value, Ok(171_234));
-    assert_eq!(sum, Ok(Value::I64(want)));
+    assert_eq!(sum, Ok(Value::SumI64(want)));
     assert_eq!(coupled, 65_536);
     assert_eq!(after - before, 0);
 

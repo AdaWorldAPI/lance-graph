@@ -56,6 +56,8 @@ pub struct Grid {
     space: CoordSpace,
     /// `phys[l]` is the source's own lane id of field `l`.
     phys: Vec<u16>,
+    /// The field names, built once: `lane_of` compares, it does not format.
+    iris: Vec<String>,
     selections: Vec<Issued>,
 }
 
@@ -81,6 +83,7 @@ impl Grid {
                 coordinates: 1,
             },
             phys: (0..lanes as u16).collect(),
+            iris: (0..lanes).map(iri).collect(),
             selections: Vec::new(),
         }
     }
@@ -225,7 +228,10 @@ impl LaneSource for Grid {
             return None;
         }
         // Mapped by the field DT64 resolved, never by its position.
-        let lane = (0..self.lanes).find(|&l| iri(l) == basis.predicate_iri.as_str())?;
+        let lane = self
+            .iris
+            .iter()
+            .position(|i| i.as_str() == basis.predicate_iri.as_str())?;
         Some(LaneAddr {
             space: self.space,
             lane: self.phys[lane],

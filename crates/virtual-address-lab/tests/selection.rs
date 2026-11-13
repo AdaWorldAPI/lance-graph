@@ -38,10 +38,10 @@ fn scalar_sum(grid: &Grid, field: usize, rows: &[u32]) -> i64 {
         .sum()
 }
 
-fn scalar_count_gt(grid: &Grid, field: usize, rows: &[u32], t: i32) -> u64 {
+fn scalar_count_gt(grid: &Grid, field: usize, rows: &[u32], t: i32) -> usize {
     rows.iter()
         .filter(|&&r| grid.cell(field, r as usize) > t)
-        .count() as u64
+        .count()
 }
 
 /// P3. FAILS IF: the source-issued order does not reach the existing fold,
@@ -85,7 +85,7 @@ fn a_source_issued_order_reaches_the_existing_fold() {
                 sel,
                 BoundFold::SumI32
             ),
-            Ok(Value::I64(scalar_sum(&grid, property, &rows)))
+            Ok(Value::SumI64(scalar_sum(&grid, property, &rows)))
         );
         assert_eq!(
             fold_property(
@@ -115,7 +115,7 @@ fn the_chain_is_normalised_before_the_fold_is_called() {
     assert!(rows.len() > 100 && rows.len() < LEN - 100);
 
     let direct = fold_property(&world, &binding, &grid, &ENTITY, 1, sel, BoundFold::SumI32);
-    assert_eq!(direct, Ok(Value::I64(scalar_sum(&grid, 1, &rows))));
+    assert_eq!(direct, Ok(Value::SumI64(scalar_sum(&grid, 1, &rows))));
     let long = [Recipe::TRANSPOSE, Recipe::ROTATE90, Recipe::ROTATE270];
     assert_eq!(field_through(&long, &grid, 1), Ok(1));
     assert_eq!(
@@ -136,7 +136,7 @@ fn the_chain_is_normalised_before_the_fold_is_called() {
         sel,
         BoundFold::SumI32,
     );
-    assert_eq!(other, Ok(Value::I64(scalar_sum(&grid, 6, &rows))));
+    assert_eq!(other, Ok(Value::SumI64(scalar_sum(&grid, 6, &rows))));
     assert_ne!(other, direct);
 }
 
@@ -259,7 +259,7 @@ fn a_row_order_is_not_a_field_axis_transformation() {
             forward,
             BoundFold::SumI32
         ),
-        Ok(Value::I64((0..LEN as i64).sum()))
+        Ok(Value::SumI64((0..LEN as i64).sum()))
     );
 }
 
@@ -297,7 +297,7 @@ fn a_selection_with_duplicates_is_a_bag() {
     assert_ne!(once, 0);
     assert_eq!(
         fold_property(&world, &binding, &grid, &ENTITY, 3, bag, BoundFold::SumI32),
-        Ok(Value::I64(3 * once + far))
+        Ok(Value::SumI64(3 * once + far))
     );
     // As membership (a mask) it would be `once + far`: not a bijection of rows.
     assert_ne!(3 * once + far, once + far);
@@ -383,7 +383,7 @@ fn a_recipe_digest_does_not_witness_the_producer_of_the_bytes() {
 
     grid.rewrite_lane(4, |_| 1);
     let after = fold_property(&world, &binding, &grid, &ENTITY, 4, sel, BoundFold::SumI32);
-    assert_eq!(after, Ok(Value::I64(LEN as i64)));
+    assert_eq!(after, Ok(Value::SumI64(LEN as i64)));
     assert_ne!(after, before);
     assert_eq!(Recipe::normalize(&ENTITY).digest(), digest);
 }
