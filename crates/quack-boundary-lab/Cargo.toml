@@ -18,3 +18,5 @@ hidden-state-twins-probe = { path = "../hidden-state-twins-probe" }
 # `BitPlanes::of` (PR 2057), as an independent slicing of the same codes in
 # tests/derived_plane.rs.
 dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
+# `CalibratedFloor`, for tests/calibrated_plane.rs (zero-dependency crate).
+weather-poc = { path = "../weather-poc" }
