@@ -3,7 +3,7 @@
 crate: lance-graph-ogar
 path: crates/lance-graph-ogar
 workspace: excluded
-digest: f5d4b9cde2f351ba
+digest: 8557d912b26c9363
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.

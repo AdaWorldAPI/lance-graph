@@ -8,11 +8,13 @@
 //! Fixture: four rows, all satisfying the guard; the selection `[1, 1, 3]`.
 //! Three counts, each by hand:
 //!
-//! | reading | count |
-//! |---|---|
-//! | every row of the source | 4 |
-//! | the selection's distinct rows | 2 |
-//! | the selection as a bag | 3 |
+//! | reading | path | count |
+//! |---|---|---|
+//! | every row of the source | `act` | 4 |
+//! | the selection's distinct rows | `act_over`, distinct method | 2 |
+//! | the selection as a bag | `act_over`, bag method | 3 |
+//!
+//! `act` refuses a bag-declared method: it has no selection to weigh.
 
 use cognitive_shader_driver::mailbox_soa::MailboxSoA;
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
@@ -28,7 +30,7 @@ use lance_graph_dt64::{
 use lance_graph_mailbox_lanes::act::{act, act_over, ActContext, ActRefusal};
 use lance_graph_mailbox_lanes::when::{when, WhenRefusal, WhenRequest};
 use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
-use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
+use lance_graph_r2il::binding::{ExecPermit, ExecRefusal, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
 
 const N: usize = 64;
@@ -39,7 +41,6 @@ const POSITION: u16 = 16;
 const REV: SchemaRev = SchemaRev(1);
 
 const META: u8 = 0;
-#[allow(dead_code)]
 const ACTIVE: u8 = 1;
 #[allow(dead_code)]
 const SIGMA: u8 = 2;
@@ -62,9 +63,22 @@ const CONST: MethodId = MethodId(5);
 /// The same, written to `meta`.
 const CONST_TO_META: MethodId = MethodId(6);
 
+/// WHEN `meta == 2`; the effect mask is `active == 5`; DO `scratch := COUNT`.
+/// Declared over a bag.
+const BAG_ACTIVE: MethodId = MethodId(7);
+/// The same, over the distinct rows.
+const DISTINCT_ACTIVE: MethodId = MethodId(8);
+/// As `COUNT`, declared over a bag, with an `ANY` fold.
+const BAG_ANY: MethodId = MethodId(9);
+/// As `COUNT_TO_META`, declared over a bag.
+const BAG_TO_META: MethodId = MethodId(10);
+/// As `COUNT_ALL` (no guard), declared over a bag.
+const BAG_ALL: MethodId = MethodId(11);
+
 const W_ADD: u8 = 0;
 const W_EQUAL: u8 = 4;
 const W_POP_COUNT: u8 = 10;
+const W_ANY: u8 = 14;
 
 /// Every row satisfies the guard (`meta == 2`).
 fn meta_of(_r: usize) -> u32 {
@@ -143,6 +157,29 @@ fn count_into(id: MethodId, target: u8) -> MethodBinding {
     }
 }
 
+/// WHEN `meta == 2`; the effect mask is `active == 5`, independent of the
+/// guard; DO `scratch := COUNT(mask)`.
+fn active_into(id: MethodId, population: Population) -> MethodBinding {
+    MethodBinding {
+        id,
+        sig_rev: SigRev(1),
+        name: format!("m{}", id.0),
+        on: WideFieldMask::from_positions(&[META]),
+        when: Some(Guard::new(
+            SetExpr::eq_u32(u16::from(META), 2),
+            Logic::TwoValued,
+        )),
+        reads: WideFieldMask::from_positions(&[META, ACTIVE]),
+        effects: vec![
+            word(MASK, W_EQUAL, vec![Arg::Field(ACTIVE), Arg::Const(5)]),
+            word(SCRATCH, W_POP_COUNT, vec![Arg::Field(MASK)]),
+        ],
+        population,
+        truth: Truth::TwoValued,
+        demand: ValueDemand::Values,
+    }
+}
+
 /// `target := 2 + 3`: no guard, and no field is read.
 fn constant_into(id: MethodId, target: u8) -> MethodBinding {
     MethodBinding {
@@ -215,6 +252,25 @@ fn world() -> World {
                 count_into(COUNT_TO_META, META),
                 constant_into(CONST, SCRATCH),
                 constant_into(CONST_TO_META, META),
+                active_into(BAG_ACTIVE, Population::Bag),
+                active_into(DISTINCT_ACTIVE, Population::Distinct),
+                MethodBinding {
+                    population: Population::Bag,
+                    effects: vec![
+                        word(MASK, W_EQUAL, vec![Arg::Field(META), Arg::Const(2)]),
+                        word(SCRATCH, W_ANY, vec![Arg::Field(MASK)]),
+                    ],
+                    ..count_into(BAG_ANY, SCRATCH)
+                },
+                MethodBinding {
+                    population: Population::Bag,
+                    ..count_into(BAG_TO_META, META)
+                },
+                MethodBinding {
+                    population: Population::Bag,
+                    when: None,
+                    ..count_into(BAG_ALL, SCRATCH)
+                },
             ],
         )
         .expect("the class registers");
@@ -227,6 +283,11 @@ fn world() -> World {
             COUNT_TO_META,
             CONST,
             CONST_TO_META,
+            BAG_ACTIVE,
+            DISTINCT_ACTIVE,
+            BAG_ANY,
+            BAG_TO_META,
+            BAG_ALL,
         ]
         .iter()
         .map(|&m| store.method_ref(CLASS, m).unwrap())
@@ -308,8 +369,9 @@ fn positions_of(w: &World, lanes: &MailboxLanes<'_, N>, sel: u16) -> Vec<u32> {
 
 /// Which population each path computes over.
 /// FAILS IF: `act` computes over anything but the whole source, `act_over`
-/// over anything but the selection's distinct rows, or either returns the
-/// bag count.
+/// of a distinct method over anything but the selection's distinct rows,
+/// `act_over` of a bag method returns anything but the bag count, or `act`
+/// runs a bag method.
 #[test]
 fn each_path_names_its_population() {
     let m = owner();
@@ -334,22 +396,23 @@ fn each_path_names_its_population() {
     assert!(over.intents.is_empty());
     // Which population a result was computed over is part of the result.
     assert_eq!((whole.over, over.over), (None, Some(sel)));
-    // Neither is the bag reading.
+    // Neither of these is the bag reading.
     assert_ne!(whole.unwritten[0].1, as_bag);
     assert_ne!(over.unwritten[0].1, as_bag);
 
-    // The bag reading has no path: a bag-declared method is refused, with
-    // and without a selection.
+    // The bag reading has one path: `act_over` with a bag-declared method.
+    // `act` has no selection and refuses it.
     let count_bag = w.store.method_ref(CLASS, COUNT_BAG).unwrap();
-    let refused = Err(ActRefusal::BagPopulation { method: COUNT_BAG });
     assert_eq!(
         act(&lanes, &w.store, &w.view, &ctx(&w), &count_bag),
-        refused
+        Err(ActRefusal::BagPopulation { method: COUNT_BAG })
     );
-    assert_eq!(
-        act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel),
-        refused
-    );
+    let bagged = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel).unwrap();
+    assert_eq!(bagged.unwritten, vec![(SCRATCH, as_bag)]);
+    assert!(bagged.intents.is_empty());
+    assert_eq!(bagged.over, Some(sel));
+    assert_eq!(bagged.receipt.method, count_bag);
+    assert!(bagged.receipt.output.values.contains(&(SCRATCH, 3)));
 }
 
 /// The selection narrows; it does not replace the guard.
@@ -476,12 +539,12 @@ fn guarded_oracles(meta: &[u32], positions: &[u32]) -> (i64, i64, i64) {
     (whole as i64, distinct as i64, bag as i64)
 }
 
-/// The bag reading against the two that have a path, over six selections.
+/// The bag reading against the two others, over six selections.
 /// FAILS IF: `act` or `act_over` returns anything but the whole-source or
-/// distinct count, or a bag-declared method runs at all. The bag count is the
-/// oracle's only: no path computes it.
+/// distinct count, `act` runs a bag-declared method, or the bag path returns
+/// anything but the per-occurrence guarded count.
 #[test]
-fn a_bag_count_weighs_each_occurrence_by_the_guard_and_has_no_path() {
+fn a_bag_count_weighs_each_occurrence_by_the_guard() {
     // (row 3 fails the guard, selection, positions, whole, distinct, bag)
     type Case = (bool, &'static str, &'static [u32], i64, i64, i64);
     let cases: [Case; 6] = [
@@ -530,10 +593,169 @@ fn a_bag_count_weighs_each_occurrence_by_the_guard_and_has_no_path() {
         assert_eq!(got.unwritten, vec![(SCRATCH, distinct)], "{which}");
 
         let count_bag = w.store.method_ref(CLASS, COUNT_BAG).unwrap();
+        let got = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel).unwrap();
+        assert_eq!(got.unwritten, vec![(SCRATCH, as_bag)], "{which}");
         assert_eq!(
-            act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel),
+            act(&lanes, &w.store, &w.view, &ctx(&w), &count_bag),
             Err(ActRefusal::BagPopulation { method: COUNT_BAG }),
             "{which}"
         );
     }
+}
+
+/// Both the guard and the effect's own mask decide whether an occurrence
+/// counts in a bag.
+/// FAILS IF: the bag count ignores the effect mask (`active == 5`), ignores
+/// the guard (`meta == 2`), or counts a row the effect mask excludes.
+#[test]
+fn an_effect_mask_and_the_guard_both_decide_a_bag_occurrence() {
+    let run = |m: &Owner, method: MethodId, over: bool| -> i64 {
+        let w = world();
+        let mut lanes = MailboxLanes::new(m.published(), READER);
+        let sel = bag(&mut lanes);
+        let r = w.store.method_ref(CLASS, method).unwrap();
+        let got = if over {
+            act_over(&lanes, &w.store, &w.view, &ctx(&w), &r, sel).unwrap()
+        } else {
+            act(&lanes, &w.store, &w.view, &ctx(&w), &r).unwrap()
+        };
+        assert_eq!(got.unwritten.len(), 1);
+        got.unwritten[0].1
+    };
+
+    // Hand oracle from literals. Selection [1, 1, 3]; meta [2,2,2,2];
+    // active [0,5,0,6]. An occurrence counts when meta == 2 AND active == 5:
+    // row 1 passes both (twice), row 3 fails the effect mask (6 != 5).
+    let meta = [2u32, 2, 2, 2];
+    let active = [0u32, 5, 0, 6];
+    let selection = [1usize, 1, 3];
+    let oracle = selection
+        .iter()
+        .filter(|&&p| meta[p] == 2 && active[p] == 5)
+        .count() as i64;
+    assert_eq!(oracle, 2);
+
+    let m = owner();
+    assert_eq!(run(&m, BAG_ACTIVE, true), 2);
+    assert_eq!(run(&m, DISTINCT_ACTIVE, true), 1);
+    // `act` has no selection: the whole prefix, each row once. Only row 1
+    // passes both conditions.
+    assert_eq!(run(&m, DISTINCT_ACTIVE, false), 1);
+
+    // Row 1 fails the guard (meta 7) although its effect mask holds: the
+    // guard excludes it, so both counts are 0.
+    let mut m = owner();
+    m.set_meta(1, MetaWord(7));
+    assert_eq!(run(&m, BAG_ACTIVE, true), 0);
+    assert_eq!(run(&m, DISTINCT_ACTIVE, true), 0);
+
+    // Row 3 fails the guard, but it never passed the effect mask (6 != 5),
+    // so the bag count is unchanged: the effect mask alone excludes it.
+    let mut m = owner();
+    m.set_meta(3, MetaWord(7));
+    assert_eq!(run(&m, BAG_ACTIVE, true), 2);
+}
+
+/// What a bag run refuses, and the silence twin.
+/// FAILS IF: a bag method with a non-count fold, a write, no guard, a foreign
+/// selection, a foreign scope or no permit still runs, or the admitted bag
+/// count is refused.
+#[test]
+fn what_a_bag_run_refuses() {
+    let m = owner();
+    let w = world();
+    let mut lanes = MailboxLanes::new(m.published(), READER);
+    let sel = bag(&mut lanes);
+
+    let any = w.store.method_ref(CLASS, BAG_ANY).unwrap();
+    let refused = act_over(&lanes, &w.store, &w.view, &ctx(&w), &any, sel);
+    assert!(
+        matches!(
+            refused,
+            Err(ActRefusal::Exec(ExecRefusal::BagFold { effect: 1, .. }))
+        ),
+        "{refused:?}"
+    );
+
+    let to_meta = w.store.method_ref(CLASS, BAG_TO_META).unwrap();
+    assert_eq!(
+        act_over(&lanes, &w.store, &w.view, &ctx(&w), &to_meta, sel),
+        Err(ActRefusal::NotReadOnly {
+            field: META,
+            column: Column::Meta
+        })
+    );
+    let all = w.store.method_ref(CLASS, BAG_ALL).unwrap();
+    assert_eq!(
+        act_over(&lanes, &w.store, &w.view, &ctx(&w), &all, sel),
+        Err(ActRefusal::SelectionNeedsGuard)
+    );
+
+    let count_bag = w.store.method_ref(CLASS, COUNT_BAG).unwrap();
+    assert!(matches!(
+        act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel + 1),
+        Err(ActRefusal::Lane(_))
+    ));
+
+    let foreign = ActContext {
+        scope: Scope { id: 4 },
+        ..ctx(&w)
+    };
+    let other = act_over(&lanes, &w.store, &w.view, &foreign, &count_bag, sel);
+    assert!(
+        matches!(
+            other,
+            Err(ActRefusal::When(WhenRefusal::ScopeMismatch { .. }))
+        ),
+        "{other:?}"
+    );
+
+    let empty = ExecPermit { methods: vec![] };
+    let unpermitted = ActContext {
+        permit: &empty,
+        ..ctx(&w)
+    };
+    assert_eq!(
+        act_over(&lanes, &w.store, &w.view, &unpermitted, &count_bag, sel),
+        Err(ActRefusal::Exec(ExecRefusal::NotPermitted))
+    );
+
+    // Silence twin: the same method, the real context and the issued
+    // selection runs and counts 3.
+    let got = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel).unwrap();
+    assert_eq!(got.unwritten, vec![(SCRATCH, 3)]);
+}
+
+/// A bag run reads in place: it writes nothing and copies no column.
+/// FAILS IF: a bag run builds a write intent, changes any owner cell, or
+/// lends a different number of lanes than its reads need.
+#[test]
+fn a_bag_run_writes_nothing_and_copies_no_column() {
+    let m = owner();
+    let snapshot = |m: &Owner| -> Vec<(u32, u64, u32, u32)> {
+        (0..POPULATED)
+            .map(|r| {
+                (
+                    m.meta[r].0,
+                    m.temporal[r],
+                    m.last_active_cycle[r],
+                    m.last_write_cycle[r],
+                )
+            })
+            .collect()
+    };
+    let before = snapshot(&m);
+    {
+        let w = world();
+        let mut lanes = MailboxLanes::new(m.published(), READER);
+        let sel = bag(&mut lanes);
+        let count_bag = w.store.method_ref(CLASS, COUNT_BAG).unwrap();
+        let lends_before = lanes.lends();
+        let got = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel).unwrap();
+        assert!(got.intents.is_empty());
+        // Measured: the guard's `meta` lane, the operand `meta` lane, and
+        // the lane `LaneBinding::selected` borrows with the positions.
+        assert_eq!(lanes.lends() - lends_before, 3);
+    }
+    assert_eq!(snapshot(&m), before);
 }

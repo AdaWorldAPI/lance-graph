@@ -3,7 +3,7 @@
 crate: lance-graph-r2il
 path: crates/lance-graph-r2il
 workspace: member
-digest: 2bc8572b791ea218
+digest: 5c6290f674a80fe0
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -50,15 +50,16 @@ Generated; the code is the truth. See ../index.md.
 - struct Executed [pub] — crates/lance-graph-r2il/src/binding.rs:223 CONFIRMED
 - struct Receipt [pub] — crates/lance-graph-r2il/src/binding.rs:232 CONFIRMED
 - enum ExecRefusal [pub] — crates/lance-graph-r2il/src/binding.rs:245 CONFIRMED
-- fn prepare [pub] — crates/lance-graph-r2il/src/binding.rs:336 CONFIRMED
-- struct Gate [pub] — crates/lance-graph-r2il/src/binding.rs:404 CONFIRMED
-- fn prepare_gated [pub] — crates/lance-graph-r2il/src/binding.rs:428 CONFIRMED
-- fn run_gated [pub] — crates/lance-graph-r2il/src/binding.rs:459 CONFIRMED
-- fn run [pub] — crates/lance-graph-r2il/src/binding.rs:497 CONFIRMED
-- fn call_step [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:628 CONFIRMED
-- fn check_route [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:649 CONFIRMED
-- fn lane [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:799 CONFIRMED
-- fn check_compare [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:828 CONFIRMED
+- fn prepare [pub] — crates/lance-graph-r2il/src/binding.rs:339 CONFIRMED
+- struct Gate [pub] — crates/lance-graph-r2il/src/binding.rs:407 CONFIRMED
+- fn prepare_gated [pub] — crates/lance-graph-r2il/src/binding.rs:431 CONFIRMED
+- fn run_gated [pub] — crates/lance-graph-r2il/src/binding.rs:462 CONFIRMED
+- fn run_bag [pub] — crates/lance-graph-r2il/src/binding.rs:513 CONFIRMED
+- fn run [pub] — crates/lance-graph-r2il/src/binding.rs:564 CONFIRMED
+- fn call_step [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:703 CONFIRMED
+- fn check_route [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:724 CONFIRMED
+- fn lane [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:874 CONFIRMED
+- fn check_compare [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:903 CONFIRMED
 - const MAX_NATIVE_OUTPUTS [pub] — crates/lance-graph-r2il/src/binding_native.rs:61 CONFIRMED
 - struct NativePlan [pub] — crates/lance-graph-r2il/src/binding_native.rs:102 CONFIRMED
 - fn NativePlan::plan_id [pub] — crates/lance-graph-r2il/src/binding_native.rs:117 CONFIRMED
@@ -112,10 +113,11 @@ Generated; the code is the truth. See ../index.md.
 - fn FoldDialect<'p>::with_mode [pub] — crates/lance-graph-r2il/src/lib.rs:523 CONFIRMED
 - fn FoldDialect<'p>::mode [pub] — crates/lance-graph-r2il/src/lib.rs:529 CONFIRMED
 - fn FoldDialect<'p>::call_shared [pub] — crates/lance-graph-r2il/src/lib.rs:538 CONFIRMED
-- fn FoldDialect<'p>::discard_pending [pub] — crates/lance-graph-r2il/src/lib.rs:555 CONFIRMED
-- fn FoldDialect<'p>::call_owned [pub] — crates/lance-graph-r2il/src/lib.rs:679 CONFIRMED
-- fn FoldDialect<'p>::emit_pred [pub] — crates/lance-graph-r2il/src/lib.rs:748 CONFIRMED
-- fn FoldDialect<'_>::call [pub] — crates/lance-graph-r2il/src/lib.rs:858 CONFIRMED
+- fn FoldDialect<'p>::count_at [pub] — crates/lance-graph-r2il/src/lib.rs:563 CONFIRMED
+- fn FoldDialect<'p>::discard_pending [pub] — crates/lance-graph-r2il/src/lib.rs:593 CONFIRMED
+- fn FoldDialect<'p>::call_owned [pub] — crates/lance-graph-r2il/src/lib.rs:717 CONFIRMED
+- fn FoldDialect<'p>::emit_pred [pub] — crates/lance-graph-r2il/src/lib.rs:786 CONFIRMED
+- fn FoldDialect<'_>::call [pub] — crates/lance-graph-r2il/src/lib.rs:896 CONFIRMED
 - const HARDCODED [pub] — crates/lance-graph-r2il/src/polyfill.rs:41 CONFIRMED
 - const POLYFILL_LENS [pub] — crates/lance-graph-r2il/src/polyfill.rs:44 CONFIRMED
 - struct FrozenWord [pub] — crates/lance-graph-r2il/src/polyfill.rs:48 CONFIRMED
@@ -216,11 +218,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Value — crates/lance-graph-r2il/src/binding_native.rs:50 CONFIRMED
 - use lance_graph_mask_risc::BoolExpr — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
 - use lance_graph_mask_risc::CrossPowerSums — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
-- use lance_graph_mask_risc::Foreign — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
 - use lance_graph_mask_risc::execute_into — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
+- use lance_graph_mask_risc::execute_sel — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
 - use lance_graph_mask_risc::fuse — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
 - use lance_graph_mask_risc::scratch_words_for — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
 - use lance_graph_mask_risc::tile_words_for — crates/lance-graph-r2il/src/lib.rs:119 CONFIRMED
+- use lance_graph_mask_risc::Foreign — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
 - use lance_graph_mask_risc::FuseError — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
 - use lance_graph_mask_risc::GroupKey — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
 - use lance_graph_mask_risc::LaneKind — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
@@ -231,7 +234,8 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Pred — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
 - use lance_graph_mask_risc::Program — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
 - use lance_graph_mask_risc::Scratch — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
-- use lance_graph_mask_risc::Terminal — crates/lance-graph-r2il/src/lib.rs:120 CONFIRMED
+- use lance_graph_mask_risc::SelFold — crates/lance-graph-r2il/src/lib.rs:121 CONFIRMED
+- use lance_graph_mask_risc::Terminal — crates/lance-graph-r2il/src/lib.rs:121 CONFIRMED
 - use lance_graph_mask_risc::Value — crates/lance-graph-r2il/src/lib.rs:121 CONFIRMED
 
 ## Calls

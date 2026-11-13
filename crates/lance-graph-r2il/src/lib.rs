@@ -116,9 +116,9 @@ pub mod procs;
 use std::cell::Cell;
 
 use lance_graph_mask_risc::{
-    execute_into, fuse, scratch_words_for, tile_words_for, BoolExpr, CrossPowerSums, Foreign,
-    FuseError, GroupKey, LaneKind, MaskOp, Operand, Out, Planes, Pred, Program, Scratch, Terminal,
-    Value,
+    execute_into, execute_sel, fuse, scratch_words_for, tile_words_for, BoolExpr, CrossPowerSums,
+    Foreign, FuseError, GroupKey, LaneKind, MaskOp, Operand, Out, Planes, Pred, Program, Scratch,
+    SelFold, Terminal, Value,
 };
 #[cfg(feature = "loco-dialect")]
 use ogar_loco::Dialect;
@@ -545,6 +545,44 @@ impl<'p> FoldDialect<'p> {
         let r = self.call(f, v, stack);
         self.keep_operands = false;
         r
+    }
+
+    /// The mask on top of the stack, counted once per entry of `positions`:
+    /// the number of listed rows whose bit the mask keeps. A row listed twice
+    /// counts twice. Pushes the count as a scalar.
+    ///
+    /// The mask is written to the dialect's `KEEP` sink (`Terminal::Keep`,
+    /// as `KEEP` does) and then folded over the positions by `execute_sel`
+    /// (`SelFold::CountSet`). The sink must be `words_for(n_rows)` long.
+    ///
+    /// # Errors
+    ///
+    /// As `PopCount` for the operand; [`FoldError::NoKeepSink`] without a
+    /// sink; [`FoldError::Exec`] for a position that is not a row or a sink
+    /// of the wrong length.
+    pub fn count_at(&mut self, positions: &[u32], stack: &mut Vec<Val>) -> Result<(), FoldError> {
+        let f = POP_COUNT;
+        let m = fold_mask(stack.pop().ok_or(FoldError::Underflow(f))?)
+            .ok_or(FoldError::WrongOperandKind(f))?;
+        let mask = self.resolve_mask(m)?;
+        match self.finalize_and_run(Terminal::Keep { mask }, OutKind::Keep)? {
+            Value::Mask(_) => {}
+            other => panic!("KEEP terminal shape guarantees Mask, got {other:?}"),
+        }
+        let kept: &[u64] = self.keep_sink.as_deref().ok_or(FoldError::NoKeepSink)?;
+        let masks = [kept];
+        let planes = Planes {
+            n_rows: self.planes.n_rows,
+            masks: &masks,
+            lanes: &[],
+        };
+        match execute_sel(SelFold::CountSet { plane: 0 }, &planes, positions)
+            .map_err(FoldError::Exec)?
+        {
+            Value::Count(n) => stack.push(Val::Scalar(i64::try_from(n).unwrap_or(i64::MAX))),
+            other => panic!("CountSet yields Count, got {other:?}"),
+        }
+        Ok(())
     }
 
     /// Drop the predicates and expressions accumulated since the last fold

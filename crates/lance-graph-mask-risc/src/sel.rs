@@ -35,7 +35,7 @@
 //! the bound is on the list ([`SEL_SUM_I32_MAX_POSITIONS`]), not on `n_rows`.
 //! Within it the facade's wrapping accumulation cannot wrap.
 
-use ndarray::simd::{count_gt_i32_at, sum_i32_at};
+use ndarray::simd::{count_gt_i32_at, count_set_at, sum_i32_at};
 
 use crate::ir::{LaneRef, Planes, MASKED_SUM_I32_MAX_ROWS};
 use crate::reference::{first_out_of_range, validate_sel_frame};
@@ -46,8 +46,9 @@ use crate::value::{ExecError, Value};
 /// `i64` holds that many copies of `i32::MIN` or `i32::MAX` exactly.
 pub const SEL_SUM_I32_MAX_POSITIONS: usize = MASKED_SUM_I32_MAX_ROWS;
 
-/// The folds a position selection admits. Each reads one `i32` lane of
-/// [`Planes::lanes`] at the listed rows.
+/// The folds a position selection admits. Two read one `i32` lane of
+/// [`Planes::lanes`] at the listed rows; [`SelFold::CountSet`] reads one mask
+/// plane of [`Planes::masks`] at the listed rows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelFold {
     /// How many listed positions hold a value greater than `t` (signed,
@@ -56,6 +57,9 @@ pub enum SelFold {
     /// Σ `lane[p]` over the listed positions, widened to `i64`. Yields
     /// [`Value::SumI64`].
     SumI32 { lane: u16 },
+    /// How many listed positions have their bit set in mask plane `plane` of
+    /// [`Planes::masks`]. Yields [`Value::Count`]. Reads no lane.
+    CountSet { plane: u16 },
 }
 
 /// Runs one selection fold over `positions`, a borrowed bag of rows of the
@@ -68,7 +72,14 @@ pub enum SelFold {
 /// its bound ([`ExecError::SelSumBound`]); a position is not a row of the
 /// frame ([`ExecError::SelOutOfRange`], naming the first).
 ///
-/// Never allocates. Mask planes of `planes` are not read.
+/// [`SelFold::CountSet`] refuses a missing plane
+/// ([`ExecError::PlaneOutOfRange`]) and a plane that is not
+/// `words_for(n_rows)` long ([`ExecError::LenMismatch`]), then a position that
+/// is not a row. Bits of the plane at or past `n_rows` are never read, so a
+/// dirty tail is not refused here: no accepted position reaches it.
+///
+/// Never allocates. The lane folds read no mask plane; `CountSet` reads no
+/// lane.
 pub fn execute_sel(
     fold: SelFold,
     planes: &Planes<'_>,
@@ -77,6 +88,15 @@ pub fn execute_sel(
     validate_sel_frame(fold, planes, positions)?;
     let lane = match fold {
         SelFold::CountGtI32 { lane, .. } | SelFold::SumI32 { lane } => lane,
+        SelFold::CountSet { plane } => {
+            // `validate_sel_frame` established that the plane exists and is
+            // exactly `words_for(n_rows)` long, so the facade refuses only a
+            // position that is not a row.
+            let bits = planes.masks[usize::from(plane)];
+            return count_set_at(bits, planes.n_rows, positions)
+                .map(|c| Value::Count(c as usize))
+                .ok_or_else(|| out_of_range(planes, positions));
+        }
     };
     // `validate_sel_frame` established that the lane exists, is `i32` and
     // spans the frame, so "below the lane's length" is "a row of the frame".
@@ -88,12 +108,15 @@ pub fn execute_sel(
             count_gt_i32_at(values, positions, t).map(|c| Value::Count(c as usize))
         }
         SelFold::SumI32 { .. } => sum_i32_at(values, positions).map(Value::SumI64),
+        SelFold::CountSet { .. } => unreachable!("answered above"),
     };
-    // The facade reports an out-of-range position as `None`; the walk that
-    // names the offender runs only on that refusing path.
-    value.ok_or_else(|| {
-        let (at, position) = first_out_of_range(planes.n_rows, positions)
-            .expect("the facade refused, so a position is out of range");
-        ExecError::SelOutOfRange { at, position }
-    })
+    value.ok_or_else(|| out_of_range(planes, positions))
+}
+
+/// The facade reports an out-of-range position as `None`; the walk that names
+/// the offender runs only on that refusing path.
+fn out_of_range(planes: &Planes<'_>, positions: &[u32]) -> ExecError {
+    let (at, position) = first_out_of_range(planes.n_rows, positions)
+        .expect("the facade refused, so a position is out of range");
+    ExecError::SelOutOfRange { at, position }
 }

@@ -31,7 +31,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
 
-## Textual occurrences (99 total)
+## Textual occurrences (100 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -94,13 +94,14 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-mailbox-lanes/src/lib.rs:213 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:337 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:81 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:341 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:353 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:433 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:462 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:500 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:517 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:344 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:356 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:436 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:465 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:516 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:567 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:586 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:637 POSSIBLE
 - crates/lance-graph-r2il/src/binding_native.rs:46 POSSIBLE
 - crates/lance-graph-r2il/src/binding_native.rs:206 POSSIBLE
 - crates/lance-graph-r2il/src/binding_native.rs:359 POSSIBLE

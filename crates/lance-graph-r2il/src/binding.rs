@@ -265,6 +265,9 @@ pub enum ExecRefusal {
     GateRequired,
     /// The gate was evaluated for another guard than the plan's.
     GateMismatch,
+    /// [`run_bag`] was given a plan with a fold other than `PopCount`. Only a
+    /// count has a stated meaning over a bag of row occurrences here.
+    BagFold { effect: usize, opcode: FnIndex },
     /// The binding is three-valued; the dialect has no UNKNOWN rows.
     ThreeValuedNotExecutable,
     /// An effect names a lens other than the R2IL lens.
@@ -481,6 +484,70 @@ pub fn run_gated(
         fields,
         dialect,
         Some(gate.plane),
+        None,
+    )
+}
+
+/// [`run_gated`] over a BAG of row occurrences: every `PopCount` of the plan
+/// counts its mask, ANDed with `gate.plane`, once per entry of `positions`.
+/// A row listed twice is counted twice when both its effect mask and the
+/// gate keep it; a row the list does not name is not counted.
+///
+/// `dialect` must have been built with [`FoldDialect::with_keep`]: the gated
+/// mask is written to that sink (`Terminal::Keep`) and then folded over the
+/// positions by `lance_graph_mask_risc::execute_sel`
+/// (`SelFold::CountSet`). No other fold is admitted: a plan with `SUM`,
+/// `MIN`, `MAX`, `ANY` or `KEY_RUNS` is refused whole
+/// ([`ExecRefusal::BagFold`]) before anything runs.
+///
+/// Not checked, because nothing here can: that `positions` is a selection of
+/// the source the planes come from. The caller that borrowed both under one
+/// witness vouches for it, as it does for the gate plane's bits. The receipt
+/// names neither.
+///
+/// # Errors
+///
+/// As [`run_gated`]; [`ExecRefusal::BagFold`]; a position that is not a row
+/// of the frame is a [`ExecRefusal::Fold`] of the step that counts.
+#[allow(clippy::too_many_arguments)]
+pub fn run_bag(
+    plan: &Prepared,
+    store: &BindStore,
+    frames: &FrameStore,
+    now: (Focus, Scope),
+    permit: &ExecPermit,
+    fields: FieldLanes<'_>,
+    dialect: &mut FoldDialect<'_>,
+    gate: &Gate,
+    positions: &[u32],
+) -> Result<Receipt, ExecRefusal> {
+    if !plan.gated {
+        return Err(ExecRefusal::NotGuarded);
+    }
+    if plan.method.guard.as_ref() != Some(&gate.guard) {
+        return Err(ExecRefusal::GateMismatch);
+    }
+    if let Some((effect, step)) = plan
+        .steps
+        .iter()
+        .enumerate()
+        .find(|(_, s)| FOLDS.contains(&s.opcode) && s.opcode != POP_COUNT)
+    {
+        return Err(ExecRefusal::BagFold {
+            effect,
+            opcode: step.opcode,
+        });
+    }
+    run_checked(
+        plan,
+        store,
+        frames,
+        now,
+        permit,
+        fields,
+        dialect,
+        Some(gate.plane),
+        Some(positions),
     )
 }
 
@@ -506,7 +573,9 @@ pub fn run(
     if plan.gated {
         return Err(ExecRefusal::GateRequired);
     }
-    run_checked(plan, store, frames, now, permit, fields, dialect, None)
+    run_checked(
+        plan, store, frames, now, permit, fields, dialect, None, None,
+    )
 }
 
 /// The checks and the run shared by [`run`] and [`run_gated`].
@@ -520,6 +589,7 @@ fn run_checked(
     fields: FieldLanes<'_>,
     dialect: &mut FoldDialect<'_>,
     gate: Option<u16>,
+    bag: Option<&[u32]>,
 ) -> Result<Receipt, ExecRefusal> {
     store
         .check_issuer(&plan.method)
@@ -532,7 +602,7 @@ fn run_checked(
         return Err(ExecRefusal::NotPermitted);
     }
     dialect.discard_pending();
-    let result = run_steps(plan, frames, fields, dialect, gate);
+    let result = run_steps(plan, frames, fields, dialect, gate, bag);
     dialect.discard_pending();
     result
 }
@@ -568,6 +638,7 @@ fn run_steps(
     fields: FieldLanes<'_>,
     dialect: &mut FoldDialect<'_>,
     gate: Option<u16>,
+    bag: Option<&[u32]>,
 ) -> Result<Receipt, ExecRefusal> {
     let programs_before = dialect.programs_run();
     let mut values: BTreeMap<u8, Val> = BTreeMap::new();
@@ -590,8 +661,12 @@ fn run_steps(
             gate_fold(dialect, &mut stack, gate)
                 .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
         }
-        call_step(dialect, &plan.steps, i, &mut stack)
-            .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
+        match bag {
+            // A count over a bag: once per listed occurrence.
+            Some(positions) if step.opcode == POP_COUNT => dialect.count_at(positions, &mut stack),
+            _ => call_step(dialect, &plan.steps, i, &mut stack),
+        }
+        .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
         if stack.len() != 1 {
             return Err(ExecRefusal::ResultArity {
                 effect: i,
