@@ -630,3 +630,25 @@ Acceptance, as tested: no admitted P0 property read changes which
 source-local position is read. What this does NOT show: that a source-local
 position denotes a particular canonical entity. That needs `NodeGuid` ->
 row, which is BLOCKED (12.3), so the statement is about positions only.
+
+## 13. Address function and admission, kept apart (written before the run)
+
+`Read(S, x, f) = S[f(x)]`. The address function `f` is mathematics over
+coordinates; whether a read is ALLOWED is a separate decision and is not part
+of `f`. Section 12 put the refusal inside `VirtualProperty::column`, which
+mixed the two. Behaviour is unchanged; the shape is corrected:
+
+- `VirtualProperty::address(rows) -> Address { column, position }`: pure,
+  total over the view, reads nothing, refuses nothing but a cell outside the
+  view or a property that is not one field. It answers for position-reversing
+  recipes too (`ANTI_TRANSPOSE`, row 12 of 64 -> position 51).
+- `VirtualProperty::admit(rows) -> Address`: the P0 gate. With no owner-issued
+  coordinate witness it admits only a recipe that leaves positions in place.
+- `read` = the owner's column at `admit(..).position`. It reads the position
+  the address function computed, not the caller's row; admission is what
+  makes the two equal in P0.
+
+Test added: for the four axis-exchanging recipes, every row and property, the
+address equals the data-moving oracle's coordinate, including the two recipes
+admission refuses, and computing it performs no read. Two inverse recipes
+give the address of `TRANSPOSE` alone.

@@ -75,43 +75,65 @@ pub struct VirtualProperty<'c> {
     pub chain: &'c [Recipe],
 }
 
+/// Where a virtual property lives in the owner: `f(x)`. A coordinate, not a
+/// permission and not a value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Address {
+    pub column: Column,
+    /// Source-local position within that column.
+    pub position: usize,
+}
+
 impl VirtualProperty<'_> {
-    /// The column this property resolves to. Reads nothing.
-    ///
-    /// Only a recipe that leaves source positions where they are is admitted:
-    /// it may exchange the axes and reverse the PROPERTY axis. One that
-    /// reverses positions is refused, whatever the row, because the owner has
-    /// issued no witness under which row `r` may be read as another row.
-    pub fn column(&self, rows: usize) -> Result<Column, Refused> {
+    /// The address function: the chain is normalised and view cell
+    /// `(row, property)` is mapped to a column and a source-local position.
+    /// Pure: reads nothing and decides nothing about whether a read is
+    /// allowed. Refuses only a cell outside the view and a property that is
+    /// not one field.
+    pub fn address(&self, rows: usize) -> Result<Address, Refused> {
         let field = field_in(self.chain, BASIS.len(), rows, self.property)?;
+        let (_, position) = Recipe::normalize(self.chain)
+            .resolve(BASIS.len(), rows, self.row, self.property)
+            .ok_or(Refused::PositionOutsideLane {
+                at: 0,
+                position: self.row as u32,
+            })?;
+        let column = column_of(BASIS[usize::from(field)].0).ok_or(Refused::OutsideTheView)?;
+        Ok(Address { column, position })
+    }
+
+    /// Admission, separate from the address function. The owner has issued no
+    /// coordinate or selection witness, so P0 admits only a recipe that
+    /// leaves source positions in place; one that reverses them is refused
+    /// whatever the row.
+    pub fn admit(&self, rows: usize) -> Result<Address, Refused> {
+        let address = self.address(rows)?;
         let recipe = Recipe::normalize(self.chain);
         if recipe.reverses_positions() {
             return Err(Refused::RowCoordinatesChanged { recipe });
         }
-        column_of(BASIS[usize::from(field)].0).ok_or(Refused::OutsideTheView)
+        Ok(address)
     }
 
-    /// Resolve and read: the chain is normalised, the basis position names a
-    /// predicate, the predicate names a column, and ONE value is loaded from
-    /// the slice the owner lends. A row that is not populated is refused; the
-    /// zero padding of the owner's capacity rows is never returned.
+    /// The column an admitted read borrows. Reads nothing.
+    pub fn column(&self, rows: usize) -> Result<Column, Refused> {
+        self.admit(rows).map(|a| a.column)
+    }
+
+    /// `S[f(x)]` for an admitted address: ONE value is loaded from the slice
+    /// the owner lends, at the position the address function computed. A row
+    /// that is not populated is outside the view; the zero padding of the
+    /// owner's capacity rows is never returned.
     pub fn read<V: MailboxSoaView>(&self, owner: &V, reads: &Reads) -> Result<Value, Refused> {
-        let rows = owner.n_rows();
-        let column = self.column(rows)?;
-        if self.row >= rows {
-            return Err(Refused::PositionOutsideLane {
-                at: 0,
-                position: self.row as u32,
-            });
-        }
+        let Address { column, position } = self.admit(owner.n_rows())?;
         let value = match column {
             Column::Meta => {
                 reads.meta_borrows.set(reads.meta_borrows.get() + 1);
-                Value::U32(owner.meta_raw()[self.row])
+                Value::U32(owner.meta_raw()[position])
             }
             Column::Edge => {
                 reads.edge_borrows.set(reads.edge_borrows.get() + 1);
-                Value::U64(owner.edges_raw()[self.row])
+                Value::U64(owner.edges_raw()[position])
             }
         };
         reads.values.set(reads.values.get() + 1);

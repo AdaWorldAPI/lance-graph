@@ -5,7 +5,7 @@ use causal_edge::CausalEdge64;
 use cognitive_shader_driver::mailbox_soa::MailboxSoA;
 use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::soa_view::{MailboxSoaView, StyleLane};
-use virtual_address_lab::owner::{Column, Reads, Value, VirtualProperty};
+use virtual_address_lab::owner::{Address, Column, Reads, Value, VirtualProperty};
 use virtual_address_lab::physical::{apply, Moved};
 use virtual_address_lab::recipe::Recipe;
 use virtual_address_lab::view::Refused;
@@ -177,6 +177,91 @@ fn oracle_coordinate(
     let built = apply(&matrix, recipe, &mut moved);
     let cell = *built.get(row)?.get(property)?;
     Some((cell as usize / 1000, cell as usize % 1000))
+}
+
+/// Plan 13: the address function alone. FAILS IF: an address differs from the
+/// coordinate the data-moving reference shows, for any axis-exchanging recipe
+/// (the two admission refuses included), or computing it reads something.
+#[test]
+fn the_address_function_is_the_oracles_coordinate_and_reads_nothing() {
+    let reads = Reads::default();
+    let mut moved_positions = 0;
+    for rows in [N, 41] {
+        for recipe in [
+            Recipe::TRANSPOSE,
+            Recipe::ROTATE270,
+            Recipe::ROTATE90,
+            Recipe::ANTI_TRANSPOSE,
+        ] {
+            for row in 0..rows {
+                for property in 0..2 {
+                    let p = VirtualProperty {
+                        row,
+                        property,
+                        chain: &[recipe],
+                    };
+                    let (lane, pos) = oracle_coordinate(recipe, rows, row, property).unwrap();
+                    let column = if lane == 0 {
+                        Column::Meta
+                    } else {
+                        Column::Edge
+                    };
+                    assert_eq!(
+                        p.address(rows),
+                        Ok(Address {
+                            column,
+                            position: pos
+                        }),
+                        "{} row {row} property {property}",
+                        recipe.name()
+                    );
+                    moved_positions += usize::from(pos != row);
+                }
+            }
+        }
+    }
+    // Anti-vacuity: the function does answer with moved positions. Two
+    // recipes reverse; with 41 rows the middle row maps to itself.
+    assert_eq!(moved_positions, 2 * 2 * 64 + 2 * 2 * 40);
+    assert_eq!(reads.values.get(), 0);
+
+    // The audit's cell: an address exists, admission refuses it.
+    let p = VirtualProperty {
+        row: 12,
+        property: META,
+        chain: &[Recipe::ANTI_TRANSPOSE],
+    };
+    assert_eq!(
+        p.address(N),
+        Ok(Address {
+            column: Column::Edge,
+            position: 51
+        })
+    );
+    assert!(matches!(
+        p.admit(N),
+        Err(Refused::RowCoordinatesChanged { .. })
+    ));
+
+    // Inverse recipes cancel in the address, before anything is read.
+    let chained = VirtualProperty {
+        row: 12,
+        property: EDGE,
+        chain: &[Recipe::TRANSPOSE, Recipe::ROTATE90, Recipe::ROTATE270],
+    };
+    let direct = VirtualProperty {
+        row: 12,
+        property: EDGE,
+        chain: &[Recipe::TRANSPOSE],
+    };
+    assert_eq!(chained.address(N), direct.address(N));
+    assert_eq!(
+        direct.address(N),
+        Ok(Address {
+            column: Column::Edge,
+            position: 12
+        })
+    );
 }
 
 /// Plan 12.2, the acceptance condition. FAILS IF: an admitted read returns a
