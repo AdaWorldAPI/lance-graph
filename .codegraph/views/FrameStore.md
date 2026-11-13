@@ -120,7 +120,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/grid.rs:64 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:86 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:126 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:267 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:273 POSSIBLE
 
 ## Architecture
 

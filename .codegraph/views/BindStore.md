@@ -160,8 +160,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/behaviour.rs:5 POSSIBLE
 - crates/virtual-address-lab/src/behaviour.rs:59 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:343 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:402 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:349 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:408 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:45 POSSIBLE
 
 ## Architecture

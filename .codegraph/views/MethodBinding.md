@@ -95,10 +95,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/behaviour.rs:60 POSSIBLE
 - crates/virtual-address-lab/src/behaviour.rs:229 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:355 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:371 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:372 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:401 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:361 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:377 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:378 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:407 POSSIBLE
 
 ## Architecture
 

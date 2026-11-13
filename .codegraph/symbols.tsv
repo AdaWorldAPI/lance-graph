@@ -23506,38 +23506,38 @@ virtual-address-lab	crates/virtual-address-lab/src/grid.rs	126	fn	Grid::frame_st
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	131	fn	Grid::cell	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	136	fn	Grid::raw_lane	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	141	fn	Grid::matrix	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	157	fn	Grid::issue_order	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	176	fn	Grid::issue_filter	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	184	fn	Grid::issue_list	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	189	fn	Grid::issue_list_in	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	195	fn	Grid::raw_positions	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	204	fn	Grid::for_class	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	210	fn	Grid::with_lane_ids	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	217	fn	Grid::advance_source	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	163	fn	Grid::issue_order	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	182	fn	Grid::issue_filter	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	190	fn	Grid::issue_list	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	195	fn	Grid::issue_list_in	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	201	fn	Grid::raw_positions	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	210	fn	Grid::for_class	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	216	fn	Grid::with_lane_ids	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	22	const	CLASS	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	225	fn	Grid::rewrite_lane	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	232	impl	LaneSource for Grid	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	223	fn	Grid::advance_source	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	231	fn	Grid::rewrite_lane	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	238	impl	LaneSource for Grid	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	25	const	BEHAVIOUR	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	27	const	UNRELATED	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	272	impl	SelectionSource for Grid	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	278	impl	SelectionSource for Grid	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	29	const	POLYFILL	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	300	struct	View	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	302	impl	View	-	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	303	fn	View::new	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	306	struct	View	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	308	impl	View	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	309	fn	View::new	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	31	const	POSITION	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	312	fn	View::named	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	322	impl	ClassView for View	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	318	fn	View::named	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	328	impl	ClassView for View	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	33	const	READER	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	342	struct	World	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	349	impl	World	-	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	350	fn	World::new	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	355	fn	World::with	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	360	fn	World::named	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	368	fn	World::routed_to_behaviour	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	436	fn	World::bind_as	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	441	fn	World::bind_fields	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	463	fn	World::bind	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	468	fn	World::bind_source	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	348	struct	World	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	355	impl	World	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	356	fn	World::new	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	361	fn	World::with	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	366	fn	World::named	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	374	fn	World::routed_to_behaviour	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	442	fn	World::bind_as	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	447	fn	World::bind_fields	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	469	fn	World::bind	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	474	fn	World::bind_source	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	57	struct	Grid	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	73	impl	Grid	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	76	fn	Grid::new	pub	-	CONFIRMED

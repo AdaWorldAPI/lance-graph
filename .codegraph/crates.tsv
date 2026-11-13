@@ -97,5 +97,5 @@ template-runtime	crates/template-runtime	excluded	bbcc57c5bfe7d616
 thinking-engine	crates/thinking-engine	excluded	a2b1d973a2428d01
 thought-git-probe	crates/thought-git-probe	excluded	77158349ee2ed7ed
 tract-harvest-probe	crates/tract-harvest-probe	excluded	3acc861cc398ea8e
-virtual-address-lab	crates/virtual-address-lab	member	fc104e07a138461d
+virtual-address-lab	crates/virtual-address-lab	member	2a61a53b70ab87e0
 weather-poc	crates/weather-poc	excluded	680af06c0dcf2f95

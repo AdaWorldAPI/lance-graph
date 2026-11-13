@@ -113,10 +113,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/behaviour.rs:136 POSSIBLE
 - crates/virtual-address-lab/src/behaviour.rs:233 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:436 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:446 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:463 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:472 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:442 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:452 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:469 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:478 POSSIBLE
 - crates/virtual-address-lab/src/lib.rs:8 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:5 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:12 POSSIBLE

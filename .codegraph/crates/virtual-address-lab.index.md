@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: fc104e07a138461d
+digest: 2a61a53b70ab87e0
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -63,27 +63,27 @@ Generated; the code is the truth. See ../index.md.
 - fn Grid::cell [pub] — crates/virtual-address-lab/src/grid.rs:131 CONFIRMED
 - fn Grid::raw_lane [pub] — crates/virtual-address-lab/src/grid.rs:136 CONFIRMED
 - fn Grid::matrix [pub] — crates/virtual-address-lab/src/grid.rs:141 CONFIRMED
-- fn Grid::issue_order [pub] — crates/virtual-address-lab/src/grid.rs:157 CONFIRMED
-- fn Grid::issue_filter [pub] — crates/virtual-address-lab/src/grid.rs:176 CONFIRMED
-- fn Grid::issue_list [pub] — crates/virtual-address-lab/src/grid.rs:184 CONFIRMED
-- fn Grid::issue_list_in [pub] — crates/virtual-address-lab/src/grid.rs:189 CONFIRMED
-- fn Grid::raw_positions [pub] — crates/virtual-address-lab/src/grid.rs:195 CONFIRMED
-- fn Grid::for_class [pub] — crates/virtual-address-lab/src/grid.rs:204 CONFIRMED
-- fn Grid::with_lane_ids [pub] — crates/virtual-address-lab/src/grid.rs:210 CONFIRMED
-- fn Grid::advance_source [pub] — crates/virtual-address-lab/src/grid.rs:217 CONFIRMED
-- fn Grid::rewrite_lane [pub] — crates/virtual-address-lab/src/grid.rs:225 CONFIRMED
-- struct View [pub] — crates/virtual-address-lab/src/grid.rs:300 CONFIRMED
-- fn View::new [pub] — crates/virtual-address-lab/src/grid.rs:303 CONFIRMED
-- fn View::named [pub] — crates/virtual-address-lab/src/grid.rs:312 CONFIRMED
-- struct World [pub] — crates/virtual-address-lab/src/grid.rs:342 CONFIRMED
-- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:350 CONFIRMED
-- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:355 CONFIRMED
-- fn World::named [pub] — crates/virtual-address-lab/src/grid.rs:360 CONFIRMED
-- fn World::routed_to_behaviour [pub] — crates/virtual-address-lab/src/grid.rs:368 CONFIRMED
-- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:436 CONFIRMED
-- fn World::bind_fields [pub] — crates/virtual-address-lab/src/grid.rs:441 CONFIRMED
-- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:463 CONFIRMED
-- fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:468 CONFIRMED
+- fn Grid::issue_order [pub] — crates/virtual-address-lab/src/grid.rs:163 CONFIRMED
+- fn Grid::issue_filter [pub] — crates/virtual-address-lab/src/grid.rs:182 CONFIRMED
+- fn Grid::issue_list [pub] — crates/virtual-address-lab/src/grid.rs:190 CONFIRMED
+- fn Grid::issue_list_in [pub] — crates/virtual-address-lab/src/grid.rs:195 CONFIRMED
+- fn Grid::raw_positions [pub] — crates/virtual-address-lab/src/grid.rs:201 CONFIRMED
+- fn Grid::for_class [pub] — crates/virtual-address-lab/src/grid.rs:210 CONFIRMED
+- fn Grid::with_lane_ids [pub] — crates/virtual-address-lab/src/grid.rs:216 CONFIRMED
+- fn Grid::advance_source [pub] — crates/virtual-address-lab/src/grid.rs:223 CONFIRMED
+- fn Grid::rewrite_lane [pub] — crates/virtual-address-lab/src/grid.rs:231 CONFIRMED
+- struct View [pub] — crates/virtual-address-lab/src/grid.rs:306 CONFIRMED
+- fn View::new [pub] — crates/virtual-address-lab/src/grid.rs:309 CONFIRMED
+- fn View::named [pub] — crates/virtual-address-lab/src/grid.rs:318 CONFIRMED
+- struct World [pub] — crates/virtual-address-lab/src/grid.rs:348 CONFIRMED
+- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:356 CONFIRMED
+- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:361 CONFIRMED
+- fn World::named [pub] — crates/virtual-address-lab/src/grid.rs:366 CONFIRMED
+- fn World::routed_to_behaviour [pub] — crates/virtual-address-lab/src/grid.rs:374 CONFIRMED
+- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:442 CONFIRMED
+- fn World::bind_fields [pub] — crates/virtual-address-lab/src/grid.rs:447 CONFIRMED
+- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:469 CONFIRMED
+- fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:474 CONFIRMED
 - mod behaviour [pub] — crates/virtual-address-lab/src/lib.rs:23 CONFIRMED
 - mod cube [pub] — crates/virtual-address-lab/src/lib.rs:24 CONFIRMED
 - mod grid [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
