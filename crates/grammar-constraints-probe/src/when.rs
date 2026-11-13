@@ -15,8 +15,12 @@
 //! - [`Physical::CoAddressed`]: "the join is the layout" (D-HOLO H14c/H14d).
 //!   The head's frame code is a lane at the DEPENDENT's own coordinate
 //!   (`head_frame[i]`), written once by the producer ([`FramedPopulation`]).
-//!   The guard is then row-local and fully stated in today's `SetExpr`; the
-//!   query reads every lane at address `i`. What stays OPEN is the producer
+//!   The guard's frame condition is then row-local and stated in full; the
+//!   query reads every lane at address `i`. The lane is only as good as the
+//!   lexicon that produced it, so the guard also carries
+//!   `SetExpr::Sym(lexicon.digest())`: a method bound under one lexicon does
+//!   not compose under another ([`ComposeRefusal::DescriptionMismatch`]),
+//!   the same refusal the Via form gives. What stays OPEN is the producer
 //!   step itself: it derives `head_frame[i]` from `lemma[head[i]]`, which is
 //!   a cross-row read at ingestion (EXO-46 / D-RMAP-1 membrane), counted
 //!   here.
@@ -107,6 +111,29 @@ impl Lexicon {
             .iter()
             .find(|(l, _)| *l == lemma)
             .map_or(FRAME_NONE, |e| e.1)
+    }
+
+    /// FNV-1a over the revision, the language and every `(lemma, frame)`
+    /// entry in lemma order: the identity of the lexicon as a producer of the
+    /// co-addressed `head_frame` lane.
+    pub fn digest(&self) -> u32 {
+        let mut h: u32 = 0x811c_9dc5;
+        let mut eat = |b: &[u8]| {
+            for &x in b {
+                h ^= u32::from(x);
+                h = h.wrapping_mul(0x0100_0193);
+            }
+        };
+        eat(&self.rev.to_le_bytes());
+        eat(self.language.as_bytes());
+        let mut entries = self.entries.clone();
+        entries.sort_unstable();
+        for (lemma, frame) in entries {
+            eat(lemma.as_bytes());
+            eat(&[0]);
+            eat(&frame.to_le_bytes());
+        }
+        h
     }
 
     /// Lemmas carrying `frame`, sorted.
@@ -249,12 +276,16 @@ impl RuleDesc {
             parts.push(SetExpr::eq_u32(CASE, b.case));
         }
         if let Some(f) = self.frame {
-            parts.push(match phys {
+            match phys {
                 // Only an opaque symbol can stand for a hop.
-                Physical::Via => SetExpr::Sym(self.frame_digest(lex)),
-                // Row-local: stated in full.
-                Physical::CoAddressed => SetExpr::eq_u32(HEAD_FRAME, f),
-            });
+                Physical::Via => parts.push(SetExpr::Sym(self.frame_digest(lex))),
+                // Row-local and stated in full, plus the identity of the
+                // lexicon that produced the lane the condition reads.
+                Physical::CoAddressed => {
+                    parts.push(SetExpr::eq_u32(HEAD_FRAME, f));
+                    parts.push(SetExpr::Sym(lex.digest()));
+                }
+            }
         }
         Guard::new(SetExpr::And(parts), Logic::TwoValued)
     }
