@@ -23,8 +23,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
 
-## Textual occurrences (63 total)
+## Textual occurrences (65 total)
 
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
@@ -89,6 +90,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/ogar-behavior-probe/src/projection.rs:128 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:408 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:325 POSSIBLE
 
 ## Architecture
 

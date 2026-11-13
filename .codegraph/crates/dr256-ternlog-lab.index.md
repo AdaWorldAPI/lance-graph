@@ -19,6 +19,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:29 CONFIRMED
 - rdep quack-boundary-lab dev — crates/quack-boundary-lab/Cargo.toml:20 CONFIRMED
+- rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:17 CONFIRMED
 
 ## Public items
 
@@ -226,8 +227,10 @@ flowchart LR
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
   n53["lance-graph-mask-risc"]
+  n97["virtual-address-lab"]
   n15 --> n45
   n15 --> n48
   n15 --> n53
   n38 --> n15
+  n97 --> n15
 ```

@@ -79,6 +79,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep thinking-engine normal — crates/thinking-engine/Cargo.toml:17 CONFIRMED
 - rdep thought-git-probe normal — crates/thought-git-probe/Cargo.toml:13 CONFIRMED
 - rdep tract-harvest-probe normal — crates/tract-harvest-probe/Cargo.toml:25 CONFIRMED
+- rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
 - rdep weather-poc normal optional — crates/weather-poc/Cargo.toml:28 CONFIRMED
 
 ## Public items
@@ -360,7 +361,8 @@ flowchart LR
   n94["thinking-engine"]
   n95["thought-git-probe"]
   n96["tract-harvest-probe"]
-  n97["weather-poc"]
+  n97["virtual-address-lab"]
+  n98["weather-poc"]
   n1 --> n45
   n4 --> n45
   n7 --> n45
@@ -416,4 +418,5 @@ flowchart LR
   n95 --> n45
   n96 --> n45
   n97 --> n45
+  n98 --> n45
 ```

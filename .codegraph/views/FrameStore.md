@@ -28,8 +28,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/socket.rs:12 POSSIBLE
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
 
-## Textual occurrences (84 total)
+## Textual occurrences (89 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -115,6 +116,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 - crates/tract-harvest-probe/src/plan.rs:75 POSSIBLE
 - crates/tract-harvest-probe/src/plan.rs:168 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:55 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:76 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:116 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:250 POSSIBLE
 
 ## Architecture
 

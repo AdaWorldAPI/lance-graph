@@ -36,8 +36,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 
-## Textual occurrences (117 total)
+## Textual occurrences (120 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -156,6 +157,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:313 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:327 POSSIBLE
 
 ## Architecture
 

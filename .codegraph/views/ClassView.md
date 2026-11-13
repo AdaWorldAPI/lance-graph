@@ -28,6 +28,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
 - impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:378 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
+- impl ClassView for View — crates/virtual-address-lab/src/grid.rs:295 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -57,8 +58,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/quack-boundary-lab/src/lib.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (319 total)
+## Textual occurrences (321 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
