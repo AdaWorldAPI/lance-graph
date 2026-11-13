@@ -55,7 +55,8 @@ Deliverable ids, one per stage, all PROPOSED: `D-VAS-A1`, `D-VAS-A2`,
 `D-VAS-A3`, `D-VAS-A4` (owner as source); `D-VAS-B1`, `D-VAS-B2` (identity);
 `D-VAS-C1` to `D-VAS-C6` (`D-VAS-C2`, `D-VAS-C3`, `D-VAS-C4`, `D-VAS-C5`
 between them: behaviour provenance and WHEN); `D-VAS-D1`, `D-VAS-D2`,
-`D-VAS-D3`, `D-VAS-D4` (DO); `D-VAS-E` (join); `D-VAS-F` (cost). The lab
+`D-VAS-D3`, `D-VAS-D4` (DO); `D-VAS-E` (join; its acceptance stages are E0
+and E1); `D-VAS-F` (cost). The lab
 they start from is `D-VIRTUAL-ADDRESS-ALGEBRA-1`. Below, a stage `A1` is
 `D-VAS-A1`.
 
@@ -156,14 +157,27 @@ real owner.
   given by the test. Connect it to the write of D3 so a DO can trigger the
   next ON, with a stated termination rule. Decision: cascade depth and order.
 
-### Stage E: join
+### Stage E: join, in two acceptance stages
 
-Tracks A to D on one owner: `NodeGuid` (B1) -> coordinate under a frame (A1)
--> routed behaviour (C1, C2) -> ON -> WHEN over the owner's lanes or planes
-(C3 to C6) -> operands over `reads` (D1) -> effect and write-back (D2, D3).
-Gate: the full chain against a scalar interpreter of the same class, with
-the three ledgers (guard, operands, effects) and a count of values read
-before the first admitted method (must be 0).
+Corrected 2026-11-13 (directive D-VAS, first executable gate). The earlier
+text made one stage of the whole chain, so the first integration waited on
+`Sym`, Kleene, a separate lens and effects.
+
+- **E0, first integration.** Frame-valid mailbox source -> routed DATA class
+  with its own `MethodBinding`s -> admitted method -> a lane borrowed over
+  `reads` only -> one demanded read. Needs A1, A2, C1(a), C2, D1. No guard,
+  no effect, no separate `0xF###` lens, no `NodeGuid`. Gate: every admitted
+  read equals the owner's own array on a real `MailboxSoA<64>`; a stale
+  frame, a foreign store, a wrong route, a foreign `MethodRef` with the same
+  `MethodId`, a field outside `reads` and a position outside the lane are
+  each refused; the lent slice has the owner's address. A green `Grid`
+  fixture does not pass E0.
+- **E1, full behaviour.** `NodeGuid` (B1) -> versioned coordinate (A1, B2)
+  -> ON -> WHEN over the owner's lanes or planes (C3 to C6) -> demanded
+  operands (D1) -> the existing executor (D2) -> owner-controlled write-back
+  (D3, D4). Gate: the full chain against a scalar interpreter of the same
+  class, with the three ledgers (guard, operands, effects) and a count of
+  values read before the first admitted method (must be 0).
 
 ### Stage F: cost
 
@@ -190,15 +204,17 @@ A1 -> A2 -> A3 -> A4          C1 -> C2
                  \____________ E ____________/ -> F
 ```
 
-Smallest useful first cut: **A1 + A2 + C1(a) + C2 + D1**. It gives a routed,
-frame-checked, reads-bounded property read on the real mailbox with no guard,
-and needs one decision (the mailbox clock) and one dependency edge.
+Smallest useful first cut: **E0 = A1 + A2 + C1(a) + C2 + D1**. It gives a
+routed, frame-checked, reads-bounded property read on the real mailbox with
+no guard. A1 is not "pick a mailbox clock": no clock of the mailbox accounts
+for its writes (lab plan section 18). It needs a publication the owner
+issues, and one dependency edge.
 
 ## 5. Decisions needed before any stage starts
 
 | # | decision | stage |
 |---|---|---|
-| 1 | which mailbox clock is the source frame | A1 |
+| 1 | the owner's publication: a borrow token (frames end with the borrow) or a revision every write moves (needs private columns) | A1 |
 | 2 | which crate carries the `LaneSource` impl and its DT64 dependency | A2 |
 | 3 | where a source-issued order index lives | A3 |
 | 4 | which authority binds `NodeGuid` to a current coordinate | B1 |
@@ -220,7 +236,7 @@ and needs one decision (the mailbox clock) and one dependency edge.
 
 ## 7. Unread, so not relied on
 
-`dr.rs` (searched only), the DT64 behaviour plans (`d-dt64-6-*`),
+The DT64 behaviour plans (`d-dt64-6-*`),
 `.mermaid/05-methods.md`, `.claude/v3/soa_layout/*.md`, the mailbox-kanban
 executor crates. A stage that touches one of them starts by reading it; a
 finding there may reorder this roadmap.

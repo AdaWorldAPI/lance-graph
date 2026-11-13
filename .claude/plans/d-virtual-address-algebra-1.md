@@ -1161,3 +1161,26 @@ FAILS IF:
   routed elsewhere.
 
 Oracle: the fixture's generator function, per source row.
+
+### 18.6 Results (tests committed at `9db52961f`, before the run)
+
+Both files passed on the first run; nothing was changed between the commit
+and the run. `publication_boundary`: 5 tests. `direct_class`: 1 test.
+
+| question | result | class |
+|---|---|---|
+| a mailbox event or snapshot that accounts for every reader-visible write | none: five negative cases, each on a real `MailboxSoA<64>` | A1 BLOCKED |
+| writes excluded while a shared borrow is live | compile time; the owner's own doc tests | SOURCE VERIFIED |
+| a foreign `FrameStore` at equal revisions | `ForeignFrame` | SOURCE VERIFIED |
+| a data class carries routed behaviour with no separate lens | `read_rate` is the candidate ON the address's field; 1 value for one demanded read, 65 over the whole selection, 0 guard runs, 0 effects | LAB VERIFIED (`Grid`) |
+| a registered foreign method with the same `MethodId` | accepted by `BindStore::admit`, refused for the position (`NotRoutedBehaviour`) | LAB VERIFIED |
+| fields outside `reads` | `NotBound` for both | LAB VERIFIED |
+| the source moves its frame; the position is routed elsewhere | both refused | LAB VERIFIED |
+
+Disable runs on `direct_class`, each anchor asserted once, each restored,
+both exit 101: the route comparison skipped (fails at the foreign-method
+assertion); the operand binding made over all fields (fails at `NotBound`).
+
+Not established: anything on the mailbox beyond the five negatives. The
+route-bound admission is still the lab's `admit_routed`; DT64's public
+`admit` takes no route. The `Grid` issues its own frame.

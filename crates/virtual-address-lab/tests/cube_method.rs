@@ -240,3 +240,27 @@ fn admission_is_the_bindings_not_the_methods() {
         Err(Refused::Lane(LaneRefusal::SelectionUnbound { sel: 99 }))
     ));
 }
+
+/// Review finding. FAILS IF: a cell whose field does not fit the binding's
+/// field width is narrowed onto another field and read.
+#[test]
+fn a_cell_field_past_the_basis_width_is_refused() {
+    let mut grid = Grid::new(FIELDS, ROWS, value);
+    let world = World::new(FIELDS);
+    let sel = grid.issue_order(KEY).unwrap();
+    let binding = world.bind(&grid).unwrap();
+    let ledger = Ledger::default();
+    let method = Method::new(sel, Recipe::TRANSPOSE);
+    let cell = |field| Cell { field, ordinal: 0 };
+    assert!(method
+        .read_cell(&world, &binding, &grid, cell(0), &ledger)
+        .is_ok());
+    for field in [256, 257, 512, usize::MAX] {
+        assert_eq!(
+            method.read_cell(&world, &binding, &grid, cell(field), &ledger),
+            Err(Refused::OutsideTheView),
+            "field {field}"
+        );
+    }
+    assert_eq!(ledger.reads.get(), 1);
+}
