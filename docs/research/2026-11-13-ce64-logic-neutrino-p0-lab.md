@@ -57,4 +57,13 @@ Appended; the text above describes the lab as first merged. The audit is section
 - **The selector now feeds the composition.** `roles_under` composes and consults a method for a token only when the selector proposes it. A selector without Experiencer loses token 302 and composes one method. A selector that proposes every dative token gives the same answer as the real one, because the guards reject the extra tokens. Disable check: consulting both methods regardless of the selector fails the test (2 methods composed, 1 expected).
 - **The lexicon is part of the co-addressed method identity.** The `CoAddressed` guard carries `SetExpr::Sym(lexicon.digest())`, so a method bound under `Lexicon::v0` does not compose under `Lexicon::swapped` (`DescriptionMismatch`), as the `Via` form already refused. Disable check: removing that conjunct fails the test at the new refusal arm.
 
-Still open from the audit: the ablation runs the older hand-built program, the expectations are inline literals rather than `fixtures::GOLD`, abstention for 505 is not asserted, and the P1 lane has a zero background.
+The four remaining audit items, closed in the same follow-up:
+
+- **Ablation on the composed path.** Two frame-less methods are registered in their own store, admitted, composed and run. Both match every `obl:arg` dative, 505 included, and neither matches 408. The older hand-built program is no longer the ablation.
+- **Expectations from `fixtures::GOLD`.** The role comparison and the selector's expected answer are derived from the gold table. A second test adds sentence F, *Das gibt mir zu denken*, where a frame keyed by the head lemma says Recipient and the gold says Experiencer; it pins the rules at 6 of 7 against gold. F is hand-annotated and not checked against a treebank.
+- **Abstention is asserted.** A third composed method (`obl:arg ∧ Dat ∧ head_frame = NONE`) selects exactly 505. Recipient, Experiencer and Abstain are disjoint and cover every left-corner candidate, and the older `EqU32Via` abstention program names the same set.
+- **P1 on dense words.** All eight orientations are compared with the accessor and must partition the lane. Each of the five Epi5 bits is flipped. A care mask one bit too wide must give a different count; on a zero background it would not.
+
+Disable checks, each run after the commit and restored: keeping the frame in the "frame-less" methods, swapping the two rules' frames, pointing Abstain at a real frame, and zeroing the P1 background each fail the test.
+
+**Limit that stays:** sentence F shows the lemma-keyed lexicon is wrong for an idiom. Nothing here fixes that; the test records it.
