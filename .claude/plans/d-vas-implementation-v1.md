@@ -63,7 +63,85 @@ that asks the socket directly was added; both then exit 101.
 - **Cost.** Nothing in R1 is measured.
 - Selections, `NodeGuid`, guards and effects: R2 to R4.
 
-## R2 to R6
+## R2: selection and identity
 
-Not started. Order: A3 + B1 + B2 + A4, then C1(b) + C3 to C6, then D2 to
-D4, then E1, then F.
+### A3, source-issued selections (done)
+
+`MailboxLanes` implements `SelectionSource`. It issues an order by a column,
+a filter by a column comparison and the concatenation of two issued
+selections; a caller cannot hand in positions. The lists are views of one
+publication and live in the socket. `dr256_ternlog_lab::OrderIndex` /
+`SealedOrder` are not reused: they live in a lab crate and take `i32` keys.
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| A3 | `MailboxLanes: SelectionSource`, `issue_order`, `issue_where`, `issue_concat` (`lance-graph-mailbox-lanes/src/lib.rs`); `LaneBinding::selected` (`lane.rs:463`) | a sort of `(value, row)` pairs, a filter and per-row counts over `owner.meta` | 48-row order equal to the oracle and really reordered; a filter keeping 24 rows in row order; a bag where kept rows occur twice; positions lent, not rebuilt | unissued name; another mailbox; a second socket over the same publication; a foreign frame or address asked directly; concatenation of an unissued name; the 65,537th name. Disables, all exit 101: sort removed, `<` as `<=`, concat deduplicating, frame check removed, name wrapping, space/scope check removed | INTEGRATION VERIFIED on `MailboxSoA<64>` |
+
+Tests: `tests/selection.rs`, 3 tests, committed before the run, green on the
+first run.
+
+Not established: a selection that outlives its publication (same limit as
+the frame); filters other than one unsigned column comparison; cost.
+
+### B1, `NodeGuid` to a row: BLOCKED
+
+Read in full: `lance-graph-contract/src/soa_view.rs` (the
+`row_for_local_key` contract), `lance-graph/src/graph/mailbox_scan.rs`
+1..375 (its one consumer, `match_node_by_local_key`),
+`lance-graph-dt64/src/dr.rs` (`MapTable`, `LocalMap`).
+
+- The declared seam is `MailboxSoaView::row_for_local_key(u64) ->
+  Option<usize>`. Its doc names the authority: "an owner that stores keys
+  (the in-RAM `MailboxSoA`, once it carries a `local_key` column) overrides
+  this". `MailboxSoA` has no such column and does not override it.
+- Closing it on the owner is a new column of `MailboxSoA<N>`: a layout
+  change, which this roadmap excludes without a separate decision.
+- The argument is `NodeGuid::local_key()`, the trailing 6 bytes read as the
+  V1 `family ++ identity` tail. It discriminates only after the 10-byte
+  prefix is resolved, and under the V3 4+12 facet it is a legacy reading.
+- `MapTable` keys a `u64` inside a `u32` tile. No authority maps a GUID
+  prefix to a tile, so a 128-bit identity cannot be bound through it either.
+
+Nothing was built in place of it. Decision needed: a `local_key` (or full
+key) column on `MailboxSoA`, or another owner of the key index.
+
+### B2, version-bound coordinate (done, on `MapTable` ids)
+
+`coords::Coordinates` (`lance-graph-mailbox-lanes/src/coords.rs`) pairs one
+tile of DT64's existing `MapTable` at one sealed version with a lane
+binding. The id is the map's own `u64`, not a `NodeGuid`. The source version
+(publication) and the coordinate version (map) are separate: advancing the
+map writes nothing to the mailbox and leaves the lane binding valid.
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| B1 | `MailboxSoaView::row_for_local_key` (`soa_view.rs:126`) | n/a | n/a | n/a | BLOCKED: no key column on the owner |
+| B2 | `Coordinates::bind`, `row_of`; `MapTable::map`, `Frame::same_issue` (`dr.rs`) | two permutations over `owner.meta` | 48 ids read through assignment 1, then through assignment 2, source bytes equal before and after | the first binding after the map advances: `StaleMapping` for all 48 ids; an unmapped id; a row number offered as an id; another table's frame; an unknown tile; a row past the lane; a repeated id. Disables, all exit 101: currency check removed, row bound removed, the current frame taken at read time | INTEGRATION VERIFIED for `MapTable` ids on `MailboxSoA<64>`; the map's producer for a mailbox does not exist (B1), the test fills it |
+
+Tests: `tests/coords.rs`, 2 tests, committed before the run, green on the
+first run.
+
+### A4, typed selection folds: NOT SUPPORTED for the mailbox's lane kinds
+
+- `lance_graph_mask_risc::execute_sel` (`sel.rs:72`) admits two folds,
+  `CountGtI32` and `SumI32`, over an `i32` lane. Its kernels are
+  `ndarray::simd::{count_gt_i32_at, sum_i32_at}`
+  (`ndarray/src/simd_masking_ops.rs:801, 835`). No `u32` or `u64`
+  selection kernel exists there.
+- The mailbox lends `u32` and `u64` lanes, so the shipped witnessed fold
+  (`lance_graph_report::bound_sel::fold_bound_selection`) refuses them with
+  `ExecError::LaneKind` after the witness has held. That refusal is pinned
+  on the real owner (`tests/selection.rs`,
+  `the_shipped_fold_refuses_the_mailboxs_lane_kinds`).
+- Lifting it needs `sum_u32_at`, `count_gt_u32_at` and a `u64` sum with a
+  stated overflow bound in `ndarray::simd` (all three backends and a parity
+  test, per that repo's consumer contract), then two `SelFold` variants. A
+  scalar loop in this repo instead would be a second kernel beside the
+  facade and was not written.
+
+Until then a consumer reads selected mailbox values one by one through
+`LaneBinding::selected`, which is what the A3 tests do.
+
+## R3 to R6
+
+Not started. Order: C1(b) + C3 to C6, then D2 to D4, then E1, then F.

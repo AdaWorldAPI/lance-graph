@@ -25,9 +25,20 @@
 //!   planes are refused by name ([`ColumnRefusal::UnsupportedKind`]).
 //! - **Rows.** A lane is the populated prefix (`MailboxSoA::populated`).
 //!
+//! - **Selections (D-VAS-A3).** The socket is also a [`SelectionSource`]. It
+//!   issues position lists itself, from the published columns: an order by a
+//!   column ([`MailboxLanes::issue_order`]), a filter by a column comparison
+//!   ([`MailboxLanes::issue_where`]) and the concatenation of two issued
+//!   selections ([`MailboxLanes::issue_concat`], the only way a bag with
+//!   repeats arises). A caller cannot hand in positions. The lists are views
+//!   of this publication: they live in the socket, in the mailbox's row
+//!   order, and end with it. The mailbox itself has no home for an order.
+//!
 //! Not provided: a reader-[`Scope`] issuer (DR has none; the scope here is
-//! the caller's assertion, compared for consistency only), selections,
-//! `NodeGuid` resolution, any write.
+//! the caller's assertion, compared for consistency only), `NodeGuid`
+//! resolution, any write.
+
+pub mod coords;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -35,7 +46,7 @@ use cognitive_shader_driver::mailbox_soa::Published;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::soa_view::MailboxSoaView;
 use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
-use lance_graph_dt64::{CoordSpace, LaneAddr, LaneSource, SchemaRev};
+use lance_graph_dt64::{CoordSpace, LaneAddr, LaneSource, SchemaRev, SelAddr, SelectionSource};
 use lance_graph_mask_risc::LaneRef;
 
 /// A mailbox column this socket lends.
@@ -109,6 +120,36 @@ impl Column {
     }
 }
 
+/// How a column value is compared when a selection filters by it. Values
+/// are compared as unsigned integers of the column's own width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keep {
+    Eq(u64),
+    Ne(u64),
+    Lt(u64),
+    Ge(u64),
+}
+
+impl Keep {
+    fn holds(self, v: u64) -> bool {
+        match self {
+            Keep::Eq(t) => v == t,
+            Keep::Ne(t) => v != t,
+            Keep::Lt(t) => v < t,
+            Keep::Ge(t) => v >= t,
+        }
+    }
+}
+
+/// Why the socket issued no selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionRefusal {
+    /// All 65,536 selection names of this publication are taken.
+    NamesExhausted,
+    /// The named selection was not issued by this socket.
+    Unknown { sel: u16 },
+}
+
 /// The next socket's number. Process-wide, so two sockets never share one.
 static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
 
@@ -117,6 +158,8 @@ pub struct MailboxLanes<'a, const N: usize> {
     published: Published<'a, N>,
     frames: FrameStore,
     scope: Scope,
+    /// Position lists this socket issued, by selection name.
+    selections: Vec<Vec<u32>>,
     /// This socket's number: the `coordinates` half of its [`CoordSpace`].
     /// An address carries the space, so an address of another socket (over
     /// another publication, or the same one) is refused by `borrow`.
@@ -138,6 +181,7 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
             published,
             frames,
             scope,
+            selections: Vec::new(),
             socket,
         }
     }
@@ -170,6 +214,55 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
     #[must_use]
     pub fn rows(&self) -> usize {
         self.published.owner().populated()
+    }
+
+    /// The value of `column` at `row`, widened to `u64`.
+    fn value(&self, column: Column, row: usize) -> u64 {
+        let owner = self.published.owner();
+        match column {
+            Column::Meta => u64::from(owner.meta_raw()[row]),
+            Column::LastActiveCycle => u64::from(owner.last_active_cycle[row]),
+            Column::LastWriteCycle => u64::from(owner.last_write_cycle[row]),
+            Column::Edges => owner.edges_raw()[row],
+            Column::Temporal => owner.temporal[row],
+        }
+    }
+
+    fn issue(&mut self, positions: Vec<u32>) -> Result<u16, SelectionRefusal> {
+        let name =
+            u16::try_from(self.selections.len()).map_err(|_| SelectionRefusal::NamesExhausted)?;
+        self.selections.push(positions);
+        Ok(name)
+    }
+
+    /// Issue the populated rows ordered by `column`, ascending; rows with
+    /// equal values keep their row order.
+    pub fn issue_order(&mut self, column: Column) -> Result<u16, SelectionRefusal> {
+        let mut rows: Vec<u32> = (0..self.rows() as u32).collect();
+        rows.sort_by_key(|&r| self.value(column, r as usize));
+        self.issue(rows)
+    }
+
+    /// Issue the populated rows where `column` satisfies `keep`, in row
+    /// order.
+    pub fn issue_where(&mut self, column: Column, keep: Keep) -> Result<u16, SelectionRefusal> {
+        let rows: Vec<u32> = (0..self.rows() as u32)
+            .filter(|&r| keep.holds(self.value(column, r as usize)))
+            .collect();
+        self.issue(rows)
+    }
+
+    /// Issue `first` followed by `second`: a bag in list order. A row both
+    /// hold appears once per occurrence.
+    pub fn issue_concat(&mut self, first: u16, second: u16) -> Result<u16, SelectionRefusal> {
+        let list = |sel: u16| {
+            self.selections
+                .get(usize::from(sel))
+                .ok_or(SelectionRefusal::Unknown { sel })
+        };
+        let mut rows = list(first)?.clone();
+        rows.extend_from_slice(list(second)?);
+        self.issue(rows)
     }
 }
 
@@ -213,5 +306,26 @@ impl<const N: usize> LaneSource for MailboxLanes<'_, N> {
 
     fn frames(&self) -> &FrameStore {
         &self.frames
+    }
+}
+
+impl<const N: usize> SelectionSource for MailboxLanes<'_, N> {
+    fn selection_of(&self, sel: u16, frame: &Frame) -> Option<SelAddr> {
+        self.frames.check(frame).ok()?;
+        self.selections.get(usize::from(sel))?;
+        Some(SelAddr {
+            space: self.space(),
+            sel,
+            scope: self.scope,
+        })
+    }
+
+    fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]> {
+        if addr.space != self.space() || addr.scope != self.scope {
+            return None;
+        }
+        self.selections
+            .get(usize::from(addr.sel))
+            .map(Vec::as_slice)
     }
 }

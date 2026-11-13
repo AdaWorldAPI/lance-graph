@@ -339,6 +339,7 @@ lance-graph-relalg	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo
 lance-graph-relalg	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:14	CONFIRMED	yes
 lance-graph-relalg	lance-graph-onnx	dev	false	-	-	crates/lance-graph-onnx/Cargo.toml:19	CONFIRMED	yes
 lance-graph-report	lance-graph-lane-fold	dev	false	-	-	crates/lance-graph-lane-fold/Cargo.toml:11	CONFIRMED	yes
+lance-graph-report	lance-graph-mailbox-lanes	dev	false	-	-	crates/lance-graph-mailbox-lanes/Cargo.toml:17	CONFIRMED	yes
 lance-graph-report	lance-graph-report-ogar	normal	false	-	-	crates/lance-graph-report-ogar/Cargo.toml:30	CONFIRMED	yes
 lance-graph-report	virtual-address-lab	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:14	CONFIRMED	yes
 lance-graph-sap	lance-graph-glove-parity	dev	false	-	-	crates/lance-graph-glove-parity/Cargo.toml:23	CONFIRMED	yes

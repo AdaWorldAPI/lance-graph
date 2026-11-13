@@ -13,3 +13,5 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 
 [dev-dependencies]
 causal-edge = { path = "../causal-edge" }
+# `fold_bound_selection`: the shipped witnessed fold, for the A4 refusal test.
+lance-graph-report = { path = "../lance-graph-report" }
