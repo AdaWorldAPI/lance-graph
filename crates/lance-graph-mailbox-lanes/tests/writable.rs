@@ -13,9 +13,9 @@ use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, Scope};
 use lance_graph_dt64::{
     view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
-    MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
+    MethodId, Refusal, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mailbox_lanes::act::{act, ActContext, ActRefusal};
+use lance_graph_mailbox_lanes::act::{act, project, ActContext, ActRefusal};
 use lance_graph_mailbox_lanes::{Column, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
@@ -38,6 +38,8 @@ const FIELDS: usize = 5;
 
 const TO_SIGMA: MethodId = MethodId(1);
 const TO_SCRATCH: MethodId = MethodId(2);
+/// Targets `meta`: a write.
+const TO_META: MethodId = MethodId(3);
 
 const W_EQUAL: u8 = 4;
 const W_POP_COUNT: u8 = 10;
@@ -161,12 +163,13 @@ fn world() -> World {
             vec![
                 method(TO_SIGMA, META, 2, 0, SIGMA),
                 method(TO_SCRATCH, META, 2, 0, SCRATCH),
+                method(TO_META, META, 2, 0, META),
             ],
         )
         .expect("the class registers");
     let version = store.route(POSITION, CLASS).unwrap();
     let permit = ExecPermit {
-        methods: [TO_SIGMA, TO_SCRATCH]
+        methods: [TO_SIGMA, TO_SCRATCH, TO_META]
             .iter()
             .map(|&m| store.method_ref(CLASS, m).unwrap())
             .collect(),
@@ -224,4 +227,104 @@ fn a_known_unwritable_column_is_not_a_scratch_field() {
         .count() as i64;
     assert!(want > 0);
     assert_eq!(acted.unwritten, vec![(SCRATCH, want)]);
+}
+
+/// A read-only projection: `ClassView IN published rows WHEN guard DO fold`.
+/// FAILS IF: it returns another population or scalar than the hand-written
+/// fold, changes the owner, or runs a method that asks for a write.
+#[test]
+fn a_projection_is_a_scalar_and_never_a_write() {
+    let m = owner();
+    let w = world();
+    let before: Vec<(u32, u64)> = (0..POPULATED).map(|r| (m.meta[r].0, m.temporal[r])).collect();
+    let lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
+
+    // Oracle: the guard's rows and the fold, by hand.
+    let rows: Vec<u32> = (0..POPULATED as u32)
+        .filter(|&r| meta_of(r as usize) == 2)
+        .collect();
+    let count = rows
+        .iter()
+        .filter(|&&r| active_of(r as usize) == 0)
+        .count() as i64;
+    assert!(rows.len() > 4 && count > 0 && (count as usize) < rows.len());
+
+    let to_scratch = w.store.method_ref(CLASS, TO_SCRATCH).unwrap();
+    let got = project(&lanes, &w.store, &w.view, &ctx(&w), &to_scratch).unwrap();
+    assert_eq!(got.rows, rows);
+    assert_eq!(got.values, vec![(SCRATCH, count)]);
+    assert_eq!(got.guard_rows, POPULATED as u64);
+    // The guard's one field, twice (WHEN, then the gate), and the one read.
+    assert_eq!(lanes.lends(), 1 + 1 + 1);
+
+    // A method that asks for a write is not a projection. Nothing is read.
+    let lent = lanes.lends();
+    let to_meta = w.store.method_ref(CLASS, TO_META).unwrap();
+    assert_eq!(
+        project(&lanes, &w.store, &w.view, &ctx(&w), &to_meta),
+        Err(ActRefusal::NotReadOnly {
+            field: META,
+            column: Column::Meta
+        })
+    );
+    let to_sigma = w.store.method_ref(CLASS, TO_SIGMA).unwrap();
+    assert!(matches!(
+        project(&lanes, &w.store, &w.view, &ctx(&w), &to_sigma),
+        Err(ActRefusal::UnsupportedColumn { .. })
+    ));
+    assert_eq!(lanes.lends(), lent);
+    // Silence twin: the same method is a write under `act`.
+    assert_eq!(
+        act(&lanes, &w.store, &w.view, &ctx(&w), &to_meta)
+            .unwrap()
+            .intents
+            .len(),
+        1
+    );
+    drop(lanes);
+    let after: Vec<(u32, u64)> = (0..POPULATED).map(|r| (m.meta[r].0, m.temporal[r])).collect();
+    assert_eq!(after, before);
+}
+
+/// FAILS IF: a projection runs for a position that does not route to the
+/// method's class, without an execution permit, or under a reader scope the
+/// socket was not opened for.
+#[test]
+fn a_projection_is_refused_at_route_permit_and_scope() {
+    let m = owner();
+    let w = world();
+    let lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
+    let to_scratch = w.store.method_ref(CLASS, TO_SCRATCH).unwrap();
+
+    let elsewhere = ActContext {
+        route: RouteAt {
+            position: POSITION + 1,
+            version: w.route.version,
+        },
+        ..ctx(&w)
+    };
+    assert!(matches!(
+        project(&lanes, &w.store, &w.view, &elsewhere, &to_scratch),
+        Err(ActRefusal::Admission(Refusal::NotRoutedClass { .. }))
+    ));
+    assert_eq!(lanes.lends(), 0);
+
+    let none = ExecPermit::default();
+    let unpermitted = ActContext {
+        permit: &none,
+        ..ctx(&w)
+    };
+    assert!(matches!(
+        project(&lanes, &w.store, &w.view, &unpermitted, &to_scratch),
+        Err(ActRefusal::Exec(_))
+    ));
+
+    let other_scope = ActContext {
+        scope: Scope { id: 4 },
+        ..ctx(&w)
+    };
+    assert!(matches!(
+        project(&lanes, &w.store, &w.view, &other_scope, &to_scratch),
+        Err(ActRefusal::When(_))
+    ));
 }
