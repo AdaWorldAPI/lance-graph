@@ -40,7 +40,7 @@ impl Gen {
     fn plane(&mut self, one_in: u64, set: bool) -> Vec<u64> {
         let mut w = vec![0u64; words_for(N)];
         for r in 0..N {
-            if (self.next() % one_in == 0) == set {
+            if self.next().is_multiple_of(one_in) == set {
                 w[r / 64] |= 1 << (r % 64);
             }
         }
@@ -57,13 +57,13 @@ impl Gen {
             ),
             _ => SetExpr::Res(Res::U32 {
                 lane: 2 + (self.next() % 2) as u16,
-                eq: self.next() % 2 == 0,
+                eq: self.next().is_multiple_of(2),
                 v: (self.next() % 4) as u32,
             }),
         }
     }
     fn expr(&mut self, depth: u32) -> SetExpr {
-        if depth == 0 || self.next() % 4 == 0 {
+        if depth == 0 || self.next().is_multiple_of(4) {
             return match self.next() % 14 {
                 0 => SetExpr::All,
                 1 => SetExpr::Empty,

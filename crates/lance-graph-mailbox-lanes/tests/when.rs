@@ -173,15 +173,19 @@ impl Gen {
         self.0 >> 33
     }
     fn leaf(&mut self) -> SetExpr {
-        let lane = if self.next() % 2 == 0 { META } else { ACTIVE };
+        let lane = if self.next().is_multiple_of(2) {
+            META
+        } else {
+            ACTIVE
+        };
         SetExpr::Res(Res::U32 {
             lane,
-            eq: self.next() % 2 == 0,
+            eq: self.next().is_multiple_of(2),
             v: (self.next() % 4) as u32,
         })
     }
     fn expr(&mut self, depth: u32) -> SetExpr {
-        if depth == 0 || self.next() % 4 == 0 {
+        if depth == 0 || self.next().is_multiple_of(4) {
             return match self.next() % 16 {
                 0 => SetExpr::All,
                 1 => SetExpr::Empty,
