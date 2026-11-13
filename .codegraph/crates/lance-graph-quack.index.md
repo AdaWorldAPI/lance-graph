@@ -3,7 +3,7 @@
 crate: lance-graph-quack
 path: crates/lance-graph-quack
 workspace: member
-digest: 9fd7062fb3941182
+digest: a4d3ab92813e924f
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -29,6 +29,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-cypher-quack normal — crates/lance-graph-cypher-quack/Cargo.toml:16 CONFIRMED
 - rdep lance-graph-dir-sim normal — crates/lance-graph-dir-sim/Cargo.toml:32 CONFIRMED
 - rdep lance-graph-glove-parity normal — crates/lance-graph-glove-parity/Cargo.toml:16 CONFIRMED
+- rdep lance-graph-mailbox-lanes normal — crates/lance-graph-mailbox-lanes/Cargo.toml:14 CONFIRMED
 - rdep lance-graph-metta normal — crates/lance-graph-metta/Cargo.toml:16 CONFIRMED
 - rdep lance-graph-r2il dev — crates/lance-graph-r2il/Cargo.toml:36 CONFIRMED
 - rdep lance-graph-report normal — crates/lance-graph-report/Cargo.toml:14 CONFIRMED
@@ -71,74 +72,90 @@ Generated; the code is the truth. See ../index.md.
 - fn TableDeclaration::width [pub] — crates/lance-graph-quack/src/bind.rs:519 CONFIRMED
 - fn TableDeclaration::register [pub] — crates/lance-graph-quack/src/bind.rs:528 CONFIRMED
 - mod bind [pub] — crates/lance-graph-quack/src/lib.rs:169 CONFIRMED
-- struct Col [pub] — crates/lance-graph-quack/src/lib.rs:185 CONFIRMED
-- struct Mask [pub] — crates/lance-graph-quack/src/lib.rs:191 CONFIRMED
-- struct ForeignPlane [pub] — crates/lance-graph-quack/src/lib.rs:200 CONFIRMED
-- struct ForeignLane [pub] — crates/lance-graph-quack/src/lib.rs:208 CONFIRMED
-- enum Cmp [pub] — crates/lance-graph-quack/src/lib.rs:218 CONFIRMED
-- enum PrefixLowering [pub] — crates/lance-graph-quack/src/lib.rs:305 CONFIRMED
-- enum Filter [pub] — crates/lance-graph-quack/src/lib.rs:340 CONFIRMED
-- fn Filter::cmp [pub] — crates/lance-graph-quack/src/lib.rs:403 CONFIRMED
-- fn Filter::plane [pub] — crates/lance-graph-quack/src/lib.rs:408 CONFIRMED
-- fn Filter::eq_u32_via [pub] — crates/lance-graph-quack/src/lib.rs:413 CONFIRMED
-- fn Filter::semijoin [pub] — crates/lance-graph-quack/src/lib.rs:419 CONFIRMED
-- fn Filter::and [pub] — crates/lance-graph-quack/src/lib.rs:424 CONFIRMED
-- fn Filter::or [pub] — crates/lance-graph-quack/src/lib.rs:429 CONFIRMED
-- fn Filter::negate [pub] — crates/lance-graph-quack/src/lib.rs:438 CONFIRMED
-- fn Filter::in_u32 [pub] — crates/lance-graph-quack/src/lib.rs:446 CONFIRMED
-- fn Filter::in_i32 [pub] — crates/lance-graph-quack/src/lib.rs:455 CONFIRMED
-- fn Filter::is_not_null [pub] — crates/lance-graph-quack/src/lib.rs:468 CONFIRMED
-- fn Filter::is_null [pub] — crates/lance-graph-quack/src/lib.rs:475 CONFIRMED
-- fn Filter::sql_where [pub] — crates/lance-graph-quack/src/lib.rs:549 CONFIRMED
-- fn Filter::and_by_skip [pub] — crates/lance-graph-quack/src/lib.rs:752 CONFIRMED
-- fn Filter::prefix_u32 [pub] — crates/lance-graph-quack/src/lib.rs:810 CONFIRMED
-- fn Filter::prefix_u64 [pub] — crates/lance-graph-quack/src/lib.rs:829 CONFIRMED
-- fn Filter::prefix_facet [pub] — crates/lance-graph-quack/src/lib.rs:888 CONFIRMED
-- fn Filter::aperture_facet [pub] — crates/lance-graph-quack/src/lib.rs:944 CONFIRMED
-- fn Filter::aperture_facet_strided [pub] — crates/lance-graph-quack/src/lib.rs:980 CONFIRMED
-- enum ApertureLowering [pub] — crates/lance-graph-quack/src/lib.rs:1051 CONFIRMED
-- enum LowerError [pub] — crates/lance-graph-quack/src/lib.rs:1066 CONFIRMED
-- enum Agg [pub] — crates/lance-graph-quack/src/lib.rs:1136 CONFIRMED
-- enum GroupAddr [pub] — crates/lance-graph-quack/src/lib.rs:1244 CONFIRMED
-- enum GroupAgg [pub] — crates/lance-graph-quack/src/lib.rs:1272 CONFIRMED
-- fn GroupAgg::fold [pub] — crates/lance-graph-quack/src/lib.rs:1289 CONFIRMED
-- struct Query [pub] — crates/lance-graph-quack/src/lib.rs:1310 CONFIRMED
-- struct GroupBy [pub] — crates/lance-graph-quack/src/lib.rs:1323 CONFIRMED
-- struct GroupPlan [pub] — crates/lance-graph-quack/src/lib.rs:1348 CONFIRMED
-- enum GroupLowering [pub] — crates/lance-graph-quack/src/lib.rs:1364 CONFIRMED
-- fn lower [pub] — crates/lance-graph-quack/src/lib.rs:1392 CONFIRMED
-- fn lower_fused [pub] — crates/lance-graph-quack/src/lib.rs:1406 CONFIRMED
-- fn lower_sel [pub] — crates/lance-graph-quack/src/lib.rs:1434 CONFIRMED
-- fn lower_group_by [pub] — crates/lance-graph-quack/src/lib.rs:1456 CONFIRMED
-- fn lower_group_by_semantic [pub] — crates/lance-graph-quack/src/lib.rs:1515 CONFIRMED
-- struct AvgPlan [pub] — crates/lance-graph-quack/src/lib.rs:1559 CONFIRMED
-- fn lower_avg [pub] — crates/lance-graph-quack/src/lib.rs:1571 CONFIRMED
-- type SumPlan [pub] — crates/lance-graph-quack/src/lib.rs:1592 CONFIRMED
-- fn lower_sum [pub] — crates/lance-graph-quack/src/lib.rs:1607 CONFIRMED
-- fn sum_finish [pub] — crates/lance-graph-quack/src/lib.rs:1617 CONFIRMED
-- struct GroupAvgPlan [pub] — crates/lance-graph-quack/src/lib.rs:1626 CONFIRMED
-- fn lower_group_avg [pub] — crates/lance-graph-quack/src/lib.rs:1659 CONFIRMED
-- fn avg_finish [pub] — crates/lance-graph-quack/src/lib.rs:1697 CONFIRMED
-- enum HavingCmp [pub] — crates/lance-graph-quack/src/lib.rs:1704 CONFIRMED
-- struct GroupHaving [pub] — crates/lance-graph-quack/src/lib.rs:1740 CONFIRMED
-- struct GroupHavingPlan [pub] — crates/lance-graph-quack/src/lib.rs:1756 CONFIRMED
-- fn lower_group_having [pub] — crates/lance-graph-quack/src/lib.rs:1774 CONFIRMED
-- enum HavingFinishError [pub] — crates/lance-graph-quack/src/lib.rs:1807 CONFIRMED
-- fn GroupHavingPlan::finish [pub] — crates/lance-graph-quack/src/lib.rs:1873 CONFIRMED
-- struct GroupHavingOutput [pub] — crates/lance-graph-quack/src/lib.rs:1920 CONFIRMED
-- fn normalize_group_sink [pub] — crates/lance-graph-quack/src/lib.rs:1944 CONFIRMED
-- fn lower_group_by_auto [pub] — crates/lance-graph-quack/src/lib.rs:1971 CONFIRMED
+- mod set [pub] — crates/lance-graph-quack/src/lib.rs:170 CONFIRMED
+- struct Col [pub] — crates/lance-graph-quack/src/lib.rs:186 CONFIRMED
+- struct Mask [pub] — crates/lance-graph-quack/src/lib.rs:192 CONFIRMED
+- struct ForeignPlane [pub] — crates/lance-graph-quack/src/lib.rs:201 CONFIRMED
+- struct ForeignLane [pub] — crates/lance-graph-quack/src/lib.rs:209 CONFIRMED
+- enum Cmp [pub] — crates/lance-graph-quack/src/lib.rs:219 CONFIRMED
+- enum PrefixLowering [pub] — crates/lance-graph-quack/src/lib.rs:306 CONFIRMED
+- enum Filter [pub] — crates/lance-graph-quack/src/lib.rs:341 CONFIRMED
+- fn Filter::cmp [pub] — crates/lance-graph-quack/src/lib.rs:404 CONFIRMED
+- fn Filter::plane [pub] — crates/lance-graph-quack/src/lib.rs:409 CONFIRMED
+- fn Filter::eq_u32_via [pub] — crates/lance-graph-quack/src/lib.rs:414 CONFIRMED
+- fn Filter::semijoin [pub] — crates/lance-graph-quack/src/lib.rs:420 CONFIRMED
+- fn Filter::and [pub] — crates/lance-graph-quack/src/lib.rs:425 CONFIRMED
+- fn Filter::or [pub] — crates/lance-graph-quack/src/lib.rs:430 CONFIRMED
+- fn Filter::negate [pub] — crates/lance-graph-quack/src/lib.rs:439 CONFIRMED
+- fn Filter::in_u32 [pub] — crates/lance-graph-quack/src/lib.rs:447 CONFIRMED
+- fn Filter::in_i32 [pub] — crates/lance-graph-quack/src/lib.rs:456 CONFIRMED
+- fn Filter::is_not_null [pub] — crates/lance-graph-quack/src/lib.rs:469 CONFIRMED
+- fn Filter::is_null [pub] — crates/lance-graph-quack/src/lib.rs:476 CONFIRMED
+- fn Filter::sql_where [pub] — crates/lance-graph-quack/src/lib.rs:550 CONFIRMED
+- fn Filter::and_by_skip [pub] — crates/lance-graph-quack/src/lib.rs:753 CONFIRMED
+- fn Filter::prefix_u32 [pub] — crates/lance-graph-quack/src/lib.rs:811 CONFIRMED
+- fn Filter::prefix_u64 [pub] — crates/lance-graph-quack/src/lib.rs:830 CONFIRMED
+- fn Filter::prefix_facet [pub] — crates/lance-graph-quack/src/lib.rs:889 CONFIRMED
+- fn Filter::aperture_facet [pub] — crates/lance-graph-quack/src/lib.rs:945 CONFIRMED
+- fn Filter::aperture_facet_strided [pub] — crates/lance-graph-quack/src/lib.rs:981 CONFIRMED
+- enum ApertureLowering [pub] — crates/lance-graph-quack/src/lib.rs:1052 CONFIRMED
+- enum LowerError [pub] — crates/lance-graph-quack/src/lib.rs:1067 CONFIRMED
+- enum Agg [pub] — crates/lance-graph-quack/src/lib.rs:1137 CONFIRMED
+- enum GroupAddr [pub] — crates/lance-graph-quack/src/lib.rs:1245 CONFIRMED
+- enum GroupAgg [pub] — crates/lance-graph-quack/src/lib.rs:1273 CONFIRMED
+- fn GroupAgg::fold [pub] — crates/lance-graph-quack/src/lib.rs:1290 CONFIRMED
+- struct Query [pub] — crates/lance-graph-quack/src/lib.rs:1311 CONFIRMED
+- struct GroupBy [pub] — crates/lance-graph-quack/src/lib.rs:1324 CONFIRMED
+- struct GroupPlan [pub] — crates/lance-graph-quack/src/lib.rs:1349 CONFIRMED
+- enum GroupLowering [pub] — crates/lance-graph-quack/src/lib.rs:1365 CONFIRMED
+- fn lower [pub] — crates/lance-graph-quack/src/lib.rs:1393 CONFIRMED
+- fn lower_fused [pub] — crates/lance-graph-quack/src/lib.rs:1407 CONFIRMED
+- fn lower_sel [pub] — crates/lance-graph-quack/src/lib.rs:1435 CONFIRMED
+- fn lower_group_by [pub] — crates/lance-graph-quack/src/lib.rs:1457 CONFIRMED
+- fn lower_group_by_semantic [pub] — crates/lance-graph-quack/src/lib.rs:1516 CONFIRMED
+- struct AvgPlan [pub] — crates/lance-graph-quack/src/lib.rs:1560 CONFIRMED
+- fn lower_avg [pub] — crates/lance-graph-quack/src/lib.rs:1572 CONFIRMED
+- type SumPlan [pub] — crates/lance-graph-quack/src/lib.rs:1593 CONFIRMED
+- fn lower_sum [pub] — crates/lance-graph-quack/src/lib.rs:1608 CONFIRMED
+- fn sum_finish [pub] — crates/lance-graph-quack/src/lib.rs:1618 CONFIRMED
+- struct GroupAvgPlan [pub] — crates/lance-graph-quack/src/lib.rs:1627 CONFIRMED
+- fn lower_group_avg [pub] — crates/lance-graph-quack/src/lib.rs:1660 CONFIRMED
+- fn avg_finish [pub] — crates/lance-graph-quack/src/lib.rs:1698 CONFIRMED
+- enum HavingCmp [pub] — crates/lance-graph-quack/src/lib.rs:1705 CONFIRMED
+- struct GroupHaving [pub] — crates/lance-graph-quack/src/lib.rs:1741 CONFIRMED
+- struct GroupHavingPlan [pub] — crates/lance-graph-quack/src/lib.rs:1757 CONFIRMED
+- fn lower_group_having [pub] — crates/lance-graph-quack/src/lib.rs:1775 CONFIRMED
+- enum HavingFinishError [pub] — crates/lance-graph-quack/src/lib.rs:1808 CONFIRMED
+- fn GroupHavingPlan::finish [pub] — crates/lance-graph-quack/src/lib.rs:1874 CONFIRMED
+- struct GroupHavingOutput [pub] — crates/lance-graph-quack/src/lib.rs:1921 CONFIRMED
+- fn normalize_group_sink [pub] — crates/lance-graph-quack/src/lib.rs:1945 CONFIRMED
+- fn lower_group_by_auto [pub] — crates/lance-graph-quack/src/lib.rs:1972 CONFIRMED
+- enum SetLowerError [pub] — crates/lance-graph-quack/src/set.rs:48 CONFIRMED
+- enum SetLowered [pub] — crates/lance-graph-quack/src/set.rs:68 CONFIRMED
+- struct SetFilter [pub] — crates/lance-graph-quack/src/set.rs:79 CONFIRMED
+- fn lower_set [pub] — crates/lance-graph-quack/src/set.rs:87 CONFIRMED
+- fn SetFilter::logic [pub] — crates/lance-graph-quack/src/set.rs:136 CONFIRMED
+- fn SetFilter::lanes [pub] — crates/lance-graph-quack/src/set.rs:141 CONFIRMED
+- fn SetFilter::planes [pub] — crates/lance-graph-quack/src/set.rs:147 CONFIRMED
+- fn SetFilter::two_valued [pub] — crates/lance-graph-quack/src/set.rs:153 CONFIRMED
+- fn SetFilter::where_true [pub] — crates/lance-graph-quack/src/set.rs:163 CONFIRMED
 
 ## Imports from in-scope crates
 
 ### lance-graph-contract
-- use lance_graph_contract::facet::SemanticAperture — crates/lance-graph-quack/src/lib.rs:173 CONFIRMED
-- use lance_graph_contract::facet::SemanticPrefix — crates/lance-graph-quack/src/lib.rs:173 CONFIRMED
-- use lance_graph_contract::ordered_lane::OrderedLaneWitness — crates/lance-graph-quack/src/lib.rs:174 CONFIRMED
-- use lance_graph_contract::ordered_lane::SealedFacetLane — crates/lance-graph-quack/src/lib.rs:174 CONFIRMED
-- use lance_graph_contract::facet::FacetCascade cfg=test — crates/lance-graph-quack/src/lib.rs:4585 CONFIRMED
-- use lance_graph_contract::ordered_lane::WitnessError cfg=test — crates/lance-graph-quack/src/lib.rs:4586 CONFIRMED
-- use lance_graph_contract::facet::FacetCascade cfg=test — crates/lance-graph-quack/src/lib.rs:4900 CONFIRMED
+- use lance_graph_contract::facet::SemanticAperture — crates/lance-graph-quack/src/lib.rs:174 CONFIRMED
+- use lance_graph_contract::facet::SemanticPrefix — crates/lance-graph-quack/src/lib.rs:174 CONFIRMED
+- use lance_graph_contract::ordered_lane::OrderedLaneWitness — crates/lance-graph-quack/src/lib.rs:175 CONFIRMED
+- use lance_graph_contract::ordered_lane::SealedFacetLane — crates/lance-graph-quack/src/lib.rs:175 CONFIRMED
+- use lance_graph_contract::facet::FacetCascade cfg=test — crates/lance-graph-quack/src/lib.rs:4586 CONFIRMED
+- use lance_graph_contract::ordered_lane::WitnessError cfg=test — crates/lance-graph-quack/src/lib.rs:4587 CONFIRMED
+- use lance_graph_contract::facet::FacetCascade cfg=test — crates/lance-graph-quack/src/lib.rs:4901 CONFIRMED
+- use lance_graph_contract::set_algebra::Cmp as SetCmp — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
+- use lance_graph_contract::set_algebra::Logic — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
+- use lance_graph_contract::set_algebra::Res — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
+- use lance_graph_contract::set_algebra::SetExpr — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
+- use lance_graph_contract::set_algebra::normalize — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
+- use lance_graph_contract::set_algebra::normalize_kleene — crates/lance-graph-quack/src/set.rs:41 CONFIRMED
 ### lance-graph-mask-risc
 - use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/bind.rs:544 CONFIRMED
 - use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/bind.rs:544 CONFIRMED
@@ -149,65 +166,65 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/bind.rs:544 CONFIRMED
 - use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/bind.rs:544 CONFIRMED
 - use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/bind.rs:544 CONFIRMED
-- use lance_graph_mask_risc::BoolExpr — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::FuseError — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::GroupFold — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::GroupKey — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::MaskOp — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::Operand — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::Pred — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::Program — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::SelFold — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::fuse — crates/lance-graph-quack/src/lib.rs:176 CONFIRMED
-- use lance_graph_mask_risc::MAX_SCRATCH_SLOTS — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
-- use lance_graph_mask_risc::Terminal — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
-- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::reference_execute cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:2563 CONFIRMED
-- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
-- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
-- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
-- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:4588 CONFIRMED
-- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:4902 CONFIRMED
-- use lance_graph_mask_risc::StridedRef cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
-- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
-- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:5180 CONFIRMED
-- use lance_graph_mask_risc::StridedRef cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
-- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::Lowering cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
-- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:5257 CONFIRMED
+- use lance_graph_mask_risc::BoolExpr — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::FuseError — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::GroupFold — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::GroupKey — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::MaskOp — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::Operand — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::Pred — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::Program — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::SelFold — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::fuse — crates/lance-graph-quack/src/lib.rs:177 CONFIRMED
+- use lance_graph_mask_risc::MAX_SCRATCH_SLOTS — crates/lance-graph-quack/src/lib.rs:178 CONFIRMED
+- use lance_graph_mask_risc::Terminal — crates/lance-graph-quack/src/lib.rs:178 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::reference_execute cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:2564 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:2565 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:2565 CONFIRMED
+- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:2565 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:4589 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:4903 CONFIRMED
+- use lance_graph_mask_risc::StridedRef cfg=test — crates/lance-graph-quack/src/lib.rs:4904 CONFIRMED
+- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:4904 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::materialize_rows cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:5181 CONFIRMED
+- use lance_graph_mask_risc::StridedRef cfg=test — crates/lance-graph-quack/src/lib.rs:5182 CONFIRMED
+- use lance_graph_mask_risc::Foreign cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::LaneRef cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::Lowering cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::Out cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::Planes cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::Scratch cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::Value cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::execute_into cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
+- use lance_graph_mask_risc::words_for cfg=test — crates/lance-graph-quack/src/lib.rs:5258 CONFIRMED
 
 ## Calls
 
@@ -216,7 +233,7 @@ CALL_GRAPH=ARTIFACT_MISSING
 
 ## Architecture
 
-- arch Quack filter-needs-admission Filter::Semijoin [CONFIRMED] validation=OK — crates/lance-graph-quack/src/lib.rs:387 CONFIRMED
+- arch Quack filter-needs-admission Filter::Semijoin [CONFIRMED] validation=OK — crates/lance-graph-quack/src/lib.rs:388 CONFIRMED
 - arch Quack reads-population-via Binder::live [CONFIRMED] validation=OK — crates/lance-graph-quack/src/bind.rs:96 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
@@ -233,29 +250,31 @@ flowchart LR
   n46["lance-graph-cypher-quack"]
   n47["lance-graph-dir-sim"]
   n50["lance-graph-glove-parity"]
-  n53["lance-graph-mask-risc"]
-  n54["lance-graph-metta"]
-  n63["lance-graph-quack"]
-  n67["lance-graph-report"]
-  n69["lance-graph-sap"]
-  n72["lance-graph-xlog"]
-  n81["quack-boundary-lab"]
-  n97["virtual-address-lab"]
-  n10 --> n63
-  n25 --> n63
-  n27 --> n63
-  n34 --> n63
-  n38 --> n63
-  n42 --> n63
-  n46 --> n63
-  n47 --> n63
-  n50 --> n63
-  n54 --> n63
-  n63 --> n45
-  n63 --> n53
-  n67 --> n63
-  n69 --> n63
-  n72 --> n63
-  n81 --> n63
-  n97 --> n63
+  n53["lance-graph-mailbox-lanes"]
+  n54["lance-graph-mask-risc"]
+  n55["lance-graph-metta"]
+  n64["lance-graph-quack"]
+  n68["lance-graph-report"]
+  n70["lance-graph-sap"]
+  n73["lance-graph-xlog"]
+  n82["quack-boundary-lab"]
+  n98["virtual-address-lab"]
+  n10 --> n64
+  n25 --> n64
+  n27 --> n64
+  n34 --> n64
+  n38 --> n64
+  n42 --> n64
+  n46 --> n64
+  n47 --> n64
+  n50 --> n64
+  n53 --> n64
+  n55 --> n64
+  n64 --> n45
+  n64 --> n54
+  n68 --> n64
+  n70 --> n64
+  n73 --> n64
+  n82 --> n64
+  n98 --> n64
 ```

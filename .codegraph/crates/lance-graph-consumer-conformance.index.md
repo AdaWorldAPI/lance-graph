@@ -78,12 +78,12 @@ flowchart LR
   n39["lance-graph-callcenter"]
   n44["lance-graph-consumer-conformance"]
   n45["lance-graph-contract"]
-  n57["lance-graph-ogar"]
-  n59["lance-graph-ontology"]
-  n65["lance-graph-rbac"]
+  n58["lance-graph-ogar"]
+  n60["lance-graph-ontology"]
+  n66["lance-graph-rbac"]
   n44 --> n39
   n44 --> n45
-  n44 --> n57
-  n44 --> n59
-  n44 --> n65
+  n44 --> n58
+  n44 --> n60
+  n44 --> n66
 ```

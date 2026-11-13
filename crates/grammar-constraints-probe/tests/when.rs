@@ -263,17 +263,20 @@ fn candidates_are_read_only() {
 }
 
 #[test]
-fn dt64_does_not_validate_guard_lanes() {
-    // FINDING: `validate` checks ON / reads / effects positions against the
-    // basis, never the WHEN guard's lanes. A guard over lane 99 of a
-    // five-field class registers.
+fn dt64_validates_guard_lanes() {
+    // This test pinned a finding until D-VAS-C3: `validate` checked ON /
+    // reads / effects positions against the basis, never the WHEN guard's
+    // lanes, so a guard over lane 99 of a five-field class registered. DT64
+    // now refuses it. The lab's own guard (lanes inside the basis) still
+    // registers: every other test in this file does that.
     let w = world(&fixtures::corpus());
     let mut b = RuleDesc::recipient().binding(Physical::CoAddressed, &w.v, &w.lex);
     b.when = Some(Guard::new(SetExpr::eq_u32(99, 1), Logic::TwoValued));
     let mut store = BindStore::new();
-    assert!(store
-        .register(&LabView::new(), CLASS_COADDR, schema(), vec![b])
-        .is_ok());
+    assert!(matches!(
+        store.register(&LabView::new(), CLASS_COADDR, schema(), vec![b]),
+        Err(lance_graph_dt64::Refusal::GuardLaneOutOfBasis { lane: 99, .. })
+    ));
 }
 
 // --- negative controls ---------------------------------------------------------

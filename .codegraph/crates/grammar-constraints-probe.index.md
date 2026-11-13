@@ -181,10 +181,10 @@ flowchart LR
   n25["grammar-constraints-probe"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
   n25 --> n45
   n25 --> n48
-  n25 --> n53
-  n25 --> n63
+  n25 --> n54
+  n25 --> n64
 ```

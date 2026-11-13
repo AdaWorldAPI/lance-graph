@@ -20,3 +20,6 @@ dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
 # The real mailbox owner, for the 24 x i4 reading over a lane it owns.
 cognitive-shader-driver = { path = "../cognitive-shader-driver" }
 causal-edge = { path = "../causal-edge" }
+# D-VAS P1: the constant `Method` on the real mailbox path (ON, WHEN, DO).
+lance-graph-mailbox-lanes = { path = "../lance-graph-mailbox-lanes" }
+lance-graph-r2il = { path = "../lance-graph-r2il" }

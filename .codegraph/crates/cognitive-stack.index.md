@@ -63,14 +63,14 @@ flowchart LR
   n22["elixir-template"]
   n34["lance-graph"]
   n45["lance-graph-contract"]
-  n57["lance-graph-ogar"]
-  n92["template-equivalence"]
-  n93["template-runtime"]
+  n58["lance-graph-ogar"]
+  n93["template-equivalence"]
+  n94["template-runtime"]
   n8 --> n5
   n8 --> n22
   n8 --> n34
   n8 --> n45
-  n8 --> n57
-  n8 --> n92
+  n8 --> n58
   n8 --> n93
+  n8 --> n94
 ```

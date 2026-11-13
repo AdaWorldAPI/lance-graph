@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 115681c5a4ac4dac
+digest: 62cdee8010a1cdf1
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -15,8 +15,10 @@ Generated; the code is the truth. See ../index.md.
 - dep dr256-ternlog-lab normal — crates/virtual-address-lab/Cargo.toml:17 CONFIRMED
 - dep lance-graph-contract normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
 - dep lance-graph-dt64 normal — crates/virtual-address-lab/Cargo.toml:10 CONFIRMED
+- dep lance-graph-mailbox-lanes dev — crates/virtual-address-lab/Cargo.toml:24 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/virtual-address-lab/Cargo.toml:11 CONFIRMED
 - dep lance-graph-quack normal — crates/virtual-address-lab/Cargo.toml:12 CONFIRMED
+- dep lance-graph-r2il dev — crates/virtual-address-lab/Cargo.toml:25 CONFIRMED
 - dep lance-graph-report normal — crates/virtual-address-lab/Cargo.toml:14 CONFIRMED
 
 ## Depended on by
@@ -242,14 +244,14 @@ flowchart LR
   n15["dr256-ternlog-lab"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
-  n67["lance-graph-report"]
-  n97["virtual-address-lab"]
-  n97 --> n15
-  n97 --> n45
-  n97 --> n48
-  n97 --> n53
-  n97 --> n63
-  n97 --> n67
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
+  n68["lance-graph-report"]
+  n98["virtual-address-lab"]
+  n98 --> n15
+  n98 --> n45
+  n98 --> n48
+  n98 --> n54
+  n98 --> n64
+  n98 --> n68
 ```

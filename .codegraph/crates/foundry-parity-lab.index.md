@@ -267,11 +267,11 @@ flowchart LR
   n23["foundry-parity-lab"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n66["lance-graph-relalg"]
+  n54["lance-graph-mask-risc"]
+  n67["lance-graph-relalg"]
   n4 --> n23
   n23 --> n45
   n23 --> n48
-  n23 --> n53
-  n23 --> n66
+  n23 --> n54
+  n23 --> n67
 ```

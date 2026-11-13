@@ -54,8 +54,8 @@ flowchart LR
   n19["dt64-hotplug-probe"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n57["lance-graph-ogar"]
+  n58["lance-graph-ogar"]
   n19 --> n45
   n19 --> n48
-  n19 --> n57
+  n19 --> n58
 ```

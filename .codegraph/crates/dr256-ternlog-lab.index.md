@@ -255,11 +255,11 @@ flowchart LR
   n38["lance-graph-benches"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n97["virtual-address-lab"]
+  n54["lance-graph-mask-risc"]
+  n98["virtual-address-lab"]
   n15 --> n45
   n15 --> n48
-  n15 --> n53
+  n15 --> n54
   n38 --> n15
-  n97 --> n15
+  n98 --> n15
 ```

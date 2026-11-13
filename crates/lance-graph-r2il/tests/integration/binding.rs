@@ -19,8 +19,10 @@ use lance_graph_dt64::{
 };
 use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
 use lance_graph_r2il::binding::{
-    prepare, run, ExecPermit, ExecRefusal, FieldLanes, Prepared, R2ilLens, Receipt, Resolution,
+    prepare, prepare_gated, run, run_gated, ExecPermit, ExecRefusal, FieldLanes, Gate, Prepared,
+    R2ilLens, Receipt, Resolution,
 };
+use lance_graph_r2il::binding_native::prepare_native;
 use lance_graph_r2il::{FoldDialect, FoldError, INT_S_LESS};
 use ogar_loco::{FnIndex, Vocabulary};
 use ogar_r2il::{R2ILVocabulary, CONCEPT_R2IL_FOLD};
@@ -47,7 +49,7 @@ const LANES: [Option<u16>; 8] = [Some(0), Some(1), Some(2), None, None, None, No
 
 /// The lens's words, deliberately NOT at their opcode numbers: only the
 /// label binds a word to an opcode.
-const WORDS: [&str; 10] = [
+const WORDS: [&str; 11] = [
     "SUM",
     "IntSLess",
     "IntSub",
@@ -58,6 +60,7 @@ const WORDS: [&str; 10] = [
     "GROUP_SUM",
     "NotAnOpcode",
     "IntAnd",
+    "ALL",
 ];
 const W_SUM: u8 = 0;
 const W_LT: u8 = 1;
@@ -68,6 +71,7 @@ const W_POP: u8 = 5;
 const W_GSUM: u8 = 7;
 const W_BAD: u8 = 8;
 const W_AND: u8 = 9;
+const W_ALL: u8 = 10;
 
 const FOCUS: Focus = Focus { revision: 1 };
 const SCOPE: Scope = Scope { id: 1 };
@@ -176,6 +180,8 @@ const THREE_VALUED: u32 = 12;
 const COUNT: u32 = 13; // POP_COUNT of the mask
 const SHARED_AND: u32 = 14; // m = a < 5; t = a < 10; u = m AND t; s = POP_COUNT(t)
 const PRED_ONLY: u32 = 15; // m = a < 5, consumed by no fold
+const GUARDED_COUNT: u32 = 16; // WHEN k == 3: m = a < 5; s = POP_COUNT(m)
+const GUARDED_ALL: u32 = 17; // WHEN k == 3: m = a < 5; s = ALL(m)
 
 fn methods() -> Vec<MethodBinding> {
     let with = |id, extra: Vec<Effect>| {
@@ -268,7 +274,28 @@ fn methods() -> Vec<MethodBinding> {
             &[0],
             vec![step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)])],
         ),
+        guarded_on_k(
+            GUARDED_COUNT,
+            vec![
+                step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
+                step(4, W_POP, vec![Arg::Field(3)]),
+            ],
+        ),
+        guarded_on_k(
+            GUARDED_ALL,
+            vec![
+                step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
+                step(4, W_ALL, vec![Arg::Field(3)]),
+            ],
+        ),
     ]
+}
+
+/// A method guarded by `k == 3` (field 2).
+fn guarded_on_k(id: u32, effects: Vec<Effect>) -> MethodBinding {
+    let mut m = method(id, &[0, 1, 2], effects);
+    m.when = Some(Guard::new(SetExpr::eq_u32(2, 3), Logic::TwoValued));
+    m
 }
 
 fn schema() -> ClassSchema {
@@ -873,4 +900,215 @@ fn a_plan_prepared_or_run_against_another_store_is_refused() {
         prepare(&f.store, &f.views, R2IL, &res, &f.frames, NOW).map(|_| ()),
         Err(foreign)
     );
+}
+
+// --- D-VAS-D2: a guarded binding, run under a gate ------------------------------
+
+fn gate_bits(n: usize, keep: impl Fn(usize) -> bool) -> Vec<u64> {
+    let mut bits = vec![0u64; n.div_ceil(64)];
+    for r in (0..n).filter(|&r| keep(r)) {
+        bits[r / 64] |= 1 << (r % 64);
+    }
+    bits
+}
+
+impl Fixture {
+    fn prepare_gated(&self, id: u32) -> Result<Prepared, ExecRefusal> {
+        let r = mref(&self.store, id);
+        let g = guards(&self.frames);
+        prepare_gated(
+            &self.store,
+            &self.views,
+            R2IL,
+            &Resolution {
+                method: &r,
+                schema_rev: REV,
+                route: (self.version, POSITION),
+                guards: &g,
+            },
+            &self.frames,
+            NOW,
+        )
+    }
+    /// The gate a caller would hand over for method `id`: plane 0, for the
+    /// guard the method reference witnesses.
+    fn gate(&self, id: u32) -> Gate {
+        Gate {
+            plane: 0,
+            guard: mref(&self.store, id).guard.expect("the method is guarded"),
+        }
+    }
+}
+
+fn exec_gated(
+    f: &Fixture,
+    plan: &Prepared,
+    data: &Data,
+    permit: &ExecPermit,
+    bits: &[u64],
+    gate: &Gate,
+) -> Result<Receipt, ExecRefusal> {
+    let lanes = [
+        LaneRef::I32(&data.a),
+        LaneRef::I32(&data.b),
+        LaneRef::U32(&data.k),
+    ];
+    let masks = [bits];
+    let planes = Planes {
+        n_rows: data.a.len(),
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let foreign = Foreign::NONE;
+    let mut d = FoldDialect::new(&planes, &foreign);
+    run_gated(
+        plan,
+        &f.store,
+        &f.frames,
+        NOW,
+        permit,
+        FieldLanes { lanes: &LANES },
+        &mut d,
+        gate,
+    )
+}
+
+/// FAILS IF: a fold of a guarded method counts or sums a row the gate does
+/// not keep, or drops one it keeps.
+#[test]
+fn a_gated_plan_folds_only_the_rows_the_gate_keeps() {
+    let f = Fixture::new();
+    let data = Data::new(N);
+    let k3 = |r: usize| data.k[r] == 3;
+    let bits = gate_bits(N, k3);
+    let p = permit(&f.store, &[GUARDED_COUNT, GUARDED]);
+
+    // POP_COUNT under the gate.
+    let want = (0..N).filter(|&r| k3(r) && data.a[r] < 5).count() as i64;
+    let ungated = data.count_below(5);
+    assert!(want > 0 && want < ungated, "{want} of {ungated}");
+    let plan = f.prepare_gated(GUARDED_COUNT).unwrap();
+    let r = exec_gated(&f, &plan, &data, &p, &bits, &f.gate(GUARDED_COUNT)).unwrap();
+    assert_eq!(values(&r), vec![(4, want)]);
+    assert_eq!(r.output.intermediates, vec![3]);
+
+    // SUM under the gate (the pre-existing guarded method; its guard is a
+    // `Sym`, which this seam never evaluates: the gate is the caller's).
+    let want_sum: i64 = (0..N)
+        .filter(|&r| k3(r) && data.a[r] < 5)
+        .map(|r| i64::from(data.b[r]))
+        .sum();
+    assert_ne!(want_sum, data.masked_sum(&data.b, 5));
+    let plan = f.prepare_gated(GUARDED).unwrap();
+    let r = exec_gated(&f, &plan, &data, &p, &bits, &f.gate(GUARDED)).unwrap();
+    assert_eq!(values(&r), vec![(4, want_sum)]);
+
+    // A gate that keeps every row gives the ungated answer; one that keeps
+    // none gives the empty fold.
+    let plan = f.prepare_gated(GUARDED_COUNT).unwrap();
+    let all = gate_bits(N, |_| true);
+    let none = gate_bits(N, |_| false);
+    let gate = f.gate(GUARDED_COUNT);
+    assert_eq!(
+        values(&exec_gated(&f, &plan, &data, &p, &all, &gate).unwrap()),
+        vec![(4, ungated)]
+    );
+    assert_eq!(
+        values(&exec_gated(&f, &plan, &data, &p, &none, &gate).unwrap()),
+        vec![(4, 0)]
+    );
+    // The plan of a gated method is not the plan of the same steps ungated.
+    assert_ne!(plan.plan_id(), f.prepare(COUNT).unwrap().plan_id());
+}
+
+/// FAILS IF: a guarded plan runs without a gate, an unguarded one with a
+/// gate, a gate evaluated for another guard is accepted, or a fold whose
+/// meaning the gate would change is prepared.
+#[test]
+fn a_gate_is_required_and_must_be_the_plans_own() {
+    let f = Fixture::new();
+    let data = Data::new(N);
+    let bits = gate_bits(N, |r| data.k[r] == 3);
+    let p = permit(&f.store, &[GUARDED_COUNT, GUARDED, COUNT]);
+
+    // The ungated entry points still refuse a guarded binding.
+    assert_eq!(
+        f.prepare(GUARDED_COUNT).map(|_| ()),
+        Err(ExecRefusal::GuardNotExecutable)
+    );
+    let gated = f.prepare_gated(GUARDED_COUNT).unwrap();
+    assert_eq!(
+        exec(&f, &gated, &data, &p, NOW).map(|_| ()),
+        Err(ExecRefusal::GateRequired)
+    );
+    {
+        let lanes = [
+            LaneRef::I32(&data.a),
+            LaneRef::I32(&data.b),
+            LaneRef::U32(&data.k),
+        ];
+        let masks = [&bits[..]];
+        let planes = Planes {
+            n_rows: N,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        assert!(matches!(
+            prepare_native(
+                &gated,
+                &f.store,
+                &f.frames,
+                NOW,
+                FieldLanes { lanes: &LANES },
+                &planes
+            ),
+            Err(ExecRefusal::GuardNotExecutable)
+        ));
+    }
+
+    // An unguarded binding has no gate.
+    assert_eq!(
+        f.prepare_gated(COUNT).map(|_| ()),
+        Err(ExecRefusal::NotGuarded)
+    );
+    let plain = f.prepare(COUNT).unwrap();
+    assert_eq!(
+        exec_gated(&f, &plain, &data, &p, &bits, &f.gate(GUARDED_COUNT)).map(|_| ()),
+        Err(ExecRefusal::NotGuarded)
+    );
+
+    // A gate evaluated for another method's guard.
+    assert_eq!(
+        exec_gated(&f, &gated, &data, &p, &bits, &f.gate(GUARDED)).map(|_| ()),
+        Err(ExecRefusal::GateMismatch)
+    );
+    // A gate plane the planes do not hold.
+    let absent = Gate {
+        plane: 1,
+        ..f.gate(GUARDED_COUNT)
+    };
+    assert!(matches!(
+        exec_gated(&f, &gated, &data, &p, &bits, &absent),
+        Err(ExecRefusal::Fold { .. })
+    ));
+    // `ALL` under a gate would ask whether every row of the table holds.
+    assert!(matches!(
+        f.prepare_gated(GUARDED_ALL),
+        Err(ExecRefusal::NotExecutable { effect: 1, .. })
+    ));
+    // Not permitted is still not permitted.
+    assert_eq!(
+        exec_gated(
+            &f,
+            &gated,
+            &data,
+            &permit(&f.store, &[COUNT]),
+            &bits,
+            &f.gate(GUARDED_COUNT)
+        )
+        .map(|_| ()),
+        Err(ExecRefusal::NotPermitted)
+    );
+    // Silence twin: the right gate runs.
+    assert!(exec_gated(&f, &gated, &data, &p, &bits, &f.gate(GUARDED_COUNT)).is_ok());
 }

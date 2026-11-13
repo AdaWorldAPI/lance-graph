@@ -58,7 +58,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n3["causal-edge"]
   n45["lance-graph-contract"]
-  n88["sigma-tier-router"]
-  n88 --> n3
-  n88 --> n45
+  n89["sigma-tier-router"]
+  n89 --> n3
+  n89 --> n45
 ```

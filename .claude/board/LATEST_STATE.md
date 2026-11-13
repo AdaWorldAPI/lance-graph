@@ -4,6 +4,30 @@
 - Refusals: stale frame, foreign scope, other row order, unmapped / unbound field, missing demanded cost lane, `u8` overflow, foreign menu revision, out-of-range quantity. Unknown stock is never zero; the denied store is `NotAuthorized`.
 - Open: G1 remainder (limiting resource, P1b), G2–G6. Linear EXO-223. [entry](entries/2026-11-10-foundry-parity-1-arm-c.md)
 
+## 2026-11-13 — D-VAS R1 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `cognitive-shader-driver::mailbox_soa::Published<'a, N>` and `MailboxSoA::published(&self)` added (a borrow token; no field, no layout change).
+- `lance-graph-dt64`: `BindStore::admit_routed(RouteAt, &MethodRef)` and `Refusal::NotRoutedClass` added. No type removed or changed.
+- New crate `lance-graph-mailbox-lanes`: `MailboxLanes<'_, N>: LaneSource`, `Column`, `ColumnRefusal`.
+
+## 2026-11-13 — D-VAS R4 to R6 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-r2il::binding`: `prepare_gated`, `run_gated`, `Gate { plane, guard }`, `Prepared::is_gated`; `ExecRefusal::{NotGuarded, GateRequired, GateMismatch}`. `prepare` / `run` behave as before for an unguarded binding; `prepare_native` refuses a gated plan.
+- `lance-graph-mailbox-lanes`: module `act` with `act`, `apply`, `cascade`, `ActContext`, `Acted`, `Intent`, `Applied`, `Fire`, `Round`, `Cascade`, `ActRefusal`, `ApplyRefusal`; `MailboxLanes::{lends, owner_cycle}`. New dependency on `lance-graph-r2il`.
+- R7 (review of #2064): `apply` takes `(owner, store, view, ctx, intent)` and re-evaluates; `ApplyRefusal::{Stale, NotReproduced}`; `ActRefusal::UnsupportedColumn`; `Applied::stamped`.
+
+## 2026-11-13 — D-VAS R3 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-dt64`: `Refusal::GuardLaneOutOfBasis { class, method, lane }`; `register` refuses a guard residual whose lane is not a field position of the class. Behaviour change for a caller that registered such a guard.
+- `lance-graph-quack`: module `set` with `lower_set(&SetExpr, Logic)`, `SetLowered`, `SetFilter::{lanes, planes, logic, two_valued, where_true}`, `SetLowerError`.
+- `lance-graph-mailbox-lanes`: module `when` with `when(..)`, `WhenRequest`, `Fired`, `WhenRefusal`. New dependency on `lance-graph-quack`.
+
 ## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
 
 - Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.

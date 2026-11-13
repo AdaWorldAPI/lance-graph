@@ -72,11 +72,11 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n45["lance-graph-contract"]
   n50["lance-graph-glove-parity"]
-  n57["lance-graph-ogar"]
-  n59["lance-graph-ontology"]
-  n63["lance-graph-quack"]
+  n58["lance-graph-ogar"]
+  n60["lance-graph-ontology"]
+  n64["lance-graph-quack"]
   n50 --> n45
-  n50 --> n57
-  n50 --> n59
-  n50 --> n63
+  n50 --> n58
+  n50 --> n60
+  n50 --> n64
 ```

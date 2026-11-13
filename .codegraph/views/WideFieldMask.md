@@ -38,6 +38,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use crate::class_view::WideFieldMask — crates/lance-graph-contract/src/standing_mask.rs:41 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-rbac/src/authorize.rs:46 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-report-ogar/src/lib.rs:43 POSSIBLE
@@ -49,7 +50,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/behaviour.rs:18 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (398 total)
+## Textual occurrences (400 total)
 
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:140 POSSIBLE
@@ -355,5 +356,5 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Architecture
 
-- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:720 CONFIRMED
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:736 CONFIRMED
 - arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED

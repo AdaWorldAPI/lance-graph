@@ -370,18 +370,18 @@ flowchart LR
   n34["lance-graph"]
   n45["lance-graph-contract"]
   n49["lance-graph-dt64-lance"]
-  n60["lance-graph-osint"]
-  n61["lance-graph-planner"]
-  n70["lance-graph-supervisor"]
-  n78["p64-bridge"]
-  n7 --> n61
-  n16 --> n61
-  n34 --> n61
-  n49 --> n61
-  n60 --> n61
-  n61 --> n2
-  n61 --> n3
-  n61 --> n45
-  n61 --> n78
-  n70 --> n61
+  n61["lance-graph-osint"]
+  n62["lance-graph-planner"]
+  n71["lance-graph-supervisor"]
+  n79["p64-bridge"]
+  n7 --> n62
+  n16 --> n62
+  n34 --> n62
+  n49 --> n62
+  n61 --> n62
+  n62 --> n2
+  n62 --> n3
+  n62 --> n45
+  n62 --> n79
+  n71 --> n62
 ```

@@ -167,6 +167,7 @@
 #![forbid(unsafe_code)]
 
 pub mod bind;
+pub mod set;
 
 use std::cmp::Reverse;
 

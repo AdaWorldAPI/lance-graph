@@ -60,10 +60,10 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n29["holo-h14d-probe"]
-  n53["lance-graph-mask-risc"]
-  n64["lance-graph-r2il"]
-  n66["lance-graph-relalg"]
-  n29 --> n53
-  n29 --> n64
-  n29 --> n66
+  n54["lance-graph-mask-risc"]
+  n65["lance-graph-r2il"]
+  n67["lance-graph-relalg"]
+  n29 --> n54
+  n29 --> n65
+  n29 --> n67
 ```

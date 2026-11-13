@@ -93,7 +93,7 @@ use lance_graph_contract::class_view::{is_behaviour_lens, ClassId, ClassView, Wi
 use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::property::{PropertySchema, PropertySpec};
-use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, SetExpr};
+use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, Res, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 
 pub mod dr;
@@ -488,6 +488,13 @@ pub enum Refusal {
         method: MethodId,
         position: u8,
     },
+    /// A guard's residual names a lane at or past the class's field count. A
+    /// guard lane is a field position of the class the method is bound to.
+    GuardLaneOutOfBasis {
+        class: u32,
+        method: MethodId,
+        lane: u16,
+    },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
     /// More fields than the class reserved on its Property axis.
@@ -606,6 +613,15 @@ pub enum Refusal {
     FutureVersion {
         asked: RouteVersion,
         current: RouteVersion,
+    },
+    /// A method reference of `class` was offered for a position that did not
+    /// route to `class` at the captured version, or does not now
+    /// ([`BindStore::admit_routed`]).
+    NotRoutedClass {
+        position: u16,
+        captured: Option<u32>,
+        now: Option<u32>,
+        class: u32,
     },
 }
 
@@ -1167,6 +1183,25 @@ impl BindStore {
         }
     }
 
+    /// [`BindStore::admit`] for a POSITION: the reference's class must be the
+    /// one `route.position` routed to at `route.version` and routes to now.
+    /// `admit` alone checks a reference against the store, so it accepts a
+    /// method of any registered class; this is the admission a caller holding
+    /// a routed address uses.
+    pub fn admit_routed(&self, route: RouteAt, r: &MethodRef) -> Result<&MethodBinding, Refusal> {
+        let captured = self.routed_at(route.version, route.position)?;
+        let now = self.routed_at(self.current_version(), route.position)?;
+        if captured != Some(r.class) || now != Some(r.class) {
+            return Err(Refusal::NotRoutedClass {
+                position: route.position,
+                captured,
+                now,
+                class: r.class,
+            });
+        }
+        self.admit(r)
+    }
+
     /// Check a router's method reference against the binding and return the
     /// binding (D-DRDT §5): the method must exist, at the referenced signature
     /// revision, with exactly the guard the reference witnesses, and the
@@ -1307,7 +1342,7 @@ fn check_count<'v>(
 /// Registration checks: the basis fits a [`WideFieldMask`] and the chosen
 /// extent, the methods fit the extent's predicate axis, MethodIds are unique
 /// in the class, and every field position a binding names is inside the
-/// declared basis.
+/// declared basis, including the lanes its guard's residuals name.
 fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Result<(), Refusal> {
     if schema.field_count > MAX_FIELDS {
         return Err(Refusal::BasisTooWide {
@@ -1371,6 +1406,17 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
                 });
             }
         }
+        if let Some(lane) = m
+            .when
+            .as_ref()
+            .and_then(|g| guard_lane_outside(&g.expr, schema.field_count))
+        {
+            return Err(Refusal::GuardLaneOutOfBasis {
+                class,
+                method: m.id,
+                lane,
+            });
+        }
         // Dataflow: a step reads only what the method declares it reads or
         // what an earlier step of the same method wrote. Otherwise the order
         // of the recipe is not what it says.
@@ -1392,6 +1438,21 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
         }
     }
     Ok(())
+}
+
+/// The first residual lane of `e` that is not a field position below
+/// `field_count`, in the expression's own order. `Sym` leaves name no lane.
+fn guard_lane_outside(e: &SetExpr, field_count: usize) -> Option<u16> {
+    match e {
+        SetExpr::Res(Res::I32 { lane, .. }) | SetExpr::Res(Res::U32 { lane, .. }) => {
+            (usize::from(*lane) >= field_count).then_some(*lane)
+        }
+        SetExpr::And(cs) | SetExpr::Or(cs) => {
+            cs.iter().find_map(|c| guard_lane_outside(c, field_count))
+        }
+        SetExpr::Not(c) => guard_lane_outside(c, field_count),
+        SetExpr::All | SetExpr::Empty | SetExpr::Sym(_) => None,
+    }
 }
 
 /// The set positions of a mask, ascending.

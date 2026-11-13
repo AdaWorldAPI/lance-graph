@@ -188,9 +188,9 @@ flowchart LR
   n23["foundry-parity-lab"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n64["lance-graph-r2il"]
+  n65["lance-graph-r2il"]
   n4 --> n23
   n4 --> n45
   n4 --> n48
-  n4 --> n64
+  n4 --> n65
 ```

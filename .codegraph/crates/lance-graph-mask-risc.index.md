@@ -36,6 +36,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-cypher-quack normal — crates/lance-graph-cypher-quack/Cargo.toml:17 CONFIRMED
 - rdep lance-graph-dir-sim normal — crates/lance-graph-dir-sim/Cargo.toml:33 CONFIRMED
 - rdep lance-graph-glove-parity dev — crates/lance-graph-glove-parity/Cargo.toml:22 CONFIRMED
+- rdep lance-graph-mailbox-lanes normal — crates/lance-graph-mailbox-lanes/Cargo.toml:12 CONFIRMED
 - rdep lance-graph-metta normal — crates/lance-graph-metta/Cargo.toml:15 CONFIRMED
 - rdep lance-graph-nal normal — crates/lance-graph-nal/Cargo.toml:17 CONFIRMED
 - rdep lance-graph-onnx dev — crates/lance-graph-onnx/Cargo.toml:17 CONFIRMED
@@ -204,43 +205,45 @@ flowchart LR
   n42["lance-graph-codegraph"]
   n46["lance-graph-cypher-quack"]
   n47["lance-graph-dir-sim"]
-  n53["lance-graph-mask-risc"]
-  n54["lance-graph-metta"]
-  n55["lance-graph-nal"]
-  n63["lance-graph-quack"]
-  n64["lance-graph-r2il"]
-  n66["lance-graph-relalg"]
-  n67["lance-graph-report"]
-  n69["lance-graph-sap"]
-  n72["lance-graph-xlog"]
-  n74["mork-pathmap-probe"]
-  n81["quack-boundary-lab"]
-  n97["virtual-address-lab"]
-  n6 --> n53
-  n9 --> n53
-  n10 --> n53
-  n14 --> n53
-  n15 --> n53
-  n17 --> n53
-  n23 --> n53
-  n25 --> n53
-  n27 --> n53
-  n29 --> n53
-  n33 --> n53
-  n34 --> n53
-  n38 --> n53
-  n42 --> n53
-  n46 --> n53
-  n47 --> n53
-  n54 --> n53
-  n55 --> n53
-  n63 --> n53
-  n64 --> n53
-  n66 --> n53
-  n67 --> n53
-  n69 --> n53
-  n72 --> n53
-  n74 --> n53
-  n81 --> n53
-  n97 --> n53
+  n53["lance-graph-mailbox-lanes"]
+  n54["lance-graph-mask-risc"]
+  n55["lance-graph-metta"]
+  n56["lance-graph-nal"]
+  n64["lance-graph-quack"]
+  n65["lance-graph-r2il"]
+  n67["lance-graph-relalg"]
+  n68["lance-graph-report"]
+  n70["lance-graph-sap"]
+  n73["lance-graph-xlog"]
+  n75["mork-pathmap-probe"]
+  n82["quack-boundary-lab"]
+  n98["virtual-address-lab"]
+  n6 --> n54
+  n9 --> n54
+  n10 --> n54
+  n14 --> n54
+  n15 --> n54
+  n17 --> n54
+  n23 --> n54
+  n25 --> n54
+  n27 --> n54
+  n29 --> n54
+  n33 --> n54
+  n34 --> n54
+  n38 --> n54
+  n42 --> n54
+  n46 --> n54
+  n47 --> n54
+  n53 --> n54
+  n55 --> n54
+  n56 --> n54
+  n64 --> n54
+  n65 --> n54
+  n67 --> n54
+  n68 --> n54
+  n70 --> n54
+  n73 --> n54
+  n75 --> n54
+  n82 --> n54
+  n98 --> n54
 ```

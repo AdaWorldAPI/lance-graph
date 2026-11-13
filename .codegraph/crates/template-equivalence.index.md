@@ -43,6 +43,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n8["cognitive-stack"]
-  n92["template-equivalence"]
-  n8 --> n92
+  n93["template-equivalence"]
+  n8 --> n93
 ```

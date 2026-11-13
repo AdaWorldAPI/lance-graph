@@ -27,7 +27,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/behaviour.rs:21 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
 
-## Textual occurrences (73 total)
+## Textual occurrences (74 total)
 
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
@@ -69,15 +69,16 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:237 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:276 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:415 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:651 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:678 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:745 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:750 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:820 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:833 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:667 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:694 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:761 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:766 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:836 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:849 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1181 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1311 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:865 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1191 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1216 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1346 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:1 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:140 POSSIBLE

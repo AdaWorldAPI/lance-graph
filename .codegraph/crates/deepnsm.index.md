@@ -281,9 +281,9 @@ flowchart LR
   n11["deepnsm"]
   n43["lance-graph-cognitive"]
   n45["lance-graph-contract"]
-  n60["lance-graph-osint"]
+  n61["lance-graph-osint"]
   n7 --> n11
   n11 --> n43
   n11 --> n45
-  n60 --> n11
+  n61 --> n11
 ```
