@@ -278,3 +278,19 @@ fn selection_names_are_never_reissued() {
     assert_eq!(positions(first), [0, 1, 2, 3]);
     assert_eq!(positions(u16::MAX), [3]);
 }
+
+/// Review finding. FAILS IF: a selection address issued by one socket
+/// resolves to another socket's selection of the same name.
+#[test]
+fn a_selection_address_belongs_to_one_socket() {
+    let m = owner(7, ROWS);
+    let mut first = MailboxLanes::new(m.published(), READER);
+    let mut twin = MailboxLanes::new(m.published(), READER);
+    let order = first.issue_order(Column::Meta).unwrap();
+    let filter = twin.issue_where(Column::Meta, Keep::Lt(1 << 31)).unwrap();
+    assert_eq!(order, filter, "both sockets start at name 0");
+    let addr = first.selection_of(order, &first.seal()).unwrap();
+    assert_eq!(first.borrow_positions(&addr).unwrap().len(), ROWS);
+    assert!(twin.borrow_positions(&addr).is_none());
+    assert_ne!(Some(addr), twin.selection_of(filter, &twin.seal()));
+}
