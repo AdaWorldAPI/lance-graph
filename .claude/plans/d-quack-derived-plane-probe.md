@@ -171,3 +171,34 @@ Fixture finding: the first selector used `id % 2` and `id % 3`. Both divide
 `ROWS - 1` (40,002), so the selector was the same for a row and its mirror
 and the raw path's answer over a reversed source equalled that source's
 oracle. Case 2's raw assertion caught it; the selector now uses 2 and 7.
+
+## 12. Amendment before P2 (2026-11-13, PR 2057 merged; committed before any P2 or P3 test ran)
+
+Sections 1 to 11 stand. Added:
+
+- **Two kinds of negative control, never merged.** (a) Foreign source store,
+  stale frame, changed mapping, changed row order: must REFUSE. (b) Other
+  bytes under an unchanged, falsely claimed source identity: NOT DETECTABLE
+  through the binding. (b) is an open provenance boundary. It is recorded as
+  such, neither as a failed implementation nor as a pass.
+- **P2 pass conditions** (`crates/quack-boundary-lab/src/derived.rs`,
+  `tests/derived_plane.rs`):
+  1. Bit-planes of a bound lane equal `dr256_ternlog_lab::bit_planes::BitPlanes::of`
+     over the same codes, and a band-subset count over them equals a row loop
+     for all 256 subsets, at least 200 of them non-trivial.
+  2. A plane of another recipe, another bit or another field than the program
+     expects is REFUSED although the binding is valid. The raw path accepts
+     it and answers wrongly.
+  3. A plane derived under an earlier frame is REFUSED after the frame moves,
+     also when presented with a fresh, valid binding.
+  4. Kind (b): the lane is rewritten under an unmoved frame after the plane
+     was derived. Recorded: what the plane path answers and what the lane
+     path answers.
+- **P3 pass conditions:** a guard plane (method admitted, description
+  compared with the bound guard) and an fk-visibility plane are derived
+  through the same binding. For the fk plane, two different foreign
+  visibility sets must be shown to give planes that the local record cannot
+  tell apart, or the claim "the fk plane needs more than the local binding"
+  is REFUTED.
+- **P4:** the plane checks are timed separately from the binding check they
+  follow; zero allocations in the warm path is asserted by a test.

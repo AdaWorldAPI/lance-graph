@@ -42,6 +42,7 @@ use lance_graph_mask_risc::{
 
 use lance_graph_quack::Col;
 
+pub mod derived;
 pub mod oracle;
 
 /// DT64 class of the fixture.
@@ -526,6 +527,8 @@ pub enum Refused {
     /// The program needs an operand no owner issues through the lane socket.
     /// Not executed; no witness is invented for it.
     Blocked(&'static str),
+    /// A derived plane was not derived or not accepted (`derived`).
+    Plane(derived::PlaneRefusal),
     /// The witness held and the executor refused the operands.
     Exec(ExecError),
 }
