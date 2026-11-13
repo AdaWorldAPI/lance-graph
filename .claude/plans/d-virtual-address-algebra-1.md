@@ -870,3 +870,117 @@ arity); a write-back; ON derived from an actual change event (the changed
 cell is given by the test); anything about the mailbox. The behaviour lens
 `0x0A1A_F003`, its basis answer and the polyfill lens are lab fixtures, not
 minted classids.
+
+## 17. ON -> WHEN -> DO without eager materialisation: four gates (written before the run)
+
+Starting point `d41da297e`. Section 16 is LAB evidence for ON and demand at
+the address level. It is not the whole contract. This section audits the
+three seams it skipped and fixes one review finding.
+
+Read in full for this section: `lance-graph-dt64/src/lane.rs` (1..553),
+`lance-graph-r2il/src/binding.rs` (1..681), `lance-graph-quack/src/bind.rs`
+(1..974), `lance-graph/src/fold/set_lower.rs` (1..530). Read in part:
+`lance-graph-quack/src/lib.rs` (the `Cmp`, `Filter`, `Agg`, `Query`, `lower`
+declarations), `lance-graph-contract/src/set_algebra.rs` (`SetExpr`, `Res`,
+`Cmp`). Searched only, so candidates and not evidence: `dr.rs` for a
+lens/behaviour link (no hit), the workspace for a trait that lends mask
+planes (no hit), `k3_where_pg_parity.rs` for a `SetExpr -> Filter` mapping
+(one, example-local).
+
+### 17.1 Gate 1: behaviour-lens provenance
+
+Finding. The only existing authority that says which behaviour belongs to a
+selected X is the ROUTE: `BindStore::routed_at(version, position)` names one
+classid, `LaneBinding` binds its lanes under that classid and re-checks the
+current route, and R2IL's `check_route` refuses a method reference whose
+class is not the routed one (`ExecRefusal::RouteChanged`). Methods are the
+routed classid's own (`resolve_at`). In the files read there is NO contract
+that associates a data class with a separate `0xF###` lens: sharing a left
+half is a naming convention (`class_view.rs` doc), `derived_from` records an
+override, not a lens.
+
+Consequences:
+
+- Section 16's test resolved the lens `0x0A1A_F003` by name while X's
+  position routed to the data class `0x0A1A_0003`. Nothing tied the two. That
+  link is **BLOCKED** (absent), and the test is corrected, not defended.
+- The supported shape: X's position routes to the behaviour class itself,
+  its lanes are bound under that classid, and its methods come from
+  `resolve_at(route)`.
+- `BindStore::admit` checks a reference against the store, not against a
+  route. A reference to ANOTHER registered lens with a compatible basis is
+  therefore admitted by `admit` alone. The route comparison is each
+  consumer's (R2IL has it, `pub(crate)`); the lab composes it from the public
+  `routed_at` at the captured version and now.
+
+Test: an unrelated lens `0x0A1A_F004`, same basis, registered, with its own
+method ON the same field. It must never appear in X's `methods_on`, and its
+reference, although `admit` accepts it, must be refused for X.
+
+### 17.2 Gate 2: WHEN
+
+Findings.
+
+- `SetExpr -> mask-RISC` exists as library code in ONE place,
+  `lance_graph::fold::set_lower::SetPlan` (`count`, `keep` via
+  `execute_extent`). It does not go through Quack. `SetExpr -> Quack Filter`
+  exists only as a function local to the example `k3_where_pg_parity.rs`.
+  There is no library seam `Guard -> Quack filter`.
+- In both, `SetExpr::Sym(i)` becomes mask plane `i` of `Planes::masks`, and
+  `Res { lane, .. }` reads `Planes::lanes[lane]`: a PLANES index, not a class
+  field position. `Planes` is assembled by the caller and carries `n_rows`
+  only: no frame, no coordinate space, no population.
+- **`Guard::Sym(7)`: BLOCKED.** No socket lends a mask plane. `LaneSource`
+  lends lanes, `SelectionSource` lends positions; nothing issues plane 7
+  under a frame, a `CoordSpace` or a population. A guard description and its
+  witness establish none of these. No plane is fabricated here.
+- **Kleene guards: NOT SUPPORTED on this source.** UNKNOWN needs a validity
+  plane per nullable lane, which is again a mask plane with no issuer. R2IL
+  refuses three-valued bindings too. Refused here, not approximated.
+- DT64's `validate` checks ON, reads and effect arguments against the basis.
+  It does not look inside a guard: a guard's `lane` is unchecked at
+  registration.
+- R2IL refuses every guarded binding (`GuardNotExecutable`), so no existing
+  executor evaluates WHEN for a method. `lower_sel` is not used: it admits
+  two selection folds and is not a guard evaluator.
+
+What IS provable with existing parts: a two-valued guard built from
+`Res::I32` comparisons, over lanes the SOURCE lends under a `LaneBinding`
+(which carries the frame, the `CoordSpace` and the scope), lowered by Quack
+(`Filter::Cmp` / `And` / `Or` / `Not`, `lower`, `Agg::Rows`) and run by
+mask-RISC (`execute_into`, `Out::Mask`). The lab-local part is the
+`SetExpr -> Filter` translation (as in the example) and the reading of a
+guard lane as a class field position. Both are stated, neither is an
+authority.
+
+The guard result is a MEMBERSHIP mask over source rows. It carries no
+multiplicity. A selected bag is walked by ordinal and tests the bit at each
+occurrence's position, so repeats are kept by the walk, not by the mask.
+
+Tests: true and false outcomes against a scalar oracle; a bag whose
+surviving occurrences outnumber the mask's set bits among its positions;
+refusals for another guard expression, a foreign source, a moved frame, a
+mismatched coordinate space, `Sym`, Kleene.
+
+### 17.3 Gate 3: demanded DO operands
+
+Finding. `Method::read_cell` took any field. The existing boundary that can
+enforce a read set is the `LaneBinding` itself: it binds exactly
+`LaneRequest::fields` and refuses any other field with `NotBound`. DT64's
+`validate` separately guarantees at registration that every `Arg::Field` of
+an effect is in `reads` or written by an earlier effect.
+
+So the operands are read through a binding made over `reads` ONLY, created
+after ON, admission and a true WHEN. A field outside `reads` is refused by
+the existing binding. For a false WHEN no operand binding is made.
+
+Three ledgers: guard rows scanned, operand values read, effects run. The
+last stays 0: no executor is built, nothing is written back.
+
+### 17.4 Gate 4: review hygiene
+
+- Codex P2 (`grid.rs`, `bind_as` / `bind_source`): `0..self.lanes as u8`
+  is `0..0` at 256 lanes, so nothing is bound. Correct; fixed by iterating
+  the `usize` range. Test: a 256-lane grid binds 256 lanes.
+- PR #2060 was marked ready by the repository account at 10:15 UTC. The
+  hold ("keep Draft, no merge") is still the instruction; restored to Draft.
