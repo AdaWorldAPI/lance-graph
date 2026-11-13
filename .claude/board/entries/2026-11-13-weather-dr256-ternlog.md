@@ -57,7 +57,7 @@ no BF16, no cube allocated, no population-sized intermediate.
   one-byte lane, that is recorded as the missing contract; the probe then
   widens codes to `i32` and reports the 4x source bytes.
 
-## Results (run 2026-11-13, after the conditions above were committed in `8ef03a3`)
+## Results (run 2026-11-13, after the conditions above were committed in `4a036c1`, which was `8ef03a3` before the rebase onto #2054)
 
 **Grade:** MEASURED on one machine (Intel Xeon 2.1 GHz, 4 cores, AVX-512 with
 VPOPCNTDQ; `rustc` 1.99, release). Field: ARCO-ERA5 `2m_temperature`, time
@@ -77,7 +77,7 @@ tests: `cargo test --release -p dr256-ternlog-lab`.
 | H4 mean against f32 | MEASURED, PASS | 277.9578 K vs 277.9695 K, 0.04 bucket |
 | H4 selected min, max against f32 | MEASURED, min PASS, max FAIL | min +0.204 K; max -0.328 K against a 0.263 K bucket |
 | H4 global min, max through the floor | MEASURED, FAIL | min +14.07 K, max -5.31 K: 8,308 cells saturate |
-| H5 zero allocations, no population-sized temporary | MEASURED, PASS | 0 allocations in every arm; scratch 8 or 24 KiB |
+| H5 zero allocations, no population-sized temporary | MEASURED, PASS | 0 allocations in every arm; scratch per program 0 B (fused three-plane count), 2,056 B (one slot) or 6,152 B (three slots), summed per arm: at most 24,608 B for four lane-predicate folds |
 | H5 slab arm within 2x of contiguous | MEASURED, PASS | 1.00 to 1.07 with lane predicates; 1.13 to 1.52 on the pure three-plane count |
 | H5 candidate beats the scalar loop | MEASURED, mixed | see timings |
 | H6 stale frame, foreign plane refused for statistics | PROVEN (tests) | `a_stale_frame_and_a_foreign_plane_refuse_the_statistics_folds` |
@@ -133,3 +133,10 @@ measurements, not promotions:
 change per query (they are 6.5 ms to rebuild per timestep here); per-station
 statistics on a slab stack (grouped sinks need a merge across slabs);
 throughput at 10^9 rows.
+
+**Correction, same day (Codex review on PR 2055):** the first run reported
+scratch as slots x 8 KiB for the slab arms and 0 for the contiguous arms.
+Both were wrong. The executor carves one 256-word tile per slot plus a
+bitmap word, whatever the population, so the figures are the ones in the
+table above, now read from `scratch_words_for(tile_words_for(n), slots)`.
+The H5 verdict does not change: no arm holds a population-sized temporary.

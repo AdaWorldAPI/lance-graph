@@ -37,6 +37,7 @@ use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
     LaneSource, Refusal, RouteAt, SchemaRev,
 };
+use lance_graph_mask_risc::exec::{scratch_words_for, tile_words_for};
 use lance_graph_mask_risc::{
     execute_into, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
     Program, Scratch, Terminal, Value,
@@ -782,6 +783,15 @@ pub struct Fold {
     agg: Agg,
 }
 
+/// Bytes of the scratch arena `Scratch::for_program` carves for `program`
+/// over `n_rows` rows.
+pub fn scratch_bytes_of(program: &Program, n_rows: usize) -> usize {
+    if !program.requires_scratch() {
+        return 0;
+    }
+    scratch_words_for(tile_words_for(n_rows), program.scratch_slots as usize).unwrap_or(0) * 8
+}
+
 fn terminal(prepared: &Prepared, agg: Agg, mask: Operand) -> Result<Terminal, Refused> {
     let lane =
         |field| lane_index(&prepared.fields, field).ok_or(Refused::FieldNotSelected { field });
@@ -911,9 +921,10 @@ impl Fold {
         })
     }
 
-    /// Bytes of scratch the fold holds: one slab plane per slot it writes.
+    /// Bytes of scratch the fold holds, as the executor sizes it: one tile
+    /// per slot the program writes, plus the validation bitmap.
     pub fn scratch_bytes(&self) -> usize {
-        self.program.scratch_slots as usize * SLAB_WORDS * 8
+        scratch_bytes_of(&self.program, SLAB_ROWS)
     }
 
     /// [`Fold::answer`] of a count fold.

@@ -398,7 +398,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "maskrisc_contiguous_4_programs",
             layout: "contiguous",
             source: flat_src,
-            temp: 0,
+            temp: scratch_bytes_of(&programs[0], n),
             bindings: 0,
         },
         &mut flat_stats,
@@ -412,7 +412,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "maskrisc_contiguous_count",
             layout: "contiguous",
             source: 2 * lane + 2 * plane,
-            temp: 0,
+            temp: scratch_bytes_of(&programs[0], n),
             bindings: 0,
         },
         &mut || match execute_into(&programs[0], &planes, &none, &mut scratch3, Out::None).unwrap()
@@ -431,7 +431,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "maskrisc_contiguous_count_ungated",
             layout: "contiguous",
             source: 2 * lane + 2 * plane,
-            temp: 0,
+            temp: scratch_bytes_of(&ungated, n),
             bindings: 0,
         },
         &mut || match execute_into(&ungated, &planes, &none, &mut scratch4, Out::None).unwrap() {
@@ -445,7 +445,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
         .iter()
         .map(|&a| Fold::between(&prepared, VALUE, LO_TENTHS, HI_TENTHS, a).unwrap())
         .collect();
-    let temp = between[0].scratch_bytes();
+    let temp: usize = between.iter().map(Fold::scratch_bytes).sum();
     let slab4 = measure(
         n,
         k,
@@ -470,7 +470,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "slab_between_count",
             layout: "slab",
             source: 2 * lane + 2 * plane,
-            temp,
+            temp: count_fold.scratch_bytes(),
             bindings: slabs,
         },
         &mut || count_fold.count(&world, &table, &prepared).unwrap(),
@@ -481,7 +481,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
         .iter()
         .map(|&a| Fold::and3(&resident, a).unwrap())
         .collect();
-    let temp3 = and3[0].scratch_bytes();
+    let temp3: usize = and3.iter().map(Fold::scratch_bytes).sum();
     let res4 = measure(
         n,
         k,
@@ -504,7 +504,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "slab_and3_resident_count",
             layout: "slab",
             source: 3 * plane,
-            temp: temp3,
+            temp: and3_count.scratch_bytes(),
             bindings: slabs,
         },
         &mut || and3_count.count(&world, &table, &resident).unwrap(),
@@ -540,7 +540,7 @@ fn run(label: &str, first: usize, tenths: &[i32], valid: &[bool]) {
             arm: "maskrisc_contiguous_and3_count",
             layout: "contiguous",
             source: 3 * plane,
-            temp: 0,
+            temp: scratch_bytes_of(&p3, n),
             bindings: 0,
         },
         &mut || match execute_into(&p3, &planes3, &none, &mut s3, Out::None).unwrap() {
