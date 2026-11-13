@@ -299,7 +299,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-glove-parity/src/basis.rs:174 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:56 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:157 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:433 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:443 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:112 POSSIBLE

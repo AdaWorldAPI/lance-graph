@@ -331,6 +331,10 @@ pub struct Applied {
     pub changed: u32,
     /// Cells that already held the value; not written.
     pub unchanged: u32,
+    /// Written cells whose row had another write-cycle stamp before: the
+    /// owner stamps `last_write_cycle` on every accepted write, so these are
+    /// changes of that column.
+    pub stamped: u32,
     /// The owner's refusal that stopped the intent, if any. Cells before it
     /// were written; none after it.
     pub refused: Option<WriteOutcome>,
@@ -375,8 +379,12 @@ pub fn apply<const N: usize>(
             applied.unchanged += 1;
             continue;
         }
+        let restamped = owner.last_write_cycle[row] != intent.cycle;
         match owner.write_row(row, intent.cycle, &cell) {
-            WriteOutcome::Accepted => applied.changed += 1,
+            WriteOutcome::Accepted => {
+                applied.changed += 1;
+                applied.stamped += u32::from(restamped);
+            }
             refused => {
                 applied.refused = Some(refused);
                 break;
@@ -425,7 +433,9 @@ pub struct Cascade {
 /// writes, and repeat with the columns those writes really changed.
 ///
 /// Stops when a round changes no cell (`settled`), or after `max_rounds`
-/// rounds. A write that leaves a cell as it was triggers nothing.
+/// rounds. A write that leaves a cell as it was triggers nothing. A write
+/// that moves a row's `last_write_cycle` stamp counts as a change of that
+/// column too.
 ///
 /// # Errors
 ///
@@ -481,9 +491,14 @@ pub fn cascade<V: ClassView + ?Sized, const N: usize>(
                 };
                 applied.changed += one.changed;
                 applied.unchanged += one.unchanged;
+                applied.stamped += one.stamped;
                 applied.refused = applied.refused.or(one.refused);
                 if one.changed > 0 && !next.contains(&intent.column) {
                     next.push(intent.column);
+                }
+                // The owner's stamp is a column a method can be ON.
+                if one.stamped > 0 && !next.contains(&Column::LastWriteCycle) {
+                    next.push(Column::LastWriteCycle);
                 }
             }
             round.fired.push(Fire {

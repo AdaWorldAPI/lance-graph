@@ -53,7 +53,7 @@ lance-graph-dt64-lance	1	1	0	macro-generated items invisible;fn-local use not sc
 lance-graph-glove-parity	2	2	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-hydrate	11	0	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-lane-fold	5	1	0	macro-generated items invisible;fn-local use not scanned
-lance-graph-mailbox-lanes	4	7	0	macro-generated items invisible;fn-local use not scanned
+lance-graph-mailbox-lanes	4	8	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-mask-risc	9	44	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-metta	1	4	0	macro-generated items invisible;fn-local use not scanned
 lance-graph-nal	2	3	0	macro-generated items invisible;fn-local use not scanned
