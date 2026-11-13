@@ -116,9 +116,19 @@ impl Recipe {
         ))
     }
 
+    /// The lane view cell `(row, col)` reads. It does not depend on the tile's
+    /// length, so it can be known before a lane or a selection is borrowed.
+    pub fn lane_at(self, lanes: usize, row: usize, col: usize) -> Option<usize> {
+        let a = if self.swap { col } else { row };
+        if a >= lanes {
+            return None;
+        }
+        Some(if self.flip_lane { lanes - 1 - a } else { a })
+    }
+
     /// The recipe of "view through `self`, then view THAT through `next`":
     /// `(self.then(next))(r, c) = self(next(r, c))`.
-    pub fn then(self, next: Recipe) -> Recipe {
+    pub const fn then(self, next: Recipe) -> Recipe {
         if self.swap {
             // `self` exchanges the components `next` produced, so each flip of
             // `self` meets the OTHER flip of `next`.

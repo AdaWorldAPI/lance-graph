@@ -22,6 +22,7 @@
 
 pub mod cube;
 pub mod grid;
+pub mod method;
 pub mod owner;
 pub mod physical;
 pub mod recipe;

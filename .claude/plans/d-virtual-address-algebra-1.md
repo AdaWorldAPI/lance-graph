@@ -711,3 +711,53 @@ tests, 0 failed (`owner_address_law` 2). clippy `-D warnings`: exit 0.
   row taken from the view row instead of the recipe; the field mirrored. A
   third patch with an absent anchor was reported as not applied and is not
   counted.
+
+## 15. The virtual cube: a method is a constant (written before the run)
+
+`X x Y(recipe over X) x [X;Y]`. Selection and mapping are existing DR/DT64
+concerns and are NOT redefined here; orientation is the recipe of this lab.
+A method names all three and is a constant:
+
+```text
+Method { selection: u16, orientation: Recipe }      // 4 bytes, Copy, const
+```
+
+- **selection**: the NAME of a source-issued selection. The positions are the
+  source's, lent by `LaneBinding::selected` under its joint witness.
+- **mapping**: field -> lane is the binding's (`LaneSource::lane_of`, by the
+  predicate DT64 resolved). The method holds no mapping.
+- **orientation**: a `Recipe`. Composing (`Method::then`) is a `const fn`;
+  the selection is untouched by it.
+
+The tile the orientation acts on is `fields x ordinals`, where an ordinal is
+an index INTO the issued selection. So `X` is the ordinal axis, `Y` is the
+recipe's image of it, and the cell is
+
+```text
+(field, ordinal) = orientation.resolve(fields, selected, r, c)     // pure
+value            = lane(field)[ positions[ordinal] ]               // one read
+```
+
+Both coordinates come from the one recipe evaluation. A recipe that reverses
+the position axis reverses the TRAVERSAL of the source's own selection; it
+never names a row the source did not issue, so no row-coordinate witness is
+needed beyond the selection's own. All eight recipes are admitted.
+
+Why "constant": a method holds no borrow, no value, no length and no frame.
+It is built, composed and compared with zero reads, and can be a `const`
+item. Whether a read through it is ALLOWED is decided at the read, by the
+binding's check; that is not part of the method.
+
+Fixture: the lab `Grid`, which implements the existing `LaneSource` and
+`SelectionSource`. Its frame, selections and scope are the fixture's own and
+say nothing about the mailbox, whose admission stays BLOCKED (11.3).
+
+Tests (`tests/cube_method.rs`):
+
+1. a method is a `const`, four bytes, and composing it reads nothing;
+2. for every recipe and three selections (an order, a filter, a bag with
+   repeats), every cell equals a data-moving oracle: the selected tile
+   gathered into an owned matrix, then rearranged by `physical::apply`;
+3. positions and lanes are the source's own (same address);
+4. mapping is DR's: the same lanes under other lane ids read the same cells;
+5. refusals: a frame advanced after the bind, a cell outside the view.
