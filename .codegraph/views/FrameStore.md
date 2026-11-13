@@ -20,7 +20,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/arm_c.rs:27 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/foundry-parity-lab/src/source.rs:8 POSSIBLE
 - use crate::dr::FrameStore — crates/lance-graph-dt64/src/lane.rs:22 POSSIBLE
-- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-mailbox-lanes/src/lib.rs:44 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-mailbox-lanes/src/lib.rs:48 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding.rs:80 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding_native.rs:46 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-report/src/bound_sel.rs:28 POSSIBLE
@@ -88,11 +88,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:467 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:516 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:10 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:44 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:152 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:163 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:179 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:292 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:48 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:159 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:175 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:192 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:307 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:80 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:326 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:380 POSSIBLE

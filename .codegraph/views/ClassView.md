@@ -295,7 +295,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:61 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:174 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:17 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
 - crates/lance-graph-mask-risc/src/ir.rs:23 POSSIBLE
 - crates/lance-graph-ogar/src/actions.rs:9 POSSIBLE
 - crates/lance-graph-ogar/src/lib.rs:8 POSSIBLE

@@ -535,3 +535,35 @@ fn the_socket_refuses_a_foreign_frame_and_a_foreign_address() {
     no_lane.lane = 77;
     assert!(la.borrow(&no_lane).is_none());
 }
+
+/// Review finding. FAILS IF: a lane address issued under one publication is
+/// lent by another socket: a second socket over the same publication, or a
+/// socket over a later publication of the same mailbox.
+#[test]
+fn a_lane_address_belongs_to_one_publication() {
+    use lance_graph_dt64::LaneSource;
+    let mut m = owner(7);
+    let basis = FieldRef::new(Column::Meta.iri(), "meta");
+    let old = {
+        let first = MailboxLanes::new(m.published(), READER);
+        let twin = MailboxLanes::new(m.published(), READER);
+        let addr = first
+            .lane_of(CLASS, SchemaRev(1), META, &basis, &first.seal())
+            .unwrap();
+        assert!(first.borrow(&addr).is_some());
+        assert!(twin.borrow(&addr).is_none(), "same mailbox, other socket");
+        assert_ne!(first.space(), twin.space());
+        addr
+    };
+    m.set_meta(9, MetaWord(0xDEAD_BEEF));
+    let later = MailboxLanes::new(m.published(), READER);
+    assert!(
+        later.borrow(&old).is_none(),
+        "an earlier publication's address"
+    );
+    let fresh = later
+        .lane_of(CLASS, SchemaRev(1), META, &basis, &later.seal())
+        .unwrap();
+    assert_ne!(fresh, old);
+    assert!(later.borrow(&fresh).is_some());
+}
