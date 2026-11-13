@@ -31,6 +31,7 @@ members = [
     # LaneBinding; plus a materialisation ledger. Adds no production API.
     "crates/quack-boundary-lab",
     "crates/virtual-address-lab",
+    "crates/lance-graph-mailbox-lanes",
     # EXPERIMENTAL, routed nowhere: Cypher (upstream front end, read-only) →
     # bound LogicalOperator → Quack, with typed refusals.
     "crates/lance-graph-cypher-quack",
