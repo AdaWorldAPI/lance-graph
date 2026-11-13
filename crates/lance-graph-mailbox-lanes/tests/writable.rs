@@ -12,11 +12,12 @@ use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{Focus, Scope};
 use lance_graph_dt64::{
-    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding,
-    MethodId, Refusal, RouteAt, SchemaRev, SigRev, ValueDemand,
+    view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, LaneRequest,
+    MethodBinding, MethodId, Refusal, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mailbox_lanes::act::{act, project, ActContext, ActRefusal};
-use lance_graph_mailbox_lanes::{Column, MailboxLanes};
+use lance_graph_mailbox_lanes::act::{act, ActContext, ActRefusal};
+use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
+use lance_graph_mask_risc::LaneRef;
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
 
@@ -40,6 +41,8 @@ const TO_SIGMA: MethodId = MethodId(1);
 const TO_SCRATCH: MethodId = MethodId(2);
 /// Targets `meta`: a write.
 const TO_META: MethodId = MethodId(3);
+/// As `TO_SCRATCH`, declared over a bag (`Population::Bag`).
+const OVER_BAG: MethodId = MethodId(4);
 
 const W_EQUAL: u8 = 4;
 const W_POP_COUNT: u8 = 10;
@@ -164,12 +167,16 @@ fn world() -> World {
                 method(TO_SIGMA, META, 2, 0, SIGMA),
                 method(TO_SCRATCH, META, 2, 0, SCRATCH),
                 method(TO_META, META, 2, 0, META),
+                MethodBinding {
+                    population: Population::Bag,
+                    ..method(OVER_BAG, META, 2, 0, SCRATCH)
+                },
             ],
         )
         .expect("the class registers");
     let version = store.route(POSITION, CLASS).unwrap();
     let permit = ExecPermit {
-        methods: [TO_SIGMA, TO_SCRATCH, TO_META]
+        methods: [TO_SIGMA, TO_SCRATCH, TO_META, OVER_BAG]
             .iter()
             .map(|&m| store.method_ref(CLASS, m).unwrap())
             .collect(),
@@ -229,66 +236,59 @@ fn a_known_unwritable_column_is_not_a_scratch_field() {
     assert_eq!(acted.unwritten, vec![(SCRATCH, want)]);
 }
 
-/// A read-only projection: `ClassView IN published rows WHEN guard DO fold`.
-/// FAILS IF: it returns another population or scalar than the hand-written
-/// fold, changes the owner, or runs a method that asks for a write.
+/// The guard's rows and the fold, by hand: `meta == 2`, then how many of
+/// those rows have `active == 0`.
+fn oracle() -> (Vec<u32>, i64) {
+    let rows: Vec<u32> = (0..POPULATED as u32)
+        .filter(|&r| meta_of(r as usize) == 2)
+        .collect();
+    let count = rows.iter().filter(|&&r| active_of(r as usize) == 0).count() as i64;
+    (rows, count)
+}
+
+/// A read-only projection, composed from what exists:
+/// `ClassView IN published rows WHEN guard DO fold`, the scalar returned in
+/// `Acted::unwritten`. FAILS IF: it returns another population or scalar
+/// than the hand-written fold, asks the owner for a write, or changes it.
 #[test]
 fn a_projection_is_a_scalar_and_never_a_write() {
     let m = owner();
     let w = world();
-    let before: Vec<(u32, u64)> = (0..POPULATED).map(|r| (m.meta[r].0, m.temporal[r])).collect();
-    let lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
-
-    // Oracle: the guard's rows and the fold, by hand.
-    let rows: Vec<u32> = (0..POPULATED as u32)
-        .filter(|&r| meta_of(r as usize) == 2)
+    let before: Vec<(u32, u64)> = (0..POPULATED)
+        .map(|r| (m.meta[r].0, m.temporal[r]))
         .collect();
-    let count = rows
-        .iter()
-        .filter(|&&r| active_of(r as usize) == 0)
-        .count() as i64;
+    let lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
+    let (rows, count) = oracle();
     assert!(rows.len() > 4 && count > 0 && (count as usize) < rows.len());
 
     let to_scratch = w.store.method_ref(CLASS, TO_SCRATCH).unwrap();
-    let got = project(&lanes, &w.store, &w.view, &ctx(&w), &to_scratch).unwrap();
+    let got = act(&lanes, &w.store, &w.view, &ctx(&w), &to_scratch).unwrap();
+    // No write is asked for: there is nothing to hand to `apply`.
+    assert!(got.intents.is_empty());
     assert_eq!(got.rows, rows);
-    assert_eq!(got.values, vec![(SCRATCH, count)]);
+    assert_eq!(got.unwritten, vec![(SCRATCH, count)]);
+    assert_eq!(got.receipt.output.values, vec![(SCRATCH, count)]);
+    assert_eq!(got.receipt.method, to_scratch);
     assert_eq!(got.guard_rows, POPULATED as u64);
-    // The guard's one field, twice (WHEN, then the gate), and the one read.
-    assert_eq!(lanes.lends(), 1 + 1 + 1);
+    // One lane for the guard's field, one for the declared read.
+    assert_eq!(lanes.lends(), 2);
 
-    // A method that asks for a write is not a projection. Nothing is read.
-    let lent = lanes.lends();
+    // Silence twin: the same fold targeting `meta` IS a write request.
     let to_meta = w.store.method_ref(CLASS, TO_META).unwrap();
-    assert_eq!(
-        project(&lanes, &w.store, &w.view, &ctx(&w), &to_meta),
-        Err(ActRefusal::NotReadOnly {
-            field: META,
-            column: Column::Meta
-        })
-    );
-    let to_sigma = w.store.method_ref(CLASS, TO_SIGMA).unwrap();
-    assert!(matches!(
-        project(&lanes, &w.store, &w.view, &ctx(&w), &to_sigma),
-        Err(ActRefusal::UnsupportedColumn { .. })
-    ));
-    assert_eq!(lanes.lends(), lent);
-    // Silence twin: the same method is a write under `act`.
-    assert_eq!(
-        act(&lanes, &w.store, &w.view, &ctx(&w), &to_meta)
-            .unwrap()
-            .intents
-            .len(),
-        1
-    );
+    let writes = act(&lanes, &w.store, &w.view, &ctx(&w), &to_meta).unwrap();
+    assert_eq!(writes.intents.len(), 1);
+    assert!(writes.unwritten.is_empty());
     drop(lanes);
-    let after: Vec<(u32, u64)> = (0..POPULATED).map(|r| (m.meta[r].0, m.temporal[r])).collect();
+    let after: Vec<(u32, u64)> = (0..POPULATED)
+        .map(|r| (m.meta[r].0, m.temporal[r]))
+        .collect();
     assert_eq!(after, before);
 }
 
-/// FAILS IF: a projection runs for a position that does not route to the
-/// method's class, without an execution permit, or under a reader scope the
-/// socket was not opened for.
+/// FAILS IF: the projection runs for a position that does not route to the
+/// method's class, without an execution permit, or under a reader scope
+/// other than the socket's. The scope check is consistency of two values
+/// the caller asserts; no authority grants either.
 #[test]
 fn a_projection_is_refused_at_route_permit_and_scope() {
     let m = owner();
@@ -304,7 +304,7 @@ fn a_projection_is_refused_at_route_permit_and_scope() {
         ..ctx(&w)
     };
     assert!(matches!(
-        project(&lanes, &w.store, &w.view, &elsewhere, &to_scratch),
+        act(&lanes, &w.store, &w.view, &elsewhere, &to_scratch),
         Err(ActRefusal::Admission(Refusal::NotRoutedClass { .. }))
     ));
     assert_eq!(lanes.lends(), 0);
@@ -315,7 +315,7 @@ fn a_projection_is_refused_at_route_permit_and_scope() {
         ..ctx(&w)
     };
     assert!(matches!(
-        project(&lanes, &w.store, &w.view, &unpermitted, &to_scratch),
+        act(&lanes, &w.store, &w.view, &unpermitted, &to_scratch),
         Err(ActRefusal::Exec(_))
     ));
 
@@ -324,7 +324,72 @@ fn a_projection_is_refused_at_route_permit_and_scope() {
         ..ctx(&w)
     };
     assert!(matches!(
-        project(&lanes, &w.store, &w.view, &other_scope, &to_scratch),
+        act(&lanes, &w.store, &w.view, &other_scope, &to_scratch),
         Err(ActRefusal::When(_))
     ));
+}
+
+/// Multiplicity. The socket issues a bag in which every guard row occurs
+/// twice; `act` gates its fold with one bit per row.
+/// FAILS IF: a method declared over a bag runs on that Boolean gate, i.e.
+/// membership is silently taken for multiplicity.
+#[test]
+fn a_bag_method_does_not_run_on_a_membership_gate() {
+    let m = owner();
+    let w = world();
+    let mut lanes = MailboxLanes::new(m.published(), Scope { id: 3 });
+    let (rows, count) = oracle();
+
+    // The bag, as the socket issues it: the guard rows, then the same again.
+    let once = lanes.issue_where(Column::Meta, Keep::Eq(2)).unwrap();
+    let twice = lanes.issue_concat(once, once).unwrap();
+    let frame = lanes.seal();
+    let binding = w
+        .store
+        .bind_lanes(
+            &w.view,
+            lanes.frame_store(),
+            &lanes,
+            LaneRequest {
+                route: w.route,
+                rev: REV,
+                fields: &WideFieldMask::from_positions(&[ACTIVE]),
+                frame: &frame,
+                scope: Scope { id: 3 },
+                selection: lanes.space(),
+            },
+        )
+        .unwrap();
+    let (lane, positions) = binding
+        .selected(
+            &w.store,
+            &w.view,
+            lanes.frame_store(),
+            &lanes,
+            ACTIVE,
+            twice,
+        )
+        .unwrap();
+    let LaneRef::U32(active) = lane else {
+        panic!("a u32 lane")
+    };
+    // The bag fold by hand: every occurrence counts.
+    let over_bag = positions
+        .iter()
+        .filter(|&&p| active[p as usize] == 0)
+        .count() as i64;
+    assert_eq!(positions.len(), 2 * rows.len());
+    assert_eq!(over_bag, 2 * count);
+    assert_ne!(over_bag, count, "the two readings differ on this fixture");
+
+    // A method declared over distinct rows computes the set reading.
+    let distinct = w.store.method_ref(CLASS, TO_SCRATCH).unwrap();
+    let got = act(&lanes, &w.store, &w.view, &ctx(&w), &distinct).unwrap();
+    assert_eq!(got.unwritten, vec![(SCRATCH, count)]);
+    // The same fold declared over a bag is refused, before anything is lent.
+    let lent = lanes.lends();
+    let bag = w.store.method_ref(CLASS, OVER_BAG).unwrap();
+    let got = act(&lanes, &w.store, &w.view, &ctx(&w), &bag);
+    assert!(got.is_err(), "{got:?}");
+    assert_eq!(lanes.lends(), lent);
 }
