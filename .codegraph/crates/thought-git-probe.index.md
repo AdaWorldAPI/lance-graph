@@ -3,7 +3,7 @@
 crate: thought-git-probe
 path: crates/thought-git-probe
 workspace: excluded
-digest: 77158349ee2ed7ed
+digest: 8eb5db69e280b8cb
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -24,18 +24,19 @@ Generated; the code is the truth. See ../index.md.
 - enum Outcome [pub] — crates/thought-git-probe/src/fixtures.rs:31 CONFIRMED
 - struct Thought [pub] — crates/thought-git-probe/src/fixtures.rs:44 CONFIRMED
 - fn Thought::new [pub] — crates/thought-git-probe/src/fixtures.rs:54 CONFIRMED
-- fn givens [pub] — crates/thought-git-probe/src/fixtures.rs:73 CONFIRMED
-- fn main_version [pub] — crates/thought-git-probe/src/fixtures.rs:79 CONFIRMED
-- fn rubicon_outcomes [pub] — crates/thought-git-probe/src/fixtures.rs:85 CONFIRMED
-- fn unremarkable_stack [pub] — crates/thought-git-probe/src/fixtures.rs:97 CONFIRMED
-- fn contradiction_thought [pub] — crates/thought-git-probe/src/fixtures.rs:116 CONFIRMED
-- fn divergent_pair [pub] — crates/thought-git-probe/src/fixtures.rs:126 CONFIRMED
-- const REGRESSION_SCANPATH [pub] — crates/thought-git-probe/src/fixtures.rs:134 CONFIRMED
-- const SMOOTH_SCANPATH [pub] — crates/thought-git-probe/src/fixtures.rs:136 CONFIRMED
-- const SURPRISE_EXPECTED [pub] — crates/thought-git-probe/src/fixtures.rs:139 CONFIRMED
-- const SURPRISE_ATTENDED [pub] — crates/thought-git-probe/src/fixtures.rs:140 CONFIRMED
-- fn unwritten_cells [pub] — crates/thought-git-probe/src/fixtures.rs:144 CONFIRMED
-- fn all_writes [pub] — crates/thought-git-probe/src/fixtures.rs:150 CONFIRMED
+- fn Thought::in_space [pub] — crates/thought-git-probe/src/fixtures.rs:63 CONFIRMED
+- fn givens [pub] — crates/thought-git-probe/src/fixtures.rs:88 CONFIRMED
+- fn main_version [pub] — crates/thought-git-probe/src/fixtures.rs:94 CONFIRMED
+- fn rubicon_outcomes [pub] — crates/thought-git-probe/src/fixtures.rs:100 CONFIRMED
+- fn unremarkable_stack [pub] — crates/thought-git-probe/src/fixtures.rs:112 CONFIRMED
+- fn contradiction_thought [pub] — crates/thought-git-probe/src/fixtures.rs:131 CONFIRMED
+- fn divergent_pair [pub] — crates/thought-git-probe/src/fixtures.rs:141 CONFIRMED
+- const REGRESSION_SCANPATH [pub] — crates/thought-git-probe/src/fixtures.rs:149 CONFIRMED
+- const SMOOTH_SCANPATH [pub] — crates/thought-git-probe/src/fixtures.rs:151 CONFIRMED
+- const SURPRISE_EXPECTED [pub] — crates/thought-git-probe/src/fixtures.rs:154 CONFIRMED
+- const SURPRISE_ATTENDED [pub] — crates/thought-git-probe/src/fixtures.rs:155 CONFIRMED
+- fn unwritten_cells [pub] — crates/thought-git-probe/src/fixtures.rs:159 CONFIRMED
+- fn all_writes [pub] — crates/thought-git-probe/src/fixtures.rs:165 CONFIRMED
 - mod fixtures [pub] — crates/thought-git-probe/src/lib.rs:26 CONFIRMED
 - mod oracle [pub] — crates/thought-git-probe/src/lib.rs:27 CONFIRMED
 - mod receipt [pub] — crates/thought-git-probe/src/lib.rs:28 CONFIRMED
