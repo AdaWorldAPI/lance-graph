@@ -27,11 +27,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/derived.rs:14 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/behaviour.rs:21 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/method.rs:12 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 
-## Textual occurrences (88 total)
+## Textual occurrences (93 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -107,10 +108,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/soa64-u64-lab/src/socket.rs:181 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:203 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:221 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:8 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:21 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:136 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:233 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:404 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:423 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:432 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:436 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:446 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:463 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:472 POSSIBLE
 - crates/virtual-address-lab/src/lib.rs:8 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:5 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:12 POSSIBLE
@@ -119,8 +125,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/method.rs:105 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:33 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:60 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:116 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:79 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:135 POSSIBLE
 
 ## Architecture
 

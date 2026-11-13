@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 5f4626bac1fe5f92
+digest: fc104e07a138461d
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -24,6 +24,14 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
+- struct Ledgers [pub] — crates/virtual-address-lab/src/behaviour.rs:32 CONFIRMED
+- fn behaviour [pub] — crates/virtual-address-lab/src/behaviour.rs:45 CONFIRMED
+- fn admit_routed [pub] — crates/virtual-address-lab/src/behaviour.rs:60 CONFIRMED
+- struct GuardMask [pub] — crates/virtual-address-lab/src/behaviour.rs:133 CONFIRMED
+- fn GuardMask::holds [pub] — crates/virtual-address-lab/src/behaviour.rs:143 CONFIRMED
+- fn GuardMask::rows_held [pub] — crates/virtual-address-lab/src/behaviour.rs:155 CONFIRMED
+- fn guard_mask [pub] — crates/virtual-address-lab/src/behaviour.rs:163 CONFIRMED
+- fn operands [pub] — crates/virtual-address-lab/src/behaviour.rs:226 CONFIRMED
 - type AxisMask [pub] — crates/virtual-address-lab/src/cube.rs:8 CONFIRMED
 - const FULL [pub] — crates/virtual-address-lab/src/cube.rs:10 CONFIRMED
 - fn axis [pub] — crates/virtual-address-lab/src/cube.rs:12 CONFIRMED
@@ -39,47 +47,51 @@ Generated; the code is the truth. See ../index.md.
 - fn count_unstructured [pub] — crates/virtual-address-lab/src/cube.rs:105 CONFIRMED
 - const CLASS [pub] — crates/virtual-address-lab/src/grid.rs:22 CONFIRMED
 - const BEHAVIOUR [pub] — crates/virtual-address-lab/src/grid.rs:25 CONFIRMED
-- const POLYFILL [pub] — crates/virtual-address-lab/src/grid.rs:27 CONFIRMED
-- const POSITION [pub] — crates/virtual-address-lab/src/grid.rs:29 CONFIRMED
-- const READER [pub] — crates/virtual-address-lab/src/grid.rs:31 CONFIRMED
-- struct Grid [pub] — crates/virtual-address-lab/src/grid.rs:55 CONFIRMED
-- fn Grid::new [pub] — crates/virtual-address-lab/src/grid.rs:72 CONFIRMED
-- fn Grid::three [pub] — crates/virtual-address-lab/src/grid.rs:97 CONFIRMED
-- fn Grid::lanes [pub] — crates/virtual-address-lab/src/grid.rs:101 CONFIRMED
-- fn Grid::len [pub] — crates/virtual-address-lab/src/grid.rs:105 CONFIRMED
-- fn Grid::is_empty [pub] — crates/virtual-address-lab/src/grid.rs:109 CONFIRMED
-- fn Grid::source_bytes [pub] — crates/virtual-address-lab/src/grid.rs:113 CONFIRMED
-- fn Grid::space [pub] — crates/virtual-address-lab/src/grid.rs:117 CONFIRMED
-- fn Grid::frame_store [pub] — crates/virtual-address-lab/src/grid.rs:121 CONFIRMED
-- fn Grid::cell [pub] — crates/virtual-address-lab/src/grid.rs:126 CONFIRMED
-- fn Grid::raw_lane [pub] — crates/virtual-address-lab/src/grid.rs:131 CONFIRMED
-- fn Grid::matrix [pub] — crates/virtual-address-lab/src/grid.rs:136 CONFIRMED
-- fn Grid::issue_order [pub] — crates/virtual-address-lab/src/grid.rs:152 CONFIRMED
-- fn Grid::issue_filter [pub] — crates/virtual-address-lab/src/grid.rs:171 CONFIRMED
-- fn Grid::issue_list [pub] — crates/virtual-address-lab/src/grid.rs:179 CONFIRMED
-- fn Grid::issue_list_in [pub] — crates/virtual-address-lab/src/grid.rs:184 CONFIRMED
-- fn Grid::raw_positions [pub] — crates/virtual-address-lab/src/grid.rs:190 CONFIRMED
-- fn Grid::with_lane_ids [pub] — crates/virtual-address-lab/src/grid.rs:198 CONFIRMED
-- fn Grid::advance_source [pub] — crates/virtual-address-lab/src/grid.rs:205 CONFIRMED
-- fn Grid::rewrite_lane [pub] — crates/virtual-address-lab/src/grid.rs:213 CONFIRMED
-- struct View [pub] — crates/virtual-address-lab/src/grid.rs:288 CONFIRMED
-- fn View::new [pub] — crates/virtual-address-lab/src/grid.rs:291 CONFIRMED
-- fn View::named [pub] — crates/virtual-address-lab/src/grid.rs:300 CONFIRMED
-- struct World [pub] — crates/virtual-address-lab/src/grid.rs:330 CONFIRMED
-- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:338 CONFIRMED
-- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:343 CONFIRMED
-- fn World::named [pub] — crates/virtual-address-lab/src/grid.rs:348 CONFIRMED
-- fn World::with_behaviour [pub] — crates/virtual-address-lab/src/grid.rs:355 CONFIRMED
-- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:404 CONFIRMED
-- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:423 CONFIRMED
-- fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:428 CONFIRMED
-- mod cube [pub] — crates/virtual-address-lab/src/lib.rs:23 CONFIRMED
-- mod grid [pub] — crates/virtual-address-lab/src/lib.rs:24 CONFIRMED
-- mod method [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
-- mod owner [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
-- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
-- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
-- mod view [pub] — crates/virtual-address-lab/src/lib.rs:29 CONFIRMED
+- const UNRELATED [pub] — crates/virtual-address-lab/src/grid.rs:27 CONFIRMED
+- const POLYFILL [pub] — crates/virtual-address-lab/src/grid.rs:29 CONFIRMED
+- const POSITION [pub] — crates/virtual-address-lab/src/grid.rs:31 CONFIRMED
+- const READER [pub] — crates/virtual-address-lab/src/grid.rs:33 CONFIRMED
+- struct Grid [pub] — crates/virtual-address-lab/src/grid.rs:57 CONFIRMED
+- fn Grid::new [pub] — crates/virtual-address-lab/src/grid.rs:76 CONFIRMED
+- fn Grid::three [pub] — crates/virtual-address-lab/src/grid.rs:102 CONFIRMED
+- fn Grid::lanes [pub] — crates/virtual-address-lab/src/grid.rs:106 CONFIRMED
+- fn Grid::len [pub] — crates/virtual-address-lab/src/grid.rs:110 CONFIRMED
+- fn Grid::is_empty [pub] — crates/virtual-address-lab/src/grid.rs:114 CONFIRMED
+- fn Grid::source_bytes [pub] — crates/virtual-address-lab/src/grid.rs:118 CONFIRMED
+- fn Grid::space [pub] — crates/virtual-address-lab/src/grid.rs:122 CONFIRMED
+- fn Grid::frame_store [pub] — crates/virtual-address-lab/src/grid.rs:126 CONFIRMED
+- fn Grid::cell [pub] — crates/virtual-address-lab/src/grid.rs:131 CONFIRMED
+- fn Grid::raw_lane [pub] — crates/virtual-address-lab/src/grid.rs:136 CONFIRMED
+- fn Grid::matrix [pub] — crates/virtual-address-lab/src/grid.rs:141 CONFIRMED
+- fn Grid::issue_order [pub] — crates/virtual-address-lab/src/grid.rs:157 CONFIRMED
+- fn Grid::issue_filter [pub] — crates/virtual-address-lab/src/grid.rs:176 CONFIRMED
+- fn Grid::issue_list [pub] — crates/virtual-address-lab/src/grid.rs:184 CONFIRMED
+- fn Grid::issue_list_in [pub] — crates/virtual-address-lab/src/grid.rs:189 CONFIRMED
+- fn Grid::raw_positions [pub] — crates/virtual-address-lab/src/grid.rs:195 CONFIRMED
+- fn Grid::for_class [pub] — crates/virtual-address-lab/src/grid.rs:204 CONFIRMED
+- fn Grid::with_lane_ids [pub] — crates/virtual-address-lab/src/grid.rs:210 CONFIRMED
+- fn Grid::advance_source [pub] — crates/virtual-address-lab/src/grid.rs:217 CONFIRMED
+- fn Grid::rewrite_lane [pub] — crates/virtual-address-lab/src/grid.rs:225 CONFIRMED
+- struct View [pub] — crates/virtual-address-lab/src/grid.rs:300 CONFIRMED
+- fn View::new [pub] — crates/virtual-address-lab/src/grid.rs:303 CONFIRMED
+- fn View::named [pub] — crates/virtual-address-lab/src/grid.rs:312 CONFIRMED
+- struct World [pub] — crates/virtual-address-lab/src/grid.rs:342 CONFIRMED
+- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:350 CONFIRMED
+- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:355 CONFIRMED
+- fn World::named [pub] — crates/virtual-address-lab/src/grid.rs:360 CONFIRMED
+- fn World::routed_to_behaviour [pub] — crates/virtual-address-lab/src/grid.rs:368 CONFIRMED
+- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:436 CONFIRMED
+- fn World::bind_fields [pub] — crates/virtual-address-lab/src/grid.rs:441 CONFIRMED
+- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:463 CONFIRMED
+- fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:468 CONFIRMED
+- mod behaviour [pub] — crates/virtual-address-lab/src/lib.rs:23 CONFIRMED
+- mod cube [pub] — crates/virtual-address-lab/src/lib.rs:24 CONFIRMED
+- mod grid [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
+- mod method [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
+- mod owner [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
+- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
+- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:29 CONFIRMED
+- mod view [pub] — crates/virtual-address-lab/src/lib.rs:30 CONFIRMED
 - struct Method [pub] — crates/virtual-address-lab/src/method.rs:21 CONFIRMED
 - struct Cell [pub] — crates/virtual-address-lab/src/method.rs:29 CONFIRMED
 - fn Method::new [pub] — crates/virtual-address-lab/src/method.rs:35 CONFIRMED
@@ -131,11 +143,11 @@ Generated; the code is the truth. See ../index.md.
 - fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:170 CONFIRMED
 - struct Ledger [pub] — crates/virtual-address-lab/src/view.rs:16 CONFIRMED
 - enum Refused [pub] — crates/virtual-address-lab/src/view.rs:25 CONFIRMED
-- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:49 CONFIRMED
-- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:57 CONFIRMED
-- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:89 CONFIRMED
-- fn field_in [pub] — crates/virtual-address-lab/src/view.rs:94 CONFIRMED
-- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:114 CONFIRMED
+- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:68 CONFIRMED
+- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:76 CONFIRMED
+- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:108 CONFIRMED
+- fn field_in [pub] — crates/virtual-address-lab/src/view.rs:113 CONFIRMED
+- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:133 CONFIRMED
 
 ## Imports from in-scope crates
 
@@ -145,6 +157,11 @@ Generated; the code is the truth. See ../index.md.
 - use dr256_ternlog_lab::OrderIndex — crates/virtual-address-lab/src/grid.rs:11 CONFIRMED
 - use dr256_ternlog_lab::Table — crates/virtual-address-lab/src/grid.rs:11 CONFIRMED
 ### lance-graph-contract
+- use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/behaviour.rs:18 CONFIRMED
+- use lance_graph_contract::set_algebra::Cmp as SetCmp — crates/virtual-address-lab/src/behaviour.rs:19 CONFIRMED
+- use lance_graph_contract::set_algebra::Logic — crates/virtual-address-lab/src/behaviour.rs:19 CONFIRMED
+- use lance_graph_contract::set_algebra::Res — crates/virtual-address-lab/src/behaviour.rs:19 CONFIRMED
+- use lance_graph_contract::set_algebra::SetExpr — crates/virtual-address-lab/src/behaviour.rs:19 CONFIRMED
 - use lance_graph_contract::morton8x8::Morton8x8 — crates/virtual-address-lab/src/cube.rs:4 CONFIRMED
 - use lance_graph_contract::class_view::ClassId — crates/virtual-address-lab/src/grid.rs:12 CONFIRMED
 - use lance_graph_contract::class_view::ClassView — crates/virtual-address-lab/src/grid.rs:12 CONFIRMED
@@ -153,6 +170,13 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::ontology::FieldRef — crates/virtual-address-lab/src/grid.rs:13 CONFIRMED
 - use lance_graph_contract::soa_view::MailboxSoaView — crates/virtual-address-lab/src/owner.rs:20 CONFIRMED
 ### lance-graph-dt64
+- use lance_graph_dt64::CoordSpace — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::Guard — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::MethodRef — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::Resolved — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
+- use lance_graph_dt64::SchemaRev — crates/virtual-address-lab/src/behaviour.rs:21 CONFIRMED
 - use lance_graph_dt64::dr::MapRefusal — crates/virtual-address-lab/src/cube.rs:5 CONFIRMED
 - use lance_graph_dt64::dr::Width — crates/virtual-address-lab/src/cube.rs:5 CONFIRMED
 - use lance_graph_dt64::dr::address as tile_address — crates/virtual-address-lab/src/cube.rs:5 CONFIRMED
@@ -179,10 +203,24 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 CONFIRMED
 - use lance_graph_dt64::LaneRefusal — crates/virtual-address-lab/src/view.rs:7 CONFIRMED
 ### lance-graph-mask-risc
+- use lance_graph_mask_risc::Foreign — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::Out — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::Scratch — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::execute_into — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
+- use lance_graph_mask_risc::words_for — crates/virtual-address-lab/src/behaviour.rs:23 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/grid.rs:19 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/method.rs:13 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/view.rs:8 CONFIRMED
 - use lance_graph_mask_risc::Value — crates/virtual-address-lab/src/view.rs:8 CONFIRMED
+### lance-graph-quack
+- use lance_graph_quack::Agg — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
+- use lance_graph_quack::Cmp — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
+- use lance_graph_quack::Col — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
+- use lance_graph_quack::Filter — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
+- use lance_graph_quack::Query — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
+- use lance_graph_quack::lower — crates/virtual-address-lab/src/behaviour.rs:24 CONFIRMED
 ### lance-graph-report
 - use lance_graph_report::bound_sel::BoundFold — crates/virtual-address-lab/src/view.rs:9 CONFIRMED
 - use lance_graph_report::bound_sel::BoundSelRefusal — crates/virtual-address-lab/src/view.rs:9 CONFIRMED

@@ -984,3 +984,43 @@ last stays 0: no executor is built, nothing is written back.
   the `usize` range. Test: a 256-lane grid binds 256 lanes.
 - PR #2060 was marked ready by the repository account at 10:15 UTC. The
   hold ("keep Draft, no merge") is still the instruction; restored to Draft.
+
+### 17.5 Results (tests committed at `d8f0e481d`, before the run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 41
+tests, 0 failed (`on_when_do` 4). clippy `-D warnings`: exit 0. The four
+tests passed on their first run; each was then disable-tested.
+
+| gate | shown on the lab `Grid` | status |
+|---|---|---|
+| 1 | the position routes to lens `0x0A1A_F003`; `methods_on` yields only its method; the unrelated lens `0x0A1A_F004` (same basis, same `MethodId`, ON the same field) is accepted by `admit` alone and refused by the route comparison | LAB VERIFIED for a routed lens |
+| 1 | a data class and a separately registered lens | BLOCKED: no contract links them; a data-class position resolves to zero methods |
+| 2 | a two-valued `Res::I32` guard, Quack-lowered, over lanes lent under a binding; equal to a scalar oracle on all 64 rows, both outcomes present; one guard run, 64 rows scanned | LAB VERIFIED |
+| 2 | a bag `[14, 14, 5, 20, 14, 27]`: 5 surviving occurrences, 3 member rows | the walk keeps repeats; the mask does not |
+| 2 | refusals: another guard expression (`GuardMismatch`), another row order (`CoordinateSpace`), a foreign source (`ForeignFrame`), a moved frame, `Sym(7)`, Kleene | tested |
+| 2 | `Guard::Sym(7)` | BLOCKED: no socket issues a mask plane |
+| 2 | UNKNOWN / Kleene | NOT SUPPORTED on this source |
+| 2 | a library seam `Guard -> Quack filter` | ABSENT: the translation is lab-local |
+| 3 | operands read through a binding over `reads` only; `TOTAL` refused `NotBound`; a false WHEN reads nothing; `2 x fired` operands in total, fewer than the 192-cell tile | LAB VERIFIED |
+| 3 | effects executed, write-back | NOT DONE, by instruction: `effects == 0` |
+| 4 | a 256-lane class binds 256 lanes | fixed |
+
+Disable runs, each anchor asserted, each restored, all exit 101:
+
+| disable | failed |
+|---|---|
+| the route comparison skipped | gate 1 |
+| the guard's `>` lowered as `<` | gates 2 and 3 |
+| `GuardMask::holds` without the binding's check | gate 2 |
+| the operand binding over all fields | gate 3 |
+| a `Sym` guard accepted | gate 2 |
+| the `u8` truncation restored | gate 4 |
+
+Source memory: the lanes' checksum is equal before and after in gates 2 and
+3. Ledgers are separate: guard runs and rows, operand reads, effects.
+
+What the tests do NOT establish: that the guard mask's population is
+anything more than "the rows of the lanes this binding lent" (the `Grid`
+issues its own frame and `CoordSpace`; there is no population authority
+beyond it); that a guard lane is a field position in any contract (lab
+reading); cost; anything about the mailbox.

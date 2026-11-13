@@ -117,10 +117,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/tract-harvest-probe/src/plan.rs:75 POSSIBLE
 - crates/tract-harvest-probe/src/plan.rs:168 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:60 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:81 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:121 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:255 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:64 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:86 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:126 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:267 POSSIBLE
 
 ## Architecture
 
