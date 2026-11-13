@@ -158,8 +158,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:313 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:327 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:323 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:345 POSSIBLE
 
 ## Architecture
 

@@ -47,7 +47,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/tract-harvest-probe/src/registry.rs:51 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (391 total)
+## Textual occurrences (392 total)
 
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:140 POSSIBLE

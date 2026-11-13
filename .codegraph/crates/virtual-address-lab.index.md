@@ -3,13 +3,14 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 7c1cbf6dc29bb2ae
+digest: 675e92bbf016602d
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
 
 ## Depends on
 
+- dep causal-edge dev — crates/virtual-address-lab/Cargo.toml:22 CONFIRMED
 - dep cognitive-shader-driver dev — crates/virtual-address-lab/Cargo.toml:21 CONFIRMED
 - dep dr256-ternlog-lab normal — crates/virtual-address-lab/Cargo.toml:17 CONFIRMED
 - dep lance-graph-contract normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
@@ -61,16 +62,28 @@ Generated; the code is the truth. See ../index.md.
 - fn Grid::rewrite_lane [pub] — crates/virtual-address-lab/src/grid.rs:208 CONFIRMED
 - struct View [pub] — crates/virtual-address-lab/src/grid.rs:283 CONFIRMED
 - fn View::new [pub] — crates/virtual-address-lab/src/grid.rs:286 CONFIRMED
-- struct World [pub] — crates/virtual-address-lab/src/grid.rs:312 CONFIRMED
-- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:320 CONFIRMED
-- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:325 CONFIRMED
-- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:353 CONFIRMED
-- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:372 CONFIRMED
+- fn View::named [pub] — crates/virtual-address-lab/src/grid.rs:295 CONFIRMED
+- struct World [pub] — crates/virtual-address-lab/src/grid.rs:322 CONFIRMED
+- fn World::new [pub] — crates/virtual-address-lab/src/grid.rs:330 CONFIRMED
+- fn World::with [pub] — crates/virtual-address-lab/src/grid.rs:335 CONFIRMED
+- fn World::named [pub] — crates/virtual-address-lab/src/grid.rs:340 CONFIRMED
+- fn World::bind_as [pub] — crates/virtual-address-lab/src/grid.rs:371 CONFIRMED
+- fn World::bind [pub] — crates/virtual-address-lab/src/grid.rs:390 CONFIRMED
+- fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:395 CONFIRMED
 - mod cube [pub] — crates/virtual-address-lab/src/lib.rs:23 CONFIRMED
 - mod grid [pub] — crates/virtual-address-lab/src/lib.rs:24 CONFIRMED
-- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
-- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
-- mod view [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
+- mod owner [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
+- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
+- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
+- mod view [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
+- const BASIS [pub] — crates/virtual-address-lab/src/owner.rs:26 CONFIRMED
+- enum Column [pub] — crates/virtual-address-lab/src/owner.rs:30 CONFIRMED
+- fn column_of [pub] — crates/virtual-address-lab/src/owner.rs:38 CONFIRMED
+- enum Value [pub] — crates/virtual-address-lab/src/owner.rs:48 CONFIRMED
+- struct Reads [pub] — crates/virtual-address-lab/src/owner.rs:55 CONFIRMED
+- struct VirtualProperty [pub] — crates/virtual-address-lab/src/owner.rs:67 CONFIRMED
+- fn VirtualProperty<'_>::column [pub] — crates/virtual-address-lab/src/owner.rs:75 CONFIRMED
+- fn VirtualProperty<'_>::read [pub] — crates/virtual-address-lab/src/owner.rs:84 CONFIRMED
 - type Matrix [pub] — crates/virtual-address-lab/src/physical.rs:8 CONFIRMED
 - struct Moved [pub] — crates/virtual-address-lab/src/physical.rs:12 CONFIRMED
 - fn transpose [pub] — crates/virtual-address-lab/src/physical.rs:24 CONFIRMED
@@ -101,10 +114,11 @@ Generated; the code is the truth. See ../index.md.
 - fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:154 CONFIRMED
 - struct Ledger [pub] — crates/virtual-address-lab/src/view.rs:16 CONFIRMED
 - enum Refused [pub] — crates/virtual-address-lab/src/view.rs:25 CONFIRMED
-- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:43 CONFIRMED
-- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:51 CONFIRMED
-- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:83 CONFIRMED
-- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:98 CONFIRMED
+- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:45 CONFIRMED
+- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:53 CONFIRMED
+- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:85 CONFIRMED
+- fn field_in [pub] — crates/virtual-address-lab/src/view.rs:90 CONFIRMED
+- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:110 CONFIRMED
 
 ## Imports from in-scope crates
 
@@ -120,6 +134,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/grid.rs:12 CONFIRMED
 - use lance_graph_contract::ontology::DisplayTemplate — crates/virtual-address-lab/src/grid.rs:13 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/virtual-address-lab/src/grid.rs:13 CONFIRMED
+- use lance_graph_contract::soa_view::MailboxSoaView — crates/virtual-address-lab/src/owner.rs:20 CONFIRMED
 ### lance-graph-dt64
 - use lance_graph_dt64::dr::MapRefusal — crates/virtual-address-lab/src/cube.rs:5 CONFIRMED
 - use lance_graph_dt64::dr::Width — crates/virtual-address-lab/src/cube.rs:5 CONFIRMED

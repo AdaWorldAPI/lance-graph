@@ -36,7 +36,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneSource — crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 - use lance_graph_dt64::LaneSource — crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
 
-## Textual occurrences (47 total)
+## Textual occurrences (48 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:103 POSSIBLE
@@ -85,6 +85,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/grid.rs:2 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:215 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:395 POSSIBLE
 
 ## Architecture
 

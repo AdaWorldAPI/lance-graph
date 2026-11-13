@@ -23511,13 +23511,16 @@ virtual-address-lab	crates/virtual-address-lab/src/grid.rs	26	const	READER	pub	-
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	283	struct	View	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	285	impl	View	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	286	fn	View::new	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	295	impl	ClassView for View	-	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	312	struct	World	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	319	impl	World	-	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	320	fn	World::new	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	325	fn	World::with	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	353	fn	World::bind_as	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/grid.rs	372	fn	World::bind	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	295	fn	View::named	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	305	impl	ClassView for View	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	322	struct	World	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	329	impl	World	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	330	fn	World::new	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	335	fn	World::with	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	340	fn	World::named	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	371	fn	World::bind_as	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	390	fn	World::bind	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/grid.rs	395	fn	World::bind_source	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	50	struct	Grid	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	64	impl	Grid	-	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	67	fn	Grid::new	pub	-	CONFIRMED
@@ -23525,9 +23528,19 @@ virtual-address-lab	crates/virtual-address-lab/src/grid.rs	92	fn	Grid::three	pub
 virtual-address-lab	crates/virtual-address-lab/src/grid.rs	96	fn	Grid::lanes	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/lib.rs	23	mod	cube	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/lib.rs	24	mod	grid	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/lib.rs	25	mod	physical	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/lib.rs	26	mod	recipe	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/lib.rs	27	mod	view	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/lib.rs	25	mod	owner	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/lib.rs	26	mod	physical	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/lib.rs	27	mod	recipe	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/lib.rs	28	mod	view	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	26	const	BASIS	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	30	enum	Column	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	38	fn	column_of	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	48	enum	Value	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	55	struct	Reads	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	67	struct	VirtualProperty	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	73	impl	VirtualProperty<'_>	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	75	fn	VirtualProperty<'_>::column	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/owner.rs	84	fn	VirtualProperty<'_>::read	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/physical.rs	12	struct	Moved	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/physical.rs	24	fn	transpose	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/physical.rs	33	fn	reverse_rows	pub	-	CONFIRMED
@@ -23557,13 +23570,14 @@ virtual-address-lab	crates/virtual-address-lab/src/recipe.rs	76	fn	Recipe::name	
 virtual-address-lab	crates/virtual-address-lab/src/recipe.rs	81	fn	Recipe::swaps	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/recipe.rs	86	fn	Recipe::view_dims	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/recipe.rs	96	fn	Recipe::resolve	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	110	fn	fold_property	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/view.rs	16	struct	Ledger	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/view.rs	25	enum	Refused	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/view.rs	43	struct	RowObject	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/view.rs	48	impl	RowObject	-	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/view.rs	51	fn	RowObject::get	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/view.rs	83	fn	field_through	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/view.rs	98	fn	fold_property	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	45	struct	RowObject	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	50	impl	RowObject	-	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	53	fn	RowObject::get	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	85	fn	field_through	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/view.rs	90	fn	field_in	pub	-	CONFIRMED
 weather-poc	crates/weather-poc/src/bake.rs	109	impl	std::error::Error for BakeError	-	-	CONFIRMED
 weather-poc	crates/weather-poc/src/bake.rs	111	impl	From<LaneError>for BakeError	-	-	CONFIRMED
 weather-poc	crates/weather-poc/src/bake.rs	119	enum	BakeStreamError	pub	-	CONFIRMED

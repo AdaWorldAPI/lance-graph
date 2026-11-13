@@ -464,3 +464,86 @@ Nothing of section 10 is evidence about the mailbox's own guarantees.
 - **P2** `tests/algebra.rs`: `Rotate90 ∘ Rotate270` and `Rotate180 ∘
   Rotate180` are Identity, by the product and cell by cell.
 - **P1 and P3 are not run.** See 11.2.
+
+### 11.2 Outcome A: owner-backed virtual-property read — LAB VERIFIED
+
+Release build, 2026-11-13. `cargo test --release -p virtual-address-lab`:
+29 tests in 8 binaries pass (P0: 5 + 1; algebra: 4). Six disable runs on the
+committed code, each restored with `git checkout`, each red, none a compile
+error:
+
+| disable | tests that fail |
+|---|---|
+| the row is ignored (always row 0) | value, chain, absent-row, alloc |
+| the populated-row guard is removed | absent-row |
+| the chain is not normalised (first recipe only) | chain |
+| the predicate maps to the wrong column | value, chain, absent-row, alloc |
+| both columns are borrowed on every read | value (borrow count) |
+| the composition law is broken | three algebra tests, chain, alloc |
+
+What holds for a real `MailboxSoA<64>` through `MailboxSoaView`:
+
+- the value equals the scalar oracle;
+- `meta_raw()` and `edges_raw()` have the address of the owner's own `meta`
+  and `edges` arrays, inside the owner's allocation; they are two columns of
+  4-byte and 8-byte stride, not one record;
+- one request loads one value and borrows one column;
+- a chain ending in `Rotate90, Rotate270` or `Rotate180, Rotate180` reads what
+  the direct `meta_raw()[row]` reads; a chain that is Identity overall is
+  reported and reads nothing;
+- an absent property and a row at or past `populated` give no value (the
+  owner's array spans capacity and holds zero there);
+- no allocation; no `NodeRow`, row object or second buffer exists on the path.
+
+The lifetime of the borrow is the compiler's: the slice borrows the owner, so
+the owner cannot be mutated while it is held. That is not a test.
+
+### 11.3 Outcome B: DR/DT64 version-bound admission — BLOCKED
+
+First missing source-to-consumer boundary, in order:
+
+1. **Identity.** `MailboxSoA` does not override `row_for_local_key`; it
+   answers `None` for every key (`soa_view.rs:126`; tested). P0 therefore uses
+   a caller-supplied row position, which is not an identity.
+2. **Lane socket.** `MailboxSoA` does not implement `LaneSource`, and
+   `cognitive-shader-driver` does not depend on `lance-graph-dt64`.
+3. **Frame.** The owner holds no `FrameStore`. Its stamps are `current_cycle`
+   and `last_write_cycle`; `set_meta` moves neither (tested: the row's
+   `last_write_cycle` stays `u32::MAX`).
+4. **Selection.** The owner implements no `SelectionSource` and has no home
+   for an order index.
+5. **Fold.** Were 2 to 4 present, `execute_sel` admits `i32` lanes only and
+   the owner lends `u32`, `u64`, `f32`, `u16` and `[u8; 12]`.
+
+P3 (64 selected identities) was not run, and no substitute was built.
+
+Negative controls:
+
+| control | state |
+|---|---|
+| changed property-to-physical mapping | NOT TESTABLE on the owner: no binding exists that could go stale. The lab's own mapping is disable-tested (row 4 above) |
+| stale source frame | NOT TESTABLE: the owner has no frame |
+| changed source row order | NOT TESTABLE: the owner declares no coordinate space |
+| duplicated selection positions | NOT TESTABLE as source-issued: the owner issues no selection |
+| absent property / row | TESTED |
+| inverse-recipe cancellation | TESTED |
+| owner mutation without frame advancement | TESTED AS A LIMITATION: the write changes the value and no stamp |
+
+### 11.4 Ledger (`examples/owner_read_cost.rs`, two runs, one VM)
+
+| metric | value |
+|---|---|
+| source-owned bytes | 398,544 (`byte_footprint`, `MailboxSoA<64>`) |
+| virtual descriptor | 32 bytes: row, property index, borrowed recipe chain |
+| values copied into intermediate storage | 0 |
+| demanded reads | 1 value, 1 column borrow per request |
+| facet / register loads | none: one scalar indexed load of 4 or 8 bytes |
+| physical rearrangements | 0 |
+| cold cost | none: no binding is made |
+| warm cost | 7.47 and 7.84 ns per read with a 3-recipe chain (median of 21); the direct `meta_raw()[row]` is 0.44 and 0.45 ns |
+| warm allocations | 0 |
+| admission | BLOCKED (11.3) |
+
+The 7 ns are the chain normalised on every read. Normalising once per
+binding is the obvious remedy and was not measured. The 1-4 cycle figure is
+not measured and no ISA kernel runs on this path.

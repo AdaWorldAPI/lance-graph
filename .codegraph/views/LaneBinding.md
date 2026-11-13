@@ -30,7 +30,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 
-## Textual occurrences (82 total)
+## Textual occurrences (83 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -107,13 +107,14 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/soa64-u64-lab/src/socket.rs:203 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:221 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:353 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:372 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:371 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:390 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:399 POSSIBLE
 - crates/virtual-address-lab/src/lib.rs:8 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:33 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:54 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:100 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:56 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:112 POSSIBLE
 
 ## Architecture
 

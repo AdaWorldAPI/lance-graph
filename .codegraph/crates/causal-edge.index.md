@@ -24,6 +24,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep p64-bridge normal — crates/p64-bridge/Cargo.toml:10 CONFIRMED
 - rdep sigma-tier-router normal — crates/sigma-tier-router/Cargo.toml:8 CONFIRMED
 - rdep thinking-engine normal — crates/thinking-engine/Cargo.toml:16 CONFIRMED
+- rdep virtual-address-lab dev — crates/virtual-address-lab/Cargo.toml:22 CONFIRMED
 
 ## Public items
 

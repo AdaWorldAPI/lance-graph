@@ -72,6 +72,7 @@ causal-edge	lance-graph-quack	dev	false	-	-	crates/lance-graph-quack/Cargo.toml:
 causal-edge	p64-bridge	normal	false	-	-	crates/p64-bridge/Cargo.toml:10	CONFIRMED	yes
 causal-edge	sigma-tier-router	normal	false	-	-	crates/sigma-tier-router/Cargo.toml:8	CONFIRMED	yes
 causal-edge	thinking-engine	normal	false	-	-	crates/thinking-engine/Cargo.toml:16	CONFIRMED	yes
+causal-edge	virtual-address-lab	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:22	CONFIRMED	yes
 chrono	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:32	CONFIRMED	no
 chrono	lance-graph-callcenter	normal	true	-	jsonl	crates/lance-graph-callcenter/Cargo.toml:45	CONFIRMED	no
 clap	lance-graph-callcenter	normal	true	-	audit-verify-bin	crates/lance-graph-callcenter/Cargo.toml:54	CONFIRMED	no
