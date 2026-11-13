@@ -1,0 +1,48 @@
+name: Hidden-state twins lab
+
+on:
+  pull_request:
+    paths:
+      - 'crates/hidden-state-twins-probe/**'
+      - 'docs/research/2026-11-13-hidden-state-twins-lab.md'
+      - '.github/workflows/hidden-state-twins.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hidden-state-twins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout lance-graph
+        uses: actions/checkout@v4
+        with:
+          path: lance-graph
+
+      - name: Checkout AdaWorldAPI ndarray fork as sibling
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+
+      - name: Checkout AdaWorldAPI shakmaty fork as sibling (test-only chess authority)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/shakmaty
+          path: shakmaty
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: fmt
+        run: cargo fmt --manifest-path lance-graph/crates/hidden-state-twins-probe/Cargo.toml --check
+
+      - name: clippy
+        run: cargo clippy --manifest-path lance-graph/crates/hidden-state-twins-probe/Cargo.toml --all-targets -- -D warnings
+
+      - name: Execute both arms
+        run: cargo test --manifest-path lance-graph/crates/hidden-state-twins-probe/Cargo.toml -- --nocapture

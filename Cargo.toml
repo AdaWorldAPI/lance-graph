@@ -152,6 +152,11 @@ exclude = [
     # D-GRAMMAR-CONSTRAINTS-0 lab probe; own workspace root.
     # `cargo test --manifest-path crates/grammar-constraints-probe/Cargo.toml`.
     "crates/grammar-constraints-probe",
+    # D-TWINS-0: one guarded-candidate rule shape in two domains (chess state,
+    # Rust source sites). Own workspace root. Its TEST binaries link shakmaty
+    # (GPL-3.0-or-later) as the chess authority; the library does not. Verify
+    # via `cargo test --manifest-path crates/hidden-state-twins-probe/Cargo.toml`.
+    "crates/hidden-state-twins-probe",
     "crates/symbiont",
     # OGAR (Open Graph of Active Record) activation crate — re-exports OGAR's full
     # AR surface (ogar-vocab Class/codebook + ogar-class-view impl ClassView +
