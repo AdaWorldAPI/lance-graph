@@ -101,6 +101,7 @@ deepnsm-v2	cognitive-shader-driver	dev	false	-	-	crates/cognitive-shader-driver/
 deepnsm-v2	lance-graph-quack	dev	false	-	-	crates/lance-graph-quack/Cargo.toml:30	CONFIRMED	yes
 dr-math-binding-probe	tract-harvest-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:24	CONFIRMED	no
 dr256-ternlog-lab	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:29	CONFIRMED	yes
+dr256-ternlog-lab	quack-boundary-lab	dev	false	-	-	crates/quack-boundary-lab/Cargo.toml:20	CONFIRMED	yes
 elixir-template	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:38	CONFIRMED	yes
 flate2	lance-graph-callcenter	normal	true	-	jsonl	crates/lance-graph-callcenter/Cargo.toml:46	CONFIRMED	no
 foundry-parity-lab	cg-beh-probe	normal	false	-	-	crates/cg-beh-probe/Cargo.toml:29	CONFIRMED	yes

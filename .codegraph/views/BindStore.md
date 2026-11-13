@@ -52,9 +52,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:72 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:164 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:179 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:222 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:165 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:180 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:223 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:162 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:163 POSSIBLE
@@ -151,8 +151,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-xlog/src/lens.rs:93 POSSIBLE
 - crates/lance-graph-xlog/src/lens.rs:104 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:396 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:408 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:397 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:409 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE

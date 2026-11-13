@@ -24,10 +24,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - pub-use lane::LaneBinding — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
 - use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/derived.rs:14 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (66 total)
+## Textual occurrences (74 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -46,9 +47,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/shape.rs:358 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:20 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:588 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:632 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:1202 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:589 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:633 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1203 POSSIBLE
 - crates/duckdb-selvec-compat/src/lib.rs:48 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:3 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
@@ -81,15 +82,23 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source.rs:86 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:206 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:1 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:14 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:93 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:106 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:137 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:185 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:228 POSSIBLE
+- crates/quack-boundary-lab/src/derived.rs:273 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:14 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:439 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:451 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:470 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:506 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:542 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:590 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:597 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:440 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:452 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:471 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:507 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:545 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:593 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:600 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:5 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:181 POSSIBLE

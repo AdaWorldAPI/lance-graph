@@ -424,16 +424,19 @@ fn an_fk_plane_s_record_does_not_name_the_foreign_side() {
         }
         words
     };
-    let (even, thirds) = (visible(|k| k % 2 == 0), visible(|k| k % 3 == 0));
+    let (even, thirds) = (
+        visible(|k| k.is_multiple_of(2)),
+        visible(|k| k.is_multiple_of(3)),
+    );
     let derive = |set: &[u64]| DerivedPlane::foreign_visible(&w, &w.view, &b, &s, PARTNER, set);
     let (a, c) = (derive(&even).unwrap(), derive(&thirds).unwrap());
     assert_eq!(
         a.words(),
-        plane_of(|r| s.row(r).partner % 2 == 0).as_slice()
+        plane_of(|r| s.row(r).partner.is_multiple_of(2)).as_slice()
     );
     assert_eq!(
         c.words(),
-        plane_of(|r| s.row(r).partner % 3 == 0).as_slice()
+        plane_of(|r| s.row(r).partner.is_multiple_of(3)).as_slice()
     );
     assert_ne!(a.words(), c.words());
 

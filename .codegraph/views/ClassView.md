@@ -12,7 +12,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for TestView — crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
 - impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:294 POSSIBLE
 - impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
-- impl ClassView for View — crates/dr256-ternlog-lab/src/lib.rs:107 POSSIBLE
+- impl ClassView for View — crates/dr256-ternlog-lab/src/lib.rs:108 POSSIBLE
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
 - impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:387 POSSIBLE
@@ -26,7 +26,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for WithPolyfill<'_,V> — crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
 - impl ClassView for View cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
-- impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:377 POSSIBLE
+- impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:378 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
 
 ## Imports (not resolved to a definition)
@@ -78,8 +78,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:4 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:84 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:107 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:85 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:108 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - crates/dt64-hotplug-probe/src/lib.rs:17 POSSIBLE

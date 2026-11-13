@@ -15,7 +15,7 @@ deepnsm	31	16	0	macro-generated items invisible;fn-local use not scanned
 deepnsm-v2	25	14	0	macro-generated items invisible;fn-local use not scanned
 dr-isa-stream-lab	12	8	0	macro-generated items invisible;fn-local use not scanned
 dr-select-k-lab	7	7	0	macro-generated items invisible;fn-local use not scanned
-dr256-ternlog-lab	2	6	0	macro-generated items invisible;fn-local use not scanned
+dr256-ternlog-lab	3	8	0	macro-generated items invisible;fn-local use not scanned
 drf-focus-probe	3	12	0	macro-generated items invisible;fn-local use not scanned
 drisa-register-probe	2	5	0	macro-generated items invisible;fn-local use not scanned
 dt64-admission-probe	3	4	0	macro-generated items invisible;fn-local use not scanned
@@ -81,7 +81,7 @@ onebrc-probe	15	0	0	macro-generated items invisible;fn-local use not scanned
 p64-bridge	1	0	0	macro-generated items invisible;fn-local use not scanned
 perturbation-sim	26	31	0	macro-generated items invisible;fn-local use not scanned
 pg-parity-harness	4	1	0	macro-generated items invisible;fn-local use not scanned
-quack-boundary-lab	2	5	0	macro-generated items invisible;fn-local use not scanned
+quack-boundary-lab	3	8	0	macro-generated items invisible;fn-local use not scanned
 quasicryth-research	11	2	0	macro-generated items invisible;fn-local use not scanned
 r2il-mask-abi-probe	1	4	0	macro-generated items invisible;fn-local use not scanned
 reader-lm	5	0	0	macro-generated items invisible;fn-local use not scanned
