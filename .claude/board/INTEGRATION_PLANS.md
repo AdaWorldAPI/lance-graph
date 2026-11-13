@@ -1,3 +1,8 @@
+## 2026-11-13 — VIRTUAL-ADDRESS-SUPERPOWERS: roadmap from the lab evidence to source-owned, behaviour-aware reads → `.claude/plans/virtual-address-superpowers-roadmap-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. Orders the seams D-VIRTUAL-ADDRESS-ALGEBRA-1 (`.claude/plans/d-virtual-address-algebra-1.md`, PR 2060, lab) reports as BLOCKED, ABSENT or NOT DONE into four independent tracks (owner as source, identity, behaviour provenance and WHEN, DO), a join stage and a cost stage; nine decisions precede any stage. No layout change, no new executor or storage owner.
+**Confidence:** every stage cites a finding of the lab plan; nothing in the roadmap is built or measured; `dr.rs` and the DT64 behaviour plans are unread.
+
 ## 2026-11-13 — D-QUACK-DERIVED-PLANE-PROBE: what a derived lane or plane inherits from an admitted lane → `.claude/plans/d-quack-derived-plane-probe.md`
 
 **Status:** PLAN, lab only; P1 authorized and started, P2 and P3 wait for PR 2057. Pass conditions fixed before any run. Follows D-QUACK-BOUNDARY-LAB (#2045). Coordination: EXO-253.
