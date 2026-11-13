@@ -942,6 +942,8 @@ mod plug_and_play_reading {
             "read_entry",
             "set_const",
             "mark_set",
+            "record_time_entry",
+            "emit_row",
         ];
         let erp = HotPlug {
             consumer: "erp-ledger",
@@ -969,6 +971,31 @@ mod plug_and_play_reading {
             ..erp
         };
         assert!(super::OgarAuthority.activate(&impostor).is_err());
+
+        // The time entry (`0x0103`) is plugged by the same consumer for its
+        // reading only (D-HPR-8): it has no table, and the capability plug
+        // above would be refused with it.
+        let time_entry = HotPlug {
+            consumer: "erp-ledger",
+            classids: &[0x0103],
+            covered: &[],
+        };
+        let reading = super::OgarAuthority
+            .activate(&time_entry)
+            .expect("the time entry reads");
+        assert_eq!(
+            reading.read_mode_for(0x0103),
+            Ok(ReadMode::PLUG_AND_PLAY_V3)
+        );
+        assert!(reading.capabilities.is_empty());
+        let mixed = HotPlug {
+            classids: &[0x0202, 0x0103, 0x020C],
+            ..erp
+        };
+        assert_eq!(
+            super::OgarAuthority.activate(&mixed),
+            Err(ActivationDrift::NoCapabilitiesFor(0x0103))
+        );
     }
 
     /// THE MEDCARE CASE — the one this rewrite exists for.
