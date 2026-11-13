@@ -50,3 +50,11 @@ Repository policy requires the sibling AdaWorldAPI/ndarray checkout at ../../../
 Pass requires P0 typed distinct answers, nonvacuous ablation, wrong-description and revision refusals, and P1 CE64-oracle parity including both orthogonal bit mutations. A failed compile is not passing evidence. Stop the u8 hypothesis if the selector must itself encode all semantic obligations, if removal of WHEN does not create wrong candidates, or if role masks disagree with the canonical CE64 accessor.
 
 **Explicitly deferred:** actual Ruff Rails and Kythe site parity; MeTTa/MORK multiset substitution; Datafrog fixpoint; board-game history/coal twins; NNUE delta refresh; XLOG chained joins and F100. The seven-branch mindmap remains open to all of them.
+## Follow-up 2026-11-13: two audit findings closed
+
+Appended; the text above describes the lab as first merged. The audit is section 8 of the [scratchpad](2026-11-13-ce64-logic-neutrino-grammar-spine.md).
+
+- **The selector now feeds the composition.** `roles_under` composes and consults a method for a token only when the selector proposes it. A selector without Experiencer loses token 302 and composes one method. A selector that proposes every dative token gives the same answer as the real one, because the guards reject the extra tokens. Disable check: consulting both methods regardless of the selector fails the test (2 methods composed, 1 expected).
+- **The lexicon is part of the co-addressed method identity.** The `CoAddressed` guard carries `SetExpr::Sym(lexicon.digest())`, so a method bound under `Lexicon::v0` does not compose under `Lexicon::swapped` (`DescriptionMismatch`), as the `Via` form already refused. Disable check: removing that conjunct fails the test at the new refusal arm.
+
+Still open from the audit: the ablation runs the older hand-built program, the expectations are inline literals rather than `fixtures::GOLD`, abstention for 505 is not asserted, and the P1 lane has a zero background.
