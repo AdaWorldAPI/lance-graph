@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 6549ec9c04f69945
+digest: 5dccc187f2437de1
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -82,8 +82,11 @@ Generated; the code is the truth. See ../index.md.
 - enum Value [pub] — crates/virtual-address-lab/src/owner.rs:51 CONFIRMED
 - struct Reads [pub] — crates/virtual-address-lab/src/owner.rs:58 CONFIRMED
 - struct VirtualProperty [pub] — crates/virtual-address-lab/src/owner.rs:72 CONFIRMED
-- fn VirtualProperty<'_>::column [pub] — crates/virtual-address-lab/src/owner.rs:85 CONFIRMED
-- fn VirtualProperty<'_>::read [pub] — crates/virtual-address-lab/src/owner.rs:98 CONFIRMED
+- struct Address [pub] — crates/virtual-address-lab/src/owner.rs:81 CONFIRMED
+- fn VirtualProperty<'_>::address [pub] — crates/virtual-address-lab/src/owner.rs:93 CONFIRMED
+- fn VirtualProperty<'_>::admit [pub] — crates/virtual-address-lab/src/owner.rs:109 CONFIRMED
+- fn VirtualProperty<'_>::column [pub] — crates/virtual-address-lab/src/owner.rs:119 CONFIRMED
+- fn VirtualProperty<'_>::read [pub] — crates/virtual-address-lab/src/owner.rs:127 CONFIRMED
 - type Matrix [pub] — crates/virtual-address-lab/src/physical.rs:8 CONFIRMED
 - struct Moved [pub] — crates/virtual-address-lab/src/physical.rs:12 CONFIRMED
 - fn transpose [pub] — crates/virtual-address-lab/src/physical.rs:24 CONFIRMED

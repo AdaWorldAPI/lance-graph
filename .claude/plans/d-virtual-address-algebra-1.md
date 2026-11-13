@@ -652,3 +652,27 @@ Test added: for the four axis-exchanging recipes, every row and property, the
 address equals the data-moving oracle's coordinate, including the two recipes
 admission refuses, and computing it performs no read. Two inverse recipes
 give the address of `TRANSPOSE` alone.
+
+### 13.1 Results (commit `666a4faa4`, test committed before the run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 31
+tests, 0 failed (`owner_read` 7). clippy `-D warnings`: exit 0.
+
+`the_address_function_is_the_oracles_coordinate_and_reads_nothing`: 420
+cells (four axis-exchanging recipes, 64 and 41 rows, two properties); every
+address equals the data-moving oracle's coordinate; 416 of them are for
+position-reversing recipes whose position differs from the requested row
+(256 + 160); zero values loaded.
+
+Disable runs, each patch asserted to apply once, each restored:
+
+| disable | exit | failed |
+|---|---|---|
+| the address keeps the caller's row | 101 | the address test |
+| admission never refuses | 101 | the acceptance test and the address test |
+| the address names the other column | 101 | five of seven |
+
+Stated limits, unchanged: the grid is 2 fields x N rows, so one axis is the
+owner's row axis and admission must refuse what moves it. A grid whose both
+axes are properties of ONE entity would admit all eight recipes; that is not
+built here, because no owner-lent per-row property block was verified.
