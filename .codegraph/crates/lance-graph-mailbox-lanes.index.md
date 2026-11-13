@@ -3,7 +3,7 @@
 crate: lance-graph-mailbox-lanes
 path: crates/lance-graph-mailbox-lanes
 workspace: member
-digest: ea2113c8fa58e040
+digest: 2bc646a50a15bc18
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -33,12 +33,12 @@ Generated; the code is the truth. See ../index.md.
 - struct Acted [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:167 CONFIRMED
 - fn act [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:195 CONFIRMED
 - enum ApplyRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:361 CONFIRMED
-- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:375 CONFIRMED
-- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:405 CONFIRMED
-- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:476 CONFIRMED
-- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:496 CONFIRMED
-- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:502 CONFIRMED
-- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:520 CONFIRMED
+- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:380 CONFIRMED
+- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:413 CONFIRMED
+- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:490 CONFIRMED
+- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:510 CONFIRMED
+- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:516 CONFIRMED
+- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:534 CONFIRMED
 - enum CoordRefusal [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:30 CONFIRMED
 - struct Coordinates [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:47 CONFIRMED
 - fn Coordinates::bind [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:55 CONFIRMED
