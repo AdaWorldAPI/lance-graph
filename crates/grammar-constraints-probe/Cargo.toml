@@ -19,5 +19,9 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # D-GRAMMAR-WHEN-1: the relational description (Filter) and its lowering.
 lance-graph-quack = { path = "../lance-graph-quack" }
 
+[dev-dependencies]
+# P0/P1 logic-neutrino research: actual packed CE64 role discrimination, test-only.
+causal-edge = { path = "../causal-edge" }
+
 [patch."https://github.com/AdaWorldAPI/ndarray"]
 ndarray = { path = "../../../ndarray" }
