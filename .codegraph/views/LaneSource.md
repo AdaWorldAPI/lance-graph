@@ -16,7 +16,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl LaneSource for AbiLanes<'_> — crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
 - impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:321 POSSIBLE
 - impl LaneSource for U64Source<'s> — crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
-- impl LaneSource for Grid — crates/virtual-address-lab/src/grid.rs:215 POSSIBLE
+- impl LaneSource for Grid — crates/virtual-address-lab/src/grid.rs:220 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -84,8 +84,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:2 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:215 POSSIBLE
-- crates/virtual-address-lab/src/grid.rs:395 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:220 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:428 POSSIBLE
 
 ## Architecture
 

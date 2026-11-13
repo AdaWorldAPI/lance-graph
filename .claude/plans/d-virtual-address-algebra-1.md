@@ -833,3 +833,40 @@ one behaviour lens `0x0A1A_F003` with the data class's basis, and
 methods under the behaviour lens. WHEN is NOT evaluated here: the store keeps
 a guard and Quack evaluates it; no evaluator is built. DO is NOT executed:
 no effect runs; the test stops at the operands the first effect demands.
+
+### 16.1 Results (commit `8ce6610c8`, tests committed before the run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 39
+tests, 0 failed (`on_when_do` 2). clippy `-D warnings`: exit 0. Both tests
+passed on their first run.
+
+Read ledger of the lazy path, for one changed view cell `(12, 0)`:
+
+| step | what decided it | values read |
+|---|---|---|
+| ON: cell -> field `amount` -> `methods_on` = `recompute_total` | orientation + the `0xF###` lens | 0 |
+| the same cell under `ANTI_TRANSPOSE` -> field `total` -> `flag_total_changed` | orientation | 0 |
+| `method_ref` + `admit`; a reference without its guard refused | DT64 | 0 |
+| demand of the admitted `Values` method: `reads = {amount, rate}` at the cell's ordinal | binding + selection | 2 |
+| the `MapOnly` method | its demand | 0 |
+| control: gather the selected tile first | n/a | 192 (3 x 64) |
+
+The two operands equal the source's cells at the selection's position for
+ordinal 12 (which is not row 12), and equal the eager tile's.
+
+Disable runs, each anchor asserted, each restored, all exit 101:
+
+| disable | failed |
+|---|---|
+| ON takes the field without the orientation | the lazy test |
+| the demand reads ordinal as a row, ignoring the selection | the lazy test (`[444, 1444]` for `[148, 1148]`) |
+| the fixture view does not know the lens | both (the lens does not register) |
+
+One patch whose anchor did not match was reported as not applied and redone.
+
+Not shown, by construction: WHEN evaluated (no guard runs; the witness is
+compared); DO executed (no effect runs; the polyfill word is a name with an
+arity); a write-back; ON derived from an actual change event (the changed
+cell is given by the test); anything about the mailbox. The behaviour lens
+`0x0A1A_F003`, its basis answer and the polyfill lens are lab fixtures, not
+minted classids.

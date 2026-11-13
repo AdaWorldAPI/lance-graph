@@ -28,7 +28,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
 - impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:378 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
-- impl ClassView for View — crates/virtual-address-lab/src/grid.rs:305 POSSIBLE
+- impl ClassView for View — crates/virtual-address-lab/src/grid.rs:310 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
