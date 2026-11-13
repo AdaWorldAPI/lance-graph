@@ -72,13 +72,14 @@ impl Method {
         cell: Cell,
         ledger: &Ledger,
     ) -> Result<i32, Refused> {
+        let field = u8::try_from(cell.field).map_err(|_| Refused::OutsideTheView)?;
         let (lane, positions) = binding
             .selected(
                 &world.store,
                 &world.view,
                 grid.frame_store(),
                 grid,
-                cell.field as u8,
+                field,
                 self.selection,
             )
             .map_err(Refused::Lane)?;
@@ -118,7 +119,7 @@ impl Method {
                 &world.view,
                 grid.frame_store(),
                 grid,
-                field as u8,
+                u8::try_from(field).map_err(|_| Refused::OutsideTheView)?,
                 self.selection,
             )
             .map_err(Refused::Lane)?;

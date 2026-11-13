@@ -92,7 +92,7 @@ impl RowObject {
                 &world.view,
                 grid.frame_store(),
                 grid,
-                field as u8,
+                u8::try_from(field).map_err(|_| Refused::OutsideTheView)?,
             )
             .map_err(Refused::Lane)?;
         let LaneRef::I32(values) = lane else {
@@ -123,8 +123,8 @@ pub fn field_in(
     }
     recipe
         .field_of(lanes, len, property)
-        .map(|f| f as u8)
         .ok_or(Refused::PropertyCrossesFields { recipe })
+        .and_then(|f| u8::try_from(f).map_err(|_| Refused::OutsideTheView))
 }
 
 /// `fold` of view property `property` (seen through `chain`) over the

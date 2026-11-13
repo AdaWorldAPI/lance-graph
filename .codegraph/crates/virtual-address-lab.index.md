@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 2a61a53b70ab87e0
+digest: 115681c5a4ac4dac
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -99,7 +99,7 @@ Generated; the code is the truth. See ../index.md.
 - fn Method::cell [pub] — crates/virtual-address-lab/src/method.rs:52 CONFIRMED
 - fn Method::field [pub] — crates/virtual-address-lab/src/method.rs:59 CONFIRMED
 - fn Method::read_cell [pub] — crates/virtual-address-lab/src/method.rs:67 CONFIRMED
-- fn Method::read [pub] — crates/virtual-address-lab/src/method.rs:102 CONFIRMED
+- fn Method::read [pub] — crates/virtual-address-lab/src/method.rs:103 CONFIRMED
 - const BASIS [pub] — crates/virtual-address-lab/src/owner.rs:29 CONFIRMED
 - enum Column [pub] — crates/virtual-address-lab/src/owner.rs:33 CONFIRMED
 - fn column_of [pub] — crates/virtual-address-lab/src/owner.rs:41 CONFIRMED

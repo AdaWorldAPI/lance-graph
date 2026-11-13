@@ -23549,7 +23549,7 @@ virtual-address-lab	crates/virtual-address-lab/src/lib.rs	27	mod	owner	pub	-	CON
 virtual-address-lab	crates/virtual-address-lab/src/lib.rs	28	mod	physical	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/lib.rs	29	mod	recipe	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/lib.rs	30	mod	view	pub	-	CONFIRMED
-virtual-address-lab	crates/virtual-address-lab/src/method.rs	102	fn	Method::read	pub	-	CONFIRMED
+virtual-address-lab	crates/virtual-address-lab/src/method.rs	103	fn	Method::read	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/method.rs	21	struct	Method	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/method.rs	29	struct	Cell	pub	-	CONFIRMED
 virtual-address-lab	crates/virtual-address-lab/src/method.rs	34	impl	Method	-	-	CONFIRMED

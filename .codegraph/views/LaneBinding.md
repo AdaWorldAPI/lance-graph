@@ -121,8 +121,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/method.rs:5 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:12 POSSIBLE
 - crates/virtual-address-lab/src/method.rs:70 POSSIBLE
-- crates/virtual-address-lab/src/method.rs:100 POSSIBLE
-- crates/virtual-address-lab/src/method.rs:105 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:101 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:106 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:33 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:79 POSSIBLE
