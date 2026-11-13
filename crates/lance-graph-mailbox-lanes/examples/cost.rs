@@ -378,7 +378,7 @@ fn main() {
     );
     println!("act per row: {:.1} ns", acted / POPULATED as f64);
     println!(
-        "bytes an intent carries per act: {} (one bit per row)",
+        "row bits an intent carries: {} bytes (one bit per row), beside its method reference",
         POPULATED.div_ceil(64) * 8
     );
 }

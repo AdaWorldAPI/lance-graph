@@ -18,6 +18,7 @@
 
 - `lance-graph-r2il::binding`: `prepare_gated`, `run_gated`, `Gate { plane, guard }`, `Prepared::is_gated`; `ExecRefusal::{NotGuarded, GateRequired, GateMismatch}`. `prepare` / `run` behave as before for an unguarded binding; `prepare_native` refuses a gated plan.
 - `lance-graph-mailbox-lanes`: module `act` with `act`, `apply`, `cascade`, `ActContext`, `Acted`, `Intent`, `Applied`, `Fire`, `Round`, `Cascade`, `ActRefusal`, `ApplyRefusal`; `MailboxLanes::{lends, owner_cycle}`. New dependency on `lance-graph-r2il`.
+- R7 (review of #2064): `apply` takes `(owner, store, view, ctx, intent)` and re-evaluates; `ApplyRefusal::{Stale, NotReproduced}`; `ActRefusal::UnsupportedColumn`; `Applied::stamped`.
 
 ## 2026-11-13 — D-VAS R3 (in PR, not on main)
 
