@@ -431,3 +431,88 @@ machines, the cost split inside `act`.
 | D4 | `cascade` | `Model::round` | 3 rounds, settles | bound of 2 reported unsettled; a column no method is ON. 2 disables | INTEGRATION VERIFIED |
 | E1 | the chain | `Model` | `tests/e1.rs`, 4 tests, three ledgers | 7 disables | INTEGRATION VERIFIED from a source-local row; from a `NodeGuid` BLOCKED (B1) |
 | F | `examples/cost.rs` | direct array, scalar interpreter, eager copy | measured, release | n/a | MEASURED; normalise-once NOT IMPLEMENTED |
+
+## R7: review of #2064 (P0), the read-to-write boundary
+
+### P0a, a stale intent (fixed)
+
+Finding: `act` returns an `Intent` after its publication has ended; `apply`
+checked the mailbox and, through `write_row`, the cycle. `set_meta` and the
+public columns change data without moving the cycle
+(`virtual-address-lab/tests/publication_boundary.rs`), so an intent could land
+on data its guard and operands never read.
+
+Not used: a source revision, a mutation log, or a copy of the read columns.
+The mailbox has none of them and none was added.
+
+Boundary chosen: a write is made only inside one exclusive borrow of the owner
+that also covers the read it rests on.
+
+- `cascade` already does this: `&mut MailboxSoA` is held from a round's read to
+  its writes. It now writes through the private `write`.
+- `apply(owner, store, view, ctx, intent)` treats the intent as what the
+  caller expects. Under its own `&mut` it runs the intent's method again
+  (`Intent` carries its `MethodRef`) and writes only when one of the writes the
+  method asks for now is the same write: method, mailbox, column, value, rows.
+  Otherwise `ApplyRefusal::Stale { column }`, or `NotReproduced(ActRefusal)`
+  when the method no longer runs. The cycle stays the owner's check in
+  `write_row`.
+
+Consequence: a change the method does not read leaves the intent valid, and a
+change that happens to reproduce the same write does too. `apply` costs one
+`act` more than before.
+
+Test (`tests/e1.rs`, `an_intent_does_not_outlive_what_it_read`), committed
+before the fix and failing on it: a row joins the guard (`set_meta`, no
+`tick`), a row leaves it, an operand value changes (public column). Each is
+refused with `Stale` and the owner's columns and write stamps are equal before
+and after. Silence twin: a `set_sigma` on a guard row, which the class does not
+read, and the intent lands on every fired row.
+
+Disable runs, anchors asserted, all exit 101: the `Stale` comparison switched
+off; `value` dropped from the comparison; `rows` dropped from it.
+
+### P0b, a recognised column as scratch (fixed)
+
+Finding: `writable` mapped every `ColumnRefusal` to "scratch field", so a
+method targeting `urn:mailbox:sigma` (a column of the owner the socket cannot
+lend) ran and had its scalar filed under `unwritten`.
+
+Fix: `ColumnRefusal::UnsupportedKind` refuses the method before anything is
+read (`ActRefusal::UnsupportedColumn { field, kind }`). Only
+`ColumnRefusal::Unknown`, an IRI that names no mailbox column, is scratch.
+
+Test (`tests/writable.rs`), committed before the fix and failing on it: the
+`sigma` target is refused with 0 lanes lent; a `urn:lab:scratch` target runs,
+asks for no write and reports its scalar. One disable run, exit 101.
+
+### P0c, the write-cycle stamp (review finding, fixed)
+
+`write_row` stamps `last_write_cycle` on every accepted write. `apply` counts
+the cells whose row carried another stamp (`Applied::stamped`) and `cascade`
+adds `Column::LastWriteCycle` to the next round when that is non-zero.
+`tests/stamp.rs`, 2 tests, one disable run.
+
+### Cost after P0 (release, 40 rows, median of 9 batches, this machine)
+
+| step | ns per call | allocations | bytes |
+|---|---|---|---|
+| `act` | 6407 | 90 | 11620 |
+| `apply`, one intent (re-evaluates) | 6480 | 93 | 11700 |
+| `cascade`, 3 rounds | 19218 | 287 | 37223 |
+
+`apply` was 72 ns when it only wrote. `act` grew by one allocation and 480
+bytes: the intent's copy of its method reference.
+
+### Ledger, R7 on #2064
+
+| Item | Contract (file) | Oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| P0a | `apply`, `ApplyRefusal::Stale` (`act.rs`) | owner columns and stamps before and after | an unread change leaves the intent valid | guard joins, guard leaves, operand changes: refused, zero writes. 3 disables | INTEGRATION VERIFIED on `MailboxSoA<64>` |
+| P0b | `writable`, `ActRefusal::UnsupportedColumn` | lanes lent, scalar by hand | an unknown IRI is scratch | `sigma` target refused before any read. 1 disable | INTEGRATION VERIFIED |
+| P0c | `Applied::stamped`, `cascade` | methods by hand | a method ON the stamp fires in round 2 | rows already stamped trigger nothing. 1 disable | INTEGRATION VERIFIED |
+
+Not established by R7: that two methods of one round do not read what the
+other writes (a round reads one publication and writes afterwards, in
+ascending `MethodId` order, by design); anything about writers outside this
+module that hold their own `&mut`.
