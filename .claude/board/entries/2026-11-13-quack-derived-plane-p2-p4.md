@@ -1,4 +1,4 @@
-# 2026-11-13 — D-QUACK-DERIVED-PLANE-PROBE P2 to P4: what a derived plane inherits (lab)
+# 2026-11-13 — D-QUACK-DERIVED-PLANE-PROBE-P2-P4: what a derived plane inherits (lab)
 
 **Kind:** lab probe in `crates/quack-boundary-lab` (`src/derived.rs`, `tests/derived_plane.rs`, `tests/derived_plane_alloc.rs`, `examples/derived_plane_cost.rs`). No production crate changes; `LaneSource` and `LaneBinding` unchanged.
 **Grade:** MEASURED. Pass conditions committed in `b0272382c` before the tests ran.
