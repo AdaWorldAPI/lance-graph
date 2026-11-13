@@ -195,9 +195,9 @@ impl DerivedPlane {
         };
         let mut words = vec![0u64; keys.len().div_ceil(64)];
         for (r, &key) in keys.iter().enumerate() {
-            let word = visible
-                .get(key as usize / 64)
-                .ok_or(Refused::Plane(PlaneRefusal::ForeignKeyOutOfRange { row: r }))?;
+            let word = visible.get(key as usize / 64).ok_or(Refused::Plane(
+                PlaneRefusal::ForeignKeyOutOfRange { row: r },
+            ))?;
             if word >> (key % 64) & 1 == 1 {
                 words[r / 64] |= 1u64 << (r % 64);
             }
@@ -242,13 +242,13 @@ pub fn check_planes(
                 got: plane.recipe,
             });
         }
+        if plane.space != binding.selection() {
+            return Err(PlaneRefusal::Space { at });
+        }
         source
             .frames()
             .check(&plane.frame)
             .map_err(|why| PlaneRefusal::Frame { at, why })?;
-        if plane.space != binding.selection() {
-            return Err(PlaneRefusal::Space { at });
-        }
         if let Some(field) = field_of(plane.recipe) {
             if !binding.fields().has(field) {
                 return Err(PlaneRefusal::FieldNotBound { at, field });
