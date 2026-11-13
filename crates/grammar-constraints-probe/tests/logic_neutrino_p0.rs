@@ -13,10 +13,10 @@
 //! from another rule is substituted, or a lexicon revision is reused.
 
 use causal_edge::{CausalEdge64, Orientation};
-use grammar_constraints_probe::fixtures;
+use grammar_constraints_probe::fixtures::{self, Gold, GOLD};
 use grammar_constraints_probe::when::{
     self, ComposeRefusal, FramedPopulation, Lexicon, Physical, RuleDesc, RunRefusal, CLASS_COADDR,
-    EXPERIENCER, RECIPIENT,
+    EXPERIENCER, FRAME_NONE, RECIPIENT,
 };
 use grammar_constraints_probe::{has, tile, Tok, Vocab, TILE};
 use lance_graph_dt64::dr::{Frame, MapTable};
@@ -199,32 +199,38 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
         .expect("admitted lab experiencer mask");
 
     let map = table.map(&frame, TILE).expect("same sealed frame");
-    // The left corner is identical for all four tokens; the head frame
-    // is the indispensable missing argument of WHEN.
-    for (gid, want_recipient, want_experiencer) in [
-        (105u64, true, false), // geben: recipient
-        (302, false, true),    // gefallen: experiencer
-        (405, true, false),    // geben: recipient
-        (505, false, false),   // helfen: no declared frame, ABSTAIN
-    ] {
-        let tok = toks.iter().find(|t| t.gid == gid).expect("fixture token");
-        assert_eq!(
-            left_corner(tok),
-            &DATIVE_CANDIDATES,
-            "same left corner: {gid}"
-        );
+    // Expectations come from the fixture's gold annotation, which the rules
+    // never read. The left corner is identical for the four `obl:arg` datives;
+    // the head frame is the indispensable missing argument of WHEN.
+    let mut same_corner = 0;
+    for &(gid, gold) in &GOLD {
+        let tok = toks.iter().find(|t| t.gid == gid).expect("gold token");
         let local = map.local(gid).expect("known local position");
         assert_eq!(
             has(&recipient_mask, local),
-            want_recipient,
-            "{gid}: recipient"
+            gold == Gold::Recipient,
+            "{gid}: recipient vs gold {gold:?}"
         );
         assert_eq!(
             has(&experiencer_mask, local),
-            want_experiencer,
-            "{gid}: experiencer"
+            gold == Gold::Experiencer,
+            "{gid}: experiencer vs gold {gold:?}"
         );
+        if left_corner(tok) == DATIVE_CANDIDATES {
+            same_corner += 1;
+        }
     }
+    assert_eq!(
+        same_corner, 4,
+        "105, 302, 405 and 505 share one left corner"
+    );
+    assert_eq!(
+        GOLD.iter()
+            .filter(|g| matches!(g.1, Gold::Recipient | Gold::Experiencer))
+            .count(),
+        3,
+        "the gold must contain both roles or the comparison above is vacuous"
+    );
 
     // A nonmatching syntactic form must not be smuggled into the candidate
     // pool merely because it also carries German dative Case.
@@ -233,11 +239,14 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
 
     // The selector feeds the composition: only the methods it proposes for a
     // token are composed and consulted for that token.
-    let want = vec![
-        (105u64, vec![Candidate::Recipient]),
-        (302, vec![Candidate::Experiencer]),
-        (405, vec![Candidate::Recipient]),
-    ];
+    let want: Vec<(u64, Vec<Candidate>)> = GOLD
+        .iter()
+        .filter_map(|&(gid, gold)| match gold {
+            Gold::Recipient => Some((gid, vec![Candidate::Recipient])),
+            Gold::Experiencer => Some((gid, vec![Candidate::Experiencer])),
+            _ => None,
+        })
+        .collect();
     let run = |selector: fn(&Tok) -> &'static [Candidate]| {
         roles_under(selector, &toks, &store, &vocab, &lex, &pop, &table, &frame)
     };
@@ -297,28 +306,113 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
         Err(ComposeRefusal::DescriptionMismatch)
     ));
 
-    // Disabling the head-frame operand is a genuine RED control: both
-    // previously distinguished arguments now match both rules. This is an
-    // intentionally wrong alternate program, not an admitted DO.
-    let mut ablated = grammar_constraints_probe::Rules::prepare(
+    // Removing the head-frame condition is the RED control, on the same
+    // DT64-composed path as the answers above: two frame-less methods are
+    // registered in their own store, admitted, composed and run. Both now
+    // match every `obl:arg` dative, the unframed 505 included. This is an
+    // intentionally wrong pair of methods, not an admitted DO.
+    let frameless = |mut d: RuleDesc| {
+        d.frame = None;
+        d
+    };
+    let wrong_rules = [frameless(recipient.clone()), frameless(experiencer.clone())];
+    let mut wrong_store = BindStore::new();
+    when::register(
+        &mut wrong_store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        &wrong_rules,
+        &vocab,
+        &lex,
+    )
+    .expect("frame-less methods register");
+    let wrong_mask = |d: &RuleDesc| {
+        let mref = wrong_store
+            .method_ref(CLASS_COADDR, d.method)
+            .expect("frame-less ref");
+        when::compose(&wrong_store, &mref, d, Physical::CoAddressed, &vocab, &lex)
+            .expect("frame-less plan")
+            .run(&pop, &table, &frame, &where_mask)
+            .expect("frame-less mask")
+    };
+    let wrong_recipient = wrong_mask(&wrong_rules[0]);
+    let wrong_experiencer = wrong_mask(&wrong_rules[1]);
+    let at = |gid: u64| map.local(gid).expect("known local position");
+    assert!(
+        has(&wrong_recipient, at(302)) && has(&wrong_experiencer, at(105)),
+        "the frame ablation must create false positives; otherwise this negative control is vacuous"
+    );
+    assert!(has(&wrong_recipient, at(505)) && has(&wrong_experiencer, at(505)));
+    assert!(!has(&wrong_recipient, at(408)) && !has(&wrong_experiencer, at(408)));
+    assert!(!has(&recipient_mask, at(302)));
+    assert!(!has(&experiencer_mask, at(105)));
+
+    // Abstention is an answer of its own, not the absence of one. A third
+    // method, `obl:arg AND Dat AND head_frame = NONE`, goes through the same
+    // registration and composition and selects exactly 505: the dative whose
+    // head has no frame entry. 408 (not a candidate) and 105 (a recipient)
+    // are both outside it, so "no role" has two distinguishable causes.
+    let abstain = RuleDesc {
+        method: MethodId(3),
+        name: "AbstainNoFrame",
+        deprel: Some("obl:arg"),
+        case: Some("Dat"),
+        frame: Some(FRAME_NONE),
+    };
+    let mut abstain_store = BindStore::new();
+    when::register(
+        &mut abstain_store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        &[recipient.clone(), experiencer.clone(), abstain.clone()],
+        &vocab,
+        &lex,
+    )
+    .expect("three methods register");
+    let abstain_ref = abstain_store
+        .method_ref(CLASS_COADDR, abstain.method)
+        .expect("abstain ref");
+    let abstain_mask = when::compose(
+        &abstain_store,
+        &abstain_ref,
+        &abstain,
+        Physical::CoAddressed,
+        &vocab,
+        &lex,
+    )
+    .expect("abstain plan")
+    .run(&pop, &table, &frame, &where_mask)
+    .expect("abstain mask");
+    let abstained: Vec<u64> = toks
+        .iter()
+        .map(|t| t.gid)
+        .filter(|&g| has(&abstain_mask, at(g)))
+        .collect();
+    assert_eq!(abstained, vec![505]);
+    // The three answers are disjoint and cover every left-corner candidate.
+    for tok in toks.iter().filter(|t| !left_corner(t).is_empty()) {
+        let l = at(tok.gid);
+        let answers = [&recipient_mask, &experiencer_mask, &abstain_mask]
+            .iter()
+            .filter(|m| has(m, l))
+            .count();
+        assert_eq!(
+            answers, 1,
+            "{}: exactly one of role / role / abstain",
+            tok.gid
+        );
+    }
+    // Independent cross-check: the older hand-built abstention program
+    // (`EqU32Via` through the head pointer, no producer lane) names the same
+    // set.
+    let mut older = grammar_constraints_probe::Rules::prepare(
         &grammar_constraints_probe::Ids::bind(&mut vocab),
-        grammar_constraints_probe::Operands {
-            deprel: true,
-            case: true,
-            frame: false,
-        },
+        grammar_constraints_probe::Operands::ALL,
     );
     let base = grammar_constraints_probe::Population::bind(&toks, &mut vocab, &table, &frame)
         .expect("same fixture");
-    let wrong = ablated.run(&base, &table, &frame).expect("lab ablation");
-    let local_105 = map.local(105).unwrap();
-    let local_302 = map.local(302).unwrap();
-    assert!(
-        has(&wrong.recipient, local_302) && has(&wrong.experiencer, local_105),
-        "the frame ablation must create false positives; otherwise this negative control is vacuous"
-    );
-    assert!(!has(&recipient_mask, local_302));
-    assert!(!has(&experiencer_mask, local_105));
+    let readout = older.run(&base, &table, &frame).expect("older readout");
+    assert_eq!(readout.abstain_frame, abstain_mask);
 
     // Versioned producer facts are not transferable to another lexicon,
     // even though the byte selector and the source token shapes are equal.
@@ -353,11 +447,131 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
     ));
 }
 
+/// F. Das gibt mir zu denken. ("That makes me think.")
+///
+/// Hand-annotated in the same UD convention as the fixture corpus; not
+/// checked against a treebank. `mir` is an `obl:arg` dative under *geben*,
+/// so the lexicon's GIVE frame reads it as a recipient. In this idiom nothing
+/// is transferred: the single-annotator gold role is Experiencer.
+const F: [Tok; 6] = [
+    Tok {
+        gid: 601,
+        form: "Das",
+        lemma: "der",
+        deprel: "nsubj",
+        case: "Nom",
+        head: 602,
+    },
+    Tok {
+        gid: 602,
+        form: "gibt",
+        lemma: "geben",
+        deprel: "root",
+        case: "",
+        head: 0,
+    },
+    Tok {
+        gid: 603,
+        form: "mir",
+        lemma: "ich",
+        deprel: "obl:arg",
+        case: "Dat",
+        head: 602,
+    },
+    Tok {
+        gid: 604,
+        form: "zu",
+        lemma: "zu",
+        deprel: "mark",
+        case: "",
+        head: 605,
+    },
+    Tok {
+        gid: 605,
+        form: "denken",
+        lemma: "denken",
+        deprel: "xcomp",
+        case: "",
+        head: 602,
+    },
+    Tok {
+        gid: 606,
+        form: ".",
+        lemma: ".",
+        deprel: "punct",
+        case: "",
+        head: 602,
+    },
+];
+const F_GOLD: (u64, Gold) = (603, Gold::Experiencer);
+
+/// The gold annotation is able to disagree with the lexicon. On the fixture
+/// corpus every gold role is a function of the head lemma, so rules and gold
+/// cannot differ there. Sentence F is a case where they do, and the test pins
+/// the disagreement: a frame keyed by the head lemma alone gets it wrong.
+#[test]
+fn p0_gold_can_disagree_with_a_lemma_keyed_frame() {
+    let mut toks = fixtures::corpus();
+    toks.extend_from_slice(&F);
+    let (table, frame) = tile(12, &fixtures::gids(&toks));
+    let mut vocab = Vocab::new();
+    let lex = Lexicon::v0();
+    let pop =
+        FramedPopulation::produce(&toks, &mut vocab, &table, &frame, &lex).expect("corpus plus F");
+    let mut store = BindStore::new();
+    when::register(
+        &mut store,
+        CLASS_COADDR,
+        Physical::CoAddressed,
+        &[RuleDesc::recipient(), RuleDesc::experiencer()],
+        &vocab,
+        &lex,
+    )
+    .expect("two methods");
+    let (got, _) = roles_under(
+        left_corner,
+        &toks,
+        &store,
+        &vocab,
+        &lex,
+        &pop,
+        &table,
+        &frame,
+    );
+    let role_of = |gid: u64| {
+        got.iter()
+            .find(|g| g.0 == gid)
+            .map(|g| g.1.clone())
+            .unwrap_or_default()
+    };
+    let agrees = |gid: u64, gold: Gold| match gold {
+        Gold::Recipient => role_of(gid) == [Candidate::Recipient],
+        Gold::Experiencer => role_of(gid) == [Candidate::Experiencer],
+        _ => role_of(gid).is_empty(),
+    };
+    // The fixture gold still agrees everywhere with F present.
+    for &(gid, gold) in &GOLD {
+        assert!(agrees(gid, gold), "{gid}: {gold:?}");
+    }
+    // F: same left corner as the other datives, the rules say Recipient, the
+    // gold says Experiencer.
+    let mir = toks.iter().find(|t| t.gid == F_GOLD.0).expect("mir");
+    assert_eq!(left_corner(mir), &DATIVE_CANDIDATES);
+    assert_eq!(role_of(F_GOLD.0), [Candidate::Recipient]);
+    assert!(!agrees(F_GOLD.0, F_GOLD.1));
+    let scored = GOLD.len() + 1;
+    let correct =
+        GOLD.iter().filter(|g| agrees(g.0, g.1)).count() + usize::from(agrees(F_GOLD.0, F_GOLD.1));
+    assert_eq!((correct, scored), (6, 7), "rules against gold");
+}
+
 fn native_role_count(raw: &[u64], role: Orientation) -> usize {
+    native_count(raw, u64::from(role.code()) << 43, 0b111 << 43)
+}
+
+fn native_count(raw: &[u64], pattern: u64, care: u64) -> usize {
     // This is the EXISTING Quack MatchU64 lowering and mask-risc executor,
     // not a second role-mask evaluator.
-    let care = 0b111u64 << 43;
-    let pattern = u64::from(role.code()) << 43;
     let program = lower(&Query {
         filter: Filter::cmp(Col(0), Cmp::MatchU64 { pattern, care }),
         agg: Agg::Count,
@@ -387,49 +601,76 @@ fn accessor_role_count(raw: &[u64], role: Orientation) -> usize {
         .count()
 }
 
+/// Deterministic dense words: every CE64 field takes varied values.
+fn dense_words(n: usize, seed: u64) -> Vec<u64> {
+    let mut s = seed;
+    (0..n)
+        .map(|_| {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            s
+        })
+        .collect()
+}
+
 #[test]
 fn p1_role_selection_preserves_epistemic_independence() {
-    for n in [0usize, 1, 63, 64, 65, 256, 257] {
-        let mut edges: Vec<u64> = (0..n)
-            .map(|i| {
-                let mut edge = CausalEdge64(i as u64);
-                edge.set_orientation(match i % 3 {
-                    0 => Orientation::Recipient,
-                    1 => Orientation::Core,
-                    _ => Orientation::Beneficiary,
-                });
-                edge.0
-            })
-            .collect();
+    for n in [0usize, 1, 63, 64, 65, 256, 257, 4099] {
+        let mut edges = dense_words(n, 0x9E37_79B9_7F4A_7C15 ^ n as u64);
+
+        // Every role, against the canonical decoder; the eight selections
+        // partition the lane.
+        let mut total = 0;
+        for role in Orientation::ALL {
+            let expected = accessor_role_count(&edges, role);
+            assert_eq!(
+                native_role_count(&edges, role),
+                expected,
+                "Quack role mask and CE64 decoder differ at n={n} for {role:?}"
+            );
+            total += expected;
+        }
+        assert_eq!(total, n);
 
         let expected = accessor_role_count(&edges, Orientation::Recipient);
-        assert_eq!(
-            native_role_count(&edges, Orientation::Recipient),
-            expected,
-            "Quack role mask and CE64 decoder differ at n={n}"
-        );
-
-        // Flip just Topology2 bit 59 within the valid Open certification.
-        // The role field must remain untouched, and selection identical.
-        for word in &mut edges {
-            *word ^= 1u64 << 59;
+        if n >= 256 {
+            // The background is dense enough to expose a wrong mask: a care
+            // mask one bit too wide (bit 46, the inference mantissa's low
+            // bit) gives another count. On a zero background it would not.
+            assert!(expected > 0 && expected < n);
+            assert_ne!(
+                native_count(&edges, 2u64 << 43, 0b1111 << 43),
+                expected,
+                "a too-wide care mask must be visible at n={n}"
+            );
         }
-        assert_eq!(
-            accessor_role_count(&edges, Orientation::Recipient),
-            expected
-        );
-        assert_eq!(
-            native_role_count(&edges, Orientation::Recipient),
-            expected,
-            "Epi5 topology must not silently alter Haspelmath role selection at n={n}"
-        );
 
-        if n > 0 {
+        // Flip every bit of the Epi5 field (59..63), one at a time, in every
+        // word. The role field must remain untouched, and selection identical.
+        for bit in 59..64 {
+            for word in &mut edges {
+                *word ^= 1u64 << bit;
+            }
+            assert_eq!(
+                accessor_role_count(&edges, Orientation::Recipient),
+                expected
+            );
+            assert_eq!(
+                native_role_count(&edges, Orientation::Recipient),
+                expected,
+                "Epi5 bit {bit} must not alter Haspelmath role selection at n={n}"
+            );
+        }
+
+        if let Some(i) = edges
+            .iter()
+            .position(|&w| CausalEdge64(w).orientation() == Orientation::Recipient)
+        {
             // A genuine role mutation MUST change the answer, unlike Epi5.
-            let mut first = CausalEdge64(edges[0]);
-            assert_eq!(first.orientation(), Orientation::Recipient);
+            let mut first = CausalEdge64(edges[i]);
             first.set_orientation(Orientation::Core);
-            edges[0] = first.0;
+            edges[i] = first.0;
             assert_eq!(
                 native_role_count(&edges, Orientation::Recipient),
                 expected - 1,
