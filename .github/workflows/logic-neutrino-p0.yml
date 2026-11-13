@@ -1,0 +1,34 @@
+name: Logic neutrino P0/P1 lab
+
+on:
+  pull_request:
+    paths:
+      - 'crates/grammar-constraints-probe/**'
+      - 'docs/research/2026-11-13-ce64-logic-neutrino-p0-lab.md'
+      - '.github/workflows/logic-neutrino-p0.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  logic-neutrino:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout lance-graph
+        uses: actions/checkout@v4
+        with:
+          path: lance-graph
+
+      - name: Checkout AdaWorldAPI ndarray fork as sibling
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Execute P0/P1 no-skip differential tests
+        run: cargo test --manifest-path lance-graph/crates/grammar-constraints-probe/Cargo.toml --test logic_neutrino_p0 -- --nocapture
