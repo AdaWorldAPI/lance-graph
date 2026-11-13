@@ -8,8 +8,8 @@ DR	durable-map-table-via	lance-graph-dt64-lance::MapLog	CONFIRMED	crates/lance-g
 DR	owns-addressing	MapTable	CONFIRMED	crates/lance-graph-dt64/src/dr.rs:871	MapTable	versioned global-to-local map
 DR	owns-addressing	RouteLog	CONFIRMED	crates/lance-graph-dt64/src/dr.rs:210	RouteLog	DR64 append-only position-to-class routing
 DT64	admits	MethodRef	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:1181	admit	BindStore::admit; refusals GuardMismatch, SignatureRevisionMismatch, ForeignStore, BindingMismatch
-DT64	interprets-via	ClassView	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:823	ClassView	BindStore::register binds a class over a ClassView basis
-DT64	selects-fields-with	WideFieldMask	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:728	mask_where	Resolved::mask_where returns a WideFieldMask from PropertySpec meaning
+DT64	interprets-via	ClassView	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:824	ClassView	BindStore::register binds a class over a ClassView basis
+DT64	selects-fields-with	WideFieldMask	CONFIRMED	crates/lance-graph-dt64/src/lib.rs:729	mask_where	Resolved::mask_where returns a WideFieldMask from PropertySpec meaning
 Lance	owns-durable-storage	LanceCycleWriter	CONFIRMED	crates/lance-graph/src/graph/cycle_sink.rs:170	LanceCycleWriter	production cycle writer behind WalSink::commit_cycle
 LaneBinding	borrowed-by	LaneBinding::borrow_all	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:512	borrow_all	calls check, then hands out source-owned lanes
 LaneBinding	checked-by	LaneBinding::check	CONFIRMED	crates/lance-graph-dt64/src/lane.rs:374	pub fn check	re-checks route, frame, basis, coordinate space, scope before any borrow

@@ -299,8 +299,8 @@ CALL_GRAPH=ARTIFACT_MISSING
 ## Architecture
 
 - arch ClassView defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
-- arch DT64 interprets-via ClassView [CONFIRMED] validation=ANCHOR-MISSING — crates/lance-graph-dt64/src/lib.rs:823 CONFIRMED
-- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=ANCHOR-MISSING — crates/lance-graph-dt64/src/lib.rs:728 CONFIRMED
+- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:824 CONFIRMED
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:729 CONFIRMED
 - arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.

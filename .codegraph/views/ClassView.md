@@ -367,4 +367,4 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Architecture
 
 - arch ClassView defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
-- arch DT64 interprets-via ClassView [CONFIRMED] validation=ANCHOR-MISSING — crates/lance-graph-dt64/src/lib.rs:823 CONFIRMED
+- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:824 CONFIRMED
