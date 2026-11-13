@@ -4,7 +4,7 @@ Roadmap `.claude/plans/virtual-address-superpowers-roadmap-v1.md` (PROPOSED / DO
 
 | D-id | Deliverable | Status |
 |---|---|---|
-| D-VAS-A1..A4 | The mailbox as a source: frame, `LaneSource`, `SelectionSource`, typed selection folds | A1, A2 In PR (R1, plan `d-vas-implementation-v1.md`): publication token + `lance-graph-mailbox-lanes`; a frame that outlives a borrow BLOCKED. A3, A4 Queued |
+| D-VAS-A1..A4 | The mailbox as a source: frame, `LaneSource`, `SelectionSource`, typed selection folds | A1, A2 In PR (R1, plan `d-vas-implementation-v1.md`): publication token + `lance-graph-mailbox-lanes`; a frame that outlives a borrow BLOCKED. A3 In PR (R2: `MailboxLanes: SelectionSource`). A4 Queued |
 | D-VAS-B1..B2 | `NodeGuid` to a current source-local coordinate; version-bound virtual property | Proposed; B1 needs an authority decision |
 | D-VAS-C1..C6 | Behaviour-lens association, route-bound admission, guard contract, `Guard` to Quack seam, mask-plane socket, UNKNOWN | C1 direct class and C2 (`BindStore::admit_routed`) In PR (R1). C1 separate lens, C3 to C6 Queued |
 | D-VAS-D1..D4 | Operand boundary over `reads`, execution, write-back, ON from a real change | D1 In PR (R1). D2 to D4 Queued |

@@ -3,7 +3,7 @@
 crate: lance-graph-mailbox-lanes
 path: crates/lance-graph-mailbox-lanes
 workspace: member
-digest: 18583aadb0b0f0c3
+digest: 3428705882aa20b8
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -21,36 +21,43 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- enum Column [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:40 CONFIRMED
-- enum ColumnRefusal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:55 CONFIRMED
-- const Column::ALL [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:64 CONFIRMED
-- fn Column::iri [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:74 CONFIRMED
-- fn Column::from_iri [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:85 CONFIRMED
-- struct MailboxLanes [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:109 CONFIRMED
-- fn MailboxLanes<'a,N>::new [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:119 CONFIRMED
-- fn MailboxLanes<'a,N>::frame_store [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:135 CONFIRMED
-- fn MailboxLanes<'a,N>::seal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:141 CONFIRMED
-- fn MailboxLanes<'a,N>::space [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:147 CONFIRMED
-- fn MailboxLanes<'a,N>::rows [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:156 CONFIRMED
+- enum Column [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:49 CONFIRMED
+- enum ColumnRefusal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:64 CONFIRMED
+- const Column::ALL [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:73 CONFIRMED
+- fn Column::iri [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:83 CONFIRMED
+- fn Column::from_iri [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:94 CONFIRMED
+- enum Keep [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:120 CONFIRMED
+- enum SelectionRefusal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:140 CONFIRMED
+- struct MailboxLanes [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:148 CONFIRMED
+- fn MailboxLanes<'a,N>::new [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:160 CONFIRMED
+- fn MailboxLanes<'a,N>::frame_store [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:177 CONFIRMED
+- fn MailboxLanes<'a,N>::seal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:183 CONFIRMED
+- fn MailboxLanes<'a,N>::space [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:189 CONFIRMED
+- fn MailboxLanes<'a,N>::rows [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:198 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_order [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:223 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_where [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:231 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_concat [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:240 CONFIRMED
 
 ## Imports from in-scope crates
 
 ### cognitive-shader-driver
-- use cognitive_shader_driver::mailbox_soa::Published — crates/lance-graph-mailbox-lanes/src/lib.rs:30 CONFIRMED
+- use cognitive_shader_driver::mailbox_soa::Published — crates/lance-graph-mailbox-lanes/src/lib.rs:39 CONFIRMED
 ### lance-graph-contract
-- use lance_graph_contract::ontology::FieldRef — crates/lance-graph-mailbox-lanes/src/lib.rs:31 CONFIRMED
-- use lance_graph_contract::soa_view::MailboxSoaView — crates/lance-graph-mailbox-lanes/src/lib.rs:32 CONFIRMED
+- use lance_graph_contract::ontology::FieldRef — crates/lance-graph-mailbox-lanes/src/lib.rs:40 CONFIRMED
+- use lance_graph_contract::soa_view::MailboxSoaView — crates/lance-graph-mailbox-lanes/src/lib.rs:41 CONFIRMED
 ### lance-graph-dt64
-- use lance_graph_dt64::dr::Frame — crates/lance-graph-mailbox-lanes/src/lib.rs:33 CONFIRMED
-- use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-mailbox-lanes/src/lib.rs:33 CONFIRMED
-- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-mailbox-lanes/src/lib.rs:33 CONFIRMED
-- use lance_graph_dt64::dr::Scope — crates/lance-graph-mailbox-lanes/src/lib.rs:33 CONFIRMED
-- use lance_graph_dt64::CoordSpace — crates/lance-graph-mailbox-lanes/src/lib.rs:34 CONFIRMED
-- use lance_graph_dt64::LaneAddr — crates/lance-graph-mailbox-lanes/src/lib.rs:34 CONFIRMED
-- use lance_graph_dt64::LaneSource — crates/lance-graph-mailbox-lanes/src/lib.rs:34 CONFIRMED
-- use lance_graph_dt64::SchemaRev — crates/lance-graph-mailbox-lanes/src/lib.rs:34 CONFIRMED
+- use lance_graph_dt64::dr::Frame — crates/lance-graph-mailbox-lanes/src/lib.rs:42 CONFIRMED
+- use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-mailbox-lanes/src/lib.rs:42 CONFIRMED
+- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-mailbox-lanes/src/lib.rs:42 CONFIRMED
+- use lance_graph_dt64::dr::Scope — crates/lance-graph-mailbox-lanes/src/lib.rs:42 CONFIRMED
+- use lance_graph_dt64::CoordSpace — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
+- use lance_graph_dt64::LaneAddr — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
+- use lance_graph_dt64::LaneSource — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
+- use lance_graph_dt64::SchemaRev — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
+- use lance_graph_dt64::SelAddr — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
+- use lance_graph_dt64::SelectionSource — crates/lance-graph-mailbox-lanes/src/lib.rs:43 CONFIRMED
 ### lance-graph-mask-risc
-- use lance_graph_mask_risc::LaneRef — crates/lance-graph-mailbox-lanes/src/lib.rs:35 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/lance-graph-mailbox-lanes/src/lib.rs:44 CONFIRMED
 
 ## Calls
 

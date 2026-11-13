@@ -63,7 +63,30 @@ that asks the socket directly was added; both then exit 101.
 - **Cost.** Nothing in R1 is measured.
 - Selections, `NodeGuid`, guards and effects: R2 to R4.
 
-## R2 to R6
+## R2: selection and identity
 
-Not started. Order: A3 + B1 + B2 + A4, then C1(b) + C3 to C6, then D2 to
-D4, then E1, then F.
+### A3, source-issued selections (done)
+
+`MailboxLanes` implements `SelectionSource`. It issues an order by a column,
+a filter by a column comparison and the concatenation of two issued
+selections; a caller cannot hand in positions. The lists are views of one
+publication and live in the socket. `dr256_ternlog_lab::OrderIndex` /
+`SealedOrder` are not reused: they live in a lab crate and take `i32` keys.
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| A3 | `MailboxLanes: SelectionSource`, `issue_order`, `issue_where`, `issue_concat` (`lance-graph-mailbox-lanes/src/lib.rs`); `LaneBinding::selected` (`lane.rs:463`) | a sort of `(value, row)` pairs, a filter and per-row counts over `owner.meta` | 48-row order equal to the oracle and really reordered; a filter keeping 24 rows in row order; a bag where kept rows occur twice; positions lent, not rebuilt | unissued name; another mailbox; a second socket over the same publication; a foreign frame or address asked directly; concatenation of an unissued name; the 65,537th name. Disables, all exit 101: sort removed, `<` as `<=`, concat deduplicating, frame check removed, name wrapping, space/scope check removed | INTEGRATION VERIFIED on `MailboxSoA<64>` |
+
+Tests: `tests/selection.rs`, 3 tests, committed before the run, green on the
+first run.
+
+Not established: a selection that outlives its publication (same limit as
+the frame); filters other than one unsigned column comparison; cost.
+
+### B1, B2, A4
+
+Not started.
+
+## R3 to R6
+
+Not started. Order: C1(b) + C3 to C6, then D2 to D4, then E1, then F.
