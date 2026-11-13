@@ -249,6 +249,7 @@ lance-graph-dt64	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/C
 lance-graph-dt64	soa64-u64-lab	normal	false	-	-	crates/soa64-u64-lab/Cargo.toml:16	CONFIRMED	yes
 lance-graph-dt64	virtual-address-lab	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:10	CONFIRMED	yes
 lance-graph-hydrate	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:25	CONFIRMED	yes
+lance-graph-mailbox-lanes	virtual-address-lab	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:24	CONFIRMED	yes
 lance-graph-mask-risc	cognitive-polyfill-probe	normal	false	-	-	crates/cognitive-polyfill-probe/Cargo.toml:16	CONFIRMED	yes
 lance-graph-mask-risc	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:21	CONFIRMED	yes
 lance-graph-mask-risc	d-diamond-1-probe	normal	false	-	-	crates/d-diamond-1-probe/Cargo.toml:18	CONFIRMED	yes
@@ -332,6 +333,7 @@ lance-graph-r2il	lance-graph-nal	normal	false	-	-	crates/lance-graph-nal/Cargo.t
 lance-graph-r2il	lance-graph-onnx	dev	false	-	-	crates/lance-graph-onnx/Cargo.toml:18	CONFIRMED	yes
 lance-graph-r2il	lance-graph-relalg	normal	false	-	-	crates/lance-graph-relalg/Cargo.toml:17	CONFIRMED	yes
 lance-graph-r2il	r2il-mask-abi-probe	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:24	CONFIRMED	yes
+lance-graph-r2il	virtual-address-lab	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:25	CONFIRMED	yes
 lance-graph-rbac	lance-graph-callcenter	normal	false	-	-	crates/lance-graph-callcenter/Cargo.toml:21	CONFIRMED	yes
 lance-graph-rbac	lance-graph-consumer-conformance	normal	false	-	-	crates/lance-graph-consumer-conformance/Cargo.toml:23	CONFIRMED	yes
 lance-graph-relalg	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:20	CONFIRMED	yes

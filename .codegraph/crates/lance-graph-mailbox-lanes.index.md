@@ -21,6 +21,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep virtual-address-lab dev — crates/virtual-address-lab/Cargo.toml:24 CONFIRMED
 
 ## Public items
 

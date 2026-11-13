@@ -28,6 +28,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-onnx dev — crates/lance-graph-onnx/Cargo.toml:18 CONFIRMED
 - rdep lance-graph-relalg normal — crates/lance-graph-relalg/Cargo.toml:17 CONFIRMED
 - rdep r2il-mask-abi-probe dev — crates/r2il-mask-abi-probe/Cargo.toml:24 CONFIRMED
+- rdep virtual-address-lab dev — crates/virtual-address-lab/Cargo.toml:25 CONFIRMED
 
 ## Public items
 

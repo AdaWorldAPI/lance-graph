@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 115681c5a4ac4dac
+digest: 62cdee8010a1cdf1
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -15,8 +15,10 @@ Generated; the code is the truth. See ../index.md.
 - dep dr256-ternlog-lab normal — crates/virtual-address-lab/Cargo.toml:17 CONFIRMED
 - dep lance-graph-contract normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
 - dep lance-graph-dt64 normal — crates/virtual-address-lab/Cargo.toml:10 CONFIRMED
+- dep lance-graph-mailbox-lanes dev — crates/virtual-address-lab/Cargo.toml:24 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/virtual-address-lab/Cargo.toml:11 CONFIRMED
 - dep lance-graph-quack normal — crates/virtual-address-lab/Cargo.toml:12 CONFIRMED
+- dep lance-graph-r2il dev — crates/virtual-address-lab/Cargo.toml:25 CONFIRMED
 - dep lance-graph-report normal — crates/virtual-address-lab/Cargo.toml:14 CONFIRMED
 
 ## Depended on by
