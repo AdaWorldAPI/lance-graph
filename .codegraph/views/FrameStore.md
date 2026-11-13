@@ -47,10 +47,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/source.rs:142 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:255 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:35 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:247 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:273 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:304 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:362 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:253 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:279 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:310 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:368 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:20 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:145 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:27 POSSIBLE
@@ -112,8 +112,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/quack-boundary-lab/src/lib.rs:135 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:162 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:208 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:356 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:485 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:365 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:494 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:171 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:188 POSSIBLE

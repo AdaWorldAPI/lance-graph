@@ -15,7 +15,7 @@ deepnsm	crates/deepnsm	excluded	f45100c04ced13be
 deepnsm-v2	crates/deepnsm-v2	excluded	18622ced3a73a5b2
 dr-isa-stream-lab	crates/dr-isa-stream-lab	excluded	d41e659457cb13a5
 dr-select-k-lab	crates/dr-select-k-lab	excluded	c76b4e75d87f8356
-dr256-ternlog-lab	crates/dr256-ternlog-lab	member	db72658c42b0d148
+dr256-ternlog-lab	crates/dr256-ternlog-lab	member	dd9b26d2dd3f1c8f
 drf-focus-probe	crates/drf-focus-probe	excluded	bc1dcb22072bc2dd
 drisa-register-probe	crates/drisa-register-probe	excluded	768c284303f15cf2
 dt64-admission-probe	crates/dt64-admission-probe	excluded	87cddaa68532925e
@@ -82,7 +82,7 @@ onebrc-probe	crates/onebrc-probe	excluded	f1c0ac8eb010404b
 p64-bridge	crates/p64-bridge	excluded	213994c027c71741
 perturbation-sim	crates/perturbation-sim	excluded	b98b8bb21938438d
 pg-parity-harness	crates/pg-parity-harness	member	11e53762034e9f10
-quack-boundary-lab	crates/quack-boundary-lab	member	b221172e4792f20c
+quack-boundary-lab	crates/quack-boundary-lab	member	f53addc65dcf11e8
 quasicryth-research	crates/quasicryth-research	excluded	0b33aba384794485
 r2il-mask-abi-probe	crates/r2il-mask-abi-probe	excluded	30d0ad7f4bbddcc6
 reader-lm	crates/reader-lm	excluded	8d6cc81794eba1b4

@@ -239,6 +239,15 @@ impl Source {
         }
     }
 
+    /// Rewrite the `amount` lane (`f(old)` per row). The frame does NOT move.
+    /// A caller that means a new storage revision calls
+    /// [`Source::advance_source`] as well.
+    pub fn rewrite_amount(&mut self, f: impl Fn(i32) -> i32) {
+        for v in &mut self.amount {
+            *v = f(*v);
+        }
+    }
+
     /// The source declares a new storage revision: every frame sealed before
     /// this is stale. Row order and lane ids are unchanged.
     pub fn advance_source(&mut self) {

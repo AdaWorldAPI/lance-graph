@@ -23,6 +23,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/cg-beh-probe/src/fixture.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
+- use lance_graph_contract::class_view::WideFieldMask — crates/dr256-ternlog-lab/src/bound_planes.rs:14 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
@@ -48,7 +49,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/behaviour.rs:18 POSSIBLE
 - use lance_graph_contract::class_view::WideFieldMask — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (395 total)
+## Textual occurrences (398 total)
 
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:140 POSSIBLE
@@ -58,23 +59,26 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/fixture.rs:267 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:3 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:109 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:14 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:36 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:47 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:5 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:56 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:131 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:138 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:143 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:156 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:423 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:469 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:599 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:632 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:665 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:707 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:783 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:915 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:1041 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:1214 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:132 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:139 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:144 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:157 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:429 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:475 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:605 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:638 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:671 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:713 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:789 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:921 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1047 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1220 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:35 POSSIBLE
 - crates/drisa-register-probe/src/lib.rs:441 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
@@ -347,9 +351,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:219 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:353 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:74 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:148 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:223 POSSIBLE
 - truncated at 300
 
 ## Architecture

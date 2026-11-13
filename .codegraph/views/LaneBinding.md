@@ -17,6 +17,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/cube.rs:8 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/gemm.rs:14 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/dr-isa-stream-lab/src/shape.rs:49 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/dr256-ternlog-lab/src/bound_planes.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
@@ -32,7 +33,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/method.rs:12 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 
-## Textual occurrences (93 total)
+## Textual occurrences (96 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -49,11 +50,14 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/shape.rs:257 POSSIBLE
 - crates/dr-isa-stream-lab/src/shape.rs:291 POSSIBLE
 - crates/dr-isa-stream-lab/src/shape.rs:358 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:2 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:16 POSSIBLE
+- crates/dr256-ternlog-lab/src/bound_planes.rs:25 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:20 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:589 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:633 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:1203 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:595 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:639 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:1209 POSSIBLE
 - crates/duckdb-selvec-compat/src/lib.rs:48 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:3 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
@@ -96,13 +100,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/quack-boundary-lab/src/derived.rs:273 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:14 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:440 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:452 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:471 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:507 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:545 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:593 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:600 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:449 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:461 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:480 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:516 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:554 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:602 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:609 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:5 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:181 POSSIBLE
