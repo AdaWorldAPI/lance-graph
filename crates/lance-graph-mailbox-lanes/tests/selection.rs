@@ -294,3 +294,43 @@ fn a_selection_address_belongs_to_one_socket() {
     assert!(twin.borrow_positions(&addr).is_none());
     assert_ne!(Some(addr), twin.selection_of(filter, &twin.seal()));
 }
+
+/// D-VAS-A4, as it stands. The shipped selection fold (`execute_sel`,
+/// through `fold_bound_selection`) admits `i32` lanes only, and the mailbox
+/// lends `u32` and `u64`. FAILS IF: a fold over a mailbox lane returns a
+/// value instead of the typed refusal, or the witness itself is refused.
+#[test]
+fn the_shipped_fold_refuses_the_mailboxs_lane_kinds() {
+    use lance_graph_mask_risc::ExecError;
+    use lance_graph_report::bound_sel::{fold_bound_selection, BoundFold, BoundSelRefusal};
+    let m = owner(7, ROWS);
+    let w = world();
+    let mut lanes = MailboxLanes::new(m.published(), READER);
+    let sel = lanes.issue_order(Column::Meta).unwrap();
+    let b = bind(&w, &lanes);
+    for field in [META, EDGES] {
+        // The witness holds: lane and positions are both lent.
+        assert!(b
+            .selected(&w.store, &w.view, lanes.frame_store(), &lanes, field, sel)
+            .is_ok());
+        for fold in [BoundFold::SumI32, BoundFold::CountGtI32 { t: 0 }] {
+            let refused = fold_bound_selection(
+                &b,
+                &w.store,
+                &w.view,
+                lanes.frame_store(),
+                &lanes,
+                field,
+                sel,
+                fold,
+            );
+            assert!(
+                matches!(
+                    refused,
+                    Err(BoundSelRefusal::Fold(ExecError::LaneKind { .. }))
+                ),
+                "field {field}: {refused:?}"
+            );
+        }
+    }
+}
