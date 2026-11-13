@@ -251,3 +251,102 @@ The brief's unit (32 uniform 16-byte facets, `16 * slot`) and the coded
 `NodeRow` (mixed tenants, table offsets, ten 16-byte fields including key and
 edges) are different layouts. The fixture is not rebuilt until it is decided
 which one the experiment measures.
+
+## 9. ABI512 correction, 2026-11-13: physical facets are not semantic formats
+
+Sections 7.1 and 8.2 read the 16-byte-wide entries of `VALUE_TENANTS` as if
+they were the physical unit and concluded "not 32 facets" and "no alignment".
+That mixed two things. Corrected model, with what the code does and does not
+say about it:
+
+- **Physical:** one ABI512 unit is 32 facets of 16 bytes; facet `k` is bytes
+  `16k..16k+16` of the record. Facet 0 is the `NodeGuid`. Coded:
+  `GUIDS_PER_NODE = 32`, const-asserted (`canonical_node.rs:918-923`).
+- **Semantic:** a field is a byte-aligned run that may be part of a facet or
+  cross facets. Sub-byte values are packed inside bytes: 24 x i4 = 96 bits =
+  12 bytes, two nibbles per byte, low nibble first
+  (`causal_witness.rs:270-282`).
+- **Recipe:** which bytes and nibbles a class reads is the ClassView's.
+
+Additionally read in full for this section: `facet.rs` lines 1-1004,
+`register128.rs` lines 1-435, `causal_witness.rs` lines 1-456 (each up to its
+test module). Not read: their tests, `atoms.rs`, `hotplug.rs`,
+`tekamolo_facet.rs`, `moore_tenant.rs`, `.claude/v3/soa_layout/*.md`.
+
+### 9.1 Difference between the coded carve and the facet model (reported, not resolved)
+
+The coded `VALUE_TENANTS` carve is contiguous in tenant order and was not laid
+out on 16-byte facet boundaries. Per tenant, the physical facets it covers
+(`facet@byte`):
+
+| tenant | row bytes | first .. last | in one facet |
+|---|---|---|---|
+| key (`NodeGuid`) | 0..16 | 0@0 .. 0@15 | yes |
+| edges | 16..32 | 1@0 .. 1@15 | yes |
+| Meta | 32..40 | 2@0 .. 2@7 | yes |
+| Qualia | 40..48 | 2@8 .. 2@15 | yes |
+| MaterializedEdges | 48..80 | 3@0 .. 4@15 | two whole facets |
+| Fingerprint | 80..112 | 5@0 .. 6@15 | two whole facets |
+| HelixResidue | 112..118 | 7@0 .. 7@5 | yes |
+| TurbovecResidue | 118..134 | 7@6 .. 8@5 | no |
+| Energy, Plasticity, EntityType | 134..144 | 8@6 .. 8@15 | yes |
+| Kanban | 144..152 | 9@0 .. 9@7 | yes |
+| FrozenStyle | 152..164 | 9@8 .. 10@3 | no |
+| LearnedStyle | 164..176 | 10@4 .. 10@15 | yes |
+| ExploreStyle | 176..188 | 11@0 .. 11@11 | yes |
+| Tekamolo (4 + 12) | 188..204 | 11@12 .. 12@11 | no; its 12-byte payload is 12@0..12@11 |
+| CausalWitness (4 + 12) | 204..220 | 12@12 .. 13@11 | no; its 12-byte payload is 13@0..13@11 |
+| EpisodicBasin | 220..252 | 13@12 .. 15@11 | no |
+| Register0 | 252..268 | 15@12 .. 16@11 | no |
+| Register1 | 268..284 | 16@12 .. 17@11 | no |
+| Nars16x8 | 284..300 | 17@12 .. 18@11 | no |
+| MoorePalettePairs | 300..316 | 18@12 .. 19@11 | no |
+| MooreNars16 | 316..332 | 19@12 .. 20@11 | no |
+
+So the code as it stands does NOT implement "one 16-byte tenant = one physical
+facet": every tenant from `Tekamolo` on starts at byte 12 of a facet, and a
+classid-prefixed 4 + 12 lane has its classid in one facet and its payload at
+the start of the next. Nothing is misaligned at the byte level, and no
+storage boundary falls inside a byte. Whether the carve is to be re-based
+onto facet boundaries is a layout decision (`ENVELOPE_LAYOUT_VERSION`), not
+taken here.
+
+### 9.2 Facet -> interpretation -> owner -> ISA operation
+
+| physical bytes | class-bound reading (where coded) | owner today | ISA operation that reads it in place |
+|---|---|---|---|
+| facet 0 | `NodeGuid`: `classid(4)` + 6 x `(u8:u8)`; `FacetCascade` lens, `CascadeShape` 6x2 / 4x3 / 3x4 (`facet.rs:94-100`, `:801-815`) | holder of the `[NodeRow]`; `MailboxSoA` has no key column | `EqU32Strided` (classid), `MatchFacetStrided` (12-byte payload at +4), `MatchFacet16Strided` |
+| facet 1 | second content-blind facet, read through `EdgeCodecFlavor` (`canonical_node.rs:646-708`) | holder of the `[NodeRow]`; none in `MailboxSoA` | same three |
+| 12 bytes at row 208 (facet 13, bytes 0..12) | `CausalWitnessFacet`: 24 signed `i4`, slot `s` = nibble `s & 1` of byte `s / 2` (`causal_witness.rs:270-282`). EXPERIMENTAL reading | holder of the `[NodeRow]` | `MatchFacetStrided` with a nibble care (`0x0F` / `0xF0`) -> mask -> `Count`; no fold SUMS nibbles |
+| 16 bytes at row 252 / 268 | `Register128`: four `u32`, or `I4x32` / `I8x16` under a `RegisterLaw` (`register128.rs:54-92`, `:188-236`) | holder of the `[NodeRow]`; the contract accessors COPY 16 bytes out (`:159-164`, `:358-368`) | `MatchFacet16Strided`; `MaskedStridedGroupSum` as 4 x `u32` (unsigned only) |
+| 12-byte style lanes | 12 x `u8` palette atoms or 6 x `(u8:u8)` rails (`soa_view.rs:181-251`); the 24 x i4 reading is "the third ... interpretation of the identical storage" (`causal_witness.rs:36-44`) | **`MailboxSoA<N>`**: `frozen_style`, `learned_style`, `explore_style` are `[[u8; 12]; N]`, a contiguous 12-byte stride the mailbox owns (`mailbox_soa.rs:170-176`) | `MatchFacetStrided` at stride 12 over the lane's own bytes |
+| `meta`, `edges` columns | `MetaWord` (`u32`), `CausalEdge64` (`u64`) | `MailboxSoA<N>`, lent as `&[u32]` / `&[u64]` (`mailbox_soa.rs:925-950`) | the contiguous `U32` / `U64` predicates |
+
+Not available for any of them: a fold over a position list (`execute_sel` is
+`i32` only), a signed nibble sum, and a DR frame on the mailbox.
+
+### 9.3 Test, written before it is run
+
+`crates/virtual-address-lab/tests/i4x24.rs`, two owners, one reading:
+
+1. **ABI512.** 300 `NodeRow`s held by the test; each row's 24 loci are packed
+   by a packer written in the test (not the contract's) into the 12 payload
+   bytes of the `CausalWitness` tenant. Checked against a plain `[i8; 24]`
+   table kept beside the rows:
+   - the payload starts at row byte 208 = facet 13, byte 0, and the 4 + 12
+     unit starts at facet 12, byte 12 (fails if the carve moves);
+   - `CausalWitnessFacet::from_register_ref` over the packet's own bytes reads
+     every nibble, and its address is inside the row slab (a borrow);
+   - `MatchFacetStrided` at stride 512 with a nibble care counts the rows
+     where one locus has one value, for a low-nibble and a high-nibble slot
+     and a negative value; the count equals the table's.
+2. **Mailbox owner.** A `MailboxSoA<64>` owns its `frozen_style` lane; the
+   same 24 loci are written through the owner's `set_style_lane`; the lane's
+   own bytes (`as_flattened`, no copy, address checked) are read at stride 12
+   by the same predicate; counts equal the table's. The 24 x i4 reading of a
+   style lane is a class election this test does not make; it shows the
+   mechanics only.
+
+Controls: a care of `0xFF` on the byte (reading the byte as one value) gives a
+different count than the nibble care; a row count of 0 matches is rejected as
+uninformative.

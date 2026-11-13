@@ -15,3 +15,7 @@ lance-graph-report = { path = "../lance-graph-report" }
 # `OrderIndex` and `SealedOrder`: the lab order whose positions the fixture
 # source lends. Nothing of it is copied.
 dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
+
+[dev-dependencies]
+# The real mailbox owner, for the 24 x i4 reading over a lane it owns.
+cognitive-shader-driver = { path = "../cognitive-shader-driver" }
