@@ -516,3 +516,80 @@ Not established by R7: that two methods of one round do not read what the
 other writes (a round reads one publication and writes afterwards, in
 ascending `MethodId` order, by design); anything about writers outside this
 module that hold their own `&mut`.
+
+## R8: the constant `Method` on the real mailbox path (review P1 to P4)
+
+### P1, convergence gate (done, as a test; no production code)
+
+Before this, two things were proven apart: the address law of
+`virtual_address_lab::Method { selection, orientation }` on the lab `Grid`, and
+ON / WHEN / DO on a real `MailboxSoA<64>` from DT64 bindings. `act` does not
+consume a `Method`, so E1 was no proof of the constant-method address path.
+
+`crates/virtual-address-lab/tests/mailbox_method.rs`, 4 tests on a real
+`MailboxSoA<64>`:
+
+```text
+publication -> socket-issued selection (issue_order) -> const Method (6 bytes)
+  -> Method::field (no lane) -> ON: methods_on(field)
+  -> LaneBinding::selected -> Method::cell -> source row, one value
+  -> WHEN: when(..), Fired::holds(row) -> DO: act(..) only where it holds
+```
+
+- Addressing oracle: the tile `[field][ordinal]` built from the owner's arrays
+  and a sort written in the test, then moved (lanes reversed, positions
+  reversed, transposed) per recipe name. It calls no `Recipe` code.
+- Behaviour oracle: the two methods by hand.
+- Sweep: 8 orientations x 4 fields x 40 ordinals = 1280 view cells; 320 have
+  no address (the class's scratch field), 640 have a candidate method.
+- Ledger (`behaviour_is_resolved_before_anything_is_read`): the field and the
+  ON candidates cost 0 lent lanes; a cell with no candidate lends 1 (its
+  value); a candidate whose guard is false at the row lends 1 + the guard's 2
+  fields and runs no effect; a fired one lends 1 + 2 + 2 + 1.
+- The tests passed on their first run: they exercise existing code. Three
+  disable runs, anchors asserted, exit 101: `Recipe::resolve` ignoring the
+  position flip; `Recipe::lane_at` ignoring the lane flip; `Fired::holds`
+  always true.
+
+The composition lives in the test. No function in a production crate takes a
+`Method`; `virtual-address-lab` is a lab crate.
+
+### P2, address carriers
+
+| Carrier | Enters the chain | Evidence | Status |
+|---|---|---|---|
+| ordinal of a socket-issued selection (source-local SoA) | `Method::cell` -> `LaneBinding::selected` | `a_constant_method_addresses_and_behaves_on_the_real_mailbox` | INTEGRATION VERIFIED |
+| id of DT64's `MapTable` at a sealed version | `Coordinates::row_of` -> `LaneBinding::lane` | `a_versioned_coordinate_enters_the_same_chain`: 40 ids x 3 fields, equal to the oracle and to the same row reached by ordinal | INTEGRATION VERIFIED; the test fills the map, no authority does |
+| V3 `FacetCascade` / strided 12-byte payload | none | `tests/i4x24.rs` reads 24 x i4 in place from a `[NodeRow]` slab and a mailbox style lane through mask-risc `StridedRef`, unbound | LAB VERIFIED as a read; NOT CONNECTED to ON / WHEN / DO |
+| `NodeGuid` | none | `row_for_local_key` answers `None` | optional, BLOCKED (B1), not required by any test here |
+
+Why the strided carrier does not enter: `MailboxLanes` refuses the `[u8; 12]`
+style columns (`ColumnRefusal::UnsupportedKind`), no `LaneSource` exists over a
+`[NodeRow]` slab, and a guard residual (`Res::U32` / `Res::I32`) lowers to a
+predicate over a plain lane, which mask-risc refuses on a strided one. Closing
+it needs a strided lane kind in a socket and a guard form that names a facet
+position; neither was invented.
+
+No code added in R1 to R8 reads a `NodeGuid`, so no V1 `family ++ identity`
+reading is applied to V3 bytes by it.
+
+### P3, the semantic boundaries, as the code has them
+
+| Question | Answer | Where |
+|---|---|---|
+| source write vs mapping change | a write goes through the owner (`write_row`, a setter, a public column) and ends every binding of the publication; a re-orientation (`Method::then`) or a map advance changes which row a view cell or id denotes, moves no byte and leaves the lane binding valid | `reorienting_is_not_a_write_and_a_write_is_not_a_reorientation`; `tests/coords.rs` |
+| which changed field makes a method eligible | a column the owner really changed in the previous round (target column, or the write stamp), matched to the class field with that IRI, then `methods_on(field)` | `cascade` |
+| which population WHEN evaluates | the populated prefix of the publication, all rows, as a membership mask; not a selection and not a bag | `when` |
+| which rows DO affects | the rows the guard keeps; the effect's scalar is one value, written at each of them | `act`, module doc |
+| does a routed `0xF###` lens have data-class provenance | only its route: the position routes to the lens, which carries its own basis and methods. No `data class -> lens` relation is stored or checked | R3, C1 |
+| who issues `Sym` planes | nobody; `when` refuses (`PlaneUnissued`) | R3, C5 BLOCKED |
+| who issues nullable validity | nobody for the mailbox; `when` refuses a Kleene guard (`ValidityUnstated`) | R3, C6 |
+
+### P4, optimisation: NOT STARTED
+
+Correctness first, as asked. Baseline after R7: `act` 6.4 us and 90
+allocations per call at 40 rows, every call cold. Not done: profiling of the
+allocation sources, a prepared plan and guard program reused across calls
+with explicit invalidation by publication and route, a warm measurement, and
+the cost of the `Method` path itself. `apply` now costs one `act`; a reused
+preparation would cut both.
