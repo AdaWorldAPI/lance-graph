@@ -314,16 +314,16 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n7["cognitive-shader-driver"]
-  n38["lance-graph-callcenter"]
-  n43["lance-graph-consumer-conformance"]
-  n44["lance-graph-contract"]
-  n49["lance-graph-glove-parity"]
-  n56["lance-graph-ogar"]
-  n58["lance-graph-ontology"]
-  n7 --> n58
-  n38 --> n58
-  n43 --> n58
-  n49 --> n58
-  n56 --> n58
-  n58 --> n44
+  n39["lance-graph-callcenter"]
+  n44["lance-graph-consumer-conformance"]
+  n45["lance-graph-contract"]
+  n50["lance-graph-glove-parity"]
+  n57["lance-graph-ogar"]
+  n59["lance-graph-ontology"]
+  n7 --> n59
+  n39 --> n59
+  n44 --> n59
+  n50 --> n59
+  n57 --> n59
+  n59 --> n45
 ```

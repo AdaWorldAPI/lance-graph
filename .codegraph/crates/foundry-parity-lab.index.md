@@ -265,13 +265,13 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n4["cg-beh-probe"]
   n23["foundry-parity-lab"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n52["lance-graph-mask-risc"]
-  n65["lance-graph-relalg"]
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n53["lance-graph-mask-risc"]
+  n66["lance-graph-relalg"]
   n4 --> n23
-  n23 --> n44
-  n23 --> n47
-  n23 --> n52
-  n23 --> n65
+  n23 --> n45
+  n23 --> n48
+  n23 --> n53
+  n23 --> n66
 ```

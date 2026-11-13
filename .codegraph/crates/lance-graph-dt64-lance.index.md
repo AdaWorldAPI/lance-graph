@@ -86,15 +86,15 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n33["lance-graph"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n48["lance-graph-dt64-lance"]
-  n60["lance-graph-planner"]
-  n69["lance-graph-supervisor"]
-  n48 --> n33
-  n48 --> n44
-  n48 --> n47
-  n48 --> n60
-  n48 --> n69
+  n34["lance-graph"]
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n49["lance-graph-dt64-lance"]
+  n61["lance-graph-planner"]
+  n70["lance-graph-supervisor"]
+  n49 --> n34
+  n49 --> n45
+  n49 --> n48
+  n49 --> n61
+  n49 --> n70
 ```

@@ -151,11 +151,11 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n31["jc"]
-  n32["jc-batch-probe"]
-  n86["sigker"]
-  n93["thinking-engine"]
-  n31 --> n86
-  n32 --> n31
-  n93 --> n31
+  n32["jc"]
+  n33["jc-batch-probe"]
+  n87["sigker"]
+  n94["thinking-engine"]
+  n32 --> n87
+  n33 --> n32
+  n94 --> n32
 ```

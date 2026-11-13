@@ -118,8 +118,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n12["deepnsm-v2"]
-  n36["lance-graph-arm-discovery"]
-  n44["lance-graph-contract"]
-  n12 --> n36
-  n36 --> n44
+  n37["lance-graph-arm-discovery"]
+  n45["lance-graph-contract"]
+  n12 --> n37
+  n37 --> n45
 ```

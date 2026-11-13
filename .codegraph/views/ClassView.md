@@ -12,10 +12,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for TestView — crates/cg-beh-probe/src/fixture.rs:88 POSSIBLE
 - impl ClassView for SwappedBasis — crates/cg-beh-probe/src/fixture.rs:294 POSSIBLE
 - impl ClassView for View — crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
-- impl ClassView for View — crates/dr256-ternlog-lab/src/lib.rs:106 POSSIBLE
+- impl ClassView for View — crates/dr256-ternlog-lab/src/lib.rs:107 POSSIBLE
 - impl ClassView for FixtureView — crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - impl ClassView for View — crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
-- impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
+- impl ClassView for LabView — crates/grammar-constraints-probe/src/when.rs:387 POSSIBLE
+- impl ClassView for LabView — crates/hidden-state-twins-probe/src/lib.rs:256 POSSIBLE
 - impl ClassView for PubView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
 - impl ClassView for FakeClasses cfg=test — crates/lance-graph-contract/src/class_view.rs:1600 POSSIBLE
 - impl ClassView for TestClasses cfg=test — crates/lance-graph-contract/src/selection.rs:539 POSSIBLE
@@ -25,7 +26,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl ClassView for WithPolyfill<'_,V> — crates/lance-graph-r2il/src/polyfill.rs:268 POSSIBLE
 - impl ClassView for View cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
 - impl ClassView for CatsSchema — crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
-- impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:360 POSSIBLE
+- impl ClassView for View — crates/quack-boundary-lab/src/lib.rs:377 POSSIBLE
 - impl ClassView for View — crates/soa64-u64-lab/src/socket.rs:53 POSSIBLE
 
 ## Imports (not resolved to a definition)
@@ -39,7 +40,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_b.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/arm_c.rs:26 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/foundry-parity-lab/src/bind.rs:4 POSSIBLE
-- use lance_graph_contract::class_view::ClassView — crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/grammar-constraints-probe/src/when.rs:37 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/hidden-state-twins-probe/src/lib.rs:33 POSSIBLE
 - use lance_graph_contract::class_view::ClassView cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
 - pub-use class_view::ClassView — crates/lance-graph-contract/src/lib.rs:250 POSSIBLE
 - use crate::class_view::ClassView — crates/lance-graph-contract/src/selection.rs:67 POSSIBLE
@@ -56,7 +58,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/quack-boundary-lab/src/lib.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 
-## Textual occurrences (317 total)
+## Textual occurrences (319 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
@@ -76,8 +78,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:35 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:4 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:33 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:83 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:106 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:84 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:107 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:37 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:201 POSSIBLE
 - crates/dt64-hotplug-probe/src/lib.rs:17 POSSIBLE
@@ -91,8 +93,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/bind.rs:17 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:91 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:94 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:33 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:356 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:37 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:387 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:33 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:256 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:13 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:65 POSSIBLE
 - crates/lance-graph-contract/src/action.rs:12 POSSIBLE
@@ -356,8 +360,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source/tests.rs:599 POSSIBLE
 - crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - crates/lance-graph-sap/src/schema.rs:301 POSSIBLE
-- crates/lance-graph/src/soa_config.rs:123 POSSIBLE
-- crates/ogar-behavior-probe/src/projection.rs:21 POSSIBLE
 - truncated at 300
 
 ## Architecture

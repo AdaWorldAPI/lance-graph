@@ -63,6 +63,7 @@ candle-nn	thinking-engine	normal	true	-	calibration	crates/thinking-engine/Cargo
 candle-transformers	thinking-engine	normal	true	-	calibration	crates/thinking-engine/Cargo.toml:31	CONFIRMED	no
 causal-edge	cognitive-shader-driver	normal	false	-	-	crates/cognitive-shader-driver/Cargo.toml:237	CONFIRMED	yes
 causal-edge	deepnsm-v2	normal	false	-	-	crates/deepnsm-v2/Cargo.toml:32	CONFIRMED	yes
+causal-edge	grammar-constraints-probe	dev	false	-	-	crates/grammar-constraints-probe/Cargo.toml:24	CONFIRMED	yes
 causal-edge	lance-graph	dev	false	-	-	crates/lance-graph/Cargo.toml:174	CONFIRMED	yes
 causal-edge	lance-graph-mask-risc	dev	false	-	-	crates/lance-graph-mask-risc/Cargo.toml:36	CONFIRMED	yes
 causal-edge	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:14	CONFIRMED	yes
@@ -119,6 +120,7 @@ futures	surreal_container	normal	false	-	-	crates/surreal_container/Cargo.toml:6
 glob	lance-graph-contract	build	false	-	-	crates/lance-graph-contract/Cargo.toml:24	CONFIRMED	no
 half	thinking-engine	dev	false	-	-	crates/thinking-engine/Cargo.toml:45	CONFIRMED	no
 hf-hub	thinking-engine	normal	true	-	calibration	crates/thinking-engine/Cargo.toml:32	CONFIRMED	no
+hidden-state-twins-probe	quack-boundary-lab	dev	false	-	-	crates/quack-boundary-lab/Cargo.toml:17	CONFIRMED	yes
 highheelbgz	thinking-engine	normal	false	-	-	crates/thinking-engine/Cargo.toml:20	CONFIRMED	yes
 hmac	lance-graph-sap	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:14	CONFIRMED	no
 holograph	bgz-tensor	normal	false	-	-	crates/bgz-tensor/Cargo.toml:26	CONFIRMED	yes
@@ -169,6 +171,7 @@ lance-graph-contract	dt64-admission-probe	normal	false	-	-	crates/dt64-admission
 lance-graph-contract	dt64-hotplug-probe	normal	false	-	-	crates/dt64-hotplug-probe/Cargo.toml:18	CONFIRMED	yes
 lance-graph-contract	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:24	CONFIRMED	yes
 lance-graph-contract	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:18	CONFIRMED	yes
+lance-graph-contract	hidden-state-twins-probe	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:18	CONFIRMED	yes
 lance-graph-contract	jc	dev	false	-	-	crates/jc/Cargo.toml:34	CONFIRMED	yes
 lance-graph-contract	lance-graph	dev	false	-	-	crates/lance-graph/Cargo.toml:163	CONFIRMED	yes
 lance-graph-contract	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:50	CONFIRMED	yes
@@ -223,6 +226,7 @@ lance-graph-dt64	dt64-admission-probe	normal	false	-	-	crates/dt64-admission-pro
 lance-graph-dt64	dt64-hotplug-probe	normal	false	-	-	crates/dt64-hotplug-probe/Cargo.toml:19	CONFIRMED	yes
 lance-graph-dt64	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:22	CONFIRMED	yes
 lance-graph-dt64	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:14	CONFIRMED	yes
+lance-graph-dt64	hidden-state-twins-probe	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:14	CONFIRMED	yes
 lance-graph-dt64	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:30	CONFIRMED	yes
 lance-graph-dt64	lance-graph-codegraph	normal	false	-	-	crates/lance-graph-codegraph/Cargo.toml:13	CONFIRMED	yes
 lance-graph-dt64	lance-graph-dir-sim	dev	false	-	-	crates/lance-graph-dir-sim/Cargo.toml:51	CONFIRMED	yes
@@ -245,6 +249,7 @@ lance-graph-mask-risc	drisa-register-probe	normal	false	-	-	crates/drisa-registe
 lance-graph-mask-risc	duckdb-selvec-compat	dev	false	-	-	crates/duckdb-selvec-compat/Cargo.toml:19	CONFIRMED	yes
 lance-graph-mask-risc	foundry-parity-lab	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:23	CONFIRMED	yes
 lance-graph-mask-risc	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:16	CONFIRMED	yes
+lance-graph-mask-risc	hidden-state-twins-probe	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:16	CONFIRMED	yes
 lance-graph-mask-risc	holo-h14d-probe	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:17	CONFIRMED	yes
 lance-graph-mask-risc	jc	dev	false	-	-	crates/jc/Cargo.toml:44	CONFIRMED	yes
 lance-graph-mask-risc	jc-batch-probe	normal	false	-	-	crates/jc-batch-probe/Cargo.toml:16	CONFIRMED	yes
@@ -290,6 +295,7 @@ lance-graph-planner	lance-graph-supervisor	normal	true	-	cycle-driver	crates/lan
 lance-graph-quack	d-diamond-1-probe	normal	false	-	-	crates/d-diamond-1-probe/Cargo.toml:17	CONFIRMED	yes
 lance-graph-quack	drf-focus-probe	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:31	CONFIRMED	yes
 lance-graph-quack	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:20	CONFIRMED	yes
+lance-graph-quack	hidden-state-twins-probe	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:20	CONFIRMED	yes
 lance-graph-quack	jc	dev	false	-	-	crates/jc/Cargo.toml:43	CONFIRMED	yes
 lance-graph-quack	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:57	CONFIRMED	yes
 lance-graph-quack	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:25	CONFIRMED	yes
@@ -485,6 +491,7 @@ sha2	lance-graph-hydrate	normal	false	-	-	crates/lance-graph-hydrate/Cargo.toml:
 sha2	lance-graph-ontology	normal	false	-	-	crates/lance-graph-ontology/Cargo.toml:41	CONFIRMED	no
 sha2	lance-graph-sap	normal	false	-	-	crates/lance-graph-sap/Cargo.toml:15	CONFIRMED	no
 sha2	tract-harvest-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:27	CONFIRMED	no
+shakmaty	hidden-state-twins-probe	dev	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:26	CONFIRMED	no
 sigker	jc	normal	true	-	hambly-lyons	crates/jc/Cargo.toml:22	CONFIRMED	yes
 snafu	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:85	CONFIRMED	no
 snafu	lance-graph-catalog	normal	false	-	-	crates/lance-graph-catalog/Cargo.toml:21	CONFIRMED	no
@@ -565,6 +572,7 @@ ureq	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:23	C
 uuid	lance-graph	dev	false	-	-	crates/lance-graph/Cargo.toml:172	CONFIRMED	no
 walkdir	dto-class-check	normal	false	-	-	tools/dto-class-check/Cargo.toml:14	CONFIRMED	no
 walkdir	neural-debug	normal	false	-	-	crates/neural-debug/Cargo.toml:15	CONFIRMED	no
+weather-poc	dr256-ternlog-lab	dev	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:16	CONFIRMED	yes
 webpki-roots	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:24	CONFIRMED	no
 wiremock	lance-graph-catalog	dev	false	-	-	crates/lance-graph-catalog/Cargo.toml:29	CONFIRMED	no
 zip	lance-graph-hydrate	normal	false	-	-	crates/lance-graph-hydrate/Cargo.toml:43	CONFIRMED	no

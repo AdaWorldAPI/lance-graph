@@ -26,6 +26,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep duckdb-selvec-compat dev — crates/duckdb-selvec-compat/Cargo.toml:19 CONFIRMED
 - rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:23 CONFIRMED
 - rdep grammar-constraints-probe normal — crates/grammar-constraints-probe/Cargo.toml:16 CONFIRMED
+- rdep hidden-state-twins-probe normal — crates/hidden-state-twins-probe/Cargo.toml:16 CONFIRMED
 - rdep holo-h14d-probe normal — crates/holo-h14d-probe/Cargo.toml:17 CONFIRMED
 - rdep jc dev — crates/jc/Cargo.toml:44 CONFIRMED
 - rdep jc-batch-probe normal — crates/jc-batch-probe/Cargo.toml:16 CONFIRMED
@@ -194,47 +195,49 @@ flowchart LR
   n17["drisa-register-probe"]
   n23["foundry-parity-lab"]
   n25["grammar-constraints-probe"]
-  n28["holo-h14d-probe"]
-  n32["jc-batch-probe"]
-  n33["lance-graph"]
-  n37["lance-graph-benches"]
-  n41["lance-graph-codegraph"]
-  n45["lance-graph-cypher-quack"]
-  n46["lance-graph-dir-sim"]
-  n52["lance-graph-mask-risc"]
-  n53["lance-graph-metta"]
-  n54["lance-graph-nal"]
-  n62["lance-graph-quack"]
-  n63["lance-graph-r2il"]
-  n65["lance-graph-relalg"]
-  n66["lance-graph-report"]
-  n68["lance-graph-sap"]
-  n71["lance-graph-xlog"]
-  n73["mork-pathmap-probe"]
-  n80["quack-boundary-lab"]
-  n6 --> n52
-  n9 --> n52
-  n10 --> n52
-  n14 --> n52
-  n15 --> n52
-  n17 --> n52
-  n23 --> n52
-  n25 --> n52
-  n28 --> n52
-  n32 --> n52
-  n33 --> n52
-  n37 --> n52
-  n41 --> n52
-  n45 --> n52
-  n46 --> n52
-  n53 --> n52
-  n54 --> n52
-  n62 --> n52
-  n63 --> n52
-  n65 --> n52
-  n66 --> n52
-  n68 --> n52
-  n71 --> n52
-  n73 --> n52
-  n80 --> n52
+  n27["hidden-state-twins-probe"]
+  n29["holo-h14d-probe"]
+  n33["jc-batch-probe"]
+  n34["lance-graph"]
+  n38["lance-graph-benches"]
+  n42["lance-graph-codegraph"]
+  n46["lance-graph-cypher-quack"]
+  n47["lance-graph-dir-sim"]
+  n53["lance-graph-mask-risc"]
+  n54["lance-graph-metta"]
+  n55["lance-graph-nal"]
+  n63["lance-graph-quack"]
+  n64["lance-graph-r2il"]
+  n66["lance-graph-relalg"]
+  n67["lance-graph-report"]
+  n69["lance-graph-sap"]
+  n72["lance-graph-xlog"]
+  n74["mork-pathmap-probe"]
+  n81["quack-boundary-lab"]
+  n6 --> n53
+  n9 --> n53
+  n10 --> n53
+  n14 --> n53
+  n15 --> n53
+  n17 --> n53
+  n23 --> n53
+  n25 --> n53
+  n27 --> n53
+  n29 --> n53
+  n33 --> n53
+  n34 --> n53
+  n38 --> n53
+  n42 --> n53
+  n46 --> n53
+  n47 --> n53
+  n54 --> n53
+  n55 --> n53
+  n63 --> n53
+  n64 --> n53
+  n66 --> n53
+  n67 --> n53
+  n69 --> n53
+  n72 --> n53
+  n74 --> n53
+  n81 --> n53
 ```

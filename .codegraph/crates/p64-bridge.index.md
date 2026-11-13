@@ -89,12 +89,12 @@ flowchart LR
   n2["bgz17"]
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
-  n59["lance-graph-osint"]
-  n60["lance-graph-planner"]
-  n77["p64-bridge"]
-  n7 --> n77
-  n59 --> n77
-  n60 --> n77
-  n77 --> n2
-  n77 --> n3
+  n60["lance-graph-osint"]
+  n61["lance-graph-planner"]
+  n78["p64-bridge"]
+  n7 --> n78
+  n60 --> n78
+  n61 --> n78
+  n78 --> n2
+  n78 --> n3
 ```

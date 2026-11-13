@@ -86,6 +86,7 @@ dr-select-k-lab	ndarray	dev	false	-	-	crates/dr-select-k-lab/Cargo.toml:21	CONFI
 dr256-ternlog-lab	lance-graph-contract	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:9	CONFIRMED	yes
 dr256-ternlog-lab	lance-graph-dt64	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:10	CONFIRMED	yes
 dr256-ternlog-lab	lance-graph-mask-risc	normal	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:11	CONFIRMED	yes
+dr256-ternlog-lab	weather-poc	dev	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:16	CONFIRMED	yes
 drf-focus-probe	lance-graph-contract	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:27	CONFIRMED	yes
 drf-focus-probe	lance-graph-mask-risc	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:32	CONFIRMED	yes
 drf-focus-probe	lance-graph-planner	dev	false	-	handoff	crates/drf-focus-probe/Cargo.toml:26	CONFIRMED	yes
@@ -112,11 +113,17 @@ foundry-parity-lab	lance-graph-dt64	normal	false	-	-	crates/foundry-parity-lab/C
 foundry-parity-lab	lance-graph-mask-risc	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:23	CONFIRMED	yes
 foundry-parity-lab	lance-graph-relalg	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:26	CONFIRMED	yes
 foundry-parity-lab	ndarray	normal	false	-	-	crates/foundry-parity-lab/Cargo.toml:29	CONFIRMED	no
+grammar-constraints-probe	causal-edge	dev	false	-	-	crates/grammar-constraints-probe/Cargo.toml:24	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-contract	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:18	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-dt64	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:14	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-mask-risc	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:16	CONFIRMED	yes
 grammar-constraints-probe	lance-graph-quack	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:20	CONFIRMED	yes
 helix	ndarray	normal	false	-	-	crates/helix/Cargo.toml:22	CONFIRMED	no
+hidden-state-twins-probe	lance-graph-contract	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:18	CONFIRMED	yes
+hidden-state-twins-probe	lance-graph-dt64	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:14	CONFIRMED	yes
+hidden-state-twins-probe	lance-graph-mask-risc	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:16	CONFIRMED	yes
+hidden-state-twins-probe	lance-graph-quack	normal	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:20	CONFIRMED	yes
+hidden-state-twins-probe	shakmaty	dev	false	-	-	crates/hidden-state-twins-probe/Cargo.toml:26	CONFIRMED	no
 highheelbgz	bgz-tensor	normal	true	-	tensor	crates/highheelbgz/Cargo.toml:19	CONFIRMED	yes
 holo-h14d-probe	arrow-array	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:20	CONFIRMED	no
 holo-h14d-probe	arrow-schema	normal	false	-	-	crates/holo-h14d-probe/Cargo.toml:21	CONFIRMED	no
@@ -494,6 +501,7 @@ p64-bridge	bgz17	normal	false	-	-	crates/p64-bridge/Cargo.toml:11	CONFIRMED	yes
 p64-bridge	causal-edge	normal	false	-	-	crates/p64-bridge/Cargo.toml:10	CONFIRMED	yes
 perturbation-sim	lance-graph-contract	normal	true	-	moore-probe	crates/perturbation-sim/Cargo.toml:30	CONFIRMED	yes
 perturbation-sim	ndarray	normal	true	-	ndarray-simd,pillar	crates/perturbation-sim/Cargo.toml:37	CONFIRMED	no
+quack-boundary-lab	hidden-state-twins-probe	dev	false	-	-	crates/quack-boundary-lab/Cargo.toml:17	CONFIRMED	yes
 quack-boundary-lab	lance-graph-contract	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:9	CONFIRMED	yes
 quack-boundary-lab	lance-graph-dt64	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:10	CONFIRMED	yes
 quack-boundary-lab	lance-graph-mask-risc	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:11	CONFIRMED	yes

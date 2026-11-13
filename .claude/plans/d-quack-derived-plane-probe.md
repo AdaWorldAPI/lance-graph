@@ -128,3 +128,46 @@ and `tests/field_operand.rs`; the research notes
 the board entry `2026-11-13-weather-dr256-ternlog.md`; PR #2057's description
 and diff at head `5228f0ad`. Not read: the tests and examples of #2055 and
 #2056, `dr256-ternlog-lab/src/order_store.rs`, `grammar-constraints-probe`.
+
+## 11. P1 results (run 2026-11-13, after sections 1 to 10 were committed in `8b689d2fa`)
+
+`crates/quack-boundary-lab/tests/twins_lanes.rs`, 6 tests, all pass.
+`cargo test -p quack-boundary-lab --test twins_lanes`. No change to DT64,
+Quack, mask-RISC or `LaneSource`; the lab source gained two mutators
+(`rederive_validity`, `advance_source`).
+
+| # | case | bound path | raw path |
+|---|---|---|---|
+| 1 | right source | equals the row loop | equals the row loop |
+| 2 | another source, same row count | `LaneRefusal::Frame(ForeignFrame)` | accepts; the answer is neither source's |
+| 3 | frame advanced after binding | `LaneRefusal::Frame(_)` | accepts |
+| 4 | another row order | `CoordinateSpace` at bind; a `LaneRefusal` after a reorder | accepts; wrong for both orders |
+| 5a | lane rewritten, frame not moved | **admitted; answers from the rewritten lane** | accepts |
+| 5b | lane rewritten, frame moved | `LaneRefusal::Frame(_)` | accepts |
+
+Four disable runs, each red: re-binding at every use (cases 2, 3, 4, 5b),
+dropping the description check (5a's description arm), a rewrite that writes
+nothing (5a), a revision that does not advance the store (3, 5b).
+
+What P1 establishes, filed as section 9 asks:
+
+- **Verified inheritance:** source identity, frame, row order and field
+  mapping of a lane read through `borrow_all`.
+- **Merely asserted provenance:** the producer of a lane's contents. The
+  digest in the guard (`SetExpr::Sym`) is compared with the caller's
+  description of the method, never with the lanes. A caller who states the
+  bound digest reads a lane another producer wrote (case 5a).
+- **Unauthorized derived data:** the candidate byte per row. Both paths take
+  it from the caller.
+
+Unsatisfied contract, stated exactly: a `LaneBinding` witnesses where a lane
+is and under which frame, not what wrote it. The only thing that turns a
+rewrite into a refusal is the source advancing its own `FrameStore`
+(case 5b); `LaneSource::lane_of` and `borrow` have no argument through which
+a producer or its revision could be asked for. Nothing was added to make 5a
+refuse.
+
+Fixture finding: the first selector used `id % 2` and `id % 3`. Both divide
+`ROWS - 1` (40,002), so the selector was the same for a row and its mirror
+and the raw path's answer over a reversed source equalled that source's
+oracle. Case 2's raw assertion caught it; the selector now uses 2 and 7.

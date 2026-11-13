@@ -31,6 +31,7 @@ calls-missing	foundry-parity-lab	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	gkat-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	grammar-constraints-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	helix	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	hidden-state-twins-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	highheelbgz	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	holo-h14d-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	holo-lance-masked-io-probe	calls	-	UNKNOWN	ARTIFACT_MISSING

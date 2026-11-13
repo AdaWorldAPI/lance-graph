@@ -61,16 +61,16 @@ flowchart LR
   n5["cognitive-compiler"]
   n8["cognitive-stack"]
   n22["elixir-template"]
-  n33["lance-graph"]
-  n44["lance-graph-contract"]
-  n56["lance-graph-ogar"]
-  n91["template-equivalence"]
-  n92["template-runtime"]
+  n34["lance-graph"]
+  n45["lance-graph-contract"]
+  n57["lance-graph-ogar"]
+  n92["template-equivalence"]
+  n93["template-runtime"]
   n8 --> n5
   n8 --> n22
-  n8 --> n33
-  n8 --> n44
-  n8 --> n56
-  n8 --> n91
+  n8 --> n34
+  n8 --> n45
+  n8 --> n57
   n8 --> n92
+  n8 --> n93
 ```

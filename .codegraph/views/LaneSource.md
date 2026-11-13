@@ -11,10 +11,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 - impl LaneSource for U8Socket<'_> — crates/dr-isa-stream-lab/src/int8.rs:159 POSSIBLE
 - impl LaneSource for Socket<'_> — crates/dr-isa-stream-lab/src/source.rs:225 POSSIBLE
-- impl LaneSource for SlabSource<'_,'_> — crates/dr256-ternlog-lab/src/lib.rs:325 POSSIBLE
+- impl LaneSource for SlabSource<'_,'_> — crates/dr256-ternlog-lab/src/lib.rs:326 POSSIBLE
 - impl LaneSource for Network — crates/foundry-parity-lab/src/source.rs:178 POSSIBLE
 - impl LaneSource for AbiLanes<'_> — crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
-- impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:303 POSSIBLE
+- impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:320 POSSIBLE
 - impl LaneSource for U64Source<'s> — crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
 
 ## Imports (not resolved to a definition)
@@ -46,7 +46,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/source.rs:12 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:225 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:38 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:325 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:326 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:149 POSSIBLE
 - crates/foundry-parity-lab/src/bin/bench.rs:15 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
@@ -74,7 +74,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:543 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:303 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:320 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:169 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:15 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE

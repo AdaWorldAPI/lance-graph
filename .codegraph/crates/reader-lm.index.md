@@ -87,6 +87,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n1["bgz-tensor"]
-  n83["reader-lm"]
-  n83 --> n1
+  n84["reader-lm"]
+  n84 --> n1
 ```

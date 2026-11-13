@@ -279,11 +279,11 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n7["cognitive-shader-driver"]
   n11["deepnsm"]
-  n42["lance-graph-cognitive"]
-  n44["lance-graph-contract"]
-  n59["lance-graph-osint"]
+  n43["lance-graph-cognitive"]
+  n45["lance-graph-contract"]
+  n60["lance-graph-osint"]
   n7 --> n11
-  n11 --> n42
-  n11 --> n44
-  n59 --> n11
+  n11 --> n43
+  n11 --> n45
+  n60 --> n11
 ```
