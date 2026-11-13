@@ -847,8 +847,9 @@ impl Fold {
         Fold::new(program, compiled, agg)
     }
 
-    /// `agg` over `plane 0 & plane 1 & (lo < field < hi)`. The two bounds are
-    /// compared from the bound lane; the lower one only where plane 1 holds.
+    /// `agg` over `plane 0 & plane 1 & (lo < field < hi)`. The bounds are
+    /// compared from the bound lane only in words where plane 0 has a row
+    /// (the survivor skip), the upper one only where the lower one held.
     pub fn between(
         prepared: &Prepared,
         field: u8,
@@ -862,18 +863,18 @@ impl Fold {
             vec![
                 MaskOp::Pred {
                     pred: Pred::GtI32 { lane, t: lo },
-                    under: Some(Operand::Plane(1)),
+                    under: Some(Operand::Plane(0)),
                     dst: 0,
                 },
                 MaskOp::Pred {
                     pred: Pred::LtI32 { lane, t: hi },
-                    under: None,
+                    under: Some(Operand::Scratch(0)),
                     dst: 1,
                 },
                 MaskOp::Ternlog {
                     imm: AND3,
                     a: Operand::Plane(0),
-                    b: Operand::Scratch(0),
+                    b: Operand::Plane(1),
                     c: Operand::Scratch(1),
                     dst: 2,
                 },

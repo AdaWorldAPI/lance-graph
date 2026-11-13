@@ -188,13 +188,11 @@ fn three_axis_masks_do_not_stand_for_a_three_axis_relation() {
     // Independent oracle: for each (x, y) exactly one z.
     let mut oracle = 0u64;
     let (mut px, mut py, mut pz) = ([false; N], [false; N], [false; N]);
-    for x in 0..N {
-        for y in 0..N {
-            let z = (2 * N - x - y) % N;
-            assert_eq!((x + y + z) % N, 0);
-            oracle += 1;
-            (px[x], py[y], pz[z]) = (true, true, true);
-        }
+    for (x, y) in (0..N * N).map(|p| (p / N, p % N)) {
+        let z = (2 * N - x - y) % N;
+        assert_eq!((x + y + z) % N, 0);
+        oracle += 1;
+        (px[x], py[y], pz[z]) = (true, true, true);
     }
     assert_eq!(oracle, 65_536);
     assert!(
