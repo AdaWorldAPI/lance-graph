@@ -731,17 +731,15 @@ fn what_a_bag_run_refuses() {
 /// lends a different number of lanes than its reads need.
 #[test]
 fn a_bag_run_writes_nothing_and_copies_no_column() {
-    let mut m = owner();
-    let snapshot = |m: &Owner| -> Vec<(u32, u32, u32, u32)> {
+    let m = owner();
+    let snapshot = |m: &Owner| -> Vec<(u32, u64, u32, u32)> {
         (0..POPULATED)
             .map(|r| {
                 (
                     m.meta[r].0,
-                    // GUESS: `temporal` is widened with `as u32`; the real
-                    // element type is not known from the file under edit.
-                    m.temporal[r] as u32,
+                    m.temporal[r],
                     m.last_active_cycle[r],
-                    m.last_write_cycle[r] as u32,
+                    m.last_write_cycle[r],
                 )
             })
             .collect()
@@ -755,9 +753,9 @@ fn a_bag_run_writes_nothing_and_copies_no_column() {
         let lends_before = lanes.lends();
         let got = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel).unwrap();
         assert!(got.intents.is_empty());
-        // GUESS: the measured value 2 (the guard's `meta` lane and the
-        // operand binding's `meta` lane); this was not confirmed by running.
-        assert_eq!(lanes.lends() - lends_before, 2);
+        // Measured: the guard's `meta` lane, the operand `meta` lane, and
+        // the lane `LaneBinding::selected` borrows with the positions.
+        assert_eq!(lanes.lends() - lends_before, 3);
     }
     assert_eq!(snapshot(&m), before);
 }

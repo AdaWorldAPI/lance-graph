@@ -92,8 +92,8 @@ use lance_graph_dt64::{
 };
 use lance_graph_mask_risc::{Foreign, Planes};
 use lance_graph_r2il::binding::{
-    prepare, prepare_gated, run, run_gated, ExecPermit, ExecRefusal, FieldLanes, Gate, R2ilLens,
-    Receipt, Resolution,
+    prepare, prepare_gated, run, run_bag, run_gated, ExecPermit, ExecRefusal, FieldLanes, Gate,
+    R2ilLens, Receipt, Resolution,
 };
 use lance_graph_r2il::FoldDialect;
 
@@ -285,8 +285,10 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
     // An unguarded method that reads nothing binds no lane, and only a lane
     // check compares scopes.
     check_scope(lanes, ctx.scope).map_err(ActRefusal::When)?;
-    // The gate below is one bit per row. A bag method is not run on it.
-    if admitted.population == Population::Bag {
+    // A bag method runs only over an explicitly bound selection: without
+    // one, the gate is one bit per row and would be taken for multiplicity.
+    let bag = admitted.population == Population::Bag;
+    if bag && within.is_none() {
         return Err(ActRefusal::BagPopulation {
             method: method.method,
         });
@@ -357,6 +359,7 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
     let rows = lanes.rows();
     // A selection narrows the gate to its distinct rows. The positions are
     // taken through the operand binding's joint witness.
+    let mut listed: &[u32] = &[];
     let narrowed: Option<Vec<u64>> = match (&fired, within) {
         (Some(kept), Some(selection)) => {
             let field = (0..=u8::MAX)
@@ -365,6 +368,7 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
             let (_, positions) = binding
                 .selected(store, view, frames, lanes, field, selection)
                 .map_err(ActRefusal::Lane)?;
+            listed = positions;
             let mut member = vec![0u64; rows.div_ceil(64)];
             for &p in positions {
                 let p = p as usize;
@@ -390,7 +394,14 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
         lanes: &lent,
     };
     let foreign = Foreign::NONE;
-    let mut dialect = FoldDialect::new(&planes, &foreign);
+    // A bag count writes its gated mask here before folding it over the
+    // listed occurrences; one bit per row, like the gate.
+    let mut kept_sink = vec![0u64; if bag { rows.div_ceil(64) } else { 0 }];
+    let mut dialect = if bag {
+        FoldDialect::with_keep(&planes, &foreign, &mut kept_sink)
+    } else {
+        FoldDialect::new(&planes, &foreign)
+    };
     let guards = Guards {
         frame,
         focus: ctx.focus,
@@ -414,16 +425,33 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
                 plane: 0,
                 guard: witness.clone(),
             };
-            run_gated(
-                &plan,
-                store,
-                frames,
-                now,
-                ctx.permit,
-                fields,
-                &mut dialect,
-                &gate,
-            )
+            if bag {
+                // Every listed occurrence, weighed by the effect mask and
+                // the gate. `listed` was borrowed with the operand lanes
+                // under one witness, above.
+                run_bag(
+                    &plan,
+                    store,
+                    frames,
+                    now,
+                    ctx.permit,
+                    fields,
+                    &mut dialect,
+                    &gate,
+                    listed,
+                )
+            } else {
+                run_gated(
+                    &plan,
+                    store,
+                    frames,
+                    now,
+                    ctx.permit,
+                    fields,
+                    &mut dialect,
+                    &gate,
+                )
+            }
         }
         _ => {
             let plan = prepare(store, view, ctx.lens, &resolution, frames, now)
