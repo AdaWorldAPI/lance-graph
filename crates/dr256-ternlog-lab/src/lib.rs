@@ -37,6 +37,7 @@ use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
     LaneSource, Refusal, RouteAt, SchemaRev,
 };
+use lance_graph_mask_risc::exec::{scratch_words_for, tile_words_for};
 use lance_graph_mask_risc::{
     execute_into, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
     Program, Scratch, Terminal, Value,
@@ -566,6 +567,10 @@ pub enum Refused {
     /// The order index was built over another table, or over this table at
     /// another revision; its keys and row order are not this table's.
     IndexOfAnotherTable,
+    /// `Fold::count` was called on a fold whose terminal is not a count.
+    NotACount,
+    /// The sum over the slab stack left `i64`.
+    SumOverflow,
 }
 
 impl From<LaneRefusal> for Refused {
@@ -747,6 +752,26 @@ pub fn prepare_edges(
 
 // ---------------------------------------------------------------- kernel
 
+/// What a fold answers over the selected rows. The field is an `I32` lane
+/// of the prepared selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Agg {
+    Count,
+    Sum(u8),
+    Min(u8),
+    Max(u8),
+}
+
+/// The answer of one fold over the whole slab stack.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Answer {
+    Count(u64),
+    Sum(i64),
+    /// `None` when no row is selected.
+    Min(Option<i32>),
+    Max(Option<i32>),
+}
+
 /// A query compiled once: a mask-RISC program over three planes, and its
 /// scratch.
 pub struct Fold {
@@ -755,6 +780,36 @@ pub struct Fold {
     /// The field selection the program's lane indices were resolved in.
     /// `None` when the program reads no lane.
     compiled: Option<WideFieldMask>,
+    agg: Agg,
+}
+
+/// Bytes of the scratch arena `Scratch::for_program` carves for `program`
+/// over `n_rows` rows.
+pub fn scratch_bytes_of(program: &Program, n_rows: usize) -> usize {
+    if !program.requires_scratch() {
+        return 0;
+    }
+    scratch_words_for(tile_words_for(n_rows), program.scratch_slots as usize).unwrap_or(0) * 8
+}
+
+fn terminal(prepared: &Prepared, agg: Agg, mask: Operand) -> Result<Terminal, Refused> {
+    let lane =
+        |field| lane_index(&prepared.fields, field).ok_or(Refused::FieldNotSelected { field });
+    Ok(match agg {
+        Agg::Count => Terminal::Count { mask },
+        Agg::Sum(f) => Terminal::MaskedSumI32 {
+            mask,
+            lane: lane(f)?,
+        },
+        Agg::Min(f) => Terminal::MaskedMinI32 {
+            mask,
+            lane: lane(f)?,
+        },
+        Agg::Max(f) => Terminal::MaskedMaxI32 {
+            mask,
+            lane: lane(f)?,
+        },
+    })
 }
 
 impl Fold {
@@ -782,7 +837,61 @@ impl Fold {
                 mask: Operand::Scratch(1),
             },
         );
-        Fold::new(program, Some(prepared.fields.clone()))
+        Fold::new(program, Some(prepared.fields.clone()), Agg::Count)
+    }
+
+    /// `agg` over `a & b & c`, the three prepared planes. The selection is
+    /// one ternlog; only the terminal reads a lane.
+    pub fn and3(prepared: &Prepared, agg: Agg) -> Result<Fold, Refused> {
+        let program = Program::new(
+            vec![MaskOp::Ternlog {
+                imm: AND3,
+                a: Operand::Plane(0),
+                b: Operand::Plane(1),
+                c: Operand::Plane(2),
+                dst: 0,
+            }],
+            terminal(prepared, agg, Operand::Scratch(0))?,
+        );
+        let compiled = (agg != Agg::Count).then(|| prepared.fields.clone());
+        Fold::new(program, compiled, agg)
+    }
+
+    /// `agg` over `plane 0 & plane 1 & (lo < field < hi)`. The bounds are
+    /// compared from the bound lane only in words where plane 0 has a row
+    /// (the survivor skip), the upper one only where the lower one held.
+    pub fn between(
+        prepared: &Prepared,
+        field: u8,
+        lo: i32,
+        hi: i32,
+        agg: Agg,
+    ) -> Result<Fold, Refused> {
+        let lane =
+            lane_index(&prepared.fields, field).ok_or(Refused::FieldNotSelected { field })?;
+        let program = Program::new(
+            vec![
+                MaskOp::Pred {
+                    pred: Pred::GtI32 { lane, t: lo },
+                    under: Some(Operand::Plane(0)),
+                    dst: 0,
+                },
+                MaskOp::Pred {
+                    pred: Pred::LtI32 { lane, t: hi },
+                    under: Some(Operand::Scratch(0)),
+                    dst: 1,
+                },
+                MaskOp::Ternlog {
+                    imm: AND3,
+                    a: Operand::Plane(0),
+                    b: Operand::Plane(1),
+                    c: Operand::Scratch(1),
+                    dst: 2,
+                },
+            ],
+            terminal(prepared, agg, Operand::Scratch(2))?,
+        );
+        Fold::new(program, Some(prepared.fields.clone()), agg)
     }
 
     /// `count(a & b & c)` over the three prepared planes. Reads no lane.
@@ -799,26 +908,47 @@ impl Fold {
                 mask: Operand::Scratch(0),
             },
         );
-        Fold::new(program, None)
+        Fold::new(program, None, Agg::Count)
     }
 
-    fn new(program: Program, compiled: Option<WideFieldMask>) -> Result<Fold, Refused> {
+    fn new(program: Program, compiled: Option<WideFieldMask>, agg: Agg) -> Result<Fold, Refused> {
         let scratch = Scratch::for_program(&program, SLAB_ROWS)?;
         Ok(Fold {
             program,
             scratch,
             compiled,
+            agg,
         })
     }
 
-    /// Check every slab's binding, fold its three planes, sum the counts.
-    /// Slabs are disjoint row ranges, so the sum is the count.
+    /// Bytes of scratch the fold holds, as the executor sizes it: one tile
+    /// per slot the program writes, plus the validation bitmap.
+    pub fn scratch_bytes(&self) -> usize {
+        scratch_bytes_of(&self.program, SLAB_ROWS)
+    }
+
+    /// [`Fold::answer`] of a count fold.
     pub fn count(
         &mut self,
         world: &World,
         table: &Table<'_>,
         prepared: &Prepared,
     ) -> Result<u64, Refused> {
+        match self.answer(world, table, prepared)? {
+            Answer::Count(c) => Ok(c),
+            _ => Err(Refused::NotACount),
+        }
+    }
+
+    /// Check every slab's binding, fold its three planes, combine the slab
+    /// answers. Slabs are disjoint row ranges, so counts and sums add and
+    /// extrema combine.
+    pub fn answer(
+        &mut self,
+        world: &World,
+        table: &Table<'_>,
+        prepared: &Prepared,
+    ) -> Result<Answer, Refused> {
         debug_assert_eq!(prepared.class, table.class);
         if self
             .compiled
@@ -827,7 +957,12 @@ impl Fold {
         {
             return Err(Refused::SelectionChanged);
         }
-        let mut total = 0u64;
+        let mut total = match self.agg {
+            Agg::Count => Answer::Count(0),
+            Agg::Sum(_) => Answer::Sum(0),
+            Agg::Min(_) => Answer::Min(None),
+            Agg::Max(_) => Answer::Max(None),
+        };
         for (s, slab) in prepared.slabs.iter().enumerate() {
             let source = table.slab(s);
             let mut lanes = [LaneRef::U32(&[]); 4];
@@ -858,7 +993,7 @@ impl Fold {
                 masks: &masks,
                 lanes: &lanes[..n],
             };
-            match execute_into(
+            let value = execute_into(
                 &self.program,
                 &planes,
                 &Foreign {
@@ -867,13 +1002,32 @@ impl Fold {
                 },
                 &mut self.scratch,
                 Out::None,
-            )? {
-                Value::Count(c) => total += c as u64,
-                other => unreachable!("a Count terminal returned {other:?}"),
-            }
+            )?;
+            total = match (total, value) {
+                (Answer::Count(t), Value::Count(c)) => Answer::Count(t + c as u64),
+                (Answer::Sum(t), Value::SumI64(v)) => {
+                    Answer::Sum(t.checked_add(v).ok_or(Refused::SumOverflow)?)
+                }
+                (Answer::Min(t), Value::OptI32(v)) => {
+                    Answer::Min([t, v].into_iter().flatten().min())
+                }
+                (Answer::Max(t), Value::OptI32(v)) => {
+                    Answer::Max([t, v].into_iter().flatten().max())
+                }
+                (_, other) => unreachable!("{:?} returned {other:?}", self.agg),
+            };
         }
         Ok(total)
     }
+}
+
+/// The mean of `count` values summing to `sum`, in the values' own unit,
+/// rounded to the nearest integer with ties toward positive infinity (the
+/// 1BRC reference's rounding of a tenths-of-a-degree mean). `None` when
+/// `count` is zero.
+pub fn mean_round_half_up(sum: i64, count: u64) -> Option<i64> {
+    let n = i128::from(count);
+    (n != 0).then(|| (2 * i128::from(sum) + n).div_euclid(2 * n) as i64)
 }
 
 // --------------------------------------------------------------- display
