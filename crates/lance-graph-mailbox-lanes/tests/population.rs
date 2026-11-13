@@ -57,6 +57,12 @@ const COUNT_ALL: MethodId = MethodId(3);
 /// As `COUNT`, written to `meta`.
 const COUNT_TO_META: MethodId = MethodId(4);
 
+/// No guard, no read: `scratch := 2 + 3`.
+const CONST: MethodId = MethodId(5);
+/// The same, written to `meta`.
+const CONST_TO_META: MethodId = MethodId(6);
+
+const W_ADD: u8 = 0;
 const W_EQUAL: u8 = 4;
 const W_POP_COUNT: u8 = 10;
 
@@ -137,6 +143,22 @@ fn count_into(id: MethodId, target: u8) -> MethodBinding {
     }
 }
 
+/// `target := 2 + 3`: no guard, and no field is read.
+fn constant_into(id: MethodId, target: u8) -> MethodBinding {
+    MethodBinding {
+        id,
+        sig_rev: SigRev(1),
+        name: format!("m{}", id.0),
+        on: WideFieldMask::from_positions(&[META]),
+        when: None,
+        reads: WideFieldMask::from_positions(&[]),
+        effects: vec![word(target, W_ADD, vec![Arg::Const(2), Arg::Const(3)])],
+        population: Population::Distinct,
+        truth: Truth::TwoValued,
+        demand: ValueDemand::Values,
+    }
+}
+
 struct World {
     store: BindStore,
     view: View,
@@ -191,12 +213,21 @@ fn world() -> World {
                     ..count_into(COUNT_ALL, SCRATCH)
                 },
                 count_into(COUNT_TO_META, META),
+                constant_into(CONST, SCRATCH),
+                constant_into(CONST_TO_META, META),
             ],
         )
         .expect("the class registers");
     let version = store.route(POSITION, CLASS).unwrap();
     let permit = ExecPermit {
-        methods: [COUNT, COUNT_BAG, COUNT_ALL, COUNT_TO_META]
+        methods: [
+            COUNT,
+            COUNT_BAG,
+            COUNT_ALL,
+            COUNT_TO_META,
+            CONST,
+            CONST_TO_META,
+        ]
             .iter()
             .map(|&m| store.method_ref(CLASS, m).unwrap())
             .collect(),
@@ -399,4 +430,110 @@ fn a_constant_guard_still_checks_the_reader_scope() {
         assert_eq!(own.rows(), POPULATED);
     }
     assert_eq!(lanes.lends(), 0);
+}
+
+/// A method with no guard and no read binds no lane, so only `act`'s own
+/// check compares the request's scope with the socket's.
+/// FAILS IF: such a method computes a scalar or builds a write intent for a
+/// reader scope other than the socket's.
+#[test]
+fn an_unguarded_method_that_reads_nothing_still_checks_the_reader_scope() {
+    let m = owner();
+    let w = world();
+    let lanes = MailboxLanes::new(m.published(), READER);
+    let foreign = ActContext {
+        scope: Scope { id: 4 },
+        ..ctx(&w)
+    };
+    for (id, target) in [(CONST, SCRATCH), (CONST_TO_META, META)] {
+        let method = w.store.method_ref(CLASS, id).unwrap();
+        let refused = act(&lanes, &w.store, &w.view, &foreign, &method);
+        assert!(
+            matches!(
+                refused,
+                Err(ActRefusal::When(WhenRefusal::ScopeMismatch { .. }))
+            ),
+            "{refused:?}"
+        );
+        // Silence twin: the socket's own scope runs it.
+        let own = act(&lanes, &w.store, &w.view, &ctx(&w), &method).unwrap();
+        assert_eq!(own.receipt.output.values, vec![(target, 5)]);
+        assert_eq!(own.intents.len(), usize::from(target == META));
+    }
+    assert_eq!(lanes.lends(), 0);
+}
+
+/// The three counts by hand, with the guard (`meta == 2`) applied to every
+/// row or occurrence. Calls nothing of the implementation.
+fn guarded_oracles(meta: &[u32], positions: &[u32]) -> (i64, i64, i64) {
+    let holds = |p: u32| meta[p as usize] == 2;
+    let whole = (0..meta.len() as u32).filter(|&p| holds(p)).count();
+    let mut distinct = positions.to_vec();
+    distinct.sort_unstable();
+    distinct.dedup();
+    let distinct = distinct.into_iter().filter(|&p| holds(p)).count();
+    let bag = positions.iter().filter(|&&p| holds(p)).count();
+    (whole as i64, distinct as i64, bag as i64)
+}
+
+/// The bag reading against the two that have a path, over six selections.
+/// FAILS IF: `act` or `act_over` returns anything but the whole-source or
+/// distinct count, or a bag-declared method runs at all. The bag count is the
+/// oracle's only: no path computes it.
+#[test]
+fn a_bag_count_weighs_each_occurrence_by_the_guard_and_has_no_path() {
+    // (row 3 fails the guard, selection, positions, whole, distinct, bag)
+    type Case = (bool, &'static str, &'static [u32], i64, i64, i64);
+    let cases: [Case; 6] = [
+        (false, "one+both", &[1, 1, 3], 4, 2, 3),
+        (true, "one+both", &[1, 1, 3], 3, 1, 2),
+        // Order does not change a count; multiplicity does.
+        (false, "both+one", &[1, 3, 1], 4, 2, 3),
+        (true, "both+one", &[1, 3, 1], 3, 1, 2),
+        (false, "none", &[], 4, 0, 0),
+        (false, "one+one", &[1, 1], 4, 1, 2),
+    ];
+    for (row3_fails, which, expected, whole, distinct, as_bag) in cases {
+        let mut m = owner();
+        if row3_fails {
+            m.set_meta(3, MetaWord(7));
+        }
+        let meta: Vec<u32> = (0..POPULATED).map(|r| m.meta[r].0).collect();
+        let w = world();
+        let mut lanes = MailboxLanes::new(m.published(), READER);
+        let one = lanes
+            .issue_where(Column::LastActiveCycle, Keep::Eq(5))
+            .unwrap();
+        let both = lanes
+            .issue_where(Column::LastActiveCycle, Keep::Ge(5))
+            .unwrap();
+        let sel = match which {
+            "one+both" => lanes.issue_concat(one, both).unwrap(),
+            "both+one" => lanes.issue_concat(both, one).unwrap(),
+            "one+one" => lanes.issue_concat(one, one).unwrap(),
+            _ => lanes
+                .issue_where(Column::LastActiveCycle, Keep::Eq(99))
+                .unwrap(),
+        };
+        let positions = positions_of(&w, &lanes, sel);
+        assert_eq!(positions, expected, "{which}");
+        assert_eq!(
+            guarded_oracles(&meta, &positions),
+            (whole, distinct, as_bag),
+            "{which} row3_fails={row3_fails}"
+        );
+
+        let count = w.store.method_ref(CLASS, COUNT).unwrap();
+        let got = act(&lanes, &w.store, &w.view, &ctx(&w), &count).unwrap();
+        assert_eq!(got.unwritten, vec![(SCRATCH, whole)], "{which}");
+        let got = act_over(&lanes, &w.store, &w.view, &ctx(&w), &count, sel).unwrap();
+        assert_eq!(got.unwritten, vec![(SCRATCH, distinct)], "{which}");
+
+        let count_bag = w.store.method_ref(CLASS, COUNT_BAG).unwrap();
+        assert_eq!(
+            act_over(&lanes, &w.store, &w.view, &ctx(&w), &count_bag, sel),
+            Err(ActRefusal::BagPopulation { method: COUNT_BAG }),
+            "{which}"
+        );
+    }
 }
