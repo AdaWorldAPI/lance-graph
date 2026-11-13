@@ -60,6 +60,11 @@ pub enum WhenRefusal {
     Lower(LowerError),
     /// mask-risc refused the program (for example the lane kind).
     Exec(ExecError),
+    /// The request names another reader scope than the socket's. Checked
+    /// here because a guard or method that reads no column binds no lane,
+    /// and only a lane check compares scopes. Consistency of two asserted
+    /// values, not an authorization.
+    ScopeMismatch { request: Scope, socket: Scope },
     /// The row is not in the lane.
     RowOutsideLane { row: u32, rows: usize },
 }
@@ -130,6 +135,21 @@ impl Fired {
     }
 }
 
+/// Refuse a request scope that is not the socket's.
+pub(crate) fn check_scope<const N: usize>(
+    lanes: &MailboxLanes<'_, N>,
+    request: Scope,
+) -> Result<(), WhenRefusal> {
+    if request == lanes.scope() {
+        Ok(())
+    } else {
+        Err(WhenRefusal::ScopeMismatch {
+            request,
+            socket: lanes.scope(),
+        })
+    }
+}
+
 /// Evaluate `guard` over the columns `lanes` publishes, for the class
 /// `request.route` routes to.
 pub fn when<V: ClassView + ?Sized, const N: usize>(
@@ -139,6 +159,7 @@ pub fn when<V: ClassView + ?Sized, const N: usize>(
     request: WhenRequest,
     guard: &Guard,
 ) -> Result<Fired, WhenRefusal> {
+    check_scope(lanes, request.scope)?;
     let lowered = lower_set(&guard.expr, guard.logic).map_err(WhenRefusal::Set)?;
     let set = match &lowered {
         SetLowered::Filter(set) => Some(set),

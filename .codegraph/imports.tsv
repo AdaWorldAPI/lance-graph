@@ -7094,6 +7094,7 @@ lance-graph-lane-fold	crates/lance-graph-lane-fold/src/query.rs	224	super::*	-	u
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	80	super::*	-	use	test	POSSIBLE
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	100	crate::when::WhenRefusal	-	use	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	100	crate::when::WhenRequest	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	100	crate::when::check_scope	-	use	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	100	crate::when::when	-	use	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	101	crate::Column	-	use	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	101	crate::ColumnRefusal	-	use	-	CONFIRMED

@@ -231,6 +231,13 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
         }
     }
 
+    /// The reader scope this socket was opened for. A value the caller
+    /// asserted; nothing authorizes it.
+    #[must_use]
+    pub fn scope(&self) -> Scope {
+        self.scope
+    }
+
     /// Rows a lane holds: the populated prefix.
     #[must_use]
     pub fn rows(&self) -> usize {

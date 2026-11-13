@@ -97,7 +97,7 @@ use lance_graph_r2il::binding::{
 };
 use lance_graph_r2il::FoldDialect;
 
-use crate::when::{when, WhenRefusal, WhenRequest};
+use crate::when::{check_scope, when, WhenRefusal, WhenRequest};
 use crate::{Column, ColumnRefusal, MailboxLanes};
 
 /// What a method is run under: the routed position, the class's schema
@@ -282,6 +282,9 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
             .get(usize::from(field))
             .map_or("", |f| f.predicate_iri.as_str())
     };
+    // An unguarded method that reads nothing binds no lane, and only a lane
+    // check compares scopes.
+    check_scope(lanes, ctx.scope).map_err(ActRefusal::When)?;
     // The gate below is one bit per row. A bag method is not run on it.
     if admitted.population == Population::Bag {
         return Err(ActRefusal::BagPopulation {

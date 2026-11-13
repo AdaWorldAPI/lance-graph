@@ -84,7 +84,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:1111 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/when.rs:83 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:88 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:6 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:9 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE

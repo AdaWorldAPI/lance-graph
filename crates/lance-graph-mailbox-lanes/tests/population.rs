@@ -26,7 +26,7 @@ use lance_graph_dt64::{
     MethodBinding, MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mailbox_lanes::act::{act, act_over, ActContext, ActRefusal};
-use lance_graph_mailbox_lanes::when::{when, WhenRequest};
+use lance_graph_mailbox_lanes::when::{when, WhenRefusal, WhenRequest};
 use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
@@ -390,7 +390,10 @@ fn a_constant_guard_still_checks_the_reader_scope() {
     for expr in [SetExpr::All, SetExpr::Empty] {
         let guard = Guard::new(expr, Logic::TwoValued);
         let other = when(&lanes, &w.store, &w.view, request(Scope { id: 4 }), &guard);
-        assert!(other.is_err(), "{other:?}");
+        assert!(
+            matches!(other, Err(WhenRefusal::ScopeMismatch { .. })),
+            "{other:?}"
+        );
         // Silence twin: the socket's own scope.
         let own = when(&lanes, &w.store, &w.view, request(READER), &guard).unwrap();
         assert_eq!(own.rows(), POPULATED);

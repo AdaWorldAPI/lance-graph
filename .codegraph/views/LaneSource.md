@@ -13,7 +13,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - impl LaneSource for Socket<'_> — crates/dr-isa-stream-lab/src/source.rs:225 POSSIBLE
 - impl LaneSource for SlabSource<'_,'_> — crates/dr256-ternlog-lab/src/lib.rs:333 POSSIBLE
 - impl LaneSource for Network — crates/foundry-parity-lab/src/source.rs:178 POSSIBLE
-- impl LaneSource for MailboxLanes<'_,N> — crates/lance-graph-mailbox-lanes/src/lib.rs:290 POSSIBLE
+- impl LaneSource for MailboxLanes<'_,N> — crates/lance-graph-mailbox-lanes/src/lib.rs:297 POSSIBLE
 - impl LaneSource for AbiLanes<'_> — crates/lance-graph-report/src/lane_source.rs:143 POSSIBLE
 - impl LaneSource for Source — crates/quack-boundary-lab/src/lib.rs:330 POSSIBLE
 - impl LaneSource for U64Source<'s> — crates/soa64-u64-lab/src/socket.rs:136 POSSIBLE
@@ -75,7 +75,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:52 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:211 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:290 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:297 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:3 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:39 POSSIBLE
 - crates/lance-graph-report/src/lane_source.rs:87 POSSIBLE

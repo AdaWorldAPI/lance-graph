@@ -92,7 +92,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-mailbox-lanes/src/lib.rs:162 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:181 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:213 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/lib.rs:330 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/lib.rs:337 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:81 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:341 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:353 POSSIBLE

@@ -14762,13 +14762,13 @@ lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	170	fn	Int
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	188	struct	Acted	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	224	fn	act	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	254	fn	act_over	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	476	enum	ApplyRefusal	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	495	struct	Applied	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	528	fn	apply	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	605	struct	Fire	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	625	struct	Round	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	631	struct	Cascade	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	649	fn	cascade	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	479	enum	ApplyRefusal	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	498	struct	Applied	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	531	fn	apply	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	608	struct	Fire	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	628	struct	Round	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	634	struct	Cascade	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/act.rs	652	fn	cascade	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/coords.rs	30	enum	CoordRefusal	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/coords.rs	47	struct	Coordinates	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/coords.rs	52	impl	Coordinates	-	-	CONFIRMED
@@ -14787,12 +14787,13 @@ lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	205	fn	Mai
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	213	fn	MailboxLanes<'a,N>::frame_store	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	219	fn	MailboxLanes<'a,N>::seal	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	227	fn	MailboxLanes<'a,N>::space	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	236	fn	MailboxLanes<'a,N>::rows	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	261	fn	MailboxLanes<'a,N>::issue_order	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	269	fn	MailboxLanes<'a,N>::issue_where	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	278	fn	MailboxLanes<'a,N>::issue_concat	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	290	impl	LaneSource for MailboxLanes<'_,N>	-	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	335	impl	SelectionSource for MailboxLanes<'_,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	237	fn	MailboxLanes<'a,N>::scope	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	243	fn	MailboxLanes<'a,N>::rows	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	268	fn	MailboxLanes<'a,N>::issue_order	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	276	fn	MailboxLanes<'a,N>::issue_where	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	285	fn	MailboxLanes<'a,N>::issue_concat	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	297	impl	LaneSource for MailboxLanes<'_,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	342	impl	SelectionSource for MailboxLanes<'_,N>	-	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	41	mod	act	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	42	mod	coords	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	43	mod	when	pub	-	CONFIRMED
@@ -14801,16 +14802,17 @@ lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	73	enum	Co
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	80	impl	Column	-	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	82	const	Column::ALL	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	92	fn	Column::iri	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	105	fn	Fired::fields	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	112	fn	Fired::holds	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	135	fn	when	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	104	fn	Fired::bits	pub(crate)	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	110	fn	Fired::fields	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	117	fn	Fired::holds	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	139	fn	check_scope	pub(crate)	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	155	fn	when	pub	-	CONFIRMED
 lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	48	enum	WhenRefusal	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	70	struct	WhenRequest	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	79	struct	Fired	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	86	impl	Fired	-	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	88	fn	Fired::rows	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	93	fn	Fired::count	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	99	fn	Fired::bits	pub(crate)	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	75	struct	WhenRequest	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	84	struct	Fired	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	91	impl	Fired	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	93	fn	Fired::rows	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/when.rs	98	fn	Fired::count	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	110	const	TILE_WORDS	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	114	fn	tile_words_for	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	118	fn	scratch_words_for	pub	-	CONFIRMED

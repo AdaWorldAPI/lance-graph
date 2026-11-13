@@ -3,7 +3,7 @@
 crate: lance-graph-mailbox-lanes
 path: crates/lance-graph-mailbox-lanes
 workspace: member
-digest: 0072367fddcc0303
+digest: e0496abd51e69c5e
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -33,13 +33,13 @@ Generated; the code is the truth. See ../index.md.
 - struct Acted [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:188 CONFIRMED
 - fn act [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:224 CONFIRMED
 - fn act_over [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:254 CONFIRMED
-- enum ApplyRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:476 CONFIRMED
-- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:495 CONFIRMED
-- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:528 CONFIRMED
-- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:605 CONFIRMED
-- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:625 CONFIRMED
-- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:631 CONFIRMED
-- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:649 CONFIRMED
+- enum ApplyRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:479 CONFIRMED
+- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:498 CONFIRMED
+- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:531 CONFIRMED
+- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:608 CONFIRMED
+- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:628 CONFIRMED
+- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:634 CONFIRMED
+- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:652 CONFIRMED
 - enum CoordRefusal [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:30 CONFIRMED
 - struct Coordinates [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:47 CONFIRMED
 - fn Coordinates::bind [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:55 CONFIRMED
@@ -62,19 +62,21 @@ Generated; the code is the truth. See ../index.md.
 - fn MailboxLanes<'a,N>::frame_store [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:213 CONFIRMED
 - fn MailboxLanes<'a,N>::seal [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:219 CONFIRMED
 - fn MailboxLanes<'a,N>::space [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:227 CONFIRMED
-- fn MailboxLanes<'a,N>::rows [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:236 CONFIRMED
-- fn MailboxLanes<'a,N>::issue_order [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:261 CONFIRMED
-- fn MailboxLanes<'a,N>::issue_where [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:269 CONFIRMED
-- fn MailboxLanes<'a,N>::issue_concat [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:278 CONFIRMED
+- fn MailboxLanes<'a,N>::scope [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:237 CONFIRMED
+- fn MailboxLanes<'a,N>::rows [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:243 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_order [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:268 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_where [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:276 CONFIRMED
+- fn MailboxLanes<'a,N>::issue_concat [pub] — crates/lance-graph-mailbox-lanes/src/lib.rs:285 CONFIRMED
 - enum WhenRefusal [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:48 CONFIRMED
-- struct WhenRequest [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:70 CONFIRMED
-- struct Fired [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:79 CONFIRMED
-- fn Fired::rows [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:88 CONFIRMED
-- fn Fired::count [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:93 CONFIRMED
-- fn Fired::bits [pub(crate)] — crates/lance-graph-mailbox-lanes/src/when.rs:99 CONFIRMED
-- fn Fired::fields [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:105 CONFIRMED
-- fn Fired::holds [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:112 CONFIRMED
-- fn when [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:135 CONFIRMED
+- struct WhenRequest [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:75 CONFIRMED
+- struct Fired [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:84 CONFIRMED
+- fn Fired::rows [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:93 CONFIRMED
+- fn Fired::count [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:98 CONFIRMED
+- fn Fired::bits [pub(crate)] — crates/lance-graph-mailbox-lanes/src/when.rs:104 CONFIRMED
+- fn Fired::fields [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:110 CONFIRMED
+- fn Fired::holds [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:117 CONFIRMED
+- fn check_scope [pub(crate)] — crates/lance-graph-mailbox-lanes/src/when.rs:139 CONFIRMED
+- fn when [pub] — crates/lance-graph-mailbox-lanes/src/when.rs:155 CONFIRMED
 
 ## Imports from in-scope crates
 

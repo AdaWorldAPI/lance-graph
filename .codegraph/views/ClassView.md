@@ -301,12 +301,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-mailbox-lanes/src/act.rs:224 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:254 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:265 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:528 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:649 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:531 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:652 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/when.rs:112 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/when.rs:135 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:117 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:155 POSSIBLE
 - crates/lance-graph-mask-risc/src/ir.rs:23 POSSIBLE
 - crates/lance-graph-ogar/src/actions.rs:9 POSSIBLE
 - crates/lance-graph-ogar/src/lib.rs:8 POSSIBLE
