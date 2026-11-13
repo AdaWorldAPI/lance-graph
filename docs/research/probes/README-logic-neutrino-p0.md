@@ -21,7 +21,7 @@ Three logic-neutrino twins in the Python reference fixture:
 |---|---|---|---|
 | Rails-like source | 0x2A, items.incomplete.count candidate | Checklist::Item declared scope vs Audit::Item without it | first eligible within test; second WRONG_RECEIVER |
 | CE64 | 0x2A, same low S/P/O and F/C bits | Orientation Recipient=2 vs Core=0 at bits 43..45 | first eligible within test; second WRONG_ROLE |
-| Mississippi Queen | 0x2A, same heading/position/180-degree requested turn | six coal versus zero coal, test's classic movement-law fixture | first eligible; second INSUFFICIENT_COAL |
+| Mississippi Queen | 0x2A, same fixed 180-degree maneuver request (no board-geometry model) | six coal versus zero coal, test's classic movement-law fixture | first eligible; second INSUFFICIENT_COAL |
 
 **Additional twins:** identical surface text at source revision 7 versus 8; wrong ClassView reading; no witness; unknown river ruleset; CE64 Epi5 changed with orientation unchanged. An Epi5 bit-pattern change is **not** role change.
 
