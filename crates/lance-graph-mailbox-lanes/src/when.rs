@@ -94,6 +94,12 @@ impl Fired {
         self.bits.iter().map(|w| u64::from(w.count_ones())).sum()
     }
 
+    /// The mask, one bit per row of the lane: a resident plane for a second
+    /// program over the same rows under the same publication.
+    pub(crate) fn bits(&self) -> &[u64] {
+        &self.bits
+    }
+
     /// The class fields the guard read, ascending. Empty for a constant
     /// guard, which reads none.
     pub fn fields(&self) -> &[u8] {

@@ -38,9 +38,11 @@
 //! the caller's assertion, compared for consistency only), `NodeGuid`
 //! resolution, any write.
 
+pub mod act;
 pub mod coords;
 pub mod when;
 
+use std::cell::Cell;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use cognitive_shader_driver::mailbox_soa::Published;
@@ -165,6 +167,9 @@ pub struct MailboxLanes<'a, const N: usize> {
     /// An address carries the space, so an address of another socket (over
     /// another publication, or the same one) is refused by `borrow`.
     socket: u64,
+    /// Lanes lent so far (successful `borrow` calls). A ledger, read by a
+    /// caller that must show nothing was read before a check passed.
+    lends: Cell<u64>,
 }
 
 impl<'a, const N: usize> MailboxLanes<'a, N> {
@@ -184,7 +189,22 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
             scope,
             selections: Vec::new(),
             socket,
+            lends: Cell::new(0),
         }
+    }
+
+    /// How many lanes this socket has lent so far.
+    #[must_use]
+    pub fn lends(&self) -> u64 {
+        self.lends.get()
+    }
+
+    /// The owner's identity and the cycle it is in during this publication.
+    /// A write computed from this publication is made for that cycle.
+    #[must_use]
+    pub fn owner_cycle(&self) -> (u32, u32) {
+        let owner = self.published.owner();
+        (owner.mailbox_id(), owner.current_cycle)
     }
 
     /// The frame store of this publication. Same store as
@@ -296,13 +316,15 @@ impl<const N: usize> LaneSource for MailboxLanes<'_, N> {
         }
         let owner = self.published.owner();
         let rows = owner.populated();
-        Some(match Column::from_lane(addr.lane)? {
+        let lane = match Column::from_lane(addr.lane)? {
             Column::Meta => LaneRef::U32(owner.meta_raw().get(..rows)?),
             Column::LastActiveCycle => LaneRef::U32(owner.last_active_cycle.get(..rows)?),
             Column::LastWriteCycle => LaneRef::U32(owner.last_write_cycle.get(..rows)?),
             Column::Edges => LaneRef::U64(owner.edges_raw().get(..rows)?),
             Column::Temporal => LaneRef::U64(owner.temporal.get(..rows)?),
-        })
+        };
+        self.lends.set(self.lends.get() + 1);
+        Some(lane)
     }
 
     fn frames(&self) -> &FrameStore {

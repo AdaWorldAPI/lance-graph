@@ -22,7 +22,7 @@ use lance_graph_dt64::{
     MethodId, Refusal, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mailbox_lanes::act::{
-    act, apply, cascade, ActContext, ActRefusal, ApplyRefusal, Applied,
+    act, apply, cascade, ActContext, ActRefusal, Applied, ApplyRefusal,
 };
 use lance_graph_mailbox_lanes::{Column, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
@@ -496,7 +496,10 @@ fn a_write_lands_only_under_the_owners_rules() {
     other.set_populated(POPULATED);
     assert_eq!(
         apply(&mut other, intent),
-        Err(ApplyRefusal::ForeignOwner { intent: 7, owner: 8 })
+        Err(ApplyRefusal::ForeignOwner {
+            intent: 7,
+            owner: 8
+        })
     );
     assert!(other.temporal.iter().all(|&t| t == 0));
 
