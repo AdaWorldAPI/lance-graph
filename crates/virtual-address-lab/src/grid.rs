@@ -142,13 +142,19 @@ impl Grid {
         (0..self.lanes).map(|l| self.raw_lane(l).to_vec()).collect()
     }
 
+    /// # Panics
+    ///
+    /// When all 65,536 selection names are taken. A name is a `u16`; issuing
+    /// past it would alias the first selection, so the fixture stops instead.
     fn issue(&mut self, positions: Positions, space: CoordSpace) -> u16 {
+        let name =
+            u16::try_from(self.selections.len()).expect("a grid issues at most 65,536 selections");
         self.selections.push(Issued {
             positions,
             at: self.frames.revisions(),
             space,
         });
-        (self.selections.len() - 1) as u16
+        name
     }
 
     /// The source produces the order of `key`: `OrderIndex::by_i32` over its

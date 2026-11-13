@@ -435,3 +435,18 @@ fn a_256_lane_class_binds_every_lane() {
     };
     assert_eq!(values, [2550, 2551, 2552, 2553]);
 }
+
+/// Review finding. FAILS IF: the 65,537th selection is issued under a name
+/// an earlier selection already holds.
+#[test]
+#[should_panic(expected = "at most 65,536 selections")]
+fn a_selection_name_is_never_reissued() {
+    let mut grid = Grid::new(1, 4, |_, p| p as i32);
+    for n in 0..=u16::MAX {
+        assert_eq!(grid.issue_list(vec![u32::from(n) % 4]), n);
+    }
+    // Every name is taken and each still names its own list.
+    assert_eq!(grid.raw_positions(0), [0]);
+    assert_eq!(grid.raw_positions(u16::MAX), [3]);
+    grid.issue_list(vec![1]);
+}
