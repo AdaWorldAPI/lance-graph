@@ -1,6 +1,6 @@
 # CE64 logic-neutrino P0/P1: narrow executable lab
 
-**Date:** 2026-11-13. **Status:** SOURCE WRITTEN; CARGO TESTS NOT YET EXECUTED. **Scope:** unadmitted research only.
+**Date:** 2026-11-13. **Status:** P0/P1 CI PASS (2 passed, 0 failed, 0 ignored). **Scope:** unadmitted research only.
 
 **Research parent:** [Seven-branch logic-neutrino scratchpad, draft PR #2048](2026-11-13-ce64-logic-neutrino-grammar-spine.md). This lab is a separate PR, not a rewrite of that mindmap. It does not authorize changes to production admission, F###, CE64 bits, ClassView meaning or runtime.
 
@@ -43,7 +43,7 @@ Using the existing CausalEdge64::set_orientation setter, construct a borrowed u6
 cargo test --manifest-path crates/grammar-constraints-probe/Cargo.toml --test logic_neutrino_p0
 ~~~
 
-Repository policy requires the sibling AdaWorldAPI/ndarray checkout at ../../../ndarray and forbids substituting crates.io. The current authoring environment has no Rust toolchain or GitHub network, so **tests are not claimed green**. Keep the PR draft until an actual runner records the test result and dependency revisions.
+Repository policy requires the sibling AdaWorldAPI/ndarray checkout at ../../../ndarray and forbids substituting crates.io. **Measured execution receipt:** [GitHub Actions run 43335346145](https://github.com/AdaWorldAPI/lance-graph/actions/runs/43335346145) on commit daa56122f073cb571a87b09e861e7599f143312d, Rust 1.100.0 (0ef1bc386, 2026-11-09), completed successfully: two named tests passed, zero failed, zero ignored, zero filtered. This is a *test result*, not a proof of generic logical equivalence. PR remains draft because the wider seven-branch hypothesis has not been tested.
 
 ## Acceptance and kill conditions
 
