@@ -7,8 +7,8 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::{
-    view_class, BindStore, ClassSchema, Extent, Guard, MethodBinding, MethodId, SchemaRev, SigRev,
-    ValueDemand,
+    view_class, BindStore, ClassSchema, Extent, Guard, MethodBinding, MethodId, Refusal, SchemaRev,
+    SigRev, ValueDemand,
 };
 
 struct View {
@@ -50,7 +50,7 @@ fn guarded(expr: SetExpr) -> MethodBinding {
     }
 }
 
-fn register(expr: SetExpr) -> Result<(), lance_graph_dt64::Refusal> {
+fn register(expr: SetExpr) -> Result<(), Refusal> {
     let view = View {
         class: view_class(CLASS),
         fields: (0..FIELDS)
@@ -97,6 +97,16 @@ fn a_guard_naming_a_field_outside_the_basis_is_refused() {
             SetExpr::negated(SetExpr::Or(vec![SetExpr::Sym(1), SetExpr::ne_u32(past, 2)])),
         ]),
     ] {
-        assert!(register(expr.clone()).is_err(), "registered: {expr:?}");
+        assert!(
+            matches!(
+                register(expr.clone()),
+                Err(Refusal::GuardLaneOutOfBasis {
+                    class: CLASS,
+                    method: MethodId(1),
+                    lane
+                }) if usize::from(lane) >= FIELDS
+            ),
+            "registered or refused for another reason: {expr:?}"
+        );
     }
 }
