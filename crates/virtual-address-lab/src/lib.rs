@@ -22,7 +22,7 @@
 
 pub mod cube;
 pub mod grid;
-pub mod mailbox;
+pub mod owner;
 pub mod physical;
 pub mod recipe;
 pub mod view;

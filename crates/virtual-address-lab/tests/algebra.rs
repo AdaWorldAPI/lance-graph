@@ -111,6 +111,17 @@ fn a_chain_that_undoes_itself_normalises_to_identity() {
     let grid = tile();
     let chain = [Recipe::ROTATE90, Recipe::ROTATE270];
     assert_eq!(Recipe::normalize(&chain), Recipe::IDENTITY);
+    assert_eq!(
+        Recipe::normalize(&[Recipe::ROTATE180, Recipe::ROTATE180]),
+        Recipe::IDENTITY
+    );
+    // Cell by cell, without the product: applying Rotate180 twice is the cell.
+    for r in 0..N {
+        for c in 0..N {
+            let (r1, c1) = Recipe::ROTATE180.resolve(N, N, r, c).unwrap();
+            assert_eq!(Recipe::ROTATE180.resolve(N, N, r1, c1), Some((r, c)));
+        }
+    }
     let long = [
         Recipe::ROTATE90,
         Recipe::MIRROR_X,

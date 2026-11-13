@@ -438,3 +438,29 @@ intermediate storage, values read, lane borrows per column, physical
 transposes, allocations, cold bind and warm read latency (ns). The 1-4 cycle
 hypothesis is NOT measured here: no register-local kernel runs on this path,
 the read is a position-indexed scalar load.
+
+## 11. Binding directive, 2026-11-13: prove the address law on the real owner
+
+ABI512, `NodeRow`, `VALUE_TENANTS` and `MailboxSoA<N>` stay exactly as coded.
+
+⊘ Section 10 is superseded on one point. Its `MailboxLanes` socket gave the
+mailbox a `FrameStore`, a `LaneSource` and a `SelectionSource` of the lab's
+making. The directive forbids exactly that substitute, so the socket and its
+tests are removed from the tree (they remain in commit `584f880e1`; there 10
+tests passed and 6 of 7 disable runs were red, the seventh showing that the
+"stale frame" refusal came from the socket's identity, not from the owner).
+Nothing of section 10 is evidence about the mailbox's own guarantees.
+
+### 11.1 What is tested now, written before the run
+
+- **P0** `tests/owner_read.rs`, `tests/owner_read_alloc.rs`: one property of
+  one source-local row of a real `MailboxSoA<64>`, through `MailboxSoaView`
+  only (`meta_raw`, `edges_raw`). The identity is a row POSITION supplied by
+  the caller. Checks: value against a scalar oracle; the lent slice is the
+  owner's own array inside the owner's allocation; two separate columns, not
+  one record; one value loaded per request and the other column not borrowed;
+  the chain normalised before the read; absent property and absent row give no
+  value; `style_lane_at` is a copy; no allocation.
+- **P2** `tests/algebra.rs`: `Rotate90 ∘ Rotate270` and `Rotate180 ∘
+  Rotate180` are Identity, by the product and cell by cell.
+- **P1 and P3 are not run.** See 11.2.
