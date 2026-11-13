@@ -300,6 +300,8 @@ fn each_path_names_its_population() {
     assert_eq!(over.unwritten, vec![(SCRATCH, distinct)]);
     assert_eq!(over.rows, [1, 3]);
     assert!(over.intents.is_empty());
+    // Which population a result was computed over is part of the result.
+    assert_eq!((whole.over, over.over), (None, Some(sel)));
     // Neither is the bag reading.
     assert_ne!(whole.unwritten[0].1, as_bag);
     assert_ne!(over.unwritten[0].1, as_bag);

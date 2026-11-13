@@ -68,8 +68,9 @@
 //! - A field that names no mailbox column at all (a method's scratch mask, an
 //!   intermediate scalar) is never written; its scalars are returned in
 //!   [`Acted::unwritten`].
-//! - The population of a method is the SET of rows its guard keeps over the
-//!   populated prefix. A method declared over a bag is refused
+//! - The population of a method under [`act`] is the SET of rows its guard
+//!   keeps over the populated prefix. [`act_over`] narrows it to the
+//!   distinct rows of a socket-issued selection, for a read-only method. A method declared over a bag is refused
 //!   ([`ActRefusal::BagPopulation`]); the socket's repeated-row selections
 //!   (`issue_concat`) are not an operand of this module.
 //! - A method whose effects target only fields that name no mailbox column
@@ -133,6 +134,14 @@ pub enum ActRefusal {
     /// gates a fold with one bit per row, which is membership; running the
     /// method on it would take membership for multiplicity.
     BagPopulation { method: MethodId },
+    /// [`act_over`] was given a method that writes a mailbox column.
+    NotReadOnly { field: u8, column: Column },
+    /// [`act_over`] was given a method with no guard: there is no gate plane
+    /// for a selection to narrow.
+    SelectionNeedsGuard,
+    /// [`act_over`] was given a method that declares no read: the selection
+    /// is taken through the operand binding, which then binds nothing.
+    SelectionNeedsRead,
     /// A result does not fit the column it would be written to.
     ValueOutOfRange { field: u8, value: i64 },
 }
@@ -187,6 +196,11 @@ pub struct Acted {
     pub receipt: Receipt,
     /// Scalar outputs whose field names no mailbox column.
     pub unwritten: Vec<(u8, i64)>,
+    /// The socket-issued selection whose distinct rows narrowed the
+    /// population ([`act_over`]); `None` for the whole populated prefix.
+    /// R2IL's receipt does not record it: the gate R2IL checks is the
+    /// guard's witness, and the narrowed plane is this module's.
+    pub over: Option<u16>,
 }
 
 /// The column a class field names, if it names one a method may write.
@@ -204,12 +218,57 @@ fn writable(iri: &str, field: u8) -> Result<Option<Column>, ActRefusal> {
 
 /// Run `method` over the columns `lanes` publishes. Writes nothing: the
 /// answer is what the method asks the owner to write.
+///
+/// The population is the populated prefix: every row the guard keeps. No
+/// selection takes part; see [`act_over`].
 pub fn act<V: ClassView + ?Sized, const N: usize>(
     lanes: &MailboxLanes<'_, N>,
     store: &BindStore,
     view: &V,
     ctx: &ActContext<'_>,
     method: &MethodRef,
+) -> Result<Acted, ActRefusal> {
+    act_in(lanes, store, view, ctx, method, None)
+}
+
+/// Run a read-only `method` over the DISTINCT rows of a selection the socket
+/// issued: the population is the guard's rows that occur in `selection`,
+/// each once.
+///
+/// The selection only narrows the gate plane R2IL already runs under; no
+/// executor, operand form or fold is added. Its order and its repeats are
+/// not used: `[1, 1, 3]` is the rows `{1, 3}` here. A count over the
+/// selection as a bag has no path in this module.
+///
+/// Refused: a method that writes a mailbox column
+/// ([`ActRefusal::NotReadOnly`]; [`apply`] re-evaluates over the whole
+/// prefix and could not reproduce a selected write), a method with no guard
+/// ([`ActRefusal::SelectionNeedsGuard`]; an unguarded plan has no gate), a
+/// method with no declared read ([`ActRefusal::SelectionNeedsRead`]; the
+/// selection is taken through the operand binding), and everything [`act`]
+/// refuses.
+///
+/// # Errors
+///
+/// [`ActRefusal`].
+pub fn act_over<V: ClassView + ?Sized, const N: usize>(
+    lanes: &MailboxLanes<'_, N>,
+    store: &BindStore,
+    view: &V,
+    ctx: &ActContext<'_>,
+    method: &MethodRef,
+    selection: u16,
+) -> Result<Acted, ActRefusal> {
+    act_in(lanes, store, view, ctx, method, Some(selection))
+}
+
+fn act_in<V: ClassView + ?Sized, const N: usize>(
+    lanes: &MailboxLanes<'_, N>,
+    store: &BindStore,
+    view: &V,
+    ctx: &ActContext<'_>,
+    method: &MethodRef,
+    within: Option<u16>,
 ) -> Result<Acted, ActRefusal> {
     let admitted = store
         .admit_routed(ctx.route, method)
@@ -231,7 +290,16 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
     }
     // Refuse a forbidden target before anything is read or run.
     for effect in &admitted.effects {
-        writable(iri(effect.target), effect.target)?;
+        let target = writable(iri(effect.target), effect.target)?;
+        if let (Some(column), Some(_)) = (target, within) {
+            return Err(ActRefusal::NotReadOnly {
+                field: effect.target,
+                column,
+            });
+        }
+    }
+    if within.is_some() && admitted.when.is_none() {
+        return Err(ActRefusal::SelectionNeedsGuard);
     }
 
     let fired = match &admitted.when {
@@ -284,7 +352,35 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
 
     // DO: R2IL over mask-risc, gated by the guard's rows.
     let rows = lanes.rows();
-    let masks: Vec<&[u64]> = fired.iter().map(|f| f.bits()).collect();
+    // A selection narrows the gate to its distinct rows. The positions are
+    // taken through the operand binding's joint witness.
+    let narrowed: Option<Vec<u64>> = match (&fired, within) {
+        (Some(kept), Some(selection)) => {
+            let field = (0..=u8::MAX)
+                .find(|&f| admitted.reads.has(f))
+                .ok_or(ActRefusal::SelectionNeedsRead)?;
+            let (_, positions) = binding
+                .selected(store, view, frames, lanes, field, selection)
+                .map_err(ActRefusal::Lane)?;
+            let mut member = vec![0u64; rows.div_ceil(64)];
+            for &p in positions {
+                let p = p as usize;
+                if p < rows {
+                    member[p / 64] |= 1 << (p % 64);
+                }
+            }
+            Some(
+                kept.bits()
+                    .iter()
+                    .zip(&member)
+                    .map(|(a, b)| a & b)
+                    .collect(),
+            )
+        }
+        _ => None,
+    };
+    let gate_bits: Option<&[u64]> = narrowed.as_deref().or(fired.as_ref().map(|f| f.bits()));
+    let masks: Vec<&[u64]> = gate_bits.iter().copied().collect();
     let planes = Planes {
         n_rows: rows,
         masks: &masks,
@@ -336,8 +432,8 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
 
     // The fired rows: the guard's, or every row for an unguarded method.
     let mut bits = vec![0u64; rows.div_ceil(64)];
-    match &fired {
-        Some(f) => bits.copy_from_slice(f.bits()),
+    match gate_bits {
+        Some(gate) => bits.copy_from_slice(gate),
         None => (0..rows).for_each(|r| bits[r / 64] |= 1 << (r % 64)),
     }
     let fired_rows: Vec<u32> = (0..rows as u32)
@@ -371,6 +467,7 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
         guard_rows: fired.as_ref().map_or(0, |f| f.rows() as u64),
         receipt,
         unwritten,
+        over: within,
     })
 }
 

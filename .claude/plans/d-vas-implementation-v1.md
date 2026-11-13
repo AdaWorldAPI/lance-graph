@@ -698,3 +698,58 @@ seam takes no selection operand, and R2IL itself does not read
 Not established: historical replay (no source contents are retained); any
 reuse of a computed result past its publication; authorization (the scope
 check compares two caller-asserted values); a general bag API; cost.
+
+## R10: selection is not execution population
+
+Finding: an address can be resolved through a socket-issued selection
+(`Method::cell` -> `LaneBinding::selected`), and `act` runs an admitted method;
+but `act` takes no selection and runs over the populated prefix. The #2065 test
+addresses a cell through a selection and then calls population-wide `when` /
+`act`. A correct scalar over the wrong population is not Bag correctness.
+
+`tests/population.rs`: four rows, all in the guard; the selection `[1, 1, 3]`
+issued by the socket (`issue_where`, `issue_where`, `issue_concat`). Three
+counts by hand, and what each path returns (the scalar output, not a row
+count):
+
+| reading | by hand | path | returns |
+|---|---|---|---|
+| whole source | 4 | `act` | 4 |
+| distinct selected | 2 | `act_over` (new) | 2 |
+| selection as a bag | 3 | none | a bag-declared method is refused, with and without a selection |
+
+`act_over(lanes, store, view, ctx, method, selection)`: the population is the
+guard's rows that occur in the selection, each once. It narrows the gate plane
+R2IL already runs under; no executor, operand form or fold is added, and
+`act` shares its body. Refused: a method that writes a mailbox column
+(`NotReadOnly`: `apply` re-evaluates over the whole prefix and could not
+reproduce a selected write), an unguarded method (`SelectionNeedsGuard`: an
+ungated plan has no plane to narrow), a method with no declared read
+(`SelectionNeedsRead`), a selection the socket did not issue. `Acted::over`
+records which population a result was computed over.
+
+Selection provenance, exactly:
+
+- established: the positions are taken inside `act_over` through
+  `LaneBinding::selected` on the operand binding, so DT64's joint witness
+  (same source, same publication frame, same row order and scope) is checked
+  in the same borrow the fold runs in; a caller cannot hand in positions or a
+  plane;
+- missing: R2IL's `Gate` checks the guard's witness, not the plane's bits, and
+  its `Receipt` names no selection. The narrowed plane is vouched for by this
+  module, as the guard's own plane already was. A selection witness inside
+  R2IL's gate does not exist and was not invented.
+
+Test committed before `act_over` existed. Two disable runs, exit 101.
+
+| Item | Contract | Oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| `act` population | `act` | count by hand | whole source, 4 | not 2, not 3 | INTEGRATION VERIFIED (characterised) |
+| distinct selected | `act_over`, `Acted::over` | count by hand | 2; the guard still applies (a selected row outside it is not counted) | writes, no guard, unknown selection. 2 disables | INTEGRATION VERIFIED, read-only, DISTINCT |
+| bag multiplicity | none | 3 by hand | n/a | refused | NOT SUPPORTED |
+
+Levels kept apart: `MethodBinding.on` is a field activation mask; a selected
+ordinal is an address within an issued selection; the guard mask is Boolean
+membership; a bag has declared multiplicity; DO computes over the population
+that was explicitly bound. "ON as contextual Bag binding" is a target, not a
+contract in the code.

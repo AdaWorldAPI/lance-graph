@@ -3,7 +3,7 @@
 crate: lance-graph-mailbox-lanes
 path: crates/lance-graph-mailbox-lanes
 workspace: member
-digest: 92f91dbcafd37fca
+digest: 0072367fddcc0303
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -25,20 +25,21 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- struct ActContext [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:106 CONFIRMED
-- enum ActRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:117 CONFIRMED
-- struct Intent [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:144 CONFIRMED
-- fn Intent::column [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:156 CONFIRMED
-- fn Intent::value [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:161 CONFIRMED
-- struct Acted [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:179 CONFIRMED
-- fn act [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:207 CONFIRMED
-- enum ApplyRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:379 CONFIRMED
-- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:398 CONFIRMED
-- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:431 CONFIRMED
-- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:508 CONFIRMED
-- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:528 CONFIRMED
-- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:534 CONFIRMED
-- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:552 CONFIRMED
+- struct ActContext [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:107 CONFIRMED
+- enum ActRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:118 CONFIRMED
+- struct Intent [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:153 CONFIRMED
+- fn Intent::column [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:165 CONFIRMED
+- fn Intent::value [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:170 CONFIRMED
+- struct Acted [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:188 CONFIRMED
+- fn act [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:224 CONFIRMED
+- fn act_over [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:254 CONFIRMED
+- enum ApplyRefusal [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:476 CONFIRMED
+- struct Applied [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:495 CONFIRMED
+- fn apply [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:528 CONFIRMED
+- struct Fire [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:605 CONFIRMED
+- struct Round [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:625 CONFIRMED
+- struct Cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:631 CONFIRMED
+- fn cascade [pub] — crates/lance-graph-mailbox-lanes/src/act.rs:649 CONFIRMED
 - enum CoordRefusal [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:30 CONFIRMED
 - struct Coordinates [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:47 CONFIRMED
 - fn Coordinates::bind [pub] — crates/lance-graph-mailbox-lanes/src/coords.rs:55 CONFIRMED
@@ -78,33 +79,33 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### cognitive-shader-driver
-- use cognitive_shader_driver::mailbox_soa::MailboxSoA — crates/lance-graph-mailbox-lanes/src/act.rs:82 CONFIRMED
-- use cognitive_shader_driver::mailbox_soa::WriteCell — crates/lance-graph-mailbox-lanes/src/act.rs:82 CONFIRMED
-- use cognitive_shader_driver::mailbox_soa::WriteOutcome — crates/lance-graph-mailbox-lanes/src/act.rs:82 CONFIRMED
+- use cognitive_shader_driver::mailbox_soa::MailboxSoA — crates/lance-graph-mailbox-lanes/src/act.rs:83 CONFIRMED
+- use cognitive_shader_driver::mailbox_soa::WriteCell — crates/lance-graph-mailbox-lanes/src/act.rs:83 CONFIRMED
+- use cognitive_shader_driver::mailbox_soa::WriteOutcome — crates/lance-graph-mailbox-lanes/src/act.rs:83 CONFIRMED
 - use cognitive_shader_driver::mailbox_soa::Published — crates/lance-graph-mailbox-lanes/src/lib.rs:48 CONFIRMED
 ### lance-graph-contract
-- use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/act.rs:83 CONFIRMED
-- use lance_graph_contract::cognitive_shader::MetaWord — crates/lance-graph-mailbox-lanes/src/act.rs:84 CONFIRMED
-- use lance_graph_contract::collapse_gate::MailboxId — crates/lance-graph-mailbox-lanes/src/act.rs:85 CONFIRMED
-- use lance_graph_contract::set_rules::Population — crates/lance-graph-mailbox-lanes/src/act.rs:86 CONFIRMED
-- use lance_graph_contract::soa_view::MailboxSoaView — crates/lance-graph-mailbox-lanes/src/act.rs:87 CONFIRMED
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/act.rs:84 CONFIRMED
+- use lance_graph_contract::cognitive_shader::MetaWord — crates/lance-graph-mailbox-lanes/src/act.rs:85 CONFIRMED
+- use lance_graph_contract::collapse_gate::MailboxId — crates/lance-graph-mailbox-lanes/src/act.rs:86 CONFIRMED
+- use lance_graph_contract::set_rules::Population — crates/lance-graph-mailbox-lanes/src/act.rs:87 CONFIRMED
+- use lance_graph_contract::soa_view::MailboxSoaView — crates/lance-graph-mailbox-lanes/src/act.rs:88 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/lance-graph-mailbox-lanes/src/lib.rs:49 CONFIRMED
 - use lance_graph_contract::soa_view::MailboxSoaView — crates/lance-graph-mailbox-lanes/src/lib.rs:50 CONFIRMED
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/when.rs:34 CONFIRMED
 - use lance_graph_contract::class_view::WideFieldMask — crates/lance-graph-mailbox-lanes/src/when.rs:34 CONFIRMED
 - use lance_graph_contract::set_algebra::Logic — crates/lance-graph-mailbox-lanes/src/when.rs:35 CONFIRMED
 ### lance-graph-dt64
-- use lance_graph_dt64::dr::Focus — crates/lance-graph-mailbox-lanes/src/act.rs:88 CONFIRMED
-- use lance_graph_dt64::dr::Guards — crates/lance-graph-mailbox-lanes/src/act.rs:88 CONFIRMED
-- use lance_graph_dt64::dr::Scope — crates/lance-graph-mailbox-lanes/src/act.rs:88 CONFIRMED
-- use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::LaneRefusal — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::LaneRequest — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::MethodId — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::MethodRef — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::Refusal — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::RouteAt — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
-- use lance_graph_dt64::SchemaRev — crates/lance-graph-mailbox-lanes/src/act.rs:90 CONFIRMED
+- use lance_graph_dt64::dr::Focus — crates/lance-graph-mailbox-lanes/src/act.rs:89 CONFIRMED
+- use lance_graph_dt64::dr::Guards — crates/lance-graph-mailbox-lanes/src/act.rs:89 CONFIRMED
+- use lance_graph_dt64::dr::Scope — crates/lance-graph-mailbox-lanes/src/act.rs:89 CONFIRMED
+- use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::LaneRefusal — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::LaneRequest — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::MethodId — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::MethodRef — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::Refusal — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::RouteAt — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
+- use lance_graph_dt64::SchemaRev — crates/lance-graph-mailbox-lanes/src/act.rs:91 CONFIRMED
 - use lance_graph_dt64::dr::Frame — crates/lance-graph-mailbox-lanes/src/coords.rs:26 CONFIRMED
 - use lance_graph_dt64::dr::FrameRefusal — crates/lance-graph-mailbox-lanes/src/coords.rs:26 CONFIRMED
 - use lance_graph_dt64::dr::MapRead — crates/lance-graph-mailbox-lanes/src/coords.rs:26 CONFIRMED
@@ -130,8 +131,8 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::RouteAt — crates/lance-graph-mailbox-lanes/src/when.rs:38 CONFIRMED
 - use lance_graph_dt64::SchemaRev — crates/lance-graph-mailbox-lanes/src/when.rs:38 CONFIRMED
 ### lance-graph-mask-risc
-- use lance_graph_mask_risc::Foreign — crates/lance-graph-mailbox-lanes/src/act.rs:92 CONFIRMED
-- use lance_graph_mask_risc::Planes — crates/lance-graph-mailbox-lanes/src/act.rs:92 CONFIRMED
+- use lance_graph_mask_risc::Foreign — crates/lance-graph-mailbox-lanes/src/act.rs:93 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/lance-graph-mailbox-lanes/src/act.rs:93 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/lance-graph-mailbox-lanes/src/lib.rs:53 CONFIRMED
 - use lance_graph_mask_risc::ExecError — crates/lance-graph-mailbox-lanes/src/when.rs:40 CONFIRMED
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-mailbox-lanes/src/when.rs:40 CONFIRMED
@@ -149,18 +150,18 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_quack::Query — crates/lance-graph-mailbox-lanes/src/when.rs:42 CONFIRMED
 - use lance_graph_quack::lower — crates/lance-graph-mailbox-lanes/src/when.rs:42 CONFIRMED
 ### lance-graph-r2il
-- use lance_graph_r2il::binding::ExecPermit — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::ExecRefusal — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::FieldLanes — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::Gate — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::R2ilLens — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::prepare — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::prepare_gated — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::run — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::run_gated — crates/lance-graph-mailbox-lanes/src/act.rs:94 CONFIRMED
-- use lance_graph_r2il::binding::Receipt — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
-- use lance_graph_r2il::binding::Resolution — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
-- use lance_graph_r2il::FoldDialect — crates/lance-graph-mailbox-lanes/src/act.rs:97 CONFIRMED
+- use lance_graph_r2il::binding::ExecPermit — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::ExecRefusal — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::FieldLanes — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::Gate — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::R2ilLens — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::prepare — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::prepare_gated — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::run — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::run_gated — crates/lance-graph-mailbox-lanes/src/act.rs:95 CONFIRMED
+- use lance_graph_r2il::binding::Receipt — crates/lance-graph-mailbox-lanes/src/act.rs:96 CONFIRMED
+- use lance_graph_r2il::binding::Resolution — crates/lance-graph-mailbox-lanes/src/act.rs:96 CONFIRMED
+- use lance_graph_r2il::FoldDialect — crates/lance-graph-mailbox-lanes/src/act.rs:98 CONFIRMED
 
 ## Calls
 
