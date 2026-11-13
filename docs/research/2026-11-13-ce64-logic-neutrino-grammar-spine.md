@@ -275,3 +275,41 @@ For each proposed follow-on: save pinned source revision, class reading, exact o
 **Source-drift warning:** the [epistemic-frontier capstone](../../.claude/knowledge/epistemic-frontier-capstone.md) presents a composite front-end vision. Current [MeTTa](../../crates/lance-graph-metta/src/lib.rs) explicitly describes only a hand-lowered probe, and current [NAL](../../crates/lance-graph-nal/src/lib.rs) says a Narsese text front end is not shipped. Cite the narrow current status, not the broader drawing. Historic notes also differ on CE64 bits 53..58; no writer may infer that reading from this scratchpad.
 
 **Review questions:** Is the seven-branch map complete without conflating semantics? Does P0 genuinely discriminate universal typing from a common-shaped adapter? Is there an existing source owner for every proposed rule rather than a second grammar? Which hypothesis should be refused immediately? **Do not merge this research doc as implementation authorization.**
+
+## 8. Addendum 2026-11-13: independent audit of P0/P1 and what survives
+
+Appended; nothing above is changed. Grades: **[MEASURED]** run locally on PR #2051's head `d0bcdc0` with untracked scratch tests (not committed; no test in #2051 was modified); **[CODE]** read in source at the cited line; **[H]** new hypothesis, untested.
+
+### 8.1 Audit of PR #2051
+
+| Claim in #2051 | Grade | Evidence |
+|---|---|---|
+| 2 tests pass | VERIFIED [MEASURED] | reproduced locally, 2 passed / 0 failed |
+| A u8 selector retains two candidates | **FALSIFIED as stated** [CODE] | `left_corner()` returns a slice `&[Candidate]`; its result is only compared with a constant. No `Candidate` value reaches `register`, `compose` or `run`: both rules are registered and run unconditionally. Its predicate (`obl:arg ∧ Dat`) is the first two conjuncts of both guards |
+| Expected labels are independent | PARTIAL [CODE] | the five expectations are literals in the test; `fixtures::GOLD` exists and is not read. Each label is a function of the head lemma, the same fact `Lexicon::v0` states, so lexicon and gold cannot disagree on this fixture |
+| Frame ablation is a non-vacuous falsifier | PARTIAL [MEASURED] | P0 ablates the older hand-built `EqU32Via` program (`Rules::prepare`), not the DT64-composed path. On the composed path a frame-less Recipient does match 105, 302, 405 and 505, so the idea holds; the shipped arm tests a different program |
+| The DT64 binding preserves the lexicon revision | **FALSIFIED for `CoAddressed`** [MEASURED] | the guard witness is equal under `v0` and `swapped`; a Recipient method registered under `v0` composes under `swapped` and marks *gefallen* (302) Recipient. `LexiconRevision` is raised by the lab's `Composed::run`, from a revision the caller supplies. The `Via` form does refuse (`DescriptionMismatch`), because its `Sym` digest includes the revision |
+| 505 "abstains, not false" | OPEN [MEASURED] | P0 asserts absence from two masks under `Logic::TwoValued`. Abstention is visible only in the older `Readout::abstain_frame` (505 set, 408 clear), which P0 does not read |
+| Role mask equals the CE64 accessor | VERIFIED, wider than shipped [MEASURED] | holds on dense random words for all 8 roles; the 8 masks partition the lane. Shipped P1 leaves bits 9..42, 46..58, 60..63 zero: a too-wide care mask (`0b1111 << 43`) is invisible there and gives 14 instead of 34 on dense data at n=256 |
+| Epi5 does not couple to the role | PARTIAL [CODE] | one bit (59) of five is flipped, over a zero background |
+| The co-addressed producer | OPEN [CODE] | the cross-row read `lemma[head[i]]` moves to ingestion (`FramedPopulation::produce`), is counted, and its revision is not in the method identity (row 5) |
+
+### 8.2 The shape already exists, and its two halves do not meet [CODE]
+
+`lance-graph-dt64/src/lib.rs:213` documents `MethodBinding` as "identity, ON × WHEN × DO": `on` is a field-change mask, `when` a guard over the row's own fields, `effects` an ordered list writing field positions of the same class. No path executes both halves for one method: `lance-graph-r2il/src/binding.rs:335` refuses any binding with a guard (`GuardNotExecutable`), and the lab composer refuses any binding with effects (`NotReadOnly`, `grammar-constraints-probe/src/when.rs:422`).
+
+### 8.3 Smallest structure that survives [H]
+
+A relation is the atom of **state**; a guarded delta is the atom of **dynamics**. A relation alone is enough exactly when DO is idempotent, commutative and monotone (a semilattice join: Datalog support, closure, Kythe facts, masks). It is not enough for a commutative but non-idempotent DO (bag counts, MeTTa multiplicity, an NNUE accumulator, NAL revision before evidence is deduplicated) or for an ordered one (callback order, a chess move, a resource budget). A rule therefore needs, beside ON/WHEN/DO, a declared algebra class for DO and a declaration of which history the state has already folded in.
+
+**Counterexample to "WHEN before DO" [H]:** chess self-check, Go suicide and superko, and Rails `validates` are guards on the state *after* the tentative DO. Superko further needs a negated membership test over an unbounded history set. A row-local pre-state `SetExpr` expresses none of these; the pre-state guard would be the weakest precondition of DO, which is not generally expressible in the guard language.
+
+**Same construction in two domains [H]:** the lab's `head_frame[i]` (a cross-row read folded into a resident lane at ingestion) and chess castling rights (a cross-time read folded into the position) are the same move: non-local information made row-local by a producer. `shakmaty::Chess` equality deliberately ignores the halfmove counter and holds no repetition history (`shakmaty/src/position.rs:475-491`), so two equal positions can differ on a draw claim.
+
+### 8.4 One exact relation among the "256" objects [MEASURED]
+
+A byte read as a **subset** of the eight CE64 orientation codes is the ternlog immediate over the three orientation bit-planes (a = bit 45, b = bit 44, c = bit 43): for all 256 bytes × 7 lane lengths (1792 pairs, 1270 with a count strictly between 0 and n) the mask-risc `Ternlog` count equals the accessor count of `imm >> code & 1`. The P0 candidate set {Recipient, Experiencer} is the byte `0x0C`. This is 256 = |P(8)|, and it holds only because orientation has exactly three bits. It does not extend to recipe ids (28 concepts need 28 bits as a set), tile positions, lens words or Epi5 (24 valid of 32). Those are indices or product codes, not subsets. No allocation follows from it.
+
+### 8.5 Proposed next gate (not run)
+
+Hidden-state twins in two domains under one byte-as-candidate-set structure: a typed source-code rule judged by the existing rust-analyzer/Kythe occurrence check, and chess castling judged by `shakmaty::legal_moves` on two `Setup`s that differ only in `castling_rights`. Third arm: a draw claim on two `Chess` values that compare equal. Kill conditions and the red-first arm are in the session report; no local authority exists for Go or Mississippi Queen, so neither is in the gate.
