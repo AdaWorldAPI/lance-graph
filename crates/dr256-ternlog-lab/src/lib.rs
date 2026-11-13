@@ -35,7 +35,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Extent, Frame, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest,
-    LaneSource, Refusal, RouteAt, SchemaRev,
+    LaneSource, MethodBinding, Refusal, RouteAt, SchemaRev,
 };
 use lance_graph_mask_risc::exec::{scratch_words_for, tile_words_for};
 use lance_graph_mask_risc::{
@@ -68,6 +68,7 @@ const PERSON_VIEW: ClassId = 0xD256;
 const FRIEND_VIEW: ClassId = 0xD257;
 
 pub mod bit_planes;
+pub mod bound_planes;
 pub mod order_store;
 
 /// Field positions of [`PERSON`].
@@ -176,6 +177,11 @@ impl Default for World {
 
 impl World {
     pub fn new() -> World {
+        World::with_person_methods(Vec::new())
+    }
+
+    /// [`World::new`] with `methods` registered on the person class.
+    pub fn with_person_methods(methods: Vec<MethodBinding>) -> World {
         let view = View::default();
         let mut store = BindStore::new();
         let schema = |field_count| ClassSchema {
@@ -184,7 +190,7 @@ impl World {
             extent: Extent::DR256_GLOBAL_X64,
         };
         store
-            .register(&view, PERSON, schema(3), Vec::new())
+            .register(&view, PERSON, schema(3), methods)
             .expect("the person class registers");
         store
             .register(&view, FRIEND_OF, schema(2), Vec::new())
