@@ -22,10 +22,10 @@ use lance_graph_dt64::{
     view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, LaneRequest,
     MethodBinding, MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mailbox_lanes::act::{act, apply, cascade, ActContext};
+use lance_graph_mailbox_lanes::act::{act, act_over, apply, cascade, ActContext};
 use lance_graph_mailbox_lanes::when::{when, WhenRequest};
-use lance_graph_mailbox_lanes::{Column, MailboxLanes};
-use lance_graph_mask_risc::LaneRef;
+use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
+use lance_graph_mask_risc::{execute_sel, LaneRef, Planes, SelFold};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
 
@@ -62,7 +62,11 @@ const META: u8 = 0;
 const ACTIVE: u8 = 1;
 const TEMPORAL: u8 = 2;
 const MASK: u8 = 3;
+/// Names no mailbox column.
+const SCRATCH: u8 = 4;
 const TALLY: MethodId = MethodId(1);
+/// Read-only: ON active; WHEN `meta == 2`; DO `scratch := COUNT(active == 0)`.
+const PROBE: MethodId = MethodId(3);
 const MARK: MethodId = MethodId(2);
 
 fn owner() -> Box<Owner> {
@@ -170,6 +174,7 @@ fn main() {
             field(Column::LastActiveCycle.iri()),
             field(Column::Temporal.iri()),
             field("urn:lab:mask"),
+            field("urn:lab:scratch"),
         ],
         lens: POLYFILL
             .iter()
@@ -194,7 +199,7 @@ fn main() {
             CLASS,
             ClassSchema {
                 schema_rev: REV,
-                field_count: 4,
+                field_count: 5,
                 extent: Extent::DR256_SQ_X64,
             },
             vec![
@@ -204,6 +209,12 @@ fn main() {
                     TEMPORAL,
                     SetExpr::eq_u32(u16::from(META), 1),
                     count_where(ACTIVE, 2, META),
+                ),
+                method(
+                    PROBE,
+                    ACTIVE,
+                    SetExpr::eq_u32(u16::from(META), 2),
+                    count_where(ACTIVE, 0, SCRATCH),
                 ),
             ],
         )
@@ -217,6 +228,7 @@ fn main() {
         methods: vec![
             store.method_ref(CLASS, TALLY).unwrap(),
             store.method_ref(CLASS, MARK).unwrap(),
+            store.method_ref(CLASS, PROBE).unwrap(),
         ],
     };
     let ctx = ActContext {
@@ -334,6 +346,61 @@ fn main() {
     );
     let intent = act(&lanes, &store, &view, &ctx, &tally).unwrap().intents;
     drop(lanes);
+
+    // D-VAS-R11: the population paths. One socket, selections issued once.
+    let probe = store.method_ref(CLASS, PROBE).unwrap();
+    measure(
+        "socket: open + issue 2 selections + concat (40 rows)",
+        200_000,
+        || {
+            let mut lanes = MailboxLanes::new(m.published(), READER);
+            let a = lanes
+                .issue_where(Column::LastActiveCycle, Keep::Eq(0))
+                .unwrap();
+            let b = lanes
+                .issue_where(Column::LastActiveCycle, Keep::Ge(0))
+                .unwrap();
+            lanes.issue_concat(a, b).unwrap()
+        },
+    );
+    let mut lanes = MailboxLanes::new(m.published(), READER);
+    let a = lanes
+        .issue_where(Column::LastActiveCycle, Keep::Eq(0))
+        .unwrap();
+    let b = lanes
+        .issue_where(Column::LastActiveCycle, Keep::Ge(0))
+        .unwrap();
+    let sel = lanes.issue_concat(a, b).unwrap();
+    let lanes = lanes;
+    measure("act: read-only method, whole source", 20_000, || {
+        act(&lanes, &store, &view, &ctx, &probe).unwrap().unwritten
+    });
+    measure(
+        "act_over: read-only method, selection's distinct rows",
+        20_000,
+        || {
+            act_over(&lanes, &store, &view, &ctx, &probe, sel)
+                .unwrap()
+                .unwritten
+        },
+    );
+    drop(lanes);
+    // The shipped selection fold. It admits `i32` lanes only, so this lane is
+    // SYNTHETIC: 40 `i32` values, not a mailbox column. It is not a
+    // measurement of mailbox execution.
+    let synthetic: Vec<i32> = (0..POPULATED as i32).map(|r| r % 3).collect();
+    let listed: Vec<u32> = (0..POPULATED as u32).chain(0..14).collect();
+    let synthetic_lanes = [LaneRef::I32(&synthetic)];
+    let planes = Planes {
+        n_rows: POPULATED,
+        masks: &[],
+        lanes: &synthetic_lanes,
+    };
+    measure(
+        "synthetic i32 lane (not a mailbox column): `execute_sel` CountGtI32, 54 listed positions",
+        2_000_000,
+        || execute_sel(SelFold::CountGtI32 { lane: 0, t: 0 }, &planes, &listed).unwrap(),
+    );
 
     // Write-back and the cascade mutate the owner. One owner is reused and
     // its two written columns are put back before each call; that reset is
