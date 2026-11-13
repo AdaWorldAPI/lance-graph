@@ -26,6 +26,7 @@ use lance_graph_dt64::{
     MethodBinding, MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mailbox_lanes::act::{act, act_over, ActContext, ActRefusal};
+use lance_graph_mailbox_lanes::when::{when, WhenRequest};
 use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
@@ -370,4 +371,29 @@ fn what_act_over_refuses() {
         act_over(&lanes, &w.store, &w.view, &ctx(&w), &count, sel + 1),
         Err(ActRefusal::Lane(_))
     ));
+}
+
+/// A guard that reads no column still belongs to one reader scope.
+/// FAILS IF: a constant guard is evaluated for a scope other than the
+/// socket's (no lane is bound for it, so no lane check ever sees the scope).
+/// The check is consistency of two caller-asserted values, not a grant.
+#[test]
+fn a_constant_guard_still_checks_the_reader_scope() {
+    let m = owner();
+    let w = world();
+    let lanes = MailboxLanes::new(m.published(), READER);
+    let request = |scope| WhenRequest {
+        route: w.route,
+        rev: REV,
+        scope,
+    };
+    for expr in [SetExpr::All, SetExpr::Empty] {
+        let guard = Guard::new(expr, Logic::TwoValued);
+        let other = when(&lanes, &w.store, &w.view, request(Scope { id: 4 }), &guard);
+        assert!(other.is_err(), "{other:?}");
+        // Silence twin: the socket's own scope.
+        let own = when(&lanes, &w.store, &w.view, request(READER), &guard).unwrap();
+        assert_eq!(own.rows(), POPULATED);
+    }
+    assert_eq!(lanes.lends(), 0);
 }
