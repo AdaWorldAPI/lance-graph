@@ -228,9 +228,9 @@ fn world() -> World {
             CONST,
             CONST_TO_META,
         ]
-            .iter()
-            .map(|&m| store.method_ref(CLASS, m).unwrap())
-            .collect(),
+        .iter()
+        .map(|&m| store.method_ref(CLASS, m).unwrap())
+        .collect(),
     };
     World {
         store,

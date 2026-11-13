@@ -753,3 +753,148 @@ ordinal is an address within an issued selection; the guard mask is Boolean
 membership; a bag has declared multiplicity; DO computes over the population
 that was explicitly bound. "ON as contextual Bag binding" is a target, not a
 contract in the code.
+
+## R11: multiplicity without materialization (characterised; no bag path admitted)
+
+Baseline `main` at `9ef465089` (#2064, #2065, #2066 merged). No production
+code changed in R11: tests, one measurement example, this section.
+
+### Scope check of an unguarded method that reads nothing (R10 gap, closed)
+
+Such a method is expressible and admitted: `scratch := IntAdd(2, 3)`, `when:
+None`, empty `reads` (`tests/population.rs`, methods `CONST`, `CONST_TO_META`).
+It binds no lane, so only `act`'s own `check_scope` compares scopes.
+`an_unguarded_method_that_reads_nothing_still_checks_the_reader_scope`: a
+foreign scope is refused with `ScopeMismatch` for both the scratch and the
+`meta` target (no scalar, no intent); the socket's own scope returns 5 and one
+intent for the `meta` target. Disable control (the `check_scope` line in
+`act_in` removed, anchor asserted once): the test fails, exit 101. Consistency
+of two caller-asserted values, not authorization.
+
+### The selection-fold substrate, as read
+
+1. Operations that keep repeated positions: `mask_risc::execute_sel` with
+   `SelFold::CountGtI32` and `SelFold::SumI32`, each one call of
+   `ndarray::simd::{count_gt_i32_at, sum_i32_at}`. Nothing else takes a
+   position list. ndarray's facade has exactly these two `*_at` folds.
+2. Lane kinds: `i32` only (`validate_sel_frame` checks `LaneKind::I32`). The
+   mailbox lends `u32` and `u64`; the refusal is pinned in
+   `tests/selection.rs` (R2, A4).
+3. From a `MethodBinding`: not reachable. R2IL's binding seam runs effects as
+   `Program`s through `FoldDialect` over `Planes`; it takes no position list
+   and does not read `population`. `fold_bound_selection` is called with a
+   `BoundFold` chosen by the caller, not with an admitted method.
+4. WHEN with a selection: `quack::lower_sel` admits one predicate shape,
+   `Plane(selection) AND column > t` on one `i32` lane, as part of the fold.
+   A guard already evaluated to a kept-row mask cannot be combined with a
+   position list: `execute_sel` reads no mask plane (stated in its doc).
+5. Witness: `LaneBinding::selected` checks frame, route, basis, row order
+   and scope for the lane and the positions together, in one borrow. It does
+   not establish that positions are rows of the lane (the fold checks),
+   authorization or history.
+6. Receipt: `execute_sel` returns a bare `Value`. R2IL's `Receipt` comes only
+   from `run` / `run_gated`.
+
+### Falsifier (oracle by hand; calls nothing of the implementation)
+
+`a_bag_count_weighs_each_occurrence_by_the_guard_and_has_no_path`, real
+`MailboxSoA`, selections issued by the socket:
+
+| fixture | selection | whole (`act`) | distinct (`act_over`) | bag (oracle only) |
+|---|---|---|---|---|
+| all rows satisfy WHEN | `[1, 1, 3]` | 4 | 2 | 3 |
+| row 3 fails WHEN | `[1, 1, 3]` | 3 | 1 | 2 |
+| all satisfy | `[1, 3, 1]` (other order) | 4 | 2 | 3 |
+| row 3 fails | `[1, 3, 1]` | 3 | 1 | 2 |
+| all satisfy | `[]` | 4 | 0 | 0 |
+| all satisfy | `[1, 1]` | 4 | 1 | 2 |
+
+`act` and `act_over` match the first two columns in every case. The bag
+column has no path; `ActRefusal::BagPopulation` stays, with and without a
+selection.
+
+### Stop rule applied: the first missing capability
+
+A guarded, multiplicity-preserving COUNT over the mailbox's lanes needs, per
+listed occurrence, the answer "does the guard keep this row". The guard's
+answer exists as one bit per row (typed evaluation over `u32` lanes, already
+admitted). What is missing is a fold that reads that bit at each listed
+position:
+
+- first missing capability: `count_set_at(bits: &[u64], n_rows, positions:
+  &[u32]) -> Option<u64>`, the number of listed positions whose bit is set,
+  `None` for a position outside the frame;
+- owner: `ndarray::simd` (`simd_masking_ops.rs`, beside `count_gt_i32_at`);
+  mask-risc may only delegate (law L3), so no fold is added there first;
+- then, in order: `SelFold::CountInPlane { mask }` in mask-risc with its
+  reference oracle; `Plane(selection) AND Plane(kept)` with `Agg::Count` in
+  `quack::lower_sel`; a way for R2IL to run a `Population::Bag` method's
+  COUNT over a bound position list and return its `Receipt`. The last one is
+  a semantic decision (below), not a kernel.
+- falsifier for the kernel: the six rows above with the kept mask of each
+  fixture (expected 3, 2, 3, 2, 0, 2), an out-of-range position (`None`), and
+  the same positions deduplicated giving the distinct column, so a kernel
+  that builds a mask from the list fails.
+
+Nothing of this was implemented. No scalar loop in production, no `i32`
+shadow column, no reinterpretation of the Boolean gate as a bag.
+
+### Provenance of a result, as the contracts stand
+
+| fact | held by | for how long |
+|---|---|---|
+| source publication | `MailboxLanes` (borrow), `Receipt::frame` | the borrow; the receipt keeps the frame revisions as values |
+| selection identity | `Acted::over` (socket-local `u16`) | the socket; meaningless after it |
+| mapping and route version | `ActContext::route`, checked by `prepare` / `run` | the call |
+| ClassView / interpretation | `resolve_at`, `R2ilLens` | the call |
+| method and guard | `Receipt::method` (`MethodRef` with guard witness) | in the receipt |
+| population semantics | `MethodBinding::population`; not in the receipt | registration |
+| scope | `check_scope`, lane and selection checks | the call |
+
+The receipt does not prove selection membership: R2IL checks the guard's
+witness, not the gate plane's bits. No receipt field was added.
+
+### First P4 baseline (release, 40 rows, median of 9 batches, this machine)
+
+`cargo run --release -p lance-graph-mailbox-lanes --example cost`. A size
+class, not a comparison across machines.
+
+| step | ns per call | allocations | bytes allocated |
+|---|---|---|---|
+| socket: `MailboxLanes::new` | 100.8 | 3 | 80 |
+| DT64 `admit_routed` | 766.2 | 17 | 2888 |
+| WHEN: lower + bind + run (2 fields) | 2716.0 | 31 | 3767 |
+| `act`, writing method (admission to gated DO) | 5990.7 | 90 | 11624 |
+| socket: open + issue 2 selections + concat | 769.6 | 14 | 1048 |
+| `act`, read-only method, whole source | 3641.6 | 45 | 4393 |
+| `act_over`, read-only, selection's distinct rows | 3978.8 | 47 | 4409 |
+| `execute_sel` `CountGtI32`, SYNTHETIC `i32` lane, 54 positions | 47.3 | 0 | 0 |
+
+- Source bytes copied: none on any path (lanes are borrowed). `act_over`
+  allocates one membership mask and one narrowed mask (2 allocations, 16
+  bytes at 40 rows) beyond `act`.
+- Every call prepares anew: admission, guard lowering and R2IL `prepare` are
+  inside the `act` numbers. There is no warm, prepared execution to measure
+  separately; none was added.
+- The `execute_sel` row is the shipped kernel on a synthetic `i32` lane. It
+  is not mailbox execution and not an admitted method.
+- Bag execution: not measured; it does not exist.
+
+### Ledger, R11
+
+| Item | Contract | Oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| scope, unguarded read-free method | `act_in` `check_scope` | hand | own scope: 5, intent for `meta` | foreign scope refused; disable exit 101 | INTEGRATION VERIFIED |
+| whole / distinct counts, six selections | `act`, `act_over` | `guarded_oracles` by hand | all six rows | bag method refused in all six | INTEGRATION VERIFIED |
+| selection folds keep repeats | `execute_sel`, `fold_bound_selection` | `reference_execute_sel` (shipped) | `i32` lanes | mailbox lanes refused (`tests/selection.rs`) | SOURCE VERIFIED; LAB only for `i32` |
+| guarded bag COUNT on the mailbox | none | hand: 3, 2, 3, 2, 0, 2 | n/a | `BagPopulation` | NOT SUPPORTED; first missing: `count_set_at` in `ndarray::simd` |
+
+### Decisions needed
+
+1. Whether `count_set_at` is added to `ndarray::simd` (another repository).
+2. What a `Population::Bag` method means in R2IL: which effect words may run
+   over a position list, and whether a mask-producing step (`IntEqual`) is
+   then evaluated per row and counted per occurrence. Until stated, `act`
+   refuses bag methods.
+3. Whether a result must carry its selection beyond the socket. Today it
+   does not, and no reuse across publications is claimed.
