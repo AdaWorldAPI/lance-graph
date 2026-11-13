@@ -295,12 +295,12 @@ flowchart LR
   n42["lance-graph-codegraph"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
-  n72["lance-graph-xlog"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
+  n73["lance-graph-xlog"]
   n42 --> n45
   n42 --> n48
-  n42 --> n53
-  n42 --> n63
-  n42 --> n72
+  n42 --> n54
+  n42 --> n64
+  n42 --> n73
 ```

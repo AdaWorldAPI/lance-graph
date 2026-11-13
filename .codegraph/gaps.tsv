@@ -57,6 +57,7 @@ calls-missing	lance-graph-dt64-lance	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-glove-parity	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-hydrate	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-lane-fold	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	lance-graph-mailbox-lanes	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-mask-risc	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-metta	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	lance-graph-nal	calls	-	UNKNOWN	ARTIFACT_MISSING

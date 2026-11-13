@@ -81,7 +81,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n6["cognitive-polyfill-probe"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
+  n54["lance-graph-mask-risc"]
   n6 --> n48
-  n6 --> n53
+  n6 --> n54
 ```

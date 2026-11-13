@@ -71,5 +71,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n80["pg-parity-harness"]
+  n81["pg-parity-harness"]
 ```

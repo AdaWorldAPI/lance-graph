@@ -242,14 +242,14 @@ flowchart LR
   n15["dr256-ternlog-lab"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
-  n67["lance-graph-report"]
-  n97["virtual-address-lab"]
-  n97 --> n15
-  n97 --> n45
-  n97 --> n48
-  n97 --> n53
-  n97 --> n63
-  n97 --> n67
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
+  n68["lance-graph-report"]
+  n98["virtual-address-lab"]
+  n98 --> n15
+  n98 --> n45
+  n98 --> n48
+  n98 --> n54
+  n98 --> n64
+  n98 --> n68
 ```

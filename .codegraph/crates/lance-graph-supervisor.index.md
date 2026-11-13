@@ -202,10 +202,10 @@ flowchart LR
   n39["lance-graph-callcenter"]
   n45["lance-graph-contract"]
   n49["lance-graph-dt64-lance"]
-  n61["lance-graph-planner"]
-  n70["lance-graph-supervisor"]
-  n49 --> n70
-  n70 --> n39
-  n70 --> n45
-  n70 --> n61
+  n62["lance-graph-planner"]
+  n71["lance-graph-supervisor"]
+  n49 --> n71
+  n71 --> n39
+  n71 --> n45
+  n71 --> n62
 ```

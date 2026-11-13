@@ -366,12 +366,12 @@ flowchart LR
   n39["lance-graph-callcenter"]
   n44["lance-graph-consumer-conformance"]
   n45["lance-graph-contract"]
-  n59["lance-graph-ontology"]
-  n65["lance-graph-rbac"]
-  n70["lance-graph-supervisor"]
+  n60["lance-graph-ontology"]
+  n66["lance-graph-rbac"]
+  n71["lance-graph-supervisor"]
   n39 --> n45
-  n39 --> n59
-  n39 --> n65
+  n39 --> n60
+  n39 --> n66
   n44 --> n39
-  n70 --> n39
+  n71 --> n39
 ```

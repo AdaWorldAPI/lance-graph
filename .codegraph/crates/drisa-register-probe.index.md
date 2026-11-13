@@ -112,8 +112,8 @@ flowchart LR
   n17["drisa-register-probe"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
+  n54["lance-graph-mask-risc"]
   n17 --> n45
   n17 --> n48
-  n17 --> n53
+  n17 --> n54
 ```

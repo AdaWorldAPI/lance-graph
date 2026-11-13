@@ -1,3 +1,10 @@
+## D-VAS-IMPLEMENTATION v1 (2026-11-13)
+
+**Plan:** `.claude/plans/d-vas-implementation-v1.md`
+**Status:** IN PROGRESS. R1 (E0 on the real mailbox: `D-VAS-A1`, `D-VAS-A2`, `D-VAS-C2`, `D-VAS-D1`, `D-VAS-E0`) in PR; R2 to R6 not started.
+**Scope:** implements `virtual-address-superpowers-roadmap-v1.md`. Adds `Published` to `cognitive-shader-driver`, `BindStore::admit_routed` to `lance-graph-dt64`, and the crate `lance-graph-mailbox-lanes`.
+**Confidence:** R1 tested on `MailboxSoA<64>`; no cost measured.
+
 ## 2026-11-13 — VIRTUAL-ADDRESS-SUPERPOWERS: roadmap from the lab evidence to source-owned, behaviour-aware reads → `.claude/plans/virtual-address-superpowers-roadmap-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY. Orders the seams D-VIRTUAL-ADDRESS-ALGEBRA-1 (`.claude/plans/d-virtual-address-algebra-1.md`, PR 2060, lab) reports as BLOCKED, ABSENT or NOT DONE into four independent tracks (owner as source, identity, behaviour provenance and WHEN, DO), a join stage and a cost stage; nine decisions precede any stage. No layout change, no new executor or storage owner.

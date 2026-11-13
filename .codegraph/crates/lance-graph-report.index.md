@@ -311,15 +311,15 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
-  n67["lance-graph-report"]
-  n68["lance-graph-report-ogar"]
-  n97["virtual-address-lab"]
-  n67 --> n45
-  n67 --> n48
-  n67 --> n53
-  n67 --> n63
-  n68 --> n67
-  n97 --> n67
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
+  n68["lance-graph-report"]
+  n69["lance-graph-report-ogar"]
+  n98["virtual-address-lab"]
+  n68 --> n45
+  n68 --> n48
+  n68 --> n54
+  n68 --> n64
+  n69 --> n68
+  n98 --> n68
 ```

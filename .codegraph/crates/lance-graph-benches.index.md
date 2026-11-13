@@ -59,13 +59,13 @@ flowchart LR
   n45["lance-graph-contract"]
   n46["lance-graph-cypher-quack"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
   n38 --> n15
   n38 --> n34
   n38 --> n45
   n38 --> n46
   n38 --> n48
-  n38 --> n53
-  n38 --> n63
+  n38 --> n54
+  n38 --> n64
 ```

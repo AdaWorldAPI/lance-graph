@@ -403,12 +403,12 @@ flowchart LR
   n46["lance-graph-cypher-quack"]
   n49["lance-graph-dt64-lance"]
   n51["lance-graph-hydrate"]
-  n53["lance-graph-mask-risc"]
-  n61["lance-graph-planner"]
-  n62["lance-graph-python"]
-  n63["lance-graph-quack"]
-  n64["lance-graph-r2il"]
-  n91["symbiont"]
+  n54["lance-graph-mask-risc"]
+  n62["lance-graph-planner"]
+  n63["lance-graph-python"]
+  n64["lance-graph-quack"]
+  n65["lance-graph-r2il"]
+  n92["symbiont"]
   n8 --> n34
   n34 --> n1
   n34 --> n2
@@ -416,13 +416,13 @@ flowchart LR
   n34 --> n43
   n34 --> n45
   n34 --> n51
-  n34 --> n53
-  n34 --> n61
-  n34 --> n63
+  n34 --> n54
+  n34 --> n62
   n34 --> n64
+  n34 --> n65
   n38 --> n34
   n46 --> n34
   n49 --> n34
-  n62 --> n34
-  n91 --> n34
+  n63 --> n34
+  n92 --> n34
 ```

@@ -77,7 +77,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:527 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:528 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1095 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1104 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:6 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:9 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE

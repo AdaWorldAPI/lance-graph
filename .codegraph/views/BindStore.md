@@ -5,13 +5,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Definitions
 
 ### lance-graph-dt64 crates/lance-graph-dt64/src/lib.rs
-- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:773 CONFIRMED
+- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:782 CONFIRMED
 
 ## Impls mentioning it
 
 - impl BindStore — crates/lance-graph-dt64/src/lane.rs:230 POSSIBLE
-- impl Clone for BindStore — crates/lance-graph-dt64/src/lib.rs:783 POSSIBLE
-- impl BindStore — crates/lance-graph-dt64/src/lib.rs:794 POSSIBLE
+- impl Clone for BindStore — crates/lance-graph-dt64/src/lib.rs:792 POSSIBLE
+- impl BindStore — crates/lance-graph-dt64/src/lib.rs:803 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -38,7 +38,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 
-## Textual occurrences (123 total)
+## Textual occurrences (125 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -111,20 +111,22 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:364 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:380 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:409 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:643 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:645 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:773 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:783 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:784 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:785 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:612 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:652 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:654 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:782 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:792 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:793 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:794 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:795 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:796 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1024 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1094 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1096 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1119 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1161 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:803 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:804 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:805 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1033 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1103 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1105 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1128 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1170 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1179 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:36 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:55 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:82 POSSIBLE

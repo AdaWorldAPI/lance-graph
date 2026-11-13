@@ -103,9 +103,9 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n10["d-diamond-1-probe"]
   n45["lance-graph-contract"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
   n10 --> n45
-  n10 --> n53
-  n10 --> n63
+  n10 --> n54
+  n10 --> n64
 ```

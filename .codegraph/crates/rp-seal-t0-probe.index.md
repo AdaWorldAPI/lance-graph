@@ -62,5 +62,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n85["rp-seal-t0-probe"]
+  n86["rp-seal-t0-probe"]
 ```

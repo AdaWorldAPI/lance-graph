@@ -97,11 +97,11 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n34["lance-graph"]
   n45["lance-graph-contract"]
-  n57["lance-graph-ogar"]
-  n79["perturbation-sim"]
-  n91["symbiont"]
-  n91 --> n34
-  n91 --> n45
-  n91 --> n57
-  n91 --> n79
+  n58["lance-graph-ogar"]
+  n80["perturbation-sim"]
+  n92["symbiont"]
+  n92 --> n34
+  n92 --> n45
+  n92 --> n58
+  n92 --> n80
 ```
