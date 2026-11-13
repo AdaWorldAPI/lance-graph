@@ -14,6 +14,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Imports (not resolved to a definition)
 
 - use lance_graph_dt64::MethodBinding — crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/dr256-ternlog-lab/src/lib.rs:38 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
@@ -23,8 +24,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/behaviour.rs:21 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
 
-## Textual occurrences (63 total)
+## Textual occurrences (73 total)
 
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
@@ -33,6 +36,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/cg-beh-probe/src/fixture.rs:184 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:190 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:252 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:38 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:184 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:135 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:142 POSSIBLE
@@ -88,7 +93,15 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/ogar-behavior-probe/src/projection.rs:38 POSSIBLE
 - crates/ogar-behavior-probe/src/projection.rs:128 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:408 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:417 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:21 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:60 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:229 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:17 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:361 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:377 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:378 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:407 POSSIBLE
 
 ## Architecture
 

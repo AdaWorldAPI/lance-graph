@@ -154,11 +154,12 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 | [thinking-engine](crates/thinking-engine.index.md) | excluded | crates/thinking-engine |
 | [thought-git-probe](crates/thought-git-probe.index.md) | excluded | crates/thought-git-probe |
 | [tract-harvest-probe](crates/tract-harvest-probe.index.md) | excluded | crates/tract-harvest-probe |
+| [virtual-address-lab](crates/virtual-address-lab.index.md) | member | crates/virtual-address-lab |
 | [weather-poc](crates/weather-poc.index.md) | excluded | crates/weather-poc |
 
 ## Crate dependency diagram
 
-Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (83 of 98).
+Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (84 of 99).
 
 ```mermaid
 flowchart LR
@@ -244,7 +245,8 @@ flowchart LR
   n94["thinking-engine"]
   n95["thought-git-probe"]
   n96["tract-harvest-probe"]
-  n97["weather-poc"]
+  n97["virtual-address-lab"]
+  n98["weather-poc"]
   n0 --> n1
   n1 --> n31
   n1 --> n45
@@ -440,11 +442,17 @@ flowchart LR
   n95 --> n45
   n96 --> n45
   n96 --> n58
+  n97 --> n15
   n97 --> n45
+  n97 --> n48
+  n97 --> n53
+  n97 --> n63
+  n97 --> n67
+  n98 --> n45
   classDef shipped fill:#d8f0d8,stroke:#2e7d32,color:#111
   classDef lab fill:#fff3cd,stroke:#a67c00,color:#111
   classDef open fill:#d6e6fa,stroke:#1565c0,color:#111
   classDef gap fill:#fadadd,stroke:#c62828,stroke-dasharray:5 3,color:#111
-  class n1,n7,n15,n34,n36,n38,n39,n40,n44,n45,n46,n48,n51,n52,n53,n58,n59,n61,n63,n64,n65,n67,n70,n72,n81,n88,n90 shipped
-  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n29,n31,n32,n33,n37,n42,n43,n47,n49,n50,n54,n55,n57,n60,n62,n66,n68,n69,n73,n74,n76,n77,n78,n79,n84,n87,n89,n91,n92,n93,n94,n95,n96,n97 lab
+  class n1,n7,n15,n34,n36,n38,n39,n40,n44,n45,n46,n48,n51,n52,n53,n58,n59,n61,n63,n64,n65,n67,n70,n72,n81,n88,n90,n97 shipped
+  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n29,n31,n32,n33,n37,n42,n43,n47,n49,n50,n54,n55,n57,n60,n62,n66,n68,n69,n73,n74,n76,n77,n78,n79,n84,n87,n89,n91,n92,n93,n94,n95,n96,n98 lab
 ```

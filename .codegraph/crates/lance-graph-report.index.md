@@ -19,6 +19,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep lance-graph-lane-fold dev — crates/lance-graph-lane-fold/Cargo.toml:11 CONFIRMED
 - rdep lance-graph-report-ogar normal — crates/lance-graph-report-ogar/Cargo.toml:30 CONFIRMED
+- rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:14 CONFIRMED
 
 ## Public items
 
@@ -314,9 +315,11 @@ flowchart LR
   n63["lance-graph-quack"]
   n67["lance-graph-report"]
   n68["lance-graph-report-ogar"]
+  n97["virtual-address-lab"]
   n67 --> n45
   n67 --> n48
   n67 --> n53
   n67 --> n63
   n68 --> n67
+  n97 --> n67
 ```

@@ -36,8 +36,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/lance-graph-xlog/src/lens.rs:30 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 
-## Textual occurrences (117 total)
+## Textual occurrences (123 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -52,9 +53,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:72 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:165 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:180 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:223 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:166 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:186 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:229 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:162 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:163 POSSIBLE
@@ -151,11 +152,17 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-xlog/src/lens.rs:93 POSSIBLE
 - crates/lance-graph-xlog/src/lens.rs:104 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:397 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:409 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:406 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:418 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:5 POSSIBLE
+- crates/virtual-address-lab/src/behaviour.rs:59 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:349 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:408 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:45 POSSIBLE
 
 ## Architecture
 

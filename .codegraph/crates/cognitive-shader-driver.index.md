@@ -35,6 +35,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep lance-graph-planner dev — crates/lance-graph-planner/Cargo.toml:78 CONFIRMED
 - rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:61 CONFIRMED
+- rdep virtual-address-lab dev — crates/virtual-address-lab/Cargo.toml:21 CONFIRMED
 
 ## Public items
 

@@ -48,6 +48,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep mork-pathmap-probe normal — crates/mork-pathmap-probe/Cargo.toml:37 CONFIRMED
 - rdep quack-boundary-lab normal — crates/quack-boundary-lab/Cargo.toml:11 CONFIRMED
 - rdep r2il-mask-abi-probe dev — crates/r2il-mask-abi-probe/Cargo.toml:18 CONFIRMED
+- rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:11 CONFIRMED
 
 ## Public items
 
@@ -214,6 +215,7 @@ flowchart LR
   n72["lance-graph-xlog"]
   n74["mork-pathmap-probe"]
   n81["quack-boundary-lab"]
+  n97["virtual-address-lab"]
   n6 --> n53
   n9 --> n53
   n10 --> n53
@@ -240,4 +242,5 @@ flowchart LR
   n72 --> n53
   n74 --> n53
   n81 --> n53
+  n97 --> n53
 ```

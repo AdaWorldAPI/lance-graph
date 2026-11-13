@@ -507,6 +507,7 @@ quack-boundary-lab	lance-graph-contract	normal	false	-	-	crates/quack-boundary-l
 quack-boundary-lab	lance-graph-dt64	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:10	CONFIRMED	yes
 quack-boundary-lab	lance-graph-mask-risc	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:11	CONFIRMED	yes
 quack-boundary-lab	lance-graph-quack	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:12	CONFIRMED	yes
+quack-boundary-lab	weather-poc	dev	false	-	-	crates/quack-boundary-lab/Cargo.toml:22	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-contract	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:33	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-mask-risc	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:18	CONFIRMED	yes
 r2il-mask-abi-probe	lance-graph-quack	dev	false	-	-	crates/r2il-mask-abi-probe/Cargo.toml:21	CONFIRMED	yes
@@ -575,5 +576,13 @@ tract-harvest-probe	prost	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml
 tract-harvest-probe	serde_json	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:30	CONFIRMED	no
 tract-harvest-probe	sha2	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:27	CONFIRMED	no
 tract-harvest-probe	tract-onnx	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:21	CONFIRMED	no
+virtual-address-lab	causal-edge	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:22	CONFIRMED	yes
+virtual-address-lab	cognitive-shader-driver	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:21	CONFIRMED	yes
+virtual-address-lab	dr256-ternlog-lab	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:17	CONFIRMED	yes
+virtual-address-lab	lance-graph-contract	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:9	CONFIRMED	yes
+virtual-address-lab	lance-graph-dt64	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:10	CONFIRMED	yes
+virtual-address-lab	lance-graph-mask-risc	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:11	CONFIRMED	yes
+virtual-address-lab	lance-graph-quack	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:12	CONFIRMED	yes
+virtual-address-lab	lance-graph-report	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:14	CONFIRMED	yes
 weather-poc	jc	dev	false	-	-	crates/weather-poc/Cargo.toml:34	CONFIRMED	yes
 weather-poc	lance-graph-contract	normal	true	-	canonical-row	crates/weather-poc/Cargo.toml:28	CONFIRMED	yes

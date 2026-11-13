@@ -28,8 +28,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - use lance_graph_dt64::dr::FrameStore — crates/soa64-u64-lab/src/socket.rs:12 POSSIBLE
 - use dr_math_binding_probe::FrameStore — crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
+- use lance_graph_dt64::dr::FrameStore — crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
 
-## Textual occurrences (84 total)
+## Textual occurrences (89 total)
 
 - crates/dr-isa-stream-lab/src/int8.rs:25 POSSIBLE
 - crates/dr-isa-stream-lab/src/int8.rs:75 POSSIBLE
@@ -45,10 +46,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/source.rs:142 POSSIBLE
 - crates/dr-isa-stream-lab/src/source.rs:255 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:35 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:247 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:273 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:304 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:362 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:253 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:279 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:310 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:368 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:20 POSSIBLE
 - crates/foundry-parity-lab/src/arm_b.rs:145 POSSIBLE
 - crates/foundry-parity-lab/src/arm_c.rs:27 POSSIBLE
@@ -104,8 +105,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/quack-boundary-lab/src/lib.rs:135 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:162 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:208 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:356 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:485 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:365 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:494 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:15 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:171 POSSIBLE
 - crates/soa64-u64-lab/src/arms.rs:188 POSSIBLE
@@ -115,6 +116,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/tract-harvest-probe/src/plan.rs:13 POSSIBLE
 - crates/tract-harvest-probe/src/plan.rs:75 POSSIBLE
 - crates/tract-harvest-probe/src/plan.rs:168 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:14 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:64 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:86 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:126 POSSIBLE
+- crates/virtual-address-lab/src/grid.rs:273 POSSIBLE
 
 ## Architecture
 
