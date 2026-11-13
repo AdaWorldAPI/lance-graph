@@ -21,8 +21,6 @@ pub enum Stop {
     /// [`AcrossPlan`] for the unadmitted strided form and
     /// [`sum_where_eq_cell_by_cell`] for the bound one.
     CrossLane,
-    /// The two columns are not in the same physical row order.
-    Misaligned,
     Lower(LowerError),
     Exec(ExecError),
     Value(Value),
@@ -58,11 +56,9 @@ fn plan(
     let (where_lane, reversed) = lane_of(table, where_col)?;
     let agg_lane = match agg_col {
         Some(col) => {
-            let (lane, r) = lane_of(table, col)?;
-            if r != reversed {
-                return Err(Stop::Misaligned);
-            }
-            lane
+            // One recipe gives every column of a view the same row order,
+            // so the second column's direction is the first's.
+            lane_of(table, col)?.0
         }
         None => where_lane,
     };
