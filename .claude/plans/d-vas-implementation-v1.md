@@ -898,3 +898,122 @@ class, not a comparison across machines.
    refuses bag methods.
 3. Whether a result must carry its selection beyond the socket. Today it
    does not, and no reuse across publications is claimed.
+
+## R12: a guarded bag COUNT, admitted (two gates)
+
+Decisions taken for R12: `count_set_at` goes into `ndarray::simd`; a bag
+method means exactly a COUNT of the selected occurrences that satisfy WHEN
+and the effect's own mask; a result names its population only inside the
+publication.
+
+### Gate A, the kernel (ndarray #424, merged as `bd9a7ba`)
+
+`ndarray::simd::count_set_at(bits, n_rows, positions) -> Option<u64>`: the
+number of listed positions whose bit is set in an LSB-first row mask. A
+repeated position counts per occurrence. `None` for a mask whose length is
+not `n_rows.div_ceil(64)` and for a position not below `n_rows`. Tail bits
+are never read. A plain loop on every backend; nothing was measured there.
+Tests against a stub first (3 failed), then the body; three disable runs
+(row bound, mask length, bit order), exit 101 each; parity group `0x87x`,
+`native` on AVX-512 and AVX2. The cross parity arms were not run.
+
+### Gate B, the admitted path (this repository)
+
+1. **mask-risc.** `SelFold::CountSet { plane }`: one delegation to
+   `count_set_at`, with `reference_execute_sel` as its oracle. Refusals, in
+   order: missing plane (`PlaneOutOfRange`), a plane not `words_for(n_rows)`
+   long (`LenMismatch`), a position that is not a row (`SelOutOfRange`, first
+   offender). A dirty tail is not read and not refused. `tests/sel_set.rs`
+   (5 tests) was committed against a stub (5 failed).
+2. **R2IL.** `FoldDialect::count_at(positions, stack)`: the mask on the stack
+   is written to the dialect's `KEEP` sink (`Terminal::Keep`, the existing
+   path) and folded over the positions by `execute_sel`. `binding::run_bag`:
+   `run_gated`'s checks (issuer, guards, route, permit, gate witness), then
+   every `PopCount` step runs `count_at` after `gate_fold` has ANDed the
+   gate into the step's own mask. A plan with any other fold is refused
+   whole (`ExecRefusal::BagFold { effect, opcode }`). The result comes back
+   in the normal `Receipt`.
+3. **`act_over`.** A `Population::Bag` method is admitted when a selection is
+   bound, it writes no mailbox column and it has a two-valued guard. The
+   positions are the ones `LaneBinding::selected` lends with the operand
+   lanes. `act` (no selection) still refuses with `BagPopulation`.
+
+The effect's mask and the guard stay two conditions: `gate_fold` ANDs them
+per step; neither replaces the other.
+
+### Falsifier (real `MailboxSoA`, socket-issued selections, oracle by hand)
+
+| fixture | selection | whole (`act`) | distinct (`act_over`) | bag (`act_over`, bag method) |
+|---|---|---|---|---|
+| all rows satisfy WHEN | `[1, 1, 3]` | 4 | 2 | 3 |
+| row 3 fails WHEN | `[1, 1, 3]` | 3 | 1 | 2 |
+| all satisfy | `[1, 3, 1]` | 4 | 2 | 3 |
+| row 3 fails | `[1, 3, 1]` | 3 | 1 | 2 |
+| all satisfy | `[]` | 4 | 0 | 0 |
+| all satisfy | `[1, 1]` | 4 | 1 | 2 |
+
+Effect mask independent of WHEN (`WHEN meta == 2`, effect `active == 5`,
+`active = [0, 5, 0, 6]`, selection `[1, 1, 3]`):
+
+| owner | bag | distinct | excluded by |
+|---|---|---|---|
+| all `meta == 2` | 2 | 1 | row 3: effect mask |
+| row 1 `meta = 7` | 0 | 0 | row 1: WHEN (its effect mask holds) |
+| row 3 `meta = 7` | 2 | 1 | row 3: effect mask and WHEN |
+
+Refused: a bag method with `ANY` (`BagFold`), a bag method writing `meta`
+(`NotReadOnly`), an unguarded bag method (`SelectionNeedsGuard`), a
+selection the socket did not issue (`Lane`), a foreign scope
+(`ScopeMismatch`), an empty permit (`NotPermitted`), and `act` without a
+selection (`BagPopulation`). A bag run returns no intent and leaves the four
+owner columns as they were; it lends three lanes (guard field, operand
+field, the lane `selected` borrows with the positions).
+
+Disable runs, anchors asserted once each, exit 101 each:
+
+| disabled | tests failing |
+|---|---|
+| `count_at` (the mask counted, not the occurrences) | 4 |
+| the gate not ANDed into a bag count | 1 (row 1 fails WHEN, effect holds) |
+| a bag method admitted without a selection | 2 |
+| other folds admitted over a bag | 1 |
+| positions not taken from the witnessed selection | 4 |
+
+### Provenance, as it stands
+
+- Established inside `act_over`'s borrow: source, publication frame, route,
+  basis, row order and scope for the operand lanes and the positions
+  together (`LaneBinding::selected`); the method and its guard witness
+  (`run_bag`); the permit.
+- Vouched for by the caller, not checked by R2IL: that the gate plane's bits
+  are the guard's rows, and that `positions` is a selection of the source
+  the planes come from.
+- Not in the `Receipt`: the selection and the population. `Acted::over` is a
+  socket-local number and is no witness after the socket. No reuse across
+  publications and no historical replay is claimed.
+
+### Cost (release, 40 rows, median of 9 batches, this machine)
+
+| step | ns per call | allocations | bytes allocated |
+|---|---|---|---|
+| `act`, read-only, whole source | 3294.9 | 45 | 4393 |
+| `act_over`, read-only, distinct rows | 3882.9 | 47 | 4409 |
+| `act_over`, bag method, 54 listed occurrences | 3687.8 | 48 | 4417 |
+| `execute_sel` `CountGtI32`, SYNTHETIC `i32` lane, 54 positions | 47.4 | 0 | 0 |
+
+A bag run allocates one more buffer than a distinct run (the `KEEP` sink,
+8 bytes at 40 rows). No source bytes are copied. Every call prepares anew;
+there is no warm path. The times moved by up to a factor of 1.5 between two
+runs of this example on the same machine (`act`, writing method: 5990.7 ns
+in R11, 8913.3 ns now), so they are a size class only. The last row is not
+mailbox execution.
+
+### Ledger, R12
+
+| Item | Contract | Oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| kernel | `ndarray::simd::count_set_at` | `&[bool]` walk | 4-row table, word boundaries | 3 disables | SOURCE VERIFIED (ndarray), parity on 2 arms |
+| position fold over a mask | `SelFold::CountSet` | `reference_execute_sel`, `&[bool]` walk, mask path for a set | 5 tests | refusals, stub-first | LAB VERIFIED |
+| bag COUNT of an admitted method | `run_bag`, `count_at`, `act_over` | hand tables above | 4/2/3, 3/1/2, independent effect mask | 7 refusals, 5 disables | INTEGRATION VERIFIED, read-only, guarded, COUNT only |
+| other bag folds, bag writes, bag without selection | typed refusals | n/a | n/a | tested | NOT SUPPORTED |
+| selection in the receipt, reuse past the publication | none | n/a | n/a | n/a | NOT SUPPORTED |

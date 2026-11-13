@@ -3,7 +3,7 @@
 crate: lance-graph-contract
 path: crates/lance-graph-contract
 workspace: member
-digest: 6b4e13ff1d0afadb
+digest: ae847e188aeeab0c
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.

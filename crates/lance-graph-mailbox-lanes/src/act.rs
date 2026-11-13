@@ -70,9 +70,15 @@
 //!   [`Acted::unwritten`].
 //! - The population of a method under [`act`] is the SET of rows its guard
 //!   keeps over the populated prefix. [`act_over`] narrows it to the
-//!   distinct rows of a socket-issued selection, for a read-only method. A method declared over a bag is refused
-//!   ([`ActRefusal::BagPopulation`]); the socket's repeated-row selections
-//!   (`issue_concat`) are not an operand of this module.
+//!   distinct rows of a socket-issued selection, for a read-only method.
+//! - A method declared over a bag (`Population::Bag`) runs only through
+//!   [`act_over`], read-only and guarded, and only when every fold of it is a
+//!   `PopCount`: the count is then taken once per entry of the selection, for
+//!   the entries whose row both the effect's mask and the guard keep
+//!   (`lance_graph_r2il::binding::run_bag`). Under [`act`] it is refused
+//!   ([`ActRefusal::BagPopulation`]): no selection is bound there, and the
+//!   gate's one bit per row is not a multiplicity. Any other fold over a bag
+//!   is R2IL's refusal (`ExecRefusal::BagFold`).
 //! - A method whose effects target only fields that name no mailbox column
 //!   is a read-only projection: it returns scalars in [`Acted::unwritten`]
 //!   and no [`Intent`].
@@ -130,9 +136,9 @@ pub enum ActRefusal {
     /// An effect targets a mailbox column of a kind the socket does not
     /// handle. It is a column of the owner, so it is not a scratch field.
     UnsupportedColumn { field: u8, kind: &'static str },
-    /// The method is declared over a bag (`Population::Bag`). This module
-    /// gates a fold with one bit per row, which is membership; running the
-    /// method on it would take membership for multiplicity.
+    /// The method is declared over a bag (`Population::Bag`) and no selection
+    /// was bound ([`act`]). The gate is one bit per row, which is membership;
+    /// running the method on it would take membership for multiplicity.
     BagPopulation { method: MethodId },
     /// [`act_over`] was given a method that writes a mailbox column.
     NotReadOnly { field: u8, column: Column },
@@ -235,10 +241,16 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
 /// issued: the population is the guard's rows that occur in `selection`,
 /// each once.
 ///
-/// The selection only narrows the gate plane R2IL already runs under; no
-/// executor, operand form or fold is added. Its order and its repeats are
-/// not used: `[1, 1, 3]` is the rows `{1, 3}` here. A count over the
-/// selection as a bag has no path in this module.
+/// For a method declared `Population::Distinct` the selection only narrows
+/// the gate plane R2IL already runs under: its order and its repeats are not
+/// used, and `[1, 1, 3]` is the rows `{1, 3}`.
+///
+/// For a method declared `Population::Bag` every `PopCount` counts once per
+/// entry of the selection, so `[1, 1, 3]` counts row 1 twice. Only `PopCount`
+/// is admitted over a bag (`ExecRefusal::BagFold` otherwise). The positions
+/// are borrowed with the operand lanes under one DT64 witness; R2IL's receipt
+/// names neither the selection nor the population, and [`Acted::over`] is a
+/// socket-local number that means nothing after the socket.
 ///
 /// Refused: a method that writes a mailbox column
 /// ([`ActRefusal::NotReadOnly`]; [`apply`] re-evaluates over the whole

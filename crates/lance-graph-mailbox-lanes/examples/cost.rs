@@ -67,6 +67,8 @@ const SCRATCH: u8 = 4;
 const TALLY: MethodId = MethodId(1);
 /// Read-only: ON active; WHEN `meta == 2`; DO `scratch := COUNT(active == 0)`.
 const PROBE: MethodId = MethodId(3);
+/// `PROBE`, declared over a bag.
+const PROBE_BAG: MethodId = MethodId(4);
 const MARK: MethodId = MethodId(2);
 
 fn owner() -> Box<Owner> {
@@ -216,6 +218,15 @@ fn main() {
                     SetExpr::eq_u32(u16::from(META), 2),
                     count_where(ACTIVE, 0, SCRATCH),
                 ),
+                MethodBinding {
+                    population: Population::Bag,
+                    ..method(
+                        PROBE_BAG,
+                        ACTIVE,
+                        SetExpr::eq_u32(u16::from(META), 2),
+                        count_where(ACTIVE, 0, SCRATCH),
+                    )
+                },
             ],
         )
         .unwrap();
@@ -229,6 +240,7 @@ fn main() {
             store.method_ref(CLASS, TALLY).unwrap(),
             store.method_ref(CLASS, MARK).unwrap(),
             store.method_ref(CLASS, PROBE).unwrap(),
+            store.method_ref(CLASS, PROBE_BAG).unwrap(),
         ],
     };
     let ctx = ActContext {
@@ -380,6 +392,16 @@ fn main() {
         20_000,
         || {
             act_over(&lanes, &store, &view, &ctx, &probe, sel)
+                .unwrap()
+                .unwritten
+        },
+    );
+    let probe_bag = store.method_ref(CLASS, PROBE_BAG).unwrap();
+    measure(
+        "act_over: read-only BAG method, every listed occurrence (54)",
+        20_000,
+        || {
+            act_over(&lanes, &store, &view, &ctx, &probe_bag, sel)
                 .unwrap()
                 .unwritten
         },

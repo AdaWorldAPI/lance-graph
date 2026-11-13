@@ -3,7 +3,7 @@
 crate: lance-graph-mask-risc
 path: crates/lance-graph-mask-risc
 workspace: member
-digest: 32478c87a39b812f
+digest: 94741aa0f490dd83
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -153,16 +153,16 @@ Generated; the code is the truth. See ../index.md.
 - fn out_shape [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:45 CONFIRMED
 - fn validate_sel [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:152 CONFIRMED
 - fn validate_sel_frame [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:165 CONFIRMED
-- fn first_out_of_range [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:191 CONFIRMED
-- fn reference_execute_sel [pub] — crates/lance-graph-mask-risc/src/reference.rs:202 CONFIRMED
-- fn validate [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:391 CONFIRMED
-- fn reference_execute [pub] — crates/lance-graph-mask-risc/src/reference.rs:1063 CONFIRMED
-- fn reference_execute_into [pub] — crates/lance-graph-mask-risc/src/reference.rs:1076 CONFIRMED
-- fn reference_scratch [pub] — crates/lance-graph-mask-risc/src/reference.rs:1354 CONFIRMED
-- fn reference_scratch_with_foreign [pub] — crates/lance-graph-mask-risc/src/reference.rs:1359 CONFIRMED
+- fn first_out_of_range [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:205 CONFIRMED
+- fn reference_execute_sel [pub] — crates/lance-graph-mask-risc/src/reference.rs:216 CONFIRMED
+- fn validate [pub(crate)] — crates/lance-graph-mask-risc/src/reference.rs:416 CONFIRMED
+- fn reference_execute [pub] — crates/lance-graph-mask-risc/src/reference.rs:1088 CONFIRMED
+- fn reference_execute_into [pub] — crates/lance-graph-mask-risc/src/reference.rs:1101 CONFIRMED
+- fn reference_scratch [pub] — crates/lance-graph-mask-risc/src/reference.rs:1379 CONFIRMED
+- fn reference_scratch_with_foreign [pub] — crates/lance-graph-mask-risc/src/reference.rs:1384 CONFIRMED
 - const SEL_SUM_I32_MAX_POSITIONS [pub] — crates/lance-graph-mask-risc/src/sel.rs:47 CONFIRMED
-- enum SelFold [pub] — crates/lance-graph-mask-risc/src/sel.rs:52 CONFIRMED
-- fn execute_sel [pub] — crates/lance-graph-mask-risc/src/sel.rs:72 CONFIRMED
+- enum SelFold [pub] — crates/lance-graph-mask-risc/src/sel.rs:53 CONFIRMED
+- fn execute_sel [pub] — crates/lance-graph-mask-risc/src/sel.rs:83 CONFIRMED
 - fn ternlog_dispatch [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:58 CONFIRMED
 - fn ternlog_dispatch_assign [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:320 CONFIRMED
 - fn ternlog_popcount_dispatch [pub] — crates/lance-graph-mask-risc/src/ternlog_dispatch.rs:582 CONFIRMED
