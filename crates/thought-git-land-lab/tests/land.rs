@@ -9,8 +9,8 @@ use lance_graph_planner::persist_sink::{
     PersistError, SweepSlot, WalSink, WriteFailed,
 };
 use thought_git_land_lab::land::{
-    ImageRead, LandError, MAX_LANES, ROW_BYTES, ReadRefusal, RowError, decode_row, encode_row,
-    land_cycle, read_landed,
+    LandError, MAX_LANES, ROW_BYTES, ReplayImage, ReplayRefusal, RowError, decode_row, encode_row,
+    land_cycle, replay_landed,
 };
 use thought_git_probe::fixtures::{Cell, Outcome, Thought, cell};
 use thought_git_probe::oracle::{Givens, Version};
@@ -35,6 +35,9 @@ struct MemWal {
     commit_calls: u64,
     /// Durable appends only.
     appends: u64,
+    /// Reads of a durable image through [`ReplayImage`]: the recovery path.
+    /// A live read must leave this at zero.
+    image_reads: std::cell::Cell<u64>,
 }
 
 impl MemWal {
@@ -43,6 +46,7 @@ impl MemWal {
             head: DatasetVersion(head),
             sealed: Vec::new(),
             commit_calls: 0,
+            image_reads: std::cell::Cell::new(0),
             appends: 0,
         }
     }
@@ -124,8 +128,20 @@ impl WalSink for MemWal {
     }
 }
 
-impl ImageRead for MemWal {
+impl MemWal {
+    /// Test inspection of what was written. Not counted: it is the test
+    /// looking at the store, not the code under test reading it.
+    fn peek(&self, cycle: CycleId) -> Option<&BTreeMap<u64, Vec<u8>>> {
+        self.sealed
+            .iter()
+            .find(|s| s.cycle == cycle)
+            .map(|s| &s.image)
+    }
+}
+
+impl ReplayImage for MemWal {
     fn image(&self, cycle: CycleId) -> Option<&BTreeMap<u64, Vec<u8>>> {
+        self.image_reads.set(self.image_reads.get() + 1);
         self.sealed
             .iter()
             .find(|s| s.cycle == cycle)
@@ -197,9 +213,9 @@ fn an_empty_cycle_writes_nothing() {
     }
 }
 
-/// FAILS IF: two thoughts of one cycle land as more or fewer than one version,
-/// the durable image disagrees with the oracle, or a read differs from the
-/// oracle's read anywhere in the space.
+/// FAILS IF: two thoughts of one cycle land as more or fewer than one version, a
+/// live read touches the store, the replayed image disagrees with the resident
+/// version, or a read differs from the resident read anywhere in the space.
 #[test]
 fn two_thoughts_in_one_cycle_land_as_one_version() {
     let mut wal = MemWal::new(5);
@@ -220,12 +236,21 @@ fn two_thoughts_in_one_cycle_land_as_one_version() {
     assert_eq!(wal.appends, 1);
     assert_eq!(wal.commit_calls, 1);
     assert_eq!(wal.head, DatasetVersion(6));
-    assert_eq!(wal.image(CycleId(1)).unwrap().len(), 2, "rows 4 and 5");
+    assert_eq!(wal.peek(CycleId(1)).unwrap().len(), 2, "rows 4 and 5");
 
-    let landed = read_landed(&wal, &[CycleId(1)]).unwrap();
+    // Live path: the resident version answers; the store is not read.
+    let g = givens();
+    assert_eq!(next.read(&g, cell(4, 0)), Some(7));
+    assert_eq!(next.read(&g, cell(4, 3)), Some(11));
+    assert_eq!(next.read(&g, cell(5, 2)), Some(9));
+    assert_eq!(next.read(&g, cell(5, 0)), None);
+    assert_eq!(wal.image_reads.get(), 0, "a live read touched the store");
+
+    // Recovery: one replay rebuilds exactly the resident cells.
+    let landed = replay_landed(&wal, &[CycleId(1)]).unwrap();
+    assert_eq!(wal.image_reads.get(), 1);
     assert_eq!(landed.cells, next.cells);
 
-    let g = givens();
     let (mut from_given, mut from_landed, mut absent) = (0, 0, 0);
     for row in 0..ROWS {
         for lane in 0..LANES {
@@ -310,13 +335,21 @@ fn observed_zero_and_absent_survive_a_newer_row() {
     .unwrap();
     assert_eq!(v2.cells.len(), 2);
 
-    let landed = read_landed(&wal, &[CycleId(1), CycleId(2)]).unwrap();
+    // Live path, from the resident version.
+    assert_eq!(v2.read(&g, cell(9, 1)), Some(0));
+    assert_eq!(v2.read(&g, cell(9, 2)), None);
+    assert_eq!(v2.read(&g, cell(9, 3)), Some(5));
+    assert_eq!(wal.image_reads.get(), 0, "a live read touched the store");
+
+    // Recovery: the same three states come back from the durable rows.
+    let landed = replay_landed(&wal, &[CycleId(1), CycleId(2)]).unwrap();
     assert_eq!(landed.read(&g, cell(9, 1)), Some(0));
     assert_eq!(landed.read(&g, cell(9, 2)), None);
     assert_eq!(landed.read(&g, cell(9, 3)), Some(5));
+    assert_eq!(landed.cells, v2.cells);
 
-    let first = &wal.image(CycleId(1)).unwrap()[&9];
-    let second = &wal.image(CycleId(2)).unwrap()[&9];
+    let first = &wal.peek(CycleId(1)).unwrap()[&9];
+    let second = &wal.peek(CycleId(2)).unwrap()[&9];
     assert_eq!(first.len(), ROW_BYTES);
     assert_eq!(second.len(), ROW_BYTES);
     assert_ne!(first, second);
@@ -361,10 +394,13 @@ fn a_divergent_cell_does_not_land() {
     assert!(matches!(outcome, CommitOutcome::Committed { .. }));
     assert!(!next.divergences.is_empty());
 
-    let landed = read_landed(&wal, &[CycleId(1)]).unwrap();
-    assert_eq!(landed.read(&g, cell(10, 0)), None);
-    assert_eq!(landed.read(&g, cell(11, 0)), Some(3));
-    assert_eq!(wal.image(CycleId(1)).unwrap().len(), 1, "only row 11");
+    assert_eq!(next.read(&g, cell(10, 0)), None);
+    assert_eq!(next.read(&g, cell(11, 0)), Some(3));
+    assert_eq!(wal.image_reads.get(), 0, "a live read touched the store");
+
+    let landed = replay_landed(&wal, &[CycleId(1)]).unwrap();
+    assert_eq!(landed.cells, next.cells);
+    assert_eq!(wal.peek(CycleId(1)).unwrap().len(), 1, "only row 11");
 }
 
 /// FAILS IF: a malformed row decodes, a refusal names the wrong error, lane 61
@@ -406,9 +442,9 @@ fn row_codec_refuses_malformed_rows() {
 #[test]
 fn a_missing_cycle_is_refused_on_read() {
     let wal = MemWal::new(5);
-    let got = read_landed(&wal, &[CycleId(99)]);
+    let got = replay_landed(&wal, &[CycleId(99)]);
     assert!(
-        matches!(got, Err(ReadRefusal::MissingCycle(CycleId(99)))),
+        matches!(got, Err(ReplayRefusal::MissingCycle(CycleId(99)))),
         "{got:?}"
     );
 }

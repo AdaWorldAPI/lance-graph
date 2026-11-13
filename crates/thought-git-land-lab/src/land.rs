@@ -4,10 +4,20 @@
 //! The flow is: the probe's from-scratch oracle ([`next_version`]) merges the
 //! cycle's thoughts into the next [`Version`]; [`plan_cycle`] turns the rows
 //! that changed into one [`SweepSlot`] cast each; [`land_cycle`] hands all of
-//! them to exactly one [`persist_cycle`] call (one batch, one version); and
-//! [`read_landed`] folds the durable images back into a [`Version`] that is
-//! read under the probe's contract ([`Version::read`]: given, else landed,
-//! else absent).
+//! them to exactly one [`persist_cycle`] call (one batch, one version).
+//!
+//! **The write is fire and forget; nothing is read back to answer a read.**
+//! [`land_cycle`] returns the resident [`Version`] it computed before the
+//! write. That resident version is what the live path reads, under the
+//! probe's contract ([`Version::read`]: given, else landed, else absent). The
+//! store is not consulted for it.
+//!
+//! [`replay_landed`] is the recovery path only: it folds the durable images
+//! back into a [`Version`] once, at startup or after a crash, to rebuild the
+//! resident version. It is not a read path, and a caller that uses it to
+//! answer a read after its own commit has left the write path's contract
+//! (`WalSink`'s reads are documented as recovery and audit, never the normal
+//! path).
 //!
 //! **The row encoding here is a LAB encoding.** It is not a decision about
 //! where a thought's values live in the canonical 512-byte row. It only gives
@@ -194,7 +204,8 @@ pub enum LandError {
 
 /// [`plan_cycle`], then exactly one [`persist_cycle`] call.
 ///
-/// Returns the outcome and the oracle's next version. A cycle that touches no
+/// Returns the outcome and the resident next version (the oracle's), which is
+/// what the live path reads from here on; the sink is not read. A cycle that touches no
 /// row yields [`CommitOutcome::NoChange`] and never calls the sink; that is
 /// `persist_cycle`'s own rule and is not special-cased here.
 ///
@@ -219,16 +230,17 @@ pub async fn land_cycle<S: WalSink>(
     Ok((outcome, plan.next))
 }
 
-/// Where the reader gets a sealed cycle's rows. `WalSink::scan_sealed`
-/// returns no payload, so the durable image is a separate read.
-pub trait ImageRead {
+/// Where RECOVERY gets a sealed cycle's rows. `WalSink::scan_sealed` returns
+/// no payload, so the durable image is a separate read. Recovery clock only:
+/// the live path reads the resident version and never calls this.
+pub trait ReplayImage {
     /// The coalesced image of `cycle` (row to payload), if it is sealed.
     fn image(&self, cycle: CycleId) -> Option<&BTreeMap<u64, Vec<u8>>>;
 }
 
 /// Why landed rows could not be read back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReadRefusal {
+pub enum ReplayRefusal {
     /// No sealed image exists for the cycle.
     MissingCycle(CycleId),
     /// A row payload could not be decoded.
@@ -244,26 +256,31 @@ pub enum ReadRefusal {
     RowTooLarge(u64),
 }
 
-/// Fold the images of `cycles` in the order given: a row in a later cycle
-/// replaces that row whole.
+/// Recovery only: rebuild the resident version from the durable images of
+/// `cycles`, folded in the order given (a row in a later cycle replaces that
+/// row whole). Run once at startup or after a crash, never to answer a read
+/// after a commit: the resident version [`land_cycle`] returned is the answer.
 ///
 /// Returns a [`Version`] with `cells` only; contradictions and divergences are
-/// not landed, so they stay empty. Read it with [`Version::read`].
+/// not landed, so they stay empty.
 ///
 /// # Errors
 ///
-/// [`ReadRefusal`] for a missing cycle, an undecodable row, or a row key that
+/// [`ReplayRefusal`] for a missing cycle, an undecodable row, or a row key that
 /// does not fit `u32`.
-pub fn read_landed<I: ImageRead>(images: &I, cycles: &[CycleId]) -> Result<Version, ReadRefusal> {
+pub fn replay_landed<I: ReplayImage>(
+    images: &I,
+    cycles: &[CycleId],
+) -> Result<Version, ReplayRefusal> {
     let mut rows: BTreeMap<u32, BTreeMap<u8, u64>> = BTreeMap::new();
     for &cycle in cycles {
         let image = images
             .image(cycle)
-            .ok_or(ReadRefusal::MissingCycle(cycle))?;
+            .ok_or(ReplayRefusal::MissingCycle(cycle))?;
         for (&row, payload) in image {
-            let key = u32::try_from(row).map_err(|_| ReadRefusal::RowTooLarge(row))?;
+            let key = u32::try_from(row).map_err(|_| ReplayRefusal::RowTooLarge(row))?;
             let lanes =
-                decode_row(payload).map_err(|error| ReadRefusal::Row { cycle, row, error })?;
+                decode_row(payload).map_err(|error| ReplayRefusal::Row { cycle, row, error })?;
             rows.insert(key, lanes);
         }
     }

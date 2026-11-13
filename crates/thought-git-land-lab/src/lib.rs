@@ -9,9 +9,11 @@
 //! - [`land`]: the thoughts of one supervisor cycle are merged by the probe's
 //!   from-scratch oracle, cast as one batch through
 //!   [`persist_cycle`](lance_graph_planner::persist_sink::persist_cycle) into
-//!   any [`WalSink`](lance_graph_planner::persist_sink::WalSink), and read
-//!   back from the durable image under the probe's read contract (given, else
-//!   landed, else absent).
+//!   any [`WalSink`](lance_graph_planner::persist_sink::WalSink). The write
+//!   is fire and forget: reads are answered by the resident version the land
+//!   returned, under the probe's read contract (given, else landed, else
+//!   absent). The durable image is read only on recovery, to rebuild that
+//!   resident version.
 //!
 //! What this is not: the row encoding in [`land`] is a lab encoding, not a
 //! decision about where a thought's values live in the canonical 512-byte

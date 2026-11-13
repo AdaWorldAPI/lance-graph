@@ -96,7 +96,7 @@ symbiont	crates/symbiont	excluded	7220560f807186d1
 template-equivalence	crates/template-equivalence	excluded	f23f53a543753885
 template-runtime	crates/template-runtime	excluded	bbcc57c5bfe7d616
 thinking-engine	crates/thinking-engine	excluded	a2b1d973a2428d01
-thought-git-land-lab	crates/thought-git-land-lab	excluded	09b85c33ba816108
+thought-git-land-lab	crates/thought-git-land-lab	excluded	7cde8e31dffa4545
 thought-git-probe	crates/thought-git-probe	excluded	8eb5db69e280b8cb
 tract-harvest-probe	crates/tract-harvest-probe	excluded	3acc861cc398ea8e
 virtual-address-lab	crates/virtual-address-lab	member	62cdee8010a1cdf1
