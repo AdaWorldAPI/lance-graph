@@ -15,15 +15,13 @@
 use causal_edge::{CausalEdge64, Orientation};
 use grammar_constraints_probe::fixtures;
 use grammar_constraints_probe::when::{
-    self, ComposeRefusal, FramedPopulation, Lexicon, Physical, RuleDesc, RunRefusal,
-    CLASS_COADDR, EXPERIENCER, RECIPIENT,
+    self, ComposeRefusal, FramedPopulation, Lexicon, Physical, RuleDesc, RunRefusal, CLASS_COADDR,
+    EXPERIENCER, RECIPIENT,
 };
 use grammar_constraints_probe::{has, tile, Tok, Vocab, TILE};
-use lance_graph_dt64::dr::MapRead;
-use lance_graph_dt64::BindStore;
-use lance_graph_mask_risc::{
-    execute_into, Foreign, LaneRef, Out, Planes, Scratch, Value,
-};
+use lance_graph_dt64::dr::{Frame, MapTable};
+use lance_graph_dt64::{BindStore, MethodId};
+use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch, Value};
 use lance_graph_quack::{lower, Agg, Cmp, Col, Filter, Query};
 
 /// LAB-LOCAL selector positions, not OGAR RecipeConceptId, F### word, or
@@ -38,6 +36,96 @@ enum Candidate {
 
 const DATIVE_CANDIDATES: [Candidate; 2] = [Candidate::Recipient, Candidate::Experiencer];
 
+impl Candidate {
+    /// The DT64 method a candidate names. The selector's output reaches the
+    /// store only through this.
+    fn method(self) -> MethodId {
+        match self {
+            Candidate::Recipient => RECIPIENT,
+            Candidate::Experiencer => EXPERIENCER,
+        }
+    }
+
+    fn desc(self) -> RuleDesc {
+        match self {
+            Candidate::Recipient => RuleDesc::recipient(),
+            Candidate::Experiencer => RuleDesc::experiencer(),
+        }
+    }
+}
+
+/// A selector that drops one of the two candidates.
+fn left_corner_recipient_only(t: &Tok) -> &'static [Candidate] {
+    if t.deprel == "obl:arg" && t.case == "Dat" {
+        &DATIVE_CANDIDATES[..1]
+    } else {
+        &[]
+    }
+}
+
+/// A selector that proposes both candidates for every dative token, whatever
+/// its relation (determiners and the instrument included).
+fn left_corner_any_dative(t: &Tok) -> &'static [Candidate] {
+    if t.case == "Dat" {
+        &DATIVE_CANDIDATES
+    } else {
+        &[]
+    }
+}
+
+/// The roles each token is given when ONLY the methods `selector` proposes
+/// for that token are consulted. A method is composed the first time some
+/// token proposes it and never otherwise. Returns the tokens that got a role,
+/// in corpus order, and how many methods were composed.
+#[allow(clippy::too_many_arguments)]
+fn roles_under(
+    selector: fn(&Tok) -> &'static [Candidate],
+    toks: &[Tok],
+    store: &BindStore,
+    vocab: &Vocab,
+    lex: &Lexicon,
+    pop: &FramedPopulation,
+    table: &MapTable,
+    frame: &Frame,
+) -> (Vec<(u64, Vec<Candidate>)>, usize) {
+    let map = table.map(frame, TILE).expect("same sealed frame");
+    let where_mask = where_all(pop.base.n);
+    let mut masks: [Option<[u64; 4]>; 2] = [None, None];
+    let mut composed = 0;
+    let mut out = Vec::new();
+    for tok in toks {
+        let local = map.local(tok.gid).expect("known local position");
+        let mut roles = Vec::new();
+        for &cand in selector(tok) {
+            let slot = cand as usize - 1;
+            let mask = *masks[slot].get_or_insert_with(|| {
+                composed += 1;
+                let mref = store
+                    .method_ref(CLASS_COADDR, cand.method())
+                    .expect("registered candidate");
+                when::compose(
+                    store,
+                    &mref,
+                    &cand.desc(),
+                    Physical::CoAddressed,
+                    vocab,
+                    lex,
+                )
+                .expect("candidate plan")
+                .run(pop, table, frame, &where_mask)
+                .expect("candidate mask")
+            });
+            if has(&mask, local) {
+                roles.push(cand);
+            }
+        }
+        if !roles.is_empty() {
+            out.push((tok.gid, roles));
+        }
+    }
+    (out, composed)
+}
+
 /// A single left-corner discriminator on *already harvested* UD facts.
 /// This deliberately cannot inspect the head, execute a rule, or certify
 /// the result. It does not pretend to be a general left-corner parser.
@@ -51,7 +139,7 @@ fn left_corner(t: &Tok) -> &'static [Candidate] {
 
 fn where_all(n: usize) -> Vec<u64> {
     let mut mask = vec![u64::MAX; n.div_ceil(64)];
-    if n % 64 != 0 {
+    if !n.is_multiple_of(64) {
         *mask.last_mut().expect("nonempty when n % 64 != 0") = (1u64 << (n % 64)) - 1;
     }
     mask
@@ -78,7 +166,9 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
     )
     .expect("both rules carry their distinct guarded DT64 identities");
 
-    let recipient_ref = store.method_ref(CLASS_COADDR, RECIPIENT).expect("recipient ref");
+    let recipient_ref = store
+        .method_ref(CLASS_COADDR, RECIPIENT)
+        .expect("recipient ref");
     let experiencer_ref = store
         .method_ref(CLASS_COADDR, EXPERIENCER)
         .expect("experiencer ref");
@@ -112,22 +202,72 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
     // The left corner is identical for all four tokens; the head frame
     // is the indispensable missing argument of WHEN.
     for (gid, want_recipient, want_experiencer) in [
-        (105u64, true, false),  // geben: recipient
+        (105u64, true, false), // geben: recipient
         (302, false, true),    // gefallen: experiencer
         (405, true, false),    // geben: recipient
         (505, false, false),   // helfen: no declared frame, ABSTAIN
     ] {
         let tok = toks.iter().find(|t| t.gid == gid).expect("fixture token");
-        assert_eq!(left_corner(tok), &DATIVE_CANDIDATES, "same left corner: {gid}");
+        assert_eq!(
+            left_corner(tok),
+            &DATIVE_CANDIDATES,
+            "same left corner: {gid}"
+        );
         let local = map.local(gid).expect("known local position");
-        assert_eq!(has(&recipient_mask, local), want_recipient, "{gid}: recipient");
-        assert_eq!(has(&experiencer_mask, local), want_experiencer, "{gid}: experiencer");
+        assert_eq!(
+            has(&recipient_mask, local),
+            want_recipient,
+            "{gid}: recipient"
+        );
+        assert_eq!(
+            has(&experiencer_mask, local),
+            want_experiencer,
+            "{gid}: experiencer"
+        );
     }
 
     // A nonmatching syntactic form must not be smuggled into the candidate
     // pool merely because it also carries German dative Case.
     let instrument = toks.iter().find(|t| t.gid == 408).unwrap();
     assert!(left_corner(instrument).is_empty());
+
+    // The selector feeds the composition: only the methods it proposes for a
+    // token are composed and consulted for that token.
+    let want = vec![
+        (105u64, vec![Candidate::Recipient]),
+        (302, vec![Candidate::Experiencer]),
+        (405, vec![Candidate::Recipient]),
+    ];
+    let run = |selector: fn(&Tok) -> &'static [Candidate]| {
+        roles_under(selector, &toks, &store, &vocab, &lex, &pop, &table, &frame)
+    };
+    assert_eq!(run(left_corner), (want.clone(), 2));
+    // Dropping a candidate from the selector loses the answer only that
+    // candidate's method can give, and its method is never composed.
+    let (narrow, composed) = run(left_corner_recipient_only);
+    assert_eq!(composed, 1);
+    assert_eq!(
+        narrow,
+        vec![
+            (105, vec![Candidate::Recipient]),
+            (405, vec![Candidate::Recipient])
+        ],
+        "a selector without Experiencer must lose 302"
+    );
+    assert_ne!(narrow, want);
+    // Proposing too much changes nothing: the guards reject the extra
+    // tokens (dative determiners, the instrument 408).
+    let extra = toks
+        .iter()
+        .filter(|t| !left_corner_any_dative(t).is_empty() && left_corner(t).is_empty())
+        .count();
+    assert!(
+        extra >= 4,
+        "the wide selector must propose tokens the narrow one does not"
+    );
+    assert_eq!(run(left_corner_any_dative), (want, 2));
+    // Proposing nothing composes nothing and answers nothing.
+    assert_eq!(run(|_| &[]), (Vec::new(), 0));
 
     // The would-be Rosetta byte does NOT own the semantic rule. The same
     // candidate selector is compatible with two different DT64 methods,
@@ -183,14 +323,30 @@ fn p0_byte_candidates_require_the_existing_typed_when() {
     // Versioned producer facts are not transferable to another lexicon,
     // even though the byte selector and the source token shapes are equal.
     let swapped = Lexicon::swapped();
-    let swapped_pop = FramedPopulation::produce(
-        &toks,
-        &mut vocab,
-        &table,
-        &frame,
-        &swapped,
-    )
-    .expect("alternative lab reading");
+    // The lexicon is part of the method's identity: a method bound under one
+    // lexicon does not compose under another, so no plan exists that could
+    // read the swapped lane as Recipient.
+    assert!(matches!(
+        when::compose(
+            &store,
+            &recipient_ref,
+            &recipient,
+            Physical::CoAddressed,
+            &vocab,
+            &swapped,
+        ),
+        Err(ComposeRefusal::DescriptionMismatch)
+    ));
+    assert_ne!(
+        recipient
+            .guard(Physical::CoAddressed, &vocab, &lex)
+            .witness(),
+        recipient
+            .guard(Physical::CoAddressed, &vocab, &swapped)
+            .witness()
+    );
+    let swapped_pop = FramedPopulation::produce(&toks, &mut vocab, &table, &frame, &swapped)
+        .expect("alternative lab reading");
     assert!(matches!(
         recipient_plan.run(&swapped_pop, &table, &frame, &where_mask),
         Err(RunRefusal::LexiconRevision { .. })
@@ -214,14 +370,9 @@ fn native_role_count(raw: &[u64], role: Orientation) -> usize {
         lanes: &lanes,
     };
     let mut scratch = Scratch::for_program(&program, raw.len()).expect("scratch");
-    match execute_into(
-        &program,
-        &planes,
-        &Foreign::NONE,
-        &mut scratch,
-        Out::None,
-    )
-    .expect("native role count") {
+    match execute_into(&program, &planes, &Foreign::NONE, &mut scratch, Out::None)
+        .expect("native role count")
+    {
         Value::Count(n) => n,
         other => panic!("unexpected terminal: {other:?}"),
     }
@@ -263,7 +414,10 @@ fn p1_role_selection_preserves_epistemic_independence() {
         for word in &mut edges {
             *word ^= 1u64 << 59;
         }
-        assert_eq!(accessor_role_count(&edges, Orientation::Recipient), expected);
+        assert_eq!(
+            accessor_role_count(&edges, Orientation::Recipient),
+            expected
+        );
         assert_eq!(
             native_role_count(&edges, Orientation::Recipient),
             expected,
