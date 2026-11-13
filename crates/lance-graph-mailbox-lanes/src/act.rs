@@ -68,6 +68,13 @@
 //! - A field that names no mailbox column at all (a method's scratch mask, an
 //!   intermediate scalar) is never written; its scalars are returned in
 //!   [`Acted::unwritten`].
+//! - The population of a method is the SET of rows its guard keeps over the
+//!   populated prefix. A method declared over a bag is refused
+//!   ([`ActRefusal::BagPopulation`]); the socket's repeated-row selections
+//!   (`issue_concat`) are not an operand of this module.
+//! - A method whose effects target only fields that name no mailbox column
+//!   is a read-only projection: it returns scalars in [`Acted::unwritten`]
+//!   and no [`Intent`].
 //! - Rounds are evaluated against one publication each: every method of a
 //!   round reads the state the round started with; writes land afterwards,
 //!   in ascending [`MethodId`] order, so on one cell the later method wins.
@@ -76,6 +83,7 @@ use cognitive_shader_driver::mailbox_soa::{MailboxSoA, WriteCell, WriteOutcome};
 use lance_graph_contract::class_view::ClassView;
 use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::collapse_gate::MailboxId;
+use lance_graph_contract::set_rules::Population;
 use lance_graph_contract::soa_view::MailboxSoaView;
 use lance_graph_dt64::dr::{Focus, Guards, Scope};
 use lance_graph_dt64::{
@@ -121,6 +129,10 @@ pub enum ActRefusal {
     /// An effect targets a mailbox column of a kind the socket does not
     /// handle. It is a column of the owner, so it is not a scratch field.
     UnsupportedColumn { field: u8, kind: &'static str },
+    /// The method is declared over a bag (`Population::Bag`). This module
+    /// gates a fold with one bit per row, which is membership; running the
+    /// method on it would take membership for multiplicity.
+    BagPopulation { method: MethodId },
     /// A result does not fit the column it would be written to.
     ValueOutOfRange { field: u8, value: i64 },
 }
@@ -211,6 +223,12 @@ pub fn act<V: ClassView + ?Sized, const N: usize>(
             .get(usize::from(field))
             .map_or("", |f| f.predicate_iri.as_str())
     };
+    // The gate below is one bit per row. A bag method is not run on it.
+    if admitted.population == Population::Bag {
+        return Err(ActRefusal::BagPopulation {
+            method: method.method,
+        });
+    }
     // Refuse a forbidden target before anything is read or run.
     for effect in &admitted.effects {
         writable(iri(effect.target), effect.target)?;

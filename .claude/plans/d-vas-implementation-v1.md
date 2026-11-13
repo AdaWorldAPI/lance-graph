@@ -604,3 +604,97 @@ allocation sources, a prepared plan and guard program reused across calls
 with explicit invalidation by publication and route, a warm measurement, and
 the cost of the `Method` path itself. `apply` now costs one `act`; a reused
 preparation would cut both.
+
+## R9: coordinate x content independence, and a read-only projection
+
+Terms: a *publication witness* is the borrow-scoped frame of one
+`MailboxLanes` socket; it is not a historical content version. A *mapping
+version* is a sealed `MapTable` frame. The mailbox's cycle is its own write
+protocol and is used by no check below.
+
+```text
+Read(S, g, Vm, Vc) = Interpret_Vc( S[ Resolve_Vm(g) ] )
+```
+
+### Gate 1, the 2 x 2 matrix (test only; existing code)
+
+`crates/lance-graph-mailbox-lanes/tests/independence.rs`, 5 tests on a real
+`MailboxSoA<64>`. Oracle per quadrant: `row = assignment[Vm](g)`, then
+`value = contents[S][row]`, both written in the test.
+
+| Contents | Mapping | Observed |
+|---|---|---|
+| same | same | same row and value, twice |
+| same | advanced while the publication is live | the new assignment's row and that row's value; the owner's bytes equal before and after; the lane binding stays valid |
+| changed by `set_meta`, no `tick` | same (still current) | the same row, the new value, under a new publication |
+| changed | advanced again | both compose |
+
+Negatives, each a refusal: a coordinate binding of an earlier map version
+(`StaleMapping`) and of another table (`ForeignMap`); a lane binding after its
+publication ended; a binding made for one routed class after the position was
+routed to another; a second socket over the same owner; another owner; an
+unrouted position; another reader scope. The negative law is its own test: with
+the map version unchanged, the coordinate resolves to the same row, the value
+there differs from the one read earlier, and the earlier read's only witness
+(its lane binding) is refused.
+
+The tests passed on their first run except for a fixture error of mine: two
+classids of one concept share one `ClassView` basis (`view_class` is the
+concept half), so the second interpretation needed another concept. Two
+disable runs, anchors asserted, exit 101: the `StaleMapping` comparison off;
+the `temporal` lane lending `meta`. A third patch did not apply (its anchor
+occurs twice) and is no evidence.
+
+Already proven before R9, not repeated: unchanged contents under two map
+versions (`tests/coords.rs`); selection addresses ending with their socket
+(`tests/selection.rs`).
+
+### Gate 2, a read-only projection (test composition; one refusal added)
+
+`ClassView IN published rows WHEN guard DO fold`, composed from what exists:
+`act` with a method whose effect targets a class field that names no mailbox
+column returns its scalar in `Acted::unwritten` (and
+`receipt.output.values`), with no `Intent`. `tests/writable.rs`:
+
+- the population and the scalar equal a fold written by hand; the receipt
+  names the method; 2 lanes lent; the owner is equal before and after; the
+  same fold targeting `meta` is a write request (silence twin);
+- refused: a position that does not route to the method's class (0 lanes
+  lent), no execution permit, a reader scope other than the socket's.
+
+No new output API was added. A `project` function was drafted and removed: it
+only re-shaped `act`'s result.
+
+The population is DISTINCT: one bit per row of the populated prefix. It is not
+a bag.
+
+### Multiplicity (one production change)
+
+Finding: a `MethodBinding` declared with `Population::Bag` ran through `act` on
+the one-bit-per-row gate and returned the set reading. Nothing read
+`population`.
+
+Fix: `act` refuses it before anything is lent
+(`ActRefusal::BagPopulation`). Test committed first and failing
+(`a_bag_method_does_not_run_on_a_membership_gate`): the socket issues a bag in
+which every guard row occurs twice (`issue_concat`), the bag fold by hand is
+twice the set fold, the distinct method returns the set fold, the bag method
+is refused. One disable run, exit 101.
+
+Not done: a duplicate-sensitive fold over a socket-issued bag. The shipped
+selection fold refuses the mailbox's `u32` / `u64` lanes (A4), R2IL's binding
+seam takes no selection operand, and R2IL itself does not read
+`population` either (only `act` refuses now).
+
+### Ledger, R9
+
+| Item | Contract | Oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| independence | `Coordinates::row_of`, `LaneBinding::lane`, `MailboxLanes` | assignments and values in the test | 4 quadrants x 40 ids | 7 refusals; 2 disables | INTEGRATION VERIFIED, no new code |
+| mapping does not validate a value | same | same | same row, other value | old binding refused | INTEGRATION VERIFIED |
+| read-only projection | `act`, `Acted::unwritten`, `Receipt` | fold by hand | rows and scalar equal, no intent, owner unchanged | route, permit, scope | INTEGRATION VERIFIED for a DISTINCT population, by test composition |
+| bag declared | `ActRefusal::BagPopulation` | bag fold by hand | distinct method runs | bag method refused. 1 disable | INTEGRATION VERIFIED (refusal); bag execution NOT SUPPORTED |
+
+Not established: historical replay (no source contents are retained); any
+reuse of a computed result past its publication; authorization (the scope
+check compares two caller-asserted values); a general bag API; cost.

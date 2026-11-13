@@ -389,7 +389,9 @@ fn a_bag_method_does_not_run_on_a_membership_gate() {
     // The same fold declared over a bag is refused, before anything is lent.
     let lent = lanes.lends();
     let bag = w.store.method_ref(CLASS, OVER_BAG).unwrap();
-    let got = act(&lanes, &w.store, &w.view, &ctx(&w), &bag);
-    assert!(got.is_err(), "{got:?}");
+    assert_eq!(
+        act(&lanes, &w.store, &w.view, &ctx(&w), &bag),
+        Err(ActRefusal::BagPopulation { method: OVER_BAG })
+    );
     assert_eq!(lanes.lends(), lent);
 }
