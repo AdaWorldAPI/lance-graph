@@ -3,13 +3,14 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: c7a1ec9871027cb8
+digest: 7c1cbf6dc29bb2ae
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
 
 ## Depends on
 
+- dep cognitive-shader-driver dev — crates/virtual-address-lab/Cargo.toml:21 CONFIRMED
 - dep dr256-ternlog-lab normal — crates/virtual-address-lab/Cargo.toml:17 CONFIRMED
 - dep lance-graph-contract normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
 - dep lance-graph-dt64 normal — crates/virtual-address-lab/Cargo.toml:10 CONFIRMED

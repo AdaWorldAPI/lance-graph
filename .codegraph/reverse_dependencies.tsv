@@ -78,6 +78,7 @@ clap	lance-graph-callcenter	normal	true	-	audit-verify-bin	crates/lance-graph-ca
 cognitive-compiler	cognitive-stack	normal	false	-	-	crates/cognitive-stack/Cargo.toml:41	CONFIRMED	yes
 cognitive-shader-driver	lance-graph-planner	dev	false	-	-	crates/lance-graph-planner/Cargo.toml:78	CONFIRMED	yes
 cognitive-shader-driver	lance-graph-supervisor	dev	false	-	-	crates/lance-graph-supervisor/Cargo.toml:61	CONFIRMED	yes
+cognitive-shader-driver	virtual-address-lab	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:21	CONFIRMED	yes
 crepe	crepe-plan-probe	normal	false	-	-	crates/crepe-plan-probe/Cargo.toml:19	CONFIRMED	no
 criterion	holograph	dev	false	-	-	crates/holograph/Cargo.toml:59	CONFIRMED	no
 criterion	lance-graph-benches	normal	false	-	-	crates/lance-graph-benches/Cargo.toml:16	CONFIRMED	no
