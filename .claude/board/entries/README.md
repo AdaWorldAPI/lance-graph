@@ -31,7 +31,7 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-11-13 | `D-WX-DR256-TERNLOG` |  | [2026-11-13-weather-dr256-ternlog.md](2026-11-13-weather-dr256-ternlog.md) |
 | 2026-11-13 | `D-WX-BIT-PLANES` |  | [2026-11-13-weather-bit-planes.md](2026-11-13-weather-bit-planes.md) |
-| 2026-11-13 | `D-QUACK-DERIVED-PLANE-PROBE` |  | [2026-11-13-quack-derived-plane-p2-p4.md](2026-11-13-quack-derived-plane-p2-p4.md) |
+| 2026-11-13 | `D-QUACK-DERIVED-PLANE-PROBE-P2-P4` |  | [2026-11-13-quack-derived-plane-p2-p4.md](2026-11-13-quack-derived-plane-p2-p4.md) |
 | 2026-11-13 | `D-QUACK-DERIVED-PLANE-PROBE` |  | [2026-11-13-quack-derived-plane-p1.md](2026-11-13-quack-derived-plane-p1.md) |
 | 2026-11-12 | `D-SELVEC-COMPAT-0` |  | [2026-11-12-selvec-compat-r1-falsifier.md](2026-11-12-selvec-compat-r1-falsifier.md) |
 | 2026-11-12 | `D-SCHEMA-WARDROBE-P0` |  | [2026-11-12-schema-wardrobe-p0.md](2026-11-12-schema-wardrobe-p0.md) |
