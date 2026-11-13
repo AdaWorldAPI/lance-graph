@@ -1315,6 +1315,31 @@ class T(unittest.TestCase):
         self.assertTrue(all(r[6] == "STALE" for r in stale), stale)
         self.assertEqual(fnv64((fx / "rev1/cg_app/src/lib.rs").read_bytes()), "0effe8b102e60ce2")
 
+    def test_10_committed_store_is_the_default(self):
+        """FAILS IF: --write and --check ignore the committed store, so a filled
+        calls.tsv could never pass the CI check, or an explicit option is overridden."""
+        body = "pub fn a() { b(); }\n"
+        root = mk_ws(self.td, {"alpha": (body, "")})
+        st = root / CHARON_STORE
+        st.mkdir()
+        (st / "alpha.rows.tsv").write_text(
+            "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n"
+            "CALLS_RESOLVED\talpha::a\tx::b\tCOMPILER\tcrates/alpha/src/lib.rs\t13\t16\n")
+        (st / "alpha.files.tsv").write_text(
+            f"#version 1\n#schema path\tfnv64\ncrates/alpha/src/lib.rs\t{fnv64(body.encode())}\n")
+        self.assertEqual(main(["--write", "--root", str(root)]), 0)
+        rows = [l.split("\t") for l in (root / OUT / "calls.tsv").read_text().splitlines()
+                if l and not l.startswith("#")]
+        self.assertEqual(rows, [["alpha", "alpha::a", "x::b", "resolved", "crates/alpha/src/lib.rs", "1",
+                                 "CONFIRMED"]])
+        self.assertEqual(main(["--check", "--root", str(root)]), 0)
+        # Silent twin: without the directory the crate is reported missing, not guessed.
+        for f in st.iterdir():
+            f.unlink()
+        st.rmdir()
+        self.assertEqual(main(["--write", "--root", str(root)]), 0)
+        self.assertIn(MISSING, (root / OUT / "calls.tsv").read_text())
+
     def test_09_use_tree(self):
         rf = RustFile("use a::{b, c::{d as e, f::*}, self as g};\npub use x::y;\nuse ::z::{self};\n"
                       "use h::{self, i};\n")
