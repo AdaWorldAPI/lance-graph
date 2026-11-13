@@ -1,0 +1,17 @@
+[package]
+name = "virtual-address-lab"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB. D-VIRTUAL-ADDRESS-ALGEBRA-1: a geometric address recipe (the eight symmetries of a square tile, three bits) normalised before the EXISTING selection path is called (SelectionSource, LaneBinding::selected, fold_bound_selection, execute_sel). No owner, store, operand form or executor is added."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+# `fold_bound_selection`: the shipped boundary in front of `execute_sel`.
+lance-graph-report = { path = "../lance-graph-report" }
+# `OrderIndex` and `SealedOrder`: the lab order whose positions the fixture
+# source lends. Nothing of it is copied.
+dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
