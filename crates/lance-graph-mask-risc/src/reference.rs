@@ -169,7 +169,20 @@ pub(crate) fn validate_sel_frame(
 ) -> Result<(), ExecError> {
     let lane = match fold {
         SelFold::CountGtI32 { lane, .. } | SelFold::SumI32 { lane } => lane,
-        SelFold::CountSet { .. } => return Ok(()),
+        SelFold::CountSet { plane } => {
+            let Some(bits) = planes.masks.get(usize::from(plane)) else {
+                return Err(ExecError::PlaneOutOfRange(plane));
+            };
+            let expected = crate::words_for(planes.n_rows);
+            if bits.len() != expected {
+                return Err(ExecError::LenMismatch {
+                    what: "plane",
+                    expected,
+                    found: bits.len(),
+                });
+            }
+            return Ok(());
+        }
     };
     check_lane(planes, lane, LaneKind::I32)?;
     let found = planes.lanes[usize::from(lane)].len();
@@ -223,7 +236,17 @@ pub fn reference_execute_sel(
             }
             Value::SumI64(sum)
         }
-        SelFold::CountSet { .. } => Value::Count(0),
+        SelFold::CountSet { plane } => {
+            let bits = planes.masks[usize::from(plane)];
+            let mut count = 0usize;
+            for &p in positions {
+                let row = p as usize;
+                if bits[row / 64] & (1u64 << (row % 64)) != 0 {
+                    count += 1;
+                }
+            }
+            Value::Count(count)
+        }
     })
 }
 

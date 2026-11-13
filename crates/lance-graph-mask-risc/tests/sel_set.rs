@@ -251,10 +251,7 @@ fn non_rows_and_malformed_planes_are_refused() {
     assert_eq!(both(count_set(0), &planes, &[]), Ok(Value::Count(0)));
     assert_eq!(
         both(count_set(0), &planes, &[0]),
-        Err(ExecError::SelOutOfRange {
-            at: 0,
-            position: 0
-        })
+        Err(ExecError::SelOutOfRange { at: 0, position: 0 })
     );
 }
 
