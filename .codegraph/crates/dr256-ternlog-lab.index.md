@@ -3,7 +3,7 @@
 crate: dr256-ternlog-lab
 path: crates/dr256-ternlog-lab
 workspace: member
-digest: db72658c42b0d148
+digest: dd9b26d2dd3f1c8f
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -32,6 +32,16 @@ Generated; the code is the truth. See ../index.md.
 - fn lt [pub] — crates/dr256-ternlog-lab/src/bit_planes.rs:69 CONFIRMED
 - fn and [pub] — crates/dr256-ternlog-lab/src/bit_planes.rs:86 CONFIRMED
 - fn band_program [pub] — crates/dr256-ternlog-lab/src/bit_planes.rs:94 CONFIRMED
+- struct BoundBitPlanes [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:34 CONFIRMED
+- fn BoundBitPlanes::derive [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:44 CONFIRMED
+- fn BoundBitPlanes::field [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:93 CONFIRMED
+- fn BoundBitPlanes::slabs [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:98 CONFIRMED
+- fn BoundBitPlanes::bytes [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:103 CONFIRMED
+- fn BoundBitPlanes::set_plane [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:113 CONFIRMED
+- fn BoundBitPlanes::check [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:177 CONFIRMED
+- fn BoundBitPlanes::count_unchecked [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:186 CONFIRMED
+- fn BoundBitPlanes::count [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:199 CONFIRMED
+- fn range_program [pub] — crates/dr256-ternlog-lab/src/bound_planes.rs:217 CONFIRMED
 - const SLAB_ROWS [pub] — crates/dr256-ternlog-lab/src/lib.rs:47 CONFIRMED
 - const SLAB_WORDS [pub] — crates/dr256-ternlog-lab/src/lib.rs:49 CONFIRMED
 - const MAX_SLABS [pub] — crates/dr256-ternlog-lab/src/lib.rs:51 CONFIRMED
@@ -42,86 +52,88 @@ Generated; the code is the truth. See ../index.md.
 - const PERSON [pub] — crates/dr256-ternlog-lab/src/lib.rs:64 CONFIRMED
 - const FRIEND_OF [pub] — crates/dr256-ternlog-lab/src/lib.rs:66 CONFIRMED
 - mod bit_planes [pub] — crates/dr256-ternlog-lab/src/lib.rs:70 CONFIRMED
-- mod order_store [pub] — crates/dr256-ternlog-lab/src/lib.rs:71 CONFIRMED
-- mod person [pub] — crates/dr256-ternlog-lab/src/lib.rs:74 CONFIRMED
-- const ID [pub] — crates/dr256-ternlog-lab/src/lib.rs:75 CONFIRMED
-- const NAME [pub] — crates/dr256-ternlog-lab/src/lib.rs:76 CONFIRMED
-- const AGE [pub] — crates/dr256-ternlog-lab/src/lib.rs:77 CONFIRMED
-- mod friend [pub] — crates/dr256-ternlog-lab/src/lib.rs:80 CONFIRMED
-- const SRC [pub] — crates/dr256-ternlog-lab/src/lib.rs:81 CONFIRMED
-- const DST [pub] — crates/dr256-ternlog-lab/src/lib.rs:82 CONFIRMED
-- struct View [pub] — crates/dr256-ternlog-lab/src/lib.rs:86 CONFIRMED
-- fn select [pub] — crates/dr256-ternlog-lab/src/lib.rs:131 CONFIRMED
-- fn columns [pub] — crates/dr256-ternlog-lab/src/lib.rs:143 CONFIRMED
-- fn lane_index [pub] — crates/dr256-ternlog-lab/src/lib.rs:156 CONFIRMED
-- struct World [pub] — crates/dr256-ternlog-lab/src/lib.rs:164 CONFIRMED
-- fn World::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:178 CONFIRMED
-- fn admits_reservation [pub] — crates/dr256-ternlog-lab/src/lib.rs:220 CONFIRMED
-- struct Table [pub] — crates/dr256-ternlog-lab/src/lib.rs:243 CONFIRMED
-- fn Table<'a>::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:256 CONFIRMED
-- fn Table<'a>::n_rows [pub] — crates/dr256-ternlog-lab/src/lib.rs:283 CONFIRMED
-- fn Table<'a>::slabs [pub] — crates/dr256-ternlog-lab/src/lib.rs:287 CONFIRMED
-- fn Table<'a>::slab_rows [pub] — crates/dr256-ternlog-lab/src/lib.rs:292 CONFIRMED
-- fn Table<'a>::space [pub] — crates/dr256-ternlog-lab/src/lib.rs:297 CONFIRMED
-- fn Table<'a>::frames [pub] — crates/dr256-ternlog-lab/src/lib.rs:304 CONFIRMED
-- fn Table<'a>::advance_source [pub] — crates/dr256-ternlog-lab/src/lib.rs:310 CONFIRMED
-- struct SlabSource [pub] — crates/dr256-ternlog-lab/src/lib.rs:322 CONFIRMED
-- struct Plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:372 CONFIRMED
-- fn Plane::from_fn [pub] — crates/dr256-ternlog-lab/src/lib.rs:379 CONFIRMED
-- fn Plane::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:389 CONFIRMED
-- fn Plane::masks [pub] — crates/dr256-ternlog-lab/src/lib.rs:395 CONFIRMED
-- fn Plane::mask [pub] — crates/dr256-ternlog-lab/src/lib.rs:401 CONFIRMED
-- fn Plane::selections [pub] — crates/dr256-ternlog-lab/src/lib.rs:416 CONFIRMED
-- struct Selection [pub] — crates/dr256-ternlog-lab/src/lib.rs:429 CONFIRMED
-- fn Selection<'p>::space [pub] — crates/dr256-ternlog-lab/src/lib.rs:437 CONFIRMED
-- fn Selection<'p>::row [pub] — crates/dr256-ternlog-lab/src/lib.rs:442 CONFIRMED
-- fn Selection<'p>::words [pub] — crates/dr256-ternlog-lab/src/lib.rs:447 CONFIRMED
-- fn Selection<'p>::has [pub] — crates/dr256-ternlog-lab/src/lib.rs:452 CONFIRMED
-- fn Selection<'p>::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:459 CONFIRMED
-- fn Selection<'p>::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:463 CONFIRMED
-- fn Selection<'p>::same_bits [pub] — crates/dr256-ternlog-lab/src/lib.rs:469 CONFIRMED
-- struct RankMap [pub] — crates/dr256-ternlog-lab/src/lib.rs:482 CONFIRMED
-- fn RankMap::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:492 CONFIRMED
-- fn RankMap::len [pub] — crates/dr256-ternlog-lab/src/lib.rs:516 CONFIRMED
-- fn RankMap::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:520 CONFIRMED
-- fn RankMap::contains [pub] — crates/dr256-ternlog-lab/src/lib.rs:524 CONFIRMED
-- fn RankMap::local [pub] — crates/dr256-ternlog-lab/src/lib.rs:532 CONFIRMED
-- fn RankMap::words [pub] — crates/dr256-ternlog-lab/src/lib.rs:543 CONFIRMED
-- enum Refused [pub] — crates/dr256-ternlog-lab/src/lib.rs:552 CONFIRMED
-- struct Prepared [pub] — crates/dr256-ternlog-lab/src/lib.rs:597 CONFIRMED
-- fn Prepared::slabs [pub] — crates/dr256-ternlog-lab/src/lib.rs:606 CONFIRMED
-- fn Prepared::plane_bytes [pub] — crates/dr256-ternlog-lab/src/lib.rs:611 CONFIRMED
-- fn Prepared::set_plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:620 CONFIRMED
-- fn Prepared::plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:624 CONFIRMED
-- fn prepare_nodes [pub] — crates/dr256-ternlog-lab/src/lib.rs:662 CONFIRMED
-- fn prepare_edges [pub] — crates/dr256-ternlog-lab/src/lib.rs:701 CONFIRMED
-- enum Agg [pub] — crates/dr256-ternlog-lab/src/lib.rs:759 CONFIRMED
-- enum Answer [pub] — crates/dr256-ternlog-lab/src/lib.rs:768 CONFIRMED
-- struct Fold [pub] — crates/dr256-ternlog-lab/src/lib.rs:778 CONFIRMED
-- fn scratch_bytes_of [pub] — crates/dr256-ternlog-lab/src/lib.rs:789 CONFIRMED
-- fn Fold::count_gt [pub] — crates/dr256-ternlog-lab/src/lib.rs:819 CONFIRMED
-- fn Fold::and3 [pub] — crates/dr256-ternlog-lab/src/lib.rs:846 CONFIRMED
-- fn Fold::between [pub] — crates/dr256-ternlog-lab/src/lib.rs:864 CONFIRMED
-- fn Fold::count_and3 [pub] — crates/dr256-ternlog-lab/src/lib.rs:899 CONFIRMED
-- fn Fold::scratch_bytes [pub] — crates/dr256-ternlog-lab/src/lib.rs:927 CONFIRMED
-- fn Fold::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:932 CONFIRMED
-- fn Fold::answer [pub] — crates/dr256-ternlog-lab/src/lib.rs:947 CONFIRMED
-- fn mean_round_half_up [pub] — crates/dr256-ternlog-lab/src/lib.rs:1029 CONFIRMED
-- fn display_row [pub] — crates/dr256-ternlog-lab/src/lib.rs:1038 CONFIRMED
-- struct OrderIndex [pub] — crates/dr256-ternlog-lab/src/lib.rs:1071 CONFIRMED
-- fn OrderIndex::by_i32 [pub] — crates/dr256-ternlog-lab/src/lib.rs:1104 CONFIRMED
-- fn OrderIndex::by_key [pub] — crates/dr256-ternlog-lab/src/lib.rs:1130 CONFIRMED
-- fn OrderIndex::positions [pub] — crates/dr256-ternlog-lab/src/lib.rs:1152 CONFIRMED
-- fn OrderIndex::len [pub] — crates/dr256-ternlog-lab/src/lib.rs:1160 CONFIRMED
-- fn OrderIndex::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:1164 CONFIRMED
-- fn OrderIndex::row [pub] — crates/dr256-ternlog-lab/src/lib.rs:1169 CONFIRMED
-- fn OrderIndex::gt [pub] — crates/dr256-ternlog-lab/src/lib.rs:1174 CONFIRMED
-- fn OrderIndex::between [pub] — crates/dr256-ternlog-lab/src/lib.rs:1179 CONFIRMED
-- struct PreparedOrder [pub] — crates/dr256-ternlog-lab/src/lib.rs:1202 CONFIRMED
-- fn prepare_order [pub] — crates/dr256-ternlog-lab/src/lib.rs:1211 CONFIRMED
-- fn PreparedOrder::plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:1260 CONFIRMED
-- fn PreparedOrder::set_plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:1264 CONFIRMED
-- fn PreparedOrder::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:1270 CONFIRMED
+- mod bound_planes [pub] — crates/dr256-ternlog-lab/src/lib.rs:71 CONFIRMED
+- mod order_store [pub] — crates/dr256-ternlog-lab/src/lib.rs:72 CONFIRMED
+- mod person [pub] — crates/dr256-ternlog-lab/src/lib.rs:75 CONFIRMED
+- const ID [pub] — crates/dr256-ternlog-lab/src/lib.rs:76 CONFIRMED
+- const NAME [pub] — crates/dr256-ternlog-lab/src/lib.rs:77 CONFIRMED
+- const AGE [pub] — crates/dr256-ternlog-lab/src/lib.rs:78 CONFIRMED
+- mod friend [pub] — crates/dr256-ternlog-lab/src/lib.rs:81 CONFIRMED
+- const SRC [pub] — crates/dr256-ternlog-lab/src/lib.rs:82 CONFIRMED
+- const DST [pub] — crates/dr256-ternlog-lab/src/lib.rs:83 CONFIRMED
+- struct View [pub] — crates/dr256-ternlog-lab/src/lib.rs:87 CONFIRMED
+- fn select [pub] — crates/dr256-ternlog-lab/src/lib.rs:132 CONFIRMED
+- fn columns [pub] — crates/dr256-ternlog-lab/src/lib.rs:144 CONFIRMED
+- fn lane_index [pub] — crates/dr256-ternlog-lab/src/lib.rs:157 CONFIRMED
+- struct World [pub] — crates/dr256-ternlog-lab/src/lib.rs:165 CONFIRMED
+- fn World::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:179 CONFIRMED
+- fn World::with_person_methods [pub] — crates/dr256-ternlog-lab/src/lib.rs:184 CONFIRMED
+- fn admits_reservation [pub] — crates/dr256-ternlog-lab/src/lib.rs:226 CONFIRMED
+- struct Table [pub] — crates/dr256-ternlog-lab/src/lib.rs:249 CONFIRMED
+- fn Table<'a>::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:262 CONFIRMED
+- fn Table<'a>::n_rows [pub] — crates/dr256-ternlog-lab/src/lib.rs:289 CONFIRMED
+- fn Table<'a>::slabs [pub] — crates/dr256-ternlog-lab/src/lib.rs:293 CONFIRMED
+- fn Table<'a>::slab_rows [pub] — crates/dr256-ternlog-lab/src/lib.rs:298 CONFIRMED
+- fn Table<'a>::space [pub] — crates/dr256-ternlog-lab/src/lib.rs:303 CONFIRMED
+- fn Table<'a>::frames [pub] — crates/dr256-ternlog-lab/src/lib.rs:310 CONFIRMED
+- fn Table<'a>::advance_source [pub] — crates/dr256-ternlog-lab/src/lib.rs:316 CONFIRMED
+- struct SlabSource [pub] — crates/dr256-ternlog-lab/src/lib.rs:328 CONFIRMED
+- struct Plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:378 CONFIRMED
+- fn Plane::from_fn [pub] — crates/dr256-ternlog-lab/src/lib.rs:385 CONFIRMED
+- fn Plane::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:395 CONFIRMED
+- fn Plane::masks [pub] — crates/dr256-ternlog-lab/src/lib.rs:401 CONFIRMED
+- fn Plane::mask [pub] — crates/dr256-ternlog-lab/src/lib.rs:407 CONFIRMED
+- fn Plane::selections [pub] — crates/dr256-ternlog-lab/src/lib.rs:422 CONFIRMED
+- struct Selection [pub] — crates/dr256-ternlog-lab/src/lib.rs:435 CONFIRMED
+- fn Selection<'p>::space [pub] — crates/dr256-ternlog-lab/src/lib.rs:443 CONFIRMED
+- fn Selection<'p>::row [pub] — crates/dr256-ternlog-lab/src/lib.rs:448 CONFIRMED
+- fn Selection<'p>::words [pub] — crates/dr256-ternlog-lab/src/lib.rs:453 CONFIRMED
+- fn Selection<'p>::has [pub] — crates/dr256-ternlog-lab/src/lib.rs:458 CONFIRMED
+- fn Selection<'p>::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:465 CONFIRMED
+- fn Selection<'p>::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:469 CONFIRMED
+- fn Selection<'p>::same_bits [pub] — crates/dr256-ternlog-lab/src/lib.rs:475 CONFIRMED
+- struct RankMap [pub] — crates/dr256-ternlog-lab/src/lib.rs:488 CONFIRMED
+- fn RankMap::new [pub] — crates/dr256-ternlog-lab/src/lib.rs:498 CONFIRMED
+- fn RankMap::len [pub] — crates/dr256-ternlog-lab/src/lib.rs:522 CONFIRMED
+- fn RankMap::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:526 CONFIRMED
+- fn RankMap::contains [pub] — crates/dr256-ternlog-lab/src/lib.rs:530 CONFIRMED
+- fn RankMap::local [pub] — crates/dr256-ternlog-lab/src/lib.rs:538 CONFIRMED
+- fn RankMap::words [pub] — crates/dr256-ternlog-lab/src/lib.rs:549 CONFIRMED
+- enum Refused [pub] — crates/dr256-ternlog-lab/src/lib.rs:558 CONFIRMED
+- struct Prepared [pub] — crates/dr256-ternlog-lab/src/lib.rs:603 CONFIRMED
+- fn Prepared::slabs [pub] — crates/dr256-ternlog-lab/src/lib.rs:612 CONFIRMED
+- fn Prepared::plane_bytes [pub] — crates/dr256-ternlog-lab/src/lib.rs:617 CONFIRMED
+- fn Prepared::set_plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:626 CONFIRMED
+- fn Prepared::plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:630 CONFIRMED
+- fn prepare_nodes [pub] — crates/dr256-ternlog-lab/src/lib.rs:668 CONFIRMED
+- fn prepare_edges [pub] — crates/dr256-ternlog-lab/src/lib.rs:707 CONFIRMED
+- enum Agg [pub] — crates/dr256-ternlog-lab/src/lib.rs:765 CONFIRMED
+- enum Answer [pub] — crates/dr256-ternlog-lab/src/lib.rs:774 CONFIRMED
+- struct Fold [pub] — crates/dr256-ternlog-lab/src/lib.rs:784 CONFIRMED
+- fn scratch_bytes_of [pub] — crates/dr256-ternlog-lab/src/lib.rs:795 CONFIRMED
+- fn Fold::count_gt [pub] — crates/dr256-ternlog-lab/src/lib.rs:825 CONFIRMED
+- fn Fold::and3 [pub] — crates/dr256-ternlog-lab/src/lib.rs:852 CONFIRMED
+- fn Fold::between [pub] — crates/dr256-ternlog-lab/src/lib.rs:870 CONFIRMED
+- fn Fold::count_and3 [pub] — crates/dr256-ternlog-lab/src/lib.rs:905 CONFIRMED
+- fn Fold::scratch_bytes [pub] — crates/dr256-ternlog-lab/src/lib.rs:933 CONFIRMED
+- fn Fold::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:938 CONFIRMED
+- fn Fold::answer [pub] — crates/dr256-ternlog-lab/src/lib.rs:953 CONFIRMED
+- fn mean_round_half_up [pub] — crates/dr256-ternlog-lab/src/lib.rs:1035 CONFIRMED
+- fn display_row [pub] — crates/dr256-ternlog-lab/src/lib.rs:1044 CONFIRMED
+- struct OrderIndex [pub] — crates/dr256-ternlog-lab/src/lib.rs:1077 CONFIRMED
+- fn OrderIndex::by_i32 [pub] — crates/dr256-ternlog-lab/src/lib.rs:1110 CONFIRMED
+- fn OrderIndex::by_key [pub] — crates/dr256-ternlog-lab/src/lib.rs:1136 CONFIRMED
+- fn OrderIndex::positions [pub] — crates/dr256-ternlog-lab/src/lib.rs:1158 CONFIRMED
+- fn OrderIndex::len [pub] — crates/dr256-ternlog-lab/src/lib.rs:1166 CONFIRMED
+- fn OrderIndex::is_empty [pub] — crates/dr256-ternlog-lab/src/lib.rs:1170 CONFIRMED
+- fn OrderIndex::row [pub] — crates/dr256-ternlog-lab/src/lib.rs:1175 CONFIRMED
+- fn OrderIndex::gt [pub] — crates/dr256-ternlog-lab/src/lib.rs:1180 CONFIRMED
+- fn OrderIndex::between [pub] — crates/dr256-ternlog-lab/src/lib.rs:1185 CONFIRMED
+- struct PreparedOrder [pub] — crates/dr256-ternlog-lab/src/lib.rs:1208 CONFIRMED
+- fn prepare_order [pub] — crates/dr256-ternlog-lab/src/lib.rs:1217 CONFIRMED
+- fn PreparedOrder::plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:1266 CONFIRMED
+- fn PreparedOrder::set_plane [pub] — crates/dr256-ternlog-lab/src/lib.rs:1270 CONFIRMED
+- fn PreparedOrder::count [pub] — crates/dr256-ternlog-lab/src/lib.rs:1276 CONFIRMED
 - const TIE_KEY_THEN_FRAME_POSITION [pub] — crates/dr256-ternlog-lab/src/order_store.rs:44 CONFIRMED
 - mod layout [pub] — crates/dr256-ternlog-lab/src/order_store.rs:47 CONFIRMED
 - const MAGIC [pub] — crates/dr256-ternlog-lab/src/order_store.rs:48 CONFIRMED
@@ -162,12 +174,17 @@ Generated; the code is the truth. See ../index.md.
 ## Imports from in-scope crates
 
 ### lance-graph-contract
+- use lance_graph_contract::class_view::WideFieldMask — crates/dr256-ternlog-lab/src/bound_planes.rs:14 CONFIRMED
 - use lance_graph_contract::class_view::ClassId — crates/dr256-ternlog-lab/src/lib.rs:33 CONFIRMED
 - use lance_graph_contract::class_view::ClassView — crates/dr256-ternlog-lab/src/lib.rs:33 CONFIRMED
 - use lance_graph_contract::class_view::WideFieldMask — crates/dr256-ternlog-lab/src/lib.rs:33 CONFIRMED
 - use lance_graph_contract::ontology::DisplayTemplate — crates/dr256-ternlog-lab/src/lib.rs:34 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/dr256-ternlog-lab/src/lib.rs:34 CONFIRMED
 ### lance-graph-dt64
+- use lance_graph_dt64::dr::Frame — crates/dr256-ternlog-lab/src/bound_planes.rs:15 CONFIRMED
+- use lance_graph_dt64::CoordSpace — crates/dr256-ternlog-lab/src/bound_planes.rs:16 CONFIRMED
+- use lance_graph_dt64::LaneBinding — crates/dr256-ternlog-lab/src/bound_planes.rs:16 CONFIRMED
+- use lance_graph_dt64::LaneRefusal — crates/dr256-ternlog-lab/src/bound_planes.rs:16 CONFIRMED
 - use lance_graph_dt64::dr::Extent — crates/dr256-ternlog-lab/src/lib.rs:35 CONFIRMED
 - use lance_graph_dt64::dr::Frame — crates/dr256-ternlog-lab/src/lib.rs:35 CONFIRMED
 - use lance_graph_dt64::dr::FrameRevisions — crates/dr256-ternlog-lab/src/lib.rs:35 CONFIRMED
@@ -181,6 +198,7 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::LaneRefusal — crates/dr256-ternlog-lab/src/lib.rs:37 CONFIRMED
 - use lance_graph_dt64::LaneRequest — crates/dr256-ternlog-lab/src/lib.rs:37 CONFIRMED
 - use lance_graph_dt64::LaneSource — crates/dr256-ternlog-lab/src/lib.rs:38 CONFIRMED
+- use lance_graph_dt64::MethodBinding — crates/dr256-ternlog-lab/src/lib.rs:38 CONFIRMED
 - use lance_graph_dt64::Refusal — crates/dr256-ternlog-lab/src/lib.rs:38 CONFIRMED
 - use lance_graph_dt64::RouteAt — crates/dr256-ternlog-lab/src/lib.rs:38 CONFIRMED
 - use lance_graph_dt64::SchemaRev — crates/dr256-ternlog-lab/src/lib.rs:38 CONFIRMED
@@ -191,6 +209,17 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_mask_risc::Operand — crates/dr256-ternlog-lab/src/bit_planes.rs:6 CONFIRMED
 - use lance_graph_mask_risc::Program — crates/dr256-ternlog-lab/src/bit_planes.rs:6 CONFIRMED
 - use lance_graph_mask_risc::Terminal — crates/dr256-ternlog-lab/src/bit_planes.rs:6 CONFIRMED
+- use lance_graph_mask_risc::Foreign — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::Out — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::Program — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::Scratch — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::execute_into — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::fuse_program — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::words_for — crates/dr256-ternlog-lab/src/bound_planes.rs:18 CONFIRMED
+- use lance_graph_mask_risc::Terminal — crates/dr256-ternlog-lab/src/bound_planes.rs:19 CONFIRMED
+- use lance_graph_mask_risc::Value — crates/dr256-ternlog-lab/src/bound_planes.rs:19 CONFIRMED
 - use lance_graph_mask_risc::exec::scratch_words_for — crates/dr256-ternlog-lab/src/lib.rs:40 CONFIRMED
 - use lance_graph_mask_risc::exec::tile_words_for — crates/dr256-ternlog-lab/src/lib.rs:40 CONFIRMED
 - use lance_graph_mask_risc::ExecError — crates/dr256-ternlog-lab/src/lib.rs:42 CONFIRMED

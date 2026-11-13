@@ -582,6 +582,7 @@ uuid	lance-graph	dev	false	-	-	crates/lance-graph/Cargo.toml:172	CONFIRMED	no
 walkdir	dto-class-check	normal	false	-	-	tools/dto-class-check/Cargo.toml:14	CONFIRMED	no
 walkdir	neural-debug	normal	false	-	-	crates/neural-debug/Cargo.toml:15	CONFIRMED	no
 weather-poc	dr256-ternlog-lab	dev	false	-	-	crates/dr256-ternlog-lab/Cargo.toml:16	CONFIRMED	yes
+weather-poc	quack-boundary-lab	dev	false	-	-	crates/quack-boundary-lab/Cargo.toml:22	CONFIRMED	yes
 webpki-roots	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:24	CONFIRMED	no
 wiremock	lance-graph-catalog	dev	false	-	-	crates/lance-graph-catalog/Cargo.toml:29	CONFIRMED	no
 zip	lance-graph-hydrate	normal	false	-	-	crates/lance-graph-hydrate/Cargo.toml:43	CONFIRMED	no

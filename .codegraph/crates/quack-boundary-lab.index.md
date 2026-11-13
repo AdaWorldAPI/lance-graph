@@ -3,7 +3,7 @@
 crate: quack-boundary-lab
 path: crates/quack-boundary-lab
 workspace: member
-digest: b221172e4792f20c
+digest: f53addc65dcf11e8
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -16,6 +16,7 @@ Generated; the code is the truth. See ../index.md.
 - dep lance-graph-dt64 normal — crates/quack-boundary-lab/Cargo.toml:10 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/quack-boundary-lab/Cargo.toml:11 CONFIRMED
 - dep lance-graph-quack normal — crates/quack-boundary-lab/Cargo.toml:12 CONFIRMED
+- dep weather-poc dev — crates/quack-boundary-lab/Cargo.toml:22 CONFIRMED
 
 ## Depended on by
 
@@ -66,29 +67,30 @@ Generated; the code is the truth. See ../index.md.
 - fn Source::serve [pub] — crates/quack-boundary-lab/src/lib.rs:213 CONFIRMED
 - fn Source::reorder [pub] — crates/quack-boundary-lab/src/lib.rs:219 CONFIRMED
 - fn Source::rederive_validity [pub] — crates/quack-boundary-lab/src/lib.rs:236 CONFIRMED
-- fn Source::advance_source [pub] — crates/quack-boundary-lab/src/lib.rs:244 CONFIRMED
-- fn Source::row [pub] — crates/quack-boundary-lab/src/lib.rs:251 CONFIRMED
-- fn Source::raw_lanes [pub] — crates/quack-boundary-lab/src/lib.rs:264 CONFIRMED
-- fn Source::validity_plane [pub] — crates/quack-boundary-lab/src/lib.rs:278 CONFIRMED
-- fn Source::lane_addresses [pub] — crates/quack-boundary-lab/src/lib.rs:289 CONFIRMED
-- fn Source::checksum [pub] — crates/quack-boundary-lab/src/lib.rs:302 CONFIRMED
-- struct View [pub] — crates/quack-boundary-lab/src/lib.rs:362 CONFIRMED
-- fn View::standard [pub] — crates/quack-boundary-lab/src/lib.rs:366 CONFIRMED
-- fn View::swapped [pub] — crates/quack-boundary-lab/src/lib.rs:371 CONFIRMED
-- struct World [pub] — crates/quack-boundary-lab/src/lib.rs:396 CONFIRMED
-- fn World::new [pub] — crates/quack-boundary-lab/src/lib.rs:403 CONFIRMED
-- fn World::with [pub] — crates/quack-boundary-lab/src/lib.rs:408 CONFIRMED
-- fn World::bind_as [pub] — crates/quack-boundary-lab/src/lib.rs:435 CONFIRMED
-- fn World::bind_fields [pub] — crates/quack-boundary-lab/src/lib.rs:446 CONFIRMED
-- fn World::bind [pub] — crates/quack-boundary-lab/src/lib.rs:471 CONFIRMED
-- struct Prepared [pub] — crates/quack-boundary-lab/src/lib.rs:487 CONFIRMED
-- fn Prepared::under [pub] — crates/quack-boundary-lab/src/lib.rs:497 CONFIRMED
-- fn Prepared::over [pub] — crates/quack-boundary-lab/src/lib.rs:507 CONFIRMED
-- enum Refused [pub] — crates/quack-boundary-lab/src/lib.rs:518 CONFIRMED
-- fn admitted [pub] — crates/quack-boundary-lab/src/lib.rs:541 CONFIRMED
-- fn bound_positions [pub] — crates/quack-boundary-lab/src/lib.rs:593 CONFIRMED
-- fn operand [pub] — crates/quack-boundary-lab/src/lib.rs:600 CONFIRMED
-- fn unbound [pub] — crates/quack-boundary-lab/src/lib.rs:610 CONFIRMED
+- fn Source::rewrite_amount [pub] — crates/quack-boundary-lab/src/lib.rs:245 CONFIRMED
+- fn Source::advance_source [pub] — crates/quack-boundary-lab/src/lib.rs:253 CONFIRMED
+- fn Source::row [pub] — crates/quack-boundary-lab/src/lib.rs:260 CONFIRMED
+- fn Source::raw_lanes [pub] — crates/quack-boundary-lab/src/lib.rs:273 CONFIRMED
+- fn Source::validity_plane [pub] — crates/quack-boundary-lab/src/lib.rs:287 CONFIRMED
+- fn Source::lane_addresses [pub] — crates/quack-boundary-lab/src/lib.rs:298 CONFIRMED
+- fn Source::checksum [pub] — crates/quack-boundary-lab/src/lib.rs:311 CONFIRMED
+- struct View [pub] — crates/quack-boundary-lab/src/lib.rs:371 CONFIRMED
+- fn View::standard [pub] — crates/quack-boundary-lab/src/lib.rs:375 CONFIRMED
+- fn View::swapped [pub] — crates/quack-boundary-lab/src/lib.rs:380 CONFIRMED
+- struct World [pub] — crates/quack-boundary-lab/src/lib.rs:405 CONFIRMED
+- fn World::new [pub] — crates/quack-boundary-lab/src/lib.rs:412 CONFIRMED
+- fn World::with [pub] — crates/quack-boundary-lab/src/lib.rs:417 CONFIRMED
+- fn World::bind_as [pub] — crates/quack-boundary-lab/src/lib.rs:444 CONFIRMED
+- fn World::bind_fields [pub] — crates/quack-boundary-lab/src/lib.rs:455 CONFIRMED
+- fn World::bind [pub] — crates/quack-boundary-lab/src/lib.rs:480 CONFIRMED
+- struct Prepared [pub] — crates/quack-boundary-lab/src/lib.rs:496 CONFIRMED
+- fn Prepared::under [pub] — crates/quack-boundary-lab/src/lib.rs:506 CONFIRMED
+- fn Prepared::over [pub] — crates/quack-boundary-lab/src/lib.rs:516 CONFIRMED
+- enum Refused [pub] — crates/quack-boundary-lab/src/lib.rs:527 CONFIRMED
+- fn admitted [pub] — crates/quack-boundary-lab/src/lib.rs:550 CONFIRMED
+- fn bound_positions [pub] — crates/quack-boundary-lab/src/lib.rs:602 CONFIRMED
+- fn operand [pub] — crates/quack-boundary-lab/src/lib.rs:609 CONFIRMED
+- fn unbound [pub] — crates/quack-boundary-lab/src/lib.rs:619 CONFIRMED
 - fn sum_qty_id_in_amount_gt [pub] — crates/quack-boundary-lab/src/oracle.rs:8 CONFIRMED
 - fn count_amount_gt [pub] — crates/quack-boundary-lab/src/oracle.rs:20 CONFIRMED
 - fn sum_qty_amount_gt [pub] — crates/quack-boundary-lab/src/oracle.rs:25 CONFIRMED
