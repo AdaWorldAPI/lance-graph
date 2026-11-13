@@ -512,6 +512,17 @@ bytes: the intent's copy of its method reference.
 | P0b | `writable`, `ActRefusal::UnsupportedColumn` | lanes lent, scalar by hand | an unknown IRI is scratch | `sigma` target refused before any read. 1 disable | INTEGRATION VERIFIED |
 | P0c | `Applied::stamped`, `cascade` | methods by hand | a method ON the stamp fires in round 2 | rows already stamped trigger nothing. 1 disable | INTEGRATION VERIFIED |
 
+### P0d, an intent of a cycle the owner has left (merge gate, fixed)
+
+After `tick` with nothing else changed, `apply` reproduced the same rows and
+value and answered `Ok`: with `refused: Some(Stale)` when a cell would change
+and with a plain `Ok(unchanged)` when every cell already held the value. Now
+`ApplyRefusal::Cycle { intent, owner }`, before anything is evaluated or
+written. The cycle is the owner's write protocol; it is not used as a
+statement about source freshness. `cascade` is unchanged. Test committed first
+and failing (`a_reproduced_intent_of_an_earlier_cycle_is_refused`); one
+disable run, exit 101.
+
 Not established by R7: that two methods of one round do not read what the
 other writes (a round reads one publication and writes afterwards, in
 ascending `MethodId` order, by design); anything about writers outside this

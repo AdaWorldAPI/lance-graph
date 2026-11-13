@@ -506,18 +506,22 @@ fn a_write_lands_only_under_the_owners_rules() {
     // The owner moved to the next cycle: the intent is stale, nothing lands.
     let before = Model::of(&m);
     m.tick();
-    let applied: Applied = apply(&mut m, &w.store, &w.view, &ctx(&w), intent).unwrap();
-    assert_eq!(applied.changed, 0);
-    assert_eq!(applied.refused, Some(WriteOutcome::Stale));
+    let cycle = m.current_cycle;
+    assert_eq!(
+        apply(&mut m, &w.store, &w.view, &ctx(&w), intent),
+        Err(ApplyRefusal::Cycle {
+            intent: cycle - 1,
+            owner: cycle
+        })
+    );
     assert_eq!(Model::of(&m), before);
-    assert!(m.stale_write_count() > 0);
 
     // Silence twin: a fresh intent for the current cycle lands, stamped.
     let fresh = {
         let lanes = MailboxLanes::new(m.published(), READER);
         act(&lanes, &w.store, &w.view, &ctx(&w), &own).unwrap()
     };
-    let applied = apply(&mut m, &w.store, &w.view, &ctx(&w), &fresh.intents[0]).unwrap();
+    let applied: Applied = apply(&mut m, &w.store, &w.view, &ctx(&w), &fresh.intents[0]).unwrap();
     assert!(applied.changed > 0);
     assert_eq!(applied.refused, None);
     let row = fresh.rows[0] as usize;
@@ -639,7 +643,7 @@ fn a_reproduced_intent_of_an_earlier_cycle_is_refused() {
     let before = state(&m);
     let stale_writes = m.stale_write_count();
     let got = apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]);
-    assert!(got.is_err(), "{got:?}");
+    assert!(matches!(got, Err(ApplyRefusal::Cycle { .. })), "{got:?}");
     assert_eq!(state(&m), before);
     assert_eq!(
         m.stale_write_count(),
@@ -656,7 +660,7 @@ fn a_reproduced_intent_of_an_earlier_cycle_is_refused() {
     m.tick();
     let before = state(&m);
     let got = apply(&mut m, &w.store, &w.view, &ctx(&w), &acted.intents[0]);
-    assert!(got.is_err(), "{got:?}");
+    assert!(matches!(got, Err(ApplyRefusal::Cycle { .. })), "{got:?}");
     assert_eq!(state(&m), before);
 
     // Silence twin: an intent of the current cycle, after the tick, lands.

@@ -365,6 +365,11 @@ pub enum ApplyRefusal {
     /// other rows, or it computes another value, than when the intent was
     /// made. Nothing was written.
     Stale { column: Column },
+    /// The intent was computed in a cycle the owner is no longer in. This is
+    /// the owner's own write protocol (`MailboxSoA::write_row` refuses such a
+    /// write); it is stated here so that a refused write is never an `Ok`.
+    /// Nothing was written and no write was attempted.
+    Cycle { intent: u32, owner: u32 },
     /// The intent's method does not run against the owner as it is now.
     /// Nothing was written.
     NotReproduced(ActRefusal),
@@ -395,9 +400,12 @@ pub struct Applied {
 /// the same write (method, column, value, rows). Otherwise it is refused and
 /// nothing is written.
 ///
-/// Every write goes through `MailboxSoA::write_row` with the cycle the
-/// intent was computed in, so the owner still refuses it once it has moved
-/// to another cycle.
+/// An intent of a cycle the owner has left is refused before anything else
+/// ([`ApplyRefusal::Cycle`]): after a `tick` with nothing else changed the
+/// method asks for the same rows and value again, and only the cycle tells
+/// the two apart. The cycle is the owner's write protocol, not a statement
+/// about whether the source changed. Every write still goes through
+/// `MailboxSoA::write_row` with the intent's cycle.
 ///
 /// # Errors
 ///
@@ -413,6 +421,12 @@ pub fn apply<V: ClassView + ?Sized, const N: usize>(
         return Err(ApplyRefusal::ForeignOwner {
             intent: intent.mailbox,
             owner: owner.mailbox_id(),
+        });
+    }
+    if owner.current_cycle != intent.cycle {
+        return Err(ApplyRefusal::Cycle {
+            intent: intent.cycle,
+            owner: owner.current_cycle,
         });
     }
     let now = {
