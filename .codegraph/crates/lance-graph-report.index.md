@@ -18,7 +18,7 @@ Generated; the code is the truth. See ../index.md.
 ## Depended on by
 
 - rdep lance-graph-lane-fold dev — crates/lance-graph-lane-fold/Cargo.toml:11 CONFIRMED
-- rdep lance-graph-mailbox-lanes dev — crates/lance-graph-mailbox-lanes/Cargo.toml:17 CONFIRMED
+- rdep lance-graph-mailbox-lanes dev — crates/lance-graph-mailbox-lanes/Cargo.toml:19 CONFIRMED
 - rdep lance-graph-report-ogar normal — crates/lance-graph-report-ogar/Cargo.toml:30 CONFIRMED
 - rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:14 CONFIRMED
 

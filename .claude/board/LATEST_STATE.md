@@ -12,6 +12,14 @@
 - `lance-graph-dt64`: `BindStore::admit_routed(RouteAt, &MethodRef)` and `Refusal::NotRoutedClass` added. No type removed or changed.
 - New crate `lance-graph-mailbox-lanes`: `MailboxLanes<'_, N>: LaneSource`, `Column`, `ColumnRefusal`.
 
+## 2026-11-13 — D-VAS R3 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `lance-graph-dt64`: `Refusal::GuardLaneOutOfBasis { class, method, lane }`; `register` refuses a guard residual whose lane is not a field position of the class. Behaviour change for a caller that registered such a guard.
+- `lance-graph-quack`: module `set` with `lower_set(&SetExpr, Logic)`, `SetLowered`, `SetFilter::{lanes, planes, logic, two_valued, where_true}`, `SetLowerError`.
+- `lance-graph-mailbox-lanes`: module `when` with `when(..)`, `WhenRequest`, `Fired`, `WhenRefusal`. New dependency on `lance-graph-quack`.
+
 ## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
 
 - Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.

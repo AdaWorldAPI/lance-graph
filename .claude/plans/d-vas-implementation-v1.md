@@ -5,7 +5,8 @@
 R6 (directive of 2026-11-13). Research baseline: PR #2060
 (`d-virtual-address-algebra-1.md`, sections 11 to 18).
 **Deliverables:** `D-VAS-A1`, `D-VAS-A2`, `D-VAS-C2`, `D-VAS-D1`,
-`D-VAS-E0` in R1; the remaining `D-VAS-*` ids in R2 to R6.
+`D-VAS-E0` in R1; `D-VAS-A3`, `D-VAS-B2` in R2; `D-VAS-C1`, `D-VAS-C3`,
+`D-VAS-C4`, `D-VAS-C6` in R3; the remaining `D-VAS-*` ids in R4 to R6.
 
 Rules carried from the roadmap: ABI512, `NodeRow`, `VALUE_TENANTS` and the
 `MailboxSoA<N>` layout stay as implemented; no second column owner, identity
@@ -142,6 +143,152 @@ first run.
 Until then a consumer reads selected mailbox values one by one through
 `LaneBinding::selected`, which is what the A3 tests do.
 
-## R3 to R6
+## R3: behaviour provenance and WHEN
 
-Not started. Order: C1(b) + C3 to C6, then D2 to D4, then E1, then F.
+### C1, the lens association is the route (done; a second table not built)
+
+`lance-graph-dt64` already carries the behaviour lens: a classid whose right
+half is `0xF###` (`is_behaviour_lens`, `class_view.rs:1053`) has a basis of
+its own, read by its full classid (`ClassView::lens_fields`, `basis_at`,
+`lib.rs:1304`), and is registered and routed like any class. A position
+routed to a lens has the lens's methods, basis and guard; `admit_routed`
+refuses every other class. That is association (a) of the roadmap, and it is
+versioned by the one log DT64 versions, the route log.
+
+Association (b), a table `data class -> lens` with a version of its own, was
+not built. It would let the behaviour of a classid change without a new
+classid and a re-route, which D5 excludes ("a classid's behaviour never
+changes once registered"; an override is `register_derived` plus a re-route,
+`lib.rs:32-40`). Building it is a change to that rule, so it is reported as
+an open decision, not implemented around.
+
+Consequence: one position has one classid. "This data class, seen through
+that lens, at the same position and time" is not expressible; route the
+position to the lens (whose basis names the same mailbox columns) instead.
+
+Tests: `tests/lens.rs`, 4 tests on a real `MailboxSoA<64>`. They passed on
+their first run, because they exercise shipped DT64 code plus R1's
+`admit_routed`. Disables in DT64 (anchors asserted, restored): admission
+without the route comparison (2 of 4 fail), a lens read through its left half
+(4 of 4 fail).
+
+### C3, a guard lane is a field position (done)
+
+`validate` (`lance-graph-dt64/src/lib.rs`) now walks a guard's residuals and
+refuses a lane at or past the class's field count with
+`Refusal::GuardLaneOutOfBasis { class, method, lane }`. `Sym` leaves name no
+field and are not judged.
+
+- Basis for the reading: every caller that registers a guard already uses
+  lane = field position (`dt64-admission-probe`, `foundry-parity-lab`,
+  `quack-boundary-lab`, `cg-beh-probe`, the lab of #2060).
+  `grammar-constraints-probe` pinned the gap as a finding
+  (`dt64_does_not_validate_guard_lanes`); that test is re-pinned to the
+  refusal.
+- Not enforced: that a guard's fields are inside `reads`. `reads` has no
+  stated relation to the guard in the contract, and one probe relies on
+  their being equal, none on a rule.
+- Tests: `lance-graph-dt64/tests/guard_contract.rs` (2 tests), committed
+  before the change; the negative failed first. Disable (check switched
+  off): exit 101.
+- Dependents run after the change: DT64 (120 tests), R2IL, quack-boundary-lab,
+  virtual-address-lab, cg-beh-probe, dt64-admission-probe,
+  foundry-parity-lab, grammar-constraints-probe, hidden-state-twins-probe,
+  cg-defuse-probe: all green.
+
+### C4, `SetExpr` to a Quack filter (done, library)
+
+`lance_graph_quack::set::lower_set(&SetExpr, Logic)` returns `All`, `Empty`
+or a `SetFilter`: the normalized set with the lanes and planes it names. The
+caller says which lanes it supplies (`two_valued(lanes)`); column `i` of the
+filter reads `lanes[i]`. The reading of a residual lane and of a `Sym` is the
+one `lance-graph`'s `fold::set_lower` already uses. A DT64 `Guard` is
+`{ expr, logic }`, so a guard lowers by passing its two fields; Quack does
+not depend on DT64.
+
+Evidence (`lance-graph-quack/tests/set_filter.rs`, 5 tests, committed against
+a stub first, all 5 failed there):
+
+- 1500 random expressions (lanes of both kinds, planes, constants, depth 4)
+  over 197 rows: Quack through `lower` and through `lower_fused` equals a
+  scalar evaluator written in the test, bit for bit.
+- The same 1500 through `set_lower::SetPlan::unsplit(..).keep(..)` equal the
+  scalar evaluator. `set_lower.rs` is compiled into the test binary from its
+  own source file (`#[path]`), because the crate that owns it also builds the
+  storage stack; its own 6 unit tests run in that binary too.
+- Disables (anchors asserted, restored): `!=` lowered as `==` (2 tests fail);
+  column = lane number instead of the supplied position (1 fails).
+
+On the mailbox (`lance-graph-mailbox-lanes/src/when.rs`): `when(lanes,
+store, view, request, guard)` binds the guard's fields through DT64 under
+the publication's frame, has the socket lend them, lets Quack lower and
+mask-risc run, and returns a `Fired` mask that carries its binding.
+
+- `tests/when.rs`, 5 tests on a real `MailboxSoA<64>`, committed against a
+  stub first (4 failed; the fifth pins C3). 400 random guards over `meta`
+  and `last_active_cycle` equal a scalar evaluator over the owner's arrays,
+  row by row, with rows past the populated prefix holding values that would
+  satisfy most guards.
+- Disables: lanes lent in reverse order (2 fail), `holds` without the
+  binding check (1 fails), plane not refused (1 fails).
+- Not established: that the guard reads ONLY its fields (the binding is made
+  over them, but no test would notice a wider one); cost.
+
+### C5, mask planes: BLOCKED
+
+`when` refuses a guard that names a `Sym` with `PlaneUnissued`. No authority
+issues a plane with a frame, a row order and a population:
+
+- `MailboxSoA` has no plane column; `LaneSource` and `SelectionSource` are
+  the only source sockets in `lane.rs`.
+- The library readings of `Sym(i)` disagree: plane index `i` in
+  `set_lower.rs:450` and in `lower_set`; a producer or lexicon digest in
+  `hidden-state-twins-probe` and `grammar-constraints-probe`; a field in
+  `foundry-parity-lab`'s `guard_fields`. A socket would have to pick one.
+- `dr256-ternlog-lab`'s `bound_planes` says of itself that it is not an
+  authority and issues nothing.
+
+Needed: a decision on what `Sym(i)` names, then a third source socket.
+`lower_set` already carries a plane leaf through unchanged, so the lowering
+does not need to change when that exists.
+
+### C6, UNKNOWN: done in the library, NOT SUPPORTED on the mailbox
+
+`SetFilter::where_true(lanes, nullable)` applies Quack's `sql_where` to a set
+normalized with `normalize_kleene`. A Kleene set is never handed out as a
+two-valued filter, and a two-valued normal form is never rewritten for NULLs.
+
+- Evidence: 1500 random expressions with about one NULL in four per lane
+  equal an independent Kleene evaluator on the TRUE rows, through both
+  lowerings; the NULLs changed the answer on more than 300 of them.
+- Disables: without `sql_where`; Kleene input normalized two-valued. Each
+  fails the Kleene test.
+- A method does not fire on UNKNOWN: the filter keeps TRUE rows only, which
+  is what DT64's `Guard` doc states.
+- On the mailbox: refused with `ValidityUnstated`. The mailbox states no
+  validity for its columns; "every populated row is valid" would be this
+  crate's assertion, and it would make every Kleene guard two-valued.
+
+### R3 ledger
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| C1 | route log, `is_behaviour_lens`, `lens_fields`, `admit_routed` (`lance-graph-dt64/src/lib.rs`) | owner arrays, registered bindings | a routed lens supplies its method, basis and guard on `MailboxSoA<64>` | unrouted lens with the same basis and `MethodId`; the data class; a route captured earlier; a re-route; a lens unknown by its full classid. 2 disables | INTEGRATION VERIFIED for a routed lens; a `data class -> lens` table NOT BUILT (conflicts with D5) |
+| C3 | `validate`, `Refusal::GuardLaneOutOfBasis` (`lance-graph-dt64/src/lib.rs`) | the declared field count | guards inside the basis register | a lane one past the basis, nested, both kinds, lane 300. 1 disable | SOURCE VERIFIED (DT64 + 9 dependent crates) |
+| C4 | `quack::set::lower_set`; `mailbox_lanes::when::when` | scalar evaluator; `set_lower`; owner arrays | 1500 random sets; 400 random guards on the real owner | wrong comparison, wrong column, reversed lanes, stale answer, wrong kind, lane outside the basis. 5 disables | INTEGRATION VERIFIED for `u32` equality guards on `MailboxSoA<64>`; library parity LAB VERIFIED |
+| C5 | none | n/a | n/a | `PlaneUnissued` pinned | BLOCKED: no plane issuer, three readings of `Sym` |
+| C6 | `SetFilter::where_true`, `Filter::sql_where` | independent Kleene evaluator | 1500 random sets with NULLs | 2 disables; logic cannot be swapped | LAB VERIFIED in Quack; NOT SUPPORTED on the mailbox (`ValidityUnstated`) |
+
+### What R3 does not establish
+
+- A signed or ordered comparison on a mailbox column: its lendable columns
+  are `u32` and `u64`, a residual is `I32` (six comparisons) or `U32`
+  (equality), and mask-risc refuses the kind. So a mailbox guard is a
+  Boolean combination of `u32` equalities.
+- Any cost. The mask is one `Vec<u64>` per evaluation, the lowering is done
+  per call.
+- A guard over a selection as a bag: the mask is membership.
+
+## R4 to R6
+
+Not started. Order: D2 to D4, then E1, then F.
