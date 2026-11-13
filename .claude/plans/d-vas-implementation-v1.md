@@ -1017,3 +1017,44 @@ mailbox execution.
 | bag COUNT of an admitted method | `run_bag`, `count_at`, `act_over` | hand tables above | 4/2/3, 3/1/2, independent effect mask | 7 refusals, 5 disables | INTEGRATION VERIFIED, read-only, guarded, COUNT only |
 | other bag folds, bag writes, bag without selection | typed refusals | n/a | n/a | tested | NOT SUPPORTED |
 | selection in the receipt, reuse past the publication | none | n/a | n/a | n/a | NOT SUPPORTED |
+
+## R13: where a read-only `act` spends its time (measurement only)
+
+No production change. `examples/cost.rs` now times each stage of one
+read-only `act` alone, with the inputs `act` hands it (release, 40 rows,
+median of 9 batches, this machine; a size class).
+
+| stage | ns | allocations | reusable without the publication? |
+|---|---|---|---|
+| `admit_routed` | 188.0 | 5 | yes, while the route version holds |
+| `resolve_at` (class and fields) | 184.9 | 0 | yes, while route and schema revision hold |
+| WHEN: lower + bind + run, 1 field | 1043.4 | 14 | the lowering only; bind and run are per publication |
+| operands: `bind_lanes` + 1 lane | 548.8 | 3 | no: bound to the socket's frame |
+| R2IL `prepare_gated` | 615.9 | 8 | no: `Prepared` carries `Guards { frame, .. }` of one socket |
+| R2IL `run_gated` (new dialect) | 533.2 | 7 | no |
+| whole `act` | 3698.6 | 45 | |
+
+The stages sum to about 3110 ns; the rest of `act` is its own vectors (lane
+table, gate copy, fired rows, intents).
+
+Findings:
+
+1. No stage dominates. The largest, WHEN, is itself three parts; its
+   lane binding costs about what the operand binding costs (549 ns), so the
+   guard's lowering is at most about 400 ns of it. That split was not
+   measured separately.
+2. Every `MailboxLanes::new` has a frame store of its own, and R2IL's
+   `Prepared` plan checks `Guards::frame` on every run. So a prepared plan is
+   valid for one socket only. Reuse across publications would need a change
+   of what an R2IL plan is bound to; that is a contract decision, not an
+   optimisation.
+3. What can be kept across publications without touching a contract:
+   admission, class resolution and the lowered guard program, each
+   re-validated by the route check `run` already makes. Upper bound of the
+   saving: about 190 + 185 + 400 = 775 ns of 3700 (about 20 %).
+4. Inside one socket (several selections or methods over one publication)
+   `prepare_gated` can be kept too: about 1400 ns of 3700 (about 38 %).
+5. 45 allocations per call. Several are fixed-size vectors `act` builds per
+   call; removing them needs no new API. Not measured which ones matter.
+
+Not done: no prepared-plan cache, no warm entry point. Status: MEASURED.

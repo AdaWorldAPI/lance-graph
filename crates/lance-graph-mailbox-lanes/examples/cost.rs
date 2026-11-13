@@ -17,7 +17,7 @@ use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
-use lance_graph_dt64::dr::{Focus, Scope};
+use lance_graph_dt64::dr::{Focus, Guards, Scope};
 use lance_graph_dt64::{
     view_class, AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, LaneRequest,
     MethodBinding, MethodId, RouteAt, SchemaRev, SigRev, ValueDemand,
@@ -25,9 +25,12 @@ use lance_graph_dt64::{
 use lance_graph_mailbox_lanes::act::{act, act_over, apply, cascade, ActContext};
 use lance_graph_mailbox_lanes::when::{when, WhenRequest};
 use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
-use lance_graph_mask_risc::{execute_sel, LaneRef, Planes, SelFold};
-use lance_graph_r2il::binding::{ExecPermit, R2ilLens};
+use lance_graph_mask_risc::{execute_sel, Foreign, LaneRef, Planes, SelFold};
+use lance_graph_r2il::binding::{
+    prepare_gated, run_gated, ExecPermit, FieldLanes, Gate, R2ilLens, Resolution,
+};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
+use lance_graph_r2il::FoldDialect;
 
 struct Counting;
 static ALLOCS: AtomicU64 = AtomicU64::new(0);
@@ -387,6 +390,123 @@ fn main() {
     measure("act: read-only method, whole source", 20_000, || {
         act(&lanes, &store, &view, &ctx, &probe).unwrap().unwritten
     });
+    // D-VAS-R13: where one read-only `act` spends its time, stage by stage.
+    // Each stage is called alone with the inputs `act` hands it. The gate
+    // plane is built by hand here (`Fired::bits` is crate-private); R2IL does
+    // not check its bits.
+    let probe_guard = Guard::new(SetExpr::eq_u32(u16::from(META), 2), Logic::TwoValued);
+    measure("  stage: `admit_routed`", 200_000, || {
+        store.admit_routed(route, &probe).unwrap().reads.has(ACTIVE)
+    });
+    measure("  stage: `resolve_at` (class and fields)", 200_000, || {
+        store
+            .resolve_at(&view, route.version, route.position, REV)
+            .unwrap()
+            .fields
+            .len()
+    });
+    measure(
+        "  stage: WHEN (lower + bind + run, 1 field)",
+        50_000,
+        || {
+            when(&lanes, &store, &view, request, &probe_guard)
+                .unwrap()
+                .count()
+        },
+    );
+    let reads = WideFieldMask::from_positions(&[ACTIVE]);
+    let frame = lanes.seal();
+    let bind_reads = || {
+        store
+            .bind_lanes(
+                &view,
+                lanes.frame_store(),
+                &lanes,
+                LaneRequest {
+                    route,
+                    rev: REV,
+                    fields: &reads,
+                    frame: &frame,
+                    scope: READER,
+                    selection: lanes.space(),
+                },
+            )
+            .unwrap()
+    };
+    measure("  stage: operands (`bind_lanes` + 1 lane)", 200_000, || {
+        bind_reads()
+            .lane(&store, &view, lanes.frame_store(), &lanes, ACTIVE)
+            .unwrap()
+            .len()
+    });
+    let operands = bind_reads();
+    let lent = [operands
+        .lane(&store, &view, lanes.frame_store(), &lanes, ACTIVE)
+        .unwrap()];
+    let gate_bits: Vec<u64> = vec![(0..POPULATED)
+        .filter(|&r| m.meta[r].0 == 2)
+        .fold(0u64, |a, r| a | 1 << r)];
+    let gate_masks: [&[u64]; 1] = [&gate_bits];
+    let run_planes = Planes {
+        n_rows: POPULATED,
+        masks: &gate_masks,
+        lanes: &lent,
+    };
+    let guards = Guards {
+        frame,
+        focus: ctx.focus,
+        scope: READER,
+    };
+    let resolution = Resolution {
+        method: &probe,
+        schema_rev: REV,
+        route: (route.version, route.position),
+        guards: &guards,
+    };
+    let now = (ctx.focus, READER);
+    let prepare_probe = || {
+        prepare_gated(
+            &store,
+            &view,
+            ctx.lens,
+            &resolution,
+            lanes.frame_store(),
+            now,
+        )
+        .unwrap()
+    };
+    measure("  stage: R2IL `prepare_gated`", 100_000, || {
+        prepare_probe().method().method
+    });
+    let plan = prepare_probe();
+    let gate = Gate {
+        plane: 0,
+        guard: probe.guard.clone().unwrap(),
+    };
+    let field_lanes = [None, Some(0u16), None, None, None];
+    let foreign = Foreign::NONE;
+    measure(
+        "  stage: R2IL `run_gated` on a prepared plan (new dialect)",
+        200_000,
+        || {
+            let mut dialect = FoldDialect::new(&run_planes, &foreign);
+            run_gated(
+                &plan,
+                &store,
+                lanes.frame_store(),
+                now,
+                ctx.permit,
+                FieldLanes {
+                    lanes: &field_lanes,
+                },
+                &mut dialect,
+                &gate,
+            )
+            .unwrap()
+            .output
+            .values
+        },
+    );
     measure(
         "act_over: read-only method, selection's distinct rows",
         20_000,
