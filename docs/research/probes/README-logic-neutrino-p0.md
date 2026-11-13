@@ -16,7 +16,7 @@ Locally verified on Python 3.13: **five tests pass**, including an exhaustive **
 
 | Feature | Synthetic stimulus | Positive invariant | Deliberately incorrect ablation |
 |---|---|---|---|
-| Family-scoped selector | two rule families reuse u8 position 1 | a byte alone is not a global ID | family omitted |
+| Family-scoped selector | two rule families reuse u8 position 1 | a byte alone is not a global ID | family omission would collide (conceptual counterexample; no separate mutation run) |
 | Rails-shaped method | same method-chain string for Checklist and Ticket | both candidates may be proposed; typed receiver narrows to one | receiver check removed: two rules eligible |
 | CE64-shaped role | packed CE64-like 3-bit orientation plus independently varied Epi5 code | Recipient selected regardless of valid Epi5 code; Core not selected; reserved Epi5 rejects | role check removed: Core eligible |
 | Mississippi Queen budget fragment | navigation proposal with 2-coal synthetic cost, coal 0 vs 6 | insufficient resource refuses | coal guard removed: unaffordable candidate eligible |
