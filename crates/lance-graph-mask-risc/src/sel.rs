@@ -56,6 +56,9 @@ pub enum SelFold {
     /// Σ `lane[p]` over the listed positions, widened to `i64`. Yields
     /// [`Value::SumI64`].
     SumI32 { lane: u16 },
+    /// How many listed positions have their bit set in mask plane `plane` of
+    /// [`Planes::masks`]. Yields [`Value::Count`]. Reads no lane.
+    CountSet { plane: u16 },
 }
 
 /// Runs one selection fold over `positions`, a borrowed bag of rows of the
@@ -77,6 +80,7 @@ pub fn execute_sel(
     validate_sel_frame(fold, planes, positions)?;
     let lane = match fold {
         SelFold::CountGtI32 { lane, .. } | SelFold::SumI32 { lane } => lane,
+        SelFold::CountSet { .. } => return Ok(Value::Count(0)),
     };
     // `validate_sel_frame` established that the lane exists, is `i32` and
     // spans the frame, so "below the lane's length" is "a row of the frame".
@@ -88,6 +92,7 @@ pub fn execute_sel(
             count_gt_i32_at(values, positions, t).map(|c| Value::Count(c as usize))
         }
         SelFold::SumI32 { .. } => sum_i32_at(values, positions).map(Value::SumI64),
+        SelFold::CountSet { .. } => unreachable!("answered above"),
     };
     // The facade reports an out-of-range position as `None`; the walk that
     // names the offender runs only on that refusing path.

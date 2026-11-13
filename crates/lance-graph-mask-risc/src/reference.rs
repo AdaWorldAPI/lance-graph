@@ -169,6 +169,7 @@ pub(crate) fn validate_sel_frame(
 ) -> Result<(), ExecError> {
     let lane = match fold {
         SelFold::CountGtI32 { lane, .. } | SelFold::SumI32 { lane } => lane,
+        SelFold::CountSet { .. } => return Ok(()),
     };
     check_lane(planes, lane, LaneKind::I32)?;
     let found = planes.lanes[usize::from(lane)].len();
@@ -222,6 +223,7 @@ pub fn reference_execute_sel(
             }
             Value::SumI64(sum)
         }
+        SelFold::CountSet { .. } => Value::Count(0),
     })
 }
 
