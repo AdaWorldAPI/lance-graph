@@ -795,3 +795,41 @@ Not shown: anything about the mailbox (its admission stays BLOCKED); a third
 data axis (the "cube" here is fields x ordinals x the eight orientations,
 not a 3-D recipe such as a slice or an axis permutation); cost (each cell
 read re-runs the binding's whole check; not measured).
+
+## 16. ON x WHEN x DO before materialisation (written before the run)
+
+Claim: given `X; Y(X)` (a coordinate and its address), the class x method
+binding of DT64 applies to the ADDRESS. Nothing has to be materialised before
+ON, the admission and the demand are decided.
+
+Read in full for this: `lance-graph-dt64/src/lib.rs` (1..1400). What exists
+there and is reused unchanged:
+
+- `MethodBinding { on, when, reads, effects, demand, .. }`: ON is a
+  `WideFieldMask` over the class basis, WHEN a `Guard` the store keeps and
+  never evaluates, DO an ordered effect list, `ValueDemand::{MapOnly, Values}`.
+- `Resolved::methods_on(field)`, `BindStore::method_ref`, `BindStore::admit`.
+- A behaviour lens (classid right half `0xF###`) whose basis is read by its
+  FULL classid (`ClassView::lens_fields`).
+
+The lab adds no dispatcher. It adds `Method::field` (the field of a view
+cell, which needs neither the selection nor a lane) and `Method::read_cell`.
+
+Order shown, with the read ledger at each step:
+
+1. **ON**: view cell -> field by the orientation alone -> `methods_on(field)`
+   of the `0xF###` lens. No selection borrowed, no lane borrowed, 0 reads.
+   The same view cell under another orientation fires another method.
+2. **Admission**: `method_ref` + `admit`. 0 reads. A reference that drops the
+   guard is refused, also with 0 reads.
+3. **Demand**: the admitted binding's `reads` mask, at the cell's ordinal.
+   `MapOnly`: 0 reads, ever. `Values`: exactly `|reads|` reads.
+4. Control: the eager arm gathers the whole selected tile first
+   (`fields x selected` reads) and yields the same operands.
+
+Fixture additions (lab only): the `Grid`'s `View` answers `lens_fields` for
+one behaviour lens `0x0A1A_F003` with the data class's basis, and
+`World::with_behaviour` declares a one-word polyfill lens and registers the
+methods under the behaviour lens. WHEN is NOT evaluated here: the store keeps
+a guard and Quack evaluates it; no evaluator is built. DO is NOT executed:
+no effect runs; the test stops at the operands the first effect demands.

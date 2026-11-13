@@ -54,6 +54,48 @@ impl Method {
         Some(Cell { field, ordinal })
     }
 
+    /// The field of view cell `(row, col)`. Needs neither the selection nor a
+    /// lane: it is what ON is decided on.
+    pub fn field(self, fields: usize, row: usize, col: usize) -> Option<u8> {
+        self.orientation
+            .lane_at(fields, row, col)
+            .and_then(|f| u8::try_from(f).ok())
+    }
+
+    /// The value at `(field, ordinal)` of this method's selection: the read a
+    /// demand names once behaviour has been admitted.
+    pub fn read_cell(
+        self,
+        world: &World,
+        binding: &LaneBinding,
+        grid: &Grid,
+        cell: Cell,
+        ledger: &Ledger,
+    ) -> Result<i32, Refused> {
+        let (lane, positions) = binding
+            .selected(
+                &world.store,
+                &world.view,
+                grid.frame_store(),
+                grid,
+                cell.field as u8,
+                self.selection,
+            )
+            .map_err(Refused::Lane)?;
+        let LaneRef::I32(values) = lane else {
+            return Err(Refused::LaneKind);
+        };
+        let position = *positions.get(cell.ordinal).ok_or(Refused::OutsideTheView)?;
+        let value = values
+            .get(position as usize)
+            .ok_or(Refused::PositionOutsideLane {
+                at: cell.ordinal,
+                position,
+            })?;
+        ledger.reads.set(ledger.reads.get() + 1);
+        Ok(*value)
+    }
+
     /// One demanded cell. The binding's check and the source's selection are
     /// taken through `LaneBinding::selected`; the recipe is evaluated once
     /// for both coordinates; one value is read.

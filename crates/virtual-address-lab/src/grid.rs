@@ -20,6 +20,11 @@ use lance_graph_mask_risc::LaneRef;
 
 /// DT64 class of the fixture (lab-local; nothing is minted).
 pub const CLASS: u32 = 0x0A1A_0003;
+/// The behaviour lens of [`CLASS`]: same left half, right half `0xF###`. Its
+/// basis is read by its full classid.
+pub const BEHAVIOUR: u32 = 0x0A1A_F003;
+/// The one-word polyfill lens the fixture's effects name.
+pub const POLYFILL: u32 = 0x0A1A_F0A0;
 /// DR position the class is routed at.
 pub const POSITION: u16 = 11;
 /// A consistency value. It carries no authority.
@@ -310,6 +315,9 @@ impl ClassView for View {
             &[]
         }
     }
+    fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
+        (lens == BEHAVIOUR).then_some(self.0.as_slice())
+    }
     fn template(&self, _class: ClassId) -> DisplayTemplate {
         DisplayTemplate::Detail
     }
@@ -339,6 +347,31 @@ impl World {
     /// A world over a class with the given named fields.
     pub fn named(fields: &[(&str, &str)]) -> World {
         World::over(View::named(fields), fields.len(), Vec::new())
+    }
+
+    /// A world whose data class has no methods and whose behaviour lens
+    /// [`BEHAVIOUR`] carries `methods`, over a polyfill lens of one word per
+    /// entry of `arity`.
+    pub fn with_behaviour(lanes: usize, arity: Vec<u8>, methods: Vec<MethodBinding>) -> World {
+        let mut world = World::new(lanes);
+        world
+            .store
+            .declare_algebra(POLYFILL, SchemaRev(1), Extent::DR256_SQ_X64, arity)
+            .expect("the polyfill lens binds");
+        world
+            .store
+            .register(
+                &world.view,
+                BEHAVIOUR,
+                ClassSchema {
+                    schema_rev: SchemaRev(1),
+                    field_count: lanes,
+                    extent: Extent::DR256_SQ_X64,
+                },
+                methods,
+            )
+            .expect("the behaviour lens registers");
+        world
     }
 
     fn over(view: View, lanes: usize, methods: Vec<MethodBinding>) -> World {
