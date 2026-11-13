@@ -1,0 +1,14 @@
+[package]
+name = "virtual-address-lab"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LAB. D-VIRTUAL-ADDRESS-ALGEBRA-1: a transformation of a source-owned SoA tile held as an immutable, composable address recipe; cancellation before execution; demand-driven reads through a DT64 LaneBinding and mask-RISC; 256^3 address families. No contract type, owner, store or executor is added or changed."
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-quack = { path = "../lance-graph-quack" }
+# A safe `&[i32] -> &[u8]` view for `LaneRef::Strided`; no copy.
+bytemuck = "1"
