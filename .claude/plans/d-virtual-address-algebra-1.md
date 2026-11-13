@@ -101,3 +101,72 @@ Cold terms are reported in µs and are not gates.
 
 No Lance path is claimed: the source is a fixture. `lower_sel` admits two
 fold shapes and is not called a virtual-property executor.
+
+## 7. Architecture correction, 2026-11-13: the 512-byte unit (implementation STOPPED)
+
+The lab committed so far (`82adffdc6`, `d60d89d22`) models 32 separately
+allocated `i32` lanes. That is superseded: the unit is one source-owned
+512-byte record. Nothing below was run; it is what the code says.
+
+Read in full: `ndarray/src/simd_stride.rs`; `ndarray/src/simd_masking_ops.rs`
+lines 185-274, 995-1125, 5040-5340; `lance-graph-contract/src/canonical_node.rs`
+lines 730-1454 and 1820-1951; `lance-graph-mask-risc/src/ir.rs` lines 1-125 and
+170-329; `exec.rs` lines 505-554 and 660-752; `sel.rs`;
+`lance-graph-report/src/bound_sel.rs`. Not read: PR #283 and #382 bodies, the
+per-backend ternlog realization, `facet.rs`, DT64 `lib.rs` (searched for
+"presence" only: no per-instance presence type found, which is not proof of
+absence).
+
+### 7.1 Physical geometry, as coded
+
+| claim | state | where |
+|---|---|---|
+| A record is 512 bytes, contiguous, `repr(C, align(64))` | VERIFIED-IN-CODE | `NodeRow`, const asserts, `canonical_node.rs:837-848` |
+| `&[NodeRow]` and `&[u8]` are the same bytes both ways | VERIFIED-IN-CODE | `NodeRowPacket::as_le_bytes`, `node_rows_from_le_bytes` (needs a multiple of 512 and 64-byte alignment) |
+| A Lance `FixedSizeBinary(512)` buffer satisfies that | STATED in a doc comment, not traced | `canonical_node.rs:1914-1923` |
+| The record is 32 facets of 16 bytes | **NOT the coded layout** | `GUIDS_PER_NODE = 32` is a capacity ("up to 32 GUID-sized entries") |
+| `addr = base + 512 * row + 16 * slot` | holds for `key` (0) and `edges` (16) only | below |
+
+The coded carve is `key(16) | edges(16) | value(480)`, and the value slab is 21
+tenants of mixed width (`VALUE_TENANTS`, contiguous, compile-asserted):
+8, 8, 32, 32, 6, 16, 4, 4, 2, 8, 12, 12, 12, 16, 16, 32, 16, 16, 16, 16, 16
+bytes at row offsets 32 to 332; 332 to 512 is reserved. Eight tenants are 16
+bytes wide, at row offsets 118, 188, 204, 252, 268, 284, 300 and 316. None of
+those is a multiple of 16. The address law the code supports is therefore
+
+```
+addr(row, tenant) = base + 512 * row + VALUE_TENANTS[tenant].row_offset
+```
+
+with the offset read from the table, never computed as `16 * slot`. The strided
+kernels load with `from_le_bytes` over byte slices, so an unaligned 16-byte
+field is legal.
+
+Presence, as coded, is per CLASS: `ValueSchema` is a `FieldMask` over tenants,
+chosen through `ClassView::value_schema`. An all-zero tenant reads as
+unasserted (zero-fallback). A per-instance presence plane was not found.
+
+### 7.2 Execution seams for a 16-byte field
+
+| step | state |
+|---|---|
+| A field view over unchanged record bytes: `LaneRef::Strided(StridedRef { bytes, first_offset, stride, records })` | SHIPPED; this is the address law above, with `stride = 512` |
+| 16-byte care-masked match to a mask: `Pred::MatchFacet16Strided`, `ternary_match_strided16_to_mask` | SHIPPED; field loads are scalar by design, the compare is `U64x8` ternlog |
+| Sum over a strided register: `Terminal::MaskedStridedGroupSum` | SHIPPED; unsigned groups of 1 to 4 bytes, scalar, takes a MASK |
+| A strided view over a subset of rows | NOT EXPRESSIBLE: `records` must equal `n_rows`, and the stride is regular |
+| A position-list fold over a strided field: `execute_sel` | **MISSING**: `SelFold` is `SumI32` and `CountGtI32` over an `i32` lane |
+| A source returning `LaneRef::Strided` through `LaneBinding::selected` | type-admissible (`Lane<'s> = LaneRef<'s>`); the fold then refuses the lane kind |
+| A general 512-byte, 32-facet fold in `simd_stride.rs` | ABSENT: the module holds `lut_u8` and `lut9` |
+| "1 to 4 cycles" for the register-local operation | UNVERIFIED: no measurement read; both strided kernels document themselves as memory-bound at this stride |
+
+So a source-issued selection reaches a 16-byte facet today only as MEMBERSHIP
+(a mask over all rows of the record store), which drops order and
+multiplicity. The exact missing operand seam is a strided lane kind in
+`execute_sel`. It is recorded here and not built.
+
+### 7.3 Open decision before any rebuild
+
+The brief's unit (32 uniform 16-byte facets, `16 * slot`) and the coded
+`NodeRow` (mixed tenants, table offsets, ten 16-byte fields including key and
+edges) are different layouts. The fixture is not rebuilt until it is decided
+which one the experiment measures.
