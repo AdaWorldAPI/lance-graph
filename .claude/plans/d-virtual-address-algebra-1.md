@@ -164,6 +164,87 @@ So a source-issued selection reaches a 16-byte facet today only as MEMBERSHIP
 multiplicity. The exact missing operand seam is a strided lane kind in
 `execute_sel`. It is recorded here and not built.
 
+### 7.3 Decision, 2026-11-13
+
+DECISION: the experiment measures the coded `NodeRow` layout (A). The uniform
+32 x 16 unit is at most a later synthetic counter-experiment.
+SCOPE: two separate proofs, never merged by repacking. A1 is the ABI512
+address law over `NodeRow` / `NodeRowPacket`. A2 is ownership: the consumer
+works on lawfully borrowed values of the real owner, `MailboxSoA<N>`.
+BASIS: section 7.1. No alignment follows from the field width: the eight
+16-byte value tenants start at offsets that are not multiples of 16.
+REVISIT WHEN: a source owns a uniform 16-byte-slot record.
+
+## 8. ABI512 x MailboxSoA ownership x ISA seam map (nothing run)
+
+Read in full for this section: `soa_view.rs`; `soa_envelope.rs` lines 1-290;
+`mailbox_soa.rs` lines 1-985 (everything but its tests);
+`canonical_node.rs` lines 1-456, 476-2133 (everything but its tests);
+`lance-graph-report/src/lane_source.rs`; `symbiont/src/bridge.rs` lines
+60-169; the `[dependencies]` of `cognitive-shader-driver/Cargo.toml`.
+Not read: the test modules of those files, `surreal_container/src/view.rs`,
+`facet.rs`, DT64 `lib.rs`. Rows marked "searched" rest on a search over
+`crates/**/*.rs` and name candidates only.
+
+### 8.1 The four things, kept apart
+
+| | `NodeRow` | `NodeRowPacket` | `MailboxSoA<N>` | `MailboxSoaView` |
+|---|---|---|---|---|
+| what it is | 512-byte record ABI | borrowed packet over an existing `&[NodeRow]` | columnar hot store | read-only trait |
+| layout | `key(16) edges(16) value(480)`, `repr(C, align(64))` (`canonical_node.rs:837-848`) | the same bytes, stride 512 (`:1860-1899`) | one array per field (`mailbox_soa.rs:58-230`) | borrows `&[f32]`, `&[u64]`, `&[u32]`, `&[u16]` (`soa_view.rs:82-89`) |
+| owner of the bytes | whoever holds the `[NodeRow]` | none; not `Clone`, not `Copy` (`:1812-1831`) | the mailbox, by move | the implementor |
+| who mutates | the holder (`set_kanban`, `set_style_lane`: "owner-only by convention", `:2025`, `:2092`) | nobody | `&mut self` methods only | nobody; `MailboxSoaOwner` adds `advance_phase` only (`soa_view.rs:295-301`) |
+| version stamp | none in the type | `cycle`, whatever the caller passed (`:1849`) | `current_cycle`, `last_write_cycle[row]` (`:86`, `:179`) | `current_cycle()` |
+
+### 8.2 The ten questions
+
+| # | question | ABI512 (`NodeRow` slab) | `MailboxSoA<N>` |
+|---|---|---|---|
+| 1 | layout, alignment | 512 B, align 64. SOURCE VERIFIED | struct of arrays; three `Box<[u64]>` planes of `N * 256` words. SOURCE VERIFIED |
+| 2 | bytes per element | 21 tenants, 2 to 32 B; eight are 16 B at row offsets 118, 188, 204, 252, 268, 284, 300, 316 (`:1129-1310`) | 4, 1, 4, 4, 8, 8, 4, 2, 8, 2, 1 B per row; 2048 B per identity plane; 12 B per style lane. **No 16-byte field. No `NodeGuid` key column. No edge-block column.** SOURCE VERIFIED |
+| 3 | owner | no long-lived owner found: `symbiont/bridge.rs:122-129` and `soa-view-probe` build a local `Vec<NodeRow>` (searched). NOT PROVEN that a production owner exists | the mailbox. SOURCE VERIFIED |
+| 4 | who may mutate | the holder of `&mut [NodeRow]`; convention, not a type boundary | `&mut self`: `apply_edges`, `consume_firing`, `tick`, `write_row`, `set_*`, `set_populated`, `reset_row`, `set_style_*`, `promote_family`, `advance_phase`. SOURCE VERIFIED |
+| 5 | borrow or copy | `as_le_bytes` and `node_rows_from_le_bytes` borrow; `NodeRow::kanban`, `qualia`, `style_lane` copy 8 or 12 bytes out | `energy`, `edges_raw`, `meta_raw`, `entity_type`, `identity_plane_at` borrow; `style_lane_at` returns `[u8; 12]` by value. SOURCE VERIFIED |
+| 6 | identity to row | `NodeGuid` is bytes 0..16 of the row; no index from key to row in this file. NOT PROVEN | `row_for_local_key` is not overridden, so it returns `None` (`soa_view.rs:126`). BLOCKED |
+| 7 | what invalidates an old read | nothing in the type | `write_row` refuses a write for another cycle (`:424-470`); reads are not gated. No `FrameStore`: the crate has no `lance-graph-dt64` dependency. SOURCE VERIFIED |
+| 8 | property to location | `ValueTenant` -> `VALUE_TENANTS[t].row_offset`; presence per class via `ValueSchema` (`:1354-1437`) | fixed struct fields; `class_id()` aliases `entity_type` (`soa_view.rs:100`); no ClassView mapping in the store |
+| 9 | ISA kernels in place | `LaneRef::Strided` at stride 512: `EqU32Strided`, `MatchFacetStrided`, `MatchFacet16Strided`, `MaskedStridedGroupSum`. SOURCE VERIFIED | `meta_raw` is a `&[u32]` and `edges_raw` a `&[u64]`, the shapes of `LaneRef::U32` / `U64`. `f32` energy and `u16` entity type have no `LaneRef` kind. NOT PROVEN that any kernel is wired to a mailbox |
+| 10 | needs staging, copy or gather | a fold over a position list (`execute_sel` is `i32` only); a strided view of a row subset | a 16-byte facet (none exists); the `[u8; 12]` lanes are returned by value |
+
+### 8.3 Bridges that do not exist in the code read
+
+- `MailboxSoA<N>` does not implement `SoaEnvelope`; the only non-test
+  implementor is `NodeRowPacket` (searched). Its module doc says
+  "`SoaEnvelope` describes the geometry" (`mailbox_soa.rs:22-23`); no code in
+  the file does.
+- No conversion between `MailboxSoA<N>` and `NodeRow` in either file. The
+  field sets differ: the mailbox has no key, no edge block and none of the
+  16-byte tenants, and its `meta` is 4 B where the `Meta` tenant is 8 B.
+- No mailbox mutation advances a DR frame. `LaneSource`, `SelectionSource`
+  and `FrameStore` are not reachable from `cognitive-shader-driver`.
+- The only `LaneSource` outside labs, tests and examples is
+  `lance-graph-report`'s `AbiLanes` (searched). Its sole constructor is
+  `#[cfg(test)]`, and it serves `I32` and `U32` lanes of an `AbiBatch`,
+  neither a mailbox nor a `NodeRow` slab.
+
+### 8.4 Stop
+
+A2 as specified ("one selected identity and one ClassView property resolve to
+one 16-byte physical facet of the mailbox") **cannot be demonstrated**: the
+mailbox holds no 16-byte field, resolves no identity to a row, and has no
+frame. Per the stop condition nothing is built.
+
+What the code does support, as two separate and smaller statements:
+
+- A1: the address law of section 7.1 over a `[NodeRow]` held by a lab owner,
+  through `NodeRowPacket` and `LaneRef::Strided`. The owner would be the
+  lab's; no production owner of a `NodeRow` slab was found.
+- A2': a typed view the mailbox really lends (`meta_raw`, `edges_raw`) read in
+  place by position. Putting it behind `LaneBinding` needs a `LaneSource` and
+  a `FrameStore` for the mailbox, which do not exist and are not to be
+  invented here.
+
+### 7.4 Superseded text
 ### 7.3 Open decision before any rebuild
 
 The brief's unit (32 uniform 16-byte facets, `16 * slot`) and the coded
