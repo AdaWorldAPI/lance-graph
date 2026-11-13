@@ -22,7 +22,10 @@ use lance_graph_contract::soa_view::MailboxSoaView;
 use crate::recipe::Recipe;
 use crate::view::{field_in, Refused};
 
-/// The class basis: predicate and label per field position.
+/// A LAB-LOCAL predicate table, in field order. It is not a `ClassView`
+/// binding: no class registry resolved it, so a read through it shows the
+/// mechanics of "basis position -> predicate -> column", not a class-bound
+/// interpretation.
 pub const BASIS: [(&str, &str); 2] = [("urn:mailbox/meta", "meta"), ("urn:mailbox/edge", "edge")];
 
 /// A column the owner lends as a typed slice.
@@ -61,8 +64,10 @@ pub struct Reads {
     pub values: Cell<u64>,
 }
 
-/// The virtual property: a source-local row, a view property and the recipe
-/// chain it is seen through. Describes where to read; holds no value.
+/// The virtual property: a source-local row ORDINAL (an address, not an
+/// identity), a view property and the recipe chain it is seen through.
+/// Describes where to read; holds no value and NO source version, so it is
+/// not version-bound.
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualProperty<'c> {
     pub row: usize,
@@ -72,8 +77,17 @@ pub struct VirtualProperty<'c> {
 
 impl VirtualProperty<'_> {
     /// The column this property resolves to. Reads nothing.
+    ///
+    /// Only a recipe that leaves source positions where they are is admitted:
+    /// it may exchange the axes and reverse the PROPERTY axis. One that
+    /// reverses positions is refused, whatever the row, because the owner has
+    /// issued no witness under which row `r` may be read as another row.
     pub fn column(&self, rows: usize) -> Result<Column, Refused> {
         let field = field_in(self.chain, BASIS.len(), rows, self.property)?;
+        let recipe = Recipe::normalize(self.chain);
+        if recipe.reverses_positions() {
+            return Err(Refused::RowCoordinatesChanged { recipe });
+        }
         column_of(BASIS[usize::from(field)].0).ok_or(Refused::OutsideTheView)
     }
 

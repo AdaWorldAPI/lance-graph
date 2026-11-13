@@ -35,6 +35,10 @@ pub enum Refused {
     PropertyCrossesFields { recipe: Recipe },
     /// The existing boundary refused.
     Fold(BoundSelRefusal),
+    /// The recipe maps a view row to another source position. Reading it
+    /// would change which source-local position a request denotes, and no
+    /// owner-issued coordinate witness says that is allowed. Nothing was read.
+    RowCoordinatesChanged { recipe: Recipe },
     /// A selected position is not a row of the lent lane.
     PositionOutsideLane { at: usize, position: u32 },
 }

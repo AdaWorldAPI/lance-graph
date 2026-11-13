@@ -547,3 +547,55 @@ Negative controls:
 The 7 ns are the chain normalised on every read. Normalising once per
 binding is the obvious remedy and was not measured. The 1-4 cycle figure is
 not measured and no ISA kernel runs on this path.
+
+## 12. Audit correction, 2026-11-13 (starting point `435ef10b6`)
+
+### 12.1 The defect
+
+`VirtualProperty::read` resolved only the FIELD of the normalised recipe and
+then read `self.row` unchanged. For `ANTI_TRANSPOSE` over 2 fields x 64 rows,
+`resolve(2, 64, 12, 0) = (1, 51)`, and the code read `edges_raw()[12]`. The
+test expected `edge_of(12)`, so it confirmed the wrong coordinate. Section
+11.2's sentence "the reversed property axis is the other column" was true of
+the column and false of the row. The same shortcut is in `view::field_in`'s
+other caller, the superseded `Grid` fold, where it is harmless only because
+the folds there are order-free sums over a selection the fixture issues.
+
+### 12.2 Correction, written before the run
+
+- A recipe that changes source-local row coordinates (`flip_pos` after
+  normalisation: `ROTATE90`, `ANTI_TRANSPOSE`) is REFUSED in P0
+  (`Refused::RowCoordinatesChanged`). The owner has issued no coordinate or
+  selection witness, so nothing here may decide that position `r` now means
+  position `len - 1 - r`. `self.row` is never rewritten.
+- Property-axis-only recipes stay admitted: `TRANSPOSE` and `ROTATE270`
+  (field order reversed, positions unchanged).
+- The refusal is by recipe, not by instance: with an odd row count the middle
+  row maps to itself under a flip and is refused all the same.
+- Test: an independent coordinate oracle. A matrix whose cell `(lane, pos)`
+  holds the number `lane * 1000 + pos` is rearranged by the data-moving
+  reference (`physical::apply`, which does not share the recipe bits); the
+  cell it shows at `(row, property)` IS the coordinate the recipe denotes.
+  For all eight recipes, every row and property: an admitted read must return
+  the owner's value at exactly that column and position, and that position
+  must equal the requested row. Acceptance: no admitted read changes which
+  source-local position is read.
+
+### 12.3 Evidence classes, corrected
+
+| claim | class |
+|---|---|
+| `NodeGuid` is the canonical 16-byte identity (`NodeRow.key`) | SOURCE VERIFIED |
+| a source-local row ordinal | an address, not an identity |
+| `NodeGuid` -> source-local row, for the mailbox | BLOCKED (`row_for_local_key` answers `None`; a `local_key` is basin-local only after its prefix is resolved, and is not treated as unique here) |
+| a scalar read of a demanded column value from the mailbox's own memory | LAB VERIFIED |
+| class-bound interpretation | NOT PROVEN: `owner::BASIS` is a lab-local predicate table, not a `ClassView` binding |
+| version-bound | NOT PROVEN: `VirtualProperty` carries no source version |
+| inverse-recipe cancellation before the read | LAB VERIFIED |
+| a recipe that reorders rows, on the owner | REFUSED in P0; needs an owner-issued coordinate witness, which does not exist |
+| the complete virtual-address law | PARTIALLY VERIFIED |
+| DR/DT64 admission | BLOCKED (11.3) |
+
+Selection semantics kept apart: an `OrderIndex` is a bijective ordering; a
+`SelectionSource` may issue a bag with repeated positions. Neither is
+exercised against the mailbox.

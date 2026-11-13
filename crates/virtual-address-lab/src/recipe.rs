@@ -77,6 +77,12 @@ impl Recipe {
         Recipe::NAMES[self.index()]
     }
 
+    /// Whether the recipe reverses positions: view row `r` is then source
+    /// position `len - 1 - r`, a change of row coordinates.
+    pub fn reverses_positions(self) -> bool {
+        self.flip_pos
+    }
+
     /// Whether view rows run along positions (so a view COLUMN is one lane).
     pub fn swaps(self) -> bool {
         self.swap

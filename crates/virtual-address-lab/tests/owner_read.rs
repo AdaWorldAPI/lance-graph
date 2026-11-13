@@ -6,6 +6,7 @@ use cognitive_shader_driver::mailbox_soa::MailboxSoA;
 use lance_graph_contract::cognitive_shader::MetaWord;
 use lance_graph_contract::soa_view::{MailboxSoaView, StyleLane};
 use virtual_address_lab::owner::{Column, Reads, Value, VirtualProperty};
+use virtual_address_lab::physical::{apply, Moved};
 use virtual_address_lab::recipe::Recipe;
 use virtual_address_lab::view::Refused;
 
@@ -150,14 +151,96 @@ fn the_chain_is_normalised_before_the_read() {
     );
     assert_eq!(reads.values.get(), 3);
 
-    // The reversed property axis is the other column.
+    // The reversed PROPERTY axis is the other column, same row.
     let flipped = VirtualProperty {
         row: 12,
         property: META,
-        chain: &[Recipe::ANTI_TRANSPOSE],
+        chain: &[Recipe::ROTATE270],
     };
     assert_eq!(flipped.column(N), Ok(Column::Edge));
     assert_eq!(flipped.read(&*mailbox, &reads), Ok(Value::U64(edge_of(12))));
+}
+
+/// The coordinate the recipe denotes for view cell `(row, property)`, from
+/// the reference that MOVES data: cell `(lane, pos)` holds `lane * 1000 +
+/// pos`, and the rearranged matrix shows it at `(row, property)`.
+fn oracle_coordinate(
+    recipe: Recipe,
+    rows: usize,
+    row: usize,
+    property: usize,
+) -> Option<(usize, usize)> {
+    let matrix: Vec<Vec<i32>> = (0..2)
+        .map(|lane| (0..rows).map(|pos| (lane * 1000 + pos) as i32).collect())
+        .collect();
+    let mut moved = Moved::default();
+    let built = apply(&matrix, recipe, &mut moved);
+    let cell = *built.get(row)?.get(property)?;
+    Some((cell as usize / 1000, cell as usize % 1000))
+}
+
+/// Plan 12.2, the acceptance condition. FAILS IF: an admitted read returns a
+/// value from another column or another position than the recipe denotes, or
+/// is admitted although the recipe denotes another position than the row
+/// asked for.
+#[test]
+fn no_admitted_read_changes_which_source_position_is_read() {
+    for populated in [N, 41] {
+        let mailbox = owner(populated);
+        let reads = Reads::default();
+        let (mut admitted, mut refused_rows, mut refused_axis) = (0, 0, 0);
+        for recipe in Recipe::ALL {
+            for row in 0..populated {
+                for property in 0..2 {
+                    let p = VirtualProperty {
+                        row,
+                        property,
+                        chain: &[recipe],
+                    };
+                    match p.read(&*mailbox, &reads) {
+                        Ok(value) => {
+                            let (lane, pos) = oracle_coordinate(recipe, populated, row, property)
+                                .expect("an admitted cell is a cell of the view");
+                            assert_eq!(pos, row, "{} admitted a moved row", recipe.name());
+                            let want = if lane == 0 {
+                                Value::U32(meta_of(pos))
+                            } else {
+                                Value::U64(edge_of(pos))
+                            };
+                            assert_eq!(
+                                value,
+                                want,
+                                "{} row {row} property {property}",
+                                recipe.name()
+                            );
+                            admitted += 1;
+                        }
+                        Err(Refused::RowCoordinatesChanged { recipe: r }) => {
+                            assert_eq!(r, recipe);
+                            // Refused by recipe, even where this row maps to itself.
+                            let (_, pos) =
+                                oracle_coordinate(recipe, populated, row, property).unwrap();
+                            assert_eq!(pos, populated - 1 - row);
+                            refused_rows += 1;
+                        }
+                        Err(Refused::PropertyCrossesFields { .. }) => refused_axis += 1,
+                        Err(other) => panic!("{}: unexpected {other:?}", recipe.name()),
+                    }
+                }
+            }
+        }
+        // Transpose and Rotate270 admitted; Rotate90 and AntiTranspose refused
+        // for the rows; the four that do not exchange the axes refused.
+        assert_eq!(admitted, 2 * populated * 2);
+        assert_eq!(refused_rows, 2 * populated * 2);
+        assert_eq!(refused_axis, 4 * populated * 2);
+    }
+    // The audit's counterexample, stated directly.
+    assert_eq!(
+        oracle_coordinate(Recipe::ANTI_TRANSPOSE, 64, 12, 0),
+        Some((1, 51))
+    );
+    assert_eq!(Recipe::ANTI_TRANSPOSE.resolve(2, 64, 12, 0), Some((1, 51)));
 }
 
 /// Absent property, absent row. FAILS IF: a value is fabricated.
