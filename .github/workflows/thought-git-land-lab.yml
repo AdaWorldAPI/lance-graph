@@ -1,0 +1,50 @@
+name: Thought-git land lab
+# `crates/thought-git-land-lab` is excluded from the workspace and has its own
+# [workspace], so no workspace job builds it. It path-deps the planner (for the
+# WalSink contract), which names the ndarray sibling checkout by path.
+on:
+  pull_request:
+    paths:
+      - 'crates/thought-git-land-lab/**'
+      - 'crates/thought-git-probe/**'
+      - 'crates/lance-graph-dt64/src/dr.rs'
+      - 'crates/lance-graph-planner/src/persist_sink.rs'
+      - '.github/workflows/thought-git-land-lab.yml'
+      - 'rust-toolchain.toml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/thought-git-land-lab/**'
+      - 'crates/thought-git-probe/**'
+      - 'crates/lance-graph-dt64/src/dr.rs'
+      - 'crates/lance-graph-planner/src/persist_sink.rs'
+      - '.github/workflows/thought-git-land-lab.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: lance-graph/crates/thought-git-land-lab
+    env:
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: lance-graph
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+      - name: Setup rust toolchain (pinned by rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test

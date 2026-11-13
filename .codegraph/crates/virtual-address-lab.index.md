@@ -247,11 +247,11 @@ flowchart LR
   n54["lance-graph-mask-risc"]
   n64["lance-graph-quack"]
   n68["lance-graph-report"]
-  n98["virtual-address-lab"]
-  n98 --> n15
-  n98 --> n45
-  n98 --> n48
-  n98 --> n54
-  n98 --> n64
-  n98 --> n68
+  n99["virtual-address-lab"]
+  n99 --> n15
+  n99 --> n45
+  n99 --> n48
+  n99 --> n54
+  n99 --> n64
+  n99 --> n68
 ```

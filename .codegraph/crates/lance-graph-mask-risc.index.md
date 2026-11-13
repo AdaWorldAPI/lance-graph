@@ -217,7 +217,7 @@ flowchart LR
   n73["lance-graph-xlog"]
   n75["mork-pathmap-probe"]
   n82["quack-boundary-lab"]
-  n98["virtual-address-lab"]
+  n99["virtual-address-lab"]
   n6 --> n54
   n9 --> n54
   n10 --> n54
@@ -245,5 +245,5 @@ flowchart LR
   n73 --> n54
   n75 --> n54
   n82 --> n54
-  n98 --> n54
+  n99 --> n54
 ```

@@ -153,6 +153,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 | [template-equivalence](crates/template-equivalence.index.md) | excluded | crates/template-equivalence |
 | [template-runtime](crates/template-runtime.index.md) | excluded | crates/template-runtime |
 | [thinking-engine](crates/thinking-engine.index.md) | excluded | crates/thinking-engine |
+| [thought-git-land-lab](crates/thought-git-land-lab.index.md) | excluded | crates/thought-git-land-lab |
 | [thought-git-probe](crates/thought-git-probe.index.md) | excluded | crates/thought-git-probe |
 | [tract-harvest-probe](crates/tract-harvest-probe.index.md) | excluded | crates/tract-harvest-probe |
 | [virtual-address-lab](crates/virtual-address-lab.index.md) | member | crates/virtual-address-lab |
@@ -160,7 +161,7 @@ rg -n 'ARTIFACT_MISSING' .codegraph/gaps.tsv                                # cr
 
 ## Crate dependency diagram
 
-Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (85 of 100).
+Generated from Cargo manifests — extracted relationships only. Internal `normal` dependencies; only crates with at least one internal edge are drawn (86 of 101).
 
 ```mermaid
 flowchart LR
@@ -245,10 +246,11 @@ flowchart LR
   n93["template-equivalence"]
   n94["template-runtime"]
   n95["thinking-engine"]
-  n96["thought-git-probe"]
-  n97["tract-harvest-probe"]
-  n98["virtual-address-lab"]
-  n99["weather-poc"]
+  n96["thought-git-land-lab"]
+  n97["thought-git-probe"]
+  n98["tract-harvest-probe"]
+  n99["virtual-address-lab"]
+  n100["weather-poc"]
   n0 --> n1
   n1 --> n31
   n1 --> n45
@@ -448,19 +450,23 @@ flowchart LR
   n95 --> n32
   n95 --> n45
   n96 --> n45
+  n96 --> n48
+  n96 --> n62
+  n96 --> n97
   n97 --> n45
-  n97 --> n59
-  n98 --> n15
   n98 --> n45
-  n98 --> n48
-  n98 --> n54
-  n98 --> n64
-  n98 --> n68
+  n98 --> n59
+  n99 --> n15
   n99 --> n45
+  n99 --> n48
+  n99 --> n54
+  n99 --> n64
+  n99 --> n68
+  n100 --> n45
   classDef shipped fill:#d8f0d8,stroke:#2e7d32,color:#111
   classDef lab fill:#fff3cd,stroke:#a67c00,color:#111
   classDef open fill:#d6e6fa,stroke:#1565c0,color:#111
   classDef gap fill:#fadadd,stroke:#c62828,stroke-dasharray:5 3,color:#111
-  class n1,n7,n15,n34,n36,n38,n39,n40,n44,n45,n46,n48,n51,n52,n53,n54,n59,n60,n62,n64,n65,n66,n68,n71,n73,n82,n89,n91,n98 shipped
-  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n29,n31,n32,n33,n37,n42,n43,n47,n49,n50,n55,n56,n58,n61,n63,n67,n69,n70,n74,n75,n77,n78,n79,n80,n85,n88,n90,n92,n93,n94,n95,n96,n97,n99 lab
+  class n1,n7,n15,n34,n36,n38,n39,n40,n44,n45,n46,n48,n51,n52,n53,n54,n59,n60,n62,n64,n65,n66,n68,n71,n73,n82,n89,n91,n99 shipped
+  class n0,n2,n3,n4,n5,n6,n8,n9,n10,n11,n12,n13,n14,n16,n17,n18,n19,n22,n23,n25,n27,n28,n29,n31,n32,n33,n37,n42,n43,n47,n49,n50,n55,n56,n58,n61,n63,n67,n69,n70,n74,n75,n77,n78,n79,n80,n85,n88,n90,n92,n93,n94,n95,n96,n97,n98,n100 lab
 ```

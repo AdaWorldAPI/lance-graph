@@ -189,7 +189,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n45["lance-graph-contract"]
   n59["lance-graph-onnx"]
-  n97["tract-harvest-probe"]
-  n97 --> n45
-  n97 --> n59
+  n98["tract-harvest-probe"]
+  n98 --> n45
+  n98 --> n59
 ```

@@ -258,7 +258,7 @@ flowchart LR
   n70["lance-graph-sap"]
   n73["lance-graph-xlog"]
   n82["quack-boundary-lab"]
-  n98["virtual-address-lab"]
+  n99["virtual-address-lab"]
   n10 --> n64
   n25 --> n64
   n27 --> n64
@@ -276,5 +276,5 @@ flowchart LR
   n70 --> n64
   n73 --> n64
   n82 --> n64
-  n98 --> n64
+  n99 --> n64
 ```

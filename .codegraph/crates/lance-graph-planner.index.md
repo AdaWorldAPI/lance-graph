@@ -38,6 +38,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-dt64-lance normal — crates/lance-graph-dt64-lance/Cargo.toml:28 CONFIRMED
 - rdep lance-graph-osint normal — crates/lance-graph-osint/Cargo.toml:11 CONFIRMED
 - rdep lance-graph-supervisor normal optional — crates/lance-graph-supervisor/Cargo.toml:17 CONFIRMED
+- rdep thought-git-land-lab normal — crates/thought-git-land-lab/Cargo.toml:18 CONFIRMED
 
 ## Public items
 
@@ -374,6 +375,7 @@ flowchart LR
   n62["lance-graph-planner"]
   n71["lance-graph-supervisor"]
   n79["p64-bridge"]
+  n96["thought-git-land-lab"]
   n7 --> n62
   n16 --> n62
   n34 --> n62
@@ -384,4 +386,5 @@ flowchart LR
   n62 --> n45
   n62 --> n79
   n71 --> n62
+  n96 --> n62
 ```

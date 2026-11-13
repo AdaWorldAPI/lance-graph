@@ -36,6 +36,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep ogar-behavior-probe normal — crates/ogar-behavior-probe/Cargo.toml:21 CONFIRMED
 - rdep quack-boundary-lab normal — crates/quack-boundary-lab/Cargo.toml:10 CONFIRMED
 - rdep soa64-u64-lab normal — crates/soa64-u64-lab/Cargo.toml:16 CONFIRMED
+- rdep thought-git-land-lab normal — crates/thought-git-land-lab/Cargo.toml:15 CONFIRMED
 - rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:10 CONFIRMED
 
 ## Public items
@@ -300,7 +301,8 @@ flowchart LR
   n77["ogar-behavior-probe"]
   n82["quack-boundary-lab"]
   n90["soa64-u64-lab"]
-  n98["virtual-address-lab"]
+  n96["thought-git-land-lab"]
+  n99["virtual-address-lab"]
   n4 --> n48
   n6 --> n48
   n13 --> n48
@@ -322,5 +324,6 @@ flowchart LR
   n77 --> n48
   n82 --> n48
   n90 --> n48
-  n98 --> n48
+  n96 --> n48
+  n99 --> n48
 ```

@@ -78,6 +78,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep surreal_container normal — crates/surreal_container/Cargo.toml:51 CONFIRMED
 - rdep symbiont normal — crates/symbiont/Cargo.toml:41 CONFIRMED
 - rdep thinking-engine normal — crates/thinking-engine/Cargo.toml:17 CONFIRMED
+- rdep thought-git-land-lab normal — crates/thought-git-land-lab/Cargo.toml:14 CONFIRMED
 - rdep thought-git-probe normal — crates/thought-git-probe/Cargo.toml:13 CONFIRMED
 - rdep tract-harvest-probe normal — crates/tract-harvest-probe/Cargo.toml:25 CONFIRMED
 - rdep virtual-address-lab normal — crates/virtual-address-lab/Cargo.toml:9 CONFIRMED
@@ -361,10 +362,11 @@ flowchart LR
   n91["surreal_container"]
   n92["symbiont"]
   n95["thinking-engine"]
-  n96["thought-git-probe"]
-  n97["tract-harvest-probe"]
-  n98["virtual-address-lab"]
-  n99["weather-poc"]
+  n96["thought-git-land-lab"]
+  n97["thought-git-probe"]
+  n98["tract-harvest-probe"]
+  n99["virtual-address-lab"]
+  n100["weather-poc"]
   n1 --> n45
   n4 --> n45
   n7 --> n45
@@ -422,4 +424,5 @@ flowchart LR
   n97 --> n45
   n98 --> n45
   n99 --> n45
+  n100 --> n45
 ```

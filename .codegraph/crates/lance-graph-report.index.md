@@ -316,11 +316,11 @@ flowchart LR
   n64["lance-graph-quack"]
   n68["lance-graph-report"]
   n69["lance-graph-report-ogar"]
-  n98["virtual-address-lab"]
+  n99["virtual-address-lab"]
   n68 --> n45
   n68 --> n48
   n68 --> n54
   n68 --> n64
   n69 --> n68
-  n98 --> n68
+  n99 --> n68
 ```

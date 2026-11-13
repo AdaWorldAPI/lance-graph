@@ -220,6 +220,7 @@ lance-graph-contract	soa64-u64-lab	normal	false	-	-	crates/soa64-u64-lab/Cargo.t
 lance-graph-contract	surreal_container	normal	false	-	-	crates/surreal_container/Cargo.toml:51	CONFIRMED	yes
 lance-graph-contract	symbiont	normal	false	-	-	crates/symbiont/Cargo.toml:41	CONFIRMED	yes
 lance-graph-contract	thinking-engine	normal	false	-	-	crates/thinking-engine/Cargo.toml:17	CONFIRMED	yes
+lance-graph-contract	thought-git-land-lab	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:14	CONFIRMED	yes
 lance-graph-contract	thought-git-probe	normal	false	-	-	crates/thought-git-probe/Cargo.toml:13	CONFIRMED	yes
 lance-graph-contract	tract-harvest-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:25	CONFIRMED	yes
 lance-graph-contract	virtual-address-lab	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:9	CONFIRMED	yes
@@ -247,6 +248,7 @@ lance-graph-dt64	lance-graph-xlog	normal	false	-	-	crates/lance-graph-xlog/Cargo
 lance-graph-dt64	ogar-behavior-probe	normal	false	-	-	crates/ogar-behavior-probe/Cargo.toml:21	CONFIRMED	yes
 lance-graph-dt64	quack-boundary-lab	normal	false	-	-	crates/quack-boundary-lab/Cargo.toml:10	CONFIRMED	yes
 lance-graph-dt64	soa64-u64-lab	normal	false	-	-	crates/soa64-u64-lab/Cargo.toml:16	CONFIRMED	yes
+lance-graph-dt64	thought-git-land-lab	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:15	CONFIRMED	yes
 lance-graph-dt64	virtual-address-lab	normal	false	-	-	crates/virtual-address-lab/Cargo.toml:10	CONFIRMED	yes
 lance-graph-hydrate	lance-graph	normal	false	-	-	crates/lance-graph/Cargo.toml:25	CONFIRMED	yes
 lance-graph-mailbox-lanes	virtual-address-lab	dev	false	-	-	crates/virtual-address-lab/Cargo.toml:24	CONFIRMED	yes
@@ -305,6 +307,7 @@ lance-graph-planner	lance-graph-codegraph	dev	false	-	-	crates/lance-graph-codeg
 lance-graph-planner	lance-graph-dt64-lance	normal	false	-	-	crates/lance-graph-dt64-lance/Cargo.toml:28	CONFIRMED	yes
 lance-graph-planner	lance-graph-osint	normal	false	-	-	crates/lance-graph-osint/Cargo.toml:11	CONFIRMED	yes
 lance-graph-planner	lance-graph-supervisor	normal	true	-	cycle-driver	crates/lance-graph-supervisor/Cargo.toml:17	CONFIRMED	yes
+lance-graph-planner	thought-git-land-lab	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:18	CONFIRMED	yes
 lance-graph-quack	d-diamond-1-probe	normal	false	-	-	crates/d-diamond-1-probe/Cargo.toml:17	CONFIRMED	yes
 lance-graph-quack	drf-focus-probe	dev	false	-	-	crates/drf-focus-probe/Cargo.toml:31	CONFIRMED	yes
 lance-graph-quack	grammar-constraints-probe	normal	false	-	-	crates/grammar-constraints-probe/Cargo.toml:20	CONFIRMED	yes
@@ -544,6 +547,7 @@ thiserror	lance-graph-hydrate	normal	false	-	-	crates/lance-graph-hydrate/Cargo.
 thiserror	lance-graph-ontology	normal	false	-	-	crates/lance-graph-ontology/Cargo.toml:31	CONFIRMED	no
 thiserror	lance-graph-planner	normal	false	-	-	crates/lance-graph-planner/Cargo.toml:15	CONFIRMED	no
 thiserror	lance-graph-supervisor	normal	false	-	-	crates/lance-graph-supervisor/Cargo.toml:18	CONFIRMED	no
+thought-git-probe	thought-git-land-lab	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:13	CONFIRMED	yes
 tokenizers	bge-m3	normal	true	-	real-tokenizer	crates/bge-m3/Cargo.toml:12	CONFIRMED	no
 tokenizers	reader-lm	normal	true	-	real-tokenizer	crates/reader-lm/Cargo.toml:12	CONFIRMED	no
 tokenizers	thinking-engine	dev	false	-	tokenizer	crates/thinking-engine/Cargo.toml:43	CONFIRMED	no
@@ -575,6 +579,7 @@ tokio	lance-graph-supervisor	normal	true	-	cycle-driver,supervisor	crates/lance-
 tokio	onebrc-probe	normal	true	-	lane-d,lane-e,lane-g,lane-i	crates/onebrc-probe/Cargo.toml:66	CONFIRMED	no
 tokio	surreal_container	dev	false	-	-	crates/surreal_container/Cargo.toml:74	CONFIRMED	no
 tokio	surreal_container	normal	false	-	-	crates/surreal_container/Cargo.toml:63	CONFIRMED	no
+tokio	thought-git-land-lab	dev	false	-	-	crates/thought-git-land-lab/Cargo.toml:21	CONFIRMED	no
 tokio-tungstenite	lance-graph-callcenter	normal	true	-	realtime	crates/lance-graph-callcenter/Cargo.toml:39	CONFIRMED	no
 toml	lance-graph-ontology	normal	false	-	-	crates/lance-graph-ontology/Cargo.toml:38	CONFIRMED	no
 tonic	cognitive-shader-driver	normal	true	-	grpc	crates/cognitive-shader-driver/Cargo.toml:256	CONFIRMED	no

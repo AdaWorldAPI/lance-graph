@@ -100,6 +100,7 @@ calls-missing	symbiont	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	template-equivalence	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	template-runtime	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	thinking-engine	calls	-	UNKNOWN	ARTIFACT_MISSING
+calls-missing	thought-git-land-lab	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	thought-git-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	tract-harvest-probe	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	virtual-address-lab	calls	-	UNKNOWN	ARTIFACT_MISSING

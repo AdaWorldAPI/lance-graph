@@ -575,6 +575,11 @@ thinking-engine	serde	normal	false	-	-	crates/thinking-engine/Cargo.toml:26	CONF
 thinking-engine	serde_json	normal	false	-	-	crates/thinking-engine/Cargo.toml:25	CONFIRMED	no
 thinking-engine	tokenizers	dev	false	-	tokenizer	crates/thinking-engine/Cargo.toml:43	CONFIRMED	no
 thinking-engine	tokenizers	normal	true	-	tokenizer	crates/thinking-engine/Cargo.toml:24	CONFIRMED	no
+thought-git-land-lab	lance-graph-contract	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:14	CONFIRMED	yes
+thought-git-land-lab	lance-graph-dt64	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:15	CONFIRMED	yes
+thought-git-land-lab	lance-graph-planner	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:18	CONFIRMED	yes
+thought-git-land-lab	thought-git-probe	normal	false	-	-	crates/thought-git-land-lab/Cargo.toml:13	CONFIRMED	yes
+thought-git-land-lab	tokio	dev	false	-	-	crates/thought-git-land-lab/Cargo.toml:21	CONFIRMED	no
 thought-git-probe	lance-graph-contract	normal	false	-	-	crates/thought-git-probe/Cargo.toml:13	CONFIRMED	yes
 tract-harvest-probe	dr-math-binding-probe	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:24	CONFIRMED	no
 tract-harvest-probe	lance-graph-contract	normal	false	-	-	crates/tract-harvest-probe/Cargo.toml:25	CONFIRMED	yes
