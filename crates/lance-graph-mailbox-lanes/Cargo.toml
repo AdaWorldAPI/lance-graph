@@ -1,0 +1,15 @@
+[package]
+name = "lance-graph-mailbox-lanes"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "D-VAS-A2: a read-only DT64 lane socket over one publication of a MailboxSoA. It borrows the owner's own columns; it owns no column, no identity map and no row population."
+
+[dependencies]
+cognitive-shader-driver = { path = "../cognitive-shader-driver" }
+lance-graph-contract = { path = "../lance-graph-contract" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+
+[dev-dependencies]
+causal-edge = { path = "../causal-edge" }

@@ -81,9 +81,9 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n32["jc"]
   n33["jc-batch-probe"]
-  n53["lance-graph-mask-risc"]
-  n66["lance-graph-relalg"]
+  n54["lance-graph-mask-risc"]
+  n67["lance-graph-relalg"]
   n33 --> n32
-  n33 --> n53
-  n33 --> n66
+  n33 --> n54
+  n33 --> n67
 ```

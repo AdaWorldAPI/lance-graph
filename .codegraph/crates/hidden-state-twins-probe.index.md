@@ -89,10 +89,10 @@ flowchart LR
   n27["hidden-state-twins-probe"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
   n27 --> n45
   n27 --> n48
-  n27 --> n53
-  n27 --> n63
+  n27 --> n54
+  n27 --> n64
 ```

@@ -101,10 +101,10 @@ flowchart LR
   n34["lance-graph"]
   n38["lance-graph-benches"]
   n46["lance-graph-cypher-quack"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
   n38 --> n46
   n46 --> n34
-  n46 --> n53
-  n46 --> n63
+  n46 --> n54
+  n46 --> n64
 ```

@@ -7,7 +7,7 @@ causal-edge	crates/causal-edge	excluded	c0fc81913c25420a
 cg-beh-probe	crates/cg-beh-probe	excluded	419a2e4c6456dda0
 cognitive-compiler	crates/cognitive-compiler	excluded	d1353bc629a93ad2
 cognitive-polyfill-probe	crates/cognitive-polyfill-probe	excluded	142eccf61ff99e10
-cognitive-shader-driver	crates/cognitive-shader-driver	member	53736d48f679812e
+cognitive-shader-driver	crates/cognitive-shader-driver	member	e8ca32e1654c0483
 cognitive-stack	crates/cognitive-stack	excluded	9c0b588a5fdc31ba
 crepe-plan-probe	crates/crepe-plan-probe	excluded	1a96c1672d5828ec
 d-diamond-1-probe	crates/d-diamond-1-probe	excluded	98a7cd6d39e6f983
@@ -48,11 +48,12 @@ lance-graph-consumer-conformance	crates/lance-graph-consumer-conformance	member	
 lance-graph-contract	crates/lance-graph-contract	member	6b4e13ff1d0afadb
 lance-graph-cypher-quack	crates/lance-graph-cypher-quack	member	003e14de37585ab8
 lance-graph-dir-sim	crates/lance-graph-dir-sim	excluded	faa6eb31da9ac20a
-lance-graph-dt64	crates/lance-graph-dt64	member	9cffbb86670f09e6
+lance-graph-dt64	crates/lance-graph-dt64	member	c5df9e42edfad1f8
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance	excluded	19f394be7cbe3f5c
 lance-graph-glove-parity	crates/lance-graph-glove-parity	excluded	6c47a0e14dd892f9
 lance-graph-hydrate	crates/lance-graph-hydrate	member	9d14e9cc5ba8b211
 lance-graph-lane-fold	crates/lance-graph-lane-fold	member	6806a00a4e9aad08
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes	member	9ef93d324cc5673b
 lance-graph-mask-risc	crates/lance-graph-mask-risc	member	32478c87a39b812f
 lance-graph-metta	crates/lance-graph-metta	excluded	12752919056fe5bb
 lance-graph-nal	crates/lance-graph-nal	excluded	5e50d1539858fc39

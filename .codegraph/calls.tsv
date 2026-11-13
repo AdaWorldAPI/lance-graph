@@ -53,6 +53,7 @@ lance-graph-dt64-lance	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-glove-parity	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-hydrate	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-lane-fold	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
+lance-graph-mailbox-lanes	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-mask-risc	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-metta	-	-	ARTIFACT_MISSING	-	-	UNKNOWN
 lance-graph-nal	-	-	ARTIFACT_MISSING	-	-	UNKNOWN

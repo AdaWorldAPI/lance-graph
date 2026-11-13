@@ -107,14 +107,14 @@ flowchart LR
   n29["holo-h14d-probe"]
   n33["jc-batch-probe"]
   n45["lance-graph-contract"]
-  n53["lance-graph-mask-risc"]
-  n64["lance-graph-r2il"]
-  n66["lance-graph-relalg"]
-  n9 --> n66
-  n23 --> n66
-  n29 --> n66
-  n33 --> n66
-  n66 --> n45
-  n66 --> n53
-  n66 --> n64
+  n54["lance-graph-mask-risc"]
+  n65["lance-graph-r2il"]
+  n67["lance-graph-relalg"]
+  n9 --> n67
+  n23 --> n67
+  n29 --> n67
+  n33 --> n67
+  n67 --> n45
+  n67 --> n54
+  n67 --> n65
 ```

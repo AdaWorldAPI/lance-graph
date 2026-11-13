@@ -318,12 +318,12 @@ flowchart LR
   n44["lance-graph-consumer-conformance"]
   n45["lance-graph-contract"]
   n50["lance-graph-glove-parity"]
-  n57["lance-graph-ogar"]
-  n59["lance-graph-ontology"]
-  n7 --> n59
-  n39 --> n59
-  n44 --> n59
-  n50 --> n59
-  n57 --> n59
-  n59 --> n45
+  n58["lance-graph-ogar"]
+  n60["lance-graph-ontology"]
+  n7 --> n60
+  n39 --> n60
+  n44 --> n60
+  n50 --> n60
+  n58 --> n60
+  n60 --> n45
 ```

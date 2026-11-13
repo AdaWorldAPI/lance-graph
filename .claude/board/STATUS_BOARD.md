@@ -1,14 +1,14 @@
 ## D-VAS — virtual-address superpowers: source-owned memory, virtual properties, behaviour-aware reads (2026-11-13)
 
-Roadmap `.claude/plans/virtual-address-superpowers-roadmap-v1.md` (PROPOSED / DOCS ONLY); lab evidence `.claude/plans/d-virtual-address-algebra-1.md` (PR 2060; its row D-VIRTUAL-ADDRESS-ALGEBRA-1 is further down this board). Nine decisions precede any stage; none is taken.
+Roadmap `.claude/plans/virtual-address-superpowers-roadmap-v1.md` (PROPOSED / DOCS ONLY); lab evidence `.claude/plans/d-virtual-address-algebra-1.md` (PR 2060; its row D-VIRTUAL-ADDRESS-ALGEBRA-1 is further down this board). Implementation ledger `.claude/plans/d-vas-implementation-v1.md` (directive of 2026-11-13: implement A1 to F in the order R0 to R6).
 
 | D-id | Deliverable | Status |
 |---|---|---|
-| D-VAS-A1..A4 | The mailbox as a source: frame, `LaneSource`, `SelectionSource`, typed selection folds | Proposed |
+| D-VAS-A1..A4 | The mailbox as a source: frame, `LaneSource`, `SelectionSource`, typed selection folds | A1, A2 In PR (R1, plan `d-vas-implementation-v1.md`): publication token + `lance-graph-mailbox-lanes`; a frame that outlives a borrow BLOCKED. A3, A4 Queued |
 | D-VAS-B1..B2 | `NodeGuid` to a current source-local coordinate; version-bound virtual property | Proposed; B1 needs an authority decision |
-| D-VAS-C1..C6 | Behaviour-lens association, route-bound admission, guard contract, `Guard` to Quack seam, mask-plane socket, UNKNOWN | Proposed |
-| D-VAS-D1..D4 | Operand boundary over `reads`, execution, write-back, ON from a real change | Proposed |
-| D-VAS-E | The full chain on one owner against a scalar interpreter | Proposed; needs A to D |
+| D-VAS-C1..C6 | Behaviour-lens association, route-bound admission, guard contract, `Guard` to Quack seam, mask-plane socket, UNKNOWN | C1 direct class and C2 (`BindStore::admit_routed`) In PR (R1). C1 separate lens, C3 to C6 Queued |
+| D-VAS-D1..D4 | Operand boundary over `reads`, execution, write-back, ON from a real change | D1 In PR (R1). D2 to D4 Queued |
+| D-VAS-E | The full chain on one owner against a scalar interpreter | D-VAS-E0 (first integration, real `MailboxSoA<64>`, 7 tests) In PR (R1). D-VAS-E1 Queued; needs A to D |
 | D-VAS-F | Cost: normalise once, one check per population, measured in ns | Proposed |
 
 ## D-SC — OGAR × DR × DT64 semantic continuity (2026-11-07)

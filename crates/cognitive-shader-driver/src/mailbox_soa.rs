@@ -232,6 +232,37 @@ pub struct MailboxSoA<const N: usize> {
 /// Default capacity: 1024 rows (4× current BindSpace row count).
 pub type DefaultMailboxSoA = MailboxSoA<1024>;
 
+/// One publication of a mailbox: the shared borrow of the owner, issued by
+/// the owner ([`MailboxSoA::published`]).
+///
+/// While a `Published` is live no column can change: every mutation path of
+/// [`MailboxSoA`] needs `&mut`, and the type has no interior mutability. That
+/// is the whole guarantee, and it is the only one the mailbox can give a
+/// reader today. `current_cycle` and `last_write_cycle` are NOT revisions of
+/// the bytes: the field setters and the public columns move neither.
+///
+/// A reader that needs a frame holds one per `Published` and never carries it
+/// to the next: two publications of one mailbox may differ in every byte.
+/// The token cannot be built outside this crate.
+pub struct Published<'a, const N: usize>(&'a MailboxSoA<N>);
+
+impl<'a, const N: usize> Published<'a, N> {
+    /// The published owner, for reading.
+    #[inline]
+    #[must_use]
+    pub fn owner(&self) -> &'a MailboxSoA<N> {
+        self.0
+    }
+}
+
+impl<const N: usize> Clone for Published<'_, N> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<const N: usize> Copy for Published<'_, N> {}
+
 /// Outcome of a cycle-aware row write through [`MailboxSoA::write_row`].
 ///
 /// Infallible-with-outcome (NOT `Result`): ownership is compile-proven
@@ -397,6 +428,14 @@ impl<const N: usize> MailboxSoA<N> {
     pub fn byte_footprint(&self) -> usize {
         core::mem::size_of::<Self>()
             + (self.content.len() + self.topic.len() + self.angle.len()) * 8
+    }
+
+    /// Publish the mailbox for reading: a token that holds the shared borrow.
+    /// See [`Published`] for what it does and does not guarantee.
+    #[inline]
+    #[must_use]
+    pub fn published(&self) -> Published<'_, N> {
+        Published(self)
     }
 
     /// Advance to the next cycle.

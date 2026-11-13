@@ -52,6 +52,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep lance-graph-dt64-lance normal — crates/lance-graph-dt64-lance/Cargo.toml:27 CONFIRMED
 - rdep lance-graph-glove-parity normal — crates/lance-graph-glove-parity/Cargo.toml:14 CONFIRMED
 - rdep lance-graph-lane-fold normal — crates/lance-graph-lane-fold/Cargo.toml:15 CONFIRMED
+- rdep lance-graph-mailbox-lanes normal — crates/lance-graph-mailbox-lanes/Cargo.toml:10 CONFIRMED
 - rdep lance-graph-mask-risc dev — crates/lance-graph-mask-risc/Cargo.toml:37 CONFIRMED
 - rdep lance-graph-nal normal — crates/lance-graph-nal/Cargo.toml:15 CONFIRMED
 - rdep lance-graph-ogar normal — crates/lance-graph-ogar/Cargo.toml:89 CONFIRMED
@@ -298,8 +299,8 @@ CALL_GRAPH=ARTIFACT_MISSING
 ## Architecture
 
 - arch ClassView defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
-- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:815 CONFIRMED
-- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:720 CONFIRMED
+- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:824 CONFIRMED
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:729 CONFIRMED
 - arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
@@ -336,33 +337,34 @@ flowchart LR
   n49["lance-graph-dt64-lance"]
   n50["lance-graph-glove-parity"]
   n52["lance-graph-lane-fold"]
-  n55["lance-graph-nal"]
-  n57["lance-graph-ogar"]
-  n59["lance-graph-ontology"]
-  n61["lance-graph-planner"]
-  n63["lance-graph-quack"]
-  n64["lance-graph-r2il"]
-  n65["lance-graph-rbac"]
-  n66["lance-graph-relalg"]
-  n67["lance-graph-report"]
-  n68["lance-graph-report-ogar"]
-  n69["lance-graph-sap"]
-  n70["lance-graph-supervisor"]
-  n72["lance-graph-xlog"]
-  n73["learning"]
-  n76["ogar-behavior-probe"]
-  n77["onebrc-probe"]
-  n79["perturbation-sim"]
-  n81["quack-boundary-lab"]
-  n88["sigma-tier-router"]
-  n89["soa64-u64-lab"]
-  n90["surreal_container"]
-  n91["symbiont"]
-  n94["thinking-engine"]
-  n95["thought-git-probe"]
-  n96["tract-harvest-probe"]
-  n97["virtual-address-lab"]
-  n98["weather-poc"]
+  n53["lance-graph-mailbox-lanes"]
+  n56["lance-graph-nal"]
+  n58["lance-graph-ogar"]
+  n60["lance-graph-ontology"]
+  n62["lance-graph-planner"]
+  n64["lance-graph-quack"]
+  n65["lance-graph-r2il"]
+  n66["lance-graph-rbac"]
+  n67["lance-graph-relalg"]
+  n68["lance-graph-report"]
+  n69["lance-graph-report-ogar"]
+  n70["lance-graph-sap"]
+  n71["lance-graph-supervisor"]
+  n73["lance-graph-xlog"]
+  n74["learning"]
+  n77["ogar-behavior-probe"]
+  n78["onebrc-probe"]
+  n80["perturbation-sim"]
+  n82["quack-boundary-lab"]
+  n89["sigma-tier-router"]
+  n90["soa64-u64-lab"]
+  n91["surreal_container"]
+  n92["symbiont"]
+  n95["thinking-engine"]
+  n96["thought-git-probe"]
+  n97["tract-harvest-probe"]
+  n98["virtual-address-lab"]
+  n99["weather-poc"]
   n1 --> n45
   n4 --> n45
   n7 --> n45
@@ -392,11 +394,11 @@ flowchart LR
   n49 --> n45
   n50 --> n45
   n52 --> n45
-  n55 --> n45
-  n57 --> n45
-  n59 --> n45
-  n61 --> n45
-  n63 --> n45
+  n53 --> n45
+  n56 --> n45
+  n58 --> n45
+  n60 --> n45
+  n62 --> n45
   n64 --> n45
   n65 --> n45
   n66 --> n45
@@ -404,19 +406,20 @@ flowchart LR
   n68 --> n45
   n69 --> n45
   n70 --> n45
-  n72 --> n45
+  n71 --> n45
   n73 --> n45
-  n76 --> n45
+  n74 --> n45
   n77 --> n45
-  n79 --> n45
-  n81 --> n45
-  n88 --> n45
+  n78 --> n45
+  n80 --> n45
+  n82 --> n45
   n89 --> n45
   n90 --> n45
   n91 --> n45
-  n94 --> n45
+  n92 --> n45
   n95 --> n45
   n96 --> n45
   n97 --> n45
   n98 --> n45
+  n99 --> n45
 ```

@@ -239,8 +239,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n45["lance-graph-contract"]
-  n79["perturbation-sim"]
-  n91["symbiont"]
-  n79 --> n45
-  n91 --> n79
+  n80["perturbation-sim"]
+  n92["symbiont"]
+  n80 --> n45
+  n92 --> n80
 ```

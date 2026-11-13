@@ -4,6 +4,14 @@
 - Refusals: stale frame, foreign scope, other row order, unmapped / unbound field, missing demanded cost lane, `u8` overflow, foreign menu revision, out-of-range quantity. Unknown stock is never zero; the denied store is `NotAuthorized`.
 - Open: G1 remainder (limiting resource, P1b), G2–G6. Linear EXO-223. [entry](entries/2026-11-10-foundry-parity-1-arm-c.md)
 
+## 2026-11-13 — D-VAS R1 (in PR, not on main)
+
+### Current Contract Inventory — net delta
+
+- `cognitive-shader-driver::mailbox_soa::Published<'a, N>` and `MailboxSoA::published(&self)` added (a borrow token; no field, no layout change).
+- `lance-graph-dt64`: `BindStore::admit_routed(RouteAt, &MethodRef)` and `Refusal::NotRoutedClass` added. No type removed or changed.
+- New crate `lance-graph-mailbox-lanes`: `MailboxLanes<'_, N>: LaneSource`, `Column`, `ColumnRefusal`.
+
 ## 2026-11-06 — branch `ccr-fd2682ed-sai06j-scope-inventory` (D-LANESOCK-4, in PR)
 
 - Spec §8 records where a sealed reader scope and its issuer can live: OGAR `VerifiedLogin` is the only login proof, decisions are values not witnesses, `FrameStore` is the sealing precedent, and the issuer belongs in OGAR or downstream (dependency direction). No code.

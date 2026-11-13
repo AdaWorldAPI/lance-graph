@@ -233,29 +233,29 @@ flowchart LR
   n46["lance-graph-cypher-quack"]
   n47["lance-graph-dir-sim"]
   n50["lance-graph-glove-parity"]
-  n53["lance-graph-mask-risc"]
-  n54["lance-graph-metta"]
-  n63["lance-graph-quack"]
-  n67["lance-graph-report"]
-  n69["lance-graph-sap"]
-  n72["lance-graph-xlog"]
-  n81["quack-boundary-lab"]
-  n97["virtual-address-lab"]
-  n10 --> n63
-  n25 --> n63
-  n27 --> n63
-  n34 --> n63
-  n38 --> n63
-  n42 --> n63
-  n46 --> n63
-  n47 --> n63
-  n50 --> n63
-  n54 --> n63
-  n63 --> n45
-  n63 --> n53
-  n67 --> n63
-  n69 --> n63
-  n72 --> n63
-  n81 --> n63
-  n97 --> n63
+  n54["lance-graph-mask-risc"]
+  n55["lance-graph-metta"]
+  n64["lance-graph-quack"]
+  n68["lance-graph-report"]
+  n70["lance-graph-sap"]
+  n73["lance-graph-xlog"]
+  n82["quack-boundary-lab"]
+  n98["virtual-address-lab"]
+  n10 --> n64
+  n25 --> n64
+  n27 --> n64
+  n34 --> n64
+  n38 --> n64
+  n42 --> n64
+  n46 --> n64
+  n47 --> n64
+  n50 --> n64
+  n55 --> n64
+  n64 --> n45
+  n64 --> n54
+  n68 --> n64
+  n70 --> n64
+  n73 --> n64
+  n82 --> n64
+  n98 --> n64
 ```

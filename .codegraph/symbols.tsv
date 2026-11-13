@@ -1672,55 +1672,61 @@ cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	96	mod	backing
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	97	mod	bindspace	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	98	mod	driver	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	233	type	DefaultMailboxSoA	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	241	enum	WriteOutcome	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	262	struct	WriteCell	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	285	impl	MailboxSoA<N>	-	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	292	fn	MailboxSoA<N>::new	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	348	fn	MailboxSoA<N>::apply_edges	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	380	fn	MailboxSoA<N>::consume_firing	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	247	struct	Published	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	249	impl	Published<'a,N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	253	fn	Published<'a,N>::owner	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	258	impl	Clone for Published<'_,N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	264	impl	Copy for Published<'_,N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	272	enum	WriteOutcome	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	293	struct	WriteCell	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	316	impl	MailboxSoA<N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	323	fn	MailboxSoA<N>::new	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	379	fn	MailboxSoA<N>::apply_edges	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	39	const	WORDS_PER_FP	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	397	fn	MailboxSoA<N>::byte_footprint	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	406	fn	MailboxSoA<N>::tick	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	424	fn	MailboxSoA<N>::write_row	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	474	fn	MailboxSoA<N>::last_write_cycle_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	480	fn	MailboxSoA<N>::stale_write_count	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	493	fn	MailboxSoA<N>::populated	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	502	fn	MailboxSoA<N>::set_populated	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	511	fn	MailboxSoA<N>::reset_row	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	553	fn	MailboxSoA<N>::energy_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	559	fn	MailboxSoA<N>::plasticity_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	565	fn	MailboxSoA<N>::cycle	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	571	fn	MailboxSoA<N>::w_slot	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	578	fn	MailboxSoA<N>::pending_count	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	411	fn	MailboxSoA<N>::consume_firing	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	428	fn	MailboxSoA<N>::byte_footprint	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	437	fn	MailboxSoA<N>::published	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	445	fn	MailboxSoA<N>::tick	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	463	fn	MailboxSoA<N>::write_row	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	513	fn	MailboxSoA<N>::last_write_cycle_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	519	fn	MailboxSoA<N>::stale_write_count	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	532	fn	MailboxSoA<N>::populated	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	541	fn	MailboxSoA<N>::set_populated	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	550	fn	MailboxSoA<N>::reset_row	pub	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	58	struct	MailboxSoA	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	592	fn	MailboxSoA<N>::edge	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	601	fn	MailboxSoA<N>::set_edge	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	607	fn	MailboxSoA<N>::qualia_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	613	fn	MailboxSoA<N>::set_qualia	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	619	fn	MailboxSoA<N>::meta_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	625	fn	MailboxSoA<N>::set_meta	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	631	fn	MailboxSoA<N>::entity_type_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	637	fn	MailboxSoA<N>::set_entity_type	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	645	fn	MailboxSoA<N>::temporal_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	653	fn	MailboxSoA<N>::set_temporal	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	659	fn	MailboxSoA<N>::expert_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	665	fn	MailboxSoA<N>::set_expert	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	671	fn	MailboxSoA<N>::sigma_at	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	677	fn	MailboxSoA<N>::set_sigma	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	687	fn	MailboxSoA<N>::content_row	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	693	fn	MailboxSoA<N>::set_content	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	704	fn	MailboxSoA<N>::topic_row	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	710	fn	MailboxSoA<N>::set_topic	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	721	fn	MailboxSoA<N>::angle_row	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	727	fn	MailboxSoA<N>::set_angle	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	754	impl	MailboxSoA<N>	-	feature="with-planner"	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	765	fn	MailboxSoA<N>::cast_on_behalf	pub	feature="with-planner"	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	790	impl	MailboxSoA<N>	-	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	794	fn	MailboxSoA<N>::set_style_lane	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	808	fn	MailboxSoA<N>::set_style_atom	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	836	fn	MailboxSoA<N>::promote_family	pub	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	860	impl	MailboxSoaView for MailboxSoA<N>	-	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	957	impl	MailboxSoaOwner for MailboxSoA<N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	592	fn	MailboxSoA<N>::energy_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	598	fn	MailboxSoA<N>::plasticity_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	604	fn	MailboxSoA<N>::cycle	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	610	fn	MailboxSoA<N>::w_slot	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	617	fn	MailboxSoA<N>::pending_count	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	631	fn	MailboxSoA<N>::edge	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	640	fn	MailboxSoA<N>::set_edge	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	646	fn	MailboxSoA<N>::qualia_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	652	fn	MailboxSoA<N>::set_qualia	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	658	fn	MailboxSoA<N>::meta_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	664	fn	MailboxSoA<N>::set_meta	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	670	fn	MailboxSoA<N>::entity_type_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	676	fn	MailboxSoA<N>::set_entity_type	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	684	fn	MailboxSoA<N>::temporal_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	692	fn	MailboxSoA<N>::set_temporal	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	698	fn	MailboxSoA<N>::expert_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	704	fn	MailboxSoA<N>::set_expert	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	710	fn	MailboxSoA<N>::sigma_at	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	716	fn	MailboxSoA<N>::set_sigma	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	726	fn	MailboxSoA<N>::content_row	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	732	fn	MailboxSoA<N>::set_content	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	743	fn	MailboxSoA<N>::topic_row	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	749	fn	MailboxSoA<N>::set_topic	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	760	fn	MailboxSoA<N>::angle_row	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	766	fn	MailboxSoA<N>::set_angle	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	793	impl	MailboxSoA<N>	-	feature="with-planner"	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	804	fn	MailboxSoA<N>::cast_on_behalf	pub	feature="with-planner"	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	829	impl	MailboxSoA<N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	833	fn	MailboxSoA<N>::set_style_lane	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	847	fn	MailboxSoA<N>::set_style_atom	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	875	fn	MailboxSoA<N>::promote_family	pub	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	899	impl	MailboxSoaView for MailboxSoA<N>	-	-	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	996	impl	MailboxSoaOwner for MailboxSoA<N>	-	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	32	struct	OneMutableBorrower	pub	doctest	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	53	struct	AViewIsNotAnOwner	pub	doctest	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/ownership_laws.rs	81	struct	NoSecondPopulation	pub	doctest	CONFIRMED
@@ -14542,23 +14548,25 @@ lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	529	struct	BoundLanes	pub	-
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	534	impl	Iterator for BoundLanes<'_,'s,S>	-	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	553	impl	ExactSizeIterator for BoundLanes<'_,'_,S>	-	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lane.rs	85	struct	SelAddr	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1008	fn	BindStore::class_count	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1013	fn	BindStore::current_version	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1019	fn	BindStore::route	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1035	fn	BindStore::check_route	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1004	fn	BindStore::users_of	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1017	fn	BindStore::class_count	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1022	fn	BindStore::current_version	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1028	fn	BindStore::route	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1044	fn	BindStore::check_route	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	105	mod	lane	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1053	fn	BindStore::claimed	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1063	fn	BindStore::retract	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1069	fn	BindStore::routed_at	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1074	fn	BindStore::resolve	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1099	fn	BindStore::resolve_counted	pub(crate)	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1114	fn	BindStore::bound_basis	pub(crate)	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1120	fn	BindStore::resolve_at	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1137	fn	BindStore::method_ref	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1062	fn	BindStore::claimed	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1072	fn	BindStore::retract	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1078	fn	BindStore::routed_at	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1083	fn	BindStore::resolve	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1108	fn	BindStore::resolve_counted	pub(crate)	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1123	fn	BindStore::bound_basis	pub(crate)	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1129	fn	BindStore::resolve_at	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	114	struct	MethodId	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1162	fn	BindStore::check_issuer	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1181	fn	BindStore::admit	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1146	fn	BindStore::method_ref	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1171	fn	BindStore::check_issuer	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1184	fn	BindStore::admit_routed	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	119	struct	SigRev	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	1209	fn	BindStore::admit	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	123	struct	SchemaRev	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	130	struct	AlgebraRef	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	147	struct	Effect	pub	-	CONFIRMED
@@ -14587,32 +14595,31 @@ lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	386	impl	PartialEq for Stamp
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	392	impl	Eq for Stamp	-	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	394	impl	Hash for Stamp	-	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	474	enum	Refusal	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	612	impl	std::fmt::Display for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	618	impl	std::error::Error for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	620	impl	From<RouteRefusal>for Refusal	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	647	struct	Resolved	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	661	struct	FieldRow	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	669	struct	FieldMeaning	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	675	impl	Resolved<'s,'v>	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	678	fn	Resolved<'s,'v>::methods_on	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	684	fn	Resolved<'s,'v>::field_view	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	701	fn	Resolved<'s,'v>::field_meaning	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	720	fn	Resolved<'s,'v>::mask_where	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	730	fn	Resolved<'s,'v>::unspecified	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	747	fn	Resolved<'s,'v>::methods_touching	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	761	fn	Resolved<'s,'v>::action_ordinals	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	773	struct	BindStore	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	783	impl	Clone for BindStore	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	794	impl	BindStore	-	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	795	fn	BindStore::new	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	815	fn	BindStore::register	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	827	fn	BindStore::register_derived	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	918	fn	BindStore::declare_algebra	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	944	fn	BindStore::arity	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	955	fn	BindStore::resolve_algebra	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	978	fn	BindStore::words_used	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	621	impl	std::fmt::Display for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	627	impl	std::error::Error for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	629	impl	From<RouteRefusal>for Refusal	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	656	struct	Resolved	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	670	struct	FieldRow	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	678	struct	FieldMeaning	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	684	impl	Resolved<'s,'v>	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	687	fn	Resolved<'s,'v>::methods_on	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	693	fn	Resolved<'s,'v>::field_view	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	710	fn	Resolved<'s,'v>::field_meaning	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	729	fn	Resolved<'s,'v>::mask_where	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	739	fn	Resolved<'s,'v>::unspecified	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	756	fn	Resolved<'s,'v>::methods_touching	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	770	fn	Resolved<'s,'v>::action_ordinals	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	782	struct	BindStore	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	792	impl	Clone for BindStore	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	803	impl	BindStore	-	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	804	fn	BindStore::new	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	824	fn	BindStore::register	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	836	fn	BindStore::register_derived	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	927	fn	BindStore::declare_algebra	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	953	fn	BindStore::arity	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	964	fn	BindStore::resolve_algebra	pub	-	CONFIRMED
+lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	987	fn	BindStore::words_used	pub	-	CONFIRMED
 lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	99	mod	dr	pub	-	CONFIRMED
-lance-graph-dt64	crates/lance-graph-dt64/src/lib.rs	995	fn	BindStore::users_of	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	105	enum	Settled	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	159	struct	MapLog	pub	-	CONFIRMED
 lance-graph-dt64-lance	crates/lance-graph-dt64-lance/src/lib.rs	174	struct	Undrained	pub	-	CONFIRMED
@@ -14746,6 +14753,20 @@ lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	45	impl	Map	-	-	
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	46	const	Map::MASK_CAP	pub	-	CONFIRMED
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	48	fn	Map::draw	pub	-	CONFIRMED
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	56	fn	Map::teleport	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	116	struct	MailboxLanes	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	126	impl	MailboxLanes<'a,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	130	fn	MailboxLanes<'a,N>::new	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	148	fn	MailboxLanes<'a,N>::frame_store	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	154	fn	MailboxLanes<'a,N>::seal	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	162	fn	MailboxLanes<'a,N>::space	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	171	fn	MailboxLanes<'a,N>::rows	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	176	impl	LaneSource for MailboxLanes<'_,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	44	enum	Column	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	59	enum	ColumnRefusal	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	66	impl	Column	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	68	const	Column::ALL	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	78	fn	Column::iri	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	89	fn	Column::from_iri	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	110	const	TILE_WORDS	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	114	fn	tile_words_for	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	118	fn	scratch_words_for	pub	-	CONFIRMED

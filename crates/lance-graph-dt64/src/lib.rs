@@ -607,6 +607,15 @@ pub enum Refusal {
         asked: RouteVersion,
         current: RouteVersion,
     },
+    /// A method reference of `class` was offered for a position that did not
+    /// route to `class` at the captured version, or does not now
+    /// ([`BindStore::admit_routed`]).
+    NotRoutedClass {
+        position: u16,
+        captured: Option<u32>,
+        now: Option<u32>,
+        class: u32,
+    },
 }
 
 impl std::fmt::Display for Refusal {
@@ -1165,6 +1174,25 @@ impl BindStore {
         } else {
             Err(Refusal::ForeignStore { class: r.class })
         }
+    }
+
+    /// [`BindStore::admit`] for a POSITION: the reference's class must be the
+    /// one `route.position` routed to at `route.version` and routes to now.
+    /// `admit` alone checks a reference against the store, so it accepts a
+    /// method of any registered class; this is the admission a caller holding
+    /// a routed address uses.
+    pub fn admit_routed(&self, route: RouteAt, r: &MethodRef) -> Result<&MethodBinding, Refusal> {
+        let captured = self.routed_at(route.version, route.position)?;
+        let now = self.routed_at(self.current_version(), route.position)?;
+        if captured != Some(r.class) || now != Some(r.class) {
+            return Err(Refusal::NotRoutedClass {
+                position: route.position,
+                captured,
+                now,
+                class: r.class,
+            });
+        }
+        self.admit(r)
     }
 
     /// Check a router's method reference against the binding and return the

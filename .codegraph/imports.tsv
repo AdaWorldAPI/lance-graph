@@ -777,8 +777,10 @@ cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	225	palette_pe
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	227	quad8::ProductAddress12	-	pub-use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	227	quad8::Quad8	-	pub-use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/lib.rs	228	switch16::Switch16	-	pub-use	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1783	super::*	-	use	all(test, feature="with-planner")	POSSIBLE
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1784	lance_graph_planner::batch_writer::BatchWriter	-	use	all(test, feature="with-planner")	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1025	super::*	-	use	test	POSSIBLE
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1026	causal_edge::CausalEdge64	-	use	test	CONFIRMED
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1822	super::*	-	use	all(test, feature="with-planner")	POSSIBLE
+cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	1823	lance_graph_planner::batch_writer::BatchWriter	-	use	all(test, feature="with-planner")	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	29	causal_edge::CausalEdge64	-	use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	30	lance_graph_contract::cognitive_shader::MetaWord	-	use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	31	lance_graph_contract::collapse_gate::MailboxId	-	use	-	CONFIRMED
@@ -790,8 +792,6 @@ cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	34	lan
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	34	lance_graph_contract::soa_view::MailboxSoaOwner	-	use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	34	lance_graph_contract::soa_view::MailboxSoaView	-	use	-	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	34	lance_graph_contract::soa_view::StyleLane	-	use	-	CONFIRMED
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	986	super::*	-	use	test	POSSIBLE
-cognitive-shader-driver	crates/cognitive-shader-driver/src/mailbox_soa.rs	987	causal_edge::CausalEdge64	-	use	test	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/palette_perturbation.rs	161	super::*	-	use	test	POSSIBLE
 cognitive-shader-driver	crates/cognitive-shader-driver/src/planner_bridge.rs	15	std::time::Instant	-	use	all(feature="with-planner", any(feature="serve", feature="grpc"))	CONFIRMED
 cognitive-shader-driver	crates/cognitive-shader-driver/src/planner_bridge.rs	17	lance_graph_planner::mul::SituationInput	PlannerSituation	use	all(feature="with-planner", any(feature="serve", feature="grpc"))	CONFIRMED
@@ -7091,6 +7091,20 @@ lance-graph-lane-fold	crates/lance-graph-lane-fold/src/query.rs	1	lance_graph_co
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/query.rs	2	std::convert::TryFrom	-	use	-	CONFIRMED
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/query.rs	224	super::*	-	use	test	POSSIBLE
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	80	super::*	-	use	test	POSSIBLE
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	32	std::sync::atomic::AtomicU64	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	32	std::sync::atomic::Ordering	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	34	cognitive_shader_driver::mailbox_soa::Published	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	35	lance_graph_contract::ontology::FieldRef	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	36	lance_graph_contract::soa_view::MailboxSoaView	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	37	lance_graph_dt64::dr::Frame	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	37	lance_graph_dt64::dr::FrameRevisions	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	37	lance_graph_dt64::dr::FrameStore	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	37	lance_graph_dt64::dr::Scope	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	38	lance_graph_dt64::CoordSpace	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	38	lance_graph_dt64::LaneAddr	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	38	lance_graph_dt64::LaneSource	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	38	lance_graph_dt64::SchemaRev	-	use	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	39	lance_graph_mask_risc::LaneRef	-	use	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	2141	super::*	-	use	test	POSSIBLE
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	2197	super::*	-	use	test	POSSIBLE
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	2198	crate::ir::LaneRef	-	use	test	CONFIRMED

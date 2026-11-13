@@ -320,11 +320,11 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n9["crepe-plan-probe"]
   n45["lance-graph-contract"]
-  n53["lance-graph-mask-risc"]
-  n66["lance-graph-relalg"]
-  n74["mork-pathmap-probe"]
+  n54["lance-graph-mask-risc"]
+  n67["lance-graph-relalg"]
+  n75["mork-pathmap-probe"]
   n9 --> n45
-  n9 --> n53
-  n9 --> n66
-  n9 --> n74
+  n9 --> n54
+  n9 --> n67
+  n9 --> n75
 ```

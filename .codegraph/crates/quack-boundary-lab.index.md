@@ -175,11 +175,11 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n53["lance-graph-mask-risc"]
-  n63["lance-graph-quack"]
-  n81["quack-boundary-lab"]
-  n81 --> n45
-  n81 --> n48
-  n81 --> n53
-  n81 --> n63
+  n54["lance-graph-mask-risc"]
+  n64["lance-graph-quack"]
+  n82["quack-boundary-lab"]
+  n82 --> n45
+  n82 --> n48
+  n82 --> n54
+  n82 --> n64
 ```

@@ -3,7 +3,7 @@
 crate: cognitive-shader-driver
 path: crates/cognitive-shader-driver
 workspace: member
-digest: 53736d48f679812e
+digest: e8ca32e1654c0483
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -33,6 +33,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep lance-graph-mailbox-lanes normal — crates/lance-graph-mailbox-lanes/Cargo.toml:9 CONFIRMED
 - rdep lance-graph-planner dev — crates/lance-graph-planner/Cargo.toml:78 CONFIRMED
 - rdep lance-graph-supervisor dev — crates/lance-graph-supervisor/Cargo.toml:61 CONFIRMED
 - rdep virtual-address-lab dev — crates/virtual-address-lab/Cargo.toml:21 CONFIRMED
@@ -239,7 +240,7 @@ Generated; the code is the truth. See ../index.md.
 - mod switch16 [pub] — crates/cognitive-shader-driver/src/lib.rs:149 CONFIRMED
 - mod decode_kernel [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:156 CONFIRMED
 - mod token_agreement [pub] cfg=any(feature="serve", feature="grpc") — crates/cognitive-shader-driver/src/lib.rs:163 CONFIRMED
-- truncated (414 total), see symbols.tsv
+- truncated (417 total), see symbols.tsv
 
 ## Imports from in-scope crates
 
@@ -269,7 +270,7 @@ Generated; the code is the truth. See ../index.md.
 - use causal_edge::pearl::CausalMask cfg=test — crates/cognitive-shader-driver/src/edge_v3_compare.rs:78 CONFIRMED
 - use causal_edge::plasticity::PlasticityState cfg=test — crates/cognitive-shader-driver/src/edge_v3_compare.rs:79 CONFIRMED
 - use causal_edge::CausalEdge64 — crates/cognitive-shader-driver/src/mailbox_soa.rs:29 CONFIRMED
-- use causal_edge::CausalEdge64 cfg=test — crates/cognitive-shader-driver/src/mailbox_soa.rs:987 CONFIRMED
+- use causal_edge::CausalEdge64 cfg=test — crates/cognitive-shader-driver/src/mailbox_soa.rs:1026 CONFIRMED
 ### lance-graph-contract
 - pub-use lance_graph_contract::collapse_gate::MailboxId — crates/cognitive-shader-driver/src/attention_mask.rs:16 CONFIRMED
 - use lance_graph_contract::collapse_gate::MailboxId — crates/cognitive-shader-driver/src/attention_mask_actor.rs:4 CONFIRMED
@@ -370,16 +371,18 @@ flowchart LR
   n7["cognitive-shader-driver"]
   n11["deepnsm"]
   n45["lance-graph-contract"]
-  n59["lance-graph-ontology"]
-  n61["lance-graph-planner"]
-  n78["p64-bridge"]
-  n94["thinking-engine"]
+  n53["lance-graph-mailbox-lanes"]
+  n60["lance-graph-ontology"]
+  n62["lance-graph-planner"]
+  n79["p64-bridge"]
+  n95["thinking-engine"]
   n7 --> n2
   n7 --> n3
   n7 --> n11
   n7 --> n45
-  n7 --> n59
-  n7 --> n61
-  n7 --> n78
-  n7 --> n94
+  n7 --> n60
+  n7 --> n62
+  n7 --> n79
+  n7 --> n95
+  n53 --> n7
 ```

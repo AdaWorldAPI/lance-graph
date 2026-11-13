@@ -71,7 +71,7 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
-  n76["ogar-behavior-probe"]
-  n76 --> n45
-  n76 --> n48
+  n77["ogar-behavior-probe"]
+  n77 --> n45
+  n77 --> n48
 ```

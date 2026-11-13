@@ -355,5 +355,5 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 
 ## Architecture
 
-- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:720 CONFIRMED
+- arch DT64 selects-fields-with WideFieldMask [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:729 CONFIRMED
 - arch WideFieldMask defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:243 CONFIRMED
