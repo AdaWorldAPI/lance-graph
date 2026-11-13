@@ -41,6 +41,7 @@ class Refusal(Enum):
     UNKNOWN_RULESET = auto()
     INSUFFICIENT_COAL = auto()
     WRONG_MANEUVER = auto()
+    NOT_PROPOSED = auto()
 
 
 RULE_DOMAIN = {
@@ -70,11 +71,16 @@ class Context:
     ruleset: str = ""
 
 
-def candidates(first_construct: int) -> tuple[Rule, ...]:
+# Which rules a first byte proposes. One entry: all three share 0x2A.
+CANDIDATE_TABLE: dict[int, tuple[Rule, ...]] = {LEFT_CORNER: tuple(Rule)}
+
+
+def candidates(
+    first_construct: int,
+    table: dict[int, tuple[Rule, ...]] = CANDIDATE_TABLE,
+) -> tuple[Rule, ...]:
     """Indexing only. No identity, grammar, authorization or execution."""
-    if first_construct != LEFT_CORNER:
-        return ()
-    return tuple(Rule)
+    return table.get(first_construct, ())
 
 
 def admit(rule: Rule, ctx: Context) -> Refusal | None:
@@ -104,6 +110,22 @@ def admit(rule: Rule, ctx: Context) -> Refusal | None:
         if ctx.coal < 2:
             return Refusal.INSUFFICIENT_COAL
     return None
+
+
+def decide(
+    first_construct: int,
+    ctx: Context,
+    table: dict[int, tuple[Rule, ...]] = CANDIDATE_TABLE,
+) -> dict[Rule, Refusal | None]:
+    """The selector feeds the gate: only a proposed rule reaches `admit`.
+
+    A rule the byte does not propose is NOT_PROPOSED, whatever its context.
+    """
+    proposed = candidates(first_construct, table)
+    return {
+        rule: admit(rule, ctx) if rule in proposed else Refusal.NOT_PROPOSED
+        for rule in Rule
+    }
 
 
 class P0SemanticTwins(unittest.TestCase):
@@ -203,6 +225,36 @@ class P0SemanticTwins(unittest.TestCase):
         )
         self.assertEqual(
             admit(Rule.RAILS_INCOMPLETE_COUNT, self.river),
+            Refusal.WRONG_DOMAIN,
+        )
+
+    def test_selector_output_decides_which_rules_are_consulted(self) -> None:
+        positives = {
+            Rule.RAILS_INCOMPLETE_COUNT: self.rails,
+            Rule.CE64_RECIPIENT_SELECTION: self.role,
+            Rule.RIVER_EXTRA_TURN: self.river,
+        }
+        for rule, ctx in positives.items():
+            with self.subTest(rule=rule):
+                # The shared byte proposes all three; the typed context
+                # leaves exactly the one rule of its own domain.
+                got = decide(LEFT_CORNER, ctx)
+                self.assertEqual([r for r, v in got.items() if v is None], [rule])
+                # A byte that proposes nothing admits nothing, even for a
+                # context that satisfies every guard.
+                wrong = decide(LEFT_CORNER ^ 1, ctx)
+                self.assertEqual(set(wrong.values()), {Refusal.NOT_PROPOSED})
+        # A selector that drops one candidate loses exactly that answer.
+        narrow = {LEFT_CORNER: (Rule.RAILS_INCOMPLETE_COUNT, Rule.CE64_RECIPIENT_SELECTION)}
+        self.assertEqual(
+            decide(LEFT_CORNER, self.river, narrow)[Rule.RIVER_EXTRA_TURN],
+            Refusal.NOT_PROPOSED,
+        )
+        self.assertIsNone(decide(LEFT_CORNER, self.rails, narrow)[Rule.RAILS_INCOMPLETE_COUNT])
+        # Proposing a rule does not admit it: the wrong-domain rules are
+        # consulted and refused by their guards, not by the selector.
+        self.assertEqual(
+            decide(LEFT_CORNER, self.rails)[Rule.RIVER_EXTRA_TURN],
             Refusal.WRONG_DOMAIN,
         )
 
