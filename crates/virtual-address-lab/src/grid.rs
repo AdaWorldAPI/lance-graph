@@ -23,6 +23,8 @@ pub const CLASS: u32 = 0x0A1A_0003;
 /// The behaviour lens of [`CLASS`]: same left half, right half `0xF###`. Its
 /// basis is read by its full classid.
 pub const BEHAVIOUR: u32 = 0x0A1A_F003;
+/// Another behaviour lens with the same basis that NO position routes to.
+pub const UNRELATED: u32 = 0x0A1A_F004;
 /// The one-word polyfill lens the fixture's effects name.
 pub const POLYFILL: u32 = 0x0A1A_F0A0;
 /// DR position the class is routed at.
@@ -55,6 +57,8 @@ struct Issued {
 pub struct Grid {
     lanes: usize,
     len: usize,
+    /// The classid this source serves lanes for.
+    class: u32,
     /// Lane-major: lane `l` is `cells[l * len..(l + 1) * len]`.
     cells: Vec<i32>,
     frames: FrameStore,
@@ -77,6 +81,7 @@ impl Grid {
         Grid {
             lanes,
             len,
+            class: CLASS,
             cells,
             frames: FrameStore::new(FrameRevisions {
                 source: 1,
@@ -194,6 +199,13 @@ impl Grid {
         }
     }
 
+    /// The same lanes served for another classid (the class a position is
+    /// routed to).
+    pub fn for_class(mut self, class: u32) -> Grid {
+        self.class = class;
+        self
+    }
+
     /// The same lanes under other lane ids.
     pub fn with_lane_ids(mut self, phys: Vec<u16>) -> Grid {
         assert_eq!(phys.len(), self.lanes);
@@ -229,7 +241,7 @@ impl LaneSource for Grid {
         frame: &Frame,
     ) -> Option<LaneAddr> {
         self.frames.check(frame).ok()?;
-        if class != CLASS || rev != SchemaRev(1) {
+        if class != self.class || rev != SchemaRev(1) {
             return None;
         }
         // Mapped by the field DT64 resolved, never by its position.
@@ -316,7 +328,7 @@ impl ClassView for View {
         }
     }
     fn lens_fields(&self, lens: u32) -> Option<&[FieldRef]> {
-        (lens == BEHAVIOUR).then_some(self.0.as_slice())
+        (lens == BEHAVIOUR || lens == UNRELATED).then_some(self.0.as_slice())
     }
     fn template(&self, _class: ClassId) -> DisplayTemplate {
         DisplayTemplate::Detail
@@ -349,28 +361,40 @@ impl World {
         World::over(View::named(fields), fields.len(), Vec::new())
     }
 
-    /// A world whose data class has no methods and whose behaviour lens
-    /// [`BEHAVIOUR`] carries `methods`, over a polyfill lens of one word per
-    /// entry of `arity`.
-    pub fn with_behaviour(lanes: usize, arity: Vec<u8>, methods: Vec<MethodBinding>) -> World {
+    /// A world whose position routes to the behaviour lens [`BEHAVIOUR`]
+    /// (carrying `methods`), with a second lens [`UNRELATED`] registered over
+    /// the same basis (carrying `unrelated`) that nothing routes to. The
+    /// polyfill lens has one word per entry of `arity`.
+    pub fn routed_to_behaviour(
+        lanes: usize,
+        arity: Vec<u8>,
+        methods: Vec<MethodBinding>,
+        unrelated: Vec<MethodBinding>,
+    ) -> World {
         let mut world = World::new(lanes);
         world
             .store
             .declare_algebra(POLYFILL, SchemaRev(1), Extent::DR256_SQ_X64, arity)
             .expect("the polyfill lens binds");
-        world
+        for (lens, bound) in [(BEHAVIOUR, methods), (UNRELATED, unrelated)] {
+            world
+                .store
+                .register(
+                    &world.view,
+                    lens,
+                    ClassSchema {
+                        schema_rev: SchemaRev(1),
+                        field_count: lanes,
+                        extent: Extent::DR256_SQ_X64,
+                    },
+                    bound,
+                )
+                .expect("the behaviour lens registers");
+        }
+        world.route.version = world
             .store
-            .register(
-                &world.view,
-                BEHAVIOUR,
-                ClassSchema {
-                    schema_rev: SchemaRev(1),
-                    field_count: lanes,
-                    extent: Extent::DR256_SQ_X64,
-                },
-                methods,
-            )
-            .expect("the behaviour lens registers");
+            .route(POSITION, BEHAVIOUR)
+            .expect("the position routes to the behaviour lens");
         world
     }
 
@@ -400,10 +424,26 @@ impl World {
         }
     }
 
+    /// Every field position of the class, as a mask.
+    fn all_fields(&self) -> WideFieldMask {
+        let all: Vec<u8> = (0..self.lanes)
+            .filter_map(|l| u8::try_from(l).ok())
+            .collect();
+        WideFieldMask::from_positions(&all)
+    }
+
     /// Bind every field of `grid`, expecting row order `selection`.
     pub fn bind_as(&self, grid: &Grid, selection: CoordSpace) -> Result<LaneBinding, LaneRefusal> {
-        let all: Vec<u8> = (0..self.lanes as u8).collect();
-        let fields = WideFieldMask::from_positions(&all);
+        self.bind_fields(grid, &self.all_fields(), selection)
+    }
+
+    /// Bind exactly `fields` of `grid`. The binding refuses every other field.
+    pub fn bind_fields(
+        &self,
+        grid: &Grid,
+        fields: &WideFieldMask,
+        selection: CoordSpace,
+    ) -> Result<LaneBinding, LaneRefusal> {
         let frame = grid.frames.seal();
         self.store.bind_lanes(
             &self.view,
@@ -412,7 +452,7 @@ impl World {
             LaneRequest {
                 route: self.route,
                 rev: SchemaRev(1),
-                fields: &fields,
+                fields,
                 frame: &frame,
                 scope: READER,
                 selection,
@@ -430,8 +470,7 @@ impl World {
         source: &S,
         selection: CoordSpace,
     ) -> Result<LaneBinding, LaneRefusal> {
-        let all: Vec<u8> = (0..self.lanes as u8).collect();
-        let fields = WideFieldMask::from_positions(&all);
+        let fields = self.all_fields();
         let frame = source.frames().seal();
         self.store.bind_lanes(
             &self.view,

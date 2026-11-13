@@ -39,6 +39,25 @@ pub enum Refused {
     /// would change which source-local position a request denotes, and no
     /// owner-issued coordinate witness says that is allowed. Nothing was read.
     RowCoordinatesChanged { recipe: Recipe },
+    /// The store refused (class, route, method reference, guard witness).
+    Bind(lance_graph_dt64::Refusal),
+    /// The reference names a class the position does not route to, at the
+    /// captured route version or now. `BindStore::admit` alone would accept
+    /// it; the route is what ties behaviour to the position.
+    NotRoutedBehaviour {
+        position: u16,
+        routed: Option<u32>,
+        offered: u32,
+    },
+    /// The guard names mask plane `sym`. No socket of the source issues a
+    /// mask plane, so nothing says which frame, row order or population such
+    /// a plane would belong to. Nothing was evaluated.
+    GuardPlaneUnissued { sym: u32 },
+    /// A guard form this source cannot be read under (three-valued logic, a
+    /// constant set, an unsigned lane).
+    GuardUnsupported(&'static str),
+    /// Quack or mask-RISC refused the lowered guard.
+    GuardLower(String),
     /// A selected position is not a row of the lent lane.
     PositionOutsideLane { at: usize, position: u32 },
 }

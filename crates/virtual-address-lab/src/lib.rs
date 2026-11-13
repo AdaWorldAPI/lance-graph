@@ -20,6 +20,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod behaviour;
 pub mod cube;
 pub mod grid;
 pub mod method;
