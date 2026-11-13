@@ -160,11 +160,7 @@ fn every_recipe_reads_the_cell_the_moved_matrix_shows() {
                     recipe.name()
                 );
                 // The position a field-only reading would take.
-                let naive = if recipe == Recipe::normalize(&[recipe]) && built.len() == N {
-                    r
-                } else {
-                    c
-                };
+                let naive = if view_rows == N { r } else { c };
                 moved_rows += usize::from(pos != naive);
                 cells += 1;
             }
