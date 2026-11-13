@@ -761,3 +761,37 @@ Tests (`tests/cube_method.rs`):
 3. positions and lanes are the source's own (same address);
 4. mapping is DR's: the same lanes under other lane ids read the same cells;
 5. refusals: a frame advanced after the bind, a cell outside the view.
+
+### 15.1 Results (commit `f10f8e01b`, tests committed before the run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 37
+tests, 0 failed (`cube_method` 4). clippy `-D warnings`: exit 0. The four
+tests passed on their first run.
+
+- `Method` is 6 bytes (a `u16` and three `bool`s), not the 4 the plan text
+  above guessed; a `const` item composed with `const fn then`; inverse
+  recipes cancel in it at compile time.
+- Every cell of eight orientations of three selections (a 64-row order, a
+  filter that is a real subset, a 6-entry bag with a position three times)
+  equals the gathered-and-moved matrix; one read per cell; cells outside the
+  view refused.
+- `ROTATE90` over the bag reads its LAST issued position at ordinal 0: the
+  traversal is reversed, no unissued row is named.
+- The positions and the lane lent are the source's own addresses.
+- Lanes under other lane ids read the same cells: mapping is the binding's.
+- A frame advanced after the bind, and an unissued selection name, are
+  refused by the binding; the method is unchanged by either.
+
+Disable runs, each anchor asserted, each restored, all exit 101:
+
+| disable | failed |
+|---|---|
+| the ordinal taken from the view, not the recipe | the cube test |
+| the source's positions ignored (ordinal used as the row) | the cube test |
+| `then` drops the recipe | the constant test |
+| the field mirrored before the binding | the cube test |
+
+Not shown: anything about the mailbox (its admission stays BLOCKED); a third
+data axis (the "cube" here is fields x ordinals x the eight orientations,
+not a 3-D recipe such as a slice or an axis permutation); cost (each cell
+read re-runs the binding's whole check; not measured).

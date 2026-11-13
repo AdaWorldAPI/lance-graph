@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 5dccc187f2437de1
+digest: 210d30169f348693
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -72,10 +72,17 @@ Generated; the code is the truth. See ../index.md.
 - fn World::bind_source [pub] — crates/virtual-address-lab/src/grid.rs:395 CONFIRMED
 - mod cube [pub] — crates/virtual-address-lab/src/lib.rs:23 CONFIRMED
 - mod grid [pub] — crates/virtual-address-lab/src/lib.rs:24 CONFIRMED
-- mod owner [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
-- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
-- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
-- mod view [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
+- mod method [pub] — crates/virtual-address-lab/src/lib.rs:25 CONFIRMED
+- mod owner [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
+- mod physical [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
+- mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
+- mod view [pub] — crates/virtual-address-lab/src/lib.rs:29 CONFIRMED
+- struct Method [pub] — crates/virtual-address-lab/src/method.rs:21 CONFIRMED
+- struct Cell [pub] — crates/virtual-address-lab/src/method.rs:29 CONFIRMED
+- fn Method::new [pub] — crates/virtual-address-lab/src/method.rs:35 CONFIRMED
+- fn Method::then [pub] — crates/virtual-address-lab/src/method.rs:43 CONFIRMED
+- fn Method::cell [pub] — crates/virtual-address-lab/src/method.rs:52 CONFIRMED
+- fn Method::read [pub] — crates/virtual-address-lab/src/method.rs:60 CONFIRMED
 - const BASIS [pub] — crates/virtual-address-lab/src/owner.rs:29 CONFIRMED
 - enum Column [pub] — crates/virtual-address-lab/src/owner.rs:33 CONFIRMED
 - fn column_of [pub] — crates/virtual-address-lab/src/owner.rs:41 CONFIRMED
@@ -111,11 +118,12 @@ Generated; the code is the truth. See ../index.md.
 - fn Recipe::swaps [pub] — crates/virtual-address-lab/src/recipe.rs:87 CONFIRMED
 - fn Recipe::view_dims [pub] — crates/virtual-address-lab/src/recipe.rs:92 CONFIRMED
 - fn Recipe::resolve [pub] — crates/virtual-address-lab/src/recipe.rs:102 CONFIRMED
-- fn Recipe::then [pub] — crates/virtual-address-lab/src/recipe.rs:121 CONFIRMED
-- fn Recipe::inverse [pub] — crates/virtual-address-lab/src/recipe.rs:140 CONFIRMED
-- fn Recipe::normalize [pub] — crates/virtual-address-lab/src/recipe.rs:148 CONFIRMED
-- fn Recipe::digest [pub] — crates/virtual-address-lab/src/recipe.rs:153 CONFIRMED
-- fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:160 CONFIRMED
+- fn Recipe::lane_at [pub] — crates/virtual-address-lab/src/recipe.rs:121 CONFIRMED
+- fn Recipe::then [pub] — crates/virtual-address-lab/src/recipe.rs:131 CONFIRMED
+- fn Recipe::inverse [pub] — crates/virtual-address-lab/src/recipe.rs:150 CONFIRMED
+- fn Recipe::normalize [pub] — crates/virtual-address-lab/src/recipe.rs:158 CONFIRMED
+- fn Recipe::digest [pub] — crates/virtual-address-lab/src/recipe.rs:163 CONFIRMED
+- fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:170 CONFIRMED
 - struct Ledger [pub] — crates/virtual-address-lab/src/view.rs:16 CONFIRMED
 - enum Refused [pub] — crates/virtual-address-lab/src/view.rs:25 CONFIRMED
 - struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:49 CONFIRMED
@@ -162,10 +170,12 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::SchemaRev — crates/virtual-address-lab/src/grid.rs:17 CONFIRMED
 - use lance_graph_dt64::SelAddr — crates/virtual-address-lab/src/grid.rs:17 CONFIRMED
 - use lance_graph_dt64::SelectionSource — crates/virtual-address-lab/src/grid.rs:17 CONFIRMED
+- use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/method.rs:12 CONFIRMED
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 CONFIRMED
 - use lance_graph_dt64::LaneRefusal — crates/virtual-address-lab/src/view.rs:7 CONFIRMED
 ### lance-graph-mask-risc
 - use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/grid.rs:19 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/method.rs:13 CONFIRMED
 - use lance_graph_mask_risc::LaneRef — crates/virtual-address-lab/src/view.rs:8 CONFIRMED
 - use lance_graph_mask_risc::Value — crates/virtual-address-lab/src/view.rs:8 CONFIRMED
 ### lance-graph-report

@@ -28,9 +28,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/method.rs:12 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 
-## Textual occurrences (83 total)
+## Textual occurrences (87 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -111,6 +112,10 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/grid.rs:390 POSSIBLE
 - crates/virtual-address-lab/src/grid.rs:399 POSSIBLE
 - crates/virtual-address-lab/src/lib.rs:8 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:5 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:12 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:58 POSSIBLE
+- crates/virtual-address-lab/src/method.rs:63 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:33 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:60 POSSIBLE
