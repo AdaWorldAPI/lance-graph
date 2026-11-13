@@ -537,3 +537,73 @@ fn a_write_lands_only_under_the_owners_rules() {
         })
     ));
 }
+
+/// One row of the owner's state a stale write could touch.
+fn state(m: &Owner) -> (Model, Vec<u32>) {
+    (Model::of(m), m.last_write_cycle[..POPULATED].to_vec())
+}
+
+fn tally_intent(m: &Owner, w: &World) -> lance_graph_mailbox_lanes::act::Acted {
+    let own = w.store.method_ref(CLASS, TALLY).unwrap();
+    let lanes = MailboxLanes::new(m.published(), READER);
+    act(&lanes, &w.store, &w.view, &ctx(w), &own).unwrap()
+}
+
+/// Read-to-write boundary. FAILS IF: an intent computed under one
+/// publication lands after a column its guard or its operands read was
+/// changed by the owner without a `tick`, or any cell or stamp moves when it
+/// is refused.
+#[test]
+fn an_intent_does_not_outlive_what_it_read() {
+    let w = world();
+
+    // A row joins the guard: `meta` becomes 2 on a row whose `active` is not 1.
+    let mut m = owner();
+    first_write(&mut m);
+    let acted = tally_intent(&m, &w);
+    let joins = (0..POPULATED)
+        .find(|&r| meta_of(r) != 2 && active_of(r) != 1)
+        .unwrap();
+    let cycle = m.current_cycle;
+    m.set_meta(joins, MetaWord(2));
+    assert_eq!(m.current_cycle, cycle, "the setter moves no cycle");
+    let before = state(&m);
+    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(state(&m), before);
+
+    // A row leaves the guard.
+    let mut m = owner();
+    first_write(&mut m);
+    let acted = tally_intent(&m, &w);
+    let leaves = acted.rows[0] as usize;
+    m.set_meta(leaves, MetaWord(0));
+    let before = state(&m);
+    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(state(&m), before);
+
+    // An operand changes: one more guard row has `active == 0`, so the
+    // value the method would compute now is another one.
+    let mut m = owner();
+    first_write(&mut m);
+    let acted = tally_intent(&m, &w);
+    let operand = acted
+        .rows
+        .iter()
+        .map(|&r| r as usize)
+        .find(|&r| active_of(r) == 2)
+        .unwrap();
+    m.last_active_cycle[operand] = 0;
+    let before = state(&m);
+    assert!(apply(&mut m, &acted.intents[0]).is_err());
+    assert_eq!(state(&m), before);
+
+    // Silence twin: a change the method does not read leaves the intent
+    // valid. `sigma` is no field of the class.
+    let mut m = owner();
+    first_write(&mut m);
+    let acted = tally_intent(&m, &w);
+    m.set_sigma(acted.rows[0] as usize, 9);
+    let applied = apply(&mut m, &acted.intents[0]).unwrap();
+    assert_eq!(applied.changed, acted.rows.len() as u32);
+    assert_eq!(applied.refused, None);
+}
