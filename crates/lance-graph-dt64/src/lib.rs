@@ -93,7 +93,7 @@ use lance_graph_contract::class_view::{is_behaviour_lens, ClassId, ClassView, Wi
 use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::property::{PropertySchema, PropertySpec};
-use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, SetExpr};
+use lance_graph_contract::set_algebra::{normalize, normalize_kleene, Logic, Res, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 
 pub mod dr;
@@ -487,6 +487,13 @@ pub enum Refusal {
         class: u32,
         method: MethodId,
         position: u8,
+    },
+    /// A guard's residual names a lane at or past the class's field count. A
+    /// guard lane is a field position of the class the method is bound to.
+    GuardLaneOutOfBasis {
+        class: u32,
+        method: MethodId,
+        lane: u16,
     },
     /// The declared field count exceeds [`MAX_FIELDS`].
     BasisTooWide { class: u32, field_count: usize },
@@ -1335,7 +1342,7 @@ fn check_count<'v>(
 /// Registration checks: the basis fits a [`WideFieldMask`] and the chosen
 /// extent, the methods fit the extent's predicate axis, MethodIds are unique
 /// in the class, and every field position a binding names is inside the
-/// declared basis.
+/// declared basis, including the lanes its guard's residuals name.
 fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Result<(), Refusal> {
     if schema.field_count > MAX_FIELDS {
         return Err(Refusal::BasisTooWide {
@@ -1399,6 +1406,17 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
                 });
             }
         }
+        if let Some(lane) = m
+            .when
+            .as_ref()
+            .and_then(|g| guard_lane_outside(&g.expr, schema.field_count))
+        {
+            return Err(Refusal::GuardLaneOutOfBasis {
+                class,
+                method: m.id,
+                lane,
+            });
+        }
         // Dataflow: a step reads only what the method declares it reads or
         // what an earlier step of the same method wrote. Otherwise the order
         // of the recipe is not what it says.
@@ -1420,6 +1438,21 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
         }
     }
     Ok(())
+}
+
+/// The first residual lane of `e` that is not a field position below
+/// `field_count`, in the expression's own order. `Sym` leaves name no lane.
+fn guard_lane_outside(e: &SetExpr, field_count: usize) -> Option<u16> {
+    match e {
+        SetExpr::Res(Res::I32 { lane, .. }) | SetExpr::Res(Res::U32 { lane, .. }) => {
+            (usize::from(*lane) >= field_count).then_some(*lane)
+        }
+        SetExpr::And(cs) | SetExpr::Or(cs) => {
+            cs.iter().find_map(|c| guard_lane_outside(c, field_count))
+        }
+        SetExpr::Not(c) => guard_lane_outside(c, field_count),
+        SetExpr::All | SetExpr::Empty | SetExpr::Sym(_) => None,
+    }
 }
 
 /// The set positions of a mask, ascending.

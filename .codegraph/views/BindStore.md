@@ -5,13 +5,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 ## Definitions
 
 ### lance-graph-dt64 crates/lance-graph-dt64/src/lib.rs
-- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:782 CONFIRMED
+- struct BindStore [pub] — crates/lance-graph-dt64/src/lib.rs:789 CONFIRMED
 
 ## Impls mentioning it
 
 - impl BindStore — crates/lance-graph-dt64/src/lane.rs:230 POSSIBLE
-- impl Clone for BindStore — crates/lance-graph-dt64/src/lib.rs:792 POSSIBLE
-- impl BindStore — crates/lance-graph-dt64/src/lib.rs:803 POSSIBLE
+- impl Clone for BindStore — crates/lance-graph-dt64/src/lib.rs:799 POSSIBLE
+- impl BindStore — crates/lance-graph-dt64/src/lib.rs:810 POSSIBLE
 
 ## Imports (not resolved to a definition)
 
@@ -29,6 +29,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
 - use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
 - use crate::BindStore — crates/lance-graph-dt64/src/lane.rs:23 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:82 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding_native.rs:47 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
@@ -38,7 +39,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/virtual-address-lab/src/grid.rs:16 POSSIBLE
 
-## Textual occurrences (125 total)
+## Textual occurrences (128 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -111,22 +112,25 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:364 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:380 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:409 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:612 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:652 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:654 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:782 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:792 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:793 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:794 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:803 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:804 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:805 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1033 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1103 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1105 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1128 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1170 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1179 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:619 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:659 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:661 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:789 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:799 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:800 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:801 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:810 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:811 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:812 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1040 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1110 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1112 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1135 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1177 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1186 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:108 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:131 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:36 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:55 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:82 POSSIBLE

@@ -45,9 +45,27 @@ fn the_only_text_module_is_bind() {
     modules.sort();
     assert_eq!(
         modules,
-        ["bind.rs", "lib.rs"],
+        ["bind.rs", "lib.rs", "set.rs"],
         "a new module must be fenced"
     );
+}
+
+/// `set.rs` (D-VAS-C4) turns a contract `SetExpr` into a `Filter`. It is part
+/// of the executable side, so it is fenced like `lib.rs`.
+#[test]
+fn the_set_lowering_is_string_free() {
+    let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/set.rs")).unwrap();
+    let bad = violations(&src);
+    assert!(
+        bad.is_empty(),
+        "text in the set lowering:\n{}",
+        bad.join("\n")
+    );
+    let code = src
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//") && !l.trim().is_empty())
+        .count();
+    assert!(code > 100, "only {code} code lines scanned");
 }
 
 #[test]

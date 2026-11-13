@@ -49,6 +49,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
 - use lance_graph_contract::ClassView — crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/class_resolver.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:34 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/binding.rs:77 POSSIBLE
@@ -60,7 +61,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (323 total)
+## Textual occurrences (326 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
@@ -275,27 +276,30 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lib.rs:332 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:335 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:338 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:525 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:649 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:667 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:816 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:824 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:836 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:853 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:961 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:964 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1083 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1108 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1129 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1244 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1249 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1277 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1297 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:532 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:656 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:674 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:823 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:831 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:843 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:860 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:968 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:971 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1090 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1115 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1136 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1251 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1256 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1284 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1304 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:6 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:61 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:174 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:106 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:129 POSSIBLE
 - crates/lance-graph-mask-risc/src/ir.rs:23 POSSIBLE
 - crates/lance-graph-ogar/src/actions.rs:9 POSSIBLE
 - crates/lance-graph-ogar/src/lib.rs:8 POSSIBLE
@@ -359,12 +363,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-report/src/lane_source/tests.rs:53 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
 - crates/lance-graph-report/src/lane_source/tests.rs:200 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:595 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:599 POSSIBLE
-- crates/lance-graph-sap/src/schema.rs:4 POSSIBLE
 - truncated at 300
 
 ## Architecture
 
 - arch ClassView defined-in lance-graph-contract [CONFIRMED] validation=OK — crates/lance-graph-contract/src/class_view.rs:1057 CONFIRMED
-- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:824 CONFIRMED
+- arch DT64 interprets-via ClassView [CONFIRMED] validation=OK — crates/lance-graph-dt64/src/lib.rs:831 CONFIRMED

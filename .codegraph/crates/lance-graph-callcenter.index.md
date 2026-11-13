@@ -357,7 +357,7 @@ CALL_GRAPH=ARTIFACT_MISSING
 
 ## Architecture
 
-- arch Quack filter-needs-admission Filter::Semijoin [CONFIRMED] validation=OK — crates/lance-graph-quack/src/lib.rs:387 CONFIRMED
+- arch Quack filter-needs-admission Filter::Semijoin [CONFIRMED] validation=OK — crates/lance-graph-quack/src/lib.rs:388 CONFIRMED
 
 Generated from Cargo manifests — extracted relationships only.
 

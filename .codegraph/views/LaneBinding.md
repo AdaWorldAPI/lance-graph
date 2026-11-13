@@ -23,6 +23,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - pub-use lane::LaneBinding — crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
+- use lance_graph_dt64::LaneBinding — crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
 - use lance_graph_dt64::LaneBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:16 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/quack-boundary-lab/src/derived.rs:14 POSSIBLE
@@ -33,7 +34,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/method.rs:12 POSSIBLE
 - use lance_graph_dt64::LaneBinding — crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 
-## Textual occurrences (96 total)
+## Textual occurrences (98 total)
 
 - crates/dr-isa-stream-lab/src/bind.rs:7 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:108 POSSIBLE
@@ -81,7 +82,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-dt64/src/lane.rs:527 POSSIBLE
 - crates/lance-graph-dt64/src/lane.rs:528 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:108 POSSIBLE
-- crates/lance-graph-dt64/src/lib.rs:1104 POSSIBLE
+- crates/lance-graph-dt64/src/lib.rs:1111 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:83 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:6 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:9 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:29 POSSIBLE
