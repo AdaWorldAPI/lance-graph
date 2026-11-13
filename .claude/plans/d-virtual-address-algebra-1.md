@@ -370,3 +370,71 @@ a `[NodeRow]` slab (stride 512, offset 208) and from a lane the mailbox owns
 widened, copied or transposed. What it does not show: a DR frame, a DT64
 binding, a source-issued selection or a fold of the nibble VALUES (only
 equality to a mask and a count). No latency was measured.
+
+## 10. The owner-backed proof (directive of 2026-11-13), written before any run
+
+Question: can one version-bound address recipe let a consumer read exactly the
+demanded property from the existing `MailboxSoA` owner, through the existing
+DR/DT64 selection contract, without constructing the object or moving data?
+
+Additionally read: `class_view.rs` lines 1-700 and 1030-1210 (the masks and
+the `ClassView` trait head; the rest of the file is not read), `sel.rs` in
+full, `order_store.rs` lines 60-289.
+
+### 10.1 What exists and what the lab must supply
+
+- The owner lends two columns a `LaneRef` can carry: `meta_raw() -> &[u32]`
+  and `edges_raw() -> &[u64]` (`mailbox_soa.rs:925-950`). `energy` (`f32`) and
+  `entity_type` (`u16`) have no `LaneRef` kind. No column is `i32`.
+- The owner implements neither `LaneSource` nor `SelectionSource`, holds no
+  `FrameStore`, and resolves no identity to a row.
+
+So the DR/DT64 contract cannot reach the mailbox without a socket. The lab
+supplies the smallest one, modelled on `lance-graph-report`'s `AbiLanes`:
+`MailboxLanes<'m, V: MailboxSoaView>` holds **a shared borrow of the owner**
+and no value byte. Its frame revisions are read from the owner
+(`mailbox_id`, `current_cycle`); it owns one `FrameStore` (the existing type)
+and the source-issued selections. Because it borrows the owner, the owner
+cannot be mutated while it lives: a mutation ends the socket, and a socket
+made afterwards is another frame store.
+
+This socket is the missing production seam, built in the lab only. It is
+recorded as such in 10.4 whatever the tests show.
+
+### 10.2 Tests (`tests/mailbox.rs`, `tests/mailbox_alloc.rs`)
+
+Owner: `MailboxSoA<64>`. Class: two fields, `meta` and `edge`. The view is the
+entity view (`TRANSPOSE` of 2 lanes x n rows). Oracle: plain arrays kept by
+the test.
+
+1. One identity, one property: a source-issued selection of one position;
+   `meta` read through `LaneBinding::selected` equals the oracle; the lane's
+   address is the mailbox's own `meta` array; the row object is 16 bytes.
+2. 64 identities in key order (`OrderIndex::by_key` over `meta`, sealed):
+   the values arrive in (key, row) order; the positions are lent, not copied;
+   exactly 64 values are read; the `edge` column is not borrowed.
+3. Two properties, and one property spanning two regions (`meta` and `edge`
+   of the same identity): both lanes read at the same source-issued positions.
+4. A bag with duplicates: multiplicity and order preserved.
+5. `[T, R90, R270]` resolves like `[T]`; a chain that normalises to Identity
+   is reported (`PropertyCrossesFields`), nothing read; `ANTI_TRANSPOSE`
+   resolves the other field.
+6. Falsifiers: field mapping swapped under the same frame -> refused; owner
+   advanced (`tick`) -> the old binding is refused by the new socket; a
+   selection in another row order -> refused; a property the class does not
+   have -> refused; a position at or past `populated` -> refused, never the
+   zero padding of the capacity rows.
+7. RECORDED LIMITATION: `set_meta` without `tick` leaves the revisions a new
+   socket derives unchanged while the value differs.
+8. RECORDED GAP: `fold_bound_selection` over `meta` is refused with
+   `ExecError::LaneKind` (the fold admits `i32` only). Expected to hold; if it
+   does not, the gap closed and 10.4 is corrected.
+9. Warm path allocates nothing (separate binary).
+
+### 10.3 Ledger to report
+
+Owner bytes (`byte_footprint`), descriptor bytes, values copied into
+intermediate storage, values read, lane borrows per column, physical
+transposes, allocations, cold bind and warm read latency (ns). The 1-4 cycle
+hypothesis is NOT measured here: no register-local kernel runs on this path,
+the read is a position-indexed scalar load.

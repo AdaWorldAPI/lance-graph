@@ -22,6 +22,7 @@
 
 pub mod cube;
 pub mod grid;
+pub mod mailbox;
 pub mod physical;
 pub mod recipe;
 pub mod view;

@@ -35,6 +35,8 @@ pub enum Refused {
     PropertyCrossesFields { recipe: Recipe },
     /// The existing boundary refused.
     Fold(BoundSelRefusal),
+    /// A selected position is not a row of the lent lane.
+    PositionOutsideLane { at: usize, position: u32 },
 }
 
 /// One row of a virtual table: a recipe and a row number. Sixteen bytes, no
@@ -81,13 +83,23 @@ impl RowObject {
 /// The field a chain of views makes of `property`, after normalisation.
 /// Reads nothing and allocates nothing.
 pub fn field_through(chain: &[Recipe], grid: &Grid, property: usize) -> Result<u8, Refused> {
+    field_in(chain, grid.lanes(), grid.len(), property)
+}
+
+/// [`field_through`] over a tile of `lanes` fields and `len` rows.
+pub fn field_in(
+    chain: &[Recipe],
+    lanes: usize,
+    len: usize,
+    property: usize,
+) -> Result<u8, Refused> {
     let recipe = Recipe::normalize(chain);
-    let (_, properties) = recipe.view_dims(grid.lanes(), grid.len());
+    let (_, properties) = recipe.view_dims(lanes, len);
     if property >= properties {
         return Err(Refused::OutsideTheView);
     }
     recipe
-        .field_of(grid.lanes(), grid.len(), property)
+        .field_of(lanes, len, property)
         .map(|f| f as u8)
         .ok_or(Refused::PropertyCrossesFields { recipe })
 }

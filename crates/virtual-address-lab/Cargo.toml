@@ -19,3 +19,4 @@ dr256-ternlog-lab = { path = "../dr256-ternlog-lab" }
 [dev-dependencies]
 # The real mailbox owner, for the 24 x i4 reading over a lane it owns.
 cognitive-shader-driver = { path = "../cognitive-shader-driver" }
+causal-edge = { path = "../causal-edge" }

@@ -290,6 +290,16 @@ impl View {
                 .collect(),
         )
     }
+
+    /// A class whose fields are named by the caller, in basis order.
+    pub fn named(fields: &[(&str, &str)]) -> View {
+        View(
+            fields
+                .iter()
+                .map(|(iri, label)| FieldRef::new(*iri, *label))
+                .collect(),
+        )
+    }
 }
 
 impl ClassView for View {
@@ -323,7 +333,15 @@ impl World {
 
     /// A world whose class has `lanes` fields and `methods`.
     pub fn with(lanes: usize, methods: Vec<MethodBinding>) -> World {
-        let view = View::new(lanes);
+        World::over(View::new(lanes), lanes, methods)
+    }
+
+    /// A world over a class with the given named fields.
+    pub fn named(fields: &[(&str, &str)]) -> World {
+        World::over(View::named(fields), fields.len(), Vec::new())
+    }
+
+    fn over(view: View, lanes: usize, methods: Vec<MethodBinding>) -> World {
         let mut store = BindStore::new();
         store
             .register(
@@ -371,5 +389,29 @@ impl World {
 
     pub fn bind(&self, grid: &Grid) -> Result<LaneBinding, LaneRefusal> {
         self.bind_as(grid, grid.space())
+    }
+
+    /// Bind every field of any source, expecting row order `selection`.
+    pub fn bind_source<S: LaneSource>(
+        &self,
+        source: &S,
+        selection: CoordSpace,
+    ) -> Result<LaneBinding, LaneRefusal> {
+        let all: Vec<u8> = (0..self.lanes as u8).collect();
+        let fields = WideFieldMask::from_positions(&all);
+        let frame = source.frames().seal();
+        self.store.bind_lanes(
+            &self.view,
+            source.frames(),
+            source,
+            LaneRequest {
+                route: self.route,
+                rev: SchemaRev(1),
+                fields: &fields,
+                frame: &frame,
+                scope: READER,
+                selection,
+            },
+        )
     }
 }
