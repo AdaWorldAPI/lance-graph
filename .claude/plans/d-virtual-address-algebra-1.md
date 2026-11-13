@@ -696,3 +696,18 @@ position-reversing recipes in P0. The two are consistent: `address` there
 equals `resolve` here. Not claimed: `NodeGuid` resolution, a `ClassView`
 binding, source-issued row reordering, version authentication, DR/DT64
 admission.
+
+### 14.1 Results (probe committed at `49cc25280`, before its run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 33
+tests, 0 failed (`owner_address_law` 2). clippy `-D warnings`: exit 0.
+
+- `(12, 0)` under `ANTI_TRANSPOSE` resolves to `Address { field: 1, row: 51 }`
+  and reads `Edge(1051)`; it does not read `Edge(1012)`.
+- Parity over all eight recipes: 1,024 cells, each equal to the value at the
+  coordinate the data-moving reference shows; 512 of them at another
+  position than a field-only reading would take.
+- Disable runs, anchors asserted, both exit 101 with both tests failing: the
+  row taken from the view row instead of the recipe; the field mirrored. A
+  third patch with an absent anchor was reported as not applied and is not
+  counted.
