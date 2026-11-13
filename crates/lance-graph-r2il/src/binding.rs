@@ -79,7 +79,7 @@ use lance_graph_contract::ogar_codebook::classid_concept;
 use lance_graph_contract::set_rules::Truth;
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope};
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, Effect, MethodRef, Refusal, RouteVersion, SchemaRev,
+    AlgebraRef, Arg, BindStore, Effect, GuardWitness, MethodRef, Refusal, RouteVersion, SchemaRev,
 };
 use lance_graph_mask_risc::{LaneKind, LaneRef, Planes};
 use ogar_loco::{FnIndex, Vocabulary};
@@ -250,6 +250,12 @@ pub enum ExecRefusal {
     NotPermitted,
     /// The binding has a WHEN guard; this seam does not evaluate guards.
     GuardNotExecutable,
+    /// [`prepare_gated`] or [`run_gated`] was given an unguarded binding.
+    NotGuarded,
+    /// [`run`] was given a plan prepared for a guarded binding.
+    GateRequired,
+    /// The gate was evaluated for another guard than the plan's.
+    GateMismatch,
     /// The binding is three-valued; the dialect has no UNKNOWN rows.
     ThreeValuedNotExecutable,
     /// An effect names a lens other than the R2IL lens.
@@ -362,6 +368,41 @@ pub fn prepare<V: ClassView + ?Sized>(
         steps,
         plan_id,
     })
+}
+
+/// The rows a guarded method fires on, as a resident plane of the planes the
+/// dialect runs over, with the witness of the guard it was evaluated for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Gate {
+    pub plane: u16,
+    pub guard: GuardWitness,
+}
+
+/// STUB (test committed first).
+pub fn prepare_gated<V: ClassView + ?Sized>(
+    _store: &BindStore,
+    _view: &V,
+    _lens: R2ilLens,
+    _r: &Resolution<'_>,
+    _frames: &FrameStore,
+    _now: (Focus, Scope),
+) -> Result<Prepared, ExecRefusal> {
+    Err(ExecRefusal::GuardNotExecutable)
+}
+
+/// STUB (test committed first).
+#[allow(clippy::too_many_arguments)]
+pub fn run_gated(
+    _plan: &Prepared,
+    _store: &BindStore,
+    _frames: &FrameStore,
+    _now: (Focus, Scope),
+    _permit: &ExecPermit,
+    _fields: FieldLanes<'_>,
+    _dialect: &mut FoldDialect<'_>,
+    _gate: &Gate,
+) -> Result<Receipt, ExecRefusal> {
+    Err(ExecRefusal::GuardNotExecutable)
 }
 
 /// Run a prepared plan, hot: the store must be the one that issued the
