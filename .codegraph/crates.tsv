@@ -53,7 +53,7 @@ lance-graph-dt64-lance	crates/lance-graph-dt64-lance	excluded	19f394be7cbe3f5c
 lance-graph-glove-parity	crates/lance-graph-glove-parity	excluded	6c47a0e14dd892f9
 lance-graph-hydrate	crates/lance-graph-hydrate	member	9d14e9cc5ba8b211
 lance-graph-lane-fold	crates/lance-graph-lane-fold	member	6806a00a4e9aad08
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes	member	eadb6fdc025a2be1
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes	member	09aabb05f642bb8b
 lance-graph-mask-risc	crates/lance-graph-mask-risc	member	32478c87a39b812f
 lance-graph-metta	crates/lance-graph-metta	excluded	12752919056fe5bb
 lance-graph-nal	crates/lance-graph-nal	excluded	5e50d1539858fc39
@@ -65,7 +65,7 @@ lance-graph-osint	crates/lance-graph-osint	excluded	a84b66526149f2f8
 lance-graph-planner	crates/lance-graph-planner	member	b9f361d61ff779ad
 lance-graph-python	crates/lance-graph-python	excluded	09be59d43fefa7f5
 lance-graph-quack	crates/lance-graph-quack	member	a4d3ab92813e924f
-lance-graph-r2il	crates/lance-graph-r2il	member	4216b7877a98640c
+lance-graph-r2il	crates/lance-graph-r2il	member	2bc8572b791ea218
 lance-graph-rbac	crates/lance-graph-rbac	member	8d5b2b6b3f4ede06
 lance-graph-relalg	crates/lance-graph-relalg	excluded	7534be0bf7b60fda
 lance-graph-report	crates/lance-graph-report	member	c6ca9fc0a8f30162

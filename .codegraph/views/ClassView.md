@@ -49,6 +49,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lane.rs:19 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-dt64/src/lib.rs:92 POSSIBLE
 - use lance_graph_contract::ClassView — crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
+- use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/act.rs:56 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/class_resolver.rs:32 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-ontology/src/wikidata_hhtl.rs:34 POSSIBLE
@@ -61,7 +62,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_contract::class_view::ClassView — crates/soa64-u64-lab/src/socket.rs:10 POSSIBLE
 - use lance_graph_contract::class_view::ClassView — crates/virtual-address-lab/src/grid.rs:12 POSSIBLE
 
-## Textual occurrences (326 total)
+## Textual occurrences (331 total)
 
 - crates/causal-edge/src/edge_v3.rs:34 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:3 POSSIBLE
@@ -296,10 +297,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-glove-parity/src/basis.rs:23 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:61 POSSIBLE
 - crates/lance-graph-glove-parity/src/basis.rs:174 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:56 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:157 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:433 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/when.rs:106 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/when.rs:129 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:112 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/when.rs:135 POSSIBLE
 - crates/lance-graph-mask-risc/src/ir.rs:23 POSSIBLE
 - crates/lance-graph-ogar/src/actions.rs:9 POSSIBLE
 - crates/lance-graph-ogar/src/lib.rs:8 POSSIBLE
@@ -342,9 +346,11 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-r2il/src/binding.rs:15 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:35 POSSIBLE
 - crates/lance-graph-r2il/src/binding.rs:77 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:151 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:321 POSSIBLE
-- crates/lance-graph-r2il/src/binding.rs:542 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:152 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:336 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:348 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:428 POSSIBLE
+- crates/lance-graph-r2il/src/binding.rs:709 POSSIBLE
 - crates/lance-graph-r2il/src/polyfill.rs:29 POSSIBLE
 - crates/lance-graph-r2il/src/polyfill.rs:192 POSSIBLE
 - crates/lance-graph-r2il/src/polyfill.rs:193 POSSIBLE
@@ -358,11 +364,6 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-rbac/src/permission.rs:133 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:27 POSSIBLE
 - crates/lance-graph-report/src/bound_sel.rs:68 POSSIBLE
-- crates/lance-graph-report/src/lane_source.rs:19 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:10 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:53 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:81 POSSIBLE
-- crates/lance-graph-report/src/lane_source/tests.rs:200 POSSIBLE
 - truncated at 300
 
 ## Architecture

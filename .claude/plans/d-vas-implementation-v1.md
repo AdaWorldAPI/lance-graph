@@ -6,7 +6,8 @@ R6 (directive of 2026-11-13). Research baseline: PR #2060
 (`d-virtual-address-algebra-1.md`, sections 11 to 18).
 **Deliverables:** `D-VAS-A1`, `D-VAS-A2`, `D-VAS-C2`, `D-VAS-D1`,
 `D-VAS-E0` in R1; `D-VAS-A3`, `D-VAS-B2` in R2; `D-VAS-C1`, `D-VAS-C3`,
-`D-VAS-C4`, `D-VAS-C6` in R3; the remaining `D-VAS-*` ids in R4 to R6.
+`D-VAS-C4`, `D-VAS-C6` in R3; `D-VAS-D2`, `D-VAS-D3`, `D-VAS-D4`,
+`D-VAS-E1`, `D-VAS-F` in R4 to R6.
 
 Rules carried from the roadmap: ABI512, `NodeRow`, `VALUE_TENANTS` and the
 `MailboxSoA<N>` layout stay as implemented; no second column owner, identity
@@ -289,6 +290,144 @@ two-valued filter, and a two-valued normal form is never rewritten for NULLs.
   per call.
 - A guard over a selection as a bag: the mask is membership.
 
-## R4 to R6
+## R4: DO
 
-Not started. Order: D2 to D4, then E1, then F.
+### D2, the executor is R2IL's binding seam, under a gate (done)
+
+`lance_graph_r2il::binding` is the one place that runs a `MethodBinding`'s
+effects (`prepare` / `run`, through `FoldDialect` and mask-risc). It refused
+every guarded binding. It now has a second pair:
+
+- `prepare_gated` accepts a guarded, two-valued binding and marks the plan.
+- `run_gated(.., &Gate { plane, guard })` restricts every fold of the plan
+  (`POP_COUNT`, `SUM`, `MIN`, `MAX`, `ANY`, `KEY_RUNS`) to the rows of a
+  resident plane, by the dialect's own `IntAnd` (`call_shared`, so a
+  predicate a later step reads again is not rewritten). No opcode, kernel or
+  evaluator is added; the seam still does not evaluate WHEN.
+- `run` refuses a gated plan (`GateRequired`); `run_gated` refuses an
+  ungated one (`NotGuarded`) and a gate evaluated for another guard
+  (`GateMismatch`, compared against the `GuardWitness` the method reference
+  carries). `ALL` is refused in a gated plan: `ALL(m AND gate)` asks whether
+  every row of the table holds. The native path (`prepare_native`) refuses a
+  gated plan.
+- Precedent for a kept filter presented as a plane to a second program over
+  the same table: `lance_graph_quack::GroupPlan`.
+- Not checked, because nothing in R2IL can check it: that the plane's bits
+  are that guard's rows over these planes under this frame. The caller that
+  evaluated the guard vouches for it; on the mailbox that caller is `act`,
+  which evaluates and executes under one publication.
+
+Tests: `lance-graph-r2il/tests/integration/binding.rs`, 2 added, committed
+against stubs first (both failed). Oracle: scalar loops over the lane
+slices. Four disables (folds not gated, any gate accepted, a gated plan run
+ungated, `ALL` prepared): each exit 101.
+
+### D3, write-back through the owner's mutator (done)
+
+`lance_graph_mailbox_lanes::act`:
+
+- `act(lanes, store, view, ctx, method)` admits by route, evaluates WHEN,
+  binds operands over `reads`, runs the effects gated, and returns `Intent`s:
+  column, value, fired rows as one bit per row, and the owner's cycle at
+  publication. It writes nothing.
+- `apply(&mut owner, &intent)` hands each cell to `MailboxSoA::write_row`
+  with the intent's cycle, so the owner's own gate refuses a write made for
+  a cycle it has left (`Stale`). A cell that already holds the value is not
+  written. An intent of another mailbox is refused.
+- The publication ends before the write by construction: `apply` needs
+  `&mut`, so no frame, binding or lent lane of the read survives it.
+
+Semantics chosen, because DT64 states ON as a field mask and WHEN as a guard
+over the population and nothing more: the guard's rows are where the method
+fires, and an effect's scalar is written to its target field at every fired
+row. A reading that fires only on the changed row is not implemented.
+
+Limits: writable columns are `meta` and `temporal`; the two cycle stamps are
+refused (`NotWritable`); `edges` is not wired. Mailbox lanes are `u32` and
+`u64`, so the executable effects are `IntEqual` predicates, Boolean
+combinations and counts; `SUM`, `MIN`, `MAX` need an `i32` lane.
+
+### D4, ON from a real change, bounded (done)
+
+`cascade(owner, store, view, ctx, changed, max_rounds)`: a round publishes
+once, runs the methods ON the changed columns in ascending `MethodId` order
+against that one publication, then applies their intents. The columns the
+owner really changed are the next round's ON. It stops when a round changes
+no cell (`settled`) or at `max_rounds` (`settled == false`). A write that
+leaves a cell as it was triggers nothing.
+
+## R5: E1 on the real owner
+
+`lance-graph-mailbox-lanes/tests/e1.rs`, 4 tests on a real `MailboxSoA<64>`,
+committed before the `act` module existed. All four passed on the first run
+of the implementation, including ledger values written beforehand.
+
+Oracle: `Model`, the two methods written out by hand over plain vectors. It
+shares no code with DT64, Quack, mask-risc, R2IL or the socket.
+
+| Ledger | What is compared | Result |
+|---|---|---|
+| guard | per round: which methods fired, on which rows; rows scanned | equal to the model in all 3 rounds; 40 rows per guard program |
+| operands | lanes the socket lent per method | guard fields + 1 declared read (3 for `tally`, 2 for `mark`); 0 before admission |
+| effects | value computed, cells changed, steps, programs, owner stamps | equal to the model; 2 steps and 1 program per method; every changed cell stamped with the write's cycle |
+
+Final state: the owner's `meta`, `last_active_cycle` and `temporal` equal the
+model's cell for cell; rows past the populated prefix are untouched.
+
+Seven disables on `act.rs` (anchors asserted, restored): folds gated by every
+row; `apply` writing every row; `apply` with the owner's current cycle;
+`apply` for any mailbox; every write counted as a change; admission without
+the route; an unchanged cell written anyway. Each exit 101.
+
+Not in E1, each for a stated blocker: `NodeGuid` (B1), mask-plane guards
+(C5), three-valued guards on the mailbox (C6), typed selection folds (A4).
+E1 therefore starts from a source-local row, not from a `NodeGuid`.
+
+## R6: cost (measured, not optimised)
+
+`lance-graph-mailbox-lanes/examples/cost.rs`, release build, 40 rows of a
+`MailboxSoA<64>`, median of 9 batches, allocations counted by a counting
+global allocator. Two runs on the session's machine; the second in brackets
+where it differs by more than 5 %.
+
+| step | ns per call | allocations | bytes allocated |
+|---|---|---|---|
+| direct: sum 40 `meta` values from the owner's array | 2.7 | 0 | 0 |
+| scalar interpreter: tally (guard, count, 40 rows) | 11.9 | 0 | 0 |
+| eager: copy 40 rows into structs, then tally | 50.0 | 1 | 640 |
+| `MailboxLanes::new` | 117 (102) | 3 | 80 |
+| `admit_routed` | 692 | 17 | 2888 |
+| `bind_lanes`, one field | 336 (361) | 3 | 72 |
+| checked lane borrow + sum 40 values | 81 | 0 | 0 |
+| WHEN: lower + bind + run, 2 fields | 2061 | 31 | 3767 |
+| `act`: admission + WHEN + operands + gated DO | 5505 (6167) | 89 | 11140 |
+| `apply`, one intent (reset subtracted) | 72 | 0 | 0 |
+| `cascade`, 3 rounds, 2 methods (reset subtracted) | 18639 | 285 | 35751 |
+
+What the numbers say:
+
+- Reading a lent lane costs a check (about 80 ns per borrow here) and then
+  is the owner's array: 0 allocations, 0 bytes copied.
+- Everything above that is fixed cost per call, not per row: at 40 rows
+  `act` is about 500 times the hand-written interpreter. It prepares cold on
+  every call (guard lowered, lanes bound, plan prepared, dialect scratch
+  allocated). Stage F's intent, normalise once and check once per
+  population, is NOT implemented; this table is the baseline for it.
+- An intent carries 8 bytes of rows for 64 rows.
+
+A first version of the last two rows built an owner per call (about 50 us and
+398 KB); the differences came out negative and were discarded. The rows above
+reuse one owner and subtract a 9.5 ns reset.
+
+Not measured: larger populations (a mailbox is 64 rows here), other
+machines, the cost split inside `act`.
+
+## Ledger, R4 to R6
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| D2 | `prepare_gated`, `run_gated`, `Gate` (`lance-graph-r2il/src/binding.rs`) | scalar loops over the lanes | gated count and sum; all-rows and no-rows gates | no gate, wrong gate, ungated plan, absent plane, `ALL`, not permitted. 4 disables | SOURCE VERIFIED in R2IL; INTEGRATION VERIFIED through `act` |
+| D3 | `act`, `apply`, `Intent` (`lance-graph-mailbox-lanes/src/act.rs`); `MailboxSoA::write_row` | `Model` | cells changed equal the model, stamped | stale cycle, foreign mailbox, stamp column, repeat apply. 4 disables | INTEGRATION VERIFIED on `MailboxSoA<64>` for `meta` and `temporal` |
+| D4 | `cascade` | `Model::round` | 3 rounds, settles | bound of 2 reported unsettled; a column no method is ON. 2 disables | INTEGRATION VERIFIED |
+| E1 | the chain | `Model` | `tests/e1.rs`, 4 tests, three ledgers | 7 disables | INTEGRATION VERIFIED from a source-local row; from a `NodeGuid` BLOCKED (B1) |
+| F | `examples/cost.rs` | direct array, scalar interpreter, eager copy | measured, release | n/a | MEASURED; normalise-once NOT IMPLEMENTED |

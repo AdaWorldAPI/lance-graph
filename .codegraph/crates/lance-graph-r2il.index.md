@@ -3,7 +3,7 @@
 crate: lance-graph-r2il
 path: crates/lance-graph-r2il
 workspace: member
-digest: 4216b7877a98640c
+digest: 2bc8572b791ea218
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -23,6 +23,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep cg-beh-probe normal — crates/cg-beh-probe/Cargo.toml:24 CONFIRMED
 - rdep holo-h14d-probe normal — crates/holo-h14d-probe/Cargo.toml:18 CONFIRMED
 - rdep lance-graph normal — crates/lance-graph/Cargo.toml:58 CONFIRMED
+- rdep lance-graph-mailbox-lanes normal — crates/lance-graph-mailbox-lanes/Cargo.toml:16 CONFIRMED
 - rdep lance-graph-nal normal — crates/lance-graph-nal/Cargo.toml:19 CONFIRMED
 - rdep lance-graph-onnx dev — crates/lance-graph-onnx/Cargo.toml:18 CONFIRMED
 - rdep lance-graph-relalg normal — crates/lance-graph-relalg/Cargo.toml:17 CONFIRMED
@@ -30,29 +31,33 @@ Generated; the code is the truth. See ../index.md.
 
 ## Public items
 
-- const EXECUTABLE [pub] — crates/lance-graph-r2il/src/binding.rs:100 CONFIRMED
-- const LANE_COMPARES [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:106 CONFIRMED
-- struct FieldLanes [pub] — crates/lance-graph-r2il/src/binding.rs:113 CONFIRMED
-- struct R2ilLens [pub] — crates/lance-graph-r2il/src/binding.rs:119 CONFIRMED
-- struct ExecPermit [pub] — crates/lance-graph-r2il/src/binding.rs:128 CONFIRMED
-- struct Resolution [pub] — crates/lance-graph-r2il/src/binding.rs:135 CONFIRMED
-- struct Step [pub] — crates/lance-graph-r2il/src/binding.rs:145 CONFIRMED
-- struct Prepared [pub] — crates/lance-graph-r2il/src/binding.rs:165 CONFIRMED
-- fn Prepared::method [pub] — crates/lance-graph-r2il/src/binding.rs:179 CONFIRMED
-- fn Prepared::lens [pub] — crates/lance-graph-r2il/src/binding.rs:184 CONFIRMED
-- fn Prepared::route [pub] — crates/lance-graph-r2il/src/binding.rs:189 CONFIRMED
-- fn Prepared::guards [pub] — crates/lance-graph-r2il/src/binding.rs:194 CONFIRMED
-- fn Prepared::steps [pub] — crates/lance-graph-r2il/src/binding.rs:199 CONFIRMED
-- fn Prepared::plan_id [pub] — crates/lance-graph-r2il/src/binding.rs:204 CONFIRMED
-- struct Executed [pub] — crates/lance-graph-r2il/src/binding.rs:214 CONFIRMED
-- struct Receipt [pub] — crates/lance-graph-r2il/src/binding.rs:223 CONFIRMED
-- enum ExecRefusal [pub] — crates/lance-graph-r2il/src/binding.rs:236 CONFIRMED
-- fn prepare [pub] — crates/lance-graph-r2il/src/binding.rs:321 CONFIRMED
-- fn run [pub] — crates/lance-graph-r2il/src/binding.rs:377 CONFIRMED
-- fn call_step [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:462 CONFIRMED
-- fn check_route [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:483 CONFIRMED
-- fn lane [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:632 CONFIRMED
-- fn check_compare [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:661 CONFIRMED
+- const EXECUTABLE [pub] — crates/lance-graph-r2il/src/binding.rs:101 CONFIRMED
+- const LANE_COMPARES [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:107 CONFIRMED
+- struct FieldLanes [pub] — crates/lance-graph-r2il/src/binding.rs:114 CONFIRMED
+- struct R2ilLens [pub] — crates/lance-graph-r2il/src/binding.rs:120 CONFIRMED
+- struct ExecPermit [pub] — crates/lance-graph-r2il/src/binding.rs:129 CONFIRMED
+- struct Resolution [pub] — crates/lance-graph-r2il/src/binding.rs:136 CONFIRMED
+- struct Step [pub] — crates/lance-graph-r2il/src/binding.rs:146 CONFIRMED
+- struct Prepared [pub] — crates/lance-graph-r2il/src/binding.rs:166 CONFIRMED
+- fn Prepared::method [pub] — crates/lance-graph-r2il/src/binding.rs:182 CONFIRMED
+- fn Prepared::lens [pub] — crates/lance-graph-r2il/src/binding.rs:187 CONFIRMED
+- fn Prepared::route [pub] — crates/lance-graph-r2il/src/binding.rs:192 CONFIRMED
+- fn Prepared::guards [pub] — crates/lance-graph-r2il/src/binding.rs:197 CONFIRMED
+- fn Prepared::steps [pub] — crates/lance-graph-r2il/src/binding.rs:202 CONFIRMED
+- fn Prepared::plan_id [pub] — crates/lance-graph-r2il/src/binding.rs:207 CONFIRMED
+- fn Prepared::is_gated [pub] — crates/lance-graph-r2il/src/binding.rs:213 CONFIRMED
+- struct Executed [pub] — crates/lance-graph-r2il/src/binding.rs:223 CONFIRMED
+- struct Receipt [pub] — crates/lance-graph-r2il/src/binding.rs:232 CONFIRMED
+- enum ExecRefusal [pub] — crates/lance-graph-r2il/src/binding.rs:245 CONFIRMED
+- fn prepare [pub] — crates/lance-graph-r2il/src/binding.rs:336 CONFIRMED
+- struct Gate [pub] — crates/lance-graph-r2il/src/binding.rs:404 CONFIRMED
+- fn prepare_gated [pub] — crates/lance-graph-r2il/src/binding.rs:428 CONFIRMED
+- fn run_gated [pub] — crates/lance-graph-r2il/src/binding.rs:459 CONFIRMED
+- fn run [pub] — crates/lance-graph-r2il/src/binding.rs:497 CONFIRMED
+- fn call_step [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:628 CONFIRMED
+- fn check_route [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:649 CONFIRMED
+- fn lane [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:799 CONFIRMED
+- fn check_compare [pub(crate)] — crates/lance-graph-r2il/src/binding.rs:828 CONFIRMED
 - const MAX_NATIVE_OUTPUTS [pub] — crates/lance-graph-r2il/src/binding_native.rs:61 CONFIRMED
 - struct NativePlan [pub] — crates/lance-graph-r2il/src/binding_native.rs:102 CONFIRMED
 - fn NativePlan::plan_id [pub] — crates/lance-graph-r2il/src/binding_native.rs:117 CONFIRMED
@@ -68,7 +73,7 @@ Generated; the code is the truth. See ../index.md.
 - struct NativeReceipt [pub] — crates/lance-graph-r2il/src/binding_native.rs:178 CONFIRMED
 - fn NativeReceipt::values [pub] — crates/lance-graph-r2il/src/binding_native.rs:191 CONFIRMED
 - fn prepare_native [pub] — crates/lance-graph-r2il/src/binding_native.rs:203 CONFIRMED
-- fn run_native [pub] — crates/lance-graph-r2il/src/binding_native.rs:351 CONFIRMED
+- fn run_native [pub] — crates/lance-graph-r2il/src/binding_native.rs:356 CONFIRMED
 - mod binding [pub] — crates/lance-graph-r2il/src/lib.rs:111 CONFIRMED
 - mod binding_native [pub] — crates/lance-graph-r2il/src/lib.rs:112 CONFIRMED
 - mod polyfill [pub] — crates/lance-graph-r2il/src/lib.rs:113 CONFIRMED
@@ -162,7 +167,8 @@ Generated; the code is the truth. See ../index.md.
 ### lance-graph-contract
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/binding.rs:77 CONFIRMED
 - use lance_graph_contract::ogar_codebook::classid_concept — crates/lance-graph-r2il/src/binding.rs:78 CONFIRMED
-- use lance_graph_contract::set_rules::Truth — crates/lance-graph-r2il/src/binding.rs:79 CONFIRMED
+- use lance_graph_contract::set_algebra::Logic — crates/lance-graph-r2il/src/binding.rs:79 CONFIRMED
+- use lance_graph_contract::set_rules::Truth — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
 - use lance_graph_contract::class_view::ClassId — crates/lance-graph-r2il/src/polyfill.rs:29 CONFIRMED
 - use lance_graph_contract::class_view::ClassView — crates/lance-graph-r2il/src/polyfill.rs:29 CONFIRMED
 - use lance_graph_contract::ogar_codebook::classid_concept — crates/lance-graph-r2il/src/polyfill.rs:30 CONFIRMED
@@ -170,20 +176,21 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_contract::ontology::DisplayTemplate — crates/lance-graph-r2il/src/polyfill.rs:31 CONFIRMED
 - use lance_graph_contract::ontology::FieldRef — crates/lance-graph-r2il/src/polyfill.rs:31 CONFIRMED
 ### lance-graph-dt64
-- use lance_graph_dt64::dr::Focus — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::dr::GuardRefusal — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::dr::Guards — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::dr::Scope — crates/lance-graph-r2il/src/binding.rs:80 CONFIRMED
-- use lance_graph_dt64::AlgebraRef — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::Arg — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::Effect — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::MethodRef — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::Refusal — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::RouteVersion — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
-- use lance_graph_dt64::SchemaRev — crates/lance-graph-r2il/src/binding.rs:82 CONFIRMED
+- use lance_graph_dt64::dr::Focus — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::dr::GuardRefusal — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::dr::Guards — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::dr::Scope — crates/lance-graph-r2il/src/binding.rs:81 CONFIRMED
+- use lance_graph_dt64::AlgebraRef — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::Arg — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::Effect — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::GuardWitness — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::MethodRef — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::Refusal — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::RouteVersion — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
+- use lance_graph_dt64::SchemaRev — crates/lance-graph-r2il/src/binding.rs:83 CONFIRMED
 - use lance_graph_dt64::dr::Focus — crates/lance-graph-r2il/src/binding_native.rs:46 CONFIRMED
 - use lance_graph_dt64::dr::FrameRevisions — crates/lance-graph-r2il/src/binding_native.rs:46 CONFIRMED
 - use lance_graph_dt64::dr::FrameStore — crates/lance-graph-r2il/src/binding_native.rs:46 CONFIRMED
@@ -193,9 +200,9 @@ Generated; the code is the truth. See ../index.md.
 - use lance_graph_dt64::MethodRef — crates/lance-graph-r2il/src/binding_native.rs:47 CONFIRMED
 - use lance_graph_dt64::RouteVersion — crates/lance-graph-r2il/src/binding_native.rs:47 CONFIRMED
 ### lance-graph-mask-risc
-- use lance_graph_mask_risc::LaneKind — crates/lance-graph-r2il/src/binding.rs:84 CONFIRMED
-- use lance_graph_mask_risc::LaneRef — crates/lance-graph-r2il/src/binding.rs:84 CONFIRMED
-- use lance_graph_mask_risc::Planes — crates/lance-graph-r2il/src/binding.rs:84 CONFIRMED
+- use lance_graph_mask_risc::LaneKind — crates/lance-graph-r2il/src/binding.rs:85 CONFIRMED
+- use lance_graph_mask_risc::LaneRef — crates/lance-graph-r2il/src/binding.rs:85 CONFIRMED
+- use lance_graph_mask_risc::Planes — crates/lance-graph-r2il/src/binding.rs:85 CONFIRMED
 - use lance_graph_mask_risc::CompiledProgram — crates/lance-graph-r2il/src/binding_native.rs:49 CONFIRMED
 - use lance_graph_mask_risc::Foreign — crates/lance-graph-r2il/src/binding_native.rs:49 CONFIRMED
 - use lance_graph_mask_risc::Out — crates/lance-graph-r2il/src/binding_native.rs:49 CONFIRMED
@@ -244,6 +251,7 @@ flowchart LR
   n34["lance-graph"]
   n45["lance-graph-contract"]
   n48["lance-graph-dt64"]
+  n53["lance-graph-mailbox-lanes"]
   n54["lance-graph-mask-risc"]
   n56["lance-graph-nal"]
   n65["lance-graph-r2il"]
@@ -251,6 +259,7 @@ flowchart LR
   n4 --> n65
   n29 --> n65
   n34 --> n65
+  n53 --> n65
   n56 --> n65
   n65 --> n45
   n65 --> n48

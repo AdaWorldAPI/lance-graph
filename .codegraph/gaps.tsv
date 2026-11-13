@@ -3,7 +3,7 @@
 architecture-gap	ADMISSION B	call-site-classification	Semijoin, EqU32Via, Gather	EXO-140	no owner named; NOT IN, anti-joins and DR-math gathers wait on it
 architecture-gap	DR	coordinate-handoff-to	Lance _rowid	.claude/probes/2026-11-03-d-global-where-p1/REPORT.md:144	D4 open: no DR ordinal composed with _rowid
 architecture-gap	RBAC	applied-to	DT64 binding	#1997	G2: decision exists, nothing applies it to a binding
-architecture-gap	r2il	exec-permit-issuer	undecided	crates/lance-graph-r2il/src/binding.rs:125	ExecPermit is a lab permission
+architecture-gap	r2il	exec-permit-issuer	undecided	crates/lance-graph-r2il/src/binding.rs:126	ExecPermit is a lab permission
 calls-missing	bge-m3	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	bgz-tensor	calls	-	UNKNOWN	ARTIFACT_MISSING
 calls-missing	bgz17	calls	-	UNKNOWN	ARTIFACT_MISSING

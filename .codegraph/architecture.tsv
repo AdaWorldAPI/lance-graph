@@ -21,4 +21,4 @@ RBAC	applied-to	DT64 binding	GAP	#1997	-	G2: decision exists, nothing applies it
 RBAC	decision-for-read	authorize_scoped	CONFIRMED	crates/lance-graph-rbac/src/authorize.rs:210	authorize_scoped	ScopedDecision with ScopeSpec + WideFieldMask
 WideFieldMask	defined-in	lance-graph-contract	CONFIRMED	crates/lance-graph-contract/src/class_view.rs:243	WideFieldMask	selects field positions of a class
 mask-risc	quarantines	graph_hop gather	CONFIRMED	crates/lance-graph-mask-risc/Cargo.toml:30	quarantined-gather-hop	OutgoingHop behind an opt-in feature
-r2il	exec-permit-issuer	undecided	GAP	crates/lance-graph-r2il/src/binding.rs:125	who issues it is not	ExecPermit is a lab permission
+r2il	exec-permit-issuer	undecided	GAP	crates/lance-graph-r2il/src/binding.rs:126	who issues it is not	ExecPermit is a lab permission
