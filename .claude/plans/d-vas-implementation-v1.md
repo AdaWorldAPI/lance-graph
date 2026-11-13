@@ -121,9 +121,26 @@ map writes nothing to the mailbox and leaves the lane binding valid.
 Tests: `tests/coords.rs`, 2 tests, committed before the run, green on the
 first run.
 
-### A4
+### A4, typed selection folds: NOT SUPPORTED for the mailbox's lane kinds
 
-Not started.
+- `lance_graph_mask_risc::execute_sel` (`sel.rs:72`) admits two folds,
+  `CountGtI32` and `SumI32`, over an `i32` lane. Its kernels are
+  `ndarray::simd::{count_gt_i32_at, sum_i32_at}`
+  (`ndarray/src/simd_masking_ops.rs:801, 835`). No `u32` or `u64`
+  selection kernel exists there.
+- The mailbox lends `u32` and `u64` lanes, so the shipped witnessed fold
+  (`lance_graph_report::bound_sel::fold_bound_selection`) refuses them with
+  `ExecError::LaneKind` after the witness has held. That refusal is pinned
+  on the real owner (`tests/selection.rs`,
+  `the_shipped_fold_refuses_the_mailboxs_lane_kinds`).
+- Lifting it needs `sum_u32_at`, `count_gt_u32_at` and a `u64` sum with a
+  stated overflow bound in `ndarray::simd` (all three backends and a parity
+  test, per that repo's consumer contract), then two `SelFold` variants. A
+  scalar loop in this repo instead would be a second kernel beside the
+  facade and was not written.
+
+Until then a consumer reads selected mailbox values one by one through
+`LaneBinding::selected`, which is what the A3 tests do.
 
 ## R3 to R6
 

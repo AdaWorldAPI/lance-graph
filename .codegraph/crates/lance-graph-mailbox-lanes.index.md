@@ -3,7 +3,7 @@
 crate: lance-graph-mailbox-lanes
 path: crates/lance-graph-mailbox-lanes
 workspace: member
-digest: 899de21e5ae88c4b
+digest: 2cef3e1d6f8491bf
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -15,6 +15,7 @@ Generated; the code is the truth. See ../index.md.
 - dep lance-graph-contract normal — crates/lance-graph-mailbox-lanes/Cargo.toml:10 CONFIRMED
 - dep lance-graph-dt64 normal — crates/lance-graph-mailbox-lanes/Cargo.toml:11 CONFIRMED
 - dep lance-graph-mask-risc normal — crates/lance-graph-mailbox-lanes/Cargo.toml:12 CONFIRMED
+- dep lance-graph-report dev — crates/lance-graph-mailbox-lanes/Cargo.toml:17 CONFIRMED
 
 ## Depended on by
 
