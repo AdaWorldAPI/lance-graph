@@ -68,6 +68,7 @@ const PERSON_VIEW: ClassId = 0xD256;
 const FRIEND_VIEW: ClassId = 0xD257;
 
 pub mod bit_planes;
+pub mod bound_planes;
 pub mod order_store;
 
 /// Field positions of [`PERSON`].
