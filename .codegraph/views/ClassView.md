@@ -301,8 +301,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-mailbox-lanes/src/act.rs:230 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:266 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:277 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:571 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:692 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:575 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:696 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/lib.rs:19 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:34 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:117 POSSIBLE

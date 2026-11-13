@@ -134,8 +134,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-mailbox-lanes/src/act.rs:232 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:268 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/act.rs:279 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:573 POSSIBLE
-- crates/lance-graph-mailbox-lanes/src/act.rs:694 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:577 POSSIBLE
+- crates/lance-graph-mailbox-lanes/src/act.rs:698 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:38 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:119 POSSIBLE
 - crates/lance-graph-mailbox-lanes/src/when.rs:157 POSSIBLE

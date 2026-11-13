@@ -1058,3 +1058,34 @@ Findings:
    call; removing them needs no new API. Not measured which ones matter.
 
 Not done: no prepared-plan cache, no warm entry point. Status: MEASURED.
+
+## R14: `act`'s own allocations (two removed; no measurable time gain)
+
+Chosen after R13 because it touches no contract and no API. The premise that
+`act`'s own vectors matter was wrong, and the R13 table already said so: the
+stages allocate 5 + 0 + 14 + 3 + 8 + 7 = 37 of the 45; `act` itself only 8.
+
+Changed in `act_in`, behaviour unchanged:
+
+- the gate plane is handed to `Planes` as a borrowed slice
+  (`Option::as_slice`) instead of a one-element vector;
+- the row bits are built only for an `Intent` (which owns them); a method
+  that writes nothing no longer copies the gate.
+
+| read-only path (release, 40 rows) | allocations before | after | ns before | ns after |
+|---|---|---|---|---|
+| `act`, whole source | 45 | 43 | 3698.6 | 3801.6 |
+| `act_over`, distinct | 47 | 45 | 3882.9 | 3571.7 |
+| `act_over`, bag | 48 | 46 | 3687.8 | 3824.0 |
+
+The times are within the run-to-run spread of this example (up to 1.5x), so
+no time gain is claimed. Bytes per call fell by 24.
+
+`tests/population.rs::a_read_only_act_allocates_what_was_measured` pins the
+count on the four-row fixture at 41 with a thread-local counting allocator.
+It was committed first and failed at 43.
+
+The remaining 37 allocations are inside DT64 (`admit_routed`, `bind_lanes`),
+the guard's lowering (Quack) and R2IL (`prepare_gated`, `run_gated`).
+Reducing them means changing those crates or keeping their results between
+calls, which is R13's options 1 to 3. Status: MEASURED; the lever is spent.

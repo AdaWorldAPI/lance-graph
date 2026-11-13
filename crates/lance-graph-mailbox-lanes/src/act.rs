@@ -399,10 +399,10 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
         _ => None,
     };
     let gate_bits: Option<&[u64]> = narrowed.as_deref().or(fired.as_ref().map(|f| f.bits()));
-    let masks: Vec<&[u64]> = gate_bits.iter().copied().collect();
     let planes = Planes {
         n_rows: rows,
-        masks: &masks,
+        // One plane when there is a gate, none otherwise; borrowed in place.
+        masks: gate_bits.as_slice(),
         lanes: &lent,
     };
     let foreign = Foreign::NONE;
@@ -474,14 +474,18 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
     .map_err(ActRefusal::Exec)?;
 
     // The fired rows: the guard's, or every row for an unguarded method.
-    let mut bits = vec![0u64; rows.div_ceil(64)];
-    match gate_bits {
-        Some(gate) => bits.copy_from_slice(gate),
-        None => (0..rows).for_each(|r| bits[r / 64] |= 1 << (r % 64)),
-    }
     let fired_rows: Vec<u32> = (0..rows as u32)
-        .filter(|&r| bits[r as usize / 64] >> (r % 64) & 1 == 1)
+        .filter(|&r| gate_bits.is_none_or(|g| g[r as usize / 64] >> (r % 64) & 1 == 1))
         .collect();
+    // An intent owns its row bits; a method that writes nothing needs none.
+    let row_bits = || match gate_bits {
+        Some(gate) => gate.to_vec(),
+        None => {
+            let mut bits = vec![0u64; rows.div_ceil(64)];
+            (0..rows).for_each(|r| bits[r / 64] |= 1 << (r % 64));
+            bits
+        }
+    };
 
     let (mailbox, cycle) = lanes.owner_cycle();
     let (mut intents, mut unwritten) = (Vec::new(), Vec::new());
@@ -500,7 +504,7 @@ fn act_in<V: ClassView + ?Sized, const N: usize>(
             cycle,
             column,
             value: fits.ok_or(ActRefusal::ValueOutOfRange { field, value })?,
-            rows: bits.clone(),
+            rows: row_bits(),
             n_rows: rows,
         });
     }
