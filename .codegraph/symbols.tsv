@@ -14753,20 +14753,20 @@ lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	45	impl	Map	-	-	
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	46	const	Map::MASK_CAP	pub	-	CONFIRMED
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	48	fn	Map::draw	pub	-	CONFIRMED
 lance-graph-lane-fold	crates/lance-graph-lane-fold/src/stars.rs	56	fn	Map::teleport	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	109	struct	MailboxLanes	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	115	impl	MailboxLanes<'a,N>	-	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	119	fn	MailboxLanes<'a,N>::new	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	135	fn	MailboxLanes<'a,N>::frame_store	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	141	fn	MailboxLanes<'a,N>::seal	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	147	fn	MailboxLanes<'a,N>::space	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	156	fn	MailboxLanes<'a,N>::rows	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	161	impl	LaneSource for MailboxLanes<'_,N>	-	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	40	enum	Column	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	55	enum	ColumnRefusal	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	62	impl	Column	-	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	64	const	Column::ALL	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	74	fn	Column::iri	pub	-	CONFIRMED
-lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	85	fn	Column::from_iri	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	116	struct	MailboxLanes	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	126	impl	MailboxLanes<'a,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	130	fn	MailboxLanes<'a,N>::new	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	148	fn	MailboxLanes<'a,N>::frame_store	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	154	fn	MailboxLanes<'a,N>::seal	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	162	fn	MailboxLanes<'a,N>::space	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	171	fn	MailboxLanes<'a,N>::rows	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	176	impl	LaneSource for MailboxLanes<'_,N>	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	44	enum	Column	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	59	enum	ColumnRefusal	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	66	impl	Column	-	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	68	const	Column::ALL	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	78	fn	Column::iri	pub	-	CONFIRMED
+lance-graph-mailbox-lanes	crates/lance-graph-mailbox-lanes/src/lib.rs	89	fn	Column::from_iri	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	110	const	TILE_WORDS	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	114	fn	tile_words_for	pub	-	CONFIRMED
 lance-graph-mask-risc	crates/lance-graph-mask-risc/src/exec.rs	118	fn	scratch_words_for	pub	-	CONFIRMED

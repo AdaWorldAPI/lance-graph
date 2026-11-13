@@ -10,7 +10,9 @@
 //!   holds ONE [`FrameStore`] per `Published`, so a frame, a binding or a
 //!   lane address is valid for that publication only and is `ForeignFrame`
 //!   under any other, including a later publication of the same mailbox.
-//!   Nothing here survives the borrow, so nothing here is replayable.
+//!   Nothing here survives the borrow, so nothing here is replayable. A
+//!   lane address carries the socket's own number in its [`CoordSpace`], so
+//!   `borrow` refuses an address another socket issued, asked directly too.
 //! - **Which field is which column.** No contract names the mailbox's
 //!   columns. [`Column`] names the ones this socket lends, by a predicate
 //!   IRI of its own (`urn:mailbox:<column>`). DT64 resolves the class field
@@ -26,6 +28,8 @@
 //! Not provided: a reader-[`Scope`] issuer (DR has none; the scope here is
 //! the caller's assertion, compared for consistency only), selections,
 //! `NodeGuid` resolution, any write.
+
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use cognitive_shader_driver::mailbox_soa::Published;
 use lance_graph_contract::ontology::FieldRef;
@@ -105,11 +109,18 @@ impl Column {
     }
 }
 
+/// The next socket's number. Process-wide, so two sockets never share one.
+static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
+
 /// One publication of a mailbox, presented to DT64's lane socket.
 pub struct MailboxLanes<'a, const N: usize> {
     published: Published<'a, N>,
     frames: FrameStore,
     scope: Scope,
+    /// This socket's number: the `coordinates` half of its [`CoordSpace`].
+    /// An address carries the space, so an address of another socket (over
+    /// another publication, or the same one) is refused by `borrow`.
+    socket: u64,
 }
 
 impl<'a, const N: usize> MailboxLanes<'a, N> {
@@ -117,15 +128,17 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
     /// the reader scope the caller asserts; nothing authorizes it.
     #[must_use]
     pub fn new(published: Published<'a, N>, scope: Scope) -> Self {
+        let socket = NEXT_SOCKET.fetch_add(1, Ordering::Relaxed);
         let frames = FrameStore::new(FrameRevisions {
             source: u64::from(published.owner().mailbox_id()),
             relation_map: 0,
-            coordinates: 0,
+            coordinates: socket,
         });
         Self {
             published,
             frames,
             scope,
+            socket,
         }
     }
 
@@ -142,12 +155,14 @@ impl<'a, const N: usize> MailboxLanes<'a, N> {
         self.frames.seal()
     }
 
-    /// The mailbox's own row order: its slot order, for this mailbox.
+    /// The row order of this socket's lanes: the mailbox's slot order, as
+    /// lent by THIS socket. Two sockets never have the same space, so an
+    /// address or a binding of one names nothing in another.
     #[must_use]
     pub fn space(&self) -> CoordSpace {
         CoordSpace {
             population: u64::from(self.published.owner().mailbox_id()),
-            coordinates: 0,
+            coordinates: self.socket,
         }
     }
 
