@@ -599,3 +599,34 @@ the folds there are order-free sums over a selection the fixture issues.
 Selection semantics kept apart: an `OrderIndex` is a bijective ordering; a
 `SelectionSource` may issue a bag with repeated positions. Neither is
 exercised against the mailbox.
+
+### 12.4 Results (commit `7de838fc7`, tests committed before the run)
+
+`cargo test --release -p virtual-address-lab --no-fail-fast`: exit 0; 30
+tests, 0 failed (`owner_read` 6, `algebra` 4, `alloc` 1, `cube` 4, `i4x24` 2,
+`owner_read_alloc` 1, `row_object` 3, `selection` 9). `cargo clippy
+--all-targets --no-deps -- -D warnings`: exit 0.
+
+`no_admitted_read_changes_which_source_position_is_read`, over all eight
+recipes, every row and both properties, at 64 and at 41 populated rows:
+
+| recipes | outcome | cells at 64 rows | at 41 rows |
+|---|---|---|---|
+| `TRANSPOSE`, `ROTATE270` | admitted; value equals the owner's column at the oracle's coordinate, and that position is the requested row | 256 | 164 |
+| `ROTATE90`, `ANTI_TRANSPOSE` | `RowCoordinatesChanged`; nothing read | 256 | 164 |
+| the four that do not exchange the axes | `PropertyCrossesFields`; nothing read | 512 | 328 |
+
+Disable runs, each patch asserted to apply exactly once, each restored with
+`git checkout`:
+
+| disable | exit | tests that failed |
+|---|---|---|
+| the refusal in `VirtualProperty::column` never taken | 101 | the oracle test: "Rotate90 admitted a moved row", position 63 for row 0 |
+| `Recipe::reverses_positions` always `false` | 101 | the oracle test, same assertion |
+| `reverses_positions` reads `flip_lane` instead of `flip_pos` | 101 | the oracle test and `the_chain_is_normalised_before_the_read` (`ROTATE270` refused) |
+| `read` takes `meta_raw()[n_rows - 1 - row]` | 101 | four of six, the oracle test among them |
+
+Acceptance, as tested: no admitted P0 property read changes which
+source-local position is read. What this does NOT show: that a source-local
+position denotes a particular canonical entity. That needs `NodeGuid` ->
+row, which is BLOCKED (12.3), so the statement is about positions only.

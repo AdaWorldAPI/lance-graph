@@ -3,7 +3,7 @@
 crate: virtual-address-lab
 path: crates/virtual-address-lab
 workspace: member
-digest: 675e92bbf016602d
+digest: 6549ec9c04f69945
 evidence legend: ../index.md#evidence-legend
 
 Generated; the code is the truth. See ../index.md.
@@ -76,14 +76,14 @@ Generated; the code is the truth. See ../index.md.
 - mod physical [pub] — crates/virtual-address-lab/src/lib.rs:26 CONFIRMED
 - mod recipe [pub] — crates/virtual-address-lab/src/lib.rs:27 CONFIRMED
 - mod view [pub] — crates/virtual-address-lab/src/lib.rs:28 CONFIRMED
-- const BASIS [pub] — crates/virtual-address-lab/src/owner.rs:26 CONFIRMED
-- enum Column [pub] — crates/virtual-address-lab/src/owner.rs:30 CONFIRMED
-- fn column_of [pub] — crates/virtual-address-lab/src/owner.rs:38 CONFIRMED
-- enum Value [pub] — crates/virtual-address-lab/src/owner.rs:48 CONFIRMED
-- struct Reads [pub] — crates/virtual-address-lab/src/owner.rs:55 CONFIRMED
-- struct VirtualProperty [pub] — crates/virtual-address-lab/src/owner.rs:67 CONFIRMED
-- fn VirtualProperty<'_>::column [pub] — crates/virtual-address-lab/src/owner.rs:75 CONFIRMED
-- fn VirtualProperty<'_>::read [pub] — crates/virtual-address-lab/src/owner.rs:84 CONFIRMED
+- const BASIS [pub] — crates/virtual-address-lab/src/owner.rs:29 CONFIRMED
+- enum Column [pub] — crates/virtual-address-lab/src/owner.rs:33 CONFIRMED
+- fn column_of [pub] — crates/virtual-address-lab/src/owner.rs:41 CONFIRMED
+- enum Value [pub] — crates/virtual-address-lab/src/owner.rs:51 CONFIRMED
+- struct Reads [pub] — crates/virtual-address-lab/src/owner.rs:58 CONFIRMED
+- struct VirtualProperty [pub] — crates/virtual-address-lab/src/owner.rs:72 CONFIRMED
+- fn VirtualProperty<'_>::column [pub] — crates/virtual-address-lab/src/owner.rs:85 CONFIRMED
+- fn VirtualProperty<'_>::read [pub] — crates/virtual-address-lab/src/owner.rs:98 CONFIRMED
 - type Matrix [pub] — crates/virtual-address-lab/src/physical.rs:8 CONFIRMED
 - struct Moved [pub] — crates/virtual-address-lab/src/physical.rs:12 CONFIRMED
 - fn transpose [pub] — crates/virtual-address-lab/src/physical.rs:24 CONFIRMED
@@ -104,21 +104,22 @@ Generated; the code is the truth. See ../index.md.
 - const Recipe::NAMES [pub] — crates/virtual-address-lab/src/recipe.rs:57 CONFIRMED
 - fn Recipe::index [pub] — crates/virtual-address-lab/src/recipe.rs:69 CONFIRMED
 - fn Recipe::name [pub] — crates/virtual-address-lab/src/recipe.rs:76 CONFIRMED
-- fn Recipe::swaps [pub] — crates/virtual-address-lab/src/recipe.rs:81 CONFIRMED
-- fn Recipe::view_dims [pub] — crates/virtual-address-lab/src/recipe.rs:86 CONFIRMED
-- fn Recipe::resolve [pub] — crates/virtual-address-lab/src/recipe.rs:96 CONFIRMED
-- fn Recipe::then [pub] — crates/virtual-address-lab/src/recipe.rs:115 CONFIRMED
-- fn Recipe::inverse [pub] — crates/virtual-address-lab/src/recipe.rs:134 CONFIRMED
-- fn Recipe::normalize [pub] — crates/virtual-address-lab/src/recipe.rs:142 CONFIRMED
-- fn Recipe::digest [pub] — crates/virtual-address-lab/src/recipe.rs:147 CONFIRMED
-- fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:154 CONFIRMED
+- fn Recipe::reverses_positions [pub] — crates/virtual-address-lab/src/recipe.rs:82 CONFIRMED
+- fn Recipe::swaps [pub] — crates/virtual-address-lab/src/recipe.rs:87 CONFIRMED
+- fn Recipe::view_dims [pub] — crates/virtual-address-lab/src/recipe.rs:92 CONFIRMED
+- fn Recipe::resolve [pub] — crates/virtual-address-lab/src/recipe.rs:102 CONFIRMED
+- fn Recipe::then [pub] — crates/virtual-address-lab/src/recipe.rs:121 CONFIRMED
+- fn Recipe::inverse [pub] — crates/virtual-address-lab/src/recipe.rs:140 CONFIRMED
+- fn Recipe::normalize [pub] — crates/virtual-address-lab/src/recipe.rs:148 CONFIRMED
+- fn Recipe::digest [pub] — crates/virtual-address-lab/src/recipe.rs:153 CONFIRMED
+- fn Recipe::field_of [pub] — crates/virtual-address-lab/src/recipe.rs:160 CONFIRMED
 - struct Ledger [pub] — crates/virtual-address-lab/src/view.rs:16 CONFIRMED
 - enum Refused [pub] — crates/virtual-address-lab/src/view.rs:25 CONFIRMED
-- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:45 CONFIRMED
-- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:53 CONFIRMED
-- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:85 CONFIRMED
-- fn field_in [pub] — crates/virtual-address-lab/src/view.rs:90 CONFIRMED
-- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:110 CONFIRMED
+- struct RowObject [pub] — crates/virtual-address-lab/src/view.rs:49 CONFIRMED
+- fn RowObject::get [pub] — crates/virtual-address-lab/src/view.rs:57 CONFIRMED
+- fn field_through [pub] — crates/virtual-address-lab/src/view.rs:89 CONFIRMED
+- fn field_in [pub] — crates/virtual-address-lab/src/view.rs:94 CONFIRMED
+- fn fold_property [pub] — crates/virtual-address-lab/src/view.rs:114 CONFIRMED
 
 ## Imports from in-scope crates
 

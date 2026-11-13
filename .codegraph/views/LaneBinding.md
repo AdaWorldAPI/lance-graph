@@ -113,8 +113,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/virtual-address-lab/src/lib.rs:8 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:7 POSSIBLE
 - crates/virtual-address-lab/src/view.rs:33 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:56 POSSIBLE
-- crates/virtual-address-lab/src/view.rs:112 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:60 POSSIBLE
+- crates/virtual-address-lab/src/view.rs:116 POSSIBLE
 
 ## Architecture
 
