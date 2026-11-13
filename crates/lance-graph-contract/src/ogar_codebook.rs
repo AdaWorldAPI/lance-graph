@@ -639,6 +639,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("pricelist", 0x0209),
     ("pricelist_rule", 0x020A),
     ("unit_of_measure", 0x020B),
+    // erp_polyfill (0x020C) — the ERP consumer's behaviour seat, NOT a business
+    // entity and with no Active-Record class. Per D-DT64-7 D14'' a consumer
+    // registers behaviour lenses as `0xF###` (low u16) under its own concept
+    // (high u16); this is that left side for erp-rs (first lens 0x020C_F000).
+    ("erp_polyfill", 0x020C),
     // ── 0x03XX — Ontology domain: ZERO vocabulary rows BY DESIGN ──
     // Mirrors OGAR `ogar_vocab::CODEBOOK`'s own posture exactly (OGAR commit
     // e9a2e45, 2026-08-01: "reserve 0x03 Ontology domain (plug-and-play, zero
@@ -1042,6 +1047,13 @@ mod tests {
         assert_eq!(canonical_concept_id("commercial_line_item"), Some(0x0201));
         assert_eq!(canonical_concept_id("commercial_document"), Some(0x0202));
         assert_eq!(canonical_concept_id("currency_policy"), Some(0x0206));
+        assert_eq!(canonical_concept_id("unit_of_measure"), Some(0x020B));
+        assert_eq!(canonical_concept_id("erp_polyfill"), Some(0x020C));
+        assert_eq!(
+            canonical_concept_domain(0x020C),
+            ConceptDomain::Commerce,
+            "erp_polyfill is a commerce-domain (0x02XX) concept"
+        );
         assert_eq!(canonical_concept_id("weather_cell"), Some(0x0401));
         assert_eq!(canonical_concept_id("weather_static_cell"), Some(0x0402));
         assert_eq!(canonical_concept_id("crm_contact"), Some(0x0501));
