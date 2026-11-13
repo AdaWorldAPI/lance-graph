@@ -83,7 +83,45 @@ first run.
 Not established: a selection that outlives its publication (same limit as
 the frame); filters other than one unsigned column comparison; cost.
 
-### B1, B2, A4
+### B1, `NodeGuid` to a row: BLOCKED
+
+Read in full: `lance-graph-contract/src/soa_view.rs` (the
+`row_for_local_key` contract), `lance-graph/src/graph/mailbox_scan.rs`
+1..375 (its one consumer, `match_node_by_local_key`),
+`lance-graph-dt64/src/dr.rs` (`MapTable`, `LocalMap`).
+
+- The declared seam is `MailboxSoaView::row_for_local_key(u64) ->
+  Option<usize>`. Its doc names the authority: "an owner that stores keys
+  (the in-RAM `MailboxSoA`, once it carries a `local_key` column) overrides
+  this". `MailboxSoA` has no such column and does not override it.
+- Closing it on the owner is a new column of `MailboxSoA<N>`: a layout
+  change, which this roadmap excludes without a separate decision.
+- The argument is `NodeGuid::local_key()`, the trailing 6 bytes read as the
+  V1 `family ++ identity` tail. It discriminates only after the 10-byte
+  prefix is resolved, and under the V3 4+12 facet it is a legacy reading.
+- `MapTable` keys a `u64` inside a `u32` tile. No authority maps a GUID
+  prefix to a tile, so a 128-bit identity cannot be bound through it either.
+
+Nothing was built in place of it. Decision needed: a `local_key` (or full
+key) column on `MailboxSoA`, or another owner of the key index.
+
+### B2, version-bound coordinate (done, on `MapTable` ids)
+
+`coords::Coordinates` (`lance-graph-mailbox-lanes/src/coords.rs`) pairs one
+tile of DT64's existing `MapTable` at one sealed version with a lane
+binding. The id is the map's own `u64`, not a `NodeGuid`. The source version
+(publication) and the coordinate version (map) are separate: advancing the
+map writes nothing to the mailbox and leaves the lane binding valid.
+
+| Stage | Contract (file) | Independent oracle | Positive | Negative / disable | Status |
+|---|---|---|---|---|---|
+| B1 | `MailboxSoaView::row_for_local_key` (`soa_view.rs:126`) | n/a | n/a | n/a | BLOCKED: no key column on the owner |
+| B2 | `Coordinates::bind`, `row_of`; `MapTable::map`, `Frame::same_issue` (`dr.rs`) | two permutations over `owner.meta` | 48 ids read through assignment 1, then through assignment 2, source bytes equal before and after | the first binding after the map advances: `StaleMapping` for all 48 ids; an unmapped id; a row number offered as an id; another table's frame; an unknown tile; a row past the lane; a repeated id. Disables, all exit 101: currency check removed, row bound removed, the current frame taken at read time | INTEGRATION VERIFIED for `MapTable` ids on `MailboxSoA<64>`; the map's producer for a mailbox does not exist (B1), the test fills it |
+
+Tests: `tests/coords.rs`, 2 tests, committed before the run, green on the
+first run.
+
+### A4
 
 Not started.
 
