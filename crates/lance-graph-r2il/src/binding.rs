@@ -265,6 +265,9 @@ pub enum ExecRefusal {
     GateRequired,
     /// The gate was evaluated for another guard than the plan's.
     GateMismatch,
+    /// [`run_bag`] was given a plan with a fold other than `PopCount`. Only a
+    /// count has a stated meaning over a bag of row occurrences here.
+    BagFold { effect: usize, opcode: FnIndex },
     /// The binding is three-valued; the dialect has no UNKNOWN rows.
     ThreeValuedNotExecutable,
     /// An effect names a lens other than the R2IL lens.
