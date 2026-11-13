@@ -208,6 +208,11 @@ pub fn prepare_native(
     fields: FieldLanes<'_>,
     planes: &Planes<'_>,
 ) -> Result<NativePlan, ExecRefusal> {
+    // A gated plan's folds read a mask that depends on the gate plane of
+    // each run; this path freezes programs and has no gate operand.
+    if plan.gated {
+        return Err(ExecRefusal::GuardNotExecutable);
+    }
     store
         .check_issuer(&plan.method)
         .map_err(ExecRefusal::Binding)?;

@@ -76,6 +76,7 @@ use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::ClassView;
 use lance_graph_contract::ogar_codebook::classid_concept;
+use lance_graph_contract::set_algebra::Logic;
 use lance_graph_contract::set_rules::Truth;
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope};
 use lance_graph_dt64::{
@@ -168,6 +169,8 @@ pub struct Prepared {
     pub(crate) route: (RouteVersion, u16),
     pub(crate) guards: Guards,
     pub(crate) steps: Vec<Step>,
+    /// Prepared by [`prepare_gated`]: runs only under a [`Gate`].
+    pub(crate) gated: bool,
     /// FNV-1a over the method reference (including its binding digest), the
     /// lens and every step: the plan's identity, carried into each
     /// [`Receipt`].
@@ -203,6 +206,12 @@ impl Prepared {
     /// The plan's identity.
     pub fn plan_id(&self) -> u64 {
         self.plan_id
+    }
+
+    /// Whether the plan was prepared for a guarded binding and so runs only
+    /// through [`run_gated`].
+    pub fn is_gated(&self) -> bool {
+        self.gated
     }
 }
 
@@ -332,14 +341,32 @@ pub fn prepare<V: ClassView + ?Sized>(
     frames: &FrameStore,
     now: (Focus, Scope),
 ) -> Result<Prepared, ExecRefusal> {
+    prepare_with(store, view, lens, r, frames, now, false)
+}
+
+/// [`prepare`] (`gated == false`) and [`prepare_gated`] (`gated == true`).
+fn prepare_with<V: ClassView + ?Sized>(
+    store: &BindStore,
+    view: &V,
+    lens: R2ilLens,
+    r: &Resolution<'_>,
+    frames: &FrameStore,
+    now: (Focus, Scope),
+    gated: bool,
+) -> Result<Prepared, ExecRefusal> {
     r.guards.check(frames, now).map_err(ExecRefusal::Guards)?;
     check_route(store, r.method.class, r.route)?;
     store
         .resolve(view, r.method.class, r.schema_rev)
         .map_err(ExecRefusal::Binding)?;
     let binding = store.admit(r.method).map_err(ExecRefusal::Binding)?;
-    if binding.when.is_some() {
-        return Err(ExecRefusal::GuardNotExecutable);
+    match (&binding.when, gated) {
+        (Some(_), false) => return Err(ExecRefusal::GuardNotExecutable),
+        (None, true) => return Err(ExecRefusal::NotGuarded),
+        (Some(guard), true) if guard.logic != Logic::TwoValued => {
+            return Err(ExecRefusal::ThreeValuedNotExecutable)
+        }
+        _ => {}
     }
     if binding.truth == Truth::ThreeValued {
         return Err(ExecRefusal::ThreeValuedNotExecutable);
@@ -359,13 +386,14 @@ pub fn prepare<V: ClassView + ?Sized>(
             })
         })
         .collect::<Result<Vec<_>, ExecRefusal>>()?;
-    let plan_id = plan_id(r.method, lens, &steps);
+    let plan_id = plan_id(r.method, lens, &steps, gated);
     Ok(Prepared {
         method: r.method.clone(),
         lens,
         route: r.route,
         guards: r.guards.clone(),
         steps,
+        gated,
         plan_id,
     })
 }
@@ -378,31 +406,82 @@ pub struct Gate {
     pub guard: GuardWitness,
 }
 
-/// STUB (test committed first).
+/// [`prepare`] for a guarded binding (D-VAS-D2). The plan it returns runs
+/// only through [`run_gated`], under a [`Gate`].
+///
+/// This seam still does not evaluate WHEN. The caller evaluates the guard
+/// (Quack, mask-risc) over the same population and hands the kept rows over
+/// as a resident plane; every fold of the plan is then restricted to those
+/// rows through the dialect's own `IntAnd`. A kept filter presented as a
+/// plane to a second program over the same table is the shape
+/// `lance_graph_quack::GroupPlan` already uses.
+///
+/// Refused beyond [`prepare`]'s refusals: an unguarded binding
+/// ([`ExecRefusal::NotGuarded`]); a three-valued guard
+/// ([`ExecRefusal::ThreeValuedNotExecutable`]); and `ALL`
+/// ([`ExecRefusal::NotExecutable`]), because `ALL(m AND gate)` asks whether
+/// every row of the table holds, which is not "every row the guard keeps".
+///
+/// # Errors
+///
+/// An [`ExecRefusal`] naming the first check that failed.
 pub fn prepare_gated<V: ClassView + ?Sized>(
-    _store: &BindStore,
-    _view: &V,
-    _lens: R2ilLens,
-    _r: &Resolution<'_>,
-    _frames: &FrameStore,
-    _now: (Focus, Scope),
+    store: &BindStore,
+    view: &V,
+    lens: R2ilLens,
+    r: &Resolution<'_>,
+    frames: &FrameStore,
+    now: (Focus, Scope),
 ) -> Result<Prepared, ExecRefusal> {
-    Err(ExecRefusal::GuardNotExecutable)
+    let plan = prepare_with(store, view, lens, r, frames, now, true)?;
+    if let Some(effect) = plan.steps.iter().position(|s| s.opcode == ALL) {
+        return Err(ExecRefusal::NotExecutable {
+            effect,
+            opcode: ALL,
+        });
+    }
+    Ok(plan)
 }
 
-/// STUB (test committed first).
+/// [`run`] for a plan of [`prepare_gated`]: every fold reads its mask ANDed
+/// with `gate.plane`, a resident plane of the dialect's planes.
+///
+/// Checked here: `gate.guard` is the witness of the guard the plan's method
+/// reference carries. Not checked, because nothing here can: that the
+/// plane's bits are that guard's rows over these planes under this frame.
+/// The caller that evaluated the guard vouches for it.
+///
+/// # Errors
+///
+/// As [`run`]; [`ExecRefusal::NotGuarded`] for a plan of [`prepare`];
+/// [`ExecRefusal::GateMismatch`] for a gate of another guard.
 #[allow(clippy::too_many_arguments)]
 pub fn run_gated(
-    _plan: &Prepared,
-    _store: &BindStore,
-    _frames: &FrameStore,
-    _now: (Focus, Scope),
-    _permit: &ExecPermit,
-    _fields: FieldLanes<'_>,
-    _dialect: &mut FoldDialect<'_>,
-    _gate: &Gate,
+    plan: &Prepared,
+    store: &BindStore,
+    frames: &FrameStore,
+    now: (Focus, Scope),
+    permit: &ExecPermit,
+    fields: FieldLanes<'_>,
+    dialect: &mut FoldDialect<'_>,
+    gate: &Gate,
 ) -> Result<Receipt, ExecRefusal> {
-    Err(ExecRefusal::GuardNotExecutable)
+    if !plan.gated {
+        return Err(ExecRefusal::NotGuarded);
+    }
+    if plan.method.guard.as_ref() != Some(&gate.guard) {
+        return Err(ExecRefusal::GateMismatch);
+    }
+    run_checked(
+        plan,
+        store,
+        frames,
+        now,
+        permit,
+        fields,
+        dialect,
+        Some(gate.plane),
+    )
 }
 
 /// Run a prepared plan, hot: the store must be the one that issued the
@@ -424,6 +503,24 @@ pub fn run(
     fields: FieldLanes<'_>,
     dialect: &mut FoldDialect<'_>,
 ) -> Result<Receipt, ExecRefusal> {
+    if plan.gated {
+        return Err(ExecRefusal::GateRequired);
+    }
+    run_checked(plan, store, frames, now, permit, fields, dialect, None)
+}
+
+/// The checks and the run shared by [`run`] and [`run_gated`].
+#[allow(clippy::too_many_arguments)]
+fn run_checked(
+    plan: &Prepared,
+    store: &BindStore,
+    frames: &FrameStore,
+    now: (Focus, Scope),
+    permit: &ExecPermit,
+    fields: FieldLanes<'_>,
+    dialect: &mut FoldDialect<'_>,
+    gate: Option<u16>,
+) -> Result<Receipt, ExecRefusal> {
     store
         .check_issuer(&plan.method)
         .map_err(ExecRefusal::Binding)?;
@@ -435,9 +532,32 @@ pub fn run(
         return Err(ExecRefusal::NotPermitted);
     }
     dialect.discard_pending();
-    let result = run_steps(plan, frames, fields, dialect);
+    let result = run_steps(plan, frames, fields, dialect, gate);
     dialect.discard_pending();
     result
+}
+
+/// The folds: each reads one mask and pushes one scalar. Under a gate their
+/// mask is restricted to the gate's rows.
+const FOLDS: [FnIndex; 7] = [POP_COUNT, SUM, MIN, MAX, ANY, ALL, KEY_RUNS];
+
+/// AND the gate plane into the mask operand of the fold whose operands are
+/// on `stack`. Uses [`FoldDialect::call_shared`], so a predicate a later
+/// step reads again is not rewritten in place.
+fn gate_fold(dialect: &mut FoldDialect<'_>, stack: &mut [Val], gate: u16) -> Result<(), FoldError> {
+    let Some(at) = stack
+        .iter()
+        .position(|v| matches!(v, Val::Slot { .. } | Val::Address(Addr::Plane(_))))
+    else {
+        // No mask operand: the dialect refuses the fold itself.
+        return Ok(());
+    };
+    let mut operands = vec![stack[at], Val::Address(Addr::Plane(gate))];
+    dialect.call_shared(INT_AND, [0, 0, 0], &mut operands)?;
+    if let [gated] = operands[..] {
+        stack[at] = gated;
+    }
+    Ok(())
 }
 
 /// [`run`]'s body after the checks; [`run`] clears the dialect's pending
@@ -447,6 +567,7 @@ fn run_steps(
     frames: &FrameStore,
     fields: FieldLanes<'_>,
     dialect: &mut FoldDialect<'_>,
+    gate: Option<u16>,
 ) -> Result<Receipt, ExecRefusal> {
     let programs_before = dialect.programs_run();
     let mut values: BTreeMap<u8, Val> = BTreeMap::new();
@@ -464,6 +585,10 @@ fn run_steps(
         }
         if LANE_COMPARES.contains(&step.opcode) {
             check_compare(&stack, i)?;
+        }
+        if let (Some(gate), true) = (gate, FOLDS.contains(&step.opcode)) {
+            gate_fold(dialect, &mut stack, gate)
+                .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
         }
         call_step(dialect, &plan.steps, i, &mut stack)
             .map_err(|error| ExecRefusal::Fold { effect: i, error })?;
@@ -546,10 +671,10 @@ pub(crate) fn check_route(
 }
 
 /// FNV-1a over the method reference's identity fields and binding digest,
-/// the lens and the steps. Prepared plans refuse guarded bindings, so the
-/// guard is absent. The lanes a run reads are not part of it: they are bound
+/// the lens, whether the plan is gated, and the steps. A gated plan's guard
+/// is in the binding digest. The lanes a run reads are not part of it: they are bound
 /// per run ([`FieldLanes`]), so one plan may read lanes of different kinds.
-fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step]) -> u64 {
+fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step], gated: bool) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     let mut eat = |bytes: &[u8]| {
         for &b in bytes {
@@ -563,6 +688,7 @@ fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step]) -> u64 {
     eat(&method.stamp.binding().to_le_bytes());
     eat(&lens.lens.to_le_bytes());
     eat(&lens.schema_rev.0.to_le_bytes());
+    eat(&[u8::from(gated)]);
     for s in steps {
         eat(&[s.opcode.0, s.target]);
         eat(&(s.args.len() as u64).to_le_bytes());
