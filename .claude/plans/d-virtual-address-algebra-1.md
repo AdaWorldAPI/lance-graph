@@ -1024,3 +1024,140 @@ anything more than "the rows of the lanes this binding lent" (the `Grid`
 issues its own frame and `CoordSpace`; there is no population authority
 beyond it); that a guard lane is a field position in any contract (lab
 reading); cost; anything about the mailbox.
+
+## 18. The source-publication boundary, and direct-class behaviour (written before the run)
+
+Directive of 2026-11-13 (D-VAS, first executable gate), starting head
+`bda6db9d1`. Two questions: does the mailbox have an authority that accounts
+for every write a reader can see (18.1 to 18.4), and does the existing
+`Grid` already carry routed behaviour on a normal data class, with no
+separate lens (18.5).
+
+Read in full for this section: `cognitive-shader-driver/src/mailbox_soa.rs`
+1..984, `ownership_laws.rs`, `backing.rs`, `attention_mask_actor.rs`;
+`lance-graph-contract/src/soa_view.rs` 1..324, `soa_envelope.rs`,
+`scheduler.rs` 1..118; `lance-graph-dt64/src/dr.rs` 1..1352;
+`lance-graph-planner/src/batch_writer.rs`, `owner_adapter.rs`,
+`persist_sink.rs` 1..740; `lance-graph-supervisor/src/cycle_driver.rs`
+1..1050; `lance-graph-report/src/lane_source.rs`. Not read:
+`lance-graph/src/graph/cycle_sink` (the concrete `LanceCycleWriter`),
+`mailbox_scan.rs`, `surreal_container/src/view.rs`, `symbiont`,
+`driver.rs`, `engine_bridge.rs` outside lines 840..914, every test module.
+A search listed the call sites; the claims below rest on the reads.
+
+### 18.1 Every path by which owner bytes change
+
+| path | moves `current_cycle` | moves `last_write_cycle[row]` | other record |
+|---|---|---|---|
+| assignment to a `pub` column (`energy`, `plasticity_counter`, `last_active_cycle`, `last_write_cycle`, `edges`, `qualia`, `meta`, `entity_type`, `temporal`, `expert`, `sigma`, `content`, `topic`, `angle`, the three style lanes, `current_cycle`, `w_slot`, `threshold`, `mailbox_id`) | no | no | none |
+| `set_edge`, `set_qualia`, `set_meta`, `set_entity_type`, `set_temporal`, `set_expert`, `set_sigma`, `set_content`, `set_topic`, `set_angle` | no | no | none |
+| `set_style_lane`, `set_style_atom`, `promote_family` | no | no | none |
+| `apply_edges` (energy, plasticity), `consume_firing` (energy, `last_active_cycle`) | no | no | none |
+| `set_populated`, `reset_row` (row zeroed, stamps back to `u32::MAX`) | no | reset only | none |
+| `write_row(row, cycle, cell)` | no | set to `cycle` when accepted | `stale_write_count` on refusal |
+| `tick()` | `wrapping_add(1)` | no | none |
+| `advance_phase` / `try_advance_phase` | no | no | returns a `KanbanMove` carrying `current_cycle` |
+| `cast_on_behalf` (`&self`, feature `with-planner`) | no | no | an intent record in a `BatchWriter` |
+
+Every one needs `&mut MailboxSoA`, except `cast_on_behalf`, which changes no
+column. The file has no `Cell`, atomic or `UnsafeCell`; its two `unsafe`
+blocks reinterpret `edges` and `meta` for reading.
+
+### 18.2 Is there an event or snapshot that accounts for all of them
+
+No.
+
+- `current_cycle` moves only in `tick()`. Nothing ties a write to a tick.
+- `last_write_cycle` moves only in `write_row`. Ten setters and every `pub`
+  column bypass it.
+- Two accepted `write_row` calls in one cycle leave the same stamp.
+- `current_cycle` wraps at `u32::MAX`, which is also the value of a row that
+  was never written.
+- `MailboxSoaView` exposes `current_cycle()` and `phase()`. It has no
+  revision and no snapshot. `MailboxSoaOwner` has two methods, both about the
+  phase.
+- `SoaEnvelope::cycle()` is documented as "the cycle whose committed state
+  these bytes are". Its one implementor found by search is
+  `canonical_node::NodeRowPacket`, not `MailboxSoA`.
+- The sealed cycle (`persist_sink::persist_cycle` ->
+  `WalSink::commit_cycle` -> one `DatasetVersion`) is a real publication with
+  a fence, reconciliation and a content hash. What it publishes is a
+  `DetachedCycleBatch`: the payload bytes a producer cast, per row, "a
+  snapshot, never a borrow of live mutable SoA". No mailbox setter casts, and
+  no cast is required before a column changes. Its `stream_position`
+  watermark records applied phase transitions per owner. `cycle_driver`'s own
+  ledger says the `MailboxSoA` thought path is "NOT proven" on it.
+- `FrameStore` moves only when its holder calls `advance`. Nothing in the
+  mailbox, the planner or the supervisor holds one for a mailbox.
+
+**A1 is BLOCKED.** The mailbox has no source-publication authority. A frame
+whose `source` revision is `current_cycle` would stay current across a
+`set_meta`, so it would authenticate bytes that have changed.
+
+What IS established, and is weaker than a revision:
+
+- **Borrow exclusion (SOURCE VERIFIED, compile time).** While a
+  `&MailboxSoA` is live, none of the paths of 18.1 can run. The owner's own
+  doc tests pin it (`ownership_laws.rs`: `OneMutableBorrower`,
+  `AViewIsNotAnOwner`, `NoSecondPopulation`).
+- **Store identity (SOURCE VERIFIED).** `FrameStore::check` compares the
+  issuing store by pointer before any number, so a frame of another store is
+  `ForeignFrame` at equal revisions.
+
+Borrow exclusion says the bytes do not change during one borrow. It says
+nothing across two borrows, and a `Frame` outlives a borrow.
+
+### 18.3 The smallest change at the owner boundary
+
+Two candidates. Neither is implemented here; the choice is the operator's.
+
+- **(P) Publication as a borrow, issued by the owner.** One method on the
+  owner type, no new state and no layout change: `MailboxSoA::published(&self)
+  -> Published<'_, N>`, a token that wraps the shared borrow. A read adapter
+  accepts only that token and holds one `FrameStore` per token, so a frame is
+  valid for exactly one publication and is `ForeignFrame` under the next.
+  Correct with `pub` columns, because it never counts writes. Cost: no frame,
+  binding or selection survives the borrow; nothing is replayable.
+- **(R) A revision the owner moves.** A private `u64` moved by every
+  mutating method. It is only sound if no write can skip it, so the 19 `pub`
+  columns must stop being assignable from outside the crate. That is an API
+  change to `MailboxSoA` with consumers in at least `lance-graph-supervisor`,
+  `symbiont`, `surreal_container` and the driver's own examples.
+
+(P) is the smallest. (R) is what a frame that outlives a borrow needs.
+
+### 18.4 Negative cases, as tests (`tests/publication_boundary.rs`)
+
+On a real `MailboxSoA<64>`, each asserting the bytes DID change:
+
+1. `set_meta` without `tick`: `current_cycle` and `last_write_cycle` equal
+   before and after.
+2. Assignment to the `pub` column `meta`: the same.
+3. Two accepted `write_row` in one cycle: one stamp for two states.
+4. `current_cycle = u32::MAX`: an accepted write stamps `u32::MAX`, equal to
+   an unwritten row's stamp; `tick` then gives 0.
+5. Two `FrameStore`s with equal revisions: a frame of one is `ForeignFrame`
+   in the other, and current in its own.
+
+These tests pin a defect of the cycle counter as a revision. They pass while
+A1 is BLOCKED and must be rewritten when the owner gains a publication.
+
+### 18.5 Direct-class behaviour on the existing `Grid` (`tests/direct_class.rs`)
+
+No `0xF###` lens. The position routes to the data class `CLASS`, which
+carries its own `MethodBinding`s (`World::with`). A second class is
+registered over the same basis with a method of the same `MethodId`; nothing
+routes to it.
+
+FAILS IF:
+
+- the routed class's methods are not the candidates ON the address's field;
+- the foreign method, which `BindStore::admit` alone accepts, is admitted
+  for the position;
+- the admitted method reads a field outside `reads`, or more than one value
+  for one demanded read;
+- a guard or an effect runs (`guard_runs == 0`, `effects == 0`);
+- a binding survives the source moving its frame, or the position being
+  routed elsewhere.
+
+Oracle: the fixture's generator function, per source row.
