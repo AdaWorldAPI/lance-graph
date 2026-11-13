@@ -33,6 +33,38 @@ use lance_graph_mailbox_lanes::{Column, Keep, MailboxLanes};
 use lance_graph_r2il::binding::{ExecPermit, ExecRefusal, R2ilLens};
 use lance_graph_r2il::polyfill::{AliasLanguage, POLYFILL, POLYFILL_LENS};
 
+/// Counts this thread's allocations, so tests running beside it do not
+/// disturb a count.
+struct Counting;
+
+thread_local! {
+    static ALLOCS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+// SAFETY: forwards to the system allocator unchanged; the counter is a
+// thread-local `Cell` with a const initialiser, so reading it allocates
+// nothing.
+unsafe impl std::alloc::GlobalAlloc for Counting {
+    unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
+        let _ = ALLOCS.try_with(|c| c.set(c.get() + 1));
+        // SAFETY: same layout, passed through.
+        unsafe { std::alloc::System.alloc(layout) }
+    }
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: std::alloc::Layout) {
+        // SAFETY: `ptr` came from `System.alloc` with this layout.
+        unsafe { std::alloc::System.dealloc(ptr, layout) }
+    }
+}
+
+#[global_allocator]
+static GLOBAL: Counting = Counting;
+
+fn allocations(f: impl FnOnce()) -> u64 {
+    let before = ALLOCS.with(std::cell::Cell::get);
+    f();
+    ALLOCS.with(std::cell::Cell::get) - before
+}
+
 const N: usize = 64;
 type Owner = MailboxSoA<N>;
 const POPULATED: usize = 4;
@@ -759,3 +791,28 @@ fn a_bag_run_writes_nothing_and_copies_no_column() {
     }
     assert_eq!(snapshot(&m), before);
 }
+
+/// What one read-only `act` allocates, pinned to the measured count.
+/// FAILS IF: `act` allocates more than it did when this was measured, for
+/// example by building a vector it does not need for a method that writes
+/// nothing.
+#[test]
+fn a_read_only_act_allocates_what_was_measured() {
+    let m = owner();
+    let w = world();
+    let lanes = MailboxLanes::new(m.published(), READER);
+    let count = w.store.method_ref(CLASS, COUNT).unwrap();
+    let context = ctx(&w);
+    // Warm once: lazily built tables are not part of a call's cost.
+    act(&lanes, &w.store, &w.view, &context, &count).unwrap();
+    let mut out = None;
+    let n = allocations(|| out = Some(act(&lanes, &w.store, &w.view, &context, &count)));
+    assert_eq!(out.unwrap().unwrap().unwritten, vec![(SCRATCH, 4)]);
+    assert_eq!(
+        n, MEASURED_READ_ONLY_ACT_ALLOCATIONS,
+        "allocations of one act"
+    );
+}
+
+/// Measured on this fixture; lower it when `act` gets leaner.
+const MEASURED_READ_ONLY_ACT_ALLOCATIONS: u64 = 41;
