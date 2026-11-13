@@ -51,6 +51,14 @@ that issues its own.
 
 ## 3. Stages
 
+Deliverable ids, one per stage, all PROPOSED: `D-VAS-A1`, `D-VAS-A2`,
+`D-VAS-A3`, `D-VAS-A4` (owner as source); `D-VAS-B1`, `D-VAS-B2` (identity);
+`D-VAS-C1` to `D-VAS-C6` (`D-VAS-C2`, `D-VAS-C3`, `D-VAS-C4`, `D-VAS-C5`
+between them: behaviour provenance and WHEN); `D-VAS-D1`, `D-VAS-D2`,
+`D-VAS-D3`, `D-VAS-D4` (DO); `D-VAS-E` (join); `D-VAS-F` (cost). The lab
+they start from is `D-VIRTUAL-ADDRESS-ALGEBRA-1`. Below, a stage `A1` is
+`D-VAS-A1`.
+
 Each stage: what it delivers, the existing authority it extends, its gate
 (a test that must fail when the stage's guard is disabled), and the decision
 it needs first. Stages inside one track are ordered; tracks A to D are

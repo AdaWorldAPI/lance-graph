@@ -1,3 +1,17 @@
+## D-VAS — virtual-address superpowers: source-owned memory, virtual properties, behaviour-aware reads (2026-11-13)
+
+Roadmap `.claude/plans/virtual-address-superpowers-roadmap-v1.md` (PROPOSED / DOCS ONLY); lab evidence `.claude/plans/d-virtual-address-algebra-1.md` (PR 2060). Nine decisions precede any stage; none is taken.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-VIRTUAL-ADDRESS-ALGEBRA-1 | Lab `crates/virtual-address-lab`: recipe algebra, address function over both coordinates, owner-backed scalar read on `MailboxSoA`, `Method` as a constant, ON / WHEN (lane comparisons) / demanded operands on a routed lens | In PR (lab), #2060 |
+| D-VAS-A1..A4 | The mailbox as a source: frame, `LaneSource`, `SelectionSource`, typed selection folds | Proposed |
+| D-VAS-B1..B2 | `NodeGuid` to a current source-local coordinate; version-bound virtual property | Proposed; B1 needs an authority decision |
+| D-VAS-C1..C6 | Behaviour-lens association, route-bound admission, guard contract, `Guard` to Quack seam, mask-plane socket, UNKNOWN | Proposed |
+| D-VAS-D1..D4 | Operand boundary over `reads`, execution, write-back, ON from a real change | Proposed |
+| D-VAS-E | The full chain on one owner against a scalar interpreter | Proposed; needs A to D |
+| D-VAS-F | Cost: normalise once, one check per population, measured in ns | Proposed |
+
 ## D-SC — OGAR × DR × DT64 semantic continuity (2026-11-07)
 
 Execution admitted = meaning valid (OGAR/DT64) ∧ representation compatible (DR/source) ∧ access permitted now (IAM, owned by the OGAR auth session, EXO-206). Linear: EXO-202 (D, BLOCKED), EXO-204, EXO-205.
