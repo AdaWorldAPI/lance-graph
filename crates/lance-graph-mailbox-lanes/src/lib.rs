@@ -36,6 +36,8 @@
 //! the caller's assertion, compared for consistency only), `NodeGuid`
 //! resolution, any write.
 
+pub mod coords;
+
 use cognitive_shader_driver::mailbox_soa::Published;
 use lance_graph_contract::ontology::FieldRef;
 use lance_graph_contract::soa_view::MailboxSoaView;
