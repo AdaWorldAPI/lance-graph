@@ -10,3 +10,8 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 lance-graph-quack = { path = "../lance-graph-quack" }
+
+[dev-dependencies]
+# The twins rule shape and its raw-vector path (the negative control of
+# tests/twins_lanes.rs). Library only; its chess authority is not linked.
+hidden-state-twins-probe = { path = "../hidden-state-twins-probe" }

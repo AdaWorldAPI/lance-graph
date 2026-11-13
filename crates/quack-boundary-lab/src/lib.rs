@@ -229,6 +229,23 @@ impl Source {
         self.frames.advance(revs);
     }
 
+    /// Rewrite the validity lane as another producer would have derived it
+    /// (`valid(id)` per row). The frame does NOT move: the source keeps
+    /// claiming the lanes it sealed.
+    pub fn rederive_validity(&mut self, valid: impl Fn(usize) -> bool) {
+        for (v, &id) in self.disc_valid.iter_mut().zip(&self.id) {
+            *v = u32::from(valid(id as usize));
+        }
+    }
+
+    /// The source declares a new storage revision: every frame sealed before
+    /// this is stale. Row order and lane ids are unchanged.
+    pub fn advance_source(&mut self) {
+        let mut revs = self.frames.revisions();
+        revs.source += 1;
+        self.frames.advance(revs);
+    }
+
     /// The logical row stored at row ordinal `r`.
     pub fn row(&self, r: usize) -> Row {
         Row {
