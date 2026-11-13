@@ -1,0 +1,9 @@
+# Occurrences of the two `Foo` symbols in fixtures/ns_twins/src/lib.rs, as recorded by rust-analyzer's StaticIndex (ra_ap_ide 0.0.358) through crates/sag-ra-probe on 2026-11-13:
+#   XREFS=1 target/release/sag-ra-probe ../hidden-state-twins-probe/fixtures/ns_twins | grep -P '^occ\t' | grep Foo
+# Not written or edited by hand. Columns: moniker, kind, path, byte start, byte end, role.
+ns_twins::Foo#	Struct	src/lib.rs	311	314	def
+ns_twins::Foo#	Struct	src/lib.rs	371	374	ref
+ns_twins::Foo#	Struct	src/lib.rs	388	391	ref
+ns_twins::Foo().	Function	src/lib.rs	326	329	def
+ns_twins::Foo().	Function	src/lib.rs	396	399	ref
+ns_twins::Foo().	Function	src/lib.rs	453	456	ref

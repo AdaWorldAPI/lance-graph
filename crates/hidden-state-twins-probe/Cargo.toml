@@ -1,0 +1,29 @@
+[package]
+name = "hidden-state-twins-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "D-TWINS-0 lab falsifier: one guarded-candidate rule shape applied to two unrelated domains (chess state, Rust source sites), each judged by an authority that shares no code with the rules. Lab only; no production path."
+
+# Its OWN workspace root, like grammar-constraints-probe. Verify via
+#   cargo test --manifest-path crates/hidden-state-twins-probe/Cargo.toml
+[workspace]
+
+[dependencies]
+# Method identity and the stored WHEN (admission only; DT64 evaluates nothing).
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The only bulk engine.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# SetExpr / ClassView.
+lance-graph-contract = { path = "../lance-graph-contract" }
+# The relational description (Filter) and its lowering.
+lance-graph-quack = { path = "../lance-graph-quack" }
+
+[dev-dependencies]
+# The chess authority, tests only: legal moves and FIDE position equality.
+# shakmaty is GPL-3.0-or-later. It is linked into this crate's TEST binaries
+# only; the library above does not depend on it and nothing here is published.
+shakmaty = { path = "../../../shakmaty/shakmaty" }
+
+[patch."https://github.com/AdaWorldAPI/ndarray"]
+ndarray = { path = "../../../ndarray" }
