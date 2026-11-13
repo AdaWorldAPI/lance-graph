@@ -246,7 +246,7 @@ fn every_admitted_read_is_the_owners_own_value() {
 
     // The 64-bit columns, through the other method's `reads`.
     let edges_ref = w.store.method_ref(CLASS, READ_EDGES).unwrap();
-    let reads = w.store.admit_routed(w.route, &edges_ref).unwrap().reads;
+    let reads = w.store.admit_routed(w.route, &edges_ref).unwrap().reads.clone();
     let b2 = bind(&w, &lanes, w.route, &reads).unwrap();
     for (field, column, oracle) in [
         (
@@ -316,7 +316,7 @@ fn only_the_routed_classes_method_is_admitted() {
         })
     );
     let own = w.store.method_ref(CLASS, READ_META).unwrap();
-    let reads = w.store.admit_routed(w.route, &own).unwrap().reads;
+    let reads = w.store.admit_routed(w.route, &own).unwrap().reads.clone();
 
     let lanes = MailboxLanes::new(m.published(), READER);
     let b = bind(&w, &lanes, w.route, &reads).unwrap();
