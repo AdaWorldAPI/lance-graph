@@ -676,3 +676,23 @@ Stated limits, unchanged: the grid is 2 fields x N rows, so one axis is the
 owner's row axis and admission must refuse what moves it. A grid whose both
 axes are properties of ONE entity would admit all eight recipes; that is not
 built here, because no owner-lent per-row property block was verified.
+
+## 14. Independent reference probe (written before the run)
+
+`tests/owner_address_law.rs`, from the reviewer's scaffold. It does not use
+`owner.rs`; it reuses `Recipe::normalize` and `Recipe::resolve` and reads a
+real `MailboxSoA<64>` through `meta_raw` / `edges_raw`. Pure `resolve` ->
+`Address { field, row }`, then one `read_owner`. Both coordinates come from
+one recipe evaluation.
+
+- Counterexample first: `(12, 0)` under `ANTI_TRANSPOSE` over 2 x 64 is
+  `edges[51]`, value 1051, and is not `edges[12]`.
+- Parity: all eight recipes, every cell of each view (8 x 128 cells), against
+  the data-moving reference.
+
+Relation to section 13: this probe has NO admission gate; it shows what the
+address function denotes. `owner.rs` keeps the gate that refuses
+position-reversing recipes in P0. The two are consistent: `address` there
+equals `resolve` here. Not claimed: `NodeGuid` resolution, a `ClassView`
+binding, source-issued row reordering, version authentication, DR/DT64
+admission.
