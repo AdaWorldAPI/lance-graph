@@ -246,7 +246,12 @@ fn every_admitted_read_is_the_owners_own_value() {
 
     // The 64-bit columns, through the other method's `reads`.
     let edges_ref = w.store.method_ref(CLASS, READ_EDGES).unwrap();
-    let reads = w.store.admit_routed(w.route, &edges_ref).unwrap().reads.clone();
+    let reads = w
+        .store
+        .admit_routed(w.route, &edges_ref)
+        .unwrap()
+        .reads
+        .clone();
     let b2 = bind(&w, &lanes, w.route, &reads).unwrap();
     for (field, column, oracle) in [
         (
@@ -500,4 +505,33 @@ fn another_owner_is_another_source() {
     );
     assert_eq!(a.meta_raw()[3], meta_of(7, 3));
     assert_eq!(b.meta_raw()[3], meta_of(8, 3));
+}
+
+/// The socket's own refusals, asked directly (DT64 repeats both above it).
+/// FAILS IF: the socket maps a field under another source's frame, or lends
+/// a lane for an address in another row order or reader scope.
+#[test]
+fn the_socket_refuses_a_foreign_frame_and_a_foreign_address() {
+    use lance_graph_dt64::LaneSource;
+    let (a, b) = (owner(7), owner(8));
+    let (la, lb) = (
+        MailboxLanes::new(a.published(), READER),
+        MailboxLanes::new(b.published(), READER),
+    );
+    let basis = FieldRef::new(Column::Meta.iri(), "meta");
+    let addr = la
+        .lane_of(CLASS, SchemaRev(1), META, &basis, &la.seal())
+        .expect("its own frame");
+    assert_eq!(
+        la.lane_of(CLASS, SchemaRev(1), META, &basis, &lb.seal()),
+        None
+    );
+    assert!(la.borrow(&addr).is_some());
+    assert!(lb.borrow(&addr).is_none(), "another mailbox's row order");
+    let mut other_scope = addr;
+    other_scope.scope = Scope { id: 99 };
+    assert!(la.borrow(&other_scope).is_none());
+    let mut no_lane = addr;
+    no_lane.lane = 77;
+    assert!(la.borrow(&no_lane).is_none());
 }
