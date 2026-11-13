@@ -39,6 +39,7 @@
 //! resolution, any write.
 
 pub mod coords;
+pub mod when;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 

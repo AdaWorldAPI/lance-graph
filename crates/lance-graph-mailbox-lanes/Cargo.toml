@@ -10,6 +10,8 @@ cognitive-shader-driver = { path = "../cognitive-shader-driver" }
 lance-graph-contract = { path = "../lance-graph-contract" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+# D-VAS-C4: a guard is lowered by Quack (`set::lower_set`) and run by mask-risc.
+lance-graph-quack = { path = "../lance-graph-quack" }
 
 [dev-dependencies]
 causal-edge = { path = "../causal-edge" }
