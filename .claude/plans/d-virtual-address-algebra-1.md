@@ -350,3 +350,23 @@ Not available for any of them: a fold over a position list (`execute_sel` is
 Controls: a care of `0xFF` on the byte (reading the byte as one value) gives a
 different count than the nibble care; a row count of 0 matches is rejected as
 uninformative.
+
+### 9.4 Result of the 24 x i4 test (2026-11-13, release build)
+
+`cargo test --release -p virtual-address-lab --test i4x24`: 2 passed on the
+first run. Four disable runs on the committed test, each restored with
+`git checkout`, each red:
+
+| disable | outcome |
+|---|---|
+| nibble halves swapped in the care | both tests fail |
+| strided view one byte past the payload | the `NodeRow` test fails |
+| mailbox lane read at stride 11 | the mailbox test fails |
+| sign dropped when building the pattern | both tests fail |
+
+What this shows: 24 signed nibbles in 12 bytes are read where they lie, from
+a `[NodeRow]` slab (stride 512, offset 208) and from a lane the mailbox owns
+(stride 12), by one existing predicate with a nibble care; nothing is
+widened, copied or transposed. What it does not show: a DR frame, a DT64
+binding, a source-issued selection or a fold of the nibble VALUES (only
+equality to a mask and a count). No latency was measured.
