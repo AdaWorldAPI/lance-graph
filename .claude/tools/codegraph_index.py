@@ -17,7 +17,8 @@ ARTIFACT_MISSING instead of guessing.
     [--charon-store DIR]... [--charon-src DIR] [--view SYMBOL]... [--root DIR]
 
 `--write` and `--check` must be given the same --charon-* options: calls.tsv is
-a function of them. `.codegraph/architecture.tsv` is HAND-MAINTAINED input; this
+a function of them. With none, both read the committed store `.codegraph-charon/`
+when it exists. `.codegraph/architecture.tsv` is HAND-MAINTAINED input; this
 tool validates and projects it (decisions.tsv, gaps.tsv) and never writes it
 (except creating a header-only file when absent).
 
@@ -43,6 +44,10 @@ DEFAULT_VIEWS = ["ClassView", "WideFieldMask", "LaneBinding", "MethodBinding",
 ARCH_STATUS = {"CONFIRMED", "LAB", "OPEN-PR", "PROPOSED", "GAP"}
 ARCH_HEADER = "subject\trelation\tobject\tstatus\tevidence\tanchor\tnote"
 MISSING = "ARTIFACT_MISSING"
+# Committed ruff_charon store (`<lib>.rows.tsv` + `<lib>.files.tsv`), repo-relative. When it
+# exists and no --charon-store is given, --write and --check both read it, with the repo root as
+# the source root, so the two agree without options. Refresh: .claude/tools/charon_store.sh.
+CHARON_STORE = ".codegraph-charon"
 CAPS = {"public": 200, "imports": 100, "calls": 100, "deps": 80, "occ": 300}
 
 # --------------------------------------------------------------------------
@@ -1340,6 +1345,27 @@ class T(unittest.TestCase):
         self.assertEqual(main(["--write", "--root", str(root)]), 0)
         self.assertIn(MISSING, (root / OUT / "calls.tsv").read_text())
 
+    def test_11_crate_relative_paths_resolve(self):
+        """FAILS IF: a store written from a crate's own directory (an excluded crate is its
+        own cargo workspace, so Charon cites `src/lib.rs`) is graded STALE although the
+        source is unchanged, or the call row keeps the crate-relative path."""
+        body = "pub fn a() {\n    b();\n}\n"
+        root = mk_ws(self.td, {"alpha": (body, "")}, members=[], excluded=["alpha"])
+        st = Path(self.td) / "store"
+        st.mkdir()
+        (st / "alpha.rows.tsv").write_text(
+            "#version 2\n#schema predicate\tsubject\tobject\tgrade\tfile\tstart\tend\n"
+            "CALLS_RESOLVED\talpha::a\tx::b\tCOMPILER\tsrc/lib.rs\t17\t20\n")
+        (st / "alpha.files.tsv").write_text(
+            f"#version 1\n#schema path\tfnv64\nsrc/lib.rs\t{fnv64(body.encode())}\n")
+        f, _ = generate(root, [st], root)
+        self.assertEqual(rows_of(f, "calls.tsv"),
+                         [["alpha", "alpha::a", "x::b", "resolved", "crates/alpha/src/lib.rs", "2", "CONFIRMED"]])
+        # Silent twin: a changed source is still STALE.
+        (root / "crates/alpha/src/lib.rs").write_text(body + "pub fn c() {}\n")
+        f, _ = generate(root, [st], root)
+        self.assertEqual(rows_of(f, "calls.tsv")[0][6], "STALE")
+
     def test_09_use_tree(self):
         rf = RustFile("use a::{b, c::{d as e, f::*}, self as g};\npub use x::y;\nuse ::z::{self};\n"
                       "use h::{self, i};\n")
@@ -1429,7 +1455,10 @@ def main(argv):
     if not (a.write or a.check):
         ap.error("one of --write / --check / --self-test is required")
     root = Path(a.root)
-    files, decisions = generate(root, a.charon_store, a.charon_src, a.view)
+    stores, src = a.charon_store, a.charon_src
+    if not stores and (root / CHARON_STORE).is_dir():
+        stores, src = [root / CHARON_STORE], src or root
+    files, decisions = generate(root, stores, src, a.view)
     if a.check:
         msgs = do_check(root, files, decisions)
         for m in msgs:
