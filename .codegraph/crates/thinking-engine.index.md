@@ -293,14 +293,14 @@ flowchart LR
   n1["bgz-tensor"]
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
-  n27["highheelbgz"]
-  n31["jc"]
-  n44["lance-graph-contract"]
-  n93["thinking-engine"]
-  n7 --> n93
-  n93 --> n1
-  n93 --> n3
-  n93 --> n27
-  n93 --> n31
-  n93 --> n44
+  n28["highheelbgz"]
+  n32["jc"]
+  n45["lance-graph-contract"]
+  n94["thinking-engine"]
+  n7 --> n94
+  n94 --> n1
+  n94 --> n3
+  n94 --> n28
+  n94 --> n32
+  n94 --> n45
 ```

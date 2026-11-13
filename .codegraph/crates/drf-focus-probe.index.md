@@ -101,6 +101,6 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n16["drf-focus-probe"]
-  n60["lance-graph-planner"]
-  n16 --> n60
+  n61["lance-graph-planner"]
+  n16 --> n61
 ```

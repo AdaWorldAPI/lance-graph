@@ -154,5 +154,5 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n40["lance-graph-codec-research"]
+  n41["lance-graph-codec-research"]
 ```

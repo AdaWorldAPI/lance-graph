@@ -367,21 +367,21 @@ flowchart LR
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
   n16["drf-focus-probe"]
-  n33["lance-graph"]
-  n44["lance-graph-contract"]
-  n48["lance-graph-dt64-lance"]
-  n59["lance-graph-osint"]
-  n60["lance-graph-planner"]
-  n69["lance-graph-supervisor"]
-  n77["p64-bridge"]
-  n7 --> n60
-  n16 --> n60
-  n33 --> n60
-  n48 --> n60
-  n59 --> n60
-  n60 --> n2
-  n60 --> n3
-  n60 --> n44
-  n60 --> n77
-  n69 --> n60
+  n34["lance-graph"]
+  n45["lance-graph-contract"]
+  n49["lance-graph-dt64-lance"]
+  n60["lance-graph-osint"]
+  n61["lance-graph-planner"]
+  n70["lance-graph-supervisor"]
+  n78["p64-bridge"]
+  n7 --> n61
+  n16 --> n61
+  n34 --> n61
+  n49 --> n61
+  n60 --> n61
+  n61 --> n2
+  n61 --> n3
+  n61 --> n45
+  n61 --> n78
+  n70 --> n61
 ```

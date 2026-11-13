@@ -75,15 +75,15 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n38["lance-graph-callcenter"]
-  n43["lance-graph-consumer-conformance"]
-  n44["lance-graph-contract"]
-  n56["lance-graph-ogar"]
-  n58["lance-graph-ontology"]
-  n64["lance-graph-rbac"]
-  n43 --> n38
-  n43 --> n44
-  n43 --> n56
-  n43 --> n58
-  n43 --> n64
+  n39["lance-graph-callcenter"]
+  n44["lance-graph-consumer-conformance"]
+  n45["lance-graph-contract"]
+  n57["lance-graph-ogar"]
+  n59["lance-graph-ontology"]
+  n65["lance-graph-rbac"]
+  n44 --> n39
+  n44 --> n45
+  n44 --> n57
+  n44 --> n59
+  n44 --> n65
 ```

@@ -25,7 +25,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_b.rs:21 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/arm_c.rs:28 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
-- use lance_graph_dt64::BindStore — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/grammar-constraints-probe/src/when.rs:43 POSSIBLE
+- use lance_graph_dt64::BindStore — crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
 - use lance_graph_dt64::BindStore cfg=test — crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
 - use crate::BindStore — crates/lance-graph-dt64/src/lane.rs:23 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/lance-graph-r2il/src/binding.rs:82 POSSIBLE
@@ -36,7 +37,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::BindStore — crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
 - use lance_graph_dt64::BindStore — crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 
-## Textual occurrences (114 total)
+## Textual occurrences (117 total)
 
 - crates/cg-beh-probe/src/facts.rs:6 POSSIBLE
 - crates/cg-beh-probe/src/facts.rs:134 POSSIBLE
@@ -51,9 +52,9 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/dr-isa-stream-lab/src/bind.rs:53 POSSIBLE
 - crates/dr-isa-stream-lab/src/bind.rs:72 POSSIBLE
 - crates/dr256-ternlog-lab/src/lib.rs:37 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:163 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:178 POSSIBLE
-- crates/dr256-ternlog-lab/src/lib.rs:221 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:165 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:180 POSSIBLE
+- crates/dr256-ternlog-lab/src/lib.rs:223 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:42 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:162 POSSIBLE
 - crates/dt64-admission-probe/src/fixture.rs:163 POSSIBLE
@@ -73,9 +74,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/bind.rs:8 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:112 POSSIBLE
 - crates/foundry-parity-lab/src/bind.rs:136 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:313 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:414 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:43 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:344 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:445 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:131 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:153 POSSIBLE
 - crates/lance-graph-codegraph/src/graph.rs:1601 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:6 POSSIBLE
 - crates/lance-graph-codegraph/src/graph/publication.rs:16 POSSIBLE
@@ -147,8 +151,8 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/lance-graph-xlog/src/lens.rs:93 POSSIBLE
 - crates/lance-graph-xlog/src/lens.rs:104 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:36 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:379 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:391 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:397 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:409 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:14 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:72 POSSIBLE
 - crates/soa64-u64-lab/src/socket.rs:79 POSSIBLE

@@ -52,10 +52,10 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n19["dt64-hotplug-probe"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n56["lance-graph-ogar"]
-  n19 --> n44
-  n19 --> n47
-  n19 --> n56
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n57["lance-graph-ogar"]
+  n19 --> n45
+  n19 --> n48
+  n19 --> n57
 ```

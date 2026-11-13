@@ -3,7 +3,7 @@
 bge-m3	4	0	0	macro-generated items invisible;fn-local use not scanned
 bgz-tensor	39	29	0	macro-generated items invisible;fn-local use not scanned
 bgz17	21	5	0	macro-generated items invisible;fn-local use not scanned
-causal-edge	12	18	0	macro-generated items invisible;fn-local use not scanned
+causal-edge	12	20	0	macro-generated items invisible;fn-local use not scanned
 cg-beh-probe	6	5	1	macro-generated items invisible;fn-local use not scanned
 cognitive-compiler	1	0	0	macro-generated items invisible;fn-local use not scanned
 cognitive-polyfill-probe	1	1	0	macro-generated items invisible;fn-local use not scanned
@@ -15,7 +15,7 @@ deepnsm	31	16	0	macro-generated items invisible;fn-local use not scanned
 deepnsm-v2	25	14	0	macro-generated items invisible;fn-local use not scanned
 dr-isa-stream-lab	12	8	0	macro-generated items invisible;fn-local use not scanned
 dr-select-k-lab	7	7	0	macro-generated items invisible;fn-local use not scanned
-dr256-ternlog-lab	2	3	0	macro-generated items invisible;fn-local use not scanned
+dr256-ternlog-lab	3	8	0	macro-generated items invisible;fn-local use not scanned
 drf-focus-probe	3	12	0	macro-generated items invisible;fn-local use not scanned
 drisa-register-probe	2	5	0	macro-generated items invisible;fn-local use not scanned
 dt64-admission-probe	3	4	0	macro-generated items invisible;fn-local use not scanned
@@ -25,8 +25,9 @@ duckdb-selvec-compat	1	2	0	macro-generated items invisible;fn-local use not scan
 elixir-template	1	0	0	macro-generated items invisible;fn-local use not scanned
 foundry-parity-lab	10	7	0	macro-generated items invisible;fn-local use not scanned
 gkat-probe	6	6	0	macro-generated items invisible;fn-local use not scanned
-grammar-constraints-probe	3	4	1	macro-generated items invisible;fn-local use not scanned
+grammar-constraints-probe	3	5	1	macro-generated items invisible;fn-local use not scanned
 helix	13	13	0	macro-generated items invisible;fn-local use not scanned
+hidden-state-twins-probe	1	2	0	macro-generated items invisible;fn-local use not scanned
 highheelbgz	5	1	0	macro-generated items invisible;fn-local use not scanned
 holo-h14d-probe	1	0	0	macro-generated items invisible;fn-local use not scanned
 holo-lance-masked-io-probe	1	0	0	macro-generated items invisible;fn-local use not scanned
@@ -80,7 +81,7 @@ onebrc-probe	15	0	0	macro-generated items invisible;fn-local use not scanned
 p64-bridge	1	0	0	macro-generated items invisible;fn-local use not scanned
 perturbation-sim	26	31	0	macro-generated items invisible;fn-local use not scanned
 pg-parity-harness	4	1	0	macro-generated items invisible;fn-local use not scanned
-quack-boundary-lab	2	4	0	macro-generated items invisible;fn-local use not scanned
+quack-boundary-lab	3	8	0	macro-generated items invisible;fn-local use not scanned
 quasicryth-research	11	2	0	macro-generated items invisible;fn-local use not scanned
 r2il-mask-abi-probe	1	4	0	macro-generated items invisible;fn-local use not scanned
 reader-lm	5	0	0	macro-generated items invisible;fn-local use not scanned

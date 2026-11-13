@@ -21,6 +21,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep d-diamond-1-probe normal — crates/d-diamond-1-probe/Cargo.toml:17 CONFIRMED
 - rdep drf-focus-probe dev — crates/drf-focus-probe/Cargo.toml:31 CONFIRMED
 - rdep grammar-constraints-probe normal — crates/grammar-constraints-probe/Cargo.toml:20 CONFIRMED
+- rdep hidden-state-twins-probe normal — crates/hidden-state-twins-probe/Cargo.toml:20 CONFIRMED
 - rdep jc dev — crates/jc/Cargo.toml:43 CONFIRMED
 - rdep lance-graph normal — crates/lance-graph/Cargo.toml:57 CONFIRMED
 - rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:25 CONFIRMED
@@ -223,33 +224,35 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n10["d-diamond-1-probe"]
   n25["grammar-constraints-probe"]
-  n33["lance-graph"]
-  n37["lance-graph-benches"]
-  n41["lance-graph-codegraph"]
-  n44["lance-graph-contract"]
-  n45["lance-graph-cypher-quack"]
-  n46["lance-graph-dir-sim"]
-  n49["lance-graph-glove-parity"]
-  n52["lance-graph-mask-risc"]
-  n53["lance-graph-metta"]
-  n62["lance-graph-quack"]
-  n66["lance-graph-report"]
-  n68["lance-graph-sap"]
-  n71["lance-graph-xlog"]
-  n80["quack-boundary-lab"]
-  n10 --> n62
-  n25 --> n62
-  n33 --> n62
-  n37 --> n62
-  n41 --> n62
-  n45 --> n62
-  n46 --> n62
-  n49 --> n62
-  n53 --> n62
-  n62 --> n44
-  n62 --> n52
-  n66 --> n62
-  n68 --> n62
-  n71 --> n62
-  n80 --> n62
+  n27["hidden-state-twins-probe"]
+  n34["lance-graph"]
+  n38["lance-graph-benches"]
+  n42["lance-graph-codegraph"]
+  n45["lance-graph-contract"]
+  n46["lance-graph-cypher-quack"]
+  n47["lance-graph-dir-sim"]
+  n50["lance-graph-glove-parity"]
+  n53["lance-graph-mask-risc"]
+  n54["lance-graph-metta"]
+  n63["lance-graph-quack"]
+  n67["lance-graph-report"]
+  n69["lance-graph-sap"]
+  n72["lance-graph-xlog"]
+  n81["quack-boundary-lab"]
+  n10 --> n63
+  n25 --> n63
+  n27 --> n63
+  n34 --> n63
+  n38 --> n63
+  n42 --> n63
+  n46 --> n63
+  n47 --> n63
+  n50 --> n63
+  n54 --> n63
+  n63 --> n45
+  n63 --> n53
+  n67 --> n63
+  n69 --> n63
+  n72 --> n63
+  n81 --> n63
 ```

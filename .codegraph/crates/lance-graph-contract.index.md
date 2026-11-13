@@ -35,6 +35,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep dt64-hotplug-probe normal — crates/dt64-hotplug-probe/Cargo.toml:18 CONFIRMED
 - rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:24 CONFIRMED
 - rdep grammar-constraints-probe normal — crates/grammar-constraints-probe/Cargo.toml:18 CONFIRMED
+- rdep hidden-state-twins-probe normal — crates/hidden-state-twins-probe/Cargo.toml:18 CONFIRMED
 - rdep jc dev — crates/jc/Cargo.toml:34 CONFIRMED
 - rdep lance-graph dev — crates/lance-graph/Cargo.toml:163 CONFIRMED
 - rdep lance-graph normal — crates/lance-graph/Cargo.toml:50 CONFIRMED
@@ -319,98 +320,100 @@ flowchart LR
   n19["dt64-hotplug-probe"]
   n23["foundry-parity-lab"]
   n25["grammar-constraints-probe"]
-  n33["lance-graph"]
-  n35["lance-graph-archetype"]
-  n36["lance-graph-arm-discovery"]
-  n37["lance-graph-benches"]
-  n38["lance-graph-callcenter"]
-  n41["lance-graph-codegraph"]
-  n42["lance-graph-cognitive"]
-  n43["lance-graph-consumer-conformance"]
-  n44["lance-graph-contract"]
-  n46["lance-graph-dir-sim"]
-  n47["lance-graph-dt64"]
-  n48["lance-graph-dt64-lance"]
-  n49["lance-graph-glove-parity"]
-  n51["lance-graph-lane-fold"]
-  n54["lance-graph-nal"]
-  n56["lance-graph-ogar"]
-  n58["lance-graph-ontology"]
-  n60["lance-graph-planner"]
-  n62["lance-graph-quack"]
-  n63["lance-graph-r2il"]
-  n64["lance-graph-rbac"]
-  n65["lance-graph-relalg"]
-  n66["lance-graph-report"]
-  n67["lance-graph-report-ogar"]
-  n68["lance-graph-sap"]
-  n69["lance-graph-supervisor"]
-  n71["lance-graph-xlog"]
-  n72["learning"]
-  n75["ogar-behavior-probe"]
-  n76["onebrc-probe"]
-  n78["perturbation-sim"]
-  n80["quack-boundary-lab"]
-  n87["sigma-tier-router"]
-  n88["soa64-u64-lab"]
-  n89["surreal_container"]
-  n90["symbiont"]
-  n93["thinking-engine"]
-  n94["thought-git-probe"]
-  n95["tract-harvest-probe"]
-  n96["weather-poc"]
-  n1 --> n44
-  n4 --> n44
-  n7 --> n44
-  n8 --> n44
-  n9 --> n44
-  n10 --> n44
-  n11 --> n44
-  n12 --> n44
-  n13 --> n44
-  n15 --> n44
-  n17 --> n44
-  n18 --> n44
-  n19 --> n44
-  n23 --> n44
-  n25 --> n44
-  n33 --> n44
-  n35 --> n44
-  n36 --> n44
-  n37 --> n44
-  n38 --> n44
-  n41 --> n44
-  n42 --> n44
-  n43 --> n44
-  n46 --> n44
-  n47 --> n44
-  n48 --> n44
-  n49 --> n44
-  n51 --> n44
-  n54 --> n44
-  n56 --> n44
-  n58 --> n44
-  n60 --> n44
-  n62 --> n44
-  n63 --> n44
-  n64 --> n44
-  n65 --> n44
-  n66 --> n44
-  n67 --> n44
-  n68 --> n44
-  n69 --> n44
-  n71 --> n44
-  n72 --> n44
-  n75 --> n44
-  n76 --> n44
-  n78 --> n44
-  n80 --> n44
-  n87 --> n44
-  n88 --> n44
-  n89 --> n44
-  n90 --> n44
-  n93 --> n44
-  n94 --> n44
-  n95 --> n44
-  n96 --> n44
+  n27["hidden-state-twins-probe"]
+  n34["lance-graph"]
+  n36["lance-graph-archetype"]
+  n37["lance-graph-arm-discovery"]
+  n38["lance-graph-benches"]
+  n39["lance-graph-callcenter"]
+  n42["lance-graph-codegraph"]
+  n43["lance-graph-cognitive"]
+  n44["lance-graph-consumer-conformance"]
+  n45["lance-graph-contract"]
+  n47["lance-graph-dir-sim"]
+  n48["lance-graph-dt64"]
+  n49["lance-graph-dt64-lance"]
+  n50["lance-graph-glove-parity"]
+  n52["lance-graph-lane-fold"]
+  n55["lance-graph-nal"]
+  n57["lance-graph-ogar"]
+  n59["lance-graph-ontology"]
+  n61["lance-graph-planner"]
+  n63["lance-graph-quack"]
+  n64["lance-graph-r2il"]
+  n65["lance-graph-rbac"]
+  n66["lance-graph-relalg"]
+  n67["lance-graph-report"]
+  n68["lance-graph-report-ogar"]
+  n69["lance-graph-sap"]
+  n70["lance-graph-supervisor"]
+  n72["lance-graph-xlog"]
+  n73["learning"]
+  n76["ogar-behavior-probe"]
+  n77["onebrc-probe"]
+  n79["perturbation-sim"]
+  n81["quack-boundary-lab"]
+  n88["sigma-tier-router"]
+  n89["soa64-u64-lab"]
+  n90["surreal_container"]
+  n91["symbiont"]
+  n94["thinking-engine"]
+  n95["thought-git-probe"]
+  n96["tract-harvest-probe"]
+  n97["weather-poc"]
+  n1 --> n45
+  n4 --> n45
+  n7 --> n45
+  n8 --> n45
+  n9 --> n45
+  n10 --> n45
+  n11 --> n45
+  n12 --> n45
+  n13 --> n45
+  n15 --> n45
+  n17 --> n45
+  n18 --> n45
+  n19 --> n45
+  n23 --> n45
+  n25 --> n45
+  n27 --> n45
+  n34 --> n45
+  n36 --> n45
+  n37 --> n45
+  n38 --> n45
+  n39 --> n45
+  n42 --> n45
+  n43 --> n45
+  n44 --> n45
+  n47 --> n45
+  n48 --> n45
+  n49 --> n45
+  n50 --> n45
+  n52 --> n45
+  n55 --> n45
+  n57 --> n45
+  n59 --> n45
+  n61 --> n45
+  n63 --> n45
+  n64 --> n45
+  n65 --> n45
+  n66 --> n45
+  n67 --> n45
+  n68 --> n45
+  n69 --> n45
+  n70 --> n45
+  n72 --> n45
+  n73 --> n45
+  n76 --> n45
+  n77 --> n45
+  n79 --> n45
+  n81 --> n45
+  n88 --> n45
+  n89 --> n45
+  n90 --> n45
+  n91 --> n45
+  n94 --> n45
+  n95 --> n45
+  n96 --> n45
+  n97 --> n45
 ```

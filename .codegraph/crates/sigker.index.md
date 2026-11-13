@@ -87,7 +87,7 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n31["jc"]
-  n86["sigker"]
-  n31 --> n86
+  n32["jc"]
+  n87["sigker"]
+  n32 --> n87
 ```

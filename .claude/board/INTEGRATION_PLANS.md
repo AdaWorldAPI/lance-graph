@@ -1,3 +1,8 @@
+## 2026-11-13 — D-QUACK-DERIVED-PLANE-PROBE: what a derived lane or plane inherits from an admitted lane → `.claude/plans/d-quack-derived-plane-probe.md`
+
+**Status:** PLAN, lab only; P1 authorized and started, P2 and P3 wait for PR 2057. Pass conditions fixed before any run. Follows D-QUACK-BOUNDARY-LAB (#2045). Coordination: EXO-253.
+**Confidence:** the three derived-value sites are read in full (`hidden-state-twins-probe`, `dr256-ternlog-lab`, PR 2057's diff); nothing is measured yet.
+
 ## 2026-11-12 — D-QUACK-BOUNDARY-LAB: where a Quack-lowered program gets its operands → `.claude/plans/quack-boundary-lab-v1.md`
 
 **Status:** LAB, MEASURED. `crates/quack-boundary-lab`: one unchanged program run unbound and through a DT64 `LaneBinding`, cases A to F against a scalar oracle; an audit of `lower_group_by_auto`; a materialisation ledger with exact byte counts. No production API changed. [entry](entries/2026-11-12-quack-boundary-lab.md). Coordination: EXO-253.

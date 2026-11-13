@@ -270,8 +270,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n13["dr-isa-stream-lab"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n13 --> n44
-  n13 --> n47
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n13 --> n45
+  n13 --> n48
 ```

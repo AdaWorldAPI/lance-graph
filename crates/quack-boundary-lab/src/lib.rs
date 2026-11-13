@@ -42,6 +42,7 @@ use lance_graph_mask_risc::{
 
 use lance_graph_quack::Col;
 
+pub mod derived;
 pub mod oracle;
 
 /// DT64 class of the fixture.
@@ -226,6 +227,23 @@ impl Source {
         self.space.coordinates += 1;
         let mut revs = self.frames.revisions();
         revs.coordinates += 1;
+        self.frames.advance(revs);
+    }
+
+    /// Rewrite the validity lane as another producer would have derived it
+    /// (`valid(id)` per row). The frame does NOT move: the source keeps
+    /// claiming the lanes it sealed.
+    pub fn rederive_validity(&mut self, valid: impl Fn(usize) -> bool) {
+        for (v, &id) in self.disc_valid.iter_mut().zip(&self.id) {
+            *v = u32::from(valid(id as usize));
+        }
+    }
+
+    /// The source declares a new storage revision: every frame sealed before
+    /// this is stale. Row order and lane ids are unchanged.
+    pub fn advance_source(&mut self) {
+        let mut revs = self.frames.revisions();
+        revs.source += 1;
         self.frames.advance(revs);
     }
 
@@ -509,6 +527,8 @@ pub enum Refused {
     /// The program needs an operand no owner issues through the lane socket.
     /// Not executed; no witness is invented for it.
     Blocked(&'static str),
+    /// A derived plane was not derived or not accepted (`derived`).
+    Plane(derived::PlaneRefusal),
     /// The witness held and the executor refused the operands.
     Exec(ExecError),
 }

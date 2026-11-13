@@ -70,13 +70,13 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n44["lance-graph-contract"]
-  n49["lance-graph-glove-parity"]
-  n56["lance-graph-ogar"]
-  n58["lance-graph-ontology"]
-  n62["lance-graph-quack"]
-  n49 --> n44
-  n49 --> n56
-  n49 --> n58
-  n49 --> n62
+  n45["lance-graph-contract"]
+  n50["lance-graph-glove-parity"]
+  n57["lance-graph-ogar"]
+  n59["lance-graph-ontology"]
+  n63["lance-graph-quack"]
+  n50 --> n45
+  n50 --> n57
+  n50 --> n59
+  n50 --> n63
 ```

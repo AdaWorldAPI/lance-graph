@@ -104,17 +104,17 @@ Generated from Cargo manifests — extracted relationships only.
 flowchart LR
   n9["crepe-plan-probe"]
   n23["foundry-parity-lab"]
-  n28["holo-h14d-probe"]
-  n32["jc-batch-probe"]
-  n44["lance-graph-contract"]
-  n52["lance-graph-mask-risc"]
-  n63["lance-graph-r2il"]
-  n65["lance-graph-relalg"]
-  n9 --> n65
-  n23 --> n65
-  n28 --> n65
-  n32 --> n65
-  n65 --> n44
-  n65 --> n52
-  n65 --> n63
+  n29["holo-h14d-probe"]
+  n33["jc-batch-probe"]
+  n45["lance-graph-contract"]
+  n53["lance-graph-mask-risc"]
+  n64["lance-graph-r2il"]
+  n66["lance-graph-relalg"]
+  n9 --> n66
+  n23 --> n66
+  n29 --> n66
+  n33 --> n66
+  n66 --> n45
+  n66 --> n53
+  n66 --> n64
 ```

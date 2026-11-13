@@ -18,12 +18,13 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - use lance_graph_dt64::MethodBinding — crates/dt64-admission-probe/src/lib.rs:54 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/dt64-hotplug-probe/src/lib.rs:39 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/foundry-parity-lab/src/method.rs:26 POSSIBLE
-- use lance_graph_dt64::MethodBinding — crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/grammar-constraints-probe/src/when.rs:43 POSSIBLE
+- use lance_graph_dt64::MethodBinding — crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
 - use lance_graph_dt64::MethodBinding cfg=test — crates/lance-graph-report/src/lane_source/tests.rs:17 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/lance-graph-xlog/src/lib.rs:43 POSSIBLE
 - use lance_graph_dt64::MethodBinding — crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
 
-## Textual occurrences (60 total)
+## Textual occurrences (63 total)
 
 - crates/cg-beh-probe/src/fixture.rs:20 POSSIBLE
 - crates/cg-beh-probe/src/fixture.rs:129 POSSIBLE
@@ -49,9 +50,12 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/foundry-parity-lab/src/method.rs:77 POSSIBLE
 - crates/foundry-parity-lab/src/method.rs:82 POSSIBLE
 - crates/foundry-parity-lab/src/method.rs:97 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:39 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:287 POSSIBLE
-- crates/grammar-constraints-probe/src/when.rs:288 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:43 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:318 POSSIBLE
+- crates/grammar-constraints-probe/src/when.rs:319 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:38 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:110 POSSIBLE
+- crates/hidden-state-twins-probe/src/lib.rs:112 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:11 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:17 POSSIBLE
 - crates/lance-graph-dt64/src/lib.rs:27 POSSIBLE
@@ -84,7 +88,7 @@ Generated; the code is the truth. Same-name symbols stay separate per file.
 - crates/ogar-behavior-probe/src/projection.rs:38 POSSIBLE
 - crates/ogar-behavior-probe/src/projection.rs:128 POSSIBLE
 - crates/quack-boundary-lab/src/lib.rs:37 POSSIBLE
-- crates/quack-boundary-lab/src/lib.rs:390 POSSIBLE
+- crates/quack-boundary-lab/src/lib.rs:408 POSSIBLE
 
 ## Architecture
 

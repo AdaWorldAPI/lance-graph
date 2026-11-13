@@ -15,6 +15,7 @@ Generated; the code is the truth. See ../index.md.
 
 - rdep cognitive-shader-driver normal — crates/cognitive-shader-driver/Cargo.toml:237 CONFIRMED
 - rdep deepnsm-v2 normal — crates/deepnsm-v2/Cargo.toml:32 CONFIRMED
+- rdep grammar-constraints-probe dev — crates/grammar-constraints-probe/Cargo.toml:24 CONFIRMED
 - rdep lance-graph dev — crates/lance-graph/Cargo.toml:174 CONFIRMED
 - rdep lance-graph-mask-risc dev — crates/lance-graph-mask-risc/Cargo.toml:36 CONFIRMED
 - rdep lance-graph-osint normal — crates/lance-graph-osint/Cargo.toml:14 CONFIRMED
@@ -248,16 +249,16 @@ flowchart LR
   n3["causal-edge"]
   n7["cognitive-shader-driver"]
   n12["deepnsm-v2"]
-  n59["lance-graph-osint"]
-  n60["lance-graph-planner"]
-  n77["p64-bridge"]
-  n87["sigma-tier-router"]
-  n93["thinking-engine"]
+  n60["lance-graph-osint"]
+  n61["lance-graph-planner"]
+  n78["p64-bridge"]
+  n88["sigma-tier-router"]
+  n94["thinking-engine"]
   n7 --> n3
   n12 --> n3
-  n59 --> n3
   n60 --> n3
-  n77 --> n3
-  n87 --> n3
-  n93 --> n3
+  n61 --> n3
+  n78 --> n3
+  n88 --> n3
+  n94 --> n3
 ```

@@ -23,6 +23,7 @@ Generated; the code is the truth. See ../index.md.
 - rdep dt64-hotplug-probe normal — crates/dt64-hotplug-probe/Cargo.toml:19 CONFIRMED
 - rdep foundry-parity-lab normal — crates/foundry-parity-lab/Cargo.toml:22 CONFIRMED
 - rdep grammar-constraints-probe normal — crates/grammar-constraints-probe/Cargo.toml:14 CONFIRMED
+- rdep hidden-state-twins-probe normal — crates/hidden-state-twins-probe/Cargo.toml:14 CONFIRMED
 - rdep lance-graph-benches normal — crates/lance-graph-benches/Cargo.toml:30 CONFIRMED
 - rdep lance-graph-codegraph normal — crates/lance-graph-codegraph/Cargo.toml:13 CONFIRMED
 - rdep lance-graph-dir-sim dev — crates/lance-graph-dir-sim/Cargo.toml:51 CONFIRMED
@@ -282,34 +283,36 @@ flowchart LR
   n19["dt64-hotplug-probe"]
   n23["foundry-parity-lab"]
   n25["grammar-constraints-probe"]
-  n37["lance-graph-benches"]
-  n41["lance-graph-codegraph"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n48["lance-graph-dt64-lance"]
-  n63["lance-graph-r2il"]
-  n66["lance-graph-report"]
-  n71["lance-graph-xlog"]
-  n75["ogar-behavior-probe"]
-  n80["quack-boundary-lab"]
-  n88["soa64-u64-lab"]
-  n4 --> n47
-  n6 --> n47
-  n13 --> n47
-  n15 --> n47
-  n17 --> n47
-  n18 --> n47
-  n19 --> n47
-  n23 --> n47
-  n25 --> n47
-  n37 --> n47
-  n41 --> n47
-  n47 --> n44
-  n48 --> n47
-  n63 --> n47
-  n66 --> n47
-  n71 --> n47
-  n75 --> n47
-  n80 --> n47
-  n88 --> n47
+  n27["hidden-state-twins-probe"]
+  n38["lance-graph-benches"]
+  n42["lance-graph-codegraph"]
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n49["lance-graph-dt64-lance"]
+  n64["lance-graph-r2il"]
+  n67["lance-graph-report"]
+  n72["lance-graph-xlog"]
+  n76["ogar-behavior-probe"]
+  n81["quack-boundary-lab"]
+  n89["soa64-u64-lab"]
+  n4 --> n48
+  n6 --> n48
+  n13 --> n48
+  n15 --> n48
+  n17 --> n48
+  n18 --> n48
+  n19 --> n48
+  n23 --> n48
+  n25 --> n48
+  n27 --> n48
+  n38 --> n48
+  n42 --> n48
+  n48 --> n45
+  n49 --> n48
+  n64 --> n48
+  n67 --> n48
+  n72 --> n48
+  n76 --> n48
+  n81 --> n48
+  n89 --> n48
 ```

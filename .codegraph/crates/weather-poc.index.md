@@ -15,6 +15,7 @@ Generated; the code is the truth. See ../index.md.
 
 ## Depended on by
 
+- rdep dr256-ternlog-lab dev — crates/dr256-ternlog-lab/Cargo.toml:16 CONFIRMED
 
 ## Public items
 
@@ -104,7 +105,7 @@ Generated from Cargo manifests — extracted relationships only.
 
 ```mermaid
 flowchart LR
-  n44["lance-graph-contract"]
-  n96["weather-poc"]
-  n96 --> n44
+  n45["lance-graph-contract"]
+  n97["weather-poc"]
+  n97 --> n45
 ```

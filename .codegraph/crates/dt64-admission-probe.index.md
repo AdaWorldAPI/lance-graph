@@ -112,8 +112,8 @@ Generated from Cargo manifests — extracted relationships only.
 ```mermaid
 flowchart LR
   n18["dt64-admission-probe"]
-  n44["lance-graph-contract"]
-  n47["lance-graph-dt64"]
-  n18 --> n44
-  n18 --> n47
+  n45["lance-graph-contract"]
+  n48["lance-graph-dt64"]
+  n18 --> n45
+  n18 --> n48
 ```
