@@ -927,6 +927,50 @@ mod plug_and_play_reading {
         assert!(act.concepts.iter().all(|(_, id)| *id != 0x0A01));
     }
 
+    /// The erp-rs plug: `commercial_document` (`0x0202`) as reading-only
+    /// canon storage next to the `erp_polyfill` seat (`0x020C`), which carries
+    /// the five ERP capabilities. Both left sides must read before the consumer
+    /// may register its behaviour lens `0x020C_F000` in DT64.
+    ///
+    /// Anti-vacuity: the storage id contributes no concept row (it never
+    /// reaches the join), and dropping one covered name refuses the plug.
+    #[test]
+    fn the_erp_plug_reads_the_storage_class_and_resolves_the_seat() {
+        const COVERED: &[&str] = &[
+            "create_entry",
+            "post_entry",
+            "read_entry",
+            "set_const",
+            "mark_set",
+        ];
+        let erp = HotPlug {
+            consumer: "erp-ledger",
+            classids: &[0x0202, 0x020C],
+            covered: COVERED,
+        };
+        let act = super::OgarAuthority
+            .activate(&erp)
+            .expect("the erp plug activates");
+        assert_eq!(act.read_mode_for(0x0202), Ok(ReadMode::PLUG_AND_PLAY_V3));
+        assert_eq!(act.read_mode_for(0x020C), Ok(ReadMode::PLUG_AND_PLAY_V3));
+        assert_eq!(act.capabilities.len(), COVERED.len());
+        assert!(act.concepts.iter().any(|(_, id)| *id == 0x020C));
+        assert!(act.concepts.iter().all(|(_, id)| *id != 0x0202));
+        // Not plugged, so no reading: the lens' left side cannot be borrowed.
+        assert!(act.read_mode_for(0x0203).is_err());
+
+        let short = HotPlug {
+            covered: &COVERED[..4],
+            ..erp
+        };
+        assert!(super::OgarAuthority.activate(&short).is_err());
+        let impostor = HotPlug {
+            consumer: "medcare-rs",
+            ..erp
+        };
+        assert!(super::OgarAuthority.activate(&impostor).is_err());
+    }
+
     /// THE MEDCARE CASE — the one this rewrite exists for.
     ///
     /// A capability consumer outside `0x17XX` is as plugged in as a palette,

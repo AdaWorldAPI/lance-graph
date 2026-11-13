@@ -200,6 +200,10 @@ Each falsifier gets a disable run: drop the frame check in `map`, and drop the `
 - [ ] L5c: `MethodRef` + `plan_id` carry class revision and basis digest
 - [ ] L5d: test-only `LaneBinding` → `FieldLanes` with the four refusals, after L5a
 
+### 1g. First consumer allocation under D14'' (2026-11-13)
+
+2026-11-13: first consumer allocation under D14''. Left side `0x020C` (`erp_polyfill`, commerce domain, minted in OGAR), behaviour lens `0x020C_F000` = the erp-rs host-effect polyfill (words `SetConst`, `MarkSet`, `Refuse`). Registered by the consumer through its own `BindStore` after `OgarAuthority::activate` covers `0x020C` (C2). Decided by the repository owner; no council pass.
+
 ## 2. The classid, both sides
 
 ```text
