@@ -74,7 +74,7 @@
 //! front by the same `all_finite` guard.
 
 use crate::reliability::{all_finite, mean, pearson, pearson_from_centered};
-use ndarray::simd::{CrossPowerSums, PowerSums};
+use ndarray::simd::{ArgI32, CrossPowerSums, PowerSums};
 use std::collections::BTreeSet;
 
 // ─────────────────────────── local helpers ───────────────────────────
@@ -1405,6 +1405,139 @@ pub fn r_squared_from_cross_power_sums(m: &CrossPowerSums) -> Option<f64> {
     }
     let r = cxy as f64 / ((cxx as f64).sqrt() * (cyy as f64).sqrt());
     r_squared_tail(r * r)
+}
+
+// ─────────── range and largest standardized deviation from extrema ───────────
+//
+// Two DESCRIPTIVE statistics of one population, projected from summaries the
+// substrate already folds over a population mask: `(n, Σx, Σx²)` from
+// `ndarray::simd::masked_group_power_sums_i32`, and the minimum and maximum
+// with their rows from `ndarray::simd::masked_argminmax_i32` (or
+// `lance-graph-mask-risc`'s `Terminal::MaskedArgMinI32` / `MaskedArgMaxI32`).
+// No row is read here.
+//
+// The largest standardized deviation is the quantity Grubbs' test is built
+// on. This module computes the quantity and stops: no critical value, no
+// p-value, no verdict that a row is an outlier. An extreme is a selected
+// value, so a classical single-observation p-value does not apply to it, and
+// the independence and normality a Grubbs critical value assumes are not
+// established for substrate data (see the module note on Jirak 2016).
+//
+// A row is a coordinate in the frame of the population the caller folded. It
+// is returned as it was passed in and means nothing outside that frame.
+
+/// `max − min` of one population from its extrema, exact.
+///
+/// `min` and `max` are `(row, value)` as `ndarray::simd::masked_argminmax_i32`
+/// returns them. The subtraction is done in `i64`, so the full `i32` span
+/// (`i32::MAX − i32::MIN`) is exact. `None` when `min.1 > max.1`: such a pair
+/// is not the extrema of any population.
+///
+/// ```
+/// use jc::stats::range_from_extrema;
+///
+/// assert_eq!(range_from_extrema((4, -3), (1, 9)), Some(12));
+/// assert_eq!(range_from_extrema((0, i32::MIN), (1, i32::MAX)), Some(4_294_967_295));
+/// assert_eq!(range_from_extrema((0, 5), (1, 4)), None);
+/// ```
+pub fn range_from_extrema(min: ArgI32, max: ArgI32) -> Option<i64> {
+    if min.1 > max.1 {
+        return None;
+    }
+    Some(i64::from(max.1) - i64::from(min.1))
+}
+
+/// The range of one population and its largest standardized deviation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ExtremeDeviation {
+    /// `max − min`, exact.
+    pub range: i64,
+    /// `G = max(x̄ − min, max − x̄) / s`, with `s` the sample standard
+    /// deviation (divisor `n − 1`). Always in `(0, (n − 1) / √n]`.
+    pub deviation: f64,
+    /// Row of the value `deviation` is taken at, in the caller's frame.
+    pub at: usize,
+    /// The value at that row: the minimum or the maximum.
+    pub value: i32,
+    /// Arithmetic mean of the population.
+    pub mean: f64,
+    /// Sample standard deviation (divisor `n − 1`).
+    pub std_dev: f64,
+}
+
+/// Range and largest standardized deviation of one population, from its power
+/// sums and its extrema. Descriptive only: see the section note.
+///
+/// `sums`, `min` and `max` must describe the SAME population (the same mask
+/// over the same lane). The tail further from the mean is chosen by an exact
+/// integer comparison; when both tails are equally far, the one at the lower
+/// row is returned.
+///
+/// `None` when the statistic is undefined or the inputs cannot belong to one
+/// population:
+///
+/// - fewer than 2 values (`sums.n < 2`): no sample standard deviation;
+/// - zero variance (all values equal);
+/// - `min.1 > max.1`, a mean outside `[min, max]`, both extrema at one row
+///   with different values, or a deviation above the bound `(n − 1) / √n`;
+/// - moments too large for the exact `i128` forms (outside the bound
+///   `PowerSums` is exact under).
+///
+/// ```
+/// use jc::stats::extreme_deviation_from_power_sums;
+/// use ndarray::simd::{masked_argminmax_i32, masked_group_power_sums_i32, PowerSums};
+///
+/// let values = [2i32, 4, 4, 5, 40, 3];
+/// let mask = [0b111111u64];
+/// let mut sums = [PowerSums::default()];
+/// masked_group_power_sums_i32(&mask, &[0; 6], &values, &mut sums);
+/// let (min, max) = masked_argminmax_i32(&values, &mask).unwrap();
+///
+/// let d = extreme_deviation_from_power_sums(&sums[0], min, max).unwrap();
+/// assert_eq!((d.range, d.at, d.value), (38, 4, 40));
+/// // mean 58/6, sample sd 14.895: (40 − 9.667) / 14.895
+/// assert!((d.deviation - 2.0364).abs() < 1e-3);
+/// ```
+pub fn extreme_deviation_from_power_sums(
+    sums: &PowerSums,
+    min: ArgI32,
+    max: ArgI32,
+) -> Option<ExtremeDeviation> {
+    let range = range_from_extrema(min, max)?;
+    if sums.n < 2 || range == 0 || min.0 == max.0 {
+        return None;
+    }
+    let n = i128::from(sums.n);
+    let s = i128::from(sums.sum);
+    // n·Σx² − (Σx)² = n · Σ(x − x̄)², exact and never negative for real data.
+    let w = n
+        .checked_mul(i128::try_from(sums.sum_sq).ok()?)?
+        .checked_sub(s.checked_mul(s)?)?;
+    // n·(x̄ − min) and n·(max − x̄), exact.
+    let below = s.checked_sub(n.checked_mul(i128::from(min.1))?)?;
+    let above = n.checked_mul(i128::from(max.1))?.checked_sub(s)?;
+    if w <= 0 || below < 0 || above < 0 {
+        return None;
+    }
+    let take_min = below > above || (below == above && min.0 < max.0);
+    let ((at, value), numerator) = if take_min { (min, below) } else { (max, above) };
+    let n_f = sums.n as f64;
+    let std_dev = (w as f64 / (n_f * (n_f - 1.0))).sqrt();
+    let deviation = numerator as f64 / n_f / std_dev;
+    // No value of a sample lies further than (n − 1)/√n sample standard
+    // deviations from its mean; more means the inputs are not one population.
+    let bound = (n_f - 1.0) / n_f.sqrt();
+    if !(deviation.is_finite() && deviation > 0.0 && deviation <= bound * (1.0 + 1e-9)) {
+        return None;
+    }
+    Some(ExtremeDeviation {
+        range,
+        deviation,
+        at,
+        value,
+        mean: s as f64 / n_f,
+        std_dev,
+    })
 }
 
 // ── Fisher 2z (D-BLW-5 payload space) ──
