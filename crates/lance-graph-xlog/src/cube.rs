@@ -696,6 +696,44 @@ impl Cube {
             .sum())
     }
 
+    /// Total derivations of one side joined with itself on `col`: `Σ_p c(p)²`
+    /// over [`Cube::column_counts`]. Equal to [`Cube::join_size`] of that
+    /// self-join, from one count program instead of two. Summed in `i128`.
+    pub fn self_join_size(
+        &self,
+        table: &MapTable,
+        side: View,
+        col: u8,
+    ) -> Result<i128, CubeRefusal> {
+        Ok(self
+            .column_counts(table, side, col)?
+            .iter()
+            .map(|&c| i128::from(c) * i128::from(c))
+            .sum())
+    }
+
+    /// The coordinate with the most rows in column `col` of one side, and that
+    /// count. Equal counts go to the lower coordinate. `None` when the side
+    /// has no row.
+    ///
+    /// The coordinate is a position under the cube's frame, not an id:
+    /// decode it through the map to name the key.
+    pub fn heaviest(
+        &self,
+        table: &MapTable,
+        side: View,
+        col: u8,
+    ) -> Result<Option<(u32, i64)>, CubeRefusal> {
+        let counts = self.column_counts(table, side, col)?;
+        let mut best: Option<(u32, i64)> = None;
+        for (at, &c) in counts.iter().enumerate() {
+            if c > best.map_or(0, |(_, b)| b) {
+                best = Some((at as u32, c));
+            }
+        }
+        Ok(best)
+    }
+
     /// `edge⁺` of relation `rel`, semi-naively: `delta' = (delta ∘ edge) andnot
     /// full`, `full |= delta'`, until a delta is empty. Rows come from the
     /// relation's lanes, which already hold local positions, so nothing is

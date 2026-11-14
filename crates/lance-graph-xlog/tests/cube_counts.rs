@@ -256,3 +256,64 @@ fn foreign_frames_and_wrong_views_are_refused() {
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
 }
+
+/// `self_join_size` equals the self-join's `join_size` and the enumerated
+/// pair count, for every relation and column.
+#[test]
+fn self_join_size_is_the_sum_of_squared_counts() {
+    let table = table_over(&RELS, Width::W256);
+    let mut cube = Cube::new(&table, &table.seal(), TILE, &RELS).unwrap();
+    let mut above_rows = 0;
+    for (rel, tuples) in RELS.iter().enumerate() {
+        for c in 0..2u8 {
+            let scan = cube.scan(rel as u32).unwrap();
+            let want = pairs(tuples, c, tuples, c);
+            let got = cube.self_join_size(&table, scan, c).unwrap();
+            assert_eq!(got, want, "relation {rel} column {c}");
+            let j = cube.join(scan, c, scan, c).unwrap();
+            assert_eq!(cube.join_size(&table, j).unwrap(), want);
+            if want > tuples.len() as i128 {
+                above_rows += 1;
+            }
+        }
+    }
+    assert!(
+        above_rows >= 2,
+        "fixture must hold repeated keys: {above_rows}"
+    );
+}
+
+/// The heaviest coordinate decodes to the id enumeration names, and carries
+/// its count; a side with no row has none.
+#[test]
+fn heaviest_names_the_most_frequent_id() {
+    let table = table_over(&RELS, Width::W256);
+    let mut cube = Cube::new(&table, &table.seal(), TILE, &RELS).unwrap();
+    let map = table.map(&table.seal(), TILE).unwrap();
+    let scan = cube.scan(0).unwrap();
+    let (at, count) = cube.heaviest(&table, scan, 0).unwrap().unwrap();
+    assert_eq!(
+        (map.global(at as u8), count),
+        (Some(1), 4),
+        "id 1 four times in r.X"
+    );
+    let nothing = cube.bind(&table, scan, 0, 4242).unwrap();
+    assert_eq!(cube.heaviest(&table, nothing, 1).unwrap(), None);
+}
+
+/// Equal counts go to the lower coordinate, never the later one.
+#[test]
+fn heaviest_ties_go_to_the_lower_coordinate() {
+    const U: [(u32, u32); 5] = [(3, 1), (7, 1), (3, 2), (7, 2), (5, 2)];
+    let rels: [&[(u32, u32)]; 1] = [&U];
+    let table = table_over(&rels, Width::W256);
+    let mut cube = Cube::new(&table, &table.seal(), TILE, &rels).unwrap();
+    let map = table.map(&table.seal(), TILE).unwrap();
+    let scan = cube.scan(0).unwrap();
+    let counts = cube.column_counts(&table, scan, 0).unwrap();
+    let tied: Vec<usize> = (0..counts.len()).filter(|&p| counts[p] == 2).collect();
+    assert_eq!(tied.len(), 2, "fixture: ids 3 and 7 tie at 2 rows");
+    let (at, count) = cube.heaviest(&table, scan, 0).unwrap().unwrap();
+    assert_eq!((at as usize, count), (tied[0], 2));
+    assert_eq!(map.global(at as u8), Some(3));
+}
