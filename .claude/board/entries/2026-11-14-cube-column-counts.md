@@ -11,6 +11,11 @@
 - `join_size(table, join) -> i128`: the sum of `bag_count`, i.e.
   `Σ_p left(p) · right(p)` over two count vectors. The number of tuples
   `materialize_rows` would build, without building one.
+- `self_join_size(table, side, col) -> i128`: `Σ c²`, the self-join's
+  derivation count from one count program.
+- `heaviest(table, side, col) -> Option<(u32, i64)>`: the coordinate with the
+  most rows and its count; ties to the lower coordinate; `None` for an empty
+  side. The coordinate stays in the cube's frame; the caller decodes it.
 
 Every relation and both columns are counted over the same positions of one
 map, so any two count vectors line up position by position. That is what
@@ -25,7 +30,7 @@ on identity coordinates is the count step and moments over the counts:
 `Σc` (rows), `Σ c_L·c_R` (join size), `Σ c²` (self-join size), and the
 largest count with its id.
 
-## Tests (`tests/cube_counts.rs`, 6)
+## Tests (`tests/cube_counts.rs`, 9)
 
 - all 6 count vectors equal enumeration, id by id, and sum to the row count;
 - all 36 (relation, column) joins: `join_size` and the dot product of the two
@@ -38,8 +43,14 @@ largest count with its id.
 - a join as a side, column 2, a non-join for `join_size`, and a table that
   never issued the frame are refused; advancing the table is NOT a refusal.
 
+- `self_join_size` equals the self-join's `join_size` and enumeration for all
+  6 (relation, column) pairs; at least 2 have repeated keys;
+- `heaviest` decodes to id 1 with 4 rows in `r.X`; an empty side gives `None`;
+  a tie at 2 rows goes to the lower coordinate.
+
 Disable runs, all red: `join_size` returning 0 (2 tests), skipping the frame
-check (1), counting the other column (4).
+check (1), counting the other column (4), summing `c` instead of `c²` (1),
+ties to the later coordinate (1), an empty side reporting coordinate 0 (1).
 
 ## Open
 
