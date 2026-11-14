@@ -52,6 +52,17 @@ Disable runs, all red: `join_size` returning 0 (2 tests), skipping the frame
 check (1), counting the other column (4), summing `c` instead of `c²` (1),
 ties to the later coordinate (1), an empty side reporting coordinate 0 (1).
 
+## Width
+
+`join_size` first summed `bag_count`, inheriting its checked `i64` multiply:
+one position whose product passed `i64` refused a total that fits `i128`.
+Both totals now take each product and the sum in `i128`, checked
+(`dot_counts`); a total past `i128` is `CubeRefusal::SumOverflow`.
+`bag_count` is unchanged. Unit tests at `i64::MAX`; disable runs red for
+products in `i64` (2 tests) and a wrapping total (1). A cube whose counts
+pass `i64` cannot be built in a test, so the cube-level wiring is covered
+only by the equality tests above.
+
 ## Open
 
 - Not measured: time. Both methods run the programs `bag_count` runs.
