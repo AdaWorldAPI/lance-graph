@@ -662,6 +662,40 @@ impl Cube {
         Ok(out)
     }
 
+    /// Rows per coordinate of column `col` of one side: how often each
+    /// position of the shared map occurs there. `side` is a scan, or a bind
+    /// on the other column. One `GroupReduce Count` program; no row is built.
+    ///
+    /// Every relation and both columns are counted over the SAME positions,
+    /// so two count vectors of this cube line up position by position: their
+    /// product is [`Cube::bag_count`] and its total is [`Cube::join_size`].
+    /// A position is a coordinate under the cube's frame, not a value: the
+    /// order of positions carries no meaning.
+    pub fn column_counts(
+        &self,
+        table: &MapTable,
+        side: View,
+        col: u8,
+    ) -> Result<Vec<i64>, CubeRefusal> {
+        check_col(col)?;
+        let side = self.side(side, col)?;
+        self.check_frame(table)?;
+        self.degrees(side, col)
+    }
+
+    /// Total derivations of a join: the sum of [`Cube::bag_count`] over every
+    /// position, i.e. `Σ_p left(p) · right(p)` of the two sides' column
+    /// counts. This is the number of tuples [`Cube::materialize_rows`] would
+    /// build, obtained without building one. Summed in `i128`, so the total
+    /// cannot overflow.
+    pub fn join_size(&self, table: &MapTable, join: View) -> Result<i128, CubeRefusal> {
+        Ok(self
+            .bag_count(table, join)?
+            .iter()
+            .map(|&c| i128::from(c))
+            .sum())
+    }
+
     /// `edge⁺` of relation `rel`, semi-naively: `delta' = (delta ∘ edge) andnot
     /// full`, `full |= delta'`, until a delta is empty. Rows come from the
     /// relation's lanes, which already hold local positions, so nothing is
