@@ -77,7 +77,7 @@ fn prepare(
     third: &dyn Fn(usize) -> bool,
 ) -> Prepared {
     let fields = select(&world.view, PERSON, &["age"]).unwrap();
-    let mut prepared = prepare_nodes(world, table, &fields, |i| region(i), |i| valid(i)).unwrap();
+    let mut prepared = prepare_nodes(world, table, &fields, region, valid).unwrap();
     for s in 0..table.slabs() {
         let base = s * SLAB_ROWS;
         let plane = Plane::from_fn(table.space(s), table.slab_rows(s), |i| third(base + i));
