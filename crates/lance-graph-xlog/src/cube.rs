@@ -1173,9 +1173,10 @@ fn rel_with(
 /// checked. Each product of two `i64` counts fits in `i128`; only the total
 /// can overflow, and then the answer is `None`, never a wrapped value.
 /// Both vectors are count vectors over the same positions, so their lengths
-/// are equal.
+/// are equal; a mismatch is a broken invariant, not a short answer, so it
+/// panics in every build instead of letting `zip` drop the tail.
 fn dot_counts(a: &[i64], b: &[i64]) -> Option<i128> {
-    debug_assert_eq!(a.len(), b.len(), "count vectors over one map");
+    assert_eq!(a.len(), b.len(), "count vectors over one map");
     a.iter().zip(b).try_fold(0i128, |acc, (&x, &y)| {
         acc.checked_add(i128::from(x).checked_mul(i128::from(y))?)
     })
@@ -1215,5 +1216,11 @@ mod dot_counts_tests {
     #[test]
     fn empty_vectors_sum_to_zero() {
         assert_eq!(dot_counts(&[], &[]), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "count vectors over one map")]
+    fn mismatched_lengths_panic_rather_than_truncate() {
+        let _ = dot_counts(&[1, 2], &[3]);
     }
 }
