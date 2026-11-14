@@ -767,6 +767,11 @@ pub enum Agg {
     Sum(u8),
     Min(u8),
     Max(u8),
+    /// Where the minimum is: a row of one slab, in that slab's own
+    /// coordinate space. Lowest slab, then lowest row, among equal minima.
+    ArgMin(u8),
+    /// Where the maximum is; ties as [`Agg::ArgMin`].
+    ArgMax(u8),
 }
 
 /// The answer of one fold over the whole slab stack.
@@ -777,6 +782,11 @@ pub enum Answer {
     /// `None` when no row is selected.
     Min(Option<i32>),
     Max(Option<i32>),
+    /// `(space, row, value)`: the row is a position in `space`, the
+    /// coordinate space of the slab binding it was folded under. It names
+    /// nothing in another space. `None` when no row is selected.
+    ArgMin(Option<(CoordSpace, usize, i32)>),
+    ArgMax(Option<(CoordSpace, usize, i32)>),
 }
 
 /// A query compiled once: a mask-RISC program over three planes, and its
@@ -813,6 +823,14 @@ fn terminal(prepared: &Prepared, agg: Agg, mask: Operand) -> Result<Terminal, Re
             lane: lane(f)?,
         },
         Agg::Max(f) => Terminal::MaskedMaxI32 {
+            mask,
+            lane: lane(f)?,
+        },
+        Agg::ArgMin(f) => Terminal::MaskedArgMinI32 {
+            mask,
+            lane: lane(f)?,
+        },
+        Agg::ArgMax(f) => Terminal::MaskedArgMaxI32 {
             mask,
             lane: lane(f)?,
         },
@@ -969,6 +987,8 @@ impl Fold {
             Agg::Sum(_) => Answer::Sum(0),
             Agg::Min(_) => Answer::Min(None),
             Agg::Max(_) => Answer::Max(None),
+            Agg::ArgMin(_) => Answer::ArgMin(None),
+            Agg::ArgMax(_) => Answer::ArgMax(None),
         };
         for (s, slab) in prepared.slabs.iter().enumerate() {
             let source = table.slab(s);
@@ -1021,6 +1041,18 @@ impl Fold {
                 (Answer::Max(t), Value::OptI32(v)) => {
                     Answer::Max([t, v].into_iter().flatten().max())
                 }
+                // Slabs are visited in ascending order: a later slab takes
+                // over only with a strictly better value.
+                (Answer::ArgMin(t), Value::OptRowI32(v)) => Answer::ArgMin(match (t, v) {
+                    (Some(held), Some((_, x))) if x >= held.2 => Some(held),
+                    (held, None) => held,
+                    (_, Some((row, x))) => Some((selection, row, x)),
+                }),
+                (Answer::ArgMax(t), Value::OptRowI32(v)) => Answer::ArgMax(match (t, v) {
+                    (Some(held), Some((_, x))) if x <= held.2 => Some(held),
+                    (held, None) => held,
+                    (_, Some((row, x))) => Some((selection, row, x)),
+                }),
                 (_, other) => unreachable!("{:?} returned {other:?}", self.agg),
             };
         }

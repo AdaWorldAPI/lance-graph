@@ -450,6 +450,10 @@ fn every_terminal() {
             Terminal::MaskedMaxI32 { mask: S0, lane: 0 },
             Terminal::MaskedMinI32 { mask: S1, lane: 0 },
             Terminal::MaskedMaxI32 { mask: S1, lane: 0 },
+            Terminal::MaskedArgMinI32 { mask: S0, lane: 0 },
+            Terminal::MaskedArgMaxI32 { mask: S0, lane: 0 },
+            Terminal::MaskedArgMinI32 { mask: S1, lane: 0 },
+            Terminal::MaskedArgMaxI32 { mask: S1, lane: 0 },
             Terminal::BlendI32 {
                 mask: S0,
                 then: 0,

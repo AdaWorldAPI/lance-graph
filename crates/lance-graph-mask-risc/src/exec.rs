@@ -29,18 +29,19 @@ use ndarray::simd::{
     lt_i32_to_mask_under, mask_all, mask_and, mask_and_assign, mask_andnot, mask_andnot_assign,
     mask_any, mask_gather_u32, mask_gather_u32_under, mask_not, mask_not_assign, mask_or,
     mask_or_assign, mask_scatter_or_u32, mask_set_range, mask_xor, mask_xor_assign,
-    masked_group_count_u32, masked_group_count_u32_pair, masked_group_count_u32_via,
-    masked_group_cross_power_sums_i32, masked_group_cross_power_sums_i32_pair,
-    masked_group_cross_power_sums_i32_via, masked_group_max_i32, masked_group_max_i32_pair,
-    masked_group_max_i32_via, masked_group_min_i32, masked_group_min_i32_pair,
-    masked_group_min_i32_via, masked_group_power_sums_i32, masked_group_power_sums_i32_pair,
-    masked_group_power_sums_i32_via, masked_group_sum_i32, masked_group_sum_i32_via,
-    masked_group_sum_sym_i32, masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via,
-    masked_key_run_count_u32, masked_max_i32, masked_min_i32, masked_strided_group_sum,
-    masked_sum_i32, ne_i32_to_mask, ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under,
-    popcount_batch_u64, ternary_match_strided16_to_mask, ternary_match_strided_to_mask,
-    ternary_match_u32_to_mask, ternary_match_u32_to_mask_under, ternary_match_u64_to_mask,
-    ternary_match_u64_to_mask_under, CrossPowerSums, KeyRunCarry, PowerSums,
+    masked_argmax_i32, masked_argmin_i32, masked_group_count_u32, masked_group_count_u32_pair,
+    masked_group_count_u32_via, masked_group_cross_power_sums_i32,
+    masked_group_cross_power_sums_i32_pair, masked_group_cross_power_sums_i32_via,
+    masked_group_max_i32, masked_group_max_i32_pair, masked_group_max_i32_via,
+    masked_group_min_i32, masked_group_min_i32_pair, masked_group_min_i32_via,
+    masked_group_power_sums_i32, masked_group_power_sums_i32_pair, masked_group_power_sums_i32_via,
+    masked_group_sum_i32, masked_group_sum_i32_via, masked_group_sum_sym_i32,
+    masked_group_sum_sym_i32_pair, masked_group_sum_sym_i32_via, masked_key_run_count_u32,
+    masked_max_i32, masked_min_i32, masked_strided_group_sum, masked_sum_i32, ne_i32_to_mask,
+    ne_i32_to_mask_under, ne_u32_to_mask, ne_u32_to_mask_under, popcount_batch_u64,
+    ternary_match_strided16_to_mask, ternary_match_strided_to_mask, ternary_match_u32_to_mask,
+    ternary_match_u32_to_mask_under, ternary_match_u64_to_mask, ternary_match_u64_to_mask_under,
+    CrossPowerSums, KeyRunCarry, PowerSums,
 };
 
 use crate::ir::{
@@ -1443,6 +1444,8 @@ fn precheck(
             | Terminal::MaskedSumI32 { .. }
             | Terminal::MaskedMinI32 { .. }
             | Terminal::MaskedMaxI32 { .. }
+            | Terminal::MaskedArgMinI32 { .. }
+            | Terminal::MaskedArgMaxI32 { .. }
             | Terminal::MaskedStridedGroupSum { .. }
             | Terminal::GroupPowerSumsI32 { .. }
             | Terminal::GroupCrossPowerSumsI32 { .. }
@@ -1620,6 +1623,7 @@ pub fn execute_compiled(
     let mut sum = 0i64;
     let mut min: Option<i32> = None;
     let mut max: Option<i32> = None;
+    let mut arg: Option<(usize, i32)> = None;
     // `Some(0)` until a tile's own sum doesn't fit an `i64` (the kernel's
     // `None`) or the running `checked_add` overflows — either way the whole
     // reduction becomes `None` and stays there, mirroring `sum`'s carry-bound
@@ -1824,6 +1828,31 @@ pub fn execute_compiled(
                     ),
                     i32::max,
                 );
+            }
+            Terminal::MaskedArgMinI32 { mask, lane } => {
+                // Tiles are visited in ascending row order, so a later tile
+                // replaces the candidate only when strictly better: the
+                // lowest row of the best value stays.
+                let tile = masked_argmin_i32(
+                    lane_i32(planes, lane, t),
+                    clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                );
+                if let Some((at, v)) = tile {
+                    if arg.is_none_or(|(_, held)| v < held) {
+                        arg = Some((t.r0 + at, v));
+                    }
+                }
+            }
+            Terminal::MaskedArgMaxI32 { mask, lane } => {
+                let tile = masked_argmax_i32(
+                    lane_i32(planes, lane, t),
+                    clip(read(planes, &slots, mask, t), edge, &mut eb, false),
+                );
+                if let Some((at, v)) = tile {
+                    if arg.is_none_or(|(_, held)| v > held) {
+                        arg = Some((t.r0 + at, v));
+                    }
+                }
             }
             Terminal::MaskedStridedGroupSum {
                 mask,
@@ -2120,6 +2149,9 @@ pub fn execute_compiled(
         Terminal::MaskedSumI32 { .. } => Value::SumI64(sum),
         Terminal::MaskedMinI32 { .. } => Value::OptI32(min),
         Terminal::MaskedMaxI32 { .. } => Value::OptI32(max),
+        Terminal::MaskedArgMinI32 { .. } | Terminal::MaskedArgMaxI32 { .. } => {
+            Value::OptRowI32(arg)
+        }
         Terminal::MaskedStridedGroupSum { .. } => Value::StridedSum(strided_sum),
         Terminal::BlendI32 { .. } => Value::Blended,
         Terminal::ScatterOrU32 { .. } => Value::Scattered,

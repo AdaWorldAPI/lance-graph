@@ -301,6 +301,17 @@ pub enum Terminal {
     MaskedMinI32 { mask: Operand, lane: u16 },
     /// max `lane[i]` over set bits.
     MaskedMaxI32 { mask: Operand, lane: u16 },
+    /// The row holding min `lane[i]` over set bits, with that value:
+    /// [`crate::Value::OptRowI32`], `None` if no bit is set. Among equal
+    /// minima the LOWEST row is named. The row counts rows of these
+    /// [`Planes`], the coordinate every mask and lane of the program is
+    /// already in; it is not an identity outside them. Per-extent answers
+    /// merge by (better value, then lower row), which is associative and
+    /// commutative.
+    MaskedArgMinI32 { mask: Operand, lane: u16 },
+    /// The row holding max `lane[i]` over set bits; as
+    /// [`Terminal::MaskedArgMinI32`], lowest row among equal maxima.
+    MaskedArgMaxI32 { mask: Operand, lane: u16 },
     /// Σ over set bits of every record's `groups` little-endian unsigned
     /// fields of `group_bytes` (`1..=4`) each, starting at the
     /// [`LaneRef::Strided`] view's offset — a whole register summed in place
@@ -805,6 +816,8 @@ impl Program {
             | Terminal::MaskedSumI32 { mask, .. }
             | Terminal::MaskedMinI32 { mask, .. }
             | Terminal::MaskedMaxI32 { mask, .. }
+            | Terminal::MaskedArgMinI32 { mask, .. }
+            | Terminal::MaskedArgMaxI32 { mask, .. }
             | Terminal::MaskedStridedGroupSum { mask, .. }
             | Terminal::BlendI32 { mask, .. }
             | Terminal::ScatterOrU32 { mask, .. }
