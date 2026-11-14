@@ -612,7 +612,10 @@ pub(crate) fn validate(
             }
             Ok(())
         }
-        Terminal::MaskedMinI32 { mask, lane } | Terminal::MaskedMaxI32 { mask, lane } => {
+        Terminal::MaskedMinI32 { mask, lane }
+        | Terminal::MaskedMaxI32 { mask, lane }
+        | Terminal::MaskedArgMinI32 { mask, lane }
+        | Terminal::MaskedArgMaxI32 { mask, lane } => {
             check_operand(p, planes, mask)?;
             written_slots.readable(mask)?;
             check_lane(planes, lane, LaneKind::I32)
@@ -1149,6 +1152,21 @@ pub fn reference_execute_into(
         Terminal::MaskedMaxI32 { mask, lane } => {
             Value::OptI32(survivors(mask).map(|r| i32_at(planes, lane, r)).max())
         }
+        // Independent formulation: order the surviving rows by (value, row)
+        // and take the least; for the maximum, by (reversed value, row). No
+        // running candidate, no tiles.
+        Terminal::MaskedArgMinI32 { mask, lane } => Value::OptRowI32(
+            survivors(mask)
+                .map(|r| (i32_at(planes, lane, r), r))
+                .min()
+                .map(|(v, r)| (r, v)),
+        ),
+        Terminal::MaskedArgMaxI32 { mask, lane } => Value::OptRowI32(
+            survivors(mask)
+                .map(|r| (core::cmp::Reverse(i32_at(planes, lane, r)), r))
+                .min()
+                .map(|(v, r)| (r, v.0)),
+        ),
         Terminal::MaskedStridedGroupSum {
             mask,
             lane,

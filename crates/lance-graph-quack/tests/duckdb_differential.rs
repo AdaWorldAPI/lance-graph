@@ -294,6 +294,9 @@ fn run_query(id: &str, planes: &Planes<'_>, filter: Filter, agg: Agg) -> (String
                 .join(",");
             (s, n, n)
         }
+        Value::OptRowI32(_) => {
+            panic!("case {id}: no MaskedArgMinI32 / MaskedArgMaxI32 case in this suite")
+        }
         Value::Blended => panic!("case {id}: no BlendI32 case in this suite"),
         Value::Scattered => panic!("case {id}: no ScatterOrU32 case in this suite"),
         Value::GroupSummed => panic!(

@@ -27,6 +27,10 @@ pub enum Value {
     SumI64(i64),
     /// [`crate::Terminal::MaskedMinI32`] / [`crate::Terminal::MaskedMaxI32`].
     OptI32(Option<i32>),
+    /// [`crate::Terminal::MaskedArgMinI32`] / [`crate::Terminal::MaskedArgMaxI32`]:
+    /// `(row, value)`, the row in the coordinate of the program's
+    /// [`crate::Planes`]; `None` when no row was selected.
+    OptRowI32(Option<(usize, i32)>),
     /// [`crate::Terminal::BlendI32`]: the caller's `out` slice was written.
     Blended,
     /// [`crate::Terminal::ScatterOrU32`]: the caller's `Out::Mask` buffer was
