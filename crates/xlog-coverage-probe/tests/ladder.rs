@@ -215,3 +215,48 @@ fn a_rule_refused_only_over_data_is_refused_on_data() {
         assert!(r.reason.contains("non-empty bases"), "{r:?}");
     }
 }
+
+/// A ternary base relation makes only the rules that read it unjudgeable;
+/// a rule of the same program over binary bases gets a verdict (shape of
+/// real_world_tests.rs `role_perm`, where `has_role` never reads it).
+#[test]
+fn a_rule_that_does_not_read_a_ternary_base_is_judged() {
+    let src = "t(1, 2, 3). e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). q(X,Z) :- t(X,Y,Z).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let p = rec.rules.iter().find(|r| r.head == "p").expect("p");
+    assert_eq!(p.rung, Rung::OracleAgrees, "{rec:?}");
+    assert!(p.nonempty_seeds > 0, "{p:?}");
+    let q = rec.rules.iter().find(|r| r.head == "q").expect("q");
+    assert_ne!(q.rung, Rung::OracleAgrees, "{q:?}");
+}
+
+/// A query `?- p(X,Y).` compiles to the generated rule
+/// `__xlog_query_0(X,Y) :- p(X,Y)`; the oracle builds the same rule from the
+/// AST query, so the generated head is judged like any other.
+#[test]
+fn a_generated_query_head_is_judged() {
+    let src = "e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). ?- p(X, Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "__xlog_query_0")
+        .expect("generated head");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{rec:?}");
+    assert!(q.nonempty_seeds > 0, "{q:?}");
+}
+
+/// The dense seed over 0..6 gives this 7-variable path 6^7 = 279,936 rows,
+/// over the naive oracle's bound. That seed is skipped for this head, not
+/// counted as a verdict, and the small dense seed (0..4, 4^7 = 16,384 rows)
+/// still gives a non-empty answer to compare.
+#[test]
+fn a_seed_over_the_oracle_bound_is_skipped_not_fatal() {
+    let src = "k(A,B,C,D,E,F,G) :- e(A,B), e(B,C), e(C,D), e(D,E), e(E,F), e(F,G).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    let k = &rec.rules[0];
+    assert_eq!(k.rung, Rung::OracleAgrees, "{k:?}");
+    assert!(k.nonempty_seeds > 0, "{k:?}");
+    assert!(k.reason.is_empty(), "{k:?}");
+}
