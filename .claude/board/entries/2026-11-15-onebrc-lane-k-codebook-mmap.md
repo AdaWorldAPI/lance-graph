@@ -66,3 +66,15 @@ row beyond. At 10,000 stations it is not faster than the full histogram
 (64.0 vs 69.8 Mrows/s, overlapping ranges; Y1 fails): about 38 MB per
 worker is still out of cache, overflow stations touch two tables, and the
 encoder adds about 21-24 instructions per row. Disable controls 3 of 3 red.
+
+## Update: 256-slot window (FINDINGS §18-19)
+
+The (station, temperature) table addressed directly over 256 tenths per
+station (1 KB), re-anchoring while the station's span fits, exact overflow
+row otherwise. A window fixed at the first reading would miss 13.2 % of
+readings on this generator (predicted 13.2 %, measured 13.14-13.23 %);
+re-anchoring brings that to 0 with at most 2 moves per station. At 10,000
+stations it is still not faster than the full histogram (75.8 vs 80.0
+Mrows/s; W3 fails): three table sizes from 10 to 80 MB per worker measure
+alike, while the 180 KB running aggregates are twice as fast. Beyond L2 the
+table size stops mattering. Disable controls 3 of 3 red.

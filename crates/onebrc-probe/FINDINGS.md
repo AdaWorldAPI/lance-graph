@@ -619,3 +619,55 @@ Lanes `kmwr` (multiply parse, word hash, re-anchoring window) and `kmwf`
 - W5: at 400 stations `kmwr` is within ±10 % of `kmwh` in `run`.
 - W6: `kmwr` executes at most 10 more instructions per row than `kmwh`.
 Kill for each: the stated relation does not hold.
+
+## 19. 256-slot window results (2026-11-15)
+
+Same session for all timing rows; 4 workers, 6 passes, first discarded,
+median of 5, range in brackets. Instructions per row by callgrind on the
+AVX2 build, (2M − 1M rows) / 1M, one worker.
+
+| corpus | lane | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|---|
+| 400 stations | kmw | | 225.9 [199.2-233.7] | 4.62 [4.04-5.23] |
+| | kmwh | 206.10 | 246.8 [149.1-273.3] | 3.82 [3.72-4.55] |
+| | kmwr | 218.09 | 227.7 [199.4-256.9] | 4.52 [3.94-5.65] |
+| 10,000 stations | kmw | | 160.5 [118.9-182.1] | 7.79 [6.63-10.21] |
+| | kmwh | 219.97 | 80.0 [77.6-84.3] | 13.13 [10.98-18.23] |
+| | kmwr | 232.25 | 75.8 [66.7-85.8] | 12.62 [11.62-13.50] |
+
+`dist` (percentiles for every station), ns/row: 400 stations hist 4.25
+[3.80-4.96], w256 4.17 [3.82-5.23]; 10,000 stations hist 16.18
+[12.84-17.86], w256 13.96 [11.33-16.00].
+
+Window misses (`windiag`, 100M rows, 4 workers):
+
+| corpus | table | overflow readings | stations with overflow (over workers) | max re-anchors |
+|---|---|---|---|---|
+| 400 | Window256 | 0 | 0 | 2 |
+| | Window256Fixed | 13,136,821 (13.14 %) | 1,137 of 1,600 (71 %) | 0 |
+| 10,000 | Window256 | 0 | 0 | 2 |
+| | Window256Fixed | 13,229,286 (13.23 %) | 28,891 of 40,000 (72 %) | 0 |
+
+Against §18:
+
+- W1 (no overflow, at most 3 re-anchors): holds, 0 and 2.
+- W2 (fixed anchor misses 13.2 % ± 0.2 %): holds, 13.14 % and 13.23 %;
+  the 72 % of stations needing an overflow row also matches.
+- W3 (`kmwr` beats `kmwh` at 10,000 stations by > 10 %): fails, −5.3 %
+  in `run`, overlapping ranges.
+- W4 (`kmwr` slower than `kmw` at 10,000): holds, −53 %.
+- W5 (`kmwr` within ±10 % of `kmwh` at 400): holds, −7.7 %.
+- W6 (at most 10 instructions per row more than `kmwh`): fails narrowly,
+  +12.0 and +12.3.
+
+An 8× smaller table (10.2 MB against 80 MB per worker) does not buy time.
+Together with §17 (38 MB, no gain), three table sizes spanning 8× land
+within the noise of each other at 10,000 stations, while the running
+aggregates, whose state is about 180 KB per worker (four arrays of
+10,000 entries), are twice as fast. The cost is a per-row counter access
+that misses L2; once the table is beyond L2, its size no longer matters
+on this host. A per-reading counter table only pays off where it fits in
+L2, which at 1 KB per station is about 2,000 stations per worker.
+
+The fixed anchor would have sent 13 % of all readings to the slow path;
+re-anchoring removed that at a cost of at most 2 counter moves per station.
