@@ -1,11 +1,11 @@
 //! D-XLOG-PM-1 (lab): a keyed signed counter held as Codec9 / DR512 `P × M`
 //! lanes, summed with `add_pm`, with an exact wide escape and demotion.
 //!
-//! `add_pm` and its scalar reference are a lab copy of ndarray
-//! `examples/add_pm/pm.rs` (ndarray `acaa120`, D-ADD-PM), where the kernel
-//! is proven against the `i32` oracle on all 512 × 512 codeword pairs. It is
-//! an example there, not a library item, so a crate cannot import it; where
-//! it should live as a library is a separate decision.
+//! The arithmetic is `ndarray::hpc::abakus::pm` (ndarray #433), the one
+//! source of truth: proven there against the `i32` oracle on all 512 × 512
+//! codeword pairs, for `add_pm` and `sub_pm`, on every SIMD tier CI runs.
+//! This module only keys it and adds the exact wide escape; the `i64` model
+//! in `tests/pm_ledger.rs` checks the whole ledger independently.
 //!
 //! A key's value is in exactly one of two places:
 //!
@@ -20,54 +20,9 @@
 //!   carries once, though it ends at 255);
 //! - `demotions`: a wide value moved back to a lane;
 //! - [`PmLedger::escalated`]: keys wide right now.
+pub use ndarray::hpc::abakus::pm::Pm;
+use ndarray::hpc::abakus::pm::{add_pm, touched};
 use ndarray::simd::U8x64;
-
-/// 64 `P × M` lanes: `P=0, M=0` never touched, `P=0, M>0` is `-M`, `P=1`
-/// is `+M`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Pm {
-    /// Magnitude per lane.
-    pub mag: U8x64,
-    /// Polarity per lane.
-    pub pos: u64,
-}
-
-impl Pm {
-    /// Every lane never touched.
-    pub fn untouched() -> Self {
-        Pm {
-            mag: U8x64::splat(0),
-            pos: 0,
-        }
-    }
-}
-
-/// Lanes that hold a value: `P=1`, or `M != 0`.
-#[inline(always)]
-pub fn touched(x: Pm) -> u64 {
-    x.pos | !x.mag.cmpeq_mask(U8x64::splat(0))
-}
-
-/// `a ⊕ b` lane-wise, and the lanes whose exact sum is outside ±255 (their
-/// result lane is saturated and must not be read).
-#[inline(always)]
-pub fn add_pm(a: Pm, b: Pm) -> (Pm, u64) {
-    let zero = U8x64::splat(0);
-    let (ta, tb) = (touched(a), touched(b));
-    let same = !(a.pos ^ b.pos);
-    let sum = a.mag.saturating_add(b.mag);
-    let room = U8x64::splat(255).saturating_sub(b.mag);
-    let carry = same & ta & tb & a.mag.cmpgt_mask(room);
-    let hi = a.mag.simd_max(b.mag);
-    let lo = a.mag.simd_min(b.mag);
-    let diff = hi.saturating_sub(lo);
-    let a_larger = a.mag.cmpgt_mask(b.mag);
-    let p_opp = (a_larger & a.pos) | (!a_larger & b.pos);
-    let mag = U8x64::mask_blend(same, diff, sum);
-    let pos = (same & a.pos) | (!same & p_opp);
-    let pos = pos | (mag.cmpeq_mask(zero) & (ta | tb));
-    (Pm { mag, pos }, carry)
-}
 
 /// One lane's value: `None` = never touched.
 pub fn decode_lane(m: u8, p: bool) -> Option<i64> {
@@ -211,7 +166,7 @@ impl PmLedger {
             mag: U8x64::from_array(one),
             pos: u64::from(p) << i,
         };
-        let (sum, carry) = add_pm(self.blocks[b], lane);
+        let (sum, carry) = add_pm(self.blocks[b], lane).into_saturated_parts();
         if carry >> i & 1 == 1 {
             self.carries += 1;
             self.escalate(k, old.unwrap_or(0) + w);
@@ -236,7 +191,7 @@ impl PmLedger {
                 pos: d.pos & !off,
             };
             let before = self.blocks[b];
-            let (sum, carry) = add_pm(before, d_lanes);
+            let (sum, carry) = add_pm(before, d_lanes).into_saturated_parts();
             self.blocks[b] = sum;
             let base = b * 64;
             // carry lanes: exact sum from the inputs, escalate
