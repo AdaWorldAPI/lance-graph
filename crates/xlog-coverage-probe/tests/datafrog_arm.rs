@@ -1,0 +1,182 @@
+//! The Datafrog arm against the naive evaluator, component by component.
+
+use std::collections::BTreeMap;
+
+use xlog_coverage_probe::datafrog_arm::{self, NOT_APPLICABLE};
+use xlog_coverage_probe::naive::{self, Relation};
+use xlog_logic::{parse_program, Program, Rule};
+
+type Store = BTreeMap<String, Relation>;
+type Eval = fn(&[&Rule], &mut Store) -> Result<(), String>;
+
+fn program(src: &str) -> Program {
+    parse_program(src).expect("parse")
+}
+
+fn pairs(p: &[(i128, i128)]) -> Relation {
+    p.iter().map(|&(a, b)| vec![a, b]).collect()
+}
+
+fn unary(v: &[i128]) -> Relation {
+    v.iter().map(|&a| vec![a]).collect()
+}
+
+fn store(entries: &[(&str, Relation)]) -> Store {
+    entries
+        .iter()
+        .map(|(n, r)| ((*n).to_string(), r.clone()))
+        .collect()
+}
+
+fn by_heads<'a>(p: &'a Program, heads: &[&str]) -> Vec<&'a Rule> {
+    p.proper_rules()
+        .filter(|r| heads.contains(&r.head.predicate.as_str()))
+        .collect()
+}
+
+fn run(eval: Eval, p: &Program, heads: &[&str], mut base: Store) -> Result<Store, String> {
+    let rules = by_heads(p, heads);
+    eval(&rules, &mut base)?;
+    Ok(base)
+}
+
+fn datafrog_run(p: &Program, heads: &[&str], base: &Store) -> Result<Store, String> {
+    run(datafrog_arm::evaluate_component, p, heads, base.clone())
+}
+
+fn naive_run(p: &Program, heads: &[&str], base: &Store) -> Result<Store, String> {
+    run(naive::evaluate_component, p, heads, base.clone())
+}
+
+const TC: &str = "path(X,Y) :- edge(X,Y). path(X,Z) :- path(X,Y), edge(Y,Z).";
+
+#[test]
+fn transitive_closure_agrees_with_naive() {
+    let cycle: Vec<(i128, i128)> = (0..6).map(|i| (i, (i + 1) % 6)).collect();
+    let base = store(&[("edge", pairs(&cycle))]);
+    let p = program(TC);
+    let got = datafrog_run(&p, &["path"], &base).expect("datafrog");
+    let want = naive_run(&p, &["path"], &base).expect("naive");
+    assert_eq!(got["path"], want["path"]);
+    assert_eq!(got["path"].len(), 36, "a 6-cycle closes to all 36 pairs");
+}
+
+#[test]
+fn stratified_negation_agrees_with_naive() {
+    let src = "reach(X,Y) :- edge(X,Y). reach(X,Z) :- reach(X,Y), edge(Y,Z). \
+               unreached(X,Y) :- node(X), node(Y), not reach(X,Y).";
+    let p = program(src);
+    let base = store(&[
+        ("edge", pairs(&[(0, 1), (1, 2), (2, 3)])),
+        ("node", unary(&[0, 1, 2, 3, 4])),
+    ]);
+    let run_both = |eval: Eval| -> Store {
+        let s = run(eval, &p, &["reach"], base.clone()).expect("reach");
+        run(eval, &p, &["unreached"], s).expect("unreached")
+    };
+    let got = run_both(datafrog_arm::evaluate_component);
+    let want = run_both(naive::evaluate_component);
+    assert_eq!(got["reach"], want["reach"]);
+    assert_eq!(got["unreached"], want["unreached"]);
+    assert_eq!(got["reach"].len(), 6);
+    let unreached = got["unreached"].len();
+    assert!(
+        unreached > 0 && unreached < 25,
+        "a strict, non-empty subset of node x node: {unreached}"
+    );
+}
+
+#[test]
+fn out_of_subset_is_not_applicable() {
+    let r = pairs(&[(1, 2), (2, 2), (3, 3), (4, 5)]);
+    let base = store(&[("r", r)]);
+    let cases: [(&str, &str, bool); 4] = [
+        ("q(X) :- r(X, 3).", "constant", true),
+        ("q(X,Y) :- r(X,Y), X < Y.", "comparison", true),
+        ("p(X) :- r(X,Y), not p(Y).", "own component", false),
+        ("q(X) :- r(X, X).", "repeated", true),
+    ];
+    for (src, construct, naive_answers) in cases {
+        let p = program(src);
+        let head = p
+            .proper_rules()
+            .next()
+            .expect("rule")
+            .head
+            .predicate
+            .clone();
+        let err = datafrog_run(&p, &[head.as_str()], &base).expect_err(src);
+        assert!(err.starts_with(NOT_APPLICABLE), "{src}: {err}");
+        assert!(err.contains(construct), "{src}: {err}");
+        if naive_answers {
+            assert!(naive_run(&p, &[head.as_str()], &base).is_ok(), "{src}");
+        }
+    }
+    // Silence twin: a rule inside the subset is answered and agrees.
+    let p = program("q(X,Z) :- r(X,Y), r(Y,Z).");
+    let got = datafrog_run(&p, &["q"], &base).expect("in subset");
+    let want = naive_run(&p, &["q"], &base).expect("naive");
+    assert_eq!(got["q"], want["q"]);
+    assert!(!got["q"].is_empty());
+}
+
+fn chain() -> Store {
+    store(&[("edge", pairs(&[(0, 1), (1, 2), (2, 3)]))])
+}
+
+#[test]
+fn corrupt_rule_body_is_detected() {
+    let good = program(TC);
+    let bad = program("path(X,Y) :- edge(X,Y). path(X,Z) :- path(Y,X), edge(Y,Z).");
+    let base = chain();
+    let want = naive_run(&good, &["path"], &base).expect("naive");
+    let clean = datafrog_run(&good, &["path"], &base).expect("datafrog");
+    assert_eq!(clean["path"], want["path"]);
+    assert!(!want["path"].is_empty());
+    let corrupt = datafrog_run(&bad, &["path"], &base).expect("datafrog, corrupt rule");
+    assert_ne!(corrupt["path"], want["path"]);
+}
+
+#[test]
+fn swapped_base_columns_are_detected() {
+    let p = program(TC);
+    let base = chain();
+    let want = naive_run(&p, &["path"], &base).expect("naive");
+    let clean = datafrog_run(&p, &["path"], &base).expect("datafrog");
+    assert_eq!(clean["path"], want["path"]);
+    assert!(!want["path"].is_empty());
+    let swapped: Relation = base["edge"].iter().map(|r| vec![r[1], r[0]]).collect();
+    let got = datafrog_run(&p, &["path"], &store(&[("edge", swapped)])).expect("datafrog");
+    assert_ne!(got["path"], want["path"]);
+}
+
+#[test]
+fn dropped_seed_fact_is_detected() {
+    let p = program(TC);
+    let base = chain();
+    let want = naive_run(&p, &["path"], &base).expect("naive");
+    let clean = datafrog_run(&p, &["path"], &base).expect("datafrog");
+    assert_eq!(clean["path"], want["path"]);
+    assert!(!want["path"].is_empty());
+    let mut edges = base["edge"].clone();
+    assert!(edges.remove(&vec![1, 2]));
+    let got = datafrog_run(&p, &["path"], &store(&[("edge", edges)])).expect("datafrog");
+    assert_ne!(got["path"], want["path"]);
+}
+
+#[test]
+fn cross_product_and_three_atom_join() {
+    let p = program("pair(X,Y) :- a(X), b(Y).");
+    let base = store(&[("a", unary(&[1, 2])), ("b", unary(&[3, 4, 5]))]);
+    let got = datafrog_run(&p, &["pair"], &base).expect("datafrog");
+    let want = naive_run(&p, &["pair"], &base).expect("naive");
+    assert_eq!(got["pair"], want["pair"]);
+    assert_eq!(got["pair"].len(), 6, "no shared variable: a cross product");
+
+    let p = program("tri(X,Y,Z) :- e(X,Y), e(Y,Z), e(Z,X).");
+    let base = store(&[("e", pairs(&[(0, 1), (1, 2), (2, 0), (2, 3)]))]);
+    let got = datafrog_run(&p, &["tri"], &base).expect("datafrog");
+    let want = naive_run(&p, &["tri"], &base).expect("naive");
+    assert_eq!(got["tri"], want["tri"]);
+    assert_eq!(got["tri"].len(), 3, "the triangle read from each corner");
+}
