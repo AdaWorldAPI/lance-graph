@@ -143,20 +143,41 @@ fn without_seeds_no_rule_is_verified() {
     assert_eq!(rec.rules[0].reason, "no seeds");
 }
 
-/// The cube ignores facts stated for a derived predicate, so the oracle
-/// cannot be seeded with them: no verdict, and the reason says why.
+/// Facts stated for a derived predicate are part of its answer (Datalog,
+/// and XLOG's own `test_same_head_union_batching.rs` literal 2 expects them).
+/// The oracle starts the predicate from its facts and the cube is handed them
+/// as any host would. Before xlog-cube kept rows put for a derived predicate
+/// this was a disagreement naming exactly the dropped fact (`oracle_only=[[1,
+/// 2]]`); now the two agree, on the facts included.
 #[test]
-fn a_derived_predicate_with_facts_has_no_oracle() {
+fn a_derived_predicate_with_facts_is_judged_with_its_facts() {
     // r and s carry facts too, so XLOG types every column alike and the
     // program compiles (without them `q(1, 2)` types U32 against U64).
     let src = "r(1, 2). s(2, 3). q(1, 2). q(X,Z) :- r(X,Y), s(Y,Z).";
     let rec = reconcile(src, &DEFAULT_SEEDS);
     assert_eq!(rec.program_rung, None, "{rec:?}");
-    assert!(!rec.rules.is_empty(), "{rec:?}");
-    for r in &rec.rules {
-        assert_ne!(r.rung, Rung::OracleAgrees, "{r:?}");
-        assert!(r.reason.contains("ground facts"), "{r:?}");
-    }
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    let q = &rec.rules[0];
+    assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
+    assert_eq!(q.oracle, "naive", "{q:?}");
+    assert_eq!(q.nonempty_seeds, DEFAULT_SEEDS.len(), "{q:?}");
+}
+
+/// A query over a relation the cube refuses is refused too, by name. Before
+/// xlog-cube propagated the refusal it ran over an empty stand-in and was an
+/// oracle disagreement (shape of executor_config_tests.rs literal 5).
+#[test]
+fn a_reader_of_a_refused_relation_is_refused() {
+    let src = "pair(1, 10). pair(1, 20). pair(2, 10). blocked(1, 10). \
+               keep(X, Y) :- pair(X, Y), not blocked(X, Y). ?- keep(X, Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "__xlog_query_0")
+        .expect("generated head");
+    assert_eq!(q.rung, Rung::Refused, "{rec:?}");
+    assert_eq!(q.reason, "reads refused relation `keep`", "{q:?}");
 }
 
 #[test]
@@ -214,4 +235,62 @@ fn a_rule_refused_only_over_data_is_refused_on_data() {
         assert_eq!(r.rung, Rung::RefusedOnData, "{r:?}");
         assert!(r.reason.contains("non-empty bases"), "{r:?}");
     }
+}
+
+/// A ternary base relation makes only the rules that read it unjudgeable;
+/// a rule of the same program over binary bases gets a verdict (shape of
+/// real_world_tests.rs `role_perm`, where `has_role` never reads it).
+#[test]
+fn a_rule_that_does_not_read_a_ternary_base_is_judged() {
+    let src = "t(1, 2, 3). e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). q(X,Z) :- t(X,Y,Z).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let p = rec.rules.iter().find(|r| r.head == "p").expect("p");
+    assert_eq!(p.rung, Rung::OracleAgrees, "{rec:?}");
+    assert!(p.nonempty_seeds > 0, "{p:?}");
+    let q = rec.rules.iter().find(|r| r.head == "q").expect("q");
+    assert_ne!(q.rung, Rung::OracleAgrees, "{q:?}");
+}
+
+/// A query `?- p(X,Y).` compiles to the generated rule
+/// `__xlog_query_0(X,Y) :- p(X,Y)`; the oracle builds the same rule from the
+/// AST query, so the generated head is judged like any other.
+#[test]
+fn a_generated_query_head_is_judged() {
+    let src = "e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). ?- p(X, Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "__xlog_query_0")
+        .expect("generated head");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{rec:?}");
+    assert!(q.nonempty_seeds > 0, "{q:?}");
+}
+
+/// The dense seed over 0..6 gives this 7-variable path 6^7 = 279,936 rows,
+/// over the naive oracle's bound. That seed is skipped for this head, not
+/// counted as a verdict, and the small dense seed (0..4, 4^7 = 16,384 rows)
+/// still gives a non-empty answer to compare.
+#[test]
+fn a_seed_over_the_oracle_bound_is_skipped_not_fatal() {
+    let src = "k(A,B,C,D,E,F,G) :- e(A,B), e(B,C), e(C,D), e(D,E), e(E,F), e(F,G).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    let k = &rec.rules[0];
+    assert_eq!(k.rung, Rung::OracleAgrees, "{k:?}");
+    assert!(k.nonempty_seeds > 0, "{k:?}");
+    assert!(k.reason.is_empty(), "{k:?}");
+}
+
+/// A base relation the naive oracle cannot read (string facts) blocks only
+/// the rules that read it; an unrelated rule of the same program is judged.
+#[test]
+fn an_unreadable_base_blocks_only_its_readers() {
+    let src = "w(\"a\", \"b\"). e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). v(X,Y) :- w(X,Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.program_rung, None, "{rec:?}");
+    let p = rec.rules.iter().find(|r| r.head == "p").expect("p");
+    assert_eq!(p.rung, Rung::OracleAgrees, "{rec:?}");
+    let v = rec.rules.iter().find(|r| r.head == "v").expect("v");
+    assert_ne!(v.rung, Rung::OracleAgrees, "{v:?}");
 }

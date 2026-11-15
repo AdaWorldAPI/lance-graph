@@ -24,10 +24,28 @@ works from the parsed AST, never from the compiled plan the cube runs.
 ## The seeds
 
 Six random seeds (1..=12 rows per base relation over values 0..16 plus the
-program's own integer constants) and one dense seed (`DENSE_SEED`: every base
-relation is the complete graph over 0..6, self-loops included). Random sparse
-rows almost never close a triangle, cycle or clique; the dense seed always
-does. Base relations the program states facts for use those facts.
+program's own integer constants) and two dense seeds: `DENSE_SEED`, where
+every base relation is the complete graph over 0..6, self-loops included, and
+`DENSE_SMALL_SEED`, the complete graph over 0..4. Random sparse rows almost
+never close a triangle, cycle or clique; the dense seeds always do. A wide
+rule can exceed the naive oracle's bound on the large dense seed (a 7-clique
+over 6 values is 6^7 rows). That seed is then skipped for that head; it is
+not judged. The small dense seed still gives such a rule a non-empty answer,
+and it is the only seed that does for `clique7` and `clique8` in the corpus.
+Base relations the program states facts for use those facts.
+
+What the oracles read, per rule, not per program:
+
+- A base relation the cube cannot hold (not binary `u32`) gets no rows in the
+  cube, so the cube refuses every rule that reads it. The naive oracle reads
+  its stated integer facts. Rules that do not read it are judged as usual.
+- A component that fails, or reads an unavailable predicate, makes only the
+  components that depend on it unavailable.
+- A query `?- p(X, Y).` is judged through the rule the compiler generates for
+  it: `__xlog_query_i(<the query atom's distinct variables, in order>) :-
+  <the query atom>`, with head `(1)` when there is no variable.
+- Facts stated for a derived predicate seed it in the naive oracle and are
+  handed to the cube with `put_relation`, as any host would.
 
 ## The ladder
 
@@ -72,7 +90,11 @@ this checkout, so it tests the cube in this tree.
 The TSV has a header row, then one row per rule, plus one row per program with
 no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason. The
-census over XLOG `c9bd9dc` is committed as `census-c9bd9dc.tsv`.
+census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
+`656def9` (AdaWorldAPI/xlog#8: readers of refused relations are refused, and
+rows put for a derived predicate are kept), with the test corpus unchanged
+since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
+94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
 
 ## Known limits
 
@@ -87,11 +109,9 @@ census over XLOG `c9bd9dc` is committed as `census-c9bd9dc.tsv`.
   bound `values ^ variables` exceeds 5,000,000 gets no `xlog-ref` answer.
 - Bag counts are not checked: both sides are compared as sets, which is the
   declared semantics of these programs.
-- Base relations must be binary `u32`; a program with any other base relation
-  has no oracle.
-- A derived predicate that also has facts has no oracle (the cube ignores such
-  facts).
-- Heads the compiler generates (`__xlog_query_0`) have no AST rule and stay
-  `lowered-unverified`.
+- A rule reading a base relation that is neither binary `u32` nor integer
+  facts (strings, floats) has no naive oracle.
+- XLOG's reference evaluator (the cross-check column) reads binary bases only,
+  and gives no answer for a derived predicate with facts.
 - Derived integer columns are narrowed to `u32` before a later SCC reads them
   in the `xlog-ref` arm (its matcher does not equate `U32(1)` with `I64(1)`).
