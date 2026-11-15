@@ -23,9 +23,10 @@ fn main() {
         Some("run") => cmd_run(&args[2..]),
         Some("wall") => cmd_wall(&args[2..]),
         Some("dist") => cmd_dist(&args[2..]),
+        Some("windiag") => cmd_windiag(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed> [stations]\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh|kmwc> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]\n  onebrc-probe dist <path> [workers] [hist|c9]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed> [stations]\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh|kmwc|kmwr|kmwf> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|kmwr|kmwf|s> [workers]\n  onebrc-probe dist <path> [workers] [hist|c9|w256]\n  onebrc-probe windiag <path> [workers] [fixed]"
             );
             std::process::exit(2);
         }
@@ -141,7 +142,7 @@ fn cmd_run(args: &[String]) {
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
         "s" => onebrc_probe::lane_s_swar(&data, workers),
-        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" => {
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" | "kmwr" | "kmwf" => {
             let (p, h, g) = lane_k_variant(lane);
             onebrc_probe::lane_k_codebook_agg(&data, workers, p, h, g)
         }
@@ -254,14 +255,14 @@ fn cmd_run(args: &[String]) {
     }
 }
 
-/// `wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]`: end-to-end time from opening the file
+/// `wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|kmwr|kmwf|s> [workers]`: end-to-end time from opening the file
 /// to the finished result, reported in nanoseconds per row. Lanes `k`/`kt`
 /// memory-map the file; lane `s` reads it with `fs::read` inside the timer.
 /// Run each lane twice and keep the second: the first run warms the page
 /// cache, which neither lane controls.
 #[cfg(unix)]
 fn cmd_wall(args: &[String]) {
-    let usage = "usage: wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]";
+    let usage = "usage: wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|kmwr|kmwf|s> [workers]";
     let path = PathBuf::from(args.first().expect(usage));
     let lane = args.get(1).map(String::as_str).expect(usage);
     let workers: usize = args
@@ -274,7 +275,7 @@ fn cmd_wall(args: &[String]) {
         });
     let start = Instant::now();
     let (map, rows) = match lane {
-        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" => {
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" | "kmwr" | "kmwf" => {
             let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
             let (p, h, g) = lane_k_variant(lane);
             let map = onebrc_probe::lane_k_codebook_agg(m.as_slice(), workers, p, h, g);
@@ -288,7 +289,7 @@ fn cmd_wall(args: &[String]) {
             (map, rows)
         }
         other => {
-            eprintln!("unknown wall lane '{other}' (expected k, kt, km, kw, kmw, kh, kmwh or s)");
+            eprintln!("unknown wall lane '{other}' (expected k, kt, km, kw, kmw, kh, kmwh, kmwc, kmwr, kmwf or s)");
             std::process::exit(2);
         }
     };
@@ -297,6 +298,43 @@ fn cmd_wall(args: &[String]) {
         "wall lane={lane} rows={rows} workers={workers} stations={} ns_per_row={ns_per_row:.3}",
         map.len()
     );
+}
+
+/// `windiag <path> [workers] [fixed]`: how often lane K's 256-slot window
+/// misses: readings sent to an overflow row, stations with one (summed over
+/// workers), and the most re-anchors of one station in one worker.
+#[cfg(unix)]
+fn cmd_windiag(args: &[String]) {
+    let usage = "usage: windiag <path> [workers] [fixed]";
+    let path = PathBuf::from(args.first().expect(usage));
+    let workers: usize = args
+        .get(1)
+        .map(|s| s.parse().expect("workers must be a usize"))
+        .unwrap_or(4);
+    let agg = match args.get(2).map(String::as_str) {
+        None => onebrc_probe::Agg::Window256,
+        Some("fixed") => onebrc_probe::Agg::Window256Fixed,
+        Some(_) => {
+            eprintln!("{usage}");
+            std::process::exit(2);
+        }
+    };
+    let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
+    let d = onebrc_probe::lane_k::lane_k_window_diagnostics(m.as_slice(), workers, agg);
+    println!(
+        "windiag agg={agg:?} rows={} overflow_readings={} ({:.3} %) stations_with_overflow={} max_reanchors={}",
+        d.rows,
+        d.overflow_readings,
+        100.0 * d.overflow_readings as f64 / d.rows.max(1) as f64,
+        d.stations_with_overflow,
+        d.max_reanchors
+    );
+}
+
+#[cfg(not(unix))]
+fn cmd_windiag(_: &[String]) {
+    eprintln!("windiag needs a Unix mmap");
+    std::process::exit(1);
 }
 
 #[cfg(not(unix))]
@@ -331,6 +369,8 @@ fn lane_k_variant(
             eprintln!("lane kmwc requires --features codec9");
             std::process::exit(1);
         }
+        "kmwr" => (TempPath::Swar, NameHash::Word, Agg::Window256),
+        "kmwf" => (TempPath::Swar, NameHash::Word, Agg::Window256Fixed),
         other => unreachable!("lane K variant {other}"),
     }
 }
@@ -355,8 +395,11 @@ fn cmd_dist(args: &[String]) {
         None | Some("hist") => onebrc_probe::Agg::Histogram,
         #[cfg(feature = "codec9")]
         Some("c9") => onebrc_probe::Agg::Codec9,
+        Some("w256") => onebrc_probe::Agg::Window256,
         Some(other) => {
-            eprintln!("unknown table '{other}' (expected hist, or c9 with --features codec9)");
+            eprintln!(
+                "unknown table '{other}' (expected hist, w256, or c9 with --features codec9)"
+            );
             std::process::exit(2);
         }
     };

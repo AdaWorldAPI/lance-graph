@@ -134,7 +134,26 @@ pub enum Agg {
     /// 0.8 MB per worker for 400 stations, 20.5 MB for 10,000.
     #[cfg(feature = "codec9")]
     Codec9,
+    /// The (station, temperature) table addressed directly over a span of
+    /// 256 tenths: slot = code − base(station), 1 KB per station (0.4 MB per
+    /// worker for 400 stations, 10.2 MB for 10,000). The base starts centred
+    /// on the station's first reading; a reading outside the window whose
+    /// station span, including it, still fits in 256 slides the window over
+    /// that span and moves the existing counters. Only a span wider than 256
+    /// sends readings to a full-range overflow row, so counts stay exact.
+    Window256,
+    /// [`Agg::Window256`] without re-anchoring: the base stays centred on
+    /// the first reading and every reading outside it goes to the overflow
+    /// row. For measuring how often a fixed anchor misses.
+    Window256Fixed,
 }
+
+/// Counters per station in [`Agg::Window256`].
+pub const WINDOW: usize = 256;
+/// The highest base a window can take: it then ends at the last code.
+const WINDOW_MAX_BASE: u16 = (CODES - WINDOW) as u16;
+/// A station's window base before its first reading.
+const WINDOW_UNSET: u16 = u16::MAX;
 
 /// Codec9 window helpers over ndarray's codec (`hpc::codec9`).
 #[cfg(feature = "codec9")]
@@ -350,6 +369,14 @@ pub struct Codebook<'a> {
     window: Vec<u32>,
     #[cfg(feature = "codec9")]
     overflow: Vec<Option<Box<[u32]>>>,
+    /// `Agg::Window256*` only: `WINDOW` counters per station, row-major,
+    /// each station's base code, its re-anchor count, and its full-range
+    /// overflow row once it has one.
+    win: Vec<u32>,
+    win_base: Vec<u16>,
+    win_rebases: Vec<u16>,
+    win_over: Vec<Option<Box<[u32]>>>,
+    win_over_readings: u64,
     agg: Agg,
 }
 
@@ -372,6 +399,11 @@ impl<'a> Codebook<'a> {
             window: Vec::new(),
             #[cfg(feature = "codec9")]
             overflow: Vec::new(),
+            win: Vec::new(),
+            win_base: Vec::new(),
+            win_rebases: Vec::new(),
+            win_over: Vec::new(),
+            win_over_readings: 0,
             agg,
         }
     }
@@ -410,6 +442,12 @@ impl<'a> Codebook<'a> {
                         self.window.resize(self.window.len() + c9::WORDS, 0);
                         self.overflow.push(None);
                     }
+                    Agg::Window256 | Agg::Window256Fixed => {
+                        self.win.resize(self.win.len() + WINDOW, 0);
+                        self.win_base.push(WINDOW_UNSET);
+                        self.win_rebases.push(0);
+                        self.win_over.push(None);
+                    }
                 }
                 return id;
             }
@@ -438,6 +476,70 @@ impl<'a> Codebook<'a> {
         }
     }
 
+    #[inline(always)]
+    fn observe_window(&mut self, id: usize, code: u16, reanchor: bool) {
+        let mut base = self.win_base[id];
+        if base == WINDOW_UNSET {
+            base = code
+                .saturating_sub((WINDOW / 2 - 1) as u16)
+                .min(WINDOW_MAX_BASE);
+            self.win_base[id] = base;
+        }
+        let slot = code.wrapping_sub(base) as usize;
+        if slot < WINDOW {
+            self.win[id * WINDOW + slot] += 1;
+        } else {
+            self.window_miss(id, code, reanchor);
+        }
+    }
+
+    /// A reading outside station `id`'s window: re-anchor when the span fits,
+    /// otherwise count it in the overflow row.
+    #[cold]
+    #[inline(never)]
+    fn window_miss(&mut self, id: usize, code: u16, reanchor: bool) {
+        let base = self.win_base[id];
+        if reanchor && self.win_over[id].is_none() {
+            let row = &self.win[id * WINDOW..(id + 1) * WINDOW];
+            let first = row.iter().position(|&n| n > 0);
+            let last = row.iter().rposition(|&n| n > 0);
+            let (mut lo, mut hi) = (code, code);
+            if let (Some(f), Some(l)) = (first, last) {
+                lo = lo.min(base + f as u16);
+                hi = hi.max(base + l as u16);
+            }
+            let span = (hi - lo) as usize;
+            if span < WINDOW {
+                let slack = ((WINDOW - 1 - span) / 2) as u16;
+                let new_base = lo.saturating_sub(slack).min(WINDOW_MAX_BASE);
+                let mut moved = [0u32; WINDOW];
+                for (j, &n) in row.iter().enumerate() {
+                    if n > 0 {
+                        moved[(base + j as u16 - new_base) as usize] = n;
+                    }
+                }
+                moved[(code - new_base) as usize] += 1;
+                self.win[id * WINDOW..(id + 1) * WINDOW].copy_from_slice(&moved);
+                self.win_base[id] = new_base;
+                self.win_rebases[id] += 1;
+                return;
+            }
+        }
+        self.win_over[id].get_or_insert_with(|| vec![0; CODES].into_boxed_slice())
+            [code as usize] += 1;
+        self.win_over_readings += 1;
+    }
+
+    /// `Agg::Window256*` only: readings sent to an overflow row, stations
+    /// with an overflow row, and the most re-anchors of any one station.
+    pub fn window_diagnostics(&self) -> (u64, usize, u16) {
+        (
+            self.win_over_readings,
+            self.win_over.iter().filter(|o| o.is_some()).count(),
+            self.win_rebases.iter().copied().max().unwrap_or(0),
+        )
+    }
+
     /// Station `id`'s counts on the full code range, whatever the table
     /// layout. `None` for `Agg::Running`, which keeps no counts.
     pub fn absolute_row(&self, id: usize) -> Option<Vec<u32>> {
@@ -455,6 +557,20 @@ impl<'a> Codebook<'a> {
                     if n > 0 {
                         let t = c9::value(word).expect("word 0 is never counted");
                         row[(t + TEMP_OFFSET) as usize] += n;
+                    }
+                }
+                Some(row)
+            }
+            Agg::Window256 | Agg::Window256Fixed => {
+                let mut row = match &self.win_over[id] {
+                    Some(o) => o.to_vec(),
+                    None => vec![0; CODES],
+                };
+                let base = self.win_base[id];
+                if base != WINDOW_UNSET {
+                    let w = &self.win[id * WINDOW..(id + 1) * WINDOW];
+                    for (j, &n) in w.iter().enumerate() {
+                        row[base as usize + j] += n;
                     }
                 }
                 Some(row)
@@ -566,6 +682,8 @@ pub fn accumulate_agg<'a>(
             Agg::Histogram => cb.observe_hist(id, code),
             #[cfg(feature = "codec9")]
             Agg::Codec9 => cb.observe_codec9(id, code),
+            Agg::Window256 => cb.observe_window(id, code, true),
+            Agg::Window256Fixed => cb.observe_window(id, code, false),
         }
         i = next;
     }
@@ -659,6 +777,58 @@ pub fn lane_k_codebook_agg(
             .collect()
     });
     merge(&books)
+}
+
+/// How often [`Agg::Window256`] or [`Agg::Window256Fixed`] missed, summed
+/// over workers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowDiagnostics {
+    pub rows: u64,
+    pub overflow_readings: u64,
+    /// Stations with an overflow row, counted once per worker that has one.
+    pub stations_with_overflow: usize,
+    /// The most re-anchors of any one station in any one worker.
+    pub max_reanchors: u16,
+}
+
+/// Run lane K with a window table and report how often the window missed.
+pub fn lane_k_window_diagnostics(data: &[u8], workers: usize, agg: Agg) -> WindowDiagnostics {
+    assert!(
+        matches!(agg, Agg::Window256 | Agg::Window256Fixed),
+        "window diagnostics need a window table"
+    );
+    let table = TempTable::build();
+    let bounds = crate::chunk_bounds(data, workers.max(1));
+    let books: Vec<Codebook<'_>> = std::thread::scope(|scope| {
+        let table = &table;
+        let handles: Vec<_> = bounds
+            .iter()
+            .map(|&(start, end)| {
+                let slice = &data[start..end];
+                scope.spawn(move || {
+                    accumulate_agg(slice, TempPath::Swar, NameHash::Word, agg, table)
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("lane K worker panicked"))
+            .collect()
+    });
+    let mut d = WindowDiagnostics {
+        rows: 0,
+        overflow_readings: 0,
+        stations_with_overflow: 0,
+        max_reanchors: 0,
+    };
+    for b in &books {
+        let (o, s, r) = b.window_diagnostics();
+        d.rows += b.count.iter().map(|&n| n as u64).sum::<u64>();
+        d.overflow_readings += o;
+        d.stations_with_overflow += s;
+        d.max_reanchors = d.max_reanchors.max(r);
+    }
+    d
 }
 
 /// One station's temperature distribution: a count per temperature code.
@@ -1196,6 +1366,100 @@ mod tests {
         let t = TempTable::build();
         let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, Agg::Codec9, &t);
         assert!(cb.overflow[0].is_none());
+    }
+
+    #[test]
+    fn window_tables_agree_with_lane_a_and_the_sorted_reference() {
+        for (rows, seed, stations) in [(60_000u64, 43u64, 400usize), (300_000, 11, 10_000)] {
+            let path = std::env::temp_dir().join(format!(
+                "onebrc_probe_test_kw256_{}_{stations}.txt",
+                std::process::id()
+            ));
+            crate::gen::gen_with_stations(&path, rows, seed, stations).expect("gen");
+            let data = std::fs::read(&path).expect("read corpus");
+            std::fs::remove_file(&path).ok();
+            let a = crate::lane_a_scalar(&data);
+            let reference = sorted_reference(&data);
+            for agg in [Agg::Window256, Agg::Window256Fixed] {
+                for workers in [1, 4] {
+                    for (p, h) in [
+                        (TempPath::Parse, NameHash::Fnv),
+                        (TempPath::Swar, NameHash::Word),
+                    ] {
+                        assert_eq!(a, lane_k_codebook_agg(&data, workers, p, h, agg));
+                        let dist = lane_k_distributions_agg(&data, workers, p, h, agg);
+                        for (name, sorted) in &reference {
+                            let n = sorted.len() as u64;
+                            for pct in [0u32, 10, 50, 90, 100] {
+                                let rank = (pct as u64 * n).div_ceil(100).max(1);
+                                assert_eq!(
+                                    dist[name].percentile(pct),
+                                    Some(sorted[(rank - 1) as usize]),
+                                    "{agg:?} {name} p{pct}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            // Both modes are exercised: the fixed anchor misses, the
+            // re-anchoring one does not (every span here is 201 tenths).
+            let fixed = lane_k_window_diagnostics(&data, 4, Agg::Window256Fixed);
+            assert!(fixed.overflow_readings > 0);
+            let moving = lane_k_window_diagnostics(&data, 4, Agg::Window256);
+            assert_eq!(moving.overflow_readings, 0);
+            assert!(moving.max_reanchors > 0);
+        }
+    }
+
+    #[test]
+    fn the_window_reanchors_and_keeps_its_counts() {
+        // 0.0 centres the window on codes 872..1127. 20.0 (code 1199) is
+        // outside, the span 999..1199 fits: base 972. -5.0 (code 949) is
+        // outside again, the span 949..1199 fits: base 947. No overflow.
+        let data = b"S;0.0\nS;20.0\nS;-5.0\nS;0.0\n";
+        let t = TempTable::build();
+        let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, Agg::Window256, &t);
+        assert_eq!(cb.win_base[0], 947);
+        assert_eq!(cb.window_diagnostics(), (0, 0, 2));
+        assert_eq!(cb.win[999 - 947], 2);
+        assert_eq!(cb.win[1199 - 947], 1);
+        assert_eq!(cb.win[949 - 947], 1);
+        assert_eq!(merge(&[cb]), crate::lane_a_scalar(data));
+    }
+
+    #[test]
+    fn a_span_wider_than_the_window_uses_the_overflow_row() {
+        // -99.9 anchors the window at the lowest code; 99.9 and then 0.0 lie
+        // outside a span that cannot fit in 256, so both are overflow.
+        let data = b"W;-99.9\nW;99.9\nW;0.0\nW;-99.8\n";
+        let t = TempTable::build();
+        for agg in [Agg::Window256, Agg::Window256Fixed] {
+            let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, agg, &t);
+            assert_eq!(cb.win_base[0], 0);
+            assert_eq!(cb.window_diagnostics(), (2, 1, 0), "{agg:?}");
+            assert_eq!(cb.win[0], 1);
+            assert_eq!(cb.win[1], 1);
+            let d = &lane_k_distributions_agg(data, 1, TempPath::Parse, NameHash::Fnv, agg)["W"];
+            assert_eq!(d.percentile(0), Some(-999));
+            assert_eq!(d.percentile(100), Some(999));
+            assert_eq!(merge(&[cb]), crate::lane_a_scalar(data));
+        }
+    }
+
+    #[test]
+    fn the_fixed_window_never_reanchors() {
+        let data = b"S;0.0\nS;20.0\nS;-5.0\n";
+        let t = TempTable::build();
+        let cb = accumulate_agg(
+            data,
+            TempPath::Parse,
+            NameHash::Fnv,
+            Agg::Window256Fixed,
+            &t,
+        );
+        assert_eq!(cb.win_base[0], 872);
+        assert_eq!(cb.window_diagnostics(), (1, 1, 0));
     }
 
     #[test]

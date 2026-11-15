@@ -89,7 +89,8 @@ pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
 pub use lane_j::{lane_j_grid_pipeline, lane_j_grid_pipeline_with};
 pub use lane_k::{
     lane_k_codebook, lane_k_codebook_agg, lane_k_codebook_with, lane_k_distributions,
-    lane_k_distributions_agg, Agg, Distribution, NameHash, TempPath,
+    lane_k_distributions_agg, lane_k_window_diagnostics, Agg, Distribution, NameHash, TempPath,
+    WindowDiagnostics,
 };
 pub use lane_s::lane_s_swar;
 pub use lane_t::{lane_t_byte, lane_t_trie};
