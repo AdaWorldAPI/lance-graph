@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use lance_graph_dt64::dr::{Axis, LocalMap, MapRefusal, MapTable, TileId, Width};
-use lance_graph_xlog::cube::{Cube, CubeRefusal, EdgeOp, RelId, StagedEdges};
+use lance_graph_xlog::cube::{BaseClosure, Cube, CubeRefusal, EdgeOp, RelId, StagedEdges};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
 use crate::artifact::{
@@ -256,8 +256,8 @@ pub struct Codegraph {
     table: MapTable,
     cube: Cube,
     masks: Masks,
-    rconf: OnceCell<(WideRows, WideStats)>,
-    rposs: OnceCell<(WideRows, WideStats)>,
+    rconf: OnceCell<Cached>,
+    rposs: OnceCell<Cached>,
     /// Bumped by every committed refresh and every refold: the fence a
     /// [`PreparedRefresh`] is checked against. Local and in memory only; not
     /// an identity, a version or a persisted counter.
@@ -266,6 +266,28 @@ pub struct Codegraph {
     /// point, so the falsifiers can show a refusal changes nothing.
     #[cfg(test)]
     inject: Option<Inject>,
+}
+
+/// A cached closure of [`RCONF`] or [`RPOSS`].
+#[derive(Debug)]
+enum Cached {
+    /// The cube's closure of the relation's base, taken while its log was
+    /// empty (so it is also the effective closure). Only this kind can be
+    /// refreshed: [`Cube::stage_closure`] refuses anything that does not
+    /// certify the base it is applied to.
+    Base(BaseClosure),
+    /// An effective closure (base plus log). Correct to read; never handed
+    /// back to the cube as a base.
+    Effective((WideRows, WideStats)),
+}
+
+impl Cached {
+    fn pair(&self) -> &(WideRows, WideStats) {
+        match self {
+            Self::Base(b) => b.as_pair(),
+            Self::Effective(p) => p,
+        }
+    }
 }
 
 /// Where a test makes a refresh's validation refuse.
@@ -821,10 +843,10 @@ impl Codegraph {
             .stage_batch(grown.as_ref().map(|m| (last, m)), &ops)
             .map_err(RefreshRefusal::Cube)?;
         let changed = !staged.is_empty();
-        // A cached closure is refreshed only when its relation's log was
-        // empty (its precondition is a closure of the base); otherwise it is
-        // dropped and rebuilt on next read. Computed now, so a refusal here
-        // also changes nothing.
+        // A cached closure is refreshed only when it certifies its
+        // relation's base (`Cached::Base`); an effective closure is dropped
+        // and rebuilt on next read. Computed now, so a refusal here also
+        // changes nothing.
         let mut closures: [Option<Option<(WideRows, WideStats)>>; 2] = [None, None];
         if changed {
             for (slot, rel) in [(0usize, RCONF), (1, RPOSS)] {
@@ -834,13 +856,12 @@ impl Codegraph {
                     &self.rposs
                 };
                 if let Some(old) = cell.get() {
-                    closures[slot] = Some(if self.cube.delta_len(rel) == 0 {
-                        Some(
-                            self.stage_closure(rel, &old.0, &staged)
+                    closures[slot] = Some(match old {
+                        Cached::Base(base) => Some(
+                            self.stage_closure(rel, base, &staged)
                                 .map_err(RefreshRefusal::Cube)?,
-                        )
-                    } else {
-                        None
+                        ),
+                        Cached::Effective(_) => None,
                     });
                 }
             }
@@ -858,11 +879,24 @@ impl Codegraph {
         }))
     }
 
-    /// Apply a [`PreparedRefresh`]. The one check comes first and changes
+    /// Apply a [`PreparedRefresh`]. The checks come first and change
     /// nothing: the graph must still be at the generation the change was
     /// prepared against ([`RefreshRefusal::Stale`]); a change prepared
     /// against an older graph would hand out positions the graph has since
-    /// given to other symbols. After the check there is no error path.
+    /// given to other symbols. Then the cube checks the batch and the map
+    /// the table is about to install ([`Cube::check_commit`],
+    /// [`RefreshRefusal::Cube`]).
+    ///
+    /// After the checks there is no error path, under one condition: the
+    /// table installs exactly the map `check_commit` accepted, and nothing
+    /// else touches the cube or the table in between. That holds because the
+    /// only steps between the two calls are the generation bump, the interner
+    /// and position absorbs (neither reads nor writes the cube or the table)
+    /// and one `MapTable::advance` that moves the pre-checked map in
+    /// unchanged; `&mut self` excludes every other writer. If a later change
+    /// breaks that condition, `Cube::commit` still refuses without changing
+    /// the cube, and this function panics with the graph already advanced.
+    /// It is not a general transaction.
     pub(crate) fn commit_refresh(
         &mut self,
         prepared: PreparedRefresh,
@@ -885,6 +919,10 @@ impl Codegraph {
             ..
         } = prepared;
 
+        self.cube
+            .check_commit(&staged, grown.as_ref().map(|(t, m)| (*t, m)))
+            .map_err(RefreshRefusal::Cube)?;
+
         // ---- commit: no error path below ----
         self.generation += 1;
         self.symbols.absorb(names);
@@ -899,14 +937,20 @@ impl Codegraph {
             None => self.cube.frame().clone(),
         };
         let changed = !staged.is_empty();
-        self.cube.commit(&self.table, &frame, staged);
+        // `check_commit` accepted this batch with exactly the map the table
+        // just installed, so the cube accepts the sealed frame (see the
+        // condition in the doc comment; pinned by
+        // `a_growth_commit_installs_exactly_the_prechecked_map`).
+        if let Err(e) = self.cube.commit(&self.table, &frame, staged) {
+            unreachable!("cube refused a commit it pre-checked: {e:?}");
+        }
         for (slot, cell) in [(0usize, &mut self.rconf), (1, &mut self.rposs)] {
             match closures[slot].take() {
                 // Prepared against the cache that was there: replace it.
                 Some(Some((rows, st))) => {
                     cell.take();
                     stats.rows_recomputed += st.rows_recomputed;
-                    let _ = cell.set((rows, st));
+                    let _ = cell.set(Cached::Effective((rows, st)));
                 }
                 // The cache was there but could not be refreshed: drop it.
                 Some(None) => {
@@ -948,7 +992,7 @@ impl Codegraph {
     fn stage_closure(
         &self,
         rel: RelId,
-        old: &WideRows,
+        old: &BaseClosure,
         staged: &StagedEdges,
     ) -> Result<(WideRows, WideStats), CubeRefusal> {
         #[cfg(test)]
@@ -959,8 +1003,10 @@ impl Codegraph {
     }
 
     /// Absorb every relation's delta log into its base lanes (explicit only;
-    /// nothing calls this on a threshold). Cached closures stay valid: the
-    /// base now equals the effective edges they were computed from.
+    /// nothing calls this on a threshold). Cached closures stay correct to
+    /// read: the base now equals the effective edges they were computed
+    /// from. An effective one is still not offered to the cube as a base;
+    /// the next refresh drops it and the next read takes a base closure.
     pub fn refold(&mut self) -> Result<(), CubeRefusal> {
         // A prepared refresh staged its closures against the logs; folding
         // them into the base makes it stale.
@@ -1170,10 +1216,14 @@ impl Codegraph {
             other => return Err(CubeRefusal::UnknownRel(other)),
         };
         if let Some(c) = cell.get() {
-            return Ok(c);
+            return Ok(c.pair());
         }
-        let computed = self.cube.closure_wide(&self.table, rel)?;
-        Ok(cell.get_or_init(|| computed))
+        let computed = if self.cube.delta_len(rel) == 0 {
+            Cached::Base(self.cube.base_closure(&self.table, rel)?)
+        } else {
+            Cached::Effective(self.cube.closure_wide(&self.table, rel)?)
+        };
+        Ok(cell.get_or_init(|| computed).pair())
     }
 }
 
@@ -1266,6 +1316,45 @@ mod atomic {
         g.closure(RPOSS).expect("rposs");
         fs::write(d.join("m.rows.tsv"), rows(2)).expect("write");
         (d, g)
+    }
+
+    /// The condition `commit_refresh` relies on after `check_commit`: the
+    /// table installs exactly the map that was pre-checked, and the cube
+    /// adopts the frame that reads it. Red if the commit path installs any
+    /// other map, or skips the install (the cube would then refuse, and the
+    /// `unreachable!` would fire).
+    #[test]
+    fn a_growth_commit_installs_exactly_the_prechecked_map() {
+        let (d, mut g) = primed("prechecked");
+        let prepared = g
+            .prepare_refresh(&d, "m")
+            .expect("prepare")
+            .expect("a change");
+        let (tile, width, globals) = {
+            let (t, m) = prepared.grown.as_ref().expect("v2 grows a tile");
+            let v = m.view();
+            (*t, v.width(), v.globals().to_vec())
+        };
+        let before = g.table.map(g.cube.frame(), tile).expect("old map");
+        assert!(
+            before.globals() != globals.as_slice(),
+            "anti-vacuity: the pre-checked map differs from the current one"
+        );
+        assert!(g
+            .cube
+            .check_commit(
+                &prepared.staged,
+                prepared.grown.as_ref().map(|(t, m)| (*t, m))
+            )
+            .is_ok());
+        g.commit_refresh(prepared).expect("commit");
+        let installed = g.table.map(g.cube.frame(), tile).expect("new map");
+        assert_eq!(installed.width(), width);
+        assert_eq!(installed.globals(), globals.as_slice());
+        assert!(
+            g.cube.frame().same_issue(&g.table.seal()),
+            "the cube adopted the frame the table now seals"
+        );
     }
 
     /// The snapshot can fire: a successful refresh changes it. Without this
