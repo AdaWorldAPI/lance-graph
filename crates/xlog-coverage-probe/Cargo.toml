@@ -1,0 +1,37 @@
+# XLOG coverage reconciliation: a lab probe, NOT a workspace member, NOT a
+# runtime. Gives every compiled XLOG rule a rung on an evidence ladder by
+# running the cube on non-empty base relations and comparing with XLOG's own
+# CPU reference fixpoint evaluator. Verify and run with
+#   cargo test --release --manifest-path crates/xlog-coverage-probe/Cargo.toml
+#   cargo run --release --manifest-path crates/xlog-coverage-probe/Cargo.toml \
+#     --example reconcile -- --out /tmp/x.tsv /path/to/xlog/crates/xlog-integration/tests/*.rs
+[package]
+name = "xlog-coverage-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Reconciles XLOG's compiled rules on lance-graph's cube against XLOG's own CPU reference fixpoint evaluator, over non-empty base relations, and places each rule on an evidence ladder."
+
+# Own workspace root, so it never joins the lance-graph graph (XLOG's crates
+# pin a different arrow than the lance stack).
+[workspace]
+
+[dependencies]
+xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
+xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
+xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
+xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
+
+[dev-dependencies]
+# The safety reproductions (tests/safety.rs) call the cube in this checkout
+# directly, through the same paths the patch below resolves to.
+lance-graph-xlog = { path = "../lance-graph-xlog" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+
+# xlog-cube depends on these three by git. Patch them to THIS checkout, so the
+# probe tests the cube in this tree and not GitHub main.
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+lance-graph-xlog = { path = "../lance-graph-xlog" }
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-contract = { path = "../lance-graph-contract" }
