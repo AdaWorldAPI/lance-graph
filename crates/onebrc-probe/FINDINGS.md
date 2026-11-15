@@ -341,3 +341,37 @@ search skipped), `kw` (names hashed 8 bytes at a time, last word masked),
   against at most 2 for the word hash.
 - K6: `kmw` is the fastest variant in both `run` and `wall`.
 Kill for each: the stated gain is absent.
+
+## 9. Lane K variants results (2026-11-15)
+
+Same session, same rules as §7 (4 workers, 6 passes, first discarded,
+median of 5, range in brackets).
+
+| variant | `run` 100M, Mrows/s | `wall` 100M, ns/row | `wall` 10M, ns/row |
+|---|---|---|---|
+| k (parse, FNV) | 136.5 [133.9-144.4] | 7.56 [7.02-8.81] | 7.02 [6.96-8.98] |
+| km (merykitty, FNV) | 188.2 [149.7-196.2] | 5.42 [5.30-5.64] | 6.52 [5.89-8.33] |
+| kw (parse, word hash) | 150.5 [139.0-190.5] | 5.40 [5.31-6.21] | 5.42 [5.38-8.20] |
+| kmw (both) | 245.0 [219.2-246.7] | 4.00 [3.69-4.53] | 5.73 [5.00-6.36] |
+
+Against §8:
+
+- K4 (`km` ≥ +10 % over `k`, `run` 100M): holds, +37.8 %.
+- K5 (`kw` ≥ +5 %): holds on the median, +10.2 %, but `kw`'s range
+  (139-191) overlaps `k`'s; weak.
+- K6 (`kmw` fastest everywhere): holds on 100M (`run` +79.5 %, `wall`
+  −47.0 % vs `k`); fails on `wall` 10M, where `kw` (5.42) is below `kmw`
+  (5.73). The 10M runs are short and noisy here, as in §7.
+
+The two changes compound: together they give more than either alone on
+100M (+79.5 % against +37.8 % and +10.2 %).
+
+One unplanned observation: the first `wall` 10M pass of `k` took 91.99 ns
+per row. The 100M runs had evicted the 10M file from the page cache, so
+that pass read from disk. One pass, not a measurement of the cold case, but
+it shows the cold page cache is an order of magnitude above everything in
+these tables.
+
+Per core, `kmw` on 100M is about 16 core-ns per row (4.00 × 4) against the
+1BRC winner's about 12.3 (1.535 s for 1B rows on 8 Zen 2 cores). Different
+CPU and corpus; an order-of-magnitude reading only.

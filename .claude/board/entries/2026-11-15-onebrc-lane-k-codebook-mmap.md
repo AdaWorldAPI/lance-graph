@@ -23,3 +23,16 @@ collision is untested and recorded as such.
   pre-registered K2 fails.
 
 OPEN: cold page cache, the 10,000-station key set, more than 4 workers.
+
+## Update: merykitty parse and word-wise name hash (FINDINGS §8-9)
+
+| 100M, 4 workers | `run` Mrows/s | `wall` ns/row |
+|---|---|---|
+| k | 136.5 | 7.56 |
+| km (merykitty parse) | 188.2 | 5.42 |
+| kw (word hash) | 150.5 | 5.40 |
+| kmw (both) | 245.0 | 4.00 |
+
+The two compound. Pre-registered K4 holds, K5 holds weakly (overlapping
+ranges), K6 holds on 100M and fails on the noisy 10M `wall`. Disable
+controls 3 of 3 red (tail mask, sign, next-line offset).
