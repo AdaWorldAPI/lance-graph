@@ -189,6 +189,10 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 
 /// One worker's codebook and its per-station state, indexed by station id.
 /// Names are slices of the input, never copies.
+///
+/// A slot hit is accepted only when the 64-bit hash and the full name bytes
+/// both match. The name check guards a full 64-bit FNV collision; no test
+/// constructs one, so that half of the guard is untested.
 pub struct Codebook<'a> {
     slots: Vec<u32>,
     hashes: Vec<u64>,
@@ -528,6 +532,18 @@ mod tests {
             assert_eq!(k["Frost"].min, -999);
             assert_eq!(k["Frost"].max, 0);
         }
+    }
+
+    #[test]
+    fn a_spelling_outside_the_table_falls_back_to_the_parse() {
+        // "05.0" is valid for the parse but not one of the table's spellings.
+        let data = b"Lead;05.0\nLead;-07.5\nLead;1.0\n";
+        let t = TempTable::build();
+        assert_eq!(t.get(b"05.0"), None);
+        let k = lane_k_codebook(data, 1, TempPath::Table);
+        assert_eq!(k, crate::lane_a_scalar(data));
+        assert_eq!(k["Lead"].max, 50);
+        assert_eq!(k["Lead"].min, -75);
     }
 
     #[test]
