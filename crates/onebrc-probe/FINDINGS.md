@@ -405,3 +405,19 @@ For `kmw`, 175.5 per row are in `accumulate_with` and 19.7 in libc's
 `memcmp`, which the name check calls once per row. The QuestDB article's
 final Java version reports about 98 per row (its own count, different
 corpus), so `kmw` executes about twice as many.
+
+## 11. Histogram variant pre-registration (2026-11-15, before measuring it)
+
+`kh` (parse, FNV, histogram) and `kmwh` (multiply parse, word hash,
+histogram): one `u32` counter per (station, code), 1,999 per station, one
+increment per row, min/max/sum/count derived before the merge. Measured
+against `k` and `kmw` in the same session: `run` and `wall` on 100M,
+4 workers, §6's pass rule; instructions per row by callgrind as in §10.
+
+- H1: fewer instructions per row than the running variant (`kh` < `k`,
+  `kmwh` < `kmw`): the update drops two compares and a sum.
+- H2: not faster in `run`: `kmwh` within ±10 % of `kmw` or slower. The
+  3.2 MB of counters per worker leave L1 and most of L2, while the running
+  state (about 6.6 KB) stays in L1, so each row's increment costs more than
+  the instructions it saves.
+Kill for H2: `kmwh` faster than `kmw` by more than 10 %.
