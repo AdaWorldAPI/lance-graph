@@ -65,6 +65,7 @@ pub mod lane_h;
 pub mod lane_i;
 #[cfg(feature = "lane-j")]
 pub mod lane_j;
+pub mod lane_k;
 pub mod lane_s;
 pub mod lane_t;
 #[cfg(feature = "presets")]
@@ -86,6 +87,7 @@ pub use lane_h::{lane_h_orchestrated, lane_h_orchestrated_with};
 pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
 #[cfg(feature = "lane-j")]
 pub use lane_j::{lane_j_grid_pipeline, lane_j_grid_pipeline_with};
+pub use lane_k::{lane_k_codebook, TempPath};
 pub use lane_s::lane_s_swar;
 pub use lane_t::{lane_t_byte, lane_t_trie};
 
