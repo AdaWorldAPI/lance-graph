@@ -116,6 +116,21 @@ pub enum TempPath {
     Swar,
 }
 
+/// How each row updates its station's state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Agg {
+    /// Running min, max, sum and count per station.
+    Running,
+    /// One counter per (station, temperature code): one increment per row;
+    /// min, max, sum and count are derived from the counts before the merge.
+    /// 1,999 `u32` counters per station: 3.2 MB per worker for 400
+    /// stations, 80 MB for 10,000.
+    Histogram,
+}
+
+/// Number of distinct temperature codes (`-99.9..=99.9`).
+pub const CODES: usize = 1999;
+
 /// How a station name is hashed into the codebook.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NameHash {
@@ -282,10 +297,17 @@ pub struct Codebook<'a> {
     pub max: Vec<u16>,
     pub sum: Vec<u64>,
     pub count: Vec<u32>,
+    /// `Agg::Histogram` only: `CODES` counters per station, row-major.
+    hist: Vec<u32>,
+    histogram: bool,
 }
 
 impl<'a> Codebook<'a> {
     pub fn new() -> Self {
+        Self::with_agg(Agg::Running)
+    }
+
+    pub fn with_agg(agg: Agg) -> Self {
         Codebook {
             slots: vec![0; NAME_SLOTS],
             hashes: Vec::new(),
@@ -294,6 +316,8 @@ impl<'a> Codebook<'a> {
             max: Vec::new(),
             sum: Vec::new(),
             count: Vec::new(),
+            hist: Vec::new(),
+            histogram: agg == Agg::Histogram,
         }
     }
 
@@ -323,6 +347,9 @@ impl<'a> Codebook<'a> {
                 self.max.push(0);
                 self.sum.push(0);
                 self.count.push(0);
+                if self.histogram {
+                    self.hist.resize(self.hist.len() + CODES, 0);
+                }
                 return id;
             }
             let id = (v - 1) as usize;
@@ -330,6 +357,36 @@ impl<'a> Codebook<'a> {
                 return id;
             }
             s = (s + 1) & (NAME_SLOTS - 1);
+        }
+    }
+
+    #[inline(always)]
+    fn observe_hist(&mut self, id: usize, code: u16) {
+        self.hist[id * CODES + code as usize] += 1;
+    }
+
+    /// Turn the histogram into min, max, sum and count. A no-op for
+    /// `Agg::Running`.
+    pub fn finish(&mut self) {
+        if !self.histogram {
+            return;
+        }
+        for id in 0..self.names.len() {
+            let row = &self.hist[id * CODES..(id + 1) * CODES];
+            let (mut sum, mut count) = (0u64, 0u32);
+            let (mut lo, mut hi) = (u16::MAX, 0u16);
+            for (code, &n) in row.iter().enumerate() {
+                if n > 0 {
+                    lo = lo.min(code as u16);
+                    hi = code as u16;
+                    sum += code as u64 * n as u64;
+                    count += n;
+                }
+            }
+            self.min[id] = lo;
+            self.max[id] = hi;
+            self.sum[id] = sum;
+            self.count[id] = count;
         }
     }
 
@@ -364,7 +421,19 @@ pub fn accumulate_with<'a>(
     hash: NameHash,
     table: &TempTable,
 ) -> Codebook<'a> {
-    let mut cb = Codebook::new();
+    accumulate_agg(data, path, hash, Agg::Running, table)
+}
+
+/// [`accumulate_with`] with an explicit aggregation. The returned codebook
+/// is finished: min, max, sum and count are filled in either mode.
+pub fn accumulate_agg<'a>(
+    data: &'a [u8],
+    path: TempPath,
+    hash: NameHash,
+    agg: Agg,
+    table: &TempTable,
+) -> Codebook<'a> {
+    let mut cb = Codebook::with_agg(agg);
     let len = data.len();
     let mut i = 0usize;
     while i < len {
@@ -396,9 +465,14 @@ pub fn accumulate_with<'a>(
             NameHash::Word => word_hash(data, i, semi),
         };
         let id = cb.id_hashed(name, h);
-        cb.observe(id, code);
+        if agg == Agg::Histogram {
+            cb.observe_hist(id, code);
+        } else {
+            cb.observe(id, code);
+        }
         i = next;
     }
+    cb.finish();
     cb
 }
 
@@ -460,6 +534,17 @@ pub fn lane_k_codebook_with(
     path: TempPath,
     hash: NameHash,
 ) -> BTreeMap<String, Stats> {
+    lane_k_codebook_agg(data, workers, path, hash, Agg::Running)
+}
+
+/// [`lane_k_codebook_with`] with an explicit aggregation.
+pub fn lane_k_codebook_agg(
+    data: &[u8],
+    workers: usize,
+    path: TempPath,
+    hash: NameHash,
+    agg: Agg,
+) -> BTreeMap<String, Stats> {
     let table = TempTable::build();
     let bounds = crate::chunk_bounds(data, workers.max(1));
     let books: Vec<Codebook<'_>> = std::thread::scope(|scope| {
@@ -468,7 +553,7 @@ pub fn lane_k_codebook_with(
             .iter()
             .map(|&(start, end)| {
                 let slice = &data[start..end];
-                scope.spawn(move || accumulate_with(slice, path, hash, table))
+                scope.spawn(move || accumulate_agg(slice, path, hash, agg, table))
             })
             .collect();
         handles
@@ -635,11 +720,13 @@ mod tests {
         for workers in [1, 3, 7] {
             for p in [TempPath::Parse, TempPath::Table, TempPath::Swar] {
                 for h in [NameHash::Fnv, NameHash::Word] {
-                    assert_eq!(
-                        a,
-                        lane_k_codebook_with(&data, workers, p, h),
-                        "workers {workers} {p:?} {h:?}"
-                    );
+                    for g in [Agg::Running, Agg::Histogram] {
+                        assert_eq!(
+                            a,
+                            lane_k_codebook_agg(&data, workers, p, h, g),
+                            "workers {workers} {p:?} {h:?} {g:?}"
+                        );
+                    }
                 }
             }
         }
@@ -685,8 +772,14 @@ mod tests {
         // All-negative station: the sum is corrected by 999·n, not decoded per row.
         let data = b"Frost;-12.5\nFrost;-0.5\nFrost;-99.9\nHeat;99.9\nFrost;-0.0\n";
         let a = crate::lane_a_scalar(data);
-        for p in [TempPath::Parse, TempPath::Table, TempPath::Swar] {
-            let k = lane_k_codebook(data, 1, p);
+        for (p, g) in [
+            (TempPath::Parse, Agg::Running),
+            (TempPath::Table, Agg::Running),
+            (TempPath::Swar, Agg::Running),
+            (TempPath::Parse, Agg::Histogram),
+            (TempPath::Swar, Agg::Histogram),
+        ] {
+            let k = lane_k_codebook_agg(data, 1, p, NameHash::Fnv, g);
             assert_eq!(a, k);
             assert_eq!(k["Frost"].sum, -1129);
             assert_eq!(k["Frost"].min, -999);
@@ -704,6 +797,23 @@ mod tests {
         assert_eq!(k, crate::lane_a_scalar(data));
         assert_eq!(k["Lead"].max, 50);
         assert_eq!(k["Lead"].min, -75);
+    }
+
+    #[test]
+    fn the_histogram_covers_both_ends_of_the_range() {
+        // -99.9 and 99.9 are codes 0 and 1998, the first and last counters.
+        let data = b"Edge;-99.9\nEdge;99.9\nEdge;-99.9\nMid;0.0\n";
+        let t = TempTable::build();
+        let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, Agg::Histogram, &t);
+        assert_eq!(cb.hist[0], 2);
+        assert_eq!(cb.hist[CODES - 1], 1);
+        let k = merge(&[cb]);
+        assert_eq!(k, crate::lane_a_scalar(data));
+        assert_eq!(
+            (k["Edge"].min, k["Edge"].max, k["Edge"].sum),
+            (-999, 999, -999)
+        );
+        assert_eq!((k["Mid"].min, k["Mid"].max, k["Mid"].count), (0, 0, 1));
     }
 
     #[test]

@@ -87,7 +87,9 @@ pub use lane_h::{lane_h_orchestrated, lane_h_orchestrated_with};
 pub use lane_i::{lane_i_batch_pipeline, lane_i_batch_pipeline_with};
 #[cfg(feature = "lane-j")]
 pub use lane_j::{lane_j_grid_pipeline, lane_j_grid_pipeline_with};
-pub use lane_k::{lane_k_codebook, lane_k_codebook_with, NameHash, TempPath};
+pub use lane_k::{
+    lane_k_codebook, lane_k_codebook_agg, lane_k_codebook_with, Agg, NameHash, TempPath,
+};
 pub use lane_s::lane_s_swar;
 pub use lane_t::{lane_t_byte, lane_t_trie};
 

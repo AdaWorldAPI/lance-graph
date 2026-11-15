@@ -24,7 +24,7 @@ fn main() {
         Some("wall") => cmd_wall(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|s> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]"
             );
             std::process::exit(2);
         }
@@ -134,9 +134,9 @@ fn cmd_run(args: &[String]) {
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
         "s" => onebrc_probe::lane_s_swar(&data, workers),
-        "k" | "kt" | "km" | "kw" | "kmw" => {
-            let (p, h) = lane_k_variant(lane);
-            onebrc_probe::lane_k_codebook_with(&data, workers, p, h)
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" => {
+            let (p, h, g) = lane_k_variant(lane);
+            onebrc_probe::lane_k_codebook_agg(&data, workers, p, h, g)
         }
         "t" => onebrc_probe::lane_t_trie(&data, workers),
         "t8" => onebrc_probe::lane_t_byte(&data, workers),
@@ -247,14 +247,14 @@ fn cmd_run(args: &[String]) {
     }
 }
 
-/// `wall <path> <k|kt|km|kw|kmw|s> [workers]`: end-to-end time from opening the file
+/// `wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]`: end-to-end time from opening the file
 /// to the finished result, reported in nanoseconds per row. Lanes `k`/`kt`
 /// memory-map the file; lane `s` reads it with `fs::read` inside the timer.
 /// Run each lane twice and keep the second: the first run warms the page
 /// cache, which neither lane controls.
 #[cfg(unix)]
 fn cmd_wall(args: &[String]) {
-    let usage = "usage: wall <path> <k|kt|km|kw|kmw|s> [workers]";
+    let usage = "usage: wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]";
     let path = PathBuf::from(args.first().expect(usage));
     let lane = args.get(1).map(String::as_str).expect(usage);
     let workers: usize = args
@@ -267,10 +267,10 @@ fn cmd_wall(args: &[String]) {
         });
     let start = Instant::now();
     let (map, rows) = match lane {
-        "k" | "kt" | "km" | "kw" | "kmw" => {
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" => {
             let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
-            let (p, h) = lane_k_variant(lane);
-            let map = onebrc_probe::lane_k_codebook_with(m.as_slice(), workers, p, h);
+            let (p, h, g) = lane_k_variant(lane);
+            let map = onebrc_probe::lane_k_codebook_agg(m.as_slice(), workers, p, h, g);
             let rows: u64 = map.values().map(|s| s.count as u64).sum();
             (map, rows)
         }
@@ -281,7 +281,7 @@ fn cmd_wall(args: &[String]) {
             (map, rows)
         }
         other => {
-            eprintln!("unknown wall lane '{other}' (expected k, kt, km, kw, kmw or s)");
+            eprintln!("unknown wall lane '{other}' (expected k, kt, km, kw, kmw, kh, kmwh or s)");
             std::process::exit(2);
         }
     };
@@ -299,15 +299,24 @@ fn cmd_wall(_: &[String]) {
 }
 
 /// Lane K's variants: `k` parse, `kt` temperature table, `km` merykitty
-/// parse; a trailing `w` hashes names 8 bytes at a time.
-fn lane_k_variant(lane: &str) -> (onebrc_probe::TempPath, onebrc_probe::NameHash) {
-    use onebrc_probe::{NameHash, TempPath};
+/// parse; a `w` hashes names 8 bytes at a time; a trailing `h` aggregates
+/// into a per-station histogram.
+fn lane_k_variant(
+    lane: &str,
+) -> (
+    onebrc_probe::TempPath,
+    onebrc_probe::NameHash,
+    onebrc_probe::Agg,
+) {
+    use onebrc_probe::{Agg, NameHash, TempPath};
     match lane {
-        "k" => (TempPath::Parse, NameHash::Fnv),
-        "kt" => (TempPath::Table, NameHash::Fnv),
-        "km" => (TempPath::Swar, NameHash::Fnv),
-        "kw" => (TempPath::Parse, NameHash::Word),
-        "kmw" => (TempPath::Swar, NameHash::Word),
+        "k" => (TempPath::Parse, NameHash::Fnv, Agg::Running),
+        "kt" => (TempPath::Table, NameHash::Fnv, Agg::Running),
+        "km" => (TempPath::Swar, NameHash::Fnv, Agg::Running),
+        "kw" => (TempPath::Parse, NameHash::Word, Agg::Running),
+        "kmw" => (TempPath::Swar, NameHash::Word, Agg::Running),
+        "kh" => (TempPath::Parse, NameHash::Fnv, Agg::Histogram),
+        "kmwh" => (TempPath::Swar, NameHash::Word, Agg::Histogram),
         other => unreachable!("lane K variant {other}"),
     }
 }
