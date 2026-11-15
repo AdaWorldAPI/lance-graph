@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-625 entries, 2026-08-06 .. 2026-11-15.
+626 entries, 2026-08-06 .. 2026-11-15.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-15 | `D-XLOG-COV-0` |  | [2026-11-15-d-xlog-cov-0-coverage-reconciliation.md](2026-11-15-d-xlog-cov-0-coverage-reconciliation.md) |
+| 2026-11-15 | `D-XLOG-C9-0` |  | [2026-11-15-d-xlog-c9-0-codec9-degree-deltas.md](2026-11-15-d-xlog-c9-0-codec9-degree-deltas.md) |
 | 2026-11-14 | `D-JC-EXTREMA-1` |  | [2026-11-14-jc-extreme-deviation.md](2026-11-14-jc-extreme-deviation.md) |
 | 2026-11-14 | `D-CUBE-COUNTS-1` |  | [2026-11-14-cube-column-counts.md](2026-11-14-cube-column-counts.md) |
 | 2026-11-14 | `D-ARGMINMAX-1` |  | [2026-11-14-argminmax-cube-coordinate.md](2026-11-14-argminmax-cube-coordinate.md) |
