@@ -288,6 +288,30 @@ fn a_batch_of_another_cube_is_refused() {
     drop(cube);
 }
 
+/// The test above builds the other cube over another table, so its frame
+/// check would refuse the batch as stale even without the cube-id check.
+/// Here the twin shares the table, frame, tile and edges: only the cube id
+/// differs, so only the id check can refuse it.
+#[test]
+fn a_batch_of_a_twin_cube_over_the_same_frame_is_refused() {
+    let (mut table, f1, cube, staged, grown) = grown_batch();
+    let edges = [(1u32, 2u32)];
+    let mut twin = Cube::new(&table, &f1, 0, &[edges.as_slice()]).unwrap();
+    assert_eq!(twin.frame().revisions(), cube.frame().revisions());
+    assert_eq!(
+        twin.check_commit(&staged, Some((0, &grown))),
+        Err(CubeRefusal::ForeignBatch)
+    );
+    table.advance(2, 1, vec![(0, Some(grown))]);
+    let f2 = table.seal();
+    let before = state(&twin, &table, 1);
+    assert_eq!(
+        twin.commit(&table, &f2, staged),
+        Err(CubeRefusal::ForeignBatch)
+    );
+    assert_eq!(state(&twin, &table, 1), before);
+}
+
 #[test]
 fn a_batch_staged_before_a_frame_change_is_refused() {
     let (mut table, _f1, mut cube, staged, grown) = grown_batch();
