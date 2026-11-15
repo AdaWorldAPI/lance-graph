@@ -15,7 +15,7 @@
 //! into one, and one sort of the distinct names (about 400) gives the
 //! alphabetical output order. The rows are never reordered.
 //!
-//! Two temperature paths, so the codebook idea is measured on the
+//! Three temperature paths, so the codebook idea is measured on the
 //! temperature too:
 //!
 //! - [`TempPath::Parse`]: lane S's branch-light parse, then `+ 999`.
@@ -23,6 +23,15 @@
 //!   and looked up in a 4,096-slot table built once from all 1,999 values
 //!   (plus `-0.0`). A key the table does not hold falls back to the parse,
 //!   so an unexpected spelling is slower, never wrong.
+//! - [`TempPath::Swar`]: merykitty's branch-free multiply parse over one
+//!   8-byte load; the `.` position also gives the next line's start, so
+//!   the newline search is skipped. Fewer than 8 bytes left in the chunk
+//!   falls back to the parse. Unlike the table path, it does not detect a
+//!   malformed field: it relies on the input format.
+//!
+//! Two name hashes: [`NameHash::Fnv`] (FNV-1a, byte at a time) and
+//! [`NameHash::Word`] (8 bytes at a time, last word masked). The name
+//! comparison is the same for both.
 //!
 //! The scan is lane S's SWAR delimiter find, unchanged, so the variables
 //! against lane S are the grouping and the temperature path.
@@ -101,6 +110,78 @@ fn parse_tenths(s: &[u8]) -> i32 {
 pub enum TempPath {
     Parse,
     Table,
+    /// merykitty's branch-free multiply parse over one 8-byte load. The
+    /// position of the `.` also gives the start of the next line, so the
+    /// newline search is skipped.
+    Swar,
+}
+
+/// How a station name is hashed into the codebook.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NameHash {
+    /// FNV-1a 64, one byte at a time.
+    Fnv,
+    /// 8 bytes at a time, the last word masked to the name's length.
+    Word,
+}
+
+/// merykitty's parse of one temperature field starting at the low byte of
+/// `word`: returns tenths and the offset of the next line's first byte, or
+/// `None` when none of bytes 1, 2 and 3 has bit 4 clear.
+///
+/// It is not a validator: on a malformed field it returns a wrong value
+/// rather than `None`. It relies on the 1BRC format guarantee, as the
+/// leading entries' parse does.
+///
+/// `.` is the only byte of the field with bit 4 clear at those positions
+/// (digits are `0x30..=0x39`), which locates it; `-` has bit 4 clear at
+/// byte 0, which gives the sign. The digits are shifted into fixed lanes
+/// and combined by one multiply with `100·2²⁴ + 10·2¹⁶ + 1`.
+#[inline(always)]
+pub fn swar_temp(word: u64) -> Option<(i32, usize)> {
+    let dots = !word & 0x1010_1000;
+    if dots == 0 {
+        return None;
+    }
+    let dot = dots.trailing_zeros();
+    let shift = 28 - dot;
+    let signed = (((!word) << 59) as i64 >> 63) as u64;
+    let design_mask = !(signed & 0xFF);
+    let digits = ((word & design_mask) << shift) & 0x0F_000F_0F00;
+    let abs = (digits.wrapping_mul(0x640A_0001) >> 32) & 0x3FF;
+    let value = (abs ^ signed).wrapping_sub(signed) as i64 as i32;
+    Some((value, (dot >> 3) as usize + 3))
+}
+
+#[inline(always)]
+fn load_word(data: &[u8], at: usize) -> u64 {
+    u64::from_le_bytes(data[at..at + 8].try_into().unwrap())
+}
+
+/// Hash `data[start..end]` 8 bytes at a time. The last partial word is
+/// masked to the name's length; near the end of `data` it is assembled
+/// byte by byte instead of loaded.
+#[inline(always)]
+pub fn word_hash(data: &[u8], start: usize, end: usize) -> u64 {
+    const K: u64 = 0x9E37_79B9_7F4A_7C15;
+    let mut h = (end - start) as u64;
+    let mut p = start;
+    while p + 8 <= end {
+        h = (h ^ load_word(data, p)).wrapping_mul(K);
+        p += 8;
+    }
+    if p < end {
+        let n = end - p;
+        let w = if p + 8 <= data.len() {
+            load_word(data, p) & (u64::MAX >> (64 - 8 * n))
+        } else {
+            let mut b = [0u8; 8];
+            b[..n].copy_from_slice(&data[p..end]);
+            u64::from_le_bytes(b)
+        };
+        h = (h ^ w).wrapping_mul(K);
+    }
+    h ^ (h >> 29)
 }
 
 /// The temperature codebook: every 1BRC temperature spelling → its code.
@@ -191,7 +272,7 @@ fn fnv1a64(bytes: &[u8]) -> u64 {
 /// Names are slices of the input, never copies.
 ///
 /// A slot hit is accepted only when the 64-bit hash and the full name bytes
-/// both match. The name check guards a full 64-bit FNV collision; no test
+/// both match. The name check guards a full 64-bit hash collision; no test
 /// constructs one, so that half of the guard is untested.
 pub struct Codebook<'a> {
     slots: Vec<u32>,
@@ -219,7 +300,13 @@ impl<'a> Codebook<'a> {
     /// The station id of `name`, appending a new entry on first sight.
     #[inline(always)]
     pub fn id(&mut self, name: &'a [u8]) -> usize {
-        let h = fnv1a64(name);
+        self.id_hashed(name, fnv1a64(name))
+    }
+
+    /// [`Codebook::id`] with the hash already computed. A codebook must be
+    /// fed by one hash function throughout.
+    #[inline(always)]
+    pub fn id_hashed(&mut self, name: &'a [u8], h: u64) -> usize {
         let mut s = (h as usize) & (NAME_SLOTS - 1);
         loop {
             let v = self.slots[s];
@@ -267,24 +354,50 @@ impl Default for Codebook<'_> {
 
 /// Fold one newline-aligned chunk into a fresh codebook.
 pub fn accumulate<'a>(data: &'a [u8], path: TempPath, table: &TempTable) -> Codebook<'a> {
+    accumulate_with(data, path, NameHash::Fnv, table)
+}
+
+/// [`accumulate`] with an explicit name hash.
+pub fn accumulate_with<'a>(
+    data: &'a [u8],
+    path: TempPath,
+    hash: NameHash,
+    table: &TempTable,
+) -> Codebook<'a> {
     let mut cb = Codebook::new();
     let len = data.len();
     let mut i = 0usize;
     while i < len {
         let semi = find(data, i, SEMI_BCAST);
         let name = &data[i..semi];
-        let nl = find(data, semi + 1, NL_BCAST);
-        let field = &data[semi + 1..nl];
-        let code = match path {
-            TempPath::Parse => (parse_tenths(field) + TEMP_OFFSET) as u16,
-            TempPath::Table => match table.get(field) {
-                Some(c) => c,
-                None => (parse_tenths(field) + TEMP_OFFSET) as u16,
-            },
+        let t = semi + 1;
+        let swar = if path == TempPath::Swar && t + 8 <= len {
+            swar_temp(load_word(data, t))
+        } else {
+            None
         };
-        let id = cb.id(name);
+        let (code, next) = match swar {
+            Some((v, adv)) => ((v + TEMP_OFFSET) as u16, t + adv),
+            None => {
+                let nl = find(data, t, NL_BCAST);
+                let field = &data[t..nl];
+                let code = match path {
+                    TempPath::Table => match table.get(field) {
+                        Some(c) => c,
+                        None => (parse_tenths(field) + TEMP_OFFSET) as u16,
+                    },
+                    _ => (parse_tenths(field) + TEMP_OFFSET) as u16,
+                };
+                (code, nl + 1)
+            }
+        };
+        let h = match hash {
+            NameHash::Fnv => fnv1a64(name),
+            NameHash::Word => word_hash(data, i, semi),
+        };
+        let id = cb.id_hashed(name, h);
         cb.observe(id, code);
-        i = nl + 1;
+        i = next;
     }
     cb
 }
@@ -337,6 +450,16 @@ pub fn merge_ordered(books: &[Codebook<'_>]) -> Vec<(String, Stats)> {
 /// Lane K over an in-memory buffer: `workers` newline-aligned chunks, one
 /// codebook each, then the merge.
 pub fn lane_k_codebook(data: &[u8], workers: usize, path: TempPath) -> BTreeMap<String, Stats> {
+    lane_k_codebook_with(data, workers, path, NameHash::Fnv)
+}
+
+/// [`lane_k_codebook`] with an explicit name hash.
+pub fn lane_k_codebook_with(
+    data: &[u8],
+    workers: usize,
+    path: TempPath,
+    hash: NameHash,
+) -> BTreeMap<String, Stats> {
     let table = TempTable::build();
     let bounds = crate::chunk_bounds(data, workers.max(1));
     let books: Vec<Codebook<'_>> = std::thread::scope(|scope| {
@@ -345,7 +468,7 @@ pub fn lane_k_codebook(data: &[u8], workers: usize, path: TempPath) -> BTreeMap<
             .iter()
             .map(|&(start, end)| {
                 let slice = &data[start..end];
-                scope.spawn(move || accumulate(slice, path, table))
+                scope.spawn(move || accumulate_with(slice, path, hash, table))
             })
             .collect();
         handles
@@ -504,20 +627,57 @@ mod tests {
     }
 
     #[test]
-    fn lane_k_agrees_with_lane_a_on_both_temperature_paths() {
+    fn lane_k_agrees_with_lane_a_on_every_path_and_hash() {
         let (path, data) = corpus(60_000, 41);
         std::fs::remove_file(&path).ok();
         let a = crate::lane_a_scalar(&data);
         assert!(!a.is_empty());
         for workers in [1, 3, 7] {
-            for p in [TempPath::Parse, TempPath::Table] {
-                assert_eq!(
-                    a,
-                    lane_k_codebook(&data, workers, p),
-                    "workers {workers} {p:?}"
-                );
+            for p in [TempPath::Parse, TempPath::Table, TempPath::Swar] {
+                for h in [NameHash::Fnv, NameHash::Word] {
+                    assert_eq!(
+                        a,
+                        lane_k_codebook_with(&data, workers, p, h),
+                        "workers {workers} {p:?} {h:?}"
+                    );
+                }
             }
         }
+    }
+
+    #[test]
+    fn swar_temp_decodes_every_value_and_finds_the_next_line() {
+        for tenths in -999..=999i32 {
+            let (w, f) = (tenths.abs() / 10, tenths.abs() % 10);
+            let s = if tenths < 0 {
+                format!("-{w}.{f}")
+            } else {
+                format!("{w}.{f}")
+            };
+            let mut buf = s.clone().into_bytes();
+            buf.extend_from_slice(b"\nQx;9.9\n");
+            let word = u64::from_le_bytes(buf[..8].try_into().unwrap());
+            assert_eq!(swar_temp(word), Some((tenths, s.len() + 1)), "{s}");
+        }
+        let neg_zero = u64::from_le_bytes(*b"-0.0\nAb;");
+        assert_eq!(swar_temp(neg_zero), Some((0, 5)));
+        // No byte 1-3 with bit 4 clear: refused, so the lane falls back.
+        assert_eq!(swar_temp(u64::from_le_bytes(*b"12345678")), None);
+        // Not a validator: any byte 1-3 with bit 4 clear is taken as the '.'.
+        assert!(swar_temp(u64::from_le_bytes(*b"abcdefgh")).is_some());
+    }
+
+    #[test]
+    fn word_hash_ignores_what_follows_the_name() {
+        // The same name must hash alike whatever bytes sit after it, both
+        // when the last word is loaded and masked and when it is assembled.
+        let mid = b"Oslo;1.0\nRome;2.0\n";
+        let end = b"x;1.0\nOslo";
+        assert_eq!(word_hash(mid, 0, 4), word_hash(end, 6, 10));
+        let long = b"Ouagadougou;1.0\nOuagadougou;2.0\n";
+        assert_eq!(word_hash(long, 0, 11), word_hash(long, 16, 27));
+        assert_ne!(word_hash(mid, 0, 4), word_hash(mid, 9, 13));
+        assert_ne!(word_hash(long, 0, 11), word_hash(long, 0, 10));
     }
 
     #[test]
@@ -525,7 +685,7 @@ mod tests {
         // All-negative station: the sum is corrected by 999·n, not decoded per row.
         let data = b"Frost;-12.5\nFrost;-0.5\nFrost;-99.9\nHeat;99.9\nFrost;-0.0\n";
         let a = crate::lane_a_scalar(data);
-        for p in [TempPath::Parse, TempPath::Table] {
+        for p in [TempPath::Parse, TempPath::Table, TempPath::Swar] {
             let k = lane_k_codebook(data, 1, p);
             assert_eq!(a, k);
             assert_eq!(k["Frost"].sum, -1129);

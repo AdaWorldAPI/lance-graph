@@ -24,7 +24,7 @@ fn main() {
         Some("wall") => cmd_wall(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|s> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|s> [workers]"
             );
             std::process::exit(2);
         }
@@ -134,8 +134,10 @@ fn cmd_run(args: &[String]) {
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
         "s" => onebrc_probe::lane_s_swar(&data, workers),
-        "k" => onebrc_probe::lane_k_codebook(&data, workers, onebrc_probe::TempPath::Parse),
-        "kt" => onebrc_probe::lane_k_codebook(&data, workers, onebrc_probe::TempPath::Table),
+        "k" | "kt" | "km" | "kw" | "kmw" => {
+            let (p, h) = lane_k_variant(lane);
+            onebrc_probe::lane_k_codebook_with(&data, workers, p, h)
+        }
         "t" => onebrc_probe::lane_t_trie(&data, workers),
         "t8" => onebrc_probe::lane_t_byte(&data, workers),
         "g" => {
@@ -245,14 +247,14 @@ fn cmd_run(args: &[String]) {
     }
 }
 
-/// `wall <path> <k|kt|s> [workers]`: end-to-end time from opening the file
+/// `wall <path> <k|kt|km|kw|kmw|s> [workers]`: end-to-end time from opening the file
 /// to the finished result, reported in nanoseconds per row. Lanes `k`/`kt`
 /// memory-map the file; lane `s` reads it with `fs::read` inside the timer.
 /// Run each lane twice and keep the second: the first run warms the page
 /// cache, which neither lane controls.
 #[cfg(unix)]
 fn cmd_wall(args: &[String]) {
-    let usage = "usage: wall <path> <k|kt|s> [workers]";
+    let usage = "usage: wall <path> <k|kt|km|kw|kmw|s> [workers]";
     let path = PathBuf::from(args.first().expect(usage));
     let lane = args.get(1).map(String::as_str).expect(usage);
     let workers: usize = args
@@ -265,14 +267,10 @@ fn cmd_wall(args: &[String]) {
         });
     let start = Instant::now();
     let (map, rows) = match lane {
-        "k" | "kt" => {
+        "k" | "kt" | "km" | "kw" | "kmw" => {
             let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
-            let p = if lane == "k" {
-                onebrc_probe::TempPath::Parse
-            } else {
-                onebrc_probe::TempPath::Table
-            };
-            let map = onebrc_probe::lane_k_codebook(m.as_slice(), workers, p);
+            let (p, h) = lane_k_variant(lane);
+            let map = onebrc_probe::lane_k_codebook_with(m.as_slice(), workers, p, h);
             let rows: u64 = map.values().map(|s| s.count as u64).sum();
             (map, rows)
         }
@@ -283,7 +281,7 @@ fn cmd_wall(args: &[String]) {
             (map, rows)
         }
         other => {
-            eprintln!("unknown wall lane '{other}' (expected k, kt or s)");
+            eprintln!("unknown wall lane '{other}' (expected k, kt, km, kw, kmw or s)");
             std::process::exit(2);
         }
     };
@@ -298,4 +296,18 @@ fn cmd_wall(args: &[String]) {
 fn cmd_wall(_: &[String]) {
     eprintln!("wall needs a Unix mmap");
     std::process::exit(1);
+}
+
+/// Lane K's variants: `k` parse, `kt` temperature table, `km` merykitty
+/// parse; a trailing `w` hashes names 8 bytes at a time.
+fn lane_k_variant(lane: &str) -> (onebrc_probe::TempPath, onebrc_probe::NameHash) {
+    use onebrc_probe::{NameHash, TempPath};
+    match lane {
+        "k" => (TempPath::Parse, NameHash::Fnv),
+        "kt" => (TempPath::Table, NameHash::Fnv),
+        "km" => (TempPath::Swar, NameHash::Fnv),
+        "kw" => (TempPath::Parse, NameHash::Word),
+        "kmw" => (TempPath::Swar, NameHash::Word),
+        other => unreachable!("lane K variant {other}"),
+    }
 }
