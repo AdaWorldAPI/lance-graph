@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::ops::Range;
 
 use lance_graph_dt64::dr::{Frame, LocalMap, LocateRefusal, MapTable, TileId, Width};
-use lance_graph_xlog::cube::{Cube, CubeRefusal};
+use lance_graph_xlog::cube::{BaseClosure, Cube, CubeRefusal};
 use lance_graph_xlog::wide::{WideRows, WideStats};
 
 /// Positions in one block (one dt64 tile).
@@ -286,7 +286,7 @@ fn check_step(
     cube: &Cube,
     table: &MapTable,
     frame: &Frame,
-    old: &WideRows,
+    old: &BaseClosure,
     base: &BTreeSet<(u32, u32)>,
     ref_base: &[Vec<bool>],
     eff: &BTreeSet<(u32, u32)>,
@@ -321,7 +321,7 @@ fn refresh_equals_rebuild_after_every_step() {
     let base_v = vec_of(&base);
     let ref_base = reference(N_RES, &base_v);
     let mut cube = tiled_cube(&table, &frame, &TILES, &base);
-    let (old, _) = cube.closure_wide(&table, 0).unwrap();
+    let old = cube.base_closure(&table, 0).unwrap();
     let mut eff = base.clone();
 
     // Step 1: add only.
@@ -395,6 +395,8 @@ fn refresh_equals_rebuild_after_every_step() {
     // Cancel on its own: a log of only add-then-retire leaves the closure
     // bit for bit and recomputes nothing.
     let mut quiet = tiled_cube(&table, &frame, &TILES, &base);
+    let quiet_old = quiet.base_closure(&table, 0).unwrap();
+    assert_rows_eq(quiet_old.rows(), old.rows(), "same base, same closure");
     quiet
         .add_edge(&table, 0, fresh_edge.0, fresh_edge.1)
         .unwrap();
@@ -402,8 +404,8 @@ fn refresh_equals_rebuild_after_every_step() {
         .retire_edge(&table, 0, fresh_edge.0, fresh_edge.1)
         .unwrap();
     assert_eq!(quiet.delta_len(0), 2);
-    let (same, s) = quiet.refresh_closure(&table, 0, &old).unwrap();
-    assert_rows_eq(&same, &old, "cancel-only");
+    let (same, s) = quiet.refresh_closure(&table, 0, &quiet_old).unwrap();
+    assert_rows_eq(&same, quiet_old.rows(), "cancel-only");
     assert_eq!(s.rows_recomputed, 0);
 }
 

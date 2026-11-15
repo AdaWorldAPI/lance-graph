@@ -1,18 +1,17 @@
-//! Two cube safety findings, reproduced in isolation (D-XLOG-COV-0 §4).
+//! The two cube safety findings of D-XLOG-COV-0 §4, now refused.
 //!
-//! Nothing here repairs either defect; each test pins the current behaviour so
-//! the follow-up fix turns it red on purpose. Both use only the public
-//! `lance_graph_xlog::cube` API of this checkout.
+//! Both used to be pinned as defects; the repair turned them into typed
+//! refusals in every build, and each test here was flipped on purpose.
 //!
-//! A. `Cube::refresh_closure` documents a precondition (`old` is the closure
-//!    of the relation's *base* lanes) and does not check it. A closure of an
-//!    older base is accepted and the answer is wrong, with no refusal.
-//! B. `Cube::commit` checks that `frame` reads the staged map only with a
-//!    `debug_assert`. In a release build a wrong frame is adopted, and a later
-//!    terminal decodes a coordinate the adopted frame does not hold.
+//! A. `Cube::refresh_closure` takes a `BaseClosure` that names the base
+//!    generation it was computed over. A closure of an older base is refused
+//!    with `CubeRefusal::StaleBase`.
+//! B. `Cube::commit` returns `Result` and checks the frame in every build. A
+//!    frame that does not read the staged map is refused with
+//!    `CubeRefusal::FrameMismatch`, and the cube is unchanged.
 
 use lance_graph_dt64::dr::{Frame, LocalMap, MapTable, Width};
-use lance_graph_xlog::cube::{Cube, EdgeOp};
+use lance_graph_xlog::cube::{Cube, CubeRefusal, EdgeOp};
 use lance_graph_xlog::wide::WideRows;
 
 /// Every `(x, y)` with `y` reachable from `x`, over coordinates `0..n`.
@@ -36,43 +35,34 @@ fn table_with(ids: &[u64]) -> (MapTable, Frame) {
     (t, f)
 }
 
-/// A. A closure of an older base is accepted and refreshed into a wrong
-/// answer. The control (a closure of the current base) agrees with a fresh
-/// `closure_wide`, so the difference is the stale input alone.
+/// A. A closure of an older base is refused. The control (a closure of the
+/// current base) agrees with a fresh `closure_wide`.
 #[test]
-fn a_refresh_from_a_stale_base_is_accepted_and_wrong() {
+fn a_refresh_from_a_stale_base_is_refused() {
     let (table, frame) = table_with(&[1, 2, 3, 4, 5]);
     let edges = [(1u32, 2u32), (2, 3)];
     let mut cube = Cube::new_tiled(&table, &frame, &[0], &[edges.as_slice()]).unwrap();
 
     // Closure of base B0 = {1→2, 2→3}.
-    let (stale, _) = cube.closure_wide(&table, 0).unwrap();
+    let stale = cube.base_closure(&table, 0).unwrap();
 
     // Base B1 = B0 + {3→4}, folded; then a logged add 4→5.
     cube.add_edge(&table, 0, 3, 4).unwrap();
     cube.refold(0).unwrap();
-    let (current, _) = cube.closure_wide(&table, 0).unwrap();
+    let current = cube.base_closure(&table, 0).unwrap();
     cube.add_edge(&table, 0, 4, 5).unwrap();
 
     let (truth, _) = cube.closure_wide(&table, 0).unwrap();
     let (control, _) = cube.refresh_closure(&table, 0, &current).unwrap();
-    assert_eq!(pairs(&control), pairs(&truth), "precondition met: correct");
+    assert_eq!(pairs(&control), pairs(&truth), "current base: correct");
 
-    // Precondition violated: `stale` is the closure of B0, not of B1.
-    let wrong = cube.refresh_closure(&table, 0, &stale);
-    let (wrong, _) = wrong.expect("DEFECT A: a stale base is not refused");
-    assert_ne!(
-        pairs(&wrong),
-        pairs(&truth),
-        "DEFECT A: the refreshed closure from a stale base differs from the truth"
+    assert_eq!(
+        cube.refresh_closure(&table, 0, &stale),
+        Err(CubeRefusal::StaleBase {
+            minted: 0,
+            current: 1
+        })
     );
-    // Anti-vacuity: the truth really contains a pair the stale refresh lost
-    // (1 reaches 5 only through the folded 3→4).
-    let lost: Vec<_> = pairs(&truth)
-        .into_iter()
-        .filter(|p| !pairs(&wrong).contains(p))
-        .collect();
-    assert!(!lost.is_empty(), "the stale refresh must lose a pair");
 }
 
 /// The cube of B, staged with a grown map `[1, 2, 3]` and one edge `3 → 2`,
@@ -102,7 +92,7 @@ fn staged_case() -> (
 #[test]
 fn commit_under_the_right_frame_decodes_the_new_edge() {
     let (table, mut cube, _f1, f2, staged) = staged_case();
-    cube.commit(&table, &f2, staged);
+    cube.commit(&table, &f2, staged).unwrap();
     assert_eq!(cube.frame().revisions(), f2.revisions());
     let l = cube.scan(0).unwrap();
     let r = cube.scan(0).unwrap();
@@ -114,42 +104,20 @@ fn commit_under_the_right_frame_decodes_the_new_edge() {
     );
 }
 
-/// B in a debug build: the guard fires.
+/// B, in debug and release alike: the wrong frame is refused and the cube
+/// keeps its frame and an empty log.
 #[test]
-#[cfg(debug_assertions)]
-#[should_panic(expected = "the frame does not read the staged map")]
-fn commit_under_a_wrong_frame_panics_in_debug() {
-    let (table, mut cube, f1, _f2, staged) = staged_case();
-    cube.commit(&table, &f1, staged);
-}
-
-/// B in a release build: the guard is compiled out, the wrong frame is
-/// adopted, and a later terminal decodes a coordinate the adopted frame does
-/// not hold. Run with `--release`.
-#[test]
-#[cfg(not(debug_assertions))]
-fn commit_under_a_wrong_frame_is_adopted_in_release() {
+fn commit_under_a_wrong_frame_is_refused() {
     let (table, mut cube, f1, f2, staged) = staged_case();
-    cube.commit(&table, &f1, staged);
-    assert_eq!(
-        cube.frame().revisions(),
-        f1.revisions(),
-        "DEFECT B: the stale frame was adopted without refusal"
-    );
     assert_ne!(
         f1.revisions(),
         f2.revisions(),
         "fixture: two distinct frames"
     );
-    assert_eq!(cube.delta_len(0), 1, "the batch was applied");
-    let l = cube.scan(0).unwrap();
-    let r = cube.scan(0).unwrap();
-    let j = cube.join(l, 1, r, 1).unwrap();
-    let decoded = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        cube.materialize_rows(&table, j)
-    }));
-    assert!(
-        decoded.is_err(),
-        "DEFECT B: the adopted frame cannot decode the committed coordinate"
+    assert_eq!(
+        cube.commit(&table, &f1, staged),
+        Err(CubeRefusal::FrameMismatch(0))
     );
+    assert_eq!(cube.frame().revisions(), f1.revisions());
+    assert_eq!(cube.delta_len(0), 0, "nothing was applied");
 }
