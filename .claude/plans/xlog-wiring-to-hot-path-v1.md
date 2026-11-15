@@ -98,6 +98,8 @@ Measured 2026-11-03 (`cargo run --example coverage` over `xlog-integration/tests
 - 3 Project over GroupBy
 - 2 Project over Join
 
+Reconciled 2026-11-15 (D-XLOG-COV-0, fork `c9bd9dc`, entry `2026-11-15-d-xlog-cov-0-coverage-reconciliation.md`): of the 140 "admitted", 49 are refused as soon as the base relations are non-empty (all in recursive SCCs: an empty seed delta ends the loop before a recursive body is lowered), 20 have no usable oracle answer, and 71 agree with an independent naive Datalog oracle on non-empty answers; 32 of the 71 run on cube masks (not the host loop). The figures above stay as measured; "admitted" here means "not refused over empty bases".
+
 Admitted is not correct: `coverage` gives every base relation as empty, and a rule counts under its first refusal only (D-STAUNEN-5 plan, "Relation to the xlog-cube coverage work"). That plan also carries the agreed order: projection composition, filter algebra, resident execution, computed columns, F100, N-ary relations.
 
 Toward Amendment E's open caller-API census, a count of `provider.<method>(` calls per crate, multi-line chains included (2026-11-03): pyxlog 50 methods / 234 calls, xlog-integration 24 / 105, xlog-cli 8 / 14. pyxlog calls the provider directly for ILP, DLPack and the semantic engine, so its caller surface is wider than the executor. xlog-prob (426 kernel launch sites) and xlog-solve (27) launch SAT, CNF, circuit, PIR, cache, weights and Monte-Carlo kernels through `provider.device()`; these have no algebra counterpart and are tier-3 candidates. The count is an inventory, not a migration mandate: it does not make any provider method a seam.
