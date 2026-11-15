@@ -22,6 +22,8 @@ pub const STATION_COUNT: usize = 400;
 pub struct GenResult {
     pub rows: u64,
     pub seed: u64,
+    /// Number of distinct stations the corpus was generated with.
+    pub stations: usize,
     pub sha256_hex: String,
 }
 
@@ -142,6 +144,7 @@ pub fn gen_with_stations(path: &Path, rows: u64, seed: u64, count: usize) -> io:
     Ok(GenResult {
         rows,
         seed,
+        stations: count,
         sha256_hex: Sha256::hex(&digest),
     })
 }
@@ -149,6 +152,23 @@ pub fn gen_with_stations(path: &Path, rows: u64, seed: u64, count: usize) -> io:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_recipe_records_the_station_count() {
+        let dir = std::env::temp_dir();
+        let a = dir.join(format!("onebrc_recipe_a_{}", std::process::id()));
+        let b = dir.join(format!("onebrc_recipe_b_{}", std::process::id()));
+        let ra = gen_with_stations(&a, 100, 42, STATION_COUNT).unwrap();
+        let rb = gen_with_stations(&b, 100, 42, 10_000).unwrap();
+        std::fs::remove_file(&a).ok();
+        std::fs::remove_file(&b).ok();
+        // Same rows and seed, different corpora: only the station count
+        // tells the two recipes apart.
+        assert_ne!(ra.sha256_hex, rb.sha256_hex);
+        assert_eq!((ra.rows, ra.seed), (rb.rows, rb.seed));
+        assert_eq!(ra.stations, STATION_COUNT);
+        assert_eq!(rb.stations, 10_000);
+    }
 
     #[test]
     fn station_names_are_deterministic_and_unique() {

@@ -56,8 +56,8 @@ fn cmd_gen(args: &[String]) {
     // The archival recipe line: input + recipe + hash travel together, per
     // the workspace's archival convention (see README §2, gen.rs doc).
     println!(
-        "rows={} seed={} sha256={}",
-        result.rows, result.seed, result.sha256_hex
+        "rows={} seed={} stations={} sha256={}",
+        result.rows, result.seed, result.stations, result.sha256_hex
     );
 }
 
