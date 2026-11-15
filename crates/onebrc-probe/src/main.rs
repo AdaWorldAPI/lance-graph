@@ -10,7 +10,7 @@
 //! `--features lane-d` / `--features lane-e` respectively (see `README.md`
 //! §3/§4). `batches` is lane-`e`-only (optional, default `workers * 16`).
 
-use onebrc_probe::{gen::gen, lane_a_scalar, lane_c_threads};
+use onebrc_probe::{lane_a_scalar, lane_c_threads};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -25,7 +25,7 @@ fn main() {
         Some("dist") => cmd_dist(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]\n  onebrc-probe dist <path> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed> [stations]\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]\n  onebrc-probe dist <path> [workers]"
             );
             std::process::exit(2);
         }
@@ -45,7 +45,13 @@ fn cmd_gen(args: &[String]) {
         .parse()
         .expect("seed must be a u64");
 
-    let result = gen(&path, rows, seed).expect("corpus generation failed");
+    // Optional 4th argument: number of distinct stations (default 400).
+    let stations: usize = args
+        .get(3)
+        .map(|s| s.parse().expect("stations must be a usize"))
+        .unwrap_or(onebrc_probe::gen::STATION_COUNT);
+    let result = onebrc_probe::gen::gen_with_stations(&path, rows, seed, stations)
+        .expect("corpus generation failed");
     // The archival recipe line: input + recipe + hash travel together, per
     // the workspace's archival convention (see README §2, gen.rs doc).
     println!(

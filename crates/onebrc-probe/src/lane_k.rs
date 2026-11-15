@@ -994,6 +994,30 @@ mod tests {
     }
 
     #[test]
+    fn ten_thousand_stations_agree_with_lane_a() {
+        let path =
+            std::env::temp_dir().join(format!("onebrc_probe_test_k10k_{}.txt", std::process::id()));
+        crate::gen::gen_with_stations(&path, 300_000, 11, 10_000).expect("gen");
+        let data = std::fs::read(&path).expect("read corpus");
+        std::fs::remove_file(&path).ok();
+        let a = crate::lane_a_scalar(&data);
+        assert!(a.len() > 9_900, "only {} distinct stations", a.len());
+        for (p, h, g) in [
+            (TempPath::Parse, NameHash::Fnv, Agg::Running),
+            (TempPath::Swar, NameHash::Word, Agg::Running),
+            (TempPath::Swar, NameHash::Word, Agg::Histogram),
+        ] {
+            assert_eq!(
+                a,
+                lane_k_codebook_agg(&data, 4, p, h, g),
+                "{p:?} {h:?} {g:?}"
+            );
+        }
+        let d = lane_k_distributions(&data, 4, TempPath::Swar, NameHash::Word);
+        assert_eq!(d.len(), a.len());
+    }
+
+    #[test]
     fn nearest_rank_on_a_small_known_set() {
         // Values -1.0, 0.5, 0.5, 2.0: lower median 0.5, p25 -1.0, p75 0.5.
         let data = b"S;-1.0\nS;0.5\nS;2.0\nS;0.5\n";
