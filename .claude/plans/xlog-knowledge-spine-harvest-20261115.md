@@ -1,5 +1,7 @@
 # XLOG documentation and donor harvest: initial source-backed map (2026-11-15)
 
+**Plan:** D-XLOG-KNOWLEDGE-0, gate D-XLOG-KNOWLEDGE-G0 (`xlog-knowledge-spine-v1.md` §4).
+
 **Evidence grade:** RESEARCH INTAKE / PARTIAL. This is not a complete mirror, code audit or runnable benchmark. Public pages were read from https://xlog.md/ on 2026-11-15; repo descriptions were checked against AdaWorldAPI forks and merged PR records. Pin exact commits, inspect docs source and recrawl before issuing a completeness verdict. Site `/llms.txt` was advertised in page navigation but a direct public fetch returned 404 during this intake; find the authoritative docs tree, do not count pages by assumption.
 
 ## Confirmed documentation entrypoints and first operator crosswalk
@@ -39,6 +41,8 @@
 | [lance-graph #1921](https://github.com/AdaWorldAPI/lance-graph/pull/1921) | Graded Codegraph CALLS/MAY/IMPL over Cube | Real coverage remains constrained; source grade must survive all lowering |
 | [lance-graph #1958](https://github.com/AdaWorldAPI/lance-graph/pull/1958) | MeTTa logical method schema and Soufflé/Crepe/XLOG cold planning already designed | No granted production method builder or new interpreter |
 | [lance-graph #725](https://github.com/AdaWorldAPI/lance-graph/pull/725) | AriGraph semantic-hit-seeded episodic search pure method | Actual wired consumer and witness-authority boundary remain gated |
+
+The coverage census gives measured evidence on EIR. Of the literals it observes, 208 never compile, and 202 of those stop at the RIR lowering boundary as "Unsupported epistemic construct". This is evidence that EIR must not be lowered as RIR. It does not show that EIR can be lowered some other way. Source: `crates/xlog-coverage-probe/census-656def9.tsv`, taken over the XLOG fork at `656def9`.
 
 ## Source citation and page discovery requirements for next harvest
 

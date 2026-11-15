@@ -1,5 +1,7 @@
 # Claude Code handoff: XLOG knowledge-spine donor harvest, research, and smallest integration gate
 
+**Plan:** D-XLOG-KNOWLEDGE-0 (`xlog-knowledge-spine-v1.md`). This prompt drives D-XLOG-KNOWLEDGE-G0 (harvest) and D-XLOG-KNOWLEDGE-G1 (coverage); G2-G8 are later, separate PRs.
+
 > Paste this entire file into a **new Claude Code session with read access to the AdaWorldAPI repositories**. This is a research-to-PR assignment; **do not merge**, do not create a new executor, and do not interpret this documentation as implementation authority.
 
 ## Mission
@@ -30,23 +32,61 @@ Use local sibling clones if present; fetch read-only and record exact SHA if abs
 7. **AriGraph memory:** inspect the existing `EpisodicMemory::episodic_search` and semantic-hit→episode transition, not just the Python README. Trace how an inferred result or counterfactual is stored, recalled, revised and retracted without overwriting original episode evidence or adding a second heap-owned TripletGraph/BeliefArena.
 8. **Exact donor-to-IR ABI map:** for each harvested capability, specify cold/typed frontend IR, MethodRef/lens, F000 or F100 behavioral ownership, admitted Algebra op, borrowed frame/position/mask representation, observable native terminal, independent oracle, and explicit refusal for unsupported shapes. Check the W5/W7, EXO-73/79/84/85/101/108/143/152/153/154 and EXO-50 owner records; preserve Amendment E (#1910), typed refusals and forbidden Gather. Source facts are not legal/epistemic authority.
 
-## Minimal discriminating experiment (propose, then smallest approved lab implementation)
+## First experiment: G1 deterministic coverage only (D-XLOG-KNOWLEDGE-G1)
 
-Make a **domain-neutral synthetic** two-authority legal claim with:
-- same proposition `P` asserted in world A and inherited in world B;
-- one exception/override with a separate source root;
-- one confirmed Codegraph source fact and one only-possible dispatch, plus one missing-coverage fact;
-- two derivation paths sharing one root (must count that root once);
-- one counterfactual branch that retracts the exception source but leaves the observed world untouched;
-- an AriGraph episodic observation before and after revision, so historical attribution is inspectable;
-- one discrete Legalis deterministic result, one `JudicialDiscretion` case, and one regelrecht Gherkin example mapping only a legally comparable *synthetic* subset;
-- an XLOG common relational subset compared against parsed-AST naive/Datalog Datafrog, and against Mistaber Clingo goldens where applicable. EIR/PIR require separate oracles, not implicit equivalence to Clingo.
+The first code PR is gate G1 of `xlog-knowledge-spine-v1.md` and nothing else. The harvest file says not to implement all consumers in the first code PR. This experiment follows that. It reuses the existing probe and adds one comparator. It adds no new executor and no new ABI.
 
-**Positive expectation:** world-specific holdings, source-root independence, one recovered conclusion upon retraction, preservation of original episode, and correct explicit DISCRETION/ABSTAIN boundary.  
-**Negative falsifiers:** remove override-block mask, collapse world identity, substitute `possible` for `confirmed`, duplicate a supporting source, lose missing-coverage grade, bypass tenant fence, use a stale frame/plan, mutate observed state during hypothetical revision, or silently treat refused SCC as empty. Each negative must produce disagreement or typed REFUSE/ABSTAIN.  
-**Minimum evidence:** normalized result masks / fold checksums, per-world holdings, root identities, direct-vs-inferred grades, revision generation, route status, exact source/commit, typed refusal, native terminal materialization count, cold/hot allocations, test command, independent oracle command, deliberate disable/red run. No invented benchmark.
+### Step 1: reproduce the census
 
-If the operator permissions or actual code boundaries prevent this fixture, STOP the implementation stage and deliver only a precise blocked gate/decision packet. Do not resolve the problem by a second evaluator or invented new ABI.
+Re-run the existing coverage census (crate `crates/xlog-coverage-probe`) at a pinned lance-graph SHA and a pinned xlog SHA. Record both SHAs. Use the commands from the probe README:
+
+```
+cargo test --release --manifest-path crates/xlog-coverage-probe/Cargo.toml
+cargo run --release --manifest-path crates/xlog-coverage-probe/Cargo.toml --example reconcile -- --out /tmp/x.tsv /path/to/xlog/crates/xlog-integration/tests/*.rs
+```
+
+Compare the new TSV with the committed `census-656def9.tsv`. The expected result is:
+
+- 230 compiled rules: 87 oracle-agrees (43 of them without a host loop), 94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
+- 208 literals never compile. 202 of them stop at the EIR boundary ("Unsupported epistemic construct: RIR lowering boundary").
+
+If any count differs, report the difference per rung and per rule. Do not reset the #2091 baseline. Do not count host-loop enumeration as native.
+
+### Step 2: add Datafrog as a second comparator
+
+Add Datafrog (`AdaWorldAPI/datafrog`) as a second independent comparator beside the existing naive parsed-AST oracle. Run it only on oracle-agrees rules that are monotone binary-relation Datalog. Datafrog's negation is `from_antijoin` against a relation fixed before the iteration, so a rule that negates a relation in its own component is not applicable.
+
+Every other rule gets the verdict `datafrog: not-applicable` with a stated reason. A rule that is not applicable is never reported as agreement.
+
+Datafrog is a test-side comparator only. It is not a production dependency.
+
+### Positive expectation
+
+On every applicable rule, over the same 8 seeds (six random, two dense), Datafrog agrees with the naive oracle and with the cube.
+
+### Negative falsifiers
+
+Each of these must turn red or produce a typed refusal. None may end in an empty success.
+
+1. Corrupt one rule body.
+2. Swap two columns in one base relation.
+3. Drop one seed fact.
+4. Feed a refused relation to a reader. The reader must stay refused.
+
+### Minimum evidence
+
+- The exact commands and both SHAs.
+- Per-rung counts, compared with `census-656def9.tsv`.
+- Per-rule Datafrog verdicts: agrees, disagrees, or `not-applicable` plus reason.
+- One deliberate disable run, red, then restored.
+
+### Deferred to later, owner-approved PRs
+
+G3 (MeTTa/MORK), G4 (Mistaber), G5 (Legalis and regelrecht), G6 (epistemic witness), G7 (AriGraph). G2 and G8 are also not part of this PR.
+
+**Later cross-domain fixture (G4-G7, not the first PR).** A domain-neutral synthetic fixture with two legal worlds where world B inherits proposition `P` from world A, one override with its own source root, one confirmed and one only-possible Codegraph fact plus one missing-coverage fact, two derivation paths sharing one root counted once, one counterfactual branch that retracts the override source without touching the observed world, an AriGraph episode before and after revision, one Legalis deterministic result, one `JudicialDiscretion` case, one regelrecht Gherkin example on a comparable synthetic subset, and XLOG compared with Datafrog and with the Mistaber Clingo goldens where they apply. Its negative falsifiers are: remove the override-block mask, collapse world identity, swap `possible` for `confirmed`, duplicate a supporting source, lose the missing-coverage grade, bypass the tenant fence, use a stale frame or plan, mutate observed state during a hypothetical revision, and treat a refused SCC as empty.
+
+If permissions or code boundaries block G1, STOP and deliver a blocked-gate packet instead. Do not resolve the problem by a second evaluator or invented new ABI.
 
 ## Deliverables expected from this session
 
