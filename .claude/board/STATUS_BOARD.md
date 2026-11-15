@@ -1,3 +1,14 @@
+## D-XLOG-KNOWLEDGE — XLOG as witnessed reasoning compiler: harvest and staged gates (2026-11-15)
+
+Plan `.claude/plans/xlog-knowledge-spine-v1.md` (charter, DOCS ONLY); harvest `xlog-knowledge-spine-harvest-20261115.md`; session prompt `xlog-knowledge-spine-claude-code-prompt.md`. PR #2093 plus its fix-up.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-XLOG-KNOWLEDGE-0 | Charter: three IR routes kept separate, donor roles, gates G0..G8, STOP conditions | In PR (#2093), docs only |
+| D-XLOG-KNOWLEDGE-G0 | xlog.md + fork source harvest, page/claim/source manifest; 2.80x Scallop claim marked CONFLICT | Partial: 12 pages read, `/llms.txt` 404; manifest not built |
+| D-XLOG-KNOWLEDGE-G1 | Reproduce the coverage census at pinned SHAs; add Datafrog as second comparator on monotone binary rules; 4 falsifiers | Queued. Baseline exists (D-XLOG-COV-1): 230 compiled = 87 agree (43 native-tested) / 94 refused / 49 refused-on-data / 0 disagree; 208 never compile, 202 at the EIR boundary |
+| D-XLOG-KNOWLEDGE-G2..G8 | Native delta, MeTTa/MORK subset, Mistaber, Legalis/regelrecht, epistemic witness, AriGraph, performance | Queued; each its own owner-approved PR |
+
 ## D-VAS — virtual-address superpowers: source-owned memory, virtual properties, behaviour-aware reads (2026-11-13)
 
 Roadmap `.claude/plans/virtual-address-superpowers-roadmap-v1.md` (PROPOSED / DOCS ONLY); lab evidence `.claude/plans/d-virtual-address-algebra-1.md` (PR 2060; its row D-VIRTUAL-ADDRESS-ALGEBRA-1 is further down this board). Implementation ledger `.claude/plans/d-vas-implementation-v1.md` (directive of 2026-11-13: implement A1 to F in the order R0 to R6).

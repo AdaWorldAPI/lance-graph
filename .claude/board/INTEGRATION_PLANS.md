@@ -1,3 +1,8 @@
+## 2026-11-15 — D-XLOG-KNOWLEDGE-0: XLOG as witnessed reasoning compiler, donor harvest and staged gates → `.claude/plans/xlog-knowledge-spine-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY (#2093). Companion harvest and session prompt in the same folder. First executable gate is D-XLOG-KNOWLEDGE-G1 only (census reproduction + Datafrog comparator); the cross-domain fixture (Mistaber, Legalis, regelrecht, AriGraph) is deferred to G4-G7.
+**Confidence:** census numbers re-counted from `census-656def9.tsv`; 13 `RirNode` variants read in `xlog-ir/src/rir.rs`; `EpistemicWitness64` does not exist (real: `EpistemicState5`, EW64); xlog.md read for 12 pages only.
+
 ## D-VAS-IMPLEMENTATION v1 (2026-11-13)
 
 **Plan:** `.claude/plans/d-vas-implementation-v1.md`
