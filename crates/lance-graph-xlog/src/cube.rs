@@ -155,6 +155,9 @@ pub enum CubeRefusal {
     /// spans several; use [`Cube::closure_wide`] or read the lanes by
     /// coordinate.
     Tiled,
+    /// A count total ([`Cube::join_size`], [`Cube::self_join_size`]) does
+    /// not fit in `i128`.
+    SumOverflow,
 }
 
 /// What the cube has done since it was built.
@@ -686,30 +689,31 @@ impl Cube {
     /// Total derivations of a join: the sum of [`Cube::bag_count`] over every
     /// position, i.e. `Σ_p left(p) · right(p)` of the two sides' column
     /// counts. This is the number of tuples [`Cube::materialize_rows`] would
-    /// build, obtained without building one. Summed in `i128`, so the total
-    /// cannot overflow.
+    /// build, obtained without building one.
+    ///
+    /// Each product and the total are taken in `i128`, checked, so a position
+    /// whose product passes `i64` (which [`Cube::bag_count`] refuses) is still
+    /// answered. A total past `i128` is [`CubeRefusal::SumOverflow`].
     pub fn join_size(&self, table: &MapTable, join: View) -> Result<i128, CubeRefusal> {
-        Ok(self
-            .bag_count(table, join)?
-            .iter()
-            .map(|&c| i128::from(c))
-            .sum())
+        let ((l, lc), (r, rc)) = self.sides(join)?;
+        self.check_frame(table)?;
+        let a = self.degrees(l, lc)?;
+        let b = self.degrees(r, rc)?;
+        dot_counts(&a, &b).ok_or(CubeRefusal::SumOverflow)
     }
 
     /// Total derivations of one side joined with itself on `col`: `Σ_p c(p)²`
     /// over [`Cube::column_counts`]. Equal to [`Cube::join_size`] of that
-    /// self-join, from one count program instead of two. Summed in `i128`.
+    /// self-join, from one count program instead of two. Taken in `i128`,
+    /// checked, as in [`Cube::join_size`].
     pub fn self_join_size(
         &self,
         table: &MapTable,
         side: View,
         col: u8,
     ) -> Result<i128, CubeRefusal> {
-        Ok(self
-            .column_counts(table, side, col)?
-            .iter()
-            .map(|&c| i128::from(c) * i128::from(c))
-            .sum())
+        let c = self.column_counts(table, side, col)?;
+        dot_counts(&c, &c).ok_or(CubeRefusal::SumOverflow)
     }
 
     /// The coordinate with the most rows in column `col` of one side, and that
@@ -1163,4 +1167,60 @@ fn rel_with(
         live: all_live(tuples.len()),
         cols,
     })
+}
+
+/// `Σ a[p] · b[p]` with every product and the running total in `i128`,
+/// checked. Each product of two `i64` counts fits in `i128`; only the total
+/// can overflow, and then the answer is `None`, never a wrapped value.
+/// Both vectors are count vectors over the same positions, so their lengths
+/// are equal; a mismatch is a broken invariant, not a short answer, so it
+/// panics in every build instead of letting `zip` drop the tail.
+fn dot_counts(a: &[i64], b: &[i64]) -> Option<i128> {
+    assert_eq!(a.len(), b.len(), "count vectors over one map");
+    a.iter().zip(b).try_fold(0i128, |acc, (&x, &y)| {
+        acc.checked_add(i128::from(x).checked_mul(i128::from(y))?)
+    })
+}
+
+#[cfg(test)]
+mod dot_counts_tests {
+    use super::dot_counts;
+
+    /// A per-position product past `i64` is still answered: this is the
+    /// case `bag_count`'s checked `i64` multiply refuses.
+    #[test]
+    fn a_product_past_i64_is_answered_exactly() {
+        let big = i64::MAX;
+        assert!(
+            big.checked_mul(2).is_none(),
+            "the i64 product must overflow"
+        );
+        assert_eq!(
+            dot_counts(&[big, 3], &[2, 5]),
+            Some(i128::from(big) * 2 + 15)
+        );
+    }
+
+    /// A total past `i128` is refused, not wrapped.
+    #[test]
+    fn a_total_past_i128_is_refused() {
+        let big = [i64::MAX; 3];
+        // each product is about 2^126; three of them pass 2^127.
+        assert_eq!(dot_counts(&big, &big), None);
+        assert_eq!(
+            dot_counts(&big[..1], &big[..1]),
+            Some(i128::from(i64::MAX) * i128::from(i64::MAX))
+        );
+    }
+
+    #[test]
+    fn empty_vectors_sum_to_zero() {
+        assert_eq!(dot_counts(&[], &[]), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "count vectors over one map")]
+    fn mismatched_lengths_panic_rather_than_truncate() {
+        let _ = dot_counts(&[1, 2], &[3]);
+    }
 }
