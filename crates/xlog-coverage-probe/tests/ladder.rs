@@ -143,20 +143,27 @@ fn without_seeds_no_rule_is_verified() {
     assert_eq!(rec.rules[0].reason, "no seeds");
 }
 
-/// The cube ignores facts stated for a derived predicate, so the oracle
-/// cannot be seeded with them: no verdict, and the reason says why.
+/// Facts stated for a derived predicate are part of its answer (Datalog,
+/// and XLOG's own `test_same_head_union_batching.rs` literal 2 expects them).
+/// The oracle starts the predicate from its facts; the cube is handed them as
+/// any host would, and drops them: it answers only the derived row. Pinned
+/// as a disagreement naming exactly the dropped fact, so a cube that keeps
+/// the facts turns this red and the pin is re-taken.
 #[test]
-fn a_derived_predicate_with_facts_has_no_oracle() {
+fn a_derived_predicate_with_facts_is_judged_and_the_cube_drops_the_facts() {
     // r and s carry facts too, so XLOG types every column alike and the
     // program compiles (without them `q(1, 2)` types U32 against U64).
     let src = "r(1, 2). s(2, 3). q(1, 2). q(X,Z) :- r(X,Y), s(Y,Z).";
     let rec = reconcile(src, &DEFAULT_SEEDS);
     assert_eq!(rec.program_rung, None, "{rec:?}");
-    assert!(!rec.rules.is_empty(), "{rec:?}");
-    for r in &rec.rules {
-        assert_ne!(r.rung, Rung::OracleAgrees, "{r:?}");
-        assert!(r.reason.contains("ground facts"), "{r:?}");
-    }
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    let q = &rec.rules[0];
+    assert_eq!(q.rung, Rung::OracleDisagrees, "{q:?}");
+    assert_eq!(q.oracle, "naive", "{q:?}");
+    assert!(
+        q.reason.ends_with("cube_only=[] oracle_only=[[1, 2]]"),
+        "{q:?}"
+    );
 }
 
 #[test]
