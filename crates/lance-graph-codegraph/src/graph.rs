@@ -664,11 +664,12 @@ impl Codegraph {
     ///   symbols ascending by id; the appended ids' global-to-local lookups
     ///   (inside `add_edge` and the map `prepare`) are therefore ascending.
     /// * A cached `RCONF`/`RPOSS` closure is brought up to date with
-    ///   `Cube::refresh_closure` only when that relation's log was empty
-    ///   before this call (its precondition is a closure of the *base*
-    ///   lanes; a cached closure already includes the log). Otherwise the
-    ///   cache is dropped and rebuilt on next read by `closure_wide`, which
-    ///   folds base + log. No cache means nothing to refresh.
+    ///   `Cube::stage_closure` only when it is a `Cached::Base` closure: one
+    ///   the cube certified as a closure of the current base lanes, taken
+    ///   while the log was empty. Any other cache (a `Cached::Effective`
+    ///   one, which already includes the log, or one dropped by a `refold`)
+    ///   is dropped and rebuilt on next read by `closure_wide`, which folds
+    ///   base + log. No cache means nothing to refresh.
     /// * Masks and crate statuses are recomputed from the lanes.
     ///
     /// **Atomic: prepare → validate → commit.** Every step that can refuse
