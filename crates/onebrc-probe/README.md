@@ -73,16 +73,16 @@ contract, so it's out of scope for this brief).
 
 ## §2 — Archival convention
 
-Every generated corpus travels with its **recipe**: `(rows, seed)` fully
+Every generated corpus travels with its **recipe**: `(rows, seed, stations)` fully
 determine the corpus bytes, and `gen()` streams a SHA-256 digest while
 writing so the recipe line —
 
 ```text
-rows=<N> seed=<S> sha256=<hash>
+rows=<N> seed=<S> stations=<K> sha256=<hash>
 ```
 
 — is printed without a second read pass. Reproduce any measurement by
-regenerating with the same `(rows, seed)` and diffing the printed
+regenerating with the same `(rows, seed, stations)` and diffing the printed
 `sha256=` line.
 
 ---
@@ -107,7 +107,7 @@ regenerating with the same `(rows, seed)` and diffing the printed
 ## §4 — CLI
 
 ```text
-onebrc-probe gen <path> <rows> <seed>
+onebrc-probe gen <path> <rows> <seed> [stations]   # stations defaults to 400
 onebrc-probe run <path> <lane:a|b|c|d|e|f|g|h|i|r> [workers] [batches|shards|owners_nominal]
 ```
 
