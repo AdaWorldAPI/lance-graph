@@ -375,3 +375,33 @@ these tables.
 Per core, `kmw` on 100M is about 16 core-ns per row (4.00 × 4) against the
 1BRC winner's about 12.3 (1.535 s for 1B rows on 8 Zen 2 cores). Different
 CPU and corpus; an order-of-magnitude reading only.
+
+## 10. Instructions per row, and the build tier (2026-11-15)
+
+**Build tier, a correction for §7 and §9.** The crate's
+`.cargo/config.toml` asks for `-C target-cpu=x86-64-v3`, but cargo merges
+it with the repository's `-Ctarget-cpu=native`, and native wins: the
+release binary contains AVX-512 code (35 `zmm` uses). Every timing in §7
+and §9 therefore ran at this host's native tier (a Xeon with AVX-512 incl.
+VBMI/BF16, VNNI and AMX), not AVX2. The lane K kernels are scalar SWAR,
+so this mainly concerns the surrounding code.
+
+**Instruction counts.** The VM exposes no hardware performance counters,
+so `perf` is unavailable. Counts are from `valgrind --tool=callgrind` on a
+separate build pinned to AVX2 (`RUSTFLAGS="-C target-cpu=x86-64-v3"`,
+own target dir, 0 `zmm` uses; valgrind cannot run AVX-512). Per row =
+(Ir on 2M rows − Ir on 1M rows) / 1M, 1 worker, `wall` mode, which cancels
+startup, mapping and the merge.
+
+| variant | instructions/row |
+|---|---|
+| k | 255.71 |
+| kt | 264.07 |
+| km | 225.19 |
+| kw | 225.66 |
+| kmw | 195.14 |
+
+For `kmw`, 175.5 per row are in `accumulate_with` and 19.7 in libc's
+`memcmp`, which the name check calls once per row. The QuestDB article's
+final Java version reports about 98 per row (its own count, different
+corpus), so `kmw` executes about twice as many.
