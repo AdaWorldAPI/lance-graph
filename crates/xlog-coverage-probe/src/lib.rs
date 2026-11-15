@@ -14,6 +14,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod datafrog_arm;
 pub mod naive;
 
 use xlog_core::{RelId, ScalarType};
@@ -116,6 +117,13 @@ pub struct RuleRecord {
     /// non-empty. Anti-vacuity: an agreement over only empty answers is
     /// reported, not hidden.
     pub nonempty_seeds: usize,
+    /// The Datafrog evaluator ([`datafrog_arm`]) on the same seeds, as a
+    /// third cross-check: `agree`, `disagree`, `not-applicable`, or empty when
+    /// no Datafrog run happened for the rule. Never decides the rung.
+    pub datafrog: &'static str,
+    /// The first disagreement or not-applicable reason of the Datafrog run.
+    /// Empty otherwise.
+    pub datafrog_reason: String,
 }
 
 /// The result for one program literal.
@@ -205,6 +213,9 @@ struct Nonempty {
     xref: usize,
     refused_on_data: Option<String>,
 }
+
+/// Per head: the naive, `xlog-ref` and Datafrog verdicts, and the counts.
+type Verdicts = (Verdict, Verdict, Verdict, Nonempty);
 
 /// A base predicate and the rows it gets on each seed.
 #[derive(Debug, Clone)]
@@ -302,6 +313,8 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             oracle: "",
             xlog_ref: "",
             nonempty_seeds: 0,
+            datafrog: "",
+            datafrog_reason: String::new(),
         });
     }
     for (head, why) in &report.refused {
@@ -313,6 +326,8 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             oracle: "",
             xlog_ref: "",
             nonempty_seeds: 0,
+            datafrog: "",
+            datafrog_reason: String::new(),
         });
     }
 
@@ -323,16 +338,20 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             .iter_mut()
             .filter(|r| r.rung == Rung::LoweredUnverified)
         {
-            let (naive, xref, nonempty) = verdicts.get(&r.head).cloned().unwrap_or_else(|| {
-                let none = Verdict::Unavailable("no oracle verdict".to_string());
-                (none.clone(), none, Nonempty::default())
-            });
+            let (naive, xref, dfrog, nonempty) =
+                verdicts.get(&r.head).cloned().unwrap_or_else(|| {
+                    let none = Verdict::Unavailable("no oracle verdict".to_string());
+                    (none.clone(), none.clone(), none, Nonempty::default())
+                });
             if let Some(why) = nonempty.refused_on_data {
                 r.rung = Rung::RefusedOnData;
                 r.reason = why;
                 continue;
             }
             r.xlog_ref = xref.label();
+            let (label, why) = datafrog_label(&dfrog);
+            r.datafrog = label;
+            r.datafrog_reason = why;
             let (chosen, name) = match (&naive, &xref) {
                 (Verdict::Unavailable(_), Verdict::Agree | Verdict::Disagree(_)) => {
                     (xref.clone(), "xlog-ref")
@@ -377,12 +396,12 @@ fn oracle_stage(
     rel_ids: &[(String, RelId)],
     seeds: &[u64],
     ran: &BTreeSet<String>,
-) -> BTreeMap<String, (Verdict, Verdict, Nonempty)> {
-    let all = |why: String| -> BTreeMap<String, (Verdict, Verdict, Nonempty)> {
+) -> BTreeMap<String, Verdicts> {
+    let all = |why: String| -> BTreeMap<String, Verdicts> {
         ran.iter()
             .map(|h| {
                 let v = Verdict::Unavailable(why.clone());
-                (h.clone(), (v.clone(), v, Nonempty::default()))
+                (h.clone(), (v.clone(), v.clone(), v, Nonempty::default()))
             })
             .collect()
     };
@@ -397,14 +416,15 @@ fn oracle_stage(
     let op = oracle_program(&program);
 
     let pool = value_pool(&program);
-    let mut merged: BTreeMap<String, (Verdict, Verdict, Nonempty)> = BTreeMap::new();
+    let mut merged: BTreeMap<String, Verdicts> = BTreeMap::new();
     let mut counts: BTreeMap<String, Nonempty> = BTreeMap::new();
     // Per head: naive verdicts counted, and the last seed skipped because
     // the naive oracle hit its bound there.
     let mut judged: BTreeMap<String, usize> = BTreeMap::new();
     let mut skipped: BTreeMap<String, String> = BTreeMap::new();
-    let mut note = |head: &str, naive: Option<Verdict>, xref: Verdict| {
+    let mut note = |head: &str, naive: Option<Verdict>, xref: Verdict, dfrog: Verdict| {
         let slot = merged.entry(head.to_string()).or_insert((
+            Verdict::Agree,
             Verdict::Agree,
             Verdict::Agree,
             Nonempty::default(),
@@ -417,6 +437,9 @@ fn oracle_stage(
         if slot.1.rank() < xref.rank() {
             slot.1 = xref;
         }
+        if slot.2.rank() < dfrog.rank() {
+            slot.2 = dfrog;
+        }
     };
     for &seed in seeds {
         let seeded = seed_relations(&base, &op, seed, &pool);
@@ -425,11 +448,12 @@ fn oracle_stage(
             Err(e) => {
                 for head in ran {
                     let v = Verdict::Unavailable(format!("seed {seed}: cube plan failed: {e}"));
-                    note(head, Some(v.clone()), v);
+                    note(head, Some(v.clone()), v.clone(), v);
                 }
                 continue;
             }
         };
+        let dfrog_rows = datafrog_for_seed(&op, &base, plan, seeded.naive.clone());
         let naive_rows = naive_for_seed(&op, &base, plan, seeded.naive);
         let oracle = oracle_for_seed(&op, &base, plan, seeded.store);
         for head in ran {
@@ -446,7 +470,7 @@ fn oracle_stage(
                     .refused_on_data
                     .get_or_insert(why.clone());
                 let v = Verdict::Unavailable(why);
-                note(head, Some(v.clone()), v);
+                note(head, Some(v.clone()), v.clone(), v);
                 continue;
             }
             let c = counts.entry(head.clone()).or_default();
@@ -472,7 +496,12 @@ fn oracle_stage(
                     Some(judge(rows))
                 }
             };
-            note(head, naive, judge(oracle.get(head)));
+            note(
+                head,
+                naive,
+                judge(oracle.get(head)),
+                judge(dfrog_rows.get(head)),
+            );
         }
     }
     // A head the naive oracle judged on no seed at all has no naive verdict.
@@ -485,7 +514,7 @@ fn oracle_stage(
     }
     for (head, c) in counts {
         if let Some(slot) = merged.get_mut(&head) {
-            slot.2 = c;
+            slot.3 = c;
         }
     }
     merged
@@ -1009,6 +1038,109 @@ fn naive_for_seed(
         }
     }
     out
+}
+
+/// The Datafrog evaluator over the same seed rows, component by component in
+/// the plan's stratum order: a structural copy of [`naive_for_seed`] that calls
+/// [`datafrog_arm::evaluate_component`]. A component that reads an unavailable
+/// predicate is not applicable, with a reason in the arm's own wording.
+fn datafrog_for_seed(
+    op: &OracleProgram,
+    base: &[BaseSpec],
+    plan: &ExecutionPlan,
+    mut store: BTreeMap<String, naive::Relation>,
+) -> BTreeMap<String, OracleRows> {
+    let mut unavailable: BTreeMap<String, String> = base
+        .iter()
+        .filter_map(|(n, r)| match r {
+            BaseRows::Other(Err(why)) => Some((n.clone(), why.clone())),
+            _ => None,
+        })
+        .chain(
+            op.derived_facts
+                .iter()
+                .filter_map(|(n, r)| r.as_ref().err().map(|why| (n.clone(), why.clone()))),
+        )
+        .collect();
+    let mut out: BTreeMap<String, OracleRows> = BTreeMap::new();
+    for i in scc_order(plan) {
+        let Some(scc) = plan.sccs.get(i) else {
+            continue;
+        };
+        let heads: Vec<&str> = scc
+            .predicates
+            .iter()
+            .map(String::as_str)
+            .filter(|p| op.by_head.contains_key(*p))
+            .collect();
+        if heads.is_empty() {
+            continue;
+        }
+        let rules: Vec<&Rule> = heads.iter().flat_map(|h| op.by_head[*h].iter()).collect();
+        let result = match datafrog_blocked(&heads, &rules, &unavailable) {
+            Some(why) => Err(why),
+            None => datafrog_arm::evaluate_component(&rules, &mut store),
+        };
+        match result {
+            Ok(()) => {
+                for h in &heads {
+                    let rows = store.get(*h).cloned().unwrap_or_default();
+                    out.insert((*h).to_string(), Ok(rows.into_iter().collect()));
+                }
+            }
+            Err(why) => {
+                mark_failed(&mut out, &heads, &why);
+                for h in &heads {
+                    unavailable.insert((*h).to_string(), why.clone());
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The first predicate a component's heads or rule bodies read that is
+/// unavailable, worded as a Datafrog not-applicable reason. An upstream reason
+/// that already is one is reused.
+fn datafrog_blocked(
+    heads: &[&str],
+    rules: &[&Rule],
+    unavailable: &BTreeMap<String, String>,
+) -> Option<String> {
+    let from_heads = heads.iter().find_map(|h| {
+        unavailable
+            .get(*h)
+            .map(|why| ((*h).to_string(), why.clone()))
+    });
+    let hit = from_heads.or_else(|| {
+        rules
+            .iter()
+            .flat_map(|r| r.body.iter().filter_map(BodyLiteral::atom))
+            .find_map(|a| {
+                unavailable
+                    .get(&a.predicate)
+                    .map(|why| (a.predicate.clone(), why.clone()))
+            })
+    });
+    hit.map(|(pred, why)| {
+        if why.starts_with(datafrog_arm::NOT_APPLICABLE) {
+            why
+        } else {
+            format!(
+                "{}reads {pred}, which is unavailable: {why}",
+                datafrog_arm::NOT_APPLICABLE
+            )
+        }
+    })
+}
+
+/// The census label and reason of one Datafrog verdict.
+fn datafrog_label(v: &Verdict) -> (&'static str, String) {
+    match v {
+        Verdict::Agree => ("agree", String::new()),
+        Verdict::Disagree(detail) => ("disagree", detail.clone()),
+        Verdict::Unavailable(why) => ("not-applicable", why.clone()),
+    }
 }
 
 fn mark_failed(out: &mut BTreeMap<String, OracleRows>, heads: &[&str], why: &str) {

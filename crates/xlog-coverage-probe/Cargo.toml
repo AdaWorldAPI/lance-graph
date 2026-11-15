@@ -22,6 +22,8 @@ xlog-cube = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
 xlog-logic = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
 xlog-ir = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
 xlog-core = { git = "https://github.com/AdaWorldAPI/xlog", branch = "main" }
+# Independent Datalog comparator (D-XLOG-KNOWLEDGE-G1), test-side only; the AdaWorldAPI fork, per the fork-first rule.
+datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", branch = "master" }
 
 [dev-dependencies]
 # The safety reproductions (tests/safety.rs) call the cube in this checkout

@@ -21,6 +21,24 @@ works from the parsed AST, never from the compiled plan the cube runs.
   a cross-check column. It decides the rung only when the naive oracle has no
   answer (in the committed census, never).
 
+## Datafrog cross-check (D-XLOG-KNOWLEDGE-G1)
+
+A third evaluator, `src/datafrog_arm.rs`, runs the same parsed rules over the
+same seed rows through the Datafrog engine (AdaWorldAPI fork): a semi-naive
+fixpoint over `Variable`s, each body join lowered to keyed `from_join` /
+`from_antijoin` statements. It shares no code with the naive oracle or with
+XLOG's reference evaluator.
+
+It covers a subset: positive and negated atoms over named variables and `_`,
+at least one positive atom, head variables bound by a positive atom, negation
+only of predicates outside the component, every value fitting `u32`. Constants,
+comparisons, aggregates, repeated variables inside one atom and the rest are
+`datafrog: not applicable: <why>`.
+
+The census gains two columns, `datafrog` (`agree`, `disagree`,
+`not-applicable`, empty when the rule never reached the oracle stage) and
+`datafrog_reason`. It never decides a rung: rungs are the same as without it.
+
 ## The seeds
 
 Six random seeds (1..=12 rows per base relation over values 0..16 plus the
@@ -89,12 +107,17 @@ this checkout, so it tests the cube in this tree.
 
 The TSV has a header row, then one row per rule, plus one row per program with
 no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
-index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason. The
+index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
+datafrog, datafrog_reason. The
 census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
 `656def9` (AdaWorldAPI/xlog#8: readers of refused relations are refused, and
 rows put for a derived predicate are kept), with the test corpus unchanged
 since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
 94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
+Datafrog agrees on 85 of the 87 oracle-agrees rules and disagrees on none; the
+other 2 (`neighbor`, `from_one`) are not applicable because a body atom holds
+an integer constant. With its join deliberately broken, Datafrog disagrees on
+68 of the 87 while every rung stays the same.
 
 ## Known limits
 
