@@ -280,3 +280,49 @@ Predictions:
 - K3: `wall` lane `k` vs lane `s` on 100M rows: lane `k` lower by at least
   the copy `fs::read` makes (expected 10-30 % of the `s` wall time on a
   warm page cache). Kill: lane `k` not lower.
+
+## 7. Lane K results (2026-11-15)
+
+4 workers, 6 passes per cell, first discarded, median of 5 (range in
+brackets). Container host, warm page cache. 10M = the §1 corpus
+(sha256 `f1853caa…a955691`, matches §1); 100M = seed 42, sha256
+`1225c952…6a892`.
+
+`run` (compute only, file already in memory), Mrows/s:
+
+| lane | 10M | 100M |
+|---|---|---|
+| s | 107.1 [103.4-134.4] | 134.2 [129.4-136.6] |
+| k | 131.5 [118.0-156.7] | 143.5 [138.3-145.0] |
+| kt | 111.0 [94.0-133.5] | 117.8 [96.6-130.7] |
+
+`wall` (open to result), ns per row:
+
+| lane | 10M | 100M |
+|---|---|---|
+| s (`fs::read`) | 14.46 [13.91-15.16] | 14.64 [14.04-14.96] |
+| k (mmap) | 7.23 [7.01-8.41] | 7.02 [6.73-7.11] |
+| kt (mmap) | 8.62 [7.39-9.92] | 8.02 [7.86-8.33] |
+
+Against the predictions:
+
+- K1 (`k` vs `s` within ±10 %): holds on 100M (+6.9 %). On 10M the
+  median is +22.8 %, but the 10M ranges overlap widely; the short runs
+  are too noisy here to separate the lanes.
+- K2 (`kt` vs `k` within ±10 %): fails. The temperature codebook is
+  slower than the parse: −17.9 % on 100M in `run`, +14.3 % ns per row in
+  `wall`. One open-addressed table load with key verification costs more
+  than lane S's few-instruction parse.
+- K3 (`wall` `k` below `s`, by 10-30 %): direction holds, size does not:
+  −52.1 % on 100M, −50.0 % on 10M. On a warm cache, `s` spends about
+  7.2 ns per row (14.64 − 7.45 compute-only) on `fs::read` copying the
+  file, about as long as the whole computation; with mmap, `wall` `k`
+  (7.02) is within 1 % of its compute-only time (6.97).
+
+Not measured: a cold page cache (both lanes would then wait on the disk),
+the 10,000-station key set, and anything beyond 4 workers.
+
+What this says: the mmap saving is the large effect, and it comes from not
+copying the input, not from the codebook. The codebook grouping is a
+small gain over lane S's hash table (+7 % on 100M). The temperature
+codebook loses to the parse.
