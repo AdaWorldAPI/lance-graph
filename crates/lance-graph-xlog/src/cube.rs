@@ -38,7 +38,7 @@ use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_dt64::dr::{
-    Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap,
+    Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap, Width,
 };
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
@@ -72,11 +72,72 @@ pub enum EdgeOp {
 #[derive(Debug)]
 pub struct StagedEdges {
     cube: u64,
-    /// The grown tile and its staged map length.
-    grown: Option<(TileId, usize)>,
+    /// The cube's frame when the batch was staged: every coordinate in the
+    /// batch was placed under it. [`Cube::commit`] refuses the batch if the
+    /// cube has adopted another frame since.
+    staged_under: Frame,
+    /// The grown tile and the exact staged map: its width and its local →
+    /// global table. [`Cube::commit`] compares the frame's map against all of
+    /// it, not only its length: two maps of equal length can assign
+    /// different ids to the same positions.
+    grown: Option<StagedMap>,
     n: usize,
     ops: Vec<(RelId, EdgeOp, u32, u32)>,
     rebind: Vec<(usize, u32)>,
+}
+
+/// The map a batch was staged under for its grown tile.
+#[derive(Debug)]
+struct StagedMap {
+    tile: TileId,
+    width: Width,
+    globals: Vec<u64>,
+}
+
+impl StagedMap {
+    /// Whether `view` is exactly this map: same width, same ids at the same
+    /// positions, same length.
+    fn is(&self, view: TileMap<'_>) -> bool {
+        view.width() == self.width && view.globals() == self.globals.as_slice()
+    }
+}
+
+/// The closure of one relation's BASE lanes (not its log), with the
+/// provenance that makes it usable as the starting point of
+/// [`Cube::refresh_closure`] and [`Cube::stage_closure`]: the cube, the
+/// relation, the base generation and the frame it was computed under. Only
+/// [`Cube::base_closure`] makes one, so a caller cannot present arbitrary
+/// rows, a closure of the effective edges, or a closure of an older base as
+/// a base closure.
+#[derive(Clone, Debug)]
+pub struct BaseClosure {
+    cube: u64,
+    rel: RelId,
+    generation: u64,
+    frame: Frame,
+    closure: (WideRows, WideStats),
+}
+
+impl BaseClosure {
+    /// The closure rows.
+    pub fn rows(&self) -> &WideRows {
+        &self.closure.0
+    }
+
+    /// The rows and the work that computed them.
+    pub fn as_pair(&self) -> &(WideRows, WideStats) {
+        &self.closure
+    }
+
+    /// The relation it is the base closure of.
+    pub fn rel(&self) -> RelId {
+        self.rel
+    }
+
+    /// The base generation it was computed at ([`Cube::base_generation`]).
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
 }
 
 impl StagedEdges {
@@ -158,6 +219,35 @@ pub enum CubeRefusal {
     /// A count total ([`Cube::join_size`], [`Cube::self_join_size`]) does
     /// not fit in `i128`.
     SumOverflow,
+    /// A [`StagedEdges`] batch staged by another cube.
+    ForeignBatch,
+    /// A batch staged under a frame the cube has since left ([`Cube::commit`]
+    /// or [`Cube::rebase`] adopted another one): its coordinates were placed
+    /// under a layout that is no longer the cube's.
+    StaleBatch,
+    /// [`Cube::commit`] was given a frame that does not read the staged map
+    /// for the grown tile, or that changes the map of a tile the batch did
+    /// not grow. Carries the tile.
+    FrameMismatch(TileId),
+    /// A [`BaseClosure`] made by another cube.
+    ForeignClosure,
+    /// A [`BaseClosure`] of another relation.
+    ClosureRelation {
+        /// The relation asked for.
+        expected: RelId,
+        /// The relation the closure is of.
+        found: RelId,
+    },
+    /// A [`BaseClosure`] of an older base: [`Cube::refold`] replaced the
+    /// relation's base lanes after it was computed.
+    StaleBase {
+        /// The generation the closure was computed at.
+        minted: u64,
+        /// The relation's current base generation.
+        current: u64,
+    },
+    /// A [`BaseClosure`] computed under a frame the cube has since left.
+    ClosureFrame,
 }
 
 /// What the cube has done since it was built.
@@ -238,6 +328,10 @@ pub struct Cube {
     rels: Vec<Rel>,
     /// One append-only delta log per relation, parallel to `rels`.
     logs: Vec<DeltaLog>,
+    /// Per relation, how many times [`Cube::refold`] has replaced the base
+    /// lanes with different ones. A [`BaseClosure`] records the value it was
+    /// computed at. Parallel to `rels`.
+    base_gen: Vec<u64>,
     /// Per relation, the base lanes folded with the relation's log, built on
     /// first read when the log is non-empty and dropped whenever the base or
     /// the log changes. A derived read: nothing persistent is written, and it
@@ -269,6 +363,7 @@ impl Cube {
             tiled: false,
             n: map.len(),
             logs: vec![DeltaLog::new(); rels.len()],
+            base_gen: vec![0; rels.len()],
             effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
@@ -317,6 +412,7 @@ impl Cube {
             tiled: true,
             n: BLOCK_POSITIONS.saturating_mul(tiles.len()),
             logs: vec![DeltaLog::new(); rels.len()],
+            base_gen: vec![0; rels.len()],
             effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
@@ -340,6 +436,7 @@ impl Cube {
         let r = rel(tuples, map)?;
         self.rels.push(r);
         self.logs.push(DeltaLog::new());
+        self.base_gen.push(0);
         self.effective.push(OnceCell::new());
         let mut s = self.stats.get();
         s.relations_added += 1;
@@ -878,32 +975,100 @@ impl Cube {
         self.logs.get(rel as usize).map_or(0, DeltaLog::len)
     }
 
+    /// Relation `rel`'s base generation: how many times [`Cube::refold`] has
+    /// replaced its base lanes with different ones. `None` for an unknown
+    /// relation.
+    pub fn base_generation(&self, rel: RelId) -> Option<u64> {
+        self.base_gen.get(rel as usize).copied()
+    }
+
+    /// `edge⁺` of relation `rel`'s BASE lanes, ignoring its delta log, with
+    /// the provenance [`Cube::refresh_closure`] and [`Cube::stage_closure`]
+    /// check. With an empty log it equals [`Cube::closure_wide`]; with a
+    /// non-empty one it does not, and pending edges are never certified as
+    /// base.
+    pub fn base_closure(&self, table: &MapTable, rel: RelId) -> Result<BaseClosure, CubeRefusal> {
+        let r = self
+            .rels
+            .get(rel as usize)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        let generation = self
+            .base_generation(rel)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        self.check_frame(table)?;
+        let n = u32::try_from(self.n).unwrap_or(u32::MAX);
+        let closure = wide::closure_wide(n, &r.cols[0], &r.cols[1]).map_err(CubeRefusal::Wide)?;
+        Ok(BaseClosure {
+            cube: self.id,
+            rel,
+            generation,
+            frame: self.frame.clone(),
+            closure,
+        })
+    }
+
+    /// Refuses `old` unless it is this cube's closure of relation `rel`'s
+    /// current base, computed under the cube's current frame.
+    fn check_base(&self, rel: RelId, old: &BaseClosure) -> Result<(), CubeRefusal> {
+        if old.cube != self.id {
+            return Err(CubeRefusal::ForeignClosure);
+        }
+        if old.rel != rel {
+            return Err(CubeRefusal::ClosureRelation {
+                expected: rel,
+                found: old.rel,
+            });
+        }
+        let current = self
+            .base_generation(rel)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        if old.generation != current {
+            return Err(CubeRefusal::StaleBase {
+                minted: old.generation,
+                current,
+            });
+        }
+        if !old.frame.same_issue(&self.frame) {
+            return Err(CubeRefusal::ClosureFrame);
+        }
+        Ok(())
+    }
+
     /// Brings `old` up to date with relation `rel`'s delta log without a full
-    /// rebuild ([`wide::refresh`]). **Precondition:** `old` is the closure of
-    /// the relation's *base* lanes (for example the result of
-    /// [`Cube::closure_wide`] taken while the log was empty, or of the last
-    /// [`Cube::refold`]); given any other closure the result is not defined.
+    /// rebuild ([`wide::refresh`]). `old` must be this cube's
+    /// [`BaseClosure`] of `rel` at the current base generation and frame;
+    /// otherwise the refresh is refused before anything is computed
+    /// ([`CubeRefusal::ForeignClosure`], [`CubeRefusal::ClosureRelation`],
+    /// [`CubeRefusal::StaleBase`], [`CubeRefusal::ClosureFrame`]).
     pub fn refresh_closure(
         &self,
         table: &MapTable,
         rel: RelId,
-        old: &WideRows,
+        old: &BaseClosure,
     ) -> Result<(WideRows, WideStats), CubeRefusal> {
         let r = self
             .rels
             .get(rel as usize)
             .ok_or(CubeRefusal::UnknownRel(rel))?;
+        self.check_base(rel, old)?;
         self.check_frame(table)?;
         let n = u32::try_from(self.n).unwrap_or(u32::MAX);
-        wide::refresh(old, &r.cols[0], &r.cols[1], self.log(rel)?, n).map_err(CubeRefusal::Wide)
+        wide::refresh(old.rows(), &r.cols[0], &r.cols[1], self.log(rel)?, n)
+            .map_err(CubeRefusal::Wide)
     }
 
     /// Replaces relation `rel`'s base lanes with the base folded with its
     /// log, and empties the log. Explicit only: nothing in the cube calls
     /// this on a threshold, so the caller decides when a long log is worth
-    /// the rewrite. The old closure of the base is invalid afterwards.
+    /// the rewrite. With a non-empty log the base generation advances, so a
+    /// [`BaseClosure`] of the old base is refused afterwards
+    /// ([`CubeRefusal::StaleBase`]). With an empty log the base is unchanged
+    /// and so is its generation.
     pub fn refold(&mut self, rel: RelId) -> Result<(), CubeRefusal> {
         let log = self.log(rel)?;
+        if log.is_empty() {
+            return Ok(());
+        }
         let r = self
             .rels
             .get(rel as usize)
@@ -918,6 +1083,9 @@ impl Cube {
         if let Some(l) = self.logs.get_mut(rel as usize) {
             *l = DeltaLog::new();
         }
+        if let Some(g) = self.base_gen.get_mut(rel as usize) {
+            *g += 1;
+        }
         self.invalidate(rel);
         Ok(())
     }
@@ -928,7 +1096,9 @@ impl Cube {
     /// every id must be placed under the resulting layout (as
     /// [`Cube::add_edge`] requires). The map is not handed to the table, so
     /// no version is issued and no frame is sealed. The returned batch is
-    /// applied by [`Cube::commit`], which cannot refuse.
+    /// applied by [`Cube::commit`], which re-checks that the cube is still
+    /// under the frame the batch was staged under and that the frame it is
+    /// given reads exactly the staged map.
     pub fn stage(
         &self,
         table: &MapTable,
@@ -970,7 +1140,15 @@ impl Cube {
         };
         Ok(StagedEdges {
             cube: self.id,
-            grown: grown.map(|(t, m)| (t, m.len())),
+            staged_under: self.frame.clone(),
+            grown: grown.map(|(t, m)| {
+                let v = m.view();
+                StagedMap {
+                    tile: t,
+                    width: v.width(),
+                    globals: v.globals().to_vec(),
+                }
+            }),
             n,
             ops: placed,
             rebind,
@@ -980,18 +1158,22 @@ impl Cube {
     /// The closure of relation `rel` as it will be once `staged` is
     /// committed: [`Cube::refresh_closure`] over the relation's log followed
     /// by the staged operations, at the staged size. Changes nothing, so a
-    /// caller can compute it before committing. Same precondition: `old` is
-    /// the closure of the relation's base lanes.
+    /// caller can compute it before committing. `old` is checked exactly as
+    /// in [`Cube::refresh_closure`], and `staged` must be this cube's batch,
+    /// staged under its current frame ([`CubeRefusal::ForeignBatch`],
+    /// [`CubeRefusal::StaleBatch`]).
     pub fn stage_closure(
         &self,
         rel: RelId,
-        old: &WideRows,
+        old: &BaseClosure,
         staged: &StagedEdges,
     ) -> Result<(WideRows, WideStats), CubeRefusal> {
         let r = self
             .rels
             .get(rel as usize)
             .ok_or(CubeRefusal::UnknownRel(rel))?;
+        self.check_base(rel, old)?;
+        self.check_batch(staged)?;
         let mut log = self.log(rel)?.clone();
         for &(r2, op, s, d) in &staged.ops {
             if r2 == rel {
@@ -1002,28 +1184,85 @@ impl Cube {
             }
         }
         let n = u32::try_from(staged.n).unwrap_or(u32::MAX);
-        wide::refresh(old, &r.cols[0], &r.cols[1], &log, n).map_err(CubeRefusal::Wide)
+        wide::refresh(old.rows(), &r.cols[0], &r.cols[1], &log, n).map_err(CubeRefusal::Wide)
     }
 
-    /// Applies a batch [`Cube::stage`] accepted. Cannot refuse: every check
-    /// ran in `stage`. `frame` must be the frame sealed after the table
-    /// advanced with exactly the staged tile map (the cube's own frame when
-    /// nothing grew); the operations are then logged in the order given, the
-    /// size and any newly placeable binds adopted, and the affected cached
-    /// folds dropped. A batch staged by another cube is a caller bug and is
-    /// not applied.
-    pub fn commit(&mut self, table: &MapTable, frame: &Frame, staged: StagedEdges) {
-        debug_assert_eq!(staged.cube, self.id, "a batch staged by another cube");
+    /// Refuses a batch staged by another cube or under a frame the cube has
+    /// since left.
+    fn check_batch(&self, staged: &StagedEdges) -> Result<(), CubeRefusal> {
         if staged.cube != self.id {
-            return;
+            return Err(CubeRefusal::ForeignBatch);
         }
-        debug_assert!(
-            staged
-                .grown
-                .is_none_or(|(t, len)| table.map(frame, t).is_ok_and(|m| m.len() == len)),
-            "the frame does not read the staged map"
-        );
-        let _ = table;
+        if !staged.staged_under.same_issue(&self.frame) {
+            return Err(CubeRefusal::StaleBatch);
+        }
+        Ok(())
+    }
+
+    /// The checks [`Cube::commit`] makes, for a caller that must know the
+    /// outcome before it advances the [`MapTable`] the commit frame is sealed
+    /// from. `grown` is the map the caller will install for the grown tile
+    /// (`None` when nothing grows). If this returns `Ok`, the table installs
+    /// exactly `grown` and no other tile changes, then `commit` under the
+    /// sealed frame accepts. Changes nothing.
+    pub fn check_commit(
+        &self,
+        staged: &StagedEdges,
+        grown: Option<(TileId, &LocalMap)>,
+    ) -> Result<(), CubeRefusal> {
+        self.check_batch(staged)?;
+        match (&staged.grown, grown) {
+            (None, None) => Ok(()),
+            (Some(g), Some((t, m))) if g.tile == t && g.is(m.view()) => {
+                if self.tiles.contains(&t) {
+                    Ok(())
+                } else {
+                    Err(CubeRefusal::FrameMismatch(t))
+                }
+            }
+            (Some(g), _) => Err(CubeRefusal::FrameMismatch(g.tile)),
+            (None, Some((t, _))) => Err(CubeRefusal::FrameMismatch(t)),
+        }
+    }
+
+    /// Applies a batch [`Cube::stage`] accepted. Every check runs before
+    /// anything changes, so a refusal leaves the cube exactly as it was:
+    ///
+    /// - the batch is this cube's ([`CubeRefusal::ForeignBatch`]) and was
+    ///   staged under the cube's current frame ([`CubeRefusal::StaleBatch`]);
+    /// - when a tile grew, `frame` reads exactly the staged map for that tile
+    ///   (same width, same ids at the same positions, not only the same
+    ///   length) and the cube's current map for every other tile;
+    ///   [`CubeRefusal::FrameMismatch`] names the first tile that differs;
+    /// - when nothing grew, `frame` reads the cube's current map for every
+    ///   tile (the cube keeps its own frame).
+    ///
+    /// Then the operations are logged in the order given, the size and any
+    /// newly placeable binds adopted, and the affected cached folds dropped.
+    pub fn commit(
+        &mut self,
+        table: &MapTable,
+        frame: &Frame,
+        staged: StagedEdges,
+    ) -> Result<(), CubeRefusal> {
+        self.check_batch(&staged)?;
+        let current = self.views_under(table, &self.frame)?;
+        let offered = self.views_under(table, frame)?;
+        for ((&t, cur), off) in self.tiles.iter().zip(&current).zip(&offered) {
+            let ok = match &staged.grown {
+                Some(g) if g.tile == t => g.is(*off),
+                _ => off.width() == cur.width() && off.globals() == cur.globals(),
+            };
+            if !ok {
+                return Err(CubeRefusal::FrameMismatch(t));
+            }
+        }
+        if let Some(g) = &staged.grown {
+            if !self.tiles.contains(&g.tile) {
+                return Err(CubeRefusal::FrameMismatch(g.tile));
+            }
+        }
+        // ---- no refusal below ----
         if staged.grown.is_some() {
             self.n = staged.n;
             self.apply_rebind(&staged.rebind);
@@ -1041,6 +1280,7 @@ impl Cube {
             }
             self.invalidate(rel);
         }
+        Ok(())
     }
 
     /// Adopts `frame`, sealed after the table advanced to add symbols. Allowed

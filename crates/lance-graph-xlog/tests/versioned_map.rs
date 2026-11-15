@@ -177,7 +177,7 @@ fn a_bind_to_an_unmapped_id_is_placed_by_a_committed_batch() {
         .stage(&table, Some((0, &grown)), &[(0, EdgeOp::Add, 3, 2)])
         .unwrap();
     let f2 = extend_to_3(&mut table);
-    cube.commit(&table, &f2, staged);
+    cube.commit(&table, &f2, staged).unwrap();
     let s = cube.support(&table, old_join).unwrap();
     assert_eq!(s[0] >> 1 & 1, 1, "the old view reaches id 2 through (3, 2)");
 }
