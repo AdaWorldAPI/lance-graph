@@ -267,3 +267,16 @@ fn a_seed_over_the_oracle_bound_is_skipped_not_fatal() {
     assert!(k.nonempty_seeds > 0, "{k:?}");
     assert!(k.reason.is_empty(), "{k:?}");
 }
+
+/// A base relation the naive oracle cannot read (string facts) blocks only
+/// the rules that read it; an unrelated rule of the same program is judged.
+#[test]
+fn an_unreadable_base_blocks_only_its_readers() {
+    let src = "w(\"a\", \"b\"). e(1, 2). e(2, 3). p(X,Z) :- e(X,Y), e(Y,Z). v(X,Y) :- w(X,Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.program_rung, None, "{rec:?}");
+    let p = rec.rules.iter().find(|r| r.head == "p").expect("p");
+    assert_eq!(p.rung, Rung::OracleAgrees, "{rec:?}");
+    let v = rec.rules.iter().find(|r| r.head == "v").expect("v");
+    assert_ne!(v.rung, Rung::OracleAgrees, "{v:?}");
+}
