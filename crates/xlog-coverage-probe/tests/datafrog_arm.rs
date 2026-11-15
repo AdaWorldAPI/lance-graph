@@ -202,3 +202,24 @@ fn reconcile_labels_datafrog_without_moving_the_rung() {
         "{q:?}"
     );
 }
+
+/// A cross product past the row budget is refused by the join itself, which
+/// stops producing rows at the budget instead of materialising the product
+/// (1,500 x 1,500 = 2,250,000 > 2,000,000).
+#[test]
+fn an_oversized_cross_product_stops_inside_the_join() {
+    let program = xlog_logic::parse_program("q(X,Y) :- a(X), b(Y).").expect("parse");
+    let rules: Vec<&xlog_logic::Rule> = program.proper_rules().collect();
+    let mut store: std::collections::BTreeMap<String, xlog_coverage_probe::naive::Relation> =
+        std::collections::BTreeMap::new();
+    let col: xlog_coverage_probe::naive::Relation = (0..1500i128).map(|v| vec![v]).collect();
+    store.insert("a".to_string(), col.clone());
+    store.insert("b".to_string(), col);
+    let err = xlog_coverage_probe::datafrog_arm::evaluate_component(&rules, &mut store)
+        .expect_err("over budget");
+    assert!(err.contains("a join stopped at the budget"), "{err}");
+    assert!(
+        !store.contains_key("q"),
+        "no partial head relation is stored"
+    );
+}

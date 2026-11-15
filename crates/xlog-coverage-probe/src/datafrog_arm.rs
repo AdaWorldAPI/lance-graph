@@ -19,7 +19,9 @@
 //! component go in, other predicates are read from `store`, and on `Ok` each
 //! head's full relation replaces its entry in `store`.
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 use datafrog::{Iteration, Relation, Variable};
 use xlog_logic::{Atom, BodyLiteral, Rule, Term};
@@ -225,12 +227,22 @@ struct Lowered {
     stmts: Vec<Box<dyn FnMut()>>,
     rows: Vec<Variable<Row>>,
     keyed: Vec<Variable<Keyed>>,
+    /// Set by a join that reached [`MAX_ROWS`] results in one call. The join
+    /// stops producing rows then, so its result never holds more than the
+    /// budget before the bound is checked.
+    overflow: Rc<Cell<bool>>,
 }
 
 impl Lowered {
-    fn over_bound(&self, heads: &[Variable<Row>]) -> bool {
-        self.rows.iter().chain(heads).any(|v| size(v) > MAX_ROWS)
-            || self.keyed.iter().any(|v| size(v) > MAX_ROWS)
+    fn over_bound(&self, heads: &[Variable<Row>]) -> Option<String> {
+        if self.overflow.get() {
+            return Some(format!(
+                "datafrog: more than {MAX_ROWS} rows (a join stopped at the budget)"
+            ));
+        }
+        let over = self.rows.iter().chain(heads).any(|v| size(v) > MAX_ROWS)
+            || self.keyed.iter().any(|v| size(v) > MAX_ROWS);
+        over.then(|| format!("datafrog: more than {MAX_ROWS} rows"))
     }
 }
 
@@ -288,11 +300,18 @@ fn lower_rule(
         let next = it.variable::<Row>("join");
         out.rows.push(next.clone());
         let (l, r, n) = (left.clone(), right.clone(), next.clone());
+        let overflow = Rc::clone(&out.overflow);
         out.stmts.push(Box::new(move || {
-            n.from_join(&l, &r, |_key, lrow, rrow| {
+            let mut made = 0usize;
+            n.from_join_filtered(&l, &r, |_key, lrow, rrow| {
+                if made == MAX_ROWS {
+                    overflow.set(true);
+                    return None;
+                }
+                made += 1;
                 let mut row = lrow.clone();
                 row.extend(extra.iter().map(|&j| rrow[j]));
-                row
+                Some(row)
             })
         }));
         acc_cols.extend(new_cols);
@@ -389,8 +408,8 @@ pub fn evaluate_component(
         for stmt in lowered.stmts.iter_mut() {
             stmt();
         }
-        if lowered.over_bound(&head_vars) {
-            return Err(format!("datafrog: more than {MAX_ROWS} rows"));
+        if let Some(why) = lowered.over_bound(&head_vars) {
+            return Err(why);
         }
     }
 
