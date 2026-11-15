@@ -31,7 +31,7 @@ const MAX_ROWS: usize = 200_000;
 const MAX_ROUNDS: usize = 10_000;
 /// Partial bindings above this in one rule firing abort the component. A
 /// policy pin that keeps a census over dense seeds bounded.
-const MAX_BINDINGS: usize = 2_000_000;
+pub(crate) const MAX_BINDINGS: usize = 2_000_000;
 
 /// Why a rule cannot be evaluated here.
 fn term_refusal(t: &Term) -> Option<String> {
@@ -199,14 +199,16 @@ fn fire(rule: &Rule, store: &BTreeMap<String, Relation>) -> Result<Relation, Str
         for b in &bindings {
             for row in rel {
                 if let Some(nb) = unify(&atom.terms, row, b) {
+                    // Checked while building, so the bound caps the allocation
+                    // and not only the result.
+                    if next.len() == MAX_BINDINGS {
+                        return Err(format!(
+                            "naive oracle: more than {MAX_BINDINGS} partial bindings"
+                        ));
+                    }
                     next.push(nb);
                 }
             }
-        }
-        if next.len() > MAX_BINDINGS {
-            return Err(format!(
-                "naive oracle: more than {MAX_BINDINGS} partial bindings"
-            ));
         }
         bindings = next;
         if bindings.is_empty() {
@@ -368,6 +370,21 @@ mod tests {
         assert!(run("p(X) :- r(X, Y), not p(Y).", &base)
             .unwrap_err()
             .contains("own component"));
+    }
+
+    /// Five independent atoms over 36 rows would build 36^5 bindings; the
+    /// refusal must come at the bound, not after the full intermediate.
+    #[test]
+    fn the_binding_bound_refuses_before_the_intermediate_is_built() {
+        let dense: Relation = (0..6)
+            .flat_map(|a| (0..6).map(move |b| vec![a, b]))
+            .collect();
+        let err = run(
+            "q(A) :- r(A, B), r(C, D), r(E, F), r(G, H), r(I, J).",
+            &[("r", dense)],
+        )
+        .unwrap_err();
+        assert!(err.contains("partial bindings"), "{err}");
     }
 
     #[test]

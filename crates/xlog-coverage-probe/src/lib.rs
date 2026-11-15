@@ -605,11 +605,7 @@ fn rows_for(
 
 /// The seed's base rows, as the oracle's store (schema `[U32, U32]`) and as
 /// the rows handed to the cube.
-fn seed_relations(
-    base: &[BaseSpec],
-    seed: u64,
-    pool: &[u32],
-) -> (RefRelationStore, Supplied) {
+fn seed_relations(base: &[BaseSpec], seed: u64, pool: &[u32]) -> (RefRelationStore, Supplied) {
     let mut store = RefRelationStore::new();
     let mut supplied = Vec::with_capacity(base.len());
     for (name, facts) in base {
