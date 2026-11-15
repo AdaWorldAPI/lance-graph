@@ -180,3 +180,25 @@ fn cross_product_and_three_atom_join() {
     assert_eq!(got["tri"], want["tri"]);
     assert_eq!(got["tri"].len(), 3, "the triangle read from each corner");
 }
+
+/// The census wiring, end to end through `reconcile`: an in-subset rule is
+/// labelled `agree`, a rule with a constant `not-applicable` with its reason,
+/// and neither label moves the rung.
+#[test]
+fn reconcile_labels_datafrog_without_moving_the_rung() {
+    use xlog_coverage_probe::{reconcile, Rung, DEFAULT_SEEDS};
+    let chain = reconcile("q(X,Z) :- r(X,Y), s(Y,Z).", &DEFAULT_SEEDS);
+    let q = chain.rules.iter().find(|r| r.head == "q").expect("q");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
+    assert_eq!(q.datafrog, "agree", "{q:?}");
+    assert!(q.datafrog_reason.is_empty(), "{q:?}");
+
+    let constant = reconcile("q(X) :- r(X,3).", &DEFAULT_SEEDS);
+    let q = constant.rules.iter().find(|r| r.head == "q").expect("q");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
+    assert_eq!(q.datafrog, "not-applicable", "{q:?}");
+    assert!(
+        q.datafrog_reason.contains("integer constant in atom r"),
+        "{q:?}"
+    );
+}
