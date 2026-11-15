@@ -16,6 +16,7 @@ use std::time::Instant;
 use xlog_core::{RelId, ScalarType};
 use ndarray::hpc::codec8::TiesEven;
 use ndarray::hpc::codec9::{Codec9Runtime, EpiLane9};
+use xlog_relcomp_probe::pm_ledger::PmLedger;
 use xlog_stats::{ColumnStats, StatsManager};
 
 // ------------------------------------------------------------------ rng
@@ -691,6 +692,7 @@ fn main() {
         );
     }
     codec9_delta_arm(&c);
+    add_pm_arm(&c);
 }
 
 fn tie_min(e: [u64; 3]) -> bool {
@@ -919,5 +921,190 @@ fn codec9_delta_arm(c: &Ctx) {
             "# batch {batch}: {} batches, {} overflow lanes, escape wrong in {} batches, saturating wrong in {} batches",
             all.batches, all.overflow, all.escape_mismatch, all.sat_mismatch
         );
+    }
+}
+
+// ------------------------------------------------------------------ add_pm arm
+// Lab arm (D-XLOG-PM-1): the same streams, with every degree held as a
+// Codec9 P × M lane and summed by `add_pm` (`PmLedger`). Per batch, each
+// event is added into a delta ledger; the batch delta is then absorbed into
+// the degree ledger 64 keys per `add_pm`. A sum past ±255 escapes to an
+// exact wide value and is demoted when it returns. Three counts are kept
+// apart: carries (an addition left ±255, even if a later one brings it
+// back), batch overflows (keys whose net batch delta is wide), and final
+// escalations (degrees wide at the end of the stream).
+
+/// Inserts (shuffled), then retraction of 90 % of them (shuffled): hub
+/// degrees climb past 255 and fall back, so wide degrees must demote.
+fn drain_stream(rels: &[Vec<(u32, u32)>; 3], seed: u64) -> (Vec<Event>, [Vec<(u32, u32)>; 3]) {
+    let mut rng = Rng(0xD7A1_0000 ^ seed);
+    let mut ins: Vec<Event> = Vec::new();
+    for (r, rel) in rels.iter().enumerate() {
+        ins.extend(rel.iter().map(|&t| (r, t, 1)));
+    }
+    rng.shuffle(&mut ins);
+    let mut gone: Vec<Event> = Vec::new();
+    let mut finals: [Vec<(u32, u32)>; 3] = Default::default();
+    for (i, &(r, t, _)) in ins.iter().enumerate() {
+        if i % 10 == 0 {
+            finals[r].push(t);
+        } else {
+            gone.push((r, t, -1));
+        }
+    }
+    rng.shuffle(&mut gone);
+    let mut ev = ins;
+    ev.extend(gone);
+    (ev, finals)
+}
+
+#[derive(Default, Clone, Copy)]
+struct PmStats {
+    batches: usize,
+    delta_carries: u64,
+    delta_demotions: u64,
+    batch_overflow_keys: usize,
+    deg_carries: u64,
+    deg_demotions: u64,
+    max_wide: usize,
+    final_wide: usize,
+    batches_wrong: usize,
+}
+
+type Ledgers = [[PmLedger; 2]; 3];
+
+fn ledger_deg(l: &Ledgers, v: usize) -> Option<Deg> {
+    let mut g = Deg::zero(v);
+    for r in 0..3 {
+        for col in 0..2 {
+            for k in 0..v {
+                g.d[r][col][k] = u32::try_from(l[r][col].value(k).unwrap_or(0)).ok()?;
+            }
+        }
+    }
+    Some(g)
+}
+
+fn run_pm(events: &[Event], v: usize, batch: usize) -> (PmStats, Deg, Option<Deg>) {
+    let new = || -> Ledgers { std::array::from_fn(|_| std::array::from_fn(|_| PmLedger::new(v))) };
+    let (mut deg, mut delta) = (new(), new());
+    let mut exact: [[Vec<i64>; 2]; 3] =
+        std::array::from_fn(|_| std::array::from_fn(|_| vec![0i64; v]));
+    let mut st = PmStats::default();
+    for chunk in events.chunks(batch) {
+        st.batches += 1;
+        for &(r, (a, b), w) in chunk {
+            for (col, key) in [(0usize, a as usize), (1, b as usize)] {
+                delta[r][col].add(key, i64::from(w));
+                exact[r][col][key] += i64::from(w);
+            }
+        }
+        let mut wide_now = 0;
+        let mut wrong = false;
+        for r in 0..3 {
+            for col in 0..2 {
+                st.batch_overflow_keys += delta[r][col].escalated();
+                deg[r][col].absorb(&delta[r][col]);
+                delta[r][col].clear();
+                wide_now += deg[r][col].escalated();
+                for k in 0..v {
+                    if deg[r][col].value(k).unwrap_or(0) != exact[r][col][k] {
+                        wrong = true;
+                    }
+                }
+            }
+        }
+        st.max_wide = st.max_wide.max(wide_now);
+        st.batches_wrong += usize::from(wrong);
+    }
+    for r in 0..3 {
+        for col in 0..2 {
+            st.delta_carries += delta[r][col].carries;
+            st.delta_demotions += delta[r][col].demotions;
+            st.deg_carries += deg[r][col].carries;
+            st.deg_demotions += deg[r][col].demotions;
+            st.final_wide += deg[r][col].escalated();
+        }
+    }
+    let exact_deg = deg_u32(&exact).expect("exact degrees are non-negative");
+    (st, exact_deg, ledger_deg(&deg, v))
+}
+
+fn add_pm_arm(c: &Ctx) {
+    println!(
+        "\n## add_pm arm (D-XLOG-PM-1): degrees as P x M lanes, add_pm with exact wide escape"
+    );
+    println!(
+        "stream\tbatch\tfamily\ttrials\tbatches\tdelta_carries\tdelta_demotions\tbatch_overflow_keys\tdeg_carries\tdeg_demotions\tmax_wide\tfinal_wide\tbatches_wrong\tregret_max\tchoice_changed"
+    );
+    let v = c.v;
+    type Stream = fn(&[Vec<(u32, u32)>; 3], u64) -> (Vec<Event>, [Vec<(u32, u32)>; 3]);
+    let streams: [(&str, Stream); 2] = [("churn", trial_stream), ("drain", drain_stream)];
+    for (sname, stream) in streams {
+        for batch in [256usize, 4096, 65536] {
+            let mut all = PmStats::default();
+            let mut all_changed = 0;
+            for (fi, &f) in FAMILIES.iter().enumerate() {
+                let mut t = PmStats::default();
+                let (mut regret, mut changed, mut trials) = (1.0f64, 0usize, 0usize);
+                for seed in 0..12u64 {
+                    let rels = trial_rels(f, fi, seed, c);
+                    let (events, finals) = stream(&rels, seed);
+                    let (st, exact_deg, pm_deg) = run_pm(&events, v, batch);
+                    assert_eq!(exact_deg.d, Deg::build(&finals, v).d, "stream bookkeeping");
+                    let pm_deg = pm_deg.expect("ledger degrees are non-negative");
+                    assert_eq!(pm_deg.d, exact_deg.d, "add_pm degrees != exact at the end");
+                    let exact = exact_phys(&exact_deg);
+                    let best = *exact.iter().min().unwrap();
+                    let pick_exact = argmin_opt(exact);
+                    let pick_pm = argmin_opt(exact_phys(&pm_deg));
+                    regret = regret.max(ratio(exact[pick_pm], best));
+                    changed += usize::from(pick_pm != pick_exact);
+                    trials += 1;
+                    t.batches += st.batches;
+                    t.delta_carries += st.delta_carries;
+                    t.delta_demotions += st.delta_demotions;
+                    t.batch_overflow_keys += st.batch_overflow_keys;
+                    t.deg_carries += st.deg_carries;
+                    t.deg_demotions += st.deg_demotions;
+                    t.max_wide = t.max_wide.max(st.max_wide);
+                    t.final_wide += st.final_wide;
+                    t.batches_wrong += st.batches_wrong;
+                }
+                println!(
+                    "{sname}\t{batch}\t{}\t{trials}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{changed}",
+                    f.name(),
+                    t.batches,
+                    t.delta_carries,
+                    t.delta_demotions,
+                    t.batch_overflow_keys,
+                    t.deg_carries,
+                    t.deg_demotions,
+                    t.max_wide,
+                    t.final_wide,
+                    t.batches_wrong,
+                    regret
+                );
+                all.batches += t.batches;
+                all.delta_carries += t.delta_carries;
+                all.batch_overflow_keys += t.batch_overflow_keys;
+                all.deg_carries += t.deg_carries;
+                all.deg_demotions += t.deg_demotions;
+                all.final_wide += t.final_wide;
+                all.batches_wrong += t.batches_wrong;
+                all_changed += changed;
+            }
+            println!(
+                "# {sname} batch {batch}: {} batches, delta carries {}, batch overflow keys {}, degree carries {}, degree demotions {}, final wide {}, batches wrong {}, pairing changed {}",
+                all.batches,
+                all.delta_carries,
+                all.batch_overflow_keys,
+                all.deg_carries,
+                all.deg_demotions,
+                all.final_wide,
+                all.batches_wrong,
+                all_changed
+            );
+        }
     }
 }
