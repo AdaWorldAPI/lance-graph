@@ -43,3 +43,10 @@ controls 3 of 3 red (tail mask, sign, next-line offset).
 per row (`kmwh` 178.48 vs `kmw` 194.48), no separable time difference at
 400 stations (`run` 251.4 vs 248.3 Mrows/s, overlapping ranges).
 Pre-registered H1 and H2 hold. Disable controls 3 of 3 red.
+
+## Update: median and percentiles (FINDINGS §13)
+
+The per-station histogram gives exact nearest-rank percentiles and the
+median, merged across workers by adding counts; tested against a sorted
+reference, 3 of 3 disable controls red. About 3.7-4.9 ns/row open to result
+on 100M rows with percentiles for all stations.

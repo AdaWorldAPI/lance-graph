@@ -448,3 +448,28 @@ counter increment into 3.2 MB per worker costs about what the compares
 did. The re-count also moved `k` from 255.71 (§10) to 252.21, so the
 dispatch added for the histogram did not cost the running variants
 instructions.
+
+## 13. Median and percentiles from the histogram (2026-11-15)
+
+`lane_k_distributions` keeps each station's 1,999 code counts, summed
+across workers, and `Distribution` reads from them:
+
+- `percentile(p)`: nearest rank, `p` a whole percent 0-100: the smallest
+  observed value with at least ⌈p·n/100⌉ observations at or below it,
+  computed in integers. `percentile(0)` is the minimum.
+- `median()`: `percentile(50)`, the lower middle value when n is even.
+- `nth(k)`: the k-th smallest observation; `stats()`: min, max, sum, count.
+
+Tests: every station's p0, 1, 10, 25, 50, 75, 90, 99 and 100 equal a
+sorted copy of its raw values (60,000 rows, 1/3/7 workers, two scan
+variants), and `stats()` equals lane A. A small hand-checked set pins the
+even-count median and the rank boundaries. Disable controls, each red:
+rounding the rank down, comparing with `>` instead of `>=`, and merging
+only the first worker's histogram.
+
+CLI: `dist <path> [workers]` (mmap, multiply parse, word hash). On the 100M
+corpus, 4 workers, warm cache, three passes after a cold one gave 3.72,
+4.89 and 3.75 ns/row open to result, including percentiles for all 400
+stations. Spot check: the generator draws each reading uniformly within
+±10.0 of the station mean, and the reported p10 and p90 sit 8.0-8.1 below
+and above the median, as a uniform spread predicts.
