@@ -885,7 +885,18 @@ impl Codegraph {
     /// against an older graph would hand out positions the graph has since
     /// given to other symbols. Then the cube checks the batch and the map
     /// the table is about to install ([`Cube::check_commit`],
-    /// [`RefreshRefusal::Cube`]). After the checks there is no error path.
+    /// [`RefreshRefusal::Cube`]).
+    ///
+    /// After the checks there is no error path, under one condition: the
+    /// table installs exactly the map `check_commit` accepted, and nothing
+    /// else touches the cube or the table in between. That holds because the
+    /// only steps between the two calls are the generation bump, the interner
+    /// and position absorbs (neither reads nor writes the cube or the table)
+    /// and one `MapTable::advance` that moves the pre-checked map in
+    /// unchanged; `&mut self` excludes every other writer. If a later change
+    /// breaks that condition, `Cube::commit` still refuses without changing
+    /// the cube, and this function panics with the graph already advanced.
+    /// It is not a general transaction.
     pub(crate) fn commit_refresh(
         &mut self,
         prepared: PreparedRefresh,
@@ -927,7 +938,9 @@ impl Codegraph {
         };
         let changed = !staged.is_empty();
         // `check_commit` accepted this batch with exactly the map the table
-        // just installed, so the cube accepts the sealed frame.
+        // just installed, so the cube accepts the sealed frame (see the
+        // condition in the doc comment; pinned by
+        // `a_growth_commit_installs_exactly_the_prechecked_map`).
         if let Err(e) = self.cube.commit(&self.table, &frame, staged) {
             unreachable!("cube refused a commit it pre-checked: {e:?}");
         }
@@ -1303,6 +1316,45 @@ mod atomic {
         g.closure(RPOSS).expect("rposs");
         fs::write(d.join("m.rows.tsv"), rows(2)).expect("write");
         (d, g)
+    }
+
+    /// The condition `commit_refresh` relies on after `check_commit`: the
+    /// table installs exactly the map that was pre-checked, and the cube
+    /// adopts the frame that reads it. Red if the commit path installs any
+    /// other map, or skips the install (the cube would then refuse, and the
+    /// `unreachable!` would fire).
+    #[test]
+    fn a_growth_commit_installs_exactly_the_prechecked_map() {
+        let (d, mut g) = primed("prechecked");
+        let prepared = g
+            .prepare_refresh(&d, "m")
+            .expect("prepare")
+            .expect("a change");
+        let (tile, width, globals) = {
+            let (t, m) = prepared.grown.as_ref().expect("v2 grows a tile");
+            let v = m.view();
+            (*t, v.width(), v.globals().to_vec())
+        };
+        let before = g.table.map(g.cube.frame(), tile).expect("old map");
+        assert!(
+            before.globals() != globals.as_slice(),
+            "anti-vacuity: the pre-checked map differs from the current one"
+        );
+        assert!(g
+            .cube
+            .check_commit(
+                &prepared.staged,
+                prepared.grown.as_ref().map(|(t, m)| (*t, m))
+            )
+            .is_ok());
+        g.commit_refresh(prepared).expect("commit");
+        let installed = g.table.map(g.cube.frame(), tile).expect("new map");
+        assert_eq!(installed.width(), width);
+        assert_eq!(installed.globals(), globals.as_slice());
+        assert!(
+            g.cube.frame().same_issue(&g.table.seal()),
+            "the cube adopted the frame the table now seals"
+        );
     }
 
     /// The snapshot can fire: a successful refresh changes it. Without this
