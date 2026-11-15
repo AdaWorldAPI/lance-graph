@@ -13,17 +13,25 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod naive;
+
 use xlog_core::{RelId, ScalarType};
 use xlog_cube::{CubeExecutor, Report};
 use xlog_ir::ExecutionPlan;
 use xlog_logic::hypergraph::{
-    evaluate_scc_fixpoint, AppearanceOrder, FixpointConfig, RefRelation, RefRelationStore,
-    RefValue,
+    evaluate_scc_fixpoint, AppearanceOrder, FixpointConfig, RefRelation, RefRelationStore, RefValue,
 };
 use xlog_logic::{parse_program, Atom, BodyLiteral, Compiler, Program, Rule, Term};
 
-/// Six distinct non-zero seeds. Each seed draws one set of random base rows.
-pub const DEFAULT_SEEDS: [u64; 6] = [
+/// The seed whose base relations are the complete graph over values 0..6
+/// (36 rows, self-loops included) instead of random rows. Sparse random rows
+/// almost never close a triangle, cycle or clique; this seed always does.
+pub const DENSE_SEED: u64 = 0xD15E_0000_0000_0008;
+
+/// Six random seeds and the dense one. Each random seed draws one set of
+/// random base rows.
+pub const DEFAULT_SEEDS: [u64; 7] = [
+    DENSE_SEED,
     0x2545_F491_4F6C_DD1D,
     0x9E37_79B9_7F4A_7C15,
     0xD1B5_4A32_D192_ED03,
@@ -47,6 +55,11 @@ pub enum Rung {
     Compiled,
     /// The cube refused this rule's SCC.
     Refused,
+    /// The cube reported the rule as ran over EMPTY base relations (the
+    /// admission census) and refused it over non-empty ones. In a recursive
+    /// SCC an empty seed delta ends the loop before any recursive body is
+    /// lowered, so admission over empty bases cannot see these.
+    RefusedOnData,
     /// The cube ran it; no oracle answer was available.
     LoweredUnverified,
     /// Oracle answer differs from the cube's on at least one seed.
@@ -62,6 +75,7 @@ impl Rung {
             Rung::Observed => "observed",
             Rung::Compiled => "compiled",
             Rung::Refused => "refused",
+            Rung::RefusedOnData => "refused-on-data",
             Rung::LoweredUnverified => "lowered-unverified",
             Rung::OracleDisagrees => "oracle-disagrees",
             Rung::OracleAgrees => "oracle-agrees",
@@ -82,6 +96,18 @@ pub struct RuleRecord {
     /// The rule's SCC is recursive (xlog-cube evaluates recursive SCCs with a
     /// host loop over owned rows, not on cube masks). From `Scc::is_recursive`.
     pub host_loop: bool,
+    /// Which oracle produced the verdict: `naive` (this crate's independent
+    /// evaluator), `xlog-ref` (XLOG's reference evaluator, used only when the
+    /// naive one is unavailable), or empty when neither answered.
+    pub oracle: &'static str,
+    /// XLOG's reference evaluator on the same seeds, as a cross-check:
+    /// `agree`, `disagree`, or `unavailable`. Never decides the rung while
+    /// the naive oracle has an answer.
+    pub xlog_ref: &'static str,
+    /// Seeds on which the deciding oracle's answer for this head was
+    /// non-empty. Anti-vacuity: an agreement over only empty answers is
+    /// reported, not hidden.
+    pub nonempty_seeds: usize,
 }
 
 /// The result for one program literal.
@@ -142,6 +168,14 @@ enum Verdict {
 }
 
 impl Verdict {
+    fn label(&self) -> &'static str {
+        match self {
+            Verdict::Agree => "agree",
+            Verdict::Disagree(_) => "disagree",
+            Verdict::Unavailable(_) => "unavailable",
+        }
+    }
+
     /// Disagreement outranks unavailability, which outranks agreement: a head
     /// is `OracleAgrees` only if every seed agreed.
     fn rank(&self) -> u8 {
@@ -154,6 +188,15 @@ impl Verdict {
 }
 
 type OracleRows = Result<Vec<Vec<i128>>, String>;
+
+/// Per head, across seeds: how many seeds gave each oracle a non-empty
+/// answer, and the first seeded run on which the cube refused the rule.
+#[derive(Debug, Clone, Default)]
+struct Nonempty {
+    naive: usize,
+    xref: usize,
+    refused_on_data: Option<String>,
+}
 
 /// A base predicate and, when the program states ground facts for it, those
 /// facts (used instead of random rows).
@@ -223,6 +266,9 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             rung: Rung::LoweredUnverified,
             reason: String::new(),
             host_loop: host_loop(head),
+            oracle: "",
+            xlog_ref: "",
+            nonempty_seeds: 0,
         });
     }
     for (head, why) in &report.refused {
@@ -231,21 +277,54 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             rung: Rung::Refused,
             reason: why.clone(),
             host_loop: host_loop(head),
+            oracle: "",
+            xlog_ref: "",
+            nonempty_seeds: 0,
         });
     }
 
     let ran: BTreeSet<String> = report.ran.iter().cloned().collect();
     if !ran.is_empty() {
         let verdicts = oracle_stage(src, &plan, &rel_ids, seeds, &ran);
-        for r in rules.iter_mut().filter(|r| r.rung == Rung::LoweredUnverified) {
-            match verdicts.get(&r.head) {
-                Some(Verdict::Agree) => r.rung = Rung::OracleAgrees,
-                Some(Verdict::Disagree(detail)) => {
-                    r.rung = Rung::OracleDisagrees;
-                    r.reason = detail.clone();
+        for r in rules
+            .iter_mut()
+            .filter(|r| r.rung == Rung::LoweredUnverified)
+        {
+            let (naive, xref, nonempty) = verdicts.get(&r.head).cloned().unwrap_or_else(|| {
+                let none = Verdict::Unavailable("no oracle verdict".to_string());
+                (none.clone(), none, Nonempty::default())
+            });
+            if let Some(why) = nonempty.refused_on_data {
+                r.rung = Rung::RefusedOnData;
+                r.reason = why;
+                continue;
+            }
+            r.xlog_ref = xref.label();
+            let (chosen, name) = match (&naive, &xref) {
+                (Verdict::Unavailable(_), Verdict::Agree | Verdict::Disagree(_)) => {
+                    (xref.clone(), "xlog-ref")
                 }
-                Some(Verdict::Unavailable(why)) => r.reason = why.clone(),
-                None => r.reason = "no oracle verdict".to_string(),
+                (Verdict::Unavailable(_), _) => (naive.clone(), ""),
+                _ => (naive.clone(), "naive"),
+            };
+            r.oracle = name;
+            r.nonempty_seeds = if name == "xlog-ref" {
+                nonempty.xref
+            } else {
+                nonempty.naive
+            };
+            match chosen {
+                // Empty answers agreeing is not evidence (D-XLOG-COV-0 stop
+                // condition): such a rule stays unverified, with the reason.
+                Verdict::Agree if r.nonempty_seeds == 0 => {
+                    r.reason = format!("agreed only on empty answers ({name} oracle)");
+                }
+                Verdict::Agree => r.rung = Rung::OracleAgrees,
+                Verdict::Disagree(detail) => {
+                    r.rung = Rung::OracleDisagrees;
+                    r.reason = detail;
+                }
+                Verdict::Unavailable(why) => r.reason = why,
             }
         }
     }
@@ -265,10 +344,13 @@ fn oracle_stage(
     rel_ids: &[(String, RelId)],
     seeds: &[u64],
     ran: &BTreeSet<String>,
-) -> BTreeMap<String, Verdict> {
-    let all = |why: String| -> BTreeMap<String, Verdict> {
+) -> BTreeMap<String, (Verdict, Verdict, Nonempty)> {
+    let all = |why: String| -> BTreeMap<String, (Verdict, Verdict, Nonempty)> {
         ran.iter()
-            .map(|h| (h.clone(), Verdict::Unavailable(why.clone())))
+            .map(|h| {
+                let v = Verdict::Unavailable(why.clone());
+                (h.clone(), (v.clone(), v, Nonempty::default()))
+            })
             .collect()
     };
     if seeds.is_empty() {
@@ -283,27 +365,35 @@ fn oracle_stage(
         Err(why) => return all(why),
     };
 
-    let mut merged: BTreeMap<String, Verdict> = BTreeMap::new();
-    let mut note = |head: &str, v: Verdict| {
-        let replace = merged.get(head).is_none_or(|old| old.rank() < v.rank());
-        if replace {
-            merged.insert(head.to_string(), v);
+    let pool = value_pool(&program);
+    let mut merged: BTreeMap<String, (Verdict, Verdict, Nonempty)> = BTreeMap::new();
+    let mut counts: BTreeMap<String, Nonempty> = BTreeMap::new();
+    let mut note = |head: &str, naive: Verdict, xref: Verdict| {
+        let slot = merged.entry(head.to_string()).or_insert((
+            Verdict::Agree,
+            Verdict::Agree,
+            Nonempty::default(),
+        ));
+        if slot.0.rank() < naive.rank() {
+            slot.0 = naive;
+        }
+        if slot.1.rank() < xref.rank() {
+            slot.1 = xref;
         }
     };
     for &seed in seeds {
-        let (store, supplied) = seed_relations(&base, seed);
+        let (store, supplied) = seed_relations(&base, seed, &pool);
         let (ex, seed_report) = match run_cube(plan, rel_ids, &supplied) {
             Ok(x) => x,
             Err(e) => {
                 for head in ran {
-                    note(
-                        head,
-                        Verdict::Unavailable(format!("seed {seed}: cube plan failed: {e}")),
-                    );
+                    let v = Verdict::Unavailable(format!("seed {seed}: cube plan failed: {e}"));
+                    note(head, v.clone(), v);
                 }
                 continue;
             }
         };
+        let naive_rows = naive_for_seed(&program, plan, &store);
         let oracle = oracle_for_seed(&program, plan, store);
         for head in ran {
             if !seed_report.ran.contains(head) {
@@ -312,21 +402,35 @@ fn oracle_stage(
                     .iter()
                     .find(|(h, _)| h == head)
                     .map_or("not run", |(_, w)| w.as_str());
-                note(
-                    head,
-                    Verdict::Unavailable(format!("seed {seed}: cube did not run it: {why}")),
-                );
+                let why = format!("seed {seed}: cube refused it over non-empty bases: {why}");
+                counts
+                    .entry(head.clone())
+                    .or_default()
+                    .refused_on_data
+                    .get_or_insert(why.clone());
+                let v = Verdict::Unavailable(why);
+                note(head, v.clone(), v);
                 continue;
             }
-            let v = match oracle.get(head) {
+            let c = counts.entry(head.clone()).or_default();
+            if matches!(naive_rows.get(head), Some(Ok(r)) if !r.is_empty()) {
+                c.naive += 1;
+            }
+            if matches!(oracle.get(head), Some(Ok(r)) if !r.is_empty()) {
+                c.xref += 1;
+            }
+            let cube = ex.relation(head).unwrap_or_default();
+            let judge = |rows: Option<&OracleRows>| match rows {
                 None => Verdict::Unavailable(format!("no AST rule for head {head}")),
                 Some(Err(why)) => Verdict::Unavailable(why.clone()),
-                Some(Ok(rows)) => {
-                    let cube = ex.relation(head).unwrap_or_default();
-                    verdict_of(seed, &cube, rows)
-                }
+                Some(Ok(rows)) => verdict_of(seed, &cube, rows),
             };
-            note(head, v);
+            note(head, judge(naive_rows.get(head)), judge(oracle.get(head)));
+        }
+    }
+    for (head, c) in counts {
+        if let Some(slot) = merged.get_mut(&head) {
+            slot.2 = c;
         }
     }
     merged
@@ -416,6 +520,36 @@ fn base_relations(program: &Program) -> Result<Vec<BaseSpec>, String> {
     Ok(out)
 }
 
+/// Values 0..16 plus every integer constant the program mentions that fits
+/// `u32`, sorted and deduplicated.
+fn value_pool(program: &Program) -> Vec<u32> {
+    let mut pool: BTreeSet<u32> = (0..16).collect();
+    let mut add = |t: &Term| {
+        if let Term::Integer(n) = t {
+            if let Ok(v) = u32::try_from(*n) {
+                pool.insert(v);
+            }
+        }
+    };
+    for rule in &program.rules {
+        rule.head.terms.iter().for_each(&mut add);
+        for lit in &rule.body {
+            match lit {
+                BodyLiteral::Comparison(c) => {
+                    add(&c.left);
+                    add(&c.right);
+                }
+                other => {
+                    if let Some(a) = other.atom() {
+                        a.terms.iter().for_each(&mut add);
+                    }
+                }
+            }
+        }
+    }
+    pool.into_iter().collect()
+}
+
 fn fnv1a64(s: &str) -> u64 {
     let mut h = 0xcbf2_9ce4_8422_2325u64;
     for b in s.bytes() {
@@ -426,11 +560,19 @@ fn fnv1a64(s: &str) -> u64 {
 }
 
 /// The rows of one base predicate for one seed: the program's own facts when
-/// it states any, otherwise 1..=12 random rows over values 0..16 from a
-/// xorshift64 seeded with `seed ^ fnv1a64(name)`. Sorted, deduplicated.
-fn rows_for(name: &str, facts: &Option<Vec<(u32, u32)>>, seed: u64) -> Vec<(u32, u32)> {
+/// it states any, otherwise 1..=12 random rows over `pool` (values 0..16 plus
+/// every integer constant of the program in `u32` range, so a constant
+/// selection can hit) from a xorshift64 seeded with `seed ^ fnv1a64(name)`.
+/// Sorted, deduplicated.
+fn rows_for(
+    name: &str,
+    facts: &Option<Vec<(u32, u32)>>,
+    seed: u64,
+    pool: &[u32],
+) -> Vec<(u32, u32)> {
     let mut rows: Vec<(u32, u32)> = match facts {
         Some(f) => f.clone(),
+        None if seed == DENSE_SEED => (0..6).flat_map(|a| (0..6).map(move |b| (a, b))).collect(),
         None => {
             let mut s = seed ^ fnv1a64(name);
             if s == 0 {
@@ -445,8 +587,8 @@ fn rows_for(name: &str, facts: &Option<Vec<(u32, u32)>>, seed: u64) -> Vec<(u32,
             let len = 1 + (next() % 12) as usize;
             let mut rows = Vec::with_capacity(len);
             for _ in 0..len {
-                let a = (next() % 16) as u32;
-                let b = (next() % 16) as u32;
+                let a = pool[(next() % pool.len() as u64) as usize];
+                let b = pool[(next() % pool.len() as u64) as usize];
                 rows.push((a, b));
             }
             rows
@@ -462,11 +604,12 @@ fn rows_for(name: &str, facts: &Option<Vec<(u32, u32)>>, seed: u64) -> Vec<(u32,
 fn seed_relations(
     base: &[BaseSpec],
     seed: u64,
+    pool: &[u32],
 ) -> (RefRelationStore, Vec<(String, Vec<(u32, u32)>)>) {
     let mut store = RefRelationStore::new();
     let mut supplied = Vec::with_capacity(base.len());
     for (name, facts) in base {
-        let rows = rows_for(name, facts, seed);
+        let rows = rows_for(name, facts, seed, pool);
         store.insert(
             name.clone(),
             RefRelation {
@@ -511,31 +654,16 @@ fn oracle_for_seed(
 ) -> BTreeMap<String, OracleRows> {
     let mut by_head: BTreeMap<&str, Vec<&Rule>> = BTreeMap::new();
     for r in program.proper_rules() {
-        by_head.entry(r.head.predicate.as_str()).or_default().push(r);
+        by_head
+            .entry(r.head.predicate.as_str())
+            .or_default()
+            .push(r);
     }
-    let fact_heads: BTreeSet<&str> = program
-        .facts()
-        .map(|f| f.head.predicate.as_str())
-        .collect();
-
-    let mut order: Vec<usize> = Vec::new();
-    for stratum in &plan.strata {
-        for &i in &stratum.sccs {
-            let i = i as usize;
-            if !order.contains(&i) {
-                order.push(i);
-            }
-        }
-    }
-    for i in 0..plan.sccs.len() {
-        if !order.contains(&i) {
-            order.push(i);
-        }
-    }
+    let fact_heads: BTreeSet<&str> = program.facts().map(|f| f.head.predicate.as_str()).collect();
 
     let mut out: BTreeMap<String, OracleRows> = BTreeMap::new();
     let mut poisoned: Option<String> = None;
-    for i in order {
+    for i in scc_order(plan) {
         let Some(scc) = plan.sccs.get(i) else {
             continue;
         };
@@ -577,8 +705,9 @@ fn oracle_for_seed(
         let values = domain_size(&store) + constants;
         let bound = (values.max(1) as f64).powi(i32::try_from(nvars).unwrap_or(i32::MAX));
         if bound > MAX_ASSIGNMENTS {
-            let why =
-                format!("exhaustive reference evaluator bound: {values} values ^ {nvars} variables");
+            let why = format!(
+                "exhaustive reference evaluator bound: {values} values ^ {nvars} variables"
+            );
             mark_failed(&mut out, &heads, &why);
             poisoned = Some(why);
             continue;
@@ -587,7 +716,9 @@ fn oracle_for_seed(
             &rules,
             &store,
             &AppearanceOrder,
-            &FixpointConfig { max_iterations: 256 },
+            &FixpointConfig {
+                max_iterations: 256,
+            },
         ) {
             Ok(derived) => {
                 for (head, mut rel) in derived {
@@ -599,6 +730,98 @@ fn oracle_for_seed(
             }
             Err(e) => {
                 let why = format!("{e:?}");
+                mark_failed(&mut out, &heads, &why);
+                poisoned = Some(why);
+            }
+        }
+    }
+    out
+}
+
+/// The stratum order of the plan's SCC indices: every SCC named by a
+/// stratum, in stratum order, then any SCC no stratum names.
+fn scc_order(plan: &ExecutionPlan) -> Vec<usize> {
+    let mut order: Vec<usize> = Vec::new();
+    for stratum in &plan.strata {
+        for &i in &stratum.sccs {
+            let i = i as usize;
+            if !order.contains(&i) {
+                order.push(i);
+            }
+        }
+    }
+    for i in 0..plan.sccs.len() {
+        if !order.contains(&i) {
+            order.push(i);
+        }
+    }
+    order
+}
+
+/// The independent naive evaluator over the same seed rows, component by
+/// component in the plan's stratum order. Only the ORDER comes from the
+/// plan; every row is derived from the AST.
+fn naive_for_seed(
+    program: &Program,
+    plan: &ExecutionPlan,
+    seeded: &RefRelationStore,
+) -> BTreeMap<String, OracleRows> {
+    let mut by_head: BTreeMap<&str, Vec<&Rule>> = BTreeMap::new();
+    for r in program.proper_rules() {
+        by_head
+            .entry(r.head.predicate.as_str())
+            .or_default()
+            .push(r);
+    }
+    let fact_heads: BTreeSet<&str> = program.facts().map(|f| f.head.predicate.as_str()).collect();
+    let mut store: BTreeMap<String, naive::Relation> = BTreeMap::new();
+    for (name, rel) in seeded.iter() {
+        let rows: Option<naive::Relation> = rel
+            .rows
+            .iter()
+            .map(|row| row.iter().map(int_of).collect::<Option<Vec<i128>>>())
+            .collect();
+        if let Some(rows) = rows {
+            store.insert(name.clone(), rows);
+        }
+    }
+    let mut out: BTreeMap<String, OracleRows> = BTreeMap::new();
+    let mut poisoned: Option<String> = None;
+    for i in scc_order(plan) {
+        let Some(scc) = plan.sccs.get(i) else {
+            continue;
+        };
+        let heads: Vec<&str> = scc
+            .predicates
+            .iter()
+            .map(String::as_str)
+            .filter(|p| by_head.contains_key(p))
+            .collect();
+        if heads.is_empty() {
+            continue;
+        }
+        if let Some(why) = &poisoned {
+            mark_failed(&mut out, &heads, why);
+            continue;
+        }
+        if let Some(p) = heads.iter().find(|p| fact_heads.contains(*p)) {
+            let why = format!("derived predicate {p} also has ground facts");
+            mark_failed(&mut out, &heads, &why);
+            poisoned = Some(why);
+            continue;
+        }
+        let rules: Vec<&Rule> = heads
+            .iter()
+            .flat_map(|h| by_head[h].iter().copied())
+            .collect();
+        match naive::evaluate_component(&rules, &mut store) {
+            Ok(()) => {
+                for h in &heads {
+                    let rows = store.get(*h).cloned().unwrap_or_default();
+                    out.insert((*h).to_string(), Ok(rows.into_iter().collect()));
+                }
+            }
+            Err(why) => {
                 mark_failed(&mut out, &heads, &why);
                 poisoned = Some(why);
             }
@@ -703,6 +926,8 @@ fn rows_to_i128(rel: &RefRelation) -> OracleRows {
 mod tests {
     use super::*;
 
+    const POOL: [u32; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+
     #[test]
     fn a_disagreement_names_the_first_three_rows_of_each_side() {
         let oracle: Vec<Vec<i128>> = (0..5).map(|i| vec![i, 9]).collect();
@@ -713,7 +938,10 @@ mod tests {
         assert!(detail.starts_with("seed=7 "), "{detail}");
         assert!(detail.contains("cube_only=[[1, 2]]"), "{detail}");
         assert!(detail.contains("[2, 9]"), "{detail}");
-        assert!(!detail.contains("[3, 9]"), "only three rows are named: {detail}");
+        assert!(
+            !detail.contains("[3, 9]"),
+            "only three rows are named: {detail}"
+        );
         assert_eq!(verdict_of(7, &[vec![1, 2]], &[vec![1, 2]]), Verdict::Agree);
     }
 
@@ -736,7 +964,11 @@ mod tests {
         };
         narrow_to_u32(&mut rel);
         assert_eq!(rel.schema, vec![ScalarType::U32, ScalarType::I64]);
-        assert_eq!(rel.rows[0][1], RefValue::I64(1), "a negative keeps the column wide");
+        assert_eq!(
+            rel.rows[0][1],
+            RefValue::I64(1),
+            "a negative keeps the column wide"
+        );
         let mut rel = RefRelation {
             schema: vec![ScalarType::U32, ScalarType::I64],
             rows: vec![vec![RefValue::U32(1), RefValue::I64(1)]],
@@ -749,17 +981,21 @@ mod tests {
     #[test]
     fn generated_rows_are_small_deterministic_and_seed_dependent() {
         let mut distinct = BTreeSet::new();
-        for seed in DEFAULT_SEEDS {
-            let rows = rows_for("r", &None, seed);
+        for seed in DEFAULT_SEEDS.into_iter().filter(|&s| s != DENSE_SEED) {
+            let rows = rows_for("r", &None, seed, &POOL);
             assert!(!rows.is_empty() && rows.len() <= 12, "{rows:?}");
             assert!(rows.iter().all(|&(a, b)| a < 16 && b < 16), "{rows:?}");
-            assert_eq!(rows, rows_for("r", &None, seed));
+            assert_eq!(rows, rows_for("r", &None, seed, &POOL));
             distinct.insert(rows);
         }
         assert!(distinct.len() > 1, "every seed drew the same rows");
-        assert_ne!(rows_for("r", &None, 5), rows_for("s", &None, 5));
+        assert_eq!(rows_for("r", &None, DENSE_SEED, &POOL).len(), 36);
+        assert_ne!(
+            rows_for("r", &None, 5, &POOL),
+            rows_for("s", &None, 5, &POOL)
+        );
         let stated = Some(vec![(3, 4), (1, 2), (3, 4)]);
-        assert_eq!(rows_for("r", &stated, 5), vec![(1, 2), (3, 4)]);
+        assert_eq!(rows_for("r", &stated, 5, &POOL), vec![(1, 2), (3, 4)]);
     }
 
     #[test]
@@ -787,16 +1023,13 @@ mod tests {
     fn generated_rows_make_the_chain_join_produce_rows() {
         let mut c = Compiler::new();
         let plan = c.compile("q(X,Z) :- r(X,Y), s(Y,Z).").expect("compile");
-        let rel_ids: Vec<(String, RelId)> = c
-            .rel_ids()
-            .iter()
-            .map(|(n, i)| (n.clone(), *i))
-            .collect();
+        let rel_ids: Vec<(String, RelId)> =
+            c.rel_ids().iter().map(|(n, i)| (n.clone(), *i)).collect();
         let base = vec![("r".to_string(), None), ("s".to_string(), None)];
         let nonempty = DEFAULT_SEEDS
             .iter()
             .filter(|&&seed| {
-                let (_, supplied) = seed_relations(&base, seed);
+                let (_, supplied) = seed_relations(&base, seed, &POOL);
                 let (ex, report) = run_cube(&plan, &rel_ids, &supplied).expect("plan");
                 assert!(report.refused.is_empty(), "{report:?}");
                 !ex.relation("q").unwrap_or_default().is_empty()

@@ -86,21 +86,31 @@ fn a_recursive_closure_agrees_and_is_a_host_loop() {
     assert_all_agree(&rec, 2, true);
 }
 
-/// The reference evaluator refuses a rule with fewer than two positive body
-/// atoms (`InsufficientPositiveAtoms`), and one refused rule leaves its whole
-/// SCC without an oracle. plans.rs's own closure is therefore
-/// lowered-unverified, not agreeing.
+/// XLOG's reference evaluator refuses a rule with fewer than two positive
+/// body atoms (`InsufficientPositiveAtoms`), so plans.rs's own closure has no
+/// answer from it. The independent naive oracle does answer, and agrees. The
+/// cross-check column keeps the reference evaluator's silence visible.
 #[test]
-fn a_one_atom_rule_has_no_oracle() {
+fn a_one_atom_rule_is_judged_by_the_naive_oracle_alone() {
     let src = "path(X,Y) :- edge(X,Y). path(X,Z) :- path(X,Y), edge(Y,Z).";
     let rec = reconcile(src, &DEFAULT_SEEDS);
     assert_eq!(rec.program_rung, None, "{rec:?}");
     assert_eq!(rec.rules.len(), 2, "{rec:?}");
     for r in &rec.rules {
-        assert_eq!(r.rung, Rung::LoweredUnverified, "{r:?}");
+        assert_eq!(r.rung, Rung::OracleAgrees, "{r:?}");
         assert!(r.host_loop, "{r:?}");
-        assert!(r.reason.contains("InsufficientPositiveAtoms"), "{r:?}");
+        assert_eq!(r.oracle, "naive", "{r:?}");
+        assert_eq!(r.xlog_ref, "unavailable", "{r:?}");
     }
+}
+
+/// Where both oracles answer, both agree, and the naive one decides.
+#[test]
+fn both_oracles_agree_on_the_chain_join() {
+    let rec = reconcile(CHAIN, &DEFAULT_SEEDS);
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    assert_eq!(rec.rules[0].oracle, "naive", "{rec:?}");
+    assert_eq!(rec.rules[0].xlog_ref, "agree", "{rec:?}");
 }
 
 #[test]
@@ -155,6 +165,7 @@ fn the_ladder_is_ordered_lowest_to_highest() {
         Rung::Observed,
         Rung::Compiled,
         Rung::Refused,
+        Rung::RefusedOnData,
         Rung::LoweredUnverified,
         Rung::OracleDisagrees,
         Rung::OracleAgrees,
@@ -167,9 +178,40 @@ fn the_ladder_is_ordered_lowest_to_highest() {
             "observed",
             "compiled",
             "refused",
+            "refused-on-data",
             "lowered-unverified",
             "oracle-disagrees",
             "oracle-agrees"
         ]
     );
+}
+
+/// Agreement over answers that are empty on every seed is not evidence: the
+/// rule stays lowered-unverified and the reason says so. The facts make the
+/// join empty on every seed (no `s` row starts where an `r` row ends).
+#[test]
+fn an_agreement_over_only_empty_answers_is_not_oracle_agrees() {
+    let src = "r(1, 2). s(3, 4). q(X,Z) :- r(X,Y), s(Y,Z).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.rules.len(), 1, "{rec:?}");
+    let r = &rec.rules[0];
+    assert_eq!(r.rung, Rung::LoweredUnverified, "{r:?}");
+    assert_eq!(r.nonempty_seeds, 0, "{r:?}");
+    assert!(r.reason.contains("empty answers"), "{r:?}");
+}
+
+/// A recursive SCC with a ternary member (shape from
+/// test_cross_mode_determinism.rs literal 1). Over empty bases the seed delta
+/// is empty, the loop ends before a ternary row is stored, and admission
+/// reports the rules as ran; over non-empty bases the cube refuses them. The
+/// census must not count them as admitted.
+#[test]
+fn a_rule_refused_only_over_data_is_refused_on_data() {
+    let src = "tri(X,Y,Z) :- e(X,Y), e(Y,Z), e(Z,X). echo(X,Y,Z) :- tri(X,Y,Z). tri(X,Y,Z) :- echo(X,Y,Z).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert!(!rec.rules.is_empty(), "{rec:?}");
+    for r in &rec.rules {
+        assert_eq!(r.rung, Rung::RefusedOnData, "{r:?}");
+        assert!(r.reason.contains("non-empty bases"), "{r:?}");
+    }
 }

@@ -4,7 +4,7 @@
 //! Prints the ladder counts, the reasons behind refusals and missing oracle
 //! answers, and every rule on which the cube and the reference evaluator
 //! disagree. With `--out`, writes one TSV row per rule (and one per program
-//! that has no rule): file, literal index, head, rung, host_loop, reason.
+//! that has no rule): file, literal index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason.
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -14,7 +14,13 @@ const NOT_BINARY: &str = "is not a binary relation in the cube";
 
 fn flat(s: &str) -> String {
     s.chars()
-        .map(|c| if matches!(c, '\t' | '\n' | '\r') { ' ' } else { c })
+        .map(|c| {
+            if matches!(c, '\t' | '\n' | '\r') {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect()
 }
 
@@ -60,10 +66,13 @@ fn main() {
     let (mut literal_count, mut compiled, mut rule_count) = (0usize, 0usize, 0usize);
     let mut by_rung: BTreeMap<Rung, usize> = BTreeMap::new();
     let mut native_tested = 0usize;
+    let mut vacuous_agree = 0usize;
     let mut refusals: BTreeMap<String, usize> = BTreeMap::new();
     let mut unavailable: BTreeMap<String, usize> = BTreeMap::new();
     let mut disagreements: Vec<String> = Vec::new();
     let mut tsv = String::new();
+    let mut by_oracle: BTreeMap<String, usize> = BTreeMap::new();
+    let mut cross: BTreeMap<String, usize> = BTreeMap::new();
 
     for path in &files {
         let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
@@ -83,7 +92,7 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t\t{}\tfalse\t{}",
+                    "{path}\t{index}\t\t{}\tfalse\t\t\t0\t{}",
                     rung.label(),
                     flat(&rec.program_reason)
                 );
@@ -93,6 +102,17 @@ fn main() {
             for r in &rec.rules {
                 rule_count += 1;
                 *by_rung.entry(r.rung).or_default() += 1;
+                if matches!(r.rung, Rung::OracleAgrees | Rung::OracleDisagrees) {
+                    *by_oracle.entry(r.oracle.to_string()).or_default() += 1;
+                }
+                if r.rung >= Rung::LoweredUnverified {
+                    *cross
+                        .entry(format!("{} / xlog-ref {}", r.rung.label(), r.xlog_ref))
+                        .or_default() += 1;
+                }
+                if r.rung == Rung::OracleAgrees && r.nonempty_seeds == 0 {
+                    vacuous_agree += 1;
+                }
                 if r.rung == Rung::OracleAgrees && !r.host_loop {
                     native_tested += 1;
                 }
@@ -104,6 +124,13 @@ fn main() {
                             r.reason.clone()
                         };
                         *refusals.entry(key).or_default() += 1;
+                    }
+                    Rung::RefusedOnData => {
+                        let why = r
+                            .reason
+                            .split_once(": cube refused it over non-empty bases: ")
+                            .map_or(r.reason.as_str(), |(_, w)| w);
+                        *refusals.entry(format!("on data: {why}")).or_default() += 1;
                     }
                     Rung::LoweredUnverified => {
                         *unavailable.entry(r.reason.clone()).or_default() += 1;
@@ -117,10 +144,13 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t{}\t{}\t{}\t{}",
+                    "{path}\t{index}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                     r.head,
                     r.rung.label(),
                     r.host_loop,
+                    r.oracle,
+                    r.xlog_ref,
+                    r.nonempty_seeds,
                     flat(&r.reason)
                 );
             }
@@ -132,10 +162,19 @@ fn main() {
         files.len()
     );
     let count = |r: Rung| by_rung.get(&r).copied().unwrap_or(0);
-    println!("{:20} programs {}", Rung::Observed.label(), count(Rung::Observed));
-    println!("{:20} programs {}", Rung::Compiled.label(), count(Rung::Compiled));
+    println!(
+        "{:20} programs {}",
+        Rung::Observed.label(),
+        count(Rung::Observed)
+    );
+    println!(
+        "{:20} programs {}",
+        Rung::Compiled.label(),
+        count(Rung::Compiled)
+    );
     for rung in [
         Rung::Refused,
+        Rung::RefusedOnData,
         Rung::LoweredUnverified,
         Rung::OracleDisagrees,
         Rung::OracleAgrees,
@@ -143,8 +182,11 @@ fn main() {
         println!("{:20} rules    {}", rung.label(), count(rung));
     }
     println!("native-tested (oracle-agrees and not host_loop): {native_tested}");
+    println!("oracle-agrees over only empty answers (vacuous): {vacuous_agree}");
     println!("production-admitted: 0 (no production caller; xlog-cube is a probe)");
 
+    print_counts("verdicts by oracle:", by_oracle);
+    print_counts("rung vs xlog reference evaluator:", cross);
     print_counts("refusal reasons:", refusals);
     print_counts("oracle unavailable (or plan refused):", unavailable);
 
@@ -154,7 +196,9 @@ fn main() {
     }
 
     if let Some(path) = out_path {
-        let mut text = String::from("file\tliteral\thead\trung\thost_loop\treason\n");
+        let mut text = String::from(
+            "file\tliteral\thead\trung\thost_loop\toracle\txlog_ref\tnonempty_seeds\treason\n",
+        );
         text.push_str(&tsv);
         if let Err(e) = std::fs::write(&path, text) {
             eprintln!("{path}: {e}");

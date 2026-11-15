@@ -78,7 +78,13 @@ fn a_refresh_from_a_stale_base_is_accepted_and_wrong() {
 /// The cube of B, staged with a grown map `[1, 2, 3]` and one edge `3 → 2`,
 /// with the table already advanced so `f2` reads the grown map. Returns the
 /// stale frame too.
-fn staged_case() -> (MapTable, Cube, Frame, Frame, lance_graph_xlog::cube::StagedEdges) {
+fn staged_case() -> (
+    MapTable,
+    Cube,
+    Frame,
+    Frame,
+    lance_graph_xlog::cube::StagedEdges,
+) {
     let (mut table, f1) = table_with(&[1, 2]);
     let edges = [(1u32, 2u32)];
     let cube = Cube::new(&table, &f1, 0, &[edges.as_slice()]).unwrap();
@@ -102,7 +108,10 @@ fn commit_under_the_right_frame_decodes_the_new_edge() {
     let r = cube.scan(0).unwrap();
     let j = cube.join(l, 1, r, 1).unwrap();
     let rows = cube.materialize_rows(&table, j).unwrap();
-    assert!(rows.contains(&(3, 2, 3)), "the committed edge 3→2 is read back");
+    assert!(
+        rows.contains(&(3, 2, 3)),
+        "the committed edge 3→2 is read back"
+    );
 }
 
 /// B in a debug build: the guard fires.
@@ -127,7 +136,11 @@ fn commit_under_a_wrong_frame_is_adopted_in_release() {
         f1.revisions(),
         "DEFECT B: the stale frame was adopted without refusal"
     );
-    assert_ne!(f1.revisions(), f2.revisions(), "fixture: two distinct frames");
+    assert_ne!(
+        f1.revisions(),
+        f2.revisions(),
+        "fixture: two distinct frames"
+    );
     assert_eq!(cube.delta_len(0), 1, "the batch was applied");
     let l = cube.scan(0).unwrap();
     let r = cube.scan(0).unwrap();
