@@ -256,3 +256,27 @@ $B run /tmp/onebrc_10m.txt <lane> [workers] [knobs]   # see README §4
 
 Lane-by-lane measurement history with commands: `README.md`
 §5.0–§5.7. Interpretation: `COMMENTARY.md`.
+
+## 6. Lane K pre-registration (2026-11-15, before any lane K measurement)
+
+Lane K (`src/lane_k.rs`): dense station ids in first-appearance order,
+names as slices of the input, temperature as an order-preserving code
+(`tenths + 999`), one sort of distinct names at the end. `k` parses the
+temperature, `kt` looks it up in a 4,096-slot codebook of all 1,999
+spellings. `wall` times open-to-result in ns per row; lane K mmaps, lane S
+uses `fs::read` inside the timer.
+
+Runs: the §1 corpus (10M rows, seed 42) and a 100M-row corpus (seed 42),
+4 workers, 5 passes per lane, median reported, the first pass discarded
+as page-cache warm-up.
+
+Predictions:
+
+- K1: `run` lane `k` vs lane `s`: within ±10 %. Both use the same scan and
+  parse; only the grouping table differs, and with about 400 stations
+  both tables stay in L1.
+- K2: `run` lane `kt` vs lane `k`: within ±10 %. The parse is already a few
+  instructions; a table load is not expected to beat it.
+- K3: `wall` lane `k` vs lane `s` on 100M rows: lane `k` lower by at least
+  the copy `fs::read` makes (expected 10-30 % of the `s` wall time on a
+  warm page cache). Kill: lane `k` not lower.
