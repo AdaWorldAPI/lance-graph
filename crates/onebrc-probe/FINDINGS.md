@@ -545,3 +545,41 @@ stations, 20.5 MB + about 18 MB at 10,000 (against the histogram's 3.2 and
 - Y4: `kmwc` executes more instructions per row than `kmwh` (the encoder's
   f32 round-trip and the window bound check).
 Kill for each: the stated relation does not hold.
+
+## 17. Codec9 counter window results (2026-11-15)
+
+Same session for all rows (built with `--features codec9`); 4 workers,
+6 passes, first discarded, median of 5, range in brackets. Instructions per
+row by callgrind on the AVX2 build with the same features.
+
+| corpus | lane | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|---|
+| 400 stations | kmw | 197.38 | 236.0 [210.4-256.8] | 4.01 [3.70-4.16] |
+| | kmwh | 182.38 | 245.9 [215.4-248.7] | 3.90 [3.76-4.07] |
+| | kmwc | 203.11 | 257.9 [193.1-274.3] | 4.40 [4.02-4.62] |
+| 10,000 stations | kmw | 204.75 | 172.9 [166.7-194.5] | 5.94 [5.44-6.67] |
+| | kmwh | 194.53 | 69.8 [58.9-83.7] | 14.05 [11.75-16.10] |
+| | kmwc | 218.75 | 64.0 [52.7-72.1] | 14.45 [13.75-17.67] |
+
+`dist` (percentiles for every station), ns/row: 400 stations hist 3.93
+[3.66-3.98], c9 4.26 [3.95-5.84]; 10,000 stations hist 14.73
+[14.05-17.10], c9 15.68 [14.59-22.25].
+
+Against §16:
+
+- Y1 (`kmwc` beats `kmwh` at 10,000 stations by > 10 %): fails. It is
+  −8.3 % (slower), with overlapping ranges.
+- Y2 (`kmwc` slower than `kmw` at 10,000): holds, −63 %.
+- Y3 (`kmwc` within ±10 % of `kmwh` at 400): holds, +4.9 %.
+- Y4 (more instructions than `kmwh`): holds, +20.7 and +24.2 per row.
+
+Halving the counter memory does not buy time here: at 10,000 stations about
+38 MB per worker is still far outside L2, the 22 % of stations with an
+overflow row touch two tables, and the encoder adds about 21-24
+instructions per row. The running variant `kmw` remains fastest at 10,000
+stations, and the plain histogram remains the cheapest way to percentiles.
+
+The instruction counts of `kmw` and `kmwh` moved by +3 to +4 per row
+against §12 (194.48, 178.48) on this build: the extra match arm for the
+new mode. Session-to-session spread in `run` is also visible (`kmwh` at
+10,000 stations 69.8 here, 59.9 in §15).

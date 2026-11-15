@@ -58,3 +58,11 @@ on 100M rows with percentiles for all stations.
 executing the fewest instructions (185.29 vs 201.30). At 80 MB of counters
 per worker the cost is memory, not instructions. All four pre-registered
 predictions hold.
+
+## Update: Codec9 counter window (FINDINGS §16-17)
+
+512 counters per station indexed by Codec9 word (±25.5), exact overflow
+row beyond. At 10,000 stations it is not faster than the full histogram
+(64.0 vs 69.8 Mrows/s, overlapping ranges; Y1 fails): about 38 MB per
+worker is still out of cache, overflow stations touch two tables, and the
+encoder adds about 21-24 instructions per row. Disable controls 3 of 3 red.
