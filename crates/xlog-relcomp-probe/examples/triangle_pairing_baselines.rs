@@ -14,6 +14,8 @@ use std::hint::black_box;
 use std::time::Instant;
 
 use xlog_core::{RelId, ScalarType};
+use ndarray::hpc::codec8::TiesEven;
+use ndarray::hpc::codec9::{Codec9Runtime, EpiLane9};
 use xlog_stats::{ColumnStats, StatsManager};
 
 // ------------------------------------------------------------------ rng
@@ -688,9 +690,234 @@ fn main() {
             6 * V * 4 / 1024
         );
     }
+    codec9_delta_arm(&c);
 }
 
 fn tie_min(e: [u64; 3]) -> bool {
     let m = *e.iter().min().unwrap();
     e.iter().filter(|&&x| x == m).count() > 1
+}
+
+// ------------------------------------------------------------------ Codec9 delta arm
+// Lab arm (D-XLOG-C9-0): per-key degree DELTAS carried as Codec9 lanes.
+// One lane per (relation, column, value): the signed net change of that key's
+// degree in one batch, -255..=255; a key the batch never touched is the -0
+// codeword (never touched), distinct from a touched +0 (net zero). Merge on
+// read adds each touched lane to the base degree. Two write policies:
+//   escape     |delta| > 255 is not encoded: the exact delta is applied by a
+//              side path and counted (Codec9 itself saturates silently);
+//   saturating the codec's own clamp, as shipped.
+// Checked against exact degrees after every batch, and against the exact-fold
+// pairing choice (arm c) at the end of the stream. Correctness only; the
+// timings this example prints elsewhere are not this arm's.
+
+/// The relations of one (family, seed) trial, generated exactly as `main` does.
+fn trial_rels(f: Family, fi: usize, seed: u64, c: &Ctx) -> [Vec<(u32, u32)>; 3] {
+    let mut rng = Rng(0x5EED_0000 + (fi as u64) * 1000 + seed);
+    let base = [6000usize, 10000, 16000, 24000][(seed % 4) as usize];
+    let ns: [usize; 3] = if seed % 3 == 0 {
+        [base; 3]
+    } else {
+        let fac = [[0.5, 1.0, 2.0], [2.0, 0.5, 1.0], [1.0, 2.0, 0.5], [0.5, 2.0, 1.0]]
+            [(seed % 4) as usize];
+        [
+            (base as f64 * fac[0]) as usize,
+            (base as f64 * fac[1]) as usize,
+            (base as f64 * fac[2]) as usize,
+        ]
+    };
+    std::array::from_fn(|r| gen_rel(f, r, ns[r].min(30000), &mut rng, c))
+}
+
+/// One event: relation, fact, +1 insert / -1 retract.
+type Event = (usize, (u32, u32), i32);
+
+/// Inserts (shuffled), then retract-and-reinsert of a quarter of the facts
+/// (shuffled pairs, so a batch can net a key to zero), then retraction of
+/// another quarter. Returns the events and the final multiset.
+fn trial_stream(rels: &[Vec<(u32, u32)>; 3], seed: u64) -> (Vec<Event>, [Vec<(u32, u32)>; 3]) {
+    let mut rng = Rng(0xC0DE_C900 ^ seed);
+    let mut ins: Vec<Event> = Vec::new();
+    for (r, rel) in rels.iter().enumerate() {
+        ins.extend(rel.iter().map(|&t| (r, t, 1)));
+    }
+    rng.shuffle(&mut ins);
+    let mut churn: Vec<Event> = Vec::new();
+    let mut gone: Vec<Event> = Vec::new();
+    for (i, &(r, t, _)) in ins.iter().enumerate() {
+        match i % 4 {
+            0 => {
+                churn.push((r, t, -1));
+                churn.push((r, t, 1));
+            }
+            1 => gone.push((r, t, -1)),
+            _ => {}
+        }
+    }
+    rng.shuffle(&mut churn);
+    // a retract must not precede its own insert within the churn phase: the
+    // multiset stays non-negative per fact only if each pair keeps order.
+    churn.sort_by_key(|e| e.2 == 1); // all retracts, then all reinserts
+    rng.shuffle(&mut gone);
+    let mut finals: [Vec<(u32, u32)>; 3] = Default::default();
+    for (i, &(r, t, _)) in ins.iter().enumerate() {
+        if i % 4 != 1 {
+            finals[r].push(t);
+        }
+    }
+    let mut ev = ins;
+    ev.extend(churn);
+    ev.extend(gone);
+    (ev, finals)
+}
+
+#[derive(Default, Clone, Copy)]
+struct C9Stats {
+    batches: usize,
+    lanes_touched: usize,
+    touched_zero: usize,
+    overflow: usize,
+    max_abs: i64,
+    escape_mismatch: usize,
+    sat_mismatch: usize,
+    sat_negative: usize,
+}
+
+fn deg_u32(d: &[[Vec<i64>; 2]; 3]) -> Option<Deg> {
+    let mut g = Deg::zero(d[0][0].len());
+    for r in 0..3 {
+        for col in 0..2 {
+            for (k, &v) in d[r][col].iter().enumerate() {
+                g.d[r][col][k] = u32::try_from(v).ok()?;
+            }
+        }
+    }
+    Some(g)
+}
+
+fn run_c9(events: &[Event], v: usize, batch: usize) -> (C9Stats, Deg, Option<Deg>) {
+    let codec = Codec9Runtime::<TiesEven>::new(1.0).expect("scale 1 is valid");
+    let zero = || -> [[Vec<i64>; 2]; 3] { std::array::from_fn(|_| std::array::from_fn(|_| vec![0i64; v])) };
+    let (mut exact, mut esc, mut sat) = (zero(), zero(), zero());
+    let mut delta = zero();
+    let mut lanes: [[Vec<EpiLane9>; 2]; 3] =
+        std::array::from_fn(|_| std::array::from_fn(|_| vec![EpiLane9::NEVER_TOUCHED; v]));
+    let mut touched: Vec<(usize, usize, usize)> = Vec::new();
+    let mut st = C9Stats::default();
+    for chunk in events.chunks(batch) {
+        st.batches += 1;
+        for &(r, (a, b), w) in chunk {
+            for (col, key) in [(0usize, a as usize), (1, b as usize)] {
+                if delta[r][col][key] == 0 && lanes[r][col][key].never_touched() {
+                    touched.push((r, col, key));
+                }
+                delta[r][col][key] += i64::from(w);
+                exact[r][col][key] += i64::from(w);
+                // mark touched even if the running delta returns to 0
+                lanes[r][col][key] = EpiLane9::from_codeword(0x100).expect("+0");
+            }
+        }
+        // encode: every touched key becomes a touched lane (+0 if net zero)
+        for &(r, col, key) in &touched {
+            let d = delta[r][col][key];
+            st.lanes_touched += 1;
+            st.max_abs = st.max_abs.max(d.abs());
+            if d == 0 {
+                st.touched_zero += 1;
+            }
+            let lane = codec.encode_touched(d as f32).expect("finite");
+            lanes[r][col][key] = lane;
+            // saturating arm: the codec's own clamp, applied as is
+            sat[r][col][key] += i64::from(lane.value().expect("touched"));
+            // escape arm: refuse to encode past the codec's range
+            if d.abs() > 255 {
+                st.overflow += 1;
+                esc[r][col][key] += d;
+            }
+        }
+        // merge on read for the escape arm, over every lane: never-touched
+        // lanes are skipped by the codeword itself, not by a second mask
+        for r in 0..3 {
+            for col in 0..2 {
+                for (key, lane) in lanes[r][col].iter().enumerate() {
+                    if let Some(x) = lane.value() {
+                        if delta[r][col][key].abs() <= 255 {
+                            esc[r][col][key] += i64::from(x);
+                        }
+                    }
+                }
+            }
+        }
+        for &(r, col, key) in &touched {
+            delta[r][col][key] = 0;
+            lanes[r][col][key] = EpiLane9::NEVER_TOUCHED;
+        }
+        touched.clear();
+        if esc != exact {
+            st.escape_mismatch += 1;
+        }
+        if sat != exact {
+            st.sat_mismatch += 1;
+        }
+    }
+    if sat.iter().flatten().flatten().any(|&x| x < 0) {
+        st.sat_negative = 1;
+    }
+    let exact_deg = deg_u32(&exact).expect("exact degrees are non-negative");
+    assert!(deg_u32(&esc).is_some_and(|g| g.d == exact_deg.d), "escape arm != exact at the end");
+    (st, exact_deg, deg_u32(&sat))
+}
+
+fn codec9_delta_arm(c: &Ctx) {
+    println!("\n## Codec9 delta arm (D-XLOG-C9-0): degree deltas as Codec9 lanes, scale 1");
+    println!("batch\tfamily\ttrials\tbatches\tlanes_touched\ttouched_zero\toverflow_lanes\tmax_abs_delta\tescape_batches_wrong\tsat_batches_wrong\tsat_trials_negative\tregret_escape_max\tregret_sat_max\tsat_choice_changed");
+    let v = c.v;
+    for batch in [256usize, 4096, 65536] {
+        let mut all = C9Stats::default();
+        for (fi, &f) in FAMILIES.iter().enumerate() {
+            let mut t = C9Stats::default();
+            let (mut reg_esc, mut reg_sat, mut changed, mut trials) = (1.0f64, 1.0f64, 0usize, 0usize);
+            for seed in 0..12u64 {
+                let rels = trial_rels(f, fi, seed, c);
+                let (events, finals) = trial_stream(&rels, seed);
+                let (st, exact_deg, sat_deg) = run_c9(&events, v, batch);
+                // the stream's end state is the final multiset, built independently
+                assert_eq!(exact_deg.d, Deg::build(&finals, v).d, "stream bookkeeping");
+                let exact = exact_phys(&exact_deg);
+                let best = *exact.iter().min().unwrap();
+                let pick_exact = argmin_opt(exact);
+                reg_esc = reg_esc.max(ratio(exact[pick_exact], best));
+                match &sat_deg {
+                    Some(g) => {
+                        let p = argmin_opt(exact_phys(g));
+                        reg_sat = reg_sat.max(ratio(exact[p], best));
+                        changed += usize::from(p != pick_exact);
+                    }
+                    None => changed += 1,
+                }
+                trials += 1;
+                t.batches += st.batches;
+                t.lanes_touched += st.lanes_touched;
+                t.touched_zero += st.touched_zero;
+                t.overflow += st.overflow;
+                t.max_abs = t.max_abs.max(st.max_abs);
+                t.escape_mismatch += st.escape_mismatch;
+                t.sat_mismatch += st.sat_mismatch;
+                t.sat_negative += st.sat_negative;
+            }
+            println!(
+                "{batch}\t{}\t{trials}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.3}\t{:.3}\t{changed}",
+                f.name(), t.batches, t.lanes_touched, t.touched_zero, t.overflow, t.max_abs,
+                t.escape_mismatch, t.sat_mismatch, t.sat_negative, reg_esc, reg_sat
+            );
+            all.batches += t.batches;
+            all.overflow += t.overflow;
+            all.escape_mismatch += t.escape_mismatch;
+            all.sat_mismatch += t.sat_mismatch;
+        }
+        println!(
+            "# batch {batch}: {} batches, {} overflow lanes, escape wrong in {} batches, saturating wrong in {} batches",
+            all.batches, all.overflow, all.escape_mismatch, all.sat_mismatch
+        );
+    }
 }
