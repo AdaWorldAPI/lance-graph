@@ -24,6 +24,8 @@ description = "1BRC (One Billion Row Challenge) substrate probe: measures the V3
 [features]
 # Lanes A/C stay dependency-free; B, D, E are opt-in.
 lane-b = ["dep:ndarray"]
+# Lane K's Codec9 counter window (`Agg::Codec9`): ndarray's hpc::codec9.
+codec9 = ["dep:ndarray"]
 lane-d = ["dep:ractor", "dep:tokio"]
 # Lane E (kanban-journaled batches): the contract's kanban/soa_view types +
 # tokio for the puller tasks. The KanbanActor/driver surface this lane once

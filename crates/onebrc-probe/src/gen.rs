@@ -104,7 +104,14 @@ fn format_tenths(t: i32) -> String {
 /// Each row's temperature is `mean + variate` (variate uniform in
 /// `[-10.0, 10.0]`), clamped to `[-99.9, 99.9]`.
 pub fn gen(path: &Path, rows: u64, seed: u64) -> io::Result<GenResult> {
-    let stations = station_names(seed, STATION_COUNT);
+    gen_with_stations(path, rows, seed, STATION_COUNT)
+}
+
+/// [`gen`] with `count` distinct stations instead of [`STATION_COUNT`]
+/// (for example 10,000, the 1BRC limit). `count = STATION_COUNT` writes the
+/// same bytes as [`gen`].
+pub fn gen_with_stations(path: &Path, rows: u64, seed: u64, count: usize) -> io::Result<GenResult> {
+    let stations = station_names(seed, count);
     let means: Vec<i32> = (0..stations.len())
         .map(|i| ((i * 131 + 37) % 400) as i32 - 200)
         .collect();

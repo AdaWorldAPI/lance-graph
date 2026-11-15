@@ -256,3 +256,418 @@ $B run /tmp/onebrc_10m.txt <lane> [workers] [knobs]   # see README §4
 
 Lane-by-lane measurement history with commands: `README.md`
 §5.0–§5.7. Interpretation: `COMMENTARY.md`.
+
+## 6. Lane K pre-registration (2026-11-15, before any lane K measurement)
+
+Lane K (`src/lane_k.rs`): dense station ids in first-appearance order,
+names as slices of the input, temperature as an order-preserving code
+(`tenths + 999`), one sort of distinct names at the end. `k` parses the
+temperature, `kt` looks it up in a 4,096-slot codebook of all 1,999
+spellings. `wall` times open-to-result in ns per row; lane K mmaps, lane S
+uses `fs::read` inside the timer.
+
+Runs: the §1 corpus (10M rows, seed 42) and a 100M-row corpus (seed 42),
+4 workers, 5 passes per lane, median reported, the first pass discarded
+as page-cache warm-up.
+
+Predictions:
+
+- K1: `run` lane `k` vs lane `s`: within ±10 %. Both use the same scan and
+  parse; only the grouping table differs, and with about 400 stations
+  both tables stay in L1.
+- K2: `run` lane `kt` vs lane `k`: within ±10 %. The parse is already a few
+  instructions; a table load is not expected to beat it.
+- K3: `wall` lane `k` vs lane `s` on 100M rows: lane `k` lower by at least
+  the copy `fs::read` makes (expected 10-30 % of the `s` wall time on a
+  warm page cache). Kill: lane `k` not lower.
+
+## 7. Lane K results (2026-11-15)
+
+4 workers, 6 passes per cell, first discarded, median of 5 (range in
+brackets). Container host, warm page cache. 10M = the §1 corpus
+(sha256 `f1853caa…a955691`, matches §1); 100M = seed 42, sha256
+`1225c952…6a892`.
+
+`run` (compute only, file already in memory), Mrows/s:
+
+| lane | 10M | 100M |
+|---|---|---|
+| s | 107.1 [103.4-134.4] | 134.2 [129.4-136.6] |
+| k | 131.5 [118.0-156.7] | 143.5 [138.3-145.0] |
+| kt | 111.0 [94.0-133.5] | 117.8 [96.6-130.7] |
+
+`wall` (open to result), ns per row:
+
+| lane | 10M | 100M |
+|---|---|---|
+| s (`fs::read`) | 14.46 [13.91-15.16] | 14.64 [14.04-14.96] |
+| k (mmap) | 7.23 [7.01-8.41] | 7.02 [6.73-7.11] |
+| kt (mmap) | 8.62 [7.39-9.92] | 8.02 [7.86-8.33] |
+
+Against the predictions:
+
+- K1 (`k` vs `s` within ±10 %): holds on 100M (+6.9 %). On 10M the
+  median is +22.8 %, but the 10M ranges overlap widely; the short runs
+  are too noisy here to separate the lanes.
+- K2 (`kt` vs `k` within ±10 %): fails. The temperature codebook is
+  slower than the parse: −17.9 % on 100M in `run`, +14.3 % ns per row in
+  `wall`. One open-addressed table load with key verification costs more
+  than lane S's few-instruction parse.
+- K3 (`wall` `k` below `s`, by 10-30 %): direction holds, size does not:
+  −52.1 % on 100M, −50.0 % on 10M. On a warm cache, `s` spends about
+  7.2 ns per row (14.64 − 7.45 compute-only) on `fs::read` copying the
+  file, about as long as the whole computation; with mmap, `wall` `k`
+  (7.02) is within 1 % of its compute-only time (6.97).
+
+Not measured: a cold page cache (both lanes would then wait on the disk),
+the 10,000-station key set, and anything beyond 4 workers.
+
+What this says: the mmap saving is the large effect, and it comes from not
+copying the input, not from the codebook. The codebook grouping is a
+small gain over lane S's hash table (+7 % on 100M). The temperature
+codebook loses to the parse.
+
+## 8. Lane K variants pre-registration (2026-11-15, before measuring them)
+
+New variants: `km` (merykitty multiply parse from one 8-byte load, newline
+search skipped), `kw` (names hashed 8 bytes at a time, last word masked),
+`kmw` (both). Same corpora, workers and pass rule as §6; reference is §7's
+`k`, re-measured in the same session.
+
+- K4: `km` beats `k` in `run` on 100M by at least 10 %. It removes the
+  parse's two branches and the whole newline scan.
+- K5: `kw` beats `k` in `run` on 100M by at least 5 %. Station names
+  average under 16 bytes, so FNV's byte loop costs up to ~16 multiplies
+  against at most 2 for the word hash.
+- K6: `kmw` is the fastest variant in both `run` and `wall`.
+Kill for each: the stated gain is absent.
+
+## 9. Lane K variants results (2026-11-15)
+
+Same session, same rules as §7 (4 workers, 6 passes, first discarded,
+median of 5, range in brackets).
+
+| variant | `run` 100M, Mrows/s | `wall` 100M, ns/row | `wall` 10M, ns/row |
+|---|---|---|---|
+| k (parse, FNV) | 136.5 [133.9-144.4] | 7.56 [7.02-8.81] | 7.02 [6.96-8.98] |
+| km (merykitty, FNV) | 188.2 [149.7-196.2] | 5.42 [5.30-5.64] | 6.52 [5.89-8.33] |
+| kw (parse, word hash) | 150.5 [139.0-190.5] | 5.40 [5.31-6.21] | 5.42 [5.38-8.20] |
+| kmw (both) | 245.0 [219.2-246.7] | 4.00 [3.69-4.53] | 5.73 [5.00-6.36] |
+
+Against §8:
+
+- K4 (`km` ≥ +10 % over `k`, `run` 100M): holds, +37.8 %.
+- K5 (`kw` ≥ +5 %): holds on the median, +10.2 %, but `kw`'s range
+  (139-191) overlaps `k`'s; weak.
+- K6 (`kmw` fastest everywhere): holds on 100M (`run` +79.5 %, `wall`
+  −47.0 % vs `k`); fails on `wall` 10M, where `kw` (5.42) is below `kmw`
+  (5.73). The 10M runs are short and noisy here, as in §7.
+
+The two changes compound: together they give more than either alone on
+100M (+79.5 % against +37.8 % and +10.2 %).
+
+One unplanned observation: the first `wall` 10M pass of `k` took 91.99 ns
+per row. The 100M runs had evicted the 10M file from the page cache, so
+that pass read from disk. One pass, not a measurement of the cold case, but
+it shows the cold page cache is an order of magnitude above everything in
+these tables.
+
+Per core, `kmw` on 100M is about 16 core-ns per row (4.00 × 4) against the
+1BRC winner's about 12.3 (1.535 s for 1B rows on 8 Zen 2 cores). Different
+CPU and corpus; an order-of-magnitude reading only.
+
+## 10. Instructions per row, and the build tier (2026-11-15)
+
+**Build tier, a correction for §7 and §9.** The crate's
+`.cargo/config.toml` asks for `-C target-cpu=x86-64-v3`, but cargo merges
+it with the repository's `-Ctarget-cpu=native`, and native wins: the
+release binary contains AVX-512 code (35 `zmm` uses). Every timing in §7
+and §9 therefore ran at this host's native tier (a Xeon with AVX-512 incl.
+VBMI/BF16, VNNI and AMX), not AVX2. The lane K kernels are scalar SWAR,
+so this mainly concerns the surrounding code.
+
+**Instruction counts.** The VM exposes no hardware performance counters,
+so `perf` is unavailable. Counts are from `valgrind --tool=callgrind` on a
+separate build pinned to AVX2 (`RUSTFLAGS="-C target-cpu=x86-64-v3"`,
+own target dir, 0 `zmm` uses; valgrind cannot run AVX-512). Per row =
+(Ir on 2M rows − Ir on 1M rows) / 1M, 1 worker, `wall` mode, which cancels
+startup, mapping and the merge.
+
+| variant | instructions/row |
+|---|---|
+| k | 255.71 |
+| kt | 264.07 |
+| km | 225.19 |
+| kw | 225.66 |
+| kmw | 195.14 |
+
+For `kmw`, 175.5 per row are in `accumulate_with` and 19.7 in libc's
+`memcmp`, which the name check calls once per row. The QuestDB article's
+final Java version reports about 98 per row (its own count, different
+corpus), so `kmw` executes about twice as many.
+
+## 11. Histogram variant pre-registration (2026-11-15, before measuring it)
+
+`kh` (parse, FNV, histogram) and `kmwh` (multiply parse, word hash,
+histogram): one `u32` counter per (station, code), 1,999 per station, one
+increment per row, min/max/sum/count derived before the merge. Measured
+against `k` and `kmw` in the same session: `run` and `wall` on 100M,
+4 workers, §6's pass rule; instructions per row by callgrind as in §10.
+
+- H1: fewer instructions per row than the running variant (`kh` < `k`,
+  `kmwh` < `kmw`): the update drops two compares and a sum.
+- H2: not faster in `run`: `kmwh` within ±10 % of `kmw` or slower. The
+  3.2 MB of counters per worker leave L1 and most of L2, while the running
+  state (about 6.6 KB) stays in L1, so each row's increment costs more than
+  the instructions it saves.
+Kill for H2: `kmwh` faster than `kmw` by more than 10 %.
+
+## 12. Histogram variant results (2026-11-15)
+
+Same session, rules as §11 (4 workers, 100M, median of 5 after one
+discarded pass, range in brackets). Instructions per row by callgrind on
+the AVX2 build, as in §10; the running variants were re-counted on this
+commit.
+
+| variant | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|
+| k | 252.21 | 135.8 [108.2-142.5] | 7.75 [6.69-8.40] |
+| kh | 236.21 | 135.0 [116.4-144.1] | 7.38 [6.66-7.74] |
+| kmw | 194.48 | 248.3 [230.6-264.7] | 4.32 [4.11-4.87] |
+| kmwh | 178.48 | 251.4 [241.2-260.6] | 3.70 [3.53-4.58] |
+
+- H1 (fewer instructions): holds, exactly 16.00 fewer per row in both
+  pairs.
+- H2 (not faster in `run` by more than 10 %): holds: `kmwh` +1.3 % over
+  `kmw`, `kh` −0.5 % against `k`, both inside the other's range. `wall`
+  medians favour the histogram (−14.3 % for `kmwh`), but its range overlaps
+  `kmw`'s; not a separable difference here.
+
+So the 16 saved instructions do not show up as time at 400 stations: the
+counter increment into 3.2 MB per worker costs about what the compares
+did. The re-count also moved `k` from 255.71 (§10) to 252.21, so the
+dispatch added for the histogram did not cost the running variants
+instructions.
+
+## 13. Median and percentiles from the histogram (2026-11-15)
+
+`lane_k_distributions` keeps each station's 1,999 code counts, summed
+across workers, and `Distribution` reads from them:
+
+- `percentile(p)`: nearest rank, `p` a whole percent 0-100: the smallest
+  observed value with at least ⌈p·n/100⌉ observations at or below it,
+  computed in integers. `percentile(0)` is the minimum.
+- `median()`: `percentile(50)`, the lower middle value when n is even.
+- `nth(k)`: the k-th smallest observation; `stats()`: min, max, sum, count.
+
+Tests: every station's p0, 1, 10, 25, 50, 75, 90, 99 and 100 equal a
+sorted copy of its raw values (60,000 rows, 1/3/7 workers, two scan
+variants), and `stats()` equals lane A. A small hand-checked set pins the
+even-count median and the rank boundaries. Disable controls, each red:
+rounding the rank down, comparing with `>` instead of `>=`, and merging
+only the first worker's histogram.
+
+CLI: `dist <path> [workers]` (mmap, multiply parse, word hash). On the 100M
+corpus, 4 workers, warm cache, three passes after a cold one gave 3.72,
+4.89 and 3.75 ns/row open to result, including percentiles for all 400
+stations. Spot check: the generator draws each reading uniformly within
+±10.0 of the station mean, and the reported p10 and p90 sit 8.0-8.1 below
+and above the median, as a uniform spread predicts.
+
+## 14. 10,000-station key set pre-registration (2026-11-15, before measuring)
+
+Corpus: `gen <path> 100000000 42 10000` (100M rows, 10,000 stations, same
+generator). Lanes `s`, `k`, `kmw`, `kmwh` in `run` and `wall`, plus `dist`;
+4 workers, §6's pass rule; instructions per row by callgrind (2M − 1M rows,
+10,000 stations) as in §10.
+
+At 10,000 stations a worker's running state is about 165 KB (four arrays,
+hashes and name slices) plus a 128 KB slot table: out of L1, inside L2. The
+histogram is 80 MB per worker, so each row's increment misses every cache.
+
+- X1: every lane is slower per row than on the 400-station corpus.
+- X2: `kmwh` is slower than `kmw` in `run` by more than 10 %.
+- X3: `dist` is slower than `kmw` in `wall` by more than 10 %.
+- X4: `kmw` stays faster than lane `s` in `run`.
+Kill for each: the stated relation does not hold.
+
+## 15. 10,000-station key set results (2026-11-15)
+
+Corpus `gen … 100000000 42 10000`, sha256 `e1934f6f…84a75fd`, 10,000
+stations. 4 workers, 6 passes, first discarded, median of 5, range in
+brackets. Instructions per row by callgrind on the AVX2 build (2M − 1M
+rows, 10,000 stations).
+
+| lane | instructions/row | `run` Mrows/s | `wall` ns/row | 400 stations: `run`, `wall` (§7, §9, §12) |
+|---|---|---|---|---|
+| s | 240.49 | 79.4 [76.2-88.0] | 20.89 [18.04-23.52] | 134.2, 14.64 |
+| k | 258.58 | 115.8 [108.4-117.2] | 9.86 [8.70-10.69] | 136.5-143.5, 7.02-7.75 |
+| kmw | 201.30 | 149.1 [121.7-168.4] | 6.15 [5.78-8.06] | 245.0-248.3, 4.00-4.32 |
+| kmwh | 185.29 | 59.9 [51.2-66.7] | 13.77 [12.40-16.70] | 251.4, 3.70 |
+| dist | – | – | 14.49 [13.41-15.89] | 3.72-4.89 |
+
+Against §14:
+
+- X1 (every lane slower than at 400 stations): holds for all five.
+- X2 (`kmwh` slower than `kmw` in `run` by > 10 %): holds, −59.8 %.
+- X3 (`dist` slower than `kmw` in `wall` by > 10 %): holds, +135 %.
+- X4 (`kmw` faster than lane `s` in `run`): holds, +87.8 %.
+
+The histogram executes the fewest instructions per row (185.29) and is
+the slowest lane K variant: at 80 MB per worker every increment misses the
+cache. Instruction count is not the cost at this key count; memory is. The
+running variant's state stays near L2 and keeps `kmw` ahead. Percentiles
+at 10,000 stations cost about 2.4× the plain statistics; at 400 stations
+they cost nothing extra (§13).
+
+The 10,000 names here come from the probe's syllable generator, shorter
+than the 1BRC key set's names (up to 100 bytes), so name handling is
+cheaper here than in the official 10K run.
+
+## 16. Codec9 counter window pre-registration (2026-11-15, before measuring)
+
+`Agg::Codec9` (`--features codec9`): each reading counted at its Codec9
+word (ndarray `hpc::codec9`, one tenth per step), 512 counters per station
+covering ±25.5; readings beyond that go to a full-range overflow row the
+station allocates on first use. In this generator 2.52 % of readings and
+89 of 400 mean values reach beyond ±25.5, so about 22 % of stations carry
+an overflow row: about 0.8 MB window + 0.7 MB overflow per worker at 400
+stations, 20.5 MB + about 18 MB at 10,000 (against the histogram's 3.2 and
+80 MB). Lane `kmwc` (multiply parse, word hash, Codec9 window) against
+`kmw` and `kmwh`, and `dist … c9` against `dist … hist`, on both corpora,
+§6's pass rule; instructions per row as in §10.
+
+- Y1: at 10,000 stations `kmwc` beats `kmwh` in `run` by more than 10 %
+  (half the counter memory).
+- Y2: at 10,000 stations `kmwc` is still slower than `kmw` (38 MB of
+  counters per worker remain far outside L2).
+- Y3: at 400 stations `kmwc` is within ±10 % of `kmwh` in `run`.
+- Y4: `kmwc` executes more instructions per row than `kmwh` (the encoder's
+  f32 round-trip and the window bound check).
+Kill for each: the stated relation does not hold.
+
+## 17. Codec9 counter window results (2026-11-15)
+
+Same session for all rows (built with `--features codec9`); 4 workers,
+6 passes, first discarded, median of 5, range in brackets. Instructions per
+row by callgrind on the AVX2 build with the same features.
+
+| corpus | lane | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|---|
+| 400 stations | kmw | 197.38 | 236.0 [210.4-256.8] | 4.01 [3.70-4.16] |
+| | kmwh | 182.38 | 245.9 [215.4-248.7] | 3.90 [3.76-4.07] |
+| | kmwc | 203.11 | 257.9 [193.1-274.3] | 4.40 [4.02-4.62] |
+| 10,000 stations | kmw | 204.75 | 172.9 [166.7-194.5] | 5.94 [5.44-6.67] |
+| | kmwh | 194.53 | 69.8 [58.9-83.7] | 14.05 [11.75-16.10] |
+| | kmwc | 218.75 | 64.0 [52.7-72.1] | 14.45 [13.75-17.67] |
+
+`dist` (percentiles for every station), ns/row: 400 stations hist 3.93
+[3.66-3.98], c9 4.26 [3.95-5.84]; 10,000 stations hist 14.73
+[14.05-17.10], c9 15.68 [14.59-22.25].
+
+Against §16:
+
+- Y1 (`kmwc` beats `kmwh` at 10,000 stations by > 10 %): fails. It is
+  −8.3 % (slower), with overlapping ranges.
+- Y2 (`kmwc` slower than `kmw` at 10,000): holds, −63 %.
+- Y3 (`kmwc` within ±10 % of `kmwh` at 400): holds, +4.9 %.
+- Y4 (more instructions than `kmwh`): holds, +20.7 and +24.2 per row.
+
+Halving the counter memory does not buy time here: at 10,000 stations about
+38 MB per worker is still far outside L2, the 22 % of stations with an
+overflow row touch two tables, and the encoder adds about 21-24
+instructions per row. The running variant `kmw` remains fastest at 10,000
+stations, and the plain histogram remains the cheapest way to percentiles.
+
+The instruction counts of `kmw` and `kmwh` moved by +3 to +4 per row
+against §12 (194.48, 178.48) on this build: the extra match arm for the
+new mode. Session-to-session spread in `run` is also visible (`kmwh` at
+10,000 stations 69.8 here, 59.9 in §15).
+
+## 18. 256-slot window pre-registration (2026-11-15, before measuring)
+
+`Agg::Window256`: the (station, temperature) table addressed directly,
+256 `u32` counters per station at slot = code − base(station), 1 KB per
+station: 0.4 MB per worker at 400 stations, 10.2 MB at 10,000 (against the
+histogram's 3.2 and 80 MB). Readings outside a station's span of 256 tenths
+go to a full-range overflow row, so counts stay exact on any input.
+
+The base cannot simply be the first reading minus 127. Worked out from the
+generator (mean + a uniform variate of ±10.0, 201 values): a fixed window
+centred on the first reading misses 5,329 of 201² variate pairs, so
+**13.2 % of readings** would go to the overflow row and **72 % of stations**
+(145 of 201 first-reading positions) would need one. The window therefore
+re-anchors: a reading outside the window whose station span, including it,
+still fits in 256 slides the window over that span with the slack split
+evenly, moving the existing counters. Only a span wider than 256 uses the
+overflow row. `Agg::Window256Fixed` keeps the fixed centred anchor and
+exists to check the 13.2 % above.
+
+Lanes `kmwr` (multiply parse, word hash, re-anchoring window) and `kmwf`
+(fixed anchor) against `kmw` and `kmwh`, and `dist … w256` against
+`dist … hist`, on both corpora, §6's pass rule; instructions per row as in
+§10.
+
+- W1: on this generator `Window256` sends 0 readings to an overflow row
+  (span 201 ≤ 256), and every station re-anchors at most 3 times per worker.
+- W2: `Window256Fixed` sends 13.2 % ± 0.2 % of readings to the overflow row
+  (100M rows, 400 stations).
+- W3: at 10,000 stations `kmwr` beats `kmwh` in `run` by more than 10 %
+  (an 8× smaller table).
+- W4: at 10,000 stations `kmwr` is still slower than `kmw` (10 MB of
+  counters per worker is still beyond L2).
+- W5: at 400 stations `kmwr` is within ±10 % of `kmwh` in `run`.
+- W6: `kmwr` executes at most 10 more instructions per row than `kmwh`.
+Kill for each: the stated relation does not hold.
+
+## 19. 256-slot window results (2026-11-15)
+
+Same session for all timing rows; 4 workers, 6 passes, first discarded,
+median of 5, range in brackets. Instructions per row by callgrind on the
+AVX2 build, (2M − 1M rows) / 1M, one worker.
+
+| corpus | lane | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|---|
+| 400 stations | kmw | | 225.9 [199.2-233.7] | 4.62 [4.04-5.23] |
+| | kmwh | 206.10 | 246.8 [149.1-273.3] | 3.82 [3.72-4.55] |
+| | kmwr | 218.09 | 227.7 [199.4-256.9] | 4.52 [3.94-5.65] |
+| 10,000 stations | kmw | | 160.5 [118.9-182.1] | 7.79 [6.63-10.21] |
+| | kmwh | 219.97 | 80.0 [77.6-84.3] | 13.13 [10.98-18.23] |
+| | kmwr | 232.25 | 75.8 [66.7-85.8] | 12.62 [11.62-13.50] |
+
+`dist` (percentiles for every station), ns/row: 400 stations hist 4.25
+[3.80-4.96], w256 4.17 [3.82-5.23]; 10,000 stations hist 16.18
+[12.84-17.86], w256 13.96 [11.33-16.00].
+
+Window misses (`windiag`, 100M rows, 4 workers):
+
+| corpus | table | overflow readings | stations with overflow (over workers) | max re-anchors |
+|---|---|---|---|---|
+| 400 | Window256 | 0 | 0 | 2 |
+| | Window256Fixed | 13,136,821 (13.14 %) | 1,137 of 1,600 (71 %) | 0 |
+| 10,000 | Window256 | 0 | 0 | 2 |
+| | Window256Fixed | 13,229,286 (13.23 %) | 28,891 of 40,000 (72 %) | 0 |
+
+Against §18:
+
+- W1 (no overflow, at most 3 re-anchors): holds, 0 and 2.
+- W2 (fixed anchor misses 13.2 % ± 0.2 %): holds, 13.14 % and 13.23 %;
+  the 72 % of stations needing an overflow row also matches.
+- W3 (`kmwr` beats `kmwh` at 10,000 stations by > 10 %): fails, −5.3 %
+  in `run`, overlapping ranges.
+- W4 (`kmwr` slower than `kmw` at 10,000): holds, −53 %.
+- W5 (`kmwr` within ±10 % of `kmwh` at 400): holds, −7.7 %.
+- W6 (at most 10 instructions per row more than `kmwh`): fails narrowly,
+  +12.0 and +12.3.
+
+An 8× smaller table (10.2 MB against 80 MB per worker) does not buy time.
+Together with §17 (38 MB, no gain), three table sizes spanning 8× land
+within the noise of each other at 10,000 stations, while the running
+aggregates, whose state is about 180 KB per worker (four arrays of
+10,000 entries), are twice as fast. The cost is a per-row counter access
+that misses L2; once the table is beyond L2, its size no longer matters
+on this host. A per-reading counter table only pays off where it fits in
+L2, which at 1 KB per station is about 2,000 stations per worker.
+
+The fixed anchor would have sent 13 % of all readings to the slow path;
+re-anchoring removed that at a cost of at most 2 counter moves per station.
