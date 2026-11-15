@@ -421,3 +421,30 @@ against `k` and `kmw` in the same session: `run` and `wall` on 100M,
   state (about 6.6 KB) stays in L1, so each row's increment costs more than
   the instructions it saves.
 Kill for H2: `kmwh` faster than `kmw` by more than 10 %.
+
+## 12. Histogram variant results (2026-11-15)
+
+Same session, rules as §11 (4 workers, 100M, median of 5 after one
+discarded pass, range in brackets). Instructions per row by callgrind on
+the AVX2 build, as in §10; the running variants were re-counted on this
+commit.
+
+| variant | instructions/row | `run` Mrows/s | `wall` ns/row |
+|---|---|---|---|
+| k | 252.21 | 135.8 [108.2-142.5] | 7.75 [6.69-8.40] |
+| kh | 236.21 | 135.0 [116.4-144.1] | 7.38 [6.66-7.74] |
+| kmw | 194.48 | 248.3 [230.6-264.7] | 4.32 [4.11-4.87] |
+| kmwh | 178.48 | 251.4 [241.2-260.6] | 3.70 [3.53-4.58] |
+
+- H1 (fewer instructions): holds, exactly 16.00 fewer per row in both
+  pairs.
+- H2 (not faster in `run` by more than 10 %): holds: `kmwh` +1.3 % over
+  `kmw`, `kh` −0.5 % against `k`, both inside the other's range. `wall`
+  medians favour the histogram (−14.3 % for `kmwh`), but its range overlaps
+  `kmw`'s; not a separable difference here.
+
+So the 16 saved instructions do not show up as time at 400 stations: the
+counter increment into 3.2 MB per worker costs about what the compares
+did. The re-count also moved `k` from 255.71 (§10) to 252.21, so the
+dispatch added for the histogram did not cost the running variants
+instructions.

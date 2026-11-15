@@ -36,3 +36,10 @@ OPEN: cold page cache, the 10,000-station key set, more than 4 workers.
 The two compound. Pre-registered K4 holds, K5 holds weakly (overlapping
 ranges), K6 holds on 100M and fails on the noisy 10M `wall`. Disable
 controls 3 of 3 red (tail mask, sign, next-line offset).
+
+## Update: per-station histogram (FINDINGS §11-12)
+
+1,999 counters per station, one increment per row: 16 fewer instructions
+per row (`kmwh` 178.48 vs `kmw` 194.48), no separable time difference at
+400 stations (`run` 251.4 vs 248.3 Mrows/s, overlapping ranges).
+Pre-registered H1 and H2 hold. Disable controls 3 of 3 red.
