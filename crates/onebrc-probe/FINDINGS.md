@@ -326,3 +326,18 @@ What this says: the mmap saving is the large effect, and it comes from not
 copying the input, not from the codebook. The codebook grouping is a
 small gain over lane S's hash table (+7 % on 100M). The temperature
 codebook loses to the parse.
+
+## 8. Lane K variants pre-registration (2026-11-15, before measuring them)
+
+New variants: `km` (merykitty multiply parse from one 8-byte load, newline
+search skipped), `kw` (names hashed 8 bytes at a time, last word masked),
+`kmw` (both). Same corpora, workers and pass rule as §6; reference is §7's
+`k`, re-measured in the same session.
+
+- K4: `km` beats `k` in `run` on 100M by at least 10 %. It removes the
+  parse's two branches and the whole newline scan.
+- K5: `kw` beats `k` in `run` on 100M by at least 5 %. Station names
+  average under 16 bytes, so FNV's byte loop costs up to ~16 multiplies
+  against at most 2 for the word hash.
+- K6: `kmw` is the fastest variant in both `run` and `wall`.
+Kill for each: the stated gain is absent.
