@@ -114,6 +114,10 @@ census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
 rows put for a derived predicate are kept), with the test corpus unchanged
 since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
 94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
+Datafrog agrees on 85 of the 87 oracle-agrees rules and disagrees on none; the
+other 2 (`neighbor`, `from_one`) are not applicable because a body atom holds
+an integer constant. With its join deliberately broken, Datafrog disagrees on
+68 of the 87 while every rung stays the same.
 
 ## Known limits
 
