@@ -473,3 +473,20 @@ corpus, 4 workers, warm cache, three passes after a cold one gave 3.72,
 stations. Spot check: the generator draws each reading uniformly within
 ±10.0 of the station mean, and the reported p10 and p90 sit 8.0-8.1 below
 and above the median, as a uniform spread predicts.
+
+## 14. 10,000-station key set pre-registration (2026-11-15, before measuring)
+
+Corpus: `gen <path> 100000000 42 10000` (100M rows, 10,000 stations, same
+generator). Lanes `s`, `k`, `kmw`, `kmwh` in `run` and `wall`, plus `dist`;
+4 workers, §6's pass rule; instructions per row by callgrind (2M − 1M rows,
+10,000 stations) as in §10.
+
+At 10,000 stations a worker's running state is about 165 KB (four arrays,
+hashes and name slices) plus a 128 KB slot table: out of L1, inside L2. The
+histogram is 80 MB per worker, so each row's increment misses every cache.
+
+- X1: every lane is slower per row than on the 400-station corpus.
+- X2: `kmwh` is slower than `kmw` in `run` by more than 10 %.
+- X3: `dist` is slower than `kmw` in `wall` by more than 10 %.
+- X4: `kmw` stays faster than lane `s` in `run`.
+Kill for each: the stated relation does not hold.
