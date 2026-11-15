@@ -22,9 +22,10 @@ fn main() {
         Some("gen") => cmd_gen(&args[2..]),
         Some("run") => cmd_run(&args[2..]),
         Some("wall") => cmd_wall(&args[2..]),
+        Some("dist") => cmd_dist(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed>\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]\n  onebrc-probe dist <path> [workers]"
             );
             std::process::exit(2);
         }
@@ -319,4 +320,57 @@ fn lane_k_variant(
         "kmwh" => (TempPath::Swar, NameHash::Word, Agg::Histogram),
         other => unreachable!("lane K variant {other}"),
     }
+}
+
+/// `dist <path> [workers]`: lane K's histogram path over an mmapped file,
+/// printing min, p10, median, p90 and max (tenths) for the first and last
+/// 3 stations, plus the open-to-result time in ns per row.
+#[cfg(unix)]
+fn cmd_dist(args: &[String]) {
+    let path = PathBuf::from(args.first().expect("usage: dist <path> [workers]"));
+    let workers: usize = args
+        .get(1)
+        .map(|s| s.parse().expect("workers must be a usize"))
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1)
+        });
+    let start = Instant::now();
+    let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
+    let dist = onebrc_probe::lane_k_distributions(
+        m.as_slice(),
+        workers,
+        onebrc_probe::TempPath::Swar,
+        onebrc_probe::NameHash::Word,
+    );
+    let rows: u64 = dist.values().map(|d| d.count()).sum();
+    let ns_per_row = start.elapsed().as_nanos() as f64 / rows.max(1) as f64;
+    println!(
+        "dist rows={rows} workers={workers} stations={} ns_per_row={ns_per_row:.3}",
+        dist.len()
+    );
+    let line = |name: &str, d: &onebrc_probe::Distribution| {
+        let q = |p| d.percentile(p).unwrap();
+        println!(
+            "  {name}: min {} p10 {} median {} p90 {} max {}",
+            q(0),
+            q(10),
+            q(50),
+            q(90),
+            q(100)
+        );
+    };
+    for (name, d) in dist.iter().take(3) {
+        line(name, d);
+    }
+    for (name, d) in dist.iter().rev().take(3) {
+        line(name, d);
+    }
+}
+
+#[cfg(not(unix))]
+fn cmd_dist(_: &[String]) {
+    eprintln!("dist needs a Unix mmap");
+    std::process::exit(1);
 }

@@ -564,6 +564,139 @@ pub fn lane_k_codebook_agg(
     merge(&books)
 }
 
+/// One station's temperature distribution: a count per temperature code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Distribution {
+    counts: Vec<u32>,
+}
+
+impl Distribution {
+    fn empty() -> Self {
+        Distribution {
+            counts: vec![0; CODES],
+        }
+    }
+
+    /// Count per code; index `c` holds the observations of `c - 999` tenths.
+    pub fn counts(&self) -> &[u32] {
+        &self.counts
+    }
+
+    /// Number of observations.
+    pub fn count(&self) -> u64 {
+        self.counts.iter().map(|&n| n as u64).sum()
+    }
+
+    /// min, max, sum and count in tenths, computed from the counts.
+    pub fn stats(&self) -> Stats {
+        let (mut lo, mut hi, mut sum, mut n) = (None, 0usize, 0i64, 0u32);
+        for (code, &c) in self.counts.iter().enumerate() {
+            if c > 0 {
+                lo.get_or_insert(code);
+                hi = code;
+                sum += (code as i64 - TEMP_OFFSET as i64) * c as i64;
+                n += c;
+            }
+        }
+        let lo = lo.unwrap_or(0);
+        Stats {
+            min: lo as i32 - TEMP_OFFSET,
+            max: hi as i32 - TEMP_OFFSET,
+            sum,
+            count: n,
+        }
+    }
+
+    /// The `rank`-th smallest observation in tenths (1-based), or `None`
+    /// when `rank` is 0 or above the count.
+    pub fn nth(&self, rank: u64) -> Option<i32> {
+        if rank == 0 {
+            return None;
+        }
+        let mut seen = 0u64;
+        for (code, &c) in self.counts.iter().enumerate() {
+            seen += c as u64;
+            if seen >= rank {
+                return Some(code as i32 - TEMP_OFFSET);
+            }
+        }
+        None
+    }
+
+    /// Nearest-rank percentile in tenths: the smallest observed value with at
+    /// least ⌈p·n/100⌉ observations at or below it. `p` is a whole percent,
+    /// 0 to 100; 0 gives the minimum. Integer arithmetic throughout. `None`
+    /// for an empty distribution or `p > 100`.
+    pub fn percentile(&self, p: u32) -> Option<i32> {
+        if p > 100 {
+            return None;
+        }
+        let n = self.count();
+        let rank = (p as u64 * n).div_ceil(100).max(1);
+        self.nth(rank)
+    }
+
+    /// The median as nearest-rank percentile 50: the lower of the two middle
+    /// values when the count is even.
+    pub fn median(&self) -> Option<i32> {
+        self.percentile(50)
+    }
+}
+
+/// Sum the per-worker histograms per station: one [`Distribution`] per
+/// station, keyed and ordered by name. Every codebook must come from
+/// [`Agg::Histogram`].
+pub fn merge_distributions(books: &[Codebook<'_>]) -> BTreeMap<String, Distribution> {
+    let mut out: BTreeMap<String, Distribution> = BTreeMap::new();
+    for b in books {
+        assert!(
+            b.histogram,
+            "merge_distributions needs Agg::Histogram codebooks"
+        );
+        for (id, &name) in b.names.iter().enumerate() {
+            let name = std::str::from_utf8(name).expect("station name is valid utf8");
+            let d = out
+                .entry(name.to_string())
+                .or_insert_with(Distribution::empty);
+            for (acc, &c) in d
+                .counts
+                .iter_mut()
+                .zip(&b.hist[id * CODES..(id + 1) * CODES])
+            {
+                *acc += c;
+            }
+        }
+    }
+    out
+}
+
+/// Lane K with the histogram kept: each station's full distribution, from
+/// which [`Distribution::percentile`] and [`Distribution::median`] read.
+pub fn lane_k_distributions(
+    data: &[u8],
+    workers: usize,
+    path: TempPath,
+    hash: NameHash,
+) -> BTreeMap<String, Distribution> {
+    let table = TempTable::build();
+    let bounds = crate::chunk_bounds(data, workers.max(1));
+    let books: Vec<Codebook<'_>> = std::thread::scope(|scope| {
+        let table = &table;
+        let handles: Vec<_> = bounds
+            .iter()
+            .map(|&(start, end)| {
+                let slice = &data[start..end];
+                scope.spawn(move || accumulate_agg(slice, path, hash, Agg::Histogram, table))
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|h| h.join().expect("lane K worker panicked"))
+            .collect()
+    });
+    merge_distributions(&books)
+}
+
 /// A read-only memory mapping of a whole file.
 #[cfg(unix)]
 pub struct Mapped {
@@ -814,6 +947,66 @@ mod tests {
             (-999, 999, -999)
         );
         assert_eq!((k["Mid"].min, k["Mid"].max, k["Mid"].count), (0, 0, 1));
+    }
+
+    /// Every station's observations, sorted, straight from the text.
+    fn sorted_reference(data: &[u8]) -> BTreeMap<String, Vec<i32>> {
+        let mut m: BTreeMap<String, Vec<i32>> = BTreeMap::new();
+        for line in data.split(|&b| b == b'\n').filter(|l| !l.is_empty()) {
+            let semi = line.iter().position(|&b| b == b';').unwrap();
+            let name = std::str::from_utf8(&line[..semi]).unwrap().to_string();
+            m.entry(name)
+                .or_default()
+                .push(parse_tenths(&line[semi + 1..]));
+        }
+        for v in m.values_mut() {
+            v.sort_unstable();
+        }
+        m
+    }
+
+    #[test]
+    fn percentiles_match_a_sorted_reference() {
+        let (path, data) = corpus(60_000, 43);
+        std::fs::remove_file(&path).ok();
+        let reference = sorted_reference(&data);
+        let lane_a = crate::lane_a_scalar(&data);
+        for workers in [1, 3, 7] {
+            for (p, h) in [
+                (TempPath::Parse, NameHash::Fnv),
+                (TempPath::Swar, NameHash::Word),
+            ] {
+                let dist = lane_k_distributions(&data, workers, p, h);
+                assert_eq!(dist.len(), reference.len());
+                for (name, sorted) in &reference {
+                    let d = &dist[name];
+                    assert_eq!(d.stats(), lane_a[name], "{name}");
+                    let n = sorted.len() as u64;
+                    for pct in [0u32, 1, 10, 25, 50, 75, 90, 99, 100] {
+                        let rank = (pct as u64 * n).div_ceil(100).max(1);
+                        let want = sorted[(rank - 1) as usize];
+                        assert_eq!(d.percentile(pct), Some(want), "{name} p{pct} w{workers}");
+                    }
+                    assert_eq!(d.median(), d.percentile(50));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nearest_rank_on_a_small_known_set() {
+        // Values -1.0, 0.5, 0.5, 2.0: lower median 0.5, p25 -1.0, p75 0.5.
+        let data = b"S;-1.0\nS;0.5\nS;2.0\nS;0.5\n";
+        let d = &lane_k_distributions(data, 1, TempPath::Parse, NameHash::Fnv)["S"];
+        assert_eq!(d.median(), Some(5));
+        assert_eq!(d.percentile(25), Some(-10));
+        assert_eq!(d.percentile(75), Some(5));
+        assert_eq!(d.percentile(76), Some(20));
+        assert_eq!(d.percentile(0), Some(-10));
+        assert_eq!(d.percentile(100), Some(20));
+        assert_eq!(d.percentile(101), None);
+        assert_eq!(d.nth(0), None);
+        assert_eq!(d.nth(5), None);
     }
 
     #[test]
