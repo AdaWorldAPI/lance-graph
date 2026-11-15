@@ -25,7 +25,7 @@ fn main() {
         Some("dist") => cmd_dist(&args[2..]),
         _ => {
             eprintln!(
-                "usage:\n  onebrc-probe gen <path> <rows> <seed> [stations]\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]\n  onebrc-probe dist <path> [workers]"
+                "usage:\n  onebrc-probe gen <path> <rows> <seed> [stations]\n  onebrc-probe run <path> <lane:a|b|c|d|e|f|r|s|k|kt|km|kw|kmw|kh|kmwh|kmwc> [workers] [batches]\n  onebrc-probe wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]\n  onebrc-probe dist <path> [workers] [hist|c9]"
             );
             std::process::exit(2);
         }
@@ -141,7 +141,7 @@ fn cmd_run(args: &[String]) {
         "f" => onebrc_probe::lane_f_morton(&data, workers),
         "r" => onebrc_probe::lane_r_radix(&data, workers),
         "s" => onebrc_probe::lane_s_swar(&data, workers),
-        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" => {
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" => {
             let (p, h, g) = lane_k_variant(lane);
             onebrc_probe::lane_k_codebook_agg(&data, workers, p, h, g)
         }
@@ -254,14 +254,14 @@ fn cmd_run(args: &[String]) {
     }
 }
 
-/// `wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]`: end-to-end time from opening the file
+/// `wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]`: end-to-end time from opening the file
 /// to the finished result, reported in nanoseconds per row. Lanes `k`/`kt`
 /// memory-map the file; lane `s` reads it with `fs::read` inside the timer.
 /// Run each lane twice and keep the second: the first run warms the page
 /// cache, which neither lane controls.
 #[cfg(unix)]
 fn cmd_wall(args: &[String]) {
-    let usage = "usage: wall <path> <k|kt|km|kw|kmw|kh|kmwh|s> [workers]";
+    let usage = "usage: wall <path> <k|kt|km|kw|kmw|kh|kmwh|kmwc|s> [workers]";
     let path = PathBuf::from(args.first().expect(usage));
     let lane = args.get(1).map(String::as_str).expect(usage);
     let workers: usize = args
@@ -274,7 +274,7 @@ fn cmd_wall(args: &[String]) {
         });
     let start = Instant::now();
     let (map, rows) = match lane {
-        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" => {
+        "k" | "kt" | "km" | "kw" | "kmw" | "kh" | "kmwh" | "kmwc" => {
             let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
             let (p, h, g) = lane_k_variant(lane);
             let map = onebrc_probe::lane_k_codebook_agg(m.as_slice(), workers, p, h, g);
@@ -324,6 +324,13 @@ fn lane_k_variant(
         "kmw" => (TempPath::Swar, NameHash::Word, Agg::Running),
         "kh" => (TempPath::Parse, NameHash::Fnv, Agg::Histogram),
         "kmwh" => (TempPath::Swar, NameHash::Word, Agg::Histogram),
+        #[cfg(feature = "codec9")]
+        "kmwc" => (TempPath::Swar, NameHash::Word, Agg::Codec9),
+        #[cfg(not(feature = "codec9"))]
+        "kmwc" => {
+            eprintln!("lane kmwc requires --features codec9");
+            std::process::exit(1);
+        }
         other => unreachable!("lane K variant {other}"),
     }
 }
@@ -344,11 +351,21 @@ fn cmd_dist(args: &[String]) {
         });
     let start = Instant::now();
     let m = onebrc_probe::lane_k::Mapped::open(&path).expect("map corpus file");
-    let dist = onebrc_probe::lane_k_distributions(
+    let agg = match args.get(2).map(String::as_str) {
+        None | Some("hist") => onebrc_probe::Agg::Histogram,
+        #[cfg(feature = "codec9")]
+        Some("c9") => onebrc_probe::Agg::Codec9,
+        Some(other) => {
+            eprintln!("unknown table '{other}' (expected hist, or c9 with --features codec9)");
+            std::process::exit(2);
+        }
+    };
+    let dist = onebrc_probe::lane_k_distributions_agg(
         m.as_slice(),
         workers,
         onebrc_probe::TempPath::Swar,
         onebrc_probe::NameHash::Word,
+        agg,
     );
     let rows: u64 = dist.values().map(|d| d.count()).sum();
     let ns_per_row = start.elapsed().as_nanos() as f64 / rows.max(1) as f64;

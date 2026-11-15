@@ -126,6 +126,51 @@ pub enum Agg {
     /// 1,999 `u32` counters per station: 3.2 MB per worker for 400
     /// stations, 80 MB for 10,000.
     Histogram,
+    /// A Codec9 window: 512 counters per station indexed by the reading's
+    /// Codec9 word at one tenth per step, covering −25.5 to +25.5 (word 0,
+    /// the never-touched code, is never counted). A reading outside the
+    /// window goes to a full-range row that the station allocates on its
+    /// first such reading, so the counts stay exact. 2 KB per station:
+    /// 0.8 MB per worker for 400 stations, 20.5 MB for 10,000.
+    #[cfg(feature = "codec9")]
+    Codec9,
+}
+
+/// Codec9 window helpers over ndarray's codec (`hpc::codec9`).
+#[cfg(feature = "codec9")]
+mod c9 {
+    use ndarray::hpc::codec8::{Calibration, TiesEven};
+    use ndarray::hpc::codec9::{Codec9, EpiLane9};
+
+    /// One tenth of a degree per step.
+    pub struct Tenth;
+    impl Calibration for Tenth {
+        const SCALE: f32 = 1.0;
+        const ZERO_POINT: i32 = 0;
+    }
+    type Q = Codec9<TiesEven, Tenth>;
+
+    /// Number of Codec9 words, including the never-touched word 0.
+    pub const WORDS: usize = 512;
+    /// Largest magnitude the window holds, in tenths.
+    pub const REACH: i32 = 255;
+
+    /// The Codec9 word of `tenths`. The encoder saturates silently at
+    /// magnitude 255, so the caller must keep `|tenths| <= REACH`.
+    #[inline(always)]
+    pub fn word(tenths: i32) -> usize {
+        debug_assert!(tenths.abs() <= REACH);
+        Q::encode_touched(tenths as f32)
+            .expect("an integer tenth is finite")
+            .codeword() as usize
+    }
+
+    /// The tenths a numeric word stands for, `None` for never-touched.
+    pub fn value(word: usize) -> Option<i32> {
+        EpiLane9::from_codeword(word as u16)
+            .and_then(|l| l.value())
+            .map(i32::from)
+    }
 }
 
 /// Number of distinct temperature codes (`-99.9..=99.9`).
@@ -299,7 +344,13 @@ pub struct Codebook<'a> {
     pub count: Vec<u32>,
     /// `Agg::Histogram` only: `CODES` counters per station, row-major.
     hist: Vec<u32>,
-    histogram: bool,
+    /// `Agg::Codec9` only: `c9::WORDS` counters per station, row-major, and
+    /// each station's full-range overflow row once it has one.
+    #[cfg(feature = "codec9")]
+    window: Vec<u32>,
+    #[cfg(feature = "codec9")]
+    overflow: Vec<Option<Box<[u32]>>>,
+    agg: Agg,
 }
 
 impl<'a> Codebook<'a> {
@@ -317,7 +368,11 @@ impl<'a> Codebook<'a> {
             sum: Vec::new(),
             count: Vec::new(),
             hist: Vec::new(),
-            histogram: agg == Agg::Histogram,
+            #[cfg(feature = "codec9")]
+            window: Vec::new(),
+            #[cfg(feature = "codec9")]
+            overflow: Vec::new(),
+            agg,
         }
     }
 
@@ -347,8 +402,14 @@ impl<'a> Codebook<'a> {
                 self.max.push(0);
                 self.sum.push(0);
                 self.count.push(0);
-                if self.histogram {
-                    self.hist.resize(self.hist.len() + CODES, 0);
+                match self.agg {
+                    Agg::Running => {}
+                    Agg::Histogram => self.hist.resize(self.hist.len() + CODES, 0),
+                    #[cfg(feature = "codec9")]
+                    Agg::Codec9 => {
+                        self.window.resize(self.window.len() + c9::WORDS, 0);
+                        self.overflow.push(None);
+                    }
                 }
                 return id;
             }
@@ -365,14 +426,49 @@ impl<'a> Codebook<'a> {
         self.hist[id * CODES + code as usize] += 1;
     }
 
+    #[cfg(feature = "codec9")]
+    #[inline(always)]
+    fn observe_codec9(&mut self, id: usize, code: u16) {
+        let tenths = code as i32 - TEMP_OFFSET;
+        if tenths.abs() <= c9::REACH {
+            self.window[id * c9::WORDS + c9::word(tenths)] += 1;
+        } else {
+            self.overflow[id].get_or_insert_with(|| vec![0; CODES].into_boxed_slice())
+                [code as usize] += 1;
+        }
+    }
+
+    /// Station `id`'s counts on the full code range, whatever the table
+    /// layout. `None` for `Agg::Running`, which keeps no counts.
+    pub fn absolute_row(&self, id: usize) -> Option<Vec<u32>> {
+        match self.agg {
+            Agg::Running => None,
+            Agg::Histogram => Some(self.hist[id * CODES..(id + 1) * CODES].to_vec()),
+            #[cfg(feature = "codec9")]
+            Agg::Codec9 => {
+                let mut row = match &self.overflow[id] {
+                    Some(o) => o.to_vec(),
+                    None => vec![0; CODES],
+                };
+                let w = &self.window[id * c9::WORDS..(id + 1) * c9::WORDS];
+                for (word, &n) in w.iter().enumerate() {
+                    if n > 0 {
+                        let t = c9::value(word).expect("word 0 is never counted");
+                        row[(t + TEMP_OFFSET) as usize] += n;
+                    }
+                }
+                Some(row)
+            }
+        }
+    }
+
     /// Turn the histogram into min, max, sum and count. A no-op for
     /// `Agg::Running`.
     pub fn finish(&mut self) {
-        if !self.histogram {
-            return;
-        }
         for id in 0..self.names.len() {
-            let row = &self.hist[id * CODES..(id + 1) * CODES];
+            let Some(row) = self.absolute_row(id) else {
+                return;
+            };
             let (mut sum, mut count) = (0u64, 0u32);
             let (mut lo, mut hi) = (u16::MAX, 0u16);
             for (code, &n) in row.iter().enumerate() {
@@ -465,10 +561,11 @@ pub fn accumulate_agg<'a>(
             NameHash::Word => word_hash(data, i, semi),
         };
         let id = cb.id_hashed(name, h);
-        if agg == Agg::Histogram {
-            cb.observe_hist(id, code);
-        } else {
-            cb.observe(id, code);
+        match agg {
+            Agg::Running => cb.observe(id, code),
+            Agg::Histogram => cb.observe_hist(id, code),
+            #[cfg(feature = "codec9")]
+            Agg::Codec9 => cb.observe_codec9(id, code),
         }
         i = next;
     }
@@ -650,19 +747,16 @@ pub fn merge_distributions(books: &[Codebook<'_>]) -> BTreeMap<String, Distribut
     let mut out: BTreeMap<String, Distribution> = BTreeMap::new();
     for b in books {
         assert!(
-            b.histogram,
-            "merge_distributions needs Agg::Histogram codebooks"
+            b.agg != Agg::Running,
+            "merge_distributions needs codebooks that keep counts"
         );
         for (id, &name) in b.names.iter().enumerate() {
             let name = std::str::from_utf8(name).expect("station name is valid utf8");
             let d = out
                 .entry(name.to_string())
                 .or_insert_with(Distribution::empty);
-            for (acc, &c) in d
-                .counts
-                .iter_mut()
-                .zip(&b.hist[id * CODES..(id + 1) * CODES])
-            {
+            let row = b.absolute_row(id).expect("checked above");
+            for (acc, &c) in d.counts.iter_mut().zip(&row) {
                 *acc += c;
             }
         }
@@ -678,6 +772,22 @@ pub fn lane_k_distributions(
     path: TempPath,
     hash: NameHash,
 ) -> BTreeMap<String, Distribution> {
+    lane_k_distributions_agg(data, workers, path, hash, Agg::Histogram)
+}
+
+/// [`lane_k_distributions`] with an explicit table layout: any `Agg` that
+/// keeps counts (`Histogram`, or `Codec9` with the `codec9` feature).
+pub fn lane_k_distributions_agg(
+    data: &[u8],
+    workers: usize,
+    path: TempPath,
+    hash: NameHash,
+    agg: Agg,
+) -> BTreeMap<String, Distribution> {
+    assert!(
+        agg != Agg::Running,
+        "distributions need an Agg that keeps counts"
+    );
     let table = TempTable::build();
     let bounds = crate::chunk_bounds(data, workers.max(1));
     let books: Vec<Codebook<'_>> = std::thread::scope(|scope| {
@@ -686,7 +796,7 @@ pub fn lane_k_distributions(
             .iter()
             .map(|&(start, end)| {
                 let slice = &data[start..end];
-                scope.spawn(move || accumulate_agg(slice, path, hash, Agg::Histogram, table))
+                scope.spawn(move || accumulate_agg(slice, path, hash, agg, table))
             })
             .collect();
         handles
@@ -1015,6 +1125,77 @@ mod tests {
         }
         let d = lane_k_distributions(&data, 4, TempPath::Swar, NameHash::Word);
         assert_eq!(d.len(), a.len());
+    }
+
+    #[cfg(feature = "codec9")]
+    #[test]
+    fn codec9_window_agrees_with_lane_a_and_the_sorted_reference() {
+        for (rows, seed, stations) in [(60_000u64, 43u64, 400usize), (300_000, 11, 10_000)] {
+            let path = std::env::temp_dir().join(format!(
+                "onebrc_probe_test_kc9_{}_{stations}.txt",
+                std::process::id()
+            ));
+            crate::gen::gen_with_stations(&path, rows, seed, stations).expect("gen");
+            let data = std::fs::read(&path).expect("read corpus");
+            std::fs::remove_file(&path).ok();
+            let a = crate::lane_a_scalar(&data);
+            let reference = sorted_reference(&data);
+            // The generator reaches ±30.0, so some stations overflow the window.
+            assert!(reference.values().flatten().any(|t| t.abs() > 255));
+            for workers in [1, 4] {
+                for (p, h) in [
+                    (TempPath::Parse, NameHash::Fnv),
+                    (TempPath::Swar, NameHash::Word),
+                ] {
+                    assert_eq!(a, lane_k_codebook_agg(&data, workers, p, h, Agg::Codec9));
+                    let dist = lane_k_distributions_agg(&data, workers, p, h, Agg::Codec9);
+                    for (name, sorted) in &reference {
+                        let n = sorted.len() as u64;
+                        for pct in [0u32, 10, 50, 90, 100] {
+                            let rank = (pct as u64 * n).div_ceil(100).max(1);
+                            assert_eq!(
+                                dist[name].percentile(pct),
+                                Some(sorted[(rank - 1) as usize]),
+                                "{name} p{pct}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "codec9")]
+    #[test]
+    fn codec9_window_edges_and_overflow() {
+        // ±25.5 sits in the window (words 255 and 511); ±25.6 and the range
+        // ends go to the overflow row; 0.0 is word 256, -0.1 word 1.
+        let data = b"E;-99.9\nE;-25.6\nE;-25.5\nE;-0.1\nE;0.0\nE;25.5\nE;25.6\nE;99.9\n";
+        let t = TempTable::build();
+        let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, Agg::Codec9, &t);
+        assert_eq!(cb.window[255], 1);
+        assert_eq!(cb.window[511], 1);
+        assert_eq!(cb.window[256], 1);
+        assert_eq!(cb.window[1], 1);
+        assert_eq!(cb.window[0], 0, "the never-touched word is never counted");
+        let o = cb.overflow[0].as_ref().expect("an overflow row");
+        assert_eq!(o.iter().sum::<u32>(), 4);
+        let k = merge(&[cb]);
+        assert_eq!(k, crate::lane_a_scalar(data));
+        let d =
+            &lane_k_distributions_agg(data, 1, TempPath::Parse, NameHash::Fnv, Agg::Codec9)["E"];
+        assert_eq!(d.median(), Some(-1));
+        assert_eq!(d.percentile(100), Some(999));
+        assert_eq!(d.percentile(0), Some(-999));
+    }
+
+    #[cfg(feature = "codec9")]
+    #[test]
+    fn a_station_inside_the_window_never_allocates_an_overflow_row() {
+        let data = b"In;-25.5\nIn;12.3\nIn;25.5\n";
+        let t = TempTable::build();
+        let cb = accumulate_agg(data, TempPath::Parse, NameHash::Fnv, Agg::Codec9, &t);
+        assert!(cb.overflow[0].is_none());
     }
 
     #[test]
