@@ -328,9 +328,12 @@ pub struct Cube {
     rels: Vec<Rel>,
     /// One append-only delta log per relation, parallel to `rels`.
     logs: Vec<DeltaLog>,
-    /// Per relation, how many times [`Cube::refold`] has replaced the base
-    /// lanes with different ones. A [`BaseClosure`] records the value it was
-    /// computed at. Parallel to `rels`.
+    /// Per relation, how many times [`Cube::refold`] has folded a non-empty
+    /// log into the base lanes, whether or not the lanes changed (an add then
+    /// a retire of the same edge folds back to the same base and still
+    /// counts: a still-valid closure is refused, never a stale one accepted).
+    /// A [`BaseClosure`] records the value it was computed at. Parallel to
+    /// `rels`.
     base_gen: Vec<u64>,
     /// Per relation, the base lanes folded with the relation's log, built on
     /// first read when the log is non-empty and dropped whenever the base or

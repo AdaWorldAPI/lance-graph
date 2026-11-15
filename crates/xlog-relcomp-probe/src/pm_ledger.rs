@@ -20,6 +20,10 @@
 //!   carries once, though it ends at 255);
 //! - `demotions`: a wide value moved back to a lane;
 //! - [`PmLedger::escalated`]: keys wide right now.
+//!
+//! The wide escape is `i64` and checked: an addition whose exact sum leaves
+//! `i64` is refused with [`PmOverflow`] and changes nothing, so a ledger
+//! never holds a wrapped value. `i64::MIN` is a legal value.
 pub use ndarray::hpc::abakus::pm::Pm;
 use ndarray::hpc::abakus::pm::{add_pm, touched};
 use ndarray::simd::U8x64;
@@ -37,6 +41,34 @@ pub fn decode_lane(m: u8, p: bool) -> Option<i64> {
 pub fn encode_lane(v: i64) -> (u8, bool) {
     assert!((-255..=255).contains(&v), "out of range: {v}");
     (v.unsigned_abs() as u8, v >= 0)
+}
+
+/// An addition refused because its exact sum leaves `i64`. The ledger is
+/// unchanged.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PmOverflow {
+    /// The key whose sum overflowed.
+    pub key: usize,
+    /// Its value before the addition (never touched reads as 0).
+    pub have: i64,
+    /// The value added.
+    pub add: i64,
+}
+
+impl std::fmt::Display for PmOverflow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "key {}: {} + {} leaves i64",
+            self.key, self.have, self.add
+        )
+    }
+}
+
+impl std::error::Error for PmOverflow {}
+
+fn checked(key: usize, have: i64, add: i64) -> Result<i64, PmOverflow> {
+    have.checked_add(add).ok_or(PmOverflow { key, have, add })
 }
 
 /// A keyed signed counter over `n` keys. See the module doc.
@@ -126,7 +158,7 @@ impl PmLedger {
     /// Key `k` (not wide) takes the exact value `v`: a lane if it fits, else
     /// wide, counted as a carry.
     fn put(&mut self, k: usize, v: i64) {
-        if v.abs() > 255 {
+        if v.unsigned_abs() > 255 {
             self.carries += 1;
             self.escalate(k, v);
         } else {
@@ -137,7 +169,7 @@ impl PmLedger {
     /// Demote key `k` if it is wide and back within ±255.
     fn settle(&mut self, k: usize) {
         let (b, i) = (k / 64, k % 64);
-        if self.escaped[b] >> i & 1 == 1 && self.wide[k].abs() <= 255 {
+        if self.escaped[b] >> i & 1 == 1 && self.wide[k].unsigned_abs() <= 255 {
             self.escaped[b] &= !(1 << i);
             let w = self.wide[k];
             self.wide[k] = 0;
@@ -146,18 +178,19 @@ impl PmLedger {
         }
     }
 
-    /// Add `w` to key `k` (one event; `w` is touched even when 0).
-    pub fn add(&mut self, k: usize, w: i64) {
+    /// Add `w` to key `k` (one event; `w` is touched even when 0). Refused,
+    /// with nothing changed, when the exact sum leaves `i64`.
+    pub fn add(&mut self, k: usize, w: i64) -> Result<(), PmOverflow> {
         let (b, i) = (k / 64, k % 64);
         if self.escaped[b] >> i & 1 == 1 {
-            self.wide[k] += w;
+            self.wide[k] = checked(k, self.wide[k], w)?;
             self.settle(k);
-            return;
+            return Ok(());
         }
         let old = self.value(k);
-        if w.abs() > 255 {
-            self.put(k, old.unwrap_or(0) + w);
-            return;
+        if w.unsigned_abs() > 255 {
+            self.put(k, checked(k, old.unwrap_or(0), w)?);
+            return Ok(());
         }
         let (m, p) = encode_lane(w);
         let mut one = [0u8; 64];
@@ -168,17 +201,34 @@ impl PmLedger {
         };
         let (sum, carry) = add_pm(self.blocks[b], lane).into_saturated_parts();
         if carry >> i & 1 == 1 {
+            // Both sides are lanes (|.| <= 255): the sum cannot leave i64.
             self.carries += 1;
             self.escalate(k, old.unwrap_or(0) + w);
         } else {
             self.blocks[b] = sum;
         }
+        Ok(())
     }
 
     /// Add every value of `delta` into `self`, 64 keys per `add_pm`. Lanes
     /// that carry, and keys wide on either side, go through the wide escape.
-    pub fn absorb(&mut self, delta: &PmLedger) {
+    /// Refused, with nothing changed, when any key's exact sum leaves `i64`.
+    pub fn absorb(&mut self, delta: &PmLedger) -> Result<(), PmOverflow> {
         assert_eq!(self.len(), delta.len(), "same key space");
+        // Only a key wide on one side can leave i64 (two lanes sum within
+        // +-510), so checking those first makes the whole absorb atomic and
+        // every sum below safe.
+        for b in 0..self.blocks.len() {
+            let mut w = self.escaped[b] | delta.escaped[b];
+            while w != 0 {
+                let k = b * 64 + w.trailing_zeros() as usize;
+                w &= w - 1;
+                let x = delta.value(k);
+                if let Some(x) = x {
+                    checked(k, self.value(k).unwrap_or(0), x)?;
+                }
+            }
+        }
         let zero = U8x64::splat(0);
         for b in 0..self.blocks.len() {
             let (se, de) = (self.escaped[b], delta.escaped[b]);
@@ -231,6 +281,7 @@ impl PmLedger {
                 }
             }
         }
+        Ok(())
     }
 
     /// Every key back to never touched; the counters are kept.
