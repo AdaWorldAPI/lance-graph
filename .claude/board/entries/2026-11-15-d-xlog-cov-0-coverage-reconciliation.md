@@ -1,5 +1,12 @@
 # 2026-11-15 — D-XLOG-COV-0: XLOG coverage reconciliation (lab only)
 
+> ⊘ **Superseded on the ladder counts by D-XLOG-COV-1**
+> (`2026-11-15-d-xlog-cov-1-coverage-parity.md`). The committed census is now
+> `census-656def9.tsv`; `census-c9bd9dc.tsv` is in git history. The 20
+> "unverified" rules below were limits of this probe's oracle, plus two cube
+> defects it could not yet see. All of them now have verdicts. Everything
+> else in this entry stands.
+
 **Kind:** lab probe `crates/xlog-coverage-probe` (own workspace, not a member),
 two safety reproductions, board correction. No production code changed, no
 execution authority added, nothing admitted.

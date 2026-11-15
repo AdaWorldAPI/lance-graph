@@ -145,12 +145,12 @@ fn without_seeds_no_rule_is_verified() {
 
 /// Facts stated for a derived predicate are part of its answer (Datalog,
 /// and XLOG's own `test_same_head_union_batching.rs` literal 2 expects them).
-/// The oracle starts the predicate from its facts; the cube is handed them as
-/// any host would, and drops them: it answers only the derived row. Pinned
-/// as a disagreement naming exactly the dropped fact, so a cube that keeps
-/// the facts turns this red and the pin is re-taken.
+/// The oracle starts the predicate from its facts and the cube is handed them
+/// as any host would. Before xlog-cube kept rows put for a derived predicate
+/// this was a disagreement naming exactly the dropped fact (`oracle_only=[[1,
+/// 2]]`); now the two agree, on the facts included.
 #[test]
-fn a_derived_predicate_with_facts_is_judged_and_the_cube_drops_the_facts() {
+fn a_derived_predicate_with_facts_is_judged_with_its_facts() {
     // r and s carry facts too, so XLOG types every column alike and the
     // program compiles (without them `q(1, 2)` types U32 against U64).
     let src = "r(1, 2). s(2, 3). q(1, 2). q(X,Z) :- r(X,Y), s(Y,Z).";
@@ -158,12 +158,26 @@ fn a_derived_predicate_with_facts_is_judged_and_the_cube_drops_the_facts() {
     assert_eq!(rec.program_rung, None, "{rec:?}");
     assert_eq!(rec.rules.len(), 1, "{rec:?}");
     let q = &rec.rules[0];
-    assert_eq!(q.rung, Rung::OracleDisagrees, "{q:?}");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
     assert_eq!(q.oracle, "naive", "{q:?}");
-    assert!(
-        q.reason.ends_with("cube_only=[] oracle_only=[[1, 2]]"),
-        "{q:?}"
-    );
+    assert_eq!(q.nonempty_seeds, DEFAULT_SEEDS.len(), "{q:?}");
+}
+
+/// A query over a relation the cube refuses is refused too, by name. Before
+/// xlog-cube propagated the refusal it ran over an empty stand-in and was an
+/// oracle disagreement (shape of executor_config_tests.rs literal 5).
+#[test]
+fn a_reader_of_a_refused_relation_is_refused() {
+    let src = "pair(1, 10). pair(1, 20). pair(2, 10). blocked(1, 10). \
+               keep(X, Y) :- pair(X, Y), not blocked(X, Y). ?- keep(X, Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "__xlog_query_0")
+        .expect("generated head");
+    assert_eq!(q.rung, Rung::Refused, "{rec:?}");
+    assert_eq!(q.reason, "reads refused relation `keep`", "{q:?}");
 }
 
 #[test]
