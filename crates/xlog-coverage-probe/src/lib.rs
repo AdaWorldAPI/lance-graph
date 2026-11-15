@@ -3,11 +3,12 @@
 //! XLOG's census (`xlog-cube/examples/coverage.rs`) counts which compiled
 //! rules the cube admits, over EMPTY base relations, so "admitted" says
 //! nothing about correctness. This probe runs the same compiled plan on the
-//! cube over NON-EMPTY base relations and compares the cube's output with
-//! XLOG's own CPU reference fixpoint evaluator
-//! (`xlog_logic::hypergraph::evaluate_scc_fixpoint`), which works from the
-//! parsed AST and not from the compiled plan the cube runs. Each compiled
-//! rule gets a [`Rung`] on an evidence ladder.
+//! cube over NON-EMPTY base relations and compares the cube's output with an
+//! independent naive Datalog evaluator over the parsed AST ([`naive`]), with
+//! XLOG's own reference evaluator
+//! (`xlog_logic::hypergraph::evaluate_scc_fixpoint`) as a cross-check. Neither
+//! reads the compiled plan the cube runs. Each compiled rule gets a [`Rung`]
+//! on an evidence ladder.
 //!
 //! A lab probe and an oracle arm: cold, correctness only, never a timing gate.
 
@@ -201,6 +202,9 @@ struct Nonempty {
 /// A base predicate and, when the program states ground facts for it, those
 /// facts (used instead of random rows).
 type BaseSpec = (String, Option<Vec<(u32, u32)>>);
+
+/// The base rows handed to the cube, per relation name.
+type Supplied = Vec<(String, Vec<(u32, u32)>)>;
 
 fn first_line(s: &str) -> String {
     s.lines().next().unwrap_or("").to_string()
@@ -605,7 +609,7 @@ fn seed_relations(
     base: &[BaseSpec],
     seed: u64,
     pool: &[u32],
-) -> (RefRelationStore, Vec<(String, Vec<(u32, u32)>)>) {
+) -> (RefRelationStore, Supplied) {
     let mut store = RefRelationStore::new();
     let mut supplied = Vec::with_capacity(base.len());
     for (name, facts) in base {
