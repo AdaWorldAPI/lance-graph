@@ -523,3 +523,25 @@ they cost nothing extra (§13).
 The 10,000 names here come from the probe's syllable generator, shorter
 than the 1BRC key set's names (up to 100 bytes), so name handling is
 cheaper here than in the official 10K run.
+
+## 16. Codec9 counter window pre-registration (2026-11-15, before measuring)
+
+`Agg::Codec9` (`--features codec9`): each reading counted at its Codec9
+word (ndarray `hpc::codec9`, one tenth per step), 512 counters per station
+covering ±25.5; readings beyond that go to a full-range overflow row the
+station allocates on first use. In this generator 2.52 % of readings and
+89 of 400 mean values reach beyond ±25.5, so about 22 % of stations carry
+an overflow row: about 0.8 MB window + 0.7 MB overflow per worker at 400
+stations, 20.5 MB + about 18 MB at 10,000 (against the histogram's 3.2 and
+80 MB). Lane `kmwc` (multiply parse, word hash, Codec9 window) against
+`kmw` and `kmwh`, and `dist … c9` against `dist … hist`, on both corpora,
+§6's pass rule; instructions per row as in §10.
+
+- Y1: at 10,000 stations `kmwc` beats `kmwh` in `run` by more than 10 %
+  (half the counter memory).
+- Y2: at 10,000 stations `kmwc` is still slower than `kmw` (38 MB of
+  counters per worker remain far outside L2).
+- Y3: at 400 stations `kmwc` is within ±10 % of `kmwh` in `run`.
+- Y4: `kmwc` executes more instructions per row than `kmwh` (the encoder's
+  f32 round-trip and the window bound check).
+Kill for each: the stated relation does not hold.
