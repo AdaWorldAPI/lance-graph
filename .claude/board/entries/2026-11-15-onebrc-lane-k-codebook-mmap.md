@@ -50,3 +50,11 @@ The per-station histogram gives exact nearest-rank percentiles and the
 median, merged across workers by adding counts; tested against a sorted
 reference, 3 of 3 disable controls red. About 3.7-4.9 ns/row open to result
 on 100M rows with percentiles for all stations.
+
+## Update: 10,000 stations (FINDINGS §14-15)
+
+100M rows, 4 workers: `kmw` 149.1 Mrows/s and 6.15 ns/row (lane S 79.4,
+20.89); the histogram `kmwh` drops to 59.9 Mrows/s and 13.77 ns/row while
+executing the fewest instructions (185.29 vs 201.30). At 80 MB of counters
+per worker the cost is memory, not instructions. All four pre-registered
+predictions hold.

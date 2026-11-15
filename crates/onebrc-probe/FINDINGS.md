@@ -490,3 +490,36 @@ histogram is 80 MB per worker, so each row's increment misses every cache.
 - X3: `dist` is slower than `kmw` in `wall` by more than 10 %.
 - X4: `kmw` stays faster than lane `s` in `run`.
 Kill for each: the stated relation does not hold.
+
+## 15. 10,000-station key set results (2026-11-15)
+
+Corpus `gen … 100000000 42 10000`, sha256 `e1934f6f…84a75fd`, 10,000
+stations. 4 workers, 6 passes, first discarded, median of 5, range in
+brackets. Instructions per row by callgrind on the AVX2 build (2M − 1M
+rows, 10,000 stations).
+
+| lane | instructions/row | `run` Mrows/s | `wall` ns/row | 400 stations: `run`, `wall` (§7, §9, §12) |
+|---|---|---|---|---|
+| s | 240.49 | 79.4 [76.2-88.0] | 20.89 [18.04-23.52] | 134.2, 14.64 |
+| k | 258.58 | 115.8 [108.4-117.2] | 9.86 [8.70-10.69] | 136.5-143.5, 7.02-7.75 |
+| kmw | 201.30 | 149.1 [121.7-168.4] | 6.15 [5.78-8.06] | 245.0-248.3, 4.00-4.32 |
+| kmwh | 185.29 | 59.9 [51.2-66.7] | 13.77 [12.40-16.70] | 251.4, 3.70 |
+| dist | – | – | 14.49 [13.41-15.89] | 3.72-4.89 |
+
+Against §14:
+
+- X1 (every lane slower than at 400 stations): holds for all five.
+- X2 (`kmwh` slower than `kmw` in `run` by > 10 %): holds, −59.8 %.
+- X3 (`dist` slower than `kmw` in `wall` by > 10 %): holds, +135 %.
+- X4 (`kmw` faster than lane `s` in `run`): holds, +87.8 %.
+
+The histogram executes the fewest instructions per row (185.29) and is
+the slowest lane K variant: at 80 MB per worker every increment misses the
+cache. Instruction count is not the cost at this key count; memory is. The
+running variant's state stays near L2 and keeps `kmw` ahead. Percentiles
+at 10,000 stations cost about 2.4× the plain statistics; at 400 stations
+they cost nothing extra (§13).
+
+The 10,000 names here come from the probe's syllable generator, shorter
+than the 1BRC key set's names (up to 100 bytes), so name handling is
+cheaper here than in the official 10K run.
