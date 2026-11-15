@@ -583,3 +583,39 @@ The instruction counts of `kmw` and `kmwh` moved by +3 to +4 per row
 against §12 (194.48, 178.48) on this build: the extra match arm for the
 new mode. Session-to-session spread in `run` is also visible (`kmwh` at
 10,000 stations 69.8 here, 59.9 in §15).
+
+## 18. 256-slot window pre-registration (2026-11-15, before measuring)
+
+`Agg::Window256`: the (station, temperature) table addressed directly,
+256 `u32` counters per station at slot = code − base(station), 1 KB per
+station: 0.4 MB per worker at 400 stations, 10.2 MB at 10,000 (against the
+histogram's 3.2 and 80 MB). Readings outside a station's span of 256 tenths
+go to a full-range overflow row, so counts stay exact on any input.
+
+The base cannot simply be the first reading minus 127. Worked out from the
+generator (mean + a uniform variate of ±10.0, 201 values): a fixed window
+centred on the first reading misses 5,329 of 201² variate pairs, so
+**13.2 % of readings** would go to the overflow row and **72 % of stations**
+(145 of 201 first-reading positions) would need one. The window therefore
+re-anchors: a reading outside the window whose station span, including it,
+still fits in 256 slides the window over that span with the slack split
+evenly, moving the existing counters. Only a span wider than 256 uses the
+overflow row. `Agg::Window256Fixed` keeps the fixed centred anchor and
+exists to check the 13.2 % above.
+
+Lanes `kmwr` (multiply parse, word hash, re-anchoring window) and `kmwf`
+(fixed anchor) against `kmw` and `kmwh`, and `dist … w256` against
+`dist … hist`, on both corpora, §6's pass rule; instructions per row as in
+§10.
+
+- W1: on this generator `Window256` sends 0 readings to an overflow row
+  (span 201 ≤ 256), and every station re-anchors at most 3 times per worker.
+- W2: `Window256Fixed` sends 13.2 % ± 0.2 % of readings to the overflow row
+  (100M rows, 400 stations).
+- W3: at 10,000 stations `kmwr` beats `kmwh` in `run` by more than 10 %
+  (an 8× smaller table).
+- W4: at 10,000 stations `kmwr` is still slower than `kmw` (10 MB of
+  counters per worker is still beyond L2).
+- W5: at 400 stations `kmwr` is within ±10 % of `kmwh` in `run`.
+- W6: `kmwr` executes at most 10 more instructions per row than `kmwh`.
+Kill for each: the stated relation does not hold.
