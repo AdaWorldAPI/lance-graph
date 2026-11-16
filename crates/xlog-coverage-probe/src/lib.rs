@@ -215,7 +215,8 @@ impl Verdict {
     }
 }
 
-type OracleRows = Result<Vec<Vec<i128>>, String>;
+/// One evaluator's rows for a head, sorted, or why it could not answer.
+pub type OracleRows = Result<Vec<Vec<i128>>, String>;
 
 /// Per head, across seeds: how many seeds gave each oracle a non-empty
 /// answer, and the first seeded run on which the cube refused the rule.
@@ -1345,6 +1346,49 @@ fn rows_to_i128(rel: &RefRelation) -> OracleRows {
         out.push(cells);
     }
     Ok(out)
+}
+
+/// What the two cube-independent evaluators answer over rows the caller
+/// supplies (D-XLOG-KNOWLEDGE-G1c): no seed, no cube. `rows` holds the base
+/// relations by name, any arity, as integer rows; facts the program states for
+/// a derived predicate are added as [`reconcile`] adds them. Per head: the
+/// naive oracle's rows and Datafrog's rows, each sorted, or why the evaluator
+/// could not answer. A program that does not parse or compile is `Err`.
+pub fn witness(
+    src: &str,
+    rows: &BTreeMap<String, Vec<Vec<i128>>>,
+) -> Result<BTreeMap<String, (OracleRows, OracleRows)>, String> {
+    let mut c = Compiler::new();
+    let plan = c
+        .compile(src)
+        .map_err(|e| format!("compile failed: {}", first_line(&e.to_string())))?;
+    let program = parse_program(src)
+        .map_err(|e| format!("ast parse failed: {}", first_line(&e.to_string())))?;
+    let base = base_relations(&program);
+    let op = oracle_program(&program);
+    let mut store: BTreeMap<String, naive::Relation> = BTreeMap::new();
+    for (name, r) in rows {
+        store.insert(name.clone(), r.iter().cloned().collect());
+    }
+    for (name, facts) in &op.derived_facts {
+        if let Ok(facts) = facts {
+            store
+                .entry(name.clone())
+                .or_default()
+                .extend(facts.iter().cloned());
+        }
+    }
+    let naive_rows = naive_for_seed(&op, &base, &plan, store.clone());
+    let mut dfrog_rows = datafrog_for_seed(&op, &base, &plan, store);
+    Ok(naive_rows
+        .into_iter()
+        .map(|(head, n)| {
+            let d = dfrog_rows
+                .remove(&head)
+                .unwrap_or_else(|| Err(format!("no datafrog answer for head {head}")));
+            (head, (n, d))
+        })
+        .collect())
 }
 
 #[cfg(test)]
