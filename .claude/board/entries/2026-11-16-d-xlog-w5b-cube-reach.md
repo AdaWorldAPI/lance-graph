@@ -17,10 +17,15 @@ date), from the W5-A analysis (`2026-11-16-d-xlog-w5a-replay-reachable-admission
   position masks: `delta' = (OR of the delta's edge rows ∧ target) andnot
   full`. It returns `seed ∪ reach(seed)`. The frame is re-checked, and the
   round bound is the one `closure` uses (`FixpointBound`).
+- `SetExpr::Reach { rel, seed, target }`: `reach` as an expression node, so a
+  reachable set composes inside one terminal (`rollback = Reach(..) ∧
+  blocked`), and a recursive head is never stored and handed back as a mask.
+- `Cube::set_mask(table, expr)`: the read terminal for an expression. It
+  re-checks the frame and returns an answer to download, never an input.
 - `CubeRefusal::UnknownSet`. No crate matches exhaustively on `CubeRefusal`
   (checked in this tree and the xlog fork).
 
-## Tests (`tests/reach.rs`, 7)
+## Tests (`tests/reach.rs`, 8; the eighth is `reach_composes_as_an_expression`)
 
 - G1c witness: `promoted {1}`, `replay_reachable {1,2,3}` in 3 rounds,
   `rollback_hit {3}`. Blocking 4 leaves rollback empty.
@@ -49,11 +54,13 @@ date), from the W5-A analysis (`2026-11-16-d-xlog-w5a-replay-reachable-admission
 
 ## Not done
 
-- **W5-C, the fork's routing.** The xlog fork's `recursive_scc` still owns
-  this rule shape: one-column head, one recursive binary step, stored-set
-  filter. Moving that shape to `reach`, recording the path per rule in the
-  census, and an agreement check on the G1c fixture before the host loop
-  gives it up are the next step. `support_2`/`usable` stays out of scope.
+- **W5-C, the fork's routing:** AdaWorldAPI/xlog#9 (merge after this PR).
+  It routes one-column set SCCs and the one-step reach shape, records the
+  path in `Report::routed`, and checks against a BFS on 30 inputs plus the
+  G1c witness. The census bump that makes the coverage probe supply
+  one-column bases is the step after. `support_2`/`usable` stays out of scope.
+- After the `SetExpr::Reach` refactor, the target-filter disable was re-run:
+  5 of 8 tests red.
 - `reach` does not use `wide::run_fixpoint` (its rows are `WideRows`, and the
   filter would have to be threaded through `closure_wide` and `refresh`). It
   mirrors `closure`'s loop and bound instead. A tiled `reach` would need that
