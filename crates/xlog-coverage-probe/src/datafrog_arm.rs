@@ -9,14 +9,18 @@
 //!
 //! Supported subset (anything else is `datafrog: not applicable: <why>`):
 //! rules whose body is positive and negated atoms over named variables and
-//! `_` (anonymous in positive atoms only), with at least one positive atom;
-//! integer constants in positive atoms (each becomes a hidden column plus a
-//! semijoin against a one-row relation); no constants in negated atoms; no
-//! comparisons, aggregates or other literals; no variable repeated inside one
-//! atom; head terms that are variables bound by a positive atom or integer
-//! constants; negation only of predicates outside the component being
-//! evaluated, over variables a positive atom binds. Every value read, and
-//! every integer constant, must fit `u32`.
+//! `_`; integer constants in positive atoms (each becomes a hidden column plus
+//! a semijoin against a one-row relation); no constants in negated atoms;
+//! comparisons (`=`, `!=`, `<`, `<=`, `>`, `>=`) between variables a positive
+//! atom binds and integer constants, applied as a filtered join against a
+//! one-row relation; no aggregates or other literals; no variable repeated
+//! inside one atom; head terms that are variables bound by a positive atom or
+//! integer constants; negation only of predicates outside the component being
+//! evaluated, over variables a positive atom binds (an anonymous variable in a
+//! negated atom is "for some value": the anti-join reads the atom's relation
+//! projected onto its named columns). A rule with no positive atom starts from
+//! one empty row, so only a ground body can make it hold. Every value read,
+//! and every integer constant, must fit `u32`.
 //!
 //! Same contract as [`crate::naive::evaluate_component`]: the rules of one
 //! component go in, other predicates are read from `store`, and on `Ok` each
@@ -27,6 +31,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 use datafrog::{Iteration, Relation, Variable};
+use xlog_logic::ast::CompOp;
+use xlog_logic::ast::Comparison;
 use xlog_logic::{Atom, BodyLiteral, Rule, Term};
 
 use crate::naive;
@@ -108,15 +114,9 @@ fn atom_cols(atom: &Atom, positive: bool, fresh: &mut usize) -> Result<AtomCols,
                 }
                 cols.push(v.clone());
             }
-            Term::Anonymous if positive => {
+            Term::Anonymous => {
                 *fresh += 1;
                 cols.push(format!("_#{}", *fresh));
-            }
-            Term::Anonymous => {
-                return not_applicable(format!(
-                    "anonymous variable in negated atom {}",
-                    atom.predicate
-                ));
             }
             Term::Integer(n) if positive => {
                 let value = fit_u32(*n)?;
@@ -143,9 +143,48 @@ fn atom_cols(atom: &Atom, positive: bool, fresh: &mut usize) -> Result<AtomCols,
     })
 }
 
+/// One side of a comparison: a bound variable's column or a constant.
+enum Operand {
+    Column(String),
+    Const(u32),
+}
+
+struct CompPlan {
+    left: Operand,
+    op: CompOp,
+    right: Operand,
+}
+
+fn is_anonymous_col(c: &str) -> bool {
+    c.starts_with("_#")
+}
+
+fn operand(t: &Term, bound: &BTreeSet<&str>) -> Result<Operand, String> {
+    match t {
+        Term::Variable(v) if bound.contains(v.as_str()) => Ok(Operand::Column(v.clone())),
+        Term::Variable(v) => not_applicable(format!(
+            "comparison variable {v} is not bound by a positive atom"
+        )),
+        Term::Integer(n) => Ok(Operand::Const(fit_u32(*n)?)),
+        other => not_applicable(format!("{} in a comparison", term_kind(other))),
+    }
+}
+
+fn holds(op: CompOp, l: u32, r: u32) -> bool {
+    match op {
+        CompOp::Eq => l == r,
+        CompOp::Ne => l != r,
+        CompOp::Lt => l < r,
+        CompOp::Le => l <= r,
+        CompOp::Gt => l > r,
+        CompOp::Ge => l >= r,
+    }
+}
+
 struct RulePlan {
     positives: Vec<AtomCols>,
     negatives: Vec<AtomCols>,
+    comparisons: Vec<CompPlan>,
     /// The head predicate and what each head term emits.
     head: HeadPlan,
 }
@@ -153,21 +192,16 @@ struct RulePlan {
 fn plan_rule(rule: &Rule, heads: &BTreeSet<&str>, fresh: &mut usize) -> Result<RulePlan, String> {
     let mut positives: Vec<AtomCols> = Vec::new();
     let mut negatives: Vec<AtomCols> = Vec::new();
+    let mut comparisons: Vec<&Comparison> = Vec::new();
     for lit in &rule.body {
         match lit {
             BodyLiteral::Positive(a) => positives.push(atom_cols(a, true, fresh)?),
             BodyLiteral::Negated(a) => negatives.push(atom_cols(a, false, fresh)?),
-            BodyLiteral::Comparison(_) => return not_applicable("comparison literal"),
+            BodyLiteral::Comparison(c) => comparisons.push(c),
             BodyLiteral::Epistemic(_) => return not_applicable("epistemic literal"),
             BodyLiteral::IsExpr(_) => return not_applicable("is-expression"),
             BodyLiteral::Univ(_) => return not_applicable("univ literal"),
         }
-    }
-    if positives.is_empty() {
-        return not_applicable(format!(
-            "rule for {} has no positive atom",
-            rule.head.predicate
-        ));
     }
     let bound: BTreeSet<&str> = positives
         .iter()
@@ -199,16 +233,31 @@ fn plan_rule(rule: &Rule, heads: &BTreeSet<&str>, fresh: &mut usize) -> Result<R
         if heads.contains(neg.pred.as_str()) {
             return not_applicable(format!("negation of {} inside its own component", neg.pred));
         }
-        if let Some(v) = neg.cols.iter().find(|c| !bound.contains(c.as_str())) {
+        if let Some(v) = neg
+            .cols
+            .iter()
+            .find(|c| !is_anonymous_col(c) && !bound.contains(c.as_str()))
+        {
             return not_applicable(format!(
                 "variable {v} of negated atom {} is not bound by a positive atom",
                 neg.pred
             ));
         }
     }
+    let comparisons = comparisons
+        .into_iter()
+        .map(|c| {
+            Ok(CompPlan {
+                left: operand(&c.left, &bound)?,
+                op: c.op,
+                right: operand(&c.right, &bound)?,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
     Ok(RulePlan {
         positives,
         negatives,
+        comparisons,
         head: HeadPlan {
             pred: rule.head.predicate.clone(),
             slots: head_slots,
@@ -350,12 +399,25 @@ fn lower_rule(
             .cloned()
             .ok_or_else(|| format!("{NOT_APPLICABLE}no relation variable for {pred}"))
     };
-    let Some((first, rest)) = plan.positives.split_first() else {
-        return not_applicable("rule has no positive atom");
-    };
-    let mut acc = var_of(&first.pred)?;
-    let mut acc_cols: Vec<String> = first.cols.clone();
-    acc = apply_filters(it, out, acc, &acc_cols, &first.filters)?;
+    let (mut acc, mut acc_cols, rest): (Variable<Row>, Vec<String>, &[AtomCols]) =
+        match plan.positives.split_first() {
+            Some((first, rest)) => {
+                let acc = var_of(&first.pred)?;
+                let cols = first.cols.clone();
+                (
+                    apply_filters(it, out, acc, &cols, &first.filters)?,
+                    cols,
+                    rest,
+                )
+            }
+            None => {
+                // No positive atom: one empty row, so only a ground body holds.
+                let unit = it.variable::<Row>("unit");
+                unit.extend(vec![Vec::new()]);
+                out.rows.push(unit.clone());
+                (unit, Vec::new(), &[])
+            }
+        };
 
     for atom in rest {
         let (acc_idx, atom_idx): (Vec<usize>, Vec<usize>) = acc_cols
@@ -391,11 +453,44 @@ fn lower_rule(
         acc = apply_filters(it, out, next, &acc_cols, &atom.filters)?;
     }
 
+    for comp in &plan.comparisons {
+        let side = |o: &Operand| -> Result<Projected, String> {
+            match o {
+                Operand::Column(c) => acc_cols
+                    .iter()
+                    .position(|a| a == c)
+                    .map(Projected::Column)
+                    .ok_or_else(|| format!("{NOT_APPLICABLE}comparison column {c} is not bound")),
+                Operand::Const(v) => Ok(Projected::Const(*v)),
+            }
+        };
+        let (l, r, op) = (side(&comp.left)?, side(&comp.right)?, comp.op);
+        let keyed = keyed_stage(it, out, &acc, Vec::new());
+        let one: Relation<(Row, ())> = Relation::from_vec(vec![(Vec::new(), ())]);
+        let next = it.variable::<Row>("compare");
+        out.rows.push(next.clone());
+        let n = next.clone();
+        out.stmts.push(Box::new(move || {
+            n.from_join_filtered(&keyed, &one, |_key, row, _| {
+                let value = |p: &Projected| match p {
+                    Projected::Column(i) => row[*i],
+                    Projected::Const(v) => *v,
+                };
+                holds(op, value(&l), value(&r)).then(|| row.clone())
+            })
+        }));
+        acc = next;
+    }
+
     for atom in &plan.negatives {
-        let idx: Option<Vec<usize>> = atom
-            .cols
+        // Named columns only: an anonymous one is "for some value", read by
+        // projecting the negated relation onto the named columns.
+        let named: Vec<usize> = (0..atom.cols.len())
+            .filter(|&j| !is_anonymous_col(&atom.cols[j]))
+            .collect();
+        let idx: Option<Vec<usize>> = named
             .iter()
-            .map(|c| acc_cols.iter().position(|a| a == c))
+            .map(|&j| acc_cols.iter().position(|a| *a == atom.cols[j]))
             .collect();
         let Some(idx) = idx else {
             return not_applicable(format!(
@@ -403,7 +498,9 @@ fn lower_rule(
                 atom.pred
             ));
         };
-        let neg: Relation<Row> = Relation::from_vec(load(&atom.pred, atom.cols.len(), store)?);
+        let rows = load(&atom.pred, atom.cols.len(), store)?;
+        let neg: Relation<Row> =
+            Relation::from_vec(rows.iter().map(|row| project(row, &named)).collect());
         let keyed = keyed_stage(it, out, &acc, idx);
         let next = it.variable::<Row>("anti");
         out.rows.push(next.clone());

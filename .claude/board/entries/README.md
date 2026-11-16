@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-636 entries, 2026-08-06 .. 2026-11-16.
+637 entries, 2026-08-06 .. 2026-11-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-17 | `D-XLOG-KNOWLEDGE-G1b` |  | [2026-11-17-d-xlog-knowledge-g1b-reference.md](2026-11-17-d-xlog-knowledge-g1b-reference.md) |
 | 2026-11-16 | `g2-dr-virtual-projection-reconcile` |  | [2026-11-16-g2-dr-virtual-projection-reconcile.md](2026-11-16-g2-dr-virtual-projection-reconcile.md) |
 | 2026-11-16 | `D-MAPPING-POLYFILL-1` |  | [2026-11-16-d-mapping-polyfill-1.md](2026-11-16-d-mapping-polyfill-1.md) |
 | 2026-11-16 | `D-DIRSIM-REOBSERVE` |  | [2026-11-16-d-dirsim-reobserve.md](2026-11-16-d-dirsim-reobserve.md) |

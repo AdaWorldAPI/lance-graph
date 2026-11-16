@@ -124,6 +124,18 @@ pub struct RuleRecord {
     /// The first disagreement or not-applicable reason of the Datafrog run.
     /// Empty otherwise.
     pub datafrog_reason: String,
+    /// The naive oracle against Datafrog on the same seeds, with no cube
+    /// involved: `agree`, `disagree` or `unavailable`. Set for every compiled
+    /// rule, refused ones included, so a refusal still has an expected answer
+    /// that two independent evaluators agree on. Never decides the rung.
+    pub reference: &'static str,
+    /// Seeds on which the naive oracle's answer for this head was non-empty
+    /// in the reference comparison. An agreement with 0 here is two empty
+    /// answers agreeing.
+    pub reference_nonempty: usize,
+    /// The first disagreement, or why no comparison was possible. Empty when
+    /// the two agree.
+    pub reference_reason: String,
 }
 
 /// The result for one program literal.
@@ -315,6 +327,9 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             nonempty_seeds: 0,
             datafrog: "",
             datafrog_reason: String::new(),
+            reference: "",
+            reference_nonempty: 0,
+            reference_reason: String::new(),
         });
     }
     for (head, why) in &report.refused {
@@ -328,6 +343,9 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             nonempty_seeds: 0,
             datafrog: "",
             datafrog_reason: String::new(),
+            reference: "",
+            reference_nonempty: 0,
+            reference_reason: String::new(),
         });
     }
 
@@ -381,11 +399,105 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
         }
     }
 
+    let heads: BTreeSet<String> = rules.iter().map(|r| r.head.clone()).collect();
+    let reference = reference_stage(src, &plan, seeds, &heads);
+    for r in &mut rules {
+        let (verdict, nonempty) = reference
+            .get(&r.head)
+            .cloned()
+            .unwrap_or_else(|| (Verdict::Unavailable("no reference verdict".to_string()), 0));
+        r.reference = verdict.label();
+        r.reference_nonempty = nonempty;
+        r.reference_reason = match verdict {
+            Verdict::Agree => String::new(),
+            Verdict::Disagree(why) | Verdict::Unavailable(why) => why,
+        };
+    }
+
     ProgramRecord {
         rules,
         program_rung: None,
         program_reason: String::new(),
     }
+}
+
+/// The naive oracle against Datafrog for every head in `heads`, on every
+/// seed, without the cube: what the two independent evaluators expect a rule
+/// to produce, whether or not the cube runs it. Seeds on which the naive
+/// oracle hit a size bound are skipped. Per head: the merged verdict
+/// (disagreement outranks unavailability, which outranks agreement) and the
+/// number of seeds with a non-empty naive answer.
+fn reference_stage(
+    src: &str,
+    plan: &ExecutionPlan,
+    seeds: &[u64],
+    heads: &BTreeSet<String>,
+) -> BTreeMap<String, (Verdict, usize)> {
+    let all = |why: String| -> BTreeMap<String, (Verdict, usize)> {
+        heads
+            .iter()
+            .map(|h| (h.clone(), (Verdict::Unavailable(why.clone()), 0)))
+            .collect()
+    };
+    if seeds.is_empty() {
+        return all("no seeds".to_string());
+    }
+    let program = match parse_program(src) {
+        Ok(p) => p,
+        Err(e) => return all(format!("ast parse failed: {}", first_line(&e.to_string()))),
+    };
+    let base = base_relations(&program);
+    let op = oracle_program(&program);
+    let pool = value_pool(&program);
+
+    let mut merged: BTreeMap<String, (Verdict, usize)> = BTreeMap::new();
+    let mut judged: BTreeMap<String, usize> = BTreeMap::new();
+    let mut skipped: BTreeMap<String, String> = BTreeMap::new();
+    for &seed in seeds {
+        let seeded = seed_relations(&base, &op, seed, &pool);
+        let naive_rows = naive_for_seed(&op, &base, plan, seeded.naive.clone());
+        let dfrog_rows = datafrog_for_seed(&op, &base, plan, seeded.naive);
+        for head in heads {
+            let verdict = match (naive_rows.get(head), dfrog_rows.get(head)) {
+                (Some(Err(why)), _) if is_bound(why) => {
+                    skipped.insert(head.clone(), format!("seed {seed}: {why}"));
+                    continue;
+                }
+                (None, _) => Verdict::Unavailable(format!("no AST rule for head {head}")),
+                (Some(Err(why)), _) => Verdict::Unavailable(format!("naive: {why}")),
+                (_, None) => Verdict::Unavailable(format!("no datafrog answer for head {head}")),
+                (_, Some(Err(why))) => Verdict::Unavailable(why.clone()),
+                (Some(Ok(naive)), Some(Ok(dfrog))) => {
+                    if !naive.is_empty() {
+                        merged.entry(head.clone()).or_insert((Verdict::Agree, 0)).1 += 1;
+                    }
+                    match compare(naive, dfrog) {
+                        Compare::Agree => Verdict::Agree,
+                        Compare::Disagree {
+                            cube_only,
+                            oracle_only,
+                        } => Verdict::Disagree(format!(
+                            "seed={seed} naive_only={:?} datafrog_only={:?}",
+                            first_three(&cube_only),
+                            first_three(&oracle_only)
+                        )),
+                    }
+                }
+            };
+            *judged.entry(head.clone()).or_default() += 1;
+            let slot = merged.entry(head.clone()).or_insert((Verdict::Agree, 0));
+            if slot.0.rank() < verdict.rank() {
+                slot.0 = verdict;
+            }
+        }
+    }
+    // A head judged on no seed (every seed hit the naive bound).
+    for (head, why) in skipped {
+        if judged.get(&head).copied().unwrap_or(0) == 0 {
+            merged.insert(head, (Verdict::Unavailable(why), 0));
+        }
+    }
+    merged
 }
 
 /// Run every seed: cube on the seed's rows, reference evaluator on the same

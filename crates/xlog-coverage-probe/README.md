@@ -29,17 +29,32 @@ fixpoint over `Variable`s, each body join lowered to keyed `from_join` /
 `from_antijoin` statements. It shares no code with the naive oracle or with
 XLOG's reference evaluator.
 
-It covers a subset: positive and negated atoms over named variables and `_`,
-integer constants in positive atoms (a semijoin against a one-row relation),
-at least one positive atom, head terms that are variables bound by a positive
-atom or integer constants, negation only of predicates outside the component,
-every value and constant fitting `u32`. Constants in negated atoms,
-comparisons, aggregates, repeated variables inside one atom and the rest are
+It covers a subset: positive and negated atoms over named variables and `_`
+(an anonymous variable in a negated atom anti-joins the relation projected
+onto the named columns), integer constants in positive atoms (a semijoin
+against a one-row relation), comparisons between bound variables and integer
+constants (a filtered join against a one-row relation), head terms that are
+variables bound by a positive atom or integer constants, negation only of
+predicates outside the component, every value and constant fitting `u32`. A
+rule with no positive atom starts from one empty row, so only a ground body
+makes it hold. Constants in negated atoms, aggregates, `is` expressions,
+floats, repeated variables inside one atom and the rest are
 `datafrog: not applicable: <why>`.
 
 The census gains two columns, `datafrog` (`agree`, `disagree`,
 `not-applicable`, empty when the rule never reached the oracle stage) and
 `datafrog_reason`. It never decides a rung: rungs are the same as without it.
+
+## Reference column: naive oracle vs Datafrog without the cube
+
+The `datafrog` column only exists for rules the cube ran, so it cannot speak
+for a refused rule. A second comparison runs the naive oracle and Datafrog
+over the same seeds for EVERY compiled rule, with no cube involved, and
+records whether the two independent evaluators agree on what the rule should
+produce. Three columns: `reference` (`agree`, `disagree`, `unavailable`),
+`reference_nonempty` (seeds on which the naive answer was non-empty; an
+agreement with 0 is two empty answers) and `reference_reason`. A seed on
+which the naive oracle hits its bound is skipped. It never decides a rung.
 
 ## The seeds
 
@@ -110,8 +125,8 @@ this checkout, so it tests the cube in this tree.
 The TSV has a header row, then one row per rule, plus one row per program with
 no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
-datafrog, datafrog_reason. The
-census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
+datafrog, datafrog_reason, reference, reference_nonempty, reference_reason.
+The census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
 `656def9` (AdaWorldAPI/xlog#8: readers of refused relations are refused, and
 rows put for a derived predicate are kept), with the test corpus unchanged
 since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
@@ -120,6 +135,17 @@ Datafrog agrees on all 87 oracle-agrees rules and disagrees on none (integer
 constants in positive atoms are lowered as semijoins; before that, `neighbor`
 and `from_one` were not applicable). With its join deliberately broken,
 Datafrog disagrees on 69 of the 87 while every rung stays the same.
+
+The reference column (naive oracle vs Datafrog, no cube) gives an expected
+answer for refused rules too. Over the 230 compiled rules: 87 oracle-agrees
+and 49 refused-on-data agree; of the 94 refused, 35 agree on non-empty
+answers, 15 agree only on empty answers, and 44 are unavailable (the naive
+oracle has no floats, `is` expressions or aggregates, five ILP `learnable`
+rules have no ordinary AST rule, and five read a base with non-integer
+facts). 0 disagreements. With Datafrog's join deliberately broken (the right
+row read from the wrong end), the reference column reports 114
+disagreements, 43 of them on refused rules, while rungs and reasons stay
+byte-identical. A census takes about 18 minutes on this container.
 
 ## Known limits
 

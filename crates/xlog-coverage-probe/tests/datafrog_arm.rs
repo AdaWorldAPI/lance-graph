@@ -91,7 +91,11 @@ fn out_of_subset_is_not_applicable() {
     let r = pairs(&[(1, 2), (2, 2), (3, 3), (4, 5)]);
     let base = store(&[("r", r)]);
     let cases: [(&str, &str, bool); 5] = [
-        ("q(X,Y) :- r(X,Y), X < Y.", "comparison", true),
+        (
+            "q(X) :- r(X,Y), X < Z.",
+            "comparison variable Z is not bound",
+            false,
+        ),
         ("p(X) :- r(X,Y), not p(Y).", "own component", false),
         ("q(X) :- r(X, X).", "repeated", true),
         (
@@ -285,5 +289,58 @@ fn an_oversized_cross_product_stops_inside_the_join() {
     assert!(
         !store.contains_key("q"),
         "no partial head relation is stored"
+    );
+}
+
+/// Comparisons, anonymous variables in negated atoms and a rule with no
+/// positive atom agree with the naive evaluator, and each keeps a strict,
+/// non-empty subset (so a filter that kept or dropped everything would fail).
+#[test]
+fn comparisons_negated_wildcards_and_ground_rules_agree_with_naive() {
+    let r = pairs(&[(1, 2), (2, 2), (3, 1), (4, 5)]);
+    let base = store(&[("r", r.clone())]);
+    for op in ["=", "!=", "<", "<=", ">", ">="] {
+        let src = format!("q(X,Y) :- r(X,Y), X {op} Y.");
+        let p = program(&src);
+        let got = datafrog_run(&p, &["q"], &base).expect(&src);
+        let want = naive_run(&p, &["q"], &base).expect(&src);
+        assert_eq!(got["q"], want["q"], "{src}");
+        assert!(
+            !got["q"].is_empty() && got["q"].len() < r.len(),
+            "{src}: {:?}",
+            got["q"]
+        );
+    }
+    let p = program("q(X) :- r(X,Y), Y >= 2.");
+    let got = datafrog_run(&p, &["q"], &base).expect("constant comparison");
+    assert_eq!(got["q"], naive_run(&p, &["q"], &base).expect("naive")["q"]);
+    assert_eq!(got["q"].len(), 3, "{:?}", got["q"]);
+
+    // A node with no edge in either direction (shape of the XLOG `isolated` test).
+    let src = "isolated(X) :- node(X), not edge(X, _), not edge(_, X).";
+    let p = program(src);
+    let base = store(&[
+        ("node", unary(&[1, 2, 3, 4])),
+        ("edge", pairs(&[(1, 2), (2, 3)])),
+    ]);
+    let got = datafrog_run(&p, &["isolated"], &base).expect(src);
+    let want = naive_run(&p, &["isolated"], &base).expect(src);
+    assert_eq!(got["isolated"], want["isolated"]);
+    assert_eq!(got["isolated"], unary(&[4]));
+
+    // `dry() :- not rain().` holds exactly when rain has no row.
+    let p = program("dry() :- not rain().");
+    let dry = |rain: Relation| {
+        let base = store(&[("rain", rain)]);
+        let got = datafrog_run(&p, &["dry"], &base).expect("ground rule");
+        let want = naive_run(&p, &["dry"], &base).expect("naive");
+        assert_eq!(got["dry"], want["dry"]);
+        got["dry"].len()
+    };
+    assert_eq!(dry(Relation::new()), 1, "no rain: dry holds");
+    assert_eq!(
+        dry([Vec::new()].into_iter().collect()),
+        0,
+        "rain: dry does not hold"
     );
 }

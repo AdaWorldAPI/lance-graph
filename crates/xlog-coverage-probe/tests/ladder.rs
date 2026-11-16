@@ -294,3 +294,74 @@ fn an_unreadable_base_blocks_only_its_readers() {
     let v = rec.rules.iter().find(|r| r.head == "v").expect("v");
     assert_ne!(v.rung, Rung::OracleAgrees, "{v:?}");
 }
+
+/// A rule the cube refuses still gets an expected answer: the naive oracle
+/// and Datafrog run the same rules over the same seeds without the cube, and
+/// agree on non-empty rows. Falsifier: the reference comparison skipped for
+/// refused rules, or run over empty relations only.
+#[test]
+fn a_refused_rule_has_a_reference_answer() {
+    let src = "pair(1, 10). pair(1, 20). pair(2, 10). blocked(1, 10). \
+               keep(X, Y) :- pair(X, Y), not blocked(X, Y). ?- keep(X, Y).";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "__xlog_query_0")
+        .expect("generated head");
+    assert_eq!(q.rung, Rung::Refused, "{rec:?}");
+    assert_eq!(q.reference, "agree", "{q:?}");
+    assert_eq!(q.reference_nonempty, DEFAULT_SEEDS.len(), "{q:?}");
+    assert!(q.reference_reason.is_empty(), "{q:?}");
+    // The cube-side columns stay empty: the rung is still the cube's.
+    assert_eq!(q.oracle, "", "{q:?}");
+    assert_eq!(q.datafrog, "", "{q:?}");
+}
+
+/// An agreeing rule gets the same reference verdict as the cube-side check,
+/// so the reference column does not contradict the rung where both exist.
+#[test]
+fn an_oracle_agrees_rule_also_agrees_in_the_reference() {
+    let rec = reconcile(CHAIN, &DEFAULT_SEEDS);
+    let r = &rec.rules[0];
+    assert_eq!(r.rung, Rung::OracleAgrees, "{r:?}");
+    assert_eq!(r.reference, "agree", "{r:?}");
+    assert_eq!(r.reference_nonempty, r.nonempty_seeds, "{r:?}");
+}
+
+/// Silence half: a rule the evaluators do not support is `unavailable` with
+/// a reason, never `agree`.
+#[test]
+fn a_rule_outside_both_evaluators_has_no_reference_agreement() {
+    // Shape of an XLOG arithmetic test: an `is` expression neither evaluator
+    // supports.
+    let src = "add_pair(10, 5). add_pair(20, 3). \
+               add_result(X, Y, Z) :- add_pair(X, Y), Z is X + Y.";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "add_result")
+        .expect("head add_result");
+    assert_eq!(q.reference, "unavailable", "{q:?}");
+    assert!(!q.reference_reason.is_empty(), "{q:?}");
+}
+
+/// A base relation with no stated facts and no generated rows gives both
+/// evaluators an empty input: they agree, and the count of non-empty seeds
+/// says so (0), so the census can report it as an empty agreement.
+#[test]
+fn an_empty_reference_agreement_is_counted_as_empty() {
+    let rec = reconcile("q(X,Z) :- t(X,Y,Z), r(Z,W).", &DEFAULT_SEEDS);
+    let q = rec.rules.iter().find(|r| r.head == "q").expect("head q");
+    assert_eq!(q.reference, "agree", "{q:?}");
+    assert_eq!(q.reference_nonempty, 0, "{q:?}");
+}
+
+/// Without seeds no reference verdict exists.
+#[test]
+fn without_seeds_there_is_no_reference_verdict() {
+    let rec = reconcile(CHAIN, &[]);
+    assert_eq!(rec.rules[0].reference, "unavailable");
+    assert_eq!(rec.rules[0].reference_reason, "no seeds");
+}
