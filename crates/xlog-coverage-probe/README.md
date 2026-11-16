@@ -29,17 +29,32 @@ fixpoint over `Variable`s, each body join lowered to keyed `from_join` /
 `from_antijoin` statements. It shares no code with the naive oracle or with
 XLOG's reference evaluator.
 
-It covers a subset: positive and negated atoms over named variables and `_`,
-integer constants in positive atoms (a semijoin against a one-row relation),
-at least one positive atom, head terms that are variables bound by a positive
-atom or integer constants, negation only of predicates outside the component,
-every value and constant fitting `u32`. Constants in negated atoms,
-comparisons, aggregates, repeated variables inside one atom and the rest are
+It covers a subset: positive and negated atoms over named variables and `_`
+(an anonymous variable in a negated atom anti-joins the relation projected
+onto the named columns), integer constants in positive atoms (a semijoin
+against a one-row relation), comparisons between bound variables and integer
+constants (a filtered join against a one-row relation), head terms that are
+variables bound by a positive atom or integer constants, negation only of
+predicates outside the component, every value and constant fitting `u32`. A
+rule with no positive atom starts from one empty row, so only a ground body
+makes it hold. Constants in negated atoms, aggregates, `is` expressions,
+floats, repeated variables inside one atom and the rest are
 `datafrog: not applicable: <why>`.
 
 The census gains two columns, `datafrog` (`agree`, `disagree`,
 `not-applicable`, empty when the rule never reached the oracle stage) and
 `datafrog_reason`. It never decides a rung: rungs are the same as without it.
+
+## Reference column: naive oracle vs Datafrog without the cube
+
+The `datafrog` column only exists for rules the cube ran, so it cannot speak
+for a refused rule. A second comparison runs the naive oracle and Datafrog
+over the same seeds for EVERY compiled rule, with no cube involved, and
+records whether the two independent evaluators agree on what the rule should
+produce. Three columns: `reference` (`agree`, `disagree`, `unavailable`),
+`reference_nonempty` (seeds on which the naive answer was non-empty; an
+agreement with 0 is two empty answers) and `reference_reason`. A seed on
+which the naive oracle hits its bound is skipped. It never decides a rung.
 
 ## The seeds
 
