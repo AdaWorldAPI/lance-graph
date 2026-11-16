@@ -674,6 +674,9 @@ fn foreign_scope_basis_and_stale_refuse_before_reading() {
         relation_map: 1,
         coordinates: 1,
     });
+    // A caller that brings its own store AND a frame that store sealed: only
+    // the source-owns-its-store check can refuse this.
+    let other_frame = other.seal();
     let foreign = w.store.bind_lanes(
         &w.view,
         &other,
@@ -682,7 +685,7 @@ fn foreign_scope_basis_and_stale_refuse_before_reading() {
             route: w.route,
             rev: SchemaRev(1),
             fields: &name,
-            frame: &frame,
+            frame: &other_frame,
             scope: READER,
             selection: w.source.space(),
         },
