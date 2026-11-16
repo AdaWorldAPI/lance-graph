@@ -155,12 +155,12 @@ fn reach_agrees_with_bfs_and_with_closure_on_filtered_edges() {
         let seed: Vec<u32> = ids_all
             .iter()
             .copied()
-            .filter(|_| next() % 5 == 0)
+            .filter(|_| next().is_multiple_of(5))
             .collect();
         let target: Vec<u32> = ids_all
             .iter()
             .copied()
-            .filter(|_| next() % 3 != 0)
+            .filter(|_| !next().is_multiple_of(3))
             .collect();
 
         // BFS oracle.
