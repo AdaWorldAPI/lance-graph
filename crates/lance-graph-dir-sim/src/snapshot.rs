@@ -113,6 +113,13 @@ impl Dict {
     pub fn is_empty(&self) -> bool {
         self.strings.is_empty()
     }
+    /// Drop every entry from `len` on. Interning only appends, so this
+    /// restores the dictionary as it was when it held `len` entries.
+    fn truncate(&mut self, len: usize) {
+        for s in self.strings.drain(len.min(self.strings.len())..) {
+            self.index.remove(&s);
+        }
+    }
 }
 
 /// Boundary counters, as in `lance-graph-report`'s boundary: every text
@@ -204,6 +211,18 @@ impl Dicts {
     /// into an empty dictionary reproduces every value and key id.
     pub fn values_in_order(&self) -> impl ExactSizeIterator<Item = &str> {
         self.values.strings.iter().map(String::as_str)
+    }
+    /// The dictionary's lengths, to [`Dicts::rollback`] to.
+    pub(crate) fn mark(&self) -> (usize, usize) {
+        (self.values.len(), self.keys.len())
+    }
+    /// Undo every intern since `mark`: an ingress that is refused after it
+    /// interned leaves no value behind. Counters are diagnostics and stay.
+    pub(crate) fn rollback(&mut self, mark: (usize, usize)) {
+        self.values.truncate(mark.0);
+        self.keys.truncate(mark.1);
+        self.key_of.truncate(mark.0);
+        self.routing_alias.truncate(mark.0);
     }
     /// Number of raw values issued.
     pub fn value_count(&self) -> usize {
@@ -746,5 +765,30 @@ impl Snapshot {
     /// Whether `(user, group)` is an observed but unresolved membership.
     pub(crate) fn is_unresolved_member(&self, user: &Guid128, group: &Guid128) -> bool {
         self.m_unresolved.binary_search(&(*user, *group)).is_ok()
+    }
+}
+
+#[cfg(test)]
+mod rollback_tests {
+    use super::Dicts;
+
+    /// A rollback undoes exactly the interns since the mark: values, keys
+    /// and the per-value lanes, so re-interning issues the same ids again.
+    #[test]
+    fn rollback_restores_the_dictionary_at_the_mark() {
+        let mut d = Dicts::default();
+        let kept = d.intern("alice@example.test");
+        let mark = d.mark();
+        d.intern("bob@example.test");
+        d.intern("x@tenant.mail.onmicrosoft.com");
+        assert_eq!(d.value_count(), 3);
+        d.rollback(mark);
+        assert_eq!(d.mark(), mark);
+        assert_eq!(d.lookup("bob@example.test"), None);
+        assert_eq!(d.key_lookup("bob@example.test"), None);
+        assert_eq!(d.lookup("alice@example.test"), Some(kept));
+        let again = d.intern("bob@example.test");
+        assert_eq!(again.0 as usize, mark.0, "the next id is issued again");
+        assert!(d.key_of(again).is_some());
     }
 }

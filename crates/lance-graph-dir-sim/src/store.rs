@@ -154,22 +154,19 @@ impl VersionStore {
                 .observe(source, observed_at_ms, obs)
                 .map_err(ObserveError::Build);
         };
-        let fresh = Snapshot::build(obs.clone(), &mut self.dicts).map_err(ObserveError::Build)?;
-        let delta = {
-            let before = self.view(prev).map_err(ObserveError::Sim)?;
-            if before.snap.scope != fresh.scope {
-                None
-            } else {
-                let after = View::new(&fresh, &self.dicts, Overlay::default());
-                let mut delta = diff_full(&before, &after);
-                delta.sort();
-                let mut check = self.view(prev).map_err(ObserveError::Sim)?;
-                for c in &delta {
-                    check
-                        .apply(c)
-                        .map_err(|e| ObserveError::Sim(SimError::Apply(e)))?;
-                }
-                Some(delta)
+        let mark = self.dicts.mark();
+        let fresh = match Snapshot::build(obs.clone(), &mut self.dicts) {
+            Ok(f) => f,
+            Err(e) => {
+                self.dicts.rollback(mark);
+                return Err(ObserveError::Build(e));
+            }
+        };
+        let delta = match self.delta_from(prev, &fresh) {
+            Ok(d) => d,
+            Err(e) => {
+                self.dicts.rollback(mark);
+                return Err(e);
             }
         };
         let Some(delta) = delta else {
@@ -187,6 +184,30 @@ impl VersionStore {
         });
         self.tags.insert(TAG_OBSERVED.into(), id);
         Ok(id)
+    }
+
+    /// The verified change from `prev` to `fresh`: `None` when `fresh` is of
+    /// another directory scope. Every change is applied to `prev` before it
+    /// is returned.
+    fn delta_from(
+        &self,
+        prev: VersionId,
+        fresh: &Snapshot,
+    ) -> Result<Option<Vec<Change>>, ObserveError> {
+        let before = self.view(prev).map_err(ObserveError::Sim)?;
+        if before.snap.scope != fresh.scope {
+            return Ok(None);
+        }
+        let after = View::new(fresh, &self.dicts, Overlay::default());
+        let mut delta = diff_full(&before, &after);
+        delta.sort();
+        let mut check = self.view(prev).map_err(ObserveError::Sim)?;
+        for c in &delta {
+            check
+                .apply(c)
+                .map_err(|e| ObserveError::Sim(SimError::Apply(e)))?;
+        }
+        Ok(Some(delta))
     }
 
     fn insert_root(
