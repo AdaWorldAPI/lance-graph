@@ -317,3 +317,40 @@ fn heaviest_ties_go_to_the_lower_coordinate() {
     assert_eq!((at as usize, count), (tied[0], 2));
     assert_eq!(map.global(at as u8), Some(3));
 }
+
+/// The virtual join grows quadratically while the work does not (G2 / T9:
+/// no explosion). A hub key joins `k` rows of `r` with `k` rows of `s`, so
+/// the join holds `k²` pairs. The cube answers from two count programs over
+/// one position per distinct id (`2k + 1`), and builds no tuple. Oracle: the
+/// arithmetic `k²`, not the cube. A `join_size` that enumerated pairs would
+/// grow `rows_materialized` with `k²` and fail here.
+#[test]
+fn join_size_grows_quadratically_while_work_grows_with_ids() {
+    let mut positions = Vec::new();
+    for k in [8u32, 32, 120] {
+        let r: Vec<(u32, u32)> = (1..=k).map(|i| (i, 0)).collect();
+        let s: Vec<(u32, u32)> = (1..=k).map(|j| (0, 1000 + j)).collect();
+        let rels: [&[(u32, u32)]; 2] = [&r, &s];
+        let table = table_over(&rels, Width::W256);
+        let mut cube = Cube::new(&table, &table.seal(), TILE, &rels).unwrap();
+        let (l, rt) = (cube.scan(0).unwrap(), cube.scan(1).unwrap());
+        let j = cube.join(l, 1, rt, 0).unwrap();
+        let before = cube.stats();
+        let size = cube.join_size(&table, j).unwrap();
+        let after = cube.stats();
+        assert_eq!(size, i128::from(k) * i128::from(k), "k = {k}");
+        assert_eq!(after.rows_materialized, before.rows_materialized, "k = {k}");
+        assert_eq!(after.programs - before.programs, 2, "k = {k}");
+        let scan = cube.scan(0).unwrap();
+        let n = cube.column_counts(&table, scan, 1).unwrap().len();
+        assert_eq!(
+            n,
+            2 * k as usize + 1,
+            "one position per distinct id, k = {k}"
+        );
+        positions.push((k, n, size));
+    }
+    // Ids grow 15x from the first k to the last; pairs grow 225x.
+    let (first, last) = (positions[0], positions[2]);
+    assert!(last.2 / first.2 > 200 && last.1 / first.1 < 16);
+}
