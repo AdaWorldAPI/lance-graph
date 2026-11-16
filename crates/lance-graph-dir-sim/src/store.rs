@@ -35,6 +35,16 @@ pub enum SimError {
     ScopeMismatch(VersionId, VersionId),
 }
 
+/// Why a re-observation was not recorded. No version is created.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ObserveError {
+    /// The observation does not build a snapshot.
+    Build(BuildError),
+    /// The version tagged observed cannot be read, or the delta does not
+    /// apply to it.
+    Sim(SimError),
+}
+
 /// Refusal to make a version desired. The version stays as evidence.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rejection {
@@ -108,6 +118,105 @@ impl VersionStore {
         obs: Observation,
     ) -> Result<VersionId, BuildError> {
         let snap = Snapshot::build(obs.clone(), &mut self.dicts)?;
+        Ok(self.insert_root(source, observed_at_ms, obs, snap))
+    }
+
+    /// Record a re-read of the directory as the change from the version
+    /// tagged `"observed"`, and tag the new version `"observed"`.
+    ///
+    /// The new version's parent is the previous observation and its origin is
+    /// [`Origin::Observed`]; its delta holds only the nodes, properties and
+    /// memberships that differ, so a re-read that changes one membership
+    /// stores one change, not a whole observation. Its reads equal those of
+    /// the same observation recorded with [`Self::observe`].
+    ///
+    /// Falls back to [`Self::observe`] (a new root) when nothing is tagged
+    /// observed yet, or when the observation is of another directory scope.
+    /// A re-read that changes nothing is still recorded, with an empty delta:
+    /// it is evidence of when the directory was read.
+    ///
+    /// Each re-read lengthens the lineage a read folds; a caller that wants a
+    /// fresh base calls [`Self::observe`].
+    ///
+    /// # Errors
+    ///
+    /// [`ObserveError::Build`] when the observation does not build;
+    /// [`ObserveError::Sim`] when the delta does not apply to the previous
+    /// observation.
+    pub fn reobserve(
+        &mut self,
+        source: &str,
+        observed_at_ms: i64,
+        obs: Observation,
+    ) -> Result<VersionId, ObserveError> {
+        let Some(prev) = self.tag(TAG_OBSERVED) else {
+            return self
+                .observe(source, observed_at_ms, obs)
+                .map_err(ObserveError::Build);
+        };
+        let mark = self.dicts.mark();
+        let fresh = match Snapshot::build(obs.clone(), &mut self.dicts) {
+            Ok(f) => f,
+            Err(e) => {
+                self.dicts.rollback(mark);
+                return Err(ObserveError::Build(e));
+            }
+        };
+        let delta = match self.delta_from(prev, &fresh) {
+            Ok(d) => d,
+            Err(e) => {
+                self.dicts.rollback(mark);
+                return Err(e);
+            }
+        };
+        let Some(delta) = delta else {
+            return Ok(self.insert_root(source, observed_at_ms, obs, fresh));
+        };
+        let id = self.next_id();
+        self.versions.push(Version {
+            id,
+            parent: Some(prev),
+            origin: Origin::Observed {
+                source: source.into(),
+                observed_at_ms,
+            },
+            delta,
+        });
+        self.tags.insert(TAG_OBSERVED.into(), id);
+        Ok(id)
+    }
+
+    /// The verified change from `prev` to `fresh`: `None` when `fresh` is of
+    /// another directory scope. Every change is applied to `prev` before it
+    /// is returned.
+    fn delta_from(
+        &self,
+        prev: VersionId,
+        fresh: &Snapshot,
+    ) -> Result<Option<Vec<Change>>, ObserveError> {
+        let before = self.view(prev).map_err(ObserveError::Sim)?;
+        if before.snap.scope != fresh.scope {
+            return Ok(None);
+        }
+        let after = View::new(fresh, &self.dicts, Overlay::default());
+        let mut delta = diff_full(&before, &after);
+        delta.sort();
+        let mut check = self.view(prev).map_err(ObserveError::Sim)?;
+        for c in &delta {
+            check
+                .apply(c)
+                .map_err(|e| ObserveError::Sim(SimError::Apply(e)))?;
+        }
+        Ok(Some(delta))
+    }
+
+    fn insert_root(
+        &mut self,
+        source: &str,
+        observed_at_ms: i64,
+        obs: Observation,
+        snap: Snapshot,
+    ) -> VersionId {
         let id = self.next_id();
         self.observations.insert(id, obs);
         self.versions.push(Version {
@@ -121,7 +230,7 @@ impl VersionStore {
         });
         self.roots.insert(id, Arc::new(snap));
         self.tags.insert(TAG_OBSERVED.into(), id);
-        Ok(id)
+        id
     }
 
     /// Provenance record.
@@ -381,8 +490,10 @@ impl VersionStore {
     /// Plan for the current desired version: the work still outstanding
     /// against the LATEST observation.
     ///
-    /// The intent is the desired version's own net delta over its lineage
-    /// root (delta-sized, same snapshot). Each intended change is then
+    /// The intent is the desired version's own net delta over its nearest
+    /// observed ancestor (delta-sized, same snapshot): the lineage root, or a
+    /// later observation recorded by [`Self::reobserve`]. Changes reality made
+    /// between observations are therefore never intent. Each intended change is then
     /// checked against the latest observation (the version tagged observed;
     /// before any, the lineage root) and kept only if reality does not
     /// already show its effect, with the precondition read from that
@@ -394,9 +505,15 @@ impl VersionStore {
         if self.tag(TAG_DESIRED) != Some(target) {
             return Err(PlanError::NotDesired(target));
         }
-        let root = self
+        let lineage = self
             .lineage(target)
-            .map_err(|_| PlanError::UnknownVersion(target))?[0];
+            .map_err(|_| PlanError::UnknownVersion(target))?;
+        let root = lineage
+            .iter()
+            .rev()
+            .copied()
+            .find(|id| matches!(self.versions[id.0 as usize].origin, Origin::Observed { .. }))
+            .unwrap_or(lineage[0]);
         let basis = self.tag(TAG_OBSERVED).unwrap_or(root);
         // Stored versions re-fold by construction (every delta applied when
         // it was recorded), so the only failure here is an unknown id.
@@ -421,7 +538,8 @@ impl VersionStore {
 
     /// Why does `v` contain membership `(user, group)`? The lineage from
     /// the observed root to the version whose delta last added it; a chain
-    /// of length 1 means it was observed. `None` if `v` lacks it.
+    /// that ends at an observed version (the root, or a re-observation) means
+    /// it was observed. `None` if `v` lacks it.
     pub fn explain_membership(
         &self,
         v: VersionId,
