@@ -1,7 +1,9 @@
 //! Licences as DR64 planes over a version's users (`license::LicensePlanes`).
 
-use lance_graph_dir_sim::license::{LicenseError, LicensePlanes, Via, MAX_LICENSE_STATES};
-use lance_graph_dir_sim::{Observation, ObservedNode, VersionStore};
+use lance_graph_dir_sim::license::{
+    Coverage, Evidence, ExplainRefusal, LicenseError, LicensePlanes, Via, MAX_LICENSE_STATES,
+};
+use lance_graph_dir_sim::{Observation, ObservedNode, UserOrdinal, VersionStore};
 use ogar_az::license::{ingest_licenses_page, ingest_skus_page, LicensesPage, PathState};
 use ogar_dir_core::{DirectoryScope, Guid128};
 
@@ -60,8 +62,9 @@ fn entry(u: u8, paths: Option<&[String]>) -> String {
 
 fn build(users: u8, entries: &[String]) -> Result<LicensePlanes, LicenseError> {
     let st = store(users);
-    let v = st.view(st.tag("observed").unwrap()).unwrap();
-    LicensePlanes::build(&v, &[page(entries)], &[])
+    let ver = st.tag("observed").unwrap();
+    let v = st.view(ver).unwrap();
+    LicensePlanes::build(&v, ver, vec![page(entries)], Vec::new())
 }
 
 /// Falsifier: a not-read user counted as read (or as holding nothing that was
@@ -174,7 +177,8 @@ fn unknown_or_repeated_entries_are_refused() {
         Err(LicenseError::DuplicateUser(user(0)))
     );
     let st = store(1);
-    let v = st.view(st.tag("observed").unwrap()).unwrap();
+    let ver = st.tag("observed").unwrap();
+    let v = st.view(ver).unwrap();
     let skus = ingest_skus_page(&format!(
         r#"{{"value":[
         {{"skuId":"{SKU}","consumedUnits":1,"prepaidUnits":{{"enabled":1,"suspended":0,"warning":0}}}},
@@ -182,7 +186,7 @@ fn unknown_or_repeated_entries_are_refused() {
     ))
     .unwrap();
     assert_eq!(
-        LicensePlanes::build(&v, &[], &[skus]),
+        LicensePlanes::build(&v, ver, Vec::new(), vec![skus]),
         Err(LicenseError::DuplicateSku(g(SKU)))
     );
 }
@@ -190,12 +194,13 @@ fn unknown_or_repeated_entries_are_refused() {
 #[test]
 fn capacity_is_held_exact_beside_the_planes() {
     let st = store(1);
-    let v = st.view(st.tag("observed").unwrap()).unwrap();
+    let ver = st.tag("observed").unwrap();
+    let v = st.view(ver).unwrap();
     let skus = ingest_skus_page(&format!(
         r#"{{"value":[{{"skuId":"{SKU}","consumedUnits":1200,"prepaidUnits":{{"enabled":1000,"suspended":0,"warning":0}}}}]}}"#
     ))
     .unwrap();
-    let p = LicensePlanes::build(&v, &[], &[skus]).unwrap();
+    let p = LicensePlanes::build(&v, ver, Vec::new(), vec![skus]).unwrap();
     let c = p.capacity(&g(SKU)).unwrap();
     assert_eq!((c.enabled, c.consumed, c.free()), (1000, 1200, -200));
     assert!(p.capacity(&g(SKU2)).is_none());
@@ -227,7 +232,7 @@ fn a_deleted_user_is_not_unread() {
     let v = st.view(v1).unwrap();
     assert_eq!(v.users_len(), 3, "the deleted user keeps its slot");
     assert_eq!(v.user_guid(gone), None, "and is not a user of this version");
-    let p = LicensePlanes::build(&v, &[page(&[entry(0, Some(&[]))])], &[]).unwrap();
+    let p = LicensePlanes::build(&v, v1, vec![page(&[entry(0, Some(&[]))])], Vec::new()).unwrap();
     assert_eq!(p.read().rows(), vec![0], "u0 read");
     assert_eq!(
         p.not_read().rows(),
@@ -256,4 +261,172 @@ fn a_repeated_user_is_refused_in_either_order() {
     }
     // Silence half: one entry per user is admitted.
     assert!(build(2, &[unread, entry(1, None)]).is_ok());
+}
+
+// ---- D-DIRSIM-LICENSE-DT64-1, Gate 0: the source contract --------------------
+
+const GROUP2: &str = "9a1b2c3d-0000-4000-8000-00000000c0de";
+
+fn build_pages(users: u8, pages: Vec<LicensesPage>) -> LicensePlanes {
+    let st = store(users);
+    let ver = st.tag("observed").unwrap();
+    let v = st.view(ver).unwrap();
+    LicensePlanes::build(&v, ver, pages, Vec::new()).unwrap()
+}
+
+/// Reordering the pages, and the users inside them, keeps every code at the
+/// same index with the same holders. Falsifier: codes in first-seen order
+/// (the order before this correction) put SKU2/Disabled first in one build
+/// and last in the other.
+#[test]
+fn reordered_pages_and_users_keep_every_code_in_place() {
+    let a = [
+        entry(0, Some(&[path(SKU2, "Disabled", None)])),
+        entry(1, Some(&[path(SKU, "Active", Some(GROUP))])),
+    ];
+    let b = [
+        entry(2, Some(&[path(SKU, "Active", None)])),
+        entry(3, Some(&[path(SKU, "Error", None), path(SKU2, "Disabled", None)])),
+    ];
+    let forward = build_pages(4, vec![page(&a), page(&b)]);
+    let mut b_rev = b.to_vec();
+    b_rev.reverse();
+    let mut a_rev = a.to_vec();
+    a_rev.reverse();
+    let backward = build_pages(4, vec![page(&b_rev), page(&a_rev)]);
+    assert_eq!(forward.states(), backward.states());
+    assert_eq!(forward.states().len(), 4);
+    for code in 0..forward.states().len() {
+        assert_eq!(
+            forward.predicate_iri(code),
+            backward.predicate_iri(code),
+            "code {code}"
+        );
+        assert_eq!(
+            forward.with_state(code).unwrap().rows(),
+            backward.with_state(code).unwrap().rows(),
+            "code {code}"
+        );
+    }
+    // The order is the content's: SKU (c7df…) sorts after SKU2 (4b94…).
+    assert_eq!(forward.states()[0].sku, g(SKU2));
+    // Identity resolves to the index, and an unknown identity to nothing.
+    let iri = forward.predicate_iri(0).unwrap().to_string();
+    assert_eq!(forward.code_of(&iri), Some(0));
+    assert_eq!(forward.code_of("urn:graph:licenseAssignmentState:none"), None);
+}
+
+/// A user whose property is JSON `null` the first time and read the second
+/// is still a duplicate.
+#[test]
+fn a_null_first_entry_is_still_a_duplicate() {
+    let null = format!(r#"{{"id":"{}","licenseAssignmentStates":null}}"#, user(0));
+    let read = entry(0, Some(&[path(SKU, "Active", None)]));
+    assert_eq!(
+        build(2, &[null, read]).err(),
+        Some(LicenseError::DuplicateUser(user(0)))
+    );
+}
+
+/// Not listed, listed-not-read, read-empty and read-holding are four answers,
+/// and the evidence keeps them apart.
+#[test]
+fn missing_empty_and_held_paths_stay_distinct() {
+    let p = build(
+        4,
+        &[
+            entry(0, None),
+            entry(1, Some(&[])),
+            entry(2, Some(&[path(SKU, "Active", None)])),
+        ],
+    )
+    .unwrap();
+    assert_eq!(p.paths(UserOrdinal(0)), Evidence::NotRead);
+    assert_eq!(p.paths(UserOrdinal(1)), Evidence::Read(&[][..]));
+    assert!(matches!(p.paths(UserOrdinal(2)), Evidence::Read(x) if x.len() == 1));
+    assert_eq!(p.paths(UserOrdinal(3)), Evidence::NotListed);
+}
+
+/// Two groups assigning one SKU in one state set one bit; the evidence still
+/// names both groups. Holders count once, paths count every path.
+/// Falsifier: an explanation read from the plane alone could not name either
+/// group, and counting paths as holders makes u0 count three times.
+#[test]
+fn the_evidence_keeps_both_assigning_groups_behind_one_bit() {
+    let p = build(
+        2,
+        &[
+            entry(
+                0,
+                Some(&[
+                    path(SKU, "Active", None),
+                    path(SKU, "Active", Some(GROUP)),
+                    path(SKU, "Active", Some(GROUP2)),
+                ]),
+            ),
+            entry(1, Some(&[path(SKU, "Active", Some(GROUP2))])),
+        ],
+    )
+    .unwrap();
+    assert_eq!(p.states().len(), 2, "direct and group: two codes, not three");
+    let group_code = p
+        .states()
+        .iter()
+        .position(|s| s.via == Via::Group)
+        .unwrap();
+    assert_eq!(p.with_state(group_code).unwrap().rows(), vec![0, 1]);
+    let groups: Vec<Guid128> = p
+        .explain(UserOrdinal(0), group_code)
+        .unwrap()
+        .map(|x| x.assigned_by_group.unwrap())
+        .collect();
+    assert_eq!(groups, vec![g(GROUP), g(GROUP2)]);
+    assert_eq!(p.holder_count(&g(SKU)), 2);
+    assert_eq!(p.path_count(&g(SKU)), 4);
+    assert_eq!(
+        p.explain(UserOrdinal(0), 9).err(),
+        Some(ExplainRefusal::NoSuchCode(9))
+    );
+}
+
+/// `assignedLicenses` and `licenseAssignmentStates` are separate properties.
+/// A user with effective SKUs and unread paths is not read for the planes,
+/// and the effective SKUs are still there as decoded.
+#[test]
+fn effective_skus_are_not_assignment_paths() {
+    let only_effective = format!(
+        r#"{{"id":"{}","assignedLicenses":[{{"skuId":"{SKU2}"}}]}}"#,
+        user(0)
+    );
+    let p = build(1, &[only_effective]).unwrap();
+    assert_eq!(p.paths(UserOrdinal(0)), Evidence::NotRead);
+    assert!(matches!(p.effective(UserOrdinal(0)), Evidence::Read(e) if e.len() == 1 && e[0].sku == g(SKU2)));
+    assert_eq!(p.not_read().rows(), vec![0]);
+    assert!(p.holders(&g(SKU2)).rows().is_empty());
+    assert_eq!(
+        p.explain(UserOrdinal(0), 0).err(),
+        Some(ExplainRefusal::NoSuchCode(0))
+    );
+}
+
+fn linked(entries: &[String], next: Option<&str>) -> LicensesPage {
+    let mut p = page(entries);
+    p.next_link = next.map(str::to_string);
+    p
+}
+
+/// Exactly one page ends a collection, in any page order. A link nobody
+/// followed is partial; two ends are not one collection.
+#[test]
+fn coverage_reads_the_page_links_in_any_order() {
+    let first = || linked(&[entry(0, Some(&[]))], Some("https://graph.example/next"));
+    let last = || linked(&[entry(1, Some(&[]))], None);
+    assert_eq!(build_pages(2, vec![first(), last()]).coverage(), Coverage::Complete);
+    assert_eq!(build_pages(2, vec![last(), first()]).coverage(), Coverage::Complete);
+    assert_eq!(build_pages(2, vec![first()]).coverage(), Coverage::Partial);
+    assert_eq!(
+        build_pages(2, vec![last(), linked(&[entry(0, Some(&[]))], None)]).coverage(),
+        Coverage::Ambiguous
+    );
+    assert_eq!(build_pages(2, Vec::new()).coverage(), Coverage::NotCollected);
 }
