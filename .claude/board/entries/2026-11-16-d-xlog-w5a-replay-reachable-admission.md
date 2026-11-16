@@ -84,9 +84,12 @@ trick, not an owner for the recursion. (Not measured.)
    `{1,2,3}` and `{3}`. Node 4 is absent.
 2. Disable: drop the target filter → 4 appears, red. Filter the source column
    instead of the target → red on a fixture where they differ.
-3. Differential: `reach(S)` equals the row-OR over `S` of `closure` on the
-   target-filtered edges, which keeps the existing `closure` as the oracle
-   inside the cube.
+3. Differential: `reach(S)` equals `S ∪ row_OR(closure(E_F), S)`, where `E_F`
+   is the target-filtered edges. The `S ∪` is required: `closure` is `edge⁺`
+   (positive-length paths), so the row-OR alone omits a seed that no path
+   returns to. On the G1c fixture it gives `{2,3}` against `reach`'s `{1,2,3}`.
+   This keeps the existing `closure` as the oracle inside the cube.
+   (Corrected after Codex review on #2111.)
 4. Composing the expressions runs no program (`CubeStats`), as for views.
 
 ## Open decisions (operator)
