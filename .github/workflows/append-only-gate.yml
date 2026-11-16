@@ -1,31 +1,10 @@
 name: Board file gates
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      # The protected files themselves. A PR that does not touch the board
-      # cannot shrink it, so there is nothing to check.
-      - .claude/board/LATEST_STATE.md
-      - .claude/board/EPIPHANIES.md
-      - .claude/board/PR_ARC_INVENTORY.md
-      - .claude/board/STATUS_BOARD.md
-      - .claude/board/ISSUES.md
-      - .claude/board/TECH_DEBT.md
-      - .claude/board/AGENT_LOG.md
-      - .claude/board/INTEGRATION_PLANS.md
-      # Broader than the eight above ON PURPOSE: the protected list lives in
-      # the script, and a future entry added there must be gated from the
-      # commit that adds it -- not from the next commit that happens to touch
-      # a file already on the list.
-      - .claude/board/**
-      # The gate's own two files, so a change to either is checked by itself.
-      - .claude/tools/append_only_gate.py
-      - .github/workflows/append-only-gate.yml
-      # The EPIPHANIES projection's tool, so its staleness check runs whenever
-      # the renderer changes -- not only when the board data does.
-      - .claude/tools/compact_epiphanies.py
-      # The fruits generator, for the same reason: FRUITS.md is computed from
-      # the ledgers, so a change to the renderer must re-check it.
-      - .claude/tools/fruits_index.py
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

@@ -5,28 +5,11 @@ name: Crepe plan probe
 # above it and its own `.cargo/config.toml` apply. It path-deps relalg,
 # mask-risc, r2il, mork-pathmap-probe and lance-graph-contract (the ordered lane and
 # facet keys of arm B), so changes there run it too.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      - 'crates/crepe-plan-probe/**'
-      - 'crates/lance-graph-relalg/**'
-      - 'crates/lance-graph-r2il/**'
-      - 'crates/lance-graph-contract/**'
-      - 'crates/lance-graph-mask-risc/**'
-      - 'crates/mork-pathmap-probe/**'
-      - '.github/workflows/crepe-plan-probe.yml'
-      - 'rust-toolchain.toml'
-  push:
-    branches: [main]
-    paths:
-      - 'crates/crepe-plan-probe/**'
-      - 'crates/lance-graph-relalg/**'
-      - 'crates/lance-graph-r2il/**'
-      - 'crates/lance-graph-contract/**'
-      - 'crates/lance-graph-mask-risc/**'
-      - 'crates/mork-pathmap-probe/**'
-      - '.github/workflows/crepe-plan-probe.yml'
-      - 'rust-toolchain.toml'
   workflow_dispatch:
 permissions:
   contents: read

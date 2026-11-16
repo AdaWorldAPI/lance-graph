@@ -1,19 +1,11 @@
 name: Semantic ring reference oracle
 
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/semantic-ring-oracle.yml'
-      - 'docs/research/versioned-semantic-candidates-fixtures.json'
-      - 'docs/research/semantic-ring-bound-gold-v1.json'
-      - 'tools/semantic_ring_oracle/**'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/semantic-ring-oracle.yml'
-      - 'docs/research/versioned-semantic-candidates-fixtures.json'
-      - 'docs/research/semantic-ring-bound-gold-v1.json'
-      - 'tools/semantic_ring_oracle/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

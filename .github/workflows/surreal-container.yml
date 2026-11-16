@@ -8,21 +8,11 @@
 # or this workflow changes. `member-tests` still compiles the crate through
 # `cargo build --workspace`.
 name: surreal_container
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - crates/surreal_container/**
-      - crates/lance-graph-contract/**
-      - Cargo.toml
-      - .github/workflows/surreal-container.yml
-  pull_request:
-    paths:
-      - crates/surreal_container/**
-      - crates/lance-graph-contract/**
-      - Cargo.toml
-      - .github/workflows/surreal-container.yml
   workflow_dispatch:
 
 concurrency:

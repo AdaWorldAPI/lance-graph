@@ -58,6 +58,21 @@ impl Kept {
         materialize_rows(&self.bits, self.n_rows)
     }
 
+    /// How many rows were kept: a popcount, no row is decoded.
+    pub fn len(&self) -> usize {
+        self.bits.iter().map(|w| w.count_ones() as usize).sum()
+    }
+
+    /// Whether no row was kept.
+    pub fn is_empty(&self) -> bool {
+        self.bits.iter().all(|w| *w == 0)
+    }
+
+    /// Rows of the relation the program ran over (kept or not).
+    pub fn universe(&self) -> usize {
+        self.n_rows
+    }
+
     /// Add one row (a delta-sized correction, e.g. an overridden value).
     pub(crate) fn set(&mut self, row: usize) {
         debug_assert!(row < self.n_rows);

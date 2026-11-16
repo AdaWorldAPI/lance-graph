@@ -1,47 +1,10 @@
 name: Supersession index is current
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      # The generator's INPUTS, not just the generator. A plan or a ruled-symbol
-      # verdict is what makes the committed table stale -- that is how it went
-      # stale the first time (#1047 added a plan naming two ruled symbols, and
-      # nothing noticed).
-      - .claude/plans/**
-      - .claude/v3/COMPONENT-MAP.md
-      - .claude/tools/supersession_index.py
-      - .claude/board/SUPERSESSION-INDEX.md
-      - .github/workflows/supersession-index.yml
-      # The BOARD is an input too, and was missing from this list. The
-      # generator's "board coverage" column counts each plan's D-ids cited in
-      # `board/entries/*.md` + `EPIPHANIES.md` (supersession_index.py:48-49,
-      # read at :85), so a PR that only PREPENDS an epiphany citing a D-id
-      # moves the table while the gate stayed silent -- CI green over a stale
-      # index, which is the one thing this workflow exists to prevent.
-      # Measured on #1123: an EPIPHANIES-only PR ran no `regenerate-and-diff`
-      # at all. `CLAUDE.md` already named the board among the inputs; the
-      # filter had not caught up.
-      - .claude/board/entries/**
-      - .claude/board/EPIPHANIES.md
-      # The entries tier's OWN generator + index. Added 2026-09-20 with
-      # `entries_index.py`: the index was hand-maintained, its header claimed
-      # 135 entries against 144 files, and its own falsifier #2 was red on two
-      # stranded files -- invisible because the three checks were shell
-      # snippets in a README that nothing executed.
-      - .claude/tools/entries_index.py
-      - .claude/board/entries/README.md
-      # The findings watermark + the provenance gate. An EPIPHANIES addition
-      # after the baseline must cite the entry it was promoted from, so both
-      # the marker and the checker are inputs to that claim.
-      - .claude/tools/epiphany_provenance.py
-      - .claude/board/PROCESSED_THROUGH
-      # `crates/` decides the "live" column (:27 globs it per symbol). Broad,
-      # and deliberately so: a symbol deleted from the tree changes the table,
-      # and the generator takes ~15 s, so the gate is cheap next to the Rust
-      # jobs it runs beside.
-      - crates/**
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
