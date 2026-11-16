@@ -333,8 +333,16 @@ fn an_oracle_agrees_rule_also_agrees_in_the_reference() {
 /// a reason, never `agree`.
 #[test]
 fn a_rule_outside_both_evaluators_has_no_reference_agreement() {
-    let rec = reconcile("q(X,Y) :- r(X,Y), X < Y.", &DEFAULT_SEEDS);
-    let q = rec.rules.iter().find(|r| r.head == "q").expect("head q");
+    // Shape of an XLOG arithmetic test: an `is` expression neither evaluator
+    // supports.
+    let src = "add_pair(10, 5). add_pair(20, 3). \
+               add_result(X, Y, Z) :- add_pair(X, Y), Z is X + Y.";
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    let q = rec
+        .rules
+        .iter()
+        .find(|r| r.head == "add_result")
+        .expect("head add_result");
     assert_eq!(q.reference, "unavailable", "{q:?}");
     assert!(!q.reference_reason.is_empty(), "{q:?}");
 }
