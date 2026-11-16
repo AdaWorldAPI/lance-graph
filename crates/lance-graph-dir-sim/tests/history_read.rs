@@ -142,7 +142,7 @@ fn net(st: &VersionStore, from: VersionId, to: VersionId) -> BTreeSet<Fact> {
         .collect()
 }
 
-/// 1. One changed membership is exactly one change, in one version.
+/// Falsifier 1: One changed membership is exactly one change, in one version.
 #[test]
 fn one_membership_change_is_one_change() {
     let mut st = VersionStore::new();
@@ -158,7 +158,7 @@ fn one_membership_change_is_one_change() {
     assert_eq!(want.len(), 1);
 }
 
-/// 2. An unchanged re-read is an event with no changes.
+/// Falsifier 2: An unchanged re-read is an event with no changes.
 #[test]
 fn an_unchanged_reread_is_an_event_without_changes() {
     let mut st = VersionStore::new();
@@ -176,7 +176,7 @@ fn an_unchanged_reread_is_an_event_without_changes() {
     ));
 }
 
-/// 3. Four reads: each adjacent pair's events equal the oracle, and the net
+/// Falsifier 3: Four reads: each adjacent pair's events equal the oracle, and the net
 /// reading across the whole interval equals the oracle of the end points.
 #[test]
 fn four_reads_agree_pairwise_and_across_the_interval() {
@@ -206,7 +206,7 @@ fn four_reads_agree_pairwise_and_across_the_interval() {
     assert_eq!(net(&st, ids[0], ids[3]), oracle(&reads[0], &reads[3]));
 }
 
-/// 4. A simulated branch is not observed history.
+/// Falsifier 4: A simulated branch is not observed history.
 #[test]
 fn a_simulated_branch_is_not_observed_history() {
     let mut st = VersionStore::new();
@@ -230,7 +230,7 @@ fn a_simulated_branch_is_not_observed_history() {
     assert!(matches!(branch[0].origin, Origin::Simulated { .. }));
 }
 
-/// 5. A node deleted and created again is two events, while the net reading
+/// Falsifier 5: A node deleted and created again is two events, while the net reading
 /// over the same interval is empty.
 #[test]
 fn delete_and_recreate_are_events_not_an_unchanged_node() {
@@ -252,7 +252,7 @@ fn delete_and_recreate_are_events_not_an_unchanged_node() {
     assert_eq!(events(&st, o2, o3).len(), 1);
 }
 
-/// 6. Another directory scope, an unknown id and a reversed range refuse.
+/// Falsifier 6: Another directory scope, an unknown id and a reversed range refuse.
 #[test]
 fn another_scope_an_unknown_id_and_a_reversed_range_refuse() {
     let mut st = VersionStore::new();
@@ -282,7 +282,7 @@ fn another_scope_an_unknown_id_and_a_reversed_range_refuse() {
     );
 }
 
-/// 7. A changed attribute carries its before and after values; absent,
+/// Falsifier 7: A changed attribute carries its before and after values; absent,
 /// explicit empty and unknown stay distinct.
 #[test]
 fn attribute_changes_carry_before_and_after() {
@@ -319,7 +319,7 @@ fn attribute_changes_carry_before_and_after() {
     );
 }
 
-/// 8. An old observation stays readable after newer ones.
+/// Falsifier 8: An old observation stays readable after newer ones.
 #[test]
 fn an_old_observation_reads_as_it_was() {
     let mut st = VersionStore::new();
@@ -340,7 +340,7 @@ fn an_old_observation_reads_as_it_was() {
     assert!(!v.is_member(&g(BOB), &g(EXCHANGE)));
 }
 
-/// 10. A refused read changes nothing.
+/// Falsifier 10: A refused read changes nothing.
 #[test]
 fn a_refused_read_changes_nothing() {
     let mut st = VersionStore::new();
