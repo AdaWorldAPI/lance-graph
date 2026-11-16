@@ -63,7 +63,7 @@ pub use snapshot::{
     BuildError, Dict, DictCounters, Dicts, GroupOrdinal, NodeKind, Observation, ObservedNode,
     ObservedRecipient, Population, Snapshot, UserOrdinal, MAX_GROUPS, MAX_USERS, NONE,
 };
-pub use store::{Rejection, SimError, VersionStore};
+pub use store::{ObserveError, Rejection, SimError, VersionStore};
 pub use view::{ApplyError, MembershipPath, View};
 
 use lance_graph_mask_risc::{words_for, Foreign, LaneRef, Planes, Program, StridedRef};
