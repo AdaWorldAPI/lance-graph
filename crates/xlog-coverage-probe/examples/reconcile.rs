@@ -5,7 +5,7 @@
 //! answers, and every rule on which the cube and the reference evaluator
 //! disagree. With `--out`, writes one TSV row per rule (and one per program
 //! that has no rule): file, literal index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
-//! datafrog, datafrog_reason.
+//! datafrog, datafrog_reason, reference, reference_nonempty, reference_reason.
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -75,6 +75,8 @@ fn main() {
     let mut by_oracle: BTreeMap<String, usize> = BTreeMap::new();
     let mut cross: BTreeMap<String, usize> = BTreeMap::new();
     let mut by_datafrog: BTreeMap<String, usize> = BTreeMap::new();
+    let mut by_reference: BTreeMap<String, usize> = BTreeMap::new();
+    let mut reference_disagreements: Vec<String> = Vec::new();
 
     for path in &files {
         let text = std::fs::read_to_string(path).unwrap_or_else(|e| {
@@ -94,7 +96,7 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t\t{}\tfalse\t\t\t0\t{}\t\t",
+                    "{path}\t{index}\t\t{}\tfalse\t\t\t0\t{}\t\t\t\t0\t",
                     rung.label(),
                     flat(&rec.program_reason)
                 );
@@ -114,6 +116,20 @@ fn main() {
                 }
                 if r.rung == Rung::OracleAgrees {
                     *by_datafrog.entry(r.datafrog.to_string()).or_default() += 1;
+                }
+                let reference = match (r.reference, r.reference_nonempty) {
+                    ("agree", 0) => "agree (empty answers only)",
+                    (label, _) => label,
+                };
+                *by_reference
+                    .entry(format!("{} / {reference}", r.rung.label()))
+                    .or_default() += 1;
+                if r.reference == "disagree" {
+                    reference_disagreements.push(format!(
+                        "{path} literal {index} head {}: {}",
+                        r.head,
+                        flat(&r.reference_reason)
+                    ));
                 }
                 if r.rung == Rung::OracleAgrees && r.nonempty_seeds == 0 {
                     vacuous_agree += 1;
@@ -149,7 +165,7 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    "{path}\t{index}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                     r.head,
                     r.rung.label(),
                     r.host_loop,
@@ -158,7 +174,10 @@ fn main() {
                     r.nonempty_seeds,
                     flat(&r.reason),
                     r.datafrog,
-                    flat(&r.datafrog_reason)
+                    flat(&r.datafrog_reason),
+                    r.reference,
+                    r.reference_nonempty,
+                    flat(&r.reference_reason)
                 );
             }
         }
@@ -195,6 +214,17 @@ fn main() {
     print_counts("verdicts by oracle:", by_oracle);
     print_counts("rung vs xlog reference evaluator:", cross);
     print_counts("oracle-agrees rows by datafrog label:", by_datafrog);
+    print_counts(
+        "rung / naive oracle vs datafrog without the cube:",
+        by_reference,
+    );
+    println!(
+        "naive vs datafrog disagreements: {}",
+        reference_disagreements.len()
+    );
+    for d in &reference_disagreements {
+        println!("  {d}");
+    }
     print_counts("refusal reasons:", refusals);
     print_counts("oracle unavailable (or plan refused):", unavailable);
 
@@ -205,7 +235,7 @@ fn main() {
 
     if let Some(path) = out_path {
         let mut text = String::from(
-            "file\tliteral\thead\trung\thost_loop\toracle\txlog_ref\tnonempty_seeds\treason\tdatafrog\tdatafrog_reason\n",
+            "file\tliteral\thead\trung\thost_loop\toracle\txlog_ref\tnonempty_seeds\treason\tdatafrog\tdatafrog_reason\treference\treference_nonempty\treference_reason\n",
         );
         text.push_str(&tsv);
         if let Err(e) = std::fs::write(&path, text) {
