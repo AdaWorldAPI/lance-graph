@@ -68,10 +68,8 @@ fn fixture(blocked: &[u32]) -> Fixture {
 fn replay_reachable_matches_the_g1c_witness() {
     let f = fixture(&[3]);
     let seed = SetExpr::and(f.frontier.clone(), f.widened.clone());
-    // promoted = frontier ∧ widened = {1}. With an empty target, reach
-    // returns its seed and nothing else.
-    let empty = SetExpr::and_not(seed.clone(), seed.clone());
-    let (seed_only, _) = f.cube.reach(&f.t, 0, &seed, &empty).unwrap();
+    // promoted = frontier ∧ widened = {1}.
+    let seed_only = f.cube.set_mask(&f.t, &seed).unwrap();
     assert_eq!(ids(&f.t, &seed_only), [1]);
 
     let (replay, stats) = f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap();
@@ -84,15 +82,7 @@ fn replay_reachable_matches_the_g1c_witness() {
     // frontier filter removes, and finds nothing new.
     assert_eq!(stats.rounds, 3);
 
-    let (blocked, _) = f
-        .cube
-        .reach(
-            &f.t,
-            0,
-            &f.blocked,
-            &SetExpr::and_not(f.blocked.clone(), f.blocked.clone()),
-        )
-        .unwrap();
+    let blocked = f.cube.set_mask(&f.t, &f.blocked).unwrap();
     assert_eq!(ids(&f.t, &and(&replay, &blocked)), [3], "rollback_hit");
 }
 
@@ -101,8 +91,7 @@ fn blocking_an_unreached_node_leaves_rollback_empty() {
     let f = fixture(&[4]);
     let seed = SetExpr::and(f.frontier.clone(), f.widened.clone());
     let (replay, _) = f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap();
-    let nothing = SetExpr::and_not(f.blocked.clone(), f.blocked.clone());
-    let (blocked, _) = f.cube.reach(&f.t, 0, &f.blocked, &nothing).unwrap();
+    let blocked = f.cube.set_mask(&f.t, &f.blocked).unwrap();
     assert_eq!(ids(&f.t, &blocked), [4]);
     assert!(ids(&f.t, &and(&replay, &blocked)).is_empty());
 }
@@ -253,6 +242,14 @@ fn refusals() {
         f.cube.reach(&alien, 0, &seed, &f.frontier),
         Err(CubeRefusal::Map(MapRead::Stale(_)))
     ));
+    assert_eq!(
+        f.cube.set_mask(&f.t, &SetExpr::Set(99)),
+        Err(CubeRefusal::UnknownSet(99))
+    );
+    assert!(matches!(
+        f.cube.set_mask(&alien, &seed),
+        Err(CubeRefusal::Map(MapRead::Stale(_)))
+    ));
     // An id outside the map.
     let mut f = fixture(&[3]);
     assert!(matches!(
@@ -270,4 +267,30 @@ fn an_advanced_table_keeps_the_answer() {
     let before = f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap().0;
     f.t.advance(1, 1, vec![]);
     assert_eq!(f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap().0, before);
+}
+
+/// A reachable set as an expression node composes inside one terminal:
+/// `rollback_hit = reach(promoted) ∧ blocked` without storing the reach.
+#[test]
+fn reach_composes_as_an_expression() {
+    let f = fixture(&[3]);
+    let seed = SetExpr::and(f.frontier.clone(), f.widened.clone());
+    let replay = SetExpr::reach(0, seed.clone(), f.frontier.clone());
+    assert_eq!(
+        ids(&f.t, &f.cube.set_mask(&f.t, &replay).unwrap()),
+        [1, 2, 3]
+    );
+    let rollback = SetExpr::and(replay.clone(), f.blocked.clone());
+    assert_eq!(ids(&f.t, &f.cube.set_mask(&f.t, &rollback).unwrap()), [3]);
+    // The node and the terminal agree.
+    assert_eq!(
+        f.cube.set_mask(&f.t, &replay).unwrap(),
+        f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap().0
+    );
+    assert_eq!(
+        f.cube
+            .set_mask(&f.t, &SetExpr::reach(9, seed, f.frontier.clone())),
+        Err(CubeRefusal::UnknownRel(9))
+    );
+    assert_eq!(f.cube.stats().programs, 0);
 }
