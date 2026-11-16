@@ -767,6 +767,11 @@ pub const CODEBOOK: &[(&str, u16)] = &[
     ("directory_group", 0x0B07),
     ("group_membership", 0x0B08),
     ("license_assignment", 0x0B09),
+    // `tenant_credential` (OGAR ogar-vocab 0x0B0A): one tenant-scoped source
+    // credential reference (Graph app, ARM workload, collector) that the
+    // `ogar-secrets` broker releases to an authorized workload. Identity of the
+    // reference only; the secret value is never a row.
+    ("tenant_credential", 0x0B0A),
     // ── 0x0DXX — HR domain (employment / org / contracts; OGAR PR #127) ──
     // Closes the final 4-of-11 cross-axis identity gap surfaced by odoo-rs
     // PR #14: hr.employee / hr.department / hr.job / hr.contract.
@@ -1065,6 +1070,8 @@ mod tests {
         assert_eq!(canonical_concept_id("email"), Some(0x0B05));
         assert_eq!(canonical_concept_id("directory_user"), Some(0x0B06));
         assert_eq!(canonical_concept_id("license_assignment"), Some(0x0B09));
+        assert_eq!(canonical_concept_id("tenant_credential"), Some(0x0B0A));
+        assert_eq!(canonical_concept_domain(0x0B0A), ConceptDomain::Auth);
         assert_eq!(canonical_concept_id("unicharset"), Some(0x0801));
         assert_eq!(canonical_concept_id("charset"), Some(0x0803));
         assert_eq!(canonical_concept_id("patient"), Some(0x0901));
