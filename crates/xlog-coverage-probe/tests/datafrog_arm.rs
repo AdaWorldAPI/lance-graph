@@ -90,11 +90,16 @@ fn stratified_negation_agrees_with_naive() {
 fn out_of_subset_is_not_applicable() {
     let r = pairs(&[(1, 2), (2, 2), (3, 3), (4, 5)]);
     let base = store(&[("r", r)]);
-    let cases: [(&str, &str, bool); 4] = [
-        ("q(X) :- r(X, 3).", "constant", true),
+    let cases: [(&str, &str, bool); 5] = [
         ("q(X,Y) :- r(X,Y), X < Y.", "comparison", true),
         ("p(X) :- r(X,Y), not p(Y).", "own component", false),
         ("q(X) :- r(X, X).", "repeated", true),
+        (
+            "q(X) :- r(X,Y), not r(Y, 3).",
+            "integer constant in negated atom r",
+            true,
+        ),
+        ("q(X) :- r(X, 5000000000).", "does not fit u32", true),
     ];
     for (src, construct, naive_answers) in cases {
         let p = program(src);
@@ -112,12 +117,65 @@ fn out_of_subset_is_not_applicable() {
             assert!(naive_run(&p, &[head.as_str()], &base).is_ok(), "{src}");
         }
     }
+    // A constant in a positive atom is now inside the subset.
+    let p = program("q(X) :- r(X, 3).");
+    let got = datafrog_run(&p, &["q"], &base).expect("constant is supported");
+    let want = naive_run(&p, &["q"], &base).expect("naive");
+    assert_eq!(got["q"], want["q"]);
+    assert!(!got["q"].is_empty());
     // Silence twin: a rule inside the subset is answered and agrees.
     let p = program("q(X,Z) :- r(X,Y), r(Y,Z).");
     let got = datafrog_run(&p, &["q"], &base).expect("in subset");
     let want = naive_run(&p, &["q"], &base).expect("naive");
     assert_eq!(got["q"], want["q"]);
     assert!(!got["q"].is_empty());
+}
+
+/// Node 3 has two successors, the other nodes have some too.
+fn fan() -> Store {
+    store(&[(
+        "edge",
+        pairs(&[(3, 4), (3, 5), (1, 3), (2, 4), (4, 5), (5, 6)]),
+    )])
+}
+
+#[test]
+fn body_constant_filter_agrees_with_naive() {
+    let base = fan();
+    let p = program("q(Y) :- edge(3, Y).");
+    let got = datafrog_run(&p, &["q"], &base).expect("datafrog");
+    let want = naive_run(&p, &["q"], &base).expect("naive");
+    assert_eq!(got["q"], want["q"]);
+    assert!(!got["q"].is_empty());
+    let unfiltered = program("q(Y) :- edge(X, Y).");
+    let all = naive_run(&unfiltered, &["q"], &base).expect("naive");
+    assert!(
+        got["q"].len() < all["q"].len(),
+        "the filter must remove rows: {} vs {}",
+        got["q"].len(),
+        all["q"].len()
+    );
+}
+
+#[test]
+fn constant_in_later_atom_agrees() {
+    let base = fan();
+    let p = program("q(X) :- edge(X, Y), edge(Y, 4).");
+    let got = datafrog_run(&p, &["q"], &base).expect("datafrog");
+    let want = naive_run(&p, &["q"], &base).expect("naive");
+    assert_eq!(got["q"], want["q"]);
+    assert!(!got["q"].is_empty());
+}
+
+#[test]
+fn head_constant_agrees() {
+    let base = fan();
+    let p = program("q(X, 1) :- edge(X, _).");
+    let got = datafrog_run(&p, &["q"], &base).expect("datafrog");
+    let want = naive_run(&p, &["q"], &base).expect("naive");
+    assert_eq!(got["q"], want["q"]);
+    assert!(!got["q"].is_empty());
+    assert!(got["q"].iter().all(|row| row[1] == 1));
 }
 
 fn chain() -> Store {
@@ -182,8 +240,9 @@ fn cross_product_and_three_atom_join() {
 }
 
 /// The census wiring, end to end through `reconcile`: an in-subset rule is
-/// labelled `agree`, a rule with a constant `not-applicable` with its reason,
-/// and neither label moves the rung.
+/// labelled `agree`, a rule with an integer constant in a positive atom also
+/// `agree`, a rule with a comparison `not-applicable` with its reason, and no
+/// label moves the rung.
 #[test]
 fn reconcile_labels_datafrog_without_moving_the_rung() {
     use xlog_coverage_probe::{reconcile, Rung, DEFAULT_SEEDS};
@@ -196,11 +255,16 @@ fn reconcile_labels_datafrog_without_moving_the_rung() {
     let constant = reconcile("q(X) :- r(X,3).", &DEFAULT_SEEDS);
     let q = constant.rules.iter().find(|r| r.head == "q").expect("q");
     assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
+    assert_eq!(q.datafrog, "agree", "{q:?}");
+    assert!(q.datafrog_reason.is_empty(), "{q:?}");
+
+    // A comparison is refused by the cube itself, so Datafrog never runs on
+    // it; a repeated variable is a shape the cube runs and Datafrog does not.
+    let diagonal = reconcile("q(X) :- r(X,X).", &DEFAULT_SEEDS);
+    let q = diagonal.rules.iter().find(|r| r.head == "q").expect("q");
+    assert_eq!(q.rung, Rung::OracleAgrees, "{q:?}");
     assert_eq!(q.datafrog, "not-applicable", "{q:?}");
-    assert!(
-        q.datafrog_reason.contains("integer constant in atom r"),
-        "{q:?}"
-    );
+    assert!(q.datafrog_reason.contains("repeated"), "{q:?}");
 }
 
 /// A cross product past the row budget is refused by the join itself, which
