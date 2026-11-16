@@ -538,6 +538,18 @@ impl Cube {
         })
     }
 
+    /// The positions of a set expression: a read terminal, like
+    /// [`Cube::support`]. The frame is re-checked. The mask is an answer to
+    /// download, never an input: a later terminal is handed the expression
+    /// again, not this mask, so no computed mask crosses a terminal.
+    pub fn set_mask(&self, table: &MapTable, e: &SetExpr) -> Result<Vec<u64>, CubeRefusal> {
+        if self.tiled {
+            return Err(CubeRefusal::Tiled);
+        }
+        self.check_frame(table)?;
+        self.eval(e, self.n.div_ceil(64))
+    }
+
     /// The positions reachable from `seed` along relation `rel`, every step
     /// landing in `target`, seeds included: `seed ∪ reach(seed)` (D-XLOG-W5-B,
     /// decision D3). Semi-naive over position masks: `next` is the or of the
