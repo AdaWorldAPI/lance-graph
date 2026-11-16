@@ -514,16 +514,14 @@ impl Cube {
 
     /// Store a one-column set under the cube's frame (D-XLOG-W5-B, decision
     /// D1). Each id is looked up once in the shared map, as for a relation,
-    /// and becomes one bit of a position mask. Its ids must be in the map. A
-    /// tiled cube is refused: [`Cube::reach`] reads one tile's positions.
+    /// and becomes one bit of a position mask. Its ids must be in the map. On
+    /// a tiled cube each id is placed at its wide coordinate, as
+    /// [`Cube::new_tiled`] places relation ids (D-XLOG-W5-D), and an id no
+    /// tile holds is refused as [`CubeRefusal::Locate`].
     pub fn add_set(&mut self, table: &MapTable, ids: &[u32]) -> Result<SetId, CubeRefusal> {
-        if self.tiled {
-            return Err(CubeRefusal::Tiled);
-        }
-        let map = self.map(table)?;
         let mut mask = vec![0u64; self.n.div_ceil(64)];
         for &id in ids {
-            let l = usize::from(map.local(u64::from(id)).map_err(CubeRefusal::Domain)?);
+            let l = self.coord(table, id)? as usize;
             mask[l / 64] |= 1 << (l % 64);
         }
         self.sets.push(mask);
@@ -566,11 +564,9 @@ impl Cube {
     /// The positions of a set expression: a read terminal, like
     /// [`Cube::support`]. The frame is re-checked. The mask is an answer to
     /// download, never an input: a later terminal is handed the expression
-    /// again, not this mask, so no computed mask crosses a terminal.
+    /// again, not this mask, so no computed mask crosses a terminal. On a
+    /// tiled cube the mask is indexed by wide coordinate.
     pub fn set_mask(&self, table: &MapTable, e: &SetExpr) -> Result<Vec<u64>, CubeRefusal> {
-        if self.tiled {
-            return Err(CubeRefusal::Tiled);
-        }
         self.check_frame(table)?;
         self.eval(e, self.n.div_ceil(64))
     }
@@ -584,6 +580,8 @@ impl Cube {
     /// terminal. The frame is re-checked; a delta still non-empty after one
     /// round per position is [`CubeRefusal::FixpointBound`], as in
     /// [`Cube::closure`]. One-column heads only; n-ary recursion is not here.
+    /// A tiled cube's lanes, sets and answer are all in wide coordinates, so
+    /// the same loop runs over `256 * tiles` positions (D-XLOG-W5-D).
     pub fn reach(
         &self,
         table: &MapTable,
@@ -591,9 +589,6 @@ impl Cube {
         seed: &SetExpr,
         target: &SetExpr,
     ) -> Result<(Vec<u64>, ClosureStats), CubeRefusal> {
-        if self.tiled {
-            return Err(CubeRefusal::Tiled);
-        }
         self.lanes(rel)?;
         self.check_frame(table)?;
         let words = self.n.div_ceil(64);
