@@ -1,5 +1,5 @@
 //! D-XLOG-KNOWLEDGE-G1c: positive witnesses for the 15 refused rules whose
-//! naive/Datafrog reference agreement in the G1b census (`census-656def9.tsv`,
+//! naive/Datafrog reference agreement in the G1b census (`census-656def9.tsv`, now in git history;
 //! draft PR #2109) held over empty answers only.
 //!
 //! The census seeds only binary `u32` base relations, and every one of the

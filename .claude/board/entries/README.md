@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-640 entries, 2026-08-06 .. 2026-11-17.
+641 entries, 2026-08-06 .. 2026-11-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-11-16 | `D-XLOG-W5-B` |  | [2026-11-16-d-xlog-w5b-cube-reach.md](2026-11-16-d-xlog-w5b-cube-reach.md) |
 | 2026-11-16 | `D-XLOG-W5-A` |  | [2026-11-16-d-xlog-w5a-replay-reachable-admission.md](2026-11-16-d-xlog-w5a-replay-reachable-admission.md) |
 | 2026-11-16 | `D-XLOG-KNOWLEDGE-G1c` |  | [2026-11-16-d-xlog-knowledge-g1c-witnesses.md](2026-11-16-d-xlog-knowledge-g1c-witnesses.md) |
+| 2026-11-16 | `D-XLOG-COV-2` |  | [2026-11-16-d-xlog-cov-2-census-007bb19.md](2026-11-16-d-xlog-cov-2-census-007bb19.md) |
 | 2026-11-16 | `D-MAPPING-POLYFILL-1` |  | [2026-11-16-d-mapping-polyfill-1.md](2026-11-16-d-mapping-polyfill-1.md) |
 | 2026-11-16 | `D-DIRSIM-REOBSERVE` |  | [2026-11-16-d-dirsim-reobserve.md](2026-11-16-d-dirsim-reobserve.md) |
 | 2026-11-16 | `D-DIRSIM-DELTA-READ-1` |  | [2026-11-16-d-dirsim-delta-read-1.md](2026-11-16-d-dirsim-delta-read-1.md) |

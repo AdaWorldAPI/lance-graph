@@ -144,26 +144,30 @@ no rule (empty head; rung `observed` or `compiled`). Columns: file, literal
 index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
 datafrog, datafrog_reason, reference, reference_nonempty, reference_reason,
 route (empty, `set` or `reach`).
-The census is committed as `census-656def9.tsv`. It was taken over the XLOG fork at
-`656def9` (AdaWorldAPI/xlog#8: readers of refused relations are refused, and
-rows put for a derived predicate are kept), with the test corpus unchanged
-since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
-94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
-Datafrog agrees on all 87 oracle-agrees rules and disagrees on none (integer
-constants in positive atoms are lowered as semijoins; before that, `neighbor`
-and `from_one` were not applicable). With its join deliberately broken,
-Datafrog disagrees on 69 of the 87 while every rung stays the same.
+The census is committed as `census-007bb19.tsv`. It was taken over the XLOG fork at
+`007bb19` (AdaWorldAPI/xlog#9: one-column heads routed to cube sets), with
+the test corpus unchanged since `c9bd9dc`. Every compiled rule has a verdict:
+102 oracle-agrees, 79 refused, 49 refused-on-data, 0 oracle-disagrees,
+0 lowered-unverified; 58 of the 102 are native-tested. Against the previous
+census (`census-656def9.tsv`, in git history) exactly 15 rows changed, and
+they are the 15 rows with a `route` (13 `set`, 2 `reach`), each from refused
+to oracle-agrees; the other 423 rows are byte-identical in the earlier 14
+columns. Datafrog agrees on all 102 oracle-agrees rules and disagrees on none
+(integer constants in positive atoms are lowered as semijoins). With its join
+deliberately broken at `656def9`, Datafrog disagreed on 69 of the then 87
+while every rung stayed the same.
 
 The reference column (naive oracle vs Datafrog, no cube) gives an expected
-answer for refused rules too. Over the 230 compiled rules: 87 oracle-agrees
-and 49 refused-on-data agree; of the 94 refused, 35 agree on non-empty
-answers, 15 agree only on empty answers, and 44 are unavailable (the naive
+answer for refused rules too. Over the 230 compiled rules: 102 oracle-agrees
+and 49 refused-on-data agree; of the 79 refused, 26 agree on non-empty
+answers, 9 agree only on empty answers, and 44 are unavailable (the naive
 oracle has no floats, `is` expressions or aggregates, five ILP `learnable`
 rules have no ordinary AST rule, and five read a base with non-integer
 facts). 0 disagreements. With Datafrog's join deliberately broken (the right
-row read from the wrong end), the reference column reports 114
-disagreements, 43 of them on refused rules, while rungs and reasons stay
-byte-identical. A census takes about 18 minutes on this container.
+row read from the wrong end), the reference column reported 114
+disagreements at `656def9`, 43 of them on refused rules, while rungs and
+reasons stayed byte-identical. A census takes about 15 minutes on this
+container.
 
 ## Known limits
 
