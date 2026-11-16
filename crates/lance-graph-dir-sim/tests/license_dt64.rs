@@ -91,11 +91,11 @@ fn rule(u: usize) -> Option<Vec<(usize, Option<usize>, usize)>> {
     }
     let (s, st) = (u % SKUS, (u / SKUS) % STATES.len());
     let mut p = Vec::new();
-    if u % 3 == 0 {
+    if u.is_multiple_of(3) {
         p.push((s, None, st));
     }
     p.push((s, Some(u % GROUPS), st));
-    if u % 7 == 0 {
+    if u.is_multiple_of(7) {
         // A second assigning group for the same SKU in the same state.
         p.push((s, Some((u + 1) % GROUPS), st));
     }
