@@ -3,18 +3,11 @@ name: MORK / PathMap probe
 # git deps on the MORK and PathMap forks), so no workspace job builds it. It
 # runs from its own directory so its `.cargo/config.toml` (AES/SSE2 for MORK's
 # gxhash) applies.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      - 'crates/mork-pathmap-probe/**'
-      - '.github/workflows/mork-pathmap-probe.yml'
-      - 'rust-toolchain.toml'
-  push:
-    branches: [main]
-    paths:
-      - 'crates/mork-pathmap-probe/**'
-      - '.github/workflows/mork-pathmap-probe.yml'
-      - 'rust-toolchain.toml'
   workflow_dispatch:
 permissions:
   contents: read

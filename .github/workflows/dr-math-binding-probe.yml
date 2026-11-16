@@ -2,28 +2,11 @@ name: DR Mathematical Binding Probe
 # Own [workspace] excluded from root tests; a lab gate, not production
 # admission. Mirrors egglog-r2il-probe.yml's toolchain setup: the pinned
 # toolchain from rust-toolchain.toml, never `stable`.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      - "crates/dr-math-binding-probe/**"
-      - "crates/lance-graph-contract/**"
-      - "crates/lance-graph-act-r/**"
-      - "crates/lance-graph-quack/**"
-      - "crates/lance-graph-mask-risc/**"
-      - "crates/lance-graph-dt64/**"
-      - ".github/workflows/dr-math-binding-probe.yml"
-      - "rust-toolchain.toml"
-  push:
-    branches: [main]
-    paths:
-      - "crates/dr-math-binding-probe/**"
-      - "crates/lance-graph-contract/**"
-      - "crates/lance-graph-act-r/**"
-      - "crates/lance-graph-quack/**"
-      - "crates/lance-graph-mask-risc/**"
-      - "crates/lance-graph-dt64/**"
-      - ".github/workflows/dr-math-binding-probe.yml"
-      - "rust-toolchain.toml"
   workflow_dispatch:
 permissions:
   contents: read

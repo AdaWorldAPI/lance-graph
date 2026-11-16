@@ -6,18 +6,11 @@ name: dt64 hotplug probe
 # store or lane socket, or to lance-graph-ogar's authority could break the
 # seam unnoticed. OGAR comes in over git through lance-graph-ogar, so no
 # sibling checkout is needed.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - crates/lance-graph-contract/**
-      - crates/lance-graph-dt64/**
-      - crates/lance-graph-ogar/**
-      - crates/lance-graph-ontology/**
-      - crates/dt64-hotplug-probe/**
-      - .github/workflows/dt64-hotplug-probe.yml
   workflow_dispatch:
 
 concurrency:
