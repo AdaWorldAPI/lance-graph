@@ -50,6 +50,42 @@ use crate::{all_live, run_lanes, NativeRefusal};
 /// A relation's index in the order given to [`Cube::new`].
 pub type RelId = u32;
 
+/// A stored one-column set's index, in the order [`Cube::add_set`] added it.
+pub type SetId = u32;
+
+/// An expression over stored sets, the input of [`Cube::reach`]
+/// (D-XLOG-W5-B, decision D2). The leaves are stored sets and the only
+/// operators are and, or and and-not: there are no constants and no
+/// complement of the universe. It is plain data; building one runs nothing,
+/// and [`Cube::reach`] evaluates it inside the terminal, so no mask computed
+/// by one program is handed to another.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SetExpr {
+    /// A set [`Cube::add_set`] stored.
+    Set(SetId),
+    /// Both.
+    And(Box<SetExpr>, Box<SetExpr>),
+    /// Either.
+    Or(Box<SetExpr>, Box<SetExpr>),
+    /// The first and not the second.
+    AndNot(Box<SetExpr>, Box<SetExpr>),
+}
+
+impl SetExpr {
+    /// `a ∧ b`.
+    pub fn and(a: SetExpr, b: SetExpr) -> Self {
+        Self::And(Box::new(a), Box::new(b))
+    }
+    /// `a ∨ b`.
+    pub fn or(a: SetExpr, b: SetExpr) -> Self {
+        Self::Or(Box::new(a), Box::new(b))
+    }
+    /// `a ∧ ¬b`.
+    pub fn and_not(a: SetExpr, b: SetExpr) -> Self {
+        Self::AndNot(Box::new(a), Box::new(b))
+    }
+}
+
 /// A handle into a [`Cube`]. Copying it copies no rows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
@@ -182,6 +218,8 @@ pub enum CubeRefusal {
     ForeignView,
     /// No relation with this id.
     UnknownRel(RelId),
+    /// No stored set with this id.
+    UnknownSet(SetId),
     /// A column other than 0 or 1.
     NoSuchColumn(u8),
     /// `bind` takes a scan; `join` takes scans or binds.
@@ -341,6 +379,11 @@ pub struct Cube {
     /// is recomputed by folding. Parallel to `rels`.
     effective: Vec<OnceCell<Rel>>,
     nodes: Vec<Node>,
+    /// One-column sets ([`Cube::add_set`]): one bit per local position of
+    /// the shared map, placed under the cube's frame like a relation's lanes.
+    /// A set may be shorter than the current map after a commit or rebase
+    /// grew it; the missing words read as zero.
+    sets: Vec<Vec<u64>>,
     stats: Cell<CubeStats>,
 }
 
@@ -370,6 +413,7 @@ impl Cube {
             effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
+            sets: Vec::new(),
             stats: Cell::new(CubeStats::default()),
         })
     }
@@ -419,6 +463,7 @@ impl Cube {
             effective: empty_effective(rels.len()),
             rels,
             nodes: Vec::new(),
+            sets: Vec::new(),
             stats: Cell::new(CubeStats::default()),
         })
     }
@@ -445,6 +490,108 @@ impl Cube {
         s.relations_added += 1;
         self.stats.set(s);
         Ok((self.rels.len() - 1) as RelId)
+    }
+
+    /// Store a one-column set under the cube's frame (D-XLOG-W5-B, decision
+    /// D1). Each id is looked up once in the shared map, as for a relation,
+    /// and becomes one bit of a position mask. Its ids must be in the map. A
+    /// tiled cube is refused: [`Cube::reach`] reads one tile's positions.
+    pub fn add_set(&mut self, table: &MapTable, ids: &[u32]) -> Result<SetId, CubeRefusal> {
+        if self.tiled {
+            return Err(CubeRefusal::Tiled);
+        }
+        let map = self.map(table)?;
+        let mut mask = vec![0u64; self.n.div_ceil(64)];
+        for &id in ids {
+            let l = usize::from(map.local(u64::from(id)).map_err(CubeRefusal::Domain)?);
+            mask[l / 64] |= 1 << (l % 64);
+        }
+        self.sets.push(mask);
+        Ok((self.sets.len() - 1) as SetId)
+    }
+
+    /// The mask of `e` over `words` words. Every leaf must be a stored set.
+    fn eval(&self, e: &SetExpr, words: usize) -> Result<Vec<u64>, CubeRefusal> {
+        Ok(match e {
+            SetExpr::Set(id) => {
+                let set = self
+                    .sets
+                    .get(*id as usize)
+                    .ok_or(CubeRefusal::UnknownSet(*id))?;
+                let mut m = vec![0u64; words];
+                m[..set.len()].copy_from_slice(set);
+                m
+            }
+            SetExpr::And(a, b) | SetExpr::Or(a, b) | SetExpr::AndNot(a, b) => {
+                let (a, b) = (self.eval(a, words)?, self.eval(b, words)?);
+                let mut out = vec![0u64; words];
+                match e {
+                    SetExpr::And(..) => mask_and(&a, &b, &mut out),
+                    SetExpr::AndNot(..) => mask_andnot(&a, &b, &mut out),
+                    _ => {
+                        out.copy_from_slice(&a);
+                        mask_or_assign(&mut out, &b);
+                    }
+                }
+                out
+            }
+        })
+    }
+
+    /// The positions reachable from `seed` along relation `rel`, every step
+    /// landing in `target`, seeds included: `seed ∪ reach(seed)` (D-XLOG-W5-B,
+    /// decision D3). Semi-naive over position masks: `next` is the or of the
+    /// edge rows of the delta's positions, `delta' = (next ∧ target) andnot
+    /// full`, `full |= delta'`, until a delta is empty. `seed` and `target`
+    /// are evaluated here, from stored sets, so no computed mask crosses a
+    /// terminal. The frame is re-checked; a delta still non-empty after one
+    /// round per position is [`CubeRefusal::FixpointBound`], as in
+    /// [`Cube::closure`]. One-column heads only; n-ary recursion is not here.
+    pub fn reach(
+        &self,
+        table: &MapTable,
+        rel: RelId,
+        seed: &SetExpr,
+        target: &SetExpr,
+    ) -> Result<(Vec<u64>, ClosureStats), CubeRefusal> {
+        if self.tiled {
+            return Err(CubeRefusal::Tiled);
+        }
+        let r = self.lanes(rel)?;
+        self.check_frame(table)?;
+        let words = self.n.div_ceil(64);
+        let seed = self.eval(seed, words)?;
+        let target = self.eval(target, words)?;
+        let mut edge = vec![0u64; self.n * words];
+        for (&a, &b) in r.cols[0].iter().zip(&r.cols[1]) {
+            let (a, b) = (a as usize, b as usize);
+            edge[a * words + b / 64] |= 1 << (b % 64);
+        }
+        let mut full = seed.clone();
+        let mut delta = seed;
+        let mut next = vec![0u64; words];
+        let mut kept = vec![0u64; words];
+        let mut stats = ClosureStats::default();
+        while mask_any(&delta) {
+            if stats.rounds as usize > self.n {
+                return Err(CubeRefusal::FixpointBound);
+            }
+            stats.rounds += 1;
+            next.fill(0);
+            for (w, &d) in delta.iter().enumerate() {
+                let mut bits = d;
+                while bits != 0 {
+                    let x = w * 64 + bits.trailing_zeros() as usize;
+                    mask_or_assign(&mut next, &edge[x * words..(x + 1) * words]);
+                    bits &= bits - 1;
+                    stats.rows_composed += 1;
+                }
+            }
+            mask_and(&next, &target, &mut kept);
+            mask_andnot(&kept, &full, &mut delta);
+            mask_or_assign(&mut full, &delta);
+        }
+        Ok((full, stats))
     }
 
     pub fn stats(&self) -> CubeStats {
