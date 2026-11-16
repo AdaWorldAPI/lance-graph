@@ -60,6 +60,12 @@ pub const F_UPN: u8 = 0;
 /// Field 1 of the user lanes: the primary SMTP value.
 pub const F_SMTP: u8 = 1;
 
+/// The predicate of the UPN lane: a basis field with this identity binds it,
+/// at whatever position the basis puts it.
+pub const UPN_IRI: &str = "dir:userPrincipalName";
+/// The predicate of the primary SMTP lane.
+pub const SMTP_IRI: &str = "dir:primarySmtp";
+
 /// The schema revision these lanes serve.
 pub const LANE_REV: SchemaRev = SchemaRev(1);
 
@@ -197,16 +203,23 @@ impl LaneSource for DirLanes<'_, '_> {
         &self,
         class: u32,
         rev: SchemaRev,
-        field: u8,
-        _basis: &FieldRef,
+        _field: u8,
+        basis: &FieldRef,
         _frame: &Frame,
     ) -> Option<LaneAddr> {
-        if class != self.class || rev != LANE_REV || field > F_SMTP {
+        if class != self.class || rev != LANE_REV {
             return None;
         }
+        // By identity, never by position: a basis may order its fields
+        // differently, and an unknown predicate has no lane.
+        let lane = match basis.predicate_iri.as_str() {
+            UPN_IRI => F_UPN,
+            SMTP_IRI => F_SMTP,
+            _ => return None,
+        };
         Some(LaneAddr {
             space: self.space(),
-            lane: u16::from(field),
+            lane: u16::from(lane),
             scope: self.scope,
         })
     }

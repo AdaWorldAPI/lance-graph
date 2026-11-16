@@ -274,3 +274,85 @@ fn a_result_over_another_population_is_refused() {
     let users = subtree(&view, SCOPE, NodeKind::User, &inside_ou()).unwrap();
     assert!(lanes.select(&users).is_ok());
 }
+
+/// A basis that lists SMTP before UPN reads each field's own attribute, and a
+/// predicate the directory has no lane for is unbound. Falsifier: lanes taken
+/// by field position, which reads UPN values under the SMTP field.
+#[test]
+fn directory_lanes_bind_by_predicate_not_position() {
+    struct Swapped(Vec<FieldRef>);
+    impl ClassView for Swapped {
+        fn fields(&self, class: ClassId) -> &[FieldRef] {
+            if class == VIEW_CLASS {
+                &self.0
+            } else {
+                &[]
+            }
+        }
+        fn template(&self, _class: ClassId) -> DisplayTemplate {
+            DisplayTemplate::Detail
+        }
+        fn dolce_category_id(&self, _class: ClassId) -> u8 {
+            0
+        }
+    }
+    let swapped = Swapped(vec![
+        FieldRef::new("dir:primarySmtp", "Primary SMTP"),
+        FieldRef::new("dir:userPrincipalName", "UPN"),
+        FieldRef::new("dir:department", "Department"),
+    ]);
+    let mut st = VersionStore::new();
+    let v = st.observe("ad", 0, observation(3, 0)).unwrap();
+    let view = st.view(v).unwrap();
+    let mut lanes = DirLanes::new(&view, v, USER, READER);
+    let kept = subtree(&view, SCOPE, NodeKind::User, &inside_ou()).unwrap();
+    let picked = lanes.select(&kept).unwrap();
+    let mut bs = BindStore::new();
+    bs.register(
+        &swapped,
+        USER,
+        ClassSchema {
+            schema_rev: LANE_REV,
+            field_count: 3,
+            extent: Extent::DR64_CUBE,
+        },
+        Vec::new(),
+    )
+    .unwrap();
+    let version = bs.route(POSITION, USER).unwrap();
+    let route = RouteAt {
+        position: POSITION,
+        version,
+    };
+    let frame = lanes.frames().seal();
+    let req = |fields: &[u8]| LaneRequest {
+        route,
+        rev: LANE_REV,
+        fields: Box::leak(Box::new(WideFieldMask::from_positions(fields))),
+        frame: Box::leak(Box::new(frame.clone())),
+        scope: READER,
+        selection: lanes.space(),
+    };
+    let b = bs
+        .bind_lanes(&swapped, lanes.frames(), &lanes, req(&[0, 1]))
+        .unwrap();
+    let (smtp, rows) = b
+        .selected(&bs, &swapped, lanes.frames(), &lanes, 0, picked.sel)
+        .unwrap();
+    for &r in rows {
+        let g = view.user_guid(UserOrdinal(r as u16)).unwrap();
+        assert_eq!(
+            smtp.get(r),
+            view.attr(&g, Attribute::PrimarySmtp).map(|x| x.0)
+        );
+        assert_ne!(smtp.get(r), view.attr(&g, Attribute::Upn).map(|x| x.0));
+    }
+    assert_eq!(
+        bs.bind_lanes(&swapped, lanes.frames(), &lanes, req(&[2]))
+            .err(),
+        Some(LaneRefusal::Unbound {
+            class: USER,
+            field: 2
+        })
+    );
+}

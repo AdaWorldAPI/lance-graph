@@ -127,8 +127,9 @@ fn entry(u: usize) -> String {
     }
 }
 
-/// The users in four pages of 128, linked except the last, in `order`.
-fn pages(order: [usize; 4], reverse_users: bool) -> Vec<LicensesPage> {
+/// The users in four pages of 128, linked except the last, in `order`, each
+/// with the URL it was requested at (page `p + 1`'s URL is page `p`'s link).
+fn pages(order: [usize; 4], reverse_users: bool) -> Vec<(String, LicensesPage)> {
     order
         .iter()
         .map(|&p| {
@@ -140,7 +141,7 @@ fn pages(order: [usize; 4], reverse_users: bool) -> Vec<LicensesPage> {
             let mut page =
                 ingest_licenses_page(&format!(r#"{{"value":[{}]}}"#, body.join(","))).unwrap();
             page.next_link = (p < 3).then(|| format!("https://graph.example/users?page={}", p + 1));
-            page
+            (format!("https://graph.example/users?page={p}"), page)
         })
         .collect()
 }
@@ -300,7 +301,8 @@ fn licence_states_select_intersect_and_resolve_against_the_oracle() {
     let mut st = VersionStore::new();
     let v = st.observe("ad", 0, observation()).unwrap();
     let view = st.view(v).unwrap();
-    let planes = LicensePlanes::build(&view, v, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
+    let planes =
+        LicensePlanes::build_fetched(&view, v, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
     assert_eq!(
         planes.states().len(),
         MAX_LICENSE_STATES,
@@ -452,17 +454,17 @@ fn the_65th_licence_state_code_is_refused() {
     ))
     .unwrap();
     // u5's property was absent in the pages; list it in a page of its own.
-    ps.last_mut().unwrap().next_link = Some("https://graph.example/users?page=4".into());
-    let mut ps2: Vec<LicensesPage> = ps
+    ps.last_mut().unwrap().1.next_link = Some("https://graph.example/users?page=4".into());
+    let mut ps2: Vec<(String, LicensesPage)> = ps
         .into_iter()
-        .map(|mut p| {
+        .map(|(url, mut p)| {
             p.users.retain(|x| x.user != user(5));
-            p
+            (url, p)
         })
         .collect();
-    ps2.push(extra);
+    ps2.push(("https://graph.example/users?page=4".into(), extra));
     assert_eq!(
-        LicensePlanes::build(&view, v, ps2, Vec::new()),
+        LicensePlanes::build_fetched(&view, v, ps2, Vec::new()),
         Err(LicenseError::TooManyStates {
             found: 65,
             limit: 64
@@ -479,7 +481,8 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
     // The later revision exists before any view borrows the store.
     let v1 = st.reobserve("ad", 1, observation()).unwrap();
     let view0 = st.view(v0).unwrap();
-    let planes0 = LicensePlanes::build(&view0, v0, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
+    let planes0 =
+        LicensePlanes::build_fetched(&view0, v0, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
     let dir0 = DirLanes::new(&view0, v0, USER, READER);
     let lic0 = LicenseLanes::over(&dir0, &planes0, LICENSE, READER).unwrap();
     let basis0 = LicenseBasis::of(&planes0, LICENSE);
@@ -488,7 +491,8 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
     let b0 = bind_codes(&bs, &basis0, &lic0, route, &[c], READER, dir0.space()).unwrap();
 
     // Reordered pages: the same code at the same index, a new source frame.
-    let planes_r = LicensePlanes::build(&view0, v0, pages([3, 1, 0, 2], true), Vec::new()).unwrap();
+    let planes_r =
+        LicensePlanes::build_fetched(&view0, v0, pages([3, 1, 0, 2], true), Vec::new()).unwrap();
     assert_eq!(planes_r.states(), planes0.states());
     let lic_r = LicenseLanes::over(&dir0, &planes_r, LICENSE, READER).unwrap();
     assert_eq!(
@@ -503,7 +507,7 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
     // except for sku 7, so codes vanish and indices move.
     let view1 = st.view(v1).unwrap();
     let mut later = pages([0, 1, 2, 3], false);
-    for p in &mut later {
+    for (_, p) in &mut later {
         for u in &mut p.users {
             if let Some(paths) = &mut u.paths {
                 paths.retain(|x| {
@@ -512,7 +516,7 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
             }
         }
     }
-    let planes1 = LicensePlanes::build(&view1, v1, later, Vec::new()).unwrap();
+    let planes1 = LicensePlanes::build_fetched(&view1, v1, later, Vec::new()).unwrap();
     assert!(planes1.states().len() < planes0.states().len());
     let dir1 = DirLanes::new(&view1, v1, USER, READER);
     let lic1 = LicenseLanes::over(&dir1, &planes1, LICENSE, READER).unwrap();
@@ -596,7 +600,7 @@ fn stale_foreign_and_mismatched_bindings_are_refused() {
         Err(LaneRefusal::FieldNotInBasis { .. })
     ));
     // An incomplete collection is not served.
-    let partial = LicensePlanes::build(
+    let partial = LicensePlanes::build_fetched(
         &view0,
         v0,
         pages([0, 1, 2, 2], false)[..3].to_vec(),
@@ -644,7 +648,8 @@ fn an_uncollected_licence_property_has_no_lane() {
     let mut st = VersionStore::new();
     let v = st.observe("ad", 0, observation()).unwrap();
     let view = st.view(v).unwrap();
-    let planes = LicensePlanes::build(&view, v, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
+    let planes =
+        LicensePlanes::build_fetched(&view, v, pages([0, 1, 2, 3], false), Vec::new()).unwrap();
     let dir = DirLanes::new(&view, v, USER, READER);
     let lic = LicenseLanes::over(&dir, &planes, LICENSE, READER).unwrap();
     let mixed = Mixed(vec![
@@ -723,7 +728,7 @@ fn the_512_user_projection_builds_no_cartesian_table() {
     for _ in 0..RUNS {
         let input = source.clone();
         let t = Instant::now();
-        planes = Some(LicensePlanes::build(&view, v, input, Vec::new()).unwrap());
+        planes = Some(LicensePlanes::build_fetched(&view, v, input, Vec::new()).unwrap());
         build_ns.push(t.elapsed().as_nanos());
     }
     let planes = planes.unwrap();
