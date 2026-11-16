@@ -6,7 +6,7 @@ xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	2	out_degree
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	3	sales_by_cat_region	refused	false			0	Project over GroupBy		
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	4	result	oracle-agrees	false	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	5	path2	oracle-agrees	false	naive	agree	8		agree	
-xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	6	neighbor	oracle-agrees	false	naive	unavailable	8		not-applicable	datafrog: not applicable: integer constant in atom edge
+xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	6	neighbor	oracle-agrees	false	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	7	reach	oracle-agrees	true	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	7	reach	oracle-agrees	true	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/e2e_integration_tests.rs	8	isolated	refused	false			0	Join body		
@@ -57,7 +57,7 @@ xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	0	fof	refused	fal
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	0	mutual	refused	false			0	computed or out-of-range output column		
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	1	reaches	oracle-agrees	true	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	1	reaches	oracle-agrees	true	naive	unavailable	8		agree	
-xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	1	from_one	oracle-agrees	false	naive	unavailable	8		not-applicable	datafrog: not applicable: integer constant in atom reaches
+xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	1	from_one	oracle-agrees	false	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	2	has_role	oracle-agrees	true	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	2	has_role	oracle-agrees	true	naive	unavailable	8		agree	
 xlog@656def9:crates/xlog-integration/tests/real_world_tests.rs	2	effective_role	oracle-agrees	false	naive	unavailable	8		agree	
