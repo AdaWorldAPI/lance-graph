@@ -30,8 +30,7 @@ use ogar_az::license::{LicensesPage, PathState, SkuCapacity, SkuPage};
 use ogar_dir_core::Guid128;
 
 use crate::exec::{self, Kept};
-use crate::snapshot::ones;
-use crate::View;
+use crate::{UserOrdinal, View};
 
 /// Licence-state codes per tenant: one DR64 tile.
 pub const MAX_LICENSE_STATES: usize = 64;
@@ -78,6 +77,9 @@ pub enum LicenseError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LicensePlanes {
     n_users: usize,
+    /// The users that exist in this version; a deleted user keeps its slot
+    /// but is not here.
+    live: Vec<u64>,
     read: Vec<u64>,
     states: Vec<LicenseState>,
     planes: Vec<Vec<u64>>,
@@ -99,6 +101,15 @@ impl LicensePlanes {
         let n_users = v.users_len();
         let words = words_for(n_users);
         let mut read = vec![0u64; words];
+        // A user listed on a page, whether or not its licences were read.
+        let mut seen = vec![0u64; words];
+        let mut live = vec![0u64; words];
+        for row in 0..n_users {
+            let o = UserOrdinal(u16::try_from(row).expect("user ordinals are u16"));
+            if v.user_guid(o).is_some() {
+                live[row / 64] |= 1 << (row % 64);
+            }
+        }
         let mut states: Vec<LicenseState> = Vec::new();
         let mut planes: Vec<Vec<u64>> = Vec::new();
         for u in licenses.iter().flat_map(|p| &p.users) {
@@ -106,9 +117,10 @@ impl LicensePlanes {
                 .user_ordinal(&u.user)
                 .ok_or(LicenseError::UnknownUser(u.user))?;
             let row = usize::from(o.0);
-            if read[row / 64] & (1 << (row % 64)) != 0 {
+            if seen[row / 64] & (1 << (row % 64)) != 0 {
                 return Err(LicenseError::DuplicateUser(u.user));
             }
+            seen[row / 64] |= 1 << (row % 64);
             let Some(paths) = &u.paths else {
                 continue;
             };
@@ -149,6 +161,7 @@ impl LicensePlanes {
         }
         Ok(Self {
             n_users,
+            live,
             read,
             states,
             planes,
@@ -187,10 +200,9 @@ impl LicensePlanes {
 
     /// How many read users hold `sku` by any path in any state.
     pub fn holder_count(&self, sku: &Guid128) -> usize {
-        let all = ones(self.n_users);
         exec::count(
             self.holders_filter(sku),
-            &self.planes_with(&all).planes(),
+            &self.planes_with(&self.live).planes(),
             &Foreign::NONE,
         )
     }
@@ -206,7 +218,8 @@ impl LicensePlanes {
         })
     }
 
-    /// Plane 0 is the read plane, plane 1 every user, then one per code.
+    /// Plane 0 is the read plane, plane 1 the version's existing users, then
+    /// one per code.
     fn plane_mask(code: usize) -> u16 {
         u16::try_from(code + 2).expect("at most 64 codes")
     }
@@ -241,8 +254,7 @@ impl LicensePlanes {
     }
 
     fn run(&self, filter: Filter) -> Kept {
-        let all = ones(self.n_users);
-        let set = self.planes_with(&all);
+        let set = self.planes_with(&self.live);
         exec::keep(
             &exec::program(filter, Agg::Rows),
             &set.planes(),

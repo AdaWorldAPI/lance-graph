@@ -202,3 +202,58 @@ fn capacity_is_held_exact_beside_the_planes() {
     // Capacity read, licences not: every user is not read.
     assert_eq!(p.not_read().rows(), vec![0]);
 }
+
+/// A user deleted in the version keeps its slot but is not a user: it is
+/// neither read nor unread. Falsifier: the unread set taken against every
+/// slot instead of the version's existing users.
+#[test]
+fn a_deleted_user_is_not_unread() {
+    let mut st = store(3);
+    let mut o = Observation {
+        scope: SCOPE,
+        nodes: Vec::new(),
+        members: Vec::new(),
+    };
+    for u in [0u8, 2] {
+        let mail = format!("u{u}@example.test");
+        o.nodes.push((user(u), ObservedNode::user(&mail, &mail)));
+    }
+    let gone = st
+        .view(st.tag("observed").unwrap())
+        .unwrap()
+        .user_ordinal(&user(1))
+        .unwrap();
+    let v1 = st.reobserve("ad", 1, o).unwrap();
+    let v = st.view(v1).unwrap();
+    assert_eq!(v.users_len(), 3, "the deleted user keeps its slot");
+    assert_eq!(v.user_guid(gone), None, "and is not a user of this version");
+    let p = LicensePlanes::build(&v, &[page(&[entry(0, Some(&[]))])], &[]).unwrap();
+    assert_eq!(p.read().rows(), vec![0], "u0 read");
+    assert_eq!(
+        p.not_read().rows(),
+        vec![2],
+        "u2 unread; the deleted slot is in neither set"
+    );
+}
+
+/// A user listed twice is refused in either order, whether or not its
+/// licences were read the first time. Falsifier: duplicates tracked by the
+/// read plane, which an unread first entry leaves clear.
+#[test]
+fn a_repeated_user_is_refused_in_either_order() {
+    let read = entry(0, Some(&[path(SKU, "Active", None)]));
+    let unread = entry(0, None);
+    for entries in [
+        [unread.clone(), read.clone()],
+        [read.clone(), unread.clone()],
+        [unread.clone(), unread.clone()],
+    ] {
+        assert_eq!(
+            build(2, &entries).err(),
+            Some(LicenseError::DuplicateUser(user(0))),
+            "{entries:?}"
+        );
+    }
+    // Silence half: one entry per user is admitted.
+    assert!(build(2, &[unread, entry(1, None)]).is_ok());
+}
