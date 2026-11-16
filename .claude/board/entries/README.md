@@ -25,11 +25,12 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-633 entries, 2026-08-06 .. 2026-11-16.
+634 entries, 2026-08-06 .. 2026-11-16.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-16 | `g2-dr-virtual-projection-reconcile` |  | [2026-11-16-g2-dr-virtual-projection-reconcile.md](2026-11-16-g2-dr-virtual-projection-reconcile.md) |
+| 2026-11-16 | `D-MAPPING-POLYFILL-1` |  | [2026-11-16-d-mapping-polyfill-1.md](2026-11-16-d-mapping-polyfill-1.md) |
 | 2026-11-15 | `D-XLOG-CUBE-SAFE-0` |  | [2026-11-15-xlog-cube-safety-p0.md](2026-11-15-xlog-cube-safety-p0.md) |
 | 2026-11-15 | `pm-ledger-abakus-and-2086-review-exception` |  | [2026-11-15-pm-ledger-abakus-and-2086-review-exception.md](2026-11-15-pm-ledger-abakus-and-2086-review-exception.md) |
 | 2026-11-15 | `onebrc-lane-k-codebook-mmap` |  | [2026-11-15-onebrc-lane-k-codebook-mmap.md](2026-11-15-onebrc-lane-k-codebook-mmap.md) |

@@ -1050,6 +1050,16 @@ impl MapTable {
         self.frames.revisions()
     }
 
+    /// The store that issues this table's frames, read-only. A source that
+    /// owns both this table and its lanes returns this from
+    /// `LaneSource::frames`, so a key resolved with [`MapTable::locate`] and
+    /// a lane read through a `LaneBinding` are checked against one frame: any
+    /// advance of the table refuses the binding. The store cannot be advanced
+    /// through this reference.
+    pub fn frames(&self) -> &FrameStore {
+        &self.frames
+    }
+
     /// The map of `tile` as of `frame`'s version. A frame of this table
     /// always resolves (old frames replay their layout); a frame of another
     /// table is `Stale(ForeignFrame)`; a tile absent then is `NoSuchTile`.
