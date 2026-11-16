@@ -243,9 +243,10 @@ impl LicensePlanes {
         let mut states: Vec<LicenseState> = Vec::new();
         let mut planes: Vec<Vec<u64>> = Vec::new();
         let mut listed: Vec<Option<(u32, u32)>> = vec![None; n_users];
-        let entries = licenses.iter().enumerate().flat_map(|(pi, p)| {
-            p.users.iter().enumerate().map(move |(ui, u)| (pi, ui, u))
-        });
+        let entries = licenses
+            .iter()
+            .enumerate()
+            .flat_map(|(pi, p)| p.users.iter().enumerate().map(move |(ui, u)| (pi, ui, u)));
         for (pi, ui, u) in entries {
             let o = v
                 .user_ordinal(&u.user)

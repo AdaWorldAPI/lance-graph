@@ -286,7 +286,10 @@ fn reordered_pages_and_users_keep_every_code_in_place() {
     ];
     let b = [
         entry(2, Some(&[path(SKU, "Active", None)])),
-        entry(3, Some(&[path(SKU, "Error", None), path(SKU2, "Disabled", None)])),
+        entry(
+            3,
+            Some(&[path(SKU, "Error", None), path(SKU2, "Disabled", None)]),
+        ),
     ];
     let forward = build_pages(4, vec![page(&a), page(&b)]);
     let mut b_rev = b.to_vec();
@@ -313,7 +316,10 @@ fn reordered_pages_and_users_keep_every_code_in_place() {
     // Identity resolves to the index, and an unknown identity to nothing.
     let iri = forward.predicate_iri(0).unwrap().to_string();
     assert_eq!(forward.code_of(&iri), Some(0));
-    assert_eq!(forward.code_of("urn:graph:licenseAssignmentState:none"), None);
+    assert_eq!(
+        forward.code_of("urn:graph:licenseAssignmentState:none"),
+        None
+    );
 }
 
 /// A user whose property is JSON `null` the first time and read the second
@@ -368,12 +374,12 @@ fn the_evidence_keeps_both_assigning_groups_behind_one_bit() {
         ],
     )
     .unwrap();
-    assert_eq!(p.states().len(), 2, "direct and group: two codes, not three");
-    let group_code = p
-        .states()
-        .iter()
-        .position(|s| s.via == Via::Group)
-        .unwrap();
+    assert_eq!(
+        p.states().len(),
+        2,
+        "direct and group: two codes, not three"
+    );
+    let group_code = p.states().iter().position(|s| s.via == Via::Group).unwrap();
     assert_eq!(p.with_state(group_code).unwrap().rows(), vec![0, 1]);
     let groups: Vec<Guid128> = p
         .explain(UserOrdinal(0), group_code)
@@ -400,7 +406,9 @@ fn effective_skus_are_not_assignment_paths() {
     );
     let p = build(1, &[only_effective]).unwrap();
     assert_eq!(p.paths(UserOrdinal(0)), Evidence::NotRead);
-    assert!(matches!(p.effective(UserOrdinal(0)), Evidence::Read(e) if e.len() == 1 && e[0].sku == g(SKU2)));
+    assert!(
+        matches!(p.effective(UserOrdinal(0)), Evidence::Read(e) if e.len() == 1 && e[0].sku == g(SKU2))
+    );
     assert_eq!(p.not_read().rows(), vec![0]);
     assert!(p.holders(&g(SKU2)).rows().is_empty());
     assert_eq!(
@@ -421,12 +429,21 @@ fn linked(entries: &[String], next: Option<&str>) -> LicensesPage {
 fn coverage_reads_the_page_links_in_any_order() {
     let first = || linked(&[entry(0, Some(&[]))], Some("https://graph.example/next"));
     let last = || linked(&[entry(1, Some(&[]))], None);
-    assert_eq!(build_pages(2, vec![first(), last()]).coverage(), Coverage::Complete);
-    assert_eq!(build_pages(2, vec![last(), first()]).coverage(), Coverage::Complete);
+    assert_eq!(
+        build_pages(2, vec![first(), last()]).coverage(),
+        Coverage::Complete
+    );
+    assert_eq!(
+        build_pages(2, vec![last(), first()]).coverage(),
+        Coverage::Complete
+    );
     assert_eq!(build_pages(2, vec![first()]).coverage(), Coverage::Partial);
     assert_eq!(
         build_pages(2, vec![last(), linked(&[entry(0, Some(&[]))], None)]).coverage(),
         Coverage::Ambiguous
     );
-    assert_eq!(build_pages(2, Vec::new()).coverage(), Coverage::NotCollected);
+    assert_eq!(
+        build_pages(2, Vec::new()).coverage(),
+        Coverage::NotCollected
+    );
 }
