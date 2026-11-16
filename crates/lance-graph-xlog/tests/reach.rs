@@ -268,3 +268,29 @@ fn an_advanced_table_keeps_the_answer() {
     f.t.advance(1, 1, vec![]);
     assert_eq!(f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap().0, before);
 }
+
+/// A reachable set as an expression node composes inside one terminal:
+/// `rollback_hit = reach(promoted) ∧ blocked` without storing the reach.
+#[test]
+fn reach_composes_as_an_expression() {
+    let f = fixture(&[3]);
+    let seed = SetExpr::and(f.frontier.clone(), f.widened.clone());
+    let replay = SetExpr::reach(0, seed.clone(), f.frontier.clone());
+    assert_eq!(
+        ids(&f.t, &f.cube.set_mask(&f.t, &replay).unwrap()),
+        [1, 2, 3]
+    );
+    let rollback = SetExpr::and(replay.clone(), f.blocked.clone());
+    assert_eq!(ids(&f.t, &f.cube.set_mask(&f.t, &rollback).unwrap()), [3]);
+    // The node and the terminal agree.
+    assert_eq!(
+        f.cube.set_mask(&f.t, &replay).unwrap(),
+        f.cube.reach(&f.t, 0, &seed, &f.frontier).unwrap().0
+    );
+    assert_eq!(
+        f.cube
+            .set_mask(&f.t, &SetExpr::reach(9, seed, f.frontier.clone())),
+        Err(CubeRefusal::UnknownRel(9))
+    );
+    assert_eq!(f.cube.stats().programs, 0);
+}

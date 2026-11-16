@@ -69,6 +69,18 @@ pub enum SetExpr {
     Or(Box<SetExpr>, Box<SetExpr>),
     /// The first and not the second.
     AndNot(Box<SetExpr>, Box<SetExpr>),
+    /// [`Cube::reach`] along relation `rel` from `seed`, every step landing
+    /// in `target`, seeds included. As a node, a reachable set composes with
+    /// the other operators inside one terminal (`reach ∧ blocked`), so a
+    /// recursive head is never stored and handed back as a mask.
+    Reach {
+        /// The binary relation stepped along, column 0 to column 1.
+        rel: RelId,
+        /// Where the walk starts.
+        seed: Box<SetExpr>,
+        /// Where each step may land.
+        target: Box<SetExpr>,
+    },
 }
 
 impl SetExpr {
@@ -83,6 +95,14 @@ impl SetExpr {
     /// `a ∧ ¬b`.
     pub fn and_not(a: SetExpr, b: SetExpr) -> Self {
         Self::AndNot(Box::new(a), Box::new(b))
+    }
+    /// `seed ∪ reach(seed)` along `rel`, steps landing in `target`.
+    pub fn reach(rel: RelId, seed: SetExpr, target: SetExpr) -> Self {
+        Self::Reach {
+            rel,
+            seed: Box::new(seed),
+            target: Box::new(target),
+        }
     }
 }
 
@@ -535,6 +555,11 @@ impl Cube {
                 }
                 out
             }
+            SetExpr::Reach { rel, seed, target } => {
+                let seed = self.eval(seed, words)?;
+                let target = self.eval(target, words)?;
+                self.reach_from(*rel, seed, &target, words)?.0
+            }
         })
     }
 
@@ -569,11 +594,23 @@ impl Cube {
         if self.tiled {
             return Err(CubeRefusal::Tiled);
         }
-        let r = self.lanes(rel)?;
+        self.lanes(rel)?;
         self.check_frame(table)?;
         let words = self.n.div_ceil(64);
         let seed = self.eval(seed, words)?;
         let target = self.eval(target, words)?;
+        self.reach_from(rel, seed, &target, words)
+    }
+
+    /// The semi-naive loop of [`Cube::reach`] over evaluated masks.
+    fn reach_from(
+        &self,
+        rel: RelId,
+        seed: Vec<u64>,
+        target: &[u64],
+        words: usize,
+    ) -> Result<(Vec<u64>, ClosureStats), CubeRefusal> {
+        let r = self.lanes(rel)?;
         let mut edge = vec![0u64; self.n * words];
         for (&a, &b) in r.cols[0].iter().zip(&r.cols[1]) {
             let (a, b) = (a as usize, b as usize);
@@ -599,7 +636,7 @@ impl Cube {
                     stats.rows_composed += 1;
                 }
             }
-            mask_and(&next, &target, &mut kept);
+            mask_and(&next, target, &mut kept);
             mask_andnot(&kept, &full, &mut delta);
             mask_or_assign(&mut full, &delta);
         }
