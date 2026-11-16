@@ -38,6 +38,9 @@ ogar-az = { git = "https://github.com/AdaWorldAPI/OGAR", branch = "main" }
 # The actor source over a view (`actors`, feature `rbac`): the contract's
 # zero-dep `ActorSource` socket.
 lance-graph-contract = { path = "../lance-graph-contract", optional = true }
+# The DT64 lane socket over a version (`dt64`, feature `dt64`): dir-sim as a
+# LaneSource + SelectionSource, its query results as DR selections.
+lance-graph-dt64 = { path = "../lance-graph-dt64", optional = true }
 # Group-to-role grants are the authority's versioned policy
 # (`ogar_rbac::GroupRolePolicy`); `GroupRoles::from_policy` reads one
 # version of it. The directory supplies membership only.
@@ -53,6 +56,7 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 
 [features]
 rbac = ["dep:lance-graph-contract", "dep:ogar-rbac"]
+dt64 = ["dep:lance-graph-dt64", "dep:lance-graph-contract"]
 
 # mask-risc names ndarray by its canonical git coordinate; point it at the
 # sibling checkout so this workspace has one ndarray identity and needs no

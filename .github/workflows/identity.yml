@@ -97,6 +97,10 @@ jobs:
         # view_actors and membership_path need the rbac feature; without
         # this step they compile only locally.
         run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml --features rbac
+      - name: Run the simulator's DT64 lane tests (feature dt64)
+        # dt64_lanes needs the dt64 feature; without this step it compiles
+        # only locally.
+        run: cargo test --manifest-path crates/lance-graph-dir-sim/Cargo.toml --features dt64 --test dt64_lanes
       - name: The tests pinning Exchange behaviour exist
         run: |
           cargo test -q --manifest-path crates/lance-graph-dir-sim/Cargo.toml -- --list \
