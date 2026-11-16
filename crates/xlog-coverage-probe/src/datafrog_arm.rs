@@ -10,10 +10,13 @@
 //! Supported subset (anything else is `datafrog: not applicable: <why>`):
 //! rules whose body is positive and negated atoms over named variables and
 //! `_` (anonymous in positive atoms only), with at least one positive atom;
-//! no constants, comparisons, aggregates or other literals; no variable
-//! repeated inside one atom; head terms that are variables bound by a positive
-//! atom; negation only of predicates outside the component being evaluated,
-//! over variables a positive atom binds. Every value read must fit `u32`.
+//! integer constants in positive atoms (each becomes a hidden column plus a
+//! semijoin against a one-row relation); no constants in negated atoms; no
+//! comparisons, aggregates or other literals; no variable repeated inside one
+//! atom; head terms that are variables bound by a positive atom or integer
+//! constants; negation only of predicates outside the component being
+//! evaluated, over variables a positive atom binds. Every value read, and
+//! every integer constant, must fit `u32`.
 //!
 //! Same contract as [`crate::naive::evaluate_component`]: the rules of one
 //! component go in, other predicates are read from `store`, and on `Ok` each
@@ -59,15 +62,40 @@ fn term_kind(t: &Term) -> &'static str {
     }
 }
 
-/// An atom as a predicate and one column name per term. Anonymous terms of a
-/// positive atom get a fresh name no source variable can have.
+/// An atom as a predicate and one column name per term. Anonymous terms and
+/// integer constants of a positive atom get a fresh name no source variable can
+/// have; each constant also records a `(column, value)` filter.
 struct AtomCols {
     pred: String,
     cols: Vec<String>,
+    filters: Vec<(String, u32)>,
+}
+
+/// What one head term emits: the value of a body column, or a constant.
+enum HeadSlot {
+    Column(String),
+    Const(u32),
+}
+
+struct HeadPlan {
+    pred: String,
+    slots: Vec<HeadSlot>,
+}
+
+/// A head slot resolved against the accumulator's columns.
+enum Projected {
+    Column(usize),
+    Const(u32),
+}
+
+fn fit_u32(n: impl Copy + std::fmt::Display + TryInto<u32>) -> Result<u32, String> {
+    n.try_into()
+        .or_else(|_| not_applicable(format!("integer constant {n} does not fit u32")))
 }
 
 fn atom_cols(atom: &Atom, positive: bool, fresh: &mut usize) -> Result<AtomCols, String> {
     let mut cols: Vec<String> = Vec::with_capacity(atom.terms.len());
+    let mut filters: Vec<(String, u32)> = Vec::new();
     let mut seen: BTreeSet<&str> = BTreeSet::new();
     for t in &atom.terms {
         match t {
@@ -90,6 +118,19 @@ fn atom_cols(atom: &Atom, positive: bool, fresh: &mut usize) -> Result<AtomCols,
                     atom.predicate
                 ));
             }
+            Term::Integer(n) if positive => {
+                let value = fit_u32(*n)?;
+                *fresh += 1;
+                let col = format!("_c#{}", *fresh);
+                cols.push(col.clone());
+                filters.push((col, value));
+            }
+            Term::Integer(_) => {
+                return not_applicable(format!(
+                    "integer constant in negated atom {}",
+                    atom.predicate
+                ));
+            }
             other => {
                 return not_applicable(format!("{} in atom {}", term_kind(other), atom.predicate));
             }
@@ -98,14 +139,15 @@ fn atom_cols(atom: &Atom, positive: bool, fresh: &mut usize) -> Result<AtomCols,
     Ok(AtomCols {
         pred: atom.predicate.clone(),
         cols,
+        filters,
     })
 }
 
 struct RulePlan {
     positives: Vec<AtomCols>,
     negatives: Vec<AtomCols>,
-    /// The head predicate and the column name of each head term.
-    head: AtomCols,
+    /// The head predicate and what each head term emits.
+    head: HeadPlan,
 }
 
 fn plan_rule(rule: &Rule, heads: &BTreeSet<&str>, fresh: &mut usize) -> Result<RulePlan, String> {
@@ -131,10 +173,13 @@ fn plan_rule(rule: &Rule, heads: &BTreeSet<&str>, fresh: &mut usize) -> Result<R
         .iter()
         .flat_map(|a| a.cols.iter().map(String::as_str))
         .collect();
-    let mut head_cols: Vec<String> = Vec::with_capacity(rule.head.terms.len());
+    let mut head_slots: Vec<HeadSlot> = Vec::with_capacity(rule.head.terms.len());
     for t in &rule.head.terms {
         match t {
-            Term::Variable(v) if bound.contains(v.as_str()) => head_cols.push(v.clone()),
+            Term::Variable(v) if bound.contains(v.as_str()) => {
+                head_slots.push(HeadSlot::Column(v.clone()))
+            }
+            Term::Integer(n) => head_slots.push(HeadSlot::Const(fit_u32(*n)?)),
             Term::Variable(v) => {
                 return not_applicable(format!(
                     "head variable {v} of {} is not bound by a positive atom",
@@ -164,9 +209,9 @@ fn plan_rule(rule: &Rule, heads: &BTreeSet<&str>, fresh: &mut usize) -> Result<R
     Ok(RulePlan {
         positives,
         negatives,
-        head: AtomCols {
+        head: HeadPlan {
             pred: rule.head.predicate.clone(),
-            cols: head_cols,
+            slots: head_slots,
         },
     })
 }
@@ -262,10 +307,37 @@ fn keyed_stage(
     keyed
 }
 
+/// Keep only the rows of `acc` whose constant columns hold their constants: one
+/// semijoin against a one-row relation per filter, inside datafrog.
+fn apply_filters(
+    it: &mut Iteration,
+    out: &mut Lowered,
+    mut acc: Variable<Row>,
+    acc_cols: &[String],
+    filters: &[(String, u32)],
+) -> Result<Variable<Row>, String> {
+    for (col, value) in filters {
+        let Some(idx) = acc_cols.iter().position(|c| c == col) else {
+            return not_applicable(format!("constant column {col} is not bound"));
+        };
+        let keyed = keyed_stage(it, out, &acc, vec![idx]);
+        let allowed: Relation<(Row, ())> = Relation::from_vec(vec![(vec![*value], ())]);
+        let next = it.variable::<Row>("filter");
+        out.rows.push(next.clone());
+        let n = next.clone();
+        out.stmts.push(Box::new(move || {
+            n.from_join(&keyed, &allowed, |_key, row, _| row.clone())
+        }));
+        acc = next;
+    }
+    Ok(acc)
+}
+
 /// Lower one rule to statements. The accumulator starts as the first positive
 /// atom's relation and is joined with each further positive atom on the
-/// variables they share (an empty key is a cross product), then each negated
-/// atom is anti-joined, then the head columns are projected out.
+/// variables they share (an empty key is a cross product); each atom's
+/// constant filters are applied as soon as its columns are in; then each
+/// negated atom is anti-joined, then the head slots are projected out.
 fn lower_rule(
     it: &mut Iteration,
     vars: &BTreeMap<String, Variable<Row>>,
@@ -283,6 +355,7 @@ fn lower_rule(
     };
     let mut acc = var_of(&first.pred)?;
     let mut acc_cols: Vec<String> = first.cols.clone();
+    acc = apply_filters(it, out, acc, &acc_cols, &first.filters)?;
 
     for atom in rest {
         let (acc_idx, atom_idx): (Vec<usize>, Vec<usize>) = acc_cols
@@ -315,7 +388,7 @@ fn lower_rule(
             })
         }));
         acc_cols.extend(new_cols);
-        acc = next;
+        acc = apply_filters(it, out, next, &acc_cols, &atom.filters)?;
     }
 
     for atom in &plan.negatives {
@@ -341,18 +414,29 @@ fn lower_rule(
         acc = next;
     }
 
-    let head_idx: Option<Vec<usize>> = plan
+    let projected: Option<Vec<Projected>> = plan
         .head
-        .cols
+        .slots
         .iter()
-        .map(|c| acc_cols.iter().position(|a| a == c))
+        .map(|s| match s {
+            HeadSlot::Column(c) => acc_cols.iter().position(|a| a == c).map(Projected::Column),
+            HeadSlot::Const(v) => Some(Projected::Const(*v)),
+        })
         .collect();
-    let Some(head_idx) = head_idx else {
+    let Some(projected) = projected else {
         return not_applicable("a head variable is not bound");
     };
     let head = var_of(&plan.head.pred)?;
     out.stmts.push(Box::new(move || {
-        head.from_map(&acc, |row| project(row, &head_idx))
+        head.from_map(&acc, |row| {
+            projected
+                .iter()
+                .map(|p| match p {
+                    Projected::Column(i) => row[*i],
+                    Projected::Const(v) => *v,
+                })
+                .collect()
+        })
     }));
     Ok(())
 }
@@ -372,14 +456,10 @@ pub fn evaluate_component(
 
     let mut arities: BTreeMap<&str, usize> = BTreeMap::new();
     for plan in &plans {
-        let atoms = plan
-            .positives
-            .iter()
-            .chain(&plan.negatives)
-            .chain(std::iter::once(&plan.head));
-        for a in atoms {
+        for a in plan.positives.iter().chain(&plan.negatives) {
             note_arity(&mut arities, &a.pred, a.cols.len())?;
         }
+        note_arity(&mut arities, &plan.head.pred, plan.head.slots.len())?;
     }
 
     // One variable per predicate read positively or derived. Derived
