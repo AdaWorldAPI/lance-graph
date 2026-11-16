@@ -479,7 +479,22 @@ impl VersionStore {
     ///
     /// [`RestoreError`]: the image is not one a store could have produced.
     pub fn restore(image: StoreImage) -> Result<Self, RestoreError> {
+        Self::restore_counted(image).map(|(st, _)| st)
+    }
+
+    /// [`Self::restore`], also returning how many stored changes it applied.
+    ///
+    /// A version whose parent is the version restored just before it
+    /// continues that version's overlay, so a linear history (an observation
+    /// followed by re-observations) applies each stored change once: the
+    /// count equals the image's total delta length. Any other parent is
+    /// folded from its root, as [`Self::view`] does.
+    fn restore_counted(image: StoreImage) -> Result<(Self, usize), RestoreError> {
         let mut st = Self::new();
+        let mut applied = 0usize;
+        // The last restored version, its root, and its overlay.
+        let mut running: Option<(VersionId, VersionId, Overlay)> = None;
+        let mut root_of: Vec<VersionId> = Vec::with_capacity(image.versions.len());
         for (i, v) in image.values.iter().enumerate() {
             if st.dicts.intern(v).0 as usize != i {
                 return Err(RestoreError::DuplicateValue(i));
@@ -505,15 +520,40 @@ impl VersionStore {
                     }
                     st.roots.insert(v.id, Arc::new(snap));
                     st.observations.insert(v.id, obs);
+                    root_of.push(v.id);
+                    running = Some((v.id, v.id, Overlay::default()));
                 }
                 Some(p) => {
                     if p >= v.id {
                         return Err(RestoreError::UnknownParent(v.id));
                     }
-                    let mut view = st.view(p).map_err(|_| RestoreError::UnknownParent(v.id))?;
+                    let root = root_of[p.0 as usize];
+                    let ov = match running.take() {
+                        Some((last, _, ov)) if last == p => ov,
+                        _ => {
+                            let path = st
+                                .lineage(p)
+                                .map_err(|_| RestoreError::UnknownParent(v.id))?;
+                            applied += path[1..]
+                                .iter()
+                                .map(|id| st.versions[id.0 as usize].delta.len())
+                                .sum::<usize>();
+                            st.view(p)
+                                .map_err(|_| RestoreError::UnknownParent(v.id))?
+                                .ov
+                        }
+                    };
+                    let snap = st
+                        .roots
+                        .get(&root)
+                        .ok_or(RestoreError::UnknownParent(v.id))?;
+                    let mut view = View::new(snap, &st.dicts, ov);
                     for c in &v.delta {
                         view.apply(c).map_err(|e| RestoreError::Apply(v.id, e))?;
                     }
+                    applied += v.delta.len();
+                    root_of.push(root);
+                    running = Some((v.id, root, view.ov));
                 }
             }
             st.versions.push(v);
@@ -534,7 +574,7 @@ impl VersionStore {
             }
             st.verdicts.insert(v, x);
         }
-        Ok(st)
+        Ok((st, applied))
     }
 
     /// A store from a persisted image whose rules are text: each resolved
@@ -927,4 +967,102 @@ fn outstanding(basis: &View<'_>, intent: Vec<Change>) -> Result<Vec<Change>, Gui
         }
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod restore_tests {
+    use super::*;
+    use crate::snapshot::ObservedNode;
+    use ogar_dir_core::DirectoryScope;
+
+    const SCOPE: DirectoryScope = DirectoryScope(Guid128([0x5C; 16]));
+    const GROUP: Guid128 = Guid128([0xEC; 16]);
+
+    fn user(u: u8) -> Guid128 {
+        let mut b = [0u8; 16];
+        b[0] = 1;
+        b[1] = u;
+        Guid128(b)
+    }
+
+    /// Eight users; `GROUP` holds those whose bit is set.
+    fn read(bits: u8) -> Observation {
+        let mut o = Observation {
+            scope: SCOPE,
+            nodes: vec![(GROUP, ObservedNode::group())],
+            members: Vec::new(),
+        };
+        for u in 0..8u8 {
+            let mail = format!("u{u}@example.test");
+            o.nodes.push((user(u), ObservedNode::user(&mail, &mail)));
+            if bits & (1 << u) != 0 {
+                o.members.push((user(u), GROUP));
+            }
+        }
+        o
+    }
+
+    /// An observation then `n` re-observations, each flipping one member.
+    fn chain(n: usize) -> VersionStore {
+        let mut st = VersionStore::new();
+        let mut bits = 0u8;
+        st.observe("ad", 0, read(bits)).unwrap();
+        for i in 0..n {
+            bits ^= 1 << (i % 8);
+            st.reobserve("ad", i as i64 + 1, read(bits)).unwrap();
+        }
+        st
+    }
+
+    fn total_deltas(st: &VersionStore) -> usize {
+        st.versions.iter().map(|v| v.delta.len()).sum()
+    }
+
+    /// Falsifier: restoring a linear history applies each stored change
+    /// exactly once. Folding every version from its root (the previous
+    /// restore) applies `n(n+1)/2` changes for `n` one-change re-reads,
+    /// 2080 for 64, and fails this.
+    #[test]
+    fn a_linear_history_applies_each_change_once() {
+        let st = chain(64);
+        assert_eq!(total_deltas(&st), 64);
+        let (back, applied) = VersionStore::restore_counted(st.image()).unwrap();
+        assert_eq!(applied, 64);
+        let last = VersionId(64);
+        for u in 0..8u8 {
+            assert_eq!(
+                back.view(last).unwrap().is_member(&user(u), &GROUP),
+                st.view(last).unwrap().is_member(&user(u), &GROUP),
+            );
+        }
+    }
+
+    /// A version whose parent is not the one restored just before it is
+    /// folded from its root, and still reads like the original. Here the
+    /// branch hangs off version 2 after version 4 was restored, so the
+    /// count is 4 (the chain) + 2 (re-fold of 1..=2) + 1 (the branch).
+    #[test]
+    fn a_branch_off_an_older_version_folds_from_its_root() {
+        let mut st = chain(4);
+        let two = VersionId(2);
+        let delta = vec![Change::AddMembership {
+            user: user(7),
+            group: GROUP,
+        }];
+        assert!(!st.view(two).unwrap().is_member(&user(7), &GROUP));
+        let b = st.next_id();
+        st.versions.push(Version {
+            id: b,
+            parent: Some(two),
+            origin: Origin::Observed {
+                source: "ad".into(),
+                observed_at_ms: 99,
+            },
+            delta,
+        });
+        let (back, applied) = VersionStore::restore_counted(st.image()).unwrap();
+        assert_eq!(applied, 4 + 2 + 1);
+        assert!(back.view(b).unwrap().is_member(&user(7), &GROUP));
+        assert_eq!(back.diff(two, b).unwrap(), st.diff(two, b).unwrap());
+    }
 }
