@@ -126,15 +126,25 @@ impl LicenseState {
 pub enum Coverage {
     /// No page was given.
     NotCollected,
-    /// Exactly one page ends the collection and every other page links on.
+    /// One unbroken `@odata.nextLink` chain from the first page to the last,
+    /// covering every page once (or a single page that links nowhere).
     Complete,
-    /// No page ends the collection: a `@odata.nextLink` was not followed.
+    /// A `@odata.nextLink` was not followed: no page ends the collection, or
+    /// a link names a page that is not here.
     Partial,
-    /// More than one page ends a collection: the pages are not one run.
+    /// The pages are not one run: more than one end, more than one start, a
+    /// cycle, or a page outside the chain.
     Ambiguous,
+    /// More than one page and no request URLs: the pages alone cannot show
+    /// that no page between them is missing (see
+    /// [`LicensePlanes::build_fetched`]).
+    Unverified,
 }
 
 impl Coverage {
+    /// From the pages' links alone. A missing middle page leaves the links
+    /// unchanged, so more than one page with exactly one end is
+    /// `Unverified`, never `Complete`.
     fn of<'a>(links: impl Iterator<Item = &'a Option<String>>) -> Coverage {
         let (mut pages, mut ends) = (0usize, 0usize);
         for l in links {
@@ -145,9 +155,50 @@ impl Coverage {
         }
         match (pages, ends) {
             (0, _) => Coverage::NotCollected,
-            (_, 1) => Coverage::Complete,
+            (1, 1) => Coverage::Complete,
             (_, 0) => Coverage::Partial,
+            (_, 1) => Coverage::Unverified,
             _ => Coverage::Ambiguous,
+        }
+    }
+
+    /// From the chain: page `k + 1` is the page whose request URL is page
+    /// `k`'s `@odata.nextLink`, in any delivery order.
+    fn chain(requested: &[String], links: &[&Option<String>]) -> Coverage {
+        let n = requested.len();
+        if n == 0 {
+            return Coverage::NotCollected;
+        }
+        let page_of = |url: &str| requested.iter().position(|r| r == url);
+        if (0..n).any(|i| page_of(&requested[i]) != Some(i)) {
+            return Coverage::Ambiguous; // one URL requested twice
+        }
+        // The first page: the one no other page links to.
+        let mut starts = (0..n).filter(|&i| {
+            !links
+                .iter()
+                .any(|l| l.as_deref() == Some(requested[i].as_str()))
+        });
+        let (Some(first), None) = (starts.next(), starts.next()) else {
+            return Coverage::Ambiguous;
+        };
+        let mut seen = vec![false; n];
+        let mut at = first;
+        loop {
+            seen[at] = true;
+            match links[at] {
+                None => break,
+                Some(next) => match page_of(next) {
+                    None => return Coverage::Partial,
+                    Some(j) if seen[j] => return Coverage::Ambiguous,
+                    Some(j) => at = j,
+                },
+            }
+        }
+        if seen.iter().all(|&s| s) {
+            Coverage::Complete
+        } else {
+            Coverage::Ambiguous
         }
     }
 }
@@ -212,6 +263,8 @@ pub struct LicensePlanes {
     sku_pages: Vec<SkuPage>,
     /// Per user ordinal: `(page, entry)` of its listing, if listed.
     listed: Vec<Option<(u32, u32)>>,
+    /// Parallel to `pages`: each page's request URL, when the caller kept it.
+    requested: Option<Vec<String>>,
 }
 
 impl LicensePlanes {
@@ -321,6 +374,7 @@ impl LicensePlanes {
             pages: licenses,
             sku_pages: skus,
             listed,
+            requested: None,
         })
     }
 
@@ -357,9 +411,35 @@ impl LicensePlanes {
         self.planes.get(code).map(Vec::as_slice)
     }
 
-    /// Whether the licence pages are one whole collection.
+    /// [`Self::build`] over pages fetched with their request URLs: `(url,
+    /// page)` in any order. The URLs let [`Self::coverage`] follow the
+    /// `@odata.nextLink` chain and see a missing page.
+    ///
+    /// # Errors
+    ///
+    /// As for [`Self::build`].
+    pub fn build_fetched(
+        v: &View<'_>,
+        version: VersionId,
+        licenses: Vec<(String, LicensesPage)>,
+        skus: Vec<SkuPage>,
+    ) -> Result<Self, LicenseError> {
+        let (requested, pages): (Vec<String>, Vec<LicensesPage>) = licenses.into_iter().unzip();
+        let mut planes = Self::build(v, version, pages, skus)?;
+        planes.requested = Some(requested);
+        Ok(planes)
+    }
+
+    /// Whether the licence pages are one whole collection. Without request
+    /// URLs more than one page is at best [`Coverage::Unverified`].
     pub fn coverage(&self) -> Coverage {
-        Coverage::of(self.pages.iter().map(|p| &p.next_link))
+        match &self.requested {
+            Some(urls) => {
+                let links: Vec<&Option<String>> = self.pages.iter().map(|p| &p.next_link).collect();
+                Coverage::chain(urls, &links)
+            }
+            None => Coverage::of(self.pages.iter().map(|p| &p.next_link)),
+        }
     }
 
     /// Whether the capacity pages are one whole collection.

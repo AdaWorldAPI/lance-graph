@@ -423,19 +423,17 @@ fn linked(entries: &[String], next: Option<&str>) -> LicensesPage {
     p
 }
 
-/// Exactly one page ends a collection, in any page order. A link nobody
-/// followed is partial; two ends are not one collection.
+/// Pages without request URLs prove a single page complete, a missing end
+/// partial and two ends ambiguous, and nothing more: two linked pages may
+/// hide a missing page between them, so they are unverified.
 #[test]
-fn coverage_reads_the_page_links_in_any_order() {
+fn coverage_from_links_alone_never_claims_two_pages_complete() {
     let first = || linked(&[entry(0, Some(&[]))], Some("https://graph.example/next"));
     let last = || linked(&[entry(1, Some(&[]))], None);
+    assert_eq!(build_pages(2, vec![last()]).coverage(), Coverage::Complete);
     assert_eq!(
         build_pages(2, vec![first(), last()]).coverage(),
-        Coverage::Complete
-    );
-    assert_eq!(
-        build_pages(2, vec![last(), first()]).coverage(),
-        Coverage::Complete
+        Coverage::Unverified
     );
     assert_eq!(build_pages(2, vec![first()]).coverage(), Coverage::Partial);
     assert_eq!(
@@ -446,4 +444,42 @@ fn coverage_reads_the_page_links_in_any_order() {
         build_pages(2, Vec::new()).coverage(),
         Coverage::NotCollected
     );
+}
+
+fn fetched(users: u8, pages: Vec<(&str, LicensesPage)>) -> Coverage {
+    let st = store(users);
+    let ver = st.tag("observed").unwrap();
+    let v = st.view(ver).unwrap();
+    let pages = pages.into_iter().map(|(u, p)| (u.to_string(), p)).collect();
+    LicensePlanes::build_fetched(&v, ver, pages, Vec::new())
+        .unwrap()
+        .coverage()
+}
+
+/// With request URLs, coverage follows the nextLink chain in any delivery
+/// order. A missing middle page (the first page links to a page that is not
+/// here) is never complete. Falsifier: counting ends only (the rule before
+/// this correction) calls the first-plus-last case complete.
+#[test]
+fn the_link_chain_sees_a_missing_middle_page() {
+    let (a, b, c) = ("https://g/u?p=1", "https://g/u?p=2", "https://g/u?p=3");
+    let p1 = || linked(&[entry(0, Some(&[]))], Some(b));
+    let p2 = || linked(&[entry(1, Some(&[]))], Some(c));
+    let p3 = || linked(&[entry(2, Some(&[]))], None);
+    assert_eq!(
+        fetched(3, vec![(a, p1()), (b, p2()), (c, p3())]),
+        Coverage::Complete
+    );
+    assert_eq!(
+        fetched(3, vec![(c, p3()), (a, p1()), (b, p2())]),
+        Coverage::Complete
+    );
+    // The middle page missing: two starts, never complete.
+    assert_ne!(fetched(3, vec![(a, p1()), (c, p3())]), Coverage::Complete);
+    assert_eq!(fetched(3, vec![(a, p1()), (c, p3())]), Coverage::Ambiguous);
+    // The last page missing: the link names a page that is not here.
+    assert_eq!(fetched(3, vec![(a, p1()), (b, p2())]), Coverage::Partial);
+    // A loop back to the first page.
+    let loops = linked(&[entry(1, Some(&[]))], Some(a));
+    assert_eq!(fetched(3, vec![(a, p1()), (b, loops)]), Coverage::Ambiguous);
 }
