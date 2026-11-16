@@ -39,6 +39,8 @@ pub mod actors;
 pub mod ad;
 pub mod bind;
 pub mod cloud;
+#[cfg(feature = "dt64")]
+pub mod dt64;
 mod exec;
 pub mod groups;
 pub mod image;
