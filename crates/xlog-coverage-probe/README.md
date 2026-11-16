@@ -30,8 +30,10 @@ fixpoint over `Variable`s, each body join lowered to keyed `from_join` /
 XLOG's reference evaluator.
 
 It covers a subset: positive and negated atoms over named variables and `_`,
-at least one positive atom, head variables bound by a positive atom, negation
-only of predicates outside the component, every value fitting `u32`. Constants,
+integer constants in positive atoms (a semijoin against a one-row relation),
+at least one positive atom, head terms that are variables bound by a positive
+atom or integer constants, negation only of predicates outside the component,
+every value and constant fitting `u32`. Constants in negated atoms,
 comparisons, aggregates, repeated variables inside one atom and the rest are
 `datafrog: not applicable: <why>`.
 
@@ -115,9 +117,11 @@ rows put for a derived predicate are kept), with the test corpus unchanged
 since `c9bd9dc`. Every compiled rule has a verdict: 87 oracle-agrees,
 94 refused, 49 refused-on-data, 0 oracle-disagrees, 0 lowered-unverified.
 Datafrog agrees on 85 of the 87 oracle-agrees rules and disagrees on none; the
-other 2 (`neighbor`, `from_one`) are not applicable because a body atom holds
-an integer constant. With its join deliberately broken, Datafrog disagrees on
-68 of the 87 while every rung stays the same.
+other 2 (`neighbor`, `from_one`) were not applicable because a body atom holds
+an integer constant. With integer constants now in the subset these counts are
+stale (numbers to be re-measured). With its join deliberately broken, Datafrog
+disagrees on 68 of the 87 while every rung stays the same (also to be
+re-measured).
 
 ## Known limits
 
