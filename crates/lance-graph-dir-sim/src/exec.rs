@@ -73,6 +73,28 @@ impl Kept {
         self.n_rows
     }
 
+    /// The rows both results kept, as one bitmap AND; `None` when the two
+    /// were computed over relations of different sizes.
+    ///
+    /// A `Kept` carries its relation's size, not its identity: the caller
+    /// vouches that both results are over the same version's rows (as
+    /// [`crate::dt64::DirLanes::select`] does). The DT64 sockets then check
+    /// the coordinate space when the result is read.
+    pub fn and(&self, other: &Kept) -> Option<Kept> {
+        if self.n_rows != other.n_rows {
+            return None;
+        }
+        Some(Kept {
+            bits: self
+                .bits
+                .iter()
+                .zip(&other.bits)
+                .map(|(a, b)| a & b)
+                .collect(),
+            n_rows: self.n_rows,
+        })
+    }
+
     /// Add one row (a delta-sized correction, e.g. an overridden value).
     pub(crate) fn set(&mut self, row: usize) {
         debug_assert!(row < self.n_rows);
