@@ -1,17 +1,10 @@
 name: Citations have not decayed
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  pull_request:
-    paths:
-      # The gate's inputs are BOTH the citing files and the cited ones -- a
-      # prepend to `.claude/board/EPIPHANIES.md` moves targets under citations
-      # that live in other, unchanged files on unchanged lines. That is the
-      # motivating case, and it is why this runs on the whole board/plan tree
-      # rather than on the diff.
-      - .claude/plans/**
-      - .claude/board/**
-      # ...and the gate itself.
-      - .claude/tools/citation_decay.py
-      - .github/workflows/citation-decay.yml
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

@@ -18,16 +18,11 @@ name: lgj-abi compatibility
 # A red result here does not mean the change is wrong. It means lgj-abi needs
 # a paired change; the job summary says where.
 
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  # No `paths:` filter, on purpose. A workflow that a path filter skips never
-  # reports, and a required check that never reports blocks the merge. This
-  # workflow always starts, decides relevance in its first steps, and
-  # concludes SUCCESS when the change cannot affect lgj-abi. It is therefore
-  # safe to mark as a required check.
-  pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:

@@ -7,21 +7,11 @@ name: dt64 map table in Lance
 #
 # lance's build compiles .proto files: `protoc` alone is not enough, the
 # well-known includes (libprotobuf-dev) are needed too.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - crates/lance-graph-contract/**
-      - crates/lance-graph-dt64/**
-      - crates/lance-graph-dt64-lance/**
-      # The map log is written through the cycle writer over LanceCycleWriter.
-      - crates/lance-graph-supervisor/**
-      - crates/lance-graph-planner/**
-      - crates/lance-graph/Cargo.toml
-      - crates/lance-graph/src/graph/cycle_sink.rs
-      - .github/workflows/dt64-map-table-lance.yml
   workflow_dispatch:
 
 concurrency:

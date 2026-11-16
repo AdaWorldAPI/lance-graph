@@ -16,18 +16,11 @@ name: Identity
 # Each job runs its whole crate, then checks that the tests pinning the
 # contract still exist by name. A renamed or deleted pinning test fails the
 # job instead of silently dropping out of the run.
+# Manual-only: GitHub-hosted runner minutes are capped (the account's
+# included minutes are used up), so this workflow no longer starts on push,
+# pull_request or a schedule. Run it from the Actions tab when needed, and run
+# the same checks locally before pushing.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    paths:
-      - crates/lance-graph-dir-sim/**
-      - crates/lance-graph-rbac/**
-      - crates/lance-graph-contract/**
-      - crates/lance-graph-quack/**
-      - crates/lance-graph-mask-risc/**
-      - .github/workflows/identity.yml
   workflow_dispatch:
 
 concurrency:
