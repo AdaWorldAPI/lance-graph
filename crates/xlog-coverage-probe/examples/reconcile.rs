@@ -5,7 +5,7 @@
 //! answers, and every rule on which the cube and the reference evaluator
 //! disagree. With `--out`, writes one TSV row per rule (and one per program
 //! that has no rule): file, literal index, head, rung, host_loop, oracle, xlog_ref, nonempty_seeds, reason,
-//! datafrog, datafrog_reason, reference, reference_nonempty, reference_reason.
+//! datafrog, datafrog_reason, reference, reference_nonempty, reference_reason, route.
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -75,6 +75,7 @@ fn main() {
     let mut by_oracle: BTreeMap<String, usize> = BTreeMap::new();
     let mut cross: BTreeMap<String, usize> = BTreeMap::new();
     let mut by_datafrog: BTreeMap<String, usize> = BTreeMap::new();
+    let mut by_route: BTreeMap<String, usize> = BTreeMap::new();
     let mut by_reference: BTreeMap<String, usize> = BTreeMap::new();
     let mut reference_disagreements: Vec<String> = Vec::new();
 
@@ -96,7 +97,7 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t\t{}\tfalse\t\t\t0\t{}\t\t\t\t0\t",
+                    "{path}\t{index}\t\t{}\tfalse\t\t\t0\t{}\t\t\t\t0\t\t",
                     rung.label(),
                     flat(&rec.program_reason)
                 );
@@ -112,6 +113,11 @@ fn main() {
                 if r.rung >= Rung::LoweredUnverified {
                     *cross
                         .entry(format!("{} / xlog-ref {}", r.rung.label(), r.xlog_ref))
+                        .or_default() += 1;
+                }
+                if !r.route.is_empty() {
+                    *by_route
+                        .entry(format!("{} / {}", r.route, r.rung.label()))
                         .or_default() += 1;
                 }
                 if r.rung == Rung::OracleAgrees {
@@ -165,7 +171,7 @@ fn main() {
                 }
                 let _ = writeln!(
                     tsv,
-                    "{path}\t{index}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                    "{path}\t{index}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                     r.head,
                     r.rung.label(),
                     r.host_loop,
@@ -177,7 +183,8 @@ fn main() {
                     flat(&r.datafrog_reason),
                     r.reference,
                     r.reference_nonempty,
-                    flat(&r.reference_reason)
+                    flat(&r.reference_reason),
+                    r.route
                 );
             }
         }
@@ -225,6 +232,7 @@ fn main() {
     for d in &reference_disagreements {
         println!("  {d}");
     }
+    print_counts("routed one-column heads (route / rung):", by_route);
     print_counts("refusal reasons:", refusals);
     print_counts("oracle unavailable (or plan refused):", unavailable);
 
@@ -235,7 +243,7 @@ fn main() {
 
     if let Some(path) = out_path {
         let mut text = String::from(
-            "file\tliteral\thead\trung\thost_loop\toracle\txlog_ref\tnonempty_seeds\treason\tdatafrog\tdatafrog_reason\treference\treference_nonempty\treference_reason\n",
+            "file\tliteral\thead\trung\thost_loop\toracle\txlog_ref\tnonempty_seeds\treason\tdatafrog\tdatafrog_reason\treference\treference_nonempty\treference_reason\troute\n",
         );
         text.push_str(&tsv);
         if let Err(e) = std::fs::write(&path, text) {

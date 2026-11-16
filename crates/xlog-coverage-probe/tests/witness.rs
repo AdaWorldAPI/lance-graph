@@ -7,8 +7,10 @@
 //! bases were empty and both evaluators answered the empty set. Here each
 //! program gets a minimal hand-written fixture. Each head's expected rows are
 //! derived by hand in the comments, and both evaluators must return exactly
-//! that set (set equality, not a count). The cube is never run; the census
-//! classification of these rules is re-checked unchanged.
+//! that set (set equality, not a count). The census classification of these
+//! rules is re-checked on the cube: P2 and P3 stay refused, and P1 and P4,
+//! whose bases are one-column `u32`, agree with the oracle since xlog#9
+//! (`007bb19`) routes one-column heads to cube sets and the probe seeds them.
 //!
 //! Each program also has a negative control: one fixture row removed, and the
 //! predicted smaller answer must follow, so the fixture rows are load-bearing
@@ -51,6 +53,31 @@ fn assert_witness(src: &str, base: &BTreeMap<String, Rows>, want: &[(&str, Rows)
             .unwrap_or_else(|e| panic!("{head}: datafrog: {e}"));
         assert_eq!(naive, expected, "{head}: naive oracle");
         assert_eq!(dfrog, expected, "{head}: datafrog");
+    }
+}
+
+/// Every rule agrees with the oracle on the cube, on at least one seed with
+/// a non-empty answer (so the agreement is not over empty sets only), and the
+/// fork took the named route for it, in rule order.
+fn assert_agrees(src: &str, routes: &[(&str, &str)]) {
+    let rec = reconcile(src, &DEFAULT_SEEDS);
+    assert_eq!(rec.program_rung, None, "{rec:?}");
+    let got: Vec<(&str, Rung, &str)> = rec
+        .rules
+        .iter()
+        .map(|r| (r.head.as_str(), r.rung, r.route))
+        .collect();
+    let want: Vec<(&str, Rung, &str)> = routes
+        .iter()
+        .map(|(h, route)| (*h, Rung::OracleAgrees, *route))
+        .collect();
+    assert_eq!(got, want, "{rec:?}");
+    for r in &rec.rules {
+        assert!(
+            r.nonempty_seeds > 0,
+            "{} agrees over empty answers only: {r:?}",
+            r.head
+        );
     }
 }
 
@@ -103,17 +130,10 @@ fn p1_tensor_support_witness() {
 }
 
 #[test]
-fn p1_census_classification_is_unchanged() {
-    assert_census(
-        P1,
-        &[
-            (
-                "tensor_support",
-                "`committed_input` is not a binary relation in the cube",
-            ),
-            ("__xlog_query_0", "reads refused relation `tensor_support`"),
-        ],
-    );
+fn p1_agrees_on_the_cube_as_a_set() {
+    // Was refused at 656def9: "`committed_input` is not a binary relation in
+    // the cube", and the query read the refused head.
+    assert_agrees(P1, &[("tensor_support", "set"), ("__xlog_query_0", "set")]);
 }
 
 // ---- 2. xlog@656def9 crates/xlog-integration/tests/test_recursive_setop_profile.rs, literal 0
@@ -351,17 +371,16 @@ fn p4_replay_witness() {
 }
 
 #[test]
-fn p4_census_classification_is_unchanged() {
-    assert_census(
+fn p4_agrees_on_the_cube_with_reach() {
+    // Was refused at 656def9: "`frontier_pred` is not a binary relation in
+    // the cube", and every reader of `promoted` was refused after it.
+    assert_agrees(
         P4,
         &[
-            (
-                "promoted",
-                "`frontier_pred` is not a binary relation in the cube",
-            ),
-            ("replay_reachable", "reads refused relation `promoted`"),
-            ("replay_reachable", "reads refused relation `promoted`"),
-            ("rollback_hit", "reads refused relation `replay_reachable`"),
+            ("promoted", "set"),
+            ("replay_reachable", "reach"),
+            ("replay_reachable", "reach"),
+            ("rollback_hit", "set"),
         ],
     );
 }

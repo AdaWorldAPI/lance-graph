@@ -103,8 +103,12 @@ pub struct RuleRecord {
     /// Refusal text, oracle-unavailable reason, or disagreement detail. Empty for OracleAgrees.
     pub reason: String,
     /// The rule's SCC is recursive (xlog-cube evaluates recursive SCCs with a
-    /// host loop over owned rows, not on cube masks). From `Scc::is_recursive`.
+    /// host loop over owned rows, not on cube masks). From `Scc::is_recursive`,
+    /// false for a head the fork routed to a cube set expression.
     pub host_loop: bool,
+    /// The fork's route for the head (`Report::routed`): `set`, `reach`, or
+    /// empty when the head took the row paths or did not run.
+    pub route: &'static str,
     /// Which oracle produced the verdict: `naive` (this crate's independent
     /// evaluator), `xlog-ref` (XLOG's reference evaluator, used only when the
     /// naive one is unavailable), or empty when neither answered.
@@ -236,6 +240,10 @@ enum BaseRows {
     /// Binary `u32`: the cube can hold it. The program's facts when it states
     /// any (used on every seed), otherwise `None` (random rows per seed).
     Binary(Option<Vec<(u32, u32)>>),
+    /// One-column `u32`: the cube holds it as a set (`put_set`), and the
+    /// rules over it the fork routes to set expressions. The program's facts
+    /// when it states any, otherwise random ids per seed.
+    Unary(Option<Vec<u32>>),
     /// Any other arity or type: the cube cannot hold it, so it never gets
     /// rows and refuses every rule that reads it. The naive oracle gets the
     /// stated integer facts (none stated is the empty relation), or the
@@ -258,6 +266,9 @@ struct OracleProgram {
 
 /// The base rows handed to the cube, per relation name.
 type Supplied = Vec<(String, Vec<(u32, u32)>)>;
+
+/// The one-column bases handed to the cube as sets, per relation name.
+type SuppliedSets = Vec<(String, Vec<u32>)>;
 
 fn first_line(s: &str) -> String {
     s.lines().next().unwrap_or("").to_string()
@@ -314,7 +325,20 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             *host_loop_of.entry(r.head.clone()).or_insert(false) |= recursive;
         }
     }
-    let host_loop = |head: &str| host_loop_of.get(head).copied().unwrap_or(false);
+    let route_of = |head: &str| -> &'static str {
+        match report
+            .routed
+            .iter()
+            .find(|(h, _)| h == head)
+            .map(|(_, r)| r.as_str())
+        {
+            Some("set") => "set",
+            Some("reach") => "reach",
+            _ => "",
+        }
+    };
+    let host_loop =
+        |head: &str| host_loop_of.get(head).copied().unwrap_or(false) && route_of(head).is_empty();
 
     let mut rules: Vec<RuleRecord> = Vec::new();
     for head in &report.ran {
@@ -323,6 +347,7 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             rung: Rung::LoweredUnverified,
             reason: String::new(),
             host_loop: host_loop(head),
+            route: route_of(head),
             oracle: "",
             xlog_ref: "",
             nonempty_seeds: 0,
@@ -339,6 +364,7 @@ pub fn reconcile(src: &str, seeds: &[u64]) -> ProgramRecord {
             rung: Rung::Refused,
             reason: why.clone(),
             host_loop: host_loop(head),
+            route: route_of(head),
             oracle: "",
             xlog_ref: "",
             nonempty_seeds: 0,
@@ -556,7 +582,7 @@ fn oracle_stage(
     };
     for &seed in seeds {
         let seeded = seed_relations(&base, &op, seed, &pool);
-        let (ex, seed_report) = match run_cube(plan, rel_ids, &seeded.supplied) {
+        let (ex, seed_report) = match run_cube(plan, rel_ids, &seeded.supplied, &seeded.sets) {
             Ok(x) => x,
             Err(e) => {
                 for head in ran {
@@ -665,7 +691,8 @@ fn first_three(rows: &[Vec<i128>]) -> &[Vec<i128>] {
 /// Base predicates of a program: every predicate some rule or query body
 /// reads that is not the head of a rule with a non-empty body. A binary one
 /// whose every use and stated fact has arity 2, with ground facts that fit
-/// `u32`, is [`BaseRows::Binary`]; any other is [`BaseRows::Other`] and
+/// `u32`, is [`BaseRows::Binary`]; a one-column one under the same
+/// conditions is [`BaseRows::Unary`]; any other is [`BaseRows::Other`] and
 /// affects only the rules that read it.
 fn base_relations(program: &Program) -> Vec<BaseSpec> {
     let derived: BTreeSet<&str> = program
@@ -708,9 +735,26 @@ fn base_relations(program: &Program) -> Vec<BaseSpec> {
             }
             Some(Some(rows))
         };
-        let rows = match binary_rows() {
-            Some(rows) => BaseRows::Binary(rows),
-            None => BaseRows::Other(match stated {
+        let unary_rows = || -> Option<Option<Vec<u32>>> {
+            if !used.iter().all(|&n| n == 1) {
+                return None;
+            }
+            let Some(atoms) = stated else {
+                return Some(None);
+            };
+            let mut rows = Vec::with_capacity(atoms.len());
+            for atom in atoms {
+                match atom.terms.as_slice() {
+                    [Term::Integer(x)] => rows.push(u32::try_from(*x).ok()?),
+                    _ => return None,
+                }
+            }
+            Some(Some(rows))
+        };
+        let rows = match (binary_rows(), unary_rows()) {
+            (Some(rows), _) => BaseRows::Binary(rows),
+            (None, Some(rows)) => BaseRows::Unary(rows),
+            (None, None) => BaseRows::Other(match stated {
                 None => Ok(Vec::new()),
                 Some(atoms) => integer_rows(atoms).ok_or_else(|| {
                     format!(
@@ -898,21 +942,55 @@ fn rows_for(
     rows
 }
 
+/// The values of one one-column base predicate for one seed, drawn as
+/// [`rows_for`] draws pairs: the program's facts when it states any, `0..6`
+/// for [`DENSE_SEED`], `0..4` for [`DENSE_SMALL_SEED`], otherwise 1..=12
+/// values from `pool`. Sorted, deduplicated.
+fn rows_unary(name: &str, facts: &Option<Vec<u32>>, seed: u64, pool: &[u32]) -> Vec<u32> {
+    let mut rows: Vec<u32> = match facts {
+        Some(f) => f.clone(),
+        None if seed == DENSE_SEED => (0..6).collect(),
+        None if seed == DENSE_SMALL_SEED => (0..4).collect(),
+        None => {
+            let mut s = seed ^ fnv1a64(name);
+            if s == 0 {
+                s = 0x9E37_79B9_7F4A_7C15;
+            }
+            let mut next = move || {
+                s ^= s << 13;
+                s ^= s >> 7;
+                s ^= s << 17;
+                s
+            };
+            let len = 1 + (next() % 12) as usize;
+            (0..len)
+                .map(|_| pool[(next() % pool.len() as u64) as usize])
+                .collect()
+        }
+    };
+    rows.sort_unstable();
+    rows.dedup();
+    rows
+}
+
 /// One seed's rows. `store` is the reference evaluator's (binary bases
 /// only, schema `[U32, U32]`); `naive` holds every base relation the naive
 /// oracle can read, binary or not, plus the stated facts of derived
 /// predicates; `supplied` is what the cube gets: the binary bases and the
-/// binary `u32` facts of derived predicates, as a host would put them.
+/// binary `u32` facts of derived predicates, as a host would put them;
+/// `sets` is the same for one-column `u32` relations (`put_set`).
 struct Seeded {
     store: RefRelationStore,
     naive: BTreeMap<String, naive::Relation>,
     supplied: Supplied,
+    sets: SuppliedSets,
 }
 
 fn seed_relations(base: &[BaseSpec], op: &OracleProgram, seed: u64, pool: &[u32]) -> Seeded {
     let mut store = RefRelationStore::new();
     let mut naive: BTreeMap<String, naive::Relation> = BTreeMap::new();
     let mut supplied = Vec::with_capacity(base.len());
+    let mut sets: SuppliedSets = Vec::new();
     for (name, rows) in base {
         match rows {
             BaseRows::Binary(facts) => {
@@ -935,6 +1013,14 @@ fn seed_relations(base: &[BaseSpec], op: &OracleProgram, seed: u64, pool: &[u32]
                 );
                 supplied.push((name.clone(), rows));
             }
+            BaseRows::Unary(facts) => {
+                let rows = rows_unary(name, facts, seed, pool);
+                naive.insert(
+                    name.clone(),
+                    rows.iter().map(|&x| vec![i128::from(x)]).collect(),
+                );
+                sets.push((name.clone(), rows));
+            }
             BaseRows::Other(Ok(rows)) => {
                 naive.insert(name.clone(), rows.iter().cloned().collect());
             }
@@ -954,11 +1040,22 @@ fn seed_relations(base: &[BaseSpec], op: &OracleProgram, seed: u64, pool: &[u32]
         if let Some(pairs) = pairs {
             supplied.push((name.clone(), pairs));
         }
+        let singles: Option<Vec<u32>> = rows
+            .iter()
+            .map(|r| match r.as_slice() {
+                [a] => u32::try_from(*a).ok(),
+                _ => None,
+            })
+            .collect();
+        if let Some(singles) = singles {
+            sets.push((name.clone(), singles));
+        }
     }
     Seeded {
         store,
         naive,
         supplied,
+        sets,
     }
 }
 
@@ -967,6 +1064,7 @@ fn run_cube(
     plan: &ExecutionPlan,
     rel_ids: &[(String, RelId)],
     supplied: &[(String, Vec<(u32, u32)>)],
+    sets: &[(String, Vec<u32>)],
 ) -> Result<(CubeExecutor, Report), String> {
     let mut ex = CubeExecutor::new();
     for (name, id) in rel_ids {
@@ -974,6 +1072,9 @@ fn run_cube(
     }
     for (name, rows) in supplied {
         ex.put_relation(name, rows);
+    }
+    for (name, rows) in sets {
+        ex.put_set(name, rows);
     }
     let report = ex.execute_plan(plan).map_err(|e| format!("{e:?}"))?;
     Ok((ex, report))
@@ -993,7 +1094,7 @@ fn oracle_for_seed(
 ) -> BTreeMap<String, OracleRows> {
     let mut unavailable: BTreeMap<String, String> = base
         .iter()
-        .filter(|(_, r)| matches!(r, BaseRows::Other(_)))
+        .filter(|(_, r)| matches!(r, BaseRows::Other(_) | BaseRows::Unary(_)))
         .map(|(n, _)| {
             (
                 n.clone(),
@@ -1502,6 +1603,51 @@ mod tests {
     }
 
     #[test]
+    fn base_relations_classify_one_column_u32_as_unary() {
+        let sets = parse_program("q(X) :- a(X), b(X). a(3). a(7).").unwrap();
+        let base = base_relations(&sets);
+        assert!(
+            matches!(&base[..], [(a, BaseRows::Unary(Some(rows))), (b, BaseRows::Unary(None))]
+                if a == "a" && b == "b" && rows == &vec![3, 7]),
+            "{base:?}"
+        );
+        // Silence: a negative constant does not fit u32, a mixed-arity use is not unary.
+        let neg = parse_program("q(X) :- a(X). a(-1).").unwrap();
+        assert!(
+            matches!(&base_relations(&neg)[..], [(_, BaseRows::Other(Ok(_)))]),
+            "{:?}",
+            base_relations(&neg)
+        );
+        let mixed = parse_program("q(X) :- a(X), a(X, X).").unwrap();
+        assert!(
+            matches!(&base_relations(&mixed)[..], [(_, BaseRows::Other(Ok(_)))]),
+            "{:?}",
+            base_relations(&mixed)
+        );
+    }
+
+    #[test]
+    fn generated_unary_rows_are_deterministic_and_dense_on_the_dense_seeds() {
+        assert_eq!(
+            rows_unary("a", &None, DENSE_SEED, &POOL),
+            (0..6).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            rows_unary("a", &None, DENSE_SMALL_SEED, &POOL),
+            (0..4).collect::<Vec<_>>()
+        );
+        let r = rows_unary("a", &None, 5, &POOL);
+        assert!(!r.is_empty() && r.len() <= 12, "{r:?}");
+        assert_eq!(r, rows_unary("a", &None, 5, &POOL));
+        assert_ne!(
+            r,
+            rows_unary("b", &None, 5, &POOL),
+            "names draw different values"
+        );
+        assert_eq!(rows_unary("a", &Some(vec![9, 2, 9]), 5, &POOL), vec![2, 9]);
+    }
+
+    #[test]
     fn a_query_rule_is_built_as_the_compiler_builds_it() {
         let p = parse_program("p(1, 2). ?- p(X, X). ?- p(1, 2).").unwrap();
         let r0 = query_rule(0, &p.queries[0].atom);
@@ -1529,7 +1675,8 @@ mod tests {
             .iter()
             .filter(|&&seed| {
                 let seeded = seed_relations(&base, &op, seed, &POOL);
-                let (ex, report) = run_cube(&plan, &rel_ids, &seeded.supplied).expect("plan");
+                let (ex, report) =
+                    run_cube(&plan, &rel_ids, &seeded.supplied, &seeded.sets).expect("plan");
                 assert!(report.refused.is_empty(), "{report:?}");
                 !ex.relation("q").unwrap_or_default().is_empty()
             })
