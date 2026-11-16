@@ -7,7 +7,8 @@ Plan `.claude/plans/xlog-knowledge-spine-v1.md` (charter, DOCS ONLY); harvest `x
 | D-XLOG-KNOWLEDGE-0 | Charter: three IR routes kept separate, donor roles, gates G0..G8, STOP conditions | In PR (#2093), docs only |
 | D-XLOG-KNOWLEDGE-G0 | xlog.md + fork source harvest, page/claim/source manifest; 2.80x Scallop claim marked CONFLICT | Partial: 12 pages read, `/llms.txt` 404; manifest not built |
 | D-XLOG-KNOWLEDGE-G1 | Reproduce the coverage census at pinned SHAs; add Datafrog as an independent comparator; falsifiers | In PR: census reproduced byte-identical (lance-graph `bdee050`, xlog `beac406` = tree of `656def9`). Datafrog arm (`datafrog_arm.rs`, AdaWorldAPI fork `edd7cfc`): agrees on 85/87 oracle-agrees rules, 2 not applicable (integer constant), 0 disagree; rungs unchanged. 4 disable runs red; broken join -> 68 disagreements in the census, 0 rung changes. Entry `2026-11-15-d-xlog-knowledge-g1-datafrog.md` |
-| D-XLOG-KNOWLEDGE-G2..G8 | Native delta, MeTTa/MORK subset, Mistaber, Legalis/regelrecht, epistemic witness, AriGraph, performance | Queued; each its own owner-approved PR |
+| D-XLOG-KNOWLEDGE-G2 | Reconciliation, virtual bags, non-materializing DR execution | In PR: evidence matrix, #33 rescue map, dir-sim history map, Vector/VRL contract, trace. Falsifier `join_size_grows_quadratically_while_work_grows_with_ids` (k² pairs, 2k+1 positions, 0 rows built; disable red). First missing seam: dir-sim re-observation stored as a full root. Entry `2026-11-16-g2-dr-virtual-projection-reconcile.md` |
+| D-XLOG-KNOWLEDGE-G3..G8 | MeTTa/MORK subset, Mistaber, Legalis/regelrecht, epistemic witness, AriGraph, performance | Queued; each its own owner-approved PR |
 
 ## D-VAS — virtual-address superpowers: source-owned memory, virtual properties, behaviour-aware reads (2026-11-13)
 
