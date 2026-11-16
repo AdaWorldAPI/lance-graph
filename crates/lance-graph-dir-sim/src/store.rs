@@ -45,6 +45,48 @@ pub enum ObserveError {
     Sim(SimError),
 }
 
+/// Why a history read was refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryRefusal {
+    /// No such version.
+    UnknownVersion(VersionId),
+    /// `from` is not on `to`'s lineage: the two are on different roots or
+    /// different branches, so no sequence of recorded changes leads from one
+    /// to the other.
+    NotAncestor {
+        /// The requested start.
+        from: VersionId,
+        /// The requested end.
+        to: VersionId,
+    },
+}
+
+/// The versions after `from` up to and including `to`, newest first, made by
+/// [`VersionStore::history`]. Each item is the stored [`Version`], borrowed:
+/// its id, parent, origin (observed with source and read time, or simulated
+/// with rule and evidence) and its delta, whose changes carry their own
+/// before and after values.
+pub struct VersionRange<'s> {
+    store: &'s VersionStore,
+    next: Option<VersionId>,
+    stop: VersionId,
+}
+
+impl<'s> Iterator for VersionRange<'s> {
+    type Item = &'s Version;
+
+    fn next(&mut self) -> Option<&'s Version> {
+        let id = self.next?;
+        if id == self.stop {
+            self.next = None;
+            return None;
+        }
+        let v = self.store.version(id)?;
+        self.next = v.parent;
+        Some(v)
+    }
+}
+
 /// Refusal to make a version desired. The version stays as evidence.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rejection {
@@ -236,6 +278,54 @@ impl VersionStore {
     /// Provenance record.
     pub fn version(&self, v: VersionId) -> Option<&Version> {
         self.versions.get(v.0 as usize)
+    }
+
+    /// The recorded versions after `from` up to and including `to`, newest
+    /// first: what happened between the two, as stored. Nothing is folded,
+    /// no view is built and nothing is allocated; the work is one step per
+    /// version in the range, plus one walk of the same range to check that
+    /// `from` is an ancestor of `to`.
+    ///
+    /// This is the event reading. A change made and undone inside the range
+    /// appears twice here (for example a node deleted and created again), and
+    /// a re-read that changed nothing appears as a version with an empty
+    /// delta. The net reading, in which such pairs cancel, is
+    /// [`Self::diff`], which folds both lineages from their root.
+    ///
+    /// Order is the history's own (logical version) order. Observation
+    /// timestamps are metadata of each version and order nothing.
+    ///
+    /// # Errors
+    ///
+    /// [`HistoryRefusal::UnknownVersion`] for an id this store does not hold;
+    /// [`HistoryRefusal::NotAncestor`] when `from` is not on `to`'s lineage
+    /// (another root, such as another directory scope, or another branch).
+    pub fn history(
+        &self,
+        from: VersionId,
+        to: VersionId,
+    ) -> Result<VersionRange<'_>, HistoryRefusal> {
+        if self.version(from).is_none() {
+            return Err(HistoryRefusal::UnknownVersion(from));
+        }
+        let mut cur = Some(to);
+        loop {
+            match cur {
+                Some(c) if c == from => break,
+                Some(c) => {
+                    cur = self
+                        .version(c)
+                        .ok_or(HistoryRefusal::UnknownVersion(c))?
+                        .parent;
+                }
+                None => return Err(HistoryRefusal::NotAncestor { from, to }),
+            }
+        }
+        Ok(VersionRange {
+            store: self,
+            next: Some(to),
+            stop: from,
+        })
     }
 
     /// Root first.

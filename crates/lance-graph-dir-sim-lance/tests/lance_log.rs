@@ -173,3 +173,52 @@ async fn a_batch_out_of_order_is_refused() {
     ));
     assert_eq!(w.version(), Some(1));
 }
+
+// D-DIRSIM-DELTA-READ-1: a re-observed history read back from Lance gives the
+// same historical readings as the in-memory store and its in-memory replay;
+// a refused re-read writes nothing.
+#[tokio::test]
+async fn reobserved_history_reads_the_same_after_lance_replay() {
+    use lance_graph_dir_sim::log::replay;
+    let dir = tempfile::tempdir().unwrap();
+    let mut st = VersionStore::new();
+    let mut log = LogState::new();
+    let mut w = LanceLog::new(uri(&dir));
+    let mut records = Vec::new();
+    let reads = [
+        observation(&[(0xA1, "alice@x.test")]),
+        observation(&[(0xA1, "alice@x.test"), (0xB0, "bob@x.test")]),
+        observation(&[(0xA1, "alice2@x.test"), (0xB0, "bob@x.test")]),
+        observation(&[(0xA1, "alice2@x.test"), (0xB0, "bob@x.test")]),
+    ];
+    let mut ids = Vec::new();
+    for (i, r) in reads.iter().enumerate() {
+        ids.push(st.reobserve("lab", i as i64, r.clone()).unwrap());
+        let b = log.batch(&image(&st)).unwrap().unwrap();
+        w.append(&mut log, &b).await.unwrap();
+        records.extend(b.records);
+    }
+    // A refused re-read (duplicate node) produces nothing to save.
+    let mut bad = reads[3].clone();
+    bad.nodes
+        .push((g(0xA1), ObservedNode::user("dup@x.test", "dup@x.test")));
+    assert!(st.reobserve("lab", 9, bad).is_err());
+    assert!(log.batch(&image(&st)).unwrap().is_none());
+
+    let (stored, _, _) = LanceLog::restore(uri(&dir)).await.unwrap();
+    let from_lance = VersionStore::restore_stored(stored, &RuleRegistry::new()).unwrap();
+    let (mem, _) = replay(records).unwrap();
+    let from_memory = VersionStore::restore_stored(mem, &RuleRegistry::new()).unwrap();
+    let reading = |s: &VersionStore, a: VersionId, b: VersionId| {
+        let events: Vec<_> = s.history(a, b).unwrap().cloned().collect();
+        (events, s.diff(a, b).unwrap())
+    };
+    for i in 0..ids.len() {
+        for j in i..ids.len() {
+            let want = reading(&st, ids[i], ids[j]);
+            assert_eq!(reading(&from_lance, ids[i], ids[j]), want, "{i}..{j}");
+            assert_eq!(reading(&from_memory, ids[i], ids[j]), want, "{i}..{j}");
+        }
+    }
+    assert_eq!(from_lance.tag("observed"), Some(ids[3]));
+}
