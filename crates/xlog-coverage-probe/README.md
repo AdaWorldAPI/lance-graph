@@ -56,6 +56,15 @@ produce. Three columns: `reference` (`agree`, `disagree`, `unavailable`),
 agreement with 0 is two empty answers) and `reference_reason`. A seed on
 which the naive oracle hits its bound is skipped. It never decides a rung.
 
+## Positive witnesses (D-XLOG-KNOWLEDGE-G1c)
+
+`witness(src, rows)` runs the naive oracle and Datafrog over base rows the
+caller supplies, with no seeds and no cube. `tests/witness.rs` uses it for the
+programs whose refused rules agree only over empty answers in the census (their
+bases are unary or ternary, so the seeds never fill them). Every head gets a
+hand-derived non-empty expected set, and both evaluators must equal it exactly.
+The census itself is unchanged.
+
 ## The seeds
 
 Six random seeds (1..=12 rows per base relation over values 0..16 plus the
