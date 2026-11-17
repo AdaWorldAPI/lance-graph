@@ -27,6 +27,9 @@ use std::sync::{Arc, Weak};
 use lance_graph_contract::class_view::ClassId;
 use lance_graph_contract::morton8x8::Morton8x8;
 
+mod pair;
+pub use pair::{PairDir, PairPlane, PairRefusal};
+
 /// Positions per axis of a DR tile (D-DRF-1 §1): DR64 or DR256.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Width {
