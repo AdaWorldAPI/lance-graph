@@ -56,6 +56,21 @@ representation that serves them is a named sink holding one position table
 per head column into the cube's coordinate space, and none is measured.
 REVISIT WHEN unchanged.
 
+> ⊘ **CORRECTED 2026-11-17 (operator).** The paragraph above misstates the
+> design. "A named sink holding one position table per head column" is a
+> stored tuple, which D-DYNBAG rules out (§1, §2: a tuple is a description,
+> never a stored row; DR64³ is the path space of `(x, y, z)`, addressed,
+> never filled). The wide join heads are **virtual tuple bags over the
+> cube**, the Quack / PostgreSQL-shaped polyfill reading: a rule that reads
+> `tri` composes with the description (`usable` projecting `support_1` is a
+> fold that drops a coordinate), and rows exist only at the edge, for a query
+> that downloads them. "No fold consumer" therefore does not decide the
+> representation. What is unbuilt is already named in D-DYNBAG §17.5:
+> MISSING-6 (n-ary witnesses: bodies of three or more atoms, including the
+> cyclic `tri` / `cyc`), MISSING-7 (compose across tiles), and the bag
+> handle (the 2026-11-13 bag-object co-research, X13 / D3). W7 is blocked on
+> MISSING-6 inside that design, not on a missing representation.
+
 Next, small: `sales_by_cat_region` through `borrow_all` + `GroupSumI32`, with
 parity against the naive oracle.
 
