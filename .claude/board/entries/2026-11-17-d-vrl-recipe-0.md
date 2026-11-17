@@ -105,3 +105,22 @@ and `materialize_rows` remain as wrappers that prepare per call.
 | row-count check | skip `n_rows != p.n_rows` | `a_prepared_program_is_refused_by_another_recipe_or_row_count` red |
 | recipe check | skip `p.reads != self.reads` | same test red |
 | read cap | skip `reads.len() > MAX_READS` | `more_reads_than_the_lane_array_holds_are_refused` red (17-field view) |
+
+## Update: six comparisons and the r2il parity test (commits 51b9991ae, 5e97b9554)
+
+- `if .p <op> v { abort }` takes `==` `!=` `<` `<=` `>` `>=`. Each lowers to
+  one mask-risc `i32` predicate and is and-not-ed out of the population. A
+  range is two aborts; `&&` and `||` stay refused.
+- r2il is the parity check, not the execution path (user decision, EXO-289 /
+  EXO-290). `tests/r2il_parity.rs` registers each recipe, independently of its
+  lowering, as `POLYFILL_LENS` words (`IntEqual`, `IntSLess`, `IntNot`,
+  `IntAnd`, `PopCount`, `SUM`) and runs it through `r2il` `prepare`/`run`.
+  Over 8 programs at widths 1..1000, its count and sum equal the prepared
+  program and the interpreter. r2il is a dev-dependency only.
+
+| guard | disable | result |
+|---|---|---|
+| `<` lowering | `LtI32` → `LeI32` | r2il parity red |
+| `>` lowering | `GtI32` → `GeI32` | r2il parity red |
+| drop combine | `AndNot` → `And` | r2il parity red |
+| `!=` parse | `!=` parsed as `==` | boundary test red; parity stays green, since the recipe and the interpreter share the parser |
