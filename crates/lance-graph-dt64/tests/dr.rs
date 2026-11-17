@@ -880,3 +880,130 @@ mod genesis_at {
         ));
     }
 }
+
+// ---------------------------------------------------------------------------
+// PairPlane: relation presence over two axes (D-XLOG-W7-2 step 1)
+// ---------------------------------------------------------------------------
+
+mod pair_plane {
+    use std::collections::BTreeSet;
+
+    use lance_graph_dt64::dr::{Axis, MapTable, PairDir, PairPlane, PairRefusal, Width};
+
+    fn bit(row: &[u64], i: usize) -> bool {
+        row[i / 64] >> (i % 64) & 1 == 1
+    }
+
+    /// Insert and remove random pairs on non-square axes (DR64 × 2 by DR256 × 1);
+    /// after every step both directions equal the oracle set, `len` equals its
+    /// size, and the return values say whether the pair was new / present.
+    #[test]
+    fn both_directions_match_an_oracle_through_inserts_and_removes() {
+        let t = MapTable::new(1, 1);
+        let f = t.seal();
+        let (src, dst) = (Axis::new(Width::W64, 2), Axis::new(Width::W256, 1));
+        let mut p = PairPlane::new(&f, src, dst);
+        assert_eq!(p.words_per_row(PairDir::Forward), 4);
+        assert_eq!(p.words_per_row(PairDir::Backward), 2);
+        assert_eq!(
+            (p.rows_in(PairDir::Forward), p.rows_in(PairDir::Backward)),
+            (128, 256)
+        );
+        let mut want = BTreeSet::new();
+        let mut s = 0x2545_F491_4F6C_DD1Du64;
+        let mut removed = 0;
+        for _ in 0..4000 {
+            s ^= s << 13;
+            s ^= s >> 7;
+            s ^= s << 17;
+            let (x, y) = ((s % 128) as usize, ((s >> 8) % 256) as usize);
+            if s >> 20 & 3 == 0 {
+                assert_eq!(p.remove(x, y).unwrap(), want.remove(&(x, y)));
+                removed += 1;
+            } else {
+                assert_eq!(p.insert(x, y).unwrap(), want.insert((x, y)));
+            }
+        }
+        assert!(removed > 500 && want.len() > 1000, "fixture exercises both");
+        assert_eq!(p.len(), want.len() as u64);
+        for x in 0..128 {
+            let row = p.row(&f, PairDir::Forward, x).unwrap();
+            for y in 0..256 {
+                assert_eq!(bit(row, y), want.contains(&(x, y)), "fwd ({x},{y})");
+            }
+        }
+        for y in 0..256 {
+            let row = p.row(&f, PairDir::Backward, y).unwrap();
+            for x in 0..128 {
+                assert_eq!(bit(row, x), want.contains(&(x, y)), "bwd ({x},{y})");
+            }
+            // Tail bits past the source axis stay zero.
+            assert_eq!(row.len(), 2);
+        }
+        let all = p.rows(&f, PairDir::Forward).unwrap();
+        assert_eq!(all.len(), 128 * 4);
+        assert_eq!(
+            all.iter().map(|w| u64::from(w.count_ones())).sum::<u64>(),
+            p.len()
+        );
+    }
+
+    /// A read under any other frame issue is refused: another table's frame,
+    /// and a newer frame of the same table. A re-seal of an unchanged table is
+    /// the same issue and reads.
+    #[test]
+    fn a_plane_reads_only_under_its_own_frame_issue() {
+        let mut t = MapTable::new(1, 1);
+        let f = t.seal();
+        let axis = Axis::new(Width::W64, 1);
+        let mut p = PairPlane::new(&f, axis, axis);
+        p.insert(3, 5).unwrap();
+        assert_eq!(p.contains(&t.seal(), 3, 5), Ok(true));
+
+        let other = MapTable::new(1, 1).seal();
+        assert_eq!(
+            p.row(&other, PairDir::Forward, 3),
+            Err(PairRefusal::ForeignFrame)
+        );
+        assert_eq!(
+            p.rows(&other, PairDir::Backward),
+            Err(PairRefusal::ForeignFrame)
+        );
+        assert_eq!(p.contains(&other, 3, 5), Err(PairRefusal::ForeignFrame));
+
+        t.advance(1, 2, Vec::new());
+        let newer = t.seal();
+        assert_eq!(
+            p.row(&newer, PairDir::Forward, 3),
+            Err(PairRefusal::ForeignFrame)
+        );
+        // The frame it was built under still reads.
+        assert!(p.row(&f, PairDir::Forward, 3).is_ok());
+    }
+
+    /// Coordinates past an axis are refused, naming the axis, and change
+    /// nothing.
+    #[test]
+    fn coordinates_past_an_axis_are_refused() {
+        let f = MapTable::new(1, 1).seal();
+        let mut p = PairPlane::new(&f, Axis::new(Width::W64, 1), Axis::new(Width::W64, 2));
+        let src = PairRefusal::OutOfAxis {
+            axis: PairDir::Forward,
+            coord: 64,
+            positions: 64,
+        };
+        let dst = PairRefusal::OutOfAxis {
+            axis: PairDir::Backward,
+            coord: 128,
+            positions: 128,
+        };
+        assert_eq!(p.insert(64, 0), Err(src));
+        assert_eq!(p.insert(0, 128), Err(dst));
+        assert_eq!(p.remove(64, 0), Err(src));
+        assert_eq!(p.row(&f, PairDir::Forward, 64), Err(src));
+        assert_eq!(p.row(&f, PairDir::Backward, 128), Err(dst));
+        assert!(p.is_empty());
+        assert!(p.insert(63, 127).unwrap());
+        assert_eq!(p.len(), 1);
+    }
+}
