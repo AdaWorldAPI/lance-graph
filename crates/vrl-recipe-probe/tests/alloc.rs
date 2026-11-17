@@ -102,3 +102,48 @@ fn terminals_allocate_tile_scratch_mask_and_positions_only() {
         "bookkeeping is not small: {fixed_at:?}"
     );
 }
+
+/// The accepting path of a prepared recipe allocates nothing: with the
+/// program prepared and the scratch and kept-mask buffers sized once,
+/// `run_into` takes 0 bytes and 0 calls at every n, for `Count`, `Sum` and
+/// `Keep`. The rule #2045's `admitted` set (fixed lane array, caller-owned
+/// scratch and output). Disables it catches: lanes collected into a `Vec`,
+/// a program or scratch built inside `run_into`.
+#[test]
+fn prepared_accepting_path_allocates_nothing() {
+    use lance_graph_mask_risc::{Out, Value};
+    for &n in &[64usize, 512, 4096, 65536] {
+        let source = Source::from_lanes([
+            (0..n as i32).collect(),
+            (0..n as i32).map(|i| i % 2).collect(),
+            vec![0; n],
+            vec![7; n],
+        ]);
+        let world = bind(&source, &all_fields());
+        let w = witness(&world, &source);
+        let r = Recipe::compile(SRC, &common::View::new(), VIEW_CLASS).unwrap();
+        let rows = r.n_rows(&w).unwrap();
+        let (pc, ps, pk) = (
+            r.prepare_count(rows).unwrap(),
+            r.prepare_sum(rows, "a").unwrap(),
+            r.prepare_keep(rows).unwrap(),
+        );
+        let (mut sc, mut ss, mut sk) = (
+            pc.scratch().unwrap(),
+            ps.scratch().unwrap(),
+            pk.scratch().unwrap(),
+        );
+        let mut mask = vec![0u64; n.div_ceil(64)];
+        let kept = n / 2;
+        let (v, b, c) = measured(|| r.run_into(&pc, &w, &mut sc, Out::None).unwrap());
+        assert_eq!(v, Value::Count(kept as _), "n {n}");
+        assert_eq!((b, c), (0, 0), "count allocated at n {n}");
+        let (v, b, c) = measured(|| r.run_into(&ps, &w, &mut ss, Out::None).unwrap());
+        assert_eq!(v, Value::SumI64(7 * kept as i64), "n {n}");
+        assert_eq!((b, c), (0, 0), "sum allocated at n {n}");
+        let (_, b, c) = measured(|| r.run_into(&pk, &w, &mut sk, Out::Mask(&mut mask)).unwrap());
+        assert_eq!((b, c), (0, 0), "keep allocated at n {n}");
+        let ones: u32 = mask.iter().map(|w| w.count_ones()).sum();
+        assert_eq!(ones as usize, kept, "keep wrote the wrong mask at n {n}");
+    }
+}

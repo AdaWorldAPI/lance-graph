@@ -64,8 +64,52 @@ pub enum Refusal {
     NotI32 { field: u8 },
     /// The recipe reads no field, so it names no population.
     NoLanes,
+    /// The recipe reads more fields than [`MAX_READS`].
+    TooManyReads { reads: usize },
+    /// A [`Prepared`] program run by a recipe that did not prepare it.
+    NotThisRecipe,
+    /// The frame's row count is not the one the program was prepared for.
+    RowsChanged { prepared: usize, now: usize },
     /// mask-risc refused the program or its operands.
     Exec(ExecError),
+}
+
+/// The most fields one recipe reads. The lanes are held in a fixed array of
+/// this size, so the accepting path allocates nothing.
+pub const MAX_READS: usize = 16;
+
+/// The witnessed lanes, `len` of them, in `reads` order.
+#[derive(Clone, Copy)]
+struct Lanes<'a> {
+    lanes: [LaneRef<'a>; MAX_READS],
+    len: usize,
+}
+
+impl<'a> Lanes<'a> {
+    fn get(&self) -> &[LaneRef<'a>] {
+        &self.lanes[..self.len]
+    }
+}
+
+/// A recipe's program lowered for one row count: the cold step, done once.
+#[derive(Clone, Debug)]
+pub struct Prepared {
+    program: Program,
+    n_rows: usize,
+    reads: Vec<u8>,
+}
+
+impl Prepared {
+    /// Owned scratch sized for this program (tile-capped by mask-risc). The
+    /// cold step; reuse it across [`Recipe::run_into`] calls.
+    pub fn scratch(&self) -> Result<Scratch<'static>, Refusal> {
+        Scratch::for_program(&self.program, self.n_rows).map_err(Refusal::Exec)
+    }
+
+    /// The row count this program was prepared for.
+    pub fn n_rows(&self) -> usize {
+        self.n_rows
+    }
 }
 
 /// One event of the reference interpreter: names repeated per row, which is
@@ -266,6 +310,9 @@ impl Recipe {
             .collect();
         reads.sort_unstable();
         reads.dedup();
+        if reads.len() > MAX_READS {
+            return Err(Refusal::TooManyReads { reads: reads.len() });
+        }
         Ok(Self {
             fields: WideFieldMask::from_positions(&reads),
             reads,
@@ -289,9 +336,10 @@ impl Recipe {
         self.reads.iter().position(|&f| f == field).unwrap_or(0) as u16
     }
 
-    /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order.
-    /// Refused before any borrow when the witness fails.
-    fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Vec<LaneRef<'a>>, Refusal>
+    /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order,
+    /// into a fixed array: the accepting path allocates nothing. Refused
+    /// before any borrow when the witness fails.
+    fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Lanes<'a>, Refusal>
     where
         V: ClassView + ?Sized,
         S: LaneSource<Lane<'a> = LaneRef<'a>>,
@@ -299,7 +347,8 @@ impl Recipe {
         if self.reads.is_empty() {
             return Err(Refusal::NoLanes);
         }
-        let mut lanes: Vec<Option<LaneRef<'a>>> = vec![None; self.reads.len()];
+        let mut lanes = [LaneRef::I32(&[]); MAX_READS];
+        let mut held = [false; MAX_READS];
         let bound = w
             .binding
             .borrow_all(w.store, w.view, w.frames, w.source)
@@ -314,84 +363,160 @@ impl Recipe {
                 if !matches!(lane, LaneRef::I32(_)) {
                     return Err(Refusal::NotI32 { field });
                 }
-                lanes[i] = Some(lane);
+                lanes[i] = lane;
+                held[i] = true;
             }
         }
-        lanes
-            .into_iter()
-            .zip(&self.reads)
-            .map(|(l, &field)| l.ok_or(Refusal::NotBound { field }))
-            .collect()
+        if let Some(i) = held[..self.reads.len()].iter().position(|h| !h) {
+            return Err(Refusal::NotBound {
+                field: self.reads[i],
+            });
+        }
+        Ok(Lanes {
+            lanes,
+            len: self.reads.len(),
+        })
     }
 
-    /// Run the population program with `terminal` over the witnessed lanes.
-    /// `keep` receives a `Keep` terminal's mask (`⌈n/64⌉` words): mask-risc
-    /// tiles its scratch on wide planes, so a kept mask is written to a caller
-    /// buffer, never read back from a slot.
-    fn run<'a, V, S>(
-        &self,
-        w: &Witness<'a, V, S>,
-        terminal: Terminal,
-        keep: Option<&mut Vec<u64>>,
-    ) -> Result<(Value, Vec<LaneRef<'a>>), Refusal>
-    where
-        V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
-    {
-        let lanes = self.lanes(w)?;
-        let n_rows = lanes[0].len();
-        let program = self.program(n_rows, terminal)?;
-        let mut scratch = Scratch::for_program(&program, n_rows).map_err(Refusal::Exec)?;
-        let planes = Planes {
+    /// Lower the population and `terminal` for a frame of `n_rows` rows.
+    /// The cold step: it builds the program once. Run it with
+    /// [`Recipe::run_into`] as often as the frame stays `n_rows` rows.
+    fn prepare(&self, n_rows: usize, terminal: Terminal) -> Result<Prepared, Refusal> {
+        Ok(Prepared {
+            program: self.program(n_rows, terminal)?,
             n_rows,
-            masks: &[],
-            lanes: &lanes,
-        };
-        let out = match keep {
-            Some(buf) => {
-                // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
-                *buf = vec![0u64; words_for(n_rows)];
-                Out::Mask(buf.as_mut_slice())
-            }
-            None => Out::None,
-        };
-        let v = execute_into(&program, &planes, &Foreign::NONE, &mut scratch, out)
-            .map_err(Refusal::Exec)?;
-        Ok((v, lanes))
+            reads: self.reads.clone(),
+        })
     }
 
-    /// How many rows the recipe keeps: mask-risc `Count`, no row is built.
-    pub fn count<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<u64, Refusal>
-    where
-        V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
-    {
-        let count = Terminal::Count {
-            mask: Operand::Scratch(0),
-        };
-        match self.run(w, count, None)?.0 {
-            Value::Count(c) => Ok(c as u64),
-            other => unreachable!("Count returned {other:?}"),
-        }
+    /// Prepare `Count`: how many rows the recipe keeps.
+    pub fn prepare_count(&self, n_rows: usize) -> Result<Prepared, Refusal> {
+        self.prepare(
+            n_rows,
+            Terminal::Count {
+                mask: Operand::Scratch(0),
+            },
+        )
     }
 
-    /// The sum of an output over the kept rows: mask-risc `MaskedSumI32`.
-    pub fn sum<'a, V, S>(&self, w: &Witness<'a, V, S>, output: &str) -> Result<i64, Refusal>
-    where
-        V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
-    {
+    /// Prepare `MaskedSumI32` of `output` over the kept rows.
+    pub fn prepare_sum(&self, n_rows: usize, output: &str) -> Result<Prepared, Refusal> {
         let field = self
             .out
             .iter()
             .find(|(n, _)| n == output)
             .map(|(_, f)| *f)
             .ok_or_else(|| Refusal::UnknownPath(format!(".{output}")))?;
-        let sum = Terminal::MaskedSumI32 {
-            mask: Operand::Scratch(0),
-            lane: self.lane(field),
+        self.prepare(
+            n_rows,
+            Terminal::MaskedSumI32 {
+                mask: Operand::Scratch(0),
+                lane: self.lane(field),
+            },
+        )
+    }
+
+    /// Prepare `Keep`: the kept rows' mask, written to the caller's
+    /// [`Out::Mask`] of `⌈n/64⌉` words (mask-risc tiles its scratch, so a
+    /// kept mask is never read back from a slot).
+    pub fn prepare_keep(&self, n_rows: usize) -> Result<Prepared, Refusal> {
+        self.prepare(
+            n_rows,
+            Terminal::Keep {
+                mask: Operand::Scratch(0),
+            },
+        )
+    }
+
+    /// Run a prepared program over the witnessed lanes, into the caller's
+    /// `scratch` (sized by [`Prepared::scratch`] or
+    /// `Scratch::over_for_program`) and `out`. The accepting path: one DT64
+    /// check, one execution, no allocation.
+    ///
+    /// Refused when `p` was prepared by another recipe or for another row
+    /// count: its lane numbering or its every-row range would not describe
+    /// these lanes.
+    pub fn run_into<'a, V, S>(
+        &self,
+        p: &Prepared,
+        w: &Witness<'a, V, S>,
+        scratch: &mut Scratch<'_>,
+        out: Out<'_>,
+    ) -> Result<Value, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        self.exec(p, w, scratch, out).map(|(v, _)| v)
+    }
+
+    fn exec<'a, V, S>(
+        &self,
+        p: &Prepared,
+        w: &Witness<'a, V, S>,
+        scratch: &mut Scratch<'_>,
+        out: Out<'_>,
+    ) -> Result<(Value, Lanes<'a>), Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        if p.reads != self.reads {
+            return Err(Refusal::NotThisRecipe);
+        }
+        let lanes = self.lanes(w)?;
+        let n_rows = lanes.get()[0].len();
+        if n_rows != p.n_rows {
+            return Err(Refusal::RowsChanged {
+                prepared: p.n_rows,
+                now: n_rows,
+            });
+        }
+        let planes = Planes {
+            n_rows,
+            masks: &[],
+            lanes: lanes.get(),
         };
-        match self.run(w, sum, None)?.0 {
+        let v = execute_into(&p.program, &planes, &Foreign::NONE, scratch, out)
+            .map_err(Refusal::Exec)?;
+        Ok((v, lanes))
+    }
+
+    /// The witnessed row count, for preparing: one DT64 check, no fold.
+    pub fn n_rows<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<usize, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        Ok(self.lanes(w)?.get()[0].len())
+    }
+
+    /// How many rows the recipe keeps: mask-risc `Count`, no row is built.
+    /// Convenience: prepares and sizes scratch per call; the allocation-free
+    /// form is [`Recipe::prepare_count`] + [`Recipe::run_into`].
+    pub fn count<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<u64, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let p = self.prepare_count(self.n_rows(w)?)?;
+        let mut scratch = p.scratch()?;
+        match self.run_into(&p, w, &mut scratch, Out::None)? {
+            Value::Count(c) => Ok(c as u64),
+            other => unreachable!("Count returned {other:?}"),
+        }
+    }
+
+    /// The sum of an output over the kept rows: mask-risc `MaskedSumI32`.
+    /// Convenience, as [`Recipe::count`].
+    pub fn sum<'a, V, S>(&self, w: &Witness<'a, V, S>, output: &str) -> Result<i64, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let p = self.prepare_sum(self.n_rows(w)?, output)?;
+        let mut scratch = p.scratch()?;
+        match self.run_into(&p, w, &mut scratch, Out::None)? {
             Value::SumI64(s) => Ok(s),
             other => unreachable!("MaskedSumI32 returned {other:?}"),
         }
@@ -406,11 +531,11 @@ impl Recipe {
         V: ClassView + ?Sized,
         S: LaneSource<Lane<'a> = LaneRef<'a>>,
     {
-        let mut mask = Vec::new();
-        let keep = Terminal::Keep {
-            mask: Operand::Scratch(0),
-        };
-        let (_, lanes) = self.run(w, keep, Some(&mut mask))?;
+        let p = self.prepare_keep(self.n_rows(w)?)?;
+        let mut scratch = p.scratch()?;
+        // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
+        let mut mask = vec![0u64; words_for(p.n_rows)];
+        let (_, lanes) = self.exec(&p, w, &mut scratch, Out::Mask(&mut mask))?;
         let kept: u32 = mask.iter().map(|w| w.count_ones()).sum();
         let mut positions = Vec::with_capacity(kept as usize);
         for (w, &word) in mask.iter().enumerate() {
@@ -420,7 +545,7 @@ impl Recipe {
                 bits &= bits - 1;
             }
         }
-        let lane_of = |field: u8| match lanes[usize::from(self.lane(field))] {
+        let lane_of = |field: u8| match lanes.get()[usize::from(self.lane(field))] {
             LaneRef::I32(s) => s,
             _ => unreachable!("lanes() admits i32 lanes only"),
         };

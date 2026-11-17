@@ -184,3 +184,58 @@ fn unbound_and_non_i32_fields_are_refused() {
         Refusal::NotI32 { field: CODE }
     );
 }
+
+/// A prepared program is run only by the recipe that prepared it and only
+/// over a frame of the row count it was prepared for. A different recipe
+/// would number its lanes differently, and a different row count would make
+/// the every-row range describe other rows. Both are refused before folding.
+#[test]
+fn a_prepared_program_is_refused_by_another_recipe_or_row_count() {
+    use lance_graph_mask_risc::{Out, Value};
+    let small = Source::random(64, 5);
+    let big = Source::random(128, 5);
+    let (ws, wb) = (bind(&small, &all_fields()), bind(&big, &all_fields()));
+    let r = compile(".n = .key\n.a = .properties.amount.value");
+    let other = compile(".n = .key");
+    let p = r.prepare_count(64).unwrap();
+    let mut scratch = p.scratch().unwrap();
+    assert_eq!(
+        r.run_into(&p, &witness(&ws, &small), &mut scratch, Out::None),
+        Ok(Value::Count(64))
+    );
+    assert_eq!(
+        other.run_into(&p, &witness(&ws, &small), &mut scratch, Out::None),
+        Err(Refusal::NotThisRecipe)
+    );
+    assert_eq!(
+        r.run_into(&p, &witness(&wb, &big), &mut scratch, Out::None),
+        Err(Refusal::RowsChanged {
+            prepared: 64,
+            now: 128
+        })
+    );
+}
+
+/// A recipe reading more fields than the fixed lane array holds is refused
+/// at compile time, not truncated; one field fewer compiles. Both sides
+/// read through a view with `MAX_READS + 1` fields.
+#[test]
+fn more_reads_than_the_lane_array_holds_are_refused() {
+    use vrl_recipe_probe::MAX_READS;
+    let labels: Vec<String> = std::iter::once("key".to_string())
+        .chain((1..=MAX_READS).map(|i| format!("f{i}")))
+        .collect();
+    let view = common::View::with_labels(&labels);
+    let reading = |k: usize| -> String {
+        std::iter::once(".o0 = .key\n".to_string())
+            .chain((1..k).map(|i| format!(".o{i} = .properties.f{i}.value\n")))
+            .collect()
+    };
+    assert!(Recipe::compile(&reading(MAX_READS), &view, VIEW_CLASS).is_ok());
+    assert_eq!(
+        Recipe::compile(&reading(MAX_READS + 1), &view, VIEW_CLASS).unwrap_err(),
+        Refusal::TooManyReads {
+            reads: MAX_READS + 1
+        }
+    );
+}

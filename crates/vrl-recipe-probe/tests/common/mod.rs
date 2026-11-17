@@ -41,6 +41,16 @@ impl View {
                 .collect(),
         )
     }
+
+    /// A view of `class` with the given field labels, for compile-time tests.
+    pub fn with_labels(labels: &[String]) -> View {
+        View(
+            labels
+                .iter()
+                .map(|l| FieldRef::new(format!("ord:{l}"), l.as_str()))
+                .collect(),
+        )
+    }
 }
 
 impl ClassView for View {
