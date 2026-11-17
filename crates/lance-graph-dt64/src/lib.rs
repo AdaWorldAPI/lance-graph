@@ -161,6 +161,13 @@ pub enum Arg {
     Field(u8),
     /// A constant parameter: a key column index, a lane.
     Const(i64),
+    /// The presence plane of field `p`'s stored lane: a row's bit is 1 when
+    /// the value is present and 0 when it is absent (EXO-294: absent means
+    /// presence bit 0 with value 0). The operand is a mask, not a value, so
+    /// a step can read `IS NULL` as `IntNot` of it. `p` must be a field the
+    /// method declares it reads: a value computed by an earlier step has no
+    /// stored presence (EXO-296).
+    Present(u8),
 }
 
 /// WHEN: a guard over the population, stated as the set description Quack's
@@ -450,6 +457,7 @@ fn binding_digest(
                     h = eat(h, &[1]);
                     h = eat(h, &c.to_le_bytes());
                 }
+                Arg::Present(p) => h = eat(h, &[2, *p]),
             }
         }
     }
@@ -1393,7 +1401,7 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
             .chain(m.effects.iter().map(|e| e.target))
             .chain(m.effects.iter().flat_map(|e| {
                 e.args.iter().filter_map(|a| match a {
-                    Arg::Field(p) => Some(*p),
+                    Arg::Field(p) | Arg::Present(p) => Some(*p),
                     Arg::Const(_) => None,
                 })
             }));
@@ -1423,15 +1431,21 @@ fn validate(class: u32, schema: &ClassSchema, methods: &[MethodBinding]) -> Resu
         let mut available = m.reads.clone();
         for (effect, e) in m.effects.iter().enumerate() {
             for a in &e.args {
-                if let Arg::Field(position) = *a {
-                    if !available.has(position) {
-                        return Err(Refusal::UndeclaredRead {
-                            class,
-                            method: m.id,
-                            effect,
-                            position,
-                        });
-                    }
+                // A presence plane belongs to a stored lane, so only a
+                // declared read has one; a field an earlier step wrote does
+                // not.
+                let (position, declared) = match *a {
+                    Arg::Field(p) => (p, available.has(p)),
+                    Arg::Present(p) => (p, m.reads.has(p)),
+                    Arg::Const(_) => continue,
+                };
+                if !declared {
+                    return Err(Refusal::UndeclaredRead {
+                        class,
+                        method: m.id,
+                        effect,
+                        position,
+                    });
                 }
             }
             available = available.with(e.target);

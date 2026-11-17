@@ -3,6 +3,7 @@
 
 pub mod binding;
 pub mod binding_native;
+pub mod binding_presence;
 pub mod dt64_census;
 pub mod polyfill;
 pub mod polyfill_views;

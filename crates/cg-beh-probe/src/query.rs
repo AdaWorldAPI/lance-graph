@@ -147,6 +147,7 @@ fn do_key(m: &MethodFacts) -> Vec<(u32, u8, u8, u8, Vec<String>)> {
                     .map(|a| match a {
                         crate::facts::ArgFact::Field(f) => format!("F{}", f.position),
                         crate::facts::ArgFact::Const(c) => format!("C{c}"),
+                        crate::facts::ArgFact::Present(f) => format!("P{}", f.position),
                     })
                     .collect(),
             )

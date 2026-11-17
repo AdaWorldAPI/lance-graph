@@ -569,6 +569,7 @@ fn uses_rows(s: &BindStore, class: u32, ids: &[u32]) -> Vec<String> {
                 .map(|a| match a {
                     Arg::Field(n) => format!("F{n}"),
                     Arg::Const(n) => format!("C{n}"),
+                    Arg::Present(n) => format!("P{n}"),
                 })
                 .collect::<Vec<_>>()
                 .join(",");

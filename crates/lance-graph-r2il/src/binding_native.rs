@@ -53,7 +53,8 @@ use ogar_loco::FnIndex;
 use ogar_r2il::{ALL, ANY, KEY_RUNS, MAX, MIN, SUM};
 
 use crate::binding::{
-    check_compare, check_route, lane, ExecPermit, ExecRefusal, FieldLanes, Prepared, LANE_COMPARES,
+    check_compare, check_route, lane, presence, ExecPermit, ExecRefusal, FieldLanes, FieldPresence,
+    Prepared, LANE_COMPARES,
 };
 use crate::{FoldDialect, FoldError, Val, POP_COUNT};
 
@@ -208,6 +209,35 @@ pub fn prepare_native(
     fields: FieldLanes<'_>,
     planes: &Planes<'_>,
 ) -> Result<NativePlan, ExecRefusal> {
+    prepare_native_present(
+        plan,
+        store,
+        frames,
+        now,
+        fields,
+        FieldPresence::NONE,
+        planes,
+    )
+}
+
+/// [`prepare_native`] with a presence binding: an `Arg::Present(p)` reads
+/// `Planes::masks[present.planes[p]]` as a mask operand where it stands
+/// (EXO-296). The compiled programs address the plane by index, so
+/// [`run_native`] reads the run's plane and allocates nothing more.
+///
+/// # Errors
+///
+/// As [`prepare_native`], plus [`ExecRefusal::PresenceUnbound`] and
+/// [`ExecRefusal::PresenceUnusable`].
+pub fn prepare_native_present(
+    plan: &Prepared,
+    store: &BindStore,
+    frames: &FrameStore,
+    now: (Focus, Scope),
+    fields: FieldLanes<'_>,
+    present: FieldPresence<'_>,
+    planes: &Planes<'_>,
+) -> Result<NativePlan, ExecRefusal> {
     // A gated plan's folds read a mask that depends on the gate plane of
     // each run; this path freezes programs and has no gate operand.
     if plan.gated {
@@ -234,6 +264,7 @@ pub fn prepare_native(
                     None => (lane(planes, fields, i, p)?, Origin::Data),
                 },
                 Arg::Const(c) => (Val::Scalar(c), Origin::Const),
+                Arg::Present(p) => (presence(planes, present, i, p)?, Origin::Data),
             };
             match origin {
                 Origin::Const => {}
