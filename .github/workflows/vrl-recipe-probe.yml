@@ -34,6 +34,12 @@ jobs:
         with:
           path: lance-graph
           persist-credentials: false
+      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
+        uses: actions/checkout@v4
+        with:
+          repository: AdaWorldAPI/ndarray
+          path: ndarray
+          persist-credentials: false
       - name: Rust toolchain
         run: rustup show
       - name: Resolve target-cpu=native for this runner
