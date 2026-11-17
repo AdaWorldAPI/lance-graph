@@ -163,39 +163,39 @@ fn pool_arm(
     want_sink: &[i64],
 ) -> (f64, f64) {
     let t = parts.len();
-    let mut workers: Vec<Worker> = (0..t)
-        .map(|_| Worker {
-            scratch: vec![0; 4 * TILE_WORDS + 64],
-            sink: vec![0; GROUPS],
-        })
-        .collect();
+    let mut scratches: Vec<Vec<u64>> = (0..t).map(|_| vec![0; 4 * TILE_WORDS + 64]).collect();
+    // A sink each worker writes and the caller merges after `done`, inside
+    // the timed call, as `run_parallel` does.
+    let sinks: Vec<Mutex<Vec<i64>>> = (0..t).map(|_| Mutex::new(vec![0; GROUPS])).collect();
     let start = Barrier::new(t);
     let done = Barrier::new(t);
     let stop = AtomicBool::new(false);
     let work = AtomicBool::new(true);
     let results: Vec<Mutex<Option<Value>>> = (0..t).map(|_| Mutex::new(None)).collect();
-    let run = |w: &mut Worker, lo: usize, hi: usize| {
-        let mut s = Scratch::over(&mut w.scratch, TILE_WORDS, 3).unwrap();
+    let run = |scratch: &mut Vec<u64>, sink: &Mutex<Vec<i64>>, lo: usize, hi: usize| {
+        let mut s = Scratch::over(scratch, TILE_WORDS, 3).unwrap();
+        let mut sink = sink.lock().unwrap();
         let out = if group {
-            Out::I64(&mut w.sink)
+            Out::I64(&mut sink)
         } else {
             Out::None
         };
         execute_compiled(c, planes, &Foreign::NONE, &mut s, out, lo..hi).unwrap()
     };
-    let (first, rest) = workers.split_first_mut().unwrap();
+    let (first, rest) = scratches.split_first_mut().unwrap();
     let mut timed = (0.0, 0.0);
     std::thread::scope(|sc| {
-        for (i, w) in rest.iter_mut().enumerate() {
+        for (i, scratch) in rest.iter_mut().enumerate() {
             let (lo, hi) = parts[i + 1];
-            let (start, done, stop, work, slot) = (&start, &done, &stop, &work, &results[i + 1]);
+            let (start, done, stop, work) = (&start, &done, &stop, &work);
+            let (slot, sink) = (&results[i + 1], &sinks[i + 1]);
             sc.spawn(move || loop {
                 start.wait();
                 if stop.load(Ordering::Acquire) {
                     return;
                 }
                 if work.load(Ordering::Acquire) {
-                    *slot.lock().unwrap() = Some(run(w, lo, hi));
+                    *slot.lock().unwrap() = Some(run(scratch, sink, lo, hi));
                 }
                 done.wait();
             });
@@ -203,7 +203,7 @@ fn pool_arm(
         let mut call = |with_work: bool| {
             work.store(with_work, Ordering::Release);
             start.wait();
-            let v0 = with_work.then(|| run(first, parts[0].0, parts[0].1));
+            let v0 = with_work.then(|| run(first, &sinks[0], parts[0].0, parts[0].1));
             done.wait();
             v0
         };
@@ -212,6 +212,15 @@ fn pool_arm(
             let mut v = call(true).unwrap();
             for r in &results[1..] {
                 v = merge(v, r.lock().unwrap().take().unwrap());
+            }
+            if group {
+                let mut acc = sinks[0].lock().unwrap();
+                for part in &sinks[1..] {
+                    c.program()
+                        .terminal
+                        .merge_group_sink(&mut acc, &part.lock().unwrap())
+                        .unwrap();
+                }
             }
             check = Some(v);
         });
@@ -222,17 +231,8 @@ fn pool_arm(
         start.wait();
         assert_eq!(check.unwrap(), want, "pool answer");
     });
-    // The workers hold the last WORK run's sinks (the no-work calls write
-    // none), so the merged sink is checked here, after the scope.
     if group {
-        let mut acc = workers[0].sink.clone();
-        for w in &workers[1..] {
-            c.program()
-                .terminal
-                .merge_group_sink(&mut acc, &w.sink)
-                .unwrap();
-        }
-        assert_eq!(acc, want_sink, "pool sink");
+        assert_eq!(*sinks[0].lock().unwrap(), want_sink, "pool sink");
     }
     timed
 }

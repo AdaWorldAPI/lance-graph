@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-17 · **Status:** MEASURED · **Scope:** `lance-graph-mask-risc/examples/par_tile_probe.rs` only; no driver built
 
-EXO-290 Ask 2 asked for a parallel tile driver, but required the crossover to be measured first. The probe splits `[0, n)` into chunks of whole tiles (`TILE_WORDS * 64` = 16,384 rows), so no two chunks share a word, the split `execute_extent` already licenses. Each worker runs `execute_compiled` with its own scratch and sink, all allocated up front. The parts merge by each terminal's law. Every parallel answer is checked against the single-threaded one; all were equal.
+EXO-290 Ask 2 asked for a parallel tile driver, but required the crossover to be measured first. The probe splits `[0, n)` into chunks of whole tiles (`TILE_WORDS * 64` = 16,384 rows), so no two chunks share a word, the split `execute_extent` already licenses. Each worker runs `execute_compiled` with its own scratch and sink, all allocated up front. The parts merge by each terminal's law. Every parallel answer is checked against the single-threaded one; all were equal. The pool arm's group-sink merge is inside its timed call, as in the spawn arm (corrected after a Codex review on #2122: the first version merged outside the timer, which overstated the pool's group-sum speedup at 512K rows as up to 3.05×; measured with the merge inside, 1.04–1.94×).
 
 The three program shapes:
 
@@ -22,8 +22,8 @@ Measurements: 4-vCPU container, release, two runs; times are medians in µs.
 | coordination floor, spawn per call | ~42 | ~82 |
 | coordination floor, pool wake | ~24 | ~90 |
 | speedup below 64K rows | < 1 (0.1–0.95×) | < 1 (0.1–0.95×) |
-| speedup at 256K rows, pool | 0.7–1.65× | 0.76–1.72× |
-| speedup at 512K rows, pool | 1.5–2.3× | 1.5–3.05× |
+| speedup at 256K rows, pool | 0.71–1.40× | 0.56–1.11× |
+| speedup at 512K rows, pool | 1.04–2.26× | 1.54–2.41× |
 
 At 64K rows the single-threaded run takes 12–45 µs, less than the coordination floor.
 
