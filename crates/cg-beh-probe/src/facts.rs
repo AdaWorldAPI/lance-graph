@@ -59,6 +59,8 @@ pub struct WhenFacts {
 pub enum ArgFact {
     Field(Field),
     Const(i64),
+    /// The presence plane of a field's stored lane.
+    Present(Field),
 }
 
 /// One DO step, at its place in the order.
@@ -264,6 +266,7 @@ pub fn extract<V: ClassView + ?Sized>(
             .map(|a| match *a {
                 Arg::Field(p) => field(p, "do.arg").map(ArgFact::Field),
                 Arg::Const(c) => Ok(ArgFact::Const(c)),
+                Arg::Present(p) => field(p, "do.arg").map(ArgFact::Present),
             })
             .collect::<Result<Vec<_>, _>>()?;
         steps.push(DoStep {
@@ -458,6 +461,7 @@ impl Snapshot {
                     .map(|a| match a {
                         ArgFact::Field(f) => format!("F{}", f.position),
                         ArgFact::Const(c) => format!("C{c}"),
+                        ArgFact::Present(f) => format!("P{}", f.position),
                     })
                     .collect();
                 row(&[

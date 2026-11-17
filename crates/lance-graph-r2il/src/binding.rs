@@ -115,6 +115,20 @@ pub struct FieldLanes<'a> {
     pub lanes: &'a [Option<u16>],
 }
 
+/// Which presence plane each class field's stored lane has: `planes[p]` is
+/// the index into `Planes::masks` holding field `p`'s presence, or `None`
+/// when no presence plane is bound for it. The consumer's binding, as
+/// [`FieldLanes`] is for values; an `Arg::Present(p)` reads it (EXO-296).
+#[derive(Debug, Clone, Copy)]
+pub struct FieldPresence<'a> {
+    pub planes: &'a [Option<u16>],
+}
+
+impl FieldPresence<'_> {
+    /// No presence plane bound for any field.
+    pub const NONE: FieldPresence<'static> = FieldPresence { planes: &[] };
+}
+
 /// The R2IL lens this seam executes, at its schema revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct R2ilLens {
@@ -304,6 +318,15 @@ pub enum ExecRefusal {
     /// The field's lane index is outside the planes, or its kind is not one
     /// the dialect addresses.
     LaneUnusable { effect: usize, field: u8, lane: u16 },
+    /// An `Arg::Present` field has no presence plane bound, or the path
+    /// that ran the plan takes no presence binding.
+    PresenceUnbound { effect: usize, field: u8 },
+    /// The field's presence plane index is outside `Planes::masks`.
+    PresenceUnusable {
+        effect: usize,
+        field: u8,
+        plane: u16,
+    },
     /// A constant compared against a lane does not fit the lane's type.
     ConstOutOfRange { effect: usize, value: i64 },
     /// The dialect refused the call.
@@ -651,6 +674,11 @@ fn run_steps(
                     None => lane(dialect.planes, fields, i, p)?,
                 },
                 Arg::Const(c) => Val::Scalar(c),
+                // This path takes no presence binding; the native path does
+                // (`prepare_native_present`).
+                Arg::Present(field) => {
+                    return Err(ExecRefusal::PresenceUnbound { effect: i, field })
+                }
             };
             stack.push(v);
         }
@@ -711,7 +739,7 @@ pub(crate) fn call_step(
         Arg::Field(p) => steps[i + 1..]
             .iter()
             .any(|s| s.args.contains(&Arg::Field(*p))),
-        Arg::Const(_) => false,
+        Arg::Const(_) | Arg::Present(_) => false,
     });
     if read_later {
         dialect.call_shared(step.opcode, [0, 0, 0], stack)
@@ -774,6 +802,7 @@ fn plan_id(method: &MethodRef, lens: R2ilLens, steps: &[Step], gated: bool) -> u
                     eat(&[1]);
                     eat(&c.to_le_bytes());
                 }
+                Arg::Present(p) => eat(&[2, *p]),
             }
         }
     }
@@ -895,6 +924,29 @@ pub(crate) fn lane(
         _ => return Err(unusable),
     };
     Ok(Val::Address(Addr::Lane { idx, kind }))
+}
+
+/// The address of the presence plane field `p` is bound to.
+pub(crate) fn presence(
+    planes: &Planes<'_>,
+    fields: FieldPresence<'_>,
+    effect: usize,
+    field: u8,
+) -> Result<Val, ExecRefusal> {
+    let plane = fields
+        .planes
+        .get(usize::from(field))
+        .copied()
+        .flatten()
+        .ok_or(ExecRefusal::PresenceUnbound { effect, field })?;
+    if usize::from(plane) >= planes.masks.len() {
+        return Err(ExecRefusal::PresenceUnusable {
+            effect,
+            field,
+            plane,
+        });
+    }
+    Ok(Val::Address(Addr::Plane(plane)))
 }
 
 /// A lane compare's constant must fit the lane's type: refused here so the
