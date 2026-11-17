@@ -39,9 +39,9 @@ fn measured<T>(f: impl FnOnce() -> T) -> (T, usize, usize) {
 
 fn store(n: usize) -> Store {
     Store::new(
-        (0..n as i64).collect(),
+        (0..n as i32).collect(),
         vec![
-            ("status", (0..n as i64).map(|i| i % 2).collect()),
+            ("status", (0..n as i32).map(|i| i % 2).collect()),
             ("amount", vec![7; n]),
         ],
     )
@@ -50,26 +50,31 @@ fn store(n: usize) -> Store {
 const SRC: &str =
     ".n = .key\n.a = .properties.amount.value\nif .properties.status.value != 1 { abort }";
 
-/// `count` and `sum` make exactly one allocation, the `n.div_ceil(64)`-word
-/// mask, at every size; `materialize_rows` allocates at least once per kept
-/// row. Disable it catches: a fold that counts by materializing rows.
+/// `count` and `sum` allocate the mask and one scratch mask, `⌈n/64⌉` words
+/// each, at every size. `materialize_rows` makes five allocations at every
+/// size (mask, scratch, position table, names, lanes): only the position
+/// table grows with kept rows, by 4 bytes a row, and no string or event is
+/// built per row. Disables it catches: a fold that counts by materializing,
+/// and rows materialized as per-row events.
 #[test]
-fn folds_allocate_only_the_mask() {
+fn folds_allocate_only_masks_and_rows_only_positions() {
     for &n in &[64usize, 512, 4096, 65536] {
         let s = store(n);
         let r = Recipe::compile(SRC, &s).unwrap();
         let words = n.div_ceil(64);
         let (count, bytes, calls) = measured(|| r.count(&s).unwrap());
         assert_eq!(count, n as u64 / 2);
-        assert_eq!((bytes, calls), (8 * words, 1), "count at n {n}");
+        assert_eq!((bytes, calls), (16 * words, 2), "count at n {n}");
         let (sum, bytes, calls) = measured(|| r.sum(&s, "a").unwrap());
         assert_eq!(sum, 7 * n as i64 / 2);
-        assert_eq!((bytes, calls), (8 * words, 1), "sum at n {n}");
-        let (rows, _, calls) = measured(|| r.materialize_rows(&s).unwrap());
-        assert_eq!(rows.len(), n / 2);
+        assert_eq!((bytes, calls), (16 * words, 2), "sum at n {n}");
+        let kept = n / 2;
+        let (rows, bytes, calls) = measured(|| r.materialize_rows(&s).unwrap());
+        assert_eq!(rows.len(), kept);
+        assert_eq!(calls, 5, "materialize at n {n}");
         assert!(
-            calls > rows.len(),
-            "materialize at n {n}: {calls} allocations"
+            bytes <= 16 * words + 4 * kept + 256,
+            "materialize at n {n}: {bytes} bytes"
         );
     }
 }

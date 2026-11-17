@@ -1,21 +1,34 @@
 //! The recipe against the naive VRL interpreter, at every width.
 
-use vrl_recipe_probe::{interpret, Recipe, Refusal, Store};
+use vrl_recipe_probe::{interpret, Event, Recipe, Refusal, Rows, Store};
 
 struct Lcg(u64);
 impl Lcg {
-    fn below(&mut self, k: i64) -> i64 {
+    fn below(&mut self, k: i32) -> i32 {
         self.0 = self
             .0
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
-        ((self.0 >> 33) % k as u64) as i64
+        ((self.0 >> 33) % k as u64) as i32
     }
+}
+
+/// Positional rows as events, for comparison with the interpreter only.
+fn events(rows: &Rows<'_>) -> Vec<Event> {
+    (0..rows.len())
+        .map(|r| {
+            rows.names()
+                .iter()
+                .enumerate()
+                .map(|(c, n)| (n.to_string(), i64::from(rows.get(r, c))))
+                .collect()
+        })
+        .collect()
 }
 
 fn store(n: usize, seed: u64) -> Store {
     let mut l = Lcg(seed);
-    let keys = (0..n as i64).map(|i| 1000 + i).collect();
+    let keys = (0..n as i32).map(|i| 1000 + i).collect();
     let status = (0..n).map(|_| l.below(4)).collect();
     let region = (0..n).map(|_| l.below(3)).collect();
     let amount = (0..n).map(|_| l.below(500) - 100).collect();
@@ -52,8 +65,17 @@ fn recipe_equals_the_interpreter_at_every_width() {
         for (i, src) in PROGRAMS.iter().enumerate() {
             let recipe = Recipe::compile(src, &s).unwrap_or_else(|e| panic!("p{i}: {e:?}"));
             let want = interpret(src, &s).unwrap();
-            let got = recipe.materialize_rows(&s).unwrap();
-            assert_eq!(got, want, "n {n} program {i}");
+            let rows = recipe.materialize_rows(&s).unwrap();
+            assert_eq!(
+                rows.names(),
+                recipe.outputs().as_slice(),
+                "n {n} p{i} names"
+            );
+            assert!(
+                rows.positions().windows(2).all(|w| w[0] < w[1]),
+                "row order"
+            );
+            assert_eq!(events(&rows), want, "n {n} program {i}");
             assert_eq!(
                 recipe.count(&s).unwrap(),
                 want.len() as u64,

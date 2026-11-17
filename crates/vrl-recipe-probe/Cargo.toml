@@ -16,3 +16,5 @@ description = "Compiles a read/rename/filter subset of VRL into a stored late-ma
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
+# The folds are the masking polyfill (`ndarray::simd`), never a local loop.
+ndarray = { path = "../../../ndarray" }

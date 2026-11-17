@@ -7,8 +7,17 @@
 //! was compiled against, the population terms, the participating fields as a
 //! [`WideFieldMask`], and the output aliases. A terminal evaluates the
 //! population into one mask of `n.div_ceil(64)` words and reads lanes in
-//! place at its set bits. Only [`Recipe::materialize_rows`] writes rows out,
-//! and it costs O(rows kept).
+//! place at its set bits. Only [`Recipe::materialize_rows`] produces rows,
+//! and they are positional ([`Rows`]): the names once, one borrowed lane per
+//! output, and a `u32` position table. No string and no event is built per
+//! row; the probe's [`Event`] type exists only for the reference interpreter.
+//!
+//! Every fold is the masking polyfill in `ndarray::simd`
+//! (`eq_i32_to_mask`, `mask_and_assign`, `mask_andnot_assign`,
+//! `masked_sum_i32`, `popcount_batch_u64`); the probe adds no kernel of its
+//! own. VRL is edge syntax: its statements resolve onto those existing
+//! words, so neither a `dt64::vrl` module nor an ndarray `simd_vrl` module is
+//! needed (D-VRL-RECIPE-0).
 //!
 //! The VRL subset, one statement per line (or `;`):
 //!
@@ -31,6 +40,9 @@
 use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::WideFieldMask;
+use ndarray::simd::{
+    eq_i32_to_mask, mask_and_assign, mask_andnot_assign, masked_sum_i32, popcount_batch_u64,
+};
 
 /// Why a program or a terminal is refused.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -50,12 +62,12 @@ pub struct Store {
     version: u64,
     n: usize,
     fields: Vec<String>,
-    lanes: Vec<Vec<i64>>,
+    lanes: Vec<Vec<i32>>,
 }
 
 impl Store {
     /// `props` are `(name, values)`; every lane has `keys.len()` rows.
-    pub fn new(keys: Vec<i64>, props: Vec<(&str, Vec<i64>)>) -> Self {
+    pub fn new(keys: Vec<i32>, props: Vec<(&str, Vec<i32>)>) -> Self {
         let n = keys.len();
         let mut fields = vec!["key".to_string()];
         let mut lanes = vec![keys];
@@ -94,7 +106,8 @@ impl Store {
     }
 }
 
-/// One materialized output event.
+/// One event of the reference interpreter: names repeated per row, which is
+/// exactly what the recipe's [`Rows`] avoid.
 pub type Event = BTreeMap<String, i64>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -111,7 +124,7 @@ enum Stmt {
     Abort {
         path: Path,
         eq: bool,
-        value: i64,
+        value: i32,
     },
 }
 
@@ -170,8 +183,8 @@ fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
                 other => return Err(Refusal::Computes(format!("comparison {other}"))),
             };
             let value = v
-                .parse::<i64>()
-                .map_err(|_| Refusal::Computes(format!("non-integer comparison {v}")))?;
+                .parse::<i32>()
+                .map_err(|_| Refusal::Computes(format!("non-i32 comparison {v}")))?;
             out.push(Stmt::Abort {
                 path: path(p)?,
                 eq,
@@ -209,9 +222,9 @@ fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
 pub struct Recipe {
     version: u64,
     /// Rows kept only where `lane == value`.
-    keep_eq: Vec<(u8, i64)>,
+    keep_eq: Vec<(u8, i32)>,
     /// Rows dropped where `lane == value`.
-    drop_eq: Vec<(u8, i64)>,
+    drop_eq: Vec<(u8, i32)>,
     /// The participating fields, by lane position.
     view: WideFieldMask,
     /// Output name -> lane, in name order.
@@ -292,43 +305,38 @@ impl Recipe {
         Ok(())
     }
 
-    /// The kept rows as a mask of `n.div_ceil(64)` words: the one allocation
-    /// a fold terminal makes. Each term is folded word by word over its lane.
+    /// The kept rows as a mask of `n.div_ceil(64)` words, built by the
+    /// polyfill: each term packs `lane == value` into a scratch mask and is
+    /// and-ed or and-not-ed in. Two allocations at most, both `⌈n/64⌉` words;
+    /// none per row.
     fn mask(&self, store: &Store) -> Result<Vec<u64>, Refusal> {
         self.check(store)?;
         let n = store.n;
-        let mut m = vec![u64::MAX; n.div_ceil(64)];
+        let words = n.div_ceil(64);
+        let mut m = vec![u64::MAX; words];
         if !n.is_multiple_of(64) {
             if let Some(last) = m.last_mut() {
                 *last = (1u64 << (n % 64)) - 1;
             }
         }
-        for (w, word) in m.iter_mut().enumerate() {
-            let base = w * 64;
-            let end = (base + 64).min(n);
-            let eq_bits = |lane: u8, value: i64| -> u64 {
-                let l = &store.lanes[lane as usize][base..end];
-                l.iter()
-                    .enumerate()
-                    .fold(0u64, |acc, (i, &x)| acc | (u64::from(x == value) << i))
-            };
-            for &(lane, value) in &self.keep_eq {
-                *word &= eq_bits(lane, value);
-            }
-            for &(lane, value) in &self.drop_eq {
-                *word &= !eq_bits(lane, value);
-            }
+        if self.keep_eq.is_empty() && self.drop_eq.is_empty() {
+            return Ok(m);
+        }
+        let mut scratch = vec![0u64; words];
+        for &(lane, value) in &self.keep_eq {
+            eq_i32_to_mask(&store.lanes[lane as usize], value, &mut scratch);
+            mask_and_assign(&mut m, &scratch);
+        }
+        for &(lane, value) in &self.drop_eq {
+            eq_i32_to_mask(&store.lanes[lane as usize], value, &mut scratch);
+            mask_andnot_assign(&mut m, &scratch);
         }
         Ok(m)
     }
 
     /// How many rows the recipe keeps: a popcount, no row is built.
     pub fn count(&self, store: &Store) -> Result<u64, Refusal> {
-        Ok(self
-            .mask(store)?
-            .iter()
-            .map(|w| u64::from(w.count_ones()))
-            .sum())
+        Ok(popcount_batch_u64(&self.mask(store)?))
     }
 
     /// The sum of an output over the kept rows, read in place.
@@ -340,37 +348,65 @@ impl Recipe {
             .map(|(_, l)| *l)
             .ok_or_else(|| Refusal::UnknownPath(format!(".{output}")))?;
         let m = self.mask(store)?;
-        let values = &store.lanes[lane as usize];
-        let mut total = 0i64;
-        for (w, &word) in m.iter().enumerate() {
-            let mut bits = word;
-            while bits != 0 {
-                total = total.wrapping_add(values[w * 64 + bits.trailing_zeros() as usize]);
-                bits &= bits - 1;
-            }
-        }
-        Ok(total)
+        Ok(masked_sum_i32(&store.lanes[lane as usize], &m))
     }
 
-    /// The only place rows are written: one event per kept row, in row order,
-    /// each holding exactly the outputs. O(rows kept).
-    pub fn materialize_rows(&self, store: &Store) -> Result<Vec<Event>, Refusal> {
+    /// The only place rows are produced, positionally: the output names once,
+    /// one borrowed lane per output, and the kept positions in row order.
+    /// O(rows kept) for the position table; nothing else grows with rows.
+    pub fn materialize_rows<'s>(&'s self, store: &'s Store) -> Result<Rows<'s>, Refusal> {
         let m = self.mask(store)?;
-        let mut rows = Vec::new();
+        let mut positions = Vec::with_capacity(popcount_batch_u64(&m) as usize);
         for (w, &word) in m.iter().enumerate() {
             let mut bits = word;
             while bits != 0 {
-                let r = w * 64 + bits.trailing_zeros() as usize;
-                rows.push(
-                    self.out
-                        .iter()
-                        .map(|(name, lane)| (name.clone(), store.lanes[*lane as usize][r]))
-                        .collect(),
-                );
+                positions.push((w * 64) as u32 + bits.trailing_zeros());
                 bits &= bits - 1;
             }
         }
-        Ok(rows)
+        Ok(Rows {
+            names: self.out.iter().map(|(n, _)| n.as_str()).collect(),
+            lanes: self
+                .out
+                .iter()
+                .map(|(_, l)| store.lanes[*l as usize].as_slice())
+                .collect(),
+            positions,
+        })
+    }
+}
+
+/// Positional rows: `names[c]` labels column `c`, and row `r` of column `c`
+/// is `lanes[c][positions[r]]`, read in place.
+#[derive(Debug)]
+pub struct Rows<'s> {
+    names: Vec<&'s str>,
+    lanes: Vec<&'s [i32]>,
+    positions: Vec<u32>,
+}
+
+impl<'s> Rows<'s> {
+    pub fn len(&self) -> usize {
+        self.positions.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.positions.is_empty()
+    }
+
+    /// The column names, once.
+    pub fn names(&self) -> &[&'s str] {
+        &self.names
+    }
+
+    /// The source position of each kept row (the `$i` table).
+    pub fn positions(&self) -> &[u32] {
+        &self.positions
+    }
+
+    /// Row `r`, column `c`, read from the lane.
+    pub fn get(&self, r: usize, c: usize) -> i32 {
+        self.lanes[c][self.positions[r] as usize]
     }
 }
 
@@ -384,13 +420,13 @@ pub fn interpret(src: &str, store: &Store) -> Result<Vec<Event>, Refusal> {
     let mut out = Vec::new();
     'rows: for r in 0..store.n {
         let mut top: BTreeMap<String, i64> =
-            BTreeMap::from([("key".to_string(), store.lanes[0][r])]);
+            BTreeMap::from([("key".to_string(), i64::from(store.lanes[0][r]))]);
         let props: BTreeMap<&str, i64> = store
             .fields
             .iter()
             .enumerate()
             .skip(1)
-            .map(|(i, f)| (f.as_str(), store.lanes[i][r]))
+            .map(|(i, f)| (f.as_str(), i64::from(store.lanes[i][r])))
             .collect();
         let mut assigned: Vec<String> = Vec::new();
         let read = |top: &BTreeMap<String, i64>, p: &Path| -> Result<i64, Refusal> {
@@ -421,7 +457,7 @@ pub fn interpret(src: &str, store: &Store) -> Result<Vec<Event>, Refusal> {
                     assigned.retain(|a| a != name);
                 }
                 Stmt::Abort { path, eq, value } => {
-                    if (read(&top, path)? == *value) == *eq {
+                    if (read(&top, path)? == i64::from(*value)) == *eq {
                         continue 'rows;
                     }
                 }
