@@ -103,11 +103,13 @@ pub use dr::{
     MAX_RESERVED,
 };
 pub mod lane;
+pub mod relation;
 use dr::{RouteLog, RouteRefusal};
 pub use lane::{
     BoundLanes, CoordSpace, LaneAddr, LaneBinding, LaneRefusal, LaneRequest, LaneSource,
     PresenceSource, PresentLane, PresentLanes, RouteAt, SelAddr, SelectionSource,
 };
+pub use relation::{relation_rows, RelNo, RelationRefusal, RelationRows, RelationSource};
 
 /// A method's identity within its class, independent of its source name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

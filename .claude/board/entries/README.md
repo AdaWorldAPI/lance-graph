@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-650 entries, 2026-08-06 .. 2026-11-17.
+651 entries, 2026-08-06 .. 2026-11-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-11-17 | `exo-290-par-tiles-crossover` |  | [2026-11-17-exo-290-par-tiles-crossover.md](2026-11-17-exo-290-par-tiles-crossover.md) |
 | 2026-11-17 | `D-XLOG-W7-P0` |  | [2026-11-17-d-xlog-w7-p0-census.md](2026-11-17-d-xlog-w7-p0-census.md) |
 | 2026-11-17 | `D-XLOG-W7` |  | [2026-11-17-d-xlog-w7-bodies.md](2026-11-17-d-xlog-w7-bodies.md) |
+| 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-relation-socket.md](2026-11-17-d-xlog-w7-2-relation-socket.md) |
 | 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-pair-plane.md](2026-11-17-d-xlog-w7-2-pair-plane.md) |
 | 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-admission.md](2026-11-17-d-xlog-w7-2-admission.md) |
 | 2026-11-17 | `D-XLOG-KNOWLEDGE-G1b` |  | [2026-11-17-d-xlog-knowledge-g1b-reference.md](2026-11-17-d-xlog-knowledge-g1b-reference.md) |

@@ -715,3 +715,77 @@ fn a_refused_borrow_all_present_borrows_nothing() {
         (0, 0)
     );
 }
+
+// ---------------------------------------------------------------------------
+// The relation socket (D-XLOG-W7-2 step 2)
+// ---------------------------------------------------------------------------
+
+mod relation_socket {
+    use lance_graph_dt64::dr::{Axis, MapTable, PairDir, PairPlane, PairRefusal, Width};
+    use lance_graph_dt64::{relation_rows, RelNo, RelationRefusal, RelationSource};
+
+    /// An owner holding relation 4 only.
+    struct Owner {
+        plane: PairPlane,
+    }
+
+    impl RelationSource for Owner {
+        fn borrow_relation(&self, rel: RelNo) -> Option<&PairPlane> {
+            (rel == 4).then_some(&self.plane)
+        }
+    }
+
+    fn owner(table: &MapTable) -> Owner {
+        let f = table.seal();
+        let mut plane = PairPlane::new(&f, Axis::new(Width::W64, 2), Axis::new(Width::W256, 1));
+        for (x, y) in [(0, 0), (0, 255), (5, 7), (127, 128), (64, 3)] {
+            plane.insert(x, y).unwrap();
+        }
+        Owner { plane }
+    }
+
+    /// The lent rows are the owner's own words (same address, no copy), and
+    /// each row equals the plane's row in both directions.
+    #[test]
+    fn the_socket_lends_the_owners_plane_without_copying() {
+        let t = MapTable::new(1, 1);
+        let o = owner(&t);
+        let f = t.seal();
+        for dir in [PairDir::Forward, PairDir::Backward] {
+            let lent = relation_rows(&o, 4, &f, dir).unwrap();
+            let own = o.plane.rows(&f, dir).unwrap();
+            assert_eq!(lent.as_words().as_ptr(), own.as_ptr(), "{dir:?}: copied");
+            assert_eq!(lent.len(), o.plane.rows_in(dir));
+            assert_eq!(lent.words_per_row(), o.plane.words_per_row(dir));
+            for at in 0..lent.len() {
+                assert_eq!(lent.row(at), Some(o.plane.row(&f, dir, at).unwrap()));
+            }
+            assert_eq!(lent.row(lent.len()), None);
+        }
+        let fwd = relation_rows(&o, 4, &f, PairDir::Forward).unwrap();
+        assert_eq!(fwd.row(0).unwrap()[3] >> 63, 1, "(0, 255) present");
+    }
+
+    /// A relation the owner does not hold is refused, never read as empty;
+    /// a frame other than the plane's issue is refused through the socket.
+    #[test]
+    fn missing_relations_and_foreign_frames_are_refused() {
+        let mut t = MapTable::new(1, 1);
+        let o = owner(&t);
+        let f = t.seal();
+        assert_eq!(
+            relation_rows(&o, 3, &f, PairDir::Forward).unwrap_err(),
+            RelationRefusal::NoRelation(3)
+        );
+        let other = MapTable::new(1, 1).seal();
+        assert_eq!(
+            relation_rows(&o, 4, &other, PairDir::Forward).unwrap_err(),
+            RelationRefusal::Pair(PairRefusal::ForeignFrame)
+        );
+        t.advance(1, 2, Vec::new());
+        assert_eq!(
+            relation_rows(&o, 4, &t.seal(), PairDir::Backward).unwrap_err(),
+            RelationRefusal::Pair(PairRefusal::ForeignFrame)
+        );
+    }
+}
