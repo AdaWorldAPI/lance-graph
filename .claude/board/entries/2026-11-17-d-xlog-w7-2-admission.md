@@ -55,6 +55,26 @@ W4/W6 with three things:
    `ROW_WORDS = 4` (one DR256 tile). Over `T` tiles a row is `4T` words; the
    walk is unchanged. `U64x4` would become a loop over `T` of them.
 
+> **Finding 1 corrected the same day, after measuring.**
+> `cargo run --release -p lance-graph-dt64 --example locate_cost`
+> (native AVX-512; tiles of 256 ids each; every located id checked, an
+> unmapped id refused):
+>
+> | tiles | ns per `locate` | per tile visited | one `LocalMap::local` |
+> |---|---|---|---|
+> | 1 | 18 | 18 | 8 |
+> | 4 | 74 | 19 | 10 |
+> | 16 | 327 | 20 | 8 |
+> | 64 | 1 819 | 28 | 8 |
+> | 256 | 8 535 | 33 | 8 |
+>
+> The cost is linear in the tile count. Each visited tile spends 10-25 ns
+> reading its map under the frame, on top of the 8 ns lookup. At 256 tiles,
+> placing 65 536 ids costs about 0.56 s. So the lookup exists, but an index
+> from global id to tile is needed past a handful of tiles: it is an ingest
+> cost, and it grows with the cube. Still not a blocker for steps 1-3, which
+> stay on one tile or a few.
+
 ## Proposed order (each its own PR, none started)
 
 1. DR type: a pair plane over two axes of one frame (DR64 = 1 word per row,
@@ -73,4 +93,5 @@ W4/W6 with three things:
 
 - EXO-46 (operator): admitting the counted global → focus membrane, which
   `route_selection` needs.
-- The `locate` cost at many tiles is unmeasured.
+- A global id -> tile index for cubes past a handful of tiles (measured
+  above); its design is not proposed here.
