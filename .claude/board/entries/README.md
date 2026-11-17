@@ -25,10 +25,11 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-644 entries, 2026-08-06 .. 2026-11-17.
+645 entries, 2026-08-06 .. 2026-11-17.
 
 | date | entry id | finding | file |
 |---|---|---|---|
+| 2026-11-17 | `exo-296-presence-operand` |  | [2026-11-17-exo-296-presence-operand.md](2026-11-17-exo-296-presence-operand.md) |
 | 2026-11-17 | `D-XLOG-W7-P0` |  | [2026-11-17-d-xlog-w7-p0-census.md](2026-11-17-d-xlog-w7-p0-census.md) |
 | 2026-11-17 | `D-XLOG-KNOWLEDGE-G1b` |  | [2026-11-17-d-xlog-knowledge-g1b-reference.md](2026-11-17-d-xlog-knowledge-g1b-reference.md) |
 | 2026-11-17 | `D-VRL-RECIPE-0` |  | [2026-11-17-d-vrl-recipe-0.md](2026-11-17-d-vrl-recipe-0.md) |
