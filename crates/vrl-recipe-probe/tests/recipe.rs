@@ -36,6 +36,9 @@ const PROGRAMS: &[&str] = &[
     ".a = .key; .b = .properties.amount.value; del(.a)",
     ".a = .properties.status.value; del(.key); if .a == 0 { abort }",
     ".s = .properties.status.value\n.amt = .properties.amount.value\nif .s != 1 { abort }",
+    ".id = .key\nif .key < 1010 { abort }\nif .key >= 1050 { abort }",
+    ".a = .properties.amount.value\nif .a <= 0 { abort }\nif .properties.status.value > 1 { abort }",
+    ".r = .properties.region.value\nif .r < 1 { abort }\nif .r >= 2 { abort }",
 ];
 
 /// The same recipe answers as the interpreter does over materialized events,
@@ -121,8 +124,12 @@ fn computing_constructs_are_refused_by_name() {
         (".a = \"x\"", Refusal::Computes("string literal".into())),
         (".a = 5", Refusal::Computes("integer literal".into())),
         (
-            "if .key > 3 { abort }",
-            Refusal::Computes("comparison >".into()),
+            "if .key =~ 3 { abort }",
+            Refusal::Computes("comparison =~".into()),
+        ),
+        (
+            "if .key > 3 && .key < 9 { abort }",
+            Refusal::Computes("condition .key > 3 && .key < 9".into()),
         ),
         (
             "if .key == 3 { .a = .key }",
@@ -238,4 +245,48 @@ fn more_reads_than_the_lane_array_holds_are_refused() {
             reads: MAX_READS + 1
         }
     );
+}
+
+/// Each comparison drops exactly the rows its meaning names, at the
+/// boundary: over amounts -2..=2 with the constant 0, `<` and `<=` (and `>`
+/// and `>=`) differ by the one row equal to 0, so an off-by-one or a swapped
+/// lowering is caught. Signed: the negative amounts are below 0.
+#[test]
+fn each_comparison_drops_exactly_its_rows_at_the_boundary() {
+    let amounts: Vec<i32> = vec![-2, -1, 0, 1, 2];
+    let n = amounts.len();
+    let source = Source::from_lanes([
+        (0..n as i32).collect(),
+        vec![0; n],
+        vec![0; n],
+        amounts.clone(),
+    ]);
+    let world = bind(&source, &all_fields());
+    let w = witness(&world, &source);
+    // Rows kept = rows where the comparison does NOT hold.
+    for (op, kept) in [
+        ("==", 4),
+        ("!=", 1),
+        ("<", 3),
+        ("<=", 2),
+        (">", 3),
+        (">=", 2),
+    ] {
+        let src = format!(".a = .properties.amount.value\nif .a {op} 0 {{ abort }}");
+        let r = compile(&src);
+        assert_eq!(r.count(&w).unwrap(), kept, "{op}");
+        let want: i64 = amounts
+            .iter()
+            .filter(|&&a| match op {
+                "==" => a != 0,
+                "!=" => a == 0,
+                "<" => a >= 0,
+                "<=" => a > 0,
+                ">" => a <= 0,
+                _ => a < 0,
+            })
+            .map(|&a| i64::from(a))
+            .sum();
+        assert_eq!(r.sum(&w, "a").unwrap(), want, "{op}");
+    }
 }
