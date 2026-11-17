@@ -70,6 +70,20 @@ REVISIT WHEN unchanged.
 > cyclic `tri` / `cyc`), MISSING-7 (compose across tiles), and the bag
 > handle (the 2026-11-13 bag-object co-research, X13 / D3). W7 is blocked on
 > MISSING-6 inside that design, not on a missing representation.
+>
+> **Narrowed the same day, after reading #1943 and #2069.** Acyclic chains of
+> three or more atoms are not blocked: D-GLOBAL-WHERE P0 (#1943, lab) answers
+> a 3-hop count-distinct (W4) and a 2-edge bag count (W6) as direct-routed
+> virtual SoA views, frontier masks over DR-routed selections, with no witness
+> store, 0 allocations, and DuckDB 2.0.0 parity on 336 of 336 answers. The
+> frontier walk is the loop production already has as `Cube::reach`. D-VAS
+> R12 (#2069) admits a guarded bag COUNT over a selection with repeats in
+> production. What remains for W7: (1) cyclic bodies (`tri`, `cyc`,
+> `clique5` close back on a bound variable, which a forward frontier does not
+> keep); (2) lifting #1943 out of the lab, behind its owner decisions (one
+> selection for several MethodRefs, EXO-46; a global → tile index; no
+> relation-presence type outside `Cube`); (3) rows at the edge for the
+> queries that download their answer.
 
 Next, small: `sales_by_cat_region` through `borrow_all` + `GroupSumI32`, with
 parity against the naive oracle.
