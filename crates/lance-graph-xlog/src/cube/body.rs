@@ -438,21 +438,20 @@ impl<'p> Walk<'p> {
         let plan = self.plan;
         let w = plan.words;
         let m = comps.len();
-        // Per leaf: the fixed part, and the row bases it reads at `v`.
+        // Per leaf: the fixed part, and the row bases it reads at `v` (one
+        // per atom between the leaf and `v`, so as many as the body repeats
+        // that atom): `at_v[span[i].0..span[i].1]`.
         let mut fixed = [[0u64; 4]; MAX_BODY_VARS];
-        let mut at_v: [[usize; MAX_BODY_VARS]; MAX_BODY_VARS] = [[0; MAX_BODY_VARS]; MAX_BODY_VARS];
-        let mut n_at_v = [0usize; MAX_BODY_VARS];
+        let mut at_v: Vec<usize> = Vec::new();
+        let mut span = [(0usize, 0usize); MAX_BODY_VARS];
         let mut var = [0usize; MAX_BODY_VARS];
         for i in 0..m {
             let u = comps[i].trailing_zeros() as usize;
             var[i] = u;
             plan.candidates_bound(u, bound, &self.bound, &mut fixed[i][..w]);
-            for &(other, base, _) in &plan.adj[u] {
-                if other == v {
-                    at_v[i][n_at_v[i]] = base;
-                    n_at_v[i] += 1;
-                }
-            }
+            let start = at_v.len();
+            at_v.extend(plan.adj[u].iter().filter(|a| a.0 == v).map(|a| a.1));
+            span[i] = (start, at_v.len());
         }
         let fixed: [U64x4; MAX_BODY_VARS] = std::array::from_fn(|i| U64x4::from_array(fixed[i]));
         let mut sup = [U64x4::splat(0); MAX_BODY_VARS];
@@ -466,7 +465,7 @@ impl<'p> Walk<'p> {
                 let mut prod = 1u64;
                 for i in 0..m {
                     let mut t = fixed[i];
-                    for &base in &at_v[i][..n_at_v[i]] {
+                    for &base in &at_v[span[i].0..span[i].1] {
                         let at = base + x * w;
                         t &= U64x4::from_slice(&plan.rows[at..at + w]);
                     }

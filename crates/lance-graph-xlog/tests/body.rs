@@ -255,3 +255,14 @@ fn the_count_builds_no_rows() {
     );
     assert_eq!(cube.stats().rows_materialized, 1);
 }
+
+/// Repeated atoms over the same variable pair are one constraint stated
+/// several times; more of them than variables must not overflow the per-leaf
+/// row list.
+#[test]
+fn repeated_atoms_between_one_pair() {
+    let e = vec![(1u32, 2u32), (2, 3), (1, 3), (3, 1)];
+    let rels = vec![e.clone(), e];
+    let atoms: Vec<Atom> = (0..9).map(|i| atom(i % 2, 0, 1)).collect();
+    assert_eq!(check(&rels, &atoms, 2, "nine copies"), 4);
+}
