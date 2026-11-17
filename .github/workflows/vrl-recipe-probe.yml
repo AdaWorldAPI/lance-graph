@@ -1,8 +1,9 @@
 name: VRL Recipe Probe
 # Own [workspace] excluded from root tests; a lab gate, not production
-# admission. Compiles the VRL read/rename/filter subset into a stored
-# late-materialization recipe and checks it against a naive VRL interpreter
-# (D-VRL-RECIPE-0). The allocation test needs one test thread.
+# admission. Lowers the VRL read/rename/filter subset onto DT64's
+# LaneBinding and one mask-risc program per terminal, and checks it against a
+# naive VRL interpreter (D-VRL-RECIPE-0). The allocation test needs one test
+# thread. ndarray arrives by git through mask-risc; no sibling checkout.
 # Manual-only: GitHub-hosted runner minutes are capped (the account's
 # included minutes are used up), so this workflow no longer starts on push,
 # pull_request or a schedule. Run it from the Actions tab when needed, and run
@@ -33,12 +34,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: lance-graph
-          persist-credentials: false
-      - name: Checkout AdaWorldAPI/ndarray (sibling dependency)
-        uses: actions/checkout@v4
-        with:
-          repository: AdaWorldAPI/ndarray
-          path: ndarray
           persist-credentials: false
       - name: Rust toolchain
         run: rustup show
