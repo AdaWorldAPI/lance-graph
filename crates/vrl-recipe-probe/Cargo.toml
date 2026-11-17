@@ -1,0 +1,18 @@
+# VRL recipe probe: a lab probe, NOT a workspace member, NOT a runtime.
+# Compiles the read/rename/filter subset of Vector's VRL into a stored
+# late-materialization recipe (population terms + a WideFieldMask view +
+# output aliases) and checks it against a naive VRL interpreter over
+# materialized events. Run with
+#   cargo test --release --manifest-path crates/vrl-recipe-probe/Cargo.toml
+[package]
+name = "vrl-recipe-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Compiles a read/rename/filter subset of VRL into a stored late-materialization recipe and checks it against a naive VRL interpreter."
+
+[workspace]
+
+[dependencies]
+lance-graph-contract = { path = "../lance-graph-contract" }
