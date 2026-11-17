@@ -90,3 +90,18 @@ Each patch anchored (`count == 1` asserted), run, restored from the commit:
 - Population terms are `== v` only; the cube's `SetExpr` and the full
   mask-risc predicate set are the natural next step.
 - Ingress from real Vector (JSON) events is not built.
+
+## Update: allocation-free accepting path (commit 12ac39259)
+
+Same pattern as #2045 `admitted`: a fixed lane array (`MAX_READS` = 16), a
+program prepared once per row count (`Prepared`), and `run_into` executing into
+caller-owned scratch and output. Measured at n = 64, 512, 4096, 65536: 0 bytes
+and 0 allocation calls for `Count`, `MaskedSumI32` and `Keep`. `count`, `sum`
+and `materialize_rows` remain as wrappers that prepare per call.
+
+| guard | disable | result |
+|---|---|---|
+| fixed lane array | collect lanes into a `Vec` in `exec` | `prepared_accepting_path_allocates_nothing` red |
+| row-count check | skip `n_rows != p.n_rows` | `a_prepared_program_is_refused_by_another_recipe_or_row_count` red |
+| recipe check | skip `p.reads != self.reads` | same test red |
+| read cap | skip `reads.len() > MAX_READS` | `more_reads_than_the_lane_array_holds_are_refused` red (17-field view) |
