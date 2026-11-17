@@ -1,23 +1,26 @@
-//! A stored late-materialization recipe, compiled from the read/rename/filter
-//! subset of Vector's VRL (D-VRL-RECIPE-0, lab only).
+//! The VRL read/rename/filter subset, lowered onto the existing witnessed
+//! path (D-VRL-RECIPE-0, lab only).
 //!
 //! Whatever the population size, the answer has one shape:
 //! `identity | select {name = identity.key; identity.properties.f.value}`.
-//! So the stored answer is the recipe, never the rows: the store version it
-//! was compiled against, the population terms, the participating fields as a
-//! [`WideFieldMask`], and the output aliases. A terminal evaluates the
-//! population into one mask of `n.div_ceil(64)` words and reads lanes in
-//! place at its set bits. Only [`Recipe::materialize_rows`] produces rows,
-//! and they are positional ([`Rows`]): the names once, one borrowed lane per
-//! output, and a `u32` position table. No string and no event is built per
-//! row; the probe's [`Event`] type exists only for the reference interpreter.
+//! So the stored answer is a recipe, never rows: which fields to bind, the
+//! `== v` keep and drop terms, and the output aliases. It adds no authority
+//! and no kernel of its own; it is the front of what D-DR-SELECT-K-SV-1/2
+//! (#2039, #2040) already ship:
 //!
-//! Every fold is the masking polyfill in `ndarray::simd`
-//! (`eq_i32_to_mask`, `mask_and_assign`, `mask_andnot_assign`,
-//! `masked_sum_i32`, `popcount_batch_u64`); the probe adds no kernel of its
-//! own. VRL is edge syntax: its statements resolve onto those existing
-//! words, so neither a `dt64::vrl` module nor an ndarray `simd_vrl` module is
-//! needed (D-VRL-RECIPE-0).
+//! - **Witness.** Every terminal reads its lanes through one
+//!   [`LaneBinding::borrow_all`]: DT64 checks the frame (issuer, revisions,
+//!   reseal), route, basis, mapping, scope and row order before a lane is
+//!   borrowed. A recipe run after the source's frame moved is refused there,
+//!   never read against new lanes.
+//! - **Fold.** The population and every terminal are one mask-risc
+//!   [`Program`]: `Range` for every row, `EqI32` per term, `And` / `AndNot`
+//!   to combine, then `Count`, `MaskedSumI32` or `Keep`. The computation is
+//!   mask-risc's, on `ndarray::simd`.
+//! - **Rows.** [`Recipe::materialize_rows`] is the only row producer, and it
+//!   is positional ([`Rows`]): the names once, the borrowed lanes, and a `u32`
+//!   position table. No string or event is built per row; [`Event`] exists
+//!   only for the reference interpreter.
 //!
 //! The VRL subset, one statement per line (or `;`):
 //!
@@ -25,23 +28,25 @@
 //! - `del(.out)`
 //! - `if .path == 3 { abort }`, `if .path != 3 { abort }`
 //!
-//! Output semantics, stated because VRL mutates the whole event: the result
-//! is the set of names the program assigned and did not delete afterwards.
-//! A path is resolved once, at compile time, so `.a = .key` followed by
-//! `.key = .properties.x.value` and `.b = .key` binds `b` to `x`, as VRL's
-//! in-place mutation does.
+//! A name is a field label of the class's [`ClassView`]; `key` is the field
+//! labelled `key`. Output semantics, stated because VRL mutates the whole
+//! event: the names the program assigned and did not delete afterwards.
+//! Paths are resolved once, at compile time, with VRL's in-place mutation:
+//! after `.key = .properties.x.value`, a later `.key` reads `x`.
 //!
 //! Everything that computes a value is refused by name: function calls other
 //! than `del` (`parse_json`, `now`, `to_string`, ...), arithmetic, string or
 //! integer literals assigned as values, comparisons other than `==`/`!=`, and
-//! an `if` whose body is not `abort`. Those are computations, not reads, and
-//! a recipe must not absorb them.
+//! an `if` whose body is not `abort`.
 
 use std::collections::BTreeMap;
 
-use lance_graph_contract::class_view::WideFieldMask;
-use ndarray::simd::{
-    eq_i32_to_mask, mask_and_assign, mask_andnot_assign, masked_sum_i32, popcount_batch_u64,
+use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
+use lance_graph_dt64::dr::FrameStore;
+use lance_graph_dt64::{BindStore, LaneBinding, LaneRefusal, LaneSource};
+use lance_graph_mask_risc::{
+    execute_into, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
+    Program, Scratch, Terminal, Value,
 };
 
 /// Why a program or a terminal is refused.
@@ -49,66 +54,32 @@ use ndarray::simd::{
 pub enum Refusal {
     /// The construct computes a value instead of reading one.
     Computes(String),
-    /// A path that is neither a bound name nor `.properties.<field>.value`.
+    /// A path that is neither a bound name nor `.properties.<label>.value`.
     UnknownPath(String),
-    /// The recipe was compiled against another store version.
-    Stale { compiled: u64, store: u64 },
-    /// More fields than a `u8` lane position can name.
-    TooManyFields,
-}
-
-/// A columnar store: lane 0 is `key`, lane `i > 0` is property `fields[i]`.
-pub struct Store {
-    version: u64,
-    n: usize,
-    fields: Vec<String>,
-    lanes: Vec<Vec<i32>>,
-}
-
-impl Store {
-    /// `props` are `(name, values)`; every lane has `keys.len()` rows.
-    pub fn new(keys: Vec<i32>, props: Vec<(&str, Vec<i32>)>) -> Self {
-        let n = keys.len();
-        let mut fields = vec!["key".to_string()];
-        let mut lanes = vec![keys];
-        for (name, values) in props {
-            assert_eq!(values.len(), n, "lane {name} has the wrong length");
-            fields.push(name.to_string());
-            lanes.push(values);
-        }
-        Self {
-            version: 1,
-            n,
-            fields,
-            lanes,
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.n
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.n == 0
-    }
-
-    /// A write: every recipe compiled before it is refused afterwards.
-    pub fn bump(&mut self) {
-        self.version += 1;
-    }
-
-    fn field(&self, name: &str) -> Option<u8> {
-        self.fields
-            .iter()
-            .skip(1)
-            .position(|f| f == name)
-            .and_then(|i| u8::try_from(i + 1).ok())
-    }
+    /// DT64 refused the witness; nothing was borrowed.
+    Binding(LaneRefusal),
+    /// The binding does not hold a field the recipe reads.
+    NotBound { field: u8 },
+    /// A field the recipe reads is not an `i32` lane.
+    NotI32 { field: u8 },
+    /// The recipe reads no field, so it names no population.
+    NoLanes,
+    /// mask-risc refused the program or its operands.
+    Exec(ExecError),
 }
 
 /// One event of the reference interpreter: names repeated per row, which is
 /// exactly what the recipe's [`Rows`] avoid.
 pub type Event = BTreeMap<String, i64>;
+
+/// Everything a terminal reads through: the existing DT64 witness.
+pub struct Witness<'a, V: ?Sized, S> {
+    pub binding: &'a LaneBinding,
+    pub store: &'a BindStore,
+    pub view: &'a V,
+    pub frames: &'a FrameStore,
+    pub source: &'a S,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Path {
@@ -220,25 +191,37 @@ fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
 /// The stored answer: no rows, only what to read and where.
 #[derive(Clone, Debug)]
 pub struct Recipe {
-    version: u64,
-    /// Rows kept only where `lane == value`.
+    /// Every field the recipe reads (outputs and filters), by position.
+    fields: WideFieldMask,
+    /// The same fields, ascending: lane `i` of the program is `reads[i]`.
+    reads: Vec<u8>,
+    /// Rows kept only where `field == value`.
     keep_eq: Vec<(u8, i32)>,
-    /// Rows dropped where `lane == value`.
+    /// Rows dropped where `field == value`.
     drop_eq: Vec<(u8, i32)>,
-    /// The participating fields, by lane position.
-    view: WideFieldMask,
-    /// Output name -> lane, in name order.
+    /// Output name -> field, in name order.
     out: Vec<(String, u8)>,
 }
 
 impl Recipe {
-    /// Compile `src` against `store`'s schema. Every path is resolved here,
-    /// once; nothing is resolved per row.
-    pub fn compile(src: &str, store: &Store) -> Result<Self, Refusal> {
-        if store.fields.len() > 256 {
-            return Err(Refusal::TooManyFields);
+    /// Compile `src` against `class`'s fields in `view`. Every path is
+    /// resolved here, once; nothing is resolved per row.
+    pub fn compile<V: ClassView + ?Sized>(
+        src: &str,
+        view: &V,
+        class: ClassId,
+    ) -> Result<Self, Refusal> {
+        let labels = view.fields(class);
+        let by_label = |l: &str| {
+            labels
+                .iter()
+                .position(|f| f.label == l)
+                .and_then(|p| u8::try_from(p).ok())
+        };
+        let mut bound: BTreeMap<String, u8> = BTreeMap::new();
+        if let Some(k) = by_label("key") {
+            bound.insert("key".into(), k);
         }
-        let mut bound: BTreeMap<String, u8> = BTreeMap::from([("key".to_string(), 0)]);
         let mut assigned: BTreeMap<String, u8> = BTreeMap::new();
         let resolve = |bound: &BTreeMap<String, u8>, p: &Path| -> Result<u8, Refusal> {
             match p {
@@ -246,8 +229,8 @@ impl Recipe {
                     .get(n)
                     .copied()
                     .ok_or_else(|| Refusal::UnknownPath(format!(".{n}"))),
-                Path::Prop(f) => store
-                    .field(f)
+                Path::Prop(f) => by_label(f)
+                    .filter(|_| f != "key")
                     .ok_or_else(|| Refusal::UnknownPath(format!(".properties.{f}.value"))),
             }
         };
@@ -255,9 +238,9 @@ impl Recipe {
         for stmt in parse(src)? {
             match stmt {
                 Stmt::Assign(name, p) => {
-                    let lane = resolve(&bound, &p)?;
-                    bound.insert(name.clone(), lane);
-                    assigned.insert(name, lane);
+                    let field = resolve(&bound, &p)?;
+                    bound.insert(name.clone(), field);
+                    assigned.insert(name, field);
                 }
                 Stmt::Del(name) => {
                     if bound.remove(&name).is_none() {
@@ -266,28 +249,35 @@ impl Recipe {
                     assigned.remove(&name);
                 }
                 Stmt::Abort { path, eq, value } => {
-                    let lane = resolve(&bound, &path)?;
+                    let field = resolve(&bound, &path)?;
                     if eq {
-                        drop_eq.push((lane, value));
+                        drop_eq.push((field, value));
                     } else {
-                        keep_eq.push((lane, value));
+                        keep_eq.push((field, value));
                     }
                 }
             }
         }
-        let positions: Vec<u8> = assigned.values().copied().collect();
+        let mut reads: Vec<u8> = assigned
+            .values()
+            .chain(keep_eq.iter().map(|(f, _)| f))
+            .chain(drop_eq.iter().map(|(f, _)| f))
+            .copied()
+            .collect();
+        reads.sort_unstable();
+        reads.dedup();
         Ok(Self {
-            version: store.version,
+            fields: WideFieldMask::from_positions(&reads),
+            reads,
             keep_eq,
             drop_eq,
-            view: WideFieldMask::from_positions(&positions),
             out: assigned.into_iter().collect(),
         })
     }
 
-    /// The participating fields.
-    pub fn view(&self) -> &WideFieldMask {
-        &self.view
+    /// Every field the recipe reads: what the caller binds through DT64.
+    pub fn fields(&self) -> &WideFieldMask {
+        &self.fields
     }
 
     /// The output names, in order.
@@ -295,97 +285,204 @@ impl Recipe {
         self.out.iter().map(|(n, _)| n.as_str()).collect()
     }
 
-    fn check(&self, store: &Store) -> Result<(), Refusal> {
-        if self.version != store.version {
-            return Err(Refusal::Stale {
-                compiled: self.version,
-                store: store.version,
-            });
-        }
-        Ok(())
+    fn lane(&self, field: u8) -> u16 {
+        self.reads.iter().position(|&f| f == field).unwrap_or(0) as u16
     }
 
-    /// The kept rows as a mask of `n.div_ceil(64)` words, built by the
-    /// polyfill: each term packs `lane == value` into a scratch mask and is
-    /// and-ed or and-not-ed in. Two allocations at most, both `⌈n/64⌉` words;
-    /// none per row.
-    fn mask(&self, store: &Store) -> Result<Vec<u64>, Refusal> {
-        self.check(store)?;
-        let n = store.n;
-        let words = n.div_ceil(64);
-        let mut m = vec![u64::MAX; words];
-        if !n.is_multiple_of(64) {
-            if let Some(last) = m.last_mut() {
-                *last = (1u64 << (n % 64)) - 1;
+    /// The recipe's lanes, borrowed under ONE DT64 check, in `reads` order.
+    /// Refused before any borrow when the witness fails.
+    fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Vec<LaneRef<'a>>, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        if self.reads.is_empty() {
+            return Err(Refusal::NoLanes);
+        }
+        let mut lanes: Vec<Option<LaneRef<'a>>> = vec![None; self.reads.len()];
+        let bound = w
+            .binding
+            .borrow_all(w.store, w.view, w.frames, w.source)
+            .map_err(Refusal::Binding)?;
+        for item in bound {
+            let (field, lane) = match item {
+                Ok(pair) => pair,
+                Err(LaneRefusal::Vanished { field }) if !self.reads.contains(&field) => continue,
+                Err(e) => return Err(Refusal::Binding(e)),
+            };
+            if let Some(i) = self.reads.iter().position(|&f| f == field) {
+                if !matches!(lane, LaneRef::I32(_)) {
+                    return Err(Refusal::NotI32 { field });
+                }
+                lanes[i] = Some(lane);
             }
         }
-        if self.keep_eq.is_empty() && self.drop_eq.is_empty() {
-            return Ok(m);
-        }
-        let mut scratch = vec![0u64; words];
-        for &(lane, value) in &self.keep_eq {
-            eq_i32_to_mask(&store.lanes[lane as usize], value, &mut scratch);
-            mask_and_assign(&mut m, &scratch);
-        }
-        for &(lane, value) in &self.drop_eq {
-            eq_i32_to_mask(&store.lanes[lane as usize], value, &mut scratch);
-            mask_andnot_assign(&mut m, &scratch);
-        }
-        Ok(m)
+        lanes
+            .into_iter()
+            .zip(&self.reads)
+            .map(|(l, &field)| l.ok_or(Refusal::NotBound { field }))
+            .collect()
     }
 
-    /// How many rows the recipe keeps: a popcount, no row is built.
-    pub fn count(&self, store: &Store) -> Result<u64, Refusal> {
-        Ok(popcount_batch_u64(&self.mask(store)?))
+    /// Run the population program with `terminal` over the witnessed lanes.
+    /// `keep` receives a `Keep` terminal's mask (`⌈n/64⌉` words): mask-risc
+    /// tiles its scratch on wide planes, so a kept mask is written to a caller
+    /// buffer, never read back from a slot.
+    fn run<'a, V, S>(
+        &self,
+        w: &Witness<'a, V, S>,
+        terminal: Terminal,
+        keep: Option<&mut Vec<u64>>,
+    ) -> Result<(Value, Vec<LaneRef<'a>>), Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let lanes = self.lanes(w)?;
+        let n_rows = lanes[0].len();
+        let program = self.program(n_rows, terminal)?;
+        let mut scratch = Scratch::for_program(&program, n_rows).map_err(Refusal::Exec)?;
+        let planes = Planes {
+            n_rows,
+            masks: &[],
+            lanes: &lanes,
+        };
+        let out = match keep {
+            Some(buf) => {
+                // Exactly sized: `resize` on an empty Vec rounds up to 4 words.
+                *buf = vec![0u64; words_for(n_rows)];
+                Out::Mask(buf.as_mut_slice())
+            }
+            None => Out::None,
+        };
+        let v = execute_into(&program, &planes, &Foreign::NONE, &mut scratch, out)
+            .map_err(Refusal::Exec)?;
+        Ok((v, lanes))
     }
 
-    /// The sum of an output over the kept rows, read in place.
-    pub fn sum(&self, store: &Store, output: &str) -> Result<i64, Refusal> {
-        let lane = self
+    /// How many rows the recipe keeps: mask-risc `Count`, no row is built.
+    pub fn count<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<u64, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let count = Terminal::Count {
+            mask: Operand::Scratch(0),
+        };
+        match self.run(w, count, None)?.0 {
+            Value::Count(c) => Ok(c as u64),
+            other => unreachable!("Count returned {other:?}"),
+        }
+    }
+
+    /// The sum of an output over the kept rows: mask-risc `MaskedSumI32`.
+    pub fn sum<'a, V, S>(&self, w: &Witness<'a, V, S>, output: &str) -> Result<i64, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let field = self
             .out
             .iter()
             .find(|(n, _)| n == output)
-            .map(|(_, l)| *l)
+            .map(|(_, f)| *f)
             .ok_or_else(|| Refusal::UnknownPath(format!(".{output}")))?;
-        let m = self.mask(store)?;
-        Ok(masked_sum_i32(&store.lanes[lane as usize], &m))
+        let sum = Terminal::MaskedSumI32 {
+            mask: Operand::Scratch(0),
+            lane: self.lane(field),
+        };
+        match self.run(w, sum, None)?.0 {
+            Value::SumI64(s) => Ok(s),
+            other => unreachable!("MaskedSumI32 returned {other:?}"),
+        }
     }
 
-    /// The only place rows are produced, positionally: the output names once,
-    /// one borrowed lane per output, and the kept positions in row order.
-    /// O(rows kept) for the position table; nothing else grows with rows.
-    pub fn materialize_rows<'s>(&'s self, store: &'s Store) -> Result<Rows<'s>, Refusal> {
-        let m = self.mask(store)?;
-        let mut positions = Vec::with_capacity(popcount_batch_u64(&m) as usize);
-        for (w, &word) in m.iter().enumerate() {
+    /// The only place rows are produced, positionally: mask-risc `Keep` into
+    /// one mask, then the kept positions in row order over the borrowed
+    /// lanes. O(rows kept) for the position table; nothing else grows with
+    /// rows.
+    pub fn materialize_rows<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Rows<'a>, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let mut mask = Vec::new();
+        let keep = Terminal::Keep {
+            mask: Operand::Scratch(0),
+        };
+        let (_, lanes) = self.run(w, keep, Some(&mut mask))?;
+        let kept: u32 = mask.iter().map(|w| w.count_ones()).sum();
+        let mut positions = Vec::with_capacity(kept as usize);
+        for (w, &word) in mask.iter().enumerate() {
             let mut bits = word;
             while bits != 0 {
                 positions.push((w * 64) as u32 + bits.trailing_zeros());
                 bits &= bits - 1;
             }
         }
+        let lane_of = |field: u8| match lanes[usize::from(self.lane(field))] {
+            LaneRef::I32(s) => s,
+            _ => unreachable!("lanes() admits i32 lanes only"),
+        };
         Ok(Rows {
-            names: self.out.iter().map(|(n, _)| n.as_str()).collect(),
-            lanes: self
-                .out
-                .iter()
-                .map(|(_, l)| store.lanes[*l as usize].as_slice())
-                .collect(),
+            names: self.out.iter().map(|(n, _)| n.clone()).collect(),
+            lanes: self.out.iter().map(|(_, f)| lane_of(*f)).collect(),
             positions,
+        })
+    }
+
+    /// The population program: every row, then each term and-ed or
+    /// and-not-ed in, then `terminal` over slot 0.
+    fn program(&self, n_rows: usize, terminal: Terminal) -> Result<Program, Refusal> {
+        let hi = u32::try_from(n_rows).map_err(|_| {
+            Refusal::Exec(ExecError::RangeOutOfBounds {
+                lo: 0,
+                hi: u32::MAX,
+                n_rows,
+            })
+        })?;
+        let mut ops = vec![MaskOp::Pred {
+            pred: Pred::Range { lo: 0, hi },
+            under: None,
+            dst: 0,
+        }];
+        for (terms, keep) in [(&self.keep_eq, true), (&self.drop_eq, false)] {
+            for &(field, v) in terms {
+                ops.push(MaskOp::Pred {
+                    pred: Pred::EqI32 {
+                        lane: self.lane(field),
+                        v,
+                    },
+                    under: None,
+                    dst: 1,
+                });
+                let (a, b) = (Operand::Scratch(0), Operand::Scratch(1));
+                ops.push(if keep {
+                    MaskOp::And { a, b, dst: 0 }
+                } else {
+                    MaskOp::AndNot { a, b, dst: 0 }
+                });
+            }
+        }
+        let scratch_slots = if ops.len() > 1 { 2 } else { 1 };
+        Ok(Program {
+            ops,
+            terminal,
+            scratch_slots,
         })
     }
 }
 
 /// Positional rows: `names[c]` labels column `c`, and row `r` of column `c`
-/// is `lanes[c][positions[r]]`, read in place.
+/// is `lanes[c][positions[r]]`, read in place from the borrowed lane.
 #[derive(Debug)]
-pub struct Rows<'s> {
-    names: Vec<&'s str>,
-    lanes: Vec<&'s [i32]>,
+pub struct Rows<'a> {
+    names: Vec<String>,
+    lanes: Vec<&'a [i32]>,
     positions: Vec<u32>,
 }
 
-impl<'s> Rows<'s> {
+impl<'a> Rows<'a> {
     pub fn len(&self) -> usize {
         self.positions.len()
     }
@@ -395,7 +492,7 @@ impl<'s> Rows<'s> {
     }
 
     /// The column names, once.
-    pub fn names(&self) -> &[&'s str] {
+    pub fn names(&self) -> &[String] {
         &self.names
     }
 
@@ -410,24 +507,25 @@ impl<'s> Rows<'s> {
     }
 }
 
-/// The naive reference: materialize every row as a VRL event
-/// (`{key, properties: {f: {value}}}`), run the program statement by
+/// The naive reference: materialize every row of `lanes` (labelled by
+/// `labels`, `key` among them) as a VRL event, run the program statement by
 /// statement, and project each surviving event onto the names the program
 /// assigned and did not delete. Shares only the parser with [`Recipe`];
-/// evaluation is independent.
-pub fn interpret(src: &str, store: &Store) -> Result<Vec<Event>, Refusal> {
+/// evaluation is independent and reads no DT64 or mask-risc code.
+pub fn interpret(src: &str, labels: &[&str], lanes: &[&[i32]]) -> Result<Vec<Event>, Refusal> {
     let prog = parse(src)?;
+    let n = lanes.first().map_or(0, |l| l.len());
     let mut out = Vec::new();
-    'rows: for r in 0..store.n {
-        let mut top: BTreeMap<String, i64> =
-            BTreeMap::from([("key".to_string(), i64::from(store.lanes[0][r]))]);
-        let props: BTreeMap<&str, i64> = store
-            .fields
-            .iter()
-            .enumerate()
-            .skip(1)
-            .map(|(i, f)| (f.as_str(), i64::from(store.lanes[i][r])))
-            .collect();
+    'rows: for r in 0..n {
+        let mut top: BTreeMap<String, i64> = BTreeMap::new();
+        let mut props: BTreeMap<&str, i64> = BTreeMap::new();
+        for (l, lane) in labels.iter().zip(lanes) {
+            if *l == "key" {
+                top.insert("key".into(), i64::from(lane[r]));
+            } else {
+                props.insert(l, i64::from(lane[r]));
+            }
+        }
         let mut assigned: Vec<String> = Vec::new();
         let read = |top: &BTreeMap<String, i64>, p: &Path| -> Result<i64, Refusal> {
             match p {

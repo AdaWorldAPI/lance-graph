@@ -1,8 +1,8 @@
 # VRL recipe probe: a lab probe, NOT a workspace member, NOT a runtime.
-# Compiles the read/rename/filter subset of Vector's VRL into a stored
-# late-materialization recipe (population terms + a WideFieldMask view +
-# output aliases) and checks it against a naive VRL interpreter over
-# materialized events. Run with
+# Lowers the read/rename/filter subset of Vector's VRL onto the existing
+# witnessed path: a WideFieldMask of fields bound through DT64's LaneBinding,
+# and one mask-risc program per terminal. Checked against a naive VRL
+# interpreter over materialized events. Run with
 #   cargo test --release --manifest-path crates/vrl-recipe-probe/Cargo.toml
 [package]
 name = "vrl-recipe-probe"
@@ -16,5 +16,8 @@ description = "Compiles a read/rename/filter subset of VRL into a stored late-ma
 
 [dependencies]
 lance-graph-contract = { path = "../lance-graph-contract" }
-# The folds are the masking polyfill (`ndarray::simd`), never a local loop.
-ndarray = { path = "../../../ndarray" }
+# The witness (FrameStore / BindStore / LaneBinding) and the fold
+# (mask-risc over ndarray::simd) are the existing D-DR-SELECT-K-SV path;
+# this probe adds only the VRL lowering in front of them.
+lance-graph-dt64 = { path = "../lance-graph-dt64" }
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }

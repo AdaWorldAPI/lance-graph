@@ -1,11 +1,15 @@
-//! Fold terminals allocate the mask and nothing per row; materialization
-//! allocates per kept row. Measured with a counting global allocator, so this
-//! is its own test binary, and the tests run in one thread.
+//! The terminals allocate only n-independent bookkeeping plus masks of
+//! `⌈n/64⌉` words, and materialization adds only the position table.
+//! Measured with a counting global allocator, so this is its own test binary
+//! and the tests run in one thread.
+
+mod common;
 
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use vrl_recipe_probe::{Recipe, Store};
+use common::{all_fields, bind, witness, Source, VIEW_CLASS};
+use vrl_recipe_probe::Recipe;
 
 struct Counting;
 static BYTES: AtomicUsize = AtomicUsize::new(0);
@@ -37,44 +41,64 @@ fn measured<T>(f: impl FnOnce() -> T) -> (T, usize, usize) {
     )
 }
 
-fn store(n: usize) -> Store {
-    Store::new(
-        (0..n as i32).collect(),
-        vec![
-            ("status", (0..n as i32).map(|i| i % 2).collect()),
-            ("amount", vec![7; n]),
-        ],
-    )
-}
-
 const SRC: &str =
     ".n = .key\n.a = .properties.amount.value\nif .properties.status.value != 1 { abort }";
 
-/// `count` and `sum` allocate the mask and one scratch mask, `⌈n/64⌉` words
-/// each, at every size. `materialize_rows` makes five allocations at every
-/// size (mask, scratch, position table, names, lanes): only the position
-/// table grows with kept rows, by 4 bytes a row, and no string or event is
-/// built per row. Disables it catches: a fold that counts by materializing,
-/// and rows materialized as per-row events.
+/// At n = 64, 512, 4096 and 65536, the bytes each terminal allocates are
+/// measured against what it must hold:
+///
+/// - `count` and `sum`: mask-risc's scratch, two slots of one tile at most
+///   (`2 · 8 · min(⌈n/64⌉, 256)` bytes, so at most 4 KiB at any n), plus
+///   bookkeeping that is the same at every n.
+/// - `materialize_rows`: the same, plus the kept mask (`8 · ⌈n/64⌉`) and the
+///   position table (4 bytes a kept row), plus bookkeeping that is the same
+///   at every n.
+///
+/// The allocation count is the same at every n for all three. No string or
+/// event is built per row. Disables it catches: a fold that counts by
+/// materializing, and a string built per materialized row.
 #[test]
-fn folds_allocate_only_masks_and_rows_only_positions() {
+fn terminals_allocate_tile_scratch_mask_and_positions_only() {
+    let mut calls_at: Vec<(usize, usize, usize)> = Vec::new();
+    let mut fixed_at: Vec<(usize, usize, usize)> = Vec::new();
     for &n in &[64usize, 512, 4096, 65536] {
-        let s = store(n);
-        let r = Recipe::compile(SRC, &s).unwrap();
+        let source = Source::from_lanes([
+            (0..n as i32).collect(),
+            (0..n as i32).map(|i| i % 2).collect(),
+            vec![0; n],
+            vec![7; n],
+        ]);
+        let world = bind(&source, &all_fields());
+        let w = witness(&world, &source);
+        let r = Recipe::compile(SRC, &common::View::new(), VIEW_CLASS).unwrap();
         let words = n.div_ceil(64);
-        let (count, bytes, calls) = measured(|| r.count(&s).unwrap());
-        assert_eq!(count, n as u64 / 2);
-        assert_eq!((bytes, calls), (16 * words, 2), "count at n {n}");
-        let (sum, bytes, calls) = measured(|| r.sum(&s, "a").unwrap());
-        assert_eq!(sum, 7 * n as i64 / 2);
-        assert_eq!((bytes, calls), (16 * words, 2), "sum at n {n}");
+        let scratch = 2 * 8 * words.min(256);
         let kept = n / 2;
-        let (rows, bytes, calls) = measured(|| r.materialize_rows(&s).unwrap());
+        let (count, cb, cc) = measured(|| r.count(&w).unwrap());
+        assert_eq!(count, kept as u64);
+        let (sum, sb, sc) = measured(|| r.sum(&w, "a").unwrap());
+        assert_eq!(sum, 7 * kept as i64);
+        let (rows, mb, mc) = measured(|| r.materialize_rows(&w).unwrap());
         assert_eq!(rows.len(), kept);
-        assert_eq!(calls, 5, "materialize at n {n}");
+        let held = scratch + 8 * words + 4 * kept;
         assert!(
-            bytes <= 16 * words + 4 * kept + 256,
-            "materialize at n {n}: {bytes} bytes"
+            cb >= scratch && sb >= scratch && mb >= held,
+            "n {n}: {cb} {sb} {mb}"
         );
+        calls_at.push((cc, sc, mc));
+        fixed_at.push((cb - scratch, sb - scratch, mb - held));
     }
+    assert!(
+        calls_at.windows(2).all(|p| p[0] == p[1]),
+        "allocation calls vary with n: {calls_at:?}"
+    );
+    assert!(
+        fixed_at.windows(2).all(|p| p[0] == p[1]),
+        "bookkeeping bytes vary with n: {fixed_at:?}"
+    );
+    let (c, _, m) = fixed_at[0];
+    assert!(
+        c < 1024 && m < 1024,
+        "bookkeeping is not small: {fixed_at:?}"
+    );
 }
