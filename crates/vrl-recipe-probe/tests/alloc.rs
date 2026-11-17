@@ -47,8 +47,8 @@ const SRC: &str =
 /// At n = 64, 512, 4096 and 65536, the bytes each terminal allocates are
 /// measured against what it must hold:
 ///
-/// - `count` and `sum`: mask-risc's scratch, two slots of one tile at most
-///   (`2 · 8 · min(⌈n/64⌉, 256)` bytes, so at most 4 KiB at any n), plus
+/// - `count` and `sum`: mask-risc's scratch, five slots of one tile at most
+///   (`5 · 8 · min(⌈n/64⌉, 256)` bytes, so at most 10 KiB at any n), plus
 ///   bookkeeping that is the same at every n.
 /// - `materialize_rows`: the same, plus the kept mask (`8 · ⌈n/64⌉`) and the
 ///   position table (4 bytes a kept row), plus bookkeeping that is the same
@@ -72,7 +72,9 @@ fn terminals_allocate_tile_scratch_mask_and_positions_only() {
         let w = witness(&world, &source);
         let r = Recipe::compile(SRC, &common::View::new(), VIEW_CLASS).unwrap();
         let words = n.div_ceil(64);
-        let scratch = 2 * 8 * words.min(256);
+        // Five slots: kept, dropped, term, absent, unknown (three-valued
+        // program, EXO-294).
+        let scratch = 5 * 8 * words.min(256);
         let kept = n / 2;
         let (count, cb, cc) = measured(|| r.count(&w).unwrap());
         assert_eq!(count, kept as u64);
@@ -96,9 +98,13 @@ fn terminals_allocate_tile_scratch_mask_and_positions_only() {
         fixed_at.windows(2).all(|p| p[0] == p[1]),
         "bookkeeping bytes vary with n: {fixed_at:?}"
     );
+    // Measured 1403 bytes (count) and 1517 (materialize) for this one-term
+    // recipe: the prepared program's ops (12 for one term in the
+    // three-valued program) and the reads list. It grows with terms, never
+    // with rows; the equality above is what pins that.
     let (c, _, m) = fixed_at[0];
     assert!(
-        c < 1024 && m < 1024,
+        c < 2048 && m < 2048,
         "bookkeeping is not small: {fixed_at:?}"
     );
 }

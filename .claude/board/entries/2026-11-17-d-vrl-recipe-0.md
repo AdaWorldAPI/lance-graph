@@ -124,3 +124,29 @@ and `materialize_rows` remain as wrappers that prepare per call.
 | `>` lowering | `GtI32` → `GeI32` | r2il parity red |
 | drop combine | `AndNot` → `And` | r2il parity red |
 | `!=` parse | `!=` parsed as `==` | boundary test red; parity stays green, since the recipe and the interpreter share the parser |
+
+## Update: three-valued aborts over presence planes (EXO-294; commits d0f09b13c, c1a2834da)
+
+Decision B (user): a value is absent when its presence bit is 0 and it is 0,
+the rule `lane_codec` § Absent states and codec9 / DR512 use.
+
+- DT64: `PresenceSource::borrow_presence`, keyed by the `LaneAddr` the
+  binding already checked, and `LaneBinding::borrow_all_present` (one check,
+  then each lane with its own plane). A lane without a plane is refused in
+  place (`PresenceUnbound`).
+- VRL: a row is KEPT when every abort is decided and false, DROPPED when some
+  abort is decided and true, and UNKNOWN otherwise (Kleene). Absent is
+  `(value == 0) & !presence`; no new kernel. `count_unknown` counts the rest;
+  `Rows::present` reports each cell.
+- Equals the presence-aware reference interpreter at widths 1..1000 over five
+  programs, with about a fifth of three lanes absent and some presence-0 rows
+  holding a nonzero value.
+
+| guard | disable | result |
+|---|---|---|
+| absent excluded from kept | drop `KEPT &= !ABSENT` | interpreter parity, presence-0-nonzero test red |
+| absent needs presence 0 | `absent = (value == 0)` only | hand case, interpreter parity, r2il parity, boundary test red |
+| absent excluded from dropped | drop `TERM &= !ABSENT` | hand case, Kleene `F AND U` case, interpreter parity red |
+| plane spans the rows | skip the length check | wrong-length test red |
+| read field needs a plane | skip `PresenceUnbound` for read fields | refusal test red |
+| plane is the lane's, not the field's | look up the plane by field number | DT64 `borrow_all_present_hands_each_lane_its_own_presence_plane` red |

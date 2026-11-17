@@ -8,7 +8,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneBinding, LaneRequest, LaneSource,
-    RouteAt, SchemaRev,
+    PresenceSource, RouteAt, SchemaRev,
 };
 use lance_graph_mask_risc::LaneRef;
 use vrl_recipe_probe::Witness;
@@ -73,6 +73,21 @@ pub struct Source {
     pub frames: FrameStore,
     pub lanes: [Vec<i32>; 4],
     pub code: Vec<u32>,
+    /// One presence plane per lane (fields 0..=4), one bit per row,
+    /// LSB-first, tail bits zero. Every row starts present; `None` means the
+    /// source holds no plane for that lane.
+    pub presence: [Option<Vec<u64>>; 5],
+}
+
+/// Every row of an `n`-row lane present, tail bits zero.
+pub fn all_present(n: usize) -> Vec<u64> {
+    let mut p = vec![u64::MAX; n.div_ceil(64)];
+    if !n.is_multiple_of(64) {
+        if let Some(last) = p.last_mut() {
+            *last = (1u64 << (n % 64)) - 1;
+        }
+    }
+    p
 }
 
 struct Lcg(u64);
@@ -102,7 +117,26 @@ impl Source {
             frames: FrameStore::new(REVS),
             lanes,
             code: (0..n as u32).collect(),
+            presence: std::array::from_fn(|_| Some(all_present(n))),
         }
+    }
+
+    /// Make `rows` of i32 lane `lane` absent: presence 0 and value 0
+    /// (EXO-294).
+    pub fn set_absent(&mut self, lane: usize, rows: impl IntoIterator<Item = usize>) {
+        let plane = self.presence[lane].as_mut().expect("lane has a plane");
+        for r in rows {
+            plane[r / 64] &= !(1u64 << (r % 64));
+            self.lanes[lane][r] = 0;
+        }
+    }
+
+    /// The i32 lanes' presence planes, for the reference interpreter.
+    pub fn i32_presence(&self) -> Vec<&[u64]> {
+        self.presence[..4]
+            .iter()
+            .map(|p| p.as_deref().expect("lane has a plane"))
+            .collect()
     }
 
     pub fn i32_lanes(&self) -> Vec<&[i32]> {
@@ -148,6 +182,12 @@ impl LaneSource for Source {
 
     fn frames(&self) -> &FrameStore {
         &self.frames
+    }
+}
+
+impl PresenceSource for Source {
+    fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]> {
+        self.presence.get(usize::from(addr.lane))?.as_deref()
     }
 }
 
