@@ -44,7 +44,7 @@ use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_dt64::dr::FrameStore;
-use lance_graph_dt64::{BindStore, LaneBinding, LaneRefusal, LaneSource};
+use lance_graph_dt64::{BindStore, LaneBinding, LaneRefusal, PresenceSource};
 use lance_graph_mask_risc::{
     execute_into, words_for, ExecError, Foreign, LaneRef, MaskOp, Operand, Out, Planes, Pred,
     Program, Scratch, Terminal, Value,
@@ -71,6 +71,13 @@ pub enum Refusal {
     NotThisRecipe,
     /// The frame's row count is not the one the program was prepared for.
     RowsChanged { prepared: usize, now: usize },
+    /// A field's presence plane does not span the lane's rows (`⌈n/64⌉`
+    /// words).
+    PresenceLength {
+        field: u8,
+        words: usize,
+        need: usize,
+    },
     /// mask-risc refused the program or its operands.
     Exec(ExecError),
 }
@@ -83,12 +90,19 @@ pub const MAX_READS: usize = 16;
 #[derive(Clone, Copy)]
 struct Lanes<'a> {
     lanes: [LaneRef<'a>; MAX_READS],
+    /// Each lane's presence plane (EXO-294), the mask-risc plane of the same
+    /// index.
+    presence: [&'a [u64]; MAX_READS],
     len: usize,
 }
 
 impl<'a> Lanes<'a> {
     fn get(&self) -> &[LaneRef<'a>] {
         &self.lanes[..self.len]
+    }
+
+    fn planes(&self) -> &[&'a [u64]] {
+        &self.presence[..self.len]
     }
 }
 
@@ -393,28 +407,33 @@ impl Recipe {
     fn lanes<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Lanes<'a>, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         if self.reads.is_empty() {
             return Err(Refusal::NoLanes);
         }
         let mut lanes = [LaneRef::I32(&[]); MAX_READS];
+        let mut presence: [&[u64]; MAX_READS] = [&[]; MAX_READS];
         let mut held = [false; MAX_READS];
         let bound = w
             .binding
-            .borrow_all(w.store, w.view, w.frames, w.source)
+            .borrow_all_present(w.store, w.view, w.frames, w.source)
             .map_err(Refusal::Binding)?;
         for item in bound {
-            let (field, lane) = match item {
-                Ok(pair) => pair,
-                Err(LaneRefusal::Vanished { field }) if !self.reads.contains(&field) => continue,
-                Err(e) => return Err(Refusal::Binding(e)),
-            };
+            let (field, lane, plane) =
+                match item {
+                    Ok(triple) => triple,
+                    Err(
+                        LaneRefusal::Vanished { field } | LaneRefusal::PresenceUnbound { field },
+                    ) if !self.reads.contains(&field) => continue,
+                    Err(e) => return Err(Refusal::Binding(e)),
+                };
             if let Some(i) = self.reads.iter().position(|&f| f == field) {
                 if !matches!(lane, LaneRef::I32(_)) {
                     return Err(Refusal::NotI32 { field });
                 }
                 lanes[i] = lane;
+                presence[i] = plane;
                 held[i] = true;
             }
         }
@@ -425,6 +444,7 @@ impl Recipe {
         }
         Ok(Lanes {
             lanes,
+            presence,
             len: self.reads.len(),
         })
     }
@@ -467,6 +487,18 @@ impl Recipe {
         )
     }
 
+    /// Prepare the count of UNKNOWN rows: rows no term drops but some term
+    /// cannot decide, because a field it reads is absent (presence 0, value
+    /// 0). Neither kept nor dropped (EXO-294).
+    pub fn prepare_unknown(&self, n_rows: usize) -> Result<Prepared, Refusal> {
+        self.prepare(
+            n_rows,
+            Terminal::Count {
+                mask: Operand::Scratch(UNKNOWN),
+            },
+        )
+    }
+
     /// Prepare `Keep`: the kept rows' mask, written to the caller's
     /// [`Out::Mask`] of `⌈n/64⌉` words (mask-risc tiles its scratch, so a
     /// kept mask is never read back from a slot).
@@ -496,7 +528,7 @@ impl Recipe {
     ) -> Result<Value, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         self.exec(p, w, scratch, out).map(|(v, _)| v)
     }
@@ -510,7 +542,7 @@ impl Recipe {
     ) -> Result<(Value, Lanes<'a>), Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         if p.reads != self.reads {
             return Err(Refusal::NotThisRecipe);
@@ -523,9 +555,19 @@ impl Recipe {
                 now: n_rows,
             });
         }
+        let need = words_for(n_rows);
+        for (i, plane) in lanes.planes().iter().enumerate() {
+            if plane.len() != need {
+                return Err(Refusal::PresenceLength {
+                    field: self.reads[i],
+                    words: plane.len(),
+                    need,
+                });
+            }
+        }
         let planes = Planes {
             n_rows,
-            masks: &[],
+            masks: lanes.planes(),
             lanes: lanes.get(),
         };
         let v = execute_into(&p.program, &planes, &Foreign::NONE, scratch, out)
@@ -537,7 +579,7 @@ impl Recipe {
     pub fn n_rows<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<usize, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         Ok(self.lanes(w)?.get()[0].len())
     }
@@ -548,9 +590,25 @@ impl Recipe {
     pub fn count<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<u64, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         let p = self.prepare_count(self.n_rows(w)?)?;
+        let mut scratch = p.scratch()?;
+        match self.run_into(&p, w, &mut scratch, Out::None)? {
+            Value::Count(c) => Ok(c as u64),
+            other => unreachable!("Count returned {other:?}"),
+        }
+    }
+
+    /// How many rows are UNKNOWN: no term drops them, and some term cannot
+    /// decide because a field it reads is absent. Convenience, as
+    /// [`Recipe::count`].
+    pub fn count_unknown<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<u64, Refusal>
+    where
+        V: ClassView + ?Sized,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
+    {
+        let p = self.prepare_unknown(self.n_rows(w)?)?;
         let mut scratch = p.scratch()?;
         match self.run_into(&p, w, &mut scratch, Out::None)? {
             Value::Count(c) => Ok(c as u64),
@@ -563,7 +621,7 @@ impl Recipe {
     pub fn sum<'a, V, S>(&self, w: &Witness<'a, V, S>, output: &str) -> Result<i64, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         let p = self.prepare_sum(self.n_rows(w)?, output)?;
         let mut scratch = p.scratch()?;
@@ -580,7 +638,7 @@ impl Recipe {
     pub fn materialize_rows<'a, V, S>(&self, w: &Witness<'a, V, S>) -> Result<Rows<'a>, Refusal>
     where
         V: ClassView + ?Sized,
-        S: LaneSource<Lane<'a> = LaneRef<'a>>,
+        S: PresenceSource<Lane<'a> = LaneRef<'a>>,
     {
         let p = self.prepare_keep(self.n_rows(w)?)?;
         let mut scratch = p.scratch()?;
@@ -600,15 +658,27 @@ impl Recipe {
             LaneRef::I32(s) => s,
             _ => unreachable!("lanes() admits i32 lanes only"),
         };
+        let presence_of = |field: u8| lanes.planes()[usize::from(self.lane(field))];
         Ok(Rows {
             names: self.out.iter().map(|(n, _)| n.clone()).collect(),
             lanes: self.out.iter().map(|(_, f)| lane_of(*f)).collect(),
+            presence: self.out.iter().map(|(_, f)| presence_of(*f)).collect(),
             positions,
         })
     }
 
-    /// The population program: every row, then each term and-ed or
-    /// and-not-ed in, then `terminal` over slot 0.
+    /// The population program, three-valued (EXO-294). Each term is a
+    /// compare `t` over its field, and the field's ABSENT rows are
+    /// `a = (value == 0) & !presence`. A row is
+    ///
+    /// - KEPT (slot [`KEPT`]) when every term is decided and false:
+    ///   `AND (!t & !a)`;
+    /// - DROPPED (slot [`DROPPED`]) when some term is decided and true:
+    ///   `OR (t & !a)`;
+    /// - UNKNOWN (slot [`UNKNOWN`]) otherwise.
+    ///
+    /// This is Kleene's AND of `NOT term` over the aborts. `terminal` reads
+    /// one of the three slots.
     fn program(&self, n_rows: usize, terminal: Terminal) -> Result<Program, Refusal> {
         let hi = u32::try_from(n_rows).map_err(|_| {
             Refusal::Exec(ExecError::RangeOutOfBounds {
@@ -617,31 +687,90 @@ impl Recipe {
                 n_rows,
             })
         })?;
-        let mut ops = vec![MaskOp::Pred {
+        let all = |dst| MaskOp::Pred {
             pred: Pred::Range { lo: 0, hi },
             under: None,
-            dst: 0,
-        }];
-        for &(field, cmp, t) in &self.drop {
-            ops.push(MaskOp::Pred {
-                pred: cmp.pred(self.lane(field), t),
+            dst,
+        };
+        let s = Operand::Scratch;
+        let mut ops = vec![
+            all(KEPT),
+            MaskOp::Pred {
+                pred: Pred::Range { lo: 0, hi: 0 },
                 under: None,
-                dst: 1,
-            });
-            ops.push(MaskOp::AndNot {
-                a: Operand::Scratch(0),
-                b: Operand::Scratch(1),
-                dst: 0,
-            });
+                dst: DROPPED,
+            },
+        ];
+        for &(field, cmp, t) in &self.drop {
+            let lane = self.lane(field);
+            ops.extend([
+                MaskOp::Pred {
+                    pred: cmp.pred(lane, t),
+                    under: None,
+                    dst: TERM,
+                },
+                MaskOp::Pred {
+                    pred: Pred::EqI32 { lane, v: 0 },
+                    under: None,
+                    dst: ABSENT,
+                },
+                // absent = (value == 0) & !presence; plane `lane` is the
+                // field's presence plane.
+                MaskOp::AndNot {
+                    a: s(ABSENT),
+                    b: Operand::Plane(lane),
+                    dst: ABSENT,
+                },
+                MaskOp::AndNot {
+                    a: s(KEPT),
+                    b: s(TERM),
+                    dst: KEPT,
+                },
+                MaskOp::AndNot {
+                    a: s(KEPT),
+                    b: s(ABSENT),
+                    dst: KEPT,
+                },
+                MaskOp::AndNot {
+                    a: s(TERM),
+                    b: s(ABSENT),
+                    dst: TERM,
+                },
+                MaskOp::Or {
+                    a: s(DROPPED),
+                    b: s(TERM),
+                    dst: DROPPED,
+                },
+            ]);
         }
-        let scratch_slots = if ops.len() > 1 { 2 } else { 1 };
+        ops.extend([
+            all(UNKNOWN),
+            MaskOp::AndNot {
+                a: s(UNKNOWN),
+                b: s(KEPT),
+                dst: UNKNOWN,
+            },
+            MaskOp::AndNot {
+                a: s(UNKNOWN),
+                b: s(DROPPED),
+                dst: UNKNOWN,
+            },
+        ]);
         Ok(Program {
             ops,
             terminal,
-            scratch_slots,
+            scratch_slots: u32::from(SLOTS),
         })
     }
 }
+
+/// Scratch slots of the population program.
+const KEPT: u16 = 0;
+const DROPPED: u16 = 1;
+const TERM: u16 = 2;
+const ABSENT: u16 = 3;
+const UNKNOWN: u16 = 4;
+const SLOTS: u16 = 5;
 
 /// Positional rows: `names[c]` labels column `c`, and row `r` of column `c`
 /// is `lanes[c][positions[r]]`, read in place from the borrowed lane.
@@ -649,6 +778,8 @@ impl Recipe {
 pub struct Rows<'a> {
     names: Vec<String>,
     lanes: Vec<&'a [i32]>,
+    /// Each column's presence plane, borrowed beside its lane.
+    presence: Vec<&'a [u64]>,
     positions: Vec<u32>,
 }
 
@@ -675,6 +806,35 @@ impl<'a> Rows<'a> {
     pub fn get(&self, r: usize, c: usize) -> i32 {
         self.lanes[c][self.positions[r] as usize]
     }
+
+    /// Whether row `r`, column `c` holds a value: false when it is absent
+    /// (presence 0 and value 0, EXO-294). An absent cell reads 0 in
+    /// [`Rows::get`].
+    pub fn present(&self, r: usize, c: usize) -> bool {
+        let p = self.positions[r] as usize;
+        bit(self.presence[c], p) || self.lanes[c][p] != 0
+    }
+}
+
+fn bit(plane: &[u64], row: usize) -> bool {
+    plane[row / 64] >> (row % 64) & 1 == 1
+}
+
+/// The naive reference, every value present: [`interpret_present`] with no
+/// presence planes.
+pub fn interpret(src: &str, labels: &[&str], lanes: &[&[i32]]) -> Result<Vec<Event>, Refusal> {
+    interpret_present(src, labels, lanes, None).map(|i| i.events)
+}
+
+/// What the reference interpreter answers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Interpreted {
+    /// The kept events, in row order. An absent output reads 0.
+    pub events: Vec<Event>,
+    /// For each kept event, the outputs that are absent.
+    pub absent: Vec<Vec<String>>,
+    /// Rows no abort dropped but some abort could not decide.
+    pub unknown: usize,
 }
 
 /// The naive reference: materialize every row of `lanes` (labelled by
@@ -682,33 +842,58 @@ impl<'a> Rows<'a> {
 /// statement, and project each surviving event onto the names the program
 /// assigned and did not delete. Shares only the parser with [`Recipe`];
 /// evaluation is independent and reads no DT64 or mask-risc code.
-pub fn interpret(src: &str, labels: &[&str], lanes: &[&[i32]]) -> Result<Vec<Event>, Refusal> {
+///
+/// With `presence`, a value is ABSENT when its presence bit is 0 and it is 0
+/// (EXO-294). An abort over an absent value is undecided: the row is dropped
+/// if a later (or earlier) abort is decided and true, and otherwise counted
+/// as unknown instead of kept.
+#[expect(
+    clippy::needless_range_loop,
+    reason = "row r indexes every lane and its presence plane at once"
+)]
+pub fn interpret_present(
+    src: &str,
+    labels: &[&str],
+    lanes: &[&[i32]],
+    presence: Option<&[&[u64]]>,
+) -> Result<Interpreted, Refusal> {
     let prog = parse(src)?;
     let n = lanes.first().map_or(0, |l| l.len());
-    let mut out = Vec::new();
+    let mut out = Interpreted {
+        events: Vec::new(),
+        absent: Vec::new(),
+        unknown: 0,
+    };
     'rows: for r in 0..n {
-        let mut top: BTreeMap<String, i64> = BTreeMap::new();
-        let mut props: BTreeMap<&str, i64> = BTreeMap::new();
-        for (l, lane) in labels.iter().zip(lanes) {
+        let value = |i: usize| -> Option<i64> {
+            let v = lanes[i][r];
+            let present = presence.is_none_or(|p| bit(p[i], r)) || v != 0;
+            present.then_some(i64::from(v))
+        };
+        let mut top: BTreeMap<String, Option<i64>> = BTreeMap::new();
+        let mut props: BTreeMap<&str, Option<i64>> = BTreeMap::new();
+        for (i, l) in labels.iter().enumerate() {
             if *l == "key" {
-                top.insert("key".into(), i64::from(lane[r]));
+                top.insert("key".into(), value(i));
             } else {
-                props.insert(l, i64::from(lane[r]));
+                props.insert(l, value(i));
             }
         }
         let mut assigned: Vec<String> = Vec::new();
-        let read = |top: &BTreeMap<String, i64>, p: &Path| -> Result<i64, Refusal> {
-            match p {
-                Path::Name(n) => top
-                    .get(n)
-                    .copied()
-                    .ok_or_else(|| Refusal::UnknownPath(format!(".{n}"))),
-                Path::Prop(f) => props
-                    .get(f.as_str())
-                    .copied()
-                    .ok_or_else(|| Refusal::UnknownPath(format!(".properties.{f}.value"))),
-            }
-        };
+        let read =
+            |top: &BTreeMap<String, Option<i64>>, p: &Path| -> Result<Option<i64>, Refusal> {
+                match p {
+                    Path::Name(n) => top
+                        .get(n)
+                        .copied()
+                        .ok_or_else(|| Refusal::UnknownPath(format!(".{n}"))),
+                    Path::Prop(f) => props
+                        .get(f.as_str())
+                        .copied()
+                        .ok_or_else(|| Refusal::UnknownPath(format!(".properties.{f}.value"))),
+                }
+            };
+        let mut undecided = false;
         for stmt in &prog {
             match stmt {
                 Stmt::Assign(name, p) => {
@@ -724,14 +909,30 @@ pub fn interpret(src: &str, labels: &[&str], lanes: &[&[i32]]) -> Result<Vec<Eve
                     }
                     assigned.retain(|a| a != name);
                 }
-                Stmt::Abort { path, cmp, value } => {
-                    if cmp.holds(read(&top, path)?, i64::from(*value)) {
-                        continue 'rows;
-                    }
-                }
+                Stmt::Abort { path, cmp, value } => match read(&top, path)? {
+                    Some(v) if cmp.holds(v, i64::from(*value)) => continue 'rows,
+                    Some(_) => {}
+                    None => undecided = true,
+                },
             }
         }
-        out.push(assigned.iter().map(|a| (a.clone(), top[a])).collect());
+        if undecided {
+            out.unknown += 1;
+            continue;
+        }
+        out.events.push(
+            assigned
+                .iter()
+                .map(|a| (a.clone(), top[a].unwrap_or(0)))
+                .collect(),
+        );
+        out.absent.push(
+            assigned
+                .iter()
+                .filter(|a| top[*a].is_none())
+                .cloned()
+                .collect(),
+        );
     }
     Ok(out)
 }
