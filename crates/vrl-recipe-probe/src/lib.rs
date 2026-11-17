@@ -361,6 +361,18 @@ impl Recipe {
         })
     }
 
+    /// The drop terms, one per `abort`, in source order: rows where
+    /// `field <cmp> value` holds are dropped. For an independent lowering
+    /// (the r2il parity test), not for execution.
+    pub fn terms(&self) -> &[(u8, Cmp, i32)] {
+        &self.drop
+    }
+
+    /// The field an output name reads, if the recipe assigns it.
+    pub fn output_field(&self, name: &str) -> Option<u8> {
+        self.out.iter().find(|(n, _)| n == name).map(|(_, f)| *f)
+    }
+
     /// Every field the recipe reads: what the caller binds through DT64.
     pub fn fields(&self) -> &WideFieldMask {
         &self.fields
