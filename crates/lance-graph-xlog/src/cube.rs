@@ -34,6 +34,9 @@
 //! resident lanes (D-STAUNEN-5 P1). The delta difference is `mask_andnot`
 //! inside the cube; nothing is added to the cube and no tuple is built.
 
+mod body;
+pub use body::{Atom, BodyAnswer, BodyRefusal, MAX_BODY_VARS};
+
 use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
