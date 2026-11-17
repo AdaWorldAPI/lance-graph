@@ -58,3 +58,27 @@ REVISIT WHEN unchanged.
 
 Next, small: `sales_by_cat_region` through `borrow_all` + `GroupSumI32`, with
 parity against the naive oracle.
+
+## The GROUP BY head, done (`tests/group_by.rs`)
+
+`sales_by_cat_region` runs with no tuple store: the three `sales` lanes
+through one `borrow_all`, and one mask-risc `GroupReduce` with the fused
+two-column key `GroupKey::Pair { hi: Cat, lo: Region }` and
+`GroupFold::SumSymI32(Amount)`. The symmetric sum keeps a group that cancels
+to 0 apart from an unreached one, matching Datalog (only groups with rows
+exist).
+
+- The upstream facts give exactly its own test's expected rows,
+  `(1, 10, 12), (1, 11, 3), (2, 10, 2)`.
+- Seeded data at widths 1..2000 equals a plain group-by oracle, with
+  zero-sum groups present and unreached groups absent.
+- A moved frame is refused before any lane is read.
+
+| guard | disable | result |
+|---|---|---|
+| key column order | swap `hi` and `lo` | upstream rows and oracle parity red |
+| zero-sum groups exist | drop groups whose sum is 0 | oracle parity red |
+| stride covers every region | stride one too small | upstream rows and oracle parity red |
+
+Lab scope: the group universe is `(max Cat + 1) * stride` over raw `u32`
+values. A coordinate map that densifies them is not part of this.
