@@ -33,6 +33,9 @@ datafrog = { git = "https://github.com/AdaWorldAPI/datafrog", rev = "edd7cfc0f5a
 # directly, through the same paths the patch below resolves to.
 lance-graph-xlog = { path = "../lance-graph-xlog" }
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
+# The W7 GROUP BY lab (tests/group_by.rs): the fold terminal.
+lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+lance-graph-contract = { path = "../lance-graph-contract" }
 
 # xlog-cube depends on these three by git. Patch them to THIS checkout, so the
 # probe tests the cube in this tree and not GitHub main.
