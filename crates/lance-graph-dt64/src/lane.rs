@@ -113,6 +113,31 @@ pub trait SelectionSource: LaneSource {
     fn borrow_positions(&self, addr: &SelAddr) -> Option<&[u32]>;
 }
 
+/// The third socket of a source owner: each lane's presence plane
+/// (EXO-294, decision B).
+///
+/// A row of a lane is ABSENT (never touched: NaN, `$null`, UNKNOWN) when its
+/// presence bit is 0 **and** its value is 0, the rule
+/// `lance_graph_contract::lane_codec` states for every lane and that codec9
+/// and DR512 use. A presence bit of 1 with value 0 is a real zero; a presence
+/// bit of 0 with a nonzero value is a present value.
+///
+/// The plane is keyed by the [`LaneAddr`] the binding already checked, so it
+/// is the lane's own: the same frame, row order and reader scope. It is one
+/// bit per row, LSB-first, `u64` words (mask-RISC's plane order), tail bits
+/// past the lane's length zero. `None` means the source holds no presence
+/// for that lane, which is refused, never read as "all present".
+/// `borrow_presence` hands out the source's own plane; it must not copy,
+/// reorder or allocate.
+///
+/// As for the other sockets, the trait cannot prove the plane describes the
+/// lane's bytes; that is the implementer's obligation. This crate does not
+/// know a lane's length either: the consumer that folds checks that the
+/// plane spans the lane's rows.
+pub trait PresenceSource: LaneSource {
+    fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]>;
+}
+
 /// A DR position and the route version it was resolved at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RouteAt {
@@ -197,6 +222,8 @@ pub enum LaneRefusal {
     },
     /// The source no longer holds the selection's positions.
     SelectionVanished { sel: u16 },
+    /// The source holds no presence plane for the field's lane.
+    PresenceUnbound { field: u8 },
 }
 
 impl From<Refusal> for LaneRefusal {
@@ -523,6 +550,68 @@ impl LaneBinding {
         })
     }
 }
+
+impl LaneBinding {
+    /// [`LaneBinding::borrow_all`] with each lane's presence plane: ONE check,
+    /// then every bound lane together with the plane the source holds for
+    /// that same lane, in ascending field order.
+    ///
+    /// The plane is looked up by the lane address the check just admitted,
+    /// so it shares the lane's frame, row order and scope; no second
+    /// address is consulted. A lane the source no longer holds yields
+    /// `Err(Vanished { field })`, and a lane without a presence plane yields
+    /// `Err(PresenceUnbound { field })`, at its position; the iterator does
+    /// not stop there. Nothing is allocated.
+    pub fn borrow_all_present<'b, 's, V: ClassView + ?Sized, S: PresenceSource>(
+        &'b self,
+        store: &BindStore,
+        view: &V,
+        frames: &FrameStore,
+        source: &'s S,
+    ) -> Result<PresentLanes<'b, 's, S>, LaneRefusal> {
+        self.check(store, view, frames, source)?;
+        Ok(PresentLanes {
+            lanes: self.lanes.iter(),
+            source,
+        })
+    }
+}
+
+/// One bound field, its lane and that lane's presence plane.
+pub type PresentLane<'s, S> = (u8, <S as LaneSource>::Lane<'s>, &'s [u64]);
+
+/// Every lane of a checked [`LaneBinding`] with its presence plane, borrowed
+/// one at a time, in ascending field order. Made by
+/// [`LaneBinding::borrow_all_present`].
+pub struct PresentLanes<'b, 's, S: PresenceSource> {
+    lanes: core::slice::Iter<'b, (u8, LaneAddr)>,
+    source: &'s S,
+}
+
+impl<'s, S: PresenceSource> Iterator for PresentLanes<'_, 's, S> {
+    type Item = Result<PresentLane<'s, S>, LaneRefusal>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (field, addr) = self.lanes.next()?;
+        let field = *field;
+        let lane = match self.source.borrow(addr) {
+            Some(lane) => lane,
+            None => return Some(Err(LaneRefusal::Vanished { field })),
+        };
+        Some(
+            self.source
+                .borrow_presence(addr)
+                .map(|plane| (field, lane, plane))
+                .ok_or(LaneRefusal::PresenceUnbound { field }),
+        )
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.lanes.size_hint()
+    }
+}
+
+impl<S: PresenceSource> ExactSizeIterator for PresentLanes<'_, '_, S> {}
 
 /// Every lane of a checked [`LaneBinding`], borrowed one at a time from the
 /// source, in ascending field order. Made by [`LaneBinding::borrow_all`].

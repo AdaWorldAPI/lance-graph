@@ -8,7 +8,7 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_dt64::dr::{Frame, FrameRefusal, FrameRevisions, FrameStore, Scope};
 use lance_graph_dt64::{
     BindStore, ClassSchema, CoordSpace, Extent, LaneAddr, LaneRefusal, LaneRequest, LaneSource,
-    Refusal, RouteAt, SchemaRev,
+    PresenceSource, Refusal, RouteAt, SchemaRev,
 };
 
 const HYBRID: u32 = 0x0C1A_0001;
@@ -62,9 +62,12 @@ struct Source {
     /// The store this source's data lives with (it never takes one from a
     /// caller; see `LaneSource::frames`).
     frames: FrameStore,
-    /// `lane_of` calls, and `borrow` calls, so far.
+    /// Presence plane per lane (by lane number), or none.
+    presence: Vec<Option<Vec<u64>>>,
+    /// `lane_of` calls, `borrow` calls and `borrow_presence` calls, so far.
     lookups: Cell<usize>,
     borrows: Cell<usize>,
+    presence_borrows: Cell<usize>,
 }
 
 impl Source {
@@ -82,9 +85,20 @@ impl Source {
                 relation_map: 1,
                 coordinates: 1,
             }),
+            // Distinct planes, so a plane handed out for the wrong lane is
+            // visible: lane 0 has row 1 absent, lane 1 every row present.
+            presence: vec![Some(vec![0b101]), Some(vec![0b111]), Some(vec![0b11])],
             lookups: Cell::new(0),
             borrows: Cell::new(0),
+            presence_borrows: Cell::new(0),
         }
+    }
+}
+
+impl PresenceSource for Source {
+    fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]> {
+        self.presence_borrows.set(self.presence_borrows.get() + 1);
+        self.presence.get(usize::from(addr.lane))?.as_deref()
     }
 }
 
@@ -620,5 +634,84 @@ fn a_vanished_lane_is_reported_in_place() {
             Ok((0, w.source.lanes[0].as_slice())),
             Err(LaneRefusal::Vanished { field: 1 })
         ]
+    );
+}
+
+/// EXO-294: each bound lane comes with the presence plane the source holds
+/// for THAT lane, found by the lane address the check admitted, not by the
+/// field number. Field 1 is mapped to lane 0 here and field 0 to lane 1, so
+/// a plane looked up by field would be the other lane's.
+#[test]
+fn borrow_all_present_hands_each_lane_its_own_presence_plane() {
+    let mut w = world();
+    let at = |lane| LaneAddr {
+        space: AD,
+        lane,
+        scope: READER,
+    };
+    w.source.map = vec![(0, at(1)), (1, at(0)), (2, at(2))];
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    let got: Vec<_> = b
+        .borrow_all_present(&w.store, &w.view, &w.source.frames, &w.source)
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(got.len(), 2);
+    for (field, lane, plane) in got {
+        let lane_no = if field == 0 { 1 } else { 0 };
+        assert!(std::ptr::eq(lane, w.source.lanes[lane_no].as_slice()));
+        assert!(std::ptr::eq(
+            plane,
+            w.source.presence[lane_no].as_deref().unwrap()
+        ));
+    }
+    // The planes really differ, so the pointer checks above discriminate.
+    assert_ne!(w.source.presence[0], w.source.presence[1]);
+}
+
+/// A lane without a presence plane is refused at its position and never read
+/// as "all present"; the other lanes are still handed out with theirs.
+#[test]
+fn a_lane_without_presence_is_refused_in_place() {
+    let mut w = world();
+    w.source.presence[1] = None;
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    let got: Vec<_> = b
+        .borrow_all_present(&w.store, &w.view, &w.source.frames, &w.source)
+        .unwrap()
+        .collect();
+    assert_eq!(
+        got,
+        vec![
+            Ok((
+                0,
+                w.source.lanes[0].as_slice(),
+                w.source.presence[0].as_deref().unwrap()
+            )),
+            Err(LaneRefusal::PresenceUnbound { field: 1 })
+        ]
+    );
+}
+
+/// A refused check returns before any lane or presence plane is borrowed.
+#[test]
+fn a_refused_borrow_all_present_borrows_nothing() {
+    let mut w = world();
+    let b = bind(&w, &WideFieldMask::from_positions(&[0, 1])).unwrap();
+    w.source.frames.advance(FrameRevisions {
+        source: 2,
+        relation_map: 1,
+        coordinates: 1,
+    });
+    w.source.borrows.set(0);
+    w.source.presence_borrows.set(0);
+    assert_eq!(
+        b.borrow_all_present(&w.store, &w.view, &w.source.frames, &w.source)
+            .err(),
+        Some(LaneRefusal::Frame(FrameRefusal::SourceChanged))
+    );
+    assert_eq!(
+        (w.source.borrows.get(), w.source.presence_borrows.get()),
+        (0, 0)
     );
 }
