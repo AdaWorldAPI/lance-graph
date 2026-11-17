@@ -21,3 +21,14 @@ lance-graph-contract = { path = "../lance-graph-contract" }
 # this probe adds only the VRL lowering in front of them.
 lance-graph-dt64 = { path = "../lance-graph-dt64" }
 lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
+
+[dev-dependencies]
+# The r2il parity test only (tests/r2il_parity.rs): the same recipe as frozen
+# F000 words, run through r2il's prepare/run. Execution never goes this way;
+# r2il is the inspectable reading (binding.rs module doc, the §20 correction).
+lance-graph-r2il = { path = "../lance-graph-r2il" }
+
+[patch."https://github.com/AdaWorldAPI/lance-graph"]
+# r2il reaches OGAR's crates, which name the contract by git; without this the
+# test would link two contract packages (the root workspace does the same).
+lance-graph-contract = { path = "../lance-graph-contract" }

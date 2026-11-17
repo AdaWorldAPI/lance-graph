@@ -4,7 +4,7 @@
 //! Whatever the population size, the answer has one shape:
 //! `identity | select {name = identity.key; identity.properties.f.value}`.
 //! So the stored answer is a recipe, never rows: which fields to bind, the
-//! `== v` keep and drop terms, and the output aliases. It adds no authority
+//! comparison terms that drop rows, and the output aliases. It adds no authority
 //! and no kernel of its own; it is the front of what D-DR-SELECT-K-SV-1/2
 //! (#2039, #2040) already ship:
 //!
@@ -14,8 +14,8 @@
 //!   borrowed. A recipe run after the source's frame moved is refused there,
 //!   never read against new lanes.
 //! - **Fold.** The population and every terminal are one mask-risc
-//!   [`Program`]: `Range` for every row, `EqI32` per term, `And` / `AndNot`
-//!   to combine, then `Count`, `MaskedSumI32` or `Keep`. The computation is
+//!   [`Program`]: `Range` for every row, one `i32` compare per `abort`
+//!   (`EqI32` `NeI32` `LtI32` `LeI32` `GtI32` `GeI32`), `AndNot` to drop it, then `Count`, `MaskedSumI32` or `Keep`. The computation is
 //!   mask-risc's, on `ndarray::simd`.
 //! - **Rows.** [`Recipe::materialize_rows`] is the only row producer, and it
 //!   is positional ([`Rows`]): the names once, the borrowed lanes, and a `u32`
@@ -26,7 +26,8 @@
 //!
 //! - `.out = .key`, `.out = .other_out`, `.out = .properties.f.value`
 //! - `del(.out)`
-//! - `if .path == 3 { abort }`, `if .path != 3 { abort }`
+//! - `if .path <op> 3 { abort }` with `<op>` one of `==` `!=` `<` `<=` `>` `>=`
+//!   (signed `i32`); a range is two aborts, since `&&` and `||` are refused
 //!
 //! A name is a field label of the class's [`ClassView`]; `key` is the field
 //! labelled `key`. Output semantics, stated because VRL mutates the whole
@@ -36,7 +37,7 @@
 //!
 //! Everything that computes a value is refused by name: function calls other
 //! than `del` (`parse_json`, `now`, `to_string`, ...), arithmetic, string or
-//! integer literals assigned as values, comparisons other than `==`/`!=`, and
+//! integer literals assigned as values, any other comparison, `&&`/`||`, and
 //! an `if` whose body is not `abort`.
 
 use std::collections::BTreeMap;
@@ -135,12 +136,62 @@ enum Path {
 enum Stmt {
     Assign(String, Path),
     Del(String),
-    /// Abort the event when `path == value` (`eq`) or `path != value`.
+    /// Abort the event when `path <cmp> value` holds.
     Abort {
         path: Path,
-        eq: bool,
+        cmp: Cmp,
         value: i32,
     },
+}
+
+/// A comparison of a lane value against an `i32` constant, signed. Each one
+/// lowers to exactly one mask-risc `i32` predicate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cmp {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl Cmp {
+    fn parse(op: &str) -> Option<Cmp> {
+        Some(match op {
+            "==" => Cmp::Eq,
+            "!=" => Cmp::Ne,
+            "<" => Cmp::Lt,
+            "<=" => Cmp::Le,
+            ">" => Cmp::Gt,
+            ">=" => Cmp::Ge,
+            _ => return None,
+        })
+    }
+
+    /// The reference meaning, for the interpreter only.
+    fn holds(self, a: i64, b: i64) -> bool {
+        match self {
+            Cmp::Eq => a == b,
+            Cmp::Ne => a != b,
+            Cmp::Lt => a < b,
+            Cmp::Le => a <= b,
+            Cmp::Gt => a > b,
+            Cmp::Ge => a >= b,
+        }
+    }
+
+    /// The one mask-risc predicate this comparison is.
+    fn pred(self, lane: u16, t: i32) -> Pred {
+        match self {
+            Cmp::Eq => Pred::EqI32 { lane, v: t },
+            Cmp::Ne => Pred::NeI32 { lane, v: t },
+            Cmp::Lt => Pred::LtI32 { lane, t },
+            Cmp::Le => Pred::LeI32 { lane, t },
+            Cmp::Gt => Pred::GtI32 { lane, t },
+            Cmp::Ge => Pred::GeI32 { lane, t },
+        }
+    }
 }
 
 fn path(s: &str) -> Result<Path, Refusal> {
@@ -192,17 +243,14 @@ fn parse(src: &str) -> Result<Vec<Stmt>, Refusal> {
             let [p, op, v] = toks.as_slice() else {
                 return Err(Refusal::Computes(format!("condition {}", cond.trim())));
             };
-            let eq = match *op {
-                "==" => true,
-                "!=" => false,
-                other => return Err(Refusal::Computes(format!("comparison {other}"))),
-            };
+            let cmp =
+                Cmp::parse(op).ok_or_else(|| Refusal::Computes(format!("comparison {op}")))?;
             let value = v
                 .parse::<i32>()
                 .map_err(|_| Refusal::Computes(format!("non-i32 comparison {v}")))?;
             out.push(Stmt::Abort {
                 path: path(p)?,
-                eq,
+                cmp,
                 value,
             });
             continue;
@@ -239,10 +287,8 @@ pub struct Recipe {
     fields: WideFieldMask,
     /// The same fields, ascending: lane `i` of the program is `reads[i]`.
     reads: Vec<u8>,
-    /// Rows kept only where `field == value`.
-    keep_eq: Vec<(u8, i32)>,
-    /// Rows dropped where `field == value`.
-    drop_eq: Vec<(u8, i32)>,
+    /// Rows dropped where `field <cmp> value`, one term per `abort`.
+    drop: Vec<(u8, Cmp, i32)>,
     /// Output name -> field, in name order.
     out: Vec<(String, u8)>,
 }
@@ -278,7 +324,7 @@ impl Recipe {
                     .ok_or_else(|| Refusal::UnknownPath(format!(".properties.{f}.value"))),
             }
         };
-        let (mut keep_eq, mut drop_eq) = (Vec::new(), Vec::new());
+        let mut drop = Vec::new();
         for stmt in parse(src)? {
             match stmt {
                 Stmt::Assign(name, p) => {
@@ -292,20 +338,14 @@ impl Recipe {
                     }
                     assigned.remove(&name);
                 }
-                Stmt::Abort { path, eq, value } => {
-                    let field = resolve(&bound, &path)?;
-                    if eq {
-                        drop_eq.push((field, value));
-                    } else {
-                        keep_eq.push((field, value));
-                    }
+                Stmt::Abort { path, cmp, value } => {
+                    drop.push((resolve(&bound, &path)?, cmp, value));
                 }
             }
         }
         let mut reads: Vec<u8> = assigned
             .values()
-            .chain(keep_eq.iter().map(|(f, _)| f))
-            .chain(drop_eq.iter().map(|(f, _)| f))
+            .chain(drop.iter().map(|(f, _, _)| f))
             .copied()
             .collect();
         reads.sort_unstable();
@@ -316,10 +356,21 @@ impl Recipe {
         Ok(Self {
             fields: WideFieldMask::from_positions(&reads),
             reads,
-            keep_eq,
-            drop_eq,
+            drop,
             out: assigned.into_iter().collect(),
         })
+    }
+
+    /// The drop terms, one per `abort`, in source order: rows where
+    /// `field <cmp> value` holds are dropped. For an independent lowering
+    /// (the r2il parity test), not for execution.
+    pub fn terms(&self) -> &[(u8, Cmp, i32)] {
+        &self.drop
+    }
+
+    /// The field an output name reads, if the recipe assigns it.
+    pub fn output_field(&self, name: &str) -> Option<u8> {
+        self.out.iter().find(|(n, _)| n == name).map(|(_, f)| *f)
     }
 
     /// Every field the recipe reads: what the caller binds through DT64.
@@ -571,23 +622,17 @@ impl Recipe {
             under: None,
             dst: 0,
         }];
-        for (terms, keep) in [(&self.keep_eq, true), (&self.drop_eq, false)] {
-            for &(field, v) in terms {
-                ops.push(MaskOp::Pred {
-                    pred: Pred::EqI32 {
-                        lane: self.lane(field),
-                        v,
-                    },
-                    under: None,
-                    dst: 1,
-                });
-                let (a, b) = (Operand::Scratch(0), Operand::Scratch(1));
-                ops.push(if keep {
-                    MaskOp::And { a, b, dst: 0 }
-                } else {
-                    MaskOp::AndNot { a, b, dst: 0 }
-                });
-            }
+        for &(field, cmp, t) in &self.drop {
+            ops.push(MaskOp::Pred {
+                pred: cmp.pred(self.lane(field), t),
+                under: None,
+                dst: 1,
+            });
+            ops.push(MaskOp::AndNot {
+                a: Operand::Scratch(0),
+                b: Operand::Scratch(1),
+                dst: 0,
+            });
         }
         let scratch_slots = if ops.len() > 1 { 2 } else { 1 };
         Ok(Program {
@@ -679,8 +724,8 @@ pub fn interpret(src: &str, labels: &[&str], lanes: &[&[i32]]) -> Result<Vec<Eve
                     }
                     assigned.retain(|a| a != name);
                 }
-                Stmt::Abort { path, eq, value } => {
-                    if (read(&top, path)? == i64::from(*value)) == *eq {
+                Stmt::Abort { path, cmp, value } => {
+                    if cmp.holds(read(&top, path)?, i64::from(*value)) {
                         continue 'rows;
                     }
                 }
