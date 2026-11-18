@@ -1,4 +1,4 @@
-# D-XLOG-W7-2 step 3: the cube owns and lends its pair planes (2026-11-18)
+# D-XLOG-W7-2-STEP-3: the cube owns and lends its pair planes (2026-11-18)
 
 **Status:** MEASURED. Bodies read lent rows; `reach` and `closure` are
 unchanged and still build their own edge rows (not done here). Steps 1 and 2

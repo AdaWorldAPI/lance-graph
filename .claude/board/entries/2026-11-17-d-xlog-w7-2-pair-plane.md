@@ -1,4 +1,4 @@
-# D-XLOG-W7-2 step 1: `dr::PairPlane` (2026-11-17)
+# D-XLOG-W7-2-STEP-1: `dr::PairPlane` (2026-11-17)
 
 **Status:** MEASURED (tests); no reader yet. Step 1 of the order in
 `2026-11-17-d-xlog-w7-2-admission.md`; steps 2-5 not started.

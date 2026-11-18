@@ -31,15 +31,15 @@ exactly one of them, never both.
 |---|---|---|---|
 | 2026-11-18 | `exo-328-advance-codes` |  | [2026-11-18-exo-328-advance-codes.md](2026-11-18-exo-328-advance-codes.md) |
 | 2026-11-18 | `exo-292-draft-ranges-count-by` |  | [2026-11-18-exo-292-draft-ranges-count-by.md](2026-11-18-exo-292-draft-ranges-count-by.md) |
-| 2026-11-18 | `D-XLOG-W7-2` |  | [2026-11-18-d-xlog-w7-2-cube-planes.md](2026-11-18-d-xlog-w7-2-cube-planes.md) |
+| 2026-11-18 | `D-XLOG-W7-2-STEP-3` |  | [2026-11-18-d-xlog-w7-2-cube-planes.md](2026-11-18-d-xlog-w7-2-cube-planes.md) |
 | 2026-11-17 | `exo-298-open-node-reach` |  | [2026-11-17-exo-298-open-node-reach.md](2026-11-17-exo-298-open-node-reach.md) |
 | 2026-11-17 | `exo-296-presence-operand` |  | [2026-11-17-exo-296-presence-operand.md](2026-11-17-exo-296-presence-operand.md) |
 | 2026-11-17 | `exo-290-par-tiles-crossover` |  | [2026-11-17-exo-290-par-tiles-crossover.md](2026-11-17-exo-290-par-tiles-crossover.md) |
 | 2026-11-17 | `D-XLOG-W7-P0` |  | [2026-11-17-d-xlog-w7-p0-census.md](2026-11-17-d-xlog-w7-p0-census.md) |
 | 2026-11-17 | `D-XLOG-W7` |  | [2026-11-17-d-xlog-w7-bodies.md](2026-11-17-d-xlog-w7-bodies.md) |
-| 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-relation-socket.md](2026-11-17-d-xlog-w7-2-relation-socket.md) |
-| 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-pair-plane.md](2026-11-17-d-xlog-w7-2-pair-plane.md) |
-| 2026-11-17 | `D-XLOG-W7-2` |  | [2026-11-17-d-xlog-w7-2-admission.md](2026-11-17-d-xlog-w7-2-admission.md) |
+| 2026-11-17 | `D-XLOG-W7-2-STEP-2` |  | [2026-11-17-d-xlog-w7-2-relation-socket.md](2026-11-17-d-xlog-w7-2-relation-socket.md) |
+| 2026-11-17 | `D-XLOG-W7-2-STEP-1` |  | [2026-11-17-d-xlog-w7-2-pair-plane.md](2026-11-17-d-xlog-w7-2-pair-plane.md) |
+| 2026-11-17 | `D-XLOG-W7-2-ADMISSION` |  | [2026-11-17-d-xlog-w7-2-admission.md](2026-11-17-d-xlog-w7-2-admission.md) |
 | 2026-11-17 | `D-XLOG-KNOWLEDGE-G1b` |  | [2026-11-17-d-xlog-knowledge-g1b-reference.md](2026-11-17-d-xlog-knowledge-g1b-reference.md) |
 | 2026-11-17 | `D-VRL-RECIPE-0` |  | [2026-11-17-d-vrl-recipe-0.md](2026-11-17-d-vrl-recipe-0.md) |
 | 2026-11-16 | `g2-dr-virtual-projection-reconcile` |  | [2026-11-16-g2-dr-virtual-projection-reconcile.md](2026-11-16-g2-dr-virtual-projection-reconcile.md) |
