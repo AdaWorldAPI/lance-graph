@@ -411,4 +411,73 @@ mod lent_planes {
         );
         assert_eq!(pairs(&cube, &t, 0, PairDir::Forward), set(&e));
     }
+
+    /// A witnessed reach taken straight over the cube through the relation
+    /// socket: hops follow the cube's effective edges after a logged add and
+    /// retire, the path is made of held pairs, and a witness or a frame from
+    /// before a change is refused.
+    #[test]
+    fn a_witnessed_reach_over_the_cube_follows_its_edges() {
+        use lance_graph_dt64::{reach_path, relation_reach, ReachBuf, ReachRefusal, UNREACHED};
+        let mut t = table(&[1, 2, 3, 4, 5]);
+        let e = [(1u32, 2u32), (2, 3), (3, 4)];
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+        let f = cube.frame().clone();
+        let (mut reached, mut hop, mut scratch) = ([0u64; 4], [0u16; 256], [0u64; 8]);
+        let seed = [1u64, 0, 0, 0];
+        let mut go = |cube: &Cube, f, hop: &mut [u16; 256]| {
+            relation_reach(
+                cube,
+                0,
+                f,
+                PairDir::Forward,
+                &seed,
+                None,
+                &mut ReachBuf {
+                    reached: &mut reached,
+                    hop,
+                    scratch: &mut scratch,
+                },
+            )
+        };
+        go(&cube, &f, &mut hop).unwrap();
+        assert_eq!(hop[..5], [0, 1, 2, 3, UNREACHED]);
+        let before = hop;
+
+        // 1 -> 5 -> 4 is added and 2 -> 3 retired: 4 is now two hops away
+        // and 3 is not reached at all.
+        cube.add_edge(&t, 0, 1, 5).unwrap();
+        cube.add_edge(&t, 0, 5, 4).unwrap();
+        cube.retire_edge(&t, 0, 2, 3).unwrap();
+        go(&cube, &f, &mut hop).unwrap();
+        assert_eq!(hop[..5], [0, 1, UNREACHED, 2, 1]);
+        let mut path = [0u32; 8];
+        let n = reach_path(&cube, 0, &f, PairDir::Forward, &hop, 3, &mut path).unwrap();
+        assert_eq!(path[..n], [0, 4, 3]);
+        // The witness from before the change names a hop that is gone.
+        assert_eq!(
+            reach_path(&cube, 0, &f, PairDir::Forward, &before, 3, &mut path),
+            Err(ReachRefusal::WitnessMismatch(2))
+        );
+
+        // After a rebase the old frame is refused and the new one answers.
+        t.advance(
+            2,
+            1,
+            vec![(
+                TILE,
+                Some(LocalMap::prepare(Width::W256, &[1, 2, 3, 4, 5, 6]).unwrap()),
+            )],
+        );
+        let new = t.seal();
+        cube.rebase(&t, &new).unwrap();
+        assert_eq!(
+            go(&cube, &f, &mut hop),
+            Err(ReachRefusal::Relation(RelationRefusal::Pair(
+                PairRefusal::ForeignFrame
+            )))
+        );
+        go(&cube, &new, &mut hop).unwrap();
+        assert_eq!(hop[..5], [0, 1, UNREACHED, 2, 1]);
+    }
 }
