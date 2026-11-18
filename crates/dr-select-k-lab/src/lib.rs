@@ -27,11 +27,13 @@
 pub mod bind;
 pub mod counters;
 pub mod fixture;
+pub mod inplace;
 pub mod ops;
 pub mod oracle;
 pub mod source;
 
 pub use bind::{Bound, Order, Residual, View};
 pub use counters::Counters;
+pub use inplace::{InPlace, InPlaceRefusal};
 pub use ops::{admissible, Inadmissible, Op, PreparedFolds};
 pub use source::{KeyRange, Selection, Source, Version};
