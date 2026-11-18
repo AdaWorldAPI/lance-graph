@@ -441,8 +441,10 @@ pub struct Gate {
 /// A [`Logic::Kleene`](lance_graph_contract::set_algebra::Logic::Kleene) guard is admitted like a two-valued one (EXO-326):
 /// its witness is its TRUE-rows form, so the gate plane holds the rows where
 /// the guard is TRUE, and a row where it is UNKNOWN is simply not in the
-/// plane. The caller evaluates it over the lanes' presence planes
-/// (`lance_graph_quack::set::SetFilter::where_true`); which rows are UNKNOWN
+/// plane. The caller evaluates it through the class binding: the guard's
+/// fields as a field mask, their lanes and presence planes lent by
+/// `LaneBinding::borrow_all_present`, the TRUE rows by
+/// `lance_graph_quack::set::SetFilter::where_true`. Which rows are UNKNOWN
 /// stays with the caller. A method whose RESULT is three-valued
 /// ([`Truth::ThreeValued`]) is still refused.
 ///
