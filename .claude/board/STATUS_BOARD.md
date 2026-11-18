@@ -1,3 +1,18 @@
+## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
+
+Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291.
+
+| D-id | Deliverable | Status |
+|---|---|---|
+| D-OMR-0 | Plan and the five owner decisions (minting, cache schema bump, odoo constants, promotion, call parameters) | In PR, docs only; decisions open |
+| D-OMR-1 | `MappingProposalKind::Method`, row fields, cache `SCHEMA_VERSION` bump | Queued (needs decisions 1, 2) |
+| D-OMR-2 | `ActionDef` → Method proposal (OGAR #385 re-targeted from `BindStore` to the registry) | Queued (OGAR side) |
+| D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision | Queued |
+| D-OMR-4 | odoo: proposals beside the compiled consts, with an agreement test | Queued |
+| D-OMR-5 | HIRO: a Knowledge Item as a Method proposal with a Kleene WHEN | Blocked: no Knowledge Item reader and no samples exist |
+| D-OMR-6 | Promotion step for rows below confidence 1.0 | Queued (needs decision 4) |
+| D-OMR-7 | zammad-rs: Rails callbacks and scopes registered the same way | Queued |
+
 ## D-XLOG-KNOWLEDGE — XLOG as witnessed reasoning compiler: harvest and staged gates (2026-11-15)
 
 Plan `.claude/plans/xlog-knowledge-spine-v1.md` (charter, DOCS ONLY); harvest `xlog-knowledge-spine-harvest-20261115.md`; session prompt `xlog-knowledge-spine-claude-code-prompt.md`. PR #2093 plus its fix-up.

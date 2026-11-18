@@ -1,3 +1,8 @@
+## 2026-11-18 — D-OMR-0: an ontology ↔ method registry through the `lance-graph-ontology` cache → `.claude/plans/ontology-method-registry-v1.md`
+
+**Status:** PROPOSED / DOCS ONLY. A fourth row kind, Method, beside entity, edge and attribute: ON / WHEN (with its logic) / DO and the effect class, stated in predicate IRIs and appended at intake; DT64 bindings are hydrated from it. `ActionDef` is the input form. Five owner decisions listed in the plan (minting, cache schema bump, odoo constants, promotion of rows below confidence 1.0, call parameters). Discussion and the HIRO session's agreement: EXO-291.
+**Confidence:** `MappingProposalKind`, `append_mapping`, `odoo_blueprint` types and DT64's "no persistence path" read in source; OGAR `ActionDef` (16 fields), `KausalSpec` (7 variants) and `EffectClass` read at OGAR `75bb38b`; OGAR #385 and the OGIT tree witness stated by the HIRO session, not read.
+
 ## 2026-11-15 — D-XLOG-KNOWLEDGE-0: XLOG as witnessed reasoning compiler, donor harvest and staged gates → `.claude/plans/xlog-knowledge-spine-v1.md`
 
 **Status:** PROPOSED / DOCS ONLY (#2093). Companion harvest and session prompt in the same folder. First executable gate is D-XLOG-KNOWLEDGE-G1 only (census reproduction + Datafrog comparator); the cross-domain fixture (Mistaber, Legalis, regelrecht, AriGraph) is deferred to G4-G7.
