@@ -23,17 +23,23 @@ Tests (`tests/integration/binding.rs`, 2 new; integration suite 67 passed):
 
 - `a_kleene_guard_fires_only_on_its_true_rows`: guard `k == 0 AND b < 4`
   over 1,000 rows, `k` absent on every third row and `b` on every fourth
-  (decision B: presence bit 0, value 0). The gate is computed by quack
-  `where_true` over the two presence planes and equals a scalar Kleene
-  reading written in the test. All six combinations occur, among them HIRO's
+  (decision B: presence bit 0, value 0). The gate is evaluated through the
+  class binding: the guard's fields are requested as a `WideFieldMask`
+  (`BindStore::bind_lanes`), and their lanes and presence planes are lent by
+  `LaneBinding::borrow_all_present`; the caller names the class by its route
+  and no lane or plane number (operator, 2026-11-18: "DR > widefieldmask, DT
+  > classview"; a field reached through classid and ontology is a class
+  view, never a foreign lane). quack `where_true` runs over what was lent and
+  equals a scalar Kleene reading written in the test. A field whose source
+  states no presence is `LaneRefusal::PresenceUnbound { field }`. All six combinations occur, among them HIRO's
   KI-1 rows; only (true, true) fires. The count under the gate equals the
   scalar count and is lower than the two-valued reading of the same lanes.
 - `a_kleene_guard_still_needs_its_own_gate`: `prepare` refuses it
   (`GuardNotExecutable`), a gate of another guard is `GateMismatch`, a
   three-valued result is still `ThreeValuedNotExecutable`.
 
-Disables, each red: the refusal restored (both tests); the gate evaluated
-with no validity planes (the first test).
+Disables, each red: the refusal restored (both tests); the lent presence
+planes not handed to `where_true` (the first test).
 
 Open:
 - Native gated plans (the literal ask of EXO-326). Needs a gate operand in

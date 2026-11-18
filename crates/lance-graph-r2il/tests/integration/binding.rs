@@ -11,11 +11,12 @@ use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
 use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{
-    Focus, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope,
+    Focus, Frame, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope,
 };
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding, MethodId,
-    MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, CoordSpace, Effect, Extent, Guard, LaneAddr,
+    LaneRefusal, LaneRequest, LaneSource, MethodBinding, MethodId, MethodRef, PresenceSource,
+    Refusal, RouteAt, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
 use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch};
 use lance_graph_r2il::binding::{
@@ -1135,26 +1136,105 @@ fn a_gate_is_required_and_must_be_the_plans_own() {
 
 // --- EXO-326: a three-valued guard, evaluated over presence planes --------------
 
-/// The rows where `kleene_guard()` is TRUE, as Quack evaluates it over the
-/// lanes and the presence planes of `b` and `k`.
-fn kleene_true_rows(data: &Data, present_b: &[u64], present_k: &[u64]) -> Vec<u64> {
+/// The stored lanes of [`CLASS`] with a presence plane per lane, lent under
+/// the fixture's own frames.
+struct Present<'a> {
+    frames: &'a FrameStore,
+    data: &'a Data,
+    present: [Option<&'a [u64]>; 3],
+}
+
+const ROWS: CoordSpace = CoordSpace {
+    population: 1,
+    coordinates: 1,
+};
+
+impl LaneSource for Present<'_> {
+    type Lane<'s>
+        = LaneRef<'s>
+    where
+        Self: 's;
+
+    fn lane_of(
+        &self,
+        class: u32,
+        rev: SchemaRev,
+        field: u8,
+        _basis: &FieldRef,
+        frame: &Frame,
+    ) -> Option<LaneAddr> {
+        self.frames.check(frame).ok()?;
+        (class == CLASS && rev == REV && field <= 2).then_some(LaneAddr {
+            space: ROWS,
+            lane: u16::from(field),
+            scope: SCOPE,
+        })
+    }
+
+    fn borrow(&self, addr: &LaneAddr) -> Option<LaneRef<'_>> {
+        match addr.lane {
+            0 => Some(LaneRef::I32(&self.data.a)),
+            1 => Some(LaneRef::I32(&self.data.b)),
+            2 => Some(LaneRef::U32(&self.data.k)),
+            _ => None,
+        }
+    }
+
+    fn frames(&self) -> &FrameStore {
+        self.frames
+    }
+}
+
+impl PresenceSource for Present<'_> {
+    fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]> {
+        *self.present.get(usize::from(addr.lane))?
+    }
+}
+
+/// The rows where `guard` is TRUE. The caller names the class (by its route)
+/// and nothing else: the fields the guard reads are requested as a field
+/// mask, and their lanes and presence planes are lent by the class binding.
+fn kleene_true_rows(
+    f: &Fixture,
+    source: &Present<'_>,
+    guard: &Guard,
+) -> Result<Vec<u64>, LaneRefusal> {
     use lance_graph_quack::set::{lower_set, SetLowered};
     use lance_graph_quack::{lower, Agg, Mask, Query};
 
-    let SetLowered::Filter(set) = lower_set(&kleene_guard(), Logic::Kleene).unwrap() else {
+    let SetLowered::Filter(set) = lower_set(&guard.expr, guard.logic).unwrap() else {
         panic!("a filter")
     };
-    let filter = set
-        .where_true(&[0, 1, 2], &[(1, Mask(0)), (2, Mask(1))])
-        .unwrap();
-    let lanes = [
-        LaneRef::I32(&data.a),
-        LaneRef::I32(&data.b),
-        LaneRef::U32(&data.k),
-    ];
-    let masks = [present_b, present_k];
+    let fields: Vec<u8> = set.lanes().iter().map(|&l| l as u8).collect();
+    let frame = f.frames.seal();
+    let binding = f.store.bind_lanes(
+        &f.views,
+        &f.frames,
+        source,
+        LaneRequest {
+            route: RouteAt {
+                position: POSITION,
+                version: f.version,
+            },
+            rev: REV,
+            fields: &WideFieldMask::from_positions(&fields),
+            frame: &frame,
+            scope: SCOPE,
+            selection: ROWS,
+        },
+    )?;
+    let (mut lanes, mut masks, mut nullable) = (Vec::new(), Vec::new(), Vec::new());
+    for lent in binding.borrow_all_present(&f.store, &f.views, &f.frames, source)? {
+        let (field, lane, plane) = lent?;
+        nullable.push((u16::from(field), Mask(masks.len() as u16)));
+        lanes.push(lane);
+        masks.push(plane);
+    }
+    // Column `i` reads `set.lanes()[i]`: both are in ascending field order.
+    let filter = set.where_true(set.lanes(), &nullable).unwrap();
+    let rows = source.data.a.len();
     let planes = Planes {
-        n_rows: data.a.len(),
+        n_rows: rows,
         masks: &masks,
         lanes: &lanes,
     };
@@ -1163,8 +1243,8 @@ fn kleene_true_rows(data: &Data, present_b: &[u64], present_k: &[u64]) -> Vec<u6
         agg: Agg::Rows,
     })
     .unwrap();
-    let mut scratch = Scratch::for_program(&program, data.a.len()).unwrap();
-    let mut out = vec![0u64; data.a.len().div_ceil(64)];
+    let mut scratch = Scratch::for_program(&program, rows).unwrap();
+    let mut out = vec![0u64; rows.div_ceil(64)];
     execute_into(
         &program,
         &planes,
@@ -1173,7 +1253,7 @@ fn kleene_true_rows(data: &Data, present_b: &[u64], present_k: &[u64]) -> Vec<u6
         Out::Mask(&mut out),
     )
     .unwrap();
-    out
+    Ok(out)
 }
 
 fn kleene_and(a: Option<bool>, b: Option<bool>) -> Option<bool> {
@@ -1233,7 +1313,23 @@ fn a_kleene_guard_fires_only_on_its_true_rows() {
         );
     }
 
-    let bits = kleene_true_rows(&data, &present_b, &present_k);
+    let guard = Guard::new(kleene_guard(), Logic::Kleene);
+    let source = Present {
+        frames: &f.frames,
+        data: &data,
+        present: [None, Some(&present_b), Some(&present_k)],
+    };
+    let bits = kleene_true_rows(&f, &source, &guard).unwrap();
+    // A field without a presence plane is refused by name, never read as
+    // all present.
+    let unstated = Present {
+        present: [None, Some(&present_b), None],
+        ..source
+    };
+    assert_eq!(
+        kleene_true_rows(&f, &unstated, &guard),
+        Err(LaneRefusal::PresenceUnbound { field: 2 })
+    );
     assert_eq!(bits, gate_bits(N, |r| truth(r) == Some(true)));
     let unknown = (0..N).filter(|&r| truth(r).is_none()).count();
     assert!(unknown > 0);
