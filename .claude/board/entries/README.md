@@ -25,13 +25,14 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-658 entries, 2026-08-06 .. 2026-11-18.
+659 entries, 2026-08-06 .. 2026-11-18.
 
 | date | entry id | finding | file |
 |---|---|---|---|
 | 2026-11-18 | `exo-328-advance-codes` |  | [2026-11-18-exo-328-advance-codes.md](2026-11-18-exo-328-advance-codes.md) |
 | 2026-11-18 | `exo-326-kleene-gate` |  | [2026-11-18-exo-326-kleene-gate.md](2026-11-18-exo-326-kleene-gate.md) |
 | 2026-11-18 | `exo-292-draft-ranges-count-by` |  | [2026-11-18-exo-292-draft-ranges-count-by.md](2026-11-18-exo-292-draft-ranges-count-by.md) |
+| 2026-11-18 | `D-XLOG-W7-2-STEP-4B` |  | [2026-11-18-d-xlog-w7-2-method-over-cube-lanes.md](2026-11-18-d-xlog-w7-2-method-over-cube-lanes.md) |
 | 2026-11-18 | `D-XLOG-W7-2-STEP-3` |  | [2026-11-18-d-xlog-w7-2-cube-planes.md](2026-11-18-d-xlog-w7-2-cube-planes.md) |
 | 2026-11-18 | `D-XLOG-W7-2-STEP-4A` |  | [2026-11-18-d-xlog-w7-2-cube-lanes.md](2026-11-18-d-xlog-w7-2-cube-lanes.md) |
 | 2026-11-18 | `D-OMR-AMEND-1` |  | [2026-11-18-d-omr-bindstore-is-the-registry.md](2026-11-18-d-omr-bindstore-is-the-registry.md) |
