@@ -1007,3 +1007,122 @@ mod pair_plane {
         assert_eq!(p.len(), 1);
     }
 }
+
+// ---- MapTable::advance_codes: tiles and codes under one frame store ---------
+
+/// A table with one tile and a code table bound to that table's own store.
+fn table_with_codes() -> (MapTable, CodeTable<u32>) {
+    let mut table = MapTable::new(7, 11);
+    table.advance(7, 11, vec![(5, Some(map(&[40, 10, 30])))]);
+    let codes = CodeTable::new(table.frames());
+    (table, codes)
+}
+
+/// A code change is one advance of the table's store: a frame sealed before
+/// it is no longer current, so a lane binding checked against it is refused,
+/// while the frame sealed after it reads the new codes.
+#[test]
+fn a_code_change_retires_the_frame_the_tiles_were_read_under() {
+    let (mut table, mut codes) = table_with_codes();
+    let before = table.seal();
+    assert_eq!(table.frames().check(&before), Ok(()));
+    let at = table
+        .advance_codes(
+            &mut codes,
+            vec![(status(), entries(&[("shipped", 3), ("cancelled", 7)]))],
+        )
+        .unwrap();
+    let after = table.seal();
+    assert_eq!(after.version(), at);
+    assert!(at > before.version());
+    assert_eq!(
+        table.frames().check(&before),
+        Err(FrameRefusal::SourceChanged)
+    );
+    assert_eq!(table.frames().check(&after), Ok(()));
+    assert_eq!(codes.code(&after, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(
+        codes.code(&before, &status(), &vk("shipped")),
+        Err(CodeRead::NoSpace)
+    );
+}
+
+/// The tiles do not move: the layout reads the same under the frame sealed
+/// before the code change and the one sealed after it, and the coordinates
+/// revision is unchanged.
+#[test]
+fn a_code_change_moves_no_tile_and_no_coordinate() {
+    let (mut table, mut codes) = table_with_codes();
+    let before = table.seal();
+    let coordinates = table.revisions().coordinates;
+    table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let after = table.seal();
+    assert_eq!(table.revisions().coordinates, coordinates);
+    for frame in [&before, &after] {
+        let tile = table.map(frame, 5).unwrap();
+        assert_eq!(tile.local(10), Ok(1));
+        assert_eq!(tile.local(30), Ok(2));
+        assert_eq!(tile.global(0), Some(40));
+    }
+    assert_eq!(table.locate(&after, &[5], 40), Ok((0, 0)));
+}
+
+/// A later tile advance and a code change share one version sequence: the
+/// code generation stays readable at the frame it was sealed under after the
+/// tiles moved on.
+#[test]
+fn tiles_and_codes_share_one_version_sequence() {
+    let (mut table, mut codes) = table_with_codes();
+    table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let with_codes = table.seal();
+    let grown = table.advance(8, 11, vec![(5, Some(map(&[40, 10, 30, 20])))]);
+    let after_growth = table.seal();
+    assert!(grown > with_codes.version());
+    table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 9)]))])
+        .unwrap();
+    let recoded = table.seal();
+    assert_eq!(codes.code(&with_codes, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(codes.code(&after_growth, &status(), &vk("shipped")), Ok(3));
+    assert_eq!(codes.code(&recoded, &status(), &vk("shipped")), Ok(9));
+    assert_eq!(
+        table.map(&with_codes, 5).unwrap().local(20),
+        Err(MapRefusal::Unmapped)
+    );
+    assert_eq!(table.map(&recoded, 5).unwrap().local(20), Ok(3));
+}
+
+/// A code table bound to another store is refused and nothing changes: not
+/// the table's frame, not its revisions, not the codes. The twin that must
+/// stay silent is the bound table in the tests above.
+#[test]
+fn codes_bound_to_another_store_are_refused_before_anything_changes() {
+    let (mut table, _) = table_with_codes();
+    let other = FrameStore::new(revisions());
+    let mut foreign: CodeTable<u32> = CodeTable::new(&other);
+    let frame = table.seal();
+    let revs = table.revisions();
+    let r = table.advance_codes(&mut foreign, vec![(status(), entries(&[("shipped", 3)]))]);
+    assert_eq!(r, Err(CodeRead::ForeignStore));
+    assert_eq!(table.frames().check(&frame), Ok(()));
+    assert_eq!(table.revisions(), revs);
+    assert_eq!(table.current_version(), frame.version());
+}
+
+/// A change set that is not a bijection is refused and nothing changes.
+#[test]
+fn a_duplicate_code_change_is_refused_before_anything_changes() {
+    let (mut table, mut codes) = table_with_codes();
+    let frame = table.seal();
+    let r = table.advance_codes(
+        &mut codes,
+        vec![(status(), entries(&[("shipped", 3), ("cancelled", 3)]))],
+    );
+    assert_eq!(r, Err(CodeRead::Duplicate));
+    assert_eq!(table.frames().check(&frame), Ok(()));
+    assert_eq!(table.current_version(), frame.version());
+}

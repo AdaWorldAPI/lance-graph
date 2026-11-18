@@ -1063,6 +1063,27 @@ impl MapTable {
         &self.frames
     }
 
+    /// Change codes under this table's own frame store: one advance of the
+    /// store, made by `codes` ([`CodeTable::advance`]), so a code change and
+    /// the tiles are guarded by one frame. The tiles and the `coordinates`
+    /// revision do not move; a frame sealed before the call stays readable at
+    /// its own version ([`MapTable::map`]) and is no longer current
+    /// ([`FrameStore::check`]). Returns the version the change landed at.
+    ///
+    /// # Errors
+    ///
+    /// As [`CodeTable::advance`]: `ForeignStore` when `codes` is bound to
+    /// another store, `Duplicate` for a change set that is not a bijection.
+    /// On `Err` neither table has changed.
+    pub fn advance_codes<C: Copy + Ord>(
+        &mut self,
+        codes: &mut CodeTable<C>,
+        changes: Vec<(CodeSpaceId, Vec<(ValueKey, C)>)>,
+    ) -> Result<RouteVersion, CodeRead> {
+        codes.advance(&mut self.frames, changes)?;
+        Ok(self.frames.version)
+    }
+
     /// The map of `tile` as of `frame`'s version. A frame of this table
     /// always resolves (old frames replay their layout); a frame of another
     /// table is `Stale(ForeignFrame)`; a tile absent then is `NoSuchTile`.
