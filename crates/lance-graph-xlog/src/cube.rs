@@ -35,7 +35,9 @@
 //! inside the cube; nothing is added to the cube and no tuple is built.
 
 mod body;
+mod lend;
 pub use body::{Atom, BodyAnswer, BodyRefusal, MAX_BODY_VARS};
+pub use lend::CubeLanes;
 
 use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
