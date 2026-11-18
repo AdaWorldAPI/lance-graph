@@ -1,5 +1,16 @@
 # D-OMR-0..7 — An ontology ↔ method registry through the `lance-graph-ontology` cache
 
+> **⊘ AMENDED 2026-11-18, after merge (#2133). §1 "a fourth row kind in the
+> ontology cache" and rule R4's hydration step are SUPERSEDED by §8.** Operator,
+> same day, on the question "shouldn't the BindStore be that registry?":
+> *"theres a missed opportunity for bindstore and DT64 / DR to integrate —
+> bindstore = DT classview / DR widefieldmask"*. The two-store split below was
+> never weighed against the alternative: it followed the wording of the request
+> and an available append path, and it left the authority question open (which
+> of row and binding says a method exists; which wins when they differ; who may
+> call `BindStore::register`). The text below is kept as written; read it
+> through §8.
+
 > **Draft / documentation only, 2026-11-18.** This file authorizes no Rust
 > code, no cache schema change, no OGAR `ActionDef` or classid mutation and no
 > change to DT64. Each step below needs its own PR with a parity test and a
@@ -164,3 +175,60 @@ bound, at the bound schema revision.
   cargo resolved (`75bb38b`).
 - How bardioc loads the HIRO ontology through `lance-graph-ontology`.
 - No HIRO lane source exists yet (stated by the HIRO session).
+
+## 8. Amendment: the BindStore is the method registry
+
+**The reading.** The `BindStore` already is the place where the two sides
+meet:
+
+- **DT side, the class view.** A class's fields are read through a
+  `ClassView`, never copied (`BindStore::resolve`, `lance-graph-dt64/src/lib.rs:1099`).
+  The ontology registry already implements it:
+  `lance_graph_ontology::class_resolver::RegistryClassView` (`class_resolver.rs:104`).
+  So the predicates' intake is unchanged, and it is the name-level form.
+- **DR side, the field mask.** A method's ON and reads are `WideFieldMask`s
+  over that basis (`MethodBinding`, `lib.rs:222-241`); routes and their version
+  log are DR's (`BindStore.routes`).
+
+A method declaration is therefore a `MethodBinding` bound against a class view
+at a schema revision. A second store that repeats it in names is a copy of
+what the class view already supplies.
+
+**What changes against §1 to §4.**
+
+| Before | Now |
+| --- | --- |
+| A `Method` row in the ontology cache | No new row kind. `lance-graph-ontology` stays the intake for predicates and the provider of the class view |
+| DT64 hydrated from the registry (R4) | No hydration step. Producers register with the `BindStore`; it is the one authority that a method exists |
+| D-OMR-1: `MappingProposalKind::Method` and a cache schema bump | Withdrawn |
+| D-OMR-3: rows → bindings | Withdrawn |
+
+**What the `BindStore` lacks for this role, each its own deliverable and none
+authorized by this file:**
+
+| D-id | Gap | Note |
+| --- | --- | --- |
+| D-OMR-8 | **Registration by name.** A producer states ON / reads / writes as predicates; the store resolves them to a mask through the class view it validated, and refuses an unknown predicate by name | Today each producer resolves names to positions itself (OGAR #385, `rails-f000`). Positions shift when the ontology changes; the mask must be derived at the bound revision, never carried |
+| D-OMR-9 | **A state for known but not executable.** A declaration that is stored and admitted for no run: confidence below 1.0 awaiting promotion, an event trigger (`KausalSpec::LifecycleTrigger`, `External`), an action with no parameter channel | Today the store refuses what it cannot bind, so it has no place for these |
+| D-OMR-10 | **The effect class on the binding.** So `register` can refuse a field effect on a method whose class needs the gate | Answers EXO-291 question 3. A new field changes every binding digest: a versioned change |
+| D-OMR-11 | **Durability.** The declarations and the route log persisted | `lance-graph-dt64-lance` already holds the durable map table; whether it fits was not read |
+
+**What stands unchanged:** rules R1 (nothing here mints), R2 (append-only, a
+change is a derived classid and a re-route), R3 (the reading is fixed at
+intake), R5 (stored is not executable), R6 (no second vocabulary: `ActionDef`
+is the input form); the corrected odoo mapping of §2; D-OMR-2 re-targeted to
+"`ActionDef` → `BindStore` registration by name"; D-OMR-4, -5, -6, -7 with
+"proposal" read as "declaration in the store".
+
+**Decisions now needed** (replacing decisions 1 to 3 of §5):
+
+1. Whether DT64's "no persistence path" is lifted (D-OMR-11), and where the
+   durable form lives.
+2. Whether a not-executable declaration belongs in the `BindStore` (D-OMR-9),
+   or beside it.
+3. Whether the effect class goes on `MethodBinding` (D-OMR-10).
+4. Promotion (unchanged) and 5. call parameters (unchanged).
+
+**Not verified:** how a class whose basis changed is re-bound today (the
+header says another basis for a bound class is refused); whether
+`RegistryClassView` keeps a history per schema revision; `dt64-lance`'s fit.

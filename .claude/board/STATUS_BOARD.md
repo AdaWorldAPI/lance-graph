@@ -5,13 +5,17 @@ Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291.
 | D-id | Deliverable | Status |
 |---|---|---|
 | D-OMR-0 | Plan and the five owner decisions (minting, cache schema bump, odoo constants, promotion, call parameters) | In PR, docs only; decisions open |
-| D-OMR-1 | `MappingProposalKind::Method`, row fields, cache `SCHEMA_VERSION` bump | Queued (needs decisions 1, 2) |
+| D-OMR-1 | `MappingProposalKind::Method`, row fields, cache `SCHEMA_VERSION` bump | Withdrawn (plan §8: the BindStore is the method registry) |
 | D-OMR-2 | `ActionDef` → Method proposal (OGAR #385 re-targeted from `BindStore` to the registry) | Queued (OGAR side) |
-| D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision | Queued |
+| D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision | Withdrawn (plan §8: no hydration step) |
 | D-OMR-4 | odoo: proposals beside the compiled consts, with an agreement test | Queued |
 | D-OMR-5 | HIRO: a Knowledge Item as a Method proposal with a Kleene WHEN | Blocked: no Knowledge Item reader and no samples exist |
 | D-OMR-6 | Promotion step for rows below confidence 1.0 | Queued (needs decision 4) |
 | D-OMR-7 | zammad-rs: Rails callbacks and scopes registered the same way | Queued |
+| D-OMR-8 | `BindStore` registration by name: predicates resolved to a mask through the validated class view | Queued |
+| D-OMR-9 | A known-but-not-executable state in the `BindStore` | Queued (needs decision 2 of §8) |
+| D-OMR-10 | The effect class on `MethodBinding` | Queued (needs decision 3 of §8) |
+| D-OMR-11 | Durable declarations and route log | Queued (needs decision 1 of §8) |
 
 ## D-XLOG-KNOWLEDGE — XLOG as witnessed reasoning compiler: harvest and staged gates (2026-11-15)
 
