@@ -1193,8 +1193,8 @@ fn a_kleene_guard_fires_only_on_its_true_rows() {
     let f = Fixture::new();
     let mut data = Data::new(N);
     // Decision B (EXO-294): an absent value is presence bit 0 with value 0.
-    let has_k = |r: usize| r % 3 != 0;
-    let has_b = |r: usize| r % 4 != 0;
+    let has_k = |r: usize| !r.is_multiple_of(3);
+    let has_b = |r: usize| !r.is_multiple_of(4);
     for r in 0..N {
         if !has_k(r) {
             data.k[r] = 0;
