@@ -16,7 +16,7 @@ const LANE_A: u16 = 0;
 const LANE_B: u16 = 1;
 
 /// Run `program` over two I32 lanes and at most one input mask plane.
-fn run(
+pub(crate) fn run(
     program: &Program,
     scratch: &mut Scratch<'_>,
     n_rows: usize,
@@ -40,7 +40,7 @@ fn run(
 }
 
 /// `count(b > t)` program, gated by plane 0 when `gated`.
-fn count_b_gt_program(t: i32, gated: bool) -> Program {
+pub(crate) fn count_b_gt_program(t: i32, gated: bool) -> Program {
     Program::new(
         vec![MaskOp::Pred {
             pred: Pred::GtI32 { lane: LANE_B, t },
@@ -54,7 +54,7 @@ fn count_b_gt_program(t: i32, gated: bool) -> Program {
 }
 
 /// `sum(a)` over plane 0.
-fn sum_a_program() -> Program {
+pub(crate) fn sum_a_program() -> Program {
     Program::new(
         Vec::new(),
         Terminal::MaskedSumI32 {
@@ -65,7 +65,7 @@ fn sum_a_program() -> Program {
 }
 
 /// Rewrite the threshold of a [`count_b_gt_program`] in place, no allocation.
-fn set_threshold(program: &mut Program, t: i32) {
+pub(crate) fn set_threshold(program: &mut Program, t: i32) {
     if let MaskOp::Pred { pred, .. } = &mut program.ops[0] {
         *pred = Pred::GtI32 { lane: LANE_B, t };
     }
