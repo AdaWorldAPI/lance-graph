@@ -43,10 +43,10 @@ use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_dt64::dr::{
-    Axis, Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, PairPlane, TileId,
-    TileMap, Width,
+    Axis, Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, PairDir, PairPlane,
+    TileId, TileMap, Width,
 };
-use lance_graph_dt64::{RelNo, RelationSource};
+use lance_graph_dt64::{relation_reach, ReachBuf, ReachRefusal, RelNo, RelationSource};
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 use ndarray::simd::{checked_binary_i64, mask_and, mask_andnot, mask_any, mask_or_assign, I64Op};
@@ -294,6 +294,8 @@ pub enum CubeRefusal {
     /// for the grown tile, or that changes the map of a tile the batch did
     /// not grow. Carries the tile.
     FrameMismatch(TileId),
+    /// The reach over the relation's lent plane refused.
+    Reach(ReachRefusal),
     /// A [`BaseClosure`] made by another cube.
     ForeignClosure,
     /// A [`BaseClosure`] of another relation.
@@ -622,36 +624,39 @@ impl Cube {
         target: &[u64],
         words: usize,
     ) -> Result<(Vec<u64>, ClosureStats), CubeRefusal> {
-        let r = self.lanes(rel)?;
-        let mut edge = vec![0u64; self.n * words];
-        for (&a, &b) in r.cols[0].iter().zip(&r.cols[1]) {
-            let (a, b) = (a as usize, b as usize);
-            edge[a * words + b / 64] |= 1 << (b % 64);
-        }
-        let mut full = seed.clone();
-        let mut delta = seed;
-        let mut next = vec![0u64; words];
-        let mut kept = vec![0u64; words];
-        let mut stats = ClosureStats::default();
-        while mask_any(&delta) {
-            if stats.rounds as usize > self.n {
-                return Err(CubeRefusal::FixpointBound);
-            }
-            stats.rounds += 1;
-            next.fill(0);
-            for (w, &d) in delta.iter().enumerate() {
-                let mut bits = d;
-                while bits != 0 {
-                    let x = w * 64 + bits.trailing_zeros() as usize;
-                    mask_or_assign(&mut next, &edge[x * words..(x + 1) * words]);
-                    bits &= bits - 1;
-                    stats.rows_composed += 1;
-                }
-            }
-            mask_and(&next, target, &mut kept);
-            mask_andnot(&kept, &full, &mut delta);
-            mask_or_assign(&mut full, &delta);
-        }
+        // The relation's rows are the cube's own plane, lent; nothing is
+        // rebuilt per call. The plane spans every reserved position, so the
+        // cube's masks are widened to it and the answer narrowed back.
+        let plane = self.plane(rel)?;
+        let w = plane.words_per_row(PairDir::Forward);
+        let widen = |m: &[u64]| {
+            let mut out = vec![0u64; w];
+            out[..m.len()].copy_from_slice(m);
+            out
+        };
+        let (seed, target) = (widen(&seed), widen(target));
+        let mut full = vec![0u64; w];
+        let mut hop = vec![0u16; plane.rows_in(PairDir::Forward)];
+        let mut scratch = vec![0u64; 2 * w];
+        let done = relation_reach(
+            self,
+            rel,
+            &self.frame,
+            PairDir::Forward,
+            &seed,
+            Some(&target),
+            &mut ReachBuf {
+                reached: &mut full,
+                hop: &mut hop,
+                scratch: &mut scratch,
+            },
+        )
+        .map_err(CubeRefusal::Reach)?;
+        full.truncate(words);
+        let stats = ClosureStats {
+            rounds: done.rounds,
+            rows_composed: done.rows_read,
+        };
         Ok((full, stats))
     }
 
