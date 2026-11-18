@@ -43,10 +43,11 @@ live in the same append-only store, keyed by IRI. DT64's bindings are hydrated
 from it; nothing registers into DT64 directly.
 
 **`ActionDef` is the input form.** OGAR's `ActionDef`
-(`ogar-vocab/src/lib.rs:402`, read at OGAR `cae37ed`) already carries, in
-names: `identity`, `predicate`, `object_class`, `kausal`
-(`KausalSpec::{StateGuard, LifecycleTrigger, …}`), `decorators`, `reads`,
-`writes`, `calls`, raises. odoo-rs, zammad-rs, ruff and a future Knowledge Item
+(`ogar-vocab/src/lib.rs:402`, read at OGAR `75bb38b`) has 16 fields, all
+stated in names: `identity`, `predicate`, `object_class`, `default_subject`,
+`default_temporal`, `default_modal`, `kausal`, `body_source`, `decorators`,
+`reads`, `writes`, `calls`, `raises`, `on_enter`, `guard_failure_policy`,
+`state_timeout_millis`. odoo-rs, zammad-rs, ruff and a future Knowledge Item
 reader keep emitting it. It is lowered into a Method proposal and appended. No
 second method vocabulary is created: a Method row holds what an `ActionDef`
 states plus its effect class and guard logic.
@@ -57,20 +58,36 @@ not read by this session). It becomes a producer that emits Method proposals.
 Its conversion and its by-name refusals stay; the registration target moves to
 the registry.
 
-A Method row carries:
+A Method row carries every field of the `ActionDef` it came from, plus four of
+its own. None may be dropped: D-OMR-2's gate is that all 16 survive the round
+trip.
 
 | Field | Content |
 | --- | --- |
-| identity | the `ActionDef` identity and its owner class, as IRIs |
-| signature revision | so a changed method is a new row |
-| ON | the trigger, as predicate IRIs |
-| WHEN | the guard over predicate IRIs, **with its logic** (two-valued or Kleene) |
-| DO | reads / writes / calls as predicate IRIs |
-| effect class | OGAR's `EffectClass` (`ogar-vocab/src/effect_class.rs:74`) |
-| provenance | source harvested from; for OGIT the tree commit |
-| confidence | 1.0 declared; below 1.0 mined or harvested |
+| `identity`, `predicate`, `object_class` | the method and its owner class, as IRIs |
+| `default_subject`, `default_temporal`, `default_modal` | as stated |
+| `kausal` | the trigger or guard; see ON and WHEN below |
+| `reads`, `writes`, `calls`, `raises` | DO, as predicate IRIs and names |
+| `on_enter` | the enter effect. OGAR's classifier treats it as a commit-stage effect, so it decides the effect class **[HIRO]** |
+| `guard_failure_policy`, `state_timeout_millis` | as stated |
+| `body_source`, `decorators` | as stated (provenance of the harvest) |
+| + signature revision | so a changed method is a new row |
+| + guard logic | two-valued or Kleene, for the WHEN |
+| + effect class | OGAR's `EffectClass` (`ogar-vocab/src/effect_class.rs:74`) |
+| + provenance and confidence | source harvested from (for OGIT the tree commit); 1.0 declared, below 1.0 mined or harvested |
 
-**Everything is stated in predicate IRIs, never in field positions.** OGIT ids
+**ON and WHEN come from `KausalSpec`, which has seven variants [HIRO]:**
+`StateGuard`, `LifecycleTrigger { event }`, `Depends`, `Constrains`,
+`Onchange`, `ContextDepends`, `External`.
+
+- Five are stated over predicates and are stored as predicate IRIs.
+- **Two are not predicates:** `LifecycleTrigger { event }` and `External`. The
+  row needs an event form for ON beside the predicate form. Today DT64's `on`
+  is a field mask only, and OGAR's converter refuses `LifecycleTrigger` by
+  name. Hydration (D-OMR-3) must keep that refusal until DT64 has an event
+  trigger; an event row is stored, and yields no binding.
+
+**Predicates are stated as IRIs, never as field positions.** OGIT ids
 are row positions of the files as read; a name added in the middle shifts the
 ids after it, and the tree witness refuses a stale code space **[HIRO]**. Names
 do not move. Positions are resolved through the class view when the class is
@@ -111,11 +128,11 @@ bound, at the bound schema revision.
 | D-OMR-0 | This plan, the decisions below ruled | owner |
 | D-OMR-1 | `MappingProposalKind::Method` and its `MappingRow` fields; cache `SCHEMA_VERSION` bump in the same commit (`lance_cache.rs:56` rule) | round-trip through the Lance cache equals the proposal; an old-version dataset is rebuilt, not misread |
 | D-OMR-2 | `ActionDef` → Method proposal: OGAR #385's conversion re-targeted from `BindStore` to the registry, in a crate allowed to depend on OGAR (not `lance-graph-contract`) | every field of `ActionDef` survives the round trip; a lossy field fails the test; the by-name refusals are unchanged |
-| D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision, IRIs resolved through the class view | a predicate the view does not have is refused by name; reordering the view's fields changes no binding |
+| D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision, IRIs resolved through the class view | a predicate the view does not have is refused by name; reordering the view's fields changes no binding; an event-triggered row yields no binding and is refused by name |
 | D-OMR-4 | odoo: emit proposals beside the compiled consts | a test that the two agree for every entity; consts stay the source until it has held |
-| D-OMR-5 | HIRO: a Knowledge Item arrives as a Method proposal with a Kleene WHEN | KI-1 run from a stored row equals the oracle |
+| D-OMR-5 | HIRO: a Knowledge Item arrives as a Method proposal with a Kleene WHEN. **Blocked:** no Knowledge Item reader and no samples exist yet, so nothing can produce the proposal | KI-1 run from a stored row equals the oracle |
 | D-OMR-6 | Promotion step for rows below confidence 1.0 | an unpromoted row yields no binding (can-fire and can-stay-silent) |
-| D-OMR-7 | zammad-rs: Rails callbacks and scopes registered the same way | the bindings equal those zammad-f000 builds today |
+| D-OMR-7 | zammad-rs: Rails callbacks and scopes registered the same way | the bindings equal those `rails-f000` builds today |
 
 ## 5. Decisions needed
 
@@ -142,8 +159,8 @@ bound, at the bound schema revision.
 ## 7. Not verified by this session
 
 - OGAR #385 (the `ActionDef` → DT64 conversion) and the tree witness: stated
-  by the HIRO session; OGAR is outside this session's repositories. `ActionDef`
-  and `EffectClass` themselves were read from the OGAR checkout cargo resolved
-  (`cae37ed`).
+  by the HIRO session; OGAR is outside this session's repositories. `ActionDef`,
+  `KausalSpec` and `EffectClass` themselves were read from the OGAR checkout
+  cargo resolved (`75bb38b`).
 - How bardioc loads the HIRO ontology through `lance-graph-ontology`.
 - No HIRO lane source exists yet (stated by the HIRO session).
