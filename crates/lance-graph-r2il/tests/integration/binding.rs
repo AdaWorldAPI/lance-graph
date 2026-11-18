@@ -8,7 +8,7 @@
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
-use lance_graph_contract::set_algebra::{Logic, SetExpr};
+use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{
     Focus, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope,
@@ -17,7 +17,7 @@ use lance_graph_dt64::{
     AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding, MethodId,
     MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
+use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch};
 use lance_graph_r2il::binding::{
     prepare, prepare_gated, run, run_gated, ExecPermit, ExecRefusal, FieldLanes, Gate, Prepared,
     R2ilLens, Receipt, Resolution,
@@ -182,6 +182,7 @@ const SHARED_AND: u32 = 14; // m = a < 5; t = a < 10; u = m AND t; s = POP_COUNT
 const PRED_ONLY: u32 = 15; // m = a < 5, consumed by no fold
 const GUARDED_COUNT: u32 = 16; // WHEN k == 3: m = a < 5; s = POP_COUNT(m)
 const GUARDED_ALL: u32 = 17; // WHEN k == 3: m = a < 5; s = ALL(m)
+const KLEENE_COUNT: u32 = 18; // WHEN k == 0 AND b < 4, three-valued: m = a < 5; s = POP_COUNT(m)
 
 fn methods() -> Vec<MethodBinding> {
     let with = |id, extra: Vec<Effect>| {
@@ -288,7 +289,26 @@ fn methods() -> Vec<MethodBinding> {
                 step(4, W_ALL, vec![Arg::Field(3)]),
             ],
         ),
+        kleene_count(),
     ]
+}
+
+/// `k == 0 AND b < 4`, three-valued over `k` (field 2) and `b` (field 1).
+fn kleene_guard() -> SetExpr {
+    SetExpr::And(vec![SetExpr::eq_u32(2, 0), SetExpr::i32(1, Cmp::Lt, 4)])
+}
+
+fn kleene_count() -> MethodBinding {
+    let mut m = method(
+        KLEENE_COUNT,
+        &[0, 1, 2],
+        vec![
+            step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
+            step(4, W_POP, vec![Arg::Field(3)]),
+        ],
+    );
+    m.when = Some(Guard::new(kleene_guard(), Logic::Kleene));
+    m
 }
 
 /// A method guarded by `k == 3` (field 2).
@@ -1111,4 +1131,147 @@ fn a_gate_is_required_and_must_be_the_plans_own() {
     );
     // Silence twin: the right gate runs.
     assert!(exec_gated(&f, &gated, &data, &p, &bits, &f.gate(GUARDED_COUNT)).is_ok());
+}
+
+// --- EXO-326: a three-valued guard, evaluated over presence planes --------------
+
+/// The rows where `kleene_guard()` is TRUE, as Quack evaluates it over the
+/// lanes and the presence planes of `b` and `k`.
+fn kleene_true_rows(data: &Data, present_b: &[u64], present_k: &[u64]) -> Vec<u64> {
+    use lance_graph_quack::set::{lower_set, SetLowered};
+    use lance_graph_quack::{lower, Agg, Mask, Query};
+
+    let SetLowered::Filter(set) = lower_set(&kleene_guard(), Logic::Kleene).unwrap() else {
+        panic!("a filter")
+    };
+    let filter = set
+        .where_true(&[0, 1, 2], &[(1, Mask(0)), (2, Mask(1))])
+        .unwrap();
+    let lanes = [
+        LaneRef::I32(&data.a),
+        LaneRef::I32(&data.b),
+        LaneRef::U32(&data.k),
+    ];
+    let masks = [present_b, present_k];
+    let planes = Planes {
+        n_rows: data.a.len(),
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let program = lower(&Query {
+        filter,
+        agg: Agg::Rows,
+    })
+    .unwrap();
+    let mut scratch = Scratch::for_program(&program, data.a.len()).unwrap();
+    let mut out = vec![0u64; data.a.len().div_ceil(64)];
+    execute_into(
+        &program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut out),
+    )
+    .unwrap();
+    out
+}
+
+fn kleene_and(a: Option<bool>, b: Option<bool>) -> Option<bool> {
+    match (a, b) {
+        (Some(false), _) | (_, Some(false)) => Some(false),
+        (Some(true), Some(true)) => Some(true),
+        _ => None,
+    }
+}
+
+/// FAILS IF: a method under a three-valued guard fires on a row where the
+/// guard is UNKNOWN or FALSE, or misses one where it is TRUE. The rows are
+/// HIRO's KI-1 table: (true, unknown), (true, false), (unknown, false) and
+/// (false, unknown) do not fire; (true, true) fires once.
+#[test]
+fn a_kleene_guard_fires_only_on_its_true_rows() {
+    let f = Fixture::new();
+    let mut data = Data::new(N);
+    // Decision B (EXO-294): an absent value is presence bit 0 with value 0.
+    let has_k = |r: usize| r % 3 != 0;
+    let has_b = |r: usize| r % 4 != 0;
+    for r in 0..N {
+        if !has_k(r) {
+            data.k[r] = 0;
+        }
+        if !has_b(r) {
+            data.b[r] = 0;
+        }
+    }
+    let present_k = gate_bits(N, has_k);
+    let present_b = gate_bits(N, has_b);
+
+    let a_of = |r: usize| has_k(r).then(|| data.k[r] == 0);
+    let b_of = |r: usize| has_b(r).then(|| data.b[r] < 4);
+    let truth = |r: usize| kleene_and(a_of(r), b_of(r));
+
+    // Every row of the acceptance table occurs, with the outcome it names.
+    let rows_of = |a: Option<bool>, b: Option<bool>| {
+        (0..N)
+            .filter(|&r| a_of(r) == a && b_of(r) == b)
+            .collect::<Vec<_>>()
+    };
+    let (t, fl, u) = (Some(true), Some(false), None);
+    for (a, b, fires) in [
+        (t, u, false),
+        (t, fl, false),
+        (t, t, true),
+        (u, fl, false),
+        (fl, u, false),
+        (u, u, false),
+    ] {
+        let rows = rows_of(a, b);
+        assert!(!rows.is_empty(), "no row with ({a:?}, {b:?})");
+        assert!(
+            rows.iter().all(|&r| (truth(r) == Some(true)) == fires),
+            "({a:?}, {b:?})"
+        );
+    }
+
+    let bits = kleene_true_rows(&data, &present_b, &present_k);
+    assert_eq!(bits, gate_bits(N, |r| truth(r) == Some(true)));
+    let unknown = (0..N).filter(|&r| truth(r).is_none()).count();
+    assert!(unknown > 0);
+
+    let want = (0..N)
+        .filter(|&r| truth(r) == Some(true) && data.a[r] < 5)
+        .count() as i64;
+    // Read two-valued, an absent value is 0 and satisfies both terms.
+    let two_valued = (0..N)
+        .filter(|&r| data.k[r] == 0 && data.b[r] < 4 && data.a[r] < 5)
+        .count() as i64;
+    assert!(want > 0 && want < two_valued, "{want} of {two_valued}");
+
+    let p = permit(&f.store, &[KLEENE_COUNT]);
+    let plan = f.prepare_gated(KLEENE_COUNT).unwrap();
+    let r = exec_gated(&f, &plan, &data, &p, &bits, &f.gate(KLEENE_COUNT)).unwrap();
+    assert_eq!(values(&r), vec![(4, want)]);
+}
+
+/// FAILS IF: a three-valued guard runs without a gate, under the gate of
+/// another guard, or a three-valued RESULT becomes executable.
+#[test]
+fn a_kleene_guard_still_needs_its_own_gate() {
+    let f = Fixture::new();
+    assert_eq!(
+        f.prepare(KLEENE_COUNT).map(|_| ()),
+        Err(ExecRefusal::GuardNotExecutable)
+    );
+    let data = Data::new(N);
+    let bits = gate_bits(N, |_| true);
+    let p = permit(&f.store, &[KLEENE_COUNT, GUARDED_COUNT]);
+    let plan = f.prepare_gated(KLEENE_COUNT).unwrap();
+    assert_eq!(
+        exec_gated(&f, &plan, &data, &p, &bits, &f.gate(GUARDED_COUNT)).map(|_| ()),
+        Err(ExecRefusal::GateMismatch)
+    );
+    assert_eq!(
+        f.prepare(THREE_VALUED).map(|_| ()),
+        Err(ExecRefusal::ThreeValuedNotExecutable)
+    );
 }
