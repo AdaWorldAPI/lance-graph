@@ -41,8 +41,10 @@ use std::cell::{Cell, OnceCell};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use lance_graph_dt64::dr::{
-    Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, TileId, TileMap, Width,
+    Axis, Frame, LocalMap, LocateRefusal, MapRead, MapRefusal, MapTable, PairPlane, TileId,
+    TileMap, Width,
 };
+use lance_graph_dt64::{RelNo, RelationSource};
 use lance_graph_mask_risc::{LaneRef, Out};
 use lance_graph_quack::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 use ndarray::simd::{checked_binary_i64, mask_and, mask_andnot, mask_any, mask_or_assign, I64Op};
@@ -401,6 +403,13 @@ pub struct Cube {
     /// the log changes. A derived read: nothing persistent is written, and it
     /// is recomputed by folding. Parallel to `rels`.
     effective: Vec<OnceCell<Rel>>,
+    /// Per relation, the presence of its effective pairs over the cube's
+    /// coordinates, in both directions: the cross-reference, never rows. Built
+    /// from [`Cube::lanes`] on first read under the cube's frame and dropped
+    /// with `effective` (an edge logged, a refold, a commit that grew the
+    /// map, a rebase), so it is never read past the state it was built from.
+    /// Lent through [`RelationSource`]. Parallel to `rels`.
+    planes: Vec<OnceCell<PairPlane>>,
     nodes: Vec<Node>,
     /// One-column sets ([`Cube::add_set`]): one bit per local position of
     /// the shared map, placed under the cube's frame like a relation's lanes.
@@ -434,6 +443,7 @@ impl Cube {
             logs: vec![DeltaLog::new(); rels.len()],
             base_gen: vec![0; rels.len()],
             effective: empty_effective(rels.len()),
+            planes: empty_planes(rels.len()),
             rels,
             nodes: Vec::new(),
             sets: Vec::new(),
@@ -484,6 +494,7 @@ impl Cube {
             logs: vec![DeltaLog::new(); rels.len()],
             base_gen: vec![0; rels.len()],
             effective: empty_effective(rels.len()),
+            planes: empty_planes(rels.len()),
             rels,
             nodes: Vec::new(),
             sets: Vec::new(),
@@ -509,6 +520,7 @@ impl Cube {
         self.logs.push(DeltaLog::new());
         self.base_gen.push(0);
         self.effective.push(OnceCell::new());
+        self.planes.push(OnceCell::new());
         let mut s = self.stats.get();
         s.relations_added += 1;
         self.stats.set(s);
@@ -875,6 +887,31 @@ impl Cube {
         if let Some(c) = self.effective.get_mut(rel as usize) {
             c.take();
         }
+        if let Some(c) = self.planes.get_mut(rel as usize) {
+            c.take();
+        }
+    }
+
+    /// Relation `rel`'s pair plane: one bit per effective pair, both
+    /// directions, over `256 * tiles` coordinates per axis. Built once per
+    /// state of the relation; see the `planes` field.
+    pub(crate) fn plane(&self, rel: RelId) -> Result<&PairPlane, CubeRefusal> {
+        let lanes = self.lanes(rel)?;
+        let cell = self
+            .planes
+            .get(rel as usize)
+            .ok_or(CubeRefusal::UnknownRel(rel))?;
+        Ok(cell.get_or_init(|| {
+            let axis = Axis::new(Width::W256, self.tiles.len() as u32);
+            let mut plane = PairPlane::new(&self.frame, axis, axis);
+            for (&x, &y) in lanes.cols[0].iter().zip(&lanes.cols[1]) {
+                // Lanes hold coordinates placed under this frame, all below
+                // `256 * tiles`; a refusal here would be a cube bug.
+                let placed = plane.insert(x as usize, y as usize);
+                debug_assert!(placed.is_ok(), "lane coordinate past the cube's axis");
+            }
+            plane
+        }))
     }
 
     fn run(&self, side: Side, query: &Query, out: Out<'_>) -> Result<(), CubeRefusal> {
@@ -1467,6 +1504,9 @@ impl Cube {
             for c in &mut self.effective {
                 c.take();
             }
+            for c in &mut self.planes {
+                c.take();
+            }
         }
         for &(rel, op, s, d) in &staged.ops {
             if let Some(l) = self.logs.get_mut(rel as usize) {
@@ -1511,6 +1551,9 @@ impl Cube {
         self.frame = frame.clone();
         // `n` may have grown; cached folds were built under the old one.
         for c in &mut self.effective {
+            c.take();
+        }
+        for c in &mut self.planes {
             c.take();
         }
         Ok(())
@@ -1564,6 +1607,18 @@ fn side_rows<'a>(
         .filter(move |&i| keep[j[i] as usize / 64] >> (j[i] % 64) & 1 == 1)
         .filter(move |&i| bound.is_none_or(|v| v == Some(f[i])))
         .map(move |i| (j[i], f[i]))
+}
+
+fn empty_planes(n: usize) -> Vec<OnceCell<PairPlane>> {
+    (0..n).map(|_| OnceCell::new()).collect()
+}
+
+/// The cube lends each relation's pair plane; it never copies or rebuilds one
+/// for a reader.
+impl RelationSource for Cube {
+    fn borrow_relation(&self, rel: RelNo) -> Option<&PairPlane> {
+        self.plane(rel).ok()
+    }
 }
 
 fn empty_effective(n: usize) -> Vec<OnceCell<Rel>> {

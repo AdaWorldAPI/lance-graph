@@ -29,7 +29,7 @@
 //! built per call, as [`Cube::reach`] builds its edge rows), at most
 //! [`MAX_BODY_VARS`] variables, no repeated variable inside one atom.
 
-use lance_graph_dt64::dr::MapTable;
+use lance_graph_dt64::dr::{MapTable, PairDir};
 use ndarray::simd::{mask_and, mask_or_assign, mask_ternlog_popcount, ternlog, U64x4};
 
 use super::{Cube, CubeRefusal, RelId};
@@ -80,21 +80,23 @@ pub struct BodyAnswer {
 /// One constraint on a variable from an atom whose other end is earlier.
 #[derive(Clone, Copy)]
 struct Check {
-    /// Index into the row arena: `(atom * 2 + dir) * n * words`.
+    /// Which lent row block: `atom * 2 + dir` (0 forward, 1 backward).
     base: usize,
     /// The earlier variable whose bound position selects the row.
     earlier: usize,
 }
 
-/// The per-call row masks and checks of one body.
-struct Plan {
+/// The checks of one body over the row masks the cube lends.
+struct Plan<'c> {
     n: usize,
     words: usize,
     k: usize,
-    rows: Vec<u64>,
+    /// Per atom and direction (`atom * 2 + dir`), the relation's pair-plane
+    /// rows, lent by the cube: `words` words per position. Never copied.
+    blocks: Vec<&'c [u64]>,
     proj: Vec<u64>,
     checks: Vec<Vec<Check>>,
-    /// Per variable, every atom touching it: `(other variable, row base,
+    /// Per variable, every atom touching it: `(other variable, row block,
     /// selectivity)`. The row at `other`'s bound position holds this
     /// variable's candidates; the selectivity is that block's mean nonzero
     /// row popcount over `n`.
@@ -120,8 +122,15 @@ enum Step {
     Bind(usize),
 }
 
-impl Plan {
-    fn new(cube: &Cube, atoms: &[Atom], k: usize) -> Result<Self, BodyRefusal> {
+impl<'c> Plan<'c> {
+    /// Row `x` of block `b`.
+    #[inline]
+    fn row(&self, b: usize, x: usize) -> &'c [u64] {
+        let w = self.words;
+        &self.blocks[b][x * w..(x + 1) * w]
+    }
+
+    fn new(cube: &'c Cube, atoms: &[Atom], k: usize) -> Result<Self, BodyRefusal> {
         if k == 0 || k > MAX_BODY_VARS {
             return Err(BodyRefusal::Arity(k));
         }
@@ -144,7 +153,7 @@ impl Plan {
         debug_assert!(n <= ROW_WORDS * 64, "one tile is at most 256 positions");
         // A fixed stride: one row is one `U64x4`; the words past `n` stay 0.
         let words = ROW_WORDS;
-        let mut rows = vec![0u64; atoms.len() * 2 * n * words];
+        let mut blocks: Vec<&'c [u64]> = Vec::with_capacity(atoms.len() * 2);
         let mut proj = vec![0u64; k * words];
         for v in 0..k {
             let p = &mut proj[v * words..(v + 1) * words];
@@ -164,12 +173,17 @@ impl Plan {
         for (i, a) in atoms.iter().enumerate() {
             let rel = cube.lanes(a.rel)?;
             let (c0, c1) = (&rel.cols[0], &rel.cols[1]);
-            let fwd = i * 2 * n * words;
-            let bwd = fwd + n * words;
-            for (&x, &y) in c0.iter().zip(c1) {
-                let (x, y) = (x as usize, y as usize);
-                rows[fwd + x * words + y / 64] |= 1 << (y % 64);
-                rows[bwd + y * words + x / 64] |= 1 << (x % 64);
+            // The relation's own plane, lent under the cube's frame: no row
+            // is built here.
+            let plane = cube.plane(a.rel)?;
+            debug_assert_eq!(plane.words_per_row(PairDir::Forward), words);
+            let (fwd, bwd) = (i * 2, i * 2 + 1);
+            for dir in [PairDir::Forward, PairDir::Backward] {
+                blocks.push(
+                    plane
+                        .rows(&cube.frame, dir)
+                        .map_err(|_| CubeRefusal::ForeignView)?,
+                );
             }
             for (side, cv) in [(0usize, c0), (1, c1)] {
                 col.fill(0);
@@ -185,7 +199,7 @@ impl Plan {
             let (u, w) = (usize::from(a.vars[0]), usize::from(a.vars[1]));
             let sel = |base: usize| {
                 let (mut bits, mut live) = (0u64, 0u64);
-                for row in rows[base..base + n * words].chunks_exact(words) {
+                for row in blocks[base][..n * words].chunks_exact(words) {
                     let c: u32 = row.iter().map(|x| x.count_ones()).sum();
                     bits += u64::from(c);
                     live += u64::from(c > 0);
@@ -219,7 +233,7 @@ impl Plan {
             n,
             words,
             k,
-            rows,
+            blocks,
             proj,
             checks,
             adj,
@@ -310,9 +324,8 @@ impl Plan {
         cand.copy_from_slice(&self.proj[v * w..(v + 1) * w]);
         for &(other, base, _) in &self.adj[v] {
             if bound >> other & 1 == 1 {
-                let at = base + vals[other] * w;
                 let mut tmp = [0u64; 4];
-                mask_and(cand, &self.rows[at..at + w], &mut tmp[..w]);
+                mask_and(cand, self.row(base, vals[other]), &mut tmp[..w]);
                 cand.copy_from_slice(&tmp[..w]);
             }
         }
@@ -323,8 +336,7 @@ impl Plan {
         let w = self.words;
         cand.copy_from_slice(&self.proj[v * w..(v + 1) * w]);
         for c in &self.checks[v] {
-            let at = c.base + bound[c.earlier] * w;
-            let row = &self.rows[at..at + w];
+            let row = self.row(c.base, bound[c.earlier]);
             let mut tmp = [0u64; 4];
             mask_and(cand, row, &mut tmp[..w]);
             cand.copy_from_slice(&tmp[..w]);
@@ -336,12 +348,12 @@ impl Plan {
 /// call. Candidates live in a 4-word stack buffer per level (a tile is at
 /// most 256 positions).
 struct Walk<'p> {
-    plan: &'p Plan,
+    plan: &'p Plan<'p>,
     bound: Vec<usize>,
 }
 
 impl<'p> Walk<'p> {
-    fn new(plan: &'p Plan) -> Self {
+    fn new(plan: &'p Plan<'p>) -> Self {
         Self {
             plan,
             bound: vec![0; plan.k],
@@ -466,8 +478,7 @@ impl<'p> Walk<'p> {
                 for i in 0..m {
                     let mut t = fixed[i];
                     for &base in &at_v[span[i].0..span[i].1] {
-                        let at = base + x * w;
-                        t &= U64x4::from_slice(&plan.rows[at..at + w]);
+                        t &= U64x4::from_slice(plan.row(base, x));
                     }
                     let c = t.popcnt().reduce_sum();
                     if c == 0 {
