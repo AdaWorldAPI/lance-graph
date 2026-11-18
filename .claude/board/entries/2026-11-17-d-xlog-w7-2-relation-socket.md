@@ -1,4 +1,4 @@
-# D-XLOG-W7-2 step 2: the relation socket (2026-11-17)
+# D-XLOG-W7-2-STEP-2: the relation socket (2026-11-17)
 
 **Status:** MEASURED (tests); no implementer yet. Step 2 of the order in
 `2026-11-17-d-xlog-w7-2-admission.md`; step 1 (`dr::PairPlane`) merged in

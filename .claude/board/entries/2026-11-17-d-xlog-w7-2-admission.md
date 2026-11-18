@@ -1,4 +1,4 @@
-# D-XLOG-W7-2 admission analysis: lifting the #1943 views (2026-11-17)
+# D-XLOG-W7-2-ADMISSION analysis: lifting the #1943 views (2026-11-17)
 
 **Status:** MEASURED, read-only (no code). The W5-A shape: which parts of the
 #1943 lab (D-GLOBAL-WHERE P0) production already has, which are missing, and

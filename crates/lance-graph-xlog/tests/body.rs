@@ -266,3 +266,149 @@ fn repeated_atoms_between_one_pair() {
     let atoms: Vec<Atom> = (0..9).map(|i| atom(i % 2, 0, 1)).collect();
     assert_eq!(check(&rels, &atoms, 2, "nine copies"), 4);
 }
+
+// ---------------------------------------------------------------------------
+// D-XLOG-W7-2 step 3: the cube owns each relation's pair plane and lends it
+// ---------------------------------------------------------------------------
+
+mod lent_planes {
+    use std::collections::BTreeSet;
+
+    use lance_graph_dt64::dr::{LocalMap, MapTable, PairDir, PairRefusal, Width};
+    use lance_graph_dt64::{relation_rows, RelationRefusal};
+    use lance_graph_xlog::cube::Cube;
+
+    use super::{atom, oracle, TILE};
+
+    fn table(ids: &[u64]) -> MapTable {
+        let mut t = MapTable::new(1, 1);
+        t.advance(
+            1,
+            1,
+            vec![(TILE, Some(LocalMap::prepare(Width::W256, ids).unwrap()))],
+        );
+        t
+    }
+
+    /// The pairs a lent plane holds, as global ids, read in `dir`.
+    fn pairs(cube: &Cube, t: &MapTable, rel: u32, dir: PairDir) -> BTreeSet<(u64, u64)> {
+        let f = t.seal();
+        let g = t.map(&f, TILE).unwrap().globals().to_vec();
+        let rows = relation_rows(cube, rel, cube.frame(), dir).unwrap();
+        let mut out = BTreeSet::new();
+        for (at, &a) in g.iter().enumerate() {
+            let row = rows.row(at).unwrap();
+            for (other, &b) in g.iter().enumerate() {
+                if row[other / 64] >> (other % 64) & 1 == 1 {
+                    out.insert(match dir {
+                        PairDir::Forward => (a, b),
+                        PairDir::Backward => (b, a),
+                    });
+                }
+            }
+        }
+        out
+    }
+
+    fn set(edges: &[(u32, u32)]) -> BTreeSet<(u64, u64)> {
+        edges
+            .iter()
+            .map(|&(a, b)| (u64::from(a), u64::from(b)))
+            .collect()
+    }
+
+    /// The lent plane equals the relation's effective edges, in both
+    /// directions, after every kind of change: logged add, logged retire,
+    /// refold. A stale plane would still show the state before the change.
+    #[test]
+    fn the_lent_plane_follows_adds_retires_and_refolds() {
+        let t = table(&[1, 2, 3, 4, 5]);
+        let e = [(1u32, 2u32), (2, 3), (3, 1)];
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+        let both = |c: &Cube, want: &[(u32, u32)], what: &str| {
+            assert_eq!(pairs(c, &t, 0, PairDir::Forward), set(want), "{what}: fwd");
+            assert_eq!(pairs(c, &t, 0, PairDir::Backward), set(want), "{what}: bwd");
+        };
+        both(&cube, &e, "built");
+        cube.add_edge(&t, 0, 3, 4).unwrap();
+        both(&cube, &[(1, 2), (2, 3), (3, 1), (3, 4)], "after add");
+        cube.retire_edge(&t, 0, 2, 3).unwrap();
+        both(&cube, &[(1, 2), (3, 1), (3, 4)], "after retire");
+        cube.refold(0).unwrap();
+        both(&cube, &[(1, 2), (3, 1), (3, 4)], "after refold");
+        cube.add_edge(&t, 0, 4, 5).unwrap();
+        both(&cube, &[(1, 2), (3, 1), (3, 4), (4, 5)], "add after refold");
+    }
+
+    /// A body answered before and after a change agrees with the oracle both
+    /// times: the triangle exists, loses an edge, and comes back.
+    #[test]
+    fn a_body_reads_the_current_plane_after_a_change() {
+        let t = table(&[1, 2, 3]);
+        let e = [(1u32, 2u32), (2, 3), (1, 3)];
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e, &e, &e]).unwrap();
+        let tri = [atom(0, 0, 1), atom(1, 1, 2), atom(2, 0, 2)];
+        let count = |c: &Cube| c.body_answer(&t, &tri, 3).unwrap().count;
+        let want = |r1: &[(u32, u32)]| {
+            oracle(&[e.to_vec(), r1.to_vec(), e.to_vec()], &tri, 3, &[1, 2, 3]).len() as u64
+        };
+        assert_eq!((count(&cube), want(&e)), (1, 1));
+        cube.retire_edge(&t, 1, 2, 3).unwrap();
+        assert_eq!((count(&cube), want(&[(1, 2), (1, 3)])), (0, 0));
+        cube.add_edge(&t, 1, 2, 3).unwrap();
+        assert_eq!(count(&cube), 1);
+    }
+
+    /// Two reads with no change between them lend the same words: the plane
+    /// is built once per state of the relation, never per call. A body call
+    /// in between does not rebuild it either.
+    #[test]
+    fn an_unchanged_relation_is_not_rebuilt() {
+        let t = table(&[1, 2, 3]);
+        let e = [(1u32, 2u32), (2, 3), (1, 3)];
+        let cube = Cube::new(&t, &t.seal(), TILE, &[&e, &e, &e]).unwrap();
+        let f = cube.frame().clone();
+        let first = relation_rows(&cube, 0, &f, PairDir::Forward)
+            .unwrap()
+            .as_words()
+            .as_ptr();
+        let tri = [atom(0, 0, 1), atom(1, 1, 2), atom(2, 0, 2)];
+        assert_eq!(cube.body_answer(&t, &tri, 3).unwrap().count, 1);
+        let again = relation_rows(&cube, 0, &f, PairDir::Forward)
+            .unwrap()
+            .as_words()
+            .as_ptr();
+        assert_eq!(first, again);
+    }
+
+    /// The socket's refusals through the cube: an unknown relation, and a
+    /// plane asked for under the frame the cube has left after a rebase. The
+    /// rebased cube lends a plane under its new frame, holding the same pairs.
+    #[test]
+    fn unknown_relations_and_left_frames_are_refused() {
+        let mut t = table(&[1, 2, 3]);
+        let e = [(1u32, 2u32), (2, 3)];
+        let mut cube = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+        let old = cube.frame().clone();
+        assert_eq!(
+            relation_rows(&cube, 9, &old, PairDir::Forward).unwrap_err(),
+            RelationRefusal::NoRelation(9)
+        );
+        assert!(relation_rows(&cube, 0, &old, PairDir::Forward).is_ok());
+        t.advance(
+            2,
+            1,
+            vec![(
+                TILE,
+                Some(LocalMap::prepare(Width::W256, &[1, 2, 3, 4]).unwrap()),
+            )],
+        );
+        let new = t.seal();
+        cube.rebase(&t, &new).unwrap();
+        assert_eq!(
+            relation_rows(&cube, 0, &old, PairDir::Forward).unwrap_err(),
+            RelationRefusal::Pair(PairRefusal::ForeignFrame)
+        );
+        assert_eq!(pairs(&cube, &t, 0, PairDir::Forward), set(&e));
+    }
+}
