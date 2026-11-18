@@ -251,8 +251,14 @@ second authoritative registry**". §1 of this plan proposed exactly that.
 
 So the two sides read directly: **the left side is ON** (the class the
 behaviour applies on, here Odoo's timesheet) and **the right `0xF###` is DO**
-(the behaviour). `F###-F###` is the same reading with a behaviour concept on
-the left.
+(the behaviour).
+
+> 0xFFFF :: 0xF### = on the FFFF global algebra primitive DO F###
+
+So the hardcoded form reads the same way: the left side `0xFFFF` is the global
+algebra primitive, the thing the behaviour applies on, and the right `0xF###`
+is what is done. It is not "a behaviour concept with no class": the algebra is
+the class.
 
 **Reading (this session's, checked against D-DT64-7 §2):** a classid has two
 sides, `left (concept) :: right (ClassView / WideFieldMask selection within
