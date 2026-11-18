@@ -23,7 +23,7 @@ implemented `RelationSource` only.
   operator's to rule), but it changes the row order, so a binding made before
   it is refused after it.
 
-Tests (`tests/lend.rs`, 4; whole crate 100 passed):
+Tests (`tests/lend.rs`, 5; whole crate 101 passed):
 
 - the lent lanes, decoded through the tile's map, are the relation's tuples
   in order; a second borrow lends the same words (pointer-equal); the view
@@ -34,8 +34,15 @@ Tests (`tests/lend.rs`, 4; whole crate 100 passed):
 - another class, another scope, an unknown predicate and an unknown relation
   are refused.
 
+- a binding made over one cube is refused over another cube built from the
+  same map table whose relation is in the same state (review finding on
+  #2136: the coordinate space named the relation and its state but not the
+  cube, so such a binding read the other cube's tuples; the space now carries
+  the cube's identity).
+
 Disables, each red: the row order ignoring the delta log; columns handed out
-by position; any class served.
+by position; any class served; the coordinate space without the cube's
+identity.
 
 Open:
 - Bodies, `reach` and `closure` do not read through the socket; this lends,

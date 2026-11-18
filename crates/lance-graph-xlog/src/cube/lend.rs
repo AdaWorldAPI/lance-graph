@@ -51,14 +51,21 @@ impl<'a> CubeLanes<'a> {
         }
     }
 
-    /// The row order of the relation as lent now. It moves with every logged
-    /// edge and every refold, so a binding made before one is refused after
-    /// it even though the cube's frame did not advance.
+    /// The row order of the relation as lent now: which cube, which
+    /// relation, and that relation's state. It moves with every logged edge
+    /// and every refold, so a binding made before one is refused after it
+    /// even though the cube's frame did not advance. Two cubes over one map
+    /// table never share a space, so a binding made over one is refused over
+    /// the other.
     pub fn space(&self) -> CoordSpace {
         let generation = self.cube.base_generation(self.rel).unwrap_or(u64::MAX);
         let logged = self.cube.delta_len(self.rel) as u64;
         CoordSpace {
-            population: u64::from(self.rel) + 1,
+            population: self
+                .cube
+                .id
+                .wrapping_mul(1 << 32)
+                .wrapping_add(u64::from(self.rel) + 1),
             coordinates: generation.wrapping_mul(1 << 32).wrapping_add(logged),
         }
     }

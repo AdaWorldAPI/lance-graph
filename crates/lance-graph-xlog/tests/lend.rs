@@ -300,3 +300,36 @@ fn what_the_socket_does_not_hold_is_refused() {
     let held = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
     assert!(bind(&w, &held, &t).is_ok());
 }
+
+/// FAILS IF: a binding made over one cube is honoured over another cube
+/// built from the same map table, whose relation is in the same state and
+/// holds other tuples.
+#[test]
+fn a_binding_over_one_cube_is_refused_over_another() {
+    let t = table(&ids());
+    let e = edges();
+    let mut other: Vec<(u32, u32)> = e.iter().map(|&(a, b)| (b - 10, a + 10)).collect();
+    other.reverse();
+    assert_ne!(other, e);
+    let first = Cube::new(&t, &t.seal(), TILE, &[&e]).unwrap();
+    let second = Cube::new(&t, &t.seal(), TILE, &[&other]).unwrap();
+    assert_eq!(
+        (first.base_generation(0), first.delta_len(0)),
+        (second.base_generation(0), second.delta_len(0)),
+        "same relation state, so only the cube tells them apart"
+    );
+    let w = world();
+
+    let a = CubeLanes::new(&first, &t, 0, CLASS, [X, Y], READER);
+    let b = CubeLanes::new(&second, &t, 0, CLASS, [X, Y], READER);
+    assert_ne!(a.space(), b.space());
+    let binding = bind(&w, &a, &t).unwrap();
+    assert!(lent(&w, &binding, &a, &t).is_ok());
+    assert!(lent(&w, &binding, &b, &t).is_err());
+
+    // The second cube's own binding reads the second cube's tuples.
+    let own = bind(&w, &b, &t).unwrap();
+    let (x, _, _) = lent(&w, &own, &b, &t).unwrap();
+    let (xa, _, _) = lent(&w, &binding, &a, &t).unwrap();
+    assert_ne!(x, xa);
+}
