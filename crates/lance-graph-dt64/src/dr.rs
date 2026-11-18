@@ -1070,6 +1070,15 @@ impl MapTable {
     /// its own version ([`MapTable::map`]) and is no longer current
     /// ([`FrameStore::check`]). Returns the version the change landed at.
     ///
+    /// Two consequences for a caller that keeps counters of its own:
+    /// - the code table bumps the store's `source` revision by one, so
+    ///   `revisions().source` is no longer the number last passed to
+    ///   [`MapTable::advance`];
+    /// - the change takes the next version, so a tile advance claimed
+    ///   earlier with [`MapTable::claim`] and not yet applied is refused by
+    ///   [`MapTable::advance_at`] as `NotAfterLast`. Apply a claimed advance
+    ///   before changing codes.
+    ///
     /// # Errors
     ///
     /// As [`CodeTable::advance`]: `ForeignStore` when `codes` is bound to

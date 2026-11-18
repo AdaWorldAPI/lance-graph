@@ -162,7 +162,7 @@ fn dr_does_not_depend_on_the_binding_side() {
 
 // ------------------------------------------- MapTable (D-DT64-7 O5, §1e)
 
-use lance_graph_dt64::dr::{MapRead, MapTable};
+use lance_graph_dt64::dr::{AdvanceRefusal, MapRead, MapTable};
 
 fn map(ids: &[u64]) -> LocalMap {
     LocalMap::prepare(Width::W64, ids).unwrap()
@@ -1125,4 +1125,55 @@ fn a_duplicate_code_change_is_refused_before_anything_changes() {
     assert_eq!(r, Err(CodeRead::Duplicate));
     assert_eq!(table.frames().check(&frame), Ok(()));
     assert_eq!(table.current_version(), frame.version());
+}
+
+/// The code table bumps the store's `source` revision itself, so after a
+/// code change it is one past the number the caller last gave `advance`.
+#[test]
+fn a_code_change_bumps_the_source_revision_by_one() {
+    let (mut table, mut codes) = table_with_codes();
+    let before = table.revisions();
+    assert_eq!(before.source, 7);
+    table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    let after = table.revisions();
+    assert_eq!(after.source, 8);
+    assert_eq!(after.relation_map, before.relation_map);
+    assert_eq!(after.coordinates, before.coordinates);
+}
+
+/// A tile advance claimed before a code change cannot be applied after it:
+/// the code change took a later version, and versions only move forward.
+/// Applied before the code change, the same claim lands.
+#[test]
+fn a_claim_made_before_a_code_change_is_refused_after_it() {
+    let (mut table, mut codes) = table_with_codes();
+    let claimed = table.claim();
+    let landed = table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert!(landed > claimed);
+    let grown = vec![(5, Some(map(&[40, 10, 30, 20])))];
+    assert_eq!(
+        table.advance_at(claimed, 8, 11, grown),
+        Err(AdvanceRefusal::NotAfterLast {
+            last: landed,
+            version: claimed
+        })
+    );
+    assert_eq!(
+        table.map(&table.seal(), 5).unwrap().local(20),
+        Err(MapRefusal::Unmapped),
+        "the refused advance changed no tile"
+    );
+
+    let (mut table, mut codes) = table_with_codes();
+    let claimed = table.claim();
+    let grown = vec![(5, Some(map(&[40, 10, 30, 20])))];
+    assert_eq!(table.advance_at(claimed, 8, 11, grown), Ok(claimed));
+    table
+        .advance_codes(&mut codes, vec![(status(), entries(&[("shipped", 3)]))])
+        .unwrap();
+    assert_eq!(table.map(&table.seal(), 5).unwrap().local(20), Ok(3));
 }

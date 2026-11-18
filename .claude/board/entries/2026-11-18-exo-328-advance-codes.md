@@ -10,4 +10,6 @@ Not chosen: a `MapTable` over a caller-owned store (the caller could advance it 
 
 Evidence: `tests/dr.rs`, five tests: a code change retires the frame the tiles were read under; no tile and no coordinate moves; tiles and codes share one version sequence across interleaved advances; a code table bound to another store is refused and nothing changes; a change set that is not a bijection is refused and nothing changes. Disable (the method made a no-op): four of the five red; the one that stays green is the test that nothing moves.
 
+Follow-up after the lance-graph session's read of the merged diff (#2128), two consequences now stated in the doc comment and pinned by a test each: the code table bumps the store's `source` revision by one, so it no longer equals the number last passed to `MapTable::advance`; and a tile advance claimed with `claim` before a code change is refused by `advance_at` afterwards as `NotAfterLast`, changing no tile, while the same claim applied first lands.
+
 OPEN: none.
