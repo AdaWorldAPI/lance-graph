@@ -200,6 +200,26 @@ the goal is built; do not propose it again.
   `lance-graph-mailbox-lanes::MailboxLanes`, `lance-graph-report::AbiLanes`,
   and lab sources.
 
+**The proposed shape (owner, 2026-11-18, verbatim):**
+
+> borrow_all + xlog::cube.rs is the proposed shape (identity[index].key :identity[index].value = X;Y
+
+Reading (the writing session's), with what the source already holds:
+
+- A cube relation is stored as two lanes of equal length and a live plane:
+  `struct Rel { n, cols: [Vec<u32>; 2], live: Vec<u64> }`
+  (`lance-graph-xlog/src/cube.rs:360`). VERIFIED-IN-CODE.
+- So the virtual tuple at an index is `cols[0][i] : cols[1][i]`, key and value
+  at the same position, read in place: `X;Y`. No pair is built. `live` is its
+  presence.
+- The shape is therefore: the cube lends a relation's two lanes (and its live
+  plane as presence) through the existing `borrow_all` /
+  `borrow_all_present`, and a behaviour folds over them. Nothing new is
+  invented on either side; the two existing pieces are joined.
+- `Cube::lanes` (`cube.rs:867`) already returns the effective lanes (base
+  folded with the delta log, the base itself when the log is empty, no copy).
+  It is private today.
+
 **What is actually missing, as far as it was read:**
 
 - **The cube lends relations, not lanes.** `Cube` implements `RelationSource`
@@ -207,6 +227,11 @@ the goal is built; do not propose it again.
   tuple bag of the cube cannot be taken with `borrow_all` yet. That is the gap
   the third line of the goal names; the mechanism on the other side of it is
   finished.
+- **OPEN, not read to the end:** `LaneSource::frames` must return the
+  `FrameStore` that lives with the source's data. The cube holds a `Frame` and
+  is handed the `MapTable` per call; it does not own a store. Who owns the
+  frames when the cube lends lanes is the one design point between the two
+  pieces.
 - **No production caller.** Every `borrow_all` caller above is a lab, a probe
   or a test.
 - Not read: how much of r2il's call-site ceremony (resolution, route, guards,
