@@ -32,6 +32,10 @@
 - **There is no foreign key.** A relation reached through classid and ontology
   is a class view. The intake declares how a class is read; a query only uses
   what was declared.
+- **A join is an aligned pass** over lanes that share coordinates ("holding a
+  ruler against a stack"). Key sets, translated positions and reads through a
+  key are what a consumer falls back to when its classes do not share
+  coordinates; they are not the target.
 - **The goal is a call shape**, as direct as a typed SIMD primitive, over a bag
   the cube lends. The lending half exists (`LaneBinding::borrow_all`); read §5
   before proposing any of it again.
@@ -141,7 +145,13 @@ Reading (the writing session's):
 - **A query looks a relation up. It does not infer one** from the shape of an
   `ON` clause.
 
-Evidence so far, all in a consumer (zammad-rs, PostgreSQL 16.15 as oracle):
+Evidence so far, all in a consumer (zammad-rs, PostgreSQL 16.15 as oracle).
+**Read it as parity evidence for the answers, not as the join form to copy.**
+That consumer gives each table its own map, so two related tables do not share
+coordinates. The forms below (a key set carried as constants, an existence
+count checked at the boundary) exist because of that. Where related classes
+are placed on shared coordinates at intake, the join is the aligned pass of
+§5 and none of these forms is needed:
 
 - MEASURED: with `Filter::eq_u32_via` and `Filter::semijoin` taken off the
   default join path, 12 captured joins and 57 joins of a real workload keep
@@ -289,6 +299,7 @@ it.
 | Treated ON as something a method declares, and added an "event form" for it | Read D-DT64-7 §2: the classid's left side is the answer |
 | Wrote a test that handed quack lane and plane numbers | A caller names a class and a field mask. If the test names a lane, it is testing the wrong seam |
 | Took a foreign-key column on the query's say-so | Ask who declared the relation. If nobody did, refuse |
+| Built three join forms in a consumer (reads through a key, key sets, existence counts) to join tables that each had their own map | Ask whether the two classes share coordinates. If they do, the join is one aligned pass; if they do not, that is the thing to fix at intake |
 | Kept a count beside a set to model duplicates | Ask what the intake declared the class to be |
 | Wrote that nothing lends a bag to a method, without searching for `borrow_all` | Grep the socket's callers before stating a gap. `borrow_all` existed, with a method executed over it in `foundry-parity-lab` |
 | Read "vector" as a position array | It is Vector the product and its data model, a precedent for the SoA ABI substrate with DT and DR. It is never a position lane and never VRL |

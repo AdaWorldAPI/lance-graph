@@ -17,9 +17,14 @@ addressing and registration) to consumers, from the owner's statements of
   a method executed over it in `foundry-parity-lab/src/method.rs`); the cube
   implements `RelationSource` only, so its bag is not lendable through it yet.
 
-It also lists eight mistakes one session made the same day, each with the check that would have caught it. Listed in `CLAUDE.md`
+It also lists nine mistakes one session made the same day, each with the check that would have caught it. Listed in `CLAUDE.md`
 § Knowledge Base as mandatory before proposing a registry, binding a consumer,
 or writing a join.
+
+The owner's proposed shape is `borrow_all` over the cube's two lanes per
+relation (`identity[index].key : identity[index].value = X;Y`), and a join is
+then an aligned pass over shared coordinates. Open there: who owns the frame
+store when the cube lends lanes.
 
 Open: whether `MethodBinding.on` is redundant; the effect class on the binding
 and the call-parameter channel (EXO-291); `EqU32Via` / `Semijoin` admission
