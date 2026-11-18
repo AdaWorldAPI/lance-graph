@@ -1,3 +1,13 @@
+## 2026-11-18 — lance-graph PRs #2128, #2129, #2130, #2132 (merged `6b6c0bb`) — one frame for tiles and codes, typed ranges and a grouped count, a three-valued guard under a gate
+
+- **Added:**
+  - #2128, #2129 (EXO-328): `MapTable::advance_codes`, which advances a `CodeTable` on the map table's own frame store; its doc states the source revision bump and that an earlier claim is refused afterwards.
+  - #2130 (EXO-292): quack `Draft` range predicates (`Op::{Lt, Le, Gt, Ge}`, `where_cmp`, `where_between`) and `count_by` over a non-nullable coded key, with the key's code space witnessed by `bind_typed`.
+  - #2132 (EXO-326): r2il `prepare_gated` admits a `Logic::Kleene` guard; the gate plane holds its TRUE rows.
+- **Locked (measured):** dt64 144 tests; quack 166; r2il integration 67. #2132's test evaluates the guard through the class binding (`BindStore::admit`, `bind_lanes` with a `WideFieldMask`, `borrow_all_present`), covers HIRO's KI-1 rows over 1,000 rows, and refuses a field with no presence plane; disable runs red for each change.
+- **Not done:** native gated plans; the UNKNOWN rows as a result; `lower_sel` over `=` / `<>`; a range over coded fields (refused as `Unordered`).
+- **Confidence:** CI green on each merged head.
+
 ## 2026-11-10 — lance-graph PR #1995 (merged `15d4b4c`) — D-FOUNDRY-PARITY-1 P1a: per-store cost via INT8 packed GEMM
 
 - **Added:** `foundry-parity-lab::arm_c` (`PreparedDemand` packed once per menu revision, `CostQuery::open` stages A once per binding, `per_store` runs one GEMM); `Network::set_unit_cost`; fair arm A comparator `store_costs`; bench rows; 8 integration tests; plan §5a.
