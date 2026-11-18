@@ -232,3 +232,52 @@ is the input form); the corrected odoo mapping of §2; D-OMR-2 re-targeted to
 **Not verified:** how a class whose basis changed is re-bound today (the
 header says another basis for a bound class is refused); whether
 `RegistryClassView` keeps a history per schema revision; `dt64-lance`'s fit.
+
+## 9. Correction: this plan is subordinate to D-DT64-7, which had already decided most of it
+
+**What was missed.** `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`
+was not read before this plan or its §8 were written. It carries operator
+decisions of 2026-10-31 and later that answer the questions this plan treated
+as open, and its execution order ends with "Not introduced: a new runtime, **a
+second authoritative registry**". §1 of this plan proposed exactly that.
+
+**Operator, 2026-11-18, on this plan (verbatim):**
+
+> the classid is already the answer to ON
+
+> F###-F### for methods includes both ON and DO and when is a register call of the method
+
+**Reading (this session's, checked against D-DT64-7 §2):** a classid has two
+sides, `left (concept) :: right (ClassView / WideFieldMask selection within
+it)`, and `0xF###` on either side names behaviour. A method's classid in the
+behaviour ranges therefore already states what it applies on and what it
+does; nothing stores an ON beside it. WHEN is not addressed at all: it is
+what the `register` call supplies for that classid.
+
+**What D-DT64-7 already decides, against this plan's rows:**
+
+| This plan | D-DT64-7 |
+| --- | --- |
+| §8 "the BindStore is the method registry" | D2: Learned = registered in the `BindStore`. D13'', D15'': DT64 holds the registration authority |
+| D-OMR-9, a known-but-not-executable state inside the store | **Contradicts D2 and §3.** Explore = not yet registered, and it lives OUTSIDE the store: "There is no lifecycle state besides versioned, replayable immutability." **Withdrawn** |
+| D-OMR-6, a promotion step for rows below confidence 1.0 | Explore → Learned is a `register` (§3). Promotion is that call, under the registration constraints C1 to C8 |
+| "ON needs an event form" (§1, HIRO fix 2) | No ON is stored; the classid answers it. **Withdrawn** |
+| D-OMR-8, registration by name | O10: the consumer supplies its own `ClassView`; registration ties the owner and activation to a versioned basis witness and refuses a mismatch. Labels are resolved late through the view. **Withdrawn as a separate deliverable** |
+| D-OMR-11, durability | O5 / D10': the global → local selection is a versioned lance-graph table read through `ClassView × WideFieldMask`. **Withdrawn here; it is O5's** |
+| R1 "the registry mints nothing" | D13'': DT64 registers behaviour classids for its range without asking `ogar-vocab`; consumers register under their own `Domain::AppId :: 0xF###` (D14'') |
+
+**What is left of D-OMR that D-DT64-7 does not cover:**
+
+- **D-OMR-10:** the effect class on the binding (EXO-291 question 3). Still an
+  owner decision.
+- **D-OMR-2, -4, -5, -7:** producers (`ActionDef` from OGAR #385, odoo's
+  consts, a Knowledge Item reader, `rails-f000`) register Learned behaviour
+  under their own `Domain::AppId :: 0xF###`. These are consumers of D-DT64-7,
+  not a registry design.
+- The corrected odoo mapping of §2, with one more correction: `@api.depends`
+  and `@api.onchange` are reads, not an ON.
+- The call-parameter channel (EXO-291), unchanged.
+
+**Status of the D-OMR ids:** D-OMR-1, -3, -6, -8, -9, -11 withdrawn. D-OMR-0
+closes with this section. D-OMR-2, -4, -5, -7, -10 remain, read as work under
+D-DT64-7.

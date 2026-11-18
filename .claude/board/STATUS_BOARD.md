@@ -1,6 +1,6 @@
 ## D-OMR — ontology ↔ method registry through the `lance-graph-ontology` cache (2026-11-18)
 
-Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291.
+Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291. Subordinate to D-DT64-7 (plan §9); the remaining rows are consumers of it.
 
 | D-id | Deliverable | Status |
 |---|---|---|
@@ -10,12 +10,12 @@ Plan: `.claude/plans/ontology-method-registry-v1.md`. Discussion: EXO-291.
 | D-OMR-3 | Method rows → `MethodBinding`s for one class at one schema revision | Withdrawn (plan §8: no hydration step) |
 | D-OMR-4 | odoo: proposals beside the compiled consts, with an agreement test | Queued |
 | D-OMR-5 | HIRO: a Knowledge Item as a Method proposal with a Kleene WHEN | Blocked: no Knowledge Item reader and no samples exist |
-| D-OMR-6 | Promotion step for rows below confidence 1.0 | Queued (needs decision 4) |
+| D-OMR-6 | Promotion step for rows below confidence 1.0 | Withdrawn (plan §9: Explore → Learned is a `register`, D-DT64-7 §3) |
 | D-OMR-7 | zammad-rs: Rails callbacks and scopes registered the same way | Queued |
-| D-OMR-8 | `BindStore` registration by name: predicates resolved to a mask through the validated class view | Queued |
-| D-OMR-9 | A known-but-not-executable state in the `BindStore` | Queued (needs decision 2 of §8) |
+| D-OMR-8 | `BindStore` registration by name: predicates resolved to a mask through the validated class view | Withdrawn (plan §9: D-DT64-7 O10) |
+| D-OMR-9 | A known-but-not-executable state in the `BindStore` | Withdrawn (plan §9: contradicts D-DT64-7 D2; Explore lives outside the store) |
 | D-OMR-10 | The effect class on `MethodBinding` | Queued (needs decision 3 of §8) |
-| D-OMR-11 | Durable declarations and route log | Queued (needs decision 1 of §8) |
+| D-OMR-11 | Durable declarations and route log | Withdrawn here (plan §9: D-DT64-7 O5 / D10') |
 
 ## D-XLOG-KNOWLEDGE — XLOG as witnessed reasoning compiler: harvest and staged gates (2026-11-15)
 

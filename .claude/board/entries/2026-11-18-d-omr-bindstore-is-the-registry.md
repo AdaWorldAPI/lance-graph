@@ -23,3 +23,16 @@ and binding is the authority, which wins when they differ, or who may call
 
 REVISIT WHEN: D-OMR-9 shows that a store which refuses what it cannot bind is
 the wrong home for declarations it must hold and not run.
+
+**Correction, same day.** D-DT64-7
+(`.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`) had already
+decided this: Learned = registered in the `BindStore` (D2), DT64 holds the
+registration authority (D13'', D15''), Explore lives outside the store, and
+"a second authoritative registry" is listed as not introduced. That plan was
+not read before D-OMR was written. Operator: "the classid is already the
+answer to ON"; "F###-F### for methods includes both ON and DO and when is a
+register call of the method". D-OMR-6, -8, -9 and -11 are withdrawn (plan §9);
+D-OMR is subordinate to D-DT64-7.
+
+MIRROR
+- BLIND SPOT: `.claude/plans/` was not searched for an existing registration plan before a new one was proposed.
