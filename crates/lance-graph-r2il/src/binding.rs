@@ -438,8 +438,10 @@ pub struct Gate {
 /// plane to a second program over the same table is the shape
 /// `lance_graph_quack::GroupPlan` already uses.
 ///
-/// A [`Logic::Kleene`](lance_graph_contract::set_algebra::Logic::Kleene) guard is admitted like a two-valued one (EXO-326):
-/// its witness is its TRUE-rows form, so the gate plane holds the rows where
+/// A Kleene guard ([`lance_graph_contract::set_algebra::Logic::Kleene`]) is
+/// admitted like a two-valued one (EXO-326). Its logic was fixed when the
+/// class was bound, and nothing is chosen at the call. Its witness is its
+/// TRUE-rows form, so the gate plane holds the rows where
 /// the guard is TRUE, and a row where it is UNKNOWN is simply not in the
 /// plane. The caller evaluates it through the class binding: the guard's
 /// fields as a field mask, their lanes and presence planes lent by
