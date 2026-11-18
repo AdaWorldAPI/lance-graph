@@ -8,16 +8,17 @@
 
 use lance_graph_contract::class_view::{ClassId, ClassView, WideFieldMask};
 use lance_graph_contract::ontology::{DisplayTemplate, FieldRef};
-use lance_graph_contract::set_algebra::{Logic, SetExpr};
+use lance_graph_contract::set_algebra::{Cmp, Logic, SetExpr};
 use lance_graph_contract::set_rules::{Population, Truth};
 use lance_graph_dt64::dr::{
-    Focus, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope,
+    Focus, Frame, FrameRefusal, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope,
 };
 use lance_graph_dt64::{
-    AlgebraRef, Arg, BindStore, ClassSchema, Effect, Extent, Guard, MethodBinding, MethodId,
-    MethodRef, Refusal, RouteVersion, SchemaRev, SigRev, ValueDemand,
+    AlgebraRef, Arg, BindStore, ClassSchema, CoordSpace, Effect, Extent, Guard, LaneAddr,
+    LaneRefusal, LaneRequest, LaneSource, MethodBinding, MethodId, MethodRef, PresenceSource,
+    Refusal, RouteAt, RouteVersion, SchemaRev, SigRev, ValueDemand,
 };
-use lance_graph_mask_risc::{Foreign, LaneRef, Planes};
+use lance_graph_mask_risc::{execute_into, Foreign, LaneRef, Out, Planes, Scratch};
 use lance_graph_r2il::binding::{
     prepare, prepare_gated, run, run_gated, ExecPermit, ExecRefusal, FieldLanes, Gate, Prepared,
     R2ilLens, Receipt, Resolution,
@@ -182,6 +183,7 @@ const SHARED_AND: u32 = 14; // m = a < 5; t = a < 10; u = m AND t; s = POP_COUNT
 const PRED_ONLY: u32 = 15; // m = a < 5, consumed by no fold
 const GUARDED_COUNT: u32 = 16; // WHEN k == 3: m = a < 5; s = POP_COUNT(m)
 const GUARDED_ALL: u32 = 17; // WHEN k == 3: m = a < 5; s = ALL(m)
+const KLEENE_COUNT: u32 = 18; // WHEN k == 0 AND b < 4, three-valued: m = a < 5; s = POP_COUNT(m)
 
 fn methods() -> Vec<MethodBinding> {
     let with = |id, extra: Vec<Effect>| {
@@ -288,7 +290,26 @@ fn methods() -> Vec<MethodBinding> {
                 step(4, W_ALL, vec![Arg::Field(3)]),
             ],
         ),
+        kleene_count(),
     ]
+}
+
+/// `k == 0 AND b < 4`, three-valued over `k` (field 2) and `b` (field 1).
+fn kleene_guard() -> SetExpr {
+    SetExpr::And(vec![SetExpr::eq_u32(2, 0), SetExpr::i32(1, Cmp::Lt, 4)])
+}
+
+fn kleene_count() -> MethodBinding {
+    let mut m = method(
+        KLEENE_COUNT,
+        &[0, 1, 2],
+        vec![
+            step(3, W_LT, vec![Arg::Field(0), Arg::Const(5)]),
+            step(4, W_POP, vec![Arg::Field(3)]),
+        ],
+    );
+    m.when = Some(Guard::new(kleene_guard(), Logic::Kleene));
+    m
 }
 
 /// A method guarded by `k == 3` (field 2).
@@ -1111,4 +1132,252 @@ fn a_gate_is_required_and_must_be_the_plans_own() {
     );
     // Silence twin: the right gate runs.
     assert!(exec_gated(&f, &gated, &data, &p, &bits, &f.gate(GUARDED_COUNT)).is_ok());
+}
+
+// --- EXO-326: a three-valued guard, evaluated over presence planes --------------
+
+/// The stored lanes of [`CLASS`] with a presence plane per lane, lent under
+/// the fixture's own frames.
+struct Present<'a> {
+    frames: &'a FrameStore,
+    data: &'a Data,
+    present: [Option<&'a [u64]>; 3],
+}
+
+const ROWS: CoordSpace = CoordSpace {
+    population: 1,
+    coordinates: 1,
+};
+
+impl LaneSource for Present<'_> {
+    type Lane<'s>
+        = LaneRef<'s>
+    where
+        Self: 's;
+
+    fn lane_of(
+        &self,
+        class: u32,
+        rev: SchemaRev,
+        _field: u8,
+        basis: &FieldRef,
+        frame: &Frame,
+    ) -> Option<LaneAddr> {
+        self.frames.check(frame).ok()?;
+        // By the field the class view resolved, never by its position.
+        let lane = match basis.label.as_str() {
+            "a" => 0,
+            "b" => 1,
+            "k" => 2,
+            _ => return None,
+        };
+        (class == CLASS && rev == REV).then_some(LaneAddr {
+            space: ROWS,
+            lane,
+            scope: SCOPE,
+        })
+    }
+
+    fn borrow(&self, addr: &LaneAddr) -> Option<LaneRef<'_>> {
+        match addr.lane {
+            0 => Some(LaneRef::I32(&self.data.a)),
+            1 => Some(LaneRef::I32(&self.data.b)),
+            2 => Some(LaneRef::U32(&self.data.k)),
+            _ => None,
+        }
+    }
+
+    fn frames(&self) -> &FrameStore {
+        self.frames
+    }
+}
+
+impl PresenceSource for Present<'_> {
+    fn borrow_presence(&self, addr: &LaneAddr) -> Option<&[u64]> {
+        *self.present.get(usize::from(addr.lane))?
+    }
+}
+
+/// The rows where the guard of method `id` is TRUE. The caller names the
+/// method and the route and nothing else: the guard and its logic are the
+/// ones the class was bound with, the fields it reads are requested as a
+/// field mask, and their lanes and presence planes are lent by the binding.
+fn kleene_true_rows(f: &Fixture, source: &Present<'_>, id: u32) -> Result<Vec<u64>, LaneRefusal> {
+    use lance_graph_quack::set::{lower_set, SetLowered};
+    use lance_graph_quack::{lower, Agg, Mask, Query};
+
+    let bound = f.store.admit(&mref(&f.store, id)).unwrap();
+    let guard = bound.when.as_ref().expect("the method is guarded");
+    assert_eq!(guard.logic, Logic::Kleene);
+    let SetLowered::Filter(set) = lower_set(&guard.expr, guard.logic).unwrap() else {
+        panic!("a filter")
+    };
+    let fields: Vec<u8> = set
+        .lanes()
+        .iter()
+        .map(|&l| u8::try_from(l).expect("a field position"))
+        .collect();
+    let frame = f.frames.seal();
+    let binding = f.store.bind_lanes(
+        &f.views,
+        &f.frames,
+        source,
+        LaneRequest {
+            route: RouteAt {
+                position: POSITION,
+                version: f.version,
+            },
+            rev: REV,
+            fields: &WideFieldMask::from_positions(&fields),
+            frame: &frame,
+            scope: SCOPE,
+            selection: ROWS,
+        },
+    )?;
+    let (mut lanes, mut masks, mut nullable) = (Vec::new(), Vec::new(), Vec::new());
+    for lent in binding.borrow_all_present(&f.store, &f.views, &f.frames, source)? {
+        let (field, lane, plane) = lent?;
+        nullable.push((u16::from(field), Mask(masks.len() as u16)));
+        lanes.push(lane);
+        masks.push(plane);
+    }
+    // Column `i` reads `set.lanes()[i]`: both are in ascending field order.
+    let filter = set.where_true(set.lanes(), &nullable).unwrap();
+    let rows = source.data.a.len();
+    let planes = Planes {
+        n_rows: rows,
+        masks: &masks,
+        lanes: &lanes,
+    };
+    let program = lower(&Query {
+        filter,
+        agg: Agg::Rows,
+    })
+    .unwrap();
+    let mut scratch = Scratch::for_program(&program, rows).unwrap();
+    let mut out = vec![0u64; rows.div_ceil(64)];
+    execute_into(
+        &program,
+        &planes,
+        &Foreign::NONE,
+        &mut scratch,
+        Out::Mask(&mut out),
+    )
+    .unwrap();
+    Ok(out)
+}
+
+fn kleene_and(a: Option<bool>, b: Option<bool>) -> Option<bool> {
+    match (a, b) {
+        (Some(false), _) | (_, Some(false)) => Some(false),
+        (Some(true), Some(true)) => Some(true),
+        _ => None,
+    }
+}
+
+/// FAILS IF: a method under a three-valued guard fires on a row where the
+/// guard is UNKNOWN or FALSE, or misses one where it is TRUE. The rows are
+/// HIRO's KI-1 table: (true, unknown), (true, false), (unknown, false) and
+/// (false, unknown) do not fire; (true, true) fires once.
+#[test]
+fn a_kleene_guard_fires_only_on_its_true_rows() {
+    let f = Fixture::new();
+    let mut data = Data::new(N);
+    // Decision B (EXO-294): an absent value is presence bit 0 with value 0.
+    let has_k = |r: usize| !r.is_multiple_of(3);
+    let has_b = |r: usize| !r.is_multiple_of(4);
+    for r in 0..N {
+        if !has_k(r) {
+            data.k[r] = 0;
+        }
+        if !has_b(r) {
+            data.b[r] = 0;
+        }
+    }
+    let present_k = gate_bits(N, has_k);
+    let present_b = gate_bits(N, has_b);
+
+    let a_of = |r: usize| has_k(r).then(|| data.k[r] == 0);
+    let b_of = |r: usize| has_b(r).then(|| data.b[r] < 4);
+    let truth = |r: usize| kleene_and(a_of(r), b_of(r));
+
+    // Every row of the acceptance table occurs, with the outcome it names.
+    let rows_of = |a: Option<bool>, b: Option<bool>| {
+        (0..N)
+            .filter(|&r| a_of(r) == a && b_of(r) == b)
+            .collect::<Vec<_>>()
+    };
+    let (t, fl, u) = (Some(true), Some(false), None);
+    for (a, b, fires) in [
+        (t, u, false),
+        (t, fl, false),
+        (t, t, true),
+        (u, fl, false),
+        (fl, u, false),
+        (u, u, false),
+    ] {
+        let rows = rows_of(a, b);
+        assert!(!rows.is_empty(), "no row with ({a:?}, {b:?})");
+        assert!(
+            rows.iter().all(|&r| (truth(r) == Some(true)) == fires),
+            "({a:?}, {b:?})"
+        );
+    }
+
+    let source = Present {
+        frames: &f.frames,
+        data: &data,
+        present: [None, Some(&present_b), Some(&present_k)],
+    };
+    let bits = kleene_true_rows(&f, &source, KLEENE_COUNT).unwrap();
+    // A field without a presence plane is refused by name, never read as
+    // all present.
+    let unstated = Present {
+        present: [None, Some(&present_b), None],
+        ..source
+    };
+    assert_eq!(
+        kleene_true_rows(&f, &unstated, KLEENE_COUNT),
+        Err(LaneRefusal::PresenceUnbound { field: 2 })
+    );
+    assert_eq!(bits, gate_bits(N, |r| truth(r) == Some(true)));
+    let unknown = (0..N).filter(|&r| truth(r).is_none()).count();
+    assert!(unknown > 0);
+
+    let want = (0..N)
+        .filter(|&r| truth(r) == Some(true) && data.a[r] < 5)
+        .count() as i64;
+    // Read two-valued, an absent value is 0 and satisfies both terms.
+    let two_valued = (0..N)
+        .filter(|&r| data.k[r] == 0 && data.b[r] < 4 && data.a[r] < 5)
+        .count() as i64;
+    assert!(want > 0 && want < two_valued, "{want} of {two_valued}");
+
+    let p = permit(&f.store, &[KLEENE_COUNT]);
+    let plan = f.prepare_gated(KLEENE_COUNT).unwrap();
+    let r = exec_gated(&f, &plan, &data, &p, &bits, &f.gate(KLEENE_COUNT)).unwrap();
+    assert_eq!(values(&r), vec![(4, want)]);
+}
+
+/// FAILS IF: a three-valued guard runs without a gate, under the gate of
+/// another guard, or a three-valued RESULT becomes executable.
+#[test]
+fn a_kleene_guard_still_needs_its_own_gate() {
+    let f = Fixture::new();
+    assert_eq!(
+        f.prepare(KLEENE_COUNT).map(|_| ()),
+        Err(ExecRefusal::GuardNotExecutable)
+    );
+    let data = Data::new(N);
+    let bits = gate_bits(N, |_| true);
+    let p = permit(&f.store, &[KLEENE_COUNT, GUARDED_COUNT]);
+    let plan = f.prepare_gated(KLEENE_COUNT).unwrap();
+    assert_eq!(
+        exec_gated(&f, &plan, &data, &p, &bits, &f.gate(GUARDED_COUNT)).map(|_| ()),
+        Err(ExecRefusal::GateMismatch)
+    );
+    assert_eq!(
+        f.prepare(THREE_VALUED).map(|_| ()),
+        Err(ExecRefusal::ThreeValuedNotExecutable)
+    );
 }

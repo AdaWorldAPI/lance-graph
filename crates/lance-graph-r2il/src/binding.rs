@@ -76,7 +76,6 @@ use std::collections::BTreeMap;
 
 use lance_graph_contract::class_view::ClassView;
 use lance_graph_contract::ogar_codebook::classid_concept;
-use lance_graph_contract::set_algebra::Logic;
 use lance_graph_contract::set_rules::Truth;
 use lance_graph_dt64::dr::{Focus, FrameRevisions, FrameStore, GuardRefusal, Guards, Scope};
 use lance_graph_dt64::{
@@ -389,9 +388,6 @@ fn prepare_with<V: ClassView + ?Sized>(
     match (&binding.when, gated) {
         (Some(_), false) => return Err(ExecRefusal::GuardNotExecutable),
         (None, true) => return Err(ExecRefusal::NotGuarded),
-        (Some(guard), true) if guard.logic != Logic::TwoValued => {
-            return Err(ExecRefusal::ThreeValuedNotExecutable)
-        }
         _ => {}
     }
     if binding.truth == Truth::ThreeValued {
@@ -442,9 +438,20 @@ pub struct Gate {
 /// plane to a second program over the same table is the shape
 /// `lance_graph_quack::GroupPlan` already uses.
 ///
+/// A Kleene guard ([`lance_graph_contract::set_algebra::Logic::Kleene`]) is
+/// admitted like a two-valued one (EXO-326). Its logic was fixed when the
+/// class was bound, and nothing is chosen at the call. Its witness is its
+/// TRUE-rows form, so the gate plane holds the rows where
+/// the guard is TRUE, and a row where it is UNKNOWN is simply not in the
+/// plane. The caller evaluates it through the class binding: the guard's
+/// fields as a field mask, their lanes and presence planes lent by
+/// `LaneBinding::borrow_all_present`, the TRUE rows by
+/// `lance_graph_quack::set::SetFilter::where_true`. Which rows are UNKNOWN
+/// stays with the caller. A method whose RESULT is three-valued
+/// ([`Truth::ThreeValued`]) is still refused.
+///
 /// Refused beyond [`prepare`]'s refusals: an unguarded binding
-/// ([`ExecRefusal::NotGuarded`]); a three-valued guard
-/// ([`ExecRefusal::ThreeValuedNotExecutable`]); and `ALL`
+/// ([`ExecRefusal::NotGuarded`]); and `ALL`
 /// ([`ExecRefusal::NotExecutable`]), because `ALL(m AND gate)` asks whether
 /// every row of the table holds, which is not "every row the guard keeps".
 ///
