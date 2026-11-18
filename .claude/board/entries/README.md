@@ -25,7 +25,7 @@ index row, (3) no duplicate entry id. Checks 1 and 2 are deliberately
 opposite directions; the stranding this convention prevents shows up in
 exactly one of them, never both.
 
-656 entries, 2026-08-06 .. 2026-11-18.
+657 entries, 2026-08-06 .. 2026-11-18.
 
 | date | entry id | finding | file |
 |---|---|---|---|
@@ -34,6 +34,7 @@ exactly one of them, never both.
 | 2026-11-18 | `exo-292-draft-ranges-count-by` |  | [2026-11-18-exo-292-draft-ranges-count-by.md](2026-11-18-exo-292-draft-ranges-count-by.md) |
 | 2026-11-18 | `D-XLOG-W7-2-STEP-3` |  | [2026-11-18-d-xlog-w7-2-cube-planes.md](2026-11-18-d-xlog-w7-2-cube-planes.md) |
 | 2026-11-18 | `D-OMR-AMEND-1` |  | [2026-11-18-d-omr-bindstore-is-the-registry.md](2026-11-18-d-omr-bindstore-is-the-registry.md) |
+| 2026-11-18 | `classid-on-do-call-shape` |  | [2026-11-18-classid-on-do-call-shape.md](2026-11-18-classid-on-do-call-shape.md) |
 | 2026-11-17 | `exo-298-open-node-reach` |  | [2026-11-17-exo-298-open-node-reach.md](2026-11-17-exo-298-open-node-reach.md) |
 | 2026-11-17 | `exo-296-presence-operand` |  | [2026-11-17-exo-296-presence-operand.md](2026-11-17-exo-296-presence-operand.md) |
 | 2026-11-17 | `exo-290-par-tiles-crossover` |  | [2026-11-17-exo-290-par-tiles-crossover.md](2026-11-17-exo-290-par-tiles-crossover.md) |
