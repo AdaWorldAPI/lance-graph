@@ -23,7 +23,7 @@ implemented `RelationSource` only.
   operator's to rule), but it changes the row order, so a binding made before
   it is refused after it.
 
-Tests (`tests/lend.rs`, 5; whole crate 101 passed):
+Tests (`tests/lend.rs`, 5; whole crate 97 passed):
 
 - the lent lanes, decoded through the tile's map, are the relation's tuples
   in order; a second borrow lends the same words (pointer-equal); the view
