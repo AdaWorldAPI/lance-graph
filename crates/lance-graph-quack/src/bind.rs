@@ -56,7 +56,7 @@
 //! [`ResolvedTable`]); no crate owns a table catalog or storage allocation
 //! yet, so [`Registrar`] has no production implementation.
 
-use crate::{Agg, Cmp, Col, Filter, Mask, Query};
+use crate::{Agg, Cmp, Col, Filter, GroupAddr, GroupAgg, Mask, Query};
 
 /// A table, after its name has been resolved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -139,6 +139,14 @@ pub enum Op {
     Eq,
     /// `<>`
     Ne,
+    /// `<`, on an integer field.
+    Lt,
+    /// `<=`, on an integer field.
+    Le,
+    /// `>`, on an integer field.
+    Gt,
+    /// `>=`, on an integer field.
+    Ge,
 }
 
 /// One unbound predicate: `field <op> literal`.
@@ -172,6 +180,26 @@ impl FieldRef {
     pub fn ne(self, value: impl Into<Literal>) -> Predicate {
         self.pred(Op::Ne, value)
     }
+    /// `field < value`.
+    pub fn lt(self, value: impl Into<Literal>) -> Predicate {
+        self.pred(Op::Lt, value)
+    }
+    /// `field <= value`.
+    pub fn le(self, value: impl Into<Literal>) -> Predicate {
+        self.pred(Op::Le, value)
+    }
+    /// `field > value`.
+    pub fn gt(self, value: impl Into<Literal>) -> Predicate {
+        self.pred(Op::Gt, value)
+    }
+    /// `field >= value`.
+    pub fn ge(self, value: impl Into<Literal>) -> Predicate {
+        self.pred(Op::Ge, value)
+    }
+    /// `lo <= field AND field <= hi`, both ends included.
+    pub fn between(self, lo: impl Into<Literal>, hi: impl Into<Literal>) -> [Predicate; 2] {
+        [self.ge(lo), self.le(hi)]
+    }
     fn pred(self, op: Op, value: impl Into<Literal>) -> Predicate {
         Predicate {
             table: Some(self.table.to_string()),
@@ -183,10 +211,12 @@ impl FieldRef {
 }
 
 /// What the query returns.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum Want {
     Count,
     Rows,
+    /// `GROUP BY <field> COUNT(*)`.
+    CountBy(String),
 }
 
 /// An unbound query over one table. Holds text; [`Draft::bind`] is the only
@@ -250,6 +280,19 @@ pub enum BindError {
         /// Field.
         field: String,
     },
+    /// A range comparison on a coded field. Codes are identities issued by
+    /// the binder's codebook; their numeric order means nothing.
+    Unordered {
+        /// Field.
+        field: String,
+    },
+    /// [`Draft::count_by`]: the group key is not a non-nullable coded field.
+    /// An integer lane has no group universe the binder can size, and a
+    /// NULL key would be counted into the group of code 0.
+    GroupKey {
+        /// Field.
+        field: String,
+    },
     /// [`TypedQuery::admit`]: a code space this query was bound under has
     /// since been renumbered, so its literal codes no longer mean what they
     /// meant at bind time.
@@ -266,6 +309,25 @@ impl Draft {
             value: value.into(),
         })
     }
+    /// `AND field <op> value`, for any [`Op`].
+    pub fn where_cmp(self, field: &str, op: Op, value: impl Into<Literal>) -> Self {
+        self.where_(Predicate {
+            table: None,
+            field: field.to_string(),
+            op,
+            value: value.into(),
+        })
+    }
+    /// `AND lo <= field AND field <= hi`, both ends included.
+    pub fn where_between(
+        self,
+        field: &str,
+        lo: impl Into<Literal>,
+        hi: impl Into<Literal>,
+    ) -> Self {
+        self.where_cmp(field, Op::Ge, lo)
+            .where_cmp(field, Op::Le, hi)
+    }
     /// `AND predicate` (e.g. from a [`FieldRef`]).
     pub fn where_(mut self, p: Predicate) -> Self {
         self.preds.push(p);
@@ -274,6 +336,16 @@ impl Draft {
     /// Return the number of matching rows.
     pub fn count(mut self) -> Self {
         self.want = Want::Count;
+        self
+    }
+    /// Return the number of matching rows per value of `field`: `GROUP BY
+    /// field COUNT(*)`. `field` must be a non-nullable coded field
+    /// ([`BindError::GroupKey`] otherwise). The bound query is an
+    /// [`Agg::GroupReduce`] count keyed by the field's lane: the caller's
+    /// `Out::I64` sink is the group universe, one slot per code, and a code
+    /// past it is dropped.
+    pub fn count_by(mut self, field: &str) -> Self {
+        self.want = Want::CountBy(field.to_string());
         self
     }
     /// Return the matching rows (the default).
@@ -330,9 +402,27 @@ impl Draft {
             }
             parts.push(leaf);
         }
-        let agg = match self.want {
+        let agg = match &self.want {
             Want::Count => Agg::Count,
             Want::Rows => Agg::Rows,
+            Want::CountBy(field) => {
+                let key = b.field(t, field).ok_or_else(|| BindError::UnknownField {
+                    table: self.table.clone(),
+                    field: field.clone(),
+                })?;
+                if key.kind != FieldKind::Code || key.validity.is_some() {
+                    return Err(BindError::GroupKey {
+                        field: field.clone(),
+                    });
+                }
+                // The counts are indexed by code, so they mean what the code
+                // space meant at bind time.
+                on_code(t, key.col, field);
+                Agg::GroupReduce {
+                    key: GroupAddr::Local(key.col),
+                    agg: GroupAgg::Count,
+                }
+            }
         };
         Ok(Query {
             filter: Filter::and(parts).sql_where(&nullable),
@@ -363,16 +453,26 @@ impl Draft {
                 match p.op {
                     Op::Eq => Cmp::EqI32(v),
                     Op::Ne => Cmp::NeI32(v),
+                    Op::Lt => Cmp::LtI32(v),
+                    Op::Le => Cmp::LeI32(v),
+                    Op::Gt => Cmp::GtI32(v),
+                    Op::Ge => Cmp::GeI32(v),
                 }
             }
             (FieldKind::Code, Literal::Text(s)) => {
+                // Refused before the codebook is asked: no order to resolve.
+                if !matches!(p.op, Op::Eq | Op::Ne) {
+                    return Err(BindError::Unordered {
+                        field: p.field.clone(),
+                    });
+                }
                 let id = b.code(t, f.col, s).ok_or_else(|| BindError::UnknownValue {
                     field: p.field.clone(),
                     value: s.clone(),
                 })?;
                 match p.op {
-                    Op::Eq => Cmp::EqU32(id),
                     Op::Ne => Cmp::NeU32(id),
+                    _ => Cmp::EqU32(id),
                 }
             }
             _ => return Err(mismatch()),
@@ -805,6 +905,220 @@ mod tests {
         ));
     }
 
+    // ---- ranges and grouped counts (EXO-292, R7) ---------------------------
+
+    /// The fixture of [`run`], read row by row: the oracle shares no code
+    /// with the lowering.
+    fn oracle(keep: impl Fn(usize) -> bool) -> Vec<usize> {
+        (0..200).filter(|&i| i != 13 && keep(i)).collect()
+    }
+    fn age(i: usize) -> i32 {
+        20 + (i % 50) as i32
+    }
+
+    /// [`run`] for a grouped count: one slot per smtp code.
+    fn run_groups(q: &Query, groups: usize) -> Vec<i64> {
+        let n = 200;
+        let codes: Vec<u32> = (0..n).map(|i| (i % 3) as u32).collect();
+        let ages: Vec<i32> = (0..n).map(age).collect();
+        let mut live = vec![u64::MAX; words_for(n)];
+        live[3] &= (1u64 << (n % 64)) - 1;
+        live[0] &= !(1 << 13);
+        let lanes = [LaneRef::U32(&codes), LaneRef::I32(&ages)];
+        let masks: [&[u64]; 1] = [&live];
+        let planes = Planes {
+            n_rows: n,
+            masks: &masks,
+            lanes: &lanes,
+        };
+        let p = lower(q).unwrap();
+        let mut scratch = Scratch::for_program(&p, n).unwrap();
+        let mut sink = vec![0i64; groups];
+        let v = execute_into(
+            &p,
+            &planes,
+            &Foreign::NONE,
+            &mut scratch,
+            Out::I64(&mut sink),
+        )
+        .unwrap();
+        assert_eq!(v, Value::GroupReduced);
+        crate::normalize_group_sink(GroupAgg::Count.fold(), &mut sink);
+        sink
+    }
+
+    /// Each range operator binds to the comparison an expert writes and
+    /// selects exactly the rows a scalar reading selects. The thresholds sit
+    /// on values the lane holds, so `<` and `<=` (and `>` and `>=`) differ.
+    #[test]
+    fn range_operators_bind_to_the_comparisons_an_expert_writes() {
+        let users = Users::new();
+        type Case = (Op, Cmp, fn(i32) -> bool);
+        let cases: [Case; 4] = [
+            (Op::Lt, Cmp::LtI32(33), |a| a < 33),
+            (Op::Le, Cmp::LeI32(33), |a| a <= 33),
+            (Op::Gt, Cmp::GtI32(33), |a| a > 33),
+            (Op::Ge, Cmp::GeI32(33), |a| a >= 33),
+        ];
+        let mut kept = Vec::new();
+        for (op, cmp, scalar) in cases {
+            let bound = table("users")
+                .where_cmp("age", op, 33)
+                .rows()
+                .bind(&users)
+                .unwrap();
+            let expert = Query {
+                filter: Filter::and([Filter::plane(Mask(0)), Filter::cmp(Col(1), cmp)]),
+                agg: Agg::Rows,
+            };
+            assert_eq!(bound, expert, "{op:?}");
+            let rows = run(&bound).1;
+            assert_eq!(rows, oracle(|i| scalar(age(i))), "{op:?}");
+            kept.push(rows.len());
+        }
+        // Not vacuous: every operator keeps some rows and drops some, and
+        // the inclusive forms keep the three live rows aged 33 more.
+        assert_eq!(kept, [52, 55, 144, 147]);
+    }
+
+    /// `between` is both ends included, by name and through a descriptor.
+    #[test]
+    fn between_includes_both_ends() {
+        const AGE: FieldRef = FieldRef::new("users", "age");
+        let users = Users::new();
+        let by_name = table("users")
+            .where_between("age", 30, 33)
+            .rows()
+            .bind(&users)
+            .unwrap();
+        let [lo, hi] = AGE.between(30, 33);
+        let typed = table("users")
+            .where_(lo)
+            .where_(hi)
+            .rows()
+            .bind(&users)
+            .unwrap();
+        assert_eq!(by_name, typed);
+        let rows = run(&by_name).1;
+        assert_eq!(rows, oracle(|i| (30..=33).contains(&age(i))));
+        assert_eq!(rows.len(), 15);
+        // An empty range is empty, not an error.
+        let none = table("users")
+            .where_between("age", 34, 33)
+            .rows()
+            .bind(&users)
+            .unwrap();
+        assert!(run(&none).1.is_empty());
+    }
+
+    /// A range over a nullable field is three-valued: a NULL row is dropped
+    /// although its stale payload passes the comparison.
+    #[test]
+    fn a_range_over_a_nullable_field_drops_null_rows() {
+        let users = Users::new();
+        let valid = |i: usize| !i.is_multiple_of(7);
+        let q = table("users")
+            .where_cmp("nage", Op::Gt, 60)
+            .rows()
+            .bind(&users)
+            .unwrap();
+        let rows = run(&q).1;
+        assert_eq!(rows, oracle(|i| valid(i) && age(i) > 60));
+        // The NULL rows whose payload passes: without validity they are kept.
+        let stale = oracle(|i| !valid(i) && age(i) > 60);
+        assert_eq!(stale.len(), 6);
+        assert!(stale.iter().all(|i| !rows.contains(i)));
+        let two_valued = table("users")
+            .where_cmp("age", Op::Gt, 60)
+            .rows()
+            .bind(&users)
+            .unwrap();
+        assert_eq!(run(&two_valued).1.len(), rows.len() + stale.len());
+    }
+
+    /// Codes carry no order: a range over a coded field is refused before
+    /// the codebook is asked, while `=` on the same field binds.
+    #[test]
+    fn a_range_over_a_coded_field_is_refused() {
+        let users = Users::new();
+        for op in [Op::Lt, Op::Le, Op::Gt, Op::Ge] {
+            let before = users.calls.get();
+            assert_eq!(
+                table("users")
+                    .where_cmp("smtp", op, "bob@x.de")
+                    .bind(&users),
+                Err(BindError::Unordered {
+                    field: "smtp".into()
+                })
+            );
+            // table + live + field; `code` was not called.
+            assert_eq!(users.calls.get(), before + 3);
+        }
+        assert!(table("users")
+            .where_cmp("smtp", Op::Eq, "bob@x.de")
+            .bind(&users)
+            .is_ok());
+        // An integer outside the lane is refused for a range as for `=`.
+        assert_eq!(
+            table("users")
+                .where_cmp("age", Op::Ge, i64::from(i32::MAX) + 1)
+                .bind(&users),
+            Err(BindError::OutOfRange {
+                field: "age".into()
+            })
+        );
+    }
+
+    /// `count_by` is one grouped fold: its slots are the counts a scalar
+    /// reading gives per code, under the same filter, and they sum to the
+    /// plain count.
+    #[test]
+    fn count_by_counts_each_code_under_the_filter() {
+        let users = Users::new();
+        let draft = table("users").where_cmp("age", Op::Ge, 40);
+        let grouped = draft.clone().count_by("smtp").bind(&users).unwrap();
+        assert_eq!(
+            grouped.agg,
+            Agg::GroupReduce {
+                key: GroupAddr::Local(Col(0)),
+                agg: GroupAgg::Count
+            }
+        );
+        let counts = run_groups(&grouped, 3);
+        let want: Vec<i64> = (0..3)
+            .map(|c| oracle(|i| i % 3 == c && age(i) >= 40).len() as i64)
+            .collect();
+        assert_eq!(counts, want);
+        assert_eq!(counts, [40, 40, 40]);
+        let plain = draft.count().bind(&users).unwrap();
+        assert_eq!(run(&plain).0, Value::Count(120));
+        // A sink shorter than the code space drops the codes past it.
+        assert_eq!(run_groups(&grouped, 2), [40, 40]);
+    }
+
+    /// The group key must be a non-nullable coded field; an unknown field is
+    /// reported as such.
+    #[test]
+    fn count_by_refuses_a_key_it_cannot_group() {
+        let users = Users::new();
+        for field in ["age", "nage"] {
+            assert_eq!(
+                table("users").count_by(field).bind(&users),
+                Err(BindError::GroupKey {
+                    field: field.into()
+                })
+            );
+        }
+        assert_eq!(
+            table("users").count_by("nope").bind(&users),
+            Err(BindError::UnknownField {
+                table: "users".into(),
+                field: "nope".into()
+            })
+        );
+        assert!(table("users").count_by("smtp").bind(&users).is_ok());
+    }
+
     // ---- bind_typed / admit ------------------------------------------------
 
     /// An orders table whose `state` dictionary is renumbered by generation:
@@ -970,5 +1284,34 @@ mod tests {
         assert!(typed.held.is_empty());
         o.generation.set(2);
         assert!(typed.admit(&o).is_ok());
+    }
+
+    /// A grouped count is indexed by code, so its key field is witnessed
+    /// even when no literal is compared against it: bound before a
+    /// renumbering, it is not admitted after it. A key the owner cannot
+    /// witness is refused.
+    #[test]
+    fn a_grouped_count_is_bound_under_its_keys_code_space() {
+        let o = Orders {
+            generation: Cell::new(1),
+        };
+        let typed = table("orders").count_by("state").bind_typed(&o).unwrap();
+        assert!(typed.admit(&o).is_ok());
+        o.generation.set(2);
+        assert_eq!(typed.admit(&o).err(), Some(BindError::StaleCodeSpace));
+        assert_eq!(
+            table("orders").count_by("tag").bind_typed(&o).err(),
+            Some(BindError::Unwitnessed {
+                field: "tag".into()
+            })
+        );
+        // A range over the plain integer lane holds no code space.
+        let plain = table("orders")
+            .where_cmp("n", Op::Gt, 0)
+            .count()
+            .bind_typed(&o)
+            .unwrap();
+        o.generation.set(3);
+        assert!(plain.admit(&o).is_ok());
     }
 }
