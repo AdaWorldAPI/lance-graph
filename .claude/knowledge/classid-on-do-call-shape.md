@@ -220,6 +220,22 @@ Reading (the writing session's), with what the source already holds:
   folded with the delta log, the base itself when the log is empty, no copy).
   It is private today.
 
+**Why the join is cheap in this shape (owner, 2026-11-18, verbatim):**
+
+> and the whole folding Joins are as cheap as ordered hash key lookups as ordered joins "holding a ruler against a stack"
+
+Reading (the writing session's): every relation of a cube is placed on the
+same coordinates, so two lanes line up position by position. A join is then
+one aligned pass, the ruler held against the stack: no hash table is built,
+nothing is probed, and no row is paired up. VERIFIED-IN-CODE for counts:
+`Cube::column_counts` documents that "every relation and both columns are
+counted over the SAME positions, so two count vectors of this cube line up
+position by position: their product is `bag_count` and its total is
+`join_size`" (`lance-graph-xlog/src/cube.rs:1003-1006`). Not measured here:
+the cost against an ordered hash lookup. The existing numbers are the cube's
+own (`body_cost` in the D-XLOG-W7-2 entries), in microseconds per body over
+256 nodes.
+
 **What is actually missing, as far as it was read:**
 
 - **The cube lends relations, not lanes.** `Cube` implements `RelationSource`
