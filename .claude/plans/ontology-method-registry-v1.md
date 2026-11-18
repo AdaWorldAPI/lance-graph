@@ -1,5 +1,16 @@
 # D-OMR-0..7 — An ontology ↔ method registry through the `lance-graph-ontology` cache
 
+> **⊘ AMENDED 2026-11-18, after merge (#2133). §1 "a fourth row kind in the
+> ontology cache" and rule R4's hydration step are SUPERSEDED by §8.** Operator,
+> same day, on the question "shouldn't the BindStore be that registry?":
+> *"theres a missed opportunity for bindstore and DT64 / DR to integrate —
+> bindstore = DT classview / DR widefieldmask"*. The two-store split below was
+> never weighed against the alternative: it followed the wording of the request
+> and an available append path, and it left the authority question open (which
+> of row and binding says a method exists; which wins when they differ; who may
+> call `BindStore::register`). The text below is kept as written; read it
+> through §8.
+
 > **Draft / documentation only, 2026-11-18.** This file authorizes no Rust
 > code, no cache schema change, no OGAR `ActionDef` or classid mutation and no
 > change to DT64. Each step below needs its own PR with a parity test and a
@@ -164,3 +175,122 @@ bound, at the bound schema revision.
   cargo resolved (`75bb38b`).
 - How bardioc loads the HIRO ontology through `lance-graph-ontology`.
 - No HIRO lane source exists yet (stated by the HIRO session).
+
+## 8. Amendment: the BindStore is the method registry
+
+**The reading.** The `BindStore` already is the place where the two sides
+meet:
+
+- **DT side, the class view.** A class's fields are read through a
+  `ClassView`, never copied (`BindStore::resolve`, `lance-graph-dt64/src/lib.rs:1099`).
+  The ontology registry already implements it:
+  `lance_graph_ontology::class_resolver::RegistryClassView` (`class_resolver.rs:104`).
+  So the predicates' intake is unchanged, and it is the name-level form.
+- **DR side, the field mask.** A method's ON and reads are `WideFieldMask`s
+  over that basis (`MethodBinding`, `lib.rs:222-241`); routes and their version
+  log are DR's (`BindStore.routes`).
+
+A method declaration is therefore a `MethodBinding` bound against a class view
+at a schema revision. A second store that repeats it in names is a copy of
+what the class view already supplies.
+
+**What changes against §1 to §4.**
+
+| Before | Now |
+| --- | --- |
+| A `Method` row in the ontology cache | No new row kind. `lance-graph-ontology` stays the intake for predicates and the provider of the class view |
+| DT64 hydrated from the registry (R4) | No hydration step. Producers register with the `BindStore`; it is the one authority that a method exists |
+| D-OMR-1: `MappingProposalKind::Method` and a cache schema bump | Withdrawn |
+| D-OMR-3: rows → bindings | Withdrawn |
+
+**What the `BindStore` lacks for this role, each its own deliverable and none
+authorized by this file:**
+
+| D-id | Gap | Note |
+| --- | --- | --- |
+| D-OMR-8 | **Registration by name.** A producer states ON / reads / writes as predicates; the store resolves them to a mask through the class view it validated, and refuses an unknown predicate by name | Today each producer resolves names to positions itself (OGAR #385, `rails-f000`). Positions shift when the ontology changes; the mask must be derived at the bound revision, never carried |
+| D-OMR-9 | **A state for known but not executable.** A declaration that is stored and admitted for no run: confidence below 1.0 awaiting promotion, an event trigger (`KausalSpec::LifecycleTrigger`, `External`), an action with no parameter channel | Today the store refuses what it cannot bind, so it has no place for these |
+| D-OMR-10 | **The effect class on the binding.** So `register` can refuse a field effect on a method whose class needs the gate | Answers EXO-291 question 3. A new field changes every binding digest: a versioned change |
+| D-OMR-11 | **Durability.** The declarations and the route log persisted | `lance-graph-dt64-lance` already holds the durable map table; whether it fits was not read |
+
+**What stands unchanged:** rules R1 (nothing here mints), R2 (append-only, a
+change is a derived classid and a re-route), R3 (the reading is fixed at
+intake), R5 (stored is not executable), R6 (no second vocabulary: `ActionDef`
+is the input form); the corrected odoo mapping of §2; D-OMR-2 re-targeted to
+"`ActionDef` → `BindStore` registration by name"; D-OMR-4, -5, -6, -7 with
+"proposal" read as "declaration in the store".
+
+**Decisions now needed** (replacing decisions 1 to 3 of §5):
+
+1. Whether DT64's "no persistence path" is lifted (D-OMR-11), and where the
+   durable form lives.
+2. Whether a not-executable declaration belongs in the `BindStore` (D-OMR-9),
+   or beside it.
+3. Whether the effect class goes on `MethodBinding` (D-OMR-10).
+4. Promotion (unchanged) and 5. call parameters (unchanged).
+
+**Not verified:** how a class whose basis changed is re-bound today (the
+header says another basis for a bound class is refused); whether
+`RegistryClassView` keeps a history per schema revision; `dt64-lance`'s fit.
+
+## 9. Correction: this plan is subordinate to D-DT64-7, which had already decided most of it
+
+**What was missed.** `.claude/plans/d-dt64-7-behaviour-addressing-registration-v1.md`
+was not read before this plan or its §8 were written. It carries operator
+decisions of 2026-10-31 and later that answer the questions this plan treated
+as open, and its execution order ends with "Not introduced: a new runtime, **a
+second authoritative registry**". §1 of this plan proposed exactly that.
+
+**Operator, 2026-11-18, on this plan (verbatim):**
+
+> the classid is already the answer to ON
+
+> F###-F### for methods includes both ON and DO and when is a register call of the method
+
+> ODOO[timesheet]-F### = on Odoo/timesheet > DO F###
+
+So the two sides read directly: **the left side is ON** (the class the
+behaviour applies on, here Odoo's timesheet) and **the right `0xF###` is DO**
+(the behaviour).
+
+> 0xFFFF :: 0xF### = on the FFFF global algebra primitive DO F###
+
+So the hardcoded form reads the same way: the left side `0xFFFF` is the global
+algebra primitive, the thing the behaviour applies on, and the right `0xF###`
+is what is done. It is not "a behaviour concept with no class": the algebra is
+the class.
+
+**Reading (this session's, checked against D-DT64-7 §2):** a classid has two
+sides, `left (concept) :: right (ClassView / WideFieldMask selection within
+it)`, and `0xF###` on either side names behaviour. A method's classid in the
+behaviour ranges therefore already states what it applies on and what it
+does; nothing stores an ON beside it. WHEN is not addressed at all: it is
+what the `register` call supplies for that classid.
+
+**What D-DT64-7 already decides, against this plan's rows:**
+
+| This plan | D-DT64-7 |
+| --- | --- |
+| §8 "the BindStore is the method registry" | D2: Learned = registered in the `BindStore`. D13'', D15'': DT64 holds the registration authority |
+| D-OMR-9, a known-but-not-executable state inside the store | **Contradicts D2 and §3.** Explore = not yet registered, and it lives OUTSIDE the store: "There is no lifecycle state besides versioned, replayable immutability." **Withdrawn** |
+| D-OMR-6, a promotion step for rows below confidence 1.0 | Explore → Learned is a `register` (§3). Promotion is that call, under the registration constraints C1 to C8 |
+| "ON needs an event form" (§1, HIRO fix 2) | No ON is stored; the classid answers it. **Withdrawn** |
+| D-OMR-8, registration by name | O10: the consumer supplies its own `ClassView`; registration ties the owner and activation to a versioned basis witness and refuses a mismatch. Labels are resolved late through the view. **Withdrawn as a separate deliverable** |
+| D-OMR-11, durability | O5 / D10': the global → local selection is a versioned lance-graph table read through `ClassView × WideFieldMask`. **Withdrawn here; it is O5's** |
+| R1 "the registry mints nothing" | D13'': DT64 registers behaviour classids for its range without asking `ogar-vocab`; consumers register under their own `Domain::AppId :: 0xF###` (D14'') |
+
+**What is left of D-OMR that D-DT64-7 does not cover:**
+
+- **D-OMR-10:** the effect class on the binding (EXO-291 question 3). Still an
+  owner decision.
+- **D-OMR-2, -4, -5, -7:** producers (`ActionDef` from OGAR #385, odoo's
+  consts, a Knowledge Item reader, `rails-f000`) register Learned behaviour
+  under their own `Domain::AppId :: 0xF###`. These are consumers of D-DT64-7,
+  not a registry design.
+- The corrected odoo mapping of §2, with one more correction: `@api.depends`
+  and `@api.onchange` are reads, not an ON.
+- The call-parameter channel (EXO-291), unchanged.
+
+**Status of the D-OMR ids:** D-OMR-1, -3, -6, -8, -9, -11 withdrawn. D-OMR-0
+closes with this section. D-OMR-2, -4, -5, -7, -10 remain, read as work under
+D-DT64-7.
