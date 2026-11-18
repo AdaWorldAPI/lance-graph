@@ -247,6 +247,13 @@ second authoritative registry**". §1 of this plan proposed exactly that.
 
 > F###-F### for methods includes both ON and DO and when is a register call of the method
 
+> ODOO[timesheet]-F### = on Odoo/timesheet > DO F###
+
+So the two sides read directly: **the left side is ON** (the class the
+behaviour applies on, here Odoo's timesheet) and **the right `0xF###` is DO**
+(the behaviour). `F###-F###` is the same reading with a behaviour concept on
+the left.
+
 **Reading (this session's, checked against D-DT64-7 §2):** a classid has two
 sides, `left (concept) :: right (ClassView / WideFieldMask selection within
 it)`, and `0xF###` on either side names behaviour. A method's classid in the
