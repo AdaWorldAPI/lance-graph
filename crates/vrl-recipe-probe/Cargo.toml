@@ -27,6 +27,9 @@ lance-graph-mask-risc = { path = "../lance-graph-mask-risc" }
 # F000 words, run through r2il's prepare/run. Execution never goes this way;
 # r2il is the inspectable reading (binding.rs module doc, the §20 correction).
 lance-graph-r2il = { path = "../lance-graph-r2il" }
+# The registered-guard test only (tests/registered_guard.rs): the guard a class
+# was bound with is lowered by Quack's set lowering, as r2il's own tests do.
+lance-graph-quack = { path = "../lance-graph-quack" }
 
 [patch."https://github.com/AdaWorldAPI/lance-graph"]
 # r2il reaches OGAR's crates, which name the contract by git; without this the
