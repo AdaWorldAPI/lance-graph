@@ -47,11 +47,11 @@ fn main() {
             prepare.push(t0.elapsed().as_nanos());
             drop(p);
         }
-        let mut p = Prepared::prepare(&w, &source, &t, &r).unwrap();
+        let p = Prepared::prepare(&w, &source, &t, &r).unwrap();
         let mut run = Vec::new();
         for _ in 0..201 {
             let t0 = Instant::now();
-            let got = std::hint::black_box(p.run());
+            let got = std::hint::black_box(p.run(&w, &t).unwrap());
             run.push(t0.elapsed().as_nanos());
             assert_eq!(got, want, "rows {rows}");
         }

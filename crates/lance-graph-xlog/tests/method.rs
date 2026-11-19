@@ -1,5 +1,5 @@
-//! D-XLOG-W7-2 step 4b: a registered method executed over a cube relation's
-//! lent lanes, prepared once per binding.
+//! D-XLOG-W7-2 step 4b: a registered method called over a cube relation's
+//! lent lanes. Its DO is five frozen polyfill words; it has no WHEN.
 
 #[path = "support/method.rs"]
 mod support;
@@ -41,10 +41,14 @@ fn a_method_over_the_lent_lanes_equals_the_edge_walk() {
     let mut seen = Vec::new();
     for (id, src, dst) in METHODS {
         let r = w.store.method_ref(CLASS, MethodId(id)).unwrap();
-        let mut p = Prepared::prepare(&w, &source, &t, &r).unwrap();
+        let p = Prepared::prepare(&w, &source, &t, &r).unwrap();
         let want = oracle(&e, src, dst);
-        assert_eq!(p.run(), want, "method {id}");
-        assert_eq!(p.run(), want, "a second run answers the same");
+        assert_eq!(p.run(&w, &t).unwrap(), want, "method {id}");
+        assert_eq!(
+            p.run(&w, &t).unwrap(),
+            want,
+            "a second run answers the same"
+        );
         // Swapping the two fields would give this instead; it must differ
         // for at least one method or the test could not see a swap.
         let swapped = e.iter().filter(|&&(a, b)| b == src && a != dst).count() as u64;
@@ -75,17 +79,17 @@ fn a_logged_edge_needs_a_fresh_preparation() {
     let r = w.store.method_ref(CLASS, MethodId(id)).unwrap();
     let before = {
         let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
-        let mut p = Prepared::prepare(&w, &source, &t, &r).unwrap();
-        p.run()
+        let p = Prepared::prepare(&w, &source, &t, &r).unwrap();
+        p.run(&w, &t).unwrap()
     };
     assert_eq!(before, oracle(&e, src, dst));
 
     cube.add_edge(&t, 0, src, dst + 1).unwrap();
     e.push((src, dst + 1));
     let source = CubeLanes::new(&cube, &t, 0, CLASS, [X, Y], READER);
-    let mut p = Prepared::prepare(&w, &source, &t, &r).unwrap();
-    assert_eq!(p.run(), before + 1);
-    assert_eq!(p.run(), oracle(&e, src, dst));
+    let p = Prepared::prepare(&w, &source, &t, &r).unwrap();
+    assert_eq!(p.run(&w, &t).unwrap(), before + 1);
+    assert_eq!(p.run(&w, &t).unwrap(), oracle(&e, src, dst));
 }
 
 /// FAILS IF: a method the store does not hold, or a reference issued by
@@ -103,7 +107,7 @@ fn a_method_the_store_does_not_hold_is_refused() {
     let foreign = other.store.method_ref(CLASS, MethodId(id)).unwrap();
     assert!(matches!(
         Prepared::prepare(&w, &source, &t, &foreign),
-        Err(MethodRefusal::Admit(_))
+        Err(MethodRefusal::Prepare(_))
     ));
     // The silent twin: the store's own reference is admitted.
     let own = w.store.method_ref(CLASS, MethodId(id)).unwrap();

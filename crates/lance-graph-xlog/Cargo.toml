@@ -19,3 +19,6 @@ ndarray = { git = "https://github.com/AdaWorldAPI/ndarray", branch = "master", d
 [dev-dependencies]
 # Gate N5: the shared alias is the same symbol in both facades.
 lance-graph-onnx = { path = "../lance-graph-onnx" }
+# tests/method.rs and examples/method_cost.rs only: a method's DO as frozen
+# F000 words, run through r2il's prepare/run.
+lance-graph-r2il = { path = "../lance-graph-r2il" }
